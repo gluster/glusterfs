@@ -462,7 +462,8 @@ validate_tier (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                    strstr (key, "tier-max-files") ||
                    strstr (key, "tier-demote-frequency") ||
                    strstr (key, "tier-hot-compact-frequency") ||
-                   strstr (key, "tier-cold-compact-frequency")) {
+                   strstr (key, "tier-cold-compact-frequency") ||
+                   strstr (key, "tier-query-limit")) {
                 if (origin_val < 1) {
                         snprintf (errstr, sizeof (errstr), "%s is not a "
                                   " compatible value. %s expects a positive "
@@ -2738,6 +2739,18 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .validate_fn = validate_tier,
           .description = "The maximum number of files that may be migrated"
           " in any direction in a given cycle by a single node."
+        },
+        { .key         = "cluster.tier-query-limit",
+          .voltype     = "cluster/tier",
+          .option      = "tier-query-limit",
+          .value       = "100",
+          .op_version  = GD_OP_VERSION_3_9_0,
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .validate_fn = validate_tier,
+          .type        = NO_DOC,
+          .description = "The maximum number of files that may be migrated "
+                         "during an emergency demote. An emergency condition "
+                         "is flagged when writes breach the hi-watermark."
         },
         { .key         = "cluster.tier-compact",
           .voltype     = "cluster/tier",

@@ -632,12 +632,15 @@ gf_get_basic_query_stmt (char **out_stmt)
  * */
 int
 gf_sqlite3_find_all (void *db_conn, gf_query_callback_t query_callback,
-                        void *query_cbk_args)
+                        void *query_cbk_args,
+                        int query_limit)
 {
         int ret                                 =       -1;
         char *query_str                         =       NULL;
         gf_sql_connection_t *sql_conn           =       db_conn;
         sqlite3_stmt *prep_stmt                 =       NULL;
+        char *limit_query                       =       NULL;
+        char *query                             =       NULL;
 
         CHECK_SQL_CONN (sql_conn, out);
         GF_VALIDATE_OR_GOTO(GFDB_STR_SQLITE3, query_callback, out);
@@ -647,12 +650,28 @@ gf_sqlite3_find_all (void *db_conn, gf_query_callback_t query_callback,
                 goto out;
         }
 
-        ret = sqlite3_prepare (sql_conn->sqlite3_db_conn, query_str, -1,
+        query = query_str;
+
+        if (query_limit > 0) {
+                ret = gf_asprintf (&limit_query, "%s LIMIT %d",
+                                   query, query_limit);
+                if (ret < 0) {
+                        gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
+                                LG_MSG_QUERY_FAILED,
+                                "Failed creating limit query statement");
+                        limit_query = NULL;
+                        goto out;
+                }
+
+                query = limit_query;
+        }
+
+        ret = sqlite3_prepare (sql_conn->sqlite3_db_conn, query, -1,
                                 &prep_stmt, 0);
         if (ret != SQLITE_OK) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
-                        LG_MSG_PREPARE_FAILED, "Failed to prepare statement %s :"
-                        "%s", query_str,
+                        LG_MSG_PREPARE_FAILED,
+                        "Failed to prepare statement %s: %s", query,
                         sqlite3_errmsg (sql_conn->sqlite3_db_conn));
                 ret = -1;
                 goto out;
@@ -661,7 +680,7 @@ gf_sqlite3_find_all (void *db_conn, gf_query_callback_t query_callback,
         ret = gf_sql_query_function (prep_stmt, query_callback, query_cbk_args);
         if (ret) {
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_QUERY_FAILED,
-                        "Failed Query %s", query_str);
+                        "Failed Query %s", query);
                 goto out;
         }
 
@@ -669,6 +688,10 @@ gf_sqlite3_find_all (void *db_conn, gf_query_callback_t query_callback,
 out:
         sqlite3_finalize (prep_stmt);
         GF_FREE (query_str);
+
+        if (limit_query)
+                GF_FREE (limit_query);
+
         return ret;
 }
 
@@ -1070,10 +1093,10 @@ gf_sqlite3_find_unchanged_for_time_freq (void *db_conn,
                 GF_COL_TB_WMSEC ") >= ? ) ) )"
                 " AND "
                 /*Second condition: For Reads
-                 * Files that have reaASCd wind time smaller than for_time
+                 * Files that have read wind time smaller than for_time
                  * OR
                  * File that have read wind time greater than for_time,
-                 * but write_frequency less than freq_write_cnt*/
+                 * but read_frequency less than freq_read_cnt*/
                 "( ((" GF_COL_TB_RWSEC " * " TOSTRING(GFDB_MICROSEC) " + "
                 GF_COL_TB_RWMSEC ") < ? )"
                 " OR "

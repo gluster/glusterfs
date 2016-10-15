@@ -1064,6 +1064,10 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_INT,
           .default_value = "10000",
         },
+        { .key         = {"tier-query-limit"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "100",
+        },
         /* switch option */
         { .key  = {"pattern.switch.case"},
           .type = GF_OPTION_TYPE_ANY

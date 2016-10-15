@@ -98,7 +98,7 @@ typedef enum tier_watermark_op_ {
 #define DEFAULT_DEMOTE_FREQ_SEC        120
 #define DEFAULT_HOT_COMPACT_FREQ_SEC   604800
 #define DEFAULT_COLD_COMPACT_FREQ_SEC  604800
-#define DEFAULT_DEMOTE_DEGRADED        10
+#define DEFAULT_DEMOTE_DEGRADED        1
 #define DEFAULT_WRITE_FREQ_SEC         0
 #define DEFAULT_READ_FREQ_SEC          0
 #define DEFAULT_WM_LOW                 75
@@ -107,5 +107,6 @@ typedef enum tier_watermark_op_ {
 #define DEFAULT_COMP_MODE              _gf_true
 #define DEFAULT_TIER_MAX_MIGRATE_MB    1000
 #define DEFAULT_TIER_MAX_MIGRATE_FILES 5000
+#define DEFAULT_TIER_QUERY_LIMIT       100
 
 #endif

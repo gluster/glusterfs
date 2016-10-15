@@ -15,6 +15,7 @@
 #include "tier-common.h"
 #include "syscall.h"
 #include "events.h"
+#include "tier-ctr-interface.h"
 
 /*Hard coded DB info*/
 static gfdb_db_type_t dht_tier_db_type = GFDB_SQLITE3;
@@ -193,6 +194,7 @@ out:
 
 /* Check and update the watermark every WM_INTERVAL seconds */
 #define WM_INTERVAL            5
+#define WM_INTERVAL_EMERG      1
 
 static int
 tier_check_same_node (xlator_t *this, loc_t *loc, gf_defrag_info_t *defrag)
@@ -523,7 +525,7 @@ tier_can_promote_file (xlator_t *this, char const *file_name,
                                 defrag->tier_conf.blocks_used;
 
         /* test if the estimated block usage goes above HI watermark */
-        if (GF_PERCENTAGE (estimated_usage, defrag->tier_conf.blocks_total) >
+        if (GF_PERCENTAGE (estimated_usage, defrag->tier_conf.blocks_total) >=
                         defrag->tier_conf.watermark_hi) {
                 gf_msg (this->name, GF_LOG_INFO, 0,
                         DHT_MSG_LOG_TIER_STATUS,
@@ -575,6 +577,7 @@ tier_migrate_using_query_file (void *_args)
         gfdb_time_t  current_time               = { 0 };
         int total_time                          = 0;
         int max_time                            = 0;
+        gf_boolean_t emergency_demote_mode      = _gf_false;
 
 
         GF_VALIDATE_OR_GOTO ("tier", query_cbk_args, out);
@@ -590,6 +593,9 @@ tier_migrate_using_query_file (void *_args)
         migrate_data = dict_new ();
         if (!migrate_data)
                 goto out;
+
+        emergency_demote_mode = (!query_cbk_args->is_promotion &&
+                                 is_hot_tier_full(&defrag->tier_conf));
 
         xdata_request = dict_new ();
         if (!xdata_request) {
@@ -1013,6 +1019,18 @@ per_file_out:
 
                 gfdb_methods.gfdb_query_record_free (query_record);
                 query_record = NULL;
+
+                /* If we are demoting and the entry watermark was HI, then
+                 * we are done with emergency demotions if the current
+                 * watermark has fallen below hi-watermark level
+                 */
+                if (emergency_demote_mode) {
+                        if (tier_check_watermark (this) == 0) {
+                                if (!is_hot_tier_full (&defrag->tier_conf)) {
+                                        break;
+                                }
+                        }
+                }
         }
 
 out:
@@ -1126,14 +1144,23 @@ tier_process_self_query (tier_brick_list_t *local_brick, void *args)
                 goto out;
         }
         if (!gfdb_brick_info->_gfdb_promote) {
-                if (query_cbk_args->defrag->write_freq_threshold == 0 &&
-                        query_cbk_args->defrag->read_freq_threshold == 0) {
-                                ret = gfdb_methods.find_unchanged_for_time (
-                                        conn_node,
-                                        tier_gf_query_callback,
-                                        (void *)query_cbk_args,
-                                        gfdb_brick_info->time_stamp);
+                if (query_cbk_args->defrag->tier_conf.watermark_last ==
+                        TIER_WM_HI) {
+                        /* emergency demotion mode */
+                        ret = gfdb_methods.find_all (conn_node,
+                                tier_gf_query_callback,
+                                (void *)query_cbk_args,
+                                query_cbk_args->defrag->tier_conf.
+                                        query_limit);
                 } else {
+                        if (query_cbk_args->defrag->write_freq_threshold == 0 &&
+                            query_cbk_args->defrag->read_freq_threshold == 0) {
+                                ret = gfdb_methods.find_unchanged_for_time (
+                                                conn_node,
+                                                tier_gf_query_callback,
+                                                (void *)query_cbk_args,
+                                                gfdb_brick_info->time_stamp);
+                        } else {
                                 ret = gfdb_methods.find_unchanged_for_time_freq (
                                         conn_node,
                                         tier_gf_query_callback,
@@ -1144,6 +1171,7 @@ tier_process_self_query (tier_brick_list_t *local_brick, void *args)
                                         query_cbk_args->defrag->
                                                         read_freq_threshold,
                                         _gf_false);
+                        }
                 }
         } else {
                 if (query_cbk_args->defrag->write_freq_threshold == 0 &&
@@ -1159,8 +1187,7 @@ tier_process_self_query (tier_brick_list_t *local_brick, void *args)
                                 tier_gf_query_callback,
                                 (void *)query_cbk_args,
                                 gfdb_brick_info->time_stamp,
-                                query_cbk_args->defrag->
-                                write_freq_threshold,
+                                query_cbk_args->defrag->write_freq_threshold,
                                 query_cbk_args->defrag->read_freq_threshold,
                                 _gf_false);
                 }
@@ -1267,10 +1294,21 @@ tier_process_ctr_query (tier_brick_list_t *local_brick, void *args)
 
         /* set all the query params*/
         ipc_ctr_params->is_promote = gfdb_brick_info->_gfdb_promote;
-        ipc_ctr_params->write_freq_threshold = query_cbk_args->
-                                                defrag->write_freq_threshold;
-        ipc_ctr_params->read_freq_threshold = query_cbk_args->
-                                                defrag->read_freq_threshold;
+
+        ipc_ctr_params->write_freq_threshold =
+                query_cbk_args->defrag->write_freq_threshold;
+
+        ipc_ctr_params->read_freq_threshold =
+                query_cbk_args->defrag->read_freq_threshold;
+
+        ipc_ctr_params->query_limit =
+                query_cbk_args->defrag->tier_conf.query_limit;
+
+        ipc_ctr_params->emergency_demote =
+                (!gfdb_brick_info->_gfdb_promote &&
+                 query_cbk_args->defrag->tier_conf.watermark_last ==
+                        TIER_WM_HI);
+
         memcpy (&ipc_ctr_params->time_stamp,
                 gfdb_brick_info->time_stamp,
                 sizeof (gfdb_time_t));
@@ -2208,6 +2246,15 @@ out:
         return ret;
 }
 
+static int
+tier_get_wm_interval(tier_mode_t mode, tier_watermark_op_t wm)
+{
+        if (mode == TIER_MODE_WM && wm == TIER_WM_HI)
+                return WM_INTERVAL_EMERG;
+
+        return WM_INTERVAL;
+}
+
 /*
  * Main tiering loop. This is called from the promotion and the
  * demotion threads spawned in tier_start().
@@ -2316,7 +2363,10 @@ static void
 
                 check_watermark++;
 
-                if (check_watermark >= WM_INTERVAL) {
+                /* emergency demotion requires frequent watermark monitoring */
+                if (check_watermark >=
+                        tier_get_wm_interval(tier_conf->mode,
+                                             tier_conf->watermark_last)) {
                         check_watermark = 0;
                         if (tier_conf->mode == TIER_MODE_WM) {
                                 ret = tier_get_fs_stat (this, &root_loc);
@@ -2828,6 +2878,15 @@ tier_init (xlator_t *this)
 
         defrag->tier_conf.max_migrate_files = freq;
 
+
+        ret = dict_get_int32 (this->options,
+                              "tier-query-limit",
+                              &(defrag->tier_conf.query_limit));
+        if (ret) {
+                defrag->tier_conf.query_limit =
+                        DEFAULT_TIER_QUERY_LIMIT;
+        }
+
         ret = dict_get_str (this->options,
                             "tier-compact", &mode);
 
@@ -3040,6 +3099,10 @@ tier_reconfigure (xlator_t *this, dict_t *options)
                 GF_OPTION_RECONF ("tier-max-files",
                                   defrag->tier_conf.max_migrate_files, options,
                                   int32, out);
+
+                GF_OPTION_RECONF ("tier-query-limit",
+                                  defrag->tier_conf.query_limit,
+                                  options, int32, out);
 
                 GF_OPTION_RECONF ("tier-pause",
                                   req_pause, options,
