@@ -366,12 +366,18 @@ typedef int
  *                        for every record found
  *      _query_cbk_args : Custom argument passed for the call back
  *                        function query_callback
+ *      query_limit     : 0 - list all files
+ *                        positive value - add the LIMIT clause to
+ *                        the SQL query to limit the number of records
+ *                        returned
+ *
  * Returns : if successful return 0 or
  *          -ve value in case of failure*/
 typedef int
 (*gfdb_find_all_t)(void *db_conn,
                                gf_query_callback_t query_callback,
-                               void *_cbk_args);
+                               void *_cbk_args,
+                               int query_limit);
 
 
 

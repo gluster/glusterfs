@@ -258,7 +258,8 @@ int gf_sqlite3_delete (void *db_conn, gfdb_db_record_t *);
 
 /*querying modules*/
 int gf_sqlite3_find_all (void *db_conn, gf_query_callback_t,
-                        void *_query_cbk_args);
+                        void *_query_cbk_args,
+                        int query_limit);
 int gf_sqlite3_find_unchanged_for_time (void *db_conn,
                                         gf_query_callback_t query_callback,
                                         void *_query_cbk_args,

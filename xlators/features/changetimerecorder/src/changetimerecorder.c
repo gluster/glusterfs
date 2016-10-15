@@ -16,6 +16,7 @@
 #include "syscall.h"
 
 #include "changetimerecorder.h"
+#include "tier-ctr-interface.h"
 
 /*******************************inode forget***********************************/
 
@@ -1726,14 +1727,21 @@ ctr_db_query (xlator_t *this,
                 goto out;
         }
         if (!ipc_ctr_params->is_promote) {
-                if (ipc_ctr_params->write_freq_threshold == 0 &&
-                        ipc_ctr_params->read_freq_threshold == 0) {
+                if (ipc_ctr_params->emergency_demote) {
+                        /* emergency demotion mode */
+                        ret = find_all (conn_node,
+                                ctr_db_query_callback,
+                                (void *)&query_cbk_args,
+                                ipc_ctr_params->query_limit);
+                } else {
+                        if (ipc_ctr_params->write_freq_threshold == 0 &&
+                                ipc_ctr_params->read_freq_threshold == 0) {
                                 ret = find_unchanged_for_time (
                                         conn_node,
                                         ctr_db_query_callback,
                                         (void *)&query_cbk_args,
                                         &ipc_ctr_params->time_stamp);
-                } else {
+                        } else {
                                 ret = find_unchanged_for_time_freq (
                                         conn_node,
                                         ctr_db_query_callback,
@@ -1742,6 +1750,7 @@ ctr_db_query (xlator_t *this,
                                         ipc_ctr_params->write_freq_threshold,
                                         ipc_ctr_params->read_freq_threshold,
                                         _gf_false);
+                        }
                 }
         } else {
                 if (ipc_ctr_params->write_freq_threshold == 0 &&

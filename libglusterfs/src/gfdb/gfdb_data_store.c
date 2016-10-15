@@ -481,12 +481,14 @@ compact_db (gfdb_conn_node_t *_conn_node, gf_boolean_t _compact_active,
  *                        for every record found
  *      _query_cbk_args : Custom argument passed for the call back
  *                        function query_callback
+ *      query_limit     : number to limit number of rows returned by the query
  * Returns : if successful return 0 or
  *          -ve value in case of failure*/
 int
 find_all (gfdb_conn_node_t      *_conn_node,
           gf_query_callback_t   query_callback,
-          void                  *_query_cbk_args)
+          void                  *_query_cbk_args,
+          int                   query_limit)
 {
         int ret                                 = 0;
         gfdb_db_operations_t *db_operations_t   = NULL;
@@ -500,7 +502,8 @@ find_all (gfdb_conn_node_t      *_conn_node,
         if (db_operations_t->find_all_op) {
                 ret = db_operations_t->find_all_op (gf_db_connection,
                                                     query_callback,
-                                                    _query_cbk_args);
+                                                    _query_cbk_args,
+                                                    query_limit);
                 if (ret) {
                         gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
                                 LG_MSG_FIND_OP_FAILED, "Find all operation "
@@ -851,6 +854,7 @@ void get_gfdb_methods (gfdb_methods_t *methods)
 {
         methods->init_db = init_db;
         methods->fini_db = fini_db;
+        methods->find_all = find_all;
         methods->find_unchanged_for_time = find_unchanged_for_time;
         methods->find_recently_changed_files = find_recently_changed_files;
         methods->find_unchanged_for_time_freq = find_unchanged_for_time_freq;

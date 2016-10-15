@@ -396,6 +396,7 @@ typedef struct gf_tier_conf {
         int                          percent_full;
         uint64_t                     max_migrate_bytes;
         int                          max_migrate_files;
+        int                          query_limit;
         tier_mode_t                  mode;
         /* These flags are only used for tier-compact */
         gf_boolean_t                 compact_active;

@@ -61,7 +61,8 @@ noinst_HEADERS = unittest/unittest.h \
 	$(CONTRIBDIR)/rbtree/rb.h \
 	$(CONTRIBDIR)/mount/mntent_compat.h \
 	$(CONTRIBDIR)/libexecinfo/execinfo_compat.h \
-	$(CONTRIBDIR)/timer-wheel/timer-wheel.h
+	$(CONTRIBDIR)/timer-wheel/timer-wheel.h \
+	tier-ctr-interface.h
 
 if !HAVE_LIBUUID
 # FIXME: unbundle libuuid, see compat-uuid.h.
