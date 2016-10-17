@@ -373,9 +373,6 @@ rpcsvc_request_destroy (rpcsvc_request_t *req)
                 iobref_unref (req->iobref);
         }
 
-        if (req->hdr_iobuf)
-                iobuf_unref (req->hdr_iobuf);
-
         /* This marks the "end" of an RPC request. Reply is
            completely written to the socket and is on the way
            to the client. It is time to decrement the
@@ -690,9 +687,6 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
                 }
 
                 if (req->synctask) {
-                        if (msg->hdr_iobuf)
-                                req->hdr_iobuf = iobuf_ref (msg->hdr_iobuf);
-
                         ret = synctask_new (THIS->ctx->env,
                                             (synctask_fn_t) actor_fn,
                                             rpcsvc_check_and_reply_error, NULL,

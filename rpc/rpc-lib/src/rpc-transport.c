@@ -123,10 +123,6 @@ rpc_transport_pollin_destroy (rpc_transport_pollin_t *pollin)
                 iobref_unref (pollin->iobref);
         }
 
-        if (pollin->hdr_iobuf) {
-                iobuf_unref (pollin->hdr_iobuf);
-        }
-
         if (pollin->private) {
                 /* */
                 GF_FREE (pollin->private);
@@ -158,7 +154,7 @@ rpc_transport_pollin_alloc (rpc_transport_t *this, struct iovec *vector,
         msg->iobref = iobref_ref (iobref);
         msg->private = private;
         if (hdr_iobuf)
-                msg->hdr_iobuf = iobuf_ref (hdr_iobuf);
+                iobref_add (iobref, hdr_iobuf);
 
 out:
         return msg;

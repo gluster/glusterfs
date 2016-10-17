@@ -163,7 +163,6 @@ struct rpc_transport_pollin {
         char vectored;
         void *private;
         struct iobref *iobref;
-        struct iobuf  *hdr_iobuf;
         char is_reply;
 };
 typedef struct rpc_transport_pollin rpc_transport_pollin_t;
