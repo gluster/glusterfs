@@ -3153,7 +3153,8 @@ client3_3_compound_cbk (struct rpc_req *req, struct iovec *iov, int count,
         xlator_t                *this            = NULL;
         dict_t                  *xdata           = NULL;
         clnt_local_t            *local           = NULL;
-        int                     i,length         = 0;
+        int                     i                = 0;
+        int                     length           = 0;
         int                     ret              = -1;
 
         this = THIS;
@@ -3176,11 +3177,11 @@ client3_3_compound_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
+        length =  local->length;
+
         GF_PROTOCOL_DICT_UNSERIALIZE (this, xdata, (rsp.xdata.xdata_val),
                                       (rsp.xdata.xdata_len), rsp.op_ret,
                                        rsp.op_errno, out);
-
-        length =  local->length;
 
         args_cbk = compound_args_cbk_alloc (length, xdata);
         if (!args_cbk) {
@@ -3214,7 +3215,7 @@ out:
 
         free (rsp.xdata.xdata_val);
 
-        client_compound_rsp_cleanup (&rsp, local->length);
+        client_compound_rsp_cleanup (&rsp, length);
 
         if (xdata)
                 dict_unref (xdata);
