@@ -191,7 +191,7 @@ struct _server_state {
         struct gf_lease   lease;
         lock_migration_info_t locklist;
         /* required for compound fops */
-        gfs3_compound_req *req;
+        gfs3_compound_req  req;
         /* last length till which iovec for compound
          * writes was processed */
         int               write_length;

@@ -244,9 +244,6 @@ struct rpcsvc_request {
         /* Container for transport to store request-specific item */
         void                    *trans_private;
 
-        /* we need to ref the 'iobuf' in case of 'synctasking' it */
-        struct iobuf            *hdr_iobuf;
-
         /* pointer to cached reply for use in DRC */
         drc_cached_op_t         *reply;
 };

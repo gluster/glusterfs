@@ -3324,7 +3324,7 @@ server_compound_resume (call_frame_t *frame, xlator_t *bound_xl)
                 goto err;
         }
 
-        req = state->req;
+        req = &state->req;
 
         length = req->compound_req_array.compound_req_array_len;
         state->args = compound_fop_alloc (length, req->compound_fop_enum,
@@ -6725,7 +6725,7 @@ server3_3_compound (rpcsvc_request_t *req)
                 goto out;
         }
 
-        state->req           = &args;
+        state->req           = args;
         state->iobref        = iobref_ref (req->iobref);
 
         if (len < req->msg[0].iov_len) {
