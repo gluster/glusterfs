@@ -682,7 +682,7 @@ __glusterd_friend_update_cbk (struct rpc_req *req, struct iovec *iov,
         if (ret < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_RES_DECODE_FAIL, "Failed to serialize friend"
-                        " update repsonse");
+                        " update response");
                 goto out;
         }
 

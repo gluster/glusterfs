@@ -1211,7 +1211,7 @@ br_enact_scrubber (xlator_t *this, br_child_t *child)
         fsscrub = &priv->fsscrub;
 
         /**
-         * if this child already witnesses a successfull connection earlier
+         * if this child already witnesses a successful connection earlier
          * there's no need to initialize mutexes, condvars, etc..
          */
         if (_br_child_witnessed_connection (child))

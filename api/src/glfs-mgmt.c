@@ -240,7 +240,7 @@ mgmt_get_volinfo_cbk (struct rpc_req *req, struct iovec *iov,
         if (-1 == req->rpc_status) {
                 gf_msg (frame->this->name, GF_LOG_ERROR, EINVAL,
                         API_MSG_INVALID_ENTRY,
-                        "GET_VOLUME_INFO RPC call is not successfull");
+                        "GET_VOLUME_INFO RPC call is not successful");
                 errno = EINVAL;
                 ret = -1;
                 goto out;

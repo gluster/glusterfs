@@ -1669,7 +1669,7 @@ trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local->newloc.inode = inode_new (local->loc.inode->table);
         local->newfd = fd_create (local->newloc.inode, frame->root->pid);
 
-        /* Creating vaild parent and pargfids for both files */
+        /* Creating valid parent and pargfids for both files */
 
         if (dir_entry == NULL) {
                 ret = EINVAL;
