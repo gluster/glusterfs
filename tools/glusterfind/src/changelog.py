@@ -284,7 +284,7 @@ def get_changes(brick, hash_dir, log_file, start, end, args):
         # history_getchanges()
         changes = []
         while libgfchangelog.cl_history_scan() > 0:
-            changes += libgfchangelog.cl_history_getchanges()
+            changes = libgfchangelog.cl_history_getchanges()
 
             for change in changes:
                 # Ignore if last processed changelog comes
