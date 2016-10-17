@@ -227,7 +227,7 @@ def get_changelog_rollover_time(volumename):
 
     try:
         tree = etree.fromstring(out)
-        return int(tree.find('volGetopts/Value').text)
+        return int(tree.find('volGetopts/Opt/Value').text)
     except ParseError:
         return DEFAULT_CHANGELOG_INTERVAL
 

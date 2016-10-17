@@ -26,7 +26,8 @@ logger = logging.getLogger()
 def mode_cleanup(args):
     working_dir = os.path.join(conf.get_opt("working_dir"),
                                args.session,
-                               args.volume)
+                               args.volume,
+                               args.tmpfilename)
 
     mkdirp(os.path.join(conf.get_opt("log_dir"), args.session, args.volume),
            exit_on_err=True)
@@ -98,6 +99,7 @@ def _get_args():
     parser_cleanup = subparsers.add_parser('cleanup')
     parser_cleanup.add_argument("session", help="Session Name")
     parser_cleanup.add_argument("volume", help="Volume Name")
+    parser_cleanup.add_argument("tmpfilename", help="Temporary File Name")
     parser_cleanup.add_argument("--debug", help="Debug", action="store_true")
 
     parser_session_create = subparsers.add_parser('create')
