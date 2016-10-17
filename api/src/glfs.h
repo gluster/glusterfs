@@ -769,6 +769,9 @@ int glfs_posix_lock (glfs_fd_t *fd, int cmd, struct flock *flock) __THROW
 glfs_fd_t *glfs_dup (glfs_fd_t *fd) __THROW
         GFAPI_PUBLIC(glfs_dup, 3.4.0);
 
+void glfs_free (void *ptr) __THROW
+        GFAPI_PUBLIC(glfs_free, 3.7.16);
+
 /*
  * Nobody needs this call at all yet except for the test script.
  */
