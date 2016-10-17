@@ -1916,6 +1916,10 @@ retry:
                 runner_add_arg (&runner, "--mem-accounting");
 
         runner_log (&runner, "", 0, "Starting GlusterFS");
+
+        brickinfo->port = port;
+        brickinfo->rdma_port = rdma_port;
+
         if (wait) {
                 synclock_unlock (&priv->big_lock);
                 ret = runner_run (&runner);
@@ -1945,11 +1949,11 @@ retry:
                 ret = runner_run_nowait (&runner);
         }
 
-        if (ret)
+        if (ret) {
+                brickinfo->port = 0;
+                brickinfo->rdma_port = 0;
                 goto out;
-
-        brickinfo->port = port;
-        brickinfo->rdma_port = rdma_port;
+        }
 
 connect:
         ret = glusterd_brick_connect (volinfo, brickinfo, socketpath);
