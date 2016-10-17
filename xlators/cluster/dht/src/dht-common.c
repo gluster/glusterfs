@@ -1955,7 +1955,7 @@ unlock:
                  *  be unlinked (performed in the "else if" block below)
                  *
                  *  But if a linkto file is found on hashed subvolume, it may be
-                 *  pointing to vaild cached node. So unlinking of linkto
+                 *  pointing to valid cached node. So unlinking of linkto
                  *  file on hashed subvolume is skipped and inside
                  *  dht_lookup_everywhere_done, checks are performed. If this
                  *  linkto file is found as stale linkto file, it is deleted

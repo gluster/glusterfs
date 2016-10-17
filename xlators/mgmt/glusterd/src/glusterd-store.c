@@ -3155,7 +3155,7 @@ glusterd_store_retrieve_volumes (xlator_t  *this, glusterd_snap_t *snap)
                 }
 
                 if (!S_ISDIR (st.st_mode)) {
-                        gf_msg_debug (this->name, 0, "%s is not a vaild volume"
+                        gf_msg_debug (this->name, 0, "%s is not a valid volume"
                                       , entry->d_name);
                         goto next;
                 }

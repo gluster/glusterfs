@@ -1511,7 +1511,7 @@ nfs3_lookup (rpcsvc_request_t *req, struct nfs3_fh *fh, int fhlen, char *name)
         if (ret < 0) {
                 gf_msg (GF_NFS, GF_LOG_ERROR, -ret,
                         NFS_MSG_HARD_RESOLVE_FAIL,
-                        "failed to start hard reslove");
+                        "failed to start hard resolve");
                 stat = nfs3_errno_to_nfsstat3 (-ret);
         }
 
