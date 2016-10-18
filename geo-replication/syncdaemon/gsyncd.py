@@ -541,7 +541,10 @@ def main_i():
     if not 'config_file' in rconf:
         rconf['config_file'] = TMPL_CONFIG_FILE
 
-    upgrade_config_file(rconf['config_file'], confdata)
+    # Upgrade Config File only if it is session conf file
+    if rconf['config_file'] != TMPL_CONFIG_FILE:
+        upgrade_config_file(rconf['config_file'], confdata)
+
     gcnf = GConffile(
         rconf['config_file'], canon_peers, confdata,
         defaults.__dict__, opts.__dict__, namedict)
