@@ -111,6 +111,7 @@
 # can't seem to make a generic macro that works
 %global _init_glusterd   %{_unitdir}/glusterd.service
 %global _init_glusterfsd %{_unitdir}/glusterfsd.service
+%global _init_glustereventsd %{_unitdir}/glustereventsd.service
 %else
 %global _init_enable()  /sbin/chkconfig --add %1 ;
 %global _init_disable() /sbin/chkconfig --del %1 ;
@@ -121,6 +122,7 @@
 # can't seem to make a generic macro that works
 %global _init_glusterd   %{_sysconfdir}/init.d/glusterd
 %global _init_glusterfsd %{_sysconfdir}/init.d/glusterfsd
+%global _init_glustereventsd %{_sysconfdir}/init.d/glustereventsd
 %endif
 
 %if ( 0%{_for_fedora_koji_builds} )
@@ -775,6 +777,11 @@ exit 0
 %post api
 /sbin/ldconfig
 
+%if ( 0%{!?_without_events:1} )
+%post events
+%_init_restart glustereventsd
+%endif
+
 %if ( 0%{?rhel} == 5 )
 %post fuse
 modprobe fuse
@@ -871,6 +878,17 @@ exit 0
 ##-----------------------------------------------------------------------------
 ## All %%preun should be placed here and keep them sorted
 ##
+%if ( 0%{!?_without_events:1} )
+%preun events
+if [ $1 -eq 0 ]; then
+    if [ -f %_init_glustereventsd ]; then
+        %_init_stop glustereventsd
+        %_init_disable glustereventsd
+    fi
+fi
+exit 0
+%endif
+
 %preun server
 if [ $1 -eq 0 ]; then
     if [ -f %_init_glusterfsd ]; then
@@ -903,13 +921,6 @@ exit 0
 
 %postun api
 /sbin/ldconfig
-
-%postun events
-%if ( 0%{!?_without_events:1} )
-%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
-%_init_restart glustereventsd
-%endif
-%endif
 
 %postun libs
 /sbin/ldconfig
