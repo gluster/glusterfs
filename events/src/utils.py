@@ -48,6 +48,12 @@ def boolify(value):
         return False
 
 
+def log_event(data):
+    # Log all published events unless it is disabled
+    if not _config.get("disable-events-log", False):
+        logger.info(repr(data))
+
+
 def get_node_uuid():
     val = None
     with open(UUID_FILE) as f:
@@ -58,10 +64,10 @@ def get_node_uuid():
     return val
 
 
-def get_config(key):
+def get_config(key, default_value=None):
     if not _config:
         load_config()
-    return _config.get(key, None)
+    return _config.get(key, default_value)
 
 
 def get_event_type_name(idx):
@@ -111,7 +117,7 @@ def load_log_level():
     be triggered during init and when SIGUSR2.
     """
     global logger, _log_level
-    new_log_level = _config.get("log_level", "INFO")
+    new_log_level = _config.get("log-level", "INFO")
     if _log_level != new_log_level:
         logger.setLevel(getattr(logging, new_log_level.upper()))
         _log_level = new_log_level.upper()
@@ -153,6 +159,9 @@ def publish(ts, event_key, data):
         "event": get_event_type_name(event_key),
         "message": data
     }
+
+    log_event(message)
+
     if _webhooks:
         plugin_webhook(message)
     else:
