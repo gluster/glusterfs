@@ -4383,10 +4383,7 @@ glusterd_compare_friend_data (dict_t *peer_data, int32_t *status,
                 ret = glusterd_import_friend_volumes (peer_data);
                 if (ret)
                         goto out;
-
-                if (glusterd_svcs_manager (NULL)) {
-                        gf_event (EVENT_SVC_MANAGER_FAILED, "");
-                }
+                glusterd_svcs_manager (NULL);
         }
 
 out:
@@ -4915,9 +4912,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                         continue;
                 if (start_svcs == _gf_false) {
                         start_svcs = _gf_true;
-                        if (glusterd_svcs_manager (NULL)) {
-                                gf_event (EVENT_SVC_MANAGER_FAILED, "");
-                        }
+                        glusterd_svcs_manager (NULL);
                 }
                 gf_msg_debug (this->name, 0, "starting the volume %s",
                         volinfo->volname);
@@ -4967,9 +4962,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                         }
                         if (start_svcs == _gf_false) {
                                 start_svcs = _gf_true;
-                                if (glusterd_svcs_manager (volinfo)) {
-                                        gf_event (EVENT_SVC_MANAGER_FAILED, "");
-                                }
+                                glusterd_svcs_manager (volinfo);
                         }
                         start_svcs = _gf_true;
                         gf_msg_debug (this->name, 0, "starting the snap "

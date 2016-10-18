@@ -1769,7 +1769,7 @@ out:
                         "%s() on %s returned", op, file_path);
                 gf_event (EVENT_POSIX_HEALTH_CHECK_FAILED,
                           "op=%s;path=%s;error=%s;brick=%s:%s", op, file_path,
-                          op_errno, priv->hostname, priv->base_path);
+                          strerror (op_errno), priv->hostname, priv->base_path);
         }
         return ret;
 

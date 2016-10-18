@@ -28,16 +28,19 @@ glusterd_svcs_reconfigure ()
         int              ret  = 0;
         xlator_t        *this = THIS;
         glusterd_conf_t *conf = NULL;
+        char            *svc_name = NULL;
 
         GF_ASSERT (this);
 
         conf = this->private;
         GF_ASSERT (conf);
 
+        svc_name = "nfs";
         ret = glusterd_nfssvc_reconfigure ();
         if (ret)
                 goto out;
 
+        svc_name = "self-heald";
         ret = glusterd_shdsvc_reconfigure ();
         if (ret)
                 goto out;
@@ -45,20 +48,24 @@ glusterd_svcs_reconfigure ()
         if (conf->op_version == GD_OP_VERSION_MIN)
                 goto out;
 
+        svc_name = "quotad";
         ret = glusterd_quotadsvc_reconfigure ();
         if (ret)
                 goto out;
 
+        svc_name = "bitd";
         ret = glusterd_bitdsvc_reconfigure ();
         if (ret)
                 goto out;
+
+        svc_name = "scrubber";
         ret = glusterd_scrubsvc_reconfigure ();
         if (ret)
                 goto out;
 out:
-        if (ret)
-                gf_event (EVENT_SVC_RECONFIGURE_FAILED, "");
-
+        if (ret && svc_name)
+                gf_event (EVENT_SVC_RECONFIGURE_FAILED, "svc_name=%s",
+                          svc_name);
         return ret;
 }
 

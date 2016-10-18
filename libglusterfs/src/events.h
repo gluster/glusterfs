@@ -15,13 +15,19 @@
 
 #ifdef USE_EVENTS
 int
-gf_event (eventtypes_t event, char *fmt, ...);
+_gf_event (eventtypes_t event, char *fmt, ...);
 #else
 static inline int
-gf_event (eventtypes_t event, char *fmt, ...)
+_gf_event (eventtypes_t event, char *fmt, ...)
 {
         return 0;
 }
 #endif /* USE_EVENTS */
+
+#define gf_event(event, fmt...)                         \
+        do {                                            \
+                FMT_WARN(fmt);                          \
+                _gf_event (event, ##fmt);               \
+        } while (0)
 
 #endif /* __EVENTS_H__ */
