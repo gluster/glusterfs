@@ -1339,6 +1339,10 @@ out:
         gd_mgmt_v3_collate_errors (args, op_ret, op_errno, rsp.op_errstr,
                                   GLUSTERD_MGMT_V3_COMMIT, *peerid, rsp.uuid);
         GF_FREE (peerid);
+
+        if (rsp.op_errstr)
+                free (rsp.op_errstr);
+
         /* req->rpc_status set to -1 means, STACK_DESTROY will be called from
          * the caller function.
          */
