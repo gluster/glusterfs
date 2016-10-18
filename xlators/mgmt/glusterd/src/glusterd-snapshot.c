@@ -2106,6 +2106,7 @@ glusterd_snap_create_clone_common_prevalidate (dict_t *rsp_dict, int flags,
                                                int clone, uint32_t *op_errno)
 {
         char                  *device            = NULL;
+        char                  *orig_device       = NULL;
         char                   key[PATH_MAX]     = "";
         int                    ret               = -1;
         int64_t                i                 = 1;
@@ -2171,9 +2172,9 @@ glusterd_snap_create_clone_common_prevalidate (dict_t *rsp_dict, int flags,
                 }
 
 
-                device = glusterd_get_brick_mount_device
-                                          (brickinfo->path);
-                if (!device) {
+                orig_device = glusterd_get_brick_mount_device
+                                                    (brickinfo->path);
+                if (!orig_device) {
                         snprintf (err_str, PATH_MAX,
                                   "getting device name for the brick "
                                  "%s:%s failed", brickinfo->hostname,
@@ -2182,7 +2183,7 @@ glusterd_snap_create_clone_common_prevalidate (dict_t *rsp_dict, int flags,
                         goto out;
                 }
                 if (!clone) {
-                     if (!glusterd_is_thinp_brick (device, op_errno)) {
+                        if (!glusterd_is_thinp_brick (orig_device, op_errno)) {
                                 snprintf (err_str, PATH_MAX,
                                           "Snapshot is supported only for "
                                           "thin provisioned LV. Ensure that "
@@ -2190,10 +2191,10 @@ glusterd_snap_create_clone_common_prevalidate (dict_t *rsp_dict, int flags,
                                           "provisioned LV.", volinfo->volname);
                                 ret = -1;
                                 goto out;
-                     }
+                        }
                 }
 
-                device = glusterd_build_snap_device_path (device,
+                device = glusterd_build_snap_device_path (orig_device,
                                                   snap_volname,
                                                   brick_count);
                 if (!device) {
@@ -2206,18 +2207,19 @@ glusterd_snap_create_clone_common_prevalidate (dict_t *rsp_dict, int flags,
                         goto out;
                 }
 
+                GF_FREE(orig_device);
+                orig_device = NULL;
+
                 snprintf (key, sizeof(key),
                         "vol%"PRId64".brick_snapdevice%"PRId64,
                         i, brick_count);
-                ret = dict_set_dynstr (rsp_dict, key, device);
+                ret = dict_set_dynstr_with_alloc (rsp_dict, key, device);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_DICT_SET_FAILED,
                                 "Failed to set %s", key);
-                        GF_FREE (device);
                         goto out;
                 }
-                device = NULL;
 
                 ret = glusterd_update_mntopts (brickinfo->path,
                                                brickinfo);
@@ -2287,6 +2289,10 @@ glusterd_snap_create_clone_common_prevalidate (dict_t *rsp_dict, int flags,
                 }
                 brick_count++;
                 brick_order++;
+                if (device) {
+                        GF_FREE(device);
+                        device = NULL;
+                }
         }
         snprintf (key, sizeof(key) - 1, "vol%"PRId64"_brickcount", volcount);
         ret = dict_set_int64 (rsp_dict, key, brick_count);
@@ -2298,8 +2304,11 @@ glusterd_snap_create_clone_common_prevalidate (dict_t *rsp_dict, int flags,
         }
         ret = 0;
 out:
+        if (orig_device)
+                GF_FREE(orig_device);
+
         if (device)
-               GF_FREE (device);
+                GF_FREE (device);
 
        return ret;
 
@@ -2831,6 +2840,9 @@ glusterd_do_lvm_snapshot_remove (glusterd_volinfo_t *snap_vol,
         }
 
 out:
+        if (mnt_pt)
+                GF_FREE(mnt_pt);
+
         return ret;
 }
 
@@ -4723,6 +4735,9 @@ glusterd_take_lvm_snapshot (glusterd_brickinfo_t *brickinfo,
         }
 
 out:
+        if (origin_device)
+                GF_FREE (origin_device);
+
         return ret;
 }
 
@@ -7359,6 +7374,9 @@ out:
         if (ret && value) {
                 GF_FREE (value);
         }
+
+        if (device)
+                GF_FREE (device);
 
         return ret;
 }
