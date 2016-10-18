@@ -149,7 +149,7 @@ dht_send_rebalance_event (xlator_t *this, int cmd, gf_defrag_status_t status)
         }
 
         if (event != EVENT_LAST) {
-                ret = gf_event (event, "volume=%s", volname);
+                gf_event (event, "volume=%s", volname);
         }
 
         GF_FREE (tmpstr);

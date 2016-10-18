@@ -32,7 +32,7 @@
 
 
 int
-gf_event (eventtypes_t event, char *fmt, ...)
+_gf_event (eventtypes_t event, char *fmt, ...)
 {
         int                ret                   = 0;
         int                sock                  = -1;

@@ -1604,6 +1604,7 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 	int i = 0;
 	int valid_cnt = 0;
 	struct iatt first = {0, };
+        int first_idx = 0;
 	struct afr_reply *replies = NULL;
 	int ret = -1;
 
@@ -1643,6 +1644,7 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 		valid_cnt++;
 		if (valid_cnt == 1) {
 			first = replies[i].poststat;
+                        first_idx = i;
 			continue;
 		}
 
@@ -1658,7 +1660,8 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
                                 "type=file;gfid=%s;"
                                 "ia_type-%d=%s;ia_type-%d=%s",
                                 this->name,
-                                uuid_utoa (replies[i].poststat.ia_gfid), first,
+                                uuid_utoa (replies[i].poststat.ia_gfid),
+                                first_idx,
                                 gf_inode_type_to_str (first.ia_type), i,
                             gf_inode_type_to_str (replies[i].poststat.ia_type));
                         ret = -EIO;

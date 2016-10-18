@@ -1061,7 +1061,7 @@ out:
                         cli_out ("Volume add-brick failed");
         } else {
 #if (USE_EVENTS)
-                gf_event (EVENT_VOLUME_ADD_BRICK, event_str);
+                gf_event (EVENT_VOLUME_ADD_BRICK, "%s", event_str);
                 GF_FREE (event_str);
 #endif
         }
@@ -2050,7 +2050,7 @@ out:
         } else {
 #if (USE_EVENTS)
                 if (!event_ret) {
-                        gf_event (event, event_str);
+                        gf_event (event, "%s", event_str);
                         GF_FREE (event_str);
                 }
 #endif
