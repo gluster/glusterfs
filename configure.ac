@@ -542,7 +542,7 @@ BUILD_PYTHON_LIB=
 have_python2=no
 have_Python_h=no
 
-if echo $PYTHON_VERSION | grep ^2; then
+if echo $PYTHON_VERSION | grep -q ^2; then
    have_python2=yes
 
    dnl Use pkg-config to get runtime search patch missing from ${PYTHON}-config
