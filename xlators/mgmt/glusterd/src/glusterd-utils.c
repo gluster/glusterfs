@@ -866,6 +866,8 @@ glusterd_brickinfo_delete (glusterd_brickinfo_t *brickinfo)
 
         cds_list_del_init (&brickinfo->brick_list);
 
+        (void) gf_store_handle_destroy (brickinfo->shandle);
+
         GF_FREE (brickinfo->logfile);
         GF_FREE (brickinfo);
 
@@ -927,6 +929,9 @@ glusterd_volinfo_delete (glusterd_volinfo_t *volinfo)
                 dict_unref (volinfo->rebal.dict);
 
         gf_store_handle_destroy (volinfo->quota_conf_shandle);
+        gf_store_handle_destroy (volinfo->shandle);
+        gf_store_handle_destroy (volinfo->node_state_shandle);
+        gf_store_handle_destroy (volinfo->snapd.handle);
 
         glusterd_auth_cleanup (volinfo);
 
@@ -1055,6 +1060,9 @@ glusterd_get_brick_mount_dir (char *brickpath, char *hostname, char *mount_dir)
         }
 
 out:
+        if (mnt_pt)
+                GF_FREE(mnt_pt);
+
         gf_msg_trace (this->name, 0, "Returning %d", ret);
         return ret;
 }
@@ -5597,7 +5605,8 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
         ret = dict_set_dynstr_with_alloc (dict, key, entry->mnt_opts);
 
  out:
-        GF_FREE (mnt_pt);
+        if (mnt_pt)
+                GF_FREE (mnt_pt);
 
         return ret;
 }
@@ -5640,6 +5649,9 @@ glusterd_get_brick_mount_device (char *brick_path)
         device = gf_strdup (entry->mnt_fsname);
 
 out:
+        if (mnt_pt)
+                GF_FREE(mnt_pt);
+
         return device;
 }
 
@@ -10828,7 +10840,8 @@ glusterd_update_mntopts (char *brick_path, glusterd_brickinfo_t *brickinfo)
 
         ret = 0;
 out:
-        GF_FREE (mnt_pt);
+        if (mnt_pt)
+                GF_FREE (mnt_pt);
         return ret;
 }
 
