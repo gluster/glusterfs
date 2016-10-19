@@ -2413,6 +2413,8 @@ mgmt_pmap_signin2_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 ret = -1;
                 goto out;
         }
+
+        ret = 0;
 out:
         if (need_emancipate)
                 emancipate (ctx, ret);
