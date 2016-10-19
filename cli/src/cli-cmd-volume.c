@@ -1192,7 +1192,7 @@ out:
 int
 do_cli_cmd_volume_detach_tier (struct cli_state *state,
                               struct cli_cmd_word *word, const char **words,
-                              int wordcount)
+                              int wordcount, gf_boolean_t *aborted)
 {
         int                     ret = -1;
         rpc_clnt_procedure_t    *proc = NULL;
@@ -1227,11 +1227,14 @@ do_cli_cmd_volume_detach_tier (struct cli_state *state,
         if (ret)
                 goto out;
 
+        *aborted = _gf_false;
+
         if (!(state->mode & GLUSTER_MODE_SCRIPT) && need_question) {
                 /* we need to ask question only in case of 'commit or force' */
                 answer = cli_cmd_get_confirmation (state, question);
                 if (GF_ANSWER_NO == answer) {
                         ret = 0;
+                        *aborted = _gf_true;
                         goto out;
                 }
         }
@@ -1268,6 +1271,7 @@ cli_cmd_volume_tier_cbk (struct cli_state *state,
         cli_local_t             *local   = NULL;
         int                      i       = 0;
         eventtypes_t            event    = EVENT_LAST;
+        gf_boolean_t            aborted  = _gf_false;
 
         if (wordcount < 4) {
                 cli_usage_out (word->pattern);
@@ -1278,22 +1282,26 @@ cli_cmd_volume_tier_cbk (struct cli_state *state,
 
         if (!strcmp(words[1], "detach-tier")) {
                 ret = do_cli_cmd_volume_detach_tier (state, word,
-                                                     words, wordcount);
+                                                     words, wordcount,
+                                                     &aborted);
                 goto out;
         } else if (!strcmp(words[3], "detach")) {
                 for (i = 3; i < wordcount; i++)
                         words[i] = words[i+1];
 
                 ret = do_cli_cmd_volume_detach_tier (state, word,
-                                                     words, wordcount-1);
-                if (!strcmp (words[wordcount-2], "commit")) {
-                        event = EVENT_TIER_DETACH_COMMIT;
-                } else if (!strcmp (words[wordcount-2], "start")) {
-                        event = EVENT_TIER_DETACH_START;
-                } else if (!strcmp (words[wordcount-2], "stop")) {
-                        event = EVENT_TIER_DETACH_STOP;
-                } else if (!strcmp (words[wordcount-2], "force")) {
-                        event = EVENT_TIER_DETACH_FORCE;
+                                                     words, wordcount-1,
+                                                     &aborted);
+                if (!aborted) {
+                        if (!strcmp (words[wordcount-2], "commit")) {
+                                event = EVENT_TIER_DETACH_COMMIT;
+                        } else if (!strcmp (words[wordcount-2], "start")) {
+                                event = EVENT_TIER_DETACH_START;
+                        } else if (!strcmp (words[wordcount-2], "stop")) {
+                                event = EVENT_TIER_DETACH_STOP;
+                        } else if (!strcmp (words[wordcount-2], "force")) {
+                                event = EVENT_TIER_DETACH_FORCE;
+                        }
                 }
                 goto out;
 
@@ -1319,6 +1327,15 @@ cli_cmd_volume_tier_cbk (struct cli_state *state,
         if (ret) {
                 cli_usage_out (word->pattern);
                 goto out;
+        }
+
+        if (!strcmp (words[wordcount-1], "start")) {
+                event = EVENT_TIER_START;
+        } else {
+                if (!strcmp (words[wordcount-2], "start") &&
+                    !strcmp (words[wordcount-1], "force")) {
+                        event = EVENT_TIER_START_FORCE;
+                }
         }
 
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_TIER];
