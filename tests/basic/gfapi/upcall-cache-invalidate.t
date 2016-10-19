@@ -5,13 +5,6 @@
 
 cleanup;
 
-# Upcall feature is disable for now. A new xlator option
-# will be introduced to turn it on. Skipping this test
-# till then.
-
-SKIP_TESTS;
-exit 0
-
 TEST glusterd
 
 TEST $CLI volume create $V0 $H0:$B0/brick1;
