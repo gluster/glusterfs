@@ -898,6 +898,10 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
         switch (event) {
         case RPC_TRANSPORT_DISCONNECT:
         {
+                if (clnt->notifyfn)
+                        ret = clnt->notifyfn (clnt, clnt->mydata,
+                                              RPC_CLNT_DISCONNECT, NULL);
+
                 rpc_clnt_connection_cleanup (conn);
 
                 pthread_mutex_lock (&conn->lock);
@@ -921,9 +925,6 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
                 }
                 pthread_mutex_unlock (&conn->lock);
 
-                if (clnt->notifyfn)
-                        ret = clnt->notifyfn (clnt, clnt->mydata,
-                                              RPC_CLNT_DISCONNECT, NULL);
                 if (unref_clnt)
                         rpc_clnt_ref (clnt);
 
