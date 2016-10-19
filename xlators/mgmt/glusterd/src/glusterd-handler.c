@@ -5743,9 +5743,16 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                 peerinfo->generation = uatomic_add_return
                                                    (&conf->generation, 1);
                 peerctx->peerinfo_gen = peerinfo->generation;
-                gf_event (EVENT_PEER_CONNECT, "host=%s;uuid=%s",
-                          peerinfo->hostname, uuid_utoa (peerinfo->uuid));
-
+                /* EVENT_PEER_CONNECT will only be sent if peerctx->uuid is not
+                 * NULL, otherwise it indicates this RPC_CLNT_CONNECT is from a
+                 * peer probe trigger and given we already generate an event for
+                 * peer probe this would be unnecessary.
+                 */
+                if (!gf_uuid_is_null (peerinfo->uuid)) {
+                        gf_event (EVENT_PEER_CONNECT, "host=%s;uuid=%s",
+                                  peerinfo->hostname,
+                                  uuid_utoa (peerinfo->uuid));
+                }
                 ret = glusterd_peer_dump_version (this, rpc, peerctx);
                 if (ret)
                         gf_msg (this->name, GF_LOG_ERROR, 0,
