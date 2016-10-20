@@ -28,10 +28,6 @@
 #define GF_DEFAULT_MAX_FILE_SIZE (200 * GF_UNIT_MB)
 #endif
 
-#ifndef GF_ALLOWED_MAX_FILE_SIZE
-#define GF_ALLOWED_MAX_FILE_SIZE (1 * GF_UNIT_GB)
-#endif
-
 struct trash_struct {
         fd_t    *fd;         /* for the fd of existing file */
         fd_t    *newfd;      /* for the newly created file */
