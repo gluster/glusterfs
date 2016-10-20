@@ -2105,13 +2105,7 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("trash-max-filesize", max_fsize, options,
                                                 size_uint64, out);
         if (max_fsize) {
-                if (max_fsize > GF_ALLOWED_MAX_FILE_SIZE) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "Size specified for max-size(in MB) is too "
-                                "large so using 1GB as max-size (NOT IDEAL)");
-                        priv->max_trash_file_size = GF_ALLOWED_MAX_FILE_SIZE;
-                } else
-                        priv->max_trash_file_size = max_fsize;
+                priv->max_trash_file_size = max_fsize;
                 gf_log (this->name, GF_LOG_DEBUG, "%"GF_PRI_SIZET" max-size",
                         priv->max_trash_file_size);
         }
@@ -2434,13 +2428,7 @@ init (xlator_t *this)
                         GF_DEFAULT_MAX_FILE_SIZE / GF_UNIT_MB);
                 priv->max_trash_file_size = GF_DEFAULT_MAX_FILE_SIZE;
         } else {
-                if( max_trash_file_size64 > GF_ALLOWED_MAX_FILE_SIZE ) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "Size specified for max-size(in MB) is too "
-                                "large so using 1GB as max-size (NOT IDEAL)");
-                        priv->max_trash_file_size = GF_ALLOWED_MAX_FILE_SIZE;
-                } else
-                        priv->max_trash_file_size = max_trash_file_size64;
+                priv->max_trash_file_size = max_trash_file_size64;
                 gf_log (this->name, GF_LOG_DEBUG, "%"GF_PRI_SIZET" max-size",
                         priv->max_trash_file_size);
         }
