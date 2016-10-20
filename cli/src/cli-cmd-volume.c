@@ -824,7 +824,7 @@ out:
         }
 
 #if (USE_EVENTS)
-        if (ret == 0) {
+        if (ret == 0 && strcmp(words[2], "help") != 0) {
                 ret1 = dict_get_int32 (options, "count", &num_options);
                 if (ret1)
                         num_options = 0;
