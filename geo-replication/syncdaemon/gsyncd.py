@@ -36,7 +36,7 @@ import xml.etree.ElementTree as XET
 from subprocess import PIPE
 import subprocess
 from changelogagent import agent, Changelog
-from gsyncdstatus import set_monitor_status, GeorepStatus
+from gsyncdstatus import set_monitor_status, GeorepStatus, human_time_utc
 from libcxattr import Xattr
 import struct
 from syncdutils import get_master_and_slave_data_from_args
@@ -546,7 +546,7 @@ def main_i():
         rconf['config_file'], canon_peers, confdata,
         defaults.__dict__, opts.__dict__, namedict)
 
-    checkpoint_change = False
+    conf_change = False
     if confdata:
         opt_ok = norm(confdata.opt) in tunables + [None]
         if confdata.op == 'check':
@@ -565,10 +565,10 @@ def main_i():
         # when modifying checkpoint, it's important to make a log
         # of that, so in that case we go on to set up logging even
         # if its just config invocation
-        if confdata.opt == 'checkpoint' and confdata.op in ('set', 'del') and \
-           not confdata.rx:
-            checkpoint_change = True
-        if not checkpoint_change:
+        if confdata.op in ('set', 'del') and not confdata.rx:
+            conf_change = True
+
+        if not conf_change:
             return
 
     gconf.__dict__.update(defaults.__dict__)
@@ -666,13 +666,23 @@ def main_i():
     if not privileged() and gconf.log_file_mbr:
         gconf.log_file = gconf.log_file_mbr
 
-    if checkpoint_change:
+    if conf_change:
         try:
             GLogger._gsyncd_loginit(log_file=gconf.log_file, label='conf')
+            gconf.log_exit = False
+
             if confdata.op == 'set':
-                logging.info('checkpoint %s set' % confdata.val)
+                if confdata.opt == 'checkpoint':
+                    logging.info("Checkpoint Set: %s" % (
+                        human_time_utc(confdata.val)))
+                else:
+                    logging.info("Config Set: %s = %s" % (
+                        confdata.opt, confdata.val))
             elif confdata.op == 'del':
-                logging.info('checkpoint info was reset')
+                if confdata.opt == 'checkpoint':
+                    logging.info("Checkpoint Reset")
+                else:
+                    logging.info("Config Reset: %s" % confdata.opt)
         except IOError:
             if sys.exc_info()[1].errno == ENOENT:
                 # directory of log path is not present,
@@ -689,6 +699,17 @@ def main_i():
     if create:
         if getattr(gconf, 'state_file', None):
             set_monitor_status(gconf.state_file, create)
+
+        try:
+            GLogger._gsyncd_loginit(log_file=gconf.log_file, label='monitor')
+            gconf.log_exit = False
+            logging.info("Monitor Status: %s" % create)
+        except IOError:
+            if sys.exc_info()[1].errno == ENOENT:
+                # If log dir not present
+                pass
+            else:
+                raise
         return
 
     go_daemon = rconf['go_daemon']
@@ -718,7 +739,7 @@ def main_i():
     if be_monitor:
         label = 'monitor'
     elif be_agent:
-        label = 'agent'
+        label = gconf.local_path
     elif remote:
         # master
         label = gconf.local_path
@@ -735,7 +756,6 @@ def main_i():
     if be_monitor:
         return monitor(*rscs)
 
-    logging.info("syncing: %s" % " -> ".join(r.url for r in rscs))
     if remote:
         go_daemon = remote.connect_remote(go_daemon=go_daemon)
         if go_daemon:
