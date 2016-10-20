@@ -619,7 +619,7 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
 
         /* Create and mount the snap brick */
         ret = glusterd_snap_brick_create (snap_vol, brickinfo,
-                                          snap_opinfo->brick_num - 1);
+                                          snap_opinfo->brick_num - 1, 0);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_BRICK_CREATION_FAIL, "Failed to "
