@@ -98,7 +98,7 @@ def gmaster_builder(excrawl=None):
         modemixin = 'normal'
     changemixin = 'xsync' if gconf.change_detector == 'xsync' \
                   else excrawl or gconf.change_detector
-    logging.info('setting up %s change detection mode' % changemixin)
+    logging.debug('setting up %s change detection mode' % changemixin)
     modemixin = getattr(this, modemixin.capitalize() + 'Mixin')
     crawlmixin = getattr(this, 'GMaster' + changemixin.capitalize() + 'Mixin')
     sendmarkmixin = boolify(
@@ -391,10 +391,8 @@ class GMasterCommon(object):
         self.slave = slave
         self.jobtab = {}
         if boolify(gconf.use_tarssh):
-            logging.info("using 'tar over ssh' as the sync engine")
             self.syncer = Syncer(slave, self.slave.tarssh, [2])
         else:
-            logging.info("using 'rsync' as the sync engine")
             # partial transfer (cf. rsync(1)), that's normal
             self.syncer = Syncer(slave, self.slave.rsync, [23, 24])
         # crawls vs. turns:
@@ -535,9 +533,9 @@ class GMasterCommon(object):
         volinfo_sys = self.volinfo_hook()
         self.volinfo = volinfo_sys[self.KNAT]
         inter_master = volinfo_sys[self.KFGN]
-        logging.info("%s master with volume id %s ..." %
-                     (inter_master and "intermediate" or "primary",
-                      self.uuid))
+        logging.debug("%s master with volume id %s ..." %
+                      (inter_master and "intermediate" or "primary",
+                       self.uuid))
         gconf.configinterface.set('volume_id', self.uuid)
         if self.volinfo:
             if self.volinfo['retval']:
@@ -546,7 +544,6 @@ class GMasterCommon(object):
         else:
             raise GsyncdError("master volinfo unavailable")
         self.lastreport['time'] = time.time()
-        logging.info('crawl interval: %d seconds' % self.sleep_interval)
 
         t0 = time.time()
         crawl = self.should_crawl()
@@ -557,9 +554,9 @@ class GMasterCommon(object):
             self.start = time.time()
             should_display_info = self.start - self.lastreport['time'] >= 60
             if should_display_info:
-                logging.info("%d crawls, %d turns",
-                             self.crawls - self.lastreport['crawls'],
-                             self.turns - self.lastreport['turns'])
+                logging.debug("%d crawls, %d turns",
+                              self.crawls - self.lastreport['crawls'],
+                              self.turns - self.lastreport['turns'])
                 self.lastreport.update(crawls=self.crawls,
                                        turns=self.turns,
                                        time=self.start)
@@ -1240,7 +1237,6 @@ class GMasterChangeloghistoryMixin(GMasterChangelogMixin):
                         repr(end_time), self.get_entry_stime()))
 
         if not data_stime or data_stime == URXTIME:
-            logging.info("stime not available, abandoning history crawl")
             raise NoStimeAvailable()
 
         # Changelogs backend path is hardcoded as
@@ -1322,10 +1318,10 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
         self.stimes = []
         self.sleep_interval = 60
         self.tempdir = self.setup_working_dir()
+        logging.info('Working dir: %s' % self.tempdir)
         self.tempdir = os.path.join(self.tempdir, 'xsync')
         self.processed_changelogs_dir = self.tempdir
         self.name = "xsync"
-        logging.info('xsync temp directory: %s' % self.tempdir)
         try:
             os.makedirs(self.tempdir)
         except OSError:

@@ -269,8 +269,8 @@ class Monitor(object):
             # Spawn the worker and agent in lock to avoid fd leak
             self.lock.acquire()
 
-            logging.info('-' * conn_timeout)
-            logging.info('starting gsyncd worker')
+            logging.info('starting gsyncd worker(%s). Slave node: %s' %
+                         (w[0]['dir'], remote_host))
 
             # Couple of pipe pairs for RPC communication b/w
             # worker and changelog agent.
@@ -452,7 +452,7 @@ def distribute(*resources):
                                       new_stime_xattr_name)
     else:
         raise GsyncdError("unknown slave type " + slave.url)
-    logging.info('slave bricks: ' + repr(sbricks))
+    logging.debug('slave bricks: ' + repr(sbricks))
     if isinstance(si, FILE):
         slaves = [slave.url]
     else:
@@ -477,7 +477,7 @@ def distribute(*resources):
                                slaves[idx % len(slaves)],
                                get_subvol_num(idx, mvol, is_hot),
                                is_hot))
-    logging.info('worker specs: ' + repr(workerspex))
+    logging.debug('worker specs: ' + repr(workerspex))
     return workerspex, suuid, slave_vol, slave_host, master
 
 
