@@ -137,7 +137,7 @@ glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
 int32_t
 glusterd_snap_brick_create (glusterd_volinfo_t *snap_volinfo,
                             glusterd_brickinfo_t *brickinfo,
-                            int32_t brick_count);
+                            int32_t brick_count, int32_t clone);
 
 int
 glusterd_snapshot_restore_cleanup (dict_t *rsp_dict,

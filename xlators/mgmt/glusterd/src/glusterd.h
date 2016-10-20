@@ -695,7 +695,8 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
 
 #define GLUSTERD_GET_UUID_NOHYPHEN(ret_string, uuid) do {               \
                 char *snap_volname_ptr = ret_string;                    \
-                char *snap_volid_ptr = uuid_utoa(uuid);                 \
+                char  tmp_uuid[64];                                     \
+                char *snap_volid_ptr = uuid_utoa_r(uuid, tmp_uuid);     \
                 while (*snap_volid_ptr) {                               \
                         if (*snap_volid_ptr == '-') {                   \
                                 snap_volid_ptr++;                       \

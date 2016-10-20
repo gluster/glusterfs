@@ -2321,6 +2321,7 @@ glusterd_snapshot_clone_prevalidate (dict_t *dict, char **op_errstr,
 {
         char                  *clonename         = NULL;
         char                  *snapname          = NULL;
+        char                   device_name[64]   = "";
         char                   key[PATH_MAX]     = "";
         glusterd_snap_t       *snap              = NULL;
         char                   err_str[PATH_MAX] = "";
@@ -2386,10 +2387,12 @@ glusterd_snapshot_clone_prevalidate (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
+        GLUSTERD_GET_UUID_NOHYPHEN (device_name, *snap_volid);
+
         /* Adding snap bricks mount paths to the dict */
         ret = glusterd_snap_create_clone_common_prevalidate (rsp_dict, 0,
                                                              snapname, err_str,
-                                                             clonename, 1,
+                                                             device_name, 1,
                                                              snap_vol,
                                                              &loglevel,
                                                              1, op_errno);
@@ -4744,11 +4747,12 @@ out:
 int32_t
 glusterd_snap_brick_create (glusterd_volinfo_t *snap_volinfo,
                             glusterd_brickinfo_t *brickinfo,
-                            int32_t brick_count)
+                            int32_t brick_count, int32_t clone)
 {
         int32_t          ret                             = -1;
         xlator_t        *this                            = NULL;
         char             snap_brick_mount_path[PATH_MAX] = "";
+        char             clone_uuid[64]                  = "";
         struct stat      statbuf                         = {0, };
 
         this = THIS;
@@ -4756,9 +4760,16 @@ glusterd_snap_brick_create (glusterd_volinfo_t *snap_volinfo,
         GF_ASSERT (snap_volinfo);
         GF_ASSERT (brickinfo);
 
-        snprintf (snap_brick_mount_path, sizeof (snap_brick_mount_path),
-                  "%s/%s/brick%d",  snap_mount_dir, snap_volinfo->volname,
-                  brick_count + 1);
+        if (clone) {
+                GLUSTERD_GET_UUID_NOHYPHEN(clone_uuid, snap_volinfo->volume_id);
+                snprintf (snap_brick_mount_path, sizeof (snap_brick_mount_path),
+                          "%s/%s/brick%d",  snap_mount_dir,
+                          clone_uuid, brick_count + 1);
+        } else {
+                snprintf (snap_brick_mount_path, sizeof (snap_brick_mount_path),
+                          "%s/%s/brick%d",  snap_mount_dir,
+                          snap_volinfo->volname, brick_count + 1);
+        }
 
         ret = mkdir_p (snap_brick_mount_path, 0777, _gf_true);
         if (ret) {
@@ -4833,6 +4844,7 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
         char                   *value                           = NULL;
         char                   *snap_brick_dir                  = NULL;
         char                    snap_brick_path[PATH_MAX]       = "";
+        char                    clone_uuid[64]                  = "";
         char                   *snap_device                     = NULL;
         glusterd_brickinfo_t   *snap_brickinfo                  = NULL;
         gf_boolean_t            add_missed_snap                 = _gf_false;
@@ -4948,10 +4960,18 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
         /* Create brick-path in the format /var/run/gluster/snaps/ *
          * <snap-uuid>/<original-brick#>/snap-brick-dir *
          */
-        snprintf (snap_brick_path, sizeof(snap_brick_path),
-                  "%s/%s/brick%d%s", snap_mount_dir,
-                  snap_vol->volname, brick_count+1,
-                  snap_brick_dir);
+        if (clone) {
+                GLUSTERD_GET_UUID_NOHYPHEN(clone_uuid, snap_vol->volume_id);
+                snprintf (snap_brick_path, sizeof(snap_brick_path),
+                          "%s/%s/brick%d%s", snap_mount_dir,
+                          clone_uuid, brick_count+1,
+                          snap_brick_dir);
+        } else {
+                snprintf (snap_brick_path, sizeof(snap_brick_path),
+                          "%s/%s/brick%d%s", snap_mount_dir,
+                          snap_vol->volname, brick_count+1,
+                          snap_brick_dir);
+        }
 
         snprintf (key, sizeof(key), "vol%"PRId64".brick_snapdevice%d",
                   volcount, brick_count);
@@ -5093,7 +5113,8 @@ out:
 static int32_t
 glusterd_take_brick_snapshot (dict_t *dict, glusterd_volinfo_t *snap_vol,
                               glusterd_brickinfo_t *brickinfo,
-                              int32_t volcount, int32_t brick_count)
+                              int32_t volcount, int32_t brick_count,
+                              int32_t clone)
 {
         char                   *origin_brick_path   = NULL;
         char                    key[PATH_MAX]       = "";
@@ -5149,7 +5170,8 @@ glusterd_take_brick_snapshot (dict_t *dict, glusterd_volinfo_t *snap_vol,
         }
 
         /* create the complete brick here */
-        ret = glusterd_snap_brick_create (snap_vol, brickinfo, brick_count);
+        ret = glusterd_snap_brick_create (snap_vol, brickinfo,
+                                          brick_count, clone);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_BRICK_CREATION_FAIL, "not able to"
@@ -6425,7 +6447,8 @@ out:
 int
 glusterd_take_brick_snapshot_task (void *opaque)
 {
-        int ret                             = 0;
+        int                  ret            = 0;
+        int32_t              clone          = 0;
         snap_create_args_t  *snap_args      = NULL;
         char                *clonename      = NULL;
         char                 key[PATH_MAX]  = "";
@@ -6441,15 +6464,18 @@ glusterd_take_brick_snapshot_task (void *opaque)
         if (ret) {
                 snprintf (key, sizeof (key), "snap-vol%d.brick%d.status",
                           snap_args->volcount, snap_args->brickorder);
-        } else
+        } else {
                 snprintf (key, sizeof (key), "clone%d.brick%d.status",
                           snap_args->volcount, snap_args->brickorder);
+                clone = 1;
+        }
 
         ret = glusterd_take_brick_snapshot (snap_args->dict,
                                             snap_args->snap_vol,
                                             snap_args->brickinfo,
                                             snap_args->volcount,
-                                            snap_args->brickorder);
+                                            snap_args->brickorder,
+                                            clone);
 
         if (ret) {
                 gf_msg (THIS->name, GF_LOG_ERROR, 0,
