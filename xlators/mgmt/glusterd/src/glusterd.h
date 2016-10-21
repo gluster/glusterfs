@@ -189,6 +189,7 @@ typedef struct {
 typedef enum gf_brick_status {
         GF_BRICK_STOPPED,
         GF_BRICK_STARTED,
+        GF_BRICK_STOPPING,
 } gf_brick_status_t;
 
 struct glusterd_brickinfo {
