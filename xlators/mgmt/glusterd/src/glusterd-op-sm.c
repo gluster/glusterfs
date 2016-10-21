@@ -577,7 +577,8 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
                         goto out;
                 brick_req->op = GLUSTERD_BRICK_TERMINATE;
                 brick_req->name = "";
-        break;
+                glusterd_set_brick_status (brickinfo, GF_BRICK_STOPPING);
+                break;
         case GD_OP_PROFILE_VOLUME:
                 brick_req = GF_CALLOC (1, sizeof (*brick_req),
                                        gf_gld_mt_mop_brick_req_t);
