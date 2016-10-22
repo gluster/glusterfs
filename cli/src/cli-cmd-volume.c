@@ -1761,6 +1761,9 @@ out:
                 case GF_BITROT_OPTION_TYPE_DISABLE:
                         event_type = EVENT_BITROT_DISABLE;
                         break;
+                case GF_BITROT_CMD_SCRUB_ONDEMAND:
+                        event_type = EVENT_BITROT_SCRUB_ONDEMAND;
+                        break;
                 case GF_BITROT_OPTION_TYPE_SCRUB_THROTTLE:
                         event_type = EVENT_BITROT_SCRUB_THROTTLE;
                         ret1 = dict_get_str (options, "scrub-throttle-value",
