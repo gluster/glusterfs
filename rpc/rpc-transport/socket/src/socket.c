@@ -2542,7 +2542,7 @@ socket_poller (void *ctx)
 			       "poll error on socket");
 			break;
 		}
-		if (ret < 0 && errno != ENODATA) {
+		if (ret < 0) {
 			gf_log(this->name,GF_LOG_ERROR,
 			       "error in polling loop");
 			break;
