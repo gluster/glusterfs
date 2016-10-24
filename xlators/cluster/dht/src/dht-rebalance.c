@@ -73,12 +73,40 @@ dht_set_global_defrag_error (gf_defrag_info_t *defrag, int ret)
         return;
 }
 
+
+static gf_boolean_t
+dht_is_tier_command (int cmd) {
+
+        gf_boolean_t is_tier = _gf_false;
+
+        switch (cmd) {
+        case GF_DEFRAG_CMD_START_TIER:
+        case GF_DEFRAG_CMD_STATUS_TIER:
+        case GF_DEFRAG_CMD_START_DETACH_TIER:
+        case GF_DEFRAG_CMD_STOP_DETACH_TIER:
+        case GF_DEFRAG_CMD_PAUSE_TIER:
+        case GF_DEFRAG_CMD_RESUME_TIER:
+                is_tier = _gf_true;
+                break;
+        default:
+                break;
+        }
+        return is_tier;
+
+}
+
+
 static int
-dht_send_rebalance_event (xlator_t *this, gf_defrag_status_t status)
+dht_send_rebalance_event (xlator_t *this, int cmd, gf_defrag_status_t status)
 {
         int ret = -1;
         char *volname = NULL;
         char *tmpstr  = NULL;
+        char *ptr = NULL;
+        char *suffix = "-dht";
+        dht_conf_t   *conf = NULL;
+        gf_defrag_info_t *defrag = NULL;
+        int len = 0;
 
         eventtypes_t event = EVENT_LAST;
 
@@ -97,17 +125,33 @@ dht_send_rebalance_event (xlator_t *this, gf_defrag_status_t status)
 
         }
 
-        tmpstr = gf_strdup (this->name);
-        if (tmpstr) {
-                volname = strtok(tmpstr, "-dht");
+        if (dht_is_tier_command (cmd)) {
+                /* We should have the tier volume name*/
+                conf = this->private;
+                defrag = conf->defrag;
+                volname = defrag->tier_conf.volname;
+        } else {
+                /* DHT volume */
+                len = strlen (this->name);
+                tmpstr = gf_strdup (this->name);
+                if (tmpstr) {
+                        ptr = tmpstr + (len - strlen (suffix));
+                        if (!strcmp (ptr, suffix)) {
+                                tmpstr[len - strlen (suffix)] = '\0';
+                                volname = tmpstr;
+                        }
+                }
         }
 
-        if (!volname)
+        if (!volname) {
+                /* Better than nothing */
                 volname = this->name;
+        }
 
         if (event != EVENT_LAST) {
                 ret = gf_event (event, "volume=%s", volname);
         }
+
         GF_FREE (tmpstr);
         return ret;
 }
@@ -3873,7 +3917,7 @@ out:
                 defrag->defrag_status = GF_DEFRAG_STATUS_COMPLETE;
         }
 
-        dht_send_rebalance_event (this, defrag->defrag_status);
+        dht_send_rebalance_event (this, defrag->cmd, defrag->defrag_status);
 
         LOCK (&defrag->lock);
         {
