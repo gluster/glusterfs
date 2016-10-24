@@ -1272,6 +1272,22 @@ cli_cmd_volume_tier_cbk (struct cli_state *state,
         int                      i       = 0;
         eventtypes_t            event    = EVENT_LAST;
         gf_boolean_t            aborted  = _gf_false;
+        gf_answer_t             answer   = GF_ANSWER_NO;
+
+        const char *detach_question = "gluster volume detach-tier <VOLNAME> "
+                               "<start|stop|status|commit|force> is "
+                               "deprecated. Use the new command \'"
+                               "gluster volume tier <VOLNAME> detach <start|"
+                               "stop|status|commit|force>\'\n"
+                               "Do you want to Continue?";
+
+        const char *attach_question = "gluster volume attach-tier <VOLNAME> "
+                               "[<replica COUNT>] <NEW-BRICK>... is "
+                               "deprecated. Use the new command \'"
+                               "gluster volume tier <VOLNAME> attach [<replica"
+                               " COUNT>] <NEW-BRICK>... [force]\'\n"
+                               "Do you want to Continue?";
+
 
         if (wordcount < 4) {
                 cli_usage_out (word->pattern);
@@ -1281,6 +1297,12 @@ cli_cmd_volume_tier_cbk (struct cli_state *state,
         }
 
         if (!strcmp(words[1], "detach-tier")) {
+                /* we need to ask question when older command is used */
+                answer = cli_cmd_get_confirmation (state, detach_question);
+                if (GF_ANSWER_NO == answer) {
+                        ret = 0;
+                        goto out;
+                }
                 ret = do_cli_cmd_volume_detach_tier (state, word,
                                                      words, wordcount,
                                                      &aborted);
@@ -1306,6 +1328,12 @@ cli_cmd_volume_tier_cbk (struct cli_state *state,
                 goto out;
 
         } else if (!strcmp(words[1], "attach-tier")) {
+                /* we need to ask question when the older command is used */
+                answer = cli_cmd_get_confirmation (state, attach_question);
+                if (GF_ANSWER_NO == answer) {
+                        ret = 0;
+                        goto out;
+                }
                 ret = do_cli_cmd_volume_attach_tier (state, word,
                                                      words, wordcount);
                 goto out;
