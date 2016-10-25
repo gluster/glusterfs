@@ -9005,13 +9005,13 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 operation   = "Launching heal operation ";
                 heal_op_str = "to perform index self heal";
                 substr      = "\nUse heal info commands to check"
-                              " status";
+                              " status.";
                 break;
         case    GF_SHD_OP_HEAL_FULL:
                 operation   = "Launching heal operation ";
                 heal_op_str = "to perform full self heal";
                 substr      = "\nUse heal info commands to check"
-                              " status";
+                              " status.";
                 break;
         case    GF_SHD_OP_INDEX_SUMMARY:
                 heal_op_str = "list of entries to be healed";
@@ -9063,10 +9063,11 @@ gf_cli_heal_volume_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         if (rsp.op_ret) {
-                cli_err ("%s%s on volume %s has been unsuccessful on "
-                         "bricks that are down. Please check if all brick "
-                         "processes are running.",
-                         operation, heal_op_str, volname);
+                if (strcmp (rsp.op_errstr, "")) {
+                        cli_err ("%s%s on volume %s has been unsuccessful:",
+                                 operation, heal_op_str, volname);
+                        cli_err ("%s", rsp.op_errstr);
+                }
                 ret = rsp.op_ret;
                 goto out;
         } else {

@@ -3824,16 +3824,6 @@ cli_cmd_volume_heal_options_parse (const char **words, int wordcount,
                 }
 
                 if (!strcmp (words[3], "info")) {
-                        if (!strcmp (words[4], "healed")) {
-                                ret = dict_set_int32 (dict, "heal-op",
-                                                      GF_SHD_OP_HEALED_FILES);
-                                goto done;
-                        }
-                        if (!strcmp (words[4], "heal-failed")) {
-                                ret = dict_set_int32 (dict, "heal-op",
-                                                   GF_SHD_OP_HEAL_FAILED_FILES);
-                                goto done;
-                        }
                         if (!strcmp (words[4], "split-brain")) {
                                 ret = dict_set_int32 (dict, "heal-op",
                                                    GF_SHD_OP_SPLIT_BRAIN_FILES);

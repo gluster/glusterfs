@@ -1040,6 +1040,19 @@ out:
         errno = args.op_errno;
         if (args.dict)
                 dict_unref (args.dict);
+        if (args.op_ret && (*errstr == NULL)) {
+                if (op == GD_OP_HEAL_VOLUME) {
+                        gf_asprintf (errstr,
+                                     "Glusterd Syncop Mgmt brick op '%s' failed."
+                                     " Please check glustershd log file for details.",
+                                     gd_op_list[op]);
+                } else {
+                        gf_asprintf (errstr,
+                                     "Glusterd Syncop Mgmt brick op '%s' failed."
+                                     " Please check brick log file for details.",
+                                     gd_op_list[op]);
+                }
+        }
         gd_brick_op_req_free (req);
         return args.op_ret;
 }
