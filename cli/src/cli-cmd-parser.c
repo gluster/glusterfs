@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <pthread.h>
 #include <fnmatch.h>
+#include <time.h>
 
 #include "cli.h"
 #include "cli-cmd.h"
@@ -2582,6 +2583,9 @@ config_parse (const char **words, int wordcount, dict_t *dict,
         char               *append_str = NULL;
         size_t             append_len = 0;
         char               *subop = NULL;
+        char               *ret_chkpt = NULL;
+        struct tm           checkpoint_time;
+        char                chkpt_buf[20] = "";
 
         switch ((wordcount - 1) - cmdi) {
         case 0:
@@ -2643,6 +2647,27 @@ config_parse (const char **words, int wordcount, dict_t *dict,
                         }
                         snprintf (append_str, 300, "%" GF_PRI_SECOND,
                                   tv.tv_sec);
+                } else if ((strcmp (words[cmdi + 1], "checkpoint") == 0) &&
+                           (strcmp (append_str, "now") != 0)) {
+                        memset(&checkpoint_time, 0, sizeof(struct tm));
+                        ret_chkpt = strptime(append_str, "%Y-%m-%d %H:%M:%S",
+                                             &checkpoint_time);
+
+                        if (ret_chkpt == NULL) {
+                                ret = -1;
+                                cli_err ("Invalid Checkpoint label. Use format "
+                                         "\"Y-m-d H:M:S\", Example: 2016-10-25 15:30:45");
+                                goto out;
+                        }
+                        GF_FREE (append_str);
+                        append_str = GF_CALLOC (1, 300, cli_mt_append_str);
+                        if (!append_str) {
+                                ret = -1;
+                                goto out;
+                        }
+                        strftime (chkpt_buf, sizeof(chkpt_buf), "%s",
+                                  &checkpoint_time);
+                        snprintf (append_str, 300, "%s", chkpt_buf);
                 }
 
                 ret = dict_set_dynstr (dict, "op_value", append_str);
