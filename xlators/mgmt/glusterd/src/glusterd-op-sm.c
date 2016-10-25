@@ -773,12 +773,14 @@ out:
 static int
 glusterd_validate_shared_storage (char *key, char *value, char *errstr)
 {
-        int32_t            ret      = -1;
-        int32_t            exists   = -1;
-        int32_t            count    = -1;
-        char              *op       = NULL;
-        xlator_t          *this     = NULL;
-        glusterd_conf_t   *conf     = NULL;
+        int32_t            ret                      = -1;
+        int32_t            exists                   = -1;
+        int32_t            count                    = -1;
+        char              *op                       = NULL;
+        char               hook_script[PATH_MAX]    = "";
+        xlator_t          *this                     = NULL;
+        glusterd_conf_t   *conf                     = NULL;
+        struct stat        stbuf                    = {0,};
 
         this = THIS;
         GF_VALIDATE_OR_GOTO ("glusterd", this, out);
@@ -804,6 +806,21 @@ glusterd_validate_shared_storage (char *key, char *value, char *errstr)
                 gf_msg (this->name, GF_LOG_ERROR, EINVAL,
                         GD_MSG_INVALID_ENTRY, "%s", errstr);
                 ret = -1;
+                goto out;
+        }
+
+        snprintf (hook_script, sizeof(hook_script),
+                  "%s"GLUSTERD_SHRD_STRG_HOOK_SCRIPT, conf->workdir);
+
+        ret = sys_lstat (hook_script, &stbuf);
+        if (ret) {
+                snprintf (errstr, PATH_MAX,
+                          "The hook-script (%s) required "
+                          "for this operation is not present. "
+                          "Please install the hook-script "
+                          "and retry", hook_script);
+                gf_msg (this->name, GF_LOG_ERROR, ENOENT,
+                        GD_MSG_FILE_OP_FAILED, "%s", errstr);
                 goto out;
         }
 

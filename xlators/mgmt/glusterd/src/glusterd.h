@@ -47,6 +47,8 @@
 #define GEO_CONF_MAX_OPT_VALS           6
 #define GLUSTERD_CREATE_HOOK_SCRIPT     "/hooks/1/gsync-create/post/" \
                                         "S56glusterd-geo-rep-create-post.sh"
+#define GLUSTERD_SHRD_STRG_HOOK_SCRIPT  "/hooks/1/set/post/" \
+                                        "S32gluster_enable_shared_storage.sh"
 #define GLUSTER_SHARED_STORAGE          "gluster_shared_storage"
 #define GLUSTERD_SHARED_STORAGE_KEY     "cluster.enable-shared-storage"
 
