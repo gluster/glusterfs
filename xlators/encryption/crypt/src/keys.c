@@ -113,29 +113,42 @@ static int32_t kderive_init(struct kderive_context *ctx,
 static void kderive_update(struct kderive_context *ctx)
 {
 	uint32_t i;
+#if (OPENSSL_VERSION_NUMBER < 0x1010002f)
 	HMAC_CTX hctx;
+#endif
+        HMAC_CTX *phctx = NULL;
 	unsigned char *pos = ctx->out;
 	uint32_t *p_iter = (uint32_t *)ctx->fid;
 	uint32_t num_iters = ctx->out_len / PRF_OUTPUT_SIZE;
 
 	check_prf_iters(num_iters);
 
+#if (OPENSSL_VERSION_NUMBER < 0x1010002f)
 	HMAC_CTX_init(&hctx);
+        phctx = &hctx;
+#else
+        phctx = HMAC_CTX_new();
+        /* I guess we presume it was successful? */
+#endif
 	for (i = 0; i < num_iters; i++) {
 		/*
 		 * update the iteration number in the fid
 		 */
 		*p_iter = htobe32(i);
-		HMAC_Init_ex(&hctx,
+		HMAC_Init_ex(phctx,
 			     ctx->pkey, ctx->pkey_len >> 3,
 			     EVP_sha256(),
 			     NULL);
-		HMAC_Update(&hctx, ctx->fid, ctx->fid_len);
-		HMAC_Final(&hctx, pos, NULL);
+		HMAC_Update(phctx, ctx->fid, ctx->fid_len);
+		HMAC_Final(phctx, pos, NULL);
 
 		pos += PRF_OUTPUT_SIZE;
 	}
-	HMAC_CTX_cleanup(&hctx);
+#if (OPENSSL_VERSION_NUMBER < 0x1010002f)
+	HMAC_CTX_cleanup(phctx);
+#else
+        HMAC_CTX_free(phctx);
+#endif
 }
 
 static void kderive_final(struct kderive_context *ctx, unsigned char *child)
