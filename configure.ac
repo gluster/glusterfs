@@ -531,7 +531,7 @@ fi
 
 dnl Check if version matches that we require
 PYTHONDEV_CPPFLAGS=
-PYTHONDEV_CPPFLAGS=
+PYTHONDEV_LDFLAGS=
 BUILD_PYTHON_SITE_PACKAGES=
 BUILD_PYTHON_INC=
 BUILD_PYTHON_LIB=
@@ -552,8 +552,8 @@ if echo $PYTHON_VERSION | grep -q ^2; then
    dnl Find python libs at user configured libdir and also "lib" under prefix
    PYTHONDEV_LDFLAGS="${PYTHON_LIBS} -L`${PYTHON}-config --prefix`/lib -L`${PYTHON}-config --prefix`/$libdir `${PYTHON}-config --ldflags`"
 
-   BUILD_PYTHON_SITE_PACKAGES=`$PYTHON -c 'from distutils.sysconfig import get_python_lib; print(get_python_lib(prefix="${exec_prefix}"))'`
-   BUILD_PYTHON_INC=`$PYTHON -c "from distutils import sysconfig; print sysconfig.get_python_inc()"`
+   BUILD_PYTHON_SITE_PACKAGES=${pythondir}
+   BUILD_PYTHON_INC=`$PYTHON -c "import sys; from distutils import sysconfig; sys.stdout.write(sysconfig.get_python_inc())" 2>/dev/null`
    BUILD_PYTHON_LIB=python$PYTHON_VERSION
 
    dnl Now check for python header using the include path obtained above
