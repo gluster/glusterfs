@@ -25,6 +25,7 @@ import eventtypes
 
 # Webhooks list
 _webhooks = {}
+_webhooks_file_mtime = 0
 # Default Log Level
 _log_level = "INFO"
 # Config Object
@@ -117,10 +118,12 @@ def load_webhooks():
     Load/Reload the webhooks list. This function will
     be triggered during init and when SIGUSR2.
     """
-    global _webhooks
+    global _webhooks, _webhooks_file_mtime
     _webhooks = {}
     if os.path.exists(WEBHOOKS_FILE):
         _webhooks = json.load(open(WEBHOOKS_FILE))
+        st = os.lstat(WEBHOOKS_FILE)
+        _webhooks_file_mtime = st.st_mtime
 
 
 def load_all():
@@ -138,6 +141,8 @@ def publish(ts, event_key, data):
     if NodeID is None:
         NodeID = get_node_uuid()
 
+    autoload_webhooks()
+
     message = {
         "nodeid": NodeID,
         "ts": int(ts),
@@ -149,6 +154,20 @@ def publish(ts, event_key, data):
     else:
         # TODO: Default action?
         pass
+
+
+def autoload_webhooks():
+    global _webhooks_file_mtime
+    try:
+        st = os.lstat(WEBHOOKS_FILE)
+    except OSError:
+        st = None
+
+    if st is not None:
+        # If Stat is available and mtime is not matching with
+        # previously recorded mtime, reload the webhooks file
+        if st.st_mtime != _webhooks_file_mtime:
+            load_webhooks()
 
 
 def plugin_webhook(message):
