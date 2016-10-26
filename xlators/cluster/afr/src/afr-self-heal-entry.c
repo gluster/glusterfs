@@ -145,7 +145,8 @@ afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
 		if (ret)
 			goto out;
 		ret = syncop_mknod (priv->children[dst], &loc, mode,
-				    iatt->ia_rdev, &newent, xdata, NULL);
+                    makedev (ia_major(iatt->ia_rdev), ia_minor (iatt->ia_rdev)),
+                    &newent, xdata, NULL);
 		if (ret == 0 && newent.ia_nlink == 1) {
 			/* New entry created. Mark @dst pending on all sources */
                         newentry[dst] = 1;
