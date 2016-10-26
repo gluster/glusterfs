@@ -1912,6 +1912,8 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         rpc_transport_t  *rpc_trans = NULL;
         int              need_term = 0;
         int              emval = 0;
+        static           int log_ctr1;
+        static           int log_ctr2;
         struct dnscache6 *dnscache = NULL;
 
         this = mydata;
@@ -1920,7 +1922,7 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 
         switch (event) {
         case RPC_CLNT_DISCONNECT:
-                gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
+                GF_LOG_OCCASIONALLY (log_ctr1, "glusterfsd-mgmt", GF_LOG_ERROR,
                         "failed to connect with remote-host: %s (%s)",
                         ctx->cmd_args.volfile_server, strerror (errno));
                 if (!rpc->disabled) {
@@ -1938,8 +1940,9 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                         if (!ctx->active)
                                 need_term = 1;
                         emval = ENOTCONN;
-                        gf_log("glusterfsd-mgmt", GF_LOG_INFO,
-                               "Exhausted all volfile servers");
+                        GF_LOG_OCCASIONALLY (log_ctr2, "glusterfsd-mgmt",
+                                             GF_LOG_INFO,
+                                             "Exhausted all volfile servers");
                         break;
                 }
                 server = list_entry (server->list.next, typeof(*server), list);
