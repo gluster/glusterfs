@@ -92,24 +92,24 @@ cd $M0
 
 TEST mkdir spb_heal spb spb_me_heal spb_me fool_heal fool_me v1_fool_heal v1_fool_me source_creations_heal source_deletions_heal source_creations_me source_deletions_me v1_dirty_me v1_dirty_heal source_self_accusing
 TEST mkfifo source_deletions_heal/fifo
-TEST mknod  source_deletions_heal/block b 0 0
-TEST mknod  source_deletions_heal/char c 0 0
+TEST mknod  source_deletions_heal/block b 4 5
+TEST mknod  source_deletions_heal/char c 1 5
 TEST touch  source_deletions_heal/file
 TEST ln -s  source_deletions_heal/file source_deletions_heal/slink
 TEST mkdir  source_deletions_heal/dir1
 TEST mkdir  source_deletions_heal/dir1/dir2
 
 TEST mkfifo source_deletions_me/fifo
-TEST mknod  source_deletions_me/block b 0 0
-TEST mknod  source_deletions_me/char c 0 0
+TEST mknod  source_deletions_me/block b 4 5
+TEST mknod  source_deletions_me/char c 1 5
 TEST touch  source_deletions_me/file
 TEST ln -s  source_deletions_me/file source_deletions_me/slink
 TEST mkdir  source_deletions_me/dir1
 TEST mkdir  source_deletions_me/dir1/dir2
 
 TEST mkfifo source_self_accusing/fifo
-TEST mknod  source_self_accusing/block b 0 0
-TEST mknod  source_self_accusing/char c 0 0
+TEST mknod  source_self_accusing/block b 4 5
+TEST mknod  source_self_accusing/char c 1 5
 TEST touch  source_self_accusing/file
 TEST ln -s  source_self_accusing/file source_self_accusing/slink
 TEST mkdir  source_self_accusing/dir1
@@ -144,16 +144,16 @@ TEST ! stat $B0/${V0}1/source_self_accusing/dir1
 
 
 TEST mkfifo source_creations_heal/fifo
-TEST mknod  source_creations_heal/block b 0 0
-TEST mknod  source_creations_heal/char c 0 0
+TEST mknod  source_creations_heal/block b 4 5
+TEST mknod  source_creations_heal/char c 1 5
 TEST touch  source_creations_heal/file
 TEST ln -s  source_creations_heal/file source_creations_heal/slink
 TEST mkdir  source_creations_heal/dir1
 TEST mkdir  source_creations_heal/dir1/dir2
 
 TEST mkfifo source_creations_me/fifo
-TEST mknod  source_creations_me/block b 0 0
-TEST mknod  source_creations_me/char c 0 0
+TEST mknod  source_creations_me/block b 4 5
+TEST mknod  source_creations_me/char c 1 5
 TEST touch  source_creations_me/file
 TEST ln -s  source_creations_me/file source_creations_me/slink
 TEST mkdir  source_creations_me/dir1
@@ -255,11 +255,15 @@ TEST [ -p source_creations_me/fifo ]
 r=$(get_file_type source_creations_me/block)
 EXPECT "$r" get_file_type $B0/${V0}0/source_creations_me/block
 EXPECT "$r" get_file_type $B0/${V0}1/source_creations_me/block
+EXPECT "^4 5$" stat -c "%t %T" $B0/${V0}1/source_creations_me/block
+EXPECT "^4 5$" stat -c "%t %T" $B0/${V0}0/source_creations_me/block
 TEST [ -b source_creations_me/block ]
 
 r=$(get_file_type source_creations_me/char)
 EXPECT "$r" get_file_type $B0/${V0}0/source_creations_me/char
 EXPECT "$r" get_file_type $B0/${V0}1/source_creations_me/char
+EXPECT "^1 5$" stat -c "%t %T" $B0/${V0}1/source_creations_me/char
+EXPECT "^1 5$" stat -c "%t %T" $B0/${V0}0/source_creations_me/char
 TEST [ -c source_creations_me/char ]
 
 r=$(get_file_type source_creations_me/file)
@@ -408,12 +412,16 @@ TEST ! stat $B0/${V0}1/source_self_accusing/dir1
 r=$(get_file_type $B0/${V0}0/source_creations_heal/fifo)
 EXPECT "$r" get_file_type $B0/${V0}1/source_creations_heal/fifo
 TEST [ -p $B0/${V0}0/source_creations_heal/fifo ]
+EXPECT "^4 5$" stat -c "%t %T" $B0/${V0}1/source_creations_heal/block
+EXPECT "^4 5$" stat -c "%t %T" $B0/${V0}0/source_creations_heal/block
 
 r=$(get_file_type $B0/${V0}0/source_creations_heal/block)
 EXPECT "$r" get_file_type $B0/${V0}1/source_creations_heal/block
 
 r=$(get_file_type $B0/${V0}0/source_creations_heal/char)
 EXPECT "$r" get_file_type $B0/${V0}1/source_creations_heal/char
+EXPECT "^1 5$" stat -c "%t %T" $B0/${V0}1/source_creations_heal/char
+EXPECT "^1 5$" stat -c "%t %T" $B0/${V0}0/source_creations_heal/char
 
 r=$(get_file_type $B0/${V0}0/source_creations_heal/file)
 EXPECT "$r" get_file_type $B0/${V0}1/source_creations_heal/file

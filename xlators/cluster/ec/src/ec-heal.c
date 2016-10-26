@@ -1148,7 +1148,8 @@ ec_create_name (call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
                                      replies, output, frame, ec->xl,
                                      &loc, st_mode_from_ia (ia->ia_prot,
                                                            ia->ia_type),
-                                     ia->ia_rdev, 0, xdata);
+                         makedev(ia_major(ia->ia_rdev), ia_minor(ia->ia_rdev)),
+                         0, xdata);
                 break;
         }
 
