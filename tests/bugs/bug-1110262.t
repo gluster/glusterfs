@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
+. $(dirname $0)/../traps.rc
 
 cleanup;
 
@@ -17,15 +18,19 @@ TEST $CLI volume set $V0 nfs.disable false
 ## Verify volume is created
 EXPECT "$V0" volinfo_field $V0 'Volume Name';
 EXPECT 'Created' volinfo_field $V0 'Status';
-TEST $CLI volume set $V0 client-log-level TRACE
-TEST $CLI volume set $V0 brick-log-level TRACE
 ## Start volume and verify
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 TEST glusterfs -s $H0 --volfile-id=$V0 $M0
 
 #kill one of the brick process
-TEST kill -9 `ps aux | grep glusterfsd | grep $B0/${V0}2 | awk '{print $2}'`;
+TEST kill_brick $V0 $H0 $B0/${V0}2
+
+cleanup_user_group () {
+	userdel --force dev
+	groupdel QA
+}
+push_trapfunc cleanup_user_group
 
 #create a user and group
 TEST useradd dev
@@ -57,9 +62,5 @@ TEST [ $uid = dev ]
 gid=`ls -l $B0/${V0}2 | grep dironedown | awk '{print $4}'`
 TEST echo $gid
 TEST [ $gid = QA ]
-
-#cleanup
-TEST userdel --force dev
-TEST groupdel QA
 
 cleanup
