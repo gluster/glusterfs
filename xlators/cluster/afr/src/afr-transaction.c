@@ -672,7 +672,7 @@ afr_handle_symmetric_errors (call_frame_t *frame, xlator_t *this)
 }
 
 gf_boolean_t
-afr_has_quorum (unsigned char *subvols, xlator_t *this)
+afr_check_quorum (unsigned char *subvols, xlator_t *this, int *threshold)
 {
         unsigned int  quorum_count = 0;
         afr_private_t *priv  = NULL;
@@ -682,29 +682,33 @@ afr_has_quorum (unsigned char *subvols, xlator_t *this)
         up_children_count = AFR_COUNT (subvols, priv->child_count);
 
         if (priv->quorum_count == AFR_QUORUM_AUTO) {
-        /*
-         * Special case for even numbers of nodes in auto-quorum:
-         * if we have exactly half children up
-         * and that includes the first ("senior-most") node, then that counts
-         * as quorum even if it wouldn't otherwise.  This supports e.g. N=2
-         * while preserving the critical property that there can only be one
-         * such group.
-         */
-                if ((priv->child_count % 2 == 0) &&
-                    (up_children_count == (priv->child_count/2)))
-                        return subvols[0];
-        }
-
-        if (priv->quorum_count == AFR_QUORUM_AUTO) {
-                quorum_count = priv->child_count/2 + 1;
+                /*
+                 * Special case for even numbers of nodes in auto-quorum:
+                 * if we have exactly half children up
+                 * and that includes the first ("senior-most") node, then that counts
+                 * as quorum even if it wouldn't otherwise.  This supports e.g. N=2
+                 * while preserving the critical property that there can only be one
+                 * such group.
+                 */
+                if (priv->child_count % 2 == 0 && subvols[0]) {
+                        quorum_count = priv->child_count / 2;
+                } else {
+                        quorum_count = priv->child_count / 2 + 1;
+                }
         } else {
                 quorum_count = priv->quorum_count;
         }
 
-        if (up_children_count >= quorum_count)
-                return _gf_true;
+        if (threshold) {
+                *threshold = (int)(up_children_count - quorum_count);
+        }
 
-        return _gf_false;
+        return up_children_count >= quorum_count;
+}
+
+gf_boolean_t
+afr_has_quorum (unsigned char *subvols, xlator_t *this) {
+        return afr_check_quorum (subvols, this, NULL);
 }
 
 static gf_boolean_t

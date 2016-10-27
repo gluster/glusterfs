@@ -1431,6 +1431,52 @@ afr_marker_populate_args (call_frame_t *frame, int type, int *gauge,
         return priv->child_count;
 }
 
+static int afr_get_quorum_state (call_frame_t *frame, xlator_t *this)
+{
+        afr_private_t  *priv = this->private;
+        dict_t         *dict              = NULL;
+        int             ret               = 0;
+        int             threshold;
+        gf_boolean_t    have_quorum;
+        char            key[128];
+
+        if (!priv) {
+                ret = -EINVAL;
+                goto out;
+        }
+
+        dict = dict_new ();
+        if (!dict) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        have_quorum = afr_check_quorum (priv->child_up, this, &threshold);
+
+        snprintf (key, sizeof (key),
+                        "%s.has-quorum",
+                        this->name);
+        if (dict_set_int32 (dict, key, have_quorum ? 1 : 0 )) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        snprintf (key, sizeof (key),
+                        "%s.quorum-threshold",
+                        this->name);
+        if (dict_set_int32 (dict, key, (int32_t)threshold)) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+out:
+        AFR_STACK_UNWIND (getxattr, frame, ret, -ret, dict, NULL);
+        if (dict) {
+               dict_unref (dict);
+        }
+        return ret;
+}
+
 static int
 afr_handle_heal_xattrs (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         const char *heal_op)
@@ -1521,6 +1567,11 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 		op_errno = ENOMEM;
 		goto out;
 	}
+
+        if (!strcmp (name, GF_AFR_QUORUM_CHECK)) {
+                afr_get_quorum_state (frame, this);
+                return 0;
+        }
 
         if (!strncmp (name, AFR_XATTR_PREFIX,
                       strlen (AFR_XATTR_PREFIX))) {

@@ -150,6 +150,7 @@ struct ios_conf {
         ios_sample_buf_t          *ios_sample_buf;
         struct dnscache           *dnscache;
         int32_t                   ios_dnscache_ttl_sec;
+        gf_boolean_t              iamnfsd;
 };
 
 
@@ -1609,6 +1610,58 @@ ios_global_stats_clear (struct ios_global_stats *stats, struct timeval *now)
         stats->started_at = *now;
 }
 
+static int io_stats_dump_quorum (xlator_t *this, struct ios_dump_args *args) {
+        FILE *logf = args->u.logfp;
+        loc_t root_loc = {0};
+        dict_t *dict = NULL;
+        xlator_list_t *child = NULL;
+        const char *leading_comma = "";
+
+        if (args->type != IOS_DUMP_TYPE_JSON_FILE) {
+                        return -EINVAL;
+        }
+
+        if (!this->itable->root) {
+                return -ENOENT;
+        }
+
+        // If we don't build a valid 'loc', dht_getxattr swallows our request
+        // instead of passing it down to AFR.
+        root_loc.path = "/";
+        root_loc.name = "";
+        root_loc.inode = inode_ref (this->itable->root);
+        gf_uuid_copy (root_loc.gfid, root_loc.inode->gfid);
+
+        ios_log (this, logf, "{");
+
+        for (child = this->children; child; child = child->next) {
+                dict = NULL;
+
+                syncop_getxattr (child->xlator, &root_loc, &dict,
+                                 GF_AFR_QUORUM_CHECK, NULL, NULL);
+
+                if (dict) {
+                        const data_pair_t *e;
+
+                        dict_for_each (dict, e) {
+                                ios_log (this, logf,
+                                         "%s\"storage.gluster.nfsd.%s\": \"%d\"",
+                                         leading_comma,
+                                         e->key, data_to_int32 (e->value));
+                                leading_comma = ",";
+                        }
+
+                        dict_unref (dict);
+                }
+        }
+
+        ios_log (this, logf, "}");
+
+        inode_unref (root_loc.inode);
+
+        return 0;
+}
+
 int
 io_stats_dump (xlator_t *this, struct ios_dump_args *args,
                gf1_cli_info_op op, gf_boolean_t is_peek)
@@ -1655,6 +1708,10 @@ io_stats_dump (xlator_t *this, struct ios_dump_args *args,
         if (op == GF_CLI_INFO_ALL ||
             op == GF_CLI_INFO_INCREMENTAL)
                 io_stats_dump_global (this, &incremental, &now, increment, args);
+
+        if (conf->iamnfsd) {
+                io_stats_dump_quorum (this, args);
+        }
 
         return 0;
 }
@@ -4020,6 +4077,8 @@ init (xlator_t *this)
         if (ret)
                 goto out;
 
+        GF_OPTION_INIT ("iam-nfs-daemon", conf->iamnfsd, bool, out);
+
         GF_OPTION_INIT ("dump-fd-stats", conf->dump_fd_stats, bool, out);
 
         GF_OPTION_INIT ("count-fop-hits", conf->count_fop_hits, bool, out);
@@ -4438,6 +4497,13 @@ struct volume_options options[] = {
           .description = "This option determines the maximum number of unique "
                          "log messages that can be buffered for a time equal to"
                          " the value of the option brick-log-flush-timeout."
+        },
+        {  .key = {"iam-nfs-daemon"},
+           .type = GF_OPTION_TYPE_BOOL,
+           .default_value = "off",
+           .description = "This option differentiates if the io-stats "
+                          "translator is running as part of an NFS daemon "
+                          "or not."
         },
         { .key  = {NULL} },
 

@@ -192,6 +192,7 @@
 #define GF_AFR_DIRTY "trusted.afr.dirty"
 #define GF_XATTROP_ENTRY_OUT "glusterfs.xattrop-entry-delete"
 #define GF_XATTROP_PURGE_INDEX "glusterfs.xattrop-purge-index"
+#define GF_AFR_QUORUM_CHECK "glusterfs.afr.quorum-check"
 
 #define GF_GFIDLESS_LOOKUP "gfidless-lookup"
 /* replace-brick and pump related internal xattrs */
