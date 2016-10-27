@@ -378,8 +378,10 @@ Requires:         pcs, dbus
 %if ( 0%{?rhel} && 0%{?rhel} == 6 )
 Requires:         cman, pacemaker, corosync
 %endif
-# we need portblock resource-agent
-Requires:         %{_prefix}/lib/ocf/resource.d/portblock
+%if ( 0%{?fedora} )
+# we need portblock resource-agent in 3.9.6 and later.
+Requires:         resource-agents >= 3.9.6
+%endif
 
 %description ganesha
 GlusterFS is a distributed file-system capable of scaling to several
