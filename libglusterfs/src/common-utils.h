@@ -100,6 +100,7 @@ void trap (void);
 #define GF_IANA_PRIV_PORTS_START 49152 /* RFC 6335 */
 #define GF_CLNT_INSECURE_PORT_CEILING (GF_IANA_PRIV_PORTS_START - 1)
 #define GF_PORT_MAX 65535
+#define GF_PORT_ARRAY_SIZE ((GF_PORT_MAX + 7) / 8)
 
 #define GF_MINUTE_IN_SECONDS 60
 #define GF_HOUR_IN_SECONDS (60*60)
@@ -236,6 +237,33 @@ void gf_log_dump_graph (FILE *specfp, glusterfs_graph_t *graph);
 void gf_print_trace (int32_t signal, glusterfs_ctx_t *ctx);
 int  gf_set_log_file_path (cmd_args_t *cmd_args, glusterfs_ctx_t *ctx);
 int  gf_set_log_ident (cmd_args_t *cmd_args);
+
+static inline void
+BIT_SET (unsigned char *array, unsigned int index)
+{
+        unsigned int    offset  = index / 8;
+        unsigned int    shift   = index % 8;
+
+        array[offset] |= (1 << shift);
+}
+
+static inline void
+BIT_CLEAR (unsigned char *array, unsigned int index)
+{
+        unsigned int    offset  = index / 8;
+        unsigned int    shift   = index % 8;
+
+        array[offset] &= ~(1 << shift);
+}
+
+static inline unsigned int
+BIT_VALUE (unsigned char *array, unsigned int index)
+{
+        unsigned int    offset  = index / 8;
+        unsigned int    shift   = index % 8;
+
+        return (array[offset] >> shift) & 0x1;
+}
 
 #define VECTORSIZE(count) (count * (sizeof (struct iovec)))
 
@@ -780,9 +808,9 @@ int gf_strip_whitespace (char *str, int len);
 int gf_canonicalize_path (char *path);
 char *generate_glusterfs_ctx_id (void);
 char *gf_get_reserved_ports(void);
-int gf_process_reserved_ports (gf_boolean_t ports[], uint32_t ceiling);
+int gf_process_reserved_ports (unsigned char *ports, uint32_t ceiling);
 gf_boolean_t
-gf_ports_reserved (char *blocked_port, gf_boolean_t *ports, uint32_t ceiling);
+gf_ports_reserved (char *blocked_port, unsigned char *ports, uint32_t ceiling);
 int gf_get_hostname_from_ip (char *client_ip, char **hostname);
 gf_boolean_t gf_is_local_addr (char *hostname);
 gf_boolean_t gf_is_same_address (char *host1, char *host2);

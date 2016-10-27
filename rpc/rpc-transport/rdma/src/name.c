@@ -54,10 +54,10 @@ af_inet_bind_to_port_lt_ceiling (struct rdma_cm_id *cm_id,
                                  struct sockaddr *sockaddr,
                                  socklen_t sockaddr_len, uint32_t ceiling)
 {
-        int32_t        ret        = -1;
-        uint16_t      port        = ceiling - 1;
-        gf_boolean_t  ports[GF_PORT_MAX];
-        int           i           = 0;
+        int32_t         ret                             = -1;
+        uint16_t        port                            = ceiling - 1;
+        unsigned char   ports[GF_PORT_ARRAY_SIZE]       = {0,};
+        int             i                               = 0;
 
 loop:
         ret = gf_process_reserved_ports (ports, ceiling);
@@ -69,7 +69,7 @@ loop:
                 }
 
                 /* ignore the reserved ports */
-                if (ports[port] == _gf_true) {
+                if (BIT_VALUE (ports, port)) {
                         port--;
                         continue;
                 }
@@ -95,7 +95,7 @@ loop:
         if (!port) {
                 ceiling = port = GF_CLNT_INSECURE_PORT_CEILING;
                 for (i = 0; i <= ceiling; i++)
-                        ports[i] = _gf_false;
+                        BIT_CLEAR (ports, i);
                 goto loop;
         }
 
