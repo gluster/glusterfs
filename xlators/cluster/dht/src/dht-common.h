@@ -303,6 +303,9 @@ struct dht_local {
 
         call_stub_t *stub;
         int32_t      parent_disk_layout[4];
+
+        /* rename rollback */
+        int    *ret_cache ;
 };
 typedef struct dht_local dht_local_t;
 
