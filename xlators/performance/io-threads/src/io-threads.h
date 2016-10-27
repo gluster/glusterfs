@@ -37,7 +37,7 @@ struct iot_conf;
 #define IOT_MAX_THREADS         64
 
 
-#define IOT_THREAD_STACK_SIZE   ((size_t)(1024*1024))
+#define IOT_THREAD_STACK_SIZE   ((size_t)(256*1024))
 
 
 typedef enum {
