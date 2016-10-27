@@ -265,13 +265,22 @@ def get_nodes(volume):
 
     # this status is used in caller: run_cmd_nodes
     vol_statusStr = tree.find('volInfo/volumes/volume/statusStr').text
+    vol_typeStr = tree.find('volInfo/volumes/volume/typeStr').text
 
     nodes = []
     volume_el = tree.find('volInfo/volumes/volume')
     try:
-        for b in volume_el.findall('bricks/brick'):
-            nodes.append((b.find('hostUuid').text,
-                          b.find('name').text))
+        brick_elems = []
+        if vol_typeStr == "Tier":
+            brick_elems.append('bricks/hotBricks/brick')
+            brick_elems.append('bricks/coldBricks/brick')
+        else:
+            brick_elems.append('bricks/brick')
+
+        for elem in brick_elems:
+            for b in volume_el.findall(elem):
+                nodes.append((b.find('hostUuid').text,
+                              b.find('name').text))
     except (ParseError, AttributeError, ValueError) as e:
         fail("Failed to parse Volume Info: %s" % e, logger=logger)
 
