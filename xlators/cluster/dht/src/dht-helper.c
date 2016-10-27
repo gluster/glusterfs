@@ -638,6 +638,9 @@ dht_local_wipe (xlator_t *this, dht_local_t *local)
                 local->stub = NULL;
         }
 
+        if (local->ret_cache)
+                GF_FREE (local->ret_cache);
+
         mem_put (local);
 }
 
