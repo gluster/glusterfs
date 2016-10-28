@@ -61,6 +61,7 @@ echo "}"
 }
 
 #This function keeps track of export IDs and increments it with every new entry
+#Also it adds the export dynamically by sending dbus signals
 function export_add()
 {
         count=`ls -l $GANESHA_DIR/exports/*.conf | wc -l`
@@ -79,17 +80,13 @@ function export_add()
         #fi
         fi
         echo $EXPORT_ID > $GANESHA_DIR/.export_added
-        sed -i s/Export_Id.*/"Export_Id= $EXPORT_ID ;"/ \
+        sed -i s/Export_Id.*/"Export_Id=$EXPORT_ID;"/ \
 $GANESHA_DIR/exports/export.$VOL.conf
         echo "%include \"$GANESHA_DIR/exports/export.$VOL.conf\"" >> $CONF1
-}
 
-#This function adds a new export dynamically by sending dbus signals
-function dynamic_export_add()
-{
         dbus-send --print-reply --system --dest=org.ganesha.nfsd \
 /org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.AddExport \
-string:$GANESHA_DIR/exports/export.$VOL.conf string:"EXPORT(Path=/$VOL)"
+string:$GANESHA_DIR/exports/export.$VOL.conf string:"EXPORT(Export_Id=$EXPORT_ID)"
 
 }
 
@@ -99,7 +96,6 @@ function start_ganesha()
         sed -i /$VOL.conf/d  $CONF1
         #Create a new export entry
         export_add $VOL
-        dynamic_export_add $VOL
 
 }
 
