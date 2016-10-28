@@ -77,6 +77,9 @@ enum glusterfs_fop_t {
         GF_FOP_MAXVALUE
 };
 
+/* Note: Removed event GF_EVENT_CHILD_MODIFIED=8, hence
+ *to preserve backward compatibiliy, GF_EVENT_TRANSPORT_CLEANUP = 9
+ */
 enum glusterfs_event_t {
         GF_EVENT_PARENT_UP = 1,
         GF_EVENT_POLLIN,
@@ -85,8 +88,7 @@ enum glusterfs_event_t {
         GF_EVENT_CHILD_UP,
         GF_EVENT_CHILD_DOWN,
         GF_EVENT_CHILD_CONNECTING,
-        GF_EVENT_CHILD_MODIFIED,
-        GF_EVENT_TRANSPORT_CLEANUP,
+        GF_EVENT_TRANSPORT_CLEANUP = 9,
         GF_EVENT_TRANSPORT_CONNECTED,
         GF_EVENT_VOLFILE_MODIFIED,
         GF_EVENT_GRAPH_NEW,
@@ -98,8 +100,9 @@ enum glusterfs_event_t {
         GF_EVENT_VOLUME_BARRIER_OP,
         GF_EVENT_UPCALL,
         GF_EVENT_SCRUB_STATUS,
-        GF_EVENT_SOME_CHILD_DOWN,
+        GF_EVENT_SOME_DESCENDENT_DOWN,
         GF_EVENT_SCRUB_ONDEMAND,
+        GF_EVENT_SOME_DESCENDENT_UP,
         GF_EVENT_MAXVAL
 };
 

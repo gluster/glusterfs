@@ -8915,15 +8915,14 @@ dht_notify (xlator_t *this, int event, void *data, ...)
 
                 break;
 
-        case GF_EVENT_CHILD_MODIFIED:
+        case GF_EVENT_SOME_DESCENDENT_UP:
                 subvol = data;
-
                 conf->gen++;
                 propagate = 1;
 
                 break;
 
-        case GF_EVENT_SOME_CHILD_DOWN:
+        case GF_EVENT_SOME_DESCENDENT_DOWN:
                 subvol = data;
                 propagate = 1;
 
@@ -8968,7 +8967,7 @@ dht_notify (xlator_t *this, int event, void *data, ...)
 
                 for (i = 0; i < conf->subvolume_cnt; i++)
                         if (conf->last_event[i] != event)
-                                event = GF_EVENT_CHILD_MODIFIED;
+                                event = GF_EVENT_SOME_DESCENDENT_DOWN;
                 break;
 
         case GF_EVENT_CHILD_CONNECTING:

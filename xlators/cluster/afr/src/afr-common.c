@@ -4374,27 +4374,21 @@ __afr_transform_event_from_state (afr_private_t *priv)
                 return GF_EVENT_MAXVAL;
 
         up_children = __afr_get_up_children_count (priv);
-        if (up_children) {
-                /* We received at least one child up and there are pending
-                 * notifications from some children. Treat these children as
-                 * having sent a GF_EVENT_CHILD_DOWN. i.e. set the event as
-                 * GF_EVENT_CHILD_MODIFIED, as done in afr_notify() */
-                for (i = 0; i < priv->child_count; i++) {
-                        if (priv->last_event[i])
-                                continue;
-                        priv->last_event[i] = GF_EVENT_CHILD_MODIFIED;
-                        priv->child_up[i] = 0;
-                }
-                return GF_EVENT_CHILD_UP;
-        } else {
-                for (i = 0; i < priv->child_count; i++) {
-                        if (priv->last_event[i])
-                                continue;
-                        priv->last_event[i] = GF_EVENT_SOME_CHILD_DOWN;
-                        priv->child_up[i] = 0;
-                }
-                return GF_EVENT_CHILD_DOWN;
+        /* Treat the children with pending notification, as having sent a
+         * GF_EVENT_CHILD_DOWN. i.e. set the event as GF_EVENT_SOME_DESCENDENT_DOWN,
+         * as done in afr_notify() */
+        for (i = 0; i < priv->child_count; i++) {
+                if (priv->last_event[i])
+                        continue;
+                priv->last_event[i] = GF_EVENT_SOME_DESCENDENT_DOWN;
+                priv->child_up[i] = 0;
         }
+
+        if (up_children)
+                /* We received at least one child up */
+                return GF_EVENT_CHILD_UP;
+        else
+                return GF_EVENT_CHILD_DOWN;
 
         return GF_EVENT_MAXVAL;
 }
@@ -4563,7 +4557,7 @@ afr_notify (xlator_t *this, int32_t event,
                                           "subvol=%s", this->name);
 
                         } else {
-                                event = GF_EVENT_CHILD_MODIFIED;
+                                event = GF_EVENT_SOME_DESCENDENT_UP;
                         }
 
                         priv->last_event[idx] = event;
@@ -4587,7 +4581,7 @@ afr_notify (xlator_t *this, int32_t event,
                                 gf_event (EVENT_AFR_SUBVOLS_DOWN,
                                           "subvol=%s", this->name);
                         } else {
-                                event = GF_EVENT_SOME_CHILD_DOWN;
+                                event = GF_EVENT_SOME_DESCENDENT_DOWN;
                         }
 
                         priv->last_event[idx] = event;
@@ -4599,7 +4593,7 @@ afr_notify (xlator_t *this, int32_t event,
 
                         break;
 
-                case GF_EVENT_SOME_CHILD_DOWN:
+                case GF_EVENT_SOME_DESCENDENT_DOWN:
                         priv->last_event[idx] = event;
                         break;
                 case GF_EVENT_UPCALL:
