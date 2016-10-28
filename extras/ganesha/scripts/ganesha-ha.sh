@@ -241,8 +241,8 @@ refresh_config ()
         local HA_CONFDIR=${2}
         local short_host=$(hostname -s)
 
-        removed_id=`cat $HA_CONFDIR/exports/export.$VOL.conf |\
-grep Export_Id | awk -F"[=,;]" '{print$2}' | tr -d '[[:space:]]'`
+        local removed_id=$(grep ^[[:space:]]*Export_Id $HA_CONFDIR/exports/export.$VOL.conf |\
+                          awk -F"[=,;]" '{print $2}' | tr -d '[[:space:]]')
 
         if [ -e ${SECRET_PEM} ]; then
         while [[ ${3} ]]; do
@@ -265,7 +265,7 @@ uint16:$removed_id 2>&1")
 "dbus-send --print-reply --system --dest=org.ganesha.nfsd \
 /org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.AddExport \
 string:$HA_CONFDIR/exports/export.$VOL.conf \
-string:\"EXPORT(Path=/$VOL)\" 2>&1")
+string:\"EXPORT(Export_Id=$removed_id)\" 2>&1")
                 ret=$?
                 logger <<< "${output}"
                 if [ ${ret} -ne 0 ]; then
@@ -297,7 +297,7 @@ uint16:$removed_id 2>&1)
         output=$(dbus-send --print-reply --system --dest=org.ganesha.nfsd \
 /org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.AddExport \
 string:$HA_CONFDIR/exports/export.$VOL.conf \
-string:"EXPORT(Path=/$VOL)" 2>&1)
+string:"EXPORT(Export_Id=$removed_id)" 2>&1)
         ret=$?
         logger <<< "${output}"
         if [ ${ret} -ne 0 ] ; then
