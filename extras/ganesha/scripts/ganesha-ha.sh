@@ -261,7 +261,7 @@ ${tganesha_vol_conf}
         while [[ ${3} ]]; do
             current_host=`echo ${3} | cut -d "." -f 1`
             if [ ${short_host} != ${current_host} ]; then
-                removed_id=$(ssh -oPasswordAuthentication=no \
+              removed_id=$(ssh -oPasswordAuthentication=no \
 -oStrictHostKeyChecking=no -i ${SECRET_PEM} root@${current_host} \
 "cat $HA_CONFDIR/exports/export.$VOL.conf |\
 grep Export_Id | awk -F\"[=,;]\" '{print \$2}' | tr -d '[[:space:]]'")
@@ -291,7 +291,7 @@ ${current_host}:${HA_CONFDIR}/exports/export.$VOL.conf
 "dbus-send --print-reply --system --dest=org.ganesha.nfsd \
 /org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.AddExport \
 string:$HA_CONFDIR/exports/export.$VOL.conf \
-string:\"EXPORT(Path=/$VOL)\" 2>&1")
+string:\"EXPORT(Path=/$removed_id)\" 2>&1")
                 ret=$?
                 logger <<< "${output}"
                 if [ ${ret} -ne 0 ]; then
@@ -325,7 +325,7 @@ uint16:$removed_id 2>&1)
         output=$(dbus-send --print-reply --system --dest=org.ganesha.nfsd \
 /org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.AddExport \
 string:$HA_CONFDIR/exports/export.$VOL.conf \
-string:"EXPORT(Path=/$VOL)" 2>&1)
+string:"EXPORT(Path=/$removed_id)" 2>&1)
         ret=$?
         logger <<< "${output}"
         if [ ${ret} -ne 0 ] ; then
