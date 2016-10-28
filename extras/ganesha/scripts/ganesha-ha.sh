@@ -241,6 +241,10 @@ refresh_config ()
         local HA_CONFDIR=${2}
         local short_host=$(hostname -s)
 
+        local export_id=$(grep ^[[:space:]]*Export_Id $HA_CONFDIR/exports/export.$VOL.conf |\
+                          awk -F"[=,;]" '{print $2}' | tr -d '[[:space:]]')
+
+
         if [ -e ${SECRET_PEM} ]; then
         while [[ ${3} ]]; do
             current_host=`echo ${3} | cut -d "." -f 1`
@@ -250,7 +254,7 @@ refresh_config ()
 "dbus-send --print-reply --system --dest=org.ganesha.nfsd \
 /org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.UpdateExport \
 string:$HA_CONFDIR/exports/export.$VOL.conf \
-string:\"EXPORT(Path=/$VOL)\" 2>&1")
+string:\"EXPORT(Export_Id=$export_id)\" 2>&1")
                 ret=$?
                 logger <<< "${output}"
                 if [ ${ret} -ne 0 ]; then
@@ -272,7 +276,7 @@ string:\"EXPORT(Path=/$VOL)\" 2>&1")
         output=$(dbus-send --print-reply --system --dest=org.ganesha.nfsd \
 /org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.UpdateExport \
 string:$HA_CONFDIR/exports/export.$VOL.conf \
-string:"EXPORT(Path=/$VOL)" 2>&1)
+string:"EXPORT(Export_Id=$export_id)" 2>&1)
         ret=$?
         logger <<< "${output}"
         if [ ${ret} -ne 0 ] ; then
