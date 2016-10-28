@@ -471,6 +471,7 @@ ec_notify (xlator_t *this, int32_t event, void *data, void *data2)
         dict_t            *input    = NULL;
         dict_t            *output   = NULL;
         gf_boolean_t      propagate = _gf_true;
+        int32_t           orig_event = event;
 
         gf_msg_trace (this->name, 0, "NOTIFY(%d): %p, %p",
                 event, data, data2);
@@ -529,7 +530,10 @@ ec_notify (xlator_t *this, int32_t event, void *data, void *data2)
 
                 if (event != GF_EVENT_MAXVAL) {
                         if (event == old_event) {
-                                event = GF_EVENT_CHILD_MODIFIED;
+                                if (orig_event == GF_EVENT_CHILD_UP)
+                                        event = GF_EVENT_SOME_DESCENDENT_UP;
+                                else /* orig_event has to be GF_EVENT_CHILD_DOWN */
+                                        event = GF_EVENT_SOME_DESCENDENT_DOWN;
                         }
                 } else {
                         propagate = _gf_false;

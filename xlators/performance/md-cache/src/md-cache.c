@@ -2897,7 +2897,7 @@ notify (xlator_t *this, int event, void *data, ...)
         conf = this->private;
         switch (event) {
         case GF_EVENT_CHILD_DOWN:
-        case GF_EVENT_SOME_CHILD_DOWN:
+        case GF_EVENT_SOME_DESCENDENT_DOWN:
                 time (&now);
                 mdc_update_child_down_time (this, &now);
                 break;
@@ -2905,12 +2905,8 @@ notify (xlator_t *this, int event, void *data, ...)
                 if (conf->mdc_invalidation)
                         ret = mdc_invalidate (this, data);
                 break;
-        case GF_EVENT_CHILD_MODIFIED:
-                time (&now);
-                mdc_update_child_down_time (this, &now);
-                ret = mdc_register_xattr_inval (this);
-                break;
         case GF_EVENT_CHILD_UP:
+        case GF_EVENT_SOME_DESCENDENT_UP:
                 ret = mdc_register_xattr_inval (this);
                 break;
         default:
