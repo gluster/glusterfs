@@ -1542,7 +1542,8 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                 nfs_startup_subvolume (this, subvol);
                 break;
 
-        case GF_EVENT_CHILD_MODIFIED:
+        case GF_EVENT_SOME_DESCENDENT_DOWN:
+        case GF_EVENT_SOME_DESCENDENT_UP:
                 priv = this->private;
                 ++(priv->generation);
                 break;
