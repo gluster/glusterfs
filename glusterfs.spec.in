@@ -959,7 +959,6 @@ exit 0
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/barrier.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/cdc.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/changelog.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/fdl.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/gfid-access.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/read-only.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/shard.so
@@ -1016,7 +1015,6 @@ exit 0
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/*.so
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/pump.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/client.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/dht2c.so
 
 %files extra-xlators
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/rot-13.so
@@ -1143,12 +1141,6 @@ exit 0
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/arbiter.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bit-rot.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bitrot-stub.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/jbrc.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/jbr.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/dht2s.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/posix2-ds.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/posix2-mds.so
-%{_libdir}/libposix2common.so
 %if ( 0%{!?_without_tiering:1} )
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/changetimerecorder.so
 %endif
@@ -1245,9 +1237,6 @@ exit 0
 %if ( 0%{?_with_firewalld:1} )
 %{_prefix}/lib/firewalld/services/glusterfs.xml
 %endif
-
-%{_sbindir}/gf_logdump
-%{_sbindir}/gf_recon
 
 # Events
 %if ( 0%{!?_without_events:1} )
