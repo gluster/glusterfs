@@ -2248,12 +2248,323 @@ wb_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
+int
+wb_lookup_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                  dict_t *xdata)
+{
+        STACK_WIND (frame, wb_lookup_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->lookup, loc, xdata);
+        return 0;
+}
+
+
 int32_t
 wb_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
            dict_t *xdata)
 {
+        wb_inode_t   *wb_inode     = NULL;
+        call_stub_t  *stub         = NULL;
+
+        wb_inode = wb_inode_ctx_get (this, loc->inode);
+	if (!wb_inode)
+		goto noqueue;
+
+	stub = fop_lookup_stub (frame, wb_lookup_helper, loc, xdata);
+	if (!stub)
+		goto unwind;
+
+	if (!wb_enqueue (wb_inode, stub))
+		goto unwind;
+
+	wb_process_queue (wb_inode);
+
+        return 0;
+
+unwind:
+        if (stub)
+                call_stub_destroy (stub);
+
+        STACK_UNWIND_STRICT (lookup, frame, -1, ENOMEM, NULL, NULL, NULL, NULL);
+        return 0;
+
+noqueue:
         STACK_WIND (frame, wb_lookup_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup, loc, xdata);
+        return 0;
+}
+
+
+int32_t
+wb_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
+                 dict_t *xdata)
+{
+        wb_inode_t  *wb_inode = NULL;
+        gf_dirent_t *entry    = NULL;
+        inode_t     *inode    = NULL;
+
+        if (op_ret <= 0)
+                goto unwind;
+
+        list_for_each_entry (entry, &entries->list, list) {
+                if (!entry->inode || !IA_ISREG (entry->d_stat.ia_type))
+                        continue;
+
+                wb_inode = wb_inode_ctx_get (this, entry->inode);
+                if (!wb_inode)
+                        continue;
+
+                LOCK (&wb_inode->lock);
+                {
+                        if (!list_empty (&wb_inode->liability)) {
+                                /* We cannot guarantee integrity of
+                                   entry->d_stat as there are cached writes.
+                                   The stat is most likely stale as it doesn't
+                                   account the cached writes. However, checking
+                                   for non-empty liability list here is not a
+                                   fool-proof solution as there can be races
+                                   like,
+                                   1. readdirp is successful on posix
+                                   2. sync of cached write is successful on
+                                      posix
+                                   3. write-behind received sync response and
+                                      removed the request from liability queue
+                                   4. readdirp response is processed at
+                                      write-behind
+
+                                   In the above scenario, stat for the file is
+                                   sent back in readdirp response but it is
+                                   stale.
+
+                                   For lack of better solutions I am sticking
+                                   with current solution.
+                                */
+                                inode = entry->inode;
+
+                                entry->inode = NULL;
+                                memset (&entry->d_stat, 0,
+                                        sizeof (entry->d_stat));
+
+                                inode_unref (inode);
+                        }
+                }
+                UNLOCK (&wb_inode->lock);
+        }
+
+unwind:
+	STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno,
+			     entries, xdata);
+	return 0;
+}
+
+
+int32_t
+wb_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+             off_t off, dict_t *xdata)
+{
+        STACK_WIND (frame, wb_readdirp_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->readdirp,
+                    fd, size, off, xdata);
+
+        return 0;
+}
+
+
+int32_t
+wb_link_helper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
+                loc_t *newloc, dict_t *xdata)
+{
+	STACK_WIND_TAIL (frame,
+			 FIRST_CHILD(this), FIRST_CHILD(this)->fops->link,
+			 oldloc, newloc, xdata);
+	return 0;
+}
+
+
+int32_t
+wb_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
+         dict_t *xdata)
+{
+        wb_inode_t   *wb_inode     = NULL;
+        call_stub_t  *stub         = NULL;
+
+
+	wb_inode = wb_inode_ctx_get (this, oldloc->inode);
+        if (!wb_inode)
+		goto noqueue;
+
+	stub = fop_link_stub (frame, wb_link_helper, oldloc, newloc, xdata);
+	if (!stub)
+		goto unwind;
+
+	if (!wb_enqueue (wb_inode, stub))
+		goto unwind;
+
+	wb_process_queue (wb_inode);
+
+        return 0;
+
+unwind:
+        STACK_UNWIND_STRICT (link, frame, -1, ENOMEM, NULL, NULL, NULL, NULL,
+                             NULL);
+
+        if (stub)
+                call_stub_destroy (stub);
+
+        return 0;
+
+noqueue:
+	STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->link,
+			 oldloc, newloc, xdata);
+	return 0;
+}
+
+
+int32_t
+wb_fallocate_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                     int32_t keep_size, off_t offset, size_t len, dict_t *xdata)
+{
+	STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->fallocate, fd, keep_size,
+                         offset, len, xdata);
+	return 0;
+}
+
+
+int32_t
+wb_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
+              int32_t keep_size, off_t offset, size_t len, dict_t *xdata)
+{
+        wb_inode_t   *wb_inode     = NULL;
+        call_stub_t  *stub         = NULL;
+
+
+	wb_inode = wb_inode_ctx_get (this, fd->inode);
+        if (!wb_inode)
+		goto noqueue;
+
+	stub = fop_fallocate_stub (frame, wb_fallocate_helper, fd, keep_size,
+                                   offset, len, xdata);
+	if (!stub)
+		goto unwind;
+
+	if (!wb_enqueue (wb_inode, stub))
+		goto unwind;
+
+	wb_process_queue (wb_inode);
+
+        return 0;
+
+unwind:
+        STACK_UNWIND_STRICT (fallocate, frame, -1, ENOMEM, NULL, NULL, NULL);
+
+        if (stub)
+                call_stub_destroy (stub);
+
+        return 0;
+
+noqueue:
+	STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->fallocate, fd, keep_size,
+                         offset, len, xdata);
+	return 0;
+}
+
+
+int32_t
+wb_discard_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+                   size_t len, dict_t *xdata)
+{
+	STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->discard,
+			 fd, offset, len, xdata);
+	return 0;
+}
+
+
+int32_t
+wb_discard (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+            size_t len, dict_t *xdata)
+{
+        wb_inode_t   *wb_inode     = NULL;
+        call_stub_t  *stub         = NULL;
+
+	wb_inode = wb_inode_ctx_get (this, fd->inode);
+        if (!wb_inode)
+		goto noqueue;
+
+	stub = fop_discard_stub (frame, wb_discard_helper, fd, offset, len,
+                                 xdata);
+	if (!stub)
+		goto unwind;
+
+	if (!wb_enqueue (wb_inode, stub))
+		goto unwind;
+
+	wb_process_queue (wb_inode);
+
+        return 0;
+
+unwind:
+        STACK_UNWIND_STRICT (discard, frame, -1, ENOMEM, NULL, NULL, NULL);
+
+        if (stub)
+                call_stub_destroy (stub);
+        return 0;
+
+noqueue:
+	STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->discard,
+			 fd, offset, len, xdata);
+
+        return 0;
+}
+
+
+int32_t
+wb_zerofill_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                    off_t offset, off_t len, dict_t *xdata)
+{
+	STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->zerofill,
+			 fd, offset, len, xdata);
+	return 0;
+}
+
+int32_t
+wb_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd,
+             off_t offset, off_t len, dict_t *xdata)
+{
+        wb_inode_t   *wb_inode     = NULL;
+        call_stub_t  *stub         = NULL;
+
+	wb_inode = wb_inode_ctx_get (this, fd->inode);
+        if (!wb_inode)
+		goto noqueue;
+
+	stub = fop_zerofill_stub (frame, wb_zerofill_helper, fd, offset, len,
+                                  xdata);
+	if (!stub)
+		goto unwind;
+
+	if (!wb_enqueue (wb_inode, stub))
+		goto unwind;
+
+	wb_process_queue (wb_inode);
+
+        return 0;
+
+unwind:
+        STACK_UNWIND_STRICT (zerofill, frame, -1, ENOMEM, NULL, NULL, NULL);
+
+        if (stub)
+                call_stub_destroy (stub);
+
+noqueue:
+	STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->zerofill,
+			 fd, offset, len, xdata);
         return 0;
 }
 
@@ -2601,6 +2912,12 @@ struct xlator_fops fops = {
         .ftruncate   = wb_ftruncate,
         .setattr     = wb_setattr,
         .fsetattr    = wb_fsetattr,
+        .lookup      = wb_lookup,
+        .readdirp    = wb_readdirp,
+        .link        = wb_link,
+        .fallocate   = wb_fallocate,
+        .discard     = wb_discard,
+        .zerofill    = wb_zerofill,
 };
 
 
