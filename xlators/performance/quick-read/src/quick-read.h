@@ -39,6 +39,7 @@ struct qr_inode {
 	struct iatt       buf;
         struct timeval    last_refresh;
         struct list_head  lru;
+        uint64_t          gen;
 };
 typedef struct qr_inode qr_inode_t;
 
