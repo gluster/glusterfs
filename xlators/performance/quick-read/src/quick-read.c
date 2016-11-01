@@ -15,9 +15,9 @@
 #include "upcall-utils.h"
 
 qr_inode_t *qr_inode_ctx_get (xlator_t *this, inode_t *inode);
-void __qr_inode_prune (xlator_t *this, qr_inode_table_t *table,
-                       qr_inode_t *qr_inode);
 
+void __qr_inode_prune (xlator_t *this, qr_inode_table_t *table,
+                       qr_inode_t *qr_inode, uint64_t gen);
 
 int
 __qr_inode_ctx_set (xlator_t *this, inode_t *inode, qr_inode_t *qr_inode)
@@ -103,7 +103,7 @@ qr_inode_ctx_get_or_new (xlator_t *this, inode_t *inode)
 
 		ret = __qr_inode_ctx_set (this, inode, qr_inode);
 		if (ret) {
-			__qr_inode_prune (this, &priv->table, qr_inode);
+			__qr_inode_prune (this, &priv->table, qr_inode, ~0);
 			GF_FREE (qr_inode);
                         qr_inode = NULL;
 		}
@@ -192,7 +192,9 @@ qr_inode_set_priority (xlator_t *this, inode_t *inode, const char *path)
 
 /* To be called with priv->table.lock held */
 void
-__qr_inode_prune (xlator_t *this, qr_inode_table_t *table, qr_inode_t *qr_inode)
+
+__qr_inode_prune (xlator_t *this, qr_inode_table_t *table, qr_inode_t *qr_inode,
+                  uint64_t gen)
 {
         qr_private_t     *priv = NULL;
 
@@ -200,6 +202,10 @@ __qr_inode_prune (xlator_t *this, qr_inode_table_t *table, qr_inode_t *qr_inode)
 
 	GF_FREE (qr_inode->data);
 	qr_inode->data = NULL;
+
+        /* Set gen only with valid callers */
+        if (gen != ~0)
+                qr_inode->gen = gen;
 
 	if (!list_empty (&qr_inode->lru)) {
 		table->cache_used -= qr_inode->size;
@@ -215,7 +221,7 @@ __qr_inode_prune (xlator_t *this, qr_inode_table_t *table, qr_inode_t *qr_inode)
 
 
 void
-qr_inode_prune (xlator_t *this, inode_t *inode)
+qr_inode_prune (xlator_t *this, inode_t *inode, uint64_t gen)
 {
         qr_private_t     *priv          = NULL;
         qr_inode_table_t *table         = NULL;
@@ -230,7 +236,7 @@ qr_inode_prune (xlator_t *this, inode_t *inode)
 
 	LOCK (&table->lock);
 	{
-		__qr_inode_prune (this, table, qr_inode);
+		__qr_inode_prune (this, table, qr_inode, gen);
 	}
 	UNLOCK (&table->lock);
 }
@@ -250,7 +256,7 @@ __qr_cache_prune (xlator_t *this, qr_inode_table_t *table, qr_conf_t *conf)
 
                         size_pruned += curr->size;
 
-                        __qr_inode_prune (this, table, curr);
+                        __qr_inode_prune (this, table, curr, ~0);
 
                         if (table->cache_used < conf->cache_size)
 				return;
@@ -306,7 +312,7 @@ out:
 
 void
 qr_content_update (xlator_t *this, qr_inode_t *qr_inode, void *data,
-		   struct iatt *buf)
+		   struct iatt *buf, uint64_t gen)
 {
         qr_private_t      *priv = NULL;
         qr_inode_table_t  *table = NULL;
@@ -316,7 +322,12 @@ qr_content_update (xlator_t *this, qr_inode_t *qr_inode, void *data,
 
 	LOCK (&table->lock);
 	{
-		__qr_inode_prune (this, table, qr_inode);
+                /* allow for rollover of frame->root->unique */
+                if (gen && qr_inode->gen && (qr_inode->gen >= gen))
+                        goto unlock;
+
+                qr_inode->gen = gen;
+		__qr_inode_prune (this, table, qr_inode, gen);
 
 		qr_inode->data = data;
 		qr_inode->size = buf->ia_size;
@@ -330,6 +341,7 @@ qr_content_update (xlator_t *this, qr_inode_t *qr_inode, void *data,
 
 		__qr_inode_register (this, table, qr_inode);
 	}
+unlock:
 	UNLOCK (&table->lock);
 
 	qr_cache_prune (this);
@@ -352,7 +364,8 @@ qr_mtime_equal (qr_inode_t *qr_inode, struct iatt *buf)
 
 
 void
-__qr_content_refresh (xlator_t *this, qr_inode_t *qr_inode, struct iatt *buf)
+__qr_content_refresh (xlator_t *this, qr_inode_t *qr_inode, struct iatt *buf,
+                      uint64_t gen)
 {
         qr_private_t      *priv = NULL;
         qr_inode_table_t  *table = NULL;
@@ -362,6 +375,12 @@ __qr_content_refresh (xlator_t *this, qr_inode_t *qr_inode, struct iatt *buf)
         table = &priv->table;
 	conf = &priv->conf;
 
+        /* allow for rollover of frame->root->unique */
+        if (gen && qr_inode->gen && (qr_inode->gen >= gen))
+                goto done;
+
+        qr_inode->gen = gen;
+
 	if (qr_size_fits (conf, buf) && qr_mtime_equal (qr_inode, buf)) {
 		qr_inode->buf = *buf;
 
@@ -369,15 +388,17 @@ __qr_content_refresh (xlator_t *this, qr_inode_t *qr_inode, struct iatt *buf)
 
 		__qr_inode_register (this, table, qr_inode);
 	} else {
-		__qr_inode_prune (this, table, qr_inode);
+		__qr_inode_prune (this, table, qr_inode, gen);
 	}
 
+done:
 	return;
 }
 
 
 void
-qr_content_refresh (xlator_t *this, qr_inode_t *qr_inode, struct iatt *buf)
+qr_content_refresh (xlator_t *this, qr_inode_t *qr_inode, struct iatt *buf,
+                    uint64_t gen)
 {
         qr_private_t      *priv = NULL;
         qr_inode_table_t  *table = NULL;
@@ -387,7 +408,7 @@ qr_content_refresh (xlator_t *this, qr_inode_t *qr_inode, struct iatt *buf)
 
 	LOCK (&table->lock);
 	{
-		__qr_content_refresh (this, qr_inode, buf);
+		__qr_content_refresh (this, qr_inode, buf, gen);
 	}
 	UNLOCK (&table->lock);
 }
@@ -431,17 +452,17 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	frame->local = NULL;
 
         if (op_ret == -1) {
-		qr_inode_prune (this, inode);
+		qr_inode_prune (this, inode, ~0);
                 goto out;
 	}
 
         if (dict_get (xdata, GLUSTERFS_BAD_INODE)) {
-                qr_inode_prune (this, inode);
+                qr_inode_prune (this, inode, frame->root->unique);
                 goto out;
         }
 
 	if (dict_get (xdata, "sh-failed")) {
-		qr_inode_prune (this, inode);
+		qr_inode_prune (this, inode, frame->root->unique);
 		goto out;
 	}
 
@@ -455,7 +476,8 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			GF_FREE (content);
 			goto out;
 		}
-		qr_content_update (this, qr_inode, content, buf);
+		qr_content_update (this, qr_inode, content, buf,
+                                   frame->root->unique);
 	} else {
 		/* purge old content if necessary */
 		qr_inode = qr_inode_ctx_get (this, inode);
@@ -463,7 +485,7 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			/* usual path for large files */
 			goto out;
 
-		qr_content_refresh (this, qr_inode, buf);
+		qr_content_refresh (this, qr_inode, buf, frame->root->unique);
 	}
 out:
 	if (inode)
@@ -539,7 +561,8 @@ qr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			/* no harm */
 			continue;
 
-		qr_content_refresh (this, qr_inode, &entry->d_stat);
+		qr_content_refresh (this, qr_inode, &entry->d_stat,
+                                    frame->root->unique);
         }
 
 unwind:
@@ -661,7 +684,7 @@ qr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *iov,
 	   int count, off_t offset, uint32_t flags, struct iobref *iobref,
 	   dict_t *xdata)
 {
-	qr_inode_prune (this, fd->inode);
+	qr_inode_prune (this, fd->inode, frame->root->unique);
 
 	STACK_WIND (frame, default_writev_cbk,
 		    FIRST_CHILD (this), FIRST_CHILD (this)->fops->writev,
@@ -674,7 +697,7 @@ int
 qr_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
 	     dict_t *xdata)
 {
-	qr_inode_prune (this, loc->inode);
+	qr_inode_prune (this, loc->inode, frame->root->unique);
 
 	STACK_WIND (frame, default_truncate_cbk,
 		    FIRST_CHILD (this), FIRST_CHILD (this)->fops->truncate,
@@ -687,7 +710,7 @@ int
 qr_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 	      dict_t *xdata)
 {
-	qr_inode_prune (this, fd->inode);
+	qr_inode_prune (this, fd->inode, frame->root->unique);
 
 	STACK_WIND (frame, default_ftruncate_cbk,
 		    FIRST_CHILD (this), FIRST_CHILD (this)->fops->ftruncate,
@@ -699,7 +722,7 @@ static int
 qr_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd, int keep_size,
               off_t offset, size_t len, dict_t *xdata)
 {
-        qr_inode_prune (this, fd->inode);
+        qr_inode_prune (this, fd->inode, frame->root->unique);
 
         STACK_WIND (frame, default_fallocate_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->fallocate,
@@ -711,7 +734,7 @@ static int
 qr_discard (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
               size_t len, dict_t *xdata)
 {
-        qr_inode_prune (this, fd->inode);
+        qr_inode_prune (this, fd->inode, frame->root->unique);
 
         STACK_WIND (frame, default_discard_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->discard,
@@ -723,7 +746,7 @@ static int
 qr_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
               off_t len, dict_t *xdata)
 {
-        qr_inode_prune (this, fd->inode);
+        qr_inode_prune (this, fd->inode, frame->root->unique);
 
         STACK_WIND (frame, default_zerofill_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->zerofill,
@@ -753,7 +776,7 @@ qr_forget (xlator_t *this, inode_t *inode)
 	if (!qr_inode)
 		return 0;
 
-	qr_inode_prune (this, inode);
+	qr_inode_prune (this, inode, ~0);
 
 	GF_FREE (qr_inode);
 
@@ -1236,7 +1259,7 @@ qr_invalidate (xlator_t *this, void *data)
                         ret = -1;
                         goto out;
                 }
-                qr_inode_prune (this, inode);
+                qr_inode_prune (this, inode, ~0);
         }
 
 out:
