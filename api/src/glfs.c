@@ -1449,18 +1449,18 @@ pub_glfs_upcall_inode_get_pstat (struct glfs_upcall_inode *arg)
 {
         return &arg->p_buf;
 }
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_get_pstat, 3.7.16);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_inode_get_pstat, 3.7.16);
 
 struct glfs_object*
 pub_glfs_upcall_inode_get_oldpobject (struct glfs_upcall_inode *arg)
 {
         return arg->oldp_object;
 }
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_get_oldpobject, 3.7.16);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_inode_get_oldpobject, 3.7.16);
 
 struct stat*
 pub_glfs_upcall_inode_get_oldpstat (struct glfs_upcall_inode *arg)
 {
         return &arg->oldp_buf;
 }
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_get_oldpstat, 3.7.16);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_inode_get_oldpstat, 3.7.16);
