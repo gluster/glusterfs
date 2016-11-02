@@ -360,12 +360,17 @@ gf_fuse_mount (const char *mountpoint, char *fsname,
                                       fd);
                 if (ret == -1) {
                         gf_log ("glusterfs-fuse", GF_LOG_INFO,
-                                "direct mount failed (%s) errno %d, "
-                                "retry to mount via fusermount",
+                                "direct mount failed (%s) errno %d",
                                 strerror (errno), errno);
 
-                        ret = fuse_mount_fusermount (mountpoint, fsname,
-                                                     mountflags, mnt_param, fd);
+                        if (errno == EPERM) {
+                                gf_log ("glusterfs-fuse", GF_LOG_INFO,
+                                        "retry to mount via fusermount");
+
+                                ret = fuse_mount_fusermount (mountpoint, fsname,
+                                                             mountflags,
+                                                             mnt_param, fd);
+                        }
                 }
 
                 if (ret == -1)
