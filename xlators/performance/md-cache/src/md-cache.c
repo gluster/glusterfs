@@ -33,7 +33,7 @@ struct mdc_conf {
 	gf_boolean_t cache_selinux;
 	gf_boolean_t force_readdirp;
         gf_boolean_t cache_swift_metadata;
-        gf_boolean_t strict_xattrs;
+        gf_boolean_t cache_all_xattrs;
 };
 
 
@@ -809,7 +809,7 @@ is_mdc_key_satisfied (const char *key)
 			return 1;
 	}
 
-	return checked_keys > 0 ? 0 : 1;
+        return 0;
 }
 
 
@@ -879,7 +879,7 @@ mdc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         dict_t      *xattr_rsp = NULL;
         dict_t      *xattr_alloc = NULL;
         mdc_local_t *local = NULL;
-
+        struct mdc_conf *conf = this->private;
 
         local = mdc_local_get (frame);
         if (!local)
@@ -903,9 +903,16 @@ mdc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 if (ret != 0)
                         goto uncached;
 
-                if (!mdc_xattr_satisfied (this, xdata, xattr_rsp))
+                /* Only check the keys if we are not caching all the xattrs */
+                if (!conf->cache_all_xattrs &&
+                    !mdc_xattr_satisfied (this, xdata, xattr_rsp)) {
                         goto uncached;
+                }
         }
+
+        gf_msg (this->name, GF_LOG_TRACE, 0, 0,
+                "Returning lookup from cache for gfid %s",
+                uuid_utoa(loc->inode->gfid));
 
         MDC_STACK_UNWIND (lookup, frame, 0, 0, loc->inode, &stbuf,
                           xattr_rsp, &postparent);
@@ -1902,15 +1909,14 @@ mdc_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
 		goto uncached;
 
 	if (!xattr || !dict_get (xattr, (char *)key)) {
-                /* If we can't find the extended attribute, & strict-xattrs
+                /* If we can't find the extended attribute, & cache-all-xattrs
                  * is enabled, we should wind and try to find them.
                  *
                  * NOTE: Quota & AFR queries through the mount
-                 * (i.e, "special" Gluster xattrs)
-                 * won't work unless strict-xattrs is enabled when
-                 * md-cache is on.
+                 * (i.e, virtual Gluster xattrs)
+                 * won't work unless we do this.
                  */
-                if (conf->strict_xattrs) {
+                if (conf->cache_all_xattrs) {
                         goto uncached;
                 }
 
@@ -2380,7 +2386,7 @@ reconfigure (xlator_t *this, dict_t *options)
 
 
 	GF_OPTION_RECONF("force-readdirp", conf->force_readdirp, options, bool, out);
-        GF_OPTION_RECONF("strict-xattrs", conf->strict_xattrs, options,
+        GF_OPTION_RECONF("cache-all-xattrs", conf->cache_all_xattrs, options,
                          bool, out);
 out:
 	return 0;
@@ -2422,7 +2428,7 @@ init (xlator_t *this)
                           conf->cache_swift_metadata);
 
 	GF_OPTION_INIT("force-readdirp", conf->force_readdirp, bool, out);
-        GF_OPTION_INIT ("strict-xattrs", conf->strict_xattrs, bool, out);
+        GF_OPTION_INIT ("cache-all-xattrs", conf->cache_all_xattrs, bool, out);
 out:
 	this->private = conf;
 
@@ -2511,6 +2517,11 @@ struct volume_options options[] = {
                          "instead of returning ENODATA. This is necessary to query "
                          "the special extended attributes (trusted.glusterfs.quota.size) "
                          "through a FUSE mount with md-cache enabled."
+        },
+        { .key = {"cache-all-xattrs"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "on",
+          .description = "Cache all the extended attributes for an inode.",
         },
     { .key = {NULL} },
 };
