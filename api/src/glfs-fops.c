@@ -938,6 +938,8 @@ out:
                 fd_unref (fd);
 
         if (ret) {
+                if (fd)
+                        fd_unref (fd);
                 if (glfd)
                         GF_REF_PUT (glfd);
                 if (gio) {
@@ -1256,6 +1258,8 @@ out:
                 fd_unref (fd);
 
         if (ret) {
+                if (fd)
+                        fd_unref (fd);
                 if (glfd)
                         GF_REF_PUT (glfd);
                 GF_FREE (gio);
@@ -1443,6 +1447,8 @@ out:
                 fd_unref (fd);
 
         if (ret) {
+                if (fd)
+                        fd_unref (fd);
                 if (glfd)
                         GF_REF_PUT (glfd);
                 GF_FREE (gio);
@@ -1697,6 +1703,8 @@ out:
                 fd_unref (fd);
 
         if (ret) {
+                if (fd)
+                        fd_unref (fd);
                 if (glfd)
                         GF_REF_PUT (glfd);
                 GF_FREE (gio);
@@ -2556,6 +2564,8 @@ out:
                 fd_unref (fd);
 
         if (ret) {
+                if (fd)
+                        fd_unref (fd);
                 if (glfd)
                         GF_REF_PUT (glfd);
                 GF_FREE (gio);
@@ -2644,6 +2654,8 @@ out:
                 fd_unref (fd);
 
         if (ret) {
+                if (fd)
+                        fd_unref (fd);
                 if (glfd)
                         GF_REF_PUT (glfd);
                 GF_FREE (gio);
