@@ -33,6 +33,7 @@ struct mdc_conf {
 	gf_boolean_t cache_selinux;
 	gf_boolean_t force_readdirp;
         gf_boolean_t cache_swift_metadata;
+        gf_boolean_t strict_xattrs;
 };
 
 
@@ -792,6 +793,7 @@ struct checkpair {
 static int
 is_mdc_key_satisfied (const char *key)
 {
+        unsigned int checked_keys = 0;
 	const char *mdc_key = NULL;
 	int  i = 0;
 
@@ -801,11 +803,13 @@ is_mdc_key_satisfied (const char *key)
 	for (mdc_key = mdc_keys[i].name; (mdc_key = mdc_keys[i].name); i++) {
 		if (!mdc_keys[i].load)
 			continue;
+
+                checked_keys++;
 		if (strcmp (mdc_key, key) == 0)
 			return 1;
 	}
 
-	return 0;
+	return checked_keys > 0 ? 0 : 1;
 }
 
 
@@ -1882,6 +1886,7 @@ mdc_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
 	int           op_errno = ENODATA;
         mdc_local_t  *local = NULL;
 	dict_t       *xattr = NULL;
+        struct mdc_conf *conf = this->private;
 
         local = mdc_local_get (frame);
         if (!local)
@@ -1897,7 +1902,19 @@ mdc_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
 		goto uncached;
 
 	if (!xattr || !dict_get (xattr, (char *)key)) {
-		ret = -1;
+                /* If we can't find the extended attribute, & strict-xattrs
+                 * is enabled, we should wind and try to find them.
+                 *
+                 * NOTE: Quota & AFR queries through the mount
+                 * (i.e, "special" Gluster xattrs)
+                 * won't work unless strict-xattrs is enabled when
+                 * md-cache is on.
+                 */
+                if (conf->strict_xattrs) {
+                        goto uncached;
+                }
+
+                ret = -1;
 		op_errno = ENODATA;
 	}
 
@@ -2363,7 +2380,8 @@ reconfigure (xlator_t *this, dict_t *options)
 
 
 	GF_OPTION_RECONF("force-readdirp", conf->force_readdirp, options, bool, out);
-
+        GF_OPTION_RECONF("strict-xattrs", conf->strict_xattrs, options,
+                         bool, out);
 out:
 	return 0;
 }
@@ -2404,6 +2422,7 @@ init (xlator_t *this)
                           conf->cache_swift_metadata);
 
 	GF_OPTION_INIT("force-readdirp", conf->force_readdirp, bool, out);
+        GF_OPTION_INIT ("strict-xattrs", conf->strict_xattrs, bool, out);
 out:
 	this->private = conf;
 
@@ -2474,7 +2493,7 @@ struct volume_options options[] = {
         { .key = {"md-cache-timeout"},
           .type = GF_OPTION_TYPE_INT,
           .min = 0,
-          .max = 60,
+          .max = 300,
           .default_value = "1",
           .description = "Time period after which cache has to be refreshed",
         },
@@ -2484,5 +2503,14 @@ struct volume_options options[] = {
 	  .description = "Convert all readdir requests to readdirplus to "
 			 "collect stat info on each entry.",
 	},
+        { .key = {"strict-xattrs"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "true",
+          .description = "When reading extended attributes from the cache, "
+                         "if an xattr is not found, attempt to find it by winding "
+                         "instead of returning ENODATA. This is necessary to query "
+                         "the special extended attributes (trusted.glusterfs.quota.size) "
+                         "through a FUSE mount with md-cache enabled."
+        },
     { .key = {NULL} },
 };
