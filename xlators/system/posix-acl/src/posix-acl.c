@@ -880,6 +880,9 @@ posix_acl_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = posix_acl_get (inode, this, &old_access, &old_default);
 
+        if (xattr == NULL)
+                goto acl_set;
+
         data = dict_get (xattr, POSIX_ACL_ACCESS_XATTR);
         if (!data)
                 goto acl_default;
