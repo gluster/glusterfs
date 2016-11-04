@@ -562,8 +562,13 @@ upcall_cache_invalidate (call_frame_t *frame, xlator_t *this, client_t *client,
                 gf_uuid_copy (up_inode_ctx->gfid, stbuf->ia_gfid);
         }
 
-        GF_VALIDATE_OR_GOTO ("upcall_cache_invalidate",
-                             !(gf_uuid_is_null (up_inode_ctx->gfid)), out);
+        if (gf_uuid_is_null (up_inode_ctx->gfid)) {
+                gf_msg_debug (this->name, 0, "up_inode_ctx->gfid and "
+                              "stbuf->ia_gfid is NULL, fop:%s",
+                              gf_fop_list[frame->root->op]);
+                goto out;
+        }
+
         pthread_mutex_lock (&up_inode_ctx->client_list_lock);
         {
                 list_for_each_entry_safe (up_client_entry, tmp,
