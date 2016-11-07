@@ -347,6 +347,11 @@ typedef struct {
 	int readdir_subvol;
 } afr_fd_ctx_t;
 
+typedef enum {
+        AFR_FOP_LOCK_PARALLEL,
+        AFR_FOP_LOCK_SERIAL,
+        AFR_FOP_LOCK_QUORUM_FAILED,
+} afr_fop_lock_state_t;
 
 typedef struct _afr_local {
 	glusterfs_fop_t  op;
@@ -664,11 +669,19 @@ typedef struct _afr_local {
                 struct {
                         char *volume;
                         int32_t cmd;
+                        int32_t in_cmd;
+                        struct gf_flock in_flock;
                         struct gf_flock flock;
+                        void *xdata;
                 } inodelk;
 
                 struct {
+                        char *volume;
+                        char *basename;
+                        entrylk_cmd in_cmd;
                         entrylk_cmd cmd;
+                        entrylk_type type;
+                        void *xdata;
                 } entrylk;
 
                 struct {
@@ -791,6 +804,7 @@ typedef struct _afr_local {
 
         gf_boolean_t need_full_crawl;
         gf_boolean_t compound;
+        afr_fop_lock_state_t fop_lock_state;
 } afr_local_t;
 
 
@@ -1179,6 +1193,9 @@ afr_get_msg_id (char *op_type);
 int
 afr_set_in_flight_sb_status (xlator_t *this, afr_local_t *local,
                              inode_t *inode);
+
+int32_t
+afr_quorum_errno (afr_private_t *priv);
 
 gf_boolean_t
 afr_is_consistent_io_possible (afr_local_t *local, afr_private_t *priv,

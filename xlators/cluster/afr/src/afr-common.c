@@ -45,6 +45,14 @@
 #include "afr-messages.h"
 #include "compound-fop-utils.h"
 
+int32_t
+afr_quorum_errno (afr_private_t *priv)
+{
+        if (priv->quorum_reads)
+                return ENOTCONN;
+        return EROFS;
+}
+
 gf_boolean_t
 afr_is_consistent_io_possible (afr_local_t *local, afr_private_t *priv,
                                int32_t *op_errno)
@@ -1573,20 +1581,20 @@ afr_remove_eager_lock_stub (afr_local_t *local)
 }
 
 static gf_boolean_t
-afr_entrylk_is_unlock (entrylk_cmd cmd)
+afr_fop_lock_is_unlock (call_frame_t *frame)
 {
-        if (ENTRYLK_UNLOCK == cmd)
-                return _gf_true;
-        return _gf_false;
-}
-
-static gf_boolean_t
-afr_inodelk_is_unlock (int32_t cmd, struct gf_flock *flock)
-{
-        switch (cmd) {
-        case F_SETLKW:
-        case F_SETLK:
-                if (F_UNLCK == flock->l_type)
+        afr_local_t *local = frame->local;
+        switch (local->op) {
+        case GF_FOP_INODELK:
+        case GF_FOP_FINODELK:
+                if ((F_UNLCK == local->cont.inodelk.in_flock.l_type) &&
+                   (local->cont.inodelk.in_cmd == F_SETLKW ||
+                    local->cont.inodelk.in_cmd == F_SETLK))
+                        return _gf_true;
+                break;
+        case GF_FOP_ENTRYLK:
+        case GF_FOP_FENTRYLK:
+                if (ENTRYLK_UNLOCK == local->cont.entrylk.in_cmd)
                         return _gf_true;
                 break;
         default:
@@ -1789,6 +1797,15 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 
         { /* inodelk */
                 GF_FREE (local->cont.inodelk.volume);
+                if (local->cont.inodelk.xdata)
+                        dict_unref (local->cont.inodelk.xdata);
+        }
+
+        { /* entrylk */
+                GF_FREE (local->cont.entrylk.volume);
+                GF_FREE (local->cont.entrylk.basename);
+                if (local->cont.entrylk.xdata)
+                        dict_unref (local->cont.entrylk.xdata);
         }
 
         if (local->xdata_req)
@@ -3347,10 +3364,96 @@ out:
 
 /* }}} */
 
-int32_t
-afr_unlock_partial_inodelk_cbk (call_frame_t *frame, void *cookie,
-                                xlator_t *this, int32_t op_ret,
-                                int32_t op_errno, dict_t *xdata)
+static int
+afr_serialized_lock_wind (call_frame_t *frame, xlator_t *this);
+
+static gf_boolean_t
+afr_is_conflicting_lock_present (int32_t op_ret, int32_t op_errno)
+{
+        if (op_ret == -1 && op_errno == EAGAIN)
+                return _gf_true;
+        return _gf_false;
+}
+
+static void
+afr_fop_lock_unwind (call_frame_t *frame, glusterfs_fop_t op, int32_t op_ret,
+                     int32_t op_errno, dict_t *xdata)
+{
+        switch (op) {
+        case GF_FOP_INODELK:
+                AFR_STACK_UNWIND (inodelk, frame, op_ret, op_errno, xdata);
+                break;
+        case GF_FOP_FINODELK:
+                AFR_STACK_UNWIND (finodelk, frame, op_ret, op_errno, xdata);
+                break;
+        case GF_FOP_ENTRYLK:
+                AFR_STACK_UNWIND (entrylk, frame, op_ret, op_errno, xdata);
+                break;
+        case GF_FOP_FENTRYLK:
+                AFR_STACK_UNWIND (fentrylk, frame, op_ret, op_errno, xdata);
+                break;
+        default:
+                break;
+        }
+}
+
+static void
+afr_fop_lock_wind (call_frame_t *frame, xlator_t *this, int child_index,
+                   int32_t (*lock_cbk) (call_frame_t *, void *, xlator_t *,
+                                        int32_t, int32_t, dict_t *))
+{
+        afr_local_t *local = frame->local;
+        afr_private_t *priv = this->private;
+        int i = child_index;
+
+        switch (local->op) {
+        case GF_FOP_INODELK:
+                STACK_WIND_COOKIE (frame, lock_cbk, (void *) (long) i,
+                                   priv->children[i],
+                                   priv->children[i]->fops->inodelk,
+                                   (const char *)local->cont.inodelk.volume,
+                                   &local->loc, local->cont.inodelk.cmd,
+                                   &local->cont.inodelk.flock,
+                                   local->cont.inodelk.xdata);
+                break;
+        case GF_FOP_FINODELK:
+                STACK_WIND_COOKIE (frame, lock_cbk, (void *) (long) i,
+                                   priv->children[i],
+                                   priv->children[i]->fops->finodelk,
+                                   (const char *)local->cont.inodelk.volume,
+                                   local->fd, local->cont.inodelk.cmd,
+                                   &local->cont.inodelk.flock,
+                                   local->cont.inodelk.xdata);
+                break;
+        case GF_FOP_ENTRYLK:
+                STACK_WIND_COOKIE (frame, lock_cbk, (void *) (long) i,
+                                   priv->children[i],
+                                   priv->children[i]->fops->entrylk,
+                                   local->cont.entrylk.volume, &local->loc,
+                                   local->cont.entrylk.basename,
+                                   local->cont.entrylk.cmd,
+                                   local->cont.entrylk.type,
+                                   local->cont.entrylk.xdata);
+                break;
+        case GF_FOP_FENTRYLK:
+                STACK_WIND_COOKIE (frame, lock_cbk, (void *) (long) i,
+                                   priv->children[i],
+                                   priv->children[i]->fops->fentrylk,
+                                   local->cont.entrylk.volume, local->fd,
+                                   local->cont.entrylk.basename,
+                                   local->cont.entrylk.cmd,
+                                   local->cont.entrylk.type,
+                                   local->cont.entrylk.xdata);
+                break;
+        default:
+                break;
+        }
+}
+
+static int32_t
+afr_unlock_partial_lock_cbk (call_frame_t *frame, void *cookie,
+                             xlator_t *this, int32_t op_ret,
+                             int32_t op_errno, dict_t *xdata)
 
 {
         afr_local_t *local = NULL;
@@ -3363,28 +3466,78 @@ afr_unlock_partial_inodelk_cbk (call_frame_t *frame, void *cookie,
         priv = this->private;
 
         if (op_ret < 0 && op_errno != ENOTCONN) {
-                loc_gfid (&local->loc, gfid);
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        AFR_MSG_INODE_UNLOCK_FAIL,
-                        "%s: Failed to unlock %s "
-                        "with lk_owner: %s (%s)", uuid_utoa (gfid),
+                if (local->fd)
+                        gf_uuid_copy (gfid, local->fd->inode->gfid);
+                else
+                        loc_gfid (&local->loc, gfid);
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        AFR_MSG_UNLOCK_FAIL,
+                        "%s: Failed to unlock %s on %s "
+                        "with lk_owner: %s", uuid_utoa (gfid),
+                        gf_fop_list[local->op],
                         priv->children[child_index]->name,
-                        lkowner_utoa (&frame->root->lk_owner),
-                        strerror (op_errno));
+                        lkowner_utoa (&frame->root->lk_owner));
         }
 
         call_count = afr_frame_return (frame);
-        if (call_count == 0) {
-                AFR_STACK_UNWIND (inodelk, frame, local->op_ret,
-                                  local->op_errno, local->xdata_rsp);
-        }
+        if (call_count)
+                goto out;
 
+        if (local->fop_lock_state != AFR_FOP_LOCK_PARALLEL) {
+                afr_fop_lock_unwind (frame, local->op, local->op_ret,
+                                     local->op_errno, local->xdata_rsp);
+                goto out;
+        }
+        /* At least one child is up */
+        /*
+         * Non-blocking locks also need to be serialized.  Otherwise there is
+         * a chance that both the mounts which issued same non-blocking inodelk
+         * may endup not acquiring the lock on any-brick.
+         * Ex: Mount1 and Mount2
+         * request for full length lock on file f1.  Mount1 afr may acquire the
+         * partial lock on brick-1 and may not acquire the lock on brick-2
+         * because Mount2 already got the lock on brick-2, vice versa.  Since
+         * both the mounts only got partial locks, afr treats them as failure in
+         * gaining the locks and unwinds with EAGAIN errno.
+         */
+        local->op_ret = -1;
+        local->op_ret = EUCLEAN;
+        local->fop_lock_state = AFR_FOP_LOCK_SERIAL;
+        afr_local_replies_wipe (local, priv);
+        if (local->xdata_rsp)
+                dict_unref (local->xdata_rsp);
+        local->xdata_rsp = NULL;
+        switch (local->op) {
+        case GF_FOP_INODELK:
+        case GF_FOP_FINODELK:
+                local->cont.inodelk.cmd = local->cont.inodelk.in_cmd;
+                local->cont.inodelk.flock = local->cont.inodelk.in_flock;
+                if (local->cont.inodelk.xdata)
+                        dict_unref (local->cont.inodelk.xdata);
+                local->cont.inodelk.xdata = NULL;
+                if (local->xdata_req)
+                        local->cont.inodelk.xdata = dict_ref (local->xdata_req);
+                break;
+        case GF_FOP_ENTRYLK:
+        case GF_FOP_FENTRYLK:
+                local->cont.entrylk.cmd = local->cont.entrylk.in_cmd;
+                if (local->cont.entrylk.xdata)
+                        dict_unref (local->cont.entrylk.xdata);
+                local->cont.entrylk.xdata = NULL;
+                if (local->xdata_req)
+                        local->cont.entrylk.xdata = dict_ref (local->xdata_req);
+                break;
+        default:
+                break;
+        }
+        afr_serialized_lock_wind (frame, this);
+out:
         return 0;
 }
 
-int32_t
-afr_unlock_inodelks_and_unwind (call_frame_t *frame, xlator_t *this,
-                                int call_count)
+static int32_t
+afr_unlock_locks_and_proceed (call_frame_t *frame, xlator_t *this,
+                             int call_count)
 {
         int i = 0;
         afr_private_t *priv = NULL;
@@ -3393,7 +3546,25 @@ afr_unlock_inodelks_and_unwind (call_frame_t *frame, xlator_t *this,
         local = frame->local;
         priv = this->private;
         local->call_count = call_count;
-        local->cont.inodelk.flock.l_type = F_UNLCK;
+        switch (local->op) {
+        case GF_FOP_INODELK:
+        case GF_FOP_FINODELK:
+                local->cont.inodelk.flock.l_type = F_UNLCK;
+                local->cont.inodelk.cmd = F_SETLK;
+                if (local->cont.inodelk.xdata)
+                        dict_unref (local->cont.inodelk.xdata);
+                local->cont.inodelk.xdata = NULL;
+                break;
+        case GF_FOP_ENTRYLK:
+        case GF_FOP_FENTRYLK:
+                local->cont.entrylk.cmd = ENTRYLK_UNLOCK;
+                if (local->cont.entrylk.xdata)
+                        dict_unref (local->cont.entrylk.xdata);
+                local->cont.entrylk.xdata = NULL;
+                break;
+        default:
+                break;
+        }
 
         for (i = 0; i < priv->child_count; i++) {
                 if (!local->replies[i].valid)
@@ -3402,13 +3573,7 @@ afr_unlock_inodelks_and_unwind (call_frame_t *frame, xlator_t *this,
                 if (local->replies[i].op_ret == -1)
                         continue;
 
-                STACK_WIND_COOKIE (frame, afr_unlock_partial_inodelk_cbk,
-                                   (void*) (long) i,
-                                   priv->children[i],
-                                   priv->children[i]->fops->inodelk,
-                                   local->cont.inodelk.volume,
-                                   &local->loc, local->cont.inodelk.cmd,
-                                   &local->cont.inodelk.flock, 0);
+                afr_fop_lock_wind (frame, this, i, afr_unlock_partial_lock_cbk);
 
                 if (!--call_count)
                         break;
@@ -3418,23 +3583,27 @@ afr_unlock_inodelks_and_unwind (call_frame_t *frame, xlator_t *this,
 }
 
 int32_t
-afr_inodelk_done (call_frame_t *frame, xlator_t *this)
+afr_fop_lock_done (call_frame_t *frame, xlator_t *this)
 {
         int i = 0;
         int lock_count = 0;
+        unsigned char *success = NULL;
 
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
 
         local = frame->local;
         priv = this->private;
+        success = alloca0(priv->child_count);
 
         for (i = 0; i < priv->child_count; i++) {
                 if (!local->replies[i].valid)
                         continue;
 
-                if (local->replies[i].op_ret == 0)
+                if (local->replies[i].op_ret == 0) {
                         lock_count++;
+                        success[i] = 1;
+                }
 
                 if (local->op_ret == -1 && local->op_errno == EAGAIN)
                         continue;
@@ -3452,20 +3621,29 @@ afr_inodelk_done (call_frame_t *frame, xlator_t *this)
                 local->op_errno = local->replies[i].op_errno;
         }
 
-        if (lock_count && local->cont.inodelk.flock.l_type != F_UNLCK &&
-            (local->op_ret == -1 && local->op_errno == EAGAIN)) {
-                afr_unlock_inodelks_and_unwind (frame, this,
-                                                lock_count);
+        if (afr_fop_lock_is_unlock (frame) || (lock_count == 0))
+                goto unwind;
+
+        if (afr_is_conflicting_lock_present (local->op_ret, local->op_errno)) {
+                afr_unlock_locks_and_proceed (frame, this, lock_count);
+        } else if (priv->quorum_count && !afr_has_quorum (success, this)) {
+                local->fop_lock_state = AFR_FOP_LOCK_QUORUM_FAILED;
+                local->op_ret = -1;
+                local->op_errno = afr_quorum_errno (priv);
+                afr_unlock_locks_and_proceed (frame, this, lock_count);
         } else {
-                AFR_STACK_UNWIND (inodelk, frame, local->op_ret,
-                                  local->op_errno, local->xdata_rsp);
+                goto unwind;
         }
 
         return 0;
+unwind:
+        afr_fop_lock_unwind (frame, local->op, local->op_ret,
+                             local->op_errno, local->xdata_rsp);
+        return 0;
 }
 
-int
-afr_common_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+static int
+afr_common_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         afr_local_t *local = NULL;
@@ -3489,32 +3667,8 @@ afr_common_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 static int32_t
-afr_parallel_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                          int32_t op_ret, int32_t op_errno, dict_t *xdata)
-
-{
-        int     call_count = 0;
-
-        afr_common_inodelk_cbk (frame, cookie, this, op_ret, op_errno, xdata);
-
-        call_count = afr_frame_return (frame);
-        if (call_count == 0)
-                afr_inodelk_done (frame, this);
-
-        return 0;
-}
-
-static gf_boolean_t
-afr_is_conflicting_lock_present (int32_t op_ret, int32_t op_errno)
-{
-        if (op_ret == -1 && op_errno == EAGAIN)
-                return _gf_true;
-        return _gf_false;
-}
-
-static int32_t
-afr_serialized_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		            int32_t op_ret, int32_t op_errno, dict_t *xdata)
+afr_serialized_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
 
 {
         afr_local_t *local = NULL;
@@ -3525,7 +3679,7 @@ afr_serialized_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
         priv = this->private;
 
-        afr_common_inodelk_cbk (frame, cookie, this, op_ret, op_errno, xdata);
+        afr_common_lock_cbk (frame, cookie, this, op_ret, op_errno, xdata);
 
         for (next_child = child_index + 1; next_child < priv->child_count;
              next_child++) {
@@ -3535,23 +3689,53 @@ afr_serialized_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (afr_is_conflicting_lock_present (op_ret, op_errno) ||
             (next_child == priv->child_count)) {
-                afr_inodelk_done (frame, this);
+                afr_fop_lock_done (frame, this);
         } else {
-                STACK_WIND_COOKIE (frame, afr_serialized_inodelk_cbk,
-                                   (void *) (long) next_child,
-                                   priv->children[next_child],
-                                   priv->children[next_child]->fops->inodelk,
-                                   (const char *)local->cont.inodelk.volume,
-                                   &local->loc, local->cont.inodelk.cmd,
-                                   &local->cont.inodelk.flock,
-                                   local->xdata_req);
+                afr_fop_lock_wind (frame, this, next_child,
+                                   afr_serialized_lock_cbk);
         }
 
         return 0;
 }
 
 static int
-afr_parallel_inodelk_wind (call_frame_t *frame, xlator_t *this)
+afr_serialized_lock_wind (call_frame_t *frame, xlator_t *this)
+{
+        afr_private_t *priv = NULL;
+        afr_local_t *local  = NULL;
+        int i = 0;
+
+        priv = this->private;
+        local = frame->local;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->child_up[i]) {
+                        afr_fop_lock_wind (frame, this, i,
+                                           afr_serialized_lock_cbk);
+                        break;
+                }
+        }
+        return 0;
+}
+
+static int32_t
+afr_parallel_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno, dict_t *xdata)
+
+{
+        int     call_count = 0;
+
+        afr_common_lock_cbk (frame, cookie, this, op_ret, op_errno, xdata);
+
+        call_count = afr_frame_return (frame);
+        if (call_count == 0)
+                afr_fop_lock_done (frame, this);
+
+        return 0;
+}
+
+static int
+afr_parallel_lock_wind (call_frame_t *frame, xlator_t *this)
 {
         afr_private_t *priv = NULL;
         afr_local_t *local  = NULL;
@@ -3565,14 +3749,7 @@ afr_parallel_inodelk_wind (call_frame_t *frame, xlator_t *this)
         for (i = 0; i < priv->child_count; i++) {
                 if (!local->child_up[i])
                         continue;
-                STACK_WIND_COOKIE (frame, afr_parallel_inodelk_cbk,
-                                   (void *) (long) i,
-                                   priv->children[i],
-                                   priv->children[i]->fops->inodelk,
-                                   (const char *)local->cont.inodelk.volume,
-                                   &local->loc, local->cont.inodelk.cmd,
-                                   &local->cont.inodelk.flock,
-                                   local->xdata_req);
+                afr_fop_lock_wind (frame, this, i, afr_parallel_lock_cbk);
                 if (!--call_count)
                         break;
         }
@@ -3580,35 +3757,55 @@ afr_parallel_inodelk_wind (call_frame_t *frame, xlator_t *this)
 }
 
 static int
-afr_serialized_inodelk_wind (call_frame_t *frame, xlator_t *this)
+afr_fop_handle_lock (call_frame_t *frame, xlator_t *this)
 {
-        afr_private_t *priv = NULL;
-        afr_local_t *local  = NULL;
-        int i = 0;
+        afr_local_t *local = frame->local;
+        int op_errno = 0;
 
-        priv = this->private;
-        local = frame->local;
+        if (!afr_fop_lock_is_unlock (frame)) {
+                if (!afr_is_consistent_io_possible (local, this->private,
+                                                &op_errno))
+                        goto out;
 
-        for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
-                        STACK_WIND_COOKIE (frame, afr_serialized_inodelk_cbk,
-                                           (void *) (long) i,
-                                           priv->children[i],
-                                           priv->children[i]->fops->inodelk,
-                                       (const char *)local->cont.inodelk.volume,
-                                           &local->loc, local->cont.inodelk.cmd,
-                                           &local->cont.inodelk.flock,
-                                           local->xdata_req);
+                switch (local->op) {
+                case GF_FOP_INODELK:
+                case GF_FOP_FINODELK:
+                        local->cont.inodelk.cmd = F_SETLK;
+                        break;
+                case GF_FOP_ENTRYLK:
+                case GF_FOP_FENTRYLK:
+                        local->cont.entrylk.cmd = ENTRYLK_LOCK_NB;
+                        break;
+                default:
                         break;
                 }
         }
-        return 0;
+
+        if (local->xdata_req) {
+                switch (local->op) {
+                case GF_FOP_INODELK:
+                case GF_FOP_FINODELK:
+                        local->cont.inodelk.xdata = dict_ref (local->xdata_req);
+                        break;
+                case GF_FOP_ENTRYLK:
+                case GF_FOP_FENTRYLK:
+                        local->cont.entrylk.xdata = dict_ref (local->xdata_req);
+                        break;
+                default:
+                        break;
+                }
+        }
+
+        local->fop_lock_state = AFR_FOP_LOCK_PARALLEL;
+        afr_parallel_lock_wind (frame, this);
+out:
+        return -op_errno;
 }
 
-int32_t
-afr_inodelk (call_frame_t *frame, xlator_t *this,
-             const char *volume, loc_t *loc, int32_t cmd,
-             struct gf_flock *flock, dict_t *xdata)
+static int32_t
+afr_handle_inodelk (call_frame_t *frame, glusterfs_fop_t fop,
+                    const char *volume, loc_t *loc, fd_t *fd, int32_t cmd,
+                    struct gf_flock *flock, dict_t *xdata)
 {
         afr_local_t *local  = NULL;
         int32_t op_errno = ENOMEM;
@@ -3617,154 +3814,90 @@ afr_inodelk (call_frame_t *frame, xlator_t *this,
         if (!local)
                 goto out;
 
-        local->op = GF_FOP_INODELK;
-        if (!afr_inodelk_is_unlock (cmd, flock) &&
-            !afr_is_consistent_io_possible (local, this->private, &op_errno))
-                goto out;
+        local->op = fop;
+        if (loc)
+                loc_copy (&local->loc, loc);
+        if (fd)
+                local->fd = fd_ref (fd);
 
-        loc_copy (&local->loc, loc);
         local->cont.inodelk.volume = gf_strdup (volume);
         if (!local->cont.inodelk.volume) {
                 op_errno = ENOMEM;
                 goto out;
         }
 
+        local->cont.inodelk.in_cmd = cmd;
         local->cont.inodelk.cmd = cmd;
+        local->cont.inodelk.in_flock = *flock;
         local->cont.inodelk.flock = *flock;
         if (xdata)
                 local->xdata_req = dict_ref (xdata);
 
-        /* At least one child is up */
-        /*
-         * Non-blocking locks also need to be serialized.  Otherwise there is
-         * a chance that both the mounts which issued same non-blocking inodelk
-         * may endup not acquiring the lock on any-brick.
-         * Ex: Mount1 and Mount2
-         * request for full length lock on file f1.  Mount1 afr may acquire the
-         * partial lock on brick-1 and may not acquire the lock on brick-2
-         * because Mount2 already got the lock on brick-2, vice versa.  Since
-         * both the mounts only got partial locks, afr treats them as failure in
-         * gaining the locks and unwinds with EAGAIN errno.
-         */
-        if (flock->l_type == F_UNLCK) {
-                afr_parallel_inodelk_wind (frame, this);
-        } else {
-                afr_serialized_inodelk_wind (frame, this);
-        }
-
-	return 0;
+        op_errno = -afr_fop_handle_lock (frame, frame->this);
+        if (op_errno)
+                goto out;
+        return 0;
 out:
-	AFR_STACK_UNWIND (inodelk, frame, -1, op_errno, NULL);
+        afr_fop_lock_unwind (frame, fop, -1, op_errno, NULL);
 
         return 0;
 }
-
 
 int32_t
-afr_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		  int32_t op_ret, int32_t op_errno, dict_t *xdata)
-
+afr_inodelk (call_frame_t *frame, xlator_t *this,
+             const char *volume, loc_t *loc, int32_t cmd,
+             struct gf_flock *flock, dict_t *xdata)
 {
-        afr_local_t *local = NULL;
-        int call_count = -1;
-
-        local = frame->local;
-
-        LOCK (&frame->lock);
-        {
-                if (op_ret == 0)
-                        local->op_ret = 0;
-
-                local->op_errno = op_errno;
-        }
-        UNLOCK (&frame->lock);
-
-        call_count = afr_frame_return (frame);
-
-        if (call_count == 0)
-                AFR_STACK_UNWIND (finodelk, frame, local->op_ret,
-                                  local->op_errno, xdata);
-
+        afr_handle_inodelk (frame, GF_FOP_INODELK, volume, loc, NULL, cmd,
+                            flock, xdata);
         return 0;
 }
-
 
 int32_t
 afr_finodelk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
 	      int32_t cmd, struct gf_flock *flock, dict_t *xdata)
 {
-        afr_private_t *priv = NULL;
-        afr_local_t *local  = NULL;
-        int i = 0;
-        int32_t call_count = 0;
-        int32_t op_errno = ENOMEM;
-
-        priv = this->private;
-
-	local = AFR_FRAME_INIT (frame, op_errno);
-	if (!local)
-		goto out;
-
-        local->op = GF_FOP_FINODELK;
-        if (!afr_inodelk_is_unlock (cmd, flock) &&
-            !afr_is_consistent_io_possible (local, this->private, &op_errno))
-                goto out;
-
-        local->cont.inodelk.volume = gf_strdup (volume);
-        if (!local->cont.inodelk.volume) {
-                op_errno = ENOMEM;
-                goto out;
-        }
-
-        local->fd = fd_ref (fd);
-        local->cont.inodelk.cmd = cmd;
-        local->cont.inodelk.flock = *flock;
-        if (xdata)
-                local->xdata_req = dict_ref (xdata);
-        call_count = local->call_count;
-        for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
-                        STACK_WIND (frame, afr_finodelk_cbk,
-                                    priv->children[i],
-                                    priv->children[i]->fops->finodelk,
-                                    volume, fd, cmd, flock, xdata);
-
-                        if (!--call_count)
-                                break;
-                }
-        }
-
-	return 0;
-out:
-	AFR_STACK_UNWIND (finodelk, frame, -1, op_errno, NULL);
+        afr_handle_inodelk (frame, GF_FOP_FINODELK, volume, NULL, fd, cmd,
+                            flock, xdata);
         return 0;
 }
 
-
-int32_t
-afr_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, dict_t *xdata)
+static int
+afr_handle_entrylk (call_frame_t *frame, glusterfs_fop_t fop,
+                    const char *volume, loc_t *loc, fd_t *fd,
+                    const char *basename, entrylk_cmd cmd,
+                    entrylk_type type, dict_t *xdata)
 {
-        afr_local_t *local = NULL;
-        int call_count = -1;
+        afr_local_t *local  = NULL;
+        int32_t op_errno = ENOMEM;
 
-        local = frame->local;
+        local = AFR_FRAME_INIT (frame, op_errno);
+        if (!local)
+                goto out;
 
-        LOCK (&frame->lock);
-        {
-                if (op_ret == 0)
-                        local->op_ret = 0;
-
-                local->op_errno = op_errno;
+        local->op = fop;
+        if (loc)
+                loc_copy (&local->loc, loc);
+        if (fd)
+                local->fd = fd_ref (fd);
+        local->cont.entrylk.cmd = cmd;
+        local->cont.entrylk.in_cmd = cmd;
+        local->cont.entrylk.type = type;
+        local->cont.entrylk.volume = gf_strdup (volume);
+        local->cont.entrylk.basename = gf_strdup (basename);
+        if (!local->cont.entrylk.volume || !local->cont.entrylk.basename) {
+                op_errno = ENOMEM;
+                goto out;
         }
-        UNLOCK (&frame->lock);
+        if (xdata)
+                local->xdata_req = dict_ref (xdata);
+        op_errno = -afr_fop_handle_lock (frame, frame->this);
+        if (op_errno)
+                goto out;
 
-        call_count = afr_frame_return (frame);
-
-        if (call_count == 0)
-                AFR_STACK_UNWIND (entrylk, frame, local->op_ret,
-                                  local->op_errno, xdata);
-
+        return 0;
+out:
+        afr_fop_lock_unwind (frame, fop, -1, op_errno, NULL);
         return 0;
 }
 
@@ -3773,115 +3906,18 @@ afr_entrylk (call_frame_t *frame, xlator_t *this, const char *volume,
 	     loc_t *loc, const char *basename, entrylk_cmd cmd,
 	     entrylk_type type, dict_t *xdata)
 {
-        afr_private_t *priv = NULL;
-        afr_local_t *local  = NULL;
-        int i = 0;
-        int32_t call_count = 0;
-        int32_t op_errno = 0;
-
-        priv = this->private;
-
-	local = AFR_FRAME_INIT (frame, op_errno);
-	if (!local)
-		goto out;
-
-        local->op = GF_FOP_ENTRYLK;
-        if (!afr_entrylk_is_unlock (cmd) &&
-            !afr_is_consistent_io_possible (local, priv, &op_errno))
-                goto out;
-
-        local->cont.entrylk.cmd = cmd;
-        call_count = local->call_count;
-        for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
-                        STACK_WIND (frame, afr_entrylk_cbk,
-                                    priv->children[i],
-                                    priv->children[i]->fops->entrylk,
-                                    volume, loc, basename, cmd, type, xdata);
-
-                        if (!--call_count)
-                                break;
-                }
-        }
-
-	return 0;
-out:
-	AFR_STACK_UNWIND (entrylk, frame, -1, op_errno, NULL);
-
+        afr_handle_entrylk (frame, GF_FOP_ENTRYLK, volume, loc, NULL, basename,
+                            cmd, type, xdata);
         return 0;
 }
-
-
-
-int
-afr_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		  int32_t op_ret, int32_t op_errno, dict_t *xdata)
-
-{
-        afr_local_t *local = NULL;
-        int call_count = -1;
-
-        local = frame->local;
-
-        LOCK (&frame->lock);
-        {
-                if (op_ret == 0)
-                        local->op_ret = 0;
-
-                local->op_errno = op_errno;
-        }
-        UNLOCK (&frame->lock);
-
-        call_count = afr_frame_return (frame);
-
-        if (call_count == 0)
-                AFR_STACK_UNWIND (fentrylk, frame, local->op_ret,
-                                  local->op_errno, xdata);
-
-        return 0;
-}
-
 
 int
 afr_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
               const char *basename, entrylk_cmd cmd, entrylk_type type,
 	      dict_t *xdata)
 {
-        afr_private_t *priv = NULL;
-        afr_local_t *local  = NULL;
-        int i = 0;
-        int32_t call_count = 0;
-        int32_t op_errno = ENOMEM;
-
-        priv = this->private;
-
-        local = AFR_FRAME_INIT (frame, op_errno);
-	if (!local)
-		goto out;
-
-        local->op = GF_FOP_FENTRYLK;
-        if (!afr_entrylk_is_unlock (cmd) &&
-            !afr_is_consistent_io_possible (local, priv, &op_errno))
-                goto out;
-
-        local->cont.entrylk.cmd = cmd;
-        call_count = local->call_count;
-        for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
-                        STACK_WIND (frame, afr_fentrylk_cbk,
-                                    priv->children[i],
-                                    priv->children[i]->fops->fentrylk,
-                                    volume, fd, basename, cmd, type, xdata);
-
-                        if (!--call_count)
-                                break;
-                }
-        }
-
-	return 0;
-out:
-	AFR_STACK_UNWIND (fentrylk, frame, -1, op_errno, NULL);
-
+        afr_handle_entrylk (frame, GF_FOP_FENTRYLK, volume, NULL, fd, basename,
+                            cmd, type, xdata);
         return 0;
 }
 

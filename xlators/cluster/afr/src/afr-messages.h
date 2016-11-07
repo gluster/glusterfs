@@ -130,11 +130,11 @@
 
 /*!
  * @messageid 108010
- * @diagnosis Inode unlocks failed on a brick.
+ * @diagnosis unlocks failed on a brick.
  * @recommendedaction Error number in the log should give the reason why it
  * failed. Also observe brick logs for more information.
 */
-#define AFR_MSG_INODE_UNLOCK_FAIL       (GLFS_COMP_BASE_AFR + 10)
+#define AFR_MSG_UNLOCK_FAIL       (GLFS_COMP_BASE_AFR + 10)
 
 /*!
  * @messageid 108011
