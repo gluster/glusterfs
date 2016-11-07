@@ -2113,6 +2113,8 @@ gf_defrag_migrate_single_file (void *opaque)
         double                   elapsed        = {0,};
         struct dht_container    *rebal_entry    = NULL;
         inode_t                 *inode          = NULL;
+        xlator_t                *hashed_subvol  = NULL;
+        xlator_t                *cached_subvol  = NULL;
 
         rebal_entry = (struct dht_container *)opaque;
         if (!rebal_entry) {
@@ -2176,6 +2178,32 @@ gf_defrag_migrate_single_file (void *opaque)
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "Migrate file failed: %s lookup failed",
                         entry_loc.name);
+                ret = 0;
+                goto out;
+        }
+
+        hashed_subvol = dht_subvol_get_hashed (this, &entry_loc);
+        if (!hashed_subvol) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_HASHED_SUBVOL_GET_FAILED,
+                        "Failed to get hashed subvol for %s",
+                        loc->path);
+                ret = 0;
+                goto out;
+        }
+
+        cached_subvol = dht_subvol_get_cached (this, entry_loc.inode);
+        if (!cached_subvol) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_CACHED_SUBVOL_GET_FAILED,
+                        "Failed to get cached subvol for %s",
+                        loc->path);
+
+                ret = 0;
+                goto out;
+        }
+
+        if (hashed_subvol == cached_subvol) {
                 ret = 0;
                 goto out;
         }
@@ -2426,12 +2454,8 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
         int                     ret             = -1;
         char                    is_linkfile     = 0;
         gf_dirent_t            *df_entry        = NULL;
-        loc_t                   entry_loc       = {0,};
         dict_t                 *xattr_rsp       = NULL;
-        struct iatt             iatt            = {0,};
         struct dht_container   *tmp_container   = NULL;
-        xlator_t               *hashed_subvol   = NULL;
-        xlator_t               *cached_subvol   = NULL;
 
         if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
                 ret = -1;
@@ -2447,7 +2471,7 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
                 ret = syncop_readdirp (conf->local_subvols[i], fd, 131072,
                                        dir_dfmeta->offset_var[i].offset,
                                        &(dir_dfmeta->equeue[i]),
-                                       NULL, NULL);
+                                       xattr_req, NULL);
                 if (ret == 0) {
                         dir_dfmeta->offset_var[i].readdir_done = 1;
                         ret = 0;
@@ -2511,134 +2535,19 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
                         continue;
                 }
 
-                loc_wipe (&entry_loc);
-                ret = dht_build_child_loc (this, &entry_loc, loc,
-                                          df_entry->d_name);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "Child loc"
-                                " build failed");
-                        ret = -1;
-                        goto out;
-                }
-
-                if (gf_uuid_is_null (df_entry->d_stat.ia_gfid)) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                DHT_MSG_GFID_NULL,
-                                "%s/%s gfid not present", loc->path,
-                                df_entry->d_name);
-                        continue;
-                }
-
-                gf_uuid_copy (entry_loc.gfid, df_entry->d_stat.ia_gfid);
-
-                if (gf_uuid_is_null (loc->gfid)) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                DHT_MSG_GFID_NULL,
-                                "%s/%s gfid not present", loc->path,
-                                df_entry->d_name);
-                        continue;
-                }
-
-                gf_uuid_copy (entry_loc.pargfid, loc->gfid);
-
-                entry_loc.inode->ia_type = df_entry->d_stat.ia_type;
-
-                if (xattr_rsp) {
-                        dict_unref (xattr_rsp);
-                        xattr_rsp = NULL;
-                }
-
-                ret = syncop_lookup (conf->local_subvols[i], &entry_loc,
-                                        &iatt, NULL, xattr_req, &xattr_rsp);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                DHT_MSG_MIGRATE_FILE_FAILED,
-                                "Migrate file failed:%s lookup failed",
-                                entry_loc.path);
-
-                        if (-ret != ENOENT && -ret != ESTALE) {
-
-                                defrag->total_failures++;
-
-                                if (conf->decommission_in_progress) {
-                                        ret = -1;
-                                        goto out;
-                                } else {
-                                       *should_commit_hash = 0;
-                                        continue;
-                                }
-                        }
-
-                        continue;
-                }
-
-
-                is_linkfile = check_is_linkfile (NULL, &iatt, xattr_rsp,
-                                                conf->link_xattr_name);
+                is_linkfile = check_is_linkfile (NULL, &df_entry->d_stat,
+                                                 df_entry->dict,
+                                                 conf->link_xattr_name);
 
                 if (is_linkfile) {
                         /* No need to add linkto file to the queue for
                            migration. Only the actual data file need to
                            be checked for migration criteria.
                         */
+
                         gf_msg_debug (this->name, 0, "Skipping linkfile"
-                                      " %s on subvol: %s", entry_loc.path,
+                                      " %s on subvol: %s", df_entry->d_name,
                                       conf->local_subvols[i]->name);
-                        continue;
-                }
-
-
-                ret = syncop_lookup (this, &entry_loc, NULL, NULL,
-                                     NULL, NULL);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_WARNING, -ret,
-                                DHT_MSG_MIGRATE_FILE_FAILED,
-                                "lookup failed for file:%s",
-                                entry_loc.path);
-
-                        if (-ret != ENOENT && -ret != ESTALE) {
-
-                                defrag->total_failures++;
-
-                                if (conf->decommission_in_progress) {
-                                        ret = -1;
-                                        goto out;
-                                } else {
-                                        *should_commit_hash = 0;
-                                        continue;
-                                }
-                        }
-
-                        continue;
-                }
-
-               /* if distribute is present, it will honor this key.
-                * -1, ENODATA is returned if distribute is not present
-                * or file doesn't have a link-file. If file has
-                * link-file, the path of link-file will be the value,
-                * and also that guarantees that file has to be mostly
-                * migrated */
-
-                hashed_subvol = dht_subvol_get_hashed (this, &entry_loc);
-                if (!hashed_subvol) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                DHT_MSG_HASHED_SUBVOL_GET_FAILED,
-                                "Failed to get hashed subvol for %s",
-                                loc->path);
-                        continue;
-                }
-
-                cached_subvol = dht_subvol_get_cached (this, entry_loc.inode);
-                if (!cached_subvol) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                DHT_MSG_CACHED_SUBVOL_GET_FAILED,
-                                "Failed to get cached subvol for %s",
-                                loc->path);
-
-                        continue;
-                }
-
-                if (hashed_subvol == cached_subvol) {
                         continue;
                 }
 
@@ -2702,8 +2611,6 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
         }
 
 out:
-        loc_wipe (&entry_loc);
-
         if (ret == 0) {
                 *container = tmp_container;
         } else {
