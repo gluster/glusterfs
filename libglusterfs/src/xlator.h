@@ -1011,6 +1011,7 @@ int loc_copy_overload_parent (loc_t *dst,
 void loc_wipe (loc_t *loc);
 int loc_path (loc_t *loc, const char *bname);
 void loc_gfid (loc_t *loc, uuid_t gfid);
+void loc_pargfid (loc_t *loc, uuid_t pargfid);
 char* loc_gfid_utoa (loc_t *loc);
 gf_boolean_t loc_is_root (loc_t *loc);
 int32_t loc_build_child (loc_t *child, loc_t *parent, char *name);
