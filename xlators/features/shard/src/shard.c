@@ -1678,6 +1678,7 @@ shard_common_lookup_shards (call_frame_t *frame, xlator_t *this, inode_t *inode,
                 bname = strrchr (path, '/') + 1;
                 loc.inode = inode_new (this->itable);
                 loc.parent = inode_ref (priv->dot_shard_inode);
+                gf_uuid_copy (loc.pargfid, priv->dot_shard_gfid);
                 ret = inode_path (loc.parent, bname, (char **) &(loc.path));
                 if (ret < 0 || !(loc.inode)) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
