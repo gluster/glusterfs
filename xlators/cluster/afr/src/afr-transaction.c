@@ -136,14 +136,6 @@ afr_needs_changelog_update (afr_local_t *local)
         return _gf_false;
 }
 
-static int32_t
-afr_quorum_errno (afr_private_t *priv)
-{
-        if (priv->quorum_reads)
-                return ENOTCONN;
-        return EROFS;
-}
-
 int
 __afr_txn_write_fop (call_frame_t *frame, xlator_t *this)
 {
