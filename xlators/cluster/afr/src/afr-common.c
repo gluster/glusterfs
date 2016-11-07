@@ -2342,12 +2342,14 @@ afr_lookup_selfheal_wrap (void *opaque)
 	afr_local_t *local = NULL;
 	xlator_t *this = NULL;
 	inode_t *inode = NULL;
+        uuid_t pargfid = {0,};
 
 	local = frame->local;
 	this = frame->this;
+        loc_pargfid (&local->loc, pargfid);
 
-	ret = afr_selfheal_name (frame->this, local->loc.pargfid,
-                                 local->loc.name, &local->cont.lookup.gfid_req);
+	ret = afr_selfheal_name (frame->this, pargfid, local->loc.name,
+                                 &local->cont.lookup.gfid_req);
         if (ret == -EIO)
                 goto unwind;
 
