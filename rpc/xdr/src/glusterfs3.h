@@ -410,8 +410,16 @@ gf_proto_cache_invalidation_to_upcall (xlator_t *this,
                                       (gf_c_req->xdata).xdata_val,
                                       (gf_c_req->xdata).xdata_len, ret,
                                       ret, out);
-	if (ret > 0)
+        if (ret > 0) {
                 ret = -ret;
+                goto out;
+        }
+
+        /* If no dict was sent, create an empty dict, so that each xlator
+         * need not check if empty then create new dict. Will be unref'd by the
+         * caller */
+        if (!gf_c_data->dict)
+                gf_c_data->dict = dict_new ();
   out:
         return ret;
 }
