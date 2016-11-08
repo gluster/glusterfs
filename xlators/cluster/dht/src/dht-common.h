@@ -580,6 +580,7 @@ struct dht_conf {
         /* lock migration */
 
         gf_boolean_t    lock_migration_enabled;
+        gf_lock_t       lock;
 };
 typedef struct dht_conf dht_conf_t;
 
