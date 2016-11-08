@@ -336,9 +336,9 @@ out:
 }
 void
 dht_init_regex (xlator_t *this, dict_t *odict, char *name,
-                regex_t *re, gf_boolean_t *re_valid)
+                regex_t *re, gf_boolean_t *re_valid, dht_conf_t *conf)
 {
-        char    *temp_str;
+        char       *temp_str = NULL;
 
         if (dict_get_str (odict, name, &temp_str) != 0) {
                 if (strcmp(name,"rsync-hash-regex")) {
@@ -347,25 +347,29 @@ dht_init_regex (xlator_t *this, dict_t *odict, char *name,
                 temp_str = "^\\.(.+)\\.[^.]+$";
         }
 
-        if (*re_valid) {
-                regfree(re);
-                *re_valid = _gf_false;
-        }
+        LOCK (&conf->lock);
+        {
+                if (*re_valid) {
+                        regfree(re);
+                        *re_valid = _gf_false;
+                }
 
-        if (!strcmp(temp_str,"none")) {
-                return;
-        }
+                if (!strcmp(temp_str, "none")) {
+                        goto unlock;
+                }
 
-        if (regcomp(re,temp_str,REG_EXTENDED) == 0) {
-                gf_msg_debug (this->name, 0,
-                              "using regex %s = %s", name, temp_str);
-                *re_valid = _gf_true;
+                if (regcomp(re, temp_str, REG_EXTENDED) == 0) {
+                        gf_msg_debug (this->name, 0,
+                                      "using regex %s = %s", name, temp_str);
+                        *re_valid = _gf_true;
+                } else {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_REGEX_INFO,
+                                "compiling regex %s failed", temp_str);
+                }
         }
-        else {
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        DHT_MSG_REGEX_INFO,
-                        "compiling regex %s failed", temp_str);
-        }
+unlock:
+        UNLOCK (&conf->lock);
 }
 
 int
@@ -486,9 +490,9 @@ dht_reconfigure (xlator_t *this, dict_t *options)
         }
 
         dht_init_regex (this, options, "rsync-hash-regex",
-                        &conf->rsync_regex, &conf->rsync_regex_valid);
+                        &conf->rsync_regex, &conf->rsync_regex_valid, conf);
         dht_init_regex (this, options, "extra-hash-regex",
-                        &conf->extra_regex, &conf->extra_regex_valid);
+                        &conf->extra_regex, &conf->extra_regex_valid, conf);
 
         GF_OPTION_RECONF ("weighted-rebalance", conf->do_weighting, options,
                           bool, out);
@@ -626,6 +630,10 @@ dht_init (xlator_t *this)
         if (!conf) {
                 goto err;
         }
+
+        LOCK_INIT (&conf->subvolume_lock);
+        LOCK_INIT (&conf->layout_lock);
+        LOCK_INIT (&conf->lock);
 
         /* We get the commit-hash to set only for rebalance process */
         if (dict_get_uint32 (this->options,
@@ -776,17 +784,15 @@ dht_init (xlator_t *this)
         }
 
         dht_init_regex (this, this->options, "rsync-hash-regex",
-                        &conf->rsync_regex, &conf->rsync_regex_valid);
+                        &conf->rsync_regex, &conf->rsync_regex_valid, conf);
         dht_init_regex (this, this->options, "extra-hash-regex",
-                        &conf->extra_regex, &conf->extra_regex_valid);
+                        &conf->extra_regex, &conf->extra_regex_valid, conf);
 
         ret = dht_layouts_init (this, conf);
         if (ret == -1) {
                 goto err;
         }
 
-        LOCK_INIT (&conf->subvolume_lock);
-        LOCK_INIT (&conf->layout_lock);
 
         conf->gen = 1;
 
