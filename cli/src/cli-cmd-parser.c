@@ -1666,6 +1666,20 @@ cli_cmd_volume_set_parse (struct cli_state *state, const char **words,
                                 goto out;
                         }
                 }
+                if ((!strcmp (key, "nfs.disable")) &&
+                            (!strcmp (value, "off"))) {
+                        question = "Gluster NFS is being deprecated in favor "
+                                   "of NFS-Ganesha Enter \"yes\" to continue "
+                                   "using Gluster NFS";
+                        answer = cli_cmd_get_confirmation (state, question);
+                        if (GF_ANSWER_NO == answer) {
+                                gf_log ("cli", GF_LOG_ERROR, "Operation "
+                                        "cancelled, exiting");
+                                *op_errstr = gf_strdup ("Aborted by user.");
+                                ret = -1;
+                                goto out;
+                        }
+                }
         }
 
         ret = dict_set_int32 (dict, "count", wordcount-3);
