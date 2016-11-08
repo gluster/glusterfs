@@ -378,9 +378,9 @@ Requires:         pcs, dbus
 %if ( 0%{?rhel} && 0%{?rhel} == 6 )
 Requires:         cman, pacemaker, corosync
 %endif
-%if ( 0%{?fedora} )
-# we need portblock resource-agent in 3.9.6 and later.
-Requires:         resource-agents >= 3.9.6
+%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} > 5 )
+# we need portblock resource-agent in 3.9.5 and later.
+Requires:         resource-agents >= 3.9.5
 %endif
 
 %description ganesha
