@@ -9054,7 +9054,13 @@ unlock:
                  * notify all the md-cache clients to invalidate the existing
                  * stat cache and send the lookup next time*/
                 if (up_ci->dict && dict_get (up_ci->dict, conf->xattr_name))
-                        ret = dict_set_int8 (up_ci->dict, MDC_INVALIDATE_IATT , 0);
+                        up_ci->flags |= UP_EXPLICIT_LOOKUP;
+
+                /* TODO: Instead of invalidating iatt, update the new
+                 * hashed/cached subvolume in dht inode_ctx */
+                if (IS_DHT_LINKFILE_MODE (&up_ci->stat))
+                        up_ci->flags |= UP_EXPLICIT_LOOKUP;
+
                 propagate = 1;
                 break;
         default:

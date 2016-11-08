@@ -33,6 +33,8 @@
 #define UP_XATTR         0x00000400   /* update the xattrs and ctime */
 #define UP_XATTR_RM      0x00000800   /* Remove the xattrs and update ctime */
 
+#define UP_EXPLICIT_LOOKUP 0x00001000 /* Request an explicit lookup */
+
 /* for fops - open, read, lk, */
 #define UP_UPDATE_CLIENT        (UP_ATIME)
 

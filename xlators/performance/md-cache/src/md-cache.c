@@ -40,6 +40,8 @@ struct mdc_statistics {
                                      sent to bricks */
         uint64_t stat_invals; /* No. of invalidates recieved from upcall*/
         uint64_t xattr_invals; /* No. of invalidates recieved from upcall*/
+        uint64_t need_lookup; /* No. of lookups issued, because other xlators
+                               * requested for explicit lookup */
         gf_lock_t lock;
 };
 
@@ -153,6 +155,7 @@ struct md_cache {
         char         *linkname;
 	time_t        ia_time;
 	time_t        xa_time;
+        gf_boolean_t  need_lookup;
         gf_lock_t     lock;
 };
 
@@ -791,6 +794,43 @@ out:
         return ret;
 }
 
+gf_boolean_t
+mdc_inode_reset_need_lookup (xlator_t *this, inode_t *inode)
+{
+        struct md_cache *mdc  = NULL;
+        gf_boolean_t     need = _gf_false;
+
+        if (mdc_inode_ctx_get (this, inode, &mdc) != 0)
+                goto out;
+
+        LOCK (&mdc->lock);
+        {
+                need = mdc->need_lookup;
+                mdc->need_lookup = _gf_false;
+        }
+        UNLOCK (&mdc->lock);
+
+out:
+        return need;
+}
+
+void
+mdc_inode_set_need_lookup (xlator_t *this, inode_t *inode, gf_boolean_t need)
+{
+        struct md_cache *mdc = NULL;
+
+        if (mdc_inode_ctx_get (this, inode, &mdc) != 0)
+                goto out;
+
+        LOCK (&mdc->lock);
+        {
+                mdc->need_lookup = need;
+        }
+        UNLOCK (&mdc->lock);
+
+out:
+        return;
+}
 
 void
 mdc_inode_iatt_invalidate (xlator_t *this, inode_t *inode)
@@ -1032,6 +1072,12 @@ mdc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 		   re-establishing an inode "properly"
 		*/
 		goto uncached;
+        }
+
+        if (mdc_inode_reset_need_lookup (this, loc->inode)) {
+                INCREMENT_ATOMIC (conf->mdc_counter.lock,
+                                  conf->mdc_counter.need_lookup);
+                goto uncached;
         }
 
         ret = mdc_inode_iatt_get (this, loc->inode, &stbuf);
@@ -2591,6 +2637,11 @@ mdc_invalidate (xlator_t *this, void *data)
                 mdc_update_gfid_stat (this, &up_ci->p_stat);
                         if (up_ci->flags & UP_RENAME_FLAGS)
                                 mdc_update_gfid_stat (this, &up_ci->oldp_stat);
+        }
+
+        if (up_ci->flags & UP_EXPLICIT_LOOKUP) {
+                mdc_inode_set_need_lookup (this, inode, _gf_true);
+                goto out;
         }
 
         if ((up_ci->flags & (UP_NLINK | UP_RENAME_FLAGS | UP_FORGET)) ||
