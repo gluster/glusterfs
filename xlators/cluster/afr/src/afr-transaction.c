@@ -792,18 +792,6 @@ afr_handle_quorum (call_frame_t *frame)
         if (afr_has_fop_cbk_quorum (frame))
                 return;
 
-        if (local->fd) {
-                gf_uuid_copy (gfid, local->fd->inode->gfid);
-                file = uuid_utoa (gfid);
-        } else {
-                loc_path (&local->loc, local->loc.name);
-                file = local->loc.path;
-        }
-
-        gf_msg (frame->this->name, GF_LOG_WARNING, 0, AFR_MSG_QUORUM_FAIL,
-                "%s: Failing %s as quorum is not met",
-                file, gf_fop_list[local->op]);
-
         for (i = 0; i < priv->child_count; i++) {
                 if (local->transaction.pre_op[i])
                         afr_transaction_fop_failed (frame, frame->this, i);
@@ -813,6 +801,19 @@ afr_handle_quorum (call_frame_t *frame)
         local->op_errno = afr_final_errno (local, priv);
         if (local->op_errno == 0)
                 local->op_errno = afr_quorum_errno (priv);
+
+        if (local->fd) {
+                gf_uuid_copy (gfid, local->fd->inode->gfid);
+                file = uuid_utoa (gfid);
+        } else {
+                loc_path (&local->loc, local->loc.name);
+                file = local->loc.path;
+        }
+
+        gf_msg (frame->this->name, GF_LOG_WARNING, local->op_errno,
+                AFR_MSG_QUORUM_FAIL, "%s: Failing %s as quorum is not met",
+                file, gf_fop_list[local->op]);
+
         switch (local->transaction.type) {
         case AFR_ENTRY_TRANSACTION:
         case AFR_ENTRY_RENAME_TRANSACTION:
