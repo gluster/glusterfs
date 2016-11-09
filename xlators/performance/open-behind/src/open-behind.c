@@ -154,12 +154,15 @@ ob_wake_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (op_ret < 0) {
 			/* mark fd BAD for ever */
 			ob_fd->op_errno = op_errno;
+                        ob_fd = NULL; /*shouldn't be freed*/
 		} else {
 			__fd_ctx_del (fd, this, NULL);
-			ob_fd_free (ob_fd);
 		}
 	}
 	UNLOCK (&fd->lock);
+
+        if (ob_fd)
+                ob_fd_free (ob_fd);
 
 	list_for_each_entry_safe (stub, tmp, &list, list) {
 		list_del_init (&stub->list);
