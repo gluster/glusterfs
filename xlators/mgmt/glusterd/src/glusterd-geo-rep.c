@@ -81,6 +81,8 @@ static char *gsync_reserved_opts[] = {
 
 static char *gsync_no_restart_opts[] = {
         "checkpoint",
+        "log_rsync_performance",
+        "log-rsync-performance",
         NULL
 };
 
