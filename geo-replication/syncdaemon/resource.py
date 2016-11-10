@@ -1037,7 +1037,8 @@ class SlaveRemote(object):
             (boolify(gconf.sync_acls) and ['--acls'] or []) + \
             ['.'] + list(args)
 
-        if gconf.log_rsync_performance:
+        if boolify(gconf.configinterface.get_realtime(
+                "log_rsync_performance")):
             # use stdout=PIPE only when log_rsync_performance enabled
             # Else rsync will write to stdout and nobody is their
             # to consume. If PIPE is full rsync hangs.
@@ -1056,7 +1057,8 @@ class SlaveRemote(object):
             for errline in stderr.strip().split("\n")[:-1]:
                 logging.error("SYNC Error(Rsync): %s" % errline)
 
-        if gconf.log_rsync_performance:
+        if boolify(gconf.configinterface.get_realtime(
+                "log_rsync_performance")):
             rsync_msg = []
             for line in stdout.split("\n"):
                 if line.startswith("Number of files:") or \
