@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2006-2013 Red Hat, Inc. <http://www.redhat.com>
+   Copyright (c) 2006-2016 Red Hat, Inc. <http://www.redhat.com>
    This file is part of GlusterFS.
 
    This file is licensed to you under your choice of the GNU Lesser
@@ -87,14 +87,15 @@
 static char gf_doc[] = "";
 static char argp_doc[] = "--volfile-server=SERVER [MOUNT-POINT]\n"       \
         "--volfile=VOLFILE [MOUNT-POINT]";
-const char *argp_program_version = ""
-        PACKAGE_NAME" "PACKAGE_VERSION" built on "__DATE__" "__TIME__
-        "\nRepository revision: " GLUSTERFS_REPOSITORY_REVISION "\n"
-        "Copyright (c) 2006-2013 Red Hat, Inc. <http://www.redhat.com/>\n"
-        "GlusterFS comes with ABSOLUTELY NO WARRANTY.\n"
-        "It is licensed to you under your choice of the GNU Lesser\n"
-        "General Public License, version 3 or any later version (LGPLv3\n"
-        "or later), or the GNU General Public License, version 2 (GPLv2),\n"
+const char *argp_program_version = ""                                         \
+        PACKAGE_NAME" "PACKAGE_VERSION                                        \
+        "\nRepository revision: " GLUSTERFS_REPOSITORY_REVISION "\n"          \
+        "Copyright (c) 2006-2016 Red Hat, Inc. "                              \
+        "<https://www.gluster.org/>\n"                                        \
+        "GlusterFS comes with ABSOLUTELY NO WARRANTY.\n"                      \
+        "It is licensed to you under your choice of the GNU Lesser\n"         \
+        "General Public License, version 3 or any later version (LGPLv3\n"    \
+        "or later), or the GNU General Public License, version 2 (GPLv2),\n"  \
         "in all cases as published by the Free Software Foundation.";
 const char *argp_program_bug_address = "<" PACKAGE_BUGREPORT ">";
 

@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2010-2012 Red Hat, Inc. <http://www.redhat.com>
+   Copyright (c) 2010-2016 Red Hat, Inc. <http://www.redhat.com>
    This file is part of GlusterFS.
 
    This file is licensed to you under your choice of the GNU Lesser
@@ -65,18 +65,17 @@
 extern int connected;
 /* using argp for command line parsing */
 
-const char *argp_program_version = ""                                 \
-        PACKAGE_NAME" "PACKAGE_VERSION" built on "__DATE__" "__TIME__ \
-        "\nRepository revision: " GLUSTERFS_REPOSITORY_REVISION "\n"  \
-        "Copyright (c) 2006-2011 Gluster Inc. "                       \
-        "<http://www.gluster.com>\n"                                  \
-        "GlusterFS comes with ABSOLUTELY NO WARRANTY.\n"              \
-        "You may redistribute copies of GlusterFS under the terms of "\
-        "the GNU General Public License.";
-
+const char *argp_program_version = ""                                         \
+        PACKAGE_NAME" "PACKAGE_VERSION                                        \
+        "\nRepository revision: " GLUSTERFS_REPOSITORY_REVISION "\n"          \
+        "Copyright (c) 2006-2016 Red Hat, Inc. "                              \
+        "<https://www.gluster.org/>\n"                                        \
+        "GlusterFS comes with ABSOLUTELY NO WARRANTY.\n"                      \
+        "It is licensed to you under your choice of the GNU Lesser\n"         \
+        "General Public License, version 3 or any later version (LGPLv3\n"    \
+        "or later), or the GNU General Public License, version 2 (GPLv2),\n"  \
+        "in all cases as published by the Free Software Foundation.";
 const char *argp_program_bug_address = "<" PACKAGE_BUGREPORT ">";
-
-
 
 struct rpc_clnt *global_quotad_rpc;
 struct rpc_clnt *global_rpc;
