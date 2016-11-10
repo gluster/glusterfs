@@ -5269,8 +5269,12 @@ fuse_graph_setup (xlator_t *this, glusterfs_graph_t *graph)
 
         pthread_mutex_lock (&priv->sync_mutex);
         {
-                /* handle the case of more than one CHILD_UP on same graph */
-                if ((priv->active_subvol == graph->top) || graph->used) {
+                /* 1. handle the case of more than one CHILD_UP on same graph.
+                 * 2. make sure graph is newer than current active_subvol.
+                 */
+                if ((priv->active_subvol == graph->top) || graph->used
+                    || ((priv->active_subvol)
+                        && (priv->active_subvol->graph->id > graph->id))) {
                         goto unlock;
                 }
 
