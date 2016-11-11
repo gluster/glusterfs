@@ -17,7 +17,7 @@ done
 shift $((OPTIND-1))
 
 
-branch="release-3.8";
+branch="release-3.8-fb";
 
 set_hooks_commit_msg()
 {
