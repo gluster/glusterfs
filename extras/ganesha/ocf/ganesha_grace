@@ -164,7 +164,6 @@ ganesha_grace_notify()
 
 ganesha_grace_monitor()
 {
-	local rc=${OCF_ERR_GENERIC}
 	local host=$(hostname -s)
 
 	ocf_log debug "monitor"
@@ -187,10 +186,10 @@ ganesha_grace_monitor()
 	fi
 
 	if [[ "${attr}" = *"value=1" ]]; then
-		rc=${OCF_SUCCESS}
+		return ${OCF_SUCCESS}
 	fi
 
-	return ${rc}
+	return ${OCF_NOT_RUNNING}
 }
 
 ganesha_grace_validate()
