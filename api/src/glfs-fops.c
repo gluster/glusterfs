@@ -934,9 +934,6 @@ pub_glfs_preadv_async (struct glfs_fd *glfd, const struct iovec *iovec,
 			   offset, flags, NULL);
 
 out:
-        if (fd)
-                fd_unref (fd);
-
         if (ret) {
                 if (fd)
                         fd_unref (fd);
@@ -1254,9 +1251,6 @@ pub_glfs_pwritev_async (struct glfs_fd *glfd, const struct iovec *iovec,
 
         ret = 0;
 out:
-        if (fd)
-                fd_unref (fd);
-
         if (ret) {
                 if (fd)
                         fd_unref (fd);
@@ -1443,9 +1437,6 @@ glfs_fsync_async_common (struct glfs_fd *glfd, glfs_io_cbk fn, void *data,
                            subvol->fops->fsync, fd, dataonly, NULL);
 
 out:
-        if (fd)
-                fd_unref (fd);
-
         if (ret) {
                 if (fd)
                         fd_unref (fd);
@@ -1699,9 +1690,6 @@ pub_glfs_ftruncate_async (struct glfs_fd *glfd, off_t offset, glfs_io_cbk fn,
         ret = 0;
 
 out:
-        if (fd)
-                fd_unref (fd);
-
         if (ret) {
                 if (fd)
                         fd_unref (fd);
@@ -2560,9 +2548,6 @@ pub_glfs_discard_async (struct glfs_fd *glfd, off_t offset, size_t len,
 
         ret = 0;
 out:
-        if (fd)
-                fd_unref (fd);
-
         if (ret) {
                 if (fd)
                         fd_unref (fd);
@@ -2650,9 +2635,6 @@ pub_glfs_zerofill_async (struct glfs_fd *glfd, off_t offset, off_t len,
                            subvol->fops->zerofill, fd, offset, len, NULL);
         ret = 0;
 out:
-        if (fd)
-                fd_unref (fd);
-
         if (ret) {
                 if (fd)
                         fd_unref (fd);
