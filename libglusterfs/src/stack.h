@@ -36,6 +36,10 @@ typedef struct call_pool call_pool_t;
 
 #define NFS_PID 1
 #define LOW_PRIO_PROC_PID -1
+
+#define STACK_ERR_XL_NAME(stack) (stack->err_xl?stack->err_xl->name:"-")
+#define STACK_CLIENT_NAME(stack) (stack->client?stack->client->client_uid:"-")
+
 typedef int32_t (*ret_fn_t) (call_frame_t *frame,
                              call_frame_t *prev_frame,
                              xlator_t *this,
@@ -110,6 +114,8 @@ struct _call_stack_t {
         int32_t                       op;
         int8_t                        type;
         struct timeval                tv;
+        xlator_t                     *err_xl;
+        int32_t                       error;
 };
 
 
@@ -361,6 +367,14 @@ STACK_RESET (call_stack_t *stack)
                 LOCK(&frame->root->stack_lock);                         \
                 {                                                       \
                         _parent->ref_count--;                           \
+                        if (op_ret < 0 &&                               \
+                            op_errno != frame->root->error) {           \
+                                frame->root->err_xl = frame->this;      \
+                                frame->root->error = op_errno;          \
+                        } else if (op_ret == 0) {                       \
+                                frame->root->err_xl = NULL;             \
+                                frame->root->error = 0;                 \
+                        }                                               \
                 }                                                       \
                 UNLOCK(&frame->root->stack_lock);                       \
                 old_THIS = THIS;                                        \
@@ -406,6 +420,14 @@ STACK_RESET (call_stack_t *stack)
                 LOCK(&frame->root->stack_lock);                         \
                 {                                                       \
                         _parent->ref_count--;                           \
+                        if (op_ret < 0 &&                               \
+                            op_errno != frame->root->error) {           \
+                                frame->root->err_xl = frame->this;      \
+                                frame->root->error = op_errno;          \
+                        } else if (op_ret == 0) {                       \
+                                frame->root->err_xl = NULL;             \
+                                frame->root->error = 0;                 \
+                        }                                               \
                 }                                                       \
                 UNLOCK(&frame->root->stack_lock);                       \
                 old_THIS = THIS;                                        \
