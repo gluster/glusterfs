@@ -100,6 +100,7 @@ struct posix_acl_ctx {
         uid_t             uid;
         gid_t             gid;
         mode_t            perm;
+        glusterfs_fop_t   fop;
         struct posix_acl *acl_access;
         struct posix_acl *acl_default;
 };

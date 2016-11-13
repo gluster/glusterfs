@@ -16,7 +16,7 @@
 #include "posix-acl.h"
 #include "posix-acl-xattr.h"
 #include "posix-acl-mem-types.h"
-
+#include "posix-acl-messages.h"
 
 #define UINT64(ptr) ((uint64_t)((long)(ptr)))
 #define PTR(num) ((void *)((long)(num)))
@@ -181,6 +181,92 @@ sticky_permits (call_frame_t *frame, inode_t *parent, inode_t *inode)
         return 0;
 }
 
+static gf_boolean_t
+_does_acl_exist (struct posix_acl *acl)
+{
+        if (acl && (acl->count > POSIX_ACL_MINIMAL_ACE_COUNT))
+                return _gf_true;
+        return _gf_false;
+}
+
+static void
+posix_acl_get_acl_string (call_frame_t *frame, struct posix_acl *acl,
+                          char **acl_str)
+{
+        int                   i        = 0;
+        size_t                size_acl = 0;
+        size_t                offset   = 0;
+        struct posix_ace      *ace     = NULL;
+        char                  tmp_str[1024] = {0};
+#define NON_GRP_FMT "(tag:%"PRIu16",perm:%"PRIu16",id:%"PRIu32")"
+#define GRP_FMT "(tag:%"PRIu16",perm:%"PRIu16",id:%"PRIu32",in-groups:%d)"
+
+        if (!_does_acl_exist (acl))
+                goto out;
+
+        ace = acl->entries;
+        for (i = 0; i < acl->count; i++) {
+                if (ace->tag != POSIX_ACL_GROUP) {
+                        size_acl += snprintf (tmp_str, sizeof tmp_str,
+                                     NON_GRP_FMT, ace->tag, ace->perm, ace->id);
+                } else {
+                        size_acl += snprintf (tmp_str, sizeof tmp_str,
+                                        GRP_FMT, ace->tag,
+                                       ace->perm, ace->id,
+                                       frame_in_group (frame, ace->id));
+                }
+
+                ace++;
+        }
+
+        *acl_str = GF_CALLOC (1, size_acl + 1, gf_posix_acl_mt_char);
+        if (!*acl_str)
+                goto out;
+
+        ace = acl->entries;
+        for (i = 0; i < acl->count; i++) {
+                if (ace->tag != POSIX_ACL_GROUP) {
+                        offset += snprintf (*acl_str + offset,
+                                            size_acl - offset,
+                                     NON_GRP_FMT, ace->tag, ace->perm, ace->id);
+                } else {
+                        offset += snprintf (*acl_str + offset,
+                                       size_acl - offset,
+                                       GRP_FMT, ace->tag, ace->perm, ace->id,
+                                       frame_in_group (frame, ace->id));
+                }
+
+                ace++;
+        }
+out:
+        return;
+}
+
+static void
+posix_acl_log_permit_denied (call_frame_t *frame, inode_t *inode, int want,
+                             struct posix_acl_ctx *ctx, struct posix_acl *acl)
+{
+        char     *acl_str = NULL;
+        client_t *client  = frame->root->client;
+
+        if (!frame || !inode || !ctx)
+                goto out;
+
+        posix_acl_get_acl_string (frame, acl, &acl_str);
+
+        gf_msg (frame->this->name, GF_LOG_INFO, EACCES, POSIX_ACL_MSG_EACCES,
+                "client: %s, gfid: %s, req(uid:%d,gid:%d,perm:%d,"
+                "ngrps:%"PRIu16"), ctx(uid:%d,gid:%d,in-groups:%d,perm:%d%d%d,"
+                "updated-fop:%s, acl:%s)", client ? client->client_uid : "-",
+                uuid_utoa (inode->gfid), frame->root->uid, frame->root->gid,
+                want, frame->root->ngrps, ctx->uid, ctx->gid,
+                frame_in_group (frame, ctx->gid), (ctx->perm & S_IRWXU) >> 6,
+                (ctx->perm & S_IRWXG) >> 3, ctx->perm & S_IRWXO,
+                gf_fop_string (ctx->fop), acl_str ? acl_str : "-");
+out:
+        GF_FREE (acl_str);
+        return;
+}
 
 static int
 acl_permits (call_frame_t *frame, inode_t *inode, int want)
@@ -211,7 +297,7 @@ acl_permits (call_frame_t *frame, inode_t *inode, int want)
 
         ace = acl->entries;
 
-        if (acl->count > POSIX_ACL_MINIMAL_ACE_COUNT)
+        if (_does_acl_exist (acl))
                 acl_present = 1;
 
         for (i = 0; i < acl->count; i++) {
@@ -283,6 +369,7 @@ green:
         goto out;
 red:
         verdict = 0;
+        posix_acl_log_permit_denied (frame, inode, want, ctx, acl);
 out:
         if (acl)
                 posix_acl_unref (frame->this, acl);
@@ -786,9 +873,9 @@ posix_acl_inherit_file (xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
         return retmode;
 }
 
-
 int
-posix_acl_ctx_update (inode_t *inode, xlator_t *this, struct iatt *buf)
+posix_acl_ctx_update (inode_t *inode, xlator_t *this, struct iatt *buf,
+                      glusterfs_fop_t fop)
 {
         struct posix_acl_ctx *ctx = NULL;
 	struct posix_acl     *acl = NULL;
@@ -809,9 +896,10 @@ posix_acl_ctx_update (inode_t *inode, xlator_t *this, struct iatt *buf)
                 ctx->uid   = buf->ia_uid;
                 ctx->gid   = buf->ia_gid;
                 ctx->perm  = st_mode_from_ia (buf->ia_prot, buf->ia_type);
+                ctx->fop   = fop;
 
 		acl = ctx->acl_access;
-		if (!acl || !(acl->count > POSIX_ACL_MINIMAL_ACE_COUNT))
+                if (!_does_acl_exist (acl))
 			goto unlock;
 
 		/* This is an extended ACL (not minimal acl). In case we
@@ -852,7 +940,6 @@ unlock:
         UNLOCK(&inode->lock);
         return ret;
 }
-
 
 int
 posix_acl_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -911,7 +998,7 @@ acl_default:
         }
 
 acl_set:
-        posix_acl_ctx_update (inode, this, buf);
+        posix_acl_ctx_update (inode, this, buf, GF_FOP_LOOKUP);
 
         ret = posix_acl_set (inode, this, acl_access, acl_default);
         if (ret)
@@ -1283,7 +1370,7 @@ posix_acl_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret != 0)
                 goto unwind;
 
-        posix_acl_ctx_update (inode, this, buf);
+        posix_acl_ctx_update (inode, this, buf, GF_FOP_MKDIR);
 
 unwind:
         STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno, inode, buf,
@@ -1326,7 +1413,7 @@ posix_acl_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret != 0)
                 goto unwind;
 
-        posix_acl_ctx_update (inode, this, buf);
+        posix_acl_ctx_update (inode, this, buf, GF_FOP_MKNOD);
 
 unwind:
         STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno, inode, buf,
@@ -1369,7 +1456,7 @@ posix_acl_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret != 0)
                 goto unwind;
 
-        posix_acl_ctx_update (inode, this, buf);
+        posix_acl_ctx_update (inode, this, buf, GF_FOP_CREATE);
 
 unwind:
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
@@ -1412,7 +1499,7 @@ posix_acl_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret != 0)
                 goto unwind;
 
-        posix_acl_ctx_update (inode, this, buf);
+        posix_acl_ctx_update (inode, this, buf, GF_FOP_SYMLINK);
 
 unwind:
         STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno, inode, buf,
@@ -1700,7 +1787,8 @@ posix_acl_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                     data->len);
 
         acl_set:
-                posix_acl_ctx_update (entry->inode, this, &entry->d_stat);
+                posix_acl_ctx_update (entry->inode, this, &entry->d_stat,
+                                      GF_FOP_READDIRP);
 
                 ret = posix_acl_set (entry->inode, this,
                                      acl_access, acl_default);
@@ -1837,7 +1925,7 @@ posix_acl_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret != 0)
                 goto unwind;
 
-        posix_acl_ctx_update (inode, this, postbuf);
+        posix_acl_ctx_update (inode, this, postbuf, GF_FOP_SETATTR);
 
 unwind:
         STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno, prebuf,
@@ -1883,7 +1971,7 @@ posix_acl_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret != 0)
                 goto unwind;
 
-        posix_acl_ctx_update (inode, this, postbuf);
+        posix_acl_ctx_update (inode, this, postbuf, GF_FOP_FSETATTR);
 
 unwind:
         STACK_UNWIND_STRICT (fsetattr, frame, op_ret, op_errno, prebuf,

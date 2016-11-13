@@ -36,7 +36,6 @@
 #endif
 #include <libgen.h>
 
-#include "glusterfs-acl.h"
 #include "compat-errno.h"
 #include "logging.h"
 #include "common-utils.h"
@@ -4587,4 +4586,12 @@ int
 gf_bits_index (uint64_t n)
 {
     return ffsll(n) - 1;
+}
+
+const char*
+gf_fop_string (glusterfs_fop_t fop)
+{
+        if ((fop > GF_FOP_NULL) && (fop < GF_FOP_MAXVALUE))
+                return gf_fop_list[fop];
+        return "INVALID";
 }
