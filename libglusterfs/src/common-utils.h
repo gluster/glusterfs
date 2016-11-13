@@ -866,4 +866,6 @@ gf_bits_count (uint64_t n);
 int32_t
 gf_bits_index (uint64_t n);
 
+const char*
+gf_fop_string (glusterfs_fop_t fop);
 #endif /* _COMMON_UTILS_H */
