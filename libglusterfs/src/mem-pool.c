@@ -421,7 +421,11 @@ mem_pool_new_fn (unsigned long sizeof_type,
         if (!ctx)
                 goto out;
 
-        list_add (&mem_pool->global_list, &ctx->mempool_list);
+        pthread_mutex_lock (&ctx->lock);
+        {
+                list_add (&mem_pool->global_list, &ctx->mempool_list);
+        }
+        pthread_mutex_unlock (&ctx->lock);
 
 out:
         return mem_pool;
