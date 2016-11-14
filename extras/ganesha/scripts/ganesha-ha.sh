@@ -327,8 +327,9 @@ teardown_cluster()
 
 cleanup_ganesha_config ()
 {
-       rm -rf /etc/cluster/cluster.conf*
-       rm -rf /var/lib/pacemaker/cib/*
+    rm -f /etc/corosync/corosync.conf
+    rm -rf /etc/cluster/cluster.conf*
+    rm -rf /var/lib/pacemaker/cib/*
 }
 
 do_create_virt_ip_constraints()
@@ -833,6 +834,8 @@ main()
         teardown_resources ${HA_SERVERS}
 
         teardown_cluster ${HA_NAME}
+
+        cleanup_ganesha_config ${HA_CONFDIR}
         ;;
 
     cleanup | --cleanup)
