@@ -149,8 +149,6 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 	LOCK_INIT (&pool->lock);
 	ctx->pool = pool;
 
-	LOCK_INIT (&ctx->lock);
-
 	ret = 0;
 err:
 	if (ret && pool) {
