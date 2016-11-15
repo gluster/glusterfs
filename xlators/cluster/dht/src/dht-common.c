@@ -899,8 +899,11 @@ unlock:
                         dht_layout_set (this, local->inode, layout);
                 }
 
-                dht_inode_ctx_time_update (local->inode, this,
-                                           &local->stbuf, 1);
+                if (local->inode) {
+                        dht_inode_ctx_time_update (local->inode, this,
+                                                   &local->stbuf, 1);
+                }
+
                 if (local->loc.parent) {
                         dht_inode_ctx_time_update (local->loc.parent, this,
                                                    &local->postparent, 1);
