@@ -286,6 +286,10 @@ def main_i():
     op.add_option('--session-owner', metavar='ID')
     op.add_option('--local-id', metavar='ID', help=SUPPRESS_HELP, default='')
     op.add_option(
+        '--local-node', metavar='NODE', help=SUPPRESS_HELP, default='')
+    op.add_option(
+        '--local-node-id', metavar='NODEID', help=SUPPRESS_HELP, default='')
+    op.add_option(
         '--local-path', metavar='PATH', help=SUPPRESS_HELP, default='')
     op.add_option('-s', '--ssh-command', metavar='CMD', default='ssh')
     op.add_option('--ssh-port', metavar='PORT', type=int, default=22)
@@ -725,7 +729,10 @@ def main_i():
     if status_get:
         master_name, slave_data = get_master_and_slave_data_from_args(args)
         for brick in gconf.path:
-            brick_status = GeorepStatus(gconf.state_file, brick,
+            brick_status = GeorepStatus(gconf.state_file,
+                                        gconf.local_node,
+                                        brick,
+                                        gconf.local_node_id,
                                         master_name,
                                         slave_data,
                                         getattr(gconf, "pid_file", None))

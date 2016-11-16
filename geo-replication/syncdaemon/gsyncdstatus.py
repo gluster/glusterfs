@@ -119,8 +119,8 @@ def set_monitor_status(status_file, status):
 
 
 class GeorepStatus(object):
-    def __init__(self, monitor_status_file, brick, master, slave,
-                 monitor_pid_file=None):
+    def __init__(self, monitor_status_file, master_node, brick, master_node_id,
+                 master, slave, monitor_pid_file=None):
         self.master = master
         slv_data = slave.split("::")
         self.slave_host = slv_data[0]
@@ -135,9 +135,21 @@ class GeorepStatus(object):
         os.close(fd)
         fd = os.open(self.monitor_status_file, os.O_CREAT | os.O_RDWR)
         os.close(fd)
+        self.master_node = master_node
+        self.master_node_id = master_node_id
         self.brick = brick
         self.default_values = get_default_values()
         self.monitor_pid_file = monitor_pid_file
+
+    def send_event(self, event_type, **kwargs):
+        gf_event(event_type,
+                 master_volume=self.master,
+                 master_node=self.master_node,
+                 master_node_id=self.master_node_id,
+                 slave_host=self.slave_host,
+                 slave_volume=self.slave_volume,
+                 brick_path=self.brick,
+                 **kwargs)
 
     def _update(self, mergerfunc):
         with LockedOpen(self.filename, 'r+') as f:
@@ -189,13 +201,9 @@ class GeorepStatus(object):
 
     def trigger_gf_event_checkpoint_completion(self, checkpoint_time,
                                                checkpoint_completion_time):
-        gf_event(EVENT_GEOREP_CHECKPOINT_COMPLETED,
-                 master_volume=self.master,
-                 slave_host=self.slave_host,
-                 slave_volume=self.slave_volume,
-                 brick_path=self.brick,
-                 checkpoint_time=checkpoint_time,
-                 checkpoint_completion_time=checkpoint_completion_time)
+        self.send_event(EVENT_GEOREP_CHECKPOINT_COMPLETED,
+                        checkpoint_time=checkpoint_time,
+                        checkpoint_completion_time=checkpoint_completion_time)
 
     def set_last_synced(self, value, checkpoint_time):
         def merger(data):
@@ -262,20 +270,12 @@ class GeorepStatus(object):
     def set_active(self):
         if self.set_field("worker_status", "Active"):
             logging.info("Worker Status: Active")
-            gf_event(EVENT_GEOREP_ACTIVE,
-                     master_volume=self.master,
-                     slave_host=self.slave_host,
-                     slave_volume=self.slave_volume,
-                     brick_path=self.brick)
+            self.send_event(EVENT_GEOREP_ACTIVE)
 
     def set_passive(self):
         if self.set_field("worker_status", "Passive"):
             logging.info("Worker Status: Passive")
-            gf_event(EVENT_GEOREP_PASSIVE,
-                     master_volume=self.master,
-                     slave_host=self.slave_host,
-                     slave_volume=self.slave_volume,
-                     brick_path=self.brick)
+            self.send_event(EVENT_GEOREP_PASSIVE)
 
     def get_monitor_status(self):
         data = ""

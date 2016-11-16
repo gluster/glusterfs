@@ -1545,7 +1545,9 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
             changelog_agent = RepceClient(int(inf), int(ouf))
             master_name, slave_data = get_master_and_slave_data_from_args(
                 sys.argv)
-            status = GeorepStatus(gconf.state_file, gconf.local_path,
+            status = GeorepStatus(gconf.state_file, gconf.local_node,
+                                  gconf.local_path,
+                                  gconf.local_node_id,
                                   master_name, slave_data)
             status.reset_on_worker_start()
             rv = changelog_agent.version()

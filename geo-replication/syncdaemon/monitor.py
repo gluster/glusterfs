@@ -123,8 +123,8 @@ class Volinfo(object):
     @memoize
     def bricks(self):
         def bparse(b):
-            host, dirp = b.text.split(':', 2)
-            return {'host': host, 'dir': dirp}
+            host, dirp = b.find("name").text.split(':', 2)
+            return {'host': host, 'dir': dirp, 'uuid': b.find("hostUuid").text}
         return [bparse(b) for b in self.get('brick')]
 
     @property
@@ -212,7 +212,9 @@ class Monitor(object):
         """
         if not self.status.get(w[0]['dir'], None):
             self.status[w[0]['dir']] = GeorepStatus(gconf.state_file,
+                                                    w[0]['host'],
                                                     w[0]['dir'],
+                                                    w[0]['uuid'],
                                                     master,
                                                     "%s::%s" % (slave_host,
                                                                 slave_vol))
@@ -286,6 +288,9 @@ class Monitor(object):
                 os.close(rw)
                 os.close(ww)
                 os.execv(sys.executable, argv + ['--local-path', w[0]['dir'],
+                                                 '--local-node', w[0]['host'],
+                                                 '--local-node-id',
+                                                 w[0]['uuid'],
                                                  '--agent',
                                                  '--rpc-fd',
                                                  ','.join([str(ra), str(wa),
@@ -298,6 +303,9 @@ class Monitor(object):
                 os.close(wa)
                 os.execv(sys.executable, argv + ['--feedback-fd', str(pw),
                                                  '--local-path', w[0]['dir'],
+                                                 '--local-node', w[0]['host'],
+                                                 '--local-node-id',
+                                                 w[0]['uuid'],
                                                  '--local-id',
                                                  '.' + escape(w[0]['dir']),
                                                  '--rpc-fd',
@@ -381,6 +389,7 @@ class Monitor(object):
                     gf_event(EVENT_GEOREP_FAULTY,
                              master_volume=master.volume,
                              master_node=w[0]['host'],
+                             master_node_id=w[0]['uuid'],
                              slave_host=slave_host,
                              slave_volume=slave_vol,
                              current_slave_host=current_slave_host,
