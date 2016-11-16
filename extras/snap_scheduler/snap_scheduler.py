@@ -545,8 +545,98 @@ def edit_schedules(jobname, schedule, volname):
 
     return ret
 
+def get_bool_val():
+    getsebool_cli = ["getsebool",
+                     "-a"]
+    p1 = subprocess.Popen(getsebool_cli, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE)
+
+    grep_cmd = ["grep",
+                "cron_system_cronjob_use_shares"]
+    p2 = subprocess.Popen(grep_cmd, stdin=p1.stdout,
+                          stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE)
+
+    p1.stdout.close()
+    output, err = p2.communicate()
+    rv = p2.returncode
+
+    if rv:
+        log.error("Command output:")
+        log.error(err)
+        return -1
+
+    bool_val = output.split()[2]
+    log.debug("Bool value = '%s'", bool_val)
+
+    return bool_val
+
+def get_selinux_status():
+    getenforce_cli = ["getenforce"]
+    log.debug("Running command '%s'", " ".join(getenforce_cli))
+
+    p1 = subprocess.Popen(getenforce_cli, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE)
+
+    output, err = p1.communicate()
+    rv = p1.returncode
+
+    if rv:
+        log.error("Command output:")
+        log.error(err)
+        return -1
+    else:
+        selinux_status=output.rstrip()
+        log.debug("selinux status: %s", selinux_status)
+
+    return selinux_status
+
+def set_cronjob_user_share():
+    selinux_status = get_selinux_status()
+    if (selinux_status == -1):
+        log.error("Failed to get selinux status")
+        return -1
+    elif (selinux_status == "Disabled"):
+        return 0
+
+    bool_val = get_bool_val()
+    # In case of a failure (where the boolean value is not)
+    # present in the system, we should not proceed further
+    # We should only proceed when the value is "off"
+    if (bool_val == -1 or bool_val != "off"):
+        return 0
+
+    setsebool_cli = ["setsebool", "-P",
+                     "cron_system_cronjob_use_shares",
+                     "on"]
+    log.debug("Running command '%s'", " ".join(setsebool_cli))
+
+    p1 = subprocess.Popen(setsebool_cli, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE)
+
+    output, err = p1.communicate()
+    rv = p1.returncode
+
+    if rv:
+        log.error("Command output:")
+        log.error(err)
+        return rv
+
+    bool_val = get_bool_val()
+    if (bool_val == "on"):
+        return 0
+    else:
+        # In case of an error or if boolean is not on
+        # we return a failure here
+        return -1
 
 def initialise_scheduler():
+    ret = set_cronjob_user_share()
+    if ret:
+        log.error("Failed to set selinux boolean "
+                  "cron_system_cronjob_use_shares to 'on'")
+        return ret
+
     try:
         with open(TMP_FILE, "w+", 0644) as f:
             updater = ("* * * * * root PATH=$PATH:/usr/local/sbin:"
