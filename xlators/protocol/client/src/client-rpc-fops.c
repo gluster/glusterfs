@@ -6145,7 +6145,6 @@ client3_3_compound (call_frame_t *frame, xlator_t *this, void *data)
         rsphdr->iov_len = iobuf_pagesize (rsphdr_iobuf);
         rsphdr_count = 1;
         rsphdr_iobuf = NULL;
-        rsphdr_iobref = NULL;
 
         req.compound_fop_enum = c_args->fop_enum;
         req.compound_req_array.compound_req_array_len = c_args->fop_length;
@@ -6194,6 +6193,8 @@ client3_3_compound (call_frame_t *frame, xlator_t *this, void *data)
                                      (xdrproc_t) xdr_gfs3_compound_req);
 
         GF_FREE (req.xdata.xdata_val);
+
+        iobref_unref (rsphdr_iobref);
 
         compound_request_cleanup (&req);
         return 0;
