@@ -2554,6 +2554,8 @@ debugxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
                 return 0;
 
 add_graph:
+        if (strcmp (vme->value, "off") == 0)
+                return 0;
         if (volgen_graph_add (graph, vme->voltype, volname))
                 return 0;
         else
