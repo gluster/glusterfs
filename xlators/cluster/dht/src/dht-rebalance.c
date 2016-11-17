@@ -464,6 +464,50 @@ out:
         return ret;
 }
 
+
+
+static int
+__check_file_has_hardlink (xlator_t *this, loc_t *loc,
+                      struct iatt *stbuf, dict_t *xattrs, int flags,
+                                gf_defrag_info_t *defrag)
+{
+       int ret = 0;
+
+       if (flags == GF_DHT_MIGRATE_HARDLINK_IN_PROGRESS) {
+                ret = 0;
+                return ret;
+       }
+       if (stbuf->ia_nlink > 1) {
+                /* support for decomission */
+                if (flags == GF_DHT_MIGRATE_HARDLINK) {
+                        synclock_lock (&defrag->link_lock);
+                        ret = gf_defrag_handle_hardlink
+                                (this, loc, xattrs, stbuf);
+                        synclock_unlock (&defrag->link_lock);
+                        /*
+                        Returning zero will force the file to be remigrated.
+                        Checkout gf_defrag_handle_hardlink for more information.
+                        */
+                        if (ret && ret != -2) {
+                                gf_msg (this->name, GF_LOG_WARNING, 0,
+                                        DHT_MSG_MIGRATE_FILE_FAILED,
+                                        "Migrate file failed:"
+                                        "%s: failed to migrate file with link",
+                                        loc->path);
+                        }
+                } else {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "Migrate file failed:"
+                                "%s: file has hardlinks", loc->path);
+                        ret = -ENOTSUP;
+                }
+       }
+
+       return ret;
+}
+
+
 /*
      return values
      0 : File will be migrated
@@ -512,41 +556,9 @@ __is_file_migratable (xlator_t *this, loc_t *loc,
                 }
         }
 
-        if (flags == GF_DHT_MIGRATE_HARDLINK_IN_PROGRESS) {
-                ret = 0;
-                goto out;
-        }
-
-        if (stbuf->ia_nlink > 1) {
-                /* support for decomission */
-                if (flags == GF_DHT_MIGRATE_HARDLINK) {
-                        synclock_lock (&defrag->link_lock);
-                        ret = gf_defrag_handle_hardlink
-                                (this, loc, xattrs, stbuf);
-                        synclock_unlock (&defrag->link_lock);
-                        /*
-                        Returning zero will force the file to be remigrated.
-                        Checkout gf_defrag_handle_hardlink for more information.
-                        */
-                        if (ret && ret != -2) {
-                                gf_msg (this->name, GF_LOG_WARNING, 0,
-                                        DHT_MSG_MIGRATE_FILE_FAILED,
-                                        "Migrate file failed:"
-                                        "%s: failed to migrate file with link",
-                                        loc->path);
-                        }
-                } else {
-                        gf_msg (this->name, GF_LOG_WARNING, 0,
-                                DHT_MSG_MIGRATE_FILE_FAILED,
-                                "Migrate file failed:"
-                                "%s: file has hardlinks", loc->path);
-                        ret = -ENOTSUP;
-                }
-                goto out;
-        }
-
-        ret = 0;
-
+        /* Check if file has hardlink*/
+        ret = __check_file_has_hardlink (this, loc, stbuf, xattrs,
+                                         flags, defrag);
 out:
         return ret;
 }
@@ -1368,9 +1380,6 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 goto out;
         }
 
-        /* we no more require this key */
-        dict_del (dict, conf->link_xattr_name);
-
         /* preserve source mode, so set the same to the destination */
         src_ia_prot = stbuf.ia_prot;
 
@@ -1381,6 +1390,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         ret = 0;
                 goto out;
         }
+
         /* Take care of the special files */
         if (!IA_ISREG (stbuf.ia_type)) {
                 /* Special files */
@@ -1424,9 +1434,13 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         loc->path, from->name);
                 goto out;
         }
+        if (xattr_rsp) {
+                /* we no more require this key */
+                dict_del (dict, conf->link_xattr_name);
+                dict_unref (xattr_rsp);
+        }
 
-
-        ret = syncop_fstat (from, src_fd, &stbuf, NULL, NULL);
+        ret = syncop_fstat (from, src_fd, &stbuf, dict, &xattr_rsp);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, -ret,
                         DHT_MSG_MIGRATE_FILE_FAILED,
@@ -1436,6 +1450,14 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 goto out;
         }
 
+        /* Check again if file has hardlink */
+        ret = __check_file_has_hardlink (this, loc, &stbuf, xattr_rsp,
+                                         flag, defrag);
+        if (ret) {
+                if (ret == -2)
+                        ret = 0;
+                goto out;
+        }
         /* Try to preserve 'holes' while migrating data */
         if (stbuf.ia_size > (stbuf.ia_blocks * GF_DISK_SECTOR_SIZE))
                 file_has_holes = 1;
