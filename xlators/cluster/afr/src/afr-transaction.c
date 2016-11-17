@@ -681,17 +681,36 @@ afr_has_quorum (unsigned char *subvols, xlator_t *this)
         up_children_count = AFR_COUNT (subvols, priv->child_count);
 
         if (priv->quorum_count == AFR_QUORUM_AUTO) {
-        /*
-         * Special case for even numbers of nodes in auto-quorum:
-         * if we have exactly half children up
-         * and that includes the first ("senior-most") node, then that counts
-         * as quorum even if it wouldn't otherwise.  This supports e.g. N=2
-         * while preserving the critical property that there can only be one
-         * such group.
-         */
-                if ((priv->child_count % 2 == 0) &&
-                    (up_children_count == (priv->child_count/2)))
+                /*
+                 * Special case for auto-quorum with an even number of nodes.
+                 *
+                 * A replica set with even count N can only handle the same
+                 * number of failures as odd N-1 before losing "vanilla"
+                 * quorum, and the probability of more simultaneous failures is
+                 * actually higher.  For example, with a 1% chance of failure
+                 * we'd have a 0.03% chance of two simultaneous failures with
+                 * N=3 but a 0.06% chance with N=4.  However, the special case
+                 * is necessary for N=2 because there's no real quorum in that
+                 * case (i.e. can't normally survive *any* failures).  In that
+                 * case, we treat the first node as a tie-breaker, allowing
+                 * quorum to be retained in some cases while still honoring the
+                 * all-important constraint that there can not simultaneously
+                 * be two partitioned sets of nodes each believing they have
+                 * quorum.  Of two equally sized sets, the one without that
+                 * first node will lose.
+                 *
+                 * It turns out that the special case is beneficial for higher
+                 * values of N as well.  Continuing the example above, the
+                 * probability of losing quorum with N=4 and this type of
+                 * quorum is (very) slightly lower than with N=3 and vanilla
+                 * quorum.  The difference becomes even more pronounced with
+                 * higher N.  Therefore, even though such replica counts are
+                 * unlikely to be seen in practice, we might as well use the
+                 * "special" quorum then as well.
+                 */
+                if ((up_children_count * 2) == priv->child_count) {
                         return subvols[0];
+                }
         }
 
         if (priv->quorum_count == AFR_QUORUM_AUTO) {

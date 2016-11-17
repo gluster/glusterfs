@@ -91,8 +91,8 @@ fix_quorum_options (xlator_t *this, afr_private_t *priv, char *qtype,
 {
         if (dict_get (options, "quorum-type") == NULL) {
                 /* If user doesn't configure anything enable auto-quorum if the
-                 * replica has odd number of subvolumes */
-                if (priv->child_count % 2)
+                 * replica has more than two subvolumes */
+                if (priv->child_count > 2)
                         qtype = "auto";
         }
 
