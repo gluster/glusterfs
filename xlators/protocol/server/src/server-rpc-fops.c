@@ -1011,8 +1011,8 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         state = CALL_STATE (frame);
 
         if (op_ret == -1) {
-                uuid_utoa_r (state->resolve.gfid, oldpar_str);
-                uuid_utoa_r (state->resolve2.gfid, newpar_str);
+                uuid_utoa_r (state->resolve.pargfid, oldpar_str);
+                uuid_utoa_r (state->resolve2.pargfid, newpar_str);
                 gf_msg (this->name, GF_LOG_INFO, op_errno, PS_MSG_RENAME_INFO,
                         "%"PRId64": RENAME %s (%s/%s) -> %s (%s/%s), "
                         "client: %s, error-xlator: %s", frame->root->unique,
