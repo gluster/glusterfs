@@ -1203,14 +1203,15 @@ posix_acl_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 
                 break;
         case O_WRONLY:
-        case O_APPEND:
-        case O_TRUNC:
                 perm = POSIX_ACL_WRITE;
                 break;
         case O_RDWR:
                 perm = POSIX_ACL_READ|POSIX_ACL_WRITE;
                 break;
         }
+
+        if (flags & (O_TRUNC | O_APPEND))
+                perm |= POSIX_ACL_WRITE;
 
         if (acl_permits (frame, loc->inode, perm))
                 goto green;
