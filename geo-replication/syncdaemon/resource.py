@@ -818,11 +818,13 @@ class Server(object):
                         if st.st_ino == st1.st_ino:
                             # we have a hard link, we can now unlink source
                             try:
-                                os.unlink(entry)
+                                errno_wrap(os.unlink, [entry],
+                                           [ENOENT, ESTALE])
                             except OSError as e:
                                 if e.errno == EISDIR:
                                     try:
-                                        os.rmdir(entry)
+                                        errno_wrap(os.rmdir, [entry],
+                                                   [ENOENT, ESTALE])
                                     except OSError as e:
                                         if e.errno == ENOTEMPTY:
                                             logging.error(
