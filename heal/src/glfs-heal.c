@@ -154,6 +154,7 @@ glfsh_xml_init ()
         /* <bricks> */
         xmlTextWriterStartElement (glfsh_writer,
                         (xmlChar *)"bricks");
+        xmlTextWriterFlush (glfsh_writer);
 xml_out:
         return ret;
 }
@@ -252,7 +253,9 @@ glfsh_print_xml_heal_op_status (int ret, uint64_t num_entries, char *fmt_str)
                                         "%"PRIu64"", num_entries);
         }
 out:
-        return xmlTextWriterEndElement (glfsh_writer);
+        ret = xmlTextWriterEndElement (glfsh_writer);
+        xmlTextWriterFlush (glfsh_writer);
+        return ret;
 }
 
 void
@@ -263,6 +266,7 @@ glfsh_print_xml_file_status (char *path, uuid_t gfid, char *status)
                                            "%s", uuid_utoa (gfid));
         xmlTextWriterWriteFormatString (glfsh_writer, "%s", path);
         xmlTextWriterEndElement (glfsh_writer);
+        xmlTextWriterFlush (glfsh_writer);
         return;
 }
 
@@ -303,6 +307,7 @@ print:
                         remote_host ? remote_host : "-",
                         remote_subvol ? remote_subvol : "-");
         XML_RET_CHECK_AND_GOTO (x_ret, xml_out);
+        xmlTextWriterFlush (glfsh_writer);
 xml_out:
         return ret;
 }
