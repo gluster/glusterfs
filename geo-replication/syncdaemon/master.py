@@ -1139,13 +1139,15 @@ class GMasterChangelogMixin(GMasterCommon):
             self.sendmark(path, stime)
 
         # Update last_synced_time in status file based on stime
-        chkpt_time = gconf.configinterface.get_realtime(
-            "checkpoint")
-        checkpoint_time = 0
-        if chkpt_time is not None:
-            checkpoint_time = int(chkpt_time)
+        # only update stime if stime xattr set to Brick root
+        if path == self.FLAT_DIR_HIERARCHY:
+            chkpt_time = gconf.configinterface.get_realtime(
+                "checkpoint")
+            checkpoint_time = 0
+            if chkpt_time is not None:
+                checkpoint_time = int(chkpt_time)
 
-        self.status.set_last_synced(stime, checkpoint_time)
+            self.status.set_last_synced(stime, checkpoint_time)
 
     def update_worker_remote_node(self):
         node = sys.argv[-1]
