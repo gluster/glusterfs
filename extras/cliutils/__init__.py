@@ -11,7 +11,8 @@ from cliutils import (runcli,
                       yesno,
                       get_node_uuid,
                       Cmd,
-                      GlusterCmdException)
+                      GlusterCmdException,
+                      set_common_args_func)
 
 
 # This will be useful when `from cliutils import *`
@@ -26,4 +27,5 @@ __all__ = ["runcli",
            "yesno",
            "get_node_uuid",
            "Cmd",
-           "GlusterCmdException"]
+           "GlusterCmdException",
+           "set_common_args_func"]
