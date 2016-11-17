@@ -16,6 +16,7 @@ subparsers = parser.add_subparsers(dest="mode")
 subcommands = {}
 cache_data = {}
 ParseError = etree.ParseError if hasattr(etree, 'ParseError') else SyntaxError
+_common_args_func = lambda p: True
 
 
 class GlusterCmdException(Exception):
@@ -50,9 +51,9 @@ def oknotok(flag):
     return "OK" if flag else "NOT OK"
 
 
-def output_error(message):
+def output_error(message, errcode=1):
     print (message, file=sys.stderr)
-    sys.exit(1)
+    sys.exit(errcode)
 
 
 def node_output_ok(message=""):
@@ -186,6 +187,7 @@ def runcli():
     # a subcommand as specified in the Class name. Call the args
     # method by passing subcommand parser, Derived class can add
     # arguments to the subcommand parser.
+    metavar_data = []
     for c in Cmd.__subclasses__():
         cls = c()
         if getattr(cls, "name", "") == "":
@@ -193,13 +195,23 @@ def runcli():
                                       "to \"{0}\"".format(
                                           cls.__class__.__name__))
 
+        # Do not show in help message if subcommand starts with node-
+        if not cls.name.startswith("node-"):
+            metavar_data.append(cls.name)
+
         p = subparsers.add_parser(cls.name)
         args_func = getattr(cls, "args", None)
         if args_func is not None:
             args_func(p)
 
+        # Apply common args if any
+        _common_args_func(p)
+
         # A dict to save subcommands, key is name of the subcommand
         subcommands[cls.name] = cls
+
+    # Hide node commands in Help message
+    subparsers.metavar = "{" + ",".join(metavar_data) + "}"
 
     # Get all parsed arguments
     args = parser.parse_args()
@@ -210,3 +222,8 @@ def runcli():
     # Run
     if cls is not None:
         cls.run(args)
+
+
+def set_common_args_func(func):
+    global _common_args_func
+    _common_args_func = func
