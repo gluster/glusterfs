@@ -1609,6 +1609,7 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
         int                min          = 0;
         int                sec          = 0;
         gf_boolean_t       down         = _gf_false;
+	gf_boolean_t       fix_layout   = _gf_false;
 
         ret = dict_get_int32 (dict, "count", &count);
         if (ret) {
@@ -1626,10 +1627,20 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
                 goto out;
         }
 
-        if (status_rcd >= GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED) {
-                cli_out ("%10s %40s %18s", "Node", "status",
+        /* Fix layout will be sent to all nodes for the volume
+           so every status should be of type
+           GF_DEFRAG_STATUS_LAYOUT_FIX*
+        */
+
+        if ((task_type == GF_TASK_TYPE_REBALANCE)
+           && (status_rcd >= GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED)) {
+                fix_layout = _gf_true;
+        }
+
+        if (fix_layout) {
+                cli_out ("%20s %40s %18s", "Node", "status",
                          "run time in h:m:s");
-                cli_out ("%10s %40s %18s", "---------", "-----------",
+                cli_out ("%20s %40s %18s", "---------", "-----------",
                          "------------");
         } else {
                 cli_out ("%40s %16s %13s %13s %13s %13s %20s %18s",
@@ -1738,8 +1749,8 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
                 min = ((int) elapsed % 3600) / 60;
                 sec = ((int) elapsed % 3600) % 60;
 
-                if (status_rcd >= GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED) {
-                        cli_out ("%10s %40s %8d:%d:%d", node_name, status_str,
+                if (fix_layout) {
+                        cli_out ("%20s %40s %8d:%d:%d", node_name, status_str,
                                  hrs, min, sec);
                 } else {
                         if (size_str) {

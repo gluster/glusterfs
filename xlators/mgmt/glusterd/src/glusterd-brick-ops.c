@@ -2652,7 +2652,10 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 /* Reset defrag status to 'NOT STARTED' whenever a
                  * remove-brick/rebalance command is issued to remove
                  * stale information from previous run.
+                 * Update defrag_cmd as well or it will only be done
+                 * for nodes on which the brick to be removed exists.
                  */
+                volinfo->rebal.defrag_cmd = cmd;
                 volinfo->rebal.defrag_status = GF_DEFRAG_STATUS_NOT_STARTED;
                 ret = dict_get_str (dict, GF_REMOVE_BRICK_TID_KEY, &task_id_str);
                 if (ret) {
