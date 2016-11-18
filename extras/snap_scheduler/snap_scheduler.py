@@ -21,8 +21,48 @@ import shutil
 from errno import EEXIST
 from conf import GLUSTERFS_LIBEXECDIR
 sys.path.insert(1, GLUSTERFS_LIBEXECDIR)
-from events.gf_event import gf_event
-from events import eventtypes
+
+EVENTS_ENABLED = True
+try:
+    from events.eventtypes import SNAPSHOT_SCHEDULER_INITIALISED \
+                         as EVENT_SNAPSHOT_SCHEDULER_INITIALISED
+    from events.eventtypes import SNAPSHOT_SCHEDULER_INIT_FAILED \
+                         as EVENT_SNAPSHOT_SCHEDULER_INIT_FAILED
+    from events.eventtypes import SNAPSHOT_SCHEDULER_DISABLED \
+                         as EVENT_SNAPSHOT_SCHEDULER_DISABLED
+    from events.eventtypes import SNAPSHOT_SCHEDULER_DISABLE_FAILED \
+                         as EVENT_SNAPSHOT_SCHEDULER_DISABLE_FAILED
+    from events.eventtypes import SNAPSHOT_SCHEDULER_ENABLED \
+                         as EVENT_SNAPSHOT_SCHEDULER_ENABLED
+    from events.eventtypes import SNAPSHOT_SCHEDULER_ENABLE_FAILED \
+                         as EVENT_SNAPSHOT_SCHEDULER_ENABLE_FAILED
+    from events.eventtypes import SNAPSHOT_SCHEDULER_SCHEDULE_ADDED \
+                         as EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_ADDED
+    from events.eventtypes import SNAPSHOT_SCHEDULER_SCHEDULE_ADD_FAILED \
+                         as EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_ADD_FAILED
+    from events.eventtypes import SNAPSHOT_SCHEDULER_SCHEDULE_DELETED \
+                         as EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_DELETED
+    from events.eventtypes import SNAPSHOT_SCHEDULER_SCHEDULE_DELETE_FAILED \
+                         as EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_DELETE_FAILED
+    from events.eventtypes import SNAPSHOT_SCHEDULER_SCHEDULE_EDITED \
+                         as EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_EDITED
+    from events.eventtypes import SNAPSHOT_SCHEDULER_SCHEDULE_EDIT_FAILED \
+                         as EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_EDIT_FAILED
+except ImportError:
+    # Events APIs not installed, dummy eventtypes with None
+    EVENTS_ENABLED = False
+    EVENT_SNAPSHOT_SCHEDULER_INITIALISED = None
+    EVENT_SNAPSHOT_SCHEDULER_INIT_FAILED = None
+    EVENT_SNAPSHOT_SCHEDULER_DISABLED = None
+    EVENT_SNAPSHOT_SCHEDULER_DISABLE_FAILED = None
+    EVENT_SNAPSHOT_SCHEDULER_ENABLED = None
+    EVENT_SNAPSHOT_SCHEDULER_ENABLE_FAILED = None
+    EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_ADDED = None
+    EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_ADD_FAILED = None
+    EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_DELETED = None
+    EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_DELETE_FAILED = None
+    EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_EDITED = None
+    EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_EDIT_FAILED = None
 
 SCRIPT_NAME = "snap_scheduler"
 scheduler_enabled = False
@@ -538,7 +578,7 @@ def initialise_scheduler():
 
     log.info("Successfully initialised snapshot scheduler for this node")
     output("Successfully initialised snapshot scheduler for this node")
-    gf_event (eventtypes.SNAPSHOT_SCHEDULER_INITIALISED, status="Success")
+    gf_event (EVENT_SNAPSHOT_SCHEDULER_INITIALISED, status="Success")
 
     ret = 0
     return ret
@@ -585,7 +625,7 @@ def perform_operation(args):
         ret = initialise_scheduler()
         if ret != 0:
             output("Failed to initialise snapshot scheduling")
-            gf_event (eventtypes.SNAPSHOT_SCHEDULER_INIT_FAILED,
+            gf_event (EVENT_SNAPSHOT_SCHEDULER_INIT_FAILED,
                       error=print_error(ret))
         return ret
 
@@ -594,10 +634,10 @@ def perform_operation(args):
         ret = disable_scheduler()
         if ret == 0:
             subprocess.Popen(["touch", "-h", GCRON_TASKS])
-            gf_event (eventtypes.SNAPSHOT_SCHEDULER_DISABLED,
+            gf_event (EVENT_SNAPSHOT_SCHEDULER_DISABLED,
                       status="Successfuly Disabled")
         else:
-            gf_event (eventtypes.SNAPSHOT_SCHEDULER_DISABLE_FAILED,
+            gf_event (EVENT_SNAPSHOT_SCHEDULER_DISABLE_FAILED,
                       error=print_error(ret))
         return ret
 
@@ -629,10 +669,10 @@ def perform_operation(args):
         ret = enable_scheduler()
         if ret == 0:
             subprocess.Popen(["touch", "-h", GCRON_TASKS])
-            gf_event (eventtypes.SNAPSHOT_SCHEDULER_ENABLED,
+            gf_event (EVENT_SNAPSHOT_SCHEDULER_ENABLED,
                       status="Successfuly Enabled")
         else:
-            gf_event (eventtypes.SNAPSHOT_SCHEDULER_ENABLE_FAILED,
+            gf_event (EVENT_SNAPSHOT_SCHEDULER_ENABLE_FAILED,
                       error=print_error(ret))
         return ret
 
@@ -641,10 +681,10 @@ def perform_operation(args):
         ret = disable_scheduler()
         if ret == 0:
             subprocess.Popen(["touch", "-h", GCRON_TASKS])
-            gf_event (eventtypes.SNAPSHOT_SCHEDULER_DISABLED,
+            gf_event (EVENT_SNAPSHOT_SCHEDULER_DISABLED,
                       status="Successfuly Disabled")
         else:
-            gf_event (eventtypes.SNAPSHOT_SCHEDULER_DISABLE_FAILED,
+            gf_event (EVENT_SNAPSHOT_SCHEDULER_DISABLE_FAILED,
                       error=print_error(ret))
         return ret
 
@@ -661,10 +701,10 @@ def perform_operation(args):
         ret = add_schedules(args.jobname, args.schedule, args.volname)
         if ret == 0:
             subprocess.Popen(["touch", "-h", GCRON_TASKS])
-            gf_event (eventtypes.SNAPSHOT_SCHEDULER_SCHEDULE_ADDED,
+            gf_event (EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_ADDED,
                       status="Successfuly added job "+args.jobname)
         else:
-            gf_event (eventtypes.SNAPSHOT_SCHEDULER_SCHEDULE_ADD_FAILED,
+            gf_event (EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_ADD_FAILED,
                       status="Failed to add job "+args.jobname,
                       error=print_error(ret))
         return ret
@@ -677,10 +717,10 @@ def perform_operation(args):
         ret = delete_schedules(args.jobname)
         if ret == 0:
             subprocess.Popen(["touch", "-h", GCRON_TASKS])
-            gf_event (eventtypes.SNAPSHOT_SCHEDULER_SCHEDULE_DELETED,
+            gf_event (EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_DELETED,
                       status="Successfuly deleted job "+args.jobname)
         else:
-            gf_event (eventtypes.SNAPSHOT_SCHEDULER_SCHEDULE_DELETE_FAILED,
+            gf_event (EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_DELETE_FAILED,
                       status="Failed to delete job "+args.jobname,
                       error=print_error(ret))
         return ret
@@ -693,16 +733,21 @@ def perform_operation(args):
         ret = edit_schedules(args.jobname, args.schedule, args.volname)
         if ret == 0:
             subprocess.Popen(["touch", "-h", GCRON_TASKS])
-            gf_event (eventtypes.SNAPSHOT_SCHEDULER_SCHEDULE_EDITED,
+            gf_event (EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_EDITED,
                       status="Successfuly edited job "+args.jobname)
         else:
-            gf_event (eventtypes.SNAPSHOT_SCHEDULER_SCHEDULE_EDIT_FAILED,
+            gf_event (EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_EDIT_FAILED,
                       status="Failed to edit job "+args.jobname,
                       error=print_error(ret))
         return ret
 
     ret = INVALID_ARG
     return ret
+
+def gf_event(event_type, **kwargs):
+    if EVENTS_ENABLED:
+        from events.gf_event import gf_event as gfevent
+        gfevent(event_type, **kwargs)
 
 
 def main(argv):
