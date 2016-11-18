@@ -654,6 +654,8 @@ index_del (xlator_t *this, uuid_t gfid, const char *subdir, int type)
         index_priv_t *priv = NULL;
         int          ret = 0;
         char         gfid_path[PATH_MAX] = {0};
+        char         rename_dst[PATH_MAX] = {0,};
+        uuid_t uuid;
 
         priv = this->private;
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name, !gf_uuid_is_null (gfid),
@@ -661,10 +663,27 @@ index_del (xlator_t *this, uuid_t gfid, const char *subdir, int type)
         make_gfid_path (priv->index_basepath, subdir, gfid,
                         gfid_path, sizeof (gfid_path));
 
-        if ((strcmp (subdir, ENTRY_CHANGES_SUBDIR)) == 0)
+        if ((strcmp (subdir, ENTRY_CHANGES_SUBDIR)) == 0) {
                 ret = sys_rmdir (gfid_path);
-        else
+                /* rmdir above could fail with ENOTEMPTY if the indices under
+                 * it were created when granular-entry-heal was enabled, whereas
+                 * the actual heal that happened was non-granular (or full) in
+                 * nature, resulting in name indices getting left out. To
+                 * clean up this directory without it affecting the IO path perf,
+                 * the directory is renamed to a unique name under
+                 * indices/entry-changes. Self-heal will pick up this entry
+                 * during crawl and on lookup into the file system figure that
+                 * the index is stale and subsequently wipe it out using rmdir().
+                 */
+                if ((ret) && (errno == ENOTEMPTY)) {
+                        gf_uuid_generate (uuid);
+                        make_gfid_path (priv->index_basepath, subdir, uuid,
+                                        rename_dst, sizeof (rename_dst));
+                        ret = sys_rename (gfid_path, rename_dst);
+                }
+        } else {
                 ret = sys_unlink (gfid_path);
+        }
 
         if (ret && (errno != ENOENT)) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
