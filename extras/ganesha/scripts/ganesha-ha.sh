@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2015 Red Hat Inc.  All Rights Reserved
+# Copyright 2015-2016 Red Hat Inc.  All Rights Reserved
 #
 # Pacemaker+Corosync High Availability for NFS-Ganesha
 #
@@ -78,13 +78,14 @@ GANESHA_CONF=${CONFFILE:-/etc/ganesha/ganesha.conf}
 
 usage() {
 
-        echo "Usage      : add|delete|status"
-        echo "Add-node   : ganesha-ha.sh --add <HA_CONF_DIR>  \
+        echo "Usage      : add|delete|refresh-config|status"
+        echo "Add-node   : ganesha-ha.sh --add <HA_CONF_DIR> \
 <NODE-HOSTNAME>  <NODE-VIP>"
-        echo "Delete-node: ganesha-ha.sh --delete <HA_CONF_DIR>  \
+        echo "Delete-node: ganesha-ha.sh --delete <HA_CONF_DIR> \
 <NODE-HOSTNAME>"
-        echo "Refresh-config : ganesha-ha.sh --refresh-config <HA_CONFDIR>\
- <volume>"
+        echo "Refresh-config : ganesha-ha.sh --refresh-config <HA_CONFDIR> \
+<volume>"
+        echo "Status : ganesha-ha.sh --status <HA_CONFDIR>"
 }
 
 determine_service_manager () {
@@ -153,7 +154,7 @@ determine_servers()
     local tmp_ifs=${IFS}
     local ha_servers=""
 
-    if [[ "X${cmd}X" != "XsetupX" ]]; then
+    if [ "X${cmd}X" != "XsetupX" -a "X${cmd}X" != "XstatusX" ]; then
         ha_servers=$(pcs status | grep "Online:" | grep -o '\[.*\]' | sed -e 's/\[//' | sed -e 's/\]//')
         IFS=$' '
         for server in ${ha_servers} ; do
@@ -745,25 +746,63 @@ setup_state_volume()
 
 status()
 {
-    local regex_str="^ ${1}"; shift
-    local status_file=$(mktemp)
+    local scratch=$(mktemp)
+    local regex_str="^${1}-cluster_ip-1"
+    local healthy=0
+    local index=1
+    local nodes
 
+    # change tabs to spaces, strip leading spaces
+    pcs status | sed -e "s/\t/ /g" -e "s/^[ ]*//" > ${scratch}
+
+    nodes[0]=${1}; shift
+
+    # make a regex of the configured nodes
+    # and initalize the nodes array for later
     while [[ ${1} ]]; do
 
-        regex_str="${regex_str}|^ ${1}"
-
+        regex_str="${regex_str}|^${1}-cluster_ip-1"
+        nodes[${index}]=${1}
+        ((index++))
         shift
     done
 
-    pcs status | egrep "^Online:" > ${status_file}
+    # print the nodes that are expected to be online
+    grep -E "^Online:" ${scratch}
 
-    echo >> ${status_file}
+    echo
 
-    pcs status | egrep "${regex_str}" | sed -e "s/\t/ /" | cut -d ' ' -f 2,4 >> ${status_file}
+    # print the VIPs and which node they are on
+    grep -E "${regex_str}" < ${scratch} | cut -d ' ' -f 1,4
 
-    cat ${status_file}
+    echo
 
-    rm -f ${status_file}
+    # check if the VIP and port block/unblock RAs are on the expected nodes
+    for n in ${nodes[*]}; do
+
+        grep -E -x "${n}-nfs_block \(ocf::heartbeat:portblock\): Started ${n}" > /dev/null 2>&1 ${scratch}
+        result=$?
+        ((healthy+=${result}))
+        grep -E -x "${n}-cluster_ip-1 \(ocf::heartbeat:IPaddr\): Started ${n}" > /dev/null 2>&1 ${scratch}
+        result=$?
+        ((healthy+=${result}))
+        grep -E -x "${n}-nfs_unblock \(ocf::heartbeat:portblock\): Started ${n}" > /dev/null 2>&1 ${scratch}
+        result=$?
+        ((healthy+=${result}))
+    done
+
+    grep -E "\):\ Stopped|FAILED" > /dev/null 2>&1 ${scratch}
+    result=$?
+
+    if [ ${result} -eq 0 ]; then
+        echo "Cluster HA Status: BAD"
+    elif [ ${healthy} -eq 0 ]; then
+        echo "Cluster HA Status: HEALTHY"
+    else
+        echo "Cluster HA Status: FAILOVER"
+    fi
+
+    rm -f ${scratch}
 }
 
 create_ganesha_conf_file()
@@ -798,18 +837,16 @@ main()
         usage
         exit 0
     fi
-    if [[ ${cmd} != *status ]]; then
-        HA_CONFDIR=${1%/}; shift
-        local ha_conf=${HA_CONFDIR}/ganesha-ha.conf
-        local node=""
-        local vip=""
+    HA_CONFDIR=${1%/}; shift
+    local ha_conf=${HA_CONFDIR}/ganesha-ha.conf
+    local node=""
+    local vip=""
 
-        # ignore any comment lines
-        cfgline=$(grep  ^HA_NAME= ${ha_conf})
-        eval $(echo ${cfgline} | grep -F HA_NAME=)
-        cfgline=$(grep  ^HA_CLUSTER_NODES= ${ha_conf})
-        eval $(echo ${cfgline} | grep -F HA_CLUSTER_NODES=)
-    fi
+    # ignore any comment lines
+    cfgline=$(grep  ^HA_NAME= ${ha_conf})
+    eval $(echo ${cfgline} | grep -F HA_NAME=)
+    cfgline=$(grep  ^HA_CLUSTER_NODES= ${ha_conf})
+    eval $(echo ${cfgline} | grep -F HA_CLUSTER_NODES=)
 
     case "${cmd}" in
 
