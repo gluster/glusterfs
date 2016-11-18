@@ -37,13 +37,13 @@ typedef struct gf_dump_options_ {
 
 extern gf_dump_options_t dump_options;
 
-static inline
-void _gf_proc_dump_build_key (char *key, const char *prefix, char *fmt,...)
+__attribute__ ((__format__ (__printf__, 3, 4)))
+static inline void
+_gf_proc_dump_build_key (char *key, const char *prefix, const char *fmt, ...)
 {
-        char buf[GF_DUMP_MAX_BUF_LEN];
+        char buf[GF_DUMP_MAX_BUF_LEN] = { 0, };
         va_list ap;
 
-        memset(buf, 0, sizeof(buf));
         va_start(ap, fmt);
         vsnprintf(buf, GF_DUMP_MAX_BUF_LEN, fmt, ap);
         va_end(ap);

@@ -31,7 +31,7 @@
 
 
 int
-_gf_event (eventtypes_t event, char *fmt, ...)
+_gf_event (eventtypes_t event, const char *fmt, ...)
 {
         int                ret                   = 0;
         int                sock                  = -1;

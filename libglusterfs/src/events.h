@@ -15,10 +15,12 @@
 
 #ifdef USE_EVENTS
 int
-_gf_event (eventtypes_t event, char *fmt, ...);
+_gf_event (eventtypes_t event, const char *fmt, ...)
+           __attribute__ ((__format__ (__printf__, 2, 3)));
 #else
+__attribute__ ((__format__ (__printf__, 2, 3)))
 static inline int
-_gf_event (eventtypes_t event, char *fmt, ...)
+_gf_event (eventtypes_t event, const char *fmt, ...)
 {
         return 0;
 }

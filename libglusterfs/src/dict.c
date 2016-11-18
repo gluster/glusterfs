@@ -2983,7 +2983,7 @@ dict_dump_to_statedump (dict_t *dict, char *dict_name, char *domain)
                         "Failed to log dictionary %s", dict_name);
                 return;
         }
-        gf_proc_dump_build_key (key, domain, dict_name);
+        gf_proc_dump_build_key (key, domain, "%s", dict_name);
         gf_proc_dump_write (key, "%s", dump);
 
         return;
