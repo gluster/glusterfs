@@ -762,6 +762,23 @@ out:
         return;
 }
 
+void
+loc_pargfid (loc_t *loc, uuid_t gfid)
+{
+        if (!gfid)
+                goto out;
+        gf_uuid_clear (gfid);
+
+        if (!loc)
+                goto out;
+        else if (!gf_uuid_is_null (loc->pargfid))
+                gf_uuid_copy (gfid, loc->pargfid);
+        else if (loc->parent && (!gf_uuid_is_null (loc->parent->gfid)))
+                gf_uuid_copy (gfid, loc->parent->gfid);
+out:
+        return;
+}
+
 char*
 loc_gfid_utoa (loc_t *loc)
 {
