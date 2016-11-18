@@ -992,6 +992,7 @@ init (xlator_t *this)
                         "pthread_cond_init failed (%d)", ret);
                 goto out;
         }
+        conf->cond_inited = _gf_true;
 
         if ((ret = pthread_mutex_init(&conf->mutex, NULL)) != 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -999,6 +1000,7 @@ init (xlator_t *this)
                         "pthread_mutex_init failed (%d)", ret);
                 goto out;
         }
+        conf->mutex_inited = _gf_true;
 
         set_stack_size (conf);
 
@@ -1046,22 +1048,27 @@ out:
 	return ret;
 }
 
+static void
+iot_exit_threads (iot_conf_t *conf)
+{
+        pthread_mutex_lock (&conf->mutex);
+        {
+                conf->down = _gf_true;
+                /*Let all the threads know that xl is going down*/
+                pthread_cond_broadcast (&conf->cond);
+                while (conf->curr_count)/*Wait for threads to exit*/
+                        pthread_cond_wait (&conf->cond, &conf->mutex);
+        }
+        pthread_mutex_unlock (&conf->mutex);
+}
+
 int
 notify (xlator_t *this, int32_t event, void *data, ...)
 {
         iot_conf_t *conf = this->private;
 
-        if (GF_EVENT_PARENT_DOWN == event) {
-                pthread_mutex_lock (&conf->mutex);
-                {
-                        conf->down = _gf_true;
-                        /*Let all the threads know that xl is going down*/
-                        pthread_cond_broadcast (&conf->cond);
-                        while (conf->curr_count)/*Wait for threads to exit*/
-                                pthread_cond_wait (&conf->cond, &conf->mutex);
-                }
-                pthread_mutex_unlock (&conf->mutex);
-        }
+        if (GF_EVENT_PARENT_DOWN == event)
+                iot_exit_threads (conf);
 
         default_notify (this, event, data);
 
@@ -1072,6 +1079,18 @@ void
 fini (xlator_t *this)
 {
 	iot_conf_t *conf = this->private;
+
+        if (!conf)
+                return;
+
+        if (conf->mutex_inited && conf->cond_inited)
+                iot_exit_threads (conf);
+
+        if (conf->cond_inited)
+                pthread_cond_destroy (&conf->cond);
+
+        if (conf->mutex_inited)
+                pthread_mutex_destroy (&conf->mutex);
 
 	GF_FREE (conf);
 
