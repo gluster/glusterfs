@@ -3727,7 +3727,7 @@ io_priv (xlator_t *this)
                 max = conf->cumulative.latency[i].max;
                 avg = conf->cumulative.latency[i].avg;
 
-                gf_proc_dump_build_key (key, key_prefix_cumulative,
+                gf_proc_dump_build_key (key, key_prefix_cumulative, "%s",
                                         (char *)gf_fop_list[i]);
 
                 gf_proc_dump_write (key,"%"PRId64",%"PRId64",%.03f,%.03f,%.03f",
@@ -3739,7 +3739,7 @@ io_priv (xlator_t *this)
                 max = conf->incremental.latency[i].max;
                 avg = conf->incremental.latency[i].avg;
 
-                gf_proc_dump_build_key (key, key_prefix_incremental,
+                gf_proc_dump_build_key (key, key_prefix_incremental, "%s",
                                         (char *)gf_fop_list[i]);
 
                 gf_proc_dump_write (key,"%"PRId64",%"PRId64",%.03f,%.03f,%.03f",

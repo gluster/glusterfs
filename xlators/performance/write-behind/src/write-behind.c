@@ -2784,7 +2784,7 @@ __wb_dump_requests (struct list_head *head, char *prefix)
         wb_request_t *req                             = NULL;
 
         list_for_each_entry (req, head, all) {
-                gf_proc_dump_build_key (key_prefix, key,
+                gf_proc_dump_build_key (key_prefix, key, "%s",
                                         (char *)gf_fop_list[req->fop]);
 
                 gf_proc_dump_add_section(key_prefix);
