@@ -80,6 +80,8 @@ struct iot_conf {
         size_t              stack_size;
 
         gf_boolean_t         down; /*PARENT_DOWN event is notified*/
+        gf_boolean_t         mutex_inited;
+        gf_boolean_t         cond_inited;
 	struct iot_least_throttle throttle;
 };
 
