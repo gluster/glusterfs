@@ -4943,7 +4943,7 @@ glusterd_handle_get_vol_opt (rpcsvc_request_t *req)
 }
 
 static int
-glusterd_print_global_options (dict_t *opts, char *key, data_t *val, void *data)
+glusterd_print_dict_options (dict_t *opts, char *key, data_t *val, void *data)
 {
         FILE *fp = NULL;
 
@@ -5121,7 +5121,7 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
         fprintf (fp, "\n[Global options]\n");
 
         if (priv->opts)
-                dict_foreach (priv->opts, glusterd_print_global_options, fp);
+                dict_foreach (priv->opts, glusterd_print_dict_options, fp);
 
         rcu_read_lock ();
         fprintf (fp, "\n[Peers]\n");
@@ -5344,6 +5344,10 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                                  volinfo->rep_brick.dst_brick->hostname,
                                  volinfo->rep_brick.dst_brick->path);
                 }
+                fprintf (fp, "[Volume%d.options]\n", count);
+                if (volinfo->dict)
+                        dict_foreach (volinfo->dict,
+                                      glusterd_print_dict_options, fp);
 
                 fprintf (fp, "\n");
         }
