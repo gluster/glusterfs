@@ -2573,7 +2573,9 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
 
         ret = afr_inode_get_readable (frame, local->inode, this,
                                       local->readable, &event_generation, type);
-        if (ret < 0 || event_generation != priv->event_generation) {
+        if (ret < 0 || afr_is_inode_refresh_reqd (local->inode, this,
+                                                  priv->event_generation,
+                                                  event_generation)) {
                 afr_inode_refresh (frame, this, local->inode, local->loc.gfid,
                                    afr_write_txn_refresh_done);
         } else {

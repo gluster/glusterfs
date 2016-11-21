@@ -812,6 +812,7 @@ typedef struct _afr_inode_ctx {
         uint64_t        read_subvol;
         int             spb_choice;
         gf_timer_t      *timer;
+        gf_boolean_t    need_refresh;
 } afr_inode_ctx_t;
 
 typedef struct afr_spbc_timeout {
@@ -1235,4 +1236,8 @@ __afr_fd_ctx_get (fd_t *fd, xlator_t *this);
 void
 afr_compound_cleanup (compound_args_t *args, dict_t *xdata,
                       dict_t *newloc_xdata);
+
+gf_boolean_t
+afr_is_inode_refresh_reqd (inode_t *inode, xlator_t *this,
+                           int event_gen1, int event_gen2);
 #endif /* __AFR_H__ */
