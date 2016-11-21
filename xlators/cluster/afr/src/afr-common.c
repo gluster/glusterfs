@@ -616,6 +616,62 @@ out:
 }
 
 
+/* The caller of this should perform afr_inode_refresh, if this function
+ * returns _gf_true
+ */
+gf_boolean_t
+afr_is_inode_refresh_reqd (inode_t *inode, xlator_t *this,
+                           int event_gen1, int event_gen2)
+{
+        gf_boolean_t     need_refresh = _gf_false;
+        afr_inode_ctx_t  *ctx         = NULL;
+        int              ret          = -1;
+
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+
+        LOCK(&inode->lock);
+        {
+                ret = __afr_inode_ctx_get (this, inode, &ctx);
+                if (ret)
+                        goto unlock;
+
+                need_refresh = ctx->need_refresh;
+                /* Hoping that the caller will do inode_refresh followed by
+                 * this, hence setting the need_refresh to false */
+                ctx->need_refresh = _gf_false;
+        }
+unlock:
+        UNLOCK(&inode->lock);
+
+        if (event_gen1 != event_gen2)
+                need_refresh = _gf_true;
+out:
+        return need_refresh;
+}
+
+
+static int
+afr_inode_need_refresh_set (inode_t *inode, xlator_t *this)
+{
+        int               ret         = -1;
+        afr_inode_ctx_t  *ctx         = NULL;
+
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+
+        LOCK(&inode->lock);
+        {
+                ret = __afr_inode_ctx_get (this, inode, &ctx);
+                if (ret)
+                        goto unlock;
+
+                ctx->need_refresh = _gf_true;
+        }
+unlock:
+        UNLOCK(&inode->lock);
+out:
+        return ret;
+}
+
 int
 afr_inode_read_subvol_reset (inode_t *inode, xlator_t *this)
 {
@@ -2786,7 +2842,8 @@ afr_discover (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req
 	afr_read_subvol_get (loc->inode, this, NULL, NULL, &event,
 			     AFR_DATA_TRANSACTION, NULL);
 
-	if (event != local->event_generation)
+	if (afr_is_inode_refresh_reqd (loc->inode, this, event,
+                                       local->event_generation))
 		afr_inode_refresh (frame, this, loc->inode, NULL,
                                    afr_discover_do);
 	else
@@ -2937,7 +2994,8 @@ afr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 	afr_read_subvol_get (loc->parent, this, NULL, NULL, &event,
 			     AFR_DATA_TRANSACTION, NULL);
 
-	if (event != local->event_generation)
+	if (afr_is_inode_refresh_reqd (loc->inode, this, event,
+                                       local->event_generation))
 		afr_inode_refresh (frame, this, loc->parent, NULL,
                                    afr_lookup_do);
 	else
@@ -4724,22 +4782,22 @@ afr_notify (xlator_t *this, int32_t event,
                          * pronounced. Hence when a pending xattr is set notify
                          * all the md-cache clients to invalidate the existing
                          * stat cache and send the lookup next time */
-                        if (up_ci->dict) {
-                                for (i = 0; i < priv->child_count; i++) {
-                                        if (dict_get (up_ci->dict, priv->pending_key[i])) {
-                                                 ret = dict_set_int8 (up_ci->dict,
-                                                                      MDC_INVALIDATE_IATT , 0);
-                                                 break;
-                                        }
+                        if (!up_ci->dict)
+                                break;
+                        for (i = 0; i < priv->child_count; i++) {
+                                if (dict_get (up_ci->dict, priv->pending_key[i])) {
+                                         ret = dict_set_int8 (up_ci->dict,
+                                                              MDC_INVALIDATE_IATT, 0);
+                                         itable = ((xlator_t *)this->graph->top)->itable;
+                                         /*Internal processes may not have itable for top xlator*/
+                                         if (itable)
+                                                 inode = inode_find (itable, up_data->gfid);
+                                         if (inode)
+                                                 afr_inode_need_refresh_set (inode, this);
+
+                                         break;
                                 }
                         }
-                        itable = ((xlator_t *)this->graph->top)->itable;
-                       /*Internal processes may not have itable for top xlator*/
-                        if (itable)
-                                inode = inode_find (itable, up_data->gfid);
-                        if (inode)
-                                afr_inode_read_subvol_reset (inode, this);
-
                         break;
                 default:
                         propagate = 1;

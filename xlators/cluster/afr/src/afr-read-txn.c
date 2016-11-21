@@ -227,7 +227,8 @@ afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
         gf_msg_debug (this->name, 0, "%s: generation now vs cached: %d, "
                       "%d", uuid_utoa (inode->gfid), local->event_generation,
                       event_generation);
-	if (local->event_generation != event_generation)
+	if (afr_is_inode_refresh_reqd (inode, this, local->event_generation,
+                                       event_generation))
 		/* servers have disconnected / reconnected, and possibly
 		   rebooted, very likely changing the state of freshness
 		   of copies */
