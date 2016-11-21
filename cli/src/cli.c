@@ -153,8 +153,6 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         LOCK_INIT (&pool->lock);
         ctx->pool = pool;
 
-        LOCK_INIT (&ctx->lock);
-
         cmd_args = &ctx->cmd_args;
 
         INIT_LIST_HEAD (&cmd_args->xlator_options);
