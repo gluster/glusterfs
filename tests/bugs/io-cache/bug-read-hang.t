@@ -19,6 +19,8 @@ TEST $CLI volume set $V0 performance.md-cache-timeout 600
 TEST $CLI volume set $V0 performance.cache-samba-metadata on
 TEST $CLI volume set $V0 open-behind off
 
+logdir=`gluster --print-logdir`
+
 TEST $CLI volume start $V0
 
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0

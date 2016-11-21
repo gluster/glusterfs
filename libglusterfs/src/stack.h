@@ -281,17 +281,19 @@ STACK_RESET (call_stack_t *stack)
 #define STACK_WIND_TAIL(frame, obj, fn, params ...)                     \
         do {                                                            \
                 xlator_t     *old_THIS = NULL;                          \
+                xlator_t     *next_xl = obj;                            \
+                typeof(fn)    next_xl_fn = fn;                          \
                                                                         \
-                frame->this = obj;                                      \
+                frame->this = next_xl;                                  \
                 frame->wind_to = #fn;                                   \
                 old_THIS = THIS;                                        \
-                THIS = obj;                                             \
+                THIS = next_xl;                                         \
                 gf_msg_trace ("stack-trace", 0,                         \
                               "stack-address: %p, "                     \
                               "winding from %s to %s",                  \
                               frame->root, old_THIS->name,              \
                               THIS->name);                              \
-                fn (frame, obj, params);                                \
+                next_xl_fn (frame, next_xl, params);                    \
                 THIS = old_THIS;                                        \
         } while (0)
 
