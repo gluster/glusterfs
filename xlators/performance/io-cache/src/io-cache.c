@@ -1105,16 +1105,16 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
         ioc_inode = (ioc_inode_t *)(long)tmp_ioc_inode;
         if (!ioc_inode) {
                 /* caching disabled, go ahead with normal readv */
-                STACK_WIND_TAIL (frame, FIRST_CHILD (frame->this),
-                                 FIRST_CHILD (frame->this)->fops->readv, fd,
+                STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                                 FIRST_CHILD (this)->fops->readv, fd,
                                  size, offset, flags, xdata);
                 return 0;
         }
 
         if (flags & O_DIRECT) {
                 /* disable caching for this fd, if O_DIRECT is used */
-                STACK_WIND_TAIL (frame, FIRST_CHILD (frame->this),
-                                 FIRST_CHILD (frame->this)->fops->readv, fd,
+                STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                                 FIRST_CHILD (this)->fops->readv, fd,
                                  size, offset, flags, xdata);
                 return 0;
         }
@@ -1149,8 +1149,8 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         if (!fd_ctx_get (fd, this, NULL)) {
                 /* disable caching for this fd, go ahead with normal readv */
-                STACK_WIND_TAIL (frame, FIRST_CHILD (frame->this),
-                                 FIRST_CHILD (frame->this)->fops->readv, fd,
+                STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                                 FIRST_CHILD (this)->fops->readv, fd,
                                  size, offset, flags, xdata);
                 return 0;
         }
