@@ -1531,7 +1531,6 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         if (!ctx->logbuf_pool)
                 goto out;
 
-        LOCK_INIT (&ctx->lock);
         pthread_mutex_init (&ctx->notify_lock, NULL);
         pthread_cond_init (&ctx->notify_cond, NULL);
 
