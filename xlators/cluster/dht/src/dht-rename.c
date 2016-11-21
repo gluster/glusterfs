@@ -637,6 +637,7 @@ dht_rename_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
         prev  = cookie;
 
+        FRAME_SU_UNDO (frame, dht_local_t);
         if (!local) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_INVALID_VALUE,
@@ -745,7 +746,12 @@ dht_rename_cleanup (call_frame_t *frame)
                                   local->loc2.pargfid) == 0) {
                         DHT_MARKER_DONT_ACCOUNT(xattr_new);
                 }
-
+                /* *
+                 * The link to file is created using root permission.
+                 * Hence deletion should happen using root. Otherwise
+                 * it will fail.
+                 */
+                FRAME_SU_DO (frame, dht_local_t);
                 STACK_WIND (frame, dht_rename_unlink_cbk,
                             src_cached, src_cached->fops->unlink,
                             &local->loc2, 0, xattr_new);
