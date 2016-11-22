@@ -369,7 +369,6 @@ glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
                 goto out;
 
         ret = glusterd_resolve_brick (new_brickinfo);
-
         if (ret)
                 goto out;
 

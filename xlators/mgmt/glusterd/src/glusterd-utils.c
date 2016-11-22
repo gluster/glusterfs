@@ -2996,7 +2996,7 @@ glusterd_compare_friend_volume (dict_t *peer_data, int32_t count,
         *status = GLUSTERD_VOL_COMP_SCS;
 
 out:
-        if (ret) {
+        if (*status == GLUSTERD_VOL_COMP_RJT) {
                 gf_event (EVENT_COMPARE_FRIEND_VOLUME_FAILED, "volume=%s",
                           volinfo->volname);
         }
@@ -4135,10 +4135,7 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
         }
 
         if (glusterd_is_volume_started (new_volinfo)) {
-                if (glusterd_start_bricks (new_volinfo)) {
-                        gf_event (EVENT_BRICKS_START_FAILED, "volume=%s",
-                                  new_volinfo->volname);
-                }
+                (void) glusterd_start_bricks (new_volinfo);
                 if (glusterd_is_snapd_enabled (new_volinfo)) {
                         svc = &(new_volinfo->snapd.svc);
                         if (svc->manager (svc, new_volinfo,
@@ -5905,6 +5902,10 @@ glusterd_brick_stop (glusterd_volinfo_t *volinfo,
         if (gf_uuid_is_null (brickinfo->uuid)) {
                 ret = glusterd_resolve_brick (brickinfo);
                 if (ret) {
+                        gf_event (EVENT_BRICKPATH_RESOLVE_FAILED,
+                                  "peer=%s;volume=%s;brick=%s",
+                                  brickinfo->hostname, volinfo->volname,
+                                  brickinfo->path);
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_RESOLVE_BRICK_FAIL, FMTSTR_RESOLVE_BRICK,
                                 brickinfo->hostname, brickinfo->path);
