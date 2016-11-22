@@ -6923,6 +6923,7 @@ dht_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
         local = frame->local;
         layout = local->selfheal.layout;
 
+        FRAME_SU_UNDO (frame, dht_local_t);
         dht_set_fixed_dir_stat (&local->preparent);
         dht_set_fixed_dir_stat (&local->postparent);
 
@@ -7010,6 +7011,7 @@ unlock:
 
         this_call_cnt = dht_frame_return (frame);
         if (is_last_call (this_call_cnt)) {
+                FRAME_SU_DO (frame, dht_local_t);
                 dht_selfheal_new_directory (frame, dht_mkdir_selfheal_cbk,
                                             layout);
         }
@@ -7243,6 +7245,7 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
         if (gf_uuid_is_null (local->loc.gfid))
                 gf_uuid_copy (local->loc.gfid, stbuf->ia_gfid);
         if (local->call_cnt == 0) {
+                FRAME_SU_DO (frame, dht_local_t);
                 dht_selfheal_directory (frame, dht_mkdir_selfheal_cbk,
                                         &local->loc, layout);
         }
