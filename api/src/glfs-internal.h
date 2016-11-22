@@ -305,17 +305,26 @@ do {                                                                \
   we can give up the mutex during syncop calls so
   that bottom up calls (particularly CHILD_UP notify)
   can do a mutex_lock() on @glfs without deadlocking
-  the filesystem
+  the filesystem.
+
+  All the fops should wait for graph migration to finish
+  before starting the fops. Therefore these functions should
+  call glfs_lock with wait_for_migration as true. But waiting
+  for migration to finish in call-back path can result thread
+  dead-locks. The reason for this is we only have finite
+  number of epoll threads. so if we wait on epoll threads
+  there will not be any thread left to handle outstanding
+  rpc replies.
 */
 static inline int
-glfs_lock (struct glfs *fs)
+glfs_lock (struct glfs *fs, gf_boolean_t wait_for_migration)
 {
 	pthread_mutex_lock (&fs->mutex);
 
 	while (!fs->init)
 		pthread_cond_wait (&fs->cond, &fs->mutex);
 
-	while (fs->migration_in_progress)
+        while (wait_for_migration && fs->migration_in_progress)
 		pthread_cond_wait (&fs->cond, &fs->mutex);
 
 	return 0;
