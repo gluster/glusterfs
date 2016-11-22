@@ -107,6 +107,7 @@ glusterd_handle_friend_req (rpcsvc_request_t *req, uuid_t  uuid,
         peerinfo = glusterd_peerinfo_find (uuid, rhost);
 
         if (peerinfo == NULL) {
+                gf_event (EVENT_PEER_REJECT, "peer=%s", hostname);
                 ret = glusterd_xfer_friend_add_resp (req, hostname, rhost, port,
                                                      -1, GF_PROBE_UNKNOWN_PEER);
                 if (friend_req->vols.vols_val) {

@@ -1501,7 +1501,8 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                         ret = glusterd_resolve_brick (brickinfo);
                         if (ret) {
                                 gf_msg ("glusterd", GF_LOG_ERROR, 0,
-                                        GD_MSG_RESOLVE_BRICK_FAIL, FMTSTR_RESOLVE_BRICK,
+                                        GD_MSG_RESOLVE_BRICK_FAIL,
+                                        FMTSTR_RESOLVE_BRICK,
                                         brickinfo->hostname, brickinfo->path);
                                 goto out;
                         }
