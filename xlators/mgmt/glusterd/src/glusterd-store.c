@@ -3430,6 +3430,10 @@ glusterd_resolve_snap_bricks (xlator_t  *this, glusterd_snap_t *snap)
                                          brick_list) {
                         ret = glusterd_resolve_brick (brickinfo);
                         if (ret) {
+                                gf_event (EVENT_BRICKPATH_RESOLVE_FAILED,
+                                          "peer=%s;volume=%s;brick=%s",
+                                          brickinfo->hostname, volinfo->volname,
+                                          brickinfo->path);
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_RESOLVE_BRICK_FAIL,
                                         "resolve brick failed in restore");
@@ -4403,6 +4407,10 @@ glusterd_resolve_all_bricks (xlator_t  *this)
                                          brick_list) {
                         ret = glusterd_resolve_brick (brickinfo);
                         if (ret) {
+                                gf_event (EVENT_BRICKPATH_RESOLVE_FAILED,
+                                          "peer=%s;volume=%s;brick=%s",
+                                          brickinfo->hostname, volinfo->volname,
+                                          brickinfo->path);
                                 gf_msg ("glusterd", GF_LOG_ERROR, 0,
                                         GD_MSG_RESOLVE_BRICK_FAIL,
                                         "resolve brick failed in restore");
