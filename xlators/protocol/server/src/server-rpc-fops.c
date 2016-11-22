@@ -492,13 +492,11 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_mkdir_rsp       rsp        = {0,};
         server_state_t      *state      = NULL;
         rpcsvc_request_t    *req        = NULL;
-        client_t            *client     = NULL;
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
                                     rsp.xdata.xdata_len, op_errno, out);
 
         state = CALL_STATE (frame);
-        client = frame->root->client;
 
         if (op_ret < 0) {
                 gf_msg (this->name, fop_log_level (GF_FOP_MKDIR, op_errno),
