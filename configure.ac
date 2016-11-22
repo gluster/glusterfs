@@ -146,16 +146,12 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/read-only/src/Makefile
                 xlators/features/compress/Makefile
                 xlators/features/compress/src/Makefile
-                xlators/features/mac-compat/Makefile
-                xlators/features/mac-compat/src/Makefile
                 xlators/features/quiesce/Makefile
                 xlators/features/quiesce/src/Makefile
                 xlators/features/barrier/Makefile
                 xlators/features/barrier/src/Makefile
                 xlators/features/index/Makefile
                 xlators/features/index/src/Makefile
-                xlators/features/protect/Makefile
-                xlators/features/protect/src/Makefile
                 xlators/features/gfid-access/Makefile
                 xlators/features/gfid-access/src/Makefile
                 xlators/features/trash/Makefile

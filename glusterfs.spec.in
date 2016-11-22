@@ -1024,17 +1024,12 @@ exit 0
 
 %files client-xlators
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/*.so
-%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/pump.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/client.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/dht2c.so
 
 %files extra-xlators
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/rot-13.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/mac-compat.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/prot_client.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/prot_dht.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/prot_server.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/quiesce.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/features/template.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance/symlink-cache.so
@@ -1149,7 +1144,6 @@ exit 0
 # {_sbindir}/glusterfsd is the actual binary, but glusterfs (client) is a
 # symlink. The binary itself (and symlink) are part of the glusterfs-fuse
 # package, because glusterfs-server depends on that anyway.
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/pump.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/arbiter.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bit-rot.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bitrot-stub.so
