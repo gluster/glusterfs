@@ -215,7 +215,7 @@ glusterd_check_ganesha_cmd (char *key, char *value, char **errstr, dict_t *dict)
                                 "Unable to get volume name");
                                 goto out;
                         }
-                        ret = create_export_config (volname, "off", errstr);
+                        ret = manage_export_config (volname, "off", errstr);
                  }
         }
 out:
@@ -426,7 +426,7 @@ check_host_list (void)
 }
 
 int
-create_export_config (char *volname, char *value, char **op_errstr)
+manage_export_config (char *volname, char *value, char **op_errstr)
 {
         runner_t                runner                     = {0,};
         int                     ret                        = -1;
@@ -527,7 +527,7 @@ ganesha_manage_export (dict_t *dict, char *value, char **op_errstr)
          * is executed
          * */
          if (option) {
-                ret  =  create_export_config (volname, "on", op_errstr);
+                ret  = manage_export_config (volname, "on", op_errstr);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_EXPORT_FILE_CREATE_FAIL,

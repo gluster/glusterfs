@@ -1499,15 +1499,6 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
                 ret = glusterd_validate_volume_id (dict, volinfo);
                 if (ret)
                         goto out;
-                ret = dict_get_str_boolean (priv->opts,
-                            GLUSTERD_STORE_KEY_GANESHA_GLOBAL, _gf_false);
-                if (ret) {
-                        ret =  stop_ganesha (op_errstr);
-                        if (ret)
-                                gf_msg (THIS->name, GF_LOG_WARNING, 0,
-                                        GD_MSG_NFS_GNS_STOP_FAIL,
-                                        "Could not stop NFS-Ganesha service");
-                }
 
         }
 
@@ -1517,7 +1508,23 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
                         GD_MSG_DICT_GET_FAILED, "Unable to get option key");
                 goto out;
         }
-        if (strcmp(key, "all")) {
+
+        /* *
+         * If key ganesha.enable is set, then volume should be unexported from
+         * ganesha server. Also it is a volume-level option, perform only when
+         * volume name not equal to "all"(in other words if volinfo != NULL)
+         */
+        if (volinfo && (!strcmp (key, "all") || !strcmp(key, "ganesha.enable"))) {
+                if (glusterd_check_ganesha_export (volinfo)) {
+                        ret = ganesha_manage_export (dict, "off", op_errstr);
+                        if (ret)
+                                gf_msg (this->name, GF_LOG_WARNING, 0,
+                                        GD_MSG_NFS_GNS_RESET_FAIL,
+                                        "Could not reset ganesha.enable key");
+                }
+        }
+
+       if (strcmp(key, "all")) {
                 exists = glusterd_check_option_exists (key, &key_fixed);
                 if (exists == -1) {
                         ret = -1;
@@ -2054,7 +2061,6 @@ glusterd_op_reset_all_volume_options (xlator_t *this, dict_t *dict)
         gf_boolean_t    all             = _gf_false;
         char            *next_version   = NULL;
         gf_boolean_t    quorum_action   = _gf_false;
-        gf_boolean_t     option         = _gf_false;
 
         conf = this->private;
         ret = dict_get_str (dict, "key", &key);
@@ -2083,15 +2089,6 @@ glusterd_op_reset_all_volume_options (xlator_t *this, dict_t *dict)
 
         if (key_fixed)
                 key = key_fixed;
-        option = dict_get_str_boolean (conf->opts, GLUSTERD_STORE_KEY_GANESHA_GLOBAL,
-                            _gf_false);
-        if (option) {
-                ret = tear_down_cluster (is_origin_glusterd (dict));
-                if (ret == -1)
-                        gf_msg (THIS->name, GF_LOG_WARNING, errno,
-                                GD_MSG_DICT_GET_FAILED,
-                                "Could not tear down NFS-Ganesha cluster");
-        }
 
         ret = -1;
         dup_opt = dict_new ();
@@ -2200,16 +2197,6 @@ glusterd_op_reset_volume (dict_t *dict, char **op_rspstr)
 
         if (glusterd_is_quorum_changed (volinfo->dict, key, NULL))
                 quorum_action = _gf_true;
-        ret = glusterd_check_ganesha_export (volinfo);
-        if (ret) {
-                ret = ganesha_manage_export (dict, "off", op_rspstr);
-                if (ret) {
-                        gf_msg (THIS->name, GF_LOG_WARNING, 0,
-                                GD_MSG_NFS_GNS_RESET_FAIL,
-                                "Could not reset ganesha.enable key");
-                        ret = 0;
-                }
-        }
 
         ret = glusterd_options_reset (volinfo, key, &is_force);
         if (ret == -1) {
@@ -2225,6 +2212,16 @@ glusterd_op_reset_volume (dict_t *dict, char **op_rspstr)
                                      " use 'force'.", key);
                 }
         }
+
+        if (!strcmp(key, "ganesha.enable") || !strcmp (key, "all")) {
+                if (glusterd_check_ganesha_export (volinfo)) {
+                        ret = manage_export_config (volname, "off", op_rspstr);
+                        if (ret)
+                                gf_msg (this->name, GF_LOG_WARNING, 0,
+                                        GD_MSG_NFS_GNS_RESET_FAIL,
+                                        "Could not reset ganesha.enable key");
+                }
+         }
 
 out:
         GF_FREE (key_fixed);
