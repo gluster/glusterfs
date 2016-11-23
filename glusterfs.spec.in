@@ -1027,7 +1027,6 @@ exit 0
 %{_libexecdir}/ganesha/*
 %{_prefix}/lib/ocf/resource.d/heartbeat/*
 %{_sharedstatedir}/glusterd/hooks/1/start/post/S31ganesha-start.sh
-%{_sharedstatedir}/glusterd/hooks/1/reset/post/S31ganesha-reset.sh
 
 %if ( 0%{!?_without_georeplication:1} )
 %files geo-replication
@@ -1207,6 +1206,9 @@ exit 0
 
 
 %changelog
+* Thu Dec 19 2016 Jiffin Tony Thottan <jhottan@redhat.com>
+- remove S31ganesha-reset.sh from hooks (#1405955)
+
 * Fri Jul 15 2016 Aravinda VK <avishwan@redhat.com>
 - Removed ".py" extension from symlink(S57glusterfind-delete-post)(#1363594)
 
