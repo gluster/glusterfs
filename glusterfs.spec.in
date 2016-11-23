@@ -1051,7 +1051,6 @@ exit 0
 %{_libexecdir}/ganesha/*
 %{_prefix}/lib/ocf/resource.d/heartbeat/*
 %{_sharedstatedir}/glusterd/hooks/1/start/post/S31ganesha-start.sh
-%{_sharedstatedir}/glusterd/hooks/1/reset/post/S31ganesha-reset.sh
 
 %if ( 0%{!?_without_georeplication:1} )
 %files geo-replication
@@ -1257,6 +1256,9 @@ exit 0
 %endif
 
 %changelog
+* Thu Dec 7 2016 Jiffin Tony Thottan <jhottan@redhat.com>
+- remove S31ganesha-reset.sh from hooks (#1402366)
+
 * Wed Sep 14 2016 Aravinda VK <avishwan@redhat.com>
 - Changed attribute of eventsconfig.json file as same as other configs (#1375532)
 
