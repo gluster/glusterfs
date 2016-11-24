@@ -81,6 +81,9 @@ void
 server_post_fallocate (gfs3_fallocate_rsp *rsp, struct iatt *statpre,
                        struct iatt *statpost);
 
+void
+server_post_seek (gfs3_seek_rsp *rsp, off_t offset);
+
 int
 server_post_readdirp (gfs3_readdirp_rsp *rsp, gf_dirent_t *entries);
 
