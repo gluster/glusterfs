@@ -2071,6 +2071,7 @@ server_seek_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
+        server_post_seek (&rsp, offset);
 out:
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
