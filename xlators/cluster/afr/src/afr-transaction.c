@@ -1249,12 +1249,23 @@ afr_pre_op_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->op_errno = op_errno;
 		afr_transaction_fop_failed (frame, this, child_index);
         }
-        write_args_cbk = &args_cbk->rsp_list[1];
-        afr_inode_write_fill  (frame, this, (long) i, write_args_cbk->op_ret,
-                               write_args_cbk->op_errno,
-                               &write_args_cbk->prestat,
-                               &write_args_cbk->poststat,
-                               write_args_cbk->xdata);
+
+        /* If the compound fop failed due to saved_frame_unwind(), then
+         * protocol/client fails it even before args_cbk is allocated.
+         * Handle that case by passing the op_ret, op_errno values explicitly.
+         */
+        if ((op_ret == -1) && (args_cbk == NULL)) {
+                afr_inode_write_fill  (frame, this, (long) i, op_ret, op_errno,
+                                       NULL, NULL, NULL);
+        } else {
+                write_args_cbk = &args_cbk->rsp_list[1];
+                afr_inode_write_fill  (frame, this, (long) i,
+                                       write_args_cbk->op_ret,
+                                       write_args_cbk->op_errno,
+                                       &write_args_cbk->prestat,
+                                       &write_args_cbk->poststat,
+                                       write_args_cbk->xdata);
+        }
 
 	call_count = afr_frame_return (frame);
 
