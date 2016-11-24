@@ -2504,3 +2504,35 @@ out:
 
         return;
 }
+
+size_t
+inode_ctx_size (inode_t *inode)
+{
+        int       i    = 0;
+        size_t    size = 0;
+        xlator_t *xl   = NULL, *old_THIS = NULL;
+
+        if (!inode)
+                goto out;
+
+        LOCK (&inode->lock);
+        {
+                for (i = 0; i < inode->table->ctxcount; i++) {
+                        if (!inode->_ctx[i].xl_key)
+                                continue;
+
+                        xl = (xlator_t *)(long)inode->_ctx[i].xl_key;
+                        old_THIS = THIS;
+                        THIS = xl;
+
+                        if (xl->cbks->ictxsize)
+                                size += xl->cbks->ictxsize (xl, inode);
+
+                        THIS = old_THIS;
+                }
+        }
+        UNLOCK (&inode->lock);
+
+out:
+        return size;
+}

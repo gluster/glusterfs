@@ -2625,7 +2625,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
                          "option. Unmount and delete the shared storage volume "
                          " on disabling this option."
         },
-
 #if USE_GFDB /* no GFDB means tiering is disabled */
         /* tier translator - global tunables */
         { .key         = "cluster.write-freq-threshold",
@@ -3088,6 +3087,32 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type       = DOC,
           .op_version = GD_OP_VERSION_3_8_4,
           .flags      = OPT_FLAG_CLIENT_OPT
+        },
+	{ .key         = "performance.rda-request-size",
+	  .voltype     = "performance/readdir-ahead",
+          .option      = "rda-request-size",
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .type        = DOC,
+          .op_version  = GD_OP_VERSION_3_9_1,
+	},
+	{ .key         = "performance.rda-low-wmark",
+          .voltype     = "performance/readdir-ahead",
+          .option      = "rda-low-wmark",
+          .type        = DOC,
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .op_version  = GD_OP_VERSION_3_9_1,
+	},
+	{ .key         = "performance.rda-high-wmark",
+          .voltype     = "performance/readdir-ahead",
+          .type        = DOC,
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .op_version  = GD_OP_VERSION_3_9_1,
+	},
+        { .key         = "performance.rda-cache-limit",
+          .voltype     = "performance/readdir-ahead",
+          .type        = DOC,
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .op_version  = GD_OP_VERSION_3_9_1,
         },
         { .key         = NULL
         }

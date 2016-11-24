@@ -279,4 +279,7 @@ inode_needs_lookup (inode_t *inode, xlator_t *this);
 int
 inode_has_dentry (inode_t *inode);
 
+size_t
+inode_ctx_size (inode_t *inode);
+
 #endif /* _INODE_H */

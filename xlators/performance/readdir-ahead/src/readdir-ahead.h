@@ -40,9 +40,11 @@ struct rda_local {
 };
 
 struct rda_priv {
-	uint32_t rda_req_size;
+	uint64_t rda_req_size;
 	uint64_t rda_low_wmark;
 	uint64_t rda_high_wmark;
+        uint64_t rda_cache_limit;
+        uint64_t rda_cache_size;
 };
 
 #endif /* __READDIR_AHEAD_H */
