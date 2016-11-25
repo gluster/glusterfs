@@ -839,7 +839,7 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
         int                     ret             = 0;
         int                     idx             = 0;
         int                     nothing_failed  = 1;
-        int                     piggyback       = 0;
+        gf_boolean_t            compounded_unlock = _gf_true;
         gf_boolean_t            need_undirty    = _gf_false;
 
         afr_handle_quorum (frame);
@@ -913,9 +913,11 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
                                 if (local->transaction.pre_op[i] &&
                                     local->transaction.eager_lock[i]) {
                                         if (fd_ctx->lock_piggyback[i])
-                                                piggyback = 1;
+                                                compounded_unlock = _gf_false;
+                                        else if (fd_ctx->lock_acquired[i])
+                                                compounded_unlock = _gf_false;
                                 }
-                                if (piggyback == 1)
+                                if (compounded_unlock == _gf_false)
                                         break;
                         }
                 }
@@ -924,7 +926,7 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
 
         /* Do not compound if any brick got piggybacked lock as
          * unlock should not be done for that. */
-        if (local->compound && !piggyback) {
+        if (local->compound && compounded_unlock) {
                 afr_post_op_unlock_do (frame, this, xattr,
                                        afr_changelog_post_op_done,
                                        AFR_TRANSACTION_POST_OP);
@@ -1439,11 +1441,9 @@ afr_post_op_unlock_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
         compound_args_t         *args           = NULL;
         afr_internal_lock_t     *int_lock       = NULL;
         afr_inodelk_t           *inodelk        = NULL;
-        struct gf_flock         *flock_use      = NULL;
 	int                     i               = 0;
 	int                     call_count      = 0;
         struct gf_flock         flock           = {0,};
-        struct gf_flock         full_flock      = {0,};
         int                     ret             = 0;
 
 	local = frame->local;
@@ -1456,8 +1456,6 @@ afr_post_op_unlock_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
                 flock.l_start = inodelk->flock.l_start;
                 flock.l_len   = inodelk->flock.l_len;
                 flock.l_type  = F_UNLCK;
-                full_flock.l_type = F_UNLCK;
-
         }
 
         ret = afr_changelog_prepare (this, frame, &call_count, changelog_resume,
@@ -1485,22 +1483,18 @@ afr_post_op_unlock_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
                             local->fd, GF_XATTROP_ADD_ARRAY,
                             xattr, xdata);
         i++;
-        if (!local->transaction.eager_lock_on)
-                flock_use = &flock;
-        else
-                flock_use = &full_flock;
 
         if (afr_is_inodelk_transaction(local)) {
                 if (local->fd) {
                         COMPOUND_PACK_ARGS (finodelk, GF_FOP_FINODELK,
                                             args, i,
                                             int_lock->domain, local->fd,
-                                            F_SETLK, flock_use, NULL);
+                                            F_SETLK, &flock, NULL);
                 } else {
                         COMPOUND_PACK_ARGS (inodelk, GF_FOP_INODELK,
                                             args, i,
                                             int_lock->domain, &local->loc,
-                                            F_SETLK, flock_use, NULL);
+                                            F_SETLK, &flock, NULL);
                 }
         }
 
