@@ -145,8 +145,10 @@ err:
 int
 afr_selfheal_undo_pending (call_frame_t *frame, xlator_t *this, inode_t *inode,
 			   unsigned char *sources, unsigned char *sinks,
-			   unsigned char *healed_sinks, afr_transaction_type type,
-			   struct afr_reply *replies, unsigned char *locked_on)
+			   unsigned char *healed_sinks,
+                           unsigned char *undid_pending,
+                           afr_transaction_type type, struct afr_reply *replies,
+                           unsigned char *locked_on)
 {
 	afr_private_t *priv = NULL;
         afr_local_t *local = NULL;
@@ -214,6 +216,10 @@ afr_selfheal_undo_pending (call_frame_t *frame, xlator_t *this, inode_t *inode,
 			   and inspected on.
 			*/
 			continue;
+                if (undid_pending[i])
+                        /* We already unset the pending xattrs in
+                         * _afr_fav_child_reset_sink_xattrs(). */
+                        continue;
 
 		xattr = afr_selfheal_output_xattr (this, local->need_full_crawl,
                                                    type, output_dirty,
@@ -735,6 +741,42 @@ afr_sh_fav_by_size (xlator_t *this, struct afr_reply *replies, inode_t *inode)
         return fav_child;
 }
 
+int
+afr_sh_get_fav_by_policy (xlator_t *this, struct afr_reply *replies,
+                          inode_t *inode, char **policy_str)
+{
+        afr_private_t *priv = NULL;
+        int fav_child = -1;
+
+        priv = this->private;
+        switch (priv->fav_child_policy) {
+        case AFR_FAV_CHILD_BY_SIZE:
+                fav_child = afr_sh_fav_by_size (this, replies, inode);
+                if (policy_str && fav_child >= 0)
+                        *policy_str = "SIZE";
+                break;
+        case AFR_FAV_CHILD_BY_CTIME:
+                fav_child = afr_sh_fav_by_ctime (this, replies, inode);
+                if (policy_str && fav_child >= 0)
+                        *policy_str = "CTIME";
+                break;
+        case AFR_FAV_CHILD_BY_MTIME:
+                fav_child = afr_sh_fav_by_mtime (this, replies, inode);
+                if (policy_str && fav_child >= 0)
+                        *policy_str = "MTIME";
+                break;
+        case AFR_FAV_CHILD_BY_MAJORITY:
+                fav_child = afr_sh_fav_by_majority (this, replies, inode);
+                if (policy_str && fav_child >= 0)
+                        *policy_str = "MAJORITY";
+                break;
+        case AFR_FAV_CHILD_NONE:
+        default:
+                break;
+        }
+
+        return fav_child;
+}
 
 int
 afr_mark_split_brain_source_sinks_by_policy (call_frame_t *frame,
@@ -756,24 +798,9 @@ afr_mark_split_brain_source_sinks_by_policy (call_frame_t *frame,
         time_t time;
 
         priv = this->private;
-        if (priv->fav_child_policy == AFR_FAV_CHILD_BY_MAJORITY)  {
-                fav_child = afr_sh_fav_by_majority (this, replies, inode);
-                if (fav_child >= 0)
-                        policy_str = "MAJORITY";
-        } else if (priv->fav_child_policy == AFR_FAV_CHILD_BY_MTIME)  {
-                fav_child = afr_sh_fav_by_mtime (this, replies, inode);
-                if (fav_child >= 0)
-                        policy_str = "MTIME";
-        } else if (priv->fav_child_policy == AFR_FAV_CHILD_BY_CTIME)  {
-                fav_child = afr_sh_fav_by_ctime (this, replies, inode);
-                if (fav_child >= 0)
-                        policy_str = "CTIME";
-        } else if (priv->fav_child_policy == AFR_FAV_CHILD_BY_SIZE)  {
-                fav_child = afr_sh_fav_by_size (this, replies, inode);
-                if (fav_child >= 0)
-                        policy_str = "SIZE";
-        }
 
+        fav_child = afr_sh_get_fav_by_policy (this, replies, inode,
+                                              &policy_str);
         if (fav_child > priv->child_count - 1) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         AFR_MSG_SBRAIN_FAV_CHILD_POLICY, "Invalid child (%d) "
@@ -829,6 +856,7 @@ afr_mark_split_brain_source_sinks (call_frame_t *frame, xlator_t *this,
         dict_t *xdata_req = NULL;
         int heal_op = -1;
         int ret = -1;
+        int source = -1;
 
         local = frame->local;
         priv = this->private;
@@ -838,27 +866,96 @@ afr_mark_split_brain_source_sinks (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto autoheal;
 
-        ret = afr_mark_split_brain_source_sinks_by_heal_op (frame, this,
+        source = afr_mark_split_brain_source_sinks_by_heal_op (frame, this,
                                                             sources, sinks,
                                                             healed_sinks,
                                                             locked_on, replies,
                                                             type, heal_op);
-        return ret;
+        return source;
 
 autoheal:
         /* Automatically heal if fav_child_policy is set. */
         if (priv->fav_child_policy != AFR_FAV_CHILD_NONE) {
-                ret = afr_mark_split_brain_source_sinks_by_policy (frame, this,
-                                                                   inode,
-                                                                   sources,
-                                                                   sinks,
+                source = afr_mark_split_brain_source_sinks_by_policy (frame,
+                                                                      this,
+                                                                      inode,
+                                                                      sources,
+                                                                      sinks,
                                                                    healed_sinks,
-                                                                   locked_on,
-                                                                   replies,
-                                                                   type);
+                                                                      locked_on,
+                                                                      replies,
+                                                                      type);
+                if (source != -1) {
+                        ret = dict_set_int32 (xdata_req, "fav-child-policy", 1);
+                        if (ret)
+                                return -1;
+                }
         }
 
-        return ret;
+        return source;
+}
+
+int
+_afr_fav_child_reset_sink_xattrs (call_frame_t *frame, xlator_t *this,
+                                  inode_t *inode, int source,
+                                  unsigned char *healed_sinks,
+                                  unsigned char *undid_pending,
+                                  afr_transaction_type type,
+                                  unsigned char *locked_on,
+                                  struct afr_reply *replies)
+{
+        afr_private_t *priv = NULL;
+        afr_local_t *local = NULL;
+        int *input_dirty = NULL;
+        int **input_matrix = NULL;
+	int *output_dirty = NULL;
+	int **output_matrix = NULL;
+        dict_t *xattr = NULL;
+        dict_t *xdata = NULL;
+        int i = 0;
+
+        priv = this->private;
+        local = frame->local;
+
+        if (!dict_get (local->xdata_req, "fav-child-policy"))
+                return 0;
+
+        xdata = dict_new();
+        if (!xdata)
+                return -1;
+
+        input_dirty = alloca0 (priv->child_count * sizeof (int));
+	input_matrix = ALLOC_MATRIX (priv->child_count, int);
+	output_dirty = alloca0 (priv->child_count * sizeof (int));
+	output_matrix = ALLOC_MATRIX (priv->child_count, int);
+
+        afr_selfheal_extract_xattr (this, replies, type, input_dirty,
+                                    input_matrix);
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (i == source || !healed_sinks[i])
+                        continue;
+                output_dirty[i] = -input_dirty[i];
+                output_matrix[i][source] = -input_matrix[i][source];
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!healed_sinks[i] || !locked_on[i])
+                        continue;
+                xattr = afr_selfheal_output_xattr (this, _gf_false, type,
+                                                   output_dirty, output_matrix,
+                                                   i, NULL);
+
+                afr_selfheal_post_op (frame, this, inode, i, xattr, xdata);
+
+                undid_pending[i] = 1;
+                dict_unref (xattr);
+        }
+
+        if (xdata)
+                dict_unref (xdata);
+
+        return 0;
 }
 
 gf_boolean_t
@@ -1906,10 +2003,14 @@ afr_selfheal (xlator_t *this, uuid_t gfid)
 {
         int           ret   = -1;
 	call_frame_t *frame = NULL;
+        afr_local_t *local = NULL;
 
 	frame = afr_frame_create (this);
 	if (!frame)
 		return ret;
+
+        local = frame->local;
+        local->xdata_req = dict_new();
 
         ret = afr_selfheal_do (frame, this, gfid);
 

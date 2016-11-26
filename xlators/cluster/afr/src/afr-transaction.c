@@ -2527,19 +2527,12 @@ afr_write_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
         if (err) {
                 local->op_errno = -err;
                 local->op_ret = -1;
-                goto fail;
-        }
-	ret = afr_inode_get_readable (frame, local->inode, this,
-                                      local->readable, NULL,
-				      local->transaction.type);
-        if (ret < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, -ret, AFR_MSG_SPLIT_BRAIN,
                         "Failing %s on gfid %s: split-brain observed.",
                         gf_fop_list[local->op], uuid_utoa (local->inode->gfid));
-                local->op_ret = -1;
-                local->op_errno = -ret;
                 goto fail;
         }
+
         afr_transaction_start (frame, this);
         return 0;
 fail:

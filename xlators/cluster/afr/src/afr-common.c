@@ -53,6 +53,13 @@ afr_quorum_errno (afr_private_t *priv)
         return EROFS;
 }
 
+int
+afr_fav_child_reset_sink_xattrs (void *opaque);
+
+int
+afr_fav_child_reset_sink_xattrs_cbk (int ret, call_frame_t *frame,
+                                     void *opaque);
+
 gf_boolean_t
 afr_is_consistent_io_possible (afr_local_t *local, afr_private_t *priv,
                                int32_t *op_errno)
@@ -1011,6 +1018,82 @@ afr_selfheal_enabled (xlator_t *this)
 	return data || priv->metadata_self_heal || priv->entry_self_heal;
 }
 
+
+int
+afr_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
+{
+
+        call_frame_t *heal_frame = NULL;
+        afr_local_t *heal_local = NULL;
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+        inode_t *inode = NULL;
+        int event_generation = 0;
+        int read_subvol = -1;
+        int op_errno = ENOMEM;
+        int ret = 0;
+
+        local = frame->local;
+        inode = local->inode;
+        priv = this->private;
+
+        if (err)
+                goto refresh_done;
+
+        if (local->op == GF_FOP_LOOKUP)
+                goto refresh_done;
+
+        ret = afr_inode_get_readable (frame, inode, this, local->readable,
+                                      &event_generation,
+                                      local->transaction.type);
+
+        if (ret == -EIO || !event_generation) {
+                /* No readable subvolume even after refresh ==> splitbrain.*/
+                if (!priv->fav_child_policy) {
+                        err = -EIO;
+                        goto refresh_done;
+                }
+                read_subvol = afr_sh_get_fav_by_policy (this, local->replies,
+                                                        inode, NULL);
+                if (read_subvol == -1) {
+                        err = -EIO;
+                        goto refresh_done;
+                }
+
+                heal_frame = copy_frame (frame);
+                if (!heal_frame) {
+                        err = -EIO;
+                        goto refresh_done;
+                }
+                heal_frame->root->pid = GF_CLIENT_PID_SELF_HEALD;
+                heal_local = AFR_FRAME_INIT (heal_frame, op_errno);
+                if (!heal_local) {
+                        err = -EIO;
+                        AFR_STACK_DESTROY (heal_frame);
+                        goto refresh_done;
+                }
+                heal_local->xdata_req = dict_new();
+                if (!heal_local->xdata_req) {
+                        err = -EIO;
+                        AFR_STACK_DESTROY (heal_frame);
+                        goto refresh_done;
+                }
+                heal_local->heal_frame = frame;
+                ret = synctask_new (this->ctx->env,
+                                    afr_fav_child_reset_sink_xattrs,
+                                    afr_fav_child_reset_sink_xattrs_cbk,
+                                    heal_frame,
+                                    heal_frame);
+                return 0;
+        }
+
+refresh_done:
+        afr_local_replies_wipe (local, this->private);
+        local->refreshfn (frame, this, err);
+
+        return 0;
+}
+
 int
 afr_inode_refresh_done (call_frame_t *frame, xlator_t *this)
 {
@@ -1029,8 +1112,6 @@ afr_inode_refresh_done (call_frame_t *frame, xlator_t *this)
 
 	err = afr_inode_refresh_err (frame, this);
 
-        afr_local_replies_wipe (local, this->private);
-
 	if (ret && afr_selfheal_enabled (this) && start_heal) {
                 heal_frame = copy_frame (frame);
                 if (!heal_frame)
@@ -1047,7 +1128,7 @@ afr_inode_refresh_done (call_frame_t *frame, xlator_t *this)
         }
 
 refresh_done:
-        local->refreshfn (frame, this, err);
+        afr_txn_refresh_done (frame, this, err);
 
 	return 0;
 }
@@ -5110,6 +5191,7 @@ afr_selfheal_locked_metadata_inspect (call_frame_t *frame, xlator_t *this,
         unsigned char *sources = NULL;
         unsigned char *sinks = NULL;
         unsigned char *healed_sinks = NULL;
+        unsigned char *undid_pending = NULL;
         struct afr_reply *locked_replies = NULL;
 
         afr_private_t *priv = this->private;
@@ -5118,6 +5200,7 @@ afr_selfheal_locked_metadata_inspect (call_frame_t *frame, xlator_t *this,
         sources = alloca0 (priv->child_count);
         sinks = alloca0 (priv->child_count);
         healed_sinks = alloca0 (priv->child_count);
+        undid_pending = alloca0 (priv->child_count);
 
         locked_replies = alloca0 (sizeof (*locked_replies) * priv->child_count);
 
@@ -5134,6 +5217,7 @@ afr_selfheal_locked_metadata_inspect (call_frame_t *frame, xlator_t *this,
                 ret = __afr_selfheal_metadata_prepare (frame, this, inode,
                                                        locked_on, sources,
                                                        sinks, healed_sinks,
+                                                       undid_pending,
                                                        locked_replies,
                                                        pending);
                 *msh = afr_decide_heal_info (priv, sources, ret);
@@ -5157,6 +5241,7 @@ afr_selfheal_locked_data_inspect (call_frame_t *frame, xlator_t *this,
         unsigned char *sources = NULL;
         unsigned char *sinks = NULL;
         unsigned char *healed_sinks = NULL;
+        unsigned char *undid_pending = NULL;
         afr_private_t   *priv = NULL;
         fd_t          *fd = NULL;
         struct afr_reply *locked_replies = NULL;
@@ -5170,6 +5255,7 @@ afr_selfheal_locked_data_inspect (call_frame_t *frame, xlator_t *this,
         sources = alloca0 (priv->child_count);
         sinks = alloca0 (priv->child_count);
         healed_sinks = alloca0 (priv->child_count);
+        undid_pending = alloca0 (priv->child_count);
 
         /* Heal-info does an open() on the file being examined so that the
          * current eager-lock holding client, if present, at some point sees
@@ -5209,6 +5295,7 @@ afr_selfheal_locked_data_inspect (call_frame_t *frame, xlator_t *this,
                         ret = __afr_selfheal_data_prepare (frame, this, inode,
                                                            data_lock, sources,
                                                            sinks, healed_sinks,
+                                                           undid_pending,
                                                            locked_replies,
                                                            pflag);
                         *dsh = afr_decide_heal_info (priv, sources, ret);
@@ -5795,4 +5882,116 @@ afr_compound_cleanup (compound_args_t *args, dict_t *xdata,
 		dict_unref (xdata);
         if (newloc_xdata)
                 dict_unref (newloc_xdata);
+}
+
+int
+afr_fav_child_reset_sink_xattrs_cbk (int ret, call_frame_t *heal_frame,
+                                     void *opaque)
+{
+
+        call_frame_t *txn_frame = NULL;
+        afr_local_t *local = NULL;
+        afr_local_t *heal_local = NULL;
+        xlator_t *this = NULL;
+
+        heal_local = heal_frame->local;
+        txn_frame = heal_local->heal_frame;
+        local = txn_frame->local;
+        this = txn_frame->this;
+
+        /* Refresh the inode agan and proceed with the transaction.*/
+        afr_inode_refresh (txn_frame, this, local->inode, NULL,
+                           local->refreshfn);
+
+        if (heal_frame)
+                AFR_STACK_DESTROY (heal_frame);
+
+        return 0;
+}
+
+int
+afr_fav_child_reset_sink_xattrs (void *opaque)
+{
+        call_frame_t *heal_frame = NULL;
+        call_frame_t *txn_frame = NULL;
+        xlator_t *this = NULL;
+        gf_boolean_t d_spb = _gf_false;
+        gf_boolean_t m_spb = _gf_false;
+        afr_local_t *heal_local = NULL;
+        afr_local_t *txn_local = NULL;
+        afr_private_t *priv = NULL;
+        inode_t *inode  = NULL;
+        unsigned char *locked_on = NULL;
+        unsigned char *sources = NULL;
+        unsigned char *sinks = NULL;
+        unsigned char *healed_sinks = NULL;
+        unsigned char *undid_pending = NULL;
+        struct afr_reply *locked_replies = NULL;
+        int ret = 0;
+
+        heal_frame = (call_frame_t *) opaque;
+        heal_local = heal_frame->local;
+        txn_frame = heal_local->heal_frame;
+        txn_local = txn_frame->local;
+        this = txn_frame->this;
+        inode = txn_local->inode;
+        priv = this->private;
+        locked_on = alloca0 (priv->child_count);
+        sources = alloca0 (priv->child_count);
+        sinks = alloca0 (priv->child_count);
+        healed_sinks = alloca0 (priv->child_count);
+        undid_pending = alloca0 (priv->child_count);
+        locked_replies = alloca0 (sizeof (*locked_replies) * priv->child_count);
+
+        ret = _afr_is_split_brain (txn_frame, this, txn_local->replies,
+                                   AFR_DATA_TRANSACTION, &d_spb);
+
+        ret = _afr_is_split_brain (txn_frame, this, txn_local->replies,
+                                   AFR_METADATA_TRANSACTION, &m_spb);
+
+        /* Take appropriate locks and reset sink xattrs. */
+        if (d_spb) {
+                ret = afr_selfheal_inodelk (heal_frame, this, inode, this->name,
+                                            0, 0, locked_on);
+                {
+                        if (ret < AFR_SH_MIN_PARTICIPANTS)
+                                goto data_unlock;
+                        ret = __afr_selfheal_data_prepare (heal_frame, this,
+                                                           inode, locked_on,
+                                                           sources, sinks,
+                                                           healed_sinks,
+                                                           undid_pending,
+                                                           locked_replies,
+                                                           NULL);
+                }
+data_unlock:
+                afr_selfheal_uninodelk (heal_frame, this, inode, this->name,
+                                        0, 0, locked_on);
+        }
+
+        if (m_spb) {
+                memset (locked_on, 0, sizeof (*locked_on) * priv->child_count);
+                memset (undid_pending, 0,
+                        sizeof (*undid_pending) * priv->child_count);
+                ret = afr_selfheal_inodelk (heal_frame, this, inode, this->name,
+                                            LLONG_MAX-1, 0, locked_on);
+                {
+                        if (ret < AFR_SH_MIN_PARTICIPANTS)
+                                goto mdata_unlock;
+                        ret = __afr_selfheal_metadata_prepare (heal_frame, this,
+                                                               inode, locked_on,
+                                                               sources, sinks,
+                                                               healed_sinks,
+                                                               undid_pending,
+                                                               locked_replies,
+                                                               NULL);
+
+                }
+mdata_unlock:
+                afr_selfheal_uninodelk (heal_frame, this, inode, this->name,
+                                        LLONG_MAX-1, 0, locked_on);
+        }
+
+        return ret;
+
 }
