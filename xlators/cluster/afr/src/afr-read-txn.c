@@ -64,7 +64,6 @@ afr_read_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
 {
 	afr_local_t *local = NULL;
 	int read_subvol = 0;
-	int event_generation = 0;
 	inode_t *inode = NULL;
 	int ret = -1;
         int spb_choice = -1;
@@ -76,17 +75,11 @@ afr_read_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
                 local->op_errno = -err;
                 local->op_ret = -1;
                 read_subvol = -1;
+                gf_msg (this->name, GF_LOG_ERROR, EIO, AFR_MSG_SPLIT_BRAIN,
+                        "Failing %s on gfid %s: split-brain observed.",
+                        gf_fop_list[local->op], uuid_utoa (inode->gfid));
                 goto readfn;
         }
-
-	ret = afr_inode_get_readable (frame, inode, this, local->readable,
-			              &event_generation,
-				      local->transaction.type);
-
-	if (ret == -EIO || !event_generation)
-		/* Even after refresh, we don't have a good
-		   read subvolume. Time to bail */
-                AFR_READ_TXN_SET_ERROR_AND_GOTO (-1, EIO, -1, readfn);
 
 	read_subvol = afr_read_subvol_select_by_policy (inode, this,
 							local->readable, NULL);
