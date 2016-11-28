@@ -330,18 +330,20 @@ ec_shd_index_healer (void *data)
 
         healer = data;
         THIS = this = healer->this;
+        ec_t *ec = this->private;
 
         for (;;) {
                 ec_shd_healer_wait (healer);
 
                 ASSERT_LOCAL(this, healer);
 
-                gf_msg_debug (this->name, 0,
-                        "starting index sweep on subvol %s",
-                        ec_subvol_name (this, healer->subvol));
 
-                ec_shd_index_sweep (healer);
-
+                if (ec->xl_up_count > ec->fragments) {
+                        gf_msg_debug (this->name, 0,
+                                "starting index sweep on subvol %s",
+                                ec_subvol_name (this, healer->subvol));
+                        ec_shd_index_sweep (healer);
+                }
                 gf_msg_debug (this->name, 0,
                         "finished index sweep on subvol %s",
                         ec_subvol_name (this, healer->subvol));
@@ -362,6 +364,7 @@ ec_shd_full_healer (void *data)
 
         healer = data;
         THIS = this = healer->this;
+        ec_t *ec = this->private;
 
         rootloc.inode = this->itable->root;
         for (;;) {
@@ -378,13 +381,16 @@ ec_shd_full_healer (void *data)
 
                 ASSERT_LOCAL(this, healer);
 
-                gf_msg (this->name, GF_LOG_INFO, 0,
-                        EC_MSG_FULL_SWEEP_START,
-                        "starting full sweep on subvol %s",
-                        ec_subvol_name (this, healer->subvol));
 
-                ec_shd_selfheal (healer, healer->subvol, &rootloc);
-                ec_shd_full_sweep (healer, this->itable->root);
+                if (ec->xl_up_count > ec->fragments) {
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                EC_MSG_FULL_SWEEP_START,
+                                "starting full sweep on subvol %s",
+                                ec_subvol_name (this, healer->subvol));
+
+                        ec_shd_selfheal (healer, healer->subvol, &rootloc);
+                        ec_shd_full_sweep (healer, this->itable->root);
+                }
 
                 gf_msg (this->name, GF_LOG_INFO, 0,
                         EC_MSG_FULL_SWEEP_STOP,
