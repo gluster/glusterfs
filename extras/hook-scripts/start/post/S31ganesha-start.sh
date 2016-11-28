@@ -60,42 +60,12 @@ echo "      SecType = \"sys\";"
 echo "}"
 }
 
-#This function keeps track of export IDs and increments it with every new entry
-#Also it adds the export dynamically by sending dbus signals
+#It adds the export dynamically by sending dbus signals
 function export_add()
 {
-        count=`ls -l $GANESHA_DIR/exports/*.conf | wc -l`
-        if [ "$count" = "1" ] ;
-                then
-                EXPORT_ID=2
-        else
-        #if [ -s /var/lib/ganesha/export_removed ];
-        #               then
-        #               EXPORT_ID=`head -1 /var/lib/ganesha/export_removed`
-        #               sed -i -e "1d" /var/lib/ganesha/export_removed
-        #               else
-
-                 EXPORT_ID=`cat $GANESHA_DIR/.export_added`
-                 EXPORT_ID=EXPORT_ID+1
-        #fi
-        fi
-        echo $EXPORT_ID > $GANESHA_DIR/.export_added
-        sed -i s/Export_Id.*/"Export_Id=$EXPORT_ID;"/ \
-$GANESHA_DIR/exports/export.$VOL.conf
-        echo "%include \"$GANESHA_DIR/exports/export.$VOL.conf\"" >> $CONF1
-
         dbus-send --print-reply --system --dest=org.ganesha.nfsd \
 /org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.AddExport \
 string:$GANESHA_DIR/exports/export.$VOL.conf string:"EXPORT(Export_Id=$EXPORT_ID)"
-
-}
-
-function start_ganesha()
-{
-        #Remove export entry from nfs-ganesha.conf
-        sed -i /$VOL.conf/d  $CONF1
-        #Create a new export entry
-        export_add $VOL
 
 }
 
@@ -133,9 +103,17 @@ if ganesha_enabled ${VOL} && ! is_exported ${VOL}
 then
         if [ ! -e ${GANESHA_DIR}/exports/export.${VOL}.conf ]
         then
+                #Remove export entry from nfs-ganesha.conf
+                sed -i /$VOL.conf/d  $CONF1
                 write_conf ${VOL} > ${GANESHA_DIR}/exports/export.${VOL}.conf
+                EXPORT_ID=`cat $GANESHA_DIR/.export_added`
+                EXPORT_ID=EXPORT_ID+1
+                echo $EXPORT_ID > $GANESHA_DIR/.export_added
+                sed -i s/Export_Id.*/"Export_Id=$EXPORT_ID;"/ \
+                        $GANESHA_DIR/exports/export.$VOL.conf
+                echo "%include \"$GANESHA_DIR/exports/export.$VOL.conf\"" >> $CONF1
         fi
-        start_ganesha ${VOL}
+        export_add $VOL
 fi
 
 exit 0
