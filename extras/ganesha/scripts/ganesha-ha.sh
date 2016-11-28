@@ -30,6 +30,10 @@ SERVICE_MAN="DISTRO_NOT_FOUND"
 RHEL6_PCS_CNAME_OPTION="--name"
 SECRET_PEM="/var/lib/glusterd/nfs/secret.pem"
 
+# UNBLOCK RA uses shared_storage which may become unavailable
+# during any of the nodes reboot. Hence increase timeout value.
+PORTBLOCK_UNBLOCK_TIMEOUT="60s"
+
 # Try loading the config from any of the distro
 # specific configuration locations
 if [ -f /etc/sysconfig/ganesha ]
@@ -480,7 +484,9 @@ setup_create_resources()
 
         pcs -f ${cibfile} resource create ${1}-nfs_unblock ocf:heartbeat:portblock protocol=tcp \
         portno=2049 action=unblock ip=${ipaddr} reset_local_on_unblock_stop=true \
-        tickle_dir=${HA_VOL_MNT}/nfs-ganesha/tickle_dir/ --group ${1}-group --after ${1}-cluster_ip-1
+        tickle_dir=${HA_VOL_MNT}/nfs-ganesha/tickle_dir/ --group ${1}-group --after ${1}-cluster_ip-1 \
+        op stop timeout=${PORTBLOCK_UNBLOCK_TIMEOUT} op start timeout=${PORTBLOCK_UNBLOCK_TIMEOUT} \
+        op monitor interval=10s timeout=${PORTBLOCK_UNBLOCK_TIMEOUT}
         if [ $? -ne 0 ]; then
             logger "warning pcs resource create ${1}-nfs_unblock failed"
         fi
