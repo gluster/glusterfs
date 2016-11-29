@@ -80,11 +80,13 @@ class GlusterEventsRequestHandler(SocketServer.BaseRequestHandler):
 
 def signal_handler_sigusr2(sig, frame):
     utils.load_all()
+    utils.restart_webhook_pool()
 
 
 def init_event_server():
     utils.setup_logger()
     utils.load_all()
+    utils.init_webhook_pool()
 
     port = utils.get_config("port")
     if port is None:
