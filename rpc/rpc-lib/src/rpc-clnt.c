@@ -901,7 +901,7 @@ rpc_clnt_handle_disconnect (struct rpc_clnt *clnt, rpc_clnt_connection_t *conn)
                 clnt->notifyfn (clnt, clnt->mydata, RPC_CLNT_DISCONNECT, NULL);
 
         if (unref_clnt)
-                rpc_clnt_ref (clnt);
+                rpc_clnt_unref (clnt);
 
         return 0;
 }
