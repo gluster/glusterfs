@@ -1180,7 +1180,10 @@ afr_inode_refresh_done (call_frame_t *frame, xlator_t *this)
                 }
                 heal_local->refreshinode = inode_ref (local->refreshinode);
                 heal_local->heal_frame = heal_frame;
-                afr_throttled_selfheal (heal_frame, this);
+                if (!afr_throttled_selfheal (heal_frame, this)) {
+                        AFR_STACK_DESTROY (heal_frame);
+                        goto refresh_done;
+                }
         }
 
 refresh_done:
