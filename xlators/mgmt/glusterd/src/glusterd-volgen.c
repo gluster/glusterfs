@@ -5619,6 +5619,8 @@ glusterd_snapdsvc_generate_volfile (volgen_graph_t *graph,
         char           *loglevel        = NULL;
         char           *xlator          = NULL;
         char           auth_path[]      = "auth-path";
+        char           *ssl_str         = NULL;
+        gf_boolean_t   ssl_bool         = _gf_false;
 
         set_dict = dict_copy (volinfo->dict, NULL);
         if (!set_dict)
@@ -5662,6 +5664,19 @@ glusterd_snapdsvc_generate_volfile (volgen_graph_t *graph,
         ret = xlator_set_option (xl, "transport-type", "tcp");
         if (ret)
                 return -1;
+
+        if (dict_get_str (set_dict, "server.ssl", &ssl_str) == 0) {
+                if (gf_string2boolean (ssl_str, &ssl_bool) == 0) {
+                        if (ssl_bool) {
+                                ret = xlator_set_option(xl,
+                                        "transport.socket.ssl-enabled",
+                                        "true");
+                                if (ret) {
+                                        return -1;
+                                }
+                        }
+                }
+        }
 
         RPC_SET_OPT(xl, SSL_OWN_CERT_OPT,   "ssl-own-cert",         return -1);
         RPC_SET_OPT(xl, SSL_PRIVATE_KEY_OPT,"ssl-private-key",      return -1);
