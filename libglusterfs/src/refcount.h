@@ -42,7 +42,7 @@ typedef struct _gf_ref_t gf_ref_t;
  *
  * @return: greater then 0 when a reference was taken, 0 when not
  */
-unsigned int
+void *
 _gf_ref_get (gf_ref_t *ref);
 
 /* _gf_ref_put -- decrease the refcount
@@ -50,7 +50,7 @@ _gf_ref_get (gf_ref_t *ref);
  * @return: greater then 0 when there are still references, 0 when cleanup
  *          should be done, gf_ref_release_t is called on cleanup
  */
-unsigned int
+void
 _gf_ref_put (gf_ref_t *ref);
 
 /* _gf_ref_init -- initalize an embedded refcount object
@@ -84,20 +84,20 @@ _gf_ref_init (gf_ref_t *ref, gf_ref_release_t release, void *data);
  *
  * Sets the refcount to 1.
  */
-#define GF_REF_INIT(p, d)   _gf_ref_init (&p->_ref, d, p)
+#define GF_REF_INIT(p, d)   _gf_ref_init (&(p)->_ref, d, p)
 
 /* GF_REF_GET -- increase the refcount of a GF_REF_DECL structure
  *
  * @return: greater then 0 when a reference was taken, 0 when not
  */
-#define GF_REF_GET(p)       _gf_ref_get (&p->_ref)
+#define GF_REF_GET(p)       _gf_ref_get (&(p)->_ref)
 
 /* GF_REF_PUT -- decrease the refcount of a GF_REF_DECL structure
  *
  * @return: greater then 0 when there are still references, 0 when cleanup
  *          should be done, gf_ref_release_t is called on cleanup
  */
-#define GF_REF_PUT(p)       _gf_ref_put (&p->_ref)
+#define GF_REF_PUT(p)       _gf_ref_put (&(p)->_ref)
 
 
 #endif /* _REFCOUNT_H */
