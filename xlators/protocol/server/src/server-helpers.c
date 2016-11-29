@@ -1361,6 +1361,8 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
 {
         int                     op_errno    = 0;
         int                     ret         = -1;
+        dict_t                 *xdata       = NULL;
+        dict_t                 *xattr       = NULL;
         struct iovec req_iovec[MAX_IOVEC]   = { {0,} };
         compound_req            *this_req   = NULL;
         server_state_t          *state      = CALL_STATE (frame);
@@ -1375,11 +1377,10 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_stat_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_stat_store (this_args, &state->loc, this_args->xdata);
+                args_stat_store (this_args, &state->loc, xdata);
                 break;
         }
         case GF_FOP_READLINK:
@@ -1389,12 +1390,10 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_readlink_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_readlink_store (this_args, &state->loc,
-                                     args->size, this_args->xdata);
+                args_readlink_store (this_args, &state->loc, args->size, xdata);
                 break;
         }
         case GF_FOP_MKNOD:
@@ -1404,13 +1403,11 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_mknod_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_mknod_store (this_args, &state->loc, args->mode,
-                                  args->dev, args->umask,
-                                  this_args->xdata);
+                args_mknod_store (this_args, &state->loc, args->mode, args->dev,
+                                  args->umask, xdata);
                 break;
         }
         case GF_FOP_MKDIR:
@@ -1420,12 +1417,11 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_mkdir_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
                 args_mkdir_store (this_args, &state->loc, args->mode,
-                                  args->umask, this_args->xdata);
+                                  args->umask, xdata);
                 break;
         }
         case GF_FOP_UNLINK:
@@ -1435,12 +1431,10 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_unlink_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_unlink_store (this_args, &state->loc,
-                                   args->xflags, this_args->xdata);
+                args_unlink_store (this_args, &state->loc, args->xflags, xdata);
                 break;
         }
         case GF_FOP_RMDIR:
@@ -1450,12 +1444,10 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_rmdir_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_rmdir_store (this_args, &state->loc,
-                                  args->xflags, this_args->xdata);
+                args_rmdir_store (this_args, &state->loc, args->xflags, xdata);
                 break;
         }
         case GF_FOP_SYMLINK:
@@ -1465,13 +1457,11 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_symlink_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_symlink_store (this_args, args->linkname,
-                                    &state->loc,
-                                    args->umask, this_args->xdata);
+                args_symlink_store (this_args, args->linkname, &state->loc,
+                                    args->umask, xdata);
 
                 this_args->loc.inode = inode_new (state->itable);
 
@@ -1484,13 +1474,11 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_rename_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
 
-                args_rename_store (this_args, &state->loc,
-                                   &state->loc2, this_args->xdata);
+                args_rename_store (this_args, &state->loc, &state->loc2, xdata);
                 break;
         }
         case GF_FOP_LINK:
@@ -1500,12 +1488,10 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_link_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_link_store (this_args, &state->loc,
-                                 &state->loc2, this_args->xdata);
+                args_link_store (this_args, &state->loc, &state->loc2, xdata);
 
                 this_args->loc2.inode = inode_ref (this_args->loc.inode);
 
@@ -1518,12 +1504,11 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_truncate_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_truncate_store (this_args, &state->loc,
-                                     args->offset, this_args->xdata);
+                args_truncate_store (this_args, &state->loc, args->offset,
+                                     xdata);
                 break;
         }
         case GF_FOP_OPEN:
@@ -1533,12 +1518,11 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_open_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_open_store (this_args, &state->loc,
-                                 args->flags, state->fd, this_args->xdata);
+                args_open_store (this_args, &state->loc, args->flags, state->fd,
+                                 xdata);
 
                 this_args->fd = fd_create (this_args->loc.inode,
                                            frame->root->pid);
@@ -1553,13 +1537,11 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_read_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
                 args_readv_store (this_args, state->fd, args->size,
-                                  args->offset, args->flag,
-                                  this_args->xdata);
+                                  args->offset, args->flag, xdata);
                 break;
         }
         case GF_FOP_WRITE:
@@ -1574,8 +1556,7 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 req_iovec[0].iov_len  = args->size;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
                 /* The way writev fop works :
@@ -1589,11 +1570,9 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                  * GF_FOP_WRITE section of client_handle_fop_requirements()
                  * in protocol client.
                  */
-                args_writev_store (this_args, state->fd,
-                                   req_iovec,
-                                   1, args->offset,
-                                   args->flag,
-                                   state->iobref, this_args->xdata);
+                args_writev_store (this_args, state->fd, req_iovec, 1,
+                                   args->offset, args->flag, state->iobref,
+                                   xdata);
                 state->write_length += req_iovec[0].iov_len;
                 break;
         }
@@ -1604,12 +1583,10 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_statfs_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_statfs_store (this_args, &state->loc,
-                                   this_args->xdata);
+                args_statfs_store (this_args, &state->loc, xdata);
                 break;
         }
         case GF_FOP_FLUSH:
@@ -1619,11 +1596,10 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_flush_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_flush_store (this_args, state->fd, this_args->xdata);
+                args_flush_store (this_args, state->fd, xdata);
                 break;
         }
         case GF_FOP_FSYNC:
@@ -1633,12 +1609,10 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_fsync_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_fsync_store (this_args, state->fd,
-                                  args->data, this_args->xdata);
+                args_fsync_store (this_args, state->fd, args->data, xdata);
                 break;
         }
         case GF_FOP_SETXATTR:
@@ -1648,18 +1622,15 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_setxattr_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xattr,
-                                              args->dict.dict_val,
+                                              xattr, args->dict.dict_val,
                                               args->dict.dict_len, ret,
                                               op_errno, out);
-                args_setxattr_store (this_args, &state->loc,
-                                     this_args->xattr, args->flags,
-                                     this_args->xdata);
+                args_setxattr_store (this_args, &state->loc, xattr, args->flags,
+                                     xdata);
                 break;
         }
         case GF_FOP_GETXATTR:
@@ -1669,14 +1640,12 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_getxattr_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
                 gf_server_check_getxattr_cmd (frame, args->name);
 
-                args_getxattr_store (this_args, &state->loc,
-                                     args->name, this_args->xdata);
+                args_getxattr_store (this_args, &state->loc, args->name, xdata);
                 break;
         }
         case GF_FOP_REMOVEXATTR:
@@ -1686,13 +1655,11 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_removexattr_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_removexattr_store (this_args, &state->loc,
-                                        args->name,
-                                        this_args->xdata);
+                args_removexattr_store (this_args, &state->loc, args->name,
+                                        xdata);
                 break;
         }
         case GF_FOP_OPENDIR:
@@ -1710,12 +1677,11 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                         goto out;
                 }
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
+                                              xdata,
                                               args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_opendir_store (this_args, &state->loc,
-                                    state->fd, this_args->xdata);
+                args_opendir_store (this_args, &state->loc, state->fd, xdata);
                 break;
         }
         case GF_FOP_FSYNCDIR:
@@ -1725,12 +1691,10 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_fsyncdir_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_fsyncdir_store (this_args, state->fd,
-                                     args->data, this_args->xdata);
+                args_fsyncdir_store (this_args, state->fd, args->data, xdata);
                 break;
         }
         case GF_FOP_ACCESS:
@@ -1740,12 +1704,10 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_access_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_access_store (this_args, &state->loc,
-                                   args->mask, this_args->xdata);
+                args_access_store (this_args, &state->loc, args->mask, xdata);
                 break;
         }
         case GF_FOP_CREATE:
@@ -1768,14 +1730,11 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 state->fd->flags = state->flags;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_create_store (this_args, &state->loc,
-                                   args->flags, args->mode,
-                                   args->umask, state->fd,
-                                   this_args->xdata);
+                args_create_store (this_args, &state->loc, args->flags,
+                                   args->mode, args->umask, state->fd, xdata);
                 break;
         }
         case GF_FOP_FTRUNCATE:
@@ -1785,13 +1744,11 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_ftruncate_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_ftruncate_store (this_args, state->fd,
-                                      args->offset,
-                                      this_args->xdata);
+                args_ftruncate_store (this_args, state->fd, args->offset,
+                                      xdata);
                 break;
         }
         case GF_FOP_FSTAT:
@@ -1801,11 +1758,10 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_fstat_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_fstat_store (this_args, state->fd, this_args->xdata);
+                args_fstat_store (this_args, state->fd, xdata);
                 break;
         }
         case GF_FOP_LK:
@@ -1815,8 +1771,7 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_lk_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
 
@@ -1867,7 +1822,7 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                         break;
                 }
                 args_lk_store (this_args, state->fd, this_args->cmd,
-                               &this_args->lock, this_args->xdata);
+                               &this_args->lock, xdata);
                 break;
         }
         case GF_FOP_LOOKUP:
@@ -1883,11 +1838,10 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                         state->is_revalidate = 1;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_lookup_store (this_args, &state->loc, this_args->xdata);
+                args_lookup_store (this_args, &state->loc, xdata);
                 break;
         }
         case GF_FOP_READDIR:
@@ -1897,12 +1851,11 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_readdir_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
                 args_readdir_store (this_args, state->fd, args->size,
-                                    args->offset, this_args->xdata);
+                                    args->offset, xdata);
                 break;
         }
         case GF_FOP_INODELK:
@@ -1938,13 +1891,11 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 }
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
                 args_inodelk_store (this_args, args->volume, &state->loc,
-                                    this_args->cmd,
-                                    &this_args->lock, this_args->xdata);
+                                    this_args->cmd, &this_args->lock, xdata);
                 break;
         }
         case GF_FOP_FINODELK:
@@ -1954,8 +1905,7 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_finodelk_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
 
@@ -1985,8 +1935,7 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                         break;
                 }
                 args_finodelk_store (this_args, args->volume, state->fd,
-                                     this_args->cmd,
-                                     &this_args->lock, this_args->xdata);
+                                     this_args->cmd, &this_args->lock, xdata);
                         break;
         }
         case GF_FOP_ENTRYLK:
@@ -1996,13 +1945,11 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_entrylk_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
                 args_entrylk_store (this_args, args->volume, &state->loc,
-                                    args->name, args->cmd, args->type,
-                                    this_args->xdata);
+                                    args->name, args->cmd, args->type, xdata);
                 break;
         }
         case GF_FOP_FENTRYLK:
@@ -2012,13 +1959,11 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_fentrylk_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
                 args_fentrylk_store (this_args, args->volume, state->fd,
-                                     args->name, args->cmd, args->type,
-                                     this_args->xdata);
+                                     args->name, args->cmd, args->type, xdata);
                 break;
         }
         case GF_FOP_XATTROP:
@@ -2028,18 +1973,16 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_xattrop_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xattr,
-                                              (args->dict.dict_val),
+                                              xattr, (args->dict.dict_val),
                                               (args->dict.dict_len), ret,
                                                op_errno, out);
                 args_xattrop_store (this_args, &state->loc, args->flags,
-                                    this_args->xattr, this_args->xdata);
+                                    xattr, xdata);
                 break;
         }
         case GF_FOP_FXATTROP:
@@ -2049,19 +1992,17 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_fxattrop_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xattr,
-                                              (args->dict.dict_val),
+                                              xattr, (args->dict.dict_val),
                                               (args->dict.dict_len), ret,
                                               op_errno, out);
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
 
-                args_fxattrop_store (this_args, state->fd, args->flags,
-                                     this_args->xattr, this_args->xdata);
+                args_fxattrop_store (this_args, state->fd, args->flags, xattr,
+                                     xdata);
                 break;
         }
         case GF_FOP_FGETXATTR:
@@ -2071,13 +2012,11 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_fgetxattr_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
 
-                args_fgetxattr_store (this_args, state->fd,
-                                      args->name, this_args->xdata);
+                args_fgetxattr_store (this_args, state->fd, args->name, xdata);
                 break;
         }
         case GF_FOP_FSETXATTR:
@@ -2087,19 +2026,17 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_fsetxattr_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xattr,
-                                              (args->dict.dict_val),
+                                              xattr, (args->dict.dict_val),
                                               (args->dict.dict_len), ret,
                                               op_errno, out);
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
 
-                args_fsetxattr_store (this_args, state->fd, this_args->xattr,
-                                      args->flags, this_args->xdata);
+                args_fsetxattr_store (this_args, state->fd, xattr, args->flags,
+                                      xdata);
                 break;
         }
         case GF_FOP_RCHECKSUM:
@@ -2109,13 +2046,12 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_rchecksum_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
 
                 args_rchecksum_store (this_args, state->fd, args->offset,
-                                      args->len, this_args->xdata);
+                                      args->len, xdata);
                 break;
         }
         case GF_FOP_SETATTR:
@@ -2125,15 +2061,14 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_setattr_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
 
                 gf_stat_to_iatt (&args->stbuf, &this_args->stat);
 
                 args_setattr_store (this_args, &state->loc, &this_args->stat,
-                                    args->valid, this_args->xdata);
+                                    args->valid, xdata);
                 break;
         }
         case GF_FOP_FSETATTR:
@@ -2143,15 +2078,14 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_fsetattr_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
 
                 gf_stat_to_iatt (&args->stbuf, &this_args->stat);
 
                 args_fsetattr_store (this_args, state->fd, &this_args->stat,
-                                     args->valid, this_args->xdata);
+                                     args->valid, xdata);
                 break;
         }
         case GF_FOP_READDIRP:
@@ -2161,13 +2095,12 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_readdirp_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xattr,
-                                              (args->dict.dict_val),
+                                              xattr, (args->dict.dict_val),
                                               (args->dict.dict_len), ret,
                                               op_errno, out);
 
                 args_readdirp_store (this_args, state->fd, args->size,
-                                     args->offset, this_args->xattr);
+                                     args->offset, xattr);
                 break;
         }
         case GF_FOP_FREMOVEXATTR:
@@ -2177,13 +2110,12 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_fremovexattr_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
 
                 args_fremovexattr_store (this_args, state->fd, args->name,
-                                         this_args->xdata);
+                                         xdata);
                 break;
         }
 	case GF_FOP_FALLOCATE:
@@ -2193,13 +2125,11 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_fallocate_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
                 args_fallocate_store (this_args, state->fd, args->flags,
-                                      args->offset, args->size,
-                                      this_args->xdata);
+                                      args->offset, args->size, xdata);
                 break;
         }
 	case GF_FOP_DISCARD:
@@ -2209,13 +2139,12 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_discard_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
 
                 args_discard_store (this_args, state->fd, args->offset,
-                                    args->size, this_args->xdata);
+                                    args->size, xdata);
                 break;
         }
         case GF_FOP_ZEROFILL:
@@ -2225,12 +2154,11 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_zerofill_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
                 args_zerofill_store (this_args, state->fd, args->offset,
-                                     args->size, this_args->xdata);
+                                     args->size, xdata);
                 break;
         }
         case GF_FOP_SEEK:
@@ -2240,12 +2168,11 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_seek_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
-                args_seek_store (this_args, state->fd, args->offset,
-                                 args->what, this_args->xdata);
+                args_seek_store (this_args, state->fd, args->offset, args->what,
+                                 xdata);
                 break;
         }
         case GF_FOP_LEASE:
@@ -2255,21 +2182,23 @@ server_populate_compound_request (gfs3_compound_req *req, call_frame_t *frame,
                 args = &this_req->compound_req_u.compound_lease_req;
 
                 GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
-                                              this_args->xdata,
-                                              args->xdata.xdata_val,
+                                              xdata, args->xdata.xdata_val,
                                               args->xdata.xdata_len, ret,
                                               op_errno, out);
 
                 gf_proto_lease_to_lease (&args->lease, &state->lease);
 
-                args_lease_store (this_args, &state->loc, &state->lease,
-                                  this_args->xdata);
+                args_lease_store (this_args, &state->loc, &state->lease, xdata);
                 break;
         }
         default:
                 return ENOTSUP;
         }
 out:
+        if (xattr)
+                dict_unref (xattr);
+        if (xdata)
+                dict_unref (xdata);
         return op_errno;
 }
 
@@ -3808,7 +3737,6 @@ server_compound_rsp_cleanup (gfs3_compound_rsp *rsp, compound_args_cbk_t *args)
                 return;
 
         len = rsp->compound_rsp_array.compound_rsp_array_len;
-        return;
 
         for (i = 0; i < len; i++) {
                 this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[i];
@@ -3990,6 +3918,7 @@ server_compound_rsp_cleanup (gfs3_compound_rsp *rsp, compound_args_cbk_t *args)
                         break;
                 }
         }
+        GF_FREE (rsp->compound_rsp_array.compound_rsp_array_val);
         return;
 }
 
