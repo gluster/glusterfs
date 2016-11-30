@@ -843,7 +843,7 @@ gf_cli_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         char                       key[1024]            = {0};
         char                       err_str[2048]        = {0};
         gf_cli_rsp                 rsp                  = {0};
-        char                      *caps                 = NULL;
+        char                      *caps __attribute__((unused)) = NULL;
         int                        k __attribute__((unused)) = 0;
         call_frame_t              *frame                = NULL;
 
@@ -1064,8 +1064,6 @@ xml_output:
                 } while (1);
 
 next:
-#else
-                caps = 0; /* Avoid compiler warnings when BD not enabled */
 #endif
                 gf_cli_print_number_of_bricks (type, brick_count,
                                 dist_count, stripe_count, replica_count,
