@@ -192,10 +192,13 @@ BuildRoot:        %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 BuildRequires:    python-simplejson
 %endif
 %if ( 0%{?_with_systemd:1} )
-BuildRequires:    systemd-units
+BuildRequires:    systemd
 %endif
 
 Requires:         %{name}-libs%{?_isa} = %{version}-%{release}
+%if ( 0%{?_with_systemd:1} )
+%{?systemd_requires}
+%endif
 BuildRequires:    bison flex
 BuildRequires:    gcc make libtool
 BuildRequires:    ncurses-devel readline-devel
@@ -544,9 +547,7 @@ Requires:         psmisc
 Requires:         lvm2
 Requires:         nfs-utils
 %if ( 0%{?_with_systemd:1} )
-Requires(post):   systemd-units, systemd
-Requires(preun):  systemd-units
-Requires(postun): systemd-units
+%{?systemd_requires}
 %else
 Requires(post):   /sbin/chkconfig
 Requires(preun):  /sbin/service
@@ -603,7 +604,7 @@ Requires:         python-gluster = %{version}-%{release}
 Requires:         python-argparse
 %endif
 %if ( 0%{?_with_systemd:1} )
-Requires(post):   systemd
+%{?systemd_requires}
 %endif
 
 %description events
