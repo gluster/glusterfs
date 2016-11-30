@@ -6814,6 +6814,7 @@ init (xlator_t *this)
         gf_boolean_t          tmp_bool      = 0;
         int                   ret           = 0;
         int                   op_ret        = -1;
+        int                   op_errno      = 0;
         ssize_t               size          = -1;
         uuid_t                old_uuid      = {0,};
         uuid_t                dict_uuid     = {0,};
@@ -7169,8 +7170,11 @@ init (xlator_t *this)
         _private->mount_lock = sys_opendir (dir_data->data);
         if (!_private->mount_lock) {
                 ret = -1;
-                gf_msg (this->name, GF_LOG_ERROR, 0, P_MSG_DIR_OPERATION_FAILED,
-                        "Could not lock brick directory");
+                op_errno = errno;
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        P_MSG_DIR_OPERATION_FAILED,
+                        "Could not lock brick directory (%s)",
+                        strerror (op_errno));
                 goto out;
         }
 #ifndef GF_DARWIN_HOST_OS
