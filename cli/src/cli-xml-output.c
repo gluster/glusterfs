@@ -2602,7 +2602,7 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
         char                    key[1024] = {0,};
         int                     i = 0;
         int                     j = 1;
-        char                    *caps = NULL;
+        char                    *caps __attribute__((unused)) = NULL;
         int                     k __attribute__((unused)) = 0;
         int                     index = 1;
         int                     tier_vol_type          = 0;
@@ -2832,8 +2832,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                 ret = xmlTextWriterFullEndElement (local->writer);
                 XML_RET_CHECK_AND_GOTO (ret, out);
                 /* </xlators> */
-#else
-                caps = 0; /* Avoid compiler warnings when BD not enabled */
 #endif
                 j = 1;
 
