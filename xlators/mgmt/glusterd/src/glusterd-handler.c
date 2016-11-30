@@ -56,6 +56,7 @@
 #endif
 
 extern glusterd_op_info_t opinfo;
+static int volcount;
 
 int glusterd_big_locked_notify (struct rpc_clnt *rpc, void *mydata,
                                 rpc_clnt_event_t event,
@@ -4950,7 +4951,7 @@ glusterd_handle_get_vol_opt (rpcsvc_request_t *req)
 }
 
 static int
-glusterd_print_dict_options (dict_t *opts, char *key, data_t *val, void *data)
+glusterd_print_global_options (dict_t *opts, char *key, data_t *val, void *data)
 {
         FILE *fp = NULL;
 
@@ -4963,6 +4964,21 @@ glusterd_print_dict_options (dict_t *opts, char *key, data_t *val, void *data)
 
         fp = (FILE *) data;
         fprintf (fp, "%s: %s\n", key, val->data);
+out:
+        return 0;
+}
+
+static int
+glusterd_print_volume_options (dict_t *opts, char *key, data_t *val, void *data)
+{
+        FILE *fp = NULL;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, key, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, val, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, data, out);
+
+        fp = (FILE *) data;
+        fprintf (fp, "Volume%d.options.%s: %s\n", volcount, key, val->data);
 out:
         return 0;
 }
@@ -5130,7 +5146,7 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
         fprintf (fp, "\n[Global options]\n");
 
         if (priv->opts)
-                dict_foreach (priv->opts, glusterd_print_dict_options, fp);
+                dict_foreach (priv->opts, glusterd_print_global_options, fp);
 
         rcu_read_lock ();
         fprintf (fp, "\n[Peers]\n");
@@ -5353,10 +5369,11 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                                  volinfo->rep_brick.dst_brick->hostname,
                                  volinfo->rep_brick.dst_brick->path);
                 }
-                fprintf (fp, "[Volume%d.options]\n", count);
+
+                volcount = count;
                 if (volinfo->dict)
                         dict_foreach (volinfo->dict,
-                                      glusterd_print_dict_options, fp);
+                                      glusterd_print_volume_options, fp);
 
                 fprintf (fp, "\n");
         }
