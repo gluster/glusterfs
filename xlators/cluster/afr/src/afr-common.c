@@ -3592,43 +3592,19 @@ afr_fop_lock_wind (call_frame_t *frame, xlator_t *this, int child_index,
         }
 }
 
-static int32_t
-afr_unlock_partial_lock_cbk (call_frame_t *frame, void *cookie,
-                             xlator_t *this, int32_t op_ret,
-                             int32_t op_errno, dict_t *xdata)
-
+void
+afr_fop_lock_proceed (call_frame_t *frame)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
-        int call_count = -1;
-        int child_index = (long)cookie;
-        uuid_t  gfid = {0};
 
         local = frame->local;
-        priv = this->private;
-
-        if (op_ret < 0 && op_errno != ENOTCONN) {
-                if (local->fd)
-                        gf_uuid_copy (gfid, local->fd->inode->gfid);
-                else
-                        loc_gfid (&local->loc, gfid);
-                gf_msg (this->name, GF_LOG_ERROR, op_errno,
-                        AFR_MSG_UNLOCK_FAIL,
-                        "%s: Failed to unlock %s on %s "
-                        "with lk_owner: %s", uuid_utoa (gfid),
-                        gf_fop_list[local->op],
-                        priv->children[child_index]->name,
-                        lkowner_utoa (&frame->root->lk_owner));
-        }
-
-        call_count = afr_frame_return (frame);
-        if (call_count)
-                goto out;
+        priv = frame->this->private;
 
         if (local->fop_lock_state != AFR_FOP_LOCK_PARALLEL) {
                 afr_fop_lock_unwind (frame, local->op, local->op_ret,
                                      local->op_errno, local->xdata_rsp);
-                goto out;
+                return;
         }
         /* At least one child is up */
         /*
@@ -3672,8 +3648,42 @@ afr_unlock_partial_lock_cbk (call_frame_t *frame, void *cookie,
         default:
                 break;
         }
-        afr_serialized_lock_wind (frame, this);
-out:
+        afr_serialized_lock_wind (frame, frame->this);
+}
+
+static int32_t
+afr_unlock_partial_lock_cbk (call_frame_t *frame, void *cookie,
+                             xlator_t *this, int32_t op_ret,
+                             int32_t op_errno, dict_t *xdata)
+
+{
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+        int call_count = -1;
+        int child_index = (long)cookie;
+        uuid_t  gfid = {0};
+
+        local = frame->local;
+        priv = this->private;
+
+        if (op_ret < 0 && op_errno != ENOTCONN) {
+                if (local->fd)
+                        gf_uuid_copy (gfid, local->fd->inode->gfid);
+                else
+                        loc_gfid (&local->loc, gfid);
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        AFR_MSG_UNLOCK_FAIL,
+                        "%s: Failed to unlock %s on %s "
+                        "with lk_owner: %s", uuid_utoa (gfid),
+                        gf_fop_list[local->op],
+                        priv->children[child_index]->name,
+                        lkowner_utoa (&frame->root->lk_owner));
+        }
+
+        call_count = afr_frame_return (frame);
+        if (call_count == 0)
+                afr_fop_lock_proceed (frame);
+
         return 0;
 }
 
@@ -3684,6 +3694,11 @@ afr_unlock_locks_and_proceed (call_frame_t *frame, xlator_t *this,
         int i = 0;
         afr_private_t *priv = NULL;
         afr_local_t *local = NULL;
+
+        if (call_count == 0) {
+                afr_fop_lock_proceed (frame);
+                goto out;
+        }
 
         local = frame->local;
         priv = this->private;
@@ -3721,6 +3736,7 @@ afr_unlock_locks_and_proceed (call_frame_t *frame, xlator_t *this,
                         break;
         }
 
+out:
         return 0;
 }
 
@@ -3763,7 +3779,7 @@ afr_fop_lock_done (call_frame_t *frame, xlator_t *this)
                 local->op_errno = local->replies[i].op_errno;
         }
 
-        if (afr_fop_lock_is_unlock (frame) || (lock_count == 0))
+        if (afr_fop_lock_is_unlock (frame))
                 goto unwind;
 
         if (afr_is_conflicting_lock_present (local->op_ret, local->op_errno)) {
@@ -3771,7 +3787,9 @@ afr_fop_lock_done (call_frame_t *frame, xlator_t *this)
         } else if (priv->quorum_count && !afr_has_quorum (success, this)) {
                 local->fop_lock_state = AFR_FOP_LOCK_QUORUM_FAILED;
                 local->op_ret = -1;
-                local->op_errno = afr_quorum_errno (priv);
+                local->op_errno = afr_final_errno (local, priv);
+                if (local->op_errno == 0)
+                        local->op_errno = afr_quorum_errno (priv);
                 afr_unlock_locks_and_proceed (frame, this, lock_count);
         } else {
                 goto unwind;
