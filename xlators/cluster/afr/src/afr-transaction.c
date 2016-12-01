@@ -1679,7 +1679,9 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
          * quorum number of nodes.
          */
         if (priv->quorum_count && !afr_has_fop_quorum (frame)) {
-                op_errno = afr_quorum_errno (priv);
+                op_errno = int_lock->lock_op_errno;
+                if (op_errno == 0)
+                        op_errno = afr_quorum_errno (priv);
                 goto err;
         }
 
