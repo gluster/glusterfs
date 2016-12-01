@@ -2196,7 +2196,7 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        strncpy (volinfo->volname, volname, strlen (volname));
+        strncpy (volinfo->volname, volname, sizeof(volinfo->volname) - 1);
         GF_ASSERT (volinfo->volname);
 
         ret = dict_get_int32 (dict, "type", &volinfo->type);
