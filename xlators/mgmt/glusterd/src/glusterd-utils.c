@@ -735,7 +735,8 @@ glusterd_create_sub_tier_volinfo (glusterd_volinfo_t *volinfo,
         memcpy (&(*dup_volinfo)->tier_info, &volinfo->tier_info,
                 sizeof (volinfo->tier_info));
 
-        strcpy ((*dup_volinfo)->volname, new_volname);
+        strncpy ((*dup_volinfo)->volname, new_volname,
+                  sizeof((*dup_volinfo)->volname)-1);
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 i++;
@@ -3463,7 +3464,8 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
         ret = glusterd_volinfo_new (&new_volinfo);
         if (ret)
                 goto out;
-        strncpy (new_volinfo->volname, volname, strlen (volname));
+        strncpy (new_volinfo->volname, volname,
+                 sizeof(new_volinfo->volname) - 1);
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.type", prefix, count);
