@@ -1111,10 +1111,10 @@ exit 0
 %endif
 
 %files regression-tests
-%{_prefix}/share/glusterfs/run-tests.sh
-%{_prefix}/share/glusterfs/tests
-%exclude %{_prefix}/share/glusterfs/tests/basic/rpm.t
-%exclude %{_prefix}/share/glusterfs/tests/vagrant
+%{_datadir}/glusterfs/run-tests.sh
+%{_datadir}/glusterfs/tests
+%exclude %{_datadir}/glusterfs/tests/basic/rpm.t
+%exclude %{_datadir}/glusterfs/tests/vagrant
 
 %if ( 0%{!?_without_ocf:1} )
 %files resource-agents
