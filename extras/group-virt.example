@@ -6,3 +6,5 @@ cluster.eager-lock=enable
 network.remote-dio=enable
 cluster.quorum-type=auto
 cluster.server-quorum-type=server
+features.shard=on
+cluster.data-self-heal-algorithm=full
