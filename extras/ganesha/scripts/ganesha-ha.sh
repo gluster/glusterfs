@@ -181,6 +181,7 @@ setup_cluster()
     local num_servers=${2}
     local servers=${3}
     local unclean=""
+    local quorum_policy="stop"
 
     logger "setting up cluster ${name} with the following ${servers}"
 
@@ -213,10 +214,11 @@ setup_cluster()
     sleep 1
 
     if [ ${num_servers} -lt 3 ]; then
-        pcs property set no-quorum-policy=ignore
-        if [ $? -ne 0 ]; then
-            logger "warning: pcs property set no-quorum-policy=ignore failed"
-        fi
+        quorum_policy="ignore"
+    fi
+    pcs property set no-quorum-policy=${quorum_policy}
+    if [ $? -ne 0 ]; then
+        logger "warning: pcs property set no-quorum-policy=${quorum_policy} failed"
     fi
 
     pcs property set stonith-enabled=false
