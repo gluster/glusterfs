@@ -224,8 +224,15 @@ out:
 static int
 br_stub_check_stub_directory (xlator_t *this, char *fullpath)
 {
-        int ret = 0;
-        struct stat st = {0,};
+        int         ret         = 0;
+        struct stat st          = {0,};
+        char  oldpath[PATH_MAX] = {0};
+        br_stub_private_t    *priv = NULL;
+
+        priv = this->private;
+
+        (void) snprintf (oldpath, PATH_MAX,
+                         "%s/%s", priv->export, OLD_BR_STUB_QUARANTINE_DIR);
 
         ret = sys_stat (fullpath, &st);
         if (!ret && !S_ISDIR (st.st_mode))
@@ -233,7 +240,11 @@ br_stub_check_stub_directory (xlator_t *this, char *fullpath)
         if (ret) {
                 if (errno != ENOENT)
                         goto error_return;
-                ret = mkdir_p (fullpath, 0600, _gf_true);
+                ret =  sys_stat (oldpath, &st);
+                if (ret)
+                        ret = mkdir_p (fullpath, 0600, _gf_true);
+                else
+                        ret = sys_rename (oldpath, fullpath);
         }
 
         if (ret)

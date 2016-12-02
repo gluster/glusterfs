@@ -56,10 +56,10 @@ echo "Corrupted data" >> $B1/FILE2
 #Manually set bad-file xattr since we can't wait for an hour for scrubber.
 TEST setfattr -n trusted.bit-rot.bad-file -v 0x3100 $B1/FILE1
 TEST setfattr -n trusted.bit-rot.bad-file -v 0x3100 $B1/FILE2
-TEST touch "$B1/.glusterfs/quanrantine/$gfid1"
-TEST chmod 000 "$B1/.glusterfs/quanrantine/$gfid1"
-TEST touch "$B1/.glusterfs/quanrantine/$gfid2"
-TEST chmod 000 "$B1/.glusterfs/quanrantine/$gfid2"
+TEST touch "$B1/.glusterfs/quarantine/$gfid1"
+TEST chmod 000 "$B1/.glusterfs/quarantine/$gfid1"
+TEST touch "$B1/.glusterfs/quarantine/$gfid2"
+TEST chmod 000 "$B1/.glusterfs/quarantine/$gfid2"
 EXPECT "4" get_quarantine_count "$B1";
 
 TEST $CLI_1 volume stop $V0
@@ -80,7 +80,7 @@ EXPECT "$uuid2" get_node_uuid;
 #BUG 1308961
 #Remove bad files from  mount, it should be removed from quarantine directory.
 TEST rm -f $M0/FILE1
-TEST ! stat "$B1/.glusterfs/quanrantine/$gfid1"
+TEST ! stat "$B1/.glusterfs/quarantine/$gfid1"
 
 #BUG 1308961
 #Set network.inode-lru-limit to 5 and exceed the limit by creating 10 other files.
@@ -90,6 +90,6 @@ for i in {1..10}
 do
      echo "1234" > $M0/file_$i
 done
-TEST stat "$B1/.glusterfs/quanrantine/$gfid2"
+TEST stat "$B1/.glusterfs/quarantine/$gfid2"
 
 cleanup;

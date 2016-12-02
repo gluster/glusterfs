@@ -618,7 +618,7 @@ function get_scrubd_count {
 }
 
 function get_quarantine_count {
-        ls -l "$1/.glusterfs/quanrantine" | wc -l
+        ls -l "$1/.glusterfs/quarantine" | wc -l
 }
 
 function get_quotad_count {

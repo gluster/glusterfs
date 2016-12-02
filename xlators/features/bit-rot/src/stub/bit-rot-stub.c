@@ -112,8 +112,6 @@ out:
         return -1;
 }
 
-#define BR_STUB_QUARANTINE_DIR GF_HIDDEN_PATH"/quanrantine"
-
 int32_t
 init (xlator_t *this)
 {
