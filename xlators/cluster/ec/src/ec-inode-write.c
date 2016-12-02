@@ -1271,6 +1271,9 @@ ec_make_internal_fop_xdata (dict_t **xdata)
 {
     dict_t *dict = NULL;
 
+    if (*xdata)
+	return 0;
+
     dict = dict_new();
     if (!dict)
        goto out;
