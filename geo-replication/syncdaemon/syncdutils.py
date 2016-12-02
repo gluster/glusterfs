@@ -23,6 +23,7 @@ from errno import EINTR, ENOENT, EPERM, ESTALE, EBUSY, errorcode
 from signal import signal, SIGTERM
 import select as oselect
 from os import waitpid as owaitpid
+import subprocess
 
 from conf import GLUSTERFS_LIBEXECDIR, UUID_FILE
 sys.path.insert(1, GLUSTERFS_LIBEXECDIR)
@@ -68,6 +69,7 @@ GF_OP_RETRIES = 10
 CHANGELOG_AGENT_SERVER_VERSION = 1.0
 CHANGELOG_AGENT_CLIENT_VERSION = 1.0
 NodeID = None
+rsync_version = None
 
 
 def escape(s):
@@ -554,3 +556,19 @@ def get_master_and_slave_data_from_args(args):
             slave_data = arg.replace("ssh://", "")
 
     return (master_name, slave_data)
+
+
+def get_rsync_version(rsync_cmd):
+    global rsync_version
+    if rsync_version is not None:
+        return rsync_version
+
+    rsync_version = "0"
+    p = subprocess.Popen([rsync_cmd, "--version"],
+                         stderr=subprocess.PIPE,
+                         stdout=subprocess.PIPE)
+    out, err = p.communicate()
+    if p.returncode == 0:
+        rsync_version = out.split(" ", 4)[3]
+
+    return rsync_version
