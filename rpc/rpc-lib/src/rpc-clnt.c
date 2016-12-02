@@ -871,6 +871,41 @@ rpc_clnt_destroy (struct rpc_clnt *rpc);
 
 #define RPC_THIS_RESTORE        (THIS = old_THIS)
 
+static int
+rpc_clnt_handle_disconnect (struct rpc_clnt *clnt, rpc_clnt_connection_t *conn)
+{
+        struct timespec         ts          = {0, };
+        gf_boolean_t            unref_clnt  = _gf_false;
+
+        rpc_clnt_connection_cleanup (conn);
+
+        pthread_mutex_lock (&conn->lock);
+        {
+                if (!conn->rpc_clnt->disabled && (conn->reconnect == NULL)) {
+                        ts.tv_sec = 10;
+                        ts.tv_nsec = 0;
+
+                        rpc_clnt_ref (clnt);
+                        conn->reconnect = gf_timer_call_after (clnt->ctx, ts,
+                                                rpc_clnt_reconnect, conn);
+                        if (conn->reconnect == NULL) {
+                                gf_log (conn->name, GF_LOG_WARNING,
+                                                "Cannot create rpc_clnt_reconnect timer");
+                                unref_clnt = _gf_true;
+                        }
+                }
+        }
+        pthread_mutex_unlock (&conn->lock);
+
+        if (clnt->notifyfn)
+                clnt->notifyfn (clnt, clnt->mydata, RPC_CLNT_DISCONNECT, NULL);
+
+        if (unref_clnt)
+                rpc_clnt_ref (clnt);
+
+        return 0;
+}
+
 int
 rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
                  rpc_transport_event_t event, void *data, ...)
@@ -880,9 +915,7 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
         int                     ret         = -1;
         rpc_request_info_t     *req_info    = NULL;
         rpc_transport_pollin_t *pollin      = NULL;
-        struct timespec         ts          = {0, };
         void                   *clnt_mydata = NULL;
-        gf_boolean_t            unref_clnt  = _gf_false;
         DECLARE_OLD_THIS;
 
         conn = mydata;
@@ -898,35 +931,11 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
         switch (event) {
         case RPC_TRANSPORT_DISCONNECT:
         {
-                rpc_clnt_connection_cleanup (conn);
-
-                pthread_mutex_lock (&conn->lock);
+                pthread_mutex_lock (&clnt->notifylock);
                 {
-                        if (!conn->rpc_clnt->disabled
-                            && (conn->reconnect == NULL)) {
-                                ts.tv_sec = 10;
-                                ts.tv_nsec = 0;
-
-                                rpc_clnt_ref (clnt);
-                                conn->reconnect =
-                                        gf_timer_call_after (clnt->ctx, ts,
-                                                             rpc_clnt_reconnect,
-                                                             conn);
-                                if (conn->reconnect == NULL) {
-                                        gf_log (conn->name, GF_LOG_WARNING,
-                                                "Cannot create rpc_clnt_reconnect timer");
-                                        unref_clnt = _gf_true;
-                                }
-                        }
+                        rpc_clnt_handle_disconnect (clnt, conn);
                 }
-                pthread_mutex_unlock (&conn->lock);
-
-                if (clnt->notifyfn)
-                        ret = clnt->notifyfn (clnt, clnt->mydata,
-                                              RPC_CLNT_DISCONNECT, NULL);
-                if (unref_clnt)
-                        rpc_clnt_ref (clnt);
-
+                pthread_mutex_unlock (&clnt->notifylock);
                 break;
         }
 
@@ -981,17 +990,21 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
 
         case RPC_TRANSPORT_CONNECT:
         {
-                /* Every time there is a disconnection, processes
-                   should try to connect to 'glusterd' (ie, default
-                   port) or whichever port given as 'option remote-port'
-                   in volume file. */
-                /* Below code makes sure the (re-)configured port lasts
-                   for just one successful attempt */
-                conn->config.remote_port = 0;
+                pthread_mutex_lock (&clnt->notifylock);
+                {
+                        /* Every time there is a disconnection, processes
+                         * should try to connect to 'glusterd' (ie, default
+                         * port) or whichever port given as 'option remote-port'
+                         * in volume file. */
+                        /* Below code makes sure the (re-)configured port lasts
+                         * for just one successful attempt */
+                        conn->config.remote_port = 0;
 
-                if (clnt->notifyfn)
-                        ret = clnt->notifyfn (clnt, clnt->mydata,
-                                              RPC_CLNT_CONNECT, NULL);
+                        if (clnt->notifyfn)
+                                ret = clnt->notifyfn (clnt, clnt->mydata,
+                                                RPC_CLNT_CONNECT, NULL);
+                }
+                pthread_mutex_unlock (&clnt->notifylock);
                 break;
         }
 
@@ -1115,6 +1128,7 @@ rpc_clnt_new (dict_t *options, xlator_t *owner, char *name,
         }
 
         pthread_mutex_init (&rpc->lock, NULL);
+        pthread_mutex_init (&rpc->notifylock, NULL);
         rpc->ctx = ctx;
         rpc->owner = owner;
 
@@ -1124,6 +1138,7 @@ rpc_clnt_new (dict_t *options, xlator_t *owner, char *name,
         rpc->reqpool = mem_pool_new (struct rpc_req, reqpool_size);
         if (rpc->reqpool == NULL) {
                 pthread_mutex_destroy (&rpc->lock);
+                pthread_mutex_destroy (&rpc->notifylock);
                 GF_FREE (rpc);
                 rpc = NULL;
                 goto out;
@@ -1133,6 +1148,7 @@ rpc_clnt_new (dict_t *options, xlator_t *owner, char *name,
                                                reqpool_size);
         if (rpc->saved_frames_pool == NULL) {
                 pthread_mutex_destroy (&rpc->lock);
+                pthread_mutex_destroy (&rpc->notifylock);
                 mem_pool_destroy (rpc->reqpool);
                 GF_FREE (rpc);
                 rpc = NULL;
@@ -1142,6 +1158,7 @@ rpc_clnt_new (dict_t *options, xlator_t *owner, char *name,
         ret = rpc_clnt_connection_init (rpc, ctx, options, name);
         if (ret == -1) {
                 pthread_mutex_destroy (&rpc->lock);
+                pthread_mutex_destroy (&rpc->notifylock);
                 mem_pool_destroy (rpc->reqpool);
                 mem_pool_destroy (rpc->saved_frames_pool);
                 GF_FREE (rpc);
@@ -1737,6 +1754,7 @@ rpc_clnt_destroy (struct rpc_clnt *rpc)
         saved_frames_destroy (rpc->conn.saved_frames);
         pthread_mutex_destroy (&rpc->lock);
         pthread_mutex_destroy (&rpc->conn.lock);
+        pthread_mutex_destroy (&rpc->notifylock);
 
         /* mem-pool should be destroyed, otherwise,
            it will cause huge memory leaks */

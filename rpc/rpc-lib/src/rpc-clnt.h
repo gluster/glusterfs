@@ -172,6 +172,7 @@ struct rpc_req {
 
 typedef struct rpc_clnt {
         pthread_mutex_t        lock;
+        pthread_mutex_t        notifylock;
         rpc_clnt_notify_t      notifyfn;
         rpc_clnt_connection_t  conn;
         void                  *mydata;
