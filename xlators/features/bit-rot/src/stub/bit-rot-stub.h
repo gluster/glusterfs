@@ -24,6 +24,12 @@
 
 #define BAD_OBJECT_THREAD_STACK_SIZE   ((size_t)(1024*1024))
 
+/*
+ * Oops. Spelling mistake. Correcting it
+ */
+#define OLD_BR_STUB_QUARANTINE_DIR GF_HIDDEN_PATH"/quanrantine"
+#define BR_STUB_QUARANTINE_DIR GF_HIDDEN_PATH"/quarantine"
+
 typedef int (br_stub_version_cbk) (call_frame_t *, void *,
                                    xlator_t *, int32_t, int32_t, dict_t *);
 
