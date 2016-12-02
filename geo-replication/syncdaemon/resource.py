@@ -37,7 +37,7 @@ from syncdutils import GsyncdError, select, privileged, boolify, funcode
 from syncdutils import umask, entry2pb, gauxpfx, errno_wrap, lstat
 from syncdutils import NoStimeAvailable, PartialHistoryAvailable
 from syncdutils import ChangelogException, ChangelogHistoryNotAvailable
-from syncdutils import get_changelog_log_level
+from syncdutils import get_changelog_log_level, get_rsync_version
 from syncdutils import CHANGELOG_AGENT_CLIENT_VERSION
 from gsyncdstatus import GeorepStatus
 from syncdutils import get_master_and_slave_data_from_args
@@ -1050,12 +1050,22 @@ class SlaveRemote(object):
         if not files:
             raise GsyncdError("no files to sync")
         logging.debug("files: " + ", ".join(files))
+
+        extra_rsync_flags = []
+        # Performance flag, --ignore-missing-args, if rsync version is
+        # greater than 3.1.0 then include this flag.
+        if boolify(gconf.rsync_opt_ignore_missing_args) and \
+           get_rsync_version(gconf.rsync_command) >= "3.1.0":
+            extra_rsync_flags = ["--ignore-missing-args"]
+
         argv = gconf.rsync_command.split() + \
             ['-aR0', '--inplace', '--files-from=-', '--super',
              '--stats', '--numeric-ids', '--no-implied-dirs'] + \
+            (boolify(gconf.rsync_opt_existing) and ['--existing'] or []) + \
             gconf.rsync_options.split() + \
             (boolify(gconf.sync_xattrs) and ['--xattrs'] or []) + \
             (boolify(gconf.sync_acls) and ['--acls'] or []) + \
+            extra_rsync_flags + \
             ['.'] + list(args)
 
         log_rsync_performance = boolify(gconf.configinterface.get_realtime(

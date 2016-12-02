@@ -298,6 +298,8 @@ def main_i():
     op.add_option('--rsync-command', metavar='CMD', default='rsync')
     op.add_option('--rsync-options', metavar='OPTS', default='')
     op.add_option('--rsync-ssh-options', metavar='OPTS', default='--compress')
+    op.add_option('--rsync-opt-ignore-missing-args', default="true")
+    op.add_option('--rsync-opt-existing', default="true")
     op.add_option('--timeout', metavar='SEC', type=int, default=120)
     op.add_option('--connection-timeout', metavar='SEC',
                   type=int, default=60, help=SUPPRESS_HELP)
