@@ -70,7 +70,7 @@ client_pre_readv (xlator_t *this, gfs3_read_req *req, fd_t *fd, size_t size,
 int
 client_pre_writev (xlator_t *this, gfs3_write_req *req,
                    fd_t *fd, size_t size, off_t offset, int32_t flags,
-                   dict_t *xdata);
+                   dict_t **xdata);
 
 int
 client_pre_statfs (xlator_t *this, gfs3_statfs_req *req, loc_t *loc,
