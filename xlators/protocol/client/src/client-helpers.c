@@ -136,9 +136,7 @@ client_local_wipe (clnt_local_t *local)
                 }
 
                 GF_FREE (local->name);
-
                 local->compound_args = NULL;
-
                 mem_put (local);
         }
 
@@ -370,6 +368,10 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                          int index)
 {
         int                      ret            = 0;
+        dict_t                  *xdata          = NULL;
+        dict_t                  *xattr          = NULL;
+        struct iovec             vector[MAX_IOVEC] = {{0}, };
+        gf_dirent_t              entries;
         default_args_cbk_t      *this_args_cbk  = &args_cbk->rsp_list[index];
         clnt_local_t            *local          = frame->local;
         compound_rsp            *this_rsp       = NULL;
@@ -378,6 +380,8 @@ client_process_response (call_frame_t *frame, xlator_t *this,
         this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[index];
         args_cbk->enum_list[index] = this_rsp->fop_enum;
 
+        INIT_LIST_HEAD (&entries.list);
+
         switch (args_cbk->enum_list[index]) {
 
         case GF_FOP_STAT:
@@ -385,12 +389,10 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_stat_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_stat_rsp;
 
-                client_post_stat (this, tmp_rsp,
-                                  &this_args_cbk->stat, &this_args_cbk->xdata);
+                client_post_stat (this, tmp_rsp, &this_args_cbk->stat, &xdata);
 
                 CLIENT_POST_FOP_TYPE (stat, this_rsp, this_args_cbk,
-                                      &this_args_cbk->stat,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->stat, xdata);
                 break;
         }
         case GF_FOP_READLINK:
@@ -398,12 +400,11 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_readlink_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_readlink_rsp;
 
-                client_post_readlink (this, tmp_rsp,
-                                      &this_args_cbk->stat, &this_args_cbk->xdata);
+                client_post_readlink (this, tmp_rsp, &this_args_cbk->stat,
+                                      &xdata);
                 CLIENT_POST_FOP_TYPE (readlink, this_rsp, this_args_cbk,
-                                      tmp_rsp->path,
-                                      &this_args_cbk->stat,
-                                      this_args_cbk->xdata);
+                                      tmp_rsp->path, &this_args_cbk->stat,
+                                      xdata);
                 break;
         }
         case GF_FOP_MKNOD:
@@ -411,17 +412,13 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_mknod_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_mknod_rsp;
 
-                client_post_mknod (this, tmp_rsp,
-                                   &this_args_cbk->stat,
+                client_post_mknod (this, tmp_rsp, &this_args_cbk->stat,
                                    &this_args_cbk->preparent,
-                                   &this_args_cbk->postparent,
-                                   &this_args_cbk->xdata);
+                                   &this_args_cbk->postparent, &xdata);
                 CLIENT_POST_FOP_TYPE (mknod, this_rsp, this_args_cbk,
-                                      local->loc.inode,
-                                      &this_args_cbk->stat,
+                                      local->loc.inode, &this_args_cbk->stat,
                                       &this_args_cbk->preparent,
-                                      &this_args_cbk->postparent,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->postparent, xdata);
                 break;
         }
         case GF_FOP_MKDIR:
@@ -429,18 +426,13 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_mkdir_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_mkdir_rsp;
 
-                client_post_mkdir (this,
-                                   tmp_rsp,
-                                   &this_args_cbk->stat,
+                client_post_mkdir (this, tmp_rsp, &this_args_cbk->stat,
                                    &this_args_cbk->preparent,
-                                   &this_args_cbk->postparent,
-                                   &this_args_cbk->xdata);
+                                   &this_args_cbk->postparent, &xdata);
                 CLIENT_POST_FOP_TYPE (mkdir, this_rsp, this_args_cbk,
-                                      local->loc.inode,
-                                      &this_args_cbk->stat,
+                                      local->loc.inode, &this_args_cbk->stat,
                                       &this_args_cbk->preparent,
-                                      &this_args_cbk->postparent,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->postparent, xdata);
                 break;
         }
         case GF_FOP_UNLINK:
@@ -448,15 +440,11 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_unlink_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_unlink_rsp;
 
-                client_post_unlink (this,
-                                    tmp_rsp,
-                                    &this_args_cbk->preparent,
-                                    &this_args_cbk->postparent,
-                                    &this_args_cbk->xdata);
+                client_post_unlink (this, tmp_rsp, &this_args_cbk->preparent,
+                                    &this_args_cbk->postparent, &xdata);
                 CLIENT_POST_FOP_TYPE (unlink, this_rsp, this_args_cbk,
                                       &this_args_cbk->preparent,
-                                      &this_args_cbk->postparent,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->postparent, xdata);
                 break;
         }
         case GF_FOP_RMDIR:
@@ -464,14 +452,11 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_rmdir_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_rmdir_rsp;
 
-                client_post_rmdir (this, tmp_rsp,
-                                   &this_args_cbk->preparent,
-                                   &this_args_cbk->postparent,
-                                   &this_args_cbk->xdata);
+                client_post_rmdir (this, tmp_rsp, &this_args_cbk->preparent,
+                                   &this_args_cbk->postparent, &xdata);
                 CLIENT_POST_FOP_TYPE (rmdir, this_rsp, this_args_cbk,
                                       &this_args_cbk->preparent,
-                                      &this_args_cbk->postparent,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->postparent, xdata);
                 break;
         }
         case GF_FOP_SYMLINK:
@@ -479,16 +464,13 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_symlink_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_symlink_rsp;
 
-                client_post_symlink (this, tmp_rsp,
-                                     &this_args_cbk->stat,
+                client_post_symlink (this, tmp_rsp, &this_args_cbk->stat,
                                      &this_args_cbk->preparent,
-                                     &this_args_cbk->postparent,
-                                     &this_args_cbk->xdata);
+                                     &this_args_cbk->postparent, &xdata);
                 CLIENT_POST_FOP_TYPE (symlink, this_rsp, this_args_cbk, NULL,
                                       &this_args_cbk->stat,
                                       &this_args_cbk->preparent,
-                                      &this_args_cbk->postparent,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->postparent, xdata);
                 break;
         }
         case GF_FOP_RENAME:
@@ -496,20 +478,17 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_rename_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_rename_rsp;
 
-                client_post_rename (this, tmp_rsp,
-                                    &this_args_cbk->stat,
+                client_post_rename (this, tmp_rsp, &this_args_cbk->stat,
                                     &this_args_cbk->preparent,
                                     &this_args_cbk->postparent,
                                     &this_args_cbk->preparent2,
-                                    &this_args_cbk->postparent2,
-                                    &this_args_cbk->xdata);
+                                    &this_args_cbk->postparent2, &xdata);
                 CLIENT_POST_FOP_TYPE (rename, this_rsp, this_args_cbk,
                                       &this_args_cbk->stat,
                                       &this_args_cbk->preparent,
                                       &this_args_cbk->postparent,
                                       &this_args_cbk->preparent2,
-                                      &this_args_cbk->postparent2,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->postparent2, xdata);
                 break;
         }
         case GF_FOP_LINK:
@@ -517,16 +496,13 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_link_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_link_rsp;
 
-                client_post_link (this, tmp_rsp,
-                                  &this_args_cbk->stat,
+                client_post_link (this, tmp_rsp, &this_args_cbk->stat,
                                   &this_args_cbk->preparent,
-                                  &this_args_cbk->postparent,
-                                  &this_args_cbk->xdata);
+                                  &this_args_cbk->postparent, &xdata);
                 CLIENT_POST_FOP_TYPE (link, this_rsp, this_args_cbk, NULL,
                                       &this_args_cbk->stat,
                                       &this_args_cbk->preparent,
-                                      &this_args_cbk->postparent,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->postparent, xdata);
                 break;
         }
         case GF_FOP_TRUNCATE:
@@ -534,14 +510,11 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_truncate_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_truncate_rsp;
 
-                client_post_truncate (this, tmp_rsp,
-                                      &this_args_cbk->prestat,
-                                      &this_args_cbk->poststat,
-                                      &this_args_cbk->xdata);
+                client_post_truncate (this, tmp_rsp, &this_args_cbk->prestat,
+                                      &this_args_cbk->poststat, &xdata);
                 CLIENT_POST_FOP_TYPE (truncate, this_rsp, this_args_cbk,
                                       &this_args_cbk->prestat,
-                                      &this_args_cbk->poststat,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->poststat, xdata);
                 break;
         }
         case GF_FOP_OPEN:
@@ -549,11 +522,9 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_open_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_open_rsp;
 
-                client_post_open (this, tmp_rsp,
-                                  &this_args_cbk->xdata);
-                CLIENT_POST_FOP_TYPE (open, this_rsp, this_args_cbk,
-                                      local->fd,
-                                      this_args_cbk->xdata);
+                client_post_open (this, tmp_rsp, &xdata);
+                CLIENT_POST_FOP_TYPE (open, this_rsp, this_args_cbk, local->fd,
+                                      xdata);
                 if (-1 != this_args_cbk->op_ret)
                         ret = client_add_fd_to_saved_fds (this, local->fd,
                                                           &local->loc,
@@ -568,11 +539,9 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_read_rsp;
 
                 client_post_readv (this, tmp_rsp, &this_args_cbk->iobref,
-                                  req->rsp_iobref,
-                                  &this_args_cbk->stat,
-                                  this_args_cbk->vector, &req->rsp[1],
-                                  &this_args_cbk->count,
-                                  &this_args_cbk->xdata);
+                                  req->rsp_iobref, &this_args_cbk->stat,
+                                  vector, &req->rsp[1], &this_args_cbk->count,
+                                  &xdata);
 
                 /* Each read should be given read response that only
                  * corresponds to its request.
@@ -581,7 +550,7 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                  * so that the next ones can continue from there.
                  */
                 if (local->read_length) {
-                        this_args_cbk->vector[0].iov_base += local->read_length;
+                        vector[0].iov_base += local->read_length;
                         local->read_length += tmp_rsp->op_ret;
                 } else {
                         local->read_length = tmp_rsp->op_ret;
@@ -589,11 +558,9 @@ client_process_response (call_frame_t *frame, xlator_t *this,
 
                 args_readv_cbk_store (this_args_cbk, tmp_rsp->op_ret,
                                       gf_error_to_errno (tmp_rsp->op_errno),
-                                      this_args_cbk->vector,
-                                      this_args_cbk->count,
+                                      vector, this_args_cbk->count,
                                       &this_args_cbk->stat,
-                                      this_args_cbk->iobref,
-                                      this_args_cbk->xdata);
+                                      this_args_cbk->iobref, xdata);
 
                 if (tmp_rsp->op_ret >= 0)
                         if (local->attempt_reopen)
@@ -607,13 +574,11 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_write_rsp;
 
                 client_post_writev (this, tmp_rsp, &this_args_cbk->prestat,
-                                   &this_args_cbk->poststat,
-                                   &this_args_cbk->xdata);
+                                   &this_args_cbk->poststat, &xdata);
                 args_writev_cbk_store (this_args_cbk, tmp_rsp->op_ret,
                                        gf_error_to_errno (tmp_rsp->op_errno),
                                        &this_args_cbk->prestat,
-                                       &this_args_cbk->poststat,
-                                       this_args_cbk->xdata);
+                                       &this_args_cbk->poststat, xdata);
 
                 if (tmp_rsp->op_ret == 0)
                         if (local->attempt_reopen)
@@ -625,13 +590,11 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_statfs_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_statfs_rsp;
 
-                client_post_statfs (this, tmp_rsp,
-                                    &this_args_cbk->statvfs,
-                                    &this_args_cbk->xdata);
+                client_post_statfs (this, tmp_rsp, &this_args_cbk->statvfs,
+                                    &xdata);
 
                 CLIENT_POST_FOP_TYPE (statfs, this_rsp, this_args_cbk,
-                                      &this_args_cbk->statvfs,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->statvfs, xdata);
                 break;
          }
         case GF_FOP_FLUSH:
@@ -639,11 +602,9 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gf_common_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_flush_rsp;
 
-                client_post_flush (this, tmp_rsp,
-                                    &this_args_cbk->xdata);
+                client_post_flush (this, tmp_rsp, &xdata);
 
-                CLIENT_POST_FOP (flush, this_rsp, this_args_cbk,
-                                 this_args_cbk->xdata);
+                CLIENT_POST_FOP (flush, this_rsp, this_args_cbk, xdata);
                 if (this_args_cbk->op_ret >= 0 && !fd_is_anonymous (local->fd)) {
                         /* Delete all saved locks of the owner issuing flush */
                         ret = delete_granted_locks_owner (local->fd, &local->owner);
@@ -658,15 +619,12 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_fsync_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_fsync_rsp;
 
-                client_post_fsync (this, tmp_rsp,
-                                   &this_args_cbk->prestat,
-                                   &this_args_cbk->poststat,
-                                   &this_args_cbk->xdata);
+                client_post_fsync (this, tmp_rsp, &this_args_cbk->prestat,
+                                   &this_args_cbk->poststat, &xdata);
 
                 CLIENT_POST_FOP_TYPE (fsync, this_rsp, this_args_cbk,
                                       &this_args_cbk->prestat,
-                                      &this_args_cbk->poststat,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->poststat, xdata);
                 break;
         }
         case GF_FOP_SETXATTR:
@@ -674,11 +632,9 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gf_common_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_setxattr_rsp;
 
-                client_post_setxattr (this, tmp_rsp,
-                                      &this_args_cbk->xdata);
+                client_post_setxattr (this, tmp_rsp, &xdata);
 
-                CLIENT_POST_FOP (setxattr, this_rsp, this_args_cbk,
-                                 this_args_cbk->xdata);
+                CLIENT_POST_FOP (setxattr, this_rsp, this_args_cbk, xdata);
                 break;
         }
         case GF_FOP_GETXATTR:
@@ -686,13 +642,10 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_getxattr_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_getxattr_rsp;
 
-                client_post_getxattr (this, tmp_rsp,
-                                      &this_args_cbk->xattr,
-                                      &this_args_cbk->xdata);
+                client_post_getxattr (this, tmp_rsp, &xattr, &xdata);
 
-                CLIENT_POST_FOP_TYPE (getxattr, this_rsp, this_args_cbk,
-                                      this_args_cbk->xattr,
-                                      this_args_cbk->xdata);
+                CLIENT_POST_FOP_TYPE (getxattr, this_rsp, this_args_cbk, xattr,
+                                      xdata);
                 break;
         }
         case GF_FOP_REMOVEXATTR:
@@ -700,11 +653,9 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gf_common_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_removexattr_rsp;
 
-                client_post_removexattr (this, tmp_rsp,
-                                         &this_args_cbk->xdata);
+                client_post_removexattr (this, tmp_rsp, &xdata);
 
-                CLIENT_POST_FOP (removexattr, this_rsp, this_args_cbk,
-                                 this_args_cbk->xdata);
+                CLIENT_POST_FOP (removexattr, this_rsp, this_args_cbk, xdata);
                 break;
         }
         case GF_FOP_OPENDIR:
@@ -712,12 +663,10 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_opendir_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_opendir_rsp;
 
-                client_post_opendir (this, tmp_rsp,
-                                     &this_args_cbk->xdata);
+                client_post_opendir (this, tmp_rsp, &xdata);
 
                 CLIENT_POST_FOP_TYPE (opendir, this_rsp, this_args_cbk,
-                                      local->fd,
-                                      this_args_cbk->xdata);
+                                      local->fd, xdata);
                 if (-1 != this_args_cbk->op_ret)
                         ret = client_add_fd_to_saved_fds (this, local->fd,
                                                           &local->loc,
@@ -730,11 +679,9 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gf_common_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_fsyncdir_rsp;
 
-                client_post_fsyncdir (this, tmp_rsp,
-                                      &this_args_cbk->xdata);
+                client_post_fsyncdir (this, tmp_rsp, &xdata);
 
-                CLIENT_POST_FOP (fsyncdir, this_rsp, this_args_cbk,
-                                 this_args_cbk->xdata);
+                CLIENT_POST_FOP (fsyncdir, this_rsp, this_args_cbk, xdata);
                 break;
         }
         case GF_FOP_ACCESS:
@@ -742,11 +689,9 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gf_common_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_access_rsp;
 
-                client_post_access (this, tmp_rsp,
-                                      &this_args_cbk->xdata);
+                client_post_access (this, tmp_rsp, &xdata);
 
-                CLIENT_POST_FOP (access, this_rsp, this_args_cbk,
-                                 this_args_cbk->xdata);
+                CLIENT_POST_FOP (access, this_rsp, this_args_cbk, xdata);
                 break;
         }
         case GF_FOP_CREATE:
@@ -754,19 +699,15 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_create_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_create_rsp;
 
-                client_post_create (this, tmp_rsp,
-                                   &this_args_cbk->stat,
+                client_post_create (this, tmp_rsp, &this_args_cbk->stat,
                                    &this_args_cbk->preparent,
-                                   &this_args_cbk->postparent,
-                                   local,
-                                   &this_args_cbk->xdata);
+                                   &this_args_cbk->postparent, local, &xdata);
+
                 CLIENT_POST_FOP_TYPE (create, this_rsp, this_args_cbk,
-                                      local->fd,
-                                      local->loc.inode,
+                                      local->fd, local->loc.inode,
                                       &this_args_cbk->stat,
                                       &this_args_cbk->preparent,
-                                      &this_args_cbk->postparent,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->postparent, xdata);
                 if (-1 != this_args_cbk->op_ret)
                         ret = client_add_fd_to_saved_fds (this, local->fd,
                                                           &local->loc,
@@ -779,14 +720,11 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_ftruncate_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_ftruncate_rsp;
 
-                client_post_ftruncate (this, tmp_rsp,
-                                      &this_args_cbk->prestat,
-                                      &this_args_cbk->poststat,
-                                      &this_args_cbk->xdata);
+                client_post_ftruncate (this, tmp_rsp, &this_args_cbk->prestat,
+                                      &this_args_cbk->poststat, &xdata);
                 CLIENT_POST_FOP_TYPE (ftruncate, this_rsp, this_args_cbk,
                                       &this_args_cbk->prestat,
-                                      &this_args_cbk->poststat,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->poststat, xdata);
                 break;
         }
         case GF_FOP_FSTAT:
@@ -794,12 +732,10 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_fstat_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_fstat_rsp;
 
-                client_post_fstat (this, tmp_rsp,
-                                  &this_args_cbk->stat, &this_args_cbk->xdata);
+                client_post_fstat (this, tmp_rsp, &this_args_cbk->stat, &xdata);
 
                 CLIENT_POST_FOP_TYPE (fstat, this_rsp, this_args_cbk,
-                                      &this_args_cbk->stat,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->stat, xdata);
                 break;
         }
         case GF_FOP_LK:
@@ -807,13 +743,10 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_lk_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_lk_rsp;
 
-                client_post_lk (this, tmp_rsp,
-                               &this_args_cbk->lock,
-                               &this_args_cbk->xdata);
+                client_post_lk (this, tmp_rsp, &this_args_cbk->lock, &xdata);
 
                 CLIENT_POST_FOP_TYPE (lk, this_rsp, this_args_cbk,
-                                      &this_args_cbk->lock,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->lock, xdata);
                 break;
         }
         case GF_FOP_LOOKUP:
@@ -821,15 +754,11 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_lookup_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_lookup_rsp;
 
-                client_post_lookup (this, tmp_rsp,
-                                   &this_args_cbk->stat,
-                                   &this_args_cbk->postparent,
-                                   &this_args_cbk->xdata);
+                client_post_lookup (this, tmp_rsp, &this_args_cbk->stat,
+                                    &this_args_cbk->postparent, &xdata);
                 CLIENT_POST_FOP_TYPE (lookup, this_rsp, this_args_cbk,
-                                      local->loc.inode,
-                                      &this_args_cbk->stat,
-                                      this_args_cbk->xdata,
-                                      &this_args_cbk->postparent);
+                                      local->loc.inode, &this_args_cbk->stat,
+                                      xdata, &this_args_cbk->postparent);
                 break;
         }
         case GF_FOP_READDIR:
@@ -837,11 +766,10 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_readdir_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_readdir_rsp;
 
-                client_post_readdir (this, tmp_rsp,
-                                   &this_args_cbk->entries, &this_args_cbk->xdata);
+                client_post_readdir (this, tmp_rsp, &entries, &xdata);
 
                 CLIENT_POST_FOP_TYPE (readdir, this_rsp, this_args_cbk,
-                                   &this_args_cbk->entries, this_args_cbk->xdata);
+                                      &entries, xdata);
                 break;
         }
         case GF_FOP_INODELK:
@@ -849,11 +777,9 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gf_common_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_inodelk_rsp;
 
-                client_post_inodelk (this, tmp_rsp,
-                                      &this_args_cbk->xdata);
+                client_post_inodelk (this, tmp_rsp, &xdata);
 
-                CLIENT_POST_FOP (inodelk, this_rsp, this_args_cbk,
-                                 this_args_cbk->xdata);
+                CLIENT_POST_FOP (inodelk, this_rsp, this_args_cbk, xdata);
                 break;
         }
         case GF_FOP_FINODELK:
@@ -861,11 +787,9 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gf_common_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_finodelk_rsp;
 
-                client_post_finodelk (this, tmp_rsp,
-                                      &this_args_cbk->xdata);
+                client_post_finodelk (this, tmp_rsp, &xdata);
 
-                CLIENT_POST_FOP (finodelk, this_rsp, this_args_cbk,
-                                 this_args_cbk->xdata);
+                CLIENT_POST_FOP (finodelk, this_rsp, this_args_cbk, xdata);
                 if (tmp_rsp->op_ret == 0)
                         if (local->attempt_reopen)
                                 client_attempt_reopen (local->fd, this);
@@ -876,11 +800,9 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gf_common_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_entrylk_rsp;
 
-                client_post_entrylk (this, tmp_rsp,
-                                      &this_args_cbk->xdata);
+                client_post_entrylk (this, tmp_rsp, &xdata);
 
-                CLIENT_POST_FOP (entrylk, this_rsp, this_args_cbk,
-                                 this_args_cbk->xdata);
+                CLIENT_POST_FOP (entrylk, this_rsp, this_args_cbk, xdata);
                 break;
         }
         case GF_FOP_FENTRYLK:
@@ -888,11 +810,9 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gf_common_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_fentrylk_rsp;
 
-                client_post_fentrylk (this, tmp_rsp,
-                                      &this_args_cbk->xdata);
+                client_post_fentrylk (this, tmp_rsp, &xdata);
 
-                CLIENT_POST_FOP (fentrylk, this_rsp, this_args_cbk,
-                                 this_args_cbk->xdata);
+                CLIENT_POST_FOP (fentrylk, this_rsp, this_args_cbk, xdata);
                 break;
         }
         case GF_FOP_XATTROP:
@@ -900,13 +820,10 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_xattrop_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_xattrop_rsp;
 
-                client_post_xattrop (this, tmp_rsp,
-                                     &this_args_cbk->xattr,
-                                     &this_args_cbk->xdata);
+                client_post_xattrop (this, tmp_rsp, &xattr, &xdata);
 
-                CLIENT_POST_FOP_TYPE (xattrop, this_rsp, this_args_cbk,
-                                      this_args_cbk->xattr,
-                                      this_args_cbk->xdata);
+                CLIENT_POST_FOP_TYPE (xattrop, this_rsp, this_args_cbk, xattr,
+                                      xdata);
                 break;
         }
         case GF_FOP_FXATTROP:
@@ -914,13 +831,10 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_fxattrop_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_fxattrop_rsp;
 
-                client_post_fxattrop (this, tmp_rsp,
-                                      &this_args_cbk->xattr,
-                                      &this_args_cbk->xdata);
+                client_post_fxattrop (this, tmp_rsp, &xattr, &xdata);
 
-                CLIENT_POST_FOP_TYPE (fxattrop, this_rsp, this_args_cbk,
-                                      this_args_cbk->xattr,
-                                      this_args_cbk->xdata);
+                CLIENT_POST_FOP_TYPE (fxattrop, this_rsp, this_args_cbk, xattr,
+                                      xdata);
                 if (rsp->op_ret == 0)
                         if (local->attempt_reopen)
                                 client_attempt_reopen (local->fd, this);
@@ -931,13 +845,10 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_fgetxattr_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_fgetxattr_rsp;
 
-                client_post_fgetxattr (this, tmp_rsp,
-                                      &this_args_cbk->xattr,
-                                      &this_args_cbk->xdata);
+                client_post_fgetxattr (this, tmp_rsp, &xattr, &xdata);
 
-                CLIENT_POST_FOP_TYPE (fgetxattr, this_rsp, this_args_cbk,
-                                      this_args_cbk->xattr,
-                                      this_args_cbk->xdata);
+                CLIENT_POST_FOP_TYPE (fgetxattr, this_rsp, this_args_cbk, xattr,
+                                      xdata);
                 break;
         }
         case GF_FOP_FSETXATTR:
@@ -945,11 +856,9 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gf_common_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_fsetxattr_rsp;
 
-                client_post_fsetxattr (this, tmp_rsp,
-                                      &this_args_cbk->xdata);
+                client_post_fsetxattr (this, tmp_rsp, &xdata);
 
-                CLIENT_POST_FOP (fsetxattr, this_rsp, this_args_cbk,
-                                 this_args_cbk->xdata);
+                CLIENT_POST_FOP (fsetxattr, this_rsp, this_args_cbk, xdata);
                 break;
         }
         case GF_FOP_RCHECKSUM:
@@ -957,14 +866,13 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_rchecksum_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_rchecksum_rsp;
 
-                client_post_rchecksum (this, tmp_rsp,
-                                      &this_args_cbk->xdata);
+                client_post_rchecksum (this, tmp_rsp, &xdata);
 
                 break;
                 CLIENT_POST_FOP_TYPE (rchecksum, this_rsp, this_args_cbk,
                                       tmp_rsp->weak_checksum,
                                       (uint8_t*)tmp_rsp->strong_checksum.strong_checksum_val,
-                                      this_args_cbk->xdata);
+                                      xdata);
                 break;
         }
         case GF_FOP_SETATTR:
@@ -972,15 +880,12 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_setattr_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_setattr_rsp;
 
-                client_post_setattr (this, tmp_rsp,
-                                    &this_args_cbk->prestat,
-                                    &this_args_cbk->poststat,
-                                    &this_args_cbk->xdata);
+                client_post_setattr (this, tmp_rsp, &this_args_cbk->prestat,
+                                    &this_args_cbk->poststat, &xdata);
 
                 CLIENT_POST_FOP_TYPE (setattr, this_rsp, this_args_cbk,
                                       &this_args_cbk->prestat,
-                                      &this_args_cbk->poststat,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->poststat, xdata);
                 break;
         }
         case GF_FOP_FSETATTR:
@@ -988,15 +893,12 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_fsetattr_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_fsetattr_rsp;
 
-                client_post_fsetattr (this, tmp_rsp,
-                                    &this_args_cbk->prestat,
-                                    &this_args_cbk->poststat,
-                                    &this_args_cbk->xdata);
+                client_post_fsetattr (this, tmp_rsp, &this_args_cbk->prestat,
+                                      &this_args_cbk->poststat, &xdata);
 
                 CLIENT_POST_FOP_TYPE (fsetattr, this_rsp, this_args_cbk,
                                       &this_args_cbk->prestat,
-                                      &this_args_cbk->poststat,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->poststat, xdata);
                 break;
         }
         case GF_FOP_READDIRP:
@@ -1004,13 +906,11 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_readdirp_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_readdirp_rsp;
 
-                client_post_readdirp (this, tmp_rsp, local->fd,
-                                      &this_args_cbk->entries,
-                                      &this_args_cbk->xdata);
+                client_post_readdirp (this, tmp_rsp, local->fd, &entries,
+                                      &xdata);
 
                 CLIENT_POST_FOP_TYPE (readdirp, this_rsp, this_args_cbk,
-                                      &this_args_cbk->entries,
-                                      this_args_cbk->xdata);
+                                      &entries, xdata);
                 break;
         }
         case GF_FOP_FREMOVEXATTR:
@@ -1018,11 +918,9 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gf_common_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_fremovexattr_rsp;
 
-                client_post_fremovexattr (this, tmp_rsp,
-                                         &this_args_cbk->xdata);
+                client_post_fremovexattr (this, tmp_rsp, &xdata);
 
-                CLIENT_POST_FOP (fremovexattr, this_rsp, this_args_cbk,
-                                 this_args_cbk->xdata);
+                CLIENT_POST_FOP (fremovexattr, this_rsp, this_args_cbk, xdata);
                 break;
         }
         case GF_FOP_FALLOCATE:
@@ -1030,15 +928,12 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_fallocate_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_fallocate_rsp;
 
-                client_post_fallocate (this, tmp_rsp,
-                                    &this_args_cbk->prestat,
-                                    &this_args_cbk->poststat,
-                                    &this_args_cbk->xdata);
+                client_post_fallocate (this, tmp_rsp, &this_args_cbk->prestat,
+                                       &this_args_cbk->poststat, &xdata);
 
                 CLIENT_POST_FOP_TYPE (fallocate, this_rsp, this_args_cbk,
                                       &this_args_cbk->prestat,
-                                      &this_args_cbk->poststat,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->poststat, xdata);
                 break;
         }
         case GF_FOP_DISCARD:
@@ -1046,15 +941,12 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_discard_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_discard_rsp;
 
-                client_post_discard (this, tmp_rsp,
-                                    &this_args_cbk->prestat,
-                                    &this_args_cbk->poststat,
-                                    &this_args_cbk->xdata);
+                client_post_discard (this, tmp_rsp, &this_args_cbk->prestat,
+                                     &this_args_cbk->poststat, &xdata);
 
                 CLIENT_POST_FOP_TYPE (discard, this_rsp, this_args_cbk,
                                       &this_args_cbk->prestat,
-                                      &this_args_cbk->poststat,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->poststat, xdata);
                 break;
         }
         case GF_FOP_ZEROFILL:
@@ -1062,15 +954,12 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_zerofill_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_zerofill_rsp;
 
-                client_post_zerofill (this, tmp_rsp,
-                                    &this_args_cbk->prestat,
-                                    &this_args_cbk->poststat,
-                                    &this_args_cbk->xdata);
+                client_post_zerofill (this, tmp_rsp, &this_args_cbk->prestat,
+                                      &this_args_cbk->poststat, &xdata);
 
                 CLIENT_POST_FOP_TYPE (zerofill, this_rsp, this_args_cbk,
                                       &this_args_cbk->prestat,
-                                      &this_args_cbk->poststat,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->poststat, xdata);
                 break;
         }
         case GF_FOP_IPC:
@@ -1078,10 +967,9 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_ipc_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_ipc_rsp;
 
-                client_post_ipc (this, tmp_rsp, &this_args_cbk->xdata);
+                client_post_ipc (this, tmp_rsp, &xdata);
 
-                CLIENT_POST_FOP_TYPE (ipc, this_rsp, this_args_cbk,
-                                 this_args_cbk->xdata);
+                CLIENT_POST_FOP_TYPE (ipc, this_rsp, this_args_cbk, xdata);
                 break;
         }
         case GF_FOP_SEEK:
@@ -1089,11 +977,10 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 gfs3_seek_rsp *tmp_rsp = NULL;
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_seek_rsp;
 
-                client_post_seek (this, tmp_rsp, &this_args_cbk->xdata);
+                client_post_seek (this, tmp_rsp, &xdata);
 
                 CLIENT_POST_FOP_TYPE (seek, this_rsp, this_args_cbk,
-                                 tmp_rsp->offset,
-                                 this_args_cbk->xdata);
+                                      tmp_rsp->offset, xdata);
                 break;
         }
         case GF_FOP_LEASE:
@@ -1102,16 +989,21 @@ client_process_response (call_frame_t *frame, xlator_t *this,
                 tmp_rsp = &this_rsp->compound_rsp_u.compound_lease_rsp;
 
                 client_post_lease (this, tmp_rsp, &this_args_cbk->lease,
-                                   &this_args_cbk->xdata);
+                                   &xdata);
 
                 CLIENT_POST_FOP_TYPE (lease, this_rsp, this_args_cbk,
-                                      &this_args_cbk->lease,
-                                      this_args_cbk->xdata);
+                                      &this_args_cbk->lease, xdata);
                 break;
         }
         default:
                 return -ENOTSUP;
         }
+
+        if (xdata)
+                dict_unref (xdata);
+        if (xattr)
+                dict_unref (xattr);
+        gf_dirent_free (&entries);
         return 0;
 }
 
@@ -1268,8 +1160,7 @@ client_handle_fop_requirements (xlator_t *this, call_frame_t *frame,
                 op_errno = client_pre_writev (this,
                            &this_req->compound_req_u.compound_write_req,
                            args->fd, iov_length (args->vector, args->count),
-                           args->offset,
-                           args->flags, args->xdata);
+                           args->offset, args->flags, &args->xdata);
 
                 if (op_errno) {
                         op_errno = -op_errno;
@@ -1736,6 +1627,7 @@ compound_request_cleanup (gfs3_compound_req *req)
                 }
         }
 
+        GF_FREE (req->compound_req_array.compound_req_array_val);
         return;
 }
 
@@ -1938,9 +1830,6 @@ client_compound_rsp_cleanup (gfs3_compound_rsp *rsp, int len)
                 case GF_FOP_FSTAT:
                         CLIENT_FOP_RSP_CLEANUP (rsp, fstat, i);
                         break;
-                case GF_FOP_LK:
-                        CLIENT_FOP_RSP_CLEANUP (rsp, lk, i);
-                        break;
                 case GF_FOP_LOOKUP:
                         CLIENT_FOP_RSP_CLEANUP (rsp, lookup, i);
                         break;
@@ -2003,27 +1892,34 @@ client_compound_rsp_cleanup (gfs3_compound_rsp *rsp, int len)
                         CLIENT_COMMON_RSP_CLEANUP (rsp, fentrylk, i);
                         break;
                 /* fops that need extra cleanup */
+                case GF_FOP_LK:
+                {
+                        CLIENT_FOP_RSP_CLEANUP (rsp, lk, i);
+                        gfs3_lk_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp, lk);
+                        free (tmp_rsp->flock.lk_owner.lk_owner_val);
+                        break;
+                }
                 case GF_FOP_READLINK:
                 {
                         CLIENT_FOP_RSP_CLEANUP (rsp, readlink, i);
                         gfs3_readlink_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
-                                                     readlink);
+                                                                    readlink);
                         free (tmp_rsp->path);
                         break;
                 }
                 case GF_FOP_XATTROP:
                 {
-                        gfs3_xattrop_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
-                                                    xattrop);
                         CLIENT_FOP_RSP_CLEANUP (rsp, xattrop, i);
+                        gfs3_xattrop_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
+                                                                   xattrop);
                         free (tmp_rsp->dict.dict_val);
                         break;
                 }
                 case GF_FOP_FXATTROP:
                 {
-                        gfs3_fxattrop_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
-                                                     fxattrop);
                         CLIENT_FOP_RSP_CLEANUP (rsp, fxattrop, i);
+                        gfs3_fxattrop_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
+                                                                    fxattrop);
                         free (tmp_rsp->dict.dict_val);
                         break;
                 }
@@ -2031,7 +1927,7 @@ client_compound_rsp_cleanup (gfs3_compound_rsp *rsp, int len)
                 {
                         CLIENT_FOP_RSP_CLEANUP (rsp, readdir, i);
                         gfs3_readdir_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
-                                                    readdir);
+                                                                   readdir);
                         clnt_readdir_rsp_cleanup (tmp_rsp);
                         break;
                 }
@@ -2039,31 +1935,31 @@ client_compound_rsp_cleanup (gfs3_compound_rsp *rsp, int len)
                 {
                         CLIENT_FOP_RSP_CLEANUP (rsp, readdirp, i);
                         gfs3_readdirp_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
-                                                     readdirp);
+                                                                    readdirp);
                         clnt_readdirp_rsp_cleanup (tmp_rsp);
                         break;
                 }
                 case GF_FOP_GETXATTR:
                 {
-                        gfs3_getxattr_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
-                                                     getxattr);
                         CLIENT_FOP_RSP_CLEANUP (rsp, getxattr, i);
+                        gfs3_getxattr_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
+                                                                    getxattr);
                         free (tmp_rsp->dict.dict_val);
                         break;
                 }
                 case GF_FOP_FGETXATTR:
                 {
+                        CLIENT_FOP_RSP_CLEANUP (rsp, fgetxattr, i);
                         gfs3_fgetxattr_rsp *tmp_rsp = &CPD_RSP_FIELD(this_rsp,
                                                       fgetxattr);
-                        CLIENT_FOP_RSP_CLEANUP (rsp, fgetxattr, i);
                         free (tmp_rsp->dict.dict_val);
                         break;
                 }
                 case GF_FOP_RCHECKSUM:
                 {
+                        CLIENT_FOP_RSP_CLEANUP (rsp, rchecksum, i);
                         gfs3_rchecksum_rsp *rck = &CPD_RSP_FIELD(this_rsp,
                                                   rchecksum);
-                        CLIENT_FOP_RSP_CLEANUP (rsp, rchecksum, i);
                         if (rck->strong_checksum.strong_checksum_val) {
                                 free (rck->strong_checksum.strong_checksum_val);
                         }

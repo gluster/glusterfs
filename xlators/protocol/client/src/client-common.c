@@ -367,7 +367,7 @@ out:
 int
 client_pre_writev (xlator_t *this, gfs3_write_req *req,
                    fd_t *fd, size_t size, off_t offset, int32_t flags,
-                   dict_t *xdata)
+                   dict_t **xdata)
 {
         int64_t         remote_fd = -1;
         int             op_errno = ESTALE;
@@ -383,14 +383,14 @@ client_pre_writev (xlator_t *this, gfs3_write_req *req,
         memcpy (req->gfid, fd->inode->gfid, 16);
 
 #ifdef GF_TESTING_IO_XDATA
-        if (!xdata)
-                xdata = dict_new ();
+        if (!*xdata)
+                *xdata = dict_new ();
 
-        ret = dict_set_str (xdata, "testing-the-xdata-key",
+        ret = dict_set_str (*xdata, "testing-the-xdata-key",
                             "testing-the-xdata-value");
 #endif
 
-        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, (&req->xdata.xdata_val),
+        GF_PROTOCOL_DICT_SERIALIZE (this, *xdata, (&req->xdata.xdata_val),
                                     req->xdata.xdata_len, op_errno, out);
 
         return 0;

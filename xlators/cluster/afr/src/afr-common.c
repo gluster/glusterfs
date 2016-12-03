@@ -5896,18 +5896,6 @@ afr_pack_fop_args (call_frame_t *frame, compound_args_t *args,
         return NULL;
 }
 
-void
-afr_compound_cleanup (compound_args_t *args, dict_t *xdata,
-                      dict_t *newloc_xdata)
-{
-        if (args)
-                compound_args_cleanup (args);
-	if (xdata)
-		dict_unref (xdata);
-        if (newloc_xdata)
-                dict_unref (newloc_xdata);
-}
-
 int
 afr_fav_child_reset_sink_xattrs_cbk (int ret, call_frame_t *heal_frame,
                                      void *opaque)

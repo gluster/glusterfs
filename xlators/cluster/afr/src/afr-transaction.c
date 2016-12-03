@@ -1272,7 +1272,7 @@ afr_pre_op_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                        NULL, NULL, NULL);
         } else {
                 write_args_cbk = &args_cbk->rsp_list[1];
-                afr_inode_write_fill  (frame, this, (long) i,
+                afr_inode_write_fill  (frame, this, (long) child_index,
                                        write_args_cbk->op_ret,
                                        write_args_cbk->op_errno,
                                        &write_args_cbk->prestat,
@@ -1283,6 +1283,8 @@ afr_pre_op_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
+                compound_args_cleanup (local->c_args);
+                local->c_args = NULL;
                 afr_process_post_writev (frame, this);
                 if (!afr_txn_nothing_failed (frame, this)) {
                         /* Don't unwind until post-op is complete */
@@ -1374,6 +1376,8 @@ afr_pre_op_fop_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
          */
         compound_cbk = afr_pack_fop_args (frame, args, local->op, i);
 
+        local->c_args = args;
+
         for (i = 0; i < priv->child_count; i++) {
                 /* Means lock did not succeed on this brick */
                 if (!local->transaction.pre_op[i])
@@ -1389,7 +1393,10 @@ afr_pre_op_fop_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
                         break;
         }
 
-        afr_compound_cleanup (args, xdata, newloc_xdata);
+        if (xdata)
+                dict_unref (xdata);
+        if (newloc_xdata)
+                dict_unref (newloc_xdata);
         return 0;
 err:
 	local->internal_lock.lock_cbk = local->transaction.done;
@@ -1399,7 +1406,10 @@ err:
         afr_restore_lk_owner (frame);
 	afr_unlock (frame, this);
 
-        afr_compound_cleanup (args, xdata, newloc_xdata);
+        if (xdata)
+                dict_unref (xdata);
+        if (newloc_xdata)
+                dict_unref (newloc_xdata);
 	return 0;
 }
 
@@ -1428,6 +1438,8 @@ afr_post_op_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         UNLOCK (&frame->lock);
 
         if (call_count == 0) {
+                compound_args_cleanup (local->c_args);
+                local->c_args = NULL;
                 if (local->transaction.resume_stub) {
                         call_resume (local->transaction.resume_stub);
                         local->transaction.resume_stub = NULL;
@@ -1509,6 +1521,8 @@ afr_post_op_unlock_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
                 }
         }
 
+        local->c_args = args;
+
         for (i = 0; i < priv->child_count; i++) {
                 /* pre_op[i] has to be true for all nodes that were
                  * successfully locked. */
@@ -1524,7 +1538,10 @@ afr_post_op_unlock_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
                         break;
         }
 out:
-        afr_compound_cleanup (args, xdata, newloc_xdata);
+        if (xdata)
+                dict_unref (xdata);
+        if (newloc_xdata)
+                dict_unref (newloc_xdata);
         return 0;
 }
 

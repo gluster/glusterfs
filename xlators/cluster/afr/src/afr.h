@@ -805,6 +805,7 @@ typedef struct _afr_local {
         gf_boolean_t need_full_crawl;
         gf_boolean_t compound;
         afr_fop_lock_state_t fop_lock_state;
+        compound_args_t *c_args;
 } afr_local_t;
 
 
@@ -1232,10 +1233,6 @@ afr_is_inodelk_transaction(afr_local_t *local);
 
 afr_fd_ctx_t *
 __afr_fd_ctx_get (fd_t *fd, xlator_t *this);
-
-void
-afr_compound_cleanup (compound_args_t *args, dict_t *xdata,
-                      dict_t *newloc_xdata);
 
 gf_boolean_t
 afr_is_inode_refresh_reqd (inode_t *inode, xlator_t *this,
