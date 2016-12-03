@@ -3215,6 +3215,12 @@ client3_3_compound_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         rsp.op_ret = 0;
 out:
+        if (rsp.op_ret == -1) {
+                gf_msg (this->name, GF_LOG_WARNING,
+                        gf_error_to_errno (rsp.op_errno),
+                        PC_MSG_REMOTE_OP_FAILED,
+                        "remote operation failed");
+        }
         CLIENT_STACK_UNWIND (compound, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), args_cbk, xdata);
 
@@ -4346,7 +4352,7 @@ client3_3_writev (call_frame_t *frame, xlator_t *this, void *data)
         conf = this->private;
 
         ret = client_pre_writev (this, &req, args->fd, args->size,
-                                 args->offset, args->flags, args->xdata);
+                                 args->offset, args->flags, &args->xdata);
 
         if (ret) {
                 op_errno = -ret;
