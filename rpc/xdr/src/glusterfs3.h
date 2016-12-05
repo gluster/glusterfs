@@ -247,8 +247,6 @@ gf_proto_recall_lease_from_upcall (xlator_t *this,
         GF_PROTOCOL_DICT_SERIALIZE (this, tmp->dict,
                                     &(recall_lease->xdata).xdata_val,
                                     (recall_lease->xdata).xdata_len, ret, out);
-        if (ret > 0)
-                ret = -ret;
 out:
         return ret;
 
@@ -410,10 +408,6 @@ gf_proto_cache_invalidation_to_upcall (xlator_t *this,
                                       (gf_c_req->xdata).xdata_val,
                                       (gf_c_req->xdata).xdata_len, ret,
                                       ret, out);
-        if (ret > 0) {
-                ret = -ret;
-                goto out;
-        }
 
         /* If no dict was sent, create an empty dict, so that each xlator
          * need not check if empty then create new dict. Will be unref'd by the
