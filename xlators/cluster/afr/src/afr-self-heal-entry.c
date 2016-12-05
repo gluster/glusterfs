@@ -21,11 +21,6 @@
  * this name can ever come, entry-lock with this name is going to prevent
  * self-heals from older versions while the granular entry-self-heal is going
  * on in newer version.*/
-#define LONG_FILENAME "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\
-                      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\
-                      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\
-                      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\
-                      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 static int
 afr_selfheal_entry_delete (xlator_t *this, inode_t *dir, const char *name,
@@ -1050,21 +1045,16 @@ afr_selfheal_entry (call_frame_t *frame, xlator_t *this, inode_t *inode)
 {
 	afr_private_t *priv = NULL;
 	unsigned char *locked_on = NULL;
-        unsigned char *long_name_locked = NULL;
 	fd_t *fd = NULL;
 	int ret = 0;
-	gf_boolean_t granular_locks = _gf_false;
 
 	priv = this->private;
-	if (strcmp ("granular", priv->locking_scheme) == 0)
-	        granular_locks = _gf_true;
 
 	fd = afr_selfheal_data_opendir (this, inode);
 	if (!fd)
 		return -EIO;
 
 	locked_on = alloca0 (priv->child_count);
-	long_name_locked = alloca0 (priv->child_count);
 
 	ret = afr_selfheal_tie_breaker_entrylk (frame, this, inode,
 	                                        priv->sh_domain, NULL,
@@ -1084,29 +1074,7 @@ afr_selfheal_entry (call_frame_t *frame, xlator_t *this, inode_t *inode)
 			goto unlock;
 		}
 
-                if (!granular_locks) {
-                        ret = afr_selfheal_tryentrylk (frame, this, inode,
-                                                      this->name, LONG_FILENAME,
-                                                      long_name_locked);
-                }
-                {
-                        if (!granular_locks && ret < 1) {
-                                gf_msg_debug (this->name, 0, "%s: Skipping"
-                                              " entry self-heal as only %d "
-                                              "sub-volumes could be "
-                                              "locked in special-filename "
-                                              "domain",
-                                              uuid_utoa (fd->inode->gfid),
-                                              ret);
-                                ret = -ENOTCONN;
-                                goto unlock;
-                        }
-                        ret = __afr_selfheal_entry (frame, this, fd, locked_on);
-                }
-                if (!granular_locks)
-                        afr_selfheal_unentrylk (frame, this, inode, this->name,
-                                               LONG_FILENAME, long_name_locked,
-                                               NULL);
+                ret = __afr_selfheal_entry (frame, this, fd, locked_on);
 	}
 unlock:
 	afr_selfheal_unentrylk (frame, this, inode, priv->sh_domain, NULL,
