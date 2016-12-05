@@ -1250,7 +1250,6 @@ afr_pre_op_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         compound_args_cbk_t *args_cbk = data;
         int call_count = -1;
         int child_index = -1;
-        int i = 0;
 
         local = frame->local;
         child_index = (long) cookie;
@@ -1268,11 +1267,11 @@ afr_pre_op_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          * Handle that case by passing the op_ret, op_errno values explicitly.
          */
         if ((op_ret == -1) && (args_cbk == NULL)) {
-                afr_inode_write_fill  (frame, this, (long) i, op_ret, op_errno,
-                                       NULL, NULL, NULL);
+                afr_inode_write_fill  (frame, this, child_index, op_ret,
+                                       op_errno, NULL, NULL, NULL);
         } else {
                 write_args_cbk = &args_cbk->rsp_list[1];
-                afr_inode_write_fill  (frame, this, (long) child_index,
+                afr_inode_write_fill  (frame, this, child_index,
                                        write_args_cbk->op_ret,
                                        write_args_cbk->op_errno,
                                        &write_args_cbk->prestat,
