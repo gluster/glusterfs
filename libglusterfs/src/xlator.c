@@ -25,6 +25,21 @@
                         xl->cbks->fn = default_##fn;	\
         } while (0)
 
+pthread_mutex_t xlator_init_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void
+xlator_init_lock (void)
+{
+        (void) pthread_mutex_lock (&xlator_init_mutex);
+}
+
+
+void
+xlator_init_unlock (void)
+{
+        (void) pthread_mutex_unlock (&xlator_init_mutex);
+}
+
 
 static void
 fill_defaults (xlator_t *xl)
@@ -400,7 +415,9 @@ __xlator_init(xlator_t *xl)
         old_THIS = THIS;
         THIS = xl;
 
+        xlator_init_lock ();
         ret = xl->init (xl);
+        xlator_init_unlock ();
 
         THIS = old_THIS;
 

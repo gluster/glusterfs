@@ -1048,4 +1048,7 @@ glusterfs_reachable_leaves(xlator_t *base, dict_t *leaves);
 int
 xlator_subvolume_count (xlator_t *this);
 
+void xlator_init_lock (void);
+void xlator_init_unlock (void);
+
 #endif /* _XLATOR_H */

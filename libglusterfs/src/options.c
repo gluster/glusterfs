@@ -1107,7 +1107,9 @@ xlator_reconfigure_rec (xlator_t *old_xl, xlator_t *new_xl)
                 old_THIS = THIS;
                 THIS = old_xl;
 
+                xlator_init_lock ();
                 ret = old_xl->reconfigure (old_xl, new_xl->options);
+                xlator_init_unlock ();
 
                 THIS = old_THIS;
 
