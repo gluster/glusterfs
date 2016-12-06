@@ -480,7 +480,7 @@ def distribute(*resources):
 
     workerspex = []
     for idx, brick in enumerate(mvol.bricks):
-        if is_host_local(brick['host']):
+        if is_host_local(brick['uuid']):
             is_hot = mvol.is_hot(":".join([brick['host'], brick['dir']]))
             workerspex.append((brick,
                                slaves[idx % len(slaves)],
