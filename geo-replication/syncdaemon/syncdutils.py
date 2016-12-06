@@ -23,7 +23,7 @@ from signal import signal, SIGTERM
 import select as oselect
 from os import waitpid as owaitpid
 
-from conf import GLUSTERFS_LIBEXECDIR
+from conf import GLUSTERFS_LIBEXECDIR, UUID_FILE
 sys.path.insert(1, GLUSTERFS_LIBEXECDIR)
 EVENTS_ENABLED = True
 try:
@@ -66,6 +66,7 @@ GF_OP_RETRIES = 10
 
 CHANGELOG_AGENT_SERVER_VERSION = 1.0
 CHANGELOG_AGENT_CLIENT_VERSION = 1.0
+NodeID = None
 
 
 def escape(s):
@@ -401,48 +402,25 @@ def set_term_handler(hook=lambda *a: finalize(*a, **{'exval': 1})):
     signal(SIGTERM, hook)
 
 
-def is_host_local(host):
-    locaddr = False
-    for ai in socket.getaddrinfo(host, None):
-        # cf. http://github.com/gluster/glusterfs/blob/ce111f47/xlators
-        # /mgmt/glusterd/src/glusterd-utils.c#L125
-        if ai[0] == socket.AF_INET:
-            if ai[-1][0].split(".")[0] == "127":
-                locaddr = True
+def get_node_uuid():
+    global NodeID
+    if NodeID is not None:
+        return NodeID
+
+    NodeID = ""
+    with open(UUID_FILE) as f:
+        for line in f:
+            if line.startswith("UUID="):
+                NodeID = line.strip().split("=")[-1]
                 break
-        elif ai[0] == socket.AF_INET6:
-            if ai[-1][0] == "::1":
-                locaddr = True
-                break
-        else:
-            continue
-        try:
-            # use ICMP socket to avoid net.ipv4.ip_nonlocal_bind issue,
-            # cf. https://bugzilla.redhat.com/show_bug.cgi?id=890587
-            s = socket.socket(ai[0], socket.SOCK_RAW, socket.IPPROTO_ICMP)
-        except socket.error:
-            ex = sys.exc_info()[1]
-            if ex.errno != EPERM:
-                raise
-            f = None
-            try:
-                f = open("/proc/sys/net/ipv4/ip_nonlocal_bind")
-                if int(f.read()) != 0:
-                    raise GsyncdError(
-                        "non-local bind is set and not allowed to create "
-                        "raw sockets, cannot determine if %s is local" % host)
-                s = socket.socket(ai[0], socket.SOCK_DGRAM)
-            finally:
-                if f:
-                    f.close()
-        try:
-            s.bind(ai[-1])
-            locaddr = True
-            break
-        except:
-            pass
-        s.close()
-    return locaddr
+
+    if NodeID == "":
+        raise GsyncdError("Failed to get Host UUID from %s" % UUID_FILE)
+    return NodeID
+
+
+def is_host_local(host_id):
+    return host_id == get_node_uuid()
 
 
 def funcode(f):
