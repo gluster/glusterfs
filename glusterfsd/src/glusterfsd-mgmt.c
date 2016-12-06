@@ -1348,10 +1348,14 @@ glusterfs_handle_barrier (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
+        ret = -1;
 
         ctx = glusterfsd_ctx;
-        GF_ASSERT (ctx);
+        GF_VALIDATE_OR_GOTO (THIS->name, ctx, out);
+
         active = ctx->active;
+        GF_VALIDATE_OR_GOTO (THIS->name, active, out);
+
         any = active->first;
 
         dict = dict_new();
