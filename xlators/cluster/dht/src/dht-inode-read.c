@@ -32,7 +32,7 @@ dht_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
               int op_ret, int op_errno, fd_t *fd, dict_t *xdata)
 {
         dht_local_t  *local = NULL;
-        call_frame_t *prev = NULL;
+        xlator_t     *prev = NULL;
         int           ret = 0;
 
         local = frame->local;
@@ -42,7 +42,7 @@ dht_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if ((op_ret == -1) && !dht_inode_missing(op_errno)) {
                 gf_msg_debug (this->name, op_errno,
                               "subvolume %s returned -1",
-                              prev->this->name);
+                              prev->name);
                 goto out;
         }
 
@@ -86,9 +86,9 @@ dht_open2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 
         local->call_cnt = 2;
 
-        STACK_WIND (frame, dht_open_cbk, subvol, subvol->fops->open,
-                    &local->loc, local->rebalance.flags, local->fd,
-                    NULL);
+        STACK_WIND_COOKIE (frame, dht_open_cbk, subvol, subvol,
+                           subvol->fops->open, &local->loc,
+                           local->rebalance.flags, local->fd, NULL);
         return 0;
 
 out:
@@ -126,8 +126,8 @@ dht_open (call_frame_t *frame, xlator_t *this,
         local->rebalance.flags = flags;
         local->call_cnt = 1;
 
-        STACK_WIND (frame, dht_open_cbk, subvol, subvol->fops->open,
-                    loc, flags, fd, xdata);
+        STACK_WIND_COOKIE (frame, dht_open_cbk, subvol, subvol,
+                           subvol->fops->open, loc, flags, fd, xdata);
 
         return 0;
 
@@ -145,7 +145,7 @@ dht_file_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         xlator_t     *subvol1 = 0;
         xlator_t     *subvol2 = 0;
         dht_local_t  *local = NULL;
-        call_frame_t *prev = NULL;
+        xlator_t     *prev = NULL;
         int           ret = -1;
         inode_t      *inode = NULL;
 
@@ -161,7 +161,7 @@ dht_file_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->op_errno = op_errno;
                 gf_msg_debug (this->name, op_errno,
                               "subvolume %s returned -1",
-                              prev->this->name);
+                              prev->name);
                 goto out;
         }
 
@@ -238,11 +238,11 @@ dht_attr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
         local->call_cnt = 2;
 
         if (local->fop == GF_FOP_FSTAT) {
-                STACK_WIND (frame, dht_file_attr_cbk, subvol,
-                            subvol->fops->fstat, local->fd, NULL);
+                STACK_WIND_COOKIE (frame, dht_file_attr_cbk, subvol, subvol,
+                                   subvol->fops->fstat, local->fd, NULL);
         } else {
-                STACK_WIND (frame, dht_file_attr_cbk, subvol,
-                            subvol->fops->stat, &local->loc, NULL);
+                STACK_WIND_COOKIE (frame, dht_file_attr_cbk, subvol, subvol,
+                                   subvol->fops->stat, &local->loc, NULL);
         }
 
         return 0;
@@ -258,7 +258,7 @@ dht_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         dht_local_t  *local = NULL;
         int           this_call_cnt = 0;
-        call_frame_t *prev = NULL;
+        xlator_t     *prev = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, err);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
@@ -274,12 +274,12 @@ dht_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->op_errno = op_errno;
                         gf_msg_debug (this->name, op_errno,
                                       "subvolume %s returned -1",
-                                      prev->this->name);
+                                      prev->name);
 
                         goto unlock;
                 }
 
-                dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
+                dht_iatt_merge (this, &local->stbuf, stbuf, prev);
 
                 local->op_ret = 0;
         }
@@ -331,8 +331,8 @@ dht_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
                 subvol = local->cached_subvol;
 
-                STACK_WIND (frame, dht_file_attr_cbk, subvol,
-                            subvol->fops->stat, loc, xdata);
+                STACK_WIND_COOKIE (frame, dht_file_attr_cbk, subvol, subvol,
+                                   subvol->fops->stat, loc, xdata);
 
                 return 0;
         }
@@ -342,9 +342,8 @@ dht_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         for (i = 0; i < call_cnt; i++) {
                 subvol = layout->list[i].xlator;
 
-                STACK_WIND (frame, dht_attr_cbk,
-                            subvol, subvol->fops->stat,
-                            loc, xdata);
+                STACK_WIND_COOKIE (frame, dht_attr_cbk, subvol, subvol,
+                                   subvol->fops->stat, loc, xdata);
         }
 
         return 0;
@@ -391,8 +390,8 @@ dht_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 
                 subvol = local->cached_subvol;
 
-                STACK_WIND (frame, dht_file_attr_cbk, subvol,
-                            subvol->fops->fstat, fd, xdata);
+                STACK_WIND_COOKIE (frame, dht_file_attr_cbk, subvol, subvol,
+                                   subvol->fops->fstat, fd, xdata);
 
                 return 0;
         }
@@ -401,9 +400,8 @@ dht_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 
         for (i = 0; i < call_cnt; i++) {
                 subvol = layout->list[i].xlator;
-                STACK_WIND (frame, dht_attr_cbk,
-                            subvol, subvol->fops->fstat,
-                            fd, xdata);
+                STACK_WIND_COOKIE (frame, dht_attr_cbk, subvol, subvol,
+                                   subvol->fops->fstat, fd, xdata);
         }
 
         return 0;
@@ -567,19 +565,19 @@ dht_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int          ret = -1;
         dht_local_t *local = NULL;
         xlator_t    *subvol = NULL;
-        call_frame_t *prev = NULL;
+        xlator_t    *prev = NULL;
 
         local = frame->local;
         prev = cookie;
 
-        if (!prev || !prev->this)
+        if (!prev)
                 goto out;
         if (local->call_cnt != 1)
                 goto out;
         if ((op_ret == -1) && ((op_errno == ENOTCONN) ||
                 dht_inode_missing(op_errno)) &&
                 IA_ISDIR(local->loc.inode->ia_type)) {
-                subvol = dht_subvol_next_available (this, prev->this);
+                subvol = dht_subvol_next_available (this, prev);
                 if (!subvol)
                         goto out;
 
@@ -588,8 +586,9 @@ dht_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto out;
                 }
 
-                STACK_WIND (frame, dht_access_cbk, subvol, subvol->fops->access,
-                            &local->loc, local->rebalance.flags, NULL);
+                STACK_WIND_COOKIE (frame, dht_access_cbk, subvol, subvol,
+                                   subvol->fops->access, &local->loc,
+                                   local->rebalance.flags, NULL);
                 return 0;
         }
         if ((op_ret == -1) && dht_inode_missing(op_errno) &&
@@ -634,8 +633,9 @@ dht_access2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 
         local->call_cnt = 2;
 
-        STACK_WIND (frame, dht_access_cbk, subvol, subvol->fops->access,
-                    &local->loc, local->rebalance.flags, NULL);
+        STACK_WIND_COOKIE (frame, dht_access_cbk, subvol, subvol,
+                           subvol->fops->access, &local->loc,
+                           local->rebalance.flags, NULL);
 
         return 0;
 
@@ -675,8 +675,8 @@ dht_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask,
                 goto err;
         }
 
-        STACK_WIND (frame, dht_access_cbk, subvol, subvol->fops->access,
-                    loc, mask, xdata);
+        STACK_WIND_COOKIE (frame, dht_access_cbk, subvol, subvol,
+                           subvol->fops->access, loc, mask, xdata);
 
         return 0;
 
@@ -807,7 +807,7 @@ dht_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                dict_t *xdata)
 {
         dht_local_t  *local = NULL;
-        call_frame_t *prev = NULL;
+        xlator_t     *prev = NULL;
         int           ret = -1;
         inode_t      *inode = NULL;
         xlator_t     *src_subvol = 0;
@@ -820,7 +820,7 @@ dht_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         if (op_ret == -1 && !dht_inode_missing(op_errno)) {
                 gf_msg_debug (this->name, op_errno,
                               "subvolume %s returned -1",
-                              prev->this->name);
+                              prev->name);
                 goto out;
         }
 
@@ -906,8 +906,9 @@ dht_fsync2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 
         local->call_cnt = 2; /* This is the second attempt */
 
-        STACK_WIND (frame, dht_fsync_cbk, subvol, subvol->fops->fsync,
-                    local->fd, local->rebalance.flags, NULL);
+        STACK_WIND_COOKIE (frame, dht_fsync_cbk, subvol, subvol,
+                           subvol->fops->fsync, local->fd,
+                           local->rebalance.flags, NULL);
 
         return 0;
 
@@ -940,8 +941,8 @@ dht_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync,
 
         subvol = local->cached_subvol;
 
-        STACK_WIND (frame, dht_fsync_cbk, subvol, subvol->fops->fsync,
-                    fd, datasync, xdata);
+        STACK_WIND_COOKIE (frame, dht_fsync_cbk, subvol, subvol,
+                           subvol->fops->fsync, fd, datasync, xdata);
 
         return 0;
 

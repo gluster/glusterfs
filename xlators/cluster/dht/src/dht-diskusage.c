@@ -26,7 +26,7 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  dict_t *xdata)
 {
 	dht_conf_t    *conf         = NULL;
-	call_frame_t  *prev          = NULL;
+	xlator_t      *prev          = NULL;
 	int            this_call_cnt = 0;
 	int            i = 0;
 	double         percent = 0;
@@ -41,7 +41,7 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (op_ret == -1) {
 		gf_msg (this->name, GF_LOG_WARNING, op_errno,
                         DHT_MSG_GET_DISK_INFO_ERROR,
-			"failed to get disk info from %s", prev->this->name);
+			"failed to get disk info from %s", prev->name);
 		goto out;
 	}
 
@@ -76,7 +76,7 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&conf->subvolume_lock);
 	{
 		for (i = 0; i < conf->subvolume_cnt; i++)
-			if (prev->this == conf->subvolumes[i]) {
+			if (prev == conf->subvolumes[i]) {
 				conf->du_stats[i].avail_percent = percent;
 				conf->du_stats[i].avail_space   = bytes;
 				conf->du_stats[i].avail_inodes  = percent_inodes;
@@ -86,7 +86,7 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 					      "is: %.2f and avail_space "
                                               "is: %" PRIu64" and avail_inodes"
                                               " is: %.2f",
-					      prev->this->name,
+					      prev->name,
 					      conf->du_stats[i].avail_percent,
 					      conf->du_stats[i].avail_space,
 					      conf->du_stats[i].avail_inodes);
@@ -131,10 +131,11 @@ dht_get_du_info_for_subvol (xlator_t *this, int subvol_idx)
         tmp_loc.gfid[15] = 1;
 
 	statfs_local->call_cnt = 1;
-	STACK_WIND (statfs_frame, dht_du_info_cbk,
-		    conf->subvolumes[subvol_idx],
-		    conf->subvolumes[subvol_idx]->fops->statfs,
-		    &tmp_loc, NULL);
+	STACK_WIND_COOKIE (statfs_frame, dht_du_info_cbk,
+		           conf->subvolumes[subvol_idx],
+                           conf->subvolumes[subvol_idx],
+		           conf->subvolumes[subvol_idx]->fops->statfs,
+		           &tmp_loc, NULL);
 
 	return 0;
 err:
@@ -194,10 +195,11 @@ dht_get_du_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 		statfs_local->call_cnt = conf->subvolume_cnt;
 		for (i = 0; i < conf->subvolume_cnt; i++) {
-			STACK_WIND (statfs_frame, dht_du_info_cbk,
-				    conf->subvolumes[i],
-				    conf->subvolumes[i]->fops->statfs,
-				    &tmp_loc, statfs_local->params);
+			STACK_WIND_COOKIE (statfs_frame, dht_du_info_cbk,
+				           conf->subvolumes[i],
+                                           conf->subvolumes[i],
+				           conf->subvolumes[i]->fops->statfs,
+				           &tmp_loc, statfs_local->params);
 		}
 
 		conf->last_stat_fetch.tv_sec = tv.tv_sec;

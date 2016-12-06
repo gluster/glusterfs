@@ -174,7 +174,7 @@ dht_refresh_layout_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         dht_local_t  *local         = NULL;
         int           this_call_cnt = 0;
-        call_frame_t *prev          = NULL;
+        xlator_t     *prev          = NULL;
         dht_layout_t *layout        = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, err);
@@ -189,16 +189,16 @@ dht_refresh_layout_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         LOCK (&frame->lock);
         {
-                op_ret = dht_layout_merge (this, layout, prev->this,
+                op_ret = dht_layout_merge (this, layout, prev,
                                            op_ret, op_errno, xattr);
 
-                dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
+                dht_iatt_merge (this, &local->stbuf, stbuf, prev);
 
                 if (op_ret == -1) {
                         local->op_errno = op_errno;
                         gf_msg_debug (this->name, op_errno,
                                       "lookup of %s on %s returned error",
-                                      local->loc.path, prev->this->name);
+                                      local->loc.path, prev->name);
 
                         goto unlock;
                 }
@@ -279,10 +279,10 @@ dht_refresh_layout (call_frame_t *frame)
         }
 
         for (i = 0; i < call_cnt; i++) {
-                STACK_WIND (frame, dht_refresh_layout_cbk,
-                            conf->subvolumes[i],
-                            conf->subvolumes[i]->fops->lookup,
-                            &local->loc, local->xattr_req);
+                STACK_WIND_COOKIE (frame, dht_refresh_layout_cbk,
+                                   conf->subvolumes[i], conf->subvolumes[i],
+                                   conf->subvolumes[i]->fops->lookup,
+                                   &local->loc, local->xattr_req);
         }
 
         return 0;
@@ -1139,7 +1139,7 @@ dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         dht_local_t   *local = NULL;
         dht_layout_t  *layout = NULL;
-        call_frame_t  *prev = NULL;
+        xlator_t      *prev = NULL;
         xlator_t      *subvol = NULL;
         int            i = 0, ret = -1;
         int            this_call_cnt = 0;
@@ -1148,7 +1148,7 @@ dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local  = frame->local;
         layout = local->selfheal.layout;
         prev   = cookie;
-        subvol = prev->this;
+        subvol = prev;
 
         if ((op_ret == 0) || ((op_ret == -1) && (op_errno == EEXIST))) {
                 for (i = 0; i < layout->cnt; i++) {
@@ -1168,8 +1168,8 @@ dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->loc.path, gfid );
                 goto out;
         }
-        dht_iatt_merge (this, &local->preparent, preparent, prev->this);
-        dht_iatt_merge (this, &local->postparent, postparent, prev->this);
+        dht_iatt_merge (this, &local->preparent, preparent, prev);
+        dht_iatt_merge (this, &local->postparent, postparent, prev);
         ret = 0;
 
 out:
@@ -1277,13 +1277,14 @@ dht_selfheal_dir_mkdir_lookup_done (call_frame_t *frame, xlator_t *this)
                                       "Creating directory %s on subvol %s",
                                       loc->path, layout->list[i].xlator->name);
 
-                        STACK_WIND (frame, dht_selfheal_dir_mkdir_cbk,
-                                    layout->list[i].xlator,
-                                    layout->list[i].xlator->fops->mkdir,
-                                    loc,
-                                    st_mode_from_ia (local->stbuf.ia_prot,
-                                                     local->stbuf.ia_type),
-                                    0, dict);
+                        STACK_WIND_COOKIE (frame, dht_selfheal_dir_mkdir_cbk,
+                                           layout->list[i].xlator,
+                                           layout->list[i].xlator,
+                                           layout->list[i].xlator->fops->mkdir,
+                                           loc,
+                                           st_mode_from_ia (local->stbuf.ia_prot,
+                                                            local->stbuf.ia_type),
+                                           0, dict);
                 }
         }
 
@@ -1309,7 +1310,7 @@ dht_selfheal_dir_mkdir_lookup_cbk (call_frame_t *frame, void *cookie,
         int           missing_dirs = 0;
         dht_layout_t  *layout = NULL;
         loc_t         *loc    = NULL;
-        call_frame_t *prev    = NULL;
+        xlator_t      *prev    = NULL;
 
         VALIDATE_OR_GOTO (this->private, err);
 
@@ -1329,7 +1330,7 @@ dht_selfheal_dir_mkdir_lookup_cbk (call_frame_t *frame, void *cookie,
                 }
 
                 if (!op_ret) {
-                        dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
+                        dht_iatt_merge (this, &local->stbuf, stbuf, prev);
                 }
 
         }
@@ -1413,10 +1414,10 @@ dht_selfheal_dir_mkdir_lock_cbk (call_frame_t *frame, void *cookie,
         */
 
         for (i = 0; i < conf->subvolume_cnt; i++) {
-                STACK_WIND (frame, dht_selfheal_dir_mkdir_lookup_cbk,
-                            conf->subvolumes[i],
-                            conf->subvolumes[i]->fops->lookup,
-                            &local->loc, NULL);
+                STACK_WIND_COOKIE (frame, dht_selfheal_dir_mkdir_lookup_cbk,
+                                   conf->subvolumes[i], conf->subvolumes[i],
+                                   conf->subvolumes[i]->fops->lookup,
+                                   &local->loc, NULL);
         }
 
         return 0;
