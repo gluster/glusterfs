@@ -112,6 +112,9 @@ then
                 sed -i s/Export_Id.*/"Export_Id=$EXPORT_ID;"/ \
                         $GANESHA_DIR/exports/export.$VOL.conf
                 echo "%include \"$GANESHA_DIR/exports/export.$VOL.conf\"" >> $CONF1
+        else
+                EXPORT_ID=$(grep ^[[:space:]]*Export_Id $GANESHA_DIR/exports/export.$VOL.conf |\
+                          awk -F"[=,;]" '{print $2}' | tr -d '[[:space:]]')
         fi
         export_add $VOL
 fi
