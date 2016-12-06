@@ -322,7 +322,7 @@ rda_fill_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 	if (ctx->cur_size >= priv->rda_high_wmark)
 		ctx->state &= ~RDA_FD_PLUGGED;
 
-	if (!op_ret) {
+	if (!op_ret || op_errno == ENOENT) {
 		/* we've hit eod */
 		ctx->state &= ~RDA_FD_RUNNING;
 		ctx->state |= RDA_FD_EOD;
