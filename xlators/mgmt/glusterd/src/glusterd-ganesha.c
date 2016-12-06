@@ -808,16 +808,17 @@ start_ganesha (char **op_errstr)
                 }
         }
 
-        runinit (&runner);
-        runner_add_args (&runner, "sh", GANESHA_PREFIX"/ganesha-ha.sh",
-                         "--setup-ganesha-conf-files", CONFDIR, "yes", NULL);
-        ret =  runner_run (&runner);
-        if (ret) {
-                gf_asprintf (op_errstr, "creation of symlink ganesha.conf "
-                             "in /etc/ganesha failed");
-                goto out;
-        }
         if (check_host_list()) {
+                runinit (&runner);
+                runner_add_args (&runner, "sh", GANESHA_PREFIX"/ganesha-ha.sh",
+                                 "--setup-ganesha-conf-files", CONFDIR, "yes",
+                                 NULL);
+                ret =  runner_run (&runner);
+                if (ret) {
+                        gf_asprintf (op_errstr, "creation of symlink ganesha.conf "
+                                     "in /etc/ganesha failed");
+                        goto out;
+                }
                 ret = manage_service ("start");
                 if (ret)
                         gf_asprintf (op_errstr, "NFS-Ganesha failed to start."
