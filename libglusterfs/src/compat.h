@@ -444,6 +444,12 @@ int gf_mkostemp (char *tmpl, int suffixlen, int flags);
 
 #ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
 /* Linux, Solaris, Cygwin */
+#define ST_ATIM_SEC(stbuf) ((stbuf)->st_atim.tv_sec)
+#define ST_CTIM_SEC(stbuf) ((stbuf)->st_ctim.tv_sec)
+#define ST_MTIM_SEC(stbuf) ((stbuf)->st_mtim.tv_sec)
+#define ST_ATIM_SEC_SET(stbuf, val) ((stbuf)->st_atim.tv_sec = (val))
+#define ST_MTIM_SEC_SET(stbuf, val) ((stbuf)->st_mtim.tv_sec = (val))
+#define ST_CTIM_SEC_SET(stbuf, val) ((stbuf)->st_ctim.tv_sec = (val))
 #define ST_ATIM_NSEC(stbuf) ((stbuf)->st_atim.tv_nsec)
 #define ST_CTIM_NSEC(stbuf) ((stbuf)->st_ctim.tv_nsec)
 #define ST_MTIM_NSEC(stbuf) ((stbuf)->st_mtim.tv_nsec)
@@ -452,6 +458,12 @@ int gf_mkostemp (char *tmpl, int suffixlen, int flags);
 #define ST_CTIM_NSEC_SET(stbuf, val) ((stbuf)->st_ctim.tv_nsec = (val))
 #elif defined(HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC)
 /* FreeBSD, NetBSD */
+#define ST_ATIM_SEC(stbuf) ((stbuf)->st_atimespec.tv_sec)
+#define ST_CTIM_SEC(stbuf) ((stbuf)->st_ctimespec.tv_sec)
+#define ST_MTIM_SEC(stbuf) ((stbuf)->st_mtimespec.tv_sec)
+#define ST_ATIM_SEC_SET(stbuf, val) ((stbuf)->st_atimespec.tv_sec = (val))
+#define ST_MTIM_SEC_SET(stbuf, val) ((stbuf)->st_mtimespec.tv_sec = (val))
+#define ST_CTIM_SEC_SET(stbuf, val) ((stbuf)->st_ctimespec.tv_sec = (val))
 #define ST_ATIM_NSEC(stbuf) ((stbuf)->st_atimespec.tv_nsec)
 #define ST_CTIM_NSEC(stbuf) ((stbuf)->st_ctimespec.tv_nsec)
 #define ST_MTIM_NSEC(stbuf) ((stbuf)->st_mtimespec.tv_nsec)

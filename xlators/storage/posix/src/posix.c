@@ -375,7 +375,8 @@ posix_do_chown (xlator_t *this,
 static int
 posix_do_utimes (xlator_t *this,
                  const char *path,
-                 struct iatt *stbuf)
+                 struct iatt *stbuf,
+                 int valid)
 {
         int32_t ret = -1;
         struct timeval tv[2]     = {{0,},{0,}};
@@ -392,10 +393,23 @@ posix_do_utimes (xlator_t *this,
         if (S_ISLNK (stat.st_mode))
                 is_symlink = 1;
 
-        tv[0].tv_sec  = stbuf->ia_atime;
-        tv[0].tv_usec = stbuf->ia_atime_nsec / 1000;
-        tv[1].tv_sec  = stbuf->ia_mtime;
-        tv[1].tv_usec = stbuf->ia_mtime_nsec / 1000;
+        if ((valid & GF_SET_ATTR_ATIME) == GF_SET_ATTR_ATIME) {
+                tv[0].tv_sec  = stbuf->ia_atime;
+                tv[0].tv_usec = stbuf->ia_atime_nsec / 1000;
+        } else {
+                /* atime is not given, use current values */
+                tv[0].tv_sec  = ST_ATIM_SEC (&stat);
+                tv[0].tv_usec = ST_ATIM_NSEC (&stat) / 1000;
+        }
+
+        if ((valid & GF_SET_ATTR_MTIME) == GF_SET_ATTR_MTIME) {
+                tv[1].tv_sec  = stbuf->ia_mtime;
+                tv[1].tv_usec = stbuf->ia_mtime_nsec / 1000;
+        } else {
+                /* mtime is not given, use current values */
+                tv[1].tv_sec  = ST_MTIM_SEC (&stat);
+                tv[1].tv_usec = ST_MTIM_NSEC (&stat) / 1000;
+        }
 
         ret = lutimes (path, tv);
         if ((ret == -1) && (errno == ENOSYS)) {
@@ -464,7 +478,7 @@ posix_setattr (call_frame_t *frame, xlator_t *this,
         }
 
         if (valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME)) {
-                op_ret = posix_do_utimes (this, real_path, stbuf);
+                op_ret = posix_do_utimes (this, real_path, stbuf, valid);
                 if (op_ret == -1) {
                         op_errno = errno;
                         gf_msg (this->name, GF_LOG_ERROR, errno,
