@@ -28,7 +28,7 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t  *local       = NULL;
         loc_t        *loc         = NULL;
         int           i           = 0;
-        call_frame_t *prev        = NULL;
+        xlator_t     *prev        = NULL;
         int           call_cnt    = 0;
         int           ret         = 0;
 
@@ -55,11 +55,11 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (!is_dir && !is_linkfile) {
                 /* non-directory and not a linkfile */
-                ret = dht_layout_preset (this, prev->this, inode);
+                ret = dht_layout_preset (this, prev, inode);
                 if (ret < 0) {
                         gf_msg_debug (this->name, 0,
                                       "could not set pre-set layout for subvol"
-                                      " %s", prev->this->name);
+                                      " %s", prev->name);
                         op_ret   = -1;
                         op_errno = EINVAL;
                         goto err;
@@ -86,10 +86,11 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 for (i = 0; i < call_cnt; i++) {
-                        STACK_WIND (frame, dht_lookup_dir_cbk,
-                                    conf->subvolumes[i],
-                                    conf->subvolumes[i]->fops->lookup,
-                                    &local->loc, local->xattr_req);
+                        STACK_WIND_COOKIE (frame, dht_lookup_dir_cbk,
+                                           conf->subvolumes[i],
+                                           conf->subvolumes[i],
+                                           conf->subvolumes[i]->fops->lookup,
+                                           &local->loc, local->xattr_req);
                 }
         }
 
@@ -104,9 +105,9 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         return 0;
                 }
 
-                STACK_WIND (frame, dht_lookup_linkfile_cbk,
-                            subvol, subvol->fops->lookup,
-                            &local->loc, local->xattr_req);
+                STACK_WIND_COOKIE (frame, dht_lookup_linkfile_cbk, subvol,
+                                   subvol, subvol->fops->lookup,
+                                   &local->loc, local->xattr_req);
         }
 
         return 0;
@@ -121,9 +122,10 @@ out:
                 return 0;
         }
 
-        STACK_WIND (frame, dht_lookup_cbk,
-                    local->hashed_subvol, local->hashed_subvol->fops->lookup,
-                    &local->loc, local->xattr_req);
+        STACK_WIND_COOKIE (frame, dht_lookup_cbk, local->hashed_subvol,
+                           local->hashed_subvol,
+                           local->hashed_subvol->fops->lookup,
+                           &local->loc, local->xattr_req);
 
         return 0;
 
@@ -211,9 +213,9 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
                 for (i = 0; i < layout->cnt; i++) {
                         subvol = layout->list[i].xlator;
 
-                        STACK_WIND (frame, dht_revalidate_cbk,
-                                    subvol, subvol->fops->lookup,
-                                    loc, local->xattr_req);
+                        STACK_WIND_COOKIE (frame, dht_revalidate_cbk, subvol,
+                                           subvol, subvol->fops->lookup,
+                                           loc, local->xattr_req);
 
                         if (!--call_cnt)
                                 break;
@@ -241,10 +243,11 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
                 }
 
                 /* Send it to only local volume */
-                STACK_WIND (frame, nufa_local_lookup_cbk,
-                            (xlator_t *)conf->private,
-                            ((xlator_t *)conf->private)->fops->lookup,
-                            loc, local->xattr_req);
+                STACK_WIND_COOKIE (frame, nufa_local_lookup_cbk,
+                                   ((xlator_t *)conf->private),
+                                   ((xlator_t *)conf->private),
+                                   ((xlator_t *)conf->private)->fops->lookup,
+                                   loc, local->xattr_req);
         }
 
         return 0;
@@ -270,10 +273,10 @@ nufa_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         if (op_ret == -1)
                 goto err;
 
-        STACK_WIND (frame, dht_create_cbk,
-                    local->cached_subvol, local->cached_subvol->fops->create,
-                    &local->loc, local->flags, local->mode, local->umask,
-                    local->fd, local->params);
+        STACK_WIND_COOKIE (frame, dht_create_cbk, local->cached_subvol,
+                           local->cached_subvol, local->cached_subvol->fops->create,
+                           &local->loc, local->flags, local->mode, local->umask,
+                           local->fd, local->params);
 
         return 0;
 
@@ -340,9 +343,9 @@ nufa_create (call_frame_t *frame, xlator_t *this,
         gf_msg_trace (this->name, 0,
                       "creating %s on %s", loc->path, subvol->name);
 
-        STACK_WIND (frame, dht_create_cbk,
-                    subvol, subvol->fops->create,
-                    loc, flags, mode, umask, fd, params);
+        STACK_WIND_COOKIE (frame, dht_create_cbk, subvol,
+                           subvol, subvol->fops->create,
+                           loc, flags, mode, umask, fd, params);
 
         return 0;
 

@@ -24,7 +24,7 @@ dht_linkfile_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         char          is_linkfile   = 0;
         dht_conf_t   *conf          = NULL;
         dht_local_t  *local         = NULL;
-        call_frame_t *prev          = NULL;
+        xlator_t     *prev          = NULL;
         char         gfid[GF_UUID_BUF_SIZE] = {0};
 
         local = frame->local;
@@ -42,7 +42,7 @@ dht_linkfile_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_NOT_LINK_FILE_ERROR,
                         "got non-linkfile %s:%s, gfid = %s",
-                        prev->this->name, local->loc.path, gfid);
+                        prev->name, local->loc.path, gfid);
 out:
         local->linkfile.linkfile_cbk (frame, cookie, this, op_ret, op_errno,
                                       inode, stbuf, postparent, postparent,
@@ -59,7 +59,6 @@ dht_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         dht_local_t  *local = NULL;
         xlator_t     *subvol = NULL;
-        call_frame_t *prev = NULL;
         dict_t       *xattrs = NULL;
         dht_conf_t   *conf = NULL;
         int           ret = -1;
@@ -73,8 +72,7 @@ dht_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret && (op_errno == EEXIST)) {
                 conf = this->private;
-                prev = cookie;
-                subvol = prev->this;
+                subvol = cookie;
                 if (!subvol)
                         goto out;
                 xattrs = dict_new ();
@@ -89,8 +87,9 @@ dht_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto out;
                 }
 
-                STACK_WIND (frame, dht_linkfile_lookup_cbk, subvol,
-                            subvol->fops->lookup, &local->loc, xattrs);
+                STACK_WIND_COOKIE (frame, dht_linkfile_lookup_cbk, subvol,
+                                   subvol, subvol->fops->lookup, &local->loc,
+                                   xattrs);
                 if (xattrs)
                         dict_unref (xattrs);
                 return 0;
@@ -167,16 +166,16 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
         /* Always create as root:root. dht_linkfile_attr_heal fixes the
          * ownsership */
         FRAME_SU_DO (frame, dht_local_t);
-        STACK_WIND (frame, dht_linkfile_create_cbk,
-                    fromvol, fromvol->fops->mknod, loc,
-                    S_IFREG | DHT_LINKFILE_MODE, 0, 0, dict);
+        STACK_WIND_COOKIE (frame, dht_linkfile_create_cbk, fromvol, fromvol,
+                           fromvol->fops->mknod, loc,
+                           S_IFREG | DHT_LINKFILE_MODE, 0, 0, dict);
 
         if (need_unref && dict)
                 dict_unref (dict);
 
         return 0;
 out:
-        local->linkfile.linkfile_cbk (frame, NULL, frame->this, -1, ENOMEM,
+        local->linkfile.linkfile_cbk (frame, frame->this, frame->this, -1, ENOMEM,
                                       loc->inode, NULL, NULL, NULL, NULL);
 
         if (need_unref && dict)
@@ -193,13 +192,11 @@ dht_linkfile_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          dict_t *xdata)
 {
         dht_local_t   *local = NULL;
-        call_frame_t  *prev = NULL;
         xlator_t      *subvol = NULL;
         char           gfid[GF_UUID_BUF_SIZE] = {0};
 
         local = frame->local;
-        prev = cookie;
-        subvol = prev->this;
+        subvol = cookie;
 
 
         if (op_ret == -1) {
@@ -238,9 +235,9 @@ dht_linkfile_unlink (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-        STACK_WIND (unlink_frame, dht_linkfile_unlink_cbk,
-                    subvol, subvol->fops->unlink,
-                    &unlink_local->loc, 0, NULL);
+        STACK_WIND_COOKIE (unlink_frame, dht_linkfile_unlink_cbk, subvol,
+                           subvol, subvol->fops->unlink,
+                           &unlink_local->loc, 0, NULL);
 
         return 0;
 err:

@@ -332,7 +332,7 @@ STACK_RESET (call_stack_t *stack)
                               "winding from %s to %s",                  \
                               frame->root, old_THIS->name,              \
                               THIS->name);                              \
-                if (obj->ctx->measure_latency)                          \
+                if (obj->ctx->measure_latency)                  \
                         gf_latency_begin (_new, fn);                    \
                 fn (_new, obj, params);                                 \
                 THIS = old_THIS;                                        \

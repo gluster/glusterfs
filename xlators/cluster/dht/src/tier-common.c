@@ -167,7 +167,7 @@ tier_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  fd_t *fd, inode_t *inode, struct iatt *stbuf,
                  struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
 {
-        call_frame_t *prev           = NULL;
+        xlator_t     *prev           = NULL;
         int           ret            = -1;
         dht_local_t  *local          = NULL;
         xlator_t     *hashed_subvol  = NULL;
@@ -218,11 +218,11 @@ tier_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                            postparent, 1);
         }
 
-        ret = dht_layout_preset (this, prev->this, inode);
+        ret = dht_layout_preset (this, prev, inode);
         if (ret != 0) {
                 gf_msg_debug (this->name, 0,
                               "could not set preset layout for subvol %s",
-                              prev->this->name);
+                              prev->name);
                 op_ret   = -1;
                 op_errno = EINVAL;
                 goto out;
@@ -356,10 +356,10 @@ tier_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
                         " : key = %s", TIER_LINKFILE_GFID);
         }
 
-        STACK_WIND (frame, tier_create_cbk,
-                    cached_subvol, cached_subvol->fops->create,
-                    &local->loc, local->flags, local->mode,
-                    local->umask, local->fd, local->params);
+        STACK_WIND_COOKIE (frame, tier_create_cbk, cached_subvol,
+                           cached_subvol, cached_subvol->fops->create,
+                           &local->loc, local->flags, local->mode,
+                           local->umask, local->fd, local->params);
 
         return 0;
 err:
@@ -431,9 +431,9 @@ tier_create (call_frame_t *frame, xlator_t *this,
                               "creating %s on %s", loc->path,
                               cold_subvol->name);
 
-                STACK_WIND (frame, tier_create_cbk,
-                            cold_subvol, cold_subvol->fops->create,
-                            loc, flags, mode, umask, fd, params);
+                STACK_WIND_COOKIE (frame, tier_create_cbk, cold_subvol,
+                                   cold_subvol, cold_subvol->fops->create,
+                                   loc, flags, mode, umask, fd, params);
         } else {
                 local->params = dict_ref (params);
                 local->flags = flags;
@@ -470,7 +470,7 @@ tier_unlink_nonhashed_linkfile_cbk (call_frame_t *frame, void *cookie,
                                     struct iatt *postparent, dict_t *xdata)
 {
         dht_local_t  *local = NULL;
-        call_frame_t *prev = NULL;
+        xlator_t     *prev = NULL;
 
         local = frame->local;
         prev  = cookie;
@@ -483,7 +483,7 @@ tier_unlink_nonhashed_linkfile_cbk (call_frame_t *frame, void *cookie,
                         gf_msg_debug (this->name, op_errno,
                                       "Unlink link: subvolume %s"
                                       " returned -1",
-                                      prev->this->name);
+                                      prev->name);
                         goto unlock;
                 }
 
@@ -513,7 +513,7 @@ tier_unlink_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         struct iatt *postparent)
 {
         dht_local_t             *local             = NULL;
-        call_frame_t            *prev              = NULL;
+        xlator_t                *prev              = NULL;
         dht_conf_t              *conf              = NULL;
         xlator_t                *hot_subvol        = NULL;
 
@@ -526,9 +526,9 @@ tier_unlink_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 /*
                  * linkfile present on hot tier. unlinking the linkfile
                  */
-                STACK_WIND (frame, tier_unlink_nonhashed_linkfile_cbk,
-                            hot_subvol, hot_subvol->fops->unlink,
-                            &local->loc, local->flags, NULL);
+                STACK_WIND_COOKIE (frame, tier_unlink_nonhashed_linkfile_cbk,
+                                   hot_subvol, hot_subvol, hot_subvol->fops->unlink,
+                                   &local->loc, local->flags, NULL);
                 return 0;
         }
 
@@ -543,7 +543,7 @@ tier_unlink_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
                 gf_msg_debug (this->name, op_errno,
                               "Lookup : subvolume %s returned -1",
-                               prev->this->name);
+                               prev->name);
         }
 
         UNLOCK (&frame->lock);
@@ -560,7 +560,7 @@ tier_unlink_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          struct iatt *postparent, dict_t *xdata)
 {
         dht_local_t  *local = NULL;
-        call_frame_t *prev = NULL;
+        xlator_t     *prev = NULL;
 
         local = frame->local;
         prev  = cookie;
@@ -576,7 +576,7 @@ tier_unlink_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         gf_msg_debug (this->name, op_errno,
                                       "Unlink link: subvolume %s"
                                       " returned -1",
-                                      prev->this->name);
+                                      prev->name);
                         goto unlock;
                 }
 
@@ -605,7 +605,7 @@ tier_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 struct iatt *postparent, dict_t *xdata)
 {
         dht_local_t     *local          = NULL;
-        call_frame_t    *prev           = NULL;
+        xlator_t        *prev           = NULL;
         struct iatt     *stbuf          = NULL;
         dht_conf_t      *conf           = NULL;
         int              ret            = -1;
@@ -631,7 +631,7 @@ tier_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         gf_msg_debug (this->name, op_errno,
                                       "Unlink: subvolume %s returned -1"
                                       " with errno = %d",
-                                       prev->this->name, op_errno);
+                                       prev->name, op_errno);
                         goto unlock;
                 }
 
@@ -659,10 +659,10 @@ unlock:
                  * a link file on cold tier, deleting the linkfile
                  * from cold tier
                  */
-                STACK_WIND (frame, tier_unlink_linkfile_cbk,
-                            cold_tier,
-                            cold_tier->fops->unlink, &local->loc,
-                            local->flags, xdata);
+                STACK_WIND_COOKIE (frame, tier_unlink_linkfile_cbk, cold_tier,
+                                   cold_tier, cold_tier->fops->unlink,
+                                   &local->loc,
+                                   local->flags, xdata);
                 return 0;
         }
 
@@ -673,10 +673,9 @@ unlock:
                  * File is migrating from cold to hot tier.
                  * Delete the destination linkfile.
                  */
-                STACK_WIND (frame, tier_unlink_lookup_cbk,
-                            hot_tier,
-                            hot_tier->fops->lookup,
-                            &local->loc, NULL);
+                STACK_WIND_COOKIE (frame, tier_unlink_lookup_cbk, hot_tier,
+                                   hot_tier, hot_tier->fops->lookup,
+                                   &local->loc, NULL);
                 return 0;
 
         }
@@ -750,9 +749,9 @@ tier_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
          * File is on hot tier, delete the data file first, then
          * linkfile from cold.
          */
-        STACK_WIND (frame, tier_unlink_cbk,
-                    cached_subvol, cached_subvol->fops->unlink, loc,
-                    xflag, xdata);
+        STACK_WIND_COOKIE (frame, tier_unlink_cbk, cached_subvol,
+                           cached_subvol, cached_subvol->fops->unlink, loc,
+                           xflag, xdata);
         if (xdata)
                 dict_unref (xdata);
         return 0;
@@ -772,7 +771,7 @@ tier_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_dirent_t   entries;
         gf_dirent_t  *orig_entry = NULL;
         gf_dirent_t  *entry = NULL;
-        call_frame_t *prev = NULL;
+        xlator_t     *prev = NULL;
         xlator_t     *next_subvol = NULL;
         off_t         next_offset = 0;
         int           count = 0;
@@ -811,14 +810,14 @@ done:
                    EOF is not yet hit on the current subvol
                 */
                 if (next_offset != 0) {
-                        next_subvol = prev->this;
+                        next_subvol = prev;
                 } else {
                         goto unwind;
                 }
 
-                STACK_WIND (frame, tier_readdir_cbk,
-                            next_subvol, next_subvol->fops->readdir,
-                            local->fd, local->size, next_offset, NULL);
+                STACK_WIND_COOKIE (frame, tier_readdir_cbk, next_subvol,
+                                   next_subvol, next_subvol->fops->readdir,
+                                   local->fd, local->size, next_offset, NULL);
                 return 0;
         }
 
@@ -841,7 +840,7 @@ tier_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret
         gf_dirent_t   entries;
         gf_dirent_t  *orig_entry = NULL;
         gf_dirent_t  *entry = NULL;
-        call_frame_t *prev = NULL;
+        xlator_t     *prev = NULL;
         xlator_t     *next_subvol = NULL;
         off_t         next_offset = 0;
         int           count = 0;
@@ -911,7 +910,7 @@ tier_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret
                         }
                 } else {
                         if (orig_entry->inode) {
-                                ret = dht_layout_preset (this, prev->this,
+                                ret = dht_layout_preset (this, prev,
                                                          orig_entry->inode);
                                 if (ret)
                                         gf_msg (this->name, GF_LOG_WARNING, 0,
@@ -957,15 +956,15 @@ done:
                    EOF is not yet hit on the current subvol
                 */
                 if (next_offset != 0) {
-                        next_subvol = prev->this;
+                        next_subvol = prev;
                 } else {
                         goto unwind;
                 }
 
-                STACK_WIND (frame, tier_readdirp_cbk,
-                            next_subvol, next_subvol->fops->readdirp,
-                            local->fd, local->size, next_offset,
-                            local->xattr);
+                STACK_WIND_COOKIE (frame, tier_readdirp_cbk, next_subvol,
+                                   next_subvol, next_subvol->fops->readdirp,
+                                   local->fd, local->size, next_offset,
+                                   local->xattr);
                 return 0;
         }
 
@@ -1029,14 +1028,14 @@ tier_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
                 }
 
-                STACK_WIND (frame, tier_readdirp_cbk, hashed_subvol,
-                            hashed_subvol->fops->readdirp,
-                            fd, size, yoff, local->xattr);
+                STACK_WIND_COOKIE (frame, tier_readdirp_cbk, hashed_subvol,
+                                   hashed_subvol, hashed_subvol->fops->readdirp,
+                                   fd, size, yoff, local->xattr);
 
         } else {
-                STACK_WIND (frame, tier_readdir_cbk, hashed_subvol,
-                            hashed_subvol->fops->readdir,
-                            fd, size, yoff, local->xattr);
+                STACK_WIND_COOKIE (frame, tier_readdir_cbk, hashed_subvol,
+                                   hashed_subvol, hashed_subvol->fops->readdir,
+                                   fd, size, yoff, local->xattr);
         }
 
         return 0;
@@ -1097,7 +1096,7 @@ tier_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         GF_UNUSED int           ret                = 0;
         unsigned long           new_usage          = 0;
         unsigned long           cur_usage          = 0;
-        call_frame_t            *prev              = NULL;
+        xlator_t                *prev              = NULL;
         dht_conf_t              *conf              = NULL;
         tier_statvfs_t          *tier_stat         = NULL;
 
@@ -1185,7 +1184,7 @@ tier_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->statvfs.f_frsize   = statvfs->f_frsize;
                 }
 
-                if (prev->this == TIER_HASHED_SUBVOL) {
+                if (prev == TIER_HASHED_SUBVOL) {
                         local->statvfs.f_blocks   = statvfs->f_blocks;
                         local->statvfs.f_files    = statvfs->f_files;
                         local->statvfs.f_fsid     = statvfs->f_fsid;
@@ -1280,10 +1279,10 @@ tier_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         local->call_cnt = conf->subvolume_cnt;
 
         for (i = 0; i < conf->subvolume_cnt; i++) {
-                STACK_WIND (frame, tier_statfs_cbk,
-                            conf->subvolumes[i],
-                            conf->subvolumes[i]->fops->statfs, loc,
-                            xdata);
+                STACK_WIND_COOKIE (frame, tier_statfs_cbk, conf->subvolumes[i],
+                                   conf->subvolumes[i],
+                                   conf->subvolumes[i]->fops->statfs, loc,
+                                   xdata);
         }
 
         return 0;
