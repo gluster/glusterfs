@@ -2057,9 +2057,10 @@ int32_t
 dht_blocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                           int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
-        int          lk_index = 0;
-        int          i        = 0;
-        dht_local_t *local    = NULL;
+        int          lk_index                   = 0;
+        int          i                          = 0;
+        dht_local_t *local                      = NULL;
+        char         gfid[GF_UUID_BUF_SIZE]     = {0,};
 
         lk_index = (long) cookie;
 
@@ -2071,14 +2072,25 @@ dht_blocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 case ESTALE:
                 case ENOENT:
                         if (local->lock.reaction != IGNORE_ENOENT_ESTALE) {
+                                gf_uuid_unparse (local->lock.locks[lk_index]->loc.gfid, gfid);
                                 local->lock.op_ret = -1;
                                 local->lock.op_errno = op_errno;
+                                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                                        DHT_MSG_INODELK_FAILED,
+                                        "inodelk failed on subvol %s. gfid:%s",
+                                        local->lock.locks[lk_index]->xl->name,
+                                        gfid);
                                 goto cleanup;
                         }
                         break;
                 default:
+                        gf_uuid_unparse (local->lock.locks[lk_index]->loc.gfid, gfid);
                         local->lock.op_ret = -1;
                         local->lock.op_errno = op_errno;
+                        gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                                DHT_MSG_INODELK_FAILED,
+                                "inodelk failed on subvol %s, gfid:%s",
+                                local->lock.locks[lk_index]->xl->name, gfid);
                         goto cleanup;
                 }
         }
@@ -2169,20 +2181,35 @@ dht_blocking_inodelk (call_frame_t *frame, dht_lock_t **lk_array,
                       int lk_count, dht_reaction_type_t reaction,
                       fop_inodelk_cbk_t inodelk_cbk)
 {
-        int           ret        = -1;
-        call_frame_t *lock_frame = NULL;
-        dht_local_t  *local      = NULL;
+        int           ret                       = -1;
+        call_frame_t *lock_frame                = NULL;
+        dht_local_t  *local                     = NULL;
+        dht_local_t  *tmp_local                 = NULL;
+        char          gfid[GF_UUID_BUF_SIZE]    = {0,};
 
         GF_VALIDATE_OR_GOTO ("dht-locks", frame, out);
         GF_VALIDATE_OR_GOTO (frame->this->name, lk_array, out);
         GF_VALIDATE_OR_GOTO (frame->this->name, inodelk_cbk, out);
 
+        tmp_local = frame->local;
+
         lock_frame = dht_lock_frame (frame);
-        if (lock_frame == NULL)
+        if (lock_frame == NULL) {
+                gf_uuid_unparse (tmp_local->loc.gfid, gfid);
+                gf_msg ("dht", GF_LOG_ERROR, ENOMEM,
+                        DHT_MSG_LOCK_FRAME_FAILED,
+                        "memory allocation failed for lock_frame. gfid:%s"
+                        " path:%s", gfid, tmp_local->loc.path);
                 goto out;
+        }
 
         ret = dht_local_lock_init (lock_frame, lk_array, lk_count, inodelk_cbk);
         if (ret < 0) {
+                gf_uuid_unparse (tmp_local->loc.gfid, gfid);
+                gf_msg ("dht", GF_LOG_ERROR, ENOMEM,
+                        DHT_MSG_LOCAL_LOCK_INIT_FAILED,
+                        "dht_local_lock_init failed, gfid: %s path:%s", gfid,
+                        tmp_local->loc.path);
                 goto out;
         }
 

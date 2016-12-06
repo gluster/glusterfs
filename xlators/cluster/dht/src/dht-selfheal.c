@@ -172,10 +172,11 @@ dht_refresh_layout_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         struct iatt *stbuf, dict_t *xattr,
                         struct iatt *postparent)
 {
-        dht_local_t  *local         = NULL;
-        int           this_call_cnt = 0;
-        xlator_t     *prev          = NULL;
-        dht_layout_t *layout        = NULL;
+        dht_local_t  *local                     = NULL;
+        int           this_call_cnt             = 0;
+        xlator_t     *prev                      = NULL;
+        dht_layout_t *layout                    = NULL;
+        char          gfid[GF_UUID_BUF_SIZE]    = {0,};
 
         GF_VALIDATE_OR_GOTO ("dht", frame, err);
         GF_VALIDATE_OR_GOTO ("dht", this, err);
@@ -195,10 +196,12 @@ dht_refresh_layout_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dht_iatt_merge (this, &local->stbuf, stbuf, prev);
 
                 if (op_ret == -1) {
+                        gf_uuid_unparse (local->loc.gfid, gfid);
                         local->op_errno = op_errno;
-                        gf_msg_debug (this->name, op_errno,
-                                      "lookup of %s on %s returned error",
-                                      local->loc.path, prev->name);
+                        gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                                DHT_MSG_FILE_LOOKUP_FAILED,
+                                "lookup of %s on %s returned error, gfid: %s",
+                                local->loc.path, prev->name, gfid);
 
                         goto unlock;
                 }
@@ -229,11 +232,12 @@ err:
 int
 dht_refresh_layout (call_frame_t *frame)
 {
-        int          call_cnt = 0;
-        int          i        = 0, ret = -1;
-        dht_conf_t  *conf     = NULL;
-        dht_local_t *local    = NULL;
-        xlator_t    *this     = NULL;
+        int          call_cnt                   = 0;
+        int          i                          = 0, ret = -1;
+        dht_conf_t  *conf                       = NULL;
+        dht_local_t *local                      = NULL;
+        xlator_t    *this                       = NULL;
+        char         gfid[GF_UUID_BUF_SIZE]     = {0,};
 
         GF_VALIDATE_OR_GOTO ("dht", frame, out);
         GF_VALIDATE_OR_GOTO ("dht", frame->local, out);
@@ -254,6 +258,10 @@ dht_refresh_layout (call_frame_t *frame)
         local->selfheal.refreshed_layout = dht_layout_new (this,
                                                            conf->subvolume_cnt);
         if (!local->selfheal.refreshed_layout) {
+                gf_uuid_unparse (local->loc.gfid, gfid);
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_NO_MEMORY,
+                        "mem allocation for layout failed, path:%s gfid:%s",
+                        local->loc.path, gfid);
                 goto out;
         }
 
@@ -262,8 +270,13 @@ dht_refresh_layout (call_frame_t *frame)
         }
 
         if (local->xattr_req == NULL) {
+                gf_uuid_unparse (local->loc.gfid, gfid);
                 local->xattr_req = dict_new ();
                 if (local->xattr_req == NULL) {
+                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                DHT_MSG_NO_MEMORY,
+                                "dict mem allocation failed, path:%s gfid:%s",
+                                local->loc.path, gfid);
                         goto out;
                 }
         }
@@ -532,6 +545,7 @@ dht_selfheal_layout_lock (call_frame_t *frame, dht_layout_t *layout,
         dht_lock_t   **lk_array = NULL;
         dht_conf_t    *conf     = NULL;
         dht_layout_t  *tmp      = NULL;
+        char           gfid[GF_UUID_BUF_SIZE] = {0};
 
         GF_VALIDATE_OR_GOTO ("dht", frame, err);
         GF_VALIDATE_OR_GOTO (frame->this->name, frame->local, err);
@@ -552,29 +566,53 @@ dht_selfheal_layout_lock (call_frame_t *frame, dht_layout_t *layout,
 
                 lk_array = GF_CALLOC (count, sizeof (*lk_array),
                                       gf_common_mt_char);
-                if (lk_array == NULL)
+                if (lk_array == NULL) {
+                        gf_uuid_unparse (local->stbuf.ia_gfid, gfid);
+                        gf_msg ("dht", GF_LOG_ERROR, ENOMEM,
+                                DHT_MSG_NO_MEMORY, "mem allocation failed for "
+                                "lk_array, gfid:%s path: %s", gfid,
+                                local->loc.path);
                         goto err;
+                }
 
                 for (i = 0; i < count; i++) {
                         lk_array[i] = dht_lock_new (frame->this,
                                                     conf->subvolumes[i],
                                                     &local->loc, F_WRLCK,
                                                     DHT_LAYOUT_HEAL_DOMAIN);
-                        if (lk_array[i] == NULL)
+                        if (lk_array[i] == NULL) {
+                                gf_uuid_unparse (local->stbuf.ia_gfid, gfid);
+                                gf_msg (THIS->name, GF_LOG_ERROR, ENOMEM,
+                                        DHT_MSG_NO_MEMORY, "mem allocation "
+                                        "failed for lk_array, gfid:%s path:%s",
+                                        gfid, local->loc.path);
                                 goto err;
+                        }
                 }
         } else {
                 count = 1;
                 lk_array = GF_CALLOC (count, sizeof (*lk_array),
                                       gf_common_mt_char);
-                if (lk_array == NULL)
+                if (lk_array == NULL) {
+                        gf_uuid_unparse (local->stbuf.ia_gfid, gfid);
+                        gf_msg (THIS->name, GF_LOG_ERROR, ENOMEM,
+                                DHT_MSG_NO_MEMORY, "mem allocation failed for "
+                                "lk_array, gfid:%s path:%s",
+                                gfid, local->loc.path);
                         goto err;
+                }
 
                 lk_array[0] = dht_lock_new (frame->this, local->hashed_subvol,
                                             &local->loc, F_WRLCK,
                                             DHT_LAYOUT_HEAL_DOMAIN);
-                if (lk_array[0] == NULL)
+                if (lk_array[0] == NULL) {
+                        gf_uuid_unparse (local->stbuf.ia_gfid, gfid);
+                        gf_msg (THIS->name, GF_LOG_ERROR, ENOMEM,
+                                DHT_MSG_NO_MEMORY, "mem allocation failed for "
+                                "lk_array, gfid:%s path:%s", gfid,
+                                local->loc.path);
                         goto err;
+                }
         }
 
         local->lock.locks = lk_array;
@@ -602,28 +640,37 @@ int
 dht_selfheal_dir_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             int op_ret, int op_errno, dict_t *xdata)
 {
-        dht_local_t  *local = NULL;
-        xlator_t     *subvol = NULL;
-        struct iatt  *stbuf = NULL;
-        int           i = 0;
-        int           ret = 0;
-        dht_layout_t *layout = NULL;
-        int           err = 0;
-        int           this_call_cnt = 0;
+        dht_local_t  *local                     = NULL;
+        xlator_t     *subvol                    = NULL;
+        struct iatt  *stbuf                     = NULL;
+        int           i                         = 0;
+        int           ret                       = 0;
+        dht_layout_t *layout                    = NULL;
+        int           err                       = 0;
+        int           this_call_cnt             = 0;
+        char          gfid[GF_UUID_BUF_SIZE]    = {0};
 
         local = frame->local;
         layout = local->selfheal.layout;
         subvol = cookie;
 
-        if (op_ret == 0)
+        if (op_ret == 0) {
                 err = 0;
-        else
+        } else {
+                gf_uuid_unparse (local->loc.gfid, gfid);
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        DHT_MSG_DIR_SELFHEAL_XATTR_FAILED,
+                        "layout setxattr failed on %s, path:%s gfid:%s",
+                        subvol->name, local->loc.path, gfid);
                 err = op_errno;
+        }
 
         ret = dict_get_bin (xdata, DHT_IATT_IN_XDATA_KEY, (void **) &stbuf);
         if (ret < 0) {
-                gf_msg_debug (this->name, 0, "key = %s not present in dict",
-                              DHT_IATT_IN_XDATA_KEY);
+                gf_uuid_unparse (local->loc.gfid, gfid);
+                gf_msg_debug (this->name, 0, "key = %s not present in dict"
+                              ", path:%s gfid:%s", DHT_IATT_IN_XDATA_KEY,
+                              local->loc.path, gfid);
         }
 
         for (i = 0; i < layout->cnt; i++) {
@@ -846,6 +893,7 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
         xlator_t    *this = NULL;
         dht_conf_t   *conf = NULL;
         dht_layout_t *dummy = NULL;
+        char          gfid[GF_UUID_BUF_SIZE] = {0,};
 
         local = frame->local;
         this = frame->this;
@@ -894,8 +942,13 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
                         break;
         }
         dummy = dht_layout_new (this, 1);
-        if (!dummy)
+        if (!dummy) {
+                gf_uuid_unparse (loc->gfid, gfid);
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_NO_MEMORY,
+                        "failed to allocate dummy layout, path:%s gfid:%s",
+                        loc->path, gfid);
                 goto out;
+        }
         for (i = 0; i < conf->subvolume_cnt && missing_xattr; i++) {
                 if (_gf_false ==
                     dht_is_subvol_in_layout (layout, conf->subvolumes[i])) {
@@ -1696,14 +1749,15 @@ dht_layout_t *
 dht_fix_layout_of_directory (call_frame_t *frame, loc_t *loc,
                              dht_layout_t *layout)
 {
-        int           i            = 0;
-        xlator_t     *this         = NULL;
-        dht_layout_t *new_layout   = NULL;
-        dht_conf_t   *priv         = NULL;
-        dht_local_t  *local        = NULL;
-        uint32_t      subvol_down  = 0;
-        int           ret          = 0;
-        gf_boolean_t  maximize_overlap = _gf_true;
+        int           i                         = 0;
+        xlator_t     *this                      = NULL;
+        dht_layout_t *new_layout                = NULL;
+        dht_conf_t   *priv                      = NULL;
+        dht_local_t  *local                     = NULL;
+        uint32_t      subvol_down               = 0;
+        int           ret                       = 0;
+        gf_boolean_t  maximize_overlap          = _gf_true;
+        char          gfid[GF_UUID_BUF_SIZE]    = {0};
 
         this  = frame->this;
         priv  = this->private;
@@ -1716,18 +1770,25 @@ dht_fix_layout_of_directory (call_frame_t *frame, loc_t *loc,
         }
 
         new_layout = dht_layout_new (this, priv->subvolume_cnt);
-        if (!new_layout)
+        if (!new_layout) {
+                gf_uuid_unparse (loc->gfid, gfid);
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_NO_MEMORY,
+                        "mem allocation failed for new_layout, path:%s gfid:%s",
+                        loc->path, gfid);
                 goto done;
+        }
 
         /* If a subvolume is down, do not re-write the layout. */
         ret = dht_layout_anomalies (this, loc, layout, NULL, NULL, NULL,
                                     &subvol_down, NULL, NULL);
 
         if (subvol_down || (ret == -1)) {
+                gf_uuid_unparse (loc->gfid, gfid);
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_LAYOUT_FIX_FAILED,
                         "Layout fix failed: %u subvolume(s) are down"
-                        ". Skipping fix layout.", subvol_down);
+                        ". Skipping fix layout. path:%s gfid:%s", subvol_down,
+                        loc->path, gfid);
                 GF_FREE (new_layout);
                 return NULL;
         }
@@ -1747,9 +1808,9 @@ dht_fix_layout_of_directory (call_frame_t *frame, loc_t *loc,
                 for (i = 0; i < priv->subvolume_cnt; ++i) {
                         gf_msg (this->name, GF_LOG_DEBUG, 0,
                                 DHT_MSG_SUBVOL_INFO,
-                                "subvolume %d (%s): %u chunks", i,
+                                "subvolume %d (%s): %u chunks, path:%s", i,
                                 priv->subvolumes[i]->name,
-                                priv->du_stats[i].chunks);
+                                priv->du_stats[i].chunks, loc->path);
 
                         /* Maximize overlap if the bricks are all the same
                          *  size.
