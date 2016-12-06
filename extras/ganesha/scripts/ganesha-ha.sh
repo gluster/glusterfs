@@ -779,6 +779,96 @@ setup_state_volume()
 }
 
 
+addnode_state_volume()
+{
+    local newnode=${1}; shift
+    local mnt=${HA_VOL_MNT}
+    local longname=""
+    local dname=""
+    local dirname=""
+
+    longname=$(hostname)
+    dname=${longname#$(hostname -s)}
+
+    if [[ ${newnode} == *${dname} ]]; then
+        dirname=${newnode}
+    else
+        dirname=${newnode}${dname}
+    fi
+
+    if [ ! -d ${mnt}/nfs-ganesha/tickle_dir ]; then
+        mkdir ${mnt}/nfs-ganesha/tickle_dir
+    fi
+    if [ ! -d ${mnt}/nfs-ganesha/${dirname} ]; then
+        mkdir ${mnt}/nfs-ganesha/${dirname}
+    fi
+    if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs ]; then
+        mkdir ${mnt}/nfs-ganesha/${dirname}/nfs
+    fi
+    if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha ]; then
+        mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha
+    fi
+    if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/statd ]; then
+        mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/statd
+    fi
+    if [ ! -e ${mnt}/nfs-ganesha/${dirname}/nfs/state ]; then
+        touch ${mnt}/nfs-ganesha/${dirname}/nfs/state
+    fi
+    if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/v4recov ]; then
+        mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/v4recov
+    fi
+    if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/v4old ]; then
+        mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/v4old
+    fi
+    if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm ]; then
+        mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm
+    fi
+    if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm.bak ]; then
+        mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm.bak
+    fi
+    if [ ! -e ${mnt}/nfs-ganesha/${dirname}/nfs/statd/state ]; then
+        touch ${mnt}/nfs-ganesha/${dirname}/nfs/statd/state
+    fi
+
+    for server in ${HA_SERVERS} ; do
+        ln -s ${mnt}/nfs-ganesha/${server}/nfs/ganesha ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/${server}
+        ln -s ${mnt}/nfs-ganesha/${server}/nfs/statd ${mnt}/nfs-ganesha/${dirname}/nfs/statd/${server}
+
+        ln -s ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha ${mnt}/nfs-ganesha/${server}/nfs/ganesha/${dirname}
+        ln -s ${mnt}/nfs-ganesha/${dirname}/nfs/statd ${mnt}/nfs-ganesha/${server}/nfs/statd/${dirname}
+    done
+
+}
+
+
+delnode_state_volume()
+{
+    local delnode=${1}; shift
+    local mnt=${HA_VOL_MNT}
+    local longname=""
+    local dname=""
+    local dirname=""
+
+    longname=$(hostname)
+    dname=${longname#$(hostname -s)}
+
+    if [[ ${delnode} == *${dname} ]]; then
+        dirname=${delnode}
+    else
+        dirname=${delnode}${dname}
+    fi
+
+    rm -rf ${mnt}/nfs-ganesha/${dirname}
+
+    for server in ${HA_SERVERS} ; do
+        if [[ "${server}" != "${dirname}" ]]; then
+            rm -f ${mnt}/nfs-ganesha/${server}/nfs/ganesha/${dirname}
+            rm -f ${mnt}/nfs-ganesha/${server}/nfs/statd/${dirname}
+        fi
+    done
+}
+
+
 status()
 {
     local scratch=$(mktemp)
@@ -968,6 +1058,9 @@ main()
 
         sed -i s/HA_CLUSTER_NODES.*/"HA_CLUSTER_NODES=\"$NEW_NODES\""/ \
 $HA_CONFDIR/ganesha-ha.conf
+
+        addnode_state_volume ${node}
+
         HA_SERVERS="${HA_SERVERS} ${node}"
 
         HA_NUM_SERVERS=$(expr ${HA_NUM_SERVERS} + 1)
@@ -990,7 +1083,7 @@ $HA_CONFDIR/ganesha-ha.conf
 
         deletenode_update_haconfig ${node}
 
-        rm -rf ${HA_VOL_MNT}/nfs-ganesha/${node}
+        delnode_state_volume ${node}
 
         determine_service_manager
 
