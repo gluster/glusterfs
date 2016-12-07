@@ -585,7 +585,7 @@ struct dictidxmark {
 
 struct slave_vol_config {
        char      old_slvhost[_POSIX_HOST_NAME_MAX+1];
-       char      old_slvuser[_POSIX_LOGIN_NAME_MAX];
+       char      old_slvuser[LOGIN_NAME_MAX];
        unsigned  old_slvidx;
        char      slave_voluuid[GF_UUID_BUF_SIZE];
 };
@@ -2919,6 +2919,14 @@ get_slavehost_from_voluuid (dict_t *dict, char *key, data_t *value, void *data)
                         /* To go past username in non-root geo-rep session */
                         tmp = strchr (slave_host, '@');
                         if (tmp) {
+                                if ((tmp - slave_host) >= LOGIN_NAME_MAX) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_SLAVE_VOL_PARSE_FAIL,
+                                                "Invalid slave user length in %s",
+                                                slave_host);
+                                        ret = -2;
+                                        goto out;
+                                }
                                 strncpy (slave_vol->old_slvuser, slave_host,
                                                  (tmp - slave_host));
                                 slave_vol->old_slvuser[(tmp - slave_host) + 1]
@@ -3337,7 +3345,8 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                 }
         } else if (ret == -2) {
                 snprintf (errmsg, sizeof (errmsg), "get_slavehost_from_voluuid"
-                          " failed %s %s!!", slave_host, slave_vol);
+                          " failed for %s::%s. Please check the glusterd logs.",
+                          slave_host, slave_vol);
                 gf_msg (this->name, GF_LOG_INFO, 0, GD_MSG_FORCE_CREATE_SESSION,
                         "get_slavehost_from_voluuid failed %s %s!!",
                          slave_host, slave_vol);
