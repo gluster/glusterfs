@@ -46,6 +46,10 @@ def main():
         ls_glusterfind_dir = []
 
     for session in ls_glusterfind_dir:
+        # don't blow away the keys directory
+        if session == ".keys":
+            continue
+
         # Possible session directory
         volume_session_path = os.path.join(glusterfind_dir,
                                            session,
