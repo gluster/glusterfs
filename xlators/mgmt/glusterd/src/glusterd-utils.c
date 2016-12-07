@@ -1131,8 +1131,8 @@ glusterd_brickinfo_new_from_brick (char *brick,
                                 "Failed to convert hostname %s to uuid",
                                 hostname);
                         if (op_errstr)
-                                gf_asprintf (op_errstr, "Host %s is not in \' "
-                                             "Peer in Cluster\' state",
+                                gf_asprintf (op_errstr, "Host %s is not in "
+                                             "\'Peer in Cluster\' state",
                                              new_brickinfo->hostname);
                         goto out;
                 }
