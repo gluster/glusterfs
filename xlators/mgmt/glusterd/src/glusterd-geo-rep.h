@@ -20,7 +20,7 @@
 /* slave info format:
  * <master host uuid>:ssh://{<slave_user>@}<slave host>::<slave volume> \
  * :<slave volume uuid> */
-#define VOLINFO_SLAVE_URL_MAX (_POSIX_LOGIN_NAME_MAX + (2*GF_UUID_BUF_SIZE) \
+#define VOLINFO_SLAVE_URL_MAX (LOGIN_NAME_MAX + (2*GF_UUID_BUF_SIZE) \
                                  + SLAVE_URL_INFO_MAX + 10)
 
 typedef struct glusterd_gsync_status_temp {
