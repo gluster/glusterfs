@@ -1107,7 +1107,9 @@ glusterd_brickinfo_new_from_brick (char *brick,
         char                   *path          = NULL;
         char                   *tmp_host      = NULL;
         char                   *tmp_path      = NULL;
+#ifdef HAVE_BD_XLATOR
         char                   *vg            = NULL;
+#endif
         int32_t                 ret           = -1;
         glusterd_brickinfo_t   *new_brickinfo = NULL;
         xlator_t               *this          = NULL;
@@ -1140,8 +1142,6 @@ glusterd_brickinfo_new_from_brick (char *brick,
                 *vg = '\0';
         }
         new_brickinfo->caps = CAPS_BD;
-#else
-        vg = NULL; /* Avoid compiler warnings when BD not enabled */
 #endif
         ret = gf_canonicalize_path (path);
         if (ret)
