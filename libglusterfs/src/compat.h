@@ -158,6 +158,10 @@ enum {
 #define s6_addr32 __u6_addr.__u6_addr32
 #endif
 
+#ifndef LOGIN_NAME_MAX
+#define LOGIN_NAME_MAX 256
+#endif
+
 /* Posix dictates NAME_MAX to be used */
 # ifndef NAME_MAX
 #  ifdef  MAXNAMLEN
