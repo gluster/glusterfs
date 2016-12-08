@@ -2905,18 +2905,24 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                 defrag_cmd = GF_DEFRAG_CMD_START_FORCE;
                 if (cmd == GF_OP_CMD_DETACH_START)
                         defrag_cmd = GF_DEFRAG_CMD_START_DETACH_TIER;
+                /*
+                 * We need to set this *before* we issue commands to the
+                 * bricks, or else we might end up setting it after the bricks
+                 * have responded.  If we fail to send the request(s) we'll
+                 * clear it ourselves because nobody else will.
+                 */
+                volinfo->decommission_in_progress = 1;
                 ret = glusterd_handle_defrag_start
                         (volinfo, err_str, sizeof (err_str),
                          defrag_cmd,
                          glusterd_remove_brick_migrate_cbk, GD_OP_REMOVE_BRICK);
 
-                if (!ret)
-                        volinfo->decommission_in_progress = 1;
-
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_REBALANCE_START_FAIL,
                                 "failed to start the rebalance");
+                        /* TBD: shouldn't we do more than print a message? */
+                        volinfo->decommission_in_progress = 0;
                 }
         } else {
                 if (GLUSTERD_STATUS_STARTED == volinfo->status)

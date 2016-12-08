@@ -16,7 +16,7 @@ EXPECT 'Started' volinfo_field $V0 'Status'
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}1
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}2
-TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 --entry-timeout=0 $M0;
+TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0;
 TEST ! stat $M0/.meta/graphs/active/$V0-replicate-0/options/arbiter-count
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
@@ -42,7 +42,7 @@ EXPECT 'Started' volinfo_field $V0 'Status'
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}1
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}2
-TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 --attribute-timeout=0 --entry-timeout=0 $M0;
+TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0;
 TEST stat $M0/.meta/graphs/active/$V0-replicate-0/options/arbiter-count
 EXPECT "1" cat $M0/.meta/graphs/active/$V0-replicate-0/options/arbiter-count
 

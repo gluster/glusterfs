@@ -5021,6 +5021,16 @@ fuse_thread_proc (void *data)
 
                 priv->iobuf = iobuf;
 
+                /*
+                 * This can be moved around a bit, but it's important to do it
+                 * *after* the readv.  Otherwise, a graph switch could occur
+                 * while we're in readv and we'll process the next request on
+                 * the old graph before we come to the part of the loop above
+                 * readv and check again.  That would be wrong.
+                 */
+                if (priv->init_recvd)
+                        fuse_graph_sync (this);
+
                 if (finh->opcode == FUSE_WRITE)
                         msg = iov_in[1].iov_base;
                 else {

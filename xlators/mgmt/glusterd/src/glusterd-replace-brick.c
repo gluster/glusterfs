@@ -326,22 +326,6 @@ out:
         return ret;
 }
 
-static int
-rb_kill_destination_brick (glusterd_volinfo_t *volinfo,
-                           glusterd_brickinfo_t *dst_brickinfo)
-{
-        glusterd_conf_t  *priv               = NULL;
-        char              pidfile[PATH_MAX]  = {0,};
-
-        priv = THIS->private;
-
-        snprintf (pidfile, PATH_MAX, "%s/vols/%s/%s",
-                  priv->workdir, volinfo->volname,
-                  RB_DSTBRICK_PIDFILE);
-
-        return glusterd_service_stop ("brick", pidfile, SIGTERM, _gf_true);
-}
-
 
 int
 glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
@@ -524,17 +508,6 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
         if (strcmp (replace_op, "GF_REPLACE_OP_COMMIT_FORCE")) {
                 ret = -1;
                 goto out;
-        }
-
-        if (gf_is_local_addr (dst_brickinfo->hostname)) {
-                gf_msg_debug (this->name, 0, "I AM THE DESTINATION HOST");
-                ret = rb_kill_destination_brick (volinfo, dst_brickinfo);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_CRITICAL, 0,
-                                GD_MSG_BRK_CLEANUP_FAIL,
-                                "Unable to cleanup dst brick");
-                        goto out;
-                }
         }
 
         ret = glusterd_svcs_stop (volinfo);

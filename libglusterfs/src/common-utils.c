@@ -3646,21 +3646,32 @@ gf_is_service_running (char *pidfile, int *pid)
         int             fno = 0;
 
         file = fopen (pidfile, "r+");
-        if (!file)
+        if (!file) {
                 goto out;
+        }
 
         fno = fileno (file);
         ret = lockf (fno, F_TEST, 0);
         if (ret == -1)
                 running = _gf_true;
-        if (!pid)
+        if (!pid) {
                 goto out;
+        }
 
         ret = fscanf (file, "%d", pid);
         if (ret <= 0) {
                 gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
                         "Unable to read pidfile: %s", pidfile);
                 *pid = -1;
+        }
+
+        if (!*pid) {
+                /*
+                 * PID 0 means we've started the process, but it hasn't gotten
+                 * far enough to put in a real PID yet.  More details are in
+                 * glusterd_brick_start.
+                 */
+                running = _gf_true;
         }
 
 out:

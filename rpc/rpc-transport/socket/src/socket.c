@@ -731,8 +731,6 @@ __socket_disconnect (rpc_transport_t *this)
                          * Without this, reconnect (= disconnect + connect)
                          * won't work except by accident.
                          */
-                        sys_close (priv->sock);
-                        priv->sock = -1;
                         gf_log (this->name, GF_LOG_TRACE,
                                 "OT_PLEASE_DIE on %p", this);
                         priv->ot_state = OT_PLEASE_DIE;

@@ -524,30 +524,30 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                 */
 
                 pthread_mutex_lock (&conf->mutex);
-                {
-                        list_add_tail (&trans->list, &conf->xprt_list);
-                }
+                rpc_transport_ref (trans);
+                list_add_tail (&trans->list, &conf->xprt_list);
                 pthread_mutex_unlock (&conf->mutex);
 
                 break;
         }
         case RPCSVC_EVENT_DISCONNECT:
+
                 /* A DISCONNECT event could come without an ACCEPT event
                  * happening for this transport. This happens when the server is
                  * expecting encrypted connections by the client tries to
                  * connect unecnrypted
                  */
-                if (list_empty (&trans->list))
+                if (list_empty (&trans->list)) {
                         break;
+                }
 
                 /* transport has to be removed from the list upon disconnect
                  * irrespective of whether lock self heal is off or on, since
                  * new transport will be created upon reconnect.
                  */
                 pthread_mutex_lock (&conf->mutex);
-                {
-                        list_del_init (&trans->list);
-                }
+                list_del_init (&trans->list);
+                rpc_transport_unref (trans);
                 pthread_mutex_unlock (&conf->mutex);
 
                 client = trans->xl_private;
@@ -667,6 +667,8 @@ _delete_auth_opt (dict_t *this, char *key, data_t *value, void *data)
 {
         char *auth_option_pattern[] = { "auth.addr.*.allow",
                                         "auth.addr.*.reject",
+                                        "auth.login.*.allow",
+                                        "auth.login.*.password",
                                         "auth.login.*.ssl-allow",
                                         NULL};
         int i = 0;
@@ -687,6 +689,8 @@ _copy_auth_opt (dict_t *unused, char *key, data_t *value, void *xl_dict)
 {
         char *auth_option_pattern[] = { "auth.addr.*.allow",
                                         "auth.addr.*.reject",
+                                        "auth.login.*.allow",
+                                        "auth.login.*.password",
                                         "auth.login.*.ssl-allow",
                                         NULL};
         int i = 0;
@@ -729,15 +733,19 @@ out:
 }
 
 int
-server_check_event_threads (xlator_t *this, server_conf_t *conf, int32_t old,
-                            int32_t new)
+server_check_event_threads (xlator_t *this, server_conf_t *conf, int32_t new)
 {
-        if (old == new)
-                return 0;
+        struct event_pool       *pool   = this->ctx->event_pool;
+        int                     target;
 
+        target = new + pool->auto_thread_count;
         conf->event_threads = new;
-        return event_reconfigure_threads (this->ctx->event_pool,
-                                          conf->event_threads);
+
+        if (target == pool->eventthreadcount) {
+                return 0;
+        }
+
+        return event_reconfigure_threads (pool, target);
 }
 
 int
@@ -748,6 +756,7 @@ reconfigure (xlator_t *this, dict_t *options)
         rpcsvc_t                 *rpc_conf;
         rpcsvc_listener_t        *listeners;
         rpc_transport_t          *xprt = NULL;
+        rpc_transport_t          *xp_next = NULL;
         int                       inode_lru_limit;
         gf_boolean_t              trace;
         data_t                   *data;
@@ -755,6 +764,19 @@ reconfigure (xlator_t *this, dict_t *options)
         char                     *statedump_path = NULL;
         int32_t                   new_nthread = 0;
         char                     *auth_path = NULL;
+        char                     *xprt_path = NULL;
+        xlator_t                 *oldTHIS;
+        xlator_t                 *kid;
+
+        /*
+         * Since we're not a fop, we can't really count on THIS being set
+         * correctly, and it needs to be or else GF_OPTION_RECONF won't work
+         * (because it won't find our options list).  This is another thing
+         * that "just happened" to work before multiplexing, but now we need to
+         * handle it more explicitly.
+         */
+        oldTHIS = THIS;
+        THIS = this;
 
         conf = this->private;
 
@@ -762,6 +784,19 @@ reconfigure (xlator_t *this, dict_t *options)
                 gf_msg_callingfn (this->name, GF_LOG_DEBUG, EINVAL,
                                   PS_MSG_INVALID_ENTRY, "conf == null!!!");
                 goto out;
+        }
+
+        /*
+         * For some of the auth/rpc stuff, we need to operate on the correct
+         * child, but for other stuff we need to operate on the server
+         * translator itself.
+         */
+        kid = NULL;
+        if (dict_get_str (options, "auth-path", &auth_path) == 0) {
+                kid = get_xlator_by_name (this, auth_path);
+        }
+        if (!kid) {
+                kid = this;
         }
 
         if (dict_get_int32 ( options, "inode-lru-limit", &inode_lru_limit) == 0){
@@ -795,48 +830,50 @@ reconfigure (xlator_t *this, dict_t *options)
         }
 
         GF_OPTION_RECONF ("statedump-path", statedump_path,
-                          options, path, out);
+                          options, path, do_auth);
         if (!statedump_path) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         PS_MSG_STATEDUMP_PATH_ERROR,
                         "Error while reconfiguring statedump path");
                 ret = -1;
-                goto out;
+                goto do_auth;
         }
         gf_path_strip_trailing_slashes (statedump_path);
         GF_FREE (this->ctx->statedump_path);
         this->ctx->statedump_path = gf_strdup (statedump_path);
 
+do_auth:
         if (!conf->auth_modules)
                 conf->auth_modules = dict_new ();
 
         dict_foreach (options, get_auth_types, conf->auth_modules);
-        ret = validate_auth_options (this, options);
+        ret = validate_auth_options (kid, options);
         if (ret == -1) {
                 /* logging already done in validate_auth_options function. */
                 goto out;
         }
 
-        dict_foreach (this->options, _delete_auth_opt, this->options);
-        dict_foreach (options, _copy_auth_opt, this->options);
+        dict_foreach (kid->options, _delete_auth_opt, NULL);
+        dict_foreach (options, _copy_auth_opt, kid->options);
 
-        ret = gf_auth_init (this, conf->auth_modules);
+        ret = gf_auth_init (kid, conf->auth_modules);
         if (ret) {
                 dict_unref (conf->auth_modules);
                 goto out;
         }
 
         GF_OPTION_RECONF ("manage-gids", conf->server_manage_gids, options,
-                          bool, out);
+                          bool, do_rpc);
 
         GF_OPTION_RECONF ("gid-timeout", conf->gid_cache_timeout, options,
-                          int32, out);
+                          int32, do_rpc);
         if (gid_cache_reconf (&conf->gid_cache, conf->gid_cache_timeout) < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, PS_MSG_GRP_CACHE_ERROR,
                         "Failed to reconfigure group cache.");
-                goto out;
+                goto do_rpc;
         }
 
+do_rpc:
         rpc_conf = conf->rpc;
         if (!rpc_conf) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, PS_MSG_RPC_CONF_ERROR,
@@ -857,7 +894,14 @@ reconfigure (xlator_t *this, dict_t *options)
         if (conf->dync_auth) {
                 pthread_mutex_lock (&conf->mutex);
                 {
-                        list_for_each_entry (xprt, &conf->xprt_list, list) {
+                        /*
+                         * Disconnecting will (usually) drop the last ref,
+                         * which will cause the transport to be unlinked and
+                         * freed while we're still traversing, which will cause
+                         * us to crash unless we use list_for_each_entry_safe.
+                         */
+                        list_for_each_entry_safe (xprt, xp_next,
+                                                  &conf->xprt_list, list) {
                                 /* check for client authorization */
                                 if (!xprt->clnt_options) {
                                         /* If clnt_options dictionary is null,
@@ -871,25 +915,28 @@ reconfigure (xlator_t *this, dict_t *options)
                                          */
                                         continue;
                                 }
+                                /*
+                                 * Make sure we're only operating on
+                                 * connections that are relevant to the brick
+                                 * we're reconfiguring.
+                                 */
+                                if (dict_get_str (xprt->clnt_options,
+                                                  "remote-subvolume",
+                                                  &xprt_path) != 0) {
+                                        continue;
+                                }
+                                if (strcmp (xprt_path, auth_path) != 0) {
+                                        continue;
+                                }
                                 ret = gf_authenticate (xprt->clnt_options,
-                                                options, conf->auth_modules);
+                                                       options,
+                                                       conf->auth_modules);
                                 if (ret == AUTH_ACCEPT) {
-                                        gf_msg (this->name, GF_LOG_TRACE, 0,
+                                        gf_msg (kid->name, GF_LOG_TRACE, 0,
                                                PS_MSG_CLIENT_ACCEPTED,
                                                "authorized client, hence we "
                                                "continue with this connection");
                                 } else {
-                                        ret = dict_get_str (this->options,
-                                                            "auth-path",
-                                                            &auth_path);
-                                        if (ret) {
-                                                gf_msg (this->name,
-                                                        GF_LOG_WARNING, 0,
-                                                        PS_MSG_DICT_GET_FAILED,
-                                                        "failed to get "
-                                                        "auth-path");
-                                                auth_path = NULL;
-                                        }
                                         gf_event (EVENT_CLIENT_AUTH_REJECT,
                                                   "client_uid=%s;"
                                                   "client_identifier=%s;"
@@ -932,15 +979,21 @@ reconfigure (xlator_t *this, dict_t *options)
                 }
         }
 
+        /*
+         * Let the event subsystem know that we're auto-scaling, with an
+         * initial count of one.
+         */
+        ((struct event_pool *)(this->ctx->event_pool))->auto_thread_count = 1;
+
         GF_OPTION_RECONF ("event-threads", new_nthread, options, int32, out);
-        ret = server_check_event_threads (this, conf, conf->event_threads,
-                                          new_nthread);
+        ret = server_check_event_threads (this, conf, new_nthread);
         if (ret)
                 goto out;
 
         ret = server_init_grace_timer (this, options, conf);
 
 out:
+        THIS = oldTHIS;
         gf_msg_debug ("", 0, "returning %d", ret);
         return ret;
 }
@@ -1001,8 +1054,7 @@ init (xlator_t *this)
 
          /* Set event threads to the configured default */
         GF_OPTION_INIT("event-threads", conf->event_threads, int32, out);
-        ret = server_check_event_threads (this, conf, STARTING_EVENT_THREADS,
-                                          conf->event_threads);
+        ret = server_check_event_threads (this, conf, conf->event_threads);
         if (ret)
                 goto out;
 
@@ -1183,9 +1235,13 @@ init (xlator_t *this)
                 }
         }
 #endif
-        this->private = conf;
 
+        FIRST_CHILD(this)->volfile_id
+                = gf_strdup (this->ctx->cmd_args.volfile_id);
+
+        this->private = conf;
         ret = 0;
+
 out:
         if (ret) {
                 if (this != NULL) {
@@ -1350,6 +1406,8 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 {
         int              ret          = -1;
         server_conf_t    *conf        = NULL;
+        rpc_transport_t  *xprt        = NULL;
+        rpc_transport_t  *xp_next     = NULL;
 
         GF_VALIDATE_OR_GOTO (THIS->name, this, out);
         conf = this->private;
@@ -1412,6 +1470,31 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                 break;
 
         }
+
+        case GF_EVENT_TRANSPORT_CLEANUP:
+                conf = this->private;
+                pthread_mutex_lock (&conf->mutex);
+                /*
+                 * Disconnecting will (usually) drop the last ref, which will
+                 * cause the transport to be unlinked and freed while we're
+                 * still traversing, which will cause us to crash unless we use
+                 * list_for_each_entry_safe.
+                 */
+                list_for_each_entry_safe (xprt, xp_next,
+                                          &conf->xprt_list, list) {
+                        if (!xprt->xl_private) {
+                                continue;
+                        }
+                        if (xprt->xl_private->bound_xl == data) {
+                                gf_log (this->name, GF_LOG_INFO,
+                                        "disconnecting %s",
+                                        xprt->peerinfo.identifier);
+                                rpc_transport_disconnect (xprt, _gf_false);
+                        }
+                }
+                pthread_mutex_unlock (&conf->mutex);
+                /* NB: do *not* propagate anywhere else */
+                break;
 
         default:
                 default_notify (this, event, data);
@@ -1568,12 +1651,12 @@ struct volume_options options[] = {
         { .key   = {"event-threads"},
           .type  = GF_OPTION_TYPE_INT,
           .min   = 1,
-          .max   = 32,
-          .default_value = "2",
+          .max   = 1024,
+          .default_value = "1",
           .description = "Specifies the number of event threads to execute "
                          "in parallel. Larger values would help process"
                          " responses faster, depending on available processing"
-                         " power. Range 1-32 threads."
+                         " power."
         },
         { .key   = {"dynamic-auth"},
           .type  = GF_OPTION_TYPE_BOOL,

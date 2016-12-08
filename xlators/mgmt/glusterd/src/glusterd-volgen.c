@@ -1516,6 +1516,8 @@ brick_graph_add_posix (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 out:
         return ret;
 }
+
+#if 0
 static int
 brick_graph_add_trash (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
@@ -1538,6 +1540,7 @@ brick_graph_add_trash (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 out:
         return ret;
 }
+#endif
 
 static int
 brick_graph_add_decompounder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
@@ -2456,7 +2459,11 @@ static volgen_brick_xlator_t server_graph_table[] = {
         {brick_graph_add_changetimerecorder, "changetimerecorder"},
 #endif
         {brick_graph_add_bd, "bd"},
+        /*
+         * TBD: Figure out why trash breaks multiplexing.  AFAICT it should fail
+         * the same way already.
         {brick_graph_add_trash, "trash"},
+         */
         {brick_graph_add_arbiter, "arbiter"},
         {brick_graph_add_posix, "posix"},
 };

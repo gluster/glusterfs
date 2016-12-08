@@ -950,6 +950,9 @@ struct _xlator {
         /* for the memory pool of 'frame->local' */
         struct mem_pool    *local_pool;
         gf_boolean_t        is_autoloaded;
+
+        /* Saved volfile ID (used for multiplexing) */
+        char               *volfile_id;
 };
 
 typedef struct {
@@ -1004,6 +1007,8 @@ void xlator_foreach_depth_first (xlator_t *this,
 				 void *data);
 
 xlator_t *xlator_search_by_name (xlator_t *any, const char *name);
+xlator_t *get_xlator_by_name (xlator_t *this, char *target);
+xlator_t *get_xlator_by_type (xlator_t *this, char *target);
 
 void
 xlator_set_inode_lru_limit (xlator_t *this, void *data);
@@ -1050,5 +1055,7 @@ xlator_subvolume_count (xlator_t *this);
 
 void xlator_init_lock (void);
 void xlator_init_unlock (void);
+int
+copy_opts_to_child (xlator_t *src, xlator_t *dst, char *glob);
 
 #endif /* _XLATOR_H */

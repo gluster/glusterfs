@@ -2758,7 +2758,7 @@ changelog_init_rpc (xlator_t *this, changelog_priv_t *priv)
         if (!priv->rbuf)
                 goto cleanup_thread;
 
-        rpc = changelog_init_rpc_listner (this, priv,
+        rpc = changelog_init_rpc_listener (this, priv,
                                           priv->rbuf, NR_DISPATCHERS);
         if (!rpc)
                 goto cleanup_rbuf;

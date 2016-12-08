@@ -246,19 +246,43 @@ function quotad_up_status {
         gluster volume status | grep "Quota Daemon" | awk '{print $7}'
 }
 
-function get_brick_pid {
+function get_brick_pidfile {
         local vol=$1
         local host=$2
         local brick=$3
         local brick_hiphenated=$(echo $brick | tr '/' '-')
-        echo `cat $GLUSTERD_WORKDIR/vols/$vol/run/${host}${brick_hiphenated}.pid`
+        echo $GLUSTERD_WORKDIR/vols/$vol/run/${host}${brick_hiphenated}.pid
+}
+
+function get_brick_pid {
+	cat $(get_brick_pidfile $*)
 }
 
 function kill_brick {
         local vol=$1
         local host=$2
         local brick=$3
-        kill -9 $(get_brick_pid $vol $host $brick)
+
+	local pidfile=$(get_brick_pidfile $vol $host $brick)
+	local cmdline="/proc/$(cat $pidfile)/cmdline"
+	local socket=$(cat $cmdline | tr '\0' '\n' | grep '\.socket$')
+
+	gf_attach -d $socket $brick
+	# Since we're not going through glusterd, we need to clean up the
+	# pidfile ourselves.  However, other state in glusterd (e.g.
+	# started_here) won't be updated.  A "stop-brick" CLI command would
+	# sure be useful.
+	rm -f $pidfile
+
+	# When the last brick in a process is terminated, the process has to
+	# sleep for a second to give the RPC response a chance to get back to
+	# GlusterD.  Without that, we get random failures in tests that use
+	# "volume stop" whenever the process termination is observed before the
+	# RPC response.  However, that same one-second sleep can cause other
+	# random failures in tests that assume a brick will already be gone
+	# before "gf_attach -d" returns.  There are too many of those to fix,
+	# so we compensate by putting the same one-second sleep here.
+	sleep 1
 }
 
 function check_option_help_presence {

@@ -69,7 +69,7 @@ esac
 DEBUG=${DEBUG:=0}             # turn on debugging?
 
 PROCESS_DOWN_TIMEOUT=5
-PROCESS_UP_TIMEOUT=20
+PROCESS_UP_TIMEOUT=30
 NFS_EXPORT_TIMEOUT=20
 CHILD_UP_TIMEOUT=20
 PROBE_TIMEOUT=60
@@ -91,7 +91,24 @@ statedumpdir=`gluster --print-statedumpdir`; # Default directory for statedump
 
 CLI="gluster --mode=script --wignore";
 CLI_NO_FORCE="gluster --mode-script";
-GFS="glusterfs --attribute-timeout=0 --entry-timeout=0";
+_GFS () {
+	glusterfs "$@"
+	local mount_ret=$?
+	if [ $mount_ret != 0 ]; then
+		return $mount_ret
+	fi
+	local mount_point=${!#}
+	local i=0
+	while true; do
+		touch $mount_point/xy_zzy 2> /dev/null && break
+		i=$((i+1))
+		[ $i -lt 10 ] || break
+		sleep 1
+	done
+	rm -f $mount_point/xy_zzy
+	return $mount_ret
+}
+GFS="_GFS --attribute-timeout=0 --entry-timeout=0";
 
 mkdir -p $WORKDIRS
 
@@ -180,6 +197,7 @@ function test_footer()
                         echo "FAILED COMMAND: $saved_cmd"
                 fi
                 if [ "$EXIT_EARLY" = "1" ]; then
+			cleanup
                         exit $RET
                 fi
         fi

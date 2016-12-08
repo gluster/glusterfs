@@ -19,6 +19,14 @@ function create_dist_tier_vol () {
         TEST $CLI_1 volume attach-tier $V0 $H1:$B1/${V0}_h1 $H2:$B2/${V0}_h2 $H3:$B3/${V0}_h3
 }
 
+function tier_daemon_status {
+        local _VAR=CLI_$1
+        local xpath_sel='//node[hostname="Tier Daemon"][path="localhost"]/status'
+        ${!_VAR} --xml volume status $V0 \
+                | xmllint --xpath "$xpath_sel" - \
+                | sed -n '/.*<status>\([0-9]*\).*/s//\1/p'
+}
+
 cleanup;
 
 #setup cluster and test volume
@@ -54,6 +62,17 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" tier_status_node_down
 TEST $glusterd_2;
 
 EXPECT_WITHIN $PROBE_TIMEOUT 2 check_peers;
+# Make sure we check that the *bricks* are up and not just the node.  >:-(
+EXPECT_WITHIN $CHILD_UP_TIMEOUT 1 brick_up_status_1 $V0 $H2 $B2/${V0}
+EXPECT_WITHIN $CHILD_UP_TIMEOUT 1 brick_up_status_1 $V0 $H2 $B2/${V0}_h2
+
+# Parsing normal output doesn't work because of line-wrap issues on our
+# regression machines, and the version of xmllint there doesn't support --xpath
+# so we can't do it that way either.  In short, there's no way for us to detect
+# when we can stop waiting, so we just have to wait the maximum time every time
+# and hope any failures will show up later in the script.
+sleep $PROCESS_UP_TIMEOUT
+#XPECT_WITHIN $PROCESS_UP_TIMEOUT 1 tier_daemon_status 2
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" tier_detach_status
 

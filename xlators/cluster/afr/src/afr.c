@@ -89,6 +89,10 @@ static void
 fix_quorum_options (xlator_t *this, afr_private_t *priv, char *qtype,
                     dict_t *options)
 {
+
+        gf_log (this->name, GF_LOG_INFO,
+                "reindeer: incoming qtype = %s", qtype);
+
         if (dict_get (options, "quorum-type") == NULL) {
                 /* If user doesn't configure anything enable auto-quorum if the
                  * replica has more than two subvolumes */
@@ -107,6 +111,9 @@ fix_quorum_options (xlator_t *this, afr_private_t *priv, char *qtype,
         } else if (!strcmp (qtype, "auto")) {
                 priv->quorum_count = AFR_QUORUM_AUTO;
         }
+
+        gf_log (this->name, GF_LOG_INFO,
+                "reindeer: quorum_count = %d", priv->quorum_count);
 }
 
 int

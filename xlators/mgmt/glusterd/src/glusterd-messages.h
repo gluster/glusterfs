@@ -28,7 +28,7 @@
  *       - Append to the list of messages defined, towards the end
  *       - Retain macro naming as glfs_msg_X (for redability across developers)
  * NOTE: Rules for message format modifications
- * 3) Check acorss the code if the message ID macro in question is reused
+ * 3) Check across the code if the message ID macro in question is reused
  *    anywhere. If reused then then the modifications should ensure correctness
  *    everywhere, or needs a new message ID as (1) above was not adhered to. If
  *    not used anywhere, proceed with the required modification.
@@ -41,7 +41,7 @@
 
 #define GLUSTERD_COMP_BASE      GLFS_MSGID_GLUSTERD
 
-#define GLFS_NUM_MESSAGES       595
+#define GLFS_NUM_MESSAGES       597
 
 #define GLFS_MSGID_END          (GLUSTERD_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
@@ -4817,5 +4817,18 @@
  */
 
 /*------------*/
+
+#define GD_MSG_BRICK_MX_SET_FAIL                   (GLUSTERD_COMP_BASE + 596)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+
+#define GD_MSG_NO_SIG_TO_PID_ZERO                  (GLUSTERD_COMP_BASE + 597)
+
+/*------------*/
+
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* !_GLUSTERD_MESSAGES_H_ */

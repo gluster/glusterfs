@@ -19,6 +19,7 @@ kill_glusterd 2
 TEST ! $CLI_1 volume remove-brick $V0 $H2:$B2/${V0} start
 
 TEST start_glusterd 2
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status_1 $V0 $H2 $B2/${V0}
 
 EXPECT_WITHIN $PROBE_TIMEOUT 2 peer_count
 
@@ -33,6 +34,7 @@ kill_glusterd 2
 TEST ! $CLI_1 volume remove-brick $V0 $H2:$B2/${V0} commit
 
 TEST start_glusterd 2
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status_1 $V0 $H2 $B2/${V0}
 
 EXPECT_WITHIN $PROBE_TIMEOUT 2 peer_count
 

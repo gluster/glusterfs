@@ -21,7 +21,7 @@
 #define CHANGELOG_RPC_PROGNAME  "GlusterFS Changelog"
 
 rpcsvc_t *
-changelog_init_rpc_listner (xlator_t *, changelog_priv_t *, rbuf_t *, int);
+changelog_init_rpc_listener (xlator_t *, changelog_priv_t *, rbuf_t *, int);
 
 void
 changelog_destroy_rpc_listner (xlator_t *, changelog_priv_t *);

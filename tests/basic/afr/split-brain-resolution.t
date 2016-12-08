@@ -16,7 +16,7 @@ TEST $CLI volume start $V0
 #Disable self-heal-daemon
 TEST $CLI volume set $V0 cluster.self-heal-daemon off
 
-TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 --entry-timeout=0 $M0;
+TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0;
 
 TEST `echo "some-data" > $M0/data-split-brain.txt`
 TEST `echo "some-data" > $M0/metadata-split-brain.txt`

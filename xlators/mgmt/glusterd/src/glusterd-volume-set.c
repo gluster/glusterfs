@@ -3145,6 +3145,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .flags       = OPT_FLAG_CLIENT_OPT,
           .op_version  = GD_OP_VERSION_3_9_1,
         },
+
+        /* Brick multiplexing options */
+        { .key         = GLUSTERD_BRICK_MULTIPLEX_KEY,
+          .voltype     = "mgmt/glusterd",
+          .value       = "off",
+          .op_version  = GD_OP_VERSION_3_10_0
+        },
         { .key         = NULL
         }
 };

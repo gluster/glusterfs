@@ -54,6 +54,7 @@
                                         "S32gluster_enable_shared_storage.sh"
 #define GLUSTER_SHARED_STORAGE          "gluster_shared_storage"
 #define GLUSTERD_SHARED_STORAGE_KEY     "cluster.enable-shared-storage"
+#define GLUSTERD_BRICK_MULTIPLEX_KEY    "cluster.brick-multiplex"
 
 #define GANESHA_HA_CONF  CONFDIR "/ganesha-ha.conf"
 #define GANESHA_EXPORT_DIRECTORY        CONFDIR"/exports"
@@ -77,7 +78,6 @@
                             "for more details."
 #define OPERRSTR_COMMIT_FAIL "Commit failed on %s. Please check the log file "\
                              "for more details."
-
 struct glusterd_volinfo_;
 typedef struct glusterd_volinfo_ glusterd_volinfo_t;
 
@@ -215,7 +215,6 @@ struct glusterd_brickinfo {
         int                port;
         int                rdma_port;
         char              *logfile;
-        gf_boolean_t       signed_in;
         gf_store_handle_t *shandle;
         gf_brick_status_t  status;
         struct rpc_clnt   *rpc;
@@ -232,6 +231,7 @@ struct glusterd_brickinfo {
          */
         uint16_t           group;
         uuid_t             jbr_uuid;
+        gf_boolean_t       started_here;
 };
 
 typedef struct glusterd_brickinfo glusterd_brickinfo_t;
@@ -1048,7 +1048,8 @@ glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 
 int
 glusterd_rpc_create (struct rpc_clnt **rpc, dict_t *options,
-                     rpc_clnt_notify_t notify_fn, void *notify_data);
+                     rpc_clnt_notify_t notify_fn, void *notify_data,
+                     gf_boolean_t force);
 
 
 /* handler functions */
@@ -1064,8 +1065,7 @@ int glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
                                   size_t len, int cmd, defrag_cbk_fn_t cbk,
                                   glusterd_op_t op);
 int
-glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo,
-                               gf_boolean_t reconnect);
+glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo);
 
 int glusterd_rebalance_defrag_init (glusterd_volinfo_t *volinfo,
                                     defrag_cbk_fn_t cbk);

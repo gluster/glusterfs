@@ -386,6 +386,12 @@ int
 glusterd_brick_statedump (glusterd_volinfo_t *volinfo,
                           glusterd_brickinfo_t *brickinfo,
                           char *options, int option_cnt, char **op_errstr);
+
+int
+glusterd_brick_terminate (glusterd_volinfo_t *volinfo,
+                          glusterd_brickinfo_t *brickinfo,
+                          char *options, int option_cnt, char **op_errstr);
+
 int
 glusterd_nfs_statedump (char *options, int option_cnt, char **op_errstr);
 

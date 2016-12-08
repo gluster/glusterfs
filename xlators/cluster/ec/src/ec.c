@@ -419,12 +419,11 @@ ec_launch_notify_timer (xlator_t *this, ec_t *ec)
 void
 ec_handle_up (xlator_t *this, ec_t *ec, int32_t idx)
 {
-        if (((ec->xl_notify >> idx) & 1) == 0) {
-                ec->xl_notify |= 1ULL << idx;
-                ec->xl_notify_count++;
-        }
-
         if (((ec->xl_up >> idx) & 1) == 0) { /* Duplicate event */
+                if (((ec->xl_notify >> idx) & 1) == 0) {
+                        ec->xl_notify |= 1ULL << idx;
+                        ec->xl_notify_count++;
+                }
                 ec->xl_up |= 1ULL << idx;
                 ec->xl_up_count++;
         }
@@ -433,13 +432,13 @@ ec_handle_up (xlator_t *this, ec_t *ec, int32_t idx)
 void
 ec_handle_down (xlator_t *this, ec_t *ec, int32_t idx)
 {
-        if (((ec->xl_notify >> idx) & 1) == 0) {
-                ec->xl_notify |= 1ULL << idx;
-                ec->xl_notify_count++;
-        }
-
         if (((ec->xl_up >> idx) & 1) != 0) { /* Duplicate event */
                 gf_msg_debug (this->name, 0, "Child %d is DOWN", idx);
+
+                if (((ec->xl_notify >> idx) & 1) == 0) {
+                        ec->xl_notify |= 1ULL << idx;
+                        ec->xl_notify_count++;
+                }
 
                 ec->xl_up ^= 1ULL << idx;
                 ec->xl_up_count--;

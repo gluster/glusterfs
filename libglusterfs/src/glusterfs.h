@@ -557,16 +557,19 @@ typedef struct lock_migration_info {
  */
 #define SECURE_ACCESS_FILE     GLUSTERD_DEFAULT_WORKDIR "/secure-access"
 
-int glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx);
+int glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
+                             char *volume_name);
 int glusterfs_graph_destroy_residual (glusterfs_graph_t *graph);
 int glusterfs_graph_deactivate (glusterfs_graph_t *graph);
 int glusterfs_graph_destroy (glusterfs_graph_t *graph);
 int glusterfs_get_leaf_count (glusterfs_graph_t *graph);
 int glusterfs_graph_activate (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx);
 glusterfs_graph_t *glusterfs_graph_construct (FILE *fp);
+int glusterfs_graph_init (glusterfs_graph_t *graph);
 glusterfs_graph_t *glusterfs_graph_new (void);
 int glusterfs_graph_reconfigure (glusterfs_graph_t *oldgraph,
                                   glusterfs_graph_t *newgraph);
+int glusterfs_graph_attach (glusterfs_graph_t *orig_graph, char *path);
 
 void
 gf_free_mig_locks (lock_migration_info_t *locks);

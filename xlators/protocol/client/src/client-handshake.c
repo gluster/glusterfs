@@ -1272,6 +1272,11 @@ out:
                                 PC_MSG_CHILD_CONNECTING_NOTIFY_FAILED,
                                 "notify of CHILD_CONNECTING failed");
                 conf->connecting= 1;
+                /*
+                 * The reconnection *won't* happen in the background (see
+                 * previous comment) unless we kill the current connection.
+                 */
+                rpc_transport_disconnect (conf->rpc->conn.trans, _gf_false);
                 ret = 0;
         }
 

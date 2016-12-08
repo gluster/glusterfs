@@ -22,7 +22,7 @@ int use_spinlocks = 0;
 static void __attribute__((constructor))
 gf_lock_setup (void)
 {
-        use_spinlocks = (sysconf(_SC_NPROCESSORS_ONLN) > 1);
+        //use_spinlocks = (sysconf(_SC_NPROCESSORS_ONLN) > 1);
 }
 
 #endif

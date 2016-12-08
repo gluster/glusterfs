@@ -54,8 +54,8 @@ hooks_cleanup 'create'
 hooks_prep 'start'
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
-EXPECT 'startPre' cat /tmp/pre.out;
-EXPECT 'startPost' cat /tmp/post.out;
+EXPECT_WITHIN 5 'startPre' cat /tmp/pre.out;
+EXPECT_WITHIN 5 'startPost' cat /tmp/post.out;
 hooks_cleanup 'start'
 
 cleanup;

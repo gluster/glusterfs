@@ -407,12 +407,10 @@ fill_uuid (char *uuid, int size)
 
 
 int
-glusterfs_graph_settop (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
+glusterfs_graph_settop (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
+                        char *volume_name)
 {
-        const char *volume_name = NULL;
         xlator_t   *trav = NULL;
-
-        volume_name = ctx->cmd_args.volume_name;
 
         if (!volume_name) {
                 graph->top = graph->first;
@@ -454,7 +452,8 @@ glusterfs_graph_parent_up (glusterfs_graph_t *graph)
 
 
 int
-glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
+glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
+                         char *volume_name)
 {
         xlator_t    *trav = NULL;
         int          ret = 0;
@@ -462,12 +461,20 @@ glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
         /* XXX: CHECKSUM */
 
         /* XXX: attach to -n volname */
-        ret = glusterfs_graph_settop (graph, ctx);
+        ret = glusterfs_graph_settop (graph, ctx, volume_name);
         if (ret) {
+                char *slash = rindex (volume_name, '/');
+                if (slash) {
+                        ret = glusterfs_graph_settop (graph, ctx, slash + 1);
+                        if (!ret) {
+                                goto ok;
+                        }
+                }
                 gf_msg ("graph", GF_LOG_ERROR, 0, LG_MSG_GRAPH_ERROR,
                         "glusterfs graph settop failed");
                 return -1;
         }
+ok:
 
         /* XXX: WORM VOLUME */
         ret = glusterfs_graph_worm (graph, ctx);
@@ -749,7 +756,7 @@ xlator_equal_rec (xlator_t *xl1, xlator_t *xl2)
         }
 
 	/* type could have changed even if xlator names match,
-	   e.g cluster/distrubte and cluster/nufa share the same
+	   e.g cluster/distribute and cluster/nufa share the same
 	   xlator name
 	*/
         if (strcmp (xl1->type, xl2->type)) {
@@ -764,12 +771,26 @@ out :
 gf_boolean_t
 is_graph_topology_equal (glusterfs_graph_t *graph1, glusterfs_graph_t *graph2)
 {
-        xlator_t    *trav1    = NULL;
-        xlator_t    *trav2    = NULL;
-        gf_boolean_t ret      = _gf_true;
+        xlator_t      *trav1    = NULL;
+        xlator_t      *trav2    = NULL;
+        gf_boolean_t   ret      = _gf_true;
+        xlator_list_t *ltrav;
 
         trav1 = graph1->first;
         trav2 = graph2->first;
+
+        if (strcmp (trav2->type, "protocol/server") == 0) {
+                trav2 = trav2->children->xlator;
+                for (ltrav = trav1->children; ltrav; ltrav = ltrav->next) {
+                        trav1 = ltrav->xlator;
+                        if (strcmp (trav1->name, trav2->name) == 0) {
+                                break;
+                        }
+                }
+                if (!ltrav) {
+                        return _gf_false;
+                }
+        }
 
         ret = xlator_equal_rec (trav1, trav2);
 
@@ -869,7 +890,8 @@ glusterfs_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
                 goto out;
         }
 
-	glusterfs_graph_prepare (newvolfile_graph, ctx);
+	glusterfs_graph_prepare (newvolfile_graph, ctx,
+                                 ctx->cmd_args.volume_name);
 
         if (!is_graph_topology_equal (oldvolfile_graph,
                                       newvolfile_graph)) {
@@ -917,8 +939,9 @@ int
 glusterfs_graph_reconfigure (glusterfs_graph_t *oldgraph,
                              glusterfs_graph_t *newgraph)
 {
-        xlator_t   *old_xl   = NULL;
-        xlator_t   *new_xl   = NULL;
+        xlator_t        *old_xl   = NULL;
+        xlator_t        *new_xl   = NULL;
+        xlator_list_t   *trav;
 
         GF_ASSERT (oldgraph);
         GF_ASSERT (newgraph);
@@ -933,7 +956,25 @@ glusterfs_graph_reconfigure (glusterfs_graph_t *oldgraph,
                 new_xl = new_xl->children->xlator;
         }
 
-        return xlator_tree_reconfigure (old_xl, new_xl);
+        if (strcmp (old_xl->type, "protocol/server") != 0) {
+                return xlator_tree_reconfigure (old_xl, new_xl);
+        }
+
+        /* Some options still need to be handled by the server translator. */
+        if (old_xl->reconfigure) {
+                old_xl->reconfigure (old_xl, new_xl->options);
+        }
+
+        (void) copy_opts_to_child (new_xl, FIRST_CHILD (new_xl), "*auth*");
+        new_xl = FIRST_CHILD (new_xl);
+
+        for (trav = old_xl->children; trav; trav = trav->next) {
+                if (strcmp (trav->xlator->name, new_xl->name) == 0) {
+                        return xlator_tree_reconfigure (trav->xlator, new_xl);
+                }
+        }
+
+        return -1;
 }
 
 int
@@ -986,4 +1027,62 @@ glusterfs_graph_destroy (glusterfs_graph_t *graph)
         ret = glusterfs_graph_destroy_residual (graph);
 out:
         return ret;
+}
+
+
+int
+glusterfs_graph_attach (glusterfs_graph_t *orig_graph, char *path)
+{
+        xlator_t                *this   = THIS;
+        FILE                    *fp;
+        glusterfs_graph_t       *graph;
+        xlator_t                *xl;
+        char                    *volfile_id;
+
+        fp = fopen (path, "r");
+        if (!fp) {
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "oops, %s disappeared on us", path);
+                return -EIO;
+        }
+
+        graph = glusterfs_graph_construct (fp);
+        fclose(fp);
+        if (!graph) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "could not create graph from %s", path);
+                return -EIO;
+        }
+
+        /*
+         * If there's a server translator on top, we want whatever's below
+         * that.
+         */
+        xl = graph->first;
+        if (strcmp(xl->type, "protocol/server") == 0) {
+                (void) copy_opts_to_child (xl, FIRST_CHILD (xl), "*auth*");
+                xl = FIRST_CHILD(xl);
+        }
+        graph->first = xl;
+
+
+        volfile_id = strstr (path, "/snaps/");
+        if (!volfile_id) {
+                volfile_id = rindex (path, '/');
+                if (volfile_id) {
+                        ++volfile_id;
+                }
+        }
+        if (volfile_id) {
+                xl->volfile_id = gf_strdup (volfile_id);
+                /* There's a stray ".vol" at the end. */
+                xl->volfile_id[strlen(xl->volfile_id)-4] = '\0';
+        }
+
+        /* TBD: memory leaks everywhere */
+        glusterfs_graph_prepare (graph, this->ctx, xl->name);
+        glusterfs_graph_init (graph);
+        glusterfs_xlator_link (orig_graph->top, graph->top);
+
+        return 0;
 }

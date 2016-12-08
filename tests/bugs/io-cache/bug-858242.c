@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
@@ -6,10 +8,6 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
-
-#ifndef linux
-#define fstat64(fd, st) fstat(fd, st)
-#endif
 
 int
 main (int argc, char *argv[])
@@ -47,9 +45,9 @@ main (int argc, char *argv[])
                 goto out;
         }
 
-        ret = fstat64 (fd, &statbuf);
+        ret = fstat (fd, &statbuf);
         if (ret < 0) {
-                fprintf (stderr, "fstat64 failed (%s)", strerror (errno));
+                fprintf (stderr, "fstat failed (%s)", strerror (errno));
                 goto out;
         }
 
@@ -66,6 +64,8 @@ main (int argc, char *argv[])
                 fprintf (stderr, "stopping volume (%s) failed", volname);
                 goto out;
         }
+
+        sleep (3);
 
         ret = read (fd, buffer, 1024);
         if (ret >= 0) {
