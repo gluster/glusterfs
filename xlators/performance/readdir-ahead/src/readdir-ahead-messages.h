@@ -40,7 +40,7 @@
  */
 
 #define GLFS_READDIR_AHEAD_BASE                   GLFS_MSGID_COMP_READDIR_AHEAD
-#define GLFS_READDIR_AHEAD_NUM_MESSAGES           5
+#define GLFS_READDIR_AHEAD_NUM_MESSAGES           6
 #define GLFS_MSGID_END          (GLFS_READDIR_AHEAD_BASE +\
         GLFS_READDIR_AHEAD_NUM_MESSAGES + 1)
 
@@ -97,6 +97,7 @@
 
 #define READDIR_AHEAD_MSG_OUT_OF_SEQUENCE        (GLFS_READDIR_AHEAD_BASE + 5)
 
+#define READDIR_AHEAD_MSG_DICT_OP_FAILED        (GLFS_READDIR_AHEAD_BASE + 6)
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
