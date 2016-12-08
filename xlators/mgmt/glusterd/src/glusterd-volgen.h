@@ -32,6 +32,8 @@
 #define VKEY_FEATURES_TRASH       "features.trash"
 #define VKEY_FEATURES_BITROT      "features.bitrot"
 #define VKEY_FEATURES_SCRUB       "features.scrub"
+#define VKEY_PARALLEL_READDIR     "performance.parallel-readdir"
+#define VKEY_READDIR_AHEAD        "performance.readdir-ahead"
 
 #define AUTH_ALLOW_MAP_KEY "auth.allow"
 #define AUTH_REJECT_MAP_KEY "auth.reject"
@@ -55,9 +57,17 @@ typedef enum {
         GF_CLIENT_OTHER
 } glusterd_client_type_t;
 
+/* It indicates the type of volfile that the graph is built for */
+typedef enum {
+        GF_REBALANCED = 1,
+        GF_QUOTAD,
+        GF_SNAPD,
+} glusterd_graph_type_t;
+
 struct volgen_graph {
         char **errstr;
         glusterfs_graph_t graph;
+        glusterd_graph_type_t type;
 };
 typedef struct volgen_graph volgen_graph_t;
 

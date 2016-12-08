@@ -1867,12 +1867,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key         = "performance.readdir-ahead",
           .voltype     = "performance/readdir-ahead",
           .option      = "!perf",
-          .value       = "off",
+          .value       = "on",
           .op_version  = 3,
           .description = "enable/disable readdir-ahead translator in the volume.",
           .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
         },
-
         { .key         = "performance.io-cache",
           .voltype     = "performance/io-cache",
           .option      = "!perf",
@@ -3091,6 +3090,17 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type       = DOC,
           .op_version = GD_OP_VERSION_3_8_4,
           .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key         = "performance.parallel-readdir",
+          .voltype     = "performance/readdir-ahead",
+          .option      = "parallel-readdir",
+          .value       = "off",
+          .type        = DOC,
+          .op_version  = GD_OP_VERSION_3_10_0,
+          .description = "If this option is enabled, the readdir operation is "
+                         "performed parallely on all the bricks, thus improving"
+                         " the performance of readdir. Note that the performance"
+                         "improvement is higher in large clusters"
         },
 	{ .key         = "performance.rda-request-size",
 	  .voltype     = "performance/readdir-ahead",
