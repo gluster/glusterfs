@@ -63,15 +63,15 @@ void ec_fheal(call_frame_t * frame, xlator_t * this, uintptr_t target,
               int32_t minimum, fop_fheal_cbk_t func, void *data, fd_t * fd,
               int32_t partial, dict_t *xdata);
 
-void ec_inodelk(call_frame_t * frame, xlator_t * this, uintptr_t target,
-                int32_t minimum, fop_inodelk_cbk_t func, void *data,
-                const char * volume, loc_t * loc, int32_t cmd,
-                struct gf_flock * flock, dict_t * xdata);
-
-void ec_finodelk(call_frame_t * frame, xlator_t * this, uintptr_t target,
-                 int32_t minimum, fop_finodelk_cbk_t func, void *data,
-                 const char * volume, fd_t * fd, int32_t cmd,
+void ec_inodelk (call_frame_t *frame, xlator_t *this, gf_lkowner_t *owner,
+                 uintptr_t target, int32_t minimum, fop_inodelk_cbk_t func,
+                 void *data, const char *volume, loc_t *loc, int32_t cmd,
                  struct gf_flock * flock, dict_t * xdata);
+
+void ec_finodelk(call_frame_t *frame, xlator_t *this, gf_lkowner_t *owner,
+                 uintptr_t target, int32_t minimum, fop_finodelk_cbk_t func,
+                 void *data, const char *volume, fd_t *fd, int32_t cmd,
+                 struct gf_flock *flock, dict_t *xdata);
 
 void ec_link(call_frame_t * frame, xlator_t * this, uintptr_t target,
              int32_t minimum, fop_link_cbk_t func, void *data, loc_t * oldloc,

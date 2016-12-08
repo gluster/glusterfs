@@ -878,8 +878,8 @@ int32_t ec_gf_inodelk(call_frame_t * frame, xlator_t * this,
     if (flock->l_type == F_UNLCK)
             minimum = EC_MINIMUM_ONE;
 
-    ec_inodelk(frame, this, -1, minimum, default_inodelk_cbk, NULL,
-               volume, loc, cmd, flock, xdata);
+    ec_inodelk(frame, this, &frame->root->lk_owner, -1, minimum,
+               default_inodelk_cbk, NULL, volume, loc, cmd, flock, xdata);
 
     return 0;
 }
@@ -891,8 +891,8 @@ int32_t ec_gf_finodelk(call_frame_t * frame, xlator_t * this,
     int32_t minimum = EC_MINIMUM_ALL;
     if (flock->l_type == F_UNLCK)
             minimum = EC_MINIMUM_ONE;
-    ec_finodelk(frame, this, -1, minimum, default_finodelk_cbk, NULL,
-                volume, fd, cmd, flock, xdata);
+    ec_finodelk(frame, this, &frame->root->lk_owner, -1, minimum,
+                default_finodelk_cbk, NULL, volume, fd, cmd, flock, xdata);
 
     return 0;
 }

@@ -608,12 +608,14 @@ int32_t ec_manager_inodelk(ec_fop_data_t * fop, int32_t state)
                         flock.l_owner.len = 0;
 
                         if (fop->id == GF_FOP_INODELK) {
-                            ec_inodelk(fop->frame, fop->xl, mask, 1,
+                            ec_inodelk(fop->frame, fop->xl,
+                                       &fop->frame->root->lk_owner, mask, 1,
                                        ec_lock_unlocked, NULL, fop->str[0],
                                        &fop->loc[0], F_SETLK, &flock,
                                        fop->xdata);
                         } else {
-                            ec_finodelk(fop->frame, fop->xl, mask, 1,
+                            ec_finodelk(fop->frame, fop->xl,
+                                        &fop->frame->root->lk_owner, mask, 1,
                                         ec_lock_unlocked, NULL, fop->str[0],
                                         fop->fd, F_SETLK, &flock, fop->xdata);
                         }
@@ -692,10 +694,10 @@ int32_t ec_manager_inodelk(ec_fop_data_t * fop, int32_t state)
     }
 }
 
-void ec_inodelk(call_frame_t * frame, xlator_t * this, uintptr_t target,
-                int32_t minimum, fop_inodelk_cbk_t func, void * data,
-                const char * volume, loc_t * loc, int32_t cmd,
-                struct gf_flock * flock, dict_t * xdata)
+void ec_inodelk (call_frame_t *frame, xlator_t *this, gf_lkowner_t *owner,
+                 uintptr_t target, int32_t minimum, fop_inodelk_cbk_t func,
+                 void *data, const char *volume, loc_t *loc, int32_t cmd,
+                 struct gf_flock *flock, dict_t *xdata)
 {
     ec_cbk_t callback = { .inodelk = func };
     ec_fop_data_t * fop = NULL;
@@ -715,6 +717,7 @@ void ec_inodelk(call_frame_t * frame, xlator_t * this, uintptr_t target,
     }
 
     fop->int32 = cmd;
+    ec_owner_copy (fop->frame, owner);
 
     if (volume != NULL) {
         fop->str[0] = gf_strdup(volume);
@@ -828,10 +831,10 @@ void ec_wind_finodelk(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
                       fop->xdata);
 }
 
-void ec_finodelk(call_frame_t * frame, xlator_t * this, uintptr_t target,
-                 int32_t minimum, fop_finodelk_cbk_t func, void * data,
-                 const char * volume, fd_t * fd, int32_t cmd,
-                 struct gf_flock * flock, dict_t * xdata)
+void ec_finodelk(call_frame_t *frame, xlator_t *this, gf_lkowner_t *owner,
+                 uintptr_t target, int32_t minimum, fop_finodelk_cbk_t func,
+                 void *data, const char *volume, fd_t *fd, int32_t cmd,
+                 struct gf_flock *flock, dict_t *xdata)
 {
     ec_cbk_t callback = { .finodelk = func };
     ec_fop_data_t * fop = NULL;
@@ -853,6 +856,7 @@ void ec_finodelk(call_frame_t * frame, xlator_t * this, uintptr_t target,
     fop->use_fd = 1;
 
     fop->int32 = cmd;
+    ec_owner_copy (fop->frame, owner);
 
     if (volume != NULL) {
         fop->str[0] = gf_strdup(volume);

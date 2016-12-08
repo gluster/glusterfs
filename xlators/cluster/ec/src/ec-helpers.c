@@ -692,10 +692,9 @@ void ec_owner_set(call_frame_t * frame, void * owner)
     set_lk_owner_from_ptr(&frame->root->lk_owner, owner);
 }
 
-void ec_owner_copy(call_frame_t * frame, gf_lkowner_t * owner)
+void ec_owner_copy(call_frame_t *frame, gf_lkowner_t *owner)
 {
-    frame->root->lk_owner.len = owner->len;
-    memcpy(frame->root->lk_owner.data, owner->data, owner->len);
+    lk_owner_copy (&frame->root->lk_owner, owner);
 }
 
 ec_inode_t * __ec_inode_get(inode_t * inode, xlator_t * xl)
