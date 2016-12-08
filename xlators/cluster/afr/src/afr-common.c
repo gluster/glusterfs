@@ -5046,7 +5046,6 @@ out:
 int
 afr_transaction_local_init (afr_local_t *local, xlator_t *this)
 {
-        int            child_up_count = 0;
         int            ret = -ENOMEM;
         afr_private_t *priv = NULL;
 
@@ -5065,10 +5064,6 @@ afr_transaction_local_init (afr_local_t *local, xlator_t *this)
         }
 
         ret = -ENOMEM;
-        child_up_count = AFR_COUNT (local->child_up, priv->child_count);
-        if (priv->optimistic_change_log && child_up_count == priv->child_count)
-                local->optimistic_change_log = 1;
-
 	local->pre_op_compat = priv->pre_op_compat;
 
         local->transaction.eager_lock =

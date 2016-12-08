@@ -1183,19 +1183,21 @@ void
 afr_changelog_populate_xdata (call_frame_t *frame, afr_xattrop_type_t op,
                               dict_t **xdata, dict_t **newloc_xdata)
 {
-        dict_t      *xdata1 = NULL;
-        dict_t      *xdata2 = NULL;
-        afr_local_t *local  = NULL;
-        afr_private_t *priv = NULL;
-        int         ret     = 0;
-        const char  *name   = NULL;
+        int              i                    = 0;
+        int              ret                  = 0;
+        char            *key                  = NULL;
+        const char      *name                 = NULL;
+        dict_t          *xdata1               = NULL;
+        dict_t          *xdata2               = NULL;
+        xlator_t        *this                 = NULL;
+        afr_local_t     *local                = NULL;
+        afr_private_t   *priv                 = NULL;
+        gf_boolean_t     need_entry_key_set   = _gf_true;
 
         local = frame->local;
-        priv = THIS->private;
+        this = THIS;
+        priv = this->private;
 
-        /*Populate xdata for POST_OP only.*/
-        if (op == AFR_TRANSACTION_PRE_OP)
-                goto out;
         if (local->transaction.type == AFR_DATA_TRANSACTION ||
             local->transaction.type == AFR_METADATA_TRANSACTION)
                 goto out;
@@ -1206,26 +1208,53 @@ afr_changelog_populate_xdata (call_frame_t *frame, afr_xattrop_type_t op,
         xdata1 = dict_new();
         if (!xdata1)
                 goto out;
+
         name = local->loc.name;
         if (local->op == GF_FOP_LINK)
                 name = local->newloc.name;
-        ret = dict_set_str (xdata1, GF_XATTROP_ENTRY_IN_KEY, (char *)name);
-        if (ret)
-                gf_msg (THIS->name, GF_LOG_ERROR, 0, AFR_MSG_DICT_SET_FAILED,
-                        "%s/%s: Could not set xattrop-entry key during post-op",
-                        uuid_utoa (local->loc.pargfid), local->loc.name);
-        if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
-                xdata2 = dict_new();
-                if (!xdata2)
-                        goto out;
-                ret = dict_set_str (xdata2, GF_XATTROP_ENTRY_IN_KEY,
-                                    (char *)local->newloc.name);
+
+        switch (op) {
+        case AFR_TRANSACTION_PRE_OP:
+                key = GF_XATTROP_ENTRY_IN_KEY;
+                break;
+        case AFR_TRANSACTION_POST_OP:
+                if (afr_txn_nothing_failed (frame, this)) {
+                        key = GF_XATTROP_ENTRY_OUT_KEY;
+                        for (i = 0; i < priv->child_count; i++) {
+                                if (!local->transaction.failed_subvols[i])
+                                        continue;
+                                need_entry_key_set = _gf_false;
+                                break;
+                        }
+                } else {
+                        key = GF_XATTROP_ENTRY_IN_KEY;
+                }
+                break;
+        }
+
+        if (need_entry_key_set) {
+                ret = dict_set_str (xdata1, key, (char *)name);
                 if (ret)
                         gf_msg (THIS->name, GF_LOG_ERROR, 0,
                                 AFR_MSG_DICT_SET_FAILED,
-                                "%s/%s: Could not set xattrop-entry key during"
-                                " post-op", uuid_utoa (local->newloc.pargfid),
-                                local->newloc.name);
+                                "%s/%s: Could not set %s key during xattrop",
+                                uuid_utoa (local->loc.pargfid), local->loc.name,
+                                key);
+                if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
+                        xdata2 = dict_new ();
+                        if (!xdata2)
+                                goto out;
+
+                        ret = dict_set_str (xdata2, key,
+                                            (char *)local->newloc.name);
+                        if (ret)
+                                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                        AFR_MSG_DICT_SET_FAILED,
+                                        "%s/%s: Could not set %s key during "
+                                        "xattrop",
+                                        uuid_utoa (local->newloc.pargfid),
+                                        local->newloc.name, key);
+                }
         }
 
         *xdata = xdata1;
@@ -1635,6 +1664,20 @@ afr_changelog_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
 	return 0;
 }
 
+static void
+afr_init_optimistic_changelog_for_txn (xlator_t *this, afr_local_t *local)
+{
+        int                locked_count   = 0;
+        afr_private_t     *priv           = NULL;
+
+        priv = this->private;
+
+        locked_count = AFR_COUNT (local->transaction.pre_op, priv->child_count);
+        if (priv->optimistic_change_log && locked_count == priv->child_count)
+                local->optimistic_change_log = 1;
+
+        return;
+}
 
 int
 afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
@@ -1665,6 +1708,8 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                         local->transaction.failed_subvols[i] = 1;
                 }
 	}
+
+        afr_init_optimistic_changelog_for_txn (this, local);
 
         /* This condition should not be met with present code, as
          * transaction.done will be called if locks are not acquired on even a
