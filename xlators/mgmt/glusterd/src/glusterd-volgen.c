@@ -2647,6 +2647,13 @@ perfxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
             (vme->op_version > volinfo->client_op_version))
                 return 0;
 
+        /* if VKEY_READDIR_AHEAD is enabled and parallel readdir is
+         * not enabled then load readdir-ahead here else it will be
+         * loaded as a child of dht */
+        if (!strcmp (vme->key, VKEY_READDIR_AHEAD) &&
+            glusterd_volinfo_get_boolean (volinfo, VKEY_PARALLEL_READDIR))
+                return 0;
+
         if (volgen_graph_add (graph, vme->voltype, volinfo->volname))
                 return 0;
         else
@@ -3391,6 +3398,30 @@ out:
 }
 
 static int
+volgen_graph_build_readdir_ahead (volgen_graph_t *graph,
+                                  glusterd_volinfo_t *volinfo,
+                                  size_t child_count)
+{
+        int32_t                 clusters                 = 0;
+
+        if (graph->type == GF_REBALANCED ||
+            graph->type == GF_QUOTAD ||
+            graph->type == GF_SNAPD ||
+            !glusterd_volinfo_get_boolean (volinfo, VKEY_PARALLEL_READDIR) ||
+            !glusterd_volinfo_get_boolean (volinfo, VKEY_READDIR_AHEAD))
+                goto out;
+
+        clusters = volgen_link_bricks_from_list_tail (graph,
+                                                      volinfo,
+                                                      "performance/readdir-ahead",
+                                                      "%s-readdir-ahead-%d",
+                                                      child_count,
+                                                      1);
+out:
+        return clusters;
+}
+
+static int
 volgen_graph_build_dht_cluster (volgen_graph_t *graph,
                                 glusterd_volinfo_t *volinfo, size_t child_count,
                                 gf_boolean_t is_quotad)
@@ -3726,6 +3757,11 @@ build_distribute:
                 else
                         strcat (volinfo->volname, "-cold");
         }
+        clusters = volgen_graph_build_readdir_ahead (graph, volinfo,
+                                                     dist_count);
+        if (clusters < 0)
+                goto out;
+
         ret = volgen_graph_build_dht_cluster (graph, volinfo,
                                               dist_count, is_quotad);
         if (volinfo->tier_info.hot_brick_count)
@@ -4750,6 +4786,8 @@ build_rebalance_volfile (glusterd_volinfo_t *volinfo, char *filepath,
 
         this = THIS;
 
+        graph.type = GF_REBALANCED;
+
         if (volinfo->brick_count <= volinfo->dist_leaf_count) {
                 /*
                  * Volume is not a distribute volume or
@@ -5185,6 +5223,8 @@ build_quotad_graph (volgen_graph_t *graph, dict_t *mod_dict)
 
         priv = this->private;
         GF_ASSERT (priv);
+
+        graph->type = GF_QUOTAD;
 
         set_dict = dict_new ();
         if (!set_dict) {
@@ -6050,6 +6090,7 @@ glusterd_snapdsvc_create_volfile (glusterd_volinfo_t *volinfo)
         int             ret                     = -1;
         char            filename [PATH_MAX]     = {0,};
 
+        graph.type = GF_SNAPD;
         glusterd_svc_build_snapd_volfile (volinfo, filename, PATH_MAX);
 
         ret = glusterd_snapdsvc_generate_volfile (&graph, volinfo);

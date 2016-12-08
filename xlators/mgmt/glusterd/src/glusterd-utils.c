@@ -11028,22 +11028,6 @@ glusterd_enable_default_options (glusterd_volinfo_t *volinfo, char *option)
                  * }
                  * */
 
-                /* readdir-ahead needs to be enabled for new volumes with
-                 * >= gluster version 3.7
-                 */
-                if (!option || !strcmp ("performance.readdir-ahead", option)) {
-                        ret = dict_set_dynstr_with_alloc (volinfo->dict,
-                                        "performance.readdir-ahead", "on");
-                        if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, errno,
-                                        GD_MSG_DICT_SET_FAILED,
-                                        "Failed to set option "
-                                        "'performance.readdir-ahead' on volume "
-                                        "%s", volinfo->volname);
-                                goto out;
-                        }
-                }
-
                 /* Option 'features.quota-deem-statfs' should not be turned off
                  * with 'gluster volume reset <VOLNAME>', since quota features
                  * can be reset only with 'gluster volume quota <VOLNAME>
