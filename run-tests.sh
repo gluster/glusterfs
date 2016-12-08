@@ -182,12 +182,14 @@ function get_test_status ()
     # for later. Why does the key have the distro and version then?
     # Because changing the key in all test files would be very big process
     # updating just this function with a better logic much simpler.
+    #
+    # FB Edit: For FB tests we are disabling NetBSD testing.
+    #
     Linux)
         result=$(grep -e "^#G_TESTDEF_TEST_STATUS_CENTOS6" $test_name | \
                  awk -F"," {'print $1'} | awk -F"=" {'print $2'}) ;;
     NetBSD)
-        result=$(grep -e "^#G_TESTDEF_TEST_STATUS_NETBSD7" $test_name | \
-                 awk -F"," {'print $1'} | awk -F"=" {'print $2'}) ;;
+        result="KNOWN_ISSUE" ;;
     *)
         result="ENABLED" ;;
     esac
