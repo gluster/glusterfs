@@ -20,14 +20,26 @@ function create_dist_tier_vol () {
 }
 
 function non_zero_check () {
-if [ "$1" -ne 0 ]
-then
-        echo "0"
-else
-        echo "1"
-fi
+        if [ "$1" -ne 0 ]
+        then
+                echo "0"
+        else
+                echo "1"
+        fi
 }
 
+function num_bricks_up {
+        local b
+        local n_up=0
+
+        for b in $B0/hot/${V0}{1..2} $B0/cold/${V0}{1..3}; do
+                if [ x"$(brick_up_status $V0 $H0 $b)" = x"1" ]; then
+                        n_up=$((n_up+1))
+                fi
+        done
+
+        echo $n_up
+}
 
 cleanup;
 
@@ -39,6 +51,8 @@ TEST $CLI volume status
 
 #Create and start a tiered volume
 create_dist_tier_vol
+# Wait for the bricks to come up, *then* the tier daemon.
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 5 num_bricks_up
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 0 tier_daemon_check
 sleep 5   #wait for some time to run tier daemon
 time_before_restarting=$(rebalance_run_time $V0);
@@ -51,6 +65,8 @@ EXPECT "0" non_zero_check $time_before_restarting;
 kill -9 $(pidof glusterd);
 TEST glusterd;
 sleep 2;
+# Wait for the bricks to come up, *then* the tier daemon.
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 5 num_bricks_up
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" tier_daemon_check;
 time1=$(rebalance_run_time $V0);
 EXPECT "0" non_zero_check $time1;

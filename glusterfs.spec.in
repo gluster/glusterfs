@@ -1037,6 +1037,7 @@ exit 0
 # glusterfs is a symlink to glusterfsd, -server depends on -fuse.
 %{_sbindir}/glusterfs
 %{_sbindir}/glusterfsd
+%{_sbindir}/gf_attach
 %config(noreplace) %{_sysconfdir}/logrotate.d/glusterfs
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/fuse.so
 /sbin/mount.glusterfs

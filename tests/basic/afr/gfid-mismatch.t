@@ -13,6 +13,10 @@ TEST $CLI volume set $V0 self-heal-daemon off
 TEST $CLI volume set $V0 stat-prefetch off
 TEST $CLI volume start $V0
 TEST $CLI volume set $V0 cluster.background-self-heal-count 0
+# We can't count on brick0 getting a copy of the file immediately without this,
+# because (especially with multiplexing) it might not have *come up*
+# immediately.
+TEST $CLI volume set $V0 cluster.quorum-type auto
 TEST $GFS --volfile-id=$V0 -s $H0 $M0;
 
 #Test

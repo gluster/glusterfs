@@ -3365,7 +3365,8 @@ int
 glusterd_rpc_create (struct rpc_clnt **rpc,
                      dict_t *options,
                      rpc_clnt_notify_t notify_fn,
-                     void *notify_data)
+                     void *notify_data,
+                     gf_boolean_t force)
 {
         struct rpc_clnt         *new_rpc = NULL;
         int                     ret = -1;
@@ -3375,6 +3376,11 @@ glusterd_rpc_create (struct rpc_clnt **rpc,
         GF_ASSERT (this);
 
         GF_ASSERT (options);
+
+        if (force && rpc && *rpc) {
+                (void) rpc_clnt_unref (*rpc);
+                *rpc = NULL;
+        }
 
         /* TODO: is 32 enough? or more ? */
         new_rpc = rpc_clnt_new (options, this, this->name, 16);
@@ -3531,7 +3537,8 @@ glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
         }
 
         ret = glusterd_rpc_create (&peerinfo->rpc, options,
-                                   glusterd_peer_rpc_notify, peerctx);
+                                   glusterd_peer_rpc_notify, peerctx,
+                                   _gf_false);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_RPC_CREATE_FAIL,
@@ -4638,6 +4645,7 @@ gd_is_global_option (char *opt_key)
         return (strcmp (opt_key, GLUSTERD_SHARED_STORAGE_KEY) == 0 ||
                 strcmp (opt_key, GLUSTERD_QUORUM_RATIO_KEY) == 0 ||
                 strcmp (opt_key, GLUSTERD_GLOBAL_OP_VERSION_KEY) == 0 ||
+                strcmp (opt_key, GLUSTERD_BRICK_MULTIPLEX_KEY) == 0 ||
                 strcmp (opt_key, GLUSTERD_MAX_OP_VERSION_KEY) == 0);
 
 out:
@@ -5308,8 +5316,6 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                                  count, brickinfo->rdma_port);
                         fprintf (fp, "Volume%d.Brick%d.status: %s\n", count_bkp,
                                  count, brickinfo->status ? "Started" : "Stopped");
-                        fprintf (fp, "Volume%d.Brick%d.signedin: %s\n", count_bkp,
-                                 count, brickinfo->signed_in ? "True" : "False");
 
                         /*FIXME: This is a hacky way of figuring out whether a
                          * brick belongs to the hot or cold tier */
@@ -5495,6 +5501,9 @@ __glusterd_handle_get_state (rpcsvc_request_t *req)
         GF_VALIDATE_OR_GOTO (THIS->name, this, out);
         GF_VALIDATE_OR_GOTO (this->name, req, out);
 
+        gf_msg (this->name, GF_LOG_INFO, 0, GD_MSG_DAEMON_STATE_REQ_RCVD,
+                "Received request to get state for glusterd");
+
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0) {
                 snprintf (err_str, sizeof (err_str), "Failed to decode "
@@ -5525,14 +5534,17 @@ __glusterd_handle_get_state (rpcsvc_request_t *req)
                 }
         }
 
-        gf_msg (this->name, GF_LOG_INFO, 0, GD_MSG_DAEMON_STATE_REQ_RCVD,
-                "Received request to get state for glusterd");
-
         ret = glusterd_get_state (req, dict);
 
 out:
-        if (dict)
+        if (dict && ret) {
+                /*
+                 * When glusterd_to_cli (called from glusterd_get_state)
+                 * succeeds, it frees the dict for us, so this would be a
+                 * double free, but in other cases it's our responsibility.
+                 */
                 dict_unref (dict);
+        }
         return ret;
 }
 
@@ -5658,6 +5670,20 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 
         case RPC_CLNT_DISCONNECT:
                 rpc_clnt_unset_connected (&rpc->conn);
+                if (rpc != brickinfo->rpc) {
+                        /*
+                         * There used to be a bunch of races in the volume
+                         * start/stop code that could result in us getting here
+                         * and setting the brick status incorrectly.  Many of
+                         * those have been fixed or avoided, but just in case
+                         * any are still left it doesn't hurt to keep the extra
+                         * check and avoid further damage.
+                         */
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "got disconnect from stale rpc on %s",
+                                brickinfo->path);
+                        break;
+                }
                 if (glusterd_is_brick_started (brickinfo)) {
                         gf_msg (this->name, GF_LOG_INFO, 0,
                                 GD_MSG_BRICK_DISCONNECTED,

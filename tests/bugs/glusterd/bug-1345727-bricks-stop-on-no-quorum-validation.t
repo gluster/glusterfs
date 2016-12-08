@@ -30,7 +30,7 @@ TEST kill_glusterd 2
 TEST kill_glusterd 3
 
 # Server quorum is not met. Brick on 1st node must be down
-EXPECT "0" brick_up_status_1 $V0 $H1 $B1/${V0}1
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" brick_up_status_1 $V0 $H1 $B1/${V0}1
 
 # Set quorum ratio 95. means 95 % or more than 95% nodes of total available node
 # should be available for performing volume operation.
@@ -46,8 +46,8 @@ TEST $glusterd_2
 EXPECT_WITHIN $PROBE_TIMEOUT 1 peer_count
 
 # Server quorum is still not met. Bricks should be down on 1st and 2nd nodes
-EXPECT "0" brick_up_status_1 $V0 $H1 $B1/${V0}1
-EXPECT "0" brick_up_status_1 $V0 $H2 $B2/${V0}2
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" brick_up_status_1 $V0 $H1 $B1/${V0}1
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" brick_up_status_1 $V0 $H2 $B2/${V0}2
 
 # Bring back 3rd glusterd
 TEST $glusterd_3

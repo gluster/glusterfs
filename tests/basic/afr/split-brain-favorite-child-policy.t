@@ -17,7 +17,7 @@ TEST $CLI volume set $V0 cluster.entry-self-heal off
 TEST $CLI volume set $V0 cluster.data-self-heal off
 TEST $CLI volume set $V0 cluster.metadata-self-heal off
 TEST $CLI volume start $V0
-TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
+TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0
 TEST touch $M0/file
 
 ############ Healing using favorite-child-policy = ctime #################

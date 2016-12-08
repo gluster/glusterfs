@@ -55,3 +55,5 @@ EXPECT "peekaboo" cat ${B0}/${V0}-0/abc/def/ghi
 # TBD: test permissions, xattrs
 
 cleanup
+#G_TESTDEF_TEST_STATUS_CENTOS6=KNOWN_ISSUE,BUG=1385758
+#G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=1385758

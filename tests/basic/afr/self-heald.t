@@ -50,7 +50,7 @@ TEST $CLI volume set $V0 cluster.background-self-heal-count 0
 TEST $CLI volume set $V0 cluster.eager-lock off
 TEST $CLI volume set $V0 performance.flush-behind off
 TEST $CLI volume start $V0
-TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
+TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0
 
 decide_kill=$((`date +"%j"|sed 's/^0*//'` % 2 ))
 

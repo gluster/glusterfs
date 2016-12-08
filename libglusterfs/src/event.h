@@ -28,7 +28,7 @@ typedef int (*event_handler_t) (int fd, int idx, void *data,
 
 #define EVENT_EPOLL_TABLES 1024
 #define EVENT_EPOLL_SLOTS 1024
-#define EVENT_MAX_THREADS  32
+#define EVENT_MAX_THREADS  1024
 
 struct event_pool {
 	struct event_ops *ops;
@@ -57,6 +57,20 @@ struct event_pool {
                                                      * and live status */
         int destroy;
         int activethreadcount;
+
+        /*
+         * Number of threads created by auto-scaling, *in addition to* the
+         * configured number of threads.  This is only applicable on the
+         * server, where we try to keep the number of threads around the number
+         * of bricks.  In that case, the configured number is just "extra"
+         * threads to handle requests in excess of one per brick (including
+         * requests on the GlusterD connection).  For clients or GlusterD, this
+         * number will always be zero, so the "extra" is all we have.
+         *
+         * TBD: consider auto-scaling for clients as well
+         */
+        int auto_thread_count;
+
 };
 
 struct event_ops {

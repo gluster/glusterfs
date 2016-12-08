@@ -11,7 +11,7 @@ TEST $CLI volume create $V0 replica 3 arbiter 1  $H0:$B0/${V0}{0,1,2}
 EXPECT "1 x \(2 \+ 1\) = 3" volinfo_field $V0 "Number of Bricks"
 TEST $CLI volume set $V0 performance.stat-prefetch off
 TEST $CLI volume start $V0
-TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M0;
+TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0;
 
 #syntax check for remove-brick.
 TEST ! $CLI volume remove-brick $V0 replica 2  $H0:$B0/${V0}0 force

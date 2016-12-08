@@ -4,11 +4,7 @@
 . $(dirname $0)/../volume.rc
 
 brick_port() {
-        $CLI volume status $1 | awk '
-	    ($3 == "") { p = $0; next; }
-	    { $0 = p $0; p = ""; }
-	    /^Brick/ { print $3; }
-	'
+        $CLI --xml volume status $1 | sed -n '/.*<port>\([0-9]*\).*/s//\1/p'
 }
 
 wait_mount() {
@@ -37,6 +33,8 @@ wait_mount() {
 openssl_connect() {
 	ssl_opt="-verify 3 -verify_return_error -CAfile $SSL_CA"
 	ssl_opt="$ssl_opt -crl_check_all -CApath $TMPDIR"
+	#echo openssl s_client $ssl_opt $@ > /dev/tty
+	#read -p "Continue? " nothing
 	CIPHER=`echo "" |
                 openssl s_client $ssl_opt $@ 2>/dev/null |
 		awk '/^    Cipher/{print $3}'`

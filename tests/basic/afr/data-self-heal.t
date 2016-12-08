@@ -77,7 +77,7 @@ TEST $CLI volume start $V0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
-TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M0 --entry-timeout=0 --attribute-timeout=0;
+TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0;
 cd $M0
 TEST touch pending-changelog biggest-file-source.txt biggest-file-more-prio-than-changelog.txt same-size-more-prio-to-changelog.txt size-and-witness-same.txt self-accusing-vs-source.txt self-accusing-both.txt self-accusing-vs-innocent.txt self-accusing-bigger-exists.txt size-more-prio-than-self-accused.txt v1-dirty.txt split-brain.txt split-brain-all-dirty.txt split-brain-with-dirty.txt
 

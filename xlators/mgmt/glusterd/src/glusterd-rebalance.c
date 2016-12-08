@@ -315,7 +315,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
 
         sleep (5);
 
-        ret = glusterd_rebalance_rpc_create (volinfo, _gf_false);
+        ret = glusterd_rebalance_rpc_create (volinfo);
 
         //FIXME: this cbk is passed as NULL in all occurrences. May be
         //we never needed it.
@@ -363,8 +363,7 @@ out:
 }
 
 int
-glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo,
-                               gf_boolean_t reconnect)
+glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo)
 {
         dict_t                  *options = NULL;
         char                     sockfile[PATH_MAX] = {0,};
@@ -383,35 +382,27 @@ glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo,
         if (!defrag)
                 goto out;
 
-        //rpc obj for rebalance process already in place.
-        if (glusterd_defrag_rpc_get (defrag)) {
-                ret = 0;
-                glusterd_defrag_rpc_put (defrag);
-                goto out;
-        }
         GLUSTERD_GET_DEFRAG_SOCK_FILE (sockfile, volinfo);
-        /* If reconnecting check if defrag sockfile exists in the new location
+        /* Check if defrag sockfile exists in the new location
          * in /var/run/ , if it does not try the old location
          */
-        if (reconnect) {
-                ret = sys_stat (sockfile, &buf);
-                /* TODO: Remove this once we don't need backward compatibility
-                 * with the older path
-                 */
-                if (ret && (errno == ENOENT)) {
-                        gf_msg (this->name, GF_LOG_WARNING, errno,
-                                GD_MSG_FILE_OP_FAILED, "Rebalance sockfile "
-                                "%s does not exist. Trying old path.",
-                                sockfile);
-                        GLUSTERD_GET_DEFRAG_SOCK_FILE_OLD (sockfile, volinfo,
-                                                           priv);
-                        ret =sys_stat (sockfile, &buf);
-                        if (ret && (ENOENT == errno)) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        GD_MSG_REBAL_NO_SOCK_FILE, "Rebalance "
-                                        "sockfile %s does not exist", sockfile);
-                                goto out;
-                        }
+        ret = sys_stat (sockfile, &buf);
+        /* TODO: Remove this once we don't need backward compatibility
+         * with the older path
+         */
+        if (ret && (errno == ENOENT)) {
+                gf_msg (this->name, GF_LOG_WARNING, errno,
+                        GD_MSG_FILE_OP_FAILED, "Rebalance sockfile "
+                        "%s does not exist. Trying old path.",
+                        sockfile);
+                GLUSTERD_GET_DEFRAG_SOCK_FILE_OLD (sockfile, volinfo,
+                                                   priv);
+                ret =sys_stat (sockfile, &buf);
+                if (ret && (ENOENT == errno)) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_REBAL_NO_SOCK_FILE, "Rebalance "
+                                "sockfile %s does not exist", sockfile);
+                        goto out;
                 }
         }
 
@@ -429,7 +420,7 @@ glusterd_rebalance_rpc_create (glusterd_volinfo_t *volinfo,
 
         glusterd_volinfo_ref (volinfo);
         ret = glusterd_rpc_create (&defrag->rpc, options,
-                                   glusterd_defrag_notify, volinfo);
+                                   glusterd_defrag_notify, volinfo, _gf_true);
         if (ret) {
                 gf_msg (THIS->name, GF_LOG_ERROR, 0, GD_MSG_RPC_CREATE_FAIL,
                         "Glusterd RPC creation failed");

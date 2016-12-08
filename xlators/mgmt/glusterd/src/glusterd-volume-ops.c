@@ -2612,7 +2612,7 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
         }
 
         ret = dict_get_str (conf->opts, GLUSTERD_STORE_KEY_GANESHA_GLOBAL, &str);
-        if (ret == -1) {
+        if (ret != 0) {
                 gf_msg (this->name, GF_LOG_INFO, 0,
                         GD_MSG_DICT_GET_FAILED, "Global dict not present.");
                 ret = 0;
@@ -3069,7 +3069,8 @@ glusterd_clearlocks_get_local_client_ports (glusterd_volinfo_t *volinfo,
                                   brickinfo->path);
 
                 port = pmap_registry_search (THIS, brickname,
-                                             GF_PMAP_PORT_BRICKSERVER);
+                                             GF_PMAP_PORT_BRICKSERVER,
+                                             _gf_false);
                 if (!port) {
                         ret = -1;
                         gf_msg_debug (THIS->name, 0, "Couldn't get port "

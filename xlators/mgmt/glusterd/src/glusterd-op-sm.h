@@ -166,7 +166,8 @@ typedef enum cli_cmd_type_ {
  } cli_cmd_type;
 
 typedef struct glusterd_all_volume_options {
-        char          *option;
+        char    *option;
+        char    *dflt_val;
 } glusterd_all_vol_opts;
 
 int

@@ -263,6 +263,7 @@ event_pool_new_epoll (int count, int eventthreadcount)
         event_pool->count = count;
 
         event_pool->eventthreadcount = eventthreadcount;
+        event_pool->auto_thread_count = 0;
 
         pthread_mutex_init (&event_pool->mutex, NULL);
 
@@ -363,7 +364,7 @@ event_register_epoll (struct event_pool *event_pool, int fd,
 		   time as well.
 		*/
 
-		slot->events = EPOLLPRI | EPOLLONESHOT;
+		slot->events = EPOLLPRI | EPOLLHUP | EPOLLERR | EPOLLONESHOT;
 		slot->handler = handler;
 		slot->data = data;
 

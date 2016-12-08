@@ -36,27 +36,6 @@ gf_compare_client_version (rpcsvc_request_t *req, int fop_prognum,
         return ret;
 }
 
-void __check_and_set (xlator_t *each, void *data)
-{
-        if (!strcmp (each->name,
-                     ((struct __get_xl_struct *) data)->name))
-                ((struct __get_xl_struct *) data)->reply = each;
-}
-
-static xlator_t *
-get_xlator_by_name (xlator_t *some_xl, const char *name)
-{
-        struct __get_xl_struct get = {
-                .name = name,
-                .reply = NULL
-        };
-
-        xlator_foreach (some_xl, __check_and_set, &get);
-
-        return get.reply;
-}
-
-
 int
 _volfile_update_checksum (xlator_t *this, char *key, uint32_t checksum)
 {
@@ -426,13 +405,14 @@ server_setvolume (rpcsvc_request_t *req)
         int32_t              ret           = -1;
         int32_t              op_ret        = -1;
         int32_t              op_errno      = EINVAL;
-        int32_t              fop_version   = 0;
-        int32_t              mgmt_version  = 0;
         uint32_t             lk_version    = 0;
         char                *buf           = NULL;
         gf_boolean_t        cancelled      = _gf_false;
         uint32_t            opversion      = 0;
         rpc_transport_t     *xprt          = NULL;
+        int32_t              fop_version   = 0;
+        int32_t              mgmt_version  = 0;
+
 
         params = dict_new ();
         reply  = dict_new ();
@@ -445,32 +425,6 @@ server_setvolume (rpcsvc_request_t *req)
         }
 
         this = req->svc->xl;
-
-        config_params = dict_copy_with_ref (this->options, NULL);
-        conf          = this->private;
-
-        if (conf->parent_up == _gf_false) {
-                /* PARENT_UP indicates that all xlators in graph are inited
-                 * successfully
-                 */
-                op_ret = -1;
-                op_errno = EAGAIN;
-
-                ret = dict_set_str (reply, "ERROR",
-                                    "xlator graph in server is not initialised "
-                                    "yet. Try again later");
-                if (ret < 0)
-                        gf_msg_debug (this->name, 0, "failed to set error: "
-                                      "xlator graph in server is not "
-                                      "initialised yet. Try again later");
-                goto fail;
-        }
-
-        ret = dict_set_int32 (reply, "child_up", conf->child_up);
-        if (ret < 0)
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        PS_MSG_DICT_GET_FAILED, "Failed to set 'child_up' "
-                        "in the reply dict");
 
         buf = memdup (args.dict.dict_val, args.dict.dict_len);
         if (buf == NULL) {
@@ -496,6 +450,65 @@ server_setvolume (rpcsvc_request_t *req)
 
         params->extra_free = buf;
         buf = NULL;
+
+        ret = dict_get_str (params, "remote-subvolume", &name);
+        if (ret < 0) {
+                ret = dict_set_str (reply, "ERROR",
+                                    "No remote-subvolume option specified");
+                if (ret < 0)
+                        gf_msg_debug (this->name, 0, "failed to set error "
+                                      "msg");
+
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto fail;
+        }
+
+        xl = get_xlator_by_name (this, name);
+        if (xl == NULL) {
+                ret = gf_asprintf (&msg, "remote-subvolume \"%s\" is not found",
+                                   name);
+                if (-1 == ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                PS_MSG_ASPRINTF_FAILED,
+                                "asprintf failed while setting error msg");
+                        goto fail;
+                }
+                ret = dict_set_dynstr (reply, "ERROR", msg);
+                if (ret < 0)
+                        gf_msg_debug (this->name, 0, "failed to set error "
+                                      "msg");
+
+                op_ret = -1;
+                op_errno = ENOENT;
+                goto fail;
+        }
+
+        config_params = dict_copy_with_ref (xl->options, NULL);
+        conf          = this->private;
+
+        if (conf->parent_up == _gf_false) {
+                /* PARENT_UP indicates that all xlators in graph are inited
+                 * successfully
+                 */
+                op_ret = -1;
+                op_errno = EAGAIN;
+
+                ret = dict_set_str (reply, "ERROR",
+                                    "xlator graph in server is not initialised "
+                                    "yet. Try again later");
+                if (ret < 0)
+                        gf_msg_debug (this->name, 0, "failed to set error: "
+                                      "xlator graph in server is not "
+                                      "initialised yet. Try again later");
+                goto fail;
+        }
+
+        ret = dict_set_int32 (reply, "child_up", conf->child_up);
+        if (ret < 0)
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        PS_MSG_DICT_GET_FAILED, "Failed to set 'child_up' "
+                        "in the reply dict");
 
         ret = dict_get_str (params, "process-uuid", &client_uid);
         if (ret < 0) {
@@ -600,39 +613,6 @@ server_setvolume (rpcsvc_request_t *req)
 
                 op_ret = -1;
                 op_errno = EINVAL;
-                goto fail;
-        }
-
-        ret = dict_get_str (params, "remote-subvolume", &name);
-        if (ret < 0) {
-                ret = dict_set_str (reply, "ERROR",
-                                    "No remote-subvolume option specified");
-                if (ret < 0)
-                        gf_msg_debug (this->name, 0, "failed to set error "
-                                      "msg");
-
-                op_ret = -1;
-                op_errno = EINVAL;
-                goto fail;
-        }
-
-        xl = get_xlator_by_name (this, name);
-        if (xl == NULL) {
-                ret = gf_asprintf (&msg, "remote-subvolume \"%s\" is not found",
-                                   name);
-                if (-1 == ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                PS_MSG_ASPRINTF_FAILED,
-                                "asprintf failed while setting error msg");
-                        goto fail;
-                }
-                ret = dict_set_dynstr (reply, "ERROR", msg);
-                if (ret < 0)
-                        gf_msg_debug (this->name, 0, "failed to set error "
-                                      "msg");
-
-                op_ret = -1;
-                op_errno = ENOENT;
                 goto fail;
         }
 
@@ -850,7 +830,13 @@ fail:
 
         dict_unref (params);
         dict_unref (reply);
-        dict_unref (config_params);
+        if (config_params) {
+                /*
+                 * This might be null if we couldn't even find the translator
+                 * (brick) to copy it from.
+                 */
+                dict_unref (config_params);
+        }
 
         GF_FREE (buf);
 

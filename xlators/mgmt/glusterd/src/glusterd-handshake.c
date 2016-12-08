@@ -178,7 +178,7 @@ out:
         return ret;
 }
 
-static size_t
+size_t
 build_volfile_path (char *volume_id, char *path,
                     size_t path_len, char *trusted_str)
 {
@@ -841,6 +841,7 @@ __server_getspec (rpcsvc_request_t *req)
         peerinfo = &req->trans->peerinfo;
 
         volume = args.key;
+
         /* Need to strip leading '/' from volnames. This was introduced to
          * support nfs style mount parameters for native gluster mount
          */

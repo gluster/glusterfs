@@ -331,11 +331,25 @@ gf_client_ref (client_t *client)
 
 
 static void
+gf_client_destroy_recursive (xlator_t *xl, client_t *client)
+{
+        xlator_list_t   *trav;
+
+        if (xl->cbks->client_destroy) {
+                xl->cbks->client_destroy (xl, client);
+        }
+
+        for (trav = xl->children; trav; trav = trav->next) {
+                gf_client_destroy_recursive (trav->xlator, client);
+        }
+}
+
+
+static void
 client_destroy (client_t *client)
 {
         clienttable_t     *clienttable = NULL;
         glusterfs_graph_t *gtrav       = NULL;
-        xlator_t          *xtrav       = NULL;
 
         if (client == NULL){
                 gf_msg_callingfn ("xlator", GF_LOG_ERROR, EINVAL,
@@ -358,12 +372,7 @@ client_destroy (client_t *client)
         UNLOCK (&clienttable->lock);
 
         list_for_each_entry (gtrav, &client->this->ctx->graphs, list) {
-                xtrav = gtrav->top;
-                while (xtrav != NULL) {
-                        if (xtrav->cbks->client_destroy != NULL)
-                                xtrav->cbks->client_destroy (xtrav, client);
-                        xtrav = xtrav->next;
-                }
+                gf_client_destroy_recursive (gtrav->top, client);
         }
         GF_FREE (client->auth.data);
         GF_FREE (client->auth.username);
@@ -375,22 +384,32 @@ out:
         return;
 }
 
+static int
+gf_client_disconnect_recursive (xlator_t *xl, client_t *client)
+{
+        int             ret     = 0;
+        xlator_list_t   *trav;
+
+        if (xl->cbks->client_disconnect) {
+                ret = xl->cbks->client_disconnect (xl, client);
+        }
+
+        for (trav = xl->children; trav; trav = trav->next) {
+                ret |= gf_client_disconnect_recursive (trav->xlator, client);
+        }
+
+        return ret;
+}
+
 
 int
 gf_client_disconnect (client_t *client)
 {
         int                ret   = 0;
         glusterfs_graph_t *gtrav = NULL;
-        xlator_t          *xtrav = NULL;
 
         list_for_each_entry (gtrav, &client->this->ctx->graphs, list) {
-                xtrav = gtrav->top;
-                while (xtrav != NULL) {
-                        if (xtrav->cbks->client_disconnect != NULL)
-                                if (xtrav->cbks->client_disconnect (xtrav, client) != 0)
-                                        ret = -1;
-                        xtrav = xtrav->next;
-                }
+                ret |= gf_client_disconnect_recursive (gtrav->top, client);
         }
 
         return ret;

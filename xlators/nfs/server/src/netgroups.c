@@ -149,7 +149,9 @@ __deleted_entries_free_walk (dict_t *dict, char *key, data_t *val, void *tmp)
 void
 ng_file_deinit (struct netgroups_file *ngfile)
 {
-        GF_VALIDATE_OR_GOTO (GF_NG, ngfile, out);
+        if (!ngfile) {
+                return;
+        }
 
         __deleted_entries = dict_new ();
         GF_VALIDATE_OR_GOTO (GF_NG, __deleted_entries, out);

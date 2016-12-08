@@ -93,6 +93,30 @@
 #define NLMV4_VERSION       4
 #define NLMV1_VERSION       1
 
+int
+send_attach_req (xlator_t *this, struct rpc_clnt *rpc, char *path, int op);
+
+static gf_boolean_t
+is_brick_mx_enabled ()
+{
+        char            *value = NULL;
+        int             ret = 0;
+        gf_boolean_t    enabled = _gf_false;
+        xlator_t        *this = NULL;
+        glusterd_conf_t *priv = NULL;
+
+        this = THIS;
+
+        priv = this->private;
+
+        ret = dict_get_str (priv->opts, GLUSTERD_BRICK_MULTIPLEX_KEY, &value);
+
+        if (!ret)
+                ret = gf_string2boolean (value, &enabled);
+
+        return ret ? _gf_false: enabled;
+}
+
 extern struct volopt_map_entry glusterd_volopt_map[];
 extern glusterd_all_vol_opts valid_all_vol_opts[];
 
@@ -1690,8 +1714,6 @@ glusterd_set_brick_socket_filepath (glusterd_volinfo_t *volinfo,
                                     glusterd_brickinfo_t *brickinfo,
                                     char *sockpath, size_t len)
 {
-        char                    export_path[PATH_MAX] = {0,};
-        char                    sock_filepath[PATH_MAX] = {0,};
         char                    volume_dir[PATH_MAX] = {0,};
         xlator_t                *this = NULL;
         glusterd_conf_t         *priv = NULL;
@@ -1706,11 +1728,18 @@ glusterd_set_brick_socket_filepath (glusterd_volinfo_t *volinfo,
         priv = this->private;
 
         GLUSTERD_GET_VOLUME_DIR (volume_dir, volinfo, priv);
-        GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, export_path);
-        snprintf (sock_filepath, PATH_MAX, "%s/run/%s-%s",
-                  volume_dir, brickinfo->hostname, export_path);
+        if (is_brick_mx_enabled ()) {
+                snprintf (sockpath, len, "%s/run/daemon-%s.socket",
+                          volume_dir, brickinfo->hostname);
+        } else {
+                char                    export_path[PATH_MAX] = {0,};
+                char                    sock_filepath[PATH_MAX] = {0,};
+                GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, export_path);
+                snprintf (sock_filepath, PATH_MAX, "%s/run/%s-%s",
+                          volume_dir, brickinfo->hostname, export_path);
 
-        glusterd_set_socket_filepath (sock_filepath, sockpath, len);
+                glusterd_set_socket_filepath (sock_filepath, sockpath, len);
+        }
 }
 
 /* connection happens only if it is not aleady connected,
@@ -1749,7 +1778,7 @@ glusterd_brick_connect (glusterd_volinfo_t  *volinfo,
 
                 ret = glusterd_rpc_create (&rpc, options,
                                            glusterd_brick_rpc_notify,
-                                           brickid);
+                                           brickid, _gf_false);
                 if (ret) {
                         GF_FREE (brickid);
                         goto out;
@@ -1802,6 +1831,8 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         char                    glusterd_uuid[1024] = {0,};
         char                    valgrind_logfile[PATH_MAX] = {0};
         char                    rdma_brick_path[PATH_MAX] = {0,};
+        struct rpc_clnt         *rpc = NULL;
+        rpc_clnt_connection_t   *conn  = NULL;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -1823,16 +1854,33 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                 goto out;
         }
 
-        ret = _mk_rundir_p (volinfo);
-        if (ret)
-                goto out;
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, priv);
+        if (gf_is_service_running (pidfile, NULL)) {
+                goto connect;
+        }
 
+        /*
+         * There are all sorts of races in the start/stop code that could leave
+         * a UNIX-domain socket or RPC-client object associated with a
+         * long-dead incarnation of this brick, while the new incarnation is
+         * listening on a new socket at the same path and wondering why we
+         * haven't shown up.  To avoid the whole mess and be on the safe side,
+         * we just blow away anything that might have been left over, and start
+         * over again.
+         */
         glusterd_set_brick_socket_filepath (volinfo, brickinfo, socketpath,
                                             sizeof (socketpath));
-
-        GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, priv);
-        if (gf_is_service_running (pidfile, NULL))
-                goto connect;
+        (void) glusterd_unlink_file (socketpath);
+        rpc = brickinfo->rpc;
+        if (rpc) {
+                brickinfo->rpc = NULL;
+                conn = &rpc->conn;
+                if (conn->reconnect) {
+                        (void ) gf_timer_call_cancel (rpc->ctx, conn->reconnect);
+                        //rpc_clnt_unref (rpc);
+                }
+                rpc_clnt_unref (rpc);
+        }
 
         port = pmap_assign_port (THIS, brickinfo->port, brickinfo->path);
 
@@ -1933,6 +1981,7 @@ retry:
 
         brickinfo->port = port;
         brickinfo->rdma_port = rdma_port;
+        brickinfo->started_here = _gf_true;
 
         if (wait) {
                 synclock_unlock (&priv->big_lock);
@@ -1978,6 +2027,7 @@ connect:
                         brickinfo->hostname, brickinfo->path, socketpath);
                 goto out;
         }
+
 out:
         return ret;
 }
@@ -2035,9 +2085,8 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
                                 gf_boolean_t del_brick)
 {
         xlator_t        *this                   = NULL;
-        glusterd_conf_t *priv                   = NULL;
-        char            pidfile[PATH_MAX]       = {0,};
         int             ret                     = 0;
+        char            *op_errstr              = NULL;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -2045,18 +2094,32 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
         this = THIS;
         GF_ASSERT (this);
 
-        priv = this->private;
         if (del_brick)
                 cds_list_del_init (&brickinfo->brick_list);
 
         if (GLUSTERD_STATUS_STARTED == volinfo->status) {
-                (void) glusterd_brick_disconnect (brickinfo);
-                GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, priv);
-                ret = glusterd_service_stop ("brick", pidfile, SIGTERM, _gf_false);
-                if (ret == 0) {
-                        glusterd_set_brick_status (brickinfo, GF_BRICK_STOPPED);
-                        (void) glusterd_brick_unlink_socket_file (volinfo, brickinfo);
+                /*
+                 * In a post-multiplexing world, even if we're not actually
+                 * doing any multiplexing, just dropping the RPC connection
+                 * isn't enough.  There might be many such connections during
+                 * the brick daemon's lifetime, even if we only consider the
+                 * management RPC port (because tests etc. might be manually
+                 * attaching and detaching bricks).  Therefore, we have to send
+                 * an actual signal instead.
+                 */
+                if (is_brick_mx_enabled ()) {
+                        (void) send_attach_req (this, brickinfo->rpc,
+                                                brickinfo->path,
+                                                GLUSTERD_BRICK_TERMINATE);
+                } else {
+                        (void) glusterd_brick_terminate (volinfo, brickinfo,
+                                                         NULL, 0, &op_errstr);
+                        if (op_errstr) {
+                                GF_FREE (op_errstr);
+                        }
+                        (void) glusterd_brick_disconnect (brickinfo);
                 }
+                ret = 0;
         }
 
         if (del_brick)
@@ -4843,16 +4906,350 @@ out:
         return ret;
 }
 
+static int32_t
+my_callback (struct rpc_req *req, struct iovec *iov, int count, void *v_frame)
+{
+        call_frame_t    *frame  = v_frame;
+
+        STACK_DESTROY (frame->root);
+
+        return 0;
+}
+
+int
+send_attach_req (xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
+{
+        int            ret      = -1;
+        struct iobuf  *iobuf    = NULL;
+        struct iobref *iobref   = NULL;
+        struct iovec   iov      = {0, };
+        ssize_t        req_size = 0;
+        call_frame_t  *frame    = NULL;
+        gd1_mgmt_brick_op_req   brick_req;
+        void                    *req = &brick_req;
+        void          *errlbl   = &&err;
+        extern struct rpc_clnt_program gd_brick_prog;
+
+        if (!rpc) {
+                gf_log (this->name, GF_LOG_ERROR, "called with null rpc");
+                return -1;
+        }
+
+        brick_req.op = op;
+        brick_req.name = path;
+        brick_req.input.input_val = NULL;
+        brick_req.input.input_len = 0;
+
+        req_size = xdr_sizeof ((xdrproc_t)xdr_gd1_mgmt_brick_op_req, req);
+        iobuf = iobuf_get2 (rpc->ctx->iobuf_pool, req_size);
+        if (!iobuf) {
+                goto *errlbl;
+        }
+        errlbl = &&maybe_free_iobuf;
+
+        iov.iov_base = iobuf->ptr;
+        iov.iov_len  = iobuf_pagesize (iobuf);
+
+        iobref = iobref_new ();
+        if (!iobref) {
+                goto *errlbl;
+        }
+        errlbl = &&free_iobref;
+
+        frame = create_frame (this, this->ctx->pool);
+        if (!frame) {
+                goto *errlbl;
+        }
+
+        iobref_add (iobref, iobuf);
+        /*
+         * Drop our reference to the iobuf.  The iobref should already have
+         * one after iobref_add, so when we unref that we'll free the iobuf as
+         * well.  This allows us to pass just the iobref as frame->local.
+         */
+        iobuf_unref (iobuf);
+        /* Set the pointer to null so we don't free it on a later error. */
+        iobuf = NULL;
+
+        /* Create the xdr payload */
+        ret = xdr_serialize_generic (iov, req,
+                                     (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
+        if (ret == -1) {
+                goto *errlbl;
+        }
+
+        iov.iov_len = ret;
+
+        /* Send the msg */
+        ret = rpc_clnt_submit (rpc, &gd_brick_prog, op,
+                               my_callback, &iov, 1, NULL, 0, iobref, frame,
+                               NULL, 0, NULL, 0, NULL);
+        return ret;
+
+free_iobref:
+        iobref_unref (iobref);
+maybe_free_iobuf:
+        if (iobuf) {
+                iobuf_unref (iobuf);
+        }
+err:
+        return -1;
+}
+
+extern size_t
+build_volfile_path (char *volume_id, char *path,
+                    size_t path_len, char *trusted_str);
+
+
+static int
+attach_brick (xlator_t *this,
+              glusterd_brickinfo_t *brickinfo,
+              glusterd_brickinfo_t *other_brick,
+              glusterd_volinfo_t *volinfo,
+              glusterd_volinfo_t *other_vol)
+{
+        glusterd_conf_t *conf                   = this->private;
+        char            pidfile1[PATH_MAX]      = {0};
+        char            pidfile2[PATH_MAX]      = {0};
+        char            unslashed[PATH_MAX]     = {'\0',};
+        char            full_id[PATH_MAX]       = {'\0',};
+        char            path[PATH_MAX]          = {'\0',};
+        int             ret;
+
+        gf_log (this->name, GF_LOG_INFO,
+                "add brick %s to existing process for %s",
+                brickinfo->path, other_brick->path);
+
+        GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, unslashed);
+
+        ret = pmap_registry_extend (this, other_brick->port,
+                                    brickinfo->path);
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "adding brick to process failed");
+                return -1;
+        }
+
+        brickinfo->port = other_brick->port;
+        brickinfo->status = GF_BRICK_STARTED;
+        brickinfo->started_here = _gf_true;
+        brickinfo->rpc = rpc_clnt_ref (other_brick->rpc);
+
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile1, other_vol, other_brick, conf);
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile2, volinfo, brickinfo, conf);
+        (void) sys_unlink (pidfile2);
+        (void) sys_link (pidfile1, pidfile2);
+
+        if (volinfo->is_snap_volume) {
+                snprintf (full_id, sizeof(full_id), "/%s/%s/%s.%s.%s",
+                          GLUSTERD_VOL_SNAP_DIR_PREFIX,
+                          volinfo->snapshot->snapname,
+                          volinfo->volname, brickinfo->hostname, unslashed);
+        } else {
+                snprintf (full_id, sizeof(full_id), "%s.%s.%s",
+                          volinfo->volname, brickinfo->hostname, unslashed);
+        }
+        (void) build_volfile_path (full_id, path, sizeof(path), NULL);
+
+        int tries = 0;
+        while (tries++ <= 10) {
+                ret = send_attach_req (this, other_brick->rpc, path,
+                                       GLUSTERD_BRICK_ATTACH);
+                if (!ret) {
+                        return 0;
+                }
+                /*
+                 * It might not actually be safe to manipulate the lock like
+                 * this, but if we don't then the connection can never actually
+                 * complete and retries are useless.  Unfortunately, all of the
+                 * alternatives (e.g. doing all of this in a separate thread)
+                 * are much more complicated and risky.  TBD: see if there's a
+                 * better way
+                 */
+                synclock_unlock (&conf->big_lock);
+                sleep (1);
+                synclock_lock (&conf->big_lock);
+        }
+
+        gf_log (this->name, GF_LOG_WARNING,
+                "attach failed for %s", brickinfo->path);
+        return ret;
+}
+
+static glusterd_brickinfo_t *
+find_compatible_brick_in_volume (glusterd_conf_t *conf,
+                                 glusterd_volinfo_t *volinfo,
+                                 glusterd_brickinfo_t *brickinfo)
+{
+        xlator_t                *this                   = THIS;
+        glusterd_brickinfo_t    *other_brick;
+        char                    pidfile2[PATH_MAX]      = {0};
+        int32_t                 pid2                    = -1;
+
+        cds_list_for_each_entry (other_brick, &volinfo->bricks,
+                                 brick_list) {
+                if (other_brick == brickinfo) {
+                        continue;
+                }
+                if (!other_brick->started_here) {
+                        continue;
+                }
+                if (strcmp (brickinfo->hostname, other_brick->hostname) != 0) {
+                        continue;
+                }
+                GLUSTERD_GET_BRICK_PIDFILE (pidfile2, volinfo, other_brick,
+                                            conf);
+                if (!gf_is_service_running (pidfile2, &pid2)) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "cleaning up dead brick %s:%s",
+                                other_brick->hostname, other_brick->path);
+                        other_brick->started_here = _gf_false;
+                        sys_unlink (pidfile2);
+                        continue;
+                }
+                return other_brick;
+        }
+
+        return NULL;
+}
+
+static gf_boolean_t
+unsafe_option (dict_t *this, char *key, data_t *value, void *arg)
+{
+        /*
+         * Certain options are safe because they're already being handled other
+         * ways, such as being copied down to the bricks (all auth options) or
+         * being made irrelevant (event-threads).  All others are suspect and
+         * must be checked in the next function.
+         */
+        if (fnmatch ("*auth*", key, 0) == 0) {
+                return _gf_false;
+        }
+
+        if (fnmatch ("*event-threads", key, 0) == 0) {
+                return _gf_false;
+        }
+
+        return _gf_true;
+}
+
+static int
+opts_mismatch (dict_t *dict1, char *key, data_t *value1, void *dict2)
+{
+        data_t  *value2         = dict_get (dict2, key);
+        int32_t min_len;
+
+        /*
+         * If the option is only present on one, we can either look at the
+         * default or assume a mismatch.  Looking at the default is pretty
+         * hard, because that's part of a structure within each translator and
+         * there's no dlopen interface to get at it, so we assume a mismatch.
+         * If the user really wants them to match (and for their bricks to be
+         * multiplexed, they can always reset the option).
+         */
+        if (!value2) {
+                gf_log (THIS->name, GF_LOG_DEBUG, "missing option %s", key);
+                return -1;
+        }
+
+        min_len = MIN (value1->len, value2->len);
+        if (strncmp (value1->data, value2->data, min_len) != 0) {
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "option mismatch, %s, %s != %s",
+                        key, value1->data, value2->data);
+                return -1;
+        }
+
+        return 0;
+}
+
+static glusterd_brickinfo_t *
+find_compatible_brick (glusterd_conf_t *conf,
+                       glusterd_volinfo_t *volinfo,
+                       glusterd_brickinfo_t *brickinfo,
+                       glusterd_volinfo_t **other_vol_p)
+{
+        glusterd_brickinfo_t    *other_brick;
+        glusterd_volinfo_t      *other_vol;
+
+        /* Just return NULL here if multiplexing is disabled. */
+        if (!is_brick_mx_enabled ()) {
+                return NULL;
+        }
+
+        other_brick = find_compatible_brick_in_volume (conf, volinfo,
+                                                       brickinfo);
+        if (other_brick) {
+                *other_vol_p = volinfo;
+                return other_brick;
+        }
+
+        cds_list_for_each_entry (other_vol, &conf->volumes, vol_list) {
+                if (other_vol == volinfo) {
+                        continue;
+                }
+                if (volinfo->is_snap_volume) {
+                        /*
+                         * Snap volumes do have different options than their
+                         * parents, but are nonetheless generally compatible.
+                         * Skip the option comparison for now, until we figure
+                         * out how to handle this (e.g. compare at the brick
+                         * level instead of the volume level for this case).
+                         *
+                         * TBD: figure out compatibility for snap bricks
+                         */
+                        goto no_opt_compare;
+                }
+                /*
+                 * It's kind of a shame that we have to do this check in both
+                 * directions, but an option might only exist on one of the two
+                 * dictionaries and dict_foreach_match will only find that one.
+                 */
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "comparing options for %s and %s",
+                        volinfo->volname, other_vol->volname);
+                if (dict_foreach_match (volinfo->dict, unsafe_option, NULL,
+                                        opts_mismatch, other_vol->dict) < 0) {
+                        gf_log (THIS->name, GF_LOG_DEBUG, "failure forward");
+                        continue;
+                }
+                if (dict_foreach_match (other_vol->dict, unsafe_option, NULL,
+                                        opts_mismatch, volinfo->dict) < 0) {
+                        gf_log (THIS->name, GF_LOG_DEBUG, "failure backward");
+                        continue;
+                }
+                gf_log (THIS->name, GF_LOG_DEBUG, "all options match");
+no_opt_compare:
+                other_brick = find_compatible_brick_in_volume (conf,
+                                                               other_vol,
+                                                               brickinfo);
+                if (other_brick) {
+                        *other_vol_p = other_vol;
+                        return other_brick;
+                }
+        }
+
+        return NULL;
+}
+
 int
 glusterd_brick_start (glusterd_volinfo_t *volinfo,
                       glusterd_brickinfo_t *brickinfo,
                       gf_boolean_t wait)
 {
-        int                                     ret   = -1;
-        xlator_t                                *this = NULL;
+        int                     ret   = -1;
+        xlator_t                *this = NULL;
+        glusterd_brickinfo_t    *other_brick;
+        glusterd_conf_t         *conf = NULL;
+        int32_t                 pid                   = -1;
+        char                    pidfile[PATH_MAX]     = {0};
+        FILE                    *fp;
+        char                    socketpath[PATH_MAX]  = {0};
+        glusterd_volinfo_t      *other_vol;
 
         this = THIS;
         GF_ASSERT (this);
+        conf = this->private;
 
         if ((!brickinfo) || (!volinfo))
                 goto out;
@@ -4876,6 +5273,77 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                 ret = 0;
                 goto out;
         }
+
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, conf);
+        if (gf_is_service_running (pidfile, &pid)) {
+                /*
+                 * In general, if the pidfile exists and points to a running
+                 * process, this will already be set.  However, that's not the
+                 * case when we're starting up and bricks are already running.
+                 */
+                if (brickinfo->status != GF_BRICK_STARTED) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "discovered already-running brick %s",
+                                brickinfo->path);
+                        //brickinfo->status = GF_BRICK_STARTED;
+                        (void) pmap_registry_bind (this,
+                                        brickinfo->port, brickinfo->path,
+                                        GF_PMAP_PORT_BRICKSERVER, NULL);
+                        /*
+                         * This will unfortunately result in a separate RPC
+                         * connection per brick, even though they're all in
+                         * the same process.  It works, but it would be nicer
+                         * if we could find a pre-existing connection to that
+                         * same port (on another brick) and re-use that.
+                         * TBD: re-use RPC connection across bricks
+                         */
+                        glusterd_set_brick_socket_filepath (volinfo, brickinfo,
+                                        socketpath, sizeof (socketpath));
+                        (void) glusterd_brick_connect (volinfo, brickinfo,
+                                        socketpath);
+                }
+                return 0;
+        }
+
+        ret = _mk_rundir_p (volinfo);
+        if (ret)
+                goto out;
+
+        other_brick = find_compatible_brick (conf, volinfo, brickinfo,
+                                             &other_vol);
+        if (other_brick) {
+                ret = attach_brick (this, brickinfo, other_brick,
+                                    volinfo, other_vol);
+                if (ret == 0) {
+                        goto out;
+                }
+        }
+
+        /*
+         * This hack is necessary because our brick-process management is a
+         * total nightmare.  We expect a brick process's socket and pid files
+         * to be ready *immediately* after we start it.  Ditto for it calling
+         * back to bind its port.  Unfortunately, none of that is realistic.
+         * Any process takes non-zero time to start up.  This has *always* been
+         * racy and unsafe; it just became more visible with multiplexing.
+         *
+         * The right fix would be to do all of this setup *in the parent*,
+         * which would include (among other things) getting the PID back from
+         * the "runner" code.  That's all prohibitively difficult and risky.
+         * To work around the more immediate problems, we create a stub pidfile
+         * here to let gf_is_service_running know that we expect the process to
+         * be there shortly, and then it gets filled in with a real PID when
+         * the process does finish starting up.
+         *
+         * TBD: pray for GlusterD 2 to be ready soon.
+         */
+        (void) sys_unlink (pidfile);
+        fp = fopen (pidfile, "w+");
+        if (fp) {
+                (void) fprintf (fp, "0\n");
+                (void) fclose (fp);
+        }
+
         ret = glusterd_volume_start_glusterfs (volinfo, brickinfo, wait);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -5813,11 +6281,12 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, priv);
 
         if (glusterd_is_brick_started (brickinfo)) {
-                brick_online = gf_is_service_running (pidfile, &pid);
+                if (gf_is_service_running (pidfile, &pid)) {
+                        brick_online = _gf_true;
+                }
         }
 
         memset (key, 0, sizeof (key));
@@ -6880,10 +7349,12 @@ out:
         return ret;
 }
 
-int
-glusterd_brick_statedump (glusterd_volinfo_t *volinfo,
-                          glusterd_brickinfo_t *brickinfo,
-                          char *options, int option_cnt, char **op_errstr)
+
+static int
+glusterd_brick_signal (glusterd_volinfo_t *volinfo,
+                       glusterd_brickinfo_t *brickinfo,
+                       char *options, int option_cnt, char **op_errstr,
+                       int sig)
 {
         int                     ret = -1;
         xlator_t                *this = NULL;
@@ -6916,6 +7387,7 @@ glusterd_brick_statedump (glusterd_volinfo_t *volinfo,
 
         GLUSTERD_GET_BRICK_PIDFILE (pidfile_path, volinfo, brickinfo, conf);
 
+        /* TBD: use gf_is_service_running instead of almost-identical code? */
         pidfile = fopen (pidfile_path, "r");
         if (!pidfile) {
                 gf_msg ("glusterd", GF_LOG_ERROR, errno,
@@ -6934,24 +7406,35 @@ glusterd_brick_statedump (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        snprintf (dumpoptions_path, sizeof (dumpoptions_path),
-                  DEFAULT_VAR_RUN_DIRECTORY"/glusterdump.%d.options", pid);
-        ret = glusterd_set_dump_options (dumpoptions_path, options, option_cnt);
-        if (ret < 0) {
-                gf_msg ("glusterd", GF_LOG_ERROR, 0,
-                       GD_MSG_BRK_STATEDUMP_FAIL,
-                       "error while parsing the statedump "
-                        "options");
-                ret = -1;
+        if (pid == 0) {
+                gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                        GD_MSG_NO_SIG_TO_PID_ZERO,
+                        "refusing to send signal %d to pid zero", sig);
                 goto out;
+        }
+
+        if (sig == SIGUSR1) {
+                snprintf (dumpoptions_path, sizeof (dumpoptions_path),
+                          DEFAULT_VAR_RUN_DIRECTORY"/glusterdump.%d.options",
+                          pid);
+                ret = glusterd_set_dump_options (dumpoptions_path, options,
+                                                 option_cnt);
+                if (ret < 0) {
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                               GD_MSG_BRK_STATEDUMP_FAIL,
+                               "error while parsing the statedump "
+                                "options");
+                        ret = -1;
+                        goto out;
+                }
         }
 
         gf_msg ("glusterd", GF_LOG_INFO, 0,
                 GD_MSG_STATEDUMP_INFO,
-                "Performing statedump on brick with pid %d",
-                pid);
+                "sending signal %d to brick with pid %d",
+                sig, pid);
 
-        kill (pid, SIGUSR1);
+        kill (pid, sig);
 
         sleep (1);
         ret = 0;
@@ -6960,6 +7443,26 @@ out:
         if (pidfile)
                 fclose (pidfile);
         return ret;
+}
+
+int
+glusterd_brick_statedump (glusterd_volinfo_t *volinfo,
+                          glusterd_brickinfo_t *brickinfo,
+                          char *options, int option_cnt, char **op_errstr)
+{
+        return glusterd_brick_signal (volinfo, brickinfo,
+                                      options, option_cnt, op_errstr,
+                                      SIGUSR1);
+}
+
+int
+glusterd_brick_terminate (glusterd_volinfo_t *volinfo,
+                          glusterd_brickinfo_t *brickinfo,
+                          char *options, int option_cnt, char **op_errstr)
+{
+        return glusterd_brick_signal (volinfo, brickinfo,
+                                      options, option_cnt, op_errstr,
+                                      SIGTERM);
 }
 
 int
@@ -7446,7 +7949,7 @@ glusterd_volume_defrag_restart (glusterd_volinfo_t *volinfo, char *op_errstr,
                                           "volume=%s", volinfo->volname);
                                 goto out;
                         }
-                        ret = glusterd_rebalance_rpc_create (volinfo, _gf_true);
+                        ret = glusterd_rebalance_rpc_create (volinfo);
                         break;
                 }
         case GF_DEFRAG_STATUS_NOT_STARTED:
@@ -7978,9 +8481,10 @@ glusterd_to_cli (rpcsvc_request_t *req, gf_cli_rsp *arg, struct iovec *payload,
 
         glusterd_submit_reply (req, arg, payload, payloadcount, iobref,
                                (xdrproc_t) xdrproc);
-        if (dict)
-                dict_unref (dict);
 
+        if (dict) {
+                dict_unref (dict);
+        }
         return ret;
 }
 
@@ -11356,6 +11860,7 @@ glusterd_get_global_options_for_all_vols (rpcsvc_request_t *req, dict_t *ctx,
         char                    *allvolopt = NULL;
         int32_t                 i = 0;
         gf_boolean_t            exists = _gf_false;
+        gf_boolean_t            need_free;
 
         this = THIS;
         GF_VALIDATE_OR_GOTO (THIS->name, this, out);
@@ -11414,13 +11919,16 @@ glusterd_get_global_options_for_all_vols (rpcsvc_request_t *req, dict_t *ctx,
                 ret = dict_get_str (priv->opts, allvolopt, &def_val);
 
                 /* If global option isn't set explicitly */
+
+                need_free = _gf_false;
                 if (!def_val) {
-                        if (!strcmp (allvolopt, GLUSTERD_GLOBAL_OP_VERSION_KEY))
+                        if (!strcmp (allvolopt,
+                                     GLUSTERD_GLOBAL_OP_VERSION_KEY)) {
                                 gf_asprintf (&def_val, "%d", priv->op_version);
-                        else if (!strcmp (allvolopt, GLUSTERD_QUORUM_RATIO_KEY))
-                                gf_asprintf (&def_val, "%d", 0);
-                        else if (!strcmp (allvolopt, GLUSTERD_SHARED_STORAGE_KEY))
-                                gf_asprintf (&def_val, "%s", "disable");
+                                need_free = _gf_true;
+                        } else {
+                                def_val = valid_all_vol_opts[i].dflt_val;
+                        }
                 }
 
                 count++;
@@ -11443,6 +11951,9 @@ glusterd_get_global_options_for_all_vols (rpcsvc_request_t *req, dict_t *ctx,
                         goto out;
                 }
 
+                if (need_free) {
+                        GF_FREE (def_val);
+                }
                 def_val = NULL;
                 allvolopt = NULL;
 

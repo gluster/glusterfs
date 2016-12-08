@@ -2317,7 +2317,12 @@ glusterfs_process_volfp (glusterfs_ctx_t *ctx, FILE *fp)
                 }
         }
 
-        ret = glusterfs_graph_prepare (graph, ctx);
+        xlator_t *xl = graph->first;
+        if (strcmp (xl->type, "protocol/server") == 0) {
+                (void) copy_opts_to_child (xl, FIRST_CHILD (xl), "*auth*");
+        }
+
+        ret = glusterfs_graph_prepare (graph, ctx, ctx->cmd_args.volume_name);
         if (ret) {
                 goto out;
         }
@@ -2479,7 +2484,7 @@ main (int argc, char *argv[])
                 goto out;
         }
 
-        /* do this _after_ deamonize() */
+        /* do this _after_ daemonize() */
         if (cmd->global_timer_wheel) {
                 ret = glusterfs_global_timer_wheel_init (ctx);
                 if (ret)

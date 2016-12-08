@@ -15,7 +15,7 @@ TEST $CLI volume set $V0 nfs.disable on
 TEST touch $B0/${V0}{0,1}/{1,2,3,4}
 TEST $CLI volume start $V0
 
-TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
+TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0
 #Test that readdir returns entries even when no gfids are present
 EXPECT 4 echo $(ls $M0 | grep -v '^\.' | wc -l)
 sleep 2;

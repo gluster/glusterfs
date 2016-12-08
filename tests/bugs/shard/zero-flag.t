@@ -27,7 +27,7 @@ TEST touch $M0/file1
 
 gfid_file1=$(get_gfid_string $M0/file1)
 
-TEST $(dirname $0)/zero-flag $H0 $V0 "0" "0" "6291456" /file1 `gluster --print-logdir`/glfs-$V0.log
+TEST $(dirname $0)/shard-fallocate $H0 $V0 "0" "0" "6291456" /file1 `gluster --print-logdir`/glfs-$V0.log
 
 EXPECT '6291456' stat -c %s $M0/file1
 
@@ -47,7 +47,7 @@ TEST truncate -s 6M $M0/file2
 TEST dd if=$M0/tmp of=$M0/file2 bs=1 seek=3145728 count=26 conv=notrunc
 md5sum_file2=$(md5sum $M0/file2 | awk '{print $1}')
 
-TEST $(dirname $0)/zero-flag $H0 $V0 "0" "3145728" "26" /file2 `gluster --print-logdir`/glfs-$V0.log
+TEST $(dirname $0)/shard-fallocate $H0 $V0 "0" "3145728" "26" /file2 `gluster --print-logdir`/glfs-$V0.log
 
 EXPECT '6291456' stat -c %s $M0/file2
 EXPECT "$md5sum_file2" echo `md5sum $M0/file2 | awk '{print $1}'`
@@ -65,11 +65,11 @@ TEST   stat $B0/$V0*/.shard/$gfid_file3.2
 md5sum_file3=$(md5sum $M0/file3 | awk '{print $1}')
 EXPECT "1048602" echo `find $B0 -name $gfid_file3.2 | xargs stat -c %s`
 
-TEST $(dirname $0)/zero-flag $H0 $V0 "0" "5242880" "1048576" /file3 `gluster --print-logdir`/glfs-$V0.log
+TEST $(dirname $0)/shard-fallocate $H0 $V0 "0" "5242880" "1048576" /file3 `gluster --print-logdir`/glfs-$V0.log
 EXPECT "$md5sum_file3" echo `md5sum $M0/file3 | awk '{print $1}'`
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0
-rm -f $(dirname $0)/zero-flag
+rm -f $(dirname $0)/shard-fallocate
 cleanup

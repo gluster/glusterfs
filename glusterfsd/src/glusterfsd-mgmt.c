@@ -184,12 +184,75 @@ glusterfs_terminate_response_send (rpcsvc_request_t *req, int op_ret)
         return ret;
 }
 
+static void
+glusterfs_autoscale_threads (glusterfs_ctx_t *ctx, int incr)
+{
+        struct event_pool       *pool           = ctx->event_pool;
+
+        pool->auto_thread_count += incr;
+        (void) event_reconfigure_threads (pool, pool->eventthreadcount+incr);
+}
+
 int
 glusterfs_handle_terminate (rpcsvc_request_t *req)
 {
+        gd1_mgmt_brick_op_req   xlator_req      = {0,};
+        ssize_t                 ret;
+        xlator_t                *top;
+        xlator_t                *victim;
+        xlator_list_t           **trav_p;
+
+        ret = xdr_to_generic (req->msg[0], &xlator_req,
+                              (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
+        if (ret < 0) {
+                req->rpc_err = GARBAGE_ARGS;
+                return -1;
+        }
+
+        /* Find the xlator_list_t that points to our victim. */
+        top = glusterfsd_ctx->active->first;
+        for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
+                victim = (*trav_p)->xlator;
+                if (strcmp (victim->name, xlator_req.name) == 0) {
+                        break;
+                }
+        }
+
+        if (!*trav_p) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "can't terminate %s - not found", xlator_req.name);
+                /*
+                 * Used to be -ENOENT.  However, the caller asked us to make
+                 * sure it's down and if it's already down that's good enough.
+                 */
+                glusterfs_terminate_response_send (req, 0);
+                goto err;
+        }
 
         glusterfs_terminate_response_send (req, 0);
-        cleanup_and_exit (SIGTERM);
+        if ((trav_p == &top->children) && !(*trav_p)->next) {
+                gf_log (THIS->name, GF_LOG_INFO,
+                        "terminating after loss of last child %s",
+                        xlator_req.name);
+                cleanup_and_exit (SIGTERM);
+        } else {
+                /*
+                 * This is terribly unsafe without quiescing or shutting things
+                 * down properly (or even locking) but it gets us to the point
+                 * where we can test other stuff.
+                 *
+                 * TBD: finish implementing this "detach" code properly
+                 */
+                gf_log (THIS->name, GF_LOG_INFO, "detaching not-only child %s",
+                        xlator_req.name);
+                top->notify (top, GF_EVENT_TRANSPORT_CLEANUP, victim);
+                *trav_p = (*trav_p)->next;
+                glusterfs_autoscale_threads (THIS->ctx, -1);
+        }
+
+err:
+        free (xlator_req.name);
+        xlator_req.name = NULL;
         return 0;
 }
 
@@ -332,7 +395,7 @@ cont:
         active = ctx->active;
         any = active->first;
 
-        xlator = xlator_search_by_name (any, xlator_req.name);
+        xlator = get_xlator_by_name (any, xlator_req.name);
         if (!xlator) {
                 snprintf (msg, sizeof (msg), "xlator %s is not loaded",
                           xlator_req.name);
@@ -750,6 +813,39 @@ out:
         free (xlator_req.input.input_val); /*malloced by xdr*/
         if (output)
                 dict_unref (output);
+        free (xlator_req.name);
+
+        return 0;
+}
+
+int
+glusterfs_handle_attach (rpcsvc_request_t *req)
+{
+        int32_t                  ret          = -1;
+        gd1_mgmt_brick_op_req    xlator_req   = {0,};
+        xlator_t                 *this        = NULL;
+
+        GF_ASSERT (req);
+        this = THIS;
+        GF_ASSERT (this);
+
+        ret = xdr_to_generic (req->msg[0], &xlator_req,
+                             (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
+
+        if (ret < 0) {
+                /*failed to decode msg;*/
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        gf_log (this->name, GF_LOG_INFO, "got attach for %s", xlator_req.name);
+        glusterfs_graph_attach (this->ctx->active, xlator_req.name);
+        glusterfs_autoscale_threads (this->ctx, 1);
+
+out:
+        glusterfs_translator_info_response_send (req, 0, NULL, NULL);
+
+        free (xlator_req.input.input_val);
         free (xlator_req.name);
 
         return 0;
@@ -1332,13 +1428,13 @@ glusterfs_handle_barrier (rpcsvc_request_t *req)
         gd1_mgmt_brick_op_rsp   brick_rsp   = {0,};
         glusterfs_ctx_t         *ctx        = NULL;
         glusterfs_graph_t       *active     = NULL;
-        xlator_t                *any        = NULL;
+        xlator_t                *top        = NULL;
         xlator_t                *xlator     = NULL;
         xlator_t                *old_THIS   = NULL;
         dict_t                  *dict       = NULL;
-        char                    name[1024]  = {0,};
         gf_boolean_t            barrier     = _gf_true;
         gf_boolean_t            barrier_err = _gf_false;
+        xlator_list_t           *trav;
 
         GF_ASSERT (req);
 
@@ -1348,15 +1444,22 @@ glusterfs_handle_barrier (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
-        ret = -1;
 
         ctx = glusterfsd_ctx;
-        GF_VALIDATE_OR_GOTO (THIS->name, ctx, out);
-
+        GF_ASSERT (ctx);
         active = ctx->active;
-        GF_VALIDATE_OR_GOTO (THIS->name, active, out);
+        top = active->first;
 
-        any = active->first;
+        for (trav = top->children; trav; trav = trav->next) {
+                if (strcmp (trav->xlator->name, brick_req.name) == 0) {
+                        break;
+                }
+        }
+        if (!trav) {
+                ret = -1;
+                goto out;
+        }
+        top = trav->xlator;
 
         dict = dict_new();
         if (!dict) {
@@ -1377,12 +1480,11 @@ glusterfs_handle_barrier (rpcsvc_request_t *req)
         old_THIS = THIS;
 
         /* Send barrier request to the barrier xlator */
-        snprintf (name, sizeof (name), "%s-barrier", brick_req.name);
-        xlator = xlator_search_by_name(any, name);
+        xlator = get_xlator_by_type (top, "features/barrier");
         if (!xlator) {
                 ret = -1;
                 gf_log (THIS->name, GF_LOG_ERROR, "%s xlator is not loaded",
-                        name);
+                        "features/barrier");
                 goto out;
         }
 
@@ -1390,6 +1492,7 @@ glusterfs_handle_barrier (rpcsvc_request_t *req)
         // TODO: Extend this to accept return of errnos
         ret = xlator->notify (xlator, GF_EVENT_TRANSLATOR_OP, dict);
         if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "barrier notify failed");
                 brick_rsp.op_ret = ret;
                 brick_rsp.op_errstr = gf_strdup ("Failed to reconfigure "
                                                  "barrier.");
@@ -1408,20 +1511,18 @@ glusterfs_handle_barrier (rpcsvc_request_t *req)
         THIS = old_THIS;
 
         /* Send barrier request to changelog as well */
-
-        memset (name, 0, sizeof (name));
-        snprintf (name, sizeof (name), "%s-changelog", brick_req.name);
-        xlator = xlator_search_by_name(any, name);
+        xlator = get_xlator_by_type (top, "features/changelog");
         if (!xlator) {
                 ret = -1;
                 gf_log (THIS->name, GF_LOG_ERROR, "%s xlator is not loaded",
-                        name);
+                        "features/changelog");
                 goto out;
         }
 
         THIS = xlator;
         ret = xlator->notify (xlator, GF_EVENT_TRANSLATOR_OP, dict);
         if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "changelog notify failed");
                 brick_rsp.op_ret = ret;
                 brick_rsp.op_errstr = gf_strdup ("changelog notify failed");
                 goto submit_reply;
@@ -1502,17 +1603,54 @@ rpc_clnt_prog_t clnt_handshake_prog = {
 };
 
 rpcsvc_actor_t glusterfs_actors[GLUSTERD_BRICK_MAXVALUE] = {
-        [GLUSTERD_BRICK_NULL]          = {"NULL",              GLUSTERD_BRICK_NULL,          glusterfs_handle_rpc_msg,             NULL, 0, DRC_NA},
-        [GLUSTERD_BRICK_TERMINATE]     = {"TERMINATE",         GLUSTERD_BRICK_TERMINATE,     glusterfs_handle_terminate,           NULL, 0, DRC_NA},
-        [GLUSTERD_BRICK_XLATOR_INFO]   = {"TRANSLATOR INFO",   GLUSTERD_BRICK_XLATOR_INFO,   glusterfs_handle_translator_info_get, NULL, 0, DRC_NA},
-        [GLUSTERD_BRICK_XLATOR_OP]     = {"TRANSLATOR OP",     GLUSTERD_BRICK_XLATOR_OP,     glusterfs_handle_translator_op,       NULL, 0, DRC_NA},
-        [GLUSTERD_BRICK_STATUS]        = {"STATUS",            GLUSTERD_BRICK_STATUS,        glusterfs_handle_brick_status,        NULL, 0, DRC_NA},
-        [GLUSTERD_BRICK_XLATOR_DEFRAG] = {"TRANSLATOR DEFRAG", GLUSTERD_BRICK_XLATOR_DEFRAG, glusterfs_handle_defrag,              NULL, 0, DRC_NA},
-        [GLUSTERD_NODE_PROFILE]        = {"NFS PROFILE",       GLUSTERD_NODE_PROFILE,        glusterfs_handle_nfs_profile,         NULL, 0, DRC_NA},
-        [GLUSTERD_NODE_STATUS]         = {"NFS STATUS",        GLUSTERD_NODE_STATUS,         glusterfs_handle_node_status,         NULL, 0, DRC_NA},
-        [GLUSTERD_VOLUME_BARRIER_OP]   = {"VOLUME BARRIER OP", GLUSTERD_VOLUME_BARRIER_OP,   glusterfs_handle_volume_barrier_op,   NULL, 0, DRC_NA},
-        [GLUSTERD_BRICK_BARRIER]       = {"BARRIER",           GLUSTERD_BRICK_BARRIER,       glusterfs_handle_barrier,             NULL, 0, DRC_NA},
-        [GLUSTERD_NODE_BITROT]         = {"BITROT",            GLUSTERD_NODE_BITROT,         glusterfs_handle_bitrot,              NULL, 0, DRC_NA},
+        [GLUSTERD_BRICK_NULL]          = {"NULL",
+                                          GLUSTERD_BRICK_NULL,
+                                          glusterfs_handle_rpc_msg,
+                                          NULL, 0, DRC_NA},
+        [GLUSTERD_BRICK_TERMINATE]     = {"TERMINATE",
+                                          GLUSTERD_BRICK_TERMINATE,
+                                          glusterfs_handle_terminate,
+                                          NULL, 0, DRC_NA},
+        [GLUSTERD_BRICK_XLATOR_INFO]   = {"TRANSLATOR INFO",
+                                          GLUSTERD_BRICK_XLATOR_INFO,
+                                          glusterfs_handle_translator_info_get,
+                                          NULL, 0, DRC_NA},
+        [GLUSTERD_BRICK_XLATOR_OP]     = {"TRANSLATOR OP",
+                                          GLUSTERD_BRICK_XLATOR_OP,
+                                          glusterfs_handle_translator_op,
+                                          NULL, 0, DRC_NA},
+        [GLUSTERD_BRICK_STATUS]        = {"STATUS",
+                                          GLUSTERD_BRICK_STATUS,
+                                          glusterfs_handle_brick_status,
+                                          NULL, 0, DRC_NA},
+        [GLUSTERD_BRICK_XLATOR_DEFRAG] = {"TRANSLATOR DEFRAG",
+                                          GLUSTERD_BRICK_XLATOR_DEFRAG,
+                                          glusterfs_handle_defrag,
+                                          NULL, 0, DRC_NA},
+        [GLUSTERD_NODE_PROFILE]        = {"NFS PROFILE",
+                                          GLUSTERD_NODE_PROFILE,
+                                          glusterfs_handle_nfs_profile,
+                                          NULL, 0, DRC_NA},
+        [GLUSTERD_NODE_STATUS]         = {"NFS STATUS",
+                                          GLUSTERD_NODE_STATUS,
+                                          glusterfs_handle_node_status,
+                                          NULL, 0, DRC_NA},
+        [GLUSTERD_VOLUME_BARRIER_OP]   = {"VOLUME BARRIER OP",
+                                          GLUSTERD_VOLUME_BARRIER_OP,
+                                          glusterfs_handle_volume_barrier_op,
+                                          NULL, 0, DRC_NA},
+        [GLUSTERD_BRICK_BARRIER]       = {"BARRIER",
+                                          GLUSTERD_BRICK_BARRIER,
+                                          glusterfs_handle_barrier,
+                                          NULL, 0, DRC_NA},
+        [GLUSTERD_NODE_BITROT]         = {"BITROT",
+                                          GLUSTERD_NODE_BITROT,
+                                          glusterfs_handle_bitrot,
+                                          NULL, 0, DRC_NA},
+        [GLUSTERD_BRICK_ATTACH]        = {"ATTACH",
+                                          GLUSTERD_BRICK_ATTACH,
+                                          glusterfs_handle_attach,
+                                          NULL, 0, DRC_NA},
 };
 
 struct rpcsvc_program glusterfs_mop_prog = {
@@ -1727,8 +1865,8 @@ out:
 }
 
 
-int
-glusterfs_volfile_fetch (glusterfs_ctx_t *ctx)
+static int
+glusterfs_volfile_fetch_one (glusterfs_ctx_t *ctx, char *volfile_id)
 {
         cmd_args_t       *cmd_args = NULL;
         gf_getspec_req    req = {0, };
@@ -1737,10 +1875,13 @@ glusterfs_volfile_fetch (glusterfs_ctx_t *ctx)
         dict_t           *dict = NULL;
 
         cmd_args = &ctx->cmd_args;
+        if (!volfile_id) {
+                volfile_id = ctx->cmd_args.volfile_id;
+        }
 
         frame = create_frame (THIS, ctx->pool);
 
-        req.key = cmd_args->volfile_id;
+        req.key = volfile_id;
         req.flags = 0;
 
         dict = dict_new ();
@@ -1794,6 +1935,35 @@ out:
 
         return ret;
 }
+
+
+int
+glusterfs_volfile_fetch (glusterfs_ctx_t *ctx)
+{
+        xlator_t        *server_xl      = NULL;
+        xlator_list_t   *trav;
+        int             ret;
+
+        if (ctx->active) {
+                server_xl = ctx->active->first;
+                if (strcmp (server_xl->type, "protocol/server") != 0) {
+                        server_xl = NULL;
+                }
+        }
+        if (!server_xl) {
+                /* Startup (ctx->active not set) or non-server. */
+                return glusterfs_volfile_fetch_one (ctx,
+                                                    ctx->cmd_args.volfile_id);
+        }
+
+        ret = 0;
+        for (trav = server_xl->children; trav; trav = trav->next) {
+                ret |= glusterfs_volfile_fetch_one (ctx,
+                                                    trav->xlator->volfile_id);
+        }
+        return ret;
+}
+
 
 int32_t
 mgmt_event_notify_cbk (struct rpc_req *req, struct iovec *iov, int count,
@@ -1942,7 +2112,7 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 }
                 server = ctx->cmd_args.curr_server;
                 if (server->list.next == &ctx->cmd_args.volfile_servers) {
-                        if (!ctx->active)
+                        //if (!ctx->active)
                                 need_term = 1;
                         emval = ENOTCONN;
                         GF_LOG_OCCASIONALLY (log_ctr2, "glusterfsd-mgmt",
@@ -1960,7 +2130,7 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                         gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
                                 "failed to set remote-host: %s",
                                 server->volfile_server);
-                        if (!ctx->active)
+                        //if (!ctx->active)
                                 need_term = 1;
                         emval = ENOTCONN;
                         break;
