@@ -1473,20 +1473,21 @@ gf_boolean_t ec_lock_acquire(ec_lock_link_t *link)
 {
     ec_lock_t *lock;
     ec_fop_data_t *fop;
+    gf_lkowner_t lk_owner;
 
     lock = link->lock;
     fop = link->fop;
 
     if (!lock->acquired) {
-        ec_owner_set(fop->frame, lock);
+        set_lk_owner_from_ptr(&lk_owner, lock);
 
         ec_trace("LOCK_ACQUIRE", fop, "lock=%p, inode=%p", lock,
                  lock->loc.inode);
 
         lock->flock.l_type = F_WRLCK;
-        ec_inodelk(fop->frame, fop->xl, -1, EC_MINIMUM_ALL, ec_locked,
-                   link, fop->xl->name, &lock->loc, F_SETLKW, &lock->flock,
-                   NULL);
+        ec_inodelk(fop->frame, fop->xl, &lk_owner, -1, EC_MINIMUM_ALL,
+                   ec_locked, link, fop->xl->name, &lock->loc, F_SETLKW,
+                   &lock->flock, NULL);
 
         return _gf_false;
     }
@@ -1784,6 +1785,7 @@ void ec_unlock_lock(ec_lock_link_t *link)
 {
     ec_lock_t *lock;
     ec_fop_data_t *fop;
+    gf_lkowner_t lk_owner;
 
     lock = link->lock;
     fop = link->fop;
@@ -1792,12 +1794,12 @@ void ec_unlock_lock(ec_lock_link_t *link)
     ec_clear_inode_info(fop, lock->loc.inode);
 
     if ((lock->mask != 0) && lock->acquired) {
-        ec_owner_set(fop->frame, lock);
+        set_lk_owner_from_ptr(&lk_owner, lock);
         lock->flock.l_type = F_UNLCK;
         ec_trace("UNLOCK_INODELK", fop, "lock=%p, inode=%p", lock,
                  lock->loc.inode);
 
-        ec_inodelk(fop->frame, fop->xl, lock->mask, EC_MINIMUM_ONE,
+        ec_inodelk(fop->frame, fop->xl, &lk_owner, lock->mask, EC_MINIMUM_ONE,
                    ec_unlocked, link, fop->xl->name, &lock->loc, F_SETLK,
                    &lock->flock, NULL);
     } else {
