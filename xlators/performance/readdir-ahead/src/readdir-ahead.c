@@ -407,6 +407,7 @@ rda_fill_fd(call_frame_t *frame, xlator_t *this, fd_t *fd)
 	struct rda_fd_ctx *ctx;
 	off_t offset;
 	struct rda_priv *priv = this->private;
+        int ret = 0;
 
 	ctx = get_rda_fd_ctx(fd, this);
 	if (!ctx)
@@ -452,6 +453,15 @@ rda_fill_fd(call_frame_t *frame, xlator_t *this, fd_t *fd)
 	}
 
 	local->offset = offset;
+        if (local->skip_dir) {
+                ret = dict_set_int32 (ctx->xattrs, GF_READDIR_SKIP_DIRS, 1);
+                if (ret < 0) {
+                        gf_msg (this->name, GF_LOG_ERROR,
+                                0, READDIR_AHEAD_MSG_DICT_OP_FAILED,
+                                "Dict set of key:%s failed with :%d",
+                                GF_READDIR_SKIP_DIRS, ret);
+                }
+        }
 
 	UNLOCK(&ctx->lock);
 
@@ -558,6 +568,13 @@ rda_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                 }
 
                 local->xattrs = xdata_from_req;
+                ret = dict_get_int32 (xdata, GF_READDIR_SKIP_DIRS, &local->skip_dir);
+                if (ret < 0) {
+                        gf_msg (this->name, GF_LOG_ERROR,
+                                0, READDIR_AHEAD_MSG_DICT_OP_FAILED,
+                                "Dict get of key:%s failed with :%d",
+                                GF_READDIR_SKIP_DIRS, ret);
+                }
                 frame->local = local;
         }
 

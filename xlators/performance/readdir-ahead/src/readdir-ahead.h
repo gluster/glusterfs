@@ -37,6 +37,7 @@ struct rda_local {
 	fd_t *fd;
 	off_t offset;
         dict_t *xattrs;      /* md-cache keys to be sent in readdirp() */
+        int32_t skip_dir;
 };
 
 struct rda_priv {
