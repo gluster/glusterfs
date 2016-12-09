@@ -558,14 +558,30 @@ recreate_resources()
         eval tmp_ipaddr=\$${clean_name}
         ipaddr=${tmp_ipaddr//_/.}
 
-        pcs -f ${cibfile} resource create ${1}-cluster_ip-1 ocf:heartbeat:IPaddr ip=${ipaddr} cidr_netmask=32 op monitor interval=15s
+        pcs -f ${cibfile} resource create ${1}-nfs_block ocf:heartbeat:portblock protocol=tcp \
+        portno=2049 action=block ip=${ipaddr} --group ${1}-group
         if [ $? -ne 0 ]; then
-            logger "warning pcs resource create ${1}-cluster_ip-1 ocf:heartbeat:IPaddr ip=${ipaddr} cidr_netmask=32 op monitor interval=10s failed"
+            logger "warning pcs resource create ${1}-nfs_block failed"
+        fi
+        pcs -f ${cibfile} resource create ${1}-cluster_ip-1 ocf:heartbeat:IPaddr ip=${ipaddr} \
+        cidr_netmask=32 op monitor interval=15s --group ${1}-group --after ${1}-nfs_block
+        if [ $? -ne 0 ]; then
+            logger "warning pcs resource create ${1}-cluster_ip-1 ocf:heartbeat:IPaddr ip=${ipaddr} \
+            cidr_netmask=32 op monitor interval=15s failed"
         fi
 
         pcs -f ${cibfile} constraint order nfs-grace-clone then ${1}-cluster_ip-1
         if [ $? -ne 0 ]; then
             logger "warning: pcs constraint order nfs-grace-clone then ${1}-cluster_ip-1 failed"
+        fi
+
+        pcs -f ${cibfile} resource create ${1}-nfs_unblock ocf:heartbeat:portblock protocol=tcp \
+        portno=2049 action=unblock ip=${ipaddr} reset_local_on_unblock_stop=true \
+        tickle_dir=${HA_VOL_MNT}/nfs-ganesha/tickle_dir/ --group ${1}-group --after ${1}-cluster_ip-1 \
+        op stop timeout=${PORTBLOCK_UNBLOCK_TIMEOUT} op start timeout=${PORTBLOCK_UNBLOCK_TIMEOUT} \
+        op monitor interval=10s timeout=${PORTBLOCK_UNBLOCK_TIMEOUT}
+        if [ $? -ne 0 ]; then
+            logger "warning pcs resource create ${1}-nfs_unblock failed"
         fi
 
         shift
@@ -581,14 +597,31 @@ addnode_recreate_resources()
 
     recreate_resources ${cibfile} ${HA_SERVERS}
 
-    pcs -f ${cibfile} resource create ${add_node}-cluster_ip-1 ocf:heartbeat:IPaddr ip=${add_vip} cidr_netmask=32 op monitor interval=15s
+    pcs -f ${cibfile} resource create ${add_node}-nfs_block ocf:heartbeat:portblock \
+    protocol=tcp portno=2049 action=block ip=${ipaddr} --group ${add_node}-group
     if [ $? -ne 0 ]; then
-        logger "warning pcs resource create ${add_node}-cluster_ip-1 ocf:heartbeat:IPaddr ip=${add_vip} cidr_netmask=32 op monitor interval=10s failed"
+        logger "warning pcs resource create ${add_node}-nfs_block failed"
+    fi
+    pcs -f ${cibfile} resource create ${add_node}-cluster_ip-1 ocf:heartbeat:IPaddr \
+    ip=${ipaddr} cidr_netmask=32 op monitor interval=15s --group ${add_node}-group \
+    --after ${add_node}-nfs_block
+    if [ $? -ne 0 ]; then
+        logger "warning pcs resource create ${add_node}-cluster_ip-1 ocf:heartbeat:IPaddr \
+	ip=${ipaddr} cidr_netmask=32 op monitor interval=15s failed"
     fi
 
     pcs -f ${cibfile} constraint order nfs-grace-clone then ${add_node}-cluster_ip-1
     if [ $? -ne 0 ]; then
         logger "warning: pcs constraint order nfs-grace-clone then ${add_node}-cluster_ip-1 failed"
+    fi
+    pcs -f ${cibfile} resource create ${add_node}-nfs_unblock ocf:heartbeat:portblock \
+    protocol=tcp portno=2049 action=unblock ip=${ipaddr} reset_local_on_unblock_stop=true \
+    tickle_dir=${HA_VOL_MNT}/nfs-ganesha/tickle_dir/ --group ${add_node}-group --after \
+    ${add_node}-cluster_ip-1 op stop timeout=${PORTBLOCK_UNBLOCK_TIMEOUT} op start \
+    timeout=${PORTBLOCK_UNBLOCK_TIMEOUT} op monitor interval=10s \
+    timeout=${PORTBLOCK_UNBLOCK_TIMEOUT}
+    if [ $? -ne 0 ]; then
+        logger "warning pcs resource create ${add_node}-nfs_unblock failed"
     fi
 }
 
@@ -598,9 +631,9 @@ clear_resources()
     local cibfile=${1}; shift
 
     while [[ ${1} ]]; do
-        pcs -f ${cibfile} resource delete ${1}-cluster_ip-1
+        pcs -f ${cibfile} resource delete ${1}-group
         if [ $? -ne 0 ]; then
-            logger "warning: pcs -f ${cibfile} resource delete ${1}-cluster_ip-1"
+            logger "warning: pcs -f ${cibfile} resource delete ${1}-group"
         fi
 
         shift
@@ -677,7 +710,7 @@ deletenode_update_haconfig()
     local clean_name=${name//[-.]/_}
 
     ha_servers=$(echo ${HA_SERVERS} | sed -e "s/ /,/")
-    sed -i -e "s/^HA_CLUSTER_NODES=.*$/HA_CLUSTER_NODES=\"${ha_servers// /,}\"/" -e "s/^${clean_name}=.*$//" -e "/^$/d" ${HA_CONFDIR}/ganesha-ha.conf
+    sed -i -e "s/^HA_CLUSTER_NODES=.*$/HA_CLUSTER_NODES=\"${ha_servers// /,}\"/" -e "s/^${name}=.*$//" -e "/^$/d" ${HA_CONFDIR}/ganesha-ha.conf
 }
 
 
@@ -831,6 +864,20 @@ create_ganesha_conf_file()
         fi
 }
 
+set_quorum_policy()
+{
+    local quorum_policy="stop"
+    local num_servers=${1}
+
+    if [ ${num_servers} -lt 3 ]; then
+        quorum_policy="ignore"
+    fi
+    pcs property set no-quorum-policy=${quorum_policy}
+    if [ $? -ne 0 ]; then
+        logger "warning: pcs property set no-quorum-policy=${quorum_policy} failed"
+    fi
+}
+
 main()
 {
 
@@ -915,13 +962,16 @@ main()
         # newly added node to the file so that the resources specfic
         # to this node is correctly recreated in the future.
         clean_node=${node//[-.]/_}
-        echo "VIP_$clean_node=\"${vip}\"" >> ${HA_CONFDIR}/ganesha-ha.conf
+        echo "VIP_${node}=\"${vip}\"" >> ${HA_CONFDIR}/ganesha-ha.conf
 
         NEW_NODES="$HA_CLUSTER_NODES,${node}"
 
         sed -i s/HA_CLUSTER_NODES.*/"HA_CLUSTER_NODES=\"$NEW_NODES\""/ \
 $HA_CONFDIR/ganesha-ha.conf
         HA_SERVERS="${HA_SERVERS} ${node}"
+
+        HA_NUM_SERVERS=$(expr ${HA_NUM_SERVERS} + 1)
+        set_quorum_policy ${HA_NUM_SERVERS}
         ;;
 
     delete | --delete)
@@ -945,6 +995,9 @@ $HA_CONFDIR/ganesha-ha.conf
         determine_service_manager
 
         manage_service "stop" ${node}
+
+        HA_NUM_SERVERS=$(expr ${HA_NUM_SERVERS} - 1)
+        set_quorum_policy ${HA_NUM_SERVERS}
         ;;
 
     status | --status)
