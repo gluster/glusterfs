@@ -3723,6 +3723,14 @@ glusterd_copy_nfs_ganesha_file (glusterd_volinfo_t *src_vol,
         GF_VALIDATE_OR_GOTO (this->name, src_vol, out);
         GF_VALIDATE_OR_GOTO (this->name, dest_vol, out);
 
+        if (glusterd_check_ganesha_export(src_vol) == _gf_false) {
+                gf_msg_debug (this->name, 0, "%s is not exported via "
+                              "NFS-Ganesha. Skipping copy of export conf.",
+                              src_vol->volname);
+                ret = 0;
+                goto out;
+        }
+
         if (src_vol->is_snap_volume) {
                 GLUSTERD_GET_SNAP_DIR (snap_dir, src_vol->snapshot, priv);
                 ret = snprintf (src_path, PATH_MAX, "%s/export.%s.conf",
@@ -3736,19 +3744,15 @@ glusterd_copy_nfs_ganesha_file (glusterd_volinfo_t *src_vol,
 
         ret = sys_lstat (src_path, &stbuf);
         if (ret) {
-                /* *
-                * If export file is not present, volume is not exported
-                * via ganesha. So it is not necessary to copy that during
-                * snapshot.
-                */
-                if (errno == ENOENT) {
-                        ret = 0;
-                        gf_msg_debug (this->name, 0, "%s not found", src_path);
-                } else
-                        gf_msg (this->name, GF_LOG_WARNING, errno,
-                                GD_MSG_FILE_OP_FAILED,
-                                "Stat on %s failed with %s",
-                                src_path, strerror (errno));
+                /*
+                 * This code path is hit, only when the src_vol is being *
+                 * exported via NFS-Ganesha. So if the conf file is not  *
+                 * available, we fail the snapshot operation.            *
+                 */
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_FILE_OP_FAILED,
+                        "Stat on %s failed with %s",
+                        src_path, strerror (errno));
                 goto out;
         }
 
@@ -3778,6 +3782,14 @@ glusterd_copy_nfs_ganesha_file (glusterd_volinfo_t *src_vol,
 
                 src = fopen (src_path, "r");
                 dest = fopen (dest_path, "w");
+
+                if (!src || !dest) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_FILE_OP_FAILED,
+                                "Failed to open %s",
+                                dest ? src_path : dest_path);
+                        goto out;
+                }
 
                 /* *
                  * if the source volume is snapshot, the export conf file
