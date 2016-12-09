@@ -266,9 +266,10 @@ _dir_scan_job_fn (void *data)
                 entry = NULL;
                 pthread_mutex_lock (scan_data->mut);
                 {
-                        if (ret || list_empty (&scan_data->q->list)) {
-                                (*scan_data->jobs_running)--;
+                        if (ret)
                                 *scan_data->retval |= ret;
+                        if (list_empty (&scan_data->q->list)) {
+                                (*scan_data->jobs_running)--;
                                 pthread_cond_broadcast (scan_data->cond);
                         } else {
                                 entry = list_first_entry (&scan_data->q->list,
@@ -406,9 +407,12 @@ syncop_mt_dir_scan (call_frame_t *frame, xlator_t *subvol, loc_t *loc, int pid,
                                 ret = fn (subvol, entry, loc, data);
                                 gf_dirent_entry_free (entry);
                                 if (ret)
-                                        break;
+                                        goto out;
                                 continue;
                         }
+
+                        if (retval) /*Any jobs failed?*/
+                                goto out;
 
                         pthread_mutex_lock (&mut);
                         {
@@ -423,8 +427,7 @@ syncop_mt_dir_scan (call_frame_t *frame, xlator_t *subvol, loc_t *loc, int pid,
                                 }
                         }
                         pthread_mutex_unlock (&mut);
-                        if (retval) /*Any jobs failed?*/
-                                break;
+
 
                         if (!entry)
                                 continue;
@@ -433,7 +436,7 @@ syncop_mt_dir_scan (call_frame_t *frame, xlator_t *subvol, loc_t *loc, int pid,
                                                   &retval, &mut, &cond,
                                                 &jobs_running, &qlen, fn, data);
                         if (ret)
-                                break;
+                                goto out;
                 }
         }
 
