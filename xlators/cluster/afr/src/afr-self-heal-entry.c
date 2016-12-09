@@ -913,6 +913,7 @@ __afr_selfheal_entry (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	unsigned char          *data_lock             = NULL;
         unsigned char          *postop_lock           = NULL;
 	unsigned char          *healed_sinks          = NULL;
+	unsigned char          *undid_pending         = NULL;
 	struct afr_reply       *locked_replies        = NULL;
         afr_local_t            *local                 = NULL;
 	afr_private_t          *priv                  = NULL;
@@ -924,6 +925,7 @@ __afr_selfheal_entry (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	sources = alloca0 (priv->child_count);
 	sinks = alloca0 (priv->child_count);
 	healed_sinks = alloca0 (priv->child_count);
+	undid_pending = alloca0 (priv->child_count);
 	data_lock = alloca0 (priv->child_count);
         postop_lock = alloca0 (priv->child_count);
 
@@ -996,6 +998,7 @@ unlock:
 
                 ret = afr_selfheal_undo_pending (frame, this, fd->inode,
                                                  sources, sinks, healed_sinks,
+                                                 undid_pending,
                                                  AFR_ENTRY_TRANSACTION,
                                                  locked_replies, postop_lock);
         }
