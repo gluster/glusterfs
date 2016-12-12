@@ -1512,6 +1512,15 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
+        /* This is an incremental approach to have all the volinfo objects ref
+         * count. The first attempt is made in volume start transaction to
+         * ensure it doesn't race with import volume where stale volume is
+         * deleted. There are multiple instances of GlusterD crashing in
+         * bug-948686.t because of this. Once this approach is full proof, all
+         * other volinfo objects will be refcounted.
+         */
+        glusterd_volinfo_ref (volinfo);
+
         if (priv->op_version > GD_OP_VERSION_3_7_5) {
                 ret = glusterd_validate_quorum (this, GD_OP_START_VOLUME, dict,
                                                 op_errstr);
@@ -1522,15 +1531,6 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr,
                         goto out;
                 }
         }
-
-        /* This is an incremental approach to have all the volinfo objects ref
-         * count. The first attempt is made in volume start transaction to
-         * ensure it doesn't race with import volume where stale volume is
-         * deleted. There are multiple instances of GlusterD crashing in
-         * bug-948686.t because of this. Once this approach is full proof, all
-         * other volinfo objects will be refcounted.
-         */
-        glusterd_volinfo_ref (volinfo);
 
         ret = glusterd_validate_volume_id (dict, volinfo);
         if (ret)
@@ -2668,7 +2668,7 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
         ret = glusterd_svcs_manager (volinfo);
 
 out:
-        if (!volinfo)
+        if (volinfo)
                 glusterd_volinfo_unref (volinfo);
 
         gf_msg_trace (this->name, 0, "returning %d ", ret);
