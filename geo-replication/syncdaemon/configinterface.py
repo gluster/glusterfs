@@ -235,7 +235,7 @@ class GConffile(object):
             self.config.readfp(fp)
         self._normconfig()
 
-    def get_realtime(self, opt):
+    def get_realtime(self, opt, default_value=None):
         try:
             sres = os.stat(self.path)
         except (OSError, IOError):
@@ -249,7 +249,7 @@ class GConffile(object):
            sres[ST_INO] != self.ino or self.mtime != sres[ST_MTIME]:
             self._load()
 
-        return self.get(opt, printValue=False)
+        return self.get(opt, printValue=False, default_value=default_value)
 
     def section(self, rx=False):
         """get the section name of the section representing .peers
@@ -348,7 +348,7 @@ class GConffile(object):
         if self.config.has_section(self.section()):
             update_from_sect(self.section(), MultiDict(dct, *self.auxdicts))
 
-    def get(self, opt=None, printValue=True):
+    def get(self, opt=None, printValue=True, default_value=None):
         """print the matching key/value pairs from .config,
            or if @opt given, the value for @opt (according to the
            logic described in .update_to)
@@ -357,12 +357,13 @@ class GConffile(object):
         self.update_to(d, allow_unresolved=True)
         if opt:
             opt = norm(opt)
-            v = d.get(opt)
-            if v:
-                if printValue:
+            v = d.get(opt, default_value)
+
+            if printValue:
+                if v is not None:
                     print(v)
-                else:
-                    return v
+            else:
+                return v
         else:
             for k, v in d.iteritems():
                 if k == '__name__':
