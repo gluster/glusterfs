@@ -91,9 +91,11 @@ typedef struct _ios_sample_t {
         uid_t  uid;
         gid_t  gid;
         char   identifier[UNIX_PATH_MAX];
+        char   path[UNIX_PATH_MAX];
         glusterfs_fop_t fop_type;
         struct timeval timestamp;
         double elapsed;
+        gf_boolean_t have_path;
 } ios_sample_t;
 
 
@@ -178,9 +180,32 @@ typedef int (*block_dump_func) (xlator_t *, struct ios_dump_args*,
                                     int , int , uint64_t ) ;
 
 struct ios_local {
-        struct timeval  wind_at;
-        struct timeval  unwind_at;
+        inode_t *inode;
+        loc_t loc;
+        fd_t *fd;
 };
+
+static struct ios_local *
+ios_local_new() {
+        return GF_CALLOC (1, sizeof (struct ios_local),
+                                gf_common_mt_char);
+}
+
+static void
+ios_local_free (struct ios_local *local)
+{
+        if (!local)
+                return;
+
+        inode_unref (local->inode);
+
+        if (local->fd)
+                fd_unref (local->fd);
+
+        loc_wipe (&local->loc);
+        memset (local, 0, sizeof (*local));
+        GF_FREE (local);
+}
 
 struct volume_options options[];
 
@@ -191,6 +216,57 @@ is_fop_latency_started (call_frame_t *frame)
         struct timeval epoch = {0,};
         return memcmp (&frame->begin, &epoch, sizeof (epoch));
 }
+
+static void
+ios_free_local (call_frame_t *frame)
+{
+        struct ios_local *local = frame->local;
+
+        ios_local_free (local);
+
+        frame->local = NULL;
+}
+
+static void
+ios_track_loc (call_frame_t *frame, loc_t *loc)
+{
+        struct ios_local *local = NULL;
+
+        if (loc && loc->path) {
+                /* Check if frame->local is already set (it should
+                 * only be set by either ios_track_loc() or
+                 * ios_track_fd()). In other words, this check
+                 * allows us to chain calls to ios_track_loc()
+                 * and ios_track_fd() without clobbering frame->local
+                 * in the process.
+                 */
+                if (frame->local) {
+                        local = frame->local;
+                } else {
+                        local = ios_local_new ();
+                }
+                loc_copy (&local->loc, loc);
+                frame->local = local;
+        }
+}
+
+static void
+ios_track_fd (call_frame_t *frame, fd_t *fd)
+{
+        struct ios_local *local = NULL;
+
+        if (fd && fd->inode) {
+                if (frame->local) {
+                        local = frame->local;
+                } else {
+                        local = ios_local_new ();
+                }
+                local->fd = fd_ref (fd);
+                local->inode = inode_ref (fd->inode);
+                frame->local = local;
+        }
+}
+
 
 #define _IOS_SAMP_DIR DEFAULT_LOG_FILE_DIRECTORY "/samples"
 #ifdef GF_LINUX_HOST_OS
@@ -1010,6 +1086,7 @@ _io_stats_write_latency_sample (xlator_t *this, ios_sample_t *sample,
         char   *port_pos = NULL;
         char   *group_name = NULL;
         char   *username = NULL;
+        char   *path = NULL;
         struct ios_conf *conf = NULL;
 
         conf = this->private;
@@ -1057,12 +1134,16 @@ _io_stats_write_latency_sample (xlator_t *this, ios_sample_t *sample,
                 sprintf (group_name, "%d", (int32_t)sample->gid);
         }
 
+        path = "Unknown";
+        if (sample->have_path)
+                path = sample->path;
+
         ios_log (this, logfp,
-                 "%0.6lf,%s,%s,%0.4lf,%s,%s,%s,%s,%s,%s",
+                 "%0.6lf,%s,%s,%0.4lf,%s,%s,%s,%s,%s,%s,%s",
                  epoch_time, fop_enum_to_pri_string (sample->fop_type),
                  fop_enum_to_string (sample->fop_type),
                  sample->elapsed, xlator_name, instance_name, username,
-                 group_name, hostname, port);
+                 group_name, hostname, port, path);
         goto out;
 err:
         gf_log (this->name, GF_LOG_ERROR,
@@ -1608,14 +1689,87 @@ io_stats_dump_fd (xlator_t *this, struct ios_fd *iosfd)
         return 0;
 }
 
+void ios_local_get_inode (struct ios_local *local, inode_t **inode)
+{
+        if (!local)
+                return;
+
+        /* In the cases that a loc is given to us,
+         * we should use that as the source of truth
+         * for the inode.
+         */
+        if (local->loc.inode) {
+                *inode = local->loc.inode;
+                return;
+        }
+
+        /* Fall back to the inode in the local struct,
+         * but there is no guarantee this will be a valid
+         * pointer.
+         */
+        *inode = local->inode;
+}
+
+void ios_local_get_path (call_frame_t *frame, const char **path)
+{
+        struct ios_stat  *iosstat  = NULL;
+        struct ios_local *local    = NULL;
+        inode_t          *inode    = NULL;
+
+        local = frame->local;
+        if (!local)
+                goto out;
+
+        ios_local_get_inode (local, &inode);
+
+        if (inode) {
+                /* Each inode shold have an iosstat struct attached to it.
+                 * This is the preferred way to retrieve the path.
+                 */
+                ios_inode_ctx_get (inode, frame->this, &iosstat);
+                if (iosstat) {
+                        gf_log ("io-stats", GF_LOG_DEBUG,
+                                "[%s] Getting path from iostat struct",
+                                fop_enum_to_string (frame->op));
+                        *path = iosstat->filename;
+                        goto out;
+                }
+        }
+
+        /* If we don't have the iosstat attached to the inode,
+         * fall back to retrieving the path via the loc struct
+         * inside the local.
+         */
+        if (local->loc.path) {
+                gf_log ("io-stats", GF_LOG_DEBUG,
+                        "[%s] Getting path from loc_t",
+                        fop_enum_to_string (frame->op));
+                *path = local->loc.path;
+                goto out;
+        }
+
+out:
+        /* If the inode and the loc don't have the path, we're out of luck.
+         */
+        if (!*path) {
+                gf_log ("io-stats", GF_LOG_DEBUG,
+                        "Unable to get path for fop: %s",
+                        fop_enum_to_string (frame->op));
+        }
+
+        return;
+}
+
 void collect_ios_latency_sample (struct ios_conf *conf,
                 glusterfs_fop_t fop_type, double elapsed,
                 call_frame_t *frame)
 {
+        struct ios_local *ios_local      = NULL;
         ios_sample_buf_t *ios_sample_buf = NULL;
         ios_sample_t     *ios_sample = NULL;
         struct timeval   *timestamp = NULL;
         call_stack_t     *root = NULL;
+        const char       *path = NULL;
 
 
         ios_sample_buf = conf->ios_sample_buf;
@@ -1636,6 +1790,52 @@ void collect_ios_latency_sample (struct ios_conf *conf,
         (ios_sample->timestamp).tv_usec = timestamp->tv_usec;
         memcpy (&ios_sample->identifier, &root->identifier,
                 sizeof (root->identifier));
+
+        /* Eventually every FOP will be supported
+         * (i.e., the frame->local will be
+         * of type struct ios_local), but for now, this is a safety.
+         */
+        switch (ios_sample->fop_type) {
+
+        case GF_FOP_CREATE:
+        case GF_FOP_OPEN:
+        case GF_FOP_STAT:
+        case GF_FOP_FSTAT:
+        case GF_FOP_READ:
+        case GF_FOP_WRITE:
+        case GF_FOP_OPENDIR:
+        case GF_FOP_READDIRP:
+        case GF_FOP_READDIR:
+        case GF_FOP_FLUSH:
+        case GF_FOP_ACCESS:
+        case GF_FOP_UNLINK:
+        case GF_FOP_TRUNCATE:
+        case GF_FOP_MKDIR:
+        case GF_FOP_RMDIR:
+        case GF_FOP_SETATTR:
+        case GF_FOP_LOOKUP:
+        case GF_FOP_INODELK:
+        case GF_FOP_FINODELK:
+        case GF_FOP_ENTRYLK:
+        case GF_FOP_FXATTROP:
+        case GF_FOP_XATTROP:
+        case GF_FOP_GETXATTR:
+        case GF_FOP_FGETXATTR:
+        case GF_FOP_SETXATTR:
+        case GF_FOP_FSETXATTR:
+        case GF_FOP_STATFS:
+        case GF_FOP_FSYNC:
+                ios_local_get_path (frame, &path);
+                break;
+        default:
+                path = NULL;
+                break;
+        }
+
+        if (path) {
+                strncpy (ios_sample->path, path, sizeof (ios_sample->path));
+                ios_sample->have_path = _gf_true;
+        }
 
         /* We've reached the end of the circular buffer, start from the
          * beginning. */
@@ -1811,40 +2011,100 @@ unlock_list_head:
         return ret;
 }
 
+static int
+attach_iosstat_to_inode (xlator_t *this, inode_t *inode, const char *path,
+                                const uuid_t gfid) {
+        struct   ios_stat *iosstat = NULL;
+
+        if (!inode) {
+                return -EINVAL;
+        }
+
+        ios_inode_ctx_get (inode, this, &iosstat);
+        if (!iosstat) {
+                iosstat = GF_CALLOC (1, sizeof (*iosstat),
+                                        gf_io_stats_mt_ios_stat);
+                if (!iosstat) {
+                        return -ENOMEM;
+                }
+                iosstat->filename = gf_strdup (path);
+                gf_uuid_copy (iosstat->gfid, gfid);
+                LOCK_INIT (&iosstat->lock);
+                ios_inode_ctx_set (inode, this, iosstat);
+        }
+
+        return 0;
+}
+
+
+int
+ios_build_fd (xlator_t *this, const char *path, fd_t *fd, struct ios_fd **iosfd)
+{
+        struct ios_fd *ifd = NULL;
+        int            ret = 0;
+
+        ifd = GF_CALLOC (1, sizeof (*ifd), gf_io_stats_mt_ios_fd);
+        if (!ifd) {
+                ret = -ENOMEM;
+                goto free_and_out;
+        }
+
+        if (path) {
+                ifd->filename = gf_strdup (path);
+                if (!ifd->filename) {
+                        ret = -ENOMEM;
+                        goto free_and_out;
+                }
+        }
+
+        gettimeofday (&ifd->opened_at, NULL);
+
+        if (fd)
+                ios_fd_ctx_set (fd, this, ifd);
+
+        *iosfd = ifd;
+
+        return ret;
+
+        /* Failure path */
+free_and_out:
+        if (ifd) {
+                GF_FREE (ifd->filename);
+                GF_FREE (ifd);
+        }
+
+        *iosfd = NULL;
+
+        return ret;
+}
+
+
 int
 io_stats_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, fd_t *fd,
                      inode_t *inode, struct iatt *buf,
                      struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
 {
-        struct ios_fd *iosfd = NULL;
-        char          *path = NULL;
-        struct ios_stat *iosstat = NULL;
-        struct ios_conf   *conf = NULL;
+        struct ios_local *local = NULL;
+        struct ios_conf  *conf  = NULL;
+        struct ios_fd    *iosfd = NULL;
+
+        if (op_ret < 0) {
+                goto unwind;
+        }
+
+        local = frame->local;
+        if (!local) {
+                goto unwind;
+        }
 
         conf = this->private;
 
-        path = frame->local;
-        frame->local = NULL;
-
-        if (!path)
-                goto unwind;
-
-        if (op_ret < 0) {
-                GF_FREE (path);
-                goto unwind;
-        }
-
-        iosfd = GF_CALLOC (1, sizeof (*iosfd), gf_io_stats_mt_ios_fd);
+        ios_build_fd (this, local->loc.path, fd, &iosfd);
         if (!iosfd) {
-                GF_FREE (path);
                 goto unwind;
         }
 
-        iosfd->filename = path;
-        gettimeofday (&iosfd->opened_at, NULL);
-
-        ios_fd_ctx_set (fd, this, iosfd);
         LOCK (&conf->lock);
         {
                 conf->cumulative.nr_opens++;
@@ -1855,18 +2115,12 @@ io_stats_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         UNLOCK (&conf->lock);
 
-        iosstat = GF_CALLOC (1, sizeof (*iosstat), gf_io_stats_mt_ios_stat);
-        if (!iosstat) {
-                GF_FREE (path);
-                goto unwind;
-        }
-        iosstat->filename = gf_strdup (path);
-        gf_uuid_copy (iosstat->gfid, buf->ia_gfid);
-        LOCK_INIT (&iosstat->lock);
-        ios_inode_ctx_set (fd->inode, this, iosstat);
+        attach_iosstat_to_inode (this, local->loc.inode, local->loc.path,
+                                        buf->ia_gfid);
 
 unwind:
         UPDATE_PROFILE_STATS (frame, CREATE);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
                              preparent, postparent, xdata);
         return 0;
@@ -1877,44 +2131,24 @@ int
 io_stats_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
-        struct ios_fd *iosfd = NULL;
-        char          *path = NULL;
-        struct   ios_stat *iosstat = NULL;
-        struct ios_conf   *conf = NULL;
-
-        conf = this->private;
-        path = frame->local;
-        frame->local = NULL;
-
-        if (!path)
-                goto unwind;
+        struct ios_stat  *iosstat = NULL;
+        struct ios_local *local   = NULL;
+        struct ios_conf  *conf    = NULL;
+        struct ios_fd    *iosfd   = NULL;
 
         if (op_ret < 0) {
-                GF_FREE (path);
                 goto unwind;
         }
 
-        iosfd = GF_CALLOC (1, sizeof (*iosfd), gf_io_stats_mt_ios_fd);
+        local = frame->local;
+        if (!local) {
+                goto unwind;
+        }
+
+        conf = this->private;
+        ios_build_fd (this, local->loc.path, fd, &iosfd);
         if (!iosfd) {
-                GF_FREE (path);
                 goto unwind;
-        }
-
-        iosfd->filename = path;
-        gettimeofday (&iosfd->opened_at, NULL);
-
-        ios_fd_ctx_set (fd, this, iosfd);
-
-        ios_inode_ctx_get (fd->inode, this, &iosstat);
-        if (!iosstat) {
-                iosstat = GF_CALLOC (1, sizeof (*iosstat),
-                                     gf_io_stats_mt_ios_stat);
-                if (iosstat) {
-                        iosstat->filename = gf_strdup (path);
-                        gf_uuid_copy (iosstat->gfid, fd->inode->gfid);
-                        LOCK_INIT (&iosstat->lock);
-                        ios_inode_ctx_set (fd->inode, this, iosstat);
-                }
         }
 
         LOCK (&conf->lock);
@@ -1926,13 +2160,19 @@ io_stats_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
         }
         UNLOCK (&conf->lock);
+
+        ios_inode_ctx_get (fd->inode, this, &iosstat);
         if (iosstat) {
               BUMP_STATS (iosstat, IOS_STATS_TYPE_OPEN);
-              iosstat = NULL;
         }
+
+        attach_iosstat_to_inode (this, local->loc.inode,
+                                        local->loc.path,
+                                        local->loc.inode->gfid);
+
 unwind:
         UPDATE_PROFILE_STATS (frame, OPEN);
-
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd, xdata);
         return 0;
 
@@ -1944,6 +2184,7 @@ io_stats_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *buf, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, STAT);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (stat, frame, op_ret, op_errno, buf, xdata);
         return 0;
 }
@@ -1956,26 +2197,29 @@ io_stats_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     struct iatt *buf, struct iobref *iobref, dict_t *xdata)
 {
         int              len = 0;
-        fd_t            *fd = NULL;
         struct ios_stat *iosstat = NULL;
+        struct ios_local *local = NULL;
 
-        fd = frame->local;
-        frame->local = NULL;
+        local = frame->local;
+        if (!local || !local->fd)
+                goto unwind;
 
         if (op_ret > 0) {
                 len = iov_length (vector, count);
-                BUMP_READ (fd, len);
+                BUMP_READ (local->fd, len);
         }
 
         UPDATE_PROFILE_STATS (frame, READ);
-        ios_inode_ctx_get (fd->inode, this, &iosstat);
 
+        ios_inode_ctx_get (local->fd->inode, this, &iosstat);
         if (iosstat) {
-              BUMP_STATS (iosstat, IOS_STATS_TYPE_READ);
-              BUMP_THROUGHPUT (iosstat, IOS_STATS_THRU_READ);
-              iosstat = NULL;
+                BUMP_STATS (iosstat, IOS_STATS_TYPE_READ);
+                BUMP_THROUGHPUT (iosstat, IOS_STATS_THRU_READ);
+
         }
 
+unwind:
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno,
                              vector, count, buf, iobref, xdata);
         return 0;
@@ -1989,21 +2233,23 @@ io_stats_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata)
 {
         struct ios_stat *iosstat = NULL;
+        struct ios_local *local = NULL;
         inode_t         *inode   = NULL;
 
-        UPDATE_PROFILE_STATS (frame, WRITE);
-        if (frame->local){
-                inode = frame->local;
-                frame->local = NULL;
-                ios_inode_ctx_get (inode, this, &iosstat);
-                if (iosstat) {
-                        BUMP_STATS (iosstat, IOS_STATS_TYPE_WRITE);
-                        BUMP_THROUGHPUT (iosstat, IOS_STATS_THRU_WRITE);
-                        inode = NULL;
-                        iosstat = NULL;
-                }
-        }
+        local = frame->local;
+        if (!local || !local->fd)
+                goto unwind;
 
+        UPDATE_PROFILE_STATS (frame, WRITE);
+
+        ios_inode_ctx_get (local->inode, this, &iosstat);
+
+        if (iosstat) {
+                BUMP_STATS (iosstat, IOS_STATS_TYPE_WRITE);
+                BUMP_THROUGHPUT (iosstat, IOS_STATS_THRU_WRITE);
+        }
+unwind:
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf, xdata);
         return 0;
 
@@ -2039,6 +2285,15 @@ int
 io_stats_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, gf_dirent_t *buf, dict_t *xdata)
 {
+        struct ios_local *local  = NULL;
+        struct ios_stat *iosstat = NULL;
+
+        local = frame->local;
+
+        UPDATE_PROFILE_STATS (frame, READDIR);
+
+        ios_free_local (frame);
+
         UPDATE_PROFILE_STATS (frame, READDIR);
         STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, buf, xdata);
         return 0;
@@ -2051,7 +2306,9 @@ io_stats_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, FSYNC);
-        STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, prebuf, postbuf, xdata);
+        ios_free_local (frame);
+        STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, prebuf, postbuf,
+                                xdata);
         return 0;
 }
 
@@ -2062,6 +2319,7 @@ io_stats_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       struct iatt *preop, struct iatt *postop, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, SETATTR);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno, preop, postop, xdata);
         return 0;
 }
@@ -2073,6 +2331,7 @@ io_stats_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, UNLINK);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno,
                              preparent, postparent, xdata);
         return 0;
@@ -2100,6 +2359,7 @@ io_stats_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        struct iatt *sbuf, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, READLINK);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (readlink, frame, op_ret, op_errno, buf, sbuf, xdata);
         return 0;
 }
@@ -2111,7 +2371,14 @@ io_stats_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      inode_t *inode, struct iatt *buf,
                      dict_t *xdata, struct iatt *postparent)
 {
+        struct ios_local *local = frame->local;
+
+        if (local && local->loc.path && inode && op_ret >= 0) {
+                attach_iosstat_to_inode (this, inode, local->loc.path,
+                                                inode->gfid);
+        }
         UPDATE_PROFILE_STATS (frame, LOOKUP);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, buf, xdata,
                              postparent);
         return 0;
@@ -2151,28 +2418,16 @@ io_stats_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     struct iatt *preparent, struct iatt *postparent,
                     dict_t *xdata)
 {
-        struct ios_stat *iosstat = NULL;
-        char   *path = frame->local;
+        struct ios_local *local = frame->local;
 
-        if (!path)
-                goto unwind;
-
-        UPDATE_PROFILE_STATS (frame, MKDIR);
-        if (op_ret < 0)
-                goto unwind;
-
-        iosstat = GF_CALLOC (1, sizeof (*iosstat), gf_io_stats_mt_ios_stat);
-        if (iosstat) {
-                LOCK_INIT (&iosstat->lock);
-                iosstat->filename = gf_strdup(path);
-                gf_uuid_copy (iosstat->gfid, buf->ia_gfid);
-                ios_inode_ctx_set (inode, this, iosstat);
+        if (local && local->loc.path) {
+                local->inode = inode_ref (inode);
+                attach_iosstat_to_inode (this, inode, local->loc.path,
+                                                buf->ia_gfid);
         }
 
-unwind:
-        /* local is assigned with path */
-        GF_FREE (frame->local);
-        frame->local = NULL;
+        UPDATE_PROFILE_STATS (frame, MKDIR);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent, xdata);
         return 0;
@@ -2197,6 +2452,7 @@ io_stats_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, FLUSH);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (flush, frame, op_ret, op_errno, xdata);
         return 0;
 }
@@ -2206,20 +2462,28 @@ int
 io_stats_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
-        struct ios_stat *iosstat = NULL;
-        int              ret     = -1;
+        struct ios_local *local   = NULL;
+        struct ios_stat  *iosstat = NULL;
+        int               ret     = -1;
 
-        UPDATE_PROFILE_STATS (frame, OPENDIR);
+        local = frame->local;
+        if (!local || !local->fd)
+                goto unwind;
+
         if (op_ret < 0)
                 goto unwind;
 
-        ios_fd_ctx_set (fd, this, 0);
+        attach_iosstat_to_inode (this, local->inode, local->loc.path,
+                                        local->inode->gfid);
 
-        ret = ios_inode_ctx_get (fd->inode, this, &iosstat);
-        if (!ret)
+        ios_fd_ctx_set (local->fd, this, 0);
+        ios_inode_ctx_get (local->fd->inode, this, &iosstat);
+        if (iosstat)
                 BUMP_STATS (iosstat, IOS_STATS_TYPE_OPENDIR);
 
 unwind:
+        UPDATE_PROFILE_STATS (frame, OPENDIR);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (opendir, frame, op_ret, op_errno, fd, xdata);
         return 0;
 }
@@ -2232,7 +2496,7 @@ io_stats_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
 
         UPDATE_PROFILE_STATS (frame, RMDIR);
-
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (rmdir, frame, op_ret, op_errno,
                              preparent, postparent, xdata);
         return 0;
@@ -2245,6 +2509,7 @@ io_stats_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, TRUNCATE);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno,
                              prebuf, postbuf, xdata);
         return 0;
@@ -2256,6 +2521,7 @@ io_stats_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, struct statvfs *buf, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, STATFS);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (statfs, frame, op_ret, op_errno, buf, xdata);
         return 0;
 }
@@ -2266,6 +2532,7 @@ io_stats_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, SETXATTR);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno, xdata);
         return 0;
 }
@@ -2276,6 +2543,7 @@ io_stats_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, GETXATTR);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict, xdata);
         return 0;
 }
@@ -2286,6 +2554,7 @@ io_stats_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                           int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, REMOVEXATTR);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (removexattr, frame, op_ret, op_errno, xdata);
         return 0;
 }
@@ -2295,6 +2564,7 @@ io_stats_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, FSETXATTR);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno, xdata);
         return 0;
 }
@@ -2305,6 +2575,7 @@ io_stats_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, FGETXATTR);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (fgetxattr, frame, op_ret, op_errno, dict, xdata);
         return 0;
 }
@@ -2315,6 +2586,7 @@ io_stats_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, FREMOVEXATTR);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (fremovexattr, frame, op_ret, op_errno, xdata);
         return 0;
 }
@@ -2325,6 +2597,7 @@ io_stats_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, FSYNCDIR);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (fsyncdir, frame, op_ret, op_errno, xdata);
         return 0;
 }
@@ -2334,7 +2607,20 @@ int
 io_stats_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
+        struct ios_local *local = frame->local;
+
+        /* ACCESS is called before a READ when a fop fails over
+         * in NFS. We need to make sure that we are attaching the
+         * data correctly to this inode.
+         */
+        if (local->loc.inode && local->loc.path) {
+                attach_iosstat_to_inode (this, local->loc.inode,
+                                                local->loc.path,
+                                                local->loc.inode->gfid);
+        }
+
         UPDATE_PROFILE_STATS (frame, ACCESS);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (access, frame, op_ret, op_errno, xdata);
         return 0;
 }
@@ -2346,6 +2632,7 @@ io_stats_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, FTRUNCATE);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno,
                              prebuf, postbuf, xdata);
         return 0;
@@ -2357,6 +2644,7 @@ io_stats_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, struct iatt *buf, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, FSTAT);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, buf, xdata);
         return 0;
 }
@@ -2368,7 +2656,8 @@ io_stats_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 		       struct iatt *postbuf, dict_t *xdata)
 {
 	UPDATE_PROFILE_STATS(frame, FALLOCATE);
-	STACK_UNWIND_STRICT(fallocate, frame, op_ret, op_errno, prebuf, postbuf,
+	ios_free_local (frame);
+        STACK_UNWIND_STRICT(fallocate, frame, op_ret, op_errno, prebuf, postbuf,
 			    xdata);
 	return 0;
 }
@@ -2380,7 +2669,8 @@ io_stats_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 		     struct iatt *postbuf, dict_t *xdata)
 {
 	UPDATE_PROFILE_STATS(frame, DISCARD);
-	STACK_UNWIND_STRICT(discard, frame, op_ret, op_errno, prebuf, postbuf,
+	ios_free_local (frame);
+        STACK_UNWIND_STRICT(discard, frame, op_ret, op_errno, prebuf, postbuf,
 			    xdata);
 	return 0;
 }
@@ -2391,6 +2681,7 @@ io_stats_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      struct iatt *postbuf, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS(frame, ZEROFILL);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT(zerofill, frame, op_ret, op_errno, prebuf, postbuf,
                             xdata);
         return 0;
@@ -2401,6 +2692,7 @@ io_stats_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, struct gf_flock *lock, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, LK);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, lock, xdata);
         return 0;
 }
@@ -2411,6 +2703,7 @@ io_stats_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, ENTRYLK);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (entrylk, frame, op_ret, op_errno, xdata);
         return 0;
 }
@@ -2421,6 +2714,7 @@ io_stats_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, XATTROP);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (xattrop, frame, op_ret, op_errno, dict, xdata);
         return 0;
 }
@@ -2431,6 +2725,7 @@ io_stats_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, FXATTROP);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (fxattrop, frame, op_ret, op_errno, dict, xdata);
         return 0;
 }
@@ -2441,6 +2736,7 @@ io_stats_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         UPDATE_PROFILE_STATS (frame, INODELK);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (inodelk, frame, op_ret, op_errno, xdata);
         return 0;
 }
@@ -2450,6 +2746,8 @@ io_stats_entrylk (call_frame_t *frame, xlator_t *this,
                   const char *volume, loc_t *loc, const char *basename,
                   entrylk_cmd cmd, entrylk_type type, dict_t *xdata)
 {
+        ios_track_loc (frame, loc);
+
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_entrylk_cbk,
@@ -2464,6 +2762,7 @@ int
 io_stats_inodelk (call_frame_t *frame, xlator_t *this,
                   const char *volume, loc_t *loc, int32_t cmd, struct gf_flock *flock, dict_t *xdata)
 {
+        ios_track_loc (frame, loc);
 
         START_FOP_LATENCY (frame);
 
@@ -2479,8 +2778,8 @@ int
 io_stats_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
-
         UPDATE_PROFILE_STATS (frame, FINODELK);
+        ios_free_local (frame);
         STACK_UNWIND_STRICT (finodelk, frame, op_ret, op_errno, xdata);
         return 0;
 }
@@ -2490,6 +2789,7 @@ int
 io_stats_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
                    fd_t *fd, int32_t cmd, struct gf_flock *flock, dict_t *xdata)
 {
+        ios_track_fd (frame, fd);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_finodelk_cbk,
@@ -2504,6 +2804,7 @@ int
 io_stats_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
                   gf_xattrop_flags_t flags, dict_t *dict, dict_t *xdata)
 {
+        ios_track_loc (frame, loc);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_xattrop_cbk,
@@ -2518,6 +2819,7 @@ int
 io_stats_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
                    gf_xattrop_flags_t flags, dict_t *dict, dict_t *xdata)
 {
+        ios_track_fd (frame, fd);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_fxattrop_cbk,
@@ -2532,6 +2834,7 @@ int
 io_stats_lookup (call_frame_t *frame, xlator_t *this,
                  loc_t *loc, dict_t *xdata)
 {
+        ios_track_loc (frame, loc);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_lookup_cbk,
@@ -2545,6 +2848,7 @@ io_stats_lookup (call_frame_t *frame, xlator_t *this,
 int
 io_stats_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
+        ios_track_loc (frame, loc);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_stat_cbk,
@@ -2559,6 +2863,7 @@ int
 io_stats_readlink (call_frame_t *frame, xlator_t *this,
                    loc_t *loc, size_t size, dict_t *xdata)
 {
+        ios_track_loc (frame, loc);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_readlink_cbk,
@@ -2573,6 +2878,7 @@ int
 io_stats_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 mode_t mode, dev_t dev, mode_t umask, dict_t *xdata)
 {
+        ios_track_loc (frame, loc);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_mknod_cbk,
@@ -2587,9 +2893,7 @@ int
 io_stats_mkdir (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, mode_t mode, mode_t umask, dict_t *xdata)
 {
-        if (loc->path)
-                frame->local = gf_strdup (loc->path);
-
+        ios_track_loc (frame, loc);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_mkdir_cbk,
@@ -2604,6 +2908,7 @@ int
 io_stats_unlink (call_frame_t *frame, xlator_t *this,
                  loc_t *loc, int xflag, dict_t *xdata)
 {
+        ios_track_loc (frame, loc);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_unlink_cbk,
@@ -2618,6 +2923,7 @@ int
 io_stats_rmdir (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, int flags, dict_t *xdata)
 {
+        ios_track_loc (frame, loc);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_rmdir_cbk,
@@ -2674,6 +2980,7 @@ int
 io_stats_setattr (call_frame_t *frame, xlator_t *this,
                   loc_t *loc, struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
+        ios_track_loc (frame, loc);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_setattr_cbk,
@@ -2688,6 +2995,7 @@ int
 io_stats_truncate (call_frame_t *frame, xlator_t *this,
                    loc_t *loc, off_t offset, dict_t *xdata)
 {
+        ios_track_loc (frame, loc);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_truncate_cbk,
@@ -2702,8 +3010,8 @@ int
 io_stats_open (call_frame_t *frame, xlator_t *this, loc_t *loc,
                int32_t flags, fd_t *fd, dict_t *xdata)
 {
-        if (loc->path)
-                frame->local = gf_strdup (loc->path);
+        ios_track_loc (frame, loc);
+        ios_track_fd (frame, fd);
 
         START_FOP_LATENCY (frame);
 
@@ -2719,9 +3027,10 @@ int
 io_stats_create (call_frame_t *frame, xlator_t *this,
                  loc_t *loc, int32_t flags, mode_t mode,
                  mode_t umask, fd_t *fd, dict_t *xdata)
+
 {
-        if (loc->path)
-                frame->local = gf_strdup (loc->path);
+        ios_track_loc (frame, loc);
+        ios_track_fd (frame, fd);
 
         START_FOP_LATENCY (frame);
 
@@ -2737,8 +3046,7 @@ int
 io_stats_readv (call_frame_t *frame, xlator_t *this,
                 fd_t *fd, size_t size, off_t offset, uint32_t flags, dict_t *xdata)
 {
-        frame->local = fd;
-
+        ios_track_fd (frame, fd);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_readv_cbk,
@@ -2756,9 +3064,12 @@ io_stats_writev (call_frame_t *frame, xlator_t *this,
                  uint32_t flags, struct iobref *iobref, dict_t *xdata)
 {
         int                 len = 0;
+        struct ios_conf     *conf = NULL;
+        struct ios_local    *local  = NULL;
+        int                 ret = 0;
 
-        if (fd->inode)
-                frame->local = fd->inode;
+        ios_track_fd (frame, fd);
+
         len = iov_length (vector, count);
 
         BUMP_WRITE (fd, len);
@@ -2777,6 +3088,7 @@ int
 io_stats_statfs (call_frame_t *frame, xlator_t *this,
                  loc_t *loc, dict_t *xdata)
 {
+        ios_track_loc (frame, loc);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_statfs_cbk,
@@ -2791,6 +3103,7 @@ int
 io_stats_flush (call_frame_t *frame, xlator_t *this,
                 fd_t *fd, dict_t *xdata)
 {
+        ios_track_fd (frame, fd);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_flush_cbk,
@@ -2805,6 +3118,7 @@ int
 io_stats_fsync (call_frame_t *frame, xlator_t *this,
                 fd_t *fd, int32_t flags, dict_t *xdata)
 {
+        ios_track_fd (frame, fd);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_fsync_cbk,
@@ -2971,7 +3285,7 @@ _ios_dump_thread (xlator_t *this) {
                                 stats_filename, strerror(errno));
                         log_stats_fopen_failure = _gf_false;
                 }
-                samples_logfp = fopen (samples_filename, "w+");
+                samples_logfp = fopen (samples_filename, "a");
                 if (samples_logfp) {
                         io_stats_dump_latency_samples_logfp (this,
                                                              samples_logfp);
@@ -3024,6 +3338,8 @@ io_stats_setxattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        ios_track_loc (frame, loc);
+
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_setxattr_cbk,
@@ -3042,6 +3358,7 @@ int
 io_stats_getxattr (call_frame_t *frame, xlator_t *this,
                    loc_t *loc, const char *name, dict_t *xdata)
 {
+        ios_track_loc (frame, loc);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_getxattr_cbk,
@@ -3056,6 +3373,7 @@ int
 io_stats_removexattr (call_frame_t *frame, xlator_t *this,
                       loc_t *loc, const char *name, dict_t *xdata)
 {
+        ios_track_loc (frame, loc);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_removexattr_cbk,
@@ -3071,6 +3389,7 @@ io_stats_fsetxattr (call_frame_t *frame, xlator_t *this,
                     fd_t *fd, dict_t *dict,
                     int32_t flags, dict_t *xdata)
 {
+        ios_track_fd (frame, fd);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_fsetxattr_cbk,
@@ -3085,6 +3404,7 @@ int
 io_stats_fgetxattr (call_frame_t *frame, xlator_t *this,
                     fd_t *fd, const char *name, dict_t *xdata)
 {
+        ios_track_fd (frame, fd);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_fgetxattr_cbk,
@@ -3099,6 +3419,7 @@ int
 io_stats_fremovexattr (call_frame_t *frame, xlator_t *this,
                        fd_t *fd, const char *name, dict_t *xdata)
 {
+        ios_track_fd (frame, fd);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_fremovexattr_cbk,
@@ -3170,6 +3491,7 @@ int
 io_stats_access (call_frame_t *frame, xlator_t *this,
                  loc_t *loc, int32_t mask, dict_t *xdata)
 {
+        ios_track_loc (frame, loc);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_access_cbk,
@@ -3212,6 +3534,7 @@ int
 io_stats_fstat (call_frame_t *frame, xlator_t *this,
                 fd_t *fd, dict_t *xdata)
 {
+        ios_track_fd (frame, fd);
         START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_fstat_cbk,
