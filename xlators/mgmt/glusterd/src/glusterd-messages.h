@@ -41,7 +41,7 @@
 
 #define GLUSTERD_COMP_BASE      GLFS_MSGID_GLUSTERD
 
-#define GLFS_NUM_MESSAGES       588
+#define GLFS_NUM_MESSAGES       589
 
 #define GLFS_MSGID_END          (GLUSTERD_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
@@ -4752,6 +4752,14 @@
  *
  */
 #define GD_MSG_RESET_BRICK_CMD_FAIL                (GLUSTERD_COMP_BASE + 588)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_NFS_GANESHA_DISABLED                (GLUSTERD_COMP_BASE + 589)
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"

@@ -919,6 +919,76 @@ out:
         return ret;
 }
 
+/*
+ * This function validates the particulat snapshot with respect to the current
+ * cluster. If the snapshot has ganesha enabled, and the cluster is not a nfs
+ * ganesha cluster, we fail the validation. Other scenarios where either the
+ * snapshot does not have ganesha enabled or it has and the cluster is a nfs
+ * ganesha cluster, we pass the validation
+ *
+ * @param snap          snap object of the snapshot to be validated
+ * @return              Negative value on Failure and 0 in success
+ */
+int32_t
+glusterd_snapshot_validate_ganesha_conf (glusterd_snap_t *snap,
+                                         char **op_errstr,
+                                         uint32_t *op_errno)
+{
+        int                     ret                    = -1;
+        glusterd_volinfo_t      *snap_vol              = NULL;
+        xlator_t                *this                  = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("snapshot", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, snap, out);
+        GF_VALIDATE_OR_GOTO (this->name, op_errstr, out);
+        GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
+
+        snap_vol = list_entry (snap->volumes.next,
+                               glusterd_volinfo_t, vol_list);
+
+        GF_VALIDATE_OR_GOTO (this->name, snap_vol, out);
+
+        /*
+         * Check if the snapshot has ganesha enabled *
+         */
+        if (glusterd_check_ganesha_export(snap_vol) == _gf_false) {
+                /*
+                 * If the snapshot has not been exported via ganesha *
+                 * then we can proceed.                              *
+                 */
+                ret = 0;
+                goto out;
+        }
+
+        /*
+         * At this point we are certain that the snapshot has been exported *
+         * via ganesha. So we check if the cluster is a nfs-ganesha cluster *
+         * If it a nfs-ganesha cluster, then we proceed. Else we fail.      *
+         */
+        if (glusterd_is_ganesha_cluster() != _gf_true) {
+                ret = gf_asprintf (op_errstr, "Snapshot(%s) has a "
+                                   "nfs-ganesha export conf file. "
+                                   "cluster.enable-shared-storage and "
+                                   "nfs-ganesha should be enabled "
+                                   "before restoring this snapshot.",
+                                   snap->snapname);
+                *op_errno = EG_NOGANESHA;
+                if (ret < 0) {
+                        goto out;
+                }
+
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_NFS_GANESHA_DISABLED, "%s", *op_errstr);
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
 /* This function is called before actual restore is taken place. This function
  * will validate whether the snapshot volumes are ready to be restored or not.
  *
@@ -986,6 +1056,15 @@ glusterd_snapshot_restore_prevalidate (dict_t *dict, char **op_errstr,
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_SNAPSHOT_OP_FAILED, "%s", *op_errstr);
                 ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_snapshot_validate_ganesha_conf (snap, op_errstr,
+                                                       op_errno);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SNAPSHOT_OP_FAILED,
+                        "ganesha conf validation failed.");
                 goto out;
         }
 
@@ -8851,6 +8930,7 @@ glusterd_snapshot_revert_partial_restored_vol (glusterd_volinfo_t *volinfo)
         int                     ret                     = 0;
         char                    pathname [PATH_MAX]     = {0,};
         char                    trash_path[PATH_MAX]    = {0,};
+        glusterd_brickinfo_t   *brickinfo               = NULL;
         glusterd_volinfo_t     *reverted_vol            = NULL;
         glusterd_volinfo_t     *snap_vol                = NULL;
         glusterd_volinfo_t     *tmp_vol                 = NULL;
@@ -8905,6 +8985,38 @@ glusterd_snapshot_revert_partial_restored_vol (glusterd_volinfo_t *volinfo)
                                       snapvol_list) {
                 cds_list_add_tail (&snap_vol->snapvol_list,
                                    &reverted_vol->snap_volumes);
+
+                cds_list_for_each_entry (brickinfo, &snap_vol->bricks,
+                                         brick_list) {
+                        /*
+                         * If the brick is not of this peer, or snapshot is    *
+                         * missed for the brick don't restore the xattr for it *
+                         */
+                        if ((!gf_uuid_compare (brickinfo->uuid, MY_UUID)) &&
+                            (brickinfo->snap_status != -1)) {
+                                /*
+                                 * We need to restore volume id of all snap *
+                                 * bricks to volume id of the snap volume.  *
+                                 */
+                                ret = sys_lsetxattr (brickinfo->path,
+                                                     GF_XATTR_VOL_ID_KEY,
+                                                     snap_vol->volume_id,
+                                                   sizeof (snap_vol->volume_id),
+                                                     XATTR_REPLACE);
+                                if (ret == -1) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_SETXATTR_FAIL,
+                                                "Failed to set extended "
+                                                "attribute %s on %s. "
+                                                "Reason: %s, snap: %s",
+                                                GF_XATTR_VOL_ID_KEY,
+                                                brickinfo->path,
+                                                strerror (errno),
+                                                snap_vol->volname);
+                                        goto out;
+                                }
+                        }
+                }
         }
 
         /* Since we retrieved the volinfo from store now we don't
