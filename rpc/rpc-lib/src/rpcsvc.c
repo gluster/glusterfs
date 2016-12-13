@@ -1654,7 +1654,7 @@ rpcsvc_create_listener (rpcsvc_t *svc, dict_t *options, char *name)
         ret = 0;
 out:
         if (!listener && trans) {
-                rpc_transport_disconnect (trans);
+                rpc_transport_disconnect (trans, _gf_true);
         }
 
         return ret;

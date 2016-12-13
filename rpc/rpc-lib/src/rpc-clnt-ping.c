@@ -159,7 +159,7 @@ rpc_clnt_ping_timer_expired (void *rpc_ptr)
                         trans->peerinfo.identifier,
                         conn->ping_timeout);
 
-                rpc_transport_disconnect (conn->trans);
+                rpc_transport_disconnect (conn->trans, _gf_false);
         }
 
 out:

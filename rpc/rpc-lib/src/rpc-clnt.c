@@ -1854,7 +1854,7 @@ rpc_clnt_disable (struct rpc_clnt *rpc)
         pthread_mutex_unlock (&conn->lock);
 
         if (trans) {
-                rpc_transport_disconnect (trans);
+                rpc_transport_disconnect (trans, _gf_true);
         }
 
         if (unref)
@@ -1913,7 +1913,7 @@ rpc_clnt_disconnect (struct rpc_clnt *rpc)
         pthread_mutex_unlock (&conn->lock);
 
         if (trans) {
-                rpc_transport_disconnect (trans);
+                rpc_transport_disconnect (trans, _gf_true);
         }
         if (unref)
                 rpc_clnt_unref (rpc);

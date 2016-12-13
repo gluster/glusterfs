@@ -435,13 +435,14 @@ fail:
 
 
 int32_t
-rpc_transport_disconnect (rpc_transport_t *this)
+rpc_transport_disconnect (rpc_transport_t *this, gf_boolean_t wait)
 {
 	int32_t ret = -1;
 
 	GF_VALIDATE_OR_GOTO("rpc_transport", this, fail);
 
-	ret = this->ops->disconnect (this);
+        ret = this->ops->disconnect (this, wait);
+
 fail:
 	return ret;
 }

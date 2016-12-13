@@ -1824,7 +1824,7 @@ __glusterd_mgmt_hndsk_version_ack_cbk (struct rpc_req *req, struct iovec *iov,
 out:
 
         if (ret != 0 && peerinfo)
-                rpc_transport_disconnect (peerinfo->rpc->conn.trans);
+                rpc_transport_disconnect (peerinfo->rpc->conn.trans, _gf_false);
 
         rcu_read_unlock ();
 
@@ -1949,7 +1949,8 @@ out:
                 frame->local = NULL;
                 STACK_DESTROY (frame->root);
                 if (peerinfo)
-                        rpc_transport_disconnect (peerinfo->rpc->conn.trans);
+                        rpc_transport_disconnect (peerinfo->rpc->conn.trans,
+                                                  _gf_false);
         }
 
         rcu_read_unlock ();
@@ -2218,7 +2219,7 @@ __glusterd_peer_dump_version_cbk (struct rpc_req *req, struct iovec *iov,
 
 out:
         if (ret != 0 && peerinfo)
-                rpc_transport_disconnect (peerinfo->rpc->conn.trans);
+                rpc_transport_disconnect (peerinfo->rpc->conn.trans, _gf_false);
 
         rcu_read_unlock ();
 
