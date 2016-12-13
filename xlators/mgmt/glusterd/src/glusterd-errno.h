@@ -27,6 +27,7 @@ enum glusterd_op_errno {
         EG_ISSNAP      = 30813,          /* Volume is a snap volume           */
         EG_GEOREPRUN   = 30814,          /* Geo-Replication is running        */
         EG_NOTTHINP    = 30815,          /* Bricks are not thinly provisioned */
+        EG_NOGANESHA   = 30816,          /* Global nfs-ganesha is not enabled */
 };
 
 #endif
