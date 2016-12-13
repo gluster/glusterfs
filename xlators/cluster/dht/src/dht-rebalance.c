@@ -2452,6 +2452,7 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
         struct dht_container   *tmp_container   = NULL;
         xlator_t               *hashed_subvol   = NULL;
         xlator_t               *cached_subvol   = NULL;
+        int                     fop_errno       = 0;
 
         if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
                 ret = -1;
@@ -2475,11 +2476,11 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
                 }
 
                 if (ret < 0) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                        gf_msg (this->name, GF_LOG_WARNING, -ret,
                                 DHT_MSG_MIGRATE_DATA_FAILED,
-                                "%s: Migrate data failed: Readdir returned"
-                                " %s. Aborting migrate-data", loc->path,
-                                strerror(-ret));
+                                "Readdirp failed. Aborting data migration for "
+                                "directory: %s", loc->path);
+                        fop_errno = -ret;
                         ret = -1;
                         goto out;
                 }
@@ -2611,9 +2612,9 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
                 ret = syncop_lookup (this, &entry_loc, NULL, NULL,
                                      NULL, NULL);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                        gf_msg (this->name, GF_LOG_WARNING, -ret,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
-                                "Migrate file failed:%s lookup failed",
+                                "lookup failed for file:%s",
                                 entry_loc.path);
 
                         if (-ret != ENOENT && -ret != ESTALE) {
@@ -2734,6 +2735,9 @@ out:
 
         if (xattr_rsp)
                 dict_unref (xattr_rsp);
+
+
+        errno = fop_errno;
         return ret;
 }
 
@@ -2759,6 +2763,7 @@ gf_defrag_process_dir (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         int                      throttle_up       = 0;
         struct dir_dfmeta       *dir_dfmeta        = NULL;
         int                      should_commit_hash = 1;
+        int                      fop_errno         = 0;
 
         gf_log (this->name, GF_LOG_INFO, "migrate data called on %s",
                 loc->path);
@@ -2781,10 +2786,11 @@ gf_defrag_process_dir (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
         ret = syncop_opendir (this, loc, fd, NULL, NULL);
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
+                gf_msg (this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_MIGRATE_DATA_FAILED,
                         "Migrate data failed: Failed to open dir %s",
                         loc->path);
+                fop_errno = -ret;
                 ret = -1;
                 goto out;
         }
@@ -2931,9 +2937,12 @@ gf_defrag_process_dir (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                                    migrate_data, dir_dfmeta,
                                                    xattr_req,
                                                    &should_commit_hash);
+
                         if (ret) {
-                                gf_log ("DHT", GF_LOG_INFO, "Found critical "
+                                fop_errno = errno;
+                                gf_log ("this->name", GF_LOG_WARNING, "Found "
                                         "error from gf_defrag_get_entry");
+
                                 ret = -1;
                                 goto out;
                         }
@@ -2991,6 +3000,7 @@ out:
                 ret = 2;
         }
 
+        errno = fop_errno;
         return ret;
 }
 int
@@ -3160,7 +3170,6 @@ out:
         return ret;
 }
 
-
 int
 gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                   dict_t *fix_layout, dict_t *migrate_data)
@@ -3184,14 +3193,33 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                 goto out;
         }
 
-
-
         ret = syncop_lookup (this, loc, &iatt, NULL, NULL, NULL);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Lookup failed on %s",
-                        loc->path);
-                ret = -1;
-                goto out;
+                if (strcmp (loc->path, "/") == 0) {
+                        gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                DHT_MSG_DIR_LOOKUP_FAILED,
+                                "lookup failed for:%s", loc->path);
+
+                        defrag->total_failures++;
+                        ret = -1;
+                        goto out;
+                }
+
+                if (-ret == ENOENT || -ret == ESTALE) {
+                        gf_msg (this->name, GF_LOG_INFO, errno,
+                                DHT_MSG_DIR_LOOKUP_FAILED,
+                                "Dir:%s renamed or removed. Skipping",
+                                loc->path);
+                                ret = 0;
+                                goto out;
+                } else {
+                        gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                DHT_MSG_DIR_LOOKUP_FAILED,
+                                "lookup failed for:%s", loc->path);
+
+                        defrag->total_failures++;
+                        goto out;
+                }
         }
 
         if ((defrag->cmd != GF_DEFRAG_CMD_START_TIER) &&
@@ -3199,18 +3227,24 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                 ret = gf_defrag_process_dir (this, defrag, loc, migrate_data);
 
                 if (ret && ret != 2) {
-                        defrag->total_failures++;
-
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                DHT_MSG_DEFRAG_PROCESS_DIR_FAILED,
-                                "gf_defrag_process_dir failed for directory: %s"
-                                , loc->path);
-
-                        if (conf->decommission_in_progress) {
+                        if (errno == ENOENT || errno == ESTALE) {
+                                ret = 0;
                                 goto out;
-                        }
+                        } else {
 
-                        should_commit_hash = 0;
+                                defrag->total_failures++;
+
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        DHT_MSG_DEFRAG_PROCESS_DIR_FAILED,
+                                        "gf_defrag_process_dir failed for "
+                                        "directory: %s", loc->path);
+
+                                if (conf->decommission_in_progress) {
+                                        goto out;
+                                }
+
+                                should_commit_hash = 0;
+                        }
                 } else if (ret == 2) {
                         should_commit_hash = 0;
                 }
@@ -3227,8 +3261,14 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
         ret = syncop_opendir (this, loc, fd, NULL, NULL);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Failed to open dir %s",
-                        loc->path);
+                if (-ret == ENOENT || -ret == ESTALE) {
+                        ret = 0;
+                        goto out;
+                }
+
+                gf_log (this->name, GF_LOG_ERROR, "Failed to open dir %s, "
+                        "err:%d", loc->path, -ret);
+
                 ret = -1;
                 goto out;
         }
@@ -3240,8 +3280,15 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         {
 
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR, "Readdir returned %s"
-                                ". Aborting fix-layout",strerror(-ret));
+                        if (-ret == ENOENT || -ret == ESTALE) {
+                                ret = 0;
+                                goto out;
+                        }
+
+                        gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                DHT_MSG_READDIR_ERROR, "readdirp failed for "
+                                "path %s. Aborting fix-layout", loc->path);
+
                         ret = -1;
                         goto out;
                 }
@@ -3333,42 +3380,62 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
                         ret = syncop_lookup (this, &entry_loc, &iatt, NULL,
                                              NULL, NULL);
-                        /*Check whether it is ENOENT or ESTALE*/
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR, "%s"
-                                        " lookup failed with %d",
-                                        entry_loc.path, -ret);
-
-                                if (!conf->decommission_in_progress &&
-                                    -ret != ENOENT && -ret != ESTALE) {
-                                        should_commit_hash = 0;
+                                if (-ret == ENOENT || -ret == ESTALE) {
+                                        gf_msg (this->name, GF_LOG_INFO, errno,
+                                                DHT_MSG_DIR_LOOKUP_FAILED,
+                                                "Dir:%s renamed or removed. "
+                                                "Skipping", loc->path);
+                                                ret = 0;
+                                        continue;
+                                } else {
+                                        gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                                DHT_MSG_DIR_LOOKUP_FAILED,
+                                                "lookup failed for:%s",
+                                                entry_loc.path);
+                                        defrag->total_failures++;
+                                        if (conf->decommission_in_progress) {
+                                                defrag->defrag_status =
+                                                GF_DEFRAG_STATUS_FAILED;
+                                                ret = -1;
+                                                goto out;
+                                        } else {
+                                                should_commit_hash = 0;
+                                                continue;
+                                        }
                                 }
-
-                                continue;
                         }
 
                         ret = syncop_setxattr (this, &entry_loc, fix_layout,
                                                0, NULL, NULL);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR, "Setxattr "
-                                        "failed for %s", entry_loc.path);
-
-                                defrag->total_failures++;
-
-                                /*Don't go for fix-layout of child subtree if"
-                                  fix-layout failed*/
-                                if (conf->decommission_in_progress) {
-                                        defrag->defrag_status =
-                                        GF_DEFRAG_STATUS_FAILED;
-
-                                        ret = -1;
-
-                                        goto out;
-                                } else {
+                                if (-ret == ENOENT || -ret == ESTALE) {
+                                        gf_msg (this->name, GF_LOG_INFO, -ret,
+                                                DHT_MSG_LAYOUT_FIX_FAILED,
+                                                "Setxattr failed. Dir %s "
+                                                "renamed or removed",
+                                                entry_loc.path);
+                                        ret = 0;
                                         continue;
+                                } else {
+
+                                        gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                                DHT_MSG_LAYOUT_FIX_FAILED,
+                                                "Setxattr failed for %s",
+                                                entry_loc.path);
+
+                                        defrag->total_failures++;
+
+                                        if (conf->decommission_in_progress) {
+                                                defrag->defrag_status =
+                                                GF_DEFRAG_STATUS_FAILED;
+                                                ret = -1;
+                                                goto out;
+                                        } else {
+                                                continue;
+                                        }
                                 }
                         }
-
 
                         /* A return value of 2 means, either process_dir or
                          * lookup of a dir failed. Hence, don't commit hash
@@ -3388,8 +3455,6 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                 if (conf->decommission_in_progress) {
                                         defrag->defrag_status =
                                         GF_DEFRAG_STATUS_FAILED;
-
-                                        ret = -1;
 
                                         goto out;
                                 } else {

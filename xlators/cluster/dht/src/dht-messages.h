@@ -40,7 +40,7 @@
  */
 
 #define GLFS_DHT_BASE                   GLFS_MSGID_COMP_DHT
-#define GLFS_DHT_NUM_MESSAGES           117
+#define GLFS_DHT_NUM_MESSAGES           118
 #define GLFS_MSGID_END          (GLFS_DHT_BASE + GLFS_DHT_NUM_MESSAGES + 1)
 
 /* Messages with message IDs */
@@ -1072,11 +1072,18 @@
 #define DHT_MSG_LOCK_INODE_UNREF_FAILED  (GLFS_DHT_BASE + 116)
 
 /*
- * @messageid 109116
+ * @messageid 109117
  * @diagnosis
  * @recommendedaction None
  */
 #define DHT_MSG_ASPRINTF_FAILED         (GLFS_DHT_BASE + 117)
+
+/*
+ * @messageid 109118
+ * @diagnosis
+ * @recommendedaction None
+ */
+#define DHT_MSG_DIR_LOOKUP_FAILED          (GLFS_DHT_BASE + 118)
 
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* _DHT_MESSAGES_H_ */
