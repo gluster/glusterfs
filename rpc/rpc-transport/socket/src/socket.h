@@ -27,6 +27,7 @@
 #include "dict.h"
 #include "mem-pool.h"
 #include "globals.h"
+#include "refcount.h"
 
 #ifndef MAX_IOVEC
 #define MAX_IOVEC 16
@@ -215,6 +216,8 @@ typedef struct {
         };
         struct gf_sock_incoming incoming;
         pthread_mutex_t        lock;
+        pthread_mutex_t        cond_lock;
+        pthread_cond_t         cond;
         int                    windowsize;
         char                   lowlat;
         char                   nodelay;
@@ -239,10 +242,13 @@ typedef struct {
 	pthread_t              thread;
 	int                    pipe[2];
 	gf_boolean_t           own_thread;
+        gf_boolean_t           own_thread_done;
         ot_state_t             ot_state;
         uint32_t               ot_gen;
         gf_boolean_t           is_server;
         int                    log_ctr;
+        GF_REF_DECL;           /* refcount to keep track of socket_poller
+                                  threads */
 } socket_private_t;
 
 

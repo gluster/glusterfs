@@ -1558,7 +1558,7 @@ out:
         if (conf) {
                 /* Need this to connect the same transport on different port */
                 /* ie, glusterd to glusterfsd */
-                rpc_transport_disconnect (conf->rpc->conn.trans);
+                rpc_transport_disconnect (conf->rpc->conn.trans, _gf_false);
         }
 
         return ret;
@@ -1677,7 +1677,7 @@ out:
         STACK_DESTROY (frame->root);
 
         if (ret != 0)
-                rpc_transport_disconnect (conf->rpc->conn.trans);
+                rpc_transport_disconnect (conf->rpc->conn.trans, _gf_false);
 
         return ret;
 }

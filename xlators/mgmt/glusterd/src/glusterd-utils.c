@@ -4059,7 +4059,8 @@ gd_check_and_update_rebalance_info (glusterd_volinfo_t *old_volinfo,
 
         //Disconnect from rebalance process
         if (glusterd_defrag_rpc_get (old->defrag)) {
-                rpc_transport_disconnect (old->defrag->rpc->conn.trans);
+                rpc_transport_disconnect (old->defrag->rpc->conn.trans,
+                                          _gf_false);
                 glusterd_defrag_rpc_put (old->defrag);
         }
 

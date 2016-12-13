@@ -51,7 +51,7 @@ static int32_t
 gf_rdma_teardown (rpc_transport_t *this);
 
 static int32_t
-gf_rdma_disconnect (rpc_transport_t *this);
+gf_rdma_disconnect (rpc_transport_t *this, gf_boolean_t wait);
 
 static void
 gf_rdma_cm_handle_disconnect (rpc_transport_t *this);
@@ -1209,7 +1209,7 @@ gf_rdma_cm_handle_connect_init (struct rdma_cm_event *event)
         }
 
         if (ret < 0) {
-                gf_rdma_disconnect (this);
+                gf_rdma_disconnect (this, _gf_false);
         }
 
         return ret;
@@ -3014,7 +3014,7 @@ gf_rdma_submit_request (rpc_transport_t *this, rpc_transport_req_t *req)
                         RDMA_MSG_WRITE_PEER_FAILED,
                         "sending request to peer (%s) failed",
                         this->peerinfo.identifier);
-                rpc_transport_disconnect (this);
+                rpc_transport_disconnect (this, _gf_false);
         }
 
 out:
@@ -3051,7 +3051,7 @@ gf_rdma_submit_reply (rpc_transport_t *this, rpc_transport_reply_t *reply)
                         RDMA_MSG_WRITE_PEER_FAILED,
                         "sending request to peer (%s) failed",
                         this->peerinfo.identifier);
-                rpc_transport_disconnect (this);
+                rpc_transport_disconnect (this, _gf_false);
         }
 
 out:
@@ -4095,7 +4095,7 @@ gf_rdma_process_recv (gf_rdma_peer_t *peer, struct ibv_wc *wc)
 
 out:
         if (ret == -1) {
-                rpc_transport_disconnect (peer->trans);
+                rpc_transport_disconnect (peer->trans, _gf_false);
         }
 
         return;
@@ -4216,7 +4216,8 @@ gf_rdma_recv_completion_proc (void *data)
                                 if (peer) {
                                         ibv_ack_cq_events (event_cq, num_wr);
                                         rpc_transport_unref (peer->trans);
-                                        rpc_transport_disconnect (peer->trans);
+                                        rpc_transport_disconnect (peer->trans,
+                                                                  _gf_false);
                                 }
 
                                 if (post) {
@@ -4292,7 +4293,7 @@ gf_rdma_handle_failed_send_completion (gf_rdma_peer_t *peer, struct ibv_wc *wc)
         }
 
         if (peer) {
-                rpc_transport_disconnect (peer->trans);
+                rpc_transport_disconnect (peer->trans, _gf_false);
         }
 
         return;
@@ -4343,7 +4344,7 @@ gf_rdma_handle_successful_send_completion (gf_rdma_peer_t *peer,
 
         ret = gf_rdma_pollin_notify (peer, post);
         if ((ret == -1) && (peer != NULL)) {
-                rpc_transport_disconnect (peer->trans);
+                rpc_transport_disconnect (peer->trans, _gf_false);
         }
 
 out:
@@ -4657,7 +4658,7 @@ gf_rdma_init (rpc_transport_t *this)
 
 
 static int32_t
-gf_rdma_disconnect (rpc_transport_t *this)
+gf_rdma_disconnect (rpc_transport_t *this, gf_boolean_t wait)
 {
         gf_rdma_private_t *priv = NULL;
         int32_t            ret  = 0;

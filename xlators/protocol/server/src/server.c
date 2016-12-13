@@ -897,7 +897,8 @@ reconfigure (xlator_t *this, dict_t *options)
                                                 "unauthorized client, hence "
                                                 "terminating the connection %s",
                                                 xprt->peerinfo.identifier);
-                                        rpc_transport_disconnect(xprt);
+                                        rpc_transport_disconnect(xprt,
+                                                                 _gf_false);
                                 }
                         }
                 }

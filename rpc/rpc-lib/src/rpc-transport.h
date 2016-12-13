@@ -224,7 +224,7 @@ struct rpc_transport_ops {
                                    rpc_transport_reply_t *reply);
         int32_t (*connect)        (rpc_transport_t *this, int port);
         int32_t (*listen)         (rpc_transport_t *this);
-        int32_t (*disconnect)     (rpc_transport_t *this);
+        int32_t (*disconnect)     (rpc_transport_t *this, gf_boolean_t wait);
         int32_t (*get_peername)   (rpc_transport_t *this, char *hostname,
                                    int hostlen);
         int32_t (*get_peeraddr)   (rpc_transport_t *this, char *peeraddr,
@@ -248,7 +248,7 @@ int32_t
 rpc_transport_connect (rpc_transport_t *this, int port);
 
 int32_t
-rpc_transport_disconnect (rpc_transport_t *this);
+rpc_transport_disconnect (rpc_transport_t *this, gf_boolean_t wait);
 
 int32_t
 rpc_transport_destroy (rpc_transport_t *this);
