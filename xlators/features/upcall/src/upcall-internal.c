@@ -258,6 +258,11 @@ upcall_cleanup_expired_clients (xlator_t *this,
                                          up_client->access_time;
 
                         if (t_expired > (2*timeout)) {
+
+                                gf_log (THIS->name, GF_LOG_TRACE,
+                                        "Cleaning up client_entry(%s)",
+                                        up_client->client_uid);
+
                                 ret =
                                   __upcall_cleanup_client_entry (up_client);
 
@@ -268,9 +273,6 @@ upcall_cleanup_expired_clients (xlator_t *this,
                                                 up_client);
                                         goto out;
                                 }
-                                gf_log (THIS->name, GF_LOG_TRACE,
-                                        "Cleaned up client_entry(%s)",
-                                        up_client->client_uid);
                         }
                 }
         }
