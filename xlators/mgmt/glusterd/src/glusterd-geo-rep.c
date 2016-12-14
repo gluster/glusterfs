@@ -3428,7 +3428,6 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
 {
         int                 ret                   = 0;
         int                 type                  = 0;
-        int                 pfd                   = -1;
         char               *volname               = NULL;
         char               *slave                 = NULL;
         char               *slave_url             = NULL;
@@ -3443,7 +3442,6 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
         gf_boolean_t        exists                = _gf_false;
         glusterd_volinfo_t *volinfo               = NULL;
         char                    errmsg[PATH_MAX]  = {0,};
-        char                    pidfile[PATH_MAX] = {0,};
         dict_t             *ctx                   = NULL;
         gf_boolean_t        is_force              = 0;
         gf_boolean_t        is_running            = _gf_false;
@@ -3690,16 +3688,6 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
-                pfd = gsyncd_getpidfile (volname, slave, pidfile,
-                                         conf_path, &is_template_in_use);
-                if (is_template_in_use || pfd == -1) {
-                        snprintf (errmsg, sizeof(errmsg), "pid-file entry "
-                                  "missing in the config file(%s).",
-                                  conf_path);
-                        ret = -1;
-                        goto out;
-                }
-
                 ret = gsync_verify_config_options (dict, op_errstr, volname);
                 goto out;
                 break;
@@ -3747,8 +3735,6 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
         }
 
 out:
-        if (pfd != -1)
-                 sys_close (pfd);
 
         if (path_list)
                 GF_FREE (path_list);
