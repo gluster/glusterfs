@@ -877,6 +877,31 @@ out:
 }
 
 static int
+glfsh_set_heal_options (glfs_t *fs, gf_xl_afr_op_t heal_op)
+{
+        int ret = 0;
+
+        if ((heal_op != GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE) &&
+            (heal_op != GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK) &&
+            (heal_op != GF_SHD_OP_SBRAIN_HEAL_FROM_LATEST_MTIME))
+                return 0;
+        ret = glfs_set_xlator_option (fs, "*-replicate-*", "data-self-heal",
+                                      "on");
+        if (ret)
+                goto out;
+
+        ret = glfs_set_xlator_option (fs, "*-replicate-*", "metadata-self-heal",
+                                      "on");
+        if (ret)
+                goto out;
+
+        ret = glfs_set_xlator_option (fs, "*-replicate-*", "entry-self-heal",
+                                      "on");
+out:
+        return ret;
+}
+
+static int
 glfsh_validate_volume (xlator_t *xl, gf_xl_afr_op_t heal_op)
 {
         xlator_t        *heal_xl = NULL;
@@ -1346,6 +1371,13 @@ main (int argc, char **argv)
                 ret = -errno;
                 gf_asprintf (&op_errstr, "Setting the volfile server failed, "
                              "%s", strerror (errno));
+                goto out;
+        }
+
+        ret = glfsh_set_heal_options (fs, heal_op);
+        if (ret) {
+                printf ("Setting xlator heal options failed, %s\n",
+                        strerror(errno));
                 goto out;
         }
         snprintf (logfilepath, sizeof (logfilepath),
