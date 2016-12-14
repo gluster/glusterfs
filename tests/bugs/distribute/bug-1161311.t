@@ -53,8 +53,14 @@ TEST glusterfs -s $H0 --volfile-id $V0 $M0;
 TEST mkdir $M0/dir1
 TEST mkdir -p $M0/dir2/dir3
 
-# Create a large file (1GB), so that rebalance takes time
-dd if=/dev/urandom of=$M0/dir1/FILE2 bs=64k count=10240
+# Create a large file (6.4 GB), so that rebalance takes time
+# Reading from /dev/urandom is slow, so we'll cat it together
+dd if=/dev/urandom of=/tmp/FILE2 bs=64k count=10240
+for i in {1..10}; do
+  cat /tmp/FILE2 >> $M0/dir1/FILE2
+done
+
+#dd if=/dev/urandom of=$M0/dir1/FILE2 bs=64k count=10240
 
 # Rename the file to create a linkto, for rebalance to
 # act on the file
