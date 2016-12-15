@@ -187,7 +187,7 @@ setup_cluster()
 
     pcs cluster auth ${servers}
     # pcs cluster setup --name ${name} ${servers}
-    pcs cluster setup ${RHEL6_PCS_CNAME_OPTION} ${name} ${servers}
+    pcs cluster setup ${RHEL6_PCS_CNAME_OPTION} ${name} --transport udpu ${servers}
     if [ $? -ne 0 ]; then
         logger "pcs cluster setup ${RHEL6_PCS_CNAME_OPTION} ${name} ${servers} failed"
         exit 1;
