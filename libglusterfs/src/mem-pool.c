@@ -450,6 +450,10 @@ mem_get0 (struct mem_pool *mem_pool)
 void *
 mem_get (struct mem_pool *mem_pool)
 {
+#ifdef DISABLE_MEMPOOL
+          return GF_CALLOC (1, mem_pool->real_sizeof_type,
+                                gf_common_mt_mem_pool);
+#else
         struct list_head *list = NULL;
         void             *ptr = NULL;
         int             *in_use = NULL;
@@ -521,6 +525,7 @@ fwd_addr_out:
         UNLOCK (&mem_pool->lock);
 
         return ptr;
+#endif /* DISABLE_MEMPOOL */
 }
 
 
@@ -547,6 +552,10 @@ __is_member (struct mem_pool *pool, void *ptr)
 void
 mem_put (void *ptr)
 {
+#ifdef DISABLE_MEMPOOL
+        GF_FREE (ptr);
+        return;
+#else
         struct list_head *list = NULL;
         int    *in_use = NULL;
         void   *head = NULL;
@@ -624,6 +633,7 @@ mem_put (void *ptr)
                 }
         }
         UNLOCK (&pool->lock);
+#endif /* DISABLE_MEMPOOL */
 }
 
 void

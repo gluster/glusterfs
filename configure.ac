@@ -1113,6 +1113,12 @@ AC_ARG_ENABLE([debug],
               AC_HELP_STRING([--enable-debug],
                              [Enable debug build options.]))
 
+AC_ARG_ENABLE([mempool],
+              AC_HELP_STRING([--disable-mempool],
+                             [Disable the Gluster memory pooler.]))
+if test "x$enable_mempool" = "xno"; then
+        CFLAGS="${CFLAGS} -DDISABLE_MEMPOOL"
+fi
 
 # syslog section
 AC_ARG_ENABLE([syslog],
