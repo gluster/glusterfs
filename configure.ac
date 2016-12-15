@@ -301,6 +301,16 @@ else
         CFLAGS="${CFLAGS} -g -O2"
 fi
 
+AC_ARG_ENABLE([privport_tracking],
+              AC_HELP_STRING([--disable-privport_tracking],
+                             [Disable internal tracking of privileged ports.]))
+TRACK_PRIVPORTS="yes"
+if test x"$enable_privport_tracking" = x"no"; then
+        TRACK_PRIVPORTS="no"
+        AC_DEFINE(GF_DISABLE_PRIVPORT_TRACKING, 1,
+                  [Disable internal tracking of privileged ports.])
+fi
+
 case $host_os in
   darwin*)
     if ! test "`/usr/bin/sw_vers | grep ProductVersion: | cut -f 2 | cut -d. -f2`" -ge 7; then
@@ -1544,6 +1554,7 @@ echo "Use syslog           : $USE_SYSLOG"
 echo "XML output           : $BUILD_XML_OUTPUT"
 echo "Encryption xlator    : $BUILD_CRYPT_XLATOR"
 echo "Unit Tests           : $BUILD_UNITTEST"
+echo "Track priv ports     : $TRACK_PRIVPORTS"
 echo "POSIX ACLs           : $BUILD_POSIX_ACLS"
 echo "Data Classification  : $BUILD_GFDB"
 echo "firewalld-config     : $BUILD_FIREWALLD"
