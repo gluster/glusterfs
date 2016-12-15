@@ -20,8 +20,7 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Y' check_if_snapd_exist
 
 killall glusterd glusterfsd glusterfs
 
-SNAPD_PID=$(ps auxww | grep snapd | grep -v grep | awk '{print $2}');
-TEST ! [ $SNAPD_PID -gt 0 ];
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 'N' check_if_snapd_exist
 
 glusterd
 
