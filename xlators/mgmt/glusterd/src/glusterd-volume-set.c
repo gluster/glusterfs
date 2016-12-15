@@ -2532,6 +2532,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "!config",
           .op_version  = 2
         },
+        { .key         = "config.gfproxyd-remote-host",
+          .voltype     = "configuration",
+          .option      = "gfproxyd-remote-host",
+          .op_version  = 2
+        },
         { .key         = GLUSTERD_QUORUM_TYPE_KEY,
           .voltype     = "mgmt/glusterd",
           .value       = "off",

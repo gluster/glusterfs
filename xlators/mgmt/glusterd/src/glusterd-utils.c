@@ -10796,6 +10796,45 @@ out:
 }
 
 void
+glusterd_get_gfproxy_client_volfile (glusterd_volinfo_t *volinfo,
+                                        char *path, int path_len)
+{
+        char                    workdir[PATH_MAX]      = {0, };
+        glusterd_conf_t        *priv                    = THIS->private;
+
+        GLUSTERD_GET_VOLUME_DIR (workdir, volinfo, priv);
+
+        switch (volinfo->transport_type) {
+        case GF_TRANSPORT_TCP:
+                snprintf (path, path_len,
+                                "%s/trusted-%s.tcp-gfproxy-fuse.vol",
+                                workdir, volinfo->volname);
+                break;
+
+        case GF_TRANSPORT_RDMA:
+                snprintf (path, path_len,
+                                "%s/trusted-%s.rdma-gfproxy-fuse.vol",
+                                workdir, volinfo->volname);
+                break;
+        default:
+                break;
+        }
+}
+
+void
+glusterd_get_gfproxyd_volfile (glusterd_volinfo_t *volinfo,
+                                char *path, int path_len)
+{
+        char                    workdir[PATH_MAX]      = {0, };
+        glusterd_conf_t        *priv                    = THIS->private;
+
+        GLUSTERD_GET_VOLUME_DIR (workdir, volinfo, priv);
+
+        snprintf (path, path_len, "%s/%s.gfproxyd.vol", workdir,
+                  volinfo->volname);
+}
+
+void
 glusterd_get_rebalance_volfile (glusterd_volinfo_t *volinfo,
                                 char *path, int path_len)
 {

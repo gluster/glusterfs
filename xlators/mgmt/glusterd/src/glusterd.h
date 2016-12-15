@@ -222,6 +222,11 @@ struct glusterd_brickinfo {
 
 typedef struct glusterd_brickinfo glusterd_brickinfo_t;
 
+struct glusterd_gfproxyd_info {
+        short   port;
+        char    *logfile;
+};
+
 struct gf_defrag_brickinfo_ {
         char *name;
         int   files;

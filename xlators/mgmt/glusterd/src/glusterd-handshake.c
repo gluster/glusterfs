@@ -241,6 +241,50 @@ build_volfile_path (char *volume_id, char *path,
 
         }
 
+        volid_ptr = strstr (volume_id, "gfproxy-client/");
+        if (volid_ptr) {
+                volid_ptr = strchr (volid_ptr, '/');
+                if (!volid_ptr) {
+                        ret = -1;
+                        goto out;
+                }
+                volid_ptr++;
+
+                ret = glusterd_volinfo_find (volid_ptr, &volinfo);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Couldn't find volinfo");
+                        goto out;
+                }
+
+                glusterd_get_gfproxy_client_volfile (volinfo, path, path_len);
+
+                ret = 0;
+                goto out;
+        }
+
+        volid_ptr = strstr (volume_id, "gfproxy/");
+        if (volid_ptr) {
+                volid_ptr = strchr (volid_ptr, '/');
+                if (!volid_ptr) {
+                        ret = -1;
+                        goto out;
+                }
+                volid_ptr++;
+
+                ret = glusterd_volinfo_find (volid_ptr, &volinfo);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Couldn't find volinfo");
+                        goto out;
+                }
+
+                glusterd_get_gfproxyd_volfile (volinfo, path, path_len);
+
+                ret = 0;
+                goto out;
+        }
+
         volid_ptr = strstr (volume_id, "/snaps/");
         if (volid_ptr) {
                 ret = get_snap_volname_and_volinfo (volid_ptr, &volname,

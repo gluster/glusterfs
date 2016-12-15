@@ -58,6 +58,20 @@ extern struct volopt_map_entry glusterd_volopt_map[];
         }                                                               \
 } while (0 /* CONSTCOND */)
 
+/**
+ * Needed for GFProxy
+ */
+#define GF_PROXY_DAEMON_PORT 40000
+#define GF_PROXY_DAEMON_PORT_STR "40000"
+
+static int
+volgen_graph_build_clients (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                            dict_t *set_dict, void *param);
+
+static int
+build_client_graph (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                    dict_t *mod_dict);
+
 /*********************************************
  *
  * xlator generation / graph manipulation API
@@ -1448,6 +1462,75 @@ server_spec_extended_option_handler (volgen_graph_t *graph,
 static void get_vol_tstamp_file (char *filename, glusterd_volinfo_t *volinfo);
 
 static int
+gfproxy_server_graph_builder (volgen_graph_t *graph,
+                                glusterd_volinfo_t *volinfo,
+                                dict_t *set_dict, void *param)
+{
+        xlator_t        *xl             = NULL;
+        char            *value          = NULL;
+        char            transt[16]      = {0, };
+        char            key[1024]       = {0, };
+        char            port_str[7]     = {0, };
+        int             ret             = 0;
+        char            *username       = NULL;
+        char            *password       = NULL;
+        int             rclusters       = 0;
+
+        /* We are a trusted client */
+        ret = dict_set_uint32 (set_dict, "trusted-client", GF_CLIENT_TRUSTED);
+        if (ret != 0)
+                goto out;
+
+        ret = dict_set_str (set_dict, "gfproxy-server", "on");
+        if (ret != 0)
+                goto out;
+
+        /* Build the client section of the graph first */
+        build_client_graph (graph, volinfo, set_dict);
+
+        /* Clear this setting so that future users of set_dict do not end up
+         * thinking they are a gfproxy server */
+        dict_del (set_dict, "gfproxy-server");
+        dict_del (set_dict, "trusted-client");
+
+        /* Then add the server to it */
+        get_vol_transport_type (volinfo, transt);
+        xl = volgen_graph_add (graph, "protocol/server", volinfo->volname);
+        if (!xl)
+                goto out;
+
+        ret = xlator_set_option (xl, "listen-port", GF_PROXY_DAEMON_PORT_STR);
+        if (ret != 0)
+                goto out;
+
+        ret = xlator_set_option (xl, "transport-type", transt);
+        if (ret != 0)
+                goto out;
+
+        /* Set username and password */
+        username = glusterd_auth_get_username (volinfo);
+        password = glusterd_auth_get_password (volinfo);
+        if (username) {
+                snprintf (key, sizeof (key), "auth.login.%s-server.allow",
+                                volinfo->volname);
+                ret = xlator_set_option (xl, key, username);
+                if (ret)
+                        return -1;
+        }
+
+        if (password) {
+                snprintf (key, sizeof (key), "auth.login.%s.password",
+                                username);
+                ret = xlator_set_option (xl, key, password);
+                if (ret != 0)
+                        goto out;
+        }
+
+out:
+        return ret;
+}
+
+static int
 brick_graph_add_posix (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
 {
@@ -2541,6 +2624,48 @@ perfxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
 }
 
 static int
+gfproxy_server_perfxl_option_handler (volgen_graph_t *graph,
+                                        struct volopt_map_entry *vme,
+                                        void *param)
+{
+        gf_boolean_t enabled = _gf_false;
+        glusterd_volinfo_t *volinfo = NULL;
+
+        GF_ASSERT (param);
+        volinfo = param;
+
+        /* write-behind is the *not* allowed for gfproxy-servers */
+        if (strstr (vme->key, "write-behind")) {
+                return 0;
+        }
+
+        perfxl_option_handler (graph, vme, param);
+
+        return 0;
+}
+
+static int
+gfproxy_client_perfxl_option_handler (volgen_graph_t *graph,
+                                        struct volopt_map_entry *vme,
+                                        void *param)
+{
+        gf_boolean_t enabled = _gf_false;
+        glusterd_volinfo_t *volinfo = NULL;
+
+        GF_ASSERT (param);
+        volinfo = param;
+
+        /* write-behind is the only allowed "perf" for gfproxy-clients */
+        if (!strstr (vme->key, "write-behind"))
+                return 0;
+
+        perfxl_option_handler (graph, vme, param);
+
+        return 0;
+}
+
+
+static int
 nfsperfxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
                        void *param)
 {
@@ -2768,8 +2893,10 @@ _free_xlator_opt_key (char *key)
 }
 
 static xlator_t *
-volgen_graph_build_client (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
-                           char *hostname, char *subvol, char *xl_id,
+volgen_graph_build_client (volgen_graph_t *graph,
+                           glusterd_volinfo_t *volinfo,
+                           char *hostname, char *port,
+                           char *subvol, char *xl_id,
                            char *transt, dict_t *set_dict)
 {
         xlator_t                *xl                 = NULL;
@@ -2801,6 +2928,12 @@ volgen_graph_build_client (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         goto err;
         }
 
+        if (port) {
+                ret = xlator_set_option (xl, "remote-port", port);
+                if (ret)
+                        goto err;
+        }
+
         ret = xlator_set_option (xl, "remote-subvolume", subvol);
         if (ret)
                 goto err;
@@ -2824,7 +2957,8 @@ volgen_graph_build_client (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         ret = dict_get_uint32 (set_dict, "trusted-client",
                                &client_type);
 
-        if (!ret && client_type == GF_CLIENT_TRUSTED) {
+        if (!ret && (client_type == GF_CLIENT_TRUSTED
+              || client_type == GF_CLIENT_TRUSTED_PROXY)) {
                 str = NULL;
                 str = glusterd_auth_get_username (volinfo);
                 if (str) {
@@ -2911,7 +3045,9 @@ volgen_graph_build_clients (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         i = 0;
         cds_list_for_each_entry (brick, &volinfo->bricks, brick_list) {
                 xl = volgen_graph_build_client (graph, volinfo,
-                                                brick->hostname, brick->path,
+                                                brick->hostname,
+                                                NULL,
+                                                brick->path,
                                                 brick->brick_id,
                                                 transt, set_dict);
                 if (!xl) {
@@ -3143,8 +3279,9 @@ volgen_graph_build_snapview_client (volgen_graph_t *graph,
 
         get_transport_type (volinfo, set_dict, transt, _gf_false);
 
-        prot_clnt = volgen_graph_build_client (graph, volinfo, NULL, subvol,
-                                               xl_id, transt, set_dict);
+        prot_clnt = volgen_graph_build_client (graph, volinfo,
+                                                NULL, NULL, subvol,
+                                                xl_id, transt, set_dict);
         if (!prot_clnt) {
                 ret = -1;
                 goto out;
@@ -3555,6 +3692,27 @@ static int client_graph_set_perf_options(volgen_graph_t *graph,
 {
         data_t *tmp_data = NULL;
         char *volname = NULL;
+        int ret = 0;
+
+        /*
+         * Logic to make sure gfproxy-client gets custom performance translators
+         */
+        ret = dict_get_str_boolean (set_dict, "gfproxy-client", 0);
+        if (ret == 1) {
+                return volgen_graph_set_options_generic (
+                    graph, set_dict, volinfo,
+                    &gfproxy_client_perfxl_option_handler);
+        }
+
+        /*
+         * Logic to make sure gfproxy-server gets custom performance translators
+         */
+        ret = dict_get_str_boolean (set_dict, "gfproxy-server", 0);
+        if (ret == 1) {
+                return volgen_graph_set_options_generic (
+                        graph, set_dict, volinfo,
+                        &gfproxy_server_perfxl_option_handler);
+        }
 
         /*
          * Logic to make sure NFS doesn't have performance translators by
@@ -3768,29 +3926,55 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         char            *volname       = NULL;
         glusterd_conf_t *conf          = THIS->private;
         char            *tmp           = NULL;
+        char            *hostname      = NULL;
         gf_boolean_t     var           = _gf_false;
         gf_boolean_t     ob            = _gf_false;
+        gf_boolean_t    is_gfproxy     = _gf_false;
         int              uss_enabled   = -1;
         xlator_t        *this          = THIS;
+        char            *subvol        = NULL;
+        size_t          subvol_namelen = 0;
 
         GF_ASSERT (this);
         GF_ASSERT (conf);
 
-        volname = volinfo->volname;
-        ret = volgen_graph_build_clients (graph, volinfo, set_dict,
-                                          param);
-        if (ret)
-                goto out;
-
-        if (volinfo->type == GF_CLUSTER_TYPE_TIER)
-                ret = volume_volgen_graph_build_clusters_tier
-                                        (graph, volinfo, _gf_false);
-        else
-                ret = volume_volgen_graph_build_clusters
-                                        (graph, volinfo, _gf_false);
-
+        ret = dict_get_str_boolean (set_dict, "gfproxy-client", 0);
         if (ret == -1)
                 goto out;
+
+        volname = volinfo->volname;
+        if (ret == 0) {
+                ret = volgen_graph_build_clients (graph, volinfo, set_dict,
+                                                  param);
+                if (ret)
+                        goto out;
+
+                if (volinfo->type == GF_CLUSTER_TYPE_TIER)
+                        ret = volume_volgen_graph_build_clusters_tier
+                                                (graph, volinfo, _gf_false);
+                else
+                        ret = volume_volgen_graph_build_clusters
+                                                (graph, volinfo, _gf_false);
+
+                if (ret == -1)
+                        goto out;
+        } else {
+                is_gfproxy = _gf_true;
+                ret = dict_get_str (set_dict,
+                                        "config.gfproxyd-remote-host", &tmp);
+                if (ret == -1)
+                        goto out;
+
+                subvol_namelen = strlen (volinfo->volname) +
+                                strlen ("-server") + 1;
+                subvol = alloca (subvol_namelen);
+                snprintf (subvol, subvol_namelen,
+                                "%s-server", volinfo->volname);
+
+                volgen_graph_build_client (graph, volinfo, tmp,
+                                           GF_PROXY_DAEMON_PORT_STR, subvol,
+                                           "gfproxy", "tcp", set_dict);
+        }
 
         ret = dict_get_str_boolean (set_dict, "features.shard", _gf_false);
         if (ret == -1)
@@ -3845,6 +4029,15 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 goto out;
         if (ret) {
                 xl = volgen_graph_add (graph, "encryption/crypt", volname);
+                if (!xl) {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        /* gfproxy needs the AHA translator */
+        if (is_gfproxy) {
+                xl = volgen_graph_add (graph, "cluster/aha", volname);
                 if (!xl) {
                         ret = -1;
                         goto out;
@@ -4952,6 +5145,22 @@ get_brick_filepath (char *filename, glusterd_volinfo_t *volinfo,
                           brickinfo->hostname, brick);
 }
 
+static void
+get_gfproxyd_filepath (char *filename, glusterd_volinfo_t *volinfo)
+{
+        char  path[PATH_MAX]   = {0, };
+        char  brick[PATH_MAX]  = {0, };
+        glusterd_conf_t *priv  = NULL;
+
+        priv = THIS->private;
+
+        GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
+
+        snprintf (filename, PATH_MAX,
+                        "%s/%s.gfproxyd.vol", path,
+                        volinfo->volname);
+}
+
 gf_boolean_t
 glusterd_is_valid_volfpath (char *volname, char *brick)
 {
@@ -4993,6 +5202,32 @@ out:
                 glusterd_brickinfo_delete (brickinfo);
         if (volinfo)
                 glusterd_volinfo_unref (volinfo);
+        return ret;
+}
+
+static int
+glusterd_generate_gfproxyd_volfile (glusterd_volinfo_t *volinfo)
+{
+        volgen_graph_t graph = {0, };
+        char    filename[PATH_MAX] = {0, };
+        int     ret = -1;
+
+        GF_ASSERT (volinfo);
+
+        get_gfproxyd_filepath (filename, volinfo);
+
+        struct glusterd_gfproxyd_info info = {
+                .port = GF_PROXY_DAEMON_PORT,
+        };
+
+        ret = build_graph_generic (&graph, volinfo,
+                                   NULL, &info,
+                                   &gfproxy_server_graph_builder);
+        if (ret == 0)
+                ret = volgen_write_volfile (&graph, filename);
+
+        volgen_graph_free (&graph);
+
         return ret;
 }
 
@@ -5267,7 +5502,8 @@ glusterd_generate_client_per_brick_volfile (glusterd_volinfo_t *volinfo)
 
         cds_list_for_each_entry (brick, &volinfo->bricks, brick_list) {
                 xl = volgen_graph_build_client (&graph, volinfo,
-                                                brick->hostname, brick->path,
+                                                brick->hostname,
+                                                NULL, brick->path,
                                                 brick->brick_id,
                                                 "tcp", dict);
                 if (!xl) {
@@ -5398,6 +5634,11 @@ generate_client_volfiles (glusterd_volinfo_t *volinfo,
                         ret = glusterd_get_trusted_client_filepath (filepath,
                                                                     volinfo,
                                                                     type);
+                } else if (client_type == GF_CLIENT_TRUSTED_PROXY) {
+                        glusterd_get_gfproxy_client_volfile (volinfo,
+                                                             filepath,
+                                                             PATH_MAX);
+                        ret = dict_set_str (dict, "gfproxy-client", "on");
                 } else {
                         ret = glusterd_get_client_filepath (filepath,
                                                             volinfo,
@@ -5627,6 +5868,7 @@ build_bitd_volume_graph (volgen_graph_t *graph,
 
                 xl = volgen_graph_build_client (&cgraph, volinfo,
                                                 brickinfo->hostname,
+                                                NULL,
                                                 brickinfo->path,
                                                 brickinfo->brick_id,
                                                 transt, set_dict);
@@ -5789,6 +6031,7 @@ build_scrub_volume_graph (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
                 xl = volgen_graph_build_client (&cgraph, volinfo,
                                                 brickinfo->hostname,
+                                                NULL,
                                                 brickinfo->path,
                                                 brickinfo->brick_id,
                                                 transt, set_dict);
@@ -5920,11 +6163,24 @@ glusterd_create_volfiles (glusterd_volinfo_t *volinfo)
                 goto out;
         }
 
+        ret = generate_client_volfiles (volinfo, GF_CLIENT_TRUSTED_PROXY);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Could not generate gfproxy client volfiles");
+                goto out;
+        }
+
         ret = generate_client_volfiles (volinfo, GF_CLIENT_OTHER);
         if (ret)
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_VOLFILE_CREATE_FAIL,
                         "Could not generate client volfiles");
+
+
+         ret = glusterd_generate_gfproxyd_volfile (volinfo);
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Could not generate gfproxy volfiles");
 
 out:
         return ret;
