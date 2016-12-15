@@ -391,6 +391,7 @@ mem_pool_new_fn (unsigned long sizeof_type,
                 return NULL;
         }
 
+#if !defined(GF_DISABLE_MEMPOOL)
         LOCK_INIT (&mem_pool->lock);
         INIT_LIST_HEAD (&mem_pool->list);
         INIT_LIST_HEAD (&mem_pool->global_list);
@@ -429,6 +430,7 @@ mem_pool_new_fn (unsigned long sizeof_type,
         UNLOCK (&ctx->lock);
 
 out:
+#endif /* GF_DISABLE_MEMPOOL */
         return mem_pool;
 }
 
@@ -454,6 +456,10 @@ mem_get0 (struct mem_pool *mem_pool)
 void *
 mem_get (struct mem_pool *mem_pool)
 {
+#ifdef GF_DISABLE_MEMPOOL
+          return GF_CALLOC (1, mem_pool->real_sizeof_type,
+                                gf_common_mt_mem_pool);
+#else
         struct list_head *list = NULL;
         void             *ptr = NULL;
         int             *in_use = NULL;
@@ -525,9 +531,11 @@ fwd_addr_out:
         UNLOCK (&mem_pool->lock);
 
         return ptr;
+#endif /* GF_DISABLE_MEMPOOL */
 }
 
 
+#if !defined(GF_DISABLE_MEMPOOL)
 static int
 __is_member (struct mem_pool *pool, void *ptr)
 {
@@ -546,11 +554,16 @@ __is_member (struct mem_pool *pool, void *ptr)
 
         return 1;
 }
+#endif
 
 
 void
 mem_put (void *ptr)
 {
+#ifdef GF_DISABLE_MEMPOOL
+        GF_FREE (ptr);
+        return;
+#else
         struct list_head *list = NULL;
         int    *in_use = NULL;
         void   *head = NULL;
@@ -628,6 +641,7 @@ mem_put (void *ptr)
                 }
         }
         UNLOCK (&pool->lock);
+#endif /* GF_DISABLE_MEMPOOL */
 }
 
 void
@@ -640,12 +654,12 @@ mem_pool_destroy (struct mem_pool *pool)
                 "max=%d total=%"PRIu64, pool->padded_sizeof_type,
                 pool->max_alloc, pool->alloc_count);
 
+#if !defined(GF_DISABLE_MEMPOOL)
         list_del (&pool->global_list);
 
         LOCK_DESTROY (&pool->lock);
         GF_FREE (pool->name);
         GF_FREE (pool->pool);
+#endif
         GF_FREE (pool);
-
-        return;
 }
