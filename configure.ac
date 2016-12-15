@@ -1211,6 +1211,15 @@ AC_ARG_ENABLE([debug],
               AC_HELP_STRING([--enable-debug],
                              [Enable debug build options.]))
 
+AC_ARG_ENABLE([mempool],
+              AC_HELP_STRING([--disable-mempool],
+                             [Disable the Gluster memory pooler.]))
+
+USE_MEMPOOL="yes"
+if test "x$enable_mempool" = "xno"; then
+        USE_MEMPOOL="no"
+        AC_DEFINE(GF_DISABLE_MEMPOOL, 1, [Disable the Gluster memory pooler.])
+fi
 
 # syslog section
 AC_ARG_ENABLE([syslog],
@@ -1530,4 +1539,5 @@ echo "firewalld-config     : $BUILD_FIREWALLD"
 echo "Experimental xlators : $BUILD_EXPERIMENTAL"
 echo "Events               : $BUILD_EVENTS"
 echo "EC dynamic support   : $EC_DYNAMIC_SUPPORT"
+echo "Use memory pools     : $USE_MEMPOOL"
 echo
