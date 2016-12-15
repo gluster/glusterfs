@@ -54,6 +54,10 @@ af_inet_bind_to_port_lt_ceiling (struct rdma_cm_id *cm_id,
                                  struct sockaddr *sockaddr,
                                  socklen_t sockaddr_len, uint32_t ceiling)
 {
+#if defined(NO_PRIVPORT)
+        _assign_port(sockaddr, 0);
+        return rdma_bind_addr (cm_id, sockaddr);
+#else
         int32_t        ret        = -1;
         uint16_t      port        = ceiling - 1;
         gf_boolean_t  ports[GF_PORT_MAX];
@@ -100,6 +104,7 @@ loop:
         }
 
         return ret;
+#endif /* NO_PRIVPORT */
 }
 
 #if 0

@@ -287,6 +287,11 @@ else
         BUILD_FBEXTRAS=no
 fi
 
+AC_ARG_ENABLE([privport_prefer], AC_HELP_STRING([--disable-privport_prefer], [Disable preferred usage of privleged ports.]))
+if test "x$enable_privport_prefer" = "xno"; then
+    CFLAGS="${CFLAGS} -DNO_PRIVPORT"
+fi
+
 case $host_os in
   darwin*)
     if ! test "`/usr/bin/sw_vers | grep ProductVersion: | cut -f 2 | cut -d. -f2`" -ge 7; then
