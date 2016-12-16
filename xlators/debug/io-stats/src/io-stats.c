@@ -770,7 +770,7 @@ ios_dump_throughput_stats (struct ios_stat_head *list_head, xlator_t *this,
 
 int
 _io_stats_get_key_prefix (xlator_t *this, char **key_prefix) {
-        char                  *key_root = "gluster";
+        char                  *key_root = "storage.gluster";
         char                  *xlator_name = NULL;
         char                  *instance_name = NULL;
         size_t                key_len = 0;
@@ -795,7 +795,7 @@ _io_stats_get_key_prefix (xlator_t *this, char **key_prefix) {
         }
 
         if (strcmp (__progname, "glusterfsd") == 0)
-                key_root = "gluster.brick";
+                key_root = "storage.gluster.brick";
 
         if (instance_name) {
                 /* +3 for 2 x "." + NULL */
