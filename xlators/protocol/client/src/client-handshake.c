@@ -86,6 +86,7 @@ out:
 
         /* Don't use 'GF_FREE', this is allocated by libc */
         free (rsp.spec);
+        free (rsp.xdata.xdata_val);
 
         return 0;
 }
