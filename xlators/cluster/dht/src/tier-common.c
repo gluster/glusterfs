@@ -885,21 +885,7 @@ tier_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret
                 if (check_is_linkfile (NULL, (&orig_entry->d_stat),
                                        orig_entry->dict,
                                        conf->link_xattr_name)) {
-                        inode = inode_find (itable,
-                                            orig_entry->d_stat.ia_gfid);
-                        if (inode) {
-                                ret = dht_layout_preset
-                                        (this, TIER_UNHASHED_SUBVOL,
-                                         inode);
-                                if (ret)
-                                        gf_msg (this->name,
-                                                GF_LOG_WARNING, 0,
-                                                DHT_MSG_LAYOUT_SET_FAILED,
-                                                "failed to link the layout"
-                                                " in inode");
-                                inode_unref (inode);
-                                inode = NULL;
-                        }
+                        goto entries;
 
                 } else if (IA_ISDIR(entry->d_stat.ia_type)) {
                         if (orig_entry->inode) {
@@ -944,6 +930,8 @@ tier_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret
                                 }
                         }
                 }
+
+entries:
                 list_add_tail (&entry->list, &entries.list);
                 count++;
         }
