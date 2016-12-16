@@ -1531,10 +1531,6 @@ client3_3_inodelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        GF_PROTOCOL_DICT_UNSERIALIZE (this, xdata, (rsp.xdata.xdata_val),
-                                      (rsp.xdata.xdata_len), ret,
-                                      rsp.op_errno, out);
-
         ret = client_post_inodelk (this, &rsp, &xdata);
         if (ret < 0)
                 goto out;
