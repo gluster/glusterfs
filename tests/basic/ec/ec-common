@@ -45,7 +45,7 @@ for size in $SIZE_LIST; do
     eval cs_big_truncate[$size]=$(sha1sum $tmp/big1 | awk '{ print $1 }')
 done
 
-TEST df -h
+TEST df -h $M0
 TEST stat $M0
 
 for idx in `seq 0 $LAST_BRICK`; do
