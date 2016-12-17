@@ -136,7 +136,7 @@ TEST dd if=/dev/urandom of=$tmp/test bs=1024 count=1024
 
 cs=$(sha1sum $tmp/test | awk '{ print $1 }')
 
-TEST df -h
+TEST df -h $M0
 TEST stat $M0
 
 for idx in {0..5}; do
