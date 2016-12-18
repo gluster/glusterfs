@@ -124,7 +124,6 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
         char        *linkname   = NULL; /* "../../<gfid[0]>/<gfid[1]/"
                                          "<gfidstr>/<NAME_MAX>" */
         char        *dir_handle = NULL;
-        char        *dir_name   = NULL;
         char        *pgfidstr   = NULL;
         char        *saveptr    = NULL;
         ssize_t       len        = 0;
@@ -132,93 +131,106 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
         struct iatt  iabuf      = {0, };
         int          ret        = -1;
         uuid_t       tmp_gfid   = {0, };
+        char        *dir_stack[PATH_MAX/2]; /* Since PATH_MAX/2 also gives
+                                            an upper bound on depth of
+                                            directories tree */
+        uuid_t       gfid_stack[PATH_MAX/2];
+
+        char        *dir_name   = NULL;
+        char        *saved_dir  = NULL;
+        int          top = -1;
 
         if (!path || !parent || !priv_base_path || gf_uuid_is_null (gfid)) {
                 *op_errno = EINVAL;
                 goto out;
         }
 
-        if (__is_root_gfid (gfid)) {
-                if (parent) {
-                        if (*parent) {
-                                inode_unref (*parent);
-                        }
+        dir_handle = alloca (handle_size);
+        linkname   = alloca (PATH_MAX);
+        gf_uuid_copy(tmp_gfid, gfid);
+
+        while (top < PATH_MAX/2) {
+
+                gf_uuid_copy(gfid_stack[++top], tmp_gfid);
+                if (__is_root_gfid (tmp_gfid)) {
 
                         *parent = inode_ref (itable->root);
+
+                        saved_dir = alloca(strlen("/") + 1);
+                        strcpy(saved_dir, "/");
+                        dir_stack[top] = saved_dir;
+                        break;
+                } else {
+                        snprintf (dir_handle, handle_size, "%s/%s/%02x/%02x/%s",
+                                  priv_base_path, GF_HIDDEN_PATH, tmp_gfid[0],
+                                  tmp_gfid[1], uuid_utoa (tmp_gfid));
+
+                        len = sys_readlink (dir_handle, linkname, PATH_MAX);
+                        if (len < 0) {
+                                *op_errno = errno;
+                                gf_msg (this->name, (errno == ENOENT ||
+                                                      errno == ESTALE)
+                                        ? GF_LOG_DEBUG:GF_LOG_ERROR, errno,
+                                        P_MSG_READLINK_FAILED, "could not read"
+                                        " the link from the gfid handle %s ",
+                                         dir_handle);
+                                ret = -1;
+                                goto out;
+                        }
+
+                        linkname[len] = '\0';
+
+                        pgfidstr = strtok_r (linkname + SLEN("../../00/00/"),
+                                              "/", &saveptr);
+                        dir_name = strtok_r (NULL, "/", &saveptr);
+                        saved_dir = alloca(strlen(dir_name) + 1);
+                        gf_uuid_parse (pgfidstr, tmp_gfid);
+                        strcpy(saved_dir, dir_name);
+                        dir_stack[top] = saved_dir;
                 }
+        }
+        if (top == PATH_MAX/2) {
+                gf_msg (this->name, GF_LOG_ERROR,
+                        P_MSG_ANCESTORY_FAILED,
+                        0, "build ancestory failed due to "
+                        "deep directory hierarchy, depth: %d.", top);
+                *op_errno = EINVAL;
+                ret = -1;
+                goto out;
+        }
 
+        while (top >= 0) {
 
-                inode = posix_resolve (this, itable, *parent, "/", &iabuf);
-                if (!inode) {
+                memset (&iabuf, 0, sizeof (iabuf));
+                inode = posix_resolve (this, itable, *parent,
+                                       dir_stack[top], &iabuf);
+                if (inode == NULL) {
                         gf_msg (this->name, GF_LOG_ERROR,
-                                P_MSG_INODE_RESOLVE_FAILED, 0,
-                                "posix resolve on the root inode %s failed",
-                                uuid_utoa (gfid));
+                                 P_MSG_INODE_RESOLVE_FAILED,
+                                0, "posix resolve on the inode %s failed",
+                                uuid_utoa (gfid_stack[top]));
                         *op_errno = ESTALE;
+                        ret = -1;
                         goto out;
                 }
 
-                ret = posix_make_ancestral_node (priv_base_path, path, pathsize,
-                                                 head, "/", &iabuf, inode, type,
-                                                 xdata);
-                if (ret < 0)
+                ret = posix_make_ancestral_node (priv_base_path, path,
+                                                 pathsize, head,
+                                                 dir_stack[top], &iabuf,
+                                                 inode, type, xdata);
+                if (ret < 0) {
                         *op_errno = ENOMEM;
-                return ret;
+                        goto out;
+                }
+
+                inode_unref (*parent);
+                *parent = inode_ref(inode);
+                top--;
         }
-
-        dir_handle = alloca (handle_size);
-        linkname   = alloca (PATH_MAX);
-        snprintf (dir_handle, handle_size, "%s/%s/%02x/%02x/%s",
-                  priv_base_path, GF_HIDDEN_PATH, gfid[0], gfid[1],
-                  uuid_utoa (gfid));
-
-        len = sys_readlink (dir_handle, linkname, PATH_MAX);
-        if (len < 0) {
-                gf_msg (this->name, (errno == ENOENT || errno == ESTALE)
-                        ? GF_LOG_DEBUG:GF_LOG_ERROR, errno,
-                        P_MSG_READLINK_FAILED, "could not read the link from "
-                        "the gfid handle %s ", dir_handle);
-                ret = -1;
-                *op_errno = errno;
-                goto out;
-        }
-
-        linkname[len] = '\0';
-
-        pgfidstr = strtok_r (linkname + SLEN("../../00/00/"), "/", &saveptr);
-        dir_name = strtok_r (NULL, "/", &saveptr);
-
-        gf_uuid_parse (pgfidstr, tmp_gfid);
-
-        ret = posix_make_ancestryfromgfid (this, path, pathsize, head, type,
-                                           tmp_gfid, handle_size,
-                                           priv_base_path, itable, parent,
-                                           xdata, op_errno);
-        if (ret < 0) {
-                goto out;
-        }
-
-        memset (&iabuf, 0, sizeof (iabuf));
-
-        inode = posix_resolve (this, itable, *parent, dir_name, &iabuf);
-        if (inode == NULL) {
-                gf_msg (this->name, GF_LOG_ERROR, P_MSG_INODE_RESOLVE_FAILED,
-                        0, "posix resolve on the root inode %s failed",
-                        uuid_utoa (gfid));
-                *op_errno = ESTALE;
-                ret = -1;
-                goto out;
-        }
-
-        ret = posix_make_ancestral_node (priv_base_path, path, pathsize, head,
-                                         dir_name, &iabuf, inode, type, xdata);
+out:
         if (*parent != NULL) {
                 inode_unref (*parent);
         }
-
-        *parent = inode;
-
-out:
         return ret;
 }
 
