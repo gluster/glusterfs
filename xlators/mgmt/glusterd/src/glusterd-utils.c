@@ -1989,7 +1989,7 @@ retry:
                 ret = runner_run (&runner);
                 synclock_lock (&priv->big_lock);
 
-                if (ret == -EADDRINUSE) {
+                if (ret == EADDRINUSE) {
                         /* retry after getting a new port */
                         gf_msg (this->name, GF_LOG_WARNING, -ret,
                                 GD_MSG_SRC_BRICK_PORT_UNAVAIL,
