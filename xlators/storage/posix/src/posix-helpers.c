@@ -1145,12 +1145,20 @@ posix_handle_pair (xlator_t *this, const char *real_path,
                                                 value->len);
 
 #else /* ! DARWIN */
-                                gf_msg (this->name, GF_LOG_ERROR, errno,
-                                        P_MSG_XATTR_FAILED, "%s: key:%s"
-                                        "flags: %u length:%d", real_path,
-                                        key, flags, value->len);
+                                if (errno == EEXIST)
+                                        gf_msg_debug (this->name, 0,
+                                                      "%s: key:%s"
+                                                      "flags: %u length:%d",
+                                                      real_path, key, flags,
+                                                      value->len);
+                                else
+                                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                                P_MSG_XATTR_FAILED, "%s: key:%s"
+                                                "flags: %u length:%d",
+                                                real_path, key, flags,
+                                                value->len);
 #endif /* DARWIN */
-                        }
+                                }
 
                         goto out;
                 }
