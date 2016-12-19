@@ -34,8 +34,8 @@ GFID_C=$(get_gfid_string $M0/a/b/c)
 TEST stat $B0/${V0}0/.glusterfs/indices/entry-changes/$GFID_C/file
 TEST stat $B0/${V0}1/.glusterfs/indices/entry-changes/$GFID_C/file
 
-EXPECT "00000001" afr_get_specific_changelog_xattr $B0/${V0}0/a/b/c trusted.afr.$V0-client-2 entry
-EXPECT "00000001" afr_get_specific_changelog_xattr $B0/${V0}1/a/b/c trusted.afr.$V0-client-2 entry
+EXPECT_NOT "00000000" afr_get_specific_changelog_xattr $B0/${V0}0/a/b/c trusted.afr.$V0-client-2 entry
+EXPECT_NOT "00000000" afr_get_specific_changelog_xattr $B0/${V0}1/a/b/c trusted.afr.$V0-client-2 entry
 
 cd ~
 
