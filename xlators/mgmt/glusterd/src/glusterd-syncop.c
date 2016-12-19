@@ -314,6 +314,10 @@ glusterd_syncop_aggr_rsp_dict (glusterd_op_t op, dict_t *aggr, dict_t *rsp)
         case GD_OP_SCRUB_ONDEMAND:
         break;
 
+        case GD_OP_MAX_OPVERSION:
+                ret = glusterd_max_opversion_use_rsp_dict (aggr, rsp);
+        break;
+
         default:
         break;
         }

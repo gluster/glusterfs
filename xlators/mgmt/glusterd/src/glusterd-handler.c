@@ -4627,7 +4627,8 @@ gd_is_global_option (char *opt_key)
 
         return (strcmp (opt_key, GLUSTERD_SHARED_STORAGE_KEY) == 0 ||
                 strcmp (opt_key, GLUSTERD_QUORUM_RATIO_KEY) == 0 ||
-                strcmp (opt_key, GLUSTERD_GLOBAL_OP_VERSION_KEY) == 0);
+                strcmp (opt_key, GLUSTERD_GLOBAL_OP_VERSION_KEY) == 0 ||
+                strcmp (opt_key, GLUSTERD_MAX_OP_VERSION_KEY) == 0);
 
 out:
         return _gf_false;
@@ -4672,10 +4673,11 @@ glusterd_get_volume_opts (rpcsvc_request_t *req, dict_t *dict)
         }
 
         if (strcasecmp (volname, "all") == 0) {
-                ret = glusterd_get_global_options_for_all_vols (dict,
+                ret = glusterd_get_global_options_for_all_vols (req, dict,
                                                                 &rsp.op_errstr);
                 goto out;
         }
+
 
         ret = dict_get_str (dict, "key", &key);
         if (ret) {
@@ -4742,6 +4744,7 @@ glusterd_get_volume_opts (rpcsvc_request_t *req, dict_t *dict)
                                 orig_key = key;
                                 key = key_fixed;
                         }
+
                         if (gd_is_global_option (key)) {
                                 snprintf (warn_str, sizeof (warn_str),
                                           "Warning: Support to get "
@@ -4761,7 +4764,11 @@ glusterd_get_volume_opts (rpcsvc_request_t *req, dict_t *dict)
                                 }
                         }
 
-                        if (strcmp (key, "cluster.op-version") == 0) {
+                        if (strcmp (key, "cluster.max-op-version") == 0) {
+                                ret = glusterd_get_global_max_op_version (req, dict, 1);
+                                if (ret)
+                                        goto out;
+                        } else if (strcmp (key, "cluster.op-version") == 0) {
                                 sprintf (dict_key, "key%d", count);
                                 ret = dict_set_str(dict, dict_key, key);
                                 if (ret) {

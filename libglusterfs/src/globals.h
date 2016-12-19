@@ -76,6 +76,8 @@
 
 #define GD_OP_VERSION_3_9_1    30901 /* Op-version for GlusterFS 3.9.1 */
 
+#define GD_OP_VERSION_3_10_0   31000 /* Op-version for GlusterFS 3.10.0 */
+
 #define GD_OP_VERSION_4_0_0    40000 /* Op-version for GlusterFS 4.0.0 */
 
 #define GD_OP_VER_PERSISTENT_AFR_XATTRS GD_OP_VERSION_3_6_0

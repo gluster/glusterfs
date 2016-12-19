@@ -67,6 +67,7 @@ glusterd_all_vol_opts valid_all_vol_opts[] = {
         { GLUSTERD_QUORUM_RATIO_KEY },
         { GLUSTERD_SHARED_STORAGE_KEY },
         { GLUSTERD_GLOBAL_OP_VERSION_KEY },
+        { GLUSTERD_MAX_OP_VERSION_KEY },
         { NULL },
 };
 
@@ -2468,6 +2469,25 @@ out:
         if (quorum_action)
                 glusterd_do_quorum_action ();
         GF_FREE (next_version);
+        return ret;
+}
+
+int
+glusterd_op_get_max_opversion (char **op_errstr, dict_t *rsp_dict)
+{
+        int                     ret             = -1;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, rsp_dict, out);
+
+        ret = dict_set_int32 (rsp_dict, "max-opversion", GD_OP_VERSION_MAX);
+        if (ret) {
+                gf_msg (THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                        "Setting value for max-opversion to dict failed");
+                goto out;
+        }
+
+out:
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -7955,6 +7975,7 @@ glusterd_op_free_ctx (glusterd_op_t op, void *ctx)
                 case GD_OP_STATEDUMP_VOLUME:
                 case GD_OP_CLEARLOCKS_VOLUME:
                 case GD_OP_DEFRAG_BRICK_VOLUME:
+                case GD_OP_MAX_OPVERSION:
                         dict_unref (ctx);
                         break;
                 default:

@@ -2593,6 +2593,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "mgmt/glusterd",
           .op_version  = GD_OP_VERSION_3_6_0,
         },
+        {
+          .key         = "cluster.max-op-version",
+          .voltype     = "mgmt/glusterd",
+          .op_version  = GD_OP_VERSION_3_10_0,
+        },
         /*Trash translator options */
         { .key         = "features.trash",
           .voltype     = "features/trash",
