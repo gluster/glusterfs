@@ -3788,6 +3788,7 @@ glusterd_copy_nfs_ganesha_file (glusterd_volinfo_t *src_vol,
                                 GD_MSG_FILE_OP_FAILED,
                                 "Failed to open %s",
                                 dest ? src_path : dest_path);
+                        ret = -1;
                         goto out;
                 }
 

@@ -159,6 +159,38 @@ manage_service (char *action)
                 " not recognized.", action);
         return ret;
 }
+
+/*
+ * Check if the cluster is a ganesha cluster or not *
+ */
+gf_boolean_t
+glusterd_is_ganesha_cluster () {
+        int                ret      = -1;
+        glusterd_conf_t   *priv     = NULL;
+        xlator_t          *this     = NULL;
+        gf_boolean_t       ret_bool = _gf_false;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("ganesha", this, out);
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+
+        ret = dict_get_str_boolean (priv->opts,
+                                    GLUSTERD_STORE_KEY_GANESHA_GLOBAL,
+                                    _gf_false);
+        if (ret == _gf_true) {
+                ret_bool = _gf_true;
+                gf_msg_debug (this->name, 0,
+                              "nfs-ganesha is enabled for the cluster");
+        } else
+                gf_msg_debug (this->name, 0,
+                              "nfs-ganesha is disabled for the cluster");
+
+out:
+        return ret_bool;
+
+}
+
 /* Check if ganesha.enable is set to 'on', that checks if
  * a  particular volume is exported via NFS-Ganesha */
 gf_boolean_t
