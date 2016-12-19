@@ -1364,8 +1364,13 @@ post_op:
 ignore:
         op_ret = posix_entry_create_xattr_set (this, real_path, xdata);
         if (op_ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, P_MSG_XATTR_FAILED,
-                        "setting xattrs on %s failed", real_path);
+                if (errno != EEXIST)
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                P_MSG_XATTR_FAILED,
+                                "setting xattrs on %s failed", real_path);
+                else
+                        gf_msg_debug (this->name, 0,
+                                      "setting xattrs on %s failed", real_path);
         }
 
         if (!linked) {
