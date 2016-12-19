@@ -200,6 +200,10 @@ gd_mgmt_v3_pre_validate_fn (glusterd_op_t op, dict_t *dict,
                 }
                 break;
 
+        case GD_OP_MAX_OPVERSION:
+                ret = 0;
+                break;
+
         default:
                 break;
         }
@@ -316,6 +320,18 @@ gd_mgmt_v3_commit_fn (glusterd_op_t op, dict_t *dict,
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_COMMIT_OP_FAIL,
                                         "Reset-brick commit failed.");
+                                goto out;
+                        }
+                        break;
+                }
+                case GD_OP_MAX_OPVERSION:
+                {
+                        ret = glusterd_op_get_max_opversion (op_errstr,
+                                                             rsp_dict);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_COMMIT_OP_FAIL,
+                                        "Commit failed.");
                                 goto out;
                         }
                         break;
@@ -702,6 +718,8 @@ glusterd_pre_validate_aggr_rsp_dict (glusterd_op_t op,
                         goto out;
                 }
                 break;
+        case GD_OP_MAX_OPVERSION:
+                break;
         default:
                 ret = -1;
                 gf_msg (this->name, GF_LOG_ERROR, EINVAL,
@@ -915,18 +933,20 @@ glusterd_mgmt_v3_pre_validate (glusterd_op_t op, dict_t *req_dict,
                 goto out;
         }
 
-        ret = glusterd_pre_validate_aggr_rsp_dict (op, req_dict,
-                                                   rsp_dict);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_PRE_VALIDATION_FAIL, "%s",
-                        "Failed to aggregate response from "
-                        " node/brick");
-                goto out;
-        }
+        if (op != GD_OP_MAX_OPVERSION) {
+                ret = glusterd_pre_validate_aggr_rsp_dict (op, req_dict,
+                                                           rsp_dict);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_PRE_VALIDATION_FAIL, "%s",
+                                "Failed to aggregate response from "
+                                " node/brick");
+                        goto out;
+                }
 
-        dict_unref (rsp_dict);
-        rsp_dict = NULL;
+                dict_unref (rsp_dict);
+                rsp_dict = NULL;
+        }
 
         /* Sending Pre Validation req to other nodes in the cluster */
         gd_syncargs_init (&args, req_dict);
@@ -998,13 +1018,14 @@ glusterd_mgmt_v3_build_payload (dict_t **req, char **op_errstr, dict_t *dict,
                 goto out;
 
         switch (op) {
-                case GD_OP_SNAP:
-                        dict_copy (dict, req_dict);
-                        break;
-                case GD_OP_START_VOLUME:
-                case GD_OP_ADD_BRICK:
-                case GD_OP_REPLACE_BRICK:
-                case GD_OP_RESET_BRICK:
+        case GD_OP_MAX_OPVERSION:
+        case GD_OP_SNAP:
+                dict_copy (dict, req_dict);
+                break;
+        case GD_OP_START_VOLUME:
+        case GD_OP_ADD_BRICK:
+        case GD_OP_REPLACE_BRICK:
+        case GD_OP_RESET_BRICK:
                 {
                         ret = dict_get_str (dict, "volname", &volname);
                         if (ret) {
@@ -1025,8 +1046,8 @@ glusterd_mgmt_v3_build_payload (dict_t **req, char **op_errstr, dict_t *dict,
                         dict_copy (dict, req_dict);
                 }
                         break;
-                default:
-                        break;
+        default:
+                break;
         }
 
         *req = req_dict;
@@ -2070,9 +2091,11 @@ out:
         if (op_ret && (op_errno == 0))
                 op_errno = EG_INTRNL;
 
-        /* SEND CLI RESPONSE */
-        glusterd_op_send_cli_response (op, op_ret, op_errno, req,
-                                       dict, op_errstr);
+        if (op != GD_OP_MAX_OPVERSION) {
+                /* SEND CLI RESPONSE */
+                glusterd_op_send_cli_response (op, op_ret, op_errno, req,
+                                               dict, op_errstr);
+        }
 
         if (req_dict)
                 dict_unref (req_dict);

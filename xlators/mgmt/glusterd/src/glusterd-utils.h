@@ -38,9 +38,11 @@
                 gf_boolean_t    _is_valid_opt = _gf_false;                     \
                 int32_t         i      = 0;                                    \
                                                                                \
-                if (strcmp (key, "all") == 0 && !get_opt) {                    \
+                if (!get_opt && (!strcmp (key, "all") ||                       \
+                                 !strcmp (key, "cluster.max-op-version"))) {   \
                         ret = -1;                                              \
                         *op_errstr = gf_strdup ("Not a valid option to set");  \
+                        goto out;                                              \
                 }                                                              \
                                                                                \
                 for (i = 0; valid_all_vol_opts[i].option; i++) {               \
@@ -482,6 +484,9 @@ glusterd_handle_node_rsp (dict_t *req_ctx, void *pending_entry,
                           glusterd_op_t op, dict_t *rsp_dict, dict_t *op_ctx,
                           char **op_errstr, gd_node_type type);
 int
+glusterd_max_opversion_use_rsp_dict (dict_t *dst, dict_t *src);
+
+int
 glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
 
 int
@@ -657,7 +662,12 @@ int
 glusterd_get_volopt_content (dict_t *dict, gf_boolean_t xml_out);
 
 int
-glusterd_get_global_options_for_all_vols (dict_t *dict, char **op_errstr);
+glusterd_get_global_max_op_version (rpcsvc_request_t *req, dict_t *ctx,
+                                    int count);
+
+int
+glusterd_get_global_options_for_all_vols (rpcsvc_request_t *req, dict_t *dict,
+                                          char **op_errstr);
 
 int
 glusterd_get_default_val_for_volopt (dict_t *dict, gf_boolean_t all_opts,

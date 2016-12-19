@@ -44,6 +44,7 @@
 #define GLUSTERD_QUORUM_RATIO_KEY       "cluster.server-quorum-ratio"
 #define GLUSTERD_GLOBAL_OPT_VERSION     "global-option-version"
 #define GLUSTERD_GLOBAL_OP_VERSION_KEY  "cluster.op-version"
+#define GLUSTERD_MAX_OP_VERSION_KEY     "cluster.max-op-version"
 #define GLUSTERD_COMMON_PEM_PUB_FILE    "/geo-replication/common_secret.pem.pub"
 #define GEO_CONF_MAX_OPT_VALS           6
 #define GLUSTERD_CREATE_HOOK_SCRIPT     "/hooks/1/gsync-create/post/" \
@@ -123,6 +124,7 @@ typedef enum glusterd_op_ {
         GD_OP_SCRUB_STATUS,
         GD_OP_SCRUB_ONDEMAND,
         GD_OP_RESET_BRICK,
+        GD_OP_MAX_OPVERSION,
         GD_OP_MAX,
 } glusterd_op_t;
 
@@ -1114,6 +1116,8 @@ int glusterd_op_statedump_volume_args_get (dict_t *dict, char **volname,
 
 int glusterd_op_gsync_args_get (dict_t *dict, char **op_errstr,
                                 char **master, char **slave, char **host_uuid);
+
+int glusterd_op_get_max_opversion (char **op_errstr, dict_t *rsp_dict);
 
 int glusterd_start_volume (glusterd_volinfo_t *volinfo, int flags,
                            gf_boolean_t wait);
