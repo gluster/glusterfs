@@ -610,6 +610,7 @@ function build_tester ()
     then
        cflags="$cflags $(pkg-config glusterfs-api --cflags-only-I --libs-only-L)"
     fi
+    cflags="$cflags ${TESTER_CFLAGS}"
     $CC -g -o $(dirname $cfile)/$execname $cfile $cflags
 }
 

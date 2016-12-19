@@ -922,11 +922,14 @@ AC_SUBST(GF_DISTRIBUTION)
 GF_HOST_OS=""
 GF_LDFLAGS="-rdynamic"
 
+TESTER_CFLAGS=""
+
 dnl include tirpc for FB builds
 if test "x$BUILD_FBEXTRAS" = "xyes"; then
         TIRPC_CFLAGS="-I/usr/include/tirpc"
         GF_LDFLAGS="-lfbtirpc $GF_LDFLAGS"
         GF_CFLAGS="$GF_CFLAGS $TIRPC_CFLAGS -DIPV6_DEFAULT"
+        TESTER_CFLAGS="$TESTER_CFLAGS -lfbtirpc"
 fi
 
 dnl check for gcc -Werror=format-security
@@ -1328,6 +1331,7 @@ AM_CONDITIONAL([GF_INSTALL_GLUSTERD_WORKDIR], test ! -d ${GLUSTERD_WORKDIR} && t
 AC_SUBST(GLUSTERD_VOLFILE)
 AC_SUBST(GLUSTERFS_LIBEXECDIR)
 AC_SUBST(GLUSTERFSD_MISCDIR)
+AC_SUBST(TESTER_CFLAGS)
 
 dnl pkg-config versioning
 dnl
