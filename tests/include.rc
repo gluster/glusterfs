@@ -30,6 +30,7 @@ while true; do
                 ENV_RC="/not/found"
                 break
         fi
+        old_dir=$env_dir
         env_dir=$new_dir
 done
 
