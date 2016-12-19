@@ -1380,7 +1380,9 @@ cleanup_and_exit (int signum)
                 trav = trav->next;
         }
 
-        exit(signum);
+        /* NOTE: Only the least significant 8 bits i.e (signum & 255)
+           will be available to parent process on calling exit() */
+        exit(abs(signum));
 }
 
 
@@ -2237,7 +2239,9 @@ daemonize (glusterfs_ctx_t *ctx)
                         }
                 }
                 sys_read (ctx->daemon_pipe[0], (void *)&err, sizeof (err));
-                _exit (err);
+                /* NOTE: Only the least significant 8 bits i.e (err & 255)
+                   will be available to parent process on calling exit() */
+                _exit (abs(err));
         }
 
 postfork:
@@ -2301,7 +2305,6 @@ glusterfs_process_volfp (glusterfs_ctx_t *ctx, FILE *fp)
         glusterfs_graph_t  *graph = NULL;
         int                 ret = -1;
         xlator_t           *trav = NULL;
-        int                 err = 0;
 
         graph = glusterfs_graph_construct (fp);
         if (!graph) {
@@ -2343,9 +2346,8 @@ out:
         if (ret && !ctx->active) {
                 glusterfs_graph_destroy (graph);
                 /* there is some error in setting up the first graph itself */
-                err = -ret;
-                sys_write (ctx->daemon_pipe[1], (void *) &err, sizeof (err));
-                cleanup_and_exit (err);
+                emancipate (ctx, ret);
+                cleanup_and_exit (ret);
         }
 
         return ret;

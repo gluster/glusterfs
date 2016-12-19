@@ -2255,7 +2255,6 @@ glusterfs_listener_init (glusterfs_ctx_t *ctx)
 
         ret = rpcsvc_create_listeners (rpc, options, "glusterfsd");
         if (ret < 1) {
-                ret = -1;
                 goto out;
         }
 
