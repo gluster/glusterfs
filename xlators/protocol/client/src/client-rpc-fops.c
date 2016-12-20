@@ -3209,8 +3209,8 @@ out:
                              gf_error_to_errno (rsp.op_errno), args_cbk, xdata);
 
         free (rsp.xdata.xdata_val);
-
         client_compound_rsp_cleanup (&rsp, length);
+        free (rsp.compound_rsp_array.compound_rsp_array_val);
 
         if (xdata)
                 dict_unref (xdata);
