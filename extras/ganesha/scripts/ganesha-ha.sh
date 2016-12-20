@@ -733,7 +733,6 @@ setup_state_volume()
             dirname=${1}${dname}
         fi
 
-
         if [ ! -d ${mnt}/nfs-ganesha/tickle_dir ]; then
             mkdir ${mnt}/nfs-ganesha/tickle_dir
         fi
@@ -796,9 +795,6 @@ addnode_state_volume()
         dirname=${newnode}${dname}
     fi
 
-    if [ ! -d ${mnt}/nfs-ganesha/tickle_dir ]; then
-        mkdir ${mnt}/nfs-ganesha/tickle_dir
-    fi
     if [ ! -d ${mnt}/nfs-ganesha/${dirname} ]; then
         mkdir ${mnt}/nfs-ganesha/${dirname}
     fi
@@ -831,11 +827,14 @@ addnode_state_volume()
     fi
 
     for server in ${HA_SERVERS} ; do
-        ln -s ${mnt}/nfs-ganesha/${server}/nfs/ganesha ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/${server}
-        ln -s ${mnt}/nfs-ganesha/${server}/nfs/statd ${mnt}/nfs-ganesha/${dirname}/nfs/statd/${server}
 
-        ln -s ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha ${mnt}/nfs-ganesha/${server}/nfs/ganesha/${dirname}
-        ln -s ${mnt}/nfs-ganesha/${dirname}/nfs/statd ${mnt}/nfs-ganesha/${server}/nfs/statd/${dirname}
+        if [[ ${server} != ${dirname} ]]; then
+            ln -s ${mnt}/nfs-ganesha/${server}/nfs/ganesha ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/${server}
+            ln -s ${mnt}/nfs-ganesha/${server}/nfs/statd ${mnt}/nfs-ganesha/${dirname}/nfs/statd/${server}
+
+            ln -s ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha ${mnt}/nfs-ganesha/${server}/nfs/ganesha/${dirname}
+            ln -s ${mnt}/nfs-ganesha/${dirname}/nfs/statd ${mnt}/nfs-ganesha/${server}/nfs/statd/${dirname}
+        fi
     done
 
 }
@@ -1061,8 +1060,9 @@ $HA_CONFDIR/ganesha-ha.conf
 
         addnode_state_volume ${node}
 
-        HA_SERVERS="${HA_SERVERS} ${node}"
-
+        # addnode_create_resources() already appended ${node} to
+        # HA_SERVERS, so only need to increment HA_NUM_SERVERS
+        # and set quorum policy
         HA_NUM_SERVERS=$(expr ${HA_NUM_SERVERS} + 1)
         set_quorum_policy ${HA_NUM_SERVERS}
         ;;
