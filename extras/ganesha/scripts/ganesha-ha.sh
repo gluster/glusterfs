@@ -598,16 +598,16 @@ addnode_recreate_resources()
     recreate_resources ${cibfile} ${HA_SERVERS}
 
     pcs -f ${cibfile} resource create ${add_node}-nfs_block ocf:heartbeat:portblock \
-    protocol=tcp portno=2049 action=block ip=${ipaddr} --group ${add_node}-group
+    protocol=tcp portno=2049 action=block ip=${add_vip} --group ${add_node}-group
     if [ $? -ne 0 ]; then
         logger "warning pcs resource create ${add_node}-nfs_block failed"
     fi
     pcs -f ${cibfile} resource create ${add_node}-cluster_ip-1 ocf:heartbeat:IPaddr \
-    ip=${ipaddr} cidr_netmask=32 op monitor interval=15s --group ${add_node}-group \
+    ip=${add_vip} cidr_netmask=32 op monitor interval=15s --group ${add_node}-group \
     --after ${add_node}-nfs_block
     if [ $? -ne 0 ]; then
         logger "warning pcs resource create ${add_node}-cluster_ip-1 ocf:heartbeat:IPaddr \
-	ip=${ipaddr} cidr_netmask=32 op monitor interval=15s failed"
+	ip=${add_vip} cidr_netmask=32 op monitor interval=15s failed"
     fi
 
     pcs -f ${cibfile} constraint order nfs-grace-clone then ${add_node}-cluster_ip-1
@@ -615,7 +615,7 @@ addnode_recreate_resources()
         logger "warning: pcs constraint order nfs-grace-clone then ${add_node}-cluster_ip-1 failed"
     fi
     pcs -f ${cibfile} resource create ${add_node}-nfs_unblock ocf:heartbeat:portblock \
-    protocol=tcp portno=2049 action=unblock ip=${ipaddr} reset_local_on_unblock_stop=true \
+    protocol=tcp portno=2049 action=unblock ip=${add_vip} reset_local_on_unblock_stop=true \
     tickle_dir=${HA_VOL_MNT}/nfs-ganesha/tickle_dir/ --group ${add_node}-group --after \
     ${add_node}-cluster_ip-1 op stop timeout=${PORTBLOCK_UNBLOCK_TIMEOUT} op start \
     timeout=${PORTBLOCK_UNBLOCK_TIMEOUT} op monitor interval=10s \
