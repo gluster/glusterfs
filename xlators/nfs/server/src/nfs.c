@@ -2043,7 +2043,7 @@ struct volume_options options[] = {
         },
         { .key = {"nfs.mount-rmtab"},
           .type = GF_OPTION_TYPE_PATH,
-          .default_value = NFS_DATADIR "/rmtab",
+          .default_value = "/-",
           .description = "Set the location of the cache file that is used to "
                          "list all the NFS-clients that have connected "
                          "through the MOUNT protocol. If this is on shared "
