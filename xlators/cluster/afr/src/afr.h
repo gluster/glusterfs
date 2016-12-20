@@ -806,6 +806,8 @@ typedef struct _afr_local {
         gf_boolean_t compound;
         afr_fop_lock_state_t fop_lock_state;
         compound_args_t *c_args;
+
+        gf_boolean_t is_read_txn;
 } afr_local_t;
 
 

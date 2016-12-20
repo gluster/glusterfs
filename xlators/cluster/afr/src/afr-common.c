@@ -1103,7 +1103,7 @@ afr_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
                                       &event_generation,
                                       local->transaction.type);
 
-        if (ret == -EIO || !event_generation) {
+        if (ret == -EIO || (local->is_read_txn && !event_generation)) {
                 /* No readable subvolume even after refresh ==> splitbrain.*/
                 if (!priv->fav_child_policy) {
                         err = -EIO;
