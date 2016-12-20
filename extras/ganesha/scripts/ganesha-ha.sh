@@ -949,8 +949,8 @@ create_ganesha_conf_file()
         else
         # Restoring previous file
                 rm -rf $GANESHA_CONF
-                sed -r -i -e '/^%include[[:space:]]+".+\.conf"$/d' $HA_CONFDIR/ganesha.conf
                 cp $HA_CONFDIR/ganesha.conf $GANESHA_CONF
+                sed -r -i -e '/^%include[[:space:]]+".+\.conf"$/d' $GANESHA_CONF
         fi
 }
 
