@@ -6837,6 +6837,7 @@ out:
 
         length = args.compound_req_array.compound_req_array_len;
         server_compound_req_cleanup (&args, length);
+        free (args.compound_req_array.compound_req_array_val);
 
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);
