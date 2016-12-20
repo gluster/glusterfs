@@ -1465,8 +1465,15 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
 
         SET_FS_ID (frame->root->uid, gid);
 
-        if (xdata)
+        if (xdata) {
                 op_ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
+                if (!op_ret && !gf_uuid_compare (stbuf.ia_gfid, uuid_req)) {
+                        op_ret = -1;
+                        op_errno = EEXIST;
+                        goto out;
+                }
+        }
+
         if (uuid_req && !gf_uuid_is_null (uuid_req)) {
                 op_ret = posix_istat (this, uuid_req, NULL, &stbuf);
                 if ((op_ret == 0) && IA_ISDIR (stbuf.ia_type)) {
