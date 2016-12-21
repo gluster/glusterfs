@@ -911,7 +911,8 @@ glfs_mgmt_init (struct glfs *fs)
         if (!strcmp (cmd_args->volfile_server_transport, "unix")) {
                 ret = rpc_transport_unix_options_build (&options, host, 0);
         } else {
-                ret = rpc_transport_inet_options_build (&options, host, port);
+                ret = rpc_transport_inet_options_build (&options, host, port,
+                                                        NULL);
         }
 
 	if (ret)

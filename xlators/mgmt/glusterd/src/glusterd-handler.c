@@ -3418,7 +3418,7 @@ glusterd_transport_keepalive_options_get (int *interval, int *time,
 
 int
 glusterd_transport_inet_options_build (dict_t **options, const char *hostname,
-                                       int port)
+                                       int port, char *addr_family)
 {
         dict_t  *dict = NULL;
         int32_t interval = -1;
@@ -3433,7 +3433,8 @@ glusterd_transport_inet_options_build (dict_t **options, const char *hostname,
                 port = GLUSTERD_DEFAULT_PORT;
 
         /* Build default transport options */
-        ret = rpc_transport_inet_options_build (&dict, hostname, port);
+        ret = rpc_transport_inet_options_build (&dict, hostname, port,
+                                                addr_family);
         if (ret)
                 goto out;
 
@@ -3470,6 +3471,7 @@ glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
         int                       ret     = -1;
         glusterd_peerctx_t       *peerctx = NULL;
         data_t                   *data    = NULL;
+        char                     *addr_family = NULL;
 
         peerctx = GF_CALLOC (1, sizeof (*peerctx), gf_gld_mt_peerctx_t);
         if (!peerctx)
@@ -3485,9 +3487,15 @@ glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
                                                          uniquely identify a
                                                          peerinfo */
 
+        if (dict_get_str(this->options, "transport.address-family",
+                         &addr_family)) {
+                addr_family = NULL;
+        }
+
         ret = glusterd_transport_inet_options_build (&options,
                                                      peerinfo->hostname,
-                                                     peerinfo->port);
+                                                     peerinfo->port,
+                                                     addr_family);
         if (ret)
                 goto out;
 

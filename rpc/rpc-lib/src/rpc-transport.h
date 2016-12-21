@@ -311,5 +311,6 @@ rpc_transport_unix_options_build (dict_t **options, char *filepath,
                                   int frame_timeout);
 
 int
-rpc_transport_inet_options_build (dict_t **options, const char *hostname, int port);
+rpc_transport_inet_options_build (dict_t **options, const char *hostname,
+                                  int port, const char *addr_family);
 #endif /* __RPC_TRANSPORT_H__ */

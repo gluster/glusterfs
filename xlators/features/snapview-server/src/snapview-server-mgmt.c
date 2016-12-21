@@ -73,7 +73,7 @@ svs_mgmt_init (xlator_t *this)
         if (cmd_args->volfile_server)
                 host = cmd_args->volfile_server;
 
-        ret = rpc_transport_inet_options_build (&options, host, port);
+        ret = rpc_transport_inet_options_build (&options, host, port, NULL);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR, "failed to build the "
                         "transport options");

@@ -665,22 +665,36 @@ out:
         return ret;
 }
 
+/** @brief build a dictionary containing basic transport options.
+ *
+ * @param[out] options: will be set to a newly created dictionary on success.
+ * @param[in]  hostname: desired target hostname.
+ * @param[in]  port: desired target port.
+ * @param[in]  addr_family (optional): desired address family. If NULL,
+ *             default will be used.
+ *
+ * @returns zero on success.
+ */
 int
 rpc_transport_inet_options_build (dict_t **options, const char *hostname,
-                                  int port)
+                                  int port, const char *addr_family)
 {
         dict_t          *dict = NULL;
         char            *host = NULL;
         int             ret = -1;
 #ifdef IPV6_DEFAULT
-        char            *addr_family = "inet6";
+        const char      *addr_family_default = "inet6";
 #else
-        char            *addr_family = "inet";
+        const char      *addr_family_default = "inet";
 #endif
 
         GF_ASSERT (options);
         GF_ASSERT (hostname);
         GF_ASSERT (port >= 1024);
+
+        if (!addr_family) {
+                addr_family = addr_family_default;
+        }
 
         dict = dict_new ();
         if (!dict)
@@ -706,7 +720,8 @@ rpc_transport_inet_options_build (dict_t **options, const char *hostname,
                 goto out;
         }
 
-        ret = dict_set_str (dict, "address-family", addr_family);
+        ret = dict_set_str (dict, "transport.address-family",
+                            (char *)addr_family);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_WARNING,
                         "failed to set address-family to %s", addr_family);
