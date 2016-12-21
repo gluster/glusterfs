@@ -4045,7 +4045,8 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret == -1)
                 goto out;
         if (ret) {
-                xl = volgen_graph_add (graph, "encryption/crypt", volname);
+                xl = volgen_graph_add (graph, "experimental/encryption/crypt",
+                                       volname);
                 if (!xl) {
                         ret = -1;
                         goto out;

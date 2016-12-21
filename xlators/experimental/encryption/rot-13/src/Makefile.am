@@ -1,5 +1,5 @@
 xlator_LTLIBRARIES = rot-13.la
-xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/encryption
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/experimental/encryption
 
 rot_13_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 

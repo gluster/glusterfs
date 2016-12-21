@@ -356,7 +356,7 @@ $(TARGET): $(OBJECTS)
 
 Yes, it's still Linux-specific. Mea culpa. As you can see, we're sticking with
 the `rot-13` example, so you can just copy the files from
-`xlators/encryption/rot-13/src` in your GlusterFS tree to follow on. Type
+`xlators/experimental/encryption/rot-13/src` in your GlusterFS tree to follow on. Type
 `make` and you should be rewarded with a nice little `.so` file.
 
 ```
@@ -371,11 +371,11 @@ on our system, so that it doesn't stomp on the installed version (not that
 you'd ever want to use that anyway).
 
 ```
-xlator_example# ls /usr/lib64/glusterfs/3git/xlator/encryption/
+xlator_example# ls /usr/lib64/glusterfs/3git/xlator/experimental/encryption/
 crypt.so crypt.so.0 crypt.so.0.0.0 rot-13.so rot-13.so.0
 rot-13.so.0.0.0
 xlator_example# cp rot-13.so \
-    /usr/lib64/glusterfs/3git/xlator/encryption/my-rot-13.so
+    /usr/lib64/glusterfs/3git/xlator/experimental/encryption/my-rot-13.so
 ```
 
 These paths represent the current Gluster filesystem layout, which is likely to
@@ -392,7 +392,7 @@ volume my-posix
 end-volume
 
 volume my-rot13
-    type encryption/my-rot-13
+    type experimental/encryption/my-rot-13
     subvolumes my-posix
 end-volume
 ```

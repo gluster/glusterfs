@@ -1,7 +1,7 @@
 if ENABLE_CRYPT_XLATOR
 
 xlator_LTLIBRARIES = crypt.la
-xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/encryption
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/experimental/encryption
 
 crypt_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 

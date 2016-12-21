@@ -173,11 +173,11 @@ AC_CONFIG_FILES([Makefile
                 xlators/playground/Makefile
                 xlators/playground/template/Makefile
                 xlators/playground/template/src/Makefile
-                xlators/encryption/Makefile
-                xlators/encryption/rot-13/Makefile
-                xlators/encryption/rot-13/src/Makefile
-                xlators/encryption/crypt/Makefile
-                xlators/encryption/crypt/src/Makefile
+                xlators/experimental/encryption/Makefile
+                xlators/experimental/encryption/rot-13/Makefile
+                xlators/experimental/encryption/rot-13/src/Makefile
+                xlators/experimental/encryption/crypt/Makefile
+                xlators/experimental/encryption/crypt/src/Makefile
                 xlators/system/Makefile
                 xlators/system/posix-acl/Makefile
                 xlators/system/posix-acl/src/Makefile

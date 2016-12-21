@@ -1602,7 +1602,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
          /* Crypt xlator options */
 
         { .key         = "features.encryption",
-          .voltype     = "encryption/crypt",
+          .voltype     = "experimental/encryption/crypt",
           .option      = "!feat",
           .value       = "off",
           .op_version  = 3,
@@ -1612,17 +1612,17 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
 
         { .key         = "encryption.master-key",
-          .voltype     = "encryption/crypt",
+          .voltype     = "experimental/encryption/crypt",
           .op_version  = 3,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
         { .key         = "encryption.data-key-size",
-          .voltype     = "encryption/crypt",
+          .voltype     = "experimental/encryption/crypt",
           .op_version  = 3,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
         { .key         = "encryption.block-size",
-          .voltype     = "encryption/crypt",
+          .voltype     = "experimental/encryption/crypt",
           .op_version  = 3,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
