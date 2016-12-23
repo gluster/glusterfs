@@ -1016,7 +1016,7 @@ afr_replies_interpret (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 	for (i = 0; i < priv->child_count; i++) {
                 if (start_heal && priv->child_up[i] &&
-                    (!data_readable[i] || !metadata_readable[i])) {
+                    (data_accused[i] || metadata_accused[i])) {
                         *start_heal = _gf_true;
                         break;
                 }
