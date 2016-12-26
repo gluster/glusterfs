@@ -451,7 +451,7 @@ mdc_to_iatt (struct md_cache *mdc, struct iatt *iatt)
 
 int
 mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
-			    struct iatt *iatt)
+			    struct iatt *iatt, gf_boolean_t update_time)
 {
         int              ret = 0;
         struct md_cache *mdc = NULL;
@@ -523,7 +523,9 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
 
                 mdc_from_iatt (mdc, iatt);
 
-                time (&mdc->ia_time);
+                if (update_time)
+                        time (&mdc->ia_time);
+
                 gf_msg_callingfn ("md-cache", GF_LOG_TRACE, 0,
                                   MD_CACHE_MSG_CACHE_UPDATE, "Updated iatt(%s)"
                                   " time:%lld ", uuid_utoa (inode->gfid),
@@ -538,7 +540,7 @@ out:
 
 int mdc_inode_iatt_set(xlator_t *this, inode_t *inode, struct iatt *iatt)
 {
-	return mdc_inode_iatt_set_validate(this, inode, NULL, iatt);
+	return mdc_inode_iatt_set_validate(this, inode, NULL, iatt, _gf_true);
 }
 
 int
@@ -885,7 +887,7 @@ mdc_update_gfid_stat (xlator_t *this, struct iatt *iatt)
                 goto out;
         }
         ret = mdc_inode_iatt_set_validate (this, inode, NULL,
-                                           iatt);
+                                           iatt, _gf_true);
 out:
         return ret;
 }
@@ -1252,7 +1254,8 @@ mdc_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!local)
                 goto out;
 
-        mdc_inode_iatt_set_validate(this, local->loc.inode, prebuf, postbuf);
+        mdc_inode_iatt_set_validate(this, local->loc.inode, prebuf, postbuf,
+                                    _gf_true);
 
 out:
         MDC_STACK_UNWIND (truncate, frame, op_ret, op_errno, prebuf, postbuf,
@@ -1294,7 +1297,8 @@ mdc_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!local)
                 goto out;
 
-        mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf);
+        mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf,
+                                    _gf_true);
 
 out:
         MDC_STACK_UNWIND (ftruncate, frame, op_ret, op_errno, prebuf, postbuf,
@@ -1817,7 +1821,8 @@ mdc_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!local)
                 goto out;
 
-        mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf);
+        mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf,
+                                    _gf_true);
 
 out:
         MDC_STACK_UNWIND (writev, frame, op_ret, op_errno, prebuf, postbuf,
@@ -1862,7 +1867,8 @@ mdc_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!local)
                 goto out;
 
-	mdc_inode_iatt_set_validate(this, local->loc.inode, prebuf, postbuf);
+	mdc_inode_iatt_set_validate(this, local->loc.inode, prebuf, postbuf,
+                                    _gf_true);
 
 out:
         MDC_STACK_UNWIND (setattr, frame, op_ret, op_errno, prebuf, postbuf,
@@ -1904,7 +1910,8 @@ mdc_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!local)
                 goto out;
 
-        mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf);
+        mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf,
+                                    _gf_true);
 
 out:
         MDC_STACK_UNWIND (fsetattr, frame, op_ret, op_errno, prebuf, postbuf,
@@ -1946,7 +1953,8 @@ mdc_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!local)
                 goto out;
 
-        mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf);
+        mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf,
+                                     _gf_true);
 
 out:
         MDC_STACK_UNWIND (fsync, frame, op_ret, op_errno, prebuf, postbuf,
@@ -2408,7 +2416,8 @@ mdc_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (!local)
                 goto out;
 
-        mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf);
+        mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf,
+                                    _gf_true);
 
 out:
         MDC_STACK_UNWIND (fallocate, frame, op_ret, op_errno, prebuf, postbuf,
@@ -2447,7 +2456,8 @@ mdc_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (!local)
                 goto out;
 
-        mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf);
+        mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf,
+                                    _gf_true);
 
 out:
         MDC_STACK_UNWIND(discard, frame, op_ret, op_errno, prebuf, postbuf,
@@ -2486,7 +2496,8 @@ mdc_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (!local)
                 goto out;
 
-        mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf);
+        mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf,
+                                    _gf_true);
 
 out:
         MDC_STACK_UNWIND(zerofill, frame, op_ret, op_errno, prebuf, postbuf,
@@ -2655,7 +2666,7 @@ mdc_invalidate (xlator_t *this, void *data)
 
         if (up_ci->flags & IATT_UPDATE_FLAGS) {
                 ret = mdc_inode_iatt_set_validate (this, inode, NULL,
-                                                   &up_ci->stat);
+                                                   &up_ci->stat, _gf_false);
                 /* one of the scenarios where ret < 0 is when this invalidate
                  * is older than the current stat, in that case do not
                  * update the xattrs as well
