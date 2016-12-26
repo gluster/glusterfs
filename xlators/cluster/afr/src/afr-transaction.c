@@ -1226,6 +1226,16 @@ afr_changelog_populate_xdata (call_frame_t *frame, afr_xattrop_type_t op,
                                 need_entry_key_set = _gf_false;
                                 break;
                         }
+                        /* If the transaction itself did not fail and there
+                         * are no failed subvolumes, check whether the fop
+                         * failed due to a symmetric error. If it did, do
+                         * not set the ENTRY_OUT xattr which would end up
+                         * deleting a name index which was created possibly by
+                         * an earlier entry txn that may have failed on some
+                         * of the sub-volumes.
+                         */
+                        if (local->op_ret)
+                                need_entry_key_set = _gf_false;
                 } else {
                         key = GF_XATTROP_ENTRY_IN_KEY;
                 }
