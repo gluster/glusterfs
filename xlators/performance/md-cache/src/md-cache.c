@@ -49,6 +49,8 @@ struct mdc_conf {
 	int  timeout;
 	gf_boolean_t cache_posix_acl;
 	gf_boolean_t cache_selinux;
+        gf_boolean_t cache_capability;
+        gf_boolean_t cache_ima;
 	gf_boolean_t force_readdirp;
         gf_boolean_t cache_swift_metadata;
         gf_boolean_t cache_samba_metadata;
@@ -114,6 +116,11 @@ static struct mdc_key {
 		.load = 0,
 		.check = 1,
 	},
+        {
+                .name = "security.ima",
+                .load = 0,
+                .check = 1,
+        },
         {
                 .name = NULL,
                 .load = 0,
@@ -2226,6 +2233,10 @@ mdc_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 		 const char *name, dict_t *xdata)
 {
         mdc_local_t  *local = NULL;
+        int           op_errno = ENODATA;
+        int           ret = 0;
+        dict_t       *xattr = NULL;
+        struct mdc_conf *conf = this->private;
 
         local = mdc_local_get (frame);
 
@@ -2233,6 +2244,25 @@ mdc_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 	local->key = gf_strdup (name);
 
+        if (!is_mdc_key_satisfied (name))
+                goto uncached;
+
+        ret = mdc_inode_xatt_get (this, loc->inode, &xattr);
+        if (ret != 0)
+                goto uncached;
+
+        if (!xattr || !dict_get (xattr, (char *)name)) {
+                ret = -1;
+                op_errno = ENODATA;
+        }
+
+        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.xattr_hit);
+        MDC_STACK_UNWIND (removexattr, frame, ret, op_errno, xdata);
+
+        return 0;
+
+uncached:
+        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.xattr_miss);
         STACK_WIND (frame, mdc_removexattr_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->removexattr,
                     loc, name, xdata);
@@ -2272,6 +2302,10 @@ mdc_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		  const char *name, dict_t *xdata)
 {
         mdc_local_t  *local = NULL;
+        int           op_errno = ENODATA;
+        int           ret = 0;
+        dict_t       *xattr = NULL;
+        struct mdc_conf *conf = this->private;
 
         local = mdc_local_get (frame);
 
@@ -2279,6 +2313,24 @@ mdc_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 	local->key = gf_strdup (name);
 
+        if (!is_mdc_key_satisfied (name))
+                goto uncached;
+
+        ret = mdc_inode_xatt_get (this, fd->inode, &xattr);
+        if (ret != 0)
+                goto uncached;
+
+        if (!xattr || !dict_get (xattr, (char *)name)) {
+                ret = -1;
+                op_errno = ENODATA;
+        }
+
+        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.xattr_hit);
+        MDC_STACK_UNWIND (fremovexattr, frame, ret, op_errno, xdata);
+        return 0;
+
+uncached:
+        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.xattr_miss);
         STACK_WIND (frame, mdc_fremovexattr_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->fremovexattr,
                     fd, name, xdata);
@@ -2829,7 +2881,16 @@ reconfigure (xlator_t *this, dict_t *options)
 	GF_OPTION_RECONF ("md-cache-timeout", timeout, options, int32, out);
 
 	GF_OPTION_RECONF ("cache-selinux", conf->cache_selinux, options, bool, out);
-	mdc_key_load_set (mdc_keys, "security.", conf->cache_selinux);
+	mdc_key_load_set (mdc_keys, "security.selinux", conf->cache_selinux);
+
+        GF_OPTION_RECONF ("cache-capability-xattrs", conf->cache_capability,
+                          options, bool, out);
+        mdc_key_load_set (mdc_keys, "security.capability",
+                          conf->cache_capability);
+
+        GF_OPTION_RECONF ("cache-ima-xattrs", conf->cache_ima, options, bool,
+                          out);
+        mdc_key_load_set (mdc_keys, "security.ima", conf->cache_ima);
 
 	GF_OPTION_RECONF ("cache-posix-acl", conf->cache_posix_acl, options, bool, out);
 	mdc_key_load_set (mdc_keys, "system.posix_acl_", conf->cache_posix_acl);
@@ -2892,7 +2953,15 @@ init (xlator_t *this)
         GF_OPTION_INIT ("md-cache-timeout", timeout, int32, out);
 
 	GF_OPTION_INIT ("cache-selinux", conf->cache_selinux, bool, out);
-	mdc_key_load_set (mdc_keys, "security.", conf->cache_selinux);
+	mdc_key_load_set (mdc_keys, "security.selinux", conf->cache_selinux);
+
+        GF_OPTION_INIT ("cache-capability-xattrs", conf->cache_capability,
+                        bool, out);
+        mdc_key_load_set (mdc_keys, "security.capability",
+                          conf->cache_capability);
+
+        GF_OPTION_INIT ("cache-ima-xattrs", conf->cache_ima, bool, out);
+        mdc_key_load_set (mdc_keys, "security.ima", conf->cache_ima);
 
 	GF_OPTION_INIT ("cache-posix-acl", conf->cache_posix_acl, bool, out);
 	mdc_key_load_set (mdc_keys, "system.posix_acl_", conf->cache_posix_acl);
@@ -3039,6 +3108,14 @@ struct volume_options options[] = {
 	  .type = GF_OPTION_TYPE_BOOL,
 	  .default_value = "false",
 	},
+        { .key = {"cache-capability-xattrs"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "true",
+        },
+        { .key = {"cache-ima-xattrs"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "true",
+        },
         { .key = {"cache-swift-metadata"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "true",
