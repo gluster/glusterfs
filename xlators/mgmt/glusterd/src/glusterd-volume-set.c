@@ -1598,6 +1598,21 @@ struct volopt_map_entry glusterd_volopt_map[] = {
                          " xattr)",
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key        = "performance.cache-capability-xattrs",
+          .voltype    = "performance/md-cache",
+          .option     = "cache-capability-xattrs",
+          .op_version = GD_OP_VERSION_3_10_0,
+          .description = "Cache xattrs required for capability based security",
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "performance.cache-ima-xattrs",
+          .voltype    = "performance/md-cache",
+          .option     = "cache-ima-xattrs",
+          .op_version = GD_OP_VERSION_3_10_0,
+          .description = "Cache xattrs required for IMA "
+                         "(Integrity Measurement Architecture)",
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
 
          /* Crypt xlator options */
 
