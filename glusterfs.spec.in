@@ -1113,7 +1113,6 @@ exit 0
 %files regression-tests
 %{_datadir}/glusterfs/run-tests.sh
 %{_datadir}/glusterfs/tests
-%exclude %{_datadir}/glusterfs/tests/basic/rpm.t
 %exclude %{_datadir}/glusterfs/tests/vagrant
 
 %if ( 0%{!?_without_ocf:1} )
