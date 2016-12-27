@@ -27,20 +27,23 @@ EXPECT_WITHIN $PROBE_TIMEOUT 2 check_peers
 TEST $CLI_1 volume create $V0 $H1:$B1/$V0 $H2:$B2/$V0 $H3:$B3/$V0
 TEST $CLI_1 volume set $V0 cluster.server-quorum-type server
 TEST $CLI_1 volume start $V0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 3 online_brick_count;
+
 TEST glusterfs --volfile-server=$H1 --volfile-id=$V0 $M0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 0 check_fs $M0;
 
 # Kill one pseudo-node, make sure the others survive and volume stays up.
 TEST kill_node 3;
 EXPECT_WITHIN $PROBE_TIMEOUT 1 check_peers;
-EXPECT 0 check_fs $M0;
-EXPECT 2 online_brick_count;
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 2 online_brick_count;
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 0 check_fs $M0;
 
 # Kill another pseudo-node, make sure the last one dies and volume goes down.
 TEST kill_node 2;
 EXPECT_WITHIN $PROBE_TIMEOUT 0 check_peers
-EXPECT 1 check_fs $M0;
-EXPECT 0 online_brick_count; # the two glusterfsds of the other two glusterds
-                             # must be dead
+#two glusterfsds of the other two glusterds must be dead
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 0 online_brick_count;
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 1 check_fs $M0;
 
 TEST $glusterd_2;
 TEST $glusterd_3;
