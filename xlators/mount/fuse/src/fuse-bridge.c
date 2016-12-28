@@ -4801,6 +4801,7 @@ fuse_graph_sync (xlator_t *this)
         fuse_private_t *priv                = NULL;
         int             need_first_lookup   = 0;
         int             ret                 = 0;
+        int             new_graph_id        = 0;
         xlator_t       *old_subvol          = NULL, *new_subvol = NULL;
         uint64_t        winds_on_old_subvol = 0;
 
@@ -4813,6 +4814,7 @@ fuse_graph_sync (xlator_t *this)
 
                 old_subvol = priv->active_subvol;
                 new_subvol = priv->active_subvol = priv->next_graph->top;
+                new_graph_id = priv->next_graph->id;
                 priv->next_graph = NULL;
                 need_first_lookup = 1;
 
@@ -4831,6 +4833,8 @@ unlock:
         pthread_mutex_unlock (&priv->sync_mutex);
 
         if (need_first_lookup) {
+                gf_log ("fuse", GF_LOG_INFO, "switched to graph %d",
+                        new_graph_id);
                 fuse_first_lookup (this);
         }
 
@@ -5235,9 +5239,6 @@ fuse_graph_setup (xlator_t *this, glusterfs_graph_t *graph)
                 xlator_notify (prev_graph->top, GF_EVENT_PARENT_DOWN,
                                prev_graph->top, NULL);
         }
-
-        gf_log ("fuse", GF_LOG_INFO, "switched to graph %d",
-                ((graph) ? graph->id : 0));
 
         return ret;
 unlock:
