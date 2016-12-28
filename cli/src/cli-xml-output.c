@@ -743,6 +743,7 @@ cli_xml_output_vol_status_clients (xmlTextWriterPtr writer, dict_t *dict,
         char            *hostname = NULL;
         uint64_t        bytes_read = 0;
         uint64_t        bytes_write = 0;
+        uint32_t        opversion = 0;
         char            key[1024] = {0,};
         int             i = 0;
 
@@ -795,6 +796,17 @@ cli_xml_output_vol_status_clients (xmlTextWriterPtr writer, dict_t *dict,
                 ret = xmlTextWriterWriteFormatElement (writer,
                                                        (xmlChar *)"bytesWrite",
                                                        "%"PRIu64, bytes_write);
+                XML_RET_CHECK_AND_GOTO (ret, out);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "brick%d.client%d.opversion",
+                          brick_index, i);
+                ret = dict_get_uint32 (dict, key, &opversion);
+                if (ret)
+                        goto out;
+                ret = xmlTextWriterWriteFormatElement (writer,
+                                                       (xmlChar *)"opVersion",
+                                                       "%"PRIu32, opversion);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 /* </client> */

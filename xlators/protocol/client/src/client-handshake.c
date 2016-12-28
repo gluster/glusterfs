@@ -1387,6 +1387,12 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
                         "msg", client_get_lk_ver (conf));
         }
 
+        ret = dict_set_int32 (options, "opversion", GD_OP_VERSION_MAX);
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, PC_MSG_DICT_SET_FAILED,
+                        "Failed to set client opversion in handshake message");
+        }
+
         ret = dict_serialized_length (options);
         if (ret < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, PC_MSG_DICT_ERROR,

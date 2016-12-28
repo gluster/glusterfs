@@ -7229,6 +7229,7 @@ cli_print_volume_status_clients (dict_t *dict, gf_boolean_t notbrick)
         char            *clientname = NULL;
         uint64_t        bytesread = 0;
         uint64_t        byteswrite = 0;
+        uint32_t        opversion = 0;
         char            key[1024] = {0,};
         int             i = 0;
         int             j = 0;
@@ -7294,10 +7295,10 @@ cli_print_volume_status_clients (dict_t *dict, gf_boolean_t notbrick)
                 if (client_count == 0)
                         continue;
 
-                cli_out ("%-48s %15s %15s", "Hostname", "BytesRead",
-                         "BytesWritten");
-                cli_out ("%-48s %15s %15s", "--------", "---------",
-                         "------------");
+                cli_out ("%-48s %15s %15s %15s", "Hostname", "BytesRead",
+                         "BytesWritten", "OpVersion");
+                cli_out ("%-48s %15s %15s %15s", "--------", "---------",
+                         "------------", "---------");
                 for (j =0; j < client_count; j++) {
                         memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key),
@@ -7314,8 +7315,14 @@ cli_print_volume_status_clients (dict_t *dict, gf_boolean_t notbrick)
                                  "brick%d.client%d.byteswrite", i, j);
                         ret = dict_get_uint64 (dict, key, &byteswrite);
 
-                        cli_out ("%-48s %15"PRIu64" %15"PRIu64,
-                                 clientname, bytesread, byteswrite);
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key),
+                                 "brick%d.client%d.opversion", i, j);
+                        ret = dict_get_uint32 (dict, key, &opversion);
+
+                        cli_out ("%-48s %15"PRIu64" %15"PRIu64" %15"PRIu32,
+                                  clientname, bytesread, byteswrite,
+                                  opversion);
                 }
         }
 out:
