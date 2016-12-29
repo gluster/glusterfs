@@ -415,6 +415,7 @@ stat -c %s /dev/null > /dev/null 2>&1 || {
          *%Y*) cmd="${cmd} s/%Y/`$( which stat ) -f %m $f`/g;" ;&
          *%X*) cmd="${cmd} s/%X/`$( which stat ) -f %a $f`/g;" ;&
          *%Z*) cmd="${cmd} s/%Z/`$( which stat ) -f %c $f`/g;" ;&
+         *%.Z*) cmd="${cmd} s/%.Z/`$( which stat ) -f %.9Fc $f`/g;" ;&
          *%b*) cmd="${cmd} s/%b/`$( which stat ) -f %b $f`/g;" ;&
          *%B*) cmd="${cmd} s/%B/512/g;" ;&
          *%t*) cmd="${cmd} s/%t/`$( which stat ) -f %XHr $f`/g;" ;&
