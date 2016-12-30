@@ -894,7 +894,7 @@ afr_inode_read_subvol_set (inode_t *inode, xlator_t *this,
 			   int event_generation);
 
 int
-afr_inode_read_subvol_reset (inode_t *inode, xlator_t *this);
+afr_inode_event_gen_reset (inode_t *inode, xlator_t *this);
 
 int
 afr_read_subvol_select_by_policy (inode_t *inode, xlator_t *this,
@@ -916,10 +916,6 @@ afr_read_subvol_get (inode_t *inode, xlator_t *this, int *subvol_p,
 
 #define afr_metadata_subvol_get(i, t, s, r, e, a) \
 	afr_read_subvol_get(i, t, s, r, e, AFR_METADATA_TRANSACTION, a)
-
-int
-afr_inode_ctx_reset_unreadable_subvol (inode_t *inode, xlator_t *this,
-                                       int subvol_idx, int txn_type);
 
 int
 afr_inode_refresh (call_frame_t *frame, xlator_t *this, inode_t *inode,
