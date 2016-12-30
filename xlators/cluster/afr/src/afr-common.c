@@ -155,6 +155,7 @@ __afr_inode_ctx_get (xlator_t *this, inode_t *inode, afr_inode_ctx_t **ctx)
 out:
         return ret;
 }
+
 /*
  * INODE CTX 64-bit VALUE FORMAT FOR SMALL (<= 16) SUBVOL COUNTS:
  *
@@ -216,10 +217,7 @@ __afr_set_in_flight_sb_status (xlator_t *this, afr_local_t *local,
 
         metadatamap_old = metadatamap = (val & 0x000000000000ffff);
         datamap_old = datamap = (val & 0x00000000ffff0000) >> 16;
-        /* Hard-code event to 0 since there is a failure and the inode
-         * needs to be refreshed anyway.
-         */
-        event = 0;
+        event = (val & 0xffffffff00000000) >> 32;
 
         if (txn_type == AFR_DATA_TRANSACTION)
                 tmp_map = datamap;
@@ -252,6 +250,8 @@ __afr_set_in_flight_sb_status (xlator_t *this, afr_local_t *local,
                         local->transaction.in_flight_sb = _gf_true;
                         metadatamap |= (1 << index);
                 }
+                if (metadatamap_old != metadatamap)
+                        event = 0;
                 break;
 
         case AFR_DATA_TRANSACTION:
@@ -261,10 +261,12 @@ __afr_set_in_flight_sb_status (xlator_t *this, afr_local_t *local,
                         local->transaction.in_flight_sb = _gf_true;
                         datamap |= (1 << index);
                 }
+                if (datamap_old != datamap)
+                        event = 0;
                 break;
 
         default:
-        break;
+                break;
         }
 
         val = ((uint64_t) metadatamap) |
@@ -375,7 +377,7 @@ out:
 }
 
 int
-__afr_inode_read_subvol_reset_small (inode_t *inode, xlator_t *this)
+__afr_inode_event_gen_reset_small (inode_t *inode, xlator_t *this)
 {
 	int               ret         = -1;
 	uint16_t          datamap     = 0;
@@ -476,7 +478,7 @@ out:
 }
 
 int
-__afr_inode_read_subvol_reset (inode_t *inode, xlator_t *this)
+__afr_inode_event_gen_reset (inode_t *inode, xlator_t *this)
 {
 	afr_private_t *priv = NULL;
 	int ret = -1;
@@ -484,7 +486,7 @@ __afr_inode_read_subvol_reset (inode_t *inode, xlator_t *this)
 	priv = this->private;
 
 	if (priv->child_count <= 16)
-		ret = __afr_inode_read_subvol_reset_small (inode, this);
+		ret = __afr_inode_event_gen_reset_small (inode, this);
 	else
 		ret = -1;
 
@@ -673,7 +675,7 @@ out:
 }
 
 int
-afr_inode_read_subvol_reset (inode_t *inode, xlator_t *this)
+afr_inode_event_gen_reset (inode_t *inode, xlator_t *this)
 {
 	int ret = -1;
 
@@ -681,7 +683,7 @@ afr_inode_read_subvol_reset (inode_t *inode, xlator_t *this)
 
         LOCK(&inode->lock);
         {
-                ret = __afr_inode_read_subvol_reset (inode, this);
+                ret = __afr_inode_event_gen_reset (inode, this);
         }
         UNLOCK(&inode->lock);
 out:
@@ -2209,7 +2211,7 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 		if (afr_replies_interpret (frame, this, local->inode, NULL)) {
                         read_subvol = afr_read_subvol_decide (local->inode,
                                                               this, &args);
-			afr_inode_read_subvol_reset (local->inode, this);
+			afr_inode_event_gen_reset (local->inode, this);
 			goto cant_interpret;
 		} else {
                         read_subvol = afr_data_subvol_get (local->inode, this,
