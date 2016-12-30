@@ -93,6 +93,7 @@ void ec_check_status(ec_fop_data_t * fop)
 {
     ec_t * ec = fop->xl->private;
     int32_t partial = 0;
+    char str1[32], str2[32], str3[32], str4[32], str5[32];
 
     if (!ec_fop_needs_heal(fop)) {
         return;
@@ -109,11 +110,15 @@ void ec_check_status(ec_fop_data_t * fop)
 
     gf_msg (fop->xl->name, GF_LOG_WARNING, 0,
             EC_MSG_OP_FAIL_ON_SUBVOLS,
-            "Operation failed on some "
-            "subvolumes (up=%lX, mask=%lX, "
-            "remaining=%lX, good=%lX, bad=%lX)",
-            ec->xl_up, fop->mask, fop->remaining, fop->good,
-            ec->xl_up & ~(fop->remaining | fop->good));
+            "Operation failed on %d of %d subvolumes.(up=%s, mask=%s, "
+            "remaining=%s, good=%s, bad=%s)",
+            gf_bits_count(ec->xl_up & ~(fop->remaining | fop->good)), ec->nodes,
+            ec_bin(str1, sizeof(str1), ec->xl_up, ec->nodes),
+            ec_bin(str2, sizeof(str2), fop->mask, ec->nodes),
+            ec_bin(str3, sizeof(str3), fop->remaining, ec->nodes),
+            ec_bin(str4, sizeof(str4), fop->good, ec->nodes),
+            ec_bin(str5, sizeof(str5),
+            ec->xl_up & ~(fop->remaining | fop->good), ec->nodes));
 
     if (fop->use_fd)
     {
