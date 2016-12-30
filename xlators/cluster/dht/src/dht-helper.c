@@ -1320,6 +1320,9 @@ unlock:
         UNLOCK(&inode->lock);
 
 out:
+        if (dict) {
+                dict_unref (dict);
+        }
 
         loc_wipe (&tmp_loc);
 
@@ -1588,6 +1591,10 @@ unlock:
 
         ret = 0;
 out:
+        if (dict) {
+                dict_unref (dict);
+        }
+
         loc_wipe (&tmp_loc);
         return ret;
 }
