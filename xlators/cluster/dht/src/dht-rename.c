@@ -724,6 +724,7 @@ dht_rename_cleanup (call_frame_t *frame)
 
                 DHT_MARKER_DONT_ACCOUNT(xattr_new);
 
+                FRAME_SU_DO (frame, dht_local_t);
                 STACK_WIND (frame, dht_rename_unlink_cbk,
                             dst_hashed, dst_hashed->fops->unlink,
                             &local->loc, 0, xattr_new);
