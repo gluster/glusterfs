@@ -30,7 +30,10 @@
 #define GF_DHT_LOOKUP_UNHASHED_AUTO     2
 #define DHT_PATHINFO_HEADER             "DISTRIBUTE:"
 #define DHT_FILE_MIGRATE_DOMAIN         "dht.file.migrate"
+/* Layout synchronization */
 #define DHT_LAYOUT_HEAL_DOMAIN          "dht.layout.heal"
+/* Namespace synchronization */
+#define DHT_ENTRY_SYNC_DOMAIN           "dht.entry.sync"
 #define TIERING_MIGRATION_KEY           "tiering.migration"
 #define DHT_LAYOUT_HASH_INVALID         1
 
@@ -113,6 +116,11 @@ typedef enum {
         DHT_HASH_TYPE_DM_USER,
 } dht_hashfn_type_t;
 
+typedef enum {
+        DHT_INODELK,
+        DHT_ENTRYLK,
+} dht_lock_type_t;
+
 /* rebalance related */
 struct dht_rebalance_ {
         xlator_t            *from_subvol;
@@ -166,9 +174,51 @@ typedef struct {
         char         *domain;  /* Only locks within a single domain
                                 * contend with each other
                                 */
+        char         *basename; /* Required for entrylk */
         gf_lkowner_t  lk_owner;
         gf_boolean_t  locked;
 } dht_lock_t;
+
+/* The lock structure represents inodelk. */
+typedef struct {
+        fop_inodelk_cbk_t   inodelk_cbk;
+        dht_lock_t        **locks;
+        int                 lk_count;
+        dht_reaction_type_t reaction;
+
+        /* whether locking failed on _any_ of the "locks" above */
+        int                 op_ret;
+        int                 op_errno;
+} dht_ilock_wrap_t;
+
+/* The lock structure represents entrylk. */
+typedef struct {
+        fop_entrylk_cbk_t   entrylk_cbk;
+        dht_lock_t        **locks;
+        int                 lk_count;
+        dht_reaction_type_t reaction;
+
+        /* whether locking failed on _any_ of the "locks" above */
+        int                 op_ret;
+        int                 op_errno;
+} dht_elock_wrap_t;
+
+/* The first member of dht_dir_transaction_t should be of type dht_ilock_wrap_t.
+ * Otherwise it can result in subtle memory corruption issues as in most of the
+ * places we use lock[0].layout.my_layout or lock[0].layout.parent_layout and
+ * lock[0].ns.parent_layout (like in dht_local_wipe).
+ */
+typedef union {
+        union {
+                 dht_ilock_wrap_t my_layout;
+                 dht_ilock_wrap_t parent_layout;
+        } layout;
+        struct dht_namespace {
+                dht_ilock_wrap_t parent_layout;
+                dht_elock_wrap_t directory_ns;
+                fop_entrylk_cbk_t ns_cbk;
+        } ns;
+} dht_dir_transaction_t;
 
 typedef
 int (*dht_selfheal_layout_t)(call_frame_t *frame, loc_t *loc,
@@ -288,16 +338,7 @@ struct dht_local {
 
         struct dht_skip_linkto_unlink  skip_unlink;
 
-        struct {
-                fop_inodelk_cbk_t   inodelk_cbk;
-                dht_lock_t        **locks;
-                int                 lk_count;
-                dht_reaction_type_t reaction;
-
-                /* whether locking failed on _any_ of the "locks" above */
-                int                 op_ret;
-                int                 op_errno;
-        } lock;
+        dht_dir_transaction_t lock[2], *current;
 
         short           lock_type;
 
@@ -1187,47 +1228,6 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this);
 int
 dht_fill_dict_to_avoid_unlink_of_migrating_file (dict_t *dict);
 
-
-/* Acquire non-blocking inodelk on a list of xlators.
- *
- * @lk_array: array of lock requests lock on.
- *
- * @lk_count: number of locks in @lk_array
- *
- * @inodelk_cbk: will be called after inodelk replies are received
- *
- * @retval: -1 if stack_winding inodelk fails. 0 otherwise.
- *          inodelk_cbk is called with appropriate error on errors.
- *          On failure to acquire lock on all members of list, successful
- *          locks are unlocked before invoking cbk.
- */
-
-int
-dht_nonblocking_inodelk (call_frame_t *frame, dht_lock_t **lk_array,
-                         int lk_count, fop_inodelk_cbk_t inodelk_cbk);
-
-/* same as dht_nonblocking_inodelk, but issues sequential blocking locks on
- * @lk_array directly. locks are issued on some order which remains same
- * for a list of xlators (irrespective of order of xlators within list).
- */
-int
-dht_blocking_inodelk (call_frame_t *frame, dht_lock_t **lk_array,
-                      int lk_count, dht_reaction_type_t reaction,
-                      fop_inodelk_cbk_t inodelk_cbk);
-
-int32_t
-dht_unlock_inodelk (call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
-                    fop_inodelk_cbk_t inodelk_cbk);
-
-dht_lock_t *
-dht_lock_new (xlator_t *this, xlator_t *xl, loc_t *loc, short type,
-              const char *domain);
-void
-dht_lock_array_free (dht_lock_t **lk_array, int count);
-
-int32_t
-dht_lock_count (dht_lock_t **lk_array, int lk_count);
-
 int
 dht_layout_sort (dht_layout_t *layout);
 
@@ -1290,6 +1290,5 @@ getChoices (const char *value);
 
 int
 dht_aggregate_split_brain_xattr (dict_t *dst, char *key, data_t *value);
-
 
 #endif/* _DHT_H */

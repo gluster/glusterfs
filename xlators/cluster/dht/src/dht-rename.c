@@ -14,10 +14,103 @@
 #include "glusterfs.h"
 #include "xlator.h"
 #include "dht-common.h"
+#include "dht-lock.h"
 #include "defaults.h"
 
 int dht_rename_unlock (call_frame_t *frame, xlator_t *this);
 
+int
+dht_rename_unlock_cbk (call_frame_t *frame, void *cookie,
+                       xlator_t *this, int32_t op_ret, int32_t op_errno,
+                       dict_t *xdata)
+{
+        dht_local_t *local = NULL;
+
+        local = frame->local;
+
+        dht_set_fixed_dir_stat (&local->preoldparent);
+        dht_set_fixed_dir_stat (&local->postoldparent);
+        dht_set_fixed_dir_stat (&local->preparent);
+        dht_set_fixed_dir_stat (&local->postparent);
+
+        if (IA_ISREG (local->stbuf.ia_type))
+                DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
+
+        DHT_STACK_UNWIND (rename, frame, local->op_ret, local->op_errno,
+                          &local->stbuf, &local->preoldparent,
+                          &local->postoldparent, &local->preparent,
+                          &local->postparent, local->xattr);
+        return 0;
+}
+
+static void
+dht_rename_unlock_src (call_frame_t *frame, xlator_t *this)
+{
+        dht_local_t *local                      = NULL;
+
+        local = frame->local;
+        dht_unlock_namespace (frame, &local->lock[0]);
+        return;
+}
+
+static void
+dht_rename_unlock_dst (call_frame_t *frame, xlator_t *this)
+{
+        dht_local_t *local                      = NULL;
+        int          op_ret                     = -1;
+        char         src_gfid[GF_UUID_BUF_SIZE] = {0};
+        char         dst_gfid[GF_UUID_BUF_SIZE] = {0};
+
+        local = frame->local;
+
+        /* Unlock entrylk */
+        dht_unlock_entrylk_wrapper (frame, &local->lock[1].ns.directory_ns);
+
+        /* Unlock inodelk */
+        op_ret = dht_unlock_inodelk (frame,
+                                     local->lock[1].ns.parent_layout.locks,
+                                     local->lock[1].ns.parent_layout.lk_count,
+                                     dht_rename_unlock_cbk);
+        if (op_ret < 0) {
+                uuid_utoa_r (local->loc.inode->gfid, src_gfid);
+
+                if (local->loc2.inode)
+                        uuid_utoa_r (local->loc2.inode->gfid, dst_gfid);
+
+                if (IA_ISREG (local->stbuf.ia_type))
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_UNLOCKING_FAILED,
+                                "winding unlock inodelk failed "
+                                "rename (%s:%s:%s %s:%s:%s), "
+                                "stale locks left on bricks",
+                                local->loc.path, src_gfid,
+                                local->src_cached->name,
+                                local->loc2.path, dst_gfid,
+                                local->dst_cached ?
+                                local->dst_cached->name : NULL);
+                else
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                DHT_MSG_UNLOCKING_FAILED,
+                                "winding unlock inodelk failed "
+                                "rename (%s:%s %s:%s), "
+                                "stale locks left on bricks",
+                                local->loc.path, src_gfid,
+                                local->loc2.path, dst_gfid);
+
+                dht_rename_unlock_cbk (frame, NULL, this, 0, 0, NULL);
+        }
+
+        return;
+}
+
+static int
+dht_rename_dir_unlock (call_frame_t *frame, xlator_t *this)
+{
+
+        dht_rename_unlock_src (frame, this);
+        dht_rename_unlock_dst (frame, this);
+        return 0;
+}
 int
 dht_rename_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, struct iatt *stbuf,
@@ -38,7 +131,6 @@ dht_rename_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         prev = cookie;
         subvol_cnt = dht_subvol_cnt (this, prev);
         local->ret_cache[subvol_cnt] = op_ret;
-
 
         if (op_ret == -1) {
                 gf_uuid_unparse(local->loc.inode->gfid, gfid);
@@ -63,7 +155,6 @@ dht_rename_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_iatt_merge (this, &local->postoldparent, postoldparent, prev);
         dht_iatt_merge (this, &local->preparent, prenewparent, prev);
         dht_iatt_merge (this, &local->postparent, postnewparent, prev);
-
 
 unwind:
         this_call_cnt = dht_frame_return (frame);
@@ -109,7 +200,7 @@ unwind:
                 WIPE (&local->preparent);
                 WIPE (&local->postparent);
 
-                dht_rename_unlock (frame, this);
+                dht_rename_dir_unlock (frame, this);
         }
 
         return 0;
@@ -185,7 +276,7 @@ unwind:
         WIPE (&local->preparent);
         WIPE (&local->postparent);
 
-        dht_rename_unlock (frame, this);
+        dht_rename_dir_unlock (frame, this);
         return 0;
 }
 
@@ -209,7 +300,7 @@ dht_rename_dir_do (call_frame_t *frame, xlator_t *this)
         return 0;
 
 err:
-        dht_rename_unlock (frame, this);
+        dht_rename_dir_unlock (frame, this);
         return 0;
 }
 
@@ -283,9 +374,8 @@ err:
         return 0;
 }
 
-
 int
-dht_rename_dir_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+dht_rename_dir_lock2_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         dht_local_t *local                      = NULL;
@@ -305,7 +395,7 @@ dht_rename_dir_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 gf_msg (this->name, GF_LOG_WARNING, op_errno,
                         DHT_MSG_INODE_LK_ERROR,
-                        "acquiring inodelk failed "
+                        "acquiring entrylk after inodelk failed"
                         "rename (%s:%s:%s %s:%s:%s)",
                         local->loc.path, src_gfid, local->src_cached->name,
                         local->loc2.path, dst_gfid,
@@ -341,8 +431,99 @@ dht_rename_dir_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 err:
         /* No harm in calling an extra unlock */
-        dht_rename_unlock (frame, this);
+        dht_rename_dir_unlock (frame, this);
         return 0;
+}
+
+int
+dht_rename_dir_lock1_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                             int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        dht_local_t *local                      = NULL;
+        char         src_gfid[GF_UUID_BUF_SIZE] = {0};
+        char         dst_gfid[GF_UUID_BUF_SIZE] = {0};
+        int          ret                        = 0;
+        loc_t       *loc                        = NULL;
+        xlator_t    *subvol                     = NULL;
+
+        local = frame->local;
+
+        if (op_ret < 0) {
+                uuid_utoa_r (local->loc.inode->gfid, src_gfid);
+
+                if (local->loc2.inode)
+                        uuid_utoa_r (local->loc2.inode->gfid, dst_gfid);
+
+                gf_msg (this->name, GF_LOG_WARNING, op_errno,
+                        DHT_MSG_INODE_LK_ERROR,
+                        "acquiring entrylk after inodelk failed"
+                        "rename (%s:%s:%s %s:%s:%s)",
+                        local->loc.path, src_gfid, local->src_cached->name,
+                        local->loc2.path, dst_gfid,
+                        local->dst_cached ? local->dst_cached->name : NULL);
+
+                local->op_ret = -1;
+                local->op_errno = op_errno;
+                goto err;
+        }
+
+        if (local->current == &local->lock[0]) {
+                loc = &local->loc2;
+                subvol = local->dst_hashed;
+                local->current = &local->lock[1];
+        } else {
+                loc = &local->loc;
+                subvol = local->src_hashed;
+                local->current = &local->lock[0];
+        }
+        ret = dht_protect_namespace (frame, loc, subvol, &local->current->ns,
+                                     dht_rename_dir_lock2_cbk);
+        if (ret < 0) {
+                op_errno = EINVAL;
+                goto err;
+        }
+
+        return 0;
+err:
+        /* No harm in calling an extra unlock */
+        dht_rename_dir_unlock (frame, this);
+        return 0;
+}
+
+static void
+dht_order_rename_lock (call_frame_t *frame, loc_t **loc, xlator_t **subvol)
+{
+        dht_local_t        *local                       = NULL;
+        char                src[GF_UUID_BNAME_BUF_SIZE] = {0};
+        char                dst[GF_UUID_BNAME_BUF_SIZE] = {0};
+
+        local = frame->local;
+
+        if (local->loc.pargfid)
+                uuid_utoa_r (local->loc.pargfid, src);
+        else if (local->loc.parent)
+                uuid_utoa_r (local->loc.parent->gfid, src);
+
+        strcat (src, local->loc.name);
+
+        if (local->loc2.pargfid)
+                uuid_utoa_r (local->loc2.pargfid, dst);
+        else if (local->loc2.parent)
+                uuid_utoa_r (local->loc2.parent->gfid, dst);
+
+        strcat (dst, local->loc2.name);
+
+        if (strcmp(src, dst) > 0) {
+                local->current = &local->lock[1];
+                *loc = &local->loc2;
+                *subvol = local->dst_hashed;
+        } else {
+                local->current = &local->lock[0];
+                *loc = &local->loc;
+                *subvol = local->src_hashed;
+        }
+
+        return;
 }
 
 int
@@ -350,13 +531,9 @@ dht_rename_dir (call_frame_t *frame, xlator_t *this)
 {
         dht_conf_t    *conf         = NULL;
         dht_local_t   *local        = NULL;
-        dht_lock_t   **lk_array     = NULL;
-        dht_layout_t  *dst_layout   = NULL;
-        xlator_t      *first_subvol = NULL;
-        loc_t          parent_loc   = {0, };
-        int            count        = 1;
+        loc_t         *loc          = NULL;
+        xlator_t      *subvol       = NULL;
         int            i            = 0;
-        int            j            = 0;
         int            ret          = 0;
         int            op_errno     = -1;
 
@@ -371,21 +548,7 @@ dht_rename_dir (call_frame_t *frame, xlator_t *this)
                 goto err;
         }
 
-        /* We must take a lock on all the subvols with src gfid.
-         * Along with this if dst exists we must take lock on
-         * any one subvol with dst gfid.
-         */
-        count = local->call_cnt = conf->subvolume_cnt;
-        if (local->loc2.inode) {
-                dst_layout = dht_layout_get (this, local->loc2.inode);
-                if (dst_layout)
-                        ++count;
-        } else if (gf_uuid_compare (local->loc.parent->gfid,
-                                    local->loc2.parent->gfid)) {
-                dst_layout = dht_layout_get (this, local->loc2.parent);
-                if (dst_layout)
-                        ++count;
-        }
+        local->call_cnt = conf->subvolume_cnt;
 
         for (i = 0; i < conf->subvolume_cnt; i++) {
                 if (!conf->subvolume_status[i]) {
@@ -398,89 +561,29 @@ dht_rename_dir (call_frame_t *frame, xlator_t *this)
                 }
         }
 
-        lk_array = GF_CALLOC (count, sizeof (*lk_array), gf_common_mt_char);
-        if (lk_array == NULL) {
-                op_errno = ENOMEM;
-                goto err;
-        }
+
+        /* Locks on src and dst needs to ordered which otherwise might cause
+         * deadlocks when rename (src, dst) and rename (dst, src) is done from
+         * two different clients
+         */
+        dht_order_rename_lock (frame, &loc, &subvol);
 
         /* Rename must take locks on src to avoid lookup selfheal from
          * recreating src on those subvols where the rename was successful.
-         * Rename must take locks on all subvols with src because selfheal
-         * in entry creation phase may not have acquired lock on all subvols.
-        */
-        for (i = 0; i < local->call_cnt; i++) {
-                lk_array[i] = dht_lock_new (frame->this,
-                                            conf->subvolumes[i],
-                                            &local->loc, F_WRLCK,
-                                            DHT_LAYOUT_HEAL_DOMAIN);
-                if (lk_array[i] == NULL) {
-                        op_errno = ENOMEM;
-                        goto err;
-                }
-        }
-
-        /* If the dst exists, we are going to replace dst layout range with
-         * that of src. This will lead to anomalies in dst layout until the
-         * rename completes. To avoid a lookup selfheal to change dst layout
-         * during this interval we take a lock on one subvol of dst.
+         * The locks can't be issued parallel as two different clients might
+         * attempt same rename command and be in dead lock.
          */
-        for (j = 0; dst_layout && (j < dst_layout->cnt) &&
-                        (dst_layout->list[j].err == 0); j++) {
-
-                first_subvol = dst_layout->list[j].xlator;
-                if (local->loc2.inode) {
-                        lk_array[i] = dht_lock_new (frame->this, first_subvol,
-                                                    &local->loc2, F_WRLCK,
-                                                    DHT_LAYOUT_HEAL_DOMAIN);
-                } else {
-                        ret = dht_build_parent_loc (this, &parent_loc,
-                                                    &local->loc2, &op_errno);
-                        if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                                        DHT_MSG_NO_MEMORY,
-                                        "parent loc build failed");
-                                goto err;
-                        }
-
-                        lk_array[i] = dht_lock_new (frame->this, first_subvol,
-                                                    &parent_loc, F_WRLCK,
-                                                    DHT_LAYOUT_HEAL_DOMAIN);
-                }
-
-                if (lk_array[i] == NULL) {
-                        op_errno = ENOMEM;
-                        goto err;
-                }
-                break;
-        }
-
-        if (!lk_array[i])
-                --count;
-
-        local->lock.locks = lk_array;
-        local->lock.lk_count = count;
-
-        ret = dht_blocking_inodelk (frame, lk_array, count,
-                                    IGNORE_ENOENT_ESTALE,
-                                    dht_rename_dir_lock_cbk);
+        ret = dht_protect_namespace (frame, loc, subvol,
+                                     &local->current->ns,
+                                     dht_rename_dir_lock1_cbk);
         if (ret < 0) {
-                local->lock.locks = NULL;
-                local->lock.lk_count = 0;
                 op_errno = EINVAL;
                 goto err;
         }
 
-        loc_wipe (&parent_loc);
         return 0;
 
 err:
-        if (lk_array != NULL) {
-                dht_lock_array_free (lk_array, count);
-                GF_FREE (lk_array);
-        }
-
-        loc_wipe (&parent_loc);
         op_errno = (op_errno == -1) ? errno : op_errno;
         DHT_STACK_UNWIND (rename, frame, -1, op_errno, NULL, NULL, NULL, NULL,
                           NULL, NULL);
@@ -581,29 +684,6 @@ dht_rename_track_for_changelog (xlator_t *this, dict_t *xattr,
                 }                                                            \
         } while (0)
 
-int
-dht_rename_unlock_cbk (call_frame_t *frame, void *cookie,
-                       xlator_t *this, int32_t op_ret, int32_t op_errno,
-                       dict_t *xdata)
-{
-        dht_local_t *local = NULL;
-
-        local = frame->local;
-
-        dht_set_fixed_dir_stat (&local->preoldparent);
-        dht_set_fixed_dir_stat (&local->postoldparent);
-        dht_set_fixed_dir_stat (&local->preparent);
-        dht_set_fixed_dir_stat (&local->postparent);
-
-        if (IA_ISREG (local->stbuf.ia_type))
-                DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
-
-        DHT_STACK_UNWIND (rename, frame, local->op_ret, local->op_errno,
-                          &local->stbuf, &local->preoldparent,
-                          &local->postoldparent, &local->preparent,
-                          &local->postparent, local->xattr);
-        return 0;
-}
 
 int
 dht_rename_unlock (call_frame_t *frame, xlator_t *this)
@@ -614,8 +694,9 @@ dht_rename_unlock (call_frame_t *frame, xlator_t *this)
         char         dst_gfid[GF_UUID_BUF_SIZE] = {0};
 
         local = frame->local;
-        op_ret = dht_unlock_inodelk (frame, local->lock.locks,
-                                     local->lock.lk_count,
+        op_ret = dht_unlock_inodelk (frame,
+                                     local->lock[0].layout.parent_layout.locks,
+                                     local->lock[0].layout.parent_layout.lk_count,
                                      dht_rename_unlock_cbk);
         if (op_ret < 0) {
                 uuid_utoa_r (local->loc.inode->gfid, src_gfid);
@@ -1446,13 +1527,14 @@ dht_rename_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto done;
         }
 
-        local->call_cnt = local->lock.lk_count;
+        local->call_cnt = local->lock[0].layout.parent_layout.lk_count;
 
-        for (i = 0; i < local->lock.lk_count; i++) {
+        for (i = 0; i < local->lock[0].layout.parent_layout.lk_count; i++) {
                 STACK_WIND (frame, dht_rename_lookup_cbk,
-                            local->lock.locks[i]->xl,
-                            local->lock.locks[i]->xl->fops->lookup,
-                            &local->lock.locks[i]->loc, xattr_req);
+                            local->lock[0].layout.parent_layout.locks[i]->xl,
+                            local->lock[0].layout.parent_layout.locks[i]->xl->fops->lookup,
+                            &local->lock[0].layout.parent_layout.locks[i]->loc,
+                            xattr_req);
         }
 
         dict_unref (xattr_req);
@@ -1482,31 +1564,31 @@ dht_rename_lock (call_frame_t *frame)
         if (local->dst_cached)
                 count++;
 
-        lk_array = GF_CALLOC (count, sizeof (*lk_array), gf_common_mt_char);
+        lk_array = GF_CALLOC (count, sizeof (*lk_array), gf_common_mt_pointer);
         if (lk_array == NULL)
                 goto err;
 
         lk_array[0] = dht_lock_new (frame->this, local->src_cached, &local->loc,
-                                    F_WRLCK, DHT_FILE_MIGRATE_DOMAIN);
+                                    F_WRLCK, DHT_FILE_MIGRATE_DOMAIN, NULL);
         if (lk_array[0] == NULL)
                 goto err;
 
         if (local->dst_cached) {
                 lk_array[1] = dht_lock_new (frame->this, local->dst_cached,
                                             &local->loc2, F_WRLCK,
-                                            DHT_FILE_MIGRATE_DOMAIN);
+                                            DHT_FILE_MIGRATE_DOMAIN, NULL);
                 if (lk_array[1] == NULL)
                         goto err;
         }
 
-        local->lock.locks = lk_array;
-        local->lock.lk_count = count;
+        local->lock[0].layout.parent_layout.locks = lk_array;
+        local->lock[0].layout.parent_layout.lk_count = count;
 
         ret = dht_blocking_inodelk (frame, lk_array, count,
                                     FAIL_ON_ANY_ERROR, dht_rename_lock_cbk);
         if (ret < 0) {
-                local->lock.locks = NULL;
-                local->lock.lk_count = 0;
+                local->lock[0].layout.parent_layout.locks = NULL;
+                local->lock[0].layout.parent_layout.lk_count = 0;
                 goto err;
         }
 
