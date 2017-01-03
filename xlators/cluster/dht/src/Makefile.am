@@ -10,7 +10,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/cluster
 dht_common_source = dht-layout.c dht-helper.c dht-linkfile.c dht-rebalance.c \
 	dht-selfheal.c dht-rename.c dht-hashfn.c dht-diskusage.c \
 	dht-common.c dht-inode-write.c dht-inode-read.c dht-shared.c \
-	$(top_builddir)/xlators/lib/src/libxlator.c
+	dht-lock.c $(top_builddir)/xlators/lib/src/libxlator.c
 
 dht_la_SOURCES = $(dht_common_source) dht.c
 
@@ -35,7 +35,7 @@ tier_la_LDFLAGS = -module -avoid-version -export-symbols \
 tier_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = dht-common.h dht-mem-types.h dht-messages.h \
-	dht-helper.h tier-common.h tier.h \
+	dht-lock.h tier-common.h tier.h \
 	$(top_builddir)/xlators/lib/src/libxlator.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \

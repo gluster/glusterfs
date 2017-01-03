@@ -15,6 +15,7 @@
 #include "xlator.h"
 #include "libxlator.h"
 #include "dht-common.h"
+#include "dht-lock.h"
 #include "defaults.h"
 #include "byte-order.h"
 #include "glusterfs-acl.h"
@@ -5527,7 +5528,7 @@ out:
         dht_set_fixed_dir_stat (postparent);
         dht_set_fixed_dir_stat (preparent);
 
-        if (local && local->lock.locks) {
+        if (local && local->lock[0].layout.parent_layout.locks) {
                 /* store op_errno for failure case*/
                 local->op_errno = op_errno;
                 local->refresh_layout_unlock (frame, this, op_ret, 1);
@@ -5590,7 +5591,7 @@ dht_mknod_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 
         return 0;
 err:
-        if (local && local->lock.locks) {
+        if (local && local->lock[0].layout.parent_layout.locks) {
                 local->refresh_layout_unlock (frame, this, -1, 1);
         } else {
                 DHT_STACK_UNWIND (mknod, frame, -1,
@@ -5720,7 +5721,8 @@ dht_mknod_finish (call_frame_t *frame, xlator_t *this, int op_ret,
         int           lock_count = 0;
 
         local = frame->local;
-        lock_count = dht_lock_count (local->lock.locks, local->lock.lk_count);
+        lock_count = dht_lock_count (local->lock[0].layout.parent_layout.locks,
+                                     local->lock[0].layout.parent_layout.lk_count);
         if (lock_count == 0)
                 goto done;
 
@@ -5735,14 +5737,15 @@ dht_mknod_finish (call_frame_t *frame, xlator_t *this, int op_ret,
                 goto done;
         }
 
-        lock_local->lock.locks = local->lock.locks;
-        lock_local->lock.lk_count = local->lock.lk_count;
+        lock_local->lock[0].layout.parent_layout.locks = local->lock[0].layout.parent_layout.locks;
+        lock_local->lock[0].layout.parent_layout.lk_count = local->lock[0].layout.parent_layout.lk_count;
 
-        local->lock.locks = NULL;
-        local->lock.lk_count = 0;
+        local->lock[0].layout.parent_layout.locks = NULL;
+        local->lock[0].layout.parent_layout.lk_count = 0;
 
-        dht_unlock_inodelk (lock_frame, lock_local->lock.locks,
-                            lock_local->lock.lk_count,
+        dht_unlock_inodelk (lock_frame,
+                            lock_local->lock[0].layout.parent_layout.locks,
+                            lock_local->lock[0].layout.parent_layout.lk_count,
                             dht_mknod_unlock_cbk);
         lock_frame = NULL;
 
@@ -5804,26 +5807,26 @@ dht_mknod_lock (call_frame_t *frame, xlator_t *subvol)
 
         local = frame->local;
 
-        lk_array = GF_CALLOC (count, sizeof (*lk_array), gf_common_mt_char);
+        lk_array = GF_CALLOC (count, sizeof (*lk_array), gf_common_mt_pointer);
 
         if (lk_array == NULL)
                 goto err;
 
         lk_array[0] = dht_lock_new (frame->this, subvol, &local->loc, F_RDLCK,
-                                    DHT_LAYOUT_HEAL_DOMAIN);
+                                    DHT_LAYOUT_HEAL_DOMAIN, NULL);
 
         if (lk_array[0] == NULL)
                 goto err;
 
-        local->lock.locks = lk_array;
-        local->lock.lk_count = count;
+        local->lock[0].layout.parent_layout.locks = lk_array;
+        local->lock[0].layout.parent_layout.lk_count = count;
 
         ret = dht_blocking_inodelk (frame, lk_array, count,
                                     IGNORE_ENOENT_ESTALE, dht_mknod_lock_cbk);
 
         if (ret < 0) {
-                local->lock.locks = NULL;
-                local->lock.lk_count = 0;
+                local->lock[0].layout.parent_layout.locks = NULL;
+                local->lock[0].layout.parent_layout.lk_count = 0;
                 goto err;
         }
 
@@ -5917,81 +5920,8 @@ dht_handle_parent_layout_change (xlator_t *this, call_stub_t *stub)
 }
 
 int32_t
-dht_unlock_parent_layout_during_entry_fop_done (call_frame_t *frame,
-                                                void *cookie,
-                                                xlator_t *this,
-                                                int32_t op_ret,
-                                                int32_t op_errno,
-                                                dict_t *xdata)
-{
-        dht_local_t *local                   = NULL;
-        char          gfid[GF_UUID_BUF_SIZE] = {0};
-
-        local = frame->local;
-        gf_uuid_unparse (local->lock.locks[0]->loc.inode->gfid, gfid);
-
-        if (op_ret < 0) {
-                gf_msg (this->name, GF_LOG_WARNING, op_errno,
-                        DHT_MSG_PARENT_LAYOUT_CHANGED,
-                        "unlock failed on gfid: %s, stale lock might be left "
-                        "in DHT_LAYOUT_HEAL_DOMAIN", gfid);
-        }
-
-        DHT_STACK_DESTROY (frame);
-        return 0;
-}
-
-int32_t
-dht_unlock_parent_layout_during_entry_fop (call_frame_t *frame)
-{
-        dht_local_t  *local                   = NULL, *lock_local = NULL;
-        call_frame_t *lock_frame              = NULL;
-        char          pgfid[GF_UUID_BUF_SIZE] = {0};
-
-        local = frame->local;
-
-        gf_uuid_unparse (local->loc.parent->gfid, pgfid);
-
-        lock_frame = copy_frame (frame);
-        if (lock_frame == NULL) {
-                gf_msg (frame->this->name, GF_LOG_WARNING, ENOMEM,
-                        DHT_MSG_PARENT_LAYOUT_CHANGED,
-                        "mkdir (%s/%s) (path: %s): "
-                        "copy frame failed", pgfid, local->loc.name,
-                        local->loc.path);
-                goto done;
-        }
-
-        lock_local = mem_get0 (THIS->local_pool);
-        if (lock_local == NULL) {
-                gf_msg (frame->this->name, GF_LOG_WARNING, ENOMEM,
-                        DHT_MSG_PARENT_LAYOUT_CHANGED,
-                        "mkdir (%s/%s) (path: %s): "
-                        "local creation failed", pgfid, local->loc.name,
-                        local->loc.path);
-                goto done;
-        }
-
-        lock_frame->local = lock_local;
-
-        lock_local->lock.locks = local->lock.locks;
-        lock_local->lock.lk_count = local->lock.lk_count;
-
-        local->lock.locks = NULL;
-        local->lock.lk_count = 0;
-
-        dht_unlock_inodelk (lock_frame, lock_local->lock.locks,
-                            lock_local->lock.lk_count,
-                            dht_unlock_parent_layout_during_entry_fop_done);
-
-done:
-        return 0;
-}
-
-int32_t
-dht_guard_parent_layout_during_entry_fop_cbk (call_frame_t *frame, void *cookie,
-                                              xlator_t *this, int32_t op_ret,
-                                              int32_t op_errno, dict_t *xdata)
+dht_call_mkdir_stub (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         dht_local_t *local = NULL;
         call_stub_t *stub  = NULL;
@@ -6013,16 +5943,14 @@ dht_guard_parent_layout_during_entry_fop_cbk (call_frame_t *frame, void *cookie,
 }
 
 int32_t
-dht_guard_parent_layout_during_entry_fop (xlator_t *subvol, call_stub_t *stub)
+dht_guard_parent_layout_and_namespace (xlator_t *subvol, call_stub_t *stub)
 {
         dht_local_t   *local                  = NULL;
-        int            count                  = 1,    ret = -1;
-        dht_lock_t   **lk_array               = NULL;
+        int            ret                    = -1;
         loc_t         *loc                    = NULL;
         xlator_t      *hashed_subvol          = NULL, *this = NULL;;
         call_frame_t  *frame                  = NULL;
         char          pgfid[GF_UUID_BUF_SIZE] = {0};
-        loc_t          parent                 = {0, };
         int32_t       *parent_disk_layout     = NULL;
         dht_layout_t  *parent_layout          = NULL;
         dht_conf_t    *conf                   = NULL;
@@ -6118,67 +6046,16 @@ dht_guard_parent_layout_during_entry_fop (xlator_t *subvol, call_stub_t *stub)
         }
 
         parent_disk_layout = NULL;
+        local->hashed_subvol = hashed_subvol;
 
-        parent.inode = inode_ref (loc->parent);
-        gf_uuid_copy (parent.gfid, loc->parent->gfid);
-
-        lk_array = GF_CALLOC (count, sizeof (*lk_array), gf_common_mt_char);
-
-        if (lk_array == NULL) {
-                local->op_errno = ENOMEM;
-
-                gf_msg (this->name, GF_LOG_WARNING, local->op_errno,
-                        DHT_MSG_PARENT_LAYOUT_CHANGED,
-                        "%s (%s/%s) (path: %s): "
-                        "calloc failure",
-                        gf_fop_list[stub->fop], pgfid, loc->name, loc->path);
-
+        local->current = &local->lock[0];
+        ret = dht_protect_namespace (frame, loc, hashed_subvol,
+                                     &local->current->ns, dht_call_mkdir_stub);
+        if (ret < 0)
                 goto err;
-        }
-
-        lk_array[0] = dht_lock_new (frame->this, hashed_subvol, &parent,
-                                    F_RDLCK, DHT_LAYOUT_HEAL_DOMAIN);
-
-        if (lk_array[0] == NULL) {
-                local->op_errno = ENOMEM;
-                gf_msg (this->name, GF_LOG_WARNING, local->op_errno,
-                        DHT_MSG_PARENT_LAYOUT_CHANGED,
-                        "%s (%s/%s) (path: %s): "
-                        "lock allocation failed",
-                        gf_fop_list[stub->fop], pgfid, loc->name, loc->path);
-
-                goto err;
-        }
-
-        local->lock.locks = lk_array;
-        local->lock.lk_count = count;
-
-        ret = dht_blocking_inodelk (frame, lk_array, count, FAIL_ON_ANY_ERROR,
-                                    dht_guard_parent_layout_during_entry_fop_cbk);
-
-        if (ret < 0) {
-                local->op_errno = EIO;
-                local->lock.locks = NULL;
-                local->lock.lk_count = 0;
-                gf_msg (this->name, GF_LOG_WARNING, local->op_errno,
-                        DHT_MSG_PARENT_LAYOUT_CHANGED,
-                        "%s (%s/%s) (path: %s): "
-                        "dht_blocking_inodelk failed",
-                        gf_fop_list[stub->fop], pgfid, loc->name, loc->path);
-
-                goto err;
-        }
-
-        loc_wipe (&parent);
 
         return 0;
 err:
-        if (lk_array != NULL) {
-                dht_lock_array_free (lk_array, count);
-                GF_FREE (lk_array);
-        }
-
-        loc_wipe (&parent);
 
         if (parent_disk_layout != NULL)
                 GF_FREE (parent_disk_layout);
@@ -6271,7 +6148,7 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
 
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                                        DHT_MSG_NO_MEMORY,
+                                        DHT_MSG_LOC_FAILED,
                                         "parent loc build failed");
                                 goto err;
                         }
@@ -6708,7 +6585,7 @@ out:
         dht_set_fixed_dir_stat (preparent);
         dht_set_fixed_dir_stat (postparent);
 
-        if (local && local->lock.locks) {
+        if (local && local->lock[0].layout.parent_layout.locks) {
                 /* store op_errno for failure case*/
                 local->op_errno = op_errno;
                 local->refresh_layout_unlock (frame, this, op_ret, 1);
@@ -6769,7 +6646,7 @@ dht_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 
         return 0;
 err:
-        if (local && local->lock.locks) {
+        if (local && local->lock[0].layout.parent_layout.locks) {
                 local->refresh_layout_unlock (frame, this, -1, 1);
         } else {
                 DHT_STACK_UNWIND (create, frame, -1,
@@ -6958,7 +6835,8 @@ dht_create_finish (call_frame_t *frame, xlator_t *this, int op_ret,
         int           lock_count = 0;
 
         local = frame->local;
-        lock_count = dht_lock_count (local->lock.locks, local->lock.lk_count);
+        lock_count = dht_lock_count (local->lock[0].layout.parent_layout.locks,
+                                     local->lock[0].layout.parent_layout.lk_count);
         if (lock_count == 0)
                 goto done;
 
@@ -6973,14 +6851,15 @@ dht_create_finish (call_frame_t *frame, xlator_t *this, int op_ret,
                 goto done;
         }
 
-        lock_local->lock.locks = local->lock.locks;
-        lock_local->lock.lk_count = local->lock.lk_count;
+        lock_local->lock[0].layout.parent_layout.locks = local->lock[0].layout.parent_layout.locks;
+        lock_local->lock[0].layout.parent_layout.lk_count = local->lock[0].layout.parent_layout.lk_count;
 
-        local->lock.locks = NULL;
-        local->lock.lk_count = 0;
+        local->lock[0].layout.parent_layout.locks = NULL;
+	local->lock[0].layout.parent_layout.lk_count = 0;
 
-        dht_unlock_inodelk (lock_frame, lock_local->lock.locks,
-                            lock_local->lock.lk_count,
+        dht_unlock_inodelk (lock_frame,
+                            lock_local->lock[0].layout.parent_layout.locks,
+                            lock_local->lock[0].layout.parent_layout.lk_count,
                             dht_create_unlock_cbk);
         lock_frame = NULL;
 
@@ -7042,26 +6921,26 @@ dht_create_lock (call_frame_t *frame, xlator_t *subvol)
 
         local = frame->local;
 
-        lk_array = GF_CALLOC (count, sizeof (*lk_array), gf_common_mt_char);
+        lk_array = GF_CALLOC (count, sizeof (*lk_array), gf_common_mt_pointer);
 
         if (lk_array == NULL)
                 goto err;
 
         lk_array[0] = dht_lock_new (frame->this, subvol, &local->loc, F_RDLCK,
-                                    DHT_LAYOUT_HEAL_DOMAIN);
+                                    DHT_LAYOUT_HEAL_DOMAIN, NULL);
 
         if (lk_array[0] == NULL)
                 goto err;
 
-        local->lock.locks = lk_array;
-        local->lock.lk_count = count;
+        local->lock[0].layout.parent_layout.locks = lk_array;
+        local->lock[0].layout.parent_layout.lk_count = count;
 
         ret = dht_blocking_inodelk (frame, lk_array, count,
                                     IGNORE_ENOENT_ESTALE, dht_create_lock_cbk);
 
         if (ret < 0) {
-                local->lock.locks = NULL;
-                local->lock.lk_count = 0;
+                local->lock[0].layout.parent_layout.locks = NULL;
+                local->lock[0].layout.parent_layout.lk_count = 0;
                 goto err;
         }
 
@@ -7172,7 +7051,7 @@ dht_create (call_frame_t *frame, xlator_t *this,
 
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                                        DHT_MSG_NO_MEMORY,
+                                        DHT_MSG_LOC_FAILED,
                                         "parent loc build failed");
                                 goto err;
                         }
@@ -7305,6 +7184,8 @@ unlock:
 
         this_call_cnt = dht_frame_return (frame);
         if (is_last_call (this_call_cnt)) {
+                /*Unlock entrylk and inodelk once mkdir is done on all subvols*/
+                dht_unlock_namespace (frame, &local->lock[0]);
                 FRAME_SU_DO (frame, dht_local_t);
                 dht_selfheal_new_directory (frame, dht_mkdir_selfheal_cbk,
                                             layout);
@@ -7433,7 +7314,7 @@ dht_mkdir_helper (call_frame_t *frame, xlator_t *this,
         return 0;
 
 err:
-        dht_unlock_parent_layout_during_entry_fop (frame);
+        dht_unlock_namespace (frame, &local->lock[0]);
 
         op_errno = local ? local->op_errno : op_errno;
         DHT_STACK_UNWIND (mkdir, frame, -1, op_errno, NULL, NULL, NULL,
@@ -7508,7 +7389,6 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
                 goto err;
         }
 
-        dht_unlock_parent_layout_during_entry_fop (frame);
         dict_del (local->params, GF_PREOP_PARENT_KEY);
         dict_del (local->params, conf->xattr_name);
 
@@ -7538,6 +7418,8 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
         if (gf_uuid_is_null (local->loc.gfid))
                 gf_uuid_copy (local->loc.gfid, stbuf->ia_gfid);
         if (local->call_cnt == 0) {
+                /*Unlock namespace lock once mkdir is done on all subvols*/
+                dht_unlock_namespace (frame, &local->lock[0]);
                 FRAME_SU_DO (frame, dht_local_t);
                 dht_selfheal_directory (frame, dht_mkdir_selfheal_cbk,
                                         &local->loc, layout);
@@ -7554,8 +7436,9 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
         }
         return 0;
 err:
-        if (local->op_ret != 0)
-                dht_unlock_parent_layout_during_entry_fop (frame);
+        if (local->op_ret != 0) {
+                dht_unlock_namespace (frame, &local->lock[0]);
+        }
 
         DHT_STACK_UNWIND (mkdir, frame, -1, op_errno, NULL, NULL, NULL,
                           NULL, NULL);
@@ -7686,7 +7569,7 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-        ret = dht_guard_parent_layout_during_entry_fop (this, stub);
+        ret = dht_guard_parent_layout_and_namespace (this, stub);
         if (ret < 0) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_PARENT_LAYOUT_CHANGED,
@@ -8019,7 +7902,13 @@ dht_rmdir_unlock (call_frame_t *frame, xlator_t *this)
         int           lock_count = 0;
 
         local = frame->local;
-        lock_count = dht_lock_count (local->lock.locks, local->lock.lk_count);
+
+        /* Unlock entrylk */
+        dht_unlock_entrylk_wrapper (frame, &local->lock[0].ns.directory_ns);
+
+        /* Unlock inodelk */
+        lock_count = dht_lock_count (local->lock[0].ns.parent_layout.locks,
+                                     local->lock[0].ns.parent_layout.lk_count);
 
         if (lock_count == 0)
                 goto done;
@@ -8033,13 +7922,14 @@ dht_rmdir_unlock (call_frame_t *frame, xlator_t *this)
         if (lock_local == NULL)
                 goto done;
 
-        lock_local->lock.locks = local->lock.locks;
-        lock_local->lock.lk_count = local->lock.lk_count;
+        lock_local->lock[0].ns.parent_layout.locks = local->lock[0].ns.parent_layout.locks;
+        lock_local->lock[0].ns.parent_layout.lk_count = local->lock[0].ns.parent_layout.lk_count;
 
-        local->lock.locks = NULL;
-        local->lock.lk_count = 0;
-        dht_unlock_inodelk (lock_frame, lock_local->lock.locks,
-                            lock_local->lock.lk_count,
+        local->lock[0].ns.parent_layout.locks = NULL;
+        local->lock[0].ns.parent_layout.lk_count = 0;
+        dht_unlock_inodelk (lock_frame,
+                            lock_local->lock[0].ns.parent_layout.locks,
+                            lock_local->lock[0].ns.parent_layout.lk_count,
                             dht_rmdir_unlock_cbk);
         lock_frame = NULL;
 
@@ -8068,7 +7958,7 @@ dht_rmdir_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret < 0) {
                 gf_msg (this->name, GF_LOG_WARNING, op_errno,
                         DHT_MSG_INODE_LK_ERROR,
-                        "acquiring inodelk failed rmdir for %s)",
+                        "acquiring entrylk after inodelk failed rmdir for %s)",
                         local->loc.path);
 
                 local->op_ret = -1;
@@ -8090,8 +7980,6 @@ dht_rmdir_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 
 err:
-        /* No harm in calling an extra rmdir unlock */
-        dht_rmdir_unlock (frame, this);
         DHT_STACK_UNWIND (rmdir, frame, local->op_ret, local->op_errno,
                           &local->preparent, &local->postparent, NULL);
 
@@ -8104,9 +7992,7 @@ dht_rmdir_do (call_frame_t *frame, xlator_t *this)
 {
         dht_local_t  *local = NULL;
         dht_conf_t   *conf = NULL;
-        dht_lock_t   **lk_array = NULL;
-        int           i = 0, ret = -1;
-        int           count = 1;
+        int           ret = -1;
         xlator_t     *hashed_subvol = NULL;
         char gfid[GF_UUID_BUF_SIZE] ={0};
 
@@ -8143,36 +8029,10 @@ dht_rmdir_do (call_frame_t *frame, xlator_t *this)
                 return 0;
         }
 
-        count = conf->subvolume_cnt;
-
-        lk_array = GF_CALLOC (count, sizeof (*lk_array), gf_common_mt_char);
-        if (lk_array == NULL) {
-                local->op_ret = -1;
-                local->op_errno = ENOMEM;
-                goto err;
-        }
-
-        for (i = 0; i < count; i++) {
-                lk_array[i] = dht_lock_new (frame->this,
-                                            conf->subvolumes[i],
-                                            &local->loc, F_WRLCK,
-                                            DHT_LAYOUT_HEAL_DOMAIN);
-                if (lk_array[i] == NULL) {
-                        local->op_ret = -1;
-                        local->op_errno = EINVAL;
-                        goto err;
-                }
-        }
-
-        local->lock.locks = lk_array;
-        local->lock.lk_count = count;
-
-        ret = dht_blocking_inodelk (frame, lk_array, count,
-                                    IGNORE_ENOENT_ESTALE,
-                                    dht_rmdir_lock_cbk);
+        local->current = &local->lock[0];
+        ret = dht_protect_namespace (frame, &local->loc, local->hashed_subvol,
+                                     &local->current->ns, dht_rmdir_lock_cbk);
         if (ret < 0) {
-                local->lock.locks = NULL;
-                local->lock.lk_count = 0;
                 local->op_ret = -1;
                 local->op_errno = errno ? errno : EINVAL;
                 goto err;
@@ -8183,11 +8043,6 @@ dht_rmdir_do (call_frame_t *frame, xlator_t *this)
 err:
         dht_set_fixed_dir_stat (&local->preparent);
         dht_set_fixed_dir_stat (&local->postparent);
-
-        if (lk_array != NULL) {
-                dht_lock_array_free (lk_array, count);
-                GF_FREE (lk_array);
-        }
 
         DHT_STACK_UNWIND (rmdir, frame, local->op_ret, local->op_errno,
                           &local->preparent, &local->postparent, NULL);

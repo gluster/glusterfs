@@ -13,6 +13,7 @@
 #include "xlator.h"
 #include "dht-common.h"
 #include "dht-messages.h"
+#include "dht-lock.h"
 #include "glusterfs-acl.h"
 
 #define DHT_SET_LAYOUT_RANGE(layout,i,srt,chunk,path)    do {           \
@@ -85,7 +86,13 @@ dht_selfheal_dir_finish (call_frame_t *frame, xlator_t *this, int ret,
         int           lock_count = 0;
 
         local = frame->local;
-        lock_count = dht_lock_count (local->lock.locks, local->lock.lk_count);
+
+        /* Unlock entrylk */
+        dht_unlock_entrylk_wrapper (frame, &local->lock[0].ns.directory_ns);
+
+        /* Unlock inodelk */
+        lock_count = dht_lock_count (local->lock[0].ns.parent_layout.locks,
+                                     local->lock[0].ns.parent_layout.lk_count);
         if (lock_count == 0)
                 goto done;
 
@@ -100,14 +107,15 @@ dht_selfheal_dir_finish (call_frame_t *frame, xlator_t *this, int ret,
                 goto done;
         }
 
-        lock_local->lock.locks = local->lock.locks;
-        lock_local->lock.lk_count = local->lock.lk_count;
+        lock_local->lock[0].ns.parent_layout.locks = local->lock[0].ns.parent_layout.locks;
+        lock_local->lock[0].ns.parent_layout.lk_count = local->lock[0].ns.parent_layout.lk_count;
 
-        local->lock.locks = NULL;
-        local->lock.lk_count = 0;
+        local->lock[0].ns.parent_layout.locks = NULL;
+        local->lock[0].ns.parent_layout.lk_count = 0;
 
-        dht_unlock_inodelk (lock_frame, lock_local->lock.locks,
-                            lock_local->lock.lk_count,
+        dht_unlock_inodelk (lock_frame,
+                            lock_local->lock[0].ns.parent_layout.locks,
+                            lock_local->lock[0].ns.parent_layout.lk_count,
                             dht_selfheal_unlock_cbk);
         lock_frame = NULL;
 
@@ -579,7 +587,8 @@ dht_selfheal_layout_lock (call_frame_t *frame, dht_layout_t *layout,
                         lk_array[i] = dht_lock_new (frame->this,
                                                     conf->subvolumes[i],
                                                     &local->loc, F_WRLCK,
-                                                    DHT_LAYOUT_HEAL_DOMAIN);
+                                                    DHT_LAYOUT_HEAL_DOMAIN,
+                                                    NULL);
                         if (lk_array[i] == NULL) {
                                 gf_uuid_unparse (local->stbuf.ia_gfid, gfid);
                                 gf_msg (THIS->name, GF_LOG_ERROR, ENOMEM,
@@ -604,7 +613,7 @@ dht_selfheal_layout_lock (call_frame_t *frame, dht_layout_t *layout,
 
                 lk_array[0] = dht_lock_new (frame->this, local->hashed_subvol,
                                             &local->loc, F_WRLCK,
-                                            DHT_LAYOUT_HEAL_DOMAIN);
+                                            DHT_LAYOUT_HEAL_DOMAIN, NULL);
                 if (lk_array[0] == NULL) {
                         gf_uuid_unparse (local->stbuf.ia_gfid, gfid);
                         gf_msg (THIS->name, GF_LOG_ERROR, ENOMEM,
@@ -615,14 +624,14 @@ dht_selfheal_layout_lock (call_frame_t *frame, dht_layout_t *layout,
                 }
         }
 
-        local->lock.locks = lk_array;
-        local->lock.lk_count = count;
+        local->lock[0].layout.my_layout.locks = lk_array;
+        local->lock[0].layout.my_layout.lk_count = count;
 
         ret = dht_blocking_inodelk (frame, lk_array, count, FAIL_ON_ANY_ERROR,
                                     dht_selfheal_layout_lock_cbk);
         if (ret < 0) {
-                local->lock.locks = NULL;
-                local->lock.lk_count = 0;
+                local->lock[0].layout.my_layout.locks = NULL;
+                local->lock[0].layout.my_layout.lk_count = 0;
                 goto err;
         }
 
@@ -1454,8 +1463,8 @@ dht_selfheal_dir_mkdir_lock_cbk (call_frame_t *frame, void *cookie,
                 }
 
                 gf_msg (this->name, GF_LOG_WARNING, op_errno,
-                        DHT_MSG_INODE_LK_ERROR,
-                        "acquiring inodelk failed for %s",
+                        DHT_MSG_ENTRYLK_ERROR,
+                        "acquiring entrylk after inodelk failed for %s",
                         local->loc.path);
 
                 local->op_errno = op_errno;
@@ -1487,15 +1496,9 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
         int           missing_dirs = 0;
         int           i     = 0;
         int           ret   = -1;
-        int           count = 1;
         dht_local_t  *local = NULL;
-        dht_conf_t   *conf  = NULL;
-        xlator_t     *this = NULL;
-        dht_lock_t   **lk_array = NULL;
 
         local = frame->local;
-        this = frame->this;
-        conf = this->private;
 
         local->selfheal.force_mkdir = force;
         local->selfheal.hole_cnt = 0;
@@ -1511,44 +1514,16 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
                 return 0;
         }
 
-        count = conf->subvolume_cnt;
+        local->current = &local->lock[0];
+        ret = dht_protect_namespace (frame, loc, local->hashed_subvol,
+                                     &local->current->ns,
+                                     dht_selfheal_dir_mkdir_lock_cbk);
 
-        /* Locking on all subvols in the mkdir phase of lookup selfheal is
-           is done to synchronize with rmdir/rename.
-        */
-        lk_array = GF_CALLOC (count, sizeof (*lk_array), gf_common_mt_char);
-        if (lk_array == NULL)
+        if (ret < 0)
                 goto err;
-
-        for (i = 0; i < count; i++) {
-                lk_array[i] = dht_lock_new (frame->this,
-                                            conf->subvolumes[i],
-                                            &local->loc, F_WRLCK,
-                                            DHT_LAYOUT_HEAL_DOMAIN);
-                if (lk_array[i] == NULL)
-                        goto err;
-        }
-
-        local->lock.locks = lk_array;
-        local->lock.lk_count = count;
-
-        ret = dht_blocking_inodelk (frame, lk_array, count,
-                                    IGNORE_ENOENT_ESTALE,
-                                    dht_selfheal_dir_mkdir_lock_cbk);
-
-        if (ret < 0) {
-                local->lock.locks = NULL;
-                local->lock.lk_count = 0;
-                goto err;
-        }
 
         return 0;
 err:
-        if (lk_array != NULL) {
-                dht_lock_array_free (lk_array, count);
-                GF_FREE (lk_array);
-        }
-
         return -1;
 }
 
@@ -2379,9 +2354,9 @@ dht_update_commit_hash_for_layout_unlock (call_frame_t *frame, xlator_t *this)
 
         local = frame->local;
 
-        ret = dht_unlock_inodelk (frame, local->lock.locks,
-                                  local->lock.lk_count,
-                                  dht_update_commit_hash_for_layout_done);
+        ret = dht_unlock_inodelk (frame, local->lock[0].layout.my_layout.locks,
+                                   local->lock[0].layout.my_layout.lk_count,
+                                   dht_update_commit_hash_for_layout_done);
         if (ret < 0) {
                 /* preserve oldest error, just ... */
                 if (!local->op_ret) {
@@ -2614,19 +2589,19 @@ dht_update_commit_hash_for_layout (call_frame_t *frame)
                 lk_array[i] = dht_lock_new (frame->this,
                                             conf->local_subvols[i],
                                             &local->loc, F_WRLCK,
-                                            DHT_LAYOUT_HEAL_DOMAIN);
+                                            DHT_LAYOUT_HEAL_DOMAIN, NULL);
                 if (lk_array[i] == NULL)
                         goto err;
         }
 
-        local->lock.locks = lk_array;
-        local->lock.lk_count = count;
+        local->lock[0].layout.my_layout.locks = lk_array;
+        local->lock[0].layout.my_layout.lk_count = count;
 
         ret = dht_blocking_inodelk (frame, lk_array, count, FAIL_ON_ANY_ERROR,
                                     dht_update_commit_hash_for_layout_resume);
         if (ret < 0) {
-                local->lock.locks = NULL;
-                local->lock.lk_count = 0;
+                local->lock[0].layout.my_layout.locks = NULL;
+                local->lock[0].layout.my_layout.lk_count = 0;
                 goto err;
         }
 

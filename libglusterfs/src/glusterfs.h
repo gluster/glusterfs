@@ -234,6 +234,7 @@
 #define GF_MAX_AUX_GROUPS   65535
 
 #define GF_UUID_BUF_SIZE 50
+#define GF_UUID_BNAME_BUF_SIZE (320) /* (64 + 256) */
 
 #define GF_REBALANCE_TID_KEY     "rebalance-id"
 #define GF_REMOVE_BRICK_TID_KEY  "remove-brick-id"
