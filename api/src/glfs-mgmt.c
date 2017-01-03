@@ -61,10 +61,10 @@ glfs_process_volfp (struct glfs *fs, FILE *fp)
 	}
 
 	for (trav = graph->first; trav; trav = trav->next) {
-		if (strcmp (trav->type, "mount/fuse") == 0) {
+		if (strcmp (trav->type, "mount/api") == 0) {
 			gf_msg ("glfs", GF_LOG_ERROR, EINVAL,
-                                API_MSG_FUSE_XLATOR_ERROR,
-				"fuse xlator cannot be specified "
+                                API_MSG_API_XLATOR_ERROR,
+				"api master xlator cannot be specified "
 				"in volume file");
 			goto out;
 		}
