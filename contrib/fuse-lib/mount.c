@@ -106,8 +106,7 @@ escape (char *s)
 
 static int
 fuse_mount_fusermount (const char *mountpoint, char *fsname,
-                       unsigned long mountflags, char *mnt_param,
-                       int fd)
+                       char *mnt_param, int fd)
 {
         int  pid = -1;
         int  res = 0;
@@ -130,8 +129,7 @@ fuse_mount_fusermount (const char *mountpoint, char *fsname,
                 return -1;
         }
         ret = asprintf (&fm_mnt_params,
-                        "%s%s,fsname=%s,nonempty,subtype=glusterfs",
-                        (mountflags & MS_RDONLY) ? "ro," : "",
+                        "%s,fsname=%s,nonempty,subtype=glusterfs",
                         mnt_param, efsname);
         FREE (efsname);
         if (ret == -1) {
@@ -224,19 +222,112 @@ build_iovec_argf(struct iovec **iov, int *iovlen, const char *name,
 }
 #endif /* __FreeBSD__ */
 
+struct mount_flags {
+        const char *opt;
+        mount_flag_t flag;
+        int on;
+} mount_flags[] = {
+        /* We provide best effort cross platform support for mount flags by
+         * defining the ones which are commonly used in Unix-like OS-es.
+         */
+        {"ro",      MS_RDONLY,      1},
+        {"nosuid",  MS_NOSUID,      1},
+        {"nodev",   MS_NODEV,       1},
+        {"noatime", MS_NOATIME,     1},
+        {"noexec",  MS_NOEXEC,      1},
+#ifdef GF_LINUX_HOST_OS
+        {"rw",      MS_RDONLY,      0},
+        {"suid",    MS_NOSUID,      0},
+        {"dev",     MS_NODEV,       0},
+        {"exec",    MS_NOEXEC,      0},
+        {"async",   MS_SYNCHRONOUS, 0},
+        {"sync",    MS_SYNCHRONOUS, 1},
+        {"atime",   MS_NOATIME,     0},
+        {"dirsync", MS_DIRSYNC,     1},
+#endif
+        {NULL,      0,              0}
+};
+
+static int
+mount_param_to_flag (char *mnt_param, mount_flag_t *mntflags,
+                     char **mnt_param_new)
+{
+        int i = 0;
+        int j = 0;
+        char *p = NULL;
+        gf_boolean_t found = _gf_false;
+        struct mount_flags *flag = NULL;
+
+        /* Allocate a buffer that will hold the mount parameters remaining
+         * after the ones corresponding to mount flags are processed and
+         * removed.The length of the original params are a good upper bound
+         * of the size needed.
+         */
+        *mnt_param_new = CALLOC (1, strlen (mnt_param) + 1);
+        if (!*mnt_param_new)
+                return -1;
+        p = *mnt_param_new;
+
+        while (mnt_param[j]) {
+                if (j > 0)
+                        i = j+1;
+                j = i;
+
+                /* Seek the delimiters. */
+                while (mnt_param[j] != ',' && mnt_param[j] != '\0')
+                        j++;
+
+                found = _gf_false;
+                for (flag = mount_flags; flag->opt; flag++) {
+                        /* Compare the mount flag name to the param
+                         * name at hand (from i to j in mnt_param).
+                         */
+                        if (strlen (flag->opt) == j - i &&
+                            memcmp (flag->opt, mnt_param + i, j - i) == 0) {
+                                /* If there is a match, adjust mntflags
+                                 * accordingly and break.
+                                 */
+                                if (flag->on) {
+                                        *mntflags |= flag->flag;
+                                } else {
+                                        *mntflags &= ~flag->flag;
+                                }
+                                found = _gf_true;
+                                break;
+                        }
+                }
+                /* If the param did't match any flag name, retain it (ie. copy
+                 * over to the new param buffer).
+                 */
+                if (!found) {
+                        if (p != *mnt_param_new)
+                                *p++ = ',';
+                        memcpy (p, mnt_param + i, j - i);
+                        p += j - i;
+                }
+        }
+
+        return 0;
+}
+
 static int
 fuse_mount_sys (const char *mountpoint, char *fsname,
-                unsigned long mountflags, char *mnt_param, int fd)
+                char *mnt_param, int fd)
 {
         int ret = -1;
         unsigned mounted = 0;
         char *mnt_param_mnt = NULL;
         char *fstype = "fuse.glusterfs";
         char *source = fsname;
+        mount_flag_t mountflags = 0;
+        char *mnt_param_new = NULL;
 
-        ret = asprintf (&mnt_param_mnt,
-                        "%s,fd=%i,rootmode=%o,user_id=%i,group_id=%i",
-                        mnt_param, fd, S_IFDIR, getuid (), getgid ());
+        ret = mount_param_to_flag (mnt_param, &mountflags, &mnt_param_new);
+        if (ret == 0)
+                ret = asprintf (&mnt_param_mnt,
+                                "%s,fd=%i,rootmode=%o,user_id=%i,group_id=%i",
+                                mnt_param_new, fd, S_IFDIR, getuid (),
+                                getgid ());
         if (ret == -1) {
                 GFFUSE_LOGERR ("Out of memory");
 
@@ -295,7 +386,7 @@ fuse_mount_sys (const char *mountpoint, char *fsname,
 
                 ret = asprintf (&mnt_param_mtab, "%s%s",
                                 mountflags & MS_RDONLY ? "ro," : "",
-                                mnt_param);
+                                mnt_param_new);
                 if (ret == -1)
                         GFFUSE_LOGERR ("Out of memory");
                 else {
@@ -320,6 +411,7 @@ out:
                         umount2 (mountpoint, 2); /* lazy umount */
         }
         FREE (mnt_param_mnt);
+        FREE (mnt_param_new);
         if (source != fsname)
                 FREE (source);
 
@@ -328,8 +420,7 @@ out:
 
 int
 gf_fuse_mount (const char *mountpoint, char *fsname,
-               unsigned long mountflags, char *mnt_param,
-               pid_t *mnt_pid, int status_fd)
+               char *mnt_param, pid_t *mnt_pid, int status_fd)
 {
         int   fd  = -1;
         pid_t pid = -1;
@@ -356,8 +447,7 @@ gf_fuse_mount (const char *mountpoint, char *fsname,
                                 exit (pid == -1 ? 1 : 0);
                 }
 
-                ret = fuse_mount_sys (mountpoint, fsname, mountflags, mnt_param,
-                                      fd);
+                ret = fuse_mount_sys (mountpoint, fsname, mnt_param, fd);
                 if (ret == -1) {
                         gf_log ("glusterfs-fuse", GF_LOG_INFO,
                                 "direct mount failed (%s) errno %d",
@@ -368,7 +458,6 @@ gf_fuse_mount (const char *mountpoint, char *fsname,
                                         "retry to mount via fusermount");
 
                                 ret = fuse_mount_fusermount (mountpoint, fsname,
-                                                             mountflags,
                                                              mnt_param, fd);
                         }
                 }

@@ -10,7 +10,6 @@
 
 #include <sys/wait.h>
 #include "fuse-bridge.h"
-#include "mount-gluster-compat.h"
 #include "glusterfs.h"
 #include "byte-order.h"
 #include "compat-errno.h"
@@ -5481,7 +5480,6 @@ init (xlator_t *this_xl)
         glusterfs_ctx_t   *ctx = NULL;
         gf_boolean_t       sync_to_mount = _gf_false;
         gf_boolean_t       fopen_keep_cache = _gf_false;
-        unsigned long      mntflags = 0;
         char              *mnt_args = NULL;
         eh_t              *event = NULL;
 
@@ -5717,10 +5715,9 @@ init (xlator_t *this_xl)
                 goto cleanup_exit;
         }
 
-        if (priv->read_only)
-                mntflags |= MS_RDONLY;
-        gf_asprintf (&mnt_args, "%s%s%sallow_other,max_read=131072",
+        gf_asprintf (&mnt_args, "%s%s%s%sallow_other,max_read=131072",
                      priv->acl ? "" : "default_permissions,",
+                     priv->read_only ? "ro," : "",
                      priv->fuse_mountopts ? priv->fuse_mountopts : "",
                      priv->fuse_mountopts ? "," : "");
         if (!mnt_args)
@@ -5732,7 +5729,7 @@ init (xlator_t *this_xl)
                 goto cleanup_exit;
         }
 
-        priv->fd = gf_fuse_mount (priv->mount_point, fsname, mntflags, mnt_args,
+        priv->fd = gf_fuse_mount (priv->mount_point, fsname, mnt_args,
                                   sync_to_mount ? &ctx->mnt_pid : NULL,
                                   priv->status_pipe[1]);
         if (priv->fd == -1)

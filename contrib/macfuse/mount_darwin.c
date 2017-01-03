@@ -42,8 +42,7 @@
         gf_log ("glusterfs-fuse", GF_LOG_ERROR, ## __VA_ARGS__)
 
 int
-gf_fuse_mount (const char *mountpoint, char *fsname,
-               unsigned long mountflags, char *mnt_param,
+gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param,
                pid_t *mnt_pid, int status_fd) /* Not used on OS X */
 {
         int fd       = 0;
