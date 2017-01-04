@@ -788,10 +788,10 @@ void ec_lock_prepare_inode(ec_fop_data_t *fop, loc_t *loc, uint32_t flags)
     ec_lock_prepare_inode_internal(fop, loc, flags, NULL);
 }
 
-void ec_lock_prepare_parent_inode(ec_fop_data_t *fop, loc_t *loc,
+void ec_lock_prepare_parent_inode(ec_fop_data_t *fop, loc_t *loc, loc_t *base,
                                   uint32_t flags)
 {
-    loc_t tmp, *base = NULL;
+    loc_t tmp;
     int32_t err;
 
     if (fop->error != 0) {
@@ -806,8 +806,9 @@ void ec_lock_prepare_parent_inode(ec_fop_data_t *fop, loc_t *loc,
     }
 
     if ((flags & EC_INODE_SIZE) != 0) {
-        base = loc;
         flags ^= EC_INODE_SIZE;
+    } else {
+            base = NULL;
     }
 
     ec_lock_prepare_inode_internal(fop, &tmp, flags, base);

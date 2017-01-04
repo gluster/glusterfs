@@ -90,7 +90,7 @@ gf_boolean_t
 ec_cbk_set_error(ec_cbk_data_t *cbk, int32_t error, gf_boolean_t ro);
 
 void ec_lock_prepare_inode(ec_fop_data_t *fop, loc_t *loc, uint32_t flags);
-void ec_lock_prepare_parent_inode(ec_fop_data_t *fop, loc_t *loc,
+void ec_lock_prepare_parent_inode(ec_fop_data_t *fop, loc_t *loc, loc_t *base,
                                   uint32_t flags);
 void ec_lock_prepare_fd(ec_fop_data_t *fop, fd_t *fd, uint32_t flags);
 void ec_lock(ec_fop_data_t * fop);
