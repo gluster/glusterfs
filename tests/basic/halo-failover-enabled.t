@@ -13,6 +13,7 @@
 #
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
+. $(dirname $0)/../halo.rc
 
 cleanup;
 
@@ -31,7 +32,7 @@ TEST $CLI volume set $V0 cluster.heal-timeout 5
 TEST $CLI volume set $V0 cluster.entry-self-heal on
 TEST $CLI volume set $V0 cluster.data-self-heal on
 TEST $CLI volume set $V0 cluster.metadata-self-heal on
-TEST $CLI volume set $V0 cluster.self-heal-daemon on
+TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST $CLI volume set $V0 cluster.eager-lock off
 TEST $CLI volume set $V0 network.ping-timeout 20
 TEST $CLI volume set $V0 cluster.choose-local off
@@ -41,8 +42,11 @@ TEST $CLI volume set $V0 nfs.log-level DEBUG
 TEST $CLI volume start $V0
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
 
+# Make sure two children are up and one is down.
+EXPECT_WITHIN 10 "2 1" halo_sum_child_states 3
+
 # Write some data to the mount
-dd if=/dev/urandom of=$M0/test bs=1k count=200 conv=fsync
+TEST dd if=/dev/urandom of=$M0/test bs=1k count=200 conv=fsync
 
 KILL_IDX=$(cat /var/log/glusterfs/$M0LOG | grep "halo state: UP" | tail -n1 | grep -Eo "Child [0-9]+" | grep -Eo "[0-9]+")
 TEST [ -n "$KILL_IDX" ]
@@ -52,8 +56,12 @@ TEST [ -n "$KILL_IDX" ]
 UP_CHILDREN=($(echo "0 1 2" | sed "s/${KILL_IDX}//g"))
 UP1_HAS_TEST="$(ls $B0/${V0}${UP_CHILDREN[0]}/test 2>/dev/null)"
 UP2_HAS_TEST="$(ls $B0/${V0}${UP_CHILDREN[1]}/test 2>/dev/null)"
+VICTIM_HAS_TEST="$(ls $B0/${V0}${KILL_IDX}/test 2>/dev/null)"
 
-# Of the bricks which will remain standing, there is only a single
+# The victim brick should have a copy of the file.
+TEST [ -n "$VICTIM_HAS_TEST" ]
+
+# Of the bricks which will remain standing, there should be only one
 # brick which has the file called test.  If the both have the first
 # test file, the test is invalid as all the bricks are up and the
 # halo-max-replicas is not being honored; e.g. bug exists.

@@ -13,6 +13,7 @@
 #
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
+. $(dirname $0)/../halo.rc
 
 cleanup;
 
@@ -33,7 +34,7 @@ TEST $CLI volume set $V0 cluster.heal-timeout 5
 TEST $CLI volume set $V0 cluster.entry-self-heal on
 TEST $CLI volume set $V0 cluster.data-self-heal on
 TEST $CLI volume set $V0 cluster.metadata-self-heal on
-TEST $CLI volume set $V0 cluster.self-heal-daemon on
+TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST $CLI volume set $V0 cluster.eager-lock off
 TEST $CLI volume set $V0 diagnostics.client-log-level DEBUG
 TEST $CLI volume set $V0 diagnostics.brick-log-level DEBUG
@@ -46,13 +47,18 @@ TEST $CLI volume set $V0 network.ping-timeout 1000
 TEST $CLI volume set $V0 cluster.choose-local off
 TEST $CLI volume start $V0
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
-cd $M0
+
+# Make sure two children are up and one is down.
+EXPECT_WITHIN 10 "2 1" halo_sum_child_states 3
 
 # Write some data to the mount
 TEST dd if=/dev/urandom of=$M0/test bs=1k count=200 conv=fsync
 
 UP_IDX=$(cat /var/log/glusterfs/$M0LOG  | grep "halo state: UP" | tail -n1 | grep -Eo "Child [0-9]+" | grep -Eo "[0-9]+")
 TEST kill_brick $V0 $H0 $B0/${V0}${UP_IDX}
+
+# Make sure two children are down and one is up.
+EXPECT_WITHIN 10 "1 2" halo_sum_child_states 3
 
 # Test that quorum should fail and the mount is RO, the reason here
 # is that although there _is_ another brick running which _could_

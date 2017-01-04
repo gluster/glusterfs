@@ -1,0 +1,52 @@
+# Return the current Halo state of a given child (by index, i.e. 0
+# is first child).
+function halo_child_state {
+    grep "Child $1 .*halo state: " /var/log/glusterfs/$M0LOG |
+         tail -n1 | sed 's/^.* halo state: //' | sed 's/ .*$//'
+}
+
+# Return number of Halo children which are in a given state.
+# First parameter is total # children.
+# Second parameter is state to match (e.g. "UP").
+function halo_children_in_state {
+    local CHILD_COUNT=$1
+    local SUM=0
+    for CHILD in $(seq 0 $((CHILD_COUNT-1))); do
+        if [ x"$(halo_child_state $CHILD)" == x"$2" ]; then
+            SUM=$((SUM+1))
+        fi
+    done
+    echo $SUM
+}
+
+# Return number of up halo children,
+# First parameter is total # children,
+function halo_children_up {
+    echo $(halo_children_in_state $1 "UP")
+}
+
+# Return number of down halo children,
+# First parameter is total # children,
+function halo_children_down {
+    echo $(halo_children_in_state $1 "DOWN")
+}
+
+# Return number of up & down halo children.
+# First parameter is total number of children.
+function halo_sum_child_states {
+    local CHILD_COUNT=$1
+
+    local UP=0
+    local DOWN=0
+
+    for CHILD in $(seq 0 $((CHILD_COUNT-1))); do
+        local STATE=$(halo_child_state $CHILD)
+        if [ x"$STATE" == x"UP" ]; then
+            UP=$((UP+1))
+        elif [ x"$STATE" == x"DOWN" ]; then
+            DOWN=$((DOWN+1))
+        fi
+    done
+
+    echo "$UP $DOWN"
+}
