@@ -850,7 +850,6 @@ gf_svc_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
                         if (ret) {
                                 op_errno = ENOMEM;
-                                dict_unref (dict);
                                 goto out;
                         }
 
