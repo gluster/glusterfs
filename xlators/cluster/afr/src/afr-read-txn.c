@@ -201,6 +201,7 @@ afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 	local->readfn = readfn;
 	local->inode = inode_ref (inode);
+        local->is_read_txn = _gf_true;
 
         if (priv->quorum_reads &&
             priv->quorum_count && !afr_has_quorum (priv->child_up, this)) {

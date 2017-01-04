@@ -782,6 +782,7 @@ typedef struct _afr_local {
         call_frame_t *heal_frame;
 
         gf_boolean_t need_full_crawl;
+        gf_boolean_t is_read_txn;
 } afr_local_t;
 
 
