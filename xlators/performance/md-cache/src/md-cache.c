@@ -2644,8 +2644,8 @@ mdc_invalidate (xlator_t *this, void *data)
                 goto out;
         }
 
-        if ((up_ci->flags & (UP_NLINK | UP_RENAME_FLAGS | UP_FORGET)) ||
-            (up_ci->dict && dict_get (up_ci->dict, MDC_INVALIDATE_IATT))) {
+        if (up_ci->flags &
+            (UP_NLINK | UP_RENAME_FLAGS | UP_FORGET | UP_INVAL_ATTR)) {
                 mdc_inode_iatt_invalidate (this, inode);
                 mdc_inode_xatt_invalidate (this, inode);
                 INCREMENT_ATOMIC (conf->mdc_counter.lock,

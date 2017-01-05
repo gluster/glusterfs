@@ -11,6 +11,7 @@
 #include "defaults.h"
 #include "statedump.h"
 #include "compat-errno.h"
+#include "upcall-utils.h"
 
 #include "ec.h"
 #include "ec-messages.h"
@@ -472,9 +473,20 @@ ec_notify (xlator_t *this, int32_t event, void *data, void *data2)
         dict_t            *output   = NULL;
         gf_boolean_t      propagate = _gf_true;
         int32_t           orig_event = event;
+        struct gf_upcall *up_data   = NULL;
+        struct gf_upcall_cache_invalidation *up_ci = NULL;
 
         gf_msg_trace (this->name, 0, "NOTIFY(%d): %p, %p",
                 event, data, data2);
+
+        if (event == GF_EVENT_UPCALL) {
+                up_data = (struct gf_upcall *)data;
+                if (up_data->event_type == GF_UPCALL_CACHE_INVALIDATION) {
+                        up_ci = (struct gf_upcall_cache_invalidation *)up_data->data;
+                        up_ci->flags |= UP_INVAL_ATTR;
+                }
+                goto done;
+        }
 
         if (event == GF_EVENT_TRANSLATOR_OP) {
                 if (!ec->up) {
@@ -542,6 +554,7 @@ ec_notify (xlator_t *this, int32_t event, void *data, void *data2)
 unlock:
         UNLOCK (&ec->lock);
 
+done:
         if (propagate) {
                 error = default_notify (this, event, data);
         }

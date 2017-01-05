@@ -4807,8 +4807,7 @@ afr_notify (xlator_t *this, int32_t event,
                                 break;
                         for (i = 0; i < priv->child_count; i++) {
                                 if (dict_get (up_ci->dict, priv->pending_key[i])) {
-                                         ret = dict_set_int8 (up_ci->dict,
-                                                              MDC_INVALIDATE_IATT, 0);
+                                         up_ci->flags |= UP_INVAL_ATTR;
                                          itable = ((xlator_t *)this->graph->top)->itable;
                                          /*Internal processes may not have itable for top xlator*/
                                          if (itable)
