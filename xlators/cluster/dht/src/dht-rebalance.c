@@ -2441,7 +2441,7 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
                      loc_t *loc, dht_conf_t *conf, gf_defrag_info_t *defrag,
                      fd_t *fd, dict_t *migrate_data,
                      struct dir_dfmeta *dir_dfmeta, dict_t *xattr_req,
-                     int *should_commit_hash)
+                     int *should_commit_hash, int *perrno)
 {
         int                     ret             = -1;
         char                    is_linkfile     = 0;
@@ -2452,7 +2452,6 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
         struct dht_container   *tmp_container   = NULL;
         xlator_t               *hashed_subvol   = NULL;
         xlator_t               *cached_subvol   = NULL;
-        int                     fop_errno       = 0;
 
         if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
                 ret = -1;
@@ -2480,7 +2479,7 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
                                 DHT_MSG_MIGRATE_DATA_FAILED,
                                 "Readdirp failed. Aborting data migration for "
                                 "directory: %s", loc->path);
-                        fop_errno = -ret;
+                        *perrno = -ret;
                         ret = -1;
                         goto out;
                 }
@@ -2737,13 +2736,12 @@ out:
                 dict_unref (xattr_rsp);
 
 
-        errno = fop_errno;
         return ret;
 }
 
 int
 gf_defrag_process_dir (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
-                       dict_t *migrate_data)
+                       dict_t *migrate_data, int *perrno)
 {
         int                      ret               = -1;
         fd_t                    *fd                = NULL;
@@ -2763,7 +2761,6 @@ gf_defrag_process_dir (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         int                      throttle_up       = 0;
         struct dir_dfmeta       *dir_dfmeta        = NULL;
         int                      should_commit_hash = 1;
-        int                      fop_errno         = 0;
 
         gf_log (this->name, GF_LOG_INFO, "migrate data called on %s",
                 loc->path);
@@ -2790,7 +2787,7 @@ gf_defrag_process_dir (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                         DHT_MSG_MIGRATE_DATA_FAILED,
                         "Migrate data failed: Failed to open dir %s",
                         loc->path);
-                fop_errno = -ret;
+                *perrno = -ret;
                 ret = -1;
                 goto out;
         }
@@ -2936,11 +2933,10 @@ gf_defrag_process_dir (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                                    loc, conf, defrag, fd,
                                                    migrate_data, dir_dfmeta,
                                                    xattr_req,
-                                                   &should_commit_hash);
+                                                   &should_commit_hash, perrno);
 
                         if (ret) {
-                                fop_errno = errno;
-                                gf_log ("this->name", GF_LOG_WARNING, "Found "
+                                gf_log (this->name, GF_LOG_WARNING, "Found "
                                         "error from gf_defrag_get_entry");
 
                                 ret = -1;
@@ -3000,7 +2996,6 @@ out:
                 ret = 2;
         }
 
-        errno = fop_errno;
         return ret;
 }
 int
@@ -3186,6 +3181,7 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         inode_t                 *linked_inode   = NULL, *inode = NULL;
         dht_conf_t              *conf           = NULL;
         int                      should_commit_hash = 1;
+        int                      perrno         = 0;
 
         conf = this->private;
         if (!conf) {
@@ -3206,7 +3202,7 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                 }
 
                 if (-ret == ENOENT || -ret == ESTALE) {
-                        gf_msg (this->name, GF_LOG_INFO, errno,
+                        gf_msg (this->name, GF_LOG_INFO, -ret,
                                 DHT_MSG_DIR_LOOKUP_FAILED,
                                 "Dir:%s renamed or removed. Skipping",
                                 loc->path);
@@ -3224,10 +3220,11 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
         if ((defrag->cmd != GF_DEFRAG_CMD_START_TIER) &&
             (defrag->cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX)) {
-                ret = gf_defrag_process_dir (this, defrag, loc, migrate_data);
+                ret = gf_defrag_process_dir (this, defrag, loc, migrate_data,
+                                             &perrno);
 
-                if (ret && ret != 2) {
-                        if (errno == ENOENT || errno == ESTALE) {
+                if (ret && (ret != 2)) {
+                        if (perrno == ENOENT || perrno == ESTALE) {
                                 ret = 0;
                                 goto out;
                         } else {
@@ -3382,7 +3379,7 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                              NULL, NULL);
                         if (ret) {
                                 if (-ret == ENOENT || -ret == ESTALE) {
-                                        gf_msg (this->name, GF_LOG_INFO, errno,
+                                        gf_msg (this->name, GF_LOG_INFO, -ret,
                                                 DHT_MSG_DIR_LOOKUP_FAILED,
                                                 "Dir:%s renamed or removed. "
                                                 "Skipping", loc->path);
