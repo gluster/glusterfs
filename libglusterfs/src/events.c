@@ -17,7 +17,6 @@
 #include <stdarg.h>
 #include <string.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
 #include <netdb.h>
 
 #include "syscall.h"
@@ -41,8 +40,9 @@ _gf_event (eventtypes_t event, char *fmt, ...)
         va_list            arguments;
         char              *msg                   = NULL;
         glusterfs_ctx_t   *ctx                   = NULL;
-        struct hostent    *host_data;
         char              *host                  = NULL;
+        struct addrinfo    hints;
+        struct addrinfo   *result                = NULL;
 
         /* Global context */
         ctx = THIS->ctx;
@@ -59,19 +59,26 @@ _gf_event (eventtypes_t event, char *fmt, ...)
                 goto out;
         }
 
+        memset (&hints, 0, sizeof (hints));
+        hints.ai_family = AF_UNSPEC;
+
         /* Get Host name to send message */
         if (ctx && ctx->cmd_args.volfile_server) {
                 /* If it is client code then volfile_server is set
                    use that information to push the events. */
-                host_data = gethostbyname (ctx->cmd_args.volfile_server);
-                if (host_data == NULL) {
+                if ((getaddrinfo (ctx->cmd_args.volfile_server,
+                                  NULL, &hints, &result)) != 0) {
                         ret = EVENT_ERROR_RESOLVE;
                         goto out;
                 }
-                host = inet_ntoa (*(struct in_addr *)(host_data->h_addr));
+
+                if (get_ip_from_addrinfo (result, &host) == NULL) {
+                        ret = EVENT_ERROR_RESOLVE;
+                        goto out;
+                }
         } else {
                 /* Localhost, Use the defined IP for localhost */
-                host = EVENT_HOST;
+                host = gf_strdup (EVENT_HOST);
         }
 
         /* Socket Configurations */
@@ -117,6 +124,12 @@ _gf_event (eventtypes_t event, char *fmt, ...)
         /* Allocated by gf_asprintf */
         if (eventstr)
                 GF_FREE (eventstr);
+
+        if (host)
+                GF_FREE (host);
+
+        if (result)
+                freeaddrinfo (result);
 
         return ret;
 }

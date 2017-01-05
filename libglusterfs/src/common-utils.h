@@ -868,4 +868,8 @@ gf_bits_index (uint64_t n);
 
 const char*
 gf_fop_string (glusterfs_fop_t fop);
+
+char *
+get_ip_from_addrinfo (struct addrinfo *addr, char **ip);
+
 #endif /* _COMMON_UTILS_H */
