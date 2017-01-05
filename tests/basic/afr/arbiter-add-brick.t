@@ -10,6 +10,7 @@ TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1}
 TEST $CLI volume set $V0 performance.stat-prefetch off
 TEST $CLI volume start $V0
+TEST $CLI volume set $V0 self-heal-daemon off
 TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M0;
 TEST mkdir  $M0/dir1
 TEST dd if=/dev/urandom of=$M0/file1 bs=1024 count=1
@@ -20,21 +21,24 @@ TEST mkdir $M0/dir2
 TEST dd if=/dev/urandom of=$M0/file1 bs=1024 count=1024
 
 
+#convert replica 2 to arbiter volume
+TEST $CLI volume start $V0 force
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}1
+
 #syntax check for add-brick.
 TEST ! $CLI volume add-brick $V0 replica 2 arbiter 1 $H0:$B0/${V0}2
 TEST ! $CLI volume add-brick $V0 replica 3 arbiter 2 $H0:$B0/${V0}2
 
-#convert replica 2 to arbiter volume
 TEST $CLI volume add-brick $V0 replica 3 arbiter 1 $H0:$B0/${V0}2
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}2
 
 #Heal files
-TEST $CLI volume start $V0 force
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}1
+TEST $CLI volume set $V0 self-heal-daemon on
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 2
+TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 
 #Perform I/O after add-brick
