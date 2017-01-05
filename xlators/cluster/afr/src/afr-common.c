@@ -4452,6 +4452,17 @@ find_worst_up_child (xlator_t *this)
         return worst_child;
 }
 
+static const char *halo_state_str(int i)
+{
+    switch (i) {
+    case 0: return "DOWN";
+    case 1: return "UP";
+    }
+
+    return "unknown";
+}
+
+
 static void dump_halo_states (xlator_t *this) {
         afr_private_t   *priv               = NULL;
         int             i                   = -1;
@@ -4463,14 +4474,12 @@ static void dump_halo_states (xlator_t *this) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "Child %d halo state: %s (N/A)",
                                 i,
-                                priv->child_up[i] ? CHILD_UP_STR :
-                                                    CHILD_DOWN_STR);
+                                halo_state_str(priv->child_up[i]));
                  } else {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "Child %d halo state: %s (%"PRIi64" ms)",
                                 i,
-                                priv->child_up[i] ? CHILD_UP_STR :
-                                                    CHILD_DOWN_STR,
+                                halo_state_str(priv->child_up[i]),
                                 priv->child_latency[i]);
                 }
         }
@@ -4509,6 +4518,16 @@ _afr_handle_ping_event (xlator_t *this, xlator_t *child_xlator,
                         " < %d), halo in-active.",
                         latency_samples, priv->halo_min_samples);
         }
+
+        gf_log (this->name, GF_LOG_DEBUG,
+                "ping: child %u (%s) latency %"PRIu64" ms (max %"PRIu64" ms)"
+                " up_count %d (min %d) enabled %s",
+                idx, child_xlator ? child_xlator->name : "<null>",
+                *child_latency_msec,
+                halo_max_latency_msec,
+                up_children,
+                priv->halo_min_replicas,
+                child_halo_enabled ? "true" : "false");
 
         /*
          * Case 1: This child's latency exceeds the maximum allowable
@@ -4648,7 +4667,7 @@ _afr_handle_child_up_event (xlator_t *this, xlator_t *child_xlator,
                         goto out;
                 }
         }
-        if (child_halo_enabled == _gf_true &&
+        if (priv->halo_enabled &&
             up_children > priv->halo_max_replicas &&
             !priv->shd.iamshd) {
                 if (was_down == _gf_true)
