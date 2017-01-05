@@ -1724,6 +1724,25 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 }
         }
 
+        if (volinfo->replica_count < replica_count) {
+                cds_list_for_each_entry (brickinfo, &volinfo->bricks,
+                                         brick_list) {
+                        if (gf_uuid_compare (brickinfo->uuid, MY_UUID))
+                                continue;
+                        if (brickinfo->status == GF_BRICK_STOPPED) {
+                                ret = -1;
+                                snprintf (msg, sizeof (msg), "Brick %s is down,"
+                                          " changing replica count needs all "
+                                          "the bricks to be up to avoid data "
+                                          "loss", brickinfo->path);
+                                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_BRICK_ADD_FAIL, "%s", msg);
+                                *op_errstr = gf_strdup (msg);
+                                goto out;
+                        }
+                }
+        }
+
         if (conf->op_version > GD_OP_VERSION_3_7_5 &&
             is_origin_glusterd (dict)) {
                 ret = glusterd_validate_quorum (this, GD_OP_ADD_BRICK, dict,
