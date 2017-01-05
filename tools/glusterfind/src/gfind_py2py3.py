@@ -40,6 +40,19 @@ if sys.version_info >= (3,):
     def gfind_history_changelog_done(libgfc, clfile):
         return libgfc.gf_history_changelog_done(clfile.encode())
 
+    def gfind_write_row(f, row, field_separator, p_rep, row_2_rep):
+        f.write(u"{0}{1}{2}{3}{4}\n".format(row,
+                                            field_separator,
+                                            p_rep,
+                                            field_separator,
+                                            row_2_rep))
+
+    def gfind_write(f, row, field_separator, p_rep):
+        f.write(u"{0}{1}{2}\n".format(row,
+                                      field_separator,
+                                      p_rep))
+
+
 else:
 
     # Raw conversion of bytearray to string
@@ -61,3 +74,15 @@ else:
 
     def gfind_history_changelog_done(libgfc, clfile):
         return libgfc.gf_history_changelog_done(clfile)
+
+    def gfind_write_row(f, row, field_separator, p_rep, row_2_rep):
+        f.write(u"{0}{1}{2}{3}{4}\n".format(row,
+                                            field_separator,
+                                            p_rep,
+                                            field_separator,
+                                            row_2_rep).encode())
+
+    def gfind_write(f, row, field_separator, p_rep):
+        f.write(u"{0}{1}{2}\n".format(row,
+                                      field_separator,
+                                      p_rep).encode())
