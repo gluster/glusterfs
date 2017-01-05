@@ -2427,7 +2427,6 @@ socket_poller (void *ctx)
          * conditionally
          */
         THIS = this->xl;
-        GF_REF_GET (priv);
 
         if (priv->ot_state == OT_PLEASE_DIE) {
                 gf_log (this->name, GF_LOG_DEBUG, "socket_poller is exiting "
@@ -2619,6 +2618,8 @@ socket_spawn (rpc_transport_t *this)
         priv->ot_state = OT_SPAWNING;
         gf_log (this->name, GF_LOG_TRACE,
                 "spawning %p with gen %u", this, priv->ot_gen);
+
+        GF_REF_GET (priv);
 
         /* Create thread after enable detach flag */
 
@@ -2877,9 +2878,10 @@ socket_disconnect (rpc_transport_t *this, gf_boolean_t wait)
         priv = this->private;
 
         if (wait && priv->own_thread) {
+                GF_REF_PUT (priv);
+
                 pthread_mutex_lock (&priv->cond_lock);
                 {
-                        GF_REF_PUT (priv);
                         /* Change the state to OT_PLEASE_DIE so that
                          * socket_poller can exit. */
                         priv->ot_state = OT_PLEASE_DIE;
