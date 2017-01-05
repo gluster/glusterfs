@@ -16,6 +16,7 @@ from multiprocessing import Process
 import os
 import xml.etree.cElementTree as etree
 from argparse import ArgumentParser, RawDescriptionHelpFormatter, Action
+from gfind_py2py3 import gfind_write_row, gfind_write
 import logging
 import shutil
 import tempfile
@@ -35,9 +36,9 @@ GlusterFS Incremental API
 ParseError = etree.ParseError if hasattr(etree, 'ParseError') else SyntaxError
 
 logger = logging.getLogger()
-node_outfiles = []
 vol_statusStr = ""
 gtmpfilename = None
+g_pid_nodefile_map = {}
 
 
 class StoreAbsPath(Action):
@@ -111,7 +112,7 @@ def node_cmd(host, host_uuid, task, cmd, args, opts):
 
 
 def run_cmd_nodes(task, args, **kwargs):
-    global node_outfiles
+    global g_pid_nodefile_map
     nodes = get_nodes(args.volume)
     pool = []
     for num, node in enumerate(nodes):
@@ -142,7 +143,6 @@ def run_cmd_nodes(task, args, **kwargs):
                 if tag == "":
                     tag = '""' if not is_host_local(host_uuid) else ""
 
-            node_outfiles.append(node_outfile)
             # remote file will be copied into this directory
             mkdirp(os.path.dirname(node_outfile),
                    exit_on_err=True, logger=logger)
@@ -180,7 +180,6 @@ def run_cmd_nodes(task, args, **kwargs):
                 if tag == "":
                     tag = '""' if not is_host_local(host_uuid) else ""
 
-            node_outfiles.append(node_outfile)
             # remote file will be copied into this directory
             mkdirp(os.path.dirname(node_outfile),
                    exit_on_err=True, logger=logger)
@@ -264,6 +263,7 @@ def run_cmd_nodes(task, args, **kwargs):
                         args=(host, host_uuid, task, cmd, args, opts))
             p.start()
             pool.append(p)
+            g_pid_nodefile_map[p.pid] = node_outfile
 
     for num, p in enumerate(pool):
         p.join()
@@ -271,8 +271,11 @@ def run_cmd_nodes(task, args, **kwargs):
             logger.warn("Command %s failed in %s" % (task, nodes[num][1]))
             if task in ["create", "delete"]:
                 fail("Command %s failed in %s" % (task, nodes[num][1]))
-            elif task == "pre" and args.disable_partial:
-                sys.exit(1)
+            elif task == "pre" or task == "query":
+                if args.disable_partial:
+                    sys.exit(1)
+                else:
+                    del g_pid_nodefile_map[p.pid]
 
 
 @cache_output
@@ -512,16 +515,10 @@ def write_output(outfile, outfilemerger, field_separator):
                     continue
 
                 if row_2_rep and row_2_rep != "":
-                    f.write(u"{0}{1}{2}{3}{4}\n".format(row[0],
-                                                        field_separator,
-                                                        p_rep,
-                                                        field_separator,
-                                                        row_2_rep).encode())
-                else:
-                    f.write(u"{0}{1}{2}\n".format(row[0],
-                                                  field_separator,
-                                                  p_rep).encode())
+                    gfind_write_row(f, row[0], field_separator, p_rep, field_separator, row_2_rep)
 
+                else:
+                    gfind_write(f, row[0], field_separator, p_rep)
 
 def mode_create(session_dir, args):
     logger.debug("Init is called - Session: %s, Volume: %s"
@@ -571,6 +568,7 @@ def mode_create(session_dir, args):
 
 def mode_query(session_dir, args):
     global gtmpfilename
+    global g_pid_nodefile_map
 
     # Verify volume status
     cmd = ["gluster", 'volume', 'info', args.volume, "--xml"]
@@ -634,14 +632,20 @@ def mode_query(session_dir, args):
 
     # Merger
     if args.full:
-        cmd = ["sort", "-u"] + node_outfiles + ["-o", args.outfile]
-        execute(cmd,
-                exit_msg="Failed to merge output files "
-                "collected from nodes", logger=logger)
+        if len(g_pid_nodefile_map) > 0:
+            cmd = ["sort", "-u"] + g_pid_nodefile_map.values() + \
+                  ["-o", args.outfile]
+            execute(cmd,
+                    exit_msg="Failed to merge output files "
+                    "collected from nodes", logger=logger)
+        else:
+            fail("Failed to collect any output files from peers. "
+                 "Looks like all bricks are offline.", logger=logger)
     else:
         # Read each Changelogs db and generate finaldb
         create_file(args.outfile, exit_on_err=True, logger=logger)
-        outfilemerger = OutputMerger(args.outfile + ".db", node_outfiles)
+        outfilemerger = OutputMerger(args.outfile + ".db",
+                                     g_pid_nodefile_map.values())
         write_output(args.outfile, outfilemerger, args.field_separator)
 
     try:
@@ -656,6 +660,7 @@ def mode_query(session_dir, args):
 
 def mode_pre(session_dir, args):
     global gtmpfilename
+    global g_pid_nodefile_map
 
     """
     Read from Session file and write to session.pre file
@@ -696,14 +701,20 @@ def mode_pre(session_dir, args):
 
     # Merger
     if args.full:
-        cmd = ["sort", "-u"] + node_outfiles + ["-o", args.outfile]
-        execute(cmd,
-                exit_msg="Failed to merge output files "
-                "collected from nodes", logger=logger)
+        if len(g_pid_nodefile_map) > 0:
+            cmd = ["sort", "-u"] + g_pid_nodefile_map.values() + \
+                  ["-o", args.outfile]
+            execute(cmd,
+                    exit_msg="Failed to merge output files "
+                    "collected from nodes", logger=logger)
+        else:
+            fail("Failed to collect any output files from peers. "
+                 "Looks like all bricks are offline.", logger=logger)
     else:
         # Read each Changelogs db and generate finaldb
         create_file(args.outfile, exit_on_err=True, logger=logger)
-        outfilemerger = OutputMerger(args.outfile + ".db", node_outfiles)
+        outfilemerger = OutputMerger(args.outfile + ".db",
+                                     g_pid_nodefile_map.values())
         write_output(args.outfile, outfilemerger, args.field_separator)
 
     try:
