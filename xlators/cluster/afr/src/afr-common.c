@@ -936,7 +936,7 @@ afr_replies_interpret (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 	for (i = 0; i < priv->child_count; i++) {
                 if (start_heal && priv->child_up[i] &&
-                    (!data_readable[i] || !metadata_readable[i])) {
+                    (data_accused[i] || metadata_accused[i])) {
                         *start_heal = _gf_true;
                         break;
                 }
@@ -1026,7 +1026,10 @@ afr_inode_refresh_done (call_frame_t *frame, xlator_t *this)
                 }
                 heal_local->refreshinode = inode_ref (local->refreshinode);
                 heal_local->heal_frame = heal_frame;
-                afr_throttled_selfheal (heal_frame, this);
+                if (!afr_throttled_selfheal (heal_frame, this)) {
+                        AFR_STACK_DESTROY (heal_frame);
+                        goto refresh_done;
+                }
         }
 
 refresh_done:
@@ -5170,7 +5173,6 @@ out:
 int
 afr_transaction_local_init (afr_local_t *local, xlator_t *this)
 {
-        int            child_up_count = 0;
         int            ret = -ENOMEM;
         afr_private_t *priv = NULL;
 
@@ -5189,10 +5191,6 @@ afr_transaction_local_init (afr_local_t *local, xlator_t *this)
         }
 
         ret = -ENOMEM;
-        child_up_count = AFR_COUNT (local->child_up, priv->child_count);
-        if (priv->optimistic_change_log && child_up_count == priv->child_count)
-                local->optimistic_change_log = 1;
-
 	local->pre_op_compat = priv->pre_op_compat;
 
         local->transaction.eager_lock =

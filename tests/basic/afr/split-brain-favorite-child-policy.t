@@ -42,8 +42,15 @@ TEST $CLI volume heal $V0
 cat $M0/file > /dev/null
 EXPECT "1" echo $?
 
-#We know that the first brick has latest ctime.
-LATEST_CTIME_MD5=$(md5sum $B0/${V0}0/file | cut -d\  -f1)
+# Umount to prevent further FOPS on the file, then find the brick with latest ctime.
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
+ctime1=`stat -c "%.Z"  $B0/${V0}0/file`
+ctime2=`stat -c "%.Z"  $B0/${V0}1/file`
+if (( $(echo "$ctime1 > $ctime2" | bc -l) )); then
+        LATEST_CTIME_MD5=$(md5sum $B0/${V0}0/file | cut -d\  -f1)
+else
+        LATEST_CTIME_MD5=$(md5sum $B0/${V0}1/file | cut -d\  -f1)
+fi
 TEST $CLI volume set $V0 cluster.favorite-child-policy ctime
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
@@ -51,10 +58,13 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count $V0
+B0_MD5=$(md5sum $B0/${V0}0/file | cut -d\  -f1)
+B1_MD5=$(md5sum $B0/${V0}1/file | cut -d\  -f1)
+TEST [ "$LATEST_CTIME_MD5" == "$B0_MD5" ]
+TEST [ "$LATEST_CTIME_MD5" == "$B1_MD5" ]
+TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
 cat $M0/file > /dev/null
 EXPECT "0" echo $?
-HEALED_MD5=$(md5sum $B0/${V0}1/file | cut -d\  -f1)
-TEST [ "$LATEST_CTIME_MD5" == "$HEALED_MD5" ]
 
 ############ Healing using favorite-child-policy = mtime #################
 TEST $CLI volume set $V0 cluster.favorite-child-policy none

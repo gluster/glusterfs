@@ -1985,7 +1985,7 @@ afr_heal_synctask (xlator_t *this, afr_local_t *local)
                 afr_refresh_heal_done (ret, heal_frame, heal_frame);
 }
 
-void
+gf_boolean_t
 afr_throttled_selfheal (call_frame_t *frame, xlator_t *this)
 {
         gf_boolean_t can_heal = _gf_true;
@@ -2013,6 +2013,8 @@ afr_throttled_selfheal (call_frame_t *frame, xlator_t *this)
                         gf_msg_debug (this->name, 0, "Max number of heals are "
                                       "pending, background self-heal rejected.");
         }
+
+        return can_heal;
 }
 
 int

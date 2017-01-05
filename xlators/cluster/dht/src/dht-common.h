@@ -550,6 +550,7 @@ struct dht_conf {
         /* lock migration */
 
         gf_boolean_t    lock_migration_enabled;
+        gf_lock_t       lock;
 
         /* du stats */
         uint32_t       du_refresh_interval_sec;

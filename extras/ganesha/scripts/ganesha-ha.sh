@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2015 Red Hat Inc.  All Rights Reserved
+# Copyright 2015-2016 Red Hat Inc.  All Rights Reserved
 #
 # Pacemaker+Corosync High Availability for NFS-Ganesha
 #
@@ -74,13 +74,14 @@ GANESHA_CONF=${CONFFILE:-/etc/ganesha/ganesha.conf}
 
 usage() {
 
-        echo "Usage      : add|delete|status"
-        echo "Add-node   : ganesha-ha.sh --add <HA_CONF_DIR>  \
+        echo "Usage      : add|delete|refresh-config|status"
+        echo "Add-node   : ganesha-ha.sh --add <HA_CONF_DIR> \
 <NODE-HOSTNAME>  <NODE-VIP>"
-        echo "Delete-node: ganesha-ha.sh --delete <HA_CONF_DIR>  \
+        echo "Delete-node: ganesha-ha.sh --delete <HA_CONF_DIR> \
 <NODE-HOSTNAME>"
-        echo "Refresh-config : ganesha-ha.sh --refresh-config <HA_CONFDIR>\
- <volume>"
+        echo "Refresh-config : ganesha-ha.sh --refresh-config <HA_CONFDIR> \
+<volume>"
+        echo "Status : ganesha-ha.sh --status <HA_CONFDIR>"
 }
 
 determine_service_manager () {
@@ -139,7 +140,7 @@ determine_servers()
     local tmp_ifs=${IFS}
     local ha_servers=""
 
-    if [[ "X${cmd}X" != "XsetupX" ]]; then
+    if [ "X${cmd}X" != "XsetupX" -a "X${cmd}X" != "XstatusX" ]; then
         ha_servers=$(pcs status | grep "Online:" | grep -o '\[.*\]' | sed -e 's/\[//' | sed -e 's/\]//')
         IFS=$' '
         for server in ${ha_servers} ; do
@@ -166,12 +167,14 @@ setup_cluster()
     local num_servers=${2}
     local servers=${3}
     local unclean=""
+    local quorum_policy="stop"
+
 
     logger "setting up cluster ${name} with the following ${servers}"
 
     pcs cluster auth ${servers}
     # pcs cluster setup --name ${name} ${servers}
-    pcs cluster setup ${RHEL6_PCS_CNAME_OPTION} ${name} ${servers}
+    pcs cluster setup ${RHEL6_PCS_CNAME_OPTION} ${name} --transport udpu ${servers}
     if [ $? -ne 0 ]; then
         logger "pcs cluster setup ${RHEL6_PCS_CNAME_OPTION} ${name} ${servers} failed"
         exit 1;
@@ -198,10 +201,11 @@ setup_cluster()
     sleep 1
 
     if [ ${num_servers} -lt 3 ]; then
-        pcs property set no-quorum-policy=ignore
-        if [ $? -ne 0 ]; then
-            logger "warning: pcs property set no-quorum-policy=ignore failed"
-        fi
+        quorum_policy="ignore"
+    fi
+    pcs property set no-quorum-policy=${quorum_policy}
+    if [ $? -ne 0 ]; then
+        logger "warning: pcs property set no-quorum-policy=${quorum_policy} failed"
     fi
 
     pcs property set stonith-enabled=false
@@ -261,7 +265,7 @@ ${tganesha_vol_conf}
         while [[ ${3} ]]; do
             current_host=`echo ${3} | cut -d "." -f 1`
             if [ ${short_host} != ${current_host} ]; then
-                removed_id=$(ssh -oPasswordAuthentication=no \
+              removed_id=$(ssh -oPasswordAuthentication=no \
 -oStrictHostKeyChecking=no -i ${SECRET_PEM} root@${current_host} \
 "cat $HA_CONFDIR/exports/export.$VOL.conf |\
 grep Export_Id | awk -F\"[=,;]\" '{print \$2}' | tr -d '[[:space:]]'")
@@ -291,7 +295,7 @@ ${current_host}:${HA_CONFDIR}/exports/export.$VOL.conf
 "dbus-send --print-reply --system --dest=org.ganesha.nfsd \
 /org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.AddExport \
 string:$HA_CONFDIR/exports/export.$VOL.conf \
-string:\"EXPORT(Path=/$VOL)\" 2>&1")
+string:\"EXPORT(Path=/$removed_id)\" 2>&1")
                 ret=$?
                 logger <<< "${output}"
                 if [ ${ret} -ne 0 ]; then
@@ -325,7 +329,7 @@ uint16:$removed_id 2>&1)
         output=$(dbus-send --print-reply --system --dest=org.ganesha.nfsd \
 /org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.AddExport \
 string:$HA_CONFDIR/exports/export.$VOL.conf \
-string:"EXPORT(Path=/$VOL)" 2>&1)
+string:"EXPORT(Path=/$removed_id)" 2>&1)
         ret=$?
         logger <<< "${output}"
         if [ ${ret} -ne 0 ] ; then
@@ -416,12 +420,13 @@ teardown_cluster()
 
 cleanup_ganesha_config ()
 {
-       rm -rf ${HA_CONFDIR}/exports/*.conf
-       rm -rf ${HA_CONFDIR}/.export_added
-       rm -rf /etc/cluster/cluster.conf*
-       rm -rf /var/lib/pacemaker/cib/*
-       sed -r -i -e '/^%include[[:space:]]+".+\.conf"$/d' ${GANESHA_CONF}
-       rm -rf ${HA_VOL_MNT}/nfs-ganesha
+    rm -rf ${HA_CONFDIR}/exports/*.conf
+    rm -rf ${HA_CONFDIR}/.export_added
+    rm -rf /etc/cluster/cluster.conf*
+    rm -rf /var/lib/pacemaker/cib/*
+    rm -f /etc/corosync/corosync.conf
+    sed -r -i -e '/^%include[[:space:]]+".+\.conf"$/d' ${GANESHA_CONF}
+    rm -rf ${HA_VOL_MNT}/nfs-ganesha
 }
 
 do_create_virt_ip_constraints()
@@ -807,27 +812,148 @@ setup_state_volume()
 }
 
 
+addnode_state_volume()
+{
+    local newnode=${1}; shift
+    local mnt=${HA_VOL_MNT}
+    local longname=""
+    local dname=""
+    local dirname=""
+
+    longname=$(hostname)
+    dname=${longname#$(hostname -s)}
+
+    if [[ ${newnode} == *${dname} ]]; then
+        dirname=${newnode}
+    else
+        dirname=${newnode}${dname}
+    fi
+
+    if [ ! -d ${mnt}/nfs-ganesha/${dirname} ]; then
+        mkdir ${mnt}/nfs-ganesha/${dirname}
+    fi
+    if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs ]; then
+        mkdir ${mnt}/nfs-ganesha/${dirname}/nfs
+    fi
+    if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha ]; then
+        mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha
+    fi
+    if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/statd ]; then
+        mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/statd
+    fi
+    if [ ! -e ${mnt}/nfs-ganesha/${dirname}/nfs/state ]; then
+        touch ${mnt}/nfs-ganesha/${dirname}/nfs/state
+    fi
+    if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/v4recov ]; then
+        mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/v4recov
+    fi
+    if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/v4old ]; then
+        mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/v4old
+    fi
+    if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm ]; then
+        mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm
+    fi
+    if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm.bak ]; then
+        mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm.bak
+    fi
+    if [ ! -e ${mnt}/nfs-ganesha/${dirname}/nfs/statd/state ]; then
+        touch ${mnt}/nfs-ganesha/${dirname}/nfs/statd/state
+    fi
+
+    for server in ${HA_SERVERS} ; do
+        if [[ ${server} != ${dirname} ]]; then
+            ln -s ${mnt}/nfs-ganesha/${server}/nfs/ganesha ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/${server}
+            ln -s ${mnt}/nfs-ganesha/${server}/nfs/statd ${mnt}/nfs-ganesha/${dirname}/nfs/statd/${server}
+
+            ln -s ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha ${mnt}/nfs-ganesha/${server}/nfs/ganesha/${dirname}
+            ln -s ${mnt}/nfs-ganesha/${dirname}/nfs/statd ${mnt}/nfs-ganesha/${server}/nfs/statd/${dirname}
+        fi
+    done
+
+}
+
+
+delnode_state_volume()
+{
+    local delnode=${1}; shift
+    local mnt=${HA_VOL_MNT}
+    local longname=""
+    local dname=""
+    local dirname=""
+
+    longname=$(hostname)
+    dname=${longname#$(hostname -s)}
+
+    if [[ ${delnode} == *${dname} ]]; then
+        dirname=${delnode}
+    else
+        dirname=${delnode}${dname}
+    fi
+
+    rm -rf ${mnt}/nfs-ganesha/${dirname}
+
+    for server in ${HA_SERVERS} ; do
+        if [[ "${server}" != "${dirname}" ]]; then
+            rm -f ${mnt}/nfs-ganesha/${server}/nfs/ganesha/${dirname}
+            rm -f ${mnt}/nfs-ganesha/${server}/nfs/statd/${dirname}
+        fi
+    done
+}
+
+
 status()
 {
-    local regex_str="^ ${1}"; shift
-    local status_file=$(mktemp)
+    local scratch=$(mktemp)
+    local regex_str="^${1}-cluster_ip-1"
+    local healthy=0
+    local index=1
+    local nodes
 
+    # change tabs to spaces, strip leading spaces
+    pcs status | sed -e "s/\t/ /g" -e "s/^[ ]*//" > ${scratch}
+
+    nodes[0]=${1}; shift
+
+    # make a regex of the configured nodes
+    # and initalize the nodes array for later
     while [[ ${1} ]]; do
 
-        regex_str="${regex_str}|^ ${1}"
-
+        regex_str="${regex_str}|^${1}-cluster_ip-1"
+        nodes[${index}]=${1}
+        ((index++))
         shift
     done
 
-    pcs status | egrep "^Online:" > ${status_file}
+    # print the nodes that are expected to be online
+    grep -E "^Online:" ${scratch}
 
-    echo >> ${status_file}
+    echo
 
-    pcs status | egrep "${regex_str}" | sed -e "s/\t/ /" | cut -d ' ' -f 2,4 >> ${status_file}
+    # print the VIPs and which node they are on
+    grep -E "${regex_str}" < ${scratch} | cut -d ' ' -f 1,4
 
-    cat ${status_file}
+    echo
 
-    rm -f ${status_file}
+    # check if the VIP RAs are on the expected nodes
+    for n in ${nodes[*]}; do
+
+        grep -E -x "${n}-cluster_ip-1 \(ocf::heartbeat:IPaddr\): Started ${n}" > /dev/null 2>&1 ${scratch}
+        result=$?
+        ((healthy+=${result}))
+    done
+
+    grep -E "\):\ Stopped|FAILED" > /dev/null 2>&1 ${scratch}
+    result=$?
+
+    if [ ${result} -eq 0 ]; then
+        echo "Cluster HA Status: BAD"
+    elif [ ${healthy} -eq 0 ]; then
+        echo "Cluster HA Status: HEALTHY"
+    else
+        echo "Cluster HA Status: FAILOVER"
+    fi
+
+    rm -f ${scratch}
 }
 
 
@@ -839,20 +965,16 @@ main()
         usage
         exit 0
     fi
-    if [[ ${cmd} != *status ]]; then
-        HA_CONFDIR=${1%/}; shift
-        local ha_conf=${HA_CONFDIR}/ganesha-ha.conf
-        local node=""
-        local vip=""
+    HA_CONFDIR=${1%/}; shift
+    local ha_conf=${HA_CONFDIR}/ganesha-ha.conf
+    local node=""
+    local vip=""
 
-        # ignore any comment lines
-        cfgline=$(grep  ^HA_NAME= ${ha_conf})
-        eval $(echo ${cfgline} | grep -F HA_NAME=)
-        cfgline=$(grep  ^HA_VOL_SERVER= ${ha_conf})
-        eval $(echo ${cfgline} | grep -F HA_VOL_SERVER=)
-        cfgline=$(grep  ^HA_CLUSTER_NODES= ${ha_conf})
-        eval $(echo ${cfgline} | grep -F HA_CLUSTER_NODES=)
-    fi
+    # ignore any comment lines
+    cfgline=$(grep  ^HA_NAME= ${ha_conf})
+    eval $(echo ${cfgline} | grep -F HA_NAME=)
+    cfgline=$(grep  ^HA_CLUSTER_NODES= ${ha_conf})
+    eval $(echo ${cfgline} | grep -F HA_CLUSTER_NODES=)
 
     case "${cmd}" in
 
@@ -889,6 +1011,8 @@ main()
         teardown_resources ${HA_SERVERS}
 
         teardown_cluster ${HA_NAME}
+
+        cleanup_ganesha_config ${HA_CONFDIR}
         ;;
 
     cleanup | --cleanup)
@@ -927,7 +1051,8 @@ main()
 
         sed -i s/HA_CLUSTER_NODES.*/"HA_CLUSTER_NODES=\"$NEW_NODES\""/ \
 $HA_CONFDIR/ganesha-ha.conf
-        HA_SERVERS="${HA_SERVERS} ${node}"
+
+        addnode_state_volume ${node}
 
         setup_copy_config ${HA_SERVERS}
         ;;
@@ -950,7 +1075,7 @@ $HA_CONFDIR/ganesha-ha.conf
 
         setup_copy_config ${HA_SERVERS}
 
-        rm -rf ${HA_VOL_MNT}/nfs-ganesha/${node}
+        delnode_state_volume ${node}
 
         determine_service_manager
 

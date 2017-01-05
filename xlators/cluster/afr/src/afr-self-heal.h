@@ -85,7 +85,7 @@
 int
 afr_selfheal (xlator_t *this, uuid_t gfid);
 
-void
+gf_boolean_t
 afr_throttled_selfheal (call_frame_t *frame, xlator_t *this);
 
 int

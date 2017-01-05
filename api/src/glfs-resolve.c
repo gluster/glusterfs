@@ -784,7 +784,7 @@ glfs_resolve_fd (struct glfs *fs, xlator_t *subvol, struct glfs_fd *glfd)
 {
 	fd_t *fd = NULL;
 
-	glfs_lock (fs);
+        glfs_lock (fs, _gf_true);
 	{
 		fd = __glfs_resolve_fd (fs, subvol, glfd);
 	}
@@ -897,12 +897,17 @@ priv_glfs_subvol_done (struct glfs *fs, xlator_t *subvol)
 	if (!subvol)
 		return;
 
-	glfs_lock (fs);
+        /* For decrementing subvol->wind ref count we need not check/wait for
+         * migration-in-progress flag.
+         * Also glfs_subvol_done is called in call-back path therefore waiting
+         * fot migration-in-progress flag can lead to dead-lock.
+         */
+        glfs_lock (fs, _gf_false);
 	{
 		ref = (--subvol->winds);
 		active_subvol = fs->active_subvol;
 	}
-	glfs_unlock (fs);
+        glfs_unlock (fs);
 
 	if (ref == 0) {
 		assert (subvol != active_subvol);
@@ -919,7 +924,7 @@ priv_glfs_active_subvol (struct glfs *fs)
 	xlator_t      *subvol = NULL;
 	xlator_t      *old_subvol = NULL;
 
-	glfs_lock (fs);
+        glfs_lock (fs, _gf_true);
 	{
 		subvol = __glfs_active_subvol (fs);
 
@@ -968,7 +973,7 @@ glfs_cwd_set (struct glfs *fs, inode_t *inode)
 {
 	int ret = 0;
 
-	glfs_lock (fs);
+        glfs_lock (fs, _gf_true);
 	{
 		ret = __glfs_cwd_set (fs, inode);
 	}
@@ -1001,7 +1006,7 @@ glfs_cwd_get (struct glfs *fs)
 {
 	inode_t *cwd = NULL;
 
-	glfs_lock (fs);
+        glfs_lock (fs, _gf_true);
 	{
 		cwd = __glfs_cwd_get (fs);
 	}
@@ -1041,7 +1046,7 @@ glfs_resolve_inode (struct glfs *fs, xlator_t *subvol,
 {
 	inode_t *inode = NULL;
 
-	glfs_lock (fs);
+        glfs_lock (fs, _gf_true);
 	{
 		inode = __glfs_resolve_inode(fs, subvol, object);
 	}

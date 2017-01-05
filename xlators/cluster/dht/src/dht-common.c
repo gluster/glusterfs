@@ -898,8 +898,11 @@ unlock:
                         dht_layout_set (this, local->inode, layout);
                 }
 
-                dht_inode_ctx_time_update (local->inode, this,
-                                           &local->stbuf, 1);
+                if (local->inode) {
+                        dht_inode_ctx_time_update (local->inode, this,
+                                                   &local->stbuf, 1);
+                }
+
                 if (local->loc.parent) {
                         dht_inode_ctx_time_update (local->loc.parent, this,
                                                    &local->postparent, 1);
@@ -1313,6 +1316,7 @@ dht_lookup_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local =  (dht_local_t*)frame->local;
         path = local->loc.path;
+        FRAME_SU_UNDO (frame, dht_local_t);
 
         gf_msg (this->name, GF_LOG_INFO, 0,
                 DHT_MSG_UNLINK_LOOKUP_INFO, "lookup_unlink returned with "
@@ -2006,7 +2010,12 @@ unlock:
                                         loc->path, subvol->name,
                                         (local->hashed_subvol?
                                         local->hashed_subvol->name : "<null>"));
-
+                                /* *
+                                 * These stale files may be created using root
+                                 * user. Hence deletion will work only with
+                                 * root.
+                                 */
+                                FRAME_SU_DO (frame, dht_local_t);
                                 STACK_WIND (frame, dht_lookup_unlink_cbk,
                                             subvol, subvol->fops->unlink, loc,
                                             0, dict_req);

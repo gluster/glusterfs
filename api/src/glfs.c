@@ -149,8 +149,6 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 	LOCK_INIT (&pool->lock);
 	ctx->pool = pool;
 
-	LOCK_INIT (&ctx->lock);
-
 	ret = 0;
 err:
 	if (ret && pool) {
@@ -551,7 +549,7 @@ glfs_fd_destroy (void *data)
 
         glfd = (struct glfs_fd *)data;
 
-        glfs_lock (glfd->fs);
+        glfs_lock (glfd->fs, _gf_true);
         {
                 list_del_init (&glfd->openfds);
         }
@@ -594,7 +592,7 @@ glfs_fd_bind (struct glfs_fd *glfd)
 
 	fs = glfd->fs;
 
-	glfs_lock (fs);
+        glfs_lock (fs, _gf_true);
 	{
 		list_add_tail (&glfd->openfds, &fs->openfds);
 	}
@@ -884,7 +882,7 @@ glfs_init_wait (struct glfs *fs)
 	int   ret = -1;
 
 	/* Always a top-down call, use glfs_lock() */
-	glfs_lock (fs);
+        glfs_lock (fs, _gf_true);
 	{
 		while (!fs->init)
 			pthread_cond_wait (&fs->cond,
@@ -1258,7 +1256,7 @@ pub_glfs_get_volfile (struct glfs *fs, void *buf, size_t len)
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
-        glfs_lock(fs);
+        glfs_lock(fs, _gf_true);
         if (len >= fs->oldvollen) {
                 gf_msg_trace ("glfs", 0, "copying %zu to %p", len, buf);
                 memcpy(buf,fs->oldvolfile,len);

@@ -57,7 +57,8 @@ nfs_ino_loc_fill (inode_table_t *itable, uuid_t gfid, loc_t *l);
 
 extern int
 nfs_entry_loc_fill (xlator_t *this, inode_table_t *itable, uuid_t pargfid,
-                    char *entry, loc_t *loc, int how);
+                    char *entry, loc_t *loc, int how,
+                    gf_boolean_t *freshlookup);
 
 extern int
 nfs_root_loc_fill (inode_table_t *itable, loc_t *loc);

@@ -766,8 +766,9 @@ out:
         return ret;
 }
 static int
-glusterd_handle_heal_enable_disable (rpcsvc_request_t *req, dict_t *dict,
-                                     glusterd_volinfo_t *volinfo)
+glusterd_handle_heal_options_enable_disable (rpcsvc_request_t *req,
+                                             dict_t *dict,
+                                             glusterd_volinfo_t *volinfo)
 {
         gf_xl_afr_op_t                  heal_op = GF_SHD_OP_INVALID;
         int                             ret = 0;
@@ -781,30 +782,58 @@ glusterd_handle_heal_enable_disable (rpcsvc_request_t *req, dict_t *dict,
         }
 
         if ((heal_op != GF_SHD_OP_HEAL_ENABLE) &&
-            (heal_op != GF_SHD_OP_HEAL_DISABLE)) {
+            (heal_op != GF_SHD_OP_HEAL_DISABLE) &&
+            (heal_op != GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE) &&
+            (heal_op != GF_SHD_OP_GRANULAR_ENTRY_HEAL_DISABLE)) {
                 ret = -EINVAL;
                 goto out;
         }
 
-        if (heal_op == GF_SHD_OP_HEAL_ENABLE) {
+        if (((heal_op == GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE) ||
+            (heal_op == GF_SHD_OP_GRANULAR_ENTRY_HEAL_DISABLE)) &&
+            (volinfo->type == GF_CLUSTER_TYPE_DISPERSE)) {
+                ret = -1;
+                goto out;
+        }
+
+        if ((heal_op == GF_SHD_OP_HEAL_ENABLE) ||
+            (heal_op == GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE)) {
                 value = "enable";
-        } else if (heal_op == GF_SHD_OP_HEAL_DISABLE) {
+        } else if ((heal_op == GF_SHD_OP_HEAL_DISABLE) ||
+                   (heal_op == GF_SHD_OP_GRANULAR_ENTRY_HEAL_DISABLE)) {
                 value = "disable";
         }
 
        /* Convert this command to volume-set command based on volume type */
         if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-                ret = glusterd_handle_shd_option_for_tier (volinfo, value,
-                                                           dict);
-                if (!ret)
-                        goto set_volume;
-                goto out;
+                switch (heal_op) {
+                case GF_SHD_OP_HEAL_ENABLE:
+                case GF_SHD_OP_HEAL_DISABLE:
+                        ret = glusterd_handle_shd_option_for_tier (volinfo,
+                                                                   value, dict);
+                        if (!ret)
+                                goto set_volume;
+                        goto out;
+                        /* For any other heal_op, including granular-entry heal,
+                         * just break out of the block but don't goto out yet.
+                         */
+                default:
+                        break;
+                }
         }
 
-        key = volgen_get_shd_key (volinfo->type);
-        if (!key) {
-                ret = -1;
-                goto out;
+       if ((heal_op == GF_SHD_OP_HEAL_ENABLE) ||
+           (heal_op == GF_SHD_OP_HEAL_DISABLE)) {
+                key = volgen_get_shd_key (volinfo->type);
+                if (!key) {
+                        ret = -1;
+                        goto out;
+                }
+        } else {
+                key = "cluster.granular-entry-heal";
+                ret = dict_set_int8 (dict, "is-special-key", 1);
+                if (ret)
+                        goto out;
         }
 
         ret = dict_set_str (dict, "key1", key);
@@ -890,7 +919,7 @@ __glusterd_handle_cli_heal_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-        ret = glusterd_handle_heal_enable_disable (req, dict, volinfo);
+        ret = glusterd_handle_heal_options_enable_disable (req, dict, volinfo);
         if (ret == -EINVAL) {
                 ret = 0;
         } else {
@@ -1480,6 +1509,15 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr,
                 goto out;
         }
 
+        /* This is an incremental approach to have all the volinfo objects ref
+         * count. The first attempt is made in volume start transaction to
+         * ensure it doesn't race with import volume where stale volume is
+         * deleted. There are multiple instances of GlusterD crashing in
+         * bug-948686.t because of this. Once this approach is full proof, all
+         * other volinfo objects will be refcounted.
+         */
+        glusterd_volinfo_ref (volinfo);
+
         if (priv->op_version > GD_OP_VERSION_3_7_5) {
                 ret = glusterd_validate_quorum (this, GD_OP_START_VOLUME, dict,
                                                 op_errstr);
@@ -1490,15 +1528,6 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr,
                         goto out;
                 }
         }
-
-        /* This is an incremental approach to have all the volinfo objects ref
-         * count. The first attempt is made in volume start transaction to
-         * ensure it doesn't race with import volume where stale volume is
-         * deleted. There are multiple instances of GlusterD crashing in
-         * bug-948686.t because of this. Once this approach is full proof, all
-         * other volinfo objects will be refcounted.
-         */
-        glusterd_volinfo_ref (volinfo);
 
         ret = glusterd_validate_volume_id (dict, volinfo);
         if (ret)
@@ -1829,6 +1858,8 @@ glusterd_handle_heal_cmd (xlator_t *this, glusterd_volinfo_t *volinfo,
         case GF_SHD_OP_INVALID:
         case GF_SHD_OP_HEAL_ENABLE: /* This op should be handled in volume-set*/
         case GF_SHD_OP_HEAL_DISABLE:/* This op should be handled in volume-set*/
+        case GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE: /* This op should be handled in volume-set */
+        case GF_SHD_OP_GRANULAR_ENTRY_HEAL_DISABLE: /* This op should be handled in volume-set */
         case GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:/*glfsheal cmd*/
         case GF_SHD_OP_SBRAIN_HEAL_FROM_LATEST_MTIME:/*glfsheal cmd*/
         case GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK:/*glfsheal cmd*/
@@ -2634,7 +2665,7 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
         ret = glusterd_svcs_manager (volinfo);
 
 out:
-        if (!volinfo)
+        if (volinfo)
                 glusterd_volinfo_unref (volinfo);
 
         gf_msg_trace (this->name, 0, "returning %d ", ret);
