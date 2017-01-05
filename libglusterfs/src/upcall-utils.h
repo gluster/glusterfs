@@ -35,6 +35,8 @@
 
 #define UP_EXPLICIT_LOOKUP 0x00001000 /* Request an explicit lookup */
 
+#define UP_INVAL_ATTR      0x00002000 /* Request to invalidate iatt and xatt */
+
 /* for fops - open, read, lk, */
 #define UP_UPDATE_CLIENT        (UP_ATIME)
 
