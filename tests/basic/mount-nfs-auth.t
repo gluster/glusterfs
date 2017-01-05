@@ -41,7 +41,7 @@ function build_dirs () {
 }
 
 function export_allow_this_host_ipv6 () {
-        printf "$EXPORT_ALLOW6\n" > /var/lib/glusterd/nfs/exports
+        printf "$EXPORT_ALLOW6\n" > ${NFSDIR}/exports
 }
 
 function export_allow_this_host () {
@@ -157,10 +157,7 @@ setup_cluster
 TEST $CLI vol set $V0 nfs.disable off
 TEST $CLI vol start $V0
 
-# Get NFS state directory
-NFSDIR=$( $CLI volume get patchy nfs.mount-rmtab | \
-          awk '/^nfs.mount-rmtab/{print $2}' | \
-          xargs dirname )
+NFSDIR=/var/lib/glusterd/nfs
 
 ## Wait for volume to register with rpc.mountd
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
