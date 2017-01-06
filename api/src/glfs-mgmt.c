@@ -29,6 +29,7 @@
 #include "portmap-xdr.h"
 #include "xdr-common.h"
 #include "xdr-generic.h"
+#include "rpc-common-xdr.h"
 
 #include "syncop.h"
 #include "xlator.h"
@@ -116,11 +117,71 @@ mgmt_cbk_event (struct rpc_clnt *rpc, void *mydata, void *data)
 	return 0;
 }
 
+static int
+mgmt_cbk_statedump (struct rpc_clnt *rpc, void *mydata, void *data)
+{
+        struct glfs      *fs          = NULL;
+        xlator_t         *this        = NULL;
+        gf_statedump      target_pid  = {0, };
+        struct iovec     *iov         = NULL;
+        int               ret         = -1;
+
+        this = mydata;
+        if (!this) {
+                gf_msg ("glfs", GF_LOG_ERROR, EINVAL,
+                        API_MSG_STATEDUMP_FAILED, "NULL mydata");
+                errno = EINVAL;
+                goto out;
+        }
+
+        fs = this->private;
+        if (!fs) {
+                gf_msg ("glfs", GF_LOG_ERROR, EINVAL,
+                        API_MSG_STATEDUMP_FAILED, "NULL glfs");
+                errno = EINVAL;
+                goto out;
+        }
+
+        iov = (struct iovec *)data;
+        if (!iov) {
+                gf_msg ("glfs", GF_LOG_ERROR, EINVAL,
+                        API_MSG_STATEDUMP_FAILED, "NULL iovec data");
+                errno = EINVAL;
+                goto out;
+        }
+
+        ret = xdr_to_generic (*iov, &target_pid,
+                              (xdrproc_t)xdr_gf_statedump);
+        if (ret < 0) {
+                gf_msg ("glfs", GF_LOG_ERROR, EINVAL,
+                        API_MSG_STATEDUMP_FAILED,
+                        "Failed to decode xdr response for GF_CBK_STATEDUMP");
+                goto out;
+        }
+
+        gf_msg_trace ("glfs", 0, "statedump requested for pid: %d",
+                      target_pid.pid);
+
+        if ((uint64_t)getpid() == target_pid.pid) {
+                gf_msg_debug ("glfs", 0, "Taking statedump for pid: %d",
+                              target_pid.pid);
+
+                ret = glfs_sysrq (fs, GLFS_SYSRQ_STATEDUMP);
+                if (ret < 0) {
+                        gf_msg ("glfs", GF_LOG_INFO, 0,
+                                API_MSG_STATEDUMP_FAILED,
+                                "statedump failed");
+                }
+        }
+out:
+        return ret;
+}
 
 rpcclnt_cb_actor_t mgmt_cbk_actors[GF_CBK_MAXVALUE] = {
 	[GF_CBK_FETCHSPEC] = {"FETCHSPEC", GF_CBK_FETCHSPEC, mgmt_cbk_spec },
 	[GF_CBK_EVENT_NOTIFY] = {"EVENTNOTIFY", GF_CBK_EVENT_NOTIFY,
 				 mgmt_cbk_event},
+        [GF_CBK_STATEDUMP] = {"STATEDUMP", GF_CBK_STATEDUMP, mgmt_cbk_statedump},
 };
 
 
