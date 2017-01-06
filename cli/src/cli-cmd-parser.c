@@ -2852,23 +2852,22 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                 cmdi = slavei + 1;
                 if (slavei == 3)
                         masteri = 2;
-        } else if (i <= 3) {
-                if (!strcmp ((char *)words[wordcount-1], "detail")) {
-                        /* For status detail it is mandatory to provide
-                         * both master and slave */
-                        ret = -1;
-                        goto out;
+        } else if (i <= 4) {
+                if (strtail ("detail", (char *)words[wordcount-1])) {
+                        cmdi = wordcount - 2;
+                        if (i == 4)
+                                masteri = 2;
+                } else {
+                        /* no $s, can only be status cmd
+                         * (with either a single $m before it or nothing)
+                         * -- these conditions imply that i <= 3 after
+                         * the iteration and that i is the successor of
+                         * the (0 or 1 length) sequence of $m-s.
+                         */
+                        cmdi = i;
+                        if (i == 3)
+                                masteri = 2;
                 }
-
-                /* no $s, can only be status cmd
-                 * (with either a single $m before it or nothing)
-                 * -- these conditions imply that i <= 3 after
-                 * the iteration and that i is the successor of
-                 * the (0 or 1 length) sequence of $m-s.
-                 */
-                cmdi = i;
-                if (i == 3)
-                        masteri = 2;
         } else
                 goto out;
 
@@ -2933,15 +2932,12 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
         if (ret)
                 goto out;
 
-        if (!strcmp ((char *)words[wordcount-1], "detail")) {
-                if (strcmp ((char *)words[wordcount-2], "status")) {
+        if (strtail ("detail", (char *)words[wordcount-1])) {
+                if (!strtail ("status", (char *)words[wordcount-2])) {
                         ret = -1;
                         goto out;
                 }
-                if (!slavei || !masteri) {
-                        ret = -1;
-                        goto out;
-                }
+
                 ret = dict_set_uint32 (dict, "status-detail", _gf_true);
                 if (ret)
                         goto out;
