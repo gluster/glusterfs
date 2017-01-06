@@ -2140,6 +2140,7 @@ glusterfs_mgmt_init (glusterfs_ctx_t *ctx)
         int                     ret = -1;
         int                     port = GF_DEFAULT_BASE_PORT;
         char                    *host = NULL;
+        char                    *addr_family = NULL;
 
         cmd_args = &ctx->cmd_args;
         GF_VALIDATE_OR_GOTO (THIS->name, cmd_args->volfile_server, out);
@@ -2156,8 +2157,19 @@ glusterfs_mgmt_init (glusterfs_ctx_t *ctx)
             !strcmp (cmd_args->volfile_server_transport, "unix")) {
                 ret = rpc_transport_unix_options_build (&options, host, 0);
         } else {
+                xlator_cmdline_option_t *cmd_option = NULL;
+
+                list_for_each_entry (cmd_option,
+                                     &cmd_args->xlator_options, cmd_args) {
+                        if (!strcmp(cmd_option->key,
+                                    "transport.address-family")) {
+                                addr_family = cmd_option->value;
+                                break;
+                         }
+                }
+
                 ret = rpc_transport_inet_options_build (&options, host, port,
-                                                        NULL);
+                                                        addr_family);
         }
         if (ret)
                 goto out;

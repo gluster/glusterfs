@@ -1791,6 +1791,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         int                     port = 0;
         int                     rdma_port = 0;
         char                    *bind_address = NULL;
+        char                    *addr_family = NULL;
         char                    socketpath[PATH_MAX] = {0};
         char                    glusterd_uuid[1024] = {0,};
         char                    valgrind_logfile[PATH_MAX] = {0};
@@ -1911,6 +1912,13 @@ retry:
                 runner_add_arg (&runner, "--xlator-option");
                 runner_argprintf (&runner, "transport.socket.bind-address=%s",
                                   bind_address);
+        }
+
+        if (dict_get_str (this->options, "transport.address-family",
+                          &addr_family) == 0) {
+                runner_add_arg (&runner, "--xlator-option");
+                runner_argprintf (&runner, "*.transport.address-family=%s",
+                                  addr_family);
         }
 
         if (volinfo->transport_type == GF_TRANSPORT_RDMA)
