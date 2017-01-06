@@ -156,4 +156,6 @@ _pub_glfs_upcall_inode_get_oldpobject _glfs_upcall_inode_get_oldpobject$GFAPI_3.
 _pub_glfs_upcall_inode_get_oldpstat _glfs_upcall_inode_get_oldpstat$GFAPI_3.7.16
 _pub_glfs_realpath _glfs_realpath$GFAPI_3.7.17
 
+_pub_glfs_sysrq _glfs_sysrq$GFAPI_3.10.0
+
 _pub_glfs_ipc _glfs_ipc$GFAPI_4.0.0
