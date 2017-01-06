@@ -1,6 +1,4 @@
-EXTRA_DIST= ganesha-ha.sh dbus-send.sh create-export-ganesha.sh \
-            generate-epoch.py
+EXTRA_DIST= create-export-ganesha.sh generate-epoch.py dbus-send.sh
 
 scriptsdir = $(libexecdir)/ganesha
-scripts_SCRIPTS = create-export-ganesha.sh dbus-send.sh ganesha-ha.sh \
-                  generate-epoch.py
+scripts_SCRIPTS = create-export-ganesha.sh generate-epoch.py
