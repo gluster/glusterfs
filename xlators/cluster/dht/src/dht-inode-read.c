@@ -839,6 +839,12 @@ dht_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         dht_set_local_rebalance (this, local, NULL, prebuf,
                                  postbuf, xdata);
 
+        if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (postbuf)) {
+                ret = dht_rebalance_complete_check (this, frame);
+                if (!ret)
+                        return 0;
+        }
+
         /* Check if the rebalance phase1 is true */
         if (IS_DHT_MIGRATION_PHASE1 (postbuf)) {
 
@@ -860,11 +866,6 @@ dht_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 }
         }
 
-        if (IS_DHT_MIGRATION_PHASE2 (postbuf)) {
-                ret = dht_rebalance_complete_check (this, frame);
-                if (!ret)
-                        return 0;
-        }
 
 out:
         DHT_STRIP_PHASE1_FLAGS (postbuf);
