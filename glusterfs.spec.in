@@ -376,15 +376,8 @@ Summary:          NFS-Ganesha configuration
 Group:            Applications/File
 
 Requires:         %{name}-server%{?_isa} = %{version}-%{release}
-Requires:         nfs-ganesha-gluster >= 2.4.0
-Requires:         pcs, dbus
-%if ( 0%{?rhel} && 0%{?rhel} == 6 )
-Requires:         cman, pacemaker, corosync
-%endif
-%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} > 5 )
-# we need portblock resource-agent in 3.9.5 and later.
-Requires:         resource-agents >= 3.9.5
-%endif
+Requires:         nfs-ganesha-gluster >= 2.4.1
+Requires:         dbus
 
 %description ganesha
 GlusterFS is a distributed file-system capable of scaling to several
@@ -1053,7 +1046,6 @@ exit 0
 %files ganesha
 %{_sysconfdir}/ganesha/*
 %{_libexecdir}/ganesha/*
-%{_prefix}/lib/ocf/resource.d/heartbeat/*
 %{_sharedstatedir}/glusterd/hooks/1/start/post/S31ganesha-start.sh
 
 %if ( 0%{!?_without_georeplication:1} )
@@ -1267,6 +1259,9 @@ exit 0
 %endif
 
 %changelog
+* Fri Jan 13 2017 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- switch to storhaug HA
+
 * Fri Jan 6 2017 Niels de Vos <ndevos@redhat.com>
 - use macro provided by firewalld-filesystem to reload firewalld
 
