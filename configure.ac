@@ -825,7 +825,7 @@ AC_ARG_ENABLE([firewalld],
               [BUILD_FIREWALLD="${enableval}"], [BUILD_FIREWALLD="no"])
 
 if test "x${BUILD_FIREWALLD}" = "xyes"; then
-        if !(which firewalld 1>/dev/null 2>&1) ; then
+        if !(test -d /usr/lib/firewalld/services 1>/dev/null 2>&1) ; then
                 BUILD_FIREWALLD="no (firewalld not installed)"
         fi
 fi
