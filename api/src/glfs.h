@@ -773,6 +773,23 @@ void glfs_free (void *ptr) __THROW
         GFAPI_PUBLIC(glfs_free, 3.7.16);
 
 /*
+ * glfs_sysrq: send a system request to the @fs instance
+ *
+ * Different commands for @sysrq are possible, the defines for these are listed
+ * below the function definition.
+ *
+ * This function always returns success if the @sysrq is recognized. The return
+ * value does not way anythin about the result of the @sysrq execution. Not all
+ * @sysrq command will be able to return a success/failure status.
+ */
+int glfs_sysrq (glfs_t *fs, char sysrq) __THROW
+        GFAPI_PUBLIC(glfs_sysrq, 3.10.0);
+
+#define GLFS_SYSRQ_HELP 'h' /* log a message with supported sysrq commands */
+#define GLFS_SYSRQ_STATEDUMP 's' /* create a statedump */
+
+
+/*
  * Nobody needs this call at all yet except for the test script.
  */
 int glfs_ipc (glfs_fd_t *fd, int cmd,  void *xd_in, void **xd_out) __THROW

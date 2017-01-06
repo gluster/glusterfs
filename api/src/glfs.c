@@ -40,12 +40,13 @@
 #include "common-utils.h"
 #include "syncop.h"
 #include "call-stub.h"
-#include "gfapi-messages.h"
-
-#include "glfs.h"
-#include "glfs-internal.h"
 #include "hashfn.h"
 #include "rpc-clnt.h"
+#include "statedump.h"
+
+#include "gfapi-messages.h"
+#include "glfs.h"
+#include "glfs-internal.h"
 
 
 static gf_boolean_t
@@ -1462,3 +1463,60 @@ pub_glfs_upcall_inode_get_oldpstat (struct glfs_upcall_inode *arg)
         return &arg->oldp_buf;
 }
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_inode_get_oldpstat, 3.7.16);
+
+
+/* definitions of the GLFS_SYSRQ_* chars are in glfs.h */
+static struct glfs_sysrq_help {
+        char  sysrq;
+        char *msg;
+} glfs_sysrq_help[] = {
+        { GLFS_SYSRQ_HELP,      "(H)elp" },
+        { GLFS_SYSRQ_STATEDUMP, "(S)tatedump" },
+        { 0,                    NULL }
+};
+
+int
+pub_glfs_sysrq (struct glfs *fs, char sysrq)
+{
+        glusterfs_ctx_t  *ctx = NULL;
+        int               ret = 0;
+
+        if (!fs || !fs->ctx) {
+                ret = -1;
+                errno = EINVAL;
+                goto out;
+        }
+
+        ctx = fs->ctx;
+
+        switch (sysrq) {
+        case GLFS_SYSRQ_HELP:
+        {
+                char msg[1024]; /* help text should not exceed 1024 chars */
+                struct glfs_sysrq_help *usage;
+
+                msg[0] = '\0';
+                for (usage = glfs_sysrq_help; usage->sysrq; usage++) {
+                        strncat (msg, usage->msg, 1024);
+                        strncat (msg, " ", 1024);
+                }
+
+                /* not really an 'error', but make sure it gets logged */
+                gf_log ("glfs", GF_LOG_ERROR, "available events: %s", msg);
+
+                break;
+        }
+        case GLFS_SYSRQ_STATEDUMP:
+                gf_proc_dump_info (SIGUSR1, ctx);
+                break;
+        default:
+                gf_msg ("glfs", GF_LOG_ERROR, ENOTSUP, API_MSG_INVALID_ENTRY,
+                        "'%c' is not a valid sysrq", sysrq);
+                errno = ENOTSUP;
+                ret = -1;
+        }
+out:
+        return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_sysrq, 3.10.0);
