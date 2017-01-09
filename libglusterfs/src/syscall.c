@@ -326,7 +326,40 @@ sys_lseek (int fd, off_t offset, int whence)
 int
 sys_statvfs (const char *path, struct statvfs *buf)
 {
-        return statvfs (path, buf);
+        int ret;
+
+        ret = statvfs (path, buf);
+#ifdef __FreeBSD__
+        /* FreeBSD doesn't return the expected vaule in buf->f_bsize. It
+         * contains the optimal I/O size instead of the file system block
+         * size. Gluster expects that this field contains the block size.
+         */
+        if (ret == 0) {
+                buf->f_bsize = buf->f_frsize;
+        }
+#endif /* __FreeBSD__ */
+
+        return ret;
+}
+
+
+int
+sys_fstatvfs (int fd, struct statvfs *buf)
+{
+        int ret;
+
+        ret = fstatvfs (fd, buf);
+#ifdef __FreeBSD__
+        /* FreeBSD doesn't return the expected vaule in buf->f_bsize. It
+         * contains the optimal I/O size instead of the file system block
+         * size. Gluster expects this field to contain the block size.
+         */
+        if (ret == 0) {
+                buf->f_bsize = buf->f_frsize;
+        }
+#endif /* __FreeBSD__ */
+
+        return ret;
 }
 
 
