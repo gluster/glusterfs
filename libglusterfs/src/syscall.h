@@ -142,6 +142,9 @@ int
 sys_statvfs (const char *path, struct statvfs *buf);
 
 int
+sys_fstatvfs (int fd, struct statvfs *buf);
+
+int
 sys_close (int fd);
 
 int
