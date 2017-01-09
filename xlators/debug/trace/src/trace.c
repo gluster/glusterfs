@@ -294,19 +294,33 @@ trace_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, gf_dirent_t *buf,
                     dict_t *xdata)
 {
-        trace_conf_t   *conf = NULL;
+        int             count         = 0;
+        char            statstr[4096] = {0,};
+        char            string[4096]  = {0,};
+        trace_conf_t   *conf          = NULL;
+        gf_dirent_t    *entry         = NULL;
 
         conf = this->private;
 
         if (!conf->log_file && !conf->log_history)
 		goto out;
         if (trace_fop_names[GF_FOP_READDIRP].enabled) {
-                char        string[4096] = {0,};
                 snprintf (string, sizeof (string),
                           "%"PRId64" : gfid=%s op_ret=%d, op_errno=%d",
                           frame->root->unique, uuid_utoa (frame->local),
                           op_ret, op_errno);
 
+                LOG_ELEMENT (conf, string);
+        }
+        if (op_ret < 0)
+                goto out;
+
+        list_for_each_entry (entry, &buf->list, list) {
+                count++;
+                TRACE_STAT_TO_STR (&entry->d_stat, statstr);
+                snprintf (string, sizeof (string), "entry no. %d, pargfid=%s, "
+                          "bname=%s *buf {%s}", count, uuid_utoa (frame->local),
+                          entry->d_name, statstr);
                 LOG_ELEMENT (conf, string);
         }
 
