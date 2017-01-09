@@ -581,6 +581,7 @@ __afr_selfheal_data_finalize_source (call_frame_t *frame, xlator_t *this,
                                      unsigned char *sinks,
 				     unsigned char *healed_sinks,
 				     unsigned char *locked_on,
+				     unsigned char *undid_pending,
 				     struct afr_reply *replies,
                                      uint64_t *witness)
 {
@@ -601,6 +602,12 @@ __afr_selfheal_data_finalize_source (call_frame_t *frame, xlator_t *this,
                                                           AFR_DATA_TRANSACTION);
                 if (source < 0)
                         return -EIO;
+
+                _afr_fav_child_reset_sink_xattrs (frame, this, inode, source,
+                                                 healed_sinks, undid_pending,
+                                                 AFR_DATA_TRANSACTION,
+                                                 locked_on, replies);
+
                 return source;
 	}
 
@@ -640,6 +647,7 @@ __afr_selfheal_data_prepare (call_frame_t *frame, xlator_t *this,
                              inode_t *inode, unsigned char *locked_on,
                              unsigned char *sources, unsigned char *sinks,
                              unsigned char *healed_sinks,
+                             unsigned char *undid_pending,
 			     struct afr_reply *replies, gf_boolean_t *pflag)
 {
 	int ret = -1;
@@ -675,8 +683,8 @@ __afr_selfheal_data_prepare (call_frame_t *frame, xlator_t *this,
 	source = __afr_selfheal_data_finalize_source (frame, this, inode,
                                                       sources, sinks,
                                                       healed_sinks,
-                                                      locked_on, replies,
-                                                      witness);
+                                                      locked_on, undid_pending,
+                                                      replies, witness);
 	if (source < 0)
 		return -EIO;
 
@@ -694,6 +702,7 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	unsigned char *sinks = NULL;
 	unsigned char *data_lock = NULL;
 	unsigned char *healed_sinks = NULL;
+	unsigned char *undid_pending = NULL;
 	struct afr_reply *locked_replies = NULL;
 	int source = -1;
         gf_boolean_t did_sh = _gf_true;
@@ -705,6 +714,7 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	sinks = alloca0 (priv->child_count);
 	healed_sinks = alloca0 (priv->child_count);
 	data_lock = alloca0 (priv->child_count);
+        undid_pending = alloca0 (priv->child_count);
 
 	locked_replies = alloca0 (sizeof (*locked_replies) * priv->child_count);
 
@@ -724,9 +734,8 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 		ret = __afr_selfheal_data_prepare (frame, this, fd->inode,
                                                    data_lock, sources, sinks,
-                                                   healed_sinks,
-						   locked_replies,
-                                                   NULL);
+                                                   healed_sinks, undid_pending,
+                                                   locked_replies, NULL);
 		if (ret < 0)
 			goto unlock;
 
@@ -785,7 +794,7 @@ restore_time:
         }
         ret = afr_selfheal_undo_pending (frame, this, fd->inode,
                                          sources, sinks, healed_sinks,
-                                         AFR_DATA_TRANSACTION,
+                                         undid_pending, AFR_DATA_TRANSACTION,
                                          locked_replies, data_lock);
 skip_undo_pending:
 	afr_selfheal_uninodelk (frame, this, fd->inode, this->name, 0, 0,

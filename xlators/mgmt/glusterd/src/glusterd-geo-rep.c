@@ -1346,7 +1346,6 @@ static int
 _get_slave_idx_slave_voluuid (dict_t *dict, char *key, data_t *value,
                               void *data)
 {
-        char  *slave_voluuid                 = NULL;
         char  *slave_info                    = NULL;
         xlator_t  *this                      = NULL;
         struct slave_vol_config *slave_cfg   = NULL;
@@ -2863,10 +2862,8 @@ out:
 static int
 get_slavehost_from_voluuid (dict_t *dict, char *key, data_t *value, void *data)
 {
-        char *slave_voluuid                 = NULL;
         char *slave_info                    = NULL;
         char *tmp                           = NULL;
-        char tmp_char                       = 0;
         char *slave_host                    = NULL;
         xlator_t  *this                     = NULL;
         struct slave_vol_config *slave_vol  = NULL;
@@ -3004,14 +3001,10 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
         glusterd_volinfo_t *volinfo                   = NULL;
         struct stat         stbuf                     = {0,};
         xlator_t           *this                      = NULL;
-        char                     *georep_session_wrkng_dir  = NULL;
         struct slave_vol_config  slave1                     = {{0},};
-        int                      type                       = 0;
-        char                     monitor_status[NAME_MAX]   = {0,};
         char                     old_slave_url[SLAVE_URL_INFO_MAX] = {0};
         char                     old_confpath[PATH_MAX]     = {0};
         gf_boolean_t             is_running                 = _gf_false;
-        int                      ret_status                 = 0;
         char                     *statedir                  = NULL;
         char                     statefiledir[PATH_MAX]     = {0,};
         gf_boolean_t             is_different_slavehost     = _gf_false;
@@ -3429,7 +3422,6 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
 {
         int                 ret                   = 0;
         int                 type                  = 0;
-        int                 pfd                   = -1;
         char               *volname               = NULL;
         char               *slave                 = NULL;
         char               *slave_url             = NULL;
@@ -3444,7 +3436,6 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
         gf_boolean_t        exists                = _gf_false;
         glusterd_volinfo_t *volinfo               = NULL;
         char                    errmsg[PATH_MAX]  = {0,};
-        char                    pidfile[PATH_MAX] = {0,};
         dict_t             *ctx                   = NULL;
         gf_boolean_t        is_force              = 0;
         gf_boolean_t        is_running            = _gf_false;
@@ -3691,16 +3682,6 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
-                pfd = gsyncd_getpidfile (volname, slave, pidfile,
-                                         conf_path, &is_template_in_use);
-                if (is_template_in_use) {
-                        snprintf (errmsg, sizeof(errmsg), "pid-file entry "
-                                  "missing in the config file(%s).",
-                                  conf_path);
-                        ret = -1;
-                        goto out;
-                }
-
                 ret = gsync_verify_config_options (dict, op_errstr, volname);
                 goto out;
                 break;
@@ -3748,6 +3729,7 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
         }
 
 out:
+
         if (path_list)
                 GF_FREE (path_list);
 
@@ -3772,7 +3754,6 @@ gd_pause_or_resume_gsync (dict_t *dict, char *master, char *slave,
         char            pidfile[PATH_MAX]        = {0,};
         char            errmsg[PATH_MAX]         = "";
         char            buf [1024]               = {0,};
-        int             i                        = 0;
         gf_boolean_t    is_template_in_use       = _gf_false;
         char            monitor_status[NAME_MAX] = {0,};
         char            *statefile               = NULL;
@@ -4408,13 +4389,10 @@ int
 glusterd_read_status_file (glusterd_volinfo_t *volinfo, char *slave,
                            char *conf_path, dict_t *dict, char *node)
 {
-        char                    brick_state_file[PATH_MAX] = "";
-        char                    brick_path[PATH_MAX]       = "";
         char                    temp_conf_path[PATH_MAX]   = "";
         char                   *working_conf_path          = NULL;
         char                   *georep_session_wrkng_dir   = NULL;
         char                   *master                     = NULL;
-        char                    tmp[1024]                  = "";
         char                    sts_val_name[1024]         = "";
         char                    monitor_status[NAME_MAX]   = "";
         char                   *statefile                  = NULL;
@@ -4429,14 +4407,12 @@ glusterd_read_status_file (glusterd_volinfo_t *volinfo, char *slave,
         char                   *brick_host_uuid            = NULL;
         int                     brick_host_uuid_length     = 0;
         int                     gsync_count                = 0;
-        int                     i                          = 0;
         int                     ret                        = 0;
         glusterd_brickinfo_t   *brickinfo                  = NULL;
         gf_gsync_status_t      *sts_val                    = NULL;
         gf_boolean_t            is_template_in_use         = _gf_false;
         glusterd_conf_t        *priv                       = NULL;
         struct stat             stbuf                      = {0,};
-        dict_t                 *statusd                    = NULL;
         xlator_t               *this                       = NULL;
 
         this = THIS;
@@ -4845,7 +4821,6 @@ glusterd_get_gsync_status_mst_slv (glusterd_volinfo_t *volinfo,
 {
         char              *statefile = NULL;
         uuid_t             uuid = {0, };
-        glusterd_conf_t    *priv = NULL;
         int                ret = 0;
         gf_boolean_t       is_template_in_use = _gf_false;
         struct stat        stbuf = {0, };
@@ -4857,8 +4832,6 @@ glusterd_get_gsync_status_mst_slv (glusterd_volinfo_t *volinfo,
         GF_ASSERT (volinfo);
         GF_ASSERT (slave);
         GF_ASSERT (this->private);
-
-        priv = this->private;
 
         ret = glusterd_gsync_get_uuid (slave, volinfo, uuid);
         if (ret) {
@@ -5489,7 +5462,6 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         char               *status_msg          = NULL;
         gf_boolean_t        is_running          = _gf_false;
         char               *conf_path           = NULL;
-        char                errmsg[PATH_MAX]    = "";
         char               *key                 = NULL;
         xlator_t           *this                = NULL;
 
@@ -6277,8 +6249,6 @@ glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         xlator_t           *this                      = NULL;
         char                old_working_dir[PATH_MAX] = {0};
         char                new_working_dir[PATH_MAX] = {0};
-        char               *slave_info                = NULL;
-        char                slave_url_info[SLAVE_URL_INFO_MAX] = {0};
         char               *slave_voluuid             = NULL;
         char               *old_slavehost             = NULL;
         gf_boolean_t        is_existing_session       = _gf_false;

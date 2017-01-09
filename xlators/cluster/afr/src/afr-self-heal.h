@@ -167,8 +167,10 @@ afr_selfheal_extract_xattr (xlator_t *this, struct afr_reply *replies,
 int
 afr_selfheal_undo_pending (call_frame_t *frame, xlator_t *this, inode_t *inode,
 			   unsigned char *sources, unsigned char *sinks,
-			   unsigned char *healed_sinks, afr_transaction_type type,
-			   struct afr_reply *replies, unsigned char *locked_on);
+			   unsigned char *healed_sinks,
+                           unsigned char *undid_pending,
+                           afr_transaction_type type, struct afr_reply *replies,
+                           unsigned char *locked_on);
 
 int
 afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
@@ -229,6 +231,19 @@ afr_mark_split_brain_source_sinks (call_frame_t *frame, xlator_t *this,
                                    afr_transaction_type type);
 
 int
+afr_sh_get_fav_by_policy (xlator_t *this, struct afr_reply *replies,
+                          inode_t *inode, char **policy_str);
+
+int
+_afr_fav_child_reset_sink_xattrs (call_frame_t *frame, xlator_t *this,
+                                 inode_t *inode, int source,
+                                 unsigned char *healed_sinks,
+                                 unsigned char *undid_pending,
+                                 afr_transaction_type type,
+                                 unsigned char *locked_on,
+                                 struct afr_reply *replies);
+
+int
 afr_get_child_index_from_name (xlator_t *this, char *name);
 
 gf_boolean_t
@@ -239,8 +254,8 @@ __afr_selfheal_data_prepare (call_frame_t *frame, xlator_t *this,
                              inode_t *inode, unsigned char *locked_on,
                              unsigned char *sources,
                              unsigned char *sinks, unsigned char *healed_sinks,
-                             struct afr_reply *replies,
-                             gf_boolean_t *flag);
+                             unsigned char *undid_pending,
+                             struct afr_reply *replies, gf_boolean_t *flag);
 
 int
 __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this,
@@ -248,6 +263,7 @@ __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this,
                                  unsigned char *sources,
                                  unsigned char *sinks,
                                  unsigned char *healed_sinks,
+                                 unsigned char *undid_pending,
                                  struct afr_reply *replies,
                                  gf_boolean_t *flag);
 int
