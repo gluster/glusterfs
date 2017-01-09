@@ -109,8 +109,8 @@ rda_can_serve_readdirp(struct rda_fd_ctx *ctx, size_t request_size)
  * buffer. ctx must be locked.
  */
 static int32_t
-__rda_serve_readdirp(xlator_t *this, gf_dirent_t *entries, size_t request_size,
-		   struct rda_fd_ctx *ctx)
+__rda_fill_readdirp (xlator_t *this, gf_dirent_t *entries, size_t request_size,
+		     struct rda_fd_ctx *ctx)
 {
 	gf_dirent_t     *dirent, *tmp;
 	size_t           dirent_size, size = 0, inodectx_size = 0;
@@ -146,48 +146,42 @@ __rda_serve_readdirp(xlator_t *this, gf_dirent_t *entries, size_t request_size,
 }
 
 static int32_t
-rda_readdirp_stub(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-		  off_t offset, dict_t *xdata)
+__rda_serve_readdirp (xlator_t *this, struct rda_fd_ctx *ctx, size_t size,
+                      gf_dirent_t *entries, int *op_errno)
 {
-	gf_dirent_t entries;
-	int32_t ret;
-	struct rda_fd_ctx *ctx;
-        int op_errno = 0;
+        int32_t      ret     = 0;
 
-	ctx = get_rda_fd_ctx(fd, this);
-	INIT_LIST_HEAD(&entries.list);
-	ret = __rda_serve_readdirp(this, &entries, size, ctx);
+        ret = __rda_fill_readdirp (this, entries, size, ctx);
 
-	if (!ret && (ctx->state & RDA_FD_ERROR)) {
-		ret = -1;
-		ctx->state &= ~RDA_FD_ERROR;
+        if (!ret && (ctx->state & RDA_FD_ERROR)) {
+                ret = -1;
+                ctx->state &= ~RDA_FD_ERROR;
 
-		/*
-		 * the preload has stopped running in the event of an error, so
-		 * pass all future requests along
-		 */
-		ctx->state |= RDA_FD_BYPASS;
-	}
-
+                /*
+                 * the preload has stopped running in the event of an error, so
+                 * pass all future requests along
+                 */
+                ctx->state |= RDA_FD_BYPASS;
+        }
         /*
          * Use the op_errno sent by lower layers as xlators above will check
          * the op_errno for identifying whether readdir is completed or not.
          */
-        op_errno = ctx->op_errno;
+        *op_errno = ctx->op_errno;
 
-	STACK_UNWIND_STRICT(readdirp, frame, ret, op_errno, &entries, xdata);
-	gf_dirent_free(&entries);
-
-	return 0;
+        return ret;
 }
 
 static int32_t
 rda_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	     off_t off, dict_t *xdata)
 {
-	struct rda_fd_ctx *ctx;
-	call_stub_t *stub;
-	int fill = 0;
+        struct rda_fd_ctx   *ctx      = NULL;
+        int                  fill     = 0;
+        gf_dirent_t          entries;
+        int                  ret      = 0;
+        int                  op_errno = 0;
+        gf_boolean_t         serve    = _gf_false;
 
 	ctx = get_rda_fd_ctx(fd, this);
 	if (!ctx)
@@ -196,6 +190,7 @@ rda_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	if (ctx->state & RDA_FD_BYPASS)
 		goto bypass;
 
+        INIT_LIST_HEAD (&entries.list);
 	LOCK(&ctx->lock);
 
 	/* recheck now that we have the lock */
@@ -232,21 +227,22 @@ rda_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 		goto bypass;
 	}
 
-	stub = fop_readdirp_stub(frame, rda_readdirp_stub, fd, size, off, xdata);
-	if (!stub) {
-		UNLOCK(&ctx->lock);
-		goto err;
-	}
-
 	/*
 	 * If we haven't bypassed the preload, this means we can either serve
 	 * the request out of the preload or the request that enables us to do
 	 * so is in flight...
 	 */
-	if (rda_can_serve_readdirp(ctx, size)) {
-		call_resume(stub);
+	if (rda_can_serve_readdirp (ctx, size)) {
+                ret = __rda_serve_readdirp (this, ctx, size, &entries,
+                                            &op_errno);
+                serve = _gf_true;
         } else {
-		ctx->stub = stub;
+                ctx->stub = fop_readdirp_stub (frame, NULL, fd, size, off,
+                                               xdata);
+                if (!ctx->stub) {
+                        UNLOCK(&ctx->lock);
+                        goto err;
+                }
 
                 if (!(ctx->state & RDA_FD_RUNNING)) {
                         fill = 1;
@@ -255,6 +251,12 @@ rda_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         }
 
 	UNLOCK(&ctx->lock);
+
+        if (serve) {
+                STACK_UNWIND_STRICT (readdirp, frame, ret, op_errno, &entries,
+                                     xdata);
+                gf_dirent_free(&entries);
+        }
 
 	if (fill)
 		rda_fill_fd(frame, this, fd);
@@ -272,17 +274,24 @@ err:
 }
 
 static int32_t
-rda_fill_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+rda_fill_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		 int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
 		 dict_t *xdata)
 {
-	gf_dirent_t *dirent, *tmp;
-	struct rda_local *local = frame->local;
-	struct rda_fd_ctx *ctx = local->ctx;
-	struct rda_priv *priv = this->private;
-	int fill = 1;
-        size_t inodectx_size = 0, dirent_size = 0;
+        gf_dirent_t       *dirent        = NULL;
+        gf_dirent_t       *tmp           = NULL;
+        gf_dirent_t        serve_entries;
+        struct rda_local  *local         = frame->local;
+        struct rda_fd_ctx *ctx           = local->ctx;
+        struct rda_priv   *priv          = this->private;
+        int                fill          = 1;
+        size_t             inodectx_size = 0;
+        size_t             dirent_size   = 0;
+        int                ret           = 0;
+        gf_boolean_t       serve         = _gf_false;
+        call_stub_t       *stub          = NULL;
 
+        INIT_LIST_HEAD (&serve_entries.list);
 	LOCK(&ctx->lock);
 
 	/* Verify that the preload buffer is still pending on this data. */
@@ -339,8 +348,11 @@ rda_fill_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 	 * is always based on ctx->cur_offset.
 	 */
 	if (ctx->stub &&
-	    rda_can_serve_readdirp(ctx, ctx->stub->args.size)) {
-		call_resume(ctx->stub);
+	    rda_can_serve_readdirp (ctx, ctx->stub->args.size)) {
+                ret = __rda_serve_readdirp (this, ctx, ctx->stub->args.size,
+                                            &serve_entries, &op_errno);
+                serve = _gf_true;
+                stub = ctx->stub;
 		ctx->stub = NULL;
 	}
 
@@ -369,6 +381,13 @@ out:
 	}
 
 	UNLOCK(&ctx->lock);
+
+        if (serve) {
+                STACK_UNWIND_STRICT (readdirp, stub->frame, ret, op_errno,
+                                     &serve_entries, xdata);
+                gf_dirent_free (&serve_entries);
+                call_stub_destroy (stub);
+        }
 
 	if (fill)
 		rda_fill_fd(frame, this, local->fd);
