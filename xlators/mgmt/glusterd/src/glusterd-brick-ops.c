@@ -1724,7 +1724,9 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 }
         }
 
-        if (volinfo->replica_count < replica_count) {
+        is_force = dict_get_str_boolean (dict, "force", _gf_false);
+
+        if (volinfo->replica_count < replica_count && !is_force) {
                 cds_list_for_each_entry (brickinfo, &volinfo->bricks,
                                          brick_list) {
                         if (gf_uuid_compare (brickinfo->uuid, MY_UUID))
@@ -1811,8 +1813,6 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         GD_MSG_DICT_GET_FAILED, "Unable to get bricks");
                 goto out;
         }
-
-        is_force = dict_get_str_boolean (dict, "force", _gf_false);
 
         if (bricks) {
                 brick_list = gf_strdup (bricks);

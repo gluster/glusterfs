@@ -90,6 +90,7 @@ LOGDIR=$(gluster --print-logdir)
 statedumpdir=`gluster --print-statedumpdir`; # Default directory for statedump
 
 CLI="gluster --mode=script --wignore";
+CLI_NO_FORCE="gluster --mode-script";
 GFS="glusterfs --attribute-timeout=0 --entry-timeout=0";
 
 mkdir -p $WORKDIRS
