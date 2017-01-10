@@ -803,7 +803,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_args (&runner,
                          "log-file",
-                         DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/${session_owner}:${eSlave}.log",
+                         DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/${session_owner}:${local_node}${local_id}.${slavevol}.log",
                          ".", NULL);
         RUN_GSYNCD_CMD;
 
@@ -811,7 +811,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_args (&runner,
                          "log-file-mbr",
-                         DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/mbr/${session_owner}:${eSlave}.log",
+                         DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/mbr/${session_owner}:${local_node}${local_id}.${slavevol}.log",
                          ".", NULL);
         RUN_GSYNCD_CMD;
 
@@ -819,7 +819,7 @@ configure_syncdaemon (glusterd_conf_t *conf)
         runinit_gsyncd_setrx (&runner, conf);
         runner_add_args (&runner,
                          "gluster-log-file",
-                         DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/${session_owner}:${eSlave}.gluster.log",
+                         DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/${session_owner}:${local_node}${local_id}.${slavevol}.gluster.log",
                          ".", NULL);
         RUN_GSYNCD_CMD;
 

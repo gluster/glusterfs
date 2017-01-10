@@ -414,7 +414,8 @@ def main_i():
                 if (o.callback in (store_abs, 'store_true', None) and
                     o.get_opt_string() not in ('--version', '--help'))]
     remote_tunables = ['listen', 'go_daemon', 'timeout',
-                       'session_owner', 'config_file', 'use_rsync_xattrs']
+                       'session_owner', 'config_file', 'use_rsync_xattrs',
+                       'local_id', 'local_node']
     rq_remote_tunables = {'listen': True}
 
     # precedence for sources of values: 1) commandline, 2) cfg file, 3)
@@ -542,6 +543,7 @@ def main_i():
                 namedict[name + 'vol'] = x.volume
                 if name == 'remote':
                     namedict['remotehost'] = x.remotehost
+
     if not 'config_file' in rconf:
         rconf['config_file'] = TMPL_CONFIG_FILE
 

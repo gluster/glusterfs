@@ -78,6 +78,18 @@ CONFIGS = (
      "${slavevol}/${eSlave}.status",
      GLUSTERD_WORKDIR + "/geo-replication/${mastervol}_${remotehost}_"
      "${slavevol}/monitor.status"),
+    ("peersrx .",
+     "log_file",
+     "${iprefix}/log/glusterfs/geo-replication-slaves/${session_owner}:${eSlave}.log",
+     "${iprefix}/log/glusterfs/geo-replication-slaves/${session_owner}:${local_node}${local_id}.${slavevol}.log"),
+    ("peersrx .",
+     "log_file_mbr",
+     "${iprefix}/log/glusterfs/geo-replication-slaves/mbr/${session_owner}:${eSlave}.log",
+     "${iprefix}/log/glusterfs/geo-replication-slaves/mbr/${session_owner}:${local_node}${local_id}.${slavevol}.log"),
+    ("peersrx .",
+     "gluster_log_file",
+     "${iprefix}/log/glusterfs/geo-replication-slaves/${session_owner}:${eSlave}.gluster.log",
+     "${iprefix}/log/glusterfs/geo-replication-slaves/${session_owner}:${local_node}${local_id}.${slavevol}.gluster.log")
 )
 
 
