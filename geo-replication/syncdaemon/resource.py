@@ -1006,6 +1006,12 @@ class SlaveRemote(object):
         so = getattr(gconf, 'session_owner', None)
         if so:
             extra_opts += ['--session-owner', so]
+        li = getattr(gconf, 'local_id', None)
+        if li:
+            extra_opts += ['--local-id', li]
+        ln = getattr(gconf, 'local_node', None)
+        if ln:
+            extra_opts += ['--local-node', ln]
         if boolify(gconf.use_rsync_xattrs):
             extra_opts.append('--use-rsync-xattrs')
         po = Popen(rargs + gconf.remote_gsyncd.split() + extra_opts +
