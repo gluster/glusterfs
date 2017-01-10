@@ -169,12 +169,10 @@ struct cli_volume_status {
         char          *pid_str;
         char          *free;
         char          *total;
-#ifdef GF_LINUX_HOST_OS
         char          *fs_name;
         char          *mount_options;
         char          *device;
         char          *inode_size;
-#endif
 };
 
 struct snap_config_opt_vals_ {

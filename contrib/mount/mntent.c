@@ -36,6 +36,7 @@
  */
 
 #if !defined(GF_LINUX_HOST_OS)
+
 #include <stdlib.h>
 #include <string.h>
 #include <sys/param.h>
@@ -49,166 +50,209 @@ typedef struct statvfs gf_statfs_t;
 typedef struct statfs gf_statfs_t;
 #endif
 
-static int pos = -1;
-static int mntsize = -1;
-static struct mntent _mntent;
+typedef struct _mntent_state {
+        struct mntent  mntent;
+        gf_statfs_t   *statfs;
+        int            count;
+        int            pos;
+        /* A buffer big enough to store all defined flags as a string.
+         * Increase it if necessary when more flags are defined. */
+        char           buf[256];
+} mntent_state_t;
+
+typedef struct _mntflag {
+        unsigned long  value;
+        const char    *on;
+        const char    *off;
+} mntflag_t;
+
+static mntflag_t mntflags[] = {
+        { MNT_RDONLY,      "ro",          "rw" },
+        { MNT_SYNCHRONOUS, "sync",        NULL },
+        { MNT_NOEXEC,      "noexec",      NULL },
+        { MNT_NOSUID,      "nosuid",      NULL },
+#if !defined(__FreeBSD__)
+        { MNT_NODEV,       "nodev",       NULL },
+#endif /* __FreeBSD__ */
+        { MNT_UNION,       "union",       NULL },
+        { MNT_ASYNC,       "async",       NULL },
+#if !defined(GF_DARWIN_HOST_OS)
+        { MNT_NOATIME,     "noatime",     NULL },
+#if !defined(__NetBSD__)
+        { MNT_NOCLUSTERR,  "noclusterr",  NULL },
+        { MNT_NOCLUSTERW,  "noclusterw",  NULL },
+        { MNT_NOSYMFOLLOW, "nosymfollow", NULL },
+        { MNT_SUIDDIR,     "suiddir",     NULL },
+#endif /* !__NetBSD__ */
+#endif /* !GF_DARWIN_HOST_OS */
+        { 0,               NULL,          NULL }
+};
 
 char *
 hasmntopt (const struct mntent *mnt, const char *option)
 {
-        int found;
         char *opt, *optbuf;
+        int len;
 
         optbuf = strdup(mnt->mnt_opts);
-        found = 0;
-        for (opt = optbuf; (opt = strtok(opt, " ")) != NULL; opt = NULL) {
-                if (!strcasecmp(opt, option)) {
-                        opt = opt - optbuf + mnt->mnt_opts;
-                        free (optbuf);
-                        return (opt);
-                }
+        if (optbuf == NULL) {
+                return NULL;
         }
-        free (optbuf);
-        return (NULL);
+
+        opt = optbuf;
+        len = 0;
+        while (*opt) {
+                while (opt[len] != 0) {
+                        if (opt[len] == ' ') {
+                                opt[len++] = 0;
+                                break;
+                        }
+                        len++;
+                }
+                if ((*opt != 0) && (strcasecmp(opt, option) == 0)) {
+                        break;
+                }
+                opt += len;
+                len = 0;
+        }
+        free(optbuf);
+        if (len == 0) {
+                return NULL;
+        }
+
+        return opt - optbuf + mnt->mnt_opts;
+}
+
+static int
+writeopt(const char *text, char *buf, int buflen, int pos)
+{
+        int len;
+
+        /* buflen must be > 0 */
+
+        if (text == NULL) {
+                return pos;
+        }
+
+        buf += pos;
+        if (pos > 0) {
+                /* We are sure we have at least one byte to store the space.
+                 * We don't need to check buflen here. */
+                *buf++ = ' ';
+                pos++;
+        }
+        len = strlen(text) + 1;
+        pos += len;
+        if (pos >= buflen) {
+                /* There won't be enough space for the text and the
+                 * terminating null character. We copy as much as we can
+                 * of the text and mark the end of the string with '...' */
+                memcpy(buf, text, buflen - pos + len);
+                if (buflen > 3) {
+                        strcpy(buf + buflen - 4, "...");
+                } else {
+                        strncpy(buf, "...", buflen - 1);
+                        buf[buflen - 1] = 0;
+                }
+                pos = buflen;
+        } else {
+                memcpy(buf, text, len);
+        }
+
+        return pos;
 }
 
 static char *
-concatopt (char *s0, const char *s1)
+flags2opts (int flags, char *buf, int buflen)
 {
-        size_t i;
-        char *cp;
+        char other[16];
+        mntflag_t *flg;
+        int pos;
 
-        if (s1 == NULL || *s1 == '\0')
-                return s0;
-        if (s0 && *s0) {
-                i = strlen(s0) + strlen(s1) + 1 + 1;
-                if ((cp = (char *)malloc(i)) == NULL)
-                        return (NULL);
-                (void)snprintf(cp, i, "%s %s", s0, s1);
-        } else
-                cp = strdup(s1);
+        if (buflen == 0) {
+                return NULL;
+        }
 
-        if (s0)
-                free(s0);
-        return (cp);
+        pos = 0;
+        for (flg = mntflags; flg->value != 0; flg++) {
+                pos = writeopt((flags & flg->value) == 0 ? flg->off : flg->on,
+                               buf, buflen, pos);
+                flags &= ~flg->value;
+        }
+
+        if (flags != 0) {
+                sprintf(other, "[0x%x]", flags);
+                writeopt(other, buf, buflen, pos);
+        }
+
+        return buf;
 }
 
-
-static char *
-flags2opts (int flags)
+static void
+statfs_to_mntent (struct mntent *mntent, gf_statfs_t *mntbuf, char *buf,
+                  int buflen)
 {
-        char *res;
-        res = NULL;
-        res = concatopt(res, (flags & MNT_RDONLY) ? "ro" : "rw");
-        if (flags & MNT_SYNCHRONOUS)    res = concatopt(res, "sync");
-        if (flags & MNT_NOEXEC)         res = concatopt(res, "noexec");
-        if (flags & MNT_NOSUID)         res = concatopt(res, "nosuid");
-#if !defined(__FreeBSD__)
-        if (flags & MNT_NODEV)          res = concatopt(res, "nodev");
-#endif /* __FreeBSD__ */
-        if (flags & MNT_UNION)          res = concatopt(res, "union");
-        if (flags & MNT_ASYNC)          res = concatopt(res, "async");
-#if !defined(GF_DARWIN_HOST_OS)
-        if (flags & MNT_NOATIME)        res = concatopt(res, "noatime");
-#if !defined(__NetBSD__)
-        if (flags & MNT_NOCLUSTERR)     res = concatopt(res, "noclusterr");
-        if (flags & MNT_NOCLUSTERW)     res = concatopt(res, "noclusterw");
-        if (flags & MNT_NOSYMFOLLOW)    res = concatopt(res, "nosymfollow");
-        if (flags & MNT_SUIDDIR)        res = concatopt(res, "suiddir");
-#endif /* !__NetBSD__ */
-#endif /* !GF_DARWIN_HOS_OS */
-        return res;
-}
-
-static struct mntent *
-statfs_to_mntent (gf_statfs_t *mntbuf)
-{
-        static char opts_buf[40], *tmp;
         int f_flags;
 
-        _mntent.mnt_fsname = mntbuf->f_mntfromname;
-        _mntent.mnt_dir = mntbuf->f_mntonname;
-        _mntent.mnt_type = mntbuf->f_fstypename;
+        mntent->mnt_fsname = mntbuf->f_mntfromname;
+        mntent->mnt_dir = mntbuf->f_mntonname;
+        mntent->mnt_type = mntbuf->f_fstypename;
 
 #ifdef __NetBSD__
         f_flags = mntbuf->f_flag;
 #else
         f_flags = mntbuf->f_flags;
 #endif
-        tmp = flags2opts (f_flags);
-        if (tmp) {
-                opts_buf[sizeof(opts_buf)-1] = '\0';
-                strncpy (opts_buf, tmp, sizeof(opts_buf)-1);
-                free (tmp);
-        } else {
-                *opts_buf = '\0';
+        mntent->mnt_opts = flags2opts (f_flags, buf, buflen);
+
+        mntent->mnt_freq = mntent->mnt_passno = 0;
+}
+
+struct mntent *
+getmntent_r (FILE *fp, struct mntent *mntent, char *buf, int buflen)
+{
+        mntent_state_t *state = (mntent_state_t *)fp;
+
+        if (state->pos >= state->count) {
+                return NULL;
         }
-        _mntent.mnt_opts = opts_buf;
-        _mntent.mnt_freq = _mntent.mnt_passno = 0;
-        return (&_mntent);
+
+        statfs_to_mntent(mntent, &state->statfs[state->pos++], buf, buflen);
+
+        return mntent;
 }
 
 struct mntent *
 getmntent (FILE *fp)
 {
-        gf_statfs_t *mntbuf;
+        mntent_state_t *state = (mntent_state_t *)fp;
 
-        if (!fp)
-                return NULL;
-
-        if (pos == -1 || mntsize == -1)
-                mntsize = getmntinfo (&mntbuf, MNT_NOWAIT);
-
-        ++pos;
-        if (pos == mntsize) {
-                pos = mntsize = -1;
-                return (NULL);
-        }
-
-        return (statfs_to_mntent (&mntbuf[pos]));
-}
-
-/*
-  Careful using this function ``buffer`` and ``bufsize`` are
-  ignored since there is no stream with strings to populate
-  them on OSX or NetBSD, if one wishes to populate them then
-  perhaps a new function should be written in this source file
-  which uses 'getmntinfo()' to stringify the mntent's
-*/
-
-struct mntent *getmntent_r (FILE *fp, struct mntent *result,
-                            char *buffer, int bufsize)
-{
-        struct mntent *ment = NULL;
-
-        if (!fp)
-                return NULL;
-
-        flockfile (fp);
-        ment = getmntent (fp);
-        memcpy (result, ment, sizeof(*ment));
-        funlockfile (fp);
-
-        return result;
+        return getmntent_r(fp, &state->mntent, state->buf,
+                           sizeof(state->buf));
 }
 
 FILE *
 setmntent (const char *filename, const char *type)
 {
-        FILE *fp = NULL;
-#ifdef GF_DARWIN_HOST_OS
-        fp = fopen (filename, "w");
-#else
-        fp = fopen (filename, type);
-#endif
-        return fp;
+        mntent_state_t *state;
+
+        /* We don't really need to access any file so we'll use the FILE* as
+         * a fake file to store state information.
+         */
+
+        state = malloc(sizeof(mntent_state_t));
+        if (state != NULL) {
+                state->pos = 0;
+                state->count = getmntinfo(&state->statfs, MNT_NOWAIT);
+        }
+
+        return (FILE *)state;
 }
 
 int
 endmntent (FILE *fp)
 {
-        if (fp)
-                fclose (fp);
+        free(fp);
 
         return 1; /* endmntent() always returns 1 */
 }

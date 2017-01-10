@@ -438,12 +438,6 @@ cli_xml_output_vol_status_detail (xmlTextWriterPtr writer, dict_t *dict,
                                                        (xmlChar *)"fsName",
                                                        "%s", fs_name);
 
-        /* inode details are only available for ext 2/3/4 & xfs */
-        if (!fs_name || !IS_EXT_FS(fs_name) || strcmp (fs_name, "xfs")) {
-                        ret = 0;
-                        goto out;
-        }
-
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.inode_size", brick_index);
         ret = dict_get_str (dict, key, &inode_size);
@@ -467,6 +461,8 @@ cli_xml_output_vol_status_detail (xmlTextWriterPtr writer, dict_t *dict,
                 ret = xmlTextWriterWriteFormatElement (writer,
                                                        (xmlChar *)"inodesFree",
                                                        "%"PRIu64, inodes_free);
+	else
+		ret = 0;
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
