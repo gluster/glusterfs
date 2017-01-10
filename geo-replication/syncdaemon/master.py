@@ -758,6 +758,9 @@ class GMasterChangelogMixin(GMasterCommon):
                 num_failures += 1
                 logging.error('%s FAILED: %s' % (log_prefix,
                                                  repr(failure)))
+                if failure[0]['op'] == 'MKDIR':
+                    raise GsyncdError("The above directory failed to sync."
+                                      " Please fix it to proceed further.")
 
         self.status.inc_value("failures", num_failures)
 

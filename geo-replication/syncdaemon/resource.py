@@ -664,15 +664,18 @@ class Server(object):
             # We do this for failing fops on Slave
             # Master should be logging this
             if cmd_ret is None:
-                return
+                return False
 
             if cmd_ret == EEXIST:
                 disk_gfid = cls.gfid_mnt(e['entry'])
-                if isinstance(disk_gfid, basestring):
-                    if e['gfid'] != disk_gfid:
-                        failures.append((e, cmd_ret, disk_gfid))
+                if isinstance(disk_gfid, basestring) and e['gfid'] != disk_gfid:
+                    failures.append((e, cmd_ret, disk_gfid))
+                else:
+                    return False
             else:
                 failures.append((e, cmd_ret))
+
+            return True
 
         failures = []
 
@@ -843,7 +846,15 @@ class Server(object):
                                      [pg, 'glusterfs.gfid.newfile', blob],
                                      [EEXIST, ENOENT],
                                      [ESTALE, EINVAL])
-                collect_failure(e, cmd_ret)
+                failed = collect_failure(e, cmd_ret)
+
+                # If directory creation is failed, return immediately before
+                # further processing. Allowing it to further process will
+                # cause the entire directory tree to fail syncing to slave.
+                # Hence master will log and raise exception if it's
+                # directory failure.
+                if failed and op == 'MKDIR':
+                    return failures
 
                 # If UID/GID is different than zero that means we are trying
                 # create Entry with different UID/GID. Create Entry with
@@ -852,7 +863,7 @@ class Server(object):
                     path = os.path.join(pfx, gfid)
                     cmd_ret = errno_wrap(os.chown, [path, uid, gid], [ENOENT],
                                          [ESTALE, EINVAL])
-                collect_failure(e, cmd_ret)
+                    collect_failure(e, cmd_ret)
 
         return failures
 
