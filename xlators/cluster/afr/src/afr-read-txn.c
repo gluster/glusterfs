@@ -48,17 +48,6 @@ afr_read_txn_next_subvol (call_frame_t *frame, xlator_t *this)
 	return 0;
 }
 
-#define AFR_READ_TXN_SET_ERROR_AND_GOTO(ret, errnum, index, label) \
-        do {                                                      \
-                local->op_ret = ret;                              \
-                local->op_errno = errnum;                          \
-                read_subvol = index;                              \
-                gf_msg (this->name, GF_LOG_ERROR, EIO, AFR_MSG_SPLIT_BRAIN,\
-                        "Failing %s on gfid %s: split-brain observed.",\
-                        gf_fop_list[local->op], uuid_utoa (inode->gfid));\
-                goto label;                                       \
-        } while (0)
-
 int
 afr_read_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
 {
@@ -72,19 +61,16 @@ afr_read_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
 	inode = local->inode;
 
         if (err) {
-                local->op_errno = -err;
-                local->op_ret = -1;
                 read_subvol = -1;
-                gf_msg (this->name, GF_LOG_ERROR, EIO, AFR_MSG_SPLIT_BRAIN,
-                        "Failing %s on gfid %s: split-brain observed.",
-                        gf_fop_list[local->op], uuid_utoa (inode->gfid));
                 goto readfn;
         }
 
 	read_subvol = afr_read_subvol_select_by_policy (inode, this,
 							local->readable, NULL);
-	if (read_subvol == -1)
-                AFR_READ_TXN_SET_ERROR_AND_GOTO (-1, EIO, -1, readfn);
+	if (read_subvol == -1) {
+                err = -EIO;
+                goto readfn;
+        }
 
 	if (local->read_attempted[read_subvol]) {
 		afr_read_txn_next_subvol (frame, this);
@@ -98,6 +84,10 @@ readfn:
                                                         &spb_choice);
                 if ((ret == 0) && spb_choice >= 0)
                         read_subvol = spb_choice;
+        }
+
+        if (read_subvol == -1) {
+                AFR_SET_ERROR_AND_CHECK_SPLIT_BRAIN (-1, -err);
         }
 	local->readfn (frame, this, read_subvol);
 
