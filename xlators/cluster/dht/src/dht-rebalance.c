@@ -18,12 +18,12 @@
 #include <signal.h>
 #include "events.h"
 
-
 #define GF_DISK_SECTOR_SIZE             512
 #define DHT_REBALANCE_PID               4242 /* Change it if required */
 #define DHT_REBALANCE_BLKSIZE           (1024 * 1024)  /* 1 MB */
 #define MAX_MIGRATE_QUEUE_COUNT         500
 #define MIN_MIGRATE_QUEUE_COUNT         200
+#define MAX_REBAL_TYPE_SIZE             16
 
 #ifndef MAX
 #define MAX(a, b) (((a) > (b))?(a):(b))
@@ -165,7 +165,8 @@ dht_send_rebalance_event (xlator_t *this, int cmd, gf_defrag_status_t status)
 
 static int
 dht_write_with_holes (xlator_t *to, fd_t *fd, struct iovec *vec, int count,
-                      int32_t size, off_t offset, struct iobref *iobref)
+                      int32_t size, off_t offset, struct iobref *iobref,
+                      int *fop_errno)
 {
         int i            = 0;
         int ret          = -1;
@@ -199,6 +200,7 @@ dht_write_with_holes (xlator_t *to, fd_t *fd, struct iovec *vec, int count,
                                         gf_log (THIS->name, GF_LOG_WARNING,
                                                 "failed to write (%s)",
                                                 strerror (-ret));
+                                        *fop_errno = -ret;
                                         ret = -1;
                                         goto out;
                                 }
@@ -219,6 +221,7 @@ dht_write_with_holes (xlator_t *to, fd_t *fd, struct iovec *vec, int count,
                                 gf_log (THIS->name, GF_LOG_WARNING,
                                         "failed to write (%s)",
                                         strerror (-ret));
+                                *fop_errno = -ret;
                                 ret = -1;
                                 goto out;
                         }
@@ -272,7 +275,7 @@ be converted to "0" in dht_migrate_file.
 
 int32_t
 gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
-                           struct iatt *stbuf)
+                           struct iatt *stbuf, int *fop_errno)
 {
         int32_t                 ret             = -1;
         xlator_t               *cached_subvol   = NULL;
@@ -284,6 +287,9 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
         dht_conf_t             *conf            = NULL;
         gf_loglevel_t          loglevel         = 0;
         dict_t                 *link_xattr      = NULL;
+
+
+        *fop_errno = EINVAL;
 
         GF_VALIDATE_OR_GOTO ("defrag", loc, out);
         GF_VALIDATE_OR_GOTO ("defrag", loc->name, out);
@@ -299,6 +305,8 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "Migrate file failed :"
                         "loc->pargfid is NULL for %s", loc->path);
+                *fop_errno = EINVAL;
+                ret = -1;
                 goto out;
         }
 
@@ -307,13 +315,15 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "Migrate file failed :"
                         "loc->gfid is NULL for %s", loc->path);
+                *fop_errno = EINVAL;
+                ret = -1;
                 goto out;
         }
 
         link_xattr = dict_new ();
         if (!link_xattr) {
                 ret = -1;
-                errno = ENOMEM;
+                *fop_errno = ENOMEM;
                 goto out;
         }
 
@@ -354,6 +364,7 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "Migrate file failed:%s lookup failed with ret = %d",
                         loc->path, ret);
+                *fop_errno = -ret;
                 ret = -1;
                 goto out;
         }
@@ -365,6 +376,8 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                         "Migrate file failed :"
                         "Failed to get cached subvol"
                         " for %s on %s", loc->name, this->name);
+                *fop_errno = EINVAL;
+                ret = -1;
                 goto out;
         }
 
@@ -375,6 +388,8 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                         "Migrate file failed :"
                         "Failed to get hashed subvol"
                         " for %s on %s", loc->name, this->name);
+                *fop_errno = EINVAL;
+                ret = -1;
                 goto out;
         }
 
@@ -398,6 +413,8 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                                 "Failed to set dictionary value:"
                                 " key = %s for %s",
                                 conf->link_xattr_name, loc->name);
+                        *fop_errno = ENOMEM;
+                        ret = -1;
                         goto out;
                 }
 
@@ -410,6 +427,7 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                                 "Linkto setxattr failed %s -> %s (%s)",
                                 cached_subvol->name,
                                 loc->name, strerror (-ret));
+                        *fop_errno = -ret;
                         ret = -1;
                         goto out;
                 }
@@ -439,8 +457,10 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                                 " failed on  subvol %s", loc->name,
                                 uuid_utoa(loc->gfid),
                                 hashed_subvol->name);
-                        if (op_errno != EEXIST)
+                        if (op_errno != EEXIST) {
+                                *fop_errno = op_errno;
                                 goto out;
+                        }
                 }
         }
         ret = syncop_lookup (hashed_subvol, loc, &iatt, NULL, NULL, NULL);
@@ -450,15 +470,18 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                         "Migrate file failed :Failed lookup %s on %s ",
                         loc->name, hashed_subvol->name);
 
+                *fop_errno = -ret;
                 ret = -1;
                 goto out;
         }
 
         if (iatt.ia_nlink == stbuf->ia_nlink) {
                 ret = dht_migrate_file (this, loc, cached_subvol, hashed_subvol,
-                                        GF_DHT_MIGRATE_HARDLINK_IN_PROGRESS);
-                if (ret)
+                                        GF_DHT_MIGRATE_HARDLINK_IN_PROGRESS,
+                                        fop_errno);
+                if (ret) {
                         goto out;
+                }
         }
         ret = -2;
 out:
@@ -471,8 +494,8 @@ out:
 
 static int
 __check_file_has_hardlink (xlator_t *this, loc_t *loc,
-                      struct iatt *stbuf, dict_t *xattrs, int flags,
-                                gf_defrag_info_t *defrag)
+                           struct iatt *stbuf, dict_t *xattrs, int flags,
+                           gf_defrag_info_t *defrag, int *fop_errno)
 {
        int ret = 0;
 
@@ -485,7 +508,7 @@ __check_file_has_hardlink (xlator_t *this, loc_t *loc,
                 if (flags == GF_DHT_MIGRATE_HARDLINK) {
                         synclock_lock (&defrag->link_lock);
                         ret = gf_defrag_handle_hardlink
-                                (this, loc, xattrs, stbuf);
+                                (this, loc, xattrs, stbuf, fop_errno);
                         synclock_unlock (&defrag->link_lock);
                         /*
                         Returning zero will force the file to be remigrated.
@@ -501,9 +524,10 @@ __check_file_has_hardlink (xlator_t *this, loc_t *loc,
                 } else {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
-                                "Migrate file failed:"
+                                "Migration skipped for:"
                                 "%s: file has hardlinks", loc->path);
-                        ret = -ENOTSUP;
+                        *fop_errno = ENOTSUP;
+                        ret = -1;
                 }
        }
 
@@ -522,7 +546,7 @@ __check_file_has_hardlink (xlator_t *this, loc_t *loc,
 static int
 __is_file_migratable (xlator_t *this, loc_t *loc,
                       struct iatt *stbuf, dict_t *xattrs, int flags,
-                                gf_defrag_info_t *defrag)
+                                gf_defrag_info_t *defrag, int *fop_errno)
 {
         int ret = -1;
         int lock_count = 0;
@@ -532,6 +556,7 @@ __is_file_migratable (xlator_t *this, loc_t *loc,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "Migrate file failed:"
                         "%s: migrate-file called on directory", loc->path);
+                *fop_errno = EISDIR;
                 ret = -1;
                 goto out;
         }
@@ -545,6 +570,7 @@ __is_file_migratable (xlator_t *this, loc_t *loc,
                                 "Migrate file failed:"
                                 "%s: Unable to get lock count for file",
                                 loc->path);
+                        *fop_errno = EINVAL;
                         ret = -1;
                         goto out;
                 }
@@ -554,6 +580,7 @@ __is_file_migratable (xlator_t *this, loc_t *loc,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "Migrate file failed: %s: File has locks."
                                 " Skipping file migration", loc->path);
+                        *fop_errno = ENOTSUP;
                         ret = -1;
                         goto out;
                 }
@@ -561,17 +588,17 @@ __is_file_migratable (xlator_t *this, loc_t *loc,
 
         /* Check if file has hardlink*/
         ret = __check_file_has_hardlink (this, loc, stbuf, xattrs,
-                                         flags, defrag);
+                                         flags, defrag, fop_errno);
 out:
         return ret;
 }
 
 
 static int
-__dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struct iatt *stbuf,
-                                 fd_t **dst_fd, dict_t *xattr)
+__dht_rebalance_create_dst_file (xlator_t *this, xlator_t *to, xlator_t *from,
+                                 loc_t *loc, struct iatt *stbuf, fd_t **dst_fd,
+                                 dict_t *xattr, int *fop_errno)
 {
-        xlator_t    *this = NULL;
         int          ret  = -1;
         fd_t        *fd   = NULL;
         struct iatt  new_stbuf = {0,};
@@ -579,15 +606,21 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
         dht_conf_t  *conf = NULL;
         dict_t      *dict = NULL;
 
-        this = THIS;
         conf = this->private;
 
         dict = dict_new ();
-        if (!dict)
+        if (!dict) {
+                *fop_errno = ENOMEM;
+                ret = -1;
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        DHT_MSG_NO_MEMORY, "dictionary allocation failed for"
+                        "path:%s", loc->path);
                 goto out;
-
+        }
         ret = dict_set_static_bin (dict, "gfid-req", stbuf->ia_gfid, 16);
         if (ret) {
+                *fop_errno = ENOMEM;
+                ret = -1;
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_DICT_SET_FAILED,
                         "%s: failed to set dictionary value: key = gfid-req",
@@ -597,6 +630,8 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
 
         ret = dict_set_str (dict, conf->link_xattr_name, from->name);
         if (ret) {
+                *fop_errno = ENOMEM;
+                ret = -1;
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_DICT_SET_FAILED,
                         "%s: failed to set dictionary value: key = %s ",
@@ -606,11 +641,12 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
 
         fd = fd_create (loc->inode, DHT_REBALANCE_PID);
         if (!fd) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        DHT_MSG_MIGRATE_FILE_FAILED,
-                        "%s: fd create failed (destination) (%s)",
-                        loc->path, strerror (errno));
+                *fop_errno = ENOMEM;
                 ret = -1;
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        DHT_MSG_MIGRATE_FILE_FAILED,
+                        "%s: fd create failed (destination)",
+                        loc->path);
                 goto out;
         }
 
@@ -622,6 +658,7 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
                                 DHT_MSG_GFID_MISMATCH,
                                 "file %s exists in %s with different gfid",
                                 loc->path, to->name);
+                        *fop_errno = EINVAL;
                         ret = -1;
                         goto out;
                 }
@@ -632,6 +669,7 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "%s: failed to lookup file (%s)",
                         loc->path, strerror (-ret));
+                *fop_errno = -ret;
                 ret = -1;
                 goto out;
         }
@@ -648,6 +686,7 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "failed to open %s on %s",
                                 loc->path, to->name);
+                        *fop_errno = -ret;
                         ret = -1;
                         goto out;
                  }
@@ -659,6 +698,7 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "failed to create %s on %s",
                                 loc->path, to->name);
+                        *fop_errno = -ret;
                         ret = -1;
                         goto out;
                 }
@@ -686,6 +726,7 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
                                 "file %s exists in %s with different gfid,"
                                 "found in lookup after create",
                                 loc->path, to->name);
+                        *fop_errno = EINVAL;
                         ret = -1;
                         goto out;
                 }
@@ -696,23 +737,27 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED, "%s: file does not exists"
                         "on %s (%s)", loc->path, to->name, strerror (-ret));
+                *fop_errno = -ret;
                 ret = -1;
                 goto out;
         }
 
         ret = syncop_fsetxattr (to, fd, xattr, 0, NULL, NULL);
-        if (ret < 0)
+        if (ret < 0) {
+                *fop_errno = -ret;
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "%s: failed to set xattr on %s (%s)",
                         loc->path, to->name, strerror (-ret));
 
+        }
 
         /* TODO: Need to add a detailed comment about why we moved away from
         ftruncate.
 
         ret = syncop_ftruncate (to, fd, stbuf->ia_size, NULL, NULL);
-        if (ret < 0)
+        if (ret < 0) {
+                *fop_errno = -ret;
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "ftruncate failed for %s on %s (%s)",
@@ -722,11 +767,13 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
         ret = syncop_fsetattr (to, fd, stbuf,
                                (GF_SET_ATTR_UID | GF_SET_ATTR_GID),
                                 NULL, NULL, NULL, NULL);
-        if (ret < 0)
+        if (ret < 0) {
+                *fop_errno = -ret;
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "chown failed for %s on %s (%s)",
                         loc->path, to->name, strerror (-ret));
+        }
 
         /* Fallocate does not work for size 0, hence the check. Anyway we don't
          * need to care about min-free-disk for 0 byte size file */
@@ -762,15 +809,14 @@ out:
 }
 
 static int
-__dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
+__dht_check_free_space (xlator_t *this, xlator_t *to, xlator_t *from, loc_t *loc,
                         struct iatt *stbuf, int flag, dht_conf_t *conf,
                         gf_boolean_t *target_changed, xlator_t **new_subvol,
-                        gf_boolean_t *ignore_failure)
+                        gf_boolean_t *ignore_failure,  int *fop_errno)
 {
         struct statvfs  src_statfs = {0,};
         struct statvfs  dst_statfs = {0,};
         int             ret        = -1;
-        xlator_t       *this       = NULL;
         dict_t         *xdata      = NULL;
         dht_layout_t   *layout     = NULL;
         uint64_t        src_statfs_blocks = 1;
@@ -779,11 +825,10 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
         double   post_percent = 0;
         int             i = 0;
 
-        this = THIS;
-
         xdata = dict_new ();
         if (!xdata) {
-                errno = ENOMEM;
+                *fop_errno = ENOMEM;
+                ret = -1;
                 gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                         DHT_MSG_NO_MEMORY,
                         "failed to allocate dictionary");
@@ -796,6 +841,7 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
                         "Failed to set "
                         GF_INTERNAL_IGNORE_DEEM_STATFS" in dict");
                 ret = -1;
+                *fop_errno = ENOMEM;
                 goto out;
         }
 
@@ -805,6 +851,7 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "failed to get statfs of %s on %s (%s)",
                         loc->path, from->name, strerror (-ret));
+                *fop_errno = -ret;
                 ret = -1;
                 goto out;
         }
@@ -815,6 +862,7 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "failed to get statfs of %s on %s (%s)",
                         loc->path, to->name, strerror (-ret));
+                *fop_errno = -ret;
                 ret = -1;
                 goto out;
         }
@@ -857,6 +905,7 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
 
                         /* this is not a 'failure', but we don't want to
                            consider this as 'success' too :-/ */
+                        *fop_errno = ENOSPC;
                         ret = -1;
                         goto out;
                 }
@@ -898,6 +947,7 @@ find_new_subvol:
         layout = dht_layout_get (this, loc->parent);
         if (!layout) {
                 gf_log (this->name, GF_LOG_ERROR, "Layout is NULL");
+                *fop_errno = EINVAL;
                 ret = -1;
                 goto out;
         }
@@ -925,6 +975,7 @@ find_new_subvol:
                 }
 
                 *target_changed = _gf_false;
+                *fop_errno = ENOSPC;
                 ret = -1;
                 goto out;
         } else {
@@ -944,7 +995,7 @@ out:
 
 static int
 __dht_rebalance_migrate_data (xlator_t *from, xlator_t *to, fd_t *src, fd_t *dst,
-                              uint64_t ia_size, int hole_exists)
+                              uint64_t ia_size, int hole_exists, int *fop_errno)
 {
         int            ret    = 0;
         int            count  = 0;
@@ -963,18 +1014,26 @@ __dht_rebalance_migrate_data (xlator_t *from, xlator_t *to, fd_t *src, fd_t *dst
                                     offset, 0, &vector, &count, &iobref, NULL,
                                     NULL);
                 if (!ret || (ret < 0)) {
+                        *fop_errno = -ret;
                         break;
                 }
 
-                if (hole_exists)
+                if (hole_exists) {
                         ret = dht_write_with_holes (to, dst, vector, count,
-                                                    ret, offset, iobref);
-                else
+                                                    ret, offset, iobref,
+                                                    fop_errno);
+                } else {
                         ret = syncop_writev (to, dst, vector, count,
                                              offset, iobref, 0, NULL, NULL);
+                        if (ret < 0) {
+                                *fop_errno = -ret;
+                        }
+                }
+
                 if (ret < 0) {
                         break;
                 }
+
                 offset += ret;
                 total += ret;
 
@@ -998,7 +1057,7 @@ __dht_rebalance_migrate_data (xlator_t *from, xlator_t *to, fd_t *src, fd_t *dst
 
 static int
 __tier_migrate_data (gf_defrag_info_t *defrag, xlator_t *from, xlator_t *to, fd_t *src, fd_t *dst,
-                     uint64_t ia_size, int hole_exists)
+                     uint64_t ia_size, int hole_exists, int *fop_errno)
 {
         int            ret    = 0;
         int            count  = 0;
@@ -1018,15 +1077,20 @@ __tier_migrate_data (gf_defrag_info_t *defrag, xlator_t *from, xlator_t *to, fd_
                                     offset, 0, &vector, &count, &iobref, NULL,
                                     NULL);
                 if (!ret || (ret < 0)) {
+                        *fop_errno = -ret;
                         break;
                 }
 
-                if (hole_exists)
+                if (hole_exists) {
                         ret = dht_write_with_holes (to, dst, vector, count,
-                                                    ret, offset, iobref);
-                else
+                                                    ret, offset, iobref,
+                                                    fop_errno);
+                } else {
                         ret = syncop_writev (to, dst, vector, count,
                                              offset, iobref, 0, NULL, NULL);
+                        *fop_errno = -ret;
+                }
+
                 if (gf_defrag_get_pause_state (&defrag->tier_conf) != TIER_RUNNING) {
                         gf_msg ("tier", GF_LOG_INFO, 0,
                                 DHT_MSG_TIER_PAUSED,
@@ -1060,18 +1124,17 @@ __tier_migrate_data (gf_defrag_info_t *defrag, xlator_t *from, xlator_t *to, fd_
 
 
 static int
-__dht_rebalance_open_src_file (xlator_t *from, xlator_t *to, loc_t *loc,
+__dht_rebalance_open_src_file (xlator_t *this, xlator_t *from, xlator_t *to, loc_t *loc,
                                struct iatt *stbuf, fd_t **src_fd,
-                               gf_boolean_t *clean_src)
+                               gf_boolean_t *clean_src, int *fop_errno)
 {
+
         int          ret  = 0;
         fd_t        *fd   = NULL;
         dict_t      *dict = NULL;
-        xlator_t    *this = NULL;
         struct iatt  iatt = {0,};
         dht_conf_t  *conf = NULL;
 
-        this = THIS;
         conf = this->private;
 
         *clean_src = _gf_false;
@@ -1081,6 +1144,7 @@ __dht_rebalance_open_src_file (xlator_t *from, xlator_t *to, loc_t *loc,
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "%s: fd create failed (source)", loc->path);
+                *fop_errno = ENOMEM;
                 ret = -1;
                 goto out;
         }
@@ -1091,6 +1155,7 @@ __dht_rebalance_open_src_file (xlator_t *from, xlator_t *to, loc_t *loc,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "failed to open file %s on %s (%s)",
                         loc->path, from->name, strerror (-ret));
+                *fop_errno = -ret;
                 ret = -1;
                 goto out;
         }
@@ -1102,14 +1167,22 @@ __dht_rebalance_open_src_file (xlator_t *from, xlator_t *to, loc_t *loc,
 
         ret = -1;
         dict = dict_new ();
-        if (!dict)
+        if (!dict) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_MIGRATE_FILE_FAILED,
+                        "%s: Could not allocate memory for dict", loc->path);
+                *fop_errno = ENOMEM;
+                ret = -1;
                 goto out;
+        }
 
         ret = dict_set_str (dict, conf->link_xattr_name, to->name);
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to set xattr in dict for %s (linkto:%s)",
                         loc->path, to->name);
+                *fop_errno = ENOMEM;
+                ret = -1;
                 goto out;
         }
 
@@ -1121,6 +1194,7 @@ __dht_rebalance_open_src_file (xlator_t *from, xlator_t *to, loc_t *loc,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "failed to set xattr on %s in %s (%s)",
                         loc->path, from->name, strerror (-ret));
+                *fop_errno = -ret;
                 ret = -1;
                 goto out;
         }
@@ -1141,6 +1215,7 @@ __dht_rebalance_open_src_file (xlator_t *from, xlator_t *to, loc_t *loc,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "failed to set mode on %s in %s (%s)",
                         loc->path, from->name, strerror (-ret));
+                *fop_errno = -ret;
                 ret = -1;
                 goto out;
         }
@@ -1156,7 +1231,7 @@ out:
 
 int
 migrate_special_files (xlator_t *this, xlator_t *from, xlator_t *to, loc_t *loc,
-                       struct iatt *buf)
+                       struct iatt *buf, int *fop_errno)
 {
         int          ret      = -1;
         dict_t      *rsp_dict = NULL;
@@ -1166,11 +1241,15 @@ migrate_special_files (xlator_t *this, xlator_t *from, xlator_t *to, loc_t *loc,
         dht_conf_t  *conf     = this->private;
 
         dict = dict_new ();
-        if (!dict)
+        if (!dict) {
+                *fop_errno = ENOMEM;
+                ret = -1;
                 goto out;
-
+        }
         ret = dict_set_int32 (dict, conf->link_xattr_name, 256);
         if (ret) {
+                *fop_errno = ENOMEM;
+                ret = -1;
                 gf_log (this->name, GF_LOG_ERROR,
                         "%s: failed to set 'linkto' key in dict", loc->path);
                 goto out;
@@ -1183,6 +1262,7 @@ migrate_special_files (xlator_t *this, xlator_t *from, xlator_t *to, loc_t *loc,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "%s: lookup failed (%s)",
                         loc->path, strerror (-ret));
+                *fop_errno = -ret;
                 ret = -1;
                 goto out;
         }
@@ -1198,6 +1278,7 @@ migrate_special_files (xlator_t *this, xlator_t *from, xlator_t *to, loc_t *loc,
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "%s: file exists in destination", loc->path);
+                        *fop_errno = EINVAL;
                         ret = -1;
                         goto out;
                 }
@@ -1209,6 +1290,7 @@ migrate_special_files (xlator_t *this, xlator_t *from, xlator_t *to, loc_t *loc,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "%s: failed to delete the linkfile (%s)",
                                 loc->path, strerror (-ret));
+                        *fop_errno = -ret;
                         ret = -1;
                         goto out;
                 }
@@ -1217,6 +1299,8 @@ migrate_special_files (xlator_t *this, xlator_t *from, xlator_t *to, loc_t *loc,
         /* Set the gfid of the source file in dict */
         ret = dict_set_static_bin (dict, "gfid-req", buf->ia_gfid, 16);
         if (ret) {
+                *fop_errno = ENOMEM;
+                ret = -1;
                 gf_log (this->name, GF_LOG_ERROR,
                         "%s: failed to set gfid in dict for create", loc->path);
                 goto out;
@@ -1232,6 +1316,7 @@ migrate_special_files (xlator_t *this, xlator_t *from, xlator_t *to, loc_t *loc,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "%s: readlink on symlink failed (%s)",
                                 loc->path, strerror (-ret));
+                        *fop_errno = -ret;
                         ret = -1;
                         goto out;
                 }
@@ -1242,6 +1327,7 @@ migrate_special_files (xlator_t *this, xlator_t *from, xlator_t *to, loc_t *loc,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "%s: creating symlink failed (%s)",
                                 loc->path, strerror (-ret));
+                        *fop_errno = -ret;
                         ret = -1;
                         goto out;
                 }
@@ -1258,6 +1344,7 @@ migrate_special_files (xlator_t *this, xlator_t *from, xlator_t *to, loc_t *loc,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "%s: mknod failed (%s)",
                         loc->path, strerror (-ret));
+                *fop_errno = -ret;
                 ret = -1;
                 goto out;
         }
@@ -1272,6 +1359,7 @@ done:
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "%s: failed to perform setattr on %s (%s)",
                         loc->path, to->name, strerror (-ret));
+                *fop_errno = -ret;
                 ret = -1;
         }
 
@@ -1281,6 +1369,7 @@ done:
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "%s: unlink failed (%s)",
                         loc->path, strerror (-ret));
+                *fop_errno = -ret;
                 ret = -1;
         }
 
@@ -1369,7 +1458,7 @@ out:
 */
 int
 dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
-                  int flag)
+                  int flag, int *fop_errno)
 {
         int                     ret                     = -1;
         struct iatt             new_stbuf               = {0,};
@@ -1416,11 +1505,17 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 loc->path, from->name, to->name);
 
         dict = dict_new ();
-        if (!dict)
+        if (!dict) {
+                ret = -1;
+                *fop_errno = ENOMEM;
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_NO_MEMORY,
+                        "Could not allocate memory for dict");
                 goto out;
-
+        }
         ret = dict_set_int32 (dict, conf->link_xattr_name, 256);
         if (ret) {
+                *fop_errno = ENOMEM;
+                ret = -1;
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "Migrate file failed:"
@@ -1435,6 +1530,8 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 ret = dict_set_int32 (dict,
                                  GLUSTERFS_POSIXLK_COUNT, sizeof(int32_t));
                 if (ret) {
+                        *fop_errno = ENOMEM;
+                        ret = -1;
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "Migrate file failed: %s: failed to "
@@ -1456,12 +1553,13 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         ret = syncop_inodelk (from, DHT_FILE_MIGRATE_DOMAIN, &tmp_loc, F_SETLKW,
                               &flock, NULL, NULL);
         if (ret < 0) {
+                *fop_errno = -ret;
+                ret = -1;
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "migrate file failed: "
                         "%s: failed to lock file on %s (%s)",
-                        loc->path, from->name, strerror (-ret));
-                ret = -1;
+                        loc->path, from->name, strerror (*fop_errno));
                 goto out;
         }
 
@@ -1470,20 +1568,22 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         /* Phase 1 - Data migration is in progress from now on */
         ret = syncop_lookup (from, loc, &stbuf, NULL, dict, &xattr_rsp);
         if (ret) {
+                *fop_errno = -ret;
+                ret = -1;
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "Migrate file failed:"
                         "%s: lookup failed on %s (%s)",
-                        loc->path, from->name, strerror (-ret));
-                ret = -1;
-                goto out;
+                        loc->path, from->name, strerror (*fop_errno));
+               goto out;
         }
 
         /* preserve source mode, so set the same to the destination */
         src_ia_prot = stbuf.ia_prot;
 
         /* Check if file can be migrated */
-        ret = __is_file_migratable (this, loc, &stbuf, xattr_rsp, flag, defrag);
+        ret = __is_file_migratable (this, loc, &stbuf, xattr_rsp, flag, defrag,
+                                    fop_errno);
         if (ret) {
                 if (ret == -2)
                         ret = 0;
@@ -1493,7 +1593,8 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         /* Take care of the special files */
         if (!IA_ISREG (stbuf.ia_type)) {
                 /* Special files */
-                ret = migrate_special_files (this, from, to, loc, &stbuf);
+                ret = migrate_special_files (this, from, to, loc, &stbuf,
+                                             fop_errno);
                 goto out;
         }
 
@@ -1501,17 +1602,18 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         /* TODO: move all xattr related operations to fd based operations */
         ret = syncop_listxattr (from, loc, &xattr, NULL, NULL);
         if (ret < 0) {
+                *fop_errno = -ret;
+                ret = -1;
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "Migrate file failed:"
                         "%s: failed to get xattr from %s (%s)",
-                        loc->path, from->name, strerror (-ret));
-                ret = -1;
+                        loc->path, from->name, strerror (*fop_errno));
         }
 
         /* create the destination, with required modes/xattr */
-        ret = __dht_rebalance_create_dst_file (to, from, loc, &stbuf,
-                                               &dst_fd, xattr);
+        ret = __dht_rebalance_create_dst_file (this, to, from, loc, &stbuf,
+                                               &dst_fd, xattr, fop_errno);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, 0, "Create dst failed"
                         " on - %s for file - %s", to->name, loc->path);
@@ -1520,8 +1622,8 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
 
         clean_dst = _gf_true;
 
-        ret = __dht_check_free_space (to, from, loc, &stbuf, flag, conf,
-                                      &target_changed, &new_target, &ignore_failure);
+        ret = __dht_check_free_space (this, to, from, loc, &stbuf, flag, conf,
+                                      &target_changed, &new_target, &ignore_failure, fop_errno);
         if (target_changed) {
                 /* Can't handle for hardlinks. Marking this as failure */
                 if (flag == GF_DHT_MIGRATE_HARDLINK_IN_PROGRESS || stbuf.ia_nlink > 1) {
@@ -1552,8 +1654,8 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                  * destination. We need to do update this only post migration
                  * as in case of failure the linkto needs to point to the source
                  * subvol */
-                ret = __dht_rebalance_create_dst_file (to, from, loc, &stbuf,
-                                                       &dst_fd, xattr);
+                ret = __dht_rebalance_create_dst_file (this, to, from, loc, &stbuf,
+                                                       &dst_fd, xattr, fop_errno);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "Create dst failed"
                                 " on - %s for file - %s", to->name, loc->path);
@@ -1572,8 +1674,8 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         }
 
         /* Open the source, and also update mode/xattr */
-        ret = __dht_rebalance_open_src_file (from, to, loc, &stbuf, &src_fd,
-                                             &clean_src);
+        ret = __dht_rebalance_open_src_file (this, from, to, loc, &stbuf, &src_fd,
+                                             &clean_src, fop_errno);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,
@@ -1593,13 +1695,14 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "Migrate file failed:failed to lookup %s on %s ",
                         loc->path, from->name);
+                *fop_errno = -ret;
                 ret = -1;
                 goto out;
         }
 
         /* Check again if file has hardlink */
         ret = __check_file_has_hardlink (this, loc, &stbuf, xattr_rsp,
-                                         flag, defrag);
+                                         flag, defrag, fop_errno);
         if (ret) {
                 if (ret == -2)
                         ret = 0;
@@ -1613,10 +1716,12 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         /* All I/O happens in this function */
         if (defrag->cmd == GF_DEFRAG_CMD_START_TIER) {
                 ret = __tier_migrate_data (defrag, from, to, src_fd, dst_fd,
-                                                    stbuf.ia_size, file_has_holes);
+                                                    stbuf.ia_size,
+                                                    file_has_holes, fop_errno);
         } else {
                 ret = __dht_rebalance_migrate_data (from, to, src_fd, dst_fd,
-                                                    stbuf.ia_size, file_has_holes);
+                                                    stbuf.ia_size,
+                                                    file_has_holes, fop_errno);
         }
 
         if (ret) {
@@ -1636,6 +1741,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s: failed to fsync on %s (%s)",
                         loc->path, to->name, strerror (-ret));
+                *fop_errno = -ret;
                 ret = -1;
         }
 
@@ -1649,6 +1755,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "Migrate file failed: failed to fstat file %s on %s ",
                         loc->path, from->name);
+                *fop_errno = -ret;
                 ret = -1;
                 goto out;
         }
@@ -1671,8 +1778,9 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 if (!meta_dict) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
-                                "Trace dict_new failed");
+                                "dict_new failed");
 
+                        *fop_errno = ENOMEM;
                         ret = -1;
                         goto out;
                 }
@@ -1684,6 +1792,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                                 "Failed to set dictionary value: key = %s,"
                                 " path = %s", GLUSTERFS_INTERNAL_FOP_KEY,
                                  loc->path);
+                        *fop_errno = ENOMEM;
                         ret = -1;
                         goto out;
                 }
@@ -1693,7 +1802,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "Trace dict_set failed");
-
+                        *fop_errno = ENOMEM;
                         ret = -1;
                         goto out;
                 }
@@ -1704,6 +1813,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "Trace syncop_setxattr metalock failed");
 
+                        *fop_errno = -ret;
                         ret = -1;
                         goto out;
                 } else {
@@ -1724,6 +1834,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                                 "Migrate file failed:"
                                 "%s: Failed to lock on %s",
                                 loc->path, from->name);
+                        *fop_errno = -ret;
                         ret = -1;
                         goto out;
                 }
@@ -1748,6 +1859,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                                         DHT_MSG_LOCK_MIGRATION_FAILED,
                                         "write lock failed on:%s", loc->path);
 
+                                *fop_errno = -ret;
                                 ret = -1;
                                 goto metaunlock;
                         }
@@ -1755,6 +1867,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 DHT_MSG_LOCK_MIGRATION_FAILED,
                                 "getactivelk failed for file: %s", loc->path);
+                        *fop_errno = -ret;
                 }
         }
 
@@ -1780,6 +1893,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         "Migrate file failed:"
                         "%s: failed to perform setattr on %s ",
                         loc->path, to->name);
+                *fop_errno = -ret;
                 ret = -1;
                 goto metaunlock;
         }
@@ -1792,6 +1906,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s: failed to perform setattr on %s ",
                         loc->path, to->name);
+                *fop_errno = -ret;
                 ret = -1;
         }
 
@@ -1799,6 +1914,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                if (!dict) {
                         dict = dict_new ();
                         if (!dict) {
+                                *fop_errno = ENOMEM;
                                 ret = -1;
                                 goto out;
                         }
@@ -1810,6 +1926,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "failed to set xattr in dict for %s (linkto:%s)",
                                         loc->path, to->name);
+                                *fop_errno = ENOMEM;
                                 ret = -1;
                                 goto out;
                         }
@@ -1820,6 +1937,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                                         DHT_MSG_MIGRATE_FILE_FAILED,
                                         "failed to set xattr on %s in %s (%s)",
                                         loc->path, old_target->name, strerror (-ret));
+                                *fop_errno = -ret;
                                 ret = -1;
                                 goto out;
                         } else if (-ret == ESTALE || -ret == ENOENT) {
@@ -1833,6 +1951,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                                 "%s: fd create failed (%s)",
                                                 loc->path, strerror (errno));
+                                        *fop_errno = ENOMEM;
                                         ret = -1;
                                         goto out;
                                 }
@@ -1840,6 +1959,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                                                      DHT_LINKFILE_MODE, linkto_fd,
                                                      NULL, dict, NULL);
                                 if (ret != 0 && -ret != EEXIST && -ret != ESTALE) {
+                                        *fop_errno = -ret;
                                         ret = -1;
                                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                                 DHT_MSG_MIGRATE_FILE_FAILED,
@@ -1851,6 +1971,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                                                                (GF_SET_ATTR_UID | GF_SET_ATTR_GID),
                                                                NULL, NULL, NULL, NULL);
                                         if (ret < 0)
+                                                *fop_errno = -ret;
                                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                                 "chown failed for %s on %s (%s)",
@@ -1879,6 +2000,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         "Migrate file failed:"
                         "%s: failed to get xattr from %s (%s)",
                         loc->path, from->name, strerror (-ret));
+                *fop_errno = -ret;
                 ret = -1;
         } else {
                 ret = syncop_setxattr (to, loc, xattr, 0, NULL, NULL);
@@ -1891,6 +2013,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                                 "Migrate file failed:"
                                 "%s: failed to set xattr on %s (%s)",
                                 loc->path, to->name, strerror (-ret));
+                        *fop_errno = -ret;
                         ret = -1;
                 }
         }
@@ -1920,6 +2043,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         "Migrate file failed:"
                         "%s: failed to perform setattr on %s ",
                         loc->path, from->name);
+                *fop_errno = -ret;
                 ret = -1;
                 goto metaunlock;
         }
@@ -1931,6 +2055,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s: failed to perform truncate on %s (%s)",
                         loc->path, from->name, strerror (-ret));
+                *fop_errno = -ret;
                 ret = -1;
         }
 
@@ -1940,6 +2065,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s: failed to perform removexattr on %s (%s)",
                         loc->path, to->name, strerror (-ret));
+                *fop_errno = -ret;
                 ret = -1;
         }
 
@@ -1961,6 +2087,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         loc->path, from->name, strerror (-ret));
 
                 if (-ret != ENOENT) {
+                        *fop_errno = -ret;
                         ret = -1;
                         goto metaunlock;
                 }
@@ -1978,6 +2105,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "%s: failed to perform unlink on %s (%s)",
                                 loc->path, from->name, strerror (-ret));
+                        *fop_errno = -ret;
                         ret = -1;
                         goto metaunlock;
                 }
@@ -1988,6 +2116,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 gf_msg_debug (this->name, 0,
                               "%s: failed to lookup the file on subvolumes (%s)",
                               loc->path, strerror (-ret));
+                *fop_errno = -ret;
                 ret = -1;
         }
 
@@ -2010,6 +2139,7 @@ metaunlock:
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "Trace dict_set failed");
 
+                        *fop_errno = ENOMEM;
                         ret = -1;
                         goto out;
                 }
@@ -2024,6 +2154,7 @@ metaunlock:
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "Trace dict_set failed");
 
+                        *fop_errno = ENOMEM;
                         ret = -1;
                         goto out;
                 }
@@ -2034,6 +2165,7 @@ metaunlock:
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "Trace syncop_setxattr meta unlock failed");
 
+                        *fop_errno = -ret;
                         ret = -1;
                         goto out;
                 }
@@ -2115,6 +2247,7 @@ rebalance_task (void *data)
         int           ret   = -1;
         dht_local_t  *local = NULL;
         call_frame_t *frame = NULL;
+        int           fop_errno = 0;
 
         frame = data;
 
@@ -2123,7 +2256,8 @@ rebalance_task (void *data)
         /* This function is 'synchrounous', hence if it returns,
            we are done with the task */
         ret = dht_migrate_file (THIS, &local->loc, local->rebalance.from_subvol,
-                                local->rebalance.target_node, local->flags);
+                                local->rebalance.target_node, local->flags,
+                                &fop_errno);
 
         return ret;
 }
@@ -2158,13 +2292,14 @@ rebalance_task_completion (int op_ret, call_frame_t *sync_frame, void *data)
 int
 dht_start_rebalance_task (xlator_t *this, call_frame_t *frame)
 {
-        int         ret     = -1;
+        int           ret   = -1;
 
         ret = synctask_new (this->ctx->env, rebalance_task,
                             rebalance_task_completion,
                             frame, frame);
         return ret;
 }
+
 
 int
 gf_listener_stop (xlator_t *this)
@@ -2308,17 +2443,16 @@ gf_defrag_ctx_subvols_init (dht_dfoffset_ctx_t *offset_var, xlator_t *this) {
 int
 gf_defrag_migrate_single_file (void *opaque)
 {
-        xlator_t                *this = NULL;
-        dht_conf_t              *conf = NULL;
-        gf_defrag_info_t        *defrag = NULL;
-        int                     ret = 0;
+        xlator_t                *this           = NULL;
+        dht_conf_t              *conf           = NULL;
+        gf_defrag_info_t        *defrag         = NULL;
+        int                      ret            = 0;
         gf_dirent_t             *entry          = NULL;
         struct timeval           start          = {0,};
         loc_t                    entry_loc      = {0,};
         loc_t                   *loc            = NULL;
         struct iatt              iatt           = {0,};
         dict_t                  *migrate_data   = NULL;
-        int32_t                  op_errno       = 0;
         struct timeval           end            = {0,};
         double                   elapsed        = {0,};
         struct dht_container    *rebal_entry    = NULL;
@@ -2327,6 +2461,10 @@ gf_defrag_migrate_single_file (void *opaque)
         xlator_t                *cached_subvol  = NULL;
         call_frame_t            *statfs_frame   = NULL;
         xlator_t                *old_THIS       = NULL;
+        data_t                  *tmp            = NULL;
+        int                      fop_errno      = 0;
+        gf_dht_migrate_data_type_t rebal_type   = GF_DHT_MIGRATE_DATA;
+        char                     value[MAX_REBAL_TYPE_SIZE]    = {0,};
 
         rebal_entry = (struct dht_container *)opaque;
         if (!rebal_entry) {
@@ -2389,7 +2527,7 @@ gf_defrag_migrate_single_file (void *opaque)
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "Migrate file failed: %s lookup failed",
-                        entry_loc.name);
+                        entry_loc.path);
                 ret = 0;
                 goto out;
         }
@@ -2399,7 +2537,7 @@ gf_defrag_migrate_single_file (void *opaque)
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_HASHED_SUBVOL_GET_FAILED,
                         "Failed to get hashed subvol for %s",
-                        loc->path);
+                        entry_loc.path);
                 ret = 0;
                 goto out;
         }
@@ -2409,7 +2547,7 @@ gf_defrag_migrate_single_file (void *opaque)
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_CACHED_SUBVOL_GET_FAILED,
                         "Failed to get cached subvol for %s",
-                        loc->path);
+                        entry_loc.path);
 
                 ret = 0;
                 goto out;
@@ -2439,12 +2577,20 @@ gf_defrag_migrate_single_file (void *opaque)
         dht_get_du_info (statfs_frame, this, loc);
         THIS = old_THIS;
 
-        ret = syncop_setxattr (this, &entry_loc, migrate_data, 0, NULL, NULL);
+        tmp = dict_get (migrate_data, GF_XATTR_FILE_MIGRATE_KEY);
+        if (tmp) {
+                memcpy (value, tmp->data, tmp->len);
+                if (strcmp (value, "force") == 0)
+                        rebal_type = GF_DHT_MIGRATE_DATA_EVEN_IF_LINK_EXISTS;
+
+                if (conf->decommission_in_progress)
+                        rebal_type = GF_DHT_MIGRATE_HARDLINK;
+        }
+
+        ret = dht_migrate_file (this, &entry_loc, cached_subvol,
+                                hashed_subvol, rebal_type, &fop_errno);
         if (ret < 0) {
-                op_errno = -ret;
-                /* errno is overloaded. See
-                 * rebalance_task_completion () */
-                if (op_errno == ENOSPC) {
+                if (fop_errno == ENOSPC) {
                         gf_msg_debug (this->name, 0, "migrate-data skipped for"
                                       " %s due to space constraints",
                                       entry_loc.path);
@@ -2453,7 +2599,7 @@ gf_defrag_migrate_single_file (void *opaque)
                                 defrag->skipped += 1;
                         }
                         UNLOCK (&defrag->lock);
-                } else if (op_errno == ENOTSUP) {
+                } else if (fop_errno == ENOTSUP) {
                         gf_msg_debug (this->name, 0, "migrate-data skipped for"
                                       " hardlink %s ", entry_loc.path);
                         LOCK (&defrag->lock);
@@ -2461,9 +2607,9 @@ gf_defrag_migrate_single_file (void *opaque)
                                 defrag->skipped += 1;
                         }
                         UNLOCK (&defrag->lock);
-                } else if (op_errno != EEXIST) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                DHT_MSG_MIGRATE_FILE_FAILED,
+                } else if (fop_errno != EEXIST) {
+                        gf_msg (this->name, GF_LOG_ERROR,
+                                DHT_MSG_MIGRATE_FILE_FAILED, fop_errno,
                                 "migrate-data failed for %s", entry_loc.path);
 
                         LOCK (&defrag->lock);
@@ -2474,29 +2620,19 @@ gf_defrag_migrate_single_file (void *opaque)
 
                 }
 
-                ret = gf_defrag_handle_migrate_error (op_errno, defrag);
+                ret = gf_defrag_handle_migrate_error (fop_errno, defrag);
 
                 if (!ret) {
                         gf_msg(this->name, GF_LOG_ERROR, 0,
                                DHT_MSG_MIGRATE_FILE_FAILED,
                                "migrate-data on %s failed: %s", entry_loc.path,
-                               strerror (op_errno));
+                               strerror (fop_errno));
                 } else if (ret == 1) {
                         ret = 0;
                         goto out;
                 } else if (ret == -1) {
                         goto out;
                 }
-        } else if (ret > 0) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        DHT_MSG_MIGRATE_FILE_FAILED,
-                        "migrate-data failed for %s", entry_loc.path);
-                ret = 0;
-                LOCK (&defrag->lock);
-                {
-                        defrag->total_failures += 1;
-                }
-                UNLOCK (&defrag->lock);
         }
 
         LOCK (&defrag->lock);
@@ -2534,13 +2670,15 @@ gf_defrag_task (void *opaque)
         struct dht_container    *iterator       = NULL;
         gf_defrag_info_t        *defrag         = NULL;
         int                      ret            = 0;
-
+        pid_t                    pid            = GF_CLIENT_PID_DEFRAG;
 
         defrag = (gf_defrag_info_t *)opaque;
         if (!defrag) {
                 gf_msg ("dht", GF_LOG_ERROR, 0, 0, "defrag is NULL");
                 goto out;
         }
+
+        syncopctx_setfspid (&pid);
 
         q_head = &(defrag->queue[0].list);
 
