@@ -963,7 +963,7 @@ ec_code_detect(xlator_t *xl, const char *def)
         return NULL;
     }
 
-    file.fd = sys_openat(AT_FDCWD, PROC_CPUINFO, O_RDONLY);
+    file.fd = sys_open(PROC_CPUINFO, O_RDONLY, 0);
     if (file.fd < 0) {
         goto out;
     }

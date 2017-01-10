@@ -2006,7 +2006,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
 
         if (fdstat_requested ||
             (priv->background_unlink && IA_ISREG (loc->inode->ia_type))) {
-                fd = open (real_path, O_RDONLY);
+                fd = sys_open (real_path, O_RDONLY, 0);
                 if (fd == -1) {
                         op_ret = -1;
                         op_errno = errno;
@@ -2867,7 +2867,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
         if (priv->o_direct)
                 _flags |= O_DIRECT;
 
-        _fd = open (real_path, _flags, mode);
+        _fd = sys_open (real_path, _flags, mode);
 
         if (_fd == -1) {
                 op_errno = errno;
@@ -3028,7 +3028,7 @@ posix_open (call_frame_t *frame, xlator_t *this,
         if (priv->o_direct)
                 flags |= O_DIRECT;
 
-        _fd = open (real_path, flags, 0);
+        _fd = sys_open (real_path, flags, 0);
         if (_fd == -1) {
                 op_ret   = -1;
                 op_errno = errno;
