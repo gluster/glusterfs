@@ -1168,10 +1168,10 @@ gf_defrag_start (void *this);
 
 int32_t
 gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
-                           struct iatt *stbuf);
+                           struct iatt *stbuf, int *fop_errno);
 int
 dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
-                 int flag);
+                 int flag, int *fop_errno);
 int
 dht_inode_ctx_layout_get (inode_t *inode, xlator_t *this,
                           dht_layout_t **layout_int);

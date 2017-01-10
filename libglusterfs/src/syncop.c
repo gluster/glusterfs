@@ -1573,7 +1573,7 @@ syncop_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 syncop_setxattr (xlator_t *subvol, loc_t *loc, dict_t *dict, int32_t flags,
-		 dict_t *xdata_in, dict_t **xdata_out)
+                 dict_t *xdata_in, dict_t **xdata_out)
 {
         struct syncargs args = {0, };
 
