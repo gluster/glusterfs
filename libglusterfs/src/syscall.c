@@ -57,24 +57,43 @@ sys_fstatat(int dirfd, const char *pathname, struct stat *buf, int flags)
 
 
 int
-sys_openat(int dirfd, const char *pathname, int flags, ...)
+sys_openat(int dirfd, const char *pathname, int flags, int mode)
 {
-        mode_t mode = 0;
-        if (flags & O_CREAT) {
-                va_list ap;
-                va_start(ap, flags);
-                mode = va_arg(ap, int);
-                va_end(ap);
-        }
+        int fd;
 
 #ifdef GF_DARWIN_HOST_OS
         if (fchdir(dirfd) < 0)
                 return -1;
-        return open (pathname, flags, mode);
-#else
-        return openat (dirfd, pathname, flags, mode);
-#endif
+        fd = open (pathname, flags, mode);
+        /* TODO: Shouldn't we restore the old current directory */
+#else /* GF_DARWIN_HOST_OS */
+        fd = openat (dirfd, pathname, flags, mode);
+#ifdef __FreeBSD__
+        /* On FreeBSD S_ISVTX flag is ignored for an open() with O_CREAT set.
+         * We need to force the flag using fchmod(). */
+        if ((fd >= 0) &&
+            ((flags & O_CREAT) != 0) && ((mode & S_ISVTX) != 0)) {
+                sys_fchmod(fd, mode);
+                /* TODO: It's unlikely that fchmod could fail here. However,
+                         if it fails we cannot always restore the old state
+                         (if the file existed, we cannot recover it). We would
+                         need many more system calls to correctly handle all
+                         possible cases and it doesn't worth it. For now we
+                         simply ignore the error. */
+        }
+#endif /* __FreeBSD__ */
+#endif /* !GF_DARWIN_HOST_OS */
+
+        return fd;
 }
+
+
+int
+sys_open(const char *pathname, int flags, int mode)
+{
+        return sys_openat(AT_FDCWD, pathname, flags, mode);
+}
+
 
 DIR *
 sys_opendir (const char *name)
@@ -256,7 +275,7 @@ sys_utimes (const char *filename, const struct timeval times[2])
 int
 sys_creat (const char *pathname, mode_t mode)
 {
-        return creat (pathname, mode);
+        return sys_open(pathname, O_CREAT | O_TRUNC | O_WRONLY, mode);
 }
 
 

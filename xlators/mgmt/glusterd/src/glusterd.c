@@ -947,7 +947,7 @@ check_prepare_mountbroker_root (char *mountbroker_root)
         dfd0 = dup (dfd);
 
         for (;;) {
-                ret = sys_openat (dfd, "..", O_RDONLY);
+                ret = sys_openat (dfd, "..", O_RDONLY, 0);
                 if (ret != -1) {
                         dfd2 = ret;
                         ret = sys_fstat (dfd2, &st2);
