@@ -2614,14 +2614,9 @@ int
 afr_write_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
 {
         afr_local_t   *local           = frame->local;
-        int           ret              = 0;
 
         if (err) {
-                local->op_errno = -err;
-                local->op_ret = -1;
-                gf_msg (this->name, GF_LOG_ERROR, -ret, AFR_MSG_SPLIT_BRAIN,
-                        "Failing %s on gfid %s: split-brain observed.",
-                        gf_fop_list[local->op], uuid_utoa (local->inode->gfid));
+                AFR_SET_ERROR_AND_CHECK_SPLIT_BRAIN(-1, -err);
                 goto fail;
         }
 
