@@ -987,7 +987,7 @@ CFLAGS=${OLD_CFLAGS}
 
 # Check the distribution where you are compiling glusterfs on
 
-GF_DISTRIBUTION=
+GF_DISTRIBUTION=Redhat
 AC_CHECK_FILE([/etc/debian_version])
 AC_CHECK_FILE([/etc/SuSE-release])
 AC_CHECK_FILE([/etc/redhat-release])
