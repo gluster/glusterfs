@@ -1435,9 +1435,15 @@ dht_rename_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        inode_t *inode, struct iatt *stbuf, dict_t *xattr,
                        struct iatt *postparent)
 {
-        dht_local_t *local                      = NULL;
-        int          call_cnt                   = 0;
-        dht_conf_t  *conf                       = NULL;
+        dht_local_t *local                              = NULL;
+        int          call_cnt                           = 0;
+        dht_conf_t  *conf                               = NULL;
+        char         gfid_local[GF_UUID_BUF_SIZE]       = {0};
+        char         gfid_server[GF_UUID_BUF_SIZE]      = {0};
+        int          child_index                        = -1;
+
+
+        child_index = (long)cookie;
 
         local = frame->local;
         conf = this->private;
@@ -1456,8 +1462,33 @@ dht_rename_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  * that this is a linkfile and fail the rename operation.
                  */
                 local->is_linkfile = _gf_true;
+                local->op_errno = op_errno;
         } else if (xattr && check_is_linkfile (inode, stbuf, xattr,
                                                conf->link_xattr_name)) {
+                local->is_linkfile = _gf_true;
+                /* Found linkto file instead of data file, passdown ENOENT
+                 * based on the above comment */
+                local->op_errno = ENOENT;
+        }
+
+        if (!local->is_linkfile &&
+             gf_uuid_compare (local->lock[0].layout.parent_layout.locks[child_index]->loc.gfid,
+             stbuf->ia_gfid)) {
+                gf_uuid_unparse (local->lock[0].layout.parent_layout.locks[child_index]->loc.gfid,
+                                 gfid_local);
+                gf_uuid_unparse (stbuf->ia_gfid, gfid_server);
+
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_GFID_MISMATCH,
+                        "path:%s, received a different gfid, local_gfid= %s"
+                        " server_gfid: %s",
+                        local->loc.path, gfid_local, gfid_server);
+
+                /* Will passdown ENOENT anyway since the file we sent on
+                 * rename is replaced with a different file */
+                local->op_errno = ENOENT;
+                /* Since local->is_linkfile is used here to detect failure,
+                 * marking this to true */
                 local->is_linkfile = _gf_true;
         }
 
@@ -1465,7 +1496,6 @@ dht_rename_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (is_last_call (call_cnt)) {
                 if (local->is_linkfile) {
                         local->op_ret = -1;
-                        local->op_errno = op_errno;
                         goto fail;
                 }
 
@@ -1529,12 +1559,31 @@ dht_rename_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local->call_cnt = local->lock[0].layout.parent_layout.lk_count;
 
+        /* Why not use local->lock.locks[?].loc for lookup post lock phase
+         * ---------------------------------------------------------------
+         * "layout.parent_layout.locks[?].loc" does not have the name and pargfid
+         * populated.
+         * Reason: If we had populated the name and pargfid, server might
+         * resolve to a successful lookup even if there is a file with same name
+         * with a different gfid(unlink & create) as server does name based
+         * resolution on first priority. And this can result in operating on a
+         * different inode entirely.
+         *
+         * Now consider a scenario where source file was renamed by some other
+         * client to a new name just before this lock was granted. So if a
+         * lookup would be done on local->lock[0].layout.parent_layout.locks[?].loc,
+         * server will send success even if the entry was renamed (since server will
+         * do a gfid based resolution). So once a lock is granted, make sure the file
+         * exists with the name that the client requested with.
+         * */
+
         for (i = 0; i < local->lock[0].layout.parent_layout.lk_count; i++) {
-                STACK_WIND (frame, dht_rename_lookup_cbk,
-                            local->lock[0].layout.parent_layout.locks[i]->xl,
-                            local->lock[0].layout.parent_layout.locks[i]->xl->fops->lookup,
-                            &local->lock[0].layout.parent_layout.locks[i]->loc,
-                            xattr_req);
+                STACK_WIND_COOKIE (frame, dht_rename_lookup_cbk, (void *)(long)i,
+                                   local->lock[0].layout.parent_layout.locks[i]->xl,
+                                   local->lock[0].layout.parent_layout.locks[i]->xl->fops->lookup,
+                                   ((gf_uuid_compare (local->loc.gfid, \
+                                     local->lock[0].layout.parent_layout.locks[i]->loc.gfid) == 0) ?
+                                    &local->loc : &local->loc2), xattr_req);
         }
 
         dict_unref (xattr_req);
