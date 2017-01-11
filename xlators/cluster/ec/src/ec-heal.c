@@ -2332,6 +2332,8 @@ ec_heal_do (xlator_t *this, void *data, loc_t *loc, int32_t partial)
         intptr_t      bad            = 0;
         ec_fop_data_t *fop           = data;
         gf_boolean_t  blocking       = _gf_false;
+        gf_boolean_t  need_heal      = _gf_false;
+        unsigned char *up_subvols    = NULL;
 
         ec = this->private;
 
@@ -2353,6 +2355,19 @@ ec_heal_do (xlator_t *this, void *data, loc_t *loc, int32_t partial)
         frame->root->pid = GF_CLIENT_PID_SELF_HEALD;
         participants = alloca0(ec->nodes);
         ec_mask_to_char_array (ec->xl_up, participants, ec->nodes);
+
+        up_subvols = alloca0(ec->nodes);
+        ec_mask_to_char_array (ec->xl_up, up_subvols, ec->nodes);
+
+        ec_heal_inspect (frame, ec, loc->inode, up_subvols,
+                         &need_heal);
+        if (!need_heal) {
+                gf_msg (ec->xl->name, GF_LOG_DEBUG, 0,
+                        EC_MSG_HEAL_FAIL, "Heal is not required for : %s ",
+                        uuid_utoa(loc->gfid));
+                goto out;
+        }
+
         if (loc->name && strlen (loc->name)) {
                 ret = ec_heal_name (frame, ec, loc->parent, (char *)loc->name,
                                     participants);
@@ -2401,7 +2416,7 @@ ec_heal_do (xlator_t *this, void *data, loc_t *loc, int32_t partial)
                 op_errno = -ret;
         }
 
-
+out:
         if (fop->cbks.heal) {
                 fop->cbks.heal (fop->req_frame, fop, fop->xl, op_ret,
                                 op_errno, ec_char_array_to_mask (participants,
@@ -2665,7 +2680,8 @@ out:
 }
 
 int32_t
-ec_need_heal (ec_t *ec, default_args_cbk_t *replies, gf_boolean_t *need_heal)
+ec_need_heal (ec_t *ec, default_args_cbk_t *replies,
+              gf_boolean_t *need_heal, int32_t lock_count)
 {
         uint64_t           *dirty         = NULL;
         unsigned char      *sources       = NULL;
@@ -2691,7 +2707,9 @@ ec_need_heal (ec_t *ec, default_args_cbk_t *replies, gf_boolean_t *need_heal)
                 goto out;
         }
         source_count = EC_COUNT (sources, ec->nodes);
-        if (source_count != ec->nodes) {
+        if (source_count == ec->nodes && lock_count > 0) {
+                *need_heal = _gf_false;
+        } else {
                 *need_heal = _gf_true;
         }
         ret = source_count;
@@ -2705,12 +2723,14 @@ ec_heal_inspect (call_frame_t *frame, ec_t *ec,
                  gf_boolean_t *need_heal)
 {
         loc_t              loc           = {0};
+        int                i             = 0;
         int                ret           = 0;
         dict_t             *xdata        = NULL;
         uint64_t           zero_array[2] = {0};
         uint64_t           zero_value    = 0;
         unsigned char      *output       = NULL;
         default_args_cbk_t *replies      = NULL;
+        int32_t            lock_count    = 0;
 
         EC_REPLIES_ALLOC (replies, ec->nodes);
         output = alloca0 (ec->nodes);
@@ -2720,6 +2740,8 @@ ec_heal_inspect (call_frame_t *frame, ec_t *ec,
 
         xdata = dict_new ();
         if (!xdata ||
+            dict_set_str(xdata, GLUSTERFS_INODELK_DOM_COUNT,
+                         ec->xl->name) ||
             dict_set_static_bin (xdata, EC_XATTR_VERSION, zero_array,
                                  sizeof (zero_array)) ||
             dict_set_static_bin (xdata, EC_XATTR_DIRTY, zero_array,
@@ -2731,12 +2753,23 @@ ec_heal_inspect (call_frame_t *frame, ec_t *ec,
         }
         ret = cluster_lookup (ec->xl_list, locked_on, ec->nodes, replies,
                               output, frame, ec->xl, &loc, xdata);
+
         if (ret != ec->nodes) {
                 ret = ec->nodes;
                 *need_heal = _gf_true;
                 goto out;
         }
-        ret = ec_need_heal (ec, replies, need_heal);
+
+        for (i = 0; i < ec->nodes; i++) {
+                if (!output[i] || !replies[i].xdata) {
+                        continue;
+                }
+                if ((dict_get_int32 (replies[i].xdata, GLUSTERFS_INODELK_COUNT,
+                                     &lock_count) == 0) && lock_count > 0) {
+                        break;
+                }
+        }
+        ret = ec_need_heal (ec, replies, need_heal, lock_count);
 
 out:
         cluster_replies_wipe (replies, ec->nodes);
