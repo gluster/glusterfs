@@ -939,7 +939,11 @@ loc_copy (loc_t *dst, loc_t *src)
         GF_VALIDATE_OR_GOTO ("xlator", dst, err);
         GF_VALIDATE_OR_GOTO ("xlator", src, err);
 
-        gf_uuid_copy (dst->gfid, src->gfid);
+        if (!gf_uuid_is_null (src->gfid))
+                gf_uuid_copy (dst->gfid, src->gfid);
+        else if (src->inode && !gf_uuid_is_null (src->inode->gfid))
+                gf_uuid_copy (dst->gfid, src->inode->gfid);
+
         gf_uuid_copy (dst->pargfid, src->pargfid);
 
         if (src->inode)
