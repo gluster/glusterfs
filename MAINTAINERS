@@ -237,7 +237,7 @@ M: Kaleb Keithley <kkeithle@redhat.com>
 M: Niels de Vos <ndevos@redhat.com>
 S: Maintained
 W: https://apps.fedoraproject.org/packages/glusterfs
-T: http://pkgs.fedoraproject.org/git/glusterfs.git
+T: https://src.fedoraproject.org/git/rpms/glusterfs.git
 
 FreeBSD port
 S: Orphan
