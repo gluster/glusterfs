@@ -235,7 +235,7 @@ function test_expect_not_footer()
                 err="Got \"$a\" when not expecting it"
         fi
 
-        ! [[ "$a" =~ "$e" ]];
+        ! [[ "$a" =~ $e ]];
         test_footer "$lineno" "$err";
 }
 
@@ -291,6 +291,10 @@ function _TEST()
         test_footer "$TESTLINE";
 }
 
+#This function should be used carefully.
+#The expected regex, given to this function, should be
+#used within ^ and $ to match exactly with the output of
+#command.
 function _EXPECT_WITHIN()
 {
         TESTLINE=$1
@@ -316,7 +320,7 @@ function _EXPECT_WITHIN()
                 fi
 
                 ## Check match success
-                if [[ "$a" =~ "$e" ]]; then
+                if [[ "$a" =~ $e ]]; then
                         break;
                 fi
                 sleep 1;
