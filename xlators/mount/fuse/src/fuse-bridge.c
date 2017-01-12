@@ -3213,6 +3213,7 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         fuse_state_t *state = NULL;
         char         *dict_value = NULL;
         int32_t       ret = -1;
+        int32_t       op_errno = 0;
         char *newkey = NULL;
 
         priv = this->private;
@@ -3225,57 +3226,49 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                         "%"PRIu64": SETXATTR %s/%"PRIu64" (%s):"
                         "refusing positioned setxattr",
                         finh->unique, state->loc.path, finh->nodeid, name);
-                send_fuse_err (this, finh, EINVAL);
-                FREE (finh);
-                return;
+                op_errno = EINVAL;
+                goto done;
         }
 #endif
 
         if (fuse_ignore_xattr_set (priv, name)) {
-                (void) send_fuse_err (this, finh, 0);
-                return;
+                goto done;
         }
 
         if (!priv->acl) {
                 if ((strcmp (name, POSIX_ACL_ACCESS_XATTR) == 0) ||
                     (strcmp (name, POSIX_ACL_DEFAULT_XATTR) == 0)) {
-                        send_fuse_err (this, finh, EOPNOTSUPP);
-                        GF_FREE (finh);
-                        return;
+                        op_errno = EOPNOTSUPP;
+                        goto done;
                 }
         }
 
         ret = fuse_check_selinux_cap_xattr (priv, name);
         if (ret) {
-                send_fuse_err (this, finh, EOPNOTSUPP);
-                GF_FREE (finh);
-                return;
+                op_errno = EOPNOTSUPP;
+                goto done;
         }
 
         /* Check if the command is for changing the log
            level of process or specific xlator */
         ret = is_gf_log_command (this, name, value);
         if (ret >= 0) {
-                send_fuse_err (this, finh, ret);
-                GF_FREE (finh);
-                return;
+                op_errno = ret;
+                goto done;
         }
 
         if (!strcmp ("inode-invalidate", name)) {
                 gf_log ("fuse", GF_LOG_TRACE,
                         "got request to invalidate %"PRIu64, finh->nodeid);
-                send_fuse_err (this, finh, 0);
 #if FUSE_KERNEL_MINOR_VERSION >= 11
                 fuse_invalidate_entry (this, finh->nodeid);
 #endif
-                GF_FREE (finh);
-                return;
+                goto done;
         }
 
         if (!strcmp (GFID_XATTR_KEY, name) || !strcmp (GF_XATTR_VOL_ID_KEY, name)) {
-                send_fuse_err (this, finh, EPERM);
-                GF_FREE (finh);
-                return;
+                op_errno = EPERM;
+                goto done;
         }
 
         state->size = fsi->size;
@@ -3287,17 +3280,14 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "%"PRIu64": SETXATTR dict allocation failed",
                         finh->unique);
-
-                send_fuse_err (this, finh, ENOMEM);
-                free_fuse_state (state);
-                return;
+                op_errno = ENOMEM;
+                goto done;
         }
 
         ret = fuse_flip_xattr_ns (priv, name, &newkey);
         if (ret) {
-                send_fuse_err (this, finh, ENOMEM);
-                free_fuse_state (state);
-                return;
+                op_errno = ENOMEM;
+                goto done;
         }
 
         if (fsi->size > 0) {
@@ -3319,6 +3309,10 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         fuse_resolve_and_resume (state, fuse_setxattr_resume);
 
         return;
+
+done:
+        send_fuse_err(this, finh, op_errno);
+        free_fuse_state(state);
 }
 
 
