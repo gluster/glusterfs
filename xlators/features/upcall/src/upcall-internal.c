@@ -183,6 +183,7 @@ __upcall_inode_ctx_set (inode_t *inode, xlator_t *this)
         if (ret) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "failed to set inode ctx (%p)", inode);
+                GF_FREE (inode_ctx);
                 goto out;
         }
 
