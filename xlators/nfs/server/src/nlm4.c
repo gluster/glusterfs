@@ -930,8 +930,8 @@ nlm_rpcclnt_notify (struct rpc_clnt *rpc_clnt, void *mydata,
                                 "rpc clnt");
                         goto err;
                 }
-                rpc_clnt_unref (rpc_clnt);
                 nlm4svc_send_granted (cs);
+                rpc_clnt_unref (rpc_clnt);
 
                 break;
 
