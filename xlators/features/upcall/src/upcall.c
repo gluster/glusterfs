@@ -1682,22 +1682,14 @@ up_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 {
         int32_t          op_errno        = -1;
         upcall_local_t   *local          = NULL;
-        dict_t           *xattr          = NULL;
 
         EXIT_IF_UPCALL_OFF (this, out);
 
-        xattr = dict_copy_with_ref (dict, NULL);
-        if (!xattr) {
-                op_errno = ENOMEM;
-                goto err;
-        }
-
-        local = upcall_local_init (frame, this, loc, NULL, loc->inode, xattr);
+        local = upcall_local_init (frame, this, loc, NULL, loc->inode, dict);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
         }
-        dict_unref (xattr);
 
 out:
         STACK_WIND (frame, up_setxattr_cbk, FIRST_CHILD(this),
@@ -1707,8 +1699,6 @@ out:
         return 0;
 
 err:
-        if (xattr)
-                dict_unref (xattr);
         UPCALL_STACK_UNWIND (setxattr, frame, -1, op_errno, NULL);
 
         return 0;
@@ -1769,22 +1759,14 @@ up_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
 {
         int32_t          op_errno        = -1;
         upcall_local_t   *local          = NULL;
-        dict_t           *xattr          = NULL;
 
         EXIT_IF_UPCALL_OFF (this, out);
 
-        xattr = dict_copy_with_ref (dict, NULL);
-        if (!xattr) {
-                op_errno = ENOMEM;
-                goto err;
-        }
-
-        local = upcall_local_init (frame, this, NULL, fd, fd->inode, xattr);
+        local = upcall_local_init (frame, this, NULL, fd, fd->inode, dict);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
         }
-        dict_unref (xattr);
 
 out:
         STACK_WIND (frame, up_fsetxattr_cbk,
@@ -1794,8 +1776,6 @@ out:
         return 0;
 
 err:
-        if (xattr)
-                dict_unref (xattr);
         UPCALL_STACK_UNWIND (fsetxattr, frame, -1, op_errno, NULL);
 
         return 0;
@@ -1872,12 +1852,18 @@ up_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
 
 out:
+        if (xattr)
+                dict_unref (xattr);
+
         STACK_WIND (frame, up_fremovexattr_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->fremovexattr,
                     fd, name, xdata);
         return 0;
 
 err:
+        if (xattr)
+                dict_unref (xattr);
+
         UPCALL_STACK_UNWIND (fremovexattr, frame, -1, op_errno, NULL);
 
         return 0;
@@ -1954,12 +1940,18 @@ up_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
 
 out:
+        if (xattr)
+                dict_unref (xattr);
+
         STACK_WIND (frame, up_removexattr_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->removexattr,
                     loc, name, xdata);
         return 0;
 
 err:
+        if (xattr)
+                dict_unref (xattr);
+
         UPCALL_STACK_UNWIND (removexattr, frame, -1, op_errno, NULL);
 
         return 0;
