@@ -249,8 +249,10 @@ out:
                                 ngrps = MIN(prcred->pr_ngroups,
                                             FUSE_MAX_AUX_GROUPS);
                                 if (call_stack_alloc_groups (frame->root,
-                                                             ngrps) != 0)
+                                                             ngrps) != 0) {
+                                        fclose (fp);
                                         return;
+                                }
                         }
                         fclose (fp);
                  }
