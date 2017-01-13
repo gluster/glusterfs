@@ -1732,18 +1732,20 @@ nlm4_unlock_resume (void *carg)
         int                             ret = -1;
         nfs3_call_state_t               *cs = NULL;
         nlm_client_t                    *nlmclnt = NULL;
+        char                            *caller_name = NULL;
 
         if (!carg)
                 return ret;
 
         cs = (nfs3_call_state_t *)carg;
         nlm4_check_fh_resolve_status (cs, stat, nlm4err);
+        caller_name = cs->args.nlm4_unlockargs.alock.caller_name;
 
-        nlmclnt = nlm_get_uniq (cs->args.nlm4_unlockargs.alock.caller_name);
+        nlmclnt = nlm_get_uniq (caller_name);
         if (nlmclnt == NULL) {
                 stat = nlm4_granted;
                 gf_msg (GF_NLM, GF_LOG_WARNING, ENOLCK, NFS_MSG_NO_MEMORY,
-                        "nlm_get_uniq() returned NULL");
+                        "nlm_get_uniq() returned NULL for %s", caller_name);
                 goto nlm4err;
         }
         cs->fd = fd_lookup_uint64 (cs->resolvedloc.inode, (uint64_t)nlmclnt);
