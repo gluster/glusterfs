@@ -13,6 +13,10 @@
 
 #include "ec-types.h"
 
+#define EC_ERR(_x) ((void *)-(intptr_t)(_x))
+#define EC_IS_ERR(_x) (((uintptr_t)(_x) & ~0xfffULL) == ~0xfffULL)
+#define EC_GET_ERR(_x) ((int32_t)(intptr_t)(_x))
+
 #define EC_ALIGN_CHECK(_ptr, _align) \
     ((((uintptr_t)(_ptr)) & ((_align) - 1)) == 0)
 

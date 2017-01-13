@@ -70,6 +70,7 @@ AM_CPPFLAGS += -I$(top_srcdir)/xlators/lib/src
 AM_CPPFLAGS += -I$(top_srcdir)/rpc/rpc-lib/src
 AM_CPPFLAGS += -I$(top_srcdir)/rpc/xdr/src
 AM_CPPFLAGS += -I$(top_builddir)/rpc/xdr/src
+AM_CPPFLAGS += -DGLUSTERFS_LIBEXECDIR=\"$(GLUSTERFS_LIBEXECDIR)\"
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)
 

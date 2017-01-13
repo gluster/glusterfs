@@ -20,6 +20,7 @@
 #include "ec-code.h"
 #include "ec-messages.h"
 #include "ec-code-c.h"
+#include "ec-helpers.h"
 
 #ifdef USE_EC_DYNAMIC_X64
 #include "ec-code-x64.h"
@@ -32,6 +33,11 @@
 #ifdef USE_EC_DYNAMIC_AVX
 #include "ec-code-avx.h"
 #endif
+
+#define EC_CODE_SIZE (1024 * 64)
+#define EC_CODE_ALIGN 4096
+
+#define EC_CODE_CHUNK_MIN_SIZE 512
 
 #define EC_PROC_BUFFER_SIZE 4096
 
@@ -282,7 +288,7 @@ ec_code_prepare(ec_code_t *code, uint32_t count, uint32_t width,
     builder = GF_MALLOC(sizeof(ec_code_builder_t) +
                         sizeof(ec_code_op_t) * count, ec_mt_ec_code_builder_t);
     if (builder == NULL) {
-        return NULL;
+        return EC_ERR(ENOMEM);
     }
 
     builder->address = 0;
@@ -323,15 +329,39 @@ ec_code_chunk_from_space(ec_code_space_t *space)
 }
 
 static void *
-ec_code_func_from_chunk(ec_code_chunk_t *chunk)
+ec_code_to_executable(ec_code_space_t *space, void *addr)
 {
-    return (void *)((uintptr_t)chunk + ec_code_chunk_size());
+        return (void *)((uintptr_t)addr - (uintptr_t)space
+                                        + (uintptr_t)space->exec);
+}
+
+static void *
+ec_code_from_executable(ec_code_space_t *space, void *addr)
+{
+        return (void *)((uintptr_t)addr - (uintptr_t)space->exec
+                                        + (uintptr_t)space);
+}
+
+static void *
+ec_code_func_from_chunk(ec_code_chunk_t *chunk, void **exec)
+{
+    void *addr;
+
+    addr = (void *)((uintptr_t)chunk + ec_code_chunk_size());
+
+    *exec = ec_code_to_executable(chunk->space, addr);
+
+    return addr;
 }
 
 static ec_code_chunk_t *
 ec_code_chunk_from_func(ec_code_func_linear_t func)
 {
-    return (ec_code_chunk_t *)((uintptr_t)func - ec_code_chunk_size());
+    ec_code_chunk_t *chunk;
+
+    chunk = (ec_code_chunk_t *)((uintptr_t)func - ec_code_chunk_size());
+
+    return ec_code_from_executable(chunk->space, chunk);
 }
 
 static ec_code_chunk_t *
@@ -343,6 +373,7 @@ ec_code_chunk_split(ec_code_chunk_t *chunk, size_t size)
     avail = chunk->size - size - ec_code_chunk_size();
     if (avail > 0) {
         extra = (ec_code_chunk_t *)((uintptr_t)chunk + chunk->size - avail);
+        extra->space = chunk->space;
         extra->size = avail;
         list_add(&extra->list, &chunk->list);
         chunk->size = size;
@@ -361,18 +392,115 @@ ec_code_chunk_touch(ec_code_chunk_t *prev, ec_code_chunk_t *next)
     return (end == (uintptr_t)next);
 }
 
+static ec_code_space_t *
+ec_code_space_create(ec_code_t *code, size_t size)
+{
+        char path[] = GLUSTERFS_LIBEXECDIR "/ec-code-dynamic.XXXXXX";
+        ec_code_space_t *space;
+        void *exec;
+        int32_t fd, err;
+
+        /* We need to create memory areas to store the generated dynamic code.
+         * Obviously these areas need to be written to be able to create the
+         * code and they also need to be executable to execute it.
+         *
+         * However it's a bad practice to have a memory region that is both
+         * writable *and* executable. In fact, selinux forbids this and causes
+         * attempts to do so to fail (unless specifically configured).
+         *
+         * To solve the problem we'll use two distinct memory areas mapped to
+         * the same physical storage. One of the memory areas will have write
+         * permission, and the other will have execute permission. Both areas
+         * will have the same contents. The physical storage will be a regular
+         * file that will be mmapped to both areas.
+         */
+
+        /* We need to create a temporary file as the backend storage for the
+         * memory mapped areas. */
+        fd = mkstemp(path);
+        if (fd < 0) {
+                err = errno;
+                gf_msg(THIS->name, GF_LOG_ERROR, err, EC_MSG_DYN_CREATE_FAILED,
+                       "Unable to create a temporary file for the ec dynamic "
+                       "code");
+                space = EC_ERR(err);
+                goto done;
+        }
+        /* Once created we don't need to keep it in the file system. It will
+         * still exist until we close the last file descriptor or unmap the
+         * memory areas bound to the file. */
+        sys_unlink(path);
+
+        size = (size + EC_CODE_ALIGN - 1) & ~(EC_CODE_ALIGN - 1);
+        if (sys_ftruncate(fd, size) < 0) {
+                err = errno;
+                gf_msg(THIS->name, GF_LOG_ERROR, err, EC_MSG_DYN_CREATE_FAILED,
+                       "Unable to resize the file for the ec dynamic code");
+                space = EC_ERR(err);
+                goto done_close;
+        }
+
+        /* This creates an executable memory area to be able to run the
+         * generated fragments of code. */
+        exec = mmap(NULL, size, PROT_READ | PROT_EXEC, MAP_SHARED, fd, 0);
+        if (exec == MAP_FAILED) {
+                err = errno;
+                gf_msg(THIS->name, GF_LOG_ERROR, err, EC_MSG_DYN_CREATE_FAILED,
+                       "Unable to map the executable area for the ec dynamic "
+                       "code");
+                space = EC_ERR(err);
+                goto done_close;
+        }
+        /* It's not important to check the return value of mlock(). If it fails
+         * everything will continue to work normally. */
+        mlock(exec, size);
+
+        /* This maps a read/write memory area to be able to create the dynamici
+         * code. */
+        space = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        if (space == MAP_FAILED) {
+                err = errno;
+                gf_msg(THIS->name, GF_LOG_ERROR, err, EC_MSG_DYN_CREATE_FAILED,
+                       "Unable to map the writable area for the ec dynamic "
+                       "code");
+                space = EC_ERR(err);
+
+                munmap(exec, size);
+
+                goto done_close;
+        }
+
+        space->exec = exec;
+        space->size = size;
+        space->code = code;
+        list_add_tail(&space->list, &code->spaces);
+        INIT_LIST_HEAD(&space->chunks);
+
+done_close:
+        /* If everything has succeeded, we already have the memory areas
+         * mapped. We don't need the file descriptor anymore because the
+         * backend storage will be there until the mmaped regions are
+         * unmapped. */
+        sys_close(fd);
+done:
+        return space;
+}
+
+static void
+ec_code_space_destroy(ec_code_space_t *space)
+{
+        list_del_init(&space->list);
+
+        munmap(space->exec, space->size);
+        munmap(space, space->size);
+}
+
 static void
 ec_code_chunk_merge(ec_code_chunk_t *chunk)
 {
-    ec_code_chunk_t *item;
+    ec_code_chunk_t *item, *tmp;
 
-    list_for_each_entry(item, &chunk->space->chunks, list) {
-        if (ec_code_chunk_touch(item, chunk)) {
-            item->size += chunk->size + ec_code_chunk_size();
-            chunk = item;
-
-            goto check;
-        }
+    list_for_each_entry_safe(item, tmp, &chunk->space->chunks, list) {
         if ((uintptr_t)item > (uintptr_t)chunk) {
             list_add_tail(&chunk->list, &item->list);
             if (ec_code_chunk_touch(chunk, item)) {
@@ -382,15 +510,18 @@ ec_code_chunk_merge(ec_code_chunk_t *chunk)
 
             goto check;
         }
+        if (ec_code_chunk_touch(item, chunk)) {
+            item->size += chunk->size + ec_code_chunk_size();
+            list_del_init(&item->list);
+            chunk = item;
+        }
     }
     list_add_tail(&chunk->list, &chunk->space->chunks);
 
 check:
-    if (chunk->size == EC_CODE_SIZE - ec_code_space_size() -
-                                      ec_code_chunk_size()) {
-        list_del_init(&chunk->space->list);
-
-        munmap(chunk->space, chunk->space->size);
+    if (chunk->size == chunk->space->size - ec_code_space_size() -
+                       ec_code_chunk_size()) {
+        ec_code_space_destroy(chunk->space);
     }
 }
 
@@ -401,7 +532,10 @@ ec_code_space_alloc(ec_code_t *code, size_t size)
     ec_code_chunk_t *chunk;
     size_t map_size;
 
-    size = (size + 15) & ~15;
+    /* To minimize fragmentation, we only allocate chunks of sizes multiples
+     * of EC_CODE_CHUNK_MIN_SIZE. */
+    size = ((size + ec_code_chunk_size() + EC_CODE_CHUNK_MIN_SIZE - 1) &
+           ~(EC_CODE_CHUNK_MIN_SIZE - 1)) - ec_code_chunk_size();
     list_for_each_entry(space, &code->spaces, list) {
         list_for_each_entry(chunk, &space->chunks, list) {
             if (chunk->size >= size) {
@@ -410,26 +544,17 @@ ec_code_space_alloc(ec_code_t *code, size_t size)
         }
     }
 
-    map_size = EC_CODE_SIZE;
+    map_size = EC_CODE_SIZE - ec_code_space_size() - ec_code_chunk_size();
     if (map_size < size) {
         map_size = size;
     }
-    space = mmap(NULL, map_size, PROT_EXEC | PROT_READ | PROT_WRITE,
-                 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    if (space == NULL) {
-        return NULL;
+    space = ec_code_space_create(code, map_size);
+    if (EC_IS_ERR(space)) {
+        return (ec_code_chunk_t *)space;
     }
-    /* It's not important to check the return value of mlock(). If it fails
-     * everything will continue to work normally. */
-    mlock(space, map_size);
-
-    space->code = code;
-    space->size = map_size;
-    list_add_tail(&space->list, &code->spaces);
-    INIT_LIST_HEAD(&space->chunks);
 
     chunk = ec_code_chunk_from_space(space);
-    chunk->size = EC_CODE_SIZE - ec_code_space_size() - ec_code_chunk_size();
+    chunk->size = map_size - ec_code_space_size() - ec_code_chunk_size();
     list_add(&chunk->list, &space->chunks);
 
 out:
@@ -465,7 +590,7 @@ ec_code_free(ec_code_chunk_t *chunk)
     UNLOCK(lock);
 }
 
-static gf_boolean_t
+static int32_t
 ec_code_write(ec_code_builder_t *builder)
 {
     ec_code_gen_t *gen;
@@ -506,7 +631,7 @@ ec_code_write(ec_code_builder_t *builder)
     }
     gen->epilog(builder);
 
-    return builder->error == 0;
+    return builder->error;
 }
 
 static void *
@@ -514,22 +639,24 @@ ec_code_compile(ec_code_builder_t *builder)
 {
     ec_code_chunk_t *chunk;
     void *func;
+    int32_t err;
 
-    if (!ec_code_write(builder)) {
-        return NULL;
+    err = ec_code_write(builder);
+    if (err != 0) {
+        return EC_ERR(err);
     }
 
     chunk = ec_code_alloc(builder->code, builder->size);
-    if (chunk == NULL) {
-        return NULL;
+    if (EC_IS_ERR(chunk)) {
+        return chunk;
     }
-    func = ec_code_func_from_chunk(chunk);
-    builder->data = (uint8_t *)func;
+    builder->data = ec_code_func_from_chunk(chunk, &func);
 
-    if (!ec_code_write(builder)) {
+    err = ec_code_write(builder);
+    if (err != 0) {
         ec_code_free(chunk);
 
-        return NULL;
+        return EC_ERR(err);
     }
 
     GF_FREE(builder);
@@ -544,7 +671,7 @@ ec_code_create(ec_gf_t *gf, ec_code_gen_t *gen)
 
     code = GF_MALLOC(sizeof(ec_code_t), ec_mt_ec_code_t);
     if (code == NULL) {
-        return NULL;
+        return EC_ERR(ENOMEM);
     }
     memset(code, 0, sizeof(ec_code_t));
     INIT_LIST_HEAD(&code->spaces);
@@ -589,7 +716,7 @@ ec_code_value_next(uint32_t *values, uint32_t count, uint32_t *offset)
     return next;
 }
 
-void *
+static void *
 ec_code_build(ec_code_t *code, uint32_t width, uint32_t *values,
               uint32_t count, gf_boolean_t linear)
 {
@@ -606,8 +733,8 @@ ec_code_build(ec_code_t *code, uint32_t width, uint32_t *values,
     }
 
     builder = ec_code_prepare(code, count, width, linear);
-    if (builder == NULL) {
-        return NULL;
+    if (EC_IS_ERR(builder)) {
+        return builder;
     }
 
     offset = -1;
@@ -659,6 +786,8 @@ void
 ec_code_error(ec_code_builder_t *builder, int32_t error)
 {
     if (builder->error == 0) {
+        gf_msg(THIS->name, GF_LOG_ERROR, error, EC_MSG_DYN_CODEGEN_FAILED,
+               "Failed to generate dynamic code");
         builder->error = error;
     }
 }

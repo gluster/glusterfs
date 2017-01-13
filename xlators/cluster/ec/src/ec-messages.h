@@ -45,7 +45,7 @@
  */
 
 #define GLFS_EC_COMP_BASE       GLFS_MSGID_COMP_EC
-#define GLFS_NUM_MESSAGES       73
+#define GLFS_NUM_MESSAGES       75
 #define GLFS_MSGID_END          (GLFS_EC_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
 #define glfs_msg_start_x GLFS_EC_COMP_BASE, "Invalid: Start of messages"
@@ -568,6 +568,20 @@
  * @recommendedaction
  */
 #define EC_MSG_MATRIX_FAILED                (GLFS_EC_COMP_BASE + 73)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ */
+#define EC_MSG_DYN_CREATE_FAILED            (GLFS_EC_COMP_BASE + 74)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ */
+#define EC_MSG_DYN_CODEGEN_FAILED           (GLFS_EC_COMP_BASE + 75)
 
 /*------------*/
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"

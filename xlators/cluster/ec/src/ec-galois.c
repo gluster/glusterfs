@@ -15,6 +15,7 @@
 
 #include "ec-mem-types.h"
 #include "ec-gf8.h"
+#include "ec-helpers.h"
 
 static ec_gf_t *
 ec_gf_alloc(uint32_t bits, uint32_t mod)
@@ -48,7 +49,7 @@ failed_log:
 failed_gf:
     GF_FREE(gf);
 failed:
-    return NULL;
+    return EC_ERR(ENOMEM);
 }
 
 static void
@@ -79,7 +80,7 @@ ec_gf_prepare(uint32_t bits, uint32_t mod)
     uint32_t i, j;
 
     if (bits != 8) {
-        return NULL;
+        return EC_ERR(EINVAL);
     }
 
     tbl = ec_gf8_mul;
@@ -88,8 +89,8 @@ ec_gf_prepare(uint32_t bits, uint32_t mod)
     }
 
     gf = ec_gf_alloc(bits, mod);
-    if (gf == NULL) {
-        return NULL;
+    if (EC_IS_ERR(gf)) {
+        return gf;
     }
     ec_gf_init_tables(gf);
 
