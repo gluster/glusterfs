@@ -932,7 +932,6 @@ exit 0
 /sbin/ldconfig
 %if (0%{?_with_firewalld:1})
     %firewalld_reload
-fi
 %endif
 exit 0
 
