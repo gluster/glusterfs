@@ -1186,7 +1186,11 @@ int32_t ec_readv_rebuild(ec_t * ec, ec_fop_data_t * fop, ec_cbk_data_t * cbk)
             goto out;
         }
 
-        ec_method_decode(&ec->matrix, fsize, cbk->mask, values, blocks, ptr);
+        err = ec_method_decode(&ec->matrix, fsize, cbk->mask, values, blocks,
+                               ptr);
+        if (err != 0) {
+            goto out;
+        }
 
         vector[0].iov_base = ptr + fop->head;
         vector[0].iov_len = size - fop->head;
