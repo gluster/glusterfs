@@ -266,6 +266,7 @@ reconfigure (xlator_t *this, dict_t *options)
         uint32_t heal_wait_qlen   = 0;
         uint32_t background_heals = 0;
         int32_t  ret              = -1;
+        int32_t  err;
 
         GF_OPTION_RECONF ("cpu-extensions", extensions, options, str, failed);
 
@@ -295,7 +296,8 @@ reconfigure (xlator_t *this, dict_t *options)
                 ret = -1;
         }
 
-        if (!ec_method_update(this, &ec->matrix, extensions)) {
+        err = ec_method_update(this, &ec->matrix, extensions);
+        if (err != 0) {
                 ret = -1;
         }
 
@@ -588,6 +590,7 @@ init (xlator_t *this)
     ec_t *ec          = NULL;
     char *read_policy = NULL;
     char *extensions  = NULL;
+    int32_t err;
 
     if (this->parents == NULL)
     {
@@ -644,9 +647,10 @@ init (xlator_t *this)
 
     GF_OPTION_INIT("cpu-extensions", extensions, str, failed);
 
-    if (!ec_method_init(this, &ec->matrix, ec->fragments, ec->nodes,
-                        ec->nodes * 2, extensions)) {
-        gf_msg (this->name, GF_LOG_ERROR, 0, EC_MSG_MATRIX_FAILED,
+    err = ec_method_init(this, &ec->matrix, ec->fragments, ec->nodes,
+                         ec->nodes * 2, extensions);
+    if (err != 0) {
+        gf_msg (this->name, GF_LOG_ERROR, -err, EC_MSG_MATRIX_FAILED,
                 "Failed to initialize matrix management");
 
         goto failed;

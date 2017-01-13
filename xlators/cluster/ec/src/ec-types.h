@@ -17,8 +17,6 @@
 
 #define EC_GF_MAX_REGS 16
 
-#define EC_CODE_SIZE (1024 * 64)
-
 enum _ec_read_policy;
 typedef enum _ec_read_policy ec_read_policy_t;
 
@@ -453,6 +451,7 @@ struct _ec_code_space {
     struct list_head  list;
     struct list_head  chunks;
     ec_code_t        *code;
+    void             *exec;
     size_t            size;
 };
 

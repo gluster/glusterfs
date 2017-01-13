@@ -30,17 +30,20 @@
 
 #define EC_METHOD_CHUNK_SIZE (EC_METHOD_WORD_SIZE * EC_GF_BITS)
 
-gf_boolean_t ec_method_init(xlator_t *xl, ec_matrix_list_t *list,
-                            uint32_t columns, uint32_t rows, uint32_t max,
-                            const char *gen);
-void ec_method_fini(ec_matrix_list_t *list);
-gf_boolean_t ec_method_update(xlator_t *xl, ec_matrix_list_t *list,
-                              const char *gen);
+int32_t
+ec_method_init(xlator_t *xl, ec_matrix_list_t *list, uint32_t columns,
+               uint32_t rows, uint32_t max, const char *gen);
 
-void ec_method_encode(ec_matrix_list_t *list, size_t size, void *in,
-                      void **out);
-gf_boolean_t ec_method_decode(ec_matrix_list_t *list, size_t size,
-                              uintptr_t mask, uint32_t *rows, void **in,
-                              void *out);
+void ec_method_fini(ec_matrix_list_t *list);
+
+int32_t
+ec_method_update(xlator_t *xl, ec_matrix_list_t *list, const char *gen);
+
+void
+ec_method_encode(ec_matrix_list_t *list, size_t size, void *in, void **out);
+
+int32_t
+ec_method_decode(ec_matrix_list_t *list, size_t size, uintptr_t mask,
+                 uint32_t *rows, void **in, void *out);
 
 #endif /* __EC_METHOD_H__ */
