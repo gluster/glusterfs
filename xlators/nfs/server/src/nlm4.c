@@ -919,10 +919,16 @@ nlm_rpcclnt_notify (struct rpc_clnt *rpc_clnt, void *mydata,
         nfs3_call_state_t *cs          = NULL;
 
         cs = mydata;
-        caller_name = cs->args.nlm4_lockargs.alock.caller_name;
 
         switch (fn) {
         case RPC_CLNT_CONNECT:
+                if (!cs->req) {
+                        gf_msg (GF_NLM, GF_LOG_ERROR, EINVAL,
+                                NFS_MSG_RPC_CLNT_ERROR, "Spurious notify?!");
+                        goto err;
+                }
+
+                caller_name = cs->args.nlm4_lockargs.alock.caller_name;
                 ret = nlm_set_rpc_clnt (rpc_clnt, caller_name);
                 if (ret == -1) {
                         gf_msg (GF_NLM, GF_LOG_ERROR, 0,
