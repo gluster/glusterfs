@@ -1209,7 +1209,7 @@ ret:
 }
 
 void
-nlm_search_and_delete (fd_t *fd, char *caller_name)
+nlm_search_and_delete (fd_t *fd, nlm4_lock *lk)
 {
         nlm_fde_t *fde = NULL;
         nlm_client_t *nlmclnt = NULL;
@@ -1220,7 +1220,7 @@ nlm_search_and_delete (fd_t *fd, char *caller_name)
         LOCK (&nlm_client_list_lk);
         list_for_each_entry (nlmclnt,
                              &nlm_client_list, nlm_clients) {
-                if (!strcmp(caller_name, nlmclnt->caller_name)) {
+                if (!strcmp (lk->caller_name, nlmclnt->caller_name)) {
                         nlmclnt_found = 1;
                         break;
                 }
@@ -1242,6 +1242,9 @@ nlm_search_and_delete (fd_t *fd, char *caller_name)
         if (transit_cnt)
                 goto ret;
         list_del (&fde->fde_list);
+
+        if (list_empty (&nlmclnt->fdes) && list_empty (&nlmclnt->shares))
+                nlm_client_free (nlmclnt);
 
 ret:
         UNLOCK (&nlm_client_list_lk);
@@ -1358,7 +1361,8 @@ nlm4svc_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == -1) {
                 if (transit_cnt == 0)
-                        nlm_search_and_delete (cs->fd, caller_name);
+                        nlm_search_and_delete (cs->fd,
+                                               &cs->args.nlm4_lockargs.alock);
                 stat = nlm4_errno_to_nlm4stat (op_errno);
                 goto err;
         } else {
@@ -1549,8 +1553,10 @@ nlm4svc_cancel_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1) {
                 stat = nlm4_errno_to_nlm4stat (op_errno);
                 goto err;
-        } else
+        } else {
                 stat = nlm4_granted;
+                nlm_search_and_delete (cs->fd, &cs->args.nlm4_lockargs.alock);
+        }
 
 err:
         nlm4_generic_reply (cs->req, cs->args.nlm4_cancargs.cookie,
@@ -1703,7 +1709,7 @@ nlm4svc_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 stat = nlm4_granted;
                 if (flock->l_type == F_UNLCK)
                         nlm_search_and_delete (cs->fd,
-                                               cs->args.nlm4_unlockargs.alock.caller_name);
+                                               &cs->args.nlm4_unlockargs.alock);
         }
 
 err:
