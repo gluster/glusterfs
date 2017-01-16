@@ -587,7 +587,7 @@ def mode_query(session_dir, args):
     except (IOError, OSError):
         pass
 
-    run_cmd_nodes("cleanup", args)
+    run_cmd_nodes("cleanup", args, tmpfilename=gtmpfilename)
 
     sys.stdout.write("Generated output file %s\n" % args.outfile)
 
@@ -646,7 +646,7 @@ def mode_pre(session_dir, args):
     except (IOError, OSError):
         pass
 
-    run_cmd_nodes("cleanup", args)
+    run_cmd_nodes("cleanup", args, tmpfilename=gtmpfilename)
 
     with open(status_file_pre, "w", buffering=0) as f:
         f.write(str(endtime_to_update))
