@@ -618,7 +618,10 @@ htime_open (xlator_t *this,
         unsigned long min_ts            = 0;
         unsigned long max_ts            = 0;
         unsigned long total             = 0;
+        unsigned long total1            = 0;
         ssize_t size                    = 0;
+        struct stat stat_buf            = {0,};
+        unsigned long record_len        = 0;
 
         CHANGELOG_FILL_HTIME_DIR(priv->changelog_dir, ht_dir_path);
 
@@ -679,6 +682,16 @@ htime_open (xlator_t *this,
         /* save this htime_fd in priv->htime_fd */
         priv->htime_fd = ht_file_fd;
 
+        ret = sys_fstat (ht_file_fd, &stat_buf);
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        CHANGELOG_MSG_HTIME_ERROR,
+                        "unable to stat htime file: %s",
+                        ht_file_path);
+                ret = -1;
+                goto out;
+        }
+
         /* Initialize rollover-number in priv to current number */
         size = sys_fgetxattr (ht_file_fd, HTIME_KEY, x_value, sizeof (x_value));
         if (size < 0) {
@@ -691,11 +704,27 @@ htime_open (xlator_t *this,
         }
 
         sscanf (x_value, "%lu:%lu", &max_ts, &total);
+
+        /* 22 = 1(/) + 20(CHANGELOG.TIMESTAMP) + 1(\x00) */
+        record_len = strlen(priv->changelog_dir) + 22;
+        total1 = stat_buf.st_size/record_len;
+        if (total != total1) {
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        CHANGELOG_MSG_TOTAL_LOG_INFO,
+                        "Mismatch of changelog count. "
+                        "INIT CASE: XATTR TOTAL: %lu, SIZE TOTAL: %lu",
+                        total, total1);
+        }
+
         gf_msg (this->name, GF_LOG_INFO, 0,
                 CHANGELOG_MSG_TOTAL_LOG_INFO,
                 "INIT CASE: MIN: %lu, MAX: %lu,"
                 " TOTAL CHANGELOGS: %lu", min_ts, max_ts, total);
-        priv->rollover_count = total + 1;
+
+        if (total < total1)
+                priv->rollover_count = total1 + 1;
+        else
+                priv->rollover_count = total + 1;
 
 out:
         if (ht_dir_fd != -1)
