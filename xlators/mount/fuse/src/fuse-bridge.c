@@ -3056,6 +3056,10 @@ fuse_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		if (!linked_inode)
 			goto next_entry;
 
+                if (entry->inode != linked_inode) {
+                        memset (&entry->d_stat, 0, sizeof (entry->d_stat));
+                }
+
 		feo->nodeid = inode_to_fuse_nodeid (linked_inode);
 
                 if (!((strcmp (entry->d_name, ".") == 0) ||
@@ -3069,10 +3073,15 @@ fuse_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			calc_timeout_sec (priv->entry_timeout);
 		feo->entry_valid_nsec =
 			calc_timeout_nsec (priv->entry_timeout);
-		feo->attr_valid =
-			calc_timeout_sec (priv->attribute_timeout);
-		feo->attr_valid_nsec =
-			calc_timeout_nsec (priv->attribute_timeout);
+
+                if (entry->d_stat.ia_ctime) {
+                        feo->attr_valid =
+                                calc_timeout_sec (priv->attribute_timeout);
+                        feo->attr_valid_nsec =
+                                calc_timeout_nsec (priv->attribute_timeout);
+                } else {
+                        feo->attr_valid = feo->attr_valid_nsec = 0;
+                }
 
 next_entry:
                 if (size == max_size)
