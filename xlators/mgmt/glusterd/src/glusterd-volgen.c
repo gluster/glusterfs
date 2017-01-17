@@ -3774,18 +3774,90 @@ out:
         return ret;
 }
 
+static int
+client_graph_set_rda_options (volgen_graph_t *graph,
+                              glusterd_volinfo_t *volinfo,
+                              dict_t *set_dict)
+{
+        char           *rda_cache_s              = NULL;
+        int32_t         ret                      = 0;
+        uint64_t        rda_cache_size           = 0;
+        char           *rda_req_s                = NULL;
+        uint64_t        rda_req_size             = 0;
+        uint64_t        new_cache_size           = 0;
+        char            new_cache_size_str[50]   = {0,};
+        char            new_req_size_str[50]     = {0,};
+        int             dist_count               = 0;
+
+        dist_count = volinfo->brick_count / volinfo->dist_leaf_count;
+        if (dist_count <= 1)
+                goto out;
+
+        if (graph->type == GF_REBALANCED ||
+            graph->type == GF_QUOTAD ||
+            graph->type == GF_SNAPD ||
+            !glusterd_volinfo_get_boolean (volinfo, VKEY_PARALLEL_READDIR) ||
+            !glusterd_volinfo_get_boolean (volinfo, VKEY_READDIR_AHEAD))
+                goto out;
+
+        ret = glusterd_volinfo_get (volinfo, VKEY_RDA_CACHE_LIMIT, &rda_cache_s);
+        if (ret < 0)
+                goto out;
+
+        gf_string2bytesize_uint64 (rda_cache_s, &rda_cache_size);
+
+        ret = glusterd_volinfo_get (volinfo, VKEY_RDA_REQUEST_SIZE, &rda_req_s);
+        if (ret < 0)
+                goto out;
+
+        gf_string2bytesize_uint64 (rda_req_s, &rda_req_size);
+
+        new_cache_size = rda_cache_size / dist_count;
+        if (new_cache_size < rda_req_size) {
+                if (new_cache_size < 4 * 1024)
+                        new_cache_size = rda_req_size = 4 * 1024;
+                else
+                        rda_req_size = new_cache_size;
+
+                snprintf (new_req_size_str, sizeof (new_req_size_str),
+                          "%ld%s", rda_req_size, "B");
+                ret = dict_set_dynstr_with_alloc (set_dict,
+                                                  VKEY_RDA_REQUEST_SIZE,
+                                                  new_req_size_str);
+                if (ret < 0)
+                        goto out;
+        }
+
+        snprintf (new_cache_size_str, sizeof (new_cache_size_str),
+                  "%ld%s", new_cache_size, "B");
+        ret = dict_set_dynstr_with_alloc (set_dict,
+                                          VKEY_RDA_CACHE_LIMIT,
+                                          new_cache_size_str);
+        if (ret < 0)
+                goto out;
+
+out:
+        return ret;
+}
+
+
 static int client_graph_set_perf_options(volgen_graph_t *graph,
                                          glusterd_volinfo_t *volinfo,
                                          dict_t *set_dict)
 {
-        data_t *tmp_data = NULL;
-        char *volname = NULL;
+        data_t         *tmp_data                 = NULL;
+        char           *volname                  = NULL;
+        int             ret                      = 0;
 
         /*
          * Logic to make sure NFS doesn't have performance translators by
          * default for a volume
          */
         volname = volinfo->volname;
+        ret = client_graph_set_rda_options (graph, volinfo, set_dict);
+        if (ret < 0)
+                return ret;
+
         tmp_data = dict_get (set_dict, "nfs-volume-file");
         if (!tmp_data)
                 return volgen_graph_set_options_generic(graph, set_dict,
