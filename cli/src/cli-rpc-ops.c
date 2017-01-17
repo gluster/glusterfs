@@ -1608,6 +1608,9 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
         int                sec          = 0;
         gf_boolean_t       down         = _gf_false;
 	gf_boolean_t       fix_layout   = _gf_false;
+        uint64_t           max_time     = 0;
+        uint64_t           time_left    = 0;
+
 
         ret = dict_get_int32 (dict, "count", &count);
         if (ret) {
@@ -1660,6 +1663,7 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
                 skipped = 0;
                 status_str = NULL;
                 elapsed = 0;
+                time_left = 0;
 
                 /* Check if status is NOT_STARTED, and continue early */
                 memset (key, 0, 256);
@@ -1737,6 +1741,15 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE, "failed to get run-time");
 
+                memset (key, 0, 256);
+                snprintf (key, 256, "time-left-%d", i);
+                ret = dict_get_uint64 (dict, key, &time_left);
+                if (ret)
+                        gf_log ("cli", GF_LOG_TRACE,
+                                "failed to get time left");
+                if (time_left > max_time)
+                        max_time = time_left;
+
                 /* Check for array bound */
                 if (status_rcd >= GF_DEFRAG_STATUS_MAX)
                         status_rcd = GF_DEFRAG_STATUS_MAX;
@@ -1754,15 +1767,15 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
                         if (size_str) {
                                 cli_out ("%40s %16"PRIu64 " %13s" " %13"PRIu64
                                           " %13" PRIu64" %13"PRIu64 " %20s "
-                                         "%8d:%d:%d", node_name, files,
+                                         "%8d:%02d:%02d", node_name, files,
                                          size_str, lookup, failures, skipped,
                                          status_str, hrs, min, sec);
                         } else {
                                 cli_out ("%40s %16"PRIu64 " %13"PRIu64 " %13"
                                          PRIu64 " %13"PRIu64" %13"PRIu64 " %20s"
-                                         " %8d:%d:%d", node_name, files, size,
-                                         lookup, failures, skipped, status_str,
-                                         hrs, min, sec);
+                                         " %8d:%02d:%02d", node_name, files,
+                                         size, lookup, failures, skipped,
+                                         status_str, hrs, min, sec);
                         }
                 }
                 GF_FREE(size_str);
@@ -1772,6 +1785,13 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
                          " Please check the nodes that are down using \'gluster"
                          " peer status\' and start the glusterd on those nodes,"
                          " else tier detach commit might fail!");
+        if (max_time) {
+                hrs = max_time / 3600;
+                min = ((int) max_time % 3600) / 60;
+                sec = ((int) max_time % 3600) % 60;
+                cli_out ("Estimated time left for rebalance to complete :"
+                         " %8d:%02d:%02d", hrs, min, sec);
+        }
 out:
         return ret;
 }

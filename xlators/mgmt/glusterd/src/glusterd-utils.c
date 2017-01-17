@@ -7613,6 +7613,7 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
                                       dict_t *rsp_dict, int32_t cmd)
 {
         int                             ret = 0;
+        int                             ret2 = 0;
         uint64_t                        files = 0;
         uint64_t                        size = 0;
         uint64_t                        lookup = 0;
@@ -7623,6 +7624,7 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
         double                          run_time = 0;
         uint64_t                        promoted = 0;
         uint64_t                        demoted = 0;
+        uint64_t                        time_left = 0;
 
         this = THIS;
 
@@ -7671,6 +7673,11 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
                 gf_msg_trace (this->name, 0,
                         "failed to get run-time");
 
+        ret2 = dict_get_uint64 (rsp_dict, "time-left", &time_left);
+        if (ret2)
+                gf_msg_trace (this->name, 0,
+                        "failed to get time left");
+
         if (cmd == GF_DEFRAG_CMD_STATUS_TIER) {
                 if (files)
                         volinfo->tier.rebalance_files = files;
@@ -7701,7 +7708,10 @@ glusterd_defrag_volume_status_update (glusterd_volinfo_t *volinfo,
                         volinfo->rebal.skipped_files = skipped;
                 if (run_time)
                         volinfo->rebal.rebalance_time = run_time;
+                if (!ret2)
+                        volinfo->rebal.time_left = time_left;
         }
+
         if (promoted)
                 volinfo->tier_info.promoted = promoted;
         if (demoted)
@@ -9324,7 +9334,7 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
                         gf_msg_debug (THIS->name, 0,
-                                "failed to set lookuped file count");
+                                "failed to set looked up file count");
                 }
         }
 
@@ -9379,6 +9389,18 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
+        memset (key, 0, 256);
+        snprintf (key, 256, "time-left-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "time-left-%d", current_index);
+                ret = dict_set_uint64 (ctx_dict, key, value);
+                if (ret) {
+                        gf_msg_debug (THIS->name, 0,
+                                "failed to set time-left");
+                }
+        }
         memset (key, 0, 256);
         snprintf (key, 256, "demoted-%d", index);
         ret = dict_get_uint64 (rsp_dict, key, &value);
@@ -9521,7 +9543,7 @@ glusterd_volume_tier_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
                         gf_msg_debug (this->name, 0,
-                                "failed to set lookuped file count");
+                                "failed to set looked up file count");
                 }
         }
 
@@ -9598,6 +9620,19 @@ glusterd_volume_tier_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 if (ret) {
                         gf_msg_debug (this->name, 0,
                                 "failed to set promoted count");
+                }
+        }
+
+        memset (key, 0, 256);
+        snprintf (key, 256, "time-left-%d", index);
+        ret = dict_get_uint64 (rsp_dict, key, &value);
+        if (!ret) {
+                memset (key, 0, 256);
+                snprintf (key, 256, "time-left-%d", count);
+                ret = dict_set_uint64 (ctx_dict, key, value);
+                if (ret) {
+                        gf_msg_debug (THIS->name, 0,
+                                "failed to set time-left");
                 }
         }
 
@@ -10269,6 +10304,14 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
                 glusterd_tier_or_rebalance_rsp (op_ctx, &volinfo->tier, i);
         else
                 glusterd_tier_or_rebalance_rsp (op_ctx, &volinfo->rebal, i);
+
+        memset (key, 0 , 256);
+        snprintf (key, 256, "time-left-%d", i);
+        ret = dict_set_uint64 (op_ctx, key, volinfo->rebal.time_left);
+        if (ret)
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_SET_FAILED,
+                        "failed to set time left");
 
         memset (key, 0 , 256);
         snprintf (key, 256, "promoted-%d", i);

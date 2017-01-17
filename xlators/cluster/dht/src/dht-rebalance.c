@@ -46,6 +46,9 @@
                 }                                               \
         }                                                       \
 
+uint64_t g_totalfiles = 0;
+
+
 void
 gf_defrag_free_container (struct dht_container *container)
 {
@@ -3708,6 +3711,58 @@ gf_tier_wait_fix_lookup (gf_defrag_info_t *defrag) {
 /******************Tier background Fix layout functions END********************/
 
 
+uint64_t gf_defrag_subvol_file_cnt (xlator_t *this, loc_t *root_loc)
+{
+        int ret = -1;
+        struct statvfs buf = {0,};
+
+        if (!this)
+                return 0;
+
+        ret = syncop_statfs (this, root_loc, &buf, NULL, NULL);
+        if (ret) {
+                /* Aargh! */
+                return 0;
+        }
+        return (buf.f_files - buf.f_ffree);
+}
+
+
+int gf_defrag_total_file_cnt (xlator_t *this, loc_t *root_loc)
+{
+        dht_conf_t    *conf  = NULL;
+        int            ret   = -1;
+        int            i     = 0;
+        uint64_t       num_files = 0;
+
+
+        conf = this->private;
+        if (!conf) {
+                return ret;
+        }
+
+        for (i = 0 ; i < conf->local_subvols_cnt; i++) {
+                num_files = gf_defrag_subvol_file_cnt (conf->local_subvols[i],
+                                                       root_loc);
+                g_totalfiles += num_files;
+                gf_msg (this->name, GF_LOG_INFO, 0, 0, "local subvol: %s,"
+                        "cnt = %"PRIu64, conf->local_subvols[i]->name,
+                        num_files);
+        }
+
+        /* FIXFIXFIX: halve the number of files to negate .glusterfs contents
+           We need a better way to figure this out */
+
+        g_totalfiles = g_totalfiles/2;
+        if (g_totalfiles > 20000)
+                g_totalfiles += 10000;
+
+        gf_msg (this->name, GF_LOG_INFO, 0, 0,
+                "Total number of files = %"PRIu64, g_totalfiles);
+
+        return 0;
+}
+
 
 int
 gf_defrag_start_crawl (void *data)
@@ -3731,6 +3786,7 @@ gf_defrag_start_crawl (void *data)
         int                     thread_spawn_count      = 0;
         pthread_t               *tid                    = NULL;
         gf_boolean_t            is_tier_detach          = _gf_false;
+
 
         this = data;
         if (!this)
@@ -3859,6 +3915,13 @@ gf_defrag_start_crawl (void *data)
                 for (i = 0 ; i < conf->local_subvols_cnt; i++) {
                         gf_msg (this->name, GF_LOG_INFO, 0, 0, "local subvols "
                                 "are %s", conf->local_subvols[i]->name);
+                }
+
+                ret = gf_defrag_total_file_cnt (this, &loc);
+                if (!ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0, 0, "Failed to get "
+                                "the total number of files. Unable to estimate "
+                                "time to complete rebalance.");
                 }
 
                 /* Initialize global entry queue */
@@ -4099,8 +4162,11 @@ gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict)
         uint64_t skipped = 0;
         uint64_t promoted = 0;
         uint64_t demoted = 0;
-        char     *status = "";
+        char    *status = "";
         double   elapsed = 0;
+        uint64_t time_left = 0;
+        uint64_t time_to_complete = 0;
+        double rate_lookedup = 0;
         struct timeval end = {0,};
 
 
@@ -4123,6 +4189,34 @@ gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict)
 
         elapsed = end.tv_sec - defrag->start_time.tv_sec;
 
+/*START */
+
+/* rate at which files looked up */
+
+
+        if ((defrag->cmd != GF_DEFRAG_CMD_START_TIER)
+                && (defrag->defrag_status == GF_DEFRAG_STATUS_STARTED)
+                && g_totalfiles) {
+
+                rate_lookedup = (defrag->num_files_lookedup)/elapsed;
+                if (defrag->num_files_lookedup > g_totalfiles)
+                        g_totalfiles = defrag->num_files_lookedup + 10000;
+                time_to_complete = (g_totalfiles)/rate_lookedup;
+                time_left = time_to_complete - elapsed;
+
+                gf_log (THIS->name, GF_LOG_INFO,
+                        "TIME: num_files_lookedup=%"PRIu64",elapsed time = %f,"
+                        "rate_lookedup=%f", defrag->num_files_lookedup, elapsed,
+                        rate_lookedup);
+                gf_log (THIS->name, GF_LOG_INFO,
+                        "TIME: Estimated total time to complete = %"PRIu64
+                        " seconds", time_to_complete);
+
+                gf_log (THIS->name, GF_LOG_INFO,
+                        "TIME: Seconds left = %"PRIu64" seconds", time_left);
+        }
+
+/*END */
         if (!dict)
                 goto log;
 
@@ -4171,6 +4265,12 @@ gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict)
         if (ret)
                 gf_log (THIS->name, GF_LOG_WARNING,
                         "failed to set skipped file count");
+
+        ret = dict_set_uint64 (dict, "time-left", time_left);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "failed to set time-left");
+
 log:
         switch (defrag->defrag_status) {
         case GF_DEFRAG_STATUS_NOT_STARTED:
