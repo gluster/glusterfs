@@ -6336,9 +6336,9 @@ dht_file_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
         if (local->fop == GF_FOP_REMOVEXATTR) {
-                DHT_STACK_UNWIND (removexattr, frame, op_ret, op_errno, NULL);
+                DHT_STACK_UNWIND (removexattr, frame, op_ret, op_errno, xdata);
         } else {
-                DHT_STACK_UNWIND (fremovexattr, frame, op_ret, op_errno, NULL);
+                DHT_STACK_UNWIND (fremovexattr, frame, op_ret, op_errno, xdata);
         }
         return 0;
 
