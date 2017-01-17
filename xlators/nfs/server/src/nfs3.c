@@ -2456,7 +2456,7 @@ nfs3svc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         cs->preparent = *preparent;
         cs->postparent = *postparent;
         nfs_request_user_init (&nfu, cs->req);
-        gf_uuid_copy (cs->resolvedloc.gfid, inode->gfid);
+        gf_uuid_copy (cs->resolvedloc.gfid, oldinode->gfid);
         ret = nfs_setattr (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,&cs->stbuf,
                            cs->setattr_valid, nfs3svc_create_setattr_cbk, cs);
         if (ret < 0)
