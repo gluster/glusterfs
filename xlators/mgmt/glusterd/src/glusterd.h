@@ -317,6 +317,7 @@ struct glusterd_rebalance_ {
         uint64_t                 rebalance_failures;
         uuid_t                   rebalance_id;
         double                   rebalance_time;
+        uint64_t                 time_left;
         glusterd_op_t            op;
         dict_t                  *dict; /* Dict to store misc information
                                         * like list of bricks being removed */
