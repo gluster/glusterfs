@@ -129,6 +129,50 @@ out:
         return fdctx;
 }
 
+
+struct fusedump_timespec {
+        uint32_t len;
+        uint64_t sec;
+        uint32_t nsec;
+} __attribute__((packed));
+
+struct fusedump_signature {
+        uint32_t len;
+        char sig[8];
+} __attribute__((packed));
+
+static void
+fusedump_gettime (struct fusedump_timespec *fts)
+{
+        struct timespec ts = {0,};
+
+        clock_gettime (CLOCK_REALTIME, &ts);
+
+        fts->sec  = ts.tv_sec;
+        fts->nsec = ts.tv_nsec;
+}
+
+static void
+fusedump_setup_meta (struct iovec *iovs, char *dir,
+                     uint32_t *fusedump_item_count,
+                     struct fusedump_timespec *fts,
+                     struct fusedump_signature *fsig)
+{
+        char glustersig[8] = {'G', 'L', 'U', 'S', 'T', 'E', 'R', 0xF5};
+
+        *fusedump_item_count = 3;
+        fts->len = sizeof (*fts);
+        fusedump_gettime (fts);
+        fsig->len = sizeof (*fsig);
+        memcpy (fsig->sig, glustersig, 8);
+
+        iovs[0] = (struct iovec){ dir, sizeof (*dir) };
+        iovs[1] = (struct iovec){ fusedump_item_count,
+                                  sizeof (*fusedump_item_count) };
+        iovs[2] = (struct iovec){ fts, fts->len };
+        iovs[3] = (struct iovec){ fsig, fsig->len };
+}
+
 /*
  * iov_out should contain a fuse_out_header at zeroth position.
  * The error value of this header is sent to kernel.
@@ -164,10 +208,18 @@ send_fuse_iov (xlator_t *this, fuse_in_header_t *finh, struct iovec *iov_out,
                 return EINVAL;
 
         if (priv->fuse_dump_fd != -1) {
-                char w = 'W';
+                char w                         = 'W';
+                struct iovec diov[4]           = {{0,},};
+                uint32_t fusedump_item_count   = 3;
+                struct fusedump_timespec fts   = {0,};
+                struct fusedump_signature fsig = {0,};
+
+                fusedump_setup_meta (diov, &w, &fusedump_item_count,
+                                     &fts, &fsig);
 
                 pthread_mutex_lock (&priv->fuse_dump_mutex);
-                res = sys_write (priv->fuse_dump_fd, &w, 1);
+                res = sys_writev (priv->fuse_dump_fd, diov,
+                                  sizeof (diov)/sizeof (diov[0]));
                 if (res != -1)
                         res = sys_writev (priv->fuse_dump_fd, iov_out, count);
                 pthread_mutex_unlock (&priv->fuse_dump_mutex);
@@ -5431,26 +5483,29 @@ static void
 fuse_dumper (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
         fuse_private_t *priv = NULL;
-        struct iovec diov[3];
-        char r = 'R';
+        struct iovec diov[6]           = {{0,},};
+        char r                         = 'R';
+        uint32_t fusedump_item_count   = 3;
+        struct fusedump_timespec fts   = {0,};
+        struct fusedump_signature fsig = {0,};
+
         int ret = 0;
 
         priv = this->private;
 
-        diov[0].iov_base = &r;
-        diov[0].iov_len  = 1;
-        diov[1].iov_base = finh;
-        diov[1].iov_len  = sizeof (*finh);
+        fusedump_setup_meta (diov, &r, &fusedump_item_count,
+                             &fts, &fsig);
+        diov[4] = (struct iovec){ finh, sizeof (*finh) };
         if (finh->opcode == FUSE_WRITE) {
                 /* WRITE has special data alingment, see comment in
                    fuse_write(). */
-                diov[1].iov_len += sizeof (struct fuse_write_in);
+                diov[4].iov_len += sizeof (struct fuse_write_in);
         }
-        diov[2].iov_base = msg;
-        diov[2].iov_len  = finh->len - diov[1].iov_len;
+        diov[5] = (struct iovec){ msg, finh->len - diov[4].iov_len };
 
         pthread_mutex_lock (&priv->fuse_dump_mutex);
-        ret = sys_writev (priv->fuse_dump_fd, diov, 3);
+        ret = sys_writev (priv->fuse_dump_fd, diov,
+                          sizeof (diov) / sizeof (diov[0]));
         pthread_mutex_unlock (&priv->fuse_dump_mutex);
         if (ret == -1)
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
