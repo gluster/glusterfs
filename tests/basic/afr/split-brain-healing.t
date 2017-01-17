@@ -78,7 +78,6 @@ do
 done
 
 BIGGER_FILE_SIZE=$(stat -c %s file1)
-
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 3

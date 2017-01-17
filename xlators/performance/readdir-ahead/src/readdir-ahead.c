@@ -33,6 +33,17 @@
 #include "readdir-ahead-messages.h"
 static int rda_fill_fd(call_frame_t *, xlator_t *, fd_t *);
 
+static void
+rda_local_wipe (struct rda_local *local)
+{
+        if (local->fd)
+                fd_unref (local->fd);
+        if (local->xattrs)
+                dict_unref (local->xattrs);
+        if (local->inode)
+                inode_unref (local->inode);
+}
+
 /*
  * Get (or create) the fd context for storing prepopulated directory
  * entries.
@@ -68,6 +79,71 @@ rda_fd_ctx *get_rda_fd_ctx(fd_t *fd, xlator_t *this)
 out:
 	UNLOCK(&fd->lock);
 	return ctx;
+}
+
+static rda_inode_ctx_t *
+__rda_inode_ctx_get (inode_t *inode, xlator_t *this)
+{
+        int              ret      = -1;
+        uint64_t         ctx_uint = 0;
+        rda_inode_ctx_t *ctx_p    = NULL;
+
+        ret = __inode_ctx_get1 (inode, this, &ctx_uint);
+        if (ret == 0)
+                return (rda_inode_ctx_t *)ctx_uint;
+
+        ctx_p = GF_CALLOC (1, sizeof (*ctx_p), gf_rda_mt_inode_ctx_t);
+        if (!ctx_p)
+                return NULL;
+
+        ret = __inode_ctx_set1 (inode, this, (uint64_t *)&ctx_p);
+        if (ret < 0) {
+                GF_FREE (ctx_p);
+                return NULL;
+        }
+
+        return ctx_p;
+}
+
+static int
+__rda_inode_ctx_update_iatts (inode_t *inode, xlator_t *this,
+                              struct iatt *stbuf_in, struct iatt *stbuf_out)
+{
+        rda_inode_ctx_t *ctx_p = NULL;
+
+        if ((!stbuf_in) || (stbuf_in->ia_ctime == 0))
+                return -1;
+
+        ctx_p = __rda_inode_ctx_get (inode, this);
+        if (!ctx_p)
+                return -1;
+
+        if ((stbuf_in->ia_ctime > ctx_p->statbuf.ia_ctime) ||
+            ((stbuf_in->ia_ctime == ctx_p->statbuf.ia_ctime) &&
+             (stbuf_in->ia_ctime_nsec >=  ctx_p->statbuf.ia_ctime_nsec))) {
+                ctx_p->statbuf = *stbuf_in;
+        }
+
+        if (stbuf_out)
+                *stbuf_out = ctx_p->statbuf;
+
+        return 0;
+}
+
+static int
+rda_inode_ctx_update_iatts (inode_t *inode, xlator_t *this,
+                            struct iatt *stbuf_in, struct iatt *stbuf_out)
+{
+        int ret = -1;
+
+        LOCK(&inode->lock);
+        {
+                ret = __rda_inode_ctx_update_iatts (inode, this, stbuf_in,
+                                                    stbuf_out);
+        }
+        UNLOCK(&inode->lock);
+
+        return ret;
 }
 
 /*
@@ -124,6 +200,8 @@ __rda_fill_readdirp (xlator_t *this, gf_dirent_t *entries, size_t request_size,
 	size_t           dirent_size, size = 0;
 	int32_t          count             = 0;
 	struct rda_priv *priv              = NULL;
+        struct iatt      tmp_stat          = {0,};
+        size_t           inodectx_size     = 0;
 
         priv = this->private;
 
@@ -131,6 +209,27 @@ __rda_fill_readdirp (xlator_t *this, gf_dirent_t *entries, size_t request_size,
 		dirent_size = gf_dirent_size(dirent->d_name);
 		if (size + dirent_size > request_size)
 			break;
+
+                inodectx_size = 0;
+                memset (&tmp_stat, 0, sizeof (tmp_stat));
+
+                if (dirent->inode) {
+                        inode_ctx_del (dirent->inode, this,
+                                       (void *)&inodectx_size);
+                        if (inode_is_linked (dirent->inode)) {
+                                rda_inode_ctx_update_iatts (dirent->inode, this,
+                                                            &dirent->d_stat,
+                                                            &tmp_stat);
+                                dirent->d_stat = tmp_stat;
+                        } else {
+                                tmp_stat = dirent->d_stat;
+                                memset (&dirent->d_stat, 0,
+                                        sizeof (dirent->d_stat));
+                                gf_uuid_copy (dirent->d_stat.ia_gfid,
+                                              tmp_stat.ia_gfid);
+                                dirent->d_stat.ia_type = tmp_stat.ia_type;
+                        }
+                }
 
 		size += dirent_size;
 		list_del_init(&dirent->list);
@@ -295,7 +394,7 @@ rda_fill_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         struct rda_fd_ctx *ctx           = local->ctx;
         struct rda_priv   *priv          = this->private;
         int                fill          = 1;
-        size_t             dirent_size   = 0;
+        size_t             dirent_size   = 0, inodectx_size = 0;
         int                ret           = 0;
         gf_boolean_t       serve         = _gf_false;
         call_stub_t       *stub          = NULL;
@@ -321,6 +420,14 @@ rda_fill_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			list_add_tail(&dirent->list, &ctx->entries.list);
 
                         dirent_size = gf_dirent_size (dirent->d_name);
+
+                        inodectx_size = 0;
+
+                        if (dirent->inode) {
+                                inodectx_size = inode_ctx_size (dirent->inode);
+                                inode_ctx_set0 (dirent->inode, this,
+                                               (void *)inodectx_size);
+                        }
 
 			ctx->cur_size += dirent_size;
 
@@ -379,6 +486,7 @@ out:
                         ctx->xattrs = NULL;
                 }
 
+                rda_local_wipe (ctx->fill_frame->local);
 		STACK_DESTROY(ctx->fill_frame->root);
 		ctx->fill_frame = NULL;
 	}
@@ -444,7 +552,7 @@ rda_fill_fd(call_frame_t *frame, xlator_t *this, fd_t *fd)
 		}
 
 		local->ctx = ctx;
-		local->fd = fd;
+		local->fd = fd_ref (fd);
 		nframe->local = local;
 
 		ctx->fill_frame = nframe;
@@ -469,8 +577,10 @@ rda_fill_fd(call_frame_t *frame, xlator_t *this, fd_t *fd)
 	return 0;
 
 err:
-	if (nframe)
+	if (nframe) {
+                rda_local_wipe (nframe->local);
 		FRAME_DESTROY(nframe);
+        }
 
 	return -1;
 }
@@ -479,24 +589,10 @@ static int32_t
 rda_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 		    int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
-        struct rda_local *local = frame->local;
-
 	if (!op_ret)
 		rda_fill_fd(frame, this, fd);
 
-        frame->local = NULL;
-
-	STACK_UNWIND_STRICT(opendir, frame, op_ret, op_errno, fd, xdata);
-
-        if (local && local->xattrs) {
-                /* unref for dict_new() done in rda_opendir */
-                dict_unref (local->xattrs);
-                local->xattrs = NULL;
-        }
-
-        if (local)
-                mem_put (local);
-
+	RDA_STACK_UNWIND(opendir, frame, op_ret, op_errno, fd, xdata);
 	return 0;
 }
 
@@ -540,6 +636,413 @@ unwind:
 }
 
 static int32_t
+rda_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                struct iatt *postbuf, dict_t *xdata)
+{
+        struct rda_local *local       = NULL;
+        struct iatt       postbuf_out = {0,};
+
+        if (op_ret < 0)
+                goto unwind;
+
+        local = frame->local;
+        rda_inode_ctx_update_iatts (local->inode, this, postbuf, &postbuf_out);
+unwind:
+        RDA_STACK_UNWIND (writev, frame, op_ret, op_errno, prebuf,
+                          &postbuf_out, xdata);
+        return 0;
+}
+
+static int32_t
+rda_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
+            struct iovec *vector, int32_t count, off_t off, uint32_t flags,
+	    struct iobref *iobref, dict_t *xdata)
+{
+        RDA_COMMON_MODIFICATION_FOP (writev, frame, this, fd->inode, xdata, fd,
+                                     vector, count, off, flags, iobref);
+        return 0;
+}
+
+static int32_t
+rda_fallocate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                   struct iatt *postbuf, dict_t *xdata)
+{
+        struct rda_local *local       = NULL;
+        struct iatt       postbuf_out = {0,};
+
+        if (op_ret < 0)
+                goto unwind;
+
+        local = frame->local;
+        rda_inode_ctx_update_iatts (local->inode, this, postbuf, &postbuf_out);
+unwind:
+        RDA_STACK_UNWIND (fallocate, frame, op_ret, op_errno, prebuf,
+                          &postbuf_out, xdata);
+        return 0;
+}
+
+static int32_t
+rda_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t keep_size,
+               off_t offset, size_t len, dict_t *xdata)
+{
+        RDA_COMMON_MODIFICATION_FOP (fallocate, frame, this, fd->inode, xdata,
+                                     fd, keep_size, offset, len);
+        return 0;
+}
+
+static int32_t
+rda_zerofill_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                  struct iatt *postbuf, dict_t *xdata)
+{
+        struct rda_local *local       = NULL;
+        struct iatt       postbuf_out = {0,};
+
+        if (op_ret < 0)
+                goto unwind;
+
+        local = frame->local;
+        rda_inode_ctx_update_iatts (local->inode, this, postbuf, &postbuf_out);
+unwind:
+        RDA_STACK_UNWIND (zerofill, frame, op_ret, op_errno, prebuf,
+                          &postbuf_out, xdata);
+        return 0;
+}
+
+static int32_t
+rda_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+              off_t len, dict_t *xdata)
+{
+        RDA_COMMON_MODIFICATION_FOP (zerofill, frame, this, fd->inode, xdata,
+                                     fd, offset, len);
+        return 0;
+}
+
+static int32_t
+rda_discard_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                 struct iatt *postbuf, dict_t *xdata)
+{
+        struct rda_local *local       = NULL;
+        struct iatt       postbuf_out = {0,};
+
+        if (op_ret < 0)
+                goto unwind;
+
+        local = frame->local;
+        rda_inode_ctx_update_iatts (local->inode, this, postbuf, &postbuf_out);
+unwind:
+        RDA_STACK_UNWIND (discard, frame, op_ret, op_errno, prebuf,
+                          &postbuf_out, xdata);
+        return 0;
+}
+
+static int32_t
+rda_discard (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+             size_t len, dict_t *xdata)
+{
+        RDA_COMMON_MODIFICATION_FOP (discard, frame, this, fd->inode, xdata,
+                                     fd, offset, len);
+        return 0;
+}
+
+static int32_t
+rda_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                   struct iatt *postbuf, dict_t *xdata)
+{
+        struct rda_local *local       = NULL;
+        struct iatt       postbuf_out = {0,};
+
+        if (op_ret < 0)
+                goto unwind;
+
+        local = frame->local;
+        rda_inode_ctx_update_iatts (local->inode, this, postbuf, &postbuf_out);
+unwind:
+        RDA_STACK_UNWIND (ftruncate, frame, op_ret, op_errno, prebuf,
+                          &postbuf_out, xdata);
+        return 0;
+}
+
+static int32_t
+rda_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+               dict_t *xdata)
+{
+        RDA_COMMON_MODIFICATION_FOP (ftruncate, frame, this, fd->inode, xdata,
+                                     fd, offset);
+        return 0;
+}
+
+static int32_t
+rda_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                  struct iatt *postbuf, dict_t *xdata)
+{
+        struct rda_local *local       = NULL;
+        struct iatt       postbuf_out = {0,};
+
+        if (op_ret < 0)
+                goto unwind;
+
+        local = frame->local;
+        rda_inode_ctx_update_iatts (local->inode, this, postbuf, &postbuf_out);
+unwind:
+        RDA_STACK_UNWIND (ftruncate, frame, op_ret, op_errno, prebuf,
+                          &postbuf_out, xdata);
+        return 0;
+}
+
+static int32_t
+rda_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
+              dict_t *xdata)
+{
+        RDA_COMMON_MODIFICATION_FOP (truncate, frame, this, loc->inode, xdata,
+                                     loc, offset);
+        return 0;
+}
+
+/*
+static int32_t
+rda_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        int               ret   = 0;
+        struct iatt      *stbuf = NULL;
+        struct rda_local *local = NULL;
+
+        if (op_ret < 0)
+                goto unwind;
+
+        local = frame->local;
+
+        ret = dict_get_bin (xdata, DHT_IATT_IN_XDATA_KEY, (void **) &stbuf);
+        if (ret)
+                gf_msg (this->name, GF_LOG_WARNING, -ret,
+                        READDIR_AHEAD_MSG_DICT_OP_FAILED, "Failed to get key "
+                        DHT_IATT_IN_XDATA_KEY" in xdata");
+        else
+                rda_inode_ctx_update_iatts (local->inode, this, stbuf, NULL);
+unwind:
+        RDA_STACK_UNWIND (setxattr, frame, op_ret, op_errno, xdata);
+        return 0;
+}
+
+static int32_t
+rda_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
+              int32_t flags, dict_t *xdata)
+{
+        int     ret       = 0;
+        dict_t *xdata_req = NULL;
+
+        xdata_req = (xdata) ? xdata : get_new_dict ();
+
+        ret = dict_set_int8 (xdata_req, DHT_IATT_IN_XDATA_KEY, 1);
+        if (ret)
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        READDIR_AHEAD_MSG_DICT_OP_FAILED, "Dict set of key %s "
+                        "failed", DHT_IATT_IN_XDATA_KEY);
+
+        RDA_COMMON_MODIFICATION_FOP (setxattr, frame, this, loc->inode,
+                                     xdata_req, loc, dict, flags);
+        return 0;
+}
+
+static int32_t
+rda_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        int               ret   = 0;
+        struct iatt      *stbuf = NULL;
+        struct rda_local *local = NULL;
+
+        if (op_ret < 0)
+                goto unwind;
+
+        local = frame->local;
+
+        ret = dict_get_bin (xdata, DHT_IATT_IN_XDATA_KEY, (void **) &stbuf);
+        if (ret)
+                gf_msg (this->name, GF_LOG_WARNING, -ret,
+                        READDIR_AHEAD_MSG_DICT_OP_FAILED, "Failed to get key "
+                        DHT_IATT_IN_XDATA_KEY" in xdata");
+        else
+                rda_inode_ctx_update_iatts (local->inode, this, stbuf, NULL);
+unwind:
+        RDA_STACK_UNWIND (fsetxattr, frame, op_ret, op_errno, xdata);
+        return 0;
+}
+
+static int32_t
+rda_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
+               int32_t flags, dict_t *xdata)
+{
+        int     ret       = 0;
+        dict_t *xdata_req = NULL;
+
+        xdata_req = (xdata) ? xdata : get_new_dict ();
+
+        ret = dict_set_int8 (xdata_req, DHT_IATT_IN_XDATA_KEY, 1);
+        if (ret)
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        READDIR_AHEAD_MSG_DICT_OP_FAILED, "Dict set of key %s "
+                        "failed", DHT_IATT_IN_XDATA_KEY);
+
+        RDA_COMMON_MODIFICATION_FOP (fsetxattr, frame, this, fd->inode,
+                                     xdata_req, fd, dict, flags);
+        return 0;
+}
+*/
+
+static int32_t
+rda_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, struct iatt *statpre,
+                 struct iatt *statpost, dict_t *xdata)
+{
+        struct rda_local *local       = NULL;
+        struct iatt       postbuf_out = {0,};
+
+        if (op_ret < 0)
+                goto unwind;
+
+        local = frame->local;
+        rda_inode_ctx_update_iatts (local->inode, this, statpost, &postbuf_out);
+unwind:
+        RDA_STACK_UNWIND (setattr, frame, op_ret, op_errno, statpre,
+                          &postbuf_out, xdata);
+        return 0;
+}
+
+static int32_t
+rda_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+             struct iatt *stbuf, int32_t valid, dict_t *xdata)
+{
+        RDA_COMMON_MODIFICATION_FOP (setattr, frame, this, loc->inode, xdata,
+                                     loc, stbuf, valid);
+        return 0;
+}
+
+static int32_t
+rda_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, struct iatt *statpre,
+                  struct iatt *statpost, dict_t *xdata)
+{
+        struct rda_local *local       = NULL;
+        struct iatt       postbuf_out = {0,};
+
+        if (op_ret < 0)
+                goto unwind;
+
+        local = frame->local;
+        rda_inode_ctx_update_iatts (local->inode, this, statpost, &postbuf_out);
+unwind:
+        RDA_STACK_UNWIND (fsetattr, frame, op_ret, op_errno, statpre,
+                          &postbuf_out, xdata);
+        return 0;
+}
+
+static int32_t
+rda_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
+              int32_t valid, dict_t *xdata)
+{
+        RDA_COMMON_MODIFICATION_FOP (fsetattr, frame, this, fd->inode, xdata,
+                                     fd, stbuf, valid);
+        return 0;
+}
+
+static int32_t
+rda_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        int               ret   = 0;
+        struct iatt      *stbuf = NULL;
+        struct rda_local *local = NULL;
+
+        if (op_ret < 0)
+                goto unwind;
+
+        local = frame->local;
+
+        ret = dict_get_bin (xdata, DHT_IATT_IN_XDATA_KEY, (void **) &stbuf);
+        if (ret)
+                gf_msg (this->name, GF_LOG_WARNING, -ret,
+                        READDIR_AHEAD_MSG_DICT_OP_FAILED, "Failed to get key "
+                        DHT_IATT_IN_XDATA_KEY" in xdata");
+        else
+                rda_inode_ctx_update_iatts (local->inode, this, stbuf, NULL);
+unwind:
+        RDA_STACK_UNWIND (removexattr, frame, op_ret, op_errno, xdata);
+        return 0;
+}
+
+static int32_t
+rda_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                 const char *name, dict_t *xdata)
+{
+        int     ret       = 0;
+        dict_t *xdata_req = NULL;
+
+        xdata_req = (xdata) ? xdata : get_new_dict ();
+
+        ret = dict_set_int8 (xdata_req, DHT_IATT_IN_XDATA_KEY, 1);
+        if (ret)
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        READDIR_AHEAD_MSG_DICT_OP_FAILED, "Dict set of key:%s "
+                        "failed", DHT_IATT_IN_XDATA_KEY);
+
+        RDA_COMMON_MODIFICATION_FOP (removexattr, frame, this, loc->inode,
+                                     xdata_req, loc, name);
+        return 0;
+}
+
+static int32_t
+rda_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        int               ret   = 0;
+        struct iatt      *stbuf = NULL;
+        struct rda_local *local = NULL;
+
+        if (op_ret < 0)
+                goto unwind;
+
+        local = frame->local;
+
+        ret = dict_get_bin (xdata, DHT_IATT_IN_XDATA_KEY, (void **) &stbuf);
+        if (ret)
+                gf_msg (this->name, GF_LOG_WARNING, -ret,
+                        READDIR_AHEAD_MSG_DICT_OP_FAILED, "Failed to get key "
+                        DHT_IATT_IN_XDATA_KEY" in xdata");
+        else
+                rda_inode_ctx_update_iatts (local->inode, this, stbuf, NULL);
+unwind:
+        RDA_STACK_UNWIND (fremovexattr, frame, op_ret, op_errno, xdata);
+        return 0;
+}
+
+static int32_t
+rda_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                  const char *name, dict_t *xdata)
+{
+        int     ret       = 0;
+        dict_t *xdata_req = NULL;
+
+        xdata_req = (xdata) ? xdata : get_new_dict ();
+
+        ret = dict_set_int8 (xdata_req, DHT_IATT_IN_XDATA_KEY, 1);
+        if (ret)
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        READDIR_AHEAD_MSG_DICT_OP_FAILED, "Dict set of key:%s "
+                        "failed", DHT_IATT_IN_XDATA_KEY);
+
+        RDA_COMMON_MODIFICATION_FOP (fremovexattr, frame, this, fd->inode,
+                                     xdata_req, fd, name);
+        return 0;
+}
+
+static int32_t
 rda_releasedir(xlator_t *this, fd_t *fd)
 {
 	uint64_t val;
@@ -564,6 +1067,23 @@ rda_releasedir(xlator_t *this, fd_t *fd)
 
 	GF_FREE(ctx);
 	return 0;
+}
+
+static int
+rda_forget (xlator_t *this, inode_t *inode)
+{
+        uint64_t         ctx_uint = 0;
+        rda_inode_ctx_t *ctx      = NULL;
+
+        inode_ctx_del1 (inode, this, &ctx_uint);
+        if (!ctx_uint)
+                return 0;
+
+        ctx = (rda_inode_ctx_t *)ctx_uint;
+
+        GF_FREE (ctx);
+
+        return 0;
 }
 
 int32_t
@@ -677,10 +1197,30 @@ out:
 struct xlator_fops fops = {
 	.opendir	= rda_opendir,
 	.readdirp	= rda_readdirp,
+        /* inode write */
+        /* TODO: invalidate a dentry's stats if its pointing to a directory
+         * when entry operations happen in that directory
+         */
+        .writev         = rda_writev,
+        .truncate       = rda_truncate,
+        .ftruncate      = rda_ftruncate,
+        .fallocate      = rda_fallocate,
+        .discard        = rda_discard,
+        .zerofill       = rda_zerofill,
+        /* metadata write */
+        /* TODO: Invalidate stats in (f)setxattr
+        .setxattr       = rda_setxattr,
+        .fsetxattr      = rda_fsetxattr,
+        */
+        .setattr        = rda_setattr,
+        .fsetattr       = rda_fsetattr,
+        .removexattr    = rda_removexattr,
+        .fremovexattr   = rda_fremovexattr,
 };
 
 struct xlator_cbks cbks = {
 	.releasedir	= rda_releasedir,
+        .forget         = rda_forget,
 };
 
 struct volume_options options[] = {

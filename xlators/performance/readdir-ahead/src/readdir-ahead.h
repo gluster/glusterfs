@@ -19,6 +19,37 @@
 #define RDA_FD_BYPASS	(1 << 4)
 #define RDA_FD_PLUGGED	(1 << 5)
 
+
+#define RDA_COMMON_MODIFICATION_FOP(name, frame, this, __inode, __xdata, args ...)\
+        do {                                                                   \
+                struct rda_local *__local = NULL;                              \
+                                                                               \
+                __local = mem_get0 (this->local_pool);                         \
+                __local->inode = inode_ref (__inode);                          \
+                                                                               \
+                frame->local = __local;                                        \
+                if (__xdata)                                                   \
+                        __local->xattrs = dict_ref (__xdata);                  \
+                                                                               \
+                STACK_WIND (frame, rda_##name##_cbk, FIRST_CHILD(this),        \
+                            FIRST_CHILD(this)->fops->name, args, __xdata);     \
+        } while (0)
+
+
+#define RDA_STACK_UNWIND(fop, frame, params ...) do {          \
+        struct rda_local *__local = NULL;                      \
+        if (frame) {                                           \
+                __local = frame->local;                        \
+                frame->local = NULL;                           \
+        }                                                      \
+        STACK_UNWIND_STRICT (fop, frame, params);              \
+        if (__local) {                                         \
+                rda_local_wipe (__local);                      \
+                mem_put (__local);                             \
+        }                                                      \
+} while (0)
+
+
 struct rda_fd_ctx {
 	off_t cur_offset;	/* current head of the ctx */
 	size_t cur_size;	/* current size of the preload */
@@ -36,7 +67,9 @@ struct rda_local {
 	struct rda_fd_ctx *ctx;
 	fd_t *fd;
 	off_t offset;
-        dict_t *xattrs;      /* xattrs to be sent in readdirp() */
+        dict_t *xattrs;      /* md-cache keys to be sent in readdirp() */
+        int32_t skip_dir;
+        inode_t *inode;
 };
 
 struct rda_priv {
@@ -47,5 +80,9 @@ struct rda_priv {
         gf_atomic_t rda_cache_size;
         gf_boolean_t parallel_readdir;
 };
+
+typedef struct rda_inode_ctx {
+        struct iatt statbuf;
+} rda_inode_ctx_t;
 
 #endif /* __READDIR_AHEAD_H */
