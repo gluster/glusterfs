@@ -1069,6 +1069,11 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
                 if (ret)
                         goto out;
 
+                if (GF_QUOTA_OPTION_TYPE_UPGRADE == opcode) {
+                        /* Nothing more to be done here */
+                        goto out;
+                }
+
                 conf_fd = open (volinfo->quota_conf_shandle->path, O_RDONLY);
                 if (conf_fd == -1) {
                         ret = -1;
@@ -1078,6 +1083,9 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
                 ret = quota_conf_skip_header (conf_fd);
                 if (ret)
                         goto out;
+        } else if (GF_QUOTA_OPTION_TYPE_UPGRADE == opcode) {
+                /* No change to be done in quota_conf*/
+                goto out;
         }
 
         /* If op-ver is gt 3.7, then quota.conf will be upgraded, and 17 bytes
@@ -1100,12 +1108,7 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
 
         /* Just create empty quota.conf file if create */
         if (GF_QUOTA_OPTION_TYPE_ENABLE == opcode ||
-            GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS == opcode ||
-            GF_QUOTA_OPTION_TYPE_UPGRADE == opcode) {
-                /* Opcode will be GF_QUOTA_OPTION_TYPE_UPGRADE when there is
-                 * an upgrade from 3.6 to 3.7. Just upgrade the quota.conf
-                 * file even during an op-version bumpup and exit.
-                 */
+            GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS == opcode) {
                 modified = _gf_true;
                 goto out;
         }
@@ -1234,7 +1237,7 @@ out:
 
         if (ret && (fd > 0)) {
                 gf_store_unlink_tmppath (volinfo->quota_conf_shandle);
-        } else if (!ret) {
+        } else if (!ret && GF_QUOTA_OPTION_TYPE_UPGRADE != opcode) {
                 ret = gf_store_rename_tmppath (volinfo->quota_conf_shandle);
                 if (modified) {
                         ret = glusterd_compute_cksum (volinfo, _gf_true);
