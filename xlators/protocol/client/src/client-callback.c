@@ -115,7 +115,7 @@ client_cbk_cache_invalidation (struct rpc_clnt *rpc, void *mydata, void *data)
         if (ret < 0)
                 goto out;
 
-        gf_msg_trace (THIS->name, 0, "Cache invalidation cbk recieved for gfid:"
+        gf_msg_trace (THIS->name, 0, "Cache invalidation cbk received for gfid:"
                       " %s, ret = %d", ca_req.gfid, ret);
 
         default_notify (THIS, GF_EVENT_UPCALL, &upcall_data);

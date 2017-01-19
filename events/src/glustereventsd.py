@@ -57,9 +57,9 @@ class GlusterEventsRequestHandler(SocketServer.BaseRequestHandler):
                 continue
 
         try:
-            # Event Type to Function Map, Recieved event data will be in
+            # Event Type to Function Map, Received event data will be in
             # the form <TIMESTAMP> <TYPE> <DETAIL>, Get Event name for the
-            # recieved Type/Key and construct a function name starting with
+            # received Type/Key and construct a function name starting with
             # handle_ For example: handle_event_volume_create
             func_name = "handle_" + all_events[int(key)].lower()
         except IndexError:
