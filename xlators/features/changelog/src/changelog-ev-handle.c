@@ -53,7 +53,7 @@ changelog_dispatch_vec (call_frame_t *frame, xlator_t *this,
 
          /**
           * Event dispatch RPC header contains a sequence number for each
-          * dispatch. This allows the reciever to order the request before
+          * dispatch. This allows the receiver to order the request before
           * processing.
           */
          req.seq     = vec->seq;

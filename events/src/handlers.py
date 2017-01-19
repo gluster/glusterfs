@@ -23,7 +23,7 @@ def generic_handler(ts, key, data):
 
 def handle_event_volume_set(ts, key, data):
     """
-    Recieved data will have all the options as one string, split into
+    Received data will have all the options as one string, split into
     list of options. "key1,value1,key2,value2" into
     [[key1, value1], [key2, value2]]
     """
