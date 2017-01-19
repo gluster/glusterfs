@@ -768,9 +768,11 @@ setup_state_volume()
         fi
         if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/statd ]; then
             mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/statd
+            chown rpcuser:rpcuser ${mnt}/nfs-ganesha/${dirname}/nfs/statd
         fi
         if [ ! -e ${mnt}/nfs-ganesha/${dirname}/nfs/state ]; then
             touch ${mnt}/nfs-ganesha/${dirname}/nfs/state
+            chown rpcuser:rpcuser ${mnt}/nfs-ganesha/${dirname}/nfs/state
         fi
         if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/v4recov ]; then
             mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/v4recov
@@ -780,9 +782,11 @@ setup_state_volume()
         fi
         if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm ]; then
             mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm
+            chown rpcuser:rpcuser ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm
         fi
         if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm.bak ]; then
             mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm.bak
+            chown rpcuser:rpcuser ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm.bak
         fi
         if [ ! -e ${mnt}/nfs-ganesha/${dirname}/nfs/statd/state ]; then
             touch ${mnt}/nfs-ganesha/${dirname}/nfs/statd/state
@@ -827,9 +831,11 @@ addnode_state_volume()
     fi
     if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/statd ]; then
         mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/statd
+        chown rpcuser:rpcuser ${mnt}/nfs-ganesha/${dirname}/nfs/statd
     fi
     if [ ! -e ${mnt}/nfs-ganesha/${dirname}/nfs/state ]; then
         touch ${mnt}/nfs-ganesha/${dirname}/nfs/state
+        chown rpcuser:rpcuser ${mnt}/nfs-ganesha/${dirname}/nfs/state
     fi
     if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/v4recov ]; then
         mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/ganesha/v4recov
@@ -839,9 +845,11 @@ addnode_state_volume()
     fi
     if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm ]; then
         mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm
+        chown rpcuser:rpcuser ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm
     fi
     if [ ! -d ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm.bak ]; then
         mkdir ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm.bak
+        chown rpcuser:rpcuser ${mnt}/nfs-ganesha/${dirname}/nfs/statd/sm.bak
     fi
     if [ ! -e ${mnt}/nfs-ganesha/${dirname}/nfs/statd/state ]; then
         touch ${mnt}/nfs-ganesha/${dirname}/nfs/statd/state
