@@ -107,13 +107,15 @@ void ec_check_status(ec_fop_data_t * fop)
         }
     }
 
-    gf_msg (fop->xl->name, GF_LOG_WARNING, 0,
-            EC_MSG_OP_FAIL_ON_SUBVOLS,
-            "Operation failed on some "
-            "subvolumes (up=%lX, mask=%lX, "
-            "remaining=%lX, good=%lX, bad=%lX)",
-            ec->xl_up, fop->mask, fop->remaining, fop->good,
-            ec->xl_up & ~(fop->remaining | fop->good));
+    if (fop->lock_count > 0) {
+            gf_msg (fop->xl->name, GF_LOG_WARNING, 0,
+                    EC_MSG_OP_FAIL_ON_SUBVOLS,
+                    "Operation failed on some "
+                    "subvolumes (up=%lX, mask=%lX, "
+                    "remaining=%lX, good=%lX, bad=%lX)",
+                    ec->xl_up, fop->mask, fop->remaining, fop->good,
+                    ec->xl_up & ~(fop->remaining | fop->good));
+    }
 
     if (fop->use_fd)
     {
