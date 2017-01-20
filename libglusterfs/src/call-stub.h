@@ -763,8 +763,10 @@ fop_setactivelk_cbk_stub (call_frame_t *frame, fop_setactivelk_cbk_t fn,
                            int32_t op_ret, int32_t op_errno, dict_t *xdata);
 
 void call_resume (call_stub_t *stub);
+void call_resume_keep_stub (call_stub_t *stub);
 void call_stub_destroy (call_stub_t *stub);
 void call_unwind_error (call_stub_t *stub, int op_ret, int op_errno);
+void call_unwind_error_keep_stub (call_stub_t *stub, int op_ret, int op_errno);
 
 /*
  * Sometimes we might want to call just this, perhaps repeatedly, without
