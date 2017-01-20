@@ -1,9 +1,5 @@
-if ENABLE_EXPERIMENTAL
-  EXPERIMENTAL = experimental
-endif
-
 SUBDIRS = cluster storage protocol performance debug features encryption mount nfs mgmt system \
-          playground meta $(EXPERIMENTAL)
+          playground meta
 
 EXTRA_DIST = xlator.sym
 
