@@ -775,8 +775,8 @@ void glfs_free (void *ptr) __THROW
 /*
  * Nobody needs this call at all yet except for the test script.
  */
-int glfs_ipc (glfs_fd_t *fd, int cmd,  void *xd_in, void **xd_out) __THROW
-        GFAPI_PUBLIC(glfs_ipc, 4.0.0);
+int glfs_ipc (glfs_fd_t *fd, int cmd) __THROW
+        GFAPI_PUBLIC(glfs_ipc, 3.7.0);
 
 __END_DECLS
 
