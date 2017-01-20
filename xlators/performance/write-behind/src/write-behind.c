@@ -393,10 +393,10 @@ __wb_request_unref (wb_request_t *req)
 		list_del_init (&req->winds);
 		list_del_init (&req->unwinds);
 
-                if (req->stub && req->ordering.tempted) {
+                if (req->stub) {
                         call_stub_destroy (req->stub);
 			req->stub = NULL;
-                } /* else we would have call_resume()'ed */
+                }
 
 		if (req->iobref)
 			iobref_unref (req->iobref);
@@ -1659,21 +1659,20 @@ __wb_pick_winds (wb_inode_t *wb_inode, list_head_t *tasks,
 void
 wb_do_winds (wb_inode_t *wb_inode, list_head_t *tasks)
 {
-	wb_request_t *req = NULL;
-	wb_request_t *tmp = NULL;
+	wb_request_t *req  = NULL;
+        wb_request_t *tmp  = NULL;
 
 	list_for_each_entry_safe (req, tmp, tasks, winds) {
-		list_del_init (&req->winds);
+                list_del_init (&req->winds);
 
                 if (req->op_ret == -1) {
-                        call_unwind_error (req->stub, req->op_ret,
-                                           req->op_errno);
+                        call_unwind_error_keep_stub (req->stub, req->op_ret,
+                                                     req->op_errno);
                 } else {
-                        call_resume (req->stub);
+                        call_resume_keep_stub (req->stub);
                 }
 
-                req->stub = NULL;
-		wb_request_unref (req);
+                wb_request_unref (req);
 	}
 }
 
@@ -2814,8 +2813,9 @@ __wb_dump_requests (struct list_head *head, char *prefix)
                         gf_proc_dump_write ("size", "%"GF_PRI_SIZET,
                                             req->write_size);
 
-                        gf_proc_dump_write ("offset", "%"PRId64,
-                                            req->stub->args.offset);
+                        if (req->stub)
+                                gf_proc_dump_write ("offset", "%"PRId64,
+                                                    req->stub->args.offset);
 
                         flag = req->ordering.lied;
                         gf_proc_dump_write ("lied", "%d", flag);

@@ -2538,3 +2538,50 @@ call_unwind_error (call_stub_t *stub, int op_ret, int op_errno)
         return;
 
 }
+
+
+void
+call_unwind_error_keep_stub (call_stub_t *stub, int op_ret, int op_errno)
+{
+        xlator_t *old_THIS = NULL;
+
+        list_del_init (&stub->list);
+
+        old_THIS = THIS;
+        THIS = stub->frame->this;
+        {
+                stub->args_cbk.op_ret = op_ret;
+                stub->args_cbk.op_errno = op_errno;
+                call_resume_unwind (stub);
+        }
+
+        THIS = old_THIS;
+
+        return;
+
+}
+
+void
+call_resume_keep_stub (call_stub_t *stub)
+{
+        xlator_t *old_THIS = NULL;
+
+        errno = EINVAL;
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        list_del_init (&stub->list);
+
+        old_THIS = THIS;
+        THIS = stub->frame->this;
+        {
+                if (stub->wind)
+                        call_resume_wind (stub);
+                else
+                        call_resume_unwind (stub);
+        }
+
+        THIS = old_THIS;
+
+out:
+        return;
+}
