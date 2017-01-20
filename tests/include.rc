@@ -330,6 +330,9 @@ function _EXPECT_WITHIN()
 
         local endtime=$(( ${timeout}+`date +%s` ))
 
+        # We *want* this to be globally visible.
+        EW_RETRIES=0
+
         while [ `date +%s` -lt $endtime ]; do
                 a=$("$@" | tail -1 ; exit ${PIPESTATUS[0]})
                 ## Check command success
@@ -342,6 +345,7 @@ function _EXPECT_WITHIN()
                         break;
                 fi
                 sleep 1;
+                EW_RETRIES=$((EW_RETRIES+1))
         done
 
         if [ "x$e" = "x" ] ; then
