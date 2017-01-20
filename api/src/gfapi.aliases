@@ -125,7 +125,7 @@ _pub_glfs_h_removexattrs _glfs_h_removexattrs$GFAPI_3.5.1
 _pub_glfs_get_volfile _glfs_get_volfile$GFAPI_3.6.0
 _pub_glfs_h_access _glfs_h_access$GFAPI_3.6.0
 
-_pub_glfs_ipc37 _glfs_ipc$GFAPI_3.7.0
+_pub_glfs_ipc _glfs_ipc$GFAPI_3.7.0
 _pub_glfs_h_poll_upcall _glfs_h_poll_upcall$GFAPI_3.7.0
 _pub_glfs_h_acl_set _glfs_h_acl_set$GFAPI_3.7.0
 _pub_glfs_h_acl_get _glfs_h_acl_get$GFAPI_3.7.0
@@ -157,5 +157,3 @@ _pub_glfs_upcall_inode_get_oldpstat _glfs_upcall_inode_get_oldpstat$GFAPI_3.7.16
 _pub_glfs_realpath _glfs_realpath$GFAPI_3.7.17
 
 _pub_glfs_sysrq _glfs_sysrq$GFAPI_3.10.0
-
-_pub_glfs_ipc _glfs_ipc$GFAPI_4.0.0
