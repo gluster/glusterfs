@@ -41,7 +41,7 @@
 
 /* TODO:
  * 1) 2 opens racing .. creating an fd leak.
- * 2) use mempool for nlmclnt - destroy if no fd exists, create during 1st call
+ * 2) use GF_REF_* for nlm_clnt_t
  */
 
 typedef ssize_t (*nlm4_serializer) (struct iovec outmsg, void *args);
@@ -329,6 +329,24 @@ ret:
         return rpc_clnt;
 }
 
+static void
+nlm_client_free (nlm_client_t *nlmclnt)
+{
+        list_del (&nlmclnt->fdes);
+        list_del (&nlmclnt->nlm_clients);
+        list_del (&nlmclnt->shares);
+
+        GF_FREE (nlmclnt->caller_name);
+
+        if (nlmclnt->rpc_clnt) {
+                /* cleanup the saved-frames before last unref */
+                rpc_clnt_connection_cleanup (&nlmclnt->rpc_clnt->conn);
+                /* rpc_clnt_connection_cleanup() calls rpc_clnt_unref() */
+        }
+
+        GF_FREE (nlmclnt);
+}
+
 int
 nlm_set_rpc_clnt (rpc_clnt_t *rpc_clnt, char *caller_name)
 {
@@ -371,26 +389,16 @@ int
 nlm_unset_rpc_clnt (rpc_clnt_t *rpc)
 {
         nlm_client_t *nlmclnt = NULL;
-        rpc_clnt_t *rpc_clnt = NULL;
 
         LOCK (&nlm_client_list_lk);
         list_for_each_entry (nlmclnt, &nlm_client_list, nlm_clients) {
                 if (rpc == nlmclnt->rpc_clnt) {
-                        rpc_clnt = nlmclnt->rpc_clnt;
-                        nlmclnt->rpc_clnt = NULL;
+                        nlm_client_free (nlmclnt);
                         break;
                 }
         }
         UNLOCK (&nlm_client_list_lk);
-        if (rpc_clnt == NULL) {
-                return -1;
-        }
-        if (rpc_clnt) {
-                /* cleanup the saved-frames before last unref */
-                rpc_clnt_connection_cleanup (&rpc_clnt->conn);
 
-                rpc_clnt_unref (rpc_clnt);
-        }
         return 0;
 }
 
