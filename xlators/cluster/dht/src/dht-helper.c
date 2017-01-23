@@ -484,6 +484,8 @@ dht_local_wipe (xlator_t *this, dht_local_t *local)
         if (local->ret_cache)
                 GF_FREE (local->ret_cache);
 
+        gf_dirent_free (&local->entries);
+
         mem_put (local);
 }
 
@@ -523,6 +525,7 @@ dht_local_init (call_frame_t *frame, loc_t *loc, fd_t *fd, glusterfs_fop_t fop)
                                                               inode);
         }
 
+        INIT_LIST_HEAD (&local->entries.list);
         frame->local = local;
 
 out:

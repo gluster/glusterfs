@@ -455,7 +455,7 @@ dht_unlock_entrylk_wrapper (call_frame_t *frame, dht_elock_wrap_t *entrylk)
                 goto done;
         }
 
-        lock_local = mem_get0 (THIS->local_pool);
+        lock_local = dht_local_init (lock_frame, NULL, NULL, 0);
         if (lock_local == NULL) {
                 gf_msg (frame->this->name, GF_LOG_WARNING, ENOMEM,
                         DHT_MSG_PARENT_LAYOUT_CHANGED,
@@ -848,7 +848,7 @@ dht_unlock_inodelk_wrapper (call_frame_t *frame, dht_ilock_wrap_t *inodelk)
                 goto done;
         }
 
-        lock_local = mem_get0 (THIS->local_pool);
+        lock_local = dht_local_init (lock_frame, NULL, NULL, 0);
         if (lock_local == NULL) {
                 gf_msg (frame->this->name, GF_LOG_WARNING, ENOMEM,
                         DHT_MSG_PARENT_LAYOUT_CHANGED,

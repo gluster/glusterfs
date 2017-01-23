@@ -346,6 +346,10 @@ struct dht_local {
         call_stub_t *stub;
         int32_t      parent_disk_layout[4];
 
+        /* To hold dentries of readdir spawning across subvols */
+        gf_dirent_t   entries;
+        size_t        filled;
+
         /* rename rollback */
         int    *ret_cache ;
 };

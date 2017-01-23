@@ -5002,7 +5002,6 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                   int op_errno, gf_dirent_t *orig_entries, dict_t *xdata)
 {
         dht_local_t             *local = NULL;
-        gf_dirent_t              entries;
         gf_dirent_t             *orig_entry = NULL;
         gf_dirent_t             *entry = NULL;
         xlator_t                *prev = NULL;
@@ -5019,7 +5018,6 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         inode_table_t           *itable = NULL;
         inode_t                 *inode = NULL;
 
-        INIT_LIST_HEAD (&entries.list);
         prev = cookie;
         local = frame->local;
         itable = local->fd ? local->fd->inode->table : NULL;
@@ -5029,8 +5027,13 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
         methods = &(conf->methods);
 
+        local->op_errno = op_errno;
+
         if (op_ret < 0)
                 goto done;
+
+        if (local->op_ret < 0)
+                local->op_ret = 0;
 
         if (!local->layout)
                 local->layout = dht_layout_get (this, local->fd->inode);
@@ -5046,11 +5049,10 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 goto done;
 
         if (conf->readdir_optimize == _gf_true)
-                 readdir_optimize = 1;
+                readdir_optimize = 1;
 
         list_for_each_entry (orig_entry, (&orig_entries->list), list) {
                 next_offset = orig_entry->d_off;
-
                 if (IA_ISINVAL(orig_entry->d_stat.ia_type)) {
                         /*stat failed somewhere- ignore this entry*/
                         gf_msg_debug (this->name, EINVAL,
@@ -5083,8 +5085,8 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                         if (prev == hashed_subvol)
                                 goto list;
                         if ((hashed_subvol
-                                && dht_subvol_status (conf, hashed_subvol))
-                                || (prev != local->first_up_subvol))
+                             && dht_subvol_status (conf, hashed_subvol))
+                            || (prev != local->first_up_subvol))
                                 continue;
 
                         goto list;
@@ -5095,10 +5097,10 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                                        conf->link_xattr_name)) {
                         continue;
                 }
+
 list:
                 entry = gf_dirent_for_name (orig_entry->d_name);
                 if (!entry) {
-
                         goto unwind;
                 }
 
@@ -5170,26 +5172,17 @@ list:
                                 }
                         }
                 }
-                list_add_tail (&entry->list, &entries.list);
+
+                list_add_tail (&entry->list, &local->entries.list);
+                local->filled += gf_dirent_size (entry->d_name);
                 count++;
+                local->op_ret++;
         }
-        op_ret = count;
-        /* We need to ensure that only the last subvolume's end-of-directory
-         * notification is respected so that directory reading does not stop
-         * before all subvolumes have been read. That could happen because the
-         * posix for each subvolume sends a ENOENT on end-of-directory but in
-         * distribute we're not concerned only with a posix's view of the
-         * directory but the aggregated namespace' view of the directory.
-         */
-        if (prev != dht_last_up_subvol (this))
-                op_errno = 0;
 
 done:
-        if (count == 0) {
-                /* non-zero next_offset means that
-                   EOF is not yet hit on the current subvol
-                */
-                if (next_offset == 0) {
+        if ((count == 0) || (local && (local->filled < local->size))) {
+                if ((next_offset == 0) || (op_errno == ENOENT)) {
+                        next_offset = 0;
                         next_subvol = dht_subvol_next (this, prev);
                 } else {
                         next_subvol = prev;
@@ -5223,16 +5216,22 @@ done:
         }
 
 unwind:
-        if (op_ret < 0)
-                op_ret = 0;
+        /* We need to ensure that only the last subvolume's end-of-directory
+         * notification is respected so that directory reading does not stop
+         * before all subvolumes have been read. That could happen because the
+         * posix for each subvolume sends a ENOENT on end-of-directory but in
+         * distribute we're not concerned only with a posix's view of the
+         * directory but the aggregated namespace' view of the directory.
+         */
+        if ((local->op_ret >= 0) && (prev != dht_last_up_subvol (this)))
+                local->op_errno = 0;
 
-        DHT_STACK_UNWIND (readdirp, frame, op_ret, op_errno, &entries, NULL);
 
-        gf_dirent_free (&entries);
+        DHT_STACK_UNWIND (readdirp, frame, local->op_ret, local->op_errno,
+                          &local->entries, NULL);
 
         return 0;
 }
-
 
 
 int
@@ -5241,7 +5240,6 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  dict_t *xdata)
 {
         dht_local_t  *local = NULL;
-        gf_dirent_t   entries;
         gf_dirent_t  *orig_entry = NULL;
         gf_dirent_t  *entry = NULL;
         xlator_t     *prev = NULL;
@@ -5253,7 +5251,6 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_conf_t   *conf = NULL;
         dht_methods_t *methods = NULL;
 
-        INIT_LIST_HEAD (&entries.list);
         prev = cookie;
         local = frame->local;
 
@@ -5262,8 +5259,14 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         methods = &(conf->methods);
 
-        if (op_ret < 0)
+        local->op_errno = op_errno;
+
+        if (op_ret < 0) {
                 goto done;
+        }
+
+        if (local->op_ret < 0)
+                local->op_ret = 0;
 
         if (!local->layout)
                 local->layout = dht_layout_get (this, local->fd->inode);
@@ -5290,27 +5293,16 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         entry->d_type = orig_entry->d_type;
                         entry->d_len  = orig_entry->d_len;
 
-                        list_add_tail (&entry->list, &entries.list);
+                        list_add_tail (&entry->list, &local->entries.list);
                         count++;
+                        local->filled += gf_dirent_size (entry->d_name);
+                        local->op_ret++;
                 }
         }
-        op_ret = count;
-        /* We need to ensure that only the last subvolume's end-of-directory
-         * notification is respected so that directory reading does not stop
-         * before all subvolumes have been read. That could happen because the
-         * posix for each subvolume sends a ENOENT on end-of-directory but in
-         * distribute we're not concerned only with a posix's view of the
-         * directory but the aggregated namespace' view of the directory.
-         */
-        if (prev != dht_last_up_subvol (this))
-                op_errno = 0;
 
 done:
-        if (count == 0) {
-                /* non-zero next_offset means that
-                   EOF is not yet hit on the current subvol
-                */
-                if (next_offset == 0) {
+        if ((count == 0) || (local && (local->filled < local->size))) {
+                if ((op_ret <= 0) || (op_errno == ENOENT)) {
                         next_subvol = dht_subvol_next (this, prev);
                 } else {
                         next_subvol = prev;
@@ -5327,12 +5319,19 @@ done:
         }
 
 unwind:
-        if (op_ret < 0)
-                op_ret = 0;
+        /* We need to ensure that only the last subvolume's end-of-directory
+         * notification is respected so that directory reading does not stop
+         * before all subvolumes have been read. That could happen because the
+         * posix for each subvolume sends a ENOENT on end-of-directory but in
+         * distribute we're not concerned only with a posix's view of the
+         * directory but the aggregated namespace' view of the directory.
+         */
+        if ((local->op_ret >= 0) && (prev != dht_last_up_subvol (this)))
+                local->op_errno = 0;
 
-        DHT_STACK_UNWIND (readdir, frame, op_ret, op_errno, &entries, NULL);
 
-        gf_dirent_free (&entries);
+        DHT_STACK_UNWIND (readdir, frame, local->op_ret, local->op_errno,
+                          &local->entries, NULL);
 
         return 0;
 }
@@ -5365,6 +5364,7 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         local->size = size;
         local->xattr_req = (dict)? dict_ref (dict) : NULL;
         local->first_up_subvol = dht_first_up_subvol (this);
+        local->op_ret = -1;
 
         dht_deitransform (this, yoff, &xvol);
 
@@ -8372,7 +8372,8 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
                         goto err;
                 }
 
-                lookup_local = mem_get0 (this->local_pool);
+                lookup_local = dht_local_init (lookup_frame, NULL, NULL,
+                                               GF_FOP_LOOKUP);
                 if (!lookup_local) {
                         goto err;
                 }
