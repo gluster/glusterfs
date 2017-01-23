@@ -2593,6 +2593,86 @@ out:
         return ret;
 }
 
+int
+glusterd_op_add_tier_brick (dict_t *dict, char **op_errstr)
+{
+        int                                     ret = 0;
+        char                                    *volname = NULL;
+        glusterd_conf_t                         *priv = NULL;
+        glusterd_volinfo_t                      *volinfo = NULL;
+        xlator_t                                *this = NULL;
+        char                                    *bricks = NULL;
+        int32_t                                 count = 0;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+
+        ret = dict_get_str (dict, "volname", &volname);
+
+        if (ret) {
+                gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get volume name");
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+
+        if (ret) {
+                gf_msg ("glusterd", GF_LOG_ERROR, EINVAL,
+                        GD_MSG_VOL_NOT_FOUND, "Volume not found");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "count", &count);
+        if (ret) {
+                gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get count");
+                goto out;
+        }
+
+
+        ret = dict_get_str (dict, "bricks", &bricks);
+        if (ret) {
+                gf_msg ("glusterd", GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED, "Unable to get bricks");
+                goto out;
+        }
+
+        if (dict_get(dict, "attach-tier")) {
+                gf_msg_debug (THIS->name, 0, "Adding tier");
+                glusterd_op_perform_attach_tier (dict, volinfo, count, bricks);
+        }
+
+        ret = glusterd_op_perform_add_bricks (volinfo, count, bricks, dict);
+        if (ret) {
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_BRICK_ADD_FAIL, "Unable to add bricks");
+                goto out;
+        }
+        if (priv->op_version <= GD_OP_VERSION_3_10_0) {
+                ret = glusterd_store_volinfo (volinfo,
+                                              GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+                if (ret)
+                        goto out;
+        } else {
+                 /*
+                 * The cluster is operating at version greater than
+                 * gluster-3.10.0. So no need to store volfiles
+                 * in commit phase, the same will be done
+                 * in post validate phase with v3 framework.
+                 */
+        }
+
+        if (GLUSTERD_STATUS_STARTED == volinfo->status)
+                ret = glusterd_svcs_manager (volinfo);
+
+out:
+        return ret;
+}
+
 void
 glusterd_op_perform_detach_tier (glusterd_volinfo_t *volinfo)
 {
@@ -3108,6 +3188,197 @@ glusterd_op_barrier (dict_t *dict, char **op_errstr)
 out:
         gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
+}
+
+int
+__glusterd_handle_add_tier_brick (rpcsvc_request_t *req)
+{
+        int32_t                         ret = -1;
+        gf_cli_req                      cli_req = {{0,} };
+        dict_t                          *dict = NULL;
+        char                            *bricks = NULL;
+        char                            *volname = NULL;
+        int                             brick_count = 0;
+        void                            *cli_rsp = NULL;
+        char                            err_str[2048] = {0,};
+        gf_cli_rsp                      rsp = {0,};
+        glusterd_volinfo_t              *volinfo = NULL;
+        xlator_t                        *this = NULL;
+        int32_t                         replica_count = 0;
+        int32_t                         arbiter_count = 0;
+        int                             type = 0;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        GF_VALIDATE_OR_GOTO (this->name, req, out);
+
+        ret = xdr_to_generic (req->msg[0], &cli_req,
+                              (xdrproc_t)xdr_gf_cli_req);
+        if (ret < 0) {
+                /*failed to decode msg*/
+                req->rpc_err = GARBAGE_ARGS;
+                snprintf (err_str, sizeof (err_str), "Garbage args received");
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_GARBAGE_ARGS, "%s", err_str);
+                goto out;
+        }
+
+        gf_msg (this->name, GF_LOG_INFO, 0,
+                GD_MSG_ADD_BRICK_REQ_RECVD, "Received add brick req");
+
+        if (cli_req.dict.dict_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (cli_req.dict.dict_val,
+                                        cli_req.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                GD_MSG_DICT_UNSERIALIZE_FAIL,
+                                "failed to "
+                                "unserialize req-buffer to dictionary");
+                        snprintf (err_str, sizeof (err_str), "Unable to decode "
+                                  "the command");
+                        goto out;
+                }
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+
+        if (ret) {
+                snprintf (err_str, sizeof (err_str), "Unable to get volume "
+                          "name");
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED, "%s", err_str);
+                goto out;
+        }
+
+        if (!glusterd_check_volume_exists (volname)) {
+                snprintf (err_str, sizeof (err_str), "Volume %s does not exist",
+                          volname);
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_VOL_NOT_FOUND, "%s", err_str);
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "count", &brick_count);
+        if (ret) {
+                snprintf (err_str, sizeof (err_str), "Unable to get volume "
+                          "brick count");
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED, "%s", err_str);
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "replica-count", &replica_count);
+        if (!ret) {
+                gf_msg (this->name, GF_LOG_INFO, errno,
+                        GD_MSG_DICT_GET_SUCCESS, "replica-count is %d",
+                        replica_count);
+        }
+
+        ret = dict_get_int32 (dict, "arbiter-count", &arbiter_count);
+        if (!ret) {
+                gf_msg (this->name, GF_LOG_INFO, errno,
+                        GD_MSG_DICT_GET_SUCCESS, "arbiter-count is %d",
+                        arbiter_count);
+        }
+
+        if (!dict_get (dict, "force")) {
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED, "Failed to get flag");
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                snprintf (err_str, sizeof (err_str), "Unable to get volinfo "
+                          "for volume name %s", volname);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOLINFO_GET_FAIL, "%s", err_str);
+                goto out;
+
+        }
+
+        if (glusterd_is_tiering_supported(err_str) == _gf_false) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VERSION_UNSUPPORTED,
+                        "Tiering not supported at this version");
+                ret = -1;
+                goto out;
+        }
+
+        if (dict_get (dict, "attach-tier")) {
+                if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                        snprintf (err_str, sizeof (err_str),
+                                  "Volume %s is already a tier.", volname);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOL_ALREADY_TIER, "%s", err_str);
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_get_int32 (dict, "hot-type", &type);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                GD_MSG_DICT_GET_FAILED,
+                                "failed to get type from dictionary");
+                        goto out;
+                }
+
+        }
+
+        ret = dict_get_str (dict, "bricks", &bricks);
+        if (ret) {
+                snprintf (err_str, sizeof (err_str), "Unable to get volume "
+                          "bricks");
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DICT_GET_FAILED, "%s", err_str);
+                goto out;
+        }
+
+        if (type != volinfo->type) {
+                ret = dict_set_int32 (dict, "type", type);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                GD_MSG_DICT_SET_FAILED,
+                                "failed to set the new type in dict");
+                        goto out;
+                }
+        }
+
+        ret = glusterd_mgmt_v3_initiate_all_phases (req,
+                        GD_OP_ADD_TIER_BRICK,
+                        dict);
+
+out:
+        if (ret) {
+                rsp.op_ret = -1;
+                rsp.op_errno = 0;
+                if (err_str[0] == '\0')
+                        snprintf (err_str, sizeof (err_str),
+                                        "Operation failed");
+                rsp.op_errstr = err_str;
+                cli_rsp = &rsp;
+                glusterd_to_cli (req, cli_rsp, NULL, 0, NULL,
+                                 (xdrproc_t)xdr_gf_cli_rsp, dict);
+                ret = 0; /*sent error to cli, prevent second reply*/
+        }
+
+        free (cli_req.dict.dict_val); /*its malloced by xdr*/
+
+        return ret;
+}
+
+int
+glusterd_handle_add_tier_brick (rpcsvc_request_t *req)
+{
+        return glusterd_big_locked_handler (req,
+                        __glusterd_handle_add_tier_brick);
 }
 
 int

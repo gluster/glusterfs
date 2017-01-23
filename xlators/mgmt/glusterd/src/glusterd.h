@@ -130,6 +130,7 @@ typedef enum glusterd_op_ {
         GD_OP_DETACH_TIER_STATUS,
         GD_OP_DETACH_NOT_STARTED,
         GD_OP_REMOVE_TIER_BRICK,
+        GD_OP_ADD_TIER_BRICK,
         GD_OP_MAX,
 } glusterd_op_t;
 
@@ -954,6 +955,9 @@ int
 glusterd_handle_detach_tier (rpcsvc_request_t *req);
 
 int
+glusterd_handle_add_tier_brick (rpcsvc_request_t *req);
+
+int
 glusterd_handle_replace_brick (rpcsvc_request_t *req);
 
 int
@@ -1142,6 +1146,7 @@ int glusterd_op_delete_volume (dict_t *dict);
 int manage_export_config (char *volname, char *value, char **op_errstr);
 
 int glusterd_op_add_brick (dict_t *dict, char **op_errstr);
+int glusterd_op_add_tier_brick (dict_t *dict, char **op_errstr);
 int glusterd_op_remove_brick (dict_t *dict, char **op_errstr);
 int glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr,
                                  dict_t *rsp_dict);

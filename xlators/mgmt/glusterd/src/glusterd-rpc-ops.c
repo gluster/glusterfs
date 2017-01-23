@@ -151,6 +151,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         case GD_OP_TIER_START_STOP:
         case GD_OP_DETACH_NOT_STARTED:
         case GD_OP_GANESHA:
+        case GD_OP_ADD_TIER_BRICK:
 
         {
                 /*nothing specific to be done*/

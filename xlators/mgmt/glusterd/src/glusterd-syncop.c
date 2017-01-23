@@ -236,6 +236,7 @@ glusterd_syncop_aggr_rsp_dict (glusterd_op_t op, dict_t *aggr, dict_t *rsp)
         case GD_OP_CREATE_VOLUME:
         case GD_OP_ADD_BRICK:
         case GD_OP_START_VOLUME:
+        case GD_OP_ADD_TIER_BRICK:
                 ret = glusterd_aggr_brick_mount_dirs (aggr, rsp);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
