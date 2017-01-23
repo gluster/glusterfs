@@ -2354,19 +2354,18 @@ static int
 glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict,
                                     char **op_errstr)
 {
-        char            *key                    = NULL;
-        char            *key_fixed              = NULL;
-        char            *value                  = NULL;
-        char            *dup_value              = NULL;
-        int             ret                     = -1;
-        glusterd_conf_t *conf                   = NULL;
-        dict_t          *dup_opt                = NULL;
-        char            *next_version           = NULL;
-        gf_boolean_t    quorum_action           = _gf_false;
-        uint32_t        op_version              = 0;
-        glusterd_volinfo_t  *volinfo            = NULL;
-        glusterd_volinfo_t  *tmp_volinfo        = NULL;
-        glusterd_volinfo_t  *voliter            = NULL;
+        char                *key                    = NULL;
+        char                *key_fixed              = NULL;
+        char                *value                  = NULL;
+        char                *dup_value              = NULL;
+        int                  ret                     = -1;
+        glusterd_conf_t     *conf                   = NULL;
+        dict_t              *dup_opt                = NULL;
+        char                *next_version           = NULL;
+        gf_boolean_t         quorum_action          = _gf_false;
+        uint32_t             op_version             = 0;
+        glusterd_volinfo_t  *volinfo                = NULL;
+        glusterd_svc_t      *svc                    = NULL;
 
         conf = this->private;
         ret = dict_get_str (dict, "key1", &key);
@@ -2421,27 +2420,59 @@ glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict,
                          * needs to be changed to 17 bytes. Look
                          * glusterd_store_quota_config for more details.
                          */
-                        cds_list_for_each_entry (voliter, &conf->volumes, vol_list) {
-                                tmp_volinfo = voliter;
-                                ret = glusterd_store_quota_config (tmp_volinfo,
-                                                                   NULL, NULL,
-                                                                   GF_QUOTA_OPTION_TYPE_UPGRADE,
-                                                                   NULL);
+                        cds_list_for_each_entry (volinfo, &conf->volumes,
+                                                 vol_list) {
+                                ret = glusterd_store_quota_config
+                                             (volinfo, NULL, NULL,
+                                              GF_QUOTA_OPTION_TYPE_UPGRADE,
+                                              NULL);
                                 if (ret)
                                         goto out;
-                        }
+                                ret = glusterd_update_volumes_dict (volinfo);
+                                if (ret)
+                                        goto out;
+                                if (!volinfo->is_snap_volume) {
+                                        svc = &(volinfo->snapd.svc);
+                                        ret = svc->manager (svc, volinfo,
+                                                            PROC_START_NO_WAIT);
+                                        if (ret)
+                                                goto out;
+                                }
 
+                                if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                                        svc = &(volinfo->tierd.svc);
+                                        ret = svc->reconfigure (volinfo);
+                                        if (ret)
+                                                goto out;
+                                }
+
+                                ret = glusterd_create_volfiles_and_notify_services (volinfo);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_VOLFILE_CREATE_FAIL,
+                                                "Unable to create volfile for"
+                                                " 'volume set'");
+                                        goto out;
+                                }
+                                if (GLUSTERD_STATUS_STARTED
+                                                 == volinfo->status) {
+                                        ret = glusterd_svcs_reconfigure ();
+                                        if (ret) {
+                                                gf_msg (this->name,
+                                                        GF_LOG_ERROR, 0,
+                                                        GD_MSG_SVC_RESTART_FAIL,
+                                                        "Unable to restart "
+                                                        "services");
+                                                goto out;
+                                        }
+                                }
+                        }
                         ret = glusterd_store_global_info (this);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_OP_VERS_STORE_FAIL,
                                         "Failed to store op-version.");
                         }
-                }
-                cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
-                        ret = glusterd_update_volumes_dict (volinfo);
-                        if (ret)
-                                goto out;
                 }
                 /* No need to save cluster.op-version in conf->opts
                  */
@@ -2878,9 +2909,9 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
                         if (GLUSTERD_STATUS_STARTED == volinfo->status) {
                                 ret = glusterd_svcs_reconfigure ();
                                 if (ret) {
-                                        gf_msg (this->name, GF_LOG_WARNING, 0,
-                                                GD_MSG_NFS_SERVER_START_FAIL,
-                                                "Unable to restart NFS-Server");
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_SVC_RESTART_FAIL,
+                                                 "Unable to restart services");
                                         goto out;
                                 }
                         }
