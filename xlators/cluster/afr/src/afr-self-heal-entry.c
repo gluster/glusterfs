@@ -17,11 +17,6 @@
 #include "syncop-utils.h"
 #include "events.h"
 
-/* Max file name length is 255 this filename is of length 256. No file with
- * this name can ever come, entry-lock with this name is going to prevent
- * self-heals from older versions while the granular entry-self-heal is going
- * on in newer version.*/
-
 static int
 afr_selfheal_entry_delete (xlator_t *this, inode_t *dir, const char *name,
                            inode_t *inode, int child, struct afr_reply *replies)
@@ -71,26 +66,29 @@ afr_selfheal_entry_delete (xlator_t *this, inode_t *dir, const char *name,
 
 
 int
-afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
+afr_selfheal_recreate_entry (call_frame_t *frame, int dst, int source,
+                             unsigned char *sources, inode_t *dir,
                              const char *name, inode_t *inode,
-                             struct afr_reply *replies,
-                             unsigned char *newentry)
+                             struct afr_reply *replies)
 {
 	int ret = 0;
 	loc_t loc = {0,};
 	loc_t srcloc = {0,};
+        xlator_t *this = frame->this;
 	afr_private_t *priv = NULL;
 	dict_t *xdata = NULL;
 	struct iatt *iatt = NULL;
 	char *linkname = NULL;
 	mode_t mode = 0;
 	struct iatt newent = {0,};
-	priv = this->private;
+        unsigned char *newentry = NULL;
 
+        priv = this->private;
 	xdata = dict_new();
 	if (!xdata)
 		return -ENOMEM;
 
+        newentry = alloca0 (priv->child_count);
 	loc.parent = inode_ref (dir);
 	gf_uuid_copy (loc.pargfid, dir->gfid);
 	loc.name = name;
@@ -109,6 +107,15 @@ afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
 
 	srcloc.inode = inode_ref (inode);
 	gf_uuid_copy (srcloc.gfid, iatt->ia_gfid);
+        if (iatt->ia_type != IA_IFDIR)
+                ret = syncop_lookup (priv->children[dst], &srcloc, 0, 0, 0, 0);
+        if (iatt->ia_type == IA_IFDIR || ret == -ENOENT || ret == -ESTALE) {
+                newentry[dst] = 1;
+                ret = afr_selfheal_newentry_mark (frame, this, inode, source,
+                                                  replies, sources, newentry);
+                if (ret)
+                        goto out;
+        }
 
 	mode = st_mode_from_ia (iatt->ia_prot, iatt->ia_type);
 
@@ -116,12 +123,9 @@ afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
 	case IA_IFDIR:
 		ret = syncop_mkdir (priv->children[dst], &loc, mode, 0,
                                     xdata, NULL);
-                if (ret == 0)
-                        newentry[dst] = 1;
 		break;
 	case IA_IFLNK:
-		ret = syncop_lookup (priv->children[dst], &srcloc, 0, 0, 0, 0);
-		if (ret == 0) {
+		if (!newentry[dst]) {
 			ret = syncop_link (priv->children[dst], &srcloc, &loc,
 					   &newent, NULL, NULL);
 		} else {
@@ -131,8 +135,6 @@ afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
 				goto out;
 			ret = syncop_symlink (priv->children[dst], &loc,
                                               linkname, NULL, xdata, NULL);
-                        if (ret == 0)
-                                newentry[dst] = 1;
                 }
 		break;
 	default:
@@ -142,10 +144,6 @@ afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
 		ret = syncop_mknod (priv->children[dst], &loc, mode,
                     makedev (ia_major(iatt->ia_rdev), ia_minor (iatt->ia_rdev)),
                     &newent, xdata, NULL);
-		if (ret == 0 && newent.ia_nlink == 1) {
-			/* New entry created. Mark @dst pending on all sources */
-                        newentry[dst] = 1;
-		}
 		break;
 	}
 
@@ -168,11 +166,8 @@ __afr_selfheal_heal_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	int ret = 0;
 	afr_private_t *priv = NULL;
 	int i = 0;
-	unsigned char *newentry = NULL;
 
 	priv = this->private;
-
-	newentry = alloca0 (priv->child_count);
 
 	if (!replies[source].valid)
 		return -EIO;
@@ -196,17 +191,15 @@ __afr_selfheal_heal_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 					   replies[source].poststat.ia_gfid))
 				continue;
 
-			ret = afr_selfheal_recreate_entry (this, i, source,
-							   fd->inode, name, inode,
-							   replies, newentry);
+			ret = afr_selfheal_recreate_entry (frame, i, source,
+                                                           sources, fd->inode,
+                                                           name, inode,
+							   replies);
                 }
 		if (ret < 0)
 			break;
 	}
 
-	if (AFR_COUNT (newentry, priv->child_count))
-		afr_selfheal_newentry_mark (frame, this, inode, source, replies,
-					    sources, newentry);
 	return ret;
 }
 
@@ -290,12 +283,9 @@ __afr_selfheal_merge_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
         int             ret       = 0;
         int             i         = 0;
         int             source    = -1;
-        unsigned char  *newentry  = NULL;
         afr_private_t  *priv      = NULL;
 
 	priv = this->private;
-
-	newentry = alloca0 (priv->child_count);
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (replies[i].valid && replies[i].op_ret == 0) {
@@ -331,14 +321,11 @@ __afr_selfheal_merge_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		if (replies[i].op_errno != ENOENT)
 			continue;
 
-		ret = afr_selfheal_recreate_entry (this, i, source, fd->inode,
-                                                   name, inode, replies,
-                                                   newentry);
+		ret = afr_selfheal_recreate_entry (frame, i, source, sources,
+                                                   fd->inode, name, inode,
+                                                   replies);
 	}
 
-	if (AFR_COUNT (newentry, priv->child_count))
-		afr_selfheal_newentry_mark (frame, this, inode, source, replies,
-					    sources, newentry);
 	return ret;
 }
 

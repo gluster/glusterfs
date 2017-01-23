@@ -110,12 +110,10 @@ __afr_selfheal_name_impunge (call_frame_t *frame, xlator_t *this,
 	int i = 0;
 	afr_private_t *priv = NULL;
         int ret = 0;
-        unsigned char *newentry = NULL;
         unsigned char *sources = NULL;
 
         priv = this->private;
 
-	newentry = alloca0 (priv->child_count);
 	sources = alloca0 (priv->child_count);
 
 	gf_uuid_copy (parent->gfid, pargfid);
@@ -129,15 +127,17 @@ __afr_selfheal_name_impunge (call_frame_t *frame, xlator_t *this,
                         sources[i] = 1;
 			continue;
                 }
+        }
 
-		ret |= afr_selfheal_recreate_entry (this, i, gfid_idx, parent,
-                                                    bname, inode, replies,
-                                                    newentry);
+        for (i = 0; i < priv->child_count; i++) {
+                if (sources[i])
+                        continue;
+
+		ret |= afr_selfheal_recreate_entry (frame, i, gfid_idx, sources,
+                                                    parent, bname, inode,
+                                                    replies);
 	}
 
-	if (AFR_COUNT (newentry, priv->child_count))
-		afr_selfheal_newentry_mark (frame, this, inode, gfid_idx, replies,
-					    sources, newentry);
 	return ret;
 }
 
@@ -484,8 +484,7 @@ __afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
         }
 
 	ret = __afr_selfheal_name_impunge (frame, this, parent, pargfid,
-                                           bname, inode,
-                                           replies, gfid_idx);
+                                           bname, inode, replies, gfid_idx);
         if (ret == -EIO)
                 ret = -1;
 
