@@ -190,6 +190,11 @@ typedef struct {
         int32_t     op_errno;
 } posix_xattr_filler_t;
 
+typedef struct {
+        uint64_t unlink_flag;
+        pthread_mutex_t xattrop_lock;
+} posix_inode_ctx_t;
+
 #define POSIX_BASE_PATH(this) (((struct posix_private *)this->private)->base_path)
 
 #define POSIX_BASE_PATH_LEN(this) (((struct posix_private *)this->private)->base_path_length)
@@ -217,8 +222,17 @@ typedef struct {
 
 
 /* Helper functions */
-int posix_inode_ctx_get (inode_t *inode, xlator_t *this, uint64_t *ctx);
-int posix_inode_ctx_set (inode_t *inode, xlator_t *this, uint64_t ctx);
+int posix_inode_ctx_set_unlink_flag (inode_t *inode, xlator_t *this,
+                                     uint64_t ctx);
+
+int posix_inode_ctx_get_all (inode_t *inode, xlator_t *this,
+                             posix_inode_ctx_t **ctx);
+
+int __posix_inode_ctx_set_unlink_flag (inode_t *inode, xlator_t *this,
+                                       uint64_t ctx);
+
+int __posix_inode_ctx_get_all (inode_t *inode, xlator_t *this,
+                               posix_inode_ctx_t **ctx);
 
 int posix_gfid_set (xlator_t *this, const char *path, loc_t *loc,
                     dict_t *xattr_req);
