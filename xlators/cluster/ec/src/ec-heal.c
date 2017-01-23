@@ -177,14 +177,17 @@ void ec_heal_lock(ec_heal_t *heal, int32_t type, fd_t *fd, loc_t *loc,
 
     if (fd != NULL)
     {
-        ec_finodelk(heal->fop->frame, heal->xl, heal->fop->mask,
+        ec_finodelk(heal->fop->frame, heal->xl,
+                    &heal->fop->frame->root->lk_owner, heal->fop->mask,
                     EC_MINIMUM_ALL, cbk, heal, heal->xl->name, fd, F_SETLKW,
                     &flock, NULL);
     }
     else
     {
-        ec_inodelk(heal->fop->frame, heal->xl, heal->fop->mask, EC_MINIMUM_ALL,
-                   cbk, heal, heal->xl->name, loc, F_SETLKW, &flock, NULL);
+        ec_inodelk(heal->fop->frame, heal->xl,
+                   &heal->fop->frame->root->lk_owner, heal->fop->mask,
+                   EC_MINIMUM_ALL, cbk, heal, heal->xl->name, loc, F_SETLKW,
+                   &flock, NULL);
     }
 }
 

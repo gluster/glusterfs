@@ -54,6 +54,18 @@ typedef int (*afr_changelog_resume_t) (call_frame_t *frame, xlator_t *this);
 #define AFR_CMP(a1,a2,len) ({int __cmp = 0; int __i; for (__i = 0; __i < len; __i++) if (a1[__i] != a2[__i]) { __cmp = 1; break;} __cmp;})
 #define AFR_IS_ARBITER_BRICK(priv, index) ((priv->arbiter_count == 1) && (index == ARBITER_BRICK_INDEX))
 
+#define AFR_SET_ERROR_AND_CHECK_SPLIT_BRAIN(ret, errnum)                       \
+        do {                                                                   \
+                local->op_ret = ret;                                           \
+                local->op_errno = errnum;                                      \
+                if (local->op_errno == EIO)                                    \
+                        gf_msg (this->name, GF_LOG_ERROR, local->op_errno,     \
+                                AFR_MSG_SPLIT_BRAIN, "Failing %s on gfid %s: " \
+                                "split-brain observed.",                       \
+                                gf_fop_list[local->op],                        \
+                                uuid_utoa (local->inode->gfid));               \
+        } while (0)
+
 typedef enum {
         AFR_FAV_CHILD_NONE,
         AFR_FAV_CHILD_BY_SIZE,
@@ -882,7 +894,7 @@ afr_inode_read_subvol_set (inode_t *inode, xlator_t *this,
 			   int event_generation);
 
 int
-afr_inode_read_subvol_reset (inode_t *inode, xlator_t *this);
+afr_inode_event_gen_reset (inode_t *inode, xlator_t *this);
 
 int
 afr_read_subvol_select_by_policy (inode_t *inode, xlator_t *this,
@@ -904,10 +916,6 @@ afr_read_subvol_get (inode_t *inode, xlator_t *this, int *subvol_p,
 
 #define afr_metadata_subvol_get(i, t, s, r, e, a) \
 	afr_read_subvol_get(i, t, s, r, e, AFR_METADATA_TRANSACTION, a)
-
-int
-afr_inode_ctx_reset_unreadable_subvol (inode_t *inode, xlator_t *this,
-                                       int subvol_idx, int txn_type);
 
 int
 afr_inode_refresh (call_frame_t *frame, xlator_t *this, inode_t *inode,
