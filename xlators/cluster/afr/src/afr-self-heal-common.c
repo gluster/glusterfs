@@ -27,6 +27,8 @@ afr_selfheal_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	local = frame->local;
 
+        local->op_ret = op_ret;
+        local->op_errno = op_errno;
 	syncbarrier_wake (&local->barrier);
 
 	return 0;
@@ -40,6 +42,7 @@ afr_selfheal_post_op (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	afr_private_t *priv = NULL;
 	afr_local_t *local = NULL;
 	loc_t loc = {0, };
+        int ret = 0;
 
 	priv = this->private;
 	local = frame->local;
@@ -47,15 +50,20 @@ afr_selfheal_post_op (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	loc.inode = inode_ref (inode);
 	gf_uuid_copy (loc.gfid, inode->gfid);
 
+        local->op_ret = 0;
+
 	STACK_WIND (frame, afr_selfheal_post_op_cbk, priv->children[subvol],
 		    priv->children[subvol]->fops->xattrop, &loc,
 		    GF_XATTROP_ADD_ARRAY, xattr, xdata);
 
 	syncbarrier_wait (&local->barrier, 1);
+        if (local->op_ret < 0)
+                ret = -local->op_errno;
 
         loc_wipe (&loc);
+        local->op_ret = 0;
 
-	return 0;
+	return ret;
 }
 
 int
@@ -1945,13 +1953,16 @@ afr_selfheal_newentry_mark (call_frame_t *frame, xlator_t *this, inode_t *inode,
         changelog = afr_mark_pending_changelog (priv, newentry, xattr,
                                             replies[source].poststat.ia_type);
 
-        if (!changelog)
+        if (!changelog) {
+                ret = -ENOMEM;
                 goto out;
+        }
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (!sources[i])
 			continue;
-		afr_selfheal_post_op (frame, this, inode, i, xattr, NULL);
+		ret |= afr_selfheal_post_op (frame, this, inode, i, xattr,
+                                             NULL);
 	}
 out:
         if (changelog)

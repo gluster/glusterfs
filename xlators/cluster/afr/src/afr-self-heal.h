@@ -174,10 +174,10 @@ afr_selfheal_undo_pending (call_frame_t *frame, xlator_t *this, inode_t *inode,
                            unsigned char *locked_on);
 
 int
-afr_selfheal_recreate_entry (xlator_t *this, int dst, int source, inode_t *dir,
-                             const char *name, inode_t *inode,
-                             struct afr_reply *replies,
-                             unsigned char *newentry);
+afr_selfheal_recreate_entry (call_frame_t *frame, int dst, int source,
+                             unsigned char *sources,
+                             inode_t *dir, const char *name, inode_t *inode,
+                             struct afr_reply *replies);
 
 int
 afr_selfheal_post_op (call_frame_t *frame, xlator_t *this, inode_t *inode,
