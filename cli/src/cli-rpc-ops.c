@@ -2367,6 +2367,58 @@ out:
 }
 
 int
+gf_cli_add_tier_brick_cbk (struct rpc_req *req, struct iovec *iov,
+                           int count, void *myframe)
+{
+        gf_cli_rsp                  rsp   = {0,};
+        int                         ret   = -1;
+        char                        msg[1024] = {0,};
+
+        GF_VALIDATE_OR_GOTO ("cli", myframe, out);
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
+        if (ret < 0) {
+                gf_log (((call_frame_t *) myframe)->this->name, GF_LOG_ERROR,
+                        "Failed to decode xdr response");
+                goto out;
+        }
+
+
+        gf_log ("cli", GF_LOG_INFO, "Received resp to attach tier");
+
+        if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
+                snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
+        else
+                snprintf (msg, sizeof (msg), "Attach tier %s",
+                          (rsp.op_ret) ? "unsuccessful" : "successful");
+
+        if (global_state->mode & GLUSTER_MODE_XML) {
+                ret = cli_xml_output_str ("volAttachTier", msg, rsp.op_ret,
+                                          rsp.op_errno, rsp.op_errstr);
+                if (ret)
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "Error outputting to xml");
+                goto out;
+        }
+
+        if (rsp.op_ret)
+                cli_err ("volume attach-tier: failed: %s", msg);
+        else
+                cli_out ("volume attach-tier: success");
+        ret = rsp.op_ret;
+
+out:
+        cli_cmd_broadcast_response (ret);
+        free (rsp.dict.dict_val);
+        free (rsp.op_errstr);
+        return ret;
+}
+
+int
 gf_cli_attach_tier_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
@@ -2374,7 +2426,7 @@ gf_cli_attach_tier_cbk (struct rpc_req *req, struct iovec *iov,
         int                         ret   = -1;
         char                        msg[1024] = {0,};
 
-        GF_ASSERT (myframe);
+        GF_VALIDATE_OR_GOTO ("cli", myframe, out);
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -4884,6 +4936,39 @@ out:
 
         return ret;
 }
+
+int32_t
+gf_cli_add_tier_brick (call_frame_t *frame, xlator_t *this,
+                       void *data)
+{
+        gf_cli_req              req             = { {0,} };
+        int                     ret             = 0;
+        dict_t                  *dict           = NULL;
+
+        if (!frame || !this ||  !data) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = data;
+
+        ret = cli_to_glusterd (&req, frame, gf_cli_add_tier_brick_cbk,
+                               (xdrproc_t) xdr_gf_cli_req, dict,
+                               GLUSTER_CLI_ADD_TIER_BRICK, this,
+                               cli_rpc_prog, NULL);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "Failed to send request to "
+                        "glusterd");
+                goto out;
+        }
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        GF_FREE (req.dict.dict_val);
+        return ret;
+}
+
 
 int32_t
 gf_cli_attach_tier (call_frame_t *frame, xlator_t *this,
@@ -11961,7 +12046,8 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_TIER]             = {"TIER", gf_cli_tier},
         [GLUSTER_CLI_GET_STATE]        = {"GET_STATE", gf_cli_get_state},
         [GLUSTER_CLI_RESET_BRICK]      = {"RESET_BRICK", gf_cli_reset_brick},
-        [GLUSTER_CLI_REMOVE_TIER_BRICK] = {"DETACH_TIER", gf_cli_remove_tier_brick}
+        [GLUSTER_CLI_REMOVE_TIER_BRICK] = {"DETACH_TIER", gf_cli_remove_tier_brick},
+        [GLUSTER_CLI_ADD_TIER_BRICK]   = {"ADD_TIER_BRICK", gf_cli_add_tier_brick}
 };
 
 struct rpc_clnt_program cli_prog = {

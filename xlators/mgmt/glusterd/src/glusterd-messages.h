@@ -41,7 +41,7 @@
 
 #define GLUSTERD_COMP_BASE      GLFS_MSGID_GLUSTERD
 
-#define GLFS_NUM_MESSAGES       606
+#define GLFS_NUM_MESSAGES       608
 
 #define GLFS_MSGID_END          (GLUSTERD_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
@@ -4815,9 +4815,6 @@
  * @recommendedaction
  *
  */
-
-/*------------*/
-
 #define GD_MSG_BRICK_MX_SET_FAIL                   (GLUSTERD_COMP_BASE + 596)
 /*!
  * @messageid
@@ -4835,7 +4832,6 @@
  */
 
 #define GD_MSG_TIER_WATERMARK_RESET_FAIL           (GLUSTERD_COMP_BASE + 598)
-
 /*!
  * @messageid
  * @diagnosis
@@ -4908,6 +4904,14 @@
  *
  */
 #define GD_MSG_STATVFS_FAILED  (GLUSTERD_COMP_BASE + 607)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_GARBAGE_ARGS                         (GLUSTERD_COMP_BASE + 608)
 
 /*------------*/
 
