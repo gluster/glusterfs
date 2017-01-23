@@ -1169,7 +1169,7 @@ do_cli_cmd_volume_attach_tier (struct cli_state *state,
         if (ret)
                 goto out;
 
-        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_ATTACH_TIER];
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_ADD_TIER_BRICK];
 
         CLI_LOCAL_INIT (local, words, frame, options);
 

@@ -169,6 +169,7 @@ gd_mgmt_v3_pre_validate_fn (glusterd_op_t op, dict_t *dict,
                         goto out;
                 }
                 break;
+        case GD_OP_ADD_TIER_BRICK:
         case GD_OP_ADD_BRICK:
                 ret = glusterd_op_stage_add_brick (dict, op_errstr, rsp_dict);
                 if (ret) {
@@ -391,6 +392,19 @@ gd_mgmt_v3_commit_fn (glusterd_op_t op, dict_t *dict,
                                         "tier status commit failed");
                                 goto out;
                         }
+                        break;
+                }
+                case GD_OP_ADD_TIER_BRICK:
+                {
+                        ret = glusterd_op_add_tier_brick (dict, op_errstr);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_COMMIT_OP_FAIL,
+                                        "tier add-brick commit failed.");
+                                goto out;
+                        }
+                        break;
+
                 }
 
                default:
@@ -491,6 +505,54 @@ gd_mgmt_v3_post_validate_fn (glusterd_op_t op, int32_t op_ret, dict_t *dict,
                                         goto out;
                         }
                         break;
+               }
+               case GD_OP_ADD_TIER_BRICK:
+               {
+                        ret = dict_get_str (dict, "volname", &volname);
+                        if (ret) {
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                        GD_MSG_DICT_GET_FAILED, "Unable to get"
+                                        " volume name");
+                                goto out;
+                        }
+
+                        ret = glusterd_volinfo_find (volname, &volinfo);
+                        if (ret) {
+                                gf_msg ("glusterd", GF_LOG_ERROR, EINVAL,
+                                        GD_MSG_VOL_NOT_FOUND, "Unable to "
+                                        "allocate memory");
+                                goto out;
+                        }
+                        ret = glusterd_create_volfiles_and_notify_services (
+                                                                     volinfo);
+                        if (ret)
+                                goto out;
+                        ret = glusterd_store_volinfo (volinfo,
+                                            GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+                        if (ret)
+                                goto out;
+                        ret = dict_get_str (dict, "volname", &volname);
+                        if (ret) {
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                        GD_MSG_DICT_GET_FAILED, "Unable to get"
+                                        " volume name");
+                                goto out;
+                        }
+
+                        volinfo->is_tier_enabled = _gf_true;
+
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        GD_MSG_DICT_SET_FAILED, "dict set "
+                                        "failed");
+                                goto out;
+                        }
+                        ret = -1;
+                        svc = &(volinfo->tierd.svc);
+                        ret = svc->manager (svc, volinfo,
+                                        PROC_START_NO_WAIT);
+                        if (ret)
+                                goto out;
                }
 
                default:
@@ -755,6 +817,7 @@ glusterd_pre_validate_aggr_rsp_dict (glusterd_op_t op,
                 break;
         case GD_OP_START_VOLUME:
         case GD_OP_ADD_BRICK:
+        case GD_OP_ADD_TIER_BRICK:
                 ret = glusterd_aggr_brick_mount_dirs (aggr, rsp);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -1085,6 +1148,7 @@ glusterd_mgmt_v3_build_payload (dict_t **req, char **op_errstr, dict_t *dict,
         case GD_OP_ADD_BRICK:
         case GD_OP_REPLACE_BRICK:
         case GD_OP_RESET_BRICK:
+        case GD_OP_ADD_TIER_BRICK:
                 {
                         ret = dict_get_str (dict, "volname", &volname);
                         if (ret) {
