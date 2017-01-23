@@ -107,19 +107,21 @@ out:
 int
 posix_forget (xlator_t *this, inode_t *inode)
 {
-        uint64_t tmp_cache = 0;
-        int ret = 0;
-        char *unlink_path = NULL;
-        struct posix_private    *priv_posix = NULL;
+        int                     ret         = 0;
+        char                   *unlink_path = NULL;
+        uint64_t                ctx_uint    = 0;
+        posix_inode_ctx_t      *ctx         = NULL;
+        struct posix_private   *priv_posix  = NULL;
 
         priv_posix = (struct posix_private *) this->private;
 
-        ret = inode_ctx_del (inode, this, &tmp_cache);
-        if (ret < 0) {
-                ret = 0;
-                goto out;
-        }
-        if (tmp_cache == GF_UNLINK_TRUE) {
+        ret = inode_ctx_del (inode, this, &ctx_uint);
+        if (!ctx_uint)
+                return 0;
+
+        ctx = (posix_inode_ctx_t *)ctx_uint;
+
+        if (ctx->unlink_flag == GF_UNLINK_TRUE) {
                 POSIX_GET_FILE_UNLINK_PATH(priv_posix->base_path,
                                            inode->gfid, unlink_path);
                 if (!unlink_path) {
@@ -133,6 +135,8 @@ posix_forget (xlator_t *this, inode_t *inode)
                 ret = sys_unlink(unlink_path);
         }
 out:
+        pthread_mutex_destroy (&ctx->xattrop_lock);
+        GF_FREE (ctx);
         return ret;
 }
 
@@ -1696,7 +1700,7 @@ posix_add_unlink_to_ctx (inode_t *inode, xlator_t *this, char *unlink_path)
         }
 
         ctx = GF_UNLINK_TRUE;
-        ret = posix_inode_ctx_set (inode, this, ctx);
+        ret = posix_inode_ctx_set_unlink_flag (inode, this, ctx);
         if (ret < 0) {
                 goto out;
         }
@@ -5425,6 +5429,7 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
         inode_t              *inode    = NULL;
         xlator_t             *this     = NULL;
         posix_xattr_filler_t *filler   = NULL;
+        posix_inode_ctx_t    *ctx      = NULL;
 
         filler = tmp;
 
@@ -5447,8 +5452,13 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
                 }
         }
 #endif
+        op_ret = posix_inode_ctx_get_all (inode, this, &ctx);
+        if (op_ret < 0) {
+                op_errno = ENOMEM;
+                goto out;
+        }
 
-        LOCK (&inode->lock);
+        pthread_mutex_lock (&ctx->xattrop_lock);
         {
                 if (filler->real_path) {
                         size = sys_lgetxattr (filler->real_path, k,
@@ -5557,7 +5567,7 @@ _posix_handle_xattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
                 op_errno = errno;
         }
 unlock:
-        UNLOCK (&inode->lock);
+        pthread_mutex_unlock (&ctx->xattrop_lock);
 
         if (op_ret == -1)
                 goto out;
