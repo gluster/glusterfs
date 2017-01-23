@@ -2177,39 +2177,88 @@ posix_fdget_objectsignature (int fd, dict_t *xattr)
         return -EINVAL;
 }
 
-
-int
-posix_inode_ctx_get (inode_t *inode, xlator_t *this, uint64_t *ctx)
+posix_inode_ctx_t *
+__posix_inode_ctx_get (inode_t *inode, xlator_t *this)
 {
-        int             ret     = -1;
-        uint64_t        ctx_int = 0;
+        int                 ret      = -1;
+        uint64_t            ctx_uint = 0;
+        posix_inode_ctx_t  *ctx_p    = NULL;
 
-        GF_VALIDATE_OR_GOTO (this->name, this, out);
-        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+        ret = __inode_ctx_get (inode, this, &ctx_uint);
+        if (ret == 0) {
+                return (posix_inode_ctx_t *)ctx_uint;
+        }
 
-        ret = inode_ctx_get (inode, this, &ctx_int);
+        ctx_p = GF_CALLOC (1, sizeof (*ctx_p), gf_posix_mt_inode_ctx_t);
+        if (!ctx_p)
+                return NULL;
 
-        if (ret)
-                return ret;
+        pthread_mutex_init (&ctx_p->xattrop_lock, NULL);
 
-        if (ctx)
-                *ctx = ctx_int;
+        ret = __inode_ctx_set (inode, this, (uint64_t *)&ctx_p);
+        if (ret < 0) {
+                pthread_mutex_destroy (&ctx_p->xattrop_lock);
+                GF_FREE (ctx_p);
+                return NULL;
+        }
 
-out:
-        return ret;
+        return ctx_p;
 }
 
+int
+__posix_inode_ctx_set_unlink_flag (inode_t *inode, xlator_t *this, uint64_t ctx)
+{
+        posix_inode_ctx_t  *ctx_p    = NULL;
+
+        ctx_p = __posix_inode_ctx_get (inode, this);
+        if (ctx_p == NULL)
+                return -1;
+
+        ctx_p->unlink_flag = ctx;
+
+        return 0;
+}
 
 int
-posix_inode_ctx_set (inode_t *inode, xlator_t *this, uint64_t ctx)
+posix_inode_ctx_set_unlink_flag (inode_t *inode, xlator_t *this, uint64_t ctx)
 {
         int             ret = -1;
 
-        GF_VALIDATE_OR_GOTO (this->name, this, out);
-        GF_VALIDATE_OR_GOTO (this->name, inode, out);
-        GF_VALIDATE_OR_GOTO (this->name, ctx, out);
+        LOCK(&inode->lock);
+        {
+                ret = __posix_inode_ctx_set_unlink_flag (inode, this, ctx);
+        }
+        UNLOCK(&inode->lock);
 
-        ret = inode_ctx_set (inode, this, &ctx);
-out:
+        return ret;
+}
+
+int
+__posix_inode_ctx_get_all (inode_t *inode, xlator_t *this,
+                           posix_inode_ctx_t **ctx)
+{
+        posix_inode_ctx_t  *ctx_p    = NULL;
+
+        ctx_p = __posix_inode_ctx_get (inode, this);
+        if (ctx_p == NULL)
+                return -1;
+
+        *ctx = ctx_p;
+
+        return 0;
+}
+
+int
+posix_inode_ctx_get_all (inode_t *inode, xlator_t *this,
+                         posix_inode_ctx_t **ctx)
+{
+        int ret = 0;
+
+        LOCK(&inode->lock);
+        {
+                ret = __posix_inode_ctx_get_all (inode, this, ctx);
+        }
+        UNLOCK(&inode->lock);
+
         return ret;
 }

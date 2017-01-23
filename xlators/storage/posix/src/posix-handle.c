@@ -952,6 +952,7 @@ posix_create_link_if_gfid_exists (xlator_t *this, uuid_t gfid, char *real_path,
         inode_t               *inode       = NULL;
         struct stat            stbuf       = {0,};
         struct posix_private  *priv        = NULL;
+        posix_inode_ctx_t     *ctx         = NULL;
 
         priv = this->private;
 
@@ -973,11 +974,11 @@ posix_create_link_if_gfid_exists (xlator_t *this, uuid_t gfid, char *real_path,
 
                 LOCK (&inode->lock);
                 {
-                        ret = __inode_ctx_get0 (inode, this, &ctx_int);
+                        ret = __posix_inode_ctx_get_all (inode, this, &ctx);
                         if (ret)
                                 goto unlock;
 
-                        if (ctx_int != GF_UNLINK_TRUE)
+                        if (ctx->unlink_flag != GF_UNLINK_TRUE)
                                 goto unlock;
 
                         POSIX_GET_FILE_UNLINK_PATH (priv->base_path, gfid,
@@ -997,7 +998,8 @@ posix_create_link_if_gfid_exists (xlator_t *this, uuid_t gfid, char *real_path,
                                 goto unlock;
                         }
                         ctx_int = GF_UNLINK_FALSE;
-                        ret = __inode_ctx_set0 (inode, this, &ctx_int);
+                        ret = __posix_inode_ctx_set_unlink_flag (inode, this,
+                                                                 ctx_int);
                 }
 unlock:
                 UNLOCK (&inode->lock);
