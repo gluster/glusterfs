@@ -3989,6 +3989,56 @@ out:
 }
 
 int
+cli_cmd_volume_old_tier_parse (const char **words, int wordcount,
+                             dict_t **options)
+{
+        dict_t                 *dict = NULL;
+        int                      ret = -1;
+        char                *volname = NULL;
+        gf_cli_defrag_type       cmd = 0;
+
+        GF_ASSERT (words);
+        GF_ASSERT (options);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        if (wordcount != 4)
+                goto out;
+
+        if ((strcmp (words[1], "tier") == 0) &&
+            (strcmp (words[3], "start") == 0)) {
+                cmd = GF_DEFRAG_CMD_START_TIER;
+        } else
+                goto out;
+
+        volname = (char *) words[2];
+
+        ret = dict_set_str (dict, "volname", volname);
+
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to set dict");
+                goto out;
+        }
+
+        ret = dict_set_int32 (dict, "rebalance-command", (int32_t) cmd);
+
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to set dict");
+                goto out;
+        }
+
+        *options = dict;
+
+out:
+        if (ret && dict)
+                dict_unref (dict);
+
+        return ret;
+}
+
+int
 cli_cmd_volume_defrag_parse (const char **words, int wordcount,
                              dict_t **options)
 {
@@ -4013,16 +4063,6 @@ cli_cmd_volume_defrag_parse (const char **words, int wordcount,
                 if (strcmp (words[3], "start") && strcmp (words[3], "stop") &&
                     strcmp (words[3], "status"))
                             goto out;
-        } else if ((strcmp (words[3], "tier") == 0) &&
-                   (strcmp (words[4], "start") == 0)) {
-                volname = (char *) words[2];
-                cmd = GF_DEFRAG_CMD_START_TIER;
-                goto done;
-        } else if ((strcmp (words[3], "tier") == 0) &&
-               (strcmp (words[4], "status") == 0)) {
-                volname = (char *) words[2];
-                cmd = GF_DEFRAG_CMD_STATUS_TIER;
-                goto done;
         } else {
                 if (strcmp (words[3], "fix-layout") &&
                     strcmp (words[3], "start"))
