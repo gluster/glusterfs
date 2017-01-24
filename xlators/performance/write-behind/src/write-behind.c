@@ -1021,11 +1021,10 @@ wb_fulfill_short_write (wb_request_t *head, int size)
                         }
 
                 }
-        }
 done:
+                __wb_request_unref (head);
+        }
         UNLOCK (&wb_inode->lock);
-
-        __wb_request_unref (head);
 
         wb_add_head_for_retry (req);
 out:
