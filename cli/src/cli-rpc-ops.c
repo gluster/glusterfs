@@ -4911,10 +4911,9 @@ gf_cli_attach_tier (call_frame_t *frame, xlator_t *this,
         int                     ret             = 0;
         dict_t                  *dict           = NULL;
         dict_t                  *newdict        = NULL;
-        char                    *tierwords[]    = {"volume", "rebalance", "",
-                                                   "tier", "start", NULL};
+        char                    *tierwords[]    = {"volume", "tier", "",
+                                                   "start", NULL};
         const char              **words         = (const char **)tierwords;
-        int                     wordcount       = 5;
         char                    *volname        = NULL;
         cli_local_t             *local          = NULL;
         cli_local_t             *oldlocal       = NULL;
@@ -4942,8 +4941,8 @@ gf_cli_attach_tier (call_frame_t *frame, xlator_t *this,
         }
 
         words[2] = volname;
-        ret = cli_cmd_volume_defrag_parse ((const char **)words,
-                                           wordcount, &newdict);
+        ret = cli_cmd_volume_old_tier_parse ((const char **)words,
+                                             4, &newdict);
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Failed to parse tier start "
                         "command");
@@ -4962,8 +4961,7 @@ notify_cli:
         if (ret) {
                 cli_out ("Failed to run tier start. Please execute tier start "
                          "command explicitly");
-                cli_out ("Usage : gluster volume rebalance <volname> tier "
-                         "start");
+                cli_out ("Usage : gluster volume tier <volname> start");
         }
 
 out:
