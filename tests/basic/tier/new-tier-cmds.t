@@ -16,7 +16,7 @@ function check_peers {
 function create_dist_tier_vol () {
         TEST $CLI_1 volume create $V0 $H1:$B1/${V0} $H2:$B2/${V0} $H3:$B3/${V0}
         TEST $CLI_1 volume start $V0
-        TEST $CLI_1 volume attach-tier $V0 $H1:$B1/${V0}_h1 $H2:$B2/${V0}_h2 $H3:$B3/${V0}_h3
+        TEST $CLI_1 volume tier $V0 attach $H1:$B1/${V0}_h1 $H2:$B2/${V0}_h2 $H3:$B3/${V0}_h3
 }
 
 function tier_daemon_status {
@@ -38,6 +38,14 @@ EXPECT_WITHIN $PROBE_TIMEOUT 2 check_peers;
 
 #Create and start a tiered volume
 create_dist_tier_vol
+
+########### check failure for older commands #############
+
+TEST ! $CLI_1 volume rebalance $V0 tier status
+
+# failure for older command can be removed in 3.11
+
+##########################################################
 
 #Issue detach tier on the tiered volume
 #Will throw error saying detach tier not started
@@ -92,6 +100,13 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" tier_detach_commit
 
 EXPECT "Tier command failed" $CLI_1 volume tier $V0 detach status
 
+########### check failure for older commands #############
+
+TEST ! $CLI_1 volume rebalance $V0 tier start
+
+# failure for older command can be removed in 3.11
+
+##########################################################
 cleanup;
 
 #G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=000000
