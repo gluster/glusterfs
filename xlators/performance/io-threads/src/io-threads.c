@@ -173,7 +173,6 @@ iot_worker (void *data)
                                         break;
                                 }
 
-                                conf->sleep_count++;
                                 clock_gettime (CLOCK_REALTIME_COARSE,
                                                &sleep_till);
                                 sleep_till.tv_sec += conf->idle_time;
