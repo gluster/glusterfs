@@ -2584,13 +2584,11 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
         if (!status->total)
                 goto out;
 
-#ifdef GF_LINUX_HOST_OS
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.device", i);
         ret = dict_get_str (dict, key, &(status->device));
         if (ret)
                 status->device = NULL;
-#endif
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.block_size", i);
@@ -2600,7 +2598,6 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
                 status->block_size = 0;
         }
 
-#ifdef GF_LINUX_HOST_OS
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.mnt_options", i);
         ret = dict_get_str (dict, key, &(status->mount_options));
@@ -2620,7 +2617,6 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
         ret = dict_get_str (dict, key, &(status->inode_size));
         if (ret)
                 status->inode_size = NULL;
-#endif /* GF_LINUX_HOST_OS */
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.total_inodes", i);
@@ -2658,7 +2654,6 @@ cli_print_detailed_status (cli_volume_status_t *status)
         cli_out ("%-20s : %-20c", "Online", (status->online) ? 'Y' : 'N');
         cli_out ("%-20s : %-20s", "Pid", status->pid_str);
 
-#ifdef GF_LINUX_HOST_OS
         if (status->fs_name)
                 cli_out ("%-20s : %-20s", "File System", status->fs_name);
         else
@@ -2682,7 +2677,6 @@ cli_print_detailed_status (cli_volume_status_t *status)
         } else {
                 cli_out ("%-20s : %-20s", "Inode Size", "N/A");
         }
-#endif
         if (status->free)
                 cli_out ("%-20s : %-20s", "Disk Space Free", status->free);
         else
