@@ -102,6 +102,10 @@ void
 cluster_replies_wipe (default_args_cbk_t *replies, int numsubvols)
 {
         int i = 0;
+
+        if (!replies)
+                return;
+
         for (i = 0; i < numsubvols; i++)
                 args_cbk_wipe (&replies[i]);
         memset (replies, 0, numsubvols * sizeof (*replies));

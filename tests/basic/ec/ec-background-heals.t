@@ -101,5 +101,3 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "3" ec_child_up_count $V0 0
 TEST chown root:root $M0/{a,b,c,d}
 EXPECT "0" mount_get_option_value $M0 $V0-disperse-0 heal-waiters
 cleanup
-#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=1416689
-#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=1416689
