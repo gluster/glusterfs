@@ -30,6 +30,9 @@ int32_t ec_buffer_alloc(xlator_t *xl, size_t size, struct iobref **piobref,
                         void **ptr);
 int32_t ec_dict_set_array(dict_t *dict, char *key,
                           uint64_t *value, int32_t size);
+int32_t ec_dict_get_array (dict_t *dict, char *key, uint64_t value[],
+                           int32_t size);
+
 int32_t ec_dict_del_array(dict_t *dict, char *key,
                           uint64_t *value, int32_t size);
 int32_t ec_dict_set_number(dict_t * dict, char * key, uint64_t value);

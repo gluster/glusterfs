@@ -9,6 +9,7 @@ cleanup
 
 function check_mount_dir
 {
+    getfattr -d -m. -e hex $M0 2>&1 > /dev/null
     for i in {1..20}; do
         ls -l $M0/ | grep "dir1"
         if [ $? -ne 0 ]; then
@@ -21,7 +22,7 @@ function check_mount_dir
 
 function check_size
 {
-    stat $M0/$1
+    cat $M0/$1 2>&1 > /dev/null
     for i in "${brick[@]}"; do
         res=`stat -c "%s" $i/$1`
         if [ "$res" != "$2" ]; then
@@ -35,7 +36,7 @@ function check_size
 
 function check_mode
 {
-    stat $M0/$1
+    getfattr -d -m. -e hex $M0/$1 2>&1 > /dev/null
     for i in "${brick[@]}"; do
         res=`stat -c "%A" $i/$1`
         if [ "$res" != "$2" ]; then
@@ -49,7 +50,7 @@ function check_mode
 
 function check_date
 {
-    stat $M0/$1
+    getfattr -d -m. -e hex $M0/$1 2>&1 > /dev/null
     for i in "${brick[@]}"; do
         res=`stat -c "%Y" $i/$1`
         if [ "$res" != "$2" ]; then
@@ -63,7 +64,7 @@ function check_date
 
 function check_xattr
 {
-    stat $M0/$1
+    getfattr -d -m. -e hex $M0/$1 2>&1 > /dev/null
     for i in "${brick[@]}"; do
         getfattr -n $2 $i/$1 2>/dev/null
         if [ $? -eq 0 ]; then
@@ -77,7 +78,7 @@ function check_xattr
 
 function check_dir
 {
-    getfattr -m. -d $M0/dir1
+    getfattr -m. -d $M0/dir1 2>&1 > /dev/null
     for i in "${brick[@]}"; do
         if [ ! -d $i/dir1 ]; then
             echo "N"
@@ -90,7 +91,7 @@ function check_dir
 
 function check_soft_link
 {
-    stat $M0/test3
+    getfattr -d -m. -e hex $M0/test3 2>&1 > /dev/null
     for i in "${brick[@]}"; do
         if [ ! -h $i/test3 ]; then
             echo "N"
@@ -103,7 +104,7 @@ function check_soft_link
 
 function check_hard_link
 {
-    stat $M0/test4
+    getfattr -d -m. -e hex $M0/test4 2>&1 > /dev/null
     for i in "${brick[@]}"; do
         res=`stat -c "%h" $i/test4`
         if [ "$res" != "3" ]; then
@@ -125,10 +126,14 @@ TESTS_EXPECTED_IN_LOOP=194
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 redundancy 2 $H0:$B0/${V0}{0..5}
+TEST $CLI volume set $V0 client-log-level DEBUG
+#Write-behind has a bug where lookup can race over write which leads to size mismatch on the mount after a 'cp'
+TEST $CLI volume set $V0 performance.write-behind off
 EXPECT "Created" volinfo_field $V0 'Status'
 TEST $CLI volume start $V0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Started" volinfo_field $V0 'Status'
-TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
+#direct-io-mode is to make sure 'cat' leads to READ fop which triggers heal
+TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 --direct-io-mode=yes $M0;
 # Wait until all 6 childs have been recognized by the ec xlator
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "6" ec_child_up_count $V0 0
 

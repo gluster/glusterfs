@@ -519,6 +519,11 @@ function path_exists {
         if [ $? -eq 0 ]; then echo "Y"; else echo "N"; fi
 }
 
+function path_size {
+        local size=$(stat -c %s $1)
+        if [ $? -eq 0 ]; then echo $size; else echo ""; fi
+}
+
 function force_umount {
         ${UMOUNT_F} $*
         if [ $? -eq 0 ]; then echo "Y"; else echo "N"; fi
