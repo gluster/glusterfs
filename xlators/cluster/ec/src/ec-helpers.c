@@ -211,8 +211,8 @@ int32_t ec_dict_set_array(dict_t *dict, char *key, uint64_t value[],
 }
 
 
-int32_t ec_dict_del_array(dict_t *dict, char *key, uint64_t value[],
-                          int32_t size)
+int32_t
+ec_dict_get_array (dict_t *dict, char *key, uint64_t value[], int32_t size)
 {
     void    *ptr;
     int32_t len;
@@ -246,9 +246,19 @@ int32_t ec_dict_del_array(dict_t *dict, char *key, uint64_t value[],
             }
     }
 
-    dict_del(dict, key);
-
     return 0;
+}
+
+int32_t
+ec_dict_del_array (dict_t *dict, char *key, uint64_t value[], int32_t size)
+{
+    int ret = 0;
+
+    ret = ec_dict_get_array (dict, key, value, size);
+    if (ret == 0)
+            dict_del(dict, key);
+
+    return ret;
 }
 
 

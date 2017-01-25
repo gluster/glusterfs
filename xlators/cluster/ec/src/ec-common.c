@@ -82,10 +82,50 @@ int32_t ec_heal_report(call_frame_t * frame, void * cookie, xlator_t * this,
     return 0;
 }
 
+static uintptr_t
+ec_fop_needs_name_heal (ec_fop_data_t *fop)
+{
+        ec_t          *ec         = NULL;
+        ec_cbk_data_t *cbk        = NULL;
+        ec_cbk_data_t *enoent_cbk = NULL;
+
+        ec = fop->xl->private;
+        if (fop->id != GF_FOP_LOOKUP)
+                return 0;
+
+        if (!fop->loc[0].name || strlen (fop->loc[0].name) == 0)
+                return 0;
+
+        list_for_each_entry(cbk, &fop->cbk_list, list)
+        {
+                if (cbk->op_ret < 0 && cbk->op_errno == ENOENT) {
+                        enoent_cbk = cbk;
+                        break;
+                }
+        }
+
+        if (!enoent_cbk)
+                return 0;
+
+        return ec->xl_up & ~enoent_cbk->mask;
+}
+
 int32_t ec_fop_needs_heal(ec_fop_data_t *fop)
 {
     ec_t *ec = fop->xl->private;
 
+    if (fop->lock_count == 0) {
+    /*
+     * if fop->lock_count is zero that means it saw version mismatch
+     * without any locks so it can't be trusted. If we launch a heal
+     * based on this it will lead to INODELKs which will affect I/O
+     * performance. Considering self-heal-daemon and operations on
+     * the inode from client which take locks can still trigger the
+     * heal we can choose to not attempt a heal when fop->lock_count
+     * is zero.
+     */
+            return 0;
+    }
     return (ec->xl_up & ~(fop->remaining | fop->good)) != 0;
 }
 
@@ -95,7 +135,7 @@ void ec_check_status(ec_fop_data_t * fop)
     int32_t partial = 0;
     char str1[32], str2[32], str3[32], str4[32], str5[32];
 
-    if (!ec_fop_needs_heal(fop)) {
+    if (!ec_fop_needs_name_heal (fop) && !ec_fop_needs_heal(fop)) {
         return;
     }
 
@@ -108,19 +148,17 @@ void ec_check_status(ec_fop_data_t * fop)
         }
     }
 
-    if (fop->lock_count > 0) {
-            gf_msg (fop->xl->name, GF_LOG_WARNING, 0,
-                    EC_MSG_OP_FAIL_ON_SUBVOLS,
-                    "Operation failed on %d of %d subvolumes.(up=%s, mask=%s, "
-                    "remaining=%s, good=%s, bad=%s)",
-                    gf_bits_count(ec->xl_up & ~(fop->remaining | fop->good)), ec->nodes,
-                    ec_bin(str1, sizeof(str1), ec->xl_up, ec->nodes),
-                    ec_bin(str2, sizeof(str2), fop->mask, ec->nodes),
-                    ec_bin(str3, sizeof(str3), fop->remaining, ec->nodes),
-                    ec_bin(str4, sizeof(str4), fop->good, ec->nodes),
-                    ec_bin(str5, sizeof(str5),
-                    ec->xl_up & ~(fop->remaining | fop->good), ec->nodes));
-    }
+    gf_msg (fop->xl->name, GF_LOG_WARNING, 0,
+            EC_MSG_OP_FAIL_ON_SUBVOLS,
+            "Operation failed on %d of %d subvolumes.(up=%s, mask=%s, "
+            "remaining=%s, good=%s, bad=%s)",
+            gf_bits_count(ec->xl_up & ~(fop->remaining | fop->good)), ec->nodes,
+            ec_bin(str1, sizeof(str1), ec->xl_up, ec->nodes),
+            ec_bin(str2, sizeof(str2), fop->mask, ec->nodes),
+            ec_bin(str3, sizeof(str3), fop->remaining, ec->nodes),
+            ec_bin(str4, sizeof(str4), fop->good, ec->nodes),
+            ec_bin(str5, sizeof(str5),
+            ec->xl_up & ~(fop->remaining | fop->good), ec->nodes));
     if (fop->use_fd)
     {
         if (fop->fd != NULL) {

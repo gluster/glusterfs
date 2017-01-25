@@ -121,6 +121,7 @@ void ec_handle_healers_done (ec_fop_data_t *fop);
 int32_t
 ec_heal_inspect (call_frame_t *frame, ec_t *ec,
                  inode_t *inode, unsigned char *locked_on,
+                 gf_boolean_t self_locked, gf_boolean_t thorough,
                  gf_boolean_t *need_heal);
 int32_t
 ec_get_heal_info (xlator_t *this, loc_t *loc, dict_t **dict);
