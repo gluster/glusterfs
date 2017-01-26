@@ -146,11 +146,9 @@ out:
         return ctx;
 }
 
-void
-mq_contri_fini (void *data)
+static void
+mq_contri_fini (inode_contribution_t *contri)
 {
-        inode_contribution_t *contri = data;
-
         LOCK_DESTROY (&contri->lock);
         GF_FREE (contri);
 }

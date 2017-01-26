@@ -15,15 +15,10 @@
 #include "dht-helper.h"
 
 
-void
-dht_free_fd_ctx (void *data)
+static void
+dht_free_fd_ctx (dht_fd_ctx_t *fd_ctx)
 {
-        dht_fd_ctx_t *fd_ctx = NULL;
-
-        fd_ctx = (dht_fd_ctx_t *)data;
         GF_FREE (fd_ctx);
-
-        return;
 }
 
 
