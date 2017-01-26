@@ -66,9 +66,6 @@ mq_local_ref (quota_local_t *);
 int32_t
 mq_local_unref (xlator_t *, quota_local_t *);
 
-void
-mq_contri_fini (void *data);
-
 inode_contribution_t*
 mq_contri_init (inode_t *inode);
 

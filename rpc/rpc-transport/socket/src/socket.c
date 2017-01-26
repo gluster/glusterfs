@@ -3841,11 +3841,9 @@ init_openssl_mt (void)
         SSL_load_error_strings();
 }
 
-void
-socket_poller_mayday (void *data)
+static void
+socket_poller_mayday (socket_private_t *priv)
 {
-        socket_private_t *priv = (socket_private_t *)data;
-
         if (priv == NULL)
                 return;
 
