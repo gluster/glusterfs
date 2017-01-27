@@ -67,11 +67,11 @@ int32_t ec_heal_report(call_frame_t * frame, void * cookie, xlator_t * this,
                        uintptr_t good, uintptr_t bad, dict_t * xdata)
 {
     if (op_ret < 0) {
-        gf_msg (this->name, GF_LOG_WARNING, op_errno,
+        gf_msg (this->name, GF_LOG_DEBUG, op_errno,
                 EC_MSG_HEAL_FAIL, "Heal failed");
     } else {
         if ((mask & ~good) != 0) {
-            gf_msg (this->name, GF_LOG_INFO, 0,
+            gf_msg (this->name, GF_LOG_DEBUG, 0,
                     EC_MSG_HEAL_SUCCESS, "Heal succeeded on %d/%d "
                     "subvolumes",
                     gf_bits_count(mask & ~(good | bad)),
