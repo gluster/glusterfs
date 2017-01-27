@@ -1012,10 +1012,6 @@ int32_t ec_manager_lk(ec_fop_data_t * fop, int32_t state)
     switch (state)
     {
         case EC_STATE_INIT:
-            fop->flock.l_len += ec_adjust_offset(fop->xl->private,
-                                                 &fop->flock.l_start, 1);
-            fop->flock.l_len = ec_adjust_size(fop->xl->private,
-                                              fop->flock.l_len, 1);
             if ((fop->int32 == F_SETLKW) && (fop->flock.l_type != F_UNLCK))
             {
                 fop->uint32 = EC_LOCK_MODE_ALL;
@@ -1023,6 +1019,12 @@ int32_t ec_manager_lk(ec_fop_data_t * fop, int32_t state)
             }
 
         /* Fall through */
+
+        case EC_STATE_LOCK:
+            ec_lock_prepare_fd(fop, fop->fd, EC_UPDATE_DATA | EC_QUERY_INFO);
+            ec_lock(fop);
+
+            return EC_STATE_DISPATCH;
 
         case EC_STATE_DISPATCH:
             ec_dispatch_all(fop);
@@ -1037,20 +1039,20 @@ int32_t ec_manager_lk(ec_fop_data_t * fop, int32_t state)
                 ec_fop_set_error (fop, ec_lock_check(fop, &mask));
                 if (fop->error != 0) {
                     if (mask != 0) {
-                        ec_t *ec = fop->xl->private;
-                        struct gf_flock flock;
+                        struct gf_flock flock = {0};
 
                         flock.l_type = F_UNLCK;
                         flock.l_whence = fop->flock.l_whence;
-                        flock.l_start = fop->flock.l_start * ec->fragments;
-                        flock.l_len = fop->flock.l_len * ec->fragments;
-                        flock.l_pid = 0;
-                        flock.l_owner.len = 0;
+                        flock.l_start = fop->flock.l_start;
+                        flock.l_len = fop->flock.l_len;
+                        flock.l_pid = fop->flock.l_pid;
+                        lk_owner_copy (&flock.l_owner, &fop->flock.l_owner);
 
                         ec_lk(fop->frame, fop->xl, mask, 1,
                               ec_lock_lk_unlocked, NULL, fop->fd, F_SETLK,
                               &flock, fop->xdata);
                     }
+
                     if (fop->error < 0) {
                         fop->error = 0;
 
@@ -1078,9 +1080,10 @@ int32_t ec_manager_lk(ec_fop_data_t * fop, int32_t state)
                              cbk->op_errno, &cbk->flock, cbk->xdata);
             }
 
-            return EC_STATE_END;
+            return EC_STATE_LOCK_REUSE;
 
         case -EC_STATE_INIT:
+        case -EC_STATE_LOCK:
         case -EC_STATE_DISPATCH:
         case -EC_STATE_REPORT:
             GF_ASSERT(fop->error != 0);
@@ -1090,6 +1093,18 @@ int32_t ec_manager_lk(ec_fop_data_t * fop, int32_t state)
                 fop->cbks.lk(fop->req_frame, fop, fop->xl, -1, fop->error,
                              NULL, NULL);
             }
+
+            return EC_STATE_LOCK_REUSE;
+
+        case -EC_STATE_LOCK_REUSE:
+        case EC_STATE_LOCK_REUSE:
+            ec_lock_reuse(fop);
+
+            return EC_STATE_UNLOCK;
+
+        case -EC_STATE_UNLOCK:
+        case EC_STATE_UNLOCK:
+            ec_unlock(fop);
 
             return EC_STATE_END;
 
