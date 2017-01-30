@@ -81,7 +81,8 @@
 
 #define IA_EQUAL(f,s,field) (memcmp (&(f.ia_##field), &(s.ia_##field), sizeof (s.ia_##field)) == 0)
 
-
+#define SBRAIN_HEAL_NO_GO_MSG "Failed to obtain replies from all bricks of "\
+                      "the replica (are they up?). Cannot resolve split-brain."
 int
 afr_selfheal (xlator_t *this, uuid_t gfid);
 
@@ -220,6 +221,9 @@ afr_mark_active_sinks (xlator_t *this, unsigned char *sources,
 gf_boolean_t
 afr_dict_contains_heal_op (call_frame_t *frame);
 
+gf_boolean_t
+afr_can_decide_split_brain_source_sinks (struct afr_reply *replies,
+                                         int child_count);
 int
 afr_mark_split_brain_source_sinks (call_frame_t *frame, xlator_t *this,
                                    inode_t *inode,

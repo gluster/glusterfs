@@ -748,13 +748,16 @@ afr_set_split_brain_choice (int ret, call_frame_t *frame, void *opaque)
         gf_boolean_t        timer_reset      = _gf_false;
         int                 old_spb_choice   = -1;
 
-        if (ret)
-                goto out;
-
         frame = data->frame;
         loc = data->loc;
         this = frame->this;
         priv = this->private;
+
+        if (ret) {
+                op_errno = -ret;
+                ret = -1;
+                goto out;
+        }
 
         delta.tv_sec = priv->spb_choice_timeout;
         delta.tv_nsec = 0;
@@ -5611,6 +5614,12 @@ afr_is_split_brain (call_frame_t *frame, xlator_t *this, inode_t *inode,
         if (ret)
                 goto out;
 
+        if (!afr_can_decide_split_brain_source_sinks (replies,
+                                                      priv->child_count)) {
+                ret = -EAGAIN;
+                goto out;
+        }
+
         ret = _afr_is_split_brain (frame, this, replies,
                                     AFR_DATA_TRANSACTION, d_spb);
         if (ret)
@@ -5663,6 +5672,13 @@ afr_get_split_brain_status (void *opaque)
         if (!inode)
                 goto out;
 
+        dict = dict_new ();
+        if (!dict) {
+                op_errno = ENOMEM;
+                ret = -1;
+                goto out;
+        }
+
         /* Calculation for string length :
         * (child_count X length of child-name) + strlen ("    Choices :")
         * child-name consists of :
@@ -5676,13 +5692,9 @@ afr_get_split_brain_status (void *opaque)
                                   &m_spb);
         if (ret) {
                 op_errno = -ret;
-                ret = -1;
-                goto out;
-        }
-
-        dict = dict_new ();
-        if (!dict) {
-                op_errno = ENOMEM;
+                if (ret == -EAGAIN)
+                        ret = dict_set_str (dict, GF_AFR_SBRAIN_STATUS,
+                                            SBRAIN_HEAL_NO_GO_MSG);
                 ret = -1;
                 goto out;
         }
