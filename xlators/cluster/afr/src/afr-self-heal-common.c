@@ -473,6 +473,19 @@ afr_dict_contains_heal_op (call_frame_t *frame)
         return _gf_true;
 }
 
+gf_boolean_t
+afr_can_decide_split_brain_source_sinks (struct afr_reply *replies,
+                                         int child_count)
+{
+        int i = 0;
+
+        for (i = 0; i < child_count; i++)
+                if (replies[i].valid != 1 || replies[i].op_ret != 0)
+                        return _gf_false;
+
+        return _gf_true;
+}
+
 int
 afr_mark_split_brain_source_sinks_by_heal_op (call_frame_t *frame,
                                    xlator_t *this, unsigned char *sources,
@@ -510,6 +523,14 @@ afr_mark_split_brain_source_sinks_by_heal_op (call_frame_t *frame,
                 }
         }
         xdata_rsp = local->xdata_rsp;
+
+        if (!afr_can_decide_split_brain_source_sinks (replies,
+                                                      priv->child_count)) {
+                ret = dict_set_str (xdata_rsp, "sh-fail-msg",
+                                    SBRAIN_HEAL_NO_GO_MSG);
+                ret = -1;
+                goto out;
+        }
 
         for (i = 0 ; i < priv->child_count; i++)
                 if (locked_on[i])
@@ -749,26 +770,35 @@ afr_sh_get_fav_by_policy (xlator_t *this, struct afr_reply *replies,
         int fav_child = -1;
 
         priv = this->private;
+        if (!afr_can_decide_split_brain_source_sinks (replies,
+                                                      priv->child_count)) {
+                return -1;
+        }
+
         switch (priv->fav_child_policy) {
         case AFR_FAV_CHILD_BY_SIZE:
                 fav_child = afr_sh_fav_by_size (this, replies, inode);
-                if (policy_str && fav_child >= 0)
+                if (policy_str && fav_child >= 0) {
                         *policy_str = "SIZE";
+                }
                 break;
         case AFR_FAV_CHILD_BY_CTIME:
                 fav_child = afr_sh_fav_by_ctime (this, replies, inode);
-                if (policy_str && fav_child >= 0)
+                if (policy_str && fav_child >= 0) {
                         *policy_str = "CTIME";
+                }
                 break;
         case AFR_FAV_CHILD_BY_MTIME:
                 fav_child = afr_sh_fav_by_mtime (this, replies, inode);
-                if (policy_str && fav_child >= 0)
+                if (policy_str && fav_child >= 0) {
                         *policy_str = "MTIME";
+                }
                 break;
         case AFR_FAV_CHILD_BY_MAJORITY:
                 fav_child = afr_sh_fav_by_majority (this, replies, inode);
-                if (policy_str && fav_child >= 0)
+                if (policy_str && fav_child >= 0) {
                         *policy_str = "MAJORITY";
+                }
                 break;
         case AFR_FAV_CHILD_NONE:
         default:
