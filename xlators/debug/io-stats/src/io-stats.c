@@ -2495,6 +2495,76 @@ io_stats_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
+int
+io_stats_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        UPDATE_PROFILE_STATS (frame, FENTRYLK);
+        STACK_UNWIND_STRICT (fentrylk, frame, op_ret, op_errno, xdata);
+        return 0;
+}
+
+int
+io_stats_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno, uint32_t weak_checksum,
+                       uint8_t *strong_checksum, dict_t *xdata)
+{
+        UPDATE_PROFILE_STATS (frame, RCHECKSUM);
+        STACK_UNWIND_STRICT (rchecksum, frame, op_ret, op_errno, weak_checksum,
+                            strong_checksum, xdata);
+        return 0;
+}
+
+int
+io_stats_seek_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, off_t offset,
+                   dict_t *xdata)
+{
+        UPDATE_PROFILE_STATS (frame, SEEK);
+        STACK_UNWIND_STRICT (seek, frame, op_ret, op_errno, offset, xdata);
+        return 0;
+}
+
+int
+io_stats_lease_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno,
+                   struct gf_lease *lease, dict_t *xdata)
+{
+        UPDATE_PROFILE_STATS (frame, LEASE);
+        STACK_UNWIND_STRICT (lease, frame, op_ret, op_errno, lease, xdata);
+        return 0;
+}
+
+int
+io_stats_getactivelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                          int32_t op_ret, int32_t op_errno,
+                          lock_migration_info_t *locklist,
+                          dict_t *xdata)
+{
+        UPDATE_PROFILE_STATS (frame, GETACTIVELK);
+        STACK_UNWIND_STRICT (getactivelk, frame, op_ret, op_errno,
+                             locklist, xdata);
+        return 0;
+}
+
+int
+io_stats_setactivelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                          int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        UPDATE_PROFILE_STATS (frame, SETACTIVELK);
+        STACK_UNWIND_STRICT (setactivelk, frame, op_ret, op_errno, xdata);
+        return 0;
+}
+
+int
+io_stats_compound_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, void *data,
+                     dict_t *xdata)
+{
+        UPDATE_PROFILE_STATS (frame, COMPOUND);
+        STACK_UNWIND_STRICT (compound, frame, op_ret, op_errno, data, xdata);
+        return 0;
+}
 
 int
 io_stats_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2536,6 +2606,20 @@ io_stats_entrylk (call_frame_t *frame, xlator_t *this,
                     FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->entrylk,
                     volume, loc, basename, cmd, type, xdata);
+        return 0;
+}
+
+int
+io_stats_fentrylk (call_frame_t *frame, xlator_t *this,
+		    const char *volume, fd_t *fd, const char *basename,
+		    entrylk_cmd cmd, entrylk_type type, dict_t *xdata)
+{
+       START_FOP_LATENCY (frame);
+
+       STACK_WIND (frame, io_stats_fentrylk_cbk,
+		    FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->fentrylk,
+		    volume, fd, basename, cmd, type, xdata);
         return 0;
 }
 
@@ -3369,6 +3453,83 @@ io_stats_lk (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
+int
+io_stats_rchecksum (call_frame_t *frame, xlator_t *this,
+                    fd_t *fd, off_t offset, int32_t len, dict_t *xdata)
+{
+        START_FOP_LATENCY (frame);
+
+        STACK_WIND (frame, io_stats_rchecksum_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->rchecksum,
+                    fd, offset, len, xdata);
+        return 0;
+}
+
+int
+io_stats_seek (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                off_t offset, gf_seek_what_t what, dict_t *xdata)
+{
+        START_FOP_LATENCY (frame);
+
+        STACK_WIND (frame, io_stats_seek_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->seek,
+                    fd, offset, what, xdata);
+        return 0;
+}
+
+int
+io_stats_lease (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                struct gf_lease *lease, dict_t *xdata)
+{
+        START_FOP_LATENCY (frame);
+
+        STACK_WIND (frame, io_stats_lease_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->lease,
+                    loc, lease, xdata);
+        return 0;
+}
+
+int
+io_stats_getactivelk (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                      dict_t *xdata)
+{
+        START_FOP_LATENCY (frame);
+
+        STACK_WIND (frame, io_stats_getactivelk_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->getactivelk,
+                    loc, xdata);
+        return 0;
+}
+
+int
+io_stats_setactivelk (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                      lock_migration_info_t *locklist, dict_t *xdata)
+{
+        START_FOP_LATENCY (frame);
+
+        STACK_WIND (frame, io_stats_setactivelk_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->setactivelk,
+                    loc, locklist, xdata);
+        return 0;
+}
+
+int
+io_stats_compound (call_frame_t *frame, xlator_t *this,
+                   void *args, dict_t *xdata)
+{
+        START_FOP_LATENCY (frame);
+
+        STACK_WIND (frame, io_stats_compound_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->compound,
+                    args, xdata);
+        return 0;
+}
 
 int
 io_stats_release (xlator_t *this, fd_t *fd)
@@ -4035,6 +4196,7 @@ struct xlator_fops fops = {
         .inodelk     = io_stats_inodelk,
         .finodelk    = io_stats_finodelk,
         .entrylk     = io_stats_entrylk,
+        .fentrylk    = io_stats_fentrylk,
         .lookup      = io_stats_lookup,
         .xattrop     = io_stats_xattrop,
         .fxattrop    = io_stats_fxattrop,
@@ -4044,6 +4206,12 @@ struct xlator_fops fops = {
 	.discard     = io_stats_discard,
         .zerofill    = io_stats_zerofill,
         .ipc         = io_stats_ipc,
+        .rchecksum   = io_stats_rchecksum,
+        .seek        = io_stats_seek,
+        .lease       = io_stats_lease,
+        .getactivelk = io_stats_getactivelk,
+        .setactivelk = io_stats_setactivelk,
+        .compound    = io_stats_compound,
 };
 
 struct xlator_cbks cbks = {
