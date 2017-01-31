@@ -720,6 +720,35 @@ out:
 }
 
 static int
+validate_disperse (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
+                 char *value, char **op_errstr)
+{
+        char                 errstr[2048]  = "";
+        int                  ret           = -1;
+        xlator_t            *this          = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        if (volinfo->type != GF_CLUSTER_TYPE_DISPERSE) {
+                snprintf (errstr, sizeof (errstr),
+                          "Cannot set %s for a non-disperse volume.", key);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOL_NOT_DISPERSE, "%s", errstr);
+                *op_errstr = gf_strdup (errstr);
+                ret = -1;
+                goto out;
+        }
+        ret = 0;
+
+out:
+        gf_msg_debug (ret == 0 ? THIS->name : "glusterd", 0, "Returning %d",
+                      ret);
+
+        return ret;
+}
+
+static int
 validate_replica (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                  char *value, char **op_errstr)
 {
@@ -3044,7 +3073,8 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key        = "cluster.shd-max-threads",
           .voltype    = "cluster/replicate",
           .op_version = GD_OP_VERSION_3_7_12,
-          .flags      = OPT_FLAG_CLIENT_OPT
+          .flags      = OPT_FLAG_CLIENT_OPT,
+          .validate_fn  = validate_replica
         },
         { .key        = "cluster.shd-wait-qlength",
           .voltype    = "cluster/replicate",
@@ -3087,7 +3117,8 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key        = "disperse.shd-max-threads",
           .voltype    = "cluster/disperse",
           .op_version = GD_OP_VERSION_3_9_0,
-          .flags      = OPT_FLAG_CLIENT_OPT
+          .flags      = OPT_FLAG_CLIENT_OPT,
+          .validate_fn  = validate_disperse
         },
         { .key        = "disperse.shd-wait-qlength",
           .voltype    = "cluster/disperse",
