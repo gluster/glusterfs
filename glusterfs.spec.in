@@ -1031,7 +1031,7 @@ exit 0
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/features/template.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance/symlink-cache.so
 # Glupy Python files
-%{python_sitelib}/gluster/glupy/*
+%{python2_sitelib}/gluster/glupy/*
 
 %files fuse
 # glusterfs is a symlink to glusterfsd, -server depends on -fuse.
@@ -1098,8 +1098,8 @@ exit 0
 %files -n python2-gluster
 # introducing glusterfs module in site packages.
 # so that all other gluster submodules can reside in the same namespace.
-%{python_sitelib}/gluster/__init__.*
-%{python_sitelib}/gluster/cliutils
+%{python2_sitelib}/gluster/__init__.*
+%{python2_sitelib}/gluster/cliutils
 
 %if ( 0%{!?_without_rdma:1} )
 %files rdma
