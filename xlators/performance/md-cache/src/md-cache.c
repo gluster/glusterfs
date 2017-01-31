@@ -2983,6 +2983,7 @@ init (xlator_t *this)
         GF_OPTION_INIT("cache-invalidation", conf->mdc_invalidation, bool, out);
 
         LOCK_INIT (&conf->lock);
+        LOCK_INIT (&conf->mdc_counter.lock);
         time (&conf->last_child_down);
 
         /* If timeout is greater than 60s (default before the patch that added
