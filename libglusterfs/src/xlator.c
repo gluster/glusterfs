@@ -406,6 +406,59 @@ out:
         return search;
 }
 
+
+/*
+ * With brick multiplexing, we sort of have multiple graphs, so
+ * xlator_search_by_name might not find what we want.  Also, the translator
+ * we're looking for might not be a direct child if something else was put in
+ * between (as already happened with decompounder before that was fixed) and
+ * it's hard to debug why our translator wasn't found.  Using a recursive tree
+ * search instead of a linear search works around both problems.
+ */
+static xlator_t *
+get_xlator_by_name_or_type (xlator_t *this, char *target, int is_name)
+{
+        xlator_list_t   *trav;
+        xlator_t        *child_xl;
+        char            *value;
+
+        for (trav = this->children; trav; trav = trav->next) {
+                value = is_name ? trav->xlator->name : trav->xlator->type;
+                if (strcmp(value, target) == 0) {
+                        return trav->xlator;
+                }
+                child_xl = get_xlator_by_name_or_type (trav->xlator, target,
+                                                       is_name);
+                if (child_xl) {
+                        /*
+                         * If the xlator we're looking for is somewhere down
+                         * the stack, get_xlator_by_name expects to get a
+                         * pointer to the top of its subtree (child of "this")
+                         * while get_xlator_by_type expects a pointer to what
+                         * we actually found.  Handle both cases here.
+                         *
+                         * TBD: rename the functions and fix callers to better
+                         * reflect the difference in semantics.
+                         */
+                        return is_name ? trav->xlator : child_xl;
+                }
+        }
+
+        return NULL;
+}
+
+xlator_t *
+get_xlator_by_name (xlator_t *this, char *target)
+{
+        return get_xlator_by_name_or_type (this, target, 1);
+}
+
+xlator_t *
+get_xlator_by_type (xlator_t *this, char *target)
+{
+        return get_xlator_by_name_or_type (this, target, 0);
+}
+
 static int
 __xlator_init(xlator_t *xl)
 {
@@ -1103,4 +1156,23 @@ xlator_subvolume_count (xlator_t *this)
         for (list = this->children; list; list = list->next)
                 i++;
         return i;
+}
+
+static int
+_copy_opt_to_child (dict_t *options, char *key, data_t *value, void *data)
+{
+        xlator_t        *child = data;
+
+        gf_log (__func__, GF_LOG_DEBUG,
+                "copying %s to child %s", key, child->name);
+        dict_set (child->options, key, value);
+
+        return 0;
+}
+
+int
+copy_opts_to_child (xlator_t *src, xlator_t *dst, char *glob)
+{
+        return dict_foreach_fnmatch (src->options, glob,
+                                     _copy_opt_to_child, dst);
 }

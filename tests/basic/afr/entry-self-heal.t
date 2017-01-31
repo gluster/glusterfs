@@ -81,7 +81,7 @@ TEST $CLI volume set $V0 performance.io-cache off
 TEST $CLI volume set $V0 performance.quick-read off
 TEST $CLI volume start $V0
 
-TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0 --use-readdirp=no
+TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 --use-readdirp=no $M0
 cd $M0
 #_me_ is dir on which missing entry self-heal happens, _heal is where dir self-heal happens
 #spb is split-brain, fool is all fool

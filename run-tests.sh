@@ -5,7 +5,7 @@
 export TZ=UTC
 force="no"
 head="yes"
-retry="no"
+retry="yes"
 tests=""
 exit_on_failure="yes"
 skip_bad_tests="yes"

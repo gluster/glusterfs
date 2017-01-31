@@ -19,7 +19,7 @@ TEST $CLI volume set $V0 performance.write-behind off
 TEST $CLI volume set $V0 performance.stat-prefetch off
 TEST $CLI volume set $V0 performance.read-ahead off
 TEST $CLI volume start $V0
-TEST $GFS -s $H0 --volfile-id=$V0 $M0 --direct-io-mode=enable;
+TEST $GFS -s $H0 --volfile-id=$V0 --direct-io-mode=enable $M0;
 
 touch $M0/a
 echo abc > $M0/b
@@ -75,7 +75,7 @@ TEST $CLI volume set $V0 performance.write-behind off
 TEST $CLI volume set $V0 performance.stat-prefetch off
 TEST $CLI volume set $V0 performance.read-ahead off
 TEST $CLI volume start $V0
-TEST $GFS -s $H0 --volfile-id=$V0 $M0 --direct-io-mode=enable;
+TEST $GFS -s $H0 --volfile-id=$V0 --direct-io-mode=enable $M0;
 
 touch $M0/a
 echo abc > $M0/b

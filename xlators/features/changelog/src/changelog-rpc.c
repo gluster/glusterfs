@@ -8,6 +8,7 @@
    cases as published by the Free Software Foundation.
 */
 
+#include "syscall.h"
 #include "changelog-rpc.h"
 #include "changelog-mem-types.h"
 #include "changelog-ev-handle.h"
@@ -160,11 +161,12 @@ changelog_destroy_rpc_listner (xlator_t *this, changelog_priv_t *priv)
 }
 
 rpcsvc_t *
-changelog_init_rpc_listner (xlator_t *this, changelog_priv_t *priv,
+changelog_init_rpc_listener (xlator_t *this, changelog_priv_t *priv,
                             rbuf_t *rbuf, int nr_dispatchers)
 {
         int ret = 0;
         char sockfile[UNIX_PATH_MAX] = {0,};
+        rpcsvc_t *svcp;
 
         ret = changelog_init_rpc_threads (this, priv, rbuf, nr_dispatchers);
         if (ret)
@@ -172,9 +174,11 @@ changelog_init_rpc_listner (xlator_t *this, changelog_priv_t *priv,
 
         CHANGELOG_MAKE_SOCKET_PATH (priv->changelog_brick,
                                     sockfile, UNIX_PATH_MAX);
-        return changelog_rpc_server_init (this, sockfile, NULL,
+        (void) sys_unlink (sockfile);
+        svcp = changelog_rpc_server_init (this, sockfile, NULL,
                                           changelog_rpcsvc_notify,
                                           changelog_programs);
+        return svcp;
 }
 
 void

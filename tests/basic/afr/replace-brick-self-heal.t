@@ -12,7 +12,7 @@ TEST $CLI volume set $V0 cluster.metadata-self-heal off
 TEST $CLI volume set $V0 cluster.entry-self-heal off
 
 TEST $CLI volume set $V0 self-heal-daemon off
-TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M0;
+TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0;
 
 # Create files
 for i in {1..5}

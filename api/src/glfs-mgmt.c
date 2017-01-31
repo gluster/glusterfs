@@ -69,7 +69,7 @@ glfs_process_volfp (struct glfs *fs, FILE *fp)
 		}
 	}
 
-	ret = glusterfs_graph_prepare (graph, ctx);
+	ret = glusterfs_graph_prepare (graph, ctx, fs->volname);
 	if (ret) {
 		glusterfs_graph_destroy (graph);
 		goto out;

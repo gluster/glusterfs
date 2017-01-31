@@ -152,8 +152,6 @@ gd_brick_op_req_free (gd1_mgmt_brick_op_req *req)
         if (!req)
                 return;
 
-        if (strcmp (req->name, "") != 0)
-                GF_FREE (req->name);
         GF_FREE (req->input.input_val);
         GF_FREE (req);
 }
@@ -998,6 +996,21 @@ gd_syncop_mgmt_brick_op (struct rpc_clnt *rpc, glusterd_pending_node_t *pnode,
                         goto out;
                 }
         }
+
+        if (req->op == GLUSTERD_BRICK_TERMINATE) {
+                if (args.op_ret && (args.op_errno == ENOTCONN)) {
+                        /*
+                         * This is actually OK.  It happens when the target
+                         * brick process exits and we saw the closed connection
+                         * before we read the response.  If we didn't read the
+                         * response quickly enough that's kind of our own
+                         * fault, and the fact that the process exited means
+                         * that our goal of terminating the brick was achieved.
+                         */
+                        args.op_ret = 0;
+                }
+        }
+
         if (args.op_ret == 0)
                 glusterd_handle_node_rsp (dict_out, pnode->node, op,
                                           args.dict, op_ctx, errstr,

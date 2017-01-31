@@ -3584,11 +3584,11 @@ pl_client_disconnect_cbk (xlator_t *this, client_t *client)
 
         pl_ctx = pl_ctx_get (client, this);
 
-        pl_inodelk_client_cleanup (this, pl_ctx);
-
-        pl_entrylk_client_cleanup (this, pl_ctx);
-
-        pl_metalk_client_cleanup (this, pl_ctx);
+        if (pl_ctx) {
+                pl_inodelk_client_cleanup (this, pl_ctx);
+                pl_entrylk_client_cleanup (this, pl_ctx);
+                pl_metalk_client_cleanup (this, pl_ctx);
+        }
 
         return 0;
 }

@@ -3385,10 +3385,8 @@ server_compound_resume (call_frame_t *frame, xlator_t *bound_xl)
         int                     length  = 0;
         int                     op_errno = ENOMEM;
         compound_req            *c_req  = NULL;
-        xlator_t                *this   = NULL;
 
         state = CALL_STATE (frame);
-        this = frame->this;
 
         if (state->resolve.op_ret != 0) {
                 ret = state->resolve.op_ret;
@@ -3422,8 +3420,7 @@ server_compound_resume (call_frame_t *frame, xlator_t *bound_xl)
         }
 
         STACK_WIND (frame, server_compound_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->compound,
+                    bound_xl, bound_xl->fops->compound,
                     args, state->xdata);
 
         return 0;

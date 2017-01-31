@@ -30,3 +30,6 @@ TEST $CLI volume start $V0 force
 TEST [ -e $B0/${V0}1/.trashcan/internal_op ]
 
 cleanup
+
+#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=1385758
+#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=1385758

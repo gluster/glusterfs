@@ -22,7 +22,7 @@ TEST kill_brick $V0 $H0 $B0/${V0}1
 
 # Doing `mount -t glusterfs $H0:$V0 $M0` fails right away but doesn't work on NetBSD
 # So check that stat <mount> fails instead.
-TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0
+TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0
 TEST ! stat $M0
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
@@ -34,7 +34,7 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}1
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 
-TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0
+TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0
 TEST  stat $M0
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 
