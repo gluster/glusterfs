@@ -2310,6 +2310,14 @@
  * @recommendedaction
  *
  */
+#define GD_MSG_VOL_NOT_DISPERSE                  (GLUSTERD_COMP_BASE + 282)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
 #define GD_MSG_OLD_REMOVE_BRICK_EXISTS          (GLUSTERD_COMP_BASE + 283)
 
 /*!
