@@ -3951,14 +3951,6 @@ cli_quotad_getlimit_cbk (struct rpc_req *req, struct iovec *iov,
                         goto out;
                 }
 
-                ret = dict_get_int32 (local->dict, "max_count",
-                                      &max_count);
-                if (ret < 0) {
-                        gf_log ("cli", GF_LOG_ERROR,
-                                "failed to get max_count");
-                        goto out;
-                }
-
                 node = list_node_add_order (dict, &local->dict_list,
                                             cli_quota_compare_path);
                 if (node == NULL) {
@@ -3968,16 +3960,27 @@ cli_quotad_getlimit_cbk (struct rpc_req *req, struct iovec *iov,
                         goto out;
                 }
 
-                if (list_count == max_count) {
-                        list_for_each_entry_safe (node, tmpnode,
-                                                  &local->dict_list, list) {
-                                dict = node->ptr;
-                                print_quota_list_from_quotad (frame, dict);
-                                list_node_del (node);
-                                dict_unref (dict);
-                        }
+       }
+
+        ret = dict_get_int32 (local->dict, "max_count",
+                              &max_count);
+        if (ret < 0) {
+                gf_log ("cli", GF_LOG_ERROR,
+                        "failed to get max_count");
+                goto out;
+        }
+
+        if (list_count == max_count) {
+                list_for_each_entry_safe (node, tmpnode,
+                                          &local->dict_list, list) {
+                        dict = node->ptr;
+                        print_quota_list_from_quotad (frame, dict);
+                        list_node_del (node);
+                        dict_unref (dict);
                 }
         }
+
+
 
 out:
         /* Bad Fix: CLI holds the lock to process a command.
