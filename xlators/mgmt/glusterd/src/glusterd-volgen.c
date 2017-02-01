@@ -2654,6 +2654,14 @@ perfxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
             (vme->op_version > volinfo->client_op_version))
                 return 0;
 
+        /* For replicate volumes do not load io-threads as it affects
+         * performance
+         */
+        if (!strcmp (vme->key, "performance.client-io-threads") &&
+            (GF_CLUSTER_TYPE_STRIPE_REPLICATE == volinfo->type ||
+             GF_CLUSTER_TYPE_REPLICATE == volinfo->type))
+                return 0;
+
         /* if VKEY_READDIR_AHEAD is enabled and parallel readdir is
          * not enabled then load readdir-ahead here else it will be
          * loaded as a child of dht */
