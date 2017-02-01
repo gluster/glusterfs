@@ -83,7 +83,6 @@ typedef enum glusterd_store_ver_ac_{
 #define GLUSTERD_STORE_KEY_SNAP_MAX_SOFT_LIMIT  "snap-max-soft-limit"
 #define GLUSTERD_STORE_KEY_SNAPD_PORT           "snapd-port"
 #define GLUSTERD_STORE_KEY_SNAP_ACTIVATE        "snap-activate-on-create"
-#define GLUSTERD_STORE_KEY_GANESHA_GLOBAL       "nfs-ganesha"
 
 #define GLUSTERD_STORE_KEY_BRICK_HOSTNAME       "hostname"
 #define GLUSTERD_STORE_KEY_BRICK_PATH           "path"

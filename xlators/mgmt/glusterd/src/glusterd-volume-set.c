@@ -2953,12 +2953,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_3_7_0,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .key         = "ganesha.enable",
-          .voltype     = "features/ganesha",
-          .value       = "off",
-          .option      = "ganesha.enable",
-          .op_version  = GD_OP_VERSION_3_7_0,
-        },
         { .key        = "features.shard",
           .voltype    = "features/shard",
           .value      = "off",

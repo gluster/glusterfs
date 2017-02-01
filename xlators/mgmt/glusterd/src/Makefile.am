@@ -5,7 +5,7 @@ glusterd_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 glusterd_la_SOURCES = glusterd.c glusterd-handler.c glusterd-sm.c \
 	glusterd-op-sm.c glusterd-utils.c glusterd-rpc-ops.c \
 	glusterd-store.c glusterd-handshake.c glusterd-pmap.c \
-	glusterd-volgen.c glusterd-rebalance.c glusterd-ganesha.c \
+	glusterd-volgen.c glusterd-rebalance.c \
 	glusterd-quota.c glusterd-bitrot.c glusterd-geo-rep.c \
 	glusterd-replace-brick.c glusterd-log-ops.c glusterd-tier.c \
 	glusterd-volume-ops.c glusterd-brick-ops.c glusterd-mountbroker.c \
@@ -48,8 +48,6 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(CONTRIBDIR)/mount -I$(CONTRIBDIR)/userspace-rcu \
 	-DSBIN_DIR=\"$(sbindir)\" -DDATADIR=\"$(localstatedir)\" \
 	-DGSYNCD_PREFIX=\"$(GLUSTERFS_LIBEXECDIR)\" \
-	-DCONFDIR=\"$(localstatedir)/run/gluster/shared_storage/nfs-ganesha\" \
-	-DGANESHA_PREFIX=\"$(libexecdir)/ganesha\" \
 	-DSYNCDAEMON_COMPILE=$(SYNCDAEMON_COMPILE) $(XML_CPPFLAGS)
 
 

@@ -56,8 +56,6 @@
 #define GLUSTERD_SHARED_STORAGE_KEY     "cluster.enable-shared-storage"
 #define GLUSTERD_BRICK_MULTIPLEX_KEY    "cluster.brick-multiplex"
 
-#define GANESHA_HA_CONF  CONFDIR "/ganesha-ha.conf"
-#define GANESHA_EXPORT_DIRECTORY        CONFDIR"/exports"
 #define GLUSTERD_SNAPS_MAX_HARD_LIMIT 256
 #define GLUSTERD_SNAPS_DEF_SOFT_LIMIT_PERCENT 90
 #define GLUSTERD_SNAPS_MAX_SOFT_LIMIT_PERCENT 100
@@ -118,7 +116,7 @@ typedef enum glusterd_op_ {
         GD_OP_GSYNC_CREATE,
         GD_OP_SNAP,
         GD_OP_BARRIER,
-        GD_OP_GANESHA,
+        GD_OP_GANESHA,     /* obsolete */
         GD_OP_BITROT,
         GD_OP_DETACH_TIER,
         GD_OP_TIER_MIGRATE,
@@ -1111,20 +1109,8 @@ int glusterd_op_create_volume (dict_t *dict, char **op_errstr);
 int glusterd_op_start_volume (dict_t *dict, char **op_errstr);
 int glusterd_op_stop_volume (dict_t *dict);
 int glusterd_op_delete_volume (dict_t *dict);
-int glusterd_handle_ganesha_op (dict_t *dict, char **op_errstr,
-                               char *key, char *value);
-int glusterd_check_ganesha_cmd (char *key, char *value,
-                                char **errstr, dict_t *dict);
-int glusterd_op_stage_set_ganesha (dict_t *dict, char **op_errstr);
-int glusterd_op_set_ganesha (dict_t *dict, char **errstr);
-int ganesha_manage_export (dict_t *dict, char *value, char **op_errstr);
 int manage_export_config (char *volname, char *value, char **op_errstr);
 
-gf_boolean_t
-glusterd_is_ganesha_cluster ();
-gf_boolean_t glusterd_check_ganesha_export (glusterd_volinfo_t *volinfo);
-int stop_ganesha (char **op_errstr);
-int tear_down_cluster (gf_boolean_t run_teardown);
 int glusterd_op_add_brick (dict_t *dict, char **op_errstr);
 int glusterd_op_remove_brick (dict_t *dict, char **op_errstr);
 int glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr,

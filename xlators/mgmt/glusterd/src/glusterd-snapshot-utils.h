@@ -99,17 +99,10 @@ glusterd_get_geo_rep_session (char *slave_key, char *origin_volname,
 int32_t
 glusterd_restore_geo_rep_files (glusterd_volinfo_t *snap_vol);
 
-int
-glusterd_restore_nfs_ganesha_file (glusterd_volinfo_t *src_vol,
-                                   glusterd_snap_t *snap);
 int32_t
 glusterd_copy_quota_files (glusterd_volinfo_t *src_vol,
                            glusterd_volinfo_t *dest_vol,
                            gf_boolean_t *conf_present);
-
-int
-glusterd_copy_nfs_ganesha_file (glusterd_volinfo_t *src_vol,
-                                glusterd_volinfo_t *dest_vol);
 
 int
 glusterd_snap_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict);
