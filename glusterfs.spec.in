@@ -236,6 +236,7 @@ Obsoletes:        hekafs
 Obsoletes:        %{name}-common < %{version}-%{release}
 Obsoletes:        %{name}-core < %{version}-%{release}
 Obsoletes:        %{name}-ufo
+Obsoletes:        %{name}-ganesha
 Provides:         %{name}-common = %{version}-%{release}
 Provides:         %{name}-core = %{version}-%{release}
 
@@ -368,26 +369,6 @@ is in user space and easily manageable.
 
 This package provides support to FUSE based clients and inlcudes the
 glusterfs(d) binary.
-
-%package ganesha
-Summary:          NFS-Ganesha configuration
-Group:            Applications/File
-
-Requires:         %{name}-server%{?_isa} = %{version}-%{release}
-Requires:         nfs-ganesha-gluster >= 2.4.1
-Requires:         dbus
-
-%description ganesha
-GlusterFS is a distributed file-system capable of scaling to several
-petabytes. It aggregates various storage bricks over Infiniband RDMA
-or TCP/IP interconnect into one large parallel network file
-system. GlusterFS is one of the most sophisticated file systems in
-terms of features and extensibility.  It borrows a powerful concept
-called Translators from GNU Hurd kernel. Much of the code in GlusterFS
-is in user space and easily manageable.
-
-This package provides the configuration and related files for using
-NFS-Ganesha as the NFS server using GlusterFS
 
 %if ( 0%{!?_without_georeplication:1} )
 %package geo-replication
@@ -1056,11 +1037,6 @@ exit 0
 %endif
 %endif
 
-%files ganesha
-%{_sysconfdir}/ganesha/*
-%{_libexecdir}/ganesha/*
-%{_sharedstatedir}/glusterd/hooks/1/start/post/S31ganesha-start.sh
-
 %if ( 0%{!?_without_georeplication:1} )
 %files geo-replication
 %config(noreplace) %{_sysconfdir}/logrotate.d/glusterfs-georep
@@ -1276,6 +1252,9 @@ exit 0
 %changelog
 * Thu Feb 16 2017 Niels de Vos <ndevos@redhat.com>
 - Obsolete and Provide python-gluster for upgrading from glusterfs < 3.10
+
+* Wed Feb 7 2017 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- remove ganesha (#1418417)
 
 * Wed Feb 1 2017 Poornima G <pgurusid@redhat.com>
 - Install /var/lib/glusterd/groups/metadata-cache by default
