@@ -4767,14 +4767,6 @@
  * @recommendedaction
  *
  */
-#define GD_MSG_NFS_GANESHA_DISABLED                (GLUSTERD_COMP_BASE + 589)
-
-/*!
- * @messageid
- * @diagnosis
- * @recommendedaction
- *
- */
 #define GD_MSG_TIERD_STOP_FAIL                      (GLUSTERD_COMP_BASE + 590)
 
 /*!

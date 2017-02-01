@@ -369,8 +369,7 @@ cli_cmd_submit (struct rpc_clnt* rpc, void *req, call_frame_t *frame,
         unsigned        timeout = 0;
 
         if ((GLUSTER_CLI_PROFILE_VOLUME == procnum) ||
-            (GLUSTER_CLI_HEAL_VOLUME == procnum) ||
-            (GLUSTER_CLI_GANESHA == procnum))
+            (GLUSTER_CLI_HEAL_VOLUME == procnum))
                 timeout = cli_ten_minutes_timeout;
         else
                 timeout = cli_default_conn_timeout;

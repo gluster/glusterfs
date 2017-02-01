@@ -253,9 +253,6 @@ cli_cmd_bitrot_parse (const char **words, int wordcount, dict_t **opt);
 int32_t
 cli_cmd_volume_set_parse (struct cli_state *state, const char **words,
                           int wordcount, dict_t **options, char **op_errstr);
-int32_t
-cli_cmd_ganesha_parse (struct cli_state *state, const char **words,
-                       int wordcount, dict_t **options, char **op_errstr);
 
 int32_t
 cli_cmd_get_state_parse (struct cli_state *state, const char **words,
