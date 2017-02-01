@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import volfilter
+import platform
 
 # It's just more convenient to have named fields.
 class Brick:
@@ -218,12 +219,19 @@ if __name__ == "__main__":
         total = 0
         for b in bricks:
                 info = os.statvfs(b.path)
+                # On FreeBSD f_bsize (info[0]) contains the optimal I/O size,
+                # not the block size as it's found on Linux. In this case we
+                # use f_frsize (info[1]).
+                if platform.system() == 'FreeBSD':
+                        bsize = info[1]
+                else:
+                        bsize = info[0]
                 # We want a standard unit even if different bricks use
                 # different block sizes.  The size is chosen to avoid overflows
                 # for very large bricks with very small block sizes, but also
                 # accommodate filesystems which use very large block sizes to
                 # cheat on benchmarks.
-                blocksper100mb = 104857600 / info[0]
+                blocksper100mb = 104857600 / bsize
                 if options.free_space:
                         size = info[3] / blocksper100mb
                 else:
