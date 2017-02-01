@@ -263,6 +263,11 @@ ssl_do (rpc_transport_t *this, void *buf, size_t len, SSL_trinary_func *func)
 			}
 			break;
 		case SSL_ERROR_WANT_WRITE:
+                        if ((func == (SSL_trinary_func *)SSL_read)
+                            || (func == (SSL_trinary_func *) SSL_write)) {
+                                errno = EAGAIN;
+                                return r;
+                        }
 			pfd.fd = priv->sock;
 			pfd.events = POLLOUT;
 			if (poll(&pfd,1,-1) < 0) {
