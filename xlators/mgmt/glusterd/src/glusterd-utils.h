@@ -699,7 +699,8 @@ glusterd_get_global_options_for_all_vols (rpcsvc_request_t *req, dict_t *dict,
 int
 glusterd_get_default_val_for_volopt (dict_t *dict, gf_boolean_t all_opts,
                                      char *key, char *orig_key,
-                                     dict_t *vol_dict, char **err_str);
+                                     glusterd_volinfo_t  *volinfo,
+                                     char **err_str);
 
 int
 glusterd_check_client_op_version_support (char *volname, uint32_t op_version,
