@@ -8,6 +8,10 @@ function count_up_bricks {
         $CLI --xml volume status $V0 | grep '<status>1' | wc -l
 }
 
+function count_brick_processes {
+	pgrep glusterfsd | wc -l
+}
+
 function count_brick_pids {
         $CLI --xml volume status $V0 | sed -n '/.*<pid>\([^<]*\).*/s//\1/p' \
                                      | grep -v "N/A" | sort | uniq | wc -l
@@ -22,31 +26,31 @@ TEST $CLI volume create $V0 $H0:$B0/brick{0,1}
 TEST $CLI volume start $V0
 # Without multiplexing, there would be two.
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 2 count_up_bricks
-EXPECT 1 online_brick_count
+EXPECT 1 count_brick_processes
 
 TEST $CLI volume stop $V0
-EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 0 online_brick_count
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 0 count_brick_processes
 TEST $CLI volume start $V0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 2 count_up_bricks
-EXPECT 1 online_brick_count
+EXPECT 1 count_brick_processes
 
 TEST kill_brick $V0 $H0 $B0/brick1
 EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 1 count_up_bricks
 # Make sure the whole process didn't go away.
-EXPECT 1 online_brick_count
+EXPECT 1 count_brick_processes
 
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 2 count_up_bricks
-EXPECT 1 online_brick_count
+EXPECT 1 count_brick_processes
 
 # Killing the first brick is a bit more of a challenge due to socket-path
 # issues.
 TEST kill_brick $V0 $H0 $B0/brick0
 EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 1 count_up_bricks
-EXPECT 1 online_brick_count
+EXPECT 1 count_brick_processes
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 2 count_up_bricks
-EXPECT 1 online_brick_count
+EXPECT 1 count_brick_processes
 
 # Make sure that the two bricks show the same PID.
 EXPECT 1 count_brick_pids

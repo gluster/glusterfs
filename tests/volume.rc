@@ -23,7 +23,7 @@ function brick_count()
 
 function online_brick_count ()
 {
-    pgrep glusterfsd | wc -l
+    find $GLUSTERD_WORKDIR/vols/ -name '*.pid' | wc -l
 }
 
 function brick_up_status {

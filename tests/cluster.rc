@@ -95,6 +95,7 @@ function kill_node() {
     h="H$index";
 
     kill -9 $(ps -ef | grep gluster | grep ${!h} | awk '{print $2}');
+    find $B0/$index/glusterd/vols -name '*.pid' | xargs rm -f
 }
 
 
@@ -176,4 +177,15 @@ function brick_up_status_1 {
         local host=$2
         local brick=$3
         $CLI_1 volume status $vol $host:$brick --xml | sed -ne 's/.*<status>\([01]\)<\/status>/\1/p'
+}
+
+function online_brick_count {
+	local bricks
+	local total=0
+	local i
+	for i in $(seq 1 $CLUSTER_COUNT); do
+		bricks=$(find $B0/$i/glusterd/vols -name '*.pid' | wc -l)
+		total=$((total+bricks))
+	done
+	echo $total
 }
