@@ -6315,14 +6315,13 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr,
         glusterd_brickinfo_t                    *brickinfo = NULL;
         glusterd_pending_node_t                 *pending_node = NULL;
         char                                    *brick = NULL;
-
-
+        int32_t                                 pid = -1;
+        char                                    pidfile[PATH_MAX] = {0};
 
         this = THIS;
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
-
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
@@ -6383,6 +6382,18 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr,
                 cds_list_for_each_entry (brickinfo, &volinfo->bricks,
                                          brick_list) {
                         if (glusterd_is_brick_started (brickinfo)) {
+                                /*
+                                 * In normal use, glusterd_is_brick_started
+                                 * will give us the answer we need.  However,
+                                 * in our tests the brick gets detached behind
+                                 * our back, so we need to double-check this
+                                 * way.
+                                 */
+                                GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo,
+                                                            brickinfo, priv);
+                                if (!gf_is_service_running (pidfile, &pid)) {
+                                        continue;
+                                }
                                 pending_node = GF_CALLOC (1, sizeof (*pending_node),
                                                           gf_gld_mt_pending_node_t);
                                 if (!pending_node) {
