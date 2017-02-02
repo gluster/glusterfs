@@ -349,7 +349,7 @@ clnt_release_reopen_fd_cbk (struct rpc_req *req, struct iovec *iov,
 
         clnt_fd_lk_reacquire_failed (this, fdctx, conf);
 
-        fdctx->reopen_done (fdctx, this);
+        fdctx->reopen_done (fdctx, fdctx->remote_fd, this);
 
         frame->local = NULL;
         STACK_DESTROY (frame->root);
@@ -382,7 +382,7 @@ clnt_release_reopen_fd (xlator_t *this, clnt_fd_ctx_t *fdctx)
  out:
         if (ret) {
                 clnt_fd_lk_reacquire_failed (this, fdctx, conf);
-                fdctx->reopen_done (fdctx, this);
+                fdctx->reopen_done (fdctx, fdctx->remote_fd, this);
         }
         return 0;
 }
@@ -501,7 +501,7 @@ client_reacquire_lock_cbk (struct rpc_req *req, struct iovec *iov,
                 }
                 pthread_mutex_unlock (&conf->lock);
 
-                fdctx->reopen_done (fdctx, this);
+                fdctx->reopen_done (fdctx, fdctx->remote_fd, this);
         }
 
         ret = 0;
@@ -611,7 +611,7 @@ client_reacquire_lock (xlator_t *this, clnt_fd_ctx_t *fdctx)
         if (client_fd_lk_list_empty (fdctx->lk_ctx, _gf_false)) {
                 gf_msg_debug (this->name, 0,
                               "fd lock list is empty");
-                fdctx->reopen_done (fdctx, this);
+                fdctx->reopen_done (fdctx, fdctx->remote_fd, this);
         } else {
                 lk_ctx = fdctx->lk_ctx;
 
@@ -627,14 +627,14 @@ out:
 }
 
 void
-client_default_reopen_done (clnt_fd_ctx_t *fdctx, xlator_t *this)
+client_default_reopen_done (clnt_fd_ctx_t *fdctx, int64_t rfd, xlator_t *this)
 {
         gf_log_callingfn (this->name, GF_LOG_WARNING,
                           "This function should never be called");
 }
 
 void
-client_reopen_done (clnt_fd_ctx_t *fdctx, xlator_t *this)
+client_reopen_done (clnt_fd_ctx_t *fdctx, int64_t rfd, xlator_t *this)
 {
         clnt_conf_t  *conf    = NULL;
         gf_boolean_t destroy  = _gf_false;
@@ -643,21 +643,23 @@ client_reopen_done (clnt_fd_ctx_t *fdctx, xlator_t *this)
 
         pthread_mutex_lock (&conf->lock);
         {
+                fdctx->remote_fd = rfd;
                 fdctx->reopen_attempts = 0;
+                fdctx->reopen_done = client_default_reopen_done;
                 if (!fdctx->released)
                         list_add_tail (&fdctx->sfd_pos, &conf->saved_fds);
                 else
                         destroy = _gf_true;
-                fdctx->reopen_done = client_default_reopen_done;
         }
         pthread_mutex_unlock (&conf->lock);
 
         if (destroy)
                 client_fdctx_destroy (this, fdctx);
+
 }
 
 void
-client_child_up_reopen_done (clnt_fd_ctx_t *fdctx, xlator_t *this)
+client_child_up_reopen_done (clnt_fd_ctx_t *fdctx, int64_t rfd, xlator_t *this)
 {
         clnt_conf_t  *conf    = NULL;
         uint64_t     fd_count = 0;
@@ -670,7 +672,7 @@ client_child_up_reopen_done (clnt_fd_ctx_t *fdctx, xlator_t *this)
         }
         UNLOCK (&conf->rec_lock);
 
-        client_reopen_done (fdctx, this);
+        client_reopen_done (fdctx, rfd, this);
         if (fd_count == 0) {
                 gf_msg (this->name, GF_LOG_INFO, 0, PC_MSG_CHILD_UP_NOTIFY,
                         "last fd open'd/lock-self-heal'd - notifying CHILD-UP");
@@ -733,7 +735,6 @@ client3_3_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         pthread_mutex_lock (&conf->lock);
         {
-                fdctx->remote_fd = rsp.fd;
                 if (!fdctx->released) {
                         if (conf->lk_heal &&
                             !client_fd_lk_list_empty (fdctx->lk_ctx,
@@ -763,7 +764,7 @@ client3_3_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         if (!attempt_lock_recovery)
-                fdctx->reopen_done (fdctx, this);
+                fdctx->reopen_done (fdctx, (rsp.op_ret) ? -1 : rsp.fd, this);
 
         frame->local = NULL;
         STACK_DESTROY (frame->root);
@@ -780,14 +781,12 @@ client3_3_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         int32_t        ret   = -1;
         gfs3_open_rsp  rsp   = {0,};
         clnt_local_t  *local = NULL;
-        clnt_conf_t   *conf  = NULL;
         clnt_fd_ctx_t *fdctx = NULL;
         call_frame_t  *frame = NULL;
 
         frame = myframe;
         local = frame->local;
         fdctx = local->fdctx;
-        conf  = frame->this->private;
 
 
         if (-1 == req->rpc_status) {
@@ -823,14 +822,8 @@ client3_3_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx->remote_fd = rsp.fd;
-        }
-        pthread_mutex_unlock (&conf->lock);
-
 out:
-        fdctx->reopen_done (fdctx, frame->this);
+        fdctx->reopen_done (fdctx, (rsp.op_ret) ? -1 : rsp.fd, frame->this);
 
         frame->local = NULL;
         STACK_DESTROY (frame->root);
@@ -891,7 +884,7 @@ out:
         if (local)
                 client_local_wipe (local);
 
-        fdctx->reopen_done (fdctx, this);
+        fdctx->reopen_done (fdctx, fdctx->remote_fd, this);
 
         return 0;
 
@@ -955,7 +948,7 @@ out:
         if (local)
                 client_local_wipe (local);
 
-        fdctx->reopen_done (fdctx, this);
+        fdctx->reopen_done (fdctx, fdctx->remote_fd, this);
 
         return 0;
 
