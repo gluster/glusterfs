@@ -171,7 +171,6 @@ main (int argc, char *argv[])
 {
         glfs_t                  *fs;
         struct rpc_clnt         *rpc;
-        xlator_t                that;
         dict_t                  *options;
         int                     ret;
         int                     op = GLUSTERD_BRICK_ATTACH;
@@ -197,7 +196,6 @@ done_parsing:
                 fprintf (stderr, "glfs_new failed\n");
                 return EXIT_FAILURE;
         }
-        that.ctx = fs->ctx;
 
         (void) glfs_set_logging (fs, "/dev/stderr", 7);
         /*
