@@ -14,7 +14,7 @@ TEST $CLI volume start $V0;
 
 TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0;
 B0_hiphenated=`echo $B0 | tr '/' '-'`
-kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0$B0_hiphenated-brick1.pid` ;
+kill_brick $V0 $H0 $B0/brick1
 
 echo "GLUSTER FILE SYSTEM" > $M0/FILE1
 echo "GLUSTER FILE SYSTEM" > $M0/FILE2
