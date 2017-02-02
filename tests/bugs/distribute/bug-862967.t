@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
 
 cleanup;
 
@@ -36,7 +37,7 @@ chown 1:1 $M0/dir;
 
 # Kill a brick process
 
-kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}1.pid`;
+kill_brick $V0 $H0 $B0/${V0}1
 # change dir ownership
 NEW_UID=36;
 NEW_GID=36;

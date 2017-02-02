@@ -1,6 +1,8 @@
 #!/bin/bash
 
 . $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
+
 cleanup;
 BRICK_COUNT=3
 
@@ -59,7 +61,7 @@ then
         get_cached_brick
         CACHED=$?
         # Kill a brick process
-        kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}$CACHED.pid`;
+	kill_brick $V0 $H0 $B0/${V0}$CACHED
 fi
 
 ## trigger a lookup
