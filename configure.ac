@@ -427,17 +427,21 @@ AC_SUBST(MATH_LIB)
 
 dnl use libuuid.so or fall-back to contrib/uuid
 PKG_CHECK_MODULES([UUID], [uuid],
-        [HAVE_LIBUUID=yes
+        [have_uuid=yes
          AC_DEFINE(HAVE_LIBUUID, 1, [have libuuid.so])
          PKGCONFIG_UUID=uuid],
-        [HAVE_LIBUUID=no
+        [have_uuid=no
          UUID_CFLAGS='-I$(CONTRIBDIR)/uuid'])
-AM_CONDITIONAL([HAVE_LIBUUID], [test x$HAVE_LIBUUID = xyes])
+AM_CONDITIONAL([HAVE_LIBUUID], [test x$have_uuid = xyes])
 
 dnl older version of libuuid (from e2fsprogs) require including uuid/uuid.h
 saved_CFLAGS=${CFLAGS}
 CFLAGS="${CFLAGS} ${UUID_CFLAGS}"
-AC_CHECK_HEADER([uuid.h], [], [AC_CHECK_HEADER([uuid/uuid.h])])
+AC_CHECK_HEADER([uuid.h], [], [AC_CHECK_HEADER([uuid/uuid.h])],
+                [[#if HAVE_UUID_H
+                  #include <uuid.h>
+                  #endif
+                ]])
 CFLAGS=${saved_CFLAGS}
 if test "x$ac_cv_header_uuid_uuid_h" = "xyes"; then
     UUID_CFLAGS="${UUID_CFLAGS} -I$(pkg-config --variable=includedir uuid)/uuid"
