@@ -3299,6 +3299,7 @@ client3_3_releasedir (call_frame_t *frame, xlator_t *this,
         clnt_fd_ctx_t       *fdctx       = NULL;
         clnt_args_t         *args        = NULL;
         int64_t              remote_fd   = -1;
+        gf_boolean_t         destroy     = _gf_false;
 
         if (!this || !data)
                 goto out;
@@ -3317,16 +3318,19 @@ client3_3_releasedir (call_frame_t *frame, xlator_t *this,
                            reopen_cbk handle releasing
                         */
 
-                        if (remote_fd != -1)
+                        if (remote_fd == -1) {
+                                fdctx->released = 1;
+                        } else {
                                 list_del_init (&fdctx->sfd_pos);
-
-                        fdctx->released = 1;
+                                destroy = _gf_true;
+                        }
                 }
         }
         pthread_mutex_unlock (&conf->lock);
 
-        if (remote_fd != -1)
+        if (destroy)
                 client_fdctx_destroy (this, fdctx);
+
 out:
 
         return 0;
@@ -3341,6 +3345,7 @@ client3_3_release (call_frame_t *frame, xlator_t *this,
         clnt_fd_ctx_t    *fdctx         = NULL;
         clnt_args_t      *args          = NULL;
         lk_heal_state_t   lk_heal_state = GF_LK_HEAL_DONE;
+        gf_boolean_t      destroy       = _gf_false;
 
         if (!this || !data)
                 goto out;
@@ -3359,17 +3364,17 @@ client3_3_release (call_frame_t *frame, xlator_t *this,
                            in progress. Just mark ->released = 1 and let
                            reopen_cbk handle releasing
                         */
-
-                        if (remote_fd != -1 &&
-                            lk_heal_state == GF_LK_HEAL_DONE)
+                        if (remote_fd == -1) {
+                                fdctx->released = 1;
+                        } else if (lk_heal_state == GF_LK_HEAL_DONE) {
                                 list_del_init (&fdctx->sfd_pos);
-
-                        fdctx->released = 1;
+                                destroy = _gf_true;
+                        }
                 }
         }
         pthread_mutex_unlock (&conf->lock);
 
-        if (remote_fd != -1 && lk_heal_state == GF_LK_HEAL_DONE)
+        if (destroy)
                 client_fdctx_destroy (this, fdctx);
 out:
         return 0;

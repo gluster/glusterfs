@@ -218,7 +218,7 @@ typedef struct _client_fd_ctx {
         pthread_mutex_t   mutex;
         lk_heal_state_t   lk_heal_state;
         uuid_t            gfid;
-        void (*reopen_done) (struct _client_fd_ctx*, xlator_t *);
+        void (*reopen_done)(struct _client_fd_ctx*, int64_t rfd, xlator_t *);
         struct list_head  lock_list;     /* List of all granted locks on this fd */
         int32_t           reopen_attempts;
 } clnt_fd_ctx_t;
@@ -347,7 +347,8 @@ int client_mark_fd_bad (xlator_t *this);
 int client_set_lk_version (xlator_t *this);
 
 int client_fd_lk_list_empty (fd_lk_ctx_t *lk_ctx, gf_boolean_t use_try_lock);
-void client_default_reopen_done (clnt_fd_ctx_t *fdctx, xlator_t *this);
+void client_default_reopen_done (clnt_fd_ctx_t *fdctx, int64_t rfd,
+                                 xlator_t *this);
 void client_attempt_reopen (fd_t *fd, xlator_t *this);
 int client_get_remote_fd (xlator_t *this, fd_t *fd, int flags,
                           int64_t *remote_fd);
