@@ -2944,6 +2944,33 @@ socket_fix_ssl_opts (rpc_transport_t *this, socket_private_t *priv,
         }
 }
 
+/*
+ * If we might just be trying to connect prematurely, e.g. to a brick that's
+ * slow coming up, all we need is a simple retry.  Don't worry about sleeping
+ * in some arbitrary thread.  The connect(2) could already have the exact same
+ * effect, and we deal with it in that case so we can deal with it for sleep(2)
+ * as well.
+ */
+static int
+connect_loop (int sockfd, const struct sockaddr *addr, socklen_t addrlen)
+{
+        int     ret;
+        int     connect_fails   = 0;
+
+        for (;;) {
+                ret = connect (sockfd, addr, addrlen);
+                if (ret >= 0) {
+                        break;
+                }
+                if ((errno != ENOENT) || (++connect_fails >= 5)) {
+                        break;
+                }
+                sleep (1);
+        }
+
+        return ret;
+}
+
 static int
 socket_connect (rpc_transport_t *this, int port)
 {
@@ -3105,8 +3132,15 @@ socket_connect (rpc_transport_t *this, int port)
                         }
                 }
 
-                ret = connect (priv->sock, SA (&this->peerinfo.sockaddr),
-                               this->peerinfo.sockaddr_len);
+                if (ign_enoent) {
+                        ret = connect_loop (priv->sock,
+                                            SA (&this->peerinfo.sockaddr),
+                                            this->peerinfo.sockaddr_len);
+                } else {
+                        ret = connect (priv->sock,
+                                       SA (&this->peerinfo.sockaddr),
+                                       this->peerinfo.sockaddr_len);
+                }
 
                 if (ret == -1 && errno == ENOENT && ign_enoent) {
                         gf_log (this->name, GF_LOG_WARNING,
