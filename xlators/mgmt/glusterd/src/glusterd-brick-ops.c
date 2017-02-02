@@ -1947,6 +1947,8 @@ glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
         glusterd_peerinfo_t    *peerinfo    = NULL;
         int                     i           = 0;
         int                     ret         = -1;
+        char                    pidfile[PATH_MAX+1] = {0,};
+        glusterd_conf_t        *priv        = THIS->private;
 
         /* Check whether all the nodes of the bricks to be removed are
         * up, if not fail the operation */
@@ -2008,11 +2010,25 @@ glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
                 }
 
                 if (glusterd_is_local_brick (THIS, volinfo, brickinfo)) {
-                        if (((cmd == GF_OP_CMD_START) ||
-                            (cmd == GF_OP_CMD_DETACH_START) ||
-                            (cmd == GF_DEFRAG_CMD_DETACH_START))  &&
-                            brickinfo->status != GF_BRICK_STARTED) {
+                        switch (cmd) {
+                        case GF_OP_CMD_START:
+                        case GF_OP_CMD_DETACH_START:
+                        case GF_DEFRAG_CMD_DETACH_START:
+                                break;
+                        default:
+                                continue;
+                        }
+                        if (brickinfo->status != GF_BRICK_STARTED) {
                                 snprintf (msg, sizeof (msg), "Found stopped "
+                                          "brick %s", brick);
+                                *errstr = gf_strdup (msg);
+                                ret = -1;
+                                goto out;
+                        }
+                        GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo,
+                                                    brickinfo, priv);
+                        if (!gf_is_service_running (pidfile, NULL)) {
+                                snprintf (msg, sizeof (msg), "Found dead "
                                           "brick %s", brick);
                                 *errstr = gf_strdup (msg);
                                 ret = -1;
