@@ -35,7 +35,7 @@ ORIG_FILE_COUNT=`ls -l $M0 | wc -l`;
 TEST [ $ORIG_FILE_COUNT -ge 1000 ]
 
 # Kill a brick process
-kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}1.pid`;
+kill_brick $V0 $H0 $B0/${V0}1
 
 TEST $CLI volume rebalance $V0 fix-layout start
 

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
 
 cleanup;
 
@@ -54,8 +55,8 @@ TEST glusterfs -s $H0 --volfile-id $V0 $M0 --entry-timeout=0 --attribute-timeout
 TEST ls -l $M0
 
 ## kill 2 bricks to bring down available subvol < spread count
-kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}2.pid`;
-kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}3.pid`;
+kill_brick $V0 $H0 $B0/${V0}2
+kill_brick $V0 $H0 $B0/${V0}3
 
 mkdir $M0/dir1 2>/dev/null
 

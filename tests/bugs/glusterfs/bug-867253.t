@@ -36,7 +36,7 @@ TEST mount_nfs $H0:/$V0 $M0 nolock,noac;
 touch $M0/files{1..1000};
 
 # Kill a brick process
-kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}0.pid`;
+kill_brick $V0 $H0 $B0/${V0}0
 
 drop_cache $M0
 
@@ -47,7 +47,7 @@ NEW_FILE_COUNT=`echo $?`;
 TEST $CLI volume start $V0 force
 
 # Kill a brick process
-kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}1.pid`;
+kill_brick $V0 $H0 $B0/${V0}1
 
 drop_cache $M0
 

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
 
 cleanup;
 
@@ -35,7 +36,7 @@ EXPECT $BRICK_COUNT query_pathinfo $M0/f00d;
 # Kill a brick process and then query for pathinfo
 # for directories pathinfo should list backend patch from available (up) subvolumes
 
-kill -9 `cat $GLUSTERD_WORKDIR/vols/$V0/run/$H0-d-backends-${V0}1.pid`;
+kill_brick $V0 $H0 ${B0}/${V0}1
 
 EXPECT `expr $BRICK_COUNT - 1` query_pathinfo $M0/f00d;
 
