@@ -22,6 +22,8 @@ EXPECT_WITHIN $PROBE_TIMEOUT 1 peer_count
 TEST $CLI_1 volume create $V0 $H1:$B1/${V0}0 $H1:$B1/${V0}1
 TEST $CLI_1 volume start $V0
 
+TEST $CLI_1 volume set $V0 nfs.disable off
+
 ## To Do: Add test case for quota and snapshot daemon. Currently quota
 ##        Daemon is not working in cluster framework. And sanpd daemon
 ##        Start only in one node in cluster framework. Add test case
