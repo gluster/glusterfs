@@ -562,7 +562,7 @@ int
 glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
                                        dict_t *dict,
                                        glusterd_volinfo_t *volinfo,
-                                       char **errstr);
+                                       char **errstr, gf_cli_defrag_type);
 int
 glusterd_get_slave_details_confpath (glusterd_volinfo_t *volinfo,
                                      dict_t *dict, char **slave_url,
