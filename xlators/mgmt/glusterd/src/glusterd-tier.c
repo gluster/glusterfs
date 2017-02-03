@@ -1029,9 +1029,10 @@ glusterd_op_stage_tier (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         goto out;
                 }
 
-                ret = glusterd_remove_brick_validate_bricks (cmd, brick_count,
+                ret = glusterd_remove_brick_validate_bricks (GF_OP_CMD_NONE,
+                                                             brick_count,
                                                              dict, volinfo,
-                                                             op_errstr);
+                                                             op_errstr, cmd);
                 if (ret)
                         goto out;
 
@@ -1104,9 +1105,10 @@ glusterd_op_stage_tier (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         goto out;
                 }
 
-                ret = glusterd_remove_brick_validate_bricks (cmd, brick_count,
+                ret = glusterd_remove_brick_validate_bricks (GF_OP_CMD_NONE,
+                                                             brick_count,
                                                              dict, volinfo,
-                                                            op_errstr);
+                                                             op_errstr, cmd);
                 if (ret)
                         goto out;
 
