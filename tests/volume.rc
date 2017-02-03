@@ -500,6 +500,7 @@ function volume_exists() {
 
 function killall_gluster() {
         pkill gluster
+        find $GLUSTERD_WORKDIR -name '*.pid' | xargs rm -f
         sleep 1
 }
 

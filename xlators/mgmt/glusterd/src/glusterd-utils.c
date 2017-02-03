@@ -5069,43 +5069,6 @@ attach_brick (xlator_t *this,
         return ret;
 }
 
-static glusterd_brickinfo_t *
-find_compatible_brick_in_volume (glusterd_conf_t *conf,
-                                 glusterd_volinfo_t *volinfo,
-                                 glusterd_brickinfo_t *brickinfo)
-{
-        xlator_t                *this                   = THIS;
-        glusterd_brickinfo_t    *other_brick;
-        char                    pidfile2[PATH_MAX]      = {0};
-        int32_t                 pid2                    = -1;
-
-        cds_list_for_each_entry (other_brick, &volinfo->bricks,
-                                 brick_list) {
-                if (other_brick == brickinfo) {
-                        continue;
-                }
-                if (!other_brick->started_here) {
-                        continue;
-                }
-                if (strcmp (brickinfo->hostname, other_brick->hostname) != 0) {
-                        continue;
-                }
-                GLUSTERD_GET_BRICK_PIDFILE (pidfile2, volinfo, other_brick,
-                                            conf);
-                if (!gf_is_service_running (pidfile2, &pid2)) {
-                        gf_log (this->name, GF_LOG_INFO,
-                                "cleaning up dead brick %s:%s",
-                                other_brick->hostname, other_brick->path);
-                        other_brick->started_here = _gf_false;
-                        sys_unlink (pidfile2);
-                        continue;
-                }
-                return other_brick;
-        }
-
-        return NULL;
-}
-
 static gf_boolean_t
 unsafe_option (dict_t *this, char *key, data_t *value, void *arg)
 {
@@ -5156,69 +5119,148 @@ opts_mismatch (dict_t *dict1, char *key, data_t *value1, void *dict2)
         return 0;
 }
 
+/* This name was just getting too long, hence the abbreviations. */
+static glusterd_brickinfo_t *
+find_compat_brick_in_vol (glusterd_conf_t *conf,
+                          glusterd_volinfo_t *srch_vol, /* volume to search */
+                          glusterd_volinfo_t *comp_vol, /* volume to compare */
+                          glusterd_brickinfo_t *brickinfo)
+{
+        xlator_t                *this                   = THIS;
+        glusterd_brickinfo_t    *other_brick;
+        char                    pidfile2[PATH_MAX]      = {0};
+        int32_t                 pid2                    = -1;
+
+        /*
+         * If comp_vol is provided, we have to check *volume* compatibility
+         * before we can check *brick* compatibility.
+         */
+        if (comp_vol) {
+                /*
+                 * It's kind of a shame that we have to do this check in both
+                 * directions, but an option might only exist on one of the two
+                 * dictionaries and dict_foreach_match will only find that one.
+                 */
+
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "comparing options for %s and %s",
+                         comp_vol->volname, srch_vol->volname);
+
+                if (dict_foreach_match (comp_vol->dict, unsafe_option, NULL,
+                                        opts_mismatch, srch_vol->dict) < 0) {
+                        gf_log (THIS->name, GF_LOG_DEBUG, "failure forward");
+                        return NULL;
+                }
+
+                if (dict_foreach_match (srch_vol->dict, unsafe_option, NULL,
+                                        opts_mismatch, comp_vol->dict) < 0) {
+                        gf_log (THIS->name, GF_LOG_DEBUG, "failure backward");
+                        return NULL;
+                }
+
+                gf_log (THIS->name, GF_LOG_DEBUG, "all options match");
+        }
+
+        cds_list_for_each_entry (other_brick, &srch_vol->bricks,
+                                 brick_list) {
+                if (other_brick == brickinfo) {
+                        continue;
+                }
+                if (!other_brick->started_here) {
+                        continue;
+                }
+                if (strcmp (brickinfo->hostname, other_brick->hostname) != 0) {
+                        continue;
+                }
+                GLUSTERD_GET_BRICK_PIDFILE (pidfile2, srch_vol, other_brick,
+                                            conf);
+                if (!gf_is_service_running (pidfile2, &pid2)) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "cleaning up dead brick %s:%s",
+                                other_brick->hostname, other_brick->path);
+                        other_brick->started_here = _gf_false;
+                        sys_unlink (pidfile2);
+                        continue;
+                }
+                return other_brick;
+        }
+
+        return NULL;
+}
+
 static glusterd_brickinfo_t *
 find_compatible_brick (glusterd_conf_t *conf,
                        glusterd_volinfo_t *volinfo,
                        glusterd_brickinfo_t *brickinfo,
                        glusterd_volinfo_t **other_vol_p)
 {
-        glusterd_brickinfo_t    *other_brick;
-        glusterd_volinfo_t      *other_vol;
+        glusterd_brickinfo_t    *other_brick = NULL;
+        glusterd_volinfo_t      *other_vol   = NULL;
+        glusterd_snap_t         *snap        = NULL;
 
         /* Just return NULL here if multiplexing is disabled. */
         if (!is_brick_mx_enabled ()) {
                 return NULL;
         }
 
-        other_brick = find_compatible_brick_in_volume (conf, volinfo,
-                                                       brickinfo);
+        other_brick = find_compat_brick_in_vol (conf, volinfo, NULL, brickinfo);
         if (other_brick) {
                 *other_vol_p = volinfo;
                 return other_brick;
         }
 
-        cds_list_for_each_entry (other_vol, &conf->volumes, vol_list) {
-                if (other_vol == volinfo) {
-                        continue;
+        /*
+         * This check is necessary because changes to a volume's
+         * transport options aren't propagated to snapshots.  Such a
+         * change might break compatibility between the two, but we
+         * have no way to "evict" a brick from the process it's
+         * currently in.  If we keep it separate from the start, we
+         * avoid the problem.  Note that snapshot bricks can still be
+         * colocated with one another, even if they're for different
+         * volumes, because the only thing likely to differ is their
+         * auth options and those are not a factor in determining
+         * compatibility.
+         *
+         * The very same immutability of snapshot bricks' transport
+         * options, which can make them incompatible with their parent
+         * volumes, ensures that once-compatible snapshot bricks will
+         * remain compatible.  However, the same is not true for bricks
+         * belonging to two non-snapshot volumes.  In that case, a
+         * change to one might break compatibility and require them to
+         * be separated, which is not yet done.
+         *
+         * TBD: address the option-change issue for non-snapshot bricks
+         */
+        if (!volinfo->is_snap_volume) {
+                cds_list_for_each_entry (other_vol, &conf->volumes, vol_list) {
+                        if (other_vol == volinfo) {
+                                continue;
+                        }
+                        other_brick = find_compat_brick_in_vol (conf,
+                                                                other_vol,
+                                                                volinfo,
+                                                                brickinfo);
+                        if (other_brick) {
+                                *other_vol_p = other_vol;
+                                return other_brick;
+                        }
                 }
-                if (volinfo->is_snap_volume) {
-                        /*
-                         * Snap volumes do have different options than their
-                         * parents, but are nonetheless generally compatible.
-                         * Skip the option comparison for now, until we figure
-                         * out how to handle this (e.g. compare at the brick
-                         * level instead of the volume level for this case).
-                         *
-                         * TBD: figure out compatibility for snap bricks
-                         */
-                        goto no_opt_compare;
-                }
-                /*
-                 * It's kind of a shame that we have to do this check in both
-                 * directions, but an option might only exist on one of the two
-                 * dictionaries and dict_foreach_match will only find that one.
-                 */
-                gf_log (THIS->name, GF_LOG_DEBUG,
-                        "comparing options for %s and %s",
-                        volinfo->volname, other_vol->volname);
-                if (dict_foreach_match (volinfo->dict, unsafe_option, NULL,
-                                        opts_mismatch, other_vol->dict) < 0) {
-                        gf_log (THIS->name, GF_LOG_DEBUG, "failure forward");
-                        continue;
-                }
-                if (dict_foreach_match (other_vol->dict, unsafe_option, NULL,
-                                        opts_mismatch, volinfo->dict) < 0) {
-                        gf_log (THIS->name, GF_LOG_DEBUG, "failure backward");
-                        continue;
-                }
-                gf_log (THIS->name, GF_LOG_DEBUG, "all options match");
-no_opt_compare:
-                other_brick = find_compatible_brick_in_volume (conf,
-                                                               other_vol,
-                                                               brickinfo);
-                if (other_brick) {
-                        *other_vol_p = other_vol;
-                        return other_brick;
+        } else {
+                cds_list_for_each_entry (snap, &conf->snapshots, snap_list) {
+                    cds_list_for_each_entry (other_vol, &snap->volumes,
+                                             vol_list) {
+                        if (other_vol == volinfo) {
+                                continue;
+                        }
+                        other_brick = find_compat_brick_in_vol (conf,
+                                                                other_vol,
+                                                                volinfo,
+                                                                brickinfo);
+                        if (other_brick) {
+                                *other_vol_p = other_vol;
+                                return other_brick;
+                        }
+                    }
                 }
         }
 
