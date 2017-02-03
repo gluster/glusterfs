@@ -14,7 +14,8 @@
 %#include "compat.h"
 
  enum gf_cli_defrag_type {
-        GF_DEFRAG_CMD_START = 1,
+	GF_DEFRAG_CMD_NONE = 0,
+        GF_DEFRAG_CMD_START,
         GF_DEFRAG_CMD_STOP,
         GF_DEFRAG_CMD_STATUS,
         GF_DEFRAG_CMD_START_LAYOUT_FIX,

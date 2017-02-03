@@ -1938,7 +1938,8 @@ int
 glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
                                        dict_t *dict,
                                        glusterd_volinfo_t *volinfo,
-                                       char **errstr)
+                                       char **errstr,
+                                       gf_cli_defrag_type cmd_defrag)
 {
         char                   *brick       = NULL;
         char                    msg[2048]   = {0,};
@@ -1986,7 +1987,7 @@ glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
                         }
 
                         if (cmd == GF_OP_CMD_DETACH_COMMIT ||
-                            cmd == GF_DEFRAG_CMD_DETACH_COMMIT) {
+                            cmd_defrag == GF_DEFRAG_CMD_DETACH_COMMIT) {
                                 snprintf (msg, sizeof (msg), "Bricks in Hot "
                                           "tier are not decommissioned yet. Use "
                                           "gluster volume tier <VOLNAME> "
@@ -1997,7 +1998,7 @@ glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
                         }
                 } else {
                         if ((cmd == GF_OP_CMD_DETACH_COMMIT ||
-                            (cmd == GF_DEFRAG_CMD_DETACH_COMMIT)) &&
+                            (cmd_defrag == GF_DEFRAG_CMD_DETACH_COMMIT)) &&
                             (volinfo->rebal.defrag_status == GF_DEFRAG_STATUS_STARTED)) {
                                         snprintf (msg, sizeof (msg), "Bricks in Hot "
                                                   "tier are not decommissioned yet. Wait for "
@@ -2013,11 +2014,20 @@ glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
                         switch (cmd) {
                         case GF_OP_CMD_START:
                         case GF_OP_CMD_DETACH_START:
+                                goto check;
+                        case GF_OP_CMD_NONE:
+                        default:
+                                break;
+                        }
+
+                        switch (cmd_defrag) {
                         case GF_DEFRAG_CMD_DETACH_START:
                                 break;
+                        case GF_DEFRAG_CMD_NONE:
                         default:
                                 continue;
                         }
+check:
                         if (brickinfo->status != GF_BRICK_STARTED) {
                                 snprintf (msg, sizeof (msg), "Found stopped "
                                           "brick %s", brick);
@@ -2226,7 +2236,8 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
 
                 ret = glusterd_remove_brick_validate_bricks (cmd, brick_count,
                                                              dict, volinfo,
-                                                             &errstr);
+                                                             &errstr,
+                                                             GF_DEFRAG_CMD_NONE);
                 if (ret)
                         goto out;
 
@@ -2279,7 +2290,8 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
 
                 ret = glusterd_remove_brick_validate_bricks (cmd, brick_count,
                                                              dict, volinfo,
-                                                             &errstr);
+                                                             &errstr,
+                                                             GF_DEFRAG_CMD_NONE);
                 if (ret)
                         goto out;
 
@@ -2309,7 +2321,8 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
 
                 ret = glusterd_remove_brick_validate_bricks (cmd, brick_count,
                                                              dict, volinfo,
-                                                             &errstr);
+                                                             &errstr,
+                                                             GF_DEFRAG_CMD_NONE);
                 if (ret)
                         goto out;
 
