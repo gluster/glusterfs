@@ -2375,7 +2375,6 @@ notify (xlator_t *this, int event, void *data, ...)
        /* Check whether posix is up not */
         if (event == GF_EVENT_CHILD_UP) {
 
-                priv->trash_itable = inode_table_new (0, this);
                 if (!priv->state) {
                         gf_log (this->name, GF_LOG_DEBUG, "trash xlator is off");
                         goto out;
@@ -2547,6 +2546,7 @@ init (xlator_t *this)
                 goto out;
         }
 
+        priv->trash_itable = inode_table_new (0, this);
         gf_log (this->name, GF_LOG_DEBUG, "brick path is%s", priv->brick_path);
 
         this->private = (void *)priv;
