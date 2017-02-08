@@ -403,7 +403,7 @@ _check_for_auth_option (dict_t *d, char *k, data_t *v,
                 goto out;
 
         if (strncmp(tail, "addr.", 5) != 0) {
-                gf_msg (xl->name, GF_LOG_INFO, 0, PS_MSG_SKIP_FORMAT_CHK,
+                gf_msg (xl->name, GF_LOG_TRACE, 0, PS_MSG_SKIP_FORMAT_CHK,
                         "skip format check for non-addr auth option %s", k);
                 goto out;
         }

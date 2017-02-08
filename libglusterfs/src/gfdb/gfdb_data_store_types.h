@@ -579,7 +579,7 @@ typedef struct gfdb_connection {
                 data = dict_get (params_dict, param_key);\
                 if (!data) {\
                         str_value = _default_v;\
-                        gf_msg (comp_name, GF_LOG_WARNING, 0,\
+                        gf_msg (comp_name, GF_LOG_TRACE, 0,\
                                 LG_MSG_GET_PARAM_FAILED, "Failed to retrieve "\
                                 "%s from params.Assigning default value: %s",\
                                 param_key, _default_v);\
