@@ -6143,7 +6143,7 @@ glusterd_bricks_select_stop_volume (dict_t *dict, char **op_errstr,
         glusterd_brickinfo_t                    *brickinfo = NULL;
         glusterd_pending_node_t                 *pending_node = NULL;
         glusterd_conf_t                         *conf = THIS->private;
-        char                                    pidfile[1024];
+        char                                    pidfile[PATH_MAX] = {0,};
 
         ret = glusterd_op_stop_volume_args_get (dict, &volname, &flags);
         if (ret)
@@ -6207,7 +6207,7 @@ glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr,
         int32_t                                 command = 0;
         int32_t                                 force = 0;
         glusterd_conf_t                         *conf = THIS->private;
-        char                                    pidfile[1024];
+        char                                    pidfile[PATH_MAX] = {0,};
 
         ret = dict_get_str (dict, "volname", &volname);
 
