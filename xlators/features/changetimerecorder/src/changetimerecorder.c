@@ -2097,7 +2097,7 @@ reconfigure (xlator_t *this, dict_t *options)
         priv = this->private;
         if (dict_get_str(options, "changetimerecorder.frequency",
                          &temp_str)) {
-                gf_msg(this->name, GF_LOG_INFO, 0, CTR_MSG_SET, "set");
+                gf_msg(this->name, GF_LOG_TRACE, 0, CTR_MSG_SET, "set");
         }
 
         GF_OPTION_RECONF ("ctr-enabled", priv->enabled, options,

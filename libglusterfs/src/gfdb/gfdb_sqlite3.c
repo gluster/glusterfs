@@ -1399,7 +1399,7 @@ gf_sqlite3_set_pragma (void *db_conn, char *pragma_key, char *pragma_value)
                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0, LG_MSG_QUERY_FAILED,
                         "Failed to get %s pragma", pragma_key);
         } else {
-                gf_msg (GFDB_STR_SQLITE3, GF_LOG_INFO, 0, 0,
+                gf_msg (GFDB_STR_SQLITE3, GF_LOG_TRACE, 0, 0,
                         "Value set on DB %s : %s", pragma_key, db_pragma_value);
         }
         GF_FREE (db_pragma_value);

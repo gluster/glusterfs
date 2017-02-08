@@ -261,7 +261,7 @@ gf_add_cmdline_options (glusterfs_graph_t *graph, cmd_args_t *cmd_args)
                                                     cmd_option->key,
                                                     cmd_option->value);
                                 if (ret == 0) {
-                                        gf_msg (trav->name, GF_LOG_INFO, 0,
+                                        gf_msg (trav->name, GF_LOG_TRACE, 0,
                                                 LG_MSG_VOL_OPTION_ADD,
                                                 "adding option '%s' for "
                                                 "volume '%s' with value '%s'",
