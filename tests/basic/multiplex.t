@@ -18,10 +18,12 @@ function count_brick_pids {
 }
 
 TEST glusterd
-TEST $CLI volume set all cluster.brick-multiplex yes
+TEST $CLI volume set all cluster.brick-multiplex on
 push_trapfunc "$CLI volume set all cluster.brick-multiplex off"
 push_trapfunc "cleanup"
+
 TEST $CLI volume create $V0 $H0:$B0/brick{0,1}
+TEST $CLI volume set $V0 features.trash enable
 
 TEST $CLI volume start $V0
 # Without multiplexing, there would be two.
