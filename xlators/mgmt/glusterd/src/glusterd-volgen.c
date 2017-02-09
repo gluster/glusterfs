@@ -4997,7 +4997,8 @@ build_shd_graph (volgen_graph_t *graph, dict_t *mod_dict)
                 goto out;
         }
 
-        graph_check = dict_get_str_boolean (mod_dict, "graph-check", 0);
+        if (mod_dict)
+                graph_check = dict_get_str_boolean (mod_dict, "graph-check", 0);
         iostxl = volgen_graph_add_as (graph, "debug/io-stats", "glustershd");
         if (!iostxl) {
                 ret = -1;
