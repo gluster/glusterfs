@@ -2334,6 +2334,7 @@ ec_heal_do (xlator_t *this, void *data, loc_t *loc, int32_t partial)
         gf_boolean_t  blocking       = _gf_false;
         gf_boolean_t  need_heal      = _gf_false;
         unsigned char *up_subvols    = NULL;
+	char up_bricks[32];
 
         ec = this->private;
 
@@ -2372,15 +2373,16 @@ ec_heal_do (xlator_t *this, void *data, loc_t *loc, int32_t partial)
                 ret = ec_heal_name (frame, ec, loc->parent, (char *)loc->name,
                                     participants);
                 if (ret == 0) {
-                        gf_msg (this->name, GF_LOG_INFO, 0,
-                                EC_MSG_HEAL_SUCCESS, "%s: name heal "
+                        gf_msg_debug (this->name, 0, "%s: name heal "
                                 "successful on %lX", loc->path,
                                 ec_char_array_to_mask (participants,
                                     ec->nodes));
                 } else {
-                        gf_msg (this->name, GF_LOG_INFO, -ret,
-                                EC_MSG_HEAL_FAIL, "%s: name heal "
-                                "failed", loc->path);
+                        gf_msg_debug (this->name, 0, "%s: name heal "
+                                "failed. ret = %d, subvolumes up = %s",
+                                loc->path, ret,
+                                ec_bin(up_bricks, sizeof(up_bricks), ec->xl_up,
+                                ec->nodes));
                 }
         }
 
