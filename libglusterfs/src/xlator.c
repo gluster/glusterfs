@@ -752,6 +752,7 @@ xlator_tree_free_memacct (xlator_t *tree)
         while (prev) {
                 trav = prev->next;
                 xlator_memrec_free (prev);
+                GF_FREE (prev);
                 prev = trav;
         }
 
