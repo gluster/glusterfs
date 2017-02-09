@@ -289,11 +289,31 @@ cli_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         return ret;
 }
 
+static gf_boolean_t
+is_valid_int (char *str)
+{
+        if (*str == '-')
+                ++str;
+
+        /* Handle empty string or just "-".*/
+        if (!*str)
+                return _gf_false;
+
+        /* Check for non-digit chars in the rest of the string */
+        while (*str) {
+                if (!isdigit(*str))
+                        return _gf_false;
+        else
+                ++str;
+        }
+        return _gf_true;
+}
 
 /*
  * ret: 0: option successfully processed
  *      1: signalling end of option list
- *     -1: unknown option or other issue
+ *     -1: unknown option
+ *     -2: parsing issue (avoid unknown option error)
  */
 int
 cli_opt_parse (char *opt, struct cli_state *state)
@@ -359,6 +379,11 @@ cli_opt_parse (char *opt, struct cli_state *state)
         }
         oarg = strtail (opt, "timeout=");
         if (oarg) {
+                if (!is_valid_int (oarg) || atoi(oarg) <= 0) {
+                        cli_err ("timeout value should be a postive integer");
+                        return -2; /* -2 instead of -1 to avoid unknown option
+                                      error */
+                }
                 cli_default_conn_timeout = atoi(oarg);
                 return 0;
         }
@@ -423,6 +448,8 @@ parse_cmdline (int argc, char *argv[], struct cli_state *state)
                         ret = cli_opt_parse (opt, state);
                         if (ret == -1) {
                                 cli_out ("unrecognized option --%s", opt);
+                                return ret;
+                        } else if (ret == -2) {
                                 return ret;
                         }
                         for (j = i; j < state->argc - 1; j++)
