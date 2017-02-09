@@ -745,7 +745,7 @@ dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
                 goto err;
         }
 
-        ret = dict_set_dynstr_with_alloc (xdata, DHT_IATT_IN_XDATA_KEY, "yes");
+        ret = dict_set_int8 (xdata, DHT_IATT_IN_XDATA_KEY, 1);
         if (ret < 0) {
                 gf_msg (this->name, GF_LOG_WARNING, 0, DHT_MSG_DICT_SET_FAILED,
                         "%s: Failed to set dictionary value: key = %s,"
