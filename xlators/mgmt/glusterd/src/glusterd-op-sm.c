@@ -67,7 +67,7 @@ glusterd_set_shared_storage (dict_t *dict, char *key, char *value,
  * in glusterd_get_global_options_for_all_vols, or else we might crash there.
  */
 glusterd_all_vol_opts valid_all_vol_opts[] = {
-        { GLUSTERD_QUORUM_RATIO_KEY,            "0" },
+        { GLUSTERD_QUORUM_RATIO_KEY,            "51" },
         { GLUSTERD_SHARED_STORAGE_KEY,          "disable" },
         /* This one actually gets filled in dynamically. */
         { GLUSTERD_GLOBAL_OP_VERSION_KEY,       "BUG_NO_OP_VERSION"},
