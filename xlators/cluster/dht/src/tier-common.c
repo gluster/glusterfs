@@ -735,8 +735,7 @@ tier_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
                  */
                 xdata = xdata ? dict_ref (xdata) : dict_new ();
                 if (xdata) {
-                        ret = dict_set_dynstr_with_alloc (xdata,
-                                DHT_IATT_IN_XDATA_KEY, "yes");
+                        ret = dict_set_int8 (xdata, DHT_IATT_IN_XDATA_KEY, 1);
                         if (ret) {
                                 gf_msg_debug (this->name, 0,
                                         "Failed to set dictionary key %s",

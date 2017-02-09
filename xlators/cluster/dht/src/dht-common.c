@@ -3847,8 +3847,7 @@ dht_fsetxattr (call_frame_t *frame, xlator_t *this,
 
                 xdata = xdata ? dict_ref (xdata) : dict_new ();
                 if (xdata)
-                        ret = dict_set_dynstr_with_alloc (xdata,
-                                        DHT_IATT_IN_XDATA_KEY, "yes");
+                        ret = dict_set_int8 (xdata, DHT_IATT_IN_XDATA_KEY, 1);
                 if (ret) {
                         gf_msg_debug (this->name, 0,
                                       "Failed to set dictionary key %s for fd=%p",
@@ -4256,8 +4255,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
 
                 xdata = xdata ? dict_ref (xdata) : dict_new ();
                 if (xdata)
-                        ret = dict_set_dynstr_with_alloc (xdata,
-                                              DHT_IATT_IN_XDATA_KEY, "yes");
+                        ret = dict_set_int8 (xdata, DHT_IATT_IN_XDATA_KEY, 1);
 
                 STACK_WIND_COOKIE (frame, dht_file_setxattr_cbk, subvol,
                                    subvol, subvol->fops->setxattr, loc, xattr,
@@ -4495,8 +4493,7 @@ dht_removexattr (call_frame_t *frame, xlator_t *this,
                 local->call_cnt = 1;
                 xdata = xdata ? dict_ref (xdata) : dict_new ();
                 if (xdata)
-                        ret = dict_set_dynstr_with_alloc (xdata,
-                                 DHT_IATT_IN_XDATA_KEY, "yes");
+                        ret = dict_set_int8 (xdata, DHT_IATT_IN_XDATA_KEY, 1);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                                 DHT_MSG_DICT_SET_FAILED, "Failed to "
@@ -4585,8 +4582,7 @@ dht_fremovexattr (call_frame_t *frame, xlator_t *this,
                 local->call_cnt = 1;
                 xdata = xdata ? dict_ref (xdata) : dict_new ();
                 if (xdata)
-                        ret = dict_set_dynstr_with_alloc (xdata,
-                                 DHT_IATT_IN_XDATA_KEY, "yes");
+                        ret = dict_set_int8 (xdata, DHT_IATT_IN_XDATA_KEY, 1);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                                 DHT_MSG_DICT_SET_FAILED, "Failed to "
