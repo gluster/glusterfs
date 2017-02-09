@@ -4384,15 +4384,8 @@ glusterd_import_global_opts (dict_t *friend_data)
                  * recompute if quorum is met. If quorum is not met bricks are
                  * not started and those already running are stopped
                  */
-                if (old_quorum != new_quorum) {
-                        ret = glusterd_restart_bricks (conf);
-                        if (ret) {
-                                gf_msg ("glusterd", GF_LOG_INFO, 0,
-                                        GD_MSG_SERVER_QUORUM_NOT_MET,
-                                        "Restarting bricks failed");
-                                goto out;
-                        }
-                }
+                if (old_quorum != new_quorum)
+                        glusterd_restart_bricks (conf);
         }
 
         ret = 0;
@@ -5456,6 +5449,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                         }
                 }
         }
+        ret = 0;
 
 out:
         conf->restart_done = _gf_true;
