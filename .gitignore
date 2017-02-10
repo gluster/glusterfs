@@ -79,6 +79,7 @@ glusterfs.spec
 glusterfsd/src/glusterd
 glusterfsd/src/glusterfs
 glusterfsd/src/glusterfsd
+glusterfsd/src/gf_attach
 heal/src/glfsheal
 libgfchangelog.pc
 libgfdb.pc
