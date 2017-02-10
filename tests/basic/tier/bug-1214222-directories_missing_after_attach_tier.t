@@ -20,7 +20,6 @@ cleanup
 
 
 TEST glusterd
-TEST pidof glusterd
 
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0..$LAST_BRICK}
 TEST $CLI volume start $V0
@@ -57,7 +56,6 @@ EXPECT "0" confirm_tier_removed ${V0}${CACHE_BRICK_FIRST}
 
 EXPECT_WITHIN $REBALANCE_TIMEOUT "0" confirm_vol_stopped $V0
 
+cleanup;
 
-cleanup
 #G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=000000
-#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=000000
