@@ -24,6 +24,7 @@ function create_dist_tier_vol () {
         TEST $CLI volume set $V0 features.ctr-enabled on
         TEST $CLI volume start $V0
         TEST $CLI volume attach-tier $V0 $H0:$B0/hot/${V0}{0..$1}
+        TEST $CLI volume set $V0 cluster.tier-mode test
         TEST $CLI volume set $V0 cluster.tier-demote-frequency $DEMOTE_FREQ
         TEST $CLI volume set $V0 cluster.tier-promote-frequency $PROMOTE_FREQ
         TEST $CLI volume set $V0 cluster.read-freq-threshold 4
@@ -35,9 +36,6 @@ cleanup;
 
 #Basic checks
 TEST glusterd
-TEST pidof glusterd
-TEST $CLI volume info
-
 
 #Create and start a tiered volume
 create_dist_tier_vol $NUM_BRICKS
@@ -52,6 +50,12 @@ touch "$M0/$FILE"
 # Get the path of the file on the hot tier
 HPATH=`find $B0/hot/ -name  "$FILE"`
 echo "File path on hot tier: "$HPATH
+
+############################################
+# as per the changes on b8b050c3
+# To test the xttr set by EC
+TEST ! getfattr -n "trusted.ec.size" $HPATH
+############################################
 
 # Expecting the file to be on the hot tier
 EXPECT "yes" exists_and_regular_file $HPATH
@@ -98,5 +102,5 @@ echo "File path on hot tier: "$HPATH
 EXPECT "yes" exists_and_regular_file $HPATH
 
 cleanup;
+
 #G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=000000
-#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=000000
