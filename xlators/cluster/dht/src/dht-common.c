@@ -3934,6 +3934,7 @@ dht_setxattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
                 goto err;
 
         local = frame->local;
+        op_errno = local->op_errno;
 
         if (we_are_not_migrating (ret)) {
                 /* This dht xlator is not migrating the file. Unwind and
@@ -3948,7 +3949,6 @@ dht_setxattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
         if (subvol == NULL)
                 goto err;
 
-        op_errno = local->op_errno;
 
         local->call_cnt = 2; /* This is the second attempt */
 
@@ -4356,10 +4356,11 @@ dht_removexattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame,
         dht_local_t *local    = NULL;
         int          op_errno = EINVAL;
 
-        if (!frame || !frame->local || !subvol)
+        if (!frame || !frame->local)
                 goto err;
 
         local = frame->local;
+        op_errno = local->op_errno;
 
         local->call_cnt = 2; /* This is the second attempt */
 
@@ -4373,6 +4374,9 @@ dht_removexattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame,
                                   local->op_errno, local->rebalance.xdata);
                 return 0;
         }
+
+        if (subvol == NULL)
+                goto err;
 
         if (local->fop == GF_FOP_REMOVEXATTR) {
                 STACK_WIND_COOKIE (frame, dht_file_removexattr_cbk, subvol,
