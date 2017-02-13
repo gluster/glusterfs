@@ -145,17 +145,32 @@ glusterd_nfssvc_reconfigure ()
         xlator_t        *this            = NULL;
         glusterd_conf_t *priv            = NULL;
         gf_boolean_t     identical       = _gf_false;
+        gf_boolean_t     vol_started     = _gf_false;
+        glusterd_volinfo_t *volinfo      = NULL;
 
         this = THIS;
         GF_VALIDATE_OR_GOTO (this->name, this, out);
 
         priv = this->private;
         GF_VALIDATE_OR_GOTO (this->name, priv, out);
+
+        cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                if (GLUSTERD_STATUS_STARTED == volinfo->status) {
+                        vol_started = _gf_true;
+                        break;
+                }
+        }
+        if (!vol_started) {
+                ret = 0;
+                goto out;
+        }
+
         /*
          * Check both OLD and NEW volfiles, if they are SAME by size
          * and cksum i.e. "character-by-character". If YES, then
          * NOTHING has been changed, just return.
          */
+
         ret = glusterd_svc_check_volfile_identical (priv->nfs_svc.name,
                                                     build_nfs_graph,
                                                     &identical);
