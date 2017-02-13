@@ -2543,8 +2543,6 @@ __mnt3svc_umountall (struct mount3_state *ms)
                 GF_FREE (me);
         }
 
-        dict_unref (ms->mountdict);
-
         return 0;
 }
 
@@ -3938,7 +3936,13 @@ mnt3svc_deinit (xlator_t *nfsx)
                 mnt3_auth_params_deinit (mstate->auth_params);
 
         /* Unmount everything and clear mountdict */
-        mnt3svc_umountall (mstate);
+        LOCK (&mstate->mountlock);
+        {
+                __mnt3svc_umountall (mstate);
+                dict_unref (mstate->mountdict);
+        }
+        UNLOCK (&mstate->mountlock);
+
 }
 
 rpcsvc_program_t *
