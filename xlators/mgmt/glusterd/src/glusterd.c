@@ -313,7 +313,8 @@ glusterd_fetchspec_notify (xlator_t *this)
                 list_for_each_entry (trans, &priv->xprt_list, list) {
                         rpcsvc_callback_submit (priv->rpc, trans,
                                                 &glusterd_cbk_prog,
-                                                GF_CBK_FETCHSPEC, NULL, 0);
+                                                GF_CBK_FETCHSPEC, NULL, 0,
+                                                NULL);
                 }
         }
         pthread_mutex_unlock (&priv->xprt_lock);
@@ -349,7 +350,8 @@ glusterd_fetchsnap_notify (xlator_t *this)
                 list_for_each_entry (trans, &priv->xprt_list, list) {
                         rpcsvc_callback_submit (priv->rpc, trans,
                                                 &glusterd_cbk_prog,
-                                                GF_CBK_GET_SNAPS, NULL, 0);
+                                                GF_CBK_GET_SNAPS, NULL, 0,
+                                                NULL);
                 }
         }
         pthread_mutex_unlock (&priv->xprt_lock);
