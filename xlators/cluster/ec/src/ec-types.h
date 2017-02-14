@@ -408,7 +408,6 @@ struct _ec_code_gen {
 struct _ec_code {
     gf_lock_t         lock;
     struct list_head  spaces;
-    uint32_t          width;
     ec_gf_t          *gf;
     ec_code_gen_t    *gen;
 };
@@ -484,7 +483,6 @@ struct _ec_matrix_list {
     uint32_t           rows;
     uint32_t           max;
     uint32_t           count;
-    uint32_t           width;
     uint32_t           stripe;
     struct mem_pool   *pool;
     ec_gf_t           *gf;
