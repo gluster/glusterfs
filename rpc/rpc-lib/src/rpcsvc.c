@@ -1014,6 +1014,7 @@ int rpcsvc_request_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
         struct iovec            iov         = {0, };
         struct iobuf            *iobuf      = NULL;
         ssize_t                 xdr_size    = 0;
+        struct iobref           *iobref     = NULL;
 
         if (!req)
                 goto out;
@@ -1036,12 +1037,24 @@ int rpcsvc_request_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
         iov.iov_len = ret;
         count = 1;
 
+        iobref = iobref_new ();
+        if (!iobref) {
+                ret = -1;
+                gf_log ("rpcsvc", GF_LOG_WARNING, "Failed to create iobref");
+                goto out;
+        }
+
+        iobref_add (iobref, iobuf);
+
         ret = rpcsvc_callback_submit (rpc, trans, prog, procnum,
-                                      &iov, count);
+                                      &iov, count, iobref);
 
 out:
         if (iobuf)
                 iobuf_unref (iobuf);
+
+        if (iobref)
+                iobref_unref (iobref);
 
         return ret;
 }
@@ -1049,7 +1062,8 @@ out:
 int
 rpcsvc_callback_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
                         rpcsvc_cbk_program_t *prog, int procnum,
-                        struct iovec *proghdr, int proghdrcount)
+                        struct iovec *proghdr, int proghdrcount,
+                        struct iobref *iobref)
 {
         struct iobuf          *request_iob = NULL;
         struct iovec           rpchdr      = {0,};
@@ -1057,6 +1071,7 @@ rpcsvc_callback_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
         int                    ret         = -1;
         int                    proglen     = 0;
         uint32_t               xid         = 0;
+        gf_boolean_t           new_iobref  = _gf_false;
 
         if (!rpc) {
                 goto out;
@@ -1078,11 +1093,22 @@ rpcsvc_callback_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
                         "cannot build rpc-record");
                 goto out;
         }
+        if (!iobref) {
+                iobref = iobref_new ();
+                if (!iobref) {
+                        gf_log ("rpcsvc", GF_LOG_WARNING, "Failed to create iobref");
+                        goto out;
+                }
+                new_iobref = 1;
+        }
+
+        iobref_add (iobref, request_iob);
 
         req.msg.rpchdr = &rpchdr;
         req.msg.rpchdrcount = 1;
         req.msg.proghdr = proghdr;
         req.msg.proghdrcount = proghdrcount;
+        req.msg.iobref = iobref;
 
         ret = rpc_transport_submit_request (trans, &req);
         if (ret == -1) {
@@ -1095,6 +1121,9 @@ rpcsvc_callback_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
 
 out:
         iobuf_unref (request_iob);
+
+        if (new_iobref)
+               iobref_unref (iobref);
 
         return ret;
 }

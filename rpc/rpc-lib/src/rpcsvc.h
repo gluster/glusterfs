@@ -581,7 +581,8 @@ int rpcsvc_request_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
 
 int rpcsvc_callback_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
                             rpcsvc_cbk_program_t *prog, int procnum,
-                            struct iovec *proghdr, int proghdrcount);
+                            struct iovec *proghdr, int proghdrcount,
+                            struct iobref *iobref);
 
 rpcsvc_actor_t *
 rpcsvc_program_actor (rpcsvc_request_t *req);
