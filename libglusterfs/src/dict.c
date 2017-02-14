@@ -22,6 +22,7 @@
 #include "hashfn.h"
 #include "logging.h"
 #include "compat.h"
+#include "compat-errno.h"
 #include "byte-order.h"
 #include "globals.h"
 #include "statedump.h"
@@ -2387,6 +2388,33 @@ err:
         return ret;
 }
 
+int
+dict_rename_key (dict_t *this, char *key, char *replace_key)
+{
+        data_pair_t *pair = NULL;
+        int          ret  = -EINVAL;
+
+        /* replacing a key by itself is a NO-OP */
+        if (strcmp (key, replace_key) == 0)
+                return 0;
+
+        LOCK (&this->lock);
+        {
+                /* no need to data_ref(pair->value), dict_set_lk() does it */
+                pair = dict_lookup_common (this, key);
+                if (!pair)
+                        ret = -ENODATA;
+                else
+                        ret = dict_set_lk (this, replace_key, pair->value, 1);
+        }
+        UNLOCK (&this->lock);
+
+        if (!ret)
+                /* only delete the key on success */
+                dict_del (this, key);
+
+        return ret;
+}
 
 /**
  * Serialization format:
