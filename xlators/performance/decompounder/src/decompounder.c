@@ -893,6 +893,7 @@ struct xlator_cbks cbks = {
 };
 
 struct volume_options options[] = {
+        { .key  = {NULL} },
 };
 
 struct xlator_fops fops = {
