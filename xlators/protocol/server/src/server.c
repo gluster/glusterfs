@@ -1235,12 +1235,18 @@ server_process_event_upcall (xlator_t *this, void *data)
                         if (!client || strcmp(client->client_uid, client_uid))
                                 continue;
 
-                        rpcsvc_request_submit(conf->rpc, xprt,
-                                              &server_cbk_prog,
-                                              cbk_procnum,
-                                              up_req,
-                                              this->ctx,
-                                              xdrproc);
+                        ret = rpcsvc_request_submit (conf->rpc, xprt,
+                                                     &server_cbk_prog,
+                                                     cbk_procnum,
+                                                     up_req,
+                                                     this->ctx,
+                                                     xdrproc);
+                        if (ret < 0) {
+                                gf_msg_debug (this->name, 0, "Failed to send "
+                                              "upcall to client:%s upcall "
+                                              "event:%d", client_uid,
+                                              upcall_data->event_type);
+                        }
                         break;
                 }
         }
@@ -1272,7 +1278,7 @@ server_process_child_event (xlator_t *this, int32_t event, void *data,
                         rpcsvc_callback_submit (conf->rpc, xprt,
                                                 &server_cbk_prog,
                                                 cbk_procnum,
-                                                NULL, 0);
+                                                NULL, 0, NULL);
                 }
         }
         pthread_mutex_unlock (&conf->mutex);
