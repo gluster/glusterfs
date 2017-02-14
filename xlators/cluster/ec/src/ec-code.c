@@ -679,11 +679,6 @@ ec_code_create(ec_gf_t *gf, ec_code_gen_t *gen)
 
     code->gf = gf;
     code->gen = gen;
-    if (gen == NULL) {
-        code->width = sizeof(uint64_t);
-    } else {
-        code->width = gen->width;
-    }
 
     return code;
 }
@@ -717,45 +712,70 @@ ec_code_value_next(uint32_t *values, uint32_t count, uint32_t *offset)
 }
 
 static void *
+ec_code_build_dynamic(ec_code_t *code, uint32_t width, uint32_t *values,
+                      uint32_t count, gf_boolean_t linear)
+{
+        ec_code_builder_t *builder;
+        uint32_t offset, val, next;
+
+        builder = ec_code_prepare(code, count, width, linear);
+        if (EC_IS_ERR(builder)) {
+                return builder;
+        }
+
+        offset = -1;
+        next = ec_code_value_next(values, count, &offset);
+        if (next != 0) {
+                ec_code_gf_load(builder, offset);
+                do {
+                        val = next;
+                        next = ec_code_value_next(values, count, &offset);
+                        if (next != 0) {
+                                ec_code_gf_mul(builder, ec_gf_div(code->gf,
+                                                                  val, next));
+                                ec_code_gf_load_xor(builder, offset);
+                        }
+                } while (next != 0);
+                ec_code_gf_mul(builder, val);
+                ec_code_gf_store(builder);
+        } else {
+                ec_code_gf_clear(builder);
+        }
+
+        return ec_code_compile(builder);
+}
+
+static void *
 ec_code_build(ec_code_t *code, uint32_t width, uint32_t *values,
               uint32_t count, gf_boolean_t linear)
 {
-    ec_code_builder_t *builder;
-    uint32_t offset, val, next;
+        void *func;
 
-    if (code->gen == NULL) {
-        ec_code_c_prepare(code->gf, values, count);
-        if (linear) {
-            return ec_code_c_linear;
-        } else {
-            return ec_code_c_interleaved;
+        if (code->gen != NULL) {
+                func = ec_code_build_dynamic(code, width, values, count,
+                                             linear);
+                if (!EC_IS_ERR(func)) {
+                        return func;
+                }
+
+                gf_msg_debug(THIS->name, GF_LOG_DEBUG,
+                             "Unable to generate dynamic code. Falling back "
+                             "to precompiled code");
+
+                /* The dynamic code generation shouldn't fail in normal
+                 * conditions, but if it fails at some point, it's very
+                 * probable that it will fail again, so we completely disable
+                 * dynamic code generation. */
+                code->gen = NULL;
         }
-    }
 
-    builder = ec_code_prepare(code, count, width, linear);
-    if (EC_IS_ERR(builder)) {
-        return builder;
-    }
+        ec_code_c_prepare(code->gf, values, count);
 
-    offset = -1;
-    next = ec_code_value_next(values, count, &offset);
-    if (next != 0) {
-        ec_code_gf_load(builder, offset);
-        do {
-            val = next;
-            next = ec_code_value_next(values, count, &offset);
-            if (next != 0) {
-                ec_code_gf_mul(builder, ec_gf_div(code->gf, val, next));
-                ec_code_gf_load_xor(builder, offset);
-            }
-        } while (next != 0);
-        ec_code_gf_mul(builder, val);
-        ec_code_gf_store(builder);
-    } else {
-        ec_code_gf_clear(builder);
-    }
+        if (linear) {
+                return ec_code_c_linear;
+        }
 
-    return ec_code_compile(builder);
+        return ec_code_c_interleaved;
 }
 
 ec_code_func_linear_t
@@ -777,9 +797,10 @@ ec_code_build_interleaved(ec_code_t *code, uint32_t width, uint32_t *values,
 void
 ec_code_release(ec_code_t *code, ec_code_func_t *func)
 {
-    if (code->gen != NULL) {
-        ec_code_free(ec_code_chunk_from_func(func->linear));
-    }
+        if ((func->linear != ec_code_c_linear) &&
+            (func->interleaved != ec_code_c_interleaved)) {
+                ec_code_free(ec_code_chunk_from_func(func->linear));
+        }
 }
 
 void
