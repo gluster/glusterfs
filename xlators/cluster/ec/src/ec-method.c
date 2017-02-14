@@ -70,12 +70,11 @@ ec_method_matrix_inverse(ec_gf_t *gf, uint32_t *matrix, uint32_t *values,
     }
 }
 
-static int32_t
+static void
 ec_method_matrix_init(ec_matrix_list_t *list, ec_matrix_t *matrix,
                       uintptr_t mask, uint32_t *rows, gf_boolean_t inverse)
 {
     uint32_t i;
-    int32_t err = 0;
 
     matrix->refs = 1;
     matrix->mask = mask;
@@ -94,11 +93,6 @@ ec_method_matrix_init(ec_matrix_list_t *list, ec_matrix_t *matrix,
                                           EC_METHOD_WORD_SIZE,
                                           matrix->row_data[i].values,
                                           matrix->columns);
-            if (EC_IS_ERR(matrix->row_data[i].func.interleaved)) {
-                err = EC_GET_ERR(matrix->row_data[i].func.interleaved);
-                matrix->row_data[i].func.interleaved = NULL;
-                break;
-            }
         }
     } else {
         matrix->rows = list->rows;
@@ -110,15 +104,8 @@ ec_method_matrix_init(ec_matrix_list_t *list, ec_matrix_t *matrix,
                 ec_code_build_linear(matrix->code, EC_METHOD_WORD_SIZE,
                                      matrix->row_data[i].values,
                                      matrix->columns);
-            if (EC_IS_ERR(matrix->row_data[i].func.linear)) {
-                err = EC_GET_ERR(matrix->row_data[i].func.linear);
-                matrix->row_data[i].func.linear = NULL;
-                break;
-            }
         }
     }
-
-    return err;
 }
 
 static void
@@ -218,7 +205,6 @@ ec_method_matrix_get(ec_matrix_list_t *list, uintptr_t mask, uint32_t *rows)
 {
     ec_matrix_t *matrix;
     uint32_t pos;
-    int32_t err = 0;
 
     LOCK(&list->lock);
 
@@ -247,13 +233,7 @@ ec_method_matrix_get(ec_matrix_list_t *list, uintptr_t mask, uint32_t *rows)
                                       sizeof(ec_matrix_row_t) * list->columns);
     }
 
-    err = ec_method_matrix_init(list, matrix, mask, rows, _gf_true);
-    if (err != 0) {
-        ec_method_matrix_unref(list, matrix);
-        matrix = EC_ERR(err);
-
-        goto out;
-    }
+    ec_method_matrix_init(list, matrix, mask, rows, _gf_true);
 
     if (list->count < list->max) {
         ec_method_matrix_insert(list, matrix);
@@ -303,22 +283,16 @@ ec_method_setup(xlator_t *xl, ec_matrix_list_t *list, const char *gen)
         list->code = NULL;
         goto failed_matrix;
     }
-    list->width = list->code->width;
 
     for (i = 0; i < list->rows; i++) {
         values[i] = i + 1;
     }
-    err = ec_method_matrix_init(list, matrix, 0, values, _gf_false);
-    if (err != 0) {
-        goto failed_code;
-    }
+    ec_method_matrix_init(list, matrix, 0, values, _gf_false);
 
     list->encode = matrix;
 
     return 0;
 
-failed_code:
-    ec_code_destroy(list->code);
 failed_matrix:
     GF_FREE(matrix);
 failed:
