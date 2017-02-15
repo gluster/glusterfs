@@ -182,6 +182,7 @@ new_volume (char *name)
         construct->first = curr;
 
         construct->xl_count++;
+        curr->xl_id = construct->xl_count;
 
         gf_msg_trace ("parser", 0, "New node for '%s'", name);
 

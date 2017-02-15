@@ -953,6 +953,9 @@ struct _xlator {
 
         /* Saved volfile ID (used for multiplexing) */
         char               *volfile_id;
+
+        /* Its used as an index to inode_ctx*/
+        uint32_t            xl_id;
 };
 
 typedef struct {
