@@ -451,21 +451,15 @@ static int
 __inode_get_xl_index (inode_t *inode, xlator_t *xlator)
 {
         int set_idx = -1;
-        int index   = 0;
 
-        for (index = 0; index < inode->table->ctxcount; index++) {
-                if (!inode->_ctx[index].xl_key) {
-                        if (set_idx == -1)
-                                set_idx = index;
-                        /* dont break, to check if key already exists
-                           further on */
-                }
-                if (inode->_ctx[index].xl_key == xlator) {
-                        set_idx = index;
-                        break;
-                }
-        }
+        if ((inode->_ctx[xlator->xl_id].xl_key != NULL) &&
+            (inode->_ctx[xlator->xl_id].xl_key != xlator))
+                goto out;
 
+        set_idx = xlator->xl_id;
+        inode->_ctx[set_idx].xl_key = xlator;
+
+out:
         return set_idx;
 }
 
@@ -2075,12 +2069,8 @@ __inode_ctx_get2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
         if (!inode || !xlator || !inode->_ctx)
                 goto out;
 
-        for (index = 0; index < inode->table->ctxcount; index++) {
-                if (inode->_ctx[index].xl_key == xlator)
-                        break;
-        }
-
-        if (index == inode->table->ctxcount)
+        index = xlator->xl_id;
+        if (inode->_ctx[index].xl_key != xlator)
                 goto out;
 
         if (inode->_ctx[index].value1) {
@@ -2196,13 +2186,8 @@ inode_ctx_del2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
                 if (!inode->_ctx)
                         goto unlock;
 
-                for (index = 0; index < inode->table->ctxcount;
-                     index++) {
-                        if (inode->_ctx[index].xl_key == xlator)
-                                break;
-                }
-
-                if (index == inode->table->ctxcount) {
+                index = xlator->xl_id;
+                if (inode->_ctx[index].xl_key != xlator) {
                         ret = -1;
                         goto unlock;
                 }
@@ -2242,13 +2227,8 @@ __inode_ctx_reset2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
 
         LOCK (&inode->lock);
         {
-                for (index = 0; index < inode->table->ctxcount;
-                     index++) {
-                        if (inode->_ctx[index].xl_key == xlator)
-                                break;
-                }
-
-                if (index == inode->table->ctxcount) {
+                index = xlator->xl_id;
+                if (inode->_ctx[index].xl_key != xlator) {
                         ret = -1;
                         goto unlock;
                 }

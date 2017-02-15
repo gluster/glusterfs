@@ -111,6 +111,7 @@ glusterfs_graph_set_first (glusterfs_graph_t *graph, xlator_t *xl)
         graph->first = xl;
 
         graph->xl_count++;
+        xl->xl_id = graph->xl_count;
 }
 
 
