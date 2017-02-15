@@ -167,7 +167,9 @@ class NormalMixin(object):
                 xt = _xtime_now()
                 rsc.server.aggregated.set_xtime(path, self.uuid, xt)
             else:
-                xt = opts['default_xtime']
+                zero_zero = (0, 0)
+                if xt != zero_zero:
+                    xt = opts['default_xtime']
         return xt
 
     def keepalive_payload_hook(self, timo, gap):
