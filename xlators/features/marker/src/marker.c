@@ -1292,6 +1292,8 @@ marker_rename_done (call_frame_t *frame, void *cookie, xlator_t *this,
         loc_wipe (&newloc);
 
         if (priv->feature_enabled & GF_XTIME) {
+                if (!local->loc.inode)
+                        local->loc.inode = inode_ref (oplocal->loc.inode);
                 //update marks on oldpath
                 gf_uuid_copy (local->loc.gfid, oplocal->loc.inode->gfid);
                 marker_xtime_update_marks (this, oplocal);
