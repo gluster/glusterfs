@@ -382,3 +382,5 @@ TEST ls $M0/.history/snap6/;
 TEST ! stat $M0/.history/snap6/aaa;
 
 cleanup;
+
+#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=000000
