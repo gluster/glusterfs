@@ -2245,6 +2245,10 @@ upcall_local_init (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
 {
         upcall_local_t *local = NULL;
 
+        GF_VALIDATE_OR_GOTO ("upcall", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+
         local = mem_get0 (THIS->local_pool);
 
         if (!local)
