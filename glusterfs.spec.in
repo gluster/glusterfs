@@ -457,6 +457,8 @@ Summary:          GlusterFS python library
 Group:            Development/Tools
 %{?python_provide:%python_provide python2-gluster}
 Requires:         python2
+Provides:         python-gluster = %{version}-%{release}
+Obsoletes:        python-gluster < 3.10
 
 %description -n python2-gluster %{_python_gluster_description}
 
@@ -1272,6 +1274,9 @@ exit 0
 %endif
 
 %changelog
+* Thu Feb 16 2017 Niels de Vos <ndevos@redhat.com>
+- Obsolete and Provide python-gluster for upgrading from glusterfs < 3.10
+
 * Wed Feb 1 2017 Poornima G <pgurusid@redhat.com>
 - Install /var/lib/glusterd/groups/metadata-cache by default
 
