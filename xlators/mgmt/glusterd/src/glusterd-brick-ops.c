@@ -2030,7 +2030,8 @@ glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
 check:
                         if (brickinfo->status != GF_BRICK_STARTED) {
                                 snprintf (msg, sizeof (msg), "Found stopped "
-                                          "brick %s", brick);
+                                          "brick %s. Use force option to "
+                                          "remove the offline brick" , brick);
                                 *errstr = gf_strdup (msg);
                                 ret = -1;
                                 goto out;
