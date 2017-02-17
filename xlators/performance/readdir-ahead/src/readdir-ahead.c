@@ -569,12 +569,6 @@ rda_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
 
                 local->xattrs = xdata_from_req;
                 ret = dict_get_int32 (xdata, GF_READDIR_SKIP_DIRS, &local->skip_dir);
-                if (ret < 0) {
-                        gf_msg (this->name, GF_LOG_ERROR,
-                                0, READDIR_AHEAD_MSG_DICT_OP_FAILED,
-                                "Dict get of key:%s failed with :%d",
-                                GF_READDIR_SKIP_DIRS, ret);
-                }
                 frame->local = local;
         }
 
