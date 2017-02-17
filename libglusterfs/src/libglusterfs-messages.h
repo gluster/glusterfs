@@ -37,7 +37,7 @@
 
 #define GLFS_LG_BASE            GLFS_MSGID_COMP_LIBGLUSTERFS
 
-#define GLFS_LG_NUM_MESSAGES    209
+#define GLFS_LG_NUM_MESSAGES    210
 
 #define GLFS_LG_MSGID_END       (GLFS_LG_BASE + GLFS_LG_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
@@ -1784,6 +1784,15 @@
  */
 
 #define LG_MSG_COMPACT_STATUS                            (GLFS_LG_BASE + 209)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+
+#define LG_MSG_UTIMENSAT_FAILED                          (GLFS_LG_BASE + 210)
 
 /*!
  * @messageid

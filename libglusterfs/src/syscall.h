@@ -129,6 +129,12 @@ sys_ftruncate (int fd, off_t length);
 int
 sys_utimes (const char *filename, const struct timeval times[2]);
 
+#if defined(HAVE_UTIMENSAT)
+int
+sys_utimensat (int dirfd, const char *filename, const struct timespec times[2],
+               int flags);
+#endif
+
 int
 sys_creat (const char *pathname, mode_t mode);
 

@@ -981,6 +981,13 @@ if test "x${have_posix_fallocate}" = "xyes"; then
    AC_DEFINE(HAVE_POSIX_FALLOCATE, 1, [define if posix_fallocate exists])
 fi
 
+BUILD_NANOSECOND_TIMESTAMPS=no
+AC_CHECK_FUNC([utimensat], [have_utimensat=yes])
+if test "x${have_utimensat}" = "xyes"; then
+   BUILD_NANOSECOND_TIMESTAMPS=yes
+   AC_DEFINE(HAVE_UTIMENSAT, 1, [define if utimensat exists])
+fi
+
 OLD_CFLAGS=${CFLAGS}
 CFLAGS="-D_GNU_SOURCE"
 AC_CHECK_DECL([SEEK_HOLE], , , [#include <unistd.h>])
@@ -1544,4 +1551,5 @@ echo "Experimental xlators : $BUILD_EXPERIMENTAL"
 echo "Events               : $BUILD_EVENTS"
 echo "EC dynamic support   : $EC_DYNAMIC_SUPPORT"
 echo "Use memory pools     : $USE_MEMPOOL"
+echo "Nanosecond m/atimes  : $BUILD_NANOSECOND_TIMESTAMPS"
 echo

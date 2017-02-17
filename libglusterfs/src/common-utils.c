@@ -3806,7 +3806,11 @@ int
 gf_set_timestamp  (const char *src, const char* dest)
 {
         struct stat    sb             = {0, };
-        struct timeval new_time[2]    = {{0, },{0,}};
+#if defined(HAVE_UTIMENSAT)
+        struct timespec new_time[2]   = { {0, }, {0, } };
+#else
+        struct timeval new_time[2]    = { {0, }, {0, } };
+#endif
         int            ret            = 0;
         xlator_t       *this          = NULL;
 
@@ -3821,21 +3825,35 @@ gf_set_timestamp  (const char *src, const char* dest)
                         LG_MSG_FILE_STAT_FAILED, "stat on %s", src);
                 goto out;
         }
+        /* The granularity is nano seconds if `utimensat()` is available,
+         * and micro seconds otherwise.
+         */
+#if defined(HAVE_UTIMENSAT)
+        new_time[0].tv_sec = sb.st_atime;
+        new_time[0].tv_nsec = ST_ATIM_NSEC (&sb);
+
+        new_time[1].tv_sec = sb.st_mtime;
+        new_time[1].tv_nsec = ST_MTIM_NSEC (&sb);
+
+        /* dirfd = 0 is ignored because `dest` is an absolute path. */
+        ret = sys_utimensat (AT_FDCWD, dest, new_time, AT_SYMLINK_NOFOLLOW);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        LG_MSG_UTIMENSAT_FAILED, "utimensat on %s", dest);
+        }
+#else
         new_time[0].tv_sec = sb.st_atime;
         new_time[0].tv_usec = ST_ATIM_NSEC (&sb)/1000;
 
         new_time[1].tv_sec = sb.st_mtime;
         new_time[1].tv_usec = ST_MTIM_NSEC (&sb)/1000;
 
-        /* The granularity is micro seconds as per the current
-         * requiremnt. Hence using 'utimes'. This can be updated
-         * to 'utimensat' if we need timestamp in nanoseconds.
-         */
         ret = sys_utimes (dest, new_time);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno, LG_MSG_UTIMES_FAILED,
                         "utimes on %s", dest);
         }
+#endif
 out:
         return ret;
 }
