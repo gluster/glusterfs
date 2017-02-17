@@ -84,6 +84,25 @@ extern char *marker_xattrs[];
 
 #endif
 
+/* Setting microseconds or nanoseconds depending on what's supported:
+   The passed in `tv` can be
+       struct timespec
+   if supported (better, because it supports nanosecond resolution) or
+       struct timeval
+   otherwise. */
+#if HAVE_UTIMENSAT
+#define SET_TIMESPEC_NSEC_OR_TIMEVAL_USEC(tv, nanosecs) \
+        tv.tv_nsec = nanosecs
+#define PATH_SET_TIMESPEC_OR_TIMEVAL(path, tv) \
+        (sys_utimensat (AT_FDCWD, path, tv, AT_SYMLINK_NOFOLLOW))
+#else
+#define SET_TIMESPEC_NSEC_OR_TIMEVAL_USEC(tv, nanosecs) \
+        tv.tv_usec = nanosecs / 1000
+#define PATH_SET_TIMESPEC_OR_TIMEVAL(path, tv) \
+        (lutimes (path, tv))
+#endif
+
+
 dict_t*
 posix_dict_set_nlink (dict_t *req, dict_t *res, int32_t nlink)
 {
@@ -384,7 +403,11 @@ posix_do_utimes (xlator_t *this,
                  int valid)
 {
         int32_t ret = -1;
-        struct timeval tv[2]     = {{0,},{0,}};
+#if defined(HAVE_UTIMENSAT)
+        struct timespec tv[2]    = { {0,}, {0,} };
+#else
+        struct timeval tv[2]     = { {0,}, {0,} };
+#endif
         struct stat stat;
         int    is_symlink = 0;
 
@@ -400,23 +423,23 @@ posix_do_utimes (xlator_t *this,
 
         if ((valid & GF_SET_ATTR_ATIME) == GF_SET_ATTR_ATIME) {
                 tv[0].tv_sec  = stbuf->ia_atime;
-                tv[0].tv_usec = stbuf->ia_atime_nsec / 1000;
+                SET_TIMESPEC_NSEC_OR_TIMEVAL_USEC(tv[0], stbuf->ia_atime_nsec);
         } else {
                 /* atime is not given, use current values */
                 tv[0].tv_sec  = ST_ATIM_SEC (&stat);
-                tv[0].tv_usec = ST_ATIM_NSEC (&stat) / 1000;
+                SET_TIMESPEC_NSEC_OR_TIMEVAL_USEC(tv[0], ST_ATIM_NSEC (&stat));
         }
 
         if ((valid & GF_SET_ATTR_MTIME) == GF_SET_ATTR_MTIME) {
                 tv[1].tv_sec  = stbuf->ia_mtime;
-                tv[1].tv_usec = stbuf->ia_mtime_nsec / 1000;
+                SET_TIMESPEC_NSEC_OR_TIMEVAL_USEC(tv[1], stbuf->ia_mtime_nsec);
         } else {
                 /* mtime is not given, use current values */
                 tv[1].tv_sec  = ST_MTIM_SEC (&stat);
-                tv[1].tv_usec = ST_MTIM_NSEC (&stat) / 1000;
+                SET_TIMESPEC_NSEC_OR_TIMEVAL_USEC(tv[1], ST_MTIM_NSEC (&stat));
         }
 
-        ret = lutimes (path, tv);
+        ret = PATH_SET_TIMESPEC_OR_TIMEVAL(path, tv);
         if ((ret == -1) && (errno == ENOSYS)) {
                 gf_msg_debug (this->name, 0, "%s (%s)",
                         path, strerror (errno));
@@ -425,7 +448,7 @@ posix_do_utimes (xlator_t *this,
                         goto out;
                 }
 
-                ret = sys_utimes (path, tv);
+                ret = PATH_SET_TIMESPEC_OR_TIMEVAL(path, tv);
         }
 
 out:
