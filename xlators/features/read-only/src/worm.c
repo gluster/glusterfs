@@ -57,7 +57,7 @@ worm_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         GF_ASSERT (priv);
         if (is_readonly_or_worm_enabled (this))
                 goto out;
-        if (!priv->worm_file) {
+        if (!priv->worm_file || (frame->root->pid < 0)) {
                 op_errno = 0;
                 goto out;
         }
@@ -94,7 +94,7 @@ worm_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         if (is_readonly_or_worm_enabled (this)) {
                 goto out;
         }
-        if (!priv->worm_file) {
+        if (!priv->worm_file || (frame->root->pid < 0)) {
                 op_errno = 0;
                 goto out;
         }
@@ -129,7 +129,7 @@ worm_rename (call_frame_t *frame, xlator_t *this,
         GF_ASSERT (priv);
         if (is_readonly_or_worm_enabled (this))
                 goto out;
-        if (!priv->worm_file) {
+        if (!priv->worm_file || (frame->root->pid < 0)) {
                 op_errno = 0;
                 goto out;
         }
@@ -165,7 +165,7 @@ worm_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
         GF_ASSERT (priv);
         if (is_readonly_or_worm_enabled (this))
                 goto out;
-        if (!priv->worm_file) {
+        if (!priv->worm_file || (frame->root->pid < 0)) {
                 op_errno = 0;
                 goto out;
         }
@@ -396,7 +396,7 @@ worm_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         priv = this->private;
         GF_ASSERT (priv);
-        if (!priv->worm_file) {
+        if (!priv->worm_file || (frame->root->pid < 0)) {
                 op_errno = 0;
                 goto out;
         }
