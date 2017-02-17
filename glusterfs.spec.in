@@ -1042,7 +1042,6 @@ exit 0
 # glusterfs is a symlink to glusterfsd, -server depends on -fuse.
 %{_sbindir}/glusterfs
 %{_sbindir}/glusterfsd
-%{_sbindir}/gf_attach
 %config(noreplace) %{_sysconfdir}/logrotate.d/glusterfs
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/fuse.so
 /sbin/mount.glusterfs
@@ -1141,6 +1140,7 @@ exit 0
 # binaries
 %{_sbindir}/glusterd
 %{_sbindir}/glfsheal
+%{_sbindir}/gf_attach
 # {_sbindir}/glusterfsd is the actual binary, but glusterfs (client) is a
 # symlink. The binary itself (and symlink) are part of the glusterfs-fuse
 # package, because glusterfs-server depends on that anyway.
