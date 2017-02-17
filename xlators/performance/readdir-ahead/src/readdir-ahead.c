@@ -726,7 +726,7 @@ struct volume_options options[] = {
 	  .type = GF_OPTION_TYPE_SIZET,
 	  .min = 4096,
 	  .max = 131072,
-	  .default_value = "128KB",
+	  .default_value = "131072",
 	  .description = "size of buffer in readdirp calls initiated by "
                          "readdir-ahead ",
 	},
