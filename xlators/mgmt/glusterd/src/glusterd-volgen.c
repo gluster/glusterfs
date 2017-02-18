@@ -737,28 +737,6 @@ glusterd_check_localoption (char *key)
 }
 
 int
-glusterd_check_voloption (char *key)
-{
-        char *completion = NULL;
-        struct volopt_map_entry *vmep = NULL;
-        int ret = 0;
-
-        COMPLETE_OPTION(key, completion, ret);
-        for (vmep = glusterd_volopt_map; vmep->key; vmep++) {
-                if (strcmp (vmep->key, key) == 0) {
-                        if ((vmep->type == DOC) ||
-                            (vmep->type == DOC))
-                                return _gf_true;
-                        else
-                                return _gf_false;
-                }
-        }
-
-        return _gf_false;
-
-}
-
-int
 glusterd_check_option_exists (char *key, char **completion)
 {
         struct volopt_map_entry vme = {0,};

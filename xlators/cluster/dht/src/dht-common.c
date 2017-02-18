@@ -2474,6 +2474,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
         dht_layout_t *layout = NULL;
         int           i = 0;
         int           call_cnt = 0;
+        int           gen = 0;
         loc_t         new_loc = {0,};
 
         VALIDATE_OR_GOTO (frame, err);
@@ -2548,6 +2549,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                                       "incomplete layout failure for path=%s",
                                       loc->path);
 
+                        gen = layout->gen;
                         dht_layout_unref (this, local->layout);
                         local->layout = NULL;
                         local->cached_subvol = NULL;
@@ -2556,7 +2558,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                                      "Called revalidate lookup for %s, "
                                      "but layout->gen (%d) is less than "
                                      "conf->gen (%d), calling fresh_lookup",
-                                     loc->path, layout->gen, conf->gen);
+                                     loc->path, gen, conf->gen);
 
                         goto do_fresh_lookup;
                 }
