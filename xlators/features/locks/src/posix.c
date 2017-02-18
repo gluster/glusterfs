@@ -2840,6 +2840,7 @@ new_meta_lock (call_frame_t *frame, xlator_t *this)
                 gf_msg (this->name, GF_LOG_ERROR, 0, ENOMEM, "mem allocation"
                         " failed for client_uid");
                 GF_FREE (lock);
+                lock = NULL;
                 goto out;
         }
 
@@ -3808,7 +3809,8 @@ gf_lkmig_info_to_posix_lock (call_frame_t *frame,
         lock->client_uid = gf_strdup (lmi->client_uid);
         if (lock->client_uid == NULL) {
                 GF_FREE (lock);
-               goto out;
+                lock = NULL;
+                goto out;
         }
 
         lock->client_pid = lmi->flock.l_pid;

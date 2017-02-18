@@ -831,8 +831,10 @@ syncenv_new (size_t stacksize, int procmin, int procmax)
                 newenv->procs++;
         }
 
-        if (ret != 0)
+        if (ret != 0) {
                 syncenv_destroy (newenv);
+                newenv = NULL;
+        }
 
         return newenv;
 }

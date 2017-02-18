@@ -480,6 +480,7 @@ new_posix_lock (struct gf_flock *flock, client_t *client, pid_t client_pid,
         lock->client_uid = gf_strdup (client->client_uid);
         if (lock->client_uid == NULL) {
                 GF_FREE (lock);
+                lock = NULL;
                 goto out;
         }
 

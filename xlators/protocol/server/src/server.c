@@ -132,11 +132,6 @@ gfs_serialize_reply (rpcsvc_request_t *req, void *arg, struct iovec *outmsg,
         }
         outmsg->iov_len = retlen;
 ret:
-        if (retlen == -1) {
-                iobuf_unref (iob);
-                iob = NULL;
-        }
-
         return iob;
 }
 
