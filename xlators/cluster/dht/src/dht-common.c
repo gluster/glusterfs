@@ -9038,8 +9038,10 @@ dht_notify (xlator_t *this, int event, void *data, ...)
 
                 ret = dict_get_int32 (dict, "rebalance-command",
                                       (int32_t*)&cmd);
-                if (ret)
+                if (ret) {
+                        va_end (ap);
                         return ret;
+                }
                 LOCK (&defrag->lock);
                 {
                         if (defrag->is_exiting)
@@ -9064,6 +9066,7 @@ dht_notify (xlator_t *this, int event, void *data, ...)
                 }
 unlock:
                 UNLOCK (&defrag->lock);
+                va_end (ap);
                 return ret;
                 break;
         }
