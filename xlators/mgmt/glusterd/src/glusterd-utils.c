@@ -10049,9 +10049,6 @@ glusterd_volume_tier_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 goto out;
         }
 
-        if (!ctx_dict)
-                goto out;
-
         ret = dict_get_str (ctx_dict, "volname", &volname);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
