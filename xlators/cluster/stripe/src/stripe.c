@@ -186,7 +186,7 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 callcnt = --local->call_count;
 
                 if (op_ret == -1) {
-                        if ((op_errno != ENOENT) || (op_errno != ESTALE))
+                        if ((op_errno != ENOENT) && (op_errno != ESTALE))
                                 gf_log (this->name, GF_LOG_DEBUG,
                                         "%s returned error %s",
                                         prev->this->name,
