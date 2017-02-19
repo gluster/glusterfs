@@ -445,6 +445,7 @@ tier_do_migration (xlator_t *this, int promote)
                 migrate = promote ? 0 : 1;
                 break;
         case TIER_WM_MID:
+                /* coverty[DC.WEAK_CRYPTO] */
                 rand = random() % 100;
                 if (promote) {
                         migrate = (rand > tier_conf->percent_full);
