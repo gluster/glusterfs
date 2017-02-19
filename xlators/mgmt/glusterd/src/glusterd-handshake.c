@@ -1416,7 +1416,7 @@ __server_get_volume_info (rpcsvc_request_t *req)
                 goto out;
         }
 
-        if (flags | (int32_t)GF_GET_VOLUME_UUID) {
+        if (flags & (int32_t)GF_GET_VOLUME_UUID) {
                 volume_id_str = gf_strdup (uuid_utoa (volinfo->volume_id));
                 if (!volume_id_str) {
                         op_errno = ENOMEM;
