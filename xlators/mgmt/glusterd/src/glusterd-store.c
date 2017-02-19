@@ -246,10 +246,6 @@ glusterd_store_volinfo_brick_fname_write (int vol_fd,
         glusterd_store_brickinfofname_set (brickinfo, brickfname,
                                         sizeof (brickfname));
         ret = gf_store_save_value (vol_fd, key, brickfname);
-        if (ret)
-                goto out;
-
-out:
         return ret;
 }
 
