@@ -1179,7 +1179,7 @@ jbr_open_term (call_frame_t *frame, xlator_t *this, dict_t *xdata)
         int32_t         op_errno;
         char            *cl_dir;
         char            *term;
-        char            *path;
+        char            *path = NULL;
         jbr_private_t   *priv           = this->private;
 
         op_errno = jbr_get_changelog_dir(this, &cl_dir);
