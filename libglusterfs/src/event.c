@@ -219,7 +219,7 @@ event_dispatch_destroy (struct event_pool *event_pool)
         /* Make the write end of the pipe nonblocking */
         flags = fcntl(fd[1], F_GETFL);
         flags |= O_NONBLOCK;
-        fcntl(fd[1], F_SETFL, flags);
+        ret = fcntl(fd[1], F_SETFL, flags);
         if (ret < 0)
                 goto out;
 
