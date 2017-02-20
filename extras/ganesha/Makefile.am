@@ -1,2 +1,2 @@
-SUBDIRS = scripts config
+SUBDIRS = scripts config ocf
 CLEANFILES =

@@ -1,0 +1,235 @@
+#!/bin/bash
+#
+# Copyright (c) 2014 Anand Subramanian anands@redhat.com
+# Copyright (c) 2015 Red Hat Inc.
+#                    All Rights Reserved.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of version 2 of the GNU General Public License as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it would be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+# Further, this software is distributed without any warranty that it is
+# free of the rightful claim of any third person regarding infringement
+# or the like.  Any license provided herein, whether implied or
+# otherwise, applies only to this software file.  Patent licenses, if
+# any, provided herein do not apply to combinations of this program with
+# other software, or any other product whatsoever.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write the Free Software Foundation,
+# Inc., 59 Temple Place - Suite 330, Boston MA 02111-1307, USA.
+#
+#
+
+# Initialization:
+: ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
+. ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
+
+if [ -n "${OCF_DEBUG_LIBRARY}" ]; then
+	. ${OCF_DEBUG_LIBRARY}
+else
+	: ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
+	. ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
+fi
+
+# Defaults
+OCF_RESKEY_ganesha_active_default="ganesha-active"
+OCF_RESKEY_grace_active_default="grace-active"
+OCF_RESKEY_grace_delay_default="5"
+
+: ${OCF_RESKEY_ganesha_active=${OCF_RESKEY_ganesha_active_default}}
+: ${OCF_RESKEY_grace_active=${OCF_RESKEY_grace_active_default}}
+: ${OCF_RESKEY_grace_delay=${OCF_RESKEY_grace_delay_default}}
+
+ganesha_meta_data() {
+	cat <<END
+<?xml version="1.0"?>
+<!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
+<resource-agent name="ganesha_mon">
+<version>1.0</version>
+
+<longdesc lang="en">
+This Linux-specific resource agent acts as a dummy
+resource agent for nfs-ganesha.
+</longdesc>
+
+<shortdesc lang="en">Manages the user-space nfs-ganesha NFS server</shortdesc>
+
+<parameters>
+<parameter name="ganesha_active">
+<longdesc lang="en">NFS-Ganesha daemon active attribute</longdesc>
+<shortdesc lang="en">NFS-Ganesha daemon active attribute</shortdesc>
+<content type="string" default="ganesha-active" />
+</parameter>
+<parameter name="grace_active">
+<longdesc lang="en">NFS-Ganesha grace active attribute</longdesc>
+<shortdesc lang="en">NFS-Ganesha grace active attribute</shortdesc>
+<content type="string" default="grace-active" />
+</parameter>
+<parameter name="grace_delay">
+<longdesc lang="en">
+NFS-Ganesha grace delay.
+When changing this, adjust the ganesha_grace RA's monitor interval to match.
+</longdesc>
+<shortdesc lang="en">NFS-Ganesha grace delay</shortdesc>
+<content type="string" default="5" />
+</parameter>
+</parameters>
+
+<actions>
+<action name="start"   timeout="40s" />
+<action name="stop"    timeout="40s" />
+<action name="status"  timeout="20s" interval="60s" />
+<action name="monitor" depth="0"  timeout="10s" interval="10s" />
+<action name="meta-data"  timeout="20s" />
+</actions>
+</resource-agent>
+END
+
+return ${OCF_SUCCESS}
+}
+
+ganesha_mon_usage() {
+	echo "ganesha.nfsd USAGE"
+}
+
+# Make sure meta-data and usage always succeed
+case ${__OCF_ACTION} in
+	meta-data)	ganesha_meta_data
+			exit ${OCF_SUCCESS}
+			;;
+	usage|help)	ganesha_usage
+			exit ${OCF_SUCCESS}
+			;;
+	*)
+			;;
+esac
+
+ganesha_mon_start()
+{
+	ocf_log debug "ganesha_mon_start"
+	ganesha_mon_monitor
+	return $OCF_SUCCESS
+}
+
+ganesha_mon_stop()
+{
+	ocf_log debug "ganesha_mon_stop"
+	return $OCF_SUCCESS
+}
+
+ganesha_mon_monitor()
+{
+	local host=$(hostname -s)
+	local pid_file="/var/run/ganesha.pid"
+	local rhel6_pid_file="/var/run/ganesha.nfsd.pid"
+	local proc_pid="/proc/"
+
+	# RHEL6 /etc/init.d/nfs-ganesha adds -p /var/run/ganesha.nfsd.pid
+	# RHEL7 systemd does not. Would be nice if all distros used the
+	# same pid file.
+	if [ -e ${rhel6_pid_file} ]; then
+		pid_file=${rhel6_pid_file}
+	fi
+	if [ -e ${pid_file} ]; then
+		proc_pid="${proc_pid}$(cat ${pid_file})"
+	fi
+
+	if [ "x${proc_pid}" != "x/proc/" -a -d ${proc_pid} ]; then
+
+		attrd_updater -n ${OCF_RESKEY_ganesha_active} -v 1
+		if [ $? -ne 0 ]; then
+			ocf_log info "warning: attrd_updater -n ${OCF_RESKEY_ganesha_active} -v 1 failed"
+		fi
+
+		# ganesha_grace (nfs-grace) RA follows grace-active attr
+		# w/ constraint location
+		attrd_updater -n ${OCF_RESKEY_grace_active} -v 1
+		if [ $? -ne 0 ]; then
+			ocf_log info "warning: attrd_updater -n ${OCF_RESKEY_grace_active} -v 1 failed"
+		fi
+
+		# ganesha_mon (nfs-mon) and ganesha_grace (nfs-grace)
+		# track grace-active crm_attr (attr != crm_attr)
+		# we can't just use the attr as there's no way to query
+		# its value in RHEL6 pacemaker
+
+		crm_attribute --node=${host} --lifetime=forever --name=${OCF_RESKEY_grace_active} --update=1 2> /dev/null
+		if [ $? -ne 0 ]; then
+			host=$(hostname)
+			crm_attribute --node=${host} --lifetime=forever --name=${OCF_RESKEY_grace_active} --update=1 2> /dev/null
+			if [ $? -ne 0 ]; then
+				ocf_log info "mon monitor warning: crm_attribute --node=${host} --lifetime=forever --name=${OCF_RESKEY_grace_active} --update=1 failed"
+			fi
+		fi
+
+		return ${OCF_SUCCESS}
+	fi
+
+	# VIP fail-over is triggered by clearing the
+	# ganesha-active node attribute on this node.
+	#
+	# Meanwhile the ganesha_grace notify() runs when its
+	# nfs-grace resource is disabled on a node; which
+	# is triggered by clearing the grace-active attribute
+	# on this node.
+	#
+	# We need to allow time for it to run and put
+	# the remaining ganesha.nfsds into grace before
+	# initiating the VIP fail-over.
+
+	attrd_updater -D -n ${OCF_RESKEY_grace_active}
+	if [ $? -ne 0 ]; then
+		ocf_log info "warning: attrd_updater -D -n ${OCF_RESKEY_grace_active} failed"
+	fi
+
+	host=$(hostname -s)
+	crm_attribute --node=${host} --name=${OCF_RESKEY_grace_active} --update=0 2> /dev/null
+	if [ $? -ne 0 ]; then
+		host=$(hostname)
+		crm_attribute --node=${host} --name=${OCF_RESKEY_grace_active} --update=0 2> /dev/null
+		if [ $? -ne 0 ]; then
+			ocf_log info "mon monitor warning: crm_attribute --node=${host} --name=${OCF_RESKEY_grace_active} --update=0 failed"
+		fi
+	fi
+
+	sleep ${OCF_RESKEY_grace_delay}
+
+	attrd_updater -D -n ${OCF_RESKEY_ganesha_active}
+	if [ $? -ne 0 ]; then
+		ocf_log info "warning: attrd_updater -D -n ${OCF_RESKEY_ganesha_active} failed"
+	fi
+
+	return ${OCF_SUCCESS}
+}
+
+ganesha_mon_validate()
+{
+	return ${OCF_SUCCESS}
+}
+
+ganesha_mon_validate
+
+# Translate each action into the appropriate function call
+case ${__OCF_ACTION} in
+start)          ganesha_mon_start
+		;;
+stop)           ganesha_mon_stop
+		;;
+status|monitor) ganesha_mon_monitor
+		;;
+*)              ganesha_mon_usage
+		exit ${OCF_ERR_UNIMPLEMENTED}
+		;;
+esac
+
+rc=$?
+
+# The resource agent may optionally log a debug message
+ocf_log debug "${OCF_RESOURCE_INSTANCE} ${__OCF_ACTION} returned $rc"
+exit $rc
+

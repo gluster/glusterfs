@@ -1,0 +1,222 @@
+#!/bin/bash
+#
+# Copyright (c) 2014 Anand Subramanian anands@redhat.com
+# Copyright (c) 2015 Red Hat Inc.
+#                    All Rights Reserved.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of version 2 of the GNU General Public License as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it would be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+# Further, this software is distributed without any warranty that it is
+# free of the rightful claim of any third person regarding infringement
+# or the like.  Any license provided herein, whether implied or
+# otherwise, applies only to this software file.  Patent licenses, if
+# any, provided herein do not apply to combinations of this program with
+# other software, or any other product whatsoever.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write the Free Software Foundation,
+# Inc., 59 Temple Place - Suite 330, Boston MA 02111-1307, USA.
+#
+#
+
+# Initialization:
+: ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
+. ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
+
+if [ -n "$OCF_DEBUG_LIBRARY" ]; then
+	. $OCF_DEBUG_LIBRARY
+else
+	: ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
+	. ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
+fi
+
+OCF_RESKEY_grace_active_default="grace-active"
+: ${OCF_RESKEY_grace_active=${OCF_RESKEY_grace_active_default}}
+
+ganesha_meta_data() {
+	cat <<END
+<?xml version="1.0"?>
+<!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
+<resource-agent name="ganesha_grace">
+<version>1.0</version>
+
+<longdesc lang="en">
+This Linux-specific resource agent acts as a dummy
+resource agent for nfs-ganesha.
+</longdesc>
+
+<shortdesc lang="en">Manages the user-space nfs-ganesha NFS server</shortdesc>
+
+<parameters>
+<parameter name="grace_active">
+<longdesc lang="en">NFS-Ganesha grace active attribute</longdesc>
+<shortdesc lang="en">NFS-Ganesha grace active attribute</shortdesc>
+<content type="string" default="grace-active" />
+</parameter>
+</parameters>
+
+<actions>
+<action name="start"   timeout="40s" />
+<action name="stop"    timeout="40s" />
+<action name="status"  timeout="20s" interval="60s" />
+<action name="monitor" depth="0" timeout="10s" interval="5s" />
+<action name="notify"  timeout="10s" />
+<action name="meta-data"  timeout="20s" />
+</actions>
+</resource-agent>
+END
+
+return ${OCF_SUCCESS}
+}
+
+ganesha_grace_usage() {
+	echo "ganesha.nfsd USAGE"
+}
+
+# Make sure meta-data and usage always succeed
+case $__OCF_ACTION in
+	meta-data)	ganesha_meta_data
+			exit ${OCF_SUCCESS}
+			;;
+	usage|help)	ganesha_usage
+			exit ${OCF_SUCCESS}
+			;;
+	*)
+			;;
+esac
+
+ganesha_grace_start()
+{
+	local rc=${OCF_ERR_GENERIC}
+	local host=$(hostname -s)
+
+	ocf_log debug "ganesha_grace_start()"
+	# give ganesha_mon RA a chance to set the crm_attr first
+	# I mislike the sleep, but it's not clear that looping
+	# with a small sleep is necessarily better
+	# start has a 40sec timeout, so a 5sec sleep here is okay
+        sleep 5
+	attr=$(crm_attribute --query --node=${host} --name=${OCF_RESKEY_grace_active} 2> /dev/null)
+        if [ $? -ne 0 ]; then
+		host=$(hostname)
+		attr=$(crm_attribute --query --node=${host} --name=${OCF_RESKEY_grace_active} 2> /dev/null )
+                if [ $? -ne 0 ]; then
+	                ocf_log info "grace start: crm_attribute --query --node=${host} --name=${OCF_RESKEY_grace_active} failed"
+                fi
+        fi
+
+	# Three possibilities:
+	# 1. There is no attribute at all and attr_updater returns
+	#    a zero length string. This happens when
+	#    ganesha_mon::monitor hasn't run at least once to set
+	#    the attribute. The assumption here is that the system
+	#    is coming up. We pretend, for now, that the node is
+	#    healthy, to allow the system to continue coming up.
+	#    It will cure itself in a few seconds
+	# 2. There is an attribute, and it has the value "1"; this
+	#    node is healthy.
+	# 3. There is an attribute, but it has no value or the value
+	#    "0"; this node is not healthy.
+
+	# case 1
+	if [[ -z "${attr}" ]]; then
+		return ${OCF_SUCCESS}
+	fi
+
+	# case 2
+	if [[ "${attr}" = *"value=1" ]]; then
+		return ${OCF_SUCCESS}
+	fi
+
+	# case 3
+	return ${OCF_NOT_RUNNING}
+}
+
+ganesha_grace_stop()
+{
+
+	ocf_log debug "ganesha_grace_stop()"
+	return ${OCF_SUCCESS}
+}
+
+ganesha_grace_notify()
+{
+        # since this is a clone RA we should only ever see pre-start
+        # or post-stop
+	mode="${OCF_RESKEY_CRM_meta_notify_type}-${OCF_RESKEY_CRM_meta_notify_operation}"
+	case "${mode}" in
+	pre-start | post-stop)
+		dbus-send --print-reply --system --dest=org.ganesha.nfsd /org/ganesha/nfsd/admin org.ganesha.nfsd.admin.grace string:${OCF_RESKEY_CRM_meta_notify_stop_uname}
+		if [ $? -ne 0 ]; then
+			ocf_log info "dbus-send --print-reply --system --dest=org.ganesha.nfsd /org/ganesha/nfsd/admin org.ganesha.nfsd.admin.grace string:${OCF_RESKEY_CRM_meta_notify_stop_uname} failed"
+		fi
+		;;
+	esac
+
+	return ${OCF_SUCCESS}
+}
+
+ganesha_grace_monitor()
+{
+	local host=$(hostname -s)
+
+	ocf_log debug "monitor"
+
+	attr=$(crm_attribute --query --node=${host} --name=${OCF_RESKEY_grace_active} 2> /dev/null)
+        if [ $? -ne 0 ]; then
+		host=$(hostname)
+	        attr=$(crm_attribute --query --node=${host} --name=${OCF_RESKEY_grace_active} 2> /dev/null)
+                if [ $? -ne 0 ]; then
+	                ocf_log info "crm_attribute --query --node=${host} --name=${OCF_RESKEY_grace_active} failed"
+                fi
+        fi
+
+	# if there is no attribute (yet), maybe it's because
+	# this RA started before ganesha_mon (nfs-mon) has had
+	# chance to create it. In which case we'll pretend
+	# everything is okay this time around
+	if [[ -z "${attr}" ]]; then
+		return ${OCF_SUCCESS}
+	fi
+
+	if [[ "${attr}" = *"value=1" ]]; then
+		return ${OCF_SUCCESS}
+	fi
+
+	return ${OCF_NOT_RUNNING}
+}
+
+ganesha_grace_validate()
+{
+	return ${OCF_SUCCESS}
+}
+
+ganesha_grace_validate
+
+# Translate each action into the appropriate function call
+case $__OCF_ACTION in
+start)          ganesha_grace_start
+		;;
+stop)           ganesha_grace_stop
+		;;
+status|monitor) ganesha_grace_monitor
+		;;
+notify)         ganesha_grace_notify
+		;;
+*)              ganesha_grace_usage
+		exit ${OCF_ERR_UNIMPLEMENTED}
+		;;
+esac
+
+rc=$?
+
+# The resource agent may optionally log a debug message
+ocf_log debug "${OCF_RESOURCE_INSTANCE} ${__OCF_ACTION} returned $rc"
+exit $rc
+
