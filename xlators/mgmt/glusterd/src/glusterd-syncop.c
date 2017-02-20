@@ -320,6 +320,7 @@ glusterd_syncop_aggr_rsp_dict (glusterd_op_t op, dict_t *aggr, dict_t *rsp)
         case GD_OP_DETACH_TIER_STATUS:
         case GD_OP_REMOVE_TIER_BRICK:
                 ret = glusterd_volume_tier_use_rsp_dict (aggr, rsp);
+        /* FALLTHROUGH */
         default:
         break;
         }

@@ -2218,11 +2218,13 @@ call_resume_wind (call_stub_t *stub)
         case GF_FOP_GETACTIVELK:
                 stub->fn.getactivelk (stub->frame, stub->frame->this,
                                        &stub->args.loc, stub->args.xdata);
+                break;
 
         case GF_FOP_SETACTIVELK:
                 stub->fn.setactivelk (stub->frame, stub->frame->this,
                                         &stub->args.loc, &stub->args.locklist,
                                         stub->args.xdata);
+                break;
 
         default:
                 gf_msg_callingfn ("call-stub", GF_LOG_ERROR, EINVAL,
@@ -2445,9 +2447,11 @@ call_resume_unwind (call_stub_t *stub)
         case GF_FOP_GETACTIVELK:
                 STUB_UNWIND (stub, getactivelk, &stub->args_cbk.locklist,
                              stub->args_cbk.xdata);
+                break;
 
         case GF_FOP_SETACTIVELK:
                 STUB_UNWIND (stub, setactivelk, stub->args_cbk.xdata);
+                break;
 
         default:
                 gf_msg_callingfn ("call-stub", GF_LOG_ERROR, EINVAL,

@@ -1456,6 +1456,7 @@ gf_sqlite3_vacuum (void *db_conn, gf_boolean_t compact_active,
                                 break;
                         case GF_SQL_COMPACT_MANUAL:
                                 changing_pragma = _gf_false;
+                                break;
                         default:
                                 ret = -1;
                                 gf_msg (GFDB_STR_SQLITE3, GF_LOG_ERROR, 0,
