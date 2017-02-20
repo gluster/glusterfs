@@ -234,6 +234,7 @@ glusterfs_handle_terminate (rpcsvc_request_t *req)
                 gf_log (THIS->name, GF_LOG_INFO,
                         "terminating after loss of last child %s",
                         xlator_req.name);
+                glusterfs_mgmt_pmap_signout (glusterfsd_ctx, xlator_req.name);
                 cleanup_and_exit (SIGTERM);
         } else {
                 /*
@@ -246,6 +247,8 @@ glusterfs_handle_terminate (rpcsvc_request_t *req)
                 gf_log (THIS->name, GF_LOG_INFO, "detaching not-only child %s",
                         xlator_req.name);
                 top->notify (top, GF_EVENT_TRANSPORT_CLEANUP, victim);
+                glusterfs_mgmt_pmap_signout (glusterfsd_ctx, xlator_req.name);
+
                 *trav_p = (*trav_p)->next;
                 glusterfs_autoscale_threads (THIS->ctx, -1);
         }
@@ -2563,7 +2566,7 @@ out:
 
 
 int
-glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx)
+glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx, char *brickname)
 {
         int               ret = 0;
         pmap_signout_req  req = {0, };
@@ -2574,7 +2577,7 @@ glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx)
         frame = create_frame (THIS, ctx->pool);
         cmd_args = &ctx->cmd_args;
 
-        if (!cmd_args->brick_port || !cmd_args->brick_name) {
+        if (!cmd_args->brick_port && (!cmd_args->brick_name || !brickname)) {
                 gf_log ("fsd-mgmt", GF_LOG_DEBUG,
                         "portmapper signout arguments not given");
                 goto out;
@@ -2585,8 +2588,12 @@ glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx)
                 snprintf (brick_name, sizeof(brick_name), "%s.rdma",
                           cmd_args->brick_name);
                 req.brick = brick_name;
-        } else
-                req.brick = cmd_args->brick_name;
+        } else {
+                if (brickname)
+                        req.brick = brickname;
+                else
+                        req.brick = cmd_args->brick_name;
+        }
 
         req.port  = cmd_args->brick_port;
         req.rdma_port = cmd_args->brick_port2;

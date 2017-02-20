@@ -109,7 +109,7 @@ struct _gfd_vol_top_priv_t {
 };
 typedef struct _gfd_vol_top_priv_t gfd_vol_top_priv_t;
 
-int glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx);
+int glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx, char *brick_name);
 int glusterfs_mgmt_pmap_signin (glusterfs_ctx_t *ctx);
 int glusterfs_volfile_fetch (glusterfs_ctx_t *ctx);
 void cleanup_and_exit (int signum);
