@@ -192,13 +192,16 @@ setup_cluster()
         logger "pcs cluster setup ${RHEL6_PCS_CNAME_OPTION} ${name} ${servers} failed"
         exit 1;
     fi
-    pcs cluster start --all
-    if [ $? -ne 0 ]; then
-        logger "pcs cluster start failed"
-        exit 1;
-    fi
 
-    sleep 1
+    # BZ 1284404, 1425110, allow time for SSL certs to propagate, until then
+    # pcsd will not accept connections.
+    sleep 12
+    pcs cluster start --all
+    while [ $? -ne 0 ]; do
+        sleep 2
+        pcs cluster start --all
+    done
+
     # wait for the cluster to elect a DC before querying or writing
     # to the CIB. BZ 1334092
     crmadmin --dc_lookup --timeout=5000 > /dev/null 2>&1
