@@ -119,9 +119,9 @@ pmap_registry_search (xlator_t *this, const char *brickname,
                 for (;;) {
                         for (i = 0; brck[i] && !isspace (brck[i]); ++i)
                                 ;
-                        if (!i) {
+                        if (i == 0 && brck[i] == '\0')
                                 break;
-                        }
+
                         if (strncmp (brck, brickname, i) == 0) {
                                 /*
                                  * Without this check, we'd break when brck
@@ -134,7 +134,9 @@ pmap_registry_search (xlator_t *this, const char *brickname,
                                         return p;
                                 }
                         }
+
                         brck += i;
+
                         /*
                          * Skip over *any* amount of whitespace, including
                          * none (if we're already at the end of the string).
@@ -260,7 +262,6 @@ pmap_registry_bind (xlator_t *this, int port, const char *brickname,
                 goto out;
 
         p = port;
-        pmap->ports[p].type = type;
         if (pmap->ports[p].brickname) {
                 char *tmp = pmap->ports[p].brickname;
                 asprintf (&pmap->ports[p].brickname, "%s %s", tmp, brickname);
@@ -356,10 +357,9 @@ pmap_registry_remove (xlator_t *this, int port, const char *brickname,
                         goto out;
 
                 p = port;
-                goto remove;
         }
 
-        if (brickname && strchr (brickname, '/')) {
+        if (brickname) {
                 p = pmap_registry_search (this, brickname, type, _gf_true);
                 if (p)
                         goto remove;
@@ -373,9 +373,8 @@ pmap_registry_remove (xlator_t *this, int port, const char *brickname,
 
         goto out;
 remove:
-        gf_msg ("pmap", GF_LOG_INFO, 0,
-                GD_MSG_BRICK_REMOVE, "removing brick %s on port %d",
-                pmap->ports[p].brickname, p);
+        gf_msg ("pmap", GF_LOG_INFO, 0, GD_MSG_BRICK_REMOVE,
+                "removing brick %s on port %d", brickname, p);
 
         if (xprt && (xprt == pmap->ports[p].xprt)) {
                 pmap->ports[p].xprt = NULL;

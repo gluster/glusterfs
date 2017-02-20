@@ -1332,7 +1332,7 @@ cleanup_and_exit (int signum)
                 return;
 
         ctx->cleanup_started = 1;
-        glusterfs_mgmt_pmap_signout (ctx);
+        glusterfs_mgmt_pmap_signout (ctx, NULL);
 
         /* below part is a racy code where the rpcsvc object is freed.
          * But in another thread (epoll thread), upon poll error in the
