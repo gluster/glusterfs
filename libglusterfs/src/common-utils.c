@@ -4517,6 +4517,8 @@ fop_enum_to_string (glusterfs_fop_t fop)
                 "IPC",
                 "SEEK",
                 "COMPOUND",
+                "GETACTIVELK",
+                "SETACTIVELK",
                 "MAXVALUE"};
         if (fop <= GF_FOP_MAXVALUE)
                 return str_map[fop];

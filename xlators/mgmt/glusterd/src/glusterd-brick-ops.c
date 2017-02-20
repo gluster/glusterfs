@@ -2924,6 +2924,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         case GF_DEFRAG_STATUS_FAILED:
         case GF_DEFRAG_STATUS_COMPLETE:
                 volinfo->rebal.defrag_status = 0;
+        /* FALLTHROUGH */
         default:
                 break;
         }

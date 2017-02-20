@@ -1437,6 +1437,7 @@ client_handle_fop_requirements (xlator_t *this, call_frame_t *frame,
                                 &this_req->compound_req_u.compound_lease_req,
                                 op_errno, out, &args->loc, &args->lease,
                                 args->xdata);
+                break;
         default:
                 return ENOTSUP;
         }

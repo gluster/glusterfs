@@ -419,6 +419,7 @@ glusterd_snapdsvc_rpc_notify (glusterd_conn_t *conn, rpc_clnt_event_t event)
 
         case RPC_CLNT_DESTROY:
                 glusterd_volinfo_unref (volinfo);
+                break;
 
         default:
                 gf_msg_trace (this->name, 0,
