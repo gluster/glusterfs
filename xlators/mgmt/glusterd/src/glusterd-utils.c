@@ -2118,8 +2118,8 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
                         if (op_errstr) {
                                 GF_FREE (op_errstr);
                         }
-                        (void) glusterd_brick_disconnect (brickinfo);
                 }
+                (void) glusterd_brick_disconnect (brickinfo);
                 ret = 0;
         }
 
