@@ -464,6 +464,8 @@ Summary:          GlusterFS python library
 Group:            Development/Tools
 %{?python_provide:%python_provide python2-gluster}
 Requires:         python2
+Provides:         python-gluster = %{version}-%{release}
+Obsoletes:        python-gluster < 3.10
 
 %description -n python2-gluster %{_python_gluster_description}
 
@@ -1269,6 +1271,9 @@ exit 0
 %endif
 
 %changelog
+* Tue Feb 21 2017 Niels de Vos <ndevos@redhat.com>
+- Obsolete and Provide python-gluster for upgrading from glusterfs < 3.10
+
 * Mon Feb 20 2017 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - revert switch to storhaug HA
 
