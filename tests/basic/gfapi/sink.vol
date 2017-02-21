@@ -1,0 +1,24 @@
+#
+# The sink xlator does not do any memory allocations. It only passes the FOPs
+# through to the next xlator.
+#
+# For testing, there is no next xlator needed, we are only interested in the
+# resource usage of the Gluster core when gfapi is used.
+#
+# Note: The sink xlator does not handle any calls. Mounting is possible, but
+# any I/O needs additional functionality in the sink xlator.
+#
+volume sink
+    type debug/sink
+    # an option is required, otherwise the graph parsing fails
+    option an-option-is-required yes
+end-volume
+
+#
+# It is possible to test the resource usage of other xlators by adding them in
+# the graph before the "sink".
+#
+#volume mdcache-sink
+#    type performance/md-cache
+#    subvolumes sink
+#end-volume

@@ -106,6 +106,8 @@ AC_CONFIG_FILES([Makefile
                 xlators/performance/nl-cache/Makefile
                 xlators/performance/nl-cache/src/Makefile
                 xlators/debug/Makefile
+                xlators/debug/sink/Makefile
+                xlators/debug/sink/src/Makefile
                 xlators/debug/trace/Makefile
                 xlators/debug/trace/src/Makefile
                 xlators/debug/error-gen/Makefile
