@@ -902,7 +902,7 @@ out:
 
 
 static int
-validate_worm (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
+validate_boolean (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                char *value, char **op_errstr)
 {
         xlator_t *this      =       NULL;
@@ -2461,7 +2461,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "features/worm",
           .option      = "worm",
           .value       = "off",
-          .validate_fn = validate_worm,
+          .validate_fn = validate_boolean,
           .op_version  = 2,
           .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
         },
@@ -2469,7 +2469,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "features/worm",
           .option      = "worm-file-level",
           .value       = "off",
-          .validate_fn = validate_worm,
+          .validate_fn = validate_boolean,
           .op_version  = GD_OP_VERSION_3_8_0,
           .flags      = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
         },
@@ -3150,7 +3150,8 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key         = GLUSTERD_BRICK_MULTIPLEX_KEY,
           .voltype     = "mgmt/glusterd",
           .value       = "off",
-          .op_version  = GD_OP_VERSION_3_10_0
+          .op_version  = GD_OP_VERSION_3_10_0,
+          .validate_fn = validate_boolean
         },
         { .key         = NULL
         }
