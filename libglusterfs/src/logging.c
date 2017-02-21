@@ -386,21 +386,21 @@ gf_log_rotate(glusterfs_ctx_t *ctx)
                         pthread_mutex_unlock (&ctx->log.logfile_mutex);
                 }
 
-                fd = open (ctx->log.filename,
-                           O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR);
+                fd = sys_open (ctx->log.filename, O_CREAT | O_WRONLY | O_APPEND,
+                               S_IRUSR | S_IWUSR);
                 if (fd < 0) {
                         gf_msg ("logrotate", GF_LOG_ERROR, errno,
                                 LG_MSG_FILE_OP_FAILED, "failed to open "
                                 "logfile");
                         return;
                 }
-                sys_close (fd);
 
-                new_logfile = fopen (ctx->log.filename, "a");
+                new_logfile = fdopen (fd, "a");
                 if (!new_logfile) {
                         gf_msg ("logrotate", GF_LOG_CRITICAL, errno,
                                 LG_MSG_FILE_OP_FAILED, "failed to open logfile"
                                 " %s", ctx->log.filename);
+                        sys_close (fd);
                         return;
                 }
 
@@ -491,6 +491,9 @@ gf_log_fini (void *data)
 
         if (old_logfile && (fclose (old_logfile) != 0))
                 ret = -1;
+
+        GF_FREE (ctx->log.ident);
+        GF_FREE (ctx->log.filename);
 
  out:
         return ret;
@@ -704,6 +707,7 @@ gf_log_init (void *data, const char *file, const char *ident)
                 return -1;
         }
         if (ident) {
+                GF_FREE (ctx->log.ident);
                 ctx->log.ident = gf_strdup (ident);
         }
 
@@ -728,6 +732,10 @@ gf_log_init (void *data, const char *file, const char *ident)
                 return -1;
         }
 
+        /* free the (possible) previous filename */
+        GF_FREE (ctx->log.filename);
+        ctx->log.filename = NULL;
+
         if (strcmp (file, "-") == 0) {
 		int dupfd = -1;
 
@@ -748,34 +756,34 @@ gf_log_init (void *data, const char *file, const char *ident)
 		if (!ctx->log.logfile) {
 			fprintf (stderr, "ERROR: could not fdopen on %d (%s)\n",
 				 dupfd, strerror (errno));
+                        sys_close (dupfd);
 			return -1;
 		}
+        } else {
+                ctx->log.filename = gf_strdup (file);
+                if (!ctx->log.filename) {
+                        fprintf (stderr, "ERROR: updating log-filename failed: "
+                                 "%s\n", strerror (errno));
+                        return -1;
+                }
 
-		goto out;
+                fd = sys_open (file, O_CREAT | O_WRONLY | O_APPEND,
+                               S_IRUSR | S_IWUSR);
+                if (fd < 0) {
+                        fprintf (stderr, "ERROR: failed to create logfile"
+                                 " \"%s\" (%s)\n", file, strerror (errno));
+                        return -1;
+                }
+
+                ctx->log.logfile = fdopen (fd, "a");
+                if (!ctx->log.logfile) {
+                        fprintf (stderr, "ERROR: failed to open logfile \"%s\" "
+                                 "(%s)\n", file, strerror (errno));
+                        sys_close (fd);
+                        return -1;
+                }
         }
 
-        ctx->log.filename = gf_strdup (file);
-        if (!ctx->log.filename) {
-                fprintf (stderr, "ERROR: updating log-filename failed: %s\n",
-                         strerror (errno));
-                return -1;
-        }
-
-        fd = open (file, O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR);
-        if (fd < 0) {
-                fprintf (stderr, "ERROR: failed to create logfile"
-                         " \"%s\" (%s)\n", file, strerror (errno));
-                return -1;
-        }
-        sys_close (fd);
-
-        ctx->log.logfile = fopen (file, "a");
-        if (!ctx->log.logfile) {
-                fprintf (stderr, "ERROR: failed to open logfile \"%s\" (%s)\n",
-                         file, strerror (errno));
-                return -1;
-        }
-out:
         ctx->log.gf_log_logfile = ctx->log.logfile;
 
         return 0;
@@ -2191,8 +2199,8 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
         if (ctx->log.logrotate) {
                 ctx->log.logrotate = 0;
 
-                fd = open (ctx->log.filename,
-                           O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR);
+                fd = sys_open (ctx->log.filename,
+                               O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR);
                 if (fd < 0) {
                         gf_msg ("logrotate", GF_LOG_ERROR, errno,
                                 LG_MSG_FILE_OP_FAILED,
@@ -2369,21 +2377,21 @@ gf_cmd_log_init (const char *filename)
                 ctx->log.cmdlogfile = NULL;
         }
 
-        fd = open (ctx->log.cmd_log_filename,
-                   O_CREAT | O_RDONLY, S_IRUSR | S_IWUSR);
+        fd = sys_open (ctx->log.cmd_log_filename,
+                       O_CREAT | O_WRONLY | O_APPEND, S_IRUSR | S_IWUSR);
         if (fd < 0) {
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
                         LG_MSG_FILE_OP_FAILED, "failed to open cmd_log_file");
                 return -1;
         }
-        sys_close (fd);
 
-        ctx->log.cmdlogfile = fopen (ctx->log.cmd_log_filename, "a");
+        ctx->log.cmdlogfile = fdopen (fd, "a");
         if (!ctx->log.cmdlogfile){
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
                         LG_MSG_FILE_OP_FAILED,
                         "gf_cmd_log_init: failed to open logfile \"%s\" "
                         "\n", ctx->log.cmd_log_filename);
+                sys_close (fd);
                 return -1;
         }
         return 0;
@@ -2458,8 +2466,9 @@ gf_cmd_log (const char *domain, const char *fmt, ...)
                         ctx->log.cmdlogfile = NULL;
                 }
 
-                fd = open (ctx->log.cmd_log_filename,
-                           O_CREAT | O_WRONLY | O_APPEND, S_IRUSR | S_IWUSR);
+                fd = sys_open (ctx->log.cmd_log_filename,
+                               O_CREAT | O_WRONLY | O_APPEND,
+                               S_IRUSR | S_IWUSR);
                 if (fd < 0) {
                         gf_msg (THIS->name, GF_LOG_CRITICAL, errno,
                                 LG_MSG_FILE_OP_FAILED, "failed to open "
@@ -2475,6 +2484,7 @@ gf_cmd_log (const char *domain, const char *fmt, ...)
                                 "failed to open logfile \"%s\""
                                 " \n", ctx->log.cmd_log_filename);
                         ret = -1;
+                        sys_close (fd);
                         goto out;
                 }
         }
