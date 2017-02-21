@@ -50,6 +50,7 @@ TEST $CLI volume quota $V0 limit-usage / 1
 TEST $CLI volume quota $V0 soft-timeout 0
 TEST $CLI volume quota $V0 hard-timeout 0
 
+EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 TEST mount_nfs $H0:/$V0 $N0 noac,soft,nolock,vers=3;
 deep=/0/1/2/3/4/5/6/7/8/9
 TEST mkdir -p $N0/$deep
