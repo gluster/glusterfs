@@ -955,6 +955,7 @@ exit 0
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/error-gen.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/io-stats.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/sink.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/trace.so
 %if ( ! ( 0%{?rhel} && 0%{?rhel} < 6 ) )
 # RHEL-5 based distributions have a too old openssl
