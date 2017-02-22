@@ -68,9 +68,10 @@ sleep 2;
 # Wait for the bricks to come up, *then* the tier daemon.
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 5 num_bricks_up
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" tier_daemon_check;
+sleep 1;
 time1=$(rebalance_run_time $V0);
 EXPECT "0" non_zero_check $time1;
-sleep 4;
+sleep 2;
 time2=$(rebalance_run_time $V0);
 EXPECT "0" non_zero_check $time2;
 diff=`expr $time2 - $time1`
