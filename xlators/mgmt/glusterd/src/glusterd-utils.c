@@ -10849,9 +10849,6 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
                 goto out;
         }
 
-        if (ret)
-                goto out;
-
         if (rsp_dict) {
                 ret = glusterd_defrag_volume_status_update (volinfo,
                                                             rsp_dict,
