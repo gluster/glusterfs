@@ -2988,7 +2988,7 @@ gf_get_reserved_ports ()
                 goto out;
         }
 
-        ret = sys_read (proc_fd, buffer, sizeof (buffer));
+        ret = sys_read (proc_fd, buffer, sizeof (buffer)-1);
         if (ret < 0) {
                 gf_msg ("glusterfs", GF_LOG_WARNING, errno,
                         LG_MSG_FILE_OP_FAILED, "could not read the file %s for"
