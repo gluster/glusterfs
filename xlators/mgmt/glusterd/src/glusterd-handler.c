@@ -3204,7 +3204,7 @@ __glusterd_handle_mount (rpcsvc_request_t *req)
 
  out:
         if (!rsp.path)
-                rsp.path = "";
+                rsp.path = gf_strdup("");
 
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                (xdrproc_t)xdr_gf1_cli_mount_rsp);
@@ -3212,8 +3212,8 @@ __glusterd_handle_mount (rpcsvc_request_t *req)
 
         if (dict)
                 dict_unref (dict);
-        if (*rsp.path)
-                GF_FREE (rsp.path);
+
+        GF_FREE (rsp.path);
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
