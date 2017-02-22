@@ -16,7 +16,6 @@
 #define _AUTH_CACHE_H_
 
 #include "nfs-mem-types.h"
-#include "mount3.h"
 #include "exports.h"
 #include "dict.h"
 #include "nfs3.h"
