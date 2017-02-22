@@ -1438,11 +1438,11 @@ sp_state_read_proghdr_xdata:
                         }
 
                         iobref_add (in->iobref, iobuf);
-                        iobuf_unref (iobuf);
 
                         in->payload_vector.iov_base = iobuf_ptr (iobuf);
-
                         frag->fragcurrent = iobuf_ptr (iobuf);
+
+                        iobuf_unref (iobuf);
                 }
 
                 request->vector_state = SP_STATE_READING_PROG;
