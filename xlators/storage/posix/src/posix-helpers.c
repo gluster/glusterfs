@@ -1148,6 +1148,11 @@ posix_handle_pair (xlator_t *this, const char *real_path,
 {
         int sys_ret = -1;
         int ret     = 0;
+#ifdef GF_DARWIN_HOST_OS
+        const int error_code = EINVAL;
+#else
+        const int error_code = EEXIST;
+#endif
 
         if (XATTR_IS_PATHINFO (key)) {
                 ret = -EACCES;
@@ -1179,37 +1184,20 @@ posix_handle_pair (xlator_t *this, const char *real_path,
                                                 real_path);
                                 }
                         } else {
-
-#ifdef GF_DARWIN_HOST_OS
-                                if (errno == EINVAL) {
-                                        gf_msg_debug (this->name, 0, "%s: key:"
-                                                      "%s flags: %u length:%d "
-                                                      "error:%s", real_path,
-                                                      key, flags, value->len,
-                                                      strerror (errno));
-                                } else {
-                                        gf_msg (this->name, GF_LOG_ERROR,
-                                                errno, P_MSG_XATTR_FAILED,
-                                                "%s: key:%s flags: "
-                                                "%u length:%d",
-                                                real_path, key, flags,
-                                                value->len);
-
-#else /* ! DARWIN */
-                                if (errno == EEXIST)
+                                if (errno == error_code) {
                                         gf_msg_debug (this->name, 0,
                                                       "%s: key:%s"
                                                       "flags: %u length:%d",
                                                       real_path, key, flags,
                                                       value->len);
-                                else
+                                } else {
                                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                                 P_MSG_XATTR_FAILED, "%s: key:%s"
                                                 "flags: %u length:%d",
                                                 real_path, key, flags,
                                                 value->len);
-#endif /* DARWIN */
                                 }
+                        }
 
                         goto out;
                 }
