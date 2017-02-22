@@ -1534,9 +1534,6 @@ posix_acl_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int op_ret, int op_errno, struct iatt *preparent,
                       struct iatt *postparent, dict_t *xdata)
 {
-        if (op_ret != 0)
-                goto unwind;
-unwind:
         STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno,
                              preparent, postparent, xdata);
         return 0;
@@ -1570,9 +1567,6 @@ posix_acl_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int op_ret, int op_errno,
                      struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
 {
-        if (op_ret != 0)
-                goto unwind;
-unwind:
         STACK_UNWIND_STRICT (rmdir, frame, op_ret, op_errno,
                              preparent, postparent, xdata);
         return 0;
@@ -1607,9 +1601,6 @@ posix_acl_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       struct iatt *prenewparent, struct iatt *postnewparent,
                       dict_t *xdata)
 {
-        if (op_ret != 0)
-                goto unwind;
-unwind:
         STACK_UNWIND_STRICT (rename, frame, op_ret, op_errno, buf,
                              preoldparent, postoldparent,
                              prenewparent, postnewparent, xdata);
@@ -1650,9 +1641,6 @@ posix_acl_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int op_ret, int op_errno, inode_t *inode, struct iatt *buf,
                     struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
 {
-        if (op_ret != 0)
-                goto unwind;
-unwind:
         STACK_UNWIND_STRICT (link, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent, xdata);
         return 0;
@@ -1698,9 +1686,6 @@ posix_acl_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int op_ret, int op_errno, gf_dirent_t *entries,
                        dict_t *xdata)
 {
-        if (op_ret != 0)
-                goto unwind;
-unwind:
         STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, entries, xdata);
         return 0;
 }
