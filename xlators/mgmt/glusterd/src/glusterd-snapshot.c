@@ -892,8 +892,6 @@ glusterd_snapshot_restore (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 cds_list_del_init (&parent_volinfo->vol_list);
                 glusterd_volinfo_unref (parent_volinfo);
 
-                if (ret)
-                        goto out;
         }
 
         ret = 0;
