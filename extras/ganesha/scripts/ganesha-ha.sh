@@ -671,12 +671,6 @@ addnode_create_resources()
     local add_vip=${1}; shift
     local cibfile=$(mktemp -u)
 
-    # start HA on the new node
-    pcs cluster start ${add_node}
-    if [ $? -ne 0 ]; then
-       logger "warning: pcs cluster start ${add_node} failed"
-    fi
-
     pcs cluster cib ${cibfile}
     if [ $? -ne 0 ]; then
         logger "warning: pcs cluster cib ${cibfile} failed"
@@ -696,6 +690,7 @@ addnode_create_resources()
         logger "warning: pcs cluster cib-push ${cibfile} failed"
     fi
     rm -f ${cibfile}
+
 }
 
 
@@ -1073,6 +1068,19 @@ main()
         pcs cluster node add ${node}
         if [ $? -ne 0 ]; then
             logger "warning: pcs cluster node add ${node} failed"
+        fi
+
+        sleep 2
+        # restart of HA cluster required on RHEL 6 because of BZ1404410
+        pcs cluster stop --all
+        if [ $? -ne 0 ]; then
+            logger "warning: pcs cluster stopping cluster failed"
+        fi
+
+        sleep 2
+        pcs cluster start --all
+        if [ $? -ne 0 ]; then
+            logger "warning: pcs cluster starting cluster failed"
         fi
 
         addnode_create_resources ${node} ${vip}
