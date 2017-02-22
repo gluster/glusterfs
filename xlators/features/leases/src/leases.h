@@ -119,7 +119,7 @@ do {                                                                           \
                 gf_msg (this->name, GF_LOG_WARNING, ENOMEM,                    \
                         LEASE_MSG_NO_MEM,                                      \
                         "Unable to create/get inode ctx");                     \
-                op_errno = ENOMEM;                                             \
+                ret = -ENOMEM;                                                 \
                 goto __out;                                                    \
         }                                                                      \
                                                                                \
