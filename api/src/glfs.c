@@ -1476,6 +1476,8 @@ pub_glfs_sysrq (struct glfs *fs, char sysrq)
 {
         glusterfs_ctx_t  *ctx = NULL;
         int               ret = 0;
+        char              msg[1024] = {0,}; /* should not exceed 1024 chars */
+        size_t            rem = sizeof (msg);
 
         if (!fs || !fs->ctx) {
                 ret = -1;
@@ -1488,13 +1490,12 @@ pub_glfs_sysrq (struct glfs *fs, char sysrq)
         switch (sysrq) {
         case GLFS_SYSRQ_HELP:
         {
-                char msg[1024]; /* help text should not exceed 1024 chars */
                 struct glfs_sysrq_help *usage;
 
-                msg[0] = '\0';
                 for (usage = glfs_sysrq_help; usage->sysrq; usage++) {
-                        strncat (msg, usage->msg, 1024);
-                        strncat (msg, " ", 1024);
+                        strncat (msg, usage->msg, rem);
+                        rem -= strlen (usage->msg);
+                        strncat (msg, " ", rem--);
                 }
 
                 /* not really an 'error', but make sure it gets logged */
