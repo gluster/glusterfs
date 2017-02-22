@@ -2823,6 +2823,14 @@ glusterd_op_delete_volume (dict_t *dict)
         if (ret)
                 goto out;
 
+        if (glusterd_check_ganesha_export (volinfo)) {
+                ret = manage_export_config (volname, "off", NULL);
+                if (ret)
+                        gf_msg (this->name, GF_LOG_WARNING, 0, 0,
+                                "Could not delete ganesha export conf file "
+                                "for %s", volname);
+        }
+
         ret = glusterd_delete_volume (volinfo);
 out:
         gf_msg_debug (this->name, 0, "returning %d", ret);

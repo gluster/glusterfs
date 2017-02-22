@@ -464,7 +464,7 @@ manage_export_config (char *volname, char *value, char **op_errstr)
                          CONFDIR, value, volname, NULL);
         ret = runner_run(&runner);
 
-        if (ret)
+        if (ret && !(*op_errstr))
                 gf_asprintf (op_errstr, "Failed to create"
                             " NFS-Ganesha export config file.");
 
