@@ -549,19 +549,20 @@ shard_common_inode_write_success_unwind (glusterfs_fop_t fop,
 
 int
 shard_common_resolve_shards (call_frame_t *frame, xlator_t *this,
-                             inode_t *res_inode,
                              shard_post_resolve_fop_handler_t post_res_handler)
 {
         int                   i              = -1;
         uint32_t              shard_idx_iter = 0;
         char                  path[PATH_MAX] = {0,};
         inode_t              *inode          = NULL;
+        inode_t              *res_inode      = NULL;
         shard_priv_t         *priv           = NULL;
         shard_local_t        *local          = NULL;
 
         priv = this->private;
         local = frame->local;
         shard_idx_iter = local->first_block;
+        res_inode = local->resolver_base_inode;
 
         if (local->op_ret < 0)
                 goto out;
@@ -797,10 +798,7 @@ shard_lookup_dot_shard_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         shard_link_dot_shard_inode (local, inode, buf);
-        shard_common_resolve_shards (frame, this,
-                                     (local->fop == GF_FOP_RENAME) ?
-                                     local->loc2.inode : local->loc.inode,
-                                     local->post_res_handler);
+        shard_common_resolve_shards (frame, this, local->post_res_handler);
         return 0;
 
 unwind:
@@ -1813,6 +1811,8 @@ shard_truncate_begin (call_frame_t *frame, xlator_t *this)
                                                local->block_size);
 
         local->num_blocks = local->last_block - local->first_block + 1;
+        local->resolver_base_inode = (local->fop == GF_FOP_TRUNCATE) ?
+                                     local->loc.inode : local->fd->inode;
 
         if ((local->first_block == 0) && (local->num_blocks == 1)) {
                 if (local->fop == GF_FOP_TRUNCATE)
@@ -1844,9 +1844,6 @@ shard_truncate_begin (call_frame_t *frame, xlator_t *this)
                                         shard_post_resolve_truncate_handler);
         } else {
                 shard_common_resolve_shards (frame, this,
-                                             (local->fop == GF_FOP_TRUNCATE) ?
-                                              local->loc.inode :
-                                              local->fd->inode,
                                            shard_post_resolve_truncate_handler);
         }
         return 0;
@@ -2158,10 +2155,7 @@ shard_post_lookup_shards_unlink_handler (call_frame_t *frame, xlator_t *this)
         local->op_ret = 0;
         local->op_errno = 0;
 
-        shard_unlink_shards_do (frame, this,
-                                (local->fop == GF_FOP_RENAME)
-                                             ? local->loc2.inode
-                                             : local->loc.inode);
+        shard_unlink_shards_do (frame, this, local->resolver_base_inode);
         return 0;
 }
 
@@ -2208,14 +2202,10 @@ shard_post_resolve_unlink_handler (call_frame_t *frame, xlator_t *this)
 
         if (!local->call_count)
                 shard_unlink_shards_do (frame, this,
-                                        (local->fop == GF_FOP_RENAME)
-                                                     ? local->loc2.inode
-                                                     : local->loc.inode);
+                                        local->resolver_base_inode);
         else
                 shard_common_lookup_shards (frame, this,
-                                            (local->fop == GF_FOP_RENAME)
-                                                         ? local->loc2.inode
-                                                         : local->loc.inode,
+                                            local->resolver_base_inode,
                                        shard_post_lookup_shards_unlink_handler);
         return 0;
 }
@@ -2252,6 +2242,7 @@ shard_unlink_base_file_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local->last_block = get_highest_block (0, local->prebuf.ia_size,
                                                local->block_size);
         local->num_blocks = local->last_block - local->first_block + 1;
+        local->resolver_base_inode = local->loc.inode;
 
         /* num_blocks = 1 implies that the file has not crossed its
          * shard block size. So unlink boils down to unlinking just the
@@ -2282,7 +2273,7 @@ shard_unlink_base_file_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 shard_lookup_dot_shard (frame, this,
                                         shard_post_resolve_unlink_handler);
         } else {
-                shard_common_resolve_shards (frame, this, local->loc.inode,
+                shard_common_resolve_shards (frame, this,
                                              shard_post_resolve_unlink_handler);
         }
 
@@ -2602,6 +2593,7 @@ shard_rename_unlink_dst_shards_do (call_frame_t *frame, xlator_t *this)
         local->last_block = get_highest_block (0, local->postbuf.ia_size,
                                                local->dst_block_size);
         local->num_blocks = local->last_block - local->first_block + 1;
+        local->resolver_base_inode = local->loc2.inode;
 
         if ((local->xattr_rsp) &&
             (!dict_get_uint32 (local->xattr_rsp, GET_LINK_COUNT, &link_count))
@@ -2629,7 +2621,7 @@ shard_rename_unlink_dst_shards_do (call_frame_t *frame, xlator_t *this)
                 shard_lookup_dot_shard (frame, this,
                                         shard_post_resolve_unlink_handler);
         } else {
-                shard_common_resolve_shards (frame, this, local->loc2.inode,
+                shard_common_resolve_shards (frame, this,
                                              shard_post_resolve_unlink_handler);
         }
 
@@ -3358,6 +3350,7 @@ shard_post_lookup_readv_handler (call_frame_t *frame, xlator_t *this)
                                                local->block_size);
 
         local->num_blocks = local->last_block - local->first_block + 1;
+        local->resolver_base_inode = local->loc.inode;
 
         local->inode_list = GF_CALLOC (local->num_blocks, sizeof (inode_t *),
                                        gf_shard_mt_inode_list);
@@ -3392,7 +3385,7 @@ shard_post_lookup_readv_handler (call_frame_t *frame, xlator_t *this)
                 shard_lookup_dot_shard (frame, this,
                                         shard_post_resolve_readv_handler);
         } else {
-                shard_common_resolve_shards (frame, this, local->loc.inode,
+                shard_common_resolve_shards (frame, this,
                                              shard_post_resolve_readv_handler);
         }
         return 0;
@@ -3876,8 +3869,7 @@ shard_mkdir_dot_shard_cbk (call_frame_t *frame, void *cookie,
         shard_link_dot_shard_inode (local, inode, buf);
 
 unwind:
-        shard_common_resolve_shards (frame, this, local->loc.inode,
-                                     local->post_res_handler);
+        shard_common_resolve_shards (frame, this, local->post_res_handler);
         return 0;
 }
 
@@ -4620,6 +4612,7 @@ shard_common_inode_write_begin (call_frame_t *frame, xlator_t *this,
         local->last_block = get_highest_block (offset, local->total_size,
                                                local->block_size);
         local->num_blocks = local->last_block - local->first_block + 1;
+        local->resolver_base_inode = local->fd->inode;
         local->inode_list = GF_CALLOC (local->num_blocks, sizeof (inode_t *),
                                        gf_shard_mt_inode_list);
         if (!local->inode_list)
@@ -4638,12 +4631,13 @@ shard_common_inode_write_begin (call_frame_t *frame, xlator_t *this,
         local->dot_shard_loc.inode = inode_find (this->itable,
                                                  priv->dot_shard_gfid);
 
-        if (!local->dot_shard_loc.inode)
+        if (!local->dot_shard_loc.inode) {
                 shard_mkdir_dot_shard (frame, this,
                                  shard_common_inode_write_post_resolve_handler);
-        else
-                shard_common_resolve_shards (frame, this, local->loc.inode,
+        } else {
+                shard_common_resolve_shards (frame, this,
                                  shard_common_inode_write_post_resolve_handler);
+        }
 
         return 0;
 out:
