@@ -2308,7 +2308,7 @@ tier_prepare_compact (migration_args_t *args, gfdb_time_t current_time)
         dht_conf_t *conf                        = NULL;
         gf_defrag_info_t *defrag                = NULL;
         gf_tier_conf_t *tier_conf               = NULL;
-        gf_boolean_t is_hot_tier = _gf_false;
+        gf_boolean_t is_hot_tier = args->is_hot_tier;
         int freq = 0;
         int ret = -1;
         const char *tier_type = is_hot_tier ? "hot" : "cold";
@@ -2320,8 +2320,6 @@ tier_prepare_compact (migration_args_t *args, gfdb_time_t current_time)
         defrag = conf->defrag;
 
         tier_conf = &defrag->tier_conf;
-
-        is_hot_tier = args->is_hot_tier;
 
         freq = is_hot_tier ? tier_get_freq_compact_hot (tier_conf) :
                 tier_get_freq_compact_cold (tier_conf);
