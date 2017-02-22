@@ -2523,8 +2523,6 @@ dht_update_commit_hash_for_layout_resume (call_frame_t *frame, void *cookie,
                                 " dictionary,", local->loc.path,
                                 conf->local_subvols[i]->name);
 
-                        GF_FREE (disk_layout);
-
                         goto err;
                 }
                 disk_layout = NULL;
