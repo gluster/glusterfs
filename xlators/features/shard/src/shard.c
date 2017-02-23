@@ -4232,8 +4232,6 @@ shard_readdir_do (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
         local = mem_get0 (this->local_pool);
         if (!local) {
-                local->op_ret = -1;
-                local->op_errno = ENOMEM;
                 goto err;
         }
 
@@ -4260,8 +4258,6 @@ shard_readdir_do (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                                 "dict value: key:%s, directory gfid=%s",
                                 GF_XATTR_SHARD_BLOCK_SIZE,
                                 uuid_utoa (fd->inode->gfid));
-                        local->op_ret = -1;
-                        local->op_errno = ENOMEM;
                         goto err;
                 }
 
@@ -4273,7 +4269,7 @@ shard_readdir_do (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         return 0;
 
 err:
-        STACK_UNWIND_STRICT (readdir, frame, local->op_ret, local->op_errno,
+        STACK_UNWIND_STRICT (readdir, frame, -1, ENOMEM,
                              NULL, NULL);
         return 0;
 
