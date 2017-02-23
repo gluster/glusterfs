@@ -1,0 +1,91 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          glustereventsd
+# Required-Start:    $local_fs $network
+# Required-Stop:     $local_fs $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Gluster Events Server
+# Description:       Gluster Events Server
+### END INIT INFO
+
+# Author: Chris AtLee <chris@atlee.ca>
+# Patched by: Matthias Albert < matthias@linux4experts.de>
+
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+NAME=glustereventsd
+SCRIPTNAME=/etc/init.d/$NAME
+DAEMON=@prefix@/sbin/$NAME
+PIDFILE=/var/run/$NAME.pid
+GLUSTEREVENTSD_OPTS=""
+PID=`test -f $PIDFILE && cat $PIDFILE`
+
+
+# Gracefully exit if the package has been removed.
+test -x $DAEMON || exit 0
+
+# Load the VERBOSE setting and other rcS variables
+. /lib/init/vars.sh
+
+# Define LSB log_* functions.
+. /lib/lsb/init-functions
+
+
+do_start()
+{
+    pidofproc -p $PIDFILE $DAEMON >/dev/null
+    status=$?
+    if [ $status -eq 0 ]; then
+      log_success_msg "glustereventsd service is already running with pid $PID"
+    else
+      log_daemon_msg "Starting glustereventsd service" "glustereventsd"
+      start-stop-daemon --start --quiet --oknodo --pidfile $PIDFILE --startas $DAEMON -- -p $PIDFILE $GLUSTEREVENTSD_OPTS
+      log_end_msg $?
+      start_daemon -p $PIDFILE $DAEMON -f $CONFIGFILE
+      return $?
+    fi
+}
+
+do_stop()
+{
+    log_daemon_msg "Stopping glustereventsd service" "glustereventsd"
+    start-stop-daemon --stop --quiet --oknodo --pidfile $PIDFILE
+    log_end_msg $?
+    rm -f $PIDFILE
+    killproc -p $PIDFILE $DAEMON
+    return $?
+}
+
+do_status()
+{
+     pidofproc -p $PIDFILE $DAEMON >/dev/null
+     status=$?
+     if [ $status -eq 0 ]; then
+       log_success_msg "glustereventsd service is running with pid $PID"
+     else
+       log_failure_msg "glustereventsd service is not running."
+     fi
+     exit $status
+}
+
+case "$1" in
+  start)
+        do_start
+        ;;
+  stop)
+        do_stop
+        ;;
+  status)
+        do_status;
+        ;;
+  restart|force-reload)
+        do_stop
+        sleep 2
+        do_start
+        ;;
+  *)
+        echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
+        exit 3
+        ;;
+esac
+
