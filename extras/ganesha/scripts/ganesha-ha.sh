@@ -321,24 +321,6 @@ string:"EXPORT(Export_Id=$removed_id)" 2>&1)
 
 teardown_cluster()
 {
-    local name=${1}
-
-    for server in ${HA_SERVERS} ; do
-        if [[ ${HA_CLUSTER_NODES} != *${server}* ]]; then
-            logger "info: ${server} is not in config, removing"
-
-            pcs cluster stop ${server} --force
-            if [ $? -ne 0 ]; then
-                logger "warning: pcs cluster stop ${server} failed"
-            fi
-
-            pcs cluster node remove ${server}
-            if [ $? -ne 0 ]; then
-                logger "warning: pcs cluster node remove ${server} failed"
-            fi
-        fi
-    done
-
     # BZ 1193433 - pcs doesn't reload cluster.conf after modification
     # after teardown completes, a subsequent setup will appear to have
     # 'remembered' the deleted node. You can work around this by
@@ -352,7 +334,7 @@ teardown_cluster()
         logger "warning pcs cluster stop --all failed"
     fi
 
-    pcs cluster destroy
+    pcs cluster destroy --all
     if [ $? -ne 0 ]; then
         logger "error pcs cluster destroy failed"
         exit 1
@@ -1044,7 +1026,7 @@ main()
 
         teardown_resources ${HA_SERVERS}
 
-        teardown_cluster ${HA_NAME}
+        teardown_cluster
 
         cleanup_ganesha_config ${HA_CONFDIR}
         ;;
