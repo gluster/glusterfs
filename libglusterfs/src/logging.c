@@ -2292,8 +2292,6 @@ _gf_log_eh (const char *function, const char *fmt, ...)
                 goto out;
         }
 
-        va_end (ap);
-
         msg = GF_MALLOC (strlen (str1) + strlen (str2) + 1, gf_common_mt_char);
         if (!msg) {
                 ret = -1;
