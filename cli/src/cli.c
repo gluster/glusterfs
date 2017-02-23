@@ -517,11 +517,11 @@ cli_usage_out (const char *usage)
 int
 _cli_err (const char *fmt, ...)
 {
-        struct cli_state *state = NULL;
         va_list           ap;
         int               ret = 0;
-
-        state = global_state;
+#ifdef HAVE_READLINE
+        struct cli_state *state = global_state;
+#endif
 
         va_start (ap, fmt);
 
@@ -543,14 +543,13 @@ _cli_err (const char *fmt, ...)
 int
 _cli_out (const char *fmt, ...)
 {
-        struct cli_state *state = NULL;
         va_list           ap;
         int               ret = 0;
-
-        state = global_state;
+#ifdef HAVE_READLINE
+        struct cli_state *state = global_state;
+#endif
 
         va_start (ap, fmt);
-
 #ifdef HAVE_READLINE
         if (state->rl_enabled && !state->rl_processing) {
                 va_end (ap);
