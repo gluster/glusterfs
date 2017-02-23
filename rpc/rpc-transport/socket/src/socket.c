@@ -724,6 +724,8 @@ __socket_disconnect (rpc_transport_t *this)
                 priv->ot_state, priv->ot_gen, priv->sock);
 
         if (priv->sock != -1) {
+                gf_log_callingfn (this->name, GF_LOG_TRACE,
+                                  "tearing down socket connection");
                 ret = __socket_teardown_connection (this);
                 if (ret) {
                         gf_log (this->name, GF_LOG_DEBUG,
@@ -1201,6 +1203,9 @@ socket_event_poll_out (rpc_transport_t *this)
                         ret = __socket_ioq_churn (this);
 
                         if (ret == -1) {
+                                gf_log (this->name, GF_LOG_TRACE,
+                                        "__socket_ioq_churn returned -1; "
+                                        "disconnecting socket");
                                 __socket_disconnect (this);
                         }
                 }
@@ -2305,7 +2310,8 @@ socket_connect_finish (rpc_transport_t *this)
                 if (ret == -1 && errno != EINPROGRESS) {
                         if (!priv->connect_finish_log) {
                                 gf_log (this->name, GF_LOG_ERROR,
-                                        "connection to %s failed (%s)",
+                                        "connection to %s failed (%s); "
+                                        "disconnecting socket",
                                         this->peerinfo.identifier,
                                         strerror (errno));
                                 priv->connect_finish_log = 1;
@@ -2325,7 +2331,8 @@ socket_connect_finish (rpc_transport_t *this)
                                            &this->myinfo.sockaddr_len);
                         if (ret == -1) {
                                 gf_log (this->name, GF_LOG_WARNING,
-                                        "getsockname on (%d) failed (%s)",
+                                        "getsockname on (%d) failed (%s) - "
+                                        "disconnecting socket",
                                         priv->sock, strerror (errno));
                                 __socket_disconnect (this);
                                 event = RPC_TRANSPORT_DISCONNECT;
@@ -2378,6 +2385,10 @@ socket_event_handler (int fd, int idx, void *data,
                         EINPROGRESS or ENOENT, so nothing more to do, fail
                         reading/writing anything even if poll_in or poll_out
                         is set */
+                        gf_log ("transport", GF_LOG_DEBUG,
+                                "connect failed with some other error than "
+                                "EINPROGRESS or ENOENT, so nothing more to "
+                                "do; disconnecting socket");
                         ret = socket_disconnect (this, _gf_false);
 
                         /* Force ret to be -1, as we are officially done with
@@ -2401,7 +2412,7 @@ socket_event_handler (int fd, int idx, void *data,
         if ((ret < 0) || poll_err) {
                 /* Logging has happened already in earlier cases */
                 gf_log ("transport", ((ret >= 0) ? GF_LOG_INFO : GF_LOG_DEBUG),
-                        "disconnecting now");
+                        "EPOLLERR - disconnecting now");
                 socket_event_poll_err (this);
                 rpc_transport_unref (this);
 	}
@@ -2576,6 +2587,7 @@ err:
 	/* All (and only) I/O errors should come here. */
         pthread_mutex_lock(&priv->lock);
         {
+                gf_log (this->name, GF_LOG_TRACE, "disconnecting socket");
                 __socket_teardown_connection (this);
                 sys_close (priv->sock);
                 priv->sock = -1;
