@@ -171,7 +171,7 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 	char *type = NULL;
 	char str[] = "ERROR";
 	int32_t ret = -1;
-	int8_t is_tcp = 0, is_unix = 0, is_ibsdp = 0;
+	int is_tcp = 0, is_unix = 0, is_ibsdp = 0;
 	volume_opt_list_t *vol_opt = NULL;
         gf_boolean_t bind_insecure = _gf_false;
         xlator_t   *this = NULL;
