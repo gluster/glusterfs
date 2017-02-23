@@ -434,7 +434,6 @@ glusterd_tierdsvc_reconfigure (void *data)
         glusterd_volinfo_t      *volinfo                = NULL;
 
         volinfo = data;
-        GF_VALIDATE_OR_GOTO (this->name, data, out);
 
         /* reconfigure function is not available for other volume based
          * service. but it has been implemented for tier because there can be
