@@ -2115,7 +2115,7 @@ gf_defrag_migrate_single_file (void *opaque)
 
         rebal_entry = (struct dht_container *)opaque;
         if (!rebal_entry) {
-                gf_log (this->name, GF_LOG_ERROR, "rebal_entry is NULL");
+                gf_log ("DHT", GF_LOG_ERROR, "rebal_entry is NULL");
                 ret = -1;
                 goto out;
         }
