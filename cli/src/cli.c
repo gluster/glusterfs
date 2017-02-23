@@ -527,8 +527,9 @@ _cli_err (const char *fmt, ...)
 
 #ifdef HAVE_READLINE
         if (state->rl_enabled && !state->rl_processing) {
+                ret = cli_rl_err (state, fmt, ap);
                 va_end (ap);
-                return cli_rl_err (state, fmt, ap);
+                return ret;
         }
 #endif
 
@@ -552,8 +553,9 @@ _cli_out (const char *fmt, ...)
         va_start (ap, fmt);
 #ifdef HAVE_READLINE
         if (state->rl_enabled && !state->rl_processing) {
+                ret = cli_rl_out (state, fmt, ap);
                 va_end (ap);
-                return cli_rl_out (state, fmt, ap);
+                return ret;
         }
 #endif
 
