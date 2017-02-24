@@ -1131,8 +1131,6 @@ ng_file_parse (const char *filepath)
                         gf_msg (GF_NG, GF_LOG_CRITICAL, ENOMEM,
                                 NFS_MSG_NO_MEMORY, "Allocation error "
                                 "while parsing line!");
-                        ng_file_deinit (file);
-                        GF_FREE (line);
                         goto err;
                 }
                 if (ret != 0) {
@@ -1148,9 +1146,14 @@ ng_file_parse (const char *filepath)
         if (fp)
                 fclose(fp);
 
+        _ng_deinit_parsers ();
+
         return file;
 
 err:
+        if (line)
+                free(line);
+
         if (file)
                 ng_file_deinit (file);
 
