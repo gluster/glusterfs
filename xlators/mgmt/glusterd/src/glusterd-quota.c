@@ -1065,6 +1065,8 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
         if (version < 1.2f && conf->op_version >= GD_OP_VERSION_3_7_0) {
                 /* Upgrade quota.conf file to newer format */
                 sys_close (conf_fd);
+                conf_fd = -1;
+
                 ret = glusterd_store_quota_conf_upgrade(volinfo);
                 if (ret)
                         goto out;
