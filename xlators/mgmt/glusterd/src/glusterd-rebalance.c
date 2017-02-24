@@ -725,8 +725,9 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
                                                       sizeof (msg),
                                                       GD_OP_REBALANCE);
                 if (ret) {
-                        gf_msg_debug (this->name, 0,
-                                        "start validate failed");
+                        gf_msg_debug (this->name, 0, "defrag start validate "
+                                      "failed for volume %s.",
+                                      volinfo->volname);
                         goto out;
                 }
                 break;
@@ -744,7 +745,8 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
                 }
                 if ((strstr(cmd_str, "rebalance") != NULL) &&
                     (volinfo->rebal.op != GD_OP_REBALANCE)) {
-                        snprintf (msg, sizeof(msg), "Rebalance not started.");
+                        snprintf (msg, sizeof(msg), "Rebalance not started "
+                                  "for volume %s.", volinfo->volname);
                         ret = -1;
                         goto out;
                 }
@@ -752,7 +754,8 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
                 if (strstr(cmd_str, "remove-brick") != NULL) {
                         if (volinfo->rebal.op != GD_OP_REMOVE_BRICK) {
                                 snprintf (msg, sizeof(msg), "remove-brick not "
-                                          "started.");
+                                          "started for volume %s.",
+                                          volinfo->volname);
                                 ret = -1;
                                 goto out;
                         }
