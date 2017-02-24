@@ -1845,7 +1845,7 @@ cli_cmd_volume_tier_parse (const char **words, int wordcount,
         dict_t  *dict    = NULL;
         char    *volname = NULL;
         int      ret     = -1;
-        int32_t  command = GF_OP_CMD_NONE;
+        int32_t  command = GF_DEFRAG_CMD_NONE;
         int32_t  is_force    = 0;
 
         GF_ASSERT (words);
@@ -1926,7 +1926,7 @@ cli_cmd_volume_detach_tier_parse (const char **words, int wordcount,
         int      ret = -1;
         char    *word = NULL;
         dict_t  *dict = NULL;
-        int32_t  command = GF_OP_CMD_NONE;
+        int32_t  command = GF_DEFRAG_CMD_NONE;
 
         dict = dict_new ();
         if (!dict)
