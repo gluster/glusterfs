@@ -320,6 +320,7 @@ struct dht_du {
 typedef struct dht_du dht_du_t;
 
 enum gf_defrag_type {
+        GF_DEFRAG_CMD_NONE = 0,
         GF_DEFRAG_CMD_START = 1,
         GF_DEFRAG_CMD_STOP = 1 + 1,
         GF_DEFRAG_CMD_STATUS = 1 + 2,
