@@ -187,6 +187,8 @@ glusterd_dump_priv (xlator_t *this)
 {
         glusterd_conf_t      *priv                     = NULL;
         char                  key[GF_DUMP_MAX_BUF_LEN] = {0,};
+        int                   port                     = 0;
+        struct pmap_registry *pmap                     = NULL;
 
         GF_VALIDATE_OR_GOTO ("glusterd", this, out);
 
@@ -232,8 +234,28 @@ glusterd_dump_priv (xlator_t *this)
                 gf_proc_dump_build_key (key, "glusterd", "scrub.online");
                 gf_proc_dump_write (key, "%d", priv->scrub_svc.online);
 
+                /* Dump peer details */
                 GLUSTERD_DUMP_PEERS (&priv->peers, uuid_list, _gf_false);
+
+                /* Dump pmap data structure from base port to last alloc */
+                pmap = priv->pmap;
+                for (port = pmap->base_port; port <= pmap->last_alloc;
+                     port++) {
+                        gf_proc_dump_build_key (key, "glusterd", "pmap_port");
+                        gf_proc_dump_write (key, "%d", port);
+                        gf_proc_dump_build_key (key, "glusterd",
+                                                "pmap[%d].type", port);
+                        gf_proc_dump_write (key, "%d", pmap->ports[port].type);
+                        gf_proc_dump_build_key (key, "glusterd",
+                                                "pmap[%d].brickname", port);
+                        gf_proc_dump_write (key, "%s",
+                                            pmap->ports[port].brickname);
+
+                }
+                /* Dump client details */
                 glusterd_dump_client_details (priv);
+
+                /* Dump mgmt_v3_lock from the dictionary if any */
                 glusterd_dict_mgmt_v3_lock_statedump(priv->mgmt_v3_lock);
                 dict_dump_to_statedump (priv->opts, "options", "glusterd");
         }
