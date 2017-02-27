@@ -12000,7 +12000,7 @@ glusterd_get_global_options_for_all_vols (rpcsvc_request_t *req, dict_t *ctx,
 
 out:
         if (ret && !all_opts && !key_found) {
-                if (err_str == NULL)
+                if (err_str[0] == 0)
                         snprintf (err_str, sizeof (err_str),
                                   "option %s does not exist", key);
                 if (*op_errstr == NULL)
