@@ -60,5 +60,11 @@ EXPECT "1048576" stat -c %s $M0/file2
 EXPECT "0" stat -c %s $B0/${V0}2/file1
 EXPECT "0" stat -c %s $B0/${V0}2/file2
 
+#Increasing replica count of arbiter volumes must not be allowed.
+TEST !  $CLI volume add-brick $V0 replica 4 $H0:$B0/${V0}3
+TEST !  $CLI volume add-brick $V0 replica 4 arbiter 1 $H0:$B0/${V0}3
+
+#Adding another distribute leg should succeed.
+TEST $CLI volume add-brick $V0 replica 3 arbiter 1 $H0:$B0/${V0}{3..5}
 TEST force_umount $M0
 cleanup;
