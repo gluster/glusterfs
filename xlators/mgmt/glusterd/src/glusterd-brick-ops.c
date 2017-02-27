@@ -1722,6 +1722,16 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         *op_errstr = gf_strdup (msg);
                         goto out;
                 }
+                /* Do not allow increasing replica count for arbiter volumes. */
+                if (replica_count && volinfo->arbiter_count) {
+                        ret = -1;
+                        snprintf (msg, sizeof (msg), "Increasing replica count "
+                                  "for arbiter volumes is not supported.");
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_BRICK_ADD_FAIL, "%s", msg);
+                        *op_errstr = gf_strdup (msg);
+                        goto out;
+                }
         }
 
         is_force = dict_get_str_boolean (dict, "force", _gf_false);
