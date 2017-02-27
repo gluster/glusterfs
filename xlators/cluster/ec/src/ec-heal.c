@@ -410,6 +410,8 @@ ec_adjust_versions (call_frame_t *frame, ec_t *ec, ec_txn_t type,
         if (EC_COUNT (sources, ec->nodes) +
             EC_COUNT (healed_sinks, ec->nodes) == ec->nodes)
                 erase_dirty = _gf_true;
+        else
+                op_ret = -ENOTCONN;
 
         for (i = 0; i < ec->nodes; i++) {
                 if (!sources[i] && !healed_sinks[i])
@@ -510,7 +512,7 @@ ec_heal_metadata_find_direction (ec_t *ec, default_args_cbk_t *replies,
                         if (!are_dicts_equal(replies[i].xdata, replies[j].xdata,
                                              ec_sh_key_match, NULL))
                                 continue;
-                        groups[j] = i; /*If iatts match put them into a group*/
+                        groups[j] = i;
                         same_count++;
                 }
 
@@ -541,7 +543,6 @@ ec_heal_metadata_find_direction (ec_t *ec, default_args_cbk_t *replies,
 out:
         return ret;
 }
-
 
 int
 __ec_heal_metadata_prepare (call_frame_t *frame, ec_t *ec, inode_t *inode,
@@ -680,15 +681,12 @@ __ec_heal_metadata (call_frame_t *frame, ec_t *ec, inode_t *inode,
                 goto out;
         }
 
-        if (EC_COUNT (sources, ec->nodes) == ec->nodes) {
+        if ((EC_COUNT (sources, ec->nodes) == ec->nodes) ||
+            (EC_COUNT (healed_sinks, ec->nodes) == 0)) {
                 ret = 0;
                 goto erase_dirty;
         }
 
-        if (EC_COUNT (healed_sinks, ec->nodes) == 0) {
-                ret = -ENOTCONN;
-                goto out;
-        }
         source_buf = replies[source].stat;
         ret = cluster_setattr (ec->xl_list, healed_sinks, ec->nodes, sreplies,
                                output, frame, ec->xl, &loc,
