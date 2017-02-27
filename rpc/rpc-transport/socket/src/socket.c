@@ -345,17 +345,17 @@ ssl_setup_connection (rpc_transport_t *this, int server)
 	X509_NAME_get_text_by_NID(X509_get_subject_name(peer),
 		NID_commonName, peer_CN, sizeof(peer_CN)-1);
 	peer_CN[sizeof(peer_CN)-1] = '\0';
-	gf_log(this->name,GF_LOG_INFO,"peer CN = %s", peer_CN);
-        gf_log (this->name, GF_LOG_INFO,
-                "SSL verification succeeded (client: %s)",
-                this->peerinfo.identifier);
+	gf_log(this->name, GF_LOG_DEBUG, "peer CN = %s", peer_CN);
+        gf_log (this->name, GF_LOG_DEBUG,
+                "SSL verification succeeded (client: %s) (server: %s)",
+                this->peerinfo.identifier, this->myinfo.identifier);
         return gf_strdup(peer_CN);
 
 	/* Error paths. */
 ssl_error:
 	gf_log (this->name, GF_LOG_ERROR,
-                "SSL connect error (client: %s)",
-                this->peerinfo.identifier);
+                "SSL connect error (client: %s) (server: %s)",
+                this->peerinfo.identifier, this->myinfo.identifier);
 	ssl_dump_error_stack(this->name);
 free_ssl:
 	SSL_free(priv->ssl_ssl);
@@ -3235,7 +3235,7 @@ handler:
                 rpc_transport_ref (this);
                 refd = _gf_true;
 
-                if (priv->own_thread) {
+                if (priv->own_thread && !(priv->connect_failed)) {
                         if (pipe(priv->pipe) < 0) {
                                 gf_log(this->name,GF_LOG_ERROR,
                                 "could not create pipe");
