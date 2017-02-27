@@ -385,6 +385,9 @@ priv_glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
 	int         ret = -1;
 	struct iatt ciatt = {0, };
 
+	DECLARE_OLD_THIS;
+	__GLFS_ENTRY_VALIDATE_FS(fs, invalid_fs);
+
 	path = gf_strdup (origpath);
 	if (!path) {
 		errno = ENOMEM;
@@ -510,9 +513,10 @@ priv_glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
         }
 out:
 	GF_FREE (path);
+        __GLFS_EXIT_FS;
 
 	/* do NOT loc_wipe here as only last component might be missing */
-
+invalid_fs:
 	return ret;
 }
 

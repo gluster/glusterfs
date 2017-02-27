@@ -28,6 +28,7 @@
 #include "xdr-rpc.h"
 #include "xdr-generic.h"
 #include "nfs-messages.h"
+#include "glfs-internal.h"
 
 #include <sys/socket.h>
 #include <sys/uio.h>
@@ -348,28 +349,68 @@ out:
 }
 
 
-#define nfs3_funge_solaris_zerolen_fh(nfs3st, fhd, enam, nfsst, erl)    \
-        do {                                                            \
-                xlator_t        *fungexl = NULL;                        \
-                uuid_t          zero = {0, };                           \
-                fungexl =nfs_mntpath_to_xlator ((nfs3st)->exportslist,enam);\
-                if (!fungexl) {                                         \
-                        (nfsst) = NFS3ERR_NOENT;                        \
-                        goto erl;                                       \
-                }                                                       \
-                                                                        \
-                gf_uuid_copy ((fhd)->gfid, zero);                       \
-                (fhd)->gfid[15] = 1;                                    \
-                (enam) = NULL;                                          \
-                if ((gf_nfs_dvm_off (nfs_state (nfs3st->nfsx))))        \
-                        (fhd)->exportid[15] = nfs_xlator_to_xlid ((nfs3st)->exportslist, fungexl);                                                 \
-                else {                                                  \
-                        if(__nfs3_get_volume_id ((nfs3st), fungexl, (fhd)->exportid) < 0) { \
-                                (nfsst) = NFS3ERR_STALE;                \
-                                goto erl;                               \
-                        }                                               \
-                }                                                       \
-        } while (0)                                                     \
+static enum nfsstat3
+nfs3_funge_webnfs_zerolen_fh (struct nfs3_state *nfs3st, struct nfs3_fh *fhd,
+                               char *name)
+{
+        xlator_t        *fungexl  = NULL;
+        glfs_t          *fs       = NULL;
+        loc_t            loc      = { 0, };
+        enum nfsstat3    nfsstat  = NFS3ERR_SERVERFAULT;
+        int              ret      = -1;
+        size_t           namelen  = -1;
+
+        fungexl = nfs_mntpath_to_xlator (nfs3st->exportslist, name);
+        if (!fungexl) {
+                nfsstat = NFS3ERR_NOENT;
+                goto out;
+        }
+
+        /* glfs_resolve_at copied from UDP MNT support */
+        fs = glfs_new_from_ctx (fungexl->ctx);
+        if (!fs) {
+                nfsstat = NFS3ERR_NOENT;
+                goto out;
+        }
+
+        /* strip volname/ from 'name' */
+        namelen = strlen(name);
+        while (namelen != 0) {
+                name++;
+                if (name[0] == '/') {
+                        break;
+                }
+                namelen--;
+        }
+        gf_msg_debug (GF_NFS, 0, "NAME :%s ", name);
+
+        ret = glfs_resolve_at (fs, fungexl, NULL, name, &loc, NULL, 1, 0);
+        if (ret != 0) {
+                nfsstat = NFS3ERR_NOENT;
+                goto out;
+        }
+
+        /* resolved subdir, copy gfid for the fh */
+        gf_uuid_copy (fhd->gfid, loc.gfid);
+        loc_wipe (&loc);
+
+        if (gf_nfs_dvm_off (nfs_state (nfs3st->nfsx)))
+                fhd->exportid[15] = nfs_xlator_to_xlid (nfs3st->exportslist,
+                                                        fungexl);
+        else {
+                if (__nfs3_get_volume_id (nfs3st, fungexl, fhd->exportid) < 0) {
+                        nfsstat = NFS3ERR_STALE;
+                        goto out;
+                }
+        }
+
+        nfsstat = NFS3_OK;
+out:
+        if (fs)
+                glfs_free_from_ctx (fs);
+
+        return nfsstat;
+}
 
 
 #define nfs3_volume_started_check(nf3stt, vlm, rtval, erlbl)            \
@@ -1495,9 +1536,14 @@ nfs3_lookup (rpcsvc_request_t *req, struct nfs3_fh *fh, int fhlen, char *name)
         nfs3_log_fh_entry_call (rpcsvc_request_xid (req), "LOOKUP", fh,
                                 name);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
-        if (nfs3_solaris_zerolen_fh (fh, fhlen))
-                nfs3_funge_solaris_zerolen_fh (nfs3, fh, name, stat, nfs3err);
-        else
+        if (nfs3_solaris_zerolen_fh (fh, fhlen)) {
+                stat = nfs3_funge_webnfs_zerolen_fh (nfs3, fh, name);
+                if (stat != NFS3_OK)
+                        goto nfs3err;
+
+                /* this fh means we're doing a mount, name is no more useful */
+                name = NULL;
+        } else
                 nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);

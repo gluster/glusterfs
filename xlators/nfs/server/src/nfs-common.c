@@ -73,10 +73,11 @@ nfs_xlator_to_xlid (xlator_list_t *cl, xlator_t *xl)
 xlator_t *
 nfs_mntpath_to_xlator (xlator_list_t *cl, char *path)
 {
-        char            *volname = NULL;
-        char            *volptr = NULL;
-        size_t           pathlen;
+        char            *volname  = NULL;
+        char            *volptr   = NULL;
+        size_t           pathlen  = -1;
         xlator_t        *targetxl = NULL;
+        int              i        = 0;
 
         if ((!cl) || (!path))
                 return NULL;
@@ -89,10 +90,17 @@ nfs_mntpath_to_xlator (xlator_list_t *cl, char *path)
         else
                 volptr = &volname[0];
 
-        if (pathlen && volname[pathlen - 1] == '/')
-                volname[pathlen - 1] = '\0';
+        for (i = 0; i < pathlen; i++) {
+                if (volname[i] == '/') {
+                        volname[i] = '\0';
+                        break;
+                }
+        }
 
         while (cl) {
+                gf_msg_trace (GF_NFS, 0, "Volptr: %s and cl->xlator->name: %s",
+                              volptr, cl->xlator->name);
+
                 if (strcmp (volptr, cl->xlator->name) == 0) {
                         targetxl = cl->xlator;
                         break;
