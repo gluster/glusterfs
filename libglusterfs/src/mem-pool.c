@@ -221,6 +221,7 @@ gf_vasprintf (char **string_ptr, const char *format, va_list arg)
         str = GF_MALLOC (size, gf_common_mt_asprintf);
         if (str == NULL) {
                 /* log is done in GF_MALLOC itself */
+                va_end (arg_save);
                 return -1;
         }
         rv = vsnprintf (str, size, format, arg_save);
