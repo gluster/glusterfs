@@ -2310,7 +2310,7 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 
                 if (conf->quick_reconnect) {
                         conf->quick_reconnect = 0;
-                        rpc_clnt_start (rpc);
+                        rpc_clnt_cleanup_and_start (rpc);
 
                 } else {
                         rpc->conn.config.remote_port = 0;
