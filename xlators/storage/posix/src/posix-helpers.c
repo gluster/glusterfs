@@ -2195,11 +2195,13 @@ __posix_inode_ctx_get (inode_t *inode, xlator_t *this)
 
         pthread_mutex_init (&ctx_p->xattrop_lock, NULL);
         pthread_mutex_init (&ctx_p->write_atomic_lock, NULL);
+        pthread_mutex_init (&ctx_p->pgfid_lock, NULL);
 
         ret = __inode_ctx_set (inode, this, (uint64_t *)&ctx_p);
         if (ret < 0) {
                 pthread_mutex_destroy (&ctx_p->xattrop_lock);
                 pthread_mutex_destroy (&ctx_p->write_atomic_lock);
+                pthread_mutex_destroy (&ctx_p->pgfid_lock);
                 GF_FREE (ctx_p);
                 return NULL;
         }

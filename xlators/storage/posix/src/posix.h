@@ -194,6 +194,7 @@ typedef struct {
         uint64_t unlink_flag;
         pthread_mutex_t xattrop_lock;
         pthread_mutex_t write_atomic_lock;
+        pthread_mutex_t pgfid_lock;
 } posix_inode_ctx_t;
 
 #define POSIX_BASE_PATH(this) (((struct posix_private *)this->private)->base_path)
