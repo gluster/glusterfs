@@ -321,6 +321,15 @@ case $host_os in
     ;;
 esac
 
+# --enable-valgrind prevents calling dlclose(), this leaks memory
+AC_ARG_ENABLE([valgrind],
+              AC_HELP_STRING([--enable-valgrind],
+                             [Enable valgrind for resource leak debugging.]))
+if test "x$enable_valgrind" = "xyes"; then
+        AC_DEFINE(RUN_WITH_VALGRIND, 1, [define if all processes should run under valgrind])
+fi
+
+
 AC_ARG_WITH([previous-options],
         [AS_HELP_STRING([--with-previous-options],
                         [read config.status for configure options])

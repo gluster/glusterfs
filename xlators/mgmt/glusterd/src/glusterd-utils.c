@@ -1894,7 +1894,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
 retry:
         runinit (&runner);
 
-        if (priv->valgrind) {
+        if (this->ctx->cmd_args.valgrind) {
                 /* Run bricks with valgrind */
                 if (volinfo->logdir) {
                         snprintf (valgrind_logfile, PATH_MAX,

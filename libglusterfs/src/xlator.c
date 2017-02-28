@@ -673,7 +673,7 @@ xlator_members_free (xlator_t *xl)
 
         GF_FREE (xl->name);
         GF_FREE (xl->type);
-        if (xl->dlhandle)
+        if (!(xl->ctx && xl->ctx->cmd_args.valgrind) && xl->dlhandle)
                 dlclose (xl->dlhandle);
         if (xl->options)
                 dict_unref (xl->options);

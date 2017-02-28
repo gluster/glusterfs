@@ -401,6 +401,11 @@ struct _cmd_args {
 #ifdef GF_LINUX_HOST_OS
         char            *oom_score_adj;
 #endif
+
+        /* Run this process with valgrind? Might want to prevent calling
+         * functions that prevent valgrind from working correctly, like
+         * dlclose(). */
+        int             valgrind;
 };
 typedef struct _cmd_args cmd_args_t;
 
