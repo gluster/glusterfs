@@ -149,6 +149,7 @@ struct rpc_clnt_connection {
 	int32_t                  ping_timeout;
         uint64_t                 pingcnt;
         uint64_t                 msgcnt;
+        uint64_t                 cleanup_gen;
 };
 typedef struct rpc_clnt_connection rpc_clnt_connection_t;
 
@@ -171,7 +172,6 @@ struct rpc_req {
 
 typedef struct rpc_clnt {
         pthread_mutex_t        lock;
-        pthread_mutex_t        notifylock;
         rpc_clnt_notify_t      notifyfn;
         rpc_clnt_connection_t  conn;
         void                  *mydata;
@@ -197,6 +197,8 @@ struct rpc_clnt *rpc_clnt_new (dict_t *options, xlator_t *owner,
                                char *name, uint32_t reqpool_size);
 
 int rpc_clnt_start (struct rpc_clnt *rpc);
+
+int rpc_clnt_cleanup_and_start (struct rpc_clnt *rpc);
 
 int rpc_clnt_register_notify (struct rpc_clnt *rpc, rpc_clnt_notify_t fn,
                               void *mydata);
