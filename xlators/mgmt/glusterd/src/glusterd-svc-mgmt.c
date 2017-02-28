@@ -171,7 +171,7 @@ glusterd_svc_start (glusterd_svc_t *svc, int flags, dict_t *cmdline)
 
         runinit (&runner);
 
-        if (priv->valgrind) {
+        if (this->ctx->cmd_args.valgrind) {
                 snprintf (valgrind_logfile, PATH_MAX, "%s/valgrind-%s.log",
                           svc->proc.logfile, svc->name);
 

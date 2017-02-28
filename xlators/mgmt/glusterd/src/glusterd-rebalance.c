@@ -183,6 +183,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
                               size_t len, int cmd, defrag_cbk_fn_t cbk,
                               glusterd_op_t op)
 {
+        xlator_t               *this = NULL;
         int                    ret = -1;
         glusterd_defrag_info_t *defrag =  NULL;
         runner_t               runner = {0,};
@@ -195,7 +196,11 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         char                   valgrind_logfile[PATH_MAX] = {0,};
         char                   *volfileserver = NULL;
 
-        priv    = THIS->private;
+        this    = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        priv    = this->private;
+        GF_VALIDATE_OR_GOTO ("glusterd", priv, out);
 
         GF_ASSERT (volinfo);
         GF_ASSERT (op_errstr);
@@ -228,7 +233,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         GLUSTERD_GET_DEFRAG_DIR (defrag_path, volinfo, priv);
         ret = mkdir_p (defrag_path, 0777, _gf_true);
         if (ret) {
-                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_CREATE_DIR_FAILED, "Failed to create "
                         "directory %s", defrag_path);
                 goto out;
@@ -241,7 +246,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
                     (cmd == GF_DEFRAG_CMD_START_TIER ? "tier":"rebalance"));
         runinit (&runner);
 
-        if (priv->valgrind) {
+        if (this->ctx->cmd_args.valgrind) {
                 snprintf (valgrind_logfile, PATH_MAX,
                           "%s/valgrind-%s-rebalance.log",
                           DEFAULT_LOG_FILE_DIRECTORY,
@@ -255,7 +260,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
 
         snprintf (volname, sizeof(volname), "rebalance/%s", volinfo->volname);
 
-        if (dict_get_str (THIS->options, "transport.socket.bind-address",
+        if (dict_get_str (this->options, "transport.socket.bind-address",
                           &volfileserver) == 0) {
                /*In the case of running multiple glusterds on a single machine,
                 *we should ensure that log file and unix socket file shouls be

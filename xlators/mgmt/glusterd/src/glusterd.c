@@ -1424,6 +1424,7 @@ init (xlator_t *this)
         char              *mountbroker_root           = NULL;
         int                i                          = 0;
         int                total_transport            = 0;
+        gf_boolean_t       valgrind                   = _gf_false;
         char              *valgrind_str               = NULL;
         char              *transport_type             = NULL;
         char               var_run_dir[PATH_MAX]      = {0,};
@@ -1781,17 +1782,19 @@ init (xlator_t *this)
          }
 
         /* Set option to run bricks on valgrind if enabled in glusterd.vol */
-        conf->valgrind = _gf_false;
+        this->ctx->cmd_args.valgrind = valgrind;
         ret = dict_get_str (this->options, "run-with-valgrind", &valgrind_str);
         if (ret < 0) {
                 gf_msg_debug (this->name, 0,
                         "cannot get run-with-valgrind value");
         }
         if (valgrind_str) {
-                if (gf_string2boolean (valgrind_str, &(conf->valgrind))) {
+                if (gf_string2boolean (valgrind_str, &valgrind)) {
                         gf_msg (this->name, GF_LOG_WARNING, EINVAL,
                                 GD_MSG_INVALID_ENTRY,
                                 "run-with-valgrind value not a boolean string");
+                } else {
+                        this->ctx->cmd_args.valgrind = valgrind;
                 }
         }
 
