@@ -1,0 +1,14 @@
+#
+# This .vol file expects that there is
+#
+#  1. GlusterD listening on @@HOSTNAME@@
+#  2. a volume that provides a brick on @@BRICKPATH@@
+#  3. the volume with the brick has been started
+#
+volume test
+    type protocol/client
+    option remote-host @@HOSTNAME@@
+    option remote-subvolume @@BRICKPATH@@
+    option transport-type socket
+end-volume
+

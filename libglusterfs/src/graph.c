@@ -407,25 +407,27 @@ fill_uuid (char *uuid, int size)
 }
 
 
-int
-glusterfs_graph_settop (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
-                        char *volume_name)
+static int
+glusterfs_graph_settop (glusterfs_graph_t *graph, char *volume_name,
+                        gf_boolean_t exact_match)
 {
+        int         ret  = -1;
         xlator_t   *trav = NULL;
 
-        if (!volume_name) {
+        if (!volume_name || !exact_match) {
                 graph->top = graph->first;
-                return 0;
-        }
-
-        for (trav = graph->first; trav; trav = trav->next) {
-                if (strcmp (trav->name, volume_name) == 0) {
-                        graph->top = trav;
-                        return 0;
+                ret = 0;
+        } else {
+                for (trav = graph->first; trav; trav = trav->next) {
+                        if (strcmp (trav->name, volume_name) == 0) {
+                                graph->top = trav;
+                                ret = 0;
+                                break;
+                        }
                 }
         }
 
-        return -1;
+        return ret;
 }
 
 
@@ -462,19 +464,32 @@ glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
         /* XXX: CHECKSUM */
 
         /* XXX: attach to -n volname */
-        ret = glusterfs_graph_settop (graph, ctx, volume_name);
-        if (ret) {
-                char *slash = rindex (volume_name, '/');
-                if (slash) {
-                        ret = glusterfs_graph_settop (graph, ctx, slash + 1);
-                        if (!ret) {
-                                goto ok;
-                        }
-                }
-                gf_msg ("graph", GF_LOG_ERROR, 0, LG_MSG_GRAPH_ERROR,
-                        "glusterfs graph settop failed");
-                return -1;
+        /* A '/' in the volume name suggests brick multiplexing is used, find
+         * the top of the (sub)graph. The volname MUST match the subvol in this
+         * case. In other cases (like for gfapi) the default top for the
+         * (sub)graph is ok. */
+        if (!volume_name) {
+                /* GlusterD does not pass a volume_name */
+                ret = glusterfs_graph_settop (graph, volume_name, _gf_false);
+        } else if (strncmp (volume_name, "/snaps/", 7) == 0) {
+                /* snap shots have their top xlator named like "/snaps/..."  */
+                ret = glusterfs_graph_settop (graph, volume_name,
+                                              _gf_false);
+        } else if (volume_name[0] == '/') {
+                /* brick multiplexing passes the brick path */
+                ret = glusterfs_graph_settop (graph, volume_name,
+                                              _gf_true);
+        } else {
+                ret = glusterfs_graph_settop (graph, volume_name,
+                                              _gf_false);
         }
+        if (!ret) {
+                goto ok;
+        }
+
+        gf_msg ("graph", GF_LOG_ERROR, 0, LG_MSG_GRAPH_ERROR,
+                "glusterfs graph settop failed");
+        return -1;
 ok:
 
         /* XXX: WORM VOLUME */
@@ -1085,9 +1100,19 @@ glusterfs_graph_attach (glusterfs_graph_t *orig_graph, char *path)
         }
 
         /* TBD: memory leaks everywhere */
-        glusterfs_graph_prepare (graph, this->ctx, xl->name);
-        glusterfs_graph_init (graph);
-        glusterfs_xlator_link (orig_graph->top, graph->top);
+        if (glusterfs_graph_prepare (graph, this->ctx, xl->name)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to prepare graph for xlator %s", xl->name);
+                return -EIO;
+        } else if (glusterfs_graph_init (graph)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to initialize graph for xlator %s", xl->name);
+                return -EIO;
+        } else if (glusterfs_xlator_link (orig_graph->top, graph->top)) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to link the graphs for xlator %s ", xl->name);
+                return -EIO;
+        }
 
         return 0;
 }
