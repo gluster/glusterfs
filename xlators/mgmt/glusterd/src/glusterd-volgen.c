@@ -5864,6 +5864,8 @@ build_bitd_clusters (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         ret = clusters;
 
 out:
+        GF_FREE (brick_hint);
+        brick_hint = NULL;
         return ret;
 }
 
