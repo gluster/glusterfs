@@ -136,6 +136,7 @@ posix_forget (xlator_t *this, inode_t *inode)
         }
 out:
         pthread_mutex_destroy (&ctx->xattrop_lock);
+        pthread_mutex_destroy (&ctx->write_atomic_lock);
         GF_FREE (ctx);
         return ret;
 }
@@ -685,6 +686,7 @@ posix_do_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
         int32_t             op_errno = 0;
         struct posix_fd    *pfd    = NULL;
         gf_boolean_t        locked = _gf_false;
+        posix_inode_ctx_t  *ctx    = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -700,9 +702,15 @@ posix_do_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto out;
         }
 
+        ret = posix_inode_ctx_get_all (fd->inode, this, &ctx);
+        if (ret < 0) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
         if (dict_get (xdata, GLUSTERFS_WRITE_UPDATE_ATOMIC)) {
                 locked = _gf_true;
-                LOCK(&fd->inode->lock);
+                pthread_mutex_lock (&ctx->write_atomic_lock);
         }
 
         ret = posix_fdstat (this, pfd->fd, statpre);
@@ -729,7 +737,7 @@ posix_do_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 out:
         if (locked) {
-                UNLOCK (&fd->inode->lock);
+                pthread_mutex_unlock (&ctx->write_atomic_lock);
                 locked = _gf_false;
         }
         SET_TO_OLD_FS_ID ();
@@ -843,6 +851,7 @@ posix_do_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         int32_t            flags     = 0;
         struct posix_fd   *pfd       = NULL;
         gf_boolean_t       locked    = _gf_false;
+        posix_inode_ctx_t *ctx       = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -858,9 +867,15 @@ posix_do_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 goto out;
         }
 
+        ret = posix_inode_ctx_get_all (fd->inode, this, &ctx);
+        if (ret < 0) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
         if (dict_get (xdata, GLUSTERFS_WRITE_UPDATE_ATOMIC)) {
                 locked = _gf_true;
-                LOCK(&fd->inode->lock);
+                pthread_mutex_lock (&ctx->write_atomic_lock);
         }
 
         ret = posix_fdstat (this, pfd->fd, statpre);
@@ -910,7 +925,7 @@ fsync:
 
 out:
 	if (locked) {
-		UNLOCK (&fd->inode->lock);
+		pthread_mutex_unlock (&ctx->write_atomic_lock);
 		locked = _gf_false;
 	}
         SET_TO_OLD_FS_ID ();
@@ -3314,6 +3329,7 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	gf_boolean_t           locked = _gf_false;
 	gf_boolean_t           write_append = _gf_false;
 	gf_boolean_t           update_atomic = _gf_false;
+        posix_inode_ctx_t     *ctx      = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -3357,9 +3373,15 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
          * as of today).
          */
 
+        op_ret = posix_inode_ctx_get_all (fd->inode, this, &ctx);
+        if (op_ret < 0) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+
         if (write_append || update_atomic) {
 		locked = _gf_true;
-		LOCK(&fd->inode->lock);
+		pthread_mutex_lock (&ctx->write_atomic_lock);
         }
 
         op_ret = posix_fdstat (this, _fd, &preop);
@@ -3379,7 +3401,7 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                                  (pfd->flags & O_DIRECT));
 
 	if (locked && (!update_atomic)) {
-		UNLOCK (&fd->inode->lock);
+		pthread_mutex_unlock (&ctx->write_atomic_lock);
 		locked = _gf_false;
 	}
 
@@ -3409,7 +3431,7 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
 
 	if (locked) {
-		UNLOCK (&fd->inode->lock);
+		pthread_mutex_unlock (&ctx->write_atomic_lock);
 		locked = _gf_false;
 	}
 
@@ -3435,7 +3457,7 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 out:
 
 	if (locked) {
-		UNLOCK (&fd->inode->lock);
+		pthread_mutex_unlock (&ctx->write_atomic_lock);
 		locked = _gf_false;
 	}
 
