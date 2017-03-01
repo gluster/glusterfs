@@ -8838,7 +8838,7 @@ glusterd_remove_trashpath (char *volname)
                   "%s/"GLUSTERD_TRASH"/vols-%s.deleted", priv->workdir,
                   volname);
 
-        ret = lstat (delete_path, &stbuf);
+        ret = sys_lstat (delete_path, &stbuf);
         if (ret) {
                 /* If the trash dir does not exist, return *
                  * without failure                         *
