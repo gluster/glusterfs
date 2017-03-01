@@ -482,8 +482,8 @@ add_inode_to_client_list (xlator_t *this, inode_t *inode, const char *client_uid
                               "cleanup list, gfid(%s)", inode, client_uid,
                               uuid_utoa (inode->gfid));
         }
-        pthread_mutex_unlock (&priv->mutex);
 out:
+        pthread_mutex_unlock (&priv->mutex);
         return ret;
 }
 
