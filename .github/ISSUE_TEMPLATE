@@ -1,0 +1,13 @@
+This repository (glusterfs) uses github issues to track feature requests *only*.
+
+For assistance with bugs, please file a bug in our bugzilla instance [1]
+
+For other queries regarding glusterfs, please post to the users [2] or devel [3] lists as appropriate.
+
+You may further want to subscribe to these lists or view the archives for these lists, see [4] [5].
+
+[1] glusterfs Bugzilla: https://bugzilla.redhat.com/enter_bug.cgi?product=GlusterFS
+[2] Gluster users list ID: gluster-users@gluster.org
+[3] Gluster devel list ID: gluster-devel@gluster.org
+[4] Gluster users list subscribe/view archives: https://lists.gluster.org/mailman/listinfo/gluster-users
+[5] Gluster devel list subscribe/view archives: https://lists.gluster.org/mailman/listinfo/gluster-devel
