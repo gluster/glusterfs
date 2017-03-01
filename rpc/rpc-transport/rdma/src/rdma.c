@@ -1130,6 +1130,7 @@ gf_rdma_cm_handle_addr_resolved (struct rdma_cm_event *event)
                         "failed (me:%s peer:%s)",
                         this->myinfo.identifier, this->peerinfo.identifier);
                 gf_rdma_cm_handle_disconnect (this);
+                return ret;
         }
 
         gf_msg_trace (this->name, 0, "Address resolved (me:%s peer:%s)",
