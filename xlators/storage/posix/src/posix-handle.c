@@ -978,8 +978,10 @@ posix_create_link_if_gfid_exists (xlator_t *this, uuid_t gfid, char *real_path,
                         if (ret)
                                 goto unlock;
 
-                        if (ctx->unlink_flag != GF_UNLINK_TRUE)
+                        if (ctx->unlink_flag != GF_UNLINK_TRUE) {
+                                ret = -1;
                                 goto unlock;
+                        }
 
                         POSIX_GET_FILE_UNLINK_PATH (priv->base_path, gfid,
                                                     unlink_path);
