@@ -932,16 +932,19 @@ ec_config_check (ec_fop_data_t *fop, ec_config_t *config)
 }
 
 gf_boolean_t
-ec_set_dirty_flag (ec_lock_link_t *link, ec_inode_t *ctx, uint64_t *dirty)
+ec_set_dirty_flag (ec_lock_link_t *link, ec_inode_t *ctx,
+                   uint64_t *dirty)
 {
 
     gf_boolean_t set_dirty = _gf_false;
 
     if (link->update[EC_DATA_TXN] && !ctx->dirty[EC_DATA_TXN]) {
+            if (!link->optimistic_changelog)
                 dirty[EC_DATA_TXN] = 1;
     }
 
     if (link->update[EC_METADATA_TXN] && !ctx->dirty[EC_METADATA_TXN]) {
+            if (!link->optimistic_changelog)
                 dirty[EC_METADATA_TXN] = 1;
     }
 
@@ -962,6 +965,7 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
     ec_lock_link_t *link = fop->data;
     ec_lock_t *lock = NULL;
     ec_inode_t *ctx;
+    gf_boolean_t release = _gf_false;
 
     lock = link->lock;
     parent = link->fop;
@@ -1055,6 +1059,26 @@ unlock:
     UNLOCK(&lock->loc.inode->lock);
 
     if (op_errno == 0) {
+        /* If the fop fails on any of the good bricks, it is important to mark
+         * it dirty and update versions right away if dirty was not set before.
+         */
+        if (lock->good_mask & ~(fop->good | fop->remaining)) {
+                release = _gf_true;
+        }
+
+        /* lock->release is a critical field that is checked and modified most
+         * of the time inside a locked region. This use here is safe because we
+         * are in a modifying fop and we currently don't allow two modifying
+         * fops to be processed concurrently, so no one else could be checking
+         * or modifying it.*/
+        if (link->update[0] && !link->dirty[0]) {
+                lock->release |= release;
+        }
+
+        if (link->update[1] && !link->dirty[1]) {
+                lock->release |= release;
+        }
+
         /* We don't allow the main fop to be executed on bricks that have not
          * succeeded the initial xattrop. */
         parent->mask &= fop->good;
@@ -1097,6 +1121,7 @@ void ec_get_size_version(ec_lock_link_t *link)
     ec_inode_t *ctx;
     ec_fop_data_t *fop;
     dict_t *dict = NULL;
+    ec_t   *ec = NULL;
     int32_t error = 0;
     gf_boolean_t getting_xattr;
     gf_boolean_t set_dirty = _gf_false;
@@ -1105,6 +1130,17 @@ void ec_get_size_version(ec_lock_link_t *link)
     lock = link->lock;
     ctx = lock->ctx;
     fop = link->fop;
+    ec  = fop->xl->private;
+
+    if (ec->optimistic_changelog &&
+        !(ec->node_mask & ~link->lock->good_mask) && !ec_is_data_fop (fop->id))
+            link->optimistic_changelog = _gf_true;
+
+    /* If ctx->have_info is false and lock->query is true, it means that we'll
+     * send the xattrop anyway, so we can use it to update dirty counts, even
+     * if it's not necessary to do it right now. */
+    if (!ctx->have_info && lock->query)
+            link->optimistic_changelog = _gf_false;
 
     set_dirty = ec_set_dirty_flag (link, ctx, dirty);
 
@@ -1714,6 +1750,13 @@ ec_lock_next_owner(ec_lock_link_t *link, ec_cbk_data_t *cbk,
         if (link->update[1]) {
             ctx->post_version[1]++;
         }
+        /* If the fop fails on any of the good bricks, it is important to mark
+         * it dirty and update versions right away. */
+        if (link->update[0] || link->update[1]) {
+                if (lock->good_mask & ~(fop->good | fop->remaining)) {
+                        lock->release = _gf_true;
+                }
+        }
     }
 
     ec_lock_update_good(lock, fop);
@@ -2028,9 +2071,13 @@ ec_update_info(ec_lock_link_t *link)
                     if (ctx->dirty[1] != 0) {
                         dirty[1] = -1;
                     }
+            } else {
+                    link->optimistic_changelog = _gf_false;
+                    ec_set_dirty_flag (link, ctx, dirty);
             }
             memset(ctx->dirty, 0, sizeof(ctx->dirty));
     }
+
     if ((version[0] != 0) || (version[1] != 0) ||
         (dirty[0] != 0) || (dirty[1] != 0)) {
         ec_update_size_version(link, version, size, dirty);

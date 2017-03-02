@@ -301,6 +301,8 @@ reconfigure (xlator_t *this, dict_t *options)
                 ret = -1;
         }
 
+        GF_OPTION_RECONF ("optimistic-change-log", ec->optimistic_changelog,
+                          options, bool, failed);
 failed:
         return ret;
 }
@@ -611,6 +613,7 @@ init (xlator_t *this)
     this->private = ec;
 
     ec->xl = this;
+    ec->optimistic_changelog = _gf_true;
     LOCK_INIT(&ec->lock);
 
     INIT_LIST_HEAD(&ec->pending_fops);
@@ -669,6 +672,7 @@ init (xlator_t *this)
 
     GF_OPTION_INIT ("shd-max-threads", ec->shd.max_threads, uint32, failed);
     GF_OPTION_INIT ("shd-wait-qlength", ec->shd.wait_qlength, uint32, failed);
+    GF_OPTION_INIT ("optimistic-change-log", ec->optimistic_changelog, bool, failed);
 
     this->itable = inode_table_new (EC_SHD_INODE_LRU_LIMIT, this);
     if (!this->itable)
@@ -1463,5 +1467,21 @@ struct volume_options options[] =
         .description = "force the cpu extensions to be used to accelerate the "
                        "galois field computations."
     },
-    { }
+    {   .key = {"optimistic-change-log"},
+        .type = GF_OPTION_TYPE_BOOL,
+        .default_value = "on",
+        .description =  "Set/Unset dirty flag for every update fop at the start"
+                        "of the fop. If OFF, this option impacts performance of"
+                        "entry  operations or metadata operations as it will"
+                        "set dirty flag at the start and unset it at the end of"
+                        "ALL update fop. If ON and all the bricks are good,"
+                        "dirty flag will be set at the start only for file fops"
+                        "For metadata and entry fops dirty flag will not be set"
+                        "at the start, if all the bricks are good. This does"
+                        "not impact performance for metadata operations and"
+                        "entry operation but has a very small window to miss"
+                        "marking entry as dirty in case it is required to be"
+                        "healed"
+    },
+    { .key = {NULL} }
 };
