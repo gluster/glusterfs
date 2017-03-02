@@ -3153,6 +3153,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version  = GD_OP_VERSION_3_10_0,
           .validate_fn = validate_boolean
         },
+        { .key        = "disperse.optimistic-change-log",
+          .voltype    = "cluster/disperse",
+          .type       = NO_DOC,
+          .op_version = GD_OP_VERSION_3_10_1,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
         { .key         = NULL
         }
 };

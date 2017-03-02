@@ -697,6 +697,7 @@ int32_t ec_lookup_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
     ec_fop_data_t * fop = NULL;
     ec_cbk_data_t * cbk = NULL;
     int32_t idx = (int32_t)(uintptr_t)cookie;
+    uint64_t       dirty[2] = {0};
 
     VALIDATE_OR_GOTO(this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
@@ -746,8 +747,7 @@ int32_t ec_lookup_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
 
                 goto out;
             }
-            ec_dict_del_array (xdata, EC_XATTR_DIRTY, cbk->dirty,
-                               EC_VERSION_SIZE);
+            ec_dict_del_array (xdata, EC_XATTR_DIRTY, dirty, EC_VERSION_SIZE);
         }
 
         ec_combine(cbk, ec_combine_lookup);
@@ -1142,7 +1142,9 @@ ec_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dict_t *xdata)
 {
         ec_fop_data_t *fop = NULL;
+        ec_lock_link_t *link = NULL;
         ec_cbk_data_t *cbk = NULL;
+        uint64_t       dirty[2] = {0};
         data_t *data;
         uint64_t *version;
         int32_t idx = (int32_t)(uintptr_t)cookie;
@@ -1178,8 +1180,14 @@ ec_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     }
                 }
 
-                ec_dict_del_array (xattr, EC_XATTR_DIRTY, cbk->dirty,
+                ec_dict_del_array (xattr, EC_XATTR_DIRTY, dirty,
                                    EC_VERSION_SIZE);
+                link = fop->data;
+                if (link) {
+                        /*Keep a note of if the dirty is already set or not*/
+                        link->dirty[0] |= (dirty[0] != 0);
+                        link->dirty[1] |= (dirty[1] != 0);
+                }
         }
 
         if (xdata)

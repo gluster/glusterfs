@@ -246,6 +246,8 @@ struct _ec_lock_link {
     struct list_head  owner_list;
     struct list_head  wait_list;
     gf_boolean_t      update[2];
+    gf_boolean_t      dirty[2];
+    gf_boolean_t      optimistic_changelog;
     loc_t            *base;
     uint64_t          size;
 };
@@ -331,7 +333,6 @@ struct _ec_cbk_data {
     int32_t           op_errno;
     int32_t           count;
     uintptr_t         mask;
-    uint64_t          dirty[2];
 
     dict_t           *xdata;
     dict_t           *dict;
@@ -561,6 +562,7 @@ struct _ec {
     gf_timer_t        *timer;
     gf_boolean_t       shutdown;
     gf_boolean_t       eager_lock;
+    gf_boolean_t       optimistic_changelog;
     uint32_t           background_heals;
     uint32_t           heal_wait_qlen;
     struct list_head   pending_fops;
