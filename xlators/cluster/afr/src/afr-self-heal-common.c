@@ -87,6 +87,49 @@ afr_check_stale_error (struct afr_reply *replies, afr_private_t *priv)
                 return -op_errno;
 }
 
+int
+afr_sh_generic_fop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+          int op_ret, int op_errno, struct iatt *pre, struct iatt *post,
+          dict_t *xdata)
+{
+        int i = (long) cookie;
+        afr_local_t *local = NULL;
+
+        local = frame->local;
+
+        local->replies[i].valid = 1;
+        local->replies[i].op_ret = op_ret;
+        local->replies[i].op_errno = op_errno;
+        if (pre)
+                local->replies[i].prestat = *pre;
+        if (post)
+                local->replies[i].poststat = *post;
+        if (xdata)
+                local->replies[i].xdata = dict_ref (xdata);
+
+        syncbarrier_wake (&local->barrier);
+
+        return 0;
+}
+
+int
+afr_selfheal_restore_time (call_frame_t *frame, xlator_t *this, inode_t *inode,
+                           int source, unsigned char *healed_sinks,
+                           struct afr_reply *replies)
+{
+        loc_t loc = {0, };
+
+        loc.inode = inode_ref (inode);
+        gf_uuid_copy (loc.gfid, inode->gfid);
+
+        AFR_ONLIST (healed_sinks, frame, afr_sh_generic_fop_cbk, setattr, &loc,
+                    &replies[source].poststat,
+                    (GF_SET_ATTR_ATIME|GF_SET_ATTR_MTIME), NULL);
+
+        loc_wipe (&loc);
+
+        return 0;
+}
 
 dict_t *
 afr_selfheal_output_xattr (xlator_t *this, gf_boolean_t is_full_crawl,

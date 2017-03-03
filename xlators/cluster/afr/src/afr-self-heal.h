@@ -166,6 +166,15 @@ afr_selfheal_extract_xattr (xlator_t *this, struct afr_reply *replies,
 			    afr_transaction_type type, int *dirty, int **matrix);
 
 int
+afr_sh_generic_fop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int op_ret, int op_errno, struct iatt *pre,
+                        struct iatt *post, dict_t *xdata);
+
+int
+afr_selfheal_restore_time (call_frame_t *frame, xlator_t *this, inode_t *inode,
+                           int source, unsigned char *healed_sinks,
+                           struct afr_reply *replies);
+int
 afr_selfheal_undo_pending (call_frame_t *frame, xlator_t *this, inode_t *inode,
 			   unsigned char *sources, unsigned char *sinks,
 			   unsigned char *healed_sinks,
