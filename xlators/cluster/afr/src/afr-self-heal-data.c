@@ -48,33 +48,6 @@ __checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	return 0;
 }
 
-
-static int
-attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-	  int op_ret, int op_errno, struct iatt *pre, struct iatt *post,
-	  dict_t *xdata)
-{
-	int i = (long) cookie;
-	afr_local_t *local = NULL;
-
-	local = frame->local;
-
-	local->replies[i].valid = 1;
-	local->replies[i].op_ret = op_ret;
-	local->replies[i].op_errno = op_errno;
-	if (pre)
-		local->replies[i].prestat = *pre;
-	if (post)
-		local->replies[i].poststat = *post;
-	if (xdata)
-		local->replies[i].xdata = dict_ref (xdata);
-
-	syncbarrier_wake (&local->barrier);
-
-	return 0;
-}
-
-
 static gf_boolean_t
 __afr_can_skip_data_block_heal (call_frame_t *frame, xlator_t *this, fd_t *fd,
                                 int source, unsigned char *healed_sinks,
@@ -308,7 +281,8 @@ afr_selfheal_data_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (!priv->ensure_durability)
                 return 0;
 
-	AFR_ONLIST (healed_sinks, frame, attr_cbk, fsync, fd, 0, NULL);
+	AFR_ONLIST (healed_sinks, frame, afr_sh_generic_fop_cbk, fsync, fd, 0,
+                    NULL);
 
 	for (i = 0; i < priv->child_count; i++)
 		if (healed_sinks[i] && local->replies[i].op_ret != 0)
@@ -316,27 +290,6 @@ afr_selfheal_data_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
 			   as successfully healed. Mark it so.
 			*/
 			healed_sinks[i] = 0;
-	return 0;
-}
-
-
-static int
-afr_selfheal_data_restore_time (call_frame_t *frame, xlator_t *this,
-				inode_t *inode, int source,
-				unsigned char *healed_sinks,
-				struct afr_reply *replies)
-{
-	loc_t loc = {0, };
-
-	loc.inode = inode_ref (inode);
-	gf_uuid_copy (loc.gfid, inode->gfid);
-
-	AFR_ONLIST (healed_sinks, frame, attr_cbk, setattr, &loc,
-		    &replies[source].poststat,
-		    (GF_SET_ATTR_ATIME|GF_SET_ATTR_MTIME), NULL);
-
-	loc_wipe (&loc);
-
 	return 0;
 }
 
@@ -444,7 +397,8 @@ __afr_selfheal_truncate_sinks (call_frame_t *frame, xlator_t *this,
                 healed_sinks[ARBITER_BRICK_INDEX] = 0;
         }
 
-	AFR_ONLIST (healed_sinks, frame, attr_cbk, ftruncate, fd, size, NULL);
+	AFR_ONLIST (healed_sinks, frame, afr_sh_generic_fop_cbk, ftruncate, fd,
+                    size, NULL);
 
 	for (i = 0; i < priv->child_count; i++)
 		if (healed_sinks[i] && local->replies[i].op_ret == -1)
@@ -783,7 +737,7 @@ unlock:
 	if (ret)
                 goto out;
 restore_time:
-	afr_selfheal_data_restore_time (frame, this, fd->inode, source,
+	afr_selfheal_restore_time (frame, this, fd->inode, source,
 					healed_sinks, locked_replies);
 
         if (!is_arbiter_the_only_sink) {

@@ -431,6 +431,13 @@ afr_selfheal_metadata (call_frame_t *frame, xlator_t *this, inode_t *inode)
                 if (ret)
                         goto unlock;
 
+                /* Restore atime/mtime for files that don't need data heal as
+                 * restoring timestamps happens only as a part of data-heal.
+                 */
+                if (!IA_ISREG (locked_replies[source].poststat.ia_type))
+                        afr_selfheal_restore_time (frame, this, inode, source,
+                                                  healed_sinks, locked_replies);
+
                 ret = afr_selfheal_undo_pending (frame, this, inode, sources,
                                                  sinks, healed_sinks,
                                                  undid_pending,
