@@ -63,8 +63,12 @@ sys_fstat (int fd, struct stat *buf);
 int
 sys_fstatat (int dirfd, const char *pathname, struct stat *buf,
              int flags);
+
 int
-sys_openat (int dirfd, const char *pathname, int flags, ...);
+sys_open (const char *pathname, int flags, int mode);
+
+int
+sys_openat (int dirfd, const char *pathname, int flags, int mode);
 
 DIR *sys_opendir (const char *name);
 
