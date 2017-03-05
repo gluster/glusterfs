@@ -2100,9 +2100,20 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 
         switch (event) {
         case RPC_CLNT_DISCONNECT:
-                GF_LOG_OCCASIONALLY (log_ctr1, "glusterfsd-mgmt", GF_LOG_ERROR,
-                        "failed to connect with remote-host: %s (%s)",
-                        ctx->cmd_args.volfile_server, strerror (errno));
+                if (rpc_trans->connect_failed) {
+                        GF_LOG_OCCASIONALLY (log_ctr1, "glusterfsd-mgmt",
+                                             GF_LOG_ERROR,
+                                             "failed to connect to remote-"
+                                             "host: %s",
+                                             ctx->cmd_args.volfile_server);
+                } else {
+                        GF_LOG_OCCASIONALLY (log_ctr1, "glusterfsd-mgmt",
+                                             GF_LOG_INFO,
+                                             "disconnected from remote-"
+                                             "host: %s",
+                                             ctx->cmd_args.volfile_server);
+                }
+
                 if (!rpc->disabled) {
                         /*
                          * Check if dnscache is exhausted for current server

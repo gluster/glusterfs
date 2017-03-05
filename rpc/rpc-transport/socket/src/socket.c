@@ -3146,6 +3146,7 @@ socket_connect (rpc_transport_t *this, int port)
                         }
                 }
 
+                this->connect_failed = _gf_false;
                 if (ign_enoent) {
                         ret = connect_loop (priv->sock,
                                             SA (&this->peerinfo.sockaddr),
@@ -3169,6 +3170,7 @@ socket_connect (rpc_transport_t *this, int port)
                         /* TBD: What about ENOENT, we will do getsockopt there
                         as well, so how is that exempt from such a problem? */
                         priv->connect_failed = 1;
+                        this->connect_failed = _gf_true;
 
                         goto handler;
                 }

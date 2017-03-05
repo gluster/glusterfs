@@ -212,6 +212,11 @@ struct rpc_transport {
         char                      *ssl_name;
         dict_t                    *clnt_options; /* store options received from
                                                   * client */
+        /* connect_failed: saves the connect() syscall status as socket_t
+         * member holding connect() status can't be accessed by higher gfapi
+         * layer or in client management notification handler functions
+         */
+        gf_boolean_t               connect_failed;
 };
 
 struct rpc_transport_ops {
