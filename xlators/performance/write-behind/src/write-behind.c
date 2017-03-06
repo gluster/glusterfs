@@ -147,6 +147,7 @@ typedef struct wb_request {
         wb_inode_t           *wb_inode;
         glusterfs_fop_t       fop;
         gf_lkowner_t          lk_owner;
+        pid_t                 client_pid;
 	struct iobref        *iobref;
 	uint64_t              gen;  /* inode liability state at the time of
 				       request arrival */
@@ -526,6 +527,7 @@ wb_enqueue_common (wb_inode_t *wb_inode, call_stub_t *stub, int tempted)
         }
 
         req->lk_owner = stub->frame->root->lk_owner;
+        req->client_pid = stub->frame->root->pid;
 
 	switch (stub->fop) {
 	case GF_FOP_WRITE:
@@ -1095,6 +1097,7 @@ wb_fulfill_head (wb_inode_t *wb_inode, wb_request_t *head)
 		goto err;
 
 	frame->root->lk_owner = head->lk_owner;
+	frame->root->pid = head->client_pid;
 	frame->local = head;
 
 	LOCK (&wb_inode->lock);
