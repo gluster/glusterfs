@@ -314,6 +314,7 @@ _glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv,
         if ((pid = fork ()) < 0) {
                 gf_msg (THIS->name, GF_LOG_WARNING, 0,
                         GD_MSG_FORK_FAIL, "fork from parent failed");
+                gf_umount_lazy ("glusterd", mountdir, 1);
                 ret = -1;
                 goto out;
         } else if (pid == 0) {//first child
@@ -321,14 +322,19 @@ _glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv,
                  * blocking call below
                  */
                 pid = fork ();
-                if (pid)
-                        _exit (pid > 0 ? EXIT_SUCCESS : EXIT_FAILURE);
+                if (pid < 0) {
+                        gf_umount_lazy ("glusterd", mountdir, 1);
+                        _exit (EXIT_FAILURE);
+                } else if (pid > 0) {
+                        _exit (EXIT_SUCCESS);
+                }
 
                 ret = chdir (mountdir);
                 if (ret == -1) {
                         gf_msg (THIS->name, GF_LOG_WARNING, errno,
                                 GD_MSG_DIR_OP_FAILED, "chdir %s failed",
                                 mountdir);
+                        gf_umount_lazy ("glusterd", mountdir, 1);
                         exit (EXIT_FAILURE);
                 }
                 runinit (&runner);
