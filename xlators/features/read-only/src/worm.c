@@ -34,7 +34,7 @@ static int32_t
 worm_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
            fd_t *fd, dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this) &&
+        if (is_readonly_or_worm_enabled (frame, this) &&
             (flags & (O_WRONLY | O_RDWR | O_APPEND | O_TRUNC))) {
                 STACK_UNWIND_STRICT (open, frame, -1, EROFS, NULL, NULL);
                 return 0;
@@ -55,7 +55,7 @@ worm_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 
         priv = this->private;
         GF_ASSERT (priv);
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 goto out;
         if (!priv->worm_file || (frame->root->pid < 0)) {
                 op_errno = 0;
@@ -91,7 +91,7 @@ worm_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         priv = this->private;
         GF_ASSERT (priv);
-        if (is_readonly_or_worm_enabled (this)) {
+        if (is_readonly_or_worm_enabled (frame, this)) {
                 goto out;
         }
         if (!priv->worm_file || (frame->root->pid < 0)) {
@@ -127,7 +127,7 @@ worm_rename (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
         GF_ASSERT (priv);
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 goto out;
         if (!priv->worm_file || (frame->root->pid < 0)) {
                 op_errno = 0;
@@ -163,7 +163,7 @@ worm_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
 
         priv = this->private;
         GF_ASSERT (priv);
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 goto out;
         if (!priv->worm_file || (frame->root->pid < 0)) {
                 op_errno = 0;
@@ -198,7 +198,7 @@ worm_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
         priv = this->private;
         GF_ASSERT (priv);
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 goto out;
         if (!priv->worm_file || (frame->root->pid < 0)) {
                 op_errno = 0;

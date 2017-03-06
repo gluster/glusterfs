@@ -12,7 +12,7 @@
 #include "defaults.h"
 
 gf_boolean_t
-is_readonly_or_worm_enabled (xlator_t *this)
+is_readonly_or_worm_enabled (call_frame_t *frame, xlator_t *this)
 {
         read_only_priv_t  *priv                     = NULL;
         gf_boolean_t       readonly_or_worm_enabled = _gf_false;
@@ -21,6 +21,9 @@ is_readonly_or_worm_enabled (xlator_t *this)
         GF_ASSERT (priv);
 
         readonly_or_worm_enabled = priv->readonly_or_worm_enabled;
+
+        if (frame->root->pid < GF_CLIENT_PID_MAX)
+                readonly_or_worm_enabled = _gf_false;
 
         return readonly_or_worm_enabled;
 }
@@ -47,7 +50,7 @@ ro_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (ret == 0)
                 allzero = _gf_true;
 
-        if (is_readonly_or_worm_enabled (this) && !allzero)
+        if (is_readonly_or_worm_enabled (frame, this) && !allzero)
                 STACK_UNWIND_STRICT (xattrop, frame, -1, EROFS, NULL, xdata);
         else
                 STACK_WIND_TAIL (frame, FIRST_CHILD (this),
@@ -67,7 +70,7 @@ ro_fxattrop (call_frame_t *frame, xlator_t *this,
         if (ret == 0)
                 allzero = _gf_true;
 
-        if (is_readonly_or_worm_enabled (this) && !allzero)
+        if (is_readonly_or_worm_enabled (frame, this) && !allzero)
                 STACK_UNWIND_STRICT (fxattrop, frame, -1, EROFS, NULL, xdata);
         else
                 STACK_WIND_TAIL (frame, FIRST_CHILD (this),
@@ -138,7 +141,7 @@ int32_t
 ro_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
             struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 STACK_UNWIND_STRICT (setattr, frame, -1, EROFS, NULL, NULL,
                                      xdata);
         else
@@ -153,7 +156,7 @@ int32_t
 ro_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
              struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 STACK_UNWIND_STRICT (fsetattr, frame, -1, EROFS, NULL, NULL,
                                      xdata);
         else
@@ -168,7 +171,7 @@ ro_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 int32_t
 ro_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset, dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 STACK_UNWIND_STRICT (truncate, frame, -1, EROFS, NULL, NULL,
                                      xdata);
         else
@@ -182,7 +185,7 @@ ro_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset, dict
 int32_t
 ro_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset, dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 STACK_UNWIND_STRICT (ftruncate, frame, -1, EROFS, NULL, NULL,
                                      xdata);
         else
@@ -197,7 +200,7 @@ int
 ro_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
           dev_t rdev, mode_t umask, dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 STACK_UNWIND_STRICT (mknod, frame, -1, EROFS, NULL, NULL, NULL,
                                      NULL, xdata);
         else
@@ -213,7 +216,7 @@ int
 ro_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
           mode_t umask, dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 STACK_UNWIND_STRICT (mkdir, frame, -1, EROFS, NULL, NULL, NULL,
                                      NULL, xdata);
         else
@@ -228,7 +231,7 @@ int32_t
 ro_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
            dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 STACK_UNWIND_STRICT (unlink, frame, -1, EROFS, NULL, NULL,
                                      xdata);
         else
@@ -244,7 +247,7 @@ int
 ro_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
           dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 STACK_UNWIND_STRICT (rmdir, frame, -1, EROFS, NULL, NULL,
                                      xdata);
         else
@@ -260,7 +263,7 @@ int
 ro_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
             loc_t *loc, mode_t umask, dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 STACK_UNWIND_STRICT (symlink, frame, -1, EROFS, NULL, NULL,
                                      NULL, NULL, xdata);
         else
@@ -277,7 +280,7 @@ int32_t
 ro_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
            dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 STACK_UNWIND_STRICT (rename, frame, -1, EROFS, NULL, NULL, NULL,
                                      NULL, NULL, xdata);
         else
@@ -292,7 +295,7 @@ ro_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 int32_t
 ro_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc, dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 STACK_UNWIND_STRICT (link, frame, -1, EROFS, NULL, NULL, NULL,
                                      NULL, xdata);
         else
@@ -307,7 +310,7 @@ int32_t
 ro_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
            mode_t mode, mode_t umask, fd_t *fd, dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 STACK_UNWIND_STRICT (create, frame, -1, EROFS, NULL, NULL, NULL,
                                      NULL, NULL, xdata);
         else
@@ -331,7 +334,7 @@ int32_t
 ro_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
          fd_t *fd, dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this) &&
+        if (is_readonly_or_worm_enabled (frame, this) &&
             (((flags & O_ACCMODE) == O_WRONLY) ||
               ((flags & O_ACCMODE) == O_RDWR))) {
                 STACK_UNWIND_STRICT (open, frame, -1, EROFS, NULL, xdata);
@@ -347,7 +350,7 @@ int32_t
 ro_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
               int32_t flags, dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 STACK_UNWIND_STRICT (fsetxattr, frame, -1, EROFS, xdata);
         else
                 STACK_WIND_TAIL (frame, FIRST_CHILD (this),
@@ -361,7 +364,7 @@ int32_t
 ro_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
              dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 STACK_UNWIND_STRICT (fsyncdir, frame, -1, EROFS, xdata);
         else
                 STACK_WIND_TAIL (frame, FIRST_CHILD (this),
@@ -376,7 +379,7 @@ ro_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
            int32_t count, off_t off, uint32_t flags, struct iobref *iobref,
            dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 STACK_UNWIND_STRICT (writev, frame, -1, EROFS, NULL, NULL,
                                      xdata);
         else
@@ -392,7 +395,7 @@ int32_t
 ro_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
              int32_t flags, dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 STACK_UNWIND_STRICT (setxattr, frame, -1, EROFS, xdata);
         else
                 STACK_WIND_TAIL (frame, FIRST_CHILD (this),
@@ -406,7 +409,7 @@ int32_t
 ro_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 const char *name, dict_t *xdata)
 {
-        if (is_readonly_or_worm_enabled (this))
+        if (is_readonly_or_worm_enabled (frame, this))
                 STACK_UNWIND_STRICT (removexattr, frame, -1, EROFS, xdata);
         else
                 STACK_WIND_TAIL (frame, FIRST_CHILD (this),
