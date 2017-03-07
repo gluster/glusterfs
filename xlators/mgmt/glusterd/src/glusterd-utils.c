@@ -5904,6 +5904,7 @@ static struct fs_info {
         { "ext3", "tune2fs", "-l", "Inode size:", "e2fsprogs" },
         { "ext4", "tune2fs", "-l", "Inode size:", "e2fsprogs" },
         { "btrfs", NULL, NULL, NULL, NULL },
+        { "zfs", NULL, NULL, NULL, NULL },
         { NULL, NULL, NULL, NULL, NULL}
 };
 
@@ -5947,6 +5948,16 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
 
         for (fs = glusterd_fs ; fs->fs_type_name; fs++) {
                 if (strcmp (fs_name, fs->fs_type_name) == 0) {
+                        if (!fs->fs_tool_name) {
+                                /* dynamic inodes */
+                                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                                        GD_MSG_INODE_SIZE_GET_FAIL, "the "
+                                        "brick on %s (%s) uses dynamic inode "
+                                        "sizes", device, fs_name);
+                                cur_word = "N/A";
+                                goto cached;
+                        }
+
                         snprintf (fs_tool_name, sizeof (fs_tool_name),
                                   "/usr/sbin/%s", fs->fs_tool_name);
                         if (sys_access (fs_tool_name, R_OK|X_OK) == 0)
