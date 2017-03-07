@@ -291,6 +291,8 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("read-policy", read_policy, options, str, failed);
 
+        GF_OPTION_RECONF ("optimistic-change-log", ec->optimistic_changelog,
+                          options, bool, failed);
         ret = 0;
         if (ec_assign_read_policy (ec, read_policy)) {
                 ret = -1;
@@ -301,8 +303,6 @@ reconfigure (xlator_t *this, dict_t *options)
                 ret = -1;
         }
 
-        GF_OPTION_RECONF ("optimistic-change-log", ec->optimistic_changelog,
-                          options, bool, failed);
 failed:
         return ret;
 }
@@ -613,7 +613,6 @@ init (xlator_t *this)
     this->private = ec;
 
     ec->xl = this;
-    ec->optimistic_changelog = _gf_true;
     LOCK_INIT(&ec->lock);
 
     INIT_LIST_HEAD(&ec->pending_fops);
