@@ -4913,19 +4913,26 @@ my_callback (struct rpc_req *req, struct iovec *iov, int count, void *v_frame)
 int
 send_attach_req (xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
 {
-        int            ret      = -1;
-        struct iobuf  *iobuf    = NULL;
-        struct iobref *iobref   = NULL;
-        struct iovec   iov      = {0, };
-        ssize_t        req_size = 0;
-        call_frame_t  *frame    = NULL;
-        gd1_mgmt_brick_op_req   brick_req;
-        void                    *req = &brick_req;
-        void          *errlbl   = &&err;
-        extern struct rpc_clnt_program gd_brick_prog;
+        int                             ret      = -1;
+        struct iobuf                    *iobuf    = NULL;
+        struct iobref                   *iobref   = NULL;
+        struct iovec                    iov      = {0, };
+        ssize_t                         req_size = 0;
+        call_frame_t                    *frame    = NULL;
+        gd1_mgmt_brick_op_req           brick_req;
+        void                            *req = &brick_req;
+        void                            *errlbl   = &&err;
+        struct rpc_clnt_connection      *conn;
+        extern struct rpc_clnt_program  gd_brick_prog;
 
         if (!rpc) {
                 gf_log (this->name, GF_LOG_ERROR, "called with null rpc");
+                return -1;
+        }
+
+        conn = &rpc->conn;
+        if (!conn->connected || conn->disconnected) {
+                gf_log (this->name, GF_LOG_INFO, "not connected yet");
                 return -1;
         }
 
@@ -5046,7 +5053,7 @@ attach_brick (xlator_t *this,
         (void) build_volfile_path (full_id, path, sizeof(path), NULL);
 
         int tries = 0;
-        while (tries++ <= 10) {
+        while (tries++ <= 15) {
                 ret = send_attach_req (this, other_brick->rpc, path,
                                        GLUSTERD_BRICK_ATTACH);
                 if (!ret) {
