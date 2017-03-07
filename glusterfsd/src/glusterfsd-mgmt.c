@@ -2126,8 +2126,9 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 }
                 server = ctx->cmd_args.curr_server;
                 if (server->list.next == &ctx->cmd_args.volfile_servers) {
-                        //if (!ctx->active)
+                        if (!ctx->active) {
                                 need_term = 1;
+                        }
                         emval = ENOTCONN;
                         GF_LOG_OCCASIONALLY (log_ctr2, "glusterfsd-mgmt",
                                              GF_LOG_INFO,
@@ -2144,8 +2145,9 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                         gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
                                 "failed to set remote-host: %s",
                                 server->volfile_server);
-                        //if (!ctx->active)
+                        if (!ctx->active) {
                                 need_term = 1;
+                        }
                         emval = ENOTCONN;
                         break;
                 }
