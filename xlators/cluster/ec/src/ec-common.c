@@ -1136,12 +1136,6 @@ void ec_get_size_version(ec_lock_link_t *link)
         !(ec->node_mask & ~link->lock->good_mask) && !ec_is_data_fop (fop->id))
             link->optimistic_changelog = _gf_true;
 
-    /* If ctx->have_info is false and lock->query is true, it means that we'll
-     * send the xattrop anyway, so we can use it to update dirty counts, even
-     * if it's not necessary to do it right now. */
-    if (!ctx->have_info && lock->query)
-            link->optimistic_changelog = _gf_false;
-
     set_dirty = ec_set_dirty_flag (link, ctx, dirty);
 
     /* If ec metadata has already been retrieved, do not try again. */
