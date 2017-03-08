@@ -58,6 +58,7 @@ AC_CONFIG_FILES([Makefile
                 rpc/rpc-transport/rdma/src/Makefile
                 rpc/xdr/Makefile
                 rpc/xdr/src/Makefile
+                rpc/xdr/gen/Makefile
                 xlators/Makefile
                 xlators/meta/Makefile
                 xlators/meta/src/Makefile

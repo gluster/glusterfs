@@ -1,3 +1,4 @@
+
 EXTRA_DIST = autogen.sh \
 	COPYING-GPLV2 COPYING-LGPLV3 \
 	INSTALL README.md AUTHORS THANKS NEWS \
@@ -9,7 +10,7 @@ EXTRA_DIST = autogen.sh \
         contrib/uuid \
 	$(shell find $(top_srcdir)/tests -type f -print)
 
-SUBDIRS = $(ARGP_STANDALONE_DIR) rpc/xdr/src libglusterfs rpc api xlators \
+SUBDIRS = $(ARGP_STANDALONE_DIR) rpc/xdr/gen libglusterfs rpc api xlators \
 	glusterfsd $(FUSERMOUNT_SUBDIR) doc extras cli heal \
 	@SYNCDAEMON_SUBDIR@ @UMOUNTD_SUBDIR@ tools events
 
