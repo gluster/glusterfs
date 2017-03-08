@@ -37,20 +37,27 @@
                 idx %= sv_cnt;                  \
         }
 
-#define GF_FREE_DIR_DFMETA(dir_dfmeta) {                        \
-                if (dir_dfmeta) {                               \
-                        GF_FREE (dir_dfmeta->head);             \
-                        GF_FREE (dir_dfmeta->equeue);           \
-                        GF_FREE (dir_dfmeta->iterator);         \
-                        GF_FREE (dir_dfmeta->offset_var);       \
-                        GF_FREE (dir_dfmeta->fetch_entries);    \
-                        GF_FREE (dir_dfmeta);                   \
-                }                                               \
-        }                                                       \
-
 uint64_t g_totalfiles = 0;
 uint64_t g_totalsize = 0;
 
+void
+gf_defrag_free_dir_dfmeta (struct dir_dfmeta *meta, int local_subvols_cnt)
+{
+        int     i = 0;
+
+        if (meta) {
+                for (i = 0; i < local_subvols_cnt; i++) {
+                        gf_dirent_free (&meta->equeue[i]);
+                }
+
+                GF_FREE (meta->equeue);
+                GF_FREE (meta->head);
+                GF_FREE (meta->iterator);
+                GF_FREE (meta->offset_var);
+                GF_FREE (meta->fetch_entries);
+                GF_FREE (meta);
+        }
+}
 
 void
 gf_defrag_free_container (struct dht_container *container)
@@ -3371,7 +3378,7 @@ gf_defrag_process_dir (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         ret = 0;
 out:
 
-        GF_FREE_DIR_DFMETA (dir_dfmeta);
+        gf_defrag_free_dir_dfmeta (dir_dfmeta, local_subvols_cnt);
 
         if (xattr_req)
                 dict_unref(xattr_req);
