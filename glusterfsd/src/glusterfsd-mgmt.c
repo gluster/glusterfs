@@ -824,9 +824,9 @@ out:
 int
 glusterfs_handle_attach (rpcsvc_request_t *req)
 {
-        int32_t                  ret          = -1;
-        gd1_mgmt_brick_op_req    xlator_req   = {0,};
-        xlator_t                 *this        = NULL;
+        int32_t                 ret             = -1;
+        gd1_mgmt_brick_op_req   xlator_req      = {0,};
+        xlator_t                *this           = NULL;
 
         GF_ASSERT (req);
         this = THIS;
@@ -838,15 +838,24 @@ glusterfs_handle_attach (rpcsvc_request_t *req)
         if (ret < 0) {
                 /*failed to decode msg;*/
                 req->rpc_err = GARBAGE_ARGS;
-                goto out;
+                return -1;
         }
 
-        gf_log (this->name, GF_LOG_INFO, "got attach for %s", xlator_req.name);
-        glusterfs_graph_attach (this->ctx->active, xlator_req.name);
-        glusterfs_autoscale_threads (this->ctx, 1);
+        if (this->ctx->active) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "got attach for %s", xlator_req.name);
+                ret = glusterfs_graph_attach (this->ctx->active,
+                                              xlator_req.name);
+                if (ret == 0) {
+                        glusterfs_autoscale_threads (this->ctx, 1);
+                }
+        } else {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "got attach for %s but no active graph",
+                        xlator_req.name);
+        }
 
-out:
-        glusterfs_translator_info_response_send (req, 0, NULL, NULL);
+        glusterfs_translator_info_response_send (req, ret, NULL, NULL);
 
         free (xlator_req.input.input_val);
         free (xlator_req.name);
