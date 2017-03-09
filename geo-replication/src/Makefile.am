@@ -1,4 +1,4 @@
-gsyncddir = $(libexecdir)/glusterfs
+gsyncddir = $(GLUSTERFS_LIBEXECDIR)
 
 gsyncd_SCRIPTS = gverify.sh peer_gsec_create \
 	set_geo_rep_pem_keys.sh peer_mountbroker peer_mountbroker.py \
@@ -21,7 +21,7 @@ noinst_HEADERS = procdiggy.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(top_srcdir)/rpc/xdr/src -I$(top_builddir)/rpc/xdr/src \
-	-DGSYNCD_PREFIX=\"$(libexecdir)/glusterfs\" -DUSE_LIBGLUSTERFS \
+	-DGSYNCD_PREFIX=\"$(GLUSTERFS_LIBEXECDIR)\" -DUSE_LIBGLUSTERFS \
 	-DSBIN_DIR=\"$(sbindir)\" -DPYTHON=\"$(PYTHON)\"
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)
@@ -35,11 +35,11 @@ $(top_builddir)/libglusterfs/src/libglusterfs.la:
 install-exec-hook:
 	$(mkdir_p) $(DESTDIR)$(sbindir)
 	rm -f $(DESTDIR)$(sbindir)/gluster-mountbroker
-	ln -s $(libexecdir)/glusterfs/peer_mountbroker.py \
+	ln -s $(GLUSTERFS_LIBEXECDIR)/peer_mountbroker.py \
 		$(DESTDIR)$(sbindir)/gluster-mountbroker
 
 	rm -f $(DESTDIR)$(sbindir)/gluster-georep-sshkey
-	ln -s $(libexecdir)/glusterfs/peer_georep-sshkey.py \
+	ln -s $(GLUSTERFS_LIBEXECDIR)/peer_georep-sshkey.py \
 		$(DESTDIR)$(sbindir)/gluster-georep-sshkey
 
 

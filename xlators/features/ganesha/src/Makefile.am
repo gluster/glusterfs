@@ -12,7 +12,7 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(GF_HOST_OS)\
 	-I$(top_srcdir)/rpc/xdr/src -I$(top_builddir)/rpc/xdr/src \
 	-DGANESHA_DIR=\"$(sysconfdir)/ganesha\" \
-	-DGYSNCD_PREFIX=\"$(libexecdir)/glusterfs\"
+	-DGYSNCD_PREFIX=\"$(GLUSTERFS_LIBEXECDIR)\"
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)
 
