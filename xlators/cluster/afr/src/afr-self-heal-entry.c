@@ -17,6 +17,105 @@
 #include "syncop-utils.h"
 #include "events.h"
 
+int
+afr_selfheal_gfid_mismatch_by_majority (struct afr_reply *replies,
+                                        int child_count)
+{
+        int             j                  = 0;
+        int             i                  = 0;
+        int             src                = -1;
+        int             votes[child_count];
+
+        for (i = 0; i < child_count; i++) {
+                if (!replies[i].valid || replies[i].op_ret == -1)
+                        continue;
+
+                votes[i] = 1;
+                for (j = i+1; j < child_count; j++) {
+                        if ((!gf_uuid_compare (replies[i].poststat.ia_gfid,
+                            replies[j].poststat.ia_gfid)))
+                                votes[i]++;
+                        if (votes[i] > child_count / 2) {
+                                src = i;
+                                goto out;
+                        }
+                }
+        }
+
+out:
+        return src;
+}
+
+int
+afr_gfid_split_brain_source (xlator_t *this, struct afr_reply *replies,
+                             inode_t *inode, uuid_t pargfid, char *bname,
+                             int src_idx, int child_idx,
+                             unsigned char *locked_on, int *src)
+{
+        afr_private_t   *priv     = NULL;
+        char             g1[64]   = {0,};
+        char             g2[64]   = {0,};
+        int              up_count = 0;
+
+        priv = this->private;
+        up_count = AFR_COUNT (locked_on, priv->child_count);
+        if (up_count != priv->child_count) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        AFR_MSG_SPLIT_BRAIN,
+                        "All the bricks should be up to resolve the gfid split "
+                        "brain");
+                goto out;
+        }
+        switch (priv->fav_child_policy) {
+        case AFR_FAV_CHILD_BY_SIZE:
+                *src = afr_sh_fav_by_size (this, replies, inode);
+                break;
+        case AFR_FAV_CHILD_BY_MTIME:
+                *src = afr_sh_fav_by_mtime (this, replies, inode);
+                break;
+        case AFR_FAV_CHILD_BY_CTIME:
+                *src = afr_sh_fav_by_ctime(this, replies, inode);
+                break;
+        case AFR_FAV_CHILD_BY_MAJORITY:
+                if (priv->child_count != 2)
+                        *src = afr_selfheal_gfid_mismatch_by_majority (replies,
+                                                                       priv->child_count);
+                else
+                        *src = -1;
+
+                if (*src == -1) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_SPLIT_BRAIN, "No majority to resolve "
+                                "gfid split brain");
+                }
+                break;
+        default:
+                break;
+        }
+
+out:
+        if (*src == -1) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN,
+                        "Gfid mismatch detected for <gfid:%s>/%s>, %s on %s and"
+                        " %s on %s. Skipping conservative merge on the file.",
+                        uuid_utoa (pargfid), bname,
+                        uuid_utoa_r (replies[child_idx].poststat.ia_gfid, g1),
+                        priv->children[child_idx]->name,
+                        uuid_utoa_r (replies[src_idx].poststat.ia_gfid, g2),
+                        priv->children[src_idx]->name);
+                gf_event (EVENT_AFR_SPLIT_BRAIN, "subvol=%s;type=gfid;file="
+                          "<gfid:%s>/%s>;count=2;child-%d=%s;gfid-%d=%s;"
+                          "child-%d=%s;gfid-%d=%s", this->name,
+                          uuid_utoa (pargfid), bname, child_idx,
+                          priv->children[child_idx]->name, child_idx,
+                          uuid_utoa_r (replies[child_idx].poststat.ia_gfid, g1),
+                          src_idx, priv->children[src_idx]->name, src_idx,
+                          uuid_utoa_r (replies[src_idx].poststat.ia_gfid, g2));
+                return -1;
+        }
+        return 0;
+}
+
 static int
 afr_selfheal_entry_delete (xlator_t *this, inode_t *dir, const char *name,
                            inode_t *inode, int child, struct afr_reply *replies)
@@ -206,13 +305,15 @@ __afr_selfheal_heal_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 static int
 afr_selfheal_detect_gfid_and_type_mismatch (xlator_t *this,
                                             struct afr_reply *replies,
-                                            uuid_t pargfid, char *bname,
-                                            int src_idx)
+                                            inode_t *inode,
+                                            uuid_t pargfid,
+                                            char *bname, int src_idx,
+                                            unsigned char *locked_on,
+                                            int *src)
 {
-        int             i      = 0;
-        char            g1[64] = {0,};
-        char            g2[64] = {0,};
-        afr_private_t  *priv   = NULL;
+        int             i        = 0;
+        int             ret      = -1;
+        afr_private_t  *priv     = NULL;
 
         priv = this->private;
 
@@ -227,46 +328,33 @@ afr_selfheal_detect_gfid_and_type_mismatch (xlator_t *this,
                         continue;
 
                 if (gf_uuid_compare (replies[src_idx].poststat.ia_gfid,
-                                  replies[i].poststat.ia_gfid)) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                AFR_MSG_SPLIT_BRAIN, "Gfid mismatch "
-                                "detected for <gfid:%s>/%s>, %s on %s and %s on %s. "
-                                "Skipping conservative merge on the file.",
-                                uuid_utoa (pargfid), bname,
-                                uuid_utoa_r (replies[i].poststat.ia_gfid, g1),
-                                priv->children[i]->name,
-                                uuid_utoa_r (replies[src_idx].poststat.ia_gfid,
-                                g2), priv->children[src_idx]->name);
-                        gf_event (EVENT_AFR_SPLIT_BRAIN,
-                                 "subvol=%s;type=gfid;file=<gfid:%s>/%s>;count=2;"
-                                 "child-%d=%s;gfid-%d=%s;child-%d=%s;gfid-%d=%s",
-                                 this->name, uuid_utoa (pargfid), bname, i,
-                                 priv->children[i]->name, i,
-                                 uuid_utoa_r (replies[i].poststat.ia_gfid, g1),
-                                src_idx, priv->children[src_idx]->name, src_idx,
-                           uuid_utoa_r (replies[src_idx].poststat.ia_gfid, g2));
-                        return -1;
+                                     replies[i].poststat.ia_gfid)) {
+                        ret = afr_gfid_split_brain_source (this, replies, inode,
+                                                           pargfid, bname,
+                                                           src_idx, i,
+                                                           locked_on, src);
+                        return ret;
                 }
 
                 if ((replies[src_idx].poststat.ia_type) !=
                     (replies[i].poststat.ia_type)) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
-                                AFR_MSG_SPLIT_BRAIN, "Type mismatch "
-                                "detected for <gfid:%s>/%s>, %s on %s and %s on %s. "
+                                AFR_MSG_SPLIT_BRAIN, "Type mismatch detected "
+                                "for <gfid:%s>/%s>, %s on %s and %s on %s. "
                                 "Skipping conservative merge on the file.",
                                 uuid_utoa (pargfid), bname,
-                             gf_inode_type_to_str (replies[i].poststat.ia_type),
+                                gf_inode_type_to_str (replies[i].poststat.ia_type),
                                 priv->children[i]->name,
-                       gf_inode_type_to_str (replies[src_idx].poststat.ia_type),
+                                gf_inode_type_to_str (replies[src_idx].poststat.ia_type),
                                 priv->children[src_idx]->name);
-                        gf_event (EVENT_AFR_SPLIT_BRAIN,
-                                 "subvol=%s;type=file;file=<gfid:%s>/%s>;count=2;"
-                                 "child-%d=%s;type-%d=%s;child-%d=%s;type-%d=%s",
-                                 this->name, uuid_utoa (pargfid), bname, i,
-                                 priv->children[i]->name, i,
-                              gf_inode_type_to_str(replies[i].poststat.ia_type),
-                                src_idx, priv->children[src_idx]->name, src_idx,
-                       gf_inode_type_to_str(replies[src_idx].poststat.ia_type));
+                        gf_event (EVENT_AFR_SPLIT_BRAIN, "subvol=%s;type=file;"
+                                  "file=<gfid:%s>/%s>;count=2;child-%d=%s;type-"
+                                  "%d=%s;child-%d=%s;type-%d=%s",
+                                  this->name, uuid_utoa (pargfid), bname, i,
+                                  priv->children[i]->name, i,
+                                  gf_inode_type_to_str(replies[i].poststat.ia_type),
+                                  src_idx, priv->children[src_idx]->name, src_idx,
+                                  gf_inode_type_to_str(replies[src_idx].poststat.ia_type));
                         return -1;
                 }
         }
@@ -283,11 +371,12 @@ __afr_selfheal_merge_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
         int             ret       = 0;
         int             i         = 0;
         int             source    = -1;
+        int             src       = -1;
         afr_private_t  *priv      = NULL;
 
 	priv = this->private;
 
-	for (i = 0; i < priv->child_count; i++) {
+        for (i = 0; i < priv->child_count; i++) {
 		if (replies[i].valid && replies[i].op_ret == 0) {
 			source = i;
 			break;
@@ -306,24 +395,41 @@ __afr_selfheal_merge_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		}
 	}
 
-        /* In case of a gfid or type mismatch on the entry, return -1.*/
-        ret = afr_selfheal_detect_gfid_and_type_mismatch (this, replies,
+        /* In case of type mismatch / unable to resolve gfid mismatch on the
+         * entry, return -1.*/
+        ret = afr_selfheal_detect_gfid_and_type_mismatch (this, replies, inode,
                                                           fd->inode->gfid,
-                                                          name, source);
+                                                          name, source,
+                                                          locked_on, &src);
 
         if (ret < 0)
                 return ret;
+        if (src != -1) {
+                source = src;
+                for (i = 0; i < priv->child_count; i++) {
+                        if (i != src && replies[i].valid &&
+                            gf_uuid_compare (replies[src].poststat.ia_gfid,
+                            replies[i].poststat.ia_gfid)) {
+                                sources[i] = 0;
+                        }
+                }
+        }
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (i == source || !healed_sinks[i])
 			continue;
 
-		if (replies[i].op_errno != ENOENT)
+                if (src != -1) {
+                        if (!gf_uuid_compare (replies[src].poststat.ia_gfid,
+                                              replies[i].poststat.ia_gfid))
+                                continue;
+                } else if (replies[i].op_errno != ENOENT) {
 			continue;
+                }
 
-		ret = afr_selfheal_recreate_entry (frame, i, source, sources,
-                                                   fd->inode, name, inode,
-                                                   replies);
+		ret |= afr_selfheal_recreate_entry (frame, i, source, sources,
+                                                    fd->inode, name, inode,
+                                                    replies);
 	}
 
 	return ret;

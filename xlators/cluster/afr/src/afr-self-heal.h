@@ -319,4 +319,15 @@ afr_choose_source_by_policy (afr_private_t *priv, unsigned char *sources,
 
 int
 afr_selfheal_metadata_by_stbuf (xlator_t *this, struct iatt *stbuf);
+
+int
+afr_sh_fav_by_size (xlator_t *this, struct afr_reply *replies,
+                    inode_t *inode);
+int
+afr_sh_fav_by_mtime (xlator_t *this, struct afr_reply *replies,
+                     inode_t *inode);
+int
+afr_sh_fav_by_ctime (xlator_t *this, struct afr_reply *replies,
+                     inode_t *inode);
+
 #endif /* !_AFR_SELFHEAL_H */
