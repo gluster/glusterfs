@@ -1040,6 +1040,10 @@ glusterfs_graph_attach (glusterfs_graph_t *orig_graph, char *path)
         xlator_t                *xl;
         char                    *volfile_id;
 
+        if (!orig_graph) {
+                return -EINVAL;
+        }
+
         fp = fopen (path, "r");
         if (!fp) {
                 gf_log (THIS->name, GF_LOG_WARNING,
