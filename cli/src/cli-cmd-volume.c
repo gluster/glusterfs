@@ -2764,12 +2764,14 @@ cli_launch_glfs_heal (int heal_op, dict_t *options)
         char      *hostname      = NULL;
         char      *path          = NULL;
         char      *volname       = NULL;
+        char      *glusterd_sock = NULL;
         char      *out           = NULL;
         int        ret           = 0;
 
         runinit (&runner);
         ret = dict_get_str (options, "volname", &volname);
-        runner_add_args (&runner, SBIN_DIR"/glfsheal", volname, NULL);
+        ret = dict_get_str (options, "glusterd_sock", &glusterd_sock);
+        runner_add_args (&runner, SBIN_DIR"/glfsheal", "--glusterd-sock", glusterd_sock, volname, NULL);
         runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
 
         switch (heal_op) {
