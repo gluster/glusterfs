@@ -3064,8 +3064,7 @@ out:
                 STACK_UNWIND_STRICT (lk, posix_lock->frame, -1, EREMOTE,
                                      &posix_lock->user_flock, NULL);
 
-                GF_FREE (posix_lock->client_uid);
-                GF_FREE (posix_lock);
+                __destroy_lock(posix_lock);
         }
 
         return ret;
@@ -3571,8 +3570,7 @@ unlock:
                 STACK_UNWIND_STRICT (lk, posix_lock->frame, -1, EREMOTE,
                                      &posix_lock->user_flock, NULL);
 
-                GF_FREE (posix_lock->client_uid);
-                GF_FREE (posix_lock);
+                __destroy_lock(posix_lock);
         }
         return 0;
 }
