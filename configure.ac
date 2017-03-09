@@ -1094,24 +1094,24 @@ old_prefix=$prefix
 if test "x$prefix" = xNONE; then
 	prefix=$ac_default_prefix
 fi
-GLUSTERFS_LIBEXECDIR="$(eval echo $prefix)/libexec/glusterfs"
-GLUSTERFSD_MISCDIR="$(eval echo $prefix)/var/lib/misc/glusterfsd"
+GLUSTERFS_LIBEXECDIR="$libexecdir/glusterfs"
+GLUSTERFSD_MISCDIR="$prefix/var/lib/misc/glusterfsd"
 prefix=$old_prefix
 
 ### Dirty hacky stuff to make LOCALSTATEDIR work
 if test "x$prefix" = xNONE; then
-   test $localstatedir = '${prefix}/var' && localstatedir=$ac_default_prefix/var
+   test $localstatedir = '$prefix/var' && localstatedir=$ac_default_prefix/var
    localstatedir=/var
-   LOCALSTATEDIR=$(eval echo ${localstatedir})
+   LOCALSTATEDIR=$localstatedir
 else
-   LOCALSTATEDIR=$(eval echo ${localstatedir})
+   LOCALSTATEDIR=$localstatedir
 fi
 
 old_prefix=$prefix
 if test "x$prefix" = xNONE; then
     prefix=$ac_default_prefix
 fi
-GLUSTERD_VOLFILE="$(eval echo ${sysconfdir})/glusterfs/glusterd.vol"
+GLUSTERD_VOLFILE="$sysconfdir/glusterfs/glusterd.vol"
 prefix=$old_prefix
 
 
