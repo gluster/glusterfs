@@ -21,6 +21,7 @@
 #include <string.h>
 #include <time.h>
 #include "glusterfs.h"
+#include <getopt.h>
 
 #if (HAVE_LIB_XML)
 #include <libxml/encoding.h>
@@ -60,7 +61,7 @@ glfsh_info_t *glfsh_output = NULL;
 int32_t is_xml;
 
 #define DEFAULT_HEAL_LOG_FILE_DIRECTORY DATADIR "/log/glusterfs"
-#define USAGE_STR "Usage: %s <VOLNAME> [bigger-file <FILE> | "\
+#define USAGE_STR "Usage: %s [--glusterd-sock <SOCKET>] <VOLNAME> [bigger-file <FILE> | "\
                   "latest-mtime <FILE> | "\
                   "source-brick <HOSTNAME:BRICKNAME> [<FILE>] | "\
                   "split-brain-info]\n"
@@ -1272,66 +1273,98 @@ main (int argc, char **argv)
         char      *op_errstr = NULL;
         gf_xl_afr_op_t heal_op = -1;
 
-        if (argc < 2) {
-                printf (USAGE_STR, argv[0]);
+        char      *progname = argv[0];
+        char      *glusterd_sock = DEFAULT_GLUSTERD_SOCKFILE;
+
+        static struct option long_options[] = {
+          {"help", no_argument, NULL, 'h'},
+          {"glusterd-sock", no_argument, NULL, 's'},
+          {0, 0, 0, 0}
+        };
+
+        int opt;
+        int long_index = 0;
+        while ((opt = getopt_long(argc, argv, "s:", long_options, &long_index)) != -1) {
+                switch (opt) {
+                        case 's':
+				glusterd_sock = optarg;
+				break;
+
+			case 'h':
+				printf(USAGE_STR, progname);
+				ret = -1;
+				goto out;
+
+			default:
+				printf(USAGE_STR, progname);
+				ret = -1;
+				goto out;
+            }
+        }
+
+	argc -= optind;
+	argv += optind;
+
+        if (argc < 1) {
+                printf (USAGE_STR, progname);
                 ret = -1;
                 goto out;
         }
 
-        volname = argv[1];
+        volname = argv[0];
         switch (argc) {
-        case 2:
+        case 1:
                 heal_op = GF_SHD_OP_INDEX_SUMMARY;
                 break;
-        case 3:
-                if (!strcmp (argv[2], "split-brain-info")) {
+        case 2:
+                if (!strcmp (argv[1], "split-brain-info")) {
                         heal_op = GF_SHD_OP_SPLIT_BRAIN_FILES;
-                } else if (!strcmp (argv[2], "xml")) {
+                } else if (!strcmp (argv[1], "xml")) {
                         heal_op = GF_SHD_OP_INDEX_SUMMARY;
                         is_xml = 1;
-                } else if (!strcmp (argv[2], "granular-entry-heal-op")) {
+                } else if (!strcmp (argv[1], "granular-entry-heal-op")) {
                         heal_op = GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE;
                 } else {
-                        printf (USAGE_STR, argv[0]);
+                        printf (USAGE_STR, progname);
+                        ret = -1;
+                        goto out;
+                }
+                break;
+        case 3:
+                if ((!strcmp (argv[1], "split-brain-info"))
+                                && (!strcmp (argv[2], "xml"))) {
+                        heal_op = GF_SHD_OP_SPLIT_BRAIN_FILES;
+                        is_xml = 1;
+                } else if (!strcmp (argv[1], "bigger-file")) {
+                        heal_op = GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE;
+                        file = argv[2];
+                } else if (!strcmp (argv[1], "latest-mtime")) {
+                        heal_op = GF_SHD_OP_SBRAIN_HEAL_FROM_LATEST_MTIME;
+                        file = argv[2];
+                } else if (!strcmp (argv[1], "source-brick")) {
+                        heal_op = GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK;
+                        hostname = strtok (argv[2], ":");
+                        path = strtok (NULL, ":");
+                } else {
+                        printf (USAGE_STR, progname);
                         ret = -1;
                         goto out;
                 }
                 break;
         case 4:
-                if ((!strcmp (argv[2], "split-brain-info"))
-                                && (!strcmp (argv[3], "xml"))) {
-                        heal_op = GF_SHD_OP_SPLIT_BRAIN_FILES;
-                        is_xml = 1;
-                } else if (!strcmp (argv[2], "bigger-file")) {
-                        heal_op = GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE;
-                        file = argv[3];
-                } else if (!strcmp (argv[2], "latest-mtime")) {
-                        heal_op = GF_SHD_OP_SBRAIN_HEAL_FROM_LATEST_MTIME;
-                        file = argv[3];
-                } else if (!strcmp (argv[2], "source-brick")) {
+                if (!strcmp (argv[1], "source-brick")) {
                         heal_op = GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK;
-                        hostname = strtok (argv[3], ":");
+                        hostname = strtok (argv[2], ":");
                         path = strtok (NULL, ":");
+                        file = argv[3];
                 } else {
-                        printf (USAGE_STR, argv[0]);
-                        ret = -1;
-                        goto out;
-                }
-                break;
-        case 5:
-                if (!strcmp (argv[2], "source-brick")) {
-                        heal_op = GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK;
-                        hostname = strtok (argv[3], ":");
-                        path = strtok (NULL, ":");
-                        file = argv[4];
-                } else {
-                        printf (USAGE_STR, argv[0]);
+                        printf (USAGE_STR, progname);
                         ret = -1;
                         goto out;
                 }
                 break;
         default:
-                printf (USAGE_STR, argv[0]);
+                printf (USAGE_STR, progname);
                 ret = -1;
                 goto out;
         }
@@ -1366,7 +1399,7 @@ main (int argc, char **argv)
                 fs->ctx->secure_mgmt = 1;
         }
 
-        ret = glfs_set_volfile_server (fs, "unix", DEFAULT_GLUSTERD_SOCKFILE, 0);
+        ret = glfs_set_volfile_server (fs, "unix", glusterd_sock, 0);
         if (ret) {
                 ret = -errno;
                 gf_asprintf (&op_errstr, "Setting the volfile server failed, "
