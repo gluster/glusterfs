@@ -65,3 +65,7 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 EXPECT '0' count_lines cat $GLUSTERD_WORKDIR/nfs/rmtab
 
 cleanup
+
+# rmtab support permanently hacked out on FB branch.
+#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=000000
+#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=000000

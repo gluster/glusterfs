@@ -90,3 +90,7 @@ EXPECT '2' count_lines $M0/rmtab
 # rmtab.
 
 cleanup
+
+# rmtab support permanently hacked out on FB branch.
+#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=000000
+#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=000000
