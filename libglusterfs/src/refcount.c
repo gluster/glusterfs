@@ -30,7 +30,7 @@ _gf_ref_get (gf_ref_t *ref)
         return cnt ? ref->data : NULL;
 }
 
-void
+unsigned int
 _gf_ref_put (gf_ref_t *ref)
 {
         unsigned int cnt = __sync_fetch_and_sub (&ref->cnt, 1);
@@ -45,6 +45,8 @@ _gf_ref_put (gf_ref_t *ref)
 
         if (cnt == 1 && ref->release)
                 ref->release (ref->data);
+
+        return (cnt != 1);
 }
 
 #else
@@ -67,7 +69,7 @@ _gf_ref_get (gf_ref_t *ref)
         return cnt ? ref->data : NULL;
 }
 
-void
+unsigned int
 _gf_ref_put (gf_ref_t *ref)
 {
         unsigned int cnt = 0;
@@ -86,6 +88,8 @@ _gf_ref_put (gf_ref_t *ref)
 
         if (release && ref->release)
                 ref->release (ref->data);
+
+        return !release;
 }
 
 #endif /* REFCOUNT_NEEDS_LOCK */
