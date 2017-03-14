@@ -456,6 +456,8 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
         int32_t  disperse_data_count = -1;
         gf_boolean_t is_force = _gf_false;
         int wc = wordcount;
+        gf_answer_t answer = GF_ANSWER_NO;
+        const char *question = NULL;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -525,6 +527,22 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                                          " than 1");
                                 ret = -1;
                                 goto out;
+                        }
+                        if (replica_count == 2) {
+                                question = "Replica 2 volumes are prone to "
+                                           "split-brain. Use Arbiter or Replica"
+                                           " 3 to avoid this. See: "
+                                           " https://gluster.readthedocs.io/en/latest/Administrator%20Guide/Split%20brain%20and%20ways%20to%20deal%20with%20it/."
+                                           "\nDo you still want to continue?\n";
+                                answer = cli_cmd_get_confirmation (state,
+                                                                   question);
+                                if (GF_ANSWER_NO == answer) {
+                                        gf_log ("cli", GF_LOG_ERROR,
+                                                "Volume create cancelled, "
+                                                "exiting");
+                                        ret = -1;
+                                        goto out;
+                                }
                         }
                         ret = dict_set_int32 (dict, "replica-count", replica_count);
                         if (ret)
