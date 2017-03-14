@@ -50,7 +50,7 @@ _gf_ref_get (gf_ref_t *ref);
  * @return: greater then 0 when there are still references, 0 when cleanup
  *          should be done, gf_ref_release_t is called on cleanup
  */
-void
+unsigned int
 _gf_ref_put (gf_ref_t *ref);
 
 /* _gf_ref_init -- initalize an embedded refcount object
