@@ -4871,6 +4871,9 @@ dht_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         int           op_errno = -1;
         int           i = -1;
         int           ret = 0;
+        gf_boolean_t  new_xdata = _gf_false;
+        xlator_t    **subvolumes = NULL;
+        int           call_count = 0;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -4882,45 +4885,58 @@ dht_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         local = dht_local_init (frame, loc, fd, GF_FOP_OPENDIR);
         if (!local) {
                 op_errno = ENOMEM;
-
                 goto err;
         }
+
+        if (!xdata) {
+                xdata = dict_new ();
+                if (!xdata) {
+                        op_errno = ENOMEM;
+                        goto err;
+                }
+                new_xdata = _gf_true;
+        }
+
+        ret = dict_set_uint32 (xdata, conf->link_xattr_name, 256);
+        if (ret)
+                gf_msg (this->name, GF_LOG_WARNING, 0, DHT_MSG_DICT_SET_FAILED,
+                        "Failed to set dictionary value : key = %s",
+                        conf->link_xattr_name);
 
         if ((conf->defrag && conf->defrag->cmd == GF_DEFRAG_CMD_START_TIER) ||
             (conf->defrag && conf->defrag->cmd ==
              GF_DEFRAG_CMD_START_DETACH_TIER) ||
             (!(conf->local_subvols_cnt) || !conf->defrag)) {
-                local->call_cnt = conf->subvolume_cnt;
-
-                for (i = 0; i < conf->subvolume_cnt; i++) {
-                        STACK_WIND_COOKIE (frame, dht_fd_cbk,
-                                           conf->subvolumes[i],
-                                           conf->subvolumes[i],
-                                           conf->subvolumes[i]->fops->opendir,
-                                           loc, fd, xdata);
-                }
+                call_count = local->call_cnt = conf->subvolume_cnt;
+                subvolumes = conf->subvolumes;
         } else {
-                local->call_cnt = conf->local_subvols_cnt;
-                for (i = 0; i < conf->local_subvols_cnt; i++) {
-                        if (conf->readdir_optimize == _gf_true) {
-                                if (conf->local_subvols[i] != local->first_up_subvol)
-                                        ret = dict_set_int32 (local->xattr,
-                                                              GF_READDIR_SKIP_DIRS, 1);
-                                         if (ret)
-                                                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                                                         DHT_MSG_DICT_SET_FAILED,
-                                                         "Failed to set dictionary"
-                                                         " value :key = %s, ret:%d",
-                                                         GF_READDIR_SKIP_DIRS, ret);
-
-                        }
-                        STACK_WIND_COOKIE (frame, dht_fd_cbk,
-                                           conf->local_subvols[i],
-                                           conf->local_subvols[i],
-                                           conf->local_subvols[i]->fops->opendir,
-                                           loc, fd, xdata);
-                }
+                call_count = local->call_cnt = conf->local_subvols_cnt;
+                subvolumes = conf->local_subvols;
         }
+
+        for (i = 0; i < call_count; i++) {
+                if (conf->readdir_optimize == _gf_true) {
+                        if (subvolumes[i] != local->first_up_subvol)
+                                ret = dict_set_int32 (xdata,
+                                                      GF_READDIR_SKIP_DIRS, 1);
+                                if (ret)
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                DHT_MSG_DICT_SET_FAILED,
+                                                "Failed to set dictionary"
+                                                " value :key = %s, ret:%d",
+                                                GF_READDIR_SKIP_DIRS, ret);
+                }
+
+                STACK_WIND_COOKIE (frame, dht_fd_cbk,
+                                   subvolumes[i],
+                                   subvolumes[i],
+                                   subvolumes[i]->fops->opendir,
+                                   loc, fd, xdata);
+                dict_del (xdata, GF_READDIR_SKIP_DIRS);
+        }
+
+        if (new_xdata)
+                dict_unref (xdata);
 
         return 0;
 
