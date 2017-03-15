@@ -415,7 +415,6 @@ rda_fill_fd(call_frame_t *frame, xlator_t *this, fd_t *fd)
 	struct rda_fd_ctx *ctx;
 	off_t offset;
 	struct rda_priv *priv = this->private;
-        int ret = 0;
 
 	ctx = get_rda_fd_ctx(fd, this);
 	if (!ctx)
@@ -461,15 +460,6 @@ rda_fill_fd(call_frame_t *frame, xlator_t *this, fd_t *fd)
 	}
 
 	local->offset = offset;
-        if (local->skip_dir) {
-                ret = dict_set_int32 (ctx->xattrs, GF_READDIR_SKIP_DIRS, 1);
-                if (ret < 0) {
-                        gf_msg (this->name, GF_LOG_ERROR,
-                                0, READDIR_AHEAD_MSG_DICT_OP_FAILED,
-                                "Dict set of key:%s failed with :%d",
-                                GF_READDIR_SKIP_DIRS, ret);
-                }
-        }
 
 	UNLOCK(&ctx->lock);
 
@@ -547,25 +537,10 @@ rda_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         dict_t              *xdata_from_req = NULL;
 
         if (xdata) {
-                /*
-                 * Retrieve list of keys set by md-cache xlator and store it
-                 * in local to be consumed in rda_opendir_cbk
-                 */
-                ret = dict_get_str (xdata, GF_MDC_LOADED_KEY_NAMES, &payload);
-                if (ret)
-                        goto wind;
-
                 xdata_from_req = dict_new();
                 if (!xdata_from_req) {
                         op_errno = ENOMEM;
                         goto unwind;
-                }
-
-                ret = rda_unpack_mdc_loaded_keys_to_dict((char *) payload,
-                                                         xdata_from_req);
-                if (ret) {
-                        dict_unref(xdata_from_req);
-                        goto wind;
                 }
 
                 local = mem_get0(this->local_pool);
@@ -575,16 +550,25 @@ rda_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                         goto unwind;
                 }
 
+                /*
+                 * Retrieve list of keys set by md-cache xlator and store it
+                 * in local to be consumed in rda_opendir_cbk
+                 */
+                ret = dict_get_str (xdata, GF_MDC_LOADED_KEY_NAMES, &payload);
+                if (ret)
+                        goto wind;
+                ret = rda_unpack_mdc_loaded_keys_to_dict((char *) payload,
+                                                         xdata_from_req);
+                if (ret)
+                        goto wind;
+
+                dict_copy (xdata, xdata_from_req);
+                dict_del (xdata_from_req, GF_MDC_LOADED_KEY_NAMES);
+
                 local->xattrs = xdata_from_req;
-                ret = dict_get_int32 (xdata, GF_READDIR_SKIP_DIRS, &local->skip_dir);
                 frame->local = local;
         }
-
 wind:
-        if (xdata)
-                /* Remove the key after consumption. */
-                dict_del (xdata, GF_MDC_LOADED_KEY_NAMES);
-
         STACK_WIND(frame, rda_opendir_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->opendir, loc, fd, xdata);
         return 0;
