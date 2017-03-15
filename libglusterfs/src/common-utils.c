@@ -3569,8 +3569,7 @@ gf_thread_create (pthread_t *thread, const pthread_attr_t *attr,
         sigset_t set, old;
         int ret;
 
-        sigemptyset (&set);
-
+        sigemptyset (&old);
         sigfillset (&set);
         sigdelset (&set, SIGSEGV);
         sigdelset (&set, SIGBUS);
