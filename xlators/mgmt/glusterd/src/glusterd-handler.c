@@ -1318,6 +1318,8 @@ __glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
         int                           flags = 0;
         glusterd_volinfo_t         *volinfo = NULL;
         glusterd_volinfo_t             *tmp = NULL;
+        glusterd_snap_t           *snapinfo = NULL;
+        glusterd_snap_t            *tmpsnap = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1402,14 +1404,21 @@ __glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
         */
         cds_list_for_each_entry_safe (volinfo, tmp, &priv->volumes,
                                       vol_list) {
-                ret = glusterd_friend_contains_vol_bricks (volinfo,
-                                                           uuid);
+                ret = glusterd_friend_contains_vol_bricks (volinfo, uuid);
                 if (ret == 1) {
                         op_errno = GF_DEPROBE_BRICK_EXIST;
                         goto out;
                 }
         }
 
+        cds_list_for_each_entry_safe (snapinfo, tmpsnap, &priv->snapshots,
+                                      snap_list) {
+                ret = glusterd_friend_contains_snap_bricks (snapinfo, uuid);
+                if (ret == 1) {
+                        op_errno = GF_DEPROBE_SNAP_BRICK_EXIST;
+                        goto out;
+                }
+        }
         if (!(flags & GF_CLI_FLAG_OP_FORCE)) {
                 if (glusterd_is_any_volume_in_server_quorum (this) &&
                     !does_gd_meet_server_quorum (this)) {
@@ -3952,6 +3961,12 @@ set_deprobe_error_str (int op_ret, int op_errno, char *op_errstr, char *errstr,
                         case GF_DEPROBE_BRICK_EXIST:
                                 snprintf (errstr, len, "Brick(s) with the peer "
                                           "%s exist in cluster", hostname);
+                                break;
+
+                        case GF_DEPROBE_SNAP_BRICK_EXIST:
+                                snprintf (errstr, len, "%s is part of existing "
+                                          "snapshot. Remove those snapshots "
+                                          "before proceeding ", hostname);
                                 break;
 
                         case GF_DEPROBE_FRIEND_DOWN:

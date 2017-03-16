@@ -134,6 +134,7 @@ enum gf_deprobe_resp {
         GF_DEPROBE_FRIEND_DOWN,
         GF_DEPROBE_QUORUM_NOT_MET,
         GF_DEPROBE_FRIEND_DETACHING,
+        GF_DEPROBE_SNAP_BRICK_EXIST,
 };
 
 enum gf_cbk_procnum {

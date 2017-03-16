@@ -411,6 +411,10 @@ glusterd_is_brick_decommissioned (glusterd_volinfo_t *volinfo, char *hostname,
 int
 glusterd_friend_contains_vol_bricks (glusterd_volinfo_t *volinfo,
                                      uuid_t friend_uuid);
+
+int
+glusterd_friend_contains_snap_bricks (glusterd_snap_t *snapinfo,
+                                     uuid_t friend_uuid);
 int
 glusterd_friend_remove_cleanup_vols (uuid_t uuid);
 
