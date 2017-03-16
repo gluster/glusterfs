@@ -7777,6 +7777,42 @@ glusterd_friend_contains_vol_bricks (glusterd_volinfo_t *volinfo,
         return ret;
 }
 
+/* Checks if the given peer contains bricks belonging to the given volume.
+ * Returns,
+ *   2 - if peer contains all the bricks
+ *   1 - if peer contains at least 1 brick
+ *   0 - if peer contains no bricks
+ */
+int
+glusterd_friend_contains_snap_bricks (glusterd_snap_t *snapinfo,
+                                     uuid_t friend_uuid)
+{
+        int                                ret = -1;
+        glusterd_volinfo_t            *volinfo = NULL;
+        glusterd_brickinfo_t        *brickinfo = NULL;
+        int                              count = 0;
+
+        GF_VALIDATE_OR_GOTO ("glusterd", snapinfo, out);
+
+        cds_list_for_each_entry (volinfo, &snapinfo->volumes, vol_list) {
+                cds_list_for_each_entry (brickinfo, &volinfo->bricks,
+                                                          brick_list) {
+                        if (!gf_uuid_compare (brickinfo->uuid, friend_uuid)) {
+                                count++;
+                        }
+                }
+        }
+
+        if (count > 0)
+                ret = 1;
+        else
+                ret = 0;
+
+out:
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
+        return ret;
+}
+
 /* Cleanup the stale volumes left behind in the cluster. The volumes which are
  * contained completely within the detached peer are stale with respect to the
  * cluster.
