@@ -254,6 +254,7 @@ typedef struct shard_local {
                 fop_inodelk_cbk_t inodelk_cbk;
                 shard_lock_t *shard_lock;
         } lock;
+        inode_t *resolver_base_inode;
 } shard_local_t;
 
 typedef struct shard_inode_ctx {
@@ -267,6 +268,7 @@ typedef struct shard_inode_ctx {
         struct list_head ilist;
         uuid_t base_gfid;
         int block_num;
+        gf_boolean_t refreshed;
 } shard_inode_ctx_t;
 
 #endif /* __SHARD_H__ */

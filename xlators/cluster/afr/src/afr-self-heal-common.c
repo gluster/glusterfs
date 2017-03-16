@@ -26,6 +26,8 @@ afr_selfheal_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	local = frame->local;
 
+        local->op_ret = op_ret;
+        local->op_errno = op_errno;
 	syncbarrier_wake (&local->barrier);
 
 	return 0;
@@ -39,6 +41,7 @@ afr_selfheal_post_op (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	afr_private_t *priv = NULL;
 	afr_local_t *local = NULL;
 	loc_t loc = {0, };
+        int ret = 0;
 
 	priv = this->private;
 	local = frame->local;
@@ -46,15 +49,20 @@ afr_selfheal_post_op (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	loc.inode = inode_ref (inode);
 	gf_uuid_copy (loc.gfid, inode->gfid);
 
+        local->op_ret = 0;
+
 	STACK_WIND (frame, afr_selfheal_post_op_cbk, priv->children[subvol],
 		    priv->children[subvol]->fops->xattrop, &loc,
 		    GF_XATTROP_ADD_ARRAY, xattr, xdata);
 
 	syncbarrier_wait (&local->barrier, 1);
+        if (local->op_ret < 0)
+                ret = -local->op_errno;
 
         loc_wipe (&loc);
+        local->op_ret = 0;
 
-	return 0;
+	return ret;
 }
 
 int
@@ -78,6 +86,49 @@ afr_check_stale_error (struct afr_reply *replies, afr_private_t *priv)
                 return -op_errno;
 }
 
+int
+afr_sh_generic_fop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+          int op_ret, int op_errno, struct iatt *pre, struct iatt *post,
+          dict_t *xdata)
+{
+        int i = (long) cookie;
+        afr_local_t *local = NULL;
+
+        local = frame->local;
+
+        local->replies[i].valid = 1;
+        local->replies[i].op_ret = op_ret;
+        local->replies[i].op_errno = op_errno;
+        if (pre)
+                local->replies[i].prestat = *pre;
+        if (post)
+                local->replies[i].poststat = *post;
+        if (xdata)
+                local->replies[i].xdata = dict_ref (xdata);
+
+        syncbarrier_wake (&local->barrier);
+
+        return 0;
+}
+
+int
+afr_selfheal_restore_time (call_frame_t *frame, xlator_t *this, inode_t *inode,
+                           int source, unsigned char *healed_sinks,
+                           struct afr_reply *replies)
+{
+        loc_t loc = {0, };
+
+        loc.inode = inode_ref (inode);
+        gf_uuid_copy (loc.gfid, inode->gfid);
+
+        AFR_ONLIST (healed_sinks, frame, afr_sh_generic_fop_cbk, setattr, &loc,
+                    &replies[source].poststat,
+                    (GF_SET_ATTR_ATIME|GF_SET_ATTR_MTIME), NULL);
+
+        loc_wipe (&loc);
+
+        return 0;
+}
 
 dict_t *
 afr_selfheal_output_xattr (xlator_t *this, gf_boolean_t is_full_crawl,
@@ -1937,8 +1988,10 @@ afr_selfheal_newentry_mark (call_frame_t *frame, xlator_t *this, inode_t *inode,
         changelog = afr_mark_pending_changelog (priv, newentry, xattr,
                                             replies[source].poststat.ia_type);
 
-        if (!changelog)
+        if (!changelog) {
+                ret = -ENOMEM;
                 goto out;
+        }
 
         /* Pre-compute how many sources we have, if we made it in here
          * without any sources defined, we are doing a conservative
@@ -1958,7 +2011,8 @@ afr_selfheal_newentry_mark (call_frame_t *frame, xlator_t *this, inode_t *inode,
                 if (!sources[i] && source_count) {
                         continue;
                 }
-                afr_selfheal_post_op (frame, this, inode, i, xattr, NULL);
+                ret |= afr_selfheal_post_op (frame, this, inode, i, xattr,
+                                             NULL);
             }
 out:
         if (changelog)

@@ -3929,6 +3929,7 @@ dht_setxattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
                 goto err;
 
         local = frame->local;
+        op_errno = local->op_errno;
 
         if (we_are_not_migrating (ret)) {
                 /* This dht xlator is not migrating the file. Unwind and
@@ -3943,7 +3944,6 @@ dht_setxattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
         if (subvol == NULL)
                 goto err;
 
-        op_errno = local->op_errno;
 
         local->call_cnt = 2; /* This is the second attempt */
 
@@ -3964,6 +3964,15 @@ dht_setxattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 err:
         DHT_STACK_UNWIND (setxattr, frame, (local ? local->op_ret : -1),
                           op_errno, NULL);
+        return 0;
+}
+
+int
+dht_nuke_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+                  struct iatt *postparent, dict_t *xdata)
+{
+        STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno, NULL);
         return 0;
 }
 
@@ -3998,7 +4007,7 @@ dht_nuke_dir (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *tmp)
          * obscure the fact that we came in via this path instead of a genuine
          * rmdir.  That makes debugging just a tiny bit easier.
          */
-        STACK_WIND (frame, default_rmdir_cbk, this, this->fops->rmdir,
+        STACK_WIND (frame, dht_nuke_dir_cbk, this, this->fops->rmdir,
                     loc, 1, NULL);
 
         return 0;
@@ -4351,10 +4360,11 @@ dht_removexattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame,
         dht_local_t *local    = NULL;
         int          op_errno = EINVAL;
 
-        if (!frame || !frame->local || !subvol)
+        if (!frame || !frame->local)
                 goto err;
 
         local = frame->local;
+        op_errno = local->op_errno;
 
         local->call_cnt = 2; /* This is the second attempt */
 
@@ -4368,6 +4378,9 @@ dht_removexattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame,
                                   local->op_errno, local->rebalance.xdata);
                 return 0;
         }
+
+        if (subvol == NULL)
+                goto err;
 
         if (local->fop == GF_FOP_REMOVEXATTR) {
                 STACK_WIND (frame, dht_file_removexattr_cbk, subvol,
