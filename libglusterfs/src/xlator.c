@@ -238,6 +238,8 @@ xlator_dynload (xlator_t *xl)
                 xl->fini        = vtbl->fini;
                 xl->reconfigure = vtbl->reconfigure;
                 xl->notify      = vtbl->notify;
+                xl->dump_metrics = vtbl->dump_metrics;
+                xl->reset_metrics = vtbl->reset_metrics;
         }
         else {
                 if (!(*VOID(&xl->init) = dlsym (handle, "init"))) {
@@ -261,6 +263,16 @@ xlator_dynload (xlator_t *xl)
                 if (!(*VOID(&(xl->notify)) = dlsym (handle, "notify"))) {
                         gf_msg_trace ("xlator", 0, "dlsym(notify) on %s -- "
                                       "neglecting", dlerror ());
+                }
+                if (!(*VOID(&(xl->dump_metrics)) = dlsym (handle,
+                                                          "dump_metrics"))) {
+                        gf_msg_trace ("xlator", 0, "dlsym(dump_metrics) on %s -- "
+                                      "neglecting", dlerror ());
+                }
+                if (!(*VOID(&(xl->reset_metrics)) = dlsym (handle,
+                                                           "reset_metrics"))) {
+                        gf_msg_trace ("xlator", 0, "dlsym(reset_metrics) "
+                                      "on %s -- neglecting", dlerror ());
                 }
 
         }
@@ -464,9 +476,17 @@ __xlator_init(xlator_t *xl)
 {
         xlator_t *old_THIS = NULL;
         int       ret = 0;
+        int       fop_idx = 0;
 
         old_THIS = THIS;
         THIS = xl;
+
+        /* initialize the metrics related locks */
+        for (fop_idx = 0; fop_idx < GF_FOP_MAXVALUE; fop_idx++) {
+                GF_ATOMIC_INIT (xl->metrics[fop_idx].fop, 0);
+                GF_ATOMIC_INIT (xl->metrics[fop_idx].cbk, 0);
+                GF_ATOMIC_INIT (xl->metrics[fop_idx].failed_cbk, 0);
+        }
 
         xlator_init_lock ();
         ret = xl->init (xl);

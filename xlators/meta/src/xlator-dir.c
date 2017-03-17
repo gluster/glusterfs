@@ -55,6 +55,10 @@ static struct meta_dirent xlator_dir_dirents[] = {
 	  .type = IA_IFREG,
 	  .hook = meta_profile_file_hook,
 	},
+	{ .name = "metrics",
+	  .type = IA_IFREG,
+	  .hook = meta_metrics_file_hook,
+	},
 	{ .name = NULL }
 };
 

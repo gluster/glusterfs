@@ -2260,7 +2260,8 @@ err:
 
         GF_FREE (str1);
 
-        FREE (str2);
+        //FREE (str2);
+        free (str2);
 
 out:
         va_end (ap);
@@ -2311,7 +2312,7 @@ out:
 
         /* Use FREE instead of GF_FREE since str2 was allocated by vasprintf */
         if (str2)
-                FREE (str2);
+                free (str2);//FREE (str2);
 
         va_end (ap);
 
@@ -2465,7 +2466,8 @@ out:
 
         GF_FREE (str1);
 
-        FREE (str2);
+        //FREE (str2);
+        free (str2);
 
         va_end (ap);
 

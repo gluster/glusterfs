@@ -27,6 +27,46 @@
 #include "unittest/unittest.h"
 #include "libglusterfs-messages.h"
 
+#if MEMORY_ACCOUNTING_STATS
+gf_memory_stats_t gf_memory_stat_counts;
+
+void
+mem_accounting_stats_init ()
+{
+        int i = 0;
+
+        GF_ATOMIC_INIT (gf_memory_stat_counts.total_calloc, 0);
+        GF_ATOMIC_INIT (gf_memory_stat_counts.total_malloc, 0);
+        GF_ATOMIC_INIT (gf_memory_stat_counts.total_realloc, 0);
+        GF_ATOMIC_INIT (gf_memory_stat_counts.total_free, 0);
+
+        for (i = 0; i < GF_BLK_MAX_VALUE; i++) {
+                GF_ATOMIC_INIT (gf_memory_stat_counts.blk_size[i], 0);
+        }
+}
+
+#endif
+
+void
+update_blk_count (size_t size)
+{
+#if MEMORY_ACCOUNTING_STATS
+        /* TODO: We can make this better by keeping value to compare,
+           and string to log in a structure and use that here for all this */
+        if (size <= 128) {
+                GF_ATOMIC_INC (gf_memory_stat_counts.blk_size[GF_BLK_LT_128B]);
+        } else if (size <= 512) {
+                GF_ATOMIC_INC (gf_memory_stat_counts.blk_size[GF_BLK_LT_512B]);
+        } else if (size <= 1024) {
+                GF_ATOMIC_INC (gf_memory_stat_counts.blk_size[GF_BLK_LT_1KB]);
+        } else if (size <= 4096) {
+                GF_ATOMIC_INC (gf_memory_stat_counts.blk_size[GF_BLK_LT_4KB]);
+        } else {
+                GF_ATOMIC_INC (gf_memory_stat_counts.blk_size[GF_BLK_MT_4KB]);
+        }
+#endif
+}
+
 void
 gf_mem_acct_enable_set (void *data)
 {
@@ -120,6 +160,9 @@ __gf_calloc (size_t nmemb, size_t size, uint32_t type, const char *typestr)
                 gf_msg_nomem ("", GF_LOG_ALERT, tot_size);
                 return NULL;
         }
+
+        UPDATE_MEMORY_STATS(calloc, tot_size);
+
         gf_mem_set_acct_info (xl, &ptr, req_size, type, typestr);
 
         return (void *)ptr;
@@ -144,6 +187,9 @@ __gf_malloc (size_t size, uint32_t type, const char *typestr)
                 gf_msg_nomem ("", GF_LOG_ALERT, tot_size);
                 return NULL;
         }
+
+        UPDATE_MEMORY_STATS(malloc, tot_size);
+
         gf_mem_set_acct_info (xl, &ptr, size, type, typestr);
 
         return (void *)ptr;
@@ -173,6 +219,8 @@ __gf_realloc (void *ptr, size_t size)
                 gf_msg_nomem ("", GF_LOG_ALERT, tot_size);
                 return NULL;
         }
+
+        UPDATE_MEMORY_STATS(realloc, tot_size);
 
         /*
          * We used to pass (char **)&ptr as the second

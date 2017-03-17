@@ -167,7 +167,7 @@ gf_proc_dump_add_section (char *key, ...)
 
 
 int
-gf_proc_dump_write_fd (char *key, char *value, va_list ap)
+gf_proc_dump_write_fd (const char *key, char *value, va_list ap)
 {
 
         char         buf[GF_DUMP_MAX_BUF_LEN];
@@ -190,7 +190,7 @@ gf_proc_dump_write_fd (char *key, char *value, va_list ap)
 
 
 int
-gf_proc_dump_write_strfd (char *key, char *value, va_list ap)
+gf_proc_dump_write_strfd (const char *key, char *value, va_list ap)
 {
 	int ret = 0;
 
@@ -203,7 +203,7 @@ gf_proc_dump_write_strfd (char *key, char *value, va_list ap)
 
 
 int
-gf_proc_dump_write (char *key, char *value, ...)
+gf_proc_dump_write (const char *key, char *value, ...)
 {
 	int ret = 0;
 	va_list ap;
@@ -287,6 +287,49 @@ gf_proc_dump_xlator_mem_info_only_in_use (xlator_t *xl)
                                     xl->mem_acct->rec[i].total_allocs);
         }
 
+        return;
+}
+
+static void
+xl_dump_metrics (xlator_t *xl)
+{
+        int     i = 0;
+
+        gf_proc_dump_add_section ("%s.%s - Fop usage metrics",
+                                  xl->type, xl->name);
+
+        for (i = 0; i < GF_FOP_MAXVALUE; i++) {
+                if (GF_ATOMIC_GET(xl->metrics[i].fop) == 0)
+                        continue;
+                gf_proc_dump_write (gf_fop_list[i],
+                                    "fop: %lu, cbk: %lu, failed_cbk: %u",
+                                    GF_ATOMIC_GET(xl->metrics[i].fop),
+                                    GF_ATOMIC_GET(xl->metrics[i].cbk),
+                                    GF_ATOMIC_GET(xl->metrics[i].failed_cbk));
+        }
+}
+
+void
+gf_proc_dump_xlator_metrics (xlator_t *this, strfd_t *strfd)
+{
+
+        if (!this)
+                return;
+
+        if (!strfd) {
+                xl_dump_metrics (this);
+                goto out;
+        }
+
+        gf_proc_dump_lock ();
+        {
+                gf_dump_strfd = strfd;
+                xl_dump_metrics (this);
+                gf_dump_strfd = NULL;
+        }
+        gf_proc_dump_unlock ();
+
+out:
         return;
 }
 
@@ -509,6 +552,9 @@ gf_proc_dump_xlator_info (xlator_t *top)
                                   ctx->graph_id, trav->name);
                 }
 
+                if (GF_PROC_DUMP_IS_XL_OPTION_ENABLED (metrics))
+                        gf_proc_dump_xlator_metrics (trav, NULL);
+
                 if (!trav->dumpops) {
                         trav = trav->next;
                         continue;
@@ -590,6 +636,8 @@ gf_proc_dump_enable_all_options ()
         GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_fdctx, _gf_true);
         GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_history,
                                  _gf_true);
+        GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_metrics,
+                                 _gf_true);
 
         return 0;
 }
@@ -614,6 +662,8 @@ is_gf_proc_dump_all_disabled ()
         GF_CHECK_DUMP_OPTION_ENABLED (dump_options.xl_options.dump_fdctx,
                                    all_disabled, out);
         GF_CHECK_DUMP_OPTION_ENABLED (dump_options.xl_options.dump_history,
+                                   all_disabled, out);
+        GF_CHECK_DUMP_OPTION_ENABLED (dump_options.xl_options.dump_metrics,
                                    all_disabled, out);
 
 out:
@@ -648,6 +698,8 @@ gf_proc_dump_disable_all_options ()
         GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_fdctx, _gf_false);
         GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_history,
                                  _gf_false);
+        GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_metrics,
+                                 _gf_false);
         return 0;
 }
 
@@ -680,6 +732,8 @@ gf_proc_dump_parse_set_option (char *key, char *value)
                 opt_key = &dump_options.xl_options.dump_fdctx;
         } else if (!strcasecmp (key, "history")) {
                 opt_key = &dump_options.xl_options.dump_history;
+        } else if (!strcasecmp (key, "metrics")) {
+                opt_key = &dump_options.xl_options.dump_metrics;
         }
 
         if (!opt_key) {
@@ -789,7 +843,7 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
         gf_proc_dump_lock ();
 
         if (!ctx)
-                goto out;
+                goto unlock;
 
         if (ctx->cmd_args.brick_name) {
                 GF_REMOVE_SLASH_FROM_PATH (ctx->cmd_args.brick_name, brick_name);
@@ -887,6 +941,7 @@ out:
         sys_rename (tmp_dump_name, path);
         GF_FREE (dump_options.dump_path);
         dump_options.dump_path = NULL;
+unlock:
         gf_proc_dump_unlock ();
 
         return;

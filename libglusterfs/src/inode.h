@@ -55,6 +55,11 @@ struct _inode_table {
         struct mem_pool   *dentry_pool; /* memory pool for dentrys */
         struct mem_pool   *fd_mem_pool; /* memory pool for fd_t */
         int                ctxcount;    /* number of slots in inode->ctx */
+
+        /* FD related information can be managed only from here, as its
+           bound to an inode */
+        gf_atomic_t total_fd;
+        gf_atomic_t in_use_fd;
 };
 
 

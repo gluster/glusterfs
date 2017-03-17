@@ -25,4 +25,7 @@ typedef struct fop_latency {
 void
 gf_latency_toggle (int signum, glusterfs_ctx_t *ctx);
 
+void
+gf_update_latency (void *frame);
+
 #endif /* __LATENCY_H__ */

@@ -533,6 +533,7 @@ fd_destroy (fd_t *fd, gf_boolean_t bound)
         fd->inode = NULL;
         fd_lk_ctx_unref (fd->lk_ctx);
         mem_put (fd);
+
 out:
         return;
 }
@@ -633,6 +634,10 @@ __fd_create (inode_t *inode, uint64_t pid)
         INIT_LIST_HEAD (&fd->inode_list);
 
         LOCK_INIT (&fd->lock);
+
+        GF_ATOMIC_INC (inode->table->total_fd);
+        GF_ATOMIC_INC (inode->table->in_use_fd);
+
 out:
         return fd;
 

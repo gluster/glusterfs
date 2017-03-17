@@ -25,3 +25,4 @@
  * included automatically.
  */
 #define SITE_DOT_H_TEST		9987
+#define MEMORY_ACCOUNTING_STATS 1

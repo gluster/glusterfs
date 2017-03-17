@@ -80,7 +80,7 @@
 #include "exports.h"
 
 #include "daemon.h"
-
+#include "monitoring.h"
 
 /* using argp for command line parsing */
 static char gf_doc[] = "";
@@ -1521,6 +1521,7 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 
         INIT_LIST_HEAD (&ctx->pool->all_frames);
         LOCK_INIT (&ctx->pool->lock);
+        GF_ATOMIC_INIT (ctx->pool->total_count, 0);
 
         /* frame_mem_pool size 112 * 4k */
         ctx->pool->frame_mem_pool = mem_pool_new (call_frame_t, 4096);
@@ -2136,7 +2137,9 @@ glusterfs_sigwaiter (void *arg)
                         gf_proc_dump_info (sig, glusterfsd_ctx);
                         break;
                 case SIGUSR2:
-                        gf_latency_toggle (sig, glusterfsd_ctx);
+                        //gf_latency_toggle (sig, glusterfsd_ctx);
+                        /* TODO: Commentout below code to test the feature */
+                        gf_monitor_metrics (sig, glusterfsd_ctx);
                         break;
                 default:
 
@@ -2177,7 +2180,9 @@ glusterfs_signals_setup (glusterfs_ctx_t *ctx)
         sigaddset (&set, SIGTERM);  /* cleanup_and_exit */
         sigaddset (&set, SIGHUP);   /* reincarnate */
         sigaddset (&set, SIGUSR1);  /* gf_proc_dump_info */
-        sigaddset (&set, SIGUSR2);  /* gf_latency_toggle */
+
+        /* TODO: recheck if this breaks anything */
+        sigaddset (&set, SIGUSR2);  /* gf_monitor_metrics */
 
         ret = pthread_sigmask (SIG_BLOCK, &set, NULL);
         if (ret) {
@@ -2431,6 +2436,11 @@ main (int argc, char *argv[])
         mem_pools_init_early ();
 
 	gf_check_and_set_mem_acct (argc, argv);
+
+#if MEMORY_ACCOUNTING_STATS
+        /* This should technically be done before any memory allocation */
+        mem_accounting_stats_init();
+#endif
 
 	ctx = glusterfs_ctx_new ();
         if (!ctx) {

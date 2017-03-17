@@ -37,6 +37,45 @@
 #define GF_MEM_TRAILER_MAGIC 0xBAADF00D
 #define GF_MEM_INVALID_MAGIC 0xDEADC0DE
 
+#if MEMORY_ACCOUNTING_STATS
+/* There has to be global variables, mainly because even
+   glusterfs_ctx uses default memory allocation for starting up */
+typedef enum {
+        GF_BLK_LT_128B = 0,
+        GF_BLK_LT_512B,
+        GF_BLK_LT_1KB,
+        GF_BLK_LT_4KB,
+        GF_BLK_MT_4KB,
+        GF_BLK_MAX_VALUE
+} required_block_sizes_t;
+
+struct gf_memory_stats {
+        gf_atomic_t total_calloc;
+        gf_atomic_t total_malloc;
+        gf_atomic_t total_realloc;
+        gf_atomic_t total_free;
+        gf_atomic_t blk_size[GF_BLK_MAX_VALUE];
+};
+typedef struct gf_memory_stats gf_memory_stats_t;
+
+void mem_accounting_stats_init ();
+
+void update_blk_count (size_t size);
+extern gf_memory_stats_t gf_memory_stat_counts;
+
+#define UPDATE_MEMORY_STATS(op,size)                            \
+        do {                                                    \
+                GF_ATOMIC_INC (gf_memory_stat_counts.total_##op);   \
+                update_blk_count (size);                        \
+        } while(0)
+
+#define UPDATE_MEMORY_FREE_STATS() GF_ATOMIC_INC(gf_memory_stat_counts.total_free)
+
+#else
+#define UPDATE_MEMORY_STATS(op,size) {}
+#define UPDATE_MEMORY_FREE_STATS() {}
+#endif
+
 struct mem_acct_rec {
 	const char     *typestr;
         size_t          size;
@@ -103,6 +142,8 @@ void* __gf_default_malloc (size_t size)
         if (!ptr)
                 gf_msg_nomem ("", GF_LOG_ALERT, size);
 
+        UPDATE_MEMORY_STATS(malloc, size);
+
         return ptr;
 }
 
@@ -114,6 +155,8 @@ void* __gf_default_calloc (int cnt, size_t size)
         ptr = calloc (cnt, size);
         if (!ptr)
                 gf_msg_nomem ("", GF_LOG_ALERT, (cnt * size));
+
+        UPDATE_MEMORY_STATS(calloc, cnt * size);
 
         return ptr;
 }
@@ -127,6 +170,8 @@ void* __gf_default_realloc (void *oldptr, size_t size)
         if (!ptr)
                 gf_msg_nomem ("", GF_LOG_ALERT, size);
 
+        UPDATE_MEMORY_STATS(realloc, size);
+
         return ptr;
 }
 
@@ -134,12 +179,13 @@ void* __gf_default_realloc (void *oldptr, size_t size)
 #define CALLOC(cnt,size)   __gf_default_calloc(cnt,size)
 #define REALLOC(ptr,size)  __gf_default_realloc(ptr,size)
 
-#define FREE(ptr)                                       \
-        do {                                            \
-                if (ptr != NULL) {                      \
-                        free ((void *)ptr);             \
-                        ptr = (void *)0xeeeeeeee;       \
-                }                                       \
+#define FREE(ptr)                                                       \
+        do {                                                            \
+                if (ptr != NULL) {                                      \
+                        free ((void *)ptr);                             \
+                        ptr = (void *)0xeeeeeeee;                       \
+                        UPDATE_MEMORY_FREE_STATS();                     \
+                }                                                       \
         } while (0)
 
 #define GF_CALLOC(nmemb, size, type) __gf_calloc (nmemb, size, type, #type)

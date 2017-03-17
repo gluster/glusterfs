@@ -25,6 +25,7 @@ typedef struct gf_dump_xl_options_ {
         gf_boolean_t    dump_inodectx;
         gf_boolean_t    dump_fdctx;
         gf_boolean_t    dump_history;
+        gf_boolean_t    dump_metrics;
 } gf_dump_xl_options_t;
 
 typedef struct gf_dump_options_ {
@@ -73,9 +74,9 @@ void gf_proc_dump_cleanup(void);
 
 void gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx);
 
-int gf_proc_dump_add_section(char *key,...);
+int gf_proc_dump_add_section(char *key, ...);
 
-int gf_proc_dump_write(char *key, char *value,...);
+int gf_proc_dump_write(const char *key, char *value, ...);
 
 void inode_table_dump(inode_table_t *itable, char *prefix);
 
@@ -102,5 +103,7 @@ void gf_proc_dump_xlator_history (xlator_t *this, strfd_t *strfd);
 void gf_proc_dump_xlator_meminfo (xlator_t *this, strfd_t *strfd);
 
 void gf_proc_dump_xlator_profile (xlator_t *this, strfd_t *strfd);
+
+void gf_proc_dump_xlator_metrics (xlator_t *this, strfd_t *strfd);
 
 #endif /* STATEDUMP_H */

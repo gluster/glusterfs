@@ -1678,6 +1678,9 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
 
         pthread_mutex_init (&new->lock, NULL);
 
+        GF_ATOMIC_INIT (new->total_fd, 0);
+        GF_ATOMIC_INIT (new->in_use_fd, 0);
+
         ret = 0;
 out:
         if (ret) {

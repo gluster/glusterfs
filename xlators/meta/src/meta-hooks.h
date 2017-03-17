@@ -42,5 +42,6 @@ DECLARE_HOOK(master_dir);
 DECLARE_HOOK(meminfo_file);
 DECLARE_HOOK(measure_file);
 DECLARE_HOOK(profile_file);
+DECLARE_HOOK(metrics_file);
 
 #endif
