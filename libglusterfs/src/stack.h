@@ -160,7 +160,6 @@ FRAME_DESTROY (call_frame_t *frame)
 static inline void
 STACK_DESTROY (call_stack_t *stack)
 {
-        void *local = NULL;
         call_frame_t *frame = NULL;
         call_frame_t *tmp = NULL;
 
@@ -180,15 +179,11 @@ STACK_DESTROY (call_stack_t *stack)
 	GF_FREE (stack->groups_large);
 
         mem_put (stack);
-
-        if (local)
-                mem_put (local);
 }
 
 static inline void
 STACK_RESET (call_stack_t *stack)
 {
-        void *local = NULL;
         call_frame_t *frame = NULL;
         call_frame_t *tmp = NULL;
         call_frame_t *last = NULL;
@@ -212,16 +207,11 @@ STACK_RESET (call_stack_t *stack)
         list_for_each_entry_safe (frame, tmp, &toreset, frames) {
                 FRAME_DESTROY (frame);
         }
-
-        if (local)
-                mem_put (local);
 }
-
-#define cbk(x) cbk_##x
 
 #define FRAME_SU_DO(frm, local_type)                                   \
         do {                                                           \
-                local_type *__local = (frm)->local;                 \
+                local_type *__local = (frm)->local;                    \
                 __local->uid = frm->root->uid;                         \
                 __local->gid = frm->root->gid;                         \
                 frm->root->uid = 0;                                    \
@@ -230,51 +220,10 @@ STACK_RESET (call_stack_t *stack)
 
 #define FRAME_SU_UNDO(frm, local_type)                                 \
         do {                                                           \
-                local_type *__local = (frm)->local;                 \
+                local_type *__local = (frm)->local;                    \
                 frm->root->uid = __local->uid;                         \
                 frm->root->gid = __local->gid;                         \
         } while (0);                                                   \
-
-
-/* make a call */
-#define STACK_WIND(frame, rfn, obj, fn, params ...)                     \
-        do {                                                            \
-                call_frame_t *_new = NULL;                              \
-                xlator_t     *old_THIS = NULL;                          \
-                                                                        \
-                _new = mem_get0 (frame->root->pool->frame_mem_pool);    \
-                if (!_new) {                                            \
-                        break;                                          \
-                }                                                       \
-                typeof(fn##_cbk) tmp_cbk = rfn;                         \
-                _new->root = frame->root;                               \
-                _new->this = obj;                                       \
-                _new->ret = (ret_fn_t) tmp_cbk;                         \
-                _new->parent = frame;                                   \
-                _new->cookie = _new;                                    \
-                _new->wind_from = __FUNCTION__;                         \
-                _new->wind_to = #fn;                                    \
-                _new->unwind_to = #rfn;                                 \
-                                                                        \
-                LOCK_INIT (&_new->lock);                                \
-                LOCK(&frame->root->stack_lock);                         \
-                {                                                       \
-                        list_add (&_new->frames, &frame->root->myframes);\
-                        frame->ref_count++;                             \
-                }                                                       \
-                UNLOCK(&frame->root->stack_lock);                       \
-                old_THIS = THIS;                                        \
-                THIS = obj;                                             \
-                gf_msg_trace ("stack-trace", 0,                         \
-                              "stack-address: %p, "                     \
-                              "winding from %s to %s",                  \
-                              frame->root, old_THIS->name,              \
-                              THIS->name);                              \
-                if (frame->this->ctx->measure_latency)                  \
-                        gf_latency_begin (_new, fn);                    \
-                fn (_new, obj, params);                                 \
-                THIS = old_THIS;                                        \
-        } while (0)
 
 
 /* make a call without switching frames */
@@ -298,8 +247,20 @@ STACK_RESET (call_stack_t *stack)
         } while (0)
 
 
+/* make a call */
+#define STACK_WIND(frame, rfn, obj, fn, params ...)             \
+        STACK_WIND_COMMON(frame, rfn, 0, NULL, obj, fn, params)
+
 /* make a call with a cookie */
-#define STACK_WIND_COOKIE(frame, rfn, cky, obj, fn, params ...)         \
+#define STACK_WIND_COOKIE(frame, rfn, cky, obj, fn, params ...) \
+        STACK_WIND_COMMON(frame, rfn, 1, cky, obj, fn, params)
+
+/* Cookie passed as the argument can be NULL (ptr) or 0 (int). Hence we
+   have to have a mechanism to separate out the two STACK_WIND formats.
+   Needed a common macro, as other than for cookie, all the other code
+   is common across.
+ */
+#define STACK_WIND_COMMON(frame, rfn, has_cookie, cky, obj, fn, params ...) \
         do {                                                            \
                 call_frame_t *_new = NULL;                              \
                 xlator_t     *old_THIS = NULL;                          \
@@ -313,7 +274,9 @@ STACK_RESET (call_stack_t *stack)
                 _new->this = obj;                                       \
                 _new->ret = (ret_fn_t) tmp_cbk;                         \
                 _new->parent = frame;                                   \
-                _new->cookie = cky;                                     \
+                /* (void *) is required for avoiding gcc warning */     \
+                _new->cookie = ((has_cookie == 1) ?                     \
+                                (void *)(cky) : (void *)_new);          \
                 _new->wind_from = __FUNCTION__;                         \
                 _new->wind_to = #fn;                                    \
                 _new->unwind_to = #rfn;                                 \
@@ -332,64 +295,14 @@ STACK_RESET (call_stack_t *stack)
                               "winding from %s to %s",                  \
                               frame->root, old_THIS->name,              \
                               THIS->name);                              \
-                if (obj->ctx->measure_latency)                  \
+                if (obj->ctx->measure_latency)                          \
                         gf_latency_begin (_new, fn);                    \
                 fn (_new, obj, params);                                 \
                 THIS = old_THIS;                                        \
         } while (0)
 
 
-/* return from function */
-#define STACK_UNWIND(frame, op_ret, op_errno, params ...)               \
-        do {                                                            \
-                ret_fn_t      fn = NULL;                                \
-                call_frame_t *_parent = NULL;                           \
-                xlator_t     *old_THIS = NULL;                          \
-                if (!frame) {                                           \
-                        gf_msg ("stack", GF_LOG_CRITICAL, 0,            \
-                                LG_MSG_FRAME_ERROR, "!frame");          \
-                        break;                                          \
-                }                                                       \
-                if (op_ret < 0) {                                       \
-                        gf_msg_debug ("stack-trace", op_errno,          \
-                                      "stack-address: %p, "             \
-                                      "%s returned %d error: %s",       \
-                                      frame->root, THIS->name,          \
-                                      (int32_t)op_ret,                  \
-                                      strerror(op_errno));              \
-                } else {                                                \
-                        gf_msg_trace ("stack-trace", 0,                 \
-                                      "stack-address: %p, "             \
-                                      "%s returned %d",                 \
-                                      frame->root, THIS->name,          \
-                                      (int32_t)op_ret);                 \
-                }                                                       \
-                fn = frame->ret;                                        \
-                _parent = frame->parent;                                \
-                LOCK(&frame->root->stack_lock);                         \
-                {                                                       \
-                        _parent->ref_count--;                           \
-                        if (op_ret < 0 &&                               \
-                            op_errno != frame->root->error) {           \
-                                frame->root->err_xl = frame->this;      \
-                                frame->root->error = op_errno;          \
-                        } else if (op_ret == 0) {                       \
-                                frame->root->err_xl = NULL;             \
-                                frame->root->error = 0;                 \
-                        }                                               \
-                }                                                       \
-                UNLOCK(&frame->root->stack_lock);                       \
-                old_THIS = THIS;                                        \
-                THIS = _parent->this;                                   \
-                frame->complete = _gf_true;                             \
-                frame->unwind_from = __FUNCTION__;                      \
-                if (frame->this->ctx->measure_latency)                  \
-                        gf_latency_end (frame);                         \
-                fn (_parent, frame->cookie, _parent->this, op_ret,      \
-                    op_errno, params);                                  \
-                THIS = old_THIS;                                        \
-        } while (0)
-
+#define STACK_UNWIND STACK_UNWIND_STRICT
 
 /* return from function in type-safe way */
 #define STACK_UNWIND_STRICT(op, frame, op_ret, op_errno, params ...)    \

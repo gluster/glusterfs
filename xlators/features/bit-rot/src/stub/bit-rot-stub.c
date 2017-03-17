@@ -1461,7 +1461,7 @@ br_stub_listxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         br_stub_remove_vxattrs (xattr);
 
  unwind:
-        STACK_UNWIND (frame, op_ret, op_errno, xattr, xdata);
+        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, xattr, xdata);
         return 0;
 }
 
@@ -1627,7 +1627,7 @@ br_stub_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         br_stub_remove_vxattrs (xattr);
 
  unwind:
-        STACK_UNWIND (frame, op_ret, op_errno, xattr, xdata);
+        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, xattr, xdata);
         if (local) {
                 br_stub_cleanup_local (local);
                 br_stub_dealloc_local (local);
@@ -1667,7 +1667,7 @@ br_stub_send_stub_init_time (call_frame_t *frame, xlator_t *this)
         op_ret = sizeof (br_stub_init_t);
 
  unwind:
-        STACK_UNWIND (frame, op_ret, op_errno, xattr, NULL);
+        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, xattr, NULL);
 
         if (xattr)
                 dict_unref (xattr);
@@ -1754,7 +1754,7 @@ br_stub_getxattr (call_frame_t *frame, xlator_t *this,
                        FIRST_CHILD (this)->fops->getxattr, loc, name, xdata);
         return 0;
 unwind:
-        STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL);
+        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, NULL, NULL);
                 return 0;
 }
 
@@ -1832,7 +1832,7 @@ br_stub_fgetxattr (call_frame_t *frame, xlator_t *this,
                        FIRST_CHILD (this)->fops->fgetxattr, fd, name, xdata);
         return 0;
 unwind:
-        STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL);
+        STACK_UNWIND_STRICT (fgetxattr, frame, op_ret, op_errno, NULL, NULL);
         return 0;
 }
 
