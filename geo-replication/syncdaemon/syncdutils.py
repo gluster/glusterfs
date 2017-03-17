@@ -16,6 +16,7 @@ import fcntl
 import shutil
 import logging
 import socket
+import subprocess
 from threading import Lock, Thread as baseThread
 from errno import EACCES, EAGAIN, EPIPE, ENOTCONN, ECONNABORTED
 from errno import EINTR, ENOENT, EPERM, ESTALE, errorcode
@@ -189,12 +190,13 @@ def grabpidfile(fname=None, setpid=True):
 
 final_lock = Lock()
 
-
+mntpt_list = []
 def finalize(*a, **kw):
     """all those messy final steps we go trough upon termination
 
     Do away with pidfile, ssh control dir and logging.
     """
+
     final_lock.acquire()
     if getattr(gconf, 'pid_file', None):
         rm_pidf = gconf.pid_file_owned
@@ -234,11 +236,19 @@ def finalize(*a, **kw):
             if sys.exc_info()[0] == OSError:
                 pass
 
+    """ Unmount if not done """
+    for mnt in mntpt_list:
+        p0 = subprocess.Popen (["umount", "-l", mnt], stderr=subprocess.PIPE)
+        _, errdata = p0.communicate()
+        if p0.returncode == 0:
+            os.rmdir(mnt)
+
     if gconf.log_exit:
         logging.info("exiting.")
     sys.stdout.flush()
     sys.stderr.flush()
     os._exit(kw.get('exval', 0))
+
 
 
 def log_raise_exception(excont):
