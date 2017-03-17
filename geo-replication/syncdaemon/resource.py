@@ -41,6 +41,7 @@ from syncdutils import get_changelog_log_level
 from syncdutils import CHANGELOG_AGENT_CLIENT_VERSION
 from gsyncdstatus import GeorepStatus
 from syncdutils import get_master_and_slave_data_from_args
+from syncdutils import mntpt_list
 
 UrlRX = re.compile('\A(\w+)://([^ *?[]*)\Z')
 HostRX = re.compile('[a-zA-Z\d](?:[a-zA-Z\d.-]*[a-zA-Z\d])?', re.I)
@@ -1014,6 +1015,8 @@ class SlaveRemote(object):
             extra_opts += ['--local-node', ln]
         if boolify(gconf.use_rsync_xattrs):
             extra_opts.append('--use-rsync-xattrs')
+        if boolify(gconf.access_mount):
+            extra_opts.append('--access-mount')
         po = Popen(rargs + gconf.remote_gsyncd.split() + extra_opts +
                    ['-N', '--listen', '--timeout', str(gconf.timeout),
                     slave],
@@ -1373,13 +1376,14 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
                         assert(mntdata[-1] == '\0')
                         mntpt = mntdata[:-1]
                         assert(mntpt)
-                        if mounted:
+                        if mounted and not boolify(gconf.access_mount):
                             po = self.umount_l(mntpt)
                             po.terminate_geterr(fail_on_err=False)
                             if po.returncode != 0:
                                 po.errlog()
                                 rv = po.returncode
-                        self.cleanup_mntpt(mntpt)
+                        if not boolify(gconf.access_mount):
+                            self.cleanup_mntpt(mntpt)
                 except:
                     logging.exception('mount cleanup failure:')
                     rv = 200
@@ -1399,6 +1403,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
 
         def make_mount_argv(self):
             self.mntpt = tempfile.mkdtemp(prefix='gsyncd-aux-mount-')
+            mntpt_list.append(self.mntpt)
             return [self.get_glusterprog()] + \
                 ['--' + p for p in self.params] + [self.mntpt]
 
