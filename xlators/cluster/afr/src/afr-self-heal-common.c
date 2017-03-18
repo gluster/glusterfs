@@ -248,7 +248,7 @@ afr_selfheal_undo_pending (call_frame_t *frame, xlator_t *this, inode_t *inode,
 				output_matrix[i][j] = 1;
                                 if (type == AFR_ENTRY_TRANSACTION)
                                         full_heal_mtx_out[i][j] = 1;
-			} else {
+			} else if (locked_on[j]) {
 				output_matrix[i][j] = -input_matrix[i][j];
                                 if (type == AFR_ENTRY_TRANSACTION)
                                         full_heal_mtx_out[i][j] = -full_heal_mtx_in[i][j];
