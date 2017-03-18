@@ -494,8 +494,10 @@ rpc_clnt_reconnect_cleanup (rpc_clnt_connection_t *conn)
 
                 if (conn->reconnect) {
                         ret = gf_timer_call_cancel (clnt->ctx, conn->reconnect);
-                        if (!ret)
+                        if (!ret) {
                                 reconnect_unref = _gf_true;
+                                conn->cleanup_gen++;
+                        }
                         conn->reconnect = NULL;
                 }
 
