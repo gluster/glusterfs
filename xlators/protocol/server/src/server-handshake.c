@@ -425,6 +425,10 @@ server_setvolume (rpcsvc_request_t *req)
         }
 
         this = req->svc->xl;
+        /* this is to ensure config_params is populated with the first brick
+         * details at first place if brick multiplexing is enabled
+         */
+        config_params = dict_copy_with_ref (this->options, NULL);
 
         buf = memdup (args.dict.dict_val, args.dict.dict_len);
         if (buf == NULL) {
@@ -484,7 +488,7 @@ server_setvolume (rpcsvc_request_t *req)
                 goto fail;
         }
 
-        config_params = dict_copy_with_ref (xl->options, NULL);
+        config_params = dict_copy_with_ref (xl->options, config_params);
         conf          = this->private;
 
         if (conf->parent_up == _gf_false) {
