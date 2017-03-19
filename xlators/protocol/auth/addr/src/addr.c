@@ -30,14 +30,20 @@ gf_auth (dict_t *input_params, dict_t *config_params)
         int            ret            = 0;
         char          *name           = NULL;
         char          *searchstr      = NULL;
+        peer_info_t   *peer_info      = NULL;
+        data_t        *peer_info_data = NULL;
         data_t        *allow_addr     = NULL;
         data_t        *reject_addr    = NULL;
         char          *addr_str       = NULL;
         char          *tmp            = NULL;
         char          *addr_cpy       = NULL;
+        char          *service        = NULL;
+        uint16_t       peer_port      = 0;
         char           negate         = 0;
         char           match          = 0;
-        char           peer_addr[UNIX_PATH_MAX];
+        char           peer_addr[UNIX_PATH_MAX] = {0,};
+        char          *type           = NULL;
+        gf_boolean_t   allow_insecure = _gf_false;
 
         name = data_to_str (dict_get (input_params, "remote-subvolume"));
         if (!name) {
@@ -85,6 +91,57 @@ gf_auth (dict_t *input_params, dict_t *config_params)
                 goto out;
         }
 
+        peer_info_data = dict_get (input_params, "peer-info");
+        if (!peer_info_data) {
+                gf_log ("auth/addr", GF_LOG_ERROR,
+                        "peer-info not present");
+                goto out;
+        }
+
+        peer_info = data_to_ptr (peer_info_data);
+
+        switch (((struct sockaddr *) &peer_info->sockaddr)->sa_family) {
+        case AF_INET_SDP:
+        case AF_INET:
+        case AF_INET6:
+                strcpy (peer_addr, peer_info->identifier);
+                service = strrchr (peer_addr, ':');
+                *service = '\0';
+                service++;
+
+                ret = dict_get_str (config_params, "rpc-auth-allow-insecure",
+                                    &type);
+                if (ret == 0) {
+                        ret = gf_string2boolean (type, &allow_insecure);
+                        if (ret < 0) {
+                                gf_log ("auth/addr", GF_LOG_WARNING,
+                                        "rpc-auth-allow-insecure option %s "
+                                        "is not a valid bool option", type);
+                                goto out;
+                        }
+                }
+
+                peer_port = atoi (service);
+                if (peer_port >= PRIVILEGED_PORT_CEILING && !allow_insecure) {
+                        gf_log ("auth/addr", GF_LOG_ERROR,
+                                "client is bound to port %d which is not privileged",
+                                peer_port);
+                        result = AUTH_REJECT;
+                        goto out;
+                }
+                break;
+
+        case AF_UNIX:
+                strcpy (peer_addr, peer_info->identifier);
+                break;
+
+        default:
+                gf_log ("authenticate/addr", GF_LOG_ERROR,
+                        "unknown address family %d",
+                        ((struct sockaddr *) &peer_info->sockaddr)->sa_family);
+                goto out;
+        }
+
         if (reject_addr) {
                 addr_cpy = gf_strdup (reject_addr->data);
                 if (!addr_cpy)
@@ -120,7 +177,7 @@ gf_auth (dict_t *input_params, dict_t *config_params)
                 addr_str = strtok_r (addr_cpy, ADDR_DELIMITER, &tmp);
 
                 while (addr_str) {
-                        gf_log (name,  GF_LOG_DEBUG,
+                        gf_log (name,  GF_LOG_INFO,
                                 "allowed = \"%s\", received addr = \"%s\"",
                                 addr_str, peer_addr);
                         if (addr_str[0] == '!') {
