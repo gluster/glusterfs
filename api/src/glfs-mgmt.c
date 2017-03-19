@@ -83,6 +83,8 @@ glfs_process_volfp (struct glfs *fs, FILE *fp)
 		goto out;
 	}
 
+        gf_log_dump_graph (fp, graph);
+
 	ret = 0;
 out:
 	if (fp)
