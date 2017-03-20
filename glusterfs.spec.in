@@ -473,7 +473,7 @@ Requires:         %{name}-server%{?_isa} = %{version}-%{release}
 Requires:         lvm2 >= 2.02.89
 Requires:         perl(App::Prove) perl(Test::Harness) gcc util-linux-ng
 Requires:         python2 attr dbench file git libacl-devel net-tools
-Requires:         nfs-utils xfsprogs yajl
+Requires:         nfs-utils xfsprogs yajl psmisc
 
 %description regression-tests
 The Gluster Test Framework, is a suite of scripts used for
@@ -523,9 +523,7 @@ Requires:         %{name}-fuse%{?_isa} = %{version}-%{release}
 # self-heal daemon, rebalance, nfs-server etc. are actually clients
 Requires:         %{name}-api%{?_isa} = %{version}-%{release}
 Requires:         %{name}-client-xlators%{?_isa} = %{version}-%{release}
-# psmisc for killall, lvm2 for snapshot, and nfs-utils and
-# rpcbind/portmap for gnfs server
-Requires:         psmisc
+# lvm2 for snapshot, and nfs-utils and rpcbind/portmap for gnfs server
 Requires:         lvm2
 Requires:         nfs-utils
 %if ( 0%{?_with_systemd:1} )
@@ -1250,6 +1248,9 @@ exit 0
 %endif
 
 %changelog
+* Mon Mar 20 2017 Niels de Vos <ndevos@redhat.com>
+- Drop dependency on psmisc, pkill is used instead of killall (#1197308)
+
 * Thu Feb 16 2017 Niels de Vos <ndevos@redhat.com>
 - Obsolete and Provide python-gluster for upgrading from glusterfs < 3.10
 
