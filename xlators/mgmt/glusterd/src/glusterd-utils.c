@@ -3134,8 +3134,8 @@ out:
 int
 glusterd_spawn_daemons (void *opaque)
 {
-        glusterd_conf_t *conf = THIS->private;
-        int             ret             = -1;
+        glusterd_conf_t *conf   = THIS->private;
+        int             ret     = -1;
 
         synclock_lock (&conf->big_lock);
         glusterd_restart_bricks (conf);
@@ -4904,9 +4904,13 @@ static int32_t
 my_callback (struct rpc_req *req, struct iovec *iov, int count, void *v_frame)
 {
         call_frame_t    *frame  = v_frame;
+        glusterd_conf_t *conf   = frame->this->private;
+
+        synclock_lock (&conf->big_lock);
+        --(conf->blockers);
+        synclock_unlock (&conf->big_lock);
 
         STACK_DESTROY (frame->root);
-
         return 0;
 }
 
@@ -4923,6 +4927,7 @@ send_attach_req (xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
         void                            *req = &brick_req;
         void                            *errlbl   = &&err;
         struct rpc_clnt_connection      *conn;
+        glusterd_conf_t                 *conf     = this->private;
         extern struct rpc_clnt_program  gd_brick_prog;
 
         if (!rpc) {
@@ -4982,9 +4987,13 @@ send_attach_req (xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
         iov.iov_len = ret;
 
         /* Send the msg */
+        ++(conf->blockers);
         ret = rpc_clnt_submit (rpc, &gd_brick_prog, op,
-                               my_callback, &iov, 1, NULL, 0, iobref, frame,
-                               NULL, 0, NULL, 0, NULL);
+                               my_callback, &iov, 1, NULL, 0, iobref,
+                               frame, NULL, 0, NULL, 0, NULL);
+        if (ret) {
+                --(conf->blockers);
+        }
         return ret;
 
 free_iobref:
@@ -5016,6 +5025,8 @@ attach_brick (xlator_t *this,
         char            full_id[PATH_MAX]       = {'\0',};
         char            path[PATH_MAX]          = {'\0',};
         int             ret;
+        int             tries;
+        rpc_clnt_t      *rpc;
 
         gf_log (this->name, GF_LOG_INFO,
                 "add brick %s to existing process for %s",
@@ -5052,12 +5063,15 @@ attach_brick (xlator_t *this,
         }
         (void) build_volfile_path (full_id, path, sizeof(path), NULL);
 
-        int tries = 0;
-        while (tries++ <= 15) {
-                ret = send_attach_req (this, other_brick->rpc, path,
-                                       GLUSTERD_BRICK_ATTACH);
-                if (!ret) {
-                        return 0;
+        for (tries = 15; tries > 0; --tries) {
+                rpc = rpc_clnt_ref (other_brick->rpc);
+                if (rpc) {
+                        ret = send_attach_req (this, rpc, path,
+                                               GLUSTERD_BRICK_ATTACH);
+                        rpc_clnt_unref (rpc);
+                        if (!ret) {
+                                return 0;
+                        }
                 }
                 /*
                  * It might not actually be safe to manipulate the lock like
@@ -5423,6 +5437,8 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
         conf = this->private;
         GF_VALIDATE_OR_GOTO (this->name, conf, out);
 
+        ++(conf->blockers);
+
         ret = glusterd_get_quorum_cluster_counts (this, &active_count,
                                                   &quorum_count);
         if (ret)
@@ -5502,6 +5518,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
         ret = 0;
 
 out:
+        --(conf->blockers);
         conf->restart_done = _gf_true;
         return ret;
 }

@@ -2761,14 +2761,11 @@ glusterd_op_delete_volume (dict_t *dict)
 {
         int                                     ret = 0;
         char                                    *volname = NULL;
-        glusterd_conf_t                         *priv = NULL;
         glusterd_volinfo_t                      *volinfo = NULL;
         xlator_t                                *this = NULL;
 
         this = THIS;
         GF_ASSERT (this);
-        priv = this->private;
-        GF_ASSERT (priv);
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {

@@ -21,6 +21,11 @@ push_trapfunc "cleanup"
 TEST $CLI volume create $V0 $H0:$B0/brick{0,1}
 TEST $CLI volume start $V0
 
+# We can't expect a valid port number instantly.  We need to wait for the
+# bricks to finish coming up.  In every other case we use EXPECT_WITHIN, but
+# this first time we need to wait more explicitly.
+sleep $PROCESS_UP_TIMEOUT
+
 port_brick0=$(get_nth_brick_port_for_volume $V0 1)
 
 # restart the volume
