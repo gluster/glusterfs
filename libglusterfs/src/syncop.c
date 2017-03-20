@@ -660,8 +660,8 @@ synctask_switchto (struct synctask *task)
 #endif
 
         if (swapcontext (&task->proc->sched, &task->ctx) < 0) {
-        gf_msg ("syncop", GF_LOG_ERROR, errno, LG_MSG_SWAPCONTEXT_FAILED,
-                "swapcontext failed");
+                gf_msg ("syncop", GF_LOG_ERROR, errno,
+                        LG_MSG_SWAPCONTEXT_FAILED, "swapcontext failed");
         }
 
         if (task->state == SYNCTASK_DONE) {
@@ -915,6 +915,7 @@ __synclock_lock (struct synclock *lock)
         while (lock->lock) {
                 if (task) {
                         /* called within a synctask */
+                        task->woken = 0;
                         list_add_tail (&task->waitq, &lock->waitq);
                         pthread_mutex_unlock (&lock->guard);
                         synctask_yield (task);
