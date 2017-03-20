@@ -6002,6 +6002,15 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
         return ret;
 }
 
+static void
+glusterd_wait_for_blockers (glusterd_conf_t *priv)
+{
+        while (priv->blockers) {
+                synclock_unlock (&priv->big_lock);
+                sleep (1);
+                synclock_lock (&priv->big_lock);
+        }
+}
 
 int32_t
 glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
@@ -6021,18 +6030,22 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         break;
 
                 case GD_OP_STOP_VOLUME:
+                        glusterd_wait_for_blockers (this->private);
                         ret = glusterd_op_stop_volume (dict);
                         break;
 
                 case GD_OP_DELETE_VOLUME:
+                        glusterd_wait_for_blockers (this->private);
                         ret = glusterd_op_delete_volume (dict);
                         break;
 
                 case GD_OP_ADD_BRICK:
+                        glusterd_wait_for_blockers (this->private);
                         ret = glusterd_op_add_brick (dict, op_errstr);
                         break;
 
                 case GD_OP_REPLACE_BRICK:
+                        glusterd_wait_for_blockers (this->private);
                         ret = glusterd_op_replace_brick (dict, rsp_dict);
                         break;
 
@@ -6043,11 +6056,13 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         ret = glusterd_op_set_ganesha (dict, op_errstr);
                         break;
 
+
                 case GD_OP_RESET_VOLUME:
                         ret = glusterd_op_reset_volume (dict, op_errstr);
                         break;
 
                 case GD_OP_REMOVE_BRICK:
+                        glusterd_wait_for_blockers (this->private);
                         ret = glusterd_op_remove_brick (dict, op_errstr);
                         break;
 
