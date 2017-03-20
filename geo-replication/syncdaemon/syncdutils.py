@@ -492,12 +492,12 @@ def errno_wrap(call, arg=[], errnos=[], retry_errnos=[]):
                 # probably a screwed state, cannot do much...
                 logging.warn('reached maximum retries (%s)...%s' %
                              (repr(arg), ex))
-                return ex.errno
+                raise
             time.sleep(0.250)  # retry the call
 
 
 def lstat(e):
-    return errno_wrap(os.lstat, [e], [ENOENT], [ESTALE])
+    return errno_wrap(os.lstat, [e], [ENOENT], [ESTALE, EBUSY])
 
 
 class NoStimeAvailable(Exception):
