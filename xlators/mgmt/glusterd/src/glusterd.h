@@ -190,6 +190,7 @@ typedef struct {
         int                        ping_timeout;
         uint32_t                   generation;
         int32_t                    workers;
+        uint32_t                   blockers;
 } glusterd_conf_t;
 
 
