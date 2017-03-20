@@ -37,11 +37,7 @@
 #include <rpc/xdr.h>
 #include <statedump.h>
 
-#ifdef __NetBSD__
 #define KILLALL_CMD "pkill"
-#else
-#define KILLALL_CMD "killall"
-#endif
 
 /* TODO:
  * 1) 2 opens racing .. creating an fd leak.
