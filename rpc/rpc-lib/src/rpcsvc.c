@@ -1550,7 +1550,6 @@ rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t *program)
                         " program failed");
                 goto out;
         }
-
         pthread_mutex_lock (&svc->rpclock);
         {
                 list_for_each_entry (prog, &svc->programs, program) {

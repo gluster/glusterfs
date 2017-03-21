@@ -287,6 +287,7 @@ __glusterd_handle_create_volume (rpcsvc_request_t *req)
         int32_t                 type        = 0;
         char                   *username    = NULL;
         char                   *password    = NULL;
+        char                   *addr_family = "inet";
 
         GF_ASSERT (req);
 
@@ -395,11 +396,12 @@ __glusterd_handle_create_volume (rpcsvc_request_t *req)
                 if (conf->op_version >= GD_OP_VERSION_3_8_0) {
                         ret = dict_set_dynstr_with_alloc (dict,
                                         "transport.address-family",
-                                        "inet");
+                                        addr_family);
                         if (ret) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "failed to set "
-                                        "transport.address-family");
+                                        "transport.address-family "
+                                        "to %s", addr_family);
                                 goto out;
                         }
                 }

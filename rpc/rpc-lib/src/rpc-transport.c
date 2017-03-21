@@ -656,6 +656,7 @@ rpc_transport_inet_options_build (dict_t **options, const char *hostname,
         dict_t          *dict = NULL;
         char            *host = NULL;
         int             ret = -1;
+        char            *addr_family = "inet";
 
         GF_ASSERT (options);
         GF_ASSERT (hostname);
@@ -683,6 +684,13 @@ rpc_transport_inet_options_build (dict_t **options, const char *hostname,
         if (ret) {
                 gf_log (THIS->name, GF_LOG_WARNING,
                         "failed to set remote-port with %d", port);
+                goto out;
+        }
+
+        ret = dict_set_str (dict, "address-family", addr_family);
+        if (ret) {
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "failed to set address-family to %s", addr_family);
                 goto out;
         }
 

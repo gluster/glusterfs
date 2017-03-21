@@ -5058,6 +5058,24 @@ out:
         return ret;
 }
 
+static int
+volgen_graph_set_iam_nfsd (const volgen_graph_t *graph)
+{
+        xlator_t        *trav;
+        int             ret = 0;
+
+        for (trav = first_of ((volgen_graph_t *)graph); trav;
+                        trav = trav->next) {
+                if (strcmp (trav->type, "cluster/replicate") != 0)
+                        continue;
+
+                ret = xlator_set_option (trav, "iam-nfs-daemon", "yes");
+                if (ret)
+                        break;
+        }
+        return ret;
+}
+
 /* builds a graph for nfs server role, with option overrides in mod_dict */
 int
 build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
@@ -5193,6 +5211,10 @@ build_nfs_graph (volgen_graph_t *graph, dict_t *mod_dict)
                                                                 basic_option_handler);
                 }
 
+                if (ret)
+                        goto out;
+
+                ret = volgen_graph_set_iam_nfsd (&cgraph);
                 if (ret)
                         goto out;
 

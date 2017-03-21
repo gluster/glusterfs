@@ -26,6 +26,7 @@ gf_changelog_rpc_notify (struct rpc_clnt *rpc,
         case RPC_CLNT_DISCONNECT:
         case RPC_CLNT_MSG:
         case RPC_CLNT_DESTROY:
+        case RPC_CLNT_PING:
                 break;
         }
 

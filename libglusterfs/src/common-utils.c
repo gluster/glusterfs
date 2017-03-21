@@ -194,26 +194,16 @@ gf_rev_dns_lookup (const char *ip)
 {
         char               *fqdn = NULL;
         int                ret  = 0;
-        struct sockaddr_in sa   = {0};
-        char               host_addr[256] = {0, };
 
         GF_VALIDATE_OR_GOTO ("resolver", ip, out);
 
-        sa.sin_family = AF_INET;
-        inet_pton (AF_INET, ip, &sa.sin_addr);
-        ret = getnameinfo ((struct sockaddr *)&sa, sizeof (sa), host_addr,
-                          sizeof (host_addr), NULL, 0, 0);
-
+        /* Get the FQDN */
+        ret =  gf_get_hostname_from_ip ((char *)ip, &fqdn);
         if (ret != 0) {
                 gf_msg ("resolver", GF_LOG_INFO, errno,
                         LG_MSG_RESOLVE_HOSTNAME_FAILED, "could not resolve "
                         "hostname for %s", ip);
-                goto out;
         }
-
-        /* Get the FQDN */
-        fqdn = gf_strdup (host_addr);
-
 out:
        return fqdn;
 }
@@ -3127,11 +3117,13 @@ gf_get_hostname_from_ip (char *client_ip, char **hostname)
         char                    *client_ip_copy               = NULL;
         char                    *tmp                          = NULL;
         char                    *ip                           = NULL;
+        size_t                   addr_sz                      = 0;
 
         /* if ipv4, reverse lookup the hostname to
          * allow FQDN based rpc authentication
          */
-        if (valid_ipv4_address (client_ip, strlen (client_ip), 0) == _gf_false) {
+        if (!valid_ipv6_address (client_ip, strlen (client_ip), 0) &&
+            !valid_ipv4_address (client_ip, strlen (client_ip), 0)) {
                 /* most times, we get a.b.c.d:port form, so check that */
                 client_ip_copy = gf_strdup (client_ip);
                 if (!client_ip_copy)
@@ -3144,12 +3136,14 @@ gf_get_hostname_from_ip (char *client_ip, char **hostname)
 
         if (valid_ipv4_address (ip, strlen (ip), 0) == _gf_true) {
                 client_sockaddr = (struct sockaddr *)&client_sock_in;
+                addr_sz = sizeof (client_sock_in);
                 client_sock_in.sin_family = AF_INET;
                 ret = inet_pton (AF_INET, ip,
                                  (void *)&client_sock_in.sin_addr.s_addr);
 
         } else if (valid_ipv6_address (ip, strlen (ip), 0) == _gf_true) {
                 client_sockaddr = (struct sockaddr *) &client_sock_in6;
+                addr_sz = sizeof (client_sock_in6);
 
                 client_sock_in6.sin6_family = AF_INET6;
                 ret = inet_pton (AF_INET6, ip,
@@ -3163,8 +3157,14 @@ gf_get_hostname_from_ip (char *client_ip, char **hostname)
                 goto out;
         }
 
+        /* You cannot just use sizeof (*client_sockaddr), as per the man page
+         * the (getnameinfo) size must be the size of the underlying sockaddr
+         * struct e.g. sockaddr_in6 or sockaddr_in.  Failure to do so will
+         * break IPv6 hostname resolution (IPv4 will work only because
+         * the sockaddr_in struct happens to be of the correct size).
+         */
         ret = getnameinfo (client_sockaddr,
-                           sizeof (*client_sockaddr),
+                           addr_sz,
                            client_hostname, sizeof (client_hostname),
                            NULL, 0, 0);
         if (ret) {

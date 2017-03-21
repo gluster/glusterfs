@@ -287,7 +287,7 @@ if test "x$enable_debug" = "xyes"; then
         CFLAGS="${CFLAGS} -g -O0 -DDEBUG"
 else
         BUILD_DEBUG=no
-        CFLAGS="${CFLAGS} -g -O2"
+        CFLAGS="${CFLAGS} -g"
 fi
 
 AC_ARG_ENABLE([privport_tracking],

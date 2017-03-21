@@ -179,6 +179,8 @@ changelog_rpc_notify (struct rpc_clnt *rpc,
                 /* Free up mydata */
                 changelog_rpc_clnt_unref (crpc);
                 break;
+        case RPC_CLNT_PING:
+                break;
         }
 
         return 0;

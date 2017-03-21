@@ -18,6 +18,7 @@
 #include "mem-pool.h"
 #include "xdr-rpc.h"
 #include "rpc-common-xdr.h"
+#include "timespec.h"
 
 
 char *clnt_ping_procs[GF_DUMP_MAXVALUE] = {
@@ -28,6 +29,11 @@ struct rpc_clnt_program clnt_ping_prog = {
         .prognum   = GLUSTER_DUMP_PROGRAM,
         .progver   = GLUSTER_DUMP_VERSION,
         .procnames = clnt_ping_procs,
+};
+
+struct ping_local {
+    struct rpc_clnt *rpc;
+    struct timespec submit_time;
 };
 
 /* Must be called under conn->lock */
@@ -170,11 +176,17 @@ int
 rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
                    void *myframe)
 {
-        struct rpc_clnt       *rpc     = NULL;
+        struct ping_local     *local   = NULL;
         xlator_t              *this    = NULL;
         rpc_clnt_connection_t *conn    = NULL;
         call_frame_t          *frame   = NULL;
         int                   unref    = 0;
+        gf_boolean_t          call_notify = _gf_false;
+
+        struct timespec       now;
+        struct timespec       delta;
+        int64_t               latency_msec = 0;
+        int                   ret = 0;
 
         if (!myframe) {
                 gf_log (THIS->name, GF_LOG_WARNING,
@@ -184,14 +196,23 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         frame = myframe;
         this = frame->this;
-        rpc  = frame->local;
-        frame->local = NULL; /* Prevent STACK_DESTROY from segfaulting */
-        conn = &rpc->conn;
+        local = frame->local;
+        conn = &local->rpc->conn;
+
+        timespec_now (&now);
+        timespec_sub (&local->submit_time, &now, &delta);
+        latency_msec = delta.tv_sec * 1000 + delta.tv_nsec / 1000000;
 
         pthread_mutex_lock (&conn->lock);
         {
+                this->client_latency = latency_msec;
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "Ping latency is %" PRIu64 "ms",
+                        latency_msec);
+
+                call_notify = _gf_true;
                 if (req->rpc_status == -1) {
-                        unref = rpc_clnt_remove_ping_timer_locked (rpc);
+                        unref = rpc_clnt_remove_ping_timer_locked (local->rpc);
                         if (unref) {
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "socket or ib related error");
@@ -206,8 +227,8 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         goto unlock;
                 }
 
-                unref = rpc_clnt_remove_ping_timer_locked (rpc);
-                if (__rpc_clnt_rearm_ping_timer (rpc,
+                unref = rpc_clnt_remove_ping_timer_locked (local->rpc);
+                if (__rpc_clnt_rearm_ping_timer (local->rpc,
                                                  rpc_clnt_start_ping) == -1) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "failed to set the ping timer");
@@ -216,12 +237,24 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 unlock:
         pthread_mutex_unlock (&conn->lock);
+
+        if (call_notify) {
+                ret = local->rpc->notifyfn (local->rpc, this, RPC_CLNT_PING,
+                                            (void *)(uintptr_t)latency_msec);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "RPC_CLNT_PING notify failed");
+                }
+        }
 out:
         if (unref)
-                rpc_clnt_unref (rpc);
+                rpc_clnt_unref (local->rpc);
 
-        if (frame)
+        if (frame) {
+                GF_FREE (frame->local);
+                frame->local = NULL;
                 STACK_DESTROY (frame->root);
+        }
         return 0;
 }
 
@@ -231,18 +264,28 @@ rpc_clnt_ping (struct rpc_clnt *rpc)
         call_frame_t *frame = NULL;
         int32_t       ret   = -1;
         rpc_clnt_connection_t *conn = NULL;
+        struct ping_local *local = NULL;
 
         conn = &rpc->conn;
-        frame = create_frame (THIS, THIS->ctx->pool);
-        if (!frame)
+        local = GF_CALLOC (1, sizeof(struct ping_local),
+                           gf_common_ping_local_t);
+        if (!local)
                 return ret;
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame) {
+                GF_FREE (local);
+                return ret;
+        }
 
-        frame->local = rpc;
+        local->rpc = rpc;
+        timespec_now (&local->submit_time);
+        frame->local = local;
 
         ret = rpc_clnt_submit (rpc, &clnt_ping_prog,
                                GF_DUMP_PING, rpc_clnt_ping_cbk, NULL, 0,
                                NULL, 0, NULL, frame, NULL, 0, NULL, 0, NULL);
         if (ret) {
+                /* FIXME: should we free the frame here? Methinks so! */
                 gf_log (THIS->name, GF_LOG_ERROR,
                         "failed to start ping timer");
         }
