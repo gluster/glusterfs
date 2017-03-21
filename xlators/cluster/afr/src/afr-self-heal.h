@@ -19,16 +19,23 @@
 #define AFR_ONALL(frame, rfn, fop, args ...) do {			\
 	afr_local_t *__local = frame->local;				\
 	afr_private_t *__priv = frame->this->private;			\
-	int __i = 0, __count = 0;					\
+        int __i = 0, __count = 0;                                       \
+        unsigned char *__child_up = NULL;                               \
+                                                                        \
+        __child_up = alloca0 (__priv->child_count);                     \
+        memcpy (__child_up, __priv->child_up,                           \
+                sizeof (*__child_up) * __priv->child_count);            \
+        __count = AFR_COUNT (__child_up, __priv->child_count);          \
 									\
-	afr_local_replies_wipe (__local, __priv);				\
+        __local->barrier.waitfor = __count;                             \
+	afr_local_replies_wipe (__local, __priv);			\
 									\
 	for (__i = 0; __i < __priv->child_count; __i++) {		\
-		if (!__priv->child_up[__i]) continue;			\
+		if (!__child_up[__i])                                   \
+                        continue;			                \
 		STACK_WIND_COOKIE (frame, rfn, (void *)(long) __i,	\
 				   __priv->children[__i],		\
 				   __priv->children[__i]->fops->fop, args); \
-		__count++;						\
 	}								\
 	syncbarrier_wait (&__local->barrier, __count);			\
 	} while (0)
@@ -40,16 +47,17 @@
 #define AFR_ONLIST(list, frame, rfn, fop, args ...) do {		\
 	afr_local_t *__local = frame->local;				\
 	afr_private_t *__priv = frame->this->private;			\
-	int __i = 0, __count = 0;					\
+	int __i = 0;                                                    \
+        int __count = AFR_COUNT (list, __priv->child_count);            \
 									\
-	afr_local_replies_wipe (__local, __priv);				\
+        __local->barrier.waitfor = __count;                             \
+	afr_local_replies_wipe (__local, __priv);			\
 									\
 	for (__i = 0; __i < __priv->child_count; __i++) {		\
 		if (!list[__i]) continue;				\
 		STACK_WIND_COOKIE (frame, rfn, (void *)(long) __i,	\
 				   __priv->children[__i],		\
 				   __priv->children[__i]->fops->fop, args); \
-		__count++;						\
 	}								\
 	syncbarrier_wait (&__local->barrier, __count);			\
 	} while (0)
@@ -60,7 +68,7 @@
 	afr_private_t *__priv = frame->this->private;			\
 	int __i = 0;							\
 									\
-	afr_local_replies_wipe (__local, __priv);				\
+	afr_local_replies_wipe (__local, __priv);			\
 									\
 	for (__i = 0; __i < __priv->child_count; __i++) {		\
 		if (!__priv->child_up[__i]) continue;			\

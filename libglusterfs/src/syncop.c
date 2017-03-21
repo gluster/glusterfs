@@ -1086,6 +1086,7 @@ syncbarrier_init (struct syncbarrier *barrier)
 
 	pthread_cond_init (&barrier->cond, 0);
 	barrier->count = 0;
+        barrier->waitfor = 0;
 	INIT_LIST_HEAD (&barrier->waitq);
 
 	return pthread_mutex_init (&barrier->guard, 0);
@@ -1162,6 +1163,8 @@ __syncbarrier_wake (struct syncbarrier *barrier)
 	}
 
 	barrier->count++;
+        if (barrier->waitfor && (barrier->count < barrier->waitfor))
+                return 0;
 
 	pthread_cond_signal (&barrier->cond);
 	if (!list_empty (&barrier->waitq)) {
@@ -1169,6 +1172,7 @@ __syncbarrier_wake (struct syncbarrier *barrier)
                 list_del_init (&task->waitq);
 		synctask_wake (task);
 	}
+        barrier->waitfor = 0;
 
 	return 0;
 }
