@@ -3101,6 +3101,21 @@ socket_connect (rpc_transport_t *this, int port)
                         }
                 }
 
+                /* Make sure we are not vulnerable to someone setting
+                 * net.ipv6.bindv6only to 1 so that gluster services are
+                 * avalable over IPv4 & IPv6.
+                 */
+                int disable_v6only = 0;
+
+                if (setsockopt (priv->sock, IPPROTO_IPV6, IPV6_V6ONLY,
+                                (void *)&disable_v6only,
+                                sizeof (disable_v6only)) < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                               "Error disabling sockopt IPV6_V6ONLY: \"%s\"",
+                               strerror (errno));
+                }
+
+
                 if (priv->nodelay && (sa_family != AF_UNIX)) {
                         ret = __socket_nodelay (priv->sock);
 

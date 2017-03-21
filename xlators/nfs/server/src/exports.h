@@ -22,7 +22,7 @@
 #define GF_EXP GF_NFS"-exports"
 
 #define NETGROUP_REGEX_PATTERN  "(@([a-zA-Z0-9\\(=, .])+)())"
-#define HOSTNAME_REGEX_PATTERN  "[[:space:]]([a-zA-Z0-9.\\(=,*/)-]+)"
+#define HOSTNAME_REGEX_PATTERN  "[[:space:]]([a-zA-Z0-9.\\(=,*/:)-]+)"
 #define OPTIONS_REGEX_PATTERN   "([a-zA-Z0-9=\\.]+)"
 
 #define NETGROUP_MAX_LEN        128

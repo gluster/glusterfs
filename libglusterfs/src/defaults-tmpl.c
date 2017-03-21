@@ -170,6 +170,18 @@ default_notify (xlator_t *this, int32_t event, void *data, ...)
                 }
         }
         break;
+        case GF_EVENT_CHILD_PING:
+        {
+                xlator_list_t *parent = this->parents;
+
+                while (parent) {
+                        if (parent->xlator->init_succeeded)
+                                xlator_notify (parent->xlator, event,
+                                               this, data);
+                        parent = parent->next;
+                }
+        }
+        break;
         default:
         {
                 xlator_list_t *parent = this->parents;

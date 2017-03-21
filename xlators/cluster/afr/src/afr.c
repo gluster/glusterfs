@@ -184,6 +184,27 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("data-self-heal-algorithm",
                           priv->data_self_heal_algorithm, options, str, out);
 
+        GF_OPTION_RECONF ("halo-enabled",
+                          priv->halo_enabled, options, bool,
+                          out);
+
+        GF_OPTION_RECONF ("halo-shd-max-latency",
+                          priv->shd.halo_max_latency_msec, options, uint32,
+                          out);
+
+        GF_OPTION_RECONF ("halo-nfsd-max-latency",
+                          priv->nfsd.halo_max_latency_msec, options, uint32,
+                          out);
+
+        GF_OPTION_RECONF ("halo-max-latency", priv->halo_max_latency_msec,
+                          options, uint32, out);
+
+        GF_OPTION_RECONF ("halo-max-replicas", priv->halo_max_replicas, options,
+                              uint32, out);
+
+        GF_OPTION_RECONF ("halo-min-replicas", priv->halo_min_replicas, options,
+                              uint32, out);
+
         GF_OPTION_RECONF ("read-subvolume", read_subvol, options, xlator, out);
 
         GF_OPTION_RECONF ("read-hash-mode", priv->hash_mode,
@@ -473,6 +494,24 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("entry-self-heal", priv->entry_self_heal, bool, out);
 
+        GF_OPTION_INIT ("halo-shd-max-latency", priv->shd.halo_max_latency_msec,
+                        uint32, out);
+
+        GF_OPTION_INIT ("halo-max-latency", priv->halo_max_latency_msec,
+                        uint32, out);
+        GF_OPTION_INIT ("halo-max-replicas", priv->halo_max_replicas, uint32,
+                        out);
+        GF_OPTION_INIT ("halo-min-replicas", priv->halo_min_replicas, uint32,
+                        out);
+
+        GF_OPTION_INIT ("halo-enabled",
+                        priv->halo_enabled, bool, out);
+
+        GF_OPTION_INIT ("halo-nfsd-max-latency",
+                        priv->nfsd.halo_max_latency_msec, uint32, out);
+
+        GF_OPTION_INIT ("iam-nfs-daemon", priv->nfsd.iamnfsd, bool, out);
+
         GF_OPTION_INIT ("data-change-log", priv->data_change_log, bool, out);
 
         GF_OPTION_INIT ("metadata-change-log", priv->metadata_change_log, bool,
@@ -528,7 +567,12 @@ init (xlator_t *this)
 
         priv->child_up = GF_CALLOC (sizeof (unsigned char), child_count,
                                     gf_afr_mt_char);
-        if (!priv->child_up) {
+
+        priv->child_latency = GF_CALLOC (sizeof (*priv->child_latency),
+                                         child_count,
+                                         gf_afr_mt_child_latency_t);
+
+        if (!priv->child_up || !priv->child_latency) {
                 ret = -ENOMEM;
                 goto out;
         }
@@ -736,7 +780,50 @@ struct volume_options options[] = {
                          "jobs that can perform parallel heals in the "
                          "background."
         },
-        { .key  = {"heal-wait-queue-length"},
+        { .key   = {"halo-shd-max-latency"},
+          .type  = GF_OPTION_TYPE_INT,
+          .min   = 1,
+          .max   = 99999,
+          .default_value = "99999",
+           .description = "Maximum latency for shd halo replication in msec."
+        },
+        { .key   = {"halo-enabled"},
+          .type  = GF_OPTION_TYPE_BOOL,
+          .default_value = "False",
+           .description = "Enable Halo (geo) replication mode."
+        },
+        { .key   = {"halo-nfsd-max-latency"},
+          .type  = GF_OPTION_TYPE_INT,
+          .min   = 1,
+          .max   = 99999,
+          .default_value = "5",
+           .description = "Maximum latency for nfsd halo replication in msec."
+        },
+        { .key   = {"halo-max-latency"},
+          .type  = GF_OPTION_TYPE_INT,
+          .min   = 1,
+          .max   = 99999,
+          .default_value = "5",
+           .description = "Maximum latency for halo replication in msec."
+        },
+        { .key   = {"halo-max-replicas"},
+          .type  = GF_OPTION_TYPE_INT,
+          .min   = 1,
+          .max   = 99999,
+          .default_value = "99999",
+           .description = "The maximum number of halo replicas; replicas"
+                          " beyond this value will be written asynchronously"
+                          "via the SHD."
+        },
+        { .key   = {"halo-min-replicas"},
+          .type  = GF_OPTION_TYPE_INT,
+          .min   = 1,
+          .max   = 99999,
+          .default_value = "2",
+           .description = "The minimmum number of halo replicas, before adding "
+                          "out of region replicas."
+         },
+         { .key  = {"heal-wait-queue-length"},
           .type = GF_OPTION_TYPE_INT,
           .min  = 0,
           .max  = 10000, /*Around 100MB with sizeof(afr_local_t)= 10496 bytes*/
@@ -874,6 +961,13 @@ struct volume_options options[] = {
           .default_value = "off",
           .description = "This option differentiates if the replicate "
                          "translator is running as part of self-heal-daemon "
+                         "or not."
+        },
+        { .key = {"iam-nfs-daemon"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "This option differentiates if the replicate "
+                         "translator is running as part of an NFS daemon "
                          "or not."
         },
         { .key = {"quorum-type"},

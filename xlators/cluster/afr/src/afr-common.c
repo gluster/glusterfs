@@ -2531,7 +2531,6 @@ unwind:
         return 0;
 }
 
-
 int
 afr_lookup_entry_heal (call_frame_t *frame, xlator_t *this)
 {
@@ -3227,7 +3226,7 @@ afr_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         UNLOCK (&frame->lock);
 
-	call_count = afr_frame_return (frame);
+        call_count = afr_frame_return (frame);
 
 	if (call_count == 0)
 		AFR_STACK_UNWIND (flush, frame, local->op_ret,
@@ -4655,20 +4654,292 @@ __get_heard_from_all_status (xlator_t *this)
         return heard_from_all;
 }
 
+static int
+find_best_down_child (xlator_t *this)
+{
+        afr_private_t   *priv               = NULL;
+        int             i                   = -1;
+        int32_t         best_child          = -1;
+        int64_t         best_latency        = INT64_MAX;
+
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (priv->child_up[i] &&
+                    priv->child_latency[i] >= 0 &&
+                    priv->child_latency[i] < best_latency) {
+                        best_child = i;
+                        best_latency = priv->child_latency[i];
+                }
+        }
+        if (best_child >= 0) {
+                gf_msg_debug (this->name, 0, "Found best down child (%d) "
+                              "@ %ld ms latency", best_child, best_latency);
+        }
+        return best_child;
+}
+
+int
+find_worst_up_child (xlator_t *this)
+{
+        afr_private_t   *priv               = NULL;
+        int             i                   = -1;
+        int32_t         worst_child         = -1;
+        int64_t         worst_latency       = INT64_MIN;
+
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (priv->child_up[i] &&
+                    priv->child_latency[i] >= 0 &&
+                    priv->child_latency[i] > worst_latency) {
+                        worst_child = i;
+                        worst_latency = priv->child_latency[i];
+                }
+        }
+        if (worst_child >= 0) {
+                gf_msg_debug (this->name, 0, "Found worst up child (%d)"
+                              " @ %ld ms latency", worst_child, worst_latency);
+        }
+        return worst_child;
+}
+
+void
+__afr_handle_ping_event (xlator_t *this, xlator_t *child_xlator,
+                const int idx, int64_t halo_max_latency_msec, int32_t *event,
+                int64_t child_latency_msec)
+{
+        afr_private_t   *priv               = NULL;
+        int             up_children         = 0;
+
+        priv = this->private;
+
+        priv->child_latency[idx] = child_latency_msec;
+        gf_msg_debug (child_xlator->name, 0, "Client ping @ %ld ms",
+                      child_latency_msec);
+
+        up_children = __afr_get_up_children_count (priv);
+
+        if (child_latency_msec > halo_max_latency_msec &&
+            priv->child_up[idx] == 1 &&
+            up_children > priv->halo_min_replicas) {
+                if ((up_children - 1) <
+                    priv->halo_min_replicas) {
+                        gf_log (child_xlator->name, GF_LOG_INFO,
+                               "Overriding halo threshold, "
+                               "min replicas: %d",
+                               priv->halo_min_replicas);
+                } else {
+                        gf_log (child_xlator->name, GF_LOG_INFO,
+                                "Child latency (%ld ms) "
+                                "exceeds halo threshold (%ld), "
+                                "marking child down.",
+                                child_latency_msec,
+                                halo_max_latency_msec);
+                        *event = GF_EVENT_CHILD_DOWN;
+                }
+        } else if (child_latency_msec < halo_max_latency_msec &&
+                   priv->child_up[idx] == 0) {
+                if (up_children < priv->halo_max_replicas) {
+                        gf_log (child_xlator->name, GF_LOG_INFO,
+                                "Child latency (%ld ms) "
+                                "below halo threshold (%ld), "
+                                "marking child up.",
+                                child_latency_msec,
+                                halo_max_latency_msec);
+                        *event = GF_EVENT_CHILD_UP;
+                } else {
+                        gf_log (child_xlator->name, GF_LOG_INFO,
+                            "Not marking child %d up, "
+                            "max replicas (%d) reached.", idx,
+                            priv->halo_max_replicas);
+                }
+        }
+}
+
+void
+__afr_handle_child_up_event (xlator_t *this, xlator_t *child_xlator,
+                const int idx, int64_t halo_max_latency_msec,
+                int32_t *event, int32_t *call_psh, int32_t *up_child)
+{
+        afr_private_t   *priv               = NULL;
+        int             up_children         = 0;
+        int             worst_up_child      = -1;
+
+        priv = this->private;
+
+        /*
+         * This only really counts if the child was never up
+         * (value = -1) or had been down (value = 0).  See
+         * comment at GF_EVENT_CHILD_DOWN for a more detailed
+         * explanation.
+         */
+        if (priv->child_up[idx] != 1) {
+                priv->event_generation++;
+        }
+        priv->child_up[idx] = 1;
+
+        *call_psh = 1;
+        *up_child = idx;
+        up_children = __afr_get_up_children_count (priv);
+
+        /*
+         * Handle the edge case where we exceed
+         * halo_min_replicas and we've got a child which is
+         * marked up as it was helping to satisfy the
+         * halo_min_replicas even though it's latency exceeds
+         * halo_max_latency_msec.
+         */
+        if (up_children > priv->halo_min_replicas) {
+                worst_up_child = find_worst_up_child (this);
+                if (worst_up_child >= 0 &&
+                    priv->child_latency[worst_up_child] >
+                    halo_max_latency_msec) {
+                        gf_msg_debug (this->name, 0, "Marking child %d down, "
+                                "doesn't meet halo threshold (%ld), and > "
+                                "halo_min_replicas (%d)",
+                                worst_up_child, halo_max_latency_msec,
+                                priv->halo_min_replicas);
+                        priv->child_up[worst_up_child] = 0;
+                        up_children--;
+                }
+        }
+        if (up_children > priv->halo_max_replicas &&
+            !priv->shd.iamshd) {
+                worst_up_child = find_worst_up_child (this);
+                if (worst_up_child < 0) {
+                        worst_up_child = idx;
+                }
+                priv->child_up[worst_up_child] = 0;
+                up_children--;
+                gf_msg_debug (this->name, 0, "Marking child %d down, "
+                        "up_children (%d) > halo_max_replicas (%d)",
+                        worst_up_child, up_children, priv->halo_max_replicas);
+        }
+
+        if (up_children == 1) {
+                gf_msg (this->name, GF_LOG_INFO, 0, AFR_MSG_SUBVOL_UP,
+                        "Subvolume '%s' came back up; "
+                        "going online.",
+                        child_xlator->name);
+        } else {
+                *event = GF_EVENT_SOME_DESCENDENT_UP;
+        }
+
+        priv->last_event[idx] = *event;
+}
+
+void
+__afr_handle_child_down_event (xlator_t *this, xlator_t *child_xlator,
+                int idx, int64_t child_latency_msec, int32_t *event,
+                int32_t *call_psh, int32_t *up_child)
+{
+        afr_private_t   *priv               = NULL;
+        int             i                   = 0;
+        int             up_children         = 0;
+        int             down_children       = 0;
+        int             best_down_child     = -1;
+
+        priv = this->private;
+
+        /*
+         * If a brick is down when we start, we'll get a
+         * CHILD_DOWN to indicate its initial state.  There
+         * was never a CHILD_UP in this case, so if we
+         * increment "down_count" the difference between than
+         * and "up_count" will no longer be the number of
+         * children that are currently up.  This has serious
+         * implications e.g. for quorum enforcement, so we
+         * don't increment these values unless the event
+         * represents an actual state transition between "up"
+         * (value = 1) and anything else.
+         */
+        if (priv->child_up[idx] == 1) {
+                priv->event_generation++;
+        }
+
+        /*
+         * If this is an _actual_ CHILD_DOWN event, we
+         * want to set the child_latency to < 0 to indicate
+         * the child is really disconnected.
+         */
+        if (child_latency_msec < 0) {
+                priv->child_latency[idx] = child_latency_msec;
+        }
+        priv->child_up[idx] = 0;
+
+        up_children = __afr_get_up_children_count (priv);
+        /*
+         * Handle the edge case where we need to find the
+         * next best child (to mark up) as marking this child
+         * down would cause us to fall below halo_min_replicas.
+         * We will also force the SHD to heal this child _now_
+         * as we want it to be up to date if we are going to
+         * begin using it synchronously.
+         */
+        if (up_children < priv->halo_min_replicas) {
+                best_down_child = find_best_down_child (this);
+                if (best_down_child >= 0) {
+                        gf_msg_debug (this->name, 0,
+                                "Swapping out child %d for "
+                                "child %d to satisfy halo_min_replicas (%d).",
+                                idx, best_down_child, priv->halo_min_replicas);
+                        priv->child_up[best_down_child] = 1;
+                        *call_psh = 1;
+                        *up_child = best_down_child;
+                }
+        }
+
+        for (i = 0; i < priv->child_count; i++)
+                if (priv->child_up[i] == 0)
+                        down_children++;
+        if (down_children == priv->child_count) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, AFR_MSG_SUBVOLS_DOWN,
+                        "All subvolumes are down. Going "
+                        "offline until atleast one of them "
+                        "comes back up.");
+        } else {
+                *event = GF_EVENT_SOME_DESCENDENT_DOWN;
+        }
+        priv->last_event[idx] = *event;
+}
+
+static int64_t
+afr_get_halo_latency (xlator_t *this)
+{
+        afr_private_t *priv           = NULL;
+        int64_t halo_max_latency_msec = 0;
+
+        priv = this->private;
+
+        if (priv->shd.iamshd) {
+                halo_max_latency_msec = priv->shd.halo_max_latency_msec;
+        } else if (priv->nfsd.iamnfsd) {
+                halo_max_latency_msec =
+                        priv->nfsd.halo_max_latency_msec;
+        } else {
+                halo_max_latency_msec = priv->halo_max_latency_msec;
+        }
+        gf_msg_debug (this->name, 0, "Using halo latency %ld",
+                halo_max_latency_msec);
+        return halo_max_latency_msec;
+}
+
+
 int32_t
 afr_notify (xlator_t *this, int32_t event,
             void *data, void *data2)
 {
         afr_private_t   *priv               = NULL;
+        xlator_t        *child_xlator       = NULL;
         int             i                   = -1;
-        int             up_children         = 0;
-        int             down_children       = 0;
         int             propagate           = 0;
         int             had_heard_from_all  = 0;
         int             have_heard_from_all = 0;
         int             idx                 = -1;
         int             ret                 = -1;
         int             call_psh            = 0;
+        int             up_child            = -1;
         dict_t          *input              = NULL;
         dict_t          *output             = NULL;
         gf_boolean_t    had_quorum          = _gf_false;
@@ -4677,6 +4948,10 @@ afr_notify (xlator_t *this, int32_t event,
         struct gf_upcall_cache_invalidation *up_ci = NULL;
         inode_table_t  *itable              = NULL;
         inode_t        *inode               = NULL;
+        int64_t         halo_max_latency_msec = 0;
+        int64_t         child_latency_msec   = -1;
+
+        child_xlator = (xlator_t *)data;
 
         priv = this->private;
 
@@ -4701,7 +4976,7 @@ afr_notify (xlator_t *this, int32_t event,
          * subsequent revalidate lookup happens on all the dht's subvolumes
          * which triggers afr self-heals if any.
          */
-        idx = find_child_index (this, data);
+        idx = find_child_index (this, child_xlator);
         if (idx < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, AFR_MSG_INVALID_CHILD_UP,
                         "Received child_up from invalid subvolume");
@@ -4710,6 +4985,30 @@ afr_notify (xlator_t *this, int32_t event,
 
         had_quorum = priv->quorum_count && afr_has_quorum (priv->child_up,
                                                            this);
+        if (priv->halo_enabled) {
+                halo_max_latency_msec = afr_get_halo_latency (this);
+
+                if (event == GF_EVENT_CHILD_PING) {
+                        /* Calculates the child latency and sets event
+                         */
+                        child_latency_msec = (int64_t)(uintptr_t)data2;
+                        LOCK (&priv->lock);
+                        {
+                                __afr_handle_ping_event (this, child_xlator,
+                                        idx, halo_max_latency_msec, &event,
+                                        child_latency_msec);
+                        }
+                        UNLOCK (&priv->lock);
+                }
+        }
+
+        if (event == GF_EVENT_CHILD_PING) {
+                /* This is the only xlator that handles PING, no reason to
+                 * propagate.
+                 */
+                goto out;
+            }
+
         if (event == GF_EVENT_TRANSLATOR_OP) {
                 LOCK (&priv->lock);
                 {
@@ -4736,57 +5035,15 @@ afr_notify (xlator_t *this, int32_t event,
                         propagate = 1;
                         break;
                 case GF_EVENT_CHILD_UP:
-                        /*
-                         * This only really counts if the child was never up
-                         * (value = -1) or had been down (value = 0).  See
-                         * comment at GF_EVENT_CHILD_DOWN for a more detailed
-                         * explanation.
-                         */
-                        if (priv->child_up[idx] != 1) {
-                                priv->event_generation++;
-                        }
-                        priv->child_up[idx] = 1;
-
-                        call_psh = 1;
-                        up_children = __afr_get_up_children_count (priv);
-                        if (up_children == 1) {
-                                gf_msg (this->name, GF_LOG_INFO, 0,
-                                        AFR_MSG_SUBVOL_UP,
-                                        "Subvolume '%s' came back up; "
-                                     "going online.", ((xlator_t *)data)->name);
-                                gf_event (EVENT_AFR_SUBVOL_UP,
-                                          "subvol=%s", this->name);
-
-                        } else {
-                                event = GF_EVENT_SOME_DESCENDENT_UP;
-                        }
-
-                        priv->last_event[idx] = event;
-
+                        __afr_handle_child_up_event (this, child_xlator,
+                                idx, halo_max_latency_msec, &event, &call_psh,
+                                &up_child);
                         break;
 
                 case GF_EVENT_CHILD_DOWN:
-                        if (priv->child_up[idx] == 1) {
-                                priv->event_generation++;
-                        }
-                        priv->child_up[idx] = 0;
-
-                        for (i = 0; i < priv->child_count; i++)
-                                if (priv->child_up[i] == 0)
-                                        down_children++;
-                        if (down_children == priv->child_count) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        AFR_MSG_SUBVOLS_DOWN,
-                                       "All subvolumes are down. Going offline "
-                                    "until atleast one of them comes back up.");
-                                gf_event (EVENT_AFR_SUBVOLS_DOWN,
-                                          "subvol=%s", this->name);
-                        } else {
-                                event = GF_EVENT_SOME_DESCENDENT_DOWN;
-                        }
-
-                        priv->last_event[idx] = event;
-
+                        __afr_handle_child_down_event (this, child_xlator, idx,
+                                child_latency_msec, &event, &call_psh,
+                                &up_child);
                         break;
 
                 case GF_EVENT_CHILD_CONNECTING:
@@ -4839,7 +5096,6 @@ afr_notify (xlator_t *this, int32_t event,
                            had come up, propagate CHILD_UP, but only this time
                         */
                         event = GF_EVENT_CHILD_DOWN;
-                        up_children = __afr_get_up_children_count (priv);
                         for (i = 0; i < priv->child_count; i++) {
                                 if (priv->last_event[i] == GF_EVENT_CHILD_UP) {
                                         event = GF_EVENT_CHILD_UP;
