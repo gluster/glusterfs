@@ -173,6 +173,7 @@ enum gf_common_mem_types_ {
         gf_common_mt_tbf_bucket_t,
         gf_common_mt_tbf_throttle_t,
         gf_common_mt_pthread_t,
+        gf_common_ping_local_t,
         gf_common_mt_end
 };
 #endif

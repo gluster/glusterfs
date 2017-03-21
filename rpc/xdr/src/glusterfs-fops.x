@@ -103,6 +103,7 @@ enum glusterfs_event_t {
         GF_EVENT_SOME_DESCENDENT_DOWN,
         GF_EVENT_SCRUB_ONDEMAND,
         GF_EVENT_SOME_DESCENDENT_UP,
+        GF_EVENT_CHILD_PING,
         GF_EVENT_MAXVAL
 };
 

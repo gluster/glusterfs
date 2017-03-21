@@ -17,6 +17,10 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with valgrind
 %{?_with_valgrind:%global _with_valgrind --enable-valgrind}
 
+# if you wish to compile an rpm with Facebook specfic extras...
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with fbextras
+%{?_with_fbextras:%global _with_fbextras --with-fbextras}
+
 # if you wish to compile an rpm with cmocka unit testing...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with cmocka
 %{?_with_cmocka:%global _with_cmocka --enable-cmocka}
@@ -214,6 +218,9 @@ BuildRequires:    libaio-devel libacl-devel
 BuildRequires:    python2-devel
 %if ( 0%{?fedora} && 0%{?fedora} < 26 ) || ( 0%{?rhel} )
 BuildRequires:    python-ctypes
+%endif
+%if ( 0%{?_with_fbextras:1} )
+BuildRequires:    fb-libtirpc fb-libtirpc-devel
 %endif
 BuildRequires:    userspace-rcu-devel >= 0.7
 %if ( 0%{?rhel} && 0%{?rhel} <= 6 )
@@ -549,6 +556,9 @@ Requires:         %{name}-cli%{?_isa} = %{version}-%{release}
 Requires:         %{name}-libs%{?_isa} = %{version}-%{release}
 # some daemons (like quota) use a fuse-mount, glusterfsd is part of -fuse
 Requires:         %{name}-fuse%{?_isa} = %{version}-%{release}
+%if ( 0%{?_with_fbextras:1} )
+Requires:         fb-libtirpc >= 0.2.5-1
+%endif
 # self-heal daemon, rebalance, nfs-server etc. are actually clients
 Requires:         %{name}-api%{?_isa} = %{version}-%{release}
 Requires:         %{name}-client-xlators%{?_isa} = %{version}-%{release}
@@ -665,7 +675,9 @@ export CFLAGS
         %{?_without_ocf} \
         %{?_without_rdma} \
         %{?_without_syslog} \
-        %{?_without_tiering}
+        %{?_without_tiering} \
+        %{?_without_events} \
+        %{?_with_fbextras}
 
 # fix hardening and remove rpath in shlibs
 %if ( 0%{?fedora} && 0%{?fedora} > 17 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )

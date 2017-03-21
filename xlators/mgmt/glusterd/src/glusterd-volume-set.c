@@ -3323,6 +3323,39 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_3_10_1,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+
+        /* Halo replication options */
+        { .key        = "cluster.halo-enabled",
+          .voltype    = "cluster/replicate",
+          .op_version = GD_OP_VERSION_3_11_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "cluster.halo-shd-max-latency",
+          .voltype    = "cluster/replicate",
+          .op_version = GD_OP_VERSION_3_11_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "cluster.halo-nfsd-max-latency",
+          .voltype    = "cluster/replicate",
+          .op_version = GD_OP_VERSION_3_11_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "cluster.halo-max-latency",
+          .voltype    = "cluster/replicate",
+          .op_version = GD_OP_VERSION_3_11_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "cluster.halo-max-replicas",
+          .voltype    = "cluster/replicate",
+          .op_version = GD_OP_VERSION_3_11_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "cluster.halo-min-replicas",
+          .voltype    = "cluster/replicate",
+          .op_version = GD_OP_VERSION_3_11_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
+
         { .key         = NULL
         }
 };

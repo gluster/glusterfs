@@ -1907,7 +1907,7 @@ _mnt3_get_host_from_peer (const char *peer_addr)
         size_t host_len    = 0;
         char   *colon      = NULL;
 
-        colon = strchr (peer_addr, ':');
+        colon = strrchr (peer_addr, ':');
         if (!colon) {
                 gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_BAD_PEER,
                         "Bad peer %s", peer_addr);
@@ -4151,6 +4151,15 @@ mnt1svc_init (xlator_t *nfsx)
                         goto err;
                 }
         }
+
+#ifdef IPV6_DEFAULT
+        ret = dict_set_str (options, "transport.address-family", "inet6");
+        if (ret == -1) {
+                gf_log (GF_NFS, GF_LOG_ERROR,
+                        "dict_set_str error when trying to enable ipv6");
+              goto err;
+        }
+#endif
 
         ret = rpcsvc_create_listeners (nfs->rpcsvc, options, nfsx->name);
         if (ret == -1) {

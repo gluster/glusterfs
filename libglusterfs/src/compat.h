@@ -479,6 +479,8 @@ int gf_mkostemp (char *tmpl, int suffixlen, int flags);
 #define ST_CTIM_NSEC_SET(stbuf, val) do { } while (0);
 #endif
 
+#ifndef IPV6_DEFAULT
+
 #ifndef IXDR_GET_LONG
 #define IXDR_GET_LONG(buf) ((long)IXDR_GET_U_INT32(buf))
 #endif
@@ -494,6 +496,8 @@ int gf_mkostemp (char *tmpl, int suffixlen, int flags);
 #ifndef IXDR_PUT_U_LONG
 #define IXDR_PUT_U_LONG(buf, v)       IXDR_PUT_LONG(buf, (long)(v))
 #endif
+
+#endif /* IPV6_DEFAULT */
 
 #if defined(__GNUC__) && !defined(RELAX_POISONING)
 /* Use run API, see run.h */

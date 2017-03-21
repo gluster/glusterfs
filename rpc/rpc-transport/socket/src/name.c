@@ -562,6 +562,14 @@ server_fill_address_family (rpc_transport_t *this, sa_family_t *sa_family)
         data_t  *address_family_data = NULL;
         int32_t  ret                 = -1;
 
+#ifdef IPV6_DEFAULT
+        char *addr_family            = "inet6";
+        sa_family_t default_family   = AF_INET6;
+#else
+        char *addr_family            = "inet";
+        sa_family_t default_family   = AF_INET;
+#endif
+
         GF_VALIDATE_OR_GOTO ("socket", sa_family, out);
 
         address_family_data = dict_get (this->options,
@@ -586,8 +594,9 @@ server_fill_address_family (rpc_transport_t *this, sa_family_t *sa_family)
                 }
         } else {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "option address-family not specified, defaulting to inet");
-                *sa_family = AF_INET;
+                        "option address-family not specified, "
+                        "defaulting to %s", addr_family);
+                *sa_family = default_family;
         }
 
         ret = 0;

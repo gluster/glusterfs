@@ -37,6 +37,10 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+#ifdef IPV6_DEFAULT
+#include <netconfig.h>
+#endif
+
 #include "xdr-rpcclnt.h"
 #include "glusterfs-acl.h"
 
@@ -1386,6 +1390,82 @@ rpcsvc_error_reply (rpcsvc_request_t *req)
         return rpcsvc_submit_generic (req, &dummyvec, 0, NULL, 0, NULL);
 }
 
+#ifdef IPV6_DEFAULT
+int
+rpcsvc_program_register_rpcbind6 (rpcsvc_program_t *newprog, uint32_t port)
+{
+        const int IP_BUF_LEN = 64;
+        char addr_buf[IP_BUF_LEN];
+
+        int err = 0;
+        bool_t success = 0;
+        struct netconfig *nc;
+        struct netbuf *nb;
+
+        if (!newprog) {
+                goto out;
+        }
+
+        nc = getnetconfigent ("tcp6");
+        if (!nc) {
+                err = -1;
+                goto out;
+        }
+
+
+        err = sprintf (addr_buf, "::.%d.%d", port >> 8 & 0xff,
+                       port & 0xff);
+        if (err < 0) {
+                err = -1;
+                goto out;
+        }
+
+        nb = uaddr2taddr (nc, addr_buf);
+        if (!nb) {
+                err = -1;
+                goto out;
+        }
+
+        success = rpcb_set (newprog->prognum, newprog->progver, nc, nb);
+        if (!success) {
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "Could not register the IPv6"
+                                                 " service with rpcbind");
+        }
+
+        err = 0;
+
+out:
+        return err;
+}
+
+int
+rpcsvc_program_unregister_rpcbind6 (rpcsvc_program_t *newprog)
+{
+        int err = 0;
+        bool_t success = 0;
+        struct netconfig *nc;
+
+        if (!newprog) {
+                goto out;
+        }
+
+        nc = getnetconfigent ("tcp6");
+        if (!nc) {
+                err = -1;
+                goto out;
+        }
+
+        success = rpcb_unset (newprog->prognum, newprog->progver, nc);
+        if (!success) {
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "Could not unregister the IPv6"
+                                                 " service with rpcbind");
+        }
+
+        err = 0;
+out:
+        return err;
+}
+#endif
 
 /* Register the program with the local portmapper service. */
 int
@@ -1550,7 +1630,14 @@ rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t *program)
                         " program failed");
                 goto out;
         }
-
+#ifdef IPV6_DEFAULT
+        ret = rpcsvc_program_unregister_rpcbind6 (program);
+        if (ret == -1) {
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "rpcbind (ipv6)"
+                        " unregistration of program failed");
+                goto out;
+        }
+#endif
         pthread_mutex_lock (&svc->rpclock);
         {
                 list_for_each_entry (prog, &svc->programs, program) {
