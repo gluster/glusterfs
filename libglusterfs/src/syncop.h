@@ -138,6 +138,8 @@ struct syncbarrier {
 	pthread_cond_t      cond;  /* waiting non-synctasks */
 	struct list_head    waitq; /* waiting synctasks */
 	int                 count; /* count the number of wakes */
+        int                 waitfor; /* no. of wakes until which task can be in
+                                        waitq before being woken up. */
 };
 typedef struct syncbarrier syncbarrier_t;
 

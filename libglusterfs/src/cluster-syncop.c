@@ -31,13 +31,18 @@
         if (syncbarrier_init (&__local.barrier))                        \
                 break;                                                  \
         frame->local = &__local;                                        \
+        for (__i = 0; __i < numsubvols; __i++) {                        \
+                if (on[__i]) {                                          \
+                        __count++;                                      \
+                }                                                       \
+        }                                                               \
+        __local.barrier.waitfor = __count;                              \
         for (__i = 0; __i < numsubvols; __i++) {		        \
                 if (!on[__i])                                           \
                         continue;				        \
                 STACK_WIND_COOKIE (frame, cluster_##fop##_cbk,          \
                                    (void *)(long) __i, subvols[__i],    \
                                    subvols[__i]->fops->fop, args);      \
-                __count++;						\
         }								\
         syncbarrier_wait (&__local.barrier, __count);			\
         syncbarrier_destroy (&__local.barrier);                         \
