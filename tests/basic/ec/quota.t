@@ -40,7 +40,6 @@ EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "8.0MB" quotausage "/test"
 TEST rm $M0/test/file2.txt
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "0Bytes" quotausage "/test"
 TEST $CLI volume stop $V0
-EXPECT "1" get_aux
 
 rm -f $QDD
 cleanup;
