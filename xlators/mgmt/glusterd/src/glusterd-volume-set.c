@@ -546,21 +546,45 @@ static int
 validate_defrag_throttle_option (glusterd_volinfo_t *volinfo, dict_t *dict,
                                  char *key, char *value, char **op_errstr)
 {
-        char                 errstr[2048] = "";
-        int                  ret          = 0;
-        xlator_t            *this         = NULL;
+        char                 errstr[2048]       = "";
+        int                  ret                = 0;
+        xlator_t            *this               = NULL;
+        int                  thread_count       = 0;
+        long int             cores_available    = 0;
 
         this = THIS;
         GF_ASSERT (this);
+
+        cores_available = sysconf(_SC_NPROCESSORS_ONLN);
+
+        /* Throttle option should be one of lazy|normal|aggressive or a number
+         * configured by user max up to the number of cores in the machine */
 
         if (!strcasecmp (value, "lazy") ||
             !strcasecmp (value, "normal") ||
             !strcasecmp (value, "aggressive")) {
                 ret = 0;
+        } else if ((gf_string2int (value, &thread_count) == 0)) {
+                if ((thread_count > 0) && (thread_count <= cores_available)) {
+                        ret = 0;
+                } else {
+                        ret = -1;
+                        snprintf (errstr, sizeof (errstr), "%s should be within"
+                                  " range of 0 and maximum number of cores "
+                                  "available (cores available - %ld)", key,
+                                  cores_available);
+
+                        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                                GD_MSG_INVALID_ENTRY, "%s", errstr);
+
+                        *op_errstr = gf_strdup (errstr);
+                }
         } else {
                 ret = -1;
                 snprintf (errstr, sizeof (errstr), "%s should be "
-                          "{lazy|normal|aggressive}", key);
+                          "{lazy|normal|aggressive} or a number upto number of"
+                          " cores available (cores availble - %ld)", key,
+                          cores_available);
                 gf_msg (this->name, GF_LOG_ERROR, EINVAL,
                         GD_MSG_INVALID_ENTRY, "%s", errstr);
                 *op_errstr = gf_strdup (errstr);
