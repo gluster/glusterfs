@@ -620,9 +620,15 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
 #define GLUSTERD_GET_QUOTAD_DIR(path, priv) \
         snprintf (path, PATH_MAX, "%s/quotad", priv->workdir);
 
-#define GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH(abspath, volname, path)      \
-        snprintf (abspath, sizeof (abspath)-1,                          \
-                  DEFAULT_VAR_RUN_DIRECTORY"/%s%s", volname, path);
+#define GLUSTERD_GET_QUOTA_LIMIT_MOUNT_PATH(abspath, volname, path) do {      \
+        snprintf (abspath, sizeof (abspath)-1,                                \
+                 DEFAULT_VAR_RUN_DIRECTORY"/%s_quota_limit%s", volname, path);\
+        } while (0)
+
+#define GLUSTERD_GET_QUOTA_LIST_MOUNT_PATH(abspath, volname, path) do {       \
+        snprintf (abspath, sizeof (abspath)-1,                                \
+                  DEFAULT_VAR_RUN_DIRECTORY"/%s_quota_list%s", volname, path);\
+        } while (0)
 
 #define GLUSTERD_GET_TMP_PATH(abspath, path) do {                       \
         snprintf (abspath, sizeof (abspath)-1,                          \
@@ -711,10 +717,18 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
                            uuid_utoa(MY_UUID));                         \
         } while (0)
 
-#define GLUSTERFS_GET_AUX_MOUNT_PIDFILE(pidfile, volname) {               \
+#define GLUSTERFS_GET_QUOTA_LIMIT_MOUNT_PIDFILE(pidfile, volname) {       \
                 snprintf (pidfile, PATH_MAX-1,                            \
-                          DEFAULT_VAR_RUN_DIRECTORY"/%s.pid", volname);   \
+                          DEFAULT_VAR_RUN_DIRECTORY"/%s_quota_limit.pid", \
+                           volname);                                      \
         }
+
+#define GLUSTERFS_GET_QUOTA_LIST_MOUNT_PIDFILE(pidfile, volname) {    \
+                snprintf (pidfile, PATH_MAX-1,                            \
+                          DEFAULT_VAR_RUN_DIRECTORY"/%s_quota_list.pid",  \
+                          volname);                                       \
+        }
+
 
 #define GLUSTERD_GET_UUID_NOHYPHEN(ret_string, uuid) do {               \
                 char *snap_volname_ptr = ret_string;                    \

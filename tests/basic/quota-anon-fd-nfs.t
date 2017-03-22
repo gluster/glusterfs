@@ -108,7 +108,6 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 sleep 3
 
 TEST $CLI volume stop $V0
-EXPECT "1" get_aux
 
 rm -f $QDD
 

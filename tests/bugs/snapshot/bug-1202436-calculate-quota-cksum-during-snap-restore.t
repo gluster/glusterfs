@@ -27,7 +27,6 @@ EXPECT '1' get_snap_count CLI_1 $V0
 
 TEST $CLI_1 volume stop $V0
 EXPECT 'Stopped' volinfo_field $V0 'Status'
-EXPECT "1" get_aux
 
 TEST $CLI_1 snapshot restore $($CLI_1 snapshot list)
 EXPECT '0' get_snap_count CLI_1 $V0
