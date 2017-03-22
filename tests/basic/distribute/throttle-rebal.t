@@ -16,6 +16,11 @@ function set_throttle {
         $CLI volume set $V0 cluster.rebal-throttle $level 2>&1 |grep -oE 'success|failed'
 }
 
+#Determine number of cores
+cores=$(cat /proc/cpuinfo | grep processor | wc -l)
+if [ "$cores" == "" ]; then
+        echo "Could not get number of cores available"
+fi
 
 THROTTLE_LEVEL="lazy"
 EXPECT "success" set_throttle $THROTTLE_LEVEL
@@ -35,6 +40,15 @@ EXPECT "failed" set_throttle $THROTTLE_LEVEL
 
 #check if throttle-level is still aggressive
 EXPECT "aggressive" echo `$CLI volume info | grep rebal-throttle | awk '{print $2}'`
+
+EXPECT "success" set_throttle $cores
+
+#Setting thorttle number to be more than the number of cores should fail
+THORTTLE_LEVEL=$((cores+1))
+TEST echo $THORTTLE_LEVEL
+EXPECT "failed" set_throttle $THROTTLE_LEVEL
+EXPECT "$cores" echo `$CLI volume info | grep rebal-throttle | awk '{print $2}'`
+
 
 TEST $CLI volume stop $V0;
 TEST $CLI volume delete $V0;
