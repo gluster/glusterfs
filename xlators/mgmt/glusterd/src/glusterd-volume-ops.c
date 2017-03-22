@@ -2680,8 +2680,6 @@ glusterd_stop_volume (glusterd_volinfo_t *volinfo)
 {
         int                     ret                     = -1;
         glusterd_brickinfo_t    *brickinfo              = NULL;
-        char                    mountdir[PATH_MAX]      = {0,};
-        char                    pidfile[PATH_MAX]       = {0,};
         xlator_t                *this                   = NULL;
         glusterd_svc_t          *svc                    = NULL;
 
@@ -2708,24 +2706,6 @@ glusterd_stop_volume (glusterd_volinfo_t *volinfo)
                         GD_MSG_VOLINFO_SET_FAIL, "Failed to store volinfo of "
                         "%s volume", volinfo->volname);
                 goto out;
-        }
-
-        /* If quota auxiliary mount is present, unmount it */
-        GLUSTERFS_GET_AUX_MOUNT_PIDFILE (pidfile, volinfo->volname);
-
-        if (!gf_is_service_running (pidfile, NULL)) {
-                gf_msg_debug (this->name, 0, "Aux mount of volume %s "
-                        "absent", volinfo->volname);
-        } else {
-                GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH (mountdir, volinfo->volname,
-                                                   "/");
-
-                ret = gf_umount_lazy (this->name, mountdir, 0);
-                if (ret)
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                GD_MSG_UNOUNT_FAILED,
-                                "umount on %s failed",
-                                mountdir);
         }
 
         if (!volinfo->is_snap_volume) {
@@ -2815,10 +2795,6 @@ glusterd_op_delete_volume (dict_t *dict)
                         volname);
                 goto out;
         }
-
-        ret = glusterd_remove_auxiliary_mount (volname);
-        if (ret)
-                goto out;
 
         if (glusterd_check_ganesha_export (volinfo)) {
                 ret = manage_export_config (volname, "off", NULL);

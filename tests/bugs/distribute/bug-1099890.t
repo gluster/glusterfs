@@ -123,7 +123,6 @@ EXPECT "1" is_dht_linkfile "$B0/${V0}1/zz"
 
 force_umount $M0
 TEST $CLI volume stop $V0
-EXPECT "1" get_aux
 UMOUNT_LOOP ${B0}/${V0}{1,2}
 rm -f ${B0}/brick{1,2}
 
