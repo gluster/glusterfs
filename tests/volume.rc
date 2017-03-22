@@ -615,8 +615,9 @@ function num_graphs
 function get_aux()
 {
 ##Check if a auxiliary mount is there
+local aux_suffix=$1
 local rundir=$(gluster --print-statedumpdir)
-local pidfile="${rundir}/${V0}.pid"
+local pidfile="${rundir}/${V0}$aux_suffix.pid"
 if [ -f $pidfile ];
 then
         local pid=$(cat ${rundir}/${V0}.pid)
@@ -631,6 +632,18 @@ then
 else
         echo "1"
 fi
+}
+
+function get_list_aux()
+{
+# check for quota list aux mount
+	get_aux "_quota_list"
+}
+
+function get_limit_aux()
+{
+# check for quota list aux mount
+	get_aux "_quota_limit"
 }
 
 function check_for_xattr {
@@ -717,6 +730,10 @@ function quota_hl_exceeded()
 
 }
 
+function quota_object_hard_limit()
+{
+        quota_object_list_field $1 2
+}
 
 function scrub_status()
 {

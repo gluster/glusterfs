@@ -3599,6 +3599,26 @@ out:
 }
 
 int
+gluster_remove_auxiliary_mount (char *volname)
+{
+        int       ret                = -1;
+        char      mountdir[PATH_MAX] = {0,};
+        xlator_t  *this               = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        GLUSTERD_GET_QUOTA_LIST_MOUNT_PATH (mountdir, volname, "/");
+        ret = gf_umount_lazy (this->name, mountdir, 1);
+        if (ret) {
+                gf_log("cli", GF_LOG_ERROR, "umount on %s failed, "
+                        "reason : %s", mountdir, strerror (errno));
+        }
+
+        return ret;
+}
+
+int
 gf_cli_print_limit_list_from_dict (cli_local_t *local, char *volname,
                                    dict_t *dict, char *default_sl, int count,
                                    int op_ret, int op_errno, char *op_errstr)
@@ -3646,7 +3666,7 @@ gf_cli_print_limit_list_from_dict (cli_local_t *local, char *volname,
                 ret = gf_canonicalize_path (path);
                 if (ret)
                         goto out;
-                GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH (mountdir, volname, path);
+                GLUSTERD_GET_QUOTA_LIST_MOUNT_PATH (mountdir, volname, path);
                 ret = print_quota_list_from_mountdir (local, mountdir,
                                                       default_sl, path, type);
         }
@@ -4131,6 +4151,7 @@ gf_cli_quota_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
 xml_output:
+
         if (global_state->mode & GLUSTER_MODE_XML) {
                 ret = cli_xml_output_str ("volQuota", NULL, rsp.op_ret,
                                           rsp.op_errno, rsp.op_errstr);
@@ -4146,6 +4167,12 @@ xml_output:
 
         ret = rsp.op_ret;
 out:
+
+        if ((type == GF_QUOTA_OPTION_TYPE_LIST)
+            || (type == GF_QUOTA_OPTION_TYPE_LIST_OBJECTS)) {
+                gluster_remove_auxiliary_mount (volname);
+        }
+
         cli_cmd_broadcast_response (ret);
         if (dict)
                 dict_unref (dict);

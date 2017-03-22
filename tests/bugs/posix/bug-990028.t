@@ -153,6 +153,5 @@ __init;
 links_in_same_directory;
 links_across_directories;
 TEST $CLI volume stop $V0
-EXPECT "1" get_aux
 
 cleanup

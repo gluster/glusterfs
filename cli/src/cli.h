@@ -62,9 +62,10 @@ typedef enum {
 #define GLUSTER_MODE_WIGNORE   (1 << 3)
 
 
-#define GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH(abspath, volname, path)      \
-        snprintf (abspath, sizeof (abspath)-1,                          \
-                  DEFAULT_VAR_RUN_DIRECTORY"/%s%s", volname, path);
+#define GLUSTERD_GET_QUOTA_LIST_MOUNT_PATH(abspath, volname, path) do {       \
+        snprintf (abspath, sizeof (abspath)-1,                                \
+                  DEFAULT_VAR_RUN_DIRECTORY"/%s_quota_list%s", volname, path);\
+        } while (0)
 
 struct cli_state;
 struct cli_cmd_word;

@@ -32,7 +32,6 @@ TEST $CLI volume set $V0 diagnostics.client-log-level DEBUG
 TEST $CLI volume reset $V0 force;
 
 TEST $CLI volume stop $V0
-EXPECT "1" get_aux
 TEST $CLI volume delete $V0
 
 cleanup;

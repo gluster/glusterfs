@@ -65,7 +65,6 @@ exec 5>&-
 exec 6>&-
 
 TEST $CLI volume stop $V0
-EXPECT "1" get_aux
 
 rm -f $QDD
 cleanup;

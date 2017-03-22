@@ -50,7 +50,6 @@ TEST ! mv $N0/dir/newfile_3 $N0/newdir/
 
 umount_nfs $N0
 TEST $CLI volume stop $V0
-EXPECT "1" get_aux
 
 rm -f $QDD
 

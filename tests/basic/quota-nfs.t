@@ -58,7 +58,6 @@ TEST rm -f $N0/$deep/newfile_2
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 
 TEST $CLI volume stop $V0
-EXPECT "1" get_aux
 
 rm -f $QDD
 cleanup;

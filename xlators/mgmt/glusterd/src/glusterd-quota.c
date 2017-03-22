@@ -709,11 +709,6 @@ glusterd_quota_disable (glusterd_volinfo_t *volinfo, char **op_errstr,
                 }
         }
 
-        //Remove aux mount of the volume on every node in the cluster
-        ret = glusterd_remove_auxiliary_mount (volinfo->volname);
-        if (ret)
-                goto out;
-
         *crawl = _gf_true;
 
         (void) glusterd_clean_up_quota_store (volinfo);
@@ -743,7 +738,7 @@ glusterd_set_quota_limit (char *volname, char *path, char *hard_limit,
         priv = this->private;
         GF_ASSERT (priv);
 
-        GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH (abspath, volname, path);
+        GLUSTERD_GET_QUOTA_LIMIT_MOUNT_PATH (abspath, volname, path);
         ret = gf_lstat_dir (abspath, NULL);
         if (ret) {
                 gf_asprintf (op_errstr, "Failed to find the directory %s. "
@@ -1373,7 +1368,7 @@ glusterd_remove_quota_limit (char *volname, char *path, char **op_errstr,
         priv = this->private;
         GF_ASSERT (priv);
 
-        GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH (abspath, volname, path);
+        GLUSTERD_GET_QUOTA_LIMIT_MOUNT_PATH (abspath, volname, path);
         ret = gf_lstat_dir (abspath, NULL);
         if (ret) {
                 gf_asprintf (op_errstr, "Failed to find the directory %s. "
@@ -1704,6 +1699,16 @@ glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         ret = 0;
 out:
+        if (type == GF_QUOTA_OPTION_TYPE_LIMIT_USAGE ||
+            type == GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS ||
+            type == GF_QUOTA_OPTION_TYPE_REMOVE ||
+            type == GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS) {
+                /* During a list operation we need the aux mount to be
+                 * accessible until the listing is done at the cli
+                 */
+                glusterd_remove_auxiliary_mount (volinfo->volname);
+        }
+
         return ret;
 }
 
@@ -1862,7 +1867,7 @@ out:
 }
 
 static int
-glusterd_create_quota_auxiliary_mount (xlator_t *this, char *volname)
+glusterd_create_quota_auxiliary_mount (xlator_t *this, char *volname, int type)
 {
         int                ret                     = -1;
         char               mountdir[PATH_MAX]      = {0,};
@@ -1872,28 +1877,30 @@ glusterd_create_quota_auxiliary_mount (xlator_t *this, char *volname)
         char              *volfileserver           = NULL;
         glusterd_conf_t   *priv                    = NULL;
         struct stat        buf                     = {0,};
+        FILE              *file                    = NULL;
 
         GF_VALIDATE_OR_GOTO ("glusterd", this, out);
         priv = this->private;
         GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
-        GLUSTERFS_GET_AUX_MOUNT_PIDFILE (pidfile_path, volname);
 
-        if (gf_is_service_running (pidfile_path, NULL)) {
-                gf_msg_debug (this->name, 0, "Aux mount of volume %s is running"
-                              " already", volname);
-                ret = 0;
-                goto out;
+        if (type == GF_QUOTA_OPTION_TYPE_LIST ||
+            type == GF_QUOTA_OPTION_TYPE_LIST_OBJECTS) {
+                GLUSTERFS_GET_QUOTA_LIST_MOUNT_PIDFILE (pidfile_path, volname);
+                GLUSTERD_GET_QUOTA_LIST_MOUNT_PATH (mountdir, volname, "/");
+        } else {
+                GLUSTERFS_GET_QUOTA_LIMIT_MOUNT_PIDFILE (pidfile_path, volname);
+                GLUSTERD_GET_QUOTA_LIMIT_MOUNT_PATH (mountdir, volname, "/");
         }
 
-        if (glusterd_is_fuse_available () == _gf_false) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_MOUNT_REQ_FAIL, "Fuse unavailable");
-                ret = -1;
-                goto out;
+        file = fopen (pidfile_path, "r");
+        if (file) {
+                /* Previous command did not clean up pid file.
+                 * remove aux mount if it exists*/
+                gf_umount_lazy (this->name, mountdir, 1);
+                fclose(file);
         }
 
-        GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH (mountdir, volname, "/");
         ret = sys_mkdir (mountdir, 0777);
         if (ret && errno != EEXIST) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -2047,7 +2054,7 @@ glusterd_op_stage_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                  */
                 if (is_origin_glusterd (dict)) {
                         ret = glusterd_create_quota_auxiliary_mount (this,
-                                                                     volname);
+                                                            volname, type);
                         if (ret) {
                                 *op_errstr = gf_strdup ("Failed to start aux "
                                                         "mount");

@@ -11547,21 +11547,12 @@ glusterd_remove_auxiliary_mount (char *volname)
 {
         int       ret                = -1;
         char      mountdir[PATH_MAX] = {0,};
-        char      pidfile[PATH_MAX]  = {0,};
         xlator_t *this               = NULL;
 
         this = THIS;
         GF_ASSERT (this);
 
-        GLUSTERFS_GET_AUX_MOUNT_PIDFILE (pidfile, volname);
-
-        if (!gf_is_service_running (pidfile, NULL)) {
-                gf_msg_debug (this->name, 0, "Aux mount of volume %s "
-                        "absent, hence returning", volname);
-                return 0;
-        }
-
-        GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH (mountdir, volname, "/");
+        GLUSTERD_GET_QUOTA_LIMIT_MOUNT_PATH (mountdir, volname, "/");
         ret = gf_umount_lazy (this->name, mountdir, 1);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
