@@ -2721,7 +2721,7 @@ gf_defrag_task (void *opaque)
                                 defrag->current_thread_count--;
                                 gf_log ("DHT", GF_LOG_INFO,
                                         "Thread sleeping. "
-                                        "defrag->current_thread_count: %d",
+                                        "current thread count: %d",
                                          defrag->current_thread_count);
 
                                 pthread_cond_wait (
@@ -2729,11 +2729,11 @@ gf_defrag_task (void *opaque)
                                            &defrag->dfq_mutex);
 
                                 defrag->current_thread_count++;
-
                                 gf_log ("DHT", GF_LOG_INFO,
                                         "Thread wokeup. "
-                                        "defrag->current_thread_count: %d",
+                                        "current thread count: %d",
                                          defrag->current_thread_count);
+
                         }
 
                         if (defrag->q_entry_count) {
@@ -2786,6 +2786,14 @@ gf_defrag_task (void *opaque)
                          finished */
 
                                 if (!defrag->crawl_done) {
+
+                                        defrag->current_thread_count--;
+                                        gf_log ("DHT", GF_LOG_INFO, "Thread "
+                                                " sleeping while  waiting for "
+                                                "migration entries. current "
+                                                "thread  count :%d",
+                                                defrag->current_thread_count);
+
                                         pthread_cond_wait (
                                            &defrag->parallel_migration_cond,
                                            &defrag->dfq_mutex);
@@ -2793,10 +2801,19 @@ gf_defrag_task (void *opaque)
 
                                 if (defrag->crawl_done &&
                                                  !defrag->q_entry_count) {
+                                        defrag->current_thread_count++;
+                                        gf_msg_debug ("DHT", 0, "Exiting thread");
+
                                         pthread_cond_broadcast (
                                              &defrag->parallel_migration_cond);
                                         goto unlock;
                                 } else {
+                                        defrag->current_thread_count++;
+                                        gf_msg_debug ("DHT", 0, "Thread woke up"
+                                                      " as found migrating entries. "
+                                                      "current thread count:%d",
+                                                      defrag->current_thread_count);
+
                                         pthread_mutex_unlock
                                                  (&defrag->dfq_mutex);
                                         continue;
@@ -4205,7 +4222,7 @@ gf_defrag_start_crawl (void *data)
 
                 INIT_LIST_HEAD (&(defrag->queue[0].list));
 
-                thread_spawn_count = MAX ((sysconf(_SC_NPROCESSORS_ONLN) - 4), 4);
+                thread_spawn_count = MAX (MAX_REBAL_THREADS, 4);
 
                 gf_msg_debug (this->name, 0, "thread_spawn_count: %d",
                               thread_spawn_count);

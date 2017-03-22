@@ -36,6 +36,7 @@
 #define DHT_ENTRY_SYNC_DOMAIN           "dht.entry.sync"
 #define TIERING_MIGRATION_KEY           "tiering.migration"
 #define DHT_LAYOUT_HASH_INVALID         1
+#define MAX_REBAL_THREADS               sysconf(_SC_NPROCESSORS_ONLN)
 
 #define DHT_DIR_STAT_BLOCKS          8
 #define DHT_DIR_STAT_SIZE            4096
@@ -614,7 +615,7 @@ struct dht_conf {
         /* Support size-weighted rebalancing (heterogeneous bricks). */
         gf_boolean_t    do_weighting;
         gf_boolean_t    randomize_by_gfid;
-        char           *dthrottle;
+        int             dthrottle;
 
         dht_methods_t   methods;
 
