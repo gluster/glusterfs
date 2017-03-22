@@ -40,12 +40,8 @@ EXPECT 'on' volinfo_field $V0 'features.quota'
 EXPECT 'on' volinfo_field $V0 'features.inode-quota'
 EXPECT 'on' volinfo_field $V0 'features.quota-deem-statfs'
 
-#Wait for the auxiliarymount to come up
-sleep 3
 
 TEST $CLI volume quota $V0 limit-usage /test_dir 100MB
-# Checking for auxiliary mount
-EXPECT "0"  get_aux
 
 TEST $CLI volume quota $V0 limit-usage /test_dir/in_test_dir 150MB
 
@@ -231,9 +227,7 @@ EXPECT 'off' volinfo_field $V0 'features.quota'
 EXPECT 'off' volinfo_field $V0 'features.inode-quota'
 EXPECT '' volinfo_field $V0 'features.quota-deem-statfs'
 
-# aux mount should be removed
 TEST $CLI volume stop $V0;
-EXPECT "1" get_aux
 
 rm -f $QDD
 cleanup;
