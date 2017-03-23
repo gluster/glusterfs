@@ -26,6 +26,114 @@
                                    EC_FLAG_WAITING_DATA_DIRTY |\
                                    EC_FLAG_WAITING_METADATA_DIRTY)
 
+void
+ec_update_fd_status (fd_t *fd, xlator_t *xl, int idx,
+                     int32_t ret_status)
+{
+        ec_fd_t *fd_ctx;
+
+        if (fd == NULL)
+                return;
+
+        LOCK (&fd->lock);
+        {
+                fd_ctx = __ec_fd_get(fd, xl);
+                if (fd_ctx) {
+                        if (ret_status >= 0)
+                                fd_ctx->fd_status[idx] = EC_FD_OPENED;
+                        else
+                                fd_ctx->fd_status[idx] = EC_FD_NOT_OPENED;
+                }
+        }
+        UNLOCK (&fd->lock);
+}
+
+static int
+ec_fd_ctx_need_open (fd_t *fd, xlator_t *this, uintptr_t *need_open)
+{
+    int i = 0;
+    int count = 0;
+    ec_t *ec = NULL;
+    ec_fd_t *fd_ctx = NULL;
+
+    ec = this->private;
+    *need_open = 0;
+
+    fd_ctx = ec_fd_get (fd, this);
+    if (!fd_ctx)
+        return count;
+
+    LOCK (&fd->lock);
+    {
+        for (i = 0; i < ec->nodes; i++) {
+                if ((fd_ctx->fd_status[i] == EC_FD_NOT_OPENED) &&
+                    (ec->xl_up & (1<<i))) {
+                        fd_ctx->fd_status[i] = EC_FD_OPENING;
+                        *need_open |= (1<<i);
+                        count++;
+                }
+        }
+    }
+    UNLOCK (&fd->lock);
+
+    /* If fd needs to open on minimum number of nodes
+     * then ignore fixing the fd as it has been
+     * requested from heal operation.
+     */
+    if (count >= ec->fragments)
+        count = 0;
+
+    return count;
+}
+
+static gf_boolean_t
+ec_is_fd_fixable (fd_t *fd)
+{
+    if (!fd || !fd->inode)
+        return _gf_false;
+    else if (fd_is_anonymous (fd))
+        return _gf_false;
+    else if (gf_uuid_is_null (fd->inode->gfid))
+        return _gf_false;
+
+    return _gf_true;
+}
+
+static void
+ec_fix_open (ec_fop_data_t *fop)
+{
+    int                call_count = 0;
+    uintptr_t           need_open = 0;
+    int                       ret = 0;
+    loc_t                     loc = {0, };
+
+    if (!ec_is_fd_fixable (fop->fd))
+        goto out;
+
+    /* Evaluate how many remote fd's to be opened */
+    call_count = ec_fd_ctx_need_open (fop->fd, fop->xl, &need_open);
+    if (!call_count)
+        goto out;
+
+    loc.inode = inode_ref (fop->fd->inode);
+    gf_uuid_copy (loc.gfid, fop->fd->inode->gfid);
+    ret = loc_path (&loc, NULL);
+    if (ret < 0) {
+        goto out;
+    }
+
+    if (IA_IFDIR == fop->fd->inode->ia_type) {
+        ec_opendir(fop->frame, fop->xl, need_open, EC_MINIMUM_ONE,
+                   NULL, NULL, &fop->loc[0], fop->fd, NULL);
+    } else{
+        ec_open(fop->frame, fop->xl, need_open, EC_MINIMUM_ONE,
+                NULL, NULL, &loc, fop->fd->flags, fop->fd, NULL);
+    }
+
+out:
+    loc_wipe (&loc);
+}
+
 off_t
 ec_range_end_get (off_t fl_start, size_t fl_size)
 {
@@ -1676,6 +1784,11 @@ void ec_lock_acquired(ec_lock_link_t *link)
     UNLOCK(&lock->loc.inode->lock);
 
     ec_lock_apply(link);
+
+    if (fop->use_fd &&
+        (link->update[EC_DATA_TXN] || link->update[EC_METADATA_TXN])) {
+        ec_fix_open(fop);
+    }
 
     ec_lock_resume_shared(&list);
 }
