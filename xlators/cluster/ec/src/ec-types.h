@@ -115,6 +115,13 @@ enum _ec_read_policy {
         EC_READ_POLICY_MAX
 };
 
+/* Enumartions to indicate FD status. */
+typedef enum {
+    EC_FD_NOT_OPENED,
+    EC_FD_OPENED,
+    EC_FD_OPENING
+} ec_fd_status_t;
+
 struct _ec_config {
     uint32_t version;
     uint8_t  algorithm;
@@ -128,6 +135,7 @@ struct _ec_fd {
     loc_t     loc;
     uintptr_t open;
     int32_t   flags;
+    ec_fd_status_t fd_status[0];
 };
 
 struct _ec_inode {
@@ -252,17 +260,21 @@ struct _ec_lock_link {
     uint64_t          size;
 };
 
+/* EC xlator data structure to collect all the data required to perform
+ * the file operation.*/
 struct _ec_fop_data {
-    int32_t            id;
+    int32_t            id;           /* ID of the file operation */
     int32_t            refs;
     int32_t            state;
-    int32_t            minimum;
+    int32_t            minimum;      /* Mininum number of successful
+                                        operation required to conclude a
+                                        fop as successful */
     int32_t            expected;
     int32_t            winds;
     int32_t            jobs;
     int32_t            error;
     ec_fop_data_t     *parent;
-    xlator_t          *xl;
+    xlator_t          *xl;           /* points to EC xlator */
     call_frame_t      *req_frame;    /* frame of the calling xlator */
     call_frame_t      *frame;        /* frame used by this fop */
     struct list_head   cbk_list;     /* sorted list of groups of answers */
@@ -288,10 +300,10 @@ struct _ec_fop_data {
     uid_t              uid;
     gid_t              gid;
 
-    ec_wind_f          wind;
-    ec_handler_f       handler;
+    ec_wind_f          wind;          /* Function to wind to */
+    ec_handler_f       handler;       /* FOP manager function */
     ec_resume_f        resume;
-    ec_cbk_t           cbks;
+    ec_cbk_t           cbks;          /* Callback function for this FOP */
     void              *data;
     ec_heal_t         *heal;
     struct list_head   healer;
@@ -299,7 +311,8 @@ struct _ec_fop_data {
     uint64_t           user_size;
     uint32_t           head;
 
-    int32_t            use_fd;
+    int32_t            use_fd;        /* Indicates whether this FOP uses FD or
+                                         not */
 
     dict_t            *xdata;
     dict_t            *dict;
@@ -313,10 +326,12 @@ struct _ec_fop_data {
     gf_xattrop_flags_t xattrop_flags;
     dev_t              dev;
     inode_t           *inode;
-    fd_t              *fd;
+    fd_t              *fd;              /* FD of the file on which FOP is
+                                           being carried upon */
     struct iatt        iatt;
     char              *str[2];
-    loc_t              loc[2];
+    loc_t              loc[2];          /* Holds the location details for
+                                           the file */
     struct gf_flock    flock;
     struct iovec      *vector;
     struct iobref     *buffers;
@@ -544,18 +559,24 @@ struct _ec {
     xlator_t          *xl;
     int32_t            healers;
     int32_t            heal_waiters;
-    int32_t            nodes;
+    int32_t            nodes;                /* Total number of bricks(n) */
     int32_t            bits_for_nodes;
-    int32_t            fragments;
-    int32_t            redundancy;
-    uint32_t           fragment_size;
-    uint32_t           stripe_size;
-    int32_t            up;
+    int32_t            fragments;            /* Data bricks(k) */
+    int32_t            redundancy;           /* Redundant bricks(m) */
+    uint32_t           fragment_size;        /* Size of fragment/chunk on a
+                                                brick. */
+    uint32_t           stripe_size;          /* (fragment_size * fragments)
+                                                maximum size of user data
+                                                stored in one stripe. */
+    int32_t            up;                   /* Represents whether EC volume is
+                                                up or not. */
     uint32_t           idx;
-    uint32_t           xl_up_count;
-    uintptr_t          xl_up;
-    uint32_t           xl_notify_count;
-    uintptr_t          xl_notify;
+    uint32_t           xl_up_count;          /* Number of UP bricks. */
+    uintptr_t          xl_up;                /* Bit flag representing UP
+                                                bricks */
+    uint32_t           xl_notify_count;      /* Number of notifications. */
+    uintptr_t          xl_notify;            /* Bit flag representing
+                                                notification for bricks. */
     uintptr_t          node_mask;
     xlator_t         **xl_list;
     gf_lock_t          lock;

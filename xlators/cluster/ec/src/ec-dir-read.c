@@ -19,7 +19,11 @@
 #include "ec-method.h"
 #include "ec-fops.h"
 
-/* FOP: opendir */
+/****************************************************************
+ *
+ * File Operation: opendir
+ *
+ ***************************************************************/
 
 int32_t ec_combine_opendir(ec_fop_data_t * fop, ec_cbk_data_t * dst,
                            ec_cbk_data_t * src)
@@ -88,6 +92,8 @@ int32_t ec_opendir_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
         }
 
         ec_combine(cbk, ec_combine_opendir);
+
+        ec_update_fd_status (fd, this, idx, op_ret);
     }
 
 out:
