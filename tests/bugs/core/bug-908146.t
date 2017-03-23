@@ -2,18 +2,8 @@
 
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
+. $(dirname $0)/../../fileio.rc
 
-function get_fd_count {
-        local vol=$1
-        local host=$2
-        local brick=$3
-        local fname=$4
-        local gfid_str=$(gf_gfid_xattr_to_str $(gf_get_gfid_xattr $brick/$fname))
-        local statedump=$(generate_brick_statedump $vol $host $brick)
-        local count=$(grep "gfid=$gfid_str" $statedump -A2 | grep fd-count | cut -f2 -d'=' | tail -1)
-        rm -f $statedump
-        echo $count
-}
 cleanup;
 
 TEST glusterd

@@ -140,4 +140,7 @@ int32_t ec_lock_unlocked(call_frame_t *frame, void *cookie,
                          xlator_t *this, int32_t op_ret, int32_t op_errno,
                          dict_t *xdata);
 
+void
+ec_update_fd_status (fd_t *fd, xlator_t *xl,
+                     int child_index, int32_t ret_status);
 #endif /* __EC_COMMON_H__ */

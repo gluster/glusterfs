@@ -71,6 +71,7 @@ ec_dir_write_cbk (call_frame_t *frame, xlator_t *this,
 out:
         if (cbk)
                 ec_combine (cbk, ec_combine_write);
+
         if (fop)
                 ec_complete (fop);
         return 0;

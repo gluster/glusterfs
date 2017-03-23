@@ -749,6 +749,9 @@ int32_t ec_open_cbk(call_frame_t * frame, void * cookie, xlator_t * this,
         }
 
         ec_combine(cbk, ec_combine_open);
+
+        ec_update_fd_status (fd, this, idx, op_ret);
+
     }
 
 out:

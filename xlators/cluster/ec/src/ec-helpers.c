@@ -764,27 +764,32 @@ ec_inode_t * ec_inode_get(inode_t * inode, xlator_t * xl)
 
 ec_fd_t * __ec_fd_get(fd_t * fd, xlator_t * xl)
 {
+    int i = 0;
     ec_fd_t * ctx = NULL;
     uint64_t value = 0;
+    ec_t *ec = xl->private;
 
-    if ((__fd_ctx_get(fd, xl, &value) != 0) || (value == 0))
-    {
-        ctx = GF_MALLOC(sizeof(*ctx), ec_mt_ec_fd_t);
-        if (ctx != NULL)
-        {
+    if ((__fd_ctx_get(fd, xl, &value) != 0) || (value == 0)) {
+        ctx = GF_MALLOC(sizeof(*ctx) + (sizeof (ec_fd_status_t) * ec->nodes),
+                        ec_mt_ec_fd_t);
+        if (ctx != NULL) {
             memset(ctx, 0, sizeof(*ctx));
 
-            value = (uint64_t)(uintptr_t)ctx;
-            if (__fd_ctx_set(fd, xl, value) != 0)
-            {
-                GF_FREE(ctx);
+            for (i = 0; i < ec->nodes; i++) {
+                if (fd_is_anonymous (fd)) {
+                        ctx->fd_status[i] = EC_FD_OPENED;
+                } else {
+                        ctx->fd_status[i] = EC_FD_NOT_OPENED;
+                }
+            }
 
+            value = (uint64_t)(uintptr_t)ctx;
+            if (__fd_ctx_set(fd, xl, value) != 0) {
+                GF_FREE (ctx);
                 return NULL;
             }
         }
-    }
-    else
-    {
+    } else {
         ctx = (ec_fd_t *)(uintptr_t)value;
     }
 
