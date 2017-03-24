@@ -719,9 +719,16 @@ fuse_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 static int
+fuse_root_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno,
+                      inode_t *inode, struct iatt *stat, dict_t *dict,
+                      struct iatt *postparent);
+
+static int
 fuse_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iatt *buf, dict_t *xdata)
 {
+        int32_t           ret = 0;
         fuse_state_t     *state;
         fuse_in_header_t *finh;
         fuse_private_t   *priv = NULL;
@@ -758,6 +765,36 @@ fuse_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 send_fuse_obj (this, finh, &fao);
 #endif
         } else {
+                /* This is moved here from fuse_getattr(). It makes sense as
+                   in few cases, like the self-heal processes, some
+                   translators expect a lookup() to come on root inode
+                   (inode number 1). This will make sure we don't fail in any
+                   case, but the positive path will get better performance,
+                   by following common path for all the cases */
+                if ((finh->nodeid == 1) && (state->gfid[15] != 1)) {
+                        /* The 'state->gfid[15]' check is added to prevent the
+                           infinite recursions */
+                        state->gfid[15] = 1;
+
+                        ret = fuse_loc_fill (&state->loc, state, finh->nodeid,
+                                             0, NULL);
+                        if (ret < 0) {
+                                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                                        "%"PRIu64": loc_fill() on / failed",
+                                        finh->unique);
+                                send_fuse_err (this, finh, ENOENT);
+                                free_fuse_state (state);
+                                return 0;
+                        }
+
+                        fuse_gfid_set (state);
+
+                        FUSE_FOP (state, fuse_root_lookup_cbk, GF_FOP_LOOKUP,
+                                  lookup, &state->loc, state->xdata);
+
+                        return 0;
+                }
+
                 GF_LOG_OCCASIONALLY ( gf_fuse_conn_err_log, "glusterfs-fuse",
                                       GF_LOG_WARNING,
                                       "%"PRIu64": %s() %s => -1 (%s)",
@@ -828,29 +865,8 @@ static void
 fuse_getattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
         fuse_state_t *state;
-        int32_t       ret = -1;
 
         GET_STATE (this, finh, state);
-
-        if (finh->nodeid == 1) {
-                state->gfid[15] = 1;
-
-                ret = fuse_loc_fill (&state->loc, state, finh->nodeid, 0, NULL);
-                if (ret < 0) {
-                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                                "%"PRIu64": GETATTR on / (fuse_loc_fill() failed)",
-                                finh->unique);
-                        send_fuse_err (this, finh, ENOENT);
-                        free_fuse_state (state);
-                        return;
-                }
-
-                fuse_gfid_set (state);
-
-                FUSE_FOP (state, fuse_root_lookup_cbk, GF_FOP_LOOKUP,
-                          lookup, &state->loc, state->xdata);
-                return;
-        }
 
         fuse_resolve_inode_init (state, &state->resolve, state->finh->nodeid);
 
