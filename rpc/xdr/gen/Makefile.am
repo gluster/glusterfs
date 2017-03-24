@@ -18,7 +18,7 @@ xdrsrc=$(top_srcdir)/rpc/xdr/src
 # in the build. Or we do this crufty thing instead.
 $(XDRSOURCES): $(XDRGENFILES)
 	if [ ! -e $@ -o $(@:.c=.x) -nt $@ ]; then \
-		rpcgen -c -o $(@:.c=.tmp) $(@:.c=.x) && mv $(@:.c=.tmp) $@ ; \
+		rpcgen -c -o $(@:.c=.tmpc) $(@:.c=.x) && mv $(@:.c=.tmpc) $@ ; \
 		cp $@ $(xdrsrc)/ ;\
 	fi
 
@@ -26,9 +26,9 @@ $(XDRSOURCES): $(XDRGENFILES)
 # (why are we still running smoke on netbsd6 and not netbsd7?)
 $(XDRHEADERS): $(XDRGENFILES)
 	if [ ! -e $@ -o $(@:.h=.x) -nt $@ ]; then \
-		rpcgen -h -o $(@:.h=.tmp) $(@:.h=.x) ; \
+		rpcgen -h -o $(@:.h=.tmph) $(@:.h=.x) ; \
 		sed -e '/#ifndef/ s/-/_/g' -e '/#define/ s/-/_/g' -e '/#endif/ s/-/_/' \
-			$(@:.h=.tmp) > $@ && rm -f $(@:.h=.tmp) ; \
+			$(@:.h=.tmph) > $@ && rm -f $(@:.h=.tmph) ; \
 		cp $@ $(xdrsrc)/ ; \
 	fi
 
