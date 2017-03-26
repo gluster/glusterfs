@@ -2549,6 +2549,8 @@ client3_3_readdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         frame = myframe;
         local = frame->local;
 
+        INIT_LIST_HEAD (&entries.list);
+
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = ENOTCONN;
@@ -2564,7 +2566,6 @@ client3_3_readdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        INIT_LIST_HEAD (&entries.list);
         ret = client_post_readdir (this, &rsp, &entries, &xdata);
         if (ret < 0)
                 goto out;
@@ -2611,6 +2612,8 @@ client3_3_readdirp_cbk (struct rpc_req *req, struct iovec *iov, int count,
         frame = myframe;
         local = frame->local;
 
+        INIT_LIST_HEAD (&entries.list);
+
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = ENOTCONN;
@@ -2626,7 +2629,6 @@ client3_3_readdirp_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        INIT_LIST_HEAD (&entries.list);
         ret = client_post_readdirp (this, &rsp, local->fd, &entries, &xdata);
         if (ret < 0)
                 goto out;
