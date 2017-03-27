@@ -10,14 +10,13 @@
 
 #include "globals.h"
 #include "run.h"
+#include "syscall.h"
 #include "glusterd.h"
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
 #include "glusterd-nfs-svc.h"
 #include "glusterd-messages.h"
 #include "glusterd-svc-helper.h"
-
-static char *nfs_svc_name = "nfs";
 
 static gf_boolean_t
 glusterd_nfssvc_need_start ()
@@ -41,19 +40,13 @@ glusterd_nfssvc_need_start ()
         return start;
 }
 
-int
-glusterd_nfssvc_init (glusterd_svc_t *svc)
-{
-        return glusterd_svc_init (svc, nfs_svc_name);
-}
-
 static int
 glusterd_nfssvc_create_volfile ()
 {
         char            filepath[PATH_MAX] = {0,};
         glusterd_conf_t *conf = THIS->private;
 
-        glusterd_svc_build_volfile_path (nfs_svc_name, conf->workdir,
+        glusterd_svc_build_volfile_path (conf->nfs_svc.name, conf->workdir,
                                          filepath, sizeof (filepath));
         return glusterd_create_global_volfile (build_nfs_graph,
                                                filepath, NULL);
@@ -65,21 +58,30 @@ glusterd_nfssvc_manager (glusterd_svc_t *svc, void *data, int flags)
         int                 ret     = -1;
 
         if (!svc->inited) {
-                ret = glusterd_nfssvc_init (svc);
+                ret = glusterd_svc_init (svc, "nfs");
                 if (ret) {
                         gf_msg (THIS->name, GF_LOG_ERROR, 0,
-                                GD_MSG_FAILED_INIT_NFSSVC, "Failed to init nfs "
-                                "service");
+                                GD_MSG_FAILED_INIT_NFSSVC,
+                                "Failed to init nfs service");
                         goto out;
                 } else {
                         svc->inited = _gf_true;
-                        gf_msg_debug (THIS->name, 0, "nfs service initialized");
+                        gf_msg_debug (THIS->name, 0,
+                                      "nfs service initialized");
                 }
         }
 
         ret = svc->stop (svc, SIGKILL);
         if (ret)
                 goto out;
+
+        /* not an error, or a (very) soft error at best */
+        if (sys_access (XLATORDIR "/nfs/server.so", R_OK) != 0) {
+                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                        GD_MSG_GNFS_XLATOR_NOT_INSTALLED,
+                        "nfs/server.so xlator is not installed");
+                goto out;
+        }
 
         ret = glusterd_nfssvc_create_volfile ();
         if (ret)

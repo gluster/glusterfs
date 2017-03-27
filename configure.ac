@@ -1335,6 +1335,17 @@ if test "x$enable_glupy" = "xyes"; then
 fi
 dnl end glupy section
 
+dnl gnfs section
+BUILD_GNFS="no"
+AC_ARG_ENABLE([gnfs],
+              AC_HELP_STRING([--enable-gnfs],
+                             [Enable legacy gnfs server xlator.]))
+if test "x$enable_gnfs" = "xyes"; then
+    BUILD_GNFS="yes"
+fi
+AM_CONDITIONAL([BUILD_GNFS], [test x$BUILD_GNFS = xyes])
+dnl end gnfs section
+
 dnl Check for userspace-rcu
 PKG_CHECK_MODULES([URCU], [liburcu-bp], [],
   [AC_CHECK_HEADERS([urcu-bp.h],
@@ -1581,4 +1592,5 @@ echo "Events               : $BUILD_EVENTS"
 echo "EC dynamic support   : $EC_DYNAMIC_SUPPORT"
 echo "Use memory pools     : $USE_MEMPOOL"
 echo "Nanosecond m/atimes  : $BUILD_NANOSECOND_TIMESTAMPS"
+echo "Legacy gNFS server   : $BUILD_GNFS"
 echo

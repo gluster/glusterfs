@@ -18,7 +18,7 @@ autogen:
 	cd ../.. && \
 	rm -rf autom4te.cache && \
 	./autogen.sh && \
-	./configure --with-previous-options
+	./configure --enable-gnfs --with-previous-options
 
 prep:
 	$(MAKE) -C ../.. dist;
@@ -36,7 +36,7 @@ srcrpm:
 	mv rpmbuild/SRPMS/* .
 
 rpms:
-	rpmbuild --define '_topdir $(shell pwd)/rpmbuild' -bb rpmbuild/SPECS/glusterfs.spec
+	rpmbuild --define '_topdir $(shell pwd)/rpmbuild' --with gnfs -bb rpmbuild/SPECS/glusterfs.spec
 	mv rpmbuild/RPMS/*/* .
 
 # EPEL-5 does not like new versions of rpmbuild and requires some

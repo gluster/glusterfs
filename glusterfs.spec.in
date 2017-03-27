@@ -47,6 +47,10 @@
 %global _without_georeplication --disable-georeplication
 %endif
 
+# if you wish to compile an rpm with the legacy gNFS server xlator
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with gnfs
+%{?_with_gnfs:%global _with_gnfs --enable-gnfs}
+
 # if you wish to compile an rpm without the OCF resource agents...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without ocf
 %{?_without_ocf:%global _without_ocf --without-ocf}
@@ -100,7 +104,7 @@
 %endif
 
 # From https://fedoraproject.org/wiki/Packaging:Python#Macros
-%if ( 0%{?rhel} && 0%{?rhel} <= 5 )
+%if ( 0%{?rhel} && 0%{?rhel} <= 6 )
 %{!?python2_sitelib: %global python2_sitelib %(python2 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
 %{!?python2_sitearch: %global python2_sitearch %(python2 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(1))")}
 %endif
@@ -401,6 +405,26 @@ is in userspace and easily manageable.
 This package provides support to geo-replication.
 %endif
 
+%if ( 0%{?_with_gnfs:1} )
+%package gnfs
+Summary:          GlusterFS gNFS server
+Group:            System Environment/Daemons
+Requires:         %{name}%{?_isa} = %{version}-%{release}
+Requires:         %{name}-client-xlators%{?_isa} = %{version}-%{release}
+Requires:         nfs-utils
+
+%description gnfs
+GlusterFS is a distributed file-system capable of scaling to several
+petabytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file systems in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in user space and easily manageable.
+
+This package provides the glusterfs legacy gNFS server xlator
+%endif
+
 %package libs
 Summary:          GlusterFS common libraries
 Group:            Applications/File
@@ -530,7 +554,6 @@ Requires:         %{name}-api%{?_isa} = %{version}-%{release}
 Requires:         %{name}-client-xlators%{?_isa} = %{version}-%{release}
 # lvm2 for snapshot, and nfs-utils and rpcbind/portmap for gnfs server
 Requires:         lvm2
-Requires:         nfs-utils
 %if ( 0%{?_with_systemd:1} )
 %{?systemd_requires}
 %else
@@ -630,18 +653,19 @@ export CFLAGS
 %configure \
         %{?_with_cmocka} \
         %{?_with_debug} \
-        %{?_with_valgrind} \
+        %{?_with_firewalld} \
+        %{?_with_gnfs} \
         %{?_with_tmpfilesdir} \
+        %{?_with_valgrind} \
         %{?_without_bd} \
         %{?_without_epoll} \
+        %{?_without_events} \
         %{?_without_fusermount} \
         %{?_without_georeplication} \
-        %{?_with_firewalld} \
         %{?_without_ocf} \
         %{?_without_rdma} \
         %{?_without_syslog} \
-        %{?_without_tiering} \
-        %{?_without_events}
+        %{?_without_tiering}
 
 # fix hardening and remove rpath in shlibs
 %if ( 0%{?fedora} && 0%{?fedora} > 17 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
@@ -1059,6 +1083,16 @@ exit 0
 %endif
 %endif
 
+%if ( 0%{?_with_gnfs:1} )
+%files gnfs
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs/*
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs
+%ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/nfs-server.vol
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs/run
+%ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
+%endif
+
 %if ( 0%{!?_without_georeplication:1} )
 %files geo-replication
 %config(noreplace) %{_sysconfdir}/logrotate.d/glusterfs-georep
@@ -1126,6 +1160,11 @@ exit 0
 # sysconf
 %config(noreplace) %{_sysconfdir}/glusterfs
 %exclude %{_sysconfdir}/glusterfs/eventsconfig.json
+%exclude %{_sharedstatedir}/glusterd/nfs/nfs-server.vol
+%exclude %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
+%if ( 0%{?_with_gnfs:1} )
+%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs/*
+%endif
 %config(noreplace) %{_sysconfdir}/sysconfig/glusterd
 %if ( 0%{_for_fedora_koji_builds} )
 %config(noreplace) %{_sysconfdir}/sysconfig/glusterfsd
@@ -1166,7 +1205,6 @@ exit 0
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/upcall.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/leases.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt*
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage*
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/decompounder.so
@@ -1227,10 +1265,6 @@ exit 0
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop/pre
             %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop/pre/S30samba-stop.sh
             %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop/pre/S29CTDB-teardown.sh
-%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs
-%ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/nfs-server.vol
-%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs/run
-%ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/options
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/peers
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/quotad
@@ -1272,6 +1306,9 @@ exit 0
 %endif
 
 %changelog
+* Thu Apr 27 2017 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- gnfs in an optional subpackage
+
 * Wed Apr 26 2017 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - /var/run/gluster owner gluster:gluster(0775) for qemu(gfapi)
   statedumps (#1445569)
