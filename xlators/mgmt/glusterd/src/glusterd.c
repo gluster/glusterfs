@@ -1331,34 +1331,6 @@ out:
         return ret;
 }
 
-static void
-glusterd_svcs_build ()
-{
-        xlator_t           *this    = NULL;
-        glusterd_conf_t    *priv    = NULL;
-
-        this = THIS;
-        GF_ASSERT (this);
-
-        priv = this->private;
-        GF_ASSERT (priv);
-
-        priv->shd_svc.build = glusterd_shdsvc_build;
-        priv->shd_svc.build (&(priv->shd_svc));
-
-        priv->nfs_svc.build = glusterd_nfssvc_build;
-        priv->nfs_svc.build (&(priv->nfs_svc));
-
-        priv->quotad_svc.build = glusterd_quotadsvc_build;
-        priv->quotad_svc.build (&(priv->quotad_svc));
-
-        priv->bitd_svc.build = glusterd_bitdsvc_build;
-        priv->bitd_svc.build (&(priv->bitd_svc));
-
-        priv->scrub_svc.build = glusterd_scrubsvc_build;
-        priv->scrub_svc.build (&(priv->scrub_svc));
-}
-
 static int
 is_upgrade (dict_t *options, gf_boolean_t *upgrade)
 {
@@ -1806,7 +1778,12 @@ init (xlator_t *this)
         this->private = conf;
         glusterd_mgmt_v3_lock_init ();
         glusterd_txn_opinfo_dict_init ();
-        glusterd_svcs_build ();
+
+        glusterd_shdsvc_build (&conf->shd_svc);
+        glusterd_nfssvc_build (&conf->nfs_svc);
+        glusterd_quotadsvc_build (&conf->quotad_svc);
+        glusterd_bitdsvc_build (&conf->bitd_svc);
+        glusterd_scrubsvc_build (&conf->scrub_svc);
 
         /* Make install copies few of the hook-scripts by creating hooks
          * directory. Hence purposefully not doing the check for the presence of

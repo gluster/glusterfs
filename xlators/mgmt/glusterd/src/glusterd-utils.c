@@ -597,11 +597,8 @@ glusterd_volinfo_new (glusterd_volinfo_t **volinfo)
 
         new_volinfo->xl = THIS;
 
-        new_volinfo->snapd.svc.build = glusterd_snapdsvc_build;
-        new_volinfo->snapd.svc.build (&(new_volinfo->snapd.svc));
-
-        new_volinfo->tierd.svc.build = glusterd_tierdsvc_build;
-        new_volinfo->tierd.svc.build (&(new_volinfo->tierd.svc));
+        glusterd_snapdsvc_build (&new_volinfo->snapd.svc);
+        glusterd_tierdsvc_build (&new_volinfo->tierd.svc);
 
         pthread_mutex_init (&new_volinfo->reflock, NULL);
         *volinfo = glusterd_volinfo_ref (new_volinfo);

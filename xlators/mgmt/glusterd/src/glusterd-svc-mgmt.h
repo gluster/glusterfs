@@ -29,7 +29,6 @@ struct glusterd_svc_ {
         char                      name[PATH_MAX];
         glusterd_conn_t           conn;
         glusterd_proc_t           proc;
-        glusterd_svc_build_t      build;
         glusterd_svc_manager_t    manager;
         glusterd_svc_start_t      start;
         glusterd_svc_stop_t       stop;
