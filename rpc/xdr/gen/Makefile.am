@@ -18,17 +18,17 @@ xdrsrc=$(top_srcdir)/rpc/xdr/src
 # in the build. Or we do this crufty thing instead.
 $(XDRSOURCES): $(XDRGENFILES)
 	if [ ! -e $@ -o $(@:.c=.x) -nt $@ ]; then \
-		rpcgen -c -o $(@:.c=.tmpc) $(@:.c=.x) && mv $(@:.c=.tmpc) $@ ; \
-		cp $@ $(xdrsrc)/ ;\
+		rpcgen -c -o $@ $(@:.c=.x) && cp $@ $(xdrsrc)/ ;\
 	fi
 
 # d*mn sed in netbsd6 doesn't do -i (inline)
 # (why are we still running smoke on netbsd6 and not netbsd7?)
 $(XDRHEADERS): $(XDRGENFILES)
 	if [ ! -e $@ -o $(@:.h=.x) -nt $@ ]; then \
-		rpcgen -h -o $(@:.h=.tmph) $(@:.h=.x) ; \
-		sed -e '/#ifndef/ s/-/_/g' -e '/#define/ s/-/_/g' -e '/#endif/ s/-/_/' \
-			$(@:.h=.tmph) > $@ && rm -f $(@:.h=.tmph) ; \
+		rpcgen -h -o $(@:.h=.tmp) $(@:.h=.x) && \
+		sed -e '/#ifndef/ s/-/_/g' -e '/#define/ s/-/_/g' \
+			-e '/#endif/ s/-/_/' -e 's/TMP_/H_/g' \
+			$(@:.h=.tmp) > $@ && rm -f $(@:.h=.tmp) && \
 		cp $@ $(xdrsrc)/ ; \
 	fi
 
