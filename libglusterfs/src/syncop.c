@@ -364,7 +364,7 @@ synctask_wake (struct synctask *task)
 }
 
 void
-synctask_wrap (struct synctask *old_task)
+synctask_wrap (void)
 {
         struct synctask *task = NULL;
 
@@ -509,7 +509,7 @@ synctask_create (struct syncenv *env, size_t stacksize, synctask_fn_t fn,
 
         newtask->ctx.uc_stack.ss_sp   = newtask->stack;
 
-        makecontext (&newtask->ctx, (void (*)(void)) synctask_wrap, 1, newtask);
+        makecontext (&newtask->ctx, (void (*)(void)) synctask_wrap, 0);
 
         newtask->state = SYNCTASK_INIT;
 
