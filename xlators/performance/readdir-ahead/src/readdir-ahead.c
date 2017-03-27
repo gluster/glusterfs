@@ -236,6 +236,10 @@ rda_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 ret = __rda_serve_readdirp (this, ctx, size, &entries,
                                             &op_errno);
                 serve = _gf_true;
+
+                if (op_errno == ENOENT && !((ctx->state & RDA_FD_EOD) &&
+                                            (ctx->cur_size == 0)))
+                        op_errno = 0;
         } else {
                 ctx->stub = fop_readdirp_stub (frame, NULL, fd, size, off,
                                                xdata);
@@ -379,6 +383,10 @@ out:
 		STACK_DESTROY(ctx->fill_frame->root);
 		ctx->fill_frame = NULL;
 	}
+
+        if (op_errno == ENOENT && !((ctx->state & RDA_FD_EOD) &&
+                                    (ctx->cur_size == 0)))
+                op_errno = 0;
 
 	UNLOCK(&ctx->lock);
 
