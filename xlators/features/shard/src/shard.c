@@ -1269,7 +1269,7 @@ shard_common_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         else
                 inode = local->fd->inode;
 
-        shard_inode_ctx_invalidate (inode, this, buf);
+        shard_inode_ctx_invalidate (inode, this, &local->prebuf);
 
 unwind:
         local->handler (frame, this);
