@@ -956,16 +956,19 @@ AC_SUBST(ARGP_STANDALONE_CPPFLAGS)
 AC_SUBST(ARGP_STANDALONE_LDADD)
 AC_SUBST(ARGP_STANDALONE_DIR)
 
-# Check for atomic operation support
-echo -n "checking for atomic operation support... "
-AC_LINK_IFELSE([AC_LANG_SOURCE([[int main() { long int a = 4; __sync_fetch_and_add_8 (&a, 1); }]])],
-                   [have_sync_fetch_and_add_8=yes], [have_sync_fetch_and_add_8=no])
-if test "x${have_sync_fetch_and_add_8}" = "xyes"; then
-  echo "yes"
-  AC_DEFINE(HAVE_ATOMIC_BUILTINS, 1, [have atomic builtins])
-else
-  echo "no"
+dnl Check for atomic operation support
+AC_CHECK_FUNC([__atomic_load], [have_atomic_builtins])
+if test "x${have_atomic_builtins}" = "xyes"; then
+   AC_DEFINE(HAVE_ATOMIC_BUILTINS, 1, [define if __atomic_*() builtins are available])
 fi
+AC_SUBST(HAVE_ATOMIC_BUILTINS)
+
+dnl __sync_*() will not be needed if __atomic_*() is available
+AC_CHECK_FUNC([__sync_fetch_and_add], [have_sync_builtins])
+if test "x${have_sync_builtind}" = "xyes"; then
+   AC_DEFINE(HAVE_SYNC_BUILTINS, 1, [define if __sync_*() builtins are available])
+fi
+AC_SUBST(HAVE_SYNC_BUILTINS)
 
 AC_CHECK_HEADER([malloc.h], AC_DEFINE(HAVE_MALLOC_H, 1, [have malloc.h]))
 

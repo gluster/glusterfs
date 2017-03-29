@@ -53,7 +53,7 @@ libglusterfs_la_HEADERS = common-utils.h defaults.h default-args.h \
 	syncop-utils.h parse-utils.h libglusterfs-messages.h tw.h \
 	lvm-defaults.h quota-common-utils.h rot-buffs.h \
 	compat-uuid.h upcall-utils.h throttle-tbf.h events.h\
-	compound-fop-utils.h
+	compound-fop-utils.h atomic.h
 
 libglusterfs_ladir = $(includedir)/glusterfs
 

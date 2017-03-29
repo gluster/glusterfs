@@ -13,6 +13,7 @@
 
 #include "list.h"
 #include "locking.h"
+#include "atomic.h"
 #include "logging.h"
 #include "mem-types.h"
 #include <stdlib.h>
@@ -48,14 +49,7 @@ struct mem_acct_rec {
 
 struct mem_acct {
         uint32_t            num_types;
-        /*
-         * The lock is only used on ancient platforms (e.g. RHEL5) to keep
-         * refcnt increment/decrement atomic.  We could even make its existence
-         * conditional on the right set of version/feature checks, but it's so
-         * lightweight that it's not worth the obfuscation.
-         */
-        gf_lock_t           lock;
-        unsigned int        refcnt;
+        gf_atomic_t         refcnt;
         struct mem_acct_rec rec[0];
 };
 

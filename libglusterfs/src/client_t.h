@@ -13,6 +13,7 @@
 
 #include "glusterfs.h"
 #include "locking.h"  /* for gf_lock_t, not included by glusterfs.h */
+#include "atomic.h" /* for gf_atomic_t */
 
 struct client_ctx {
         void     *ctx_key;
@@ -26,11 +27,8 @@ typedef struct _client_t {
                 unsigned short       count;
                 struct client_ctx   *ctx;
         }            scratch_ctx;
-        struct {
-                gf_lock_t            lock;
-                volatile int         bind;
-                volatile int         count;
-        }            ref;
+        gf_atomic_t                  bind;
+        gf_atomic_t                  count;
         xlator_t    *bound_xl;
         xlator_t    *this;
         int          tbl_index;

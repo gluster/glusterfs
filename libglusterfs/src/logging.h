@@ -37,6 +37,7 @@
 #endif
 #define GF_PRI_BLKSIZE     PRId32
 #define GF_PRI_SIZET       "zu"
+#define GF_PRI_ATOMIC      PRIu64
 
 #ifdef GF_DARWIN_HOST_OS
 #define GF_PRI_TIME "ld"

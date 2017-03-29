@@ -596,8 +596,7 @@ xlator_mem_acct_init (xlator_t *xl, int num_types)
         memset (xl->mem_acct, 0, sizeof(struct mem_acct));
 
         xl->mem_acct->num_types = num_types;
-        LOCK_INIT (&xl->mem_acct->lock);
-        xl->mem_acct->refcnt = 1;
+        GF_ATOMIC_INIT (xl->mem_acct->refcnt, 1);
 
         for (i = 0; i < num_types; i++) {
                 memset (&xl->mem_acct->rec[i], 0, sizeof(struct mem_acct_rec));
@@ -654,7 +653,7 @@ xlator_memrec_free (xlator_t *xl)
                 for (i = 0; i < mem_acct->num_types; i++) {
                         LOCK_DESTROY (&(mem_acct->rec[i].lock));
                 }
-                if (DECREMENT_ATOMIC (mem_acct->lock, mem_acct->refcnt) == 0) {
+                if (GF_ATOMIC_DEC (mem_acct->refcnt) == 0) {
                         FREE (mem_acct);
                         xl->mem_acct = NULL;
                 }

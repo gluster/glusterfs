@@ -23,6 +23,7 @@
 #include <sys/time.h>
 #include "md-cache-messages.h"
 #include "statedump.h"
+#include "atomic.h"
 
 /* TODO:
    - cache symlink() link names and nuke symlink-cache
@@ -30,19 +31,25 @@
 */
 
 struct mdc_statistics {
-        uint64_t stat_hit; /* No. of times lookup/stat was served from mdc */
-        uint64_t stat_miss; /* No. of times valid stat wasn't present in mdc */
-        uint64_t xattr_hit; /* No. of times getxattr was served from mdc, Note:
-                             this doesn't count the xattr served from lookup */
-        uint64_t xattr_miss; /* No. of times xattr req was WIND from mdc */
-        uint64_t negative_lookup; /* No. of negative lookups */
-        uint64_t nameless_lookup; /* No. of negative lookups that were sent
-                                     sent to bricks */
-        uint64_t stat_invals; /* No. of invalidates received from upcall*/
-        uint64_t xattr_invals; /* No. of invalidates received from upcall*/
-        uint64_t need_lookup; /* No. of lookups issued, because other xlators
-                               * requested for explicit lookup */
-        gf_lock_t lock;
+        gf_atomic_t stat_hit; /* No. of times lookup/stat was served from
+                                 mdc */
+
+        gf_atomic_t stat_miss; /* No. of times valid stat wasn't present in
+                                  mdc */
+
+        gf_atomic_t xattr_hit; /* No. of times getxattr was served from mdc,
+                                  Note: this doesn't count the xattr served
+                                  from lookup */
+
+        gf_atomic_t xattr_miss; /* No. of times xattr req was WIND from mdc */
+        gf_atomic_t negative_lookup; /* No. of negative lookups */
+        gf_atomic_t nameless_lookup; /* No. of negative lookups that were sent
+                                        to bricks */
+
+        gf_atomic_t stat_invals; /* No. of invalidates received from upcall */
+        gf_atomic_t xattr_invals; /* No. of invalidates received from upcall */
+        gf_atomic_t need_lookup; /* No. of lookups issued, because other
+                                    xlators requested for explicit lookup */
 };
 
 struct mdc_conf {
@@ -1027,8 +1034,7 @@ mdc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret != 0) {
                 if (op_errno == ENOENT)
-                        INCREMENT_ATOMIC (conf->mdc_counter.lock,
-                                          conf->mdc_counter.negative_lookup);
+                        GF_ATOMIC_INC (conf->mdc_counter.negative_lookup);
                 goto out;
         }
 
@@ -1064,15 +1070,14 @@ mdc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         local = mdc_local_get (frame);
         if (!local) {
-                INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.stat_miss);
+                GF_ATOMIC_INC (conf->mdc_counter.stat_miss);
                 goto uncached;
         }
 
         loc_copy (&local->loc, loc);
 
 	if (!loc->name) {
-                INCREMENT_ATOMIC (conf->mdc_counter.lock,
-                                  conf->mdc_counter.nameless_lookup);
+                GF_ATOMIC_INC (conf->mdc_counter.nameless_lookup);
 
                 gf_msg_trace ("md-cache", 0, "Nameless lookup(%s) sent to the "
                               "brick", uuid_utoa (loc->inode->gfid));
@@ -1084,34 +1089,30 @@ mdc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
 
         if (mdc_inode_reset_need_lookup (this, loc->inode)) {
-                INCREMENT_ATOMIC (conf->mdc_counter.lock,
-                                  conf->mdc_counter.need_lookup);
+                GF_ATOMIC_INC (conf->mdc_counter.need_lookup);
                 goto uncached;
         }
 
         ret = mdc_inode_iatt_get (this, loc->inode, &stbuf);
         if (ret != 0) {
-                INCREMENT_ATOMIC (conf->mdc_counter.lock,
-                                  conf->mdc_counter.stat_miss);
+                GF_ATOMIC_INC (conf->mdc_counter.stat_miss);
                 goto uncached;
         }
 
         if (xdata) {
                 ret = mdc_inode_xatt_get (this, loc->inode, &xattr_rsp);
                 if (ret != 0) {
-                        INCREMENT_ATOMIC (conf->mdc_counter.lock,
-                                          conf->mdc_counter.xattr_miss);
+                        GF_ATOMIC_INC (conf->mdc_counter.xattr_miss);
                         goto uncached;
                 }
 
                 if (!mdc_xattr_satisfied (this, xdata, xattr_rsp)) {
-                        INCREMENT_ATOMIC (conf->mdc_counter.lock,
-                                          conf->mdc_counter.xattr_miss);
+                        GF_ATOMIC_INC (conf->mdc_counter.xattr_miss);
                         goto uncached;
                 }
         }
 
-        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.stat_hit);
+        GF_ATOMIC_INC (conf->mdc_counter.stat_hit);
         MDC_STACK_UNWIND (lookup, frame, 0, 0, loc->inode, &stbuf,
                           xattr_rsp, &postparent);
 
@@ -1177,13 +1178,13 @@ mdc_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         if (ret != 0)
                 goto uncached;
 
-        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.stat_hit);
+        GF_ATOMIC_INC (conf->mdc_counter.stat_hit);
         MDC_STACK_UNWIND (stat, frame, 0, 0, &stbuf, xdata);
 
         return 0;
 
 uncached:
-        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.stat_miss);
+        GF_ATOMIC_INC (conf->mdc_counter.stat_miss);
         STACK_WIND (frame, mdc_stat_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->stat,
                     loc, xdata);
@@ -1232,13 +1233,13 @@ mdc_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         if (ret != 0)
                 goto uncached;
 
-        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.stat_hit);
+        GF_ATOMIC_INC (conf->mdc_counter.stat_hit);
         MDC_STACK_UNWIND (fstat, frame, 0, 0, &stbuf, xdata);
 
         return 0;
 
 uncached:
-        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.stat_miss);
+        GF_ATOMIC_INC (conf->mdc_counter.stat_miss);
         STACK_WIND (frame, mdc_fstat_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->fstat,
                     fd, xdata);
@@ -2123,13 +2124,13 @@ mdc_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
 		op_errno = ENODATA;
 	}
 
-        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.xattr_hit);
+        GF_ATOMIC_INC (conf->mdc_counter.xattr_hit);
         MDC_STACK_UNWIND (getxattr, frame, ret, op_errno, xattr, xdata);
 
         return 0;
 
 uncached:
-        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.xattr_miss);
+        GF_ATOMIC_INC (conf->mdc_counter.xattr_miss);
         STACK_WIND (frame, mdc_getxattr_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->getxattr,
                     loc, key, xdata);
@@ -2188,13 +2189,13 @@ mdc_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
 		op_errno = ENODATA;
 	}
 
-        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.xattr_hit);
+        GF_ATOMIC_INC (conf->mdc_counter.xattr_hit);
         MDC_STACK_UNWIND (fgetxattr, frame, ret, op_errno, xattr, xdata);
 
         return 0;
 
 uncached:
-        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.xattr_miss);
+        GF_ATOMIC_INC (conf->mdc_counter.xattr_miss);
         STACK_WIND (frame, mdc_fgetxattr_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->fgetxattr,
                     fd, key, xdata);
@@ -2256,13 +2257,13 @@ mdc_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 op_errno = ENODATA;
         }
 
-        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.xattr_hit);
+        GF_ATOMIC_INC (conf->mdc_counter.xattr_hit);
         MDC_STACK_UNWIND (removexattr, frame, ret, op_errno, xdata);
 
         return 0;
 
 uncached:
-        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.xattr_miss);
+        GF_ATOMIC_INC (conf->mdc_counter.xattr_miss);
         STACK_WIND (frame, mdc_removexattr_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->removexattr,
                     loc, name, xdata);
@@ -2325,12 +2326,12 @@ mdc_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 op_errno = ENODATA;
         }
 
-        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.xattr_hit);
+        GF_ATOMIC_INC (conf->mdc_counter.xattr_hit);
         MDC_STACK_UNWIND (fremovexattr, frame, ret, op_errno, xdata);
         return 0;
 
 uncached:
-        INCREMENT_ATOMIC (conf->mdc_counter.lock, conf->mdc_counter.xattr_miss);
+        GF_ATOMIC_INC (conf->mdc_counter.xattr_miss);
         STACK_WIND (frame, mdc_fremovexattr_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->fremovexattr,
                     fd, name, xdata);
@@ -2711,8 +2712,7 @@ mdc_invalidate (xlator_t *this, void *data)
             (UP_NLINK | UP_RENAME_FLAGS | UP_FORGET | UP_INVAL_ATTR)) {
                 mdc_inode_iatt_invalidate (this, inode);
                 mdc_inode_xatt_invalidate (this, inode);
-                INCREMENT_ATOMIC (conf->mdc_counter.lock,
-                                  conf->mdc_counter.stat_invals);
+                GF_ATOMIC_INC (conf->mdc_counter.stat_invals);
                 goto out;
         }
 
@@ -2725,8 +2725,7 @@ mdc_invalidate (xlator_t *this, void *data)
                  */
                 if (ret < 0)
                         goto out;
-                INCREMENT_ATOMIC (conf->mdc_counter.lock,
-                                  conf->mdc_counter.stat_invals);
+                GF_ATOMIC_INC (conf->mdc_counter.stat_invals);
         }
 
         if (up_ci->flags & UP_XATTR) {
@@ -2735,15 +2734,13 @@ mdc_invalidate (xlator_t *this, void *data)
                 else
                         ret = mdc_inode_xatt_invalidate (this, inode);
 
-                INCREMENT_ATOMIC (conf->mdc_counter.lock,
-                                  conf->mdc_counter.xattr_invals);
+                GF_ATOMIC_INC (conf->mdc_counter.xattr_invals);
         } else if (up_ci->flags & UP_XATTR_RM) {
                 tmp.inode = inode;
                 tmp.this = this;
                 ret = dict_foreach (up_ci->dict, mdc_inval_xatt, &tmp);
 
-                INCREMENT_ATOMIC (conf->mdc_counter.lock,
-                                  conf->mdc_counter.xattr_invals);
+                GF_ATOMIC_INC (conf->mdc_counter.xattr_invals);
         }
 
 out:
@@ -2983,8 +2980,17 @@ init (xlator_t *this)
         GF_OPTION_INIT("cache-invalidation", conf->mdc_invalidation, bool, out);
 
         LOCK_INIT (&conf->lock);
-        LOCK_INIT (&conf->mdc_counter.lock);
         time (&conf->last_child_down);
+        /* initialize gf_atomic_t counters */
+        GF_ATOMIC_INIT (conf->mdc_counter.stat_hit, 0);
+        GF_ATOMIC_INIT (conf->mdc_counter.stat_miss, 0);
+        GF_ATOMIC_INIT (conf->mdc_counter.xattr_hit, 0);
+        GF_ATOMIC_INIT (conf->mdc_counter.xattr_miss, 0);
+        GF_ATOMIC_INIT (conf->mdc_counter.negative_lookup, 0);
+        GF_ATOMIC_INIT (conf->mdc_counter.nameless_lookup, 0);
+        GF_ATOMIC_INIT (conf->mdc_counter.stat_invals, 0);
+        GF_ATOMIC_INIT (conf->mdc_counter.xattr_invals, 0);
+        GF_ATOMIC_INIT (conf->mdc_counter.need_lookup, 0);
 
         /* If timeout is greater than 60s (default before the patch that added
          * cache invalidation support was added) then, cache invalidation

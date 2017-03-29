@@ -192,8 +192,7 @@ gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
                                         memcmp (cred->authdata,
                                                 client->auth.data,
                                                 client->auth.len) == 0))) {
-                                INCREMENT_ATOMIC (client->ref.lock,
-                                                  client->ref.bind);
+                                GF_ATOMIC_INC (client->bind);
                                 goto unlock;
                         }
                 }
@@ -207,7 +206,6 @@ gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
                 client->this = this;
 
                 LOCK_INIT (&client->scratch_ctx.lock);
-                LOCK_INIT (&client->ref.lock);
 
                 client->client_uid = gf_strdup (client_uid);
                 if (client->client_uid == NULL) {
@@ -229,8 +227,8 @@ gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
                         goto unlock;
                 }
 
-                /* no need to do these atomically here */
-                client->ref.bind = client->ref.count = 1;
+                GF_ATOMIC_INIT (client->bind, 1);
+                GF_ATOMIC_INIT (client->count, 1);
 
                 client->auth.flavour = cred->flavour;
                 if (cred->flavour != AUTH_NONE) {
@@ -277,9 +275,10 @@ unlock:
 
         if (client)
                 gf_msg_callingfn ("client_t", GF_LOG_DEBUG, 0, LG_MSG_BIND_REF,
-                                  "%s: bind_ref: %d, ref: %d",
-                                  client->client_uid, client->ref.bind,
-                                  client->ref.count);
+                                  "%s: bind_ref: %"GF_PRI_ATOMIC", ref: "
+                                  "%"GF_PRI_ATOMIC, client->client_uid,
+                                  GF_ATOMIC_GET (client->bind),
+                                  GF_ATOMIC_GET (client->count));
         return client;
 }
 
@@ -295,14 +294,15 @@ gf_client_put (client_t *client, gf_boolean_t *detached)
         if (detached)
                 *detached = _gf_false;
 
-        bind_ref = DECREMENT_ATOMIC (client->ref.lock, client->ref.bind);
+        bind_ref = GF_ATOMIC_DEC (client->bind);
         if (bind_ref == 0)
                 unref = _gf_true;
 
         gf_msg_callingfn ("client_t", GF_LOG_DEBUG, 0, LG_MSG_BIND_REF, "%s: "
-                          "bind_ref: %d, ref: %d, unref: %d",
-                          client->client_uid, client->ref.bind,
-                          client->ref.count, unref);
+                          "bind_ref: %"GF_PRI_ATOMIC", ref: %"GF_PRI_ATOMIC", "
+                          "unref: %d", client->client_uid,
+                          GF_ATOMIC_GET (client->bind),
+                          GF_ATOMIC_GET (client->count), unref);
         if (unref) {
                 if (detached)
                         *detached = _gf_true;
@@ -322,10 +322,10 @@ gf_client_ref (client_t *client)
                 return NULL;
         }
 
-        INCREMENT_ATOMIC (client->ref.lock, client->ref.count);
+        GF_ATOMIC_INC (client->count);
         gf_msg_callingfn ("client_t", GF_LOG_DEBUG, 0, LG_MSG_REF_COUNT, "%s: "
-                          "ref-count %d", client->client_uid,
-                          client->ref.count);
+                          "ref-count %"GF_PRI_ATOMIC, client->client_uid,
+                          GF_ATOMIC_GET (client->count));
         return client;
 }
 
@@ -360,7 +360,6 @@ client_destroy (client_t *client)
         clienttable = client->this->ctx->clienttable;
 
         LOCK_DESTROY (&client->scratch_ctx.lock);
-        LOCK_DESTROY (&client->ref.lock);
 
         LOCK (&clienttable->lock);
         {
@@ -419,7 +418,7 @@ gf_client_disconnect (client_t *client)
 void
 gf_client_unref (client_t *client)
 {
-        int refcount;
+        uint64_t refcount;
 
         if (!client) {
                 gf_msg_callingfn ("client_t", GF_LOG_ERROR, EINVAL,
@@ -427,10 +426,10 @@ gf_client_unref (client_t *client)
                 return;
         }
 
-        refcount = DECREMENT_ATOMIC (client->ref.lock, client->ref.count);
+        refcount = GF_ATOMIC_DEC (client->count);
         gf_msg_callingfn ("client_t", GF_LOG_DEBUG, 0, LG_MSG_REF_COUNT, "%s: "
-                          "ref-count %d", client->client_uid,
-                          (int)client->ref.count);
+                          "ref-count %"GF_PRI_ATOMIC, client->client_uid,
+                          refcount);
         if (refcount == 0) {
                 gf_msg (THIS->name, GF_LOG_INFO, 0, LG_MSG_DISCONNECT_CLIENT,
                         "Shutting down connection %s", client->client_uid);
@@ -586,7 +585,8 @@ client_dump (client_t *client, char *prefix)
                 return;
 
         memset(key, 0, sizeof key);
-        gf_proc_dump_write("refcount", "%d", client->ref.count);
+        gf_proc_dump_write("refcount", GF_PRI_ATOMIC,
+                           GF_ATOMIC_GET (client->count));
 }
 
 
@@ -780,7 +780,8 @@ gf_client_dump_fdtables (xlator_t *this)
 
                         gf_proc_dump_build_key (key, "conn", "%d.ref",
                                                         count);
-                        gf_proc_dump_write (key, "%d", client->ref.count);
+                        gf_proc_dump_write (key, GF_PRI_ATOMIC,
+                                            GF_ATOMIC_GET (client->count));
                         if (client->bound_xl) {
                                 gf_proc_dump_build_key (key, "conn",
                                                         "%d.bound_xl", count);

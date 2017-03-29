@@ -249,7 +249,13 @@ is_fop_latency_started (call_frame_t *frame)
                 conf->incremental.fop_hits[GF_FOP_##op]++;              \
         } while (0)
 
-#if defined(HAVE_ATOMIC_BUILTINS)
+#if defined(HAVE_SYNC_BUILTINS)
+/* FIXME: use gf_atomic_t from libglusterfs/src/atomic.h
+ *
+ * This is currently not behaving correctly. Values are going out of sync in
+ * the case where HAVE_SYNC_BUILTINS are available, but are updated under a
+ * single lock for other cases.
+ */
 #define STATS_LOCK(x)
 #define STATS_UNLOCK(x)
 #define STATS_ADD(x,i)  __sync_add_and_fetch (&x, i)

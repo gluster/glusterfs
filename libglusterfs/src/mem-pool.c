@@ -80,7 +80,7 @@ gf_mem_set_acct_info (xlator_t *xl, char **alloc_ptr, size_t size,
         }
         UNLOCK(&xl->mem_acct->rec[type].lock);
 
-        INCREMENT_ATOMIC (xl->mem_acct->lock, xl->mem_acct->refcnt);
+        GF_ATOMIC_INC (xl->mem_acct->refcnt);
 
         header = (struct mem_header *) ptr;
         header->type = type;
@@ -326,7 +326,7 @@ __gf_free (void *free_ptr)
         }
         UNLOCK (&mem_acct->rec[header->type].lock);
 
-        if (DECREMENT_ATOMIC (mem_acct->lock, mem_acct->refcnt) == 0) {
+        if (GF_ATOMIC_DEC (mem_acct->refcnt) == 0) {
                 FREE (mem_acct);
         }
 
