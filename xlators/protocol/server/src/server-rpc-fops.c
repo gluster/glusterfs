@@ -4218,9 +4218,12 @@ server3_3_writev (rpcsvc_request_t *req)
                         = req->msg[i];
         }
 
+        len = 0;
         for (i = 0; i < state->payload_count; i++) {
-                state->size += state->payload_vector[i].iov_len;
+                len += state->payload_vector[i].iov_len;
         }
+
+        GF_ASSERT (state->size == len);
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
                                       state->xdata,
