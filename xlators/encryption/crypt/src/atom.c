@@ -502,7 +502,7 @@ static int32_t rmw_partial_block(call_frame_t *frame,
 #endif
 	set_local_io_params_writev(frame, object, atom,
 				   atom->offset_at(frame, object),
-				   iovec_get_size(partial, 1));
+				   iov_length(partial, 1));
 	/*
 	 * write the whole block to disk
 	 */
@@ -522,7 +522,7 @@ static int32_t rmw_partial_block(call_frame_t *frame,
 
 	gf_log("crypt", GF_LOG_DEBUG,
 	       "submit partial block: %d bytes from %d offset",
-	       (int)iovec_get_size(partial, 1),
+	       (int)iov_length(partial, 1),
 	       (int)atom->offset_at(frame, object));
  exit:
 	return 0;

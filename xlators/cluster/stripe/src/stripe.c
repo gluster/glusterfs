@@ -3674,9 +3674,7 @@ stripe_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         STRIPE_VALIDATE_FCTX (fctx, err);
 
         /* File has to be stripped across the child nodes */
-        for (idx = 0; idx< count; idx ++) {
-                total_size += vector[idx].iov_len;
-        }
+        total_size = iov_length (vector, count);
         remaining_size = total_size;
 
         local = mem_get0 (this->local_pool);

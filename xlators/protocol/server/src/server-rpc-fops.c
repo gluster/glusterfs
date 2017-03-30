@@ -4218,10 +4218,7 @@ server3_3_writev (rpcsvc_request_t *req)
                         = req->msg[i];
         }
 
-        len = 0;
-        for (i = 0; i < state->payload_count; i++) {
-                len += state->payload_vector[i].iov_len;
-        }
+        len = iov_length (state->payload_vector, state->payload_count);
 
         GF_ASSERT (state->size == len);
 
@@ -6817,9 +6814,7 @@ server3_3_compound (rpcsvc_request_t *req)
                         = req->msg[i];
         }
 
-        for (i = 0; i < state->payload_count; i++) {
-                state->size += state->payload_vector[i].iov_len;
-        }
+        state->size = iov_length (state->payload_vector, state->payload_count);
 
         ret = server_get_compound_resolve (state, &args);
 
