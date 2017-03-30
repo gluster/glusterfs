@@ -90,6 +90,8 @@ libglusterfs/src/defaults.c
 libglusterfs/src/glusterfs-fops.h
 libglusterfs/src/cli1-xdr.h
 libtool
+# copied XDR for cyclic libglusterfs <-> rpc-header dependency
+rpc/xdr/gen/*.x
 run-tests.sh
 tests/env.rc
 tests/utils/arequal-checksum
