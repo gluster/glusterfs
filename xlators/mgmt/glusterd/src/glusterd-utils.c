@@ -6358,6 +6358,8 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
         if (glusterd_is_brick_started (brickinfo)) {
                 if (gf_is_service_running (pidfile, &pid)) {
                         brick_online = _gf_true;
+                } else {
+                        pid = -1;
                 }
         }
 
