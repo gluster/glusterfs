@@ -44,6 +44,7 @@ gf_auth (dict_t *input_params, dict_t *config_params)
         char           peer_addr[UNIX_PATH_MAX] = {0,};
         char          *type           = NULL;
         gf_boolean_t   allow_insecure = _gf_false;
+        int            length         = 0;
 
         name = data_to_str (dict_get (input_params, "remote-subvolume"));
         if (!name) {
@@ -158,11 +159,22 @@ gf_auth (dict_t *input_params, dict_t *config_params)
                                 addr_str++;
                         }
 
-                        match = fnmatch (addr_str, peer_addr, 0);
-                        if (negate ? match : !match) {
-                                result = AUTH_REJECT;
-                                goto out;
+                        length = strlen(addr_str);
+                        if ((addr_str[0] != '*') &&
+                                        valid_host_name (addr_str, length)) {
+                                match = gf_is_same_address(addr_str, peer_addr);
+                                if (match) {
+                                        result = AUTH_REJECT;
+                                        goto out;
+                                }
+                        } else {
+                                match = fnmatch (addr_str, peer_addr, 0);
+                                if (negate ? match : !match) {
+                                        result = AUTH_REJECT;
+                                        goto out;
+                                }
                         }
+
                         addr_str = strtok_r (NULL, ADDR_DELIMITER, &tmp);
                 }
                 GF_FREE (addr_cpy);
@@ -185,11 +197,22 @@ gf_auth (dict_t *input_params, dict_t *config_params)
                                 addr_str++;
                         }
 
-                        match = fnmatch (addr_str, peer_addr, 0);
-                        if (negate ? match : !match) {
-                                result = AUTH_ACCEPT;
-                                goto out;
+                        length = strlen(addr_str);
+                        if ((addr_str[0] != '*') &&
+                                        valid_host_name (addr_str, length)) {
+                                match = gf_is_same_address(addr_str, peer_addr);
+                                if (match) {
+                                        result = AUTH_ACCEPT;
+                                        goto out;
+                                }
+                        } else {
+                                match = fnmatch (addr_str, peer_addr, 0);
+                                if (negate ? match : !match) {
+                                        result = AUTH_ACCEPT;
+                                        goto out;
+                                }
                         }
+
                         addr_str = strtok_r (NULL, ADDR_DELIMITER, &tmp);
                 }
         }
