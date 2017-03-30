@@ -810,8 +810,6 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!op_ret && gf_uuid_is_null (local->gfid))
                 memcpy (local->gfid, stbuf->ia_gfid, 16);
 
-        memcpy (local->loc.gfid, local->gfid, 16);
-
         /* Check if the gfid is different for file from other node */
         if (!op_ret && gf_uuid_compare (local->gfid, stbuf->ia_gfid)) {
 
@@ -879,6 +877,8 @@ unlock:
         this_call_cnt = dht_frame_return (frame);
 
         if (is_last_call (this_call_cnt)) {
+                gf_uuid_copy (local->loc.gfid, local->gfid);
+
                 if (local->need_selfheal) {
                         local->need_selfheal = 0;
                         dht_lookup_everywhere (frame, this, &local->loc);
@@ -919,7 +919,6 @@ unlock:
 
 selfheal:
         FRAME_SU_DO (frame, dht_local_t);
-        gf_uuid_copy (local->loc.gfid, local->gfid);
         ret = dht_selfheal_directory (frame, dht_lookup_selfheal_cbk,
                                       &local->loc, layout);
 out:
