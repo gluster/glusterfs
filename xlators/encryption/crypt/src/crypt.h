@@ -465,7 +465,6 @@ void submit_full(call_frame_t *frame, xlator_t *this);
 /* crypt.c */
 
 end_writeback_handler_t dispatch_end_writeback(glusterfs_fop_t fop);
-static size_t iovec_get_size(struct iovec *vec, uint32_t count);
 void set_local_io_params_writev(call_frame_t *frame,
 				struct object_cipher_info *object,
 				struct rmw_atom *atom, off_t io_offset,
@@ -478,15 +477,6 @@ void rename_wind(call_frame_t *frame, xlator_t *this);
 void rename_unwind(call_frame_t *frame);
 
 /* Inline functions */
-
-static inline size_t iovec_get_size(struct iovec *vec, uint32_t count)
-{
-	int i;
-	size_t size = 0;
-	for (i = 0; i < count; i++)
-		size += vec[i].iov_len;
-	return size;
-}
 
 static inline int32_t crypt_xlator_id(void)
 {

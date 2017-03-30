@@ -281,8 +281,8 @@ static void check_iovecs(struct iovec *vec, int cnt,
 	char *s1, *s2;
 	uint32_t size, asize;
 
-	size = iovec_get_size(vec, cnt);
-	asize = iovec_get_size(avec, acnt) - off_in_head;
+	size = iov_length(vec, cnt);
+	asize = iov_length(avec, acnt) - off_in_head;
 	if (size != asize) {
 		gf_log("crypt", GF_LOG_DEBUG, "size %d is not eq asize %d",
 		       size, asize);
@@ -379,7 +379,7 @@ int32_t align_iov_by_atoms(xlator_t *this,
 	size_t to_process; /* number of vec's bytes to copy and(or) re-use */
 	int32_t off_in_head = conf->off_in_head;
 
-	to_process = iovec_get_size(vec, count);
+	to_process = iov_length(vec, count);
 
 	while (to_process > 0) {
 		if (off_in_head ||

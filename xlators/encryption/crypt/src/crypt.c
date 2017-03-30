@@ -148,7 +148,7 @@ static void check_read(call_frame_t *frame, xlator_t *this, int32_t read,
 
 	if (read <= 0)
 		return;
-	if (read != iovec_get_size(vec, count))
+	if (read != iov_length(vec, count))
 		gf_log ("crypt", GF_LOG_DEBUG,
 			"op_ret differs from amount of read bytes");
 
@@ -340,8 +340,8 @@ int32_t crypt_readv_cbk(call_frame_t *frame,
 	    object_alg_should_pad(object))
 		gf_log(this->name, GF_LOG_DEBUG, "Bad offset in tail %d",
 		       conf->off_in_tail);
-	if (iovec_get_size(vec, count) != 0 &&
-	    in_same_lblock(conf->orig_offset + iovec_get_size(vec, count) - 1,
+	if (iov_length(vec, count) != 0 &&
+	    in_same_lblock(conf->orig_offset + iov_length(vec, count) - 1,
 			   local->cur_file_size - 1,
 			   object_alg_blkbits(object))) {
 		gf_log(this->name, GF_LOG_DEBUG, "Compound last cblock");
@@ -1083,7 +1083,7 @@ int crypt_writev(call_frame_t *frame,
 	struct gf_flock lock = {0, };
 #if DEBUG_CRYPT
 	gf_log ("crypt", GF_LOG_DEBUG, "writing %d bytes from offset %llu",
-		(int)iovec_get_size(vec, count), (long long)offset);
+		(int)iov_length(vec, count), (long long)offset);
 #endif
 	local = crypt_alloc_local(frame, this, GF_FOP_WRITE);
 	if (!local) {
@@ -1113,11 +1113,11 @@ int crypt_writev(call_frame_t *frame,
 		ret = EINVAL;
 		goto error;
 	}
-	if (iovec_get_size(vec, count) == 0)
+	if (iov_length(vec, count) == 0)
 		goto trivial;
 
 	ret = prepare_for_submit_data(frame, this, offset,
-				      iovec_get_size(vec, count),
+				      iov_length(vec, count),
 				      vec, count, 0 /* don't setup gup
 						       in tail: we don't
 						       know file size yet */);
@@ -1403,7 +1403,7 @@ static int32_t prune_write(call_frame_t *frame,
 	/*
 	 * At first, uptodate head block
 	 */
-	if (iovec_get_size(vec, count) < conf->off_in_head) {
+	if (iov_length(vec, count) < conf->off_in_head) {
 		gf_log(this->name, GF_LOG_WARNING,
 		       "Failed to uptodate head block for prune");
 		local->op_ret = -1;
@@ -3454,7 +3454,7 @@ static int32_t __crypt_readv_done(call_frame_t *frame,
 	gf_log("crypt", GF_LOG_DEBUG,
 	       "readv: ret_to_user: %d, iovec len: %d, ia_size: %llu",
 	       (int)(local->rw_count > 0 ? local->rw_count : local->op_ret),
-	       (int)(local->rw_count > 0 ? iovec_get_size(avec, local->data_conf.acount) : 0),
+	       (int)(local->rw_count > 0 ? iov_length(avec, local->data_conf.acount) : 0),
 	       (unsigned long long)local->buf.ia_size);
 
 	STACK_UNWIND_STRICT(readv,
