@@ -1639,9 +1639,9 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
         }
 
         if (fix_layout) {
-                cli_out ("%20s %40s %18s", "Node", "status",
+                cli_out ("%40s %40s %18s", "Node", "status",
                          "run time in h:m:s");
-                cli_out ("%20s %40s %18s", "---------", "-----------",
+                cli_out ("%40s %40s %18s", "---------", "-----------",
                          "------------");
         } else {
                 cli_out ("%40s %16s %13s %13s %13s %13s %20s %18s",
