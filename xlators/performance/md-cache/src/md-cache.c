@@ -38,8 +38,8 @@ struct mdc_statistics {
         uint64_t negative_lookup; /* No. of negative lookups */
         uint64_t nameless_lookup; /* No. of negative lookups that were sent
                                      sent to bricks */
-        uint64_t stat_invals; /* No. of invalidates recieved from upcall*/
-        uint64_t xattr_invals; /* No. of invalidates recieved from upcall*/
+        uint64_t stat_invals; /* No. of invalidates received from upcall*/
+        uint64_t xattr_invals; /* No. of invalidates received from upcall*/
         uint64_t need_lookup; /* No. of lookups issued, because other xlators
                                * requested for explicit lookup */
         gf_lock_t lock;
@@ -682,7 +682,7 @@ mdc_inode_xatt_set (xlator_t *this, inode_t *inode, dict_t *dict)
         LOCK (&mdc->lock);
         {
                 if (mdc->xattr) {
-                        gf_msg_trace ("md-cache", 0, "deleteing the old xattr "
+                        gf_msg_trace ("md-cache", 0, "deleting the old xattr "
                               "cache (%s)", uuid_utoa (inode->gfid));
                         dict_unref (mdc->xattr);
 			mdc->xattr = NULL;
@@ -2597,9 +2597,9 @@ mdc_priv_dump (xlator_t *this)
                            conf->mdc_counter.nameless_lookup);
         gf_proc_dump_write("negative_lookup_count", "%"PRId64,
                            conf->mdc_counter.negative_lookup);
-        gf_proc_dump_write("stat_invalidations_recieved", "%"PRId64,
+        gf_proc_dump_write("stat_invalidations_received", "%"PRId64,
                            conf->mdc_counter.stat_invals);
-        gf_proc_dump_write("xattr_invalidations_recieved", "%"PRId64,
+        gf_proc_dump_write("xattr_invalidations_received", "%"PRId64,
                            conf->mdc_counter.xattr_invals);
 
         return 0;

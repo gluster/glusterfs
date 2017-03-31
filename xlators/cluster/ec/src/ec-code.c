@@ -1032,7 +1032,7 @@ ec_code_detect(xlator_t *xl, const char *def)
 
     if (file.error) {
         gf_msg(xl->name, GF_LOG_WARNING, 0, EC_MSG_EXTENSION_FAILED,
-               "Unable to detemine supported CPU extensions. Not using any "
+               "Unable to determine supported CPU extensions. Not using any "
                "cpu extensions");
 
         gen = NULL;
