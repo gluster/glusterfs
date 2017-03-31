@@ -380,7 +380,7 @@ cli_opt_parse (char *opt, struct cli_state *state)
         oarg = strtail (opt, "timeout=");
         if (oarg) {
                 if (!is_valid_int (oarg) || atoi(oarg) <= 0) {
-                        cli_err ("timeout value should be a postive integer");
+                        cli_err ("timeout value should be a positive integer");
                         return -2; /* -2 instead of -1 to avoid unknown option
                                       error */
                 }

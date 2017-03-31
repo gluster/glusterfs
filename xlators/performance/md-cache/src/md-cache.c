@@ -682,7 +682,7 @@ mdc_inode_xatt_set (xlator_t *this, inode_t *inode, dict_t *dict)
         LOCK (&mdc->lock);
         {
                 if (mdc->xattr) {
-                        gf_msg_trace ("md-cache", 0, "deleteing the old xattr "
+                        gf_msg_trace ("md-cache", 0, "deleting the old xattr "
                               "cache (%s)", uuid_utoa (inode->gfid));
                         dict_unref (mdc->xattr);
 			mdc->xattr = NULL;
