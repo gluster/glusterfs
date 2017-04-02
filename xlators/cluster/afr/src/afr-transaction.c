@@ -35,6 +35,7 @@ afr_changelog_pre_op_update (call_frame_t *frame, xlator_t *this);
 int
 afr_changelog_call_count (afr_transaction_type type,
                           unsigned char *pre_op_subvols,
+                          unsigned char *failed_subvols,
                           unsigned int child_count);
 int
 afr_post_op_unlock_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
@@ -590,11 +591,17 @@ afr_locked_nodes_get (afr_transaction_type type, afr_internal_lock_t *int_lock)
 int
 afr_changelog_call_count (afr_transaction_type type,
 			  unsigned char *pre_op_subvols,
+                          unsigned char *failed_subvols,
 			  unsigned int child_count)
 {
+        int i = 0;
         int call_count = 0;
 
-	call_count = AFR_COUNT(pre_op_subvols, child_count);
+        for (i = 0; i < child_count; i++) {
+                if (pre_op_subvols[i] && !failed_subvols[i]) {
+                        call_count++;
+                }
+        }
 
         if (type == AFR_ENTRY_RENAME_TRANSACTION)
                 call_count *= 2;
@@ -1352,6 +1359,7 @@ afr_changelog_prepare (xlator_t *this, call_frame_t *frame, int *call_count,
 
         *call_count = afr_changelog_call_count (local->transaction.type,
                                                local->transaction.pre_op,
+                                              local->transaction.failed_subvols,
                                                priv->child_count);
 
         if (*call_count == 0) {
@@ -1418,7 +1426,8 @@ afr_pre_op_fop_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
 
         for (i = 0; i < priv->child_count; i++) {
                 /* Means lock did not succeed on this brick */
-                if (!local->transaction.pre_op[i])
+                if (!local->transaction.pre_op[i] ||
+                    local->transaction.failed_subvols[i])
                         continue;
 
                 STACK_WIND_COOKIE (frame, compound_cbk,
@@ -1562,9 +1571,8 @@ afr_post_op_unlock_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
         local->c_args = args;
 
         for (i = 0; i < priv->child_count; i++) {
-                /* pre_op[i] has to be true for all nodes that were
-                 * successfully locked. */
-                if (!local->transaction.pre_op[i])
+                if (!local->transaction.pre_op[i] ||
+                    local->transaction.failed_subvols[i])
                         continue;
                 STACK_WIND_COOKIE (frame, afr_post_op_unlock_cbk,
                                    (void *) (long) i,
@@ -1606,7 +1614,8 @@ afr_changelog_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
                 return 0;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (!local->transaction.pre_op[i])
+                if (!local->transaction.pre_op[i] ||
+                    local->transaction.failed_subvols[i])
                         continue;
 
                 switch (local->transaction.type) {
