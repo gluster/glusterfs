@@ -1905,7 +1905,7 @@ ec_rebuild_data (call_frame_t *frame, ec_t *ec, fd_t *fd, uint64_t size,
         heal->fd = fd_ref (fd);
         heal->xl = ec->xl;
         heal->data = &barrier;
-        syncbarrier_init (heal->data);
+        size = ec_adjust_size (ec, size, 0);
         heal->total_size = size;
         heal->size = (128 * GF_UNIT_KB * (ec->self_heal_window_size));
         /* We need to adjust the size to a multiple of the stripe size of the
@@ -1943,13 +1943,15 @@ ec_rebuild_data (call_frame_t *frame, ec_t *ec, fd_t *fd, uint64_t size,
 }
 
 int
-__ec_heal_trim_sinks (call_frame_t *frame, ec_t *ec, fd_t *fd,
-                      unsigned char *healed_sinks, unsigned char *trim)
+__ec_heal_trim_sinks (call_frame_t *frame, ec_t *ec,
+                      fd_t *fd, unsigned char *healed_sinks,
+                      unsigned char *trim, uint64_t size)
 {
         default_args_cbk_t *replies = NULL;
         unsigned char      *output  = NULL;
         int                ret      = 0;
         int                i        = 0;
+        off_t        trim_offset    = 0;
 
         EC_REPLIES_ALLOC (replies, ec->nodes);
         output       = alloca0 (ec->nodes);
@@ -1958,9 +1960,9 @@ __ec_heal_trim_sinks (call_frame_t *frame, ec_t *ec, fd_t *fd,
                 ret = 0;
                 goto out;
         }
-
+        trim_offset = ec_adjust_size (ec, size, 1);
         ret = cluster_ftruncate (ec->xl_list, trim, ec->nodes, replies, output,
-                                 frame, ec->xl, fd, 0, NULL);
+                                 frame, ec->xl, fd, trim_offset, NULL);
         for (i = 0; i < ec->nodes; i++) {
                 if (!output[i] && trim[i])
                         healed_sinks[i] = 0;
@@ -2014,7 +2016,7 @@ ec_data_undo_pending (call_frame_t *frame, ec_t *ec, fd_t *fd, dict_t *xattr,
 
         if ((memcmp (versions_xattr, allzero, sizeof (allzero)) == 0) &&
             (memcmp (dirty_xattr, allzero, sizeof (allzero)) == 0) &&
-             (size == 0)) {
+             (size_xattr == 0)) {
                 ret = 0;
                 goto out;
         }
@@ -2220,7 +2222,8 @@ __ec_heal_data (call_frame_t *frame, ec_t *ec, fd_t *fd, unsigned char *heal_on,
                 if (ret < 0)
                         goto unlock;
 
-                ret = __ec_heal_trim_sinks (frame, ec, fd, healed_sinks, trim);
+                ret = __ec_heal_trim_sinks (frame, ec, fd, healed_sinks,
+                                            trim, size[source]);
         }
 unlock:
         cluster_uninodelk (ec->xl_list, locked_on, ec->nodes, replies, output,

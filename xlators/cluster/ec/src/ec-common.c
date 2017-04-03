@@ -1753,6 +1753,9 @@ ec_lock_next_owner(ec_lock_link_t *link, ec_cbk_data_t *cbk,
         }
     }
 
+    if (fop->healing) {
+           lock->healing = fop->healing & (fop->good | fop->remaining);
+    }
     ec_lock_update_good(lock, fop);
 
     lock->exclusive -= (fop->flags & EC_FLAG_LOCK_SHARED) == 0;
@@ -1950,6 +1953,8 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
     ec_lock_t *lock;
     ec_inode_t *ctx;
     dict_t * dict;
+    uintptr_t   update_on = 0;
+
     int32_t err = -ENOMEM;
 
     fop = link->fop;
@@ -2003,12 +2008,14 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
     fop->frame->root->uid = 0;
     fop->frame->root->gid = 0;
 
+    update_on = lock->good_mask | lock->healing;
+
     if (link->lock->fd == NULL) {
-            ec_xattrop(fop->frame, fop->xl, lock->good_mask, EC_MINIMUM_MIN,
+            ec_xattrop(fop->frame, fop->xl, update_on, EC_MINIMUM_MIN,
                        ec_update_size_version_done, link, &link->lock->loc,
                        GF_XATTROP_ADD_ARRAY64, dict, NULL);
     } else {
-            ec_fxattrop(fop->frame, fop->xl, lock->good_mask, EC_MINIMUM_MIN,
+            ec_fxattrop(fop->frame, fop->xl, update_on, EC_MINIMUM_MIN,
                        ec_update_size_version_done, link, link->lock->fd,
                        GF_XATTROP_ADD_ARRAY64, dict, NULL);
     }
