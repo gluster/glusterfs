@@ -268,7 +268,7 @@ function run_tests()
             total_run_tests=$((total_run_tests+1))
             echo "[$(date +%H:%M:%S)] Running tests in file $t"
             starttime="$(date +%s)"
-            prove -vf $t
+            prove -vfe '/bin/bash' $t
             TMP_RES=$?
             ELAPSEDTIMEMAP[$t]=`expr $(date +%s) - $starttime`
             if [ ${TMP_RES} -ne 0 ]  && [ "x${retry}" = "xyes" ] ; then
@@ -280,7 +280,7 @@ function run_tests()
                 echo "       * we got some spurous failures  *"
                 echo "       *********************************"
                 echo ""
-                prove -vf $t
+                prove -vfe '/bin/bash' $t
                 TMP_RES=$?
             fi
             if [ ${TMP_RES} -ne 0 ] ; then
