@@ -10,6 +10,7 @@ CLEANFILES = $(XDRSOURCES) $(XDRHEADERS)
 BUILT_SOURCES = $(XDRHEADERS) $(XDRSOURCES)
 
 xdrsrc=$(top_srcdir)/rpc/xdr/src
+xdrdst=$(top_builddir)/rpc/xdr/src
 
 # make's dependency resolution may mean that it decides to run
 # rpcgen again (unnecessarily), but as the .c file already exists,
@@ -17,19 +18,19 @@ xdrsrc=$(top_srcdir)/rpc/xdr/src
 # could use a '-' (i.e. -@rpcgen ...) and suffer with noisy warnings
 # in the build. Or we do this crufty thing instead.
 $(XDRSOURCES): $(XDRGENFILES)
-	if [ ! -e $@ -o $(@:.c=.x) -nt $@ ]; then \
-		rpcgen -c -o $@ $(@:.c=.x) && cp $@ $(xdrsrc)/ ;\
+	if [ ! -e $(xdrdst)/$@ -o $(@:.c=.x) -nt $(xdrdst)/$@ ]; then \
+		rpcgen -c -o $(xdrdst)/$@ $(@:.c=.x) ;\
 	fi
 
 # d*mn sed in netbsd6 doesn't do -i (inline)
 # (why are we still running smoke on netbsd6 and not netbsd7?)
 $(XDRHEADERS): $(XDRGENFILES)
-	if [ ! -e $@ -o $(@:.h=.x) -nt $@ ]; then \
+	if [ ! -e $(xdrdst)/$@ -o $(@:.h=.x) -nt $(xdrdst)/$@ ]; then \
 		rpcgen -h -o $(@:.h=.tmp) $(@:.h=.x) && \
 		sed -e '/#ifndef/ s/-/_/g' -e '/#define/ s/-/_/g' \
 			-e '/#endif/ s/-/_/' -e 's/TMP_/H_/g' \
-			$(@:.h=.tmp) > $@ && rm -f $(@:.h=.tmp) && \
-		cp $@ $(xdrsrc)/ ; \
+			$(@:.h=.tmp) > $(xdrdst)/$@ && \
+		rm -f $(@:.h=.tmp) ; \
 	fi
 
 
