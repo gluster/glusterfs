@@ -102,7 +102,7 @@ int32_t ec_bits_consume(uint64_t * n)
     tmp &= -tmp;
     *n ^= tmp;
 
-    return ffsll(tmp) - 1;
+    return gf_bits_index(tmp);
 }
 
 size_t ec_iov_copy_to(void * dst, struct iovec * vector, int32_t count,
