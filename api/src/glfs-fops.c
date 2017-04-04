@@ -4528,6 +4528,9 @@ out:
         if (fd)
                 fd_unref(fd);
 
+        if (inode)
+                inode_unref (inode);
+
         glfs_subvol_done (fs, subvol);
 
         __GLFS_EXIT_FS;
@@ -4595,6 +4598,9 @@ out:
                 iobref_unref (iobref);
         if (fd)
                 fd_unref(fd);
+
+        if (inode)
+                inode_unref (inode);
 
         glfs_subvol_done (fs, subvol);
 
