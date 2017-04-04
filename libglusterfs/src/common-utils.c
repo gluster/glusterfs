@@ -4616,7 +4616,7 @@ int
 gf_bits_count (uint64_t n)
 {
         int val = 0;
-#ifdef _GNU_SOURCE
+#if defined(__GNUC__) || defined(__clang__)
         val = __builtin_popcountll (n);
 #else
         n -= (n >> 1) & 0x5555555555555555ULL;
@@ -4633,7 +4633,11 @@ gf_bits_count (uint64_t n)
 int
 gf_bits_index (uint64_t n)
 {
-    return ffsll(n) - 1;
+#if defined(__GNUC__) || defined(__clang__)
+        return __builtin_ffsll (n) - 1;
+#else
+        return ffsll (n) - 1;
+#endif
 }
 
 const char*
