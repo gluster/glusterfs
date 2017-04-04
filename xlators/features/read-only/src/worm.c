@@ -35,7 +35,7 @@ worm_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
            fd_t *fd, dict_t *xdata)
 {
         if (is_readonly_or_worm_enabled (this) &&
-            (flags & (O_WRONLY | O_RDWR | O_APPEND))) {
+            (flags & (O_WRONLY | O_RDWR | O_APPEND | O_TRUNC))) {
                 STACK_UNWIND_STRICT (open, frame, -1, EROFS, NULL, NULL);
                 return 0;
         }
@@ -175,7 +175,7 @@ worm_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                 goto out;
         }
         op_errno = gf_worm_state_transition (this, _gf_false, loc,
-                                           GF_FOP_TRUNCATE);
+                                             GF_FOP_TRUNCATE);
 
 out:
         if (op_errno)
@@ -185,6 +185,41 @@ out:
                 STACK_WIND_TAIL (frame, FIRST_CHILD (this),
                                  FIRST_CHILD (this)->fops->truncate,
                                  loc, offset, xdata);
+        return 0;
+}
+
+
+static int32_t
+worm_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+                dict_t *xdata)
+{
+        int op_errno                =       EROFS;
+        read_only_priv_t *priv      =       NULL;
+
+        priv = this->private;
+        GF_ASSERT (priv);
+        if (is_readonly_or_worm_enabled (this))
+                goto out;
+        if (!priv->worm_file) {
+                op_errno = 0;
+                goto out;
+        }
+
+        if (is_wormfile (this, _gf_true, fd)) {
+                op_errno = 0;
+                goto out;
+        }
+        op_errno = gf_worm_state_transition (this, _gf_true, fd,
+                                             GF_FOP_FTRUNCATE);
+
+out:
+        if (op_errno)
+                STACK_UNWIND_STRICT (ftruncate, frame, -1, op_errno, NULL, NULL,
+                                     NULL);
+        else
+                STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                                 FIRST_CHILD (this)->fops->ftruncate,
+                                 fd, offset, xdata);
         return 0;
 }
 
@@ -546,6 +581,7 @@ struct xlator_fops fops = {
         .link        = worm_link,
         .unlink      = worm_unlink,
         .truncate    = worm_truncate,
+        .ftruncate   = worm_ftruncate,
         .create      = worm_create,
 
         .rmdir       = ro_rmdir,
