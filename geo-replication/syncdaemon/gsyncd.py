@@ -777,6 +777,7 @@ def main_i():
             remote.connect_remote(go_daemon='done')
     local.connect()
     if ffd:
+        logging.info ("Closing feedback fd, waking up the monitor")
         os.close(ffd)
     local.service_loop(*[r for r in [remote] if r])
 
