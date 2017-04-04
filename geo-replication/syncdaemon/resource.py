@@ -1452,6 +1452,8 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
         with given backend
         """
 
+        logging.info ("Mounting gluster volume locally...")
+        t0 = time.time()
         label = getattr(gconf, 'mountbroker', None)
         if not label and not privileged():
             label = syncdutils.getusername()
@@ -1462,6 +1464,8 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
             ['log-file=' + gconf.gluster_log_file, 'volfile-server=' +
              self.host, 'volfile-id=' + self.volume, 'client-pid=-1']
         mounter(params).inhibit(*[l for l in [label] if l])
+        logging.info ("Mounted gluster volume. Time taken: {0:.4f} "
+                      "secs".format((time.time() - t0)))
 
     def connect_remote(self, *a, **kw):
         sup(self, *a, **kw)
@@ -1723,10 +1727,14 @@ class SSH(AbstractUrl, SlaveRemote):
                                  self.inner_rsc.url)
 
         deferred = go_daemon == 'postconn'
+        logging.info ("Initializing SSH connection between master and slave...")
+        t0 = time.time()
         ret = sup(self, gconf.ssh_command.split() +
                   ["-p", str(gconf.ssh_port)] +
                   gconf.ssh_ctl_args + [self.remote_addr],
                   slave=self.inner_rsc.url, deferred=deferred)
+        logging.info ("SSH connection between master and slave established. "
+                      "Time taken: {0:.4f} secs".format((time.time() - t0)))
 
         if deferred:
             # send a message to peer so that we can wait for

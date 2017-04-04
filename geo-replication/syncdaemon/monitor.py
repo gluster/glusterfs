@@ -369,8 +369,13 @@ class Monitor(object):
 
                         time.sleep(1)
             else:
-                logging.info("worker(%s) not confirmed in %d sec, "
-                             "aborting it" % (w[0]['dir'], conn_timeout))
+                logging.info("worker(%s) not confirmed in %d sec, aborting it. "
+                             "Gsyncd invocation on remote slave via SSH or "
+                             "gluster master mount might have hung. Please "
+                             "check the above logs for exact issue and check "
+                             "master or slave volume for errors. Restarting "
+                             "master/slave volume accordingly might help."
+                             % (w[0]['dir'], conn_timeout))
                 errno_wrap(os.kill, [cpid, signal.SIGKILL], [ESRCH])
                 nwait(apid)  # wait for agent
                 ret = nwait(cpid)
