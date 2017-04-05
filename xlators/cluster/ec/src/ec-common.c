@@ -488,6 +488,7 @@ int32_t ec_child_select(ec_fop_data_t * fop)
             ec->idx = first;
     }
 
+    num = gf_bits_count(fop->mask);
     /*Unconditionally wind on healing subvolumes*/
     fop->mask |= fop->healing;
     fop->remaining = fop->mask;
@@ -495,7 +496,6 @@ int32_t ec_child_select(ec_fop_data_t * fop)
 
     ec_trace("SELECT", fop, "");
 
-    num = gf_bits_count(fop->mask);
     if ((num < fop->minimum) && (num < ec->fragments))
     {
         gf_msg (ec->xl->name, GF_LOG_ERROR, 0,
