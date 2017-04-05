@@ -4947,6 +4947,8 @@ glusterd_handle_get_vol_opt (rpcsvc_request_t *req)
         return glusterd_big_locked_handler (req, __glusterd_handle_get_vol_opt);
 }
 
+extern struct rpc_clnt_program gd_brick_prog;
+
 static int
 glusterd_print_global_options (dict_t *opts, char *key, data_t *val, void *data)
 {
@@ -5031,6 +5033,178 @@ out:
 }
 
 static int
+glusterd_print_client_details (FILE *fp, dict_t *dict,
+                               glusterd_volinfo_t *volinfo, int volcount,
+                               glusterd_brickinfo_t *brickinfo, int brickcount)
+{
+        int              ret = -1;
+        xlator_t        *this = NULL;
+        int              brick_index = -1;
+        int              client_count = 0;
+        char             key[1024] = {0,};
+        char            *clientname = NULL;
+        uint64_t         bytesread = 0;
+        uint64_t         byteswrite = 0;
+        uint32_t         opversion = 0;
+
+        glusterd_pending_node_t     *pending_node = NULL;
+        rpc_clnt_t                  *rpc = NULL;
+        struct syncargs              args = {0,};
+        gd1_mgmt_brick_op_req       *brick_req = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        GF_VALIDATE_OR_GOTO (this->name, dict, out);
+
+        if (gf_uuid_compare (brickinfo->uuid, MY_UUID) ||
+                             !glusterd_is_brick_started (brickinfo)) {
+                ret = 0;
+                goto out;
+        }
+
+        brick_index++;
+        pending_node = GF_CALLOC (1, sizeof (*pending_node),
+                                  gf_gld_mt_pending_node_t);
+        if (!pending_node) {
+                ret = -1;
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+                        "Unable to allocate memory");
+                goto out;
+        }
+
+        pending_node->node = brickinfo;
+        pending_node->type = GD_NODE_BRICK;
+        pending_node->index = brick_index;
+
+        rpc = glusterd_pending_node_get_rpc (pending_node);
+        if (!rpc) {
+                ret = -1;
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_RPC_FAILURE,
+                        "Failed to retrieve rpc object");
+                goto out;
+        }
+
+        brick_req = GF_CALLOC (1, sizeof (*brick_req),
+                               gf_gld_mt_mop_brick_req_t);
+        if (!brick_req) {
+                ret = -1;
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+                        "Unable to allocate memory");
+                goto out;
+        }
+
+        brick_req->op = GLUSTERD_BRICK_STATUS;
+        brick_req->name = "";
+
+        ret = dict_set_int32 (dict, "cmd", GF_CLI_STATUS_CLIENTS);
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (dict, "volname", volinfo->volname);
+        if (ret)
+                goto out;
+
+        ret = dict_allocate_and_serialize (dict, &brick_req->input.input_val,
+                                           &brick_req->input.input_len);
+        if (ret)
+                goto out;
+
+        GD_SYNCOP (rpc, (&args), NULL, gd_syncop_brick_op_cbk, brick_req,
+                   &gd_brick_prog, brick_req->op, xdr_gd1_mgmt_brick_op_req);
+
+        if (args.op_ret)
+                goto out;
+
+        ret = dict_get_int32 (args.dict, "clientcount", &client_count);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                        "Couldn't get client count");
+                goto out;
+        }
+
+        fprintf (fp, "Volume%d.Brick%d.client_count: %d\n",
+                 volcount, brickcount, client_count);
+
+        if (client_count == 0) {
+                ret = 0;
+                goto out;
+        }
+
+        int i;
+        for (i = 1; i <= client_count; i++) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "client%d.hostname", i-1);
+                ret = dict_get_str (args.dict, key, &clientname);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
+                                "Failed to get client hostname");
+                        goto out;
+                }
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "Client%d.hostname", i);
+                fprintf (fp, "Volume%d.Brick%d.%s: %s\n",
+                         volcount, brickcount, key, clientname);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "client%d.bytesread", i-1);
+                ret = dict_get_uint64 (args.dict, key, &bytesread);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
+                                "Failed to get bytesread from client");
+                        goto out;
+                }
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "Client%d.bytesread", i);
+                fprintf (fp, "Volume%d.Brick%d.%s: %"PRIu64"\n",
+                         volcount, brickcount, key, bytesread);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "client%d.byteswrite", i-1);
+                ret = dict_get_uint64 (args.dict, key, &byteswrite);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
+                                "Failed to get byteswrite from client");
+                        goto out;
+                }
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "Client%d.byteswrite", i);
+                fprintf (fp, "Volume%d.Brick%d.%s: %"PRIu64"\n",
+                         volcount, brickcount, key, byteswrite);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "client%d.opversion", i-1);
+                ret = dict_get_uint32 (args.dict, key, &opversion);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
+                                "Failed to get client opversion");
+                        goto out;
+                }
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "Client%d.opversion", i);
+                fprintf (fp, "Volume%d.Brick%d.%s: %"PRIu32"\n",
+                         volcount, brickcount, key, opversion);
+        }
+
+out:
+        if (pending_node)
+                GF_FREE (pending_node);
+
+        if (brick_req)
+                GF_FREE (brick_req);
+
+        return ret;
+}
+
+static int
 glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
 {
         int32_t                      ret = -1;
@@ -5052,6 +5226,7 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
         int                          odirlen = 0;
         time_t                       now = 0;
         char                         timestamp[16] = {0,};
+        uint32_t                     get_state_cmd = 0;
 
         char    *vol_type_str = NULL;
         char    *hot_tier_type_str = NULL;
@@ -5174,6 +5349,12 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
         }
         rcu_read_unlock ();
 
+        ret = dict_get_uint32 (dict, "getstate-cmd", &get_state_cmd);
+        if (ret) {
+                gf_msg_debug (this->name, 0, "get-state command type not set");
+                ret = 0;
+        }
+
         count = 0;
         fprintf (fp, "\n[Volumes]\n");
 
@@ -5263,6 +5444,19 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                                       count_bkp, count,
                                       count <= volinfo->tier_info.hot_brick_count ?
                                       "Hot" : "Cold");
+                        }
+
+                        if (get_state_cmd != GF_CLI_GET_STATE_DETAIL)
+                                continue;
+
+                        ret = glusterd_print_client_details (fp, dict,
+                                                             volinfo, count_bkp,
+                                                             brickinfo, count);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_CLIENTS_GET_STATE_FAILED,
+                                        "Failed to get client details");
+                                goto out;
                         }
                 }
 

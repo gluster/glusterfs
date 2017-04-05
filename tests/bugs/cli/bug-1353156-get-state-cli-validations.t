@@ -77,7 +77,15 @@ TEST positive_test $CLI get-state odir $ODIR file gdstate
 
 TEST positive_test $CLI get-state glusterd odir $ODIR file gdstate
 
-TEST positive_test $CLI get-state glusterd odir $ODIR file gdstate
+TEST positive_test $CLI get-state detail
+
+TEST positive_test $CLI get-state glusterd detail
+
+TEST positive_test $CLI get-state odir $ODIR detail
+
+TEST positive_test $CLI get-state glusterd odir $ODIR detail
+
+TEST positive_test $CLI get-state glusterd odir $ODIR file gdstate detail
 
 TEST ! $CLI get-state glusterfsd odir $ODIR;
 ERRSTR=$($CLI get-state glusterfsd odir $ODIR 2>&1 >/dev/null);
@@ -111,19 +119,12 @@ TEST ! $CLI get-state glusterd foo bar;
 ERRSTR=$($CLI get-state glusterd foo bar 2>&1 >/dev/null);
 EXPECT 'Problem' get_parsing_arguments_part $ERRSTR;
 
-cleanup;
+TEST ! $CLI get-state glusterd detail file gdstate;
+ERRSTR=$($CLI get-state glusterd foo bar 2>&1 >/dev/null);
+EXPECT 'Problem' get_parsing_arguments_part $ERRSTR;
 
-# I've cleaned this up as much as I can - making sure the gdstates directory
-# gets cleaned up, checking whether the CLI command actually succeeded before
-# parsing its output, etc. - but it still fails in Jenkins.  Specifically, the
-# first get-state request that hits the server (i.e. doesn't bail out with a
-# parse error first) succeeds, but any others time out.  They don't even get as
-# far as the glusterd log message that says we received a get-state request.
-# There doesn't seem to be a core file, so glusterd doesn't seem to have
-# crashed, but it's not responding either.  Even worse, the problem seems to be
-# environment-dependent; Jenkins is the only place I've seen it, and that's
-# just about the worst environment ever for debugging anything.
-#
-# I'm marking this test bad so progress can be made elsewhere.  If anybody else
-# thinks this functionality is important, and wants to make it debuggable, good
-# luck to you.
+TEST ! $CLI get-state glusterd foo bar detail;
+ERRSTR=$($CLI get-state glusterd foo bar 2>&1 >/dev/null);
+EXPECT 'Problem' get_parsing_arguments_part $ERRSTR;
+
+cleanup;

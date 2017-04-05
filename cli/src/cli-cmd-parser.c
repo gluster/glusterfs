@@ -829,6 +829,7 @@ cli_cmd_get_state_parse (struct cli_state *state,
         char      *filename             = NULL;
         char      *daemon_name          = NULL;
         int        count                = 0;
+        uint32_t   cmd                  = 0;
 
         GF_VALIDATE_OR_GOTO ("cli", options, out);
         GF_VALIDATE_OR_GOTO ("cli", words, out);
@@ -837,7 +838,7 @@ cli_cmd_get_state_parse (struct cli_state *state,
         if (!dict)
                 goto out;
 
-        if (wordcount < 1 || wordcount > 6) {
+        if (wordcount < 1 || wordcount > 7) {
                 *op_errstr = gf_strdup ("Problem parsing arguments."
                                         " Check usage.");
                 goto out;
@@ -868,16 +869,28 @@ cli_cmd_get_state_parse (struct cli_state *state,
                                 }
                         } else {
                                 if (count > 1) {
-                                        *op_errstr = gf_strdup ("Problem "
-                                                        "parsing arguments. "
+                                        if (count == wordcount-1 &&
+                                            !strcmp (words[count], "detail")) {
+                                                cmd = GF_CLI_GET_STATE_DETAIL;
+                                                continue;
+                                        } else {
+                                                *op_errstr = gf_strdup ("Problem"
+                                                        " parsing arguments. "
                                                         "Check usage.");
-                                        ret = -1;
-                                        goto out;
+                                                ret = -1;
+                                                goto out;
+                                        }
 
                                 }
                                 if (strcmp (words[count], "glusterd") == 0) {
                                         continue;
                                 } else {
+                                        if (count == wordcount-1 &&
+                                            !strcmp (words[count], "detail")) {
+                                                cmd = GF_CLI_GET_STATE_DETAIL;
+                                                continue;
+                                        }
+
                                         *op_errstr = gf_strdup ("glusterd is "
                                                  "the only supported daemon.");
                                         ret = -1;
@@ -916,6 +929,19 @@ cli_cmd_get_state_parse (struct cli_state *state,
                                                         " more  details.");
                                 gf_log (THIS->name, GF_LOG_ERROR,
                                         "Setting filename to dictionary failed");
+                                goto out;
+                        }
+                }
+
+                if (cmd) {
+                        ret = dict_set_uint32 (dict, "getstate-cmd", cmd);
+                        if (ret) {
+                                *op_errstr = gf_strdup ("Command failed. Please"
+                                                        " check log file for"
+                                                        " more details.");
+                                gf_log (THIS->name, GF_LOG_ERROR, "Setting "
+                                        "get-state command type to dictionary "
+                                        "failed");
                                 goto out;
                         }
                 }
