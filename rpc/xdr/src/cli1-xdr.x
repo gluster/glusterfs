@@ -153,6 +153,10 @@ enum gf1_cli_info_op {
         GF_CLI_INFO_CLEAR = 4
 };
 
+enum gf_cli_get_state_op {
+        GF_CLI_GET_STATE_DETAIL = 1
+};
+
 enum gf1_cli_top_op {
         GF_CLI_TOP_NONE = 0,
         GF_CLI_TOP_OPEN,

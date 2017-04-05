@@ -49,6 +49,10 @@
         }                                                                      \
 } while (0)
 
+int32_t
+gd_syncop_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
+                        int count, void *myframe);
+
 int gd_syncop_submit_request (struct rpc_clnt *rpc, void *req, void *local,
                               void *cookie, rpc_clnt_prog_t *prog, int procnum,
                               fop_cbk_fn_t cbkfn, xdrproc_t xdrproc);
