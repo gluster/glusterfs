@@ -1814,10 +1814,20 @@ glusterd_service_stop_nolock (const char *service, char *pidfile, int sig,
         if (kill(pid, 0) == 0) {
                 ret = kill (pid, SIGKILL);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                GD_MSG_PID_KILL_FAIL, "Unable to kill pid:%d, "
-                                "reason:%s", pid, strerror(errno));
-                        goto out;
+                        /* Process is already dead, don't fail */
+                        if (errno == ESRCH) {
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        GD_MSG_PID_KILL_FAIL,
+                                        "Unable to find pid:%d, "
+                                        "must be dead already. Ignoring.", pid);
+                                ret = 0;
+                        } else {
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        GD_MSG_PID_KILL_FAIL,
+                                        "Unable to kill pid:%d, "
+                                        "reason:%s", pid, strerror(errno));
+                                goto out;
+                        }
                 }
         }
 
