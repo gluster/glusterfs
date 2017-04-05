@@ -1569,23 +1569,16 @@ int32_t ec_manager_seek(ec_fop_data_t *fop, int32_t state)
         return EC_STATE_PREPARE_ANSWER;
 
     case EC_STATE_PREPARE_ANSWER:
-        cbk = fop->answer;
-        if (cbk != NULL) {
-            if (ec_dispatch_one_retry(fop, &cbk)) {
-                return EC_STATE_DISPATCH;
-            }
-            if (cbk->op_ret >= 0) {
-                ec_t *ec = fop->xl->private;
+        if (ec_dispatch_one_retry(fop, &cbk)) {
+            return EC_STATE_DISPATCH;
+        }
+        if ((cbk != NULL) && (cbk->op_ret >= 0)) {
+            ec_t *ec = fop->xl->private;
 
-                cbk->offset *= ec->fragments;
-                if (cbk->offset < fop->user_size) {
-                    cbk->offset = fop->user_size;
-                }
-            } else {
-                ec_fop_set_error(fop, cbk->op_errno);
+            cbk->offset *= ec->fragments;
+            if (cbk->offset < fop->user_size) {
+                cbk->offset = fop->user_size;
             }
-        } else {
-            ec_fop_set_error(fop, EIO);
         }
 
         return EC_STATE_REPORT;
