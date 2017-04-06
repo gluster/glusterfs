@@ -3787,17 +3787,44 @@ client_graph_set_rda_options (volgen_graph_t *graph,
             !glusterd_volinfo_get_boolean (volinfo, VKEY_READDIR_AHEAD))
                 goto out;
 
-        ret = glusterd_volinfo_get (volinfo, VKEY_RDA_CACHE_LIMIT, &rda_cache_s);
-        if (ret < 0)
+        /* glusterd_volinfo_get() will get the default value if nothing set
+         * explicitly. Hence it is important to check set_dict before checking
+         * glusterd_volinfo_get, so that we consider key value of the in
+         * progress volume set option.
+         */
+        ret = dict_get_str (set_dict, VKEY_RDA_CACHE_LIMIT, &rda_cache_s);
+        if (ret < 0) {
+                ret = glusterd_volinfo_get (volinfo, VKEY_RDA_CACHE_LIMIT,
+                                            &rda_cache_s);
+                if (ret < 0)
+                        goto out;
+        }
+        ret = gf_string2bytesize_uint64 (rda_cache_s, &rda_cache_size);
+        if (ret < 0) {
+                set_graph_errstr (graph, "invalid number format in option "
+                                  VKEY_RDA_CACHE_LIMIT);
                 goto out;
+        }
 
-        gf_string2bytesize_uint64 (rda_cache_s, &rda_cache_size);
-
-        ret = glusterd_volinfo_get (volinfo, VKEY_RDA_REQUEST_SIZE, &rda_req_s);
-        if (ret < 0)
-                goto out;
-
+        ret = dict_get_str (set_dict, VKEY_RDA_REQUEST_SIZE, &rda_req_s);
+        if (ret < 0) {
+                ret = glusterd_volinfo_get (volinfo, VKEY_RDA_REQUEST_SIZE,
+                                            &rda_req_s);
+                if (ret < 0)
+                        goto out;
+        }
         gf_string2bytesize_uint64 (rda_req_s, &rda_req_size);
+        if (ret < 0) {
+                set_graph_errstr (graph, "invalid number format in option "
+                                  VKEY_RDA_REQUEST_SIZE);
+                goto out;
+        }
+
+        if (rda_cache_size == 0 || rda_req_size == 0) {
+                set_graph_errstr (graph, "Value cannot be 0");
+                ret = -1;
+                goto out;
+        }
 
         new_cache_size = rda_cache_size / dist_count;
         if (new_cache_size < rda_req_size) {
