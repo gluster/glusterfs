@@ -3137,6 +3137,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .value       = "off",
           .type        = DOC,
           .op_version  = GD_OP_VERSION_3_10_0,
+          .validate_fn = validate_boolean,
           .description = "If this option is enabled, the readdir operation is "
                          "performed parallely on all the bricks, thus improving"
                          " the performance of readdir. Note that the performance"
