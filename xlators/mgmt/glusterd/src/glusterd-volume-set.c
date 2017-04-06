@@ -1470,6 +1470,18 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 1,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
+        { .key         = "performance.io-cache.read-size",
+          .voltype     = "performance/io-cache",
+          .option      = "read-size",
+          .op_version  = 1,
+          .flags       = OPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "performance.io-cache.min-cached-read-size",
+          .voltype    = "performance/io-cache",
+          .option     = "min-cached-read-size",
+          .op_version = 1,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
         { .key        = "performance.cache-priority",
           .voltype    = "performance/io-cache",
           .option     = "priority",

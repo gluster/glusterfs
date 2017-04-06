@@ -1147,7 +1147,7 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
         ioc_inode_unlock (ioc_inode);
 
-        if (!fd_ctx_get (fd, this, NULL)) {
+        if (!fd_ctx_get (fd, this, NULL) || size < table->min_cached_read_size) {
                 /* disable caching for this fd, go ahead with normal readv */
                 STACK_WIND_TAIL (frame, FIRST_CHILD (frame->this),
                                  FIRST_CHILD (frame->this)->fops->readv, fd,
@@ -1753,6 +1753,12 @@ reconfigure (xlator_t *this, dict_t *options)
                         goto unlock;
                 }
 
+                GF_OPTION_RECONF ("read-size", table->read_size,
+                                  options, size_uint64, unlock);
+
+                GF_OPTION_RECONF ("min-cached-read-size", table->min_cached_read_size,
+                                  options, size_uint64, unlock);
+
                 GF_OPTION_RECONF ("cache-size", cache_size_new,
                                   options, size_uint64, unlock);
                 if (!check_cache_size_ok (this, cache_size_new)) {
@@ -1792,7 +1798,6 @@ init (xlator_t *this)
         dict_t          *xl_options        = NULL;
         uint32_t         index             = 0;
         int32_t          ret               = -1;
-        glusterfs_ctx_t *ctx               = NULL;
         data_t          *data              = 0;
         uint32_t         num_pages         = 0;
 
@@ -1820,7 +1825,12 @@ init (xlator_t *this)
         }
 
         table->xl = this;
-        table->page_size = this->ctx->page_size;
+
+        GF_OPTION_INIT ("read-size", table->read_size, size_uint64, out);
+
+        GF_OPTION_INIT ("min-cached-read-size", table->min_cached_read_size, size_uint64, out);
+
+        table->page_size = table->read_size;
 
         GF_OPTION_INIT ("cache-size", table->cache_size, size_uint64, out);
 
@@ -1903,8 +1913,7 @@ init (xlator_t *this)
 
         ret = 0;
 
-        ctx = this->ctx;
-        ioc_log2_page_size = log_base2 (ctx->page_size);
+        ioc_log2_page_size = log_base2 (table->page_size);
 
         LOCK_INIT (&table->statfs_cache.lock);
         /* Invalidate statfs cache */
@@ -2256,6 +2265,16 @@ struct volume_options options[] = {
           .default_value = "0",
           .description = "Maximum file size which would be cached by the "
           "io-cache translator."
+        },
+        { .key  = {"read-size"},
+          .type = GF_OPTION_TYPE_SIZET,
+          .default_value = "1MB",
+          .description = "Size of each posix read"
+        },
+        { .key  = {"min-cached-read-size"},
+          .type = GF_OPTION_TYPE_SIZET,
+          .default_value = "64KB",
+          .description = "Minimum size to cache reads"
         },
         { .key  = {"statfs-cache"},
           .type = GF_OPTION_TYPE_BOOL,
