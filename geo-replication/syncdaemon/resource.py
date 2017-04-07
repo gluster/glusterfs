@@ -24,7 +24,7 @@ import tempfile
 import threading
 import subprocess
 from errno import EEXIST, ENOENT, ENODATA, ENOTDIR, ELOOP
-from errno import EISDIR, ENOTEMPTY, ESTALE, EINVAL
+from errno import EISDIR, ENOTEMPTY, ESTALE, EINVAL, EBUSY
 from select import error as SelectError
 import shutil
 
