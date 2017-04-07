@@ -119,11 +119,10 @@ sc_service_action (struct service_command *sc, char *command)
 static int
 manage_service (char *action)
 {
-        struct stat stbuf       = {0,};
         int     i               = 0;
         int     ret             = 0;
         struct service_command sc_list[] = {
-                { .binary  = "/usr/bin/systemctl",
+                { .binary  = "/bin/systemctl",
                   .service = "nfs-ganesha",
                   .action  = sc_systemctl_action
                 },
@@ -140,16 +139,11 @@ manage_service (char *action)
         };
 
         while (sc_list[i].binary != NULL) {
-                ret = sys_stat (sc_list[i].binary, &stbuf);
+                ret = sys_access (sc_list[i].binary, X_OK);
                 if (ret == 0) {
                         gf_msg_debug (THIS->name, 0,
-                                "%s found.", sc_list[i].binary);
-                        if (strcmp (sc_list[i].binary, "/usr/bin/systemctl") == 0)
-                                ret = sc_systemctl_action (&sc_list[i], action);
-                        else
-                                ret = sc_service_action (&sc_list[i], action);
-
-                        return ret;
+                                      "%s found.", sc_list[i].binary);
+                        return sc_list[i].action (&sc_list[i], action);
                 }
                 i++;
         }
@@ -465,9 +459,9 @@ manage_export_config (char *volname, char *value, char **op_errstr)
 
         GF_ASSERT(volname);
         runinit (&runner);
-        runner_add_args (&runner, "sh",
-                        GANESHA_PREFIX"/create-export-ganesha.sh",
-                        CONFDIR, value, volname, NULL);
+        runner_add_args (&runner,
+                         GANESHA_PREFIX"/create-export-ganesha.sh",
+                         CONFDIR, value, volname, NULL);
         ret = runner_run(&runner);
 
         if (ret)
@@ -570,8 +564,9 @@ ganesha_manage_export (dict_t *dict, char *value, char **op_errstr)
         }
 
         if (check_host_list()) {
-                runner_add_args (&runner, "sh", GANESHA_PREFIX"/dbus-send.sh",
-                         CONFDIR, value, volname, NULL);
+                runner_add_args (&runner,
+                                 GANESHA_PREFIX"/dbus-send.sh",
+                                 CONFDIR, value, volname, NULL);
                 ret = runner_run (&runner);
                 if (ret) {
                         gf_asprintf(op_errstr, "Dynamic export"
@@ -610,9 +605,9 @@ tear_down_cluster(gf_boolean_t run_teardown)
 
         if (run_teardown) {
                 runinit (&runner);
-                runner_add_args (&runner, "sh",
-                                GANESHA_PREFIX"/ganesha-ha.sh", "teardown",
-                                CONFDIR, NULL);
+                runner_add_args (&runner,
+                                 GANESHA_PREFIX"/ganesha-ha.sh", "teardown",
+                                 CONFDIR, NULL);
                 ret = runner_run(&runner);
                 /* *
                  * Remove all the entries in CONFDIR expect ganesha.conf and
@@ -675,7 +670,8 @@ setup_cluster(gf_boolean_t run_setup)
 
         if (run_setup) {
                 runinit (&runner);
-                runner_add_args (&runner, "sh", GANESHA_PREFIX"/ganesha-ha.sh",
+                runner_add_args (&runner,
+                                 GANESHA_PREFIX"/ganesha-ha.sh",
                                  "setup", CONFDIR,  NULL);
                 ret =  runner_run (&runner);
         }
@@ -702,8 +698,9 @@ teardown (gf_boolean_t run_teardown, char **op_errstr)
         }
 
         runinit (&runner);
-        runner_add_args (&runner, "sh", GANESHA_PREFIX"/ganesha-ha.sh",
-                                 "cleanup", CONFDIR,  NULL);
+        runner_add_args (&runner,
+                         GANESHA_PREFIX"/ganesha-ha.sh",
+                         "cleanup", CONFDIR,  NULL);
         ret = runner_run (&runner);
         if (ret)
                 gf_msg_debug (THIS->name, 0, "Could not clean up"
@@ -747,7 +744,8 @@ stop_ganesha (char **op_errstr) {
         runner_t runner         = {0,};
 
         runinit (&runner);
-        runner_add_args (&runner, "sh", GANESHA_PREFIX"/ganesha-ha.sh",
+        runner_add_args (&runner,
+                         GANESHA_PREFIX"/ganesha-ha.sh",
                          "--setup-ganesha-conf-files", CONFDIR, "no", NULL);
         ret =  runner_run (&runner);
         if (ret) {
@@ -809,7 +807,8 @@ start_ganesha (char **op_errstr)
         }
 
         runinit (&runner);
-        runner_add_args (&runner, "sh", GANESHA_PREFIX"/ganesha-ha.sh",
+        runner_add_args (&runner,
+                         GANESHA_PREFIX"/ganesha-ha.sh",
                          "--setup-ganesha-conf-files", CONFDIR, "yes", NULL);
         ret =  runner_run (&runner);
         if (ret) {

@@ -20,6 +20,7 @@
 # ensure that the NFS GRACE DBUS signal is sent after the VIP moves to
 # the new host.
 
+GANESHA_HA_SH=$(realpath $0)
 HA_NUM_SERVERS=0
 HA_SERVERS=""
 HA_VOL_NAME="gluster_shared_storage"
@@ -68,9 +69,9 @@ function find_rhel7_conf
          done
 }
 
-if [ -z $CONFFILE ]
+if [ -z ${CONFFILE} ]
         then
-        find_rhel7_conf $OPTIONS
+        find_rhel7_conf ${OPTIONS}
 
 fi
 
@@ -90,9 +91,9 @@ usage() {
 
 determine_service_manager () {
 
-        if [ -e "/usr/bin/systemctl" ];
+        if [ -e "/bin/systemctl" ];
         then
-                SERVICE_MAN="/usr/bin/systemctl"
+                SERVICE_MAN="/bin/systemctl"
         elif [ -e "/sbin/invoke-rc.d" ];
         then
                 SERVICE_MAN="/sbin/invoke-rc.d"
@@ -100,7 +101,7 @@ determine_service_manager () {
         then
                 SERVICE_MAN="/sbin/service"
         fi
-        if [ "$SERVICE_MAN" == "DISTRO_NOT_FOUND" ]
+        if [ "${SERVICE_MAN}" == "DISTRO_NOT_FOUND" ]
         then
                 echo "Service manager not recognized, exiting"
                 exit 1
@@ -113,21 +114,21 @@ manage_service ()
         local new_node=${2}
         local option=
 
-        if [ "$action" == "start" ]; then
+        if [ "${action}" == "start" ]; then
                 option="yes"
         else
                 option="no"
         fi
         ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-${SECRET_PEM} root@${new_node} "/usr/libexec/ganesha/ganesha-ha.sh --setup-ganesha-conf-files $HA_CONFDIR $option"
+${SECRET_PEM} root@${new_node} "${GANESHA_HA_SH} --setup-ganesha-conf-files $HA_CONFDIR $option"
 
-        if [ "$SERVICE_MAN" == "/usr/bin/systemctl" ]
+        if [ "${SERVICE_MAN}" == "/bin/systemctl" ]
         then
                 ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-${SECRET_PEM} root@${new_node} "$SERVICE_MAN  ${action} nfs-ganesha"
+${SECRET_PEM} root@${new_node} "${SERVICE_MAN}  ${action} nfs-ganesha"
         else
                 ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i \
-${SECRET_PEM} root@${new_node} "$SERVICE_MAN nfs-ganesha ${action}"
+${SECRET_PEM} root@${new_node} "${SERVICE_MAN} nfs-ganesha ${action}"
         fi
 }
 
