@@ -1411,7 +1411,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
         def cleanup_mntpt(self, mntpt=None):
             if not mntpt:
                 mntpt = self.mntpt
-            os.rmdir(mntpt)
+            errno_wrap(os.rmdir, [mntpt], [ENOENT, EBUSY])
 
     class MountbrokerMounter(Mounter):
 

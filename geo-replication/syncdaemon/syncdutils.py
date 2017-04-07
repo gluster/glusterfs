@@ -241,7 +241,12 @@ def finalize(*a, **kw):
         p0 = subprocess.Popen (["umount", "-l", mnt], stderr=subprocess.PIPE)
         _, errdata = p0.communicate()
         if p0.returncode == 0:
-            os.rmdir(mnt)
+            try:
+                os.rmdir(mnt)
+            except OSError:
+                pass
+        else:
+            pass
 
     if gconf.log_exit:
         logging.info("exiting.")
