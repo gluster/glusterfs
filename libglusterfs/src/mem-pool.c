@@ -529,6 +529,11 @@ mem_pools_preinit (void)
 
         for (i = 0; i < NPOOLS; ++i) {
                 pools[i].power_of_two = POOL_SMALLEST + i;
+
+                GF_ATOMIC_INIT (pools[i].allocs_hot, 0);
+                GF_ATOMIC_INIT (pools[i].allocs_cold, 0);
+                GF_ATOMIC_INIT (pools[i].allocs_stdc, 0);
+                GF_ATOMIC_INIT (pools[i].frees_to_list, 0);
         }
 
         pool_list_size = sizeof (per_thread_pool_list_t)
@@ -641,19 +646,19 @@ mem_get_from_pool (per_thread_pool_t *pt_pool)
 
         retval = pt_pool->hot_list;
         if (retval) {
-                (void) __sync_fetch_and_add (&pt_pool->parent->allocs_hot, 1);
+                GF_ATOMIC_INC (pt_pool->parent->allocs_hot);
                 pt_pool->hot_list = retval->next;
                 return retval;
         }
 
         retval = pt_pool->cold_list;
         if (retval) {
-                (void) __sync_fetch_and_add (&pt_pool->parent->allocs_cold, 1);
+                GF_ATOMIC_INC (pt_pool->parent->allocs_cold);
                 pt_pool->cold_list = retval->next;
                 return retval;
         }
 
-        (void) __sync_fetch_and_add (&pt_pool->parent->allocs_stdc, 1);
+        GF_ATOMIC_INC (pt_pool->parent->allocs_stdc);
         return malloc (1 << pt_pool->parent->power_of_two);
 }
 
@@ -727,7 +732,7 @@ mem_put (void *ptr)
         hdr->magic = GF_MEM_INVALID_MAGIC;
         hdr->next = pt_pool->hot_list;
         pt_pool->hot_list = hdr;
-        (void) __sync_fetch_and_add (&pt_pool->parent->frees_to_list, 1);
+        GF_ATOMIC_INC (pt_pool->parent->frees_to_list);
         (void) pthread_spin_unlock (&pool_list->lock);
 #endif /* GF_DISABLE_MEMPOOL */
 }

@@ -250,10 +250,10 @@ struct mem_pool {
          * them to line up exactly.  It's the general trends that matter, and
          * it's not worth the locked-bus-cycle overhead to make these precise.
          */
-        unsigned long           allocs_hot;
-        unsigned long           allocs_cold;
-        unsigned long           allocs_stdc;
-        unsigned long           frees_to_list;
+        gf_atomic_t             allocs_hot;
+        gf_atomic_t             allocs_cold;
+        gf_atomic_t             allocs_stdc;
+        gf_atomic_t             frees_to_list;
 };
 
 void mem_pools_init (void);
