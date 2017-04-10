@@ -3593,6 +3593,7 @@ shard_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         local->offset = offset;
         local->req_size = size;
         local->flags = flags;
+        local->fop = GF_FOP_READ;
         local->xattr_req = (xdata) ? dict_ref (xdata) : dict_new ();
         if (!local->xattr_req)
                 goto err;
