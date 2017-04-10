@@ -2280,6 +2280,8 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
                                 "mkdir of %s failed", priv->trash_path);
                 } else {
                         sprintf (tmp_path, "%s/%s", priv->trash_path, gfid_str);
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Moving %s to %s", real_path, tmp_path);
                         op_ret = sys_rename (real_path, tmp_path);
                         pthread_cond_signal (&priv->janitor_cond);
                 }
@@ -6899,6 +6901,20 @@ struct posix_private *priv = NULL;
         GF_OPTION_RECONF ("max-hardlinks", priv->max_hardlinks,
                           options, uint32, out);
 
+        GF_OPTION_RECONF ("disable-landfill-purge",
+                          priv->disable_landfill_purge,
+                          options, bool, out);
+
+        if (priv->disable_landfill_purge) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Janitor WILL NOT purge the landfill directory. "
+                        "Your landfill directory"
+                        " may fill up this brick.");
+        } else {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Janitor WILL purge the landfill directory.");
+        }
+
         ret = 0;
 out:
 	return ret;
@@ -7514,6 +7530,9 @@ init (xlator_t *this)
         GF_OPTION_INIT ("batch-fsync-delay-usec", _private->batch_fsync_delay_usec,
                         uint32, out);
 
+        GF_OPTION_INIT ("disable-landfill-purge",
+                        _private->disable_landfill_purge, bool, out);
+
         GF_OPTION_INIT ("freespace-check-interval",
                         _private->freespace_check_interval, uint32, out);
 
@@ -7527,9 +7546,19 @@ init (xlator_t *this)
         pthread_mutex_init (&_private->freespace_check_lock, NULL);
         sys_statvfs (_private->base_path, &_private->freespace_stats);
         clock_gettime (CLOCK_MONOTONIC, &_private->freespace_check_last);
+
         _private->freespace_check_passed = freespace_ok (
                 this, &_private->freespace_stats, _private->min_free_disk,
                 _gf_true);
+        if (_private->disable_landfill_purge) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Janitor WILL NOT purge the landfill directory. "
+                        "Your landfill directory"
+                        " may fill up this brick.");
+        } else {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Janitor WILL purge the landfill directory.");
+        }
 out:
         return ret;
 }
@@ -7729,6 +7758,13 @@ struct volume_options options[] = {
           .default_value = "off",
           .description = "fadvise fd's with POSIX_FADV_RANDOM to bypass "
                          "read-ahead limits",
+        },
+        {
+          .key = {"disable-landfill-purge"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "Disable glusterfs/landfill purges. "
+                         "WARNING: This can fill up a brick."
         },
         {
           .key = {"max-hardlinks"},
