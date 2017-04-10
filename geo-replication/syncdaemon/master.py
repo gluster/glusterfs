@@ -670,7 +670,6 @@ class XCrawlMetadata(object):
         self.st_atime = float(st_atime)
         self.st_mtime = float(st_mtime)
 
-
 class GMasterChangelogMixin(GMasterCommon):
 
     """ changelog based change detection and syncing """
@@ -692,6 +691,30 @@ class GMasterChangelogMixin(GMasterCommon):
     FLAT_DIR_HIERARCHY = '.'
 
     CHANGELOG_CONN_RETRIES = 5
+
+    def init_fop_batch_stats(self):
+        self.batch_stats = {
+            "CREATE":0,
+            "MKNOD":0,
+            "UNLINK":0,
+            "MKDIR":0,
+            "RMDIR":0,
+            "LINK":0,
+            "SYMLINK":0,
+            "RENAME":0,
+            "SETATTR":0,
+            "SETXATTR":0,
+            "XATTROP":0,
+            "DATA":0,
+            "ENTRY_SYNC_TIME":0,
+            "META_SYNC_TIME":0,
+            "DATA_START_TIME":0
+        }
+
+    def update_fop_batch_stats(self, ty):
+        if ty in ['FSETXATTR']:
+           ty = 'SETXATTR'
+        self.batch_stats[ty] = self.batch_stats.get(ty,0) + 1
 
     def archive_and_purge_changelogs(self, changelogs):
         # Creates tar file instead of tar.gz, since changelogs will
@@ -822,6 +845,8 @@ class GMasterChangelogMixin(GMasterCommon):
                 # itself, so no need to stat()...
                 ty = ec[self.POS_TYPE]
 
+                self.update_fop_batch_stats(ec[self.POS_TYPE])
+
                 # PARGFID/BNAME
                 en = unescape(os.path.join(pfx, ec[self.POS_ENTRY1]))
                 # GFID of the entry
@@ -916,6 +941,7 @@ class GMasterChangelogMixin(GMasterCommon):
                 else:
                     datas.add(os.path.join(pfx, ec[0]))
             elif et == self.TYPE_META:
+                self.update_fop_batch_stats(ec[self.POS_TYPE])
                 if ec[1] == 'SETATTR':  # only setattr's for now...
                     if len(ec) == 5:
                         # In xsync crawl, we already have stat data
@@ -944,6 +970,11 @@ class GMasterChangelogMixin(GMasterCommon):
         self.files_in_batch += len(datas)
         self.status.inc_value("data", len(datas))
 
+        self.batch_stats["DATA"] += self.files_in_batch - \
+                                    self.batch_stats["SETXATTR"] - \
+                                    self.batch_stats["XATTROP"]
+
+        entry_start_time = time.time()
         # sync namespace
         if entries and not ignore_entry_ops:
             # Increment counters for Status
@@ -960,6 +991,8 @@ class GMasterChangelogMixin(GMasterCommon):
                 self.status.set_field("last_synced_entry",
                                       entry_stime_to_update[0])
 
+        self.batch_stats["ENTRY_SYNC_TIME"] += time.time() - entry_start_time
+
         if ignore_entry_ops:
             # Book keeping, to show in logs the range of Changelogs skipped
             self.num_skipped_entry_changelogs += 1
@@ -968,6 +1001,7 @@ class GMasterChangelogMixin(GMasterCommon):
 
             self.skipped_entry_changelogs_last = change_ts
 
+        meta_start_time = time.time()
         # sync metadata
         if meta_gfid:
             meta_entries = []
@@ -986,6 +1020,11 @@ class GMasterChangelogMixin(GMasterCommon):
                 self.log_failures(failures, 'go', '', 'META')
                 self.status.dec_value("meta", len(entries))
 
+        self.batch_stats["META_SYNC_TIME"] += time.time() - meta_start_time
+
+        if self.batch_stats["DATA_START_TIME"] == 0:
+            self.batch_stats["DATA_START_TIME"] = time.time()
+
         # sync data
         if datas:
             self.a_syncdata(datas)
@@ -1003,6 +1042,7 @@ class GMasterChangelogMixin(GMasterCommon):
         self.skipped_entry_changelogs_last = None
         self.num_skipped_entry_changelogs = 0
         self.batch_start_time = time.time()
+        self.init_fop_batch_stats()
 
         while True:
             # first, fire all changelog transfers in parallel. entry and
@@ -1099,6 +1139,7 @@ class GMasterChangelogMixin(GMasterCommon):
             # Reset the Data counter before Retry
             self.status.dec_value("data", self.files_in_batch)
             self.files_in_batch = 0
+            self.init_fop_batch_stats()
             time.sleep(0.5)
 
         # Log the Skipped Entry ops range if any
@@ -1113,6 +1154,24 @@ class GMasterChangelogMixin(GMasterCommon):
 
         # Log Current batch details
         if changes:
+            logging.info(
+                "Entry Time Taken (UNL:{0} RMD:{1} CRE:{2} MKN:{3} "
+                "MKD:{4} REN:{5} LIN:{6} SYM:{7}): {8:.4f} "
+                 "secs ".format (
+                    self.batch_stats["UNLINK"], self.batch_stats["RMDIR"],
+                    self.batch_stats["CREATE"], self.batch_stats["MKNOD"],
+                    self.batch_stats["MKDIR"], self.batch_stats["RENAME"],
+                    self.batch_stats["LINK"], self.batch_stats["SYMLINK"],
+                    self.batch_stats["ENTRY_SYNC_TIME"]))
+            logging.info(
+                "Metadata Time Taken (SETA:{0}): {1:.4f} secs. "
+                "Data Time Taken (SETX:{2} XATT:{3} DATA:{4}): "
+                "{5:.4f} secs".format(
+                    self.batch_stats["SETATTR"],
+                    self.batch_stats["META_SYNC_TIME"],
+                    self.batch_stats["SETXATTR"], self.batch_stats["XATTROP"],
+                    self.batch_stats["DATA"],
+                    time.time() - self.batch_stats["DATA_START_TIME"]))
             logging.info(
                 "{0} mode completed in {1:.4f} seconds "
                 "({2} - {3} Num: {4}) stime: {5}, entry_stime: {6}".format(
