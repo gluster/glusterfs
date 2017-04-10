@@ -1440,8 +1440,7 @@ out:
         if (ret) {
                 if (fd)
                         fd_unref (fd);
-                if (glfd)
-                        GF_REF_PUT (glfd);
+                GF_REF_PUT (glfd);
                 GF_FREE (gio);
                 if (frame)
                         STACK_DESTROY (frame->root);
