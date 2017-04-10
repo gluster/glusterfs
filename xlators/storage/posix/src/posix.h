@@ -233,6 +233,9 @@ struct posix_private {
            same backend. Very much usable in brick-splitting feature. */
         int32_t shared_brick_count;
 
+        /* This option is used for either to call a landfill_purge or not */
+        gf_boolean_t disable_landfill_purge;
+
         /*Option to set mode bit permission that will always be set on
           file/directory. */
         mode_t          force_create_mode;

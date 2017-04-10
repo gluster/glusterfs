@@ -382,6 +382,20 @@ posix_reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("shared-brick-count", priv->shared_brick_count,
                           options, int32, out);
+
+        GF_OPTION_RECONF ("disable-landfill-purge",
+                          priv->disable_landfill_purge,
+                          options, bool, out);
+        if (priv->disable_landfill_purge) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Janitor WILL NOT purge the landfill directory. "
+                        "Your landfill directory"
+                        " may fill up this brick.");
+        } else {
+                gf_msg_debug (this->name, 0, "Janitor will purge the landfill "
+                              "directory, which is default behavior");
+        }
+
         GF_OPTION_RECONF ("force-create-mode", force_create_mode,
                           options, int32, out);
         priv->force_create_mode = force_create_mode;
@@ -1064,6 +1078,16 @@ posix_init (xlator_t *this)
 
         GF_OPTION_INIT ("batch-fsync-delay-usec", _private->batch_fsync_delay_usec,
                         uint32, out);
+
+        GF_OPTION_INIT ("disable-landfill-purge",
+                        _private->disable_landfill_purge, bool, out);
+        if (_private->disable_landfill_purge) {
+                gf_msg (this->name, GF_LOG_WARNING, 0, 0,
+                        "Janitor WILL NOT purge the landfill directory. "
+                        "Your landfill directory"
+                        " may fill up this brick.");
+        }
+
         GF_OPTION_INIT ("force-create-mode", force_create, int32, out);
         _private->force_create_mode = force_create;
 
@@ -1287,6 +1311,15 @@ struct volume_options options[] = {
           .description = "Number of bricks sharing the same backend export."
           " Useful for displaying the proper usable size through statvfs() "
           "call (df command)",
+        },
+        {
+          .key = {"disable-landfill-purge"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "Disable glusterfs/landfill purges. "
+          "WARNING: This can fill up a brick.",
+          .op_version = {GD_OP_VERSION_4_0_0},
+          .tags = {"diagnosis"},
         },
         { .key  = {"force-create-mode"},
           .type = GF_OPTION_TYPE_INT,
