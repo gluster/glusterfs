@@ -644,7 +644,7 @@ class Server(object):
                                st['uid'], st['gid'],
                                gf, st['mode'], bn, lnk)
 
-        def entry_purge(entry, gfid):
+        def entry_purge(op, entry, gfid):
             # This is an extremely racy code and needs to be fixed ASAP.
             # The GFID check here is to be sure that the pargfid/bname
             # to be purged is the GFID gotten from the changelog.
@@ -653,14 +653,14 @@ class Server(object):
             if not matching_disk_gfid(gfid, entry):
                 return
 
-            er = errno_wrap(os.unlink, [entry], [ENOENT, ESTALE, EISDIR],
-                            [EBUSY])
-            if isinstance(er, int):
-                if er == EISDIR:
-                    er = errno_wrap(os.rmdir, [entry], [ENOENT, ESTALE,
-                                                        ENOTEMPTY], [EBUSY])
-                    if er == ENOTEMPTY:
-                        return er
+            if op == 'UNLINK':
+                errno_wrap(os.unlink, [entry], [ENOENT, ESTALE],
+                           [EBUSY])
+            elif op == 'RMDIR':
+                er = errno_wrap(os.rmdir, [entry], [ENOENT, ESTALE,
+                                                    ENOTEMPTY], [EBUSY])
+                if er == ENOTEMPTY:
+                    return er
 
         def collect_failure(e, cmd_ret):
             # We do this for failing fops on Slave
@@ -757,7 +757,7 @@ class Server(object):
             if op in ['RMDIR', 'UNLINK']:
                 # Try once, if rmdir failed with ENOTEMPTY
                 # then delete recursively.
-                er = entry_purge(entry, gfid)
+                er = entry_purge(op, entry, gfid)
                 if isinstance(er, int):
                     if er == ENOTEMPTY and op == 'RMDIR':
                         # Retry if ENOTEMPTY, ESTALE
