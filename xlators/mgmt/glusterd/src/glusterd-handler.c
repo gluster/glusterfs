@@ -5218,6 +5218,7 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
         glusterd_volinfo_t          *volinfo = NULL;
         glusterd_brickinfo_t        *brickinfo = NULL;
         xlator_t                    *this = NULL;
+        struct statvfs               brickstat = {0};
         char                        *odir = NULL;
         char                        *filename = NULL;
         char                        *ofilepath = NULL;
@@ -5227,6 +5228,8 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
         time_t                       now = 0;
         char                         timestamp[16] = {0,};
         uint32_t                     get_state_cmd = 0;
+        uint64_t                     memtotal = 0;
+        uint64_t                     memfree = 0;
 
         char    *vol_type_str = NULL;
         char    *hot_tier_type_str = NULL;
@@ -5445,6 +5448,22 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                                       count <= volinfo->tier_info.hot_brick_count ?
                                       "Hot" : "Cold");
                         }
+
+                        ret = sys_statvfs (brickinfo->path, &brickstat);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        GD_MSG_FILE_OP_FAILED,
+                                        "statfs error: %s ", strerror (errno));
+                                goto out;
+                        }
+
+                        memfree = brickstat.f_bfree * brickstat.f_bsize;
+                        memtotal = brickstat.f_blocks * brickstat.f_bsize;
+
+                        fprintf (fp, "Volume%d.Brick%d.spacefree: %"PRIu64"Bytes\n",
+                                 count_bkp, count, memfree);
+                        fprintf (fp, "Volume%d.Brick%d.spacetotal: %"PRIu64"Bytes\n",
+                                 count_bkp, count, memtotal);
 
                         if (get_state_cmd != GF_CLI_GET_STATE_DETAIL)
                                 continue;
