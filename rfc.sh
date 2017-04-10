@@ -200,6 +200,80 @@ check_patches_for_coding_style()
     fi
 }
 
+github_issue_message()
+{
+    echo ""
+    echo "=== Missing a github issue reference in a potential enhancement! ==="
+    echo ""
+    echo "Gluster code submissions that are enhancements (IOW, not functional"
+    echo "bug fixes, but improvements of any nature to the code) are tracked"
+    echo "using github issues. A check on the commit message, reveals that"
+    echo "there is no bug associated with this change, hence it could be a"
+    echo "potential code improvement or feature enhancement"
+    echo ""
+    echo "If this is an enhancement, request a github issue be filed at [1]"
+    echo "and referenced in the commit message as,"
+    echo "\"Fixes gluster/glusterfs#n\" OR \"Updates gluster/glusterfs#n\","
+    echo "where n is the issue number"
+    echo ""
+    echo "You can reference multiple issues that this commit addresses as,"
+    echo "\"fixes gluster/glusterfs#n, updates gluster/glusterfs#m\", and so on"
+    echo ""
+    echo "[1] https://github.com/gluster/glusterfs/issues/new"
+    echo ""
+    echo "You may abort the submission choosing 'N' below and use"
+    echo "'git commit --amend' to add the issue reference before posting"
+    echo "to gerrit. If this is a bug fix, choose 'Y' to continue."
+    echo ""
+}
+
+check_for_github_issue()
+{
+    # NOTE: Since we run '#!/bin/sh -e', the check is in an if,
+    # as grep count maybe 0
+    #
+    # Regex elaborated:
+    #   grep -w -> --word-regexp (from the man page)
+    #      Select only those lines containing matches that form whole words.
+    #      The test is that the matching substring must either be at the
+    #      beginning of the line, or preceded by a  non-word  constituent
+    #      character.  Similarly, it must be either at the end of the line or
+    #      followed by a non-word constituent character.  Word-constituent
+    #      characters are letters, digits, and the underscore.
+    #   IOW, the above helps us find the pattern with leading or training spaces
+    #   or non word consituents like , or ;
+    #
+    #   grep -c -> gives us a count of matches, which is all we need here
+    #
+    #   [fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])
+    #      Finds 'fixes' OR 'updates' in any case combination
+    #
+    #   (:)?
+    #      Followed by an optional : (colon)
+    #
+    #   [[:space:]]+
+    #      followed by 1 or more spaces
+    #
+    #   (gluster\/glusterfs)?
+    #      Followed by 0 or more gluster/glusterfs
+    #
+    #   #
+    #      Followed by #
+    #
+    #   [[:digit:]]+
+    #      Followed by 1 or more digits
+    if [ 0 = "$(git log --format=%B -n 1 | grep -cow -E "([fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])(:)?[[:space:]]+(gluster\/glusterfs)?#[[:digit:]]+")" ]; then
+        moveon='N'
+        github_issue_message;
+        echo -n "Missing github issue reference in a potential RFE. Continue (y/N): "
+        read moveon
+        if [ "${moveon}" = 'Y' ] || [ "${moveon}" = 'y' ]; then
+            return;
+        else
+            exit 1
+        fi
+    fi
+}
 
 main()
 {
@@ -221,6 +295,14 @@ main()
     assert_diverge;
 
     bug=$(git show --format='%b' | grep -i '^BUG: ' | awk '{print $2}');
+
+    # If this is a commit against master and does not have a bug ID
+    # it could be a feature or an RFE, check if there is a github
+    # issue reference, and if not suggest commit message amendment
+    if [ -z "$bug" ] && [ $branch = "master" ]; then
+        check_for_github_issue;
+    fi
+
 
     if [ "$DRY_RUN" = 1 ]; then
         drier='echo -e Please use the following command to send your commits to review:\n\n'
