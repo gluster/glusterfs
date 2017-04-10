@@ -1414,15 +1414,22 @@ posix_janitor_thread_proc (void *data)
 
                 time (&now);
                 if ((now - priv->last_landfill_check) > priv->janitor_sleep_duration) {
-                        gf_msg_trace (this->name, 0,
-                                      "janitor cleaning out %s",
-                                      priv->trash_path);
+                        if (priv->disable_landfill_purge) {
+                                gf_msg_debug (this->name, 0,
+                                              "Janitor would have "
+                                              "cleaned out %s, but purge"
+                                              "is disabled.",
+                                              priv->trash_path);
+                        } else {
+                                gf_msg_trace (this->name, 0,
+                                              "janitor cleaning out %s",
+                                              priv->trash_path);
 
-                        nftw (priv->trash_path,
-                              janitor_walker,
-                              32,
-                              FTW_DEPTH | FTW_PHYS);
-
+                                nftw (priv->trash_path,
+                                      janitor_walker,
+                                      32,
+                                      FTW_DEPTH | FTW_PHYS);
+                        }
                         priv->last_landfill_check = now;
                 }
 

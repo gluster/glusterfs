@@ -1281,6 +1281,8 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
                 } else {
                         (void) snprintf (tmp_path, sizeof(tmp_path), "%s/%s",
                                          priv->trash_path, gfid_str);
+                        gf_msg_debug (this->name, 0,
+                                      "Moving %s to %s", real_path, tmp_path);
                         op_ret = sys_rename (real_path, tmp_path);
                         pthread_cond_signal (&priv->janitor_cond);
                 }
