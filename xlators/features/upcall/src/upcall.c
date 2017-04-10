@@ -2355,12 +2355,12 @@ init (xlator_t *this)
 
         priv = GF_CALLOC (1, sizeof (*priv),
                           gf_upcall_mt_private_t);
-        if (!priv) {
-                gf_msg ("upcall", GF_LOG_WARNING, 0,
-                        UPCALL_MSG_NO_MEMORY,
-                        "Memory allocation failed");
+        if (!priv)
                 goto out;
-        }
+
+        priv->xattrs = dict_new ();
+        if (!priv->xattrs)
+                goto out;
 
         GF_OPTION_INIT ("cache-invalidation", priv->cache_invalidation_enabled,
                         bool, out);
@@ -2369,12 +2369,11 @@ init (xlator_t *this)
 
         LOCK_INIT (&priv->inode_ctx_lk);
         INIT_LIST_HEAD (&priv->inode_ctx_list);
-        priv->xattrs = dict_new ();
 
-        this->private = priv;
         priv->fini = 0;
         priv->reaper_init_done = _gf_false;
 
+        this->private = priv;
         this->local_pool = mem_pool_new (upcall_local_t, 512);
         ret = 0;
 
@@ -2391,8 +2390,10 @@ init (xlator_t *this)
                 priv->reaper_init_done = _gf_true;
         }
 out:
-        if (ret) {
-                dict_unref (priv->xattrs);
+        if (ret && priv) {
+                if (priv->xattrs)
+                        dict_unref (priv->xattrs);
+
                 GF_FREE (priv);
         }
 
