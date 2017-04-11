@@ -838,8 +838,8 @@ __socket_nodelay (int fd)
 
 
 static int
-__socket_keepalive (int fd, int family, int keepalive_intvl,
-                    int keepalive_idle, int timeout)
+__socket_keepalive (int fd, int family, int keepaliveintvl,
+                    int keepaliveidle, int keepalivecnt, int timeout)
 {
         int     on = 1;
         int     ret = -1;
@@ -852,16 +852,16 @@ __socket_keepalive (int fd, int family, int keepalive_intvl,
                 goto err;
         }
 
-        if (keepalive_intvl == GF_USE_DEFAULT_KEEPALIVE)
+        if (keepaliveintvl == GF_USE_DEFAULT_KEEPALIVE)
                 goto done;
 
 #if !defined(GF_LINUX_HOST_OS) && !defined(__NetBSD__)
 #if defined(GF_SOLARIS_HOST_OS) || defined(__FreeBSD__)
-        ret = setsockopt (fd, SOL_SOCKET, SO_KEEPALIVE, &keepalive_intvl,
-                          sizeof (keepalive_intvl));
+        ret = setsockopt (fd, SOL_SOCKET, SO_KEEPALIVE, &keepaliveintvl,
+                          sizeof (keepaliveintvl));
 #else
-        ret = setsockopt (fd, IPPROTO_TCP, TCP_KEEPALIVE, &keepalive_intvl,
-                          sizeof (keepalive_intvl));
+        ret = setsockopt (fd, IPPROTO_TCP, TCP_KEEPALIVE, &keepaliveintvl,
+                          sizeof (keepaliveintvl));
 #endif
         if (ret == -1) {
                 gf_log ("socket", GF_LOG_WARNING,
@@ -872,20 +872,20 @@ __socket_keepalive (int fd, int family, int keepalive_intvl,
         if (family != AF_INET && family != AF_INET6)
                 goto done;
 
-        ret = setsockopt (fd, IPPROTO_TCP, TCP_KEEPIDLE, &keepalive_idle,
-                          sizeof (keepalive_idle));
+        ret = setsockopt (fd, IPPROTO_TCP, TCP_KEEPIDLE, &keepaliveidle,
+                          sizeof (keepaliveidle));
         if (ret == -1) {
                 gf_log ("socket", GF_LOG_WARNING,
                         "failed to set keep idle %d on socket %d, %s",
-                        keepalive_idle, fd, strerror(errno));
+                        keepaliveidle, fd, strerror(errno));
                 goto err;
         }
-        ret = setsockopt (fd, IPPROTO_TCP , TCP_KEEPINTVL, &keepalive_intvl,
-                          sizeof (keepalive_intvl));
+        ret = setsockopt (fd, IPPROTO_TCP , TCP_KEEPINTVL, &keepaliveintvl,
+                          sizeof (keepaliveintvl));
         if (ret == -1) {
                 gf_log ("socket", GF_LOG_WARNING,
                         "failed to set keep interval %d on socket %d, %s",
-                        keepalive_intvl, fd, strerror(errno));
+                        keepaliveintvl, fd, strerror(errno));
                 goto err;
         }
 
@@ -901,12 +901,23 @@ __socket_keepalive (int fd, int family, int keepalive_intvl,
                 goto err;
         }
 #endif
+#if defined(TCP_KEEPCNT)
+        ret = setsockopt (fd, IPPROTO_TCP, TCP_KEEPCNT, &keepalivecnt,
+                          sizeof (keepalivecnt));
+        if (ret == -1) {
+                gf_log ("socket", GF_LOG_WARNING, "failed to set "
+                        "TCP_KEEPCNT %d on socket %d, %s", keepalivecnt, fd,
+                        strerror(errno));
+                goto err;
+        }
+#endif
 #endif
 
 done:
-        gf_log (THIS->name, GF_LOG_TRACE, "Keep-alive enabled for socket %d, "
-                "interval %d, idle: %d, timeout: %d", fd, keepalive_intvl,
-                keepalive_idle, timeout);
+        gf_log (THIS->name, GF_LOG_TRACE, "Keep-alive enabled for socket: %d, "
+                "(idle: %d, interval: %d, max-probes: %d, timeout: %d)",
+                fd, keepaliveidle, keepaliveintvl, keepalivecnt,
+                timeout);
 
 err:
         return ret;
@@ -2700,6 +2711,7 @@ socket_server_event_handler (int fd, int idx, void *data,
                                                           new_sockaddr.ss_family,
                                                           priv->keepaliveintvl,
                                                           priv->keepaliveidle,
+                                                          priv->keepalivecnt,
                                                           priv->timeout);
                                 if (ret == -1)
                                         gf_log (this->name, GF_LOG_WARNING,
@@ -3104,6 +3116,7 @@ socket_connect (rpc_transport_t *this, int port)
                                                   sa_family,
                                                   priv->keepaliveintvl,
                                                   priv->keepaliveidle,
+                                                  priv->keepalivecnt,
                                                   priv->timeout);
                         if (ret == -1)
                                 gf_log (this->name, GF_LOG_ERROR,
@@ -3745,6 +3758,9 @@ reconfigure (rpc_transport_t *this, dict_t *options)
         int               ret           = 0;
         uint64_t          windowsize    = 0;
         uint32_t          timeout       = 0;
+        int               keepaliveidle  = GF_KEEPALIVE_TIME;
+        int               keepaliveintvl = GF_KEEPALIVE_INTERVAL;
+        int               keepalivecnt   = GF_KEEPALIVE_COUNT;
 
         GF_VALIDATE_OR_GOTO ("socket", this, out);
         GF_VALIDATE_OR_GOTO ("socket", this->private, out);
@@ -3773,12 +3789,30 @@ reconfigure (rpc_transport_t *this, dict_t *options)
         else
                 priv->keepalive = 1;
 
-        if (dict_get_uint32 (this->options, "transport.tcp-user-timeout",
-                             &timeout) == 0) {
+        if (dict_get_int32 (this->options, "transport.tcp-user-timeout",
+                            &(priv->timeout)) != 0)
                 priv->timeout = timeout;
-                gf_log (this->name, GF_LOG_DEBUG, "Reconfigued "
-                        "transport.tcp-user-timeout=%d", timeout);
-        }
+        gf_log (this->name, GF_LOG_DEBUG, "Reconfigued "
+                "transport.tcp-user-timeout=%d", priv->timeout);
+
+        if (dict_get_int32 (this->options, "transport.socket.keepalive-time",
+                            &(priv->keepaliveidle)) != 0)
+                priv->keepaliveidle = keepaliveidle;
+        gf_log (this->name, GF_LOG_DEBUG, "Reconfigued "
+                "transport.socket.keepalive-time=%d", priv->keepaliveidle);
+
+        if (dict_get_int32 (this->options,
+                            "transport.socket.keepalive-interval",
+                            &(priv->keepaliveintvl)) != 0)
+                priv->keepaliveintvl = keepaliveintvl;
+        gf_log (this->name, GF_LOG_DEBUG, "Reconfigued "
+                "transport.socket.keepalive-interval=%d", priv->keepaliveintvl);
+
+        if (dict_get_int32 (this->options, "transport.socket.keepalive-count",
+                            &(priv->keepalivecnt)) != 0)
+                priv->keepalivecnt = keepalivecnt;
+        gf_log (this->name, GF_LOG_DEBUG, "Reconfigued "
+                "transport.socket.keepalive-count=%d", priv->keepalivecnt);
 
         optstr = NULL;
         if (dict_get_str (this->options, "tcp-window-size",
@@ -3921,8 +3955,10 @@ socket_init (rpc_transport_t *this)
         gf_boolean_t      tmp_bool = 0;
         uint64_t          windowsize = GF_DEFAULT_SOCKET_WINDOW_SIZE;
         char             *optstr = NULL;
-        uint32_t          keepalive = 0;
         uint32_t          timeout = 0;
+        int               keepaliveidle  = GF_KEEPALIVE_TIME;
+        int               keepaliveintvl = GF_KEEPALIVE_INTERVAL;
+        int               keepalivecnt   = GF_KEEPALIVE_COUNT;
         uint32_t          backlog = 0;
 	int               session_id = 0;
         int32_t           cert_depth = DEFAULT_VERIFY_DEPTH;
@@ -4014,8 +4050,9 @@ socket_init (rpc_transport_t *this)
         optstr = NULL;
         /* Enable Keep-alive by default. */
         priv->keepalive = 1;
-        priv->keepaliveintvl = 2;
-        priv->keepaliveidle = 20;
+        priv->keepaliveintvl = GF_KEEPALIVE_INTERVAL;
+        priv->keepaliveidle = GF_KEEPALIVE_TIME;
+        priv->keepalivecnt = GF_KEEPALIVE_COUNT;
         if (dict_get_str (this->options, "transport.socket.keepalive",
                           &optstr) == 0) {
                 if (gf_string2boolean (optstr, &tmp_bool) == -1) {
@@ -4029,24 +4066,29 @@ socket_init (rpc_transport_t *this)
                         priv->keepalive = 0;
         }
 
-        if (dict_get_uint32 (this->options,
-                             "transport.socket.keepalive-interval",
-                             &keepalive) == 0) {
-                priv->keepaliveintvl = keepalive;
-        }
-
-        if (dict_get_uint32 (this->options,
-                             "transport.socket.keepalive-time",
-                             &keepalive) == 0) {
-                priv->keepaliveidle = keepalive;
-        }
-
-        if (dict_get_uint32 (this->options, "transport.tcp-user-timeout",
-                             &timeout) == 0) {
+        if (dict_get_int32 (this->options, "transport.tcp-user-timeout",
+                            &(priv->timeout)) != 0)
                 priv->timeout = timeout;
-        }
         gf_log (this->name, GF_LOG_DEBUG, "Configued "
                 "transport.tcp-user-timeout=%d", priv->timeout);
+
+        if (dict_get_int32 (this->options,
+                            "transport.socket.keepalive-time",
+                            &(priv->keepaliveidle)) != 0) {
+                priv->keepaliveidle = keepaliveidle;
+        }
+
+        if (dict_get_int32 (this->options,
+                            "transport.socket.keepalive-interval",
+                            &(priv->keepaliveintvl)) != 0) {
+                priv->keepaliveintvl = keepaliveintvl;
+        }
+
+        if (dict_get_int32 (this->options, "transport.socket.keepalive-count",
+                            &(priv->keepalivecnt)) != 0)
+                priv->keepalivecnt = keepalivecnt;
+        gf_log (this->name, GF_LOG_DEBUG, "Reconfigued "
+                "transport.keepalivecnt=%d", keepalivecnt);
 
         if (dict_get_uint32 (this->options,
                              "transport.socket.listen-backlog",
@@ -4446,21 +4488,30 @@ struct volume_options options[] = {
         },
         { .key   = {"transport.tcp-user-timeout"},
           .type  = GF_OPTION_TYPE_INT,
+          .default_value = "0"
         },
         { .key   = {"transport.socket.nodelay"},
-          .type  = GF_OPTION_TYPE_BOOL
+          .type  = GF_OPTION_TYPE_BOOL,
+          .default_value = "1"
         },
         { .key   = {"transport.socket.lowlat"},
           .type  = GF_OPTION_TYPE_BOOL
         },
         { .key   = {"transport.socket.keepalive"},
-          .type  = GF_OPTION_TYPE_BOOL
+          .type  = GF_OPTION_TYPE_BOOL,
+          .default_value = "1"
         },
         { .key   = {"transport.socket.keepalive-interval"},
-          .type  = GF_OPTION_TYPE_INT
+          .type  = GF_OPTION_TYPE_INT,
+          .default_value = "2"
         },
         { .key   = {"transport.socket.keepalive-time"},
-          .type  = GF_OPTION_TYPE_INT
+          .type  = GF_OPTION_TYPE_INT,
+          .default_value = "20"
+        },
+        { .key   = {"transport.socket.keepalive-count"},
+          .type  = GF_OPTION_TYPE_INT,
+          .default_value = "9"
         },
         { .key   = {"transport.socket.listen-backlog"},
           .type  = GF_OPTION_TYPE_INT
