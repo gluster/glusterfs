@@ -15,6 +15,27 @@
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
 
+cleanup
+TEST truncate -s 10GB $B0/brick1
+TEST truncate -s 10GB $B0/brick2
+TEST truncate -s 10GB $B0/brick3
+
+TEST LO1=`SETUP_LOOP $B0/brick1`
+TEST MKFS_LOOP $LO1
+
+TEST LO2=`SETUP_LOOP $B0/brick2`
+TEST MKFS_LOOP $LO2
+
+TEST LO3=`SETUP_LOOP $B0/brick3`
+TEST MKFS_LOOP $LO3
+
+TEST mkdir -p $B0/${V0}1 $B0/${V0}2  $B0/${V0}3
+
+
+TEST MOUNT_LOOP $LO1 $B0/${V0}1
+TEST MOUNT_LOOP $LO2 $B0/${V0}2
+TEST MOUNT_LOOP $LO3 $B0/${V0}3
+
 checksticky () {
 	i=0;
 	while [ ! -k $1 ]; do
@@ -31,7 +52,6 @@ checksticky () {
 	return 0
 }
 
-cleanup;
 
 TEST glusterd
 TEST pidof glusterd
@@ -131,5 +151,6 @@ TEST ln ./dir1/FILE7 ./FILE7
 cd /
 linkcountsrc=$(stat -c %h $M0/dir1/FILE1)
 TEST [[ $linkcountsrc == 14 ]]
-
+UMOUNT_LOOP ${B0}/${V0}{1..3}
+rm -f ${B0}/brick{1..3}
 cleanup;

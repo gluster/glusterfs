@@ -73,3 +73,5 @@ EXPECT "qwerty" get_text_xattr user.test $B0/${V0}1/file3
 EXPECT "qwerty" get_text_xattr user.test $B0/${V0}0/file3
 
 cleanup;
+#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=000000
+#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=000000

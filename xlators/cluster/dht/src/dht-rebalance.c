@@ -707,12 +707,29 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
                         "%s: failed to set xattr on %s (%s)",
                         loc->path, to->name, strerror (-ret));
 
+
+        /* TODO: Need to add a detailed comment about why we moved away from
+        ftruncate.
+
         ret = syncop_ftruncate (to, fd, stbuf->ia_size, NULL, NULL);
         if (ret < 0)
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "ftruncate failed for %s on %s (%s)",
                         loc->path, to->name, strerror (-ret));
+        */
+
+        /* Fallocate does not work for size 0, hence the check. Anyway we don't
+         * need to care about min-free-disk for 0 byte size file */
+        if (stbuf->ia_size > 0) {
+                ret = syncop_fallocate (to, fd, 0, 0, stbuf->ia_size, NULL,
+                                        NULL);
+                if (ret < 0)
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "fallocate failed for %s on %s (%s)",
+                                loc->path, to->name, strerror (-ret));
+        }
 
         ret = syncop_fsetattr (to, fd, stbuf,
                                (GF_SET_ATTR_UID | GF_SET_ATTR_GID),
@@ -743,16 +760,19 @@ out:
 
 static int
 __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
-                        struct iatt *stbuf, int flag)
+                        struct iatt *stbuf, int flag, dht_conf_t *conf,
+                        gf_boolean_t *target_changed, xlator_t **new_subvol)
 {
         struct statvfs  src_statfs = {0,};
         struct statvfs  dst_statfs = {0,};
         int             ret        = -1;
         xlator_t       *this       = NULL;
         dict_t         *xdata      = NULL;
-
+        dht_layout_t   *layout     = NULL;
         uint64_t        src_statfs_blocks = 1;
         uint64_t        dst_statfs_blocks = 1;
+        double   post_availspace = 0;
+        double   post_percent = 0;
 
         this = THIS;
 
@@ -794,6 +814,10 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
                 goto out;
         }
 
+        gf_msg_debug (this->name, 0, "min_free_disk - %f , block available - %lu ,"
+                      " block size - %lu ", conf->min_free_disk, dst_statfs.f_bavail,
+                      dst_statfs.f_bsize);
+
         /* if force option is given, do not check for space @ dst.
          * Check only if space is avail for the file */
         if (flag != GF_DHT_MIGRATE_DATA)
@@ -832,15 +856,63 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
                         goto out;
                 }
         }
+
+
 check_avail_space:
-        if (((dst_statfs.f_bavail * dst_statfs.f_bsize) /
-              GF_DISK_SECTOR_SIZE) < stbuf->ia_blocks) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        DHT_MSG_MIGRATE_FILE_FAILED,
-                        "data movement attempted from node (%s) to node (%s) "
-                        "which does not have required free space for (%s)",
-                        from->name, to->name, loc->path);
+
+        if (conf->disk_unit == 'p' && dst_statfs.f_blocks) {
+                post_availspace = (dst_statfs.f_bavail * dst_statfs.f_frsize) - stbuf->ia_size;
+                post_percent = (post_availspace * 100) / (dst_statfs.f_blocks * dst_statfs.f_frsize);
+                if (post_percent < conf->min_free_disk) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0, 0,
+                                "Write will cross min-free-disk for "
+                                "file - %s on subvol - %s. Looking "
+                                "for new subvol", loc->path, to->name);
+
+                        goto find_new_subvol;
+                } else {
+                        ret = 0;
+                        goto out;
+                }
+        }
+
+        if (conf->disk_unit != 'p' &&
+            ((dst_statfs.f_bavail * dst_statfs.f_frsize) - stbuf->ia_size) < conf->min_free_disk) {
+                gf_msg (this->name, GF_LOG_WARNING, 0, 0, "Write will cross "
+                        "min-free-disk for file - %s on subvol - %s. Looking "
+                        "for new subvol", loc->path, to->name);
+
+                goto find_new_subvol;
+        } else {
+                ret = 0;
+                goto out;
+        }
+
+
+find_new_subvol:
+        layout = dht_layout_get (this, loc->parent);
+        if (!layout) {
+                gf_log (this->name, GF_LOG_ERROR, "Layout is NULL");
                 ret = -1;
+                goto out;
+        }
+
+        *new_subvol = dht_subvol_with_free_space_inodes (this, to,
+                      layout, stbuf->ia_size);
+        if (!(*new_subvol)) {
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        DHT_MSG_SUBVOL_INSUFF_SPACE, "Could not find any subvol"
+                        " with space accomodating the file. Consider adding "
+                        "bricks");
+
+                *target_changed = _gf_false;
+                ret = -1;
+                goto out;
+        } else {
+                gf_msg (this->name, GF_LOG_INFO, 0, 0, "new target found - %s"
+                        " for file - %s", (*new_subvol)->name, loc->path);
+                *target_changed = _gf_true;
+                ret = 0;
                 goto out;
         }
 
@@ -1307,6 +1379,9 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         lock_migration_info_t   locklist;
         dict_t                  *meta_dict              = NULL;
         gf_boolean_t            meta_locked             = _gf_false;
+        gf_boolean_t            target_changed          = _gf_false;
+        xlator_t                *new_target             = NULL;
+        xlator_t                *old_target             = NULL;
 
         defrag = conf->defrag;
         if (!defrag)
@@ -1416,12 +1491,57 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         /* create the destination, with required modes/xattr */
         ret = __dht_rebalance_create_dst_file (to, from, loc, &stbuf,
                                                &dst_fd, xattr);
-        if (ret)
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, 0, "Create dst failed"
+                        " on - %s for file - %s", to->name, loc->path);
                 goto out;
+        }
 
         clean_dst = _gf_true;
 
-        ret = __dht_check_free_space (to, from, loc, &stbuf, flag);
+        ret = __dht_check_free_space (to, from, loc, &stbuf, flag, conf,
+                                      &target_changed, &new_target);
+        if (target_changed) {
+                /* Can't handle for hardlinks. Marking this as failure */
+                if (flag == GF_DHT_MIGRATE_HARDLINK_IN_PROGRESS || stbuf.ia_nlink > 1) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_SUBVOL_INSUFF_SPACE, "Exiting migration for"
+                                " file - %s. flag - %d, stbuf.ia_nlink - %d",
+                               loc->path,  flag, stbuf.ia_nlink);
+                        ret = -1;
+                        goto out;
+                }
+
+
+                ret = syncop_ftruncate (to, dst_fd, 0, NULL, NULL);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "%s: failed to perform truncate on %s (%s)",
+                                loc->path, to->name, strerror (-ret));
+                        ret = -1;
+                }
+
+                syncop_close (dst_fd);
+
+                old_target = to;
+                to = new_target;
+
+                /* if the file migration is successful to this new target, then
+                 * update the xattr on the old destination to point the new
+                 * destination. We need to do update this only post migration
+                 * as in case of failure the linkto needs to point to the source
+                 * subvol */
+                ret = __dht_rebalance_create_dst_file (to, from, loc, &stbuf,
+                                                       &dst_fd, xattr);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "Create dst failed"
+                                " on - %s for file - %s", to->name, loc->path);
+                        goto out;
+                } else {
+                        gf_msg (this->name, GF_LOG_INFO, 0, 0, "destination for file "
+                                "- %s is changed to - %s", loc->path, to->name);
+                }
+        }
 
         if (ret) {
                 goto out;
@@ -1651,6 +1771,36 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 ret = -1;
         }
 
+        if (target_changed) {
+               if (!dict) {
+                        dict = dict_new ();
+                        if (!dict) {
+                                ret = -1;
+                                goto out;
+                        }
+               } else {
+                        dict_del (dict, conf->link_xattr_name);
+                        dict_del (dict, GLUSTERFS_POSIXLK_COUNT);
+                        ret = dict_set_str (dict, conf->link_xattr_name, to->name);
+                         if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "failed to set xattr in dict for %s (linkto:%s)",
+                                        loc->path, to->name);
+                                ret = -1;
+                                goto out;
+                        }
+
+                        ret = syncop_setxattr (old_target, loc, dict, 0, NULL, NULL);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        DHT_MSG_MIGRATE_FILE_FAILED,
+                                        "failed to set xattr on %s in %s (%s)",
+                                        loc->path, old_target->name, strerror (-ret));
+                                ret = -1;
+                                goto out;
+                        }
+               }
+        }
 
         clean_dst = _gf_false;
 
@@ -2115,6 +2265,8 @@ gf_defrag_migrate_single_file (void *opaque)
         inode_t                 *inode          = NULL;
         xlator_t                *hashed_subvol  = NULL;
         xlator_t                *cached_subvol  = NULL;
+        call_frame_t            *statfs_frame   = NULL;
+        xlator_t                *old_THIS       = NULL;
 
         rebal_entry = (struct dht_container *)opaque;
         if (!rebal_entry) {
@@ -2213,6 +2365,20 @@ gf_defrag_migrate_single_file (void *opaque)
         /* use the inode returned by inode_link */
         entry_loc.inode = inode;
 
+        old_THIS = THIS;
+        THIS = this;
+        statfs_frame = create_frame (this, this->ctx->pool);
+        if (!statfs_frame) {
+                gf_msg (this->name, GF_LOG_ERROR, DHT_MSG_NO_MEMORY, ENOMEM,
+                        "Insufficient memory. Frame creation failed");
+                ret = -1;
+                goto out;
+        }
+
+        /* async statfs information for honoring min-free-disk */
+        dht_get_du_info (statfs_frame, this, loc);
+        THIS = old_THIS;
+
         ret = syncop_setxattr (this, &entry_loc, migrate_data, 0, NULL, NULL);
         if (ret < 0) {
                 op_errno = -ret;
@@ -2291,6 +2457,10 @@ gf_defrag_migrate_single_file (void *opaque)
         }
 
 out:
+        if (statfs_frame) {
+                STACK_DESTROY (statfs_frame->root);
+        }
+
         loc_wipe (&entry_loc);
 
         return ret;
@@ -2551,7 +2721,7 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
                         continue;
                 }
 
-               /*Build Container Structure */
+                /*Build Container Structure */
 
                 tmp_container =  GF_CALLOC (1, sizeof(struct dht_container),
                                             gf_dht_mt_container_t);
@@ -3670,7 +3840,8 @@ gf_defrag_start_crawl (void *data)
         int                     thread_spawn_count      = 0;
         pthread_t               *tid                    = NULL;
         gf_boolean_t            is_tier_detach          = _gf_false;
-
+        call_frame_t            *statfs_frame           = NULL;
+        xlator_t                *old_THIS               = NULL;
 
         this = data;
         if (!this)
@@ -3706,6 +3877,21 @@ gf_defrag_start_crawl (void *data)
                 ret = -1;
                 goto out;
         }
+
+        old_THIS = THIS;
+        THIS = this;
+
+        statfs_frame = create_frame (this, this->ctx->pool);
+        if (!statfs_frame) {
+                gf_msg (this->name, GF_LOG_ERROR, DHT_MSG_NO_MEMORY, ENOMEM,
+                        "Insufficient memory. Frame creation failed");
+                ret = -1;
+                goto out;
+        }
+
+        /* async statfs update for honoring min-free-disk */
+        dht_get_du_info (statfs_frame, this, &loc);
+        THIS = old_THIS;
 
         fix_layout = dict_new ();
         if (!fix_layout) {
@@ -3976,6 +4162,9 @@ out:
         if (migrate_data)
                 dict_unref (migrate_data);
 
+        if (statfs_frame) {
+                STACK_DESTROY (statfs_frame->root);
+        }
 exit:
         return ret;
 }
