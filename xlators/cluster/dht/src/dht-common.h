@@ -316,6 +316,9 @@ struct dht_du {
         uint64_t avail_space;
         uint32_t log;
         uint32_t chunks;
+        uint32_t total_blocks;
+        uint32_t avail_blocks;
+        uint32_t frsize; /*fragment size*/
 };
 typedef struct dht_du dht_du_t;
 
@@ -1151,7 +1154,7 @@ gf_boolean_t
 dht_is_subvol_in_layout (dht_layout_t *layout, xlator_t *xlator);
 xlator_t *
 dht_subvol_with_free_space_inodes (xlator_t *this, xlator_t *subvol,
-                                   dht_layout_t *layout);
+                                   dht_layout_t *layout, uint64_t filesize);
 xlator_t *
 dht_subvol_maxspace_nonzeroinode (xlator_t *this, xlator_t *subvol,
                                   dht_layout_t *layout);

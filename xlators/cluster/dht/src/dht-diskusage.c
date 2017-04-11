@@ -81,7 +81,11 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				conf->du_stats[i].avail_space   = bytes;
 				conf->du_stats[i].avail_inodes  = percent_inodes;
                                 conf->du_stats[i].chunks        = chunks;
-				gf_msg_debug (this->name, 0,
+                                conf->du_stats[i].total_blocks  = statvfs->f_blocks;
+                                conf->du_stats[i].avail_blocks  = statvfs->f_bavail;
+                                conf->du_stats[i].frsize        = statvfs->f_frsize;
+
+                                gf_msg_debug (this->name, 0,
 				              "subvolume '%s': avail_percent "
 					      "is: %.2f and avail_space "
                                               "is: %" PRIu64" and avail_inodes"
@@ -312,7 +316,7 @@ dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol,
         LOCK (&conf->subvolume_lock);
 	{
                 avail_subvol = dht_subvol_with_free_space_inodes(this, subvol,
-                                                                 layout);
+                                                                 layout, 0);
                 if(!avail_subvol)
                 {
                         avail_subvol = dht_subvol_maxspace_nonzeroinode(this,
@@ -373,12 +377,17 @@ out:
 /*Get subvolume which has both space and inodes more than the min criteria*/
 xlator_t *
 dht_subvol_with_free_space_inodes(xlator_t *this, xlator_t *subvol,
-                                  dht_layout_t *layout)
+                                  dht_layout_t *layout, uint64_t filesize)
 {
         int i = 0;
         double max = 0;
         double max_inodes = 0;
         int    ignore_subvol = 0;
+        uint64_t total_blocks = 0;
+        uint64_t avail_blocks = 0;
+        uint64_t frsize = 0;
+        double   post_availspace = 0;
+        double   post_percent = 0;
 
         xlator_t *avail_subvol = NULL;
         dht_conf_t *conf = NULL;
@@ -401,6 +410,9 @@ dht_subvol_with_free_space_inodes(xlator_t *this, xlator_t *subvol,
                                 max = conf->du_stats[i].avail_percent;
                                 max_inodes = conf->du_stats[i].avail_inodes;
                                 avail_subvol = conf->subvolumes[i];
+                                total_blocks = conf->du_stats[i].total_blocks;
+                                avail_blocks = conf->du_stats[i].avail_blocks;
+                                frsize       = conf->du_stats[i].frsize;
                         }
                 }
 
@@ -413,6 +425,19 @@ dht_subvol_with_free_space_inodes(xlator_t *this, xlator_t *subvol,
                                 max_inodes = conf->du_stats[i].avail_inodes;
                                 avail_subvol = conf->subvolumes[i];
                         }
+                }
+        }
+
+        if (avail_subvol) {
+                if (conf->disk_unit == 'p') {
+                        post_availspace = (avail_blocks * frsize) - filesize;
+                        post_percent = (post_availspace * 100) / (total_blocks * frsize);
+                        if (post_percent < conf->min_free_disk)
+                                avail_subvol = NULL;
+                }
+                if (conf->disk_unit != 'p') {
+                        if ((max - filesize) < conf->min_free_disk)
+                                avail_subvol = NULL;
                 }
         }
 

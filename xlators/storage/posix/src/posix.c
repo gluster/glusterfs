@@ -741,7 +741,7 @@ posix_do_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto out;
         }
 
-        if (dict_get (xdata, GLUSTERFS_WRITE_UPDATE_ATOMIC)) {
+        if (xdata && dict_get (xdata, GLUSTERFS_WRITE_UPDATE_ATOMIC)) {
                 locked = _gf_true;
                 pthread_mutex_lock (&ctx->write_atomic_lock);
         }
