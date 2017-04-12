@@ -186,6 +186,11 @@ GLFS_MSGID_COMP_SYMLINK_CACHE_END
 #define GLFS_MSGID_COMP_POSIX_ACL          GLFS_MSGID_COMP_INDEX_END
 #define GLFS_MSGID_COMP_POSIX_ACL_END      (GLFS_MSGID_COMP_POSIX_ACL +\
                                            GLFS_MSGID_SEGMENT)
+
+#define GLFS_MSGID_COMP_NLC                GLFS_MSGID_COMP_POSIX_ACL_END
+#define GLFS_MSGID_COMP_NLC_END            (GLFS_MSGID_COMP_NLC +\
+                                           GLFS_MSGID_SEGMENT)
+
 /* --- new segments for messages goes above this line --- */
 
 #endif /* !_GLFS_MESSAGE_ID_H_ */

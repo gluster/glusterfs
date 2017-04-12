@@ -2020,6 +2020,16 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
 
         },
+        { .key         = "performance.nl-cache",
+          .voltype     = "performance/nl-cache",
+          .option      = "!perf",
+          .value       = "off",
+          .op_version  = GD_OP_VERSION_3_11_0,
+          .description = "enable/disable negative entry caching translator in "
+                         "the volume. Enabling this option improves performance"
+                         " of 'create file/directory' workload",
+          .flags       = OPT_FLAG_CLIENT_OPT | OPT_FLAG_XLATOR_OPT
+        },
         { .key         = "performance.stat-prefetch",
           .voltype     = "performance/md-cache",
           .option      = "!perf",
@@ -3248,6 +3258,27 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type        = DOC,
           .flags       = OPT_FLAG_CLIENT_OPT,
           .op_version  = GD_OP_VERSION_3_9_1,
+        },
+        { .key         = "performance.nl-cache-positive-entry",
+          .voltype     = "performance/nl-cache",
+          .value       = "on",
+          .type        = DOC,
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .op_version  = GD_OP_VERSION_3_11_0,
+          .description = "enable/disable storing of entries that were lookedup"
+                         " and found to be present in the volume, thus lookup"
+                         " on non existant file is served from the cache",
+        },
+        { .key         = "performance.nl-cache-limit",
+          .voltype     = "performance/nl-cache",
+          .value       = "10MB",
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .op_version  = GD_OP_VERSION_3_11_0,
+        },
+        { .key         = "performance.nl-cache-timeout",
+          .voltype     = "performance/nl-cache",
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .op_version  = GD_OP_VERSION_3_11_0,
         },
 
         /* Brick multiplexing options */

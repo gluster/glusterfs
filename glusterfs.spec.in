@@ -976,6 +976,7 @@ exit 0
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/readdir-ahead.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/stat-prefetch.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/write-behind.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/nl-cache.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/system/posix-acl.so
 %dir %{_localstatedir}/run/gluster
 %if 0%{?_tmpfilesdir:1}
