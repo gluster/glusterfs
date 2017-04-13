@@ -477,7 +477,7 @@ Requires:         %{name}-server%{?_isa} = %{version}-%{release}
 Requires:         lvm2 >= 2.02.89
 Requires:         perl(App::Prove) perl(Test::Harness) gcc util-linux-ng
 Requires:         python2 attr dbench file git libacl-devel net-tools
-Requires:         nfs-utils xfsprogs yajl psmisc
+Requires:         nfs-utils xfsprogs yajl psmisc bc
 
 %description regression-tests
 The Gluster Test Framework, is a suite of scripts used for
@@ -1256,6 +1256,9 @@ exit 0
 %endif
 
 %changelog
+* Thu Apr 13 2017 Niels de Vos <ndevos@redhat.com>
+- the -regression-tests sub-package needs "bc" for some tests (#1442145)
+
 * Mon Mar 20 2017 Niels de Vos <ndevos@redhat.com>
 - Drop dependency on psmisc, pkill is used instead of killall (#1197308)
 
