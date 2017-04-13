@@ -4916,7 +4916,7 @@ dht_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
 
         for (i = 0; i < call_count; i++) {
                 if (conf->readdir_optimize == _gf_true) {
-                        if (subvolumes[i] != local->first_up_subvol)
+                        if (subvolumes[i] != local->first_up_subvol) {
                                 ret = dict_set_int32 (xdata,
                                                       GF_READDIR_SKIP_DIRS, 1);
                                 if (ret)
@@ -4925,6 +4925,7 @@ dht_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                                                 "Failed to set dictionary"
                                                 " value :key = %s, ret:%d",
                                                 GF_READDIR_SKIP_DIRS, ret);
+                                }
                 }
 
                 STACK_WIND_COOKIE (frame, dht_fd_cbk,
