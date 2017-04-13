@@ -63,6 +63,7 @@ EXPECT "$V0" volinfo_field $V0 'Volume Name';
 EXPECT 'Created' volinfo_field $V0 'Status';
 EXPECT '3' brick_count $V0
 
+TEST $CLI volume set $V0 parallel-readdir on
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 

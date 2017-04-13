@@ -3391,8 +3391,7 @@ volgen_graph_build_readdir_ahead (volgen_graph_t *graph,
 {
         int32_t                 clusters                 = 0;
 
-        if (graph->type == GF_REBALANCED ||
-            graph->type == GF_QUOTAD ||
+        if (graph->type == GF_QUOTAD ||
             graph->type == GF_SNAPD ||
             !glusterd_volinfo_get_boolean (volinfo, VKEY_PARALLEL_READDIR) ||
             !glusterd_volinfo_get_boolean (volinfo, VKEY_READDIR_AHEAD))
@@ -3780,8 +3779,7 @@ client_graph_set_rda_options (volgen_graph_t *graph,
         if (dist_count <= 1)
                 goto out;
 
-        if (graph->type == GF_REBALANCED ||
-            graph->type == GF_QUOTAD ||
+        if (graph->type == GF_QUOTAD ||
             graph->type == GF_SNAPD ||
             !glusterd_volinfo_get_boolean (volinfo, VKEY_PARALLEL_READDIR) ||
             !glusterd_volinfo_get_boolean (volinfo, VKEY_READDIR_AHEAD))

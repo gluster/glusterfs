@@ -955,6 +955,30 @@ out:
 
 
 static int
+validate_parallel_readdir (glusterd_volinfo_t *volinfo, dict_t *dict,
+                           char *key, char *value, char **op_errstr)
+{
+        int ret             =       -1;
+
+        ret = validate_boolean (volinfo, dict, key, value, op_errstr);
+        if (ret)
+                goto out;
+
+        ret = glusterd_is_defrag_on (volinfo);
+        if (ret) {
+                gf_asprintf (op_errstr, "%s option should be set "
+                             "after rebalance is complete", key);
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_INVALID_ENTRY, "%s", *op_errstr);
+        }
+out:
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
+
+        return ret;
+}
+
+
+static int
 validate_worm_period (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                char *value, char **op_errstr)
 {
@@ -3191,7 +3215,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .value       = "off",
           .type        = DOC,
           .op_version  = GD_OP_VERSION_3_10_0,
-          .validate_fn = validate_boolean,
+          .validate_fn = validate_parallel_readdir,
           .description = "If this option is enabled, the readdir operation is "
                          "performed parallely on all the bricks, thus improving"
                          " the performance of readdir. Note that the performance"
