@@ -2549,6 +2549,15 @@ inode_ctx_size (inode_t *inode)
                         old_THIS = THIS;
                         THIS = xl;
 
+                        /* If inode ref is taken when THIS is global xlator,
+                         * the ctx xl_key is set, but the value is NULL.
+                         * For global xlator the cbks can be NULL, hence check
+                         * for the same */
+                        if (!xl->cbks) {
+                                THIS = old_THIS;
+                                continue;
+                        }
+
                         if (xl->cbks->ictxsize)
                                 size += xl->cbks->ictxsize (xl, inode);
 
