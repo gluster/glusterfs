@@ -200,7 +200,7 @@ worm_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         GF_ASSERT (priv);
         if (is_readonly_or_worm_enabled (this))
                 goto out;
-        if (!priv->worm_file) {
+        if (!priv->worm_file || (frame->root->pid < 0)) {
                 op_errno = 0;
                 goto out;
         }
