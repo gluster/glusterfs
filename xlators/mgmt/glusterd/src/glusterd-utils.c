@@ -4991,9 +4991,6 @@ send_attach_req (xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
         ret = rpc_clnt_submit (rpc, &gd_brick_prog, op,
                                my_callback, &iov, 1, NULL, 0, iobref,
                                frame, NULL, 0, NULL, 0, NULL);
-        if (ret) {
-                --(conf->blockers);
-        }
         return ret;
 
 free_iobref:
@@ -5432,13 +5429,12 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
         gf_boolean_t          node_quorum    = _gf_false;
 
         this = THIS;
-        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        GF_VALIDATE_OR_GOTO ("glusterd", this, return_block);
 
         conf = this->private;
-        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+        GF_VALIDATE_OR_GOTO (this->name, conf, return_block);
 
         ++(conf->blockers);
-
         ret = glusterd_get_quorum_cluster_counts (this, &active_count,
                                                   &quorum_count);
         if (ret)
@@ -5520,6 +5516,8 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
 out:
         --(conf->blockers);
         conf->restart_done = _gf_true;
+
+return_block:
         return ret;
 }
 
