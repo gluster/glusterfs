@@ -161,7 +161,7 @@ def rows_to_table(table, rows):
         num_ok_rows += 1 if row.ok else 0
         table.add_row([row.hostname,
                        "UP" if row.node_up else "DOWN",
-                       "OK" if row.ok else "NOT OK: {1}".format(
+                       "OK" if row.ok else "NOT OK: {0}".format(
                            row.error)])
     return num_ok_rows
 
@@ -385,6 +385,8 @@ class NodeWebhookTestCmd(Cmd):
         try:
             resp = requests.post(args.url, headers=http_headers)
         except requests.ConnectionError as e:
+            node_output_notok("{0}".format(e))
+        except requests.exceptions.InvalidSchema as e:
             node_output_notok("{0}".format(e))
 
         if resp.status_code != 200:
