@@ -243,6 +243,7 @@ out:
 int
 fini (xlator_t *this)
 {
+        GF_FREE (this->private);
 	return 0;
 }
 
