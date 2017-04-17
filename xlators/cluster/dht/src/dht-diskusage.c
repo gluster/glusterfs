@@ -315,7 +315,7 @@ dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol,
 
         LOCK (&conf->subvolume_lock);
 	{
-                avail_subvol = dht_subvol_with_free_space_inodes(this, subvol,
+                avail_subvol = dht_subvol_with_free_space_inodes(this, subvol, NULL,
                                                                  layout, 0);
                 if(!avail_subvol)
                 {
@@ -340,14 +340,21 @@ out:
 }
 
 static inline
-int32_t dht_subvol_has_err (dht_conf_t *conf, xlator_t *this,
-                                         dht_layout_t *layout)
+int32_t dht_subvol_has_err (dht_conf_t *conf, xlator_t *this, xlator_t *ignore,
+                            dht_layout_t *layout)
 {
         int ret = -1;
         int i   = 0;
 
         if (!this || !layout)
                 goto out;
+
+        /* this check is meant for rebalance process. The source of the file
+         * should be ignored for space check */
+        if (this == ignore) {
+                goto out;
+        }
+
 
         /* check if subvol has layout errors, before selecting it */
         for (i = 0; i < layout->cnt; i++) {
@@ -376,7 +383,7 @@ out:
 
 /*Get subvolume which has both space and inodes more than the min criteria*/
 xlator_t *
-dht_subvol_with_free_space_inodes(xlator_t *this, xlator_t *subvol,
+dht_subvol_with_free_space_inodes(xlator_t *this, xlator_t *subvol, xlator_t *ignore,
                                   dht_layout_t *layout, uint64_t filesize)
 {
         int i = 0;
@@ -398,7 +405,7 @@ dht_subvol_with_free_space_inodes(xlator_t *this, xlator_t *subvol,
                 /* check if subvol has layout errors and also it is not a
                  * decommissioned brick, before selecting it */
                 ignore_subvol = dht_subvol_has_err (conf, conf->subvolumes[i],
-                                                    layout);
+                                                    ignore, layout);
                 if (ignore_subvol)
                         continue;
 
@@ -463,7 +470,7 @@ dht_subvol_maxspace_nonzeroinode (xlator_t *this, xlator_t *subvol,
                 /* check if subvol has layout errors and also it is not a
                  * decommissioned brick, before selecting it*/
 
-                ignore_subvol = dht_subvol_has_err (conf, conf->subvolumes[i],
+                ignore_subvol = dht_subvol_has_err (conf, conf->subvolumes[i], NULL,
                                                     layout);
                 if (ignore_subvol)
                         continue;
