@@ -32,7 +32,7 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	strfd.c parse-utils.c $(CONTRIBDIR)/mount/mntent.c \
 	$(CONTRIBDIR)/libexecinfo/execinfo.c quota-common-utils.c rot-buffs.c \
 	$(CONTRIBDIR)/timer-wheel/timer-wheel.c \
-	$(CONTRIBDIR)/timer-wheel/find_last_bit.c tw.c default-args.c locking.c \
+	$(CONTRIBDIR)/timer-wheel/find_last_bit.c default-args.c locking.c \
 	compound-fop-utils.c throttle-tbf.c
 
 nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c defaults.c
@@ -50,7 +50,7 @@ libglusterfs_la_HEADERS = common-utils.h defaults.h default-args.h \
 	refcount.h run.h options.h lkowner.h fd-lk.h circ-buff.h \
 	event-history.h gidcache.h client_t.h glusterfs-acl.h \
 	glfs-message-id.h template-component-messages.h strfd.h \
-	syncop-utils.h parse-utils.h libglusterfs-messages.h tw.h \
+	syncop-utils.h parse-utils.h libglusterfs-messages.h \
 	lvm-defaults.h quota-common-utils.h rot-buffs.h \
 	compat-uuid.h upcall-utils.h throttle-tbf.h events.h\
 	compound-fop-utils.h atomic.h

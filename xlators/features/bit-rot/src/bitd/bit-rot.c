@@ -21,8 +21,6 @@
 #include <pthread.h>
 #include "bit-rot-bitd-messages.h"
 
-#include "tw.h"
-
 #define BR_HASH_CALC_READ_SIZE  (128 * 1024)
 
 typedef int32_t (br_child_handler)(xlator_t *, br_child_t *);
@@ -1994,7 +1992,7 @@ init (xlator_t *this)
         INIT_LIST_HEAD (&priv->bricks);
         INIT_LIST_HEAD (&priv->signing);
 
-        priv->timer_wheel = glusterfs_global_timer_wheel (this);
+        priv->timer_wheel = glusterfs_ctx_tw_get (this->ctx);
         if (!priv->timer_wheel) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         BRB_MSG_TIMER_WHEEL_UNAVAILABLE,
@@ -2061,6 +2059,8 @@ fini (xlator_t *this)
 
         this->private = NULL;
 	GF_FREE (priv);
+
+        glusterfs_ctx_tw_put (this->ctx);
 
 	return;
 }

@@ -957,19 +957,11 @@ leases_init_priv (xlator_t *this)
         GF_ASSERT (priv);
 
         if (!priv->timer_wheel) {
-                if (!glusterfs_global_timer_wheel (this)) {
-                        gf_msg_debug (this->name, 0, "Initing the global "
-                                      "timer wheel");
-                        ret = glusterfs_global_timer_wheel_init (this->ctx);
-                        if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        LEASE_MSG_NO_TIMER_WHEEL,
-                                        "Initing the global timer "
-                                        "wheel failed");
-                                goto out;
-                        }
+                priv->timer_wheel = glusterfs_ctx_tw_get (this->ctx);
+                if (!priv->timer_wheel) {
+                        ret = -1;
+                        goto out;
                 }
-                priv->timer_wheel = glusterfs_global_timer_wheel (this);
         }
 
         if (!priv->inited_recall_thr) {
@@ -1075,6 +1067,8 @@ fini (xlator_t *this)
         priv->inited_recall_thr = _gf_false;
 
         GF_FREE (priv);
+
+        glusterfs_ctx_tw_put (this->ctx);
 
         return 0;
 }
