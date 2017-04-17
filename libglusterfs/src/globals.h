@@ -116,6 +116,9 @@ char *glusterfs_leaseid_buf_get (void);
 /* init */
 int glusterfs_globals_init (glusterfs_ctx_t *ctx);
 
+struct tvec_base* glusterfs_ctx_tw_get (glusterfs_ctx_t *ctx);
+void glusterfs_ctx_tw_put (glusterfs_ctx_t *ctx);
+
 extern const char *gf_fop_list[];
 extern const char *gf_upcall_list[];
 

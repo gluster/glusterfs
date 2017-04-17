@@ -164,6 +164,7 @@ enum gf_common_mem_types_ {
         /*used for compound fops*/
         gf_mt_compound_req_t,
         gf_mt_compound_rsp_t,
+        gf_common_mt_tw_ctx,
         gf_common_mt_tw_timer_list,
         /*lock migration*/
         gf_common_mt_lock_mig,
