@@ -3501,6 +3501,7 @@ glusterd_get_geo_rep_session (char *slave_key, char *origin_volname,
                               char *slave)
 {
         int32_t         ret             =       -1;
+        int32_t         len             =       0;
         char            *token          =       NULL;
         char            *tok            =       NULL;
         char            *temp           =       NULL;
@@ -3569,8 +3570,10 @@ glusterd_get_geo_rep_session (char *slave_key, char *origin_volname,
          * 'root@' */
         ip_temp = gf_strdup (ip);
         tok = strtok_r (ip_temp, "@", &save_ptr);
-        if (tok && !strcmp (tok, "root"))
-                ip_i = ip + 5;
+        len = strlen(tok);
+        tok = strtok_r (NULL, "@", &save_ptr);
+        if (tok != NULL)
+                ip_i = ip + len + 1;
 
         ret = snprintf (session, PATH_MAX, "%s_%s_%s",
                         origin_volname, ip_i, slave_temp);
