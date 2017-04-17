@@ -719,18 +719,6 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
                         loc->path, to->name, strerror (-ret));
         */
 
-        /* Fallocate does not work for size 0, hence the check. Anyway we don't
-         * need to care about min-free-disk for 0 byte size file */
-        if (stbuf->ia_size > 0) {
-                ret = syncop_fallocate (to, fd, 0, 0, stbuf->ia_size, NULL,
-                                        NULL);
-                if (ret < 0)
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                DHT_MSG_MIGRATE_FILE_FAILED,
-                                "fallocate failed for %s on %s (%s)",
-                                loc->path, to->name, strerror (-ret));
-        }
-
         ret = syncop_fsetattr (to, fd, stbuf,
                                (GF_SET_ATTR_UID | GF_SET_ATTR_GID),
                                 NULL, NULL, NULL, NULL);
@@ -739,6 +727,21 @@ __dht_rebalance_create_dst_file (xlator_t *to, xlator_t *from, loc_t *loc, struc
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "chown failed for %s on %s (%s)",
                         loc->path, to->name, strerror (-ret));
+
+        /* Fallocate does not work for size 0, hence the check. Anyway we don't
+         * need to care about min-free-disk for 0 byte size file */
+        if (stbuf->ia_size > 0) {
+                ret = syncop_fallocate (to, fd, 0, 0, stbuf->ia_size, NULL,
+                                        NULL);
+                if (ret < 0) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "fallocate failed for %s on %s (%s)",
+                                loc->path, to->name, strerror (-ret));
+                        ret = -1;
+                        goto out;
+                }
+        }
 
         /* success */
         ret = 0;
@@ -761,7 +764,8 @@ out:
 static int
 __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
                         struct iatt *stbuf, int flag, dht_conf_t *conf,
-                        gf_boolean_t *target_changed, xlator_t **new_subvol)
+                        gf_boolean_t *target_changed, xlator_t **new_subvol,
+                        gf_boolean_t *ignore_failure)
 {
         struct statvfs  src_statfs = {0,};
         struct statvfs  dst_statfs = {0,};
@@ -773,6 +777,7 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
         uint64_t        dst_statfs_blocks = 1;
         double   post_availspace = 0;
         double   post_percent = 0;
+        int             i = 0;
 
         this = THIS;
 
@@ -897,13 +902,27 @@ find_new_subvol:
                 goto out;
         }
 
-        *new_subvol = dht_subvol_with_free_space_inodes (this, to,
-                      layout, stbuf->ia_size);
-        if (!(*new_subvol)) {
+        *new_subvol = dht_subvol_with_free_space_inodes (this, to, from, layout,
+                                                         stbuf->ia_size);
+        if ((!(*new_subvol)) || (*new_subvol == from)) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_SUBVOL_INSUFF_SPACE, "Could not find any subvol"
-                        " with space accomodating the file. Consider adding "
-                        "bricks");
+                        " with space accomodating the file - %s. Consider adding "
+                        "bricks", loc->path);
+
+                /* For remove-brick case if the source is not one of the
+                 * removed-brick, do not mark the error as failure */
+                if (conf->decommission_subvols_cnt) {
+                        *ignore_failure = _gf_true;
+                        for (i = 0; i < conf->decommission_subvols_cnt; i++) {
+                                if (conf->decommissioned_bricks[i] == from) {
+                                        *ignore_failure = _gf_false;
+                                         break;
+                                }
+                        }
+                } else {
+                        *ignore_failure = _gf_false;
+                }
 
                 *target_changed = _gf_false;
                 ret = -1;
@@ -1382,6 +1401,8 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         gf_boolean_t            target_changed          = _gf_false;
         xlator_t                *new_target             = NULL;
         xlator_t                *old_target             = NULL;
+        fd_t                    *linkto_fd              = NULL;
+        gf_boolean_t            ignore_failure          = _gf_false;
 
         defrag = conf->defrag;
         if (!defrag)
@@ -1500,7 +1521,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         clean_dst = _gf_true;
 
         ret = __dht_check_free_space (to, from, loc, &stbuf, flag, conf,
-                                      &target_changed, &new_target);
+                                      &target_changed, &new_target, &ignore_failure);
         if (target_changed) {
                 /* Can't handle for hardlinks. Marking this as failure */
                 if (flag == GF_DHT_MIGRATE_HARDLINK_IN_PROGRESS || stbuf.ia_nlink > 1) {
@@ -1544,6 +1565,9 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         }
 
         if (ret) {
+                if (ignore_failure)
+                        ret = 0;
+
                 goto out;
         }
 
@@ -1791,13 +1815,47 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         }
 
                         ret = syncop_setxattr (old_target, loc, dict, 0, NULL, NULL);
-                        if (ret) {
+                        if (ret && -ret != ESTALE && -ret != ENOENT) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         DHT_MSG_MIGRATE_FILE_FAILED,
                                         "failed to set xattr on %s in %s (%s)",
                                         loc->path, old_target->name, strerror (-ret));
                                 ret = -1;
                                 goto out;
+                        } else if (-ret == ESTALE || -ret == ENOENT) {
+                               /* The failure ESTALE indicates that the linkto
+                                * file on the hashed subvol might have been deleted.
+                                * In this case will create a linkto file with new target
+                                * as linkto xattr value*/
+                                linkto_fd = fd_create (loc->inode, DHT_REBALANCE_PID);
+                                if (!linkto_fd) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                                "%s: fd create failed (%s)",
+                                                loc->path, strerror (errno));
+                                        ret = -1;
+                                        goto out;
+                                }
+                                ret = syncop_create (old_target, loc, O_RDWR,
+                                                     DHT_LINKFILE_MODE, linkto_fd,
+                                                     NULL, dict, NULL);
+                                if (ret != 0 && -ret != EEXIST && -ret != ESTALE) {
+                                        ret = -1;
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                                "failed to create linkto file on %s in %s (%s)",
+                                                loc->path, old_target->name, strerror (-ret));
+                                        goto out;
+                                } else if (ret == 0) {
+                                        ret = syncop_fsetattr (old_target, linkto_fd, &stbuf,
+                                                               (GF_SET_ATTR_UID | GF_SET_ATTR_GID),
+                                                               NULL, NULL, NULL, NULL);
+                                        if (ret < 0)
+                                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                                "chown failed for %s on %s (%s)",
+                                                loc->path, old_target->name, strerror (-ret));
+                                }
                         }
                }
         }
@@ -2043,6 +2101,8 @@ out:
                 syncop_close (dst_fd);
         if (src_fd)
                 syncop_close (src_fd);
+        if (linkto_fd)
+                syncop_close (linkto_fd);
 
         loc_wipe (&tmp_loc);
 
