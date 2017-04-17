@@ -1153,7 +1153,7 @@ dht_dir_has_layout (dict_t *xattr, char *name);
 gf_boolean_t
 dht_is_subvol_in_layout (dht_layout_t *layout, xlator_t *xlator);
 xlator_t *
-dht_subvol_with_free_space_inodes (xlator_t *this, xlator_t *subvol,
+dht_subvol_with_free_space_inodes (xlator_t *this, xlator_t *subvol, xlator_t *ignore,
                                    dht_layout_t *layout, uint64_t filesize);
 xlator_t *
 dht_subvol_maxspace_nonzeroinode (xlator_t *this, xlator_t *subvol,
