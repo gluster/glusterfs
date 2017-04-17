@@ -26,7 +26,6 @@
 #include "lkowner.h"
 #include "locking.h"
 #include "upcall-utils.h"
-#include "tw.h"
 #include "timer-wheel.h"
 #include "leases-mem-types.h"
 #include "leases-messages.h"

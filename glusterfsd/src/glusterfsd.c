@@ -80,7 +80,6 @@
 #include "exports.h"
 
 #include "daemon.h"
-#include "tw.h"
 
 
 /* using argp for command line parsing */
@@ -2495,9 +2494,10 @@ main (int argc, char *argv[])
 
         /* do this _after_ daemonize() */
         if (cmd->global_timer_wheel) {
-                ret = glusterfs_global_timer_wheel_init (ctx);
-                if (ret)
+                if (!glusterfs_ctx_tw_get (ctx)) {
+                        ret = -1;
                         goto out;
+                }
         }
 
         ret = glusterfs_volumes_init (ctx);

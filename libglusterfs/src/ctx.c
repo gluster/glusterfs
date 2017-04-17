@@ -9,9 +9,10 @@
 */
 
 #include <pthread.h>
-#include "globals.h"
 
+#include "globals.h"
 #include "glusterfs.h"
+#include "timer-wheel.h"
 
 glusterfs_ctx_t *
 glusterfs_ctx_new ()
@@ -52,3 +53,39 @@ out:
 	return ctx;
 }
 
+static void
+glusterfs_ctx_tw_destroy (struct gf_ctx_tw *ctx_tw)
+{
+        if (ctx_tw->timer_wheel)
+                gf_tw_cleanup_timers (ctx_tw->timer_wheel);
+
+        GF_FREE (ctx_tw);
+}
+
+struct tvec_base*
+glusterfs_ctx_tw_get (glusterfs_ctx_t *ctx)
+{
+        struct gf_ctx_tw *ctx_tw = NULL;
+
+        LOCK (&ctx->lock);
+        {
+                if (ctx->tw) {
+                        ctx_tw = GF_REF_GET (ctx->tw);
+                } else {
+                        ctx_tw = GF_CALLOC (1, sizeof (struct gf_ctx_tw),
+                                            gf_common_mt_tw_ctx);
+                        ctx_tw->timer_wheel = gf_tw_init_timers();
+                        GF_REF_INIT (ctx_tw, glusterfs_ctx_tw_destroy);
+                        ctx->tw = ctx_tw;
+                }
+        }
+        UNLOCK (&ctx->lock);
+
+        return ctx_tw->timer_wheel;
+}
+
+void
+glusterfs_ctx_tw_put (glusterfs_ctx_t *ctx)
+{
+        GF_REF_PUT (ctx->tw);
+}

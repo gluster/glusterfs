@@ -36,6 +36,7 @@
 #include "logging.h"
 #include "lkowner.h"
 #include "compat-uuid.h"
+#include "refcount.h"
 
 #define GF_YES 1
 #define GF_NO  0
@@ -438,6 +439,12 @@ typedef enum {
 
 struct tvec_base;
 
+/* reference counting for the global (per ctx) timer-wheel */
+struct gf_ctx_tw {
+        GF_REF_DECL;
+        struct tvec_base *timer_wheel; /* global timer-wheel instance */
+};
+
 struct _glusterfs_ctx {
         cmd_args_t          cmd_args;
         char               *process_uuid;
@@ -506,14 +513,13 @@ struct _glusterfs_ctx {
          */
         mgmt_ssl_t          secure_srvr;
         /* Buffer to 'save' backtrace even under OOM-kill like situations*/
-        char btbuf[GF_BACKTRACE_LEN];
+        char                btbuf[GF_BACKTRACE_LEN];
 
-        pthread_mutex_t notify_lock;
-        pthread_cond_t notify_cond;
-        int notifying;
+        pthread_mutex_t     notify_lock;
+        pthread_cond_t      notify_cond;
+        int                 notifying;
 
-        struct tvec_base *timer_wheel; /* global timer-wheel instance */
-
+        struct gf_ctx_tw   *tw; /* refcounted timer_wheel */
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 

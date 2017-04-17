@@ -12,7 +12,6 @@
 #include "nl-cache.h"
 #include "statedump.h"
 #include "upcall-utils.h"
-#include "tw.h"
 
 static void
 nlc_dentry_op (call_frame_t *frame, xlator_t *this, gf_boolean_t multilink)
@@ -627,6 +626,8 @@ nlc_priv_dump (xlator_t *this)
 void
 fini (xlator_t *this)
 {
+        glusterfs_ctx_tw_put (this->ctx);
+
         return;
 }
 
@@ -702,17 +703,12 @@ init (xlator_t *this)
         INIT_LIST_HEAD (&conf->lru);
         time (&conf->last_child_down);
 
-        if (!glusterfs_global_timer_wheel (this)) {
-                gf_msg_debug (this->name, 0, "Initing the global timer wheel");
-                ret = glusterfs_global_timer_wheel_init (this->ctx);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                NLC_MSG_NO_TIMER_WHEEL,
-                                "Initing the global timer wheel failed");
-                                goto out;
-                }
+        conf->timer_wheel = glusterfs_ctx_tw_get (this->ctx);
+        if (!conf->timer_wheel) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, NLC_MSG_NO_TIMER_WHEEL,
+                        "Initing the global timer wheel failed");
+                        goto out;
         }
-        conf->timer_wheel = glusterfs_global_timer_wheel (this);
 
         this->private = conf;
 
