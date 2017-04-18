@@ -306,6 +306,7 @@ struct ios_conf {
         gf_boolean_t              audit_creates_and_unlinks;
         gf_boolean_t              sample_hard_errors;
         gf_boolean_t              sample_all_errors;
+        uint32_t                  outstanding_req;
 };
 
 
@@ -434,6 +435,7 @@ ios_track_fd (call_frame_t *frame, fd_t *fd)
 #define _IOS_DUMP_DIR DATADIR "/db/glusterd/stats"
 #endif
 
+
 #define END_FOP_LATENCY(frame, op)                                      \
         do {                                                            \
                 struct ios_conf  *conf = NULL;                          \
@@ -451,6 +453,7 @@ ios_track_fd (call_frame_t *frame, fd_t *fd)
                                                                          \
                 conf = this->private;                                    \
                 if (conf && conf->measure_latency) {                     \
+                        STATS_INC (conf->outstanding_req);               \
                         gettimeofday (&frame->begin, NULL);              \
                 } else {                                                 \
                         memset (&frame->begin, 0, sizeof (frame->begin));\
@@ -469,15 +472,23 @@ ios_track_fd (call_frame_t *frame, fd_t *fd)
                 conf->incremental.fop_hits[GF_FOP_##op]++;              \
         } while (0)
 
+
 #if defined(HAVE_ATOMIC_BUILTINS)
 #define STATS_LOCK(x)
 #define STATS_UNLOCK(x)
 #define STATS_ADD(x,i)  __sync_add_and_fetch (&x, i)
+#define STATS_SUB(x,i)  __sync_sub_and_fetch (&x, i)
+#define STATS_INC(x)    STATS_ADD(x, 1)
+#define STATS_DEC(x)    STATS_SUB(x, 1)
 #else
 #define STATS_LOCK(x)   LOCK (x)
 #define STATS_UNLOCK(x) UNLOCK (x)
 #define STATS_ADD(x,i)  (x) += (i)
+#define STATS_SUB(x,i)  (x) -= (i)
+#define STATS_INC(x)    (x) += 1
+#define STATS_DEC(x)    (x) -= 1
 #endif
+
 
 #define UPDATE_PROFILE_STATS(frame, op, op_ret, op_errno)                     \
         do {                                                                  \
@@ -491,10 +502,11 @@ ios_track_fd (call_frame_t *frame, fd_t *fd)
                         if (conf && conf->measure_latency &&                  \
                             conf->count_fop_hits) {                           \
                                 BUMP_FOP(op);                                 \
+                                STATS_DEC (conf->outstanding_req);            \
                                 if (op_ret != 0 && op_errno > 0               \
                                     && op_errno < IOS_MAX_ERRORS) {           \
-                                        conf->cumulative.errno_count[op_errno]++; \
-                                        conf->incremental.errno_count[op_errno]++; \
+                                        STATS_INC(conf->cumulative.errno_count[op_errno]); \
+                                        STATS_INC(conf->incremental.errno_count[op_errno]); \
                                 }                                             \
                                 gettimeofday (&frame->end, NULL);             \
                                 update_ios_latency (conf, frame, GF_FOP_##op, \
@@ -1049,6 +1061,8 @@ io_stats_dump_global_to_json_logfp (xlator_t *this,
                 str_prefix = "inter";
         }
         ios_log (this, logfp, "{");
+        ios_log (this, logfp, "\"%s.%s.outstanding_req\": \"%u\",",
+                 key_prefix, str_prefix, conf->outstanding_req);
 
         for (i = 0; i < 31; i++) {
                 rw_size = (1 << i);
