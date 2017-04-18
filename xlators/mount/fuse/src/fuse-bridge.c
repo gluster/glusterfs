@@ -4237,54 +4237,16 @@ fuse_destroy (xlator_t *this, fuse_in_header_t *finh, void *msg)
         GF_FREE (finh);
 }
 
-
-
-struct fuse_first_lookup {
-        pthread_mutex_t  mutex;
-        pthread_cond_t   cond;
-        char             fin;
-};
-
-int
-fuse_first_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno,
-                       inode_t *inode, struct iatt *buf, dict_t *xattr,
-                       struct iatt *postparent)
-{
-        struct fuse_first_lookup *stub = NULL;
-
-        stub = frame->local;
-
-        if (op_ret == 0) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "first lookup on root succeeded.");
-        } else {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "first lookup on root failed.");
-        }
-
-        pthread_mutex_lock (&stub->mutex);
-        {
-                stub->fin = 1;
-                pthread_cond_broadcast (&stub->cond);
-        }
-        pthread_mutex_unlock (&stub->mutex);
-
-        return 0;
-}
-
-
 int
 fuse_first_lookup (xlator_t *this)
 {
         fuse_private_t            *priv = NULL;
         loc_t                      loc = {0, };
-        call_frame_t              *frame = NULL;
         xlator_t                  *xl = NULL;
         dict_t                    *dict = NULL;
-        struct fuse_first_lookup   stub;
         uuid_t                     gfid;
         int                        ret = -1;
+        struct iatt                iatt = {0,};
 
         priv = this->private;
 
@@ -4295,45 +4257,28 @@ fuse_first_lookup (xlator_t *this)
         loc.parent = NULL;
 
         dict = dict_new ();
-        frame = create_frame (this, this->ctx->pool);
-        if (!frame) {
-                gf_log ("fuse", GF_LOG_ERROR, "failed to create frame");
-                goto out;
-        }
-
-        frame->root->type = GF_OP_TYPE_FOP;
 
         xl = priv->active_subvol;
-
-        pthread_mutex_init (&stub.mutex, NULL);
-        pthread_cond_init (&stub.cond, NULL);
-        stub.fin = 0;
-
-        frame->local = &stub;
 
         memset (gfid, 0, 16);
         gfid[15] = 1;
         ret = dict_set_static_bin (dict, "gfid-req", gfid, 16);
         if (ret) {
                 gf_log (xl->name, GF_LOG_ERROR, "failed to set 'gfid-req'");
-        } else {
-                STACK_WIND (frame, fuse_first_lookup_cbk, xl, xl->fops->lookup,
-                            &loc, dict);
-
-                pthread_mutex_lock (&stub.mutex);
-                {
-                        while (!stub.fin) {
-                                pthread_cond_wait (&stub.cond, &stub.mutex);
-                        }
-                }
-                pthread_mutex_unlock (&stub.mutex);
+                goto out;
         }
 
-        pthread_mutex_destroy (&stub.mutex);
-        pthread_cond_destroy (&stub.cond);
-
-        frame->local = NULL;
-        STACK_DESTROY (frame->root);
+        ret = syncop_lookup (xl, &loc, &iatt, NULL, dict, NULL);
+        DECODE_SYNCOP_ERR (ret);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "first lookup on root failed (%s)",
+                        strerror (errno));
+                /* NOTE: Treat it as an error case. */
+                /* goto out; */ /* commented for preventing coverity warning */
+        }
+        /* Remove comment of above goto statement if you are adding any
+           more code here, before 'out' label */
 
 out:
         dict_unref (dict);
