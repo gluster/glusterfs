@@ -554,15 +554,22 @@ ganesha_manage_export (dict_t *dict, char *value, char **op_errstr)
         }
 
         if (check_host_list()) {
-                runner_add_args (&runner,
-                                 GANESHA_PREFIX"/dbus-send.sh",
-                                 CONFDIR, value, volname, NULL);
-                ret = runner_run (&runner);
-                if (ret) {
-                        gf_asprintf(op_errstr, "Dynamic export"
-                                    " addition/deletion failed."
-                                    " Please see log file for details");
-                        goto out;
+                /* Check whether ganesha is running on this node */
+                if (manage_service ("status")) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                GD_MSG_GANESHA_NOT_RUNNING,
+                                "Export failed, NFS-Ganesha is not running");
+                } else {
+                        runner_add_args (&runner,
+                                         GANESHA_PREFIX"/dbus-send.sh",
+                                         CONFDIR, value, volname, NULL);
+                        ret = runner_run (&runner);
+                        if (ret) {
+                                gf_asprintf(op_errstr, "Dynamic export"
+                                            " addition/deletion failed."
+                                        " Please see log file for details");
+                                goto out;
+                        }
                 }
         }
 

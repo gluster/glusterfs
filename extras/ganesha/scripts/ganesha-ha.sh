@@ -277,8 +277,7 @@ string:\"EXPORT(Export_Id=$removed_id)\" 2>&1")
                 ret=$?
                 logger <<< "${output}"
                 if [ ${ret} -ne 0 ]; then
-                        echo "Error: refresh-config failed on ${current_host}."
-                        exit 1
+                        echo "Refresh-config failed on ${current_host}"
                 else
                         echo "Refresh-config completed on ${current_host}."
                 fi
@@ -299,8 +298,7 @@ string:"EXPORT(Export_Id=$removed_id)" 2>&1)
         ret=$?
         logger <<< "${output}"
         if [ ${ret} -ne 0 ] ; then
-                echo "Error: refresh-config failed on localhost."
-                exit 1
+                echo "Refresh-config failed on localhost."
         else
                 echo "Success: refresh-config completed."
         fi

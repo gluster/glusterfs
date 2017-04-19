@@ -4834,7 +4834,15 @@
  *
  */
 
-#define GD_MSG_NO_SIG_TO_PID_ZERO                  (GLUSTERD_COMP_BASE + 597)
+#define GD_MSG_GANESHA_NOT_RUNNING                 (GLUSTERD_COMP_BASE + 597)
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+
+#define GD_MSG_NO_SIG_TO_PID_ZERO                  (GLUSTERD_COMP_BASE + 598)
 
 /*------------*/
 
