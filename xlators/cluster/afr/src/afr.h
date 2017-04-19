@@ -1259,4 +1259,9 @@ __afr_fd_ctx_get (fd_t *fd, xlator_t *this);
 gf_boolean_t
 afr_is_inode_refresh_reqd (inode_t *inode, xlator_t *this,
                            int event_gen1, int event_gen2);
+
+int
+afr_serialize_xattrs_with_delimiter (call_frame_t *frame, xlator_t *this,
+                                     char *buf, const char *default_str,
+                                     int32_t *serz_len, char delimiter);
 #endif /* __AFR_H__ */
