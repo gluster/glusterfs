@@ -6291,3 +6291,52 @@ mdata_unlock:
         return ret;
 
 }
+
+/*
+ * Concatenates the xattrs in local->replies separated by a delimiter.
+ */
+int
+afr_serialize_xattrs_with_delimiter (call_frame_t *frame, xlator_t *this,
+                                     char *buf, const char *default_str,
+                                     int32_t *serz_len, char delimiter)
+{
+        afr_private_t *priv      = NULL;
+        afr_local_t   *local     = NULL;
+        char          *xattr     = NULL;
+        int            i         = 0;
+        int            len       = 0;
+        int            ret       = -1;
+
+        priv = this->private;
+        local = frame->local;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!local->replies[i].valid || local->replies[i].op_ret) {
+                        buf = strncat (buf, default_str, strlen (default_str));
+                        len += strlen (default_str);
+                        buf[len++] = delimiter;
+                        buf[len] = '\0';
+                } else {
+                        ret = dict_get_str (local->replies[i].xattr,
+                                            local->cont.getxattr.name, &xattr);
+                        if (ret) {
+                                gf_msg ("TEST", GF_LOG_ERROR, -ret,
+                                        AFR_MSG_DICT_GET_FAILED,
+                                        "Failed to get the node_uuid of brick "
+                                        "%d", i);
+                                goto out;
+                        }
+                        buf = strncat (buf, xattr, strlen (xattr));
+                        len += strlen (xattr);
+                        buf[len++] = delimiter;
+                        buf[len] = '\0';
+                }
+        }
+        buf[--len] = '\0'; /*remove the last delimiter*/
+        if (serz_len)
+                *serz_len = ++len;
+        ret = 0;
+
+out:
+        return ret;
+}
