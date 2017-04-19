@@ -588,11 +588,17 @@ afr_locked_nodes_get (afr_transaction_type type, afr_internal_lock_t *int_lock)
 int
 afr_changelog_call_count (afr_transaction_type type,
 			  unsigned char *pre_op_subvols,
+                          unsigned char *failed_subvols,
 			  unsigned int child_count)
 {
+        int i = 0;
         int call_count = 0;
 
-	call_count = AFR_COUNT(pre_op_subvols, child_count);
+        for (i = 0; i < child_count; i++) {
+                if (pre_op_subvols[i] && !failed_subvols[i]) {
+                        call_count++;
+                }
+        }
 
         if (type == AFR_ENTRY_RENAME_TRANSACTION)
                 call_count *= 2;
@@ -1244,6 +1250,7 @@ afr_changelog_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
 
         call_count = afr_changelog_call_count (local->transaction.type,
 					       local->transaction.pre_op,
+                                              local->transaction.failed_subvols,
 					       priv->child_count);
 
 	if (call_count == 0) {
@@ -1257,7 +1264,8 @@ afr_changelog_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
 	local->transaction.changelog_resume = changelog_resume;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (!local->transaction.pre_op[i])
+                if (!local->transaction.pre_op[i] ||
+                     local->transaction.failed_subvols[i])
                         continue;
 
                 switch (local->transaction.type) {
