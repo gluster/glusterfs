@@ -713,56 +713,109 @@ unwind:
         return ret;
 }
 
+
 /**
- * node-uuid cbk uses next child querying mechanism
+ * node-uuid cbk returns the list of node_uuids for the subvolume.
  */
 int32_t
-afr_getxattr_node_uuid_cbk (call_frame_t *frame, void *cookie,
-                            xlator_t *this, int32_t op_ret, int32_t op_errno,
-                            dict_t *dict, dict_t *xdata)
+afr_getxattr_node_uuid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                            int32_t op_ret, int32_t op_errno, dict_t *dict,
+                            dict_t *xdata)
 {
-        afr_private_t  *priv            = NULL;
-        afr_local_t    *local           = NULL;
-        xlator_t      **children        = NULL;
-        int             unwind          = 1;
-        int             curr_call_child = 0;
-
-        priv = this->private;
-        children = priv->children;
+        afr_local_t    *local          = NULL;
+        afr_private_t  *priv           = NULL;
+        int32_t         callcnt        = 0;
+        int             ret            = 0;
+        char           *xattr_serz     = NULL;
+        long            cky            = 0;
+        int32_t         tlen           = 0;
 
         local = frame->local;
+        priv = this->private;
+        cky = (long) cookie;
 
-        if (op_ret == -1) { /** query the _next_ child */
+        LOCK (&frame->lock);
+        {
+                callcnt = --local->call_count;
+                local->replies[cky].valid = 1;
+                local->replies[cky].op_ret = op_ret;
+                local->replies[cky].op_errno = op_errno;
 
-                /**
-                 * _current_ becomes _next_
-                 * If done with all childs and yet no success; give up !
-                 */
-                curr_call_child = (int) ((long)cookie);
-                if (++curr_call_child == priv->child_count)
-                        goto unwind;
+                if (op_ret < 0)
+                        goto unlock;
 
-                gf_msg_debug (this->name, op_errno,
-                              "op_ret (-1): Re-querying afr-child (%d/%d)",
-                              curr_call_child, priv->child_count);
+                local->op_ret = 0;
 
-                unwind = 0;
-                STACK_WIND_COOKIE (frame, afr_getxattr_node_uuid_cbk,
-                                   (void *) (long) curr_call_child,
-                                   children[curr_call_child],
-                                   children[curr_call_child]->fops->getxattr,
-                                   &local->loc,
-                                   local->cont.getxattr.name,
-                                   NULL);
+                if (!local->xdata_rsp && xdata)
+                                local->xdata_rsp = dict_ref (xdata);
+                local->replies[cky].xattr = dict_ref (dict);
         }
 
- unwind:
-        if (unwind)
-                AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict,
-                                  NULL);
+unlock:
+        UNLOCK (&frame->lock);
 
-        return 0;
+        if (!callcnt) {
+
+                if (local->op_ret != 0) {
+                        /* All bricks gave an error. */
+                        local->op_errno = afr_final_errno (local, priv);
+                        goto unwind;
+                }
+
+                /*Since we store the UUID0_STR as node uuid for down bricks and
+                 *for non zero op_ret, assigning length to  priv->child_count
+                 *number of uuids*/
+                local->cont.getxattr.xattr_len = (strlen (UUID0_STR) + 2) *
+                                                  priv->child_count;
+
+                if (!local->dict)
+                        local->dict = dict_new ();
+                if (!local->dict) {
+                        local->op_ret = -1;
+                        local->op_errno = ENOMEM;
+                        goto unwind;
+                }
+
+                xattr_serz = GF_CALLOC (local->cont.getxattr.xattr_len,
+                                        sizeof (char), gf_common_mt_char);
+
+                if (!xattr_serz) {
+                        local->op_ret = -1;
+                        local->op_errno = ENOMEM;
+                        goto unwind;
+                }
+
+                ret = afr_serialize_xattrs_with_delimiter (frame, this,
+                                                           xattr_serz,
+                                                           UUID0_STR, &tlen,
+                                                           ' ');
+                if (ret) {
+                        local->op_ret = -1;
+                        local->op_errno = ENOMEM;
+                        goto unwind;
+                }
+                ret = dict_set_dynstr (local->dict, local->cont.getxattr.name,
+                                       xattr_serz);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR,
+                                -ret, AFR_MSG_DICT_SET_FAILED,
+                                "Cannot set node_uuid key in dict");
+                        local->op_ret = -1;
+                        local->op_errno = ENOMEM;
+                } else {
+                        local->op_ret = local->cont.getxattr.xattr_len - 1;
+                        local->op_errno = 0;
+                }
+
+unwind:
+                AFR_STACK_UNWIND (getxattr, frame, local->op_ret,
+                                  local->op_errno, local->dict,
+                                  local->xdata_rsp);
+        }
+
+        return ret;
 }
+
 
 int32_t
 afr_getxattr_quota_size_cbk (call_frame_t *frame, void *cookie,
@@ -1374,6 +1427,8 @@ afr_is_special_xattr (const char *name, fop_getxattr_cbk_t *cbk,
                 *cbk = afr_common_getxattr_stime_cbk;
         } else if (strcmp (name, QUOTA_SIZE_KEY) == 0) {
                 *cbk = afr_getxattr_quota_size_cbk;
+        } else if (!strcmp (name, GF_XATTR_NODE_UUID_KEY)) {
+                *cbk = afr_getxattr_node_uuid_cbk;
         } else {
                 is_spl = _gf_false;
         }
@@ -1489,9 +1544,7 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
               loc_t *loc, const char *name, dict_t *xdata)
 {
         afr_private_t           *priv         = NULL;
-        xlator_t                **children    = NULL;
         afr_local_t             *local        = NULL;
-        int                     i             = 0;
         int32_t                 op_errno      = 0;
         int                     ret           = -1;
         fop_getxattr_cbk_t      cbk           = NULL;
@@ -1502,8 +1555,6 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 		goto out;
 
         priv     = this->private;
-
-        children = priv->children;
 
         loc_copy (&local->loc, loc);
 
@@ -1542,16 +1593,6 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
          */
         if (afr_is_special_xattr (name, &cbk, 0)) {
                 afr_getxattr_all_subvols (this, frame, name, loc, cbk);
-                return 0;
-        }
-
-        if (XATTR_IS_NODE_UUID (name)) {
-                i = 0;
-                STACK_WIND_COOKIE (frame, afr_getxattr_node_uuid_cbk,
-                                   (void *) (long) i,
-                                   children[i],
-                                   children[i]->fops->getxattr,
-                                   loc, name, xdata);
                 return 0;
         }
 
