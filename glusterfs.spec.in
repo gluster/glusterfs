@@ -233,7 +233,7 @@ BuildRequires:    libattr-devel
 %endif
 
 %if (0%{?_with_firewalld:1})
-BuildRequires:    firewalld-filesystem
+BuildRequires:    firewalld
 %endif
 
 Obsoletes:        hekafs
@@ -540,7 +540,11 @@ Requires(postun): /sbin/service
 %endif
 %if (0%{?_with_firewalld:1})
 # we install firewalld rules, so we need to have the directory owned
+%if ( 0%{!?rhel} )
+# not on RHEL because firewalld-filesystem appeared in 7.3
+# when EL7 rpm gets weak dependencies we can add a Suggests:
 Requires:         firewalld-filesystem
+%endif
 %endif
 %if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
 Requires:         rpcbind
@@ -1257,6 +1261,9 @@ exit 0
 %endif
 
 %changelog
+* Thu Apr 20 2017 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- firewalld-filesystem -> firewalld (#1443959)
+
 * Thu Apr 13 2017 Niels de Vos <ndevos@redhat.com>
 - the -regression-tests sub-package needs "bc" for some tests (#1442145)
 
