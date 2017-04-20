@@ -1897,7 +1897,6 @@ ec_rebuild_data (call_frame_t *frame, ec_t *ec, fd_t *fd, uint64_t size,
         ec_heal_t        *heal = NULL;
         int              ret = 0;
         syncbarrier_t    barrier;
-        struct iobuf_pool *pool = NULL;
 
         if (syncbarrier_init (&barrier))
                 return -ENOMEM;
@@ -1907,9 +1906,8 @@ ec_rebuild_data (call_frame_t *frame, ec_t *ec, fd_t *fd, uint64_t size,
         heal->xl = ec->xl;
         heal->data = &barrier;
         syncbarrier_init (heal->data);
-        pool = ec->xl->ctx->iobuf_pool;
         heal->total_size = size;
-        heal->size = iobpool_default_pagesize (pool);
+        heal->size = (128 * GF_UNIT_KB * (ec->self_heal_window_size));
         /* We need to adjust the size to a multiple of the stripe size of the
          * volume. Otherwise writes would need to fill gaps (head and/or tail)
          * with existent data from the bad bricks. This could be garbage on a
