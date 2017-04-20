@@ -2295,13 +2295,15 @@ pub_glfs_h_acl_get (struct glfs *fs, struct glfs_object *object,
                 goto out;
 
         ret = dict_get_str (xattr, (char *)acl_key, &acl_s);
-        if (ret == -1)
+        if (ret)
                 goto out;
 
         acl = acl_from_text (acl_s);
 
 out:
-        GF_FREE (acl_s);
+        if (xattr)
+                dict_unref(xattr);
+
         if (IA_ISLNK (object->inode->ia_type) && new_object)
                 glfs_h_close (new_object);
 
