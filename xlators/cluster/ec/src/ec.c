@@ -280,6 +280,8 @@ reconfigure (xlator_t *this, dict_t *options)
                           uint32, failed);
         GF_OPTION_RECONF ("heal-wait-qlength", heal_wait_qlen, options,
                           uint32, failed);
+        GF_OPTION_RECONF ("self-heal-window-size", ec->self_heal_window_size,
+                          options, uint32, failed);
         GF_OPTION_RECONF ("heal-timeout", ec->shd.timeout, options,
                           int32, failed);
         ec_configure_background_heal_opts (ec, background_heals,
@@ -663,6 +665,8 @@ init (xlator_t *this)
     GF_OPTION_INIT ("eager-lock", ec->eager_lock, bool, failed);
     GF_OPTION_INIT ("background-heals", ec->background_heals, uint32, failed);
     GF_OPTION_INIT ("heal-wait-qlength", ec->heal_wait_qlen, uint32, failed);
+    GF_OPTION_INIT ("self-heal-window-size", ec->self_heal_window_size, uint32,
+                    failed);
     ec_configure_background_heal_opts (ec, ec->background_heals,
                                        ec->heal_wait_qlen);
     GF_OPTION_INIT ("read-policy", read_policy, str, failed);
@@ -1303,6 +1307,8 @@ int32_t ec_dump_private(xlator_t *this)
                        ec_bin(tmp, sizeof(tmp), ec->xl_up, ec->nodes));
     gf_proc_dump_write("background-heals", "%d", ec->background_heals);
     gf_proc_dump_write("heal-wait-qlength", "%d", ec->heal_wait_qlen);
+    gf_proc_dump_write("self-heal-window-size", "%"PRIu32,
+                       ec->self_heal_window_size);
     gf_proc_dump_write("healers", "%d", ec->healers);
     gf_proc_dump_write("heal-waiters", "%d", ec->heal_waiters);
     gf_proc_dump_write("read-policy", "%s", ec_read_policies[ec->read_policy]);
@@ -1465,6 +1471,14 @@ struct volume_options options[] =
         .default_value = "auto",
         .description = "force the cpu extensions to be used to accelerate the "
                        "galois field computations."
+    },
+    { .key  = {"self-heal-window-size"},
+        .type = GF_OPTION_TYPE_INT,
+        .min  = 1,
+        .max  = 1024,
+        .default_value = "1",
+        .description = "Maximum number blocks(128KB) per file for which "
+                       "self-heal process would be applied simultaneously."
     },
     {   .key = {"optimistic-change-log"},
         .type = GF_OPTION_TYPE_BOOL,
