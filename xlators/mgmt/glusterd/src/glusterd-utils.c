@@ -1878,6 +1878,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                 pthread_mutex_lock (&conn->lock);
                 if (conn->reconnect) {
                         (void ) gf_timer_call_cancel (rpc->ctx, conn->reconnect);
+                        conn->reconnect = NULL;
                 }
                 pthread_mutex_unlock (&conn->lock);
                 rpc_clnt_unref (rpc);
