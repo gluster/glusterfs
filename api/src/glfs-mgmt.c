@@ -382,7 +382,7 @@ out:
         if (rsp.dict.dict_val)
                 free (rsp.dict.dict_val);
 
-        if (rsp.op_errstr && *rsp.op_errstr)
+        if (rsp.op_errstr)
                 free (rsp.op_errstr);
 
         gf_msg_debug (frame->this->name, 0, "Returning: %d", ret);
@@ -676,6 +676,9 @@ out:
 
 	if (rsp.spec)
 		free (rsp.spec);
+
+        if (rsp.xdata.xdata_val)
+                free (rsp.xdata.xdata_val);
 
 	// Stop if server is running at an unsupported op-version
 	if (ENOTSUP == ret) {
