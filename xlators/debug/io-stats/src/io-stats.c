@@ -3663,6 +3663,7 @@ ios_destroy_top_stats (struct ios_conf *conf)
                         GF_FREE (list);
                         list_head->members--;
                 }
+                GF_FREE (list_head->iosstats);
         }
 
         for (i = 0; i < IOS_STATS_THRU_MAX; i++) {
@@ -3678,6 +3679,7 @@ ios_destroy_top_stats (struct ios_conf *conf)
                         GF_FREE (list);
                         list_head->members--;
                 }
+                GF_FREE (list_head->iosstats);
         }
 
         UNLOCK (&conf->lock);
@@ -3880,7 +3882,9 @@ ios_conf_destroy (struct ios_conf *conf)
 
         ios_destroy_top_stats (conf);
         _ios_destroy_dump_thread (conf);
+        ios_destroy_sample_buf (conf->ios_sample_buf);
         LOCK_DESTROY (&conf->lock);
+        GF_FREE(conf->dnscache);
         GF_FREE(conf);
 }
 
