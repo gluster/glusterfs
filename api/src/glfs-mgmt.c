@@ -766,6 +766,7 @@ glfs_volfile_fetch (struct glfs *fs)
 				   GF_HNDSK_GETSPEC, glfs_mgmt_getspec_cbk,
 				   (xdrproc_t)xdr_gf_getspec_req);
 out:
+        GF_FREE(req.xdata.xdata_val);
         if (dict)
                 dict_unref (dict);
 
