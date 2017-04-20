@@ -20,7 +20,6 @@
 #undef open /* in perfuse.h, pulled from mount-gluster-compat.h */
 #endif
 
-static int gf_fuse_conn_err_log;
 static int gf_fuse_xattr_enotsup_log;
 
 void fini (xlator_t *this_xl);
@@ -794,10 +793,8 @@ fuse_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         return 0;
                 }
 
-                GF_LOG_OCCASIONALLY ( gf_fuse_conn_err_log, "glusterfs-fuse",
-                                      GF_LOG_WARNING,
-                                      "%"PRIu64": %s() %s => -1 (%s)",
-                                      frame->root->unique,
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING, "%"PRIu64": %s() "
+                        "%s => -1 (%s)", frame->root->unique,
                                       gf_fop_list[frame->root->op],
                                       state->loc.path ? state->loc.path : "ERR",
                                       strerror (op_errno));
