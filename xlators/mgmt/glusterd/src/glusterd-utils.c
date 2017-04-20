@@ -5543,7 +5543,7 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         glusterd_conf_t    *priv                        = NULL;
         gf_boolean_t        is_template_in_use          = _gf_false;
         gf_boolean_t        is_paused                   = _gf_false;
-        char               *key1                        = NULL;
+        char                key1[1024]                  = {0,};
         xlator_t           *this1                       = NULL;
 
         this1 = THIS;
@@ -5638,9 +5638,8 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
                 goto out;
         }
 
-        /* Move the pointer two characters ahead to surpass '//' */
-        if ((key1 = strchr (slave, '/')))
-                key1 = key1 + 2;
+        /* Form key1 which is "<user@><slave_host>::<slavevol>" */
+        snprintf (key1, sizeof (key1), "%s::%s", slave_url, slave_vol);
 
         /* Looks for the last status, to find if the session was running
          * when the node went down. If the session was just created or
