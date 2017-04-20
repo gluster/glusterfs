@@ -3823,6 +3823,7 @@ dht_fsetxattr (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
+        local->xattr_req = xdata ? dict_ref (xdata) : dict_new ();
         local->call_cnt = call_cnt = layout->cnt;
 
         if (IA_ISDIR (fd->inode->ia_type)) {
@@ -3830,7 +3831,7 @@ dht_fsetxattr (call_frame_t *frame, xlator_t *this,
                         STACK_WIND (frame, dht_err_cbk,
                                     layout->list[i].xlator,
                                     layout->list[i].xlator->fops->fsetxattr,
-                                    fd, xattr, flags, NULL);
+                                    fd, xattr, flags, xdata);
                 }
 
         } else {
@@ -3839,10 +3840,8 @@ dht_fsetxattr (call_frame_t *frame, xlator_t *this,
                 local->rebalance.xattr = dict_ref (xattr);
                 local->rebalance.flags = flags;
 
-                xdata = xdata ? dict_ref (xdata) : dict_new ();
-                if (xdata)
-                        ret = dict_set_dynstr_with_alloc (xdata,
-                                        DHT_IATT_IN_XDATA_KEY, "yes");
+                ret = dict_set_dynstr_with_alloc (local->xattr_req,
+                                                  DHT_IATT_IN_XDATA_KEY, "yes");
                 if (ret) {
                         gf_msg_debug (this->name, 0,
                                       "Failed to set dictionary key %s for fd=%p",
@@ -3850,11 +3849,8 @@ dht_fsetxattr (call_frame_t *frame, xlator_t *this,
                 }
 
                 STACK_WIND (frame, dht_file_setxattr_cbk, subvol,
-                    subvol->fops->fsetxattr, fd, xattr, flags, xdata);
-
-                if (xdata)
-                        dict_unref (xdata);
-
+                            subvol->fops->fsetxattr, fd, xattr, flags,
+                            local->xattr_req);
         }
         return 0;
 
@@ -3950,12 +3946,12 @@ dht_setxattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
                 STACK_WIND (frame, dht_file_setxattr_cbk, subvol,
                             subvol->fops->setxattr, &local->loc,
                             local->rebalance.xattr, local->rebalance.flags,
-                            NULL);
+                            local->xattr_req);
         } else {
                 STACK_WIND (frame, dht_file_setxattr_cbk, subvol,
                             subvol->fops->fsetxattr, local->fd,
                             local->rebalance.xattr, local->rebalance.flags,
-                            NULL);
+                            local->xattr_req);
         }
 
         return 0;
@@ -4239,6 +4235,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         if (tmp) {
                 return dht_nuke_dir (frame, this, loc, tmp);
         }
+        local->xattr_req = xdata ? dict_ref (xdata) : dict_new ();
 
         if (IA_ISDIR (loc->inode->ia_type)) {
 
@@ -4255,17 +4252,12 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                 local->rebalance.flags = flags;
                 local->call_cnt = 1;
 
-                xdata = xdata ? dict_ref (xdata) : dict_new ();
-                if (xdata)
-                        ret = dict_set_dynstr_with_alloc (xdata,
-                                              DHT_IATT_IN_XDATA_KEY, "yes");
+                ret = dict_set_dynstr_with_alloc (local->xattr_req,
+                                                  DHT_IATT_IN_XDATA_KEY, "yes");
 
                 STACK_WIND (frame, dht_file_setxattr_cbk,
                             subvol, subvol->fops->setxattr,
-                            loc, xattr, flags, xdata);
-
-                if (xdata)
-                        dict_unref (xdata);
+                            loc, xattr, flags, local->xattr_req);
         }
 
         return 0;
@@ -4384,11 +4376,11 @@ dht_removexattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame,
         if (local->fop == GF_FOP_REMOVEXATTR) {
                 STACK_WIND (frame, dht_file_removexattr_cbk, subvol,
                             subvol->fops->removexattr, &local->loc,
-                            local->key, NULL);
+                            local->key, local->xattr_req);
         } else {
                 STACK_WIND (frame, dht_file_removexattr_cbk, subvol,
                             subvol->fops->fremovexattr, local->fd,
-                            local->key, NULL);
+                            local->key, local->xattr_req);
         }
 
         return 0;
@@ -4424,8 +4416,6 @@ dht_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 unlock:
         UNLOCK (&frame->lock);
-
-
 
         this_call_cnt = dht_frame_return (frame);
         if (is_last_call (this_call_cnt)) {
@@ -4482,6 +4472,7 @@ dht_removexattr (call_frame_t *frame, xlator_t *this,
                 op_errno = EINVAL;
                 goto err;
         }
+        local->xattr_req = (xdata) ? dict_ref (xdata) : dict_new ();
 
         local->call_cnt = call_cnt = layout->cnt;
         local->key = gf_strdup (key);
@@ -4491,16 +4482,15 @@ dht_removexattr (call_frame_t *frame, xlator_t *this,
                         STACK_WIND (frame, dht_removexattr_cbk,
                                     layout->list[i].xlator,
                                     layout->list[i].xlator->fops->removexattr,
-                                    loc, key, NULL);
+                                    loc, key, local->xattr_req);
                 }
 
         } else {
 
                 local->call_cnt = 1;
-                xdata = xdata ? dict_ref (xdata) : dict_new ();
-                if (xdata)
-                        ret = dict_set_dynstr_with_alloc (xdata,
-                                 DHT_IATT_IN_XDATA_KEY, "yes");
+
+                ret = dict_set_dynstr_with_alloc (local->xattr_req,
+                                                  DHT_IATT_IN_XDATA_KEY, "yes");
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                                 DHT_MSG_DICT_SET_FAILED, "Failed to "
@@ -4510,10 +4500,7 @@ dht_removexattr (call_frame_t *frame, xlator_t *this,
 
                 STACK_WIND (frame, dht_file_removexattr_cbk,
                             subvol, subvol->fops->removexattr,
-                            loc, key, xdata);
-
-                if (xdata)
-                        dict_unref (xdata);
+                            loc, key, local->xattr_req);
         }
 
         return 0;
@@ -6511,7 +6498,7 @@ dht_link2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
         local->call_cnt = 2;
 
         STACK_WIND (frame, dht_link_cbk, subvol, subvol->fops->link,
-                    &local->loc, &local->loc2, NULL);
+                    &local->loc, &local->loc2, local->xattr_req);
 
         return 0;
 err:
@@ -6538,7 +6525,7 @@ dht_link_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         srcvol = local->linkfile.srcvol;
 
         STACK_WIND (frame, dht_link_cbk, srcvol, srcvol->fops->link,
-                    &local->loc, &local->loc2, xdata);
+                    &local->loc, &local->loc2, local->xattr_req);
 
         return 0;
 
@@ -6547,7 +6534,7 @@ err:
         dht_set_fixed_dir_stat (preparent);
         dht_set_fixed_dir_stat (postparent);
         DHT_STACK_UNWIND (link, frame, op_ret, op_errno, inode, stbuf, preparent,
-                          postparent, NULL);
+                          postparent, xdata);
 
         return 0;
 }
@@ -6598,6 +6585,8 @@ dht_link (call_frame_t *frame, xlator_t *this,
                 op_errno = ENOMEM;
                 goto err;
         }
+        if (xdata)
+                local->xattr_req = dict_ref (xdata);
 
         if (hashed_subvol != cached_subvol) {
                 gf_uuid_copy (local->gfid, oldloc->inode->gfid);

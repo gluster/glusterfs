@@ -143,7 +143,7 @@ dht_writev2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
                     subvol, subvol->fops->writev,
                     local->fd, local->rebalance.vector, local->rebalance.count,
                     local->rebalance.offset, local->rebalance.flags,
-                    local->rebalance.iobref, NULL);
+                    local->rebalance.iobref, local->xattr_req);
 
         return 0;
 
@@ -180,7 +180,8 @@ dht_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 op_errno = EINVAL;
                 goto err;
         }
-
+        if (xdata)
+                local->xattr_req = dict_ref (xdata);
 
         local->rebalance.vector = iov_dup (vector, count);
         local->rebalance.offset = off;
@@ -323,11 +324,11 @@ dht_truncate2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
         if (local->fop == GF_FOP_TRUNCATE) {
                 STACK_WIND (frame, dht_truncate_cbk, subvol,
                             subvol->fops->truncate, &local->loc,
-                            local->rebalance.offset, NULL);
+                            local->rebalance.offset, local->xattr_req);
         } else {
                 STACK_WIND (frame, dht_truncate_cbk, subvol,
                             subvol->fops->ftruncate, local->fd,
-                            local->rebalance.offset, NULL);
+                            local->rebalance.offset, local->xattr_req);
         }
 
         return 0;
@@ -366,6 +367,8 @@ dht_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                 op_errno = EINVAL;
                 goto err;
         }
+        if (xdata)
+                local->xattr_req = dict_ref (xdata);
 
         STACK_WIND (frame, dht_truncate_cbk,
                     subvol, subvol->fops->truncate,
@@ -407,6 +410,8 @@ dht_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 op_errno = EINVAL;
                 goto err;
         }
+        if (xdata)
+                local->xattr_req = dict_ref (xdata);
 
         STACK_WIND (frame, dht_truncate_cbk,
                     subvol, subvol->fops->ftruncate,
@@ -533,7 +538,7 @@ dht_fallocate2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 
 	STACK_WIND(frame, dht_fallocate_cbk, subvol, subvol->fops->fallocate,
 		   local->fd, local->rebalance.flags, local->rebalance.offset,
-		   local->rebalance.size, NULL);
+		   local->rebalance.size, local->xattr_req);
 
         return 0;
 
@@ -572,6 +577,8 @@ dht_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
                 op_errno = EINVAL;
                 goto err;
         }
+        if (xdata)
+                local->xattr_req = dict_ref (xdata);
 
         STACK_WIND (frame, dht_fallocate_cbk,
                     subvol, subvol->fops->fallocate,
@@ -698,7 +705,7 @@ dht_discard2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 
 	STACK_WIND(frame, dht_discard_cbk, subvol, subvol->fops->discard,
 		   local->fd, local->rebalance.offset, local->rebalance.size,
-		   NULL);
+		   local->xattr_req);
 
         return 0;
 
@@ -736,6 +743,8 @@ dht_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 op_errno = EINVAL;
                 goto err;
         }
+        if (xdata)
+                local->xattr_req = dict_ref (xdata);
 
         STACK_WIND (frame, dht_discard_cbk, subvol, subvol->fops->discard,
                     fd, offset, len, xdata);
@@ -861,7 +870,7 @@ dht_zerofill2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 
         STACK_WIND(frame, dht_zerofill_cbk, subvol, subvol->fops->zerofill,
                    local->fd, local->rebalance.offset, local->rebalance.size,
-                   NULL);
+                   local->xattr_req);
 
         return 0;
 
@@ -900,6 +909,8 @@ dht_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 op_errno = EINVAL;
                 goto err;
         }
+        if (xdata)
+                local->xattr_req = dict_ref (xdata);
 
         STACK_WIND (frame, dht_zerofill_cbk, subvol, subvol->fops->zerofill,
                     fd, offset, len, xdata);
@@ -1004,12 +1015,12 @@ dht_setattr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
                 STACK_WIND (frame, dht_file_setattr_cbk, subvol,
                             subvol->fops->setattr, &local->loc,
                             &local->rebalance.stbuf, local->rebalance.flags,
-                            NULL);
+                            local->xattr_req);
         } else {
                 STACK_WIND (frame, dht_file_setattr_cbk, subvol,
                             subvol->fops->fsetattr, local->fd,
                             &local->rebalance.stbuf, local->rebalance.flags,
-                            NULL);
+                            local->xattr_req);
         }
 
         return 0;
@@ -1102,6 +1113,8 @@ dht_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 op_errno = EINVAL;
                 goto err;
         }
+        if (xdata)
+                local->xattr_req = dict_ref (xdata);
 
         if (IA_ISREG (loc->inode->ia_type)) {
                 /* in the regular file _cbk(), we need to check for
@@ -1173,6 +1186,8 @@ dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
                 op_errno = EINVAL;
                 goto err;
         }
+        if (xdata)
+                local->xattr_req = dict_ref (xdata);
 
         if (IA_ISREG (fd->inode->ia_type)) {
                 /* in the regular file _cbk(), we need to check for
