@@ -1273,7 +1273,7 @@ exit 0
 * Thu Feb 16 2017 Niels de Vos <ndevos@redhat.com>
 - Obsolete and Provide python-gluster for upgrading from glusterfs < 3.10
 
-* Wed Feb 7 2017 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+* Tue Feb 7 2017 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - remove ganesha (#1418417)
 
 * Wed Feb 1 2017 Poornima G <pgurusid@redhat.com>
