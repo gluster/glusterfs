@@ -245,6 +245,12 @@ struct glfs_upcall_inode {
         struct stat           oldp_buf; /* Latest stat of old parent dir handle */
 };
 
+struct glfs_xreaddirp_stat {
+        struct stat st; /* Stat for that dirent - corresponds to GFAPI_XREADDIRP_STAT */
+        struct glfs_object *object; /* handled for GFAPI_XREADDIRP_HANDLE */
+        uint32_t flags_handled; /* final set of flags successfulyy handled */
+};
+
 #define DEFAULT_EVENT_POOL_SIZE           16384
 #define GF_MEMPOOL_COUNT_OF_DICT_T        4096
 #define GF_MEMPOOL_COUNT_OF_DATA_T        (GF_MEMPOOL_COUNT_OF_DICT_T * 4)
@@ -445,7 +451,6 @@ glfs_anonymous_pwritev (struct glfs *fs, struct glfs_object *object,
 struct glfs_object *
 glfs_h_resolve_symlink (struct glfs *fs, struct glfs_object *object);
 
-
 /* Deprecated structures that were passed to client applications, replaced by
  * accessor functions. Do not use these in new applications, and update older
  * usage.
@@ -475,5 +480,13 @@ struct glfs_callback_inode_arg {
         struct stat             oldp_buf; /* Latest stat of old parent
                                            * dir handle */
 };
+struct dirent *
+glfs_readdirbuf_get (struct glfs_fd *glfd);
+
+gf_dirent_t *
+glfd_entry_next (struct glfs_fd *glfd, int plus);
+
+void
+gf_dirent_to_dirent (gf_dirent_t *gf_dirent, struct dirent *dirent);
 
 #endif /* !_GLFS_INTERNAL_H */

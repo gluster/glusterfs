@@ -355,6 +355,22 @@ glfs_h_anonymous_read (struct glfs *fs, struct glfs_object *object,
                       const void *buf, size_t count, off_t offset) __THROW
         GFAPI_PUBLIC(glfs_h_anonymous_read, 3.7.0);
 
+/*
+ * Caution: The object returned by this object gets freed as part
+ * of 'glfs_free(xstat)'. Make sure to have a copy using 'glfs_object_copy()'
+ * to use post that.
+ */
+struct glfs_object*
+glfs_xreaddirplus_get_object (struct glfs_xreaddirp_stat *xstat) __THROW
+        GFAPI_PUBLIC(glfs_xreaddirplus_get_object, 3.11.0);
+
+/* Applications should close the object returned by this routine
+ * explicitly using 'glfs_h_close()'
+ */
+struct glfs_object*
+glfs_object_copy (struct glfs_object *src);
+        GFAPI_PUBLIC(glfs_object_copy, 3.11.0);
+
 __END_DECLS
 
 #endif /* !_GLFS_HANDLES_H */
