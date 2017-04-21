@@ -191,6 +191,10 @@ keys = (
     #tier events
     "EVENT_TIER_START",
     "EVENT_TIER_START_FORCE",
+
+    #brick/inodes events
+    "EVENT_DHT_DISK_USAGE",
+    "EVENT_DHT_INODES_USAGE",
 )
 
 LAST_EVENT = "EVENT_LAST"

@@ -18,6 +18,7 @@
 #include "defaults.h"
 
 #include <sys/time.h>
+#include "events.h"
 
 
 int
@@ -221,10 +222,12 @@ gf_boolean_t
 dht_is_subvol_filled (xlator_t *this, xlator_t *subvol)
 {
 	int         i = 0;
+        char      vol_name[256];
 	dht_conf_t *conf = NULL;
 	gf_boolean_t subvol_filled_inodes = _gf_false;
 	gf_boolean_t subvol_filled_space = _gf_false;
 	gf_boolean_t is_subvol_filled = _gf_false;
+        double usage = 0;
 
 	conf = this->private;
 
@@ -259,23 +262,38 @@ dht_is_subvol_filled (xlator_t *this, xlator_t *subvol)
 
 	if (subvol_filled_space && conf->subvolume_status[i]) {
 		if (!(conf->du_stats[i].log++ % (GF_UNIVERSAL_ANSWER * 10))) {
+                        usage = 100 - conf->du_stats[i].avail_percent;
+
 			gf_msg (this->name, GF_LOG_WARNING, 0,
                                 DHT_MSG_SUBVOL_INSUFF_SPACE,
 				"disk space on subvolume '%s' is getting "
 				"full (%.2f %%), consider adding more bricks",
-				subvol->name,
-				(100 - conf->du_stats[i].avail_percent));
+				subvol->name, usage);
+
+                        strncpy(vol_name, this->name, sizeof(vol_name));
+                        vol_name[(strlen(this->name)-4)] = '\0';
+
+                        gf_event(EVENT_DHT_DISK_USAGE,
+                                 "volume=%s;subvol=%s;usage=%.2f %%",
+                                 vol_name, subvol->name, usage);
 		}
 	}
 
 	if (subvol_filled_inodes && conf->subvolume_status[i]) {
 		if (!(conf->du_stats[i].log++ % (GF_UNIVERSAL_ANSWER * 10))) {
+                        usage = 100 - conf->du_stats[i].avail_inodes;
 			gf_msg (this->name, GF_LOG_CRITICAL, 0,
                                 DHT_MSG_SUBVOL_INSUFF_INODES,
 				"inodes on subvolume '%s' are at "
 				"(%.2f %%), consider adding more bricks",
-				subvol->name,
-				(100 - conf->du_stats[i].avail_inodes));
+				subvol->name, usage);
+
+                        strncpy(vol_name, this->name, sizeof(vol_name));
+                        vol_name[(strlen(this->name)-4)] = '\0';
+
+                        gf_event(EVENT_DHT_INODES_USAGE,
+                                 "volume=%s;subvol=%s;usage=%.2f %%",
+                                  vol_name, subvol->name, usage);
 		}
 	}
 
