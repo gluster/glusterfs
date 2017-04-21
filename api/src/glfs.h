@@ -41,6 +41,7 @@
 #include <sys/cdefs.h>
 #include <dirent.h>
 #include <sys/statvfs.h>
+#include <inttypes.h>
 
 #if defined(HAVE_SYS_ACL_H) || (defined(USE_POSIX_ACLS) && USE_POSIX_ACLS)
 #include <sys/acl.h>
@@ -788,6 +789,71 @@ int glfs_sysrq (glfs_t *fs, char sysrq) __THROW
 #define GLFS_SYSRQ_HELP 'h' /* log a message with supported sysrq commands */
 #define GLFS_SYSRQ_STATEDUMP 's' /* create a statedump */
 
+
+/*
+ * Structure returned as part of xreaddirplus
+ */
+struct glfs_xreaddirp_stat;
+
+/* Request flags to be used in XREADDIRP operation */
+#define GFAPI_XREADDIRP_NULL    0x00000000 /* by default, no stat will be fetched */
+#define GFAPI_XREADDIRP_STAT    0x00000001 /* Get stat */
+#define GFAPI_XREADDIRP_HANDLE  0x00000002 /* Get object handle */
+
+/*
+ * This stat structure returned gets freed as part of glfs_free(xstat)
+ */
+struct stat*
+glfs_xreaddirplus_get_stat (struct glfs_xreaddirp_stat *xstat) __THROW
+        GFAPI_PUBLIC(glfs_xreaddirplus_get_stat, 3.11.0);
+
+/*
+ * SYNOPSIS
+ *
+ * glfs_xreaddirplus_r: Extended Readirplus operation
+ *
+ * DESCRIPTION
+ *
+ * This API does readdirplus operation, but along with stat it can fetch other
+ * extra information like object handles etc for each of the dirents returned
+ * based on requested flags. On success it returns the set of flags successfully
+ * processed.
+ *
+ * Note that there are chances that some of the requested information may not be
+ * available or returned (for example if reached EOD). Ensure to validate the
+ * returned value to determine what flags have been successfully processed
+ * & set.
+ *
+ * PARAMETERS
+ *
+ * INPUT:
+ * @glfd: GFAPI file descriptor of the directory
+ * @flags: Flags determining xreaddirp_stat requested
+ *         Current available values are:
+ *              GFAPI_XREADDIRP_NULL
+ *              GFAPI_XREADDIRP_STAT
+ *              GFAPI_XREADDIRP_HANDLE
+ * @ext: Dirent struture to copy the values to
+ *       (though optional recommended to be allocated by application
+ *        esp., in multi-threaded environement)
+ *
+ * OUTPUT:
+ * @res: to store the next dirent value. If NULL and return value is '0',
+ *       it means it reached end of the directory.
+ * @xstat_p: Pointer to contain all the requested data returned
+ *           for that dirent. Application should make use of glfs_free() API
+ *           to free this pointer and the variables returned by
+ *           glfs_xreaddirplus_get_*() APIs.
+ *
+ * RETURN VALUE:
+ * >=0: SUCCESS (value contains the flags successfully processed)
+ *  -1: FAILURE
+ */
+int
+glfs_xreaddirplus_r (struct glfs_fd *glfd, uint32_t flags,
+                     struct glfs_xreaddirp_stat **xstat_p,
+                     struct dirent *ext, struct dirent **res);
+        GFAPI_PUBLIC(glfs_xreaddirplus_r, 3.11.0);
 
 /*
  * Nobody needs this call at all yet except for the test script.

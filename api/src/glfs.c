@@ -1375,6 +1375,16 @@ pub_glfs_free (void *ptr)
                 GF_FREE (ptr);
                 break;
         }
+        case glfs_mt_xreaddirp_stat_t:
+        {
+                struct glfs_xreaddirp_stat *to_free = ptr;
+
+                if (to_free->object)
+                        glfs_h_close (to_free->object);
+
+                GF_FREE (ptr);
+                break;
+        }
         default:
                 GF_FREE (ptr);
         }
