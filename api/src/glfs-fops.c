@@ -2792,7 +2792,7 @@ glfd_entry_next (struct glfs_fd *glfd, int plus)
 }
 
 
-static struct dirent *
+struct dirent *
 glfs_readdirbuf_get (struct glfs_fd *glfd)
 {
         struct dirent *buf = NULL;
@@ -4608,3 +4608,138 @@ out:
 invalid_fs:
         return ret;
 }
+
+/*
+ * Given glfd of a directory, this function does readdirp and returns
+ * xstat along with dirents.
+ */
+int
+pub_glfs_xreaddirplus_r (struct glfs_fd *glfd, uint32_t flags,
+                         struct glfs_xreaddirp_stat **xstat_p,
+                         struct dirent *ext,
+                         struct dirent **res)
+{
+        int              ret = -1;
+        gf_dirent_t     *entry = NULL;
+        struct dirent   *buf = NULL;
+        struct glfs_xreaddirp_stat *xstat = NULL;
+
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
+
+        GF_REF_GET (glfd);
+
+        GF_VALIDATE_OR_GOTO (THIS->name, xstat_p, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, res, out);
+
+        errno = 0;
+
+        if (ext)
+                buf = ext;
+        else
+                buf = glfs_readdirbuf_get (glfd);
+
+        if (!buf)
+                goto out;
+
+        xstat = GF_CALLOC(1, sizeof(struct glfs_xreaddirp_stat),
+                          glfs_mt_xreaddirp_stat_t);
+
+        if (!xstat)
+                goto out;
+
+        /* this is readdirplus operation */
+        entry = glfd_entry_next (glfd, 1);
+
+        /* XXX: Ideally when we reach EOD, errno should have been
+         * set to ENOENT. But that doesn't seem to be the case.
+         *
+         * The only way to confirm if its EOD at this point is that
+         * errno == 0 and entry == NULL
+         */
+        if (errno)
+                goto out;
+
+        if (!entry) {
+                /* reached EOD, ret = 0  */
+                ret = 0;
+                *res = NULL;
+                goto out;
+        }
+
+        *res = buf;
+        gf_dirent_to_dirent (entry, buf);
+
+        if (flags & GFAPI_XREADDIRP_STAT) {
+                glfs_iatt_to_stat (glfd->fs, &entry->d_stat, &xstat->st);
+                xstat->flags_handled |= GFAPI_XREADDIRP_STAT;
+        }
+
+        if ((flags & GFAPI_XREADDIRP_HANDLE) &&
+                /* skip . and .. */
+                strcmp(buf->d_name, ".")
+                     && strcmp(buf->d_name, "..")) {
+
+                /* Now create object.
+                 * We can use "glfs_h_find_handle" as well as inodes would have
+                 * already got linked as part of 'gf_link_inodes_from_dirent' */
+                xstat->object = glfs_h_create_from_handle (glfd->fs,
+                                                        entry->d_stat.ia_gfid,
+                                                        GFAPI_HANDLE_LENGTH,
+                                                        NULL);
+
+                if (xstat->object) { /* success */
+                        /* note: xstat->object->inode->ref is taken
+                         * This shall be unref'ed when application does
+                         * glfs_free(xstat) */
+                        xstat->flags_handled |= GFAPI_XREADDIRP_HANDLE;
+                }
+        }
+
+        ret = xstat->flags_handled;
+        *xstat_p = xstat;
+
+out:
+        gf_msg_debug (THIS->name, 0,
+                      "xreaddirp- requested_flags (%x) , processed_flags (%x)",
+                      flags, xstat->flags_handled);
+
+        GF_REF_PUT (glfd);
+
+        if (ret < 0) {
+                gf_msg (THIS->name, GF_LOG_WARNING, errno,
+                        API_MSG_XREADDIRP_R_FAILED,
+                        "glfs_x_readdirp_r failed - reason (%s)",
+                        strerror(errno));
+
+                if (xstat)
+                        glfs_free (xstat);
+        }
+
+        __GLFS_EXIT_FS;
+
+        return ret;
+
+invalid_fs:
+        return -1;
+}
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_xreaddirplus_r, 3.11.0);
+
+struct stat*
+pub_glfs_xreaddirplus_get_stat (struct glfs_xreaddirp_stat *xstat)
+{
+        GF_VALIDATE_OR_GOTO ("glfs_xreaddirplus_get_stat", xstat, out);
+
+        if (!xstat->flags_handled & GFAPI_XREADDIRP_STAT)
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        LG_MSG_INVALID_ARG,
+                        "GFAPI_XREADDIRP_STAT is not set. Flags"
+                        "handled for xstat(%p) are (%x)",
+                        xstat, xstat->flags_handled);
+        return &xstat->st;
+
+out:
+        return NULL;
+}
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_xreaddirplus_get_stat, 3.11.0);
+

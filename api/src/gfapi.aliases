@@ -158,4 +158,9 @@ _pub_glfs_realpath _glfs_realpath$GFAPI_3.7.17
 
 _pub_glfs_sysrq _glfs_sysrq$GFAPI_3.10.0
 
+_pub_glfs_xreaddirplus_r _glfs_xreaddirplus_r$GFAPI_3.11.0
+_pub_glfs_xreaddirplus_r_get_stat _glfs_xreaddirplus_r_get_stat$GFAPI_3.11.0
+_pub_glfs_xreaddirplus_r_get_object _glfs_xreaddirplus_r_get_object$GFAPI_3.11.0
+_pub_glfs_object_copy _glfs_object_copy$GFAPI_3.11.0
+
 _pub_glfs_ipc _glfs_ipc$GFAPI_4.0.0

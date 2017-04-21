@@ -199,7 +199,14 @@ GFAPI_3.10.0 {
 		glfs_sysrq;
 } GFAPI_3.7.17;
 
+GFAPI_3.11.0 {
+		glfs_xreaddirplus_r;
+		glfs_xreaddirplus_r_get_stat;
+		glfs_xreaddirplus_r_get_object;
+                glfs_object_copy;
+} GFAPI_3.10.0;
+
 GFAPI_4.0.0 {
 	global:
 		glfs_ipc;
-} GFAPI_3.10.0;
+} GFAPI_3.11.0;

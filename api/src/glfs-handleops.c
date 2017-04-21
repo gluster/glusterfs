@@ -2379,3 +2379,48 @@ pub_glfs_h_anonymous_write (struct glfs *fs, struct glfs_object *object,
 }
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_anonymous_write, 3.7.0);
+
+struct glfs_object*
+pub_glfs_object_copy (struct glfs_object *src)
+{
+        struct glfs_object *object = NULL;
+
+        GF_VALIDATE_OR_GOTO ("glfs_dup_object", src, out);
+
+        object = GF_CALLOC (1, sizeof(struct glfs_object),
+                            glfs_mt_glfs_object_t);
+        if (object == NULL) {
+                errno = ENOMEM;
+                gf_msg (THIS->name, GF_LOG_WARNING, errno,
+                         API_MSG_CREATE_HANDLE_FAILED,
+                        "glfs_dup_object for gfid-%s failed",
+                        uuid_utoa (src->inode->gfid));
+                return NULL;
+        }
+
+        object->inode = inode_ref (src->inode);
+        gf_uuid_copy (object->gfid, src->inode->gfid);
+
+out:
+        return object;
+}
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_object_copy, 3.11.0);
+
+struct glfs_object*
+pub_glfs_xreaddirplus_get_object (struct glfs_xreaddirp_stat *xstat)
+{
+        GF_VALIDATE_OR_GOTO ("glfs_xreaddirplus_get_object", xstat, out);
+
+        if (!(xstat->flags_handled & GFAPI_XREADDIRP_HANDLE))
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        LG_MSG_INVALID_ARG,
+                        "GFAPI_XREADDIRP_HANDLE is not set. Flags"
+                        "handled for xstat(%p) are (%x)",
+                        xstat, xstat->flags_handled);
+
+        return xstat->object;
+
+out:
+        return NULL;
+}
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_xreaddirplus_get_object, 3.11.0);
