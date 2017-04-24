@@ -47,6 +47,10 @@ typedef struct {
         gf_xattrop_flags_t  xattrop_flags;
         int32_t             wbflags;
         uint32_t            io_flag;
+        /* for fallocate */
+        size_t len;
+        /* for lseek */
+        gf_seek_what_t what;
 } quiesce_local_t;
 
 #endif
