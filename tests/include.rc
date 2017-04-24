@@ -90,7 +90,12 @@ LOGDIR=$(gluster --print-logdir)
 statedumpdir=`gluster --print-statedumpdir`; # Default directory for statedump
 
 CLI="gluster --mode=script --wignore";
-CLI_NO_FORCE="gluster --mode-script";
+CLI_NO_FORCE="gluster --mode=script";
+
+# CLI_IGNORE_PARTITION makes sure that the warning related to bricks being on
+# root partition is ignored while running the command in a "no force" mode
+CLI_IGNORE_PARTITION="gluster --mode=script --wignore-partition"
+
 _GFS () {
 	glusterfs "$@"
 	local mount_ret=$?

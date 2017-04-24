@@ -80,6 +80,8 @@ typedef struct glusterd_dict_ctx_ {
         char    *prefix;
 } glusterd_dict_ctx_t;
 
+gf_boolean_t is_brick_mx_enabled (void);
+
 int
 glusterd_compare_lines (const void *a, const void *b);
 
@@ -179,9 +181,12 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                                  gf_boolean_t wait);
 
 int32_t
-glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
-                                glusterd_brickinfo_t   *brickinfo,
+glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
+                                glusterd_brickinfo_t *brickinfo,
                                 gf_boolean_t del_brick);
+
+int
+send_attach_req (xlator_t *this, struct rpc_clnt *rpc, char *path, int op);
 
 glusterd_volinfo_t *
 glusterd_volinfo_ref (glusterd_volinfo_t *volinfo);
@@ -310,7 +315,8 @@ glusterd_check_and_set_brick_xattr (char *host, char *path, uuid_t uuid,
 int
 glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
                                         uuid_t volume_id, char **op_errstr,
-                                        gf_boolean_t is_force);
+                                        gf_boolean_t is_force,
+                                        gf_boolean_t ignore_partition);
 int
 glusterd_sm_tr_log_transition_add (glusterd_sm_tr_log_t *log,
                                            int old_state, int new_state,

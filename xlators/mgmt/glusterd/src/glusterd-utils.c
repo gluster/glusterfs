@@ -96,8 +96,8 @@
 int
 send_attach_req (xlator_t *this, struct rpc_clnt *rpc, char *path, int op);
 
-static gf_boolean_t
-is_brick_mx_enabled ()
+gf_boolean_t
+is_brick_mx_enabled (void)
 {
         char            *value = NULL;
         int             ret = 0;
@@ -1329,7 +1329,8 @@ out:
 int
 glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
                                         uuid_t volume_id, char **op_errstr,
-                                        gf_boolean_t is_force)
+                                        gf_boolean_t is_force,
+                                        gf_boolean_t ignore_partition)
 {
         int          ret                 = -1;
         char         parentdir[PATH_MAX] = {0,};
@@ -1403,8 +1404,14 @@ glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
                                   " Or use 'force' at the end of the command if"
                                   " you want to override this behavior.",
                                   brickinfo->hostname, brickinfo->path);
-                        ret = -1;
-                        goto out;
+
+                        /* If --wignore-partition flag is used, ignore warnings
+                         * related to bricks being on root partition when 'force'
+                         * is not used */
+                        if (!ignore_partition) {
+                                ret = -1;
+                                goto out;
+                        }
                 }
         }
 
@@ -2074,19 +2081,26 @@ glusterd_brick_disconnect (glusterd_brickinfo_t *brickinfo)
 }
 
 int32_t
-glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
-                                glusterd_brickinfo_t   *brickinfo,
+glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
+                                glusterd_brickinfo_t *brickinfo,
                                 gf_boolean_t del_brick)
 {
         xlator_t        *this                   = NULL;
-        int             ret                     = 0;
+        glusterd_conf_t *conf                   = NULL;
+        int             ret                     = -1;
         char            *op_errstr              = NULL;
+        char            pidfile[PATH_MAX]       = {0,};
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
 
         this = THIS;
         GF_ASSERT (this);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        ret = 0;
 
         if (del_brick)
                 cds_list_del_init (&brickinfo->brick_list);
@@ -2102,10 +2116,17 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
                  * an actual signal instead.
                  */
                 if (is_brick_mx_enabled ()) {
+                        gf_msg_debug (this->name, 0, "About to send detach "
+                                      "request for brick %s:%s",
+                                      brickinfo->hostname, brickinfo->path);
+
                         (void) send_attach_req (this, brickinfo->rpc,
                                                 brickinfo->path,
                                                 GLUSTERD_BRICK_TERMINATE);
                 } else {
+                        gf_msg_debug (this->name, 0, "About to stop glusterfsd"
+                                      " for brick %s:%s", brickinfo->hostname,
+                                      brickinfo->path);
                         (void) glusterd_brick_terminate (volinfo, brickinfo,
                                                          NULL, 0, &op_errstr);
                         if (op_errstr) {
@@ -2119,6 +2140,10 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
         if (del_brick)
                 glusterd_delete_brick (volinfo, brickinfo);
 
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, conf);
+        gf_msg_debug (this->name,  0, "Unlinking pidfile %s", pidfile);
+        (void) sys_unlink (pidfile);
+out:
         return ret;
 }
 
@@ -6563,9 +6588,6 @@ glusterd_brick_stop (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        gf_msg_debug (this->name, 0, "About to stop glusterfs"
-                " for brick %s:%s", brickinfo->hostname,
-                brickinfo->path);
         ret = glusterd_volume_stop_glusterfs (volinfo, brickinfo, del_brick);
         if (ret) {
                 gf_msg (this->name, GF_LOG_CRITICAL, 0,

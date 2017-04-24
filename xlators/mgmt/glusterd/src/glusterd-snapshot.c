@@ -2753,8 +2753,6 @@ glusterd_do_lvm_snapshot_remove (glusterd_volinfo_t *snap_vol,
 
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, snap_vol, brickinfo, priv);
         if (gf_is_service_running (pidfile, &pid)) {
-                int send_attach_req (xlator_t *this, struct rpc_clnt *rpc,
-                                     char *path, int op);
                 (void) send_attach_req (this, brickinfo->rpc,
                                         brickinfo->path,
                                         GLUSTERD_BRICK_TERMINATE);

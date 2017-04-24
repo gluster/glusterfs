@@ -56,10 +56,11 @@ typedef enum {
         MAX
 } values;
 
-#define GLUSTER_MODE_SCRIPT    (1 << 0)
-#define GLUSTER_MODE_ERR_FATAL (1 << 1)
-#define GLUSTER_MODE_XML       (1 << 2)
-#define GLUSTER_MODE_WIGNORE   (1 << 3)
+#define GLUSTER_MODE_SCRIPT             (1 << 0)
+#define GLUSTER_MODE_ERR_FATAL          (1 << 1)
+#define GLUSTER_MODE_XML                (1 << 2)
+#define GLUSTER_MODE_WIGNORE            (1 << 3)
+#define GLUSTER_MODE_WIGNORE_PARTITION  (1 << 4)
 
 
 #define GLUSTERD_GET_QUOTA_LIST_MOUNT_PATH(abspath, volname, path) do {       \
