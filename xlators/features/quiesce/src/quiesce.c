@@ -2421,12 +2421,140 @@ quiesce_fsetattr (call_frame_t *frame,
 }
 
 int32_t
+quiesce_fallocate (call_frame_t *frame,
+                   xlator_t *this,
+                   fd_t *fd, int32_t mode,
+                   off_t offset, size_t len, dict_t *xdata)
+{
+	quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        if (priv && priv->pass_through) {
+                local = mem_get0 (priv->local_pool);
+                local->fd = fd_ref (fd);
+                local->offset = offset;
+                local->len = len;
+                local->flag = mode;
+
+                frame->local = local;
+
+                STACK_WIND (frame,
+                            default_fallocate_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->fallocate,
+                            fd, mode, offset, len, xdata);
+                return 0;
+        }
+
+        stub = fop_fallocate_stub (frame, default_fallocate_resume, fd,
+                                   mode, offset, len, xdata);
+        if (!stub) {
+                STACK_UNWIND_STRICT (fallocate, frame, -1, ENOMEM,
+                                     NULL, NULL, NULL);
+                return 0;
+        }
+
+        gf_quiesce_enqueue (this, stub);
+
+        return 0;
+}
+
+
+int
+quiesce_seek_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, off_t offset,
+                  dict_t *xdata)
+{
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_seek_stub (frame, default_seek_resume,
+                                      local->fd, local->offset,
+                                      local->what, xdata);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (seek, frame, -1, ENOMEM, 0, NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (seek, frame, op_ret, op_errno, offset, xdata);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+int
+quiesce_seek (call_frame_t *frame, xlator_t *this, fd_t *fd,
+              off_t offset, gf_seek_what_t what, dict_t *xdata)
+{
+	quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        if (priv && priv->pass_through) {
+                local = mem_get0 (priv->local_pool);
+                local->fd = fd_ref (fd);
+                local->offset = offset;
+                local->what = what;
+
+                frame->local = local;
+
+                STACK_WIND (frame,
+                            quiesce_seek_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->seek,
+                            fd, offset, what, xdata);
+                return 0;
+        }
+
+        stub = fop_seek_stub (frame, default_seek_resume, fd,
+                              offset, what, xdata);
+        if (!stub) {
+                STACK_UNWIND_STRICT (seek, frame, -1, ENOMEM, 0, NULL);
+                return 0;
+        }
+
+        gf_quiesce_enqueue (this, stub);
+
+        return 0;
+}
+
+
+
+int32_t
 mem_acct_init (xlator_t *this)
 {
         int     ret = -1;
 
         ret = xlator_mem_acct_init (this, gf_quiesce_mt_end + 1);
 
+        return ret;
+}
+
+int
+reconfigure (xlator_t *this, dict_t *options)
+{
+        int32_t       ret      = -1;
+        quiesce_priv_t *priv = NULL;
+
+        priv = this->private;
+
+        GF_OPTION_RECONF("timeout", priv->timeout, options, time, out);
+        ret = 0;
+out:
         return ret;
 }
 
@@ -2560,6 +2688,7 @@ struct xlator_fops fops = {
 	.mkdir       = quiesce_mkdir,
 	.rmdir       = quiesce_rmdir,
 	.rename      = quiesce_rename,
+        .fallocate   = quiesce_fallocate,
 
         /* The below calls are known to change state, hence
            re-transmittion is not advised */
@@ -2594,7 +2723,7 @@ struct xlator_fops fops = {
 	.readdir     = quiesce_readdir,
 	.readdirp    = quiesce_readdirp,
 	.fsyncdir    = quiesce_fsyncdir,
-
+        .seek        = quiesce_seek,
 };
 
 struct xlator_dumpops dumpops;
@@ -2606,10 +2735,14 @@ struct xlator_cbks cbks;
 struct volume_options options[] = {
         { .key = {"timeout"},
           .type = GF_OPTION_TYPE_TIME,
-          .default_value = "20s",
-          .description = "timeout for ignoring all the quiesced calls",
-          .tags = {"debug", "dev-only"},
+          .default_value = "20",
+          .description = "After 'timeout' seconds since the time 'quiesce' "
+          "option was set to \"!pass-through\", acknowledgements to file "
+          "operations are no longer quiesced and previously "
+          "quiesced acknowledgements are sent to the application",
+          .tags = {"debug", "diagnose"},
           .op_version = { GD_OP_VERSION_4_0_0 },
+          .flags = OPT_FLAG_CLIENT_OPT,
         },
 	{ .key  = {NULL} },
 };
