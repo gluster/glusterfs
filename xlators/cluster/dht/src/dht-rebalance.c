@@ -842,7 +842,7 @@ __dht_check_free_space (xlator_t *to, xlator_t *from, loc_t *loc,
                 src_statfs_blocks = ((src_statfs.f_bavail *
                                       src_statfs.f_bsize) /
                                      GF_DISK_SECTOR_SIZE);
-                if ((dst_statfs_blocks - stbuf->ia_blocks) <
+                if ((dst_statfs_blocks) <
                     (src_statfs_blocks + stbuf->ia_blocks)) {
 
                         gf_msg (this->name, GF_LOG_WARNING, 0,
