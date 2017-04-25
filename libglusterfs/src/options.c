@@ -152,22 +152,13 @@ xlator_option_validate_sizet (xlator_t *xl, const char *key, const char *value,
         }
 
         if ((size < opt->min) || (size > opt->max)) {
-                if ((strncmp (key, "cache-size", 10) == 0) &&
-                    (size > opt->max)) {
-                       snprintf (errstr, 256, "Cache size %" GF_PRI_SIZET " is out of "
-                                 "range [%.0f - %.0f]",
-                                 size, opt->min, opt->max);
-                       gf_msg (xl->name, GF_LOG_WARNING, 0,
-                               LG_MSG_OUT_OF_RANGE, "%s", errstr);
-                } else {
-                        snprintf (errstr, 256,
-                                  "'%" GF_PRI_SIZET "' in 'option %s %s' "
-                                  "is out of range [%.0f - %.0f]",
-                                  size, key, value, opt->min, opt->max);
-                        gf_msg (xl->name, GF_LOG_ERROR, 0,
-                                LG_MSG_OUT_OF_RANGE, "%s", errstr);
-                        ret = -1;
-                }
+                snprintf (errstr, 256,
+                          "'%" GF_PRI_SIZET "' in 'option %s %s' "
+                          "is out of range [%.0f - %.0f]",
+                          size, key, value, opt->min, opt->max);
+                gf_msg (xl->name, GF_LOG_ERROR, 0,
+                        LG_MSG_OUT_OF_RANGE, "%s", errstr);
+                ret = -1;
         }
 
 out:

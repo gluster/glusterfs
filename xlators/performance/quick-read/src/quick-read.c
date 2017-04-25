@@ -8,6 +8,7 @@
   cases as published by the Free Software Foundation.
 */
 
+#include <math.h>
 #include "quick-read.h"
 #include "statedump.h"
 #include "quick-read-messages.h"
@@ -1144,7 +1145,7 @@ struct volume_options options[] = {
         { .key  = {"cache-size"},
           .type = GF_OPTION_TYPE_SIZET,
           .min  = 0,
-          .max  = 32 * GF_UNIT_GB,
+          .max  = INFINITY,
           .default_value = "128MB",
           .description = "Size of the read cache."
         },

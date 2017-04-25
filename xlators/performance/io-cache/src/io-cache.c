@@ -8,6 +8,7 @@
   cases as published by the Free Software Foundation.
 */
 
+#include <math.h>
 #include "glusterfs.h"
 #include "logging.h"
 #include "dict.h"
@@ -2155,7 +2156,7 @@ struct volume_options options[] = {
         { .key  = {"cache-size"},
           .type = GF_OPTION_TYPE_SIZET,
           .min  = 4 * GF_UNIT_MB,
-          .max  = 32 * GF_UNIT_GB,
+          .max  = INFINITY,
           .default_value = "32MB",
           .description = "Size of the read cache."
         },
