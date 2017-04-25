@@ -466,7 +466,7 @@ glfs_t *glfs_from_glfd (glfs_fd_t *fd) __THROW
 
 int glfs_set_xlator_option (glfs_t *fs, const char *xlator, const char *key,
 			    const char *value) __THROW
-        GFAPI_PUBLIC(glfs_set_xlator_options, 3.4.0);
+        GFAPI_PUBLIC(glfs_set_xlator_option, 3.4.0);
 
 /*
 
