@@ -1069,7 +1069,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
 
                 if ((strcmp (key, "ganesha.enable") == 0) &&
                     (strcmp (value, "off") == 0)) {
-                        ret = ganesha_manage_export (dict, "off", op_errstr);
+                        ret = ganesha_manage_export (dict, "off", _gf_true, op_errstr);
                         if (ret)
                                 goto out;
                 }
@@ -1512,7 +1512,7 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
          */
         if (volinfo && (!strcmp (key, "all") || !strcmp(key, "ganesha.enable"))) {
                 if (glusterd_check_ganesha_export (volinfo)) {
-                        ret = ganesha_manage_export (dict, "off", op_errstr);
+                        ret = ganesha_manage_export (dict, "off", _gf_true, op_errstr);
                         if (ret)
                                 gf_msg (this->name, GF_LOG_WARNING, 0,
                                         GD_MSG_NFS_GNS_RESET_FAIL,

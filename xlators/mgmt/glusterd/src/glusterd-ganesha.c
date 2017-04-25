@@ -463,7 +463,8 @@ manage_export_config (char *volname, char *value, char **op_errstr)
 
 /* Exports and unexports a particular volume via NFS-Ganesha */
 int
-ganesha_manage_export (dict_t *dict, char *value, char **op_errstr)
+ganesha_manage_export (dict_t *dict, char *value,
+                       gf_boolean_t update_cache_invalidation, char **op_errstr)
 {
         runner_t                 runner = {0,};
         int                      ret = -1;
@@ -573,17 +574,20 @@ ganesha_manage_export (dict_t *dict, char *value, char **op_errstr)
                 }
         }
 
-        vol_opts = volinfo->dict;
-        ret = dict_set_dynstr_with_alloc (vol_opts,
-                                 "features.cache-invalidation", value);
-        if (ret)
-                gf_asprintf (op_errstr, "Cache-invalidation could not"
-                                        " be set to %s.", value);
-        ret = glusterd_store_volinfo (volinfo,
-                        GLUSTERD_VOLINFO_VER_AC_INCREMENT);
-        if (ret)
-                gf_asprintf (op_errstr, "failed to store volinfo for %s"
-                             , volinfo->volname);
+        if (update_cache_invalidation) {
+                vol_opts = volinfo->dict;
+                ret = dict_set_dynstr_with_alloc (vol_opts,
+                                                  "features.cache-invalidation",
+                                                  value);
+                if (ret)
+                        gf_asprintf (op_errstr, "Cache-invalidation could not"
+                                                " be set to %s.", value);
+                ret = glusterd_store_volinfo (volinfo,
+                                              GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+                if (ret)
+                        gf_asprintf (op_errstr, "failed to store volinfo for %s"
+                                     , volinfo->volname);
+        }
 
 out:
         return ret;
@@ -858,7 +862,7 @@ glusterd_handle_ganesha_op (dict_t *dict, char **op_errstr,
 
 
         if (strcmp (key, "ganesha.enable") == 0) {
-                ret =  ganesha_manage_export (dict, value, op_errstr);
+                ret =  ganesha_manage_export (dict, value, _gf_true, op_errstr);
                 if (ret < 0)
                         goto out;
         }
