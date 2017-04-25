@@ -495,7 +495,7 @@ out:
 static int
 __check_file_has_hardlink (xlator_t *this, loc_t *loc,
                            struct iatt *stbuf, dict_t *xattrs, int flags,
-                           gf_defrag_info_t *defrag, int *fop_errno)
+                           gf_defrag_info_t *defrag, dht_conf_t *conf, int *fop_errno)
 {
        int ret = 0;
 
@@ -506,10 +506,10 @@ __check_file_has_hardlink (xlator_t *this, loc_t *loc,
        if (stbuf->ia_nlink > 1) {
                 /* support for decomission */
                 if (flags == GF_DHT_MIGRATE_HARDLINK) {
-                        synclock_lock (&defrag->link_lock);
+                        synclock_lock (&conf->link_lock);
                         ret = gf_defrag_handle_hardlink
                                 (this, loc, xattrs, stbuf, fop_errno);
-                        synclock_unlock (&defrag->link_lock);
+                        synclock_unlock (&conf->link_lock);
                         /*
                         Returning zero will force the file to be remigrated.
                         Checkout gf_defrag_handle_hardlink for more information.
@@ -546,7 +546,8 @@ __check_file_has_hardlink (xlator_t *this, loc_t *loc,
 static int
 __is_file_migratable (xlator_t *this, loc_t *loc,
                       struct iatt *stbuf, dict_t *xattrs, int flags,
-                                gf_defrag_info_t *defrag, int *fop_errno)
+                      gf_defrag_info_t *defrag, dht_conf_t *conf,
+                      int *fop_errno)
 {
         int ret = -1;
         int lock_count = 0;
@@ -561,7 +562,7 @@ __is_file_migratable (xlator_t *this, loc_t *loc,
                 goto out;
         }
 
-        if (!defrag->lock_migration_enabled) {
+        if (!conf->lock_migration_enabled) {
                 ret = dict_get_int32 (xattrs, GLUSTERFS_POSIXLK_COUNT,
                                       &lock_count);
                 if (ret) {
@@ -588,7 +589,7 @@ __is_file_migratable (xlator_t *this, loc_t *loc,
 
         /* Check if file has hardlink*/
         ret = __check_file_has_hardlink (this, loc, stbuf, xattrs,
-                                         flags, defrag, fop_errno);
+                                         flags, defrag, conf, fop_errno);
 out:
         return ret;
 }
@@ -1493,11 +1494,19 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         fd_t                    *linkto_fd              = NULL;
         gf_boolean_t            ignore_failure          = _gf_false;
 
-        defrag = conf->defrag;
-        if (!defrag)
-                goto out;
 
-        if (defrag->tier_conf.is_tier)
+        /* If defrag is NULL, it should be assumed that migration is triggered
+         * from client */
+        defrag = conf->defrag;
+
+        /* migration of files from clients is restricted to non-tiered clients
+         * for now */
+        if (!defrag && dht_is_tier_xlator (this)) {
+                ret = ENOTSUP;
+                goto out;
+        }
+
+        if (defrag && defrag->tier_conf.is_tier)
                 log_level = GF_LOG_TRACE;
 
         gf_log (this->name,
@@ -1526,7 +1535,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
 
         /* Do not migrate file in case lock migration is not enabled on the
          * volume*/
-        if (!defrag->lock_migration_enabled) {
+        if (!conf->lock_migration_enabled) {
                 ret = dict_set_int32 (dict,
                                  GLUSTERFS_POSIXLK_COUNT, sizeof(int32_t));
                 if (ret) {
@@ -1582,7 +1591,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         src_ia_prot = stbuf.ia_prot;
 
         /* Check if file can be migrated */
-        ret = __is_file_migratable (this, loc, &stbuf, xattr_rsp, flag, defrag,
+        ret = __is_file_migratable (this, loc, &stbuf, xattr_rsp, flag, defrag, conf,
                                     fop_errno);
         if (ret) {
                 if (ret == -2)
@@ -1702,7 +1711,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
 
         /* Check again if file has hardlink */
         ret = __check_file_has_hardlink (this, loc, &stbuf, xattr_rsp,
-                                         flag, defrag, fop_errno);
+                                         flag, defrag, conf, fop_errno);
         if (ret) {
                 if (ret == -2)
                         ret = 0;
@@ -1714,7 +1723,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
 
 
         /* All I/O happens in this function */
-        if (defrag->cmd == GF_DEFRAG_CMD_START_TIER) {
+        if (defrag && defrag->cmd == GF_DEFRAG_CMD_START_TIER) {
                 ret = __tier_migrate_data (defrag, from, to, src_fd, dst_fd,
                                                     stbuf.ia_size,
                                                     file_has_holes, fop_errno);
@@ -1773,7 +1782,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
 
         /* Take meta lock  */
 
-        if (defrag->lock_migration_enabled) {
+        if (conf->lock_migration_enabled) {
                 meta_dict = dict_new ();
                 if (!meta_dict) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -1821,7 +1830,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 }
         }
 
-        if (!defrag->lock_migration_enabled) {
+        if (!conf->lock_migration_enabled) {
                 plock.l_type = F_WRLCK;
                 plock.l_start = 0;
                 plock.l_len = 0;
@@ -2019,7 +2028,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         }
 
         /* store size of previous migrated file  */
-        if (defrag->tier_conf.is_tier) {
+        if (defrag && defrag->tier_conf.is_tier) {
                 if (from != TIER_HASHED_SUBVOL) {
                         defrag->tier_conf.st_last_promoted_size = stbuf.ia_size;
                 } else {
@@ -2129,7 +2138,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
 
 metaunlock:
 
-        if (defrag->lock_migration_enabled && meta_locked) {
+        if (conf->lock_migration_enabled && meta_locked) {
 
                 dict_del (meta_dict, GF_META_LOCK_KEY);
 
