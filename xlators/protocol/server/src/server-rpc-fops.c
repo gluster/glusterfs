@@ -6911,4 +6911,5 @@ struct rpcsvc_program glusterfs3_3_fop_prog = {
         .progver   = GLUSTER_FOP_VERSION,
         .numactors = GLUSTER_FOP_PROCCNT,
         .actors    = glusterfs3_3_fop_actors,
+        .ownthread = _gf_true,
 };
