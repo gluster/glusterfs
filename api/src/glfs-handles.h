@@ -199,7 +199,7 @@ struct glfs_object *glfs_h_lookupat (struct glfs *fs,
 struct glfs_object *glfs_h_creat (struct glfs *fs, struct glfs_object *parent,
 				  const char *path, int flags, mode_t mode,
 				  struct stat *sb) __THROW
-        GFAPI_PUBLIC(glfs_h_create, 3.4.2);
+        GFAPI_PUBLIC(glfs_h_creat, 3.4.2);
 
 struct glfs_object *glfs_h_mkdir (struct glfs *fs, struct glfs_object *parent,
 				  const char *path, mode_t flags,
