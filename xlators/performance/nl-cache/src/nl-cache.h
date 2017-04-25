@@ -170,4 +170,7 @@ nlc_clear_all_cache (xlator_t *this);
 void
 nlc_disable_cache (xlator_t *this);
 
+void
+nlc_lru_prune (xlator_t *this, inode_t *inode);
+
 #endif /* __NL_CACHE_H__ */

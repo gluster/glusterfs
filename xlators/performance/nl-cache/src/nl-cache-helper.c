@@ -558,13 +558,13 @@ __nlc_free_pe (xlator_t *this, nlc_ctx_t *nlc_ctx, nlc_pe_t *pe)
 {
         uint64_t          pe_int      = 0;
         nlc_conf_t       *conf        = NULL;
-        uint64_t         *nlc_ctx_int = NULL;
+        uint64_t          nlc_ctx_int = 0;
 
         conf = this->private;
 
         if (pe->inode) {
                 inode_ctx_reset1 (pe->inode, this, &pe_int);
-                inode_ctx_get2 (pe->inode, this, nlc_ctx_int, NULL);
+                inode_ctx_get2 (pe->inode, this, &nlc_ctx_int, NULL);
                 inode_unref (pe->inode);
         }
         list_del (&pe->list);
@@ -1118,6 +1118,8 @@ nlc_dump_inodectx (xlator_t *this, inode_t *inode)
                 gf_proc_dump_write ("state", "%"PRIu64, nlc_ctx->state);
                 gf_proc_dump_write ("timer", "%p", nlc_ctx->timer);
                 gf_proc_dump_write ("cache-time", "%lld", nlc_ctx->cache_time);
+                gf_proc_dump_write ("cache-size", "%zu", nlc_ctx->cache_size);
+                gf_proc_dump_write ("refd-inodes", "%"PRIu64, nlc_ctx->refd_inodes);
 
                 if (IS_PE_VALID (nlc_ctx->state))
                         list_for_each_entry_safe (pe, tmp, &nlc_ctx->pe, list) {
@@ -1130,7 +1132,7 @@ nlc_dump_inodectx (xlator_t *this, inode_t *inode)
                                 gf_proc_dump_write ("ne", "%s", ne->name);
                         }
 
-                 UNLOCK (&nlc_ctx->lock);
+                UNLOCK (&nlc_ctx->lock);
         }
 
         if (ret && nlc_ctx)
