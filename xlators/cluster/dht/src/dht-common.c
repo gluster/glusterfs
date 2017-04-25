@@ -4172,6 +4172,9 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                         goto err;
                 }
 
+                if (gf_uuid_is_null (local->loc.pargfid))
+                        gf_uuid_copy (local->loc.pargfid, local->loc.parent->gfid);
+
                 methods->migration_get_dst_subvol(this, local);
 
                 if (!local->rebalance.target_node) {

@@ -241,6 +241,8 @@ dht_fini (xlator_t *this)
 
                 GF_FREE (conf->subvolume_status);
 
+                synclock_destroy (&conf->link_lock);
+
                 if (conf->lock_pool)
                         mem_pool_destroy (conf->lock_pool);
 
@@ -678,6 +680,7 @@ dht_init (xlator_t *this)
         LOCK_INIT (&conf->subvolume_lock);
         LOCK_INIT (&conf->layout_lock);
         LOCK_INIT (&conf->lock);
+        synclock_init (&conf->link_lock, SYNC_LOCK_DEFAULT);
 
         /* We get the commit-hash to set only for rebalance process */
         if (dict_get_uint32 (this->options,
@@ -733,7 +736,6 @@ dht_init (xlator_t *this)
 
                 defrag->wakeup_crawler = 0;
 
-                synclock_init (&defrag->link_lock, SYNC_LOCK_DEFAULT);
                 pthread_mutex_init (&defrag->dfq_mutex, 0);
                 pthread_cond_init  (&defrag->parallel_migration_cond, 0);
                 pthread_cond_init  (&defrag->rebalance_crawler_alarm, 0);

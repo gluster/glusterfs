@@ -542,9 +542,6 @@ struct gf_defrag_info_ {
         int32_t                      current_thread_count;
         pthread_cond_t               df_wakeup_thread;
 
-        /* Hard link handle requirement */
-        synclock_t                   link_lock;
-
         /* lock migration flag */
         gf_boolean_t                 lock_migration_enabled;
 
@@ -645,6 +642,10 @@ struct dht_conf {
 
         gf_boolean_t    lock_migration_enabled;
         gf_lock_t       lock;
+
+        /* Hard link handle requirement for migration triggered from client*/
+        synclock_t      link_lock;
+
 };
 typedef struct dht_conf dht_conf_t;
 
