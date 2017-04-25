@@ -55,6 +55,8 @@ nlc_dentry_op (call_frame_t *frame, xlator_t *this, gf_boolean_t multilink)
         default:
                 return;
         }
+
+        nlc_lru_prune (this, NULL);
 out:
         return;
 }
@@ -765,10 +767,10 @@ struct volume_options options[] = {
                          "a while and the cache is cleared based on LRU",
         },
         { .key = {"nl-cache-timeout"},
-          .type = GF_OPTION_TYPE_INT,
+          .type = GF_OPTION_TYPE_TIME,
           .min = 0,
-          .max = 600,
-          .default_value = "600",
+          .max = 1 * GF_DAY_IN_SECONDS,
+          .default_value = "60",
           .description = "Time period after which cache has to be refreshed",
         },
         { .key = {NULL} },
