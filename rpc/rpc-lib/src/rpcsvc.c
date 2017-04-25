@@ -303,6 +303,7 @@ rpcsvc_program_actor (rpcsvc_request_t *req)
                 goto err;
         }
 
+        req->ownthread = program->ownthread;
         req->synctask = program->synctask;
 
         err = SUCCESS;
@@ -410,6 +411,7 @@ rpcsvc_request_init (rpcsvc_t *svc, rpc_transport_t *trans,
         req->progver = rpc_call_progver (callmsg);
         req->procnum = rpc_call_progproc (callmsg);
         req->trans = rpc_transport_ref (trans);
+        gf_client_ref (req->trans->xl_private);
         req->count = msg->count;
         req->msg[0] = progmsg;
         req->iobref = iobref_ref (msg->iobref);
@@ -425,6 +427,7 @@ rpcsvc_request_init (rpcsvc_t *svc, rpc_transport_t *trans,
         req->trans_private = msg->private;
 
         INIT_LIST_HEAD (&req->txlist);
+        INIT_LIST_HEAD (&req->request_list);
         req->payloadsize = 0;
 
         /* By this time, the data bytes for the auth scheme would have already
@@ -575,7 +578,7 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
         rpcsvc_request_t       *req            = NULL;
         int                     ret            = -1;
         uint16_t                port           = 0;
-        gf_boolean_t            is_unix        = _gf_false;
+        gf_boolean_t            is_unix        = _gf_false, empty = _gf_false;
         gf_boolean_t            unprivileged   = _gf_false;
         drc_cached_op_t        *reply          = NULL;
         rpcsvc_drc_globals_t   *drc            = NULL;
@@ -691,6 +694,20 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
                                             (synctask_fn_t) actor_fn,
                                             rpcsvc_check_and_reply_error, NULL,
                                             req);
+                } else if (req->ownthread) {
+                        pthread_mutex_lock (&req->prog->queue_lock);
+                        {
+                                empty = list_empty (&req->prog->request_queue);
+
+                                list_add_tail (&req->request_list,
+                                               &req->prog->request_queue);
+
+                                if (empty)
+                                        pthread_cond_signal (&req->prog->queue_cond);
+                        }
+                        pthread_mutex_unlock (&req->prog->queue_lock);
+
+                        ret = 0;
                 } else {
                         ret = actor_fn (req);
                 }
@@ -1570,6 +1587,12 @@ rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t *program)
                 " Ver: %d, Port: %d", prog->progname, prog->prognum,
                 prog->progver, prog->progport);
 
+        if (prog->ownthread) {
+                prog->alive = _gf_false;
+                ret = 0;
+                goto out;
+        }
+
         pthread_mutex_lock (&svc->rpclock);
         {
                 list_del_init (&prog->program);
@@ -1834,6 +1857,55 @@ out:
         return ret;
 }
 
+void *
+rpcsvc_request_handler (void *arg)
+{
+        rpcsvc_program_t *program = arg;
+        rpcsvc_request_t *req     = NULL;
+        rpcsvc_actor_t   *actor   = NULL;
+        gf_boolean_t      done    = _gf_false;
+        int               ret     = 0;
+
+        if (!program)
+                return NULL;
+
+        while (1) {
+                pthread_mutex_lock (&program->queue_lock);
+                {
+                        if (!program->alive
+                            && list_empty (&program->request_queue)) {
+                                done = 1;
+                                goto unlock;
+                        }
+
+                        while (list_empty (&program->request_queue))
+                                pthread_cond_wait (&program->queue_cond,
+                                                   &program->queue_lock);
+
+                        req = list_entry (program->request_queue.next,
+                                          typeof (*req), request_list);
+
+                        list_del_init (&req->request_list);
+                }
+        unlock:
+                pthread_mutex_unlock (&program->queue_lock);
+
+                if (done)
+                        break;
+
+                THIS = req->svc->xl;
+
+                actor = rpcsvc_program_actor (req);
+
+                ret = actor->actor (req);
+
+                if (ret != 0) {
+                        rpcsvc_check_and_reply_error (ret, NULL, req);
+                }
+        }
+
+        return NULL;
+}
 
 int
 rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t *program)
@@ -1875,6 +1947,21 @@ rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t *program)
         memcpy (newprog, program, sizeof (*program));
 
         INIT_LIST_HEAD (&newprog->program);
+        INIT_LIST_HEAD (&newprog->request_queue);
+        pthread_mutex_init (&newprog->queue_lock, NULL);
+        pthread_cond_init (&newprog->queue_cond, NULL);
+
+        newprog->alive = _gf_true;
+
+        /* make sure synctask gets priority over ownthread */
+        if (newprog->synctask)
+                newprog->ownthread = _gf_false;
+
+        if (newprog->ownthread) {
+                gf_thread_create (&newprog->thread, NULL,
+                                  rpcsvc_request_handler,
+                                  newprog);
+        }
 
         pthread_mutex_lock (&svc->rpclock);
         {

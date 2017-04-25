@@ -492,7 +492,6 @@ get_frame_from_request (rpcsvc_request_t *req)
         frame->root->uid      = req->uid;
         frame->root->gid      = req->gid;
         frame->root->pid      = req->pid;
-        gf_client_ref (client);
         frame->root->client   = client;
         frame->root->lk_owner = req->lk_owner;
 
