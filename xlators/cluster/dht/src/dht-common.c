@@ -8261,14 +8261,16 @@ dht_rmdir_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         prev  = cookie;
         src   = prev;
 
-gf_log ("dht", GF_LOG_INFO, "dht_rmdir_lookup_cbk %s", local->loc.path);
+        gf_msg_debug (this->name, 0, "dht_rmdir_lookup_cbk %s",
+                      local->loc.path);
+
         readdirp_frame = local->main_frame;
         readdirp_local = readdirp_frame->local;
 
         if (op_ret != 0) {
 
                 gf_msg (this->name, GF_LOG_WARNING, op_errno,
-                        DHT_MSG_NOT_LINK_FILE_ERROR,
+                        DHT_MSG_FILE_LOOKUP_FAILED,
                         "lookup failed for %s on %s  (type=0%o)",
                         local->loc.path, src->name, stbuf->ia_type);
                 goto err;
@@ -8477,7 +8479,7 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
 
                 gf_uuid_unparse(lookup_local->loc.gfid, gfid);
 
-                gf_msg_debug (this->name, 0,
+                gf_msg_trace (this->name, 0,
                               "looking up %s on subvolume %s, gfid = %s",
                               lookup_local->loc.path, src->name, gfid);
 
@@ -8499,7 +8501,7 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
                                 lookup_local->loc.path, gfid);
 
                         gf_msg_debug (this->name, 0,
-                                     "looking up %s on subvolume %s, gfid = %s",
+                                      "looking up %s on subvol %s, gfid = %s",
                                       lookup_local->loc.path, src->name, gfid);
 
                         STACK_WIND_COOKIE (lookup_frame, dht_rmdir_lookup_cbk,
@@ -8508,7 +8510,7 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
                 } else {
                         gf_msg_debug (this->name, 0,
                                       "Looking up linkfile target %s on "
-                                      " subvolume %s, gfid = %s",
+                                      " subvol %s, gfid = %s",
                                       lookup_local->loc.path, subvol->name,
                                       gfid);
 
@@ -8640,9 +8642,6 @@ dht_rmdir_readdirp_do (call_frame_t *readdirp_frame, xlator_t *this)
                 dht_rmdir_readdirp_done (readdirp_frame, this);
                 return 0;
         }
-
-        gf_msg_debug ("this->name", 0, "Calling dht_rmdir_readdirp_do for %p",
-                      readdirp_frame);
 
         STACK_WIND_COOKIE (readdirp_frame, dht_rmdir_readdirp_cbk,
                            local->hashed_subvol,
