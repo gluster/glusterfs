@@ -190,6 +190,7 @@ Source0:          @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz
 
 BuildRoot:        %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
+Requires(pre):    shadow-utils
 %if ( 0%{?rhel} && 0%{?rhel} <= 5 )
 BuildRequires:    python-simplejson
 %endif
@@ -876,6 +877,15 @@ fi
 exit 0
 
 ##-----------------------------------------------------------------------------
+## All %%pre should be placed here and keep them sorted
+##
+%pre
+getent group gluster > /dev/null || groupadd -r gluster
+getent passwd gluster > /dev/null || useradd -r -g gluster -d /var/run/gluster -s /sbin/nologin -c "GlusterFS daemons" gluster
+exit 0
+
+
+##-----------------------------------------------------------------------------
 ## All %%preun should be placed here and keep them sorted
 ##
 %if ( 0%{!?_without_events:1} )
@@ -983,7 +993,7 @@ exit 0
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/write-behind.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/nl-cache.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/system/posix-acl.so
-%dir %{_localstatedir}/run/gluster
+%dir %attr(0775,gluster,gluster) %{_localstatedir}/run/gluster
 %if 0%{?_tmpfilesdir:1}
 %{_tmpfilesdir}/gluster.conf
 %endif
@@ -1262,6 +1272,10 @@ exit 0
 %endif
 
 %changelog
+* Wed Apr 26 2017 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- /var/run/gluster owner gluster:gluster(0775) for qemu(gfapi)
+  statedumps (#1445569)
+
 * Thu Apr 20 2017 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - firewalld-filesystem -> firewalld (#1443959)
 
