@@ -102,7 +102,7 @@ function get_smb () {
 }
 
 parse_args $@
-if [ $(get_smb "$VOL") = "disable" ]; then
+if [ "$(get_smb "$VOL")" = "disable" ]; then
         exit 0
 fi
 
