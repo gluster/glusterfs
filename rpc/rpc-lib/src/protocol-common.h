@@ -106,7 +106,7 @@ enum gf_pmap_port_type {
         GF_PMAP_PORT_FREE = 0,
         GF_PMAP_PORT_FOREIGN,     /* it actually means, not sure who is using it, but it is in-use */
         GF_PMAP_PORT_LEASED,
-        GF_PMAP_PORT_NONE,
+        GF_PMAP_PORT_ANY,
         GF_PMAP_PORT_BRICKSERVER, /* port used by brick process */
 };
 typedef enum gf_pmap_port_type gf_pmap_port_type_t;
