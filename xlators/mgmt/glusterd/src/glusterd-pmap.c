@@ -27,7 +27,7 @@
 #include <netinet/in.h>
 
 
-int
+static int
 pmap_port_isfree (int port)
 {
         struct sockaddr_in sin;
@@ -155,7 +155,7 @@ pmap_registry_search (xlator_t *this, const char *brickname,
         return 0;
 }
 
-int
+static int
 pmap_registry_search_by_xprt (xlator_t *this, void *xprt,
                               gf_pmap_port_type_t type)
 {
@@ -168,10 +168,12 @@ pmap_registry_search_by_xprt (xlator_t *this, void *xprt,
         for (p = pmap->last_alloc; p >= pmap->base_port; p--) {
                 if (!pmap->ports[p].xprt)
                         continue;
-                if (pmap->ports[p].xprt == xprt &&
-                    pmap->ports[p].type == type) {
-                        port = p;
-                        break;
+                if (pmap->ports[p].xprt == xprt) {
+                        if (pmap->ports[p].type == type ||
+                                        type == GF_PMAP_PORT_ANY) {
+                                port = p;
+                                break;
+                        }
                 }
         }
 
@@ -179,7 +181,7 @@ pmap_registry_search_by_xprt (xlator_t *this, void *xprt,
 }
 
 
-char *
+static char *
 pmap_registry_search_by_port (xlator_t *this, int port)
 {
         struct pmap_registry *pmap = NULL;

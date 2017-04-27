@@ -424,7 +424,7 @@ glusterd_rpcsvc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                 pthread_mutex_lock (&priv->xprt_lock);
                 list_del (&xprt->list);
                 pthread_mutex_unlock (&priv->xprt_lock);
-                pmap_registry_remove (this, 0, NULL, GF_PMAP_PORT_NONE, xprt);
+                pmap_registry_remove (this, 0, NULL, GF_PMAP_PORT_ANY, xprt);
                 break;
         }
 
