@@ -27,6 +27,11 @@ function tier_daemon_status {
                 | sed -n '/.*<status>\([0-9]*\).*/s//\1/p'
 }
 
+function detach_xml_status {
+        $CLI_1 volume tier $V0 detach status --xml | sed -n \
+        '/.*<opErrstr>Detach tier status successful/p' | wc -l
+}
+
 cleanup;
 
 #setup cluster and test volume
@@ -52,9 +57,13 @@ TEST ! $CLI_1 volume rebalance $V0 tier status
 
 EXPECT "Tier command failed" $CLI_1 volume tier $V0 detach status
 
+EXPECT "0" detach_xml_status
+
 #after starting detach tier the detach tier status should display the status
 
 TEST $CLI_1 volume tier $V0 detach start
+
+EXPECT "1" detach_xml_status
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" tier_detach_status
 

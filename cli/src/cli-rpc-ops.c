@@ -2481,42 +2481,43 @@ gf_cli_remove_tier_brick_cbk (struct rpc_req *req, struct iovec *iov,
                           (rsp.op_ret) ? "unsuccessful" : "successful");
 
         ret = rsp.op_ret;
-        if (rsp.op_ret) {
-                if (strcmp (rsp.op_errstr, ""))
-                        snprintf (msg, sizeof (msg), "volume tier detach %s: "
-                                        "failed: %s", cmd_str, rsp.op_errstr);
-                else
-                        snprintf (msg, sizeof (msg), "volume tier detach %s: "
-                                        "failed", cmd_str);
-
-                cli_err ("%s", msg);
-                goto out;
-
-        } else {
-                cli_out ("volume detach tier %s: success", cmd_str);
-                if (GF_DEFRAG_CMD_DETACH_START == command &&
-                    task_id_str != NULL)
-                        cli_out ("ID: %s", task_id_str);
-                if (GF_DEFRAG_CMD_DETACH_COMMIT == command)
-                        cli_out ("Check the detached bricks to ensure all files"
-                                 " are migrated.\nIf files with data are "
-                                 "found on the brick path, copy them via a "
-                                 "gluster mount point before re-purposing the "
-                                 "removed brick. ");
-        }
-
         if (global_state->mode & GLUSTER_MODE_XML) {
                 ret = cli_xml_output_vol_remove_brick_detach_tier (
-                                                       _gf_false, rsp_dict,
-                                                       rsp.op_ret, rsp.op_errno,
-                                                       msg, "volDetachTier");
+                                _gf_true, rsp_dict,
+                                rsp.op_ret, rsp.op_errno,
+                                msg, "volDetachTier");
 
                 if (ret)
                         gf_log ("cli", GF_LOG_ERROR,
                                 "Error outputting to xml");
                 goto out;
-        }
+        } else {
+                if (rsp.op_ret) {
+                        if (strcmp (rsp.op_errstr, ""))
+                                snprintf (msg, sizeof (msg), "volume tier "
+                                          "detach %s: failed: %s", cmd_str,
+                                          rsp.op_errstr);
+                        else
+                                snprintf (msg, sizeof (msg), "volume tier "
+                                          "detach %s: failed", cmd_str);
 
+                        cli_err ("%s", msg);
+                        goto out;
+
+                } else {
+                        cli_out ("volume detach tier %s: success", cmd_str);
+                        if (GF_DEFRAG_CMD_DETACH_START == command &&
+                            task_id_str != NULL)
+                                cli_out ("ID: %s", task_id_str);
+                        if (GF_DEFRAG_CMD_DETACH_COMMIT == command)
+                                cli_out ("Check the detached bricks to ensure "
+                                         "all files are migrated.\nIf files "
+                                         "with data are found on the brick "
+                                         "path, copy them via a gluster mount "
+                                         "point before re-purposing the "
+                                         "removed brick. ");
+                }
+        }
         if (command == GF_DEFRAG_CMD_DETACH_STOP ||
             command == GF_DEFRAG_CMD_DETACH_STATUS)
                 ret = gf_cli_print_rebalance_status (rsp_dict,
