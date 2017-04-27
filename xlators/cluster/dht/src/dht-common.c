@@ -4569,6 +4569,7 @@ dht_fremovexattr (call_frame_t *frame, xlator_t *this,
                 op_errno = EINVAL;
                 goto err;
         }
+        local->xattr_req = xdata ? dict_ref (xdata) : dict_new ();
 
         local->call_cnt = call_cnt = layout->cnt;
         local->key = gf_strdup (key);
@@ -4579,15 +4580,13 @@ dht_fremovexattr (call_frame_t *frame, xlator_t *this,
                                            layout->list[i].xlator,
                                            layout->list[i].xlator,
                                            layout->list[i].xlator->fops->fremovexattr,
-                                           fd, key, NULL);
+                                           fd, key, local->xattr_req);
                 }
 
         } else {
 
                 local->call_cnt = 1;
-                xdata = xdata ? dict_ref (xdata) : dict_new ();
-                if (xdata)
-                        ret = dict_set_int8 (xdata, DHT_IATT_IN_XDATA_KEY, 1);
+                ret = dict_set_int8 (local->xattr_req, DHT_IATT_IN_XDATA_KEY, 1);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                                 DHT_MSG_DICT_SET_FAILED, "Failed to "
@@ -4597,10 +4596,7 @@ dht_fremovexattr (call_frame_t *frame, xlator_t *this,
 
                 STACK_WIND_COOKIE (frame, dht_file_removexattr_cbk, subvol,
                                    subvol, subvol->fops->fremovexattr, fd, key,
-                                   xdata);
-
-                if (xdata)
-                        dict_unref (xdata);
+                                   local->xattr_req);
         }
 
         return 0;
