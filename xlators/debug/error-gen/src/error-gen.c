@@ -336,7 +336,7 @@ error_gen (xlator_t *this, int op_no)
         eg_t             *egp = NULL;
         int              count = 0;
         int              failure_iter_no = GF_FAILURE_DEFAULT;
-        char             *error_no = NULL;
+        int              error_no_int = 0;
         int              rand_no = 0;
         int              ret = 0;
 
@@ -346,7 +346,7 @@ error_gen (xlator_t *this, int op_no)
         {
                 count = ++egp->op_count;
                 failure_iter_no = egp->failure_iter_no;
-                error_no = egp->error_no;
+                error_no_int = egp->error_no_int;
         }
         UNLOCK (&egp->lock);
 
@@ -357,8 +357,8 @@ error_gen (xlator_t *this, int op_no)
                 }
                 UNLOCK (&egp->lock);
 
-                if (error_no)
-                        ret = conv_errno_to_int (&error_no);
+                if (error_no_int)
+                        ret = error_no_int;
                 else {
 
                         rand_no = generate_rand_no (op_no);
@@ -1582,6 +1582,9 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("error-no", pvt->error_no, options, str, out);
 
+        if (pvt->error_no)
+                pvt->error_no_int = conv_errno_to_int (&pvt->error_no);
+
         GF_OPTION_RECONF ("failure", failure_percent_int, options, int32,
                           out);
 
@@ -1632,6 +1635,9 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("error-no", pvt->error_no, str, out);
 
+        if (pvt->error_no)
+                pvt->error_no_int = conv_errno_to_int (&pvt->error_no);
+
         GF_OPTION_INIT ("failure", failure_percent_int, int32, out);
 
         GF_OPTION_INIT ("enable", error_enable_fops, str, out);
@@ -1676,7 +1682,7 @@ struct xlator_dumpops dumpops = {
         .priv = error_gen_priv_dump,
 };
 
-struct xlator_fops cbks;
+struct xlator_cbks cbks;
 
 struct xlator_fops fops = {
 	.lookup      = error_gen_lookup,
