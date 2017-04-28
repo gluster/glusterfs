@@ -178,7 +178,7 @@ GFAPI_3.7.16 {
 		glfs_free;
 		glfs_upcall_get_fs;
 		glfs_upcall_get_reason;
-		glfs_upcall_inode_get_event;
+		glfs_upcall_get_event;
 		glfs_upcall_inode_get_object;
 		glfs_upcall_inode_get_flags;
 		glfs_upcall_inode_get_stat;
