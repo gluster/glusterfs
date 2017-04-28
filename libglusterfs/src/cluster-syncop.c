@@ -84,9 +84,9 @@
         syncbarrier_wake (&__local->barrier);                           \
         } while (0)
 
-static int
-fop_success_fill (default_args_cbk_t *replies, int numsubvols,
-                  unsigned char *success)
+int32_t
+cluster_fop_success_fill (default_args_cbk_t *replies, int numsubvols,
+                          unsigned char *success)
 {
         int i = 0;
         int count = 0;
@@ -221,7 +221,6 @@ cluster_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-
 int32_t
 cluster_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, inode_t *inode,
@@ -232,7 +231,6 @@ cluster_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  preparent, postparent, xdata);
         return 0;
 }
-
 
 int32_t
 cluster_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -587,7 +585,7 @@ cluster_fgetxattr (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, fgetxattr, fd,
                     name, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -598,7 +596,7 @@ cluster_fsetxattr (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, fsetxattr, fd,
                     dict, flags, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -609,7 +607,7 @@ cluster_setxattr (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, setxattr, loc,
                     dict, flags, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -619,7 +617,7 @@ cluster_statfs (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, statfs, loc,
                     xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -630,7 +628,7 @@ cluster_fsyncdir (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, fsyncdir, fd,
                     flags, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -641,7 +639,7 @@ cluster_opendir (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, opendir, loc,
                     fd, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -651,7 +649,7 @@ cluster_fstat (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, fstat, fd,
                     xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -662,7 +660,7 @@ cluster_fsync (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, fsync, fd,
                     flags, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -672,7 +670,7 @@ cluster_flush (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, flush, fd,
                     xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -684,7 +682,7 @@ cluster_writev (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, writev, fd,
                     vector, count, off, flags, iobref, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -695,7 +693,7 @@ cluster_readv (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, readv, fd, size,
                     offset, flags, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 
@@ -707,7 +705,7 @@ cluster_open (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, open, loc,
                     flags, fd, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -718,7 +716,7 @@ cluster_create (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, create, loc,
                     flags, mode, umask, fd, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -729,7 +727,7 @@ cluster_link (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, link, oldloc,
                     newloc, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -740,7 +738,7 @@ cluster_rename (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, rename, oldloc,
                     newloc, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 
@@ -752,7 +750,7 @@ cluster_symlink (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, symlink,
                     linkpath, loc, umask, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -763,7 +761,7 @@ cluster_rmdir (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, rmdir, loc,
                     flags, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -774,7 +772,7 @@ cluster_unlink (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, unlink, loc,
                     xflag, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int
@@ -785,7 +783,7 @@ cluster_mkdir (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, mkdir, loc,
                     mode, umask, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 
@@ -797,7 +795,7 @@ cluster_mknod (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, mknod, loc,
                     mode, rdev, umask, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -808,7 +806,7 @@ cluster_readlink (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, readlink, loc,
                     size, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 
@@ -820,7 +818,7 @@ cluster_access (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, access, loc,
                     mask, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -831,7 +829,7 @@ cluster_ftruncate (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, ftruncate, fd,
                     offset, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -842,7 +840,7 @@ cluster_getxattr (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, getxattr, loc,
                     name, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 
@@ -854,7 +852,7 @@ cluster_xattrop (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, xattrop, loc,
                     flags, dict, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -865,7 +863,7 @@ cluster_fxattrop (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, fxattrop, fd,
                     flags, dict, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -876,7 +874,7 @@ cluster_removexattr (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, removexattr,
                     loc, name, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -887,7 +885,7 @@ cluster_fremovexattr (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, fremovexattr,
                     fd, name, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -898,7 +896,7 @@ cluster_lk (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, lk, fd, cmd,
                     lock, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 
@@ -910,7 +908,7 @@ cluster_rchecksum (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, rchecksum, fd,
                     offset, len, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 
@@ -922,7 +920,7 @@ cluster_readdir (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, readdir, fd,
                     size, off, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 
@@ -934,7 +932,7 @@ cluster_readdirp (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, readdirp, fd,
                     size, off, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -945,7 +943,7 @@ cluster_setattr (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, setattr, loc,
                     stbuf, valid, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -956,7 +954,7 @@ cluster_truncate (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, truncate, loc,
                     offset, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -966,7 +964,7 @@ cluster_stat (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, stat, loc,
                     xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -976,7 +974,7 @@ cluster_lookup (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, lookup, loc,
                     xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -987,7 +985,7 @@ cluster_fsetattr (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, fsetattr, fd,
                     stbuf, valid, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -998,7 +996,7 @@ cluster_fallocate (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST(subvols, on, numsubvols, replies, output, frame, fallocate, fd,
                    keep_size, offset, len, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -1009,7 +1007,7 @@ cluster_discard (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST(subvols, on, numsubvols, replies, output, frame, discard, fd,
                    offset, len, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int32_t
@@ -1020,7 +1018,7 @@ cluster_zerofill(xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST(subvols, on, numsubvols, replies, output, frame, zerofill, fd,
                    offset, len, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 
@@ -1030,7 +1028,7 @@ cluster_ipc (xlator_t **subvols, unsigned char *on, int numsubvols,
              call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, ipc, op, xdata);
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int
@@ -1055,7 +1053,7 @@ cluster_uninodelk (xlator_t **subvols, unsigned char *locked_on, int numsubvols,
 
         loc_wipe (&loc);
 
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int
@@ -1077,7 +1075,7 @@ cluster_tryinodelk (xlator_t **subvols, unsigned char *on, int numsubvols,
                     &loc, F_SETLK, &flock, NULL);
 
         loc_wipe (&loc);
-        return fop_success_fill (replies, numsubvols, locked_on);
+        return cluster_fop_success_fill (replies, numsubvols, locked_on);
 }
 
 int
@@ -1103,7 +1101,8 @@ cluster_inodelk (xlator_t **subvols, unsigned char *on, int numsubvols,
 
         for (i = 0; i < numsubvols; i++) {
                 if (replies[i].op_ret == -1 && replies[i].op_errno == EAGAIN) {
-                        fop_success_fill (replies, numsubvols, locked_on);
+                        cluster_fop_success_fill (replies, numsubvols,
+                                                  locked_on);
                         cluster_uninodelk (subvols, locked_on, numsubvols,
                                            replies, output, frame, this, dom, inode, off, size);
 
@@ -1115,7 +1114,7 @@ cluster_inodelk (xlator_t **subvols, unsigned char *on, int numsubvols,
         }
 
         loc_wipe (&loc);
-        return fop_success_fill (replies, numsubvols, locked_on);
+        return cluster_fop_success_fill (replies, numsubvols, locked_on);
 }
 
 
@@ -1137,7 +1136,7 @@ cluster_unentrylk (xlator_t **subvols, unsigned char *locked_on, int numsubvols,
 
         loc_wipe (&loc);
 
-        return fop_success_fill (replies, numsubvols, output);
+        return cluster_fop_success_fill (replies, numsubvols, output);
 }
 
 int
@@ -1155,7 +1154,7 @@ cluster_tryentrylk (xlator_t **subvols, unsigned char *on, int numsubvols,
                     NULL);
 
         loc_wipe (&loc);
-        return fop_success_fill (replies, numsubvols, locked_on);
+        return cluster_fop_success_fill (replies, numsubvols, locked_on);
 }
 
 int
@@ -1177,7 +1176,8 @@ cluster_entrylk (xlator_t **subvols, unsigned char *on, int numsubvols,
 
         for (i = 0; i < numsubvols; i++) {
                 if (replies[i].op_ret == -1 && replies[i].op_errno == EAGAIN) {
-                        fop_success_fill (replies, numsubvols, locked_on);
+                        cluster_fop_success_fill (replies, numsubvols,
+                                                  locked_on);
                         cluster_unentrylk (subvols, locked_on, numsubvols,
                                            replies, output, frame, this, dom,
                                            inode, name);
@@ -1189,5 +1189,5 @@ cluster_entrylk (xlator_t **subvols, unsigned char *on, int numsubvols,
         }
 
         loc_wipe (&loc);
-        return fop_success_fill (replies, numsubvols, locked_on);
+        return cluster_fop_success_fill (replies, numsubvols, locked_on);
 }
