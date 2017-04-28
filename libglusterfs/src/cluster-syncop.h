@@ -20,6 +20,46 @@
 #include "default-args.h"
 #include "syncop.h"
 
+/*********************************************************************
+ *
+ * PARALLEL_FOP_ONLIST:
+ *          Performs file operations in parallel on bricks.
+ * This macro expects a helper function(func) to implement the
+ * functionality.
+ *
+ ********************************************************************/
+#define PARALLEL_FOP_ONLIST(subvols, on, numsubvols, replies, frame,    \
+                            func, args ...)                             \
+do {                                                                    \
+        int __i = 0;                                                    \
+        int __count = 0;                                                \
+        cluster_local_t __local = {0,};                                 \
+        void    *__old_local = frame->local;                            \
+                                                                        \
+        __local.replies = replies;                                      \
+        cluster_replies_wipe (replies, numsubvols);                     \
+        for (__i = 0; __i < numsubvols; __i++)                          \
+                INIT_LIST_HEAD (&replies[__i].entries.list);            \
+        if (syncbarrier_init (&__local.barrier))                        \
+                break;                                                  \
+        frame->local = &__local;                                        \
+        for (__i = 0; __i < numsubvols; __i++) {                        \
+                if (on[__i]) {                                          \
+                        __count++;                                      \
+                }                                                       \
+        }                                                               \
+        __local.barrier.waitfor = __count;                              \
+        for (__i = 0; __i < numsubvols; __i++) {                        \
+                if (on[__i]) {                                          \
+                        func (frame, subvols[__i], __i, ## args);       \
+                }                                                       \
+        }                                                               \
+        syncbarrier_wait (&__local.barrier, __count);                   \
+        syncbarrier_destroy (&__local.barrier);                         \
+        frame->local = __old_local;                                     \
+        STACK_RESET (frame->root);                                      \
+} while (0)
+
 typedef struct cluster_local_ {
         default_args_cbk_t *replies;
         syncbarrier_t barrier;
@@ -160,4 +200,13 @@ cluster_fsetattr (xlator_t **subvols, unsigned char *on, int numsubvols,
 
 void
 cluster_replies_wipe (default_args_cbk_t *replies, int num_subvols);
+
+int32_t
+cluster_fop_success_fill (default_args_cbk_t *replies, int numsubvols,
+                          unsigned char *success);
+
+int32_t
+cluster_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, dict_t *dict,
+                     dict_t *xdata);
 #endif /* !_CLUSTER_SYNCOP_H */
