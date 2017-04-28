@@ -2321,7 +2321,15 @@ err:
         return ret;
 }
 
-
+/********************************************************************
+ *
+ * dict_set_bin_common:
+ *      This is the common function to set key and its value in
+ *      dictionary. Flag(is_static) should be set appropriately based
+ *      on the type of memory type used for value(*ptr). If flag is set
+ *      to false value(*ptr) will be freed using GF_FREE() on destroy.
+ *
+ *******************************************************************/
 static int
 dict_set_bin_common (dict_t *this, char *key, void *ptr, size_t size,
                      gf_boolean_t is_static)
@@ -2353,13 +2361,26 @@ err:
         return ret;
 }
 
+/********************************************************************
+ *
+ * dict_set_bin:
+ *      Set key and its value in the dictionary. This function should
+ *      be called if the value is stored in dynamic memory.
+ *
+ *******************************************************************/
 int
 dict_set_bin (dict_t *this, char *key, void *ptr, size_t size)
 {
         return dict_set_bin_common (this, key, ptr, size, _gf_false);
 }
 
-
+/********************************************************************
+ *
+ * dict_set_static_bin:
+ *      Set key and its value in the dictionary. This function should
+ *      be called if the value is stored in static memory.
+ *
+ *******************************************************************/
 int
 dict_set_static_bin (dict_t *this, char *key, void *ptr, size_t size)
 {

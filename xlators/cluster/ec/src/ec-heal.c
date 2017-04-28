@@ -215,6 +215,25 @@ ec_heal_xattr_clean (dict_t *dict, char *key, data_t *data,
         return 0;
 }
 
+/********************************************************************
+ * ec_wind_xattrop_parallel:
+ *              Helper function to update the extended attributes
+ *    in parallel.
+ *
+ *******************************************************************/
+void
+ec_wind_xattrop_parallel (call_frame_t *frame, xlator_t *subvol,
+                          int child_index, loc_t *loc,
+                          gf_xattrop_flags_t flags, dict_t **dict,
+                          dict_t *xdata)
+{
+        gf_msg_debug ("EC", 0, "WIND: on child %d ", child_index);
+        STACK_WIND_COOKIE (frame, cluster_xattrop_cbk,
+                           (void *)(uintptr_t) child_index,
+                           subvol, subvol->fops->xattrop, loc,
+                           flags, dict[child_index], xdata);
+}
+
 int32_t
 ec_heal_writev_cbk (call_frame_t *frame, void *cookie,
                     xlator_t *this, int32_t op_ret, int32_t op_errno,
@@ -391,19 +410,36 @@ ec_adjust_versions (call_frame_t *frame, ec_t *ec, ec_txn_t type,
 {
         int                        i                 = 0;
         int                        ret               = 0;
-        dict_t                     *xattr            = NULL;
+        int                        call_count        = 0;
+        dict_t                     **xattr           = NULL;
         int                        op_ret            = 0;
         loc_t                      loc               = {0};
         gf_boolean_t               erase_dirty       = _gf_false;
-        uint64_t                   versions_xattr[2] = {0};
-        uint64_t                   dirty_xattr[2]    = {0};
+        uint64_t                   *versions_xattr   = NULL;
+        uint64_t                   *dirty_xattr      = NULL;
         uint64_t                   allzero[2]        = {0};
+        unsigned char              *on               = NULL;
+        unsigned char              *output           = NULL;
+        default_args_cbk_t         *replies          = NULL;
 
+        /* Allocate the required memory */
         loc.inode = inode_ref (inode);
         gf_uuid_copy (loc.gfid, inode->gfid);
-        xattr = dict_new ();
-        if (!xattr)
+        on = alloca0 (ec->nodes);
+        output = alloca0 (ec->nodes);
+        EC_REPLIES_ALLOC (replies, ec->nodes);
+        xattr = GF_CALLOC (ec->nodes, sizeof (*xattr), gf_common_mt_pointer);
+        if (!xattr) {
+                op_ret = -ENOMEM;
                 goto out;
+        }
+        for (i = 0; i < ec->nodes; i++) {
+                xattr[i] = dict_new ();
+                if (!xattr[i]) {
+                        op_ret = -ENOMEM;
+                        goto out;
+                }
+        }
 
         /* dirty xattr represents if the file/dir needs heal. Unless all the
          * copies are healed, don't erase it */
@@ -413,45 +449,87 @@ ec_adjust_versions (call_frame_t *frame, ec_t *ec, ec_txn_t type,
         else
                 op_ret = -ENOTCONN;
 
+        /* Populate the xattr array */
         for (i = 0; i < ec->nodes; i++) {
                 if (!sources[i] && !healed_sinks[i])
                         continue;
+                versions_xattr = GF_CALLOC (EC_VERSION_SIZE,
+                                            sizeof(*versions_xattr),
+                                            gf_common_mt_pointer);
+                if (!versions_xattr) {
+                        op_ret = -ENOMEM;
+                        continue;
+                }
+
                 versions_xattr[type] = hton64(versions[source] - versions[i]);
-                ret = dict_set_static_bin (xattr, EC_XATTR_VERSION,
-                                           versions_xattr,
-                                           sizeof (versions_xattr));
+                ret = dict_set_bin (xattr[i], EC_XATTR_VERSION,
+                                    versions_xattr,
+                                    (sizeof (*versions_xattr) * EC_VERSION_SIZE)
+                                   );
                 if (ret < 0) {
-                        op_ret = -ENOTCONN;
+                        op_ret = -ENOMEM;
                         continue;
                 }
 
                 if (erase_dirty) {
+                        dirty_xattr = GF_CALLOC (EC_VERSION_SIZE,
+                                                 sizeof(*dirty_xattr),
+                                                 gf_common_mt_pointer);
+                        if (!dirty_xattr) {
+                                op_ret = -ENOMEM;
+                                continue;
+                        }
+
                         dirty_xattr[type] = hton64(-dirty[i]);
-                        ret = dict_set_static_bin (xattr, EC_XATTR_DIRTY,
-                                                   dirty_xattr,
-                                                   sizeof (dirty_xattr));
+                        ret = dict_set_bin (xattr[i], EC_XATTR_DIRTY,
+                                            dirty_xattr,
+                                            (sizeof(*dirty_xattr) *
+                                            EC_VERSION_SIZE)
+                                           );
                         if (ret < 0) {
-                                op_ret = -ENOTCONN;
+                                op_ret = -ENOMEM;
                                 continue;
                         }
                 }
 
-                if ((memcmp (versions_xattr, allzero, sizeof (allzero)) == 0) &&
-                    (memcmp (dirty_xattr, allzero, sizeof (allzero)) == 0))
-                        continue;
+                if (memcmp (versions_xattr, allzero,
+                            (sizeof(*versions_xattr) * EC_VERSION_SIZE)) == 0) {
 
-                ret = syncop_xattrop (ec->xl_list[i], &loc,
-                                      GF_XATTROP_ADD_ARRAY64, xattr, NULL,
-                                      NULL);
-                if (ret < 0) {
-                        op_ret = -ret;
-                        continue;
+                        if (!erase_dirty) {
+                                continue;
+                        }
+
+                        if (memcmp (dirty_xattr, allzero, (sizeof (*dirty_xattr)
+                                    * EC_VERSION_SIZE)) == 0) {
+                                continue;
+                        }
                 }
+
+                on[i] = 1;
+                call_count++;
+        }
+
+        /* Update the bricks with xattr */
+        if (call_count) {
+                PARALLEL_FOP_ONLIST (ec->xl_list, on, ec->nodes, replies,
+                                     frame, ec_wind_xattrop_parallel,
+                                     &loc, GF_XATTROP_ADD_ARRAY64, xattr, NULL);
+                ret = cluster_fop_success_fill (replies, ec->nodes, output);
+        }
+
+        if (ret < call_count) {
+                op_ret = -ENOTCONN;
+                goto out;
         }
 
 out:
-        if (xattr)
-                dict_unref (xattr);
+        /* Cleanup */
+        for (i = 0; i < ec->nodes; i++) {
+                if (xattr[i])
+                        dict_unref (xattr[i]);
+        }
+        GF_FREE (xattr);
+        cluster_replies_wipe (replies, ec->nodes);
         loc_wipe (&loc);
         return op_ret;
 }
