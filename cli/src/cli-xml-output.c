@@ -3691,14 +3691,11 @@ out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
-#endif
 
 int
 cli_xml_output_vol_tier_status (xmlTextWriterPtr writer, dict_t *dict,
                 enum gf_task_types task_type)
 {
-#if (HAVE_LIB_XML)
-
         int                     ret = -1;
         int                     count = 0;
         char                    *node_name = NULL;
@@ -3783,15 +3780,8 @@ cli_xml_output_vol_tier_status (xmlTextWriterPtr writer, dict_t *dict,
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
-
-#else
-        return 0;
-
-#endif
 }
-
-
-
+#endif
 
 int
 cli_xml_output_vol_rebalance (gf_cli_defrag_type op, dict_t *dict, int op_ret,
@@ -5834,12 +5824,13 @@ out:
  * @return 0 on success and -1 on failure
  */
 int
-cli_xml_snapshot_delete (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict,
-                         gf_cli_rsp *rsp)
+cli_xml_snapshot_delete (cli_local_t *local, dict_t *dict, gf_cli_rsp *rsp)
 {
         int     ret             = -1;
 #ifdef HAVE_LIB_XML
         char   *str_value       = NULL;
+        xmlTextWriterPtr writer = local->writer;
+        xmlDocPtr doc           = local->doc;
 
         GF_ASSERT (writer);
         GF_ASSERT (doc);
