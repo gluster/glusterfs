@@ -277,7 +277,7 @@ function run_tests()
                 echo "       *********************************"
                 echo "       *       REGRESSION FAILED       *"
                 echo "       * Retrying failed tests in case *"
-                echo "       * we got some spurous failures  *"
+                echo "       * we got some spurious failures *"
                 echo "       *********************************"
                 echo ""
                 prove -vfe '/bin/bash' $t
