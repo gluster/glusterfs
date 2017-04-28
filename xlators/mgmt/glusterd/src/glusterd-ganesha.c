@@ -740,17 +740,18 @@ stop_ganesha (char **op_errstr) {
         int ret                 = 0;
         runner_t runner         = {0,};
 
-        runinit (&runner);
-        runner_add_args (&runner,
-                         GANESHA_PREFIX"/ganesha-ha.sh",
-                         "--setup-ganesha-conf-files", CONFDIR, "no", NULL);
-        ret =  runner_run (&runner);
-        if (ret) {
-                gf_asprintf (op_errstr, "removal of symlink ganesha.conf "
-                             "in /etc/ganesha failed");
-        }
-
         if (check_host_list ()) {
+                runinit (&runner);
+                runner_add_args (&runner,
+                                 GANESHA_PREFIX"/ganesha-ha.sh",
+                                 "--setup-ganesha-conf-files", CONFDIR,
+                                 "no", NULL);
+                ret =  runner_run (&runner);
+                if (ret) {
+                        gf_asprintf (op_errstr, "removal of symlink ganesha.conf "
+                                     "in /etc/ganesha failed");
+                }
+
                 ret = manage_service ("stop");
                 if (ret)
                         gf_asprintf (op_errstr, "NFS-Ganesha service could not"
