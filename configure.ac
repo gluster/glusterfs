@@ -312,6 +312,20 @@ else
         CFLAGS="${CFLAGS} -g -rdynamic"
 fi
 
+AC_ARG_WITH([ipv6-default], AC_HELP_STRING([--with-ipv6-default], [Set IPv6 as default.]))
+if test "x$with_ipv6_default" = "xyes"; then
+        IPV6_DEFAULT=yes
+else
+        IPV6_DEFAULT=no
+fi
+if test "x$ac_cv_file__etc_redhat_release" = "xyes"; then
+        if rpm -qa centos-release | grep centos; then
+                if rpm -q centos-release | grep "release-6"; then
+                        IPV6_DEFAULT=no;
+                fi
+        fi
+fi
+
 AC_ARG_ENABLE([privport_tracking],
               AC_HELP_STRING([--disable-privport_tracking],
                              [Disable internal tracking of privileged ports.]))
@@ -1070,6 +1084,14 @@ AC_SUBST(GF_DISTRIBUTION)
 
 GF_HOST_OS=""
 GF_LDFLAGS="-rdynamic"
+
+dnl include tirpc for IPv6 builds
+if test "x$IPV6_DEFAULT" = "xyes"; then
+        AC_CHECK_LIB([tirpc], [xdr_string], , AC_MSG_ERROR([libtirpc is required to build glusterfs with IPv6 default]))
+        TIRPC_CFLAGS="-I/usr/include/tirpc"
+        GF_LDFLAGS="-ltirpc $GF_LDFLAGS"
+        GF_CFLAGS="$GF_CFLAGS $TIRPC_CFLAGS -DIPV6_DEFAULT"
+fi
 
 dnl check for gcc -Werror=format-security
 saved_CFLAGS=$CFLAGS
