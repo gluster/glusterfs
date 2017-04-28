@@ -9406,8 +9406,7 @@ cli_snapshot_remove_reply (gf_cli_rsp *rsp, dict_t *dict, call_frame_t *frame)
         }
 
         if (global_state->mode & GLUSTER_MODE_XML) {
-                ret = cli_xml_snapshot_delete (local->writer, local->doc,
-                                               dict, rsp);
+                ret = cli_xml_snapshot_delete (local, dict, rsp);
                 if (ret) {
                         gf_log ("cli", GF_LOG_ERROR, "Failed to create "
                                 "xml output for snapshot delete command");
