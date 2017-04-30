@@ -15,15 +15,22 @@
 */
 
 /**
- * @find_last_bit
- * optimized implementation of find last bit in
+ * @find_first_bit
+ * optimized implementation of find first bit in
  */
 
 #ifndef BITS_PER_LONG
+#ifdef __LP64__
 #define BITS_PER_LONG 64
+#else
+#define BITS_PER_LONG 32
+#endif
 #endif
 
-static inline int fls(int x)
+#if defined(__GNUC__) || defined(__clang__)
+#define ffs(p) __builtin_ffs(p)
+#else
+static inline int ffs(int x)
 {
 	int r = 32;
 
@@ -51,7 +58,7 @@ static inline int fls(int x)
 	}
 	return r;
 }
-
+#endif
 
 unsigned long gf_tw_find_last_bit(const unsigned long *addr, unsigned long size)
 {
@@ -73,7 +80,7 @@ unsigned long gf_tw_find_last_bit(const unsigned long *addr, unsigned long size)
 		tmp = addr[--words];
 		if (tmp) {
 found:
-			return words * BITS_PER_LONG + fls(tmp);
+			return words * BITS_PER_LONG + ffs(tmp);
 		}
 	}
 
