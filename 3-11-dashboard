@@ -1,0 +1,10 @@
+[dashboard]
+    title = Review Inbox for 3.11
+    description = List of patches pending for 3.11
+    foreach=status:open project:glusterfs branch:release-3.11
+[section "Possible to Merge"]
+    query = label:Code-Review>=1 AND -label:Code-Review<=-1 AND label:CentOS-regression=1 AND label:NetBSD-regression=1 AND label:Smoke=1
+[section "Awaiting Reviews Or Regression"]
+    query = -(label:Code-Review>=1 AND -label:Code-Review<=-1 AND label:CentOS-regression=1 AND label:NetBSD-regression=1 AND label:Smoke=1) (-label:CentOS-regression=-1 AND -label:NetBSD-regression=-1 AND -label:Smoke=-1 AND -label:Code-Review<=-1)
+[section "Regression Failure Or Review Action Needed"]
+    query = (label:CentOS-regression=-1 OR label:NetBSD-regression=-1 OR label:Smoke=-1 OR label:Code-Review<=-1)
