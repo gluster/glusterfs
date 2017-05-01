@@ -1,4 +1,12 @@
 /*
+ *  linux/kernel/timer.c
+ *
+ *  Kernel internal timers
+ *
+ *  Copyright (C) 1991, 1992  Linus Torvalds
+ *
+ */
+/*
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation; either version 2 of the License, or
@@ -57,8 +65,16 @@ __gf_tw_add_timer (struct tvec_base *base, struct gf_tw_timer_list *timer)
         list_add_tail (&timer->entry, vec);
 }
 
-/* optimized find_last_bit() */
 unsigned long gf_tw_find_last_bit(const unsigned long *, unsigned long);
+
+#if defined(__GNUC__) || defined(__clang__)
+static inline unsigned long gf_tw_fls (unsigned long word)
+{
+        return BITS_PER_LONG - __builtin_clzl(word);
+}
+#else
+extern unsigned long gf_tw_fls (unsigned long);
+#endif
 
 static inline unsigned long
 apply_slack(struct tvec_base *base, struct gf_tw_timer_list *timer)
@@ -77,7 +93,7 @@ apply_slack(struct tvec_base *base, struct gf_tw_timer_list *timer)
         if (mask == 0)
                 return expires;
 
-        int bit = gf_tw_find_last_bit (&mask, BITS_PER_LONG);
+        int bit = gf_tw_fls (mask);
         mask = (1UL << bit) - 1;
 
         expires_limit = expires_limit & ~(mask);
