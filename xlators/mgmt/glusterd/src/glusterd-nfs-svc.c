@@ -156,6 +156,15 @@ glusterd_nfssvc_reconfigure ()
         priv = this->private;
         GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
+       /* not an error, or a (very) soft error at best */
+        if (sys_access (XLATORDIR "/nfs/server.so", R_OK) != 0) {
+                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                        GD_MSG_GNFS_XLATOR_NOT_INSTALLED,
+                        "nfs/server.so xlator is not installed");
+                ret = 0;
+                goto out;
+        }
+
         cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
                 if (GLUSTERD_STATUS_STARTED == volinfo->status) {
                         vol_started = _gf_true;
