@@ -1182,7 +1182,7 @@ fdentry_dump_to_dict (fdentry_t *fdentry, char *prefix, dict_t *dict,
         if (fdentry->fd) {
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.pid", prefix);
-                ret = dict_set_int32 (dict, key, fdentry->fd->pid);
+                ret = dict_set_uint64 (dict, key, fdentry->fd->pid);
                 if (ret)
                         return;
 
