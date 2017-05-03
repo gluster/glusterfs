@@ -2089,6 +2089,7 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct glfs_upcall **up_arg)
                 case GF_UPCALL_RECALL_LEASE:
                         gf_log ("glfs_h_poll_upcall", GF_LOG_DEBUG,
                                 "UPCALL_RECALL_LEASE is not implemented yet");
+                /* fallthrough till we support leases */
                 case GF_UPCALL_EVENT_NULL:
                 /* no 'default:' label, to force handling all upcall events */
                         errno = ENOENT;

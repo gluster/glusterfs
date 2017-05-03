@@ -984,7 +984,8 @@ glfs_mgmt_init (struct glfs *fs)
                 host = "localhost";
         }
 
-        if (!strcmp (cmd_args->volfile_server_transport, "unix")) {
+        if (cmd_args->volfile_server_transport &&
+            !strcmp (cmd_args->volfile_server_transport, "unix")) {
                 ret = rpc_transport_unix_options_build (&options, host, 0);
         } else {
                 ret = rpc_transport_inet_options_build (&options, host, port);
