@@ -1009,7 +1009,6 @@ svs_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
                                         "operation for gfid %s for the key %s "
                                         "failed.",
                                         uuid_utoa (fd->inode->gfid), name);
-                                GF_FREE (value);
                                 goto out;
                         }
                 } else {
