@@ -5752,6 +5752,7 @@ glusterd_get_brickinfo (xlator_t *this, const char *brickname, int port,
         glusterd_conf_t         *priv = NULL;
         glusterd_volinfo_t      *volinfo = NULL;
         glusterd_brickinfo_t    *tmpbrkinfo = NULL;
+        glusterd_snap_t         *snap    = NULL;
         int                     ret = -1;
 
         GF_ASSERT (brickname);
@@ -5770,6 +5771,21 @@ glusterd_get_brickinfo (xlator_t *this, const char *brickname, int port,
                         }
                 }
         }
+        /* In case normal volume is not found, check for snapshot volumes */
+        cds_list_for_each_entry (snap, &priv->snapshots, snap_list) {
+                cds_list_for_each_entry (volinfo, &snap->volumes, vol_list) {
+                        cds_list_for_each_entry (tmpbrkinfo, &volinfo->bricks,
+                                                 brick_list) {
+                                if (gf_uuid_compare (tmpbrkinfo->uuid, MY_UUID))
+                                        continue;
+                                if (!strcmp(tmpbrkinfo->path, brickname)) {
+                                        *brickinfo = tmpbrkinfo;
+                                        return 0;
+                                }
+                        }
+                }
+        }
+
         return ret;
 }
 
@@ -13156,6 +13172,52 @@ glusterd_get_dst_brick_info (char **dst_brick, char *volname, char **op_errstr,
                 goto out;
 
         ret = 0;
+out:
+        return ret;
+}
+
+int
+glusterd_get_volinfo_from_brick (char *brick, glusterd_volinfo_t **volinfo)
+{
+        int             ret                 = -1;
+        xlator_t                *this       = NULL;
+        glusterd_conf_t         *conf       = NULL;
+        glusterd_volinfo_t      *voliter    = NULL;
+        glusterd_brickinfo_t    *brickiter  = NULL;
+        glusterd_snap_t         *snap    = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        /* First check for normal volumes */
+        cds_list_for_each_entry (voliter, &conf->volumes, vol_list) {
+                cds_list_for_each_entry (brickiter, &voliter->bricks,
+                                         brick_list) {
+                        if (gf_uuid_compare (brickiter->uuid, MY_UUID))
+                                continue;
+                        if (!strcmp(brickiter->path, brick)) {
+                                *volinfo = voliter;
+                                return 0;
+                        }
+                }
+        }
+        /* In case normal volume is not found, check for snapshot volumes */
+        cds_list_for_each_entry (snap, &conf->snapshots, snap_list) {
+                cds_list_for_each_entry (voliter, &snap->volumes, vol_list) {
+                        cds_list_for_each_entry (brickiter, &voliter->bricks,
+                                                 brick_list) {
+                                if (gf_uuid_compare (brickiter->uuid, MY_UUID))
+                                        continue;
+                                if (!strcmp(brickiter->path, brick)) {
+                                        *volinfo = voliter;
+                                        return 0;
+                                }
+                        }
+                }
+        }
+
 out:
         return ret;
 }

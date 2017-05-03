@@ -1302,6 +1302,9 @@ cleanup_and_exit (int signum)
 {
         glusterfs_ctx_t *ctx      = NULL;
         xlator_t        *trav     = NULL;
+        xlator_t        *top;
+        xlator_t        *victim;
+        xlator_list_t   **trav_p;
 
         ctx = glusterfsd_ctx;
 
@@ -1331,7 +1334,20 @@ cleanup_and_exit (int signum)
                 return;
 
         ctx->cleanup_started = 1;
-        glusterfs_mgmt_pmap_signout (ctx, NULL);
+
+        /* signout should be sent to all the bricks in case brick mux is enabled
+         * and multiple brick instances are attached to this process
+         */
+        if (ctx->active) {
+                top = ctx->active->first;
+                for (trav_p = &top->children; *trav_p;
+                     trav_p = &(*trav_p)->next) {
+                        victim = (*trav_p)->xlator;
+                        glusterfs_mgmt_pmap_signout (ctx, victim->name);
+                }
+        } else {
+                glusterfs_mgmt_pmap_signout (ctx, NULL);
+        }
 
         /* below part is a racy code where the rpcsvc object is freed.
          * But in another thread (epoll thread), upon poll error in the
