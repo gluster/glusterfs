@@ -334,8 +334,8 @@ server_post_open (call_frame_t *frame, xlator_t *this,
         }
 
         fd_bind (fd);
-        fd_no = gf_fd_unused_get (serv_ctx->fdtable, fd);
         fd_ref (fd);
+        fd_no = gf_fd_unused_get (serv_ctx->fdtable, fd);
         rsp->fd = fd_no;
 
         return 0;
@@ -364,8 +364,8 @@ server_post_opendir (call_frame_t *frame, xlator_t *this,
         }
 
         fd_bind (fd);
-        fd_no = gf_fd_unused_get (serv_ctx->fdtable, fd);
         fd_ref (fd);
+        fd_no = gf_fd_unused_get (serv_ctx->fdtable, fd);
         rsp->fd = fd_no;
 
         return 0;
@@ -414,8 +414,8 @@ server_post_create (call_frame_t *frame, gfs3_create_rsp *rsp,
         }
 
         fd_bind (fd);
-        fd_no = gf_fd_unused_get (serv_ctx->fdtable, fd);
         fd_ref (fd);
+        fd_no = gf_fd_unused_get (serv_ctx->fdtable, fd);
 
         if ((fd_no > UINT64_MAX) || (fd == 0)) {
                 op_errno = errno;
