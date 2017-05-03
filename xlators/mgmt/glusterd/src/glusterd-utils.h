@@ -851,4 +851,8 @@ glusterd_brick_op_prerequisites (dict_t *dict,
                                  char **src_brick, glusterd_brickinfo_t
                                  **src_brickinfo, char *pidfile,
                                  char **op_errstr, dict_t *rsp_dict);
+
+int
+glusterd_get_volinfo_from_brick (char *brick, glusterd_volinfo_t **volinfo);
+
 #endif
