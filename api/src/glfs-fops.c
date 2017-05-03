@@ -4664,6 +4664,11 @@ pub_glfs_xreaddirplus_r (struct glfs_fd *glfd, uint32_t flags,
                 /* reached EOD, ret = 0  */
                 ret = 0;
                 *res = NULL;
+                *xstat_p = NULL;
+
+                /* free xstat as applications shall not be using it */
+                glfs_free (xstat);
+
                 goto out;
         }
 
@@ -4699,11 +4704,11 @@ pub_glfs_xreaddirplus_r (struct glfs_fd *glfd, uint32_t flags,
         ret = xstat->flags_handled;
         *xstat_p = xstat;
 
-out:
         gf_msg_debug (THIS->name, 0,
                       "xreaddirp- requested_flags (%x) , processed_flags (%x)",
                       flags, xstat->flags_handled);
 
+out:
         GF_REF_PUT (glfd);
 
         if (ret < 0) {
