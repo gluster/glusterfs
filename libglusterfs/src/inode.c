@@ -2569,3 +2569,113 @@ inode_ctx_size (inode_t *inode)
 out:
         return size;
 }
+
+static void
+inode_parent_null_check(inode_t **parent, inode_t *inode, char **component)
+{
+        GF_VALIDATE_OR_GOTO ("inode", inode, out);
+        GF_VALIDATE_OR_GOTO ("inode", (*component), out);
+
+        if (!(*parent) && __is_root_gfid (inode->gfid)) {
+                *parent = inode_ref (inode);
+                *component = "/";
+        }
+out:
+        return;
+}
+
+/*
+ * This function changes component name and parent inode
+ * if the component name is either "." or ".."
+ *
+ * @Paramas:
+ * Parent : Parent inode of current dentry
+ * component : component name that we need to test
+ * dentry_name : Address for memory if need to change component.
+ *               The caller has to preallocate this memory with
+ *               PATH_MAX as the size.
+ *
+ * We return the updated parent inode and component in the
+ * respective structures.
+ *
+ * Basic Idea of the function:
+ *
+ * Example 1 :
+ * Path /out_dir/dir/in_dir/.
+ *     In put values :
+ *         parent = in_dir
+ *         component : "."
+ *
+ *     Out put values:
+ *         parent : dir
+ *         component : "in_dir"
+ *
+ * Example 2 :
+ * Path /out_dir/dir/in_dir/..
+ *     In put values :
+ *         parent = in_dir
+ *         component : ".."
+ *
+ *     Out put values:
+ *         parent : output_dir
+ *         component : "dir"
+ */
+void
+glusterfs_normalize_dentry (inode_t **parent, char **component,
+                          char *dentry_name)
+{
+        inode_t         *temp_inode             = NULL;
+        dentry_t        *dentry                 = NULL;
+
+        GF_VALIDATE_OR_GOTO ("inode", (*parent), out);
+        GF_VALIDATE_OR_GOTO ("inode", (*component), out);
+        GF_VALIDATE_OR_GOTO ("inode", (dentry_name), out);
+
+        /* After this point, there should not be "." or ".."
+         * in the path. Dot and double dots are replaced with
+         * appropriate base name and parent inode.
+         */
+
+        /* During the resolving, if it goes beyond the mount point
+         * we do lookup on the mount itself like "/.. " will be
+         * converted as "/"
+         */
+        if (strcmp (*component, ".") == 0) {
+                temp_inode = *parent;
+                *parent = inode_parent (*parent, 0, 0);
+                inode_parent_null_check (parent, temp_inode, component);
+                pthread_mutex_lock (&temp_inode->table->lock);
+                {
+                        dentry = __dentry_search_arbit (temp_inode);
+                        if (dentry) {
+                                snprintf (dentry_name, PATH_MAX, "%s",
+                                          dentry->name);
+                                *component = dentry_name;
+                        }
+                }
+                pthread_mutex_unlock (&temp_inode->table->lock);
+                inode_unref (temp_inode);
+        } else if (strcmp (*component, "..") == 0) {
+                temp_inode = *parent;
+                *parent = inode_parent (*parent, 0, 0);
+                inode_parent_null_check (parent, temp_inode, component);
+                inode_unref (temp_inode);
+
+                temp_inode = *parent;
+                *parent = inode_parent (*parent, 0, 0);
+                inode_parent_null_check (parent, temp_inode, component);
+                pthread_mutex_lock (&temp_inode->table->lock);
+                {
+                        dentry = __dentry_search_arbit (temp_inode);
+                        if (dentry) {
+                                snprintf (dentry_name, PATH_MAX, "%s",
+                                          dentry->name);
+                                *component = dentry_name;
+                        }
+                }
+                pthread_mutex_unlock (&temp_inode->table->lock);
+                inode_unref (temp_inode);
+        }
+out:
+        return;
+}
