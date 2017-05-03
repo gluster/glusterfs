@@ -2176,6 +2176,16 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
 
         case GF_OP_CMD_START:
         {
+                if (dict_get_str_boolean (volinfo->dict, "features.shard",
+                                          _gf_false)) {
+                        ret = -1;
+                        snprintf (msg, sizeof (msg), "remove-brick operation is"
+                                  " not allowed on a sharded volume as it may"
+                                  " lead to a data loss situation.");
+                        errstr = gf_strdup (msg);
+                        goto out;
+                }
+
                 if ((volinfo->type == GF_CLUSTER_TYPE_REPLICATE) &&
                     dict_get (dict, "replica-count")) {
                         snprintf (msg, sizeof(msg), "Migration of data is not "
