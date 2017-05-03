@@ -521,11 +521,20 @@ gluster_pmap_signin (rpcsvc_request_t *req)
 int
 __gluster_pmap_signout (rpcsvc_request_t *req)
 {
-        pmap_signout_req    args                 = {0,};
-        pmap_signout_rsp    rsp                  = {0,};
-        int                 ret                  = -1;
-        char                brick_path[PATH_MAX] = {0,};
-        glusterd_brickinfo_t *brickinfo = NULL;
+        pmap_signout_req      args                 = {0,};
+        pmap_signout_rsp      rsp                  = {0,};
+        int                   ret                  = -1;
+        xlator_t             *this                 = NULL;
+        glusterd_conf_t      *conf                 = NULL;
+        glusterd_volinfo_t   *volinfo              = NULL;
+        glusterd_brickinfo_t *brickinfo            = NULL;
+        char                  pidfile[PATH_MAX]    = {0};
+        char                  brick_path[PATH_MAX] = {0,};
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, fail);
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, fail);
 
         ret = xdr_to_generic (req->msg[0], &args,
                               (xdrproc_t)xdr_pmap_signout_req);
@@ -543,6 +552,18 @@ __gluster_pmap_signout (rpcsvc_request_t *req)
                 rsp.op_ret = pmap_registry_remove (THIS, args.rdma_port,
                                 brick_path, GF_PMAP_PORT_BRICKSERVER,
                                 req->trans);
+        }
+        /* Clean up the pidfile for this brick given glusterfsd doesn't clean it
+         * any more. This is required to ensure we don't end up with having
+         * stale pid files in case a brick is killed from the backend
+         */
+        ret = glusterd_get_volinfo_from_brick (args.brick, &volinfo);
+        if (!ret) {
+                if (volinfo && brickinfo) {
+                        GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo,
+                                                    conf);
+                        sys_unlink (pidfile);
+                }
         }
 
 fail:
