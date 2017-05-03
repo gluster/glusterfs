@@ -41,7 +41,7 @@
 
 #define GLUSTERD_COMP_BASE      GLFS_MSGID_GLUSTERD
 
-#define GLFS_NUM_MESSAGES       597
+#define GLFS_NUM_MESSAGES       598
 
 #define GLFS_MSGID_END          (GLUSTERD_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
@@ -4834,7 +4834,8 @@
  *
  */
 
-#define GD_MSG_GANESHA_NOT_RUNNING                 (GLUSTERD_COMP_BASE + 597)
+#define GD_MSG_NO_SIG_TO_PID_ZERO                  (GLUSTERD_COMP_BASE + 597)
+
 /*!
  * @messageid
  * @diagnosis
@@ -4842,7 +4843,7 @@
  *
  */
 
-#define GD_MSG_NO_SIG_TO_PID_ZERO                  (GLUSTERD_COMP_BASE + 598)
+#define GD_MSG_GANESHA_NOT_RUNNING                 (GLUSTERD_COMP_BASE + 598)
 
 /*------------*/
 

@@ -277,7 +277,7 @@ string:\"EXPORT(Export_Id=$removed_id)\" 2>&1")
                 ret=$?
                 logger <<< "${output}"
                 if [ ${ret} -ne 0 ]; then
-                        echo "Refresh-config failed on ${current_host}"
+                        echo "Refresh-config failed on ${current_host}. Please check logs on ${current_host}"
                 else
                         echo "Refresh-config completed on ${current_host}."
                 fi
