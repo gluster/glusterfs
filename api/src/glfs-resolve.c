@@ -25,12 +25,10 @@
 #include "syncop.h"
 #include "call-stub.h"
 #include "gfapi-messages.h"
-
+#include "inode.h"
 #include "glfs-internal.h"
 
 #define graphid_str(subvol) (uuid_utoa((unsigned char *)subvol->graph->graph_uuid))
-
-
 int
 glfs_first_lookup_safe (xlator_t *subvol)
 {
@@ -251,33 +249,26 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 	loc.parent = inode_ref (parent);
 	gf_uuid_copy (loc.pargfid, parent->gfid);
 
-        /* /.. and /. should point back to /
-           we lookup using inode and gfid of root
-           Fill loc.name so that we make use md-cache.
-           md-cache is not valid for nameless lookups.
-        */
+        /* At this point we should never have '.' or ".." in path */
         if (__is_root_gfid (parent->gfid) &&
-            (strcmp (component, "..") == 0)) {
-                loc.inode = inode_ref (parent);
-                loc.name = ".";
-        } else {
-                if (strcmp (component, ".") == 0)
-                        loc.inode = inode_ref (parent);
-                else if (strcmp (component, "..") == 0)
-                        loc.inode = inode_parent (parent, 0, 0);
-                else
-                        loc.inode = inode_grep (parent->table, parent,
-                                                component);
+            (strcmp (component, "/") == 0)) {
+                if (!force_lookup) {
+                        inode = inode_ref (parent);
+                } else {
+                        ret = glfs_resolve_base (fs, subvol, parent, &ciatt);
+                        if (!ret)
+                                inode = inode_ref (parent);
+                }
+                goto found;
         }
 
-
+        loc.inode = inode_grep (parent->table, parent, component);
 	if (loc.inode) {
 		gf_uuid_copy (loc.gfid, loc.inode->gfid);
 		reval = 1;
 
                 if (!(force_lookup || inode_needs_lookup (loc.inode, THIS))) {
 			inode = inode_ref (loc.inode);
-			ciatt.ia_type = inode->ia_type;
 			goto found;
 		}
 	} else {
@@ -357,8 +348,10 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
         } else if (inode == loc.inode)
                 inode_ctx_set (inode, THIS, &ctx_value);
 found:
-	if (inode)
+	if (inode) {
+                ciatt.ia_type = inode->ia_type;
 		inode_lookup (inode);
+        }
 	if (iatt)
 		*iatt = ciatt;
 out:
@@ -384,6 +377,7 @@ priv_glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
 	char       *next_component = NULL;
 	int         ret = -1;
 	struct iatt ciatt = {0, };
+        char        dentry_name[PATH_MAX]  = {0, };
 
 	DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FS(fs, invalid_fs);
@@ -414,9 +408,8 @@ priv_glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
 
 		if (parent)
 			inode_unref (parent);
-
 		parent = inode;
-
+                glusterfs_normalize_dentry (&parent, &component, dentry_name);
 		inode = glfs_resolve_component (fs, subvol, parent,
 						component, &ciatt,
 						/* force hard lookup on the last
