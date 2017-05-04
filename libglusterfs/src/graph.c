@@ -292,8 +292,10 @@ glusterfs_graph_validate_options (glusterfs_graph_t *graph)
         trav = graph->first;
 
         while (trav) {
-                if (list_empty (&trav->volume_options))
+                if (list_empty (&trav->volume_options)) {
+                        trav = trav->next;
                         continue;
+                }
 
                 ret = xlator_options_validate (trav, trav->options, &errstr);
                 if (ret) {
