@@ -613,11 +613,7 @@ cli_rpc_init (struct cli_state *state)
         int                     ret = -1;
         int                     port = CLI_GLUSTERD_PORT;
         xlator_t                *this = NULL;
-#ifdef IPV6_DEFAULT
-        char                    *addr_family = "inet6";
-#else
         char                    *addr_family = "inet";
-#endif
 
         this = THIS;
         cli_rpc_prog = &cli_prog;

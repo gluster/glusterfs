@@ -434,11 +434,6 @@ rpcsvc_listener_destroy (rpcsvc_listener_t *listener);
 extern int
 rpcsvc_program_register_portmap (rpcsvc_program_t *newprog, uint32_t port);
 
-#ifdef IPV6_DEFAULT
-extern int
-rpcsvc_program_register_rpcbind6 (rpcsvc_program_t *newprog, uint32_t port);
-#endif
-
 extern int
 rpcsvc_program_unregister_portmap (rpcsvc_program_t *newprog);
 

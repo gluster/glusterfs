@@ -287,11 +287,7 @@ __glusterd_handle_create_volume (rpcsvc_request_t *req)
         int32_t                 type        = 0;
         char                   *username    = NULL;
         char                   *password    = NULL;
-#ifdef IPV6_DEFAULT
-        char                   *addr_family = "inet6";
-#else
         char                   *addr_family = "inet";
-#endif
 
         GF_ASSERT (req);
 
