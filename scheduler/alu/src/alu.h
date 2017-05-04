@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -33,22 +33,22 @@ struct alu_sched_struct {
 // Write better name for these functions
 struct alu_limits {
   struct alu_limits *next;
-  int64_t (*max_value) (struct xlator_stats *); /* Max limit, specified by the user */
-  int64_t (*min_value) (struct xlator_stats *); /* Min limit, specified by the user */
-  int64_t (*cur_value) (struct xlator_stats *); /* Current values of variables got from stats call */
+  long long (*max_value) (struct xlator_stats *); /* Max limit, specified by the user */
+  long long (*min_value) (struct xlator_stats *); /* Min limit, specified by the user */
+  long long (*cur_value) (struct xlator_stats *); /* Current values of variables got from stats call */
 };
 
 struct alu_threshold {
   struct alu_threshold *next;
-  int64_t (*diff_value) (struct xlator_stats *max, struct xlator_stats *min); /* Diff b/w max and min */
-  int64_t (*entry_value) (struct xlator_stats *); /* Limit specified user */
-  int64_t (*exit_value) (struct xlator_stats *); /* Exit point32_t for the limit */
-  int64_t (*sched_value) (struct xlator_stats *); /* This will return the index of the child area */
+  long long (*diff_value) (struct xlator_stats *max, struct xlator_stats *min); /* Diff b/w max and min */
+  long long (*entry_value) (struct xlator_stats *); /* Limit specified user */
+  long long (*exit_value) (struct xlator_stats *); /* Exit point for the limit */
+  long long (*sched_value) (struct xlator_stats *); /* This will return the index of the child area */
 };
 
 struct alu_sched_node {
   struct alu_sched_node *next;
-  int32_t index;
+  int index;
 };
 
 struct alu_sched {
@@ -64,11 +64,11 @@ struct alu_sched {
   struct xlator_stats spec_limit;     /* User given limit */
   
   struct timeval last_stat_fetch;
-  int32_t refresh_interval;      /* in seconds */
-  int32_t refresh_create_count;  /* num-file-create */
+  int refresh_interval;      /* in seconds */
+  int refresh_create_count;  /* num-file-create */
 
-  int32_t sched_nodes_pending;
-  int32_t child_count;
+  int sched_nodes_pending;
+  int child_count;
 };
 
 #endif /* _ALU_H */

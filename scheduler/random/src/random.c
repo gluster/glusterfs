@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -29,10 +29,10 @@ random_init (struct xlator *xl)
   
   {
     /* Set the seed for the 'random' function */
-    srandom ((uint32_t) time (NULL));
+    srandom ((unsigned int) time (NULL));
   }
 
-  int32_t index = 0;
+  int index = 0;
 
   while (trav_xl) {
     index++;
@@ -63,10 +63,10 @@ random_fini (struct xlator *xl)
 }
 
 static struct xlator *
-random_schedule (struct xlator *xl, int32_t size)
+random_schedule (struct xlator *xl, int size)
 {
   struct random_struct *random_buf = (struct random_struct *)*((long *)xl->private);
-  int32_t rand = random () % random_buf->child_count;
+  int rand = random () % random_buf->child_count;
   while (!random_buf->array[rand].eligible) {
     rand = random () % random_buf->child_count;
   }

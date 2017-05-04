@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -36,7 +36,7 @@ filter_getattr (struct xlator *xl,
 		struct stat *stbuf)
 {
   struct filter_private *priv = xl->private;
-  int32_t ret = 0;
+  int ret = 0;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
@@ -54,7 +54,7 @@ filter_readlink (struct xlator *xl,
 		 char *dest,
 		 size_t size)
 {
-  int32_t ret = 0;
+  int ret = 0;
   struct filter_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -185,11 +185,11 @@ filter_utime (struct xlator *xl,
 static int
 filter_open (struct xlator *xl,
 	     const char *path,
-	     int32_t flags,
+	     int flags,
 	     mode_t mode,
 	     struct file_context *ctx)
 {
-  int32_t ret = 0;
+  int ret = 0;
   struct filter_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -217,7 +217,7 @@ filter_read (struct xlator *xl,
 	     off_t offset,
 	     struct file_context *ctx)
 {
-  int32_t ret = 0;
+  int ret = 0;
   struct filter_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -251,7 +251,7 @@ filter_statfs (struct xlator *xl,
 	       const char *path,
 	       struct statvfs *buf)
 {
-  int32_t ret = 0;
+  int ret = 0;
   struct filter_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -267,7 +267,7 @@ filter_flush (struct xlator *xl,
 	      const char *path,
 	      struct file_context *ctx)
 {
-  int32_t ret = 0;
+  int ret = 0;
   struct filter_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -289,7 +289,7 @@ filter_release (struct xlator *xl,
 		const char *path,
 		struct file_context *ctx)
 {
-  int32_t ret = 0;
+  int ret = 0;
   struct filter_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -312,7 +312,7 @@ filter_release (struct xlator *xl,
 static int
 filter_fsync (struct xlator *xl,
 	      const char *path,
-	      int32_t datasync,
+	      int datasync,
 	      struct file_context *ctx)
 {
   errno = EROFS;
@@ -325,7 +325,7 @@ filter_setxattr (struct xlator *xl,
 		 const char *name,
 		 const char *value,
 		 size_t size,
-		 int32_t flags)
+		 int flags)
 {
   errno = EROFS;
   return -1;
@@ -338,7 +338,7 @@ filter_getxattr (struct xlator *xl,
 		 char *value,
 		 size_t size)
 {
-  int32_t ret = 0;
+  int ret = 0;
   struct filter_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -355,7 +355,7 @@ filter_listxattr (struct xlator *xl,
 		  char *list,
 		  size_t size)
 {
-  int32_t ret = 0;
+  int ret = 0;
   struct filter_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -380,7 +380,7 @@ filter_opendir (struct xlator *xl,
 		const char *path,
 		struct file_context *ctx)
 {
-  int32_t ret = 0;
+  int ret = 0;
   struct filter_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -411,7 +411,7 @@ filter_releasedir (struct xlator *xl,
 		   const char *path,
 		   struct file_context *ctx)
 {
-  int32_t ret = 0;
+  int ret = 0;
   struct filter_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -424,7 +424,7 @@ filter_releasedir (struct xlator *xl,
 static int
 filter_fsyncdir (struct xlator *xl,
 		 const char *path,
-		 int32_t datasync,
+		 int datasync,
 		 struct file_context *ctx)
 {
   errno = EROFS;
@@ -437,7 +437,7 @@ filter_access (struct xlator *xl,
 	       const char *path,
 	       mode_t mode)
 {
-  int32_t ret = 0;
+  int ret = 0;
   struct filter_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -470,7 +470,7 @@ filter_fgetattr (struct xlator *xl,
 		 struct file_context *ctx)
 {
   
-  int32_t ret = 0;
+  int ret = 0;
   struct filter_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;

@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -30,8 +30,8 @@ struct wait_queue {
 };
 
 struct brick_private {
-  int32_t sock;
-  int32_t addr_family;
+  int sock;
+  int addr_family;
   unsigned char connected;
   unsigned char is_debug;
   in_addr_t addr;

@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -21,9 +21,9 @@
 #define __WRITE_AGGREGATE_H__
 
 typedef struct _write_buf_t {
-  int32_t offset;
-  int32_t size;
-  int32_t flushed;
+  int offset;
+  int size;
+  int flushed;
   char *buf;
 } write_buf_t;
 

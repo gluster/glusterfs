@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -25,7 +25,7 @@ nufa_init (struct xlator *xl)
 {
   struct nufa_struct *nufa_buf = calloc (1, sizeof (struct nufa_struct));
   struct xlator *trav_xl = xl->first_child;
-  int32_t index = 0;
+  int index = 0;
 
   data_t *local_name = dict_get (xl->options, "nufa.local-volume-name");
   if (!local_name) {
@@ -55,7 +55,7 @@ nufa_fini (struct xlator *xl)
 }
 
 static struct xlator *
-nufa_schedule (struct xlator *xl, int32_t size)
+nufa_schedule (struct xlator *xl, int size)
 {
   struct nufa_struct *nufa_buf = (struct nufa_struct *)*((long *)xl->private);
   return nufa_buf->sched_xl;

@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -27,8 +27,8 @@ typedef struct _chunk_t {
   struct _chunk_t *next;
   char *path;
   char path_dyn;
-  int64_t begin;
-  int64_t end;
+  long long int begin;
+  long long int end;
   struct xlator *child;
   char *child_name;
   char child_name_dyn;
@@ -38,8 +38,8 @@ typedef struct _layout_t {
   pthread_mutex_t count_lock;
   char *path;
   char path_dyn;
-  int32_t refcount;
-  int32_t chunk_count;
+  int refcount;
+  int chunk_count;
   chunk_t chunks;
 } layout_t;
 
@@ -54,7 +54,7 @@ layout_t *layout_getref (layout_t *lay);
 layout_t *layout_new ();
 
 char *layout_to_str (layout_t *lay);
-int32_t str_to_layout (char *str, layout_t *lay);
+int str_to_layout (char *str, layout_t *lay);
 void layout_setchildren (layout_t *lay, struct xlator *this);
 void layout_destroy (layout_t *lay);
 

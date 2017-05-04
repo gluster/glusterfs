@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -31,7 +31,7 @@ struct getattr_node {
 };
 
 struct getattr_private {
-  int32_t temp;
+  int temp;
   char is_debug;
   pthread_mutex_t mutex; 
   struct timeval curr_tval;

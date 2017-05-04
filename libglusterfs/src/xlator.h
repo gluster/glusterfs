@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -59,81 +59,81 @@ struct bulk_stat {
 };
 
 struct xlator_stats {
-  uint64_t nr_files;   /* Number of files open via this xlator */
-  uint64_t free_disk; /* Mega bytes */
-  uint64_t disk_usage; /* Mega bytes */
-  uint64_t disk_speed; /* MHz or Mbps */
-  uint64_t nr_clients; /* Number of client nodes (filled by glusterfsd) */
-  uint64_t write_usage;
-  uint64_t read_usage;
+  unsigned long nr_files;   /* Number of files open via this xlator */
+  unsigned long long free_disk; /* Mega bytes */
+  unsigned long long disk_usage; /* Mega bytes */
+  unsigned long disk_speed; /* MHz or Mbps */
+  unsigned long nr_clients; /* Number of client nodes (filled by glusterfsd) */
+  unsigned long long write_usage;
+  unsigned long long read_usage;
   /* add more stats here */
 };
 
 struct xlator_mgmt_ops {
-  int32_t (*stats) (struct xlator *this, struct xlator_stats *stats);
-  int32_t (*fsck) (struct xlator *this);
-  int32_t (*lock) (struct xlator *this, const char *name);
-  int32_t (*unlock) (struct xlator *this, const char *name);
-  int32_t (*listlocks) (struct xlator *this);
-  int32_t (*nslookup) (struct xlator *this, const char *name,
+  int (*stats) (struct xlator *this, struct xlator_stats *stats);
+  int (*fsck) (struct xlator *this);
+  int (*lock) (struct xlator *this, const char *name);
+  int (*unlock) (struct xlator *this, const char *name);
+  int (*listlocks) (struct xlator *this);
+  int (*nslookup) (struct xlator *this, const char *name,
 		   dict_t *ns);
-  int32_t (*nsupdate) (struct xlator *this, const char *name,
+  int (*nsupdate) (struct xlator *this, const char *name,
 		   dict_t *ns);
 };
 
 struct xlator_fops {
-  int32_t (*open) (struct xlator *this, const char *path, int32_t flags,
+  int (*open) (struct xlator *this, const char *path, int flags,
 	       mode_t mode, struct file_context *ctx);
-  int32_t (*getattr) (struct xlator *this, const char *path, 
+  int (*getattr) (struct xlator *this, const char *path, 
 		  struct stat *stbuf);
-  int32_t (*readlink) (struct xlator *this, const char *path, 
+  int (*readlink) (struct xlator *this, const char *path, 
 		   char *dest, size_t size);
-  int32_t (*mknod) (struct xlator *this, const char *path, 
+  int (*mknod) (struct xlator *this, const char *path, 
 		mode_t mode, dev_t dev, uid_t uid, gid_t gid);
-  int32_t (*mkdir) (struct xlator *this, const char *path,
+  int (*mkdir) (struct xlator *this, const char *path,
 		mode_t mode, uid_t uid, gid_t gid);
-  int32_t (*unlink) (struct xlator *this, const char *path);
-  int32_t (*rmdir) (struct xlator *this, const char *path);
-  int32_t (*symlink) (struct xlator *this, const char *oldpath, 
+  int (*unlink) (struct xlator *this, const char *path);
+  int (*rmdir) (struct xlator *this, const char *path);
+  int (*symlink) (struct xlator *this, const char *oldpath, 
 		  const char *newpath, uid_t uid, gid_t gid);
-  int32_t (*rename) (struct xlator *this, const char *oldpath,
+  int (*rename) (struct xlator *this, const char *oldpath,
 		 const char *newpath, uid_t uid, gid_t gid);
-  int32_t (*link) (struct xlator *this, const char *oldpath,
+  int (*link) (struct xlator *this, const char *oldpath,
 	       const char *newpath, uid_t uid, gid_t gid);
-  int32_t (*chmod) (struct xlator *this, const char *path, mode_t mode);
-  int32_t (*chown) (struct xlator *this, const char *path, uid_t uid, gid_t gid);
-  int32_t (*truncate) (struct xlator *this, const char *path, off_t offset);
-  int32_t (*utime) (struct xlator *this, const char *path, struct utimbuf *buf);
-  int32_t (*read) (struct xlator *this, const char *path, char *buf, size_t size,
+  int (*chmod) (struct xlator *this, const char *path, mode_t mode);
+  int (*chown) (struct xlator *this, const char *path, uid_t uid, gid_t gid);
+  int (*truncate) (struct xlator *this, const char *path, off_t offset);
+  int (*utime) (struct xlator *this, const char *path, struct utimbuf *buf);
+  int (*read) (struct xlator *this, const char *path, char *buf, size_t size,
 	       off_t offset, struct file_context *ctx);
-  int32_t (*write) (struct xlator *this, const char *path, const char *buf, size_t size,
+  int (*write) (struct xlator *this, const char *path, const char *buf, size_t size,
 	       off_t offset, struct file_context *ctx);
-  int32_t (*statfs) (struct xlator *this, const char *path, struct statvfs *buf);
-  int32_t (*flush) (struct xlator *this, const char *path, 
+  int (*statfs) (struct xlator *this, const char *path, struct statvfs *buf);
+  int (*flush) (struct xlator *this, const char *path, 
 		struct file_context *ctx);
-  int32_t (*release) (struct xlator *this, const char *path, 
+  int (*release) (struct xlator *this, const char *path, 
 		  struct file_context *ctx);
-  int32_t (*fsync) (struct xlator *this, const char *path, int32_t flags,
+  int (*fsync) (struct xlator *this, const char *path, int flags,
 		struct file_context *ctx);
-  int32_t (*setxattr) (struct xlator *this, const char *path, const char *name,
-		   const char *value, size_t size, int32_t flags);
-  int32_t (*getxattr) (struct xlator *this, const char *path, const char *name,
+  int (*setxattr) (struct xlator *this, const char *path, const char *name,
+		   const char *value, size_t size, int flags);
+  int (*getxattr) (struct xlator *this, const char *path, const char *name,
 		   char *value, size_t size);
-  int32_t (*listxattr) (struct xlator *this, const char *path, char *list, size_t size);
-  int32_t (*removexattr) (struct xlator *this, const char *path, const char *name);
-  int32_t (*opendir) (struct xlator *this, const char *path, 
+  int (*listxattr) (struct xlator *this, const char *path, char *list, size_t size);
+  int (*removexattr) (struct xlator *this, const char *path, const char *name);
+  int (*opendir) (struct xlator *this, const char *path, 
 		  struct file_context *ctx);
   char *(*readdir) (struct xlator *this, const char *path, off_t offset);
-  int32_t (*releasedir) (struct xlator *this, const char *path,
+  int (*releasedir) (struct xlator *this, const char *path,
 		     struct file_context *ctx);
-  int32_t (*fsyncdir) (struct xlator *this, const char *path, int32_t flags, 
+  int (*fsyncdir) (struct xlator *this, const char *path, int flags, 
 		   struct file_context *ctx);
-  int32_t (*access) (struct xlator *this, const char *path, mode_t mode);
-  int32_t (*ftruncate) (struct xlator *this, const char *path, off_t offset,
+  int (*access) (struct xlator *this, const char *path, mode_t mode);
+  int (*ftruncate) (struct xlator *this, const char *path, off_t offset,
 		    struct  file_context *ctx);
-  int32_t (*fgetattr) (struct xlator *this, const char *path, struct stat *buf,
+  int (*fgetattr) (struct xlator *this, const char *path, struct stat *buf,
 		 struct file_context *ctx);
-  int32_t (*bulk_getattr) (struct xlator *this, const char *path, struct bulk_stat *bstbuf);
+  int (*bulk_getattr) (struct xlator *this, const char *path, struct bulk_stat *bstbuf);
 };
 
 struct xlator {
@@ -147,7 +147,7 @@ struct xlator {
   struct xlator_mgmt_ops *mgmt_ops;
 
   void (*fini) (struct xlator *this);
-  int32_t (*init) (struct xlator *this);
+  int (*init) (struct xlator *this);
   struct _layout_t * (*getlayout) (struct xlator *this, 
 				   struct _layout_t *layout);
   struct _layout_t * (*setlayout) (struct xlator *this, 
@@ -173,9 +173,5 @@ void xlator_foreach (struct xlator *this,
 #define GF_STATFS_PRINT_FMT_STR "%"PRIx32",%"PRIx32",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx32",%"PRIx32",%"PRIx32"\n"
 
 #define GF_STATFS_SCAN_FMT_STR "%"SCNx32",%"SCNx32",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx32",%"SCNx32",%"SCNx32"\n"
-
-#define GF_MGMT_STATS_PRINT_FMT_STR "%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64",%"PRIx64"\n"
-
-#define GF_MGMT_STATS_SCAN_FMT_STR "%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64"\n"
 
 #endif

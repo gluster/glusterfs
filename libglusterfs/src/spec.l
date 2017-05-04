@@ -38,6 +38,6 @@ TYPE   [t][y][p][e]
 {END}[-]{VOLUME}       return SECTION_END;
 {SUB}{VOLUME}[Ss]      return SUBSECTION;
 {OPTION}               return OPTION;
-[a-zA-Z0-9_\./\*,=\-\;\:]+   { yylval = (long)strdup (yytext) ; return ID; }
+[a-zA-Z0-9_\./\*,=\-\;\:]+   { yylval = (int)strdup (yytext) ; return ID; }
 [ \t\n]+               ;
 %%

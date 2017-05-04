@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -46,7 +46,7 @@ glusterfs_getattr (const char *path,
 		   struct stat *stbuf)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL || stbuf == NULL);
   
@@ -67,7 +67,7 @@ glusterfs_readlink (const char *path,
 		    size_t size)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL || dest == NULL || size == 0);
   
@@ -90,7 +90,7 @@ glusterfs_mknod (const char *path,
 		 dev_t dev)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL);
   
@@ -111,7 +111,7 @@ glusterfs_mkdir (const char *path,
 		 mode_t mode)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL);
   
@@ -131,7 +131,7 @@ static int
 glusterfs_unlink (const char *path)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL);
   
@@ -149,7 +149,7 @@ static int
 glusterfs_rmdir (const char *path)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL);
   
@@ -168,7 +168,7 @@ glusterfs_symlink (const char *oldpath,
 		   const char *newpath)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (oldpath == NULL || newpath == NULL);
   
@@ -189,7 +189,7 @@ glusterfs_rename (const char *oldpath,
 		  const char *newpath)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (oldpath == NULL || newpath == NULL);
   
@@ -210,7 +210,7 @@ glusterfs_link (const char *oldpath,
 		const char *newpath)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (oldpath == NULL || newpath == NULL);
   
@@ -231,7 +231,7 @@ glusterfs_chmod (const char *path,
 		 mode_t mode)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL);
   
@@ -251,7 +251,7 @@ glusterfs_chown (const char *path,
 		 gid_t gid)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL);
   
@@ -270,7 +270,7 @@ glusterfs_truncate (const char *path,
 		    off_t offset)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL);
   
@@ -289,7 +289,7 @@ glusterfs_utime (const char *path,
 		 struct utimbuf *buf)
 {
   struct xlator *xlator = fuse_get_context ()->private_data;
-  int32_t ret = xlator->fops->utime (xlator, path, buf);
+  int ret = xlator->fops->utime (xlator, path, buf);
   
   ERR_EINVAL (path == NULL || buf == NULL);
   
@@ -309,7 +309,7 @@ glusterfs_open (const char *path,
 {
   struct xlator *xlator = NULL;
   struct file_context *ctx = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL || info == NULL);
   
@@ -341,7 +341,7 @@ glusterfs_read (const char *path,
 		struct fuse_file_info *info)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL || buf == NULL || info == NULL);
   
@@ -363,7 +363,7 @@ glusterfs_write (const char *path,
 		 struct fuse_file_info *info)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL || buf == NULL || info == NULL);
   
@@ -382,7 +382,7 @@ glusterfs_statfs (const char *path,
 		  struct statvfs *buf)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL || buf == NULL);
   
@@ -401,7 +401,7 @@ glusterfs_flush (const char *path,
 		 struct fuse_file_info *info)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL || info == NULL);
   
@@ -420,7 +420,7 @@ glusterfs_release (const char *path,
 		   struct fuse_file_info *info)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL || info == NULL);
   
@@ -438,11 +438,11 @@ glusterfs_release (const char *path,
 
 static int
 glusterfs_fsync (const char *path,
-		 int32_t datasync,
+		 int datasync,
 		 struct fuse_file_info *info)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL || info == NULL);
   
@@ -461,10 +461,10 @@ glusterfs_setxattr (const char *path,
 		    const char *name,
 		    const char *value,
 		    size_t size,
-		    int32_t flags)
+		    int flags)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL || name == NULL || value == NULL);
   
@@ -485,7 +485,7 @@ glusterfs_getxattr (const char *path,
 		    size_t size)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL || name == NULL);
   
@@ -505,7 +505,7 @@ glusterfs_listxattr (const char *path,
 		     size_t size)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL || list == NULL);
   
@@ -525,7 +525,7 @@ glusterfs_removexattr (const char *path,
 		       const char *name)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL || name == NULL);
   
@@ -544,7 +544,7 @@ glusterfs_opendir (const char *path,
 		   struct fuse_file_info *info)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL || info == NULL);
   
@@ -563,7 +563,7 @@ glusterfs_releasedir (const char *path,
 		      struct fuse_file_info *info)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL || info == NULL);
   
@@ -579,11 +579,11 @@ glusterfs_releasedir (const char *path,
 
 static int
 glusterfs_fsyncdir (const char *path,
-		    int32_t datasync,
+		    int datasync,
 		    struct fuse_file_info *info)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL || info == NULL);
   
@@ -599,10 +599,10 @@ glusterfs_fsyncdir (const char *path,
 
 static int
 glusterfs_access (const char *path,
-		  int32_t mode)
+		  int mode)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path);
   
@@ -625,7 +625,7 @@ glusterfs_create (const char *path,
 {
   struct xlator *xlator = NULL;
   struct file_context *cxt = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL || info == NULL);
   
@@ -654,7 +654,7 @@ glusterfs_ftruncate (const char *path,
 		     struct fuse_file_info *info)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL || info == NULL);
   
@@ -674,7 +674,7 @@ glusterfs_fgetattr (const char *path,
 		    struct fuse_file_info *info)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   
   ERR_EINVAL (path == NULL || buf == NULL || info == NULL);
   
@@ -696,7 +696,7 @@ glusterfs_readdir (const char *path,
 		   struct fuse_file_info *info)
 {
   struct xlator *xlator = NULL;
-  int32_t ret = 0;
+  int ret = 0;
   char *dirname = NULL;
   
   ERR_EINVAL (path == NULL || buf == NULL || info == NULL);
@@ -784,7 +784,7 @@ static struct fuse_operations glusterfs_fops = {
 int
 glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_options)
 {
-  int32_t index = 0;
+  int index = 0;
   struct xlator *trav = NULL;
   FILE *conf = NULL;
   char **full_arg = NULL;
@@ -793,7 +793,7 @@ glusterfs_mount (struct spec_location *spec, char *mount_point, char *mount_fs_o
   
   /* put the options to fuse in place */
   {
-    int32_t count = 0;
+    int count = 0;
     char *big_str = NULL;
     char *arg = NULL;
     

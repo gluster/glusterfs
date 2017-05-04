@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -36,12 +36,12 @@
 
 int
 generic_xfer (struct brick_private *priv,
-	      int32_t op,
+	      int op,
 	      dict_t *request, 
 	      dict_t *reply,
-	      int32_t type)
+	      int type)
 {
-  int32_t ret = 0;
+  int ret = 0;
   struct wait_queue *mine = (void *) calloc (1, sizeof (*mine));
 
   pthread_mutex_init (&mine->mutex, NULL);
@@ -53,7 +53,7 @@ generic_xfer (struct brick_private *priv,
 
   {
     pthread_mutex_lock (&priv->io_mutex);
-    int32_t dict_len = dict_serialized_length (request);
+    int dict_len = dict_serialized_length (request);
     char *dict_buf = malloc (dict_len);
     dict_serialize (request, dict_buf);
 
@@ -63,11 +63,11 @@ generic_xfer (struct brick_private *priv,
     blk->size = dict_len;
     blk->data = dict_buf;
 
-    int32_t blk_len = gf_block_serialized_length (blk);
+    int blk_len = gf_block_serialized_length (blk);
     char *blk_buf = malloc (blk_len);
     gf_block_serialize (blk, blk_buf);
     
-    int32_t ret = full_write (priv->sock, blk_buf, blk_len);
+    int ret = full_write (priv->sock, blk_buf, blk_len);
 
     free (blk_buf);
     free (dict_buf);
@@ -156,15 +156,15 @@ mgmt_xfer (struct brick_private *priv,
 		       OP_TYPE_MGMT_REQUEST);
 }
 
-static int32_t 
+static int 
 do_handshake (struct xlator *xl)
 {
 
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int32_t ret;
-  int32_t remote_errno;
+  int ret;
+  int remote_errno;
 
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -200,8 +200,8 @@ try_connect (struct xlator *xl)
   struct brick_private *priv = xl->private;
   struct sockaddr_in sin;
   struct sockaddr_in sin_src;
-  int32_t ret = 0;
-  int32_t try_port = CLIENT_PORT_CIELING;
+  int ret = 0;
+  int try_port = CLIENT_PORT_CIELING;
 
   if (priv->sock == -1)
     priv->sock = socket (AF_INET_SDP, SOCK_STREAM, 0);
@@ -260,8 +260,8 @@ brick_getattr (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int32_t ret;
-  int32_t remote_errno;
+  int ret;
+  int remote_errno;
   char *buf = NULL;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -349,8 +349,8 @@ brick_readlink (struct xlator *xl,
 		char *dest,
 		size_t size)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -398,8 +398,8 @@ brick_mknod (struct xlator *xl,
 	     uid_t uid,
 	     gid_t gid)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -442,8 +442,8 @@ brick_mkdir (struct xlator *xl,
 	     uid_t uid,
 	     gid_t gid)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -483,8 +483,8 @@ static int
 brick_unlink (struct xlator *xl,
 	      const char *path)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -521,8 +521,8 @@ static int
 brick_rmdir (struct xlator *xl,
 	     const char *path)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -562,8 +562,8 @@ brick_symlink (struct xlator *xl,
 	       uid_t uid,
 	       gid_t gid)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -605,8 +605,8 @@ brick_rename (struct xlator *xl,
 	      uid_t uid,
 	      gid_t gid)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -648,8 +648,8 @@ brick_link (struct xlator *xl,
 	    uid_t uid,
 	    gid_t gid)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -689,8 +689,8 @@ brick_chmod (struct xlator *xl,
 	     const char *path,
 	     mode_t mode)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -729,8 +729,8 @@ brick_chown (struct xlator *xl,
 	     uid_t uid,
 	     gid_t gid)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -769,8 +769,8 @@ brick_truncate (struct xlator *xl,
 		const char *path,
 		off_t offset)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -808,8 +808,8 @@ brick_utime (struct xlator *xl,
 	     const char *path,
 	     struct utimbuf *buf)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -847,12 +847,12 @@ brick_utime (struct xlator *xl,
 static int
 brick_open (struct xlator *xl,
 	    const char *path,
-	    int32_t flags,
+	    int flags,
 	    mode_t mode,
 	    struct file_context *ctx)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -886,9 +886,7 @@ brick_open (struct xlator *xl,
     struct file_context *brick_ctx = calloc (1, sizeof (struct file_context));
     brick_ctx->volume = xl;
     brick_ctx->next = NULL;
-    void **tmp;
-    tmp = &(brick_ctx->context);                                                              
-    *(long *)tmp = data_to_int (dict_get (&reply, "FD"));    
+    *(long *)&brick_ctx->context = data_to_int (dict_get (&reply, "FD"));
     
     while (trav->next)
       trav = trav->next;
@@ -909,12 +907,12 @@ brick_read (struct xlator *xl,
 	    off_t offset,
 	    struct file_context *ctx)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int64_t fd;
+  long fd;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
@@ -963,12 +961,12 @@ brick_write (struct xlator *xl,
 	     off_t offset,
 	     struct file_context *ctx)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int64_t fd;
+  long fd;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
@@ -1011,8 +1009,8 @@ brick_statfs (struct xlator *xl,
 	      const char *path,
 	      struct statvfs *stbuf)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1089,12 +1087,12 @@ brick_flush (struct xlator *xl,
 	     const char *path,
 	     struct file_context *ctx)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int64_t fd;
+  long fd;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
@@ -1135,12 +1133,12 @@ brick_release (struct xlator *xl,
 	       const char *path,
 	       struct file_context *ctx)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int64_t fd;
+  long fd;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
@@ -1191,15 +1189,15 @@ brick_release (struct xlator *xl,
 static int
 brick_fsync (struct xlator *xl,
 	     const char *path,
-	     int32_t datasync,
+	     int datasync,
 	     struct file_context *ctx)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int64_t fd;
+  long fd;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
@@ -1242,10 +1240,10 @@ brick_setxattr (struct xlator *xl,
 		const char *name,
 		const char *value,
 		size_t size,
-		int32_t flags)
+		int flags)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1287,8 +1285,8 @@ brick_getxattr (struct xlator *xl,
 		char *value,
 		size_t size)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1331,8 +1329,8 @@ brick_listxattr (struct xlator *xl,
 		 char *list,
 		 size_t size)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1374,8 +1372,8 @@ brick_removexattr (struct xlator *xl,
 		   const char *path,
 		   const char *name)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1412,8 +1410,8 @@ brick_opendir (struct xlator *xl,
 	       const char *path,
 	       struct file_context *ctx)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1459,8 +1457,8 @@ brick_readdir (struct xlator *xl,
 	       const char *path,
 	       off_t offset)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1508,8 +1506,8 @@ brick_releasedir (struct xlator *xl,
 		  const char *path,
 		  struct file_context *ctx)
 {
-  int32_t ret = 0;
-  /*int32_t remote_errno = 0;
+  int ret = 0;
+  /*int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1544,11 +1542,11 @@ brick_releasedir (struct xlator *xl,
 static int
 brick_fsyncdir (struct xlator *xl,
 		const char *path,
-		int32_t datasync,
+		int datasync,
 		struct file_context *ctx)
 {
-  int32_t ret = 0;
-  /*  int32_t remote_errno = 0;
+  int ret = 0;
+  /*  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1587,8 +1585,8 @@ brick_access (struct xlator *xl,
 	      const char *path,
 	      mode_t mode)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1627,12 +1625,12 @@ brick_ftruncate (struct xlator *xl,
 		 off_t offset,
 		 struct file_context *ctx)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int64_t fd;
+  long fd;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
@@ -1675,8 +1673,8 @@ brick_fgetattr (struct xlator *xl,
 		struct stat *stbuf,
 		struct file_context *ctx)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1783,10 +1781,10 @@ brick_bulk_getattr (struct xlator *xl,
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
-  int32_t ret;
-  int32_t remote_errno;
+  int ret;
+  int remote_errno;
   char *buf = NULL;
-  uint32_t nr_entries = 0;
+  unsigned int nr_entries = 0;
   char pathname[PATH_MAX] = {0,};
 
   /* play it safe */
@@ -1819,7 +1817,7 @@ brick_bulk_getattr (struct xlator *xl,
 
   buffer_ptr = buf;
   while (nr_entries) {
-    int32_t bread = 0;
+    int bread = 0;
     char tmp_buf[512] = {0,};
     curr = calloc (sizeof (struct bulk_stat), 1);
     curr->stbuf = calloc (sizeof (struct stat), 1);
@@ -1828,7 +1826,7 @@ brick_bulk_getattr (struct xlator *xl,
     nr_entries--;
     /*    sscanf (buffer_ptr, "%s", pathname);*/
     char *ender = strchr (buffer_ptr, '/');
-    int32_t count = ender - buffer_ptr;
+    int count = ender - buffer_ptr;
     strncpy (pathname, buffer_ptr, count);
     bread = count + 1;
     buffer_ptr += bread;
@@ -1914,8 +1912,8 @@ brick_bulk_getattr (struct xlator *xl,
 static int
 brick_stats (struct xlator *xl, struct xlator_stats *stats)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1940,7 +1938,7 @@ brick_stats (struct xlator *xl, struct xlator_stats *stats)
 
   {
     char *buf = data_to_bin (dict_get (&reply, "BUF"));
-    sscanf (buf, GF_MGMT_STATS_SCAN_FMT_STR,
+    sscanf (buf, "%lx,"F_L64"x,"F_L64"x,"F_L64"x,"F_L64"x,%lx,%lx\n",
 	    &stats->nr_files,
 	    &stats->disk_usage,
 	    &stats->free_disk,
@@ -1959,8 +1957,8 @@ static int
 brick_lock (struct xlator *xl,
 	    const char *name)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -1996,8 +1994,8 @@ static int
 brick_unlock (struct xlator *xl,
 	      const char *name)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -2032,8 +2030,8 @@ brick_unlock (struct xlator *xl,
 static int
 brick_listlocks (struct xlator *xl)
 {
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -2053,7 +2051,7 @@ brick_listlocks (struct xlator *xl)
   if (ret != 0)
     goto ret;
 
-  int32_t junk = data_to_int (dict_get (&reply, "RET_OP"));
+  int junk = data_to_int (dict_get (&reply, "RET_OP"));
  
   printf ("returned junk is %x\n", junk);
  
@@ -2081,8 +2079,8 @@ brick_nslookup (struct xlator *xl,
 		dict_t *ns)
 {
   return -1;
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;
@@ -2125,8 +2123,8 @@ brick_nsupdate (struct xlator *xl,
 		dict_t *ns)
 {
   return -1;
-  int32_t ret = 0;
-  int32_t remote_errno = 0;
+  int ret = 0;
+  int remote_errno = 0;
   struct brick_private *priv = xl->private;
   dict_t request = STATIC_DICT;
   dict_t reply = STATIC_DICT;

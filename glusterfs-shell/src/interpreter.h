@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -23,6 +23,6 @@
 #include "shell.h"
 
 #include <stdio.h>
-int32_t interpreter (char *);
+int interpreter (char *);
 
 #endif /* _INTERPRETER_H_ */

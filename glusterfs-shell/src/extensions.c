@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -86,7 +86,7 @@ gf_load (const char *file)
   char *path_prepend ="" ; /* FIXME: very much temporary, assumed that file provided will have absolute path or is in current directory */
   char *path = NULL;
   struct stat lstat;
-  int32_t pathlen = 0;
+  int pathlen = 0;
 
   pathlen = strlen (path_prepend) + strlen(file) + 1;
   path = calloc (pathlen, 1);

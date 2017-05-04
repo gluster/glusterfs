@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -43,17 +43,17 @@
 #define END_LEN   10
 
 typedef struct {
-  int32_t type;
-  int32_t op;
+  int type;
+  int op;
   char name[32];
-  int32_t size;
+  int size;
   char *data;
 } gf_block;
 
 gf_block *gf_block_new (void);
-int32_t gf_block_serialize (gf_block *b, char *buf);
-int32_t gf_block_serialized_length (gf_block *b);
+int gf_block_serialize (gf_block *b, char *buf);
+int gf_block_serialized_length (gf_block *b);
 
-gf_block *gf_block_unserialize (int32_t fd);
+gf_block *gf_block_unserialize (int fd);
 
 #endif

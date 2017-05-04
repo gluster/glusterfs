@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -44,7 +44,7 @@
 #endif
 
 #define GF_LOG_FUSE_ARGS(args, index) do{\
-                                          int32_t local_index = 0;\
+                                          int local_index = 0;\
                                           char local_buffer[1024*2] = {0,};\
                                           while (local_index < index) {\
 					    strncat (local_buffer, args[local_index], strlen (args[local_index]));\
@@ -58,7 +58,7 @@
 
 /* looks ugly, but is very neat */
 struct spec_location {
-  int32_t where;
+  int where;
   union {
     char *file;
     struct {
@@ -68,7 +68,7 @@ struct spec_location {
   }spec;
 };
 
-int32_t glusterfs_mount (struct spec_location *spec, char *mount_point, char *options);
+int glusterfs_mount (struct spec_location *spec, char *mount_point, char *options);
 
-extern int32_t gf_cmd_def_daemon_mode;
+extern int gf_cmd_def_daemon_mode;
 #endif /* __GLUSTERFS_FOPS_H__ */

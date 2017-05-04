@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -22,7 +22,7 @@
 
 typedef struct dummy_private
 {
-  int32_t debug_flag;
+  int debug_flag;
 } dummy_private_t;
 
 static int
@@ -221,7 +221,7 @@ dummy_utime (struct xlator *this,
 static int
 dummy_open (struct xlator *this,
 	     const char *path,
-	     int32_t flags,
+	     int flags,
 	     mode_t mode,
 	     struct file_context *ctx)
 {
@@ -313,7 +313,7 @@ dummy_release (struct xlator *this,
 static int
 dummy_fsync (struct xlator *this,
 	      const char *path,
-	      int32_t datasync,
+	      int datasync,
 	      struct file_context *ctx)
 {
   if (!this || !path || !ctx)
@@ -331,7 +331,7 @@ dummy_setxattr (struct xlator *this,
 		 const char *name,
 		 const char *value,
 		 size_t size,
-		 int32_t flags)
+		 int flags)
 {
   if (!this || !path || !name || !value || (size < 1))
     return -1;
@@ -432,7 +432,7 @@ dummy_releasedir (struct xlator *this,
 static int
 dummy_fsyncdir (struct xlator *this,
 		 const char *path,
-		 int32_t datasync,
+		 int datasync,
 		 struct file_context *ctx)
 {
   if (!this || !path || !ctx)

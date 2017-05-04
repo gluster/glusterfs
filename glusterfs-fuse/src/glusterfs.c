@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -36,16 +36,16 @@ static char *mt_options = NULL;
 static char *mount_point = NULL;
 static char doc[] = "glusterfs is a glusterfs client";
 static char argp_doc[] = "MOUNT-POINT";
-static int32_t cmd_def_log_level = GF_LOG_MAX;
+static int cmd_def_log_level = GF_LOG_MAX;
 static char *cmd_def_log_file = DEFAULT_LOG_FILE;
-int32_t gf_cmd_def_daemon_mode = GF_YES;
+int gf_cmd_def_daemon_mode = GF_YES;
 
 
 const char *argp_program_version = PACKAGE_NAME " " PACKAGE_VERSION;
 const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 
 struct spec_location spec;
-error_t parse_opts (int32_t key, char *arg, struct argp_state *_state);
+error_t parse_opts (int key, char *arg, struct argp_state *_state);
 
 struct {
   char *f[2];
@@ -59,7 +59,7 @@ static struct argp_option options[] = {
   {"log-level", 'L', "LOGLEVEL", 0, "Default LOGLEVEL"},
   {"log-file", 'l', "LOGFILE", 0, "Specify the file to redirect logs"},
   {"no-daemon", 'N', 0, 0, "Run glusterfs in foreground"},
-  {"version", 'V', 0, 0, "print32_t version information"},
+  {"version", 'V', 0, 0, "print version information"},
   { 0, }
 };
 static struct argp argp = { options, parse_opts, argp_doc, doc };
@@ -74,7 +74,7 @@ glusterfsd_print_version (void)
 }
 
 error_t
-parse_opts (int32_t key, char *arg, struct argp_state *_state)
+parse_opts (int key, char *arg, struct argp_state *_state)
 {
   switch (key){
   case 'f':
@@ -124,14 +124,14 @@ parse_opts (int32_t key, char *arg, struct argp_state *_state)
 }
   
 void 
-args_init (int32_t argc, char **argv)
+args_init (int argc, char **argv)
 {
   argp_parse (&argp, argc, argv, 0, 0, &f);
 }
 
 
 int
-main (int32_t argc, char *argv[])
+main (int argc, char *argv[])
 {
   /* command line options: 
      -o allow_other -o default_permissions -o direct_io

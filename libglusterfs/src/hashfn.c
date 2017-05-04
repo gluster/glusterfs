@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -29,9 +29,9 @@
   Written by Paul Hsieh <http://www.azillionmonkeys.com/qed/hash.html>
 */
 
-uint32_t SuperFastHash (const char * data, int32_t len) {
+uint32_t SuperFastHash (const char * data, int len) {
   uint32_t hash = len, tmp;
-  int32_t rem;
+  int rem;
 
   if (len <= 0 || data == NULL) return 0;
 

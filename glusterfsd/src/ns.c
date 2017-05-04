@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -32,7 +32,7 @@ static ns_inner_t *global_ns[NS_HASH];
 char *
 ns_lookup (const char *path)
 {
-  uint32_t hashval = SuperFastHash ((char *)path, strlen (path));
+  unsigned int hashval = SuperFastHash ((char *)path, strlen (path));
   ns_inner_t *trav;
 
   hashval = hashval % NS_HASH;
@@ -61,7 +61,7 @@ ns_update (const char *path, const char *ns)
   GF_ERROR_IF_NULL (path);
   GF_ERROR_IF_NULL (ns);
 
-  uint32_t hashval = SuperFastHash ((char *)path, strlen (path));
+  unsigned int hashval = SuperFastHash ((char *)path, strlen (path));
   ns_inner_t *trav, *prev;
 
   hashval = hashval % NS_HASH;

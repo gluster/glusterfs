@@ -9,7 +9,7 @@
 #include "logging.h"
 
 #define GF_LOCK(xl, path) do {                  \
-  int32_t acquired = -1;                            \
+  int acquired = -1;                            \
   while (acquired == -1) {                      \
     acquired = xl->mgmt_ops->lock (xl, path);   \
     if (acquired != 0)                          \
@@ -27,7 +27,7 @@ gcd_path (const char *path1, const char *path2)
 {
   char *s1 = (char *)path1;
   char *s2 = (char *)path2;
-  int32_t diff = -1;
+  int diff = -1;
 
   while (*s1 && *s2 && (*s1 == *s2)) {
     if (*s1 == '/')
@@ -56,13 +56,13 @@ unify_mkdir (struct xlator *xl,
 	     uid_t uid,
 	     gid_t gid)
 {
-  int32_t final_ret = 0;
-  int32_t final_errno = 0;
+  int final_ret = 0;
+  int final_errno = 0;
   struct xlator *child = xl->first_child;
 
   GF_LOCK (xl->first_child, path);
   while (child) {
-    int32_t ret = child->fops->mkdir (child, 
+    int ret = child->fops->mkdir (child, 
 				  path, 
 				  mode, 
 				  uid,
@@ -84,7 +84,7 @@ static int
 unify_unlink (struct xlator *xl,
 	      const char *path)
 {
-  int32_t ret = 0;
+  int ret = 0;
 
   GF_LOCK (xl->first_child, path);
   {
@@ -113,13 +113,13 @@ static int
 unify_rmdir (struct xlator *xl,
 	     const char *path)
 {
-  int32_t final_ret = 0;
-  int32_t final_errno = 0;
+  int final_ret = 0;
+  int final_errno = 0;
   struct xlator *child = xl->first_child;
 
   GF_LOCK (xl->first_child, path);
   while (child) {
-    int32_t ret = child->fops->rmdir (child, 
+    int ret = child->fops->rmdir (child, 
 				  path);
     if (ret != 0) {
       final_ret = ret;
@@ -136,11 +136,11 @@ unify_rmdir (struct xlator *xl,
 static int
 unify_open (struct xlator *xl,
 	    const char *path,
-	    int32_t flags,
+	    int flags,
 	    mode_t mode,
 	    struct file_context *ctx)
 {
-  int32_t ret = 0;
+  int ret = 0;
   struct xlator *child = NULL;
 
   GF_LOCK (xl->first_child, path);
@@ -200,7 +200,7 @@ unify_read (struct xlator *xl,
 	    off_t offset,
 	    struct file_context *ctx)
 {
-  int32_t ret = -1;
+  int ret = -1;
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
   struct xlator *child = (struct xlator *)tmp->context;
@@ -223,7 +223,7 @@ unify_write (struct xlator *xl,
 	     off_t offset,
 	     struct file_context *ctx)
 {
-  int32_t ret = -1;
+  int ret = -1;
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
   struct xlator *child = (struct xlator *)tmp->context;
@@ -243,10 +243,10 @@ unify_statfs (struct xlator *xl,
 	      const char *path,
 	      struct statvfs *stbuf)
 {
-  int32_t ret = 0;
+  int ret = 0;
   struct statvfs buf = {0,};
-  int32_t final_ret = 0;
-  int32_t final_errno = 0;
+  int final_ret = 0;
+  int final_errno = 0;
   struct xlator *trav_xl = xl->first_child;
 
   stbuf->f_bsize = 0;
@@ -293,7 +293,7 @@ unify_release (struct xlator *xl,
 	       const char *path,
 	       struct file_context *ctx)
 {
-  int32_t ret = -1;
+  int ret = -1;
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
   struct xlator *child = (struct xlator *)tmp->context;
@@ -311,10 +311,10 @@ unify_release (struct xlator *xl,
 static int
 unify_fsync (struct xlator *xl,
 	     const char *path,
-	     int32_t datasync,
+	     int datasync,
 	     struct file_context *ctx)
 {
-  int32_t ret = -1;
+  int ret = -1;
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
   struct xlator *child = (struct xlator *)tmp->context;
@@ -339,21 +339,21 @@ unify_readdir (struct xlator *xl,
   char *buffer = NULL;
   char *cpptr = NULL;
   struct cement_private *priv = xl->private;
-  int32_t child_count = priv->child_count;
+  int child_count = priv->child_count;
 
   GF_LOCK (xl->first_child, path);
   {
     struct bulk_stat *bulkstat = calloc (child_count,
 					 sizeof (*bulkstat));
     struct xlator *child = xl->first_child;
-    int32_t total_len = 0;
-    int32_t i = 0;
+    int total_len = 0;
+    int i = 0;
 
     /* fetch stats */
     child = xl->first_child;
     i = 0;
     while (child) {
-      int32_t ret;
+      int ret;
 
       ret = child->fops->bulk_getattr (child, path, &bulkstat[i]);
       child = child->next_sibling;
@@ -434,7 +434,7 @@ unify_ftruncate (struct xlator *xl,
 		 off_t offset,
 		 struct file_context *ctx)
 {
-  int32_t ret = -1;
+  int ret = -1;
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
   struct xlator *child = (struct xlator *)tmp->context;
@@ -453,7 +453,7 @@ unify_fgetattr (struct xlator *xl,
 		struct stat *stbuf,
 		struct file_context *ctx)
 {
-  int32_t ret = -1;
+  int ret = -1;
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
   struct xlator *child = (struct xlator *)tmp->context;
@@ -471,7 +471,7 @@ unify_getattr (struct xlator *xl,
 	       const char *path,
 	       struct stat *stbuf)
 {
-  int32_t ret = 0;
+  int ret = 0;
 
   {
     layout_t layout = {
@@ -501,7 +501,7 @@ unify_readlink (struct xlator *xl,
 		char *dest,
 		size_t size)
 {
-  int32_t ret = 0;
+  int ret = 0;
   struct xlator *child = xl->first_child;
 
   GF_LOCK (xl->first_child, path);
@@ -537,7 +537,7 @@ unify_mknod (struct xlator *xl,
 	     uid_t uid,
 	     gid_t gid)
 {
-  int32_t ret = 0;
+  int ret = 0;
   struct xlator *child = NULL;
 
   GF_LOCK (xl->first_child, path);
@@ -580,7 +580,7 @@ unify_symlink (struct xlator *xl,
 	       uid_t uid,
 	       gid_t gid)
 {
-  int32_t ret = 0;
+  int ret = 0;
   struct xlator *child = NULL;
 
   GF_LOCK (xl->first_child, newpath);
@@ -618,7 +618,7 @@ unify_rename (struct xlator *xl,
 	      uid_t uid,
 	      gid_t gid)
 {
-  int32_t ret = 0;
+  int ret = 0;
   struct xlator *child = NULL;
 
   char *lock_path = gcd_path (oldpath, newpath);
@@ -662,7 +662,7 @@ unify_link (struct xlator *xl,
 	    uid_t uid,
 	    gid_t gid)
 {
-  int32_t ret = 0;
+  int ret = 0;
   struct xlator *child = NULL;
 
   char *lock_path = gcd_path (oldpath, newpath);
@@ -704,7 +704,7 @@ unify_chmod (struct xlator *xl,
 	     const char *path,
 	     mode_t mode)
 {
-  int32_t ret = 0;
+  int ret = 0;
 
   GF_LOCK (xl->first_child, path);
   {
@@ -736,7 +736,7 @@ unify_chown (struct xlator *xl,
 	     uid_t uid,
 	     gid_t gid)
 {
-  int32_t ret = 0;
+  int ret = 0;
 
   GF_LOCK (xl->first_child, path);
   {
@@ -768,7 +768,7 @@ unify_truncate (struct xlator *xl,
 		const char *path,
 		off_t offset)
 {
-  int32_t ret = 0;
+  int ret = 0;
 
   GF_LOCK (xl->first_child, path);
   {
@@ -799,7 +799,7 @@ unify_utime (struct xlator *xl,
 	     const char *path,
 	     struct utimbuf *buf)
 {
-  int32_t ret = 0;
+  int ret = 0;
 
   GF_LOCK (xl->first_child, path);
   {
@@ -829,7 +829,7 @@ unify_flush (struct xlator *xl,
 	     const char *path,
 	     struct file_context *ctx)
 {
-  int32_t ret = -1;
+  int ret = -1;
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
   struct xlator *child = (struct xlator *)tmp->context;
@@ -847,9 +847,9 @@ unify_setxattr (struct xlator *xl,
 		const char *name,
 		const char *value,
 		size_t size,
-		int32_t flags)
+		int flags)
 {
-  int32_t ret = 0;
+  int ret = 0;
 
   GF_LOCK (xl->first_child, path);
   {
@@ -884,7 +884,7 @@ unify_getxattr (struct xlator *xl,
 		char *value,
 		size_t size)
 {
-  int32_t ret = 0;
+  int ret = 0;
 
   GF_LOCK (xl->first_child, path);
   {
@@ -917,7 +917,7 @@ unify_listxattr (struct xlator *xl,
 		  char *list,
 		  size_t size)
 {
-  int32_t ret = 0;
+  int ret = 0;
 
   GF_LOCK (xl->first_child, path);
   {
@@ -948,7 +948,7 @@ unify_removexattr (struct xlator *xl,
 		   const char *path,
 		   const char *name)
 {
-  int32_t ret = 0;
+  int ret = 0;
 
   GF_LOCK (xl->first_child, path);
   {
@@ -979,7 +979,7 @@ unify_opendir (struct xlator *xl,
 	       struct file_context *ctx)
 {
   struct stat buf;
-  int32_t ret = xl->fops->getattr (xl, path, &buf);
+  int ret = xl->fops->getattr (xl, path, &buf);
   
   if (ret == 0) {
     if (!S_ISDIR (buf.st_mode)) {
@@ -1002,7 +1002,7 @@ unify_releasedir (struct xlator *xl,
 static int
 unify_fsyncdir (struct xlator *xl,
 		const char *path,
-		int32_t datasync,
+		int datasync,
 		 struct file_context *ctx)
 {
   return 0;
@@ -1059,7 +1059,7 @@ init (struct xlator *xl)
   /* update _private structure */
   {
     struct xlator *trav_xl = xl->first_child;
-    int32_t count = 0;
+    int count = 0;
     /* Get the number of child count */
     while (trav_xl) {
       count++;
@@ -1095,7 +1095,7 @@ getlayout (struct xlator *xl,
 	   layout_t *layout)
 {
   struct xlator *child = xl->first_child;
-  int32_t ret;
+  int ret;
 
   layout->chunk_count = 0;
   while (child) {

@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -88,7 +88,7 @@ layout_to_str (layout_t *lay)
 {
   size_t tot_len = 0;
   chunk_t * chunks = &lay->chunks;
-  int32_t i;
+  int i;
   char *str = NULL;
   char *cur_ptr;
 
@@ -144,7 +144,7 @@ str_to_layout (char *str,
 {
   char *cur_ptr = str;
   chunk_t *chunk = &lay->chunks;
-  int32_t i;
+  int i;
 
   memset (lay, 0, sizeof (*lay));
   if (cur_ptr[4] != ':')

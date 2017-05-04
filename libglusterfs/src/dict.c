@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -48,14 +48,14 @@ get_new_dict ()
 
 void *
 memdup (void *old, 
-	int32_t len)
+	int len)
 {
   void *newdata = calloc (1, len);
   memcpy (newdata, old, len);
   return newdata;
 }
 
-int32_t
+int
 is_data_equal (data_t *one,
 	      data_t *two)
 {
@@ -99,13 +99,13 @@ data_copy (data_t *old)
   return newdata;
 }
 
-int32_t
+int
 dict_set (dict_t *this, 
 	  char *key, 
 	  data_t *value)
 {
   data_pair_t *pair = this->members;
-  int32_t count = this->count;
+  int count = this->count;
 
   while (count) {
     if (strcmp (pair->key, key) == 0) {
@@ -132,13 +132,13 @@ dict_set (dict_t *this,
 }
 
 
-int32_t
+int
 dict_case_set (dict_t *this, 
 	  char *key, 
 	  data_t *value)
 {
   data_pair_t *pair = this->members;
-  int32_t count = this->count;
+  int count = this->count;
 
   while (count) {
     if (strcasecmp (pair->key, key) == 0) {
@@ -275,11 +275,11 @@ dict_destroy (dict_t *this)
   .
 */
 
-int32_t
+int
 dict_serialized_length (dict_t *dict)
 {
-  int32_t len = 9; /* count + \n */
-  int32_t count = dict->count;
+  int len = 9; /* count + \n */
+  int count = dict->count;
   data_pair_t *pair = dict->members;
 
   while (count) {
@@ -291,14 +291,14 @@ dict_serialized_length (dict_t *dict)
   return len;
 }
 
-int32_t
+int
 dict_serialize (dict_t *dict, char *buf)
 {
   GF_ERROR_IF_NULL (dict);
   GF_ERROR_IF_NULL (buf);
 
   data_pair_t *pair = dict->members;
-  int32_t count = dict->count;
+  int count = dict->count;
 
   // FIXME: magic numbers
   uint64_t dcount = dict->count;
@@ -321,10 +321,10 @@ dict_serialize (dict_t *dict, char *buf)
 }
 
 dict_t *
-dict_unserialize (char *buf, int32_t size, dict_t **fill)
+dict_unserialize (char *buf, int size, dict_t **fill)
 {
-  int32_t ret = 0;
-  int32_t cnt = 0;
+  int ret = 0;
+  int cnt = 0;
 
   uint64_t count;
   ret = sscanf (buf, "%"SCNx64"\n", &count);
@@ -392,24 +392,24 @@ dict_unserialize (char *buf, int32_t size, dict_t **fill)
   Encapsulate a dict in a block and write it to the fd
 */
 
-int32_t
-dict_dump (int32_t fd, dict_t *dict, gf_block *blk, int32_t type)
+int
+dict_dump (int fd, dict_t *dict, gf_block *blk, int type)
 {
   GF_ERROR_IF_NULL (dict);
   GF_ERROR_IF_NULL (blk);
   
-  int32_t dict_len = dict_serialized_length (dict);
+  int dict_len = dict_serialized_length (dict);
   char *dict_buf = malloc (dict_len);
   dict_serialize (dict, dict_buf);
 
   blk->data = dict_buf;
   blk->type = type;
   blk->size = dict_len;
-  int32_t blk_len = gf_block_serialized_length (blk);
+  int blk_len = gf_block_serialized_length (blk);
   char *blk_buf = malloc (blk_len);
   gf_block_serialize (blk, blk_buf);
   
-  int32_t ret = full_write (fd, blk_buf, blk_len);
+  int ret = full_write (fd, blk_buf, blk_len);
   
   free (blk_buf);
   free (dict_buf);
@@ -420,8 +420,8 @@ dict_t *
 dict_load (FILE *fp)
 {
   dict_t *newdict = get_new_dict ();
-  int32_t ret = 0;
-  int32_t cnt = 0;
+  int ret = 0;
+  int cnt = 0;
 
   ret = fscanf (fp, "%x", &newdict->count);
   if (!ret)
@@ -434,7 +434,7 @@ dict_load (FILE *fp)
     data_pair_t *pair = get_new_data_pair ();
     data_t *value = get_new_data ();
     char *key = NULL;
-    int32_t key_len = 0;
+    int key_len = 0;
 
     ret = fscanf (fp, "\n%x:%x:", &key_len, &value->len);
     if (ret != 2)
@@ -469,7 +469,7 @@ dict_load (FILE *fp)
 }
 
 data_t *
-int_to_data (int64_t value)
+int_to_data (long long int value)
 {
   data_t *data = get_new_data ();
   /*  if (data == NULL) {
@@ -479,7 +479,7 @@ int_to_data (int64_t value)
   if (data->data == NULL)
     data->data = malloc (32);
   */
-  asprintf (&data->data, "%"PRIx64, value);
+  asprintf (&data->data, "%lld", value);
   data->len = strlen (data->data);
   return data;
 }
@@ -503,11 +503,11 @@ str_to_data (char *value)
 }
 
 data_t *
-bin_to_data (void *value, int32_t len)
+bin_to_data (void *value, int len)
 {
   data_t *data = get_new_data ();
   /*
-  static int32_t data_len = 64*1024;
+  static int data_len = 64*1024;
   if (data == NULL) {
     data = get_new_data ();
     data->data = NULL;
@@ -527,7 +527,7 @@ bin_to_data (void *value, int32_t len)
   return data;
 }
 
-int64_t
+long long int
 data_to_int (data_t *data)
 {
   if (!data)

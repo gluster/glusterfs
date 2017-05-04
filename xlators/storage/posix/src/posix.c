@@ -12,7 +12,7 @@
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -80,7 +80,7 @@ posix_mknod (struct xlator *xl,
     FUNCTION_CALLED;
   }
   WITH_DIR_PREPENDED (path, real_path, 
-    int32_t ret = mknod (real_path, mode, dev);
+    int ret = mknod (real_path, mode, dev);
 
     if (ret == 0) {
       chown (real_path, uid, gid);
@@ -104,7 +104,7 @@ posix_mkdir (struct xlator *xl,
     FUNCTION_CALLED;
   }
   WITH_DIR_PREPENDED (path, real_path, 
-    int32_t ret = mkdir (real_path, mode);
+    int ret = mkdir (real_path, mode);
 
     if (ret == 0) {
       chown (real_path, uid, gid);
@@ -166,7 +166,7 @@ posix_symlink (struct xlator *xl,
   }
 
   WITH_DIR_PREPENDED (newpath, real_newpath,
-    int32_t ret = symlink (oldpath, real_newpath);
+    int ret = symlink (oldpath, real_newpath);
 
     if (ret == 0) {
       lchown (real_newpath, uid, gid);
@@ -192,7 +192,7 @@ posix_rename (struct xlator *xl,
   }
   WITH_DIR_PREPENDED (oldpath, real_oldpath,
     WITH_DIR_PREPENDED (newpath, real_newpath,		      
-      int32_t ret = rename (real_oldpath, real_newpath);
+      int ret = rename (real_oldpath, real_newpath);
 			/*
       if (ret == 0) {
         chown (real_newpath, uid, gid);
@@ -220,7 +220,7 @@ posix_link (struct xlator *xl,
   }
   WITH_DIR_PREPENDED (oldpath, real_oldpath,
     WITH_DIR_PREPENDED (newpath, real_newpath, 		      
-      int32_t ret = link (real_oldpath, real_newpath);
+      int ret = link (real_oldpath, real_newpath);
 
       if (ret == 0) {
         chown (real_newpath, uid, gid);
@@ -307,28 +307,26 @@ posix_utime (struct xlator *xl,
 static int
 posix_open (struct xlator *xl,
 	    const char *path,
-	    int32_t flags,
+	    int flags,
 	    mode_t mode,
 	    struct file_context *ctx)
 {
   GF_ERROR_IF_NULL (xl);
   GF_ERROR_IF_NULL (path);
 
-  int32_t ret = -1;
+  int ret = -1;
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
   struct file_context *posix_ctx = calloc (1, sizeof (struct file_context));
   WITH_DIR_PREPENDED (path, real_path,
-    int64_t fd = open (real_path, flags, mode);
+    long fd = open (real_path, flags, mode);
 
     {
       posix_ctx->volume = xl;
       posix_ctx->next = ctx->next;
-      void **tmp;
-      tmp = &(posix_ctx->context);
-      *(long *)tmp = fd;
+      *(long *)&posix_ctx->context = fd;
     
       ctx->next = posix_ctx;
     }
@@ -357,7 +355,7 @@ posix_read (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int32_t len = 0;
+  int len = 0;
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
 
@@ -366,7 +364,7 @@ posix_read (struct xlator *xl,
   }
   priv->read_value += size;
   priv->interval_read += size;
-  int64_t fd = (long)tmp->context;
+  long fd = (long)tmp->context;
   {
     lseek (fd, offset, SEEK_SET);
     len = read(fd, buf, size);
@@ -389,14 +387,14 @@ posix_write (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int32_t len = 0;
+  int len = 0;
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
   
   if (tmp == NULL) {
     return -1;
   }
-  int64_t fd = (long)tmp->context;
+  long fd = (long)tmp->context;
   priv->write_value += size;
   priv->interval_write += size;
 
@@ -445,7 +443,7 @@ posix_flush (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   }
-  //int32_t fd = (int)tmp->context;
+  //int fd = (int)tmp->context;
   return 0;
 }
 
@@ -468,7 +466,7 @@ posix_release (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   }
-  int64_t fd = (long)tmp->context;
+  long fd = (long)tmp->context;
 
   RM_MY_CTX (ctx, tmp);
   free (tmp);
@@ -479,7 +477,7 @@ posix_release (struct xlator *xl,
 static int
 posix_fsync (struct xlator *xl,
 	     const char *path,
-	     int32_t datasync,
+	     int datasync,
 	     struct file_context *ctx)
 {
   GF_ERROR_IF_NULL (xl);
@@ -490,14 +488,14 @@ posix_fsync (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int32_t ret = 0;
+  int ret = 0;
   struct file_context *tmp;
   FILL_MY_CTX (tmp, ctx, xl);
   
   if (tmp == NULL) {
     return -1;
   }
-  int64_t fd = (long)tmp->context; 
+  long fd = (long)tmp->context; 
  
   if (datasync)
     ret = fdatasync (fd);
@@ -513,7 +511,7 @@ posix_setxattr (struct xlator *xl,
 		const char *name,
 		const char *value,
 		size_t size,
-		int32_t flags)
+		int flags)
 {
   GF_ERROR_IF_NULL (xl);
   GF_ERROR_IF_NULL (path);
@@ -599,7 +597,7 @@ posix_opendir (struct xlator *xl,
   if (priv->is_debug) {
     FUNCTION_CALLED;
   }
-  int32_t ret = 0;
+  int ret = 0;
   WITH_DIR_PREPENDED (path, real_path,
     DIR *dir = opendir (real_path);
   if (!dir)
@@ -617,10 +615,10 @@ posix_readdir (struct xlator *xl,
 {
   DIR *dir;
   struct dirent *dirent = NULL;
-  int32_t length = 0;
-  int32_t buf_len = 0;
+  int length = 0;
+  int buf_len = 0;
   char *buf = calloc (1, 4096); // #define the value
-  int32_t alloced = 4096;
+  int alloced = 4096;
   struct posix_private *priv = xl->private;
   if (priv->is_debug) {
     FUNCTION_CALLED;
@@ -680,7 +678,7 @@ posix_releasedir (struct xlator *xl,
 static int
 posix_fsyncdir (struct xlator *xl,
 		const char *path,
-		int32_t datasync,
+		int datasync,
 		struct file_context *ctx)
 {
   GF_ERROR_IF_NULL (xl);
@@ -732,7 +730,7 @@ posix_ftruncate (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   }
-  int64_t fd = (long)tmp->context;
+  long fd = (long)tmp->context;
 
   return ftruncate (fd, offset);
 }
@@ -758,7 +756,7 @@ posix_fgetattr (struct xlator *xl,
   if (tmp == NULL) {
     return -1;
   }
-  int64_t fd = (long)tmp->context;
+  long fd = (long)tmp->context;
 
   return fstat (fd, buf);
 }
@@ -777,7 +775,7 @@ posix_bulk_getattr (struct xlator *xl,
   char *curr_pathname = calloc (sizeof (char), PATH_MAX);
   char *dirents = NULL;
   char *dirent_orig = NULL;
-  int32_t index = 0;
+  int index = 0;
 
   char real_path[PATH_MAX]= {0,}; 
   strcpy (real_path, ((struct posix_private *)xl->private)->base_path); 
@@ -832,9 +830,9 @@ posix_stats (struct xlator *xl,
   struct statvfs buf;
   struct timeval tv;
   struct posix_private *priv = (struct posix_private *)xl->private;
-  int64_t avg_read = 0;
-  int64_t avg_write = 0;
-  int64_t _time_ms = 0; 
+  long avg_read = 0;
+  long avg_write = 0;
+  long _time_ms = 0; 
   
   WITH_DIR_PREPENDED ("/", real_path,
 		      statvfs (real_path, &buf); // Get the file system related information.

@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -21,8 +21,7 @@
 #define __HASHFN_H__
 
 #include <sys/types.h>
-#include <stdint.h>
 
-uint32_t SuperFastHash (const char * data, int32_t len);
+unsigned int SuperFastHash (const char * data, int len);
 
 #endif /* __HASHFN_H__ */

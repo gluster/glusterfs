@@ -12,7 +12,7 @@
   GNU General Public License for more details.
     
   You should have received a copy of the GNU General Public
-  License aint64_t with this program; if not, write to the Free
+  License along with this program; if not, write to the Free
   Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
   Boston, MA 02110-1301 USA
 */ 
@@ -33,7 +33,7 @@ default_setlayout (struct xlator *xl,
 int
 default_open (struct xlator *xl,
 	      const char *path,
-	      int32_t flags,
+	      int flags,
 	      mode_t mode,
 	      struct file_context *ctx);
 int
@@ -131,7 +131,7 @@ default_release (struct xlator *xl,
 int
 default_fsync (struct xlator *xl,
 	       const char *path,
-	       int32_t flags,
+	       int flags,
 	       struct file_context *ctx);
 int
 default_setxattr (struct xlator *xl,
@@ -139,7 +139,7 @@ default_setxattr (struct xlator *xl,
 		  const char *name,
 		  const char *value,
 		  size_t size,
-		  int32_t flags);
+		  int flags);
 int
 default_getxattr (struct xlator *xl,
 		  const char *path,
@@ -170,7 +170,7 @@ default_releasedir (struct xlator *this,
 int
 default_fsyncdir (struct xlator *this,
 		  const char *path,
-		  int32_t flags,
+		  int flags,
 		  struct file_context *ctx);
 int
 default_access (struct xlator *xl,
@@ -191,27 +191,27 @@ default_bulk_getattr (struct xlator *xl,
 		      const char *path,
 		      struct bulk_stat *bstbuf);
 
-int32_t 
+int 
 default_stats (struct xlator *this,
 	       struct xlator_stats *stats);
 
-int32_t 
+int 
 default_fsck (struct xlator *this);
 
-int32_t 
+int 
 default_lock (struct xlator *this, 
 	      const char *name);
 
-int32_t 
+int 
 default_unlock (struct xlator *this, 
 		const char *name);
 
-int32_t 
+int 
 default_nslookup (struct xlator *this, 
 		  const char *name,
 		  dict_t *ns);
 
-int32_t 
+int 
 default_nsupdate (struct xlator *this, 
 		  const char *name,
 		  dict_t *ns);
