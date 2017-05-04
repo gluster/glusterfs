@@ -49,6 +49,31 @@ rpc_clnt_prog_t svs_clnt_handshake_prog = {
         .procnames = clnt_handshake_procs,
 };
 
+static int
+svs_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
+                void *data)
+{
+        xlator_t         *this = NULL;
+        int              ret = 0;
+
+        this = mydata;
+
+        switch (event) {
+        case RPC_CLNT_CONNECT:
+                ret = svs_get_snapshot_list (this);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Error in refreshing the snaplist "
+                                "infrastructure");
+                        ret = -1;
+                }
+                break;
+        default:
+                break;
+        }
+        return ret;
+}
+
 int
 svs_mgmt_init (xlator_t *this)
 {
@@ -83,6 +108,13 @@ svs_mgmt_init (xlator_t *this)
         priv->rpc = rpc_clnt_new (options, this, this->name, 8);
         if (!priv->rpc) {
                 gf_log (this->name, GF_LOG_ERROR, "failed to initialize RPC");
+                goto out;
+        }
+
+        ret = rpc_clnt_register_notify (priv->rpc, svs_rpc_notify, this);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to register notify function");
                 goto out;
         }
 
