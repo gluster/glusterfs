@@ -1704,6 +1704,7 @@ glusterd_import_friend_snap (dict_t *peer_data, int32_t snap_count,
                         "object %s", peer_snap_name);
                 goto out;
         }
+        glusterd_fetchsnap_notify (this);
 
 out:
         if (ret)
