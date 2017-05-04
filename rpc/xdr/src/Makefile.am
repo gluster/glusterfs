@@ -28,3 +28,7 @@ nodist_libgfxdr_la_HEADERS = $(XDRHEADERS)
 libgfxdr_ladir = $(includedir)/glusterfs/rpc
 
 CLEANFILES = $(XDRSOURCES) $(XDRHEADERS)
+
+# Generate the .c and .h symlinks from the ../gen/*.x files
+$(XDRSOURCES) $(XDRHEADERS):
+	$(MAKE) -C ../gen $^
