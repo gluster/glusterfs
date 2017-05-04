@@ -447,9 +447,10 @@ validate_tier (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                         gf_string2bytesize_uint64 (current_wm_low,
                                                    &wm_low);
                 }
-                if (wm_low > wm_hi) {
+                if (wm_low >= wm_hi) {
                         snprintf (errstr, sizeof (errstr), "lower watermark"
-                                  " cannot exceed upper watermark.");
+                                  " cannot be equal or exceed upper "
+                                  "watermark.");
                         gf_msg (this->name, GF_LOG_ERROR, EINVAL,
                                 GD_MSG_INCOMPATIBLE_VALUE, "%s", errstr);
                         *op_errstr = gf_strdup (errstr);

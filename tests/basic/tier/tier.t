@@ -110,6 +110,7 @@ TEST $CLI volume set $V0 cluster.tier-max-files 1000
 TEST $CLI volume set $V0 cluster.tier-max-promote-file-size 1000
 TEST ! $CLI volume set $V0 cluster.tier-max-files -3
 TEST ! $CLI volume set $V0 cluster.watermark-low 90
+TEST ! $CLI volume set $V0 cluster.watermark-hi 75
 TEST ! $CLI volume set $V0 cluster.read-freq-threshold -12
 TEST ! $CLI volume set $V0 cluster.write-freq-threshold -12
 
