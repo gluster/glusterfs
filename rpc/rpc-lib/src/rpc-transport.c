@@ -656,11 +656,7 @@ rpc_transport_inet_options_build (dict_t **options, const char *hostname,
         dict_t          *dict = NULL;
         char            *host = NULL;
         int             ret = -1;
-#ifdef IPV6_DEFAULT
-        char            *addr_family = "inet6";
-#else
         char            *addr_family = "inet";
-#endif
 
         GF_ASSERT (options);
         GF_ASSERT (hostname);

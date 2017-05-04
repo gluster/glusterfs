@@ -309,13 +309,6 @@ else
         CFLAGS="${CFLAGS} -g"
 fi
 
-AC_ARG_WITH([fbextras], AC_HELP_STRING([--with-fbextras], [Enable Facebook specific extras.]))
-if test "x$with_fbextras" = "xyes"; then
-        BUILD_FBEXTRAS=yes
-else
-        BUILD_FBEXTRAS=no
-fi
-
 AC_ARG_ENABLE([privport_tracking],
               AC_HELP_STRING([--disable-privport_tracking],
                              [Disable internal tracking of privileged ports.]))
@@ -1070,13 +1063,6 @@ AC_SUBST(GF_DISTRIBUTION)
 GF_HOST_OS=""
 GF_LDFLAGS="-rdynamic"
 
-dnl include tirpc for FB builds
-if test "x$BUILD_FBEXTRAS" = "xyes"; then
-        TIRPC_CFLAGS="-I/usr/include/tirpc"
-        GF_LDFLAGS="-lfbtirpc $GF_LDFLAGS"
-        GF_CFLAGS="$GF_CFLAGS $TIRPC_CFLAGS -DIPV6_DEFAULT"
-fi
-
 dnl check for gcc -Werror=format-security
 saved_CFLAGS=$CFLAGS
 CFLAGS="-Wformat -Werror=format-security"
@@ -1555,7 +1541,6 @@ AC_SUBST([GF_CPPFLAGS])
 AM_CONDITIONAL([GF_LINUX_HOST_OS], test "${GF_HOST_OS}" = "GF_LINUX_HOST_OS")
 AM_CONDITIONAL([GF_DARWIN_HOST_OS], test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS")
 AM_CONDITIONAL([GF_BSD_HOST_OS], test "${GF_HOST_OS}" = "GF_BSD_HOST_OS")
-AM_CONDITIONAL([GF_FBEXTRAS], test "${BUILD_FBEXTRAS}" = "yes")
 
 AC_SUBST(GLUSTERD_WORKDIR)
 AM_CONDITIONAL([GF_INSTALL_GLUSTERD_WORKDIR], test ! -d ${GLUSTERD_WORKDIR} && test -d ${sysconfdir}/glusterd )
