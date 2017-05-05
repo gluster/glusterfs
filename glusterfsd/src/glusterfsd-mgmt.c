@@ -1761,8 +1761,7 @@ out:
 
 /* XXX: move these into @ctx */
 static char *oldvolfile = NULL;
-static int oldvollen = 0;
-
+static int   oldvollen;
 
 
 int
@@ -1772,7 +1771,7 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         gf_getspec_rsp           rsp   = {0,};
         call_frame_t            *frame = NULL;
         glusterfs_ctx_t         *ctx = NULL;
-        int                      ret   = 0;
+        int                      ret   = 0, locked = 0;
         ssize_t                  size = 0;
         FILE                    *tmpfp = NULL;
         char                    *volfilebuf = NULL;
@@ -1802,74 +1801,85 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         ret = 0;
         size = rsp.op_ret;
 
-        if (size == oldvollen && (memcmp (oldvolfile, rsp.spec, size) == 0)) {
-                gf_log (frame->this->name, GF_LOG_INFO,
-                        "No change in volfile, continuing");
-                goto out;
-        }
+        LOCK (&ctx->volfile_lock);
+        {
+                locked = 1;
 
-        tmpfp = tmpfile ();
-        if (!tmpfp) {
-                ret = -1;
-                goto out;
-        }
+                if (size == oldvollen && (memcmp (oldvolfile, rsp.spec, size) == 0)) {
+                        gf_log (frame->this->name, GF_LOG_INFO,
+                                "No change in volfile, continuing");
+                        goto out;
+                }
 
-        fwrite (rsp.spec, size, 1, tmpfp);
-        fflush (tmpfp);
-        if (ferror (tmpfp)) {
-                ret = -1;
-                goto out;
-        }
+                tmpfp = tmpfile ();
+                if (!tmpfp) {
+                        ret = -1;
+                        goto out;
+                }
 
-        /*  Check if only options have changed. No need to reload the
-        *  volfile if topology hasn't changed.
-        *  glusterfs_volfile_reconfigure returns 3 possible return states
-        *  return 0          =======> reconfiguration of options has succeeded
-        *  return 1          =======> the graph has to be reconstructed and all the xlators should be inited
-        *  return -1(or -ve) =======> Some Internal Error occurred during the operation
-        */
+                fwrite (rsp.spec, size, 1, tmpfp);
+                fflush (tmpfp);
+                if (ferror (tmpfp)) {
+                        ret = -1;
+                        goto out;
+                }
 
-        ret = glusterfs_volfile_reconfigure (oldvollen, tmpfp, ctx, oldvolfile);
-        if (ret == 0) {
-                gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
-                        "No need to re-load volfile, reconfigure done");
+                /*  Check if only options have changed. No need to reload the
+                 *  volfile if topology hasn't changed.
+                 *  glusterfs_volfile_reconfigure returns 3 possible return states
+                 *  return 0          =======> reconfiguration of options has succeeded
+                 *  return 1          =======> the graph has to be reconstructed and all the xlators should be inited
+                 *  return -1(or -ve) =======> Some Internal Error occurred during the operation
+                 */
+
+                ret = glusterfs_volfile_reconfigure (oldvollen, tmpfp, ctx, oldvolfile);
+                if (ret == 0) {
+                        gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
+                                "No need to re-load volfile, reconfigure done");
+                        if (oldvolfile)
+                                volfilebuf = GF_REALLOC (oldvolfile, size);
+                        else
+                                volfilebuf = GF_CALLOC (1, size, gf_common_mt_char);
+                        if (!volfilebuf) {
+                                ret = -1;
+                                goto out;
+                        }
+                        oldvolfile = volfilebuf;
+                        oldvollen = size;
+                        memcpy (oldvolfile, rsp.spec, size);
+                        goto out;
+                }
+
+                if (ret < 0) {
+                        gf_log ("glusterfsd-mgmt",
+                                GF_LOG_DEBUG, "Reconfigure failed !!");
+                        goto out;
+                }
+
+                ret = glusterfs_process_volfp (ctx, tmpfp);
+                /* tmpfp closed */
+                tmpfp = NULL;
+                if (ret)
+                        goto out;
+
                 if (oldvolfile)
                         volfilebuf = GF_REALLOC (oldvolfile, size);
                 else
                         volfilebuf = GF_CALLOC (1, size, gf_common_mt_char);
+
                 if (!volfilebuf) {
                         ret = -1;
                         goto out;
                 }
+
                 oldvolfile = volfilebuf;
                 oldvollen = size;
                 memcpy (oldvolfile, rsp.spec, size);
-                goto out;
         }
+        UNLOCK (&ctx->volfile_lock);
 
-        if (ret < 0) {
-                gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG, "Reconfigure failed !!");
-                goto out;
-        }
+        locked = 0;
 
-        ret = glusterfs_process_volfp (ctx, tmpfp);
-        /* tmpfp closed */
-        tmpfp = NULL;
-        if (ret)
-                goto out;
-
-        if (oldvolfile)
-                volfilebuf = GF_REALLOC (oldvolfile, size);
-        else
-                volfilebuf = GF_CALLOC (1, size, gf_common_mt_char);
-
-        if (!volfilebuf) {
-                ret = -1;
-                goto out;
-        }
-        oldvolfile = volfilebuf;
-        oldvollen = size;
-        memcpy (oldvolfile, rsp.spec, size);
         if (!is_mgmt_rpc_reconnect) {
                 need_emancipate = 1;
                 glusterfs_mgmt_pmap_signin (ctx);
@@ -1877,6 +1887,10 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
+
+        if (locked)
+                UNLOCK (&ctx->volfile_lock);
+
         STACK_DESTROY (frame->root);
 
         free (rsp.spec);
