@@ -85,9 +85,9 @@ struct iobuf_arena {
 
         struct list_head    all_list;
         size_t              page_size;  /* size of all iobufs in this arena */
-        size_t              arena_size; /* this is equal to
-                                           (iobuf_pool->arena_size / page_size)
-                                           * page_size */
+        size_t              arena_size;
+        /* this is equal to rounded_size * num_iobufs.
+           (rounded_size comes with gf_iobuf_get_pagesize().) */
         size_t              page_count;
 
         struct iobuf_pool  *iobuf_pool;
