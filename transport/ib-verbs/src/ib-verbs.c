@@ -1540,6 +1540,7 @@ ib_verbs_init (transport_t *this)
         return 0;
 }
 
+
 static int32_t
 ib_verbs_disconnect (transport_t *this)
 {

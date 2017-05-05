@@ -17,6 +17,7 @@
    <http://www.gnu.org/licenses/>.
 */
 
+
 %x STRING
 %option prefix="yy"
 %option yylineno

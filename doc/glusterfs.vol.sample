@@ -35,18 +35,12 @@ volume client
   option remote-subvolume brick        # name of the remote volume
 end-volume
 
-### Add io-threads feature
-#volume iot
-#  type performance/io-threads
-#  subvolumes client
-#end-volume
-
 ### Add readahead feature
 #volume readahead
 #  type performance/read-ahead
 #  option page-size 1MB     # unit in bytes
 #  option page-count 2       # cache per file  = (page-count x page-size)
-#  subvolumes iot
+#  subvolumes client
 #end-volume
 
 ### Add IO-Cache feature

@@ -1017,7 +1017,6 @@ main (int argc, char *argv[])
 #endif
 	signal (SIGUSR1, (sighandler_t) malloc_stats);
 #endif
-
 	signal (SIGSEGV, gf_print_trace);
 	signal (SIGABRT, gf_print_trace);
 	signal (SIGPIPE, SIG_IGN);

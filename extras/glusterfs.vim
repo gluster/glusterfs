@@ -1,5 +1,5 @@
 " glusterfs.vim: GNU Vim Syntax file for GlusterFS .vol specification
-" Copyright (C) 2007, 2008 Z RESEARCH, Inc. <http://www.zresearch.com>
+" Copyright (C) 2007 Z RESEARCH, Inc. <http://www.zresearch.com>
 " This file is part of GlusterFS.
 "
 " GlusterFS is free software; you can redistribute it and/or modify

@@ -26,12 +26,13 @@
 
 #include <stdint.h>
 #include <sys/time.h>
+#include <sys/resource.h>
 #include <errno.h>
 #include <ftw.h>
+
 #ifndef GF_BSD_HOST_OS
 #include <alloca.h>
-#endif
-#include <sys/resource.h>
+#endif /* GF_BSD_HOST_OS */
 
 #include "glusterfs.h"
 #include "dict.h"
