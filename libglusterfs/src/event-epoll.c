@@ -569,38 +569,11 @@ pre_unlock:
         if (!handler)
 		goto out;
 
-	ret = handler (fd, idx, data,
+	ret = handler (fd, idx, gen, data,
 		       (event->events & (EPOLLIN|EPOLLPRI)),
 		       (event->events & (EPOLLOUT)),
 		       (event->events & (EPOLLERR|EPOLLHUP)));
 
-	LOCK (&slot->lock);
-	{
-		slot->in_handler--;
-
-		if (gen != slot->gen) {
-			/* event_unregister() happened while we were
-			   in handler()
-			*/
-			gf_msg_debug ("epoll", 0, "generation bumped on idx=%d"
-                                      " from gen=%d to slot->gen=%d, fd=%d, "
-				      "slot->fd=%d", idx, gen, slot->gen, fd,
-                                      slot->fd);
-			goto post_unlock;
-		}
-
-		/* This call also picks up the changes made by another
-		   thread calling event_select_on_epoll() while this
-		   thread was busy in handler()
-		*/
-                if (slot->in_handler == 0) {
-                        event->events = slot->events;
-                        ret = epoll_ctl (event_pool->fd, EPOLL_CTL_MOD,
-                                         fd, event);
-                }
-	}
-post_unlock:
-	UNLOCK (&slot->lock);
 out:
 	event_slot_unref (event_pool, slot, idx);
 
@@ -891,6 +864,55 @@ event_pool_destroy_epoll (struct event_pool *event_pool)
         return ret;
 }
 
+static int
+event_handled_epoll (struct event_pool *event_pool, int fd, int idx, int gen)
+{
+        struct event_slot_epoll *slot  = NULL;
+        struct epoll_event epoll_event = {0, };
+        struct event_data *ev_data     = (void *)&epoll_event.data;
+        int                ret         = 0;
+
+	slot = event_slot_get (event_pool, idx);
+
+        assert (slot->fd == fd);
+
+	LOCK (&slot->lock);
+	{
+		slot->in_handler--;
+
+		if (gen != slot->gen) {
+			/* event_unregister() happened while we were
+			   in handler()
+			*/
+			gf_msg_debug ("epoll", 0, "generation bumped on idx=%d"
+                                      " from gen=%d to slot->gen=%d, fd=%d, "
+				      "slot->fd=%d", idx, gen, slot->gen, fd,
+                                      slot->fd);
+			goto post_unlock;
+		}
+
+		/* This call also picks up the changes made by another
+		   thread calling event_select_on_epoll() while this
+		   thread was busy in handler()
+		*/
+                if (slot->in_handler == 0) {
+                        epoll_event.events = slot->events;
+                        ev_data->idx = idx;
+                        ev_data->gen = gen;
+
+                        ret = epoll_ctl (event_pool->fd, EPOLL_CTL_MOD,
+                                         fd, &epoll_event);
+                }
+	}
+post_unlock:
+	UNLOCK (&slot->lock);
+
+        event_slot_unref (event_pool, slot, idx);
+
+        return ret;
+}
+
+
 struct event_ops event_ops_epoll = {
         .new                       = event_pool_new_epoll,
         .event_register            = event_register_epoll,
@@ -899,7 +921,8 @@ struct event_ops event_ops_epoll = {
         .event_unregister_close    = event_unregister_close_epoll,
         .event_dispatch            = event_dispatch_epoll,
         .event_reconfigure_threads = event_reconfigure_threads_epoll,
-        .event_pool_destroy        = event_pool_destroy_epoll
+        .event_pool_destroy        = event_pool_destroy_epoll,
+        .event_handled             = event_handled_epoll,
 };
 
 #endif

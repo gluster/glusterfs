@@ -23,7 +23,7 @@ struct event_data {
 } __attribute__ ((__packed__, __may_alias__));
 
 
-typedef int (*event_handler_t) (int fd, int idx, void *data,
+typedef int (*event_handler_t) (int fd, int idx, int gen, void *data,
 				int poll_in, int poll_out, int poll_err);
 
 #define EVENT_EPOLL_TABLES 1024
@@ -73,6 +73,11 @@ struct event_pool {
 
 };
 
+struct event_destroy_data {
+        int                readfd;
+        struct event_pool *pool;
+};
+
 struct event_ops {
         struct event_pool * (*new) (int count, int eventthreadcount);
 
@@ -93,6 +98,8 @@ struct event_ops {
         int (*event_reconfigure_threads) (struct event_pool *event_pool,
                                           int newcount);
         int (*event_pool_destroy) (struct event_pool *event_pool);
+        int (*event_handled) (struct event_pool *event_pool, int fd, int idx,
+                              int gen);
 };
 
 struct event_pool *event_pool_new (int count, int eventthreadcount);
@@ -107,4 +114,6 @@ int event_dispatch (struct event_pool *event_pool);
 int event_reconfigure_threads (struct event_pool *event_pool, int value);
 int event_pool_destroy (struct event_pool *event_pool);
 int event_dispatch_destroy (struct event_pool *event_pool);
+int event_handled (struct event_pool *event_pool, int fd, int idx, int gen);
+
 #endif /* _EVENT_H_ */

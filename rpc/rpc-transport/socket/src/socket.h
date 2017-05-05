@@ -203,6 +203,7 @@ typedef enum {
 typedef struct {
         int32_t                sock;
         int32_t                idx;
+        int32_t                gen;
         /* -1 = not connected. 0 = in progress. 1 = connected */
         char                   connected;
         /* 1 = connect failed for reasons other than EINPROGRESS/ENOENT
@@ -254,6 +255,11 @@ typedef struct {
         int                    log_ctr;
         GF_REF_DECL;           /* refcount to keep track of socket_poller
                                   threads */
+        struct {
+                pthread_mutex_t  lock;
+                pthread_cond_t   cond;
+                uint64_t         in_progress;
+        } notify;
 } socket_private_t;
 
 

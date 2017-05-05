@@ -40,7 +40,7 @@ event_register_poll (struct event_pool *event_pool, int fd,
 
 
 static int
-__flush_fd (int fd, int idx, void *data,
+__flush_fd (int fd, int idx, int gen, void *data,
             int poll_in, int poll_out, int poll_err)
 {
         char buf[64];
@@ -386,7 +386,7 @@ unlock:
         pthread_mutex_unlock (&event_pool->mutex);
 
         if (handler)
-                ret = handler (ufds[i].fd, idx, data,
+                ret = handler (ufds[i].fd, idx, 0, data,
                                (ufds[i].revents & (POLLIN|POLLPRI)),
                                (ufds[i].revents & (POLLOUT)),
                                (ufds[i].revents & (POLLERR|POLLHUP|POLLNVAL)));
