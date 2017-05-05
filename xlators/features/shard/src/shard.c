@@ -697,11 +697,6 @@ shard_update_file_size_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->op_errno = ENOMEM;
                 goto err;
         }
-
-        if (local->fop == GF_FOP_FTRUNCATE || local->fop == GF_FOP_TRUNCATE)
-                shard_inode_ctx_set (inode, this, &local->postbuf, 0,
-                                     SHARD_INODE_WRITE_MASK);
-
 err:
         local->post_update_size_handler (frame, this);
         return 0;
@@ -2010,6 +2005,7 @@ int
 shard_post_lookup_truncate_handler (call_frame_t *frame, xlator_t *this)
 {
         shard_local_t  *local            = NULL;
+        struct iatt     tmp_stbuf        = {0,};
 
         local = frame->local;
 
@@ -2024,7 +2020,7 @@ shard_post_lookup_truncate_handler (call_frame_t *frame, xlator_t *this)
                 return 0;
         }
 
-        local->postbuf = local->prebuf;
+        local->postbuf = tmp_stbuf = local->prebuf;
 
         if (local->prebuf.ia_size == local->offset) {
                 /* If the file size is same as requested size, unwind the call
@@ -2046,6 +2042,9 @@ shard_post_lookup_truncate_handler (call_frame_t *frame, xlator_t *this)
                 local->delta_size = 0;
                 local->delta_blocks = 0;
                 local->postbuf.ia_size = local->offset;
+                tmp_stbuf.ia_size = local->offset;
+                shard_inode_ctx_set (local->loc.inode, this, &tmp_stbuf, 0,
+                                     SHARD_INODE_WRITE_MASK);
                 shard_update_file_size (frame, this, NULL, &local->loc,
                                        shard_post_update_size_truncate_handler);
         } else {
@@ -2058,6 +2057,9 @@ shard_post_lookup_truncate_handler (call_frame_t *frame, xlator_t *this)
                 local->hole_size = 0;
                 local->delta_size = (local->offset - local->prebuf.ia_size);
                 local->delta_blocks = 0;
+                tmp_stbuf.ia_size = local->offset;
+                shard_inode_ctx_set (local->loc.inode, this, &tmp_stbuf, 0,
+                                     SHARD_INODE_WRITE_MASK);
                 shard_truncate_begin (frame, this);
         }
         return 0;
