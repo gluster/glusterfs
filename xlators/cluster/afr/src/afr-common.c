@@ -4540,6 +4540,14 @@ afr_priv_dump (xlator_t *this)
         gf_proc_dump_write("background-self-heal-count", "%d",
                            priv->background_self_heal_count);
         gf_proc_dump_write("healers", "%d", priv->healers);
+        if (priv->quorum_count == AFR_QUORUM_AUTO) {
+                gf_proc_dump_write ("quorum-type", "auto");
+        } else if (priv->quorum_count == 0) {
+                gf_proc_dump_write ("quorum-type", "none");
+        } else {
+                gf_proc_dump_write("quorum-type", "fixed");
+                gf_proc_dump_write("quorum-count", "%d", priv->quorum_count);
+        }
 
         return 0;
 }
