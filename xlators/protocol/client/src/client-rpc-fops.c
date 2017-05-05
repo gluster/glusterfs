@@ -154,8 +154,6 @@ client3_3_symlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = client_post_symlink (this, &rsp, &stbuf, &preparent,
                              &postparent, &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         if (rsp.op_ret == -1) {
@@ -223,8 +221,6 @@ client3_3_mknod_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = client_post_mknod (this, &rsp, &stbuf, &preparent, &postparent,
                            &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         if (rsp.op_ret == -1 &&
@@ -287,8 +283,6 @@ client3_3_mkdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = client_post_mkdir (this, &rsp, &stbuf, &preparent, &postparent,
                            &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         if (rsp.op_ret == -1 &&
@@ -431,8 +425,6 @@ client3_3_open_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_open (this, &rsp, &xdata);
-        if (ret < 0)
-                goto out;
 out:
         if (rsp.op_ret == -1) {
                 gf_msg (this->name, fop_log_level (GF_FOP_OPEN,
@@ -485,8 +477,6 @@ client3_3_stat_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_stat (this, &rsp, &iatt, &xdata);
-        if (ret < 0)
-                goto out;
 out:
         if (rsp.op_ret == -1) {
                 /* stale filehandles are possible during normal operations, no
@@ -546,8 +536,6 @@ client3_3_readlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_readlink (this, &rsp, &iatt, &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         if (rsp.op_ret == -1) {
@@ -612,8 +600,6 @@ client3_3_unlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = client_post_unlink (this, &rsp, &preparent, &postparent,
                                   &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         if (rsp.op_ret == -1) {
@@ -674,8 +660,6 @@ client3_3_rmdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = client_post_rmdir (this, &rsp, &preparent, &postparent,
                                  &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         if (rsp.op_ret == -1) {
@@ -732,8 +716,6 @@ client3_3_truncate_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = client_post_truncate (this, &rsp, &prestat, &poststat,
                                     &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         if (rsp.op_ret == -1) {
@@ -786,8 +768,6 @@ client3_3_statfs_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_statfs (this, &rsp, &statfs, &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         if (rsp.op_ret == -1) {
@@ -1214,8 +1194,6 @@ client3_3_removexattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_removexattr (this, &rsp, &xdata);
-        if (ret < 0)
-                goto out;
 out:
         if (rsp.op_ret == -1) {
                 if ((ENODATA == rsp.op_errno) || (ENOATTR == rsp.op_errno))
@@ -1271,8 +1249,6 @@ client3_3_fremovexattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_fremovexattr (this, &rsp, &xdata);
-        if (ret < 0)
-                goto out;
 out:
         if (rsp.op_ret == -1) {
                 gf_msg (this->name, GF_LOG_WARNING,
@@ -1321,8 +1297,6 @@ client3_3_fsyncdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_fsyncdir (this, &rsp, &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         if (rsp.op_ret == -1) {
@@ -1372,8 +1346,6 @@ client3_3_access_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_access (this, &rsp, &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         if (rsp.op_ret == -1) {
@@ -1427,8 +1399,6 @@ client3_3_ftruncate_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = client_post_ftruncate (this, &rsp, &prestat, &poststat,
                                      &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         if (rsp.op_ret == -1) {
@@ -1480,8 +1450,6 @@ client3_3_fstat_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_fstat (this, &rsp, &stat, &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         if (rsp.op_ret == -1) {
@@ -1532,8 +1500,6 @@ client3_3_inodelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_inodelk (this, &rsp, &xdata);
-        if (ret < 0)
-                goto out;
 out:
         if (rsp.op_ret == -1) {
                 gf_msg (this->name, fop_log_level (GF_FOP_INODELK,
@@ -1583,8 +1549,6 @@ client3_3_finodelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_finodelk (this, &rsp, &xdata);
-        if (ret < 0)
-                goto out;
 out:
         if (rsp.op_ret == -1) {
                 gf_msg (this->name, fop_log_level (GF_FOP_FINODELK,
@@ -1636,8 +1600,6 @@ client3_3_entrylk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_entrylk (this, &rsp, &xdata);
-        if (ret < 0)
-                goto out;
 out:
         if (rsp.op_ret == -1) {
                 gf_msg (this->name, fop_log_level (GF_FOP_ENTRYLK,
@@ -1687,8 +1649,6 @@ client3_3_fentrylk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_fentrylk (this, &rsp, &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         if ((rsp.op_ret == -1) &&
@@ -1870,8 +1830,6 @@ client3_3_fsetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_setxattr (this, &rsp, &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         op_errno = gf_error_to_errno (rsp.op_errno);
@@ -1928,8 +1886,6 @@ client3_3_fsetattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_fsetattr (this, &rsp, &prestat, &poststat, &xdata);
-        if (ret < 0)
-                goto out;
 out:
         if (rsp.op_ret == -1) {
                 gf_msg (this->name, GF_LOG_WARNING,
@@ -2038,8 +1994,6 @@ client3_3_discard_cbk(struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_discard (this, &rsp, &prestat, &poststat, &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         if (rsp.op_ret == -1) {
@@ -2091,8 +2045,6 @@ client3_3_zerofill_cbk(struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_zerofill (this, &rsp, &prestat, &poststat, &xdata);
-        if (ret < 0)
-                goto out;
 out:
         if (rsp.op_ret == -1) {
                 gf_msg (this->name, GF_LOG_WARNING,
@@ -2141,8 +2093,6 @@ client3_3_ipc_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_ipc (this, &rsp, &xdata);
-        if (ret < 0)
-                goto out;
 out:
         if (rsp.op_ret == -1) {
                 gf_msg (this->name, GF_LOG_WARNING,
@@ -2192,8 +2142,6 @@ client3_3_seek_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_seek (this, &rsp, &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         if (rsp.op_ret == -1) {
@@ -2247,8 +2195,6 @@ client3_3_setattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_setattr (this, &rsp, &prestat, &poststat, &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         if (rsp.op_ret == -1) {
@@ -2375,8 +2321,6 @@ client3_3_rchecksum_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_rchecksum (this, &rsp, &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         if (rsp.op_ret == -1) {
@@ -2438,8 +2382,6 @@ client3_3_lease_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_lease (this, &rsp, &lease, &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         if (rsp.op_ret == -1) {
@@ -2567,8 +2509,6 @@ client3_3_readdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_readdir (this, &rsp, &entries, &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         if (rsp.op_ret == -1) {
@@ -2630,8 +2570,6 @@ client3_3_readdirp_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_readdirp (this, &rsp, local->fd, &entries, &xdata);
-        if (ret < 0)
-                goto out;
 out:
         if (rsp.op_ret == -1) {
                 gf_msg (this->name, GF_LOG_WARNING,
@@ -2692,8 +2630,6 @@ client3_3_rename_cbk (struct rpc_req *req, struct iovec *iov, int count,
         ret = client_post_rename (this, &rsp, &stbuf, &preoldparent,
                             &postoldparent, &prenewparent,
                             &postnewparent, &xdata);
-        if (ret < 0)
-                goto out;
 
 out:
         if (rsp.op_ret == -1) {
@@ -2755,8 +2691,6 @@ client3_3_link_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = client_post_link (this, &rsp, &stbuf, &preparent,
                                 &postparent, &xdata);
-        if (ret < 0)
-                goto out;
 out:
         if (rsp.op_ret == -1) {
                 if (GF_IGNORE_IF_GSYNCD_SAFE_ERROR(frame, rsp.op_errno)) {
@@ -2825,8 +2759,6 @@ client3_3_opendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_opendir (this, &rsp, &xdata);
-        if (ret < 0)
-                goto out;
 out:
         if (rsp.op_ret == -1) {
                 gf_msg (this->name, fop_log_level (GF_FOP_OPENDIR,
@@ -2982,8 +2914,6 @@ client3_3_readv_cbk (struct rpc_req *req, struct iovec *iov, int count,
         ret = client_post_readv (this, &rsp, &iobref, req->rsp_iobref,
                                  &stat, vector, &req->rsp[1],
                                  &rspcount, &xdata);
-        if (ret < 0)
-                goto out;
 out:
         if (rsp.op_ret == -1) {
                 gf_msg (this->name, GF_LOG_WARNING,
