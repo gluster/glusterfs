@@ -108,10 +108,16 @@ cli_rl_process_line (char *line)
 
 
 int
-cli_rl_stdin (int fd, int idx, void *data,
+cli_rl_stdin (int fd, int idx, int gen, void *data,
               int poll_out, int poll_in, int poll_err)
 {
+        struct cli_state *state = NULL;
+
+        state = data;
+
         rl_callback_read_char ();
+
+        event_handled (state->ctx->event_pool, fd, idx, gen);
 
         return 0;
 }
