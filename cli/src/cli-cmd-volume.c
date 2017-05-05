@@ -407,7 +407,7 @@ gf_answer_t
 cli_cmd_get_confirmation (struct cli_state *state, const char *question)
 {
         char                    answer[5] = {'\0', };
-        char                    flush = '\0';
+        int                     flush = '\0';
         size_t			len;
 
         if (state->mode & GLUSTER_MODE_SCRIPT)
