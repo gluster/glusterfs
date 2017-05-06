@@ -4202,7 +4202,7 @@ gf_defrag_start_crawl (void *data)
                 }
 
                 ret = gf_defrag_total_file_cnt (this, &loc);
-                if (!ret) {
+                if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0, 0, "Failed to get "
                                 "the total number of files. Unable to estimate "
                                 "time to complete rebalance.");
