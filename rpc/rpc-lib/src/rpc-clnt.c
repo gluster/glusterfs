@@ -24,21 +24,6 @@
 void
 rpc_clnt_reply_deinit (struct rpc_req *req, struct mem_pool *pool);
 
-uint64_t
-rpc_clnt_new_callid (struct rpc_clnt *clnt)
-{
-        uint64_t callid = 0;
-
-        pthread_mutex_lock (&clnt->lock);
-        {
-                callid = ++clnt->xid;
-        }
-        pthread_mutex_unlock (&clnt->lock);
-
-        return callid;
-}
-
-
 struct saved_frame *
 __saved_frames_get_timedout (struct saved_frames *frames, uint32_t timeout,
                              struct timeval *current)
@@ -1144,6 +1129,7 @@ rpc_clnt_new (dict_t *options, xlator_t *owner, char *name,
         pthread_mutex_init (&rpc->lock, NULL);
         rpc->ctx = ctx;
         rpc->owner = owner;
+        GF_ATOMIC_INIT (rpc->xid, 1);
 
         if (!reqpool_size)
                 reqpool_size = RPC_CLNT_DEFAULT_REQUEST_COUNT;
@@ -1636,7 +1622,7 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
                 new_iobref = 1;
         }
 
-        callid = rpc_clnt_new_callid (rpc);
+        callid = GF_ATOMIC_INC (rpc->xid);
 
         rpcreq->prog = prog;
         rpcreq->procnum = procnum;

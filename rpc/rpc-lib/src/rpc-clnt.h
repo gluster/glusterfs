@@ -176,7 +176,7 @@ typedef struct rpc_clnt {
         rpc_clnt_notify_t      notifyfn;
         rpc_clnt_connection_t  conn;
         void                  *mydata;
-        uint64_t               xid;
+        gf_atomic_t            xid;
 
         /* list of cb programs registered with rpc-clnt */
         struct list_head       programs;
