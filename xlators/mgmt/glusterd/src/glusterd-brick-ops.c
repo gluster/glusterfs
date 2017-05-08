@@ -1960,6 +1960,7 @@ glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
         int                     ret         = -1;
         char                    pidfile[PATH_MAX+1] = {0,};
         glusterd_conf_t        *priv        = THIS->private;
+        int                     pid         = -1;
 
         /* Check whether all the nodes of the bricks to be removed are
         * up, if not fail the operation */
@@ -2048,12 +2049,14 @@ check:
                         }
                         GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo,
                                                     brickinfo, priv);
-                        if (!gf_is_service_running (pidfile, NULL)) {
+                        if (!gf_is_service_running (pidfile, &pid)) {
                                 snprintf (msg, sizeof (msg), "Found dead "
                                           "brick %s", brick);
                                 *errstr = gf_strdup (msg);
                                 ret = -1;
                                 goto out;
+                        } else {
+                                ret = 0;
                         }
                         continue;
                 }

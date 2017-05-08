@@ -4588,6 +4588,10 @@ glusterd_restore ()
 
         this = THIS;
 
+	ret = glusterd_options_init (this);
+        if (ret < 0)
+                goto out;
+
         ret = glusterd_store_retrieve_volumes (this, NULL);
         if (ret)
                 goto out;
