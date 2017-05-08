@@ -21,10 +21,38 @@ function brick_count()
     $CLI volume info $vol | egrep "^Brick[0-9]+: " | wc -l;
 }
 
+function check_brick_status() {
+       cmd="gluster --xml volume status"
+       local daemon=$1
+
+       if [[ -z $daemon ]]
+        then
+                echo `$cmd | grep '<status>1' | wc -l`
+       else
+                echo `$cmd | grep -A 5 ${daemon} | grep '<status>1' | wc -l`
+       fi
+}
+
 function online_brick_count ()
 {
-    find $GLUSTERD_WORKDIR/vols/ -name '*.pid' | wc -l
+       local v1=0
+       local v2=0
+       local v3=0
+       local v4=0
+       local v5=0
+       local tot=0
+
+       #First count total Number of bricks and then subtract daemon status
+       v1=`check_brick_status`
+       v2=`check_brick_status "Self-heal"`
+       v3=`check_brick_status "Quota"`
+       v4=`check_brick_status "Snapshot"`
+       v5=`check_brick_status "Tier"`
+       tot=$((v1-v2-v3-v4-v5))
+       echo $tot
+
 }
+
 
 function brick_up_status {
         local vol=$1

@@ -51,6 +51,7 @@
 #include "hashfn.h"
 #include "glusterfs-acl.h"
 #include "events.h"
+#include <sys/types.h>
 
 char *marker_xattrs[] = {"trusted.glusterfs.quota.*",
                          "trusted.glusterfs.*.xtime",
@@ -1829,6 +1830,9 @@ posix_health_check_thread_proc (void *data)
         struct posix_private *priv               = NULL;
         uint32_t              interval           = 0;
         int                   ret                = -1;
+        xlator_t                *top             = NULL;
+        xlator_list_t           **trav_p         = NULL;
+        int                     count            = 0;
 
         this = data;
         priv = this->private;
@@ -1840,7 +1844,6 @@ posix_health_check_thread_proc (void *data)
 
         gf_msg_debug (this->name, 0, "health-check thread started, "
                 "interval = %d seconds", interval);
-
         while (1) {
                 /* aborting sleep() is a request to exit this thread, sleep()
                  * will normally not return when cancelled */
@@ -1877,18 +1880,33 @@ abort:
 
         xlator_notify (this->parents->xlator, GF_EVENT_CHILD_DOWN, this);
 
-        ret = sleep (30);
-        if (ret == 0) {
-                gf_msg (this->name, GF_LOG_EMERG, 0, P_MSG_HEALTHCHECK_FAILED,
-                        "still alive! -> SIGTERM");
-                kill (getpid(), SIGTERM);
+        /* Below code is use to ensure if brick multiplexing is enabled if
+           count is more than 1 it means brick mux has enabled
+        */
+        if (this->ctx->active) {
+                top = this->ctx->active->first;
+                for (trav_p = &top->children; *trav_p;
+                                               trav_p = &(*trav_p)->next) {
+                        count++;
+                }
         }
 
-        ret = sleep (30);
-        if (ret == 0) {
+        if (count == 1) {
                 gf_msg (this->name, GF_LOG_EMERG, 0, P_MSG_HEALTHCHECK_FAILED,
-                        "still alive! -> SIGKILL");
-                kill (getpid(), SIGKILL);
+                        "still alive! -> SIGTERM");
+                ret = sleep (30);
+
+                /* Need to kill the process only while brick mux has not enabled
+                */
+                if (ret == 0)
+                        kill (getpid(), SIGTERM);
+
+                ret = sleep (30);
+                gf_msg (this->name, GF_LOG_EMERG, 0, P_MSG_HEALTHCHECK_FAILED,
+                        "still alive! -> SIGTERM");
+                if (ret == 0)
+                        kill (getpid(), SIGTERM);
+
         }
 
         return NULL;

@@ -1854,9 +1854,6 @@ init (xlator_t *this)
         if (glusterd_get_peers_count () < 2)
                 glusterd_launch_synctask (glusterd_spawn_daemons, NULL);
 
-        ret = glusterd_options_init (this);
-        if (ret < 0)
-                goto out;
 
         ret = glusterd_handle_upgrade_downgrade (this->options, conf, upgrade,
                                                  downgrade);

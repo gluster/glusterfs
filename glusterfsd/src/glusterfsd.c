@@ -2034,7 +2034,6 @@ glusterfs_pidfile_cleanup (glusterfs_ctx_t *ctx)
                       cmd_args->pid_file);
 
         if (ctx->cmd_args.pid_file) {
-                sys_unlink (ctx->cmd_args.pid_file);
                 ctx->cmd_args.pid_file = NULL;
         }
 
