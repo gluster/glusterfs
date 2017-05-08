@@ -3313,47 +3313,65 @@ afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                struct iatt *postbuf, dict_t *xdata)
 {
         afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+        int i = 0;
         int call_count = -1;
         int child_index = (long) cookie;
 	int read_subvol = 0;
 	call_stub_t *stub = NULL;
 
         local = frame->local;
-
-	read_subvol = afr_data_subvol_get (local->inode, this, NULL, NULL,
-                                           NULL, NULL);
+        priv = this->private;
 
         LOCK (&frame->lock);
         {
+                local->replies[child_index].valid = 1;
+                local->replies[child_index].op_ret = op_ret;
+                local->replies[child_index].op_errno = op_errno;
                 if (op_ret == 0) {
-                        if (local->op_ret == -1) {
-				local->op_ret = 0;
-
-                                local->cont.inode_wfop.prebuf  = *prebuf;
-                                local->cont.inode_wfop.postbuf = *postbuf;
-
-				if (xdata)
-					local->xdata_rsp = dict_ref (xdata);
-                        }
-
-                        if (child_index == read_subvol) {
-                                local->cont.inode_wfop.prebuf  = *prebuf;
-                                local->cont.inode_wfop.postbuf = *postbuf;
-				if (xdata) {
-					if (local->xdata_rsp)
-						dict_unref (local->xdata_rsp);
-					local->xdata_rsp = dict_ref (xdata);
-				}
-                        }
-                } else {
-			local->op_errno = op_errno;
-		}
+                        if (prebuf)
+                                local->replies[child_index].prestat = *prebuf;
+                        if (postbuf)
+                                local->replies[child_index].poststat = *postbuf;
+                        if (xdata)
+                                local->replies[child_index].xdata =
+                                        dict_ref (xdata);
+                }
         }
         UNLOCK (&frame->lock);
 
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
+                local->op_ret = -1;
+                local->op_errno = afr_final_errno (local, priv);
+	        read_subvol = afr_data_subvol_get (local->inode, this, NULL,
+                                                   local->readable, NULL, NULL);
+                /* Pick a reply that is valid and readable, with a preference
+                 * given to read_subvol. */
+                for (i = 0; i < priv->child_count; i++) {
+                        if (!local->replies[i].valid)
+                                continue;
+                        if (local->replies[i].op_ret != 0)
+                                continue;
+                        if (!local->readable[i])
+                                continue;
+                        local->op_ret = local->replies[i].op_ret;
+                        local->op_errno = local->replies[i].op_errno;
+                        local->cont.inode_wfop.prebuf =
+                                local->replies[i].prestat;
+                        local->cont.inode_wfop.postbuf =
+                                local->replies[i].poststat;
+                        if (local->replies[i].xdata) {
+                                if (local->xdata_rsp)
+                                        dict_unref (local->xdata_rsp);
+                                local->xdata_rsp =
+                                        dict_ref (local->replies[i].xdata);
+                        }
+                        if (i == read_subvol)
+                                break;
+                }
+
 		/* Make a stub out of the frame, and register it
 		   with the waking up post-op. When the call-stub resumes,
 		   we are guaranteed that there was no post-op pending
