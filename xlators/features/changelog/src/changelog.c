@@ -1300,7 +1300,7 @@ changelog_fremovexattr_cbk (call_frame_t *frame,
 
         CHANGELOG_COND_GOTO (priv, ((op_ret < 0) || !local), unwind);
 
-        changelog_update (this, priv, local, CHANGELOG_TYPE_METADATA);
+        changelog_update (this, priv, local, CHANGELOG_TYPE_METADATA_XATTR);
 
  unwind:
         changelog_dec_fop_cnt (this, priv, local);
@@ -1354,7 +1354,7 @@ changelog_removexattr_cbk (call_frame_t *frame,
 
         CHANGELOG_COND_GOTO (priv, ((op_ret < 0) || !local), unwind);
 
-        changelog_update (this, priv, local, CHANGELOG_TYPE_METADATA);
+        changelog_update (this, priv, local, CHANGELOG_TYPE_METADATA_XATTR);
 
  unwind:
         changelog_dec_fop_cnt (this, priv, local);
@@ -1410,7 +1410,7 @@ changelog_setxattr_cbk (call_frame_t *frame,
 
         CHANGELOG_COND_GOTO (priv, ((op_ret < 0) || !local), unwind);
 
-        changelog_update (this, priv, local, CHANGELOG_TYPE_METADATA);
+        changelog_update (this, priv, local, CHANGELOG_TYPE_METADATA_XATTR);
 
  unwind:
         changelog_dec_fop_cnt (this, priv, local);
@@ -1531,7 +1531,7 @@ changelog_fsetxattr_cbk (call_frame_t *frame,
 
         CHANGELOG_COND_GOTO (priv, ((op_ret < 0) || !local), unwind);
 
-        changelog_update (this, priv, local, CHANGELOG_TYPE_METADATA);
+        changelog_update (this, priv, local, CHANGELOG_TYPE_METADATA_XATTR);
 
  unwind:
         changelog_dec_fop_cnt (this, priv, local);
@@ -1646,7 +1646,7 @@ changelog_fxattrop_cbk (call_frame_t *frame,
 
         CHANGELOG_COND_GOTO (priv, ((op_ret < 0) || !local), unwind);
 
-        changelog_update (this, priv, local, CHANGELOG_TYPE_METADATA);
+        changelog_update (this, priv, local, CHANGELOG_TYPE_METADATA_XATTR);
 
  unwind:
         changelog_dec_fop_cnt (this, priv, local);
@@ -2334,9 +2334,10 @@ changelog_init (xlator_t *this, changelog_priv_t *priv)
 
         priv->slice.tv_start = tv;
 
-        priv->maps[CHANGELOG_TYPE_DATA]     = "D ";
-        priv->maps[CHANGELOG_TYPE_METADATA] = "M ";
-        priv->maps[CHANGELOG_TYPE_ENTRY]    = "E ";
+        priv->maps[CHANGELOG_TYPE_DATA]           = "D ";
+        priv->maps[CHANGELOG_TYPE_METADATA]       = "M ";
+        priv->maps[CHANGELOG_TYPE_METADATA_XATTR] = "M ";
+        priv->maps[CHANGELOG_TYPE_ENTRY]          = "E ";
 
         for (; i < CHANGELOG_MAX_TYPE; i++) {
                 /* start with version 1 */

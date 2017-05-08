@@ -14,7 +14,7 @@
 #include "glusterfs.h"
 #include "common-utils.h"
 
-#define CHANGELOG_MAX_TYPE  3
+#define CHANGELOG_MAX_TYPE  4
 #define CHANGELOG_FILE_NAME "CHANGELOG"
 #define HTIME_FILE_NAME "HTIME"
 #define CSNAP_FILE_NAME "CHANGELOG.SNAP"
@@ -95,14 +95,15 @@
                 strcat (path, "/csnap");                                \
         } while(0)
 /**
- * everything after 'CHANGELOG_TYPE_ENTRY' are internal types
+ * everything after 'CHANGELOG_TYPE_METADATA_XATTR' are internal types
  * (ie. none of the fops trigger this type of event), hence
- * CHANGELOG_MAX_TYPE = 3
+ * CHANGELOG_MAX_TYPE = 4
  */
 typedef enum {
         CHANGELOG_TYPE_DATA = 0,
         CHANGELOG_TYPE_METADATA,
         CHANGELOG_TYPE_ENTRY,
+        CHANGELOG_TYPE_METADATA_XATTR,
         CHANGELOG_TYPE_ROLLOVER,
         CHANGELOG_TYPE_FSYNC,
 } changelog_log_type;
