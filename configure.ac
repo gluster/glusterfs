@@ -33,7 +33,7 @@ if libtool --help 2>&1 | grep -q quiet; then
    AM_LIBTOOLFLAGS="--quiet";
 fi
 
-AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_HEADERS([config.h site.h])
 
 AC_CONFIG_FILES([Makefile
                 libglusterfs/Makefile
@@ -1534,7 +1534,7 @@ CONTRIBDIR='$(top_srcdir)/contrib'
 AC_SUBST(CONTRIBDIR)
 
 GF_CPPDEFINES='-D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(GF_HOST_OS)'
-GF_CPPINCLUDES='-include $(top_builddir)/config.h -I$(top_srcdir)/libglusterfs/src -I$(top_builddir)/libglusterfs/src'
+GF_CPPINCLUDES='-include $(top_builddir)/config.h -include $(top_builddir)/site.h -I$(top_srcdir)/libglusterfs/src -I$(top_builddir)/libglusterfs/src'
 GF_CPPFLAGS="$GF_CPPFLAGS $GF_CPPDEFINES $GF_CPPINCLUDES"
 AC_SUBST([GF_CPPFLAGS])
 

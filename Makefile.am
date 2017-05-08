@@ -1,3 +1,4 @@
+SOURCES = site.h
 
 EXTRA_DIST = autogen.sh \
 	COPYING-GPLV2 COPYING-LGPLV3 \
