@@ -16,6 +16,10 @@ function check_peers {
 	$CLI_1 peer status | grep 'Peer in Cluster (Connected)' | wc -l
 }
 
+function online_brick_count {
+       $CLI_1 --xml volume status | grep '<status>1' | wc -l
+}
+
 cleanup;
 
 TEST launch_cluster 3; # start 3-node virtual cluster

@@ -1257,4 +1257,7 @@ int glusterd_op_remove_tier_brick (dict_t *dict, char **op_errstr,
 int
 glusterd_tier_prevalidate (dict_t *dict, char **op_errstr,
                                dict_t *rsp_dict, uint32_t *op_errno);
+
+int
+glusterd_options_init (xlator_t *this);
 #endif

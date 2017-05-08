@@ -179,13 +179,3 @@ function brick_up_status_1 {
         $CLI_1 volume status $vol $host:$brick --xml | sed -ne 's/.*<status>\([01]\)<\/status>/\1/p'
 }
 
-function online_brick_count {
-	local bricks
-	local total=0
-	local i
-	for i in $(seq 1 $CLUSTER_COUNT); do
-		bricks=$(find $B0/$i/glusterd/vols -name '*.pid' | wc -l)
-		total=$((total+bricks))
-	done
-	echo $total
-}

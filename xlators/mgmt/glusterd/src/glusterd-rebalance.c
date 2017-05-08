@@ -84,6 +84,7 @@ __glusterd_defrag_notify (struct rpc_clnt *rpc, void *mydata,
         char                    pidfile[PATH_MAX];
         glusterd_conf_t        *priv    = NULL;
         xlator_t               *this    = NULL;
+        int                    pid      = -1;
 
         this = THIS;
         if (!this)
@@ -134,7 +135,7 @@ __glusterd_defrag_notify (struct rpc_clnt *rpc, void *mydata,
                 }
                 UNLOCK (&defrag->lock);
 
-                if (!gf_is_service_running (pidfile, NULL)) {
+                if (!gf_is_service_running (pidfile, &pid)) {
                         if (volinfo->rebal.defrag_status ==
                                                 GF_DEFRAG_STATUS_STARTED) {
                                 volinfo->rebal.defrag_status =
