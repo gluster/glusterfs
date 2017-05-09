@@ -827,6 +827,7 @@ glusterfs_handle_attach (rpcsvc_request_t *req)
         int32_t                 ret             = -1;
         gd1_mgmt_brick_op_req   xlator_req      = {0,};
         xlator_t                *this           = NULL;
+        glusterfs_graph_t       *newgraph       = NULL;
 
         GF_ASSERT (req);
         this = THIS;
@@ -840,13 +841,22 @@ glusterfs_handle_attach (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 return -1;
         }
+        ret = 0;
 
         if (this->ctx->active) {
                 gf_log (this->name, GF_LOG_INFO,
                         "got attach for %s", xlator_req.name);
                 ret = glusterfs_graph_attach (this->ctx->active,
-                                              xlator_req.name);
+                                              xlator_req.name, &newgraph);
                 if (ret == 0) {
+                        ret = glusterfs_graph_parent_up (newgraph);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        LG_MSG_EVENT_NOTIFY_FAILED,
+                                        "Parent up notification "
+                                        "failed");
+                                goto out;
+                        }
                         glusterfs_autoscale_threads (this->ctx, 1);
                 }
         } else {
@@ -857,10 +867,11 @@ glusterfs_handle_attach (rpcsvc_request_t *req)
 
         glusterfs_translator_info_response_send (req, ret, NULL, NULL);
 
+out:
         free (xlator_req.input.input_val);
         free (xlator_req.name);
 
-        return 0;
+        return ret;
 }
 
 int
