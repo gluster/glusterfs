@@ -3480,6 +3480,7 @@ pl_ctx_get (client_t *client, xlator_t *xlator)
 {
         void *tmp = NULL;
         pl_ctx_t *ctx = NULL;
+        pl_ctx_t *setted_ctx = NULL;
 
         client_ctx_get (client, xlator, &tmp);
 
@@ -3498,10 +3499,11 @@ pl_ctx_get (client_t *client, xlator_t *xlator)
         INIT_LIST_HEAD (&ctx->entrylk_lockers);
         INIT_LIST_HEAD (&ctx->metalk_list);
 
-        if (client_ctx_set (client, xlator, ctx) != 0) {
+        setted_ctx = client_ctx_set (client, xlator, ctx);
+        if (ctx != setted_ctx) {
                 pthread_mutex_destroy (&ctx->lock);
                 GF_FREE (ctx);
-                ctx = NULL;
+                ctx = setted_ctx;
         }
 out:
         return ctx;

@@ -1170,6 +1170,7 @@ server_ctx_get (client_t *client, xlator_t *xlator)
 {
         void *tmp = NULL;
         server_ctx_t *ctx = NULL;
+        server_ctx_t *setted_ctx = NULL;
 
         client_ctx_get (client, xlator, &tmp);
 
@@ -1194,11 +1195,12 @@ server_ctx_get (client_t *client, xlator_t *xlator)
 
         LOCK_INIT (&ctx->fdtable_lock);
 
-        if (client_ctx_set (client, xlator, ctx) != 0) {
-              LOCK_DESTROY (&ctx->fdtable_lock);
-              GF_FREE (ctx->fdtable);
-              GF_FREE (ctx);
-              ctx = NULL;
+        setted_ctx = client_ctx_set (client, xlator, ctx);
+        if (ctx != setted_ctx) {
+                LOCK_DESTROY (&ctx->fdtable_lock);
+                GF_FREE (ctx->fdtable);
+                GF_FREE (ctx);
+                ctx = setted_ctx;
         }
 
 out:

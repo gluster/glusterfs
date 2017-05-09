@@ -52,6 +52,7 @@ iot_client_ctx_t *
 iot_get_ctx (xlator_t *this, client_t *client)
 {
         iot_client_ctx_t        *ctx    = NULL;
+        iot_client_ctx_t        *setted_ctx    = NULL;
         int                      i;
 
         if (client_ctx_get (client, this, (void **)&ctx) != 0) {
@@ -62,9 +63,10 @@ iot_get_ctx (xlator_t *this, client_t *client)
                                 INIT_LIST_HEAD (&ctx[i].clients);
                                 INIT_LIST_HEAD (&ctx[i].reqs);
                         }
-                        if (client_ctx_set (client, this, ctx) != 0) {
+                        setted_ctx = client_ctx_set (client, this, ctx);
+                        if (ctx != setted_ctx) {
                                 GF_FREE (ctx);
-                                ctx = NULL;
+                                ctx = setted_ctx;
                         }
                 }
         }

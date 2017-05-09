@@ -101,7 +101,7 @@ gf_client_dump_inodes_to_dict (xlator_t *this, dict_t *dict);
 int
 gf_client_dump_inodes (xlator_t *this);
 
-int
+void *
 client_ctx_set (client_t *client, void *key, void *value);
 
 int
