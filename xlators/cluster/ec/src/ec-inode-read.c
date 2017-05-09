@@ -1556,6 +1556,7 @@ void ec_wind_seek(ec_t *ec, ec_fop_data_t *fop, int32_t idx)
 int32_t ec_manager_seek(ec_fop_data_t *fop, int32_t state)
 {
     ec_cbk_data_t *cbk;
+    size_t size;
 
     switch (state) {
     case EC_STATE_INIT:
@@ -1571,6 +1572,16 @@ int32_t ec_manager_seek(ec_fop_data_t *fop, int32_t state)
         return EC_STATE_DISPATCH;
 
     case EC_STATE_DISPATCH:
+        /* This shouldn't fail because we have the inode locked. */
+        GF_ASSERT(ec_get_inode_size(fop, fop->locks[0].lock->loc.inode,
+                                    &size));
+
+        if (fop->user_size >= size) {
+            ec_fop_set_error(fop, ENXIO);
+
+            return EC_STATE_REPORT;
+        }
+
         ec_dispatch_one(fop);
 
         return EC_STATE_PREPARE_ANSWER;
@@ -1582,9 +1593,16 @@ int32_t ec_manager_seek(ec_fop_data_t *fop, int32_t state)
         if ((cbk != NULL) && (cbk->op_ret >= 0)) {
             ec_t *ec = fop->xl->private;
 
+            /* This shouldn't fail because we have the inode locked. */
+            GF_ASSERT(ec_get_inode_size(fop, fop->locks[0].lock->loc.inode,
+                                        &size));
+
             cbk->offset *= ec->fragments;
             if (cbk->offset < fop->user_size) {
                 cbk->offset = fop->user_size;
+            }
+            if (cbk->offset > size) {
+                cbk->offset = size;
             }
         }
 
