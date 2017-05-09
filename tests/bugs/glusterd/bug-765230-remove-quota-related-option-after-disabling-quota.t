@@ -18,9 +18,9 @@ EXPECT 'Created' volinfo_field $V0 'Status';
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
-## Setting quota-timeout as 20
-TEST ! $CLI volume set $V0 features.quota-timeout 20
-EXPECT '' volinfo_field $V0 'features.quota-timeout';
+## Setting soft-timeout as 20
+TEST $CLI volume set $V0 features.soft-timeout 20
+EXPECT '20' volinfo_field $V0 'features.soft-timeout';
 
 ## Enabling features.quota-deem-statfs
 TEST ! $CLI volume set $V0 features.quota-deem-statfs on
@@ -30,9 +30,9 @@ EXPECT '' volinfo_field $V0 'features.quota-deem-statfs'
 TEST $CLI volume quota $V0 enable
 EXPECT 'on' volinfo_field $V0 'features.quota'
 
-## Setting quota-timeout as 20
-TEST $CLI volume set $V0 features.quota-timeout 20
-EXPECT '20' volinfo_field $V0 'features.quota-timeout';
+## Setting soft-timeout as 20
+TEST $CLI volume set $V0 features.soft-timeout 20
+EXPECT '20' volinfo_field $V0 'features.soft-timeout';
 
 ## Enabling features.quota-deem-statfs
 TEST $CLI volume set $V0 features.quota-deem-statfs on
@@ -42,11 +42,11 @@ EXPECT 'on' volinfo_field $V0 'features.quota-deem-statfs'
 TEST $CLI volume quota $V0 disable
 EXPECT 'off' volinfo_field $V0 'features.quota'
 EXPECT '' volinfo_field $V0 'features.quota-deem-statfs'
-EXPECT '' volinfo_field $V0 'features.quota-timeout'
+EXPECT '' volinfo_field $V0 'features.soft-timeout'
 
-## Setting quota-timeout as 30
-TEST ! $CLI volume set $V0 features.quota-timeout 30
-EXPECT '' volinfo_field $V0 'features.quota-timeout';
+## Setting soft-timeout as 30
+TEST $CLI volume set $V0 features.soft-timeout 30
+EXPECT '30' volinfo_field $V0 'features.soft-timeout';
 
 ## Disabling features.quota-deem-statfs
 TEST ! $CLI volume set $V0 features.quota-deem-statfs off
