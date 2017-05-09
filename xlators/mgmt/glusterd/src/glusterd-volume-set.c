@@ -11,6 +11,7 @@
 #include "glusterd-volgen.h"
 #include "glusterd-utils.h"
 
+#if USE_GFDB
 static int
 get_tier_freq_threshold (glusterd_volinfo_t *volinfo, char *threshold_key) {
         int     threshold       = 0;
@@ -473,6 +474,7 @@ out:
 
         return ret;
 }
+#endif
 
 static int
 validate_cache_max_min_size (glusterd_volinfo_t *volinfo, dict_t *dict,
