@@ -75,6 +75,52 @@ gf_fuse_unmount (const char *mountpoint, int fd)
 
 /* gluster-specific routines */
 
+/* Unmounting in a daemon that lurks 'till main process exits */
+int
+gf_fuse_unmount_daemon (const char *mountpoint, int fd)
+{
+        int   ret = -1;
+        pid_t pid = -1;
+
+        if (fd == -1)
+                return -1;
+
+        int ump[2] = {0,};
+
+        ret = pipe(ump);
+        if (ret == -1) {
+                close (fd);
+                return -1;
+        }
+
+        pid = fork ();
+        switch (pid) {
+                char c = 0;
+                sigset_t sigset;
+        case 0:
+
+                close_fds_except (ump, 1);
+
+                setsid();
+                chdir("/");
+                sigfillset(&sigset);
+                sigprocmask(SIG_BLOCK, &sigset, NULL);
+
+                read (ump[0], &c, 1);
+
+                gf_fuse_unmount (mountpoint, fd);
+                exit (0);
+        case -1:
+                close (fd);
+                fd = -1;
+                ret = -1;
+                close (ump[1]);
+        }
+        close (ump[0]);
+
+        return ret;
+}
+
 static char *
 escape (char *s)
 {
