@@ -1049,7 +1049,8 @@ out:
 
 
 int
-glusterfs_graph_attach (glusterfs_graph_t *orig_graph, char *path)
+glusterfs_graph_attach (glusterfs_graph_t *orig_graph, char *path,
+                        glusterfs_graph_t **newgraph)
 {
         xlator_t                *this   = THIS;
         FILE                    *fp;
@@ -1086,7 +1087,7 @@ glusterfs_graph_attach (glusterfs_graph_t *orig_graph, char *path)
                 xl = FIRST_CHILD(xl);
         }
         graph->first = xl;
-
+        *newgraph = graph;
 
         volfile_id = strstr (path, "/snaps/");
         if (!volfile_id) {

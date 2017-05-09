@@ -583,7 +583,9 @@ int glusterfs_graph_init (glusterfs_graph_t *graph);
 glusterfs_graph_t *glusterfs_graph_new (void);
 int glusterfs_graph_reconfigure (glusterfs_graph_t *oldgraph,
                                   glusterfs_graph_t *newgraph);
-int glusterfs_graph_attach (glusterfs_graph_t *orig_graph, char *path);
+int glusterfs_graph_attach (glusterfs_graph_t *orig_graph, char *path,
+                            glusterfs_graph_t **newgraph);
+int glusterfs_graph_parent_up (glusterfs_graph_t *graph);
 
 void
 gf_free_mig_locks (lock_migration_info_t *locks);
