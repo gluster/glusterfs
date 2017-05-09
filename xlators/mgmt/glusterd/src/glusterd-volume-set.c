@@ -1803,11 +1803,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
 
         /* Server xlator options */
-        { .key         = "network.ping-timeout",
-          .voltype     = "protocol/server",
-          .op_version  = GD_OP_VERSION_3_7_0,
-          .value       = "42",
-        },
         { .key         = "network.tcp-window-size",
           .voltype     = "protocol/server",
           .type        = NO_DOC,
@@ -2211,14 +2206,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option        = "limit-set",
           .type          = NO_DOC,
           .op_version    = 1,
-        },
-        {
-          .key           = "features.quota-timeout",
-          .voltype       = "features/quota",
-          .option        = "timeout",
-          .value         = "0",
-          .op_version    = 1,
-          .validate_fn   = validate_quota,
         },
         { .key           = "features.default-soft-limit",
           .voltype       = "features/quota",
