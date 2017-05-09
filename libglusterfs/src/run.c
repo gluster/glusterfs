@@ -23,7 +23,6 @@
 #include <assert.h>
 #include <signal.h>
 #include <sys/wait.h>
-#include <sys/resource.h>
 #include "syscall.h"
 
 #ifdef RUN_STANDALONE
@@ -274,37 +273,9 @@ runner_start (runner_t *runner)
                 }
 
                 if (ret != -1 ) {
-#ifdef GF_LINUX_HOST_OS
-                        DIR *d = NULL;
-                        struct dirent *de = NULL;
-                        struct dirent  scratch[2] = {{0,},};
-                        char *e = NULL;
+                        int fdv[4] = {0, 1, 2, xpi[1]};
 
-                        d = sys_opendir ("/proc/self/fd");
-                        if (d) {
-                                for (;;) {
-                                        errno = 0;
-                                        de = sys_readdir (d, scratch);
-                                        if (!de || errno != 0)
-                                                break;
-                                        i = strtoul (de->d_name, &e, 10);
-                                        if (*e == '\0' && i > 2 &&
-                                            i != dirfd (d) && i != xpi[1])
-                                                sys_close (i);
-                                }
-                                sys_closedir (d);
-                        } else
-                                ret = -1;
-#else /* !GF_LINUX_HOST_OS */
-                        struct rlimit rl;
-                        ret = getrlimit (RLIMIT_NOFILE, &rl);
-                        GF_ASSERT (ret == 0);
-
-                        for (i = 3; i < rl.rlim_cur; i++) {
-                                if (i != xpi[1])
-                                        sys_close (i);
-                        }
-#endif /* !GF_LINUX_HOST_OS */
+                        ret = close_fds_except(fdv, sizeof (fdv) / sizeof (*fdv));
                 }
 
                 if (ret != -1) {
