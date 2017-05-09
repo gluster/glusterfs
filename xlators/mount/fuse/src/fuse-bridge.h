@@ -134,6 +134,9 @@ struct fuse_private {
 
         /* Enable or disable capability support */
         gf_boolean_t         capability;
+
+        /* whether to run the unmount daemon */
+        gf_boolean_t auto_unmount;
 };
 typedef struct fuse_private fuse_private_t;
 

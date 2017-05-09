@@ -5150,7 +5150,7 @@ fuse_thread_proc (void *data)
                                                      ZR_MOUNTPOINT_OPT));
         if (mount_point) {
                 gf_log (this->name, GF_LOG_INFO,
-                        "unmounting %s", mount_point);
+                        "initating unmount of %s", mount_point);
         }
 
         /* Kill the whole process, not just this thread. */
@@ -5779,6 +5779,24 @@ init (xlator_t *this_xl)
         if (!mnt_args)
                 goto cleanup_exit;
 
+        {
+                char *mnt_tok         = NULL;
+                token_iter_t tit      = {0,};
+                gf_boolean_t iter_end = _gf_false;
+
+                for (mnt_tok = token_iter_init (mnt_args, ',', &tit) ;;) {
+                        iter_end = next_token (&mnt_tok, &tit);
+
+                        if (strcmp (mnt_tok, "auto_unmount") == 0) {
+                                priv->auto_unmount = _gf_true;
+                                drop_token (mnt_tok, &tit);
+                        }
+
+                        if (iter_end)
+                                break;
+                }
+        }
+
         if (pipe(priv->status_pipe) < 0) {
                 gf_log (this_xl->name, GF_LOG_ERROR,
                         "could not create pipe to separate mount process");
@@ -5790,6 +5808,11 @@ init (xlator_t *this_xl)
                                   priv->status_pipe[1]);
         if (priv->fd == -1)
                 goto cleanup_exit;
+        if (priv->auto_unmount) {
+                ret = gf_fuse_unmount_daemon (priv->mount_point, priv->fd);
+                if (ret ==-1)
+                        goto cleanup_exit;
+        }
 
         event = eh_new (FUSE_EVENT_HISTORY_SIZE, _gf_false, NULL);
         if (!event) {
@@ -5867,10 +5890,15 @@ fini (xlator_t *this_xl)
                 mount_point = data_to_str (dict_get (this_xl->options,
                                                      ZR_MOUNTPOINT_OPT));
         if (mount_point != NULL) {
-                gf_log (this_xl->name, GF_LOG_INFO,
-                        "Unmounting '%s'.", mount_point);
+                if (!priv->auto_unmount) {
+                        gf_log (this_xl->name, GF_LOG_INFO,
+                                "Unmounting '%s'.", mount_point);
+                        gf_fuse_unmount (mount_point, priv->fd);
+                }
 
-                gf_fuse_unmount (mount_point, priv->fd);
+                gf_log (this_xl->name, GF_LOG_INFO,
+                        "Closing fuse connection to '%s'.", mount_point);
+
                 sys_close (priv->fuse_dump_fd);
                 dict_del (this_xl->options, ZR_MOUNTPOINT_OPT);
         }

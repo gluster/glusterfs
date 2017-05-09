@@ -562,7 +562,7 @@ without_options()
         "atime"|"noatime"|"diratime"|"nodiratime"|\
         "relatime"|"norelatime"|\
         "strictatime"|"nostrictatime"|"lazyatime"|"nolazyatime"|\
-        "dev"|"nodev"|"exec"|"noexec"|"suid"|"nosuid")
+        "dev"|"nodev"|"exec"|"noexec"|"suid"|"nosuid"|"auto_unmount")
             [ -z "$fuse_mountopts" ] || fuse_mountopts="$fuse_mountopts,"
             fuse_mountopts="${fuse_mountopts}${option}"
             ;;
