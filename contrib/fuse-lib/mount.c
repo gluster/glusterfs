@@ -252,38 +252,30 @@ static int
 mount_param_to_flag (char *mnt_param, mount_flag_t *mntflags,
                      char **mnt_param_new)
 {
-        int i = 0;
-        int j = 0;
-        char *p = NULL;
         gf_boolean_t found = _gf_false;
         struct mount_flags *flag = NULL;
+        char *param_tok = NULL;
+        token_iter_t tit = {0,};
+        gf_boolean_t iter_end = _gf_false;
 
         /* Allocate a buffer that will hold the mount parameters remaining
          * after the ones corresponding to mount flags are processed and
          * removed.The length of the original params are a good upper bound
          * of the size needed.
          */
-        *mnt_param_new = CALLOC (1, strlen (mnt_param) + 1);
+        *mnt_param_new = strdup (mnt_param);
         if (!*mnt_param_new)
                 return -1;
-        p = *mnt_param_new;
 
-        while (mnt_param[j]) {
-                if (j > 0)
-                        i = j+1;
-                j = i;
-
-                /* Seek the delimiters. */
-                while (mnt_param[j] != ',' && mnt_param[j] != '\0')
-                        j++;
+        for (param_tok = token_iter_init (*mnt_param_new, ',', &tit) ;;) {
+                iter_end = next_token (&param_tok, &tit);
 
                 found = _gf_false;
                 for (flag = mount_flags; flag->opt; flag++) {
                         /* Compare the mount flag name to the param
-                         * name at hand (from i to j in mnt_param).
+                         * name at hand.
                          */
-                        if (strlen (flag->opt) == j - i &&
-                            memcmp (flag->opt, mnt_param + i, j - i) == 0) {
+                        if (strcmp (flag->opt, param_tok) == 0) {
                                 /* If there is a match, adjust mntflags
                                  * accordingly and break.
                                  */
@@ -296,15 +288,12 @@ mount_param_to_flag (char *mnt_param, mount_flag_t *mntflags,
                                 break;
                         }
                 }
-                /* If the param did't match any flag name, retain it (ie. copy
-                 * over to the new param buffer).
-                 */
-                if (!found) {
-                        if (p != *mnt_param_new)
-                                *p++ = ',';
-                        memcpy (p, mnt_param + i, j - i);
-                        p += j - i;
-                }
+                /* Exclude flag names from new parameter list. */
+                if (found)
+                        drop_token (param_tok, &tit);
+
+                if (iter_end)
+                        break;
         }
 
         return 0;

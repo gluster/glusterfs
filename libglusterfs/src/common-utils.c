@@ -35,6 +35,9 @@
 #include <sys/sysctl.h>
 #endif
 #include <libgen.h>
+#ifndef GF_LINUX_HOST_OS
+#include <sys/resource.h>
+#endif
 
 #include "compat-errno.h"
 #include "logging.h"
@@ -2127,6 +2130,145 @@ get_nth_word (const char *str, int n)
         *(word + word_len) = '\0';
  out:
         return word;
+}
+
+/**
+ * token_iter_init -- initialize tokenization
+ *
+ * @str: string to be tokenized
+ * @sep: token separator character
+ * @tit: pointer to iteration state
+ *
+ * @return: token string
+ *
+ * The returned token string and tit are
+ * not to be used directly, but through
+ * next_token().
+ */
+char *
+token_iter_init (char *str, char sep, token_iter_t *tit)
+{
+        tit->end = str + strlen (str);
+        tit->sep = sep;
+
+        return str;
+}
+
+/**
+ * next_token -- fetch next token in tokenization
+ * inited by token_iter_init().
+ *
+ * @tokenp: pointer to token
+ * @tit:    pointer to iteration state
+ *
+ * @return: true if iteration ends, else false
+ *
+ * The token pointed by @tokenp can be used
+ * after a call to next_token(). When next_token()
+ * returns true the iteration is to be stopped
+ * and the string with which the tokenization
+ * was inited (see token_iter_init() is restored,
+ * apart from dropped tokens (see drop_token()).
+ */
+gf_boolean_t
+next_token (char **tokenp, token_iter_t *tit)
+{
+        char        *cursor  = NULL;
+        gf_boolean_t is_last = _gf_false;
+
+        for (cursor = *tokenp; *cursor; cursor++);
+        if (cursor < tit->end) {
+                /*
+                 * We detect that in between current token and end a zero
+                 * marker has already been inserted. This means that the
+                 * token has already been returned. We restore the
+                 * separator and move ahead.
+                 */
+                *cursor = tit->sep;
+                *tokenp = cursor + 1;
+        }
+
+        for (cursor = *tokenp; *cursor && *cursor != tit->sep; cursor++);
+        /* If the cursor ended up on a zero byte, then it's the last token. */
+        is_last = !*cursor;
+        /* Zero-terminate the token. */
+        *cursor = 0;
+
+        return is_last;
+}
+
+/*
+ * drop_token -- drop a token during iterated calls of next_token().
+ *
+ * Sample program that uses these functions to tokenize
+ * a comma-separated first argument while dropping the
+ * rest of the arguments if they occur as token:
+ *
+ * #include <stdio.h>
+ * #include <stdlib.h>
+ * #include <string.h>
+ * #include "common-utils.h"
+ *
+ * int
+ * main (int argc, char **argv)
+ * {
+ *         char *buf;
+ *         char *token;
+ *         token_iter_t tit;
+ *         int i;
+ *         gf_boolean_t iter_end;
+ *
+ *         if (argc <= 1)
+ *                 abort();
+ *
+ *         buf = strdup (argv[1]);
+ *         if (!buf)
+ *                 abort();
+ *
+ *         for (token = token_iter_init (buf, ',', &tit) ;;) {
+ *                 iter_end = next_token (&token, &tit);
+ *                 printf("found token: '%s'\n", token);
+ *                 for (i = 2; i < argc; i++) {
+ *                         if (strcmp (argv[i], token) == 0) {
+ *                                 printf ("%s\n", "dropping token!");
+ *                                 drop_token (token, &tit);
+ *                                 break;
+ *                          }
+ *                 }
+ *                 if (iter_end)
+ *                         break;
+ *         }
+ *
+ *         printf ("finally: '%s'\n", buf);
+ *
+ *         return 0;
+ * }
+ */
+void
+drop_token (char *token, token_iter_t *tit)
+{
+        char *cursor = NULL;
+
+        for (cursor = token; *cursor; cursor++);
+        if (cursor < tit->end) {
+                /*
+                 * We detect a zero inserted by next_token().
+                 * Step the cursor and copy what comes after
+                 * to token.
+                 */
+                for (cursor++; cursor < tit->end; *token++ = *cursor++);
+        }
+
+        /*
+         * Zero out the remainder of the buffer.
+         * It would be enough to insert just a single zero,
+         * but we continue 'till the end to have cleaner
+         * memory content.
+         */
+        for (cursor = token; cursor < tit->end; *cursor++ = 0);
+
+        /* Adjust the end to point to the new terminating zero. */
+        tit->end = token;
 }
 
 /* Syntax formed according to RFC 1912 (RFC 1123 & 952 are more restrictive)  *
@@ -4656,4 +4798,64 @@ gf_fop_string (glusterfs_fop_t fop)
         if ((fop > GF_FOP_NULL) && (fop < GF_FOP_MAXVALUE))
                 return gf_fop_list[fop];
         return "INVALID";
+}
+
+int
+close_fds_except (int *fdv, size_t count)
+{
+        int          i            = 0;
+        size_t       j            = 0;
+        gf_boolean_t should_close = _gf_true;
+#ifdef GF_LINUX_HOST_OS
+        DIR           *d          = NULL;
+        struct dirent *de         = NULL;
+        struct dirent  scratch[2] = {{0,},};
+        char          *e          = NULL;
+
+        d = sys_opendir ("/proc/self/fd");
+        if (!d)
+                return -1;
+
+        for (;;) {
+                should_close = _gf_true;
+
+                errno = 0;
+                de = sys_readdir (d, scratch);
+                if (!de || errno != 0)
+                        break;
+                i = strtoul (de->d_name, &e, 10);
+                if (*e != '\0' || i == dirfd (d))
+                        continue;
+
+                for (j = 0; j < count; j++) {
+                        if (i == fdv[j]) {
+                                should_close = _gf_false;
+                                break;
+                        }
+               }
+               if (should_close)
+                        sys_close (i);
+        }
+        sys_closedir (d);
+#else /* !GF_LINUX_HOST_OS */
+        struct rlimit rl;
+        int ret = -1;
+
+        ret = getrlimit (RLIMIT_NOFILE, &rl);
+        if (ret)
+                return ret;
+
+        for (i = 0; i < rl.rlim_cur; i++) {
+                should_close = _gf_true;
+                for (j = 0; j < count; j++) {
+                        if (i == fdv[j]) {
+                                should_close = _gf_false;
+                                break;
+                        }
+                }
+                if (should_close)
+                        sys_close (i);
+        }
+#endif /* !GF_LINUX_HOST_OS */
+        return 0;
 }

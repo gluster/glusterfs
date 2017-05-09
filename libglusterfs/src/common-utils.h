@@ -774,6 +774,14 @@ void skip_word (char **str);
 /* returns a new string with nth word of given string. n>=1 */
 char *get_nth_word (const char *str, int n);
 
+typedef struct token_iter {
+        char *end;
+        char sep;
+} token_iter_t;
+char *token_iter_init (char *str, char sep, token_iter_t *tit);
+gf_boolean_t next_token (char **tokenp, token_iter_t *tit);
+void drop_token (char *token, token_iter_t *tit);
+
 gf_boolean_t mask_match (const uint32_t a, const uint32_t b, const uint32_t m);
 gf_boolean_t gf_is_ip_in_net (const char *network, const char *ip_str);
 char valid_host_name (char *address, int length);
@@ -903,4 +911,6 @@ gf_fop_string (glusterfs_fop_t fop);
 char *
 get_ip_from_addrinfo (struct addrinfo *addr, char **ip);
 
+int
+close_fds_except (int *fdv, size_t count);
 #endif /* _COMMON_UTILS_H */
