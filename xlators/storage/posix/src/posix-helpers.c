@@ -1903,9 +1903,9 @@ abort:
 
                 ret = sleep (30);
                 gf_msg (this->name, GF_LOG_EMERG, 0, P_MSG_HEALTHCHECK_FAILED,
-                        "still alive! -> SIGTERM");
+                        "still alive! -> SIGKILL");
                 if (ret == 0)
-                        kill (getpid(), SIGTERM);
+                        kill (getpid(), SIGKILL);
 
         }
 
