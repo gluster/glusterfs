@@ -3001,6 +3001,8 @@ dht_vgetxattr_fill_and_set (dht_local_t *local, dict_t **dict, xlator_t *this,
  out:
         return ret;
 }
+
+
 int
 dht_find_local_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            int op_ret, int op_errno, dict_t *xattr,
@@ -3016,6 +3018,11 @@ dht_find_local_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         char         *next_uuid_str = NULL;
         char         *saveptr       = NULL;
         uuid_t        node_uuid     = {0,};
+        char         *uuid_list_copy = NULL;
+        int           count          = 0;
+        int           i              = 0;
+        int           index          = 0;
+        int           found          = 0;
 
 
         VALIDATE_OR_GOTO (frame, out);
@@ -3024,6 +3031,10 @@ dht_find_local_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
         prev = cookie;
         conf = this->private;
+
+        VALIDATE_OR_GOTO (conf->defrag, out);
+
+        gf_msg_debug (this->name, 0, "subvol %s returned", prev->name);
 
         LOCK (&frame->lock);
         {
@@ -3048,6 +3059,15 @@ dht_find_local_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto unlock;
                 }
 
+                /* As DHT will not know details of its child xlators
+                 * we need to parse this twice to get the count first
+                 * and allocate memory later.
+                 */
+                count = 0;
+                index = conf->local_subvols_cnt;
+
+                uuid_list_copy = gf_strdup (uuid_list);
+
                 for (uuid_str = strtok_r (uuid_list, " ", &saveptr);
                      uuid_str;
                      uuid_str = next_uuid_str) {
@@ -3057,23 +3077,56 @@ dht_find_local_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         DHT_MSG_UUID_PARSE_ERROR,
                                         "Failed to parse uuid"
-                                        " failed for %s", prev->name);
+                                        " for %s", prev->name);
                                 local->op_ret = -1;
                                 local->op_errno = EINVAL;
                                 goto unlock;
                         }
 
+                        count++;
                         if (gf_uuid_compare (node_uuid, conf->defrag->node_uuid)) {
                                 gf_msg_debug (this->name, 0, "subvol %s does not"
                                               "belong to this node",
                                               prev->name);
                         } else {
+
+                                /* handle multiple bricks of the same replica
+                                 * on the same node */
+                                if (found)
+                                        continue;
                                 conf->local_subvols[(conf->local_subvols_cnt)++]
-                                        = prev;
+                                                = prev;
+                                found = 1;
                                 gf_msg_debug (this->name, 0, "subvol %s belongs to"
                                               " this node", prev->name);
-                                break;
                         }
+                }
+
+                if (!found) {
+                        local->op_ret = 0;
+                        goto unlock;
+                }
+
+                conf->local_nodeuuids[index].count = count;
+                conf->local_nodeuuids[index].uuids
+                                 = GF_CALLOC (count, sizeof (uuid_t), 1);
+
+                /* The node-uuids are guaranteed to be returned in the same
+                 * order as the bricks
+                 * A null node-uuid is returned for a brick that is down.
+                 */
+
+                saveptr = NULL;
+                i = 0;
+
+                for (uuid_str = strtok_r (uuid_list_copy, " ", &saveptr);
+                     uuid_str;
+                     uuid_str = next_uuid_str) {
+
+                        next_uuid_str = strtok_r (NULL, " ", &saveptr);
+                        gf_uuid_parse (uuid_str,
+                                       conf->local_nodeuuids[index].uuids[i]);
+                        i++;
                 }
         }
 
@@ -3092,8 +3145,13 @@ dht_find_local_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         goto out;
 
  unwind:
+
+        GF_FREE (conf->local_nodeuuids[index].uuids);
+        conf->local_nodeuuids[index].uuids = NULL;
+
         DHT_STACK_UNWIND (getxattr, frame, -1, local->op_errno, NULL, xdata);
  out:
+        GF_FREE (uuid_list_copy);
         return 0;
 }
 
