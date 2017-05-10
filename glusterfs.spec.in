@@ -1225,6 +1225,7 @@ exit 0
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/groups
             %attr(0644,-,-) %{_sharedstatedir}/glusterd/groups/virt
             %attr(0644,-,-) %{_sharedstatedir}/glusterd/groups/metadata-cache
+            %attr(0644,-,-) %{_sharedstatedir}/glusterd/groups/gluster-block
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glusterfind
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glusterfind/.keys
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glustershd
@@ -1309,6 +1310,9 @@ exit 0
 %endif
 
 %changelog
+* Wed May 10 2017 Pranith Kumar K <pkarampu@redhat.com>
+- Install /var/lib/glusterd/groups/gluster-block by default
+
 * Thu Apr 27 2017 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - gnfs in an optional subpackage
 
