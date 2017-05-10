@@ -1,0 +1,17 @@
+performance.quick-read=off
+performance.read-ahead=off
+performance.io-cache=off
+performance.stat-prefetch=off
+performance.write-behind=off
+performance.open-behind=off
+performance.readdir-ahead=off
+network.remote-dio=enable
+cluster.eager-lock=enable
+cluster.quorum-type=auto
+cluster.data-self-heal-algorithm=full
+cluster.locking-scheme=granular
+cluster.shd-max-threads=8
+cluster.shd-wait-qlength=10000
+features.shard=on
+user.cifs=off
+server.allow-insecure=on
