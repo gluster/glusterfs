@@ -183,7 +183,6 @@ __afr_dir_write_finalize (call_frame_t *frame, xlator_t *this)
 		}
 	}
 
-        afr_txn_arbitrate_fop_cbk (frame, this);
 }
 
 

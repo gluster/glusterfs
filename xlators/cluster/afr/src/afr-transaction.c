@@ -304,21 +304,20 @@ afr_compute_pre_op_sources (call_frame_t *frame, xlator_t *this)
                 }
 }
 
-void
-afr_txn_arbitrate_fop_cbk (call_frame_t *frame, xlator_t *this)
+gf_boolean_t
+afr_has_arbiter_fop_cbk_quorum (call_frame_t *frame)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
+        xlator_t *this = NULL;
         gf_boolean_t fop_failed = _gf_false;
         unsigned char *pre_op_sources = NULL;
         int i = 0;
 
         local = frame->local;
+        this = frame->this;
         priv  = this->private;
         pre_op_sources = local->transaction.pre_op_sources;
-
-        if (priv->arbiter_count != 1 || local->op_ret < 0)
-                return;
 
         /* If the fop failed on the brick, it is not a source. */
         for (i = 0; i < priv->child_count; i++)
@@ -335,12 +334,10 @@ afr_txn_arbitrate_fop_cbk (call_frame_t *frame, xlator_t *this)
                 break;
         }
 
-        if (fop_failed) {
-                local->op_ret = -1;
-                local->op_errno = ENOTCONN;
-        }
+        if (fop_failed)
+                return _gf_false;
 
-        return;
+        return _gf_true;
 }
 
 void
@@ -807,8 +804,12 @@ afr_handle_quorum (call_frame_t *frame)
          * no split-brain with the fix. The problem is eliminated completely.
          */
 
-        if (afr_has_fop_cbk_quorum (frame))
+        if (priv->arbiter_count) {
+                if (afr_has_arbiter_fop_cbk_quorum (frame))
+                        return;
+        } else if (afr_has_fop_cbk_quorum (frame)) {
                 return;
+        }
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->transaction.pre_op[i])
