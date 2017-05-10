@@ -2094,6 +2094,43 @@ gf_defrag_ctx_subvols_init (dht_dfoffset_ctx_t *offset_var, xlator_t *this) {
         return 0;
 }
 
+
+/* Return value
+ * 0 : this node does not migrate the file
+ * 1 : this node migrates the file
+ */
+int
+gf_defrag_should_i_migrate (xlator_t *this, int local_subvol_index, uuid_t gfid)
+{
+        int         ret               = 0;
+        int         i                 = local_subvol_index;
+        char       *str               = NULL;
+        uint32_t    hashval           = 0;
+        int32_t     index        = 0;
+        dht_conf_t *conf              = NULL;
+        char        buf[UUID_CANONICAL_FORM_LEN + 1] = {0, };
+
+        conf = this->private;
+
+        /* Pure distribute */
+
+        if (conf->local_nodeuuids[i].count == 1) {
+                return 1;
+        }
+
+        str = uuid_utoa_r (gfid, buf);
+
+        ret = dht_hash_compute (this, 0, str, &hashval);
+        if (ret == 0) {
+                index = (hashval % conf->local_nodeuuids[i].count);
+                if (!gf_uuid_compare (conf->defrag->node_uuid,
+                                      conf->local_nodeuuids[i].uuids[index]))
+                        ret = 1;
+        }
+        return ret;
+}
+
+
 int
 gf_defrag_migrate_single_file (void *opaque)
 {
@@ -2165,6 +2202,13 @@ gf_defrag_migrate_single_file (void *opaque)
                 goto out;
         }
 
+        if (!gf_defrag_should_i_migrate (this, rebal_entry->local_subvol_index,
+                                         entry->d_stat.ia_gfid)) {
+                gf_msg_debug (this->name, 0, "Don't migrate %s ",
+                              entry_loc.path);
+                goto out;
+        }
+
         gf_uuid_copy (entry_loc.gfid, entry->d_stat.ia_gfid);
 
         gf_uuid_copy (entry_loc.pargfid, loc->gfid);
@@ -2178,6 +2222,7 @@ gf_defrag_migrate_single_file (void *opaque)
                 ret = 0;
                 goto out;
         }
+
 
         inode = inode_link (entry_loc.inode, entry_loc.parent, entry->d_name, &iatt);
         inode_unref (entry_loc.inode);
@@ -2658,6 +2703,8 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
                         ret = -1;
                         goto out;
                 }
+
+                tmp_container->local_subvol_index = i;
 
                 tmp_container->df_entry->d_stat = df_entry->d_stat;
 
@@ -3740,6 +3787,33 @@ int gf_defrag_total_file_cnt (xlator_t *this, loc_t *root_loc)
 }
 
 
+
+int
+dht_get_local_subvols_and_nodeuuids (xlator_t *this, dht_conf_t *conf,
+                                     loc_t *loc)
+{
+
+        dict_t                  *dict                   = NULL;
+        int                      ret                    = -1;
+
+                /* Find local subvolumes */
+        ret = syncop_getxattr (this, loc, &dict,
+                               GF_REBAL_FIND_LOCAL_SUBVOL,
+                               NULL, NULL);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, 0, "local "
+                        "subvolume determination failed with error: %d",
+                        -ret);
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+
 int
 gf_defrag_start_crawl (void *data)
 {
@@ -3757,12 +3831,12 @@ gf_defrag_start_crawl (void *data)
         glusterfs_ctx_t         *ctx                    = NULL;
         dht_methods_t           *methods                = NULL;
         int                      i                      = 0;
-        int                     thread_index            = 0;
-        int                     err                     = 0;
-        int                     thread_spawn_count      = 0;
+        int                      thread_index           = 0;
+        int                      err                    = 0;
+        int                      thread_spawn_count     = 0;
         pthread_t               *tid                    = NULL;
-        gf_boolean_t            is_tier_detach          = _gf_false;
-
+        gf_boolean_t             is_tier_detach         = _gf_false;
+        int                      j                      = 0;
 
         this = data;
         if (!this)
@@ -3876,14 +3950,8 @@ gf_defrag_start_crawl (void *data)
                         goto out;
                 }
 
-                /* Find local subvolumes */
-                ret = syncop_getxattr (this, &loc, &dict,
-                                       GF_REBAL_FIND_LOCAL_SUBVOL,
-                                       NULL, NULL);
+                ret = dht_get_local_subvols_and_nodeuuids (this, conf, &loc);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0, 0, "local "
-                                "subvolume determination failed with error: %d",
-                                -ret);
                         ret = -1;
                         goto out;
                 }
@@ -3891,6 +3959,11 @@ gf_defrag_start_crawl (void *data)
                 for (i = 0 ; i < conf->local_subvols_cnt; i++) {
                         gf_msg (this->name, GF_LOG_INFO, 0, 0, "local subvols "
                                 "are %s", conf->local_subvols[i]->name);
+                        for (j = 0; j < conf->local_nodeuuids[i].count; j++) {
+                                gf_msg (this->name, GF_LOG_INFO, 0, 0,
+                                        "node uuids are %s",
+                                  uuid_utoa(conf->local_nodeuuids[i].uuids[j]));
+                        }
                 }
 
                 ret = gf_defrag_total_file_cnt (this, &loc);
