@@ -419,6 +419,7 @@ struct dht_container {
         xlator_t        *this;
         loc_t           *parent_loc;
         dict_t          *migrate_data;
+        int             local_subvol_index;
 };
 
 typedef enum tier_mode_ {
@@ -490,6 +491,12 @@ typedef struct gf_tier_conf {
         char                         volname[GD_VOLUME_NAME_MAX + 1];
 } gf_tier_conf_t;
 
+typedef struct subvol_nodeuuids {
+        uuid_t *uuids;
+        int count;
+} subvol_nodeuuid_t;
+
+
 struct gf_defrag_info_ {
         uint64_t                     total_files;
         uint64_t                     total_data;
@@ -540,6 +547,7 @@ struct gf_defrag_info_ {
 
         /* lock migration flag */
         gf_boolean_t                 lock_migration_enabled;
+
 };
 
 typedef struct gf_defrag_info_ gf_defrag_info_t;
@@ -623,6 +631,7 @@ struct dht_conf {
 
         /*local subvol storage for rebalance*/
         xlator_t       **local_subvols;
+        subvol_nodeuuid_t       *local_nodeuuids;
         int32_t          local_subvols_cnt;
 
         /*

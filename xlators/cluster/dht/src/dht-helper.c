@@ -505,7 +505,6 @@ dht_local_init (call_frame_t *frame, loc_t *loc, fd_t *fd, glusterfs_fop_t fop)
                         goto out;
 
                 inode = loc->inode;
-                local->hashed_subvol = dht_subvol_get_hashed (frame->this, loc);
         }
 
         if (fd) {
@@ -844,7 +843,12 @@ dht_init_local_subvolumes (xlator_t *this, dht_conf_t *conf)
 
         conf->local_subvols = GF_CALLOC (cnt, sizeof (xlator_t *),
                                         gf_dht_mt_xlator_t);
-        if (!conf->local_subvols) {
+
+        /* FIX FIX : do this dynamically*/
+        conf->local_nodeuuids = GF_CALLOC (cnt, sizeof (subvol_nodeuuid_t),
+                                           gf_dht_nodeuuids_t);
+
+        if (!conf->local_subvols || !conf->local_nodeuuids) {
                 return -1;
         }
 
