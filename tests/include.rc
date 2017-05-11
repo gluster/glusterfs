@@ -173,6 +173,7 @@ function test_footer()
                         echo "FAILED COMMAND: $saved_cmd"
                 fi
                 if [ "$EXIT_EARLY" = "1" ]; then
+                        cleanup
                         exit $RET
                 fi
         fi
