@@ -45,13 +45,13 @@ dispatch_fop_queue_drain (xlator_t *this)
         }
 }
 
-inline void
+extern inline void
 __aha_set_timer_status (struct aha_conf *conf, gf_boolean_t expired)
 {
         conf->timer_expired = expired;
 }
 
-inline gf_boolean_t
+extern inline gf_boolean_t
 __aha_is_timer_expired (struct aha_conf *conf)
 {
         return conf->timer_expired;

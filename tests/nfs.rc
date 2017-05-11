@@ -23,7 +23,7 @@ function mount_nfs ()
         local m=$2
         local opt=$3
         if [ ! -z "$opt" ]; then opt=",$opt"; fi
-        opt="soft,intr,vers=3$opt"
+        opt="soft,intr,nfsvers=3,proto=tcp$opt"
 
         nopt=""
         for o in ${opt//,/ }; do
@@ -61,6 +61,7 @@ function mount_nfs ()
                 nopt="${nopt}$o"
         done
 
+        echo mount -t nfs -o $nopt $e $m > /dev/tty
         mount -t nfs -o $nopt $e $m
 }
 
