@@ -3253,7 +3253,7 @@ __gf_rdma_teardown (rpc_transport_t *this)
         priv = this->private;
         peer = &priv->peer;
 
-        if (peer->cm_id->qp != NULL) {
+        if (peer->cm_id && peer->cm_id->qp != NULL) {
                 __gf_rdma_destroy_qp (this);
         }
 
