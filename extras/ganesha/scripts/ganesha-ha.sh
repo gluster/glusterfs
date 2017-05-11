@@ -183,26 +183,8 @@ stop_ganesha_all()
     done
 }
 
-setup_cluster()
+start_cluster()
 {
-    local name=${1}
-    local num_servers=${2}
-    local servers=${3}
-    local unclean=""
-    local quorum_policy="stop"
-
-    logger "setting up cluster ${name} with the following ${servers}"
-
-    pcs cluster auth ${servers}
-    # pcs cluster setup --name ${name} ${servers}
-    pcs cluster setup ${RHEL6_PCS_CNAME_OPTION} ${name} --transport udpu ${servers}
-    if [ $? -ne 0 ]; then
-        logger "pcs cluster setup ${RHEL6_PCS_CNAME_OPTION} ${name} ${servers} failed"
-        #set up failed stop all ganesha process and clean up symlinks in cluster
-        stop_ganesha_all ${servers}
-        exit 1;
-    fi
-
     # BZ 1284404, 1425110, allow time for SSL certs to propagate, until then
     # pcsd will not accept connections.
     sleep 12
@@ -225,6 +207,30 @@ setup_cluster()
          unclean=$(pcs status | grep -u "UNCLEAN")
     done
     sleep 1
+}
+
+
+setup_cluster()
+{
+    local name=${1}
+    local num_servers=${2}
+    local servers=${3}
+    local unclean=""
+    local quorum_policy="stop"
+
+    logger "setting up cluster ${name} with the following ${servers}"
+
+    pcs cluster auth ${servers}
+    # pcs cluster setup --name ${name} ${servers}
+    pcs cluster setup ${RHEL6_PCS_CNAME_OPTION} ${name} --transport udpu ${servers}
+    if [ $? -ne 0 ]; then
+        logger "pcs cluster setup ${RHEL6_PCS_CNAME_OPTION} ${name} ${servers} failed"
+        #set up failed stop all ganesha process and clean up symlinks in cluster
+        stop_ganesha_all ${servers}
+        exit 1;
+    fi
+
+    start_cluster
 
     if [ ${num_servers} -lt 3 ]; then
         quorum_policy="ignore"
@@ -1043,14 +1049,10 @@ main()
         # restart of HA cluster required on RHEL 6 because of BZ1404410
         pcs cluster stop --all
         if [ $? -ne 0 ]; then
-            logger "warning: pcs cluster stopping cluster failed"
+            logger "warning: pcs cluster stop failed"
         fi
 
-        sleep 2
-        pcs cluster start --all
-        if [ $? -ne 0 ]; then
-            logger "warning: pcs cluster starting cluster failed"
-        fi
+        start_cluster
 
         addnode_create_resources ${node} ${vip}
         # Subsequent add-node recreates resources for all the nodes
@@ -1058,7 +1060,6 @@ main()
         # from the entries in the ganesha-ha.conf file. Adding the
         # newly added node to the file so that the resources specfic
         # to this node is correctly recreated in the future.
-        clean_node=${node//[-.]/_}
         echo "VIP_${node}=\"${vip}\"" >> ${HA_CONFDIR}/ganesha-ha.conf
 
         NEW_NODES="$HA_CLUSTER_NODES,${node}"
