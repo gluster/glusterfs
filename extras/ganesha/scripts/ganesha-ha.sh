@@ -161,25 +161,8 @@ determine_servers()
 }
 
 
-setup_cluster()
+start_cluster()
 {
-    local name=${1}
-    local num_servers=${2}
-    local servers=${3}
-    local unclean=""
-    local quorum_policy="stop"
-
-
-    logger "setting up cluster ${name} with the following ${servers}"
-
-    pcs cluster auth ${servers}
-    # pcs cluster setup --name ${name} ${servers}
-    pcs cluster setup ${RHEL6_PCS_CNAME_OPTION} ${name} --transport udpu ${servers}
-    if [ $? -ne 0 ]; then
-        logger "pcs cluster setup ${RHEL6_PCS_CNAME_OPTION} ${name} ${servers} failed"
-        exit 1;
-    fi
-
     # BZ 1284404, 1425110, allow time for SSL certs to propagate, until then
     # pcsd will not accept connections.
     sleep 12
@@ -202,6 +185,29 @@ setup_cluster()
          unclean=$(pcs status | grep -u "UNCLEAN")
     done
     sleep 1
+}
+
+
+setup_cluster()
+{
+    local name=${1}
+    local num_servers=${2}
+    local servers=${3}
+    local unclean=""
+    local quorum_policy="stop"
+
+
+    logger "setting up cluster ${name} with the following ${servers}"
+
+    pcs cluster auth ${servers}
+    # pcs cluster setup --name ${name} ${servers}
+    pcs cluster setup ${RHEL6_PCS_CNAME_OPTION} ${name} --transport udpu ${servers}
+    if [ $? -ne 0 ]; then
+        logger "pcs cluster setup ${RHEL6_PCS_CNAME_OPTION} ${name} ${servers} failed"
+        exit 1;
+    fi
+
+    start_cluster
 
     if [ ${num_servers} -lt 3 ]; then
         quorum_policy="ignore"
@@ -1047,7 +1053,7 @@ main()
         # from the entries in the ganesha-ha.conf file. Adding the
         # newly added node to the file so that the resources specfic
         # to this node is correctly recreated in the future.
-        clean_node=${node//[-.]/_}
+        clean_node=${node//[.]/_}
         echo "VIP_$clean_node=\"${vip}\"" >> ${HA_CONFDIR}/ganesha-ha.conf
 
         NEW_NODES="$HA_CLUSTER_NODES,${node}"
