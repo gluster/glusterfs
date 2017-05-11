@@ -2087,12 +2087,22 @@ cli_cmd_volume_reset_brick_cbk (struct cli_state *state,
         if (!frame)
                 goto out;
 
+
         ret = cli_cmd_volume_reset_brick_parse (words, wordcount, &options);
 
         if (ret) {
                 cli_usage_out (word->pattern);
                 parse_error = 1;
                 goto out;
+        }
+
+        if (state->mode & GLUSTER_MODE_WIGNORE_PARTITION) {
+                ret = dict_set_int32 (options, "ignore-partition", _gf_true);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_ERROR, "Failed to set ignore-"
+                                "partition option");
+                        goto out;
+                }
         }
 
         CLI_LOCAL_INIT (local, words, frame, options);

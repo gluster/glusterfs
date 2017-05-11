@@ -252,7 +252,8 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         if (gf_is_local_addr (host)) {
                 ret = glusterd_validate_and_create_brickpath (dst_brickinfo,
                                                   volinfo->volume_id,
-                                                  op_errstr, is_force);
+                                                  op_errstr, is_force,
+                                                  _gf_false);
                 if (ret)
                         goto out;
         }
