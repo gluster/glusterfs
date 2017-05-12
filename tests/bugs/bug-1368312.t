@@ -29,46 +29,46 @@ TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 --entry-timeout=0 $M0;
 TEST mkdir $M0/tmp1
 
 #Create metadata split-brain
-TEST kill_brick $V0 $H0 $B0/${V0}0
-TEST chmod 666 $M0/tmp1
-TEST $CLI volume start $V0 force
-TEST kill_brick $V0 $H0 $B0/${V0}1
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
-
-TEST chmod 757 $M0/tmp1
-
-TEST $CLI volume start $V0 force
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
-
-EXPECT 2 get_pending_heal_count $V0
-
-
 TEST kill_brick $V0 $H0 $B0/${V0}2
-TEST chmod 755 $M0/tmp1
+TEST chmod 666 $M0/tmp1
 TEST $CLI volume start $V0 force
 TEST kill_brick $V0 $H0 $B0/${V0}3
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 2
 
-TEST chmod 766 $M0/tmp1
+TEST chmod 757 $M0/tmp1
 
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 2
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 3
 
-EXPECT 4 get_pending_heal_count $V0
+EXPECT 2 get_pending_heal_count $V0
+
 
 TEST kill_brick $V0 $H0 $B0/${V0}4
-TEST chmod 765 $M0/tmp1
+TEST chmod 755 $M0/tmp1
 TEST $CLI volume start $V0 force
 TEST kill_brick $V0 $H0 $B0/${V0}5
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 4
 
-TEST chmod 756 $M0/tmp1
+TEST chmod 766 $M0/tmp1
 
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 4
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 5
+
+EXPECT 4 get_pending_heal_count $V0
+
+TEST kill_brick $V0 $H0 $B0/${V0}0
+TEST chmod 765 $M0/tmp1
+TEST $CLI volume start $V0 force
+TEST kill_brick $V0 $H0 $B0/${V0}1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
+
+TEST chmod 756 $M0/tmp1
+
+TEST $CLI volume start $V0 force
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
 
 EXPECT 6 get_pending_heal_count $V0
 

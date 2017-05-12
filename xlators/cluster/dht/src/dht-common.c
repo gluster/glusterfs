@@ -18,7 +18,6 @@
 #include "dht-lock.h"
 #include "defaults.h"
 #include "byte-order.h"
-#include "glusterfs-acl.h"
 #include "quota-common-utils.h"
 #include "upcall-utils.h"
 
@@ -63,6 +62,24 @@ int32_t dht_set_fixed_dir_stat (struct iatt *stat)
 
 int
 dht_rmdir_unlock (call_frame_t *frame, xlator_t *this);
+
+char *xattrs_to_heal[] = {
+        "user.",
+        POSIX_ACL_ACCESS_XATTR,
+        POSIX_ACL_DEFAULT_XATTR,
+        QUOTA_LIMIT_KEY,
+        QUOTA_LIMIT_OBJECTS_KEY,
+        GF_SELINUX_XATTR_KEY,
+        NULL
+};
+
+/* Return true if key exists in array
+*/
+static gf_boolean_t
+dht_match_xattr (const char *key)
+{
+        return gf_get_index_by_elem (xattrs_to_heal, (char *)key) >= 0;
+}
 
 int
 dht_aggregate_quota_xattr (dict_t *dst, char *key, data_t *value)
@@ -159,7 +176,7 @@ int add_opt(char **optsp, const char *opt)
 }
 
 /* Return Choice list from Split brain status */
-char *
+static char *
 getChoices (const char *value)
 {
         int i = 0;
@@ -382,6 +399,74 @@ out:
         return;
 }
 
+/* Code to save hashed subvol on inode ctx as a mds subvol
+*/
+int
+dht_inode_ctx_mdsvol_set (inode_t *inode, xlator_t *this, xlator_t *mds_subvol)
+{
+        dht_inode_ctx_t         *ctx            = NULL;
+        int                      ret            = -1;
+        uint64_t                 ctx_int        = 0;
+        gf_boolean_t             ctx_free       = _gf_false;
+
+
+        LOCK (&inode->lock);
+        {
+                ret = __inode_ctx_get (inode, this , &ctx_int);
+                if (ctx_int) {
+                        ctx = (dht_inode_ctx_t *)ctx_int;
+                        ctx->mds_subvol = mds_subvol;
+                } else {
+                        ctx = GF_CALLOC (1, sizeof(*ctx), gf_dht_mt_inode_ctx_t);
+                        if (!ctx)
+                                goto unlock;
+                        ctx->mds_subvol = mds_subvol;
+                        ctx_free        = _gf_true;
+                        ctx_int = (long) ctx;
+                        ret =  __inode_ctx_set (inode, this, &ctx_int);
+                }
+        }
+unlock:
+        UNLOCK (&inode->lock);
+        if (ret && ctx_free)
+                GF_FREE (ctx);
+        return ret;
+}
+
+/*Code to get mds subvol from inode ctx */
+
+int
+dht_inode_ctx_mdsvol_get (inode_t *inode, xlator_t *this, xlator_t **mdsvol)
+{
+        dht_inode_ctx_t         *ctx            = NULL;
+        int                      ret            = -1;
+
+        if (!mdsvol)
+                return ret;
+
+        if (__is_root_gfid(inode->gfid)) {
+                (*mdsvol) = FIRST_CHILD (this);
+                return 0;
+        }
+
+        ret = dht_inode_ctx_get (inode, this, &ctx);
+
+        if (!ret && ctx) {
+                if (ctx->mds_subvol) {
+                        *mdsvol = ctx->mds_subvol;
+                        ret = 0;
+                } else {
+                        ret = -1;
+                }
+        }
+
+        return ret;
+}
+
+
+
+
+
 /* TODO:
    - use volumename in xattr instead of "dht"
    - use NS locks
@@ -397,6 +482,7 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
 {
         dht_local_t  *local = NULL;
         dht_layout_t *layout = NULL;
+        dht_conf_t   *conf   = NULL;
         int           ret = -1;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, out);
@@ -404,6 +490,7 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
         GF_VALIDATE_OR_GOTO ("dht", frame->local, out);
 
         local = frame->local;
+        conf  = this->private;
         ret = op_ret;
 
         FRAME_SU_UNDO (frame, dht_local_t);
@@ -421,6 +508,8 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
 
         DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
         dht_set_fixed_dir_stat (&local->postparent);
+        /* Delete mds xattr at the time of STACK UNWIND */
+        GF_REMOVE_INTERNAL_XATTR (conf->mds_xattr_key, local->xattr);
 
         DHT_STACK_UNWIND (lookup, frame, ret, local->op_errno, local->inode,
                           &local->stbuf, local->xattr, &local->postparent);
@@ -446,10 +535,12 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
         int              i               = 0;
         loc_t            loc             = {0 };
         int8_t           is_read_only    = 0, layout_anomalies = 0;
+        char             gfid_local[GF_UUID_BUF_SIZE] = {0};
 
         local = discover_frame->local;
         layout = local->layout;
         conf = this->private;
+        gf_uuid_unparse(local->gfid, gfid_local);
 
         LOCK(&discover_frame->lock);
         {
@@ -460,6 +551,18 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
 
         if (!main_frame)
                 return 0;
+
+        /* Code to update all extended attributed from
+           subvol to local->xattr on that internal xattr has found
+        */
+        if (conf->subvolume_cnt == 1)
+                local->need_xattr_heal = 0;
+        if (local->need_xattr_heal && (local->mds_xattr)) {
+                dht_dir_set_heal_xattr (this, local, local->xattr,
+                                        local->mds_xattr, NULL, NULL);
+                dict_unref (local->mds_xattr);
+                local->mds_xattr = NULL;
+        }
 
         ret = dict_get_int8 (local->xattr_req, QUOTA_READ_ONLY_KEY,
                              &is_read_only);
@@ -529,6 +632,26 @@ dht_discover_complete (xlator_t *this, call_frame_t *discover_frame)
                 }
         }
 
+        if (IA_ISDIR (local->stbuf.ia_type)) {
+                /* Call function to save hashed subvol on inode ctx if
+                   internal mds xattr is not present and all subvols are up
+                */
+                if (!local->op_ret && !__is_root_gfid (local->stbuf.ia_gfid))
+                        (void) dht_mark_mds_subvolume (discover_frame, this);
+
+                if (local->need_xattr_heal && !heal_path) {
+                        local->need_xattr_heal = 0;
+                        ret =  dht_dir_xattr_heal (this, local);
+                        if (ret)
+                                gf_msg (this->name, GF_LOG_ERROR,
+                                        ret,
+                                        DHT_MSG_DIR_XATTR_HEAL_FAILED,
+                                        "xattr heal failed for "
+                                        "directory  gfid is %s ",
+                                        gfid_local);
+                }
+        }
+
         if (source && (heal_path || layout_anomalies)) {
                 gf_uuid_copy (loc.gfid, local->gfid);
                 if (gf_uuid_is_null (loc.gfid)) {
@@ -575,16 +698,184 @@ cleanup:
         }
 done:
         dht_set_fixed_dir_stat (&local->postparent);
+        /* Delete mds xattr at the time of STACK UNWIND */
+        GF_REMOVE_INTERNAL_XATTR (conf->mds_xattr_key, local->xattr);
+
         DHT_STACK_UNWIND (lookup, main_frame, local->op_ret, local->op_errno,
                           local->inode, &local->stbuf, local->xattr,
                           &local->postparent);
         return 0;
+
 out:
         DHT_STACK_UNWIND (lookup, main_frame, -1, op_errno, NULL, NULL, NULL,
                           NULL);
 
         return ret;
 }
+
+int
+dht_mds_internal_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                               int op_ret, int op_errno, dict_t *xdata)
+{
+        dht_local_t  *local                   = NULL;
+        xlator_t     *hashed_subvol           = NULL;
+        dht_conf_t   *conf                    = NULL;
+        int           ret                     = 0;
+
+        GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame->local, out);
+
+        local = frame->local;
+        hashed_subvol  = cookie;
+        conf = this->private;
+
+        if (op_ret) {
+                gf_msg_debug (this->name, op_ret,
+                              "Failed to set %s on the MDS for path %s. ",
+                              conf->mds_xattr_key, local->loc.path);
+        } else {
+               /* Save mds subvol on inode ctx */
+                ret = dht_inode_ctx_mdsvol_set (local->inode, this,
+                                                hashed_subvol);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_SET_INODE_CTX_FAILED,
+                                "Failed to set mds subvol on inode ctx"
+                                " %s for %s", hashed_subvol->name,
+                                local->loc.path);
+                }
+        }
+out:
+        DHT_STACK_DESTROY (frame);
+        return 0;
+}
+
+
+
+/* Code to save hashed subvol on inode ctx only while no
+   mds xattr is availble and all subvols are up for fresh
+*/
+int
+dht_mark_mds_subvolume (call_frame_t *frame, xlator_t *this)
+{
+        dht_local_t  *local                   = NULL;
+        xlator_t     *hashed_subvol           = NULL;
+        int           i                       = 0;
+        gf_boolean_t  vol_down                = _gf_false;
+        dht_conf_t   *conf                    = 0;
+        int           ret                     = -1;
+        char          gfid_local[GF_UUID_BUF_SIZE] = {0};
+        dict_t       *xattrs                      = NULL;
+        dht_local_t  *copy_local                  = NULL;
+        call_frame_t *xattr_frame                 = NULL;
+        int32_t       zero[1]                     = {0};
+
+
+        GF_VALIDATE_OR_GOTO ("dht", frame, out);
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame->local, out);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
+
+        local = frame->local;
+        conf = this->private;
+        gf_uuid_unparse(local->gfid, gfid_local);
+
+
+        /* Code to update hashed subvol consider as a mds subvol
+           and save on inode ctx if all subvols are up and no internal
+           xattr has been set yet
+        */
+        if (!dict_get (local->xattr, conf->mds_xattr_key)) {
+                /* It means no internal MDS xattr has been set yet
+                */
+                /* Check the status of all subvol are up
+                */
+                for (i = 0; i < conf->subvolume_cnt; i++) {
+                        if (!conf->subvolume_status[i]) {
+                                vol_down = _gf_true;
+                                break;
+                        }
+                }
+                if (vol_down) {
+                        ret = 0;
+                        gf_msg_debug (this->name, 0,
+                                      "subvol %s is down. Unable to "
+                                      " save mds subvol on inode for "
+                                      " path %s gfid is %s " ,
+                                      conf->subvolumes[i]->name, local->loc.path,
+                                      gfid_local);
+                       goto out;
+                }
+                /* Calculate hashed subvol based on inode and
+                   parent inode
+                */
+                hashed_subvol = dht_inode_get_hashed_subvol (local->inode,
+                                                             this, &local->loc);
+                if (!hashed_subvol) {
+                        gf_msg (this->name, GF_LOG_DEBUG, 0,
+                                DHT_MSG_HASHED_SUBVOL_GET_FAILED,
+                                "Failed to get hashed subvol for path %s"
+                                " gfid is %s ",
+                                local->loc.path, gfid_local);
+                } else {
+                        xattrs = dict_new ();
+                        if (!xattrs) {
+                                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                        DHT_MSG_NO_MEMORY, "dict_new failed");
+                                ret = -1;
+                                goto out;
+                        }
+                        /* Add internal MDS xattr on disk for hashed subvol
+                        */
+                        ret = dht_dict_set_array (xattrs, conf->mds_xattr_key, zero, 1);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                                        DHT_MSG_DICT_SET_FAILED,
+                                        "Failed to set dictionary"
+                                        "  value:key = %s for "
+                                        "path %s", conf->mds_xattr_key,
+                                        local->loc.path);
+                                ret = -1;
+                                goto out;
+                        }
+                        xattr_frame = create_frame (this, this->ctx->pool);
+                        if (!xattr_frame) {
+                                ret = -1;
+                                goto out;
+                        }
+                        copy_local = dht_local_init (xattr_frame, &(local->loc),
+                                                     NULL, 0);
+                        if (!copy_local) {
+                                ret = -1;
+                                DHT_STACK_DESTROY (xattr_frame);
+                                goto out;
+                        }
+                        copy_local->stbuf = local->stbuf;
+                        if (!copy_local->inode)
+                                copy_local->inode = inode_ref (local->inode);
+                        gf_uuid_copy (copy_local->loc.gfid, local->gfid);
+                        STACK_WIND_COOKIE (xattr_frame, dht_mds_internal_setxattr_cbk,
+                                           hashed_subvol, hashed_subvol,
+                                           hashed_subvol->fops->setxattr,
+                                           &local->loc, xattrs, 0, NULL);
+                        ret = 0;
+                }
+        } else {
+                ret = 0;
+                gf_msg_debug (this->name, 0,
+                              "internal xattr %s is present on subvol"
+                              "on path %s gfid is %s " , conf->mds_xattr_key,
+                               local->loc.path, gfid_local);
+        }
+
+
+out:
+        if (xattrs)
+                dict_unref (xattrs);
+       return ret;
+}
+
+
 
 int
 dht_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -598,11 +889,15 @@ dht_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_layout_t *layout                  = NULL;
         int           ret                     = -1;
         int           is_dir                  = 0;
+        int32_t       check_mds               = 0;
         int           is_linkfile             = 0;
         int           attempt_unwind          = 0;
         dht_conf_t   *conf                    = 0;
-        char         gfid_local[GF_UUID_BUF_SIZE]  = {0};
-        char         gfid_node[GF_UUID_BUF_SIZE]  = {0};
+        char          gfid_local[GF_UUID_BUF_SIZE] = {0};
+        char          gfid_node[GF_UUID_BUF_SIZE]  = {0};
+        int32_t       mds_xattr_val[1]             = {0};
+        int           errst                        = 0;
+
 
         GF_VALIDATE_OR_GOTO ("dht", frame, out);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
@@ -697,6 +992,41 @@ dht_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dht_iatt_merge (this, &local->stbuf, stbuf, prev);
                 dht_iatt_merge (this, &local->postparent, postparent,
                                 prev);
+                if (!dict_get (xattr, conf->mds_xattr_key)) {
+                        goto unlock;
+                } else {
+                        gf_msg_debug (this->name, 0,
+                                      "internal xattr %s is present on subvol"
+                                      "on path %s gfid is %s " ,
+                                      conf->mds_xattr_key,
+                                      local->loc.path, gfid_local);
+                }
+                check_mds = dht_dict_get_array (xattr, conf->mds_xattr_key,
+                                                mds_xattr_val, 1, &errst);
+                /* save mds subvol on inode ctx */
+                ret = dht_inode_ctx_mdsvol_set (local->inode, this,
+                                                prev);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_SET_INODE_CTX_FAILED,
+                                "Failed to set hashed subvol for %s vol is %s",
+                                local->loc.path, prev->name);
+                }
+
+                if ((check_mds < 0) && !errst) {
+                        local->mds_xattr = dict_ref (xattr);
+                        gf_msg_debug (this->name, 0,
+                                      "Value of %s is not zero on mds subvol"
+                                      "so xattr needs to be healed on non mds"
+                                      " path is %s and vol name is %s "
+                                      " gfid is %s" ,
+                                      conf->mds_xattr_key,
+                                      local->loc.path,
+                                      prev->name, gfid_local);
+                        local->need_xattr_heal = 1;
+                        local->mds_subvol  = prev;
+                }
+
         }
 unlock:
         UNLOCK (&frame->lock);
@@ -795,6 +1125,99 @@ err:
         return 0;
 }
 
+/* Get the value of key from dict in the bytewise and save in array after
+   convert from network byte order to host byte order
+*/
+int32_t
+dht_dict_get_array (dict_t *dict, char *key, int32_t value[], int32_t size, int *errst)
+{
+        void    *ptr          = NULL;
+        int32_t len           = -1;
+        int32_t vindex        = -1;
+        int32_t err           = -1;
+        int     ret          = 0;
+
+        if (dict == NULL) {
+                (*errst) = -1;
+                return -EINVAL;
+        }
+        err = dict_get_ptr_and_len(dict, key, &ptr, &len);
+        if (err != 0) {
+                (*errst) = -1;
+                return err;
+        }
+
+        if (len != (size * sizeof (int32_t))) {
+                (*errst) = -1;
+                return -EINVAL;
+        }
+
+        memset (value, 0, size * sizeof(int32_t));
+        for (vindex = 0; vindex < size; vindex++) {
+                value[vindex] = ntoh32(*((int32_t *)ptr + vindex));
+                if (value[vindex] < 0)
+                        ret = -1;
+        }
+
+        return ret;
+}
+
+
+/* Code to call syntask to heal custom xattr from hashed subvol
+   to non hashed subvol
+*/
+int
+dht_dir_xattr_heal (xlator_t *this, dht_local_t *local)
+{
+        dht_local_t  *copy_local                  = NULL;
+        call_frame_t *copy                        = NULL;
+        int          ret                          = -1;
+        char         gfid_local[GF_UUID_BUF_SIZE] = {0};
+
+        if (local->gfid) {
+                gf_uuid_unparse(local->gfid, gfid_local);
+        } else {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_DIR_XATTR_HEAL_FAILED,
+                        "No gfid exists for path %s "
+                        "so healing xattr is not possible",
+                        local->loc.path);
+                goto out;
+        }
+
+        copy = create_frame (this, this->ctx->pool);
+        if (copy) {
+                copy_local = dht_local_init (copy, &(local->loc), NULL, 0);
+                if (!copy_local) {
+                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                DHT_MSG_DIR_XATTR_HEAL_FAILED,
+                                "Memory allocation failed "
+                                "for path %s gfid %s ",
+                                local->loc.path, gfid_local);
+                        DHT_STACK_DESTROY (copy);
+                } else {
+                        copy_local->stbuf = local->stbuf;
+                        gf_uuid_copy (copy_local->loc.gfid, local->gfid);
+                        copy_local->mds_subvol = local->mds_subvol;
+                        FRAME_SU_DO (copy, dht_local_t);
+                        ret = synctask_new (this->ctx->env, dht_dir_heal_xattrs,
+                                            dht_dir_heal_xattrs_done,
+                                            copy, copy);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                        DHT_MSG_DIR_XATTR_HEAL_FAILED,
+                                        "Synctask creation failed to heal xattr "
+                                        "for path %s gfid %s ",
+                                        local->loc.path, gfid_local);
+                                DHT_STACK_DESTROY (copy);
+                        }
+                }
+        }
+out:
+        return ret;
+}
+
+
 
 int
 dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -803,13 +1226,17 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     struct iatt *postparent)
 {
         dht_local_t  *local                   = NULL;
+        dht_conf_t   *conf                    = NULL;
         int           this_call_cnt           = 0;
         xlator_t     *prev                    = NULL;
         dht_layout_t *layout                  = NULL;
         int           ret                     = -1;
         int           is_dir                  = 0;
-        char         gfid_local[GF_UUID_BUF_SIZE]  = {0};
-        char         gfid_node[GF_UUID_BUF_SIZE]  = {0};
+        int32_t       check_mds               = 0;
+        int           errst                   = 0;
+        char          gfid_local[GF_UUID_BUF_SIZE] = {0};
+        char          gfid_node[GF_UUID_BUF_SIZE]  = {0};
+        int32_t       mds_xattr_val[1]                 = {0};
 
         GF_VALIDATE_OR_GOTO ("dht", frame, out);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
@@ -819,17 +1246,20 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
         prev  = cookie;
+        conf  = this->private;
 
         layout = local->layout;
 
-        if (!op_ret && gf_uuid_is_null (local->gfid))
+        if (!op_ret && gf_uuid_is_null (local->gfid)) {
                 memcpy (local->gfid, stbuf->ia_gfid, 16);
+        }
+        if (local->gfid)
+                gf_uuid_unparse(local->gfid, gfid_local);
 
         /* Check if the gfid is different for file from other node */
         if (!op_ret && gf_uuid_compare (local->gfid, stbuf->ia_gfid)) {
 
                 gf_uuid_unparse(stbuf->ia_gfid, gfid_node);
-                gf_uuid_unparse(local->gfid, gfid_local);
 
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_GFID_MISMATCH,
@@ -884,6 +1314,41 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 dht_iatt_merge (this, &local->stbuf, stbuf, prev);
                 dht_iatt_merge (this, &local->postparent, postparent, prev);
+
+                if (!dict_get (xattr, conf->mds_xattr_key)) {
+                        gf_msg_debug (this->name, 0,
+                                      "Internal xattr %s is not present "
+                                      " on path %s gfid is %s " ,
+                                      conf->mds_xattr_key,
+                                      local->loc.path, gfid_local);
+                        goto unlock;
+                } else {
+                        /* Save mds subvol on inode ctx */
+                        ret = dht_inode_ctx_mdsvol_set (local->inode, this,
+                                                        prev);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        DHT_MSG_SET_INODE_CTX_FAILED,
+                                        "Failed to set hashed subvol for %s vol is %s",
+                                        local->loc.path, prev->name);
+                         }
+                }
+                check_mds = dht_dict_get_array (xattr, conf->mds_xattr_key,
+                                                mds_xattr_val, 1, &errst);
+                if ((check_mds < 0) && !errst) {
+                        local->mds_xattr = dict_ref (xattr);
+                        gf_msg_debug (this->name, 0,
+                                      "Value of %s is not zero on hashed subvol "
+                                      "so xattr needs to be heal on non hashed"
+                                      " path is %s and vol name is %s "
+                                      " gfid is %s" ,
+                                      conf->mds_xattr_key,
+                                      local->loc.path,
+                                      prev->name, gfid_local);
+                        local->need_xattr_heal = 1;
+                        local->mds_subvol  = prev;
+                }
+
         }
 unlock:
         UNLOCK (&frame->lock);
@@ -892,7 +1357,20 @@ unlock:
         this_call_cnt = dht_frame_return (frame);
 
         if (is_last_call (this_call_cnt)) {
-                gf_uuid_copy (local->loc.gfid, local->gfid);
+                /* No need to call xattr heal code if volume count is 1
+                */
+                if (conf->subvolume_cnt == 1)
+                        local->need_xattr_heal = 0;
+
+                /* Code to update all extended attributed from hashed subvol
+                   to local->xattr
+                */
+                if (local->need_xattr_heal && (local->mds_xattr)) {
+                        dht_dir_set_heal_xattr (this, local, local->xattr,
+                                                local->mds_xattr, NULL, NULL);
+                        dict_unref (local->mds_xattr);
+                        local->mds_xattr = NULL;
+                }
 
                 if (local->need_selfheal) {
                         local->need_selfheal = 0;
@@ -911,6 +1389,9 @@ unlock:
                         }
 
                         dht_layout_set (this, local->inode, layout);
+                        if (!dict_get (local->xattr, conf->mds_xattr_key) ||
+                            local->need_xattr_heal)
+                                goto selfheal;
                 }
 
                 if (local->inode) {
@@ -925,6 +1406,8 @@ unlock:
 
                 DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
                 dht_set_fixed_dir_stat (&local->postparent);
+                /* Delete mds xattr at the time of STACK UNWIND */
+                GF_REMOVE_INTERNAL_XATTR (conf->mds_xattr_key, local->xattr);
                 DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
                                   local->inode, &local->stbuf, local->xattr,
                                   &local->postparent);
@@ -981,6 +1464,9 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         char gfid[GF_UUID_BUF_SIZE] = {0};
         uint32_t      vol_commit_hash = 0;
         xlator_t      *subvol = NULL;
+        int32_t       check_mds       = 0;
+        int           errst           = 0;
+        int32_t       mds_xattr_val[1] = {0};
 
         GF_VALIDATE_OR_GOTO ("dht", frame, err);
         GF_VALIDATE_OR_GOTO ("dht", this, err);
@@ -1005,6 +1491,9 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         LOCK (&frame->lock);
         {
+                if (gf_uuid_is_null (local->gfid)) {
+                        memcpy (local->gfid, local->loc.gfid, 16);
+                }
 
                 gf_msg_debug (this->name, op_errno,
                               "revalidate lookup of %s "
@@ -1090,6 +1579,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                 local->prebuf.ia_prot = stbuf->ia_prot;
                                 }
                         }
+
                         if (local->stbuf.ia_type != IA_INVAL)
                         {
                                 if ((local->stbuf.ia_gid != stbuf->ia_gid) ||
@@ -1098,6 +1588,44 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                      is_permission_different (&local->stbuf.ia_prot,
                                                               &stbuf->ia_prot))) {
                                         local->need_selfheal = 1;
+                                }
+                        }
+                        if (!dict_get (xattr, conf->mds_xattr_key)) {
+                                gf_msg_debug (this->name, 0,
+                                              "internal xattr %s is not present"
+                                              " on path %s gfid is %s " ,
+                                              conf->mds_xattr_key,
+                                              local->loc.path, gfid);
+                        } else {
+                                check_mds = dht_dict_get_array (xattr, conf->mds_xattr_key,
+                                                                mds_xattr_val, 1, &errst);
+                                if (local->mds_subvol == prev) {
+                                        local->mds_stbuf.ia_gid = stbuf->ia_gid;
+                                        local->mds_stbuf.ia_uid = stbuf->ia_uid;
+                                        local->mds_stbuf.ia_prot = stbuf->ia_prot;
+                                }
+                                /* save mds subvol on inode ctx */
+                                ret = dht_inode_ctx_mdsvol_set (local->inode, this,
+                                                                prev);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                DHT_MSG_SET_INODE_CTX_FAILED,
+                                                "Failed to set MDS subvol for %s vol is %s",
+                                                local->loc.path, prev->name);
+                                }
+                                if ((check_mds < 0) && !errst) {
+                                        local->mds_xattr = dict_ref (xattr);
+                                        gf_msg_debug (this->name, 0,
+                                                      "Value of %s is not zero on "
+                                                      "hashed subvol so xattr needs to"
+                                                      " be healed on non hashed"
+                                                      " path is %s and vol name is %s "
+                                                      " gfid is %s" ,
+                                                      conf->mds_xattr_key,
+                                                      local->loc.path,
+                                                      prev->name, gfid);
+                                        local->need_xattr_heal = 1;
+                                        local->mds_subvol  = prev;
                                 }
                         }
                         ret = dht_layout_dir_mismatch (this, layout,
@@ -1169,13 +1697,52 @@ out:
                     && (conf && conf->unhashed_sticky_bit)) {
                         local->stbuf.ia_prot.sticky = 1;
                 }
+                /* No need to call heal code if volume count is 1
+                */
+                if (conf->subvolume_cnt == 1)
+                        local->need_xattr_heal = 0;
+
+                /* Code to update all extended attributed from hashed subvol
+                   to local->xattr
+                */
+                if (local->need_xattr_heal && (local->mds_xattr)) {
+                        dht_dir_set_heal_xattr (this, local, local->xattr,
+                                                local->mds_xattr, NULL, NULL);
+                        dict_unref (local->mds_xattr);
+                        local->mds_xattr = NULL;
+                }
+                /* Call function to save hashed subvol on inode ctx if
+                   internal mds xattr is not present and all subvols are up
+                */
+                if (inode && !__is_root_gfid (inode->gfid) &&
+                    (!local->op_ret) && (IA_ISDIR (local->stbuf.ia_type)))
+                        (void) dht_mark_mds_subvolume (frame, this);
+
+                if (local->need_xattr_heal) {
+                        local->need_xattr_heal = 0;
+                        ret =  dht_dir_xattr_heal (this, local);
+                        if (ret)
+                                gf_msg (this->name, GF_LOG_ERROR,
+                                        ret, DHT_MSG_DIR_XATTR_HEAL_FAILED,
+                                        "xattr heal failed for directory %s "
+                                        " gfid %s ", local->loc.path,
+                                        gfid);
+                }
                 if (local->need_selfheal) {
                         local->need_selfheal = 0;
-                        gf_uuid_copy (local->gfid, local->stbuf.ia_gfid);
-                        local->stbuf.ia_gid = local->prebuf.ia_gid;
-                        local->stbuf.ia_uid = local->prebuf.ia_uid;
-                        if (__is_root_gfid(local->stbuf.ia_gfid))
+                        if (!__is_root_gfid (inode->gfid)) {
+                                gf_uuid_copy (local->gfid, local->mds_stbuf.ia_gfid);
+                                if (local->mds_stbuf.ia_gid || local->mds_stbuf.ia_uid) {
+                                        local->stbuf.ia_gid = local->mds_stbuf.ia_gid;
+                                        local->stbuf.ia_uid = local->mds_stbuf.ia_uid;
+                                }
+                        } else {
+                                gf_uuid_copy (local->gfid, local->stbuf.ia_gfid);
+                                local->stbuf.ia_gid = local->prebuf.ia_gid;
+                                local->stbuf.ia_uid = local->prebuf.ia_uid;
                                 local->stbuf.ia_prot = local->prebuf.ia_prot;
+                        }
+
                         copy = create_frame (this, this->ctx->pool);
                         if (copy) {
                                 copy_local = dht_local_init (copy, &local->loc,
@@ -1183,6 +1750,8 @@ out:
                                 if (!copy_local)
                                         goto cont;
                                 copy_local->stbuf = local->stbuf;
+                                copy_local->mds_stbuf = local->mds_stbuf;
+                                copy_local->mds_subvol = local->mds_subvol;
                                 copy->local = copy_local;
                                 FRAME_SU_DO (copy, dht_local_t);
                                 ret = synctask_new (this->ctx->env,
@@ -1237,6 +1806,8 @@ cont:
                         local->op_ret = -1;
                         local->op_errno = ESTALE;
                 }
+                /* Delete mds xattr at the time of STACK UNWIND */
+                GF_REMOVE_INTERNAL_XATTR (conf->mds_xattr_key, local->xattr);
 
                 DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
                                   local->inode, &local->stbuf, local->xattr,
@@ -2253,6 +2824,62 @@ out:
 
 }
 
+/* Code to get hashed subvol based on inode and loc
+   First it check if loc->parent and loc->path exist then it get
+   hashed subvol based on loc.
+*/
+
+xlator_t *
+dht_inode_get_hashed_subvol (inode_t *inode, xlator_t *this, loc_t *loc)
+{
+        char                    *path           = NULL;
+        loc_t                    populate_loc   = {0, };
+        char                    *name           = NULL;
+        xlator_t                *hash_subvol    = NULL;
+
+        if (!inode)
+                return hash_subvol;
+
+        if (loc && loc->parent && loc->path) {
+                if (!loc->name) {
+                        name = strrchr (loc->path, '/');
+                        if (name) {
+                                loc->name = name + 1;
+                        } else {
+                                goto out;
+                        }
+                }
+                hash_subvol = dht_subvol_get_hashed (this, loc);
+                goto out;
+        }
+
+        if (!gf_uuid_is_null (inode->gfid)) {
+                populate_loc.inode = inode_ref (inode);
+                populate_loc.parent = inode_parent (populate_loc.inode,
+                                                    NULL, NULL);
+                inode_path (populate_loc.inode, NULL, &path);
+
+                if (!path)
+                        goto out;
+
+                populate_loc.path = path;
+                if (!populate_loc.name && populate_loc.path) {
+                        name = strrchr (populate_loc.path, '/');
+                        if (name) {
+                                populate_loc.name = name + 1;
+
+                        } else {
+                                goto out;
+                        }
+                }
+                hash_subvol = dht_subvol_get_hashed (this, &populate_loc);
+        }
+out:
+        if (populate_loc.inode)
+                loc_wipe (&populate_loc);
+        return hash_subvol;
+}
+
 
 int
 dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2481,6 +3108,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 {
         xlator_t     *subvol = NULL;
         xlator_t     *hashed_subvol = NULL;
+        xlator_t     *mds_subvol = NULL;
         dht_local_t  *local  = NULL;
         dht_conf_t   *conf = NULL;
         int           ret    = -1;
@@ -2529,6 +3157,15 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                 local->xattr_req = dict_ref (xattr_req);
         } else {
                 local->xattr_req = dict_new ();
+        }
+
+        ret = dict_set_uint32 (local->xattr_req, conf->mds_xattr_key, 4);
+
+        if (ret) {
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                        DHT_MSG_DICT_SET_FAILED,
+                        "Failed to set dictionary value:key = %s for "
+                        "path %s", conf->mds_xattr_key, loc->path);
         }
 
         if (gf_uuid_is_null (loc->pargfid) && !gf_uuid_is_null (loc->gfid) &&
@@ -2601,6 +3238,14 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                         goto err;
                 }
                 if (IA_ISDIR (local->inode->ia_type)) {
+                        ret = dht_inode_ctx_mdsvol_get (local->inode, this,
+                                                        &mds_subvol);
+                        if (ret || !mds_subvol) {
+                                gf_msg_debug (this->name, 0,
+                                              "Failed to get mds subvol for path %s",
+                                              local->loc.path);
+                        }
+                        local->mds_subvol = mds_subvol;
                         local->call_cnt = call_cnt = conf->subvolume_cnt;
                         for (i = 0; i < call_cnt; i++) {
                                 STACK_WIND_COOKIE (frame, dht_revalidate_cbk,
@@ -2804,18 +3449,17 @@ unlock:
 
         if (!local->op_ret) {
                 hashed_subvol = dht_subvol_get_hashed (this, &local->loc);
-                if (hashed_subvol &&
-                hashed_subvol != local->cached_subvol) {
+                if (hashed_subvol && hashed_subvol != local->cached_subvol) {
                         /*
                          * If hashed and cached are different, then we need
                          * to unlink linkfile from hashed subvol if data
                          * file is deleted successfully
                          */
-                        STACK_WIND_COOKIE (frame, dht_unlink_linkfile_cbk,
-                                           hashed_subvol, hashed_subvol,
-                                           hashed_subvol->fops->unlink, &local->loc,
-                                           local->flags, xdata);
-                        return 0;
+                         STACK_WIND_COOKIE (frame, dht_unlink_linkfile_cbk,
+                                            hashed_subvol, hashed_subvol,
+                                            hashed_subvol->fops->unlink,
+                                            &local->loc, local->flags, xdata);
+                         return 0;
                 }
         }
 
@@ -2826,6 +3470,17 @@ unlock:
 
         return 0;
 }
+
+static int
+dht_common_setxattr_cbk (call_frame_t *frame, void *cookie,
+                         xlator_t *this, int32_t op_ret, int32_t op_errno,
+                         dict_t *xdata)
+{
+         DHT_STACK_UNWIND (setxattr, frame, op_ret, op_errno, xdata);
+         return 0;
+}
+
+
 
 int
 dht_err_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2859,6 +3514,256 @@ unlock:
                                   local->op_errno, NULL);
         }
 
+        return 0;
+}
+
+/* Set the value[] of key into dict after convert from
+   host byte order to network byte order
+*/
+int32_t dht_dict_set_array (dict_t *dict, char *key, int32_t value[],
+                            int32_t size)
+{
+        int         ret = -1;
+        int32_t   *ptr = NULL;
+        int32_t     vindex;
+
+        if (value == NULL) {
+                return -EINVAL;
+        }
+
+        ptr = GF_MALLOC(sizeof(int32_t) * size, gf_common_mt_char);
+        if (ptr == NULL) {
+                return -ENOMEM;
+        }
+        for (vindex = 0; vindex < size; vindex++) {
+                ptr[vindex] = hton32(value[vindex]);
+        }
+        ret = dict_set_bin(dict, key, ptr, sizeof(int32_t) * size);
+        if (ret)
+                GF_FREE (ptr);
+        return ret;
+}
+
+int
+dht_common_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
+{
+        dht_local_t *local = NULL;
+        call_frame_t  *prev  = cookie;
+
+        local = frame->local;
+
+        if (op_ret)
+                gf_msg_debug (this->name, op_errno,
+                              "subvolume %s returned -1",
+                              prev->this->name);
+
+        DHT_STACK_UNWIND (setxattr, frame, 0, op_errno, local->xdata);
+        return 0;
+}
+
+int
+dht_common_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
+{
+        dht_local_t *local = NULL;
+        call_frame_t  *prev  = cookie;
+
+        local = frame->local;
+
+        if (op_ret)
+                gf_msg_debug (this->name, op_errno,
+                              "subvolume %s returned -1",
+                              prev->this->name);
+
+        DHT_STACK_UNWIND (fsetxattr, frame, 0, op_errno, local->xdata);
+        return 0;
+}
+
+/* Code to wind a xattrop call to add 1 on current mds internal xattr
+   value
+*/
+int
+dht_setxattr_non_mds_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                          int op_ret, int op_errno, dict_t *xdata)
+{
+        dht_local_t  *local = NULL;
+        int           this_call_cnt = 0;
+        int           ret           = 0;
+        dict_t        *xattrop      = NULL;
+        int32_t       addone[1]     = {1};
+        call_frame_t  *prev         = NULL;
+        dht_conf_t    *conf         = NULL;
+
+        local = frame->local;
+        prev = cookie;
+        conf = this->private;
+
+        LOCK (&frame->lock);
+        {
+             if (op_ret && !local->op_ret) {
+                        local->op_ret = op_ret;
+                        local->op_errno = op_errno;
+                         gf_msg_debug (this->name, op_errno,
+                                       "subvolume %s returned -1",
+                                       prev->this->name);
+             }
+        }
+        UNLOCK (&frame->lock);
+        this_call_cnt = dht_frame_return (frame);
+
+        if (is_last_call (this_call_cnt)) {
+                if (!local->op_ret) {
+                        xattrop = dict_new ();
+                        if (!xattrop) {
+                                gf_msg (this->name, GF_LOG_ERROR,
+                                        DHT_MSG_NO_MEMORY, 0,
+                                        "dictionary creation failed");
+                                ret = -1;
+                                goto out;
+                        }
+                        ret = dht_dict_set_array (xattrop,
+                                                  conf->mds_xattr_key,
+                                                  addone, 1);
+                        if (ret != 0) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        DHT_MSG_DICT_SET_FAILED,
+                                        "dictionary set array failed ");
+                                ret = -1;
+                                goto out;
+                        }
+                        if (local->fop == GF_FOP_SETXATTR) {
+                                STACK_WIND (frame, dht_common_xattrop_cbk,
+                                            local->mds_subvol,
+                                            local->mds_subvol->fops->xattrop,
+                                            &local->loc, GF_XATTROP_ADD_ARRAY,
+                                            xattrop, NULL);
+                        } else {
+                                STACK_WIND (frame, dht_common_fxattrop_cbk,
+                                            local->mds_subvol,
+                                            local->mds_subvol->fops->fxattrop,
+                                            local->fd, GF_XATTROP_ADD_ARRAY,
+                                            xattrop, NULL);
+                        }
+                } else  {
+                        if (local->fop == GF_FOP_SETXATTR)
+                                DHT_STACK_UNWIND (setxattr, frame, 0, 0, local->xdata);
+                        else
+                                DHT_STACK_UNWIND (fsetxattr, frame, 0, 0, local->xdata);
+                }
+        }
+out:
+        if (xattrop)
+                dict_unref (xattrop);
+        if (ret) {
+                if (local->fop == GF_FOP_SETXATTR)
+                        DHT_STACK_UNWIND (setxattr, frame, 0, 0, local->xdata);
+                else
+                        DHT_STACK_UNWIND (fsetxattr, frame, 0, 0, local->xdata);
+        }
+        return 0;
+}
+
+
+int
+dht_setxattr_mds_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int op_ret, int op_errno, dict_t *xdata)
+{
+        dht_local_t  *local = NULL;
+        dht_conf_t   *conf  = NULL;
+        call_frame_t *prev = NULL;
+        xlator_t     *mds_subvol = NULL;
+        int i = 0;
+
+        local = frame->local;
+        prev = cookie;
+        conf = this->private;
+        mds_subvol = local->mds_subvol;
+
+        if (op_ret == -1) {
+                local->op_ret  = op_ret;
+                local->op_errno = op_errno;
+                gf_msg_debug (this->name, op_errno,
+                              "subvolume %s returned -1",
+                              prev->this->name);
+                goto out;
+        }
+
+        local->op_ret = 0;
+        local->call_cnt = conf->subvolume_cnt - 1;
+        local->xdata    = dict_ref (xdata);
+
+        for (i = 0; i < conf->subvolume_cnt; i++) {
+                if (mds_subvol && (mds_subvol == conf->subvolumes[i]))
+                        continue;
+                if (local->fop == GF_FOP_SETXATTR) {
+                        STACK_WIND (frame, dht_setxattr_non_mds_cbk,
+                                    conf->subvolumes[i],
+                                    conf->subvolumes[i]->fops->setxattr,
+                                    &local->loc, local->xattr,
+                                    local->flags, local->xattr_req);
+                } else {
+                        STACK_WIND (frame, dht_setxattr_non_mds_cbk,
+                                    conf->subvolumes[i],
+                                    conf->subvolumes[i]->fops->fsetxattr,
+                                    local->fd, local->xattr,
+                                    local->flags, local->xattr_req);
+                }
+        }
+
+        return 0;
+out:
+        if (local->fop == GF_FOP_SETXATTR) {
+                DHT_STACK_UNWIND (setxattr, frame, local->op_ret,
+                                  local->op_errno, xdata);
+        } else {
+                DHT_STACK_UNWIND (fsetxattr, frame, local->op_ret,
+                                  local->op_errno, xdata);
+        }
+
+        return 0;
+}
+
+int
+dht_xattrop_mds_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int op_ret, int op_errno, dict_t *dict, dict_t *xdata)
+{
+        dht_local_t  *local = NULL;
+        call_frame_t *prev = NULL;
+
+        local = frame->local;
+        prev = cookie;
+
+        if (op_ret == -1) {
+                local->op_errno = op_errno;
+                local->op_ret   = op_ret;
+                gf_msg_debug (this->name, op_errno,
+                              "subvolume %s returned -1",
+                              prev->this->name);
+                goto out;
+        }
+
+        if (local->fop == GF_FOP_SETXATTR) {
+                STACK_WIND (frame, dht_setxattr_mds_cbk,
+                            local->mds_subvol,
+                            local->mds_subvol->fops->setxattr,
+                            &local->loc, local->xattr,
+                            local->flags, local->xattr_req);
+        } else {
+                STACK_WIND (frame, dht_setxattr_mds_cbk,
+                            local->mds_subvol,
+                            local->mds_subvol->fops->fsetxattr,
+                            local->fd, local->xattr,
+                            local->flags, local->xattr_req);
+        }
+        return 0;
+out:
+        if (local->fop == GF_FOP_SETXATTR)
+                DHT_STACK_UNWIND (setxattr, frame, local->op_ret,
+                                  local->op_errno, xdata);
+        else
+                DHT_STACK_UNWIND (fsetxattr, frame, local->op_ret,
+                                  local->op_errno, xdata);
         return 0;
 }
 
@@ -3303,6 +4208,41 @@ dht_linkinfo_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
+
+int
+dht_mds_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int op_ret, int op_errno, dict_t *xattr, dict_t *xdata)
+{
+        dht_local_t     *local = NULL;
+        dht_conf_t      *conf = NULL;
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (frame->local, out);
+        VALIDATE_OR_GOTO (this->private, out);
+
+        conf = this->private;
+        local = frame->local;
+
+        if (!xattr || (op_ret == -1)) {
+                local->op_ret = op_ret;
+                goto out;
+        }
+        if (dict_get (xattr, conf->xattr_name)) {
+                dict_del (xattr, conf->xattr_name);
+        }
+        local->op_ret = 0;
+
+        if (!local->xattr) {
+                local->xattr = dict_copy_with_ref (xattr, NULL);
+        }
+
+out:
+        DHT_STACK_UNWIND (getxattr, frame, local->op_ret, op_errno,
+                          local->xattr, xdata);
+        return 0;
+}
+
+
 int
 dht_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int op_ret, int op_errno, dict_t *xattr, dict_t *xdata)
@@ -3532,6 +4472,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
 
         xlator_t     *subvol        = NULL;
         xlator_t     *hashed_subvol = NULL;
+        xlator_t     *mds_subvol = NULL;
         xlator_t     *cached_subvol = NULL;
         dht_conf_t   *conf          = NULL;
         dht_local_t  *local         = NULL;
@@ -3571,6 +4512,12 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                         op_errno = ENOMEM;
                         goto err;
                 }
+        }
+
+        if (key &&
+            (strncmp (key, conf->mds_xattr_key, strlen(key)) == 0)) {
+                op_errno = ENOTSUP;
+                goto err;
         }
 
         if (key &&
@@ -3703,26 +4650,53 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        if (key && (!strcmp (QUOTA_LIMIT_KEY, key) ||
-                    !strcmp (QUOTA_LIMIT_OBJECTS_KEY, key))) {
-                /* quota hardlimit and aggregated size of a directory is stored
-                 * in inode contexts of each brick. Hence its good enough that
-                 * we send getxattr for this key to any brick.
-                 */
-                local->call_cnt = 1;
-                subvol = dht_first_up_subvol (this);
-                STACK_WIND (frame, dht_getxattr_cbk, subvol,
-                            subvol->fops->getxattr, loc, key, xdata);
-                return 0;
-        }
-
         if (cluster_handle_marker_getxattr (frame, loc, key, conf->vol_uuid,
                                             dht_getxattr_unwind,
                                             dht_marker_populate_args) == 0)
                 return 0;
 
         if (DHT_IS_DIR(layout)) {
-                cnt = local->call_cnt = layout->cnt;
+                local->call_cnt = conf->subvolume_cnt;
+                cnt = conf->subvolume_cnt;
+                ret = dht_inode_ctx_mdsvol_get (loc->inode, this, &mds_subvol);
+                if (!mds_subvol) {
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                DHT_MSG_HASHED_SUBVOL_GET_FAILED,
+                                "Cannot determine MDS, fetching xattr %s randomly"
+                                " from a subvol for path %s ", key, loc->path);
+                } else {
+                        /* TODO need to handle it, As of now we are
+                           choosing availability instead of chossing
+                           consistencty, in case of mds_subvol is
+                           down winding a getxattr call on other subvol
+                           and return xattr
+                        */
+                        local->mds_subvol = mds_subvol;
+                        for (i = 0; i < cnt; i++) {
+                                if (conf->subvolumes[i] == mds_subvol) {
+                                        if (!conf->subvolume_status[i]) {
+                                                gf_msg (this->name,
+                                                        GF_LOG_INFO, 0,
+                                                        DHT_MSG_HASHED_SUBVOL_DOWN,
+                                                        "MDS %s is down for path"
+                                                        " path %s so fetching xattr "
+                                                        "%s randomly from a subvol ",
+                                                        local->mds_subvol->name,
+                                                        loc->path, key);
+                                                ret = 1;
+                                        }
+                                }
+                        }
+                }
+
+                if (!ret && key && local->mds_subvol && dht_match_xattr (key)) {
+                        STACK_WIND (frame, dht_mds_getxattr_cbk,
+                                    local->mds_subvol,
+                                    local->mds_subvol->fops->getxattr,
+                                    loc, key, xdata);
+
+                        return 0;
+                }
         } else {
                 cnt = local->call_cnt  = 1;
         }
@@ -3753,12 +4727,18 @@ dht_fgetxattr (call_frame_t *frame, xlator_t *this,
         int           op_errno      = -1;
         int           i             = 0;
         int           cnt           = 0;
+        xlator_t      *mds_subvol = NULL;
+        int           ret           = -1;
+        dht_conf_t    *conf         = NULL;
+        char           gfid[GF_UUID_BUF_SIZE] = {0};
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO (fd->inode, err);
         VALIDATE_OR_GOTO (this->private, err);
+
+        conf = this->private;
 
         local = dht_local_init (frame, NULL, fd, GF_FOP_FGETXATTR);
         if (!local) {
@@ -3784,14 +4764,62 @@ dht_fgetxattr (call_frame_t *frame, xlator_t *this,
                 }
         }
 
+        if (fd->inode)
+                gf_uuid_unparse(fd->inode->gfid, gfid);
+
         if ((fd->inode->ia_type == IA_IFDIR)
             && key
             && (strncmp (key, GF_XATTR_LOCKINFO_KEY,
                          strlen (GF_XATTR_LOCKINFO_KEY)) != 0)) {
-                cnt = local->call_cnt = layout->cnt;
+                local->call_cnt = conf->subvolume_cnt;
+                cnt             = conf->subvolume_cnt;
+                ret = dht_inode_ctx_mdsvol_get (fd->inode, this, &mds_subvol);
+
+                if (!mds_subvol) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_HASHED_SUBVOL_GET_FAILED,
+                                "cannot determine MDS, fetching xattr %s "
+                                " randomly from a subvol for gfid %s ",
+                                key, gfid);
+                } else {
+                        /* TODO need to handle it, As of now we are
+                           choosing availability instead of chossing
+                           consistencty, in case of hashed_subvol is
+                           down winding a getxattr call on other subvol
+                           and return xattr
+                        */
+                        local->mds_subvol = mds_subvol;
+                        for (i = 0; i < cnt; i++) {
+                                if (conf->subvolumes[i] == mds_subvol) {
+                                        if (!conf->subvolume_status[i]) {
+                                                gf_msg (this->name,
+                                                        GF_LOG_WARNING, 0,
+                                                        DHT_MSG_HASHED_SUBVOL_DOWN,
+                                                        "MDS subvolume %s is down"
+                                                        " for gfid %s so fetching xattr "
+                                                        " %s randomly from a subvol ",
+                                                        local->mds_subvol->name,
+                                                        gfid, key);
+                                                ret = 1;
+                                        }
+                                }
+                        }
+                }
+
+                if (!ret && key && local->mds_subvol &&
+                    dht_match_xattr (key)) {
+                        STACK_WIND (frame, dht_mds_getxattr_cbk,
+                                    local->mds_subvol,
+                                    local->mds_subvol->fops->fgetxattr,
+                                    fd, key, NULL);
+
+                        return 0;
+                }
+
         } else {
                 cnt = local->call_cnt  = 1;
         }
+
 
         for (i = 0; i < cnt; i++) {
                 subvol = layout->list[i].xlator;
@@ -3888,6 +4916,169 @@ out:
         return 0;
 }
 
+/* Function is call by dict_foreach_fnmatch if key is match with
+   user.* and set boolean flag to true
+*/
+static int
+dht_is_user_xattr (dict_t *this, char *key, data_t *value, void *data)
+{
+        gf_boolean_t *user_xattr_found = data;
+        *user_xattr_found = _gf_true;
+        return 0;
+}
+
+
+/* Common code to wind a (f)setxattr call to set xattr on directory
+*/
+int
+dht_dir_common_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                         fd_t *fd, dict_t *xattr, int flags, dict_t *xdata,
+                         int *op_errno)
+
+{
+        dict_t       *xattrop             = NULL;
+        int32_t       subone[1]            = {-1};
+        gf_boolean_t  uxattr_key_found     = _gf_false;
+        xlator_t     *mds_subvol          = NULL;
+        xlator_t     *travvol              = NULL;
+        dht_conf_t   *conf                = NULL;
+        int           ret                  = -1;
+        int           i                    = 0;
+        int           call_cnt             = 0;
+        dht_local_t  *local                = NULL;
+        char          gfid_local[GF_UUID_BUF_SIZE] = {0};
+
+        conf = this->private;
+        local    = frame->local;
+        call_cnt = conf->subvolume_cnt;
+        local->flags = flags;
+
+        if (local->gfid)
+                gf_uuid_unparse(local->gfid, gfid_local);
+
+        /* Check if any user xattr present in xattr
+        */
+        dict_foreach_fnmatch (xattr, "user*", dht_is_user_xattr,
+                              &uxattr_key_found);
+
+        /* Check if any custom key xattr present in dict xattr
+           and start index from 1 because user xattr already
+           checked in previous line
+        */
+        for (i = 1; xattrs_to_heal[i]; i++)
+                if (dict_get (xattr, xattrs_to_heal[i]))
+                        uxattr_key_found = _gf_true;
+
+        /* If there is no custom key xattr present or gfid is root
+           or call_cnt is 1 then wind a (f)setxattr call on all subvols
+        */
+        if (!uxattr_key_found || __is_root_gfid (local->gfid) || call_cnt == 1) {
+                for (i = 0; i < conf->subvolume_cnt; i++) {
+                        travvol = conf->subvolumes[i];
+                        if (fd) {
+                                STACK_WIND_COOKIE (frame, dht_err_cbk,
+                                                   travvol, travvol,
+                                                   travvol->fops->fsetxattr,
+                                                   fd, xattr, flags, xdata);
+                        } else {
+                                STACK_WIND_COOKIE (frame, dht_err_cbk,
+                                                   travvol, travvol,
+                                                   travvol->fops->setxattr,
+                                                   loc, xattr, flags, xdata);
+                        }
+                }
+
+                return 0;
+        }
+
+        /* Calculate hash subvol based on inode and parent inode
+         */
+        if (fd) {
+                ret = dht_inode_ctx_mdsvol_get (fd->inode, this, &mds_subvol);
+        } else {
+                ret = dht_inode_ctx_mdsvol_get (loc->inode, this, &mds_subvol);
+        }
+        if (ret || !mds_subvol) {
+                if (fd) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_HASHED_SUBVOL_GET_FAILED,
+                                "Failed to get mds subvol for fd %p"
+                                "gfid is %s ", fd, gfid_local);
+                } else {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_HASHED_SUBVOL_GET_FAILED,
+                                "Failed to get mds subvol for path %s"
+                                "gfid is %s ", loc->path, gfid_local);
+                }
+                (*op_errno) = ENOENT;
+                goto err;
+        }
+
+        local->mds_subvol = mds_subvol;
+
+        for (i = 0; i < conf->subvolume_cnt; i++) {
+                if (conf->subvolumes[i] ==  mds_subvol) {
+                        if (!conf->subvolume_status[i]) {
+                                gf_msg (this->name, GF_LOG_WARNING,
+                                        0, DHT_MSG_HASHED_SUBVOL_DOWN,
+                                        "MDS subvol is down for path "
+                                        " %s gfid is %s Unable to set xattr " ,
+                                        local->loc.path, gfid_local);
+                                (*op_errno) = ENOTCONN;
+                                goto err;
+                        }
+                }
+        }
+
+        if (uxattr_key_found) {
+                xattrop = dict_new ();
+                if (!xattrop) {
+                        gf_msg (this->name, GF_LOG_ERROR, DHT_MSG_NO_MEMORY,
+                                0, "dictionary creation failed for path %s "
+                                "for gfid is %s ", local->loc.path, gfid_local);
+                        (*op_errno) = ENOMEM;
+                        goto err;
+                }
+                local->xattr = dict_ref (xattr);
+                /* Subtract current MDS xattr value to -1 , value of MDS
+                   xattr represents no. of times xattr modification failed
+                   on non MDS subvols.
+                */
+                ret = dht_dict_set_array (xattrop, conf->mds_xattr_key, subone, 1);
+                if (ret != 0) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0, DHT_MSG_DICT_SET_FAILED,
+                                "dictionary set array failed for path %s "
+                                "for gfid is %s ", local->loc.path, gfid_local);
+                        if (xattrop)
+                                dict_unref (xattrop);
+                        (*op_errno) = ret;
+                        goto err;
+                }
+                /* Wind a xattrop call to use ref counting approach
+                   update mds xattr to -1 before update xattr on
+                   hashed subvol and update mds xattr to +1 after update
+                   xattr on all non hashed subvol
+                */
+                if (fd) {
+                        STACK_WIND (frame, dht_xattrop_mds_cbk,
+                                    local->mds_subvol,
+                                    local->mds_subvol->fops->fxattrop,
+                                     fd, GF_XATTROP_ADD_ARRAY, xattrop, NULL);
+                } else {
+                        STACK_WIND (frame, dht_xattrop_mds_cbk,
+                                    local->mds_subvol,
+                                    local->mds_subvol->fops->xattrop,
+                                    loc, GF_XATTROP_ADD_ARRAY,
+                                    xattrop, NULL);
+                }
+                if (xattrop)
+                        dict_unref (xattrop);
+        }
+
+        return 0;
+err:
+        return -1;
+}
 
 
 int
@@ -3901,7 +5092,6 @@ dht_fsetxattr (call_frame_t *frame, xlator_t *this,
         dht_layout_t *layout   = NULL;
         int           ret      = -1;
         int           call_cnt = 0;
-        int           i        = 0;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -3941,14 +5131,11 @@ dht_fsetxattr (call_frame_t *frame, xlator_t *this,
         local->call_cnt = call_cnt = layout->cnt;
 
         if (IA_ISDIR (fd->inode->ia_type)) {
-                for (i = 0; i < call_cnt; i++) {
-                        STACK_WIND_COOKIE (frame, dht_err_cbk,
-                                           layout->list[i].xlator,
-                                           layout->list[i].xlator,
-                                           layout->list[i].xlator->fops->fsetxattr,
-                                           fd, xattr, flags, xdata);
-                }
-
+                local->hashed_subvol = NULL;
+                ret = dht_dir_common_setxattr (frame, this, NULL, fd,
+                                               xattr, flags, xdata, &op_errno);
+                if (ret)
+                        goto err;
         } else {
 
                 local->call_cnt = 1;
@@ -3971,16 +5158,6 @@ dht_fsetxattr (call_frame_t *frame, xlator_t *this,
 err:
         op_errno = (op_errno == -1) ? errno : op_errno;
         DHT_STACK_UNWIND (fsetxattr, frame, -1, op_errno, NULL);
-
-        return 0;
-}
-
-static int
-dht_common_setxattr_cbk (call_frame_t *frame, void *cookie,
-                         xlator_t *this, int32_t op_ret, int32_t op_errno,
-                         dict_t *xdata)
-{
-        DHT_STACK_UNWIND (setxattr, frame, op_ret, op_errno, xdata);
 
         return 0;
 }
@@ -4122,6 +5299,7 @@ dht_nuke_dir (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *tmp)
         return 0;
 }
 
+
 int
 dht_setxattr (call_frame_t *frame, xlator_t *this,
               loc_t *loc, dict_t *xattr, int flags, dict_t *xdata)
@@ -4140,6 +5318,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         gf_dht_migrate_data_type_t forced_rebalance = GF_DHT_MIGRATE_DATA;
         int           call_cnt = 0;
         uint32_t      new_hash = 0;
+
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -4180,6 +5359,11 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         }
 
         local->call_cnt = call_cnt = layout->cnt;
+        tmp = dict_get (xattr, conf->mds_xattr_key);
+        if (tmp) {
+                op_errno = ENOTSUP;
+                goto err;
+        }
 
         tmp = dict_get (xattr, GF_XATTR_FILE_MIGRATE_KEY);
         if (tmp) {
@@ -4355,15 +5539,11 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         local->xattr_req = xdata ? dict_ref (xdata) : dict_new ();
 
         if (IA_ISDIR (loc->inode->ia_type)) {
-
-                for (i = 0; i < call_cnt; i++) {
-                        STACK_WIND_COOKIE (frame, dht_err_cbk,
-                                           layout->list[i].xlator,
-                                           layout->list[i].xlator,
-                                           layout->list[i].xlator->fops->setxattr,
-                                           loc, xattr, flags, xdata);
-                }
-
+                local->hashed_subvol = NULL;
+                ret = dht_dir_common_setxattr (frame, this, loc, NULL,
+                                               xattr, flags, xdata, &op_errno);
+                if (ret)
+                        goto err;
         } else {
 
                 local->rebalance.xattr = dict_ref (xattr);
@@ -4601,6 +5781,12 @@ dht_removexattr (call_frame_t *frame, xlator_t *this,
 
         local->call_cnt = call_cnt = layout->cnt;
         local->key = gf_strdup (key);
+
+        if (key &&
+            (strncmp (key, conf->mds_xattr_key, strlen(key)) == 0)) {
+                op_errno = ENOTSUP;
+                goto err;
+        }
 
         if (IA_ISDIR (loc->inode->ia_type)) {
                 for (i = 0; i < call_cnt; i++) {
@@ -7553,6 +8739,10 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
         dht_iatt_merge (this, &local->postparent, postparent, prev);
 
         local->call_cnt = conf->subvolume_cnt - 1;
+        /* Delete internal mds xattr from params dict to avoid store
+          internal mds xattr on other subvols
+        */
+        dict_del (local->params, conf->mds_xattr_key);
 
         if (gf_uuid_is_null (local->loc.gfid))
                 gf_uuid_copy (local->loc.gfid, stbuf->ia_gfid);
@@ -7564,6 +8754,14 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
                                         &local->loc, layout);
         }
 
+        /* Set hashed subvol as a mds subvol on inode ctx */
+        ret = dht_inode_ctx_mdsvol_set (local->inode, this, hashed_subvol);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, DHT_MSG_SET_INODE_CTX_FAILED,
+                        "Failed to set hashed subvol for %s on inode vol is %s",
+                        local->loc.path, hashed_subvol->name);
+        }
+
         for (i = 0; i < conf->subvolume_cnt; i++) {
                 if (conf->subvolumes[i] == hashed_subvol)
                         continue;
@@ -7573,6 +8771,7 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
                                    &local->loc, local->mode, local->umask,
                                    local->params);
         }
+
         return 0;
 err:
         if (local->op_ret != 0) {
@@ -7594,9 +8793,13 @@ dht_mkdir_guard_parent_layout_cbk (call_frame_t *frame, xlator_t *this,
                                    dict_t *params)
 {
         dht_local_t *local                    = NULL;
+        dht_conf_t  *conf                     = 0;
         char          pgfid[GF_UUID_BUF_SIZE] = {0};
+        int          ret                      = -1;
+        int32_t      zero[1]                  = {0};
 
         local = frame->local;
+        conf  = this->private;
 
         gf_uuid_unparse (loc->parent->gfid, pgfid);
 
@@ -7610,6 +8813,15 @@ dht_mkdir_guard_parent_layout_cbk (call_frame_t *frame, xlator_t *this,
         }
 
         local->op_ret = -1;
+        /* Add internal MDS xattr on disk for hashed subvol
+        */
+        ret = dht_dict_set_array (params, conf->mds_xattr_key, zero, 1);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                        DHT_MSG_DICT_SET_FAILED,
+                        "Failed to set dictionary value:key = %s for "
+                        "path %s", conf->mds_xattr_key, loc->path);
+        }
 
         STACK_WIND_COOKIE (frame, dht_mkdir_hashed_cbk, local->hashed_subvol,
                            local->hashed_subvol,

@@ -767,6 +767,10 @@ dht_local_wipe (xlator_t *this, dht_local_t *local)
 
         if (local->xattr_req)
                 dict_unref (local->xattr_req);
+        if (local->mds_xattr)
+                dict_unref (local->mds_xattr);
+        if (local->xdata)
+                dict_unref (local->xdata);
 
         if (local->selfheal.layout) {
                 dht_layout_unref (this, local->selfheal.layout);
@@ -2081,12 +2085,24 @@ dht_heal_full_path_done (int op_ret, call_frame_t *heal_frame, void *data)
 
         call_frame_t            *main_frame       = NULL;
         dht_local_t             *local            = NULL;
+        xlator_t                *this             = NULL;
+        int                     ret               = -1;
 
         local = heal_frame->local;
         main_frame = local->main_frame;
         local->main_frame = NULL;
+        this = heal_frame->this;
 
         dht_set_fixed_dir_stat (&local->postparent);
+        if (local->need_xattr_heal) {
+                local->need_xattr_heal = 0;
+                ret =  dht_dir_xattr_heal (this, local);
+                if (ret)
+                        gf_msg (this->name, GF_LOG_ERROR, ret,
+                                DHT_MSG_DIR_XATTR_HEAL_FAILED,
+                                "xattr heal failed for directory  %s ",
+                                local->loc.path);
+        }
 
         DHT_STACK_UNWIND (lookup, main_frame, 0, 0,
                           local->inode, &local->stbuf, local->xattr,
@@ -2249,4 +2265,53 @@ dht_lk_inode_unref (call_frame_t *frame, int32_t op_ret)
         ret = 0;
 out:
         return ret;
+}
+
+/* Code to update custom extended attributes from src dict to dst dict
+*/
+void
+dht_dir_set_heal_xattr (xlator_t *this, dht_local_t *local, dict_t *dst,
+                        dict_t *src, int *uret, int *uflag)
+{
+        int               ret                 = -1;
+        data_t           *keyval              = NULL;
+        int               luret               = -1;
+        int               luflag              = -1;
+        int               i                   = 0;
+
+        if (!src || !dst) {
+                gf_msg (this->name, GF_LOG_WARNING, EINVAL,
+                        DHT_MSG_DICT_SET_FAILED,
+                        "src or dst is NULL. Failed to set "
+                        " dictionary value for path %s",
+                        local->loc.path);
+                return;
+        }
+        /* Check if any user xattr present in src dict and set
+           it to dst dict
+        */
+        luret = dict_foreach_fnmatch (src, "user.*",
+                                      dht_set_user_xattr, dst);
+        /* Check if any other custom xattr present in src dict
+           and set it to dst dict, here index start from 1 because
+           user xattr already checked in previous statement
+        */
+        for (i = 1; xattrs_to_heal[i]; i++) {
+                keyval = dict_get (src, xattrs_to_heal[i]);
+                if (keyval) {
+                        luflag = 1;
+                        ret = dict_set (dst, xattrs_to_heal[i], keyval);
+                        if (ret)
+                                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                                        DHT_MSG_DICT_SET_FAILED,
+                                        "Failed to set dictionary value:key = %s for "
+                                        "path %s", xattrs_to_heal[i],
+                                        local->loc.path);
+                        keyval = NULL;
+                }
+        }
+        if (uret)
+                (*uret) = luret;
+        if (uflag)
+                (*uflag) = luflag;
 }

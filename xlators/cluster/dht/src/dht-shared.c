@@ -868,6 +868,7 @@ dht_init (xlator_t *this)
         }
 
         GF_OPTION_INIT ("xattr-name", conf->xattr_name, str, err);
+        gf_asprintf (&conf->mds_xattr_key, "%s."DHT_MDS_STR, conf->xattr_name);
         gf_asprintf (&conf->link_xattr_name, "%s."DHT_LINKFILE_STR,
                      conf->xattr_name);
         gf_asprintf (&conf->commithash_xattr_name, "%s."DHT_COMMITHASH_STR,
@@ -917,6 +918,7 @@ err:
                 GF_FREE (conf->xattr_name);
                 GF_FREE (conf->link_xattr_name);
                 GF_FREE (conf->wild_xattr_name);
+                GF_FREE (conf->mds_xattr_key);
 
                 if (conf->lock_pool)
                         mem_pool_destroy (conf->lock_pool);
