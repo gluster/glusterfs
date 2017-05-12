@@ -863,8 +863,11 @@ ec_gf_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                                             NULL, ec_marker_populate_args) == 0)
                 return 0;
 
-        if (name && (fnmatch (GF_XATTR_STIME_PATTERN, name, 0) == 0))
+        if (name &&
+            ((fnmatch (GF_XATTR_STIME_PATTERN, name, 0) == 0) ||
+             (XATTR_IS_NODE_UUID(name)))) {
                 minimum = EC_MINIMUM_ALL;
+        }
 
         ec_getxattr (frame, this, -1, minimum, default_getxattr_cbk,
                      NULL, loc, name, xdata);
