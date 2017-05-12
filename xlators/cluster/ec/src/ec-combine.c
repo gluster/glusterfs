@@ -22,6 +22,8 @@
 
 #define EC_QUOTA_PREFIX "trusted.glusterfs.quota."
 
+#define EC_MISSING_DATA ((data_t *)1ULL)
+
 struct _ec_dict_info;
 typedef struct _ec_dict_info ec_dict_info_t;
 
@@ -270,35 +272,45 @@ ec_dict_compare (dict_t *dict1, dict_t *dict2)
         return 0;
 }
 
-int32_t ec_dict_list(data_t ** list, int32_t * count, ec_cbk_data_t * cbk,
-                     int32_t which, char * key)
+static uint32_t
+ec_dict_list(data_t **list, ec_cbk_data_t *cbk, int32_t which, char *key,
+             gf_boolean_t global)
 {
-    ec_cbk_data_t *ans = NULL;
-    dict_t *dict = NULL;
-    int32_t i, max;
+        ec_t *ec = cbk->fop->xl->private;
+        ec_cbk_data_t *ans = NULL;
+        dict_t *dict = NULL;
+        data_t *data;
+        uint32_t count;
+        int32_t i;
 
-    max = *count;
-    i = 0;
-    for (ans = cbk; ans != NULL; ans = ans->next) {
-        if (i >= max) {
-            gf_msg (cbk->fop->xl->name, GF_LOG_ERROR, EINVAL,
-                    EC_MSG_INVALID_DICT_NUMS,
-                    "Unexpected number of "
-                    "dictionaries");
-
-            return -EINVAL;
+        for (i = 0; i < ec->nodes; i++) {
+                /* We initialize the list with EC_MISSING_DATA if we are
+                 * returning a global list or the current subvolume belongs
+                 * to the group of the accepted answer. Note that if some
+                 * subvolume is known to be down before issuing the request,
+                 * we won't have any answer from it, so we set here the
+                 * appropriate default value. */
+                if (global || ((cbk->mask & (1ULL << i)) != 0)) {
+                        list[i] = EC_MISSING_DATA;
+                } else {
+                        list[i] = NULL;
+                }
         }
 
-        dict = (which == EC_COMBINE_XDATA) ? ans->xdata : ans->dict;
-        list[i] = dict_get(dict, key);
-        if (list[i] != NULL) {
-            i++;
+        count = 0;
+        list_for_each_entry(ans, &cbk->fop->answer_list, answer_list) {
+                if (global || ((cbk->mask & ans->mask) != 0)) {
+                        dict = (which == EC_COMBINE_XDATA) ? ans->xdata
+                                                           : ans->dict;
+                        data = dict_get(dict, key);
+                        if (data != NULL) {
+                                list[ans->idx] = data;
+                                count++;
+                        }
+                }
         }
-    }
 
-    *count = i;
-
-    return 0;
+        return count;
 }
 
 int32_t ec_concat_prepare(xlator_t *xl, char **str, char **sep, char **post,
@@ -337,23 +349,21 @@ out:
     return -EINVAL;
 }
 
-int32_t ec_dict_data_concat(const char * fmt, ec_cbk_data_t * cbk,
-                            int32_t which, char * key, ...)
+static int32_t
+ec_dict_data_concat(const char *fmt, ec_cbk_data_t *cbk, int32_t which,
+                    char *key, const char *def, gf_boolean_t global, ...)
 {
-    data_t * data[cbk->count];
-    char * str = NULL, * pre = NULL, * sep, * post;
-    dict_t * dict;
+    ec_t *ec = cbk->fop->xl->private;
+    data_t *data[ec->nodes];
+    char *str = NULL, *pre = NULL, *sep, *post;
+    dict_t *dict;
     va_list args;
-    int32_t i, num, len, prelen, postlen, seplen, tmp;
+    int32_t i, num, len, deflen, prelen, postlen, seplen, tmp;
     int32_t err;
 
-    num = cbk->count;
-    err = ec_dict_list(data, &num, cbk, which, key);
-    if (err != 0) {
-        return err;
-    }
+    ec_dict_list(data, cbk, which, key, global);
 
-    va_start(args, key);
+    va_start(args, global);
     err = ec_concat_prepare(cbk->fop->xl, &pre, &sep, &post, fmt, args);
     va_end(args);
 
@@ -365,9 +375,29 @@ int32_t ec_dict_data_concat(const char * fmt, ec_cbk_data_t * cbk,
     seplen = strlen(sep);
     postlen = strlen(post);
 
-    len = prelen + (num - 1) * seplen + postlen + 1;
-    for (i = 0; i < num; i++) {
-        len += data[i]->len - 1;
+    deflen = 0;
+    if (def != NULL) {
+        deflen = strlen(def);
+    }
+
+    len = prelen + postlen + 1;
+    num = -1;
+    for (i = 0; i < ec->nodes; i++) {
+        if (data[i] == NULL) {
+            continue;
+        }
+        if (data[i] == EC_MISSING_DATA) {
+            if (def == NULL) {
+                continue;
+            }
+            len += deflen;
+        } else {
+            len += data[i]->len - 1;
+        }
+        if (num >= 0) {
+            len += seplen;
+        }
+        num++;
     }
 
     err = -ENOMEM;
@@ -379,14 +409,25 @@ int32_t ec_dict_data_concat(const char * fmt, ec_cbk_data_t * cbk,
 
     memcpy(str, pre, prelen);
     len = prelen;
-    for (i = 0; i < num; i++) {
-        if (i > 0) {
+    for (i = 0; i < ec->nodes; i++) {
+        if (data[i] == NULL) {
+            continue;
+        }
+        if (data[i] == EC_MISSING_DATA) {
+            if (deflen == 0) {
+                continue;
+            }
+            tmp = deflen;
+            memcpy(str + len, def, tmp);
+        } else {
+            tmp = data[i]->len - 1;
+            memcpy(str + len, data[i]->data, tmp);
+        }
+        len += tmp;
+        if (i < num) {
             memcpy(str + len, sep, seplen);
             len += seplen;
         }
-        tmp = data[i]->len - 1;
-        memcpy(str + len, data[i]->data, tmp);
-        len += tmp;
     }
     memcpy(str + len, post, postlen + 1);
 
@@ -407,30 +448,26 @@ out:
 
 int32_t ec_dict_data_merge(ec_cbk_data_t *cbk, int32_t which, char *key)
 {
-    data_t *data[cbk->count];
+    ec_t *ec = cbk->fop->xl->private;
+    data_t *data[ec->nodes];
     dict_t *dict, *lockinfo, *tmp = NULL;
     char *ptr = NULL;
-    int32_t i, num, len;
+    int32_t i, len;
     int32_t err;
 
-    num = cbk->count;
-    err = ec_dict_list(data, &num, cbk, which, key);
-    if (err != 0) {
-        return err;
-    }
+
+    ec_dict_list(data, cbk, which, key, _gf_false);
 
     lockinfo = dict_new();
     if (lockinfo == NULL) {
         return -ENOMEM;
     }
 
-    err = dict_unserialize(data[0]->data, data[0]->len, &lockinfo);
-    if (err != 0) {
-        goto out;
-    }
+    for (i = 0; i < ec->nodes; i++) {
+        if ((data[i] == NULL) || (data[i] == EC_MISSING_DATA)) {
+            continue;
+        }
 
-    for (i = 1; i < num; i++)
-    {
         tmp = dict_new();
         if (tmp == NULL) {
             err = -ENOMEM;
@@ -517,19 +554,20 @@ int32_t ec_dict_data_uuid(ec_cbk_data_t * cbk, int32_t which, char * key)
 
 int32_t ec_dict_data_max32(ec_cbk_data_t *cbk, int32_t which, char *key)
 {
-    data_t * data[cbk->count];
-    dict_t * dict;
-    int32_t i, num, err;
+    ec_t *ec = cbk->fop->xl->private;
+    data_t *data[ec->nodes];
+    dict_t *dict;
+    int32_t i;
     uint32_t max, tmp;
 
-    num = cbk->count;
-    err = ec_dict_list(data, &num, cbk, which, key);
-    if (err != 0) {
-        return err;
-    }
+    ec_dict_list(data, cbk, which, key, _gf_false);
 
-    max = data_to_uint32(data[0]);
-    for (i = 1; i < num; i++) {
+    max = 0;
+    for (i = 0; i < ec->nodes; i++) {
+        if ((data[i] == NULL) || (data[i] == EC_MISSING_DATA)) {
+            continue;
+        }
+
         tmp = data_to_uint32(data[i]);
         if (max < tmp) {
             max = tmp;
@@ -542,19 +580,20 @@ int32_t ec_dict_data_max32(ec_cbk_data_t *cbk, int32_t which, char *key)
 
 int32_t ec_dict_data_max64(ec_cbk_data_t *cbk, int32_t which, char *key)
 {
-    data_t *data[cbk->count];
+    ec_t *ec = cbk->fop->xl->private;
+    data_t *data[ec->nodes];
     dict_t *dict;
-    int32_t i, num, err;
+    int32_t i;
     uint64_t max, tmp;
 
-    num = cbk->count;
-    err = ec_dict_list(data, &num, cbk, which, key);
-    if (err != 0) {
-        return err;
-    }
+    ec_dict_list(data, cbk, which, key, _gf_false);
 
-    max = data_to_uint64(data[0]);
-    for (i = 1; i < num; i++) {
+    max = 0;
+    for (i = 0; i < ec->nodes; i++) {
+        if ((data[i] == NULL) || (data[i] == EC_MISSING_DATA)) {
+            continue;
+        }
+
         tmp = data_to_uint64(data[i]);
         if (max < tmp) {
             max = tmp;
@@ -567,22 +606,14 @@ int32_t ec_dict_data_max64(ec_cbk_data_t *cbk, int32_t which, char *key)
 
 int32_t ec_dict_data_quota(ec_cbk_data_t *cbk, int32_t which, char *key)
 {
-    data_t      *data[cbk->count];
+    ec_t        *ec               = cbk->fop->xl->private;
+    data_t      *data[ec->nodes];
     dict_t      *dict             = NULL;
-    ec_t        *ec               = NULL;
     int32_t      i                = 0;
-    int32_t      num              = 0;
-    int32_t      err              = 0;
     quota_meta_t size             = {0, };
     quota_meta_t max_size         = {0, };
 
-    num = cbk->count;
-    err = ec_dict_list(data, &num, cbk, which, key);
-    if (err != 0) {
-        return err;
-    }
-
-    if (num == 0) {
+    if (ec_dict_list(data, cbk, which, key, _gf_false) == 0) {
         return 0;
     }
 
@@ -591,8 +622,9 @@ int32_t ec_dict_data_quota(ec_cbk_data_t *cbk, int32_t which, char *key)
      * bricks and we can receive slightly different values. If that's the
      * case, we take the maximum of all received values.
      */
-    for (i = 0; i < num; i++) {
-        if (quota_data_to_meta (data[i], QUOTA_SIZE_KEY, &size) < 0) {
+    for (i = 0; i < ec->nodes; i++) {
+        if ((data[i] == NULL) || (data[i] == EC_MISSING_DATA) ||
+            (quota_data_to_meta (data[i], QUOTA_SIZE_KEY, &size) < 0)) {
                 continue;
         }
 
@@ -604,7 +636,6 @@ int32_t ec_dict_data_quota(ec_cbk_data_t *cbk, int32_t which, char *key)
                 max_size.dir_count = size.dir_count;
     }
 
-    ec = cbk->fop->xl->private;
     max_size.size *= ec->fragments;
 
     dict = (which == EC_COMBINE_XDATA) ? cbk->xdata : cbk->dict;
@@ -613,18 +644,18 @@ int32_t ec_dict_data_quota(ec_cbk_data_t *cbk, int32_t which, char *key)
 
 int32_t ec_dict_data_stime(ec_cbk_data_t * cbk, int32_t which, char * key)
 {
-    data_t * data[cbk->count];
-    dict_t * dict;
-    int32_t i, num, err;
+    ec_t *ec = cbk->fop->xl->private;
+    data_t *data[ec->nodes];
+    dict_t *dict;
+    int32_t i, err;
 
-    num = cbk->count;
-    err = ec_dict_list(data, &num, cbk, which, key);
-    if (err != 0) {
-        return err;
-    }
+    ec_dict_list(data, cbk, which, key, _gf_false);
 
     dict = (which == EC_COMBINE_XDATA) ? cbk->xdata : cbk->dict;
-    for (i = 1; i < num; i++) {
+    for (i = 0; i < ec->nodes; i++) {
+        if ((data[i] == NULL) || (data[i] == EC_MISSING_DATA)) {
+            continue;
+        }
         err = gf_get_max_stime(cbk->fop->xl, dict, key, data[i]);
         if (err != 0) {
             gf_msg (cbk->fop->xl->name, GF_LOG_ERROR, -err,
@@ -646,12 +677,14 @@ int32_t ec_dict_data_combine(dict_t * dict, char * key, data_t * value,
         (strcmp(key, GF_XATTR_USER_PATHINFO_KEY) == 0))
     {
         return ec_dict_data_concat("(<EC:%s> { })", data->cbk, data->which,
-                                   key, data->cbk->fop->xl->name);
+                                   key, NULL, _gf_false,
+                                   data->cbk->fop->xl->name);
     }
 
     if (strncmp(key, GF_XATTR_CLRLK_CMD, strlen(GF_XATTR_CLRLK_CMD)) == 0)
     {
-        return ec_dict_data_concat("{\n}", data->cbk, data->which, key);
+        return ec_dict_data_concat("{\n}", data->cbk, data->which, key, NULL,
+                                   _gf_false);
     }
 
     if (strncmp(key, GF_XATTR_LOCKINFO_KEY,
@@ -681,9 +714,9 @@ int32_t ec_dict_data_combine(dict_t * dict, char * key, data_t * value,
         return 0;
     }
 
-    if (XATTR_IS_NODE_UUID(key))
-    {
-        return ec_dict_data_uuid(data->cbk, data->which, key);
+    if (XATTR_IS_NODE_UUID(key)) {
+        return ec_dict_data_concat("{ }", data->cbk, data->which, key,
+                                   UUID0_STR, _gf_true);
     }
 
     if (fnmatch(GF_XATTR_STIME_PATTERN, key, FNM_NOESCAPE) == 0)
