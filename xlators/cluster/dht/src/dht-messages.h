@@ -40,7 +40,7 @@
  */
 
 #define GLFS_DHT_BASE                   GLFS_MSGID_COMP_DHT
-#define GLFS_DHT_NUM_MESSAGES           126
+#define GLFS_DHT_NUM_MESSAGES           129
 #define GLFS_MSGID_END          (GLFS_DHT_BASE + GLFS_DHT_NUM_MESSAGES + 1)
 
 /* Messages with message IDs */
@@ -1083,6 +1083,7 @@
  * @diagnosis
  * @recommendedaction None
  */
+
 #define DHT_MSG_DIR_LOOKUP_FAILED          (GLFS_DHT_BASE + 118)
 
 /*
@@ -1111,6 +1112,7 @@
  * @diagnosis
  * @recommendedaction None
  */
+
 #define DHT_MSG_ENTRYLK_ERROR          (GLFS_DHT_BASE + 122)
 
 /*
@@ -1132,7 +1134,7 @@
  * @diagnosis
  * @recommendedaction None
  */
-#define DHT_MSG_UNKNOWN_FOP            (GLFS_DHT_BASE + 125)
+#define DHT_MSG_UNKNOWN_FOP                     (GLFS_DHT_BASE + 125)
 
 /*
  * @messageid 109126
@@ -1140,6 +1142,28 @@
  * @recommendedaction None
  */
 #define DHT_MSG_MIGRATE_FILE_SKIPPED        (GLFS_DHT_BASE + 126)
+
+/*
+ * @messageid 109127
+ * @diagnosis
+ * @recommendedaction None
+ */
+#define DHT_MSG_DIR_XATTR_HEAL_FAILED           (GLFS_DHT_BASE + 127)
+
+/*
+ * @messageid 109128
+ * @diagnosis
+ * @recommendedaction None
+ */
+#define DHT_MSG_HASHED_SUBVOL_DOWN             (GLFS_DHT_BASE + 128)
+
+/*
+ * @messageid 109129
+ * @diagnosis
+ * @recommendedaction None
+ */
+#define DHT_MSG_NON_HASHED_SUBVOL_DOWN             (GLFS_DHT_BASE + 129)
+
 
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* _DHT_MESSAGES_H_ */

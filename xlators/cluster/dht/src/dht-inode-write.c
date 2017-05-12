@@ -1161,6 +1161,7 @@ dht_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dht_iatt_merge (this, &local->stbuf, statpost, prev);
 
                 local->op_ret = 0;
+                local->op_errno = 0;
         }
 unlock:
         UNLOCK (&frame->lock);
@@ -1178,16 +1179,117 @@ unlock:
 }
 
 
+/* Keep the existing code same for all the cases other than regular file */
+int
+dht_non_mds_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int op_ret, int op_errno, struct iatt *statpre,
+                         struct iatt *statpost, dict_t *xdata)
+{
+        dht_local_t  *local = NULL;
+        int           this_call_cnt = 0;
+        xlator_t     *prev = NULL;
+
+
+        local = frame->local;
+        prev = cookie;
+
+        LOCK (&frame->lock);
+        {
+                if (op_ret == -1) {
+                        gf_msg (this->name, op_errno, 0,
+                                0, "subvolume %s returned -1",
+                                prev->name);
+
+                        goto unlock;
+                }
+
+                dht_iatt_merge (this, &local->prebuf, statpre, prev);
+                dht_iatt_merge (this, &local->stbuf, statpost, prev);
+
+                local->op_ret = 0;
+                local->op_errno = 0;
+        }
+unlock:
+        UNLOCK (&frame->lock);
+
+        this_call_cnt = dht_frame_return (frame);
+        if (is_last_call (this_call_cnt)) {
+                dht_inode_ctx_time_set (local->loc.inode, this, &local->stbuf);
+                DHT_STACK_UNWIND (setattr, frame, 0, 0,
+                                  &local->prebuf, &local->stbuf, xdata);
+	}
+
+        return 0;
+}
+
+
+
+
+
+int
+dht_mds_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int op_ret, int op_errno, struct iatt *statpre,
+                     struct iatt *statpost, dict_t *xdata)
+
+{
+        dht_local_t  *local = NULL;
+        dht_conf_t   *conf  = NULL;
+        xlator_t     *prev = NULL;
+        xlator_t     *mds_subvol = NULL;
+        struct iatt  loc_stbuf = {0,};
+        int i = 0;
+
+        local = frame->local;
+        prev = cookie;
+        conf = this->private;
+        mds_subvol = local->mds_subvol;
+
+        if (op_ret == -1) {
+                local->op_ret  = op_ret;
+                local->op_errno = op_errno;
+                gf_msg_debug (this->name, op_errno,
+                              "subvolume %s returned -1",
+                              prev->name);
+                goto out;
+        }
+
+        local->op_ret = 0;
+        loc_stbuf = local->stbuf;
+        dht_iatt_merge (this, &local->prebuf, statpre, prev);
+        dht_iatt_merge (this, &local->stbuf, statpost, prev);
+
+        local->call_cnt = conf->subvolume_cnt - 1;
+        for (i = 0; i < conf->subvolume_cnt; i++) {
+                if (mds_subvol == conf->subvolumes[i])
+                        continue;
+                STACK_WIND_COOKIE (frame, dht_non_mds_setattr_cbk,
+                                   conf->subvolumes[i], conf->subvolumes[i],
+                                   conf->subvolumes[i]->fops->setattr,
+                                   &local->loc, &loc_stbuf,
+                                   local->valid, local->xattr_req);
+        }
+
+        return 0;
+out:
+        DHT_STACK_UNWIND (setattr, frame, local->op_ret, local->op_errno,
+                          &local->prebuf, &local->stbuf, xdata);
+
+        return 0;
+}
+
 int
 dht_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
              struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
-        xlator_t     *subvol = NULL;
-        dht_layout_t *layout = NULL;
-        dht_local_t  *local  = NULL;
-        int           op_errno = -1;
-        int           i = -1;
-        int           call_cnt = 0;
+        xlator_t     *subvol     = NULL;
+        xlator_t     *mds_subvol = NULL;
+        dht_layout_t *layout     = NULL;
+        dht_local_t  *local      = NULL;
+        int           op_errno   = -1;
+        int           i          = -1;
+        int           ret        = -1;
+        int           call_cnt   = 0;
+        dht_conf_t   *conf       = NULL;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -1195,6 +1297,7 @@ dht_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
+        conf = this->private;
         local = dht_local_init (frame, loc, NULL, GF_FOP_SETATTR);
         if (!local) {
                 op_errno = ENOMEM;
@@ -1235,12 +1338,50 @@ dht_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         local->call_cnt = call_cnt = layout->cnt;
 
-        for (i = 0; i < call_cnt; i++) {
-                STACK_WIND_COOKIE (frame, dht_setattr_cbk,
-                                   layout->list[i].xlator,
-                                   layout->list[i].xlator,
-                                   layout->list[i].xlator->fops->setattr,
+        if (IA_ISDIR (loc->inode->ia_type) &&
+            !__is_root_gfid (loc->inode->gfid) && call_cnt != 1) {
+                ret = dht_inode_ctx_mdsvol_get (loc->inode, this, &mds_subvol);
+                if (ret || !mds_subvol) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_HASHED_SUBVOL_GET_FAILED,
+                                "Failed to get mds subvol for path %s",
+                                local->loc.path);
+                        op_errno = EINVAL;
+                        goto err;
+                }
+
+                local->mds_subvol = mds_subvol;
+                for (i = 0; i < conf->subvolume_cnt; i++) {
+                        if (conf->subvolumes[i] ==  mds_subvol) {
+                                if (!conf->subvolume_status[i]) {
+                                        gf_msg (this->name, GF_LOG_WARNING,
+                                                layout->list[i].err,
+                                                DHT_MSG_HASHED_SUBVOL_DOWN,
+                                                "MDS subvol is down for path "
+                                                " %s Unable to set attr " ,
+                                                local->loc.path);
+                                        op_errno = ENOTCONN;
+                                        goto err;
+                                }
+                        }
+                }
+                local->valid = valid;
+                local->stbuf = *stbuf;
+
+                STACK_WIND_COOKIE (frame, dht_mds_setattr_cbk,
+                                   local->mds_subvol,
+                                   local->mds_subvol,
+                                   local->mds_subvol->fops->setattr,
                                    loc, stbuf, valid, xdata);
+                return 0;
+        } else {
+                for (i = 0; i < call_cnt; i++) {
+                        STACK_WIND_COOKIE (frame, dht_setattr_cbk,
+                                           layout->list[i].xlator,
+                                           layout->list[i].xlator,
+                                           layout->list[i].xlator->fops->setattr,
+                                           loc, stbuf, valid, xdata);
+                }
         }
 
         return 0;
