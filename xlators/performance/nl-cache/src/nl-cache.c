@@ -762,7 +762,6 @@ struct volume_options options[] = {
         { .key = {"nl-cache-limit"},
           .type = GF_OPTION_TYPE_SIZET,
           .min = 0,
-          .max = 100 * GF_UNIT_MB,
           .default_value = "131072",
           .description = "the value over which caching will be disabled for"
                          "a while and the cache is cleared based on LRU",
@@ -770,7 +769,6 @@ struct volume_options options[] = {
         { .key = {"nl-cache-timeout"},
           .type = GF_OPTION_TYPE_TIME,
           .min = 0,
-          .max = 1 * GF_DAY_IN_SECONDS,
           .default_value = "60",
           .description = "Time period after which cache has to be refreshed",
         },
