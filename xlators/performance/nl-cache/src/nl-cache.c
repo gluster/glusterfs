@@ -626,6 +626,11 @@ nlc_priv_dump (xlator_t *this)
 void
 fini (xlator_t *this)
 {
+        nlc_conf_t      *conf       = NULL;
+
+        conf = this->private;
+        GF_FREE (conf);
+
         glusterfs_ctx_tw_put (this->ctx);
 
         return;
