@@ -2,28 +2,24 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
-
-cleanup;
+. $(dirname $0)/../traps.rc
 
 grep $B0/patchy1 /proc/mounts &> /dev/null && umount $B0/patchy1
 grep $B0/patchy2 /proc/mounts &> /dev/null && umount $B0/patchy2
-losetup -d /dev/loop0 2> /dev/null
-losetup -d /dev/loop1 2> /dev/null
 mkdir $B0/${V0}{1..2}
 
 TEST glusterd
 
-TEST dd if=/dev/zero of=/tmp/${V0}-dev1 bs=1M count=30
-TEST dd if=/dev/zero of=/tmp/${V0}-dev2 bs=1M count=30
+TEST truncate --size $((30*1048576)) $B0/${V0}-dev1
+push_trapfunc "rm -f $B0/${V0}-dev1"
+TEST truncate --size $((30*1048576)) $B0/${V0}-dev2
+push_trapfunc "rm -f $B0/${V0}-dev2"
 
-TEST losetup /dev/loop0 /tmp/${V0}-dev1
-TEST losetup /dev/loop1 /tmp/${V0}-dev2
+TEST mkfs.xfs $B0/${V0}-dev1
+TEST mkfs.xfs $B0/${V0}-dev2
 
-TEST mkfs.xfs /dev/loop0
-TEST mkfs.xfs /dev/loop1
-
-TEST mount /dev/loop0 $B0/${V0}1
-TEST mount /dev/loop1 $B0/${V0}2
+TEST mount -o loop $B0/${V0}-dev1 $B0/${V0}1
+TEST mount -o loop $B0/${V0}-dev2 $B0/${V0}2
 
 TEST $CLI volume create $V0 $H0:$B0/${V0}1 $H0:$B0/${V0}2
 TEST $CLI volume set $V0 cluster.min-free-disk 2MB
@@ -67,12 +63,7 @@ TEST $CLI volume set $V0 cluster.min-free-strict-mode on
 TEST ! dd if=/dev/zero of=$M0/testfile1 bs=1M count=16
 TEST rm -f $M0/testfile1
 
-killall gluster{fs,fsd,d}
-
-umount -lf $B0/${V0}1
-umount -lf $B0/${V0}2
-
-losetup -d /dev/loop0
-losetup -d /dev/loop1
-
+# Cleanup will deal with our mounts for us, and (because we used "-o loop") our
+# device files too, but not the underlying files.  That will happen in the EXIT
+# trap handler instead.
 cleanup;
