@@ -11,14 +11,13 @@
 import os
 from ctypes import CDLL, get_errno, create_string_buffer, c_ulong, byref
 from ctypes import RTLD_GLOBAL
-from ctypes.util import find_library
 
 
 class ChangelogException(OSError):
     pass
 
 
-libgfc = CDLL(find_library("gfchangelog"), use_errno=True, mode=RTLD_GLOBAL)
+libgfc = CDLL("libgfchangelog.so", use_errno=True, mode=RTLD_GLOBAL)
 
 
 def raise_oserr(prefix=None):

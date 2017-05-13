@@ -11,7 +11,6 @@
 import os
 import sys
 from ctypes import CDLL, c_int, create_string_buffer
-from ctypes.util import find_library
 
 
 class Xattr(object):
@@ -28,9 +27,9 @@ class Xattr(object):
 
     if sys.hexversion >= 0x02060000:
         from ctypes import DEFAULT_MODE
-        libc = CDLL(find_library("libc"), DEFAULT_MODE, None, True)
+        libc = CDLL("libc.so.6", DEFAULT_MODE, None, True)
     else:
-        libc = CDLL(find_library("libc"))
+        libc = CDLL("libc.so.6")
 
     @classmethod
     def geterrno(cls):
