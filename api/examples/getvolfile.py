@@ -3,7 +3,7 @@
 import ctypes
 import ctypes.util
 
-api = ctypes.CDLL(ctypes.util.find_library("gfapi"))
+api = ctypes.CDLL("libgfapi.so")
 api.glfs_get_volfile.argtypes = [ctypes.c_void_p,
                                  ctypes.c_void_p,
                                  ctypes.c_ulong]

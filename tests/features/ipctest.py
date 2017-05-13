@@ -1,14 +1,8 @@
 #!/usr/bin/python
 
 import ctypes
-import ctypes.util
 
-# find_library does not lookup LD_LIBRARY_PATH and may miss the
-# function. In that case, retry with less portable but explicit name.
-libgfapi = ctypes.util.find_library("gfapi")
-if libgfapi == None:
-	libgfapi = "libgfapi.so"
-api = ctypes.CDLL(libgfapi,mode=ctypes.RTLD_GLOBAL)
+api = ctypes.CDLL("libgfapi.so",mode=ctypes.RTLD_GLOBAL)
 
 api.glfs_ipc.argtypes = [ ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p ]
 api.glfs_ipc.restype = ctypes.c_int
