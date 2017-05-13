@@ -194,13 +194,22 @@ TEST rm -rf $M0/*
 
 #7. Link/symlink heal
 
+# Make links (especially symlinks) with relative paths instead of absolute
+# paths, because absolute paths pointing from the brick to the mountpoint have
+# caused problems.
+make_link () {
+        mountpoint=$1; shift
+        # Do this in a subshell so we don't change "cd -" for the parent.
+        (cd $mountpoint; ln $*)
+}
+
 #Test
 TEST touch $M0/file
-TEST ln $M0/file $M0/link_to_file
+TEST make_link $M0 file link_to_file
 TEST kill_brick $V0 $H0 $B0/brick0
 TEST rm -f $M0/link_to_file
-TEST ln -s $M0/file $M0/link_to_file
-TEST ln  $M0/file $M0/hard_link_to_file
+TEST make_link $M0 file -s link_to_file
+TEST make_link $M0 file hard_link_to_file
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
