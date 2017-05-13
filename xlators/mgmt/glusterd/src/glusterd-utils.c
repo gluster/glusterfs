@@ -6662,7 +6662,6 @@ static struct fs_info {
         char *fs_tool_pattern;
         char *fs_tool_pkg;
 } glusterd_fs[] = {
-        /* some linux have these in /usr/sbin/and others in /sbin/? */
         { "xfs", "xfs_info", NULL, "isize=", "xfsprogs" },
         { "ext3", "tune2fs", "-l", "Inode size:", "e2fsprogs" },
         { "ext4", "tune2fs", "-l", "Inode size:", "e2fsprogs" },
@@ -6683,7 +6682,6 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
         char           *trail             = NULL;
         runner_t        runner            = {0, };
         struct fs_info *fs                = NULL;
-        char            fs_tool_name[256] = {0, };
         static dict_t  *cached_fs         = NULL;
 
         memset (key, 0, sizeof (key));
@@ -6720,17 +6718,7 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
                                 cur_word = "N/A";
                                 goto cached;
                         }
-
-                        snprintf (fs_tool_name, sizeof (fs_tool_name),
-                                  "/usr/sbin/%s", fs->fs_tool_name);
-                        if (sys_access (fs_tool_name, R_OK|X_OK) == 0)
-                                runner_add_arg (&runner, fs_tool_name);
-                        else {
-                                snprintf (fs_tool_name, sizeof (fs_tool_name),
-                                          "/sbin/%s", fs->fs_tool_name);
-                                if (sys_access (fs_tool_name, R_OK|X_OK) == 0)
-                                        runner_add_arg (&runner, fs_tool_name);
-                        }
+                        runner_add_arg (&runner, fs->fs_tool_name);
                         break;
                 }
         }
