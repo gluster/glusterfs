@@ -30,7 +30,7 @@
 
 #ifndef _PATH_SETFATTR
 # ifdef GF_LINUX_HOST_OS
-#  define _PATH_SETFATTR "/usr/bin/setfattr"
+#  define _PATH_SETFATTR "setfattr"
 # endif
 # ifdef __NetBSD__
 #  define _PATH_SETFATTR "/usr/pkg/bin/setfattr"
@@ -341,7 +341,7 @@ _glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv,
 
                 if (type == GF_QUOTA_OPTION_TYPE_ENABLE ||
                     type == GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS)
-                        runner_add_args (&runner, "/usr/bin/find", ".", NULL);
+                        runner_add_args (&runner, "find", ".", NULL);
 
                 else if (type == GF_QUOTA_OPTION_TYPE_DISABLE) {
 
@@ -357,7 +357,7 @@ _glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv,
                                          VIRTUAL_QUOTA_XATTR_CLEANUP_KEY, "1",
                                          "{}", "\\", ";", NULL);
 #else
-                        runner_add_args (&runner, "/usr/bin/find", ".",
+                        runner_add_args (&runner, "find", ".",
                                          "-exec", _PATH_SETFATTR, "-n",
                                          VIRTUAL_QUOTA_XATTR_CLEANUP_KEY, "-v",
                                          "1", "{}", "\\", ";", NULL);

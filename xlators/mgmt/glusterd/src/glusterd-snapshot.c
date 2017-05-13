@@ -120,7 +120,7 @@ glusterd_build_snap_device_path (char *device, char *snapname,
         }
 
         runinit (&runner);
-        runner_add_args (&runner, "/sbin/lvs", "--noheadings", "-o", "vg_name",
+        runner_add_args (&runner, "lvs", "--noheadings", "-o", "vg_name",
                          device, NULL);
         runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
         snprintf (msg, sizeof (msg), "Get volume group for device %s", device);
@@ -1911,7 +1911,7 @@ glusterd_is_thinp_brick (char *device, uint32_t *op_errno)
 
         runinit (&runner);
 
-        runner_add_args (&runner, "/sbin/lvs", "--noheadings", "-o", "pool_lv",
+        runner_add_args (&runner, "lvs", "--noheadings", "-o", "pool_lv",
                          device, NULL);
         runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
         runner_log (&runner, this->name, GF_LOG_DEBUG, msg);
