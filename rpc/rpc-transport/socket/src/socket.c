@@ -3350,7 +3350,16 @@ handler:
                 rpc_transport_ref (this);
                 refd = _gf_true;
 
-                if (priv->own_thread && !(priv->connect_failed)) {
+                if (priv->own_thread) {
+                        if (priv->connect_failed) {
+                                gf_msg_debug (this->name, 0,
+                                              "socket connect is failed so close it");
+                                sys_close (priv->sock);
+                                priv->sock = -1;
+                                ret = -1;
+                                goto unlock;
+                        }
+
                         if (pipe(priv->pipe) < 0) {
                                 gf_log(this->name,GF_LOG_ERROR,
                                 "could not create pipe");
