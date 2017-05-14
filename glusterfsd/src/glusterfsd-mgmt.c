@@ -184,7 +184,7 @@ glusterfs_terminate_response_send (rpcsvc_request_t *req, int op_ret)
         return ret;
 }
 
-static void
+void
 glusterfs_autoscale_threads (glusterfs_ctx_t *ctx, int incr)
 {
         struct event_pool       *pool           = ctx->event_pool;
