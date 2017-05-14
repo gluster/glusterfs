@@ -15,7 +15,7 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(top_srcdir)/rpc/xdr/src -I$(top_builddir)/rpc/xdr/src \
 	-I$(top_srcdir)/rpc/rpc-lib/src
 
-AM_CFLAGS = -fno-strict-aliasing -Wall $(GF_CFLAGS)
+AM_CFLAGS = -fno-strict-aliasing -Wall $(GF_CFLAGS) -I$(top_srcdir)/glusterfsd/src
 
 CLEANFILES =
 

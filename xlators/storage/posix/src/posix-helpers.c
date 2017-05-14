@@ -51,6 +51,7 @@
 #include "hashfn.h"
 #include "glusterfs-acl.h"
 #include "events.h"
+#include "glusterfsd.h"
 #include <sys/types.h>
 
 char *marker_xattrs[] = {"trusted.glusterfs.quota.*",
@@ -1830,9 +1831,11 @@ posix_health_check_thread_proc (void *data)
         struct posix_private *priv               = NULL;
         uint32_t              interval           = 0;
         int                   ret                = -1;
-        xlator_t                *top             = NULL;
-        xlator_list_t           **trav_p         = NULL;
-        int                     count            = 0;
+        xlator_t             *top                = NULL;
+        xlator_t             *victim             = NULL;
+        xlator_list_t       **trav_p             = NULL;
+        int                   count              = 0;
+        gf_boolean_t          victim_found       = _gf_false;
 
         this = data;
         priv = this->private;
@@ -1907,6 +1910,22 @@ abort:
                 if (ret == 0)
                         kill (getpid(), SIGKILL);
 
+        } else {
+                for (trav_p = &top->children; *trav_p;
+                     trav_p = &(*trav_p)->next) {
+                        victim = (*trav_p)->xlator;
+                        if (victim &&
+                            strcmp (victim->name, priv->base_path) == 0) {
+                                victim_found = _gf_true;
+                                break;
+                        }
+                }
+                if (victim_found) {
+                        top->notify (top, GF_EVENT_TRANSPORT_CLEANUP, victim);
+                        glusterfs_mgmt_pmap_signout (glusterfsd_ctx,
+                                                     priv->base_path);
+                        glusterfs_autoscale_threads (THIS->ctx, -1);
+                }
         }
 
         return NULL;
