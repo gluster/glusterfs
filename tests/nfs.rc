@@ -61,7 +61,6 @@ function mount_nfs ()
                 nopt="${nopt}$o"
         done
 
-        echo mount -t nfs -o $nopt $e $m > /dev/tty
         mount -t nfs -o $nopt $e $m
 }
 
