@@ -5811,7 +5811,10 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                 rpc_clnt_set_connected (&rpc->conn);
                 gf_msg_debug (this->name, 0, "Connected to %s:%s",
                         brickinfo->hostname, brickinfo->path);
+
                 glusterd_set_brick_status (brickinfo, GF_BRICK_STARTED);
+                brickinfo->started_here = _gf_true;
+
                 gf_event (EVENT_BRICK_CONNECTED, "peer=%s;volume=%s;brick=%s",
                           brickinfo->hostname, volinfo->volname,
                           brickinfo->path);
@@ -5841,6 +5844,9 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                                 GD_MSG_BRICK_DISCONNECTED,
                                 "Brick %s:%s has disconnected from glusterd.",
                                 brickinfo->hostname, brickinfo->path);
+
+                        brickinfo->started_here = _gf_false;
+
                         ret = get_volinfo_from_brickid (brickid, &volinfo);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,

@@ -2143,6 +2143,8 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, conf);
         gf_msg_debug (this->name,  0, "Unlinking pidfile %s", pidfile);
         (void) sys_unlink (pidfile);
+
+        brickinfo->started_here = _gf_false;
 out:
         return ret;
 }
@@ -5170,6 +5172,7 @@ find_compat_brick_in_vol (glusterd_conf_t *conf,
         glusterd_brickinfo_t    *other_brick;
         char                    pidfile2[PATH_MAX]      = {0};
         int32_t                 pid2                    = -1;
+        int16_t                 retries                 = 15;
 
         /*
          * If comp_vol is provided, we have to check *volume* compatibility
@@ -5212,8 +5215,22 @@ find_compat_brick_in_vol (glusterd_conf_t *conf,
                 if (strcmp (brickinfo->hostname, other_brick->hostname) != 0) {
                         continue;
                 }
+
                 GLUSTERD_GET_BRICK_PIDFILE (pidfile2, srch_vol, other_brick,
                                             conf);
+
+                /* It is possible that the pidfile hasn't yet been populated,
+                 * when bricks are started in "no-wait" mode; for example
+                 * when bricks are started by glusterd_restart_bricks(). So
+                 * wait for the pidfile to be populated with a value before
+                 * checking if the service is running */
+                while (retries > 0) {
+                        if (sys_access (pidfile2, F_OK) == 0)
+                                break;
+                        sleep (1);
+                        retries--;
+                }
+
                 if (!gf_is_service_running (pidfile2, &pid2)) {
                         gf_log (this->name, GF_LOG_INFO,
                                 "cleaning up dead brick %s:%s",
@@ -5457,6 +5474,7 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                                 socketpath, brickinfo->path, volinfo->volname);
                         (void) glusterd_brick_connect (volinfo, brickinfo,
                                         socketpath);
+                        brickinfo->started_here = _gf_true;
                 }
                 return 0;
         }
