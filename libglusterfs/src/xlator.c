@@ -1028,6 +1028,21 @@ out:
         return ret;
 }
 
+
+gf_boolean_t
+loc_is_nameless (loc_t *loc)
+{
+        gf_boolean_t ret = _gf_false;
+
+        GF_VALIDATE_OR_GOTO ("xlator", loc, out);
+
+        if ((!loc->parent && gf_uuid_is_null (loc->pargfid)) || !loc->name)
+                ret = _gf_true;
+out:
+        return ret;
+}
+
+
 int
 xlator_destroy (xlator_t *xl)
 {

@@ -198,6 +198,8 @@ nlc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
         conf = this->private;
 
+        GF_VALIDATE_OR_GOTO (this->name, local, out);
+
         /* Donot add to pe, this may lead to duplicate entry and
          * requires search before adding if list of strings */
         if (op_ret < 0 && op_errno == ENOENT) {
@@ -205,8 +207,9 @@ nlc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 GF_ATOMIC_INC (conf->nlc_counter.nlc_miss);
         }
 
+out:
         NLC_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, buf, xdata,
-                         postparent);
+                          postparent);
         return 0;
 }
 
@@ -218,14 +221,14 @@ nlc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         nlc_conf_t  *conf  = NULL;
         inode_t     *inode = NULL;
 
+        if (loc_is_nameless (loc))
+                goto wind;
+
         local = nlc_local_init (frame, this, GF_FOP_LOOKUP, loc, NULL);
         if (!local)
                 goto err;
 
         conf = this->private;
-
-        if ((!loc->parent && gf_uuid_is_null (loc->pargfid)) || !loc->name)
-                goto wind;
 
         inode = inode_grep (loc->inode->table, loc->parent, loc->name);
         if (inode) {
