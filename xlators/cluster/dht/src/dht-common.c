@@ -8519,6 +8519,7 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         char          gfid[GF_UUID_BUF_SIZE] = {0};
         dht_local_t  *readdirp_local = NULL;
         call_frame_t *readdirp_frame = NULL;
+        int           cnt           = 0;
 
         local = frame->local;
         prev  = cookie;
@@ -8561,7 +8562,7 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "%s: Failed to set dictionary value:key = %s",
                         local->loc.path, conf->link_xattr_name);
 
-        local->call_cnt = conf->subvolume_cnt;
+        cnt = local->call_cnt = conf->subvolume_cnt;
 
 
         /* Create a separate frame per subvol as we might need
@@ -8574,7 +8575,9 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 readdirp_frame = copy_frame (frame);
 
                 if (!readdirp_frame) {
-                        local->call_cnt--;
+                        cnt--;
+                        /* Reduce the local->call_cnt as well */
+                        dht_frame_return (frame);
                         continue;
                 }
 
@@ -8583,7 +8586,9 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 if (!readdirp_local) {
                         DHT_STACK_DESTROY (readdirp_frame);
-                        local->call_cnt--;
+                        cnt--;
+                        /* Reduce the local->call_cnt as well */
+                        dht_frame_return (frame);
                         continue;
                 }
                 readdirp_local->main_frame = frame;
@@ -8603,7 +8608,8 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dict_unref (dict);
 
         /* Could not wind readdirp to any subvol */
-        if (!local->call_cnt)
+
+        if (!cnt)
                 goto err;
 
         return 0;
