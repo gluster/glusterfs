@@ -769,10 +769,11 @@ int32_t ec_gf_fentrylk(call_frame_t * frame, xlator_t * this,
 }
 
 int32_t ec_gf_fallocate(call_frame_t * frame, xlator_t * this, fd_t * fd,
-                        int32_t keep_size, off_t offset, size_t len,
+                        int32_t mode, off_t offset, size_t len,
                         dict_t * xdata)
 {
-    default_fallocate_failure_cbk(frame, ENOTSUP);
+    ec_fallocate(frame, this, -1, EC_MINIMUM_MIN, default_fallocate_cbk,
+                 NULL, fd, mode, offset, len, xdata);
 
     return 0;
 }
