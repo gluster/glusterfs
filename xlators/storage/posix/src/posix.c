@@ -754,11 +754,11 @@ posix_do_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto out;
         }
 
-	ret = sys_fallocate (pfd->fd, flags, offset, len);
-	if (ret == -1) {
-		ret = -errno;
-		goto out;
-	}
+        ret = sys_fallocate (pfd->fd, flags, offset, len);
+        if (ret == -1) {
+                ret = -errno;
+                goto out;
+        }
 
         ret = posix_fdstat (this, pfd->fd, statpost);
         if (ret == -1) {

@@ -168,6 +168,10 @@ void ec_symlink(call_frame_t * frame, xlator_t * this, uintptr_t target,
                 const char * linkname, loc_t * loc, mode_t umask,
                 dict_t * xdata);
 
+void ec_fallocate(call_frame_t *frame, xlator_t *this, uintptr_t target,
+              int32_t minimum, fop_fallocate_cbk_t func, void *data, fd_t *fd,
+              int32_t mode, off_t offset, size_t len, dict_t *xdata);
+
 void ec_truncate(call_frame_t * frame, xlator_t * this, uintptr_t target,
                  int32_t minimum, fop_truncate_cbk_t func, void *data,
                  loc_t * loc, off_t offset, dict_t * xdata);

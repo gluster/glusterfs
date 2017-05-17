@@ -59,6 +59,12 @@
 #ifndef FALLOC_FL_ZERO_RANGE
 #define FALLOC_FL_ZERO_RANGE    0x10 /* zeroes out range */
 #endif
+#ifndef FALLOC_FL_COLLAPSE_RANGE
+#define FALLOC_FL_COLLAPSE_RANGE  0x08 /* reduces the size */
+#endif
+#ifndef FALLOC_FL_INSERT_RANGE
+#define FALLOC_FL_INSERT_RANGE  0x20 /* expands the size */
+#endif
 
 #ifndef HAVE_LLISTXATTR
 
@@ -177,6 +183,8 @@ enum {
 #define FALLOC_FL_KEEP_SIZE     0x01 /* default is extend size */
 #define FALLOC_FL_PUNCH_HOLE    0x02 /* de-allocates range */
 #define FALLOC_FL_ZERO_RANGE    0x10 /* zeroes out range */
+#define FALLOC_FL_INSERT_RANGE  0x20 /* Expands the size */
+#define FALLOC_FL_COLLAPSE_RANGE 0x08 /* Reduces the size */
 
 #ifndef _PATH_UMOUNT
   #define _PATH_UMOUNT "/sbin/umount"

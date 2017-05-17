@@ -828,7 +828,208 @@ out:
     }
 }
 
-/* FOP: truncate */
+/*********************************************************************
+ *
+ * File Operation : fallocate
+ *
+ *********************************************************************/
+
+int32_t ec_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                         struct iatt *postbuf, dict_t *xdata)
+{
+    return ec_inode_write_cbk (frame, this, cookie, op_ret, op_errno,
+                                   prebuf, postbuf, xdata);
+}
+
+void ec_wind_fallocate(ec_t *ec, ec_fop_data_t *fop, int32_t idx)
+{
+    ec_trace("WIND", fop, "idx=%d", idx);
+
+    STACK_WIND_COOKIE(fop->frame, ec_fallocate_cbk, (void *)(uintptr_t)idx,
+                      ec->xl_list[idx], ec->xl_list[idx]->fops->fallocate,
+                      fop->fd, fop->int32, fop->offset,
+                      fop->size, fop->xdata);
+}
+
+int32_t ec_manager_fallocate(ec_fop_data_t *fop, int32_t state)
+{
+    ec_cbk_data_t *cbk = NULL;
+
+    switch (state) {
+    case EC_STATE_INIT:
+        if (fop->size == 0) {
+                ec_fop_set_error(fop, EINVAL);
+                return EC_STATE_REPORT;
+        }
+        if (fop->int32 & (FALLOC_FL_COLLAPSE_RANGE
+                         |FALLOC_FL_INSERT_RANGE
+                         |FALLOC_FL_ZERO_RANGE
+                         |FALLOC_FL_PUNCH_HOLE)) {
+                ec_fop_set_error(fop, ENOTSUP);
+                return EC_STATE_REPORT;
+        }
+        fop->user_size = fop->offset + fop->size;
+        fop->head = ec_adjust_offset (fop->xl->private, &fop->offset, 1);
+        fop->size = ec_adjust_size (fop->xl->private, fop->head + fop->size, 1);
+
+        /* Fall through */
+
+    case EC_STATE_LOCK:
+        ec_lock_prepare_fd(fop, fop->fd,
+                           EC_UPDATE_DATA | EC_UPDATE_META |
+                           EC_QUERY_INFO);
+        ec_lock(fop);
+
+        return EC_STATE_DISPATCH;
+
+    case EC_STATE_DISPATCH:
+
+        ec_dispatch_all(fop);
+
+        return EC_STATE_PREPARE_ANSWER;
+
+    case EC_STATE_PREPARE_ANSWER:
+        cbk = ec_fop_prepare_answer(fop, _gf_false);
+        if (cbk != NULL) {
+                ec_iatt_rebuild(fop->xl->private, cbk->iatt, 2,
+                            cbk->count);
+
+                /* This shouldn't fail because we have the inode locked. */
+                GF_ASSERT(ec_get_inode_size(fop, fop->locks[0].lock->loc.inode,
+                                        &cbk->iatt[0].ia_size));
+
+                /*If mode has FALLOC_FL_KEEP_SIZE keep the size */
+                if (fop->int32 & FALLOC_FL_KEEP_SIZE) {
+                        cbk->iatt[1].ia_size = cbk->iatt[0].ia_size;
+                } else if (fop->user_size > cbk->iatt[0].ia_size) {
+                        cbk->iatt[1].ia_size = fop->user_size;
+
+                        /* This shouldn't fail because we have the inode
+                         * locked. */
+                        GF_ASSERT(ec_set_inode_size(fop,
+                                  fop->locks[0].lock->loc.inode,
+                                            cbk->iatt[1].ia_size));
+                } else {
+                        cbk->iatt[1].ia_size = cbk->iatt[0].ia_size;
+                }
+
+        }
+
+        return EC_STATE_REPORT;
+
+    case EC_STATE_REPORT:
+        cbk = fop->answer;
+
+        GF_ASSERT(cbk != NULL);
+
+        if (fop->cbks.fallocate != NULL) {
+                fop->cbks.fallocate(fop->req_frame, fop, fop->xl, cbk->op_ret,
+                                    cbk->op_errno, &cbk->iatt[0], &cbk->iatt[1],
+                                    cbk->xdata);
+        }
+
+        return EC_STATE_LOCK_REUSE;
+
+    case -EC_STATE_INIT:
+    case -EC_STATE_LOCK:
+    case -EC_STATE_DISPATCH:
+    case -EC_STATE_PREPARE_ANSWER:
+    case -EC_STATE_REPORT:
+        GF_ASSERT(fop->error != 0);
+
+        if (fop->cbks.fallocate != NULL) {
+                fop->cbks.fallocate(fop->req_frame, fop, fop->xl, -1,
+                                    fop->error, NULL, NULL, NULL);
+        }
+
+        return EC_STATE_LOCK_REUSE;
+
+    case -EC_STATE_LOCK_REUSE:
+    case EC_STATE_LOCK_REUSE:
+        ec_lock_reuse(fop);
+
+        return EC_STATE_UNLOCK;
+
+    case -EC_STATE_UNLOCK:
+    case EC_STATE_UNLOCK:
+        ec_unlock(fop);
+
+        return EC_STATE_END;
+
+    default:
+        gf_msg (fop->xl->name, GF_LOG_ERROR, EINVAL,
+                EC_MSG_UNHANDLED_STATE,
+                "Unhandled state %d for %s",
+                state, ec_fop_name(fop->id));
+
+        return EC_STATE_END;
+    }
+}
+
+void ec_fallocate(call_frame_t *frame, xlator_t *this, uintptr_t target,
+              int32_t minimum, fop_fallocate_cbk_t func, void *data, fd_t *fd,
+              int32_t mode, off_t offset, size_t len, dict_t *xdata)
+{
+    ec_cbk_t callback = { .fallocate = func };
+    ec_fop_data_t *fop = NULL;
+    int32_t error = ENOMEM;
+
+    gf_msg_trace ("ec", 0, "EC(FALLOCATE) %p", frame);
+
+    VALIDATE_OR_GOTO(this, out);
+    GF_VALIDATE_OR_GOTO(this->name, frame, out);
+    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
+
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_FALLOCATE, 0, target,
+                               minimum, ec_wind_fallocate, ec_manager_fallocate,
+                               callback, data);
+    if (fop == NULL) {
+        goto out;
+    }
+
+    fop->use_fd = 1;
+    fop->int32 = mode;
+    fop->offset = offset;
+    fop->size = len;
+
+    if (fd != NULL) {
+        fop->fd = fd_ref(fd);
+        if (fop->fd == NULL) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        EC_MSG_FILE_DESC_REF_FAIL,
+                        "Failed to reference a "
+                        "file descriptor.");
+                goto out;
+        }
+    }
+
+    if (xdata != NULL) {
+        fop->xdata = dict_ref(xdata);
+        if (fop->xdata == NULL) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        EC_MSG_DICT_REF_FAIL,
+                        "Failed to reference a "
+                        "dictionary.");
+                goto out;
+        }
+    }
+
+    error = 0;
+
+out:
+    if (fop != NULL) {
+        ec_manager(fop, error);
+    } else {
+        func(frame, NULL, this, -1, error, NULL, NULL, NULL);
+    }
+}
+
+/*********************************************************************
+ *
+ * File Operation : truncate
+ *
+ *********************************************************************/
 
 int32_t ec_truncate_write(ec_fop_data_t * fop, uintptr_t mask)
 {
