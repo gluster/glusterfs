@@ -226,7 +226,6 @@ glusterd_tierdsvc_manager (glusterd_svc_t *svc, void *data, int flags)
                                 volinfo->volname);
                         goto out;
                 }
-                volinfo->tierd.port = 0;
         }
 
 out:
@@ -244,7 +243,6 @@ glusterd_tierdsvc_start (glusterd_svc_t *svc, int flags)
         glusterd_conf_t     *priv                       = NULL;
         xlator_t            *this                       = NULL;
         char                 valgrind_logfile[PATH_MAX] = {0};
-        int                  tierd_port                 = 0;
         char                 msg[1024]                  = {0,};
         char                 tierd_id[PATH_MAX]         = {0,};
         glusterd_volinfo_t  *volinfo                    = NULL;
@@ -344,32 +342,6 @@ glusterd_tierdsvc_start (glusterd_svc_t *svc, int flags)
                           volinfo->rebal.commit_hash);
         if (volinfo->memory_accounting)
                 runner_add_arg (&runner, "--mem-accounting");
-
-        /* Do a pmap registry remove on the older connected port */
-        if (volinfo->tierd.port) {
-                ret = pmap_registry_remove (this, volinfo->tierd.port,
-                                tierd_id, GF_PMAP_PORT_BRICKSERVER,
-                                NULL);
-                if (ret) {
-                        snprintf (msg, sizeof (msg), "Failed to remove pmap "
-                                        "registry for older signin");
-                        goto out;
-                }
-        }
-
-
-
-        tierd_port = pmap_registry_alloc (this);
-        if (!tierd_port) {
-                snprintf (msg, sizeof (msg), "Could not allocate port "
-                                "for tierd service for volume %s",
-                                volinfo->volname);
-                runner_log (&runner, this->name, GF_LOG_DEBUG, msg);
-                ret = -1;
-                goto out;
-        }
-
-        volinfo->tierd.port = tierd_port;
 
         snprintf (msg, sizeof (msg),
                   "Starting the tierd service for volume %s", volinfo->volname);
