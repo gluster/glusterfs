@@ -315,8 +315,8 @@ afr_shd_selfheal_name (struct subvol_healer *healer, int child, uuid_t parent,
 	return ret;
 }
 
-int
-afr_shd_selfheal (struct subvol_healer *healer, int child, uuid_t gfid)
+static int
+_afr_shd_selfheal (struct subvol_healer *healer, int child, uuid_t gfid)
 {
 	int ret = 0;
 	eh_t *eh = NULL;
@@ -376,6 +376,44 @@ out:
 	return ret;
 }
 
+
+int
+afr_shd_selfheal (struct subvol_healer *healer, int child, uuid_t gfid)
+{
+        afr_private_t   *priv   = healer->this->private;
+        int             ret     = _afr_shd_selfheal (healer, child, gfid);
+
+        /*
+         * You are not expected to understand this code.  OK, sorry, it's a
+         * very old UNIX meme.  I've been waiting years for an appropriate time
+         * to use it, and this seems as good as it's going to get.  If it makes
+         * you feel any better, the reason I don't expect you to understand
+         * this code is that I don't understand it either and therefore can't
+         * explain it.
+         *
+         * What's going on here is that we only call afr_shd_zero_xattrop for a
+         * return value of two, which non-obviously means that no heal was
+         * deemed necessary.  However, we made it seem necessary *only* because
+         * of data validation, so we skipped the part where we'd return that
+         * value normally.  It was only later, and several layers deeper in the
+         * call hierarchy, that we realized everything was OK after all.
+         * Expecting to return a two at that point, and have it survive all the
+         * intervening layers, and not have any other untoward side effects,
+         * would require more optimism about this code than I've ever felt.
+         * Changing it here isn't entirely without risk either, but at least
+         * the side effects this way are easier to reason about.
+         *
+         * You might well wonder how the index entry ever gets removed in the
+         * other cases.  I wonder too.  Observation says that it does, and
+         * that's good enough.  It's a big world, with many other mysteries in
+         * it.
+         */
+        if (priv->shd_validate_data && (ret >= 0)) {
+                ret = 2;
+        }
+
+        return ret;
+}
 
 void
 afr_shd_sweep_prepare (struct subvol_healer *healer)

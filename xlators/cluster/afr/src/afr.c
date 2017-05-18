@@ -167,6 +167,9 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("pgfid-self-heal", priv->pgfid_self_heal,
                           options, bool, out);
 
+        GF_OPTION_RECONF ("shd-validate-data", priv->shd_validate_data,
+                          options, bool, out);
+
         GF_OPTION_RECONF ("data-self-heal-window-size",
                           priv->data_self_heal_window_size, options,
                           uint32, out);
@@ -425,6 +428,8 @@ init (xlator_t *this)
                          uint32, out);
 
         GF_OPTION_INIT ("pgfid-self-heal", priv->pgfid_self_heal, bool, out);
+
+        GF_OPTION_INIT ("shd-validate-data", priv->shd_validate_data, bool, out);
 
         GF_OPTION_INIT ("background-self-heal-count",
                         priv->background_self_heal_count, uint32, out);
@@ -1109,6 +1114,10 @@ struct volume_options options[] = {
                          "number of bricks in the replica.",
         },
         { .key  = {"pgfid-self-heal"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+        },
+        { .key  = {"shd-validate-data"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
         },

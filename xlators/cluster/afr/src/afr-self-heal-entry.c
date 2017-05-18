@@ -489,7 +489,7 @@ __afr_selfheal_entry_prepare (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	ret = afr_selfheal_unlocked_discover (frame, inode, inode->gfid,
-					      replies);
+					      replies, _gf_false);
         if (ret)
                 return ret;
 

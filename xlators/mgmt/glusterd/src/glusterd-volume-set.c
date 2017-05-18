@@ -1320,6 +1320,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .description = "Use PGFID attribute if available to remediate "
                          "failed heals."
         },
+        { .key         = "cluster.shd-validate-data",
+          .voltype     = "cluster/replicate",
+          .op_version  = 2,
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .description = "Check data as well as flags for self-heal."
+        },
 
         /* stripe xlator options */
         { .key         = "cluster.stripe-block-size",

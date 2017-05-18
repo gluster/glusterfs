@@ -26,6 +26,8 @@
 
 #include "compat-errno.h"
 
+#define GF_ORPHAN_PATH "orphans"
+
 inode_t *
 posix_resolve (xlator_t *this, inode_table_t *itable, inode_t *parent,
                char *bname, struct iatt *iabuf)
@@ -515,7 +517,7 @@ posix_handle_init (xlator_t *this)
         }
 
         handle_pfx = alloca (priv->base_path_length + 1 + strlen (GF_HIDDEN_PATH)
-                             + 1);
+                             + 1 + strlen (GF_ORPHAN_PATH) + 1);
 
         sprintf (handle_pfx, "%s/%s", priv->base_path, GF_HIDDEN_PATH);
 
@@ -597,6 +599,16 @@ posix_handle_init (xlator_t *this)
                 return -1;
 
                 break;
+        }
+
+        sprintf (handle_pfx, "%s/%s/%s", priv->base_path, GF_HIDDEN_PATH,
+                 GF_ORPHAN_PATH);
+        if (mkdir (handle_pfx, 0700) < 0) {
+                if (errno != EEXIST) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "failed to create orphans directory (%s)",
+                                strerror (errno));
+                }
         }
 
         return 0;

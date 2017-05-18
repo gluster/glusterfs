@@ -1267,7 +1267,7 @@ afr_inode_refresh_do (call_frame_t *frame, xlator_t *this)
 		return 0;
 	}
 
-	ret = afr_xattr_req_prepare (this, xdata);
+	ret = afr_xattr_req_prepare (this, xdata, _gf_false);
 	if (ret != 0) {
 		dict_unref (xdata);
 		afr_inode_refresh_done (frame, this, -ret);
@@ -1360,7 +1360,7 @@ afr_inode_refresh (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 
 int
-afr_xattr_req_prepare (xlator_t *this, dict_t *xattr_req)
+afr_xattr_req_prepare (xlator_t *this, dict_t *xattr_req, gf_boolean_t checksum)
 {
         int             i           = 0;
         afr_private_t   *priv       = NULL;
@@ -1397,6 +1397,19 @@ afr_xattr_req_prepare (xlator_t *this, dict_t *xattr_req)
                         "Unable to set ancestry path key in dict ");
         }
 
+        if (checksum) {
+                ret = dict_set_int32 (xattr_req, "get-checksum", 1);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Unable to set get-checksum in dict ");
+                }
+                ret = dict_set_int32 (xattr_req, "trusted.glusterfs.validate-status", 1);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Unable to set validate-status in dict ");
+                }
+        }
+
 	return ret;
 }
 
@@ -1415,7 +1428,7 @@ afr_lookup_xattr_req_prepare (afr_local_t *local, xlator_t *this,
         if (xattr_req && (xattr_req != local->xattr_req))
                 dict_copy (xattr_req, local->xattr_req);
 
-        ret = afr_xattr_req_prepare (this, local->xattr_req);
+        ret = afr_xattr_req_prepare (this, local->xattr_req, _gf_false);
 
         ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_INODELK_COUNT, 0);
         if (ret < 0) {
@@ -5906,7 +5919,8 @@ afr_is_split_brain (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
         replies = alloca0 (sizeof (*replies) * priv->child_count);
 
-        ret = afr_selfheal_unlocked_discover (frame, inode, gfid, replies);
+        ret = afr_selfheal_unlocked_discover (frame, inode, gfid, replies,
+                                              priv->shd_validate_data);
         if (ret)
                 goto out;
 

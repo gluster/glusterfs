@@ -143,7 +143,8 @@ afr_selfheal_unentrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 int
 afr_selfheal_unlocked_discover (call_frame_t *frame, inode_t *inode,
-				uuid_t gfid, struct afr_reply *replies);
+				uuid_t gfid, struct afr_reply *replies,
+                                gf_boolean_t checksum);
 
 inode_t *
 afr_selfheal_unlocked_lookup_on (call_frame_t *frame, inode_t *parent,
@@ -164,6 +165,10 @@ afr_selfheal_fill_matrix (xlator_t *this, int **matrix, int subvol, int idx,
 int
 afr_selfheal_extract_xattr (xlator_t *this, struct afr_reply *replies,
 			    afr_transaction_type type, int *dirty, int **matrix);
+
+void
+afr_selfheal_update_vstatus (call_frame_t *frame, xlator_t *this, inode_t *inode,
+			    unsigned char *targets, char *new_status);
 
 int
 afr_sh_generic_fop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,

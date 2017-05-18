@@ -3903,6 +3903,173 @@ map_xattr_flags(int flags)
 }
 #endif
 
+static int
+posix_copy_file (char *src, char *dst)
+{
+        int     ifd     = -1;
+        int     ofd     = -1;
+        char    buf[65536];
+        ssize_t ibytes;
+        ssize_t obytes;
+        int     ret;
+
+        ifd = open (src, O_RDONLY);
+        if (ifd < 0) {
+                ret = errno;
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "opening source file %s failed (%s)",
+                        src, strerror (ret));
+                goto done;
+        }
+
+        ofd = open (dst, O_WRONLY|O_CREAT, 0666);
+        if (ofd < 0) {
+                ret = errno;
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "opening destination file %s failed (%s)",
+                        dst, strerror (ret));
+                goto done;
+        }
+
+        for (;;) {
+                ibytes = read (ifd, buf, sizeof (buf));
+                if (ibytes < 0) {
+                        ret = errno;
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "reading source file %s failed (%s)",
+                                src, strerror (ret));
+                        goto done;
+                }
+                if (ibytes == 0) {
+                        break;
+                }
+                obytes = write (ofd, buf, ibytes);
+                if (obytes < ibytes) {
+                        ret = errno;
+                        if (obytes < 0) {
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "writing destination file %s failed (%s)",
+                                        dst, strerror (ret));
+                        } else {
+                                gf_log (THIS->name, GF_LOG_ERROR,
+                                        "only wrote %zd/%zd bytes from %s to %s",
+                                        obytes, ibytes, src, dst);
+                        }
+                        goto done;
+                }
+        }
+
+        if (fsync (ofd) < 0) {
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "fsync failed copying %s (%s)",
+                        dst, strerror (errno));
+        }
+        ret = 0;
+
+done:
+        if (ifd >= 0) {
+                close (ifd);
+        }
+        if (ofd >= 0) {
+                close (ofd);
+        }
+        return ret;
+}
+
+static char orphan_file_pattern[] = "%s/.glusterfs/orphans/%s.%s";
+static char orphan_link_pattern[] = "../..%s";
+
+static int32_t
+posix_move_aside (call_frame_t *frame, xlator_t *this, inode_t *inode)
+{
+        struct posix_private    *priv           = this->private;
+        char                    *rel_path       = NULL;
+        size_t                  my_str_len      = 1;    /* Just the NUL */
+        char                    *src_path;
+        char                    *dst_path;
+        int32_t                 op_errno        = 0;
+        struct iatt             stbuf;
+        char                    *link_tgt;
+
+        if (inode_path (inode, NULL, &rel_path) <= 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "could not get move-aside path for %s",
+                        uuid_utoa (inode->gfid));
+                op_errno = ENOENT;
+                goto done;
+        }
+
+        my_str_len = strlen (priv->base_path) + strlen (rel_path) + 1;
+        src_path = alloca (my_str_len);
+        sprintf (src_path, "%s%s", priv->base_path, rel_path);
+
+        op_errno = posix_pstat (this, NULL, src_path, &stbuf);
+        if (op_errno != 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "move-aside stat failed for %s", src_path);
+                goto done;
+        }
+
+        /* 36 for a GFID, and 4 for the orig/link extension */
+        my_str_len = sizeof (orphan_file_pattern) + 40;
+        dst_path = alloca (my_str_len);
+        sprintf (dst_path, orphan_file_pattern, priv->base_path,
+                 uuid_utoa (inode->gfid), "orig");
+
+        gf_log (this->name, GF_LOG_INFO,
+                "move-aside: src = %s, dst = %s", src_path, dst_path);
+
+#if defined(MOVING_THE_FILE_WORKS)
+        /*
+         * This is how we should really do things, to avoid the overhead of
+         * copying (potentially large) amounts of data.  Unfortunately, if the
+         * file and all of its xattrs aren't there, the self-heal that's the
+         * whole point of our little exercise doesn't work.  The same might be
+         * true of the .glusterfs handle.  Until some magic formula can be
+         * found, our most expedient choice is to *copy* the file instead of
+         * moving it.
+         */
+        if (sys_link (src_path, dst_path) < 0) {
+                op_errno = errno;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "move-aside link failed for %s", src_path);
+                goto done;
+        }
+
+        if (posix_unlink_gfid_handle_and_entry (this, src_path, &stbuf,
+                                                &op_errno) < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "move-aside unlink failed for %s", src_path);
+                goto done;
+        }
+#else
+        op_errno = posix_copy_file (src_path, dst_path);
+        if (op_errno != 0) {
+                /* Errors would have been reported already. */
+                goto done;
+        }
+#endif
+
+        sprintf (dst_path, orphan_file_pattern, priv->base_path,
+                 uuid_utoa (inode->gfid), "link");
+        my_str_len = sizeof (orphan_link_pattern) + strlen (rel_path);
+        link_tgt = alloca (my_str_len);
+        sprintf (link_tgt, orphan_link_pattern, rel_path);
+
+        if (sys_symlink (link_tgt, dst_path) < 0) {
+                /* This is deliberately not fatal. */
+                gf_log (this->name, GF_LOG_WARNING,
+                        "move-aside could not link %s to %s",
+                        dst_path, link_tgt);
+        }
+
+done:
+        if (rel_path) {
+                GF_FREE (rel_path);
+        }
+        return op_errno;
+}
+
 int32_t
 posix_setxattr (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, dict_t *dict, int flags, dict_t *xdata)
@@ -3948,6 +4115,17 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
 #else
         filler.flags = flags;
 #endif
+
+        if (dict_get (dict, "trusted.move-aside")) {
+                dict_del (dict, "trusted.move-aside");
+                op_ret = posix_move_aside (frame, this, loc->inode);
+                if (op_ret != 0) {
+                        op_errno = abs (op_ret);
+                        op_ret = -1;
+                        goto out;
+                }
+        }
+
         op_ret = dict_foreach (dict, _handle_setxattr_keyvalue_pair,
                                &filler);
         if (op_ret < 0) {

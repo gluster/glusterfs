@@ -336,7 +336,7 @@ __afr_selfheal_metadata_prepare (call_frame_t *frame, xlator_t *this, inode_t *i
 	priv = this->private;
 
 	ret = afr_selfheal_unlocked_discover (frame, inode, inode->gfid,
-					      replies);
+					      replies, _gf_false);
         if (ret)
                 return ret;
 

@@ -101,6 +101,7 @@ typedef struct _afr_private {
         unsigned char *child_up;
         int64_t *child_latency;
         gf_boolean_t pgfid_self_heal;
+        gf_boolean_t shd_validate_data;;
         unsigned char *local;
 
         char **pending_key;
@@ -1101,7 +1102,7 @@ int
 afr_final_errno (afr_local_t *local, afr_private_t *priv);
 
 int
-afr_xattr_req_prepare (xlator_t *this, dict_t *xattr_req);
+afr_xattr_req_prepare (xlator_t *this, dict_t *xattr_req, gf_boolean_t checksum);
 
 void
 afr_fix_open (fd_t *fd, xlator_t *this);

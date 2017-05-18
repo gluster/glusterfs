@@ -796,7 +796,8 @@ __afr_selfheal_name_prepare (call_frame_t *frame, xlator_t *this, inode_t *paren
 
         replies = alloca0 (priv->child_count * sizeof(*replies));
 
-	ret = afr_selfheal_unlocked_discover (frame, parent, pargfid, replies);
+	ret = afr_selfheal_unlocked_discover (frame, parent, pargfid, replies,
+                                              _gf_false);
 	if (ret)
 		goto out;
 

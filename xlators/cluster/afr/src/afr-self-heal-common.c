@@ -298,6 +298,51 @@ afr_selfheal_undo_pending (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	return 0;
 }
 
+static int
+afr_selfheal_vstatus_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                          int op_ret, int op_errno, dict_t *xdata)
+{
+        afr_local_t *local = frame->local;
+
+        syncbarrier_wake (&local->barrier);
+        return 0;
+}
+
+void
+afr_selfheal_update_vstatus (call_frame_t *frame, xlator_t *this, inode_t *inode,
+                             unsigned char *targets, char *new_status)
+{
+        loc_t           loc     = {0, };
+        dict_t          *xattr;
+
+        loc.inode = inode_ref (inode);
+
+        xattr = dict_new ();
+        if (!xattr) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "unable to allocate validate-status for %s",
+                        uuid_utoa (inode->gfid));
+                goto done;
+        }
+
+        if (dict_set_str (xattr, "trusted.glusterfs.validate-status",
+                          new_status) != 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "couldn't clear validate-status for %s",
+                        uuid_utoa (inode->gfid));
+                goto done;
+        }
+
+        AFR_ONLIST (targets, frame, afr_selfheal_vstatus_cbk, setxattr,
+                    &loc, xattr, 0, NULL);
+
+done:
+        if (xattr) {
+                dict_unref (xattr);
+        }
+        loc_wipe (&loc);
+}
+
 
 void
 afr_replies_copy (struct afr_reply *dst, struct afr_reply *src, int count)
@@ -1379,7 +1424,7 @@ afr_selfheal_unlocked_lookup_on (call_frame_t *frame, inode_t *parent,
         if (xattr)
                 dict_copy (xattr, xattr_req);
 
-	if (afr_xattr_req_prepare (frame->this, xattr_req) != 0) {
+	if (afr_xattr_req_prepare (frame->this, xattr_req, _gf_false) != 0) {
 		dict_destroy (xattr_req);
 		return NULL;
 	}
@@ -1406,10 +1451,11 @@ afr_selfheal_unlocked_lookup_on (call_frame_t *frame, inode_t *parent,
 	return inode;
 }
 
-int
+static int
 afr_selfheal_unlocked_discover_on (call_frame_t *frame, inode_t *inode,
-				   uuid_t gfid, struct afr_reply *replies,
-				   unsigned char *discover_on)
+                                   uuid_t gfid, struct afr_reply *replies,
+                                   unsigned char *discover_on,
+                                   gf_boolean_t checksum)
 {
 	loc_t loc = {0, };
 	dict_t *xattr_req = NULL;
@@ -1423,7 +1469,7 @@ afr_selfheal_unlocked_discover_on (call_frame_t *frame, inode_t *inode,
 	if (!xattr_req)
 		return -ENOMEM;
 
-	if (afr_xattr_req_prepare (frame->this, xattr_req) != 0) {
+	if (afr_xattr_req_prepare (frame->this, xattr_req, checksum) != 0) {
 		dict_destroy (xattr_req);
 		return -ENOMEM;
 	}
@@ -1444,14 +1490,15 @@ afr_selfheal_unlocked_discover_on (call_frame_t *frame, inode_t *inode,
 
 int
 afr_selfheal_unlocked_discover (call_frame_t *frame, inode_t *inode,
-				uuid_t gfid, struct afr_reply *replies)
+				uuid_t gfid, struct afr_reply *replies,
+                                gf_boolean_t checksum)
 {
 	afr_private_t *priv = NULL;
 
 	priv = frame->this->private;
 
 	return afr_selfheal_unlocked_discover_on (frame, inode, gfid, replies,
-						  priv->child_up);
+						  priv->child_up, checksum);
 }
 
 unsigned int
@@ -1865,7 +1912,7 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 
 	replies = alloca0 (sizeof (*replies) * priv->child_count);
 
-	ret = afr_selfheal_unlocked_discover (frame, inode, gfid, replies);
+	ret = afr_selfheal_unlocked_discover (frame, inode, gfid, replies, _gf_false);
 	if (ret)
                 goto out;
 
@@ -1983,6 +2030,22 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
                         if (data_selfheal)
                                 *data_selfheal = _gf_true;
 		}
+
+                if (priv->shd_validate_data && data_selfheal && !*data_selfheal) {
+                        if (IA_ISREG (replies[i].poststat.ia_type)) {
+                                gf_log (this->name, GF_LOG_INFO,
+                                        "forcing data self-heal on %s",
+                                        uuid_utoa (replies[i].poststat.ia_gfid));
+                                /*
+                                 * This will force our caller (e.g.
+                                 * afr_selfheal_do) to call afr_selfheal_data,
+                                 * even though it might otherwise think
+                                 * everything looks OK.  From there, we'll do a
+                                 * more thorough inspection including checksums.
+                                 */
+                                *data_selfheal = _gf_true;
+                        }
+                }
 	}
 
 	if (valid_cnt > 0 && link_inode) {
@@ -1999,7 +2062,7 @@ afr_selfheal_unlocked_inspect (call_frame_t *frame, xlator_t *this,
         ret = 0;
 out:
         if (inode)
-                inode_unref (inode);
+        inode_unref (inode);
         if (replies)
                 afr_replies_wipe (replies, priv->child_count);
 
@@ -2140,7 +2203,6 @@ afr_selfheal_do (call_frame_t *frame, xlator_t *this, uuid_t gfid)
 					     &data_selfheal,
 					     &metadata_selfheal,
 					     &entry_selfheal);
-
 	if (ret)
 		goto out;
 

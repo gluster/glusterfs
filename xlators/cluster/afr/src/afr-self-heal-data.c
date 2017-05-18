@@ -587,6 +587,135 @@ out:
 	return source;
 }
 
+static int
+afr_move_aside (call_frame_t *frame, xlator_t *this, inode_t *inode, int i)
+{
+        afr_private_t   *priv   = this->private;
+        dict_t          *xattr  = NULL;
+        int             ret     = -1;
+        loc_t           loc     = {0, };
+
+        loc.inode = inode_ref (inode);
+
+        xattr = dict_new ();
+        if (!xattr) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to alloc move-aside dict for %s on child %d",
+                        uuid_utoa (inode->gfid), i);
+                goto done;
+        }
+
+        if (dict_set_str (xattr, "trusted.move-aside", "please") != 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to set move-aside xattr for %s on child %d",
+                        uuid_utoa (inode->gfid), i);
+                goto done;
+        }
+
+        if (syncop_setxattr (priv->children[i], &loc, xattr, 0,
+                             NULL, NULL) != 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to send move-aside fop for %s on child %d",
+                        uuid_utoa (inode->gfid), i);
+                goto done;
+        }
+
+        ret = 0;
+
+done:
+        if (xattr) {
+                dict_unref (xattr);
+        }
+        loc_wipe (&loc);
+
+        return ret;
+}
+
+static void
+afr_handle_validation (call_frame_t *frame, xlator_t *this, inode_t *inode,
+                       unsigned char *sources, unsigned char *sinks,
+                       struct afr_reply *replies)
+{
+        afr_private_t *priv = this->private;
+        uint32_t *values;
+        int i;
+        int same_as[2] = {0, 0};
+        char *vstatus;
+
+        if (!priv->shd_validate_data) {
+                return;
+        }
+
+        values = alloca0 (sizeof (*values) * priv->child_count);
+        for (i = 0; i < priv->child_count; ++i) {
+                if (!replies[i].xdata) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "no xdata for child %d", i);
+                        return;
+                }
+                if (dict_get_str (replies[i].xdata,
+                                  "trusted.glusterfs.validate-status",
+                                  &vstatus) != 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "no validate-status for child %d", i);
+                        return;
+                }
+                if (strncmp (vstatus, "suspect", 7) != 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "validate-status = %s for child %d", vstatus, i);
+                        return;
+                }
+                if (dict_get_uint32 (replies[i].xdata, "checksum", &values[i]) != 0) {
+                        return;
+                }
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "checksum for child %d is 0x%x", i, values[i]);
+       }
+
+        /*
+         * Let's take a shortcut here by looking only for a single odd
+         * man out instead of a more generalized minority.  To do this,
+         * we only need to compare the third item onward to (at most)
+         * the first two, and we only need two counters.  There's all
+         * sorts of ways we could optimize this implementation, but
+         * there's little left to be saved.
+         */
+        for (i = 0; i < priv->child_count; ++i) {
+                same_as[0] += (values[i] == values[0]);
+                same_as[1] += (values[i] == values[1]);
+        }
+        if (same_as[0] == priv->child_count) {
+                gf_log (this->name, GF_LOG_DEBUG, "everything's OK");
+                afr_selfheal_update_vstatus (frame, this, inode,
+                                             sources, "clean");
+        } else if (same_as[0] == (priv->child_count - 1)) {
+                gf_log (this->name, GF_LOG_DEBUG, "odd man out, use 0");
+                for (i = 0; i < priv->child_count; ++i) {
+                        if (values[i] != values[0]) {
+                                sources[i] = 0;
+                                sinks[i] = 1;
+                                afr_move_aside (frame, this, inode, i);
+                        }
+                }
+        } else if (same_as[1] == (priv->child_count - 1)) {
+                gf_log (this->name, GF_LOG_DEBUG, "odd man out, use 1");
+                for (i = 0; i < priv->child_count; ++i) {
+                        if (values[i] != values[1]) {
+                                sources[i] = 0;
+                                sinks[i] = 1;
+                                afr_move_aside (frame, this, inode, i);
+                        }
+                }
+        } else {
+                gf_log (this->name, GF_LOG_WARNING, "three-way split on %s",
+                        uuid_utoa (inode->gfid));
+                for (i = 0; i < priv->child_count; ++i) {
+                        sources[i] = 0;
+                        sinks[i] = 1;
+                }
+        }
+}
+
 /*
  * __afr_selfheal_data_prepare:
  *
@@ -612,7 +741,7 @@ __afr_selfheal_data_prepare (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	ret = afr_selfheal_unlocked_discover (frame, inode, inode->gfid,
-					      replies);
+					      replies, priv->shd_validate_data);
 
         if (ret)
                 return ret;
@@ -624,6 +753,8 @@ __afr_selfheal_data_prepare (call_frame_t *frame, xlator_t *this,
                                            pflag);
 	if (ret)
 		return ret;
+
+        afr_handle_validation (frame, this, inode, sources, sinks, replies);
 
         /* Initialize the healed_sinks[] array optimistically to
            the intersection of to-be-healed (i.e sinks[]) and
@@ -749,6 +880,14 @@ restore_time:
                                          sources, sinks, healed_sinks,
                                          undid_pending, AFR_DATA_TRANSACTION,
                                          locked_replies, data_lock);
+
+        if (priv->shd_validate_data) {
+                afr_selfheal_update_vstatus (frame, this, fd->inode,
+                                             healed_sinks, "repaired");
+                afr_selfheal_update_vstatus (frame, this, fd->inode,
+                                             sources, "clean");
+        }
+
 skip_undo_pending:
 	afr_selfheal_uninodelk (frame, this, fd->inode, this->name, 0, 0,
 				data_lock);

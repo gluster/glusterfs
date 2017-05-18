@@ -18,6 +18,7 @@
 #include <ftw.h>
 #include <sys/stat.h>
 #include <signal.h>
+#include <openssl/md5.h>
 
 #ifdef HAVE_SYS_ACL_H
 #ifdef HAVE_ACL_LIBACL_H /* for acl_to_any_text() */
@@ -239,7 +240,8 @@ _posix_xattr_get_set_from_backend (posix_xattr_filler_t *filler, char *key)
                 }
 
                 value[xattr_size] = '\0';
-                ret = dict_set_bin (filler->xattr, key, value, xattr_size);
+                ret = dict_set_bin (filler->xattr, key,
+                                    value, xattr_size);
                 if (ret < 0) {
                         if (filler->real_path)
                                 gf_msg_debug (filler->this->name, 0,
@@ -798,6 +800,45 @@ out:
         return;
 }
 
+static int32_t
+_handle_cksum (const char *path, uint32_t *result)
+{
+        int             fd;
+        size_t          bytes;
+        unsigned char   buf[65536];
+        unsigned char   cksum[MD5_DIGEST_LENGTH] = {0, };
+        MD5_CTX mdctx;
+
+        fd = open (path, O_RDONLY);
+        if (fd < 0) {
+                return -1;
+        }
+
+        MD5_Init (&mdctx);
+
+        for (;;) {
+                bytes = read (fd, buf, sizeof (buf));
+                if (bytes < 0) {
+                        close (fd);
+                        return -2;
+                }
+                if (bytes == 0) {
+                        break;
+                }
+                MD5_Update (&mdctx, buf, bytes);
+
+                if (bytes < sizeof (buf)) {
+                        break;
+                }
+        }
+
+        MD5_Final (cksum, &mdctx);
+
+        close (fd);
+        *result = *((uint32_t *)cksum);
+        return 0;
+}
+
 dict_t *
 posix_xattr_fill (xlator_t *this, const char *real_path, loc_t *loc, fd_t *fd,
                   int fdnum, dict_t *xattr_req, struct iatt *buf)
@@ -805,10 +846,17 @@ posix_xattr_fill (xlator_t *this, const char *real_path, loc_t *loc, fd_t *fd,
         dict_t     *xattr             = NULL;
         posix_xattr_filler_t filler   = {0, };
         gf_boolean_t    list          = _gf_false;
+        gf_boolean_t    do_cksum      = _gf_false;
+        uint32_t        cksum_val;
 
         if (dict_get (xattr_req, "list-xattr")) {
                 dict_del (xattr_req, "list-xattr");
                 list = _gf_true;
+        }
+
+        if (dict_get (xattr_req, "get-checksum")) {
+                dict_del (xattr_req, "get-checksum");
+                do_cksum = _gf_true;
         }
 
         xattr = dict_new ();
@@ -827,6 +875,20 @@ posix_xattr_fill (xlator_t *this, const char *real_path, loc_t *loc, fd_t *fd,
         dict_foreach (xattr_req, _posix_xattr_get_set, &filler);
         if (list)
                 _handle_list_xattr (xattr_req, real_path, fdnum, &filler);
+
+        if (do_cksum) {
+                if (_handle_cksum (real_path, &cksum_val) == 0) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "generated checksum %x for %s", cksum_val, real_path);
+                        if (dict_set_uint32 (xattr, "checksum", cksum_val) != 0) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "could not store checksum for %s", real_path);
+                        }
+                } else {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "could not get checksum for %s", real_path);
+                }
+        }
 
 out:
         return xattr;
