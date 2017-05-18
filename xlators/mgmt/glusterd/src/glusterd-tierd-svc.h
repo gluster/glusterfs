@@ -18,7 +18,6 @@ typedef struct glusterd_tierdsvc_ glusterd_tierdsvc_t;
 
 struct glusterd_tierdsvc_ {
         glusterd_svc_t          svc;
-        int                     port;
         gf_store_handle_t      *handle;
 };
 
