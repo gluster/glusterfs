@@ -88,7 +88,7 @@ dht_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 STACK_WIND_COOKIE (frame, dht_linkfile_lookup_cbk, subvol,
-                                   subvol, subvol->fops->lookup, &local->loc,
+                                   subvol, subvol->fops->lookup, &local->linkfile.loc,
                                    xattrs);
                 if (xattrs)
                         dict_unref (xattrs);
@@ -119,6 +119,7 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
         local = frame->local;
         local->linkfile.linkfile_cbk = linkfile_cbk;
         local->linkfile.srcvol = tovol;
+        loc_copy (&local->linkfile.loc, loc);
 
         local->linked = _gf_false;
 
