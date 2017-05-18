@@ -287,6 +287,9 @@ out:
                 op_ret = -1;
                 op_errno = ENODATA;
         }
+
+        if (op_ret == 0)
+                op_errno = 0;
         STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno,
                              (loc)?loc->inode:NULL, &buf, xattr, &postparent);
 

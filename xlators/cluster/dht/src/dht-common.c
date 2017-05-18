@@ -6333,10 +6333,32 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           ret = -1;
         gf_boolean_t  stbuf_merged = _gf_false;
         xlator_t     *subvol = NULL;
+        call_frame_t *cleanup_frame = NULL;
+        dht_local_t  *cleanup_local = NULL;
 
         local = frame->local;
 
         if (op_ret == -1) {
+                /* Remove the linkto if exists */
+                if (local->linked) {
+                        cleanup_frame = create_frame (this, this->ctx->pool);
+                        if (cleanup_frame) {
+                                cleanup_local = dht_local_init (cleanup_frame,
+                                                                &local->loc2,
+                                                                NULL, 0);
+                                if (!cleanup_local || !local->link_subvol) {
+                                        DHT_STACK_DESTROY (cleanup_frame);
+                                        goto out;
+                                }
+                                cleanup_local->link_subvol = local->link_subvol;
+                                FRAME_SU_DO (cleanup_frame, dht_local_t);
+                                ret = synctask_new (this->ctx->env,
+                                                    dht_remove_stale_linkto,
+                                                    dht_remove_stale_linkto_cbk,
+                                                    cleanup_frame,
+                                                    cleanup_frame);
+                        }
+                }
                 /* No continuation on DHT inode missing errors, as we should
                  * then have a good stbuf that states P2 happened. We would
                  * get inode missing if, the file completed migrated between
@@ -9470,4 +9492,55 @@ int32_t
 dht_release (xlator_t *this, fd_t *fd)
 {
         return dht_fd_ctx_destroy (this, fd);
+}
+
+int
+dht_remove_stale_linkto (void *data)
+{
+        call_frame_t    *frame = NULL;
+        dht_local_t     *local = NULL;
+        xlator_t        *this  = NULL;
+        dict_t          *xdata_in = NULL;
+        int             ret = 0;
+
+        GF_VALIDATE_OR_GOTO ("dht", data, out);
+
+        frame = data;
+        local = frame->local;
+        this = frame->this;
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
+        GF_VALIDATE_OR_GOTO ("dht", local, out);
+        GF_VALIDATE_OR_GOTO ("dht", local->link_subvol, out);
+
+        xdata_in = dict_new ();
+        if (!xdata_in)
+                goto out;
+
+        ret = dht_fill_dict_to_avoid_unlink_of_migrating_file (xdata_in);
+        if (ret) {
+                  gf_msg (this->name, GF_LOG_WARNING, -ret, 0,
+                                "Failed to set keys for stale linkto"
+                                "deletion on path %s", local->loc.path);
+                  goto out;
+        }
+
+        ret = syncop_unlink (local->link_subvol, &local->loc, xdata_in, NULL);
+        if (ret) {
+                  gf_msg (this->name, GF_LOG_WARNING, -ret, 0,
+                                "Removal of linkto failed"
+                                " on path %s at subvol %s",
+                                local->loc.path, local->link_subvol->name);
+
+        }
+out:
+        if (xdata_in)
+                dict_unref (xdata_in);
+        return ret;
+}
+
+int
+dht_remove_stale_linkto_cbk (int ret, call_frame_t *sync_frame, void *data)
+{
+        DHT_STACK_DESTROY (sync_frame);
+        return 0;
 }

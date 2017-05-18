@@ -1307,4 +1307,10 @@ getChoices (const char *value);
 int
 dht_aggregate_split_brain_xattr (dict_t *dst, char *key, data_t *value);
 
+int
+dht_remove_stale_linkto (void *data);
+
+int
+dht_remove_stale_linkto_cbk (int ret, call_frame_t *sync_frame, void *data);
+
 #endif/* _DHT_H */
