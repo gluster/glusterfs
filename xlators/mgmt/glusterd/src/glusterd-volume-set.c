@@ -1004,6 +1004,36 @@ out:
 
 
 static int
+validate_rda_cache_limit (glusterd_volinfo_t *volinfo, dict_t *dict,
+                          char *key, char *value, char **op_errstr)
+{
+        int          ret             = 0;
+        uint64_t     rda_cache_size  = 0;
+
+        ret = gf_string2bytesize_uint64 (value, &rda_cache_size);
+        if (ret < 0)
+                goto out;
+
+        if (rda_cache_size <= (1 * GF_UNIT_GB))
+                goto out;
+
+        /* With release 3.11 the max value of rda_cache_limit is changed from
+         * 1GB to INFINITY. If there are clients older than 3.11 and the value
+         * of rda-cache-limit is set to > 1GB, the older clients will stop
+         * working. Hence if a user is setting rda-cache-limit to > 1GB
+         * ensure that all the clients are 3.11 or greater.
+         */
+        ret = glusterd_check_client_op_version_support (volinfo->volname,
+                                                        GD_OP_VERSION_3_11_0,
+                                                        op_errstr);
+out:
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
+
+        return ret;
+}
+
+
+static int
 validate_worm_period (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                char *value, char **op_errstr)
 {
@@ -3286,6 +3316,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type        = DOC,
           .flags       = OPT_FLAG_CLIENT_OPT,
           .op_version  = GD_OP_VERSION_3_9_1,
+          .validate_fn = validate_rda_cache_limit
         },
         { .key         = "performance.nl-cache-positive-entry",
           .voltype     = "performance/nl-cache",

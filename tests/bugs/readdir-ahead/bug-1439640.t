@@ -27,4 +27,4 @@ TEST ! $CLI volume set $V0 rda-request-size 87adh
 TEST $CLI volume set $V0 rda-cache-limit 10MB
 TEST $CLI volume set $V0 rda-request-size 128KB
 
-#cleanup;
+cleanup;
