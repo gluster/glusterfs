@@ -1150,6 +1150,7 @@ dht_selfheal_dir_setattr (call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
         int           i     = 0, ret = -1;
         dht_local_t  *local = NULL;
         xlator_t     *this = NULL;
+        int           cnt  = 0;
 
         local = frame->local;
         this = frame->this;
@@ -1175,7 +1176,8 @@ dht_selfheal_dir_setattr (call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
                 gf_uuid_copy (loc->gfid, local->gfid);
 
         local->call_cnt = missing_attr;
-        for (i = 0; i < layout->cnt; i++) {
+        cnt = layout->cnt;
+        for (i = 0; i < cnt; i++) {
                 if (layout->list[i].err == -1) {
                         gf_msg_trace (this->name, 0,
                                       "%s: setattr on subvol %s, gfid = %s",
@@ -1299,6 +1301,7 @@ dht_selfheal_dir_mkdir_lookup_done (call_frame_t *frame, xlator_t *this)
         dict_t       *dict = NULL;
         dht_layout_t  *layout = NULL;
         loc_t        *loc   = NULL;
+        int           cnt   = 0;
 
         VALIDATE_OR_GOTO (this->private, err);
 
@@ -1331,7 +1334,8 @@ dht_selfheal_dir_mkdir_lookup_done (call_frame_t *frame, xlator_t *this)
                         DHT_MSG_DICT_SET_FAILED,
                         "dict is NULL, need to make sure gfids are same");
 
-        for (i = 0; i < layout->cnt; i++) {
+        cnt = layout->cnt;
+        for (i = 0; i < cnt; i++) {
                 if (layout->list[i].err == ESTALE ||
                     layout->list[i].err == ENOENT ||
                     local->selfheal.force_mkdir) {
