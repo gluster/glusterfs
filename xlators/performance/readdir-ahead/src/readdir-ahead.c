@@ -23,6 +23,7 @@
  * preloads on the directory.
  */
 
+#include <math.h>
 #include "glusterfs.h"
 #include "xlator.h"
 #include "call-stub.h"
@@ -739,7 +740,7 @@ struct volume_options options[] = {
         { .key = {"rda-cache-limit"},
           .type = GF_OPTION_TYPE_SIZET,
           .min = 0,
-          .max = 1 * GF_UNIT_GB,
+          .max = INFINITY,
           .default_value = "10MB",
           .description = "maximum size of cache consumed by readdir-ahead "
                          "xlator. This value is global and total memory "
