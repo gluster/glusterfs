@@ -120,6 +120,7 @@
 %global _init_glusterd   %{_unitdir}/glusterd.service
 %global _init_glusterfsd %{_unitdir}/glusterfsd.service
 %global _init_glustereventsd %{_unitdir}/glustereventsd.service
+%global _init_glusterfssharedstorage %{_unitdir}/glusterfssharedstorage.service
 %else
 %global _init_enable()  /sbin/chkconfig --add %1 ;
 %global _init_disable() /sbin/chkconfig --del %1 ;
@@ -1175,6 +1176,9 @@ exit 0
 %if ( 0%{_for_fedora_koji_builds} )
 %_init_glusterfsd
 %endif
+%if ( 0%{?_with_systemd:1} )
+%_init_glusterfssharedstorage
+%endif
 
 # binaries
 %{_sbindir}/glusterd
@@ -1280,6 +1284,9 @@ exit 0
 
 # Extra utility script
 %{_datadir}/glusterfs/scripts/stop-all-gluster-processes.sh
+%if ( 0%{?_with_systemd:1} )
+%{_libexecdir}/glusterfs/mount-shared-storage.sh
+%endif
 
 # Incrementalapi
 %{_libexecdir}/glusterfs/glusterfind
@@ -1311,6 +1318,9 @@ exit 0
 %endif
 
 %changelog
+* Fri Jun 16 2017 Jiffin Tony Thottan <jthottan@redhat.com>
+- Add glusterfssharedstorage.service systemd file
+
 * Fri Jun 9 2017 Poornima G <pgurusid@redhat.com>
 - Install /var/lib/glusterd/groups/nl-cache by default
 
