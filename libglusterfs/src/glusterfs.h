@@ -520,6 +520,8 @@ struct _glusterfs_ctx {
         int                 notifying;
 
         struct gf_ctx_tw   *tw; /* refcounted timer_wheel */
+
+        gf_lock_t           volfile_lock;
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 
