@@ -1,5 +1,8 @@
 addonexecdir = $(GLUSTERFS_LIBEXECDIR)
 addonexec_SCRIPTS = peer_add_secret_pub
+if USE_SYSTEMD
+addonexec_SCRIPTS += mount-shared-storage.sh
+endif
 
 EditorModedir = $(docdir)
 EditorMode_DATA = glusterfs-mode.el glusterfs.vim
@@ -22,7 +25,8 @@ EXTRA_DIST = $(conf_DATA) specgen.scm glusterfs-mode.el glusterfs.vim \
 	disk_usage_sync.sh clear_xattrs.sh glusterd-sysconfig glusterd.vol \
 	post-upgrade-script-for-quota.sh pre-upgrade-script-for-quota.sh \
 	command-completion/gluster.bash command-completion/Makefile \
-	command-completion/README stop-all-gluster-processes.sh clang-checker.sh
+	command-completion/README stop-all-gluster-processes.sh clang-checker.sh \
+	mount-shared-storage.sh
 
 install-data-local:
 	if [ -n "$(tmpfilesdir)" ]; then \
