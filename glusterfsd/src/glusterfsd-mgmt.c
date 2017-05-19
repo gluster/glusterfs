@@ -198,8 +198,9 @@ glusterfs_handle_terminate (rpcsvc_request_t *req)
 {
         gd1_mgmt_brick_op_req   xlator_req      = {0,};
         ssize_t                 ret;
-        xlator_t                *top;
-        xlator_t                *victim;
+        xlator_t                *top = NULL;
+        xlator_t                *victim = NULL;
+        glusterfs_ctx_t         *ctx    = NULL;
         xlator_list_t           **trav_p;
 
         ret = xdr_to_generic (req->msg[0], &xlator_req,
@@ -208,52 +209,62 @@ glusterfs_handle_terminate (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 return -1;
         }
+        ctx = glusterfsd_ctx;
 
-        /* Find the xlator_list_t that points to our victim. */
-        top = glusterfsd_ctx->active->first;
-        for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
-                victim = (*trav_p)->xlator;
-                if (strcmp (victim->name, xlator_req.name) == 0) {
-                        break;
+        LOCK (&ctx->volfile_lock);
+        {
+                /* Find the xlator_list_t that points to our victim. */
+                top = glusterfsd_ctx->active->first;
+                for (trav_p = &top->children; *trav_p;
+                     trav_p = &(*trav_p)->next) {
+                        victim = (*trav_p)->xlator;
+                        if (strcmp (victim->name, xlator_req.name) == 0) {
+                                break;
+                        }
                 }
-        }
 
-        if (!*trav_p) {
-                gf_log (THIS->name, GF_LOG_ERROR,
-                        "can't terminate %s - not found", xlator_req.name);
-                /*
-                 * Used to be -ENOENT.  However, the caller asked us to make
-                 * sure it's down and if it's already down that's good enough.
-                 */
+                if (!*trav_p) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "can't terminate %s - not found",
+                                xlator_req.name);
+                        /*
+                         * Used to be -ENOENT.  However, the caller asked us to
+                         * make sure it's down and if it's already down that's
+                         * good enough.
+                         */
+                        glusterfs_terminate_response_send (req, 0);
+                        goto err;
+                }
+
                 glusterfs_terminate_response_send (req, 0);
-                goto err;
+                if ((trav_p == &top->children) && !(*trav_p)->next) {
+                        gf_log (THIS->name, GF_LOG_INFO,
+                                "terminating after loss of last child %s",
+                                xlator_req.name);
+                        glusterfs_mgmt_pmap_signout (glusterfsd_ctx,
+                                                     xlator_req.name);
+                        kill (getpid(), SIGTERM);
+                } else {
+                        /*
+                         * This is terribly unsafe without quiescing or shutting
+                         * things down properly but it gets us to the point
+                         * where we can test other stuff.
+                         *
+                         * TBD: finish implementing this "detach" code properly
+                         */
+                        gf_log (THIS->name, GF_LOG_INFO, "detaching not-only"
+                                " child %s", xlator_req.name);
+                        top->notify (top, GF_EVENT_TRANSPORT_CLEANUP, victim);
+                        glusterfs_mgmt_pmap_signout (glusterfsd_ctx,
+                                                     xlator_req.name);
+
+                        *trav_p = (*trav_p)->next;
+                        glusterfs_autoscale_threads (THIS->ctx, -1);
+                }
+
         }
-
-        glusterfs_terminate_response_send (req, 0);
-        if ((trav_p == &top->children) && !(*trav_p)->next) {
-                gf_log (THIS->name, GF_LOG_INFO,
-                        "terminating after loss of last child %s",
-                        xlator_req.name);
-                glusterfs_mgmt_pmap_signout (glusterfsd_ctx, xlator_req.name);
-                cleanup_and_exit (SIGTERM);
-        } else {
-                /*
-                 * This is terribly unsafe without quiescing or shutting things
-                 * down properly (or even locking) but it gets us to the point
-                 * where we can test other stuff.
-                 *
-                 * TBD: finish implementing this "detach" code properly
-                 */
-                gf_log (THIS->name, GF_LOG_INFO, "detaching not-only child %s",
-                        xlator_req.name);
-                top->notify (top, GF_EVENT_TRANSPORT_CLEANUP, victim);
-                glusterfs_mgmt_pmap_signout (glusterfsd_ctx, xlator_req.name);
-
-                *trav_p = (*trav_p)->next;
-                glusterfs_autoscale_threads (THIS->ctx, -1);
-        }
-
 err:
+        UNLOCK (&ctx->volfile_lock);
         free (xlator_req.name);
         xlator_req.name = NULL;
         return 0;
@@ -828,6 +839,7 @@ glusterfs_handle_attach (rpcsvc_request_t *req)
         gd1_mgmt_brick_op_req   xlator_req      = {0,};
         xlator_t                *this           = NULL;
         glusterfs_graph_t       *newgraph       = NULL;
+        glusterfs_ctx_t         *ctx            = NULL;
 
         GF_ASSERT (req);
         this = THIS;
@@ -842,32 +854,38 @@ glusterfs_handle_attach (rpcsvc_request_t *req)
                 return -1;
         }
         ret = 0;
+        ctx = this->ctx;
 
-        if (this->ctx->active) {
-                gf_log (this->name, GF_LOG_INFO,
-                        "got attach for %s", xlator_req.name);
-                ret = glusterfs_graph_attach (this->ctx->active,
-                                              xlator_req.name, &newgraph);
-                if (ret == 0) {
-                        ret = glusterfs_graph_parent_up (newgraph);
-                        if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        LG_MSG_EVENT_NOTIFY_FAILED,
-                                        "Parent up notification "
-                                        "failed");
-                                goto out;
+        LOCK (&ctx->volfile_lock);
+        {
+                if (this->ctx->active) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "got attach for %s", xlator_req.name);
+                        ret = glusterfs_graph_attach (this->ctx->active,
+                                                      xlator_req.name,
+                                                      &newgraph);
+                        if (ret == 0) {
+                                ret = glusterfs_graph_parent_up (newgraph);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                LG_MSG_EVENT_NOTIFY_FAILED,
+                                                "Parent up notification "
+                                                "failed");
+                                        goto out;
+                                }
+                                glusterfs_autoscale_threads (this->ctx, 1);
                         }
-                        glusterfs_autoscale_threads (this->ctx, 1);
+                } else {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "got attach for %s but no active graph",
+                                xlator_req.name);
                 }
-        } else {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "got attach for %s but no active graph",
-                        xlator_req.name);
-        }
 
-        glusterfs_translator_info_response_send (req, ret, NULL, NULL);
+                glusterfs_translator_info_response_send (req, ret, NULL, NULL);
 
 out:
+                UNLOCK (&ctx->volfile_lock);
+        }
         free (xlator_req.input.input_val);
         free (xlator_req.name);
 
@@ -1981,23 +1999,28 @@ glusterfs_volfile_fetch (glusterfs_ctx_t *ctx)
         xlator_list_t   *trav;
         int             ret;
 
-        if (ctx->active) {
-                server_xl = ctx->active->first;
-                if (strcmp (server_xl->type, "protocol/server") != 0) {
-                        server_xl = NULL;
+        LOCK (&ctx->volfile_lock);
+        {
+                if (ctx->active) {
+                        server_xl = ctx->active->first;
+                        if (strcmp (server_xl->type, "protocol/server") != 0) {
+                                server_xl = NULL;
+                        }
+                }
+                if (!server_xl) {
+                        /* Startup (ctx->active not set) or non-server. */
+                        UNLOCK (&ctx->volfile_lock);
+                        return glusterfs_volfile_fetch_one
+                                (ctx, ctx->cmd_args.volfile_id);
+                }
+
+                ret = 0;
+                for (trav = server_xl->children; trav; trav = trav->next) {
+                        ret |= glusterfs_volfile_fetch_one
+                                (ctx, trav->xlator->volfile_id);
                 }
         }
-        if (!server_xl) {
-                /* Startup (ctx->active not set) or non-server. */
-                return glusterfs_volfile_fetch_one (ctx,
-                                                    ctx->cmd_args.volfile_id);
-        }
-
-        ret = 0;
-        for (trav = server_xl->children; trav; trav = trav->next) {
-                ret |= glusterfs_volfile_fetch_one (ctx,
-                                                    trav->xlator->volfile_id);
-        }
+        UNLOCK (&ctx->volfile_lock);
         return ret;
 }
 

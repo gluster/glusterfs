@@ -412,7 +412,7 @@ server_setvolume (rpcsvc_request_t *req)
         rpc_transport_t     *xprt          = NULL;
         int32_t              fop_version   = 0;
         int32_t              mgmt_version  = 0;
-
+        glusterfs_ctx_t     *ctx           = NULL;
 
         params = dict_new ();
         reply  = dict_new ();
@@ -423,6 +423,7 @@ server_setvolume (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 goto fail;
         }
+        ctx = THIS->ctx;
 
         this = req->svc->xl;
         /* this is to ensure config_params is populated with the first brick
@@ -468,7 +469,11 @@ server_setvolume (rpcsvc_request_t *req)
                 goto fail;
         }
 
-        xl = get_xlator_by_name (this, name);
+        LOCK (&ctx->volfile_lock);
+        {
+                xl = get_xlator_by_name (this, name);
+        }
+        UNLOCK (&ctx->volfile_lock);
         if (xl == NULL) {
                 ret = gf_asprintf (&msg, "remote-subvolume \"%s\" is not found",
                                    name);
