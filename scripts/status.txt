@@ -1,0 +1,1 @@
+/bin/sh ../../libtool --quiet --mode=install /bin/install -c gsyncd '/usr/local/libexec/glusterfs' /bin/mkdir -p '/usr/local/libexec/glusterfs' /bin/install -c gverify.sh peer_add_secret_pub peer_gsec_create '/usr/local/libexec/glusterfs' /bin/mkdir -p '/usr/local/lib/pkgconfig' /bin/install -c -m 644 glusterfs-api.pc libgfchangelog.pc '/usr/local/lib/pkgconfig'
