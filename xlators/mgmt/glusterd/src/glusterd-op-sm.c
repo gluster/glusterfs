@@ -7606,7 +7606,7 @@ out:
 static int
 glusterd_op_ac_rcvd_brick_op_acc (glusterd_op_sm_event_t *event, void *ctx)
 {
-        int                     ret = 0;
+        int                     ret = -1;
         glusterd_op_brick_rsp_ctx_t *ev_ctx = NULL;
         char                        *op_errstr = NULL;
         glusterd_op_t               op = GD_OP_NONE;
@@ -7617,13 +7617,14 @@ glusterd_op_ac_rcvd_brick_op_acc (glusterd_op_sm_event_t *event, void *ctx)
         xlator_t                    *this = NULL;
 
         this = THIS;
-        GF_ASSERT (this);
-        GF_ASSERT (event);
-        GF_ASSERT (ctx);
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, event, out);
+        GF_VALIDATE_OR_GOTO (this->name, ctx, out);
         ev_ctx = ctx;
+        GF_VALIDATE_OR_GOTO(this->name, ev_ctx, out);
 
         req_ctx = ev_ctx->commit_ctx;
-        GF_ASSERT (req_ctx);
+        GF_VALIDATE_OR_GOTO (this->name, req_ctx, out);
 
         op = req_ctx->op;
         op_ctx = glusterd_op_get_ctx ();
