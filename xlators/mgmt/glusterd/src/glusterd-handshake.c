@@ -1130,20 +1130,25 @@ gd_validate_mgmt_hndsk_req (rpcsvc_request_t *req, dict_t *dict)
          * node due to a reinstall, in that case the validation should fail!
          */
         rcu_read_lock ();
-        peer = glusterd_peerinfo_find (NULL, hostname);
-        if (!peer) {
-                ret = -1;
-        } else if (peer && glusterd_peerinfo_find (peer_uuid, NULL) != NULL) {
-                ret = 0;
+        if (!uuid_str) {
+                ret = (glusterd_peerinfo_find (NULL, hostname) == NULL);
         } else {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_HANDSHAKE_REQ_REJECTED, "Request from peer %s "
-                        "has an entry in peerinfo, but uuid does not match",
-                        req->trans->peerinfo.identifier);
-                ret = -1;
+                peer = glusterd_peerinfo_find (NULL, hostname);
+                if (!peer) {
+                        ret = -1;
+                } else if (peer &&
+                           glusterd_peerinfo_find (peer_uuid, NULL) != NULL) {
+                        ret = 0;
+                } else {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_HANDSHAKE_REQ_REJECTED, "Request from "
+                                "peer %s has an entry in peerinfo, but uuid "
+                                "does not match",
+                                req->trans->peerinfo.identifier);
+                        ret = -1;
+                }
         }
         rcu_read_unlock ();
-
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_HANDSHAKE_REQ_REJECTED, "Rejecting management "
