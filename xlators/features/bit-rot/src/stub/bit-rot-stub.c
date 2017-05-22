@@ -356,7 +356,7 @@ br_stub_prepare_signing_request (dict_t *dict,
 static int
 br_stub_init_inode_versions (xlator_t *this, fd_t *fd, inode_t *inode,
                              unsigned long version, gf_boolean_t markdirty,
-                             gf_boolean_t bad_object)
+                             gf_boolean_t bad_object, uint64_t *ctx_addr)
 {
         int32_t ret = 0;
         br_stub_inode_ctx_t *ctx = NULL;
@@ -383,6 +383,9 @@ br_stub_init_inode_versions (xlator_t *this, fd_t *fd, inode_t *inode,
         ret = br_stub_set_inode_ctx (this, inode, ctx);
         if (ret)
                 goto free_ctx;
+
+        if (ctx_addr)
+                *ctx_addr = (uint64_t) ctx;
         return 0;
 
 free_ctx:
@@ -481,7 +484,8 @@ br_stub_need_versioning (xlator_t *this,
         ret = br_stub_get_inode_ctx (this, fd->inode, &ctx_addr);
         if (ret < 0) {
                 ret = br_stub_init_inode_versions (this, fd, fd->inode, version,
-                                                   _gf_true, _gf_false);
+                                                   _gf_true, _gf_false,
+                                                   &ctx_addr);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 BRS_MSG_GET_INODE_CONTEXT_FAILED, "failed to "
@@ -579,7 +583,8 @@ br_stub_mark_inode_modified (xlator_t *this, br_stub_local_t *local)
         ret = br_stub_get_inode_ctx (this, fd->inode, &ctx_addr);
         if (ret < 0) {
                 ret = br_stub_init_inode_versions (this, fd, fd->inode, version,
-                                                   _gf_true, _gf_false);
+                                                   _gf_true, _gf_false,
+                                                   &ctx_addr);
                 if (ret)
                         goto error_return;
         }
@@ -624,7 +629,7 @@ br_stub_check_bad_object (xlator_t *this, inode_t *inode, int32_t *op_ret,
 
         if (ret == -1) {
                 ret = br_stub_init_inode_versions (this, NULL, inode, version,
-                                                   _gf_true, _gf_false);
+                                                   _gf_true, _gf_false, NULL);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 BRS_MSG_GET_INODE_CONTEXT_FAILED,
@@ -2324,7 +2329,8 @@ br_stub_open (call_frame_t *frame, xlator_t *this,
         ret = br_stub_get_inode_ctx (this, fd->inode, &ctx_addr);
         if (ret) {
                 ret = br_stub_init_inode_versions (this, fd, fd->inode, version,
-                                                   _gf_true, _gf_false);
+                                                   _gf_true, _gf_false,
+                                                   &ctx_addr);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 BRS_MSG_GET_INODE_CONTEXT_FAILED,
@@ -2426,7 +2432,8 @@ br_stub_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ret = br_stub_get_inode_ctx (this, fd->inode, &ctx_addr);
         if (ret < 0) {
                 ret = br_stub_init_inode_versions (this, fd, inode, version,
-                                                   _gf_true, _gf_false);
+                                                   _gf_true, _gf_false,
+                                                   &ctx_addr);
                 if (ret) {
                         op_ret = -1;
                         op_errno = EINVAL;
@@ -2482,7 +2489,7 @@ br_stub_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unwind;
 
         ret = br_stub_init_inode_versions (this, NULL, inode, version,
-                                           _gf_true, _gf_false);
+                                           _gf_true, _gf_false, NULL);
         /**
          * Like lookup, if init_inode_versions fail, return EINVAL
          */
@@ -2573,7 +2580,7 @@ br_stub_lookup_version (xlator_t *this,
                 return -1;
 
         return br_stub_init_inode_versions (this, NULL, inode, version,
-                                            _gf_true, bad_object);
+                                            _gf_true, bad_object, NULL);
 }
 
 
