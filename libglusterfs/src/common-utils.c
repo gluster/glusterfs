@@ -3181,14 +3181,14 @@ gf_ports_reserved (char *blocked_port, unsigned char *ports, uint32_t ceiling)
 {
         gf_boolean_t    result      = _gf_false;
         char            *range_port = NULL;
-        int16_t         tmp_port1   = -1;
-        int16_t         tmp_port2   = -1;
+        int32_t         tmp_port1   = -1;
+        int32_t         tmp_port2   = -1;
 
         if (strstr (blocked_port, "-") == NULL) {
                 /* get rid of the new line character*/
                 if (blocked_port[strlen(blocked_port) -1] == '\n')
                         blocked_port[strlen(blocked_port) -1] = '\0';
-                if (gf_string2int16 (blocked_port, &tmp_port1) == 0) {
+                if (gf_string2int32 (blocked_port, &tmp_port1) == 0) {
                         if (tmp_port1 > ceiling
                             || tmp_port1 < 0) {
                                 gf_msg ("glusterfs-socket", GF_LOG_WARNING, 0,
@@ -3214,7 +3214,7 @@ gf_ports_reserved (char *blocked_port, unsigned char *ports, uint32_t ceiling)
                         result = _gf_true;
                         goto out;
                 }
-                if (gf_string2int16 (range_port, &tmp_port1) == 0) {
+                if (gf_string2int32 (range_port, &tmp_port1) == 0) {
                         if (tmp_port1 > ceiling)
                                 tmp_port1 = ceiling;
                         if (tmp_port1 < 0)
@@ -3228,7 +3228,7 @@ gf_ports_reserved (char *blocked_port, unsigned char *ports, uint32_t ceiling)
                 /* get rid of the new line character*/
                 if (range_port[strlen(range_port) -1] == '\n')
                         range_port[strlen(range_port) - 1] = '\0';
-                if (gf_string2int16 (range_port, &tmp_port2) == 0) {
+                if (gf_string2int32 (range_port, &tmp_port2) == 0) {
                         if (tmp_port2 > ceiling)
                                 tmp_port2 = ceiling;
                         if (tmp_port2 < 0)
