@@ -97,6 +97,7 @@ struct posix_acl {
 };
 
 struct posix_acl_ctx {
+        gf_boolean_t      was_set;
         uid_t             uid;
         gid_t             gid;
         mode_t            perm;
@@ -104,10 +105,23 @@ struct posix_acl_ctx {
         struct posix_acl *acl_default;
 };
 
+enum liberal_permissions_mode_t {
+        CONSERVATIVE = 0,       // Do nothing.
+        LOGGING = 1,            // Log interesting events.
+        INIT_PERMS = 2,         // Initialize perms to 777.
+        IGNORE_ZERO_PERMS = 3,  // Ignore any zero perms.
+        IGNORE_ALL_PERMS = 4,   // Ignore all perms.
+};
+
 struct posix_acl_conf {
         gf_lock_t         acl_lock;
         uid_t             super_uid;
         struct posix_acl *minimal_acl;
+        // 'liberal_permissions_mode' is used for debugging/ papering over
+        // EACCES problems.
+        //
+        // Value should be one of liberal_permissions_mode_t.
+        uint32_t          liberal_permissions_mode;
 };
 
 

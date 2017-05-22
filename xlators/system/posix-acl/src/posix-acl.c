@@ -22,6 +22,46 @@
 #define PTR(num) ((void *)((long)(num)))
 
 
+static char PE_TYPE_NOT_SET[]   = "not set";
+static char PE_TYPE_SET_ZERO[]  = "set to zero";
+
+typedef struct {
+        char            *type;
+        int             filter;
+        gf_boolean_t    log_caller;
+} pe_ctx_t;
+
+
+static void
+maybe_log_perm_error (xlator_t *this, inode_t *inode, pe_ctx_t *pe_ctx)
+{
+        struct posix_acl_conf *conf = this->private;
+
+        if (__is_root_gfid (inode->gfid)) {
+                return;
+        }
+
+        if (conf && conf->liberal_permissions_mode < LOGGING) {
+                return;
+        }
+
+        if (pe_ctx->filter == 0) {
+                if (pe_ctx->log_caller) {
+                        gf_log_callingfn (this->name, GF_LOG_INFO,
+                                "perm error: %s on %s", pe_ctx->type,
+                                uuid_utoa (inode->gfid));
+                        pe_ctx->log_caller = _gf_false;
+                } else {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "perm error: %s on %s", pe_ctx->type,
+                                uuid_utoa (inode->gfid));
+                }
+        }
+
+        pe_ctx->filter = (pe_ctx->filter + 1) % 100;
+}
+
+
 int32_t
 mem_acct_init (xlator_t *this)
 {
@@ -151,6 +191,7 @@ posix_acl_access_set_mode (struct posix_acl *acl, struct posix_acl_ctx *ctx)
 
 out:
         ctx->perm = (ctx->perm & ~mask) | mode;
+        ctx->was_set = _gf_true;
 
         return mode;
 }
@@ -186,6 +227,74 @@ sticky_permits (call_frame_t *frame, inode_t *parent, inode_t *inode)
 }
 
 
+static int32_t
+refresh_perms_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                   dict_t *xdata)
+{
+        struct posix_acl_ctx    *ctx    = cookie;
+
+        if (op_ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "perm refresh failed (%d)", op_errno);
+                return 0;
+        }
+
+        ctx->perm = st_mode_from_ia (buf->ia_prot, buf->ia_type);
+        ctx->was_set = _gf_true;
+        gf_log (this->name, GF_LOG_INFO,
+                "refreshed perms = 0%o", ctx->perm);
+
+        STACK_DESTROY (frame->root);
+        return 0;
+}
+
+
+static void
+refresh_perms (call_frame_t *frame, inode_t *inode, struct posix_acl_ctx *ctx)
+{
+        xlator_t        *this           = frame->this;
+        xlator_t        *child          = FIRST_CHILD (this);
+        call_frame_t    *newframe;
+        loc_t           loc             = {NULL, };
+
+        newframe = create_frame (this, this->ctx->pool);
+        if (!newframe) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to allocate frame");
+                return;
+        }
+
+        /*
+         * WARNING: sharp edges
+         *
+         * Normally, continuing after STACK_WIND like this is a terrible idea
+         * because we have no guarantee that the callback has executed by then.
+         * That's why we have syncops and stubs, but syncops are going to muck
+         * with our thread context and adding a stub for every single op is way
+         * too invasive when we *do* happen to know that posix_stat will always
+         * complete synchronously.  So this one time we can do the easy thing,
+         * but it would be unwise to follow this example in less constrained
+         * circumstances.
+         */
+        gf_uuid_copy (loc.gfid, inode->gfid);
+        STACK_WIND_COOKIE (newframe, refresh_perms_cbk, ctx,
+                           child, child->fops->stat, &loc, NULL);
+
+        /*
+         * If our assumption above was false and posix_stat didn't complete
+         * synchronously (or someone foolishly put a delay-inducing translator
+         * between us and them), we're probably still safe in terms of the
+         * callback trying to access resources after we've continued from here
+         * and freed them.  However, it would still be nice to know that perms
+         * were in fact not updated.
+         */
+        if (!ctx->was_set) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "perms were not refreshed before return");
+        }
+}
+
+
 static int
 acl_permits (call_frame_t *frame, inode_t *inode, int want)
 {
@@ -198,6 +307,7 @@ acl_permits (call_frame_t *frame, inode_t *inode, int want)
         int                     perm = 0;
         int                     found = 0;
         int                     acl_present = 0;
+        static pe_ctx_t         pe_ctx = {PE_TYPE_NOT_SET, 0, _gf_true};
 
         conf = frame->this->private;
 
@@ -252,9 +362,15 @@ acl_permits (call_frame_t *frame, inode_t *inode, int want)
                 case POSIX_ACL_MASK:
                         break;
                 case POSIX_ACL_OTHER:
-                        perm = (ctx->perm & S_IRWXO);
-                        if (!found)
+                        if (!found) {
+                                if (!ctx->was_set) {
+                                        maybe_log_perm_error (frame->this,
+                                                              inode, &pe_ctx);
+                                        refresh_perms (frame, inode, ctx);
+                                }
+                                perm = (ctx->perm & S_IRWXO);
                                 goto perm_check;
+                        }
                         /* fall through */
                 default:
                         goto red;
@@ -276,6 +392,12 @@ mask_check:
         }
 
 perm_check:
+        if (conf->liberal_permissions_mode >= IGNORE_ZERO_PERMS && perm == 0) {
+                gf_log (frame->this->name, GF_LOG_INFO,
+                        "ignoring zero perms on %s due to liberal-perms-mode",
+                        uuid_utoa (inode->gfid));
+                goto green;
+        }
         if ((perm & want) == want) {
                 goto green;
         } else {
@@ -286,7 +408,14 @@ green:
         verdict = 1;
         goto out;
 red:
-        verdict = 0;
+        if (conf->liberal_permissions_mode >= IGNORE_ALL_PERMS) {
+                gf_log (frame->this->name, GF_LOG_INFO,
+                        "ignoring all perms on %s due to liberal-perms-mode",
+                        uuid_utoa (inode->gfid));
+                 verdict = 1;
+        } else {
+                verdict = 0;
+        }
 out:
         if (acl)
                 posix_acl_unref (frame->this, acl);
@@ -301,6 +430,7 @@ __posix_acl_ctx_get (inode_t *inode, xlator_t *this, gf_boolean_t create)
         struct posix_acl_ctx *ctx = NULL;
         uint64_t              int_ctx = 0;
         int                   ret = 0;
+        struct posix_acl_conf *conf = this->private;
 
         ret = __inode_ctx_get (inode, this, &int_ctx);
         if ((ret == 0) && (int_ctx))
@@ -312,6 +442,10 @@ __posix_acl_ctx_get (inode_t *inode, xlator_t *this, gf_boolean_t create)
         ctx = GF_CALLOC (1, sizeof (*ctx), gf_posix_acl_mt_ctx_t);
         if (!ctx)
                 return NULL;
+
+        if (conf->liberal_permissions_mode >= INIT_PERMS) {
+                ctx->perm = 0777;
+        }
 
         ret = __inode_ctx_put (inode, this, UINT64 (ctx));
 
@@ -670,6 +804,7 @@ posix_acl_inherit (xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
         mode_t                 retmode = 0;
         int16_t                tmp_mode = 0;
         mode_t                 client_umask = 0;
+        static pe_ctx_t        pe_ctx = {PE_TYPE_SET_ZERO, 0, _gf_true};
 
         retmode = mode;
         client_umask = umask;
@@ -701,6 +836,10 @@ posix_acl_inherit (xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
         client_umask = 0; // No umask if we inherit an ACL
         retmode = posix_acl_inherit_mode (acl_access, retmode);
         ctx->perm = retmode;
+        if (ctx->perm == 0) {
+                maybe_log_perm_error (this, loc->inode, &pe_ctx);
+        }
+        ctx->was_set = _gf_true;
 
         size_access = posix_acl_to_xattr (this, acl_access, NULL, 0);
         xattr_access = GF_CALLOC (1, size_access, gf_posix_acl_mt_char);
@@ -809,6 +948,7 @@ posix_acl_ctx_update (inode_t *inode, xlator_t *this, struct iatt *buf)
                 ctx->uid   = buf->ia_uid;
                 ctx->gid   = buf->ia_gid;
                 ctx->perm  = st_mode_from_ia (buf->ia_prot, buf->ia_type);
+                ctx->was_set = _gf_true;
 
 		acl = ctx->acl_access;
 		if (!acl || !(acl->count > POSIX_ACL_MINIMAL_ACE_COUNT))
@@ -1977,6 +2117,7 @@ posix_acl_setxattr_update (xlator_t *this, inode_t *inode, dict_t *xattr)
         struct posix_acl     *old_default = NULL;
         struct posix_acl_ctx *ctx = NULL;
         int                   ret = 0;
+        static pe_ctx_t       pe_ctx = {PE_TYPE_SET_ZERO, 0, _gf_true};
 
         ctx = posix_acl_ctx_get (inode, this);
         if (!ctx)
@@ -1996,6 +2137,9 @@ posix_acl_setxattr_update (xlator_t *this, inode_t *inode, dict_t *xattr)
 
         if (acl_access && acl_access != old_access) {
                 posix_acl_access_set_mode (acl_access, ctx);
+                if (ctx->perm == 0) {
+                        maybe_log_perm_error (this, inode, &pe_ctx);
+                }
         }
 
         if (acl_access)
@@ -2292,6 +2436,8 @@ reconfigure (xlator_t *this, dict_t *options)
         conf = this->private;
 
         GF_OPTION_RECONF ("super-uid", conf->super_uid, options, uint32, err);
+        GF_OPTION_RECONF ("liberal-perms-mode", conf->liberal_permissions_mode, options,
+                          uint32, err);
 
         return 0;
 err:
@@ -2329,6 +2475,7 @@ init (xlator_t *this)
         conf->minimal_acl = minacl;
 
         GF_OPTION_INIT ("super-uid", conf->super_uid, uint32, err);
+        GF_OPTION_INIT ("liberal-perms-mode", conf->liberal_permissions_mode, uint32, err);
 
         return 0;
 err:
@@ -2406,6 +2553,11 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_INT,
           .default_value = "0",
           .description = "UID to be treated as super user's id instead of 0",
+        },
+        { .key = {"liberal-perms-mode"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "0",
+          .description = "assume liberal permissions if none have been set",
         },
         { .key = {NULL} },
 };
