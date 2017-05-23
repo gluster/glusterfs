@@ -5225,13 +5225,16 @@ find_compat_brick_in_vol (glusterd_conf_t *conf,
                  * wait for the pidfile to be populated with a value before
                  * checking if the service is running */
                 while (retries > 0) {
-                        if (sys_access (pidfile2, F_OK) == 0)
+                        if (sys_access (pidfile2, F_OK) == 0 &&
+                            gf_is_service_running (pidfile2, &pid2)) {
                                 break;
+                        }
+
                         sleep (1);
                         retries--;
                 }
 
-                if (!gf_is_service_running (pidfile2, &pid2)) {
+                if (retries == 0) {
                         gf_log (this->name, GF_LOG_INFO,
                                 "cleaning up dead brick %s:%s",
                                 other_brick->hostname, other_brick->path);
