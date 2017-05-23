@@ -37,14 +37,6 @@ URXTIME = (-1, 0)
 # crawl before starting live changelog crawl.
 CHANGELOG_ROLLOVER_TIME = 15
 
-# Max size of Changelogs to process per batch, Changelogs Processing is
-# not limited by the number of changelogs but instead based on
-# size of the changelog file, One sample changelog file size was 145408
-# with ~1000 CREATE and ~1000 DATA. 5 such files in one batch is 727040
-# If geo-rep worker crashes while processing a batch, it has to retry only
-# that batch since stime will get updated after each batch.
-MAX_CHANGELOG_BATCH_SIZE = 727040
-
 # Utility functions to help us to get to closer proximity
 # of the DRY principle (no, don't look for elevated or
 # perspectivistic things here)
@@ -1166,7 +1158,7 @@ class GMasterChangelogMixin(GMasterCommon):
         current_size = 0
         for c in changes:
             si = os.lstat(c).st_size
-            if (si + current_size) > MAX_CHANGELOG_BATCH_SIZE:
+            if (si + current_size) > int(gconf.changelog_batch_size):
                 # Create new batch if single Changelog file greater than
                 # Max Size! or current batch size exceeds Max size
                 changelogs_batches.append([c])
