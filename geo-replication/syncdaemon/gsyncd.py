@@ -278,6 +278,13 @@ def main_i():
     op.add_option('--log-rsync-performance', default=False,
                   action='store_true')
     op.add_option('--max-rsync-retries', type=int, default=10)
+    # Max size of Changelogs to process per batch, Changelogs Processing is
+    # not limited by the number of changelogs but instead based on
+    # size of the changelog file, One sample changelog file size was 145408
+    # with ~1000 CREATE and ~1000 DATA. 5 such files in one batch is 727040
+    # If geo-rep worker crashes while processing a batch, it has to retry only
+    # that batch since stime will get updated after each batch.
+    op.add_option('--changelog-batch-size', type=int, default=727040)
     op.add_option('--pause-on-start', default=False, action='store_true')
     op.add_option('-L', '--log-level', metavar='LVL')
     op.add_option('-r', '--remote-gsyncd', metavar='CMD',
