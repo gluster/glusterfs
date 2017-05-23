@@ -25,7 +25,28 @@
 #include <sys/wait.h>
 #include "syscall.h"
 
-#ifdef RUN_STANDALONE
+/*
+ * Following defines are available for helping development:
+ * RUN_STANDALONE and RUN_DO_DEMO.
+ *
+ * Compiling a standalone object file with no dependencies
+ * on glusterfs:
+ * $ cc -DRUN_STANDALONE -c run.c
+ *
+ * Compiling a demo progam that exercises bits of run.c
+ * functionality (linking to glusterfs):
+ * $ cc -DRUN_DO_DEMO -orun run.c  `pkg-config --libs --cflags glusterfs-api`
+ *
+ * Compiling a demo progam that exercises bits of run.c
+ * functionality (with no dependence on glusterfs):
+ *
+ * $ cc -DRUN_DO_DEMO -DRUN_STANDALONE -orun run.c
+ */
+#if defined(RUN_STANDALONE ) || defined(RUN_DO_DEMO)
+int close_fds_except (int *fdv, size_t count);
+#define sys_read(f, b, c) read(f, b, c)
+#define sys_write(f, b, c) write(f, b, c)
+#define sys_close(f) close(f)
 #define GF_CALLOC(n, s, t) calloc(n, s)
 #define GF_ASSERT(cond) assert(cond)
 #define GF_REALLOC(p, s) realloc(p, s)
@@ -33,17 +54,47 @@
 #define gf_strdup(s) strdup(s)
 #define gf_vasprintf(p, f, va) vasprintf(p, f, va)
 #define gf_loglevel_t int
-#define gf_log(dom, levl, fmt, args...) printf("LOG: " fmt "\n", ##args)
+#define gf_msg_callingfn(dom, levl, errnum, msgid, fmt, args...) printf("LOG: " fmt "\n", ##args)
 #define LOG_DEBUG 0
+#ifdef RUN_STANDALONE
+#include <stdbool.h>
+#include <sys/resource.h>
+int
+close_fds_except (int *fdv, size_t count)
+{
+        int    i            = 0;
+        size_t j            = 0;
+        bool   should_close = true;
+        struct rlimit rl;
+        int ret = -1;
+
+        ret = getrlimit (RLIMIT_NOFILE, &rl);
+        if (ret)
+                return ret;
+
+        for (i = 0; i < rl.rlim_cur; i++) {
+                should_close = true;
+                for (j = 0; j < count; j++) {
+                        if (i == fdv[j]) {
+                                should_close = false;
+                                break;
+                        }
+                }
+                if (should_close)
+                        sys_close (i);
+        }
+        return 0;
+}
+#endif
 #ifdef __linux__
 #define GF_LINUX_HOST_OS
 #endif
-#else /* ! RUN_STANDALONE */
+#else /* ! RUN_STANDALONE || RUN_DO_DEMO */
 #include "glusterfs.h"
 #include "common-utils.h"
+#include "libglusterfs-messages.h"
 #endif
 
-#include "libglusterfs-messages.h"
 #include "run.h"
 void
 runinit (runner_t *runner)
@@ -420,11 +471,11 @@ runcmd (const char *arg, ...)
         return runner_run (&runner);
 }
 
-#ifdef RUN_DO_TESTS
+#ifdef RUN_DO_DEMO
 static void
 TBANNER (const char *txt)
 {
-        printf("######\n### testing %s\n", txt);
+        printf("######\n### demoing %s\n", txt);
 }
 
 int
@@ -438,15 +489,16 @@ main (int argc, char **argv)
         long pathmax = pathconf ("/", _PC_PATH_MAX);
         struct timeval tv = {0,};
         struct timeval *tvp = NULL;
+        char *tfile;
 
         wdbuf = malloc (pathmax);
         assert (wdbuf);
         getcwd (wdbuf, pathmax);
 
-        TBANNER ("basic functionality");
+        TBANNER ("basic functionality: running \"echo a b\"");
         runcmd ("echo", "a", "b", NULL);
 
-        TBANNER ("argv extension");
+        TBANNER ("argv extension: running \"echo 1 2 ... 100\"");
         runcmd ("echo", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
                 "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
                 "21", "22", "23", "24", "25", "26", "27", "28", "29", "30",
@@ -458,7 +510,10 @@ main (int argc, char **argv)
                 "81", "82", "83", "84", "85", "86", "87", "88", "89", "90",
                 "91", "92", "93", "94", "95", "96", "97", "98", "99", "100", NULL);
 
-        TBANNER ("add_args, argprintf, log, and popen-style functionality");
+        TBANNER ("add_args, argprintf, log, and popen-style functionality:\n"
+                 "    running a multiline echo command, emit a log about it,\n"
+                 "    redirect it to a pipe, read output lines\n"
+                 "    and print them prefixed with \"got: \"");
         runinit (&runner);
         runner_add_args (&runner, "echo", "pid:", NULL);
         runner_argprintf (&runner, "%d\n", getpid());
@@ -471,26 +526,38 @@ main (int argc, char **argv)
                 printf ("got: %s", buf);
         runner_end (&runner);
 
-        TBANNER ("execve error reporting");
+        TBANNER ("execve error reporting: running a non-existent command");
         ret = runcmd ("bafflavvitty", NULL);
         printf ("%d %d [%s]\n", ret, errno, strerror (errno));
 
-        TBANNER ("output redirection");
-        fd = mkstemp ("/tmp/foof");
+        TBANNER ("output redirection: running \"echo foo\" redirected "
+                 "to a temp file");
+        tfile = strdup ("/tmp/foofXXXXXX");
+        assert (tfile);
+        fd = mkstemp (tfile);
         assert (fd != -1);
+        printf ("redirecting to %s\n", tfile);
         runinit (&runner);
         runner_add_args (&runner, "echo", "foo", NULL);
         runner_redir (&runner, 1, fd);
         ret = runner_run (&runner);
-        printf ("%d", ret);
+        printf ("runner_run returned: %d", ret);
         if (ret != 0)
-                printf (" %d [%s]", errno, strerror (errno));
+                printf (", with errno %d [%s]", errno, strerror (errno));
         putchar ('\n');
 
+        /* sleep for seconds given as argument (0 means forever)
+         * to allow investigation of post-execution state to
+         * cbeck for resource leaks (eg. zombies).
+         */
         if (argc > 1) {
                 tv.tv_sec = strtoul (argv[1], NULL, 10);
-                if (tv.tv_sec > 0)
+                printf ("### %s", "sleeping for");
+                if (tv.tv_sec > 0) {
+                        printf (" %d seconds\n", tv.tv_sec);
                         tvp = &tv;
+                } else
+                        printf ("%s\n", "ever");
                 select (0, 0, 0, 0, tvp);
         }
 
