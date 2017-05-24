@@ -3631,6 +3631,18 @@ shard_common_inode_write_post_update_size_handler (call_frame_t *frame,
         return 0;
 }
 
+static gf_boolean_t
+shard_is_appending_write (shard_local_t *local)
+{
+        if (local->fop != GF_FOP_WRITE)
+                return _gf_false;
+        if (local->flags & O_APPEND)
+                return _gf_true;
+        if (local->fd->flags & O_APPEND)
+                return _gf_true;
+        return _gf_false;
+}
+
 int
 __shard_get_delta_size_from_inode_ctx (shard_local_t *local, inode_t *inode,
                                        xlator_t *this)
@@ -3645,13 +3657,15 @@ __shard_get_delta_size_from_inode_ctx (shard_local_t *local, inode_t *inode,
 
         ctx = (shard_inode_ctx_t *) ctx_uint;
 
-        if (local->offset + local->total_size > ctx->stat.ia_size) {
+        if (shard_is_appending_write (local)) {
+                local->delta_size = local->total_size;
+        } else if (local->offset + local->total_size > ctx->stat.ia_size) {
                 local->delta_size = (local->offset + local->total_size) -
                                     ctx->stat.ia_size;
-                ctx->stat.ia_size += (local->delta_size);
         } else {
                 local->delta_size = 0;
         }
+        ctx->stat.ia_size += (local->delta_size);
         local->postbuf = ctx->stat;
 
         return 0;
@@ -3957,33 +3971,8 @@ shard_common_inode_write_post_mknod_handler (call_frame_t *frame,
 }
 
 int
-shard_common_inode_write_post_lookup_handler (call_frame_t *frame,
-                                              xlator_t *this)
-{
-        shard_local_t *local = NULL;
-
-        local = frame->local;
-
-        if (local->op_ret < 0) {
-                shard_common_inode_write_failure_unwind (local->fop, frame,
-                                                         local->op_ret,
-                                                         local->op_errno);
-                return 0;
-        }
-
-        local->postbuf = local->prebuf;
-
-        if (local->call_count) {
-                shard_common_lookup_shards (frame, this,
-                                            local->resolver_base_inode,
-                           shard_common_inode_write_post_lookup_shards_handler);
-        } else {
-                shard_common_inode_write_do (frame, this);
-        }
-
-        return 0;
-}
-
+shard_mkdir_dot_shard (call_frame_t *frame, xlator_t *this,
+                       shard_post_resolve_fop_handler_t handler);
 int
 shard_common_inode_write_post_resolve_handler (call_frame_t *frame,
                                                xlator_t *this)
@@ -3999,8 +3988,71 @@ shard_common_inode_write_post_resolve_handler (call_frame_t *frame,
                 return 0;
         }
 
-        shard_lookup_base_file (frame, this, &local->loc,
-                                shard_common_inode_write_post_lookup_handler);
+        if (local->call_count) {
+                shard_common_lookup_shards (frame, this,
+                                            local->resolver_base_inode,
+                           shard_common_inode_write_post_lookup_shards_handler);
+        } else {
+                shard_common_inode_write_do (frame, this);
+        }
+
+        return 0;
+}
+
+int
+shard_common_inode_write_post_lookup_handler (call_frame_t *frame,
+                                              xlator_t *this)
+{
+        shard_local_t *local = frame->local;
+        shard_priv_t  *priv  = this->private;
+
+        if (local->op_ret < 0) {
+                shard_common_inode_write_failure_unwind (local->fop, frame,
+                                                         local->op_ret,
+                                                         local->op_errno);
+                return 0;
+        }
+
+        local->postbuf = local->prebuf;
+
+        /*Adjust offset to EOF so that correct shard is chosen for append*/
+        if (shard_is_appending_write (local))
+                local->offset = local->prebuf.ia_size;
+
+        local->first_block = get_lowest_block (local->offset,
+                                               local->block_size);
+        local->last_block = get_highest_block (local->offset, local->total_size,
+                                               local->block_size);
+        local->num_blocks = local->last_block - local->first_block + 1;
+        local->inode_list = GF_CALLOC (local->num_blocks, sizeof (inode_t *),
+                                       gf_shard_mt_inode_list);
+        if (!local->inode_list) {
+                shard_common_inode_write_failure_unwind (local->fop, frame,
+                                                         -1, ENOMEM);
+                return 0;
+        }
+
+        gf_msg_trace (this->name, 0, "%s: gfid=%s first_block=%"PRIu32" "
+                      "last_block=%"PRIu32" num_blocks=%"PRIu32" offset=%"PRId64
+                      " total_size=%zu flags=%"PRId32"",
+                      gf_fop_list[local->fop],
+                      uuid_utoa (local->resolver_base_inode->gfid),
+                      local->first_block, local->last_block, local->num_blocks,
+                      local->offset, local->total_size, local->flags);
+
+        local->dot_shard_loc.inode = inode_find (this->itable,
+                                                 priv->dot_shard_gfid);
+
+        if (!local->dot_shard_loc.inode) {
+                /*change handler*/
+                shard_mkdir_dot_shard (frame, this,
+                                 shard_common_inode_write_post_resolve_handler);
+        } else {
+                /*change handler*/
+                local->post_res_handler =
+                                shard_common_inode_write_post_resolve_handler;
+                shard_refresh_dot_shard (frame, this);
+        }
         return 0;
 }
 
@@ -4699,9 +4751,6 @@ shard_common_inode_write_begin (call_frame_t *frame, xlator_t *this,
         int             i              = 0;
         uint64_t        block_size     = 0;
         shard_local_t  *local          = NULL;
-        shard_priv_t   *priv           = NULL;
-
-        priv = this->private;
 
         ret = shard_inode_ctx_get_block_size (fd->inode, this, &block_size);
         if (ret) {
@@ -4777,37 +4826,13 @@ shard_common_inode_write_begin (call_frame_t *frame, xlator_t *this,
                 local->iobref = iobref_ref (iobref);
         local->fd = fd_ref (fd);
         local->block_size = block_size;
-        local->first_block = get_lowest_block (offset, local->block_size);
-        local->last_block = get_highest_block (offset, local->total_size,
-                                               local->block_size);
-        local->num_blocks = local->last_block - local->first_block + 1;
         local->resolver_base_inode = local->fd->inode;
-        local->inode_list = GF_CALLOC (local->num_blocks, sizeof (inode_t *),
-                                       gf_shard_mt_inode_list);
-        if (!local->inode_list)
-                goto out;
 
         local->loc.inode = inode_ref (fd->inode);
         gf_uuid_copy (local->loc.gfid, fd->inode->gfid);
 
-        gf_msg_trace (this->name, 0, "%s: gfid=%s first_block=%"PRIu32" "
-                      "last_block=%"PRIu32" num_blocks=%"PRIu32" offset=%"PRId64""
-                      " total_size=%zu flags=%"PRId32"", gf_fop_list[fop],
-                      uuid_utoa (fd->inode->gfid), local->first_block,
-                      local->last_block, local->num_blocks, offset,
-                      local->total_size, local->flags);
-
-        local->dot_shard_loc.inode = inode_find (this->itable,
-                                                 priv->dot_shard_gfid);
-
-        if (!local->dot_shard_loc.inode) {
-                shard_mkdir_dot_shard (frame, this,
-                                 shard_common_inode_write_post_resolve_handler);
-        } else {
-                local->post_res_handler = shard_common_inode_write_post_resolve_handler;
-                shard_refresh_dot_shard (frame, this);
-        }
-
+        shard_lookup_base_file (frame, this, &local->loc,
+                                shard_common_inode_write_post_lookup_handler);
         return 0;
 out:
         shard_common_inode_write_failure_unwind (fop, frame, -1, ENOMEM);
