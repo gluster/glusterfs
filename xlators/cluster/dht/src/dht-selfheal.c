@@ -1501,8 +1501,10 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
         int           i     = 0;
         int           ret   = -1;
         dht_local_t  *local = NULL;
+        xlator_t     *this  = NULL;
 
         local = frame->local;
+        this = frame->this;
 
         local->selfheal.force_mkdir = force;
         local->selfheal.hole_cnt = 0;
@@ -1516,6 +1518,19 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
                 dht_selfheal_dir_setattr (frame, loc, &local->stbuf,
                                           0xffffffff, layout);
                 return 0;
+        }
+
+        if (local->hashed_subvol == NULL)
+                local->hashed_subvol = dht_subvol_get_hashed (this, loc);
+
+        if (local->hashed_subvol == NULL) {
+                local->op_errno = EINVAL;
+                gf_msg (this->name, GF_LOG_WARNING, local->op_errno,
+                        DHT_MSG_HASHED_SUBVOL_GET_FAILED,
+                        "(%s/%s) (path: %s): "
+                        "hashed subvolume not found", loc->pargfid, loc->name,
+                        loc->path);
+                goto err;
         }
 
         local->current = &local->lock[0];
