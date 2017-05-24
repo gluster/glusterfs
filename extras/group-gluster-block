@@ -2,7 +2,6 @@ performance.quick-read=off
 performance.read-ahead=off
 performance.io-cache=off
 performance.stat-prefetch=off
-performance.write-behind=off
 performance.open-behind=off
 performance.readdir-ahead=off
 network.remote-dio=enable
