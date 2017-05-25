@@ -1069,7 +1069,8 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 {
         iot_conf_t *conf = this->private;
 
-        if (GF_EVENT_PARENT_DOWN == event)
+        if ((GF_EVENT_PARENT_DOWN == event) ||
+            (GF_EVENT_CLEANUP == event))
                 iot_exit_threads (conf);
 
         default_notify (this, event, data);

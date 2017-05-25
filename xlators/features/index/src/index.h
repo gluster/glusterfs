@@ -60,6 +60,7 @@ typedef struct index_priv {
         dict_t  *pending_watchlist;
         dict_t  *complete_watchlist;
         int64_t  pending_count;
+        pthread_t thread;
 } index_priv_t;
 
 typedef struct index_local {

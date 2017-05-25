@@ -1411,6 +1411,7 @@ posix_janitor_thread_proc (void *data)
         THIS = this;
 
         while (1) {
+
                 time (&now);
                 if ((now - priv->last_landfill_check) > priv->janitor_sleep_duration) {
                         gf_msg_trace (this->name, 0,
@@ -1844,9 +1845,11 @@ posix_health_check_thread_proc (void *data)
         xlator_list_t       **trav_p             = NULL;
         int                   count              = 0;
         gf_boolean_t          victim_found       = _gf_false;
+        glusterfs_ctx_t      *ctx                = NULL;
 
         this = data;
         priv = this->private;
+        ctx  = THIS->ctx;
 
         /* prevent races when the interval is updated */
         interval = priv->health_check_interval;
@@ -1896,10 +1899,12 @@ abort:
         */
         if (this->ctx->active) {
                 top = this->ctx->active->first;
-                for (trav_p = &top->children; *trav_p;
+                LOCK (&ctx->volfile_lock);
+                        for (trav_p = &top->children; *trav_p;
                                                trav_p = &(*trav_p)->next) {
-                        count++;
-                }
+                                count++;
+                        }
+                UNLOCK (&ctx->volfile_lock);
         }
 
         if (count == 1) {
@@ -1919,20 +1924,21 @@ abort:
                         kill (getpid(), SIGKILL);
 
         } else {
-                for (trav_p = &top->children; *trav_p;
-                     trav_p = &(*trav_p)->next) {
-                        victim = (*trav_p)->xlator;
-                        if (victim &&
-                            strcmp (victim->name, priv->base_path) == 0) {
-                                victim_found = _gf_true;
-                                break;
+                LOCK (&ctx->volfile_lock);
+                        for (trav_p = &top->children; *trav_p;
+                             trav_p = &(*trav_p)->next) {
+                                victim = (*trav_p)->xlator;
+                                if (victim &&
+                                         strcmp (victim->name, priv->base_path) == 0) {
+                                        victim_found = _gf_true;
+                                        break;
+                                }
                         }
-                }
+                UNLOCK (&ctx->volfile_lock);
                 if (victim_found) {
-                        top->notify (top, GF_EVENT_TRANSPORT_CLEANUP, victim);
-                        glusterfs_mgmt_pmap_signout (glusterfsd_ctx,
-                                                     priv->base_path);
-                        glusterfs_autoscale_threads (THIS->ctx, -1);
+                        gf_log (THIS->name, GF_LOG_INFO, "detaching not-only "
+                                " child %s", priv->base_path);
+                        top->notify (top, GF_EVENT_CLEANUP, victim);
                 }
         }
 

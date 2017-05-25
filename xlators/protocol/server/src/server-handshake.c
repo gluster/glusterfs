@@ -413,6 +413,7 @@ server_setvolume (rpcsvc_request_t *req)
         int32_t              fop_version   = 0;
         int32_t              mgmt_version  = 0;
         glusterfs_ctx_t     *ctx           = NULL;
+        struct  _child_status *tmp         = NULL;
 
         params = dict_new ();
         reply  = dict_new ();
@@ -512,13 +513,24 @@ server_setvolume (rpcsvc_request_t *req)
                                       "initialised yet. Try again later");
                 goto fail;
         }
-
-        ret = dict_set_int32 (reply, "child_up", conf->child_up);
-        if (ret < 0)
+        list_for_each_entry (tmp, &conf->child_status->status_list,
+                                                                  status_list) {
+                if (strcmp (tmp->name, name) == 0)
+                        break;
+        }
+        if (!tmp->name) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                        PS_MSG_DICT_GET_FAILED, "Failed to set 'child_up' "
-                        "in the reply dict");
-
+                        PS_MSG_CHILD_STATUS_FAILED,
+                        "No xlator %s is found in "
+                        "child status list", name);
+        } else {
+                ret = dict_set_int32 (reply, "child_up", tmp->child_up);
+                if (ret < 0)
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                PS_MSG_DICT_GET_FAILED,
+                                "Failed to set 'child_up' for xlator %s "
+                                "in the reply dict", tmp->name);
+        }
         ret = dict_get_str (params, "process-uuid", &client_uid);
         if (ret < 0) {
                 ret = dict_set_str (reply, "ERROR",

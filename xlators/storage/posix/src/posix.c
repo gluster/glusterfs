@@ -6626,6 +6626,9 @@ notify (xlator_t *this,
         void *data,
         ...)
 {
+        struct posix_private *priv = NULL;
+
+        priv = this->private;
         switch (event)
         {
         case GF_EVENT_PARENT_UP:
@@ -6633,6 +6636,23 @@ notify (xlator_t *this,
                 /* Tell the parent that posix xlator is up */
                 default_notify (this, GF_EVENT_CHILD_UP, data);
         }
+        break;
+        case GF_EVENT_CLEANUP:
+                if (priv->health_check) {
+                        pthread_cancel (priv->health_check);
+                        priv->health_check = 0;
+                }
+                if (priv->janitor) {
+                        (void) gf_thread_cleanup_xint (priv->janitor);
+                        priv->janitor = 0;
+                }
+                if (priv->fsyncer) {
+                        (void) gf_thread_cleanup_xint (priv->fsyncer);
+                        priv->fsyncer = 0;
+                }
+                if (priv->mount_lock)
+                        (void) sys_closedir (priv->mount_lock);
+
         break;
         default:
                 /* */
