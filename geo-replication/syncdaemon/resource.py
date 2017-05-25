@@ -23,8 +23,8 @@ import logging
 import tempfile
 import threading
 import subprocess
-from errno import EEXIST, ENOENT, ENODATA, ENOTDIR, ELOOP
-from errno import EISDIR, ENOTEMPTY, ESTALE, EINVAL, EBUSY
+from errno import EEXIST, ENOENT, ENODATA, ENOTDIR, ELOOP, EACCES
+from errno import EISDIR, ENOTEMPTY, ESTALE, EINVAL, EBUSY, EPERM
 from select import error as SelectError
 import shutil
 
@@ -880,17 +880,43 @@ class Server(object):
             atime = e['stat']['atime']
             mtime = e['stat']['mtime']
             go = e['go']
-            cmd_ret = errno_wrap(os.chmod, [go, mode],
-                                 [ENOENT], [ESTALE, EINVAL])
-            # This is a fail fast mechanism
-            # We do this for failing fops on Slave
-            # Master should be logging this
+            # Linux doesn't support chmod on symlink itself.
+            # It is always applied to the target file. So
+            # changelog would record target file's gfid
+            # and we are good. But 'chown' is supported on
+            # symlink file. So changelog would record symlink
+            # gfid in such cases. Since we do 'chown' 'chmod'
+            # 'utime' for each gfid recorded for metadata, and
+            # we know from changelog the metadata is on symlink's
+            # gfid or target file's gfid, we should be doing
+            # 'lchown' 'lchmod' 'utime with no-deference' blindly.
+            # But since 'lchmod' and 'utime with no de-reference' is
+            # not supported in python3, we have to rely on 'chmod'
+            # and 'utime with de-reference'. But 'chmod'
+            # de-reference the symlink and gets ENOENT, EACCES,
+            # EPERM errors, hence ignoring those errors if it's on
+            # symlink file.
+
+            is_symlink = False
+            cmd_ret = errno_wrap(os.lchown, [go, uid, gid], [ENOENT],
+                                 [ESTALE, EINVAL])
             if isinstance(cmd_ret, int):
-                failures.append((e, cmd_ret))
                 continue
-            errno_wrap(os.chown, [go, uid, gid], [ENOENT], [ESTALE, EINVAL])
-            errno_wrap(os.utime, [go, (atime, mtime)],
-                       [ENOENT], [ESTALE, EINVAL])
+
+            cmd_ret = errno_wrap(os.chmod, [go, mode],
+                                 [ENOENT, EACCES, EPERM], [ESTALE, EINVAL])
+            if isinstance(cmd_ret, int):
+                is_symlink = os.path.islink(go)
+                if not is_symlink:
+                    failures.append((e, cmd_ret, "chmod"))
+
+            cmd_ret = errno_wrap(os.utime, [go, (atime, mtime)],
+                                 [ENOENT, EACCES, EPERM], [ESTALE, EINVAL])
+            if isinstance(cmd_ret, int):
+                if not is_symlink:
+                    is_symlink = os.path.islink(go)
+                if not is_symlink:
+                    failures.append((e, cmd_ret, "utime"))
         return failures
 
     @classmethod
