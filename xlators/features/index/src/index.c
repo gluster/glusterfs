@@ -15,6 +15,7 @@
 #include "common-utils.h"
 #include "index-messages.h"
 #include <ftw.h>
+#include <signal.h>
 
 #define XATTROP_SUBDIR "xattrop"
 #define DIRTY_SUBDIR "dirty"
@@ -2264,7 +2265,6 @@ init (xlator_t *this)
         int ret = -1;
         int64_t count = -1;
         index_priv_t *priv = NULL;
-        pthread_t thread;
         pthread_attr_t  w_attr;
         gf_boolean_t    mutex_inited = _gf_false;
         gf_boolean_t    cond_inited  = _gf_false;
@@ -2381,7 +2381,7 @@ init (xlator_t *this)
         count = index_fetch_link_count (this, XATTROP);
         index_set_link_count (priv, count, XATTROP);
 
-        ret = gf_thread_create (&thread, &w_attr, index_worker, this);
+        ret = gf_thread_create (&priv->thread, &w_attr, index_worker, this);
         if (ret) {
                 gf_msg (this->name, GF_LOG_WARNING, ret,
                         INDEX_MSG_WORKER_THREAD_CREATE_FAILED,
@@ -2494,6 +2494,24 @@ int
 notify (xlator_t *this, int event, void *data, ...)
 {
         int     ret = 0;
+        index_priv_t *priv = NULL;
+
+        if (!this)
+                return 0;
+
+        priv = this->private;
+        if (!priv)
+                return 0;
+
+        switch (event) {
+        case GF_EVENT_CLEANUP:
+                if (priv->thread) {
+                        (void) gf_thread_cleanup_xint (priv->thread);
+                        priv->thread = 0;
+                }
+                break;
+        }
+
         ret = default_notify (this, event, data);
         return ret;
 }

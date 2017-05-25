@@ -342,6 +342,7 @@ changelog_ev_dispatch (void *data)
 
         while (1) {
                 /* TODO: change this to be pthread cond based.. later */
+
                 tv.tv_sec = 1;
                 tv.tv_usec = 0;
                 select (0, NULL, NULL, NULL, &tv);
@@ -363,6 +364,7 @@ changelog_ev_dispatch (void *data)
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 CHANGELOG_MSG_PUT_BUFFER_FAILED,
                                 "failed to put buffer after consumption");
+
         }
 
         return NULL;

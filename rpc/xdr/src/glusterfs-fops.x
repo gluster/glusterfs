@@ -78,7 +78,7 @@ enum glusterfs_fop_t {
 };
 
 /* Note: Removed event GF_EVENT_CHILD_MODIFIED=8, hence
- *to preserve backward compatibiliy, GF_EVENT_TRANSPORT_CLEANUP = 9
+ *to preserve backward compatibiliy, GF_EVENT_CLEANUP = 9
  */
 enum glusterfs_event_t {
         GF_EVENT_PARENT_UP = 1,
@@ -88,7 +88,7 @@ enum glusterfs_event_t {
         GF_EVENT_CHILD_UP,
         GF_EVENT_CHILD_DOWN,
         GF_EVENT_CHILD_CONNECTING,
-        GF_EVENT_TRANSPORT_CLEANUP = 9,
+        GF_EVENT_CLEANUP = 9,
         GF_EVENT_TRANSPORT_CONNECTED,
         GF_EVENT_VOLFILE_MODIFIED,
         GF_EVENT_GRAPH_NEW,

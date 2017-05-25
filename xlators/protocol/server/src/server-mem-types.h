@@ -28,6 +28,7 @@ enum gf_server_mem_types_ {
         gf_server_mt_setvolume_rsp_t,
         gf_server_mt_lock_mig_t,
         gf_server_mt_compound_rsp_t,
+        gf_server_mt_child_status,
         gf_server_mt_end,
 };
 #endif /* __SERVER_MEM_TYPES_H__ */

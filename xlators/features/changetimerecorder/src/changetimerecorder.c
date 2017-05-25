@@ -2297,6 +2297,32 @@ out:
         return 0;
 }
 
+int
+notify (xlator_t *this, int event, void *data, ...)
+{
+
+       gf_ctr_private_t *priv = NULL;
+       int               ret  = 0;
+
+       priv = this->private;
+
+       if (!priv)
+               goto out;
+
+       if (event == GF_EVENT_CLEANUP) {
+               if (fini_db (priv->_db_conn)) {
+                       gf_msg (this->name, GF_LOG_WARNING, 0,
+                                CTR_MSG_CLOSE_DB_CONN_FAILED, "Failed closing "
+                                "db connection");
+               }
+       } else  {
+               ret = default_notify (this, event, data);
+       }
+out:
+      return ret;
+
+}
+
 int32_t
 mem_acct_init (xlator_t *this)
 {

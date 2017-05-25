@@ -182,6 +182,17 @@ default_notify (xlator_t *this, int32_t event, void *data, ...)
                 }
         }
         break;
+        case GF_EVENT_CLEANUP:
+        {
+                xlator_list_t *list = this->children;
+
+                while (list) {
+                        xlator_notify (list->xlator, event, this);
+                        list = list->next;
+                }
+        }
+        break;
+
         default:
         {
                 xlator_list_t *parent = this->parents;

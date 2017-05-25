@@ -34,6 +34,9 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT 2 count_up_bricks $V1
 
 EXPECT 1 count_brick_processes
 
+TEST glusterfs -s $H0 --volfile-id $V1 $M0
+TEST touch $M0/file{1..10}
+
 pkill glusterd
 TEST glusterd -LDEBUG
 sleep 5

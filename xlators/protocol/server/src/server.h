@@ -73,6 +73,12 @@ struct _volfile_ctx {
         uint32_t             checksum;
 };
 
+struct _child_status {
+        struct list_head status_list;
+        char *name;
+        gf_boolean_t child_up;
+
+};
 struct server_conf {
         rpcsvc_t               *rpc;
         struct rpcsvc_config    rpc_conf;
@@ -101,9 +107,7 @@ struct server_conf {
                                             * in case if volume set options
                                             * (say *.allow | *.reject) are
                                             * tweeked */
-        gf_boolean_t            child_up; /* Set to true, when child is up, and
-                                           * false, when child is down */
-
+        struct _child_status    *child_status;
         gf_lock_t               itable_lock;
 };
 typedef struct server_conf server_conf_t;
