@@ -473,11 +473,16 @@ nlc_invalidate (xlator_t *this, void *data)
         inode_t                             *parent2    = NULL;
         int                                  ret        = 0;
         inode_table_t                       *itable     = NULL;
+        nlc_conf_t                          *conf       = NULL;
 
         up_data = (struct gf_upcall *)data;
 
         if (up_data->event_type != GF_UPCALL_CACHE_INVALIDATION)
                 goto out;
+
+        conf = this->private;
+        if (!conf)
+                 goto out;
 
         up_ci = (struct gf_upcall_cache_invalidation *)up_data->data;
 
@@ -520,6 +525,9 @@ nlc_invalidate (xlator_t *this, void *data)
                 nlc_inode_clear_cache (this, parent1, NLC_NONE);
         if (parent2)
                 nlc_inode_clear_cache (this, parent2, NLC_NONE);
+
+        GF_ATOMIC_INC (conf->nlc_counter.nlc_invals);
+
 out:
         if (inode)
                 inode_unref (inode);
@@ -568,12 +576,23 @@ notify (xlator_t *this, int event, void *data, ...)
 static int32_t
 nlc_forget (xlator_t *this, inode_t *inode)
 {
-        uint64_t pe_int = 0;
+        uint64_t         pe_int      = 0;
+        uint64_t         nlc_ctx_int = 0;
+        nlc_ctx_t       *nlc_ctx     = NULL;
+        nlc_conf_t      *conf        = NULL;
+
+        conf = this->private;
 
         inode_ctx_reset1 (inode, this, &pe_int);
         GF_ASSERT (pe_int == 0);
 
         nlc_inode_clear_cache (this, inode, NLC_NONE);
+        inode_ctx_reset0 (inode, this, &nlc_ctx_int);
+        nlc_ctx = (void *) (long) nlc_ctx_int;
+        if (nlc_ctx) {
+                GF_FREE (nlc_ctx);
+                GF_ATOMIC_SUB (conf->current_cache_size, sizeof (*nlc_ctx));
+        }
 
         return 0;
 }

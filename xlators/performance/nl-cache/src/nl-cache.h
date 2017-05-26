@@ -44,7 +44,6 @@
 
 enum nlc_cache_clear_reason {
         NLC_NONE = 0,
-        NLC_TIMER_EXPIRED,
         NLC_LRU_PRUNE,
 };
 
