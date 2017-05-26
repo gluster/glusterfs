@@ -3376,7 +3376,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
         { .key         = "performance.nl-cache-positive-entry",
           .voltype     = "performance/nl-cache",
-          .value       = "on",
           .type        = DOC,
           .flags       = OPT_FLAG_CLIENT_OPT,
           .op_version  = GD_OP_VERSION_3_11_0,

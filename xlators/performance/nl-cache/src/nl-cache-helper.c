@@ -67,6 +67,8 @@ int __nlc_add_to_lru (xlator_t *this, inode_t *inode, nlc_ctx_t *nlc_ctx);
 void nlc_remove_from_lru (xlator_t *this, inode_t *inode);
 void __nlc_inode_ctx_timer_delete (xlator_t *this, nlc_ctx_t *nlc_ctx);
 gf_boolean_t __nlc_search_ne (nlc_ctx_t *nlc_ctx, const char *name);
+void __nlc_free_pe (xlator_t *this, nlc_ctx_t *nlc_ctx, nlc_pe_t *pe);
+void __nlc_free_ne (xlator_t *this, nlc_ctx_t *nlc_ctx, nlc_ne_t *ne);
 
 static int32_t
 nlc_get_cache_timeout (xlator_t *this)
@@ -98,7 +100,8 @@ __nlc_is_cache_valid (xlator_t *this, nlc_ctx_t *nlc_ctx)
         }
         UNLOCK (&conf->lock);
 
-        if (last_val_time <= nlc_ctx->cache_time)
+        if ((last_val_time <= nlc_ctx->cache_time) &&
+            (nlc_ctx->cache_time != 0))
                 ret = _gf_true;
 out:
         return ret;
@@ -202,6 +205,88 @@ nlc_inode_ctx_get (xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p,
 }
 
 
+static void
+__nlc_inode_clear_entries (xlator_t *this, nlc_ctx_t *nlc_ctx)
+{
+        nlc_pe_t         *pe         = NULL;
+        nlc_pe_t         *tmp        = NULL;
+        nlc_ne_t         *ne         = NULL;
+        nlc_ne_t         *tmp1       = NULL;
+
+        if (!nlc_ctx)
+                goto out;
+
+        if (IS_PE_VALID (nlc_ctx->state))
+                list_for_each_entry_safe (pe, tmp, &nlc_ctx->pe, list) {
+                        __nlc_free_pe (this, nlc_ctx, pe);
+                }
+
+        if (IS_NE_VALID (nlc_ctx->state))
+                list_for_each_entry_safe (ne, tmp1, &nlc_ctx->ne, list) {
+                        __nlc_free_ne (this, nlc_ctx, ne);
+                }
+
+        nlc_ctx->cache_time = 0;
+        nlc_ctx->state = 0;
+        GF_ASSERT (nlc_ctx->cache_size == sizeof (*nlc_ctx));
+        GF_ASSERT (nlc_ctx->refd_inodes == 0);
+out:
+        return;
+}
+
+
+static void
+nlc_init_invalid_ctx (xlator_t *this, inode_t *inode, nlc_ctx_t *nlc_ctx)
+{
+        nlc_conf_t                 *conf   = NULL;
+        int                         ret    = -1;
+
+        conf = this->private;
+
+        LOCK (&nlc_ctx->lock);
+        {
+                if (__nlc_is_cache_valid (this, nlc_ctx))
+                        goto unlock;
+
+                /* The cache/nlc_ctx can be invalid for 2 reasons:
+                 * - Because of a child-down/timer expiry, cache is
+                 *   invalid but the nlc_ctx is not yet cleaned up.
+                 * - nlc_ctx is cleaned up, because of invalidations
+                 *   or lru prune etc.*/
+
+                /* If the cache is present but invalid, clear the cache and
+                 * reset the timer. */
+                __nlc_inode_clear_entries (this, nlc_ctx);
+
+                /* If timer is present, then it is already part of lru as well
+                 * Hence reset the timer and return.*/
+                if (nlc_ctx->timer) {
+                        gf_tw_mod_timer_pending (conf->timer_wheel,
+                                                 nlc_ctx->timer,
+                                                 conf->cache_timeout);
+                        time (&nlc_ctx->cache_time);
+                        goto unlock;
+                }
+
+                /* If timer was NULL, the nlc_ctx is already cleanedup,
+                 * and we need to start timer and add to lru, so that it is
+                 * ready to cache entries a fresh */
+                ret = __nlc_inode_ctx_timer_start (this, inode, nlc_ctx);
+                if (ret < 0)
+                        goto unlock;
+
+                ret = __nlc_add_to_lru (this, inode, nlc_ctx);
+                if (ret < 0) {
+                        __nlc_inode_ctx_timer_delete (this, nlc_ctx);
+                        goto unlock;
+                }
+        }
+unlock:
+        UNLOCK (&nlc_ctx->lock);
+
+        return;
+}
+
 static nlc_ctx_t *
 nlc_inode_ctx_get_set (xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p,
                        nlc_pe_t **nlc_pe_p)
@@ -252,8 +337,10 @@ nlc_inode_ctx_get_set (xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p,
 unlock:
         UNLOCK (&inode->lock);
 
-        if (ret == 0 && nlc_ctx_p)
+        if (ret == 0 && nlc_ctx_p) {
                 *nlc_ctx_p = nlc_ctx;
+                nlc_init_invalid_ctx (this, inode, nlc_ctx);
+        }
 
         if (ret < 0 && nlc_ctx) {
                 LOCK_DESTROY (&nlc_ctx->lock);
@@ -261,6 +348,7 @@ unlock:
                 nlc_ctx = NULL;
                 goto out;
         }
+
 out:
         return nlc_ctx;
 }
@@ -342,14 +430,20 @@ static void
 nlc_cache_timeout_handler (struct gf_tw_timer_list *timer,
                            void *data, unsigned long calltime)
 {
-        nlc_timer_data_t *tmp = data;
+        nlc_timer_data_t *tmp     = data;
+        nlc_ctx_t        *nlc_ctx = NULL;
 
-        nlc_inode_clear_cache (tmp->this, tmp->inode, NLC_TIMER_EXPIRED);
-        inode_unref (tmp->inode);
+        nlc_inode_ctx_get (tmp->this, tmp->inode, &nlc_ctx, NULL);
+        if (!nlc_ctx)
+                goto out;
 
-        GF_FREE (tmp);
-        GF_FREE (timer);
-
+        /* Taking nlc_ctx->lock will lead to deadlock, hence updating
+         * the cache is invalid outside of lock, instead of clear_cache.
+         * Since cache_time is assigned outside of lock, the value can
+         * be invalid for short time, this may result in false negative
+         * which is better than deadlock */
+        nlc_ctx->cache_time = 0;
+out:
         return;
 }
 
@@ -361,10 +455,14 @@ __nlc_inode_ctx_timer_delete (xlator_t *this, nlc_ctx_t *nlc_ctx)
 
         conf = this->private;
 
-        gf_tw_del_timer (conf->timer_wheel, nlc_ctx->timer);
+        if (nlc_ctx->timer)
+                gf_tw_del_timer (conf->timer_wheel, nlc_ctx->timer);
 
-        inode_unref (nlc_ctx->timer_data->inode);
-        GF_FREE (nlc_ctx->timer_data);
+        if (nlc_ctx->timer_data) {
+                inode_unref (nlc_ctx->timer_data->inode);
+                GF_FREE (nlc_ctx->timer_data);
+                nlc_ctx->timer_data = NULL;
+        }
 
         GF_FREE (nlc_ctx->timer);
         nlc_ctx->timer = NULL;
@@ -553,7 +651,7 @@ nlc_clear_all_cache (xlator_t *this)
 }
 
 
-static void
+void
 __nlc_free_pe (xlator_t *this, nlc_ctx_t *nlc_ctx, nlc_pe_t *pe)
 {
         uint64_t          pe_int      = 0;
@@ -584,7 +682,7 @@ __nlc_free_pe (xlator_t *this, nlc_ctx_t *nlc_ctx, nlc_pe_t *pe)
 }
 
 
-static void
+void
 __nlc_free_ne (xlator_t *this, nlc_ctx_t *nlc_ctx, nlc_ne_t *ne)
 {
         nlc_conf_t                  *conf   = NULL;
@@ -606,49 +704,22 @@ __nlc_free_ne (xlator_t *this, nlc_ctx_t *nlc_ctx, nlc_ne_t *ne)
 void
 nlc_inode_clear_cache (xlator_t *this, inode_t *inode, int reason)
 {
-        uint64_t         nlc_ctx_int = 0;
         nlc_ctx_t        *nlc_ctx    = NULL;
-        nlc_pe_t         *pe         = NULL;
-        nlc_pe_t         *tmp        = NULL;
-        nlc_ne_t         *ne         = NULL;
-        nlc_ne_t         *tmp1       = NULL;
-        nlc_conf_t       *conf       = NULL;
 
-        conf = this->private;
-
-        inode_ctx_reset0 (inode, this, &nlc_ctx_int);
-        if (nlc_ctx_int == 0)
+        nlc_inode_ctx_get (this, inode, &nlc_ctx, NULL);
+        if (!nlc_ctx)
                 goto out;
-
-        nlc_ctx = (void *) (long) nlc_ctx_int;
-
-        if (reason != NLC_LRU_PRUNE)
-                nlc_remove_from_lru (this, inode);
 
         LOCK (&nlc_ctx->lock);
         {
-                if (reason != NLC_TIMER_EXPIRED)
-                        __nlc_inode_ctx_timer_delete (this, nlc_ctx);
+                __nlc_inode_ctx_timer_delete (this, nlc_ctx);
 
-                if (IS_PE_VALID (nlc_ctx->state))
-                        list_for_each_entry_safe (pe, tmp, &nlc_ctx->pe, list) {
-                                __nlc_free_pe (this, nlc_ctx, pe);
-                        }
-
-                if (IS_NE_VALID (nlc_ctx->state))
-                        list_for_each_entry_safe (ne, tmp1, &nlc_ctx->ne, list) {
-                                __nlc_free_ne (this, nlc_ctx, ne);
-                        }
+                __nlc_inode_clear_entries (this, nlc_ctx);
         }
         UNLOCK (&nlc_ctx->lock);
 
-        LOCK_DESTROY (&nlc_ctx->lock);
-
-        nlc_ctx->cache_size -= sizeof (*nlc_ctx);
-        GF_ASSERT (nlc_ctx->cache_size == 0);
-        GF_FREE (nlc_ctx);
-
-        GF_ATOMIC_SUB (conf->current_cache_size, sizeof (*nlc_ctx));
+        if (reason != NLC_LRU_PRUNE)
+                nlc_remove_from_lru (this, inode);
 
 out:
         return;
@@ -864,10 +935,14 @@ nlc_dir_remove_pe (xlator_t *this, inode_t *parent, inode_t *entry_ino,
 
         LOCK (&nlc_ctx->lock);
         {
+                if (!__nlc_is_cache_valid (this, nlc_ctx))
+                        goto unlock;
+
                 __nlc_del_pe (this, nlc_ctx, entry_ino, name, multilink);
                 __nlc_add_ne (this, nlc_ctx, name);
                 __nlc_set_dir_state (nlc_ctx, NLC_NE_VALID);
         }
+unlock:
         UNLOCK (&nlc_ctx->lock);
 out:
         return;

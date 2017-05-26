@@ -16,6 +16,7 @@ EXPECT 'on' volinfo_field $V0 'performance.nl-cache'
 EXPECT '600' volinfo_field $V0 'features.cache-invalidation-timeout'
 EXPECT 'on' volinfo_field $V0 'features.cache-invalidation'
 EXPECT '50000' volinfo_field $V0  'network.inode-lru-limit'
+TEST $CLI volume set $V0 nl-cache-positive-entry on
 
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
