@@ -562,4 +562,8 @@ syncop_setactivelk (xlator_t *subvol, loc_t *loc,
                      lock_migration_info_t *locklist,  dict_t *xdata_in,
                      dict_t **xdata_out);
 
+int syncop_discover (xlator_t *subvol, loc_t *loc, dict_t *xattr_req,
+                     /* out */
+                     struct iatt *iatt, dict_t **xattr_rsp);
+
 #endif /* _SYNCOP_H */

@@ -29,6 +29,7 @@ typedef struct _call_stub {
 
 	union {
 		fop_lookup_t lookup;
+		fop_discover_t discover;
 		fop_stat_t stat;
 		fop_fstat_t fstat;
 		fop_truncate_t truncate;
@@ -81,6 +82,7 @@ typedef struct _call_stub {
 
 	union {
 		fop_lookup_cbk_t lookup;
+		fop_discover_cbk_t discover;
 		fop_stat_cbk_t stat;
 		fop_fstat_cbk_t fstat;
 		fop_truncate_cbk_t truncate;
@@ -151,6 +153,20 @@ fop_lookup_cbk_stub (call_frame_t *frame,
 		     struct iatt *buf,
                      dict_t *xdata,
                      struct iatt *postparent);
+call_stub_t *
+fop_discover_stub (call_frame_t *frame,
+                   fop_discover_t fn,
+                   loc_t *loc,
+                   dict_t *xdata);
+
+call_stub_t *
+fop_discover_cbk_stub (call_frame_t *frame,
+                       fop_discover_cbk_t fn,
+                       int32_t op_ret,
+                       int32_t op_errno,
+                       inode_t *inode,
+                       struct iatt *buf,
+                       dict_t *xdata);
 call_stub_t *
 fop_stat_stub (call_frame_t *frame,
 	       fop_stat_t fn,

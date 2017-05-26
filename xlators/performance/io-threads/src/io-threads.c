@@ -299,6 +299,7 @@ iot_schedule (call_frame_t *frame, xlator_t *this, call_stub_t *stub)
         case GF_FOP_READDIRP:
         case GF_FOP_GETACTIVELK:
         case GF_FOP_SETACTIVELK:
+        case GF_FOP_DISCOVER:
                 pri = IOT_PRI_HI;
                 break;
 
@@ -366,6 +367,14 @@ iot_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         IOT_FOP (lookup, frame, this, loc, xdata);
         return 0;
 }
+
+int
+iot_discover (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
+{
+        IOT_FOP (discover, frame, this, loc, xdata);
+        return 0;
+}
+
 
 
 int
@@ -1171,6 +1180,7 @@ struct xlator_fops fops = {
         .lease       = iot_lease,
         .getactivelk = iot_getactivelk,
         .setactivelk = iot_setactivelk,
+        .discover    = iot_discover,
 };
 
 struct xlator_cbks cbks = {

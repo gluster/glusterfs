@@ -3202,3 +3202,47 @@ syncop_setactivelk (xlator_t *subvol, loc_t *loc,
         return args.op_ret;
 
 }
+
+int
+syncop_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int op_ret, int op_errno, inode_t *inode,
+                     struct iatt *iatt, dict_t *xdata)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+
+        if (op_ret == 0) {
+                args->iatt1  = *iatt;
+                if (xdata)
+                        args->xdata  = dict_ref (xdata);
+        }
+
+        __wake (args);
+
+        return 0;
+}
+
+
+int
+syncop_discover (xlator_t *subvol, loc_t *loc, dict_t *xdata_req,
+                 struct iatt *iatt, dict_t **xdata_rsp)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_discover_cbk, subvol->fops->discover,
+                loc, xdata_req);
+
+        if (iatt)
+                *iatt = args.iatt1;
+        if (xdata_rsp)
+                *xdata_rsp = args.xdata;
+        else if (args.xdata)
+                dict_unref (args.xdata);
+
+        errno = args.op_errno;
+        return args.op_ret;
+}

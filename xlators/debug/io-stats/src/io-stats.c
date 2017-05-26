@@ -2216,6 +2216,18 @@ io_stats_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
+int
+io_stats_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno,
+                       inode_t *inode, struct iatt *buf,
+                       dict_t *xdata)
+{
+        UPDATE_PROFILE_STATS (frame, DISCOVER);
+        STACK_UNWIND_STRICT (discover, frame, op_ret, op_errno, inode, buf,
+                             xdata);
+        return 0;
+}
+
 
 int
 io_stats_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2724,6 +2736,19 @@ io_stats_lookup (call_frame_t *frame, xlator_t *this,
         STACK_WIND (frame, io_stats_lookup_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup,
+                    loc, xdata);
+        return 0;
+}
+
+int
+io_stats_discover (call_frame_t *frame, xlator_t *this,
+                   loc_t *loc, dict_t *xdata)
+{
+        START_FOP_LATENCY (frame);
+
+        STACK_WIND (frame, io_stats_discover_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->discover,
                     loc, xdata);
         return 0;
 }
@@ -4280,6 +4305,7 @@ struct xlator_fops fops = {
         .getactivelk = io_stats_getactivelk,
         .setactivelk = io_stats_setactivelk,
         .compound    = io_stats_compound,
+        .discover    = io_stats_discover,
 };
 
 struct xlator_cbks cbks = {

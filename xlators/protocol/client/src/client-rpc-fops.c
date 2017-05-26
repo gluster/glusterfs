@@ -2794,12 +2794,18 @@ client3_3_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
         dict_t          *xdata      = NULL;
         inode_t         *inode      = NULL;
         xlator_t        *this       = NULL;
+        gf_boolean_t     discover   = _gf_false;
 
         this = THIS;
 
         frame = myframe;
         local = frame->local;
         inode = local->loc.inode;
+
+        /* Figure out if its discover or lookup based on 'loc', and it should
+           be done before any 'goto out' statements */
+        if (!local->loc.name)
+                discover = _gf_true;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -2864,8 +2870,13 @@ out:
 
         }
 
-        CLIENT_STACK_UNWIND (lookup, frame, rsp.op_ret, rsp.op_errno, inode,
-                             &stbuf, xdata, &postparent);
+        if (!discover) {
+                CLIENT_STACK_UNWIND (lookup, frame, rsp.op_ret, rsp.op_errno, inode,
+                                     &stbuf, xdata, &postparent);
+        } else {
+                CLIENT_STACK_UNWIND (discover, frame, rsp.op_ret, rsp.op_errno, inode,
+                                     &stbuf, xdata);
+        }
 
         if (xdata)
                 dict_unref (xdata);
@@ -2874,6 +2885,7 @@ out:
 
         return 0;
 }
+
 
 int
 client3_3_readv_cbk (struct rpc_req *req, struct iovec *iov, int count,
@@ -3331,6 +3343,7 @@ client3_3_lookup (call_frame_t *frame, xlator_t *this,
         struct iobref   *rsp_iobref        = NULL;
         struct iobuf    *rsp_iobuf         = NULL;
         struct iovec    *rsphdr            = NULL;
+        gf_boolean_t     discover          = _gf_false;
 
         if (!frame || !this || !data)
                 goto unwind;
@@ -3351,6 +3364,9 @@ client3_3_lookup (call_frame_t *frame, xlator_t *this,
 
         loc_copy (&local->loc, args->loc);
         loc_path (&local->loc, NULL);
+
+        if (!local->loc.name)
+                discover = _gf_true;
 
         if (args->xdata) {
                 content = dict_get (args->xdata, GF_CONTENT_KEY);
@@ -3402,8 +3418,13 @@ client3_3_lookup (call_frame_t *frame, xlator_t *this,
         return 0;
 
 unwind:
-        CLIENT_STACK_UNWIND (lookup, frame, -1, op_errno, NULL, NULL, NULL,
-                             NULL);
+        if (!discover) {
+                CLIENT_STACK_UNWIND (lookup, frame, -1, op_errno, NULL, NULL,
+                                     NULL, NULL);
+        } else {
+                CLIENT_STACK_UNWIND (discover, frame, -1, op_errno, NULL, NULL,
+                                     NULL);
+        }
 
         GF_FREE (req.xdata.xdata_val);
 
@@ -3415,6 +3436,7 @@ unwind:
 
         return 0;
 }
+
 
 int32_t
 client3_3_stat (call_frame_t *frame, xlator_t *this,

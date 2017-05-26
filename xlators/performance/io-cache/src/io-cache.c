@@ -306,6 +306,127 @@ unwind:
         return 0;
 }
 
+int32_t
+ioc_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret,	int32_t op_errno, inode_t *inode,
+                  struct iatt *stbuf, dict_t *xdata)
+{
+        ioc_inode_t *ioc_inode         = NULL;
+        ioc_table_t *table             = NULL;
+        uint8_t      cache_still_valid = 0;
+        uint64_t     tmp_ioc_inode     = 0;
+        uint32_t     weight            = 0xffffffff;
+        const char  *path              = NULL;
+        ioc_local_t *local             = NULL;
+
+        if (op_ret != 0)
+                goto out;
+
+        local = frame->local;
+        if (local == NULL) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        if (!this || !this->private) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        table = this->private;
+
+        path = local->file_loc.path;
+
+        LOCK (&inode->lock);
+        {
+                __inode_ctx_get (inode, this, &tmp_ioc_inode);
+                ioc_inode = (ioc_inode_t *)(long)tmp_ioc_inode;
+
+                if (!ioc_inode) {
+                        weight = ioc_get_priority (table, path);
+
+                        ioc_inode = ioc_inode_create (table, inode,
+                                                      weight);
+
+                        __inode_ctx_put (inode, this,
+                                         (uint64_t)(long)ioc_inode);
+                }
+        }
+        UNLOCK (&inode->lock);
+
+        ioc_inode_lock (ioc_inode);
+        {
+                if (ioc_inode->cache.mtime == 0) {
+                        ioc_inode->cache.mtime = stbuf->ia_mtime;
+                        ioc_inode->cache.mtime_nsec = stbuf->ia_mtime_nsec;
+                }
+
+                ioc_inode->ia_size = stbuf->ia_size;
+        }
+        ioc_inode_unlock (ioc_inode);
+
+        cache_still_valid = ioc_cache_still_valid (ioc_inode,
+                                                   stbuf);
+
+        if (!cache_still_valid) {
+                ioc_inode_flush (ioc_inode);
+        }
+
+        ioc_table_lock (ioc_inode->table);
+        {
+                list_move_tail (&ioc_inode->inode_lru,
+                                &table->inode_lru[ioc_inode->weight]);
+        }
+        ioc_table_unlock (ioc_inode->table);
+
+out:
+        if (frame->local != NULL) {
+                local = frame->local;
+                loc_wipe (&local->file_loc);
+        }
+
+        STACK_UNWIND_STRICT (discover, frame, op_ret, op_errno, inode, stbuf,
+                             xdata);
+        return 0;
+}
+
+int32_t
+ioc_discover (call_frame_t *frame, xlator_t *this, loc_t *loc,
+              dict_t *xdata)
+{
+        ioc_local_t *local    = NULL;
+        int32_t      op_errno = -1, ret = -1;
+
+        local = mem_get0 (this->local_pool);
+        if (local == NULL) {
+                op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto unwind;
+        }
+
+        ret = loc_copy (&local->file_loc, loc);
+        if (ret != 0) {
+                op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto unwind;
+        }
+
+        frame->local = local;
+
+        STACK_WIND (frame, ioc_discover_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->discover, loc, xdata);
+
+        return 0;
+
+unwind:
+        STACK_UNWIND_STRICT (discover, frame, -1, op_errno, NULL, NULL,
+                             NULL);
+
+        return 0;
+}
+
 /*
  * ioc_forget -
  *

@@ -2723,15 +2723,14 @@ unwind:
 
 	AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
 			  local->inode, &local->replies[read_subvol].poststat,
-			  local->replies[read_subvol].xdata,
-			  &local->replies[read_subvol].postparent);
+			  local->replies[read_subvol].xdata, &local->replies[read_subvol].postparent);
 }
 
 
 int
 afr_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		  int op_ret, int op_errno, inode_t *inode, struct iatt *buf,
-		  dict_t *xdata, struct iatt *postparent)
+		  dict_t *xdata, struct iatt *parent_iatt)
 {
         afr_local_t *   local = NULL;
         int             call_count      = -1;
@@ -2748,8 +2747,8 @@ afr_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	local->replies[child_index].op_errno = op_errno;
 	if (op_ret != -1) {
 		local->replies[child_index].poststat = *buf;
-		local->replies[child_index].postparent = *postparent;
-		if (xdata)
+                local->replies[child_index].postparent = *parent_iatt;
+			if (xdata)
 			local->replies[child_index].xdata = dict_ref (xdata);
 	}
 

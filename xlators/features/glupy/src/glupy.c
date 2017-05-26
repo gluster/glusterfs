@@ -135,6 +135,101 @@ set_lookup_cbk (long py_this, fop_lookup_cbk_t cbk)
         priv->cbks[GLUPY_LOOKUP] = (long)cbk;
 }
 
+/* FOP: DISCOVER */
+
+int32_t
+glupy_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, inode_t *inode,
+                  struct iatt *buf, dict_t *xdata)
+{
+        glupy_private_t *priv = this->private;
+        PyGILState_STATE gstate;
+        int32_t ret;
+
+        if (!priv->cbks[GLUPY_DISCOVER]) {
+                goto unwind;
+        }
+
+        gstate = glupy_enter();
+        ret = ((fop_discover_cbk_t)(priv->cbks[GLUPY_DISCOVER]))(
+                frame, cookie, this, op_ret, op_errno,
+                inode, buf, xdata);
+        glupy_leave(gstate);
+
+        return ret;
+
+unwind:
+        frame->local = NULL;
+        STACK_UNWIND_STRICT (discover, frame, op_ret, op_errno, inode, buf,
+                             xdata);
+        return 0;
+}
+
+int32_t
+glupy_discover (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                dict_t *xdata)
+{
+        glupy_private_t *priv = this->private;
+        PyGILState_STATE gstate;
+        int32_t ret;
+        static long next_id = 0;
+
+        if (!priv->fops[GLUPY_DISCOVER]) {
+                goto wind;
+        }
+
+        gstate = glupy_enter();
+        frame->local = (void *)++next_id;
+        ret = ((fop_discover_t)(priv->fops[GLUPY_DISCOVER]))(
+                frame, this, loc, xdata);
+        glupy_leave(gstate);
+
+        return ret;
+
+wind:
+        STACK_WIND (frame, glupy_discover_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->discover, loc, xdata);
+        return 0;
+}
+
+void
+wind_discover (call_frame_t *frame, xlator_t *xl, loc_t *loc, dict_t *xdata)
+{
+        xlator_t        *this = THIS;
+
+        if (!xl || (xl == this)) {
+                xl = FIRST_CHILD(this);
+        }
+
+        STACK_WIND(frame,glupy_discover_cbk,xl,xl->fops->discover,loc,xdata);
+}
+
+void
+unwind_discover (call_frame_t *frame, long cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, inode_t *inode,
+                 struct iatt *buf, dict_t *xdata)
+{
+        frame->local = NULL;
+        STACK_UNWIND_STRICT(discover,frame,op_ret,op_errno,
+                            inode,buf,xdata);
+}
+
+void
+set_discover_fop (long py_this, fop_discover_t fop)
+{
+        glupy_private_t *priv   = ((xlator_t *)py_this)->private;
+
+        priv->fops[GLUPY_DISCOVER] = (long)fop;
+}
+
+void
+set_discover_cbk (long py_this, fop_discover_cbk_t cbk)
+{
+        glupy_private_t *priv   = ((xlator_t *)py_this)->private;
+
+        priv->cbks[GLUPY_DISCOVER] = (long)cbk;
+}
+
 /* FOP: CREATE */
 
 int32_t
@@ -2464,6 +2559,7 @@ fini (xlator_t *this)
 
 struct xlator_fops fops = {
         .lookup       = glupy_lookup,
+        .discover     = glupy_discover,
         .create       = glupy_create,
         .open         = glupy_open,
         .readv        = glupy_readv,

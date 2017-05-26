@@ -29,6 +29,7 @@
 #include "libxlator.h"
 #include "byte-order.h"
 #include "statedump.h"
+#include "compat-uuid.h"
 
 struct volume_options options[];
 
@@ -162,6 +163,194 @@ out:
         return 0;
 }
 
+
+int32_t
+stripe_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, inode_t *inode,
+                     struct iatt *buf, dict_t *xdata)
+{
+        int32_t         callcnt     = 0;
+        stripe_local_t *local       = NULL;
+        call_frame_t   *prev        = NULL;
+        int             ret         = 0;
+
+        if (!this || !frame || !frame->local || !cookie) {
+                gf_log ("stripe", GF_LOG_DEBUG, "possible NULL deref");
+                goto out;
+        }
+
+        prev = cookie;
+        local = frame->local;
+
+        LOCK (&frame->lock);
+        {
+                callcnt = --local->call_count;
+
+                if (op_ret == -1) {
+                        if (op_errno != ENOENT)
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "%s returned error %s",
+                                        prev->this->name,
+                                        strerror (op_errno));
+                        if (local->op_errno != ESTALE)
+                                local->op_errno = op_errno;
+                        if (((op_errno != ENOENT) && (op_errno != ENOTCONN)) ||
+                            (prev->this == FIRST_CHILD (this)))
+                                local->failed = 1;
+                }
+
+                if (op_ret >= 0) {
+                        local->op_ret = 0;
+                        if (IA_ISREG (buf->ia_type)) {
+                                ret = stripe_ctx_handle (this, prev, local,
+                                                         xdata);
+                                if (ret)
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                 "Error getting fctx info from"
+                                                 " dict");
+                        }
+
+                        if (FIRST_CHILD(this) == prev->this) {
+                                local->stbuf      = *buf;
+                                local->inode = inode_ref (inode);
+                                if (xdata)
+                                        local->xdata = dict_ref (xdata);
+                                if (local->xattr) {
+                                        stripe_aggregate_xattr (local->xdata,
+                                                                local->xattr);
+                                        dict_unref (local->xattr);
+                                        local->xattr = NULL;
+                                }
+                        }
+
+                        if (!local->xdata && !local->xattr) {
+                                local->xattr = dict_ref (xdata);
+                        } else if (local->xdata) {
+                                stripe_aggregate_xattr (local->xdata, xdata);
+                        } else if (local->xattr) {
+                                stripe_aggregate_xattr (local->xattr, xdata);
+                        }
+
+                        local->stbuf_blocks      += buf->ia_blocks;
+
+			correct_file_size(buf, local->fctx, prev);
+
+                        if (local->stbuf_size < buf->ia_size)
+                                local->stbuf_size = buf->ia_size;
+
+                        if (gf_uuid_is_null (local->ia_gfid))
+                                gf_uuid_copy (local->ia_gfid, buf->ia_gfid);
+
+                        /* Make sure the gfid on all the nodes are same */
+                        if (gf_uuid_compare (local->ia_gfid, buf->ia_gfid)) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "%s: gfid different on subvolume %s",
+                                        local->loc.path, prev->this->name);
+                        }
+                }
+        }
+        UNLOCK (&frame->lock);
+
+        if (!callcnt) {
+                if (local->failed)
+                        local->op_ret = -1;
+
+                if (local->op_ret != -1) {
+                        local->stbuf.ia_blocks      = local->stbuf_blocks;
+                        local->stbuf.ia_size        = local->stbuf_size;
+                        inode_ctx_put (local->inode, this,
+                                       (uint64_t) (long)local->fctx);
+                }
+
+                STRIPE_STACK_UNWIND (discover, frame, local->op_ret,
+                                     local->op_errno, local->inode,
+                                     &local->stbuf, local->xdata);
+        }
+out:
+        return 0;
+}
+
+
+int32_t
+stripe_discover (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                 dict_t *xdata)
+{
+        stripe_local_t   *local    = NULL;
+        xlator_list_t    *trav     = NULL;
+        stripe_private_t *priv     = NULL;
+        int32_t           op_errno = EINVAL;
+        int64_t           filesize = 0;
+        int               ret      = 0;
+        uint64_t          tmpctx   = 0;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (loc, err);
+        VALIDATE_OR_GOTO (loc->path, err);
+        VALIDATE_OR_GOTO (loc->inode, err);
+
+        priv = this->private;
+        trav = this->children;
+
+        /* Initialization */
+        local = mem_get0 (this->local_pool);
+        if (!local) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+        local->op_ret = -1;
+        frame->local = local;
+        loc_copy (&local->loc, loc);
+
+        inode_ctx_get (local->inode, this, &tmpctx);
+        if (tmpctx)
+                local->fctx = (stripe_fd_ctx_t*) (long)tmpctx;
+
+        /* quick-read friendly changes */
+        if (xdata && dict_get (xdata, GF_CONTENT_KEY)) {
+                ret = dict_get_int64 (xdata, GF_CONTENT_KEY, &filesize);
+                if (!ret && (filesize > priv->block_size))
+                        dict_del (xdata, GF_CONTENT_KEY);
+        }
+
+        /* get stripe-size xattr on lookup. This would be required for
+         * open/read/write/pathinfo calls. Hence we send down the request
+         * even when type == IA_INVAL */
+
+	/*
+	 * We aren't guaranteed to have xdata here. We need the format info for
+	 * the file, so allocate xdata if necessary.
+	 */
+	if (!xdata)
+		xdata = dict_new();
+	else
+		xdata = dict_ref(xdata);
+
+        if (xdata && (IA_ISREG (loc->inode->ia_type) ||
+            (loc->inode->ia_type == IA_INVAL))) {
+                ret = stripe_xattr_request_build (this, xdata, 8, 4, 4, 0);
+                if (ret)
+                        gf_log (this->name , GF_LOG_ERROR, "Failed to build"
+                                " xattr request for %s", loc->path);
+
+        }
+
+        /* Everytime in stripe lookup, all child nodes
+           should be looked up */
+        local->call_count = priv->child_count;
+        while (trav) {
+                STACK_WIND (frame, stripe_discover_cbk, trav->xlator,
+                            trav->xlator->fops->discover, loc, xdata);
+                trav = trav->next;
+        }
+
+	dict_unref(xdata);
+
+        return 0;
+err:
+        STRIPE_STACK_UNWIND (discover, frame, -1, op_errno, NULL, NULL, NULL);
+        return 0;
+}
 
 int32_t
 stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -5739,6 +5928,7 @@ struct xlator_fops fops = {
 	.discard	= stripe_discard,
         .zerofill       = stripe_zerofill,
         .seek           = stripe_seek,
+        .discover       = stripe_discover,
 };
 
 struct xlator_cbks cbks = {

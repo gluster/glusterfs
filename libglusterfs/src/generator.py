@@ -557,6 +557,14 @@ ops['setactivelk'] = (
         ('cbk-arg',     'xdata',                'dict_t *'),
 )
 
+ops['discover'] = (
+	('fop-arg',	'loc',			'loc_t *'),
+	('fop-arg',	'xdata',		'dict_t *'),
+	('cbk-arg',	'inode',		'inode_t *'),
+	('cbk-arg',	'buf',			'struct iatt *'),
+	('cbk-arg',	'xdata',		'dict_t *'),
+)
+
 #####################################################################
 xlator_cbks['forget'] = (
         ('fn-arg',      'this',        'xlator_t *'),

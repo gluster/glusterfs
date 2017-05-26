@@ -589,8 +589,7 @@ out:
 int
 dht_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int op_ret, int op_errno,
-                  inode_t *inode, struct iatt *stbuf, dict_t *xattr,
-                  struct iatt *postparent)
+                  inode_t *inode, struct iatt *stbuf, dict_t *xattr, struct iatt *postparent)
 {
         dht_local_t  *local                   = NULL;
         int           this_call_cnt           = 0;
@@ -715,7 +714,7 @@ out:
 
 
 int
-dht_discover (call_frame_t *frame, xlator_t *this, loc_t *loc)
+dht_discover (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 {
         int          ret;
         dht_local_t *local = NULL;
@@ -728,14 +727,23 @@ dht_discover (call_frame_t *frame, xlator_t *this, loc_t *loc)
         conf = this->private;
         local = frame->local;
 
-        ret = dict_set_uint32 (local->xattr_req, conf->xattr_name, 4 * 4);
+        /* If the call comes here from dht_lookup () */
+        if (!local) {
+                local = dht_local_init (frame, loc, NULL, GF_FOP_DISCOVER);
+                if (!local) {
+                        op_errno = ENOMEM;
+                        goto err;
+                }
+        }
+
+        ret = dict_set_uint32 (xattr_req, conf->xattr_name, 4 * 4);
         if (ret)
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_DICT_SET_FAILED,
                         "%s: Failed to set dictionary value:key = %s",
                         loc->path, conf->xattr_name);
 
-        ret = dict_set_uint32 (local->xattr_req, conf->link_xattr_name, 256);
+        ret = dict_set_uint32 (xattr_req, conf->link_xattr_name, 256);
         if (ret)
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_DICT_SET_FAILED,
@@ -752,7 +760,6 @@ dht_discover (call_frame_t *frame, xlator_t *this, loc_t *loc)
         local->call_cnt = call_cnt;
 
         local->layout = dht_layout_new (this, conf->subvolume_cnt);
-
         if (!local->layout) {
                 op_errno = ENOMEM;
                 goto err;
@@ -2525,7 +2532,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
         if (gf_uuid_is_null (loc->pargfid) && !gf_uuid_is_null (loc->gfid) &&
             !__is_root_gfid (loc->inode->gfid)) {
                 local->cached_subvol = NULL;
-                dht_discover (frame, this, loc);
+                dht_discover (frame, this, loc, local->xattr_req);
                 return 0;
         }
 

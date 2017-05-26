@@ -58,6 +58,7 @@
 #include "posix-messages.h"
 #include "events.h"
 #include "posix-gfid-path.h"
+#include "compat-uuid.h"
 
 extern char *marker_xattrs[];
 #define ALIGN_SIZE 4096
@@ -304,6 +305,60 @@ out:
                 op_errno = 0;
         STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno,
                              (loc)?loc->inode:NULL, &buf, xattr, &postparent);
+
+        if (xattr)
+                dict_unref (xattr);
+
+        return 0;
+}
+
+int32_t
+posix_discover (call_frame_t *frame, xlator_t *this,
+                loc_t *loc, dict_t *xdata)
+{
+        struct iatt buf                = {0, };
+        int32_t     op_ret             = -1;
+        int32_t     op_errno           = 0;
+        dict_t *    xattr              = NULL;
+        char *      real_path          = NULL;
+        int32_t     gfidless           = 0;
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (loc, out);
+
+        /* nameless lookup */
+        op_ret = -1;
+        MAKE_INODE_HANDLE (real_path, this, loc, &buf);
+        op_errno = errno;
+
+        if (op_ret == -1) {
+                if (op_errno != ENOENT) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "lstat on %s failed: %s",
+                                real_path, strerror (op_errno));
+                }
+
+                goto out;
+        }
+
+        if (xdata && (op_ret == 0)) {
+                xattr = posix_xattr_fill (this, real_path, loc, NULL, -1, xdata,
+                                          &buf);
+        }
+
+out:
+        if (xattr)
+                dict_ref (xattr);
+
+        if (!op_ret && !gfidless && gf_uuid_is_null (buf.ia_gfid)) {
+                gf_log (this->name, GF_LOG_ERROR, "buf->ia_gfid is null for "
+                        "%s", (real_path) ? real_path: "");
+                op_ret = -1;
+                op_errno = ENODATA;
+        }
+        STACK_UNWIND_STRICT (discover, frame, op_ret, op_errno,
+                             (loc)?loc->inode:NULL, &buf, xattr);
 
         if (xattr)
                 dict_unref (xattr);
@@ -7838,6 +7893,7 @@ struct xlator_dumpops dumpops = {
 
 struct xlator_fops fops = {
         .lookup      = posix_lookup,
+        .discover    = posix_discover,
         .stat        = posix_stat,
         .opendir     = posix_opendir,
         .readdir     = posix_readdir,

@@ -195,6 +195,46 @@ out:
 }
 
 int
+server_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno,
+                     inode_t *inode, struct iatt *stbuf, dict_t *xdata)
+{
+        rpcsvc_request_t    *req        = NULL;
+        server_state_t      *state      = NULL;
+        gfs3_lookup_rsp      rsp        = {0,};
+
+        state = CALL_STATE (frame);
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
+                                    rsp.xdata.xdata_len, op_errno, out);
+
+        gf_stat_from_iatt (&rsp.stat, stbuf);
+out:
+        rsp.op_ret   = op_ret;
+        rsp.op_errno = gf_errno_to_error (op_errno);
+
+        if (op_ret) {
+                gf_msg (this->name,
+                        fop_log_level (GF_FOP_DISCOVER, op_errno),
+                        op_errno, PS_MSG_LOOKUP_INFO,
+                        "%"PRId64": LOOKUP %s (%s), client: %s, "
+                        "error-xlator: %s",
+                        frame->root->unique, state->loc.path,
+                        uuid_utoa (state->resolve.gfid),
+                        STACK_CLIENT_NAME (frame->root),
+                        STACK_ERR_XL_NAME (frame->root));
+        }
+
+        req = frame->local;
+        server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
+                             (xdrproc_t)xdr_gfs3_lookup_rsp);
+
+        GF_FREE (rsp.xdata.xdata_val);
+
+        return 0;
+}
+
+int
 server_lease_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct gf_lease *lease,
                   dict_t *xdata)
@@ -3212,6 +3252,33 @@ err:
 
         return 0;
 }
+
+int
+server_discover_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t    *state = NULL;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+        if (!state->loc.inode)
+                state->loc.inode = server_inode_new (state->itable,
+                                                     state->loc.gfid);
+
+        STACK_WIND (frame, server_discover_cbk,
+                    bound_xl, bound_xl->fops->discover,
+                    &state->loc, state->xdata);
+
+        return 0;
+err:
+        server_discover_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                             state->resolve.op_errno, NULL, NULL, NULL);
+
+        return 0;
+}
+
 
 int
 server_fallocate_resume (call_frame_t *frame, xlator_t *bound_xl)
@@ -6558,6 +6625,7 @@ server3_3_lookup (rpcsvc_request_t *req)
         server_state_t      *state    = NULL;
         gfs3_lookup_req      args     = {{0,},};
         int                  ret      = -1;
+        gf_boolean_t         discover = _gf_false;
 
         GF_VALIDATE_OR_GOTO ("server", req, err);
 
@@ -6600,6 +6668,7 @@ server3_3_lookup (rpcsvc_request_t *req)
         } else {
                 set_resolve_gfid (frame->root->client,
                                   state->resolve.gfid, args.gfid);
+                discover = _gf_true;
         }
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
@@ -6609,10 +6678,22 @@ server3_3_lookup (rpcsvc_request_t *req)
                                       ret, out);
 
         ret = 0;
-        resolve_and_resume (frame, server_lookup_resume);
+
+#if DONT_WIND_DISCOVER_IN_LOOKUP
+        discover = _gf_false;
+#endif
+
+        if (!discover) {
+                resolve_and_resume (frame, server_lookup_resume);
+        } else {
+                frame->root->op = GF_FOP_DISCOVER;
+                resolve_and_resume (frame, server_discover_resume);
+        }
+        
 
         return ret;
 out:
+        /* Both lookup fop and discover fop get back to wire on lookup fop itself */
         server_lookup_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL,
                            NULL, NULL);
 	ret = 0;

@@ -120,6 +120,15 @@ typedef int32_t (*fop_lookup_cbk_t) (call_frame_t *frame,
                                      dict_t *xdata,
                                      struct iatt *postparent);
 
+typedef int32_t (*fop_discover_cbk_t) (call_frame_t *frame,
+                                       void *cookie,
+                                       xlator_t *this,
+                                       int32_t op_ret,
+                                       int32_t op_errno,
+                                       inode_t *inode,
+                                       struct iatt *buf,
+                                       dict_t *xdata);
+
 typedef int32_t (*fop_stat_cbk_t) (call_frame_t *frame,
                                    void *cookie,
                                    xlator_t *this,
@@ -472,6 +481,11 @@ typedef int32_t (*fop_lookup_t) (call_frame_t *frame,
                                  loc_t *loc,
                                  dict_t *xdata);
 
+typedef int32_t (*fop_discover_t) (call_frame_t *frame,
+                                 xlator_t *this,
+                                 loc_t *loc,
+                                 dict_t *xdata);
+
 typedef int32_t (*fop_stat_t) (call_frame_t *frame,
                                xlator_t *this,
                                loc_t *loc, dict_t *xdata);
@@ -785,6 +799,7 @@ struct xlator_fops {
         fop_compound_t       compound;
         fop_getactivelk_t    getactivelk;
         fop_setactivelk_t    setactivelk;
+        fop_discover_t       discover;
 
         /* these entries are used for a typechecking hack in STACK_WIND _only_ */
         /* make sure to add _cbk variables only after defining regular fops as
@@ -846,6 +861,7 @@ struct xlator_fops {
         fop_compound_cbk_t       compound_cbk;
         fop_getactivelk_cbk_t    getactivelk_cbk;
         fop_setactivelk_cbk_t    setactivelk_cbk;
+        fop_discover_cbk_t       discover_cbk;
 };
 
 typedef int32_t (*cbk_forget_t) (xlator_t *this,

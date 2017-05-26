@@ -32,6 +32,8 @@ sys_error_t error_no_list[] = {
         [GF_FOP_LOOKUP]            = { .error_no_count = 4,
                                     .error_no = {ENOENT,ENOTDIR,
                                                  ENAMETOOLONG,EAGAIN}},
+        [GF_FOP_DISCOVER]          = { .error_no_count = 3,
+                                    .error_no = {ENOENT,ESTALE,ENOTCONN}},
         [GF_FOP_STAT]              = { .error_no_count = 7,
                                     .error_no = {EACCES,EBADF,EFAULT,
                                                  ENAMETOOLONG,ENOENT,
@@ -346,6 +348,34 @@ error_gen_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 		    loc, xdata);
         return 0;
 }
+
+int
+error_gen_discover (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                    dict_t *xdata)
+{
+       int              op_errno = 0;
+        eg_t            *egp = NULL;
+        int              enable = 1;
+
+        egp = this->private;
+        enable = egp->enable[GF_FOP_DISCOVER];
+
+        if (enable)
+                op_errno = error_gen (this, GF_FOP_DISCOVER);
+
+       if (op_errno) {
+               GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
+               STACK_UNWIND_STRICT (discover, frame, -1, op_errno, NULL, NULL,
+                                     NULL);
+                return 0;
+       }
+
+       STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                        FIRST_CHILD(this)->fops->discover,
+                        loc, xdata);
+        return 0;
+}
+
 
 int
 error_gen_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
@@ -1671,6 +1701,8 @@ struct xlator_fops fops = {
         .setattr     = error_gen_setattr,
         .fsetattr    = error_gen_fsetattr,
 	.getspec     = error_gen_getspec,
+	.discover    = error_gen_discover,
+
 };
 
 struct volume_options options[] = {

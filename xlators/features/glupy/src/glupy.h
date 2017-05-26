@@ -38,6 +38,7 @@ enum {
         GLUPY_MKNOD,
         GLUPY_MKDIR,
         GLUPY_RMDIR,
+        GLUPY_DISCOVER,
         GLUPY_N_FUNCS
 };
 

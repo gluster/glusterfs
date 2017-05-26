@@ -1076,6 +1076,121 @@ red:
 
 
 int
+posix_acl_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int op_ret, int op_errno, inode_t *inode,
+                        struct iatt *buf, dict_t *xattr)
+{
+        struct posix_acl     *acl_access = NULL;
+        struct posix_acl     *acl_default = NULL;
+        struct posix_acl     *old_access = NULL;
+        struct posix_acl     *old_default = NULL;
+        data_t               *data = NULL;
+        int                   ret = 0;
+        dict_t               *my_xattr = NULL;
+
+        if (op_ret != 0)
+                goto unwind;
+
+        ret = posix_acl_get (inode, this, &old_access, &old_default);
+
+        data = dict_get (xattr, POSIX_ACL_ACCESS_XATTR);
+        if (!data)
+                goto acl_default;
+
+        if (old_access &&
+            posix_acl_matches_xattr (this, old_access, data->data,
+                                     data->len)) {
+                acl_access = posix_acl_ref (this, old_access);
+        } else {
+                acl_access = posix_acl_from_xattr (this, data->data,
+                                                   data->len);
+        }
+
+acl_default:
+        data = dict_get (xattr, POSIX_ACL_DEFAULT_XATTR);
+        if (!data)
+                goto acl_set;
+
+        if (old_default &&
+            posix_acl_matches_xattr (this, old_default, data->data,
+                                     data->len)) {
+                acl_default = posix_acl_ref (this, old_default);
+        } else {
+                acl_default = posix_acl_from_xattr (this, data->data,
+                                                    data->len);
+        }
+
+acl_set:
+        posix_acl_ctx_update (inode, this, buf, GF_FOP_DISCOVER);
+
+        ret = posix_acl_set (inode, this, acl_access, acl_default);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to set ACL in context");
+unwind:
+        my_xattr = frame->local;
+        frame->local = NULL;
+        STACK_UNWIND_STRICT (discover, frame, op_ret, op_errno,
+                             inode, buf, xattr);
+
+        if (acl_access)
+                posix_acl_unref (this, acl_access);
+        if (acl_default)
+                posix_acl_unref (this, acl_default);
+        if (old_access)
+                posix_acl_unref (this, old_access);
+        if (old_default)
+                posix_acl_unref (this, old_default);
+        if (my_xattr)
+                dict_unref (my_xattr);
+
+        return 0;
+}
+
+
+int
+posix_acl_discover (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                    dict_t *xattr)
+{
+        int      ret = 0;
+        dict_t  *my_xattr = NULL;
+
+        if (acl_permits (frame, loc->inode, POSIX_ACL_READ))
+                goto green;
+        else
+                goto red;
+
+green:
+        if (xattr) {
+                my_xattr = dict_ref (xattr);
+        } else {
+                my_xattr = dict_new ();
+        }
+
+        ret = dict_set_int8 (my_xattr, POSIX_ACL_ACCESS_XATTR, 0);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "failed to set key %s",
+                        POSIX_ACL_ACCESS_XATTR);
+
+        ret = dict_set_int8 (my_xattr, POSIX_ACL_DEFAULT_XATTR, 0);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING, "failed to set key %s",
+                        POSIX_ACL_DEFAULT_XATTR);
+
+        frame->local = my_xattr;
+        STACK_WIND (frame, posix_acl_discover_cbk,
+                    FIRST_CHILD (this), FIRST_CHILD (this)->fops->discover,
+                    loc, my_xattr);
+        return 0;
+red:
+        STACK_UNWIND_STRICT (discover, frame, -1, EACCES, NULL, NULL,
+                             NULL);
+
+        return 0;
+}
+
+
+int
 posix_acl_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int mask,
                   dict_t *xdata)
 {
@@ -2445,6 +2560,7 @@ fini (xlator_t *this)
 
 struct xlator_fops fops = {
         .lookup           = posix_acl_lookup,
+        .discover         = posix_acl_discover,
         .open             = posix_acl_open,
 #if FD_MODE_CHECK_IS_IMPLEMENTED
         .readv            = posix_acl_readv,

@@ -127,6 +127,8 @@ int32_t default_lookup (call_frame_t *frame,
                         xlator_t *this,
                         loc_t *loc,
                         dict_t *xdata);
+int32_t default_discover (call_frame_t *frame, xlator_t *this,
+                          loc_t *loc, dict_t *xdata);
 
 int32_t default_stat (call_frame_t *frame,
                       xlator_t *this,
@@ -370,6 +372,10 @@ int32_t default_lookup_resume (call_frame_t *frame,
                                xlator_t *this,
                                loc_t *loc,
                                dict_t *xdata);
+int32_t default_discover_resume (call_frame_t *frame,
+                                 xlator_t *this,
+                                 loc_t *loc,
+                                 dict_t *xdata);
 
 int32_t default_stat_resume (call_frame_t *frame,
                       xlator_t *this,
@@ -902,6 +908,11 @@ default_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     struct iatt *buf, dict_t *xdata, struct iatt *postparent);
 
 int32_t
+default_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, inode_t *inode,
+                      struct iatt *buf, dict_t *xdata);
+
+int32_t
 default_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct iatt *buf, dict_t *xdata);
 
@@ -1294,6 +1305,9 @@ default_getactivelk_failure_cbk (call_frame_t *frame, int32_t op_errno);
 
 int32_t
 default_setactivelk_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_discover_failure_cbk (call_frame_t *frame, int32_t op_errno);
 
 int32_t
 default_mem_acct_init (xlator_t *this);

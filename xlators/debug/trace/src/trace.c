@@ -632,6 +632,53 @@ out:
 }
 
 int
+trace_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno,
+                    inode_t *inode, struct iatt *buf,
+                    dict_t *xdata)
+{
+        char          statstr[4096]       = {0, };
+        trace_conf_t  *conf               = NULL;
+
+        conf = this->private;
+
+        if (!conf->log_file && !conf->log_history)
+		goto out;
+        if (trace_fop_names[GF_FOP_DISCOVER].enabled) {
+                char  string[4096] = {0,};
+                if (op_ret == 0) {
+                        trace_stat_to_str (buf, statstr, sizeof (statstr));
+                        /* print buf->ia_gfid instead of inode->gfid,
+                         * since if the inode is not yet linked to the
+                         * inode table (fresh lookup) then null gfid
+                         * will be printed.
+                         */
+                        snprintf (string, sizeof (string),
+                                  "%"PRId64": gfid=%s (op_ret=%d "
+                                  "*buf {%s}",
+                                  frame->root->unique,
+                                  uuid_utoa (buf->ia_gfid),
+                                  op_ret, statstr);
+
+                        /* For 'forget' */
+                        inode_ctx_put (inode, this, 0);
+                } else {
+                        snprintf (string, sizeof (string),
+                                  "%"PRId64": gfid=%s op_ret=%d, "
+                                  "op_errno=%d)",
+                                  frame->root->unique,
+                                  uuid_utoa (frame->local), op_ret,
+                                  op_errno);
+                }
+                LOG_ELEMENT (conf, string);
+        }
+out:
+        TRACE_STACK_UNWIND (discover, frame, op_ret, op_errno, inode, buf,
+                            xdata);
+        return 0;
+}
+
+int
 trace_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno,
                    inode_t *inode, struct iatt *buf,
@@ -1734,6 +1781,38 @@ out:
         STACK_WIND (frame, trace_lookup_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup,
+                    loc, xdata);
+
+        return 0;
+}
+
+int
+trace_discover (call_frame_t *frame, xlator_t *this,
+                loc_t *loc, dict_t *xdata)
+{
+        trace_conf_t *conf = NULL;
+
+        conf = this->private;
+
+        if (!conf->log_file && !conf->log_history)
+		goto out;
+        if (trace_fop_names[GF_FOP_DISCOVER].enabled) {
+                char string[4096] = {0,};
+                /* TODO: print all the keys mentioned in xattr_req */
+                snprintf (string, sizeof (string),
+                          "%"PRId64": gfid=%s path=%s",
+                          frame->root->unique,
+                          uuid_utoa (loc->inode->gfid), loc->path);
+
+                frame->local = loc->inode->gfid;
+
+                LOG_ELEMENT (conf, string);
+        }
+
+out:
+        STACK_WIND (frame, trace_discover_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->discover,
                     loc, xdata);
 
         return 0;
@@ -3326,6 +3405,7 @@ struct xlator_fops fops = {
         .setattr     = trace_setattr,
         .fsetattr    = trace_fsetattr,
         .seek        = trace_seek,
+        .discover    = trace_discover,
 };
 
 struct xlator_cbks cbks = {

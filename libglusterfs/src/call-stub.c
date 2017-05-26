@@ -78,6 +78,55 @@ out:
         return stub;
 }
 
+call_stub_t *
+fop_discover_stub (call_frame_t *frame, fop_discover_t fn, loc_t *loc,
+                   dict_t *xdata)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+        GF_VALIDATE_OR_GOTO ("call-stub", loc, out);
+
+        stub = stub_new (frame, 1, GF_FOP_DISCOVER);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->fn.discover = fn;
+
+        loc_copy (&stub->args.loc, loc);
+        if (xdata)
+                stub->args.xdata = dict_ref (xdata);
+
+out:
+        return stub;
+}
+
+
+call_stub_t *
+fop_discover_cbk_stub (call_frame_t *frame, fop_discover_cbk_t fn,
+                       int32_t op_ret, int32_t op_errno,
+                       inode_t *inode, struct iatt *buf,
+                       dict_t *xdata)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+
+        stub = stub_new (frame, 0, GF_FOP_DISCOVER);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->fn_cbk.discover = fn;
+        stub->args_cbk.op_ret = op_ret;
+        stub->args_cbk.op_errno = op_errno;
+        if (inode)
+                stub->args_cbk.inode = inode_ref (inode);
+        if (buf)
+                stub->args_cbk.stat = *buf;
+        if (xdata)
+                stub->args_cbk.xdata = dict_ref (xdata);
+out:
+        return stub;
+}
+
 
 call_stub_t *
 fop_stat_stub (call_frame_t *frame, fop_stat_t fn,
@@ -2149,6 +2198,10 @@ call_resume_wind (call_stub_t *stub)
                 stub->fn.lookup (stub->frame, stub->frame->this,
 				 &stub->args.loc, stub->args.xdata);
                 break;
+        case GF_FOP_DISCOVER:
+                stub->fn.discover (stub->frame, stub->frame->this,
+                                   &stub->args.loc, stub->args.xdata);
+                break;
         case GF_FOP_RCHECKSUM:
                 stub->fn.rchecksum (stub->frame, stub->frame->this,
 				    stub->args.fd, stub->args.offset,
@@ -2391,6 +2444,10 @@ call_resume_unwind (call_stub_t *stub)
 		STUB_UNWIND (stub, lookup, stub->args_cbk.inode,
 			     &stub->args_cbk.stat, stub->args_cbk.xdata,
 			     &stub->args_cbk.postparent);
+                break;
+        case GF_FOP_DISCOVER:
+		STUB_UNWIND (stub, discover, stub->args_cbk.inode,
+			     &stub->args_cbk.stat, stub->args_cbk.xdata);
                 break;
         case GF_FOP_RCHECKSUM:
 		STUB_UNWIND (stub, rchecksum, stub->args_cbk.weak_checksum,

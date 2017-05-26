@@ -17,7 +17,6 @@
 #define LLONG_MAX __LONG_LONG_MAX__ /* compat with old gcc */
 #endif /* LLONG_MAX */
 
-
 #ifdef GF_LINUX_HOST_OS
 
 #define UNIX_PATH_MAX 108

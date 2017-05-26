@@ -933,6 +933,11 @@ int32_t dht_lookup (call_frame_t *frame,
                     loc_t    *loc,
                     dict_t   *xattr_req);
 
+int32_t dht_discover (call_frame_t *frame,
+                      xlator_t *this,
+                      loc_t    *loc,
+                      dict_t   *xattr);
+
 int32_t dht_stat (call_frame_t *frame,
                   xlator_t *this,
                   loc_t    *loc, dict_t *xdata);
