@@ -1573,6 +1573,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "ios-sample-interval",
           .op_version  = 1
         },
+        { .key        = "diagnostics.stats-dump-format",
+          .voltype    = "debug/io-stats",
+          .option     = "ios-dump-format",
+          .op_version = GD_OP_VERSION_3_12_0,
+        },
         { .key         = "diagnostics.fop-sample-buf-size",
           .voltype     = "debug/io-stats",
           .option      = "ios-sample-buf-size",
