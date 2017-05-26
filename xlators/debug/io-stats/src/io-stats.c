@@ -130,6 +130,15 @@ struct ios_global_stats {
         struct timeval  max_openfd_time;
 };
 
+typedef enum {
+        IOS_DUMP_TYPE_NONE      = 0,
+        IOS_DUMP_TYPE_FILE      = 1,
+        IOS_DUMP_TYPE_DICT      = 2,
+        IOS_DUMP_TYPE_JSON_FILE = 3,
+        IOS_DUMP_TYPE_SAMPLES   = 4,
+        IOS_DUMP_TYPE_MAX       = 5
+} ios_dump_type_t;
+
 struct ios_conf {
         gf_lock_t                 lock;
         struct ios_global_stats   cumulative;
@@ -161,6 +170,8 @@ struct ios_conf {
          * all of the cases where "xlator_name" is used as a *variable* name.
          */
         char                      *unique_id;
+        ios_dump_type_t            dump_format;
+        char                      *dump_format_str;
 };
 
 
@@ -172,15 +183,6 @@ struct ios_fd {
         gf_atomic_t     block_count_read[IOS_BLOCK_COUNT_SIZE];
         struct timeval  opened_at;
 };
-
-typedef enum {
-        IOS_DUMP_TYPE_NONE      = 0,
-        IOS_DUMP_TYPE_FILE      = 1,
-        IOS_DUMP_TYPE_DICT      = 2,
-        IOS_DUMP_TYPE_JSON_FILE = 3,
-        IOS_DUMP_TYPE_SAMPLES   = 4,
-        IOS_DUMP_TYPE_MAX       = 5
-} ios_dump_type_t;
 
 struct ios_dump_args {
         ios_dump_type_t type;
@@ -3161,7 +3163,7 @@ _ios_dump_thread (xlator_t *this) {
                 stats_logfp = fopen (stats_filename, "w+");
                 if (stats_logfp) {
                         (void) ios_dump_args_init (&args,
-                                                   IOS_DUMP_TYPE_JSON_FILE,
+                                                   conf->dump_format,
                                                    stats_logfp);
                         io_stats_dump (this, &args, GF_CLI_INFO_ALL, _gf_false);
                         fclose (stats_logfp);
@@ -3773,6 +3775,19 @@ io_priv (xlator_t *this)
         return 0;
 }
 
+static void
+ios_set_log_format_code (struct ios_conf *conf)
+{
+        if (strcmp (conf->dump_format_str, "json") == 0)
+                conf->dump_format = IOS_DUMP_TYPE_JSON_FILE;
+        else if (strcmp (conf->dump_format_str, "text") == 0)
+                conf->dump_format = IOS_DUMP_TYPE_FILE;
+        else if (strcmp (conf->dump_format_str, "dict") == 0)
+                conf->dump_format = IOS_DUMP_TYPE_DICT;
+        else if (strcmp (conf->dump_format_str, "samples") == 0)
+                conf->dump_format = IOS_DUMP_TYPE_SAMPLES;
+}
+
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
@@ -3814,6 +3829,9 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("ios-sample-interval", conf->ios_sample_interval,
                          options, int32, out);
+        GF_OPTION_RECONF ("ios-dump-format", conf->dump_format_str, options,
+                          str, out);
+        ios_set_log_format_code (conf);
         GF_OPTION_RECONF ("ios-sample-buf-size", conf->ios_sample_buf_size,
                          options, int32, out);
         GF_OPTION_RECONF ("sys-log-level", sys_log_str, options, str, out);
@@ -3979,6 +3997,9 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("ios-sample-interval", conf->ios_sample_interval,
                         int32, out);
+
+        GF_OPTION_INIT ("ios-dump-format", conf->dump_format_str, str, out);
+        ios_set_log_format_code (conf);
 
         GF_OPTION_INIT ("ios-sample-buf-size", conf->ios_sample_buf_size,
                         int32, out);
@@ -4289,6 +4310,15 @@ struct volume_options options[] = {
           .default_value = "0",
           .description = "Interval in which we want to collect FOP latency "
                          "samples.  2 means collect a sample every 2nd FOP."
+        },
+        { .key = {"ios-dump-format"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = "json",
+          .description = " The dump-format option specifies the format in which"
+                         " to dump the statistics. Select between \"text\", "
+                         "\"json\", \"dict\" and \"samples\". Default is "
+                         "\"json\".",
+          .value       = { "text", "json", "dict", "samples"}
         },
         { .key  = { "ios-sample-buf-size" },
           .type = GF_OPTION_TYPE_INT,
