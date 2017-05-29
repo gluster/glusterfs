@@ -3869,7 +3869,7 @@ reconfigure (rpc_transport_t *this, dict_t *options)
 
         priv = this->private;
 
-        if (dict_get_str (this->options, "transport.socket.keepalive",
+        if (dict_get_str (options, "transport.socket.keepalive",
                           &optstr) == 0) {
                 if (gf_string2boolean (optstr, &tmp_bool) == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -3886,33 +3886,33 @@ reconfigure (rpc_transport_t *this, dict_t *options)
         else
                 priv->keepalive = 1;
 
-        if (dict_get_int32 (this->options, "transport.tcp-user-timeout",
+        if (dict_get_int32 (options, "transport.tcp-user-timeout",
                             &(priv->timeout)) != 0)
                 priv->timeout = timeout;
         gf_log (this->name, GF_LOG_DEBUG, "Reconfigued "
                 "transport.tcp-user-timeout=%d", priv->timeout);
 
-        if (dict_get_int32 (this->options, "transport.socket.keepalive-time",
+        if (dict_get_int32 (options, "transport.socket.keepalive-time",
                             &(priv->keepaliveidle)) != 0)
                 priv->keepaliveidle = keepaliveidle;
         gf_log (this->name, GF_LOG_DEBUG, "Reconfigued "
                 "transport.socket.keepalive-time=%d", priv->keepaliveidle);
 
-        if (dict_get_int32 (this->options,
+        if (dict_get_int32 (options,
                             "transport.socket.keepalive-interval",
                             &(priv->keepaliveintvl)) != 0)
                 priv->keepaliveintvl = keepaliveintvl;
         gf_log (this->name, GF_LOG_DEBUG, "Reconfigued "
                 "transport.socket.keepalive-interval=%d", priv->keepaliveintvl);
 
-        if (dict_get_int32 (this->options, "transport.socket.keepalive-count",
+        if (dict_get_int32 (options, "transport.socket.keepalive-count",
                             &(priv->keepalivecnt)) != 0)
                 priv->keepalivecnt = keepalivecnt;
         gf_log (this->name, GF_LOG_DEBUG, "Reconfigued "
                 "transport.socket.keepalive-count=%d", priv->keepalivecnt);
 
         optstr = NULL;
-        if (dict_get_str (this->options, "tcp-window-size",
+        if (dict_get_str (options, "tcp-window-size",
                           &optstr) == 0) {
                 if (gf_string2uint64 (optstr, &windowsize) != 0) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -3923,8 +3923,8 @@ reconfigure (rpc_transport_t *this, dict_t *options)
 
         priv->windowsize = (int)windowsize;
 
-        if (dict_get (this->options, "non-blocking-io")) {
-                optstr = data_to_str (dict_get (this->options,
+        if (dict_get (options, "non-blocking-io")) {
+                optstr = data_to_str (dict_get (options,
                                                 "non-blocking-io"));
 
                 if (gf_string2boolean (optstr, &tmp_bool) == -1) {
