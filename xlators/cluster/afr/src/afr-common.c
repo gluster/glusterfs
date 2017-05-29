@@ -1156,7 +1156,7 @@ refresh_done:
 }
 
 int
-afr_inode_refresh_done (call_frame_t *frame, xlator_t *this)
+afr_inode_refresh_done (call_frame_t *frame, xlator_t *this, int error)
 {
 	call_frame_t *heal_frame = NULL;
 	afr_local_t *local = NULL;
@@ -1165,6 +1165,11 @@ afr_inode_refresh_done (call_frame_t *frame, xlator_t *this)
         int op_errno = ENOMEM;
 	int ret = 0;
 	int err = 0;
+
+	if (error != 0) {
+		err = error;
+		goto refresh_done;
+	}
 
 	local = frame->local;
 
@@ -1229,7 +1234,7 @@ afr_inode_refresh_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_count = afr_frame_return (frame);
         if (call_count == 0) {
                 afr_set_need_heal (this, local);
-		afr_inode_refresh_done (frame, this);
+		afr_inode_refresh_done (frame, this, 0);
         }
 
 }
@@ -1320,20 +1325,21 @@ afr_inode_refresh_do (call_frame_t *frame, xlator_t *this)
         if (local->fd) {
                 fd_ctx = afr_fd_ctx_get (local->fd, this);
                 if (!fd_ctx) {
-                        afr_inode_refresh_done (frame, this);
+                        afr_inode_refresh_done (frame, this, EINVAL);
                         return 0;
                 }
         }
 
 	xdata = dict_new ();
 	if (!xdata) {
-		afr_inode_refresh_done (frame, this);
+		afr_inode_refresh_done (frame, this, ENOMEM);
 		return 0;
 	}
 
-	if (afr_xattr_req_prepare (this, xdata) != 0) {
+	ret = afr_xattr_req_prepare (this, xdata);
+	if (ret != 0) {
 		dict_unref (xdata);
-		afr_inode_refresh_done (frame, this);
+		afr_inode_refresh_done (frame, this, -ret);
 		return 0;
 	}
 
@@ -1366,7 +1372,10 @@ afr_inode_refresh_do (call_frame_t *frame, xlator_t *this)
 	call_count = local->call_count;
         if (!call_count) {
                 dict_unref (xdata);
-                afr_inode_refresh_done (frame, this);
+		if (local->fd)
+	                afr_inode_refresh_done (frame, this, EBADFD);
+		else
+	                afr_inode_refresh_done (frame, this, ENOTCONN);
                 return 0;
         }
 	for (i = 0; i < priv->child_count; i++) {
