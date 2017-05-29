@@ -3385,7 +3385,6 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (ret < 0) {
                 gf_msg (this->name, GF_LOG_WARNING, ret, P_MSG_PFD_NULL,
                         "pfd is NULL from fd=%p", fd);
-                op_errno = -ret;
                 goto out;
         }
 
@@ -5916,7 +5915,6 @@ posix_fstat (call_frame_t *frame, xlator_t *this,
         if (ret < 0) {
                 gf_msg (this->name, GF_LOG_WARNING, op_errno, P_MSG_PFD_NULL,
                         "pfd is NULL, fd=%p", fd);
-                op_errno = -ret;
                 goto out;
         }
 
@@ -6348,7 +6346,7 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
 
         ret = posix_fd_ctx_get (fd, this, &pfd, &op_errno);
         if (ret < 0) {
-                gf_msg (this->name, GF_LOG_WARNING, -ret, P_MSG_PFD_NULL,
+                gf_msg (this->name, GF_LOG_WARNING, op_errno, P_MSG_PFD_NULL,
                         "pfd is NULL, fd=%p", fd);
                 goto out;
         }
