@@ -427,7 +427,8 @@ server_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_errno, PS_MSG_ACCESS_INFO,
                         "%"PRId64": ACCESS %s (%s), client: %s, "
                         "error-xlator: %s", frame->root->unique,
-                        state->loc.path, uuid_utoa (state->resolve.gfid),
+                        (state->loc.path) ? state->loc.path : "",
+                        uuid_utoa (state->resolve.gfid),
                         STACK_CLIENT_NAME (frame->root),
                         STACK_ERR_XL_NAME (frame->root));
                 goto out;
@@ -1106,7 +1107,8 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret < 0) {
                 gf_msg (this->name, GF_LOG_INFO, op_errno, PS_MSG_LINK_INFO,
                         "%"PRId64": SYMLINK %s (%s/%s), client: %s, "
-                        "error-xlator:%s", frame->root->unique, state->loc.path,
+                        "error-xlator:%s", frame->root->unique,
+                        (state->loc.path) ? state->loc.path : "",
                         uuid_utoa (state->resolve.pargfid),
                         state->resolve.bname,
                         STACK_CLIENT_NAME (frame->root),
@@ -1650,7 +1652,8 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_msg (this->name, fop_log_level (GF_FOP_STAT, op_errno),
                         op_errno, PS_MSG_STAT_INFO,
                         "%"PRId64": STAT %s (%s), client: %s, error-xlator: %s",
-                        frame->root->unique, state->loc.path,
+                        frame->root->unique,
+                        (state->loc.path) ? state->loc.path : "",
                         uuid_utoa (state->resolve.gfid),
                         STACK_CLIENT_NAME (frame->root),
                         STACK_ERR_XL_NAME (frame->root));
@@ -1689,7 +1692,8 @@ server_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_msg (this->name, GF_LOG_INFO, op_errno, PS_MSG_SETATTR_INFO,
                         "%"PRId64": SETATTR %s (%s), client: %s, "
                         "error-xlator: %s", frame->root->unique,
-                        state->loc.path, uuid_utoa (state->resolve.gfid),
+                        (state->loc.path) ? state->loc.path : "",
+                        uuid_utoa (state->resolve.gfid),
                         STACK_CLIENT_NAME (frame->root),
                         STACK_ERR_XL_NAME (frame->root));
                 goto out;
