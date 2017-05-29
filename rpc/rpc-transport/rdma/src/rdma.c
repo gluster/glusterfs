@@ -4499,6 +4499,12 @@ gf_rdma_options_init (rpc_transport_t *this)
         options->attr_retry_cnt = GF_RDMA_RETRY_CNT;
         options->attr_rnr_retry = GF_RDMA_RNR_RETRY;
 
+        temp = dict_get (this->options, "transport.listen-backlog");
+        if (temp)
+                options->backlog = data_to_uint32 (temp);
+        else
+                options->backlog = GLUSTERFS_SOCKET_LISTEN_BACKLOG;
+
         temp = dict_get (this->options,
                          "transport.rdma.work-request-send-count");
         if (temp)
@@ -4635,6 +4641,7 @@ gf_rdma_init (rpc_transport_t *this)
         priv->peer.recv_count = options->recv_count;
         priv->peer.send_size = options->send_size;
         priv->peer.recv_size = options->recv_size;
+        priv->backlog = options->backlog;
 
         priv->peer.trans = this;
         INIT_LIST_HEAD (&priv->peer.ioq);
@@ -4848,7 +4855,8 @@ gf_rdma_listen (rpc_transport_t *this)
                 goto err;
         }
 
-        ret = rdma_listen (peer->cm_id, 10);
+        ret = rdma_listen (peer->cm_id, priv->backlog);
+
         if (ret != 0) {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
                         RDMA_MSG_LISTEN_FAILED,
@@ -4919,6 +4927,28 @@ init (rpc_transport_t *this)
         return 0;
 }
 
+int
+reconfigure (rpc_transport_t *this, dict_t *options)
+{
+        gf_rdma_private_t *priv          = NULL;
+        uint32_t          backlog        = 0;
+        int               ret            = -1;
+
+        GF_VALIDATE_OR_GOTO ("rdma", this, out);
+        GF_VALIDATE_OR_GOTO ("rdma", this->private, out);
+
+        priv = this->private;
+
+        if (dict_get_uint32 (options, "transport.listen-backlog",
+                             &backlog) == 0) {
+                priv->backlog = backlog;
+                gf_log (this->name, GF_LOG_DEBUG, "Reconfigued "
+                        "transport.listen-backlog=%d", priv->backlog);
+        }
+        ret = 0;
+out:
+        return ret;
+}
 void
 fini (struct rpc_transport *this)
 {

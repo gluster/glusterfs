@@ -1606,6 +1606,10 @@ struct volume_options options[] = {
                     "socket*([ \t]),*([ \t])rdma"},
           .type  = GF_OPTION_TYPE_STR
         },
+        { .key   = {"transport.listen-backlog"},
+          .type  = GF_OPTION_TYPE_INT,
+          .default_value = "10",
+        },
         { .key   = {"volume-filename.*"},
           .type  = GF_OPTION_TYPE_PATH,
         },

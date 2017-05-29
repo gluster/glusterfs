@@ -40,7 +40,6 @@
 #include "events.h"
 
 #define GLUSTERD_TR_LOG_SIZE            50
-#define GLUSTERD_SOCKET_LISTEN_BACKLOG  128
 #define GLUSTERD_QUORUM_TYPE_KEY        "cluster.server-quorum-type"
 #define GLUSTERD_QUORUM_RATIO_KEY       "cluster.server-quorum-ratio"
 #define GLUSTERD_GLOBAL_OPT_VERSION     "global-option-version"

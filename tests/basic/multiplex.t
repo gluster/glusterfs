@@ -31,6 +31,8 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT 2 count_up_bricks
 EXPECT 1 count_brick_processes
 
 TEST $CLI volume stop $V0
+#Testing the volume set command introduced for protocol/server
+TEST $CLI volume set $V0 transport.listen-backlog 1024
 EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 0 count_brick_processes
 TEST $CLI volume start $V0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 2 count_up_bricks

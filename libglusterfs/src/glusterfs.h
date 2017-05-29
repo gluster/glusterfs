@@ -72,6 +72,7 @@
 #endif
 
 #define GLUSTERD_MAX_SNAP_NAME  255
+#define GLUSTERFS_SOCKET_LISTEN_BACKLOG  10
 #define ZR_MOUNTPOINT_OPT       "mountpoint"
 #define ZR_ATTR_TIMEOUT_OPT     "attribute-timeout"
 #define ZR_ENTRY_TIMEOUT_OPT    "entry-timeout"
