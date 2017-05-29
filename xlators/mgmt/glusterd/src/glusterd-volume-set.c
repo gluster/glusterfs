@@ -715,6 +715,52 @@ out:
 }
 
 static int
+validate_server_options (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
+                         char *value, char **op_errstr)
+{
+        char                 errstr[2048]  = "";
+        xlator_t            *this          = NULL;
+        int                  ret           = -1;
+        int                  origin_val    = 0;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        if (volinfo->status == GLUSTERD_STATUS_STARTED) {
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        GD_MSG_VOL_SET_VALIDATION_INFO, "Please note that "
+                        "volume %s is started. This option will only get "
+                        "effected after a brick restart.", volinfo->volname);
+        }
+
+        ret = gf_string2int (value, &origin_val);
+        if (ret) {
+                snprintf (errstr, sizeof (errstr), "%s is not a compatible "
+                          "value. %s expects an integer value.", value, key);
+                ret = -1;
+                goto out;
+        }
+
+        if (origin_val < 0) {
+                snprintf (errstr, sizeof (errstr), "%s is not a "
+                          "compatible value. %s expects a positive"
+                          "integer value.", value, key);
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+out:
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_INCOMPATIBLE_VALUE, "%s", errstr);
+                *op_errstr = gf_strdup (errstr);
+        }
+
+        return ret;
+}
+
+static int
 validate_stripe (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                  char *value, char **op_errstr)
 {
@@ -1968,6 +2014,16 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "transport.socket.keepalive-count",
           .op_version  = GD_OP_VERSION_3_10_2,
           .value       = "9",
+        },
+        { .key         = "transport.listen-backlog",
+          .voltype     = "protocol/server",
+          .option      = "transport.listen-backlog",
+          .op_version  = GD_OP_VERSION_3_11_1,
+          .validate_fn = validate_server_options,
+          .description = "This option uses the value of backlog argument that "
+                         "defines the maximum length to which the queue of "
+                         "pending connections for socket fd may grow.",
+          .value       = "10",
         },
 
         /* Generic transport options */

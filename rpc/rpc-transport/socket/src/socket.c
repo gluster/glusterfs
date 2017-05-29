@@ -3536,10 +3536,7 @@ socket_listen (rpc_transport_t *this)
                         goto unlock;
                 }
 
-                if (priv->backlog)
-                        ret = listen (priv->sock, priv->backlog);
-                else
-                        ret = listen (priv->sock, 10);
+                ret = listen (priv->sock, priv->backlog);
 
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -3853,6 +3850,7 @@ reconfigure (rpc_transport_t *this, dict_t *options)
         gf_boolean_t      tmp_bool      = _gf_false;
         char             *optstr        = NULL;
         int               ret           = 0;
+        uint32_t          backlog       = 0;
         uint64_t          windowsize    = 0;
         uint32_t          timeout       = 0;
         int               keepaliveidle  = GF_KEEPALIVE_TIME;
@@ -3891,6 +3889,13 @@ reconfigure (rpc_transport_t *this, dict_t *options)
                 priv->timeout = timeout;
         gf_log (this->name, GF_LOG_DEBUG, "Reconfigued "
                 "transport.tcp-user-timeout=%d", priv->timeout);
+
+        if (dict_get_uint32 (options, "transport.listen-backlog",
+                             &backlog) == 0) {
+                priv->backlog = backlog;
+                gf_log (this->name, GF_LOG_DEBUG, "Reconfigued "
+                        "transport.listen-backlog=%d", priv->backlog);
+        }
 
         if (dict_get_int32 (options, "transport.socket.keepalive-time",
                             &(priv->keepaliveidle)) != 0)
@@ -4190,10 +4195,12 @@ socket_init (rpc_transport_t *this)
                 "transport.keepalivecnt=%d", keepalivecnt);
 
         if (dict_get_uint32 (this->options,
-                             "transport.socket.listen-backlog",
-                             &backlog) == 0) {
-                priv->backlog = backlog;
+                             "transport.listen-backlog",
+                             &backlog) != 0) {
+
+                backlog = GLUSTERFS_SOCKET_LISTEN_BACKLOG;
         }
+        priv->backlog = backlog;
 
         optstr = NULL;
 
@@ -4611,9 +4618,6 @@ struct volume_options options[] = {
         { .key   = {"transport.socket.keepalive-count"},
           .type  = GF_OPTION_TYPE_INT,
           .default_value = "9"
-        },
-        { .key   = {"transport.socket.listen-backlog"},
-          .type  = GF_OPTION_TYPE_INT
         },
         { .key   = {"transport.socket.read-fail-log"},
           .type  = GF_OPTION_TYPE_BOOL

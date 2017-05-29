@@ -41,7 +41,7 @@
 
 #define GLUSTERD_COMP_BASE      GLFS_MSGID_GLUSTERD
 
-#define GLFS_NUM_MESSAGES       601
+#define GLFS_NUM_MESSAGES       602
 
 #define GLFS_MSGID_END          (GLUSTERD_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
@@ -4860,6 +4860,14 @@
  *
  */
 #define GD_MSG_PIDFILE_UNLINKING                   (GLUSTERD_COMP_BASE + 601)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_VOL_SET_VALIDATION_INFO             (GLUSTERD_COMP_BASE + 602)
 
 /*------------*/
 

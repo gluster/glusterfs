@@ -462,14 +462,12 @@ glusterd_rpcsvc_options_build (dict_t *options)
         int             ret = 0;
         uint32_t        backlog = 0;
 
-        ret = dict_get_uint32 (options, "transport.socket.listen-backlog",
-                               &backlog);
+        ret = dict_get_uint32 (options, "transport.listen-backlog", &backlog);
 
         if (ret) {
-                backlog = GLUSTERD_SOCKET_LISTEN_BACKLOG;
+                backlog = GLUSTERFS_SOCKET_LISTEN_BACKLOG;
                 ret = dict_set_uint32 (options,
-                                      "transport.socket.listen-backlog",
-                                      backlog);
+                                      "transport.listen-backlog", backlog);
                 if (ret)
                         goto out;
         }
