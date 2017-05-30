@@ -94,7 +94,7 @@ check_backport()
         # NOTE: If master was not rebased, we will not find the Change-ID and
         # could hit a false positive case here (or if someone checks out some
         # other branch as master).
-        if [ $mchangeid = $changeid ]; then
+        if [ "${mchangeid}" = "${changeid}" ]; then
             moveon="Y"
         else
             backport_id_message;
