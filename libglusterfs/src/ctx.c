@@ -49,6 +49,9 @@ glusterfs_ctx_new ()
 		ctx = NULL;
 	}
 
+        GF_ATOMIC_INIT (ctx->stats.max_dict_pairs, 0);
+        GF_ATOMIC_INIT (ctx->stats.total_pairs_used, 0);
+        GF_ATOMIC_INIT (ctx->stats.total_dicts_used, 0);
 out:
 	return ctx;
 }

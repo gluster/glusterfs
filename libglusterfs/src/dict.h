@@ -91,6 +91,7 @@ struct _dict {
         data_pair_t    *members_internal;
         data_pair_t     free_pair;
         gf_boolean_t    free_pair_in_use;
+        uint32_t        max_count;
 };
 
 typedef gf_boolean_t (*dict_match_t) (dict_t *d, char *k, data_t *v,
