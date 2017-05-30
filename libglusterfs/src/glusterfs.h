@@ -37,6 +37,7 @@
 #include "lkowner.h"
 #include "compat-uuid.h"
 #include "refcount.h"
+#include "atomic.h"
 
 #define GF_YES 1
 #define GF_NO  0
@@ -522,6 +523,13 @@ struct _glusterfs_ctx {
         struct gf_ctx_tw   *tw; /* refcounted timer_wheel */
 
         gf_lock_t           volfile_lock;
+
+
+        struct {
+                gf_atomic_t max_dict_pairs;
+                gf_atomic_t total_pairs_used;
+                gf_atomic_t total_dicts_used;
+        } stats;
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 

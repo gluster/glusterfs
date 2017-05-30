@@ -407,6 +407,9 @@ dict_set_lk (dict_t *this, char *key, data_t *value, gf_boolean_t replace)
 
         if (key_free)
                 GF_FREE (key);
+
+        if (this->max_count < this->count)
+                this->max_count = this->count;
         return 0;
 }
 
@@ -575,6 +578,9 @@ dict_destroy (dict_t *this)
 
         data_pair_t *pair = this->members_list;
         data_pair_t *prev = this->members_list;
+        glusterfs_ctx_t *ctx = NULL;
+        uint32_t total_pairs = 0;
+        uint64_t current_max = 0;
 
         LOCK_DESTROY (&this->lock);
 
@@ -585,6 +591,7 @@ dict_destroy (dict_t *this)
                 if (prev != &this->free_pair) {
                         mem_put (prev);
                 }
+                total_pairs++;
                 prev = pair;
         }
 
@@ -594,6 +601,24 @@ dict_destroy (dict_t *this)
 
         GF_FREE (this->extra_free);
         free (this->extra_stdfree);
+
+        /* update 'ctx->stats.dict.details' using max_count */
+        ctx = THIS->ctx;
+
+        /* NOTE: below logic is not totaly race proof */
+        /* thread0 and thread1 gets current_max as 10 */
+        /* thread0 has 'this->max_count as 11 */
+        /* thread1 has 'this->max_count as 20 */
+        /* thread1 goes ahead and sets the max_dict_pairs to 20 */
+        /* thread0 then goes and sets it to 11 */
+        /* As it is for information purpose only, no functionality will be
+           broken by this, but a point to consider about ATOMIC macros. */
+        current_max = GF_ATOMIC_GET (ctx->stats.max_dict_pairs);
+        if (current_max < this->max_count)
+                GF_ATOMIC_INIT (ctx->stats.max_dict_pairs, this->max_count);
+
+        GF_ATOMIC_ADD (ctx->stats.total_pairs_used, total_pairs);
+        GF_ATOMIC_INC (ctx->stats.total_dicts_used);
 
         if (!this->is_static)
                 mem_put (this);

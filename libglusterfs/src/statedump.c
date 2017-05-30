@@ -467,6 +467,23 @@ gf_proc_dump_mempool_info_to_dict (glusterfs_ctx_t *ctx, dict_t *dict)
 void gf_proc_dump_latency_info (xlator_t *xl);
 
 void
+gf_proc_dump_dict_info (glusterfs_ctx_t *ctx)
+{
+        uint64_t total_dicts = 0;
+        uint64_t total_pairs = 0;
+
+        total_dicts = GF_ATOMIC_GET (ctx->stats.total_dicts_used);
+        total_pairs = GF_ATOMIC_GET (ctx->stats.total_pairs_used);
+
+        gf_proc_dump_write ("max-pairs-per-dict", "%u",
+                            GF_ATOMIC_GET (ctx->stats.max_dict_pairs));
+        gf_proc_dump_write ("total-pairs-used", "%lu", total_pairs);
+        gf_proc_dump_write ("total-dicts-used", "%lu", total_dicts);
+        gf_proc_dump_write ("average-pairs-per-dict", "%lu",
+                            (total_pairs / total_dicts));
+}
+
+void
 gf_proc_dump_xlator_info (xlator_t *top)
 {
         xlator_t        *trav = NULL;
@@ -826,6 +843,10 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
                 iobuf_stats_dump (ctx->iobuf_pool);
         if (GF_PROC_DUMP_IS_OPTION_ENABLED (callpool))
                 gf_proc_dump_pending_frames (ctx->pool);
+
+        /* dictionary stats */
+        gf_proc_dump_add_section ("dict");
+        gf_proc_dump_dict_info (ctx);
 
         if (ctx->master) {
                 gf_proc_dump_add_section ("fuse");
