@@ -2168,6 +2168,51 @@ out:
         return 0;
 }
 
+static int
+trace_seek_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, off_t offset, dict_t *xdata)
+{
+        trace_conf_t  *conf = this->private;
+
+        if (!conf->log_file && !conf->log_history)
+                goto out;
+        if (trace_fop_names[GF_FOP_SEEK].enabled) {
+                char  string[4096] = {0,};
+                snprintf (string, sizeof (string),
+                          "%"PRId64": gfid=%s op_ret=%d op_errno=%d, "
+                          "offset=%"PRId64"", frame->root->unique,
+                          uuid_utoa (frame->local), op_ret, op_errno, offset);
+                LOG_ELEMENT (conf, string);
+        }
+out:
+        TRACE_STACK_UNWIND (seek, frame, op_ret, op_errno, offset, xdata);
+        return 0;
+}
+
+static int
+trace_seek (call_frame_t *frame, xlator_t *this, fd_t *fd,
+            off_t offset, gf_seek_what_t what, dict_t *xdata)
+{
+        trace_conf_t   *conf = this->private;
+
+        if (!conf->log_file && !conf->log_history)
+                goto out;
+        if (trace_fop_names[GF_FOP_SEEK].enabled) {
+                char     string[4096]  =  {0,};
+                snprintf (string, sizeof (string), "%"PRId64": gfid=%s fd=%p "
+                          "offset=%"PRId64" what=%d", frame->root->unique,
+                          uuid_utoa (fd->inode->gfid), fd, offset, what);
+
+                frame->local = fd->inode->gfid;
+                LOG_ELEMENT (conf, string);
+        }
+out:
+        STACK_WIND (frame, trace_seek_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->seek, fd, offset, what, xdata);
+
+        return 0;
+}
+
 int
 trace_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 off_t offset, dict_t *xdata)
@@ -3280,6 +3325,7 @@ struct xlator_fops fops = {
         .fxattrop    = trace_fxattrop,
         .setattr     = trace_setattr,
         .fsetattr    = trace_fsetattr,
+        .seek        = trace_seek,
 };
 
 struct xlator_cbks cbks = {
