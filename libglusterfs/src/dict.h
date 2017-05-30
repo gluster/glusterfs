@@ -75,6 +75,7 @@ struct _data_pair {
         struct _data_pair *next;
         data_t            *value;
         char              *key;
+        uint32_t           key_hash;
 };
 
 struct _dict {
