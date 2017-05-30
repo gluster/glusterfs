@@ -198,7 +198,8 @@ nlc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
         conf = this->private;
 
-        GF_VALIDATE_OR_GOTO (this->name, local, out);
+        if (!local)
+                goto out;
 
         /* Donot add to pe, this may lead to duplicate entry and
          * requires search before adding if list of strings */
