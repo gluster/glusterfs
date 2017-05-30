@@ -564,6 +564,12 @@ __gluster_pmap_signout (rpcsvc_request_t *req)
                                                     conf);
                         sys_unlink (pidfile);
                         brickinfo->started_here = _gf_false;
+
+                        /* Setting the brick status to GF_BRICK_STOPPED to
+                         * ensure correct brick status is maintained on the
+                         * glusterd end when a brick is killed from the
+                         * backend */
+                        brickinfo->status = GF_BRICK_STOPPED;
                 }
         }
 
