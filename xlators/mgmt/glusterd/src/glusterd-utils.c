@@ -2137,14 +2137,16 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
                 ret = 0;
         }
 
-        if (del_brick)
-                glusterd_delete_brick (volinfo, brickinfo);
-
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, conf);
         gf_msg_debug (this->name,  0, "Unlinking pidfile %s", pidfile);
         (void) sys_unlink (pidfile);
 
         brickinfo->started_here = _gf_false;
+        brickinfo->status = GF_BRICK_STOPPED;
+
+        if (del_brick)
+                glusterd_delete_brick (volinfo, brickinfo);
+
 out:
         return ret;
 }
