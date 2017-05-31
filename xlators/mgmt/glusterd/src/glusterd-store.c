@@ -4216,6 +4216,13 @@ glusterd_store_retrieve_peers (xlator_t *this)
 
                 (void) gf_store_iter_destroy (iter);
 
+                if (gf_uuid_is_null (peerinfo->uuid)) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                            "Null UUID while attempting to read peer from '%s'",
+                            filepath);
+                        goto out;
+                }
+
                 /* Set first hostname from peerinfo->hostnames to
                  * peerinfo->hostname
                  */
