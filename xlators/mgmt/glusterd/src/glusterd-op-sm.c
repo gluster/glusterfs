@@ -6230,7 +6230,6 @@ glusterd_bricks_select_stop_volume (dict_t *dict, char **op_errstr,
                          * TBD: move this to *after* the RPC
                          */
                         brickinfo->status = GF_BRICK_STOPPED;
-                        brickinfo->started_here = _gf_false;
                 }
         }
 
@@ -6332,7 +6331,6 @@ glusterd_bricks_select_remove_brick (dict_t *dict, char **op_errstr,
                          * TBD: move this to *after* the RPC
                          */
                         brickinfo->status = GF_BRICK_STOPPED;
-                        brickinfo->started_here = _gf_false;
                 }
                 i++;
         }

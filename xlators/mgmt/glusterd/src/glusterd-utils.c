@@ -1982,7 +1982,7 @@ retry:
 
         brickinfo->port = port;
         brickinfo->rdma_port = rdma_port;
-        brickinfo->started_here = _gf_true;
+        brickinfo->status = GF_BRICK_STARTING;
 
         if (wait) {
                 synclock_unlock (&priv->big_lock);
@@ -2030,6 +2030,8 @@ connect:
         }
 
 out:
+        if (ret)
+                brickinfo->status = GF_BRICK_STOPPED;
         return ret;
 }
 
@@ -2141,7 +2143,6 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
         gf_msg_debug (this->name,  0, "Unlinking pidfile %s", pidfile);
         (void) sys_unlink (pidfile);
 
-        brickinfo->started_here = _gf_false;
         brickinfo->status = GF_BRICK_STOPPED;
 
         if (del_brick)
@@ -5064,7 +5065,6 @@ attach_brick (xlator_t *this,
 
         brickinfo->port = other_brick->port;
         brickinfo->status = GF_BRICK_STARTED;
-        brickinfo->started_here = _gf_true;
         brickinfo->rpc = rpc_clnt_ref (other_brick->rpc);
 
         GLUSTERD_GET_BRICK_PIDFILE (pidfile1, other_vol, other_brick, conf);
@@ -5211,10 +5211,11 @@ find_compat_brick_in_vol (glusterd_conf_t *conf,
                 if (other_brick == brickinfo) {
                         continue;
                 }
-                if (!other_brick->started_here) {
+                if (strcmp (brickinfo->hostname, other_brick->hostname) != 0) {
                         continue;
                 }
-                if (strcmp (brickinfo->hostname, other_brick->hostname) != 0) {
+                if (other_brick->status != GF_BRICK_STARTED &&
+                    other_brick->status != GF_BRICK_STARTING) {
                         continue;
                 }
 
@@ -5240,7 +5241,7 @@ find_compat_brick_in_vol (glusterd_conf_t *conf,
                         gf_log (this->name, GF_LOG_INFO,
                                 "cleaning up dead brick %s:%s",
                                 other_brick->hostname, other_brick->path);
-                        other_brick->started_here = _gf_false;
+                        other_brick->status = GF_BRICK_STOPPED;
                         sys_unlink (pidfile2);
                         continue;
                 }
@@ -5446,16 +5447,11 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
 
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, conf);
         if (gf_is_service_running (pidfile, &pid)) {
-                /*
-                 * In general, if the pidfile exists and points to a running
-                 * process, this will already be set.  However, that's not the
-                 * case when we're starting up and bricks are already running.
-                 */
-                if (brickinfo->status != GF_BRICK_STARTED) {
+                if (brickinfo->status != GF_BRICK_STARTING &&
+                    brickinfo->status != GF_BRICK_STARTED) {
                         gf_log (this->name, GF_LOG_INFO,
                                 "discovered already-running brick %s",
                                 brickinfo->path);
-                        //brickinfo->status = GF_BRICK_STARTED;
                         (void) pmap_registry_bind (this,
                                         brickinfo->port, brickinfo->path,
                                         GF_PMAP_PORT_BRICKSERVER, NULL);
@@ -5479,7 +5475,6 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                                 socketpath, brickinfo->path, volinfo->volname);
                         (void) glusterd_brick_connect (volinfo, brickinfo,
                                         socketpath);
-                        brickinfo->started_here = _gf_true;
                 }
                 return 0;
         }

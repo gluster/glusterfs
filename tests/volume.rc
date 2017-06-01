@@ -296,11 +296,6 @@ function kill_brick {
 	local socket=$(cat $cmdline | tr '\0' '\n' | grep '\.socket$')
 
 	gf_attach -d $socket $brick
-	# Since we're not going through glusterd, we need to clean up the
-	# pidfile ourselves.  However, other state in glusterd (e.g.
-	# started_here) won't be updated.  A "stop-brick" CLI command would
-	# sure be useful.
-	rm -f $pidfile
 
 	# When the last brick in a process is terminated, the process has to
 	# sleep for a second to give the RPC response a chance to get back to
