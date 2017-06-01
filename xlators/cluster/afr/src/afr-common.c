@@ -1372,7 +1372,7 @@ afr_inode_refresh_do (call_frame_t *frame, xlator_t *this)
 	call_count = local->call_count;
         if (!call_count) {
                 dict_unref (xdata);
-		if (local->fd)
+		if (local->fd && AFR_COUNT(local->child_up, priv->child_count))
 	                afr_inode_refresh_done (frame, this, EBADFD);
 		else
 	                afr_inode_refresh_done (frame, this, ENOTCONN);
