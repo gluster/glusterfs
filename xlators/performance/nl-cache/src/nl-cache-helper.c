@@ -834,7 +834,7 @@ nlc_dir_add_ne (xlator_t *this, inode_t *inode, const char *name)
         {
                 /* There is one possiblility where we need to search before
                  * adding NE: when there are two parallel lookups on a non
-                 * existant file */
+                 * existent file */
                 if (!__nlc_search_ne (nlc_ctx, name)) {
                         __nlc_add_ne (this, nlc_ctx, name);
                         __nlc_set_dir_state (nlc_ctx, NLC_NE_VALID);

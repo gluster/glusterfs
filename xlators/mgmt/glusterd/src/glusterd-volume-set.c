@@ -583,8 +583,8 @@ validate_defrag_throttle_option (glusterd_volinfo_t *volinfo, dict_t *dict,
         } else {
                 ret = -1;
                 snprintf (errstr, sizeof (errstr), "%s should be "
-                          "{lazy|normal|aggressive} or a number upto number of"
-                          " cores available (cores availble - %ld)", key,
+                          "{lazy|normal|aggressive} or a number up to number of"
+                          " cores available (cores available - %ld)", key,
                           cores_available);
                 gf_msg (this->name, GF_LOG_ERROR, EINVAL,
                         GD_MSG_INVALID_ENTRY, "%s", errstr);
@@ -3326,7 +3326,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version  = GD_OP_VERSION_3_11_0,
           .description = "enable/disable storing of entries that were lookedup"
                          " and found to be present in the volume, thus lookup"
-                         " on non existant file is served from the cache",
+                         " on non existent file is served from the cache",
         },
         { .key         = "performance.nl-cache-limit",
           .voltype     = "performance/nl-cache",
