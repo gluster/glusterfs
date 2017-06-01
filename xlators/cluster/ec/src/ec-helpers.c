@@ -366,8 +366,7 @@ int32_t ec_dict_del_config(dict_t * dict, char * key, ec_config_t * config)
      * instead of saying that it doesn't exist.
      *
      * We need to filter out this case and consider that a config xattr == 0 is
-     * the same than a non-existant xattr. Otherwise ec_config_check() will
-     * fail.
+     * the same as a non-existent xattr. Otherwise ec_config_check() will fail.
      */
     if (data == 0) {
         return -ENODATA;

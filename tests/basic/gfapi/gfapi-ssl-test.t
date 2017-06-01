@@ -55,7 +55,7 @@ TEST $CLI volume delete $V0
 
 cleanup;
 
-# NetBSD build scripts are not upto date therefore this test
+# NetBSD build scripts are not up to date therefore this test
 # is failing in NetBSD. Therefore skipping the test in NetBSD
 # as of now.
 #G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=000000
