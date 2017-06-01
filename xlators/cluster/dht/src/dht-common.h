@@ -457,6 +457,7 @@ struct gf_defrag_info_ {
         uint64_t                     num_files_lookedup;
         uint64_t                     total_failures;
         uint64_t                     skipped;
+        uint64_t                     num_dirs_processed;
         gf_lock_t                    lock;
         int                          cmd;
         pthread_t                    th;
@@ -1103,7 +1104,7 @@ int dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      struct iatt *postparent, dict_t *xdata);
 
 int
-gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict);
+gf_defrag_status_get (dht_conf_t *conf, dict_t *dict);
 
 void
 gf_defrag_set_pause_state (gf_tier_conf_t *tier_conf, tier_pause_state_t state);
@@ -1124,7 +1125,7 @@ int
 gf_defrag_start_detach_tier (gf_defrag_info_t *defrag);
 
 int
-gf_defrag_stop (gf_defrag_info_t *defrag, gf_defrag_status_t status,
+gf_defrag_stop (dht_conf_t *conf, gf_defrag_status_t status,
                 dict_t *output);
 
 void*

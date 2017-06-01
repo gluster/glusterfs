@@ -3022,6 +3022,11 @@ out:
                 ret = 2;
         }
 
+        /* It does not matter if it errored out - this number is
+         * used to calculate rebalance estimated time to complete.
+         * No locking required as dirs are processed by a single thread.
+         */
+        defrag->num_dirs_processed++;
         return ret;
 }
 int
@@ -4121,7 +4126,7 @@ out:
         LOCK (&defrag->lock);
         {
                 status = dict_new ();
-                gf_defrag_status_get (defrag, status);
+                gf_defrag_status_get (conf, status);
                 if (ctx && ctx->notify)
                         ctx->notify (GF_EN_DEFRAG_STATUS, status);
                 if (status)
@@ -4200,8 +4205,66 @@ out:
         return NULL;
 }
 
+
+uint64_t
+gf_defrag_get_estimates (dht_conf_t *conf)
+{
+        gf_defrag_info_t *defrag = NULL;
+        double rate_lookedup = 0;
+        uint64_t dirs_processed = 0;
+        uint64_t total_processed = 0;
+        uint64_t tmp_count = 0;
+        uint64_t time_to_complete = 0;
+        struct timeval end = {0,};
+        double   elapsed = 0;
+
+        defrag = conf->defrag;
+
+        if (!g_totalfiles)
+                return 0;
+
+        gettimeofday (&end, NULL);
+        elapsed = end.tv_sec - defrag->start_time.tv_sec;
+
+        /* I tried locking before accessing num_files_lookedup and
+         * num_dirs_processed but the status function
+         * never seemed to get the lock, causing the status cli to
+         * hang.
+         */
+
+        dirs_processed = defrag->num_dirs_processed;
+
+        total_processed = defrag->num_files_lookedup
+                           + dirs_processed;
+
+        /* rate at which files looked up */
+        rate_lookedup = (total_processed)/elapsed;
+
+
+        /* We initially sum up dirs across all local subvols.
+         * The same directories will be counted for each subvol so
+         * we want to ensure that they are only counted once.
+         */
+
+        tmp_count = g_totalfiles
+                     - (dirs_processed * (conf->local_subvols_cnt - 1));
+
+        if (total_processed > g_totalfiles)
+                g_totalfiles = total_processed + 10000;
+
+        time_to_complete = (tmp_count)/rate_lookedup;
+
+        gf_log (THIS->name, GF_LOG_INFO,
+                "TIME: total_processed=%"PRIu64" tmp_cnt = %"PRIu64","
+                "rate_lookedup=%f", total_processed, tmp_count,
+                rate_lookedup);
+
+        return time_to_complete;
+}
+
+
 int
-gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict)
+gf_defrag_status_get (dht_conf_t *conf, dict_t *dict)
 {
         int      ret    = 0;
         uint64_t files  = 0;
@@ -4213,11 +4276,10 @@ gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict)
         uint64_t demoted = 0;
         char    *status = "";
         double   elapsed = 0;
-        uint64_t time_left = 0;
-        uint64_t time_to_complete = 0;
-        double rate_lookedup = 0;
         struct timeval end = {0,};
-
+        uint64_t time_to_complete = 0;
+        uint64_t time_left = 0;
+        gf_defrag_info_t *defrag = conf->defrag;
 
         if (!defrag)
                 goto out;
@@ -4238,34 +4300,20 @@ gf_defrag_status_get (gf_defrag_info_t *defrag, dict_t *dict)
 
         elapsed = end.tv_sec - defrag->start_time.tv_sec;
 
-/*START */
-
-/* rate at which files looked up */
-
 
         if ((defrag->cmd != GF_DEFRAG_CMD_START_TIER)
-                && (defrag->defrag_status == GF_DEFRAG_STATUS_STARTED)
-                && g_totalfiles) {
+                && (defrag->defrag_status == GF_DEFRAG_STATUS_STARTED)) {
 
-                rate_lookedup = (defrag->num_files_lookedup)/elapsed;
-                if (defrag->num_files_lookedup > g_totalfiles)
-                        g_totalfiles = defrag->num_files_lookedup + 10000;
-                time_to_complete = (g_totalfiles)/rate_lookedup;
+                time_to_complete = gf_defrag_get_estimates (conf);
                 time_left = time_to_complete - elapsed;
 
                 gf_log (THIS->name, GF_LOG_INFO,
-                        "TIME: num_files_lookedup=%"PRIu64",elapsed time = %f,"
-                        "rate_lookedup=%f", defrag->num_files_lookedup, elapsed,
-                        rate_lookedup);
-                gf_log (THIS->name, GF_LOG_INFO,
                         "TIME: Estimated total time to complete = %"PRIu64
-                        " seconds", time_to_complete);
+                        " seconds, seconds left = %"PRIu64"",
+                        time_to_complete, time_left);
 
-                gf_log (THIS->name, GF_LOG_INFO,
-                        "TIME: Seconds left = %"PRIu64" seconds", time_left);
         }
 
-/*END */
         if (!dict)
                 goto log;
 
@@ -4361,6 +4409,7 @@ gf_defrag_set_pause_state (gf_tier_conf_t *tier_conf, tier_pause_state_t state)
         tier_conf->pause_state = state;
         pthread_mutex_unlock (&tier_conf->pause_mutex);
 }
+
 
 tier_pause_state_t
 gf_defrag_get_pause_state (gf_tier_conf_t *tier_conf)
@@ -4515,12 +4564,14 @@ gf_defrag_start_detach_tier (gf_defrag_info_t *defrag)
 }
 
 int
-gf_defrag_stop (gf_defrag_info_t *defrag, gf_defrag_status_t status,
+gf_defrag_stop (dht_conf_t *conf, gf_defrag_status_t status,
                 dict_t *output)
 {
         /* TODO: set a variable 'stop_defrag' here, it should be checked
            in defrag loop */
         int     ret = -1;
+        gf_defrag_info_t *defrag = conf->defrag;
+
         GF_ASSERT (defrag);
 
         if (defrag->defrag_status == GF_DEFRAG_STATUS_NOT_STARTED) {
@@ -4532,7 +4583,7 @@ gf_defrag_stop (gf_defrag_info_t *defrag, gf_defrag_status_t status,
         defrag->defrag_status = status;
 
         if (output)
-                gf_defrag_status_get (defrag, output);
+                gf_defrag_status_get (conf, output);
         ret = 0;
 out:
         gf_msg_debug ("", 0, "Returning %d", ret);
