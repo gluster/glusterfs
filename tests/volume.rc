@@ -73,7 +73,7 @@ function rebalance_status_field {
 }
 
 function fix-layout_status_field {
-        #The fix-layout status can be upto 3 words, (ex:'fix-layout in progress'), hence the awk-print $2 thru $4.
+        #The fix-layout status can be up to 3 words, (ex:'fix-layout in progress'), hence the awk-print $2 thru $4.
         #But if the status is less than 3 words, it also prints the next field i.e the run_time_in_secs.(ex:'completed 3.00').
         #So we trim the numbers out with  `tr`. Finally remove the trailing white spaces with sed. What we get is one of the
         #strings in the 'cli_vol_task_status_str' char array of cli-rpc-ops.c

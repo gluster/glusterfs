@@ -59,7 +59,7 @@ done
 
 TEST $CLI volume rebalance $V0 start force
 
-# check if rebalance has completed for upto 15 secs
+# check if rebalance has completed for up to 15 secs
 
 EXPECT_WITHIN $REBALANCE_TIMEOUT "0" rebalance_completed
 
