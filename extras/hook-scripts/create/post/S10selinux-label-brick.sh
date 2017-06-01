@@ -13,7 +13,7 @@ PROGNAME="Sselinux"
 OPTSPEC="volname:"
 VOL=
 
-function parse_args () {
+parse_args () {
         ARGS=$(getopt -l $OPTSPEC  -name $PROGNAME $@)
         eval set -- "$ARGS"
 
@@ -32,7 +32,7 @@ function parse_args () {
         done
 }
 
-function set_brick_labels()
+set_brick_labels()
 {
         volname=$1
 
