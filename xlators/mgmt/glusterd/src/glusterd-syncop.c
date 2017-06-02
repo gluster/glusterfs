@@ -957,6 +957,7 @@ gd_syncop_mgmt_brick_op (struct rpc_clnt *rpc, glusterd_pending_node_t *pnode,
         gd1_mgmt_brick_op_req  *req  = NULL;
         int                    ret  = 0;
         xlator_t               *this = NULL;
+        glusterd_brickinfo_t   *brickinfo = NULL;
 
         this = THIS;
         args.op_ret = -1;
@@ -984,6 +985,23 @@ gd_syncop_mgmt_brick_op (struct rpc_clnt *rpc, glusterd_pending_node_t *pnode,
                         *errstr = args.errstr;
                 else
                         GF_FREE (args.errstr);
+        }
+
+        if (op == GD_OP_STOP_VOLUME || op == GD_OP_REMOVE_BRICK) {
+                if (args.op_ret == 0) {
+                        brickinfo = pnode->node;
+                        ret = glusterd_brick_process_remove_brick (brickinfo);
+                        if (ret) {
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                        GD_MSG_BRICKPROC_REM_BRICK_FAILED,
+                                        "Removing brick %s:%s from brick"
+                                        " process failed",
+                                        brickinfo->hostname,
+                                        brickinfo->path);
+                                args.op_ret = ret;
+                                goto out;
+                        }
+                }
         }
 
         if (GD_OP_STATUS_VOLUME == op) {
@@ -1023,7 +1041,6 @@ out:
                 dict_unref (args.dict);
         gd_brick_op_req_free (req);
         return args.op_ret;
-
 }
 
 int32_t

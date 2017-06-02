@@ -488,8 +488,8 @@ __gluster_pmap_signin (rpcsvc_request_t *req)
 {
         pmap_signin_req    args = {0,};
         pmap_signin_rsp    rsp  = {0,};
-        glusterd_brickinfo_t *brickinfo = NULL;
         int                ret = -1;
+        glusterd_brickinfo_t    *brickinfo = NULL;
 
         ret = xdr_to_generic (req->msg[0], &args,
                               (xdrproc_t)xdr_pmap_signin_req);
@@ -502,6 +502,7 @@ __gluster_pmap_signin (rpcsvc_request_t *req)
                                          GF_PMAP_PORT_BRICKSERVER, req->trans);
 
         ret = glusterd_get_brickinfo (THIS, args.brick, args.port, &brickinfo);
+
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                (xdrproc_t)xdr_pmap_signin_rsp);
@@ -569,6 +570,22 @@ __gluster_pmap_signout (rpcsvc_request_t *req)
                          * glusterd end when a brick is killed from the
                          * backend */
                         brickinfo->status = GF_BRICK_STOPPED;
+
+                        /* Remove brick from brick process if not already
+                         * removed in the brick op phase. This situation would
+                         * arise when the brick is killed explicitly from the
+                         * backend */
+                        ret = glusterd_brick_process_remove_brick (brickinfo);
+                        if (ret) {
+                                gf_msg_debug (this->name, 0, "Couldn't remove "
+                                              "brick %s:%s from brick process",
+                                              brickinfo->hostname,
+                                              brickinfo->path);
+                                /* Ignore 'ret' here since the brick might
+                                 * have already been deleted in brick op phase
+                                 */
+                                ret = 0;
+                        }
                 }
         }
 

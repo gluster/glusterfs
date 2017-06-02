@@ -17,6 +17,8 @@ function count_brick_pids {
                                      | grep -v "N/A" | sort | uniq | wc -l
 }
 
+cleanup
+
 TEST glusterd
 TEST $CLI volume set all cluster.brick-multiplex on
 push_trapfunc "$CLI volume set all cluster.brick-multiplex off"

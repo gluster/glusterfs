@@ -147,6 +147,9 @@ gf_boolean_t
 glusterd_check_volume_exists (char *volname);
 
 int32_t
+glusterd_brickprocess_new (glusterd_brick_proc_t **brickprocess);
+
+int32_t
 glusterd_brickinfo_new (glusterd_brickinfo_t **brickinfo);
 
 int32_t
@@ -174,6 +177,16 @@ glusterd_get_next_available_brickid (glusterd_volinfo_t *volinfo);
 
 int32_t
 glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo);
+
+int
+glusterd_brick_process_add_brick (glusterd_brickinfo_t *brickinfo,
+                                  glusterd_volinfo_t *volinfo);
+
+int
+glusterd_brick_process_remove_brick (glusterd_brickinfo_t *brickinfo);
+
+int
+glusterd_brick_proc_for_port (int port, glusterd_brick_proc_t **brickprocess);
 
 int32_t
 glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,

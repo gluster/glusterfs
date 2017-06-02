@@ -55,6 +55,8 @@
 #define GLUSTERD_SHARED_STORAGE_KEY     "cluster.enable-shared-storage"
 #define GLUSTERD_BRICK_MULTIPLEX_KEY    "cluster.brick-multiplex"
 
+#define GLUSTERD_BRICKMUX_LIMIT_KEY     "cluster.max-bricks-per-process"
+
 #define GLUSTERD_SNAPS_MAX_HARD_LIMIT 256
 #define GLUSTERD_SNAPS_DEF_SOFT_LIMIT_PERCENT 90
 #define GLUSTERD_SNAPS_MAX_SOFT_LIMIT_PERCENT 100
@@ -154,6 +156,7 @@ typedef struct {
         struct pmap_registry    *pmap;
         struct cds_list_head     volumes;
         struct cds_list_head     snapshots; /*List of snap volumes */
+        struct cds_list_head     brick_procs; /* List of brick processes */
         pthread_mutex_t          xprt_lock;
         struct list_head         xprt_list;
         gf_store_handle_t       *handle;
@@ -232,6 +235,15 @@ struct glusterd_brickinfo {
 };
 
 typedef struct glusterd_brickinfo glusterd_brickinfo_t;
+
+struct glusterd_brick_proc {
+        int                     port;
+        uint32_t                brick_count;
+        struct cds_list_head    brick_proc_list;
+        struct cds_list_head    bricks;
+};
+
+typedef struct glusterd_brick_proc glusterd_brick_proc_t;
 
 struct gf_defrag_brickinfo_ {
         char *name;

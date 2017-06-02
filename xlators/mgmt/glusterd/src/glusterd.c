@@ -1723,6 +1723,7 @@ init (xlator_t *this)
         CDS_INIT_LIST_HEAD (&conf->volumes);
         CDS_INIT_LIST_HEAD (&conf->snapshots);
         CDS_INIT_LIST_HEAD (&conf->missed_snaps_list);
+        CDS_INIT_LIST_HEAD (&conf->brick_procs);
 
         pthread_mutex_init (&conf->mutex, NULL);
         conf->rpc = rpc;
