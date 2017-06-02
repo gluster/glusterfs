@@ -1000,6 +1000,38 @@ out:
         return ret;
 }
 
+static int
+validate_mux_limit (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
+                    char *value, char **op_errstr)
+{
+        xlator_t        *this = NULL;
+        uint            val = 0;
+        int             ret = -1;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        if (!is_brick_mx_enabled()) {
+                gf_asprintf (op_errstr, "Brick-multiplexing is not enabled. "
+                             "Please enable brick multiplexing before trying "
+                             "to set this option.");
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_WRONG_OPTS_SETTING, "%s", *op_errstr);
+                goto out;
+        }
+
+        ret = gf_string2uint (value, &val);
+        if (ret) {
+                gf_asprintf (op_errstr, "%s is not a valid count. "
+                             "%s expects an unsigned integer.", value, key);
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_INVALID_ENTRY, "%s", *op_errstr);
+        }
+out:
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
+
+        return ret;
+}
 
 static int
 validate_boolean (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
@@ -3407,6 +3439,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .value       = "off",
           .op_version  = GD_OP_VERSION_3_10_0,
           .validate_fn = validate_boolean
+        },
+        { .key         = GLUSTERD_BRICKMUX_LIMIT_KEY,
+          .voltype     = "mgmt/glusterd",
+          .value       = "1",
+          .op_version  = GD_OP_VERSION_3_12_0,
+          .validate_fn = validate_mux_limit
         },
         { .key        = "disperse.optimistic-change-log",
           .voltype    = "cluster/disperse",

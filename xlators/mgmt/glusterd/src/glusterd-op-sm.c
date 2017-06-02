@@ -79,6 +79,10 @@ glusterd_all_vol_opts valid_all_vol_opts[] = {
          */
         { GLUSTERD_MAX_OP_VERSION_KEY,          "BUG_NO_MAX_OP_VERSION"},
         { GLUSTERD_BRICK_MULTIPLEX_KEY,         "disable"},
+        /* Set this value to 1 by default implying non-multiplexed behaviour.
+         * TBD: Discuss the default value for this. Maybe this should be a
+         * dynamic value depending on the memory specifications per node */
+        { GLUSTERD_BRICKMUX_LIMIT_KEY,          "1"},
         { NULL },
 };
 

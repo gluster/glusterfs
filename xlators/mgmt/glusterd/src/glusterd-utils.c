@@ -117,6 +117,46 @@ is_brick_mx_enabled (void)
         return ret ? _gf_false: enabled;
 }
 
+int
+get_mux_limit_per_process (int *mux_limit)
+{
+        char            *value = NULL;
+        int             ret = -1;
+        int             max_bricks_per_proc = -1;
+        xlator_t        *this = NULL;
+        glusterd_conf_t *priv = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+
+        if (!is_brick_mx_enabled()) {
+                max_bricks_per_proc = 1;
+                ret = 0;
+                goto out;
+        }
+
+        ret = dict_get_str (priv->opts, GLUSTERD_BRICKMUX_LIMIT_KEY, &value);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                        "Can't get limit for number of bricks per brick "
+                        "process from dict");
+                ret = 0;
+        } else {
+                ret = gf_string2int (value, &max_bricks_per_proc);
+                if (ret)
+                        goto out;
+        }
+out:
+        *mux_limit = max_bricks_per_proc;
+
+        gf_msg_debug ("glusterd", 0, "Mux limit set to %d bricks per process", *mux_limit);
+
+        return ret;
+}
+
 extern struct volopt_map_entry glusterd_volopt_map[];
 extern glusterd_all_vol_opts valid_all_vol_opts[];
 
@@ -964,6 +1004,33 @@ glusterd_volinfo_delete (glusterd_volinfo_t *volinfo)
 
         pthread_mutex_destroy (&volinfo->reflock);
         GF_FREE (volinfo);
+        ret = 0;
+
+out:
+        gf_msg_debug (THIS->name, 0, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_brickprocess_new (glusterd_brick_proc_t **brickprocess)
+{
+        glusterd_brick_proc_t   *new_brickprocess = NULL;
+        int32_t                  ret = -1;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, brickprocess, out);
+
+        new_brickprocess = GF_CALLOC (1, sizeof(*new_brickprocess),
+                                      gf_gld_mt_glusterd_brick_proc_t);
+
+        if (!new_brickprocess)
+                goto out;
+
+        CDS_INIT_LIST_HEAD (&new_brickprocess->bricks);
+        CDS_INIT_LIST_HEAD (&new_brickprocess->brick_proc_list);
+
+        new_brickprocess->brick_count = 0;
+        *brickprocess = new_brickprocess;
+
         ret = 0;
 
 out:
@@ -2033,6 +2100,15 @@ retry:
                 goto out;
         }
 
+        ret = glusterd_brick_process_add_brick (brickinfo, volinfo);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRICKPROC_ADD_BRICK_FAILED, "Adding brick %s:%s "
+                        "to brick process failed.", brickinfo->hostname,
+                        brickinfo->path);
+                goto out;
+        }
+
 connect:
         ret = glusterd_brick_connect (volinfo, brickinfo, socketpath);
         if (ret) {
@@ -2096,6 +2172,200 @@ glusterd_brick_disconnect (glusterd_brickinfo_t *brickinfo)
         return 0;
 }
 
+static gf_boolean_t
+unsafe_option (dict_t *this, char *key, data_t *value, void *arg)
+{
+        /*
+         * Certain options are safe because they're already being handled other
+         * ways, such as being copied down to the bricks (all auth options) or
+         * being made irrelevant (event-threads).  All others are suspect and
+         * must be checked in the next function.
+         */
+        if (fnmatch ("*auth*", key, 0) == 0) {
+                return _gf_false;
+        }
+
+        if (fnmatch ("*event-threads", key, 0) == 0) {
+                return _gf_false;
+        }
+
+        return _gf_true;
+}
+
+static int
+opts_mismatch (dict_t *dict1, char *key, data_t *value1, void *dict2)
+{
+        data_t  *value2         = dict_get (dict2, key);
+        int32_t min_len;
+
+        /*
+         * If the option is only present on one, we can either look at the
+         * default or assume a mismatch.  Looking at the default is pretty
+         * hard, because that's part of a structure within each translator and
+         * there's no dlopen interface to get at it, so we assume a mismatch.
+         * If the user really wants them to match (and for their bricks to be
+         * multiplexed, they can always reset the option).
+         */
+        if (!value2) {
+                gf_log (THIS->name, GF_LOG_DEBUG, "missing option %s", key);
+                return -1;
+        }
+
+        min_len = MIN (value1->len, value2->len);
+        if (strncmp (value1->data, value2->data, min_len) != 0) {
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "option mismatch, %s, %s != %s",
+                        key, value1->data, value2->data);
+                return -1;
+        }
+
+        return 0;
+}
+
+int
+glusterd_brickprocess_delete (glusterd_brick_proc_t *brick_proc)
+{
+        cds_list_del_init (&brick_proc->brick_proc_list);
+        cds_list_del_init (&brick_proc->bricks);
+
+        GF_FREE (brick_proc);
+
+        return 0;
+}
+
+int
+glusterd_brick_process_remove_brick (glusterd_brickinfo_t *brickinfo)
+{
+        int                      ret = -1;
+        xlator_t                *this = NULL;
+        glusterd_conf_t         *priv = NULL;
+        glusterd_brick_proc_t   *brick_proc = NULL;
+        glusterd_brickinfo_t    *brickinfoiter = NULL;
+        glusterd_brick_proc_t   *brick_proc_tmp = NULL;
+        glusterd_brickinfo_t    *tmp = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+        GF_VALIDATE_OR_GOTO (this->name, brickinfo, out);
+
+        cds_list_for_each_entry_safe (brick_proc, brick_proc_tmp,
+                                      &priv->brick_procs, brick_proc_list) {
+                if (brickinfo->port != brick_proc->port) {
+                        continue;
+                }
+
+                GF_VALIDATE_OR_GOTO (this->name, (brick_proc->brick_count > 0), out);
+
+                cds_list_for_each_entry_safe (brickinfoiter, tmp,
+                                              &brick_proc->bricks, brick_list) {
+                        if (strcmp (brickinfoiter->path, brickinfo->path) == 0) {
+                                cds_list_del_init (&brickinfoiter->brick_list);
+
+                                GF_FREE (brickinfoiter->logfile);
+                                GF_FREE (brickinfoiter);
+                                brick_proc->brick_count--;
+                                break;
+                        }
+                }
+
+                /* If all bricks have been removed, delete the brick process */
+                if (brick_proc->brick_count == 0) {
+                        ret = glusterd_brickprocess_delete (brick_proc);
+                        if (ret)
+                                goto out;
+                }
+                break;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+glusterd_brick_process_add_brick (glusterd_brickinfo_t *brickinfo,
+                                  glusterd_volinfo_t *volinfo)
+{
+        int                      ret = -1;
+        xlator_t                *this = NULL;
+        glusterd_conf_t         *priv = NULL;
+        glusterd_brick_proc_t   *brick_proc = NULL;
+        glusterd_brickinfo_t    *brickinfo_dup = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+        GF_VALIDATE_OR_GOTO (this->name, brickinfo, out);
+
+        ret = glusterd_brickinfo_new (&brickinfo_dup);
+        if (ret) {
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_BRICK_NEW_INFO_FAIL,
+                        "Failed to create new brickinfo");
+                goto out;
+        }
+
+        ret = glusterd_brickinfo_dup (brickinfo, brickinfo_dup);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_BRICK_SET_INFO_FAIL, "Failed to dup brickinfo");
+                goto out;
+        }
+
+        ret = glusterd_brick_proc_for_port (brickinfo->port, &brick_proc);
+        if (ret) {
+                ret = glusterd_brickprocess_new (&brick_proc);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_BRICKPROC_NEW_FAILED, "Failed to create "
+                                "new brick process instance");
+                        goto out;
+                }
+
+                brick_proc->port = brickinfo->port;
+
+                cds_list_add_tail (&brick_proc->brick_proc_list, &priv->brick_procs);
+        }
+
+        cds_list_add_tail (&brickinfo_dup->brick_list, &brick_proc->bricks);
+        brick_proc->brick_count++;
+out:
+        return ret;
+}
+
+/* ret = 0 only when you get a brick process associated with the port
+ * ret = -1 otherwise
+ */
+int
+glusterd_brick_proc_for_port (int port, glusterd_brick_proc_t **brickprocess)
+{
+        int                      ret = -1;
+        xlator_t                *this = NULL;
+        glusterd_conf_t         *priv = NULL;
+        glusterd_brick_proc_t   *brick_proc = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+
+        cds_list_for_each_entry (brick_proc, &priv->brick_procs, brick_proc_list) {
+                if (brick_proc->port == port) {
+                        *brickprocess = brick_proc;
+                        ret = 0;
+                        break;
+                }
+        }
+out:
+        return ret;
+}
+
 int32_t
 glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
                                 glusterd_brickinfo_t *brickinfo,
@@ -2117,6 +2387,13 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
         GF_VALIDATE_OR_GOTO (this->name, conf, out);
 
         ret = 0;
+
+        ret = glusterd_brick_process_remove_brick (brickinfo);
+        if (ret) {
+                gf_msg_debug (this->name, 0, "Couldn't remove brick from"
+                              " brick process");
+                goto out;
+        }
 
         if (del_brick)
                 cds_list_del_init (&brickinfo->brick_list);
@@ -2149,11 +2426,13 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
                                 GF_FREE (op_errstr);
                         }
                 }
+
                 (void) glusterd_brick_disconnect (brickinfo);
                 ret = 0;
         }
 
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, conf);
+
         gf_msg_debug (this->name,  0, "Unlinking pidfile %s", pidfile);
         (void) sys_unlink (pidfile);
 
@@ -2161,7 +2440,6 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
 
         if (del_brick)
                 glusterd_delete_brick (volinfo, brickinfo);
-
 out:
         return ret;
 }
@@ -5090,6 +5368,7 @@ attach_brick (xlator_t *this,
         }
         (void) build_volfile_path (full_id, path, sizeof(path), NULL);
 
+
         for (tries = 15; tries > 0; --tries) {
                 rpc = rpc_clnt_ref (other_brick->rpc);
                 if (rpc) {
@@ -5105,6 +5384,23 @@ attach_brick (xlator_t *this,
                                 brickinfo->status = GF_BRICK_STARTED;
                                 brickinfo->rpc =
                                         rpc_clnt_ref (other_brick->rpc);
+                                ret = glusterd_brick_process_add_brick (brickinfo,
+                                                                        volinfo);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_BRICKPROC_ADD_BRICK_FAILED,
+                                                "Adding brick %s:%s to brick "
+                                                "process failed", brickinfo->hostname,
+                                                brickinfo->path);
+                                        return ret;
+                                }
+
+                                if (ret) {
+                                        gf_msg_debug (this->name, 0, "Add brick"
+                                                    " to brick process failed");
+                                        return ret;
+                                }
+
                                 return 0;
                         }
                 }
@@ -5126,56 +5422,6 @@ attach_brick (xlator_t *this,
         return ret;
 }
 
-static gf_boolean_t
-unsafe_option (dict_t *this, char *key, data_t *value, void *arg)
-{
-        /*
-         * Certain options are safe because they're already being handled other
-         * ways, such as being copied down to the bricks (all auth options) or
-         * being made irrelevant (event-threads).  All others are suspect and
-         * must be checked in the next function.
-         */
-        if (fnmatch ("*auth*", key, 0) == 0) {
-                return _gf_false;
-        }
-
-        if (fnmatch ("*event-threads", key, 0) == 0) {
-                return _gf_false;
-        }
-
-        return _gf_true;
-}
-
-static int
-opts_mismatch (dict_t *dict1, char *key, data_t *value1, void *dict2)
-{
-        data_t  *value2         = dict_get (dict2, key);
-        int32_t min_len;
-
-        /*
-         * If the option is only present on one, we can either look at the
-         * default or assume a mismatch.  Looking at the default is pretty
-         * hard, because that's part of a structure within each translator and
-         * there's no dlopen interface to get at it, so we assume a mismatch.
-         * If the user really wants them to match (and for their bricks to be
-         * multiplexed, they can always reset the option).
-         */
-        if (!value2) {
-                gf_log (THIS->name, GF_LOG_DEBUG, "missing option %s", key);
-                return -1;
-        }
-
-        min_len = MIN (value1->len, value2->len);
-        if (strncmp (value1->data, value2->data, min_len) != 0) {
-                gf_log (THIS->name, GF_LOG_DEBUG,
-                        "option mismatch, %s, %s != %s",
-                        key, value1->data, value2->data);
-                return -1;
-        }
-
-        return 0;
-}
-
 /* This name was just getting too long, hence the abbreviations. */
 static glusterd_brickinfo_t *
 find_compat_brick_in_vol (glusterd_conf_t *conf,
@@ -5184,10 +5430,13 @@ find_compat_brick_in_vol (glusterd_conf_t *conf,
                           glusterd_brickinfo_t *brickinfo)
 {
         xlator_t                *this                   = THIS;
-        glusterd_brickinfo_t    *other_brick;
+        glusterd_brickinfo_t    *other_brick            = NULL;
+        glusterd_brick_proc_t   *brick_proc             = NULL;
         char                    pidfile2[PATH_MAX]      = {0};
         int32_t                 pid2                    = -1;
         int16_t                 retries                 = 15;
+        int                     mux_limit               = -1;
+        int                     ret                     = -1;
 
         /*
          * If comp_vol is provided, we have to check *volume* compatibility
@@ -5219,6 +5468,13 @@ find_compat_brick_in_vol (glusterd_conf_t *conf,
                 gf_log (THIS->name, GF_LOG_DEBUG, "all options match");
         }
 
+        ret = get_mux_limit_per_process (&mux_limit);
+        if (ret) {
+                gf_msg_debug (THIS->name, 0, "Retrieving brick mux "
+                              "limit failed. Returning NULL");
+                return NULL;
+        }
+
         cds_list_for_each_entry (other_brick, &srch_vol->bricks,
                                  brick_list) {
                 if (other_brick == brickinfo) {
@@ -5230,6 +5486,30 @@ find_compat_brick_in_vol (glusterd_conf_t *conf,
                 if (other_brick->status != GF_BRICK_STARTED &&
                     other_brick->status != GF_BRICK_STARTING) {
                         continue;
+                }
+
+                ret = glusterd_brick_proc_for_port (other_brick->port,
+                                                    &brick_proc);
+                if (ret) {
+                        gf_msg_debug (THIS->name, 0, "Couldn't get brick "
+                                      "process corresponding to brick %s:%s",
+                                      other_brick->hostname, other_brick->path);
+                        continue;
+                }
+
+                if (mux_limit != -1) {
+                        if (brick_proc->brick_count >= mux_limit)
+                                continue;
+                } else {
+                        /* This means that the "cluster.max-bricks-per-process"
+                         * options hasn't yet been explicitly set. Continue
+                         * as if there's no limit set
+                         */
+                        gf_msg (THIS->name, GF_LOG_WARNING, 0,
+                                GD_MSG_NO_MUX_LIMIT,
+                                "cluster.max-bricks-per-process options isn't "
+                                "set. Continuing with no limit set for "
+                                "brick multiplexing.");
                 }
 
                 GLUSTERD_GET_BRICK_PIDFILE (pidfile2, srch_vol, other_brick,
@@ -5508,6 +5788,16 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
 
                         (void) glusterd_brick_connect (volinfo, brickinfo,
                                         socketpath);
+
+                        ret = glusterd_brick_process_add_brick (brickinfo, volinfo);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_BRICKPROC_ADD_BRICK_FAILED,
+                                        "Adding brick %s:%s to brick process "
+                                        "failed.", brickinfo->hostname,
+                                        brickinfo->path);
+                                goto out;
+                        }
                 }
                 return 0;
         }

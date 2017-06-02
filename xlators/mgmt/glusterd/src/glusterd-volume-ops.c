@@ -2214,8 +2214,6 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        count = volinfo->brick_count;
-
         ret = dict_get_str (dict, "bricks", &bricks);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -2363,6 +2361,8 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                 brick_list = gf_strdup (bricks);
                 free_ptr = brick_list;
         }
+
+        count = volinfo->brick_count;
 
         if (count)
                 brick = strtok_r (brick_list+1, " \n", &saveptr);

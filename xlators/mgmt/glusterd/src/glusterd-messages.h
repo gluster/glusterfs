@@ -41,7 +41,7 @@
 
 #define GLUSTERD_COMP_BASE      GLFS_MSGID_GLUSTERD
 
-#define GLFS_NUM_MESSAGES       602
+#define GLFS_NUM_MESSAGES       606
 
 #define GLFS_MSGID_END          (GLUSTERD_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
@@ -4868,6 +4868,38 @@
  *
  */
 #define GD_MSG_VOL_SET_VALIDATION_INFO             (GLUSTERD_COMP_BASE + 602)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_NO_MUX_LIMIT                        (GLUSTERD_COMP_BASE + 603)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_BRICKPROC_REM_BRICK_FAILED          (GLUSTERD_COMP_BASE + 604)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_BRICKPROC_ADD_BRICK_FAILED          (GLUSTERD_COMP_BASE + 605)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_BRICKPROC_NEW_FAILED                (GLUSTERD_COMP_BASE + 606)
 
 /*------------*/
 
