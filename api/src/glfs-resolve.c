@@ -227,7 +227,39 @@ out:
 
 	return ret;
 }
+/*
+ * This function can be used to call named lookup on root.
+ * If you use glfs_resolve_base, that will be a nameless lookup.
+ */
+static int
+glfs_resolve_root (struct glfs *fs, xlator_t *subvol, inode_t *inode,
+                   struct iatt *iatt)
+{
+        loc_t       loc = {0, };
+        int         ret = -1;
+        char       *path = NULL;
 
+        loc.inode = inode_ref (inode);
+
+        ret = inode_path (loc.inode, NULL, &path);
+        loc.path = path;
+        loc.name = "";
+        /* Having a value in loc.name will help to bypass md-cache check for
+         * nameless lookup.
+         * TODO: Re-visit on nameless lookup and md-cache.
+         * Github issue : https://github.com/gluster/glusterfs/issues/232
+         */
+        loc.parent = inode_ref (inode);
+        if (ret < 0)
+                goto out;
+
+        ret = syncop_lookup (subvol, &loc, iatt, NULL, NULL, NULL);
+        DECODE_SYNCOP_ERR (ret);
+out:
+        loc_wipe (&loc);
+
+        return ret;
+}
 
 inode_t *
 glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
@@ -255,7 +287,7 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
                 if (!force_lookup) {
                         inode = inode_ref (parent);
                 } else {
-                        ret = glfs_resolve_base (fs, subvol, parent, &ciatt);
+                        ret = glfs_resolve_root (fs, subvol, parent, &ciatt);
                         if (!ret)
                                 inode = inode_ref (parent);
                 }
@@ -398,7 +430,7 @@ priv_glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
 		inode = inode_ref (subvol->itable->root);
 
 		if (strcmp (path, "/") == 0)
-			glfs_resolve_base (fs, subvol, inode, &ciatt);
+                        glfs_resolve_root (fs, subvol, inode, &ciatt);
 	}
 
 	for (component = strtok_r (path, "/", &saveptr);
