@@ -3160,7 +3160,7 @@ _ios_dump_thread (xlator_t *this) {
                  * just hold it open and rewind/truncate on each iteration.
                  * Leaving it alone for now.
                  */
-                stats_logfp = fopen (stats_filename, "w+");
+                stats_logfp = fopen (stats_filename, "a+");
                 if (stats_logfp) {
                         (void) ios_dump_args_init (&args,
                                                    conf->dump_format,
