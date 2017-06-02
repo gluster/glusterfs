@@ -404,6 +404,18 @@ up_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
                                  stbuf, postnewparent, postoldparent, NULL);
 
+        flags = UP_UPDATE_CLIENT;
+        upcall_cache_invalidate (frame, this, client,
+                                 local->rename_oldloc.parent, flags,
+                                 postoldparent, NULL, NULL, NULL);
+
+        if (local->rename_oldloc.parent == local->loc.parent)
+                goto out;
+
+        flags = UP_UPDATE_CLIENT;
+        upcall_cache_invalidate (frame, this, client, local->loc.parent,
+                                 flags, postnewparent, NULL, NULL, NULL);
+
 out:
         UPCALL_STACK_UNWIND (rename, frame, op_ret, op_errno,
                              stbuf, preoldparent, postoldparent,
@@ -421,7 +433,7 @@ up_rename (call_frame_t *frame, xlator_t *this,
 
         EXIT_IF_UPCALL_OFF (this, out);
 
-        local = upcall_local_init (frame, this, NULL, NULL, oldloc->inode, NULL);
+        local = upcall_local_init (frame, this, newloc, NULL, oldloc->inode, NULL);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -464,6 +476,10 @@ up_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
                                  NULL, postparent, NULL, NULL);
 
+        flags = UP_UPDATE_CLIENT;
+        upcall_cache_invalidate (frame, this, client, local->loc.parent,
+                                 flags, postparent, NULL, NULL, NULL);
+
 out:
         UPCALL_STACK_UNWIND (unlink, frame, op_ret, op_errno,
                              preparent, postparent, xdata);
@@ -480,7 +496,7 @@ up_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
 
         EXIT_IF_UPCALL_OFF (this, out);
 
-        local = upcall_local_init (frame, this, NULL, NULL, loc->inode, NULL);
+        local = upcall_local_init (frame, this, loc, NULL, loc->inode, NULL);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -520,6 +536,10 @@ up_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
                                  stbuf, postparent, NULL, NULL);
 
+        flags = UP_UPDATE_CLIENT;
+        upcall_cache_invalidate (frame, this, client, local->loc.parent,
+                                 flags, postparent, NULL, NULL, NULL);
+
 out:
         UPCALL_STACK_UNWIND (link, frame, op_ret, op_errno,
                              inode, stbuf, preparent, postparent, xdata);
@@ -536,7 +556,7 @@ up_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 
         EXIT_IF_UPCALL_OFF (this, out);
 
-        local = upcall_local_init (frame, this, NULL, NULL, oldloc->inode, NULL);
+        local = upcall_local_init (frame, this, newloc, NULL, oldloc->inode, NULL);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -578,6 +598,10 @@ up_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
                                  NULL, postparent, NULL, NULL);
 
+        flags = UP_UPDATE_CLIENT;
+        upcall_cache_invalidate (frame, this, client, local->loc.parent,
+                                 flags, postparent, NULL, NULL, NULL);
+
 out:
         UPCALL_STACK_UNWIND (rmdir, frame, op_ret, op_errno,
                              preparent, postparent, xdata);
@@ -594,7 +618,7 @@ up_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 
         EXIT_IF_UPCALL_OFF (this, out);
 
-        local = upcall_local_init (frame, this, NULL, NULL, loc->inode, NULL);
+        local = upcall_local_init (frame, this, loc, NULL, loc->inode, NULL);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -637,6 +661,10 @@ up_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
                                  postparent, NULL, NULL, NULL);
 
+        flags = UP_UPDATE_CLIENT;
+        upcall_cache_invalidate (frame, this, client, local->loc.inode, flags,
+                                 stbuf, NULL, NULL, NULL);
+
 out:
         UPCALL_STACK_UNWIND (mkdir, frame, op_ret, op_errno,
                              inode, stbuf, preparent, postparent, xdata);
@@ -653,7 +681,7 @@ up_mkdir (call_frame_t *frame, xlator_t *this,
 
         EXIT_IF_UPCALL_OFF (this, out);
 
-        local = upcall_local_init (frame, this, NULL, NULL, loc->parent, NULL);
+        local = upcall_local_init (frame, this, loc, NULL, loc->parent, NULL);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -692,11 +720,16 @@ up_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        /* As its a new file create, no need of sending notification */
-        /* However invalidate parent's entry */
+        /* As its a new file create, no need of sending notification
+         * However invalidate parent's entry and update that fact that the
+         * client has accessed the newly created entry */
         flags = UP_TIMES;
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
                                  postparent, NULL, NULL, NULL);
+
+        flags = UP_UPDATE_CLIENT;
+        upcall_cache_invalidate (frame, this, client, local->loc.inode, flags,
+                                 stbuf, NULL, NULL, NULL);
 
 out:
         UPCALL_STACK_UNWIND (create, frame, op_ret, op_errno, fd,
@@ -715,7 +748,7 @@ up_create (call_frame_t *frame, xlator_t *this,
 
         EXIT_IF_UPCALL_OFF (this, out);
 
-        local = upcall_local_init (frame, this, NULL, NULL, loc->parent, NULL);
+        local = upcall_local_init (frame, this, loc, NULL, loc->parent, NULL);
 
         if (!local) {
                 op_errno = ENOMEM;
@@ -1041,6 +1074,10 @@ up_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
                                  postparent, NULL, NULL, NULL);
 
+        flags = UP_UPDATE_CLIENT;
+        upcall_cache_invalidate (frame, this, client, local->loc.inode, flags,
+                                 buf, NULL, NULL, NULL);
+
 out:
         UPCALL_STACK_UNWIND (mknod, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent, xdata);
@@ -1057,7 +1094,7 @@ up_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         EXIT_IF_UPCALL_OFF (this, out);
 
-        local = upcall_local_init (frame, this, NULL, NULL, loc->parent, NULL);
+        local = upcall_local_init (frame, this, loc, NULL, loc->parent, NULL);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -1101,6 +1138,10 @@ up_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
                                  postparent, NULL, NULL, NULL);
 
+        flags = UP_UPDATE_CLIENT;
+        upcall_cache_invalidate (frame, this, client, local->loc.inode, flags,
+                                 buf, NULL, NULL, NULL);
+
 out:
         UPCALL_STACK_UNWIND (symlink, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent, xdata);
@@ -1118,7 +1159,7 @@ up_symlink (call_frame_t   *frame, xlator_t *this,
 
         EXIT_IF_UPCALL_OFF (this, out);
 
-        local = upcall_local_init (frame, this, NULL, NULL, loc->parent, NULL);
+        local = upcall_local_init (frame, this, loc, NULL, loc->parent, NULL);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -1325,10 +1366,6 @@ up_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         upcall_cache_invalidate (frame, this, client, local->inode, flags,
                                  NULL, NULL, NULL, NULL);
 
-        /* upcall_cache_invalidate optimises, by not calling inode_ctx_get
-         * if local->upcall_inode_ctx is set. Hence before processing
-         * the readdir entries unset this */
-        local->upcall_inode_ctx = NULL;
         list_for_each_entry (entry, &entries->list, list) {
                 if (entry->inode == NULL) {
                         continue;
@@ -2257,9 +2294,6 @@ upcall_local_init (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         local->inode = inode_ref (inode);
         if (xattr)
                 local->xattr = dict_copy_with_ref (xattr, NULL);
-
-        /* Shall we get inode_ctx and store it here itself? */
-        local->upcall_inode_ctx = upcall_inode_ctx_get (inode, this);
 
         if (loc)
                 loc_copy (&local->loc, loc);

@@ -541,9 +541,7 @@ upcall_cache_invalidate (call_frame_t *frame, xlator_t *this, client_t *client,
                 return;
         }
 
-        up_inode_ctx = ((upcall_local_t *)frame->local)->upcall_inode_ctx;
-
-        if (!up_inode_ctx)
+        if (inode)
                 up_inode_ctx = upcall_inode_ctx_get (inode, this);
 
         if (!up_inode_ctx) {
@@ -558,7 +556,7 @@ upcall_cache_invalidate (call_frame_t *frame, xlator_t *this, client_t *client,
          * invalid till it gets linked to inode table. Read gfid from
          * the stat returned in such cases.
          */
-        if (gf_uuid_is_null (up_inode_ctx->gfid)) {
+        if (gf_uuid_is_null (up_inode_ctx->gfid) && stbuf) {
                 /* That means inode must have been invalid when this inode_ctx
                  * is created. Copy the gfid value from stbuf instead.
                  */

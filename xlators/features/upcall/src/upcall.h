@@ -83,7 +83,6 @@ struct upcall_local {
          * pointers in 'local' which may get freed
          * in future by other thread
          */
-        upcall_inode_ctx_t *upcall_inode_ctx;
         inode_t   *inode;
         loc_t     rename_oldloc;
         loc_t     loc;  /* required for stat in *xattr_cbk */
