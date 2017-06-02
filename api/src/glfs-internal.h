@@ -363,6 +363,7 @@ int __glfs_cwd_set (struct glfs *fs, inode_t *inode);
 
 int glfs_resolve_base (struct glfs *fs, xlator_t *subvol, inode_t *inode,
 		       struct iatt *iatt);
+
 int glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
                           const char *origpath, loc_t *loc, struct iatt *iatt,
                           int follow, int reval)
