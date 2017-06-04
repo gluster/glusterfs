@@ -3313,9 +3313,11 @@ struct cli_cmd volume_cmds[] = {
          cli_cmd_volume_barrier_cbk,
          "Barrier/unbarrier file operations on a volume"
         },
-        {"volume get <VOLNAME> <key|all>",
+        {"volume get <VOLNAME|all> <key|all>",
          cli_cmd_volume_getopt_cbk,
          "Get the value of the all options or given option for volume <VOLNAME>"
+         " or all option. gluster volume get all all is to get all global "
+         "options"
         },
         {"volume bitrot <VOLNAME> {enable|disable} |\n"
          "volume bitrot <volname> scrub-throttle {lazy|normal|aggressive} |\n"
