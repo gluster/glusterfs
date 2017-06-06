@@ -50,6 +50,10 @@
 #define GF_MIN_SOCKET_WINDOW_SIZE       (0)
 #define GF_USE_DEFAULT_KEEPALIVE        (-1)
 
+#define GF_KEEPALIVE_TIME               (20)
+#define GF_KEEPALIVE_INTERVAL           (2)
+#define GF_KEEPALIVE_COUNT              (9)
+
 typedef enum {
         SP_STATE_NADA = 0,
         SP_STATE_COMPLETE,
@@ -224,6 +228,7 @@ typedef struct {
         int                    keepalive;
         int                    keepaliveidle;
         int                    keepaliveintvl;
+        int                    keepalivecnt;
         int                    timeout;
         uint32_t               backlog;
         gf_boolean_t           read_fail_log;
