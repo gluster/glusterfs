@@ -700,8 +700,8 @@ mem_get (struct mem_pool *mem_pool)
         retval->power_of_two = mem_pool->power_of_two;
 
         return retval + 1;
-}
 #endif /* GF_DISABLE_MEMPOOL */
+}
 
 
 void
