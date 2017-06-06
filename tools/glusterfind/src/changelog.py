@@ -40,8 +40,6 @@ history_turn_time = 0
 logger = logging.getLogger()
 
 
-
-
 def pgfid_to_path(brick, changelog_data):
     """
     For all the pgfids in table, converts into path using recursive
@@ -94,7 +92,7 @@ def populate_pgfid_and_inodegfid(brick, changelog_data):
                 path = symlink_gfid_to_path(brick, gfid)
                 path = output_path_prepare(path, args)
                 changelog_data.gfidpath_update({"path1": path},
-                                                {"gfid": gfid})
+                                               {"gfid": gfid})
             except (IOError, OSError) as e:
                 logger.warn("Error converting to path: %s" % e)
                 continue
@@ -160,10 +158,10 @@ def gfid_to_path_using_pgfid(brick, changelog_data, args):
         try:
             path = symlink_gfid_to_path(brick, row[0])
             find(os.path.join(brick, path),
-                callback_func=output_callback,
-                filter_func=inode_filter,
-                ignore_dirs=ignore_dirs,
-                subdirs_crawl=False)
+                 callback_func=output_callback,
+                 filter_func=inode_filter,
+                 ignore_dirs=ignore_dirs,
+                 subdirs_crawl=False)
         except (IOError, OSError) as e:
             logger.warn("Error converting to path: %s" % e)
             continue
@@ -272,8 +270,8 @@ def get_changes(brick, hash_dir, log_file, start, end, args):
         actual_end = libgfchangelog.cl_history_changelog(
             cl_path, start, end, CHANGELOGAPI_NUM_WORKERS)
     except libgfchangelog.ChangelogException as e:
-        fail("%s Historical Changelogs not available: %s" % (brick, e),
-             logger=logger)
+        fail("%s: %s Historical Changelogs not available: %s" %
+             (args.node, brick, e), logger=logger)
 
     try:
         # scan followed by getchanges till scan returns zero.
@@ -296,7 +294,7 @@ def get_changes(brick, hash_dir, log_file, start, end, args):
                     libgfchangelog.cl_history_done(change)
                 except IOError as e:
                     logger.warn("Error parsing changelog file %s: %s" %
-                        (change, e))
+                                (change, e))
 
             changelog_data.commit()
     except libgfchangelog.ChangelogException as e:
@@ -350,9 +348,11 @@ def _get_args():
 
     parser.add_argument("session", help="Session Name")
     parser.add_argument("volume", help="Volume Name")
+    parser.add_argument("node", help="Node Name")
     parser.add_argument("brick", help="Brick Name")
     parser.add_argument("outfile", help="Output File")
     parser.add_argument("start", help="Start Time", type=int)
+    parser.add_argument("end", help="End Time", type=int)
     parser.add_argument("--only-query", help="Query mode only (no session)",
                         action="store_true")
     parser.add_argument("--debug", help="Debug", action="store_true")
@@ -387,6 +387,7 @@ if __name__ == "__main__":
 
     if args.only_query:
         start = args.start
+        end = args.end
     else:
         try:
             with open(status_file) as f:
@@ -394,7 +395,11 @@ if __name__ == "__main__":
         except (ValueError, OSError, IOError):
             start = args.start
 
-    end = int(time.time()) - get_changelog_rollover_time(args.volume)
+    # end time is optional; so a -1 may be sent to use the default method of
+    # identifying the end time
+    if end == -1:
+        end = int(time.time()) - get_changelog_rollover_time(args.volume)
+
     logger.info("%s Started Changelog Crawl - Start: %s End: %s" % (args.brick,
                                                                     start,
                                                                     end))

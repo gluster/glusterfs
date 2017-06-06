@@ -62,9 +62,9 @@ def _get_args():
 
     parser.add_argument("session", help="Session Name")
     parser.add_argument("volume", help="Volume Name")
+    parser.add_argument("node", help="Node Name")
     parser.add_argument("brick", help="Brick Name")
     parser.add_argument("outfile", help="Output File")
-    parser.add_argument("start", help="Start Time", type=float)
     parser.add_argument("tag", help="Tag to prefix file name with")
     parser.add_argument("--only-query", help="Only query, No session update",
                         action="store_true")

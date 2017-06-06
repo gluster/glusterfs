@@ -139,9 +139,11 @@ def run_cmd_nodes(task, args, **kwargs):
             cmd = [change_detector,
                    args.session,
                    args.volume,
+                   host,
                    brick,
-                   node_outfile,
-                   str(kwargs.get("start"))] + \
+                   node_outfile] + \
+                ([str(kwargs.get("start")), str(kwargs.get("end"))]
+                    if not args.full else []) + \
                 ([tag] if tag is not None else []) + \
                 ["--output-prefix", args.output_prefix] + \
                 (["--debug"] if args.debug else []) + \
@@ -174,9 +176,11 @@ def run_cmd_nodes(task, args, **kwargs):
             cmd = [change_detector,
                    args.session,
                    args.volume,
+                   host,
                    brick,
-                   node_outfile,
-                   str(kwargs.get("start"))] + \
+                   node_outfile] + \
+                ([str(kwargs.get("start")), str(kwargs.get("end"))]
+                    if not args.full else []) + \
                 ([tag] if tag is not None else []) + \
                 ["--only-query"] + \
                 ["--output-prefix", args.output_prefix] + \
@@ -361,6 +365,8 @@ def _get_args():
     parser_query.add_argument("outfile", help="Output File",
                               action=StoreAbsPath)
     parser_query.add_argument("--since-time", help="UNIX epoch time since "
+                              "which listing is required", type=int)
+    parser_query.add_argument("--end-time", help="UNIX epoch time upto "
                               "which listing is required", type=int)
     parser_query.add_argument("--no-encode",
                               help="Do not encode path in output file",
@@ -569,27 +575,37 @@ def mode_query(session_dir, args):
     enable_volume_options(args)
 
     # Test options
-    if not args.since_time and not args.full:
-        fail("Please specify either --since-time or --full", logger=logger)
+    if not args.since_time and not args.end_time and not args.full:
+        fail("Please specify either {--since-time and optionally --end-time} "
+             "or --full", logger=logger)
 
-    if args.since_time and args.full:
-        fail("Please specify either --since-time or --full, but not both",
+    if args.since_time and args.end_time and args.full:
+        fail("Please specify either {--since-time and optionally --end-time} "
+             "or --full, but not both",
              logger=logger)
 
+    if args.end_time and not args.since_time:
+        fail("Please specify --since-time as well", logger=logger)
+
     # Start query command processing
+    start = -1
+    end = -1
     if args.since_time:
         start = args.since_time
+        if args.end_time:
+            end = args.end_time
     else:
         start = 0  # --full option is handled separately
 
     logger.debug("Query is called - Session: %s, Volume: %s, "
-                 "Start time: %s"
-                 % ("default", args.volume, start))
+                 "Start time: %s, End time: %s"
+                 % ("default", args.volume, start, end))
 
     prefix = datetime.now().strftime("%Y%m%d-%H%M%S-%f-")
     gtmpfilename = prefix + next(tempfile._get_candidate_names())
 
-    run_cmd_nodes("query", args, start=start, tmpfilename=gtmpfilename)
+    run_cmd_nodes("query", args, start=start, end=end,
+                  tmpfilename=gtmpfilename)
 
     # Merger
     if args.full:
@@ -648,7 +664,7 @@ def mode_pre(session_dir, args):
     prefix = datetime.now().strftime("%Y%m%d-%H%M%S-%f-")
     gtmpfilename = prefix + next(tempfile._get_candidate_names())
 
-    run_cmd_nodes("pre", args, start=start, tmpfilename=gtmpfilename)
+    run_cmd_nodes("pre", args, start=start, end=-1, tmpfilename=gtmpfilename)
 
     # Merger
     if args.full:
