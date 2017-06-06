@@ -7660,7 +7660,7 @@ glusterd_op_ac_rcvd_brick_op_acc (glusterd_op_sm_event_t *event, void *ctx)
                                            ev_ctx->commit_ctx);
 
 out:
-        if (ev_ctx->rsp_dict)
+        if (ev_ctx && ev_ctx->rsp_dict)
                 dict_unref (ev_ctx->rsp_dict);
         GF_FREE (ev_ctx);
         gf_msg_debug (this->name, 0, "Returning %d", ret);
