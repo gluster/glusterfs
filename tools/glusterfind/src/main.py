@@ -132,6 +132,10 @@ def run_cmd_nodes(task, args, **kwargs):
             mkdirp(os.path.dirname(node_outfile),
                    exit_on_err=True, logger=logger)
 
+            FS = args.field_separator
+            if not is_host_local(host_uuid):
+                FS = "'" + FS + "'"
+
             cmd = [change_detector,
                    args.session,
                    args.volume,
@@ -143,7 +147,8 @@ def run_cmd_nodes(task, args, **kwargs):
                 (["--debug"] if args.debug else []) + \
                 (["--no-encode"] if args.no_encode else []) + \
                 (["--only-namespace-changes"] if args.only_namespace_changes
-                 else [])
+                 else []) + \
+                (["--field-separator", FS] if args.full else [])
 
             opts["node_outfile"] = node_outfile
             opts["copy_outfile"] = True
@@ -162,6 +167,10 @@ def run_cmd_nodes(task, args, **kwargs):
             mkdirp(os.path.dirname(node_outfile),
                    exit_on_err=True, logger=logger)
 
+            FS = args.field_separator
+            if not is_host_local(host_uuid):
+                FS = "'" + FS + "'"
+
             cmd = [change_detector,
                    args.session,
                    args.volume,
@@ -174,7 +183,8 @@ def run_cmd_nodes(task, args, **kwargs):
                 (["--debug"] if args.debug else []) + \
                 (["--no-encode"] if args.no_encode else []) + \
                 (["--only-namespace-changes"]
-                    if args.only_namespace_changes else [])
+                    if args.only_namespace_changes else []) + \
+                (["--field-separator", FS] if args.full else [])
 
             opts["node_outfile"] = node_outfile
             opts["copy_outfile"] = True
@@ -341,6 +351,8 @@ def _get_args():
                             help="Tag prefix for file names emitted during"
                             " a full find operation; default: \"NEW\"",
                             default="NEW")
+    parser_pre.add_argument("--field-separator", help="Field separator string",
+                            default=" ")
 
     # query <VOLUME> <OUTFILE> --since-time <SINCE_TIME>
     #       [--output-prefix <OUTPUT_PREFIX>] [--full]
@@ -366,6 +378,9 @@ def _get_args():
                               help="Tag prefix for file names emitted during"
                               " a full find operation; default: \"NEW\"",
                               default="NEW")
+    parser_query.add_argument("--field-separator",
+                              help="Field separator string",
+                              default=" ")
 
     # post <SESSION> <VOLUME>
     parser_post = subparsers.add_parser('post')
@@ -451,7 +466,7 @@ def enable_volume_options(args):
                 % args.volume)
 
 
-def write_output(outfile, outfilemerger):
+def write_output(outfile, outfilemerger, field_separator):
     with codecs.open(outfile, "a", encoding="utf-8") as f:
         for row in outfilemerger.get():
             # Multiple paths in case of Hardlinks
@@ -468,9 +483,15 @@ def write_output(outfile, outfilemerger):
                     continue
 
                 if row_2_rep and row_2_rep != "":
-                    f.write(u"{0} {1} {2}\n".format(row[0], p_rep, row_2_rep))
+                    f.write(u"{0}{1}{2}{3}{4}\n".format(row[0],
+                                                        field_separator,
+                                                        p_rep,
+                                                        field_separator,
+                                                        row_2_rep))
                 else:
-                    f.write(u"{0} {1}\n".format(row[0], p_rep))
+                    f.write(u"{0}{1}{2}\n".format(row[0],
+                                                  field_separator,
+                                                  p_rep))
 
 
 def mode_create(session_dir, args):
@@ -580,7 +601,7 @@ def mode_query(session_dir, args):
         # Read each Changelogs db and generate finaldb
         create_file(args.outfile, exit_on_err=True, logger=logger)
         outfilemerger = OutputMerger(args.outfile + ".db", node_outfiles)
-        write_output(args.outfile, outfilemerger)
+        write_output(args.outfile, outfilemerger, args.field_separator)
 
     try:
         os.remove(args.outfile + ".db")
@@ -639,7 +660,7 @@ def mode_pre(session_dir, args):
         # Read each Changelogs db and generate finaldb
         create_file(args.outfile, exit_on_err=True, logger=logger)
         outfilemerger = OutputMerger(args.outfile + ".db", node_outfiles)
-        write_output(args.outfile, outfilemerger)
+        write_output(args.outfile, outfilemerger, args.field_separator)
 
     try:
         os.remove(args.outfile + ".db")

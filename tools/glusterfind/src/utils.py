@@ -75,7 +75,8 @@ def find(path, callback_func=lambda x: True, filter_func=lambda x: True,
                 callback_func(full_path, filter_result)
 
 
-def output_write(f, path, prefix=".", encode=False, tag=""):
+def output_write(f, path, prefix=".", encode=False, tag="",
+                 field_separator=" "):
     if path == "":
         return
 
@@ -86,7 +87,7 @@ def output_write(f, path, prefix=".", encode=False, tag=""):
         path = urllib.quote_plus(path)
 
     # set the field separator
-    FS = "" if tag == "" else " "
+    FS = "" if tag == "" else field_separator
 
     f.write("%s%s%s\n" % (tag.strip(), FS, path))
 
