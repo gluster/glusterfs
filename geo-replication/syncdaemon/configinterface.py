@@ -337,12 +337,18 @@ class GConffile(object):
 
         def update_from_sect(sect, mud):
             for k, v in self.config._sections[sect].items():
+                # Template expects String to be passed
+                # if any config value is not string then it
+                # fails with ValueError
+                v = u"{0}".format(v)
+
                 if k == '__name__':
                     continue
                 if allow_unresolved:
                     dct[k] = Template(v).safe_substitute(mud)
                 else:
                     dct[k] = Template(v).substitute(mud)
+
         for sect in self.ord_sections():
             sp = self.parse_section(sect)
             if isinstance(sp[0], re_type) and len(sp) == len(self.peers):
