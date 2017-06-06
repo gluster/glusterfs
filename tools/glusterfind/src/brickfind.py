@@ -42,7 +42,8 @@ def brickfind_crawl(brick, args):
             path = path.strip()
             path = path[brick_path_len+1:]
             output_write(fout, path, args.output_prefix,
-                         encode=(not args.no_encode), tag=args.tag)
+                         encode=(not args.no_encode), tag=args.tag,
+                         field_separator=args.field_separator)
 
         ignore_dirs = [os.path.join(brick, dirname)
                        for dirname in
@@ -73,6 +74,8 @@ def _get_args():
                         action="store_true")
     parser.add_argument("--output-prefix", help="File prefix in output",
                         default=".")
+    parser.add_argument("--field-separator", help="Field separator",
+                        default=" ")
 
     return parser.parse_args()
 
