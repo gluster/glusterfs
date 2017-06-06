@@ -199,6 +199,8 @@ index_worker (void *data)
         index_priv_t     *priv = NULL;
         xlator_t         *this = NULL;
         call_stub_t      *stub = NULL;
+        gf_boolean_t      bye = _gf_false;
+
 
         THIS = data;
         this = data;
@@ -208,16 +210,27 @@ index_worker (void *data)
                 pthread_mutex_lock (&priv->mutex);
                 {
                         while (list_empty (&priv->callstubs)) {
+                                if (priv->down) {
+                                        bye = _gf_true;/*Avoid wait*/
+                                        break;
+                                }
                                 (void) pthread_cond_wait (&priv->cond,
                                                           &priv->mutex);
+                                if (priv->down) {
+                                        bye = _gf_true;
+                                        break;
+                                }
                         }
-
-                        stub = __index_dequeue (&priv->callstubs);
+                        if (!bye)
+                                stub = __index_dequeue (&priv->callstubs);
                 }
                 pthread_mutex_unlock (&priv->mutex);
 
                 if (stub) /* guard against spurious wakeups */
                         call_resume (stub);
+                stub = NULL;
+                if (bye)
+                        break;
         }
 
         return NULL;
@@ -2380,6 +2393,7 @@ init (xlator_t *this)
         /*init indices files counts*/
         count = index_fetch_link_count (this, XATTROP);
         index_set_link_count (priv, count, XATTROP);
+        priv->down = _gf_false;
 
         ret = gf_thread_create (&priv->thread, &w_attr, index_worker, this);
         if (ret) {
@@ -2505,10 +2519,8 @@ notify (xlator_t *this, int event, void *data, ...)
 
         switch (event) {
         case GF_EVENT_CLEANUP:
-                if (priv->thread) {
-                        (void) gf_thread_cleanup_xint (priv->thread);
-                        priv->thread = 0;
-                }
+                priv->down = _gf_true;
+                pthread_cond_broadcast (&priv->cond);
                 break;
         }
 
