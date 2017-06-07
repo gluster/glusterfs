@@ -21,6 +21,7 @@
 #include <string.h>
 #include <time.h>
 #include "glusterfs.h"
+#include <libgen.h>
 
 #if (HAVE_LIB_XML)
 #include <libxml/encoding.h>
@@ -1031,26 +1032,43 @@ _validate_directory (dict_t *xattr_req, char *file)
 
 int
 glfsh_heal_splitbrain_file (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
-                           char *file, dict_t *xattr_req)
+                            char *file, dict_t *xattr_req)
 {
-        int          ret        = -1;
-        int          reval      = 0;
-        loc_t        loc        = {0, };
-        char        *path       = NULL;
-        char        *filename   = NULL;
-        struct iatt  iatt       = {0, };
-        xlator_t    *xl         = top_subvol;
-        dict_t      *xattr_rsp  = NULL;
-        char        *sh_fail_msg = NULL;
-        int32_t      op_errno   = 0;
+        int          ret           = -1;
+        int          reval         = 0;
+        loc_t        loc           = {0, };
+        char        *path          = NULL;
+        char        *path1         = NULL;
+        char        *path2         = NULL;
+        char        *filename      = NULL;
+        char        *filename1     = NULL;
+        struct iatt  iatt          = {0, };
+        xlator_t    *xl            = top_subvol;
+        dict_t      *xattr_rsp     = NULL;
+        char        *sh_fail_msg   = NULL;
+        char        *gfid_heal_msg = NULL;
+        int32_t      op_errno      = 0;
+        gf_boolean_t flag          = _gf_false;
 
         if (!strncmp (file, "gfid:", 5)) {
                 filename = gf_strdup(file);
+                if (!filename) {
+                        printf ("Error allocating memory to filename\n");
+                        goto out;
+                }
                 path = strtok (filename, ":");
                 path = strtok (NULL, ";");
                 gf_uuid_parse (path, loc.gfid);
                 loc.path = gf_strdup (uuid_utoa (loc.gfid));
+                if (!loc.path) {
+                        printf ("Error allocating memory to path\n");
+                        goto out;
+                }
                 loc.inode = inode_new (rootloc->inode->table);
+                if (!loc.inode) {
+                        printf ("Error getting inode\n");
+                        goto out;
+                }
                 ret = syncop_lookup (xl, &loc, &iatt, 0, xattr_req, &xattr_rsp);
                 if (ret) {
                         op_errno = -ret;
@@ -1065,9 +1083,72 @@ glfsh_heal_splitbrain_file (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                         ret = -1;
                         goto out;
                 }
-retry:
+                path1 = gf_strdup (file);
+                if (!path1) {
+                        printf ("Error allocating memory to path\n");
+                        ret = -1;
+                        goto out;
+                }
+                path2 = gf_strdup (file);
+                if (!path2) {
+                        printf ("Error allocating memory to path\n");
+                        ret = -1;
+                        goto out;
+                }
+                path = dirname (path1);
+                filename1 = basename (path2);
+retry1:
+                ret = glfs_resolve (fs, xl, path, &loc, &iatt, reval);
+                ESTALE_RETRY (ret, errno, reval, &loc, retry1);
+                if (ret) {
+                        printf("Lookup failed on %s:%s\n",
+                               path, strerror (errno));
+                        goto out;
+                }
+                GF_FREE ((char *)loc.path);
+                loc.path = gf_strdup (file);
+                if (!loc.path) {
+                        printf ("Error allocating memory for path\n");
+                        ret = -1;
+                        goto out;
+                }
+                loc.parent = inode_unref (loc.parent);
+                loc.parent = inode_ref (loc.inode);
+                loc.inode = inode_unref (loc.inode);
+                loc.inode = inode_new (rootloc->inode->table);
+                if (!loc.inode) {
+                        printf ("Error getting inode\n");
+                        ret = -1;
+                        goto out;
+                }
+                loc.name = filename1;
+                gf_uuid_copy (loc.pargfid, loc.gfid);
+                gf_uuid_clear (loc.gfid);
+
+                ret = syncop_lookup (xl, &loc, &iatt, 0, xattr_req, &xattr_rsp);
+                if (ret) {
+                        op_errno = -ret;
+                        printf ("Lookup failed on %s:%s.\n", file,
+                                strerror(op_errno));
+                        flag = _gf_true;
+                }
+
+                ret = dict_get_str (xattr_rsp, "gfid-heal-msg", &gfid_heal_msg);
+                if (!ret) {
+                        printf ("%s for file %s\n", gfid_heal_msg, file);
+                        loc_wipe (&loc);
+                        goto out;
+                }
+                if (flag)
+                        goto out;
+
+                reval = 0;
+                loc_wipe (&loc);
+                memset (&iatt, 0, sizeof(iatt));
+
+retry2:
                 ret = glfs_resolve (fs, xl, file, &loc, &iatt, reval);
-                ESTALE_RETRY (ret, errno, reval, &loc, retry);
+                ESTALE_RETRY (ret, errno, reval, &loc, retry2);
                 if (ret) {
                         printf("Lookup failed on %s:%s\n",
                                file, strerror (errno));
@@ -1098,6 +1179,13 @@ retry:
 out:
         if (xattr_rsp)
                 dict_unref (xattr_rsp);
+        if (path1)
+                GF_FREE (path1);
+        if (path2)
+                GF_FREE (path2);
+        if (filename)
+                GF_FREE (filename);
+        loc_wipe (&loc);
         return ret;
 }
 

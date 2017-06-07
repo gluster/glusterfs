@@ -2114,6 +2114,7 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 	int                 op_errno = 0;
 	int                 read_subvol = 0;
         int                 par_read_subvol = 0;
+        int                 ret         = -1;
 	unsigned char      *readable = NULL;
 	int                 event = 0;
 	struct afr_reply   *replies = NULL;
@@ -2124,6 +2125,7 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
         int                 spb_choice = -1;
         ia_type_t           ia_type = IA_INVAL;
         afr_read_subvol_args_t args = {0,};
+        char               *gfid_heal_msg = NULL;
 
         priv  = this->private;
         local = frame->local;
@@ -2256,6 +2258,19 @@ unwind:
         if (AFR_IS_ARBITER_BRICK (priv, read_subvol) && local->op_ret == 0) {
                         local->op_ret = -1;
                         local->op_errno = ENOTCONN;
+        }
+
+        ret = dict_get_str (local->xattr_req, "gfid-heal-msg", &gfid_heal_msg);
+        if (!ret) {
+                ret = dict_set_str (local->replies[read_subvol].xdata,
+                                    "gfid-heal-msg", gfid_heal_msg);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_DICT_SET_FAILED,
+                                "Error setting gfid-heal-msg dict");
+                        local->op_ret = -1;
+                        local->op_errno = ENOMEM;
+                }
         }
 
 	AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
@@ -2520,7 +2535,7 @@ afr_lookup_selfheal_wrap (void *opaque)
         loc_pargfid (&local->loc, pargfid);
 
 	ret = afr_selfheal_name (frame->this, pargfid, local->loc.name,
-                                 &local->cont.lookup.gfid_req);
+                                 &local->cont.lookup.gfid_req, local->xattr_req);
         if (ret == -EIO)
                 goto unwind;
 
@@ -2581,6 +2596,7 @@ afr_lookup_entry_heal (call_frame_t *frame, xlator_t *this)
 	}
 
 	if (need_heal) {
+
 		heal = copy_frame (frame);
 		if (heal)
 			heal->root->pid = GF_CLIENT_PID_SELF_HEALD;
