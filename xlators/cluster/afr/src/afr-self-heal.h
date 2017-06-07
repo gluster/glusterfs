@@ -99,7 +99,7 @@ afr_throttled_selfheal (call_frame_t *frame, xlator_t *this);
 
 int
 afr_selfheal_name (xlator_t *this, uuid_t gfid, const char *name,
-                   void *gfid_req);
+                   void *gfid_req, dict_t *xdata);
 
 int
 afr_selfheal_data (call_frame_t *frame, xlator_t *this, inode_t *inode);
@@ -329,5 +329,11 @@ afr_sh_fav_by_mtime (xlator_t *this, struct afr_reply *replies,
 int
 afr_sh_fav_by_ctime (xlator_t *this, struct afr_reply *replies,
                      inode_t *inode);
+
+int
+afr_gfid_split_brain_source (xlator_t *this, struct afr_reply *replies,
+                             inode_t *inode, uuid_t pargfid, const char *bname,
+                             int src_idx, int child_idx,
+                             unsigned char *locked_on, int *src, dict_t *xdata);
 
 #endif /* !_AFR_SELFHEAL_H */

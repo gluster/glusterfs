@@ -20,6 +20,256 @@ void
 afr_heal_synctask (xlator_t *this, afr_local_t *local);
 
 int
+afr_gfid_sbrain_source_from_src_brick (xlator_t *this,
+                                       struct afr_reply *replies,
+                                       char *src_brick)
+{
+        int             i        = 0;
+        afr_private_t  *priv     = NULL;
+
+        priv = this->private;
+        for (i = 0; i < priv->child_count; i++) {
+                if (!replies[i].valid || replies[i].op_ret == -1)
+                        continue;
+                if (strcmp (priv->children[i]->name, src_brick) == 0)
+                        return i;
+        }
+        return -1;
+}
+
+int
+afr_selfheal_gfid_mismatch_by_majority (struct afr_reply *replies,
+                                        int child_count)
+{
+        int             j                  = 0;
+        int             i                  = 0;
+        int             src                = -1;
+        int             votes[child_count];
+
+        for (i = 0; i < child_count; i++) {
+                if (!replies[i].valid || replies[i].op_ret == -1)
+                        continue;
+
+                votes[i] = 1;
+                for (j = i+1; j < child_count; j++) {
+                        if ((!gf_uuid_compare (replies[i].poststat.ia_gfid,
+                            replies[j].poststat.ia_gfid)))
+                                votes[i]++;
+                        if (votes[i] > child_count / 2) {
+                                src = i;
+                                goto out;
+                        }
+                }
+        }
+
+out:
+        return src;
+}
+
+int afr_gfid_sbrain_source_from_bigger_file (struct afr_reply *replies,
+                                             int child_count)
+{
+        int       i       = 0;
+        int       src     = -1;
+        uint64_t  size    = 0;
+
+        for (i = 0; i < child_count; i++) {
+                if (!replies[i].valid || replies[i].op_ret == -1)
+                        continue;
+                if (size < replies[i].poststat.ia_size) {
+                        src = i;
+                        size = replies[i].poststat.ia_size;
+                } else if (replies[i].poststat.ia_size == size) {
+                        src = -1;
+                }
+        }
+        return src;
+}
+
+int afr_gfid_sbrain_source_from_latest_mtime (struct afr_reply *replies,
+                                              int child_count)
+{
+        int       i             = 0;
+        int       src           = -1;
+        uint32_t  mtime         = 0;
+        uint32_t  mtime_nsec    = 0;
+
+        for (i = 0; i < child_count; i++) {
+                if (!replies[i].valid || replies[i].op_ret != 0)
+                        continue;
+                if ((mtime < replies[i].poststat.ia_mtime) ||
+                    ((mtime == replies[i].poststat.ia_mtime) &&
+                     (mtime_nsec < replies[i].poststat.ia_mtime_nsec))) {
+                        src = i;
+                        mtime = replies[i].poststat.ia_mtime;
+                        mtime_nsec = replies[i].poststat.ia_mtime_nsec;
+                } else if ((mtime == replies[i].poststat.ia_mtime) &&
+                           (mtime_nsec == replies[i].poststat.ia_mtime_nsec)) {
+                        src = -1;
+                }
+        }
+        return src;
+}
+
+int
+afr_gfid_split_brain_source (xlator_t *this, struct afr_reply *replies,
+                             inode_t *inode, uuid_t pargfid, const char *bname,
+                             int src_idx, int child_idx,
+                             unsigned char *locked_on, int *src, dict_t *xdata)
+{
+        afr_private_t   *priv      = NULL;
+        char             g1[64]    = {0,};
+        char             g2[64]    = {0,};
+        int              up_count  = 0;
+        int              heal_op   = -1;
+        int              ret       = -1;
+        char            *src_brick = NULL;
+
+        *src = -1;
+        priv = this->private;
+        up_count = AFR_COUNT (locked_on, priv->child_count);
+        if (up_count != priv->child_count) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN,
+                        "All the bricks should be up to resolve the gfid split "
+                        "barin");
+                if (xdata) {
+                        ret = dict_set_str (xdata, "gfid-heal-msg", "All the "
+                                            "bricks should be up to resolve the"
+                                            " gfid split barin");
+                        if (ret)
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        AFR_MSG_DICT_SET_FAILED, "Error setting"
+                                        " gfid-heal-msg dict");
+                }
+                goto out;
+        }
+
+        if (xdata) {
+                ret = dict_get_int32 (xdata, "heal-op", &heal_op);
+                if (ret)
+                        goto fav_child;
+        } else {
+                goto fav_child;
+        }
+
+        switch (heal_op) {
+        case GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE:
+                *src = afr_gfid_sbrain_source_from_bigger_file (replies,
+                                                                priv->child_count);
+                if (*src == -1) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_SPLIT_BRAIN, "No bigger file");
+                        if (xdata) {
+                                ret = dict_set_str (xdata, "gfid-heal-msg",
+                                                    "No bigger file");
+                                if (ret)
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                AFR_MSG_DICT_SET_FAILED, "Error"
+                                                " setting gfid-heal-msg dict");
+                        }
+                }
+                break;
+
+        case GF_SHD_OP_SBRAIN_HEAL_FROM_LATEST_MTIME:
+                *src = afr_gfid_sbrain_source_from_latest_mtime (replies,
+                                                                 priv->child_count);
+                if (*src == -1) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_SPLIT_BRAIN, "No difference in mtime");
+                        if (xdata) {
+                                ret = dict_set_str (xdata, "gfid-heal-msg",
+                                                    "No difference in mtime");
+                                if (ret)
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                AFR_MSG_DICT_SET_FAILED, "Error"
+                                                "setting gfid-heal-msg dict");
+                        }
+                }
+                break;
+
+        case GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK:
+                ret = dict_get_str (xdata, "child-name", &src_brick);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_SPLIT_BRAIN, "Error getting the source "
+                                "brick");
+                        break;
+                }
+                *src = afr_gfid_sbrain_source_from_src_brick (this, replies,
+                                                              src_brick);
+                if (*src == -1) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_SPLIT_BRAIN, "Error getting the source "
+                                "brick");
+                        if (xdata) {
+                                ret = dict_set_str (xdata, "gfid-heal-msg",
+                                                    "Error getting the source "
+                                                    "brick");
+                                if (ret)
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                AFR_MSG_DICT_SET_FAILED, "Error"
+                                                " setting gfid-heal-msg dict");
+                        }
+                }
+                break;
+
+        default:
+                break;
+        }
+        goto out;
+
+fav_child:
+        switch (priv->fav_child_policy) {
+        case AFR_FAV_CHILD_BY_SIZE:
+                *src = afr_sh_fav_by_size (this, replies, inode);
+                break;
+        case AFR_FAV_CHILD_BY_MTIME:
+                *src = afr_sh_fav_by_mtime (this, replies, inode);
+                break;
+        case AFR_FAV_CHILD_BY_CTIME:
+                *src = afr_sh_fav_by_ctime(this, replies, inode);
+                break;
+        case AFR_FAV_CHILD_BY_MAJORITY:
+                if (priv->child_count != 2)
+                        *src = afr_selfheal_gfid_mismatch_by_majority (replies,
+                                                                       priv->child_count);
+                else
+                        *src = -1;
+
+                if (*src == -1) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_SPLIT_BRAIN, "No majority to resolve "
+                                "gfid split brain");
+                }
+                break;
+        default:
+                break;
+        }
+
+out:
+        if (*src == -1) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN,
+                        "Gfid mismatch detected for <gfid:%s>/%s>, %s on %s and"
+                        " %s on %s.", uuid_utoa (pargfid), bname,
+                        uuid_utoa_r (replies[child_idx].poststat.ia_gfid, g1),
+                        priv->children[child_idx]->name,
+                        uuid_utoa_r (replies[src_idx].poststat.ia_gfid, g2),
+                        priv->children[src_idx]->name);
+                gf_event (EVENT_AFR_SPLIT_BRAIN, "subvol=%s;type=gfid;file="
+                          "<gfid:%s>/%s>;count=2;child-%d=%s;gfid-%d=%s;"
+                          "child-%d=%s;gfid-%d=%s", this->name,
+                          uuid_utoa (pargfid), bname, child_idx,
+                          priv->children[child_idx]->name, child_idx,
+                          uuid_utoa_r (replies[child_idx].poststat.ia_gfid, g1),
+                          src_idx, priv->children[src_idx]->name, src_idx,
+                          uuid_utoa_r (replies[src_idx].poststat.ia_gfid, g2));
+                return -1;
+        }
+        return 0;
+}
+
+
+int
 afr_selfheal_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			  int op_ret, int op_errno, dict_t *xattr, dict_t *xdata)
 {
