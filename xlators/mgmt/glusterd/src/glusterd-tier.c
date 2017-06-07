@@ -1177,6 +1177,16 @@ glusterd_add_tierd_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
+        /* tier doesn't have a port. but the cli needs a port key with
+         * an zero value to parse.
+         * */
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%s.port", base_key);
+        ret = dict_set_int32 (dict, key, 0);
+        if (ret)
+                goto out;
+
         glusterd_svc_build_tierd_pidfile (volinfo, pidfile, sizeof (pidfile));
 
         brick_online = gf_is_service_running (pidfile, &pid);
