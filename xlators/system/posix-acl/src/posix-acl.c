@@ -62,6 +62,10 @@ whitelisted_xattr (const char *key)
                 return 1;
         if (strcmp (POSIX_ACL_DEFAULT_XATTR, key) == 0)
                 return 1;
+        if (strcmp (GF_POSIX_ACL_ACCESS, key) == 0)
+                return 1;
+        if (strcmp (GF_POSIX_ACL_DEFAULT, key) == 0)
+                return 1;
         return 0;
 }
 
