@@ -1864,15 +1864,15 @@ posix_health_check_thread_proc (void *data)
                 ret = sleep (interval);
                 if (ret > 0)
                         break;
-
                 /* prevent thread errors while doing the health-check(s) */
                 pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
 
                 /* Do the health-check.*/
                 ret = posix_fs_health_check (this);
-                if (ret < 0)
+                if (ret < 0 && priv->health_check_active)
                         goto abort;
-
+                if (!priv->health_check_active)
+                        goto out;
                 pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
         }
 
