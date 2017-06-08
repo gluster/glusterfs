@@ -6639,6 +6639,7 @@ notify (xlator_t *this,
         break;
         case GF_EVENT_CLEANUP:
                 if (priv->health_check) {
+                        priv->health_check_active = _gf_false;
                         pthread_cancel (priv->health_check);
                         priv->health_check = 0;
                 }
