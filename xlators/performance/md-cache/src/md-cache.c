@@ -2587,21 +2587,21 @@ mdc_priv_dump (xlator_t *this)
         gf_proc_dump_add_section(key_prefix);
 
         gf_proc_dump_write("stat_hit_count", "%"PRId64,
-                           conf->mdc_counter.stat_hit);
+                           conf->mdc_counter.stat_hit.cnt);
         gf_proc_dump_write("stat_miss_count", "%"PRId64,
-                           conf->mdc_counter.stat_miss);
+                           conf->mdc_counter.stat_miss.cnt);
         gf_proc_dump_write("xattr_hit_count", "%"PRId64,
-                           conf->mdc_counter.xattr_hit);
+                           conf->mdc_counter.xattr_hit.cnt);
         gf_proc_dump_write("xattr_miss_count", "%"PRId64,
-                           conf->mdc_counter.xattr_miss);
+                           conf->mdc_counter.xattr_miss.cnt);
         gf_proc_dump_write("nameless_lookup_count", "%"PRId64,
-                           conf->mdc_counter.nameless_lookup);
+                           conf->mdc_counter.nameless_lookup.cnt);
         gf_proc_dump_write("negative_lookup_count", "%"PRId64,
-                           conf->mdc_counter.negative_lookup);
+                           conf->mdc_counter.negative_lookup.cnt);
         gf_proc_dump_write("stat_invalidations_received", "%"PRId64,
-                           conf->mdc_counter.stat_invals);
+                           conf->mdc_counter.stat_invals.cnt);
         gf_proc_dump_write("xattr_invalidations_received", "%"PRId64,
-                           conf->mdc_counter.xattr_invals);
+                           conf->mdc_counter.xattr_invals.cnt);
 
         return 0;
 }
