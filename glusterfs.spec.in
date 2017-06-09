@@ -1226,6 +1226,7 @@ exit 0
             %attr(0644,-,-) %{_sharedstatedir}/glusterd/groups/virt
             %attr(0644,-,-) %{_sharedstatedir}/glusterd/groups/metadata-cache
             %attr(0644,-,-) %{_sharedstatedir}/glusterd/groups/gluster-block
+            %attr(0644,-,-) %{_sharedstatedir}/glusterd/groups/nl-cache
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glusterfind
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glusterfind/.keys
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glustershd
@@ -1310,6 +1311,9 @@ exit 0
 %endif
 
 %changelog
+* Fri Jun 9 2017 Poornima G <pgurusid@redhat.com>
+- Install /var/lib/glusterd/groups/nl-cache by default
+
 * Wed May 10 2017 Pranith Kumar K <pkarampu@redhat.com>
 - Install /var/lib/glusterd/groups/gluster-block by default
 
