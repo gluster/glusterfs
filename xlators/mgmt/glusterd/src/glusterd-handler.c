@@ -5749,6 +5749,8 @@ out:
         return ret;
 }
 
+static int gd_stale_rpc_disconnect_log;
+
 int
 __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                              rpc_clnt_event_t event, void *data)
@@ -5833,9 +5835,10 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                          * any are still left it doesn't hurt to keep the extra
                          * check and avoid further damage.
                          */
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "got disconnect from stale rpc on %s",
-                                brickinfo->path);
+                        GF_LOG_OCCASIONALLY (gd_stale_rpc_disconnect_log,
+                                             this->name, GF_LOG_WARNING,
+                                             "got disconnect from stale rpc on "
+                                             "%s", brickinfo->path);
                         break;
                 }
                 if (glusterd_is_brick_started (brickinfo)) {
