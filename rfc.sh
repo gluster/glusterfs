@@ -18,7 +18,7 @@ done
 shift $((OPTIND-1))
 
 
-branch="master";
+branch="experimental";
 
 set_hooks_commit_msg()
 {
@@ -72,8 +72,8 @@ check_backport()
 {
     moveon='N'
 
-    # Backports are never made to master
-    if [ $branch = "master" ]; then
+    # Backports are never made to 'master' or 'experimental'
+    if [ $branch = "master" -o $branch = "experimental" ]; then
         return;
     fi
 
