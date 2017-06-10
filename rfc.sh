@@ -17,7 +17,7 @@ done
 shift $((OPTIND-1))
 
 
-branch="master";
+branch="experimental";
 
 set_hooks_commit_msg()
 {
@@ -71,8 +71,8 @@ check_backport()
 {
     moveon='N'
 
-    # Backports are never made to master
-    if [ $branch = "master" ]; then
+    # Backports are never made to 'master' or 'experimental'
+    if [ $branch = "master" -o $branch = "experimental" ]; then
         return;
     fi
 
@@ -128,6 +128,7 @@ editor_mode()
 
     if [ $(basename "$1") = "COMMIT_EDITMSG" ]; then
         if grep -qi '^BUG: ' $1; then
+            echo "If it is a bug fix, do you want to submit it to 'master'?"
             return;
         fi
         while true; do
@@ -294,15 +295,10 @@ main()
 
     assert_diverge;
 
-    bug=$(git show --format='%b' | grep -i '^BUG: ' | awk '{print $2}');
-
     # If this is a commit against master and does not have a bug ID
     # it could be a feature or an RFE, check if there is a github
     # issue reference, and if not suggest commit message amendment
-    if [ -z "$bug" ] && [ $branch = "master" ]; then
-        check_for_github_issue;
-    fi
-
+    check_for_github_issue;
 
     if [ "$DRY_RUN" = 1 ]; then
         drier='echo -e Please use the following command to send your commits to review:\n\n'
@@ -310,11 +306,7 @@ main()
         drier=
     fi
 
-    if [ -z "$bug" ]; then
-        $drier git push origin HEAD:refs/for/$branch/rfc;
-    else
-        $drier git push origin HEAD:refs/for/$branch/bug-$bug;
-    fi
+    $drier git push origin HEAD:refs/for/$branch/rfc;
 }
 
 main "$@"
