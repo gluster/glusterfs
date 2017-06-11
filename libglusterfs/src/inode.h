@@ -286,21 +286,6 @@ inode_has_dentry (inode_t *inode);
 size_t
 inode_ctx_size (inode_t *inode);
 
-/*
- * This function is used to change the dentry from a path
- * if it contains any "." or ".." .
- *
- * It replaces "." and ".." to proper bname after resolving
- * and will change the component accordingly.
- *
- * This fucntion also replaces the parent inode based on the
- * bname.
- *
- * We should give a allocated memory as a third argument to store
- * the component in case if we are modifying it.
- */
-
 void
-glusterfs_normalize_dentry (inode_t **parent, char **component,
-                            char *dentry_name);
+inode_find_directory_name (inode_t *inode, const char **name);
 #endif /* _INODE_H */

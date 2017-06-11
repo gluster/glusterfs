@@ -236,6 +236,7 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 {
 	loc_t        loc = {0, };
 	inode_t     *inode = NULL;
+        inode_t     *temp_parent = NULL;
 	int          reval = 0;
 	int          ret = -1;
 	int          glret = -1;
@@ -244,14 +245,12 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 	dict_t      *xattr_req = NULL;
         uint64_t     ctx_value = LOOKUP_NOT_NEEDED;
 
-	loc.name = component;
-
 	loc.parent = inode_ref (parent);
 	gf_uuid_copy (loc.pargfid, parent->gfid);
 
-        /* At this point we should never have '.' or ".." in path */
         if (__is_root_gfid (parent->gfid) &&
-            (strcmp (component, "/") == 0)) {
+            ((strcmp (component, ".") == 0) ||
+             (strcmp (component, "..") == 0))) {
                 if (!force_lookup) {
                         inode = inode_ref (parent);
                 } else {
@@ -261,8 +260,68 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
                 }
                 goto found;
         }
+        /* *
+        * if the component name is either "." or "..", it will try to
+        * resolve that if inode has a proper parent (named lookup).
+        *
+        * Below condition works like this
+        *
+        * Example 1 :
+        * Path /out_dir/dir/in_dir/.
+        *     In put values :
+        *         parent = in_dir
+        *         component : "."
+        *
+        *      Out put values:
+        *         parent : dir
+        *         component : "in_dir"
+        *
+        * Example 2 :
+        * Path /out_dir/dir/in_dir/..
+        *     In put values :
+        *         parent = in_dir
+        *         component : ".."
+        *
+        *     Out put values:
+        *         parent : output_dir
+        *         component : "dir"
+        *
+        * Incase of nameless lookup, both "." and ".." retained
+        */
 
-        loc.inode = inode_grep (parent->table, parent, component);
+        if (strcmp (component, ".") == 0) {
+                loc.inode = inode_ref (parent);
+                temp_parent = inode_parent (loc.inode, 0, 0);
+                if (temp_parent) {
+                        inode_unref (loc.parent);
+                        loc.parent = temp_parent;
+                        inode_find_directory_name (loc.inode, &loc.name);
+                }
+
+        } else if (strcmp (component, "..") == 0) {
+                loc.inode = inode_parent (parent, 0, 0);
+                if (loc.inode) {
+                        temp_parent = inode_parent (loc.inode, 0, 0);
+                        if (temp_parent) {
+                                inode_unref (loc.parent);
+                                loc.parent = temp_parent;
+                                inode_find_directory_name (loc.inode, &loc.name);
+                        } else if (__is_root_gfid (loc.inode->gfid)) {
+                                inode_unref (loc.parent);
+                                loc.parent = inode_ref (loc.inode);
+                                loc.name = "";
+                        } else {
+                                inode_unref (loc.inode);
+                                loc.inode = NULL;
+                        }
+
+                }
+        } else
+                loc.inode = inode_grep (parent->table, parent, component);
+
+        if (!loc.name)
+                loc.name = component;
+
 	if (loc.inode) {
 		gf_uuid_copy (loc.gfid, loc.inode->gfid);
 		reval = 1;
@@ -357,7 +416,6 @@ found:
 out:
 	if (xattr_req)
 		dict_unref (xattr_req);
-
 	loc_wipe (&loc);
 
 	return inode;
@@ -377,7 +435,6 @@ priv_glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
 	char       *next_component = NULL;
 	int         ret = -1;
 	struct iatt ciatt = {0, };
-        char        dentry_name[PATH_MAX]  = {0, };
 
 	DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FS(fs, invalid_fs);
@@ -409,7 +466,6 @@ priv_glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
 		if (parent)
 			inode_unref (parent);
 		parent = inode;
-                glusterfs_normalize_dentry (&parent, &component, dentry_name);
 		inode = glfs_resolve_component (fs, subvol, parent,
 						component, &ciatt,
 						/* force hard lookup on the last
