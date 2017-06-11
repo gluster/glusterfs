@@ -995,8 +995,10 @@ out:
 }
 
 static int
-__dht_rebalance_migrate_data (xlator_t *from, xlator_t *to, fd_t *src, fd_t *dst,
-                              uint64_t ia_size, int hole_exists, int *fop_errno)
+__dht_rebalance_migrate_data (gf_defrag_info_t *defrag, xlator_t *from,
+                              xlator_t *to, fd_t *src, fd_t *dst,
+                              uint64_t ia_size, int hole_exists,
+                              int *fop_errno)
 {
         int            ret    = 0;
         int            count  = 0;
@@ -1031,68 +1033,8 @@ __dht_rebalance_migrate_data (xlator_t *from, xlator_t *to, fd_t *src, fd_t *dst
                         }
                 }
 
-                if (ret < 0) {
-                        break;
-                }
-
-                offset += ret;
-                total += ret;
-
-                GF_FREE (vector);
-                if (iobref)
-                        iobref_unref (iobref);
-                iobref = NULL;
-                vector = NULL;
-        }
-        if (iobref)
-                iobref_unref (iobref);
-        GF_FREE (vector);
-
-        if (ret >= 0)
-                ret = 0;
-        else
-                ret = -1;
-
-        return ret;
-}
-
-static int
-__tier_migrate_data (gf_defrag_info_t *defrag, xlator_t *from, xlator_t *to, fd_t *src, fd_t *dst,
-                     uint64_t ia_size, int hole_exists, int *fop_errno)
-{
-        int            ret    = 0;
-        int            count  = 0;
-        off_t          offset = 0;
-        struct iovec  *vector = NULL;
-        struct iobref *iobref = NULL;
-        uint64_t       total  = 0;
-        size_t         read_size = 0;
-
-        /* if file size is '0', no need to enter this loop */
-        while (total < ia_size) {
-
-                read_size = (((ia_size - total) > DHT_REBALANCE_BLKSIZE) ?
-                             DHT_REBALANCE_BLKSIZE : (ia_size - total));
-
-                ret = syncop_readv (from, src, read_size,
-                                    offset, 0, &vector, &count, &iobref, NULL,
-                                    NULL);
-                if (!ret || (ret < 0)) {
-                        *fop_errno = -ret;
-                        break;
-                }
-
-                if (hole_exists) {
-                        ret = dht_write_with_holes (to, dst, vector, count,
-                                                    ret, offset, iobref,
-                                                    fop_errno);
-                } else {
-                        ret = syncop_writev (to, dst, vector, count,
-                                             offset, iobref, 0, NULL, NULL);
-                        *fop_errno = -ret;
-                }
-
-                if (gf_defrag_get_pause_state (&defrag->tier_conf) != TIER_RUNNING) {
+                if ((defrag && defrag->cmd == GF_DEFRAG_CMD_START_TIER) &&
+                    (gf_defrag_get_pause_state (&defrag->tier_conf) != TIER_RUNNING)) {
                         gf_msg ("tier", GF_LOG_INFO, 0,
                                 DHT_MSG_TIER_PAUSED,
                                 "Migrate file paused");
@@ -1102,6 +1044,7 @@ __tier_migrate_data (gf_defrag_info_t *defrag, xlator_t *from, xlator_t *to, fd_
                 if (ret < 0) {
                         break;
                 }
+
                 offset += ret;
                 total += ret;
 
@@ -1722,17 +1665,9 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 file_has_holes = 1;
 
 
-        /* All I/O happens in this function */
-        if (defrag && defrag->cmd == GF_DEFRAG_CMD_START_TIER) {
-                ret = __tier_migrate_data (defrag, from, to, src_fd, dst_fd,
-                                                    stbuf.ia_size,
-                                                    file_has_holes, fop_errno);
-        } else {
-                ret = __dht_rebalance_migrate_data (from, to, src_fd, dst_fd,
-                                                    stbuf.ia_size,
-                                                    file_has_holes, fop_errno);
-        }
-
+        ret = __dht_rebalance_migrate_data (defrag, from, to, src_fd, dst_fd,
+                                            stbuf.ia_size,
+                                            file_has_holes, fop_errno);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,
