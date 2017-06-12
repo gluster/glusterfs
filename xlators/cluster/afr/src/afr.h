@@ -875,11 +875,6 @@ typedef struct afr_granular_esh_args {
                                   mismatch */
 } afr_granular_esh_args_t;
 
-/* did a call fail due to a child failing? */
-#define child_went_down(op_ret, op_errno) (((op_ret) < 0) &&            \
-                                           ((op_errno == ENOTCONN) ||   \
-                                            (op_errno == EBADFD)))
-
 int
 afr_inode_get_readable (call_frame_t *frame, inode_t *inode, xlator_t *this,
                         unsigned char *readable, int *event_p, int type);
