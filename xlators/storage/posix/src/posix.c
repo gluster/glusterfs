@@ -1498,6 +1498,8 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         void                 *disk_xattr      = NULL;
         data_t               *arg_data        = NULL;
         char          pgfid[GF_UUID_BUF_SIZE] = {0};
+        char                 value_buf[4096]  = {0,};
+        gf_boolean_t         have_val         = _gf_false;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1600,19 +1602,35 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         if (xattr_name != NULL) {
                 arg_data = dict_get (xdata, xattr_name);
                 if (arg_data) {
-                        size = sys_lgetxattr (par_path, xattr_name, NULL, 0);
-                        if (size < 0) {
-                                op_ret = -1;
-                                op_errno = errno;
-                                gf_msg (this->name, GF_LOG_ERROR, errno,
-                                        P_MSG_PREOP_CHECK_FAILED,
-                                        "mkdir (%s/%s): getxattr on key (%s)"
-                                        " path (%s) failed ", pgfid,
-                                        loc->name, xattr_name,
-                                        par_path);
-                                goto out;
+                        size = sys_lgetxattr (par_path, xattr_name, value_buf,
+                                              sizeof(value_buf) - 1);
+                        if (size >= 0) {
+                                have_val = _gf_true;
+                        } else {
+                                if (errno == ERANGE) {
+                                        gf_msg (this->name, GF_LOG_INFO, errno,
+                                                P_MSG_PREOP_CHECK_FAILED,
+                                                "mkdir (%s/%s): getxattr on key "
+                                                "(%s) path (%s) failed due to "
+                                                " buffer overflow", pgfid,
+                                                loc->name, xattr_name,
+                                                par_path);
+                                        size = sys_lgetxattr (par_path,
+                                                              xattr_name, NULL,
+                                                              0);
+                                }
+                                if (size < 0) {
+                                        op_ret = -1;
+                                        op_errno = errno;
+                                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                                P_MSG_PREOP_CHECK_FAILED,
+                                                "mkdir (%s/%s): getxattr on key (%s)"
+                                                " path (%s) failed ", pgfid,
+                                                loc->name, xattr_name,
+                                                par_path);
+                                        goto out;
+                                }
                         }
-
                         disk_xattr = alloca (size);
                         if (disk_xattr == NULL) {
                                 op_ret = -1;
@@ -1624,20 +1642,23 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                                         loc->name, real_path);
                                 goto out;
                         }
-
-                        size = sys_lgetxattr (par_path, xattr_name,
-                                              disk_xattr, size);
-                        if (size < 0) {
-                                op_errno = errno;
-                                gf_msg (this->name, GF_LOG_ERROR, errno,
-                                        P_MSG_PREOP_CHECK_FAILED,
-                                        "mkdir (%s/%s): getxattr on key (%s)"
-                                        " path (%s) failed (%s)", pgfid,
-                                        loc->name, xattr_name,
-                                        par_path, strerror (errno));
-                                goto out;
+                        if (have_val) {
+                                memcpy (disk_xattr, value_buf, size);
+                        } else {
+                                size = sys_lgetxattr (par_path, xattr_name,
+                                                      disk_xattr, size);
+                                if (size < 0) {
+                                        op_errno = errno;
+                                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                                P_MSG_PREOP_CHECK_FAILED,
+                                                "mkdir (%s/%s): getxattr on "
+                                                " key (%s) path (%s) failed "
+                                                "(%s)", pgfid, loc->name,
+                                                xattr_name, par_path,
+                                                strerror (errno));
+                                        goto out;
+                               }
                         }
-
                         if ((arg_data->len != size)
                             || (memcmp (arg_data->data, disk_xattr, size))) {
                                 gf_msg (this->name, GF_LOG_INFO, EIO,
@@ -4408,6 +4429,8 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         size_t                remaining_size        = 0;
         char                  host_buf[1024]        = {0,};
         char                  keybuffer[4096]       = {0,};
+        char                  value_buf[8192]       = {0,};
+        gf_boolean_t          have_val              = _gf_false;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -4644,28 +4667,44 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         }
                 }
 #endif
-                size = sys_lgetxattr (real_path, key, NULL, 0);
-                if (size == -1) {
-                        op_errno = errno;
-                        if ((op_errno == ENOTSUP) || (op_errno == ENOSYS)) {
-                                GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
-                                                     this->name, GF_LOG_WARNING,
-                                                     "Extended attributes not "
-                                                     "supported (try remounting"
-                                                     " brick with 'user_xattr' "
-                                                     "flag)");
-                        } else if (op_errno == ENOATTR ||
-                                        op_errno == ENODATA) {
-                                gf_msg_debug (this->name, 0,
-                                        "No such attribute:%s for file %s",
-                                        key, real_path);
-                        } else {
-                                gf_msg (this->name, GF_LOG_ERROR, op_errno,
-                                        P_MSG_XATTR_FAILED, "getxattr failed"
+                memset (value_buf, '\0', sizeof(value_buf));
+                size = sys_lgetxattr (real_path, key, value_buf,
+                                                        sizeof (value_buf) - 1);
+                if (size >= 0) {
+                        have_val = _gf_true;
+                } else {
+                        if (errno == ERANGE) {
+                                gf_msg (this->name, GF_LOG_INFO, errno,
+                                        P_MSG_XATTR_FAILED,
+                                        "getxattr failed due to overflow of buffer"
                                         " on %s: %s ", real_path, key);
+                                size = sys_lgetxattr (real_path, key, NULL, 0);
                         }
-
-                        goto done;
+                        if (size == -1) {
+                                op_errno = errno;
+                                if ((op_errno == ENOTSUP) ||
+                                                         (op_errno == ENOSYS)) {
+                                        GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
+                                                             this->name,
+                                                             GF_LOG_WARNING,
+                                                             "Extended attributes not "
+                                                             "supported (try remounting"
+                                                             " brick with 'user_xattr' "
+                                                             "flag)");
+                                }
+                                if ((op_errno == ENOATTR) ||
+                                                       (op_errno == ENODATA)) {
+                                        gf_msg_debug (this->name, 0,
+                                                      "No such attribute:%s for file %s",
+                                                      key, real_path);
+                                } else {
+                                        gf_msg (this->name, GF_LOG_ERROR,
+                                                op_errno, P_MSG_XATTR_FAILED,
+                                                "getxattr failed on %s: %s ",
+                                                real_path, key);
+                                }
+                                goto done;
+                        }
                 }
                 value = GF_CALLOC (size + 1, sizeof(char), gf_posix_mt_char);
                 if (!value) {
@@ -4673,15 +4712,20 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         op_errno = ENOMEM;
                         goto out;
                 }
-                size = sys_lgetxattr (real_path, key, value, size);
-                if (size == -1) {
-                        op_ret = -1;
-                        op_errno = errno;
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_XATTR_FAILED, "getxattr failed on "
-                                "%s: key = %s", real_path, key);
-                        GF_FREE (value);
-                        goto out;
+                if (have_val) {
+                        memcpy (value, value_buf, size);
+                } else {
+                        size = sys_lgetxattr (real_path, key, value, size);
+                        if (size == -1) {
+                                op_ret = -1;
+                                op_errno = errno;
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        P_MSG_XATTR_FAILED,
+                                        "getxattr failed on %s: key = %s",
+                                        real_path, key);
+                                GF_FREE (value);
+                                goto out;
+                        }
                 }
                 value [size] = '\0';
                 op_ret = dict_set_dynptr (dict, key, value, size);
@@ -4697,42 +4741,53 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 goto done;
         }
 
-        size = sys_llistxattr (real_path, NULL, 0);
-        if (size == -1) {
-                op_errno = errno;
-                if ((errno == ENOTSUP) || (errno == ENOSYS)) {
-                        GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
-                                             this->name, GF_LOG_WARNING,
-                                             "Extended attributes not "
-                                             "supported (try remounting"
-                                             " brick with 'user_xattr' "
-                                             "flag)");
-                }
-                else {
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
+        have_val = _gf_false;
+        memset (value_buf, '\0', sizeof(value_buf));
+        size = sys_llistxattr (real_path, value_buf, sizeof (value_buf) - 1);
+        if (size > 0) {
+                have_val = _gf_true;
+        } else {
+                if (errno == ERANGE) {
+                        gf_msg (this->name, GF_LOG_INFO, errno,
                                 P_MSG_XATTR_FAILED,
-                                "listxattr failed on %s",
-                                real_path);
+                                "listxattr failed due to overflow of buffer"
+                                " on %s ", real_path);
+                        size = sys_llistxattr (real_path, NULL, 0);
                 }
-                goto out;
+                if (size == -1) {
+                        op_errno = errno;
+                        if ((errno == ENOTSUP) || (errno == ENOSYS)) {
+                                GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
+                                                     this->name, GF_LOG_WARNING,
+                                                     "Extended attributes not "
+                                                     "supported (try remounting"
+                                                     " brick with 'user_xattr' "
+                                                     "flag)");
+                        } else {
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        P_MSG_XATTR_FAILED,
+                                        "listxattr failed on %s", real_path);
+                        }
+                        goto out;
+                }
+                if (size == 0)
+                        goto done;
         }
-
-        if (size == 0)
-                goto done;
-
         list = alloca (size);
         if (!list) {
                 op_errno = errno;
                 goto out;
         }
-
-        size = sys_llistxattr (real_path, list, size);
-        if (size < 0) {
-                op_ret = -1;
-                op_errno = errno;
-                goto out;
+        if (have_val) {
+                memcpy (list, value_buf, size);
+        } else {
+                size = sys_llistxattr (real_path, list, size);
+                if (size < 0) {
+                        op_ret = -1;
+                        op_errno = errno;
+                        goto out;
+                }
         }
-
         remaining_size = size;
         list_offset = 0;
         while (remaining_size > 0) {
@@ -4742,35 +4797,51 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                                                   _gf_false);
                 if (ret == -1)
                         goto ignore;
-
-                size = sys_lgetxattr (real_path, keybuffer, NULL, 0);
-                if (size == -1) {
-                        op_ret = -1;
-                        op_errno = errno;
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_XATTR_FAILED, "getxattr failed on "
-                                "%s: key = %s ", real_path, keybuffer);
-                        break;
+                memset (value_buf, '\0', sizeof(value_buf));
+                have_val = _gf_false;
+                size = sys_lgetxattr (real_path, keybuffer, value_buf,
+                                      sizeof (value_buf) - 1);
+                if (size >= 0) {
+                        have_val = _gf_true;
+                } else {
+                        if (errno == ERANGE) {
+                                gf_msg (this->name, GF_LOG_INFO, op_errno,
+                                        P_MSG_XATTR_FAILED,
+                                        "getxattr failed due to overflow of"
+                                        "  buffer on %s: %s ", real_path,
+                                        keybuffer);
+                                size = sys_lgetxattr (real_path, keybuffer,
+                                                      NULL, 0);
+                        }
+                        if (size == -1) {
+                                op_ret = -1;
+                                op_errno = errno;
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        P_MSG_XATTR_FAILED, "getxattr failed on"
+                                        " %s: key = %s ", real_path, keybuffer);
+                                break;
+                        }
                 }
-
                 value = GF_CALLOC (size + 1, sizeof(char),
                                    gf_posix_mt_char);
                 if (!value) {
                         op_errno = errno;
                         goto out;
                 }
-
-                size = sys_lgetxattr (real_path, keybuffer, value, size);
-                if (size == -1) {
-                        op_ret = -1;
-                        op_errno = errno;
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_XATTR_FAILED, "getxattr failed on "
-                                "%s: key = %s ", real_path, keybuffer);
-                        GF_FREE (value);
-                        break;
+                if (have_val) {
+                        memcpy (value, value_buf, size);
+                } else {
+                        size = sys_lgetxattr (real_path, keybuffer, value, size);
+                        if (size == -1) {
+                                op_ret = -1;
+                                op_errno = errno;
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        P_MSG_XATTR_FAILED, "getxattr failed on"
+                                        " %s: key = %s ", real_path, keybuffer);
+                                GF_FREE (value);
+                                break;
+                        }
                 }
-
                 value [size] = '\0';
 #ifdef GF_DARWIN_HOST_OS
                 /* The protocol expect namespace for now */
@@ -4833,6 +4904,8 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
         dict_t *          dict           = NULL;
         int               ret            = -1;
         char              key[4096]      = {0,};
+        char              value_buf[8192] = {0,};
+        gf_boolean_t      have_val        = _gf_false;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -4899,37 +4972,52 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                         GF_FREE (newkey);
                 }
 #endif
-                size = sys_fgetxattr (_fd, key, NULL, 0);
-                if (size == -1) {
-                        op_ret = -1;
-                        op_errno = errno;
-                        if (errno == ENODATA || errno == ENOATTR) {
-                                gf_msg_debug (this->name, 0, "fgetxattr failed"
-                                              " on key %s (%s)", key,
-                                              strerror (op_errno));
-                        } else {
-                               gf_msg (this->name, GF_LOG_ERROR, errno,
-                                       P_MSG_XATTR_FAILED, "fgetxattr failed "
-                                       "on key %s", key);
+                size = sys_fgetxattr (_fd, key, value_buf, sizeof(value_buf) - 1);
+                if (size >= 0) {
+                        have_val = _gf_true;
+                } else {
+                        if (errno == ERANGE) {
+                                gf_msg (this->name, GF_LOG_INFO, errno,
+                                        P_MSG_XATTR_FAILED,
+                                        "fgetxattr failed due to overflow of"
+                                        "buffer  on %s ", key);
+                                size = sys_fgetxattr (_fd, key, NULL, 0);
                         }
-                        goto done;
+                        if (size == -1) {
+                                op_ret = -1;
+                                op_errno = errno;
+                                if (errno == ENODATA || errno == ENOATTR) {
+                                        gf_msg_debug (this->name, 0, "fgetxattr"
+                                                      " failed on key %s (%s)",
+                                                      key, strerror (op_errno));
+                                } else {
+                                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                                P_MSG_XATTR_FAILED, "fgetxattr"
+                                                " failed on key %s", key);
+                                }
+                                goto done;
+                        }
                 }
-
                 value = GF_CALLOC (size + 1, sizeof(char), gf_posix_mt_char);
                 if (!value) {
                         op_ret = -1;
                         op_errno = ENOMEM;
                         goto out;
                 }
-                size = sys_fgetxattr (_fd, key, value, size);
-                if (size == -1) {
-                        op_ret = -1;
-                        op_errno = errno;
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_XATTR_FAILED, "fgetxattr failed on "
-                                "fd %p for the key %s ", fd, key);
-                        GF_FREE (value);
-                        goto out;
+                if (have_val) {
+                        memcpy (value, value_buf, size);
+                } else {
+                        size = sys_fgetxattr (_fd, key, value, size);
+                        if (size == -1) {
+                                op_ret = -1;
+                                op_errno = errno;
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        P_MSG_XATTR_FAILED, "fgetxattr"
+                                        " failed on fd %p for the key %s ",
+                                        fd, key);
+                                GF_FREE (value);
+                                goto out;
+                        }
                 }
 
                 value [size] = '\0';
@@ -4946,37 +5034,47 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
 
                 goto done;
         }
-
-        size = sys_flistxattr (_fd, NULL, 0);
-        if (size == -1) {
-                op_ret = -1;
-                op_errno = errno;
-                if ((errno == ENOTSUP) || (errno == ENOSYS)) {
-                        GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
-                                             this->name, GF_LOG_WARNING,
-                                             "Extended attributes not "
-                                             "supported (try remounting "
-                                             "brick with 'user_xattr' flag)");
+        memset (value_buf, '\0', sizeof(value_buf));
+        size = sys_flistxattr (_fd, value_buf, sizeof (value_buf) - 1);
+        if (size > 0) {
+                have_val = _gf_true;
+        } else {
+                if (errno == ERANGE) {
+                        gf_msg (this->name, GF_LOG_INFO, errno,
+                                P_MSG_XATTR_FAILED,
+                                "listxattr failed due to overflow of buffer"
+                                " on %p ", fd);
+                        size = sys_flistxattr (_fd, NULL, 0);
                 }
-                else {
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_XATTR_FAILED, "listxattr failed on %p:",
-                                fd);
+                if (size == -1) {
+                        op_ret = -1;
+                        op_errno = errno;
+                        if ((errno == ENOTSUP) || (errno == ENOSYS)) {
+                                GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
+                                                     this->name, GF_LOG_WARNING,
+                                                     "Extended attributes not "
+                                                     "supported (try remounting "
+                                                     "brick with 'user_xattr' flag)");
+                        } else {
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        P_MSG_XATTR_FAILED, "listxattr failed "
+                                        "on %p:", fd);
+                        }
+                        goto out;
                 }
-                goto out;
+                if (size == 0)
+                        goto done;
         }
-
-        if (size == 0)
-                goto done;
-
         list = alloca (size + 1);
         if (!list) {
                 op_ret = -1;
                 op_errno = ENOMEM;
                 goto out;
         }
-
-        size = sys_flistxattr (_fd, list, size);
+        if (have_val)
+                memcpy (list, value_buf, size);
+        else
+                size = sys_flistxattr (_fd, list, size);
 
         remaining_size = size;
         list_offset = 0;
@@ -4985,16 +5083,28 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                         break;
 
                 strncpy (key, list + list_offset, sizeof(key));
-                size = sys_fgetxattr (_fd, key, NULL, 0);
-                if (size == -1) {
-                        op_ret = -1;
-                        op_errno = errno;
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_XATTR_FAILED, "fgetxattr failed on "
-                                "fd %p for the key %s ", fd, key);
-                        break;
+                memset (value_buf, '\0', sizeof(value_buf));
+                have_val = _gf_false;
+                size = sys_fgetxattr (_fd, key, value_buf, sizeof (value_buf) - 1);
+                if (size >= 0) {
+                        have_val = _gf_true;
+                } else {
+                        if (errno == ERANGE) {
+                                gf_msg (this->name, GF_LOG_INFO, errno,
+                                        P_MSG_XATTR_FAILED,
+                                        "fgetxattr failed due to overflow of buffer"
+                                        " on fd %p: for the key %s ", fd, key);
+                                size = sys_fgetxattr (_fd, key, NULL, 0);
+                        }
+                        if (size == -1) {
+                                op_ret = -1;
+                                op_errno = errno;
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        P_MSG_XATTR_FAILED, "fgetxattr failed "
+                                        "on fd %p for the key %s ", fd, key);
+                                break;
+                        }
                 }
-
                 value = GF_CALLOC (size + 1, sizeof(char),
                                    gf_posix_mt_char);
                 if (!value) {
@@ -5002,18 +5112,20 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                         op_errno = errno;
                         goto out;
                 }
-
-                size = sys_fgetxattr (_fd, key, value, size);
-                if (size == -1) {
-                        op_ret = -1;
-                        op_errno = errno;
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_XATTR_FAILED, "fgetxattr failed on "
-                                "the fd %p for the key %s ", fd, key);
-                        GF_FREE (value);
-                        break;
+                if (have_val) {
+                        memcpy (value, value_buf, size);
+                } else {
+                        size = sys_fgetxattr (_fd, key, value, size);
+                        if (size == -1) {
+                                op_ret = -1;
+                                op_errno = errno;
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        P_MSG_XATTR_FAILED, "fgetxattr failed o"
+                                        "n the fd %p for the key %s ", fd, key);
+                                GF_FREE (value);
+                                break;
+                        }
                 }
-
                 value [size] = '\0';
 
                 op_ret = dict_set_dynptr (dict, key, value, size);
