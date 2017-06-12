@@ -3835,7 +3835,7 @@ unwind:
 
 static int
 afr_common_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, dict_t *xdata)
+                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         afr_local_t *local = NULL;
         int child_index = (long)cookie;
@@ -4215,15 +4215,27 @@ afr_lk_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct gf_flock *lock,
                    dict_t *xdata)
 {
-        afr_local_t * local = NULL;
+        afr_local_t *local = NULL;
+        afr_private_t *priv = this->private;
         int call_count = -1;
+        int child_index = (long)cookie;
 
         local = frame->local;
-        call_count = afr_frame_return (frame);
 
+        if (op_ret < 0 && op_errno != ENOTCONN && op_errno != EBADFD) {
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        AFR_MSG_UNLOCK_FAIL,
+                        "gfid=%s: unlock failed on subvolume %s "
+                        "with lock owner %s",
+                        uuid_utoa (local->fd->inode->gfid),
+                        priv->children[child_index]->name,
+                        lkowner_utoa (&frame->root->lk_owner));
+        }
+
+        call_count = afr_frame_return (frame);
         if (call_count == 0)
                 AFR_STACK_UNWIND (lk, frame, local->op_ret, local->op_errno,
-                                  lock, xdata);
+                                  NULL, local->xdata_rsp);
 
         return 0;
 }
@@ -4245,7 +4257,7 @@ afr_lk_unlock (call_frame_t *frame, xlator_t *this)
 
         if (call_count == 0) {
                 AFR_STACK_UNWIND (lk, frame, local->op_ret, local->op_errno,
-                                  &local->cont.lk.ret_flock, NULL);
+                                  NULL, local->xdata_rsp);
                 return 0;
         }
 
@@ -4255,8 +4267,8 @@ afr_lk_unlock (call_frame_t *frame, xlator_t *this)
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->cont.lk.locked_nodes[i]) {
-                        STACK_WIND (frame, afr_lk_unlock_cbk,
-                                    priv->children[i],
+                        STACK_WIND_COOKIE (frame, afr_lk_unlock_cbk,
+                                    (void *) (long) i, priv->children[i],
                                     priv->children[i]->fops->lk,
                                     local->fd, F_SETLK,
                                     &local->cont.lk.user_flock, NULL);
@@ -4272,12 +4284,12 @@ afr_lk_unlock (call_frame_t *frame, xlator_t *this)
 
 int32_t
 afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-            int32_t op_ret, int32_t op_errno, struct gf_flock *lock, dict_t *xdata)
+            int32_t op_ret, int32_t op_errno, struct gf_flock *lock,
+            dict_t *xdata)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
         int child_index = -1;
-/*        int            ret  = 0; */
 
 
         local = frame->local;
@@ -4285,9 +4297,10 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         child_index = (long) cookie;
 
-        if (!child_went_down (op_ret, op_errno) && (op_ret == -1)) {
+        afr_common_lock_cbk (frame, cookie, this, op_ret, op_errno, xdata);
+        if (op_ret < 0 && op_errno == EAGAIN) {
                 local->op_ret   = -1;
-                local->op_errno = op_errno;
+                local->op_errno = EAGAIN;
 
                 afr_lk_unlock (frame, this);
                 return 0;
@@ -4307,15 +4320,20 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                    priv->children[child_index],
                                    priv->children[child_index]->fops->lk,
                                    local->fd, local->cont.lk.cmd,
-                                   &local->cont.lk.user_flock, xdata);
-        } else if (local->op_ret == -1) {
-                /* all nodes have gone down */
+                                   &local->cont.lk.user_flock,
+                                   local->xdata_req);
+        } else if (priv->quorum_count &&
+                   !afr_has_quorum (local->cont.lk.locked_nodes, this)) {
+                local->op_ret   = -1;
+                local->op_errno = afr_final_errno (local, priv);
 
-                AFR_STACK_UNWIND (lk, frame, -1, ENOTCONN,
-                                  &local->cont.lk.ret_flock, NULL);
+                afr_lk_unlock (frame, this);
         } else {
+                if (local->op_ret < 0)
+                        local->op_errno = afr_final_errno (local, priv);
+
                 AFR_STACK_UNWIND (lk, frame, local->op_ret, local->op_errno,
-                                  &local->cont.lk.ret_flock, NULL);
+                                  &local->cont.lk.ret_flock, local->xdata_rsp);
         }
 
         return 0;
@@ -4354,11 +4372,13 @@ afr_lk (call_frame_t *frame, xlator_t *this,
         local->cont.lk.cmd   = cmd;
         local->cont.lk.user_flock = *flock;
         local->cont.lk.ret_flock = *flock;
+        if (xdata)
+                local->xdata_req = dict_ref (xdata);
 
         STACK_WIND_COOKIE (frame, afr_lk_cbk, (void *) (long) 0,
                            priv->children[i],
                            priv->children[i]->fops->lk,
-                           fd, cmd, flock, xdata);
+                           fd, cmd, flock, local->xdata_req);
 
 	return 0;
 out:
