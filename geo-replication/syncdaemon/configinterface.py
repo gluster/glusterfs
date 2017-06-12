@@ -340,7 +340,7 @@ class GConffile(object):
                 # Template expects String to be passed
                 # if any config value is not string then it
                 # fails with ValueError
-                v = u"{0}".format(v)
+                v = "{0}".format(v)
 
                 if k == '__name__':
                     continue
