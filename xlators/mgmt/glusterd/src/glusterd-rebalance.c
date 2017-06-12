@@ -696,15 +696,6 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
                                            volname);
                         goto out;
                 }
-                if (dict_get_str_boolean (volinfo->dict, "features.shard",
-                                          _gf_false)) {
-                        ret = -1;
-                        snprintf (msg, sizeof (msg), "rebalance operation is not"
-                                  " allowed on a sharded volume as it may lead"
-                                  " to a data loss situation. Use start force "
-                                  " option to bypass this validation");
-                        goto out;
-                }
 
         case GF_DEFRAG_CMD_START_FORCE:
                 if (is_origin_glusterd (dict)) {
