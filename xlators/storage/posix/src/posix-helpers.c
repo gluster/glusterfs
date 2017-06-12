@@ -2130,20 +2130,31 @@ posix_fetch_signature_xattr (char *real_path,
         int32_t ret = 0;
         char    *memptr    = NULL;
         ssize_t  xattrsize = 0;
+        char     val_buf[2048] = {0,};
+        gf_boolean_t have_val  = _gf_false;
 
-        xattrsize = sys_lgetxattr (real_path, key, NULL, 0);
-        if ((xattrsize == -1) && ((errno == ENOATTR) || (errno == ENODATA)))
-                return 0;
-        if (xattrsize == -1)
-                goto error_return;
-
+        xattrsize = sys_lgetxattr (real_path, key, val_buf,
+                                                           sizeof(val_buf) - 1);
+        if (xattrsize >= 0) {
+                have_val = _gf_true;
+        } else {
+                if (errno == ERANGE)
+                        xattrsize = sys_lgetxattr (real_path, key, NULL, 0);
+                if ((errno == ENOATTR) || (errno == ENODATA))
+                        return 0;
+                if (xattrsize == -1)
+                        goto error_return;
+        }
         memptr = GF_CALLOC (xattrsize + 1, sizeof (char), gf_posix_mt_char);
         if (!memptr)
                 goto error_return;
-        ret = sys_lgetxattr (real_path, key, memptr, xattrsize);
-        if (ret == -1)
-                goto freemem;
-
+        if (have_val) {
+                memcpy (memptr, val_buf, xattrsize);
+        } else {
+                ret = sys_lgetxattr (real_path, key, memptr, xattrsize);
+                if (ret == -1)
+                        goto freemem;
+        }
         ret = dict_set_dynptr (xattr, (char *)key, memptr, xattrsize);
         if (ret)
                 goto freemem;
