@@ -74,14 +74,21 @@ out:
  * Reset the tracking state of the context.
  */
 static void
-rda_reset_ctx(struct rda_fd_ctx *ctx)
+rda_reset_ctx(xlator_t *this, struct rda_fd_ctx *ctx)
 {
+        struct rda_priv *priv = NULL;
+
+        priv = this->private;
+
 	ctx->state = RDA_FD_NEW;
 	ctx->cur_offset = 0;
-	ctx->cur_size = 0;
 	ctx->next_offset = 0;
         ctx->op_errno = 0;
+
 	gf_dirent_free(&ctx->entries);
+        priv->rda_cache_size -= ctx->cur_size;
+        ctx->cur_size = 0;
+
         if (ctx->xattrs) {
                 dict_unref (ctx->xattrs);
                 ctx->xattrs = NULL;
@@ -114,7 +121,7 @@ __rda_fill_readdirp (xlator_t *this, gf_dirent_t *entries, size_t request_size,
 		     struct rda_fd_ctx *ctx)
 {
 	gf_dirent_t     *dirent, *tmp;
-	size_t           dirent_size, size = 0, inodectx_size = 0;
+	size_t           dirent_size, size = 0;
 	int32_t          count             = 0;
 	struct rda_priv *priv              = NULL;
 
@@ -125,15 +132,11 @@ __rda_fill_readdirp (xlator_t *this, gf_dirent_t *entries, size_t request_size,
 		if (size + dirent_size > request_size)
 			break;
 
-                inodectx_size = 0;
-
-                inode_ctx_del (dirent->inode, this, (void *)&inodectx_size);
-
 		size += dirent_size;
 		list_del_init(&dirent->list);
 		ctx->cur_size -= dirent_size;
 
-                priv->rda_cache_size -= (dirent_size + inodectx_size);
+                priv->rda_cache_size -= dirent_size;
 
 		list_add_tail(&dirent->list, &entries->list);
 		ctx->cur_offset = dirent->d_off;
@@ -205,7 +208,7 @@ rda_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	 * completed, reset the context and kickstart the filler again.
 	 */
 	if (!off && (ctx->state & RDA_FD_EOD) && (ctx->cur_size == 0)) {
-		rda_reset_ctx(ctx);
+		rda_reset_ctx(this, ctx);
                 /*
                  * Unref and discard the 'list of xattrs to be fetched'
                  * stored during opendir call. This is done above - inside
@@ -251,6 +254,8 @@ rda_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
                 if (!(ctx->state & RDA_FD_RUNNING)) {
                         fill = 1;
+                        if (!ctx->xattrs)
+                                ctx->xattrs = dict_ref (xdata);
                         ctx->state |= RDA_FD_RUNNING;
                 }
         }
@@ -290,7 +295,6 @@ rda_fill_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         struct rda_fd_ctx *ctx           = local->ctx;
         struct rda_priv   *priv          = this->private;
         int                fill          = 1;
-        size_t             inodectx_size = 0;
         size_t             dirent_size   = 0;
         int                ret           = 0;
         gf_boolean_t       serve         = _gf_false;
@@ -317,17 +321,10 @@ rda_fill_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			list_add_tail(&dirent->list, &ctx->entries.list);
 
                         dirent_size = gf_dirent_size (dirent->d_name);
-                        inodectx_size = 0;
-
-                        if (dirent->inode) {
-                                inodectx_size = inode_ctx_size (dirent->inode);
-                                inode_ctx_set (dirent->inode, this,
-                                               (void *)inodectx_size);
-                        }
 
 			ctx->cur_size += dirent_size;
 
-                        priv->rda_cache_size += (dirent_size + inodectx_size);
+                        priv->rda_cache_size += dirent_size;
 
 			ctx->next_offset = dirent->d_off;
 		}
@@ -592,7 +589,7 @@ rda_releasedir(xlator_t *this, fd_t *fd)
 	if (!ctx)
 		return 0;
 
-	rda_reset_ctx(ctx);
+	rda_reset_ctx(this, ctx);
 
 	if (ctx->fill_frame)
 		STACK_DESTROY(ctx->fill_frame->root);
