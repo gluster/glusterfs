@@ -234,7 +234,6 @@ glusterd_get_quorum_cluster_counts (xlator_t *this, int *active_count,
 
         ret = dict_get_str (conf->opts, GLUSTERD_QUORUM_RATIO_KEY, &val);
         if (ret == 0) {
-                ratio = _gf_true;
                 ret = gf_string2percent (val, &quorum_percentage);
                 if (!ret)
                         ratio = _gf_true;
