@@ -435,7 +435,7 @@ setup_create_resources()
     # ganesha-active crm_attribute
     sleep 5
 
-    pcs resource create nfs-grace ocf:heartbeat:ganesha_grace --clone meta notify=true
+    pcs resource create nfs-grace ocf:heartbeat:ganesha_grace --clone notify=true
     if [ $? -ne 0 ]; then
         logger "warning: pcs resource create nfs-grace ocf:heartbeat:ganesha_grace --clone failed"
     fi
