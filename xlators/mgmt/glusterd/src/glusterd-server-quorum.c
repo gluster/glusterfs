@@ -99,17 +99,19 @@ glusterd_validate_quorum (xlator_t *this, glusterd_op_t op,
                 goto out;
         }
 
+        if (!glusterd_is_volume_in_server_quorum (volinfo)) {
+                ret = 0;
+                goto out;
+        }
+
         if (does_gd_meet_server_quorum (this)) {
                 ret = 0;
                 goto out;
         }
 
-        if (glusterd_is_volume_in_server_quorum (volinfo)) {
-                ret = -1;
-                *op_errstr = gf_strdup (errstr);
-                goto out;
-        }
-        ret = 0;
+        ret = -1;
+        *op_errstr = gf_strdup (errstr);
+
 out:
         return ret;
 }
