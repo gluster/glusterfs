@@ -1020,12 +1020,6 @@ int32_t ec_manager_lk(ec_fop_data_t * fop, int32_t state)
 
         /* Fall through */
 
-        case EC_STATE_LOCK:
-            ec_lock_prepare_fd(fop, fop->fd, EC_UPDATE_DATA | EC_QUERY_INFO);
-            ec_lock(fop);
-
-            return EC_STATE_DISPATCH;
-
         case EC_STATE_DISPATCH:
             ec_dispatch_all(fop);
 
@@ -1080,10 +1074,9 @@ int32_t ec_manager_lk(ec_fop_data_t * fop, int32_t state)
                              cbk->op_errno, &cbk->flock, cbk->xdata);
             }
 
-            return EC_STATE_LOCK_REUSE;
+            return EC_STATE_END;
 
         case -EC_STATE_INIT:
-        case -EC_STATE_LOCK:
         case -EC_STATE_DISPATCH:
         case -EC_STATE_REPORT:
             GF_ASSERT(fop->error != 0);
@@ -1094,17 +1087,6 @@ int32_t ec_manager_lk(ec_fop_data_t * fop, int32_t state)
                              NULL, NULL);
             }
 
-            return EC_STATE_LOCK_REUSE;
-
-        case -EC_STATE_LOCK_REUSE:
-        case EC_STATE_LOCK_REUSE:
-            ec_lock_reuse(fop);
-
-            return EC_STATE_UNLOCK;
-
-        case -EC_STATE_UNLOCK:
-        case EC_STATE_UNLOCK:
-            ec_unlock(fop);
 
             return EC_STATE_END;
 
