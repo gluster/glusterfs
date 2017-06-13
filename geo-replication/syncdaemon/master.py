@@ -1686,10 +1686,10 @@ class Syncer(object):
         self.sync_engine = sync_engine
         self.errnos_ok = resilient_errnos
         for i in range(int(gconf.sync_jobs)):
-            t = Thread(target=self.syncjob)
+            t = Thread(target=self.syncjob, args=(i+1, ))
             t.start()
 
-    def syncjob(self):
+    def syncjob(self, job_id):
         """the life of a worker"""
         while True:
             pb = None
@@ -1702,7 +1702,16 @@ class Syncer(object):
                     break
                 time.sleep(0.5)
             pb.close()
+            start = time.time()
             po = self.sync_engine(pb, self.log_err)
+            logging.info("Sync Time Taken (Job:{0} "
+                         "Files:{1} ReturnCode:{2}): "
+                         "{3:.4f} secs".format(
+                             job_id,
+                             len(pb),
+                             po.returncode,
+                             time.time() - start
+                         ))
             if po.returncode == 0:
                 ret = (True, 0)
             elif po.returncode in self.errnos_ok:
