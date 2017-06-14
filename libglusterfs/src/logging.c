@@ -35,6 +35,7 @@
 #define GF_LOG_BACKTRACE_DEPTH  5
 #define GF_LOG_BACKTRACE_SIZE   4096
 #define GF_LOG_TIMESTR_SIZE     256
+#define GF_MAX_SLOG_PAIR_COUNT  100
 
 #include "xlator.h"
 #include "logging.h"
@@ -2466,5 +2467,148 @@ out:
 
         va_end (ap);
 
+        return ret;
+}
+
+int
+_do_slog_format (const char *event, va_list inp, char **msg) {
+        va_list                    valist_tmp;
+        int                        i = 0;
+        int                        j = 0;
+        int                        k = 0;
+        int                        ret = 0;
+        char                      *fmt = NULL;
+        char                      *buffer = NULL;
+        int                        num_format_chars = 0;
+        char                       format_char = '%';
+        char                      *tmp1 = NULL;
+        char                      *tmp2 = NULL;
+
+        ret = gf_asprintf (&tmp2, "%s", event);
+        if (ret == -1)
+                goto out;
+
+        /* Hardcoded value for max key value pairs, exits early */
+        /* from loop if found NULL */
+        for (i = 0; i < GF_MAX_SLOG_PAIR_COUNT; i++) {
+                fmt = va_arg (inp, char*);
+                if (fmt == NULL) {
+                        break;
+                }
+
+                /* Get number of times % is used in input for formating, */
+                /* this count will be used to skip those many args from the */
+                /* main list and will be used to format inner format */
+                num_format_chars = 0;
+                for (k = 0; fmt[k] != '\0'; k++) {
+                        /* If %% is used then that is escaped */
+                        if (fmt[k] == format_char && fmt[k+1] == format_char) {
+                                k++;
+                        } else if (fmt[k] == format_char) {
+                                num_format_chars++;
+                        }
+                }
+
+                tmp1 = gf_strdup (tmp2);
+                if (!tmp1) {
+                        ret = -1;
+                        goto out;
+                }
+
+                GF_FREE (tmp2);
+                tmp2 = NULL;
+
+                if (num_format_chars > 0) {
+                        /* Make separate valist and format the string */
+                        va_copy (valist_tmp, inp);
+                        ret = gf_vasprintf (&buffer, fmt, valist_tmp);
+                        if (ret < 0) {
+                                va_end (valist_tmp);
+                                goto out;
+                        }
+                        va_end (valist_tmp);
+
+                        for (j = 0; j < num_format_chars; j++) {
+                                /* Skip the va_arg value since these values
+                                   are already used for internal formatting */
+                                (void) va_arg (inp, void*);
+                        }
+
+                        ret = gf_asprintf (&tmp2, "%s\t%s", tmp1, buffer);
+                        if (ret < 0)
+                                goto out;
+
+                        GF_FREE (buffer);
+                        buffer = NULL;
+                } else {
+                        ret = gf_asprintf (&tmp2, "%s\t%s", tmp1, fmt);
+                        if (ret < 0)
+                                goto out;
+                }
+
+                GF_FREE (tmp1);
+                tmp1 = NULL;
+        }
+
+        *msg = gf_strdup (tmp2);
+        if (!msg)
+                ret = -1;
+
+ out:
+        if (buffer)
+                GF_FREE (buffer);
+
+        if (tmp1)
+                GF_FREE (tmp1);
+
+        if (tmp2)
+                GF_FREE (tmp2);
+
+        return ret;
+}
+
+int
+_gf_smsg (const char *domain, const char *file, const char *function,
+          int32_t line, gf_loglevel_t level, int errnum, int trace,
+          uint64_t msgid, const char *event, ...)
+{
+        va_list     valist;
+        char       *msg = NULL;
+        int         ret = 0;
+
+        va_start (valist, event);
+        ret = _do_slog_format (event, valist, &msg);
+        if (ret == -1)
+                goto out;
+
+        ret = _gf_msg (domain, file, function, line, level, errnum, trace,
+                       msgid, "%s", msg);
+
+ out:
+        va_end (valist);
+        if (msg)
+                GF_FREE (msg);
+        return ret;
+}
+
+int
+_gf_slog (const char *domain, const char *file, const char *function, int line,
+          gf_loglevel_t level, const char *event, ...)
+{
+        va_list      valist;
+        char        *msg = NULL;
+        int          ret = 0;
+
+        va_start (valist, event);
+        ret = _do_slog_format (event, valist, &msg);
+        if (ret == -1)
+                goto out;
+
+        ret = _gf_log (domain, file, function, line, level, "%s", msg);
+
+ out:
+        va_end (valist);
+        if (msg)
+                GF_FREE (msg);
         return ret;
 }
