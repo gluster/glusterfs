@@ -178,8 +178,5 @@ ec_is_data_fop (glusterfs_fop_t fop);
 
 int32_t
 ec_launch_replace_heal (ec_t *ec);
-/*
-gf_boolean_t
-ec_is_metadata_fop (glusterfs_fop_t fop);
-*/
+
 #endif /* __EC_HELPERS_H__ */

@@ -1230,3 +1230,10 @@ function STAT_INO()
                 echo 0
         fi
 }
+
+function get_md5_sum()
+{
+    local file=$1;
+    md5_sum=$(md5sum $file | awk '{print $1}');
+    echo $md5_sum
+}

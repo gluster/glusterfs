@@ -19,6 +19,97 @@
 #include "ec-method.h"
 #include "ec-fops.h"
 
+int32_t
+ec_update_writev_cbk (call_frame_t *frame, void *cookie,
+                      xlator_t *this, int32_t op_ret, int32_t op_errno,
+                      struct iatt *prebuf, struct iatt *postbuf,
+                      dict_t *xdata)
+{
+    ec_fop_data_t *fop    = cookie;
+    ec_cbk_data_t *cbk    = NULL;
+    ec_fop_data_t *parent = fop->parent;
+    int           i       = 0;
+
+    ec_trace("UPDATE_WRITEV_CBK", cookie, "ret=%d, errno=%d, parent-fop=%s",
+             op_ret, op_errno, ec_fop_name (parent->id));
+
+    if (op_ret < 0) {
+            ec_fop_set_error (parent, op_errno);
+            goto out;
+    }
+    cbk = ec_cbk_data_allocate (parent->frame, this, parent,
+                                parent->id, 0, op_ret, op_errno);
+    if (!cbk) {
+            ec_fop_set_error (parent, ENOMEM);
+            goto out;
+    }
+
+    if (xdata)
+            cbk->xdata = dict_ref (xdata);
+
+    if (prebuf)
+            cbk->iatt[i++] = *prebuf;
+
+    if (postbuf)
+            cbk->iatt[i++] = *postbuf;
+
+    LOCK (&parent->lock);
+    {
+            parent->good &= fop->good;
+
+            if (gf_bits_count (parent->good) < parent->minimum) {
+                    __ec_fop_set_error (parent, EIO);
+            } else if (fop->error == 0 && parent->answer == NULL) {
+                    parent->answer = cbk;
+            }
+    }
+    UNLOCK (&parent->lock);
+out:
+    return 0;
+}
+
+int32_t ec_update_write(ec_fop_data_t *fop, uintptr_t mask, off_t offset,
+                        size_t size)
+{
+    struct iobref *iobref = NULL;
+    struct iobuf *iobuf = NULL;
+    struct iovec vector;
+    int32_t err = -ENOMEM;
+
+    iobref = iobref_new();
+    if (iobref == NULL) {
+        goto out;
+    }
+    iobuf = iobuf_get(fop->xl->ctx->iobuf_pool);
+    if (iobuf == NULL) {
+        goto out;
+    }
+    err = iobref_add(iobref, iobuf);
+    if (err != 0) {
+        goto out;
+    }
+
+    vector.iov_base = iobuf->ptr;
+    vector.iov_len = size;
+    memset(vector.iov_base, 0, vector.iov_len);
+
+    ec_writev(fop->frame, fop->xl, mask, fop->minimum,
+              ec_update_writev_cbk, NULL, fop->fd, &vector, 1,
+              offset, 0, iobref, NULL);
+
+    err = 0;
+
+out:
+    if (iobuf != NULL) {
+        iobuf_unref(iobuf);
+    }
+    if (iobref != NULL) {
+        iobref_unref(iobref);
+    }
+
+    return err;
+}
+
 int
 ec_inode_write_cbk (call_frame_t *frame, xlator_t *this, void *cookie,
                     int op_ret, int op_errno, struct iatt *prestat,
@@ -1034,62 +1125,252 @@ out:
     }
 }
 
-int32_t
-ec_truncate_writev_cbk (call_frame_t *frame, void *cookie,
-                        xlator_t *this, int32_t op_ret, int32_t op_errno,
-                        struct iatt *prebuf, struct iatt *postbuf,
-                        dict_t *xdata)
+/*********************************************************************
+ *
+ * File Operation : Discard
+ *
+ *********************************************************************/
+void ec_update_discard_write(ec_fop_data_t *fop, uintptr_t mask)
 {
-    ec_fop_data_t *fop = cookie;
+    ec_t   *ec       = fop->xl->private;
+    off_t  off_head  = 0;
+    off_t  off_tail  = 0;
+    size_t size_head = 0;
+    size_t size_tail = 0;
+    int    error     = 0;
 
-    fop->parent->good &= fop->good;
-    ec_trace("TRUNCATE_WRITEV_CBK", cookie, "ret=%d, errno=%d",
-             op_ret, op_errno);
-    return 0;
+    off_head = fop->offset * ec->fragments - fop->int32;
+    if (fop->size == 0) {
+            error = ec_update_write (fop, mask, off_head, fop->user_size);
+    } else {
+            size_head = fop->int32;
+            size_tail = (fop->user_size - fop->int32) % ec->stripe_size;
+            off_tail = off_head + fop->user_size - size_tail;
+            if (size_head) {
+                    error = ec_update_write (fop, mask, off_head, size_head);
+                    goto out;
+            }
+            if (size_tail) {
+                    error = ec_update_write (fop, mask, off_tail, size_tail);
+            }
+    }
+out:
+    if (error)
+            ec_fop_set_error (fop, -error);
 }
 
-int32_t ec_truncate_write(ec_fop_data_t * fop, uintptr_t mask)
+void ec_discard_adjust_offset_size(ec_fop_data_t *fop)
 {
-    ec_t * ec = fop->xl->private;
-    struct iobref * iobref = NULL;
-    struct iobuf * iobuf = NULL;
-    struct iovec vector;
-    int32_t err = -ENOMEM;
+        ec_t *ec = fop->xl->private;
 
-    iobref = iobref_new();
-    if (iobref == NULL) {
+        fop->user_size = fop->size;
+        /* If discard length covers atleast a fragment on brick, we will
+         * perform discard operation(when fop->size is non-zero) else we just
+         * write zeros.
+         */
+        fop->int32 = ec_adjust_offset_up(ec, &fop->offset, _gf_true);
+        if (fop->size < fop->int32) {
+                fop->size = 0;
+        } else {
+                fop->size -= fop->int32;
+                ec_adjust_size_down(ec, &fop->size, _gf_true);
+        }
+}
+
+int32_t ec_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                       struct iatt *postbuf, dict_t *xdata)
+{
+    return ec_inode_write_cbk (frame, this, cookie, op_ret, op_errno,
+                               prebuf, postbuf, xdata);
+}
+
+void ec_wind_discard(ec_t *ec, ec_fop_data_t *fop, int32_t idx)
+{
+    ec_trace("WIND", fop, "idx=%d", idx);
+
+    STACK_WIND_COOKIE(fop->frame, ec_discard_cbk, (void *)(uintptr_t)idx,
+                      ec->xl_list[idx], ec->xl_list[idx]->fops->discard,
+                      fop->fd, fop->offset, fop->size, fop->xdata);
+}
+
+int32_t ec_manager_discard(ec_fop_data_t *fop, int32_t state)
+{
+    ec_cbk_data_t *cbk     = NULL;
+    off_t         fl_start = 0;
+    size_t        fl_size  = 0;
+
+
+    switch (state) {
+    case EC_STATE_INIT:
+        if ((fop->size <= 0) || (fop->offset < 0)) {
+                ec_fop_set_error(fop, EINVAL);
+                return EC_STATE_REPORT;
+        }
+        /* Because of the head/tail writes, "discard" happens on the remaining
+         * regions, but we need to compute region including head/tail writes
+         * so compute them separately*/
+        fl_start = fop->offset;
+        fl_size = fop->size;
+        fl_size += ec_adjust_offset_down (fop->xl->private, &fl_start,
+                                          _gf_true);
+        ec_adjust_size_up (fop->xl->private, &fl_size, _gf_true);
+
+        ec_discard_adjust_offset_size(fop);
+
+    /* Fall through */
+
+    case EC_STATE_LOCK:
+        ec_lock_prepare_fd(fop, fop->fd,
+                           EC_UPDATE_DATA | EC_UPDATE_META |
+                           EC_QUERY_INFO, fl_start, fl_size);
+        ec_lock(fop);
+
+        return EC_STATE_DISPATCH;
+
+    case EC_STATE_DISPATCH:
+
+        /* Dispatch discard fop only if we have whole fragment
+         * to deallocate */
+        if (fop->size) {
+                ec_dispatch_all(fop);
+                return EC_STATE_DELAYED_START;
+        } else {
+                /*Assume discard to have succeeded on mask*/
+                fop->good = fop->mask;
+        }
+
+        /* Fall through */
+
+    case EC_STATE_DELAYED_START:
+
+        if (fop->size) {
+                if (fop->answer && fop->answer->op_ret == 0)
+                        ec_update_discard_write (fop, fop->answer->mask);
+        } else {
+                ec_update_discard_write (fop, fop->mask);
+        }
+
+        return EC_STATE_PREPARE_ANSWER;
+
+    case EC_STATE_PREPARE_ANSWER:
+        cbk = ec_fop_prepare_answer(fop, _gf_false);
+        if (cbk != NULL) {
+                ec_iatt_rebuild(fop->xl->private, cbk->iatt, 2,
+                                cbk->count);
+
+                /* This shouldn't fail because we have the inode locked. */
+                GF_ASSERT(ec_get_inode_size(fop, fop->locks[0].lock->loc.inode,
+                                            &cbk->iatt[0].ia_size));
+
+                cbk->iatt[1].ia_size = cbk->iatt[0].ia_size;
+        }
+        return EC_STATE_REPORT;
+
+    case EC_STATE_REPORT:
+        cbk = fop->answer;
+
+        GF_ASSERT(cbk != NULL);
+
+        if (fop->cbks.discard != NULL) {
+                fop->cbks.discard(fop->req_frame, fop, fop->xl, cbk->op_ret,
+                                  cbk->op_errno, &cbk->iatt[0], &cbk->iatt[1],
+                                  cbk->xdata);
+        }
+
+        return EC_STATE_LOCK_REUSE;
+
+    case -EC_STATE_INIT:
+    case -EC_STATE_LOCK:
+    case -EC_STATE_DISPATCH:
+    case -EC_STATE_DELAYED_START:
+    case -EC_STATE_PREPARE_ANSWER:
+    case -EC_STATE_REPORT:
+        GF_ASSERT(fop->error != 0);
+
+        if (fop->cbks.discard != NULL) {
+                fop->cbks.discard(fop->req_frame, fop, fop->xl, -1,
+                                  fop->error, NULL, NULL, NULL);
+        }
+
+        return EC_STATE_LOCK_REUSE;
+
+    case -EC_STATE_LOCK_REUSE:
+    case EC_STATE_LOCK_REUSE:
+        ec_lock_reuse(fop);
+
+        return EC_STATE_UNLOCK;
+
+    case -EC_STATE_UNLOCK:
+    case EC_STATE_UNLOCK:
+        ec_unlock(fop);
+
+        return EC_STATE_END;
+
+    default:
+        gf_msg (fop->xl->name, GF_LOG_ERROR, EINVAL,
+                EC_MSG_UNHANDLED_STATE,
+                "Unhandled state %d for %s",
+                state, ec_fop_name(fop->id));
+
+        return EC_STATE_END;
+    }
+}
+
+void ec_discard(call_frame_t *frame, xlator_t *this, uintptr_t target,
+                int32_t minimum, fop_discard_cbk_t func, void *data, fd_t *fd,
+                off_t offset, size_t len, dict_t *xdata)
+{
+    ec_cbk_t callback = { .discard = func };
+    ec_fop_data_t *fop = NULL;
+    int32_t error = ENOMEM;
+
+    gf_msg_trace ("ec", 0, "EC(DISCARD) %p", frame);
+
+    VALIDATE_OR_GOTO(this, out);
+    GF_VALIDATE_OR_GOTO(this->name, frame, out);
+    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
+
+    fop = ec_fop_data_allocate(frame, this, GF_FOP_DISCARD, 0, target,
+                               minimum, ec_wind_discard, ec_manager_discard,
+                               callback, data);
+    if (fop == NULL) {
         goto out;
     }
-    iobuf = iobuf_get(fop->xl->ctx->iobuf_pool);
-    if (iobuf == NULL) {
-        goto out;
+
+    fop->use_fd = 1;
+    fop->offset = offset;
+    fop->size = len;
+
+    if (fd != NULL) {
+        fop->fd = fd_ref(fd);
     }
-    err = iobref_add(iobref, iobuf);
-    if (err != 0) {
-        goto out;
+
+    if (xdata != NULL) {
+        fop->xdata = dict_ref(xdata);
     }
 
-    vector.iov_base = iobuf->ptr;
-    vector.iov_len = fop->offset * ec->fragments - fop->user_size;
-    memset(vector.iov_base, 0, vector.iov_len);
-
-    iobuf_unref (iobuf);
-    iobuf = NULL;
-
-    ec_writev(fop->frame, fop->xl, mask, fop->minimum, ec_truncate_writev_cbk,
-              NULL, fop->fd, &vector, 1, fop->user_size, 0, iobref, NULL);
-
-    err = 0;
+    error = 0;
 
 out:
-    if (iobuf != NULL) {
-        iobuf_unref(iobuf);
+    if (fop != NULL) {
+        ec_manager(fop, error);
+    } else {
+        func(frame, NULL, this, -1, error, NULL, NULL, NULL);
     }
-    if (iobref != NULL) {
-        iobref_unref(iobref);
-    }
+}
 
-    return err;
+/*********************************************************************
+ *
+ * File Operation : truncate
+ *
+ *********************************************************************/
+
+int32_t ec_update_truncate_write (ec_fop_data_t *fop, uintptr_t mask)
+{
+        ec_t *ec = fop->xl->private;
+        size_t size = fop->offset * ec->fragments - fop->user_size;
+        return ec_update_write (fop, mask, fop->user_size, size);
 }
 
 int32_t ec_truncate_open_cbk(call_frame_t * frame, void * cookie,
@@ -1102,9 +1383,9 @@ int32_t ec_truncate_open_cbk(call_frame_t * frame, void * cookie,
     fop->parent->good &= fop->good;
     if (op_ret >= 0) {
         fd_bind (fd);
-        err = ec_truncate_write(fop->parent, fop->answer->mask);
+        err = ec_update_truncate_write (fop->parent, fop->answer->mask);
         if (err != 0) {
-            fop->error = -err;
+            ec_fop_set_error (fop->parent, -err);
         }
     }
 
@@ -1125,7 +1406,7 @@ int32_t ec_truncate_clean(ec_fop_data_t * fop)
 
         return 0;
     } else {
-        return ec_truncate_write(fop, fop->answer->mask);
+        return ec_update_truncate_write (fop, fop->answer->mask);
     }
 }
 
