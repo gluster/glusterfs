@@ -85,6 +85,8 @@ void ec_update_good(ec_fop_data_t *fop, uintptr_t good);
 
 void ec_fop_set_error(ec_fop_data_t *fop, int32_t error);
 
+void __ec_fop_set_error(ec_fop_data_t *fop, int32_t error);
+
 ec_cbk_data_t *
 ec_fop_prepare_answer(ec_fop_data_t *fop, gf_boolean_t ro);
 
@@ -133,5 +135,4 @@ ec_heal_inspect (call_frame_t *frame, ec_t *ec,
                  ec_heal_need_t *need_heal);
 int32_t
 ec_get_heal_info (xlator_t *this, loc_t *loc, dict_t **dict);
-
 #endif /* __EC_COMMON_H__ */

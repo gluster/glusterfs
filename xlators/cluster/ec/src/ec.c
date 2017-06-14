@@ -729,7 +729,8 @@ int32_t ec_gf_create(call_frame_t * frame, xlator_t * this, loc_t * loc,
 int32_t ec_gf_discard(call_frame_t * frame, xlator_t * this, fd_t * fd,
                       off_t offset, size_t len, dict_t * xdata)
 {
-    default_discard_failure_cbk(frame, ENOTSUP);
+    ec_discard(frame, this, -1, EC_MINIMUM_MIN, default_discard_cbk,
+               NULL, fd, offset, len, xdata);
 
     return 0;
 }
