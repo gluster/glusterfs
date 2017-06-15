@@ -2336,6 +2336,14 @@ init (xlator_t *this)
         }
 
         GF_OPTION_INIT ("index-base", priv->index_basepath, path, out);
+        if (gf_lstat_dir (priv->index_basepath, NULL) != 0) {
+                ret = -1;
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        INDEX_MSG_INDEX_DIR_CREATE_FAILED,
+                        "Failed to find index basepath %s.",
+                        priv->index_basepath);
+                goto out;
+        }
 
         GF_OPTION_INIT ("xattrop64-watchlist", watchlist, str, out);
         ret = index_make_xattrop_watchlist (this, priv, watchlist,

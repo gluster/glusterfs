@@ -22,6 +22,12 @@ cd $M0/a/b/c
 TEST kill_brick $V0 $H0 $B0/${V0}2
 rm -rf $B0/${V0}2/*
 rm -rf $B0/${V0}2/.glusterfs
+
+#Ideally, disk replacement is done using reset-brick or replace-brick gluster CLI
+#which will create .glusterfs/indices folder.
+mkdir $B0/${V0}2/.glusterfs && chmod 600 $B0/${V0}2/.glusterfs
+mkdir $B0/${V0}2/.glusterfs/indices && chmod 600 $B0/${V0}2/.glusterfs/indices
+
 TEST $CLI volume start $V0 force
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
