@@ -20,7 +20,7 @@ from errno import EACCES, EAGAIN, ENOENT
 import logging
 
 from syncdutils import EVENT_GEOREP_ACTIVE, EVENT_GEOREP_PASSIVE, gf_event
-from syncdutils import EVENT_GEOREP_CHECKPOINT_COMPLETED
+from syncdutils import EVENT_GEOREP_CHECKPOINT_COMPLETED, lf
 
 DEFAULT_STATUS = "N/A"
 MONITOR_STATUS = ("Created", "Started", "Paused", "Stopped")
@@ -225,10 +225,10 @@ class GeorepStatus(object):
                     data["checkpoint_time"] = checkpoint_time
                     data["checkpoint_completion_time"] = curr_time
                     data["checkpoint_completed"] = "Yes"
-                    logging.info("Checkpoint completed. Checkpoint "
-                                 "Time: %s, Completion Time: %s" % (
-                                     human_time_utc(checkpoint_time),
-                                     human_time_utc(curr_time)))
+                    logging.info(lf("Checkpoint completed",
+                                    checkpoint_time=human_time_utc(
+                                        checkpoint_time),
+                                    completion_time=human_time_utc(curr_time)))
                     self.trigger_gf_event_checkpoint_completion(
                         checkpoint_time, curr_time)
 
@@ -238,11 +238,13 @@ class GeorepStatus(object):
 
     def set_worker_status(self, status):
         if self.set_field("worker_status", status):
-            logging.info("Worker Status: %s" % status)
+            logging.info(lf("Worker Status Change",
+                            status=status))
 
     def set_worker_crawl_status(self, status):
         if self.set_field("crawl_status", status):
-            logging.info("Crawl Status: %s" % status)
+            logging.info(lf("Crawl Status Change",
+                            status=status))
 
     def set_slave_node(self, slave_node):
         def merger(data):
@@ -269,12 +271,14 @@ class GeorepStatus(object):
 
     def set_active(self):
         if self.set_field("worker_status", "Active"):
-            logging.info("Worker Status: Active")
+            logging.info(lf("Worker Status Change",
+                            status="Active"))
             self.send_event(EVENT_GEOREP_ACTIVE)
 
     def set_passive(self):
         if self.set_field("worker_status", "Passive"):
-            logging.info("Worker Status: Passive")
+            logging.info(lf("Worker Status Change",
+                            status="Passive"))
             self.send_event(EVENT_GEOREP_PASSIVE)
 
     def get_monitor_status(self):
