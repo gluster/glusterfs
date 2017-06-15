@@ -1049,15 +1049,10 @@ br_fsscan_ondemand (xlator_t *this)
         char timestr[1024]          = {0,};
         struct timeval      now     = {0,};
         br_private_t       *priv    = NULL;
-        struct br_scrubber *fsscrub = NULL;
         struct br_monitor  *scrub_monitor = NULL;
 
         priv = this->private;
-        fsscrub = &priv->fsscrub;
         scrub_monitor = &priv->scrub_monitor;
-
-        if (!fsscrub->frequency_reconf)
-                return 0;
 
         (void) gettimeofday (&now, NULL);
 

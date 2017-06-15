@@ -1680,8 +1680,14 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                 gf_log (this->name, GF_LOG_INFO, "BitRot scrub ondemand "
                               "called");
 
-                if (scrub_monitor->state != BR_SCRUB_STATE_PENDING)
+                if (scrub_monitor->state != BR_SCRUB_STATE_PENDING) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                BRB_MSG_RESCHEDULE_SCRUBBER_FAILED,
+                                "on demand scrub schedule failed. Scrubber is "
+                                "not in pending state. Current state is %d",
+                                 scrub_monitor->state);
                         return -2;
+                }
 
                 /* Needs synchronization with reconfigure thread */
                 pthread_mutex_lock (&priv->lock);
