@@ -29,7 +29,7 @@ except ImportError:
     # py 3
     import pickle
 
-from syncdutils import Thread, select
+from syncdutils import Thread, select, lf
 
 pickle_proto = -1
 repce_version = 1.0
@@ -203,8 +203,10 @@ class RepceClient(object):
             meth, *args, **{'cbk': lambda rj, res: rj.wakeup(res)})
         exc, res = rjob.wait()
         if exc:
-            logging.error('call %s (%s) failed on peer with %s' %
-                          (repr(rjob), meth, str(type(res).__name__)))
+            logging.error(lf('call failed on peer',
+                             call=repr(rjob),
+                             method=meth,
+                             error=str(type(res).__name__)))
             raise res
         logging.debug("call %s %s -> %s" % (repr(rjob), meth, repr(res)))
         return res

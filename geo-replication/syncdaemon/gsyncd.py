@@ -39,7 +39,7 @@ from changelogagent import agent, Changelog
 from gsyncdstatus import set_monitor_status, GeorepStatus, human_time_utc
 from libcxattr import Xattr
 import struct
-from syncdutils import get_master_and_slave_data_from_args
+from syncdutils import get_master_and_slave_data_from_args, lf
 
 ParseError = XET.ParseError if hasattr(XET, 'ParseError') else SyntaxError
 
@@ -127,24 +127,30 @@ def slave_vol_uuid_get(host, vol):
                           stdin=None, stdout=PIPE, stderr=PIPE)
     vix, err = po.communicate()
     if po.returncode != 0:
-        logging.info("Volume info failed, unable to get "
-                     "volume uuid of %s present in %s,"
-                     "returning empty string: %s" %
-                     (vol, host, po.returncode))
+        logging.info(lf("Volume info failed, unable to get "
+                        "volume uuid of slavevol, "
+                        "returning empty string",
+                        slavevol=vol,
+                        slavehost=host,
+                        error=po.returncode))
         return ""
     vi = XET.fromstring(vix)
     if vi.find('opRet').text != '0':
-        logging.info("Unable to get volume uuid of %s, "
-                     "present in %s returning empty string: %s" %
-                     (vol, host, vi.find('opErrstr').text))
+        logging.info(lf("Unable to get volume uuid of slavevol, "
+                        "returning empty string",
+                        slavevol=vol,
+                        slavehost=host,
+                        error=vi.find('opErrstr').text))
         return ""
 
     try:
         voluuid = vi.find("volInfo/volumes/volume/id").text
     except (ParseError, AttributeError, ValueError) as e:
-        logging.info("Parsing failed to volume uuid of %s, "
-                     "present in %s returning empty string: %s" %
-                     (vol, host, e))
+        logging.info(lf("Parsing failed to volume uuid of slavevol, "
+                        "returning empty string",
+                        slavevol=vol,
+                        slavehost=host,
+                        error=e))
         voluuid = ""
 
     return voluuid
@@ -692,16 +698,18 @@ def main_i():
 
             if confdata.op == 'set':
                 if confdata.opt == 'checkpoint':
-                    logging.info("Checkpoint Set: %s" % (
-                        human_time_utc(confdata.val)))
+                    logging.info(lf("Checkpoint Set",
+                                    time=human_time_utc(confdata.val)))
                 else:
-                    logging.info("Config Set: %s = %s" % (
-                        confdata.opt, confdata.val))
+                    logging.info(lf("Config Set",
+                                    config=confdata.opt,
+                                    value=confdata.val))
             elif confdata.op == 'del':
                 if confdata.opt == 'checkpoint':
                     logging.info("Checkpoint Reset")
                 else:
-                    logging.info("Config Reset: %s" % confdata.opt)
+                    logging.info(lf("Config Reset",
+                                    config=confdata.opt))
         except IOError:
             if sys.exc_info()[1].errno == ENOENT:
                 # directory of log path is not present,
@@ -722,7 +730,8 @@ def main_i():
         try:
             GLogger._gsyncd_loginit(log_file=gconf.log_file, label='monitor')
             gconf.log_exit = False
-            logging.info("Monitor Status: %s" % create)
+            logging.info(lf("Monitor Status Change",
+                            status=create))
         except IOError:
             if sys.exc_info()[1].errno == ENOENT:
                 # If log dir not present
@@ -772,7 +781,8 @@ def main_i():
 
     if be_agent:
         os.setsid()
-        logging.debug('rpc_fd: %s' % repr(gconf.rpc_fd))
+        logging.debug(lf("RPC FD",
+                         rpc_fd=repr(gconf.rpc_fd)))
         return agent(Changelog(), gconf.rpc_fd)
 
     if be_monitor:
@@ -786,7 +796,7 @@ def main_i():
             remote.connect_remote(go_daemon='done')
     local.connect()
     if ffd:
-        logging.info ("Closing feedback fd, waking up the monitor")
+        logging.info("Closing feedback fd, waking up the monitor")
         os.close(ffd)
     local.service_loop(*[r for r in [remote] if r])
 

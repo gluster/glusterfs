@@ -304,8 +304,8 @@ def log_raise_exception(excont):
                 gconf.transport.terminate_geterr()
         elif isinstance(exc, OSError) and exc.errno in (ENOTCONN,
                                                         ECONNABORTED):
-            logging.error('glusterfs session went down [%s]',
-                          errorcode[exc.errno])
+            logging.error(lf('glusterfs session went down',
+                             error=errorcode[exc.errno]))
         else:
             logtag = "FAIL"
         if not logtag and logging.getLogger().isEnabledFor(logging.DEBUG):
@@ -387,8 +387,9 @@ def boolify(s):
     if lstr in true_list:
         rv = True
     elif not lstr in false_list:
-        logging.warn("Unknown string (%s) in string to boolean conversion "
-                     "defaulting to False\n" % (s))
+        logging.warn(lf("Unknown string in \"string to boolean\" conversion, "
+                        "defaulting to False",
+                        str=s))
 
     return rv
 
@@ -497,8 +498,9 @@ def errno_wrap(call, arg=[], errnos=[], retry_errnos=[]):
             nr_tries += 1
             if nr_tries == GF_OP_RETRIES:
                 # probably a screwed state, cannot do much...
-                logging.warn('reached maximum retries (%s)...%s' %
-                             (repr(arg), ex))
+                logging.warn(lf('reached maximum retries',
+                                args=repr(arg),
+                                error=ex))
                 raise
             time.sleep(0.250)  # retry the call
 
@@ -572,3 +574,16 @@ def get_rsync_version(rsync_cmd):
         rsync_version = out.split(" ", 4)[3]
 
     return rsync_version
+
+
+def lf(event, **kwargs):
+    """
+    Log Format helper function, log messages can be
+    easily modified to structured log format.
+    lf("Config Change", sync_jobs=4, brick=/bricks/b1) will be
+    converted as "Config Change<TAB>brick=/bricks/b1<TAB>sync_jobs=4"
+    """
+    msg = event
+    for k, v in kwargs.items():
+        msg += "\t{0}={1}".format(k, v)
+    return msg

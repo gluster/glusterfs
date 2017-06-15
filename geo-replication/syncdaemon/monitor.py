@@ -22,7 +22,7 @@ from errno import ECHILD, ESRCH
 import re
 import random
 from gconf import gconf
-from syncdutils import select, waitpid, errno_wrap
+from syncdutils import select, waitpid, errno_wrap, lf
 from syncdutils import set_term_handler, is_host_local, GsyncdError
 from syncdutils import escape, Thread, finalize, memoize
 from syncdutils import gf_event, EVENT_GEOREP_FAULTY
@@ -63,15 +63,17 @@ def get_slave_bricks_status(host, vol):
     po.wait()
     po.terminate_geterr(fail_on_err=False)
     if po.returncode != 0:
-        logging.info("Volume status command failed, unable to get "
-                     "list of up nodes of %s, returning empty list: %s" %
-                     (vol, po.returncode))
+        logging.info(lf("Volume status command failed, unable to get "
+                        "list of up nodes, returning empty list",
+                        volume=vol,
+                        error=po.returncode))
         return []
     vi = XET.fromstring(vix)
     if vi.find('opRet').text != '0':
-        logging.info("Unable to get list of up nodes of %s, "
-                     "returning empty list: %s" %
-                     (vol, vi.find('opErrstr').text))
+        logging.info(lf("Unable to get list of up nodes, "
+                        "returning empty list",
+                        volume=vol,
+                        error=vi.find('opErrstr').text))
         return []
 
     up_hosts = set()
@@ -81,8 +83,10 @@ def get_slave_bricks_status(host, vol):
             if el.find('status').text == '1':
                 up_hosts.add(el.find('hostname').text)
     except (ParseError, AttributeError, ValueError) as e:
-        logging.info("Parsing failed to get list of up nodes of %s, "
-                     "returning empty list: %s" % (vol, e))
+        logging.info(lf("Parsing failed to get list of up nodes, "
+                        "returning empty list",
+                        volume=vol,
+                        error=e))
 
     return list(up_hosts)
 
@@ -271,8 +275,9 @@ class Monitor(object):
             # Spawn the worker and agent in lock to avoid fd leak
             self.lock.acquire()
 
-            logging.info('starting gsyncd worker(%s). Slave node: %s' %
-                         (w[0]['dir'], remote_host))
+            logging.info(lf('starting gsyncd worker',
+                            brick=w[0]['dir'],
+                            slave_node=remote_host))
 
             # Couple of pipe pairs for RPC communication b/w
             # worker and changelog agent.
@@ -336,15 +341,16 @@ class Monitor(object):
 
                 if ret_agent is not None:
                     # Agent is died Kill Worker
-                    logging.info("Changelog Agent died, "
-                                 "Aborting Worker(%s)" % w[0]['dir'])
+                    logging.info(lf("Changelog Agent died, Aborting Worker",
+                                    brick=w[0]['dir']))
                     errno_wrap(os.kill, [cpid, signal.SIGKILL], [ESRCH])
                     nwait(cpid)
                     nwait(apid)
 
                 if ret is not None:
-                    logging.info("worker(%s) died before establishing "
-                                 "connection" % w[0]['dir'])
+                    logging.info(lf("worker died before establishing "
+                                    "connection",
+                                    brick=w[0]['dir']))
                     nwait(apid)  # wait for agent
                 else:
                     logging.debug("worker(%s) connected" % w[0]['dir'])
@@ -353,15 +359,16 @@ class Monitor(object):
                         ret_agent = nwait(apid, os.WNOHANG)
 
                         if ret is not None:
-                            logging.info("worker(%s) died in startup "
-                                         "phase" % w[0]['dir'])
+                            logging.info(lf("worker died in startup phase",
+                                            brick=w[0]['dir']))
                             nwait(apid)  # wait for agent
                             break
 
                         if ret_agent is not None:
                             # Agent is died Kill Worker
-                            logging.info("Changelog Agent died, Aborting "
-                                         "Worker(%s)" % w[0]['dir'])
+                            logging.info(lf("Changelog Agent died, Aborting "
+                                            "Worker",
+                                            brick=w[0]['dir']))
                             errno_wrap(os.kill, [cpid, signal.SIGKILL], [ESRCH])
                             nwait(cpid)
                             nwait(apid)
@@ -369,13 +376,15 @@ class Monitor(object):
 
                         time.sleep(1)
             else:
-                logging.info("worker(%s) not confirmed in %d sec, aborting it. "
-                             "Gsyncd invocation on remote slave via SSH or "
-                             "gluster master mount might have hung. Please "
-                             "check the above logs for exact issue and check "
-                             "master or slave volume for errors. Restarting "
-                             "master/slave volume accordingly might help."
-                             % (w[0]['dir'], conn_timeout))
+                logging.info(
+                    lf("Worker not confirmed after wait, aborting it. "
+                       "Gsyncd invocation on remote slave via SSH or "
+                       "gluster master mount might have hung. Please "
+                       "check the above logs for exact issue and check "
+                       "master or slave volume for errors. Restarting "
+                       "master/slave volume accordingly might help.",
+                       brick=w[0]['dir'],
+                       timeout=conn_timeout))
                 errno_wrap(os.kill, [cpid, signal.SIGKILL], [ESRCH])
                 nwait(apid)  # wait for agent
                 ret = nwait(cpid)
