@@ -39,6 +39,11 @@ TEST kill_brick $V0 $H0 $B0/${V0}-1
 TEST rm -rf $B0/${V0}-1/one
 TEST rm -rf $B0/${V0}-1/.glusterfs
 
+#Ideally, disk replacement is done using reset-brick or replace-brick gluster CLI
+#which will create .glusterfs/indices folder.
+mkdir $B0/${V0}-1/.glusterfs && chmod 600 $B0/${V0}-1/.glusterfs
+mkdir $B0/${V0}-1/.glusterfs/indices && chmod 600 $B0/${V0}-1/.glusterfs/indices
+
 # Start force
 TEST $CLI volume start $V0 force
 

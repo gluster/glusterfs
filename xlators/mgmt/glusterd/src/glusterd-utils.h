@@ -861,4 +861,15 @@ glusterd_brick_op_prerequisites (dict_t *dict,
 int
 glusterd_get_volinfo_from_brick (char *brick, glusterd_volinfo_t **volinfo);
 
+#define INDEX_BASEPATH ".glusterfs/indices"
+static inline void
+glusterd_get_index_basepath (glusterd_brickinfo_t *brickinfo, char *buffer,
+                             size_t size)
+{
+        if (!buffer)
+                return;
+        snprintf (buffer, size, "%s/%s", brickinfo->path, INDEX_BASEPATH);
+
+}
+
 #endif
