@@ -385,6 +385,7 @@ if __name__ == "__main__":
     mkdirp(os.path.join(session_dir, args.volume), exit_on_err=True,
            logger=logger)
 
+    end = -1
     if args.only_query:
         start = args.start
         end = args.end
