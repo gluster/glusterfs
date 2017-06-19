@@ -713,14 +713,64 @@ unwind:
         return ret;
 }
 
-
 /**
- * node-uuid cbk returns the list of node_uuids for the subvolume.
+ * node-uuid cbk uses next child querying mechanism
  */
 int32_t
-afr_getxattr_node_uuid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                            int32_t op_ret, int32_t op_errno, dict_t *dict,
-                            dict_t *xdata)
+afr_getxattr_node_uuid_cbk (call_frame_t *frame, void *cookie,
+                            xlator_t *this, int32_t op_ret, int32_t op_errno,
+                            dict_t *dict, dict_t *xdata)
+{
+        afr_private_t  *priv            = NULL;
+        afr_local_t    *local           = NULL;
+        xlator_t      **children        = NULL;
+        int             unwind          = 1;
+        int             curr_call_child = 0;
+
+        priv = this->private;
+        children = priv->children;
+
+        local = frame->local;
+
+        if (op_ret == -1) { /** query the _next_ child */
+
+                /**
+                 * _current_ becomes _next_
+                 * If done with all childs and yet no success; give up !
+                 */
+                curr_call_child = (int) ((long)cookie);
+                if (++curr_call_child == priv->child_count)
+                        goto unwind;
+
+                gf_msg_debug (this->name, op_errno,
+                              "op_ret (-1): Re-querying afr-child (%d/%d)",
+                              curr_call_child, priv->child_count);
+
+                unwind = 0;
+                STACK_WIND_COOKIE (frame, afr_getxattr_node_uuid_cbk,
+                                   (void *) (long) curr_call_child,
+                                   children[curr_call_child],
+                                   children[curr_call_child]->fops->getxattr,
+                                   &local->loc,
+                                   local->cont.getxattr.name,
+                                   local->xdata_req);
+        }
+
+ unwind:
+        if (unwind)
+                AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict,
+                                  xdata);
+
+        return 0;
+}
+
+/**
+ * list-node-uuids cbk returns the list of node_uuids for the subvolume.
+ */
+int32_t
+afr_getxattr_list_node_uuids_cbk (call_frame_t *frame, void *cookie,
+                                  xlator_t *this, int32_t op_ret,
+                                  int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
         afr_local_t    *local          = NULL;
         afr_private_t  *priv           = NULL;
@@ -794,7 +844,8 @@ unlock:
                         local->op_errno = ENOMEM;
                         goto unwind;
                 }
-                ret = dict_set_dynstr (local->dict, local->cont.getxattr.name,
+                ret = dict_set_dynstr (local->dict,
+                                       GF_XATTR_LIST_NODE_UUIDS_KEY,
                                        xattr_serz);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR,
@@ -1427,8 +1478,8 @@ afr_is_special_xattr (const char *name, fop_getxattr_cbk_t *cbk,
                 *cbk = afr_common_getxattr_stime_cbk;
         } else if (strcmp (name, QUOTA_SIZE_KEY) == 0) {
                 *cbk = afr_getxattr_quota_size_cbk;
-        } else if (!strcmp (name, GF_XATTR_NODE_UUID_KEY)) {
-                *cbk = afr_getxattr_node_uuid_cbk;
+        } else if (!strcmp (name, GF_XATTR_LIST_NODE_UUIDS_KEY)) {
+                *cbk = afr_getxattr_list_node_uuids_cbk;
         } else {
                 is_spl = _gf_false;
         }
@@ -1453,15 +1504,20 @@ afr_getxattr_all_subvols (xlator_t *this, call_frame_t *frame,
         //local->call_count set in afr_local_init
         call_count = local->call_count;
 
+        if (!strcmp (name, GF_XATTR_LIST_NODE_UUIDS_KEY)) {
+                GF_FREE (local->cont.getxattr.name);
+                local->cont.getxattr.name = gf_strdup (GF_XATTR_NODE_UUID_KEY);
+        }
+
         //If up-children count is 0, afr_local_init would have failed already
         //and the call would have unwound so not handling it here.
-
         for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
                         STACK_WIND_COOKIE (frame, cbk,
                                            (void *) (long) i, priv->children[i],
                                            priv->children[i]->fops->getxattr,
-                                           loc, name, NULL);
+                                           loc, local->cont.getxattr.name,
+                                           NULL);
                         if (!--call_count)
                                 break;
                 }
@@ -1545,6 +1601,8 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 {
         afr_private_t           *priv         = NULL;
         afr_local_t             *local        = NULL;
+        xlator_t                **children    = NULL;
+        int                     i             = 0;
         int32_t                 op_errno      = 0;
         int                     ret           = -1;
         fop_getxattr_cbk_t      cbk           = NULL;
@@ -1555,6 +1613,8 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 		goto out;
 
         priv     = this->private;
+
+        children = priv->children;
 
         loc_copy (&local->loc, loc);
 
@@ -1593,6 +1653,16 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
          */
         if (afr_is_special_xattr (name, &cbk, 0)) {
                 afr_getxattr_all_subvols (this, frame, name, loc, cbk);
+                return 0;
+        }
+
+        if (XATTR_IS_NODE_UUID (name)) {
+                i = 0;
+                STACK_WIND_COOKIE (frame, afr_getxattr_node_uuid_cbk,
+                                   (void *) (long) i,
+                                   children[i],
+                                   children[i]->fops->getxattr,
+                                   loc, name, xdata);
                 return 0;
         }
 
