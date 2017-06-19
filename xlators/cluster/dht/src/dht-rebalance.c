@@ -4497,9 +4497,10 @@ gf_defrag_get_estimates (dht_conf_t *conf)
         rate_lookedup = (total_processed)/elapsed;
 
 
-        /* We initially sum up dirs across all local subvols.
-         * The same directories will be counted for each subvol so
-         * we want to ensure that they are only counted once.
+        /* We initially sum up dirs across all local subvols because we get the
+         * file count from the inodes on each subvol.
+         * The same directories will be counted for each subvol but
+         * we want that they are only counted once.
          */
 
         tmp_count = g_totalfiles
@@ -4508,7 +4509,14 @@ gf_defrag_get_estimates (dht_conf_t *conf)
         if (total_processed > g_totalfiles)
                 g_totalfiles = total_processed + 10000;
 
-        time_to_complete = (tmp_count)/rate_lookedup;
+        if (rate_lookedup) {
+                time_to_complete = (tmp_count)/rate_lookedup;
+
+        } else {
+
+                gf_msg (THIS->name, GF_LOG_ERROR, 0, 0,
+                        "Unable to calculate estimated time for rebalance");
+        }
 
         gf_log (THIS->name, GF_LOG_INFO,
                 "TIME: total_processed=%"PRIu64" tmp_cnt = %"PRIu64","
@@ -4561,7 +4569,9 @@ gf_defrag_status_get (dht_conf_t *conf, dict_t *dict)
                 && (defrag->defrag_status == GF_DEFRAG_STATUS_STARTED)) {
 
                 time_to_complete = gf_defrag_get_estimates (conf);
-                time_left = time_to_complete - elapsed;
+
+                if (time_to_complete && (time_to_complete > elapsed))
+                        time_left = time_to_complete - elapsed;
 
                 gf_log (THIS->name, GF_LOG_INFO,
                         "TIME: Estimated total time to complete = %"PRIu64
