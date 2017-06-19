@@ -691,6 +691,8 @@ class GMasterChangelogMixin(GMasterCommon):
     TYPE_GFID = "D "
     TYPE_ENTRY = "E "
 
+    MAX_EF_RETRIES = 15
+
     # flat directory hierarchy for gfid based access
     FLAT_DIR_HIERARCHY = '.'
 
@@ -784,6 +786,95 @@ class GMasterChangelogMixin(GMasterCommon):
                                       " Please fix it to proceed further.")
 
         self.status.inc_value("failures", num_failures)
+
+    def fix_possible_entry_failures(self, failures, retry_count):
+        pfx = gauxpfx()
+        fix_entry_ops = []
+        failures1 = []
+        for failure in failures:
+            if failure[2]['gfid_mismatch']:
+                slave_gfid = failure[2]['slave_gfid']
+                st = lstat(os.path.join(pfx, slave_gfid))
+                if isinstance(st, int) and st == ENOENT:
+                    logging.info ("Fixing gfid mismatch [%s]: Deleting %s"
+                                  % (retry_count, repr(failure)))
+                    #Add deletion to fix_entry_ops list
+                    pbname = failure[0]['entry']
+                    if failure[2]['slave_isdir']:
+                        fix_entry_ops.append(edct('RMDIR',
+                                                  gfid=failure[2]['slave_gfid'],
+                                                  entry=pbname))
+                    else:
+                        fix_entry_ops.append(edct('UNLINK',
+                                                  gfid=failure[2]['slave_gfid'],
+                                                  entry=pbname))
+                elif not isinstance(st, int):
+                    #The file exists on master but with different name.
+                    #Probabaly renamed and got missed during xsync crawl.
+                    if failure[2]['slave_isdir']:
+                        logging.info ("Fixing gfid mismatch [%s]: %s"
+                                      % (retry_count, repr(failure)))
+                        realpath = os.readlink(os.path.join(gconf.local_path,
+                                                            ".glusterfs",
+                                                            slave_gfid[0:2],
+                                                            slave_gfid[2:4],
+                                                            slave_gfid))
+                        dst_entry = os.path.join(pfx, realpath.split('/')[-2],
+                                                 realpath.split('/')[-1])
+                        rename_dict = edct('RENAME', gfid=slave_gfid,
+                                           entry=failure[0]['entry'],
+                                           entry1=dst_entry, stat=st,
+                                           link=None)
+                        logging.info ("Fixing gfid mismatch [%s]: Renaming %s"
+                                      % (retry_count, repr(rename_dict)))
+                        fix_entry_ops.append(rename_dict)
+                    else:
+                        logging.info ("Fixing gfid mismatch [%s]: Deleting %s"
+                                      % (retry_count, repr(failure)))
+                        pbname = failure[0]['entry']
+                        fix_entry_ops.append(edct('UNLINK',
+                                                  gfid=failure[2]['slave_gfid'],
+                                                  entry=pbname))
+                        logging.error ("GFID MISMATCH: ENTRY CANNOT BE FIXED: "
+                                       "gfid: %s" % slave_gfid)
+
+        if fix_entry_ops:
+            #Process deletions of entries whose gfids are mismatched
+            failures1 = self.slave.server.entry_ops(fix_entry_ops)
+            if not failures1:
+                logging.info ("Sucessfully fixed entry ops with gfid mismatch")
+
+        return failures1
+
+    def handle_entry_failures(self, failures, entries):
+        retries = 0
+        pending_failures = False
+        failures1 = []
+        failures2 = []
+
+        if failures:
+            pending_failures = True
+            failures1 = failures
+
+            while pending_failures and retries < self.MAX_EF_RETRIES:
+                retries += 1
+                failures2 = self.fix_possible_entry_failures(failures1,
+                                                             retries)
+                if not failures2:
+                    pending_failures = False
+                else:
+                    pending_failures = True
+                    failures1 = failures2
+
+            if pending_failures:
+                for failure in failures1:
+                    logging.error("Failed to fix entry ops %s", repr(failure))
+            else:
+                #Retry original entry list 5 times
+                failures = self.slave.server.entry_ops(entries)
+
+            self.log_failures(failures, 'gfid', gauxpfx(), 'ENTRY')
+
 
     def process_change(self, change, done, retry):
         pfx = gauxpfx()
@@ -997,7 +1088,7 @@ class GMasterChangelogMixin(GMasterCommon):
             self.status.inc_value("entry", len(entries))
 
             failures = self.slave.server.entry_ops(entries)
-            self.log_failures(failures, 'gfid', gauxpfx(), 'ENTRY')
+            self.handle_entry_failures(failures, entries)
             self.status.dec_value("entry", len(entries))
 
             # Update Entry stime in Brick Root only in case of Changelog mode
