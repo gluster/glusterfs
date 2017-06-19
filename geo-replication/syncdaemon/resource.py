@@ -642,13 +642,14 @@ class Server(object):
                                st['uid'], st['gid'],
                                gf, st['mode'], bn, lnk)
 
-        def entry_purge(op, entry, gfid):
+        def entry_purge(op, entry, gfid, e):
             # This is an extremely racy code and needs to be fixed ASAP.
             # The GFID check here is to be sure that the pargfid/bname
             # to be purged is the GFID gotten from the changelog.
             # (a stat(changelog_gfid) would also be valid here)
             # The race here is between the GFID check and the purge.
             if not matching_disk_gfid(gfid, entry):
+                collect_failure(e, EEXIST)
                 return
 
             if op == 'UNLINK':
@@ -661,6 +662,8 @@ class Server(object):
                     return er
 
         def collect_failure(e, cmd_ret):
+            slv_entry_info = {}
+            slv_entry_info['gfid_mismatch'] = False
             # We do this for failing fops on Slave
             # Master should be logging this
             if cmd_ret is None:
@@ -669,11 +672,19 @@ class Server(object):
             if cmd_ret == EEXIST:
                 disk_gfid = cls.gfid_mnt(e['entry'])
                 if isinstance(disk_gfid, basestring) and e['gfid'] != disk_gfid:
-                    failures.append((e, cmd_ret, disk_gfid))
+                    slv_entry_info['gfid_mismatch'] = True
+                    st = lstat(e['entry'])
+                    if not isinstance(st, int):
+                        if st and stat.S_ISDIR(st.st_mode):
+                            slv_entry_info['slave_isdir'] = True
+                        else:
+                            slv_entry_info['slave_isdir'] = False
+                    slv_entry_info['slave_gfid'] = disk_gfid
+                    failures.append((e, cmd_ret, slv_entry_info))
                 else:
                     return False
             else:
-                failures.append((e, cmd_ret))
+                failures.append((e, cmd_ret, slv_entry_info))
 
             return True
 
@@ -756,7 +767,7 @@ class Server(object):
             if op in ['RMDIR', 'UNLINK']:
                 # Try once, if rmdir failed with ENOTEMPTY
                 # then delete recursively.
-                er = entry_purge(op, entry, gfid)
+                er = entry_purge(op, entry, gfid, e)
                 if isinstance(er, int):
                     if er == ENOTEMPTY and op == 'RMDIR':
                         # Retry if ENOTEMPTY, ESTALE
@@ -854,14 +865,6 @@ class Server(object):
                                      [EEXIST, ENOENT],
                                      [ESTALE, EINVAL, EBUSY])
                 failed = collect_failure(e, cmd_ret)
-
-                # If directory creation is failed, return immediately before
-                # further processing. Allowing it to further process will
-                # cause the entire directory tree to fail syncing to slave.
-                # Hence master will log and raise exception if it's
-                # directory failure.
-                if failed and op == 'MKDIR':
-                    return failures
 
                 # If UID/GID is different than zero that means we are trying
                 # create Entry with different UID/GID. Create Entry with
