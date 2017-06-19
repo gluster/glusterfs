@@ -1685,13 +1685,11 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p,
         if (fd->inode->ia_type == IA_IFDIR) {
                 dir = sys_opendir (real_path);
                 if (!dir) {
-                        (errno == ENOENT) ? (op_errno = EBADF) :
-                                            (op_errno = errno);
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                        op_errno = errno;
+                        gf_msg (this->name, GF_LOG_ERROR, op_errno,
                                 P_MSG_READ_FAILED,
                                 "Failed to get anonymous fd for "
-                                "real_path: %s. Returning %s.", real_path,
-                                strerror(op_errno));
+                                "real_path: %s.", real_path);
                         GF_FREE (pfd);
                         pfd = NULL;
                         goto out;
@@ -1712,13 +1710,11 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p,
                         _fd = open (unlink_path, fd->flags);
                 }
                 if (_fd == -1) {
-                        (errno == ENOENT) ? (op_errno = EBADF) :
-                                            (op_errno = errno);
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                        op_errno = errno;
+                        gf_msg (this->name, GF_LOG_ERROR, op_errno,
                                 P_MSG_READ_FAILED,
                                 "Failed to get anonymous fd for "
-                                "real_path: %s. Returning %s.", real_path,
-                                strerror(op_errno));
+                                "real_path: %s.", real_path);
                         GF_FREE (pfd);
                         pfd = NULL;
                         goto out;
