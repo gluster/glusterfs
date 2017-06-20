@@ -998,6 +998,7 @@ exit 0
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/error-gen.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/delay-gen.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/io-stats.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/sink.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/trace.so

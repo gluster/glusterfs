@@ -112,6 +112,8 @@ AC_CONFIG_FILES([Makefile
                 xlators/debug/trace/src/Makefile
                 xlators/debug/error-gen/Makefile
                 xlators/debug/error-gen/src/Makefile
+                xlators/debug/delay-gen/Makefile
+                xlators/debug/delay-gen/src/Makefile
                 xlators/debug/io-stats/Makefile
                 xlators/debug/io-stats/src/Makefile
                 xlators/protocol/Makefile

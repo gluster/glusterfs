@@ -2548,16 +2548,15 @@ debugxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
                 return 0;
 
         if (!strcmp (vme->key , "debug.trace") ||
-            !strcmp (vme->key, "debug.error-gen")) {
+            !strcmp (vme->key, "debug.error-gen") ||
+            !strcmp (vme->key, "debug.delay-gen")) {
                 if (get_server_xlator (vme->value) == GF_XLATOR_NONE &&
                     get_client_xlator (vme->value) == GF_CLNT_XLATOR_NONE)
                         return 0;
-                else
-                        goto add_graph;
         }
 
         if (gf_string2boolean (vme->value, &enabled) == -1)
-                return -1;
+                goto add_graph;
         if (!enabled)
                 return 0;
 
@@ -2574,34 +2573,28 @@ int
 check_and_add_debug_xl (volgen_graph_t *graph, dict_t *set_dict, char *volname,
                         char *xlname)
 {
+        int       i         = 0;
         int       ret       = 0;
         char     *value_str = NULL;
+        static char     *xls[] = {"debug.trace", "debug.error-gen",
+                           "debug.delay-gen", NULL};
 
         if (!xlname)
                 goto out;
 
-        ret = dict_get_str (set_dict, "debug.trace", &value_str);
-        if (!ret) {
-                if (strcmp (xlname, value_str) == 0) {
-                        ret = volgen_graph_set_options_generic (graph,
-                                                set_dict, volname,
-                                                &debugxl_option_handler);
-                        if (ret)
-                                goto out;
+        while (xls[i]) {
+                ret = dict_get_str (set_dict, xls[i], &value_str);
+                if (!ret) {
+                        if (strcmp (xlname, value_str) == 0) {
+                                ret = volgen_graph_set_options_generic (graph,
+                                                        set_dict, volname,
+                                                       &debugxl_option_handler);
+                                if (ret)
+                                        goto out;
+                        }
                 }
+                i++;
         }
-
-        ret = dict_get_str (set_dict, "debug.error-gen", &value_str);
-        if (!ret) {
-                if (strcmp (xlname, value_str) == 0) {
-                        ret = volgen_graph_set_options_generic (graph,
-                                                set_dict, volname,
-                                                &debugxl_option_handler);
-                        if (ret)
-                        goto out;
-                }
-        }
-
         ret = 0;
 
 out:

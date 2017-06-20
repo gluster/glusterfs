@@ -1,3 +1,3 @@
-SUBDIRS = error-gen io-stats sink trace
+SUBDIRS = error-gen io-stats sink trace delay-gen
 
 CLEANFILES = 
