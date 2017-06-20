@@ -11,7 +11,7 @@ consult gluster-devel@gluster.org and not any specific individual privately.
 
 Descriptions of section entries:
 
-	M: Mail patches to: FullName <address@domain>
+	M: Main contact that knows and takes care of this area
 	L: Mailing list that is relevant to this area
 	W: Web-page with status/info
 	Q: Patchwork web based patch tracking system site
@@ -46,113 +46,260 @@ Descriptions of section entries:
 	      matches patches or files that contain one or more of the words
 	      printk, pr_info or pr_err
 	   One regex pattern per line.  Multiple K: lines acceptable.
+        P: Peer for a component
 
 
 General Project Architects
 --------------------------
-M: Anand Avati <avati@redhat.com>
-M: Jeff Darcy <jdarcy@redhat.com>
-M: Kaleb S. Keithley <kkeithle@redhat.com>
+M: Jeff Darcy <jeff@pl.atyp.us>
 M: Vijay Bellur <vbellur@redhat.com>
+P: Amar Tumballi <amarts@redhat.com>
+P: Pranith Karampuri <pkarampu@redhat.com>
+P: Raghavendra Gowdappa <rgowdapp@redhat.com>
+P: Shyamsundar Ranganathan <srangana@redhat.com>
+P: Niels de Vos <ndevos@redhat.com>
+P: Xavier Hernandez  <xhernandez@datalab.es>
 
 
 xlators:
 --------
+Access Control List (ACL)
+M: Raghavendra Talur <rtalur@redhat.com>
+P: Jiffin Tony Thottan <jthottan@redhat.com>
+S: Maintained
+F: xlators/system/posix-acl/
+
+Arbiter
+M: Ravishankar N <ravishankar@redhat.com>
+P: Pranith Karampuri <pkarampu@redhat.com>
+S: Maintained
+F: xlators/features/arbiter/
+
 Automatic File Replication (AFR)
 M: Pranith Karampuri <pkarampu@redhat.com>
+P: Ravishankar N <ravishankar@redhat.com>
 S: Maintained
 F: xlators/cluster/afr/
+
+Barrier
+M: Raghavendra Bhat <rabhat@redhat.com>
+P: Atin Mukherjee <amukherj@redhat.com>
+S: Maintained
+F: xlators/features/barrier
 
 Block Device
 S: Orphan
 F: xlators/storage/bd/
 
 BitRot
-M: Raghavendra Bhat <rabhat@redhat.com>
+M: Kotresh HR <khiremat@redhat.com>
+P: Raghavendra Bhat <rabhat@redhat.com>
 S: Maintained
 F: xlators/features/bit-rot/
 
 Changelog
 M: Aravinda V K <avishwan@redhat.com>
+P: Kotresh HR <khiremat@redhat.com>
 S: Maintained
 F: xlators/features/changelog/
 
 Changetimerecorder
-M: Dan Lambright <dlambrig@redhat.com>
+M: Shyamsundar Ranganathan <srangana@redhat.com>
+P: Hari Gowtham <hgowtham@redhat.com>
 S: Maintained
 F: xlators/features/changetimerecorder/
 
+Decompounder
+M: Krutika Dhananjay <kdhananj@redhat.com>
+P: Pranith Karampuri <pkarampu@redhat.com>
+S: Maintained
+F: xlators/features/decompounder/
+
 Distributed Hashing Table (DHT)
 M: Raghavendra Gowdappa <rgowdapp@redhat.com>
-M: Shyamsundar Ranganathan <srangana@redhat.com>
+M: Nithya Balachandran <nbalacha@redhat.com>
+P: Susant Palai <spalai@redhat.com>
 S: Maintained
 F: xlators/cluster/dht/
 
 Erasure Coding
 M: Pranith Karampuri <pkarampu@redhat.com>
 M: Xavier Hernandez  <xhernandez@datalab.es>
+P: Ashish Pandey <aspandey@redhat.com>
+P: Sunil Kumar Acharya <sheggodu@redhat.com>
 S: Maintained
 F: xlators/cluster/ec/
 
+Error-gen
+M: Raghavendra Talur <rtalur@redhat.com>
+S: Maintained
+F: xlators/debug/error-gen/
+
 FUSE Bridge
 M: Niels de Vos <ndevos@redhat.com>
-M: Raghavendra Bhat <rabhat@redhat.com>
+P: Csaba Henk <chenk@redhat.com>
 S: Maintained
 F: xlators/mount/
 
 Index
 M: Pranith Karampuri <pkarampu@redhat.com>
+P: Ravishankar N <ravishankar@redhat.com>
 S: Maintained
 F: xlators/features/index/
 
+IO Cache
+M: Raghavendra Gowdappa <rgowdapp@redhat.com>
+P: Mohammed Rafi KC <rkavunga@redhat.com>
+P: Nithya Balachandran <nbalacha@redhat.com>
+S: Maintained
+F: xlators/performance/io-cache/
+
+IO Statistics
+M: Krutika Dhananjay <kdhananj@redhat.com>
+M: Shyam Ranganathan <srangana@redhat.com>
+S: Maintained
+F: xlators/debug/io-stats/
+
 IO threads
 M: Pranith Karampuri <pkarampu@redhat.com>
+P: Ravishankar N <ravishankar@redhat.com>
 S: Maintained
 F: xlators/performance/io-threads/
 
+Leases
+M: Poornima G <pgurusid@redhat.com>
+P: Niels de Vos <ndevos@redhat.com>
+P: Soumya Koduri <skoduri@redhat.com>
+S: Maintained
+F: xlators/features/leases/
+
 Locks
-M: Pranith Karampuri <pkarampu@redhat.com>
+M: Krutika Dhananjay <kdhananj@redhat.com>
 S: Maintained
 F: xlators/features/locks/
 
 Marker
 M: Raghavendra Gowdappa <rgowdapp@redhat.com>
+M: Kotresh HR <khiremat@redhat.com>
+P: Sanoj Unnikrishnan <sunnikri@redhat.com>
 S: Maintained
 F: xlators/features/marker/
 
+Meta
+M: Mohammed Rafi KC <rkavunga@redhat.com>
+S: Maintained
+F: xlators/features/meta/
+
+Metadata-cache
+M: Poornima G <pgurusid@redhat.com>
+P: Soumya Koduri <skoduri@redhat.com>
+S: Maintained
+F: xlators/performance/md-cache/
+
+Negative-lookup Cache
+M: Poornima G <pgurusid@redhat.com>
+P: Pranith Karampuri <pkarampu@redhat.com>
+S: Maintained
+F: xlators/performance/nl-cache/
+
 NFS
 M: Niels de Vos <ndevos@redhat.com>
+P: Jiffin Tony Thottan <jthottan@redhat.com>
+P: Soumya Koduri <skoduri@redhat.com>
 S: Maintained
 F: xlators/nfs/server/
 
-Performance
+Open-behind
 M: Raghavendra Gowdappa <rgowdapp@redhat.com>
+P: Milind Changire <mchangir@redhat.com>
 S: Maintained
-F: xlators/performance/
+F: xlators/performance/open-behind/
 
 Posix:
-M: Pranith Karampuri <pkarampu@redhat.com>
 M: Raghavendra Bhat <raghavendra@redhat.com>
+P: Krutika Dhananjay <kdhananj@redhat.com>
+P: Jiffin Tony Thottan <jthottan@redhat.com>
 S: Maintained
 F: xlators/storage/posix/
 
+Quick-read
+M: Raghavendra Gowdappa <rgowdapp@redhat.com>
+P: Milind Changire <mchangir@redhat.com>
+S: Maintained
+F: xlators/performance/quick-read/
+
 Quota
 M: Raghavendra Gowdappa <rgowdapp@redhat.com>
+P: Sanoj Unnikrishnan <sunnikri@redhat.com>
+M: Shyamsundar Ranganathan <srangana@redhat.com>
 S: Maintained
 F: xlators/features/quota/
 
+Read-ahead
+M: Raghavendra Gowdappa <rgowdapp@redhat.com>
+P: Csaba Henk <chenk@redhat.com>
+S: Maintained
+F: xlators/performance/read-ahead/
+
+Readdir-ahead
+M: Poornima G <pgurusid@redhat.com>
+P: Krutika Dhananjay <kdhananj@redhat.com>
+S: Maintained
+F: xlators/performance/readdir-ahead/
+
+Sharding
+M: Krutika Dhananjay <kdhananj@redhat.com>
+S: Maintained
+F: xlators/features/shard/
+
 Tiering
-M: Dan Lambright <dlambrig@redhat.com>
+M: Shyamsundar Ranganathan <srangana@redhat.com>
+P: Hari Gowtham <hgowtham@redhat.com>
 S: Maintained
 F: xlators/cluster/dht/src/tier.c
-F: xlators/features/changetimerecorder
-F: libglusterfs/src/gfdb
-W: http://www.gluster.org/community/documentation/index.php/Features/data-classification
+
+Trash
+M: Anoop C S <anoopcs@redhat.com>
+M: Jiffin Tony Thottan <jthottan@redhat.com>
+S: Maintained
+F: xlators/features/trash/
 
 Upcall
-M: Niels de Vos <ndevos@redhat.com>
+M: Poornima G <pgurusid@redhat.com>
+M: Soumya Koduri <skoduri@redhat.com>
+P: Niels de Vos <ndevos@redhat.com>
 S: Maintained
 F: xlators/features/upcall/
+
+Write-behind
+M: Raghavendra Gowdappa <rgowdapp@redhat.com>
+P: Csaba Henk <chenk@redhat.com>
+S: Maintained
+F: xlators/performance/write-behind/
+
+Write Once Read Many
+P: Karthik US <ksubrahm@redhat.com>
+S: Maintained
+F: xlators/features/read-only/
+
+Experimental Features:
+----------------------
+
+Distributed Hash Table 2
+M: Shyamsundar Ranganathan <srangana@redhat.com>
+P: Kotresh HR <khiremat@redhat.com>
+P: Susant Palai <spalai@redhat.com>
+S: Maintained
+F: xlators/experimental/dht2/
+
+Journal Based Replication
+M: Jeff Darcy <jeff@pl.atyp.us>
+P: Mohammed Rafi KC <rkavunga@redhat.com>
+S: Maintained
+F: xlators/experimental/fdl/
+F: xlators/experimenta/jbr-client/
+F: xlators/experimental/jbr-server/
+
 
 Other bits of code:
 -------------------
@@ -166,28 +313,43 @@ F: doc/
 
 Geo Replication
 M: Aravinda V K <avishwan@redhat.com>
+M: Kotresh HR <khiremat@redhat.com>
+P: Mohammed Rafi KC <rkavunga@redhat.com>
 S: Maintained
 F: geo-replication/
-
 
 Glupy
 S: Orphan
 F: xlators/features/glupy/
 
+Glusterfind
+M: Milind Changire <mchangir@redhat.com>
+P: Aravinda VK <avishwan@redhat.com>
+S: Maintained
+F: tools/glusterfind/
+
 libgfapi
 M: Niels de Vos <ndevos@redhat.com>
-M: Shyamsundar Ranganathan <srangana@redhat.com>
+P: Poornima G <pgurusid@redhat.com>
+P: Shyamsundar Ranganathan <srangana@redhat.com>
+P: Soumya Koduri <skoduri@redhat.com>
 S: Maintained
 F: api/
 
 libgfdb
-M: Dan Lambright <dlambrig@redhat.com>
+M: Shyamsundar Ranganathan <srangana@redhat.com>
+P: Hari Gowtham <hgowtham@redhat.com>
 S: Maintained
 F: libglusterfs/src/gfdb/
 
 libglusterfs
-M: Niels de Vos <ndevos@redhat.com>
-M: Pranith Karampuri <pkarampu@redhat.com>
+M: Amar Tumballi <amarts@redhat.com>
+M: Jeff Darcy <jeff@pl.atyp.us>
+P: Kaleb Keithley <kkeithle@redhat.com>
+P: Niels de Vos <ndevos@redhat.com>
+P: Pranith Karampuri <pkarampu@redhat.com>
+P: Raghavendra Gowdappa <rgowdapp@redhat.com>
+P: Shyamsundar Ranganathan <srangana@redhat.com>
 S: Maintained
 F: libglusterfs/
 
@@ -199,23 +361,72 @@ S: Maintained
 F: contrib/xxhash/
 T: https://github.com/Cyan4973/xxHash.git
 
-Management Daemon
-M: Kaushal Madappa <kmadapp@redhat.com>
+Management Daemon - glusterd1
 M: Atin Mukherjee <amukherj@redhat.com>
+M: Samikshan Bairagya <samikshan@gmail.com>
 S: Maintained
 F: cli/
-F: xlators/mgmt/
+F: xlators/mgmt/glusterd/
+
+Management Daemon - glusterd2
+M: Kaushal M <kaushal@redhat.com>
+M: Prashanth Pai <ppai@redhat.com>
+P: Aravinda VK <avishwan@redhat.com>
+S: Maintained
+T: https://github.com/gluster/glusterd2.git
+
+Protocol
+M: Kaleb Keithley <kkeithle@redhat.com>
+M: Niels de Vos <ndevos@redhat.com>
+M: Raghavendra Gowdappa <rgowdapp@redhat.com>
+P: Mohammed Rafi KC <rkavunga@redhat.com>
+S: Maintained
+F: xlators/protocol/
+
+RDMA subsystem
+M: Raghavendra Gowdappa <rgowdapp@redhat.com>
+M: Amar Tumballi <amarts@redhat.com>
+P: Mohammed Rafi KC <rkavunga@redhat.com>
+S: Maintained
+F: rpc/rpc-transport/rdma/
 
 Remote Procedure Call subsystem
 M: Raghavendra Gowdappa <rgowdapp@redhat.com>
+P: Milind Changire <mchangir@redhat.com>
+P: Mohit Agrawal <moagrawa@redhat.com>
 S: Maintained
-F: rpc/
+F: rpc/rpc-lib/
+F: rpc/xdr/
 
 Snapshot
-M: Rajesh Joseph <rjoseph@redhat.com>
+M: Raghavendra Bhat <raghavendra@redhat.com>
+P: Mohammed Rafi KC <rkavunga@redhat.com>
 S: Maintained
 F: xlators/mgmt/glusterd/src/glusterd-snap*
 F: extras/snap-scheduler.py
+
+Socket subsystem
+M: Raghavendra Gowdappa <rgowdapp@redhat.com>
+P: Krutika Dhananjay <kdhananj@redhat.com>
+P: Milind Changire <mchangir@redhat.com>
+P: Mohammed Rafi KC <rkavunga@redhat.com>
+P: Mohit Agrawal <moagrawa@redhat.com>
+S: Maintained
+F: rpc/rpc-transport/socket/
+
+Testing - .t framework
+M: Raghavendra Talur <rtalur@redhat.com>
+S: Maintained
+F: tests/
+
+Utilities
+M: Aravinda VK <avishwan@redhat.com>
+P: Niels de Vos <ndevos@redhat.com>
+P: Nigel Babu <nigelb@redhat.com>
+P: Raghavendra Talur <rtalur@redhat.com>
+P: Sachidanda Urs <surs@redhat.com>
+S: Maintained
+F: extras/
 
 Events APIs
 M: Aravinda VK <avishwan@redhat.com>
@@ -230,58 +441,82 @@ Distribution Specific:
 Build:
 M: Kaleb Keithley <kkeithle@redhat.com>
 M: Niels de Vos <ndevos@redhat.com>
+P: Anoop C S <anoopcs@redhat.com>
+P: Kaushal M <kaushal@redhat.com>
+P: Raghavendra Talur <rtalur@redhat.com>
 S: Maintained
 
-Debian Packaging
-M: Patrick Matthäi <pmatthaei@debian.org>
-M: Louis Zuckerman <me@louiszuckerman.com>
-S: Maintained
-W: http://packages.qa.debian.org/g/glusterfs.html
-
-Fedora Packaging
-M: glusterfs-owner@fedoraproject.org
-M: Humble Chirammal <hchiramm@redhat.com>
+Debian packages on download.gluster.org
+M: packaging@gluster.org
 M: Kaleb Keithley <kkeithle@redhat.com>
+P: Nigel Babu <nigelb@redhat.com>
+S: Maintained
+W: http://download.gluster.org/pub/gluster/glusterfs/LATEST/Debian/Debian.README
+T: https://github.com/gluster/glusterfs-debian.git
+
+OpenSuSE
+M: packaging@gluster.org
+M: Kaleb Keithley <kkeithle@redhat.com>
+P: Nigel Babu <nigelb@redhat.com>
+S: Maintained
+W: https://build.opensuse.org/repositories/home:glusterfs
+W: https://download.gluster.org/pub/gluster/glusterfs/LATEST/SuSE/SuSE.README
+T: https://github.com/gluster/glusterfs-suse.git
+
+Packages for the CentOS Storage SIG
+M: centos-devel@centos.org
 M: Niels de Vos <ndevos@redhat.com>
+P: Kaleb Keithley <kkeithle@redhat.com>
 S: Maintained
-W: https://apps.fedoraproject.org/packages/glusterfs
-T: https://src.fedoraproject.org/git/rpms/glusterfs.git
+W: https://wiki.centos.org/SpecialInterestGroup/Storage/Gluster
+T: https://github.com/CentOS-Storage-SIG/glusterfs.git
 
-FreeBSD port
-S: Orphan
-
-MacOS X port
-S: Orphan
-
-NetBSD port
-M: Emmanuel Dreyfus <manu@netbsd.org>
+Ubuntu PPA
+M: packaging@gluster.org
+M: Kaleb Keithley <kkeithle@redhat.com>
+P: Nigel Babu <nigelb@redhat.com>
 S: Maintained
-W: http://pkgsrc.se/filesystems/glusterfs
-
-Ubuntu Packaging
-M: Louis Zuckerman <me@louiszuckerman.com>
-S: Maintained
+W: https://launchpad.net/~gluster
 W: http://download.gluster.org/pub/gluster/glusterfs/LATEST/Ubuntu/Ubuntu.README
-
+T: https://github.com/gluster/glusterfs-debian.git
 
 Related projects
 ----------------
-Gluster Openstack Swift
-M: Luis Pabon <lpabon@redhat.com>
+Gluster Block
+M: Prasanna Kumar Kalever <prasanna.kalever@redhat.com>
+P: Pranith Karampuri <pkarampu@redhat.com>
+P: Niels de Vos <ndevos@redhat.com>
+S: Maintained
+T: https://github.com/gluster/gluster-block.git
+
+Gluster Object
+P: Ram Edara <redara@redhat.com>
+P: Saravanakumar Arumugam <sarumuga@redhat.com>
 S: Maintained
 T: https://github.com/gluster/gluster-swift.git
 
 GlusterFS Hadoop HCFS plugin
-M: Jay Vyas <jvyas@redhat.com>
-S: Maintained
+S: Orphan
 W: https://github.com/gluster/glusterfs-hadoop/wiki
 T: https://github.com/gluster/glusterfs-hadoop.git
 
+GlusterFS core-utils
+M: Anoop C S <anoopcs@redhat.com>
+S: Maintained
+T: https://github.com/gluster/glusterfs-coreutils.git
+
 NFS-Ganesha FSAL plugin
+M: Jiffin Tony Thottan <jthottan@redhat.com>
 M: Kaleb Keithley <kkeithle@redhat.com>
+M: Soumya Koduri <skoduri@redhat.com>
 S: Maintained
 T: git://github.com/nfs-ganesha/nfs-ganesha.git
 F: src/nfs-ganesha~/src/FSAL/FSAL_GLUSTER/
+
+Nagios Monitoring
+M: Sahina Bose <sabose@redhat.com>
+S: Maintained
+T: https://github.com/gluster/nagios-plugins-gluster.git
 
 QEMU integration
 M: Niels de Vos <ndevos@redhat.com>
@@ -291,12 +526,26 @@ T: git://git.qemu.org/qemu.git
 F: block/gluster.c
 
 Samba VFS plugin
+M: Anoop C S <anoopcs@redhat.com>
 M: Raghavendra Talur <rtalur@redhat.com>
-M: Jose Rivera <jrivera@redhat.com>
-M: Ira Cooper <icooper@redhat.com>
+M: Michael Adam <madam@redhat.com>
+M: Poornima G <pgurusid@redhat.com>
 S: Maintained
 T: git://git.samba.org/samba.git
 F: source3/modules/vfs_glusterfs.c
+
+Storhaug
+M: Jose A. Rivera <jarrpa@redhat.com>
+P: Kaleb Keithley <kkeithle@redhat.com>
+S: Maintained
+T: https://github.com/linux-ha-storage/storhaug.git
+
+Testing - Glusto
+M: Jonathan Holloway <jholloway@redhat.com>
+M: Shwetha Panduranga <spandura@redhat.com>
+P: Nigel Babu <nigelb@redhat.com>
+S: Maintained
+T: https://github.com/gluster/glusto-tests.git
 
 Wireshark dissectors
 M: Niels de Vos <ndevos@redhat.com>
@@ -305,25 +554,43 @@ W: https://forge.gluster.org/wireshark
 T: http://code.wireshark.org/git/wireshark
 F: epan/dissectors/packet-gluster*
 
+Infrastructure
+--------------
+
+Platform
+M: Nigel Babu <nigelb@redhat.com>
+M: Michael Scherer <misc@redhat.com>
+P: Shyamsundar Ranganathan <srangana@redhat.com>
+P: Amar Tumballi <amarts@redhat.com>
+
+Continuous Integration
+M: Nigel Babu <nigelb@redhat.com>
+M: Michael Scherer <misc@redhat.com>
+P: Kaushal M <kaushal@redhat.com>
+P: Niels de Vos <ndevos@redhat.com>
+
 Special Thanks
 --------------
 
 GlusterFS would not be possible without the contributions of:
 
-M: Amar Tumballi <amarts@gmail.com>
-M: Chris Hertel <chertel@redhat.com>
+M: Chris Hertel
 M: M. Mohan Kumar <mohan@in.ibm.com>
 M: Shishir Gowda <gowda.shishir@gmail.com>
 M: Brian Foster <bfoster@redhat.com>
-M: Csaba Henk <chenk@redhat.com>
-M: Anand Avati <avati@redhat.com>
+M: Anand Avati <avati@cs.stanford.edu>
 M: Dennis Schafroth <dennis@schafroth.com>
 M: Harshavardhana <harsha@harshavardhana.net>
-M: Krishnan Parthasarathi <kparthas@redhat.com>
+M: Krishnan Parthasarathi
 M: Justin Clift <justin@gluster.org>
 M: Venky Shankar <vshankar@redhat.com>
 M: Shravan Chandrashekar <shravantc99@gmail.com>
-M: Joseph Fernandes <josferna@redhat.com>
-M: Vijaikumar Mallikarjuna <vmallika@redhat.com>
-M: Anand Subramanian <ansubram@redhat.com>
+M: Joseph Fernandes
+M: Vijaikumar Mallikarjuna
+M: Anand Subramanian
 M: Bharata B Rao <bharata@linux.vnet.ibm.com>
+M: Rajesh Joseph
+M: Dan Lambright
+M: Jay Vyas
+M: Luis Pabon
+M: Ira Cooper
