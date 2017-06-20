@@ -3526,6 +3526,29 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version  = GD_OP_VERSION_3_12_0,
           .validate_fn = validate_boolean
         },
+        { .key        = "debug.delay-gen",
+          .voltype    = "debug/delay-gen",
+          .option     = "!debug",
+          .value      = "off",
+          .type       = NO_DOC,
+          .op_version = GD_OP_VERSION_4_0_0,
+          .flags      = VOLOPT_FLAG_XLATOR_OPT
+        },
+        { .key        = "delay-gen.delay-percentage",
+          .voltype    = "debug/delay-gen",
+          .type       = NO_DOC,
+          .op_version = GD_OP_VERSION_4_0_0,
+        },
+        { .key        = "delay-gen.delay-duration",
+          .voltype    = "debug/delay-gen",
+          .type       = NO_DOC,
+          .op_version = GD_OP_VERSION_4_0_0,
+        },
+        { .key        = "delay-gen.enable",
+          .voltype    = "debug/delay-gen",
+          .type       = NO_DOC,
+          .op_version = GD_OP_VERSION_4_0_0,
+        },
         { .key         = NULL
         }
 };

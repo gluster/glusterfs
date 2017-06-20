@@ -163,8 +163,8 @@ struct volgen_brick_xlator {
         /* function that builds a xlator */
         brick_xlator_builder builder;
         /* debug key for a xlator that
-         * gets used for adding debug translators like trace, error-gen
-         * before this xlator */
+         * gets used for adding debug translators like trace, error-gen,
+         * delay-gen before this xlator */
         char *dbg_key;
 };
 typedef struct volgen_brick_xlator volgen_brick_xlator_t;
