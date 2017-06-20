@@ -222,8 +222,8 @@ changelog_unlink (call_frame_t *frame, xlator_t *this,
         gf_boolean_t                 barrier_enabled = _gf_false;
         dht_changelog_rename_info_t  *info           = NULL;
         int                          ret             = 0;
-        char                         old_name[NAME_MAX] = {0};
-        char                         new_name[NAME_MAX] = {0};
+        char                        *old_name        = NULL;
+        char                        *new_name        = NULL;
         char                         *nname             = NULL;
 
         INIT_LIST_HEAD (&queue);
@@ -234,6 +234,8 @@ changelog_unlink (call_frame_t *frame, xlator_t *this,
         ret = dict_get_bin (xdata, DHT_CHANGELOG_RENAME_OP_KEY, (void **)&info);
         if (!ret) {     /* special case: unlink considered as rename */
                 /* 3 == fop + oldloc + newloc */
+                old_name = alloca (info->oldname_len);
+                new_name = alloca (info->newname_len);
                 CHANGELOG_INIT_NOCHECK (this, frame->local,
                                         NULL, loc->inode->gfid, 3);
 
