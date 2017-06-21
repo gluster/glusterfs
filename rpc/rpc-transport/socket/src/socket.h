@@ -220,7 +220,8 @@ typedef struct {
                 };
         };
         struct gf_sock_incoming incoming;
-        pthread_mutex_t        lock;
+        pthread_mutex_t        in_lock;
+        pthread_mutex_t        out_lock;
         pthread_mutex_t        cond_lock;
         pthread_cond_t         cond;
         int                    windowsize;
