@@ -351,7 +351,8 @@ out:
 
 static int32_t
 ec_dict_data_concat(const char *fmt, ec_cbk_data_t *cbk, int32_t which,
-                    char *key, const char *def, gf_boolean_t global, ...)
+                    char *key, char *new_key, const char *def,
+                    gf_boolean_t global, ...)
 {
     ec_t *ec = cbk->fop->xl->private;
     data_t *data[ec->nodes];
@@ -432,6 +433,9 @@ ec_dict_data_concat(const char *fmt, ec_cbk_data_t *cbk, int32_t which,
     memcpy(str + len, post, postlen + 1);
 
     dict = (which == EC_COMBINE_XDATA) ? cbk->xdata : cbk->dict;
+    if (new_key) {
+        key = new_key;
+    }
     err = dict_set_dynstr(dict, key, str);
     if (err != 0) {
         goto out;
@@ -677,14 +681,14 @@ int32_t ec_dict_data_combine(dict_t * dict, char * key, data_t * value,
         (strcmp(key, GF_XATTR_USER_PATHINFO_KEY) == 0))
     {
         return ec_dict_data_concat("(<EC:%s> { })", data->cbk, data->which,
-                                   key, NULL, _gf_false,
+                                   key, NULL, NULL, _gf_false,
                                    data->cbk->fop->xl->name);
     }
 
     if (strncmp(key, GF_XATTR_CLRLK_CMD, strlen(GF_XATTR_CLRLK_CMD)) == 0)
     {
         return ec_dict_data_concat("{\n}", data->cbk, data->which, key, NULL,
-                                   _gf_false);
+                                   NULL, _gf_false);
     }
 
     if (strncmp(key, GF_XATTR_LOCKINFO_KEY,
@@ -715,8 +719,14 @@ int32_t ec_dict_data_combine(dict_t * dict, char * key, data_t * value,
     }
 
     if (XATTR_IS_NODE_UUID(key)) {
-        return ec_dict_data_concat("{ }", data->cbk, data->which, key,
-                                   UUID0_STR, _gf_true);
+        if (data->cbk->fop->int32) {
+                /* List of node uuid is requested */
+                return ec_dict_data_concat("{ }", data->cbk, data->which, key,
+                                           GF_XATTR_LIST_NODE_UUIDS_KEY,
+                                           UUID0_STR, _gf_true);
+        } else {
+                return ec_dict_data_uuid(data->cbk, data->which, key);
+        }
     }
 
     if (fnmatch(GF_XATTR_STIME_PATTERN, key, FNM_NOESCAPE) == 0)

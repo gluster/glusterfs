@@ -487,7 +487,14 @@ ec_getxattr (call_frame_t *frame, xlator_t *this, uintptr_t target,
         }
     }
     if (name != NULL) {
-        fop->str[0] = gf_strdup(name);
+        /* In case of list-node-uuids xattr, set flag to indicate
+         * the same and use node-uuid xattr for winding fop */
+        if (XATTR_IS_NODE_UUID_LIST(name)) {
+                fop->int32 = 1;
+                fop->str[0] = gf_strdup(GF_XATTR_NODE_UUID_KEY);
+        } else {
+                fop->str[0] = gf_strdup(name);
+        }
         if (fop->str[0] == NULL) {
             gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                     EC_MSG_NO_MEMORY,
