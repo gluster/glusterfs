@@ -202,13 +202,6 @@ tier_check_same_node (xlator_t *this, loc_t *loc, gf_defrag_info_t *defrag)
         dict_t     *dict                    = NULL;
         char       *uuid_str                = NULL;
         uuid_t      node_uuid               = {0,};
-        char       *dup_str                 = NULL;
-        char       *str                     = NULL;
-        char       *save_ptr                = NULL;
-        int         count                   = 0;
-        uint32_t    hashval                 = 0;
-        int32_t     index                   = 0;
-        char        buf[GF_UUID_BUF_SIZE]   = {0,};
 
         GF_VALIDATE_OR_GOTO ("tier", this, out);
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
@@ -222,56 +215,16 @@ tier_check_same_node (xlator_t *this, loc_t *loc, gf_defrag_info_t *defrag)
                 goto out;
         }
 
-
-        /*  This returns multiple node-uuids now - one for each brick
-         *  of the subvol.
-         */
-
         if (dict_get_str (dict, GF_XATTR_NODE_UUID_KEY, &uuid_str) < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
-                        "Failed to get node-uuid for %s", loc->path);
+                        "Failed to get node-uuids for %s", loc->path);
                 goto out;
         }
 
-        dup_str = gf_strdup (uuid_str);
-        str = dup_str;
-
-        /* How many uuids returned?
-         * No need to check if one of these is that of the current node.
-         */
-
-        count = 1;
-        while ((str = strchr (str, ' '))) {
-                count++;
-                str++;
-        }
-
-        /* Only one node-uuid - pure distribute? */
-        if (count == 1)
-                goto check_node;
-
-        uuid_utoa_r (loc->gfid, buf);
-        ret = dht_hash_compute (this, 0, buf, &hashval);
-        if (ret == 0) {
-                index = (hashval % count);
-        }
-
-        count = 0;
-        str = dup_str;
-        while ((uuid_str = strtok_r (str, " ", &save_ptr))) {
-                if (count == index)
-                        break;
-                count++;
-                str = NULL;
-        }
-
-
-check_node:
 
         if (gf_uuid_parse (uuid_str, node_uuid)) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
                         "uuid_parse failed for %s", loc->path);
-                ret = -1;
                 goto out;
         }
 
@@ -287,7 +240,6 @@ out:
         if (dict)
                 dict_unref(dict);
 
-        GF_FREE (dup_str);
         return ret;
 }
 

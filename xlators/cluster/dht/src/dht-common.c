@@ -2982,7 +2982,8 @@ dht_vgetxattr_fill_and_set (dht_local_t *local, dict_t **dict, xlator_t *this,
                 (void) dht_fill_pathinfo_xattr (this, local, xattr_buf,
                                                 local->alloc_len, flag,
                                                 layout_buf);
-        } else if (XATTR_IS_NODE_UUID (local->xsel)) {
+        } else if ((XATTR_IS_NODE_UUID (local->xsel))
+                   || (XATTR_IS_NODE_UUID_LIST (local->xsel))) {
                 (void) snprintf (xattr_buf, local->alloc_len, "%s",
                                  local->xattr_val);
         } else {
@@ -3574,6 +3575,31 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
         if (key && DHT_IS_DIR(layout) &&
            (!strcmp (key, GF_REBAL_FIND_LOCAL_SUBVOL))) {
                 ret = gf_asprintf
+                           (&node_uuid_key, "%s", GF_XATTR_LIST_NODE_UUIDS_KEY);
+                if (ret == -1 || !node_uuid_key) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_NO_MEMORY,
+                                "Failed to copy key");
+                        op_errno = ENOMEM;
+                        goto err;
+                }
+                (void) strncpy (local->xsel, node_uuid_key, 256);
+                cnt = local->call_cnt = conf->subvolume_cnt;
+                for (i = 0; i < cnt; i++) {
+                        STACK_WIND_COOKIE (frame, dht_find_local_subvol_cbk,
+                                           conf->subvolumes[i],
+                                           conf->subvolumes[i],
+                                           conf->subvolumes[i]->fops->getxattr,
+                                           loc, node_uuid_key, xdata);
+                }
+                if (node_uuid_key)
+                        GF_FREE (node_uuid_key);
+                return 0;
+        }
+
+        if (key && DHT_IS_DIR(layout) &&
+           (!strcmp (key, GF_REBAL_OLD_FIND_LOCAL_SUBVOL))) {
+                ret = gf_asprintf
                            (&node_uuid_key, "%s", GF_XATTR_NODE_UUID_KEY);
                 if (ret == -1 || !node_uuid_key) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -3608,7 +3634,8 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
 
         if (key && DHT_IS_DIR(layout) &&
             (XATTR_IS_PATHINFO (key)
-             || (strcmp (key, GF_XATTR_NODE_UUID_KEY) == 0))) {
+             || (strcmp (key, GF_XATTR_NODE_UUID_KEY) == 0)
+             || (strcmp (key, GF_XATTR_LIST_NODE_UUIDS_KEY) == 0))) {
                 (void) strncpy (local->xsel, key, 256);
                 cnt = local->call_cnt = layout->cnt;
                 for (i = 0; i < cnt; i++) {
