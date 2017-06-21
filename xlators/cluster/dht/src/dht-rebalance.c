@@ -4037,21 +4037,41 @@ dht_get_local_subvols_and_nodeuuids (xlator_t *this, dht_conf_t *conf,
                                      loc_t *loc)
 {
 
-        dict_t                  *dict                   = NULL;
-        int                      ret                    = -1;
+        dict_t                  *dict         = NULL;
+        gf_defrag_info_t        *defrag       = NULL;
+        int                      ret          = -1;
 
+        defrag = conf->defrag;
+
+        if (defrag->cmd != GF_DEFRAG_CMD_START_TIER) {
                 /* Find local subvolumes */
+                ret = syncop_getxattr (this, loc, &dict,
+                                       GF_REBAL_FIND_LOCAL_SUBVOL,
+                                       NULL, NULL);
+                if (ret && (ret != -ENODATA)) {
+
+                        gf_msg (this->name, GF_LOG_ERROR, -ret, 0, "local "
+                                "subvolume determination failed with error: %d",
+                                -ret);
+                        ret = -1;
+                        goto out;
+                 }
+
+        if (!ret)
+                goto out;
+        }
+
         ret = syncop_getxattr (this, loc, &dict,
-                               GF_REBAL_FIND_LOCAL_SUBVOL,
+                               GF_REBAL_OLD_FIND_LOCAL_SUBVOL,
                                NULL, NULL);
         if (ret) {
+
                 gf_msg (this->name, GF_LOG_ERROR, -ret, 0, "local "
                         "subvolume determination failed with error: %d",
                         -ret);
                 ret = -1;
                 goto out;
         }
-
         ret = 0;
 out:
         return ret;
