@@ -64,6 +64,7 @@ extras/systemd/glusterd.service
 extras/systemd/glusterfssharedstorage.service
 extras/who-wrote-glusterfs/gitdm
 geo-replication/.tox
+geo-replication/gsyncd.conf
 geo-replication/src/gsyncd
 geo-replication/src/peer_gsec_create
 geo-replication/src/peer_mountbroker

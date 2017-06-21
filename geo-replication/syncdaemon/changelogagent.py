@@ -9,7 +9,6 @@
 # cases as published by the Free Software Foundation.
 #
 
-import os
 import logging
 import syncdutils
 from syncdutils import select, CHANGELOG_AGENT_SERVER_VERSION

@@ -1,0 +1,301 @@
+[__meta__]
+version = 4.0
+
+[glusterd-workdir]
+value = @GLUSTERD_WORKDIR@
+
+[gluster-logdir]
+value = /var/log/glusterfs
+
+[gluster-rundir]
+value = /var/run/gluster
+
+[gsyncd-miscdir]
+value = /var/lib/misc/gluster/gsyncd
+
+[stime-xattr-prefix]
+value=
+
+[checkpoint]
+value=0
+help=Set Checkpoint
+validation=unixtime
+type=int
+
+[gluster-cli-options]
+value=
+help=Gluster CLI Options
+
+[pid-file]
+value=${gluster_rundir}/gsyncd-${master}-${primary_slave_host}-${slavevol}.pid
+configurable=false
+template = true
+help=PID file path
+
+[state-file]
+value=${glusterd_workdir}/geo-replication/${master}_${primary_slave_host}_${slavevol}/monitor.status
+configurable=false
+template=true
+help=Status File path
+
+[georep-session-working-dir]
+value=${glusterd_workdir}/geo-replication/${master}_${primary_slave_host}_${slavevol}/
+template=true
+help=Session Working directory
+configurable=false
+
+[access-mount]
+value=false
+help=Do not unmount the Aux mounts when stopped or crash
+
+[isolated-slaves]
+value=
+help=List of Slave nodes which are isolated
+
+[changelog-batch-size]
+# Max size of Changelogs to process per batch, Changelogs Processing is
+# not limited by the number of changelogs but instead based on
+# size of the changelog file, One sample changelog file size was 145408
+# with ~1000 CREATE and ~1000 DATA. 5 such files in one batch is 727040
+# If geo-rep worker crashes while processing a batch, it has to retry only
+# that batch since stime will get updated after each batch.
+value=727040
+help=Max size of Changelogs to process per batch.
+type=int
+
+[slave-timeout]
+value=120
+type=int
+help=Timeout in seconds for Slave Gsyncd. If no activity from master for this timeout, Slave gsyncd will be disconnected. Set Timeout to zero to skip this check.
+
+[connection-timeout]
+value=60
+type=int
+help=Timeout for mounts
+
+[replica-failover-interval]
+value=1
+type=int
+help=Minimum time interval in seconds for passive worker to become Active
+
+[chnagelog-archive-format]
+value=%Y%m
+help=Processed changelogs will be archived in working directory. Pattern for archive file
+
+[use-meta-volume]
+value=false
+type=bool
+help=Use this to set Active Passive mode to meta-volume.
+
+[meta-volume-mnt]
+value=/var/run/gluster/shared_storage
+help=Meta Volume or Shared Volume mount path
+
+[allow-network]
+value=
+
+[change-interval]
+value=5
+type=int
+
+[use-tarssh]
+value=false
+type=bool
+help=Use sync-mode as tarssh
+
+[remote-gsyncd]
+value =
+help=If SSH keys are not secured with gsyncd prefix then use this configuration to set the actual path of gsyncd(Usually /usr/libexec/glusterfs/gsyncd)
+
+[gluster-command-dir]
+value=/usr/local/sbin/
+help=Directory where Gluster binary exists
+
+[gluster-params]
+value = aux-gfid-mount acl
+help=Parameters for Gluster Geo-rep mount in Master
+
+[slave-gluster-params]
+value = aux-gfid-mount acl
+help=Parameters for Gluster Geo-rep mount in Slave
+
+[ignore-deletes]
+value = false
+type=bool
+help=Do not sync deletes in Slave
+
+[special-sync-mode]
+# tunables for failover/failback mechanism:
+# None   - gsyncd behaves as normal
+# blind  - gsyncd works with xtime pairs to identify
+#          candidates for synchronization
+# wrapup - same as normal mode but does not assign
+#          xtimes to orphaned files
+# see crawl() for usage of the above tunables
+value =
+help=
+
+[working-dir]
+value = ${gsyncd_miscdir}/${master}_${primary_slave_host}_${slavevol}/
+template=true
+configurable=false
+help=Working directory for storing Changelogs
+
+[change-detector]
+value=changelog
+help=Change detector
+validation=choice
+allowed_values=changelog,xsync
+
+[cli-log-file]
+value=${gluster_logdir}/geo-replication/cli.log
+template=true
+configurable=false
+
+[cli-log-level]
+value=INFO
+help=Set CLI Log Level
+validation=choice
+allowed_values=ERROR,INFO,WARNING,DEBUG
+
+[log-file]
+value=${gluster_logdir}/geo-replication/${master}_${primary_slave_host}_${slavevol}/gsyncd.log
+configurable=false
+template=true
+
+[changelog-log-file]
+value=${gluster_logdir}/geo-replication/${master}_${primary_slave_host}_${slavevol}/changes-${local_id}.log
+configurable=false
+template=true
+
+[gluster-log-file]
+value=${gluster_logdir}/geo-replication/${master}_${primary_slave_host}_${slavevol}/mnt-${local_id}.log
+template=true
+configurable=false
+
+[slave-log-file]
+value=${gluster_logdir}/geo-replication-slaves/${master}_${primary_slave_host}_${slavevol}/gsyncd.log
+template=true
+configurable=false
+
+[slave-gluster-log-file]
+value=${gluster_logdir}/geo-replication-slaves/${master}_${primary_slave_host}_${slavevol}/mnt-${master_node}-${master_brick_id}.log
+template=true
+configurable=false
+
+[slave-gluster-log-file-mbr]
+value=${gluster_logdir}/geo-replication-slaves/${master}_${primary_slave_host}_${slavevol}/mnt-mbr-${master_node}-${master_brick_id}.log
+template=true
+configurable=false
+
+[log-level]
+value=INFO
+help=Set Log Level
+validation=choice
+allowed_values=ERROR,INFO,WARNING,DEBUG
+
+[gluster-log-level]
+value=INFO
+help=Set Gluster mount Log Level
+validation=choice
+allowed_values=ERROR,INFO,WARNING,DEBUG
+
+[changelog-log-level]
+value=INFO
+help=Set Changelog Log Level
+validation=choice
+allowed_values=ERROR,INFO,WARNING,DEBUG
+
+[slave-log-level]
+value=INFO
+help=Set Slave Gsyncd Log Level
+validation=choice
+allowed_values=ERROR,INFO,WARNING,DEBUG
+
+[slave-gluster-log-level]
+value=INFO
+help=Set Slave Gluster mount Log Level
+validation=choice
+allowed_values=ERROR,INFO,WARNING,DEBUG
+
+[ssh-port]
+value=22
+validation=int
+help=Set SSH port
+
+[ssh-command]
+value=ssh
+help=Set ssh binary path
+validation=execpath
+
+[tar-command]
+value=tar
+help=Set tar command path
+validation=execpath
+
+[ssh-options]
+value = -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i ${glusterd_workdir}/geo-replication/secret.pem
+template=true
+
+[ssh-options-tar]
+value = -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i ${glusterd_workdir}/geo-replication/tar_ssh.pem
+template=true
+
+[gluster-command]
+value=gluster
+help=Set gluster binary path
+validation=execpath
+
+[sync-jobs]
+value=3
+help=Number of Syncer jobs
+validation=minmax
+min=1
+max=100
+type=int
+
+[rsync-command]
+value=rsync
+help=Set rsync command path
+validation=execpath
+
+[rsync-options]
+value=
+
+[rsync-ssh-options]
+value=
+
+[rsync-opt-ignore-missing-args]
+value=
+
+[rsync-opt-existing]
+value=
+
+[log-rsync-performance]
+value=false
+help=Log Rsync performance
+validation=bool
+type=bool
+
+[use-rsync-xattrs]
+value=false
+type=bool
+
+[sync-xattrs]
+value=true
+type=bool
+
+[sync-acls]
+value=true
+type=bool
+
+[max-rsync-retries]
+value=10
+type=int
+
+[changelog-archive-format]
+value=%Y%m
+
+[state_socket_unencoded]
+# Unused, For backward compatibility
+value=

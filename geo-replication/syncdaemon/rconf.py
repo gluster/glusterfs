@@ -9,9 +9,9 @@
 #
 
 
-class GConf(object):
+class RConf(object):
 
-    """singleton class to store globals
+    """singleton class to store runtime globals
        shared between gsyncd modules"""
 
     ssh_ctl_dir = None
@@ -28,5 +28,7 @@ class GConf(object):
     active_earlier = False
     passive_earlier = False
     mgmt_lock_fd = None
+    args = None
+    turns = 0
 
-gconf = GConf()
+rconf = RConf()

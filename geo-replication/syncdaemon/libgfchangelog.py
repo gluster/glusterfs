@@ -9,13 +9,15 @@
 #
 
 import os
-from ctypes import CDLL, RTLD_GLOBAL, create_string_buffer, get_errno, byref, c_ulong
+from ctypes import CDLL, RTLD_GLOBAL, create_string_buffer, \
+    get_errno, byref, c_ulong
 from ctypes.util import find_library
 from syncdutils import ChangelogException, ChangelogHistoryNotAvailable
 
 
 class Changes(object):
-    libgfc = CDLL(find_library("gfchangelog"), mode=RTLD_GLOBAL, use_errno=True)
+    libgfc = CDLL(find_library("gfchangelog"), mode=RTLD_GLOBAL,
+                  use_errno=True)
 
     @classmethod
     def geterrno(cls):
