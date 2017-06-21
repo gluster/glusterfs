@@ -13,21 +13,9 @@ import sys
 import time
 import logging
 from threading import Condition
-try:
-    import thread
-except ImportError:
-    # py 3
-    import _thread as thread
-try:
-    from Queue import Queue
-except ImportError:
-    # py 3
-    from queue import Queue
-try:
-    import cPickle as pickle
-except ImportError:
-    # py 3
-    import pickle
+import thread
+from Queue import Queue
+import cPickle as pickle
 
 from syncdutils import Thread, select, lf
 
