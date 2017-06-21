@@ -919,38 +919,20 @@ nlm4svc_send_granted_cbk (struct rpc_req *req, struct iovec *iov, int count,
         return 0;
 }
 
-void
-nlm4svc_send_granted (nfs3_call_state_t *cs);
+static int
+nlm_handle_connect (struct rpc_clnt *rpc_clnt, nfs3_call_state_t *cs);
 
 int
 nlm_rpcclnt_notify (struct rpc_clnt *rpc_clnt, void *mydata,
                     rpc_clnt_event_t fn, void *data)
 {
-        int                ret         = 0;
-        char              *caller_name = NULL;
         nfs3_call_state_t *cs          = NULL;
 
         cs = mydata;
 
         switch (fn) {
         case RPC_CLNT_CONNECT:
-                if (!cs->req) {
-                        gf_msg (GF_NLM, GF_LOG_ERROR, EINVAL,
-                                NFS_MSG_RPC_CLNT_ERROR, "Spurious notify?!");
-                        goto err;
-                }
-
-                caller_name = cs->args.nlm4_lockargs.alock.caller_name;
-                ret = nlm_set_rpc_clnt (rpc_clnt, caller_name);
-                if (ret == -1) {
-                        gf_msg (GF_NLM, GF_LOG_ERROR, 0,
-                                NFS_MSG_RPC_CLNT_ERROR, "Failed to set "
-                                "rpc clnt");
-                        goto err;
-                }
-                nlm4svc_send_granted (cs);
-                rpc_clnt_unref (rpc_clnt);
-
+                nlm_handle_connect (rpc_clnt, cs);
                 break;
 
         case RPC_CLNT_MSG:
@@ -963,7 +945,6 @@ nlm_rpcclnt_notify (struct rpc_clnt *rpc_clnt, void *mydata,
                 break;
         }
 
- err:
         return 0;
 }
 
@@ -2367,6 +2348,82 @@ nlm4svc_sm_notify (struct nlm_sm_status *status)
                 "%s, state: %d", status->mon_name, status->state);
         nlm_cleanup_fds (status->mon_name);
 }
+
+
+/* RPC_CLNT_CONNECT gets called on (re)connects and should be able to handle
+ * different NLM requests. */
+static int
+nlm_handle_connect (struct rpc_clnt *rpc_clnt, nfs3_call_state_t *cs)
+{
+        int                 ret         = -1;
+        int                 nlm_proc    = NLM4_NULL;
+        struct nlm4_lock   *alock       = NULL;
+        char               *caller_name = NULL;
+
+        if (!cs || !cs->req) {
+                gf_msg (GF_NLM, GF_LOG_ERROR, EINVAL, NFS_MSG_RPC_CLNT_ERROR,
+                        "Spurious notify?!");
+                goto out;
+        }
+
+        /* NLM4_* actions from nlm4.h */
+        if (cs->req->prognum == NLM_PROGRAM) {
+                nlm_proc = cs->req->procnum;
+        } else {
+                /* hmm, cs->req has not been filled completely */
+                if (cs->resume_fn == nlm4_lock_fd_resume)
+                        nlm_proc = NLM4_LOCK;
+                else if (cs->resume_fn == nlm4_cancel_fd_resume)
+                        nlm_proc = NLM4_CANCEL;
+                else if (cs->resume_fn == nlm4_unlock_fd_resume)
+                        nlm_proc = NLM4_UNLOCK;
+                else {
+                        gf_msg (GF_NLM, GF_LOG_ERROR, 0,
+                                NFS_MSG_RPC_CLNT_ERROR, "(re)connect with an "
+                                "unexpected NLM4 procedure (%d)", nlm_proc);
+                        goto out;
+                }
+        }
+
+        switch (nlm_proc) {
+        case NLM4_LOCK:
+                alock = &cs->args.nlm4_lockargs.alock;
+                caller_name = alock->caller_name;
+
+                ret = nlm_set_rpc_clnt (rpc_clnt, caller_name);
+                if (ret == -1) {
+                        gf_msg (GF_NLM, GF_LOG_ERROR, 0,
+                                NFS_MSG_RPC_CLNT_ERROR, "Failed to set "
+                                "rpc clnt");
+                        goto out;
+                }
+
+                /* extra ref taken with nlm_set_rpc_clnt() */
+                rpc_clnt_unref (rpc_clnt);
+
+                nlm4svc_send_granted (cs);
+                break;
+
+        case NLM4_CANCEL:
+                /* alock = &cs->args.nlm4_cancargs.alock; */
+                ret = nlm4svc_cancel (cs->req);
+                break;
+
+        case NLM4_UNLOCK:
+                /* alock = &cs->args.nlm4_unlockargs.alock; */
+                ret = nlm4svc_unlock (cs->req);
+                break;
+
+        default:
+                gf_msg (GF_NLM, GF_LOG_ERROR, 0, NFS_MSG_RPC_CLNT_ERROR,
+                        "(re)connect with an unexpected NLM4 procedure "
+                        "(%d)", nlm_proc);
+        }
+
+out:
+        return ret;
+}
+
 
 rpcsvc_actor_t  nlm4svc_actors[NLM4_PROC_COUNT] = {
         /* 0 */
