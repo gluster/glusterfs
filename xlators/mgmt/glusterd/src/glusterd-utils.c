@@ -5345,10 +5345,11 @@ find_compatible_brick (glusterd_conf_t *conf,
 }
 
 /* Below function is use to populate sockpath based on passed pid
-   value as a argument after check the value from proc
+   value as a argument after check the value from proc and also
+   check if passed pid is match with running  glusterfs process
 */
 
-void
+int
 glusterd_get_sock_from_brick_pid (int pid, char *sockpath, size_t len)
 {
         char fname[128] = {0,};
@@ -5361,6 +5362,7 @@ glusterd_get_sock_from_brick_pid (int pid, char *sockpath, size_t len)
         char   *brptr   = NULL;
         char tmpsockpath[PATH_MAX] = {0,};
         size_t blen    = 0;
+        int    ret     = -1;
 
         this = THIS;
         GF_ASSERT (this);
@@ -5370,7 +5372,7 @@ glusterd_get_sock_from_brick_pid (int pid, char *sockpath, size_t len)
         if (sys_access (fname , R_OK) != 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                          "brick process %d is not running", pid);
-                return;
+                return ret;
         }
 
         fd = open(fname, O_RDONLY);
@@ -5380,7 +5382,7 @@ glusterd_get_sock_from_brick_pid (int pid, char *sockpath, size_t len)
                 gf_log (this->name, GF_LOG_ERROR,
                          "open failed %s to open a file %s", strerror (errno),
                                                               fname);
-                return;
+                return ret;
         }
 
         /* convert cmdline to single string */
@@ -5399,10 +5401,18 @@ glusterd_get_sock_from_brick_pid (int pid, char *sockpath, size_t len)
         cmdline[j] = '\0';
         if (fd)
                 sys_close(fd);
+        if (!strstr (cmdline, "glusterfs"))
+                return ret;
 
-        ptr =   strstr(cmdline, "-S ");
-        ptr =   strchr(ptr, '/');
+        ptr = strstr(cmdline, "-S ");
+        if (!ptr)
+                return ret;
+        ptr = strchr(ptr, '/');
+        if (!ptr)
+                return ret;
         brptr = strstr(ptr, "--brick-name");
+        if (!brptr)
+                return ret;
         i = 0;
 
         while (ptr < brptr) {
@@ -5413,8 +5423,10 @@ glusterd_get_sock_from_brick_pid (int pid, char *sockpath, size_t len)
 
         if (tmpsockpath[0]) {
                 strncpy (sockpath, tmpsockpath , i);
+                ret = 0;
         }
 
+        return ret;
 }
 
 
@@ -5477,22 +5489,31 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                          * same port (on another brick) and re-use that.
                          * TBD: re-use RPC connection across bricks
                          */
-                        if (is_brick_mx_enabled ())
-                                glusterd_get_sock_from_brick_pid (pid, socketpath,
-                                                                  sizeof(socketpath));
-                        else
+                        if (is_brick_mx_enabled ()) {
+                                ret = glusterd_get_sock_from_brick_pid (pid, socketpath,
+                                                                        sizeof(socketpath));
+                                if (ret) {
+                                        gf_log (this->name, GF_LOG_DEBUG,
+                                                "Either pid %d is not running or is not match"
+                                                " with any running brick process ", pid);
+                                        goto run;
+                                }
+                        } else {
                                 glusterd_set_brick_socket_filepath (volinfo, brickinfo,
                                                                     socketpath,
                                                                     sizeof (socketpath));
+                        }
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "Using %s as sockfile for brick %s of volume %s ",
                                 socketpath, brickinfo->path, volinfo->volname);
+
                         (void) glusterd_brick_connect (volinfo, brickinfo,
                                         socketpath);
                 }
                 return 0;
         }
 
+run:
         ret = _mk_rundir_p (volinfo);
         if (ret)
                 goto out;
