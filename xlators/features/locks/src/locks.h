@@ -187,6 +187,9 @@ struct __pl_metalk {
 typedef struct __pl_metalk pl_meta_lock_t;
 
 typedef struct {
+#ifndef HAVE_ATOMIC_BUILTINS
+        pthread_mutex_t lock;       /* lock for the private structure */
+#endif
         mlk_mode_t      mandatory_mode; /* holds current mandatory locking mode */
         gf_boolean_t    trace;          /* trace lock requests in and out */
         char           *brickname;
@@ -194,6 +197,8 @@ typedef struct {
         uint32_t        revocation_secs;
         gf_boolean_t    revocation_clear_all;
         uint32_t        revocation_max_blocked;
+        uint32_t        inodelk_count;
+        uint32_t        entrylk_count;
 } posix_locks_private_t;
 
 

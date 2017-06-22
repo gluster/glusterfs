@@ -2573,6 +2573,25 @@ out:
 }
 
 static int
+volgen_graph_set_iam_brick_daemon (const volgen_graph_t *graph)
+{
+        xlator_t        *trav;
+        int             ret = 0;
+
+        for (trav = first_of ((volgen_graph_t *)graph); trav;
+                                                        trav = trav->next) {
+                if ((strcmp (trav->type, "debug/io-stats") == 0)) {
+                        ret = xlator_set_option (trav, "iam-brick-daemon",
+                                                 "yes");
+                        if (ret) {
+                                break;
+                        }
+                }
+        }
+        return ret;
+}
+
+static int
 server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, void *param)
 {
@@ -2622,7 +2641,13 @@ server_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                                                 (xlator && loglevel) ?  &server_spec_extended_option_handler :
                                                  &server_spec_option_handler);
 
- out:
+        if (ret) {
+                return -1;
+        }
+
+        ret = volgen_graph_set_iam_brick_daemon (graph);
+
+out:
         return ret;
 }
 

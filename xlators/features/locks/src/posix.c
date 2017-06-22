@@ -1005,6 +1005,7 @@ int32_t
 pl_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
              const char *name, dict_t *xdata)
 {
+        posix_locks_private_t   *priv           = this->private;
         int32_t                 op_errno        = EINVAL;
         int                     op_ret          = -1;
         int32_t                 bcount          = 0;
@@ -1015,9 +1016,48 @@ pl_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         dict_t                  *dict           = NULL;
         clrlk_args              args            = {0,};
         char                    *brickname      = NULL;
+        int                     ret             = 0;
 
         if (!name)
                 goto usual;
+
+        if (strncmp (name, GLUSTERFS_INODELK_COUNT,
+                           strlen (GLUSTERFS_INODELK_COUNT)) == 0) {
+                dict = dict_new ();
+                if (!dict) {
+                        op_errno = ENOMEM;
+                        goto out;
+                }
+
+                ret = dict_set_int32 (dict, GLUSTERFS_INODELK_COUNT,
+                                      priv->inodelk_count);
+                if (ret) {
+                        op_errno = EIO;
+                        goto out;
+                }
+
+                op_ret = 0;
+                goto out;
+        }
+
+        if (strncmp (name, GLUSTERFS_ENTRYLK_COUNT,
+                           strlen (GLUSTERFS_ENTRYLK_COUNT)) == 0) {
+                dict = dict_new ();
+                if (!dict) {
+                        op_errno = ENOMEM;
+                        goto out;
+                }
+
+                ret = dict_set_int32 (dict, GLUSTERFS_ENTRYLK_COUNT,
+                                      priv->entrylk_count);
+                if (ret) {
+                        op_errno = EIO;
+                        goto out;
+                }
+
+                op_ret = 0;
+                goto out;
+        }
 
         if (strncmp (name, GF_XATTR_CLRLK_CMD, strlen (GF_XATTR_CLRLK_CMD)))
                 goto usual;
@@ -3679,6 +3719,10 @@ init (xlator_t *this)
         priv = GF_CALLOC (1, sizeof (*priv),
                           gf_locks_mt_posix_locks_private_t);
 
+#ifndef HAVE_ATOMIC_BUILTINS
+        pthread_mutex_init (&priv->lock, NULL);
+#endif
+
         GF_OPTION_INIT ("mandatory-locking", tmp_str, str, out);
         if (!strcmp (tmp_str, "forced"))
                 priv->mandatory_mode = MLK_FORCED;
@@ -3734,6 +3778,10 @@ fini (xlator_t *this)
         this->private = NULL;
         GF_FREE (priv->brickname);
         GF_FREE (priv);
+
+#ifndef HAVE_ATOMIC_BUILTINS
+        pthread_mutex_destroy (&priv->lock);
+#endif
 
         return 0;
 }

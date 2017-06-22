@@ -302,6 +302,7 @@ struct ios_conf {
         int32_t                   ios_dnscache_ttl_sec;
         gf_boolean_t              iamshd;
         gf_boolean_t              iamnfsd;
+        gf_boolean_t              iambrickd;
         gf_boolean_t              iamgfproxyd;
         gf_boolean_t              audit_creates_and_unlinks;
         gf_boolean_t              sample_hard_errors;
@@ -1022,6 +1023,9 @@ io_stats_dump_global_to_json_logfp (xlator_t *this,
 {
         int                   i = 0;
         int                   j = 0;
+        int32_t               inodelk_count = -1;
+        int32_t               entrylk_count = -1;
+        dict_t                *xattr = NULL;
         struct ios_conf       *conf = NULL;
         char                  *key_prefix = NULL;
         char                  *str_prefix = NULL;
@@ -1063,6 +1067,46 @@ io_stats_dump_global_to_json_logfp (xlator_t *this,
         ios_log (this, logfp, "{");
         ios_log (this, logfp, "\"%s.%s.outstanding_req\": \"%u\",",
                  key_prefix, str_prefix, conf->outstanding_req);
+
+        if (conf->iambrickd) {
+                ret =  syncop_getxattr (FIRST_CHILD (this), &unused_loc,
+                                        &xattr, GLUSTERFS_INODELK_COUNT,
+                                        NULL, NULL);
+                if (ret == 0 && xattr) {
+                        if (dict_get_int32 (xattr, GLUSTERFS_INODELK_COUNT,
+                                            &inodelk_count) != 0) {
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "Error fetching %s",
+                                        GLUSTERFS_INODELK_COUNT);
+                        }
+                } else {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Unable to get inode lock count counts "
+                                "from the posix-locks translator!");
+                }
+
+                ios_log (this, logfp, "\"%s.%s.inodelk_count\": \"%u\",",
+                         key_prefix, str_prefix, inodelk_count);
+
+                ret = syncop_getxattr (FIRST_CHILD (this), &unused_loc, &xattr,
+                                       GLUSTERFS_ENTRYLK_COUNT, NULL, NULL);
+                if (ret == 0 && xattr) {
+                        if (dict_get_int32 (xattr, GLUSTERFS_ENTRYLK_COUNT,
+                                            &entrylk_count) != 0) {
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "Error fetching %s",
+                                        GLUSTERFS_ENTRYLK_COUNT);
+                        }
+                        dict_unref (xattr);
+                } else {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Unable to get entry lock count counts "
+                                "from the posix-locks translator!");
+                }
+
+                ios_log (this, logfp, "\"%s.%s.entrylk_count\": \"%u\",",
+                         key_prefix, str_prefix, entrylk_count);
+        }
 
         for (i = 0; i < 31; i++) {
                 rw_size = (1 << i);
@@ -4363,6 +4407,8 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("iam-nfs-daemon", conf->iamnfsd, bool, out);
 
+        GF_OPTION_INIT ("iam-brick-daemon", conf->iambrickd, bool, out);
+
         GF_OPTION_INIT ("iam-gfproxy-daemon", conf->iamgfproxyd, bool, out);
 
         GF_OPTION_INIT ("fop-sample-hard-errors", conf->sample_hard_errors,
@@ -4806,6 +4852,13 @@ struct volume_options options[] = {
            .description = "This option differentiates if the io-stats "
                           "translator is running as part of an NFS daemon "
                           "or not."
+        },
+        { .key = {"iam-brick-daemon"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "This option differentiates if the io-stats "
+                         "translator is running as part of brick daemon "
+                         "or not."
         },
         { .key = {"iam-gfproxy-daemon"},
           .type = GF_OPTION_TYPE_BOOL,

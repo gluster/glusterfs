@@ -19,11 +19,40 @@
 #include "clear.h"
 #include "common.h"
 
+static inline void
+pl_private_inc_entrylk (posix_locks_private_t *private)
+{
+#ifdef HAVE_ATOMIC_BUILTINS
+        __sync_fetch_and_add (&private->entrylk_count, 1);
+#else
+        pthread_mutex_lock (&private->lock);
+        {
+                private->entrylk_count += 1;
+        }
+        pthread_mutex_unlock (&private->lock);
+#endif
+}
+
+static inline void
+pl_private_dec_entrylk (posix_locks_private_t *private)
+{
+#ifdef HAVE_ATOMIC_BUILTINS
+        __sync_fetch_and_sub (&private->entrylk_count, 1);
+#else
+        pthread_mutex_lock (&private->lock);
+        {
+                private->entrylk_count -= 1;
+        }
+        pthread_mutex_unlock (&private->lock);
+#endif
+}
+
 void
 __pl_entrylk_unref (pl_entry_lock_t *lock)
 {
         lock->ref--;
         if (!lock->ref) {
+                pl_private_dec_entrylk (lock->this->private);
 		GF_FREE ((char *)lock->basename);
                 GF_FREE (lock->connection_id);
                 GF_FREE (lock);
@@ -68,6 +97,8 @@ new_entrylk_lock (pl_inode_t *pinode, const char *basename, entrylk_type type,
 	INIT_LIST_HEAD (&newlock->client_list);
 
 	__pl_entrylk_ref (newlock);
+
+        pl_private_inc_entrylk (newlock->this->private);
 out:
         return newlock;
 }

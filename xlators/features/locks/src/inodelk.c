@@ -19,6 +19,34 @@
 #include "clear.h"
 #include "common.h"
 
+static inline void
+pl_private_inc_inodelk (posix_locks_private_t *private)
+{
+#ifdef HAVE_ATOMIC_BUILTINS
+        __sync_fetch_and_add (&private->inodelk_count, 1);
+#else
+        pthread_mutex_lock (&private->lock);
+        {
+                private->inodelk_count += 1;
+        }
+        pthread_mutex_unlock (&private->lock);
+#endif
+}
+
+static inline void
+pl_private_dec_inodelk (posix_locks_private_t *private)
+{
+#ifdef HAVE_ATOMIC_BUILTINS
+        __sync_fetch_and_sub (&private->inodelk_count, 1);
+#else
+        pthread_mutex_lock (&private->lock);
+        {
+                private->inodelk_count -= 1;
+        }
+        pthread_mutex_unlock (&private->lock);
+#endif
+}
+
 void
 __delete_inode_lock (pl_inode_lock_t *lock)
 {
@@ -36,6 +64,7 @@ __pl_inodelk_unref (pl_inode_lock_t *lock)
 {
         lock->ref--;
         if (!lock->ref) {
+                pl_private_dec_inodelk (lock->this->private);
                 GF_FREE (lock->connection_id);
                 GF_FREE (lock);
         }
@@ -743,6 +772,8 @@ new_inode_lock (struct gf_flock *flock, client_t *client, pid_t client_pid,
         if (!lock) {
                 return NULL;
         }
+
+        pl_private_inc_inodelk (this->private);
 
         lock->fl_start = flock->l_start;
         lock->fl_type  = flock->l_type;
