@@ -422,35 +422,6 @@ ec_launch_notify_timer (xlator_t *this, ec_t *ec)
         }
 }
 
-void
-ec_handle_up (xlator_t *this, ec_t *ec, int32_t idx)
-{
-        if (((ec->xl_up >> idx) & 1) == 0) { /* Duplicate event */
-                if (((ec->xl_notify >> idx) & 1) == 0) {
-                        ec->xl_notify |= 1ULL << idx;
-                        ec->xl_notify_count++;
-                }
-                ec->xl_up |= 1ULL << idx;
-                ec->xl_up_count++;
-        }
-}
-
-void
-ec_handle_down (xlator_t *this, ec_t *ec, int32_t idx)
-{
-        if (((ec->xl_up >> idx) & 1) != 0) { /* Duplicate event */
-                gf_msg_debug (this->name, 0, "Child %d is DOWN", idx);
-
-                if (((ec->xl_notify >> idx) & 1) == 0) {
-                        ec->xl_notify |= 1ULL << idx;
-                        ec->xl_notify_count++;
-                }
-
-                ec->xl_up ^= 1ULL << idx;
-                ec->xl_up_count--;
-        }
-}
-
 gf_boolean_t
 ec_disable_delays(ec_t *ec)
 {
@@ -467,6 +438,22 @@ ec_pending_fops_completed(ec_t *ec)
         }
 }
 
+static void
+ec_set_up_state(ec_t *ec, uintptr_t index_mask, uintptr_t new_state)
+{
+        uintptr_t current_state = 0;
+
+        if ((ec->xl_notify & index_mask) == 0) {
+                ec->xl_notify |= index_mask;
+                ec->xl_notify_count++;
+        }
+        current_state = ec->xl_up & index_mask;
+        if (current_state != new_state) {
+                ec->xl_up ^= index_mask;
+                ec->xl_up_count += (current_state ? -1 : 1);
+        }
+}
+
 int32_t
 ec_notify (xlator_t *this, int32_t event, void *data, void *data2)
 {
@@ -480,6 +467,7 @@ ec_notify (xlator_t *this, int32_t event, void *data, void *data2)
         int32_t           orig_event = event;
         struct gf_upcall *up_data   = NULL;
         struct gf_upcall_cache_invalidation *up_ci = NULL;
+        uintptr_t mask = 0;
 
         gf_msg_trace (this->name, 0, "NOTIFY(%d): %p, %p",
                 event, data, data2);
@@ -531,10 +519,11 @@ ec_notify (xlator_t *this, int32_t event, void *data, void *data2)
         if (idx < ec->nodes) { /* CHILD_* events */
                 old_event = ec_get_event_from_state (ec);
 
+                mask = 1ULL << idx;
                 if (event == GF_EVENT_CHILD_UP) {
-                        ec_handle_up (this, ec, idx);
+                    ec_set_up_state(ec, mask, mask);
                 } else if (event == GF_EVENT_CHILD_DOWN) {
-                        ec_handle_down (this, ec, idx);
+                    ec_set_up_state(ec, mask, 0);
                 }
 
                 event = ec_get_event_from_state (ec);
