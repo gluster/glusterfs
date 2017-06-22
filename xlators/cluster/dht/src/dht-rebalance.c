@@ -24,6 +24,7 @@
 #define MAX_MIGRATE_QUEUE_COUNT         500
 #define MIN_MIGRATE_QUEUE_COUNT         200
 #define MAX_REBAL_TYPE_SIZE             16
+#define FILE_CNT_INTERVAL               600 /* 10 mins */
 
 #ifndef MAX
 #define MAX(a, b) (((a) > (b))?(a):(b))
@@ -3974,6 +3975,9 @@ gf_tier_wait_fix_lookup (gf_defrag_info_t *defrag) {
 /******************Tier background Fix layout functions END********************/
 
 
+
+
+
 uint64_t gf_defrag_subvol_file_cnt (xlator_t *this, loc_t *root_loc)
 {
         int ret = -1;
@@ -3991,23 +3995,23 @@ uint64_t gf_defrag_subvol_file_cnt (xlator_t *this, loc_t *root_loc)
 }
 
 
-int gf_defrag_total_file_cnt (xlator_t *this, loc_t *root_loc)
+uint64_t
+gf_defrag_total_file_cnt (xlator_t *this, loc_t *root_loc)
 {
         dht_conf_t    *conf  = NULL;
-        int            ret   = -1;
         int            i     = 0;
         uint64_t       num_files = 0;
-
+        uint64_t       total_entries = 0;
 
         conf = this->private;
         if (!conf) {
-                return ret;
+                return 0;
         }
 
         for (i = 0 ; i < conf->local_subvols_cnt; i++) {
                 num_files = gf_defrag_subvol_file_cnt (conf->local_subvols[i],
                                                        root_loc);
-                g_totalfiles += num_files;
+                total_entries += num_files;
                 gf_msg (this->name, GF_LOG_INFO, 0, 0, "local subvol: %s,"
                         "cnt = %"PRIu64, conf->local_subvols[i]->name,
                         num_files);
@@ -4016,14 +4020,14 @@ int gf_defrag_total_file_cnt (xlator_t *this, loc_t *root_loc)
         /* FIXFIXFIX: halve the number of files to negate .glusterfs contents
            We need a better way to figure this out */
 
-        g_totalfiles = g_totalfiles/2;
-        if (g_totalfiles > 20000)
-                g_totalfiles += 10000;
+        total_entries = total_entries/2;
+        if (total_entries > 20000)
+                total_entries += 10000;
 
         gf_msg (this->name, GF_LOG_INFO, 0, 0,
-                "Total number of files = %"PRIu64, g_totalfiles);
+                "Total number of files = %"PRIu64, total_entries);
 
-        return 0;
+        return total_entries;
 }
 
 
@@ -4053,6 +4057,39 @@ out:
         return ret;
 }
 
+static void*
+dht_file_counter_thread (void *args)
+{
+        gf_defrag_info_t *defrag = NULL;
+        loc_t root_loc = {0,};
+
+        if (!args)
+                return NULL;
+
+        defrag = (gf_defrag_info_t *) args;
+        dht_build_root_loc (defrag->root_inode, &root_loc);
+
+        while (defrag->defrag_status == GF_DEFRAG_STATUS_STARTED) {
+
+                sleep (FILE_CNT_INTERVAL);
+                g_totalfiles = gf_defrag_total_file_cnt (defrag->this,
+                                                         &root_loc);
+
+                if (!g_totalfiles) {
+                        gf_msg ("dht", GF_LOG_ERROR, 0, 0, "Failed to get "
+                                "the total number of files. Unable to estimate "
+                                "time to complete rebalance.");
+                } else {
+                        gf_msg_debug ("dht", 0,
+                                      "total number of files =%"PRIu64,
+                                      g_totalfiles);
+                }
+        }
+
+        return NULL;
+}
+
+
 
 int
 gf_defrag_start_crawl (void *data)
@@ -4071,11 +4108,12 @@ gf_defrag_start_crawl (void *data)
         glusterfs_ctx_t         *ctx                    = NULL;
         dht_methods_t           *methods                = NULL;
         int                      i                      = 0;
-        int                     thread_index            = 0;
-        int                     err                     = 0;
-        int                     thread_spawn_count      = 0;
+        int                      thread_index           = 0;
+        int                      err                    = 0;
+        int                      thread_spawn_count     = 0;
         pthread_t               *tid                    = NULL;
-        gf_boolean_t            is_tier_detach          = _gf_false;
+        pthread_t                filecnt_thread;
+        gf_boolean_t             is_tier_detach         = _gf_false;
         call_frame_t            *statfs_frame           = NULL;
         xlator_t                *old_THIS               = NULL;
         int j = 0;
@@ -4223,11 +4261,21 @@ gf_defrag_start_crawl (void *data)
                         }
                 }
 
-                ret = gf_defrag_total_file_cnt (this, &loc);
-                if (ret) {
+                g_totalfiles = gf_defrag_total_file_cnt (this, &loc);
+                if (!g_totalfiles) {
                         gf_msg (this->name, GF_LOG_ERROR, 0, 0, "Failed to get "
                                 "the total number of files. Unable to estimate "
                                 "time to complete rebalance.");
+                }
+
+                ret = gf_thread_create_detached (&filecnt_thread,
+                                                 &dht_file_counter_thread,
+                                                 (void *)defrag);
+
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, ret, 0, "Failed to "
+                                "create the file counter thread ");
+                        ret = 0;
                 }
 
                 /* Initialize global entry queue */
@@ -4348,6 +4396,8 @@ out:
                 pthread_join (tid[i], NULL);
         }
 
+
+
         GF_FREE (tid);
 
         if (defrag->cmd == GF_DEFRAG_CMD_START_TIER) {
@@ -4465,13 +4515,16 @@ uint64_t
 gf_defrag_get_estimates (dht_conf_t *conf)
 {
         gf_defrag_info_t *defrag = NULL;
-        double rate_lookedup = 0;
-        uint64_t dirs_processed = 0;
-        uint64_t total_processed = 0;
-        uint64_t tmp_count = 0;
-        uint64_t time_to_complete = 0;
-        struct timeval end = {0,};
-        double   elapsed = 0;
+        loc_t             loc = {0,};
+        double            rate_lookedup = 0;
+        uint64_t          dirs_processed = 0;
+        uint64_t          files_processed = 0;
+        uint64_t          total_processed = 0;
+        uint64_t          tmp_count = 0;
+        uint64_t          time_to_complete = 0;
+        struct            timeval end = {0,};
+        double            elapsed = 0;
+
 
         defrag = conf->defrag;
 
@@ -4488,25 +4541,33 @@ gf_defrag_get_estimates (dht_conf_t *conf)
          */
 
         dirs_processed = defrag->num_dirs_processed;
+        files_processed = defrag->num_files_lookedup;
 
-        total_processed = defrag->num_files_lookedup
-                           + dirs_processed;
+        total_processed = files_processed + dirs_processed;
+
+        if (total_processed > g_totalfiles) {
+                /* lookup the number of files again
+                 * The problem here is that not all the newly added files
+                 * might need to be processed. So this need not work
+                 * in some cases
+                 */
+                dht_build_root_loc (defrag->root_inode, &loc);
+                g_totalfiles = gf_defrag_total_file_cnt (defrag->this, &loc);
+                if (!g_totalfiles)
+                        goto out;
+        }
 
         /* rate at which files looked up */
         rate_lookedup = (total_processed)/elapsed;
 
-
         /* We initially sum up dirs across all local subvols because we get the
          * file count from the inodes on each subvol.
          * The same directories will be counted for each subvol but
-         * we want that they are only counted once.
+         * we want them to be counted once.
          */
 
         tmp_count = g_totalfiles
                      - (dirs_processed * (conf->local_subvols_cnt - 1));
-
-        if (total_processed > g_totalfiles)
-                g_totalfiles = total_processed + 10000;
 
         if (rate_lookedup) {
                 time_to_complete = (tmp_count)/rate_lookedup;
@@ -4522,6 +4583,7 @@ gf_defrag_get_estimates (dht_conf_t *conf)
                 "rate_lookedup=%f", total_processed, tmp_count,
                 rate_lookedup);
 
+out:
         return time_to_complete;
 }
 
