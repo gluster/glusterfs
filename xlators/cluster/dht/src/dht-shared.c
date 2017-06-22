@@ -705,6 +705,7 @@ dht_init (xlator_t *this)
                 defrag->is_exiting = 0;
 
                 conf->defrag = defrag;
+                defrag->this = this;
 
                 ret = dict_get_str (this->options, "node-uuid", &node_uuid);
                 if (ret) {

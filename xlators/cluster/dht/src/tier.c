@@ -2958,6 +2958,7 @@ tier_init (xlator_t *this)
         defrag->tier_conf.last_promote_qfile_index = 0;
 
         defrag->tier_conf.is_tier = 1;
+        defrag->this = this;
 
         ret = dict_get_int32 (this->options,
                               "tier-max-promote-file-size", &maxsize);

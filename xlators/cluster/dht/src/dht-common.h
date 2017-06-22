@@ -550,6 +550,9 @@ struct gf_defrag_info_ {
         /* lock migration flag */
         gf_boolean_t                 lock_migration_enabled;
 
+        /* backpointer to make it easier to write functions for rebalance */
+        xlator_t                     *this;
+
 };
 
 typedef struct gf_defrag_info_ gf_defrag_info_t;
