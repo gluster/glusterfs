@@ -186,6 +186,32 @@ out:
         return ret;
 }
 
+/* This is going to be a O(n^2) operation as we have to pick a brick,
+   make sure it belong to this machine, and compare another brick belonging
+   to this machine (if exists), is sharing the backend */
+static void
+gd_set_shared_brick_count (glusterd_volinfo_t *volinfo)
+{
+        glusterd_brickinfo_t *brickinfo = NULL;
+        glusterd_brickinfo_t *trav = NULL;
+
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks,
+                                 brick_list) {
+                if (gf_uuid_compare (brickinfo->uuid, MY_UUID))
+                        continue;
+                brickinfo->fs_share_count = 0;
+                cds_list_for_each_entry (trav, &volinfo->bricks,
+                                         brick_list) {
+                        if (!gf_uuid_compare (trav->uuid, MY_UUID) &&
+                            (trav->statfs_fsid == brickinfo->statfs_fsid)) {
+                                brickinfo->fs_share_count++;
+                        }
+                }
+        }
+
+        return;
+}
+
 int
 glusterd_volume_brick_for_each (glusterd_volinfo_t *volinfo, void *data,
                int (*fn) (glusterd_volinfo_t *, glusterd_brickinfo_t *,
@@ -194,6 +220,8 @@ glusterd_volume_brick_for_each (glusterd_volinfo_t *volinfo, void *data,
         dict_t             *mod_dict    = NULL;
         glusterd_volinfo_t *dup_volinfo = NULL;
         int                ret          = 0;
+
+        gd_set_shared_brick_count (volinfo);
 
         if (volinfo->type != GF_CLUSTER_TYPE_TIER) {
                 ret = _brick_for_each (volinfo, NULL, data, fn);

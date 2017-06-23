@@ -232,6 +232,11 @@ struct glusterd_brickinfo {
          */
         uint16_t           group;
         uuid_t             jbr_uuid;
+
+        /* Below are used for handling the case of multiple bricks sharing
+           the backend filesystem */
+        uint64_t           statfs_fsid;
+        uint32_t           fs_share_count;
 };
 
 typedef struct glusterd_brickinfo glusterd_brickinfo_t;

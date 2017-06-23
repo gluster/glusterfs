@@ -352,6 +352,12 @@ gd_store_brick_snap_details_write (int fd, glusterd_brickinfo_t *brickinfo)
         snprintf (value, sizeof(value), "%d", brickinfo->snap_status);
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS,
                                    value);
+        if (ret)
+                goto out;
+
+        memset (value, 0, sizeof (value));
+        snprintf (value, sizeof (value), "%lu", brickinfo->statfs_fsid);
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_BRICK_FSID, value);
 
 out:
         return ret;
@@ -2508,6 +2514,10 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                         } else if (!strcmp(key, GLUSTERD_STORE_KEY_BRICK_ID)) {
                                 strncpy (brickinfo->brick_id, value,
                                          sizeof (brickinfo->brick_id));
+                        } else if (!strncmp (key,
+                                             GLUSTERD_STORE_KEY_BRICK_FSID,
+                                             strlen (GLUSTERD_STORE_KEY_BRICK_FSID))) {
+                                gf_string2uint64 (value, &brickinfo->statfs_fsid);
                         } else {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_UNKNOWN_KEY, "Unknown key: %s",
