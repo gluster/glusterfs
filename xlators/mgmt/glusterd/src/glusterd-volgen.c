@@ -1440,6 +1440,7 @@ static int
 brick_graph_add_posix (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
 {
+        char            tmpstr[10] = {0,};
         int             ret = -1;
         gf_boolean_t    quota_enabled   = _gf_true;
         gf_boolean_t    trash_enabled   = _gf_false;
@@ -1491,6 +1492,9 @@ brick_graph_add_posix (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (quota_enabled || pgfid_feat || trash_enabled)
                 xlator_set_option (xl, "update-link-count-parent",
                                    "on");
+
+        snprintf (tmpstr, sizeof (tmpstr), "%d", brickinfo->fs_share_count);
+        ret = xlator_set_option (xl, "shared-brick-count", tmpstr);
 out:
         return ret;
 }

@@ -4901,6 +4901,14 @@
  */
 #define GD_MSG_BRICKPROC_NEW_FAILED                (GLUSTERD_COMP_BASE + 606)
 
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_STATVFS_FAILED  (GLUSTERD_COMP_BASE + 607)
+
 /*------------*/
 
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"

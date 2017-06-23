@@ -22,6 +22,7 @@
 #include "glusterd-server-quorum.h"
 #include "run.h"
 #include "glusterd-volgen.h"
+#include "syscall.h"
 #include <sys/signal.h>
 
 /* misc */
@@ -1322,6 +1323,7 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
         xlator_t                     *this           = NULL;
         glusterd_conf_t              *conf           = NULL;
         gf_boolean_t                  is_valid_add_brick = _gf_false;
+        struct statvfs                brickstat = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -1396,6 +1398,21 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                 if (ret)
                         goto out;
 
+                if (!gf_uuid_compare (brickinfo->uuid, MY_UUID)) {
+                        ret = sys_statvfs (brickinfo->path, &brickstat);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
+                                        GD_MSG_STATVFS_FAILED,
+                                        "Failed to fetch disk utilization "
+                                        "from the brick (%s:%s). Please check the health of "
+                                        "the brick. Error code was %s",
+                                        brickinfo->hostname, brickinfo->path,
+                                        strerror (errno));
+
+                                goto out;
+                        }
+                        brickinfo->statfs_fsid = brickstat.f_fsid;
+                }
                 /* hot tier bricks are added to head of brick list */
                 if (dict_get (dict, "attach-tier")) {
                         cds_list_add (&brickinfo->brick_list, &volinfo->bricks);
