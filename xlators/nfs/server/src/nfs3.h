@@ -23,6 +23,7 @@
 #include "nlm4.h"
 #include "acl3-xdr.h"
 #include "acl3.h"
+#include "refcount.h"
 #include <sys/statvfs.h>
 
 #define GF_NFS3                 GF_NFS"-nfsv3"
@@ -184,6 +185,8 @@ typedef int (*nfs3_resume_fn_t) (void *cs);
  * Imagine the chaos if we need a mem-pool for each one of those sub-structures.
  */
 struct nfs3_local {
+        GF_REF_DECL;
+
         rpcsvc_request_t        *req;
         xlator_t                *vol;
         nfs3_resume_fn_t        resume_fn;
