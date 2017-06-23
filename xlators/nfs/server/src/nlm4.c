@@ -48,6 +48,9 @@ typedef ssize_t (*nlm4_serializer) (struct iovec outmsg, void *args);
 
 extern void nfs3_call_state_wipe (nfs3_call_state_t *cs);
 
+nfs3_call_state_t *
+nfs3_call_state_init (struct nfs3_state *s, rpcsvc_request_t *req, xlator_t *v);
+
 struct list_head nlm_client_list;
 gf_lock_t nlm_client_list_lk;
 
@@ -66,9 +69,6 @@ int nlm_grace_period = 50;
                         goto label;                                     \
                 }                                                       \
         } while (0);                                                    \
-
-nfs3_call_state_t *
-nfs3_call_state_init (struct nfs3_state *s, rpcsvc_request_t *req, xlator_t *v);
 
 #define nlm4_handle_call_state_init(nfs3state, calls, rq, opstat, errlabel)\
         do {                                                            \
@@ -267,17 +267,10 @@ nlm4_call_state_init (struct nfs3_state *s, rpcsvc_request_t *req)
         if ((!s) || (!req))
                 return NULL;
 
-        cs = (nfs3_call_state_t *) mem_get (s->localpool);
+        cs = nfs3_call_state_init (s, req, NULL);
         if (!cs)
                 return NULL;
 
-        memset (cs, 0, sizeof (*cs));
-        INIT_LIST_HEAD (&cs->entries.list);
-        INIT_LIST_HEAD (&cs->openwait_q);
-        cs->operrno = EINVAL;
-        cs->req = req;
-        cs->nfsx = s->nfsx;
-        cs->nfs3state = s;
         cs->monitor = 1;
 
         return cs;
