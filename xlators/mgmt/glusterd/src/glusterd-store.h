@@ -97,6 +97,7 @@ typedef enum glusterd_store_ver_ac_{
 #define GLUSTERD_STORE_KEY_BRICK_FSTYPE         "fs-type"
 #define GLUSTERD_STORE_KEY_BRICK_MNTOPTS        "mnt-opts"
 #define GLUSTERD_STORE_KEY_BRICK_ID             "brick-id"
+#define GLUSTERD_STORE_KEY_BRICK_FSID           "brick-fsid"
 
 #define GLUSTERD_STORE_KEY_PEER_UUID            "uuid"
 #define GLUSTERD_STORE_KEY_PEER_HOSTNAME        "hostname"

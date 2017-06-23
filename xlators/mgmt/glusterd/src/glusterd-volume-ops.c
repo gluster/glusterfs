@@ -2164,6 +2164,7 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
         char                 *brick_mount_dir = NULL;
         char                  key[PATH_MAX]   = "";
         char                 *address_family_str = NULL;
+        struct statvfs        brickstat  = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -2405,24 +2406,35 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                                  sizeof(brickinfo->mount_dir));
                 }
 
-#ifdef HAVE_BD_XLATOR
-                if (!gf_uuid_compare (brickinfo->uuid, MY_UUID)
-                    && brickinfo->vg[0]) {
-                        ret = glusterd_is_valid_vg (brickinfo, 0, msg);
+                if (!gf_uuid_compare (brickinfo->uuid, MY_UUID)) {
+                        ret = sys_statvfs (brickinfo->path, &brickstat);
                         if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        GD_MSG_INVALID_VG, "%s", msg);
+                                gf_log ("brick-op", GF_LOG_ERROR, "Failed to fetch disk"
+                                        " utilization from the brick (%s:%s). Please "
+                                        "check health of the brick. Error code was %s",
+                                        brickinfo->hostname, brickinfo->path,
+                                        strerror (errno));
                                 goto out;
                         }
+                        brickinfo->statfs_fsid = brickstat.f_fsid;
 
-                        /* if anyone of the brick does not have thin
-                           support, disable it for entire volume */
-                        caps &= brickinfo->caps;
-                } else {
+#ifdef HAVE_BD_XLATOR
+                        if (brickinfo->vg[0]) {
+                                ret = glusterd_is_valid_vg (brickinfo, 0, msg);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_INVALID_VG, "%s", msg);
+                                        goto out;
+                                }
+
+                                /* if anyone of the brick does not have thin
+                                   support, disable it for entire volume */
+                                caps &= brickinfo->caps;
+                        } else {
                                 caps = 0;
-                }
-
+                        }
 #endif
+                }
 
                 cds_list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
                 brick = strtok_r (NULL, " \n", &saveptr);

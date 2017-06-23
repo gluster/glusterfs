@@ -3641,6 +3641,7 @@ posix_statfs (call_frame_t *frame, xlator_t *this,
         int32_t                op_errno  = 0;
         struct statvfs         buf       = {0, };
         struct posix_private * priv      = NULL;
+        int                    shared_by = 1;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -3663,6 +3664,16 @@ posix_statfs (call_frame_t *frame, xlator_t *this,
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_STATVFS_FAILED,
                         "statvfs failed on %s", real_path);
                 goto out;
+        }
+
+        shared_by = priv->shared_brick_count;
+        if (shared_by > 1) {
+                buf.f_blocks /= shared_by;
+                buf.f_bfree  /= shared_by;
+                buf.f_bavail /= shared_by;
+                buf.f_files  /= shared_by;
+                buf.f_ffree  /= shared_by;
+                buf.f_favail /= shared_by;
         }
 
         if (!priv->export_statfs) {
@@ -6971,7 +6982,7 @@ int
 reconfigure (xlator_t *this, dict_t *options)
 {
 	int                   ret = -1;
-struct posix_private *priv = NULL;
+        struct posix_private *priv = NULL;
         int32_t               uid = -1;
         int32_t               gid = -1;
 	char                 *batch_fsync_mode_str = NULL;
@@ -7038,6 +7049,9 @@ struct posix_private *priv = NULL;
         GF_OPTION_RECONF ("health-check-interval", priv->health_check_interval,
                           options, uint32, out);
         posix_spawn_health_check_thread (this);
+
+        GF_OPTION_RECONF ("shared-brick-count", priv->shared_brick_count,
+                          options, int32, out);
 
 	ret = 0;
 out:
@@ -7573,6 +7587,17 @@ init (xlator_t *this)
                 }
         }
 #endif
+        _private->shared_brick_count = 1;
+        ret = dict_get_int32 (this->options, "shared-brick-count",
+                              &_private->shared_brick_count);
+        if (ret == -1) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        P_MSG_INVALID_OPTION_VAL,
+                        "'shared-brick-count' takes only integer "
+                        "values");
+                goto out;
+        }
+
         this->private = (void *)_private;
 
         op_ret = posix_handle_init (this);
@@ -7863,5 +7888,12 @@ struct volume_options options[] = {
 	  "\t- Strip: Will strip the user namespace before setting. The raw filesystem will work in OS X.\n"
         },
 #endif
+        { .key  = {"shared-brick-count"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "1",
+          .description = "Number of bricks sharing the same backend export."
+          " Useful for displaying the proper usable size through statvfs() "
+          "call (df command)",
+        },
         { .key  = {NULL} }
 };
