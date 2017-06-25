@@ -127,10 +127,12 @@ ec_manager_xattr (ec_fop_data_t *fop, int32_t state)
         case EC_STATE_LOCK:
                 if (fop->fd == NULL) {
                         ec_lock_prepare_inode(fop, &fop->loc[0],
-                                              EC_UPDATE_META | EC_QUERY_INFO);
+                                              EC_UPDATE_META | EC_QUERY_INFO,
+                                              0, LLONG_MAX);
                 } else {
                         ec_lock_prepare_fd(fop, fop->fd,
-                                           EC_UPDATE_META | EC_QUERY_INFO);
+                                           EC_UPDATE_META | EC_QUERY_INFO,
+                                           0, LLONG_MAX);
                 }
                 ec_lock(fop);
 
@@ -369,10 +371,11 @@ int32_t ec_manager_setattr(ec_fop_data_t * fop, int32_t state)
         case EC_STATE_LOCK:
             if (fop->fd == NULL) {
                 ec_lock_prepare_inode(fop, &fop->loc[0],
-                                      EC_UPDATE_META | EC_QUERY_INFO);
+                                      EC_UPDATE_META | EC_QUERY_INFO,
+                                      0, LLONG_MAX);
             } else {
-                ec_lock_prepare_fd(fop, fop->fd,
-                                   EC_UPDATE_META | EC_QUERY_INFO);
+                ec_lock_prepare_fd(fop, fop->fd, EC_UPDATE_META | EC_QUERY_INFO,
+                                   0, LLONG_MAX);
             }
             ec_lock(fop);
 
@@ -879,8 +882,8 @@ int32_t ec_manager_fallocate(ec_fop_data_t *fop, int32_t state)
 
     case EC_STATE_LOCK:
         ec_lock_prepare_fd(fop, fop->fd,
-                           EC_UPDATE_DATA | EC_UPDATE_META |
-                           EC_QUERY_INFO);
+                           EC_UPDATE_DATA | EC_UPDATE_META | EC_QUERY_INFO,
+                           fop->offset, fop->size);
         ec_lock(fop);
 
         return EC_STATE_DISPATCH;
@@ -898,24 +901,28 @@ int32_t ec_manager_fallocate(ec_fop_data_t *fop, int32_t state)
                             cbk->count);
 
                 /* This shouldn't fail because we have the inode locked. */
-                GF_ASSERT(ec_get_inode_size(fop, fop->locks[0].lock->loc.inode,
-                                        &cbk->iatt[0].ia_size));
+                LOCK(&fop->locks[0].lock->loc.inode->lock);
+                {
+                        GF_ASSERT(__ec_get_inode_size(fop,
+                                                fop->locks[0].lock->loc.inode,
+                                                &cbk->iatt[0].ia_size));
 
-                /*If mode has FALLOC_FL_KEEP_SIZE keep the size */
-                if (fop->int32 & FALLOC_FL_KEEP_SIZE) {
-                        cbk->iatt[1].ia_size = cbk->iatt[0].ia_size;
-                } else if (fop->user_size > cbk->iatt[0].ia_size) {
-                        cbk->iatt[1].ia_size = fop->user_size;
+                        /*If mode has FALLOC_FL_KEEP_SIZE keep the size */
+                        if (fop->int32 & FALLOC_FL_KEEP_SIZE) {
+                                cbk->iatt[1].ia_size = cbk->iatt[0].ia_size;
+                        } else if (fop->user_size > cbk->iatt[0].ia_size) {
+                                cbk->iatt[1].ia_size = fop->user_size;
 
-                        /* This shouldn't fail because we have the inode
-                         * locked. */
-                        GF_ASSERT(ec_set_inode_size(fop,
-                                  fop->locks[0].lock->loc.inode,
-                                            cbk->iatt[1].ia_size));
-                } else {
-                        cbk->iatt[1].ia_size = cbk->iatt[0].ia_size;
+                                /* This shouldn't fail because we have the inode
+                                 * locked. */
+                                GF_ASSERT(__ec_set_inode_size(fop,
+                                          fop->locks[0].lock->loc.inode,
+                                                    cbk->iatt[1].ia_size));
+                        } else {
+                                cbk->iatt[1].ia_size = cbk->iatt[0].ia_size;
+                        }
                 }
-
+                UNLOCK(&fop->locks[0].lock->loc.inode->lock);
         }
 
         return EC_STATE_REPORT;
@@ -1155,11 +1162,11 @@ int32_t ec_manager_truncate(ec_fop_data_t * fop, int32_t state)
             if (fop->id == GF_FOP_TRUNCATE) {
                 ec_lock_prepare_inode(fop, &fop->loc[0],
                                       EC_UPDATE_DATA | EC_UPDATE_META |
-                                      EC_QUERY_INFO);
+                                      EC_QUERY_INFO, fop->offset, LLONG_MAX);
             } else {
                 ec_lock_prepare_fd(fop, fop->fd,
                                    EC_UPDATE_DATA | EC_UPDATE_META |
-                                   EC_QUERY_INFO);
+                                   EC_QUERY_INFO, fop->offset, LLONG_MAX);
             }
             ec_lock(fop);
 
@@ -1179,6 +1186,9 @@ int32_t ec_manager_truncate(ec_fop_data_t * fop, int32_t state)
                                 cbk->count);
 
                 /* This shouldn't fail because we have the inode locked. */
+                /* Inode size doesn't need to be updated under locks, because
+                 * conflicting operations won't be in-flight
+                 */
                 GF_ASSERT(ec_get_inode_size(fop, fop->locks[0].lock->loc.inode,
                                             &cbk->iatt[0].ia_size));
                 cbk->iatt[1].ia_size = fop->user_size;
@@ -1582,6 +1592,9 @@ void ec_writev_start(ec_fop_data_t *fop)
     ctx = ec_fd_get(fop->fd, fop->xl);
     if (ctx != NULL) {
         if ((ctx->flags & O_APPEND) != 0) {
+            /* Appending writes take full locks so size won't change because
+             * of any parallel operations
+             */
             fop->offset = current;
         }
     }
@@ -1601,6 +1614,10 @@ void ec_writev_start(ec_fop_data_t *fop)
     }
     tail = fop->size - fop->user_size - fop->head;
     if ((tail > 0) && ((fop->head == 0) || (fop->size > ec->stripe_size))) {
+            /* Current locking scheme will make sure the 'current' below will
+             * never decrease while the fop is in progress, so the checks will
+             * work as expected
+             */
         if (current > fop->offset + fop->head + fop->user_size) {
             if (ec_make_internal_fop_xdata (&xdata)) {
                     err = -ENOMEM;
@@ -1678,14 +1695,32 @@ ec_writev_encode(ec_fop_data_t *fop)
 int32_t ec_manager_writev(ec_fop_data_t *fop, int32_t state)
 {
     ec_cbk_data_t *cbk;
+    ec_fd_t *ctx = NULL;
+    ec_t    *ec = fop->xl->private;
+    off_t fl_start = 0;
+    size_t fl_size = LLONG_MAX;
 
     switch (state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
+                ctx = ec_fd_get(fop->fd, fop->xl);
+                if (ctx != NULL) {
+                    if ((ctx->flags & O_APPEND) == 0) {
+                            off_t user_size = 0;
+                            off_t head = 0;
+
+                            fl_start = fop->offset;
+                            user_size = iov_length(fop->vector, fop->int32);
+                            head = ec_adjust_offset_down(ec, &fl_start,
+                                                         _gf_true);
+                            fl_size = user_size + head;
+                            ec_adjust_size_up(ec, &fl_size, _gf_true);
+                    }
+                }
             ec_lock_prepare_fd(fop, fop->fd,
                                EC_UPDATE_DATA | EC_UPDATE_META |
-                               EC_QUERY_INFO);
+                               EC_QUERY_INFO, fl_start, fl_size);
             ec_lock(fop);
 
             return EC_STATE_DISPATCH;
@@ -1717,23 +1752,28 @@ int32_t ec_manager_writev(ec_fop_data_t *fop, int32_t state)
                                 cbk->count);
 
                 /* This shouldn't fail because we have the inode locked. */
-                GF_ASSERT(ec_get_inode_size(fop, fop->fd->inode,
-                                            &cbk->iatt[0].ia_size));
-                cbk->iatt[1].ia_size = cbk->iatt[0].ia_size;
-                size = fop->offset + fop->head + fop->user_size;
-                if (size > cbk->iatt[0].ia_size) {
-                    /* Only update inode size if this is a top level fop.
-                     * Otherwise this is an internal write and the top
-                     * level fop should take care of the real inode size.
-                     */
-                    if (fop->parent == NULL) {
-                        /* This shouldn't fail because we have the inode
-                         * locked. */
-                        GF_ASSERT(ec_set_inode_size(fop, fop->fd->inode,
-                                                    size));
-                    }
-                    cbk->iatt[1].ia_size = size;
+                LOCK(&fop->fd->inode->lock);
+                {
+                        GF_ASSERT(__ec_get_inode_size(fop, fop->fd->inode,
+                                                    &cbk->iatt[0].ia_size));
+                        cbk->iatt[1].ia_size = cbk->iatt[0].ia_size;
+                        size = fop->offset + fop->head + fop->user_size;
+                        if (size > cbk->iatt[0].ia_size) {
+                           /* Only update inode size if this is a top level fop.
+                            * Otherwise this is an internal write and the top
+                            * level fop should take care of the real inode size.
+                            */
+                            if (fop->parent == NULL) {
+                                /* This shouldn't fail because we have the inode
+                                 * locked. */
+                                GF_ASSERT(__ec_set_inode_size(fop,
+                                                        fop->fd->inode, size));
+                            }
+                            cbk->iatt[1].ia_size = size;
+                        }
                 }
+                UNLOCK(&fop->fd->inode->lock);
+
                 if (fop->error == 0) {
                     cbk->op_ret *= ec->fragments;
                     if (cbk->op_ret < fop->head) {

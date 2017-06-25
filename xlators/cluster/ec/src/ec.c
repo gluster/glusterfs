@@ -295,6 +295,8 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("optimistic-change-log", ec->optimistic_changelog,
                           options, bool, failed);
+        GF_OPTION_RECONF ("parallel-writes", ec->parallel_writes,
+                          options, bool, failed);
         ret = 0;
         if (ec_assign_read_policy (ec, read_policy)) {
                 ret = -1;
@@ -665,6 +667,7 @@ init (xlator_t *this)
     GF_OPTION_INIT ("shd-max-threads", ec->shd.max_threads, uint32, failed);
     GF_OPTION_INIT ("shd-wait-qlength", ec->shd.wait_qlength, uint32, failed);
     GF_OPTION_INIT ("optimistic-change-log", ec->optimistic_changelog, bool, failed);
+    GF_OPTION_INIT ("parallel-writes", ec->parallel_writes, bool, failed);
 
     this->itable = inode_table_new (EC_SHD_INODE_LRU_LIMIT, this);
     if (!this->itable)
@@ -1466,28 +1469,34 @@ struct volume_options options[] =
                        "galois field computations."
     },
     { .key  = {"self-heal-window-size"},
-        .type = GF_OPTION_TYPE_INT,
-        .min  = 1,
-        .max  = 1024,
-        .default_value = "1",
-        .description = "Maximum number blocks(128KB) per file for which "
-                       "self-heal process would be applied simultaneously."
+      .type = GF_OPTION_TYPE_INT,
+      .min  = 1,
+      .max  = 1024,
+      .default_value = "1",
+      .description = "Maximum number blocks(128KB) per file for which "
+                     "self-heal process would be applied simultaneously."
     },
-    {   .key = {"optimistic-change-log"},
-        .type = GF_OPTION_TYPE_BOOL,
-        .default_value = "on",
-        .description =  "Set/Unset dirty flag for every update fop at the start"
-                        "of the fop. If OFF, this option impacts performance of"
-                        "entry  operations or metadata operations as it will"
-                        "set dirty flag at the start and unset it at the end of"
-                        "ALL update fop. If ON and all the bricks are good,"
-                        "dirty flag will be set at the start only for file fops"
-                        "For metadata and entry fops dirty flag will not be set"
-                        "at the start, if all the bricks are good. This does"
-                        "not impact performance for metadata operations and"
-                        "entry operation but has a very small window to miss"
-                        "marking entry as dirty in case it is required to be"
-                        "healed"
+    { .key = {"optimistic-change-log"},
+      .type = GF_OPTION_TYPE_BOOL,
+      .default_value = "on",
+      .description =  "Set/Unset dirty flag for every update fop at the start"
+                      "of the fop. If OFF, this option impacts performance of"
+                      "entry  operations or metadata operations as it will"
+                      "set dirty flag at the start and unset it at the end of"
+                      "ALL update fop. If ON and all the bricks are good,"
+                      "dirty flag will be set at the start only for file fops"
+                      "For metadata and entry fops dirty flag will not be set"
+                      "at the start, if all the bricks are good. This does"
+                      "not impact performance for metadata operations and"
+                      "entry operation but has a very small window to miss"
+                      "marking entry as dirty in case it is required to be"
+                      "healed"
+    },
+    { .key = {"parallel-writes"},
+      .type = GF_OPTION_TYPE_BOOL,
+      .default_value = "on",
+      .description = "This controls if writes can be wound in parallel as long"
+                     "as it doesn't modify same stripes"
     },
     { .key = {NULL} }
 };

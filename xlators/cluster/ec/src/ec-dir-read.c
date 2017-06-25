@@ -141,7 +141,8 @@ int32_t ec_manager_opendir(ec_fop_data_t * fop, int32_t state)
             /* Fall through */
 
         case EC_STATE_LOCK:
-            ec_lock_prepare_inode(fop, &fop->loc[0], EC_QUERY_INFO);
+            ec_lock_prepare_inode(fop, &fop->loc[0], EC_QUERY_INFO, 0,
+                                  LLONG_MAX);
             ec_lock(fop);
 
             return EC_STATE_DISPATCH;
@@ -432,7 +433,8 @@ int32_t ec_manager_readdir(ec_fop_data_t * fop, int32_t state)
                 }
                 fop->mask &= 1ULL << idx;
             } else {
-                    ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO);
+                    ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO, 0,
+                                       LLONG_MAX);
                     ec_lock(fop);
             }
 

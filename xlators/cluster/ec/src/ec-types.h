@@ -220,8 +220,8 @@ struct _ec_lock {
     struct list_head   owners;
 
     /* List of fops waiting to be an owner of the lock. Fops are added to this
-     * list when the current owner has an incompatible access (shared vs
-     * exclusive) or the lock is not acquired yet. */
+     * list when the current owner has an incompatible access (conflicting lock)
+     * or the lock is not acquired yet. */
     struct list_head   waiting;
 
     /* List of fops that will wait until the next unlock/lock cycle. This
@@ -230,7 +230,6 @@ struct _ec_lock {
      * after the lock is reacquired. */
     struct list_head   frozen;
 
-    int32_t            exclusive;
     uintptr_t          mask;
     uintptr_t          good_mask;
     uintptr_t          healing;
@@ -260,6 +259,8 @@ struct _ec_lock_link {
     loc_t            *base;
     uint64_t          size;
     uint32_t          waiting_flags;
+    off_t             fl_start;
+    off_t             fl_end;
 };
 
 struct _ec_fop_data {
@@ -573,6 +574,7 @@ struct _ec {
     gf_boolean_t       shutdown;
     gf_boolean_t       eager_lock;
     gf_boolean_t       optimistic_changelog;
+    gf_boolean_t       parallel_writes;
     uint32_t           background_heals;
     uint32_t           heal_wait_qlen;
     uint32_t           self_heal_window_size; /* max size of read/writes */

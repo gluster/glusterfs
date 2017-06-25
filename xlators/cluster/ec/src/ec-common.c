@@ -26,6 +26,40 @@
                                    EC_FLAG_WAITING_DATA_DIRTY |\
                                    EC_FLAG_WAITING_METADATA_DIRTY)
 
+off_t
+ec_range_end_get (off_t fl_start, size_t fl_size)
+{
+        off_t fl_end = 0;
+        switch (fl_size) {
+        case 0:
+                return fl_start;
+        case LLONG_MAX: /*Infinity*/
+                return LLONG_MAX;
+        default:
+                fl_end = fl_start + fl_size - 1;
+                if (fl_end < 0) /*over-flow*/
+                        return LLONG_MAX;
+                else
+                        return fl_end;
+        }
+}
+
+static gf_boolean_t
+ec_is_range_conflict (ec_lock_link_t *l1, ec_lock_link_t *l2)
+{
+        return ((l1->fl_end >= l2->fl_start) && (l2->fl_end >= l1->fl_start));
+}
+
+static gf_boolean_t
+ec_lock_conflict (ec_lock_link_t *l1, ec_lock_link_t *l2)
+{
+        if ((l1->fop->flags & EC_FLAG_LOCK_SHARED) &&
+            (l2->fop->flags & EC_FLAG_LOCK_SHARED))
+                return _gf_false;
+
+        return ec_is_range_conflict (l1, l2);
+}
+
 uint32_t
 ec_select_first_by_read_policy (ec_t *ec, ec_fop_data_t *fop)
 {
@@ -729,7 +763,7 @@ int32_t ec_lock_compare(ec_lock_t * lock1, ec_lock_t * lock2)
 }
 
 void ec_lock_insert(ec_fop_data_t *fop, ec_lock_t *lock, uint32_t flags,
-                    loc_t *base)
+                    loc_t *base, off_t fl_start, size_t fl_size)
 {
     ec_lock_link_t *link;
 
@@ -763,12 +797,15 @@ void ec_lock_insert(ec_fop_data_t *fop, ec_lock_t *lock, uint32_t flags,
     link->update[EC_DATA_TXN] = (flags & EC_UPDATE_DATA) != 0;
     link->update[EC_METADATA_TXN] = (flags & EC_UPDATE_META) != 0;
     link->base = base;
+    link->fl_start = fl_start;
+    link->fl_end = ec_range_end_get (fl_start, fl_size);
 
     lock->refs_pending++;
 }
 
 void ec_lock_prepare_inode_internal(ec_fop_data_t *fop, loc_t *loc,
-                                    uint32_t flags, loc_t *base)
+                                    uint32_t flags, loc_t *base,
+                                    off_t fl_start, size_t fl_size)
 {
     ec_lock_t *lock = NULL;
     ec_inode_t *ctx;
@@ -829,16 +866,17 @@ void ec_lock_prepare_inode_internal(ec_fop_data_t *fop, loc_t *loc,
     ctx->inode_lock = lock;
 
 insert:
-    ec_lock_insert(fop, lock, flags, base);
+    ec_lock_insert(fop, lock, flags, base, fl_start, fl_size);
 update_query:
     lock->query |= (flags & EC_QUERY_INFO) != 0;
 unlock:
     UNLOCK(&loc->inode->lock);
 }
 
-void ec_lock_prepare_inode(ec_fop_data_t *fop, loc_t *loc, uint32_t flags)
+void ec_lock_prepare_inode(ec_fop_data_t *fop, loc_t *loc, uint32_t flags,
+                           off_t fl_start, size_t fl_size)
 {
-    ec_lock_prepare_inode_internal(fop, loc, flags, NULL);
+    ec_lock_prepare_inode_internal(fop, loc, flags, NULL, fl_start, fl_size);
 }
 
 void ec_lock_prepare_parent_inode(ec_fop_data_t *fop, loc_t *loc, loc_t *base,
@@ -864,12 +902,13 @@ void ec_lock_prepare_parent_inode(ec_fop_data_t *fop, loc_t *loc, loc_t *base,
             base = NULL;
     }
 
-    ec_lock_prepare_inode_internal(fop, &tmp, flags, base);
+    ec_lock_prepare_inode_internal(fop, &tmp, flags, base, 0, LLONG_MAX);
 
     loc_wipe(&tmp);
 }
 
-void ec_lock_prepare_fd(ec_fop_data_t *fop, fd_t *fd, uint32_t flags)
+void ec_lock_prepare_fd(ec_fop_data_t *fop, fd_t *fd, uint32_t flags,
+                        off_t fl_start, size_t fl_size)
 {
     loc_t loc;
     int32_t err;
@@ -885,7 +924,7 @@ void ec_lock_prepare_fd(ec_fop_data_t *fop, fd_t *fd, uint32_t flags)
         return;
     }
 
-    ec_lock_prepare_inode_internal(fop, &loc, flags, NULL);
+    ec_lock_prepare_inode_internal(fop, &loc, flags, NULL, fl_start, fl_size);
 
     loc_wipe(&loc);
 }
@@ -1319,17 +1358,16 @@ out:
     }
 }
 
-gf_boolean_t ec_get_inode_size(ec_fop_data_t *fop, inode_t *inode,
-                               uint64_t *size)
+gf_boolean_t
+__ec_get_inode_size(ec_fop_data_t *fop, inode_t *inode,
+                    uint64_t *size)
 {
     ec_inode_t *ctx;
     gf_boolean_t found = _gf_false;
 
-    LOCK(&inode->lock);
-
     ctx = __ec_inode_get(inode, fop->xl);
     if (ctx == NULL) {
-        goto unlock;
+        goto out;
     }
 
     if (ctx->have_size) {
@@ -1337,23 +1375,35 @@ gf_boolean_t ec_get_inode_size(ec_fop_data_t *fop, inode_t *inode,
         found = _gf_true;
     }
 
-unlock:
+out:
+    return found;
+}
+
+gf_boolean_t
+ec_get_inode_size(ec_fop_data_t *fop, inode_t *inode,
+                  uint64_t *size)
+{
+    gf_boolean_t found = _gf_false;
+
+    LOCK(&inode->lock);
+    {
+            found = __ec_get_inode_size (fop, inode, size);
+    }
     UNLOCK(&inode->lock);
 
     return found;
 }
 
-gf_boolean_t ec_set_inode_size(ec_fop_data_t *fop, inode_t *inode,
-                               uint64_t size)
+gf_boolean_t
+__ec_set_inode_size(ec_fop_data_t *fop, inode_t *inode,
+                    uint64_t size)
 {
     ec_inode_t *ctx;
     gf_boolean_t found = _gf_false;
 
-    LOCK(&inode->lock);
-
     ctx = __ec_inode_get(inode, fop->xl);
     if (ctx == NULL) {
-        goto unlock;
+        goto out;
     }
 
     /* Normal fops always have ctx->have_size set. However self-heal calls this
@@ -1368,8 +1418,21 @@ gf_boolean_t ec_set_inode_size(ec_fop_data_t *fop, inode_t *inode,
 
     found = _gf_true;
 
-unlock:
-    UNLOCK(&inode->lock);
+out:
+    return found;
+}
+
+gf_boolean_t
+ec_set_inode_size(ec_fop_data_t *fop, inode_t *inode,
+                  uint64_t size)
+{
+    gf_boolean_t found = _gf_false;
+
+    LOCK (&inode->lock);
+    {
+            found = __ec_set_inode_size (fop, inode, size);
+    }
+    UNLOCK (&inode->lock);
 
     return found;
 }
@@ -1476,34 +1539,47 @@ ec_lock_update_fd(ec_lock_t *lock, ec_fop_data_t *fop)
     }
 }
 
+static gf_boolean_t
+ec_link_has_lock_conflict (ec_lock_link_t *link, struct list_head *owners)
+{
+        ec_lock_link_t *owner_link = NULL;
+        ec_t           *ec = link->fop->xl->private;
+
+        if (!ec->parallel_writes)
+                return _gf_true;
+
+        list_for_each_entry (owner_link, owners, owner_list) {
+                if (ec_lock_conflict (owner_link, link))
+                        return _gf_true;
+        }
+        return _gf_false;
+}
+
 static void
 ec_lock_wake_shared(ec_lock_t *lock, struct list_head *list)
 {
     ec_fop_data_t *fop;
     ec_lock_link_t *link;
-    gf_boolean_t exclusive = _gf_false;
+    gf_boolean_t conflict = _gf_false;
 
-    while (!exclusive && !list_empty(&lock->waiting)) {
+    while (!conflict && !list_empty(&lock->waiting)) {
         link = list_entry(lock->waiting.next, ec_lock_link_t, wait_list);
         fop = link->fop;
 
         /* If lock is not acquired, at most one fop can be assigned as owner.
          * The following fops will need to wait in the lock->waiting queue
          * until the lock has been fully acquired. */
-        exclusive = !lock->acquired;
+        conflict = !lock->acquired;
 
         /* If the fop is not shareable, only this fop can be assigned as owner.
          * Other fops will need to wait until this one finishes. */
-        if ((fop->flags & EC_FLAG_LOCK_SHARED) == 0) {
-            exclusive = _gf_true;
-
-            /* Avoid other requests to be assigned as owners. */
-            lock->exclusive = 1;
+        if (ec_link_has_lock_conflict (link, &lock->owners)) {
+            conflict = _gf_true;
         }
 
         /* If only one fop is allowed, it can be assigned as the owner of the
          * lock only if there weren't any other owner. */
-        if (exclusive && !list_empty(&lock->owners)) {
+        if (conflict && !list_empty(&lock->owners)) {
             break;
         }
 
@@ -1570,9 +1646,7 @@ void ec_lock_acquired(ec_lock_link_t *link)
     lock->acquired = _gf_true;
 
     ec_lock_update_fd(lock, fop);
-    if ((fop->flags & EC_FLAG_LOCK_SHARED) != 0) {
-        ec_lock_wake_shared(lock, &list);
-    }
+    ec_lock_wake_shared(lock, &list);
 
     UNLOCK(&lock->loc.inode->lock);
 
@@ -1683,11 +1757,11 @@ ec_lock_assign_owner(ec_lock_link_t *link)
         /* We are trying to acquire a lock that has an unlock timer active.
          * This means that the lock must be idle, i.e. no fop can be in the
          * owner, waiting or frozen lists. It also means that the lock cannot
-         * have been marked as being released (this is done without timers)
-         * and it must not be exclusive. There should only be one owner
-         * reference, but it's possible that some fops are being prepared to
-         * use this lock. */
-        GF_ASSERT ((lock->exclusive == 0) && (lock->refs_owners == 1) &&
+         * have been marked as being released (this is done without timers).
+         * There should only be one owner reference, but it's possible that
+         * some fops are being prepared to use this lock.
+         */
+        GF_ASSERT ((lock->refs_owners == 1) &&
                    list_empty(&lock->owners) && list_empty(&lock->waiting));
 
         /* We take the timer_link before cancelling the timer, since a
@@ -1735,13 +1809,15 @@ ec_lock_assign_owner(ec_lock_link_t *link)
         lock->timer = NULL;
     }
 
-    lock->exclusive |= (fop->flags & EC_FLAG_LOCK_SHARED) == 0;
-
     if (!list_empty(&lock->owners)) {
         /* There are other owners of this lock. We can only take ownership if
-         * the lock is already acquired and can be shared. Otherwise we need
-         * to wait. */
-        if (!lock->acquired || (lock->exclusive != 0)) {
+         * the lock is already acquired and doesn't have conflict with existing
+         * owners, or waiters(to prevent starvation).
+         * Otherwise we need to wait.
+         */
+        if (!lock->acquired ||
+            ec_link_has_lock_conflict (link, &lock->owners) ||
+            ec_link_has_lock_conflict (link, &lock->waiting)) {
             ec_trace("LOCK_QUEUE_WAIT", fop, "lock=%p", lock);
 
             list_add_tail(&link->wait_list, &lock->waiting);
@@ -1819,10 +1895,7 @@ ec_lock_next_owner(ec_lock_link_t *link, ec_cbk_data_t *cbk,
     }
     ec_lock_update_good(lock, fop);
 
-    lock->exclusive -= (fop->flags & EC_FLAG_LOCK_SHARED) == 0;
-    if (list_empty(&lock->owners)) {
-        ec_lock_wake_shared(lock, &list);
-    }
+    ec_lock_wake_shared(lock, &list);
 
     UNLOCK(&lock->loc.inode->lock);
 
@@ -1876,11 +1949,11 @@ ec_lock_unfreeze(ec_lock_link_t *link)
     lock->acquired = _gf_false;
 
     /* We are unfreezing a lock. This means that the lock has already been
-     * released. In this state it shouldn't be exclusive nor have a pending
-     * timer nor have any owner, and the waiting list should be empty. Only
-     * the frozen list can contain some fop. */
-    GF_ASSERT((lock->exclusive == 0) && (lock->timer == NULL) &&
-              list_empty(&lock->waiting) && list_empty(&lock->owners));
+     * released. In this state it shouldn't have a pending timer nor have any
+     * owner, and the waiting list should be empty. Only the frozen list can
+     * contain some fop. */
+    GF_ASSERT((lock->timer == NULL) && list_empty(&lock->waiting) &&
+              list_empty(&lock->owners));
 
     /* We move all frozen fops to the waiting list. */
     list_splice_init(&lock->frozen, &lock->waiting);
@@ -2013,7 +2086,7 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
     ec_fop_data_t *fop;
     ec_lock_t *lock;
     ec_inode_t *ctx;
-    dict_t * dict;
+    dict_t *dict = NULL;
     uintptr_t   update_on = 0;
 
     int32_t err = -ENOMEM;
@@ -2203,12 +2276,12 @@ ec_unlock_timer_del(ec_lock_link_t *link)
                 ec_trace("UNLOCK_DELAYED", link->fop, "lock=%p", lock);
 
                 /* The unlock timer has expired without anyone cancelling it.
-                 * This means that it shouldn't have any owner, and the
-                 * waiting and frozen lists should be empty. It shouldn't have
-                 * been marked as release nor be exclusive either. It must have
-                 * only one owner reference, but there can be fops being
-                 * prepared though. */
-                GF_ASSERT(!lock->release && (lock->exclusive == 0) &&
+                 * This means that it shouldn't have any owner, and the waiting
+                 * and frozen lists should be empty.  It must have only one
+                 * owner reference, but there can be fops being prepared
+                 * though.
+                 * */
+                GF_ASSERT(!lock->release &&
                           (lock->refs_owners == 1) &&
                           list_empty(&lock->owners) &&
                           list_empty(&lock->waiting) &&

@@ -72,7 +72,8 @@ ec_manager_access(ec_fop_data_t *fop, int32_t state)
         switch (state) {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_prepare_inode (fop, &fop->loc[0], EC_QUERY_INFO);
+            ec_lock_prepare_inode (fop, &fop->loc[0], EC_QUERY_INFO, 0,
+                                   LLONG_MAX);
             ec_lock (fop);
 
             return EC_STATE_DISPATCH;
@@ -311,9 +312,11 @@ int32_t ec_manager_getxattr(ec_fop_data_t * fop, int32_t state)
                 (strncmp(fop->str[0], GF_XATTR_CLRLK_CMD,
                          strlen(GF_XATTR_CLRLK_CMD)) != 0)) {
                 if (fop->fd == NULL) {
-                    ec_lock_prepare_inode(fop, &fop->loc[0], EC_QUERY_INFO);
+                    ec_lock_prepare_inode(fop, &fop->loc[0], EC_QUERY_INFO,
+                                          0, LLONG_MAX);
                 } else {
-                    ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO);
+                    ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO, 0,
+                                       LLONG_MAX);
                 }
                 ec_lock(fop);
             }
@@ -1029,7 +1032,8 @@ int32_t ec_manager_readlink(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
-            ec_lock_prepare_inode (fop, &fop->loc[0], EC_QUERY_INFO);
+            ec_lock_prepare_inode (fop, &fop->loc[0], EC_QUERY_INFO, 0,
+                                   LLONG_MAX);
             ec_lock (fop);
             return EC_STATE_DISPATCH;
 
@@ -1364,7 +1368,8 @@ int32_t ec_manager_readv(ec_fop_data_t * fop, int32_t state)
         /* Fall through */
 
         case EC_STATE_LOCK:
-            ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO);
+            ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO, fop->offset,
+                               fop->size);
             ec_lock(fop);
 
             return EC_STATE_DISPATCH;
@@ -1568,7 +1573,7 @@ int32_t ec_manager_seek(ec_fop_data_t *fop, int32_t state)
     /* Fall through */
 
     case EC_STATE_LOCK:
-        ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO);
+        ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO, fop->offset, LLONG_MAX);
         ec_lock(fop);
 
         return EC_STATE_DISPATCH;
@@ -1788,9 +1793,10 @@ int32_t ec_manager_stat(ec_fop_data_t * fop, int32_t state)
         case EC_STATE_INIT:
         case EC_STATE_LOCK:
             if (fop->fd == NULL) {
-                ec_lock_prepare_inode(fop, &fop->loc[0], EC_QUERY_INFO);
+                ec_lock_prepare_inode(fop, &fop->loc[0], EC_QUERY_INFO, 0,
+                                      LLONG_MAX);
             } else {
-                ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO);
+                ec_lock_prepare_fd(fop, fop->fd, EC_QUERY_INFO, 0, LLONG_MAX);
             }
             ec_lock(fop);
 
