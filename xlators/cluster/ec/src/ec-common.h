@@ -91,18 +91,24 @@ ec_fop_prepare_answer(ec_fop_data_t *fop, gf_boolean_t ro);
 gf_boolean_t
 ec_cbk_set_error(ec_cbk_data_t *cbk, int32_t error, gf_boolean_t ro);
 
-void ec_lock_prepare_inode(ec_fop_data_t *fop, loc_t *loc, uint32_t flags);
+void ec_lock_prepare_inode(ec_fop_data_t *fop, loc_t *loc, uint32_t flags,
+                           off_t fl_start, size_t fl_size);
 void ec_lock_prepare_parent_inode(ec_fop_data_t *fop, loc_t *loc, loc_t *base,
                                   uint32_t flags);
-void ec_lock_prepare_fd(ec_fop_data_t *fop, fd_t *fd, uint32_t flags);
+void ec_lock_prepare_fd(ec_fop_data_t *fop, fd_t *fd, uint32_t flags,
+                        off_t fl_start, size_t fl_size);
 void ec_lock(ec_fop_data_t * fop);
 void ec_lock_reuse(ec_fop_data_t *fop);
 void ec_unlock(ec_fop_data_t * fop);
 
 gf_boolean_t ec_get_inode_size(ec_fop_data_t *fop, inode_t *inode,
                                uint64_t *size);
+gf_boolean_t __ec_get_inode_size(ec_fop_data_t *fop, inode_t *inode,
+                                 uint64_t *size);
 gf_boolean_t ec_set_inode_size(ec_fop_data_t *fop, inode_t *inode,
                                uint64_t size);
+gf_boolean_t __ec_set_inode_size(ec_fop_data_t *fop, inode_t *inode,
+                                 uint64_t size);
 void ec_clear_inode_info(ec_fop_data_t *fop, inode_t *inode);
 
 void ec_flush_size_version(ec_fop_data_t * fop);
