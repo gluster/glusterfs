@@ -881,6 +881,11 @@ glfsh_set_heal_options (glfs_t *fs, gf_xl_afr_op_t heal_op)
 {
         int ret = 0;
 
+        ret = glfs_set_xlator_option (fs, "*-replicate-*",
+                                      "background-self-heal-count", "0");
+        if (ret)
+                goto out;
+
         if ((heal_op != GF_SHD_OP_SBRAIN_HEAL_FROM_BIGGER_FILE) &&
             (heal_op != GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK) &&
             (heal_op != GF_SHD_OP_SBRAIN_HEAL_FROM_LATEST_MTIME))
@@ -897,6 +902,7 @@ glfsh_set_heal_options (glfs_t *fs, gf_xl_afr_op_t heal_op)
 
         ret = glfs_set_xlator_option (fs, "*-replicate-*", "entry-self-heal",
                                       "on");
+
 out:
         return ret;
 }
