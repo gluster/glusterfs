@@ -6669,6 +6669,14 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                            postparent, 1);
         }
 
+        ret = dht_fd_ctx_set (this, fd, prev);
+        if (ret != 0) {
+                gf_msg_debug (this->name, 0, "Possible fd leak. "
+                              "Could not set fd ctx for subvol %s",
+                              prev->name);
+        }
+
+
         ret = dht_layout_preset (this, prev, inode);
         if (ret != 0) {
                 gf_msg_debug (this->name, 0,
