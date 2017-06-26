@@ -16,6 +16,7 @@ import os
 from utils import RecordType
 from utils import output_path_prepare
 
+
 class OutputMerger(object):
     """
     Class to merge the output files collected from
@@ -421,8 +422,8 @@ class ChangelogData(object):
 
         deleted_path = data[4] if len(data) == 5 else ""
         if deleted_path != "":
-                deleted_path = output_path_prepare(deleted_path,
-                                                   self.args)
+            deleted_path = urllib.unquote_plus(deleted_path.encode("utf-8"))
+            deleted_path = output_path_prepare(deleted_path, self.args)
 
         if self.gfidpath_exists({"gfid": data[1], "type": "NEW",
                                  "pgfid1": pgfid1, "bn1": bn1}):
