@@ -855,6 +855,7 @@ dht_layout_preset (xlator_t *this, xlator_t *subvol, inode_t *inode)
         if (!conf)
                 goto out;
 
+
         layout = dht_layout_for_subvol (this, subvol);
         if (!layout) {
                 gf_msg (this->name, GF_LOG_INFO, 0,
@@ -865,10 +866,14 @@ dht_layout_preset (xlator_t *this, xlator_t *subvol, inode_t *inode)
                 goto out;
         }
 
+        gf_msg_debug (this->name, 0, "file = %s, subvol = %s",
+                      uuid_utoa (inode->gfid), subvol ? subvol->name : "<nil>");
+
         LOCK (&conf->layout_lock);
         {
                 dht_inode_ctx_layout_set (inode, this, layout);
         }
+
         UNLOCK (&conf->layout_lock);
 
         ret = 0;

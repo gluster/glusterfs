@@ -266,6 +266,286 @@ dht_mig_info_is_invalid (xlator_t *current, xlator_t *src_subvol,
         return _gf_false;
 }
 
+
+
+/* Used to check if fd fops have the fd opened on the cached subvol
+ * This is required when:
+ * 1. an fd is opened on FILE1 on subvol1
+ * 2. the file is migrated to subvol2
+ * 3. a lookup updates the cached subvol in the inode_ctx to subvol2
+ * 4. a write comes on the fd
+ * The write is sent to subvol2 on an fd which has been opened only on fd1
+ * Since the migration phase checks don't kick in, the fop fails with EBADF
+ *
+ */
+
+
+int
+dht_check_and_open_fd_on_subvol_complete (int ret, call_frame_t *frame,
+                                          void *data)
+{
+        glusterfs_fop_t     fop     = 0;
+        dht_local_t        *local   = NULL;
+        xlator_t           *subvol  = NULL;
+        fd_t               *fd      = NULL;
+        int                 op_errno = -1;
+
+        local = frame->local;
+        fop = local->fop;
+        subvol = local->cached_subvol;
+        fd = local->fd;
+
+        if (ret) {
+                op_errno = local->op_errno;
+                goto handle_err;
+        }
+
+        switch (fop) {
+
+        case GF_FOP_WRITE:
+
+                STACK_WIND_COOKIE (frame, dht_writev_cbk, subvol, subvol,
+                                   subvol->fops->writev, fd,
+                                   local->rebalance.vector,
+                                   local->rebalance.count,
+                                   local->rebalance.offset,
+                                   local->rebalance.flags,
+                                   local->rebalance.iobref, local->xattr_req);
+                break;
+
+        case GF_FOP_FLUSH:
+
+                STACK_WIND (frame, dht_flush_cbk, subvol,
+                            subvol->fops->flush, fd, local->xattr_req);
+                break;
+
+        case GF_FOP_FSETATTR:
+
+                STACK_WIND_COOKIE (frame, dht_file_setattr_cbk, subvol,
+                                   subvol, subvol->fops->fsetattr, fd,
+                                   &local->rebalance.stbuf,
+                                   local->rebalance.flags,
+                                   local->xattr_req);
+                break;
+
+        case GF_FOP_ZEROFILL:
+                STACK_WIND_COOKIE (frame, dht_zerofill_cbk, subvol, subvol,
+                                   subvol->fops->zerofill, fd,
+                                   local->rebalance.offset,
+                                   local->rebalance.size, local->xattr_req);
+
+                break;
+
+        case GF_FOP_DISCARD:
+                STACK_WIND_COOKIE (frame, dht_discard_cbk, subvol, subvol,
+                                   subvol->fops->discard, local->fd,
+                                   local->rebalance.offset,
+                                   local->rebalance.size,
+                                   local->xattr_req);
+                break;
+
+        case GF_FOP_FALLOCATE:
+                STACK_WIND_COOKIE (frame, dht_fallocate_cbk, subvol, subvol,
+                                   subvol->fops->fallocate, fd,
+                                   local->rebalance.flags,
+                                   local->rebalance.offset,
+                                   local->rebalance.size,
+                                   local->xattr_req);
+                break;
+
+        case GF_FOP_FTRUNCATE:
+                STACK_WIND_COOKIE (frame, dht_truncate_cbk, subvol, subvol,
+                                   subvol->fops->ftruncate, fd,
+                                   local->rebalance.offset, local->xattr_req);
+                break;
+
+        case GF_FOP_FSYNC:
+                STACK_WIND_COOKIE (frame, dht_fsync_cbk, subvol, subvol,
+                                   subvol->fops->fsync, local->fd,
+                                   local->rebalance.flags, local->xattr_req);
+                break;
+
+        case GF_FOP_READ:
+                STACK_WIND (frame, dht_readv_cbk, subvol, subvol->fops->readv,
+                            local->fd, local->rebalance.size,
+                            local->rebalance.offset,
+                            local->rebalance.flags, local->xattr_req);
+                break;
+
+        case GF_FOP_FSTAT:
+                STACK_WIND_COOKIE (frame, dht_file_attr_cbk, subvol,
+                                   subvol, subvol->fops->fstat, fd,
+                                   local->xattr_req);
+                break;
+
+        default:
+                break;
+
+        }
+
+        goto out;
+
+        /* Could not open the fd on the dst. Unwind */
+
+handle_err:
+
+        switch (fop) {
+
+        case GF_FOP_WRITE:
+                DHT_STACK_UNWIND (writev, frame, -1,
+                                  op_errno, NULL, NULL, NULL);
+                break;
+
+        case GF_FOP_FLUSH:
+                DHT_STACK_UNWIND (flush, frame, -1, op_errno, NULL);
+                break;
+
+        case GF_FOP_FSETATTR:
+                DHT_STACK_UNWIND (fsetattr, frame, -1, op_errno,
+                                  NULL, NULL, NULL);
+                break;
+
+        case GF_FOP_ZEROFILL:
+                DHT_STACK_UNWIND (zerofill, frame, -1, op_errno,
+                                  NULL, NULL, NULL);
+                break;
+
+        case GF_FOP_DISCARD:
+                DHT_STACK_UNWIND (discard, frame, -1, op_errno,
+                                  NULL, NULL, NULL);
+                break;
+
+        case GF_FOP_FALLOCATE:
+                DHT_STACK_UNWIND (fallocate, frame, -1, op_errno,
+                                  NULL, NULL, NULL);
+                break;
+
+        case GF_FOP_FTRUNCATE:
+                DHT_STACK_UNWIND (ftruncate, frame, -1, op_errno,
+                                  NULL, NULL, NULL);
+                break;
+
+        case GF_FOP_FSYNC:
+                DHT_STACK_UNWIND (fsync, frame, -1, op_errno, NULL, NULL, NULL);
+                break;
+
+        case GF_FOP_READ:
+                DHT_STACK_UNWIND (readv, frame, -1, op_errno, NULL,
+                                  0, NULL, NULL, NULL);
+                break;
+
+        case GF_FOP_FSTAT:
+                DHT_STACK_UNWIND (fstat, frame, -1, op_errno, NULL, NULL);
+                break;
+
+        default:
+                break;
+        }
+
+out:
+
+        return 0;
+
+}
+
+
+/* Check once again if the fd has been opened on the cached subvol.
+ * If not, open and update the fd_ctx.
+ */
+
+int
+dht_check_and_open_fd_on_subvol_task (void *data)
+{
+        loc_t          loc        = {0,};
+        int            ret        = -1;
+        call_frame_t  *frame      = NULL;
+        dht_local_t   *local      = NULL;
+        fd_t          *fd         = NULL;
+        xlator_t      *this       = NULL;
+        xlator_t      *subvol     = NULL;
+
+
+        frame = data;
+        local = frame->local;
+        this = THIS;
+        fd = local->fd;
+        subvol = local->cached_subvol;
+
+
+        if (fd_is_anonymous (fd) || dht_fd_open_on_dst (this, fd, subvol)) {
+                ret = 0;
+                goto out;
+        }
+
+        gf_msg_debug (this->name, 0,
+                      "Opening fd (%p, flags=0%o) on file %s @ %s",
+                      fd, fd->flags, uuid_utoa (fd->inode->gfid),
+                      subvol->name);
+
+
+        loc.inode = inode_ref (fd->inode);
+        gf_uuid_copy (loc.gfid, fd->inode->gfid);
+
+        /* Open this on the dst subvol */
+
+        SYNCTASK_SETID(0, 0);
+
+        ret = syncop_open (subvol, &loc,
+                           (fd->flags & ~(O_CREAT | O_EXCL | O_TRUNC)),
+                           fd, NULL, NULL);
+
+        if (ret < 0) {
+
+                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                        DHT_MSG_OPEN_FD_ON_DST_FAILED,
+                        "Failed to open the fd"
+                        " (%p, flags=0%o) on file %s @ %s",
+                        fd, fd->flags, uuid_utoa (fd->inode->gfid),
+                        subvol->name);
+
+                local->op_errno = -ret;
+                ret = -1;
+
+        } else {
+                dht_fd_ctx_set (this, fd, subvol);
+        }
+
+        SYNCTASK_SETID (frame->root->uid, frame->root->gid);
+out:
+        loc_wipe (&loc);
+
+        return ret;
+}
+
+
+int
+dht_check_and_open_fd_on_subvol (xlator_t *this, call_frame_t *frame)
+{
+        int ret            = -1;
+        dht_local_t *local = NULL;
+
+/*
+        if (dht_fd_open_on_dst (this, fd, subvol))
+                goto out;
+*/
+        local = frame->local;
+
+        ret = synctask_new (this->ctx->env,
+                            dht_check_and_open_fd_on_subvol_task,
+                            dht_check_and_open_fd_on_subvol_complete,
+                            frame, frame);
+
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, 0,
+                        "Failed to create synctask"
+                        " to check and open fd=%p", local->fd);
+        }
+
+        return ret;
+}
+
+
+
 int
 dht_frame_return (call_frame_t *frame)
 {

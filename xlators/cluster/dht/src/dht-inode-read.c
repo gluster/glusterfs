@@ -46,6 +46,12 @@ dht_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
+        /* Update ctx if the fd has been opened on the target*/
+        if (!op_ret && (local->call_cnt == 1)) {
+                dht_fd_ctx_set (this, fd, prev);
+                goto out;
+        }
+
         if (!op_ret || (local->call_cnt != 1))
                 goto out;
 
@@ -371,6 +377,7 @@ dht_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         dht_layout_t *layout = NULL;
         int           i = 0;
         int           call_cnt = 0;
+        int           ret      = -1;
 
 
         VALIDATE_OR_GOTO (frame, err);
@@ -397,9 +404,18 @@ dht_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
                 local->call_cnt = 1;
 
                 subvol = local->cached_subvol;
+                if (dht_fd_open_on_dst (this, fd, subvol)) {
 
-                STACK_WIND_COOKIE (frame, dht_file_attr_cbk, subvol, subvol,
-                                   subvol->fops->fstat, fd, xdata);
+                        STACK_WIND_COOKIE (frame, dht_file_attr_cbk, subvol,
+                                           subvol, subvol->fops->fstat, fd,
+                                           xdata);
+
+                } else {
+                        ret = dht_check_and_open_fd_on_subvol (this, frame);
+
+                        if (ret)
+                                goto err;
+                }
 
                 return 0;
         }
@@ -529,6 +545,7 @@ dht_readv (call_frame_t *frame, xlator_t *this,
         xlator_t     *subvol = NULL;
         int           op_errno = -1;
         dht_local_t  *local = NULL;
+        int           ret      = -1;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -547,6 +564,7 @@ dht_readv (call_frame_t *frame, xlator_t *this,
                 op_errno = EINVAL;
                 goto err;
         }
+
         if (xdata)
                 local->xattr_req = dict_ref (xdata);
 
@@ -555,9 +573,19 @@ dht_readv (call_frame_t *frame, xlator_t *this,
         local->rebalance.flags  = flags;
         local->call_cnt = 1;
 
-        STACK_WIND (frame, dht_readv_cbk,
-                    subvol, subvol->fops->readv,
-                    fd, size, off, flags, xdata);
+        if (dht_fd_open_on_dst (this, fd, subvol)) {
+
+                STACK_WIND (frame, dht_readv_cbk, subvol, subvol->fops->readv,
+                            local->fd, local->rebalance.size,
+                            local->rebalance.offset,
+                            local->rebalance.flags, local->xattr_req);
+
+        } else {
+                ret = dht_check_and_open_fd_on_subvol (this, frame);
+                if (ret)
+                        goto err;
+        }
+
 
         return 0;
 
@@ -776,6 +804,7 @@ dht_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         xlator_t     *subvol = NULL;
         int           op_errno = -1;
         dht_local_t  *local = NULL;
+        int           ret      = -1;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -794,14 +823,24 @@ dht_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
                 op_errno = EINVAL;
                 goto err;
         }
+
         if (xdata)
                 local->xattr_req = dict_ref (xdata);
 
         local->call_cnt = 1;
 
-        STACK_WIND (frame, dht_flush_cbk,
-                    subvol, subvol->fops->flush, fd, xdata);
+        if (dht_fd_open_on_dst (this, fd, subvol)) {
 
+                STACK_WIND (frame, dht_flush_cbk,
+                            subvol, subvol->fops->flush, fd, local->xattr_req);
+                return 0;
+
+        } else {
+
+                ret = dht_check_and_open_fd_on_subvol (this, frame);
+                if (ret)
+                        goto err;
+        }
         return 0;
 
 err:
@@ -935,6 +974,7 @@ dht_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync,
         xlator_t     *subvol = NULL;
         int           op_errno = -1;
         dht_local_t  *local = NULL;
+        int           ret      = -1;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -954,8 +994,19 @@ dht_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync,
 
         subvol = local->cached_subvol;
 
-        STACK_WIND_COOKIE (frame, dht_fsync_cbk, subvol, subvol,
-                           subvol->fops->fsync, fd, datasync, xdata);
+
+        if (dht_fd_open_on_dst (this, fd, subvol)) {
+
+                STACK_WIND_COOKIE (frame, dht_fsync_cbk, subvol, subvol,
+                                   subvol->fops->fsync, local->fd,
+                                   local->rebalance.flags, local->xattr_req);
+
+        } else {
+                ret = dht_check_and_open_fd_on_subvol (this, frame);
+                if (ret)
+                        goto err;
+        }
+
 
         return 0;
 
@@ -1073,6 +1124,13 @@ dht_lk (call_frame_t *frame, xlator_t *this,
                 op_errno = EINVAL;
                 goto err;
         }
+
+/*
+        local->cached_subvol = lock_subvol;
+        ret = dht_check_and_open_fd_on_subvol (this, frame);
+        if (ret)
+                goto err;
+*/
         if (xdata)
                 local->xattr_req = dict_ref (xdata);
 
@@ -1399,7 +1457,12 @@ dht_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
                 goto err;
         }
 
-
+/*
+        local->cached_subvol = lock_subvol;
+        ret = dht_check_and_open_fd_on_subvol (this, frame);
+        if (ret)
+                goto err;
+*/
         STACK_WIND (frame, dht_finodelk_cbk, lock_subvol,
                     lock_subvol->fops->finodelk,
                     volume, fd, cmd, lock, xdata);

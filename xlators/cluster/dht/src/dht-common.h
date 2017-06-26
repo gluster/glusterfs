@@ -1316,4 +1316,71 @@ dht_remove_stale_linkto (void *data);
 int
 dht_remove_stale_linkto_cbk (int ret, call_frame_t *sync_frame, void *data);
 
+
+int
+dht_fd_ctx_set (xlator_t *this, fd_t *fd, xlator_t *subvol);
+
+int
+dht_check_and_open_fd_on_subvol (xlator_t *this, call_frame_t *frame);
+
+
+
+
+
+
+/* FD fop callbacks */
+
+int
+dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int op_ret, int op_errno, struct iatt *prebuf,
+                struct iatt *postbuf, dict_t *xdata);
+
+int
+dht_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int op_ret, int op_errno, dict_t *xdata);
+
+int
+dht_file_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int op_ret, int op_errno, struct iatt *prebuf,
+                      struct iatt *postbuf, dict_t *xdata);
+
+int
+dht_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                int op_ret, int op_errno, struct iatt *prebuf,
+                struct iatt *postbuf, dict_t *xdata);
+
+int
+dht_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                int op_ret, int op_errno, struct iatt *prebuf,
+                struct iatt *postbuf, dict_t *xdata);
+
+int
+dht_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                  int op_ret, int op_errno, struct iatt *prebuf,
+                  struct iatt *postbuf, dict_t *xdata);
+
+int
+dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int op_ret, int op_errno, struct iatt *prebuf,
+                  struct iatt *postbuf, dict_t *xdata);
+
+int
+dht_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
+               int op_errno, struct iatt *prebuf, struct iatt *postbuf,
+               dict_t *xdata);
+
+
+int
+dht_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int op_ret, int op_errno,
+               struct iovec *vector, int count, struct iatt *stbuf,
+               struct iobref *iobref, dict_t *xdata);
+
+int
+dht_file_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int op_ret, int op_errno, struct iatt *stbuf, dict_t *xdata);
+
+
+
+
 #endif/* _DHT_H */
