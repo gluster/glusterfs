@@ -5076,11 +5076,6 @@ attach_brick (xlator_t *this,
                         "adding brick to process failed");
                 return -1;
         }
-
-        brickinfo->port = other_brick->port;
-        brickinfo->status = GF_BRICK_STARTED;
-        brickinfo->rpc = rpc_clnt_ref (other_brick->rpc);
-
         GLUSTERD_GET_BRICK_PIDFILE (pidfile1, other_vol, other_brick, conf);
         GLUSTERD_GET_BRICK_PIDFILE (pidfile2, volinfo, brickinfo, conf);
 
@@ -5106,6 +5101,10 @@ attach_brick (xlator_t *this,
                                   successfully
                                 */
                                 glusterd_copy_file (pidfile1, pidfile2);
+                                brickinfo->port = other_brick->port;
+                                brickinfo->status = GF_BRICK_STARTED;
+                                brickinfo->rpc =
+                                        rpc_clnt_ref (other_brick->rpc);
                                 return 0;
                         }
                 }
