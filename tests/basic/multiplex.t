@@ -69,3 +69,9 @@ nbrick0=$(ls $B0/brick0/file?? | wc -l)
 nbrick1=$(ls $B0/brick1/file?? | wc -l)
 TEST [ $((nbrick0 + nbrick1)) -eq 90 ]
 TEST [ $((nbrick0 * nbrick1)) -ne 0 ]
+
+pkill gluster
+TEST glusterd
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 1 count_brick_pids
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 1 count_brick_processes
+
