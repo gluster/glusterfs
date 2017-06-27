@@ -515,7 +515,6 @@ pool_destructor (void *arg)
 static __attribute__((constructor)) void
 mem_pools_preinit (void)
 {
-#if !defined(GF_DISABLE_MEMPOOL)
         unsigned int    i;
 
         /* Use a pthread_key destructor to clean up when a thread exits. */
@@ -538,16 +537,17 @@ mem_pools_preinit (void)
 
         pool_list_size = sizeof (per_thread_pool_list_t)
                        + sizeof (per_thread_pool_t) * (NPOOLS - 1);
-#endif
 }
 
 void
 mem_pools_init (void)
 {
+#if !defined(GF_DISABLE_MEMPOOL)
         pthread_t       kid;
 
         (void) pthread_create (&kid, NULL, pool_sweeper, NULL);
         (void) pthread_detach (kid);
+#endif
 }
  
 struct mem_pool *
@@ -667,7 +667,7 @@ void *
 mem_get (struct mem_pool *mem_pool)
 {
 #if defined(GF_DISABLE_MEMPOOL)
-        return GF_CALLOC (1, mem_pool->real_sizeof_type,
+        return GF_CALLOC (1, AVAILABLE_SIZE (mem_pool->power_of_two),
                           gf_common_mt_mem_pool);
 #else
         per_thread_pool_list_t  *pool_list;
