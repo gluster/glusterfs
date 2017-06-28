@@ -191,6 +191,14 @@ M: Pranith Karampuri <pkarampu@redhat.com>
 S: Maintained
 F: libglusterfs/
 
+xxhash
+M: Aravinda VK <avishwan@redhat.com>
+M: Kotresh HR <khiremat@redhat.com>
+P: Amar Tumballi <amarts@redhat.com>
+S: Maintained
+F: contrib/xxhash/
+T: https://github.com/Cyan4973/xxHash.git
+
 Management Daemon
 M: Kaushal Madappa <kmadapp@redhat.com>
 M: Atin Mukherjee <amukherj@redhat.com>
