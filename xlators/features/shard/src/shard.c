@@ -5011,13 +5011,26 @@ shard_forget (xlator_t *this, inode_t *inode)
 {
         uint64_t            ctx_uint = 0;
         shard_inode_ctx_t  *ctx      = NULL;
+        shard_priv_t       *priv     = NULL;
 
+        priv = this->private;
         inode_ctx_del (inode, this, &ctx_uint);
         if (!ctx_uint)
                 return 0;
 
         ctx = (shard_inode_ctx_t *)ctx_uint;
 
+        /* When LRU limit reaches inode will be forcefully removed from the
+         * table, inode needs to be removed from LRU of shard as well.
+         */
+        if (!list_empty (&ctx->ilist)) {
+                LOCK(&priv->lock);
+                {
+                        list_del_init (&ctx->ilist);
+                        priv->inode_count--;
+                }
+                UNLOCK(&priv->lock);
+        }
         GF_FREE (ctx);
 
         return 0;
