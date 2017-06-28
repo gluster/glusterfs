@@ -9,7 +9,8 @@ libglusterfs_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 	-I$(top_srcdir)/rpc/xdr/src/ -I$(top_builddir)/rpc/xdr/src/ \
 	-I$(top_srcdir)/rpc/rpc-lib/src/ -I$(CONTRIBDIR)/rbtree \
 	-I$(CONTRIBDIR)/libexecinfo ${ARGP_STANDALONE_CPPFLAGS} \
-	-DSBIN_DIR=\"$(sbindir)\" -I$(CONTRIBDIR)/timer-wheel
+	-DSBIN_DIR=\"$(sbindir)\" -I$(CONTRIBDIR)/timer-wheel \
+	-I$(CONTRIBDIR)/xxhash
 
 libglusterfs_la_LIBADD = @LEXLIB@ $(ZLIB_LIBS) $(MATH_LIB) $(UUID_LIBS)
 libglusterfs_la_LDFLAGS = -version-info $(LIBGLUSTERFS_LT_VERSION)
@@ -33,6 +34,7 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	$(CONTRIBDIR)/libexecinfo/execinfo.c quota-common-utils.c rot-buffs.c \
 	$(CONTRIBDIR)/timer-wheel/timer-wheel.c \
 	$(CONTRIBDIR)/timer-wheel/find_last_bit.c default-args.c locking.c \
+	$(CONTRIBDIR)/xxhash/xxhash.c \
 	compound-fop-utils.c throttle-tbf.c
 
 nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c defaults.c
@@ -62,6 +64,7 @@ noinst_HEADERS = unittest/unittest.h \
 	$(CONTRIBDIR)/mount/mntent_compat.h \
 	$(CONTRIBDIR)/libexecinfo/execinfo_compat.h \
 	$(CONTRIBDIR)/timer-wheel/timer-wheel.h \
+	$(CONTRIBDIR)/xxhash/xxhash.h \
 	tier-ctr-interface.h
 
 if !HAVE_LIBUUID

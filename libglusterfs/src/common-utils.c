@@ -49,6 +49,7 @@
 #include "lkowner.h"
 #include "syscall.h"
 #include "cli1-xdr.h"
+#include "xxhash.h"
 #include <ifaddrs.h>
 #include "libglusterfs-messages.h"
 
@@ -80,6 +81,23 @@ md5_wrapper(const unsigned char *data, size_t len, char *md5)
         MD5(data, len, scratch);
         for (; i < MD5_DIGEST_LENGTH; i++)
                 snprintf(md5 + i * 2, lim-i*2, "%02x", scratch[i]);
+}
+
+void
+gf_xxh64_wrapper(const unsigned char *data, size_t len, unsigned long long seed,
+                 char *xxh64)
+{
+        unsigned short         i      = 0;
+        unsigned short         lim    = GF_XXH64_DIGEST_LENGTH*2+1;
+        GF_XXH64_hash_t        hash   = 0;
+        GF_XXH64_canonical_t   c_hash = {{0,},};
+        const uint8_t         *p      = (const uint8_t *) &c_hash;
+
+        hash = GF_XXH64(data, len, seed);
+        GF_XXH64_canonicalFromHash(&c_hash, hash);
+
+        for (i = 0; i < GF_XXH64_DIGEST_LENGTH; i++)
+                snprintf(xxh64 + i * 2, lim-i*2, "%02x", p[i]);
 }
 
 /* works similar to mkdir(1) -p.
