@@ -1407,6 +1407,8 @@ dht_rename_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dict_t      *xattr_req                  = NULL;
         dht_conf_t  *conf                       = NULL;
         int          i                          = 0;
+        int          count                      = 0;
+
 
         local = frame->local;
         conf = this->private;
@@ -1446,9 +1448,9 @@ dht_rename_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto done;
         }
 
-        local->call_cnt = local->lock.lk_count;
+        count = local->call_cnt = local->lock.lk_count;
 
-        for (i = 0; i < local->lock.lk_count; i++) {
+        for (i = 0; i < count; i++) {
                 STACK_WIND (frame, dht_rename_lookup_cbk,
                             local->lock.locks[i]->xl,
                             local->lock.locks[i]->xl->fops->lookup,
