@@ -160,6 +160,7 @@ struct posix_private {
 
 	uint32_t        batch_fsync_delay_usec;
         gf_boolean_t    update_pgfid_nlinks;
+        gf_boolean_t    gfid2path;
 
         /* seconds to sleep between health checks */
         uint32_t        health_check_interval;
