@@ -27,20 +27,20 @@ uint64_t
 gf_dirent_orig_offset (xlator_t *this, uint64_t offset);
 
 
-struct _dir_entry_t {
-        struct _dir_entry_t *next;
+struct _dir_entry {
+        struct _dir_entry   *next;
 	char                *name;
 	char                *link;
 	struct iatt          buf;
 };
 
 
-struct _gf_dirent_t {
+struct _gf_dirent {
 	union {
 		struct list_head             list;
 		struct {
-			struct _gf_dirent_t *next;
-			struct _gf_dirent_t *prev;
+			struct _gf_dirent   *next;
+			struct _gf_dirent   *prev;
 		};
 	};
 	uint64_t                             d_ino;

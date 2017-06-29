@@ -20,7 +20,7 @@ struct client_ctx {
         void     *ctx_value;
 };
 
-typedef struct _client_t {
+typedef struct _client {
         struct {
                 /* e.g. protocol/server stashes its ctx here */
                 gf_lock_t            lock;

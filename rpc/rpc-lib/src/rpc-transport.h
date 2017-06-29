@@ -180,7 +180,7 @@ struct rpc_transport {
                                               */
 
         void                      *private;
-        struct _client_t          *xl_private;
+        struct _client            *xl_private;
         void                      *xl;       /* Used for THIS */
         void                      *mydata;
         pthread_mutex_t            lock;

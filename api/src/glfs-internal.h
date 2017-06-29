@@ -141,11 +141,11 @@
 
 struct glfs;
 
-struct _upcall_entry_t {
+struct _upcall_entry {
         struct list_head  upcall_list;
         struct gf_upcall  upcall_data;
 };
-typedef struct _upcall_entry_t upcall_entry;
+typedef struct _upcall_entry upcall_entry;
 
 typedef int (*glfs_init_cbk) (struct glfs *fs, int ret);
 

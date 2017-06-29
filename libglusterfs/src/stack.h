@@ -16,10 +16,10 @@
 #ifndef _STACK_H
 #define _STACK_H
 
-struct _call_stack_t;
-typedef struct _call_stack_t call_stack_t;
-struct _call_frame_t;
-typedef struct _call_frame_t call_frame_t;
+struct _call_stack;
+typedef struct _call_stack call_stack_t;
+struct _call_frame;
+typedef struct _call_frame call_frame_t;
 struct call_pool;
 typedef struct call_pool call_pool_t;
 
@@ -61,7 +61,7 @@ struct call_pool {
         struct mem_pool             *stack_mem_pool;
 };
 
-struct _call_frame_t {
+struct _call_frame {
         call_stack_t *root;        /* stack root */
         call_frame_t *parent;      /* previous BP */
         struct list_head frames;
@@ -84,7 +84,7 @@ struct _call_frame_t {
 
 #define SMALL_GROUP_COUNT 128
 
-struct _call_stack_t {
+struct _call_stack {
         union {
                 struct list_head      all_frames;
                 struct {
