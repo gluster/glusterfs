@@ -26,7 +26,7 @@
 
 typedef void (*gf_ref_release_t)(void *data);
 
-struct _gf_ref_t {
+struct _gf_ref {
 #ifdef REFCOUNT_NEEDS_LOCK
         gf_lock_t          lk;      /* lock for atomically adjust cnt */
 #endif
@@ -35,7 +35,7 @@ struct _gf_ref_t {
         gf_ref_release_t   release; /* cleanup when cnt == 0 */
         void              *data;    /* parameter passed to release() */
 };
-typedef struct _gf_ref_t gf_ref_t;
+typedef struct _gf_ref gf_ref_t;
 
 
 /* _gf_ref_get -- increase the refcount

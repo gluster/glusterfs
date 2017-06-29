@@ -98,7 +98,7 @@ enum argp_option_keys {
 #endif
 };
 
-struct _gfd_vol_top_priv_t {
+struct _gfd_vol_top_priv {
         rpcsvc_request_t        *req;
         gd1_mgmt_brick_op_req   xlator_req;
         uint32_t                blk_count;
@@ -107,7 +107,7 @@ struct _gfd_vol_top_priv_t {
         double                  time;
         int32_t                 ret;
 };
-typedef struct _gfd_vol_top_priv_t gfd_vol_top_priv_t;
+typedef struct _gfd_vol_top_priv gfd_vol_top_priv_t;
 
 int glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx, char *brick_name);
 int glusterfs_mgmt_pmap_signin (glusterfs_ctx_t *ctx);

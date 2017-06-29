@@ -43,10 +43,10 @@
 
 struct _xlator;
 typedef struct _xlator xlator_t;
-struct _dir_entry_t;
-typedef struct _dir_entry_t dir_entry_t;
-struct _gf_dirent_t;
-typedef struct _gf_dirent_t gf_dirent_t;
+struct _dir_entry;
+typedef struct _dir_entry dir_entry_t;
+struct _gf_dirent;
+typedef struct _gf_dirent gf_dirent_t;
 struct _loc;
 typedef struct _loc loc_t;
 

@@ -100,14 +100,14 @@ struct __pl_inode_lock {
 };
 typedef struct __pl_inode_lock pl_inode_lock_t;
 
-struct __pl_rw_req_t {
+struct _pl_rw_req {
         struct list_head      list;
         call_stub_t          *stub;
         posix_lock_t          region;
 };
-typedef struct __pl_rw_req_t pl_rw_req_t;
+typedef struct _pl_rw_req pl_rw_req_t;
 
-struct __pl_dom_list_t {
+struct _pl_dom_list {
         struct list_head   inode_list;       /* list_head back to pl_inode_t */
         const char        *domain;
         struct list_head   entrylk_list;     /* List of entry locks */
@@ -115,7 +115,7 @@ struct __pl_dom_list_t {
         struct list_head   inodelk_list;     /* List of inode locks */
         struct list_head   blocked_inodelks; /* List of all blocked inodelks */
 };
-typedef struct __pl_dom_list_t pl_dom_list_t;
+typedef struct _pl_dom_list pl_dom_list_t;
 
 struct __entry_lock {
         struct list_head  domain_list;    /* list_head back to pl_dom_list_t */

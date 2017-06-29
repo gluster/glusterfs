@@ -44,7 +44,7 @@
                 upcall_local_wipe (__xl, __local);         \
 } while (0)
 
-struct _upcall_private_t {
+struct _upcall_private {
         gf_boolean_t     cache_invalidation_enabled;
         int32_t          cache_invalidation_timeout;
         struct list_head inode_ctx_list;
@@ -55,9 +55,9 @@ struct _upcall_private_t {
         dict_t          *xattrs; /* list of xattrs registered by clients
                                     for receiving invalidation */
 };
-typedef struct _upcall_private_t upcall_private_t;
+typedef struct _upcall_private upcall_private_t;
 
-struct _upcall_client_t {
+struct _upcall_client {
         struct list_head client_list;
         /* strdup to store client_uid, strdup. Free it explicitly */
         char *client_uid;
@@ -65,10 +65,10 @@ struct _upcall_client_t {
         /* the amount of time which client can cache this entry */
         uint32_t expire_time_attr;
 };
-typedef struct _upcall_client_t upcall_client_t;
+typedef struct _upcall_client upcall_client_t;
 
 /* Upcall entries are maintained in inode_ctx */
-struct _upcall_inode_ctx_t {
+struct _upcall_inode_ctx {
         struct list_head inode_ctx_list;
         struct list_head client_list;
         pthread_mutex_t client_list_lock; /* mutex for clients list
@@ -76,7 +76,7 @@ struct _upcall_inode_ctx_t {
         int destroy;
         uuid_t   gfid; /* gfid of the entry */
 };
-typedef struct _upcall_inode_ctx_t upcall_inode_ctx_t;
+typedef struct _upcall_inode_ctx upcall_inode_ctx_t;
 
 struct upcall_local {
         /* XXX: need to check if we can store

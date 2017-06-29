@@ -41,11 +41,11 @@ call_frame_t *
 get_frame_from_request (rpcsvc_request_t *req);
 
 int
-server_connection_cleanup (xlator_t *this, struct _client_t *client,
+server_connection_cleanup (xlator_t *this, struct _client *client,
                            int32_t flags);
 
 gf_boolean_t
-server_cancel_grace_timer (xlator_t *this, struct _client_t *client);
+server_cancel_grace_timer (xlator_t *this, struct _client *client);
 
 int
 server_build_config (xlator_t *this, server_conf_t *conf);
@@ -55,7 +55,7 @@ int serialize_rsp_direntp (gf_dirent_t *entries, gfs3_readdirp_rsp *rsp);
 int readdirp_rsp_cleanup (gfs3_readdirp_rsp *rsp);
 int readdir_rsp_cleanup (gfs3_readdir_rsp *rsp);
 int auth_set_username_passwd (dict_t *input_params, dict_t *config_params,
-                              struct _client_t *client);
+                              struct _client *client);
 
 server_ctx_t *server_ctx_get (client_t *client, xlator_t *xlator);
 int server_process_event_upcall (xlator_t *this, void *data);
