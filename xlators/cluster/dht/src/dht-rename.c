@@ -1518,6 +1518,8 @@ dht_rename_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dict_t      *xattr_req                  = NULL;
         dht_conf_t  *conf                       = NULL;
         int          i                          = 0;
+        int          count                      = 0;
+
 
         local = frame->local;
         conf = this->private;
@@ -1557,7 +1559,7 @@ dht_rename_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto done;
         }
 
-        local->call_cnt = local->lock[0].layout.parent_layout.lk_count;
+        count = local->call_cnt = local->lock[0].layout.parent_layout.lk_count;
 
         /* Why not use local->lock.locks[?].loc for lookup post lock phase
          * ---------------------------------------------------------------
@@ -1577,7 +1579,7 @@ dht_rename_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          * exists with the name that the client requested with.
          * */
 
-        for (i = 0; i < local->lock[0].layout.parent_layout.lk_count; i++) {
+        for (i = 0; i < count; i++) {
                 STACK_WIND_COOKIE (frame, dht_rename_lookup_cbk, (void *)(long)i,
                                    local->lock[0].layout.parent_layout.locks[i]->xl,
                                    local->lock[0].layout.parent_layout.locks[i]->xl->fops->lookup,
