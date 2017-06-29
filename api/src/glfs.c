@@ -1026,6 +1026,12 @@ pub_glfs_init (struct glfs *fs)
 		return ret;
 	}
 
+        /*
+         * Do this as soon as possible in case something else depends on
+         * pool allocations.
+         */
+        mem_pools_init ();
+
         __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
 	ret = glfs_init_common (fs);
@@ -1277,6 +1283,12 @@ pub_glfs_fini (struct glfs *fs)
 
 free_fs:
         glfs_free_from_ctx (fs);
+
+        /*
+         * Do this as late as possible in case anything else has (or
+         * grows) a dependency on mem-pool allocations.
+         */
+        mem_pools_fini ();
 
 fail:
         if (!ret)
