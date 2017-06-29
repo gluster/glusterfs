@@ -115,6 +115,7 @@ void trap (void);
 
 /* xxhash */
 #define GF_XXH64_DIGEST_LENGTH 8
+#define GF_XXHSUM64_DEFAULT_SEED 0
 
 /* Shard */
 #define GF_XATTR_SHARD_FILE_SIZE  "trusted.glusterfs.shard.file-size"

@@ -57,6 +57,7 @@
 #include "glusterfs-acl.h"
 #include "posix-messages.h"
 #include "events.h"
+#include "posix-gfid-path.h"
 
 extern char *marker_xattrs[];
 #define ALIGN_SIZE 4096
@@ -1415,6 +1416,11 @@ post_op:
                                  XATTR_CREATE, op_ret, this, ignore);
         }
 
+        if (priv->gfid2path) {
+                posix_set_gfid2path_xattr (this, real_path, loc->pargfid,
+                                           loc->name);
+        }
+
 ignore:
         op_ret = posix_entry_create_xattr_set (this, real_path, xdata);
         if (op_ret) {
@@ -2121,6 +2127,17 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                 }
         }
 
+        if (priv->gfid2path && (stbuf.ia_nlink > 1)) {
+                op_ret = posix_remove_gfid2path_xattr (this, real_path,
+                                                       loc->pargfid,
+                                                       loc->name);
+                if (op_ret < 0) {
+                        /* Allow unlink if pgfid xattr is not set. */
+                        if (errno != ENOATTR)
+                                goto out;
+                }
+        }
+
         unwind_dict = dict_new ();
         if (!unwind_dict) {
                 op_errno = -ENOMEM;
@@ -2382,6 +2399,12 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
                 SET_PGFID_XATTR (real_path, pgfid_xattr_key, nlink_samepgfid,
                                  XATTR_CREATE, op_ret, this, ignore);
         }
+
+        if (priv->gfid2path) {
+                posix_set_gfid2path_xattr (this, real_path, loc->pargfid,
+                                           loc->name);
+        }
+
 ignore:
         op_ret = posix_entry_create_xattr_set (this, real_path, xdata);
         if (op_ret) {
@@ -2459,6 +2482,7 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         int                   nlink           = 0;
         char                 *pgfid_xattr_key = NULL;
         int32_t               nlink_samepgfid = 0;
+        char                 *gfid_path            = NULL;
         dict_t               *unwind_dict     = NULL;
         gf_boolean_t          locked          = _gf_false;
         gf_boolean_t          get_link_count  = _gf_false;
@@ -2645,7 +2669,20 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                                                  op_ret,
                                                  this, unlock);
                 }
+
+                if (!IA_ISDIR (oldloc->inode->ia_type) && priv->gfid2path) {
+                        MAKE_HANDLE_ABSPATH (gfid_path, this,
+                                             oldloc->inode->gfid);
+
+                        posix_remove_gfid2path_xattr (this, gfid_path,
+                                                      oldloc->pargfid,
+                                                      oldloc->name);
+                        posix_set_gfid2path_xattr (this, gfid_path,
+                                                   newloc->pargfid,
+                                                   newloc->name);
+                }
         }
+
 unlock:
         if (locked) {
                 pthread_mutex_unlock (&ctx_new->pgfid_lock);
@@ -2821,6 +2858,23 @@ posix_link (call_frame_t *frame, xlator_t *this,
                                 real_newpath, uuid_utoa (newloc->inode->gfid));
                         goto out;
                 }
+        }
+
+        if (priv->gfid2path) {
+                if (stbuf.ia_nlink <= MAX_GFID2PATH_LINK_SUP) {
+                        op_ret = posix_set_gfid2path_xattr (this, real_newpath,
+                                                            newloc->pargfid,
+                                                            newloc->name);
+                        if (op_ret) {
+                                op_errno = errno;
+                                goto out;
+                        }
+                 } else {
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                P_MSG_XATTR_NOTSUP, "Link count exceeded. "
+                                "gfid2path xattr not set (path:%s gfid:%s)",
+                                real_newpath, uuid_utoa (newloc->inode->gfid));
+                 }
         }
 
         op_ret = 0;
@@ -3011,6 +3065,11 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 nlink_samepgfid = 1;
                 SET_PGFID_XATTR (real_path, pgfid_xattr_key, nlink_samepgfid,
                                  XATTR_CREATE, op_ret, this, ignore);
+        }
+
+        if (priv->gfid2path) {
+                posix_set_gfid2path_xattr (this, real_path, loc->pargfid,
+                                            loc->name);
         }
 ignore:
         op_ret = posix_entry_create_xattr_set (this, real_path, xdata);
@@ -6918,6 +6977,9 @@ struct posix_private *priv = NULL;
         GF_OPTION_RECONF ("update-link-count-parent", priv->update_pgfid_nlinks,
                           options, bool, out);
 
+        GF_OPTION_RECONF ("gfid2path", priv->gfid2path,
+                          options, bool, out);
+
         GF_OPTION_RECONF ("node-uuid-pathinfo", priv->node_uuid_pathinfo,
                           options, bool, out);
 
@@ -7396,6 +7458,18 @@ init (xlator_t *this)
                                       " set.");
         }
 
+        tmp_data = dict_get (this->options, "gfid2path");
+        if (tmp_data) {
+                if (gf_string2boolean (tmp_data->data,
+                                       &_private->gfid2path) == -1) {
+                        ret = -1;
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                P_MSG_INVALID_OPTION, "wrong value provided "
+                                "for 'gfid2path'");
+                        goto out;
+                }
+        }
+
         ret = dict_get_str (this->options, "glusterd-uuid", &guuid);
         if (!ret) {
                 if (gf_uuid_parse (guuid, _private->glusterd_uuid))
@@ -7727,6 +7801,11 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
           .description = "Enable placeholders for gfid to path conversion"
+        },
+        { .key = {"gfid2path"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "Enable logging metadata for gfid to path conversion"
         },
 #if GF_DARWIN_HOST_OS
         { .key = {"xattr-user-namespace-mode"},

@@ -356,7 +356,7 @@ function gf_gfid_xattr_to_str {
 function get_text_xattr {
         local key=$1
         local path=$2
-        getfattr -d -m. -e text $path 2>/dev/null | grep -a $key | cut -f2 -d'='
+        getfattr -h -d -m. -e text $path 2>/dev/null | grep -a $key | cut -f2 -d'='
 }
 
 function gf_check_file_opened_in_brick {
