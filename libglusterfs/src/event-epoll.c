@@ -482,18 +482,18 @@ event_select_on_epoll (struct event_pool *event_pool, int fd, int idx,
 		ev_data->gen = slot->gen;
 
 		if (slot->in_handler)
-			/* in_handler indicates at least one thread
-			   executing event_dispatch_epoll_handler()
-			   which will perform epoll_ctl(EPOLL_CTL_MOD)
-			   anyways (because of EPOLLET)
-
-			   This not only saves a system call, but also
-			   avoids possibility of another epoll thread
-			   parallely picking up the next event while the
-			   ongoing handler is still in progress (and
-			   resulting in unnecessary contention on
-			   rpc_transport_t->mutex).
-			*/
+			/*
+			 * in_handler indicates at least one thread
+			 * executing event_dispatch_epoll_handler()
+			 * which will perform epoll_ctl(EPOLL_CTL_MOD)
+			 * anyways (because of EPOLLET)
+			 *
+			 * This not only saves a system call, but also
+			 * avoids possibility of another epoll thread
+			 * picking up the next event while the ongoing
+			 * handler is still in progress (and resulting
+			 * in unnecessary contention on rpc_transport_t->mutex).
+			 */
 			goto unlock;
 
 		ret = epoll_ctl (event_pool->fd, EPOLL_CTL_MOD, fd,

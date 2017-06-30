@@ -3345,10 +3345,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type        = DOC,
           .op_version  = GD_OP_VERSION_3_10_0,
           .validate_fn = validate_parallel_readdir,
-          .description = "If this option is enabled, the readdir operation is "
-                         "performed parallely on all the bricks, thus improving"
-                         " the performance of readdir. Note that the performance"
-                         "improvement is higher in large clusters"
+          .description = "If this option is enabled, the readdir operation "
+                         "is performed in parallel on all the bricks, thus "
+                         "improving the performance of readdir. Note that "
+                         "the performance improvement is higher in large "
+                         "clusters"
         },
 	{ .key         = "performance.rda-request-size",
 	  .voltype     = "performance/readdir-ahead",
