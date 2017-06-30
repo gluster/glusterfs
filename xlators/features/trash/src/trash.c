@@ -1889,8 +1889,9 @@ trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          */
         if (buf->ia_size > (priv->max_trash_file_size) ||
                                 buf->ia_size <= local->fop_offset) {
-                gf_log (this->name, GF_LOG_DEBUG, "%s: not moving to trash , "
-                           "having inappropiate file size", local->loc.path);
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "%s: file is too large to move to trash",
+                         local->loc.path);
 
                 STACK_WIND (frame,  trash_common_unwind_buf_cbk,
                             FIRST_CHILD(this),
