@@ -2180,6 +2180,21 @@ out:
         return 0;
 }
 
+int32_t
+notify (xlator_t *this, int32_t event, void *data, ...) {
+        switch (event) {
+
+        case GF_EVENT_PARENT_UP:
+        {
+                /* Tell the parent that snapview-server xlator is up */
+                default_notify (this, GF_EVENT_CHILD_UP, data);
+        }
+        break;
+        default:
+                break;
+        }
+        return 0;
+}
 
 int32_t
 mem_acct_init (xlator_t *this)
