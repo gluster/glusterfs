@@ -489,7 +489,7 @@ dht_reconfigure (xlator_t *this, dict_t *options)
                                        DHT_MSG_INVALID_OPTION,
                                        "Invalid option: Reconfigure: "
                                        "rebal-throttle should be {lazy|normal|aggressive}"
-                                       " or a number upto number of cores available,"
+                                       " or a number up to the number of cores available,"
                                        " not (%s), defaulting to (%d)",
                                        temp_str, conf->dthrottle);
                                 ret = -1;
