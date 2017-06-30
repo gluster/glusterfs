@@ -4,34 +4,33 @@
 #try to mount the shared storage if it fails
 #TODO : Do it for other glusterfs clients in /etc/fstab
 
-ms="var-run-gluster-shared_storage.mount"
 volume="gluster_shared_storage"
-failed=$(systemctl --failed | grep -c $ms)
-if [ $failed -eq 1 ]
-then
-        if systemctl restart $ms
-        then
-                #Restart worked just wait for sometime to make it reflect
-                sleep 5
-        else
-                #Restart failed, no point in further continuing
-                exit 1
-        fi
-fi
-
-# If we've reached this point, there wasn't a failed mountpoint
-# BUT we need to check for whether this haven't been called before the attempts
-# to the filesystem mounts, thus we need to check whether there is a glusterfs
-# in fstab and aren't mountedmount
-
-#In the logs I've seen ~4-5secs between the initial mount/start and the unmount
-
+mp="/var/run/gluster/shared_storage"
+#check if there is fstab entry for shared storage
 gfc=$(sed -e 's/#.$//' </etc/fstab | grep -c $volume)
-gfm=$(grep -i $volume /proc/mounts | wc -l)
-
-if [ $gfm -lt $gfc ]
+if [ $gfc -eq 0 ]
 then
-        exit 1
+	exit 0
 fi
 
-exit 0
+#check whether shared storage is mounted
+#if it is mounted then mount has inode value 1
+inode=$(ls -id $mp | awk '{print $1}')
+
+if [ $inode -eq 1 ]
+then
+	exit 0
+fi
+
+mount -t glusterfs localhost:/$volume $mp
+#wait for few seconds
+sleep 5
+
+#recheck mount got succeed
+inode=$(ls -id $mp | awk '{print $1}')
+if [ $inode -eq 1 ]
+then
+	exit 0
+else
+	exit 1
+fi

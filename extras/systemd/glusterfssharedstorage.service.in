@@ -3,6 +3,7 @@ Description=Mount glusterfs sharedstorage
 Requires=glusterd.service remote-fs-pre.target local-fs.target
 
 [Service]
+Type=forking
 ExecStart=@GLUSTERFS_LIBEXECDIR@/mount-shared-storage.sh
 Restart=on-failure
 RestartSec=3
