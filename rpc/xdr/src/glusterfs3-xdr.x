@@ -618,6 +618,13 @@ struct gfs3_fstat_req {
         int        valid;
         opaque   xdata<>; /* Extra data */
 }  ;
+ struct gfs3_fsetattr_req_v2 {
+        opaque gfid[16];
+        hyper        fd;
+        struct gf_iatt stbuf;
+        int        valid;
+        opaque   xdata<>; /* Extra data */
+}  ;
  struct gfs3_fsetattr_rsp {
         int    op_ret;
         int    op_errno;
@@ -679,6 +686,13 @@ struct gfs3_fstat_req {
  struct gfs3_rchecksum_req {
         quad_t   fd;
         u_quad_t  offset;
+        unsigned int  len;
+        opaque   xdata<>; /* Extra data */
+}  ;
+ struct gfs3_rchecksum_req_v2 {
+        opaque gfid[16];
+        hyper   fd;
+        unsigned hyper  offset;
         unsigned int  len;
         opaque   xdata<>; /* Extra data */
 }  ;
