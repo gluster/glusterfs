@@ -6,7 +6,9 @@ rpctransportdir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/rpc-transport
 socket_la_LDFLAGS = -module -avoid-version
 
 socket_la_SOURCES = socket.c name.c
-socket_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la -lssl
+socket_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
+                   $(top_builddir)/rpc/xdr/src/libgfxdr.la \
+                   -lssl
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/libglusterfs/src \
