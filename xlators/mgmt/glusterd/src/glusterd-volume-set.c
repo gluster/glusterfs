@@ -1701,6 +1701,18 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 1,
           .flags      = VOLOPT_FLAG_CLIENT_OPT
         },
+        { .key        = "performance.qr-cache-timeout",
+          .voltype    = "performance/quick-read",
+          .option     = "cache-timeout",
+          .op_version = 1,
+          .flags      = VOLOPT_FLAG_CLIENT_OPT
+        },
+         { .key        = "performance.cache-invalidation",
+           .voltype    = "performance/quick-read",
+           .option     = "cache-invalidation",
+           .op_version = GD_OP_VERSION_4_0_0,
+           .flags      = VOLOPT_FLAG_CLIENT_OPT
+        },
         { .key        = "performance.flush-behind",
           .voltype    = "performance/write-behind",
           .option     = "flush-behind",

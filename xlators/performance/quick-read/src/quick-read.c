@@ -12,6 +12,7 @@
 #include "quick-read.h"
 #include "statedump.h"
 #include "quick-read-messages.h"
+#include "upcall-utils.h"
 
 qr_inode_t *qr_inode_ctx_get (xlator_t *this, inode_t *inode);
 void __qr_inode_prune (qr_inode_table_t *table, qr_inode_t *qr_inode);
@@ -388,6 +389,9 @@ __qr_cache_is_fresh (xlator_t *this, qr_inode_t *qr_inode)
 
 	timersub (&now, &qr_inode->last_refresh, &diff);
 
+        if (qr_inode->last_refresh.tv_sec < priv->last_child_down)
+                return _gf_false;
+
 	if (diff.tv_sec >= conf->cache_timeout)
 		return _gf_false;
 
@@ -594,9 +598,13 @@ unlock:
 		iov.iov_base = iobuf->ptr;
 		iov.iov_len = op_ret;
 
+                GF_ATOMIC_INC (priv->qr_counter.cache_hit);
 		STACK_UNWIND_STRICT (readv, frame, op_ret, 0, &iov, 1,
 				     &buf, iobref, xdata);
-	}
+	} else {
+                GF_ATOMIC_INC (priv->qr_counter.cache_miss);
+        }
+
         if (iobuf)
                 iobuf_unref (iobuf);
 
@@ -812,6 +820,12 @@ qr_priv_dump (xlator_t *this)
 
         gf_proc_dump_write ("total_files_cached", "%d", file_count);
         gf_proc_dump_write ("total_cache_used", "%d", total_size);
+        gf_proc_dump_write ("cache-hit", "%"PRId64,
+                            priv->qr_counter.cache_hit);
+        gf_proc_dump_write ("cache-hit", "%"PRId64,
+                            priv->qr_counter.cache_miss);
+        gf_proc_dump_write ("cache-hit", "%"PRId64,
+                            priv->qr_counter.file_data_invals);
 
 out:
         return 0;
@@ -898,6 +912,9 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("cache-timeout", conf->cache_timeout, options, int32,
                           out);
+
+        GF_OPTION_RECONF ("cache-invalidation", conf->qr_invalidation, options,
+                          bool, out);
 
         GF_OPTION_RECONF ("cache-size", cache_size_new, options, size_uint64, out);
         if (!check_cache_size_ok (this, cache_size_new)) {
@@ -1046,6 +1063,8 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("cache-timeout", conf->cache_timeout, int32, out);
 
+        GF_OPTION_INIT ("cache-invalidation", conf->qr_invalidation, bool, out);
+
         GF_OPTION_INIT ("cache-size", conf->cache_size, size_uint64, out);
         if (!check_cache_size_ok (this, conf->cache_size)) {
                 ret = -1;
@@ -1081,6 +1100,8 @@ init (xlator_t *this)
         }
 
         ret = 0;
+
+        time (&priv->last_child_down);
 
         this->private = priv;
 out:
@@ -1129,6 +1150,90 @@ qr_conf_destroy (qr_conf_t *conf)
         }
 
         return;
+}
+
+
+void
+qr_update_child_down_time (xlator_t *this, time_t *now)
+{
+        qr_private_t *priv = NULL;
+
+        priv = this->private;
+
+        LOCK (&priv->lock);
+        {
+                priv->last_child_down = *now;
+        }
+        UNLOCK (&priv->lock);
+}
+
+
+static int
+qr_invalidate (xlator_t *this, void *data)
+{
+        struct gf_upcall                    *up_data    = NULL;
+        struct gf_upcall_cache_invalidation *up_ci      = NULL;
+        inode_t                             *inode      = NULL;
+        int                                  ret        = 0;
+        inode_table_t                       *itable     = NULL;
+        qr_private_t                        *priv       = NULL;
+
+        up_data = (struct gf_upcall *)data;
+
+        if (up_data->event_type != GF_UPCALL_CACHE_INVALIDATION)
+                goto out;
+
+        priv = this->private;
+        up_ci = (struct gf_upcall_cache_invalidation *)up_data->data;
+
+        if (up_ci && (up_ci->flags & UP_WRITE_FLAGS)) {
+                GF_ATOMIC_INC (priv->qr_counter.file_data_invals);
+                itable = ((xlator_t *)this->graph->top)->itable;
+                inode = inode_find (itable, up_data->gfid);
+                if (!inode) {
+                        ret = -1;
+                        goto out;
+                }
+                qr_inode_prune (this, inode);
+        }
+
+out:
+        if (inode)
+                inode_unref (inode);
+
+        return ret;
+}
+
+
+int
+notify (xlator_t *this, int event, void *data, ...)
+{
+        int                  ret  = 0;
+        qr_private_t        *priv = NULL;
+        time_t               now  = 0;
+        qr_conf_t           *conf = NULL;
+
+        priv = this->private;
+        conf = &priv->conf;
+
+        switch (event) {
+        case GF_EVENT_CHILD_DOWN:
+        case GF_EVENT_SOME_DESCENDENT_DOWN:
+                time (&now);
+                qr_update_child_down_time (this, &now);
+                break;
+        case GF_EVENT_UPCALL:
+                if (conf->qr_invalidation)
+                        ret = qr_invalidate (this, data);
+                break;
+        default:
+                break;
+        }
+
+        if (default_notify (this, event, data) != 0)
+                ret = -1;
+
+        return ret;
 }
 
 
@@ -1189,12 +1294,10 @@ struct volume_options options[] = {
           .default_value = "128MB",
           .op_version = {1},
           .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
-          .description = "Size of the read cache."
+          .description = "Size of small file read cache."
         },
         { .key  = {"cache-timeout"},
           .type = GF_OPTION_TYPE_INT,
-          .min = 1,
-          .max = 60,
           .default_value = "1",
         },
         { .key  = {"max-file-size"},
@@ -1202,6 +1305,12 @@ struct volume_options options[] = {
           .min  = 0,
           .max  = 1 * GF_UNIT_KB * 1000,
           .default_value = "64KB",
+        },
+        { .key = {"cache-invalidation"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "false",
+          .description = "When \"on\", invalidates/updates the metadata cache,"
+                         " on receiving the cache-invalidation notifications",
         },
         { .key  = {NULL} }
 };

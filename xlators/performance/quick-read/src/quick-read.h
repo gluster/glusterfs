@@ -55,6 +55,7 @@ struct qr_conf {
         int32_t          cache_timeout;
         uint64_t         cache_size;
         int              max_pri;
+        gf_boolean_t     qr_invalidation;
         struct list_head priority_list;
 };
 typedef struct qr_conf qr_conf_t;
@@ -66,9 +67,18 @@ struct qr_inode_table {
 };
 typedef struct qr_inode_table qr_inode_table_t;
 
+struct qr_statistics {
+        gf_atomic_t cache_hit;
+        gf_atomic_t cache_miss;
+        gf_atomic_t file_data_invals; /* No. of invalidates received from upcall */
+};
+
 struct qr_private {
         qr_conf_t         conf;
         qr_inode_table_t  table;
+        time_t last_child_down;
+        gf_lock_t lock;
+        struct qr_statistics qr_counter;
 };
 typedef struct qr_private qr_private_t;
 
