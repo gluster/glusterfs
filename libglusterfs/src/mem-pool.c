@@ -463,6 +463,7 @@ pool_sweeper (void *arg)
 
         for (;;) {
                 sleep (POOL_SWEEP_SECS);
+                (void) pthread_setcancelstate (PTHREAD_CANCEL_DISABLE, NULL);
                 INIT_LIST_HEAD (&state.death_row);
                 state.n_cold_lists = 0;
 
@@ -498,6 +499,7 @@ pool_sweeper (void *arg)
                 for (i = 0; i < state.n_cold_lists; ++i) {
                         free_obj_list (state.cold_lists[i]);
                 }
+                (void) pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
         }
 }
 
@@ -539,16 +541,37 @@ mem_pools_preinit (void)
                        + sizeof (per_thread_pool_t) * (NPOOLS - 1);
 }
 
+#if !defined(GF_DISABLE_MEMPOOL)
+static pthread_mutex_t  init_mutex      = PTHREAD_MUTEX_INITIALIZER;
+static unsigned int     init_count      = 0;
+static pthread_t        sweeper_tid;
+
 void
 mem_pools_init (void)
 {
-#if !defined(GF_DISABLE_MEMPOOL)
-        pthread_t       kid;
-
-        (void) pthread_create (&kid, NULL, pool_sweeper, NULL);
-        (void) pthread_detach (kid);
-#endif
+        pthread_mutex_lock (&init_mutex);
+        if ((init_count++) == 0) {
+                (void) pthread_create (&sweeper_tid, NULL, pool_sweeper, NULL);
+        }
+        pthread_mutex_unlock (&init_mutex);
 }
+
+void
+mem_pools_fini (void)
+{
+        pthread_mutex_lock (&init_mutex);
+        GF_ASSERT (init_count > 0);
+        if ((--init_count) == 0) {
+                (void) pthread_cancel (sweeper_tid);
+                (void) pthread_join (sweeper_tid, NULL);
+        }
+        pthread_mutex_unlock (&init_mutex);
+}
+
+#else
+void mem_pools_init (void) {}
+void mem_pools_fini (void) {}
+#endif
  
 struct mem_pool *
 mem_pool_new_fn (unsigned long sizeof_type,

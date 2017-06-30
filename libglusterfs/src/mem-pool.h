@@ -257,6 +257,7 @@ struct mem_pool {
 };
 
 void mem_pools_init (void);
+void mem_pools_fini (void);
 
 struct mem_pool *
 mem_pool_new_fn (unsigned long sizeof_type, unsigned long count, char *name);
