@@ -528,8 +528,11 @@ nlm4_file_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 fd_bind (cs->fd);
         cs->resolve_ret = op_ret;
         cs->resume_fn (cs);
+
         frame->local = NULL;
         STACK_DESTROY (frame->root);
+        GF_REF_PUT (cs);
+
         return 0;
 }
 
@@ -669,7 +672,7 @@ nlm4_file_open_and_resume(nfs3_call_state_t *cs, nlm4_resume_fn_t resume)
         frame->root->pid = NFS_PID;
         frame->root->uid = rpcsvc_request_uid (cs->req);
         frame->root->gid = rpcsvc_request_gid (cs->req);
-        frame->local = cs;
+        frame->local = GF_REF_GET (cs);
         nfs_fix_groups (cs->nfsx, frame->root);
 
         STACK_WIND_COOKIE (frame, nlm4_file_open_cbk, cs->vol, cs->vol,
@@ -806,13 +809,15 @@ nlm4_test_fd_resume (void *carg)
         if (!carg)
                 return ret;
 
-        cs = (nfs3_call_state_t *)carg;
+        cs = GF_REF_GET ((nfs3_call_state_t *)carg);
         nfs_request_user_init (&nfu, cs->req);
         nlm4_lock_to_gf_flock (&flock, &cs->args.nlm4_testargs.alock,
                                cs->args.nlm4_testargs.exclusive);
         nlm_copy_lkowner (&nfu.lk_owner, &cs->args.nlm4_testargs.alock.oh);
         ret = nfs_lk (cs->nfsx, cs->vol, &nfu, cs->fd, F_GETLK, &flock,
                       nlm4svc_test_cbk, cs);
+
+        GF_REF_PUT (cs);
 
         return ret;
 }
@@ -829,7 +834,7 @@ nlm4_test_resume (void *carg)
         if (!carg)
                 return ret;
 
-        cs = (nfs3_call_state_t *)carg;
+        cs = GF_REF_GET ((nfs3_call_state_t *)carg);
         nlm4_check_fh_resolve_status (cs, stat, nlm4err);
         fd = fd_anonymous (cs->resolvedloc.inode);
         if (!fd)
@@ -845,6 +850,8 @@ nlm4err:
                 nlm4_test_reply (cs, stat, NULL);
                 nfs3_call_state_wipe (cs);
         }
+
+        GF_REF_PUT (cs);
 
         return ret;
 }
@@ -1371,7 +1378,7 @@ nlm4_lock_fd_resume (void *carg)
         if (!carg)
                 return ret;
 
-        cs = (nfs3_call_state_t *)carg;
+        cs = GF_REF_GET ((nfs3_call_state_t *)carg);
         nlm4_check_fh_resolve_status (cs, stat, nlm4err);
         (void) nlm_search_and_add (cs->fd,
                                    cs->args.nlm4_lockargs.alock.caller_name);
@@ -1402,6 +1409,8 @@ nlm4err:
                 nfs3_call_state_wipe (cs);
         }
 
+        GF_REF_PUT (cs);
+
         return ret;
 }
 
@@ -1416,7 +1425,7 @@ nlm4_lock_resume (void *carg)
         if (!carg)
                 return ret;
 
-        cs = (nfs3_call_state_t *)carg;
+        cs = GF_REF_GET ((nfs3_call_state_t *)carg);
         nlm4_check_fh_resolve_status (cs, stat, nlm4err);
         ret = nlm4_file_open_and_resume (cs, nlm4_lock_fd_resume);
 
@@ -1429,6 +1438,8 @@ nlm4err:
                                     stat);
                 nfs3_call_state_wipe (cs);
         }
+
+        GF_REF_PUT (cs);
 
         return ret;
 }
@@ -1549,7 +1560,7 @@ nlm4_cancel_fd_resume (void *carg)
         if (!carg)
                 return ret;
 
-        cs = (nfs3_call_state_t *)carg;
+        cs = GF_REF_GET ((nfs3_call_state_t *)carg);
         nfs_request_user_init (&nfu, cs->req);
         nlm4_lock_to_gf_flock (&flock, &cs->args.nlm4_cancargs.alock,
                                 cs->args.nlm4_cancargs.exclusive);
@@ -1557,6 +1568,8 @@ nlm4_cancel_fd_resume (void *carg)
         flock.l_type = F_UNLCK;
         ret = nfs_lk (cs->nfsx, cs->vol, &nfu, cs->fd, F_SETLK,
                       &flock, nlm4svc_cancel_cbk, cs);
+
+        GF_REF_PUT (cs);
 
         return ret;
 }
@@ -1572,7 +1585,7 @@ nlm4_cancel_resume (void *carg)
         if (!carg)
                 return ret;
 
-        cs = (nfs3_call_state_t *)carg;
+        cs = GF_REF_GET ((nfs3_call_state_t *)carg);
         nlm4_check_fh_resolve_status (cs, stat, nlm4err);
 
         nlmclnt = nlm_get_uniq (cs->args.nlm4_cancargs.alock.caller_name);
@@ -1599,6 +1612,9 @@ nlm4err:
 
                 nfs3_call_state_wipe (cs);
         }
+
+        GF_REF_PUT (cs);
+
         /* clean up is taken care of */
         return 0;
 }
@@ -1674,7 +1690,7 @@ nlm4svc_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nlm4_stats                      stat = nlm4_denied;
         nfs3_call_state_t              *cs = NULL;
 
-        cs = frame->local;
+        cs = GF_REF_GET ((nfs3_call_state_t*) frame->local);
         if (op_ret == -1) {
                 stat = nlm4_errno_to_nlm4stat (op_errno);
                 goto err;
@@ -1687,7 +1703,7 @@ nlm4svc_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 err:
         nlm4_generic_reply (cs->req, cs->args.nlm4_unlockargs.cookie, stat);
-        nfs3_call_state_wipe (cs);
+        GF_REF_PUT (cs);
         return 0;
 }
 
@@ -1701,13 +1717,15 @@ nlm4_unlock_fd_resume (void *carg)
 
         if (!carg)
                 return ret;
-        cs = (nfs3_call_state_t *)carg;
+        cs = GF_REF_GET ((nfs3_call_state_t *)carg);
         nfs_request_user_init (&nfu, cs->req);
         nlm4_lock_to_gf_flock (&flock, &cs->args.nlm4_unlockargs.alock, 0);
         nlm_copy_lkowner (&nfu.lk_owner, &cs->args.nlm4_unlockargs.alock.oh);
         flock.l_type = F_UNLCK;
         ret = nfs_lk (cs->nfsx, cs->vol, &nfu, cs->fd, F_SETLK,
                       &flock, nlm4svc_unlock_cbk, cs);
+
+        GF_REF_PUT (cs);
 
         return ret;
 }
@@ -1724,7 +1742,7 @@ nlm4_unlock_resume (void *carg)
         if (!carg)
                 return ret;
 
-        cs = (nfs3_call_state_t *)carg;
+        cs = GF_REF_GET ((nfs3_call_state_t *)carg);
         nlm4_check_fh_resolve_status (cs, stat, nlm4err);
         caller_name = cs->args.nlm4_unlockargs.alock.caller_name;
 
@@ -1754,6 +1772,9 @@ nlm4err:
 
                 nfs3_call_state_wipe (cs);
         }
+
+        GF_REF_PUT (cs);
+
         /* we have already taken care of cleanup */
         return 0;
 }
@@ -2421,6 +2442,9 @@ nlm_handle_connect (struct rpc_clnt *rpc_clnt, nfs3_call_state_t *cs)
         }
 
 out:
+        if (cs)
+                GF_REF_PUT (cs);
+
         return ret;
 }
 
