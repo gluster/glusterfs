@@ -53,7 +53,7 @@ typedef struct gf_changelog_journal {
         char jnl_processed_dir[PATH_MAX];
         char jnl_processing_dir[PATH_MAX];
 
-        char rfc3986[256];                  /* RFC 3986 string encoding */
+        char rfc3986_space_newline[256];    /* RFC 3986 string encoding */
 
         struct gf_changelog_journal *hist_jnl;
         int hist_done;                      /* holds 0 done scanning,
