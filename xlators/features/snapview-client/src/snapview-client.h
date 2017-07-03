@@ -23,6 +23,7 @@ struct __svc_local {
         fd_t     *fd;
         void *cookie;
         dict_t *xdata;
+        uint16_t revalidate;
 };
 typedef struct __svc_local svc_local_t;
 
@@ -93,5 +94,8 @@ typedef enum {
         NORMAL_INODE = 1,
         VIRTUAL_INODE
 } inode_type_t;
+
+int
+gf_svc_special_dir_revalidate_lookup (call_frame_t *frame, xlator_t *this);
 
 #endif /* __SNAP_VIEW_CLIENT_H__ */
