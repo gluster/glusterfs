@@ -70,6 +70,9 @@ CHANGELOG_AGENT_SERVER_VERSION = 1.0
 CHANGELOG_AGENT_CLIENT_VERSION = 1.0
 NodeID = None
 rsync_version = None
+SPACE_ESCAPE_CHAR = "%20"
+NEWLINE_ESCAPE_CHAR = "%0A"
+PERCENTAGE_ESCAPE_CHAR = "%25"
 
 
 def escape(s):
@@ -81,6 +84,18 @@ def escape(s):
 def unescape(s):
     """inverse of .escape"""
     return urllib.unquote_plus(s)
+
+
+def escape_space_newline(s):
+    return s.replace("%", PERCENTAGE_ESCAPE_CHAR)\
+            .replace(" ", SPACE_ESCAPE_CHAR)\
+            .replace("\n", NEWLINE_ESCAPE_CHAR)
+
+
+def unescape_space_newline(s):
+    return s.replace(SPACE_ESCAPE_CHAR, " ")\
+            .replace(NEWLINE_ESCAPE_CHAR, "\n")\
+            .replace(PERCENTAGE_ESCAPE_CHAR, "%")
 
 
 def norm(s):
