@@ -508,6 +508,7 @@ struct gf_defrag_info_ {
         uint64_t                     total_failures;
         uint64_t                     skipped;
         uint64_t                     num_dirs_processed;
+        uint64_t                     size_processed;
         gf_lock_t                    lock;
         int                          cmd;
         pthread_t                    th;
@@ -552,6 +553,10 @@ struct gf_defrag_info_ {
 
         /* backpointer to make it easier to write functions for rebalance */
         xlator_t                     *this;
+
+        pthread_cond_t               fc_wakeup_cond;
+        pthread_mutex_t              fc_mutex;
+
 
 };
 
