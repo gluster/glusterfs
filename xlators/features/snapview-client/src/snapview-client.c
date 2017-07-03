@@ -1665,6 +1665,14 @@ gf_svc_readdirp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dict_unref (xdata);
 
         if (op_ret) {
+                if (op_errno == ESTALE && !local->revalidate) {
+                        local->revalidate = 1;
+                        ret = gf_svc_special_dir_revalidate_lookup (frame,
+                                                                    this);
+
+                        if (!ret)
+                                return 0;
+                }
                 op_ret = 0;
                 op_errno = ENOENT;
                 goto out;
@@ -1712,6 +1720,75 @@ out:
         gf_dirent_free (&entries);
 
         return 0;
+}
+
+int
+gf_svc_special_dir_revalidate_lookup (call_frame_t *frame, xlator_t *this)
+{
+        svc_private_t *private    = NULL;
+        svc_local_t   *local      = NULL;
+        loc_t         *loc        = NULL;
+        dict_t        *tmp_xdata  = NULL;
+        char          *path       = NULL;
+        int            ret        = -1;
+
+        GF_VALIDATE_OR_GOTO ("snapview-client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
+
+        private = this->private;
+
+        local = frame->local;
+        loc = &local->loc;
+
+        inode_unref (loc->inode);
+        loc->inode = inode_new (loc->parent->table);
+        if (!loc->inode) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to "
+                        "allocate new inode");
+                goto out;
+        }
+
+        gf_uuid_copy (local->loc.gfid, loc->inode->gfid);
+        ret = inode_path (loc->parent, private->path, &path);
+        if (ret < 0)
+                goto out;
+
+        if (loc->path)
+                GF_FREE ((char *)loc->path);
+
+        loc->path = gf_strdup (path);
+        if (loc->path) {
+                if (!loc->name ||
+                    (loc->name && !strcmp (loc->name, ""))) {
+                        loc->name = strrchr (loc->path, '/');
+                        if (loc->name)
+                                loc->name++;
+                }
+        } else
+                loc->path = NULL;
+
+        tmp_xdata = dict_new ();
+        if (!tmp_xdata) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_str (tmp_xdata, "entry-point", "true");
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to set dict");
+                goto out;
+        }
+
+        STACK_WIND (frame, gf_svc_readdirp_lookup_cbk,
+                    SECOND_CHILD (this),
+                    SECOND_CHILD (this)->fops->lookup, loc,
+                    tmp_xdata);
+out:
+        if (tmp_xdata)
+                dict_unref (tmp_xdata);
+
+        GF_FREE (path);
+        return ret;
 }
 
 static gf_boolean_t
