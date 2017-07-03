@@ -227,7 +227,7 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
                      struct iovec *payload, int payloadcount,
                      struct iobref *iobref, xdrproc_t xdrproc);
 
-int gf_server_check_setxattr_cmd (call_frame_t *frame, dict_t *dict);
+int gf_server_check_setxattr_cmd (call_frame_t *frame, server_state_t *state);
 int gf_server_check_getxattr_cmd (call_frame_t *frame, const char *name);
 
 void

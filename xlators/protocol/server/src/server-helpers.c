@@ -229,7 +229,6 @@ free_state (server_state_t *state)
         GF_FREE (state);
 }
 
-
 static int
 server_connection_cleanup_flush_cbk (call_frame_t *frame, void *cookie,
                                      xlator_t *this, int32_t op_ret,
@@ -1092,17 +1091,20 @@ gf_server_check_getxattr_cmd (call_frame_t *frame, const char *key)
 
 
 int
-gf_server_check_setxattr_cmd (call_frame_t *frame, dict_t *dict)
+gf_server_check_setxattr_cmd (call_frame_t *frame, server_state_t *state)
 {
 
         server_conf_t    *conf        = NULL;
         rpc_transport_t  *xprt        = NULL;
+        dict_t           *dict        = NULL;
         uint64_t          total_read  = 0;
         uint64_t          total_write = 0;
 
         conf = frame->this->private;
         if (!conf || !dict)
                 return 0;
+
+        dict = state->dict;
 
         if (dict_foreach_fnmatch (dict, "*io*stat*dump",
                                   dict_null_foreach_fn, NULL ) > 0) {
@@ -1113,6 +1115,12 @@ gf_server_check_setxattr_cmd (call_frame_t *frame, dict_t *dict)
                 gf_msg ("stats", GF_LOG_INFO, 0, PS_MSG_RW_STAT,
                         "total-read %"PRIu64", total-write %"PRIu64,
                         total_read, total_write);
+        }
+
+        if (dict_get (dict, "brick-inode-invalidate")) {
+                gf_msg ("inode-invalidate", GF_LOG_DEBUG, 0, PS_MSG_RW_STAT,
+                        "got request to invalidate %s", state->resolve.gfid);
+                inode_invalidate (state->loc.inode);
         }
 
         return 0;

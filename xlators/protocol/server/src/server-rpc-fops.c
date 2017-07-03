@@ -2936,6 +2936,9 @@ server_setxattr_resume (call_frame_t *frame, xlator_t *bound_xl)
         if (state->resolve.op_ret != 0)
                 goto err;
 
+        /* There can be some commands hidden in key, check and proceed */
+        gf_server_check_setxattr_cmd (frame, state);
+
         STACK_WIND (frame, server_setxattr_cbk,
                     bound_xl, bound_xl->fops->setxattr,
                     &state->loc, state->dict, state->flags, state->xdata);
@@ -4875,9 +4878,6 @@ server3_3_setxattr (rpcsvc_request_t *req)
                                       op_errno, out);
 
         state->dict = dict;
-
-        /* There can be some commands hidden in key, check and proceed */
-        gf_server_check_setxattr_cmd (frame, dict);
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
                                       state->xdata,
