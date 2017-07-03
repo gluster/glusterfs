@@ -22,8 +22,8 @@ from errno import ENOENT, ENODATA, EEXIST, EACCES, EAGAIN, ESTALE
 from threading import Condition, Lock
 from datetime import datetime
 from gconf import gconf
-from syncdutils import Thread, GsyncdError, boolify, escape
-from syncdutils import unescape, gauxpfx, md5hex, selfkill
+from syncdutils import Thread, GsyncdError, boolify, escape_space_newline
+from syncdutils import unescape_space_newline, gauxpfx, md5hex, selfkill
 from syncdutils import lstat, errno_wrap, FreeObject, lf
 from syncdutils import NoStimeAvailable, PartialHistoryAvailable
 
@@ -852,7 +852,8 @@ class GMasterChangelogMixin(GMasterCommon):
                 self.update_fop_batch_stats(ec[self.POS_TYPE])
 
                 # PARGFID/BNAME
-                en = unescape(os.path.join(pfx, ec[self.POS_ENTRY1]))
+                en = unescape_space_newline(
+                    os.path.join(pfx, ec[self.POS_ENTRY1]))
                 # GFID of the entry
                 gfid = ec[self.POS_GFID]
 
@@ -860,7 +861,8 @@ class GMasterChangelogMixin(GMasterCommon):
                     # The index of PARGFID/BNAME for UNLINK, RMDIR
                     # is no more the last index. It varies based on
                     # changelog.capture-del-path is enabled or not.
-                    en = unescape(os.path.join(pfx, ec[self.UNLINK_ENTRY]))
+                    en = unescape_space_newline(
+                        os.path.join(pfx, ec[self.UNLINK_ENTRY]))
 
                     # Remove from DATA list, so that rsync will
                     # not fail
@@ -918,7 +920,8 @@ class GMasterChangelogMixin(GMasterCommon):
                         if isinstance(rl, int):
                             rl = None
 
-                    e1 = unescape(os.path.join(pfx, ec[self.POS_ENTRY1 - 1]))
+                    e1 = unescape_space_newline(
+                        os.path.join(pfx, ec[self.POS_ENTRY1 - 1]))
                     entries.append(edct(ty, gfid=gfid, entry=e1, entry1=en,
                                         stat=st, link=rl))
                 else:
@@ -1583,8 +1586,10 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
                 self.sync_done(self.stimes, False)
                 self.stimes = []
             if stat.S_ISDIR(mo):
-                self.write_entry_change("E", [gfid, 'MKDIR', str(mo),
-                    str(0), str(0), escape(os.path.join(pargfid, bname))])
+                self.write_entry_change("E",
+                                        [gfid, 'MKDIR', str(mo),
+                                         str(0), str(0), escape_space_newline(
+                                             os.path.join(pargfid, bname))])
                 self.write_entry_change("M", [gfid, "SETATTR", str(st.st_uid),
                                               str(st.st_gid), str(st.st_mode),
                                               str(st.st_atime),
@@ -1603,8 +1608,8 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
                 self.stimes.append((e, stime_to_update))
             elif stat.S_ISLNK(mo):
                 self.write_entry_change(
-                    "E", [gfid, 'SYMLINK', escape(os.path.join(pargfid,
-                                                               bname))])
+                    "E", [gfid, 'SYMLINK', escape_space_newline(
+                        os.path.join(pargfid, bname))])
             elif stat.S_ISREG(mo):
                 nlink = st.st_nlink
                 nlink -= 1  # fixup backend stat link count
@@ -1615,12 +1620,12 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
                     self.write_entry_change("E",
                                             [gfid, 'MKNOD', str(mo),
                                              str(0), str(0),
-                                             escape(os.path.join(
-                                                 pargfid, bname))])
+                                             escape_space_newline(
+                                                 os.path.join(pargfid, bname))])
                 else:
                     self.write_entry_change(
-                        "E", [gfid, 'LINK', escape(os.path.join(pargfid,
-                                                                bname))])
+                        "E", [gfid, 'LINK', escape_space_newline(
+                            os.path.join(pargfid, bname))])
                 self.write_entry_change("D", [gfid])
         if path == '.':
             stime_to_update = xtl
