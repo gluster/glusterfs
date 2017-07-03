@@ -36,7 +36,7 @@ gf_changelog_write (int fd, char *buffer, size_t len)
 }
 
 void
-gf_rfc3986_encode (unsigned char *s, char *enc, char *estr)
+gf_rfc3986_encode_space_newline (unsigned char *s, char *enc, char *estr)
 {
         for (; *s; s++) {
                 if (estr[*s])

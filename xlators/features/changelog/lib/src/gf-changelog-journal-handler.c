@@ -392,8 +392,10 @@ gf_changelog_parse_ascii (xlator_t *this,
                                         break;
                                 }
 
-                                gf_rfc3986_encode ((unsigned char *) ptr,
-                                                   eptr, jnl->rfc3986);
+                                gf_rfc3986_encode_space_newline (
+                                                   (unsigned char *) ptr,
+                                                   eptr,
+                                                   jnl->rfc3986_space_newline);
                                 FILL_AND_MOVE (eptr, ascii, off,
                                                mover, nleft, len);
                                 free (eptr);
@@ -955,9 +957,8 @@ gf_changelog_init_history (xlator_t *this,
         jnl->hist_jnl->jnl_brickpath[PATH_MAX-1] = 0;
 
         for (i = 0; i < 256; i++) {
-                jnl->hist_jnl->rfc3986[i] =
-                        (isalnum(i) || i == '~' ||
-                        i == '-' || i == '.' || i == '_') ? i : 0;
+                jnl->hist_jnl->rfc3986_space_newline[i] =
+                        (i == ' ' || i == '\n' || i == '%') ? 0 : i;
         }
 
         return 0;
@@ -1026,9 +1027,8 @@ gf_changelog_journal_init (void *xl, struct gf_brick_spec *brick)
 
         /* RFC 3986 {de,en}coding */
         for (i = 0; i < 256; i++) {
-                jnl->rfc3986[i] =
-                        (isalnum(i) || i == '~' ||
-                        i == '-' || i == '.' || i == '_') ? i : 0;
+                jnl->rfc3986_space_newline[i] =
+                        (i == ' ' || i == '\n' || i == '%') ? 0 : i;
         }
 
         ret = gf_changelog_init_history (this, jnl, brick->brick_path);
