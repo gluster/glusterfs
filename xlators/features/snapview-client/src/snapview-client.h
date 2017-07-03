@@ -96,6 +96,7 @@ typedef enum {
 } inode_type_t;
 
 int
-gf_svc_special_dir_revalidate_lookup (call_frame_t *frame, xlator_t *this);
+gf_svc_special_dir_revalidate_lookup (call_frame_t *frame, xlator_t *this,
+                                      dict_t *xdata);
 
 #endif /* __SNAP_VIEW_CLIENT_H__ */

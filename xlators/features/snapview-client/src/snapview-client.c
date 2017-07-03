@@ -1661,14 +1661,12 @@ gf_svc_readdirp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        if (local->xdata != NULL)
-                dict_unref (xdata);
-
         if (op_ret) {
                 if (op_errno == ESTALE && !local->revalidate) {
                         local->revalidate = 1;
                         ret = gf_svc_special_dir_revalidate_lookup (frame,
-                                                                    this);
+                                                                    this,
+                                                                    xdata);
 
                         if (!ret)
                                 return 0;
@@ -1723,7 +1721,8 @@ out:
 }
 
 int
-gf_svc_special_dir_revalidate_lookup (call_frame_t *frame, xlator_t *this)
+gf_svc_special_dir_revalidate_lookup (call_frame_t *frame, xlator_t *this,
+                                      dict_t *xdata)
 {
         svc_private_t *private    = NULL;
         svc_local_t   *local      = NULL;
@@ -1739,6 +1738,15 @@ gf_svc_special_dir_revalidate_lookup (call_frame_t *frame, xlator_t *this)
 
         local = frame->local;
         loc = &local->loc;
+
+        if (local->xdata) {
+                dict_unref (local->xdata);
+                local->xdata = NULL;
+        }
+
+        if (xdata)
+                local->xdata = dict_ref (xdata);
+
 
         inode_unref (loc->inode);
         loc->inode = inode_new (loc->parent->table);
@@ -1878,10 +1886,13 @@ gf_svc_readdir_on_special_dir (call_frame_t *frame, void *cookie,
                 }
 
                 local->cookie = cookie;
-                if (xdata == NULL)
+                if (local->xdata) {
+                        dict_unref (local->xdata);
                         local->xdata = NULL;
-                else
+                }
+                if (xdata)
                         local->xdata = dict_ref (xdata);
+
                 STACK_WIND (frame, gf_svc_readdirp_lookup_cbk,
                             SECOND_CHILD (this),
                             SECOND_CHILD (this)->fops->lookup, loc, tmp_xdata);
