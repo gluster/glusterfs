@@ -742,6 +742,9 @@ dht_init (xlator_t *this)
                 pthread_cond_init  (&defrag->rebalance_crawler_alarm, 0);
                 pthread_cond_init  (&defrag->df_wakeup_thread, 0);
 
+                pthread_mutex_init (&defrag->fc_mutex, 0);
+                pthread_cond_init  (&defrag->fc_wakeup_cond, 0);
+
                 defrag->global_error = 0;
 
         }
