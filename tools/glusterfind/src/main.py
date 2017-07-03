@@ -21,13 +21,13 @@ import shutil
 import tempfile
 import signal
 from datetime import datetime
+import codecs
 
 from utils import execute, is_host_local, mkdirp, fail
 from utils import setup_logger, human_time, handle_rm_error
 from utils import get_changelog_rollover_time, cache_output, create_file
 import conf
 from changelogdata import OutputMerger
-import codecs
 
 PROG_DESCRIPTION = """
 GlusterFS Incremental API
@@ -481,10 +481,9 @@ def write_output(outfile, outfilemerger, field_separator):
             for p in paths:
                 if p == "":
                     continue
-                p_rep = p.replace("%2F%2F", "%2F").replace("//", "/")
+                p_rep = p.replace("//", "/")
                 if not row_2_rep:
-                    row_2_rep = row[2].replace("%2F%2F", "%2F").replace("//",
-                                                                        "/")
+                    row_2_rep = row[2].replace("//", "/")
                 if p_rep == row_2_rep:
                     continue
 
