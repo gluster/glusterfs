@@ -199,6 +199,9 @@ ec_shd_index_heal (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
         int                  ret     = 0;
 
         ec = healer->this->private;
+        if (ec->xl_up_count <= ec->fragments) {
+                return -ENOTCONN;
+        }
         if (!ec->shd.enabled)
                 return -EBUSY;
 
@@ -281,6 +284,9 @@ ec_shd_full_heal (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
         int                  ret    = 0;
 
         ec = this->private;
+        if (ec->xl_up_count <= ec->fragments) {
+                return -ENOTCONN;
+        }
         if (!ec->shd.enabled)
                 return -EBUSY;
 
