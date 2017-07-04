@@ -870,6 +870,11 @@ class GMasterChangelogMixin(GMasterCommon):
                         # file got unlinked, May be historical Changelog
                         datas.remove(pt)
 
+                    if ty in ['RMDIR'] and not isinstance(st, int):
+                        logging.info(lf('Ignoring rmdir. Directory present in '
+                                        'master', gfid=gfid, pgfid_bname=en))
+                        continue
+
                     if not boolify(gconf.ignore_deletes):
                         if not ignore_entry_ops:
                             entries.append(edct(ty, gfid=gfid, entry=en))
