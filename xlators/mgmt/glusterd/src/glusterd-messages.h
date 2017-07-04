@@ -4864,7 +4864,6 @@
  *
  */
 #define GD_MSG_VOL_SET_VALIDATION_INFO             (GLUSTERD_COMP_BASE + 602)
-
 /*!
  * @messageid
  * @diagnosis
