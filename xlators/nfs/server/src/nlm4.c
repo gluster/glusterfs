@@ -918,28 +918,64 @@ rpcerr:
         return ret;
 }
 
-int
+struct nlm4_notify_args {
+        GF_REF_DECL;            /* refcounting */
+
+        nfs3_call_state_t *cs;  /* call state, w/ lock request details */
+        call_frame_t *frame;    /* frame to us for the reply */
+};
+
+static int
 nlm4svc_send_granted_cbk (struct rpc_req *req, struct iovec *iov, int count,
                           void *myframe)
 {
-        STACK_DESTROY (((call_frame_t*)myframe)->root);
+        call_frame_t            *frame = myframe;
+        struct nlm4_notify_args *args  = frame->local;
+
+        GF_REF_PUT (args);
         return 0;
 }
 
+static void
+nlm4_notify_free (struct nlm4_notify_args *ncf)
+{
+        GF_REF_PUT (ncf->cs);
+        STACK_DESTROY (ncf->frame->root);
+        GF_FREE (ncf);
+}
+
+static struct nlm4_notify_args*
+nlm4_notify_init (nfs3_call_state_t *cs)
+{
+        struct nlm4_notify_args *ncf = NULL;
+
+        ncf = GF_CALLOC (1, sizeof (struct nlm4_notify_args),
+                         gf_nfs_mt_nlm4_notify);
+        if (!ncf)
+                /* GF_CALLOW will log the ENOMEM error */
+                goto out;
+
+        GF_REF_INIT (ncf, nlm4_notify_free);
+        ncf->cs = GF_REF_GET (cs);
+
+out:
+        return ncf;
+}
+
 static int
-nlm_handle_connect (struct rpc_clnt *rpc_clnt, nfs3_call_state_t *cs);
+nlm_handle_connect (struct rpc_clnt *rpc_clnt, struct nlm4_notify_args *ncf);
 
 int
 nlm_rpcclnt_notify (struct rpc_clnt *rpc_clnt, void *mydata,
                     rpc_clnt_event_t fn, void *data)
 {
-        nfs3_call_state_t *cs          = NULL;
+        struct nlm4_notify_args   *ncf     = mydata;
 
-        cs = mydata;
+        GF_VALIDATE_OR_GOTO ("NLM4-notify", ncf, out);
 
         switch (fn) {
         case RPC_CLNT_CONNECT:
-                nlm_handle_connect (rpc_clnt, cs);
+                nlm_handle_connect (rpc_clnt, ncf);
                 break;
 
         case RPC_CLNT_MSG:
@@ -948,18 +984,22 @@ nlm_rpcclnt_notify (struct rpc_clnt *rpc_clnt, void *mydata,
         case RPC_CLNT_DISCONNECT:
                 nlm_unset_rpc_clnt (rpc_clnt);
                 break;
+
+        case RPC_CLNT_DESTROY:
+                GF_REF_PUT (ncf);
+                break;
+
         default:
                 break;
         }
-
+out:
         return 0;
 }
 
 void *
-nlm4_establish_callback (void *csarg)
+nlm4_establish_callback (nfs3_call_state_t *cs, call_frame_t *cbk_frame)
 {
         int                           ret                        = -1;
-        nfs3_call_state_t            *cs                         = NULL;
         union gf_sock_union           sock_union;
         dict_t                       *options                    = NULL;
         char                          peerip[INET6_ADDRSTRLEN+1] = {0};
@@ -967,9 +1007,8 @@ nlm4_establish_callback (void *csarg)
         char                          myip[INET6_ADDRSTRLEN+1]   = {0};
         rpc_clnt_t                   *rpc_clnt                   = NULL;
         int                           port                       = -1;
+        struct nlm4_notify_args      *ncf                        = NULL;
 
-
-        cs = (nfs3_call_state_t *) csarg;
         glusterfs_this_set (cs->nfsx);
 
         rpc_transport_get_peeraddr (cs->trans, NULL, 0, &sock_union.storage,
@@ -1052,6 +1091,15 @@ nlm4_establish_callback (void *csarg)
                 goto err;
         }
 
+        ncf = nlm4_notify_init (cs);
+        if (!ncf) {
+                ret = -1;
+                goto err;
+        }
+
+        ncf->frame = cbk_frame;
+        ncf->frame->local = ncf;
+
         /* TODO: is 32 frames in transit enough ? */
         rpc_clnt = rpc_clnt_new (options, cs->nfsx, "NLM-client", 32);
         if (rpc_clnt == NULL) {
@@ -1060,7 +1108,7 @@ nlm4_establish_callback (void *csarg)
                 goto err;
         }
 
-        ret = rpc_clnt_register_notify (rpc_clnt, nlm_rpcclnt_notify, cs);
+        ret = rpc_clnt_register_notify (rpc_clnt, nlm_rpcclnt_notify, ncf);
         if (ret == -1) {
                 gf_msg (GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_RPC_CLNT_ERROR,
                         "rpc_clnt_register_connect error");
@@ -1074,17 +1122,21 @@ nlm4_establish_callback (void *csarg)
                 ret = 0;
 
 err:
-        if (ret == -1 && rpc_clnt) {
-                rpc_clnt_unref (rpc_clnt);
+        if (ret == -1) {
+                if (rpc_clnt)
+                        rpc_clnt_unref (rpc_clnt);
+                if (ncf)
+                        GF_REF_PUT (ncf);
         }
 
         return rpc_clnt;
 }
 
-void
-nlm4svc_send_granted (nfs3_call_state_t *cs)
+static void
+nlm4svc_send_granted (struct nlm4_notify_args *ncf)
 {
         int ret = -1;
+        nfs3_call_state_t *cs = ncf->cs;
         rpc_clnt_t *rpc_clnt = NULL;
         struct iovec            outmsg = {0, };
         nlm4_testargs testargs;
@@ -1095,7 +1147,7 @@ nlm4svc_send_granted (nfs3_call_state_t *cs)
 
         rpc_clnt = nlm_get_rpc_clnt (cs->args.nlm4_lockargs.alock.caller_name);
         if (rpc_clnt == NULL) {
-                nlm4_establish_callback ((void*)cs);
+                nlm4_establish_callback (cs, ncf->frame);
                 return;
         }
 
@@ -1146,9 +1198,10 @@ nlm4svc_send_granted (nfs3_call_state_t *cs)
                 goto ret;
         }
 
+        GF_REF_GET (ncf);
         ret = rpc_clnt_submit (rpc_clnt, &nlm4clntprog, NLM4_GRANTED,
                                nlm4svc_send_granted_cbk, &outmsg, 1,
-                               NULL, 0, iobref, cs->frame, NULL, 0,
+                               NULL, 0, iobref, ncf->frame, NULL, 0,
                                NULL, 0, NULL);
 
         if (ret < 0) {
@@ -1163,7 +1216,6 @@ ret:
                 iobuf_unref (iobuf);
 
         rpc_clnt_unref (rpc_clnt);
-        nfs3_call_state_wipe (cs);
         return;
 }
 
@@ -1334,6 +1386,7 @@ nlm4svc_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         char                            *caller_name = NULL;
         nfs3_call_state_t               *cs          = NULL;
         pthread_t                        thr;
+        struct nlm4_notify_args         *ncf         = NULL;
 
         cs = frame->local;
         caller_name = cs->args.nlm4_lockargs.alock.caller_name;
@@ -1355,14 +1408,18 @@ nlm4svc_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 err:
         if (cs->args.nlm4_lockargs.block) {
-                cs->frame = copy_frame (frame);
-                frame->local = NULL;
-                nlm4svc_send_granted (cs);
+                ncf = nlm4_notify_init (cs);
+                if (ncf) {
+                        ncf->frame = copy_frame (frame);
+                        ncf->frame->local = ncf;
+                        nlm4svc_send_granted (ncf);
+                }
         } else {
                 nlm4_generic_reply (cs->req, cs->args.nlm4_lockargs.cookie,
                                     stat);
                 nfs3_call_state_wipe (cs);
         }
+
         return 0;
 }
 
@@ -2374,13 +2431,15 @@ nlm4svc_sm_notify (struct nlm_sm_status *status)
 /* RPC_CLNT_CONNECT gets called on (re)connects and should be able to handle
  * different NLM requests. */
 static int
-nlm_handle_connect (struct rpc_clnt *rpc_clnt, nfs3_call_state_t *cs)
+nlm_handle_connect (struct rpc_clnt *rpc_clnt, struct nlm4_notify_args *ncf)
 {
         int                 ret         = -1;
         int                 nlm_proc    = NLM4_NULL;
+        nfs3_call_state_t  *cs          = NULL;
         struct nlm4_lock   *alock       = NULL;
         char               *caller_name = NULL;
 
+        cs = GF_REF_GET (ncf->cs);
         if (!cs || !cs->req) {
                 gf_msg (GF_NLM, GF_LOG_ERROR, EINVAL, NFS_MSG_RPC_CLNT_ERROR,
                         "Spurious notify?!");
@@ -2422,7 +2481,7 @@ nlm_handle_connect (struct rpc_clnt *rpc_clnt, nfs3_call_state_t *cs)
                 /* extra ref taken with nlm_set_rpc_clnt() */
                 rpc_clnt_unref (rpc_clnt);
 
-                nlm4svc_send_granted (cs);
+                nlm4svc_send_granted (ncf);
                 break;
 
         case NLM4_CANCEL:
