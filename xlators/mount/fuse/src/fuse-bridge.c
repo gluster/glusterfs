@@ -111,6 +111,28 @@ out:
         return fd_ctx;
 }
 
+static void
+fuse_fd_ctx_destroy (xlator_t *this, fd_t *fd)
+{
+        fd_t                   *activefd  = NULL;
+        uint64_t                val       = 0;
+        int                     ret       = 0;
+        fuse_fd_ctx_t          *fdctx     = NULL;
+
+        ret = fd_ctx_del (fd, this, &val);
+        if (!ret) {
+                fdctx = (fuse_fd_ctx_t *)(unsigned long)val;
+                if (fdctx) {
+                        activefd = fdctx->activefd;
+                        if (activefd) {
+                                fd_unref (activefd);
+                        }
+
+                        GF_FREE (fdctx);
+                }
+        }
+}
+
 fuse_fd_ctx_t *
 fuse_fd_ctx_get (xlator_t *this, fd_t *fd)
 {
@@ -2560,10 +2582,12 @@ fuse_flush (xlator_t *this, fuse_in_header_t *finh, void *msg)
 int
 fuse_internal_release (xlator_t *this, fd_t *fd)
 {
-        //This is a place holder function to prevent "xlator does not implement
-        //release_cbk" Warning log.
-        //Actual release happens as part of fuse_release which gets executed
-        //when kernel fuse sends it.
+        /* This is important we cleanup our context here to avoid a leak
+           in case an error occurs and we get cleanup up by
+           call_unwind_error->...->args_wipe instead of the normal path.
+        */
+        fuse_fd_ctx_destroy(this, fd);
+
         return 0;
 }
 
@@ -2571,12 +2595,8 @@ static void
 fuse_release (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
         struct fuse_release_in *fri       = msg;
-        fd_t                   *activefd = NULL;
         fd_t                   *fd        = NULL;
-        uint64_t                val       = 0;
-        int                     ret       = 0;
         fuse_state_t           *state     = NULL;
-        fuse_fd_ctx_t          *fdctx     = NULL;
         fuse_private_t         *priv      = NULL;
 
         GET_STATE (this, finh, state);
@@ -2591,18 +2611,7 @@ fuse_release (xlator_t *this, fuse_in_header_t *finh, void *msg)
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": RELEASE %p", finh->unique, state->fd);
 
-        ret = fd_ctx_del (fd, this, &val);
-        if (!ret) {
-                fdctx = (fuse_fd_ctx_t *)(unsigned long)val;
-                if (fdctx) {
-                        activefd = fdctx->activefd;
-                        if (activefd) {
-                                fd_unref (activefd);
-                        }
-
-                        GF_FREE (fdctx);
-                }
-        }
+        fuse_fd_ctx_destroy(this, state->fd);
         fd_unref (fd);
 
         state->fd = NULL;
@@ -3060,11 +3069,7 @@ static void
 fuse_releasedir (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
         struct fuse_release_in *fri       = msg;
-        fd_t                   *activefd = NULL;
-        uint64_t                val       = 0;
-        int                     ret       = 0;
         fuse_state_t           *state     = NULL;
-        fuse_fd_ctx_t          *fdctx     = NULL;
         fuse_private_t         *priv      = NULL;
 
         GET_STATE (this, finh, state);
@@ -3079,20 +3084,7 @@ fuse_releasedir (xlator_t *this, fuse_in_header_t *finh, void *msg)
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": RELEASEDIR %p", finh->unique, state->fd);
 
-        ret = fd_ctx_del (state->fd, this, &val);
-
-        if (!ret) {
-                fdctx = (fuse_fd_ctx_t *)(unsigned long)val;
-                if (fdctx) {
-                        activefd = fdctx->activefd;
-                        if (activefd) {
-                                fd_unref (activefd);
-                        }
-
-                        GF_FREE (fdctx);
-                }
-        }
-
+        fuse_fd_ctx_destroy(this, state->fd);
         fd_unref (state->fd);
 
         gf_fdptr_put (priv->fdtable, state->fd);

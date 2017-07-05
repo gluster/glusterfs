@@ -2303,6 +2303,8 @@ _gf_log_eh (const char *function, const char *fmt, ...)
         strcat (msg, str2);
 
         ret = eh_save_history (this->history, msg);
+        if (ret < 0)
+                GF_FREE (msg);
 
 out:
         GF_FREE (str1);
