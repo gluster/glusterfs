@@ -235,9 +235,6 @@
 #define GF_REPLICATE_TRASH_DIR           ".landfill"
 
 /* GlusterFS's maximum supported Auxiliary GIDs */
-/* TODO: Keeping it to 200, so that we can fit in 2KB buffer for auth data
- * in RPC server code, if there is ever need for having more aux-gids, then
- * we have to add aux-gid in payload of actors */
 #define GF_MAX_AUX_GROUPS   65535
 
 #define GF_UUID_BUF_SIZE 50

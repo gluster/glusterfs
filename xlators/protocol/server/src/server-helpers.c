@@ -19,7 +19,6 @@
 
 #include <fnmatch.h>
 #include <pwd.h>
-#include <grp.h>
 #include "compound-fop-utils.h"
 
 /* based on nfs_fix_aux_groups() */
@@ -30,10 +29,10 @@ gid_resolve (server_conf_t *conf, call_stack_t *root)
         struct passwd     mypw;
         char              mystrs[1024];
         struct passwd    *result;
-        gid_t             mygroups[GF_MAX_AUX_GROUPS];
+        gid_t            *mygroups;
         gid_list_t        gl;
         const gid_list_t *agl;
-        int               ngroups, i;
+        int               ngroups;
 
         agl = gid_cache_lookup (&conf->gid_cache, root->uid, 0, 0);
         if (agl) {
@@ -58,9 +57,8 @@ gid_resolve (server_conf_t *conf, call_stack_t *root)
         gf_msg_trace ("gid-cache", 0, "mapped %u => %s", root->uid,
                       result->pw_name);
 
-        ngroups = GF_MAX_AUX_GROUPS;
-        ret = getgrouplist (result->pw_name, root->gid, mygroups, &ngroups);
-        if (ret == -1) {
+        ngroups = gf_getgrouplist (result->pw_name, root->gid, &mygroups);
+        if (ngroups == -1) {
                 gf_msg ("gid-cache", GF_LOG_ERROR, 0, PS_MSG_MAPPING_ERROR,
                         "could not map %s to group list (%d gids)",
                         result->pw_name, root->ngrps);
@@ -84,8 +82,10 @@ fill_groups:
                 if (gl.gl_list)
                         memcpy (gl.gl_list, mygroups,
                                 sizeof(gid_t) * root->ngrps);
-                else
+                else {
+                        GF_FREE (mygroups);
                         return -1;
+                }
         }
 
         if (root->ngrps == 0) {
@@ -93,14 +93,7 @@ fill_groups:
                 goto out;
         }
 
-        if (call_stack_alloc_groups (root, root->ngrps) != 0) {
-                ret = -1;
-                goto out;
-        }
-
-        /* finally fill the groups from the */
-        for (i = 0; i < root->ngrps; ++i)
-                root->groups[i] = gl.gl_list[i];
+        call_stack_set_groups (root, root->ngrps, mygroups);
 
 out:
         if (agl) {

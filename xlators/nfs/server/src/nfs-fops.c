@@ -8,7 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <grp.h>
 #include <pwd.h>
 
 #include "dict.h"
@@ -34,12 +33,7 @@ nfs_fix_groups (xlator_t *this, call_stack_t *root)
         struct passwd    mypw;
         char             mystrs[1024];
         struct passwd    *result;
-#ifdef GF_DARWIN_HOST_OS
-        /* BSD/DARWIN does not correctly uses gid_t in getgrouplist */
-        int              mygroups[GF_MAX_AUX_GROUPS];
-#else
-        gid_t            mygroups[GF_MAX_AUX_GROUPS];
-#endif
+        gid_t            *mygroups;
         int              ngroups;
         int              i;
         int              max_groups;
@@ -88,25 +82,13 @@ nfs_fix_groups (xlator_t *this, call_stack_t *root)
         gf_msg_trace (this->name, 0, "mapped %u => %s",
                       root->uid, result->pw_name);
 
-        ngroups = GF_MAX_AUX_GROUPS;
-        if (getgrouplist(result->pw_name,root->gid,mygroups,&ngroups) == -1) {
+        ngroups = gf_getgrouplist (result->pw_name, root->gid, &mygroups);
+        if (ngroups == -1) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, NFS_MSG_MAP_GRP_LIST_FAIL,
                         "could not map %s to group list", result->pw_name);
                 return;
         }
 
-	/* Add the group data to the cache. */
-	gl.gl_list = GF_CALLOC(ngroups, sizeof(gid_t), gf_nfs_mt_aux_gids);
-	if (gl.gl_list) {
-		/* It's not fatal if the alloc failed. */
-		gl.gl_id = root->uid;
-		gl.gl_uid = 0;
-		gl.gl_gid = 0;
-		gl.gl_count = ngroups;
-		memcpy(gl.gl_list, mygroups, sizeof(gid_t) * ngroups);
-		if (gid_cache_add(&priv->gid_cache, &gl) != 1)
-			GF_FREE(gl.gl_list);
-	}
 
 	/* RPC enforces the GF_AUTH_GLUSTERFS_MAX_GROUPS limit */
 	if (ngroups > max_groups) {
@@ -115,16 +97,24 @@ nfs_fix_groups (xlator_t *this, call_stack_t *root)
 				     "too many groups, reducing %d -> %d",
 				     ngroups, max_groups);
 
-		ngroups = max_groups;
 	}
 
 	/* Copy data to the frame. */
-        for (i = 0; i < ngroups; ++i) {
+        for (i = 0; i < ngroups && i < max_groups; ++i) {
                 gf_msg_trace (this->name, 0, "%s is in group %u",
                               result->pw_name, mygroups[i]);
                 root->groups[i] = mygroups[i];
         }
         root->ngrps = ngroups;
+
+        /* Add the group data to the cache. */
+        gl.gl_list = mygroups;
+        gl.gl_id = root->uid;
+        gl.gl_uid = 0;
+        gl.gl_gid = 0;
+        gl.gl_count = ngroups;
+        if (gid_cache_add(&priv->gid_cache, &gl) != 1)
+                GF_FREE(mygroups);
 }
 
 struct nfs_fop_local *
