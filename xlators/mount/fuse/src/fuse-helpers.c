@@ -20,7 +20,6 @@
 #include <sys/sysctl.h>
 #endif
 #include <pwd.h>
-#include <grp.h>
 
 #include "fuse-bridge.h"
 
@@ -158,8 +157,8 @@ frame_fill_groups (call_frame_t *frame)
         char           *saveptr       = NULL;
         char           *endptr        = NULL;
         int             ret           = 0;
-        int             ngroups       = FUSE_MAX_AUX_GROUPS;
-        gid_t           mygroups[GF_MAX_AUX_GROUPS];
+        int             ngroups       = 0;
+        gid_t          *mygroups      = NULL;
 
         if (priv->resolve_gids) {
                 struct passwd    pwent;
@@ -173,23 +172,16 @@ frame_fill_groups (call_frame_t *frame)
                         return;
                 }
 
-                ngroups = GF_MAX_AUX_GROUPS;
-                if (getgrouplist (result->pw_name, frame->root->gid, mygroups,
-                                  &ngroups) == -1) {
+                ngroups = gf_getgrouplist (result->pw_name, frame->root->gid,
+                                           &mygroups);
+                if (ngroups == -1) {
                         gf_log (this->name, GF_LOG_ERROR, "could not map %s to "
                                 "group list (ngroups %d, max %d)",
                                 result->pw_name, ngroups, GF_MAX_AUX_GROUPS);
                         return;
                 }
 
-                if (call_stack_alloc_groups (frame->root, ngroups) != 0)
-                        goto out;
-
-                /* Copy data to the frame. */
-                for (idx = 0; idx < ngroups; ++idx) {
-                        frame->root->groups[idx] = mygroups[idx];
-                }
-                frame->root->ngrps = ngroups;
+                call_stack_set_groups (frame->root, ngroups, mygroups);
         } else {
                 ret = snprintf (filename, sizeof filename, "/proc/%d/status",
                                 frame->root->pid);

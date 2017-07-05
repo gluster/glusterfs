@@ -30,6 +30,7 @@
 #include <signal.h>
 #include <assert.h>
 #include <libgen.h> /* for dirname() */
+#include <grp.h>
 
 #if defined(GF_BSD_HOST_OS) || defined(GF_DARWIN_HOST_OS)
 #include <sys/sysctl.h>
@@ -4876,4 +4877,76 @@ close_fds_except (int *fdv, size_t count)
         }
 #endif /* !GF_LINUX_HOST_OS */
         return 0;
+}
+
+/**
+ * gf_getgrouplist - get list of groups to which a user belongs
+ *
+ * A convenience wrapper for getgrouplist(3).
+ *
+ * @param user - same as in getgrouplist(3)
+ * @param group - same as in getgrouplist(3)
+ * @param groups - pointer to a gid_t pointer
+ *
+ * gf_getgrouplist allocates a gid_t buffer which is big enough to
+ * hold the list of auxiliary group ids for user, up to the GF_MAX_AUX_GROUPS
+ * threshold. Upon succesfull invocation groups will be pointed to that buffer.
+ *
+ * @return success: the number of auxiliary group ids retrieved
+ *         failure: -1
+ */
+int
+gf_getgrouplist (const char *user, gid_t group, gid_t **groups)
+{
+        int ret     = -1;
+        int ngroups = SMALL_GROUP_COUNT;
+
+        *groups = GF_CALLOC (sizeof (gid_t), ngroups, gf_common_mt_groups_t);
+        if (!*groups)
+                return -1;
+
+        /*
+         * We are running getgrouplist() in a loop until we succeed (or hit
+         * certain exit conditions, see the comments below). This is because
+         * the indicated number of auxiliary groups that we obtain in case of
+         * the failure of the first invocation is not guaranteed to keep its
+         * validity upon the next invocation with a gid buffer of that size.
+         */
+        for (;;) {
+                int ngroups_old = ngroups;
+                ret = getgrouplist (user, group, *groups, &ngroups);
+                if (ret != -1)
+                        break;
+
+                if (ngroups >= GF_MAX_AUX_GROUPS) {
+                        /*
+                         * This should not happen as GF_MAX_AUX_GROUPS is set
+                         * to the max value of number of supported auxiliary
+                         * groups across all platforms supported by GlusterFS.
+                         * However, if it still happened some way, we wouldn't
+                         * care about the incompleteness of the result, we'd
+                         * just go on with what we got.
+                         */
+                        return GF_MAX_AUX_GROUPS;
+                } else if (ngroups <= ngroups_old) {
+                        /*
+                         * There is an edge case that getgrouplist() fails but
+                         * ngroups remains the same. This is actually not
+                         * specified in getgrouplist(3), but implementations
+                         * can do this upon internal failure[1]. To avoid
+                         * falling into an infinite loop when this happens, we
+                         * break the loop if the getgrouplist call failed
+                         * without an increase in the indicated group number.
+                         *
+                         * [1] https://sourceware.org/git/?p=glibc.git;a=blob;f=grp/initgroups.c;hb=refs/heads/release/2.25/master#l168
+                         */
+                        GF_FREE (*groups);
+                        return -1;
+                }
+
+                *groups = GF_REALLOC (*groups, ngroups * sizeof (gid_t));
+                if (!*groups)
+                        return -1;
+        }
+        return ret;
 }

@@ -918,4 +918,7 @@ get_ip_from_addrinfo (struct addrinfo *addr, char **ip);
 
 int
 close_fds_except (int *fdv, size_t count);
+
+int
+gf_getgrouplist (const char *user, gid_t group, gid_t **groups);
 #endif /* _COMMON_UTILS_H */
