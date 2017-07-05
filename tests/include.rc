@@ -85,6 +85,7 @@ AUTH_REFRESH_INTERVAL=10
 GRAPH_SWITCH_TIMEOUT=10
 UNLINK_TIMEOUT=5
 MDC_TIMEOUT=5
+IO_WAIT_TIMEOUT=5
 
 LOGDIR=$(gluster --print-logdir)
 
@@ -345,7 +346,6 @@ function _EXPECT_WITHIN()
                 if [ $? -ne 0 ]; then
                         break;
                 fi
-
                 ## Check match success
                 if [[ "$a" =~ $e ]]; then
                         break;
