@@ -353,6 +353,7 @@ which killall > /dev/null || {
 
 which pidof > /dev/null || {
   pidof() {
+
     $PYTHON pidof.py $@
   }
 }
@@ -1167,3 +1168,5 @@ function STAT_INO()
                 echo 0
         fi
 }
+
+systemctl stop nfs-mountd

@@ -16,6 +16,7 @@ TEST pidof glusterd
 TEST $CLI volume info;
 
 TEST $CLI volume create $V0 replica 2  $H0:$B0/${V0}{1,2,3,4};
+TEST $CLI volume set $V0 performance.stat-prefetch off
 TEST $CLI volume set $V0 build-pgfid on;
 
 TEST $CLI volume start $V0;

@@ -86,6 +86,7 @@ TEST pidof glusterd
 configure
 
 TEST $CLI volume create $V0 ${H0}:/$B0/$V0?${V0}
+TEST $CLI volume set $V0 performance.stat-prefetch off
 EXPECT "$V0" volinfo_field $V0 'Volume Name';
 EXPECT 'Created' volinfo_field $V0 'Status';
 

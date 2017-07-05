@@ -65,9 +65,7 @@ TEST [ -n "$VICTIM_HAS_TEST" ]
 # brick which has the file called test.  If the both have the first
 # test file, the test is invalid as all the bricks are up and the
 # halo-max-replicas is not being honored; e.g. bug exists.
-ONLY_ONE=$((([ -z "$UP2_HAS_TEST" ] || [ -z "$UP1_HAS_TEST" ]) &&
-  ([ -n "$UP2_HAS_TEST" ] || [ -n "$UP1_HAS_TEST" ])) && echo true)
-TEST [ "x$ONLY_ONE" == "xtrue" ]
+TEST [ $([ -z "$UP1_HAS_TEST" ]) = $([ -z "$UP2_HAS_TEST" ]) ]
 
 echo "Failing child ${KILL_IDX}..."
 TEST kill_brick $V0 $H0 $B0/${V0}${KILL_IDX}

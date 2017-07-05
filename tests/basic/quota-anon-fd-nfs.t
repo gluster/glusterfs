@@ -17,6 +17,7 @@ TEST pidof glusterd
 TEST $CLI volume info;
 
 TEST $CLI volume create $V0 $H0:$B0/brick1;
+TEST $CLI volume set $V0 performance.stat-prefetch off
 EXPECT 'Created' volinfo_field $V0 'Status';
 TEST $CLI volume set $V0 nfs.disable false
 
