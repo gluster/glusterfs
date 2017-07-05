@@ -2080,7 +2080,10 @@ ec_update_info(ec_lock_link_t *link)
     /* If we set the dirty flag for update fop, we have to unset it.
      * If fop has failed on some bricks, leave the dirty as marked. */
     if (lock->unlock_now) {
-            if (!(ec->node_mask & ~lock->good_mask)) {
+            /* Ensure that nodes are up while doing final
+             * metadata update.*/
+            if (!(ec->node_mask & ~lock->good_mask) &&
+                !(ec->node_mask & ~ec->xl_up)) {
                     if (ctx->dirty[0] != 0) {
                         dirty[0] = -1;
                     }
