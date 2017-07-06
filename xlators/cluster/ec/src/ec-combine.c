@@ -163,8 +163,6 @@ int32_t ec_iatt_combine(ec_fop_data_t *fop, struct iatt *dst, struct iatt *src,
          * inode is not locked. */
         if (!failed && ((dst[i].ia_uid != src[i].ia_uid) ||
                         (dst[i].ia_gid != src[i].ia_gid) ||
-                        ((dst[i].ia_type == IA_IFREG) &&
-                         (dst[i].ia_size != src[i].ia_size)) ||
                         (st_mode_from_ia(dst[i].ia_prot, dst[i].ia_type) !=
                          st_mode_from_ia(src[i].ia_prot, src[i].ia_type)))) {
             if (ec_iatt_is_trusted(fop, dst)) {

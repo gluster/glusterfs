@@ -1121,6 +1121,7 @@ void ec_get_size_version(ec_lock_link_t *link)
     ec_inode_t *ctx;
     ec_fop_data_t *fop;
     dict_t *dict = NULL;
+    dict_t *xdata = NULL;
     ec_t   *ec = NULL;
     int32_t error = 0;
     gf_boolean_t getting_xattr;
@@ -1177,6 +1178,16 @@ void ec_get_size_version(ec_lock_link_t *link)
         error = -ENOMEM;
         goto out;
     }
+
+    if (lock->loc.inode->ia_type == IA_IFREG ||
+        lock->loc.inode->ia_type == IA_INVAL) {
+            xdata = dict_new();
+            if (xdata == NULL || dict_set_int32 (xdata, GF_GET_SIZE, 1)) {
+                error = -ENOMEM;
+                goto out;
+            }
+    }
+
     if (lock->query && !ctx->have_info) {
             fop->flags |= EC_FLAG_QUERY_METADATA;
             /* Once we know that an xattrop will be needed,
@@ -1234,11 +1245,11 @@ void ec_get_size_version(ec_lock_link_t *link)
 
         ec_xattrop (fop->frame, fop->xl, fop->mask, fop->minimum,
                     ec_prepare_update_cbk, link, &loc,
-                    GF_XATTROP_ADD_ARRAY64, dict, NULL);
+                    GF_XATTROP_ADD_ARRAY64, dict, xdata);
     } else {
         ec_fxattrop(fop->frame, fop->xl, fop->mask, fop->minimum,
                 ec_prepare_update_cbk, link, lock->fd,
-                GF_XATTROP_ADD_ARRAY64, dict, NULL);
+                GF_XATTROP_ADD_ARRAY64, dict, xdata);
     }
 
     error = 0;
@@ -1251,6 +1262,10 @@ out:
 
     if (dict != NULL) {
         dict_unref(dict);
+    }
+
+    if (xdata != NULL) {
+        dict_unref(xdata);
     }
 
     if (error != 0) {

@@ -515,6 +515,11 @@ _posix_xattr_get_set (dict_t *xattr_req, char *key, data_t *data,
         } else if (strcmp(key, GF_REQUEST_LINK_COUNT_XDATA) == 0) {
                 ret = dict_set (filler->xattr,
                                 GF_REQUEST_LINK_COUNT_XDATA, data);
+        } else if (strcmp (key, GF_GET_SIZE) == 0) {
+                if (filler->stbuf && IA_ISREG (filler->stbuf->ia_type)) {
+                        ret = dict_set_uint64 (filler->xattr, GF_GET_SIZE,
+                                               filler->stbuf->ia_size);
+                }
         } else {
                 ret = _posix_xattr_get_set_from_backend (filler, key);
         }
