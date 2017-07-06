@@ -32,6 +32,7 @@ glusterfs_ctx_new ()
 
         INIT_LIST_HEAD (&ctx->graphs);
 	INIT_LIST_HEAD (&ctx->mempool_list);
+        INIT_LIST_HEAD (&ctx->volfile_list);
 
 	ctx->daemon_pipe[0] = -1;
 	ctx->daemon_pipe[1] = -1;

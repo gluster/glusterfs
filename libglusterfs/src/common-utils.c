@@ -4950,3 +4950,15 @@ gf_getgrouplist (const char *user, gid_t group, gid_t **groups)
         }
         return ret;
 }
+
+int
+glusterfs_compute_sha256 (const unsigned char *content, size_t size,
+                          char *sha256_hash) {
+        SHA256_CTX               sha256;
+
+        SHA256_Init (&sha256);
+        SHA256_Update (&sha256, (const unsigned char *) (content), size);
+        SHA256_Final ((unsigned char *) sha256_hash, &sha256);
+
+        return 0;
+}
