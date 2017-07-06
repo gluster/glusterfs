@@ -5905,7 +5905,7 @@ out:
 
 int
 do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
-            gf_xattrop_flags_t optype, dict_t *xattr)
+            gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
 {
         int                   op_ret    = 0;
         int                   op_errno  = 0;
@@ -5914,7 +5914,9 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         struct posix_fd      *pfd       = NULL;
         inode_t              *inode     = NULL;
         posix_xattr_filler_t  filler    = {0,};
-        dict_t               *xdata     = NULL;
+        dict_t               *xattr_rsp = NULL;
+        dict_t               *xdata_rsp = NULL;
+        struct iatt           stbuf = {0};
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (xattr, out);
@@ -5947,8 +5949,8 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                 inode = fd->inode;
         }
 
-        xdata = dict_new ();
-        if (xdata == NULL) {
+        xattr_rsp = dict_new ();
+        if (xattr_rsp == NULL) {
                 op_ret = -1;
                 op_errno = ENOMEM;
                 goto out;
@@ -5959,19 +5961,43 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         filler.real_path = real_path;
         filler.flags = (int)optype;
         filler.inode = inode;
-        filler.xattr = xdata;
+        filler.xattr = xattr_rsp;
 
         op_ret = dict_foreach (xattr, _posix_handle_xattr_keyvalue_pair,
                                &filler);
         op_errno = filler.op_errno;
+        if (op_ret < 0)
+                goto out;
 
+        if (!xdata)
+                goto out;
+
+        if (fd) {
+                op_ret = posix_fdstat (this, _fd, &stbuf);
+        } else {
+                op_ret = posix_pstat (this, inode->gfid, real_path,
+                                      &stbuf);
+        }
+        if (op_ret < 0) {
+                op_errno = errno;
+                goto out;
+        }
+        xdata_rsp = posix_xattr_fill (this, real_path, loc, fd, _fd,
+                                              xdata, &stbuf);
+        if (!xdata_rsp) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+        }
 out:
 
-        STACK_UNWIND_STRICT (xattrop, frame, op_ret, op_errno, xdata, NULL);
+        STACK_UNWIND_STRICT (xattrop, frame, op_ret, op_errno, xattr_rsp,
+                             xdata_rsp);
 
-        if (xdata)
-                dict_unref (xdata);
+        if (xattr_rsp)
+                dict_unref (xattr_rsp);
 
+        if (xdata_rsp)
+                dict_unref (xdata_rsp);
         return 0;
 }
 
@@ -5980,7 +6006,7 @@ int
 posix_xattrop (call_frame_t *frame, xlator_t *this,
                loc_t *loc, gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
 {
-        do_xattrop (frame, this, loc, NULL, optype, xattr);
+        do_xattrop (frame, this, loc, NULL, optype, xattr, xdata);
         return 0;
 }
 
@@ -5989,7 +6015,7 @@ int
 posix_fxattrop (call_frame_t *frame, xlator_t *this,
                 fd_t *fd, gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
 {
-        do_xattrop (frame, this, NULL, fd, optype, xattr);
+        do_xattrop (frame, this, NULL, fd, optype, xattr, xdata);
         return 0;
 }
 
