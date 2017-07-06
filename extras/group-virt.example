@@ -1,7 +1,6 @@
 performance.quick-read=off
 performance.read-ahead=off
 performance.io-cache=off
-performance.stat-prefetch=off
 performance.low-prio-threads=32
 network.remote-dio=enable
 cluster.eager-lock=enable
