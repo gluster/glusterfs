@@ -680,6 +680,7 @@ posix_pstat (xlator_t *this, uuid_t gfid, const char *path,
         struct stat  lstatbuf = {0, };
         struct iatt  stbuf = {0, };
         int          ret = 0;
+        int          op_errno = 0;
         struct posix_private *priv = NULL;
 
 
@@ -691,22 +692,12 @@ posix_pstat (xlator_t *this, uuid_t gfid, const char *path,
                 posix_fill_gfid_path (this, path, &stbuf);
 
         ret = sys_lstat (path, &lstatbuf);
-
-        if (ret != 0) {
-                if (ret == -1) {
-                        if (errno != ENOENT)
-                                gf_msg (this->name, GF_LOG_WARNING, errno,
-                                        P_MSG_LSTAT_FAILED,
-                                        "lstat failed on %s",
-                                        path);
-                } else {
-                        // may be some backend filesytem issue
-                        gf_msg (this->name, GF_LOG_ERROR, 0, P_MSG_LSTAT_FAILED,
-                                "lstat failed on %s and return value is %d "
-                                "instead of -1. Please see dmesg output to "
-                                "check whether the failure is due to backend "
-                                "filesystem issue", path, ret);
-                        ret = -1;
+        if (ret == -1) {
+                if (errno != ENOENT) {
+                        op_errno = errno;
+                        gf_msg (this->name, GF_LOG_WARNING, errno,
+                                P_MSG_LSTAT_FAILED, "lstat failed on %s", path);
+                        errno = op_errno;/*gf_msg could have changed errno*/
                 }
                 goto out;
         }
