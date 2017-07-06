@@ -986,9 +986,9 @@ TESTER_CFLAGS=""
 dnl include tirpc for FB builds
 if test "x$BUILD_FBEXTRAS" = "xyes"; then
         TIRPC_CFLAGS="-I/usr/include/tirpc"
-        GF_LDFLAGS="-lfbtirpc $GF_LDFLAGS"
-        GF_CFLAGS="$GF_CFLAGS $TIRPC_CFLAGS -DIPV6_DEFAULT -DGF_FBEXTRAS"
-        TESTER_CFLAGS="$TESTER_CFLAGS -lfbtirpc"
+        GF_LDFLAGS="-ltirpc $GF_LDFLAGS"
+        GF_CFLAGS="$TIRPC_CFLAGS $GF_CFLAGS -DIPV6_DEFAULT -DGF_FBEXTRAS"
+        TESTER_CFLAGS="$TESTER_CFLAGS -ltirpc"
 fi
 
 dnl check for gcc -Werror=format-security

@@ -426,6 +426,7 @@ stat -c %s /dev/null > /dev/null 2>&1 || {
 
 function cleanup()
 {
+        cd      # Things go pear-shaped if we're inside a Gluster mount.
 
         # Prepare flags for umount
         case `uname -s` in

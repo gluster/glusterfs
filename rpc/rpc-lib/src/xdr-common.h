@@ -105,4 +105,11 @@ unsigned long xdr_sizeof (xdrproc_t func, void *data);
 
 #define xdr_decoded_length(xdr) (((size_t)(&xdr)->x_private) - ((size_t)(&xdr)->x_base))
 
+/*
+ * The TIRPC headers rather annoyingly don't define this, even though it
+ * actually exists.
+ */
+extern u_long xdr_sizeof (xdrproc_t freebsd_compiler_is_broken,
+                          void *so_is_net_bsd);
+
 #endif

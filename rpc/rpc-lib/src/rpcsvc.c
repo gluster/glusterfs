@@ -44,6 +44,8 @@
 #include "xdr-rpcclnt.h"
 #include "glusterfs-acl.h"
 
+#pragma GCC diagnostic ignored "-Wformat="
+
 struct rpcsvc_program gluster_dump_prog;
 
 #define rpcsvc_alloc_request(svc, request)                              \

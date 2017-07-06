@@ -21,6 +21,8 @@
 #include "xdr-rpc.h"
 #include "rpc-common-xdr.h"
 
+#pragma GCC diagnostic ignored "-Wformat="
+
 void
 rpc_clnt_reply_deinit (struct rpc_req *req, struct mem_pool *pool);
 

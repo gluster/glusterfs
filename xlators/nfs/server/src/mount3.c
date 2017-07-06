@@ -1747,7 +1747,7 @@ mnt3_check_client_net_udp (struct svc_req *req, char *volname, xlator_t *nfsx)
         if ((!req) || (!volname) || (!nfsx))
                 goto err;
 
-        sin = svc_getcaller (req->rq_xprt);
+        sin = (struct sockaddr_in *)svc_getcaller (req->rq_xprt);
         if (!sin)
                 goto err;
 
@@ -2827,7 +2827,8 @@ __mnt3udp_get_export_subdir_inode (struct svc_req *req, char *subdir,
 
         /* AUTH check for subdir i.e. nfs.export-dir */
         if (exp->hostspec) {
-                struct sockaddr_in *sin = svc_getcaller (req->rq_xprt);
+                struct sockaddr_in *sin;
+                sin = (struct sockaddr_in *)svc_getcaller (req->rq_xprt);
                 ret = mnt3_verify_auth (sin, exp);
                 if (ret) {
                         gf_msg (GF_MNT, GF_LOG_ERROR, EACCES,

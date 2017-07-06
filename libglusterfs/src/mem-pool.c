@@ -533,6 +533,7 @@ fwd_addr_out:
 }
 
 
+#ifndef DISABLE_MEMPOOL
 static int
 __is_member (struct mem_pool *pool, void *ptr)
 {
@@ -551,6 +552,7 @@ __is_member (struct mem_pool *pool, void *ptr)
 
         return 1;
 }
+#endif
 
 
 void
