@@ -565,7 +565,7 @@ __afr_selfheal_data_finalize_source (call_frame_t *frame, xlator_t *this,
                                                  healed_sinks, undid_pending,
                                                  AFR_DATA_TRANSACTION,
                                                  locked_on, replies);
-                return source;
+                goto out;
 	}
 
         /* No split brain at this point. If we were called from
