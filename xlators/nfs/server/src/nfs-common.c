@@ -73,8 +73,8 @@ nfs_xlator_to_xlid (xlator_list_t *cl, xlator_t *xl)
 xlator_t *
 nfs_mntpath_to_xlator (xlator_list_t *cl, char *path)
 {
-        char            *volname  = NULL;
-        char            *volptr   = NULL;
+        char            *volname  = NULL; /* volume name only */
+        char            *volptr   = NULL; /* ptr to original volname */
         size_t           pathlen  = -1;
         xlator_t        *targetxl = NULL;
         int              i        = 0;
@@ -82,14 +82,16 @@ nfs_mntpath_to_xlator (xlator_list_t *cl, char *path)
         if ((!cl) || (!path))
                 return NULL;
 
-        volname = strdupa (path);
-        pathlen = strlen (volname);
         gf_msg_trace (GF_NFS, 0, "Subvolume search: %s", path);
-        if (volname[0] == '/')
-                volptr = &volname[1];
-        else
-                volptr = &volname[0];
 
+        volname = volptr = gf_strdup (path);
+        if (!volname)
+                return NULL;
+
+        if (volname[0] == '/')
+                volname++;
+
+        pathlen = strlen (volname);
         for (i = 0; i < pathlen; i++) {
                 if (volname[i] == '/') {
                         volname[i] = '\0';
@@ -98,10 +100,10 @@ nfs_mntpath_to_xlator (xlator_list_t *cl, char *path)
         }
 
         while (cl) {
-                gf_msg_trace (GF_NFS, 0, "Volptr: %s and cl->xlator->name: %s",
-                              volptr, cl->xlator->name);
+                gf_msg_trace (GF_NFS, 0, "Volname: %s and cl->xlator->name: %s",
+                              volname, cl->xlator->name);
 
-                if (strcmp (volptr, cl->xlator->name) == 0) {
+                if (strcmp (volname, cl->xlator->name) == 0) {
                         targetxl = cl->xlator;
                         break;
                 }
@@ -109,8 +111,9 @@ nfs_mntpath_to_xlator (xlator_list_t *cl, char *path)
                 cl = cl->next;
         }
 
-        return targetxl;
+        GF_FREE (volptr);
 
+        return targetxl;
 }
 
 

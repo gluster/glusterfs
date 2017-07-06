@@ -178,4 +178,11 @@ struct mount3_resolve_state {
 
 typedef struct mount3_resolve_state mnt3_resolve_t;
 
+int
+mnt3_parse_dir_exports (rpcsvc_request_t *req, struct mount3_state *ms,
+                        char *subdir, gf_boolean_t send_reply);
+
+char*
+mnt3_get_volume_subdir (char *path, char **volname);
+
 #endif

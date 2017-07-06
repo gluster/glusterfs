@@ -349,44 +349,51 @@ out:
 }
 
 
-static enum nfsstat3
-nfs3_funge_webnfs_zerolen_fh (struct nfs3_state *nfs3st, struct nfs3_fh *fhd,
-                               char *name)
+static int
+nfs3_funge_webnfs_zerolen_fh (rpcsvc_request_t *req, struct nfs3_state *nfs3st,
+                              struct nfs3_fh *fhd, char *name)
 {
-        xlator_t        *fungexl  = NULL;
-        glfs_t          *fs       = NULL;
-        loc_t            loc      = { 0, };
-        enum nfsstat3    nfsstat  = NFS3ERR_SERVERFAULT;
-        int              ret      = -1;
-        size_t           namelen  = -1;
+        xlator_t           *fungexl           = NULL;
+        struct nfs_state   *nfs               = NULL;
+        glfs_t             *fs                = NULL;
+        loc_t               loc               = { 0, };
+        int                 ret               = -1;
+        char               *subdir            = NULL;
+        char                volname[NAME_MAX] = { 0, };
 
         fungexl = nfs_mntpath_to_xlator (nfs3st->exportslist, name);
         if (!fungexl) {
-                nfsstat = NFS3ERR_NOENT;
+                gf_msg_trace (GF_NFS3, 0, "failed to find xlator for volume");
+                ret = -ENOENT;
+                goto out;
+        }
+        /* fungexl is valid, set for nfs3_request_xlator_deviceid() */
+        rpcsvc_request_set_private (req, fungexl);
+
+        /* Permission checks are done through mnt3_parse_dir_exports(). The
+         * "nfs.export-dir" option gets checked as well. */
+        nfs = nfs_state (nfs3st->nfsx);
+        ret = mnt3_parse_dir_exports (req, nfs->mstate, name, _gf_false);
+        if (ret) {
+                gf_msg_trace (GF_NFS3, -ret, "mounting not possible");
                 goto out;
         }
 
         /* glfs_resolve_at copied from UDP MNT support */
         fs = glfs_new_from_ctx (fungexl->ctx);
         if (!fs) {
-                nfsstat = NFS3ERR_NOENT;
+                gf_msg_trace (GF_NFS3, 0, "failed to create glfs instance");
+                ret = -ENOENT;
                 goto out;
         }
 
-        /* strip volname/ from 'name' */
-        namelen = strlen(name);
-        while (namelen != 0) {
-                name++;
-                if (name[0] == '/') {
-                        break;
-                }
-                namelen--;
-        }
-        gf_msg_debug (GF_NFS, 0, "NAME :%s ", name);
+        /* split name "volname/sub/dir/s" into pieces */
+        subdir = mnt3_get_volume_subdir (name, (char**) &volname);
 
-        ret = glfs_resolve_at (fs, fungexl, NULL, name, &loc, NULL, 1, 0);
+        ret = glfs_resolve_at (fs, fungexl, NULL, subdir, &loc, NULL, 1, 0);
         if (ret != 0) {
-                nfsstat = NFS3ERR_NOENT;
+                gf_msg_trace (GF_NFS3, 0, "failed to resolve %s", subdir);
+                ret = -ENOENT;
                 goto out;
         }
 
@@ -399,17 +406,17 @@ nfs3_funge_webnfs_zerolen_fh (struct nfs3_state *nfs3st, struct nfs3_fh *fhd,
                                                         fungexl);
         else {
                 if (__nfs3_get_volume_id (nfs3st, fungexl, fhd->exportid) < 0) {
-                        nfsstat = NFS3ERR_STALE;
+                        ret = -ESTALE;
                         goto out;
                 }
         }
 
-        nfsstat = NFS3_OK;
+        ret = 0;
 out:
         if (fs)
                 glfs_free_from_ctx (fs);
 
-        return nfsstat;
+        return ret;
 }
 
 
@@ -513,8 +520,10 @@ nfs3_solaris_zerolen_fh (struct nfs3_fh *fh, int fhlen)
         if (nfs3_fh_validate (fh))
                 return 0;
 
-        if (fhlen == 0)
+        if (fhlen == 0) {
+                gf_msg_trace (GF_NFS3, 0, "received WebNFS request");
                 return 1;
+        }
 
         return 0;
 }
@@ -1593,8 +1602,8 @@ nfs3_lookup (rpcsvc_request_t *req, struct nfs3_fh *fh, int fhlen, char *name)
                                 name);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         if (nfs3_solaris_zerolen_fh (fh, fhlen)) {
-                stat = nfs3_funge_webnfs_zerolen_fh (nfs3, fh, name);
-                if (stat != NFS3_OK)
+                ret = nfs3_funge_webnfs_zerolen_fh (req, nfs3, fh, name);
+                if (ret < 0)
                         goto nfs3err;
 
                 /* this fh means we're doing a mount, name is no more useful */
@@ -1614,11 +1623,11 @@ nfs3_lookup (rpcsvc_request_t *req, struct nfs3_fh *fh, int fhlen, char *name)
                 gf_msg (GF_NFS, GF_LOG_ERROR, -ret,
                         NFS_MSG_HARD_RESOLVE_FAIL,
                         "failed to start hard resolve");
-                stat = nfs3_errno_to_nfsstat3 (-ret);
         }
 
 nfs3err:
         if (ret < 0) {
+                stat = nfs3_errno_to_nfsstat3 (-ret);
                 nfs3_log_common_res (rpcsvc_request_xid (req),
                                      NFS3_LOOKUP, stat, -ret,
                                      cs ? cs->resolvedloc.path : NULL);
