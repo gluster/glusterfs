@@ -945,7 +945,7 @@ err:
  * we need to strip out the volume name first.
  */
 char *
-__volume_subdir (char *dirpath, char **volname)
+mnt3_get_volume_subdir (char *dirpath, char **volname)
 {
         char    *subdir = NULL;
         int     volname_len = 0;
@@ -1023,10 +1023,6 @@ mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          int32_t op_ret, int32_t op_errno, inode_t *inode,
                          struct iatt *buf, dict_t *xattr,
                          struct iatt *postparent);
-
-int
-mnt3_parse_dir_exports (rpcsvc_request_t *req, struct mount3_state *ms,
-                        char *subdir);
 
 int32_t
 mnt3_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -1310,7 +1306,8 @@ mnt3_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* After the resolving the symlink , parsing should be done
          * for the populated mount path
          */
-        ret = mnt3_parse_dir_exports (mres->req, mres->mstate, real_loc);
+        ret = mnt3_parse_dir_exports (mres->req, mres->mstate, real_loc,
+                                      _gf_true);
 
         if (ret) {
                 gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_RESOLVE_ERROR,
@@ -1518,7 +1515,8 @@ mnt3_verify_auth (struct sockaddr_in *client_addr, struct mnt3_export *export)
 
 int
 mnt3_resolve_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
-                     struct mnt3_export *exp, char *subdir)
+                     struct mnt3_export *exp, char *subdir,
+                     gf_boolean_t send_reply)
 {
         mnt3_resolve_t        *mres = NULL;
         int                   ret = -EFAULT;
@@ -1540,6 +1538,10 @@ mnt3_resolve_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
                         return ret;
                 }
         }
+
+        /* no reply is needed (WebNFS permissions checking), just return */
+        if (!send_reply)
+                return 0; /* no error, mnt3_verify_auth() allowed it */
 
         mres = GF_CALLOC (1, sizeof (mnt3_resolve_t), gf_nfs_mt_mnt3_resolve);
         if (!mres) {
@@ -1585,11 +1587,11 @@ mnt3_resolve_export_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
         if ((!req) || (!ms) || (!exp))
                 return ret;
 
-        volume_subdir = __volume_subdir (exp->expname, NULL);
+        volume_subdir = mnt3_get_volume_subdir (exp->expname, NULL);
         if (!volume_subdir)
                 goto err;
 
-        ret = mnt3_resolve_subdir (req, ms, exp, volume_subdir);
+        ret = mnt3_resolve_subdir (req, ms, exp, volume_subdir, _gf_true);
         if (ret < 0) {
                 gf_msg (GF_MNT, GF_LOG_ERROR, ret, NFS_MSG_RESOLVE_SUBDIR_FAIL,
                         "Failed to resolve export dir: %s", exp->expname);
@@ -1686,7 +1688,7 @@ err:
         return ret;
 }
 
-static int
+int
 mnt3_check_client_net_tcp (rpcsvc_request_t *req, char *volname)
 {
         rpcsvc_t                *svc = NULL;
@@ -1772,25 +1774,41 @@ err:
 
 int
 mnt3_parse_dir_exports (rpcsvc_request_t *req, struct mount3_state *ms,
-                        char *subdir)
+                        char *path, gf_boolean_t send_reply)
 {
         char                    volname[1024] = {0, };
         struct mnt3_export      *exp = NULL;
         char                    *volname_ptr = NULL;
+        char                    *subdir = NULL;
         int                     ret = -ENOENT;
         struct nfs_state        *nfs = NULL;
 
-        if ((!ms) || (!subdir))
+        if ((!ms) || (!path))
                 return -1;
 
         volname_ptr = volname;
-        subdir = __volume_subdir (subdir, &volname_ptr);
-        if (!subdir)
+        subdir = mnt3_get_volume_subdir (path, &volname_ptr);
+        if (!subdir) {
+                gf_msg_trace (GF_MNT, 0, "Could not parse volname/subdir from "
+                              "%s", path);
                 goto err;
+        }
 
-        exp = mnt3_mntpath_to_export (ms, volname, _gf_false);
-        if (!exp)
-                goto err;
+        /* first try to match the full export/subdir */
+        exp = mnt3_mntpath_to_export (ms, path, _gf_false);
+        if (!exp) {
+                gf_msg_trace (GF_MNT, 0, "Could not find exact matching export "
+                              "for path=%s", path);
+                /* if no exact match is found, look for a fallback */
+                exp = mnt3_mntpath_to_export (ms, volname, _gf_true);
+                if (!exp) {
+                        gf_msg_trace (GF_MNT, 0, "Could not find export for "
+                                      "volume %s", volname);
+                        goto err;
+                }
+        }
+        gf_msg_trace (GF_MNT, 0, "volume %s and export %s will be used for "
+                      "path %s", exp->vol->name, exp->expname, path);
 
         nfs = (struct nfs_state *)ms->nfsx->private;
         if (!nfs)
@@ -1809,7 +1827,7 @@ mnt3_parse_dir_exports (rpcsvc_request_t *req, struct mount3_state *ms,
                 goto err;
         }
 
-        ret = mnt3_resolve_subdir (req, ms, exp, subdir);
+        ret = mnt3_resolve_subdir (req, ms, exp, subdir, send_reply);
         if (ret < 0) {
                 gf_msg (GF_MNT, GF_LOG_ERROR, ret, NFS_MSG_RESOLVE_SUBDIR_FAIL,
                         "Failed to resolve export dir: %s", subdir);
@@ -1852,7 +1870,7 @@ mnt3_find_export (rpcsvc_request_t *req, char *path, struct mnt3_export **e)
                 goto err;
         }
 
-        ret = mnt3_parse_dir_exports (req, ms, path);
+        ret = mnt3_parse_dir_exports (req, ms, path, _gf_true);
 
 err:
         return ret;
@@ -2939,7 +2957,7 @@ nfs3_rootfh (struct svc_req *req, xlator_t *nfsx,
          * 3. If a subdir is exported using nfs.export-dir,
          *      then the mount type would be MNT3_EXPTYPE_DIR,
          *      so make sure to find the proper path to be
-         *      resolved using __volume_subdir()
+         *      resolved using mnt3_get_volume_subdir()
          * 3. Make sure subdir export is allowed.
          */
         ms = __mnt3udp_get_mstate(nfsx);
@@ -2962,7 +2980,7 @@ nfs3_rootfh (struct svc_req *req, xlator_t *nfsx,
                         return NULL;
                 }
 
-                path = __volume_subdir (path, &volptr);
+                path = mnt3_get_volume_subdir (path, &volptr);
                 if (exp == NULL)
                         exp = mnt3_mntpath_to_export (ms, volname , _gf_false);
         }
