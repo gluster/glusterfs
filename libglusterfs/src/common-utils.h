@@ -921,4 +921,9 @@ close_fds_except (int *fdv, size_t count);
 
 int
 gf_getgrouplist (const char *user, gid_t group, gid_t **groups);
+
+int
+glusterfs_compute_sha256 (const unsigned char *content, size_t size,
+                          char *sha256_hash);
+
 #endif /* _COMMON_UTILS_H */

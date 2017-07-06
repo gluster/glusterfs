@@ -1559,6 +1559,9 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                                                 break;
                                         }
                                 }
+                                if (victim_found)
+                                        glusterfs_delete_volfile_checksum (ctx,
+                                                 victim->volfile_id);
                         UNLOCK (&ctx->volfile_lock);
                         if (victim_found)
                                 (*trav_p) = (*trav_p)->next;

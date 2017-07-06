@@ -1043,8 +1043,11 @@ enum gf_hdsk_event_notify_op {
 gf_boolean_t
 is_graph_topology_equal (glusterfs_graph_t *graph1, glusterfs_graph_t *graph2);
 int
-glusterfs_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
-                               glusterfs_ctx_t *ctx, const char *oldvolfile);
+glusterfs_volfile_reconfigure (FILE *newvolfile_fp, glusterfs_ctx_t *ctx);
+
+int
+gf_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
+                        glusterfs_ctx_t *ctx, const char *oldvolfile);
 
 int
 loc_touchup (loc_t *loc, const char *name);
@@ -1062,5 +1065,9 @@ void xlator_init_lock (void);
 void xlator_init_unlock (void);
 int
 copy_opts_to_child (xlator_t *src, xlator_t *dst, char *glob);
+
+int
+glusterfs_delete_volfile_checksum (glusterfs_ctx_t *ctx,
+                                   const char *volfile_id);
 
 #endif /* _XLATOR_H */

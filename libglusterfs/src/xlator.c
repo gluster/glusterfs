@@ -1195,3 +1195,29 @@ copy_opts_to_child (xlator_t *src, xlator_t *dst, char *glob)
         return dict_foreach_fnmatch (src->options, glob,
                                      _copy_opt_to_child, dst);
 }
+
+int
+glusterfs_delete_volfile_checksum (glusterfs_ctx_t *ctx,
+                                   const char *volfile_id) {
+
+        gf_volfile_t            *volfile_tmp      = NULL;
+        gf_volfile_t            *volfile_obj      = NULL;
+
+        list_for_each_entry (volfile_tmp,  &ctx->volfile_list,
+                             volfile_list) {
+                if (!strcmp (volfile_id, volfile_tmp->vol_id)) {
+                        list_del_init (&volfile_tmp->volfile_list);
+                        volfile_obj = volfile_tmp;
+                        break;
+                }
+        }
+
+        if (volfile_obj) {
+                GF_FREE (volfile_obj);
+        } else {
+                gf_log (THIS->name, GF_LOG_ERROR, "failed to get volfile "
+                        "checksum for volfile id %s.", volfile_id);
+        }
+
+        return 0;
+}

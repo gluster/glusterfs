@@ -28,6 +28,7 @@
 #include <sys/poll.h>
 #include <pthread.h>
 #include <limits.h> /* For PATH_MAX */
+#include <openssl/sha.h>
 
 #include "glusterfs-fops.h" /* generated XDR values for FOPs */
 
@@ -532,8 +533,18 @@ struct _glusterfs_ctx {
                 gf_atomic_t total_pairs_used;
                 gf_atomic_t total_dicts_used;
         } stats;
+
+        struct list_head volfile_list;
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
+
+typedef struct {
+        char volfile_checksum[SHA256_DIGEST_LENGTH];
+        char vol_id[NAME_MAX+1];
+        struct list_head volfile_list;
+
+} gf_volfile_t;
+
 
 glusterfs_ctx_t *glusterfs_ctx_new (void);
 

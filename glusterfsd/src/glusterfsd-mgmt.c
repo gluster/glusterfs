@@ -1761,12 +1761,6 @@ out:
         return ret;
 }
 
-
-/* XXX: move these into @ctx */
-static char *oldvolfile = NULL;
-static int   oldvollen;
-
-
 int
 mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
                   void *myframe)
@@ -1777,7 +1771,10 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         int                      ret   = 0, locked = 0;
         ssize_t                  size = 0;
         FILE                    *tmpfp = NULL;
-        char                    *volfilebuf = NULL;
+        char                    *volfile_id = NULL;
+        gf_volfile_t            *volfile_obj = NULL;
+        gf_volfile_t            *volfile_tmp = NULL;
+        char                     sha256_hash[SHA256_DIGEST_LENGTH] = {0, };
 
         frame = myframe;
         ctx = frame->this->ctx;
@@ -1804,14 +1801,29 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         ret = 0;
         size = rsp.op_ret;
 
+        glusterfs_compute_sha256 ((const unsigned char *) rsp.spec, size,
+                                  sha256_hash);
+
+        volfile_id = frame->local;
+
         LOCK (&ctx->volfile_lock);
         {
                 locked = 1;
 
-                if (size == oldvollen && (memcmp (oldvolfile, rsp.spec, size) == 0)) {
-                        gf_log (frame->this->name, GF_LOG_INFO,
-                                "No change in volfile, continuing");
-                        goto out;
+                list_for_each_entry (volfile_obj,  &ctx->volfile_list,
+                                     volfile_list) {
+                        if (!strcmp (volfile_id, volfile_obj->vol_id)) {
+                               if (!strncmp (sha256_hash,
+                                      volfile_obj->volfile_checksum,
+                                      sizeof (volfile_obj->volfile_checksum))) {
+                                        gf_log (frame->this->name, GF_LOG_INFO,
+                                                "No change in volfile,"
+                                                "continuing");
+                                        goto out;
+                               }
+                               volfile_tmp = volfile_obj;
+                               break;
+                        }
                 }
 
                 tmpfp = tmpfile ();
@@ -1835,21 +1847,19 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
                  *  return -1(or -ve) =======> Some Internal Error occurred during the operation
                  */
 
-                ret = glusterfs_volfile_reconfigure (oldvollen, tmpfp, ctx, oldvolfile);
+                ret = glusterfs_volfile_reconfigure (tmpfp, ctx);
                 if (ret == 0) {
                         gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
                                 "No need to re-load volfile, reconfigure done");
-                        if (oldvolfile)
-                                volfilebuf = GF_REALLOC (oldvolfile, size);
-                        else
-                                volfilebuf = GF_CALLOC (1, size, gf_common_mt_char);
-                        if (!volfilebuf) {
+                        if (!volfile_tmp) {
                                 ret = -1;
+                                gf_log ("mgmt", GF_LOG_ERROR, "Graph "
+                                        "reconfigure succeeded with out having "
+                                        "checksum.");
                                 goto out;
                         }
-                        oldvolfile = volfilebuf;
-                        oldvollen = size;
-                        memcpy (oldvolfile, rsp.spec, size);
+                        strncpy (volfile_tmp->volfile_checksum, sha256_hash,
+                                 sizeof (volfile_tmp->volfile_checksum));
                         goto out;
                 }
 
@@ -1865,19 +1875,23 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 if (ret)
                         goto out;
 
-                if (oldvolfile)
-                        volfilebuf = GF_REALLOC (oldvolfile, size);
-                else
-                        volfilebuf = GF_CALLOC (1, size, gf_common_mt_char);
+                if (!volfile_tmp) {
+                        volfile_tmp = GF_CALLOC (1, sizeof (gf_volfile_t),
+                                                 gf_common_volfile_t);
+                        if (!volfile_tmp) {
+                                ret = -1;
+                                goto out;
+                        }
 
-                if (!volfilebuf) {
-                        ret = -1;
-                        goto out;
+                        INIT_LIST_HEAD (&volfile_tmp->volfile_list);
+                        list_add (&volfile_tmp->volfile_list,
+                                  &ctx->volfile_list);
+                        snprintf (volfile_tmp->vol_id,
+                                  sizeof (volfile_tmp->vol_id), "%s",
+                                  volfile_id);
                 }
-
-                oldvolfile = volfilebuf;
-                oldvollen = size;
-                memcpy (oldvolfile, rsp.spec, size);
+                strncpy (volfile_tmp->volfile_checksum, sha256_hash,
+                         sizeof (volfile_tmp->volfile_checksum));
         }
         UNLOCK (&ctx->volfile_lock);
 
@@ -1894,7 +1908,11 @@ out:
         if (locked)
                 UNLOCK (&ctx->volfile_lock);
 
-        STACK_DESTROY (frame->root);
+        if (frame) {
+                GF_FREE (frame->local);
+                frame->local = NULL;
+                STACK_DESTROY (frame->root);
+        }
 
         free (rsp.spec);
 
@@ -1941,6 +1959,15 @@ glusterfs_volfile_fetch_one (glusterfs_ctx_t *ctx, char *volfile_id)
 
         req.key = volfile_id;
         req.flags = 0;
+        /*
+         * We are only storing one variable in local, hence using the same
+         * variable. If multiple local variable is required, create a struct.
+         */
+        frame->local = gf_strdup (volfile_id);
+        if (!frame->local) {
+                ret = -1;
+                goto out;
+        }
 
         dict = dict_new ();
         if (!dict) {
@@ -1990,6 +2017,13 @@ out:
         GF_FREE (req.xdata.xdata_val);
         if (dict)
                 dict_unref (dict);
+        if (ret && frame) {
+                /* Free the frame->local fast, because we have not used memget
+                 */
+                GF_FREE (frame->local);
+                frame->local = NULL;
+                STACK_DESTROY (frame->root);
+        }
 
         return ret;
 }

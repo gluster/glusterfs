@@ -832,8 +832,70 @@ out:
  *   return -1(or -ve) =======> Some Internal Error occurred during the operation
  */
 int
-glusterfs_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
-                               glusterfs_ctx_t *ctx, const char *oldvolfile)
+glusterfs_volfile_reconfigure (FILE *newvolfile_fp, glusterfs_ctx_t *ctx)
+{
+        glusterfs_graph_t *oldvolfile_graph = NULL;
+        glusterfs_graph_t *newvolfile_graph = NULL;
+
+        int ret = -1;
+
+        if (!ctx) {
+                gf_msg ("glusterfsd-mgmt", GF_LOG_ERROR, 0, LG_MSG_CTX_NULL,
+                        "ctx is NULL");
+                goto out;
+        }
+
+        oldvolfile_graph = ctx->active;
+        if (!oldvolfile_graph) {
+                ret = 1;
+                goto out;
+        }
+
+        newvolfile_graph = glusterfs_graph_construct (newvolfile_fp);
+
+        if (!newvolfile_graph) {
+                goto out;
+        }
+
+        glusterfs_graph_prepare (newvolfile_graph, ctx,
+                                 ctx->cmd_args.volume_name);
+
+        if (!is_graph_topology_equal (oldvolfile_graph,
+                                      newvolfile_graph)) {
+
+                ret = 1;
+                gf_msg_debug ("glusterfsd-mgmt", 0, "Graph topology not "
+                              "equal(should call INIT)");
+                goto out;
+        }
+
+        gf_msg_debug ("glusterfsd-mgmt", 0, "Only options have changed in the"
+                      " new graph");
+
+        ret = glusterfs_graph_reconfigure (oldvolfile_graph,
+                                           newvolfile_graph);
+        if (ret) {
+                gf_msg_debug ("glusterfsd-mgmt", 0, "Could not reconfigure "
+                              "new options in old graph");
+                goto out;
+        }
+
+        ret = 0;
+out:
+
+        if (newvolfile_graph)
+                glusterfs_graph_destroy (newvolfile_graph);
+
+        return ret;
+}
+
+/* This function need to remove. This added to support gfapi volfile
+ * reconfigure.
+ */
+
+int
+gf_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
+                        glusterfs_ctx_t *ctx, const char *oldvolfile)
 {
         glusterfs_graph_t *oldvolfile_graph = NULL;
         glusterfs_graph_t *newvolfile_graph = NULL;
@@ -855,9 +917,9 @@ glusterfs_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
 
         if (!ctx) {
                 gf_msg ("glusterfsd-mgmt", GF_LOG_ERROR, 0, LG_MSG_CTX_NULL,
-			"ctx is NULL");
-		goto out;
-	}
+                        "ctx is NULL");
+                goto out;
+        }
 
         oldvolfile_graph = ctx->active;
         if (!oldvolfile_graph) {
@@ -908,7 +970,7 @@ glusterfs_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
                 goto out;
         }
 
-	glusterfs_graph_prepare (newvolfile_graph, ctx,
+        glusterfs_graph_prepare (newvolfile_graph, ctx,
                                  ctx->cmd_args.volume_name);
 
         if (!is_graph_topology_equal (oldvolfile_graph,
@@ -951,7 +1013,6 @@ out:
 
         return ret;
 }
-
 
 int
 glusterfs_graph_reconfigure (glusterfs_graph_t *oldgraph,
@@ -1056,18 +1117,55 @@ glusterfs_graph_attach (glusterfs_graph_t *orig_graph, char *path,
         FILE                    *fp;
         glusterfs_graph_t       *graph;
         xlator_t                *xl;
-        char                    *volfile_id;
+        char                    *volfile_id                        = NULL;
+        char                    *volfile_content                   = NULL;
+        struct stat              stbuf                             = {0,};
+        size_t                   file_len                          = -1;
+        gf_volfile_t            *volfile_obj                       = NULL;
+        int                      ret                               = -1;
+        char                     sha256_hash[SHA256_DIGEST_LENGTH] = {0, };
 
         if (!orig_graph) {
                 return -EINVAL;
+        }
+
+        ret = sys_stat (path, &stbuf);
+        if (ret < 0) {
+                gf_log (THIS->name, GF_LOG_ERROR, "Unable to stat %s (%s)",
+                        path, strerror (errno));
+                return -EINVAL;
+        }
+
+        file_len = stbuf.st_size;
+        if (file_len) {
+                volfile_content = GF_CALLOC (file_len+1, sizeof (char),
+                                             gf_common_mt_char);
+                if (!volfile_content) {
+                        return -ENOMEM;
+                }
         }
 
         fp = fopen (path, "r");
         if (!fp) {
                 gf_log (THIS->name, GF_LOG_WARNING,
                         "oops, %s disappeared on us", path);
+                GF_FREE (volfile_content);
                 return -EIO;
         }
+
+        ret = fread (volfile_content, sizeof (char), file_len, fp);
+        if (ret == file_len) {
+              glusterfs_compute_sha256 ((const unsigned char *) volfile_content,
+                                         file_len, sha256_hash);
+        } else {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "read failed on path %s. File size=%"GF_PRI_SIZET
+                        "read size=%d", path, file_len, ret);
+                GF_FREE (volfile_content);
+                return -EIO;
+        }
+
+        GF_FREE (volfile_content);
 
         graph = glusterfs_graph_construct (fp);
         fclose(fp);
@@ -1116,6 +1214,21 @@ glusterfs_graph_attach (glusterfs_graph_t *orig_graph, char *path,
                         "failed to link the graphs for xlator %s ", xl->name);
                 return -EIO;
         }
+
+        if (!volfile_obj) {
+                volfile_obj = GF_CALLOC (1, sizeof (gf_volfile_t),
+                                         gf_common_volfile_t);
+                if (!volfile_obj) {
+                        return -EIO;
+                }
+        }
+
+        INIT_LIST_HEAD (&volfile_obj->volfile_list);
+        snprintf (volfile_obj->vol_id, sizeof (volfile_obj->vol_id),
+                  "%s", xl->volfile_id);
+        strncpy (volfile_obj->volfile_checksum, sha256_hash,
+                 sizeof (volfile_obj->volfile_checksum));
+        list_add (&volfile_obj->volfile_list, &this->ctx->volfile_list);
 
         return 0;
 }

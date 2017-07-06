@@ -650,8 +650,8 @@ glfs_mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 	*  return -1(or -ve) =======> Some Internal Error occurred during the operation
 	*/
 
-	ret = glusterfs_volfile_reconfigure (fs->oldvollen, tmpfp, fs->ctx,
-					     fs->oldvolfile);
+        ret = gf_volfile_reconfigure (fs->oldvollen, tmpfp, fs->ctx,
+                                      fs->oldvolfile);
 	if (ret == 0) {
 		gf_msg_debug ("glusterfsd-mgmt", 0, "No need to re-load "
                               "volfile, reconfigure done");
