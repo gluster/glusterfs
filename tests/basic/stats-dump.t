@@ -28,18 +28,11 @@ done
 sleep 2
 
 # Verify we have non-zero write counts from the bricks, gNFSd
-# and the FUSE mount
-BRICK_OUTPUT="$(grep 'aggr.fop.write.count": "0"' ${GLUSTERD_WORKDIR}/stats/glusterfsd__d_backends_patchy?.dump)"
-BRICK_RET="$?"
-NFSD_OUTPUT="$(grep 'aggr.fop.write.count": "0"'  ${GLUSTERD_WORKDIR}/stats/glusterfs_nfsd.dump)"
-NFSD_RET="$?"
-FUSE_OUTPUT="$(grep 'aggr.fop.write.count": "0"'  ${GLUSTERD_WORKDIR}/stats/glusterfs_patchy.dump)"
-FUSE_RET="$?"
-
-TEST [ 0 -ne "$BRICK_RET" ]
-TEST [ 0 -ne "$NFSD_RET" ]
-TEST [ 0 -ne "$FUSE_RET" ]
+# and the FUSE mount.
+TEST [ $(grep 'aggr.fop.write.count' ${GLUSTERD_WORKDIR}/stats/glusterfs_nfsd.dump|tail -1|cut -d: -f2) != "0," ]
+TEST [ $(grep 'aggr.fop.write.count' ${GLUSTERD_WORKDIR}/stats/glusterfs_patchy.dump|tail -1|cut -d: -f2) != "0," ]
+TEST [ $(grep 'aggr.fop.write.count' ${GLUSTERD_WORKDIR}/stats/glusterfsd__d_backends_patchy0.dump|tail -1|cut -d: -f2) != "0," ]
+TEST [ $(grep 'aggr.fop.write.count' ${GLUSTERD_WORKDIR}/stats/glusterfsd__d_backends_patchy1.dump|tail -1|cut -d: -f2) != "0," ]
+TEST [ $(grep 'aggr.fop.write.count' ${GLUSTERD_WORKDIR}/stats/glusterfsd__d_backends_patchy2.dump|tail -1|cut -d: -f2) != "0," ]
 
 cleanup;
-#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=1468432
-#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=1468432
