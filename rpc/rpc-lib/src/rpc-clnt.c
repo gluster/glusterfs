@@ -32,7 +32,7 @@ __saved_frames_get_timedout (struct saved_frames *frames, uint32_t timeout,
 
 	if (!list_empty(&frames->sf.list)) {
 		tmp = list_entry (frames->sf.list.next, typeof (*tmp), list);
-		if ((tmp->saved_at.tv_sec + timeout) < current->tv_sec) {
+		if ((tmp->saved_at.tv_sec + timeout) <= current->tv_sec) {
 			bailout_frame = tmp;
 			list_del_init (&bailout_frame->list);
 			frames->count--;
