@@ -560,10 +560,24 @@ void
 mem_pools_fini (void)
 {
         pthread_mutex_lock (&init_mutex);
-        GF_ASSERT (init_count > 0);
-        if ((--init_count) == 0) {
+        switch (init_count) {
+        case 0:
+                /*
+                 * If init_count is already zero (as e.g. if somebody called
+                 * this before mem_pools_init) then the sweeper was probably
+                 * never even started so we don't need to stop it.  Even if
+                 * there's some crazy circumstance where there is a sweeper but
+                 * init_count is still zero, that just means we'll leave it
+                 * running.  Not perfect, but far better than any known
+                 * alternative.
+                 */
+                break;
+        case 1:
                 (void) pthread_cancel (sweeper_tid);
                 (void) pthread_join (sweeper_tid, NULL);
+                /* Fall through. */
+        default:
+                --init_count;
         }
         pthread_mutex_unlock (&init_mutex);
 }
