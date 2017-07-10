@@ -753,45 +753,54 @@ pub_glfs_new (const char *volname)
 
         fs = glfs_new_fs (volname);
         if (!fs)
-                return NULL;
+                goto out;
 
         ctx = glusterfs_ctx_new ();
         if (!ctx)
-                goto fini;
+                goto out;
 
         /* first globals init, for gf_mem_acct_enable_set () */
 
         ret = glusterfs_globals_init (ctx);
         if (ret)
-                goto fini;
+                goto out;
 
         old_THIS = THIS;
         ret = glfs_init_global_ctx ();
         if (ret)
-                goto fini;
+                goto out;
 
         /* then ctx_defaults_init, for xlator_mem_acct_init(THIS) */
 
         ret = glusterfs_ctx_defaults_init (ctx);
         if (ret)
-                goto fini;
+                goto out;
 
         fs->ctx = ctx;
 
         ret = glfs_set_logging (fs, "/dev/null", 0);
         if (ret)
-                goto fini;
+                goto out;
 
         fs->ctx->cmd_args.volfile_id = gf_strdup (volname);
-        if (!(fs->ctx->cmd_args.volfile_id))
-                goto fini;
+        if (!(fs->ctx->cmd_args.volfile_id)) {
+                ret = -1;
+                goto out;
+        }
 
-        goto out;
+        ret = 0;
 
-fini:
-         glfs_fini (fs);
-         fs = NULL;
 out:
+        if (ret) {
+                if (fs) {
+                        glfs_fini (fs);
+                        fs = NULL;
+                } else {
+                        /* glfs_fini() calls mem_pools_fini() too */
+                        mem_pools_fini ();
+                }
+        }
+
         if (old_THIS)
                 THIS = old_THIS;
 
