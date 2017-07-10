@@ -293,10 +293,12 @@ dht_check_and_open_fd_on_subvol_complete (int ret, call_frame_t *frame,
         glusterfs_fop_t     fop     = 0;
         dht_local_t        *local   = NULL;
         xlator_t           *subvol  = NULL;
+        xlator_t           *this  = NULL;
         fd_t               *fd      = NULL;
         int                 op_errno = -1;
 
         local = frame->local;
+        this = frame->this;
         fop = local->fop;
         subvol = local->cached_subvol;
         fd = local->fd;
@@ -385,6 +387,11 @@ dht_check_and_open_fd_on_subvol_complete (int ret, call_frame_t *frame,
                 break;
 
         default:
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_UNKNOWN_FOP,
+                        "Unknown FOP on fd (%p) on file %s @ %s",
+                        fd, uuid_utoa (fd->inode->gfid),
+                        subvol->name);
                 break;
 
         }
@@ -445,6 +452,11 @@ handle_err:
                 break;
 
         default:
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_UNKNOWN_FOP,
+                        "Unknown FOP on fd (%p) on file %s @ %s",
+                        fd, uuid_utoa (fd->inode->gfid),
+                        subvol->name);
                 break;
         }
 
@@ -508,6 +520,20 @@ dht_check_and_open_fd_on_subvol_task (void *data)
                         " (%p, flags=0%o) on file %s @ %s",
                         fd, fd->flags, uuid_utoa (fd->inode->gfid),
                         subvol->name);
+                /* This can happen if the cached subvol was updated in the
+                 * inode_ctx and the fd was opened on the new cached suvol
+                 * after this fop was wound on the old cached subvol.
+                 * As we do not close the fd on the old subvol (a leak)
+                 * don't treat ENOENT as an error and allow the phase1/phase2
+                 * checks to handle it.
+                 */
+
+                if ((-ret != ENOENT) && (-ret != ESTALE)) {
+                        local->op_errno = -ret;
+                        ret = -1;
+                } else {
+                        ret = 0;
+                }
 
                 local->op_errno = -ret;
                 ret = -1;

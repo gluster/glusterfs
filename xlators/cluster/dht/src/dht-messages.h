@@ -40,7 +40,7 @@
  */
 
 #define GLFS_DHT_BASE                   GLFS_MSGID_COMP_DHT
-#define GLFS_DHT_NUM_MESSAGES           118
+#define GLFS_DHT_NUM_MESSAGES           125
 #define GLFS_MSGID_END          (GLFS_DHT_BASE + GLFS_DHT_NUM_MESSAGES + 1)
 
 /* Messages with message IDs */
@@ -1084,6 +1084,55 @@
  * @recommendedaction None
  */
 #define DHT_MSG_DIR_LOOKUP_FAILED          (GLFS_DHT_BASE + 118)
+
+/*
+ * @messageid 109119
+ * @diagnosis
+ * @recommendedaction None
+ */
+#define DHT_MSG_INODELK_FAILED          (GLFS_DHT_BASE + 119)
+
+/*
+ * @messageid 109120
+ * @diagnosis
+ * @recommendedaction None
+ */
+#define DHT_MSG_LOCK_FRAME_FAILED          (GLFS_DHT_BASE + 120)
+
+/*
+ * @messageid 109121
+ * @diagnosis
+ * @recommendedaction None
+ */
+#define DHT_MSG_LOCAL_LOCK_INIT_FAILED          (GLFS_DHT_BASE + 121)
+
+/*
+ * @messageid 109122
+ * @diagnosis
+ * @recommendedaction None
+ */
+#define DHT_MSG_ENTRYLK_ERROR          (GLFS_DHT_BASE + 122)
+
+/*
+ * @messageid 109123
+ * @diagnosis
+ * @recommendedaction None
+ */
+#define DHT_MSG_INODELK_ERROR          (GLFS_DHT_BASE + 123)
+
+/*
+ * @messageid 109124
+ * @diagnosis
+ * @recommendedaction None
+ */
+#define DHT_MSG_LOC_FAILED             (GLFS_DHT_BASE + 124)
+
+/*
+ * @messageid 109125
+ * @diagnosis
+ * @recommendedaction None
+ */
+#define DHT_MSG_UNKNOWN_FOP            (GLFS_DHT_BASE + 125)
 
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* _DHT_MESSAGES_H_ */
