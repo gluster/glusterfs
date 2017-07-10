@@ -180,17 +180,17 @@ check_patches_for_coding_style()
     # Kludge: "1>&2 && echo $? || echo $?" is to get around
     #         "-e" from script invocation
     RES=$(git format-patch --stdout origin/${branch}..${head} \
-          | ${check_patch_script} --terse - 1>&2 && echo $? || echo $?)
+          | ${check_patch_script} --strict --terse - 1>&2 && echo $? || echo $?)
     if [ "$RES" -eq 1 ] ; then
         echo "Errors caught, get details by:"
         echo "  git format-patch --stdout  origin/${branch}..${head} \\"
-        echo "  | ${check_patch_script} --gerrit-url ${GERRIT_URL} -"
+        echo "  | ${check_patch_script} --strict --gerrit-url ${GERRIT_URL} -"
         echo "and correct errors"
         exit 1
     elif [ "$RES" -eq 2 ] ; then
-        echo "Warnings caught, get details by:"
+        echo "Warnings or checks caught, get details by:"
         echo "  git format-patch --stdout  origin/${branch}..${head} \\"
-        echo "  | ${check_patch_script} --gerrit-url ${GERRIT_URL} -"
+        echo "  | ${check_patch_script} --strict --gerrit-url ${GERRIT_URL} -"
         echo -n "Do you want to continue anyway [no/yes]: "
         read yesno
         if [ "${yesno}" != "yes" ] ; then
