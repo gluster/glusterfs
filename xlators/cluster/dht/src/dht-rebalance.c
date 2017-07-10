@@ -1599,9 +1599,13 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 }
 
                 syncop_close (dst_fd);
+                dst_fd = NULL;
 
                 old_target = to;
                 to = new_target;
+
+                clean_dst = _gf_false;
+
 
                 /* if the file migration is successful to this new target, then
                  * update the xattr on the old destination to point the new
@@ -1617,6 +1621,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 } else {
                         gf_msg (this->name, GF_LOG_INFO, 0, 0, "destination for file "
                                 "- %s is changed to - %s", loc->path, to->name);
+                        clean_dst = _gf_true;
                 }
         }
 
