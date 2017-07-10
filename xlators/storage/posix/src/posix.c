@@ -4516,6 +4516,12 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (name && posix_is_gfid2path_xattr (name)) {
+                op_ret = -1;
+                op_errno = ENOATTR;
+                goto out;
+        }
+
         if (loc->inode && IA_ISDIR(loc->inode->ia_type) && name &&
             ZR_FILE_CONTENT_REQUEST(name)) {
                 ret = posix_get_file_contents (this, loc->gfid, &name[15],
@@ -4862,6 +4868,11 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                                                   _gf_false);
                 if (ret == -1)
                         goto ignore;
+
+                if (posix_is_gfid2path_xattr (keybuffer)) {
+                        goto ignore;
+                }
+
                 memset (value_buf, '\0', sizeof(value_buf));
                 have_val = _gf_false;
                 size = sys_lgetxattr (real_path, keybuffer, value_buf,
@@ -5420,6 +5431,12 @@ posix_common_removexattr (call_frame_t *frame, loc_t *loc, fd_t *fd,
                 }
                 _fd = pfd->fd;
                 inode = fd->inode;
+        }
+
+        if (posix_is_gfid2path_xattr (name)) {
+                op_ret = -1;
+                *op_errno = ENOATTR;
+                goto out;
         }
 
         if (gf_get_index_by_elem (disallow_removexattrs, (char *)name) >= 0) {

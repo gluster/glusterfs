@@ -22,4 +22,6 @@ posix_set_gfid2path_xattr (xlator_t *, const char *, uuid_t,
 int32_t
 posix_remove_gfid2path_xattr (xlator_t *, const char *, uuid_t,
                               const char *);
+gf_boolean_t
+posix_is_gfid2path_xattr (const char *name);
 #endif /* _POSIX_GFID_PATH_H */

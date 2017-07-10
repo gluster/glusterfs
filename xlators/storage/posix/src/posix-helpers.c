@@ -50,6 +50,7 @@
 #include "glusterfs3-xdr.h"
 #include "hashfn.h"
 #include "glusterfs-acl.h"
+#include "posix-gfid-path.h"
 #include "events.h"
 #include "glusterfsd.h"
 #include <sys/types.h>
@@ -756,6 +757,9 @@ _handle_list_xattr (dict_t *xattr_req, const char *real_path, int fdnum,
                 if (posix_handle_georep_xattrs (NULL, key, NULL, _gf_false))
                         goto next;
 
+                if (posix_is_gfid2path_xattr (key))
+                        goto next;
+
                 if (dict_get (filler->xattr, key))
                         goto next;
 
@@ -1139,6 +1143,9 @@ posix_handle_pair (xlator_t *this, const char *real_path,
         if (XATTR_IS_PATHINFO (key)) {
                 ret = -EACCES;
                 goto out;
+        } else if (posix_is_gfid2path_xattr (key)) {
+                ret = -ENOTSUP;
+                goto out;
         } else if (ZR_FILE_CONTENT_REQUEST(key)) {
                 ret = posix_set_file_contents (this, real_path, key, value,
                                                flags);
@@ -1197,6 +1204,9 @@ posix_fhandle_pair (xlator_t *this, int fd,
 
         if (XATTR_IS_PATHINFO (key)) {
                 ret = -EACCES;
+                goto out;
+        } else if (posix_is_gfid2path_xattr (key)) {
+                ret = -ENOTSUP;
                 goto out;
         } else if (!strncmp(key, POSIX_ACL_ACCESS_XATTR, strlen(key))
                    && stbuf && IS_DHT_LINKFILE_MODE (stbuf)) {
