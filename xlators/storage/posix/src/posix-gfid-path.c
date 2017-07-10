@@ -32,7 +32,8 @@ posix_set_gfid2path_xattr (xlator_t *this, const char *path, uuid_t pgfid,
                   bname);
         gf_xxh64_wrapper ((unsigned char *) pgfid_bname,
                           strlen(pgfid_bname), GF_XXHSUM64_DEFAULT_SEED, xxh64);
-        key_size = strlen(GFID2PATH_XATTR_KEY_PREFIX) + GF_XXH64_DIGEST_LENGTH*2+1;
+        key_size = GFID2PATH_XATTR_KEY_PREFIX_LENGTH +
+                   GF_XXH64_DIGEST_LENGTH*2 + 1;
         key = alloca (key_size);
         snprintf (key, key_size, GFID2PATH_XATTR_KEY_PREFIX"%s", xxh64);
 
@@ -68,7 +69,8 @@ posix_remove_gfid2path_xattr (xlator_t *this, const char *path,
                   bname);
         gf_xxh64_wrapper ((unsigned char *) pgfid_bname,
                           strlen(pgfid_bname), GF_XXHSUM64_DEFAULT_SEED, xxh64);
-        key_size = strlen(GFID2PATH_XATTR_KEY_PREFIX) + GF_XXH64_DIGEST_LENGTH*2+1;
+        key_size = GFID2PATH_XATTR_KEY_PREFIX_LENGTH +
+                   GF_XXH64_DIGEST_LENGTH*2 + 1;
         key = alloca (key_size);
         snprintf (key, key_size, GFID2PATH_XATTR_KEY_PREFIX"%s", xxh64);
 
@@ -82,4 +84,15 @@ posix_remove_gfid2path_xattr (xlator_t *this, const char *path,
         return 0;
  err:
         return -1;
+}
+
+gf_boolean_t
+posix_is_gfid2path_xattr (const char *name)
+{
+        if (name && strncmp (GFID2PATH_XATTR_KEY_PREFIX, name,
+                             GFID2PATH_XATTR_KEY_PREFIX_LENGTH) == 0) {
+                return _gf_true;
+        } else {
+                return _gf_false;
+        }
 }
