@@ -214,6 +214,15 @@ mq_build_ancestry (xlator_t *this, loc_t *loc)
 
         list_for_each_entry (entry, &entries.list, list) {
                 if (__is_root_gfid (entry->inode->gfid)) {
+                        /* The list contains a sub-list for each possible path
+                         * to the target inode. Each sub-list starts with the
+                         * root entry of the tree and is followed by the child
+                         * entries for a particular path to the target entry.
+                         * The root entry is an implied sub-list delimiter,
+                         * as it denotes we have started processing a new path.
+                         * Reset the parent pointer and continue
+                         */
+
                         tmp_parent = NULL;
                 } else {
                         linked_inode = inode_link (entry->inode, tmp_parent,
@@ -240,7 +249,14 @@ mq_build_ancestry (xlator_t *this, loc_t *loc)
                         goto out;
                 }
 
-                tmp_parent = entry->inode;
+                /* For non-directory, posix_get_ancestry_non_directory returns
+                 * all hard-links that are represented by nodes adjacent to
+                 * each other in the dentry-list.
+                 * (Unlike the directory case where adjacent nodes either have
+                 *  a parent/child relationship or belong to different paths).
+                 */
+                if (entry->inode->ia_type == IA_IFDIR)
+                        tmp_parent = entry->inode;
         }
 
         if (loc->parent)
