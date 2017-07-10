@@ -801,7 +801,15 @@ quota_build_ancestry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         quota_fill_inodectx (this, entry->inode, entry->dict,
                                              &loc, &entry->d_stat, &op_errno);
 
-                        tmp_parent = entry->inode;
+                        /* For non-directory, posix_get_ancestry_non_directory
+                         * returns all hard-links that are represented by nodes
+                         * adjacent to each other in the dentry-list.
+                         * (Unlike the directory case where adjacent nodes
+                         * either have a parent/child relationship or belong to
+                         * different paths).
+                         */
+                        if (entry->inode->ia_type == IA_IFDIR)
+                                tmp_parent = entry->inode;
 
                         loc_wipe (&loc);
                 }
