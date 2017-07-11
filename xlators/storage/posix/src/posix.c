@@ -836,6 +836,10 @@ posix_do_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
         ret = sys_fallocate (pfd->fd, flags, offset, len);
         if (ret == -1) {
                 ret = -errno;
+                gf_msg (this->name, GF_LOG_ERROR, -ret, P_MSG_FALLOCATE_FAILED,
+                        "fallocate failed on %s offset: %jd, "
+                        "len:%zu, flags: %d", uuid_utoa (fd->inode->gfid),
+                        offset, len, flags);
                 goto out;
         }
 

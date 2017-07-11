@@ -11,6 +11,7 @@
 #include "syscall.h"
 #include "compat.h"
 #include "mem-pool.h"
+#include "libglusterfs-messages.h"
 
 #include <sys/types.h>
 #include <utime.h>
@@ -19,24 +20,73 @@
 #include <unistd.h>
 #include <stdarg.h>
 
+#define FS_ERROR_LOG(result)                                                   \
+        do {                                                                   \
+                gf_msg_callingfn ("FS", GF_LOG_CRITICAL, EIO,                  \
+                                  LG_MSG_SYSCALL_RETURNS_WRONG,                \
+                                  "returned %zd for the syscall",              \
+                                  (ssize_t)result);                            \
+        } while (0)
+
+
+/*
+ * Input to these macros is generally a function call, so capture the result
+ * i.e. (_ret) in another variable and use that instead of using _ret again
+ */
+#define FS_RET_CHECK(_ret, err)                                        \
+({                                                                     \
+        typeof(_ret) _result = (_ret);                                 \
+        if (_result < -1) {                                            \
+                FS_ERROR_LOG (_result);                                \
+                _result = -1;                                          \
+                err = EIO;                                             \
+        }                                                              \
+        _result;                                                       \
+ })
+
+#define FS_RET_CHECK0(_ret, err)                                       \
+({                                                                     \
+        typeof(_ret) _result0 = (_ret);                                \
+        if (_result0 < -1 || _result0 > 0) {                           \
+                FS_ERROR_LOG (_result0);                               \
+                _result0 = -1;                                         \
+                err = EIO;                                             \
+        }                                                              \
+        _result0;                                                      \
+})
+
+#define FS_RET_CHECK_ERRNO(_ret, err)                                  \
+({                                                                     \
+        typeof(_ret) _result1 = (_ret);                                \
+        if (_result1 < 0) {                                            \
+                FS_ERROR_LOG (_result1);                               \
+                _result1 = -1;                                         \
+                err = EIO;                                             \
+        } else if (_result1 > 0) {                                     \
+                err = _result1;                                        \
+                _result1 = -1;                                         \
+        }                                                              \
+        _result1;                                                      \
+})
+
 int
 sys_lstat (const char *path, struct stat *buf)
 {
-        return lstat (path, buf);
+        return FS_RET_CHECK0(lstat (path, buf), errno);
 }
 
 
 int
 sys_stat (const char *path, struct stat *buf)
 {
-        return stat (path, buf);
+        return FS_RET_CHECK0(stat (path, buf), errno);
 }
 
 
 int
 sys_fstat (int fd, struct stat *buf)
 {
-        return fstat (fd, buf);
+        return FS_RET_CHECK0(fstat (fd, buf), errno);
 }
 
 
@@ -47,11 +97,11 @@ sys_fstatat(int dirfd, const char *pathname, struct stat *buf, int flags)
         if (fchdir(dirfd) < 0)
                 return -1;
         if(flags & AT_SYMLINK_NOFOLLOW)
-                return lstat(pathname, buf);
+                return FS_RET_CHECK0(lstat(pathname, buf), errno);
         else
-                return stat(pathname, buf);
+                return FS_RET_CHECK0(stat(pathname, buf), errno);
 #else
-        return fstatat (dirfd, pathname, buf, flags);
+        return FS_RET_CHECK0(fstatat (dirfd, pathname, buf, flags), errno);
 #endif
 }
 
@@ -84,14 +134,14 @@ sys_openat(int dirfd, const char *pathname, int flags, int mode)
 #endif /* __FreeBSD__ */
 #endif /* !GF_DARWIN_HOST_OS */
 
-        return fd;
+        return FS_RET_CHECK(fd, errno);
 }
 
 
 int
 sys_open(const char *pathname, int flags, int mode)
 {
-        return sys_openat(AT_FDCWD, pathname, flags, mode);
+        return FS_RET_CHECK(sys_openat(AT_FDCWD, pathname, flags, mode), errno);
 }
 
 
@@ -106,9 +156,9 @@ int sys_mkdirat(int dirfd, const char *pathname, mode_t mode)
 #ifdef GF_DARWIN_HOST_OS
         if(fchdir(dirfd) < 0)
                 return -1;
-        return mkdir(pathname, mode);
+        return FS_RET_CHECK0(mkdir(pathname, mode), errno);
 #else
-        return mkdirat (dirfd, pathname, mode);
+        return FS_RET_CHECK0(mkdirat (dirfd, pathname, mode), errno);
 #endif
 }
 
@@ -139,28 +189,28 @@ sys_readdir (DIR *dir, struct dirent *de)
 ssize_t
 sys_readlink (const char *path, char *buf, size_t bufsiz)
 {
-        return readlink (path, buf, bufsiz);
+        return FS_RET_CHECK(readlink (path, buf, bufsiz), errno);
 }
 
 
 int
 sys_closedir (DIR *dir)
 {
-        return closedir (dir);
+        return FS_RET_CHECK0(closedir (dir), errno);
 }
 
 
 int
 sys_mknod (const char *pathname, mode_t mode, dev_t dev)
 {
-        return mknod (pathname, mode, dev);
+        return FS_RET_CHECK0(mknod (pathname, mode, dev), errno);
 }
 
 
 int
 sys_mkdir (const char *pathname, mode_t mode)
 {
-        return mkdir (pathname, mode);
+        return FS_RET_CHECK0(mkdir (pathname, mode), errno);
 }
 
 
@@ -168,23 +218,23 @@ int
 sys_unlink (const char *pathname)
 {
 #ifdef GF_SOLARIS_HOST_OS
-        return solaris_unlink (pathname);
+        return FS_RET_CHECK0(solaris_unlink (pathname), errno);
 #endif
-        return unlink (pathname);
+        return FS_RET_CHECK0(unlink (pathname), errno);
 }
 
 
 int
 sys_rmdir (const char *pathname)
 {
-        return rmdir (pathname);
+        return FS_RET_CHECK0(rmdir (pathname), errno);
 }
 
 
 int
 sys_symlink (const char *oldpath, const char *newpath)
 {
-        return symlink (oldpath, newpath);
+        return FS_RET_CHECK0(symlink (oldpath, newpath), errno);
 }
 
 
@@ -192,9 +242,9 @@ int
 sys_rename (const char *oldpath, const char *newpath)
 {
 #ifdef GF_SOLARIS_HOST_OS
-        return solaris_rename (oldpath, newpath);
+        return FS_RET_CHECK0(solaris_rename (oldpath, newpath), errno);
 #endif
-        return rename (oldpath, newpath);
+        return FS_RET_CHECK0(rename (oldpath, newpath), errno);
 }
 
 
@@ -209,9 +259,10 @@ sys_link (const char *oldpath, const char *newpath)
 	 * symlink instead of its target when the AT_SYMLINK_FOLLOW
 	 * flag is not supplied.
 	 */
-        return linkat (AT_FDCWD, oldpath, AT_FDCWD, newpath, 0);
+        return FS_RET_CHECK0(linkat (AT_FDCWD, oldpath, AT_FDCWD, newpath, 0),
+                             errno);
 #else
-        return link (oldpath, newpath);
+        return FS_RET_CHECK0(link (oldpath, newpath), errno);
 #endif
 }
 
@@ -219,56 +270,56 @@ sys_link (const char *oldpath, const char *newpath)
 int
 sys_chmod (const char *path, mode_t mode)
 {
-        return chmod (path, mode);
+        return FS_RET_CHECK0(chmod (path, mode), errno);
 }
 
 
 int
 sys_fchmod (int fd, mode_t mode)
 {
-        return fchmod (fd, mode);
+        return FS_RET_CHECK0(fchmod (fd, mode), errno);
 }
 
 
 int
 sys_chown (const char *path, uid_t owner, gid_t group)
 {
-        return chown (path, owner, group);
+        return FS_RET_CHECK0(chown (path, owner, group), errno);
 }
 
 
 int
 sys_fchown (int fd, uid_t owner, gid_t group)
 {
-        return fchown (fd, owner, group);
+        return FS_RET_CHECK0(fchown (fd, owner, group), errno);
 }
 
 
 int
 sys_lchown (const char *path, uid_t owner, gid_t group)
 {
-        return lchown (path, owner, group);
+        return FS_RET_CHECK0(lchown (path, owner, group), errno);
 }
 
 
 int
 sys_truncate (const char *path, off_t length)
 {
-        return truncate (path, length);
+        return FS_RET_CHECK0(truncate (path, length), errno);
 }
 
 
 int
 sys_ftruncate (int fd, off_t length)
 {
-        return ftruncate (fd, length);
+        return FS_RET_CHECK0(ftruncate (fd, length), errno);
 }
 
 
 int
 sys_utimes (const char *filename, const struct timeval times[2])
 {
-        return utimes (filename, times);
+        return FS_RET_CHECK0(utimes (filename, times), errno);
 }
 
 
@@ -277,7 +328,7 @@ int
 sys_utimensat (int dirfd, const char *filename, const struct timespec times[2],
                int flags)
 {
-        return utimensat (dirfd, filename, times, flags);
+        return FS_RET_CHECK0(utimensat (dirfd, filename, times, flags), errno);
 }
 #endif
 
@@ -292,70 +343,71 @@ sys_futimes (int fd, const struct timeval times[2])
 int
 sys_creat (const char *pathname, mode_t mode)
 {
-        return sys_open(pathname, O_CREAT | O_TRUNC | O_WRONLY, mode);
+        return FS_RET_CHECK(sys_open(pathname, O_CREAT | O_TRUNC | O_WRONLY,
+                                     mode), errno);
 }
 
 
 ssize_t
 sys_readv (int fd, const struct iovec *iov, int iovcnt)
 {
-        return readv (fd, iov, iovcnt);
+        return FS_RET_CHECK(readv (fd, iov, iovcnt), errno);
 }
 
 
 ssize_t
 sys_writev (int fd, const struct iovec *iov, int iovcnt)
 {
-        return writev (fd, iov, iovcnt);
+        return FS_RET_CHECK(writev (fd, iov, iovcnt), errno);
 }
 
 
 ssize_t
 sys_read (int fd, void *buf, size_t count)
 {
-        return read (fd, buf, count);
+        return FS_RET_CHECK(read (fd, buf, count), errno);
 }
 
 
 ssize_t
 sys_write (int fd, const void *buf, size_t count)
 {
-        return write (fd, buf, count);
+        return FS_RET_CHECK(write (fd, buf, count), errno);
 }
 
 
 ssize_t
 sys_preadv (int fd, const struct iovec *iov, int iovcnt, off_t offset)
 {
-        return preadv (fd, iov, iovcnt, offset);
+        return FS_RET_CHECK(preadv (fd, iov, iovcnt, offset), errno);
 }
 
 
 ssize_t
 sys_pwritev (int fd, const struct iovec *iov, int iovcnt, off_t offset)
 {
-        return pwritev (fd, iov, iovcnt, offset);
+        return FS_RET_CHECK(pwritev (fd, iov, iovcnt, offset), errno);
 }
 
 
 ssize_t
 sys_pread (int fd, void *buf, size_t count, off_t offset)
 {
-        return pread (fd, buf, count, offset);
+        return FS_RET_CHECK(pread (fd, buf, count, offset), errno);
 }
 
 
 ssize_t
 sys_pwrite (int fd, const void *buf, size_t count, off_t offset)
 {
-        return pwrite (fd, buf, count, offset);
+        return FS_RET_CHECK(pwrite (fd, buf, count, offset), errno);
 }
 
 
 off_t
 sys_lseek (int fd, off_t offset, int whence)
 {
-        return lseek (fd, offset, whence);
+        return FS_RET_CHECK(lseek (fd, offset, whence), errno);
 }
 
 
@@ -375,7 +427,7 @@ sys_statvfs (const char *path, struct statvfs *buf)
         }
 #endif /* __FreeBSD__ */
 
-        return ret;
+        return FS_RET_CHECK0(ret, errno);
 }
 
 
@@ -395,7 +447,7 @@ sys_fstatvfs (int fd, struct statvfs *buf)
         }
 #endif /* __FreeBSD__ */
 
-        return ret;
+        return FS_RET_CHECK0(ret, errno);
 }
 
 
@@ -407,14 +459,14 @@ sys_close (int fd)
         if (fd >= 0)
                 ret = close (fd);
 
-        return ret;
+        return FS_RET_CHECK0(ret, errno);
 }
 
 
 int
 sys_fsync (int fd)
 {
-        return fsync (fd);
+        return FS_RET_CHECK0(fsync (fd), errno);
 }
 
 
@@ -422,11 +474,11 @@ int
 sys_fdatasync (int fd)
 {
 #ifdef GF_DARWIN_HOST_OS
-        return fcntl (fd, F_FULLFSYNC);
+        return FS_RET_CHECK0(fcntl (fd, F_FULLFSYNC), errno);
 #elif __FreeBSD__
-	return fsync (fd);
+	return FS_RET_CHECK0(fsync (fd), errno);
 #else
-        return fdatasync (fd);
+        return FS_RET_CHECK0(fdatasync (fd), errno);
 #endif
 }
 
@@ -467,24 +519,26 @@ sys_lsetxattr (const char *path, const char *name, const void *value,
 {
 
 #if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
-        return lsetxattr (path, name, value, size, flags);
+        return FS_RET_CHECK0(lsetxattr (path, name, value, size, flags), errno);
 #endif
 
 #ifdef GF_BSD_HOST_OS
-        return extattr_set_link (path, EXTATTR_NAMESPACE_USER,
-                                 name, value, size);
+        return FS_RET_CHECK0(extattr_set_link (path, EXTATTR_NAMESPACE_USER,
+                             name, value, size), errno);
 #endif
 
 #ifdef GF_SOLARIS_HOST_OS
-        return solaris_setxattr (path, name, value, size, flags);
+        return FS_RET_CHECK0(solaris_setxattr (path, name, value, size, flags),
+                             errno);
 #endif
 
 #ifdef GF_DARWIN_HOST_OS
         /* OS X clients will carry other flags, which will be used on a
            OS X host, but masked out on others. GF assume NOFOLLOW on Linux,
            enforcing  */
-        return setxattr (path, name, value, size, 0,
-                         (flags & ~XATTR_NOSECURITY) | XATTR_NOFOLLOW);
+        return FS_RET_CHECK0(setxattr (path, name, value, size, 0,
+                             (flags & ~XATTR_NOSECURITY) | XATTR_NOFOLLOW),
+                             errno);
 #endif
 
 }
@@ -495,22 +549,24 @@ sys_llistxattr (const char *path, char *list, size_t size)
 {
 
 #if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
-        return llistxattr (path, list, size);
+        return FS_RET_CHECK(llistxattr (path, list, size), errno);
 #endif
 
 #ifdef GF_BSD_HOST_OS
-        ssize_t ret = extattr_list_link (path, EXTATTR_NAMESPACE_USER,
-                                         list, size);
+        ssize_t ret = FS_RET_CHECK(extattr_list_link (path,
+                                                      EXTATTR_NAMESPACE_USER,
+                                                      list, size), errno);
         gf_extattr_list_reshape (list, ret);
         return ret;
 #endif
 
 #ifdef GF_SOLARIS_HOST_OS
-        return solaris_listxattr (path, list, size);
+        return FS_RET_CHECK(solaris_listxattr (path, list, size), errno);
 #endif
 
 #ifdef GF_DARWIN_HOST_OS
-        return listxattr (path, list, size, XATTR_NOFOLLOW);
+        return FS_RET_CHECK(listxattr (path, list, size, XATTR_NOFOLLOW),
+                            errno);
 #endif
 }
 
@@ -519,20 +575,21 @@ sys_lgetxattr (const char *path, const char *name, void *value, size_t size)
 {
 
 #if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
-        return lgetxattr (path, name, value, size);
+        return FS_RET_CHECK(lgetxattr (path, name, value, size), errno);
 #endif
 
 #ifdef GF_BSD_HOST_OS
-        return extattr_get_link (path, EXTATTR_NAMESPACE_USER, name, value,
-                                 size);
+        return FS_RET_CHECK(extattr_get_link (path, EXTATTR_NAMESPACE_USER,
+                                              name, value, size), errno);
 #endif
 
 #ifdef GF_SOLARIS_HOST_OS
-        return solaris_getxattr (path, name, value, size);
+        return FS_RET_CHECK(solaris_getxattr (path, name, value, size), errno);
 #endif
 
 #ifdef GF_DARWIN_HOST_OS
-         return getxattr (path, name, value, size, 0, XATTR_NOFOLLOW);
+         return FS_RET_CHECK(getxattr (path, name, value, size, 0,
+                                       XATTR_NOFOLLOW), errno);
 #endif
 
 }
@@ -543,20 +600,22 @@ sys_fgetxattr (int filedes, const char *name, void *value, size_t size)
 {
 
 #if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
-        return fgetxattr (filedes, name, value, size);
+        return FS_RET_CHECK(fgetxattr (filedes, name, value, size), errno);
 #endif
 
 #ifdef GF_BSD_HOST_OS
-        return extattr_get_fd (filedes, EXTATTR_NAMESPACE_USER, name,
-                               value, size);
+        return FS_RET_CHECK(extattr_get_fd (filedes, EXTATTR_NAMESPACE_USER,
+                            name, value, size), errno);
 #endif
 
 #ifdef GF_SOLARIS_HOST_OS
-        return solaris_fgetxattr (filedes, name, value, size);
+        return FS_RET_CHECK(solaris_fgetxattr (filedes, name, value, size),
+                            errno);
 #endif
 
 #ifdef GF_DARWIN_HOST_OS
-        return fgetxattr (filedes, name, value, size, 0, 0);
+        return FS_RET_CHECK(fgetxattr (filedes, name, value, size, 0, 0),
+                            errno);
 #endif
 
 }
@@ -566,19 +625,20 @@ sys_fremovexattr (int filedes, const char *name)
 {
 
 #if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
-        return fremovexattr (filedes, name);
+        return FS_RET_CHECK0(fremovexattr (filedes, name), errno);
 #endif
 
 #ifdef GF_BSD_HOST_OS
-        return extattr_delete_fd (filedes, EXTATTR_NAMESPACE_USER, name);
+        return FS_RET_CHECK0(extattr_delete_fd (filedes, EXTATTR_NAMESPACE_USER,
+                                                name), errno);
 #endif
 
 #ifdef GF_SOLARIS_HOST_OS
-        return solaris_fremovexattr (filedes, name);
+        return FS_RET_CHECK0(solaris_fremovexattr (filedes, name), errno);
 #endif
 
 #ifdef GF_DARWIN_HOST_OS
-        return fremovexattr (filedes, name, 0);
+        return FS_RET_CHECK0(fremovexattr (filedes, name, 0), errno);
 #endif
 }
 
@@ -589,21 +649,23 @@ sys_fsetxattr (int filedes, const char *name, const void *value,
 {
 
 #if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
-        return fsetxattr (filedes, name, value, size, flags);
+        return FS_RET_CHECK0(fsetxattr (filedes, name, value, size, flags),
+                             errno);
 #endif
 
 #ifdef GF_BSD_HOST_OS
-        return extattr_set_fd (filedes, EXTATTR_NAMESPACE_USER, name,
-                               value, size);
+        return FS_RET_CHECK0(extattr_set_fd (filedes, EXTATTR_NAMESPACE_USER,
+                                             name, value, size), errno);
 #endif
 
 #ifdef GF_SOLARIS_HOST_OS
-        return solaris_fsetxattr (filedes, name, value, size, flags);
+        return FS_RET_CHECK0(solaris_fsetxattr (filedes, name, value, size,
+                                                flags), errno);
 #endif
 
 #ifdef GF_DARWIN_HOST_OS
-        return fsetxattr (filedes, name, value, size, 0,
-                          flags & ~XATTR_NOSECURITY);
+        return FS_RET_CHECK0(fsetxattr (filedes, name, value, size, 0,
+                                        flags & ~XATTR_NOSECURITY), errno);
 #endif
 
 }
@@ -614,22 +676,24 @@ sys_flistxattr (int filedes, char *list, size_t size)
 {
 
 #if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
-        return flistxattr (filedes, list, size);
+        return FS_RET_CHECK(flistxattr (filedes, list, size), errno);
 #endif
 
 #ifdef GF_BSD_HOST_OS
-        ssize_t ret = extattr_list_fd (filedes, EXTATTR_NAMESPACE_USER,
-                                       list, size);
+        ssize_t ret = FS_RET_CHECK (extattr_list_fd (filedes,
+                                                     EXTATTR_NAMESPACE_USER,
+                                                     list, size), errno);
         gf_extattr_list_reshape (list, ret);
         return ret;
 #endif
 
 #ifdef GF_SOLARIS_HOST_OS
-        return solaris_flistxattr (filedes, list, size);
+        return FS_RET_CHECK(solaris_flistxattr (filedes, list, size), errno);
 #endif
 
 #ifdef GF_DARWIN_HOST_OS
-        return flistxattr (filedes, list, size, XATTR_NOFOLLOW);
+        return FS_RET_CHECK(flistxattr (filedes, list, size, XATTR_NOFOLLOW),
+                            errno);
 #endif
 
 }
@@ -640,19 +704,20 @@ sys_lremovexattr (const char *path, const char *name)
 {
 
 #if defined(GF_LINUX_HOST_OS) || defined(__NetBSD__)
-        return lremovexattr (path, name);
+        return FS_RET_CHECK0(lremovexattr (path, name), errno);
 #endif
 
 #ifdef GF_BSD_HOST_OS
-        return extattr_delete_link (path, EXTATTR_NAMESPACE_USER, name);
+        return FS_RET_CHECK0(extattr_delete_link (path, EXTATTR_NAMESPACE_USER,
+                                                  name), errno);
 #endif
 
 #ifdef GF_SOLARIS_HOST_OS
-        return solaris_removexattr (path, name);
+        return FS_RET_CHECK0(solaris_removexattr (path, name), errno);
 #endif
 
 #ifdef GF_DARWIN_HOST_OS
-        return removexattr (path, name, XATTR_NOFOLLOW);
+        return FS_RET_CHECK0(removexattr (path, name, XATTR_NOFOLLOW), errno);
 #endif
 
 }
@@ -661,7 +726,7 @@ sys_lremovexattr (const char *path, const char *name)
 int
 sys_access (const char *pathname, int mode)
 {
-        return access (pathname, mode);
+        return FS_RET_CHECK0(access (pathname, mode), errno);
 }
 
 
@@ -669,7 +734,7 @@ int
 sys_fallocate(int fd, int mode, off_t offset, off_t len)
 {
 #ifdef HAVE_FALLOCATE
-        return fallocate(fd, mode, offset, len);
+        return FS_RET_CHECK0(fallocate(fd, mode, offset, len), errno);
 #endif
 
 #ifdef HAVE_POSIX_FALLOCATE
@@ -679,7 +744,7 @@ sys_fallocate(int fd, int mode, off_t offset, off_t len)
                 return -1;
         }
 
-        return posix_fallocate(fd, offset, len);
+        return FS_RET_CHECK_ERRNO(posix_fallocate(fd, offset, len), errno);
 #endif
 
 #if defined(F_ALLOCATECONTIG) && defined(GF_DARWIN_HOST_OS)
@@ -720,7 +785,7 @@ sys_fallocate(int fd, int mode, off_t offset, off_t len)
         }
         if (ret == -1)
                 return ret;
-        return ftruncate (fd, offset + len);
+        return FS_RET_CHECK0(ftruncate (fd, offset + len), errno);
 #endif
         errno = ENOSYS;
         return -1;
