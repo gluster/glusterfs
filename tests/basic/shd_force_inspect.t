@@ -15,8 +15,9 @@ TEST $CLI volume set $V0 cluster.choose-local off
 TEST $CLI volume set $V0 cluster.self-heal-daemon on
 TEST $CLI volume set $V0 nfs.disable on
 TEST $CLI volume set $V0 cluster.quorum-type none
-TEST $CLI volume set $V0 cluster.favorite-child-by-majority on
-TEST $CLI volume set $V0 cluster.favorite-child-by-mtime on
+TEST $CLI volume set $V0 cluster.favorite-child-policy majority
+#EST $CLI volume set $V0 cluster.favorite-child-by-majority on
+#EST $CLI volume set $V0 cluster.favorite-child-by-mtime on
 TEST $CLI volume set $V0 cluster.metadata-self-heal off
 TEST $CLI volume set $V0 cluster.data-self-heal off
 TEST $CLI volume set $V0 cluster.entry-self-heal off
@@ -52,7 +53,7 @@ touch $B0/${V0}3/.glusterfs/indices/xattrop/$GFID_PARENT_FORMATTED
 
 # Kick off the SHD and wait 30 seconds for healing to take place
 TEST gluster vol start patchy force
-EXPECT_WITHIN 30 "0" afr_get_pending_heal_count $V0
+EXPECT_WITHIN 30 "0" get_pending_heal_count $V0
 
 # Verify the file was healed back to brick 1
 TEST stat $B0/${V0}1/foo/testfile
