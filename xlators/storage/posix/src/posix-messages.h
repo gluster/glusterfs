@@ -45,7 +45,8 @@
  */
 
 #define POSIX_COMP_BASE         GLFS_MSGID_COMP_POSIX
-#define GLFS_NUM_MESSAGES       112
+
+#define GLFS_NUM_MESSAGES       113
 #define GLFS_MSGID_END          (POSIX_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
 #define glfs_msg_start_x POSIX_COMP_BASE, "Invalid: Start of messages"
@@ -954,8 +955,16 @@
  *
  */
 
-
 #define P_MSG_DISK_SPACE_CHECK_FAILED             (POSIX_COMP_BASE + 112)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+
+#define P_MSG_FALLOCATE_FAILED                    (POSIX_COMP_BASE + 113)
 
 /*!
  * @messageid

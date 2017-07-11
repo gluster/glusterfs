@@ -37,7 +37,7 @@
 
 #define GLFS_LG_BASE            GLFS_MSGID_COMP_LIBGLUSTERFS
 
-#define GLFS_LG_NUM_MESSAGES    211
+#define GLFS_LG_NUM_MESSAGES    212
 
 #define GLFS_LG_MSGID_END       (GLFS_LG_BASE + GLFS_LG_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
@@ -1802,6 +1802,15 @@
  */
 
 #define LG_MSG_PTHREAD_NAMING_FAILED                     (GLFS_LG_BASE + 211)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+
+#define LG_MSG_SYSCALL_RETURNS_WRONG                     (GLFS_LG_BASE + 212)
 
 /*!
  * @messageid
