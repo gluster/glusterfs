@@ -276,8 +276,7 @@ be converted to "0" in dht_migrate_file.
 */
 
 int32_t
-gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
-                           struct iatt *stbuf, int *fop_errno)
+gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, int *fop_errno)
 {
         int32_t                 ret             = -1;
         xlator_t               *cached_subvol   = NULL;
@@ -289,15 +288,15 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
         dht_conf_t             *conf            = NULL;
         gf_loglevel_t          loglevel         = 0;
         dict_t                 *link_xattr      = NULL;
-
+        dict_t                 *dict            = NULL;
+        dict_t                 *xattr_rsp       = NULL;
+        struct iatt             stbuf                   = {0,};
 
         *fop_errno = EINVAL;
 
         GF_VALIDATE_OR_GOTO ("defrag", loc, out);
         GF_VALIDATE_OR_GOTO ("defrag", loc->name, out);
-        GF_VALIDATE_OR_GOTO ("defrag", stbuf, out);
         GF_VALIDATE_OR_GOTO ("defrag", this, out);
-        GF_VALIDATE_OR_GOTO ("defrag", xattrs, out);
         GF_VALIDATE_OR_GOTO ("defrag", this->private, out);
 
         conf = this->private;
@@ -353,8 +352,27 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
           file or not.
         */
 
-        ret = syncop_lookup (this, loc, NULL, NULL,
-                                             NULL, NULL);
+        dict = dict_new ();
+        if (!dict) {
+                ret = -1;
+                *fop_errno = ENOMEM;
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_NO_MEMORY,
+                        "could not allocate memory for dict");
+                goto out;
+        }
+
+        ret = dict_set_int32 (dict, conf->link_xattr_name, 256);
+        if (ret) {
+                *fop_errno = ENOMEM;
+                ret = -1;
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_MIGRATE_FILE_FAILED,
+                        "Migrate file failed:"
+                        "%s: failed to set 'linkto' key in dict", loc->path);
+                goto out;
+        }
+
+        ret = syncop_lookup (this, loc, &stbuf, NULL, dict, &xattr_rsp);
         if (ret) {
                 /*Ignore ENOENT and ESTALE as file might have been
                   migrated already*/
@@ -395,6 +413,10 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                 goto out;
         }
 
+        /* Hardlink migration happens only with remove-brick. So this condition will
+         * be true only when the migration has happened. In case hardlinks are migrated
+         * for rebalance case, remove this check. Having this check here avoid redundant
+         * calls below*/
         if (hashed_subvol == cached_subvol) {
                 ret = -2;
                 goto out;
@@ -403,7 +425,8 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
         gf_log (this->name, GF_LOG_INFO, "Attempting to migrate hardlink %s "
                 "with gfid %s from %s -> %s", loc->name, uuid_utoa (loc->gfid),
                 cached_subvol->name, hashed_subvol->name);
-        data = dict_get (xattrs, conf->link_xattr_name);
+
+        data = dict_get (xattr_rsp, conf->link_xattr_name);
         /* set linkto on cached -> hashed if not present, else link it */
         if (!data) {
                 ret = dict_set_str (link_xattr, conf->link_xattr_name,
@@ -433,10 +456,15 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                         ret = -1;
                         goto out;
                 }
+
+                gf_msg_debug (this->name, 0, "hardlink target subvol created on %s "
+                              ",cached %s, file %s",
+                              hashed_subvol->name, cached_subvol->name, loc->path);
+
                 ret = -2;
                 goto out;
         } else {
-                linkto_subvol = dht_linkfile_subvol (this, NULL, NULL, xattrs);
+                linkto_subvol = dht_linkfile_subvol (this, NULL, NULL, xattr_rsp);
                 if (!linkto_subvol) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 DHT_MSG_SUBVOL_ERROR,
@@ -463,8 +491,14 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                                 *fop_errno = op_errno;
                                 goto out;
                         }
+                } else {
+                        gf_msg_debug (this->name, 0, "syncop_link successful for"
+                                      " hardlink %s on subvol %s, cached %s", loc->path,
+                                      hashed_subvol->name, cached_subvol->name);
+
                 }
         }
+
         ret = syncop_lookup (hashed_subvol, loc, &iatt, NULL, NULL, NULL);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, -ret,
@@ -477,7 +511,22 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
                 goto out;
         }
 
-        if (iatt.ia_nlink == stbuf->ia_nlink) {
+        /* There is a race where on the target subvol for the hardlink
+         * (note: hash subvol for the hardlink might differ from this), some
+         * other client(non-rebalance) would have created a linkto file for that
+         * hardlink as part of lookup. So let say there are 10 hardlinks, on the
+         * 5th hardlink it self the hardlinks might have migrated. Now for
+         * (6..10th) hardlinks the cached and target would be same as the file
+         * has already migrated. Hence this check is needed  */
+        if (cached_subvol == hashed_subvol) {
+                gf_msg_debug (this->name, 0, "source %s and destination %s "
+                             "for hardlink %s are same", cached_subvol->name,
+                             hashed_subvol->name, loc->path);
+                ret = -2;
+                goto out;
+        }
+
+        if (iatt.ia_nlink == stbuf.ia_nlink) {
                 ret = dht_migrate_file (this, loc, cached_subvol, hashed_subvol,
                                         GF_DHT_MIGRATE_HARDLINK_IN_PROGRESS,
                                         fop_errno);
@@ -489,6 +538,13 @@ gf_defrag_handle_hardlink (xlator_t *this, loc_t *loc, dict_t  *xattrs,
 out:
         if (link_xattr)
                 dict_unref (link_xattr);
+
+        if (xattr_rsp)
+                dict_unref (xattr_rsp);
+
+        if (dict)
+                dict_unref (dict);
+
         return ret;
 }
 
@@ -510,7 +566,7 @@ __check_file_has_hardlink (xlator_t *this, loc_t *loc,
                 if (flags == GF_DHT_MIGRATE_HARDLINK) {
                         synclock_lock (&conf->link_lock);
                         ret = gf_defrag_handle_hardlink
-                                (this, loc, xattrs, stbuf, fop_errno);
+                                (this, loc, fop_errno);
                         synclock_unlock (&conf->link_lock);
                         /*
                         Returning zero will force the file to be remigrated.
@@ -1440,6 +1496,13 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         gf_boolean_t            ignore_failure          = _gf_false;
 
 
+        if (from == to) {
+                gf_msg_debug (this->name, 0, "destination and source are same. file %s"
+                              " might have migrated already", loc->path);
+                ret = 0;
+                goto out;
+        }
+
         /* If defrag is NULL, it should be assumed that migration is triggered
          * from client */
         defrag = conf->defrag;
@@ -1504,6 +1567,11 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         gf_uuid_copy (tmp_loc.gfid, loc->gfid);
         tmp_loc.path = gf_strdup(loc->path);
 
+        /* this inodelk happens with flock.owner being zero. But to synchronize
+         * hardlink migration we need to have different lkowner for each migration
+         * Filed a bug here: https://bugzilla.redhat.com/show_bug.cgi?id=1468202 to
+         * track the fix for this. Currently synclock takes care of synchronizing
+         * hardlink migration. Once this bug is fixed we can avoid taking synclock */
         ret = syncop_inodelk (from, DHT_FILE_MIGRATE_DOMAIN, &tmp_loc, F_SETLKW,
                               &flock, NULL, NULL);
         if (ret < 0) {
@@ -2605,8 +2673,8 @@ gf_defrag_migrate_single_file (void *opaque)
                         }
                         UNLOCK (&defrag->lock);
                 } else if (fop_errno != EEXIST) {
-                        gf_msg (this->name, GF_LOG_ERROR,
-                                DHT_MSG_MIGRATE_FILE_FAILED, fop_errno,
+                        gf_msg (this->name, GF_LOG_ERROR, fop_errno,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
                                 "migrate-data failed for %s", entry_loc.path);
 
                         LOCK (&defrag->lock);
