@@ -3962,15 +3962,7 @@ out:
 
 }
 
-/*
- * Unlike the stuff in init, this only needs to be called once GLOBALLY no
- * matter how many translators/sockets we end up with.  Conveniently,
- * __attribute__(constructor) provides exactly those semantics in a pretty
- * portable fashion.
- */
-
 static pthread_mutex_t  *lock_array     = NULL;
-static gf_boolean_t     constructor_ok  = _gf_false;
 
 static void
 locking_func (int mode, int type, const char *file, int line)
@@ -4007,11 +3999,20 @@ legacy_threadid_func (void)
 }
 #endif
 
-static void __attribute__((constructor))
+static void
 init_openssl_mt (void)
 {
         int     num_locks       = CRYPTO_num_locks();
         int     i;
+
+        if (lock_array) {
+                /* this only needs to be initialized once GLOBALLY no
+                   matter how many translators/sockets we end up with. */
+                return;
+        }
+
+        SSL_library_init();
+        SSL_load_error_strings();
 
         lock_array = GF_CALLOC (num_locks, sizeof(pthread_mutex_t),
                                 gf_sock_mt_lock_array);
@@ -4019,17 +4020,40 @@ init_openssl_mt (void)
                 for (i = 0; i < num_locks; ++i) {
                         pthread_mutex_init (&lock_array[i], NULL);
                 }
-                CRYPTO_set_locking_callback (locking_func);
 #if HAVE_CRYPTO_THREADID
                 CRYPTO_THREADID_set_callback (threadid_func);
 #else /* older openssl */
                 CRYPTO_set_id_callback (legacy_threadid_func);
 #endif
-                constructor_ok = _gf_true;
+                CRYPTO_set_locking_callback (locking_func);
         }
 
-        SSL_library_init();
-        SSL_load_error_strings();
+}
+
+static void __attribute__((destructor))
+fini_openssl_mt (void)
+{
+        int i;
+
+        if (!lock_array) {
+                return;
+        }
+
+        CRYPTO_set_locking_callback(NULL);
+#if HAVE_CRYPTO_THREADID
+        CRYPTO_THREADID_set_callback (NULL);
+#else /* older openssl */
+        CRYPTO_set_id_callback (NULL);
+#endif
+
+        for (i = 0; i < CRYPTO_num_locks(); ++i) {
+                pthread_mutex_destroy (&lock_array[i]);
+        }
+
+        GF_FREE (lock_array);
+        lock_array = NULL;
+
+        ERR_free_strings();
 }
 
 static void
@@ -4319,18 +4343,6 @@ socket_init (rpc_transport_t *this)
 	if (priv->ssl_enabled || priv->mgmt_ssl) {
                 BIO *bio = NULL;
 
-                /*
-                 * The right time to check this is after all of our relevant
-                 * fields have been set, but before we start issuing OpenSSL
-                 * calls for the current translator.  In other words, now.
-                 */
-                if (!constructor_ok) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "can't initialize TLS socket (%s)",
-                                "static constructor failed");
-                        goto err;
-                }
-
 #if HAVE_TLSV1_2_METHOD
 		priv->ssl_meth = (SSL_METHOD *)TLSv1_2_method();
 #else
@@ -4547,6 +4559,8 @@ int32_t
 init (rpc_transport_t *this)
 {
         int ret = -1;
+
+        init_openssl_mt();
 
         ret = socket_init (this);
 
