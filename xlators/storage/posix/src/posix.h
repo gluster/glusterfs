@@ -293,4 +293,6 @@ posix_get_objectsignature (char *, dict_t *);
 int32_t
 posix_fdget_objectsignature (int, dict_t *);
 
+gf_boolean_t
+posix_is_bulk_removexattr (char *name, dict_t *dict);
 #endif /* _POSIX_H */

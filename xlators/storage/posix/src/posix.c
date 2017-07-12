@@ -103,6 +103,12 @@ extern char *marker_xattrs[];
         (lutimes (path, tv))
 #endif
 
+static char *disallow_removexattrs[] = {
+        GF_XATTR_VOL_ID_KEY,
+        GFID_XATTR_KEY,
+        NULL
+};
+
 
 dict_t*
 posix_dict_set_nlink (dict_t *req, dict_t *res, int32_t nlink)
@@ -5350,7 +5356,11 @@ _posix_remove_xattr (dict_t *dict, char *key, data_t *value, void *data)
      * treated as success.
      */
 
-        op_ret = sys_lremovexattr (filler->real_path, key);
+        if (filler->real_path)
+                op_ret = sys_lremovexattr (filler->real_path, key);
+        else
+                op_ret = sys_fremovexattr (filler->fdnum, key);
+
         if (op_ret == -1) {
                 if (errno == ENODATA || errno == ENOATTR)
                         op_ret = 0;
@@ -5358,10 +5368,13 @@ _posix_remove_xattr (dict_t *dict, char *key, data_t *value, void *data)
 
         if (op_ret == -1) {
                 filler->op_errno = errno;
-                if (errno != ENOATTR && errno != ENODATA && errno != EPERM)
+                if (errno != ENOATTR && errno != ENODATA && errno != EPERM) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_XATTR_FAILED, "removexattr failed on %s"
-                                " (for %s)", filler->real_path, key);
+                                P_MSG_XATTR_FAILED, "removexattr failed on "
+                                "file/dir %s with gfid: %s (for %s)",
+                                filler->real_path?filler->real_path:"",
+                                uuid_utoa (filler->inode->gfid), key);
+                }
         }
 #ifdef GF_DARWIN_HOST_OS
         GF_FREE(newkey);
@@ -5369,92 +5382,132 @@ _posix_remove_xattr (dict_t *dict, char *key, data_t *value, void *data)
         return op_ret;
 }
 
+int
+posix_common_removexattr (call_frame_t *frame, loc_t *loc, fd_t *fd,
+                          const char *name, dict_t *xdata, int *op_errno,
+                          dict_t **xdata_rsp)
+{
+        gf_boolean_t         bulk_removexattr = _gf_false;
+        gf_boolean_t         disallow         = _gf_false;
+        char                 *real_path       = NULL;
+        struct posix_fd      *pfd             = NULL;
+        int                  op_ret           = 0;
+        struct iatt          stbuf            = {0};
+        int                  ret              = 0;
+        int                  _fd              = -1;
+        xlator_t             *this            = frame->this;
+        inode_t              *inode           = NULL;
+        posix_xattr_filler_t filler           = {0};
+
+        DECLARE_OLD_FS_ID_VAR;
+
+        SET_FS_ID (frame->root->uid, frame->root->gid);
+
+        if (loc) {
+                MAKE_INODE_HANDLE (real_path, this, loc, NULL);
+                if (!real_path) {
+                        op_ret = -1;
+                        *op_errno = ESTALE;
+                        goto out;
+                }
+                inode = loc->inode;
+        } else {
+                op_ret = posix_fd_ctx_get (fd, this, &pfd, op_errno);
+                if (op_ret < 0) {
+                        gf_msg (this->name, GF_LOG_WARNING, *op_errno,
+                                P_MSG_PFD_NULL, "pfd is NULL from fd=%p", fd);
+                        goto out;
+                }
+                _fd = pfd->fd;
+                inode = fd->inode;
+        }
+
+        if (gf_get_index_by_elem (disallow_removexattrs, (char *)name) >= 0) {
+                gf_msg (this->name, GF_LOG_WARNING, 0, P_MSG_XATTR_NOT_REMOVED,
+                        "Remove xattr called on %s for file/dir %s with gfid: "
+                        "%s", name, real_path?real_path:"",
+                        uuid_utoa(inode->gfid));
+                op_ret = -1;
+                *op_errno = EPERM;
+                goto out;
+        } else if (posix_is_bulk_removexattr ((char *)name, xdata)) {
+                bulk_removexattr = _gf_true;
+                (void) dict_has_key_from_array (xdata, disallow_removexattrs,
+                                                &disallow);
+                if (disallow) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                P_MSG_XATTR_NOT_REMOVED,
+                                "Bulk removexattr has keys that shouldn't be "
+                                "removed for file/dir %s with gfid: %s",
+                                real_path?real_path:"", uuid_utoa(inode->gfid));
+                        op_ret = -1;
+                        *op_errno = EPERM;
+                        goto out;
+                }
+        }
+
+        if (bulk_removexattr) {
+                filler.real_path = real_path;
+                filler.this = this;
+                filler.fdnum = _fd;
+                filler.inode = inode;
+                op_ret = dict_foreach (xdata, _posix_remove_xattr, &filler);
+                if (op_ret) {
+                        *op_errno = filler.op_errno;
+                        goto out;
+                }
+        } else {
+                if (loc)
+                        op_ret = sys_lremovexattr (real_path, name);
+                else
+                        op_ret = sys_fremovexattr (_fd, name);
+                if (op_ret == -1) {
+                        *op_errno = errno;
+                        if (*op_errno != ENOATTR && *op_errno != ENODATA &&
+                            *op_errno != EPERM) {
+                                gf_msg (this->name, GF_LOG_ERROR, *op_errno,
+                                        P_MSG_XATTR_FAILED,
+                                        "removexattr on %s with gfid %s "
+                                        "(for %s)", real_path,
+                                        uuid_utoa (inode->gfid), name);
+                        }
+                        goto out;
+                }
+        }
+
+        if (xdata && dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
+                if (loc)
+                        ret = posix_pstat(this, loc->gfid, real_path, &stbuf);
+                else
+                        ret = posix_fdstat (this, _fd, &stbuf);
+                if (ret)
+                        goto out;
+                *xdata_rsp = dict_new();
+                if (!*xdata_rsp)
+                        goto out;
+
+                ret = posix_set_iatt_in_dict (*xdata_rsp, &stbuf);
+        }
+        op_ret = 0;
+out:
+        SET_TO_OLD_FS_ID ();
+        return op_ret;
+}
 
 int32_t
 posix_removexattr (call_frame_t *frame, xlator_t *this,
                    loc_t *loc, const char *name, dict_t *xdata)
 {
-        int32_t op_ret    = -1;
-        int32_t op_errno  = 0;
-        int32_t ret    = -1;
-        char *  real_path = NULL;
-        struct iatt   stbuf         = {0};
-        dict_t  *xattr    = NULL;
-        posix_xattr_filler_t filler = {0,};
+        int    op_ret     = 0;
+        int    op_errno   = 0;
+        dict_t *xdata_rsp = NULL;
 
-        DECLARE_OLD_FS_ID_VAR;
+        op_ret = posix_common_removexattr (frame, loc, NULL, name, xdata,
+                                           &op_errno, &xdata_rsp);
+        STACK_UNWIND_STRICT (removexattr, frame, op_ret, op_errno, xdata_rsp);
 
-        MAKE_INODE_HANDLE (real_path, this, loc, NULL);
-        if (!real_path) {
-                op_ret = -1;
-                op_errno = ESTALE;
-                goto out;
-        }
-
-
-        if (!strcmp (GFID_XATTR_KEY, name)) {
-                gf_msg (this->name, GF_LOG_WARNING, 0, P_MSG_XATTR_NOT_REMOVED,
-                        "Remove xattr called on gfid for file %s", real_path);
-                op_ret = -1;
-                goto out;
-        }
-        if (!strcmp (GF_XATTR_VOL_ID_KEY, name)) {
-                gf_msg (this->name, GF_LOG_WARNING, 0, P_MSG_XATTR_NOT_REMOVED,
-                        "Remove xattr called on volume-id for file %s",
-                        real_path);
-                op_ret = -1;
-                goto out;
-        }
-
-
-        SET_FS_ID (frame->root->uid, frame->root->gid);
-
-        /**
-         * sending an empty key name with xdata containing the
-         * list of key(s) to be removed implies "bulk remove request"
-         * for removexattr.
-         */
-        if (name && (strcmp (name, "") == 0) && xdata) {
-                filler.real_path = real_path;
-                filler.this = this;
-                op_ret = dict_foreach (xdata, _posix_remove_xattr, &filler);
-                if (op_ret) {
-                        op_errno = filler.op_errno;
-                }
-
-                goto out;
-        }
-
-        op_ret = sys_lremovexattr (real_path, name);
-        if (op_ret == -1) {
-                op_errno = errno;
-                if (op_errno != ENOATTR && op_errno != ENODATA &&
-                    op_errno != EPERM)
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_XATTR_FAILED, "removexattr on %s "
-                                "(for %s)", real_path, name);
-                goto out;
-        }
-
-        if (xdata && dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
-                ret = posix_pstat(this, loc->gfid, real_path, &stbuf);
-                if (ret)
-                        goto out;
-                xattr = dict_new();
-                if (!xattr)
-                        goto out;
-
-                ret = posix_set_iatt_in_dict (xattr, &stbuf);
-        }
-        op_ret = 0;
-
-out:
-        SET_TO_OLD_FS_ID ();
-
-        STACK_UNWIND_STRICT (removexattr, frame, op_ret, op_errno, xattr);
-
-        if (xattr)
-                dict_unref (xattr);
+        if (xdata_rsp)
+                dict_unref (xdata_rsp);
 
         return 0;
 }
@@ -5463,69 +5516,16 @@ int32_t
 posix_fremovexattr (call_frame_t *frame, xlator_t *this,
                     fd_t *fd, const char *name, dict_t *xdata)
 {
-        int32_t           op_ret   = -1;
-        int32_t           op_errno = 0;
-        struct posix_fd * pfd      = NULL;
-        struct iatt       stbuf    = {0,};
-        dict_t           *xattr    = NULL;
-        int               _fd      = -1;
-        int               ret      = -1;
+        int32_t op_ret     = 0;
+        int32_t op_errno   = 0;
+        dict_t  *xdata_rsp = NULL;
 
-        DECLARE_OLD_FS_ID_VAR;
+        op_ret = posix_common_removexattr (frame, NULL, fd, name, xdata,
+                                           &op_errno, &xdata_rsp);
+        STACK_UNWIND_STRICT (fremovexattr, frame, op_ret, op_errno, xdata_rsp);
 
-        if (!strcmp (GFID_XATTR_KEY, name)) {
-                gf_msg (this->name, GF_LOG_WARNING, 0, P_MSG_XATTR_NOT_REMOVED,
-                        "Remove xattr called on gfid for file");
-                goto out;
-        }
-        if (!strcmp (GF_XATTR_VOL_ID_KEY, name)) {
-                gf_msg (this->name, GF_LOG_WARNING, 0, P_MSG_XATTR_NOT_REMOVED,
-                        "Remove xattr called on volume-id for file");
-                goto out;
-        }
-
-        ret = posix_fd_ctx_get (fd, this, &pfd, &op_errno);
-        if (ret < 0) {
-                gf_msg (this->name, GF_LOG_WARNING, op_errno, P_MSG_PFD_NULL,
-                        "pfd is NULL from fd=%p", fd);
-                goto out;
-        }
-        _fd = pfd->fd;
-
-
-
-        SET_FS_ID (frame->root->uid, frame->root->gid);
-
-        op_ret = sys_fremovexattr (_fd, name);
-        if (op_ret == -1) {
-                op_errno = errno;
-                if (op_errno != ENOATTR && op_errno != ENODATA &&
-                    op_errno != EPERM)
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_XATTR_FAILED, "fremovexattr (for %s)",
-                                name);
-                goto out;
-        }
-
-        if (xdata && dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
-                ret = posix_fdstat (this, pfd->fd, &stbuf);
-                if (ret)
-                        goto out;
-                xattr = dict_new();
-                if (!xattr)
-                        goto out;
-
-                ret = posix_set_iatt_in_dict (xattr, &stbuf);
-        }
-        op_ret = 0;
-
-out:
-        SET_TO_OLD_FS_ID ();
-
-        STACK_UNWIND_STRICT (fremovexattr, frame, op_ret, op_errno, xattr);
-
-        if (xattr)
-                dict_unref (xattr);
+        if (xdata_rsp)
+                dict_unref (xdata_rsp);
 
         return 0;
 }
