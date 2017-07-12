@@ -148,26 +148,10 @@ out:
         return ret;
 }
 
-
-static gf_boolean_t
-_is_in_array (char **str_array, char *str)
-{
-        int i = 0;
-
-        if (!str)
-                return _gf_false;
-
-        for (i = 0; str_array[i]; i++) {
-                if (strcmp (str, str_array[i]) == 0)
-                        return _gf_true;
-        }
-        return _gf_false;
-}
-
 static gf_boolean_t
 posix_xattr_ignorable (char *key)
 {
-        return _is_in_array (posix_ignore_xattrs, key);
+        return gf_get_index_by_elem (posix_ignore_xattrs, key) >= 0;
 }
 
 static int
@@ -763,7 +747,7 @@ _handle_list_xattr (dict_t *xattr_req, const char *real_path, int fdnum,
         while (remaining_size > 0) {
                 key = list + list_offset;
 
-                if (_is_in_array (list_xattr_ignore_xattrs, key))
+                if (gf_get_index_by_elem (list_xattr_ignore_xattrs, key) >= 0)
                         goto next;
 
                 if (posix_special_xattr (marker_xattrs, key))
@@ -2358,4 +2342,12 @@ posix_inode_ctx_get_all (inode_t *inode, xlator_t *this,
         UNLOCK(&inode->lock);
 
         return ret;
+}
+
+gf_boolean_t
+posix_is_bulk_removexattr (char *name, dict_t *xdata)
+{
+        if (name && (strlen (name) == 0) && xdata)
+                return _gf_true;
+        return _gf_false;
 }

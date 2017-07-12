@@ -3077,3 +3077,31 @@ dict_for_key_value (const char *name, const char *value, size_t size)
 
 	return xattr;
 }
+
+/*
+ * "strings" should be NULL terminated strings array.
+ */
+int
+dict_has_key_from_array (dict_t *dict, char **strings, gf_boolean_t *result)
+{
+        int      i    = 0;
+        uint32_t hash = 0;
+
+        if (!dict || !strings || !result)
+                return -EINVAL;
+
+        LOCK (&dict->lock);
+        {
+                for (i = 0; strings[i]; i++) {
+                        hash = SuperFastHash (strings[i], strlen (strings[i]));
+                        if (dict_lookup_common (dict, strings[i], hash)) {
+                                *result = _gf_true;
+                                goto unlock;
+                        }
+                }
+                *result = _gf_false;
+        }
+unlock:
+        UNLOCK (&dict->lock);
+        return 0;
+}
