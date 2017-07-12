@@ -965,6 +965,24 @@ exit 0
 exit 0
 
 ##-----------------------------------------------------------------------------
+## All %%trigger should be placed here and keep them sorted
+##
+%if ( 0%{?fedora} && 0%{?fedora} > 25 )
+%trigger ganesha -- selinux-policy-targeted
+semanage boolean -m ganesha_use_fusefs --on
+exit 0
+%endif
+
+##-----------------------------------------------------------------------------
+## All %%triggerun should be placed here and keep them sorted
+##
+%if ( 0%{?fedora} && 0%{?fedora} > 25 )
+%triggerun ganesha -- selinux-policy-targeted
+semanage boolean -m ganesha_use_fusefs --off
+exit 0
+%endif
+
+##-----------------------------------------------------------------------------
 ## All %%files should be placed here and keep them grouped
 ##
 %files
@@ -1287,6 +1305,9 @@ exit 0
 %endif
 
 %changelog
+* Wed Jul 12 2017 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- selinux enable, disable ganesha_access_fuse %%trigger, %%triggerun
+
 * Wed Jun 21 2017 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - selinux enable, disable ganesha_access_fuse on install, remove
 
