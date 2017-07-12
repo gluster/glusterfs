@@ -39,6 +39,7 @@ log
 *_unittest
 
 # Generated files
+site.h
 *.py[co]
 api/examples/__init__.py
 api/examples/setup.py
@@ -59,6 +60,7 @@ extras/ocf/glusterd
 extras/ocf/volume
 extras/run-gluster.tmpfiles
 extras/systemd/glusterd.service
+extras/systemd/glusterfssharedstorage.service
 extras/who-wrote-glusterfs/gitdm
 geo-replication/.tox
 geo-replication/src/gsyncd
