@@ -6851,8 +6851,10 @@ notify (xlator_t *this,
                         (void) gf_thread_cleanup_xint (priv->fsyncer);
                         priv->fsyncer = 0;
                 }
-                if (priv->mount_lock)
+                if (priv->mount_lock) {
                         (void) sys_closedir (priv->mount_lock);
+                        priv->mount_lock = NULL;
+                }
 
         break;
         default:
