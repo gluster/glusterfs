@@ -4721,11 +4721,12 @@ glusterd_get_volume_opts (rpcsvc_request_t *req, dict_t *dict)
                                 }
                         }
 
-                        if (strcmp (key, "cluster.max-op-version") == 0) {
+                        if (strcmp (key, GLUSTERD_MAX_OP_VERSION_KEY) == 0) {
                                 ret = glusterd_get_global_max_op_version (req, dict, 1);
                                 if (ret)
                                         goto out;
-                        } else if (strcmp (key, "cluster.op-version") == 0) {
+                        } else if (strcmp (key,
+                                           GLUSTERD_GLOBAL_OP_VERSION_KEY) == 0) {
                                 sprintf (dict_key, "key%d", count);
                                 ret = dict_set_str(dict, dict_key, key);
                                 if (ret) {
@@ -4958,7 +4959,7 @@ glusterd_print_global_options (dict_t *opts, char *key, data_t *val, void *data)
         GF_VALIDATE_OR_GOTO (THIS->name, val, out);
         GF_VALIDATE_OR_GOTO (THIS->name, data, out);
 
-        if (strcmp (key, "global-option-version") == 0)
+        if (strcmp (key, GLUSTERD_GLOBAL_OPT_VERSION) == 0)
                 goto out;
 
         fp = (FILE *) data;
