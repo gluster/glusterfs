@@ -978,46 +978,55 @@ exit 0
 %if ( 0%{!?_without_rdma:1} )
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/rpc-transport/rdma*
 %endif
+%dir %{_datadir}/glusterfs
 %dir %{_datadir}/glusterfs/scripts
-%{_datadir}/glusterfs/scripts/post-upgrade-script-for-quota.sh
-%{_datadir}/glusterfs/scripts/pre-upgrade-script-for-quota.sh
+     %{_datadir}/glusterfs/scripts/post-upgrade-script-for-quota.sh
+     %{_datadir}/glusterfs/scripts/pre-upgrade-script-for-quota.sh
 # xlators that are needed on the client- and on the server-side
+%dir %{_libdir}/glusterfs
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/auth
-%{_libdir}/glusterfs/%{version}%{?prereltag}/auth/addr.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/auth/login.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/auth/addr.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/auth/login.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/rpc-transport
-%{_libdir}/glusterfs/%{version}%{?prereltag}/rpc-transport/socket.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/rpc-transport/socket.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/error-gen.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/io-stats.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/sink.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/trace.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/error-gen.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/io-stats.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/sink.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/trace.so
 %if ( ! ( 0%{?rhel} && 0%{?rhel} < 6 ) )
 # RHEL-5 based distributions have a too old openssl
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/crypt.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/crypt.so
 %endif
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/access-control.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/barrier.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/cdc.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/changelog.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/fdl.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/gfid-access.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/read-only.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/shard.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/snapview-client.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/worm.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/meta.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/io-cache.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/io-threads.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/md-cache.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/open-behind.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/quick-read.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/read-ahead.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/readdir-ahead.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/stat-prefetch.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/write-behind.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/nl-cache.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/system/posix-acl.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/access-control.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/barrier.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/cdc.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/changelog.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/gfid-access.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/read-only.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/shard.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/snapview-client.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/worm.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/meta.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/io-cache.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/io-threads.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/md-cache.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/open-behind.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/quick-read.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/read-ahead.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/readdir-ahead.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/stat-prefetch.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/write-behind.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/nl-cache.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/system
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/system/posix-acl.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/fdl.so
 %dir %attr(0775,gluster,gluster) %{_localstatedir}/run/gluster
 %if 0%{?_tmpfilesdir:1}
 %{_tmpfilesdir}/gluster.conf
@@ -1027,12 +1036,16 @@ exit 0
 %exclude %{_libdir}/*.so
 # libgfapi files
 %{_libdir}/libgfapi.*
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/api.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/api.so
 
 %files api-devel
 %{_libdir}/pkgconfig/glusterfs-api.pc
 %{_libdir}/libgfapi.so
-%{_includedir}/glusterfs/api/*
+%dir %{_includedir}/glusterfs
+%dir %{_includedir}/glusterfs/api
+     %{_includedir}/glusterfs/api/*
 
 %files cli
 %{_sbindir}/gluster
@@ -1041,39 +1054,56 @@ exit 0
 
 %files devel
 %dir %{_includedir}/glusterfs
-%{_includedir}/glusterfs/*
+     %{_includedir}/glusterfs/*
 %exclude %{_includedir}/glusterfs/api
 %exclude %{_libdir}/libgfapi.so
 %{_libdir}/*.so
 # Glupy Translator examples
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/debug-trace.*
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/helloworld.*
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/negative.*
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/debug-trace.*
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/helloworld.*
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/negative.*
 %{_libdir}/pkgconfig/libgfchangelog.pc
 %if ( 0%{!?_without_tiering:1} )
 %{_libdir}/pkgconfig/libgfdb.pc
 %endif
 
 %files client-xlators
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/*.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/client.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/dht2c.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/*.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/client.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/dht2c.so
 
 %files extra-xlators
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/rot-13.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/quiesce.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/features/template.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance/symlink-cache.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/rot-13.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/quiesce.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/features
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/features/template.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance/symlink-cache.so
 # Glupy Python files
-%{python2_sitelib}/gluster/glupy/*
+%dir %{python2_sitelib}/gluster
+%dir %{python2_sitelib}/gluster/glupy
+     %{python2_sitelib}/gluster/glupy/*
 
 %files fuse
 # glusterfs is a symlink to glusterfsd, -server depends on -fuse.
 %{_sbindir}/glusterfs
 %{_sbindir}/glusterfsd
 %config(noreplace) %{_sysconfdir}/logrotate.d/glusterfs
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/fuse.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/fuse.so
 /sbin/mount.glusterfs
 %if ( 0%{!?_without_fusermount:1} )
 %{_bindir}/fusermount-glusterfs
@@ -1086,8 +1116,9 @@ exit 0
 
 %if ( 0%{?_with_gnfs:1} )
 %files gnfs
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs/*
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs/server.so
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/nfs-server.vol
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs/run
@@ -1100,15 +1131,18 @@ exit 0
 
 %{_sbindir}/gfind_missing_files
 %{_sbindir}/gluster-mountbroker
-%{_libexecdir}/glusterfs/gsyncd
-%{_libexecdir}/glusterfs/python/syncdaemon/*
-%{_libexecdir}/glusterfs/gverify.sh
-%{_libexecdir}/glusterfs/set_geo_rep_pem_keys.sh
-%{_libexecdir}/glusterfs/peer_gsec_create
-%{_libexecdir}/glusterfs/peer_mountbroker
-%{_libexecdir}/glusterfs/peer_mountbroker.py*
-%{_libexecdir}/glusterfs/gfind_missing_files
-%{_libexecdir}/glusterfs/peer_georep-sshkey.py*
+%dir %{_libexecdir}/glusterfs
+%dir %{_libexecdir}/glusterfs/python
+%dir %{_libexecdir}/glusterfs/python/syncdaemon
+     %{_libexecdir}/glusterfs/gsyncd
+     %{_libexecdir}/glusterfs/python/syncdaemon/*
+     %{_libexecdir}/glusterfs/gverify.sh
+     %{_libexecdir}/glusterfs/set_geo_rep_pem_keys.sh
+     %{_libexecdir}/glusterfs/peer_gsec_create
+     %{_libexecdir}/glusterfs/peer_mountbroker
+     %{_libexecdir}/glusterfs/peer_mountbroker.py*
+     %{_libexecdir}/glusterfs/gfind_missing_files
+     %{_libexecdir}/glusterfs/peer_georep-sshkey.py*
 %{_sbindir}/gluster-georep-sshkey
 
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/geo-replication
@@ -1118,12 +1152,14 @@ exit 0
             %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/gsync-create/post/S56glusterd-geo-rep-create-post.sh
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/gsync-create/pre
 
-%{_datadir}/glusterfs/scripts/get-gfid.sh
-%{_datadir}/glusterfs/scripts/slave-upgrade.sh
-%{_datadir}/glusterfs/scripts/gsync-upgrade.sh
-%{_datadir}/glusterfs/scripts/generate-gfid-file.sh
-%{_datadir}/glusterfs/scripts/gsync-sync-gfid
-%{_datadir}/glusterfs/scripts/schedule_georep.py*
+%dir %{_datadir}/glusterfs
+%dir %{_datadir}/glusterfs/scripts
+     %{_datadir}/glusterfs/scripts/get-gfid.sh
+     %{_datadir}/glusterfs/scripts/slave-upgrade.sh
+     %{_datadir}/glusterfs/scripts/gsync-upgrade.sh
+     %{_datadir}/glusterfs/scripts/generate-gfid-file.sh
+     %{_datadir}/glusterfs/scripts/gsync-sync-gfid
+     %{_datadir}/glusterfs/scripts/schedule_georep.py*
 %endif
 
 %files libs
@@ -1137,17 +1173,20 @@ exit 0
 %files -n python2-gluster
 # introducing glusterfs module in site packages.
 # so that all other gluster submodules can reside in the same namespace.
-%{python2_sitelib}/gluster/__init__.*
-%{python2_sitelib}/gluster/cliutils
+%dir %{python2_sitelib}/gluster
+     %{python2_sitelib}/gluster/__init__.*
+     %{python2_sitelib}/gluster/cliutils
 
 %if ( 0%{!?_without_rdma:1} )
 %files rdma
-%{_libdir}/glusterfs/%{version}%{?prereltag}/rpc-transport/rdma*
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/rpc-transport
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/rpc-transport/rdma*
 %endif
 
 %files regression-tests
-%{_datadir}/glusterfs/run-tests.sh
-%{_datadir}/glusterfs/tests
+%dir %{_datadir}/glusterfs
+     %{_datadir}/glusterfs/run-tests.sh
+     %{_datadir}/glusterfs/tests
 %exclude %{_datadir}/glusterfs/tests/vagrant
 
 %if ( 0%{!?_without_ocf:1} )
@@ -1187,35 +1226,43 @@ exit 0
 # {_sbindir}/glusterfsd is the actual binary, but glusterfs (client) is a
 # symlink. The binary itself (and symlink) are part of the glusterfs-fuse
 # package, because glusterfs-server depends on that anyway.
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/arbiter.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bit-rot.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bitrot-stub.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/jbrc.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/jbr.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/dht2s.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/posix2-ds.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/posix2-mds.so
-%{_libdir}/libposix2common.so
+
+# xlators
+     %{_libdir}/libposix2common.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/arbiter.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bit-rot.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bitrot-stub.so
 %if ( 0%{!?_without_tiering:1} )
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/changetimerecorder.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/changetimerecorder.so
+     %{_libdir}/libgfdb.so.*
 %endif
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/index.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/locks.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/posix*
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/snapview-server.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/marker.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/quota*
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/selinux.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/trash.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/upcall.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/leases.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt*
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server*
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage*
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/decompounder.so
-%if ( 0%{!?_without_tiering:1} )
-%{_libdir}/libgfdb.so.*
-%endif
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/index.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/locks.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/posix*
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/snapview-server.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/marker.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/quota*
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/selinux.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/trash.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/upcall.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/leases.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt/glusterd.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage/bd.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage/posix.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/decompounder.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/jbrc.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/jbr.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/dht2s.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/posix2-ds.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/experimental/posix2-mds.so
 
 # snap_scheduler
 %{_sbindir}/snap_scheduler.py
@@ -1283,15 +1330,17 @@ exit 0
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/vols
 
 # Extra utility script
-%{_datadir}/glusterfs/scripts/stop-all-gluster-processes.sh
+%dir %{_libexecdir}/glusterfs
+%dir %{_datadir}/glusterfs/scripts
+     %{_datadir}/glusterfs/scripts/stop-all-gluster-processes.sh
 %if ( 0%{?_with_systemd:1} )
-%{_libexecdir}/glusterfs/mount-shared-storage.sh
+     %{_libexecdir}/glusterfs/mount-shared-storage.sh
 %endif
 
 # Incrementalapi
-%{_libexecdir}/glusterfs/glusterfind
+     %{_libexecdir}/glusterfs/glusterfind
 %{_bindir}/glusterfind
-%{_libexecdir}/glusterfs/peer_add_secret_pub
+     %{_libexecdir}/glusterfs/peer_add_secret_pub
 
 %if ( 0%{?_with_firewalld:1} )
 %{_prefix}/lib/firewalld/services/glusterfs.xml
@@ -1304,9 +1353,11 @@ exit 0
 %if ( 0%{!?_without_events:1} )
 %files events
 %config(noreplace) %{_sysconfdir}/glusterfs/eventsconfig.json
-%dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/events
-%{_libexecdir}/glusterfs/events
-%{_libexecdir}/glusterfs/peer_eventsapi.py*
+%dir %{_sharedstatedir}/glusterd
+%dir %{_sharedstatedir}/glusterd/events
+%dir %{_libexecdir}/glusterfs
+     %{_libexecdir}/glusterfs/events
+     %{_libexecdir}/glusterfs/peer_eventsapi.py*
 %{_sbindir}/glustereventsd
 %{_sbindir}/gluster-eventsapi
 %{_datadir}/glusterfs/scripts/eventsdash.py*
@@ -1318,6 +1369,9 @@ exit 0
 %endif
 
 %changelog
+* Thu Jul 13 2017 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- various directories not owned by any package
+
 * Fri Jun 16 2017 Jiffin Tony Thottan <jthottan@redhat.com>
 - Add glusterfssharedstorage.service systemd file
 
