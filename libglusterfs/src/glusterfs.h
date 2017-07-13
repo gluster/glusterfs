@@ -309,18 +309,18 @@ const char *fop_enum_to_string (glusterfs_fop_t fop);
 #define GF_CONTENT_KEY "glusterfs.content"
 
 struct _xlator_cmdline_option {
-        struct list_head    cmd_args;
-        char               *volume;
-        char               *key;
-        char               *value;
+        struct list_head   cmd_args;
+        char              *volume;
+        char              *key;
+        char              *value;
 };
 typedef struct _xlator_cmdline_option xlator_cmdline_option_t;
 
 struct _server_cmdline {
-        struct list_head  list;
+        struct list_head   list;
         char              *volfile_server;
         char              *transport;
-        int               port;
+        int                port;
 };
 typedef struct _server_cmdline server_cmdline_t;
 
@@ -330,106 +330,107 @@ typedef struct _server_cmdline server_cmdline_t;
 
 struct _cmd_args {
         /* basic options */
-        char             *volfile_server;
-        server_cmdline_t *curr_server;
-        /* List of backup volfile servers, including original */
-        struct list_head volfile_servers;
-        char             *volfile;
-        char             *log_server;
-        gf_loglevel_t    log_level;
-        char            *log_file;
-        char            *log_ident;
-        gf_log_logger_t  logger;
-        gf_log_format_t  log_format;
-        uint32_t         log_buf_size;
-        uint32_t         log_flush_timeout;
-        int32_t          max_connect_attempts;
-        char            *print_exports;
-        char            *print_netgroups;
+        char              *volfile_server;
+        server_cmdline_t  *curr_server;
+        /* List of backup  volfile servers, including original */
+        struct list_head   volfile_servers;
+        char              *volfile;
+        char              *log_server;
+        gf_loglevel_t      log_level;
+        char              *log_file;
+        char              *log_ident;
+        gf_log_logger_t    logger;
+        gf_log_format_t    log_format;
+        uint32_t           log_buf_size;
+        uint32_t           log_flush_timeout;
+        int32_t            max_connect_attempts;
+        char              *print_exports;
+        char              *print_netgroups;
         /* advanced options */
-        uint32_t         volfile_server_port;
-        char            *volfile_server_transport;
-        uint32_t         log_server_port;
-        char            *pid_file;
-        char            *sock_file;
-        int              no_daemon_mode;
-        char            *run_id;
-        int              debug_mode;
-        int              read_only;
-        int              acl;
-        int              selinux;
-        int              capability;
-        int              enable_ino32;
-        int              worm;
-        int              mac_compat;
-        int              fopen_keep_cache;
-        int              gid_timeout;
-        char             gid_timeout_set;
-        int              aux_gfid_mount;
+        uint32_t           volfile_server_port;
+        char              *volfile_server_transport;
+        uint32_t           log_server_port;
+        char              *pid_file;
+        char              *sock_file;
+        int                no_daemon_mode;
+        char              *run_id;
+        int                debug_mode;
+        int                read_only;
+        int                acl;
+        int                selinux;
+        int                capability;
+        int                enable_ino32;
+        int                worm;
+        int                mac_compat;
+        int                fopen_keep_cache;
+        int                gid_timeout;
+        char               gid_timeout_set;
+        int                aux_gfid_mount;
 
         /* need a process wide timer-wheel? */
-        int              global_timer_wheel;
+        int                global_timer_wheel;
 
-        struct list_head xlator_options;  /* list of xlator_option_t */
+        /* list of xlator_option_t */
+        struct list_head   xlator_options;
 
-	/* fuse options */
-	int              fuse_direct_io_mode;
-	char             *use_readdirp;
-        int              no_root_squash;
-        int              volfile_check;
-        double           fuse_entry_timeout;
-        double           fuse_negative_timeout;
-        double           fuse_attribute_timeout;
-        char            *volume_name;
-        int              fuse_nodev;
-        int              fuse_nosuid;
-        char            *dump_fuse;
-        pid_t            client_pid;
-        int              client_pid_set;
-        unsigned         uid_map_root;
-        int              background_qlen;
-        int              congestion_threshold;
-        char             *fuse_mountopts;
-        int              mem_acct;
-        int              resolve_gids;
+        /* fuse options */
+        int                fuse_direct_io_mode;
+        char              *use_readdirp;
+        int                no_root_squash;
+        int                volfile_check;
+        double             fuse_entry_timeout;
+        double             fuse_negative_timeout;
+        double             fuse_attribute_timeout;
+        char              *volume_name;
+        int                fuse_nodev;
+        int                fuse_nosuid;
+        char              *dump_fuse;
+        pid_t              client_pid;
+        int                client_pid_set;
+        unsigned           uid_map_root;
+        int                background_qlen;
+        int                congestion_threshold;
+        char              *fuse_mountopts;
+        int                mem_acct;
+        int                resolve_gids;
 
         /* key args */
-        char            *mount_point;
-        char            *volfile_id;
+        char              *mount_point;
+        char              *volfile_id;
 
         /* required for portmap */
-        int             brick_port;
-        char           *brick_name;
-        int             brick_port2;
+        int                brick_port;
+        char              *brick_name;
+        int                brick_port2;
 
         /* Should management connections use SSL? */
-        int             secure_mgmt;
+        int                secure_mgmt;
 
         /* Linux-only OOM killer adjustment */
 #ifdef GF_LINUX_HOST_OS
-        char            *oom_score_adj;
+        char              *oom_score_adj;
 #endif
 
         /* Run this process with valgrind? Might want to prevent calling
          * functions that prevent valgrind from working correctly, like
          * dlclose(). */
-        int             valgrind;
+        int                valgrind;
 };
 typedef struct _cmd_args cmd_args_t;
 
 
 struct _glusterfs_graph {
-        struct list_head          list;
-        char                      graph_uuid[128];
-        struct timeval            dob;
-        void                     *first;
-        void                     *top;   /* selected by -n */
-        uint32_t                  leaf_count;
-        int                       xl_count;
-        int                       id;    /* Used in logging */
-        int                       used;  /* Should be set when fuse gets
+        struct list_head   list;
+        char               graph_uuid[128];
+        struct timeval     dob;
+        void              *first;
+        void              *top;   /* selected by -n */
+        uint32_t           leaf_count;
+        int                xl_count;
+        int                id;    /* Used in logging */
+        int                used;  /* Should be set when fuse gets
                                             first CHILD_UP */
-        uint32_t                  volfile_checksum;
+        uint32_t           volfile_checksum;
 };
 typedef struct _glusterfs_graph glusterfs_graph_t;
 
@@ -452,51 +453,63 @@ struct gf_ctx_tw {
 };
 
 struct _glusterfs_ctx {
-        cmd_args_t          cmd_args;
-        char               *process_uuid;
-        FILE               *pidfp;
-        char                fin;
-        void               *timer;
-        void               *ib;
-        struct call_pool   *pool;
-        void               *event_pool;
-        void               *iobuf_pool;
-        void               *logbuf_pool;
-        gf_lock_t           lock;
-        size_t              page_size;
-        struct list_head    graphs; /* double linked list of graphs - one per volfile parse */
-        glusterfs_graph_t  *active; /* the latest graph in use */
-        void               *master; /* fuse, or libglusterfsclient (however, not protocol/server) */
-        void               *mgmt;   /* xlator implementing MOPs for centralized logging, volfile server */
-        void               *listener; /* listener of the commands from glusterd */
-        unsigned char       measure_latency; /* toggle switch for latency measurement */
-        pthread_t           sigwaiter;
-	char               *cmdlinestr;
-        struct mem_pool    *stub_mem_pool;
-        unsigned char       cleanup_started;
-        int                 graph_id; /* Incremented per graph, value should
-                                         indicate how many times the graph has
-                                         got changed */
-        pid_t               mnt_pid; /* pid of the mount agent */
-        int                 process_mode; /*mode in which process is runninng*/
-        struct syncenv     *env;          /* The env pointer to the synctasks */
+        cmd_args_t         cmd_args;
+        char              *process_uuid;
+        FILE              *pidfp;
+        char               fin;
+        void              *timer;
+        void              *ib;
+        struct call_pool  *pool;
+        void              *event_pool;
+        void              *iobuf_pool;
+        void              *logbuf_pool;
+        gf_lock_t          lock;
+        size_t             page_size;
 
-        struct list_head    mempool_list; /* used to keep a global list of
-                                             mempools, used to log details of
-                                             mempool in statedump */
-        char               *statedump_path;
+        /* one per volfile parse */
+        struct list_head   graphs;
 
-        struct mem_pool    *dict_pool;
-        struct mem_pool    *dict_pair_pool;
-        struct mem_pool    *dict_data_pool;
+        /* the latest graph in use */
+        glusterfs_graph_t *active;
+
+        /* fuse or nfs (but not protocol/server) */
+        void              *master;
+
+        /* xlator implementing MOPs for centralized logging, volfile server */
+        void              *mgmt;
+
+        /* listener of the commands from glusterd */
+        void              *listener;
+
+        /* toggle switch for latency measurement */
+        unsigned char      measure_latency;
+        pthread_t          sigwaiter;
+        char              *cmdlinestr;
+        struct mem_pool   *stub_mem_pool;
+        unsigned char      cleanup_started;
+        int                graph_id; /* Incremented per graph, value should
+                                        indicate how many times the graph has
+                                        got changed */
+        pid_t              mnt_pid; /* pid of the mount agent */
+        int                process_mode; /*mode in which process is runninng*/
+        struct syncenv    *env;          /* The env pointer to the synctasks */
+
+        struct list_head   mempool_list; /* used to keep a global list of
+                                            mempools, used to log details of
+                                            mempool in statedump */
+        char              *statedump_path;
+
+        struct mem_pool   *dict_pool;
+        struct mem_pool   *dict_pair_pool;
+        struct mem_pool   *dict_data_pool;
 
         glusterfsd_mgmt_event_notify_fn_t notify; /* Used for xlators to make
                                                      call to fsd-mgmt */
-        gf_log_handle_t     log; /* all logging related variables */
+        gf_log_handle_t    log; /* all logging related variables */
 
-        int                 mem_acct_enable;
+        int                mem_acct_enable;
 
-        int                 daemon_pipe[2];
+        int                daemon_pipe[2];
 
         struct clienttable *clienttable;
 
@@ -509,7 +522,7 @@ struct _glusterfs_ctx {
          * any sense, but it's not worth turning the codebase upside-down to
          * fix it.  Thus, an int.
          */
-        int                 secure_mgmt;
+        int                secure_mgmt;
 
         /*
          * Should *our* server/inbound connections use SSL?  This is only true
@@ -517,17 +530,17 @@ struct _glusterfs_ctx {
          * and SSL is set on the I/O path.  It should never be set e.g. for
          * NFS.
          */
-        mgmt_ssl_t          secure_srvr;
+        mgmt_ssl_t         secure_srvr;
         /* Buffer to 'save' backtrace even under OOM-kill like situations*/
-        char                btbuf[GF_BACKTRACE_LEN];
+        char               btbuf[GF_BACKTRACE_LEN];
 
-        pthread_mutex_t     notify_lock;
-        pthread_cond_t      notify_cond;
-        int                 notifying;
+        pthread_mutex_t    notify_lock;
+        pthread_cond_t     notify_cond;
+        int                notifying;
 
-        struct gf_ctx_tw   *tw; /* refcounted timer_wheel */
+        struct gf_ctx_tw  *tw; /* refcounted timer_wheel */
 
-        gf_lock_t           volfile_lock;
+        gf_lock_t          volfile_lock;
 
 
         struct {
@@ -536,14 +549,14 @@ struct _glusterfs_ctx {
                 gf_atomic_t total_dicts_used;
         } stats;
 
-        struct list_head volfile_list;
+        struct list_head   volfile_list;
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 
 typedef struct {
-        char volfile_checksum[SHA256_DIGEST_LENGTH];
-        char vol_id[NAME_MAX+1];
-        struct list_head volfile_list;
+        char               volfile_checksum[SHA256_DIGEST_LENGTH];
+        char               vol_id[NAME_MAX+1];
+        struct list_head   volfile_list;
 
 } gf_volfile_t;
 
@@ -551,19 +564,19 @@ typedef struct {
 glusterfs_ctx_t *glusterfs_ctx_new (void);
 
 struct gf_flock {
-        short        l_type;
-        short        l_whence;
-        off_t        l_start;
-        off_t        l_len;
-        pid_t        l_pid;
-        gf_lkowner_t l_owner;
+        short              l_type;
+        short              l_whence;
+        off_t              l_start;
+        off_t              l_len;
+        pid_t              l_pid;
+        gf_lkowner_t       l_owner;
 };
 
 typedef struct lock_migration_info {
-        struct list_head        list;
-        struct gf_flock         flock;
-        char                   *client_uid;
-        uint32_t                lk_flags;
+        struct list_head   list;
+        struct gf_flock    flock;
+        char              *client_uid;
+        uint32_t           lk_flags;
 } lock_migration_info_t;
 
 #define GF_MUST_CHECK __attribute__((warn_unused_result))

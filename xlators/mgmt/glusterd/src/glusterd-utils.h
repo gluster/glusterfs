@@ -39,7 +39,7 @@
                 int32_t         i      = 0;                                    \
                                                                                \
                 if (!get_opt && (!strcmp (key, "all") ||                       \
-                                 !strcmp (key, "cluster.max-op-version"))) {   \
+                                 !strcmp (key, GLUSTERD_MAX_OP_VERSION_KEY))) {\
                         ret = -1;                                              \
                         *op_errstr = gf_strdup ("Not a valid option to set");  \
                         goto out;                                              \

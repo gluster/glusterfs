@@ -774,7 +774,6 @@ glusterd_validate_shared_storage (char *key, char *value, char *errstr)
         char               hook_script[PATH_MAX]    = "";
         xlator_t          *this                     = NULL;
         glusterd_conf_t   *conf                     = NULL;
-        struct stat        stbuf                    = {0,};
 
         this = THIS;
         GF_VALIDATE_OR_GOTO ("glusterd", this, out);
@@ -806,7 +805,7 @@ glusterd_validate_shared_storage (char *key, char *value, char *errstr)
         snprintf (hook_script, sizeof(hook_script),
                   "%s"GLUSTERD_SHRD_STRG_HOOK_SCRIPT, conf->workdir);
 
-        ret = sys_lstat (hook_script, &stbuf);
+        ret = sys_access (hook_script, R_OK|X_OK);
         if (ret) {
                 snprintf (errstr, PATH_MAX,
                           "The hook-script (%s) required "
@@ -900,7 +899,6 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
         gf_boolean_t          check_op_version            = _gf_true;
         gf_boolean_t          trash_enabled               = _gf_false;
         gf_boolean_t          all_vol                     = _gf_false;
-        struct stat           stbuf                       = {0, };
 
         GF_ASSERT (dict);
         this = THIS;
@@ -1128,7 +1126,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                 /* Check if the key is cluster.op-version and set
                  * local_new_op_version to the value given if possible.
                  */
-                if (strcmp (key, "cluster.op-version") == 0) {
+                if (strcmp (key, GLUSTERD_GLOBAL_OP_VERSION_KEY) == 0) {
                         if (!all_vol) {
                                 ret = -1;
                                 snprintf (errstr, sizeof (errstr), "Option \""
@@ -1292,7 +1290,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
 
                                         /* Checks whether a directory with
                                            given option exists or not */
-                                        if (!sys_stat (trash_path, &stbuf)) {
+                                        if (!sys_access (trash_path, R_OK)) {
                                                 snprintf (errstr,
                                                           sizeof (errstr),
                                                           "Path %s exists",
@@ -2508,7 +2506,7 @@ glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict,
         /* If the key is cluster.op-version, set conf->op_version to the value
          * if needed and save it.
          */
-        if (strcmp(key, "cluster.op-version") == 0) {
+        if (strcmp(key, GLUSTERD_GLOBAL_OP_VERSION_KEY) == 0) {
                 ret = 0;
 
                 ret = gf_string2uint (value, &op_version);
