@@ -61,7 +61,9 @@ enum gf_common_mem_types_ {
         gf_common_mt_char,
         gf_common_mt_rbthash_table_t,
         gf_common_mt_rbthash_bucket,
+#if defined(GF_DISABLE_MEMPOOL)
         gf_common_mt_mem_pool,
+#endif
         gf_common_mt_long,
         gf_common_mt_rpcsvc_auth_list,
         gf_common_mt_rpcsvc_t,
