@@ -594,6 +594,11 @@ mem_pools_fini (void)
                  */
                 break;
         case 1:
+        {
+                per_thread_pool_list_t *pool_list;
+                per_thread_pool_list_t *next_pl;
+                unsigned int            i;
+
                 /* if only mem_pools_init_early() was called, sweeper_tid will
                  * be invalid and the functions will error out. That is not
                  * critical. In all other cases, the sweeper_tid will be valid
@@ -609,7 +614,28 @@ mem_pools_fini (void)
                  * per_thread_pool_list_t structure. */
                 (void) pthread_key_delete (pool_key);
 
+                /* free all objects from all pools */
+                list_for_each_entry_safe (pool_list, next_pl,
+                                          &pool_threads, thr_list) {
+                        for (i = 0; i < NPOOLS; ++i) {
+                                free_obj_list (pool_list->pools[i].hot_list);
+                                free_obj_list (pool_list->pools[i].cold_list);
+                                pool_list->pools[i].hot_list = NULL;
+                                pool_list->pools[i].cold_list = NULL;
+                        }
+
+                        list_del (&pool_list->thr_list);
+                        FREE (pool_list);
+                }
+
+                list_for_each_entry_safe (pool_list, next_pl,
+                                          &pool_free_threads, thr_list) {
+                        list_del (&pool_list->thr_list);
+                        FREE (pool_list);
+                }
+
                 /* Fall through. */
+        }
         default:
                 --init_count;
         }
@@ -686,8 +712,7 @@ mem_get_pool_list (void)
         (void) pthread_mutex_unlock (&pool_free_lock);
 
         if (!pool_list) {
-                pool_list = GF_CALLOC (pool_list_size, 1,
-                                       gf_common_mt_mem_pool);
+                pool_list = CALLOC (pool_list_size, 1);
                 if (!pool_list) {
                         return NULL;
                 }
