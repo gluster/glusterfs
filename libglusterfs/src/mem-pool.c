@@ -519,12 +519,6 @@ mem_pools_preinit (void)
 {
         unsigned int    i;
 
-        /* Use a pthread_key destructor to clean up when a thread exits. */
-        if (pthread_key_create (&pool_key, pool_destructor) != 0) {
-                gf_log ("mem-pool", GF_LOG_CRITICAL,
-                        "failed to initialize mem-pool key");
-        }
-
         INIT_LIST_HEAD (&pool_threads);
         INIT_LIST_HEAD (&pool_free_threads);
 
@@ -546,8 +540,34 @@ static pthread_mutex_t  init_mutex      = PTHREAD_MUTEX_INITIALIZER;
 static unsigned int     init_count      = 0;
 static pthread_t        sweeper_tid;
 
+/* Use mem_pools_init_early() function for basic initialization. There will be
+ * no cleanup done by the pool_sweeper thread until mem_pools_init_late() has
+ * been called. Calling mem_get() will be possible after this function has
+ * setup the basic structures. */
 void
-mem_pools_init (void)
+mem_pools_init_early (void)
+{
+        pthread_mutex_lock (&init_mutex);
+        /* Use a pthread_key destructor to clean up when a thread exits.
+         *
+         * We won't increase init_count here, that is only done when the
+         * pool_sweeper thread is started too.
+         */
+        if (pthread_getspecific (pool_key) == NULL) {
+                /* key has not been created yet */
+                if (pthread_key_create (&pool_key, pool_destructor) != 0) {
+                        gf_log ("mem-pool", GF_LOG_CRITICAL,
+                                "failed to initialize mem-pool key");
+                }
+        }
+        pthread_mutex_unlock (&init_mutex);
+}
+
+/* Call mem_pools_init_late() once threading has been configured completely.
+ * This prevent the pool_sweeper thread from getting killed once the main()
+ * thread exits during deamonizing. */
+void
+mem_pools_init_late (void)
 {
         pthread_mutex_lock (&init_mutex);
         if ((init_count++) == 0) {
@@ -565,17 +585,30 @@ mem_pools_fini (void)
         case 0:
                 /*
                  * If init_count is already zero (as e.g. if somebody called
-                 * this before mem_pools_init) then the sweeper was probably
-                 * never even started so we don't need to stop it.  Even if
-                 * there's some crazy circumstance where there is a sweeper but
-                 * init_count is still zero, that just means we'll leave it
-                 * running.  Not perfect, but far better than any known
-                 * alternative.
+                 * this before mem_pools_init_late) then the sweeper was
+                 * probably never even started so we don't need to stop it.
+                 * Even if there's some crazy circumstance where there is a
+                 * sweeper but init_count is still zero, that just means we'll
+                 * leave it running.  Not perfect, but far better than any
+                 * known alternative.
                  */
                 break;
         case 1:
+                /* if only mem_pools_init_early() was called, sweeper_tid will
+                 * be invalid and the functions will error out. That is not
+                 * critical. In all other cases, the sweeper_tid will be valid
+                 * and the thread gets stopped. */
                 (void) pthread_cancel (sweeper_tid);
                 (void) pthread_join (sweeper_tid, NULL);
+
+                /* Need to clean the pool_key to prevent further usage of the
+                 * per_thread_pool_list_t structure that is stored for each
+                 * thread.
+                 * This also prevents calling pool_destructor() when a thread
+                 * exits, so there is no chance on a use-after-free of the
+                 * per_thread_pool_list_t structure. */
+                (void) pthread_key_delete (pool_key);
+
                 /* Fall through. */
         default:
                 --init_count;
@@ -584,7 +617,8 @@ mem_pools_fini (void)
 }
 
 #else
-void mem_pools_init (void) {}
+void mem_pools_init_early (void) {}
+void mem_pools_init_late (void) {}
 void mem_pools_fini (void) {}
 #endif
 

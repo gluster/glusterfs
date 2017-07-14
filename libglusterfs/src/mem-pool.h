@@ -256,8 +256,9 @@ struct mem_pool {
         gf_atomic_t             frees_to_list;
 };
 
-void mem_pools_init (void);
-void mem_pools_fini (void);
+void mem_pools_init_early (void);  /* basic initialization of memory pools */
+void mem_pools_init_late (void);   /* start the pool_sweeper thread */
+void mem_pools_fini (void);        /* cleanup memory pools */
 
 struct mem_pool *
 mem_pool_new_fn (unsigned long sizeof_type, unsigned long count, char *name);

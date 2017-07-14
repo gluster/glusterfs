@@ -2417,6 +2417,8 @@ main (int argc, char *argv[])
         char              cmdlinestr[PATH_MAX] = {0,};
         cmd_args_t       *cmd = NULL;
 
+        mem_pools_init_early ();
+
 	gf_check_and_set_mem_acct (argc, argv);
 
 	ctx = glusterfs_ctx_new ();
@@ -2493,7 +2495,7 @@ main (int argc, char *argv[])
          * the parent, but we want to do it as soon as possible after that in
          * case something else depends on pool allocations.
          */
-        mem_pools_init ();
+        mem_pools_init_late ();
 
 #ifdef GF_LINUX_HOST_OS
         ret = set_oom_score_adj (ctx);
