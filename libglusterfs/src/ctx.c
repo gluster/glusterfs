@@ -31,7 +31,9 @@ glusterfs_ctx_new ()
         ctx->mem_acct_enable = gf_global_mem_acct_enable_get();
 
         INIT_LIST_HEAD (&ctx->graphs);
-	INIT_LIST_HEAD (&ctx->mempool_list);
+#if defined(OLD_MEM_POOLS)
+        INIT_LIST_HEAD (&ctx->mempool_list);
+#endif
         INIT_LIST_HEAD (&ctx->volfile_list);
 
 	ctx->daemon_pipe[0] = -1;

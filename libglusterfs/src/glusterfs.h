@@ -494,9 +494,11 @@ struct _glusterfs_ctx {
         int                process_mode; /*mode in which process is runninng*/
         struct syncenv    *env;          /* The env pointer to the synctasks */
 
+#if defined(OLD_MEM_POOLS)
         struct list_head   mempool_list; /* used to keep a global list of
                                             mempools, used to log details of
                                             mempool in statedump */
+#endif
         char              *statedump_path;
 
         struct mem_pool   *dict_pool;
