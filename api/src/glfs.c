@@ -749,7 +749,8 @@ pub_glfs_new (const char *volname)
          * Do this as soon as possible in case something else depends on
          * pool allocations.
          */
-        mem_pools_init ();
+        mem_pools_init_early ();
+        mem_pools_init_late ();
 
         fs = glfs_new_fs (volname);
         if (!fs)
