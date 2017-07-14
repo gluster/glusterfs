@@ -24,8 +24,9 @@ int dht_lk2 (xlator_t *this, xlator_t *dst_node,
              call_frame_t *frame, int ret);
 int dht_fsync2 (xlator_t *this, xlator_t *dst_node,
                 call_frame_t *frame, int ret);
-
-
+int
+dht_common_xattrop2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame,
+                     int ret);
 
 int
 dht_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -1246,13 +1247,163 @@ err:
         return 0;
 }
 
-/* Currently no translators on top of 'distribute' will be using
- * below fops, hence not implementing 'migration' related checks
- */
+
+int
+dht_common_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, dict_t *dict,
+                        dict_t *xdata)
+{
+        dht_local_t  *local          = NULL;
+        call_frame_t *call_frame     = NULL;
+        xlator_t     *prev           = NULL;
+        xlator_t     *src_subvol     = NULL;
+        xlator_t     *dst_subvol     = NULL;
+        struct iatt   stbuf          = {0,};
+        int           ret            = -1;
+        inode_t      *inode          = NULL;
+
+        local = frame->local;
+        call_frame = cookie;
+        prev = call_frame->this;
+
+        local->op_errno = op_errno;
+
+        if ((op_ret == -1) && !dht_inode_missing (op_errno)) {
+                gf_msg_debug (this->name, op_errno,
+                              "subvolume %s returned -1.",
+                              prev->name);
+                goto out;
+        }
+
+        if (local->call_cnt != 1)
+                goto out;
+
+        ret = dht_read_iatt_from_xdata (this, xdata, &stbuf);
+
+        if ((!op_ret) && (ret)) {
+                /* This is a potential problem and can cause corruption
+                 * with sharding.
+                 * Oh well. We tried.
+                 */
+                goto out;
+        }
+
+        local->op_ret = op_ret;
+        local->rebalance.target_op_fn = dht_common_xattrop2;
+        if (xdata)
+                local->rebalance.xdata = dict_ref (xdata);
+
+        if (dict)
+                local->rebalance.dict = dict_ref (dict);
+
+        /* Phase 2 of migration */
+        if ((op_ret == -1) || IS_DHT_MIGRATION_PHASE2 (&stbuf)) {
+                ret = dht_rebalance_complete_check (this, frame);
+                if (!ret)
+                        return 0;
+        }
+
+        /* Check if the rebalance phase1 is true */
+        if (IS_DHT_MIGRATION_PHASE1 (&stbuf)) {
+
+                inode = local->loc.inode ? local->loc.inode : local->fd->inode;
+                dht_inode_ctx_get_mig_info (this, inode, &src_subvol,
+                                            &dst_subvol);
+
+                if (dht_mig_info_is_invalid (local->cached_subvol, src_subvol,
+                                             dst_subvol) ||
+                      !dht_fd_open_on_dst (this, local->fd, dst_subvol)) {
+
+                        ret = dht_rebalance_in_progress_check (this, frame);
+                        if (!ret)
+                                return 0;
+                } else {
+                        dht_common_xattrop2 (this, dst_subvol, frame, 0);
+                        return 0;
+                }
+        }
+
+
+out:
+        if (local->fop == GF_FOP_XATTROP) {
+                DHT_STACK_UNWIND (xattrop, frame, op_ret, op_errno,
+                                  dict, xdata);
+        } else {
+                DHT_STACK_UNWIND (fxattrop, frame, op_ret, op_errno,
+                                  dict, xdata);
+        }
+
+        return 0;
+}
+
+
+int
+dht_common_xattrop2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame,
+                     int ret)
+{
+        dht_local_t *local    = NULL;
+        int32_t      op_errno = EINVAL;
+
+        if ((frame == NULL) || (frame->local == NULL))
+                goto out;
+
+        local = frame->local;
+        op_errno = local->op_errno;
+
+        if (we_are_not_migrating (ret)) {
+                /* This dht xlator is not migrating the file. Unwind and
+                 * pass on the original mode bits so the higher DHT layer
+                 * can handle this.
+                 */
+                if (local->fop == GF_FOP_XATTROP) {
+                        DHT_STACK_UNWIND (xattrop, frame, local->op_ret,
+                                          op_errno, local->rebalance.dict,
+                                          local->rebalance.xdata);
+                } else {
+                        DHT_STACK_UNWIND (fxattrop, frame, local->op_ret,
+                                          op_errno, local->rebalance.dict,
+                                          local->rebalance.xdata);
+                }
+
+                return 0;
+        }
+
+        if (subvol == NULL)
+                goto out;
+
+        local->call_cnt = 2; /* This is the second attempt */
+
+        if (local->fop == GF_FOP_XATTROP) {
+                STACK_WIND (frame, dht_common_xattrop_cbk, subvol,
+                            subvol->fops->xattrop, &local->loc,
+                            local->rebalance.flags, local->rebalance.xattr,
+                            local->xattr_req);
+        } else {
+                STACK_WIND (frame, dht_common_xattrop_cbk, subvol,
+                            subvol->fops->fxattrop, local->fd,
+                            local->rebalance.flags, local->rebalance.xattr,
+                            local->xattr_req);
+        }
+
+        return 0;
+
+out:
+
+        /* If local is unavailable we could be unwinding the wrong
+         * function here */
+
+        if (local && (local->fop == GF_FOP_XATTROP)) {
+                DHT_STACK_UNWIND (xattrop, frame, -1, op_errno, NULL, NULL);
+        } else {
+                DHT_STACK_UNWIND (fxattrop, frame, -1, op_errno, NULL, NULL);
+        }
+        return 0;
+}
+
 
 int
 dht_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
+                  int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
         DHT_STACK_UNWIND (xattrop, frame, op_ret, op_errno, dict, xdata);
         return 0;
@@ -1263,9 +1414,10 @@ int
 dht_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
              gf_xattrop_flags_t flags, dict_t *dict, dict_t *xdata)
 {
-        xlator_t     *subvol = NULL;
+        xlator_t     *subvol   = NULL;
         int           op_errno = -1;
-        dht_local_t  *local = NULL;
+        dht_local_t  *local    = NULL;
+        int           ret      = -1;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -1287,11 +1439,33 @@ dht_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto err;
         }
 
-        local->call_cnt = 1;
+        /* Todo : Handle dirs as well. At the moment the only xlator above dht
+         * that uses xattrop is sharding and that is only for files */
 
-        STACK_WIND (frame, dht_xattrop_cbk,
-                    subvol, subvol->fops->xattrop,
-                    loc, flags, dict, xdata);
+        if (IA_ISDIR (loc->inode->ia_type)) {
+                STACK_WIND (frame, dht_xattrop_cbk, subvol,
+                            subvol->fops->xattrop, loc, flags, dict, xdata);
+
+        } else {
+                local->xattr_req = xdata ? dict_ref(xdata) : dict_new ();
+                local->call_cnt = 1;
+
+                local->rebalance.xattr = dict_ref (dict);
+                local->rebalance.flags = flags;
+
+                ret = dht_request_iatt_in_xdata (this, local->xattr_req);
+
+                if (ret) {
+                        gf_msg_debug (this->name, 0,
+                                      "Failed to set dictionary key %s file=%s",
+                                      DHT_IATT_IN_XDATA_KEY, loc->path);
+                }
+
+                STACK_WIND (frame, dht_common_xattrop_cbk, subvol,
+                            subvol->fops->xattrop, loc,
+                            local->rebalance.flags, local->rebalance.xattr,
+                            local->xattr_req);
+        }
 
         return 0;
 
@@ -1318,6 +1492,8 @@ dht_fxattrop (call_frame_t *frame, xlator_t *this,
 {
         xlator_t     *subvol = NULL;
         int           op_errno = -1;
+        dht_local_t  *local    = NULL;
+        int           ret      = -1;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -1331,10 +1507,39 @@ dht_fxattrop (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-        STACK_WIND (frame,
-                    dht_fxattrop_cbk,
-                    subvol, subvol->fops->fxattrop,
-                    fd, flags, dict, xdata);
+        local = dht_local_init (frame, NULL, fd, GF_FOP_FXATTROP);
+        if (!local) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+
+        /* Todo : Handle dirs as well. At the moment the only xlator above dht
+         * that uses xattrop is sharding and that is only for files */
+
+        if (IA_ISDIR (fd->inode->ia_type)) {
+                STACK_WIND (frame, dht_fxattrop_cbk, subvol,
+                            subvol->fops->fxattrop, fd, flags, dict, xdata);
+
+        } else {
+                local->xattr_req = xdata ? dict_ref(xdata) : dict_new ();
+                local->call_cnt = 1;
+
+                local->rebalance.xattr = dict_ref (dict);
+                local->rebalance.flags = flags;
+
+                ret = dht_request_iatt_in_xdata (this, local->xattr_req);
+
+                if (ret) {
+                        gf_msg_debug (this->name, 0,
+                                      "Failed to set dictionary key %s fd=%p",
+                                      DHT_IATT_IN_XDATA_KEY, fd);
+                }
+
+                STACK_WIND (frame, dht_common_xattrop_cbk, subvol,
+                            subvol->fops->fxattrop, fd,
+                            local->rebalance.flags, local->rebalance.xattr,
+                            local->xattr_req);
+        }
 
         return 0;
 
@@ -1345,6 +1550,9 @@ err:
         return 0;
 }
 
+/* Currently no translators on top of 'distribute' will be using
+ * below fops, hence not implementing 'migration' related checks
+ */
 
 int
 dht_inodelk_cbk (call_frame_t *frame, void *cookie,
@@ -1406,7 +1614,6 @@ dht_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, dict_t *xdata)
 
 {
-
         dht_lk_inode_unref (frame, op_ret);
         DHT_STACK_UNWIND (finodelk, frame, op_ret, op_errno, xdata);
         return 0;

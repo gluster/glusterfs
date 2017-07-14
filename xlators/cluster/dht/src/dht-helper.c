@@ -801,6 +801,9 @@ dht_local_wipe (xlator_t *this, dht_local_t *local)
         if (local->rebalance.xattr)
                 dict_unref (local->rebalance.xattr);
 
+        if (local->rebalance.dict)
+                dict_unref (local->rebalance.dict);
+
         GF_FREE (local->rebalance.vector);
 
         if (local->rebalance.iobref)

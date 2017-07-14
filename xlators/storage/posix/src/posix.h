@@ -610,4 +610,7 @@ int32_t
 posix_rchecksum (call_frame_t *frame, xlator_t *this,
                  fd_t *fd, off_t offset, int32_t len, dict_t *xdata);
 
+int32_t
+posix_set_mode_in_dict (dict_t *in_dict, dict_t *out_dict,
+                        struct iatt *in_stbuf);
 #endif /* _POSIX_H */

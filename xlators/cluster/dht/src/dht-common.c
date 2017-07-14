@@ -45,6 +45,11 @@ int
 dht_rmdir_readdirp_do (call_frame_t *readdirp_frame, xlator_t *this);
 
 
+int
+dht_common_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, dict_t *dict,
+                        dict_t *xdata);
+
 
 /* Sets the blocks and size values to fixed values. This is to be called
  * only for dirs. The caller is responsible for checking the type
@@ -58,6 +63,48 @@ int32_t dht_set_fixed_dir_stat (struct iatt *stat)
         }
         return -1;
 }
+
+
+/* Set both DHT_IATT_IN_XDATA_KEY and DHT_MODE_IN_XDATA_KEY
+ * Use DHT_MODE_IN_XDATA_KEY if available. Else fall back to
+ * DHT_IATT_IN_XDATA_KEY
+ */
+int dht_request_iatt_in_xdata (xlator_t *this, dict_t *xattr_req)
+{
+        int ret = -1;
+
+        ret = dict_set_int8 (xattr_req, DHT_MODE_IN_XDATA_KEY, 1);
+        ret = dict_set_int8 (xattr_req, DHT_IATT_IN_XDATA_KEY, 1);
+
+        /* At least one call succeeded */
+        return ret;
+}
+
+
+/* Get both DHT_IATT_IN_XDATA_KEY and DHT_MODE_IN_XDATA_KEY
+ * Use DHT_MODE_IN_XDATA_KEY if available, else fall back to
+ * DHT_IATT_IN_XDATA_KEY
+ * This will return a dummy iatt with only the mode and type set
+ */
+int dht_read_iatt_from_xdata (xlator_t *this, dict_t *xdata,
+                              struct iatt *stbuf)
+{
+        int ret = -1;
+        int32_t mode = 0;
+
+        ret = dict_get_int32 (xdata, DHT_MODE_IN_XDATA_KEY, &mode);
+
+        if (ret) {
+                ret = dict_get_bin (xdata, DHT_IATT_IN_XDATA_KEY,
+                                    (void **)&stbuf);
+        } else {
+                stbuf->ia_prot = ia_prot_from_st_mode (mode);
+                stbuf->ia_type = ia_type_from_st_mode (mode);
+        }
+
+        return ret;
+}
+
 
 
 int

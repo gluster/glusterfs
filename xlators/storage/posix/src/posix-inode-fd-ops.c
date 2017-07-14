@@ -4143,6 +4143,7 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                 op_ret = -1;
                 op_errno = ENOMEM;
         }
+        posix_set_mode_in_dict (xdata, xdata_rsp, &stbuf);
 out:
 
         STACK_UNWIND_STRICT (xattrop, frame, op_ret, op_errno, xattr_rsp,

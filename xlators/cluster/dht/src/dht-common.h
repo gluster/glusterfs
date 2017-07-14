@@ -149,6 +149,7 @@ struct dht_rebalance_ {
         dht_defrag_cbk_fn_t  target_op_fn;
         dict_t              *xdata;
         dict_t              *xattr;
+        dict_t              *dict;
         int32_t              set;
         struct gf_flock      flock;
         int                  lock_cmd;
@@ -1465,5 +1466,13 @@ dht_inode_ctx_mdsvol_get (inode_t *inode, xlator_t *this,
 int
 dht_selfheal_dir_setattr (call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
                           int32_t valid, dht_layout_t *layout);
+
+/* Abstract out the DHT-IATT-IN-DICT */
+
+
+int dht_request_iatt_in_xdata (xlator_t *this, dict_t *xattr_req);
+
+int dht_read_iatt_from_xdata (xlator_t *this, dict_t *xdata,
+                              struct iatt *stbuf);
 
 #endif/* _DHT_H */

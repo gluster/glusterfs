@@ -153,6 +153,38 @@ out:
         return ret;
 }
 
+
+int32_t
+posix_set_mode_in_dict (dict_t *in_dict, dict_t *out_dict,
+                        struct iatt *in_stbuf)
+{
+        int ret             = -1;
+        mode_t mode         = 0;
+
+        if ((!in_dict) || (!in_stbuf) || (!out_dict)) {
+                goto out;
+        }
+
+        /* We need this only for files */
+        if (!(IA_ISREG (in_stbuf->ia_type))) {
+                ret = 0;
+                goto out;
+        }
+
+        /* Nobody asked for this */
+        if (!dict_get (in_dict, DHT_MODE_IN_XDATA_KEY)) {
+                ret = 0;
+                goto out;
+        }
+        mode = st_mode_from_ia (in_stbuf->ia_prot, in_stbuf->ia_type);
+
+        ret = dict_set_int32 (out_dict, DHT_MODE_IN_XDATA_KEY, mode);
+
+out:
+        return ret;
+}
+
+
 static gf_boolean_t
 posix_xattr_ignorable (char *key)
 {
