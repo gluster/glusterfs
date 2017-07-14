@@ -275,6 +275,7 @@
 #define TIER_LINKFILE_GFID           "tier-linkfile-gfid"
 #define DHT_SKIP_OPEN_FD_UNLINK     "dont-unlink-for-open-fd"
 #define DHT_IATT_IN_XDATA_KEY       "dht-get-iatt-in-xattr"
+#define DHT_MODE_IN_XDATA_KEY       "dht-get-mode-in-xattr"
 #define GET_LINK_COUNT              "get-link-count"
 #define GF_GET_SIZE                 "get-size"
 
