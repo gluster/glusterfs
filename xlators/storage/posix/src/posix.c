@@ -806,7 +806,7 @@ posix_do_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
         VALIDATE_OR_GOTO (fd, out);
 
         priv = this->private;
-        DISK_SPACE_CHECK_AND_GOTO (frame, priv, ret, ret, out);
+        DISK_SPACE_CHECK_AND_GOTO (frame, priv, xdata, ret, ret, out);
 
         ret = posix_fd_ctx_get (fd, this, &pfd, &op_errno);
         if (ret < 0) {
@@ -853,6 +853,8 @@ out:
                 locked = _gf_false;
         }
         SET_TO_OLD_FS_ID ();
+        if (ret == ENOSPC)
+                ret = -ENOSPC;
 
         return ret;
 }
@@ -1108,17 +1110,18 @@ posix_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         struct  iatt statpost            = {0,};
         struct  posix_private *priv      = NULL;
         int     op_ret                   = -1;
-        int     op_errno                 = -1;
+        int     op_errno                 = -EINVAL;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
 
         priv = this->private;
-        DISK_SPACE_CHECK_AND_GOTO (frame, priv, op_ret, op_errno, out);
+        DISK_SPACE_CHECK_AND_GOTO (frame, priv, xdata, op_ret, op_errno, out);
 
         ret = posix_do_zerofill (frame, this, fd, offset, len,
                                  &statpre, &statpost, xdata);
         if (ret < 0) {
+                op_ret = -1;
                 op_errno = -ret;
                 goto out;
         }
@@ -1396,13 +1399,12 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (priv, out);
         GFID_NULL_CHECK_AND_GOTO (frame, this, loc, xdata, op_ret, op_errno,
                                   out);
-        DISK_SPACE_CHECK_AND_GOTO (frame, priv, op_ret, op_errno, out);
-
         MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, NULL);
 
         gid = frame->root->gid;
 
         SET_FS_ID (frame->root->uid, gid);
+        DISK_SPACE_CHECK_AND_GOTO (frame, priv, xdata, op_ret, op_errno, out);
 
         if (!real_path || !par_path) {
                 op_ret = -1;
@@ -1617,7 +1619,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (priv, out);
         GFID_NULL_CHECK_AND_GOTO (frame, this, loc, xdata, op_ret, op_errno,
                                   out);
-        DISK_SPACE_CHECK_AND_GOTO (frame, priv, op_ret, op_errno, out);
+        DISK_SPACE_CHECK_AND_GOTO (frame, priv, xdata, op_ret, op_errno, out);
 
         MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, NULL);
         if (!real_path || !par_path) {
@@ -2444,7 +2446,7 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (priv, out);
         GFID_NULL_CHECK_AND_GOTO (frame, this, loc, xdata, op_ret, op_errno,
                                   out);
-        DISK_SPACE_CHECK_AND_GOTO (frame, priv, op_ret, op_errno, out);
+        DISK_SPACE_CHECK_AND_GOTO (frame, priv, xdata, op_ret, op_errno, out);
 
         MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &stbuf);
 
@@ -2603,7 +2605,7 @@ posix_rename (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
         VALIDATE_OR_GOTO (priv, out);
-        DISK_SPACE_CHECK_AND_GOTO (frame, priv, op_ret, op_errno, out);
+        DISK_SPACE_CHECK_AND_GOTO (frame, priv, xdata, op_ret, op_errno, out);
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_ENTRY_HANDLE (real_oldpath, par_oldpath, this, oldloc, NULL);
@@ -2886,7 +2888,7 @@ posix_link (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
         VALIDATE_OR_GOTO (priv, out);
-        DISK_SPACE_CHECK_AND_GOTO (frame, priv, op_ret, op_errno, out);
+        DISK_SPACE_CHECK_AND_GOTO (frame, priv, xdata, op_ret, op_errno, out);
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_INODE_HANDLE (real_oldpath, this, oldloc, &stbuf);
@@ -3096,7 +3098,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (priv, out);
         GFID_NULL_CHECK_AND_GOTO (frame, this, loc, xdata, op_ret, op_errno,
                                   out);
-        DISK_SPACE_CHECK_AND_GOTO (frame, priv, op_ret, op_errno, out);
+        DISK_SPACE_CHECK_AND_GOTO (frame, priv, xdata, op_ret, op_errno, out);
 
         MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &stbuf);
 
@@ -3285,7 +3287,7 @@ posix_open (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (priv, out);
 
         if (flags & O_CREAT)
-                DISK_SPACE_CHECK_AND_GOTO (frame, priv, op_ret, op_errno, out);
+                DISK_SPACE_CHECK_AND_GOTO (frame, priv, xdata, op_ret, op_errno, out);
 
         MAKE_INODE_HANDLE (real_path, this, loc, &stbuf);
         if (!real_path) {
@@ -3610,7 +3612,7 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         priv = this->private;
 
         VALIDATE_OR_GOTO (priv, out);
-        DISK_SPACE_CHECK_AND_GOTO (frame, priv, op_ret, op_errno, out);
+        DISK_SPACE_CHECK_AND_GOTO (frame, priv, xdata, op_ret, op_errno, out);
 
         ret = posix_fd_ctx_get (fd, this, &pfd, &op_errno);
         if (ret < 0) {
@@ -3775,7 +3777,7 @@ posix_statfs (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        percent = priv->disk_threshhold;
+        percent = priv->disk_reserve;
         buf.f_bfree = (buf.f_bfree - ((buf.f_blocks * percent) / 100));
 
         shared_by = priv->shared_brick_count;
@@ -4051,7 +4053,7 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (dict, out);
 
         priv = this->private;
-        DISK_SPACE_CHECK_AND_GOTO (frame, priv, op_ret, op_errno, out);
+        DISK_SPACE_CHECK_AND_GOTO (frame, priv, xdata, op_ret, op_errno, out);
 
         MAKE_INODE_HANDLE (real_path, this, loc, NULL);
         if (!real_path) {
@@ -5417,7 +5419,7 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (dict, out);
 
         priv = this->private;
-        DISK_SPACE_CHECK_AND_GOTO (frame, priv, op_ret, op_errno, out);
+        DISK_SPACE_CHECK_AND_GOTO (frame, priv, xdata, op_ret, op_errno, out);
 
         ret = posix_fd_ctx_get (fd, this, &pfd, &op_errno);
         if (ret < 0) {
@@ -6090,8 +6092,7 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         VALIDATE_OR_GOTO (this, out);
 
         priv = this->private;
-        DISK_SPACE_CHECK_AND_GOTO (frame, priv, op_ret, op_errno, out);
-
+        DISK_SPACE_CHECK_AND_GOTO (frame, priv, xdata, op_ret, op_errno, out);
 
         if (fd) {
                 op_ret = posix_fd_ctx_get (fd, this, &pfd, &op_errno);
@@ -7214,9 +7215,9 @@ reconfigure (xlator_t *this, dict_t *options)
                         " fallback to <hostname>:<export>");
         }
 
-        GF_OPTION_RECONF ("reserve", priv->disk_threshhold,
+        GF_OPTION_RECONF ("reserve", priv->disk_reserve,
                           options, uint32, out);
-        if (priv->disk_threshhold)
+        if (priv->disk_reserve)
                 posix_spawn_disk_space_check_thread (this);
 
         GF_OPTION_RECONF ("health-check-interval", priv->health_check_interval,
@@ -7820,8 +7821,8 @@ init (xlator_t *this)
         _private->disk_space_check_active = _gf_false;
         _private->disk_space_full          = 0;
         GF_OPTION_INIT ("reserve",
-                        _private->disk_threshhold, uint32, out);
-        if (_private->disk_threshhold)
+                        _private->disk_reserve, uint32, out);
+        if (_private->disk_reserve)
                 posix_spawn_disk_space_check_thread (this);
 
         _private->health_check_active = _gf_false;
@@ -8032,9 +8033,8 @@ struct volume_options options[] = {
           .min = 0,
           .default_value = "1",
           .validate = GF_OPT_VALIDATE_MIN,
-          .description = "Value in percentage in integer form required "
-           "to set reserve disk, "
-           "set to 0 to disable"
+          .description = "Percentage of disk space to be reserved."
+           " Set to 0 to disable"
         },
 	{ .key = {"batch-fsync-mode"},
 	  .type = GF_OPTION_TYPE_STR,

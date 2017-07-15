@@ -45,7 +45,7 @@
  */
 
 #define POSIX_COMP_BASE         GLFS_MSGID_COMP_POSIX
-#define GLFS_NUM_MESSAGES       111
+#define GLFS_NUM_MESSAGES       112
 #define GLFS_MSGID_END          (POSIX_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
 #define glfs_msg_start_x POSIX_COMP_BASE, "Invalid: Start of messages"
