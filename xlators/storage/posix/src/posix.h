@@ -63,8 +63,9 @@
 #define GF_UNLINK_TRUE 0x0000000000000001
 #define GF_UNLINK_FALSE 0x0000000000000000
 
-#define DISK_SPACE_CHECK_AND_GOTO(frame, priv, op_ret, op_errno, out)  do {   \
-               if (frame->root->pid >= 0 && priv->disk_space_full) {          \
+#define DISK_SPACE_CHECK_AND_GOTO(frame, priv, xdata, op_ret, op_errno, out)  do {   \
+               if (frame->root->pid >= 0 && priv->disk_space_full &&          \
+                   !dict_get (xdata, GLUSTERFS_INTERNAL_FOP_KEY)) {          \
                         op_ret = -1;                                          \
                         op_errno = ENOSPC;                                    \
                         gf_msg_debug ("posix", ENOSPC,                        \
@@ -73,6 +74,7 @@
                         goto out;                                             \
                }                                                              \
         } while (0)
+
 
 #define GFID_NULL_CHECK_AND_GOTO(frame, this, loc, xattr_req, op_ret,         \
                                  op_errno, out)                               \
@@ -209,7 +211,7 @@ struct posix_private {
         pthread_t       health_check;
         gf_boolean_t    health_check_active;
 
-        uint32_t        disk_threshhold;
+        uint32_t        disk_reserve;
         uint32_t        disk_space_full;
         pthread_t       disk_space_check;
         gf_boolean_t    disk_space_check_active;
