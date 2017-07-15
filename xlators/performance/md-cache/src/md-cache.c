@@ -92,6 +92,11 @@ static struct mdc_key {
 		.check = 1,
 	},
         {
+                .name = "trusted.glusterfs.md-cache-timeout",
+                .load = 0,
+                .check = 1,
+        },
+        {
                 .name = NULL,
                 .load = 0,
                 .check = 0,
@@ -327,46 +332,88 @@ unlock:
 }
 
 
+static uint32_t __get_mdc_timeout (xlator_t *this, struct md_cache *mdc)
+{
+        struct mdc_conf *conf = NULL;
+        int32_t ret = 0;
+        uint32_t timeout = 0;
+
+        conf = this->private;
+
+        // Check the dictionary for a custom timeout, and if non exists,
+        // then just return the default timeout
+        ret = dict_get_uint32 (mdc->xattr, "trusted.glusterfs.md-cache-timeout",
+                                &timeout);
+
+        if (ret != 0) {
+                timeout = conf->timeout;
+        } else {
+                gf_log (this->name, GF_LOG_DEBUG, "Found custom timeout of %u",
+                                timeout);
+        }
+        return timeout;
+}
+
+
 static gf_boolean_t
 is_md_cache_iatt_valid (xlator_t *this, struct md_cache *mdc)
 {
-	struct mdc_conf *conf = NULL;
 	time_t           now = 0;
-        gf_boolean_t     ret = _gf_true;
-	conf = this->private;
+        gf_boolean_t     valid = _gf_true;
+        uint32_t         timeout = 0;
 
 	time (&now);
 
         LOCK (&mdc->lock);
         {
-                if (now >= (mdc->ia_time + conf->timeout))
-                        ret = _gf_false;
+                timeout = __get_mdc_timeout (this, mdc);
+                if (timeout == 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Assuming custom timeout of %u"
+                                " means infinity!", timeout);
+                                valid = _gf_true;
+                                goto unlock;
+                }
+
+                if (now >= (mdc->ia_time + timeout)) {
+                        valid = _gf_false;
+                }
         }
+unlock:
         UNLOCK (&mdc->lock);
 
-	return ret;
+	return valid;
 }
 
 
 static gf_boolean_t
 is_md_cache_xatt_valid (xlator_t *this, struct md_cache *mdc)
 {
-	struct mdc_conf *conf = NULL;
 	time_t           now = 0;
-        gf_boolean_t     ret = _gf_true;
-
-	conf = this->private;
+        gf_boolean_t     valid = _gf_true;
+        uint32_t         timeout = 0;
 
 	time (&now);
 
         LOCK (&mdc->lock);
         {
-                if (now >= (mdc->xa_time + conf->timeout))
-                        ret = _gf_false;
+                timeout = __get_mdc_timeout (this, mdc);
+                if (timeout == 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Assuming custom timeout of %u"
+                                " means infinity!", timeout);
+                                valid = _gf_true;
+                                goto unlock;
+                }
+
+                if (now >= (mdc->xa_time + timeout)) {
+                        valid = _gf_false;
+                }
         }
+unlock:
         UNLOCK (&mdc->lock);
 
-	return ret;
+	return valid;
 }
 
 
@@ -2658,7 +2705,8 @@ struct volume_options options[] = {
           .min = 0,
           .max = 300,
           .default_value = "1",
-          .description = "Time period after which cache has to be refreshed",
+          .description = "Time period after which cache has to be refreshed. "
+                         "A default value of 0 means infinity.",
         },
         { .key = {"md-cache-statfs"},
           .type = GF_OPTION_TYPE_BOOL,
