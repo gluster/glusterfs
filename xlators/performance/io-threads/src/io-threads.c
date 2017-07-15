@@ -220,8 +220,15 @@ iot_worker (void *data)
                 }
                 pthread_mutex_unlock (&conf->mutex);
 
-                if (stub) /* guard against spurious wakeups */
-                        call_resume (stub);
+                if (stub) { /* guard against spurious wakeups */
+                        if (stub->poison) {
+                                gf_log (this->name, GF_LOG_INFO,
+                                        "Dropping poisoned request %p.", stub);
+                                call_stub_destroy (stub);
+                        } else {
+                                call_resume (stub);
+                        }
+                }
                 stub = NULL;
 
                 if (bye)
@@ -1306,6 +1313,32 @@ fini (xlator_t *this)
 	return;
 }
 
+static int
+iot_disconnect_cbk (xlator_t *this, client_t *client)
+{
+        int             i;
+        call_stub_t     *curr;
+        call_stub_t     *next;
+        iot_conf_t      *conf   = this->private;
+
+        pthread_mutex_lock (&conf->mutex);
+        for (i = 0; i < IOT_PRI_MAX; i++) {
+                list_for_each_entry_safe (curr, next, &conf->reqs[i], list) {
+                        if (curr->frame->root->client != client) {
+                                continue;
+                        }
+                        gf_log (this->name, GF_LOG_INFO,
+                                "poisoning %s fop at %p for client %s",
+                                gf_fop_list[curr->fop], curr,
+                                client->client_uid);
+                        curr->poison = _gf_true;
+                }
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
+        return 0;
+}
+
 struct xlator_dumpops dumpops = {
         .priv    = iot_priv_dump,
 };
@@ -1357,7 +1390,9 @@ struct xlator_fops fops = {
         .zerofill    = iot_zerofill,
 };
 
-struct xlator_cbks cbks;
+struct xlator_cbks cbks = {
+        .client_disconnect = iot_disconnect_cbk,
+};
 
 struct volume_options options[] = {
 	{ .key  = {"thread-count"},

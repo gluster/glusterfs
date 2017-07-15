@@ -22,6 +22,7 @@ typedef struct _call_stub {
 	char wind;
 	call_frame_t *frame;
 	glusterfs_fop_t fop;
+  gf_boolean_t poison;
         struct mem_pool *stub_mem_pool; /* pointer to stub mempool in ctx_t */
         uint32_t jnl_meta_len;
         uint32_t jnl_data_len;
