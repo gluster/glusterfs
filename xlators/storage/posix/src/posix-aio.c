@@ -330,6 +330,7 @@ posix_aio_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         VALIDATE_OR_GOTO (fd, err);
 
         priv = this->private;
+        DISK_SPACE_CHECK_AND_GOTO (frame, priv, op_errno, op_errno, err);
 
         ret = posix_fd_ctx_get (fd, this, &pfd, &op_errno);
         if (ret < 0) {

@@ -63,6 +63,18 @@
 #define GF_UNLINK_TRUE 0x0000000000000001
 #define GF_UNLINK_FALSE 0x0000000000000000
 
+#define DISK_SPACE_CHECK_AND_GOTO(frame, priv, op_ret, op_errno, out)  do {   \
+               if (frame->root->pid >= 0 && priv->disk_space_full) {          \
+                        op_ret = -1;                                          \
+                        op_errno = ENOSPC;                                    \
+                        gf_msg_debug ("posix", ENOSPC,                        \
+                                      "disk space utilization reached limits" \
+                                      " for path %s ",  priv->base_path);     \
+                        goto out;                                             \
+               }                                                              \
+        } while (0)
+
+
 /**
  * posix_fd - internal structure common to file and directory fd's
  */
@@ -166,6 +178,11 @@ struct posix_private {
         uint32_t        health_check_interval;
         pthread_t       health_check;
         gf_boolean_t    health_check_active;
+
+        uint32_t        disk_threshhold;
+        uint32_t        disk_space_full;
+        pthread_t       disk_space_check;
+        gf_boolean_t    disk_space_check_active;
 
 #ifdef GF_DARWIN_HOST_OS
         enum {
@@ -273,6 +290,8 @@ void
 __posix_fd_set_odirect (fd_t *fd, struct posix_fd *pfd, int opflags,
 			off_t offset, size_t size);
 void posix_spawn_health_check_thread (xlator_t *this);
+
+void posix_spawn_disk_space_check_thread (xlator_t *this);
 
 void *posix_fsyncer (void *);
 int
