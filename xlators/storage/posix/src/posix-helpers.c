@@ -2379,6 +2379,102 @@ posix_fdget_objectsignature (int fd, dict_t *xattr)
         return -EINVAL;
 }
 
+/*
+ * posix_resolve_dirgfid_to_path:
+ *       It converts given dirgfid to path by doing recursive readlinks at the
+ *  backend. If bname is given, it suffixes bname to dir path to form the
+ *  complete path else it doesn't. It allocates memory for the path and is
+ *  caller's responsibility to free the same. If bname is NULL and pargfid
+ *  is ROOT, then it returns "/"
+ **/
+
+int32_t
+posix_resolve_dirgfid_to_path (const uuid_t dirgfid, const char *brick_path,
+                               const char *bname, char **path)
+{
+        char             *linkname                  = NULL;
+        char             *dir_handle                = NULL;
+        char             *pgfidstr                  = NULL;
+        char             *saveptr                   = NULL;
+        ssize_t           len                       = 0;
+        int               ret                       = 0;
+        uuid_t            tmp_gfid                  = {0, };
+        uuid_t            pargfid                   = {0, };
+        char              gpath[PATH_MAX]           = {0,};
+        char              result[PATH_MAX]          = {0,};
+        char              result1[PATH_MAX]         = {0,};
+        char             *dir_name                  = NULL;
+        char              pre_dir_name[PATH_MAX]    = {0,};
+        xlator_t         *this                      = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        gf_uuid_copy (pargfid, dirgfid);
+        if (!path || gf_uuid_is_null (pargfid)) {
+                ret = -1;
+                goto out;
+        }
+
+        if (__is_root_gfid (pargfid)) {
+                if (bname) {
+                        snprintf (result, PATH_MAX, "/%s", bname);
+                        *path = gf_strdup (result);
+                } else {
+                        *path = gf_strdup ("/");
+                }
+                return ret;
+        }
+
+        dir_handle = alloca (PATH_MAX);
+        linkname   = alloca (PATH_MAX);
+        (void) snprintf (gpath, PATH_MAX, "%s/.glusterfs/", brick_path);
+
+        while (!(__is_root_gfid (pargfid))) {
+                snprintf (dir_handle, PATH_MAX, "%s/%02x/%02x/%s", gpath,
+                          pargfid[0], pargfid[1], uuid_utoa (pargfid));
+
+                len = sys_readlink (dir_handle, linkname, PATH_MAX);
+                if (len < 0) {
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                P_MSG_READLINK_FAILED,
+                                "could not read the "
+                                "link from the gfid handle %s", dir_handle);
+                        ret = -1;
+                        goto out;
+                }
+
+                linkname[len] = '\0';
+
+                pgfidstr = strtok_r (linkname + strlen("../../00/00/"), "/",
+                                     &saveptr);
+                dir_name = strtok_r (NULL, "/", &saveptr);
+
+                if (strlen(pre_dir_name) != 0) { /* Remove '/' at the end */
+                        snprintf (result, PATH_MAX, "%s/%s", dir_name,
+                                  pre_dir_name);
+                } else {
+                        snprintf (result, PATH_MAX, "%s", dir_name);
+                }
+
+                strncpy (pre_dir_name, result, sizeof(pre_dir_name));
+
+                gf_uuid_parse (pgfidstr, tmp_gfid);
+                gf_uuid_copy (pargfid, tmp_gfid);
+        }
+
+        if (bname) {
+                snprintf (result1, PATH_MAX, "/%s/%s", result, bname);
+        } else {
+                snprintf (result1, PATH_MAX, "/%s", result);
+        }
+
+        *path = gf_strdup (result1);
+
+out:
+        return ret;
+}
+
 posix_inode_ctx_t *
 __posix_inode_ctx_get (inode_t *inode, xlator_t *this)
 {

@@ -359,6 +359,11 @@ function get_text_xattr {
         getfattr -h -d -m. -e text $path 2>/dev/null | grep -a $key | cut -f2 -d'='
 }
 
+function get_gfid2path {
+        local path=$1
+        getfattr -h --only-values -n glusterfs.gfidtopath $path 2>/dev/null
+}
+
 function get_xattr_key {
         local key=$1
         local path=$2
