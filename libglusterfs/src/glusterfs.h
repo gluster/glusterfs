@@ -121,6 +121,7 @@
 #define GF_XATTR_LINKINFO_KEY   "trusted.distribute.linkinfo"
 #define GFID_XATTR_KEY          "trusted.gfid"
 #define PGFID_XATTR_KEY_PREFIX  "trusted.pgfid."
+#define GFID2PATH_VIRT_XATTR_KEY  "glusterfs.gfidtopath"
 #define GFID2PATH_XATTR_KEY_PREFIX  "trusted.gfid2path."
 #define GFID2PATH_XATTR_KEY_PREFIX_LENGTH 18
 #define VIRTUAL_GFID_XATTR_KEY_STR  "glusterfs.gfid.string"
