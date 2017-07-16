@@ -173,6 +173,7 @@ struct posix_private {
 	uint32_t        batch_fsync_delay_usec;
         gf_boolean_t    update_pgfid_nlinks;
         gf_boolean_t    gfid2path;
+        char            gfid2path_sep[8];
 
         /* seconds to sleep between health checks */
         uint32_t        health_check_interval;
@@ -300,6 +301,9 @@ posix_get_ancestry (xlator_t *this, inode_t *leaf_inode,
                     dict_t *xdata);
 int
 posix_handle_georep_xattrs (call_frame_t *, const char *, int *, gf_boolean_t);
+int32_t
+posix_resolve_dirgfid_to_path (const uuid_t dirgfid, const char *brick_path,
+                               const char *bname, char **path);
 void
 posix_gfid_unset (xlator_t *this, dict_t *xdata);
 

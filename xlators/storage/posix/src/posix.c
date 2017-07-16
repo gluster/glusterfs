@@ -4734,6 +4734,23 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 goto done;
         }
 
+        if (loc->inode && name &&
+            (strcmp (name, GFID2PATH_VIRT_XATTR_KEY) == 0)) {
+                if (!priv->gfid2path) {
+                        op_errno = ENOATTR;
+                        op_ret = -1;
+                        goto out;
+                }
+                ret = posix_get_gfid2path (this, loc->inode, real_path,
+                                           &op_errno, dict);
+                if (ret < 0) {
+                        op_ret = -1;
+                        goto out;
+                }
+                size = ret;
+                goto done;
+        }
+
         if (loc->inode && name
             && (strcmp (name, GET_ANCESTRY_PATH_KEY) == 0)) {
                 int type = POSIX_ANCESTRY_PATH;
@@ -6989,7 +7006,19 @@ posix_set_owner (xlator_t *this, uid_t uid, gid_t gid)
 
         return ret;
 }
+static int
+set_gfid2path_separator (struct posix_private *priv, const char *str)
+{
+        int str_len = 0;
 
+        str_len = strlen(str);
+        if (str_len > 0 && str_len < 8) {
+                strcpy (priv->gfid2path_sep, str);
+                return 0;
+        }
+
+        return -1;
+}
 
 static int
 set_batch_fsync_mode (struct posix_private *priv, const char *str)
@@ -7036,6 +7065,7 @@ reconfigure (xlator_t *this, dict_t *options)
         int32_t               uid = -1;
         int32_t               gid = -1;
 	char                 *batch_fsync_mode_str = NULL;
+    char                 *gfid2path_sep = NULL;
 
 	priv = this->private;
 
@@ -7055,6 +7085,14 @@ reconfigure (xlator_t *this, dict_t *options)
                         "Unknown mode string: %s", batch_fsync_mode_str);
 		goto out;
 	}
+
+	GF_OPTION_RECONF ("gfid2path-separator", gfid2path_sep, options,
+                          str, out);
+        if (set_gfid2path_separator (priv, gfid2path_sep) != 0) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, P_MSG_INVALID_ARGUMENT,
+                        "Length of separator exceeds 7: %s", gfid2path_sep);
+                goto out;
+        }
 
 #ifdef GF_DARWIN_HOST_OS
 
@@ -7249,6 +7287,7 @@ init (xlator_t *this)
         int32_t               uid           = -1;
         int32_t               gid           = -1;
 	char                 *batch_fsync_mode_str;
+        char                 *gfid2path_sep = NULL;
 
         dir_data = dict_get (this->options, "directory");
 
@@ -7750,6 +7789,13 @@ init (xlator_t *this)
 		goto out;
 	}
 
+	GF_OPTION_INIT ("gfid2path-separator", gfid2path_sep, str, out);
+        if (set_gfid2path_separator (_private, gfid2path_sep) != 0) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, P_MSG_INVALID_ARGUMENT,
+                        "Length of separator exceeds 7: %s", gfid2path_sep);
+                goto out;
+        }
+
 #ifdef GF_DARWIN_HOST_OS
 
         char  *xattr_user_namespace_mode_str = NULL;
@@ -7949,6 +7995,11 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
           .description = "Enable logging metadata for gfid to path conversion"
+        },
+        { .key = {"gfid2path-separator"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = ":",
+          .description = "Path separator for glusterfs.gfidtopath virt xattr"
         },
 #if GF_DARWIN_HOST_OS
         { .key = {"xattr-user-namespace-mode"},
