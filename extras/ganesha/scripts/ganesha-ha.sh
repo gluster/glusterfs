@@ -976,6 +976,9 @@ main()
         usage
         exit 0
     fi
+
+    semanage boolean -m gluster_use_execmem --on
+
     HA_CONFDIR=${1%/}; shift
     local ha_conf=${HA_CONFDIR}/ganesha-ha.conf
     local node=""
@@ -1130,6 +1133,9 @@ $HA_CONFDIR/ganesha-ha.conf
         ;;
 
     esac
+
+    semanage boolean -m gluster_use_execmem --off
+
 }
 
 main $*
