@@ -230,7 +230,7 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
                                                          undid_pending,
                                                        AFR_METADATA_TRANSACTION,
                                                          locked_on, replies);
-                        return source;
+                        goto out;
                 }
 
 		/* If this is a directory mtime/ctime only split brain
@@ -244,7 +244,7 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
 				 uuid_utoa (replies[source].poststat.ia_gfid));
 			sources[source] = 1;
 			healed_sinks[source] = 0;
-			return source;
+                        goto out;
 		}
 
 		if (!priv->metadata_splitbrain_forced_heal) {
@@ -303,6 +303,8 @@ __afr_selfheal_metadata_finalize_source (call_frame_t *frame, xlator_t *this,
                 }
         }
 
+out:
+        afr_mark_active_sinks (this, sources, locked_on, healed_sinks);
 	return source;
 }
 
