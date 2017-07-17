@@ -2,6 +2,9 @@
 
 . $(dirname $0)/../include.rc
 
+#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=GH269
+#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=GH269
+
 cleanup;
 mkdir -p $B0/1
 mkdir -p $M0
