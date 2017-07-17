@@ -325,6 +325,17 @@ ret:
 static void
 nlm_client_free (nlm_client_t *nlmclnt)
 {
+        nlm_fde_t *fde = NULL, *tmp = NULL;
+
+        gf_msg_trace (GF_NLM, 0, "removing nlm-client %s from the list",
+                      nlmclnt->caller_name);
+
+        list_for_each_entry_safe (fde, tmp, &nlmclnt->fdes, fde_list) {
+                fd_unref (fde->fd);
+                list_del (&fde->fde_list);
+                GF_FREE (fde);
+        }
+
         list_del (&nlmclnt->fdes);
         list_del (&nlmclnt->nlm_clients);
         list_del (&nlmclnt->shares);
@@ -1172,7 +1183,6 @@ int
 nlm_cleanup_fds (char *caller_name)
 {
         int nlmclnt_found = 0;
-        nlm_fde_t *fde = NULL, *tmp = NULL;
         nlm_client_t *nlmclnt = NULL;
 
         LOCK (&nlm_client_list_lk);
@@ -1187,15 +1197,7 @@ nlm_cleanup_fds (char *caller_name)
         if (!nlmclnt_found)
                 goto ret;
 
-        if (list_empty (&nlmclnt->fdes))
-                goto ret;
-
-        list_for_each_entry_safe (fde, tmp, &nlmclnt->fdes, fde_list) {
-                fd_unref (fde->fd);
-                list_del (&fde->fde_list);
-                GF_FREE (fde);
-        }
-
+        nlm_client_free (nlmclnt);
 ret:
         UNLOCK (&nlm_client_list_lk);
         return 0;
@@ -1235,9 +1237,6 @@ nlm_search_and_delete (fd_t *fd, nlm4_lock *lk)
         if (transit_cnt)
                 goto ret;
         list_del (&fde->fde_list);
-
-        if (list_empty (&nlmclnt->fdes) && list_empty (&nlmclnt->shares))
-                nlm_client_free (nlmclnt);
 
 ret:
         UNLOCK (&nlm_client_list_lk);
