@@ -3443,13 +3443,23 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "mgmt/glusterd",
           .value       = "off",
           .op_version  = GD_OP_VERSION_3_10_0,
-          .validate_fn = validate_boolean
+          .validate_fn = validate_boolean,
+          .type        = GLOBAL_DOC,
+          .description = "This global option can be used to enable/disable "
+                         "brick multiplexing. Brick multiplexing ensures that "
+                         "compatible brick instances can share one single "
+                         "brick process."
         },
         { .key         = GLUSTERD_BRICKMUX_LIMIT_KEY,
           .voltype     = "mgmt/glusterd",
           .value       = "1",
           .op_version  = GD_OP_VERSION_3_12_0,
-          .validate_fn = validate_mux_limit
+          .validate_fn = validate_mux_limit,
+          .type        = GLOBAL_DOC,
+          .description = "This option can be used to limit the number of brick "
+                         "instances per brick process when brick multiplexing "
+                         "is enabled. This option can be set only when brick "
+                         "multiplexing feature enabled."
         },
         { .key        = "disperse.optimistic-change-log",
           .voltype    = "cluster/disperse",
