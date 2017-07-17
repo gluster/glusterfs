@@ -526,36 +526,8 @@ nfs3_solaris_zerolen_fh (struct nfs3_fh *fh, int fhlen)
  */
 typedef ssize_t (*nfs3_serializer) (struct iovec outmsg, void *args);
 
-nfs3_call_state_t *
-nfs3_call_state_init (struct nfs3_state *s, rpcsvc_request_t *req, xlator_t *v)
-{
-        nfs3_call_state_t       *cs = NULL;
-
-        GF_VALIDATE_OR_GOTO (GF_NFS3, s, err);
-        GF_VALIDATE_OR_GOTO (GF_NFS3, req, err);
-        GF_VALIDATE_OR_GOTO (GF_NFS3, v, err);
-
-        cs = (nfs3_call_state_t *) mem_get (s->localpool);
-        if (!cs) {
-                gf_msg (GF_NFS3, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
-                        "out of memory");
-                return NULL;
-        }
-
-        memset (cs, 0, sizeof (*cs));
-        INIT_LIST_HEAD (&cs->entries.list);
-        INIT_LIST_HEAD (&cs->openwait_q);
-        cs->operrno = EINVAL;
-        cs->req = req;
-        cs->vol = v;
-        cs->nfsx = s->nfsx;
-        cs->nfs3state = s;
-err:
-        return cs;
-}
-
-void
-nfs3_call_state_wipe (nfs3_call_state_t *cs)
+static void
+__nfs3_call_state_wipe (nfs3_call_state_t *cs)
 {
         if (!cs)
                 return;
@@ -584,6 +556,41 @@ nfs3_call_state_wipe (nfs3_call_state_t *cs)
         memset (cs, 0, sizeof (*cs));
         mem_put (cs);
         /* Already refd by fd_lookup, so no need to ref again. */
+}
+
+nfs3_call_state_t *
+nfs3_call_state_init (struct nfs3_state *s, rpcsvc_request_t *req, xlator_t *v)
+{
+        nfs3_call_state_t       *cs = NULL;
+
+        GF_VALIDATE_OR_GOTO (GF_NFS3, s, err);
+        GF_VALIDATE_OR_GOTO (GF_NFS3, req, err);
+        /* GF_VALIDATE_OR_GOTO (GF_NFS3, v, err); NLM sets this later */
+
+        cs = (nfs3_call_state_t *) mem_get (s->localpool);
+        if (!cs) {
+                gf_msg (GF_NFS3, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "out of memory");
+                return NULL;
+        }
+
+        memset (cs, 0, sizeof (*cs));
+        GF_REF_INIT (cs, __nfs3_call_state_wipe);
+        INIT_LIST_HEAD (&cs->entries.list);
+        INIT_LIST_HEAD (&cs->openwait_q);
+        cs->operrno = EINVAL;
+        cs->req = req;
+        cs->vol = v;
+        cs->nfsx = s->nfsx;
+        cs->nfs3state = s;
+err:
+        return cs;
+}
+
+void
+nfs3_call_state_wipe (nfs3_call_state_t *cs)
+{
+        GF_REF_PUT (cs);
 }
 
 
