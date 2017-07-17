@@ -50,6 +50,7 @@ enum gf_nfs_mem_types_ {
         gf_nfs_mt_arr,
         gf_nfs_mt_auth_cache,
         gf_nfs_mt_auth_cache_entry,
+        gf_nfs_mt_nlm4_notify,
         gf_nfs_mt_end
 };
 #endif
