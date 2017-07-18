@@ -914,6 +914,9 @@ gf_bits_index (uint64_t n);
 const char*
 gf_fop_string (glusterfs_fop_t fop);
 
+int
+gf_fop_int (char *fop);
+
 char *
 get_ip_from_addrinfo (struct addrinfo *addr, char **ip);
 

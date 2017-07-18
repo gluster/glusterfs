@@ -298,7 +298,6 @@
 #define GF_LK_MANDATORY 1
 
 const char *fop_enum_to_pri_string (glusterfs_fop_t fop);
-const char *fop_enum_to_string (glusterfs_fop_t fop);
 
 #define GF_SET_IF_NOT_PRESENT 0x1 /* default behaviour */
 #define GF_SET_OVERWRITE      0x2 /* Overwrite with the buf given */

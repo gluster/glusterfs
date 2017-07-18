@@ -242,95 +242,6 @@ conv_errno_to_int (char **error_no)
 }
 
 int
-get_fop_int (char **op_no_str)
-{
-        if (!strcmp ((*op_no_str), "lookup"))
-                return GF_FOP_LOOKUP;
-        else if (!strcmp ((*op_no_str), "stat"))
-                return GF_FOP_STAT;
-        else if (!strcmp ((*op_no_str), "readlink"))
-                return GF_FOP_READLINK;
-        else if (!strcmp ((*op_no_str), "mknod"))
-                return GF_FOP_MKNOD;
-        else if (!strcmp ((*op_no_str), "mkdir"))
-                return GF_FOP_MKDIR;
-        else if (!strcmp ((*op_no_str), "unlink"))
-                return GF_FOP_UNLINK;
-        else if (!strcmp ((*op_no_str), "rmdir"))
-                return GF_FOP_RMDIR;
-        else if (!strcmp ((*op_no_str), "symlink"))
-                return GF_FOP_SYMLINK;
-        else if (!strcmp ((*op_no_str), "rename"))
-                return GF_FOP_RENAME;
-        else if (!strcmp ((*op_no_str), "link"))
-                return GF_FOP_LINK;
-        else if (!strcmp ((*op_no_str), "truncate"))
-                return GF_FOP_TRUNCATE;
-        else if (!strcmp ((*op_no_str), "create"))
-                return GF_FOP_CREATE;
-        else if (!strcmp ((*op_no_str), "open"))
-                return GF_FOP_OPEN;
-        else if (!strcmp ((*op_no_str), "readv"))
-                return GF_FOP_READ;
-        else if (!strcmp ((*op_no_str), "writev"))
-                return GF_FOP_WRITE;
-        else if (!strcmp ((*op_no_str), "statfs"))
-                return GF_FOP_STATFS;
-        else if (!strcmp ((*op_no_str), "flush"))
-                return GF_FOP_FLUSH;
-        else if (!strcmp ((*op_no_str), "fsync"))
-                return GF_FOP_FSYNC;
-        else if (!strcmp ((*op_no_str), "setxattr"))
-                return GF_FOP_SETXATTR;
-        else if (!strcmp ((*op_no_str), "getxattr"))
-                return GF_FOP_GETXATTR;
-        else if (!strcmp ((*op_no_str), "removexattr"))
-                return GF_FOP_REMOVEXATTR;
-        else if (!strcmp ((*op_no_str), "fsetxattr"))
-                return GF_FOP_FSETXATTR;
-        else if (!strcmp ((*op_no_str), "fgetxattr"))
-                return GF_FOP_FGETXATTR;
-        else if (!strcmp ((*op_no_str), "fremovexattr"))
-                return GF_FOP_FREMOVEXATTR;
-        else if (!strcmp ((*op_no_str), "opendir"))
-                return GF_FOP_OPENDIR;
-        else if (!strcmp ((*op_no_str), "readdir"))
-                return GF_FOP_READDIR;
-        else if (!strcmp ((*op_no_str), "readdirp"))
-                return GF_FOP_READDIRP;
-        else if (!strcmp ((*op_no_str), "fsyncdir"))
-                return GF_FOP_FSYNCDIR;
-        else if (!strcmp ((*op_no_str), "access"))
-                return GF_FOP_ACCESS;
-        else if (!strcmp ((*op_no_str), "ftruncate"))
-                return GF_FOP_FTRUNCATE;
-        else if (!strcmp ((*op_no_str), "fstat"))
-                return GF_FOP_FSTAT;
-        else if (!strcmp ((*op_no_str), "lk"))
-                return GF_FOP_LK;
-        else if (!strcmp ((*op_no_str), "xattrop"))
-                return GF_FOP_XATTROP;
-        else if (!strcmp ((*op_no_str), "fxattrop"))
-                return GF_FOP_FXATTROP;
-        else if (!strcmp ((*op_no_str), "inodelk"))
-                return GF_FOP_INODELK;
-        else if (!strcmp ((*op_no_str), "finodelk"))
-                return GF_FOP_FINODELK;
-        else if (!strcmp ((*op_no_str), "etrylk"))
-                return GF_FOP_ENTRYLK;
-        else if (!strcmp ((*op_no_str), "fentrylk"))
-                return GF_FOP_FENTRYLK;
-        else if (!strcmp ((*op_no_str), "setattr"))
-                return GF_FOP_SETATTR;
-        else if (!strcmp ((*op_no_str), "fsetattr"))
-                return GF_FOP_FSETATTR;
-        else if (!strcmp ((*op_no_str), "getspec"))
-                return GF_FOP_GETSPEC;
-	else
-                return -1;
-}
-
-int
 error_gen (xlator_t *this, int op_no)
 {
         eg_t             *egp = NULL;
@@ -1501,7 +1412,7 @@ error_gen_parse_fill_fops (eg_t *pvt, char *enable_fops)
         } else {
                 op_no_str = strtok_r (enable_fops, ",", &saveptr);
                 while (op_no_str) {
-                        op_no = get_fop_int (&op_no_str);
+                        op_no = gf_fop_int (op_no_str);
                         if (op_no == -1) {
                                 gf_log (this->name, GF_LOG_WARNING,
                                         "Wrong option value %s", op_no_str);

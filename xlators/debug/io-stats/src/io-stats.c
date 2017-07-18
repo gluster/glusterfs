@@ -1102,7 +1102,7 @@ _io_stats_write_latency_sample (xlator_t *this, ios_sample_t *sample,
         ios_log (this, logfp,
                  "%0.6lf,%s,%s,%0.4lf,%s,%s,%s,%s,%s,%s",
                  epoch_time, fop_enum_to_pri_string (sample->fop_type),
-                 fop_enum_to_string (sample->fop_type),
+                 gf_fop_string (sample->fop_type),
                  sample->elapsed, xlator_name, instance_name, username,
                  group_name, hostname, port);
         goto out;
