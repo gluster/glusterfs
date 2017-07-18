@@ -11,6 +11,7 @@
 #include "server.h"
 #include "server-helpers.h"
 #include "server-messages.h"
+#include "compat-errno.h"
 
 
 int
@@ -59,7 +60,7 @@ resolve_gfid_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         resolve_loc = &resolve->resolve_loc;
 
         if (!state->loc.inode && inode) {
-                state->loc.inode = inode;
+                state->loc.inode = inode_ref (inode);
         }
 
         if (op_ret == -1) {
@@ -74,6 +75,9 @@ resolve_gfid_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 "resolve (%s)",
                                 uuid_utoa (resolve_loc->pargfid),
                                 resolve_loc->name, strerror (op_errno));
+                }
+                if (op_errno != ENODATA) {
+                        goto out;
                 }
         }
 
