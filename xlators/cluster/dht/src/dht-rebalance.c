@@ -3988,8 +3988,9 @@ gf_tier_start_fix_layout (xlator_t *this,
 
                 /* Spawn the fix layout thread so that its done in the
                  * background */
-                ret = pthread_create (&tier_fix_layout_arg->thread_id, NULL,
-                                gf_tier_do_fix_layout, tier_fix_layout_arg);
+                ret = gf_thread_create (&tier_fix_layout_arg->thread_id, NULL,
+                                        gf_tier_do_fix_layout,
+                                        tier_fix_layout_arg, "tierfixl");
                 if (ret) {
                         gf_log ("tier", GF_LOG_ERROR, "Thread creation failed. "
                                 "Background fix layout for tiering will not "
@@ -4282,6 +4283,7 @@ gf_defrag_start_crawl (void *data)
         int                      err                    = 0;
         int                      thread_spawn_count     = 0;
         pthread_t               *tid                    = NULL;
+        char                    thread_name[GF_THREAD_NAMEMAX] = {0,};
         pthread_t                filecnt_thread;
         gf_boolean_t             is_tier_detach         = _gf_false;
         call_frame_t            *statfs_frame           = NULL;
@@ -4447,9 +4449,9 @@ gf_defrag_start_crawl (void *data)
                                 "time to complete rebalance.");
                 }
 
-                ret = pthread_create (&filecnt_thread, NULL,
-                                      &dht_file_counter_thread,
-                                      (void *)defrag);
+                ret = gf_thread_create (&filecnt_thread, NULL,
+                                        &dht_file_counter_thread,
+                                        (void *)defrag, "dhtfcnt");
 
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, ret, 0, "Failed to "
@@ -4491,8 +4493,11 @@ gf_defrag_start_crawl (void *data)
 
                 /*Spawn Threads Here*/
                 while (thread_index < thread_spawn_count) {
-                        err = pthread_create(&(tid[thread_index]), NULL,
-                                     &gf_defrag_task, (void *)defrag);
+                        snprintf (thread_name, sizeof(thread_name),
+                                  "%s%d", "dhtdf", thread_index + 1);
+                        err = gf_thread_create (&(tid[thread_index]), NULL,
+                                                &gf_defrag_task, (void *)defrag,
+                                                thread_name);
                         if (err != 0) {
                                 gf_log ("DHT", GF_LOG_ERROR,
                                         "Thread[%d] creation failed. "

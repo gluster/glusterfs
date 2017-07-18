@@ -994,7 +994,7 @@ glfs_init_common (struct glfs *fs)
 	if (ret)
 		return ret;
 
-	ret = gf_thread_create (&fs->poller, NULL, glfs_poller, fs);
+	ret = gf_thread_create (&fs->poller, NULL, glfs_poller, fs, "glfspoll");
 	if (ret)
 		return ret;
 

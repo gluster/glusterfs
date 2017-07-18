@@ -2700,7 +2700,8 @@ socket_spawn (rpc_transport_t *this)
 
         /* Create thread after enable detach flag */
 
-        ret = gf_thread_create_detached (&priv->thread, socket_poller, this);
+        ret = gf_thread_create_detached (&priv->thread, socket_poller, this,
+                                         "spoller");
         if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "could not create poll thread");
@@ -3409,7 +3410,7 @@ err:
                 arg->refd = refd;
                 th_ret = gf_thread_create_detached (&th_id,
                                                     socket_connect_error_cbk,
-                                                    arg);
+                                                    arg, "scleanup");
                 if (th_ret) {
                         /* Error will be logged by gf_thread_create_attached */
                         gf_log (this->name, GF_LOG_ERROR, "Thread creation "

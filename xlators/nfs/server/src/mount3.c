@@ -4033,8 +4033,9 @@ mnt3svc_init (xlator_t *nfsx)
                 }
 
                 mstate->stop_refresh = _gf_false; /* Allow thread to run */
-                pthread_create (&mstate->auth_refresh_thread, NULL,
-                                _mnt3_auth_param_refresh_thread, mstate);
+                gf_thread_create (&mstate->auth_refresh_thread, NULL,
+                                  _mnt3_auth_param_refresh_thread, mstate,
+                                  "nfsauth");
         } else
                 gf_msg (GF_MNT, GF_LOG_INFO, 0, NFS_MSG_EXP_AUTH_DISABLED,
                         "Exports auth has been disabled!");
@@ -4083,7 +4084,8 @@ mnt3svc_init (xlator_t *nfsx)
         }
 
         if (nfs->mount_udp) {
-                pthread_create (&udp_thread, NULL, mount3udp_thread, nfsx);
+                gf_thread_create (&udp_thread, NULL, mount3udp_thread, nfsx,
+                                  "nfsudp");
         }
         return &mnt3prog;
 err:

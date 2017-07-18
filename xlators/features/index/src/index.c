@@ -2403,7 +2403,8 @@ init (xlator_t *this)
         index_set_link_count (priv, count, XATTROP);
         priv->down = _gf_false;
 
-        ret = gf_thread_create (&priv->thread, &w_attr, index_worker, this);
+        ret = gf_thread_create (&priv->thread, &w_attr, index_worker, this,
+                                "idxwrker");
         if (ret) {
                 gf_msg (this->name, GF_LOG_WARNING, ret,
                         INDEX_MSG_WORKER_THREAD_CREATE_FAILED,

@@ -431,8 +431,8 @@ upcall_reaper_thread_init (xlator_t *this)
         priv = this->private;
         GF_ASSERT (priv);
 
-        ret = pthread_create (&priv->reaper_thr, NULL,
-                              upcall_reaper_thread, this);
+        ret = gf_thread_create (&priv->reaper_thr, NULL,
+                                upcall_reaper_thread, this, "upreaper");
 
         return ret;
 }

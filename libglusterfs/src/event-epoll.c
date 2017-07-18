@@ -663,6 +663,7 @@ event_dispatch_epoll (struct event_pool *event_pool)
         int                       pollercount = 0;
 	int                       ret = -1;
         struct event_thread_data *ev_data = NULL;
+        char                      thread_name[GF_THREAD_NAMEMAX] = {0,};
 
         /* Start the configured number of pollers */
         pthread_mutex_lock (&event_pool->mutex);
@@ -697,9 +698,11 @@ event_dispatch_epoll (struct event_pool *event_pool)
                         ev_data->event_pool = event_pool;
                         ev_data->event_index = i + 1;
 
-                        ret = pthread_create (&t_id, NULL,
-                                              event_dispatch_epoll_worker,
-                                              ev_data);
+                        snprintf (thread_name, sizeof(thread_name),
+                                  "%s%d", "epoll", i);
+                        ret = gf_thread_create (&t_id, NULL,
+                                                event_dispatch_epoll_worker,
+                                                ev_data, thread_name);
                         if (!ret) {
                                 event_pool->pollers[i] = t_id;
 
@@ -765,6 +768,7 @@ event_reconfigure_threads_epoll (struct event_pool *event_pool, int value)
         pthread_t                        t_id;
         int                              oldthreadcount;
         struct event_thread_data        *ev_data = NULL;
+        char                             thread_name[GF_THREAD_NAMEMAX] = {0,};
 
         pthread_mutex_lock (&event_pool->mutex);
         {
@@ -805,9 +809,13 @@ event_reconfigure_threads_epoll (struct event_pool *event_pool, int value)
                                         ev_data->event_pool = event_pool;
                                         ev_data->event_index = i + 1;
 
-                                        ret = pthread_create (&t_id, NULL,
+                                        snprintf (thread_name,
+                                                  sizeof(thread_name),
+                                                  "%s%d",
+                                                  "epoll", i);
+                                        ret = gf_thread_create (&t_id, NULL,
                                                 event_dispatch_epoll_worker,
-                                                ev_data);
+                                                ev_data, thread_name);
                                         if (ret) {
                                                 gf_msg ("epoll", GF_LOG_WARNING,
                                                         0,

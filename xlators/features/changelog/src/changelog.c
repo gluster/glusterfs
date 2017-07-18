@@ -2073,14 +2073,15 @@ changelog_spawn_helper_threads (xlator_t *this, changelog_priv_t *priv)
         priv->cr.notify = _gf_false;
         priv->cr.this = this;
         ret = gf_thread_create (&priv->cr.rollover_th,
-				NULL, changelog_rollover, priv);
+                                NULL, changelog_rollover, priv, "clogro");
         if (ret)
                 goto out;
 
         if (priv->fsync_interval) {
                 priv->cf.this = this;
                 ret = gf_thread_create (&priv->cf.fsync_th,
-					NULL, changelog_fsync_thread, priv);
+                                        NULL, changelog_fsync_thread, priv,
+                                        "clogfsyn");
         }
 
         if (ret)

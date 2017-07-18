@@ -150,7 +150,7 @@ tbf_init_bucket (tbf_t *tbf, tbf_opspec_t *spec)
         curr->token_gen_interval = spec->token_gen_interval;
 
         ret = gf_thread_create (&curr->tokener,
-                                NULL, tbf_tokengenerator, curr);
+                                NULL, tbf_tokengenerator, curr, "tbfclock");
         if (ret != 0)
                 goto freemem;
 

@@ -1678,8 +1678,8 @@ jbr_init (xlator_t *this)
         priv->leader = priv->config_leader;
         priv->child_up = _gf_false;
 
-        if (pthread_create(&kid, NULL, jbr_flush_thread,
-                           this) != 0) {
+        if (gf_thread_create (&kid, NULL, jbr_flush_thread, this,
+                              "jbrflush") != 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, J_MSG_SYS_CALL_FAILURE,
                         "could not start flush thread");
                 /* TBD: treat this as a fatal error? */

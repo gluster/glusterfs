@@ -2577,9 +2577,8 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
         demotion_args.is_promotion = _gf_false;
         demotion_args.is_compaction = _gf_false;
 
-        ret = pthread_create (&demote_thread,
-                              NULL, &tier_run,
-                              &demotion_args);
+        ret = gf_thread_create (&demote_thread,
+                                NULL, &tier_run, &demotion_args, "tierdem");
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_LOG_TIER_ERROR,
@@ -2596,9 +2595,8 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
         promotion_args.defrag = defrag;
         promotion_args.is_promotion = _gf_true;
 
-        ret = pthread_create (&promote_thread,
-                              NULL, &tier_run,
-                              &promotion_args);
+        ret = gf_thread_create (&promote_thread, NULL, &tier_run,
+                                &promotion_args, "tierpro");
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_LOG_TIER_ERROR,
@@ -2614,9 +2612,8 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
         hot_compaction_args.is_compaction = _gf_true;
         hot_compaction_args.is_hot_tier = _gf_true;
 
-        ret = pthread_create (&hot_compact_thread,
-                              NULL, &tier_run,
-                              &hot_compaction_args);
+        ret = gf_thread_create (&hot_compact_thread, NULL, &tier_run,
+                                &hot_compaction_args, "tierhcom");
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_LOG_TIER_ERROR,
@@ -2632,9 +2629,8 @@ tier_start (xlator_t *this, gf_defrag_info_t *defrag)
         cold_compaction_args.is_compaction = _gf_true;
         cold_compaction_args.is_hot_tier = _gf_false;
 
-        ret = pthread_create (&cold_compact_thread,
-                              NULL, &tier_run,
-                              &cold_compaction_args);
+        ret = gf_thread_create (&cold_compact_thread, NULL, &tier_run,
+                                &cold_compaction_args, "tierccom");
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_LOG_TIER_ERROR,

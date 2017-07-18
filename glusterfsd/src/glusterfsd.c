@@ -2174,8 +2174,8 @@ glusterfs_signals_setup (glusterfs_ctx_t *ctx)
                 return ret;
         }
 
-        ret = pthread_create (&ctx->sigwaiter, NULL, glusterfs_sigwaiter,
-                              (void *) &set);
+        ret = gf_thread_create (&ctx->sigwaiter, NULL, glusterfs_sigwaiter,
+                                (void *) &set, "sigwait");
         if (ret) {
                 /*
                   TODO:

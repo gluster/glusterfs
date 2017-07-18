@@ -9290,7 +9290,8 @@ unlock:
                                 run_defrag = 1;
                                 ret = gf_thread_create(&conf->defrag->th,
                                                        NULL,
-                                                       gf_defrag_start, this);
+                                                       gf_defrag_start, this,
+                                                       "dhtdg");
                                 if (ret) {
                                         GF_FREE (conf->defrag);
                                         conf->defrag = NULL;

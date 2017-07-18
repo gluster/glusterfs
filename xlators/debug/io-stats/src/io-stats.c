@@ -3823,8 +3823,8 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("ios-dump-interval", conf->ios_dump_interval, options,
                          int32, out);
         if ((old_dump_interval <= 0) && (conf->ios_dump_interval > 0)) {
-                pthread_create (&conf->dump_thread, NULL,
-                                (void *) &_ios_dump_thread, this);
+                gf_thread_create (&conf->dump_thread, NULL,
+                                  (void *) &_ios_dump_thread, this, "iosdump");
         }
 
         GF_OPTION_RECONF ("ios-sample-interval", conf->ios_sample_interval,
@@ -4047,8 +4047,8 @@ init (xlator_t *this)
 
         this->private = conf;
         if (conf->ios_dump_interval > 0) {
-                pthread_create (&conf->dump_thread, NULL,
-                                (void *) &_ios_dump_thread, this);
+                gf_thread_create (&conf->dump_thread, NULL,
+                                  (void *) &_ios_dump_thread, this, "iosdump");
         }
         ret = 0;
 out:

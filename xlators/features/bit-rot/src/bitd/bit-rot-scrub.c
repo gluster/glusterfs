@@ -1299,7 +1299,8 @@ br_scrubber_scale_up (xlator_t *this,
 
                 INIT_LIST_HEAD (&scrub->list);
                 ret = gf_thread_create (&scrub->scrubthread,
-                                        NULL, br_scrubber_proc, fsscrub);
+                                        NULL, br_scrubber_proc, fsscrub,
+                                        "brsproc");
                 if (ret)
                         break;
 
@@ -1976,7 +1977,8 @@ br_scrubber_monitor_init (xlator_t *this, br_private_t *priv)
         br_set_scrub_state (&priv->scrub_monitor, BR_SCRUB_STATE_INACTIVE);
 
         /* Start the monitor thread */
-        ret = gf_thread_create (&scrub_monitor->thread, NULL, br_monitor_thread, this);
+        ret = gf_thread_create (&scrub_monitor->thread, NULL,
+                                br_monitor_thread, this, "brmon");
         if (ret != 0) {
                 gf_msg (this->name, GF_LOG_ERROR, -ret,
                         BRB_MSG_SPAWN_FAILED, "monitor thread creation failed");
