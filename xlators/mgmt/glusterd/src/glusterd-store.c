@@ -370,6 +370,10 @@ glusterd_store_brickinfo_write (int fd, glusterd_brickinfo_t *brickinfo)
         GF_ASSERT (brickinfo);
         GF_ASSERT (fd > 0);
 
+        ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_BRICK_UUID,
+                                   uuid_utoa(brickinfo->uuid));
+        if (ret)
+                goto out;
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_BRICK_HOSTNAME,
                                    brickinfo->hostname);
         if (ret)
@@ -2512,6 +2516,9 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                         } else if (!strcmp(key, GLUSTERD_STORE_KEY_BRICK_ID)) {
                                 strncpy (brickinfo->brick_id, value,
                                          sizeof (brickinfo->brick_id));
+                        } else if (!strcmp(key,
+                                    GLUSTERD_STORE_KEY_BRICK_UUID)) {
+                                gf_uuid_parse (value, brickinfo->uuid);
                         } else {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_UNKNOWN_KEY, "Unknown key: %s",
