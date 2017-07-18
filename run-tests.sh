@@ -310,14 +310,6 @@ function run_tests()
     echo "Number of tests skipped as they were marked bad:   $skipped_bad_tests"
     echo "Number of tests skipped because of known_issues:   $skipped_known_issue_tests"
     echo "Number of tests that were run:                     $total_run_tests"
-    if [ ${RES} -ne 0 ] ; then
-        FAILED=$( echo ${FAILED} | tr ' ' '\n' | sort -u )
-        FAILED_COUNT=$( echo -n "${FAILED}" | grep -c '^' )
-        echo -e "\n$FAILED_COUNT test(s) failed \n${FAILED}"
-        GENERATED_CORE=$( echo  ${GENERATED_CORE} | tr ' ' '\n' | sort -u )
-        GENERATED_CORE_COUNT=$( echo -n "${GENERATED_CORE}" | grep -c '^' )
-        echo -e "\n$GENERATED_CORE_COUNT test(s) generated core \n${GENERATED_CORE}"
-    fi
 
     echo
     echo "Tests ordered by time taken, slowest to fastest: "
@@ -326,6 +318,15 @@ function run_tests()
     do
         echo "$key  -  ${ELAPSEDTIMEMAP["$key"]} second"
     done | sort -rn -k3
+
+    if [ ${RES} -ne 0 ] ; then
+        FAILED=$( echo ${FAILED} | tr ' ' '\n' | sort -u )
+        FAILED_COUNT=$( echo -n "${FAILED}" | grep -c '^' )
+        echo -e "\n$FAILED_COUNT test(s) failed \n${FAILED}"
+        GENERATED_CORE=$( echo  ${GENERATED_CORE} | tr ' ' '\n' | sort -u )
+        GENERATED_CORE_COUNT=$( echo -n "${GENERATED_CORE}" | grep -c '^' )
+        echo -e "\n$GENERATED_CORE_COUNT test(s) generated core \n${GENERATED_CORE}"
+    fi
 
     echo
     echo "Result is $RES"
