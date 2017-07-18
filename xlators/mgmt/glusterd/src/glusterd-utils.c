@@ -1122,15 +1122,22 @@ glusterd_get_next_available_brickid (glusterd_volinfo_t *volinfo)
 int32_t
 glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo)
 {
-        int32_t                 ret = -1;
-        xlator_t                *this = NULL;
+        int32_t                  ret      = -1;
+        xlator_t                *this     = NULL;
 
         this = THIS;
         GF_ASSERT (this);
 
         GF_ASSERT (brickinfo);
+        if (!gf_uuid_compare(brickinfo->uuid, MY_UUID) ||
+            (glusterd_peerinfo_find_by_uuid (brickinfo->uuid) != NULL)) {
+                ret = 0;
+                goto out;
+        }
 
         ret = glusterd_hostname_to_uuid (brickinfo->hostname, brickinfo->uuid);
+
+out:
         gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
