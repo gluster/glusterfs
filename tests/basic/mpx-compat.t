@@ -15,6 +15,7 @@ function count_processes {
 	pgrep glusterfsd | wc -w
 }
 
+cleanup
 TEST glusterd
 TEST $CLI volume set all cluster.brick-multiplex yes
 push_trapfunc "$CLI volume set all cluster.brick-multiplex off"
