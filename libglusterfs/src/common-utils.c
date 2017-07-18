@@ -4650,71 +4650,6 @@ fop_enum_to_pri_string (glusterfs_fop_t fop)
 }
 
 const char *
-fop_enum_to_string (glusterfs_fop_t fop)
-{
-        static const char *const str_map[] = {
-                "NULL",
-                "STAT",
-                "READLINK",
-                "MKNOD",
-                "MKDIR",
-                "UNLINK",
-                "RMDIR",
-                "SYMLINK",
-                "RENAME",
-                "LINK",
-                "TRUNCATE",
-                "OPEN",
-                "READ",
-                "WRITE",
-                "STATFS",
-                "FLUSH",
-                "FSYNC",
-                "SETXATTR",
-                "GETXATTR",
-                "REMOVEXATTR",
-                "OPENDIR",
-                "FSYNCDIR",
-                "ACCESS",
-                "CREATE",
-                "FTRUNCATE",
-                "FSTAT",
-                "LK",
-                "LOOKUP",
-                "READDIR",
-                "INODELK",
-                "FINODELK",
-                "ENTRYLK",
-                "FENTRYLK",
-                "XATTROP",
-                "FXATTROP",
-                "FGETXATTR",
-                "FSETXATTR",
-                "RCHECKSUM",
-                "SETATTR",
-                "FSETATTR",
-                "READDIRP",
-                "FORGET",
-                "RELEASE",
-                "RELEASEDIR",
-                "GETSPEC",
-                "FREMOVEXATTR",
-                "FALLOCATE",
-                "DISCARD",
-                "ZEROFILL",
-                "IPC",
-                "SEEK",
-                "COMPOUND",
-                "GETACTIVELK",
-                "SETACTIVELK",
-                "MAXVALUE"};
-        if (fop <= GF_FOP_MAXVALUE)
-                return str_map[fop];
-
-        return "UNKNOWNFOP";
-}
-
-const char *
 gf_inode_type_to_str (ia_type_t type)
 {
         static const char *const str_ia_type[] = {
@@ -4817,6 +4752,18 @@ gf_fop_string (glusterfs_fop_t fop)
         if ((fop > GF_FOP_NULL) && (fop < GF_FOP_MAXVALUE))
                 return gf_fop_list[fop];
         return "INVALID";
+}
+
+int
+gf_fop_int (char *fop)
+{
+        int i = 0;
+
+        for (i = GF_FOP_NULL + 1; i < GF_FOP_MAXVALUE; i++) {
+                if (strcasecmp (fop, gf_fop_list[i]) == 0)
+                        return i;
+        }
+        return -1;
 }
 
 int
