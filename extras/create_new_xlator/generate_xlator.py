@@ -11,11 +11,12 @@ from generator import ops, xlator_cbks, xlator_dumpops
 MAKEFILE_FMT = """
 xlator_LTLIBRARIES = @XL_NAME@.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/@XL_TYPE@
-@XL_NAME_NO_HYPHEN@_la_LDFLAGS = -module -avoid-version
+@XL_NAME_NO_HYPHEN@_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 @XL_NAME_NO_HYPHEN@_la_SOURCES = @XL_NAME@.c
 @XL_NAME_NO_HYPHEN@_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 noinst_HEADERS = @XL_NAME@.h @XL_NAME@-mem-types.h @XL_NAME@-messages.h
-AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src
+AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
+           -I$(top_srcdir)/rpc/xdr/src -I$(top_builddir)/rpc/xdr/src
 AM_CFLAGS = -Wall -fno-strict-aliasing $(GF_CFLAGS)
 CLEANFILES =
 """
