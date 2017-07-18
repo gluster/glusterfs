@@ -227,8 +227,8 @@ struct _ec_lock {
     uintptr_t          healing;
     uint32_t           refs_owners;  /* Refs for fops owning the lock */
     uint32_t           refs_pending; /* Refs assigned to fops being prepared */
+    uint32_t           waiting_flags; /*Track xattrop/dirty marking*/
     gf_boolean_t       acquired;
-    gf_boolean_t       getting_xattr;
     gf_boolean_t       unlock_now;
     gf_boolean_t       release;
     gf_boolean_t       query;
@@ -250,6 +250,7 @@ struct _ec_lock_link {
     gf_boolean_t      optimistic_changelog;
     loc_t            *base;
     uint64_t          size;
+    uint32_t          waiting_flags;
 };
 
 struct _ec_fop_data {
