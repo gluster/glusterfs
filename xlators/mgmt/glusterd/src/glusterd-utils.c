@@ -122,7 +122,7 @@ get_mux_limit_per_process (int *mux_limit)
 {
         char            *value = NULL;
         int             ret = -1;
-        int             max_bricks_per_proc = -1;
+        int             max_bricks_per_proc = 0;
         xlator_t        *this = NULL;
         glusterd_conf_t *priv = NULL;
 
@@ -140,15 +140,18 @@ get_mux_limit_per_process (int *mux_limit)
 
         ret = dict_get_str (priv->opts, GLUSTERD_BRICKMUX_LIMIT_KEY, &value);
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
-                        "Can't get limit for number of bricks per brick "
-                        "process from dict");
+                gf_msg_debug (this->name, 0, "Limit for number of bricks per "
+                              "brick process not yet set in dict. Returning "
+                              "limit as 0 denoting that multiplexing can "
+                              "happen with no limit set.");
                 ret = 0;
-        } else {
-                ret = gf_string2int (value, &max_bricks_per_proc);
-                if (ret)
-                        goto out;
+                goto out;
         }
+
+        ret = gf_string2int (value, &max_bricks_per_proc);
+        if (ret)
+                goto out;
+
 out:
         *mux_limit = max_bricks_per_proc;
 
@@ -5497,7 +5500,7 @@ find_compat_brick_in_vol (glusterd_conf_t *conf,
                         continue;
                 }
 
-                if (mux_limit != -1) {
+                if (mux_limit != 0) {
                         if (brick_proc->brick_count >= mux_limit)
                                 continue;
                 } else {

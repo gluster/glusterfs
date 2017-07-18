@@ -1027,6 +1027,14 @@ validate_mux_limit (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_INVALID_ENTRY, "%s", *op_errstr);
         }
+
+        if (val == 1) {
+                gf_asprintf (op_errstr, "Brick-multiplexing is enabled. "
+                             "Please set this option to a value other than 1 "
+                             "to make use of the brick-multiplexing feature.");
+                ret = -1;
+                goto out;
+        }
 out:
         gf_msg_debug ("glusterd", 0, "Returning %d", ret);
 
@@ -3452,14 +3460,17 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
         { .key         = GLUSTERD_BRICKMUX_LIMIT_KEY,
           .voltype     = "mgmt/glusterd",
-          .value       = "1",
+          .value       = "0",
           .op_version  = GD_OP_VERSION_3_12_0,
           .validate_fn = validate_mux_limit,
           .type        = GLOBAL_DOC,
           .description = "This option can be used to limit the number of brick "
-                         "instances per brick process when brick multiplexing "
-                         "is enabled. This option can be set only when brick "
-                         "multiplexing feature enabled."
+                         "instances per brick process when brick-multiplexing "
+                         "is enabled. If not explicitly set, this tunable is "
+                         "set to 0 which denotes that brick-multiplexing can "
+                         "happen without any limit on the number of bricks per "
+                         "process. Also this option can't be set when the "
+                         "brick-multiplexing feature is disabled."
         },
         { .key        = "disperse.optimistic-change-log",
           .voltype    = "cluster/disperse",
