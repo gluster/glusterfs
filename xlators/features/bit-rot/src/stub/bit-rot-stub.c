@@ -97,7 +97,8 @@ br_stub_bad_object_container_init (xlator_t *this, br_stub_private_t *priv)
         if (ret < 0)
                 goto cleanup_lock;
 
-        ret = gf_thread_create (&priv->container.thread, &w_attr, br_stub_worker, this);
+        ret = gf_thread_create (&priv->container.thread, &w_attr,
+                                br_stub_worker, this, "brswrker");
         if (ret)
                 goto cleanup_attr;
 
@@ -158,7 +159,8 @@ init (xlator_t *this)
          */
         this->private = priv;
 
-        ret = gf_thread_create (&priv->signth, NULL, br_stub_signth, this);
+        ret = gf_thread_create (&priv->signth, NULL, br_stub_signth, this,
+                                "brssign");
         if (ret != 0)
                 goto cleanup_lock;
 

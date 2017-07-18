@@ -551,7 +551,8 @@ mem_pools_init (void)
 {
         pthread_mutex_lock (&init_mutex);
         if ((init_count++) == 0) {
-                (void) pthread_create (&sweeper_tid, NULL, pool_sweeper, NULL);
+                (void) gf_thread_create (&sweeper_tid, NULL, pool_sweeper,
+                                         NULL, "memsweep");
         }
         pthread_mutex_unlock (&init_mutex);
 }
@@ -586,7 +587,7 @@ mem_pools_fini (void)
 void mem_pools_init (void) {}
 void mem_pools_fini (void) {}
 #endif
- 
+
 struct mem_pool *
 mem_pool_new_fn (unsigned long sizeof_type,
                  unsigned long count, char *name)

@@ -816,7 +816,7 @@ gf_rdma_get_device (rpc_transport_t *this, struct ibv_context *ibctx,
                 /* completion threads */
                 ret = gf_thread_create (&trav->send_thread, NULL,
                                         gf_rdma_send_completion_proc,
-                                        trav->send_chan);
+                                        trav->send_chan, "rdmascom");
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 RDMA_MSG_SEND_COMP_THREAD_FAILED,
@@ -826,8 +826,8 @@ gf_rdma_get_device (rpc_transport_t *this, struct ibv_context *ibctx,
                 }
 
                 ret = gf_thread_create (&trav->recv_thread, NULL,
-                                         gf_rdma_recv_completion_proc,
-                                         trav->recv_chan);
+                                        gf_rdma_recv_completion_proc,
+                                        trav->recv_chan, "rdmarcom");
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 RDMA_MSG_RECV_COMP_THREAD_FAILED,
@@ -837,8 +837,8 @@ gf_rdma_get_device (rpc_transport_t *this, struct ibv_context *ibctx,
                 }
 
                 ret = gf_thread_create (&trav->async_event_thread, NULL,
-                                         gf_rdma_async_event_thread,
-                                         ibctx);
+                                        gf_rdma_async_event_thread,
+                                        ibctx, "rdmaAsyn");
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 RDMA_MSG_ASYNC_EVENT_THEAD_FAILED,
@@ -4600,7 +4600,7 @@ __gf_rdma_ctx_create (void)
 
         ret = gf_thread_create (&rdma_ctx->rdma_cm_thread, NULL,
                                 gf_rdma_cm_event_handler,
-                                rdma_ctx->rdma_cm_event_channel);
+                                rdma_ctx->rdma_cm_event_channel, "rdmaehan");
         if (ret != 0) {
                 gf_msg (GF_RDMA_LOG_NAME, GF_LOG_WARNING, ret,
                         RDMA_MSG_CM_EVENT_FAILED, "creation of thread to "

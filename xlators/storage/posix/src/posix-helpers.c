@@ -1438,7 +1438,8 @@ posix_spawn_janitor_thread (xlator_t *this)
         {
                 if (!priv->janitor_present) {
                         ret = gf_thread_create (&priv->janitor, NULL,
-                                                posix_janitor_thread_proc, this);
+                                                posix_janitor_thread_proc,
+                                                this, "posixjan");
 
                         if (ret < 0) {
                                 gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -1942,7 +1943,8 @@ posix_spawn_health_check_thread (xlator_t *xl)
                         goto unlock;
 
                 ret = gf_thread_create (&priv->health_check, NULL,
-                                        posix_health_check_thread_proc, xl);
+                                        posix_health_check_thread_proc,
+                                        xl, "posixhc");
                 if (ret < 0) {
                         priv->health_check_interval = 0;
                         priv->health_check_active = _gf_false;

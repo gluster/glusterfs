@@ -965,8 +965,8 @@ leases_init_priv (xlator_t *this)
         }
 
         if (!priv->inited_recall_thr) {
-                pthread_create (&priv->recall_thr, NULL,
-                                expired_recall_cleanup, this);
+                gf_thread_create (&priv->recall_thr, NULL,
+                                  expired_recall_cleanup, this, "leasercl");
                 priv->inited_recall_thr = _gf_true;
         }
 

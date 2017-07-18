@@ -307,7 +307,7 @@ gf_init_event (gf_changelog_t *entry)
         }
 
         ret = gf_thread_create (&ev->invoker, NULL,
-                                gf_changelog_callback_invoker, ev);
+                                gf_changelog_callback_invoker, ev, "clogcbki");
         if (ret != 0) {
                 entry->pickevent = NULL;
                 entry->queueevent = NULL;
@@ -462,7 +462,8 @@ gf_changelog_set_master (xlator_t *master, void *xl)
         if (!xl) {
                 /* poller thread */
                 ret = gf_thread_create (&priv->poller,
-                                        NULL, changelog_rpc_poller, THIS);
+                                        NULL, changelog_rpc_poller, THIS,
+                                        "clogpoll");
                 if (ret != 0) {
                         GF_FREE (priv);
                         gf_msg (master->name, GF_LOG_ERROR, 0,
@@ -503,7 +504,8 @@ gf_changelog_init (void *xl)
 
         priv = master->private;
         ret = gf_thread_create (&priv->connectionjanitor, NULL,
-                                gf_changelog_connection_janitor, master);
+                                gf_changelog_connection_janitor, master,
+                                "clogjan");
         if (ret != 0) {
                 /* TODO: cleanup priv, mutex (poller thread for !xl) */
                 goto dealloc_name;

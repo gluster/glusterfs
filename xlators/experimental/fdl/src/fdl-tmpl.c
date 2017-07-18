@@ -454,7 +454,8 @@ fdl_init (xlator_t *this)
          * exception.
          */
 
-        if (pthread_create(&priv->worker,NULL,fdl_worker,this) != 0) {
+        if (gf_thread_create (&priv->worker, NULL, fdl_worker, this,
+                              "fdlwrker") != 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "failed to start fdl_worker");
                 goto err;

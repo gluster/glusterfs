@@ -2496,8 +2496,9 @@ notify (xlator_t *this, int event, void *data, ...)
         switch (event) {
         case GF_EVENT_CHILD_UP:
         {
-                ret = pthread_create (&priv->thr, NULL, gf_quiesce_dequeue_start,
-                                      this);
+                ret = gf_thread_create (&priv->thr, NULL,
+                                        gf_quiesce_dequeue_start,
+                                        this, "quiesce");
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "failed to create the quiesce-dequeue thread");

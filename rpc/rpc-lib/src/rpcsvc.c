@@ -1960,7 +1960,7 @@ rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t *program)
         if (newprog->ownthread) {
                 gf_thread_create (&newprog->thread, NULL,
                                   rpcsvc_request_handler,
-                                  newprog);
+                                  newprog, "rpcsvcrh");
         }
 
         pthread_mutex_lock (&svc->rpclock);

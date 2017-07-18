@@ -1133,7 +1133,8 @@ br_enact_signer (xlator_t *this, br_child_t *child, br_stub_init_t *stub)
         }
 
         child->threadrunning = 0;
-        ret = gf_thread_create (&child->thread, NULL, br_oneshot_signer, child);
+        ret = gf_thread_create (&child->thread, NULL, br_oneshot_signer, child,
+                                "brosign");
         if (ret)
                 gf_msg (this->name, GF_LOG_WARNING, 0, BRB_MSG_SPAWN_FAILED,
                         "failed to spawn FS crawler thread");
@@ -1161,7 +1162,8 @@ br_launch_scrubber (xlator_t *this, br_child_t *child,
         priv = this->private;
 
         scrub_monitor = &priv->scrub_monitor;
-        ret = gf_thread_create (&child->thread, NULL, br_fsscanner, child);
+        ret = gf_thread_create (&child->thread, NULL, br_fsscanner, child,
+                                "brfsscan");
         if (ret != 0) {
                 gf_msg (this->name, GF_LOG_ALERT, 0, BRB_MSG_SPAWN_FAILED,
                         "failed to spawn bitrot scrubber daemon [Brick: %s]",
@@ -1750,7 +1752,7 @@ br_init_signer (xlator_t *this, br_private_t *priv)
 
         for (i = 0; i < BR_WORKERS; i++) {
                 ret = gf_thread_create (&priv->obj_queue->workers[i], NULL,
-                                        br_process_object, this);
+                                        br_process_object, this, "brpobj");
                 if (ret != 0) {
                         gf_msg (this->name, GF_LOG_ERROR, -ret,
                                 BRB_MSG_SPAWN_FAILED, "thread creation"
@@ -2021,7 +2023,8 @@ init (xlator_t *this)
         if (ret)
                 goto cleanup;
 
-        ret = gf_thread_create (&priv->thread, NULL, br_handle_events, this);
+        ret = gf_thread_create (&priv->thread, NULL, br_handle_events, this,
+                                "brhevent");
         if (ret != 0) {
                 gf_msg (this->name, GF_LOG_ERROR, -ret,
                         BRB_MSG_SPAWN_FAILED, "thread creation failed");

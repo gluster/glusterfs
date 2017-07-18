@@ -569,6 +569,7 @@ gf_history_consume (void * data)
         gf_changelog_history_data_t *hist_data         = NULL;
         gf_changelog_consume_data_t ccd[MAX_PARALLELS] = {{0},};
         gf_changelog_consume_data_t *curr              = NULL;
+        char thread_name[GF_THREAD_NAMEMAX]            = {0,};
 
         hist_data = (gf_changelog_history_data_t *) data;
         if (hist_data == NULL) {
@@ -614,9 +615,12 @@ gf_history_consume (void * data)
 
                         curr->retval = 0;
                         memset (curr->changelog, '\0', PATH_MAX);
+                        snprintf (thread_name, sizeof(thread_name), "%s%d",
+                                  "clogc", iter + 1);
 
-                        ret = pthread_create (&th_id[iter], NULL,
-                                              gf_changelog_consume_wrap, curr);
+                        ret = gf_thread_create (&th_id[iter], NULL,
+                                                gf_changelog_consume_wrap, curr,
+                                                thread_name);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, ret,
                                         CHANGELOG_LIB_MSG_THREAD_CREATION_FAILED
@@ -953,8 +957,9 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
                         }
 
                         /* spawn a thread for background parsing & publishing */
-                        ret = pthread_create (&consume_th, &attr,
-                                              gf_history_consume, hist_data);
+                        ret = gf_thread_create (&consume_th, &attr,
+                                                gf_history_consume, hist_data,
+                                                "cloghcon");
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, ret,
                                         CHANGELOG_LIB_MSG_THREAD_CREATION_FAILED

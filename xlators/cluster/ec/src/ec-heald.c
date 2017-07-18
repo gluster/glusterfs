@@ -442,7 +442,7 @@ ec_shd_healer_spawn (xlator_t *this, struct subvol_healer *healer,
                         pthread_cond_signal (&healer->cond);
                 } else {
                         ret = gf_thread_create (&healer->thread, NULL,
-                                                threadfn, healer);
+                                                threadfn, healer, "ecshd");
                         if (ret)
                                 goto unlock;
                         healer->running = 1;

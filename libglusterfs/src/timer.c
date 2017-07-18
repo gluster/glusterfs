@@ -217,7 +217,7 @@ gf_timer_registry_init (glusterfs_ctx_t *ctx)
                 INIT_LIST_HEAD (&reg->active);
         }
         UNLOCK (&ctx->lock);
-        gf_thread_create (&reg->th, NULL, gf_timer_proc, reg);
+        gf_thread_create (&reg->th, NULL, gf_timer_proc, reg, "timer");
 out:
         return reg;
 }

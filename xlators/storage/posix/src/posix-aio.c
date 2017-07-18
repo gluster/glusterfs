@@ -485,7 +485,7 @@ posix_aio_init (xlator_t *this)
 	}
 
         ret = gf_thread_create (&priv->aiothread, NULL,
-				posix_aio_thread, this);
+                                posix_aio_thread, this, "posixaio");
         if (ret != 0) {
                 io_destroy (priv->ctxp);
                 goto out;

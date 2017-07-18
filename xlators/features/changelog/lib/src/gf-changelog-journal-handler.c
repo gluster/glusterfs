@@ -805,8 +805,8 @@ gf_changelog_init_processor (gf_changelog_journal_t *jnl)
         jnl_proc->waiting = _gf_false;
         jnl->jnl_proc = jnl_proc;
 
-        ret = pthread_create (&jnl_proc->processor,
-                              NULL, gf_changelog_process, jnl);
+        ret = gf_thread_create (&jnl_proc->processor,
+                                NULL, gf_changelog_process, jnl, "clogproc");
         if (ret != 0) {
                 jnl->jnl_proc = NULL;
                 goto cleanup_cond;

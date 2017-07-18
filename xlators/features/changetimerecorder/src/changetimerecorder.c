@@ -2012,8 +2012,9 @@ ctr_ipc_helper (xlator_t *this, dict_t *in_dict,
                         goto out;
                 }
 
-                ret = pthread_create (&compact_thread, NULL, ctr_compact_thread,
-                                      (void *)this);
+                ret = gf_thread_create (&compact_thread, NULL,
+                                        ctr_compact_thread, (void *)this,
+                                        "ctrcomp");
 
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0, CTR_MSG_SET,

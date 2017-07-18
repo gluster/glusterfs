@@ -1402,7 +1402,8 @@ nlm4svc_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 stat = nlm4_granted;
                 if (cs->monitor && !nlm_monitor (caller_name)) {
                         /* FIXME: handle nsm_monitor failure */
-                        pthread_create (&thr, NULL, nsm_monitor, (void*)caller_name);
+                        gf_thread_create (&thr, NULL, nsm_monitor,
+                                          (void *)caller_name, "nlmmon");
                 }
         }
 
@@ -2708,7 +2709,7 @@ nlm4svc_init(xlator_t *nfsx)
         }
 
 
-        pthread_create (&thr, NULL, nsm_thread, (void*)NULL);
+        gf_thread_create (&thr, NULL, nsm_thread, (void *)NULL, "nfsnsm");
 
         timeout.tv_sec = nlm_grace_period;
         timeout.tv_nsec = 0;

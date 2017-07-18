@@ -130,6 +130,11 @@ void trap (void);
 
 #define GF_PERCENTAGE(val, total) (((val)*100)/(total))
 
+/* pthread related */
+#define GF_THREAD_NAMEMAX 9
+#define GF_THREAD_NAME_PREFIX "gluster"
+#define GF_THREAD_NAME_PREFIX_LEN 7
+
 enum _gf_boolean
 {
 	_gf_false = 0,
@@ -832,9 +837,11 @@ void gf_xxh64_wrapper(const unsigned char *data, size_t len,
 int gf_set_timestamp  (const char *src, const char* dest);
 
 int gf_thread_create (pthread_t *thread, const pthread_attr_t *attr,
-                      void *(*start_routine)(void *), void *arg);
+                      void *(*start_routine)(void *), void *arg,
+                      const char *name);
 int gf_thread_create_detached (pthread_t *thread,
-                      void *(*start_routine)(void *), void *arg);
+                      void *(*start_routine)(void *), void *arg,
+                      const char *name);
 gf_boolean_t
 gf_is_pid_running (int pid);
 gf_boolean_t

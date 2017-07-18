@@ -71,6 +71,8 @@ changelog_init_rpc_threads (xlator_t *this, changelog_priv_t *priv,
         int               j    = 0;
         int               ret  = 0;
         changelog_clnt_t *conn = NULL;
+        char              thread_name[GF_THREAD_NAMEMAX] = {0,};
+
 
         conn = &priv->connections;
 
@@ -97,8 +99,8 @@ changelog_init_rpc_threads (xlator_t *this, changelog_priv_t *priv,
                 goto cleanup_active_lock;
 
         /* spawn reverse connection thread */
-        ret = pthread_create (&priv->connector,
-                              NULL, changelog_ev_connector, conn);
+        ret = gf_thread_create (&priv->connector,
+                                NULL, changelog_ev_connector, conn, "clogecon");
         if (ret != 0)
                 goto cleanup_wait_lock;
 
@@ -110,8 +112,11 @@ changelog_init_rpc_threads (xlator_t *this, changelog_priv_t *priv,
 
         /* spawn dispatcher threads */
         for (; j < nr_dispatchers; j++) {
-                ret = pthread_create (&priv->ev_dispatcher[j],
-                                      NULL, changelog_ev_dispatch, conn);
+                snprintf (thread_name, sizeof(thread_name),
+                          "%s%d", "clogd", j);
+                ret = gf_thread_create (&priv->ev_dispatcher[j],
+                                        NULL, changelog_ev_dispatch, conn,
+                                        thread_name);
                 if (ret != 0) {
                         changelog_cleanup_dispatchers (this, priv, j);
                         break;

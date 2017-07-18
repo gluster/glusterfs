@@ -4103,7 +4103,7 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
         /* Used for 'reverse invalidation of inode' */
         if (fini->minor >= 12) {
                 ret = gf_thread_create (&messenger, NULL, notify_kernel_loop,
-					this);
+                                        this, "fusenoti");
                 if (ret != 0) {
                         gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                                 "failed to start messenger daemon (%s)",
@@ -5309,7 +5309,8 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 
                 if (start_thread) {
                         ret = gf_thread_create (&private->fuse_thread, NULL,
-						fuse_thread_proc, this);
+                                                fuse_thread_proc, this,
+                                                "fuseproc");
                         if (ret != 0) {
                                 gf_log (this->name, GF_LOG_DEBUG,
                                         "pthread_create() failed (%s)",

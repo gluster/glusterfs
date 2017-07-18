@@ -585,8 +585,8 @@ glusterd_hooks_spawn_worker (xlator_t *this)
 
         conf = this->private;
         conf->hooks_priv = hooks_priv;
-        ret = pthread_create (&hooks_priv->worker, NULL, hooks_worker,
-                              (void *)this);
+        ret = gf_thread_create (&hooks_priv->worker, NULL, hooks_worker,
+                                (void *)this, "gdhooks");
         if (ret)
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
                         GD_MSG_SPAWN_THREADS_FAIL, "Failed to spawn post "

@@ -788,6 +788,7 @@ __iot_workers_scale (iot_conf_t *conf)
         pthread_t thread;
         int       ret = 0;
         int       i = 0;
+        char      thread_name[GF_THREAD_NAMEMAX] = {0,};
 
         for (i = 0; i < IOT_PRI_MAX; i++)
                 scale += min (conf->queue_sizes[i], conf->ac_iot_limit[i]);
@@ -805,7 +806,10 @@ __iot_workers_scale (iot_conf_t *conf)
         while (diff) {
                 diff --;
 
-                ret = gf_thread_create (&thread, &conf->w_attr, iot_worker, conf);
+                snprintf (thread_name, sizeof(thread_name),
+                          "%s%d", "iotwr", conf->curr_count);
+                ret = gf_thread_create (&thread, &conf->w_attr, iot_worker,
+                                        conf, thread_name);
                 if (ret == 0) {
                         conf->curr_count++;
                         gf_msg_debug (conf->this->name, 0,
