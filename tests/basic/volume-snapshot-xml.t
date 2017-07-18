@@ -41,11 +41,14 @@ EXPECT "Started" get-xml "snapshot info snap1" "status"
 
 # Snapshot list xmls
 EXPECT "2" get-xml "snapshot list" "count"
+#$CLI snapshot list $V0 > /dev/tty
 EXPECT "snap2" get-xml "snapshot list $V0" "snapshot"
 
 # Snapshot status xmls
+#$CLI snapshot status > /dev/tty
 EXPECT "snap2" get-xml "snapshot status" "name"
 EXPECT "snap2" get-xml "snapshot deactivate snap2" "name"
+#$CLI snapshot status > /dev/tty
 EXPECT "N/A" get-xml "snapshot status" "pid"
 EXPECT "snap1" get-xml "snapshot status snap1" "name"
 EXPECT "Yes" get-xml "snapshot status snap1" "brick_running"

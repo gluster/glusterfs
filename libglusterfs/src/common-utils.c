@@ -4578,3 +4578,59 @@ err:
 out:
         return ret;
 }
+
+
+int
+gf_compare_or_fix_xattr_brick_path (const char* path)
+{
+        xlator_t* this = NULL;
+        char brick_path_ondisk[PATH_MAX] = "";
+        int ret = -1;
+
+        this = THIS;
+
+        GF_ASSERT (path);
+
+        /* Check for brickinfo->path to GF_XATTR_BRICK_PATH xattr
+         * If present compare to brickinfo->path
+         * If not present set GF_XATTR_BRICK_PATH to brickinfo->path
+         */
+         ret = sys_lgetxattr (path, GF_XATTR_BRICK_PATH, brick_path_ondisk,
+                              min (strlen (path), PATH_MAX));
+
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING, "Failed to get "
+                        "extended attribute %s for brick dir %s. "
+                        "Reason : %s. Check ignored.", GF_XATTR_BRICK_PATH,
+                        path, strerror (errno));
+
+                if (errno == ENODATA) {
+                        ret = sys_lsetxattr (path, GF_XATTR_BRICK_PATH,
+                                             path, strlen (path), XATTR_CREATE);
+
+                        if (ret == -1) {
+                                gf_log (this->name, GF_LOG_ERROR, "Error "
+                                        "setting %s xattr. Reason: %s",
+                                        GF_XATTR_BRICK_PATH, strerror (errno));
+                        }
+
+                        ret = 0;
+                        goto out;
+                }
+
+                ret = -1;
+                goto out;
+        }
+
+        GF_ASSERT (ret >= 0);
+        ret = strcmp (brick_path_ondisk, path);
+
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Brick path mismatch for brick " "%s. Found %s",
+                        path, brick_path_ondisk);
+        }
+
+out:
+        return ret;
+}

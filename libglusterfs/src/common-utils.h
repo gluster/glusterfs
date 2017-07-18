@@ -849,4 +849,7 @@ gf_bits_index (uint64_t n);
 int
 gf_peerinfo_to_hostname_and_port (const char *peerinfo, char **hostname);
 
+int
+gf_compare_or_fix_xattr_brick_path (const char* path);
+
 #endif /* _COMMON_UTILS_H */

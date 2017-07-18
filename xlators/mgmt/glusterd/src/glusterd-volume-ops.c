@@ -1610,6 +1610,24 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr,
                         goto out;
                 }
 
+                /* check GF_XATTR_BRICK_PATH is set to brick path */
+                ret = gf_compare_or_fix_xattr_brick_path (brickinfo->path);
+
+                if (ret != 0) {
+                        gf_log (this->name, GF_LOG_ERROR, "Error comparing %s "
+                                "on %s", GF_XATTR_BRICK_PATH, brickinfo->path);
+                        if (strstr (brickinfo->path, "/snaps/")) {
+                                /*
+                                 * This is "naturally" going to be wrong on
+                                 * snap bricks, but that's OK.
+                                 */
+                                ret = 0;
+                        } else {
+                                ret = -1;
+                                goto out;
+                        }
+                }
+
                 /* A bricks mount dir is required only by snapshots which were
                  * introduced in gluster-3.6.0
                  */

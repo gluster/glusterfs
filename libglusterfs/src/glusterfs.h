@@ -85,6 +85,7 @@
 #define GF_XATTR_NODE_UUID_KEY  "trusted.glusterfs.node-uuid"
 #define GF_REBAL_FIND_LOCAL_SUBVOL "glusterfs.find-local-subvol"
 #define GF_XATTR_VOL_ID_KEY   "trusted.glusterfs.volume-id"
+#define GF_XATTR_BRICK_PATH   "trusted.glusterfs.brick-path"
 #define GF_XATTR_LOCKINFO_KEY   "trusted.glusterfs.lockinfo"
 #define GF_META_LOCK_KEY        "glusterfs.lock-migration-meta-lock"
 #define GF_META_UNLOCK_KEY      "glusterfs.lock-migration-meta-unlock"

@@ -1892,6 +1892,7 @@ afr_frame_return (call_frame_t *frame)
 static char *afr_ignore_xattrs[] = {
         GF_SELINUX_XATTR_KEY,
         QUOTA_SIZE_KEY,
+        GF_XATTR_BRICK_PATH,
         NULL
 };
 

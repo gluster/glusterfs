@@ -54,6 +54,7 @@ struct ec_name_data {
 static char *ec_ignore_xattrs[] = {
         GF_SELINUX_XATTR_KEY,
         QUOTA_SIZE_KEY,
+        GF_XATTR_BRICK_PATH,
         NULL
 };
 

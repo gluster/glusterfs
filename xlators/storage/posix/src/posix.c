@@ -7314,6 +7314,19 @@ init (xlator_t *this)
                 }
         }
 
+#if 0
+        /* check brick path is set on GF_XATTR_BRICK_PATH */
+        ret = gf_compare_or_fix_xattr_brick_path (dir_data->data);
+
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Error comparing %s on %s",
+                        GF_XATTR_BRICK_PATH, dir_data->data);
+                ret = -1;
+                goto out;
+        }
+#endif
+
+        /* check volume-id */
         tmp_data = dict_get (this->options, "volume-id");
         if (tmp_data) {
                 op_ret = gf_uuid_parse (tmp_data->data, dict_uuid);

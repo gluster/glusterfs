@@ -22,6 +22,8 @@
 #include "glusterd-server-quorum.h"
 #include "run.h"
 #include "glusterd-volgen.h"
+#include "syscall.h"
+#include "compat-errno.h"
 #include <sys/signal.h>
 
 /* misc */
@@ -1606,6 +1608,14 @@ glusterd_op_perform_remove_brick (glusterd_volinfo_t  *volinfo, char *brick,
                                 GD_MSG_BRICK_STOP_FAIL, "Unable to stop "
                                 "glusterfs, ret: %d", ret);
                 }
+                goto out;
+        }
+
+        ret = sys_lremovexattr (brickinfo->path, GF_XATTR_BRICK_PATH);
+        if (ret == -1 && errno != ENODATA) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "Error removing xattr %s. Reaason: %s",
+                        GF_XATTR_BRICK_PATH, strerror (errno));
                 goto out;
         }
 

@@ -6262,8 +6262,10 @@ glusterd_check_and_set_brick_xattr (char *host, char *path, uuid_t uuid,
         }
 
 
-        if (!is_force)
+        if (!is_force) {
                 flags = XATTR_CREATE;
+                //sys_lremovexattr (path, GF_XATTR_BRICK_PATH);
+        }
 
         ret = sys_lsetxattr (path, GF_XATTR_VOL_ID_KEY, uuid, 16,
                              flags);
@@ -6271,6 +6273,16 @@ glusterd_check_and_set_brick_xattr (char *host, char *path, uuid_t uuid,
                 snprintf (msg, sizeof (msg), "Failed to set extended "
                           "attributes %s, reason: %s",
                           GF_XATTR_VOL_ID_KEY, strerror (errno));
+                goto out;
+        }
+
+        ret = sys_lsetxattr (path, GF_XATTR_BRICK_PATH, path, strlen (path),
+                             flags);
+
+        if (ret == -1) {
+                snprintf (msg, sizeof (msg), "Failed to set extended "
+                          "attributes %s, reason: %s",
+                          GF_XATTR_BRICK_PATH, strerror (errno));
                 goto out;
         }
 
