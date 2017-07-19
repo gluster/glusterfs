@@ -216,7 +216,12 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
                 MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &buf);
 
                 if (gf_uuid_is_null (loc->inode->gfid)) {
-                        posix_gfid_heal (this, real_path, loc, xdata);
+                        op_ret = posix_gfid_heal (this, real_path, loc, xdata);
+                        if (op_ret < 0) {
+                                op_errno = -op_ret;
+                                op_ret = -1;
+                                goto out;
+                        }
                         MAKE_ENTRY_HANDLE (real_path, par_path, this,
                                            loc, &buf);
                 }

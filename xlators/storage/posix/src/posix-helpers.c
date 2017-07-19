@@ -1513,23 +1513,21 @@ posix_gfid_heal (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req
         struct stat  stat = {0, };
 
         if (!xattr_req)
-                goto out;
+                return 0;
 
-        if (sys_lstat (path, &stat) != 0)
-                goto out;
+        if (sys_lstat (path, &stat) != 0) {
+                return -errno;
+        }
 
         ret = sys_lgetxattr (path, GFID_XATTR_KEY, uuid_curr, 16);
         if (ret != 16) {
                 if (is_fresh_file (&stat)) {
-                        ret = -1;
-                        errno = ENOENT;
-                        goto out;
+                        return -ENOENT;
                 }
         }
 
-        ret = posix_gfid_set (this, path, loc, xattr_req);
-out:
-        return ret;
+        posix_gfid_set (this, path, loc, xattr_req);
+        return 0;
 }
 
 
