@@ -1632,7 +1632,8 @@ nfs3err:
                                      NFS3_LOOKUP, stat, -ret,
                                      cs ? cs->resolvedloc.path : NULL);
                 nfs3_lookup_reply (req, stat, NULL, NULL, NULL);
-                nfs3_call_state_wipe (cs);
+                if (cs)
+                        nfs3_call_state_wipe (cs);
                 /* Ret must be 0 after this so that the caller does not
                  * also send an RPC reply.
                  */
