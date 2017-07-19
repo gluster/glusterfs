@@ -8203,6 +8203,7 @@ dht_rmdir_linkfile_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this
         }
 
         this_call_cnt = dht_frame_return (readdirp_frame);
+
         if (is_last_call (this_call_cnt))
                 dht_rmdir_readdirp_do (readdirp_frame, this);
 
@@ -8263,8 +8264,9 @@ dht_rmdir_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 err:
 
         this_call_cnt = dht_frame_return (readdirp_frame);
-        if (is_last_call (this_call_cnt))
+        if (is_last_call (this_call_cnt)) {
                 dht_rmdir_readdirp_do (readdirp_frame, this);
+        }
 
         DHT_STACK_DESTROY (frame);
         return 0;
@@ -8372,7 +8374,10 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
         dict_t             *xattrs       = NULL;
         dht_conf_t         *conf         = this->private;
         xlator_t           *subvol       = NULL;
-        char               gfid[GF_UUID_BUF_SIZE] = {0};
+        char                gfid[GF_UUID_BUF_SIZE] = {0};
+        int                 count        = 0;
+        gf_boolean_t        unwind        = _gf_false;
+
 
         local = frame->local;
 
@@ -8383,7 +8388,7 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
                         continue;
                 if (check_is_linkfile (NULL, (&trav->d_stat), trav->dict,
                                               conf->link_xattr_name)) {
-                        ret++;
+                        count++;
                         continue;
                 }
 
@@ -8413,16 +8418,17 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
                 return -1;
         }
 
+        local->call_cnt = count;
+        ret = 0;
+
         list_for_each_entry (trav, &entries->list, list) {
                 if (strcmp (trav->d_name, ".") == 0)
                         continue;
                 if (strcmp (trav->d_name, "..") == 0)
                         continue;
 
-                lookup_frame = NULL;
-                lookup_local = NULL;
-
                 lookup_frame = copy_frame (frame);
+
                 if (!lookup_frame) {
                         /* out of memory, let the rmdir fail
                            (as non-empty, unfortunately) */
@@ -8451,13 +8457,6 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
                 gf_msg_trace (this->name, 0,
                               "looking up %s on subvolume %s, gfid = %s",
                               lookup_local->loc.path, src->name, gfid);
-
-                LOCK (&frame->lock);
-                {
-                        /* Increment the call count for the readdir frame */
-                        local->call_cnt++;
-                }
-                UNLOCK (&frame->lock);
 
                 subvol = dht_linkfile_subvol (this, NULL, &trav->d_stat,
                                               trav->dict);
@@ -8488,6 +8487,9 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
                                     &lookup_local->loc, xattrs);
                 }
                 ret++;
+
+                lookup_frame = NULL;
+                lookup_local = NULL;
         }
 
         if (xattrs)
@@ -8500,6 +8502,25 @@ err:
 
         if (lookup_frame)
                 DHT_STACK_DESTROY (lookup_frame);
+
+        /* Handle the case where the wound calls have unwound before the
+         * loop processing is done
+         */
+
+        LOCK (&frame->lock);
+        {
+                local->op_ret = -1;
+                local->op_errno = ENOTEMPTY;
+
+                local->call_cnt -= (count - ret);
+                if (!local->call_cnt)
+                        unwind = _gf_true;
+        }
+        UNLOCK (&frame->lock);
+
+        if (!unwind) {
+                return ret;
+        }
         return 0;
 }
 
