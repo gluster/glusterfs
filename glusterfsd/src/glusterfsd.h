@@ -97,6 +97,7 @@ enum argp_option_keys {
         ARGP_OOM_SCORE_ADJ_KEY            = 176,
 #endif
         ARGP_LOCALTIME_LOGGING_KEY        = 177,
+        ARGP_SUBDIR_MOUNT_KEY             = 178,
 };
 
 struct _gfd_vol_top_priv {

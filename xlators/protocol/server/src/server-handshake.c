@@ -19,6 +19,7 @@
 #include "server-messages.h"
 #include "syscall.h"
 #include "events.h"
+#include "syncop.h"
 
 struct __get_xl_struct {
         const char *name;
@@ -303,7 +304,7 @@ fail:
         return 0;
 }
 
-void
+static void
 server_first_lookup_done (rpcsvc_request_t *req, gf_setvolume_rsp *rsp) {
 
         server_submit_reply (NULL, req, rsp, NULL, 0, NULL,
@@ -313,41 +314,64 @@ server_first_lookup_done (rpcsvc_request_t *req, gf_setvolume_rsp *rsp) {
         GF_FREE (rsp);
 }
 
-
-int
-server_first_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno,
-                       inode_t *inode, struct iatt *buf, dict_t *xattr,
-                       struct iatt *postparent)
+static inode_t *
+do_path_lookup (xlator_t *xl, dict_t *dict, inode_t *parinode, char *basename)
 {
-        rpcsvc_request_t     *req = NULL;
-        gf_setvolume_rsp     *rsp = NULL;
+        int ret = 0;
+        loc_t loc = {0,};
+        uuid_t gfid = {0,};
+        struct iatt iatt = {0,};
+        inode_t *inode = NULL;
 
-        req = cookie;
-        rsp = frame->local;
-        frame->local = NULL;
+        loc.parent = parinode;
+        loc_touchup (&loc, basename);
+        loc.inode = inode_new (xl->itable);
 
-        if (op_ret < 0 || buf == NULL)
-                gf_log (this->name, GF_LOG_WARNING, "server first lookup failed"
-                        " on root inode: %s", strerror (op_errno));
+        gf_uuid_generate (gfid);
+        ret = dict_set_static_bin (dict, "gfid-req", gfid, 16);
+        if (ret) {
+                gf_log (xl->name, GF_LOG_ERROR,
+                        "failed to set 'gfid-req' for subdir");
+                goto out;
+        }
 
-        /* Ignore error from lookup, don't set
-         * failure in rsp->op_ret. lookup on a snapview-server
-         * can fail with ESTALE
-         */
-        server_first_lookup_done (req, rsp);
+        ret = syncop_lookup (xl, &loc, &iatt, NULL, dict, NULL);
+        if (ret < 0) {
+                gf_log (xl->name, GF_LOG_ERROR,
+                        "first lookup on subdir (%s) failed: %s",
+                        basename, strerror (errno));
+        }
 
-        STACK_DESTROY (frame->root);
 
-        return 0;
+        /* Inode linking is required so that the
+           resolution happens all fine for future fops */
+        inode = inode_link (loc.inode, loc.parent, loc.name, &iatt);
+
+        /* Extra ref so the pointer is valid till client is valid */
+        /* FIXME: not a priority, but this can lead to some inode
+           leaks if subdir is more than 1 level depth. Leak is only
+           per subdir entry, and not dependent on number of
+           connections, so it should be fine for now */
+        inode_ref (inode);
+
+out:
+        return inode;
 }
 
 int
-server_first_lookup (xlator_t *this, xlator_t *xl, rpcsvc_request_t *req,
-                     gf_setvolume_rsp *rsp)
+server_first_lookup (xlator_t *this, client_t *client, dict_t *reply)
 {
-        call_frame_t       *frame  = NULL;
         loc_t               loc    = {0, };
+        struct iatt         iatt   = {0,};
+        dict_t             *dict   = NULL;
+        int                 ret    = 0;
+        xlator_t           *xl     = client->bound_xl;
+        char               *msg    = NULL;
+        inode_t *inode = NULL;
+        char *bname = NULL;
+        char *str = NULL;
+        char *tmp = NULL;
+        char *saveptr = NULL;
 
         loc.path = "/";
         loc.name = "";
@@ -355,31 +379,67 @@ server_first_lookup (xlator_t *this, xlator_t *xl, rpcsvc_request_t *req,
         loc.parent = NULL;
         gf_uuid_copy (loc.gfid, loc.inode->gfid);
 
-        frame = create_frame (this, this->ctx->pool);
-        if (!frame) {
-                gf_log ("fuse", GF_LOG_ERROR, "failed to create frame");
-                goto err;
+        ret = syncop_lookup (xl, &loc, &iatt, NULL, NULL, NULL);
+        if (ret < 0)
+                gf_log (xl->name, GF_LOG_ERROR, "lookup on root failed: %s",
+                        strerror (errno));
+        /* Ignore error from lookup, don't set
+         * failure in rsp->op_ret. lookup on a snapview-server
+         * can fail with ESTALE
+         */
+        /* TODO-SUBDIR-MOUNT: validate above comment with respect to subdir lookup */
+
+        if (client->subdir_mount) {
+                str = tmp = gf_strdup (client->subdir_mount);
+                dict = dict_new ();
+                inode = xl->itable->root;
+                bname = strtok_r (str, "/", &saveptr);
+                while (bname != NULL) {
+                        inode = do_path_lookup (xl, dict, inode, bname);
+                        if (inode == NULL) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "first lookup on subdir (%s) failed: %s",
+                                        client->subdir_mount, strerror (errno));
+                                ret = -1;
+                                goto fail;
+                        }
+                        bname = strtok_r (NULL, "/", &saveptr);
+                }
+
+                /* Can be used in server_resolve() */
+                gf_uuid_copy (client->subdir_gfid, inode->gfid);
+                client->subdir_inode = inode;
         }
 
-        frame->local = (void *)rsp;
-        frame->root->uid = frame->root->gid = 0;
-        frame->root->pid = -1;
-        frame->root->type = GF_OP_TYPE_FOP;
+        ret = 0;
+        goto out;
 
-        STACK_WIND_COOKIE (frame, server_first_lookup_cbk, (void *)req, xl,
-                           xl->fops->lookup, &loc, NULL);
+fail:
+        /* we should say to client, it is not possible
+           to connect */
+        ret = gf_asprintf (&msg, "subdirectory for mount \"%s\" is not found",
+                           client->subdir_mount);
+        if (-1 == ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        PS_MSG_ASPRINTF_FAILED,
+                        "asprintf failed while setting error msg");
+        }
+        ret = dict_set_dynstr (reply, "ERROR", msg);
+        if (ret < 0)
+                gf_msg_debug (this->name, 0, "failed to set error "
+                              "msg");
 
-        return 0;
+        ret = -1;
+out:
+        if (dict)
+                dict_unref (dict);
 
-err:
-        rsp->op_ret = -1;
-        rsp->op_errno = ENOMEM;
-        server_first_lookup_done (req, rsp);
+        inode_unref (loc.inode);
 
-        frame->local = NULL;
-        STACK_DESTROY (frame->root);
+        if (tmp)
+                GF_FREE (tmp);
 
-        return -1;
+        return ret;
 }
 
 int
@@ -414,6 +474,7 @@ server_setvolume (rpcsvc_request_t *req)
         int32_t              mgmt_version  = 0;
         glusterfs_ctx_t     *ctx           = NULL;
         struct  _child_status *tmp         = NULL;
+        char                *subdir_mount  = NULL;
 
         params = dict_new ();
         reply  = dict_new ();
@@ -544,6 +605,11 @@ server_setvolume (rpcsvc_request_t *req)
                 goto fail;
         }
 
+        ret = dict_get_str (params, "subdir-mount", &subdir_mount);
+        if (ret < 0) {
+                /* Not a problem at all as the key is optional */
+        }
+
         /*lk_verion :: [1..2^31-1]*/
         ret = dict_get_uint32 (params, "clnt-lk-version", &lk_version);
         if (ret < 0) {
@@ -558,7 +624,7 @@ server_setvolume (rpcsvc_request_t *req)
                 goto fail;
         }
 
-        client = gf_client_get (this, &req->cred, client_uid);
+        client = gf_client_get (this, &req->cred, client_uid, subdir_mount);
         if (client == NULL) {
                 op_ret = -1;
                 op_errno = ENOMEM;
@@ -713,14 +779,18 @@ server_setvolume (rpcsvc_request_t *req)
 
                 gf_event (EVENT_CLIENT_CONNECT, "client_uid=%s;"
                           "client_identifier=%s;server_identifier=%s;"
-                          "brick_path=%s",
+                          "brick_path=%s,subdir_mount=%s",
                           client->client_uid,
                           req->trans->peerinfo.identifier,
                           req->trans->myinfo.identifier,
-                          name);
+                          name, subdir_mount);
 
                 op_ret = 0;
                 client->bound_xl = xl;
+
+                /* Don't be confused by the below line (like how ERROR can
+                   be Success), key checked on client is 'ERROR' and hence
+                   we send 'Success' in this key */
                 ret = dict_set_str (reply, "ERROR", "Success");
                 if (ret < 0)
                         gf_msg_debug (this->name, 0, "failed to set error "
@@ -796,6 +866,16 @@ server_setvolume (rpcsvc_request_t *req)
                 gf_msg_debug (this->name, 0, "failed to set 'transport-ptr'");
 
 fail:
+        /* It is important to validate the lookup on '/' as part of handshake,
+           because if lookup itself can't succeed, we should communicate this
+           to client. Very important in case of subdirectory mounts, where if
+           client is trying to mount a non-existing directory */
+        if (op_ret >= 0 && client->bound_xl->itable) {
+                op_ret = server_first_lookup (this, client, reply);
+                if (op_ret == -1)
+                        op_errno = ENOENT;
+        }
+
         rsp = GF_CALLOC (1, sizeof (gf_setvolume_rsp),
                          gf_server_mt_setvolume_rsp_t);
         GF_ASSERT (rsp);
@@ -842,10 +922,8 @@ fail:
                 req->trans->xl_private = NULL;
         }
 
-        if (op_ret >= 0 && client->bound_xl->itable)
-                server_first_lookup (this, client->bound_xl, req, rsp);
-        else
-                server_first_lookup_done (req, rsp);
+        /* Send the response properly */
+        server_first_lookup_done (req, rsp);
 
         free (args.dict.dict_val);
 
@@ -904,7 +982,7 @@ server_set_lk_version (rpcsvc_request_t *req)
                 goto fail;
         }
 
-        client = gf_client_get (this, &req->cred, args.uid);
+        client = gf_client_get (this, &req->cred, args.uid, NULL);
         serv_ctx = server_ctx_get (client, client->this);
         if (serv_ctx == NULL) {
                 gf_msg (this->name, GF_LOG_INFO, 0,

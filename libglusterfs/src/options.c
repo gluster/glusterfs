@@ -599,21 +599,70 @@ xlator_option_validate_addr_list (xlator_t *xl, const char *key,
         char         *dup_val = NULL;
         char         *addr_tok = NULL;
         char         *save_ptr = NULL;
+        char         *entry = NULL;
+        char         *entry_ptr = NULL;
+        char         *dir_and_addr = NULL;
+        char         *addr_ptr = NULL;
+        char         *addr_list = NULL;
+        char         *addr = NULL;
+        char         *dir = NULL;
         char         errstr[4096] = {0,};
 
         dup_val = gf_strdup (value);
         if (!dup_val)
                 goto out;
 
-        addr_tok = strtok_r (dup_val, ",", &save_ptr);
-        if (addr_tok == NULL)
+        if (dup_val[0] != '/' && !strchr (dup_val, '(')) {
+                /* Possible old format, handle it for back-ward compatibility */
+                addr_tok = strtok_r (dup_val, ",", &save_ptr);
+                while (addr_tok) {
+                        if (!valid_internet_address (addr_tok, _gf_true))
+                                goto out;
+
+                        addr_tok = strtok_r (NULL, ",", &save_ptr);
+                }
+                ret = 0;
                 goto out;
-        while (addr_tok) {
-                if (!valid_internet_address (addr_tok, _gf_true))
+        }
+
+        /* Lets handle the value with new format */
+        entry = strtok_r (dup_val, ",", &entry_ptr);
+        while (entry) {
+                dir_and_addr = gf_strdup (entry);
+                if (!dir_and_addr)
                         goto out;
 
-                addr_tok = strtok_r (NULL, ",", &save_ptr);
+                dir = strtok_r (dir_and_addr, "(", &addr_ptr);
+                if (dir[0] != '/') {
+                        /* Valid format should be starting from '/' */
+                        goto out;
+                }
+                /* dir = strtok_r (NULL, " =", &addr_tmp); */
+                addr = strtok_r (NULL, ")", &addr_ptr);
+                if (!addr)
+                        goto out;
+
+                addr_list = gf_strdup (addr);
+                if (!addr_list)
+                        goto out;
+
+                /* This format be separated by '|' */
+                addr_tok = strtok_r (addr_list, "|", &save_ptr);
+                if (addr_tok == NULL)
+                        goto out;
+                while (addr_tok) {
+                        if (!valid_internet_address (addr_tok, _gf_true))
+                                goto out;
+
+                        addr_tok = strtok_r (NULL, "|", &save_ptr);
+                }
+                entry = strtok_r (NULL, ",", &entry_ptr);
+                GF_FREE (dir_and_addr);
+                GF_FREE (addr_list);
+                addr_list = NULL;
+                dir_and_addr = NULL;
         }
+
         ret = 0;
 
 out:
@@ -626,7 +675,8 @@ out:
                         *op_errstr = gf_strdup (errstr);
         }
         GF_FREE (dup_val);
-
+        GF_FREE (dir_and_addr);
+        GF_FREE (addr_list);
         return ret;
 }
 

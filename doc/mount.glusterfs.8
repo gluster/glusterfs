@@ -12,11 +12,11 @@
 .SH NAME
 .B mount.glusterfs - script to mount native GlusterFS volume
 .SH SYNOPSIS
-.B mount -t glusterfs [-o <options>] <volumeserver>:/<volume>
+.B mount -t glusterfs [-o <options>] <volumeserver>:/<volume>[/<subdir>]
 .B         <mountpoint>
 .TP
 .B mount -t glusterfs [-o <options>] <server1>,<server2>,
-.B        <server3>,..<serverN>:/<volname> <mount_point>
+.B        <server3>,..<serverN>:/<volname>[/<subdir>] <mount_point>
 .TP
 .TP
 .B mount -t glusterfs [-o <options>] <path/to/volumefile> <mountpoint>
@@ -94,6 +94,9 @@ Disable direct I/O mode in fuse kernel module
 .TP
 \fBcongestion\-threshold=\fRN
 Set fuse module's congestion threshold to N [default: 48]
+.TP
+\fsubdir\-mount=\fRN
+Set the subdirectory mount option [default: NULL, ie, no subdirectory mount]
 .TP
 .TP
 \fBbackup\-volfile\-servers=\fRSERVERLIST

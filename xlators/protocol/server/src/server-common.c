@@ -10,8 +10,24 @@
 #include "xdr-nfs3.h"
 
 void
-server_post_stat (gfs3_stat_rsp *rsp, struct iatt *stbuf)
+server_post_stat (server_state_t *state, gfs3_stat_rsp *rsp, struct iatt *stbuf)
 {
+        if (state->client->subdir_mount) {
+                if (gf_uuid_compare (stbuf->ia_gfid,
+                                     state->client->subdir_gfid)) {
+                        /* This is very important as when we send iatt of
+                           root-inode, fuse/client expect the gfid to be 1,
+                           along with inode number. As for subdirectory mount,
+                           we use inode table which is shared by everyone, but
+                           make sure we send fops only from subdir and below,
+                           we have to alter inode gfid and send it to client */
+                        uuid_t gfid = {0,};
+
+                        gfid[15] = 1;
+                        stbuf->ia_ino = 1;
+                        gf_uuid_copy (stbuf->ia_gfid, gfid);
+                }
+        }
         gf_stat_from_iatt (&rsp->stat, stbuf);
 }
 
@@ -166,8 +182,25 @@ server_post_ftruncate (gfs3_ftruncate_rsp *rsp, struct iatt *prebuf,
 }
 
 void
-server_post_fstat (gfs3_fstat_rsp *rsp, struct iatt *stbuf)
+server_post_fstat (server_state_t *state, gfs3_fstat_rsp *rsp,
+                   struct iatt *stbuf)
 {
+        if (state->client->subdir_mount) {
+                if (gf_uuid_compare (stbuf->ia_gfid,
+                                     state->client->subdir_gfid)) {
+                        /* This is very important as when we send iatt of
+                           root-inode, fuse/client expect the gfid to be 1,
+                           along with inode number. As for subdirectory mount,
+                           we use inode table which is shared by everyone, but
+                           make sure we send fops only from subdir and below,
+                           we have to alter inode gfid and send it to client */
+                        uuid_t gfid = {0,};
+
+                        gfid[15] = 1;
+                        stbuf->ia_ino = 1;
+                        gf_uuid_copy (stbuf->ia_gfid, gfid);
+                }
+        }
         gf_stat_from_iatt (&rsp->stat, stbuf);
 }
 
@@ -444,17 +477,6 @@ server_post_lookup (gfs3_lookup_rsp *rsp, call_frame_t *frame,
 
         root_inode = frame->root->client->bound_xl->itable->root;
 
-        if (inode == root_inode) {
-                /* we just looked up root ("/") */
-                stbuf->ia_ino = 1;
-                rootgfid[15]  = 1;
-                gf_uuid_copy (stbuf->ia_gfid, rootgfid);
-                if (inode->ia_type == 0)
-                        inode->ia_type = stbuf->ia_type;
-        }
-
-        gf_stat_from_iatt (&rsp->stat, stbuf);
-
         if (!__is_root_gfid (inode->gfid)) {
                 link_inode = inode_link (inode, state->loc.parent,
                                          state->loc.name, stbuf);
@@ -463,6 +485,26 @@ server_post_lookup (gfs3_lookup_rsp *rsp, call_frame_t *frame,
                         inode_unref (link_inode);
                 }
         }
+
+        if ((inode == root_inode) ||
+            (state->client->subdir_mount &&
+             (inode == state->client->subdir_inode))) {
+                /* we just looked up root ("/") OR
+                   subdir mount directory, which is root ('/') in client */
+                /* This is very important as when we send iatt of
+                   root-inode, fuse/client expect the gfid to be 1,
+                   along with inode number. As for subdirectory mount,
+                   we use inode table which is shared by everyone, but
+                   make sure we send fops only from subdir and below,
+                   we have to alter inode gfid and send it to client */
+                stbuf->ia_ino = 1;
+                rootgfid[15]  = 1;
+                gf_uuid_copy (stbuf->ia_gfid, rootgfid);
+                if (inode->ia_type == 0)
+                        inode->ia_type = stbuf->ia_type;
+        }
+
+        gf_stat_from_iatt (&rsp->stat, stbuf);
 }
 
 void

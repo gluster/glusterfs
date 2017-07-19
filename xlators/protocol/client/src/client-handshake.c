@@ -1137,10 +1137,17 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
         if (op_ret < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, op_errno,
                         PC_MSG_SETVOLUME_FAIL,
-                        "SETVOLUME on remote-host failed");
+                        "SETVOLUME on remote-host failed: %s", remote_error);
+
                 errno = op_errno;
                 if (remote_error &&
                     (strcmp ("Authentication failed", remote_error) == 0)) {
+                        auth_fail = _gf_true;
+                        op_ret = 0;
+                }
+                if ((op_errno == ENOENT) && this->ctx->cmd_args.subdir_mount) {
+                        /* A case of subdir not being present at the moment,
+                           ride on auth_fail framework to notify the error */
                         auth_fail = _gf_true;
                         op_ret = 0;
                 }
@@ -1375,6 +1382,18 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 PC_MSG_DICT_SET_FAILED, "failed to set "
                                 "'volfile-checksum'");
+        }
+
+        if (this->ctx->cmd_args.subdir_mount) {
+                ret = dict_set_str (options, "subdir-mount",
+                                    this->ctx->cmd_args.subdir_mount);
+                if (ret) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "Failed to set subdir_mount");
+                        /* It makes sense to fail, as per the CLI, we
+                           should be doing a subdir_mount */
+                        goto fail;
+                }
         }
 
         ret = dict_set_int16 (options, "clnt-lk-version",
