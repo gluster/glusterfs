@@ -160,6 +160,8 @@ static struct argp_option gf_options[] = {
          "Enable SELinux label (extended attributes) support on inodes"},
         {"capability", ARGP_CAPABILITY_KEY, 0, 0,
          "Enable Capability (extended attributes) support on inodes"},
+        {"subdir-mount", ARGP_SUBDIR_MOUNT_KEY, "SUBDIR-PATH", 0,
+         "Mount subdirectory given [default: NULL]"},
 
         {"print-netgroups", ARGP_PRINT_NETGROUPS, "NETGROUP-FILE", 0,
          "Validate the netgroups file and print it out"},
@@ -240,6 +242,7 @@ static struct argp_option gf_options[] = {
          " [default: \"yes\"]"},
         {"secure-mgmt", ARGP_SECURE_MGMT_KEY, "BOOL", OPTION_ARG_OPTIONAL,
          "Override default for secure (SSL) management connections"},
+
         {0, 0, 0, 0, "Miscellaneous Options:"},
         {0, }
 };
@@ -1270,6 +1273,14 @@ no_oom_api:
 
                 argp_failure (state, -1, 0,
                               "unknown secure-mgmt setting \"%s\"", arg);
+                break;
+        case ARGP_SUBDIR_MOUNT_KEY:
+                if (arg[0] != '/') {
+                        argp_failure (state, -1, 0,
+                                      "expect '/%s', provided just \"%s\"", arg, arg);
+                        break;
+                }
+                cmd_args->subdir_mount = gf_strdup (arg);
                 break;
 	}
 

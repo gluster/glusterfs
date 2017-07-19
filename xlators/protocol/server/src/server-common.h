@@ -9,7 +9,8 @@
 
 #include "xdr-nfs3.h"
 void
-server_post_stat (gfs3_stat_rsp *rsp, struct iatt *stbuf);
+server_post_stat (server_state_t *state,
+                  gfs3_stat_rsp *rsp, struct iatt *stbuf);
 
 void
 server_post_readlink (gfs3_readlink_rsp *rsp, struct iatt *stbuf,
@@ -61,7 +62,8 @@ server_post_ftruncate (gfs3_ftruncate_rsp *rsp, struct iatt *prebuf,
                       struct iatt *postbuf);
 
 void
-server_post_fstat (gfs3_fstat_rsp *rsp, struct iatt *stbuf);
+server_post_fstat (server_state_t *state,
+                   gfs3_fstat_rsp *rsp, struct iatt *stbuf);
 
 void
 server_post_lk (xlator_t *this, gfs3_lk_rsp *rsp, struct gf_flock *lock);

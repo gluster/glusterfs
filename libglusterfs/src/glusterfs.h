@@ -416,6 +416,9 @@ struct _cmd_args {
          * functions that prevent valgrind from working correctly, like
          * dlclose(). */
         int                valgrind;
+
+        /* For the subdir mount */
+        char           *subdir_mount;
 };
 typedef struct _cmd_args cmd_args_t;
 
