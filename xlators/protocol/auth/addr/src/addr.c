@@ -16,12 +16,150 @@
 #include "dict.h"
 #include "rpc-transport.h"
 
-#define ADDR_DELIMITER " ,"
+#define ENTRY_DELIMITER     ","
+#define ADDR_DELIMITER      "|"
 #define PRIVILEGED_PORT_CEILING 1024
 
 #ifndef AF_INET_SDP
 #define AF_INET_SDP 27
 #endif
+
+/* An option for subdir validation be like below */
+
+/* 1. '*'
+   2. '192.168.*'
+   3. '
+   4. '!10.10.1*' (Today as per the code, if negate is set on one entry, its never reset)
+   5. '192.168.1.*, 10.1.10.*';168.168.2.* =/dir;* =/another-dir'
+
+*/
+
+int
+compare_addr_and_update (char *option_str, char *peer_addr, char *subvol,
+                         char *delimiter,
+                         auth_result_t *result, auth_result_t status)
+{
+        char          *addr_str       = NULL;
+        char          *tmp            = NULL;
+        char           negate         = 0;
+        char           match          = 0;
+        int            length         = 0;
+        int            ret            = 0;
+
+        addr_str = strtok_r (option_str, delimiter, &tmp);
+
+        while (addr_str) {
+                gf_log (subvol,  GF_LOG_INFO,
+                        "%s = \"%s\", received addr = \"%s\"",
+                        (status == AUTH_ACCEPT) ? "allowed" : "rejected",
+                        addr_str, peer_addr);
+                if (addr_str[0] == '!') {
+                        negate = 1;
+                        addr_str++;
+                }
+
+                length = strlen(addr_str);
+                if ((addr_str[0] != '*') &&
+                    valid_host_name (addr_str, length)) {
+                        match = gf_is_same_address(addr_str, peer_addr);
+                        if (match) {
+                                *result = status;
+                                goto out;
+                        }
+                } else {
+                        match = fnmatch (addr_str, peer_addr, 0);
+                        if (negate ? match : !match) {
+                                *result = status;
+                                goto out;
+                        }
+                }
+
+                addr_str = strtok_r (NULL, delimiter, &tmp);
+        }
+
+        ret = -1;
+out:
+        return ret;
+}
+
+
+void
+parse_entries_and_compare (char *option_str, char *peer_addr, char *subvol,
+                           char *subdir, auth_result_t *result, auth_result_t status)
+{
+        char *entry = NULL;
+        char *entry_cpy = NULL;
+        char *directory = NULL;
+        char *entries = NULL;
+        char *addr_str = NULL;
+        char *addr = NULL;
+        char *tmp = NULL;
+        char *tmpdir = NULL;
+        int   ret = 0;
+
+        if (!subdir) {
+                gf_log (subvol, GF_LOG_WARNING,
+                        "subdir entry not present, not performing any operation.");
+                goto out;
+        }
+
+        entries = gf_strdup (option_str);
+        if (!entries)
+                goto out;
+
+        if (entries[0] != '/' && !strchr (entries, '(')) {
+                /* Backward compatible option */
+                ret = compare_addr_and_update (entries, peer_addr, subvol,
+                                               ",", result, status);
+                goto out;
+        }
+
+        entry = strtok_r (entries, ENTRY_DELIMITER, &tmp);
+        while (entry) {
+                entry_cpy = gf_strdup (entry);
+                if (!entry_cpy) {
+                        goto out;
+                }
+
+                directory = strtok_r (entry_cpy, "(", &tmpdir);
+                if (directory[0] != '/')
+                        goto out;
+
+                /* send second portion, after ' =' if directory matches */
+                if (strcmp (subdir, directory))
+                        goto next_entry;
+
+                addr_str = strtok_r (NULL, ")", &tmpdir);
+                if (!addr_str)
+                        goto out;
+
+                addr = gf_strdup (addr_str);
+                if (!addr)
+                        goto out;
+
+                gf_log (subvol, GF_LOG_INFO, "Found an entry for dir %s (%s),"
+                        " performing validation", subdir, addr);
+
+                ret = compare_addr_and_update (addr, peer_addr, subvol,
+                                               ADDR_DELIMITER, result, status);
+                if (ret == 0) {
+                        break;
+                }
+
+                GF_FREE (addr);
+                addr = NULL;
+
+        next_entry:
+                entry = strtok_r (NULL, ENTRY_DELIMITER, &tmp);
+                GF_FREE (entry_cpy);
+                entry_cpy = NULL;
+        }
+
+out:
+        GF_FREE (entries);
+        GF_FREE (entry_cpy);
+        GF_FREE (addr);
+}
 
 auth_result_t
 gf_auth (dict_t *input_params, dict_t *config_params)
@@ -34,17 +172,12 @@ gf_auth (dict_t *input_params, dict_t *config_params)
         data_t        *peer_info_data = NULL;
         data_t        *allow_addr     = NULL;
         data_t        *reject_addr    = NULL;
-        char          *addr_str       = NULL;
-        char          *tmp            = NULL;
-        char          *addr_cpy       = NULL;
         char          *service        = NULL;
         uint16_t       peer_port      = 0;
-        char           negate         = 0;
-        char           match          = 0;
         char           peer_addr[UNIX_PATH_MAX] = {0,};
         char          *type           = NULL;
         gf_boolean_t   allow_insecure = _gf_false;
-        int            length         = 0;
+        char          *subdir         = NULL;
 
         name = data_to_str (dict_get (input_params, "remote-subvolume"));
         if (!name) {
@@ -99,6 +232,12 @@ gf_auth (dict_t *input_params, dict_t *config_params)
                 goto out;
         }
 
+
+        ret = dict_get_str (input_params, "subdir-mount", &subdir);
+        if (ret) {
+                subdir = "/";
+        }
+
         peer_info = data_to_ptr (peer_info_data);
 
         switch (((struct sockaddr *) &peer_info->sockaddr)->sa_family) {
@@ -144,82 +283,18 @@ gf_auth (dict_t *input_params, dict_t *config_params)
         }
 
         if (reject_addr) {
-                addr_cpy = gf_strdup (reject_addr->data);
-                if (!addr_cpy)
+                parse_entries_and_compare (reject_addr->data, peer_addr, name,
+                                           subdir, &result, AUTH_REJECT);
+                if (result == AUTH_REJECT)
                         goto out;
-
-                addr_str = strtok_r (addr_cpy, ADDR_DELIMITER, &tmp);
-
-                while (addr_str) {
-                        gf_log (name,  GF_LOG_DEBUG,
-                                "rejected = \"%s\", received addr = \"%s\"",
-                                addr_str, peer_addr);
-                        if (addr_str[0] == '!') {
-                                negate = 1;
-                                addr_str++;
-                        }
-
-                        length = strlen(addr_str);
-                        if ((addr_str[0] != '*') &&
-                                        valid_host_name (addr_str, length)) {
-                                match = gf_is_same_address(addr_str, peer_addr);
-                                if (match) {
-                                        result = AUTH_REJECT;
-                                        goto out;
-                                }
-                        } else {
-                                match = fnmatch (addr_str, peer_addr, 0);
-                                if (negate ? match : !match) {
-                                        result = AUTH_REJECT;
-                                        goto out;
-                                }
-                        }
-
-                        addr_str = strtok_r (NULL, ADDR_DELIMITER, &tmp);
-                }
-                GF_FREE (addr_cpy);
-                addr_cpy = NULL;
         }
 
         if (allow_addr) {
-                addr_cpy = gf_strdup (allow_addr->data);
-                if (!addr_cpy)
-                        goto out;
-
-                addr_str = strtok_r (addr_cpy, ADDR_DELIMITER, &tmp);
-
-                while (addr_str) {
-                        gf_log (name,  GF_LOG_INFO,
-                                "allowed = \"%s\", received addr = \"%s\"",
-                                addr_str, peer_addr);
-                        if (addr_str[0] == '!') {
-                                negate = 1;
-                                addr_str++;
-                        }
-
-                        length = strlen(addr_str);
-                        if ((addr_str[0] != '*') &&
-                                        valid_host_name (addr_str, length)) {
-                                match = gf_is_same_address(addr_str, peer_addr);
-                                if (match) {
-                                        result = AUTH_ACCEPT;
-                                        goto out;
-                                }
-                        } else {
-                                match = fnmatch (addr_str, peer_addr, 0);
-                                if (negate ? match : !match) {
-                                        result = AUTH_ACCEPT;
-                                        goto out;
-                                }
-                        }
-
-                        addr_str = strtok_r (NULL, ADDR_DELIMITER, &tmp);
-                }
+                parse_entries_and_compare (allow_addr->data, peer_addr, name,
+                                           subdir, &result, AUTH_ACCEPT);
         }
 
 out:
-        GF_FREE (addr_cpy);
-
         return result;
 }
 

@@ -423,6 +423,7 @@ get_frame_from_request (rpcsvc_request_t *req)
         clienttable_t *clienttable = NULL;
         unsigned int   i           = 0;
         rpc_transport_t *trans = NULL;
+        server_state_t  *state = NULL;
 
         GF_VALIDATE_OR_GOTO ("server", req, out);
 
@@ -507,6 +508,9 @@ get_frame_from_request (rpcsvc_request_t *req)
 
 
         frame->local = req;
+
+        state = CALL_STATE (frame);
+        state->client = client;
 out:
         return frame;
 }
@@ -2225,7 +2229,7 @@ server_populate_compound_response (xlator_t *this, gfs3_compound_rsp *rsp,
                                             rsp_args->xdata.xdata_len,
                                             rsp_args->op_errno, out);
                 if (!this_args_cbk->op_ret) {
-                        server_post_stat (rsp_args,
+                        server_post_stat (state, rsp_args,
                                           &this_args_cbk->stat);
                 }
                 rsp_args->op_ret = this_args_cbk->op_ret;
@@ -2728,8 +2732,8 @@ server_populate_compound_response (xlator_t *this, gfs3_compound_rsp *rsp,
                                             rsp_args->xdata.xdata_len,
                                             rsp_args->op_errno, out);
                 if (!this_args_cbk->op_ret) {
-                        server_post_fstat (rsp_args,
-                                          &this_args_cbk->stat);
+                        server_post_fstat (state, rsp_args,
+                                           &this_args_cbk->stat);
                 }
                 rsp_args->op_ret = this_args_cbk->op_ret;
                 rsp_args->op_errno  = gf_errno_to_error

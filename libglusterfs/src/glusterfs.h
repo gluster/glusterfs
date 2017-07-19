@@ -418,6 +418,9 @@ struct _cmd_args {
          * dlclose(). */
         int                valgrind;
         int                localtime_logging;
+
+        /* For the subdir mount */
+        char           *subdir_mount;
 };
 typedef struct _cmd_args cmd_args_t;
 

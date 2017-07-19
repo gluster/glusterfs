@@ -424,6 +424,7 @@ _check_for_auth_option (dict_t *d, char *k, data_t *v,
                         goto out;
                 }
 
+                /* TODO-SUBDIR-MOUNT: fix the format */
                 tmp_addr_list = gf_strdup (v->data);
                 addr = strtok_r (tmp_addr_list, ",", &tmp_str);
                 if (!addr)

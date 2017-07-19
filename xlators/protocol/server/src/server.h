@@ -204,6 +204,9 @@ struct _server_state {
         struct iobuf     *rsp_iobuf;
         struct iobref    *rsp_iobref;
         compound_args_t  *args;
+
+        /* subdir mount */
+        client_t         *client;
 };
 
 

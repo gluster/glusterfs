@@ -40,6 +40,11 @@ typedef struct _client {
                 char                *username;
                 char                *passwd;
         }            auth;
+
+        /* subdir_mount */
+        char    *subdir_mount;
+        inode_t *subdir_inode;
+        uuid_t   subdir_gfid;
 } client_t;
 
 #define GF_CLIENTCTX_INITIAL_SIZE 8
@@ -72,7 +77,8 @@ typedef struct clienttable clienttable_t;
 struct rpcsvc_auth_data;
 
 client_t *
-gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid);
+gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred,
+               char *client_uid, char *subdir_mount);
 
 void
 gf_client_put (client_t *client, gf_boolean_t *detached);
