@@ -160,6 +160,8 @@ static struct argp_option gf_options[] = {
          "Enable SELinux label (extended attributes) support on inodes"},
         {"capability", ARGP_CAPABILITY_KEY, 0, 0,
          "Enable Capability (extended attributes) support on inodes"},
+        {"subdir-mount", ARGP_SUBDIR_MOUNT_KEY, "SUBDIR-PATH", 0,
+         "Mount subdirectory given [default: NULL]"},
 
         {"print-netgroups", ARGP_PRINT_NETGROUPS, "NETGROUP-FILE", 0,
          "Validate the netgroups file and print it out"},
@@ -1276,6 +1278,14 @@ no_oom_api:
 
         case ARGP_LOCALTIME_LOGGING_KEY:
                 cmd_args->localtime_logging = 1;
+                break;
+        case ARGP_SUBDIR_MOUNT_KEY:
+                if (arg[0] != '/') {
+                        argp_failure (state, -1, 0,
+                                      "expect '/%s', provided just \"%s\"", arg, arg);
+                        break;
+                }
+                cmd_args->subdir_mount = gf_strdup (arg);
                 break;
 	}
 

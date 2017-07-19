@@ -159,7 +159,8 @@ gf_client_clienttable_destroy (clienttable_t *clienttable)
  * as long as ref.bind is > 0 client should be alive.
  */
 client_t *
-gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
+gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid,
+               char *subdir_mount)
 {
         client_t      *client      = NULL;
         cliententry_t *cliententry = NULL;
@@ -204,6 +205,8 @@ gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid)
                 }
 
                 client->this = this;
+                if (subdir_mount != NULL)
+                        client->subdir_mount = gf_strdup (subdir_mount);
 
                 LOCK_INIT (&client->scratch_ctx.lock);
 
@@ -373,11 +376,16 @@ client_destroy (client_t *client)
         list_for_each_entry (gtrav, &client->this->ctx->graphs, list) {
                 gf_client_destroy_recursive (gtrav->top, client);
         }
+
+        if (client->subdir_inode)
+                inode_unref (client->subdir_inode);
+
         GF_FREE (client->auth.data);
         GF_FREE (client->auth.username);
         GF_FREE (client->auth.passwd);
         GF_FREE (client->scratch_ctx.ctx);
         GF_FREE (client->client_uid);
+        GF_FREE (client->subdir_mount);
         GF_FREE (client);
 out:
         return;
@@ -788,6 +796,12 @@ gf_client_dump_fdtables (xlator_t *this)
                                                     client->client_uid);
                         }
 
+                        if (client->subdir_mount) {
+                                gf_proc_dump_build_key (key, "conn",
+                                                        "%d.subdir", count);
+                                gf_proc_dump_write (key, "%s",
+                                                    client->subdir_mount);
+                        }
                         gf_proc_dump_build_key (key, "conn", "%d.ref",
                                                         count);
                         gf_proc_dump_write (key, GF_PRI_ATOMIC,

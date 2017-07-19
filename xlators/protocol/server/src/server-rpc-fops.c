@@ -45,6 +45,18 @@ forget_inode_if_no_dentry (inode_t *inode)
         return;
 }
 
+static void
+set_resolve_gfid (client_t *client, uuid_t resolve_gfid,
+                  char *on_wire_gfid)
+{
+        if (client->subdir_mount &&
+            __is_root_gfid ((unsigned char *)on_wire_gfid)) {
+                /* set the subdir_mount's gfid for proper resolution */
+                gf_uuid_copy (resolve_gfid, client->subdir_gfid);
+        } else {
+                memcpy (resolve_gfid, on_wire_gfid, 16);
+        }
+}
 
 /* Callback function section */
 int
@@ -1230,8 +1242,8 @@ server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
                                     rsp.xdata.xdata_len, op_errno, out);
 
+        state = CALL_STATE (frame);
         if (op_ret) {
-                state = CALL_STATE (frame);
                 gf_msg (this->name, fop_log_level (GF_FOP_FSTAT, op_errno),
                         op_errno, PS_MSG_STAT_INFO,
                         "%"PRId64": FSTAT %"PRId64" (%s), client: %s, "
@@ -1242,7 +1254,7 @@ server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        server_post_fstat (&rsp, stbuf);
+        server_post_fstat (state, &rsp, stbuf);
 
 out:
         rsp.op_ret    = op_ret;
@@ -1647,8 +1659,8 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
                                     rsp.xdata.xdata_len, op_errno, out);
 
+        state  = CALL_STATE (frame);
         if (op_ret) {
-                state  = CALL_STATE (frame);
                 gf_msg (this->name, fop_log_level (GF_FOP_STAT, op_errno),
                         op_errno, PS_MSG_STAT_INFO,
                         "%"PRId64": STAT %s (%s), client: %s, error-xlator: %s",
@@ -1660,7 +1672,7 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        server_post_stat (&rsp, stbuf);
+        server_post_stat (state, &rsp, stbuf);
 out:
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
@@ -3476,7 +3488,7 @@ server3_3_stat (rpcsvc_request_t *req)
         }
 
         state->resolve.type  = RESOLVE_MUST;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
                                       state->xdata,
@@ -3534,7 +3546,7 @@ server3_3_setattr (rpcsvc_request_t *req)
         }
 
         state->resolve.type  = RESOLVE_MUST;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
 
         gf_stat_to_iatt (&args.stbuf, &state->stbuf);
         state->valid = args.valid;
@@ -4017,7 +4029,9 @@ server3_3_create (rpcsvc_request_t *req)
         state->mode           = args.mode;
         state->umask          = args.umask;
         state->flags          = gf_flags_to_flags (args.flags);
-        memcpy (state->resolve.pargfid, args.pargfid, 16);
+
+        set_resolve_gfid (frame->root->client, state->resolve.pargfid,
+                          args.pargfid);
 
         if (state->flags & O_EXCL) {
                 state->resolve.type = RESOLVE_NOT;
@@ -4604,7 +4618,7 @@ server3_3_fstat (rpcsvc_request_t *req)
 
         state->resolve.type    = RESOLVE_MUST;
         state->resolve.fd_no   = args.fd;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
                                       state->xdata,
@@ -4721,7 +4735,9 @@ server3_3_unlink (rpcsvc_request_t *req)
 
         state->resolve.type   = RESOLVE_MUST;
         state->resolve.bname  = gf_strdup (args.bname);
-        memcpy (state->resolve.pargfid, args.pargfid, 16);
+
+        set_resolve_gfid (frame->root->client, state->resolve.pargfid,
+                          args.pargfid);
 
         state->flags = args.xflags;
 
@@ -4783,7 +4799,7 @@ server3_3_setxattr (rpcsvc_request_t *req)
 
         state->resolve.type     = RESOLVE_MUST;
         state->flags            = args.flags;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
                                       dict,
@@ -4862,7 +4878,7 @@ server3_3_fsetxattr (rpcsvc_request_t *req)
         state->resolve.type      = RESOLVE_MUST;
         state->resolve.fd_no     = args.fd;
         state->flags             = args.flags;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
                                       dict,
@@ -4938,7 +4954,7 @@ server3_3_fxattrop (rpcsvc_request_t *req)
         state->resolve.type    = RESOLVE_MUST;
         state->resolve.fd_no   = args.fd;
         state->flags           = args.flags;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
                                       dict,
@@ -5014,7 +5030,7 @@ server3_3_xattrop (rpcsvc_request_t *req)
 
         state->resolve.type    = RESOLVE_MUST;
         state->flags           = args.flags;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
                                       dict,
@@ -5087,7 +5103,7 @@ server3_3_getxattr (rpcsvc_request_t *req)
         }
 
         state->resolve.type  = RESOLVE_MUST;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
 
         if (args.namelen) {
                 state->name = gf_strdup (args.name);
@@ -5151,8 +5167,7 @@ server3_3_fgetxattr (rpcsvc_request_t *req)
 
         state->resolve.type  = RESOLVE_MUST;
         state->resolve.fd_no = args.fd;
-        memcpy (state->resolve.gfid, args.gfid, 16);
-
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
         if (args.namelen)
                 state->name = gf_strdup (args.name);
 
@@ -5213,7 +5228,7 @@ server3_3_removexattr (rpcsvc_request_t *req)
         }
 
         state->resolve.type   = RESOLVE_MUST;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
         state->name           = gf_strdup (args.name);
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
@@ -5272,7 +5287,7 @@ server3_3_fremovexattr (rpcsvc_request_t *req)
 
         state->resolve.type   = RESOLVE_MUST;
         state->resolve.fd_no  = args.fd;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
         state->name           = gf_strdup (args.name);
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
@@ -5331,7 +5346,7 @@ server3_3_opendir (rpcsvc_request_t *req)
         }
 
         state->resolve.type   = RESOLVE_MUST;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
                                       state->xdata,
@@ -5401,7 +5416,7 @@ server3_3_readdirp (rpcsvc_request_t *req)
         state->resolve.type = RESOLVE_MUST;
         state->resolve.fd_no = args.fd;
         state->offset = args.offset;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
 
         /* here, dict itself works as xdata */
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
@@ -5472,7 +5487,7 @@ server3_3_readdir (rpcsvc_request_t *req)
         state->resolve.type = RESOLVE_MUST;
         state->resolve.fd_no = args.fd;
         state->offset = args.offset;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
                                       state->xdata,
@@ -5529,7 +5544,7 @@ server3_3_fsyncdir (rpcsvc_request_t *req)
         state->resolve.type = RESOLVE_MUST;
         state->resolve.fd_no = args.fd;
         state->flags = args.data;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
                                       state->xdata,
@@ -5588,7 +5603,9 @@ server3_3_mknod (rpcsvc_request_t *req)
         }
 
         state->resolve.type    = RESOLVE_NOT;
-        memcpy (state->resolve.pargfid, args.pargfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.pargfid,
+                          args.pargfid);
+
         state->resolve.bname   = gf_strdup (args.bname);
 
         state->mode  = args.mode;
@@ -5654,7 +5671,8 @@ server3_3_mkdir (rpcsvc_request_t *req)
         }
 
         state->resolve.type    = RESOLVE_NOT;
-        memcpy (state->resolve.pargfid, args.pargfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.pargfid,
+                          args.pargfid);
         state->resolve.bname   = gf_strdup (args.bname);
 
         state->mode  = args.mode;
@@ -5718,7 +5736,8 @@ server3_3_rmdir (rpcsvc_request_t *req)
         }
 
         state->resolve.type    = RESOLVE_MUST;
-        memcpy (state->resolve.pargfid, args.pargfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.pargfid,
+                          args.pargfid);
         state->resolve.bname   = gf_strdup (args.bname);
 
         state->flags = args.xflags;
@@ -5781,7 +5800,7 @@ server3_3_inodelk (rpcsvc_request_t *req)
         }
 
         state->resolve.type    = RESOLVE_EXACT;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
 
         cmd = args.cmd;
         switch (cmd) {
@@ -5872,7 +5891,7 @@ server3_3_finodelk (rpcsvc_request_t *req)
         state->volume = gf_strdup (args.volume);
         state->resolve.fd_no = args.fd;
         state->cmd = args.cmd;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
 
         switch (state->cmd) {
         case GF_LK_GETLK:
@@ -5961,7 +5980,7 @@ server3_3_entrylk (rpcsvc_request_t *req)
         }
 
         state->resolve.type   = RESOLVE_EXACT;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
 
         if (args.namelen)
                 state->name   = gf_strdup (args.name);
@@ -6029,7 +6048,7 @@ server3_3_fentrylk (rpcsvc_request_t *req)
         state->resolve.fd_no = args.fd;
         state->cmd  = args.cmd;
         state->type = args.type;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
 
         if (args.namelen)
                 state->name = gf_strdup (args.name);
@@ -6088,7 +6107,7 @@ server3_3_access (rpcsvc_request_t *req)
         }
 
         state->resolve.type  = RESOLVE_MUST;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
         state->mask          = args.mask;
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
@@ -6149,7 +6168,8 @@ server3_3_symlink (rpcsvc_request_t *req)
         }
 
         state->resolve.type   = RESOLVE_NOT;
-        memcpy (state->resolve.pargfid, args.pargfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.pargfid,
+                          args.pargfid);
         state->resolve.bname  = gf_strdup (args.bname);
         state->name           = gf_strdup (args.linkname);
         state->umask          = args.umask;
@@ -6216,7 +6236,8 @@ server3_3_link (rpcsvc_request_t *req)
 
         state->resolve2.type   = RESOLVE_NOT;
         state->resolve2.bname  = gf_strdup (args.newbname);
-        memcpy (state->resolve2.pargfid, args.newgfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve2.pargfid,
+                          args.newgfid);
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
                                       state->xdata,
@@ -6276,11 +6297,13 @@ server3_3_rename (rpcsvc_request_t *req)
 
         state->resolve.type   = RESOLVE_MUST;
         state->resolve.bname  = gf_strdup (args.oldbname);
-        memcpy (state->resolve.pargfid, args.oldgfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.pargfid,
+                          args.oldgfid);
 
         state->resolve2.type  = RESOLVE_MAY;
         state->resolve2.bname = gf_strdup (args.newbname);
-        memcpy (state->resolve2.pargfid, args.newgfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve2.pargfid,
+                          args.newgfid);
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
                                       state->xdata,
@@ -6331,7 +6354,7 @@ server3_3_lease (rpcsvc_request_t *req)
         }
 
         state->resolve.type = RESOLVE_MUST;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
         gf_proto_lease_to_lease (&args.lease, &state->lease);
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
@@ -6388,7 +6411,7 @@ server3_3_lk (rpcsvc_request_t *req)
         state->resolve.fd_no = args.fd;
         state->cmd =  args.cmd;
         state->type = args.type;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
 
         switch (state->cmd) {
         case GF_LK_GETLK:
@@ -6571,10 +6594,12 @@ server3_3_lookup (rpcsvc_request_t *req)
         state->resolve.type   = RESOLVE_DONTCARE;
 
         if (args.bname && strcmp (args.bname, "")) {
-                memcpy (state->resolve.pargfid, args.pargfid, 16);
+                set_resolve_gfid (frame->root->client, state->resolve.pargfid,
+                                  args.pargfid);
                 state->resolve.bname = gf_strdup (args.bname);
         } else {
-                memcpy (state->resolve.gfid, args.gfid, 16);
+                set_resolve_gfid (frame->root->client,
+                                  state->resolve.gfid, args.gfid);
         }
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
@@ -6632,7 +6657,7 @@ server3_3_statfs (rpcsvc_request_t *req)
         }
 
         state->resolve.type   = RESOLVE_MUST;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
 
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
                                       state->xdata,
@@ -6684,7 +6709,7 @@ server3_3_getactivelk (rpcsvc_request_t *req)
         }
 
         state->resolve.type = RESOLVE_MUST;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
 
         /* here, dict itself works as xdata */
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
@@ -6740,7 +6765,7 @@ server3_3_setactivelk (rpcsvc_request_t *req)
         }
 
         state->resolve.type = RESOLVE_MUST;
-        memcpy (state->resolve.gfid, args.gfid, 16);
+        set_resolve_gfid (frame->root->client, state->resolve.gfid, args.gfid);
 
         /* here, dict itself works as xdata */
         GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
