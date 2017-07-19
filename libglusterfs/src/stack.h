@@ -316,30 +316,30 @@ STACK_RESET (call_stack_t *stack)
                                 LG_MSG_FRAME_ERROR, "!frame");          \
                         break;                                          \
                 }                                                       \
-                if (op_ret < 0) {                                       \
+                if ((op_ret) < 0) {                                     \
                         gf_msg_debug ("stack-trace", op_errno,          \
                                       "stack-address: %p, "             \
                                       "%s returned %d error: %s",       \
                                       frame->root, THIS->name,          \
-                                      (int32_t)op_ret,                  \
+                                      (int32_t)(op_ret),                \
                                       strerror(op_errno));              \
                 } else {                                                \
                         gf_msg_trace ("stack-trace", 0,                 \
                                       "stack-address: %p, "             \
                                       "%s returned %d",                 \
                                       frame->root, THIS->name,          \
-                                      (int32_t)op_ret);                 \
+                                      (int32_t)(op_ret));               \
                 }                                                       \
                 fn = (fop_##op##_cbk_t )frame->ret;                     \
                 _parent = frame->parent;                                \
                 LOCK(&frame->root->stack_lock);                         \
                 {                                                       \
                         _parent->ref_count--;                           \
-                        if (op_ret < 0 &&                               \
-                            op_errno != frame->root->error) {           \
+                        if ((op_ret) < 0 &&                             \
+                            (op_errno) != frame->root->error) {         \
                                 frame->root->err_xl = frame->this;      \
-                                frame->root->error = op_errno;          \
-                        } else if (op_ret == 0) {                       \
+                                frame->root->error = (op_errno);        \
+                        } else if ((op_ret) == 0) {                     \
                                 frame->root->err_xl = NULL;             \
                                 frame->root->error = 0;                 \
                         }                                               \
