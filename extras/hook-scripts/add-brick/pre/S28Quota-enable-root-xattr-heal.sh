@@ -26,7 +26,8 @@ VOL_NAME=
 GLUSTERD_WORKDIR=
 VOLUME_OP=
 VERSION=
-ENABLED_NAME="S28Quota-root-xattr-heal.sh"
+ENABLED_NAME_PREFIX="S28"
+ENABLED_NAME="Quota-root-xattr-heal.sh"
 DISABLED_NAME="disabled-quota-root-xattr-heal.sh"
 
 enable ()
@@ -69,8 +70,8 @@ done
 ##----------------------------------------
 
 DISABLED_STATE="$GLUSTERD_WORKDIR/hooks/$VERSION/add-brick/post/$DISABLED_NAME"
-ENABLED_STATE_START="$GLUSTERD_WORKDIR/hooks/$VERSION/start/post/$ENABLED_NAME"
-ENABLED_STATE_ADD_BRICK="$GLUSTERD_WORKDIR/hooks/$VERSION/add-brick/post/$ENABLED_NAME";
+ENABLED_STATE_START="$GLUSTERD_WORKDIR/hooks/$VERSION/start/post/""$ENABLED_NAME_PREFIX$VOL_NAME""-""$ENABLED_NAME"
+ENABLED_STATE_ADD_BRICK="$GLUSTERD_WORKDIR/hooks/$VERSION/add-brick/post/""$ENABLED_NAME_PREFIX""$VOL_NAME""-""$ENABLED_NAME";
 
 ## Why to proceed if the required script itself is not present?
 ls $DISABLED_STATE;

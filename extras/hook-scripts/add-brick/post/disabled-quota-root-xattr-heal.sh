@@ -20,7 +20,10 @@ VOL_NAME=
 VERSION=
 VOLUME_OP=
 GLUSTERD_WORKDIR=
-ENABLED_NAME="S28Quota-root-xattr-heal.sh"
+ENABLED_NAME_PREFIX="S28"
+ENABLED_NAME="Quota-root-xattr-heal.sh"
+
+THIS_SCRIPT=`echo $0 | awk -F'/' '{print $NF}'`
 
 cleanup_mountpoint ()
 {
@@ -102,7 +105,11 @@ do
 done
 ##----------------------------------------
 
-ENABLED_STATE="$GLUSTERD_WORKDIR/hooks/$VERSION/$VOLUME_OP/post/$ENABLED_NAME"
+ENABLED_STATE="$GLUSTERD_WORKDIR/hooks/$VERSION/$VOLUME_OP/post/""$ENABLED_NAME_PREFIX$VOL_NAME""-""$ENABLED_NAME"
+
+if [[ $THIS_SCRIPT != *"$VOL_NAME"* ]]; then
+        exit 0
+fi
 
 ## Is quota enabled?
 FLAG=`grep "^features.quota=" $GLUSTERD_WORKDIR/vols/$VOL_NAME/info \
