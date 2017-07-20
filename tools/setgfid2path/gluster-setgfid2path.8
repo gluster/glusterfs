@@ -1,0 +1,54 @@
+
+.\"  Copyright (c) 2017 Red Hat, Inc. <http://www.redhat.com>
+.\"  This file is part of GlusterFS.
+.\"
+.\"  This file is licensed to you under your choice of the GNU Lesser
+.\"  General Public License, version 3 or any later version (LGPLv3 or
+.\"  later), or the GNU General Public License, version 2 (GPLv2), in all
+.\"  cases as published by the Free Software Foundation.
+.\"
+.\"
+.TH gluster-setgfid2path 8 "Command line utility to set GFID to Path Xattrs"
+.SH NAME
+gluster-setgfid2path - Gluster tool to set GFID to Path xattrs
+.SH SYNOPSIS
+.B gluster-setgfid2path
+.IR file
+.SH DESCRIPTION
+New feature introduced with Gluster release 3.12, to find full path from GFID.
+This feature can be enabled using Volume set command \fBgluster volume set
+<VOLUME> storage.gfid2path enable\fR
+.PP
+Once \fBgfid2path\fR feature is enabled, it starts recording the necessary
+xattrs required for the feature. But it will not add xattrs for the already
+existing files. This tool provides facility to update the gfid2path xattrs for
+the given file path.
+
+.SH EXAMPLES
+To add xattrs of a single file,
+.PP
+.nf
+.RS
+gluster-setgfid2path /bricks/b1/hello.txt
+.RE
+.fi
+.PP
+To set xattr for all the existing files, run the below script on each bricks.
+.PP
+.nf
+.RS
+BRICK=/bricks/b1
+find $BRICK -type d \\( -path "${BRICK}/.trashcan" -o -path \\
+    "${BRICK}/.glusterfs" \\) -prune -o -type f \\
+    -exec gluster-setgfid2path {} \\;
+.RE
+.fi
+.PP
+.SH SEE ALSO
+.nf
+\fBgluster\fR(8)
+\fR
+.fi
+.SH COPYRIGHT
+.nf
+Copyright(c) 2017   Red Hat, Inc.   <http://www.redhat.com>
