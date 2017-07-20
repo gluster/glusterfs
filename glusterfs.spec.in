@@ -1223,9 +1223,13 @@ exit 0
 %{_sbindir}/glusterd
 %{_sbindir}/glfsheal
 %{_sbindir}/gf_attach
+%{_sbindir}/gluster-setgfid2path
 # {_sbindir}/glusterfsd is the actual binary, but glusterfs (client) is a
 # symlink. The binary itself (and symlink) are part of the glusterfs-fuse
 # package, because glusterfs-server depends on that anyway.
+
+# Manpages
+%{_mandir}/man8/gluster-setgfid2path.8*
 
 # xlators
      %{_libdir}/libposix2common.so
@@ -1369,6 +1373,9 @@ exit 0
 %endif
 
 %changelog
+* Thu Jul 20 2017 Aravinda VK <avishwan@redhat.com>
+- Added new tool/binary to set the gfid2path xattr on files
+
 * Thu Jul 13 2017 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - various directories not owned by any package
 

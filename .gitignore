@@ -122,3 +122,4 @@ libglusterfs/src/eventtypes.h
 extras/init.d/glustereventsd-Debian
 extras/init.d/glustereventsd-FreeBSD
 extras/init.d/glustereventsd-Redhat
+tools/setgfid2path/src/gluster-setgfid2path
