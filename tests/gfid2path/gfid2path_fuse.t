@@ -3,6 +3,8 @@
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
 
+CLI_SETGFID2PATH="gluster-setgfid2path";
+
 cleanup;
 
 XXHSUM_SOURCE="$(dirname $0)/../../contrib/xxhash/xxhsum.c $(dirname $0)/../../contrib/xxhash/xxhash.c"
@@ -25,14 +27,29 @@ EXPECT '1' brick_count $V0
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
-## enable gfid2path
-TEST $CLI volume set $V0 gfid2path enable
-
 ## Mount the volume
 TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0;
 
 pgfid="00000000-0000-0000-0000-000000000001"
 xxh64_file=$B0/${V0}1/xxh64_file
+
+# Create a file before enabling gfid2path
+fname=$M0/before_file1
+touch $fname;
+backpath=$B0/${V0}1/before_file1
+
+# Set gfid2path xattr
+TEST $CLI_SETGFID2PATH $backpath
+
+#Check for the presence of xattr
+pgfid_bname=$pgfid/before_file1
+echo -n $pgfid_bname > $xxh64_file
+xxh64sum=$($XXHSUM_EXEC $xxh64_file | awk '{print $1}')
+key="trusted.gfid2path.$xxh64sum"
+EXPECT $pgfid_bname get_text_xattr $key $backpath
+
+## enable gfid2path
+TEST $CLI volume set $V0 gfid2path enable
 
 #CREATE
 fname=$M0/file1
