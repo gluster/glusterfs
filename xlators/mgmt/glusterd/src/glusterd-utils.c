@@ -5753,6 +5753,19 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
+        /* If a trigger to start the brick is already initiated then no need for
+         * a reattempt as it's an overkill. With glusterd_brick_start ()
+         * function being used in multiple places, when glusterd restarts we see
+         * three different triggers for an attempt to start the brick process
+         * due to the quorum handling code in glusterd_friend_sm.
+         */
+        if (brickinfo->status == GF_BRICK_STARTING) {
+                gf_msg_debug (this->name, 0, "brick %s is already in starting "
+                              "phase", brickinfo->path);
+                ret = 0;
+                goto out;
+        }
+
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, conf);
         if (gf_is_service_running (pidfile, &pid)) {
                 if (brickinfo->status != GF_BRICK_STARTING &&
@@ -5813,6 +5826,12 @@ run:
         other_brick = find_compatible_brick (conf, volinfo, brickinfo,
                                              &other_vol);
         if (other_brick) {
+                /* mark the brick to starting as send_attach_req might take few
+                 * iterations to successfully attach the brick and we don't want
+                 * to get into a state where another needless trigger to start
+                 * the brick is processed
+                 */
+                brickinfo->status = GF_BRICK_STARTING;
                 ret = attach_brick (this, brickinfo, other_brick,
                                     volinfo, other_vol);
                 if (ret == 0) {
