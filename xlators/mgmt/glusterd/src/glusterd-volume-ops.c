@@ -1482,6 +1482,7 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr,
         char                                    volid[50] = {0,};
         char                                    xattr_volid[50] = {0,};
         int                                     caps = 0;
+        uint32_t                                i;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1556,10 +1557,18 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr,
                     (brickinfo->snap_status == -1))
                         continue;
 
-                ret = gf_lstat_dir (brickinfo->path, NULL);
-                if (ret && (flags & GF_CLI_FLAG_OP_FORCE)) {
-                        continue;
-                } else if (ret) {
+                for (i = 0; i < 30; ++i) {
+                        ret = gf_lstat_dir (brickinfo->path, NULL);
+                        if (ret == 0) {
+                                break;
+                        }
+                        gf_log (brickinfo->path, GF_LOG_INFO, "not ready yet; sleeping");
+                        sleep (1);
+                }
+                if (ret != 0) {
+                        if (flags & GF_CLI_FLAG_OP_FORCE) {
+                                continue;
+                        }
                         snprintf (msg, sizeof (msg), "Failed to find "
                                           "brick directory %s for volume %s. "
                                           "Reason : %s", brickinfo->path,
