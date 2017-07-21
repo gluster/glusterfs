@@ -10,6 +10,7 @@
 
 #include <regex.h>
 #include <signal.h>
+#include <fnmatch.h>
 
 #include "dht-mem-types.h"
 #include "dht-messages.h"
@@ -47,9 +48,9 @@
 */
 extern char *xattrs_to_heal[];
 
+/* Rebalance nodeuuid flags */
+#define REBAL_NODEUUID_MINE   0x01
 
-
-#include <fnmatch.h>
 
 typedef int (*dht_selfheal_dir_cbk_t) (call_frame_t *frame, void *cookie,
                                        xlator_t     *this,
@@ -515,10 +516,15 @@ typedef struct gf_tier_conf {
         char                         volname[GD_VOLUME_NAME_MAX + 1];
 } gf_tier_conf_t;
 
-typedef struct subvol_nodeuuids {
-        uuid_t *uuids;
+typedef struct nodeuuid_info {
+        char info; /* Set to 1 is this is my node's uuid*/
+        uuid_t uuid; /* Store the nodeuuid as well for debugging*/
+} nodeuuid_info_t;
+
+typedef struct subvol_nodeuuids_info {
+        nodeuuid_info_t *elements;
         int count;
-} subvol_nodeuuid_t;
+} subvol_nodeuuids_info_t;
 
 
 struct gf_defrag_info_ {
@@ -662,7 +668,7 @@ struct dht_conf {
 
         /*local subvol storage for rebalance*/
         xlator_t       **local_subvols;
-        subvol_nodeuuid_t       *local_nodeuuids;
+        subvol_nodeuuids_info_t       *local_nodeuuids;
         int32_t          local_subvols_cnt;
 
         /*
