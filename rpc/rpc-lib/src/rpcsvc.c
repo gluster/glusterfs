@@ -411,7 +411,9 @@ rpcsvc_request_init (rpcsvc_t *svc, rpc_transport_t *trans,
         req->progver = rpc_call_progver (callmsg);
         req->procnum = rpc_call_progproc (callmsg);
         req->trans = rpc_transport_ref (trans);
-        gf_client_ref (req->trans->xl_private);
+        if (req->trans->xl_private) {
+                gf_client_ref (req->trans->xl_private);
+        }
         req->count = msg->count;
         req->msg[0] = progmsg;
         req->iobref = iobref_ref (msg->iobref);
