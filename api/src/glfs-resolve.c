@@ -282,7 +282,8 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 
         if (__is_root_gfid (parent->gfid) &&
             ((strcmp (component, ".") == 0) ||
-             (strcmp (component, "..") == 0))) {
+             (strcmp (component, "..") == 0) ||
+             (strcmp (component, "") == 0))) {
                 if (!force_lookup) {
                         inode = inode_ref (parent);
                 } else {
