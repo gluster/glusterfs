@@ -4304,7 +4304,7 @@ glusterd_volinfo_copy_brickinfo (glusterd_volinfo_t *old_volinfo,
                 if (ret == 0) {
                         new_brickinfo->port = old_brickinfo->port;
 
-                        if (old_brickinfo->real_path == '\0') {
+                            if (old_brickinfo->real_path[0] == '\0') {
                                 if (!realpath (new_brickinfo->path, abspath)) {
                                         /* Here an ENOENT should also be a
                                          * failure as the brick is expected to
