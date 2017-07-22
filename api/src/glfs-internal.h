@@ -490,4 +490,10 @@ glfd_entry_next (struct glfs_fd *glfd, int plus);
 void
 gf_dirent_to_dirent (gf_dirent_t *gf_dirent, struct dirent *dirent);
 
+/*
+ * Nobody needs this call at all yet except for the test script.
+ */
+int glfs_ipc (glfs_fd_t *fd, int cmd,  void *xd_in, void **xd_out) __THROW
+        GFAPI_PRIVATE(glfs_ipc, 3.12.0);
+
 #endif /* !_GLFS_INTERNAL_H */
