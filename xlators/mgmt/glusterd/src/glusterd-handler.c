@@ -5219,6 +5219,7 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
         glusterd_volinfo_t          *volinfo = NULL;
         glusterd_brickinfo_t        *brickinfo = NULL;
         xlator_t                    *this = NULL;
+        dict_t                      *vol_all_opts = NULL;
         struct statvfs               brickstat = {0};
         char                        *odir = NULL;
         char                        *filename = NULL;
@@ -5312,6 +5313,41 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                 goto out;
         }
 
+        ret = dict_get_uint32 (dict, "getstate-cmd", &get_state_cmd);
+        if (ret) {
+                gf_msg_debug (this->name, 0, "get-state command type not set");
+                ret = 0;
+        }
+
+        if (get_state_cmd == GF_CLI_GET_STATE_VOLOPTS) {
+                fprintf (fp, "[Volume Options]\n");
+                cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                        fprintf (fp, "Volume%d.name: %s\n",
+                                 ++count, volinfo->volname);
+
+                        volcount = count;
+                        vol_all_opts = dict_new ();
+
+                        ret = glusterd_get_default_val_for_volopt (vol_all_opts,
+                                        _gf_true, NULL, NULL, volinfo, &rsp.op_errstr);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_VOL_OPTS_IMPORT_FAIL, "Failed to "
+                                        "fetch the value of all volume options "
+                                        "for volume %s", volinfo->volname);
+                                continue;
+                        }
+
+                        dict_foreach (vol_all_opts, glusterd_print_volume_options,
+                                      fp);
+
+                        if (vol_all_opts)
+                                dict_unref (vol_all_opts);
+                }
+                ret = 0;
+                goto out;
+        }
+
         fprintf (fp, "[Global]\n");
 
         fprintf (fp, "MYUUID: %s\n", gf_strdup (uuid_utoa (priv->uuid)));
@@ -5352,12 +5388,6 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                 fprintf (fp, "\n");
         }
         rcu_read_unlock ();
-
-        ret = dict_get_uint32 (dict, "getstate-cmd", &get_state_cmd);
-        if (ret) {
-                gf_msg_debug (this->name, 0, "get-state command type not set");
-                ret = 0;
-        }
 
         count = 0;
         fprintf (fp, "\n[Volumes]\n");
@@ -5633,7 +5663,8 @@ out:
                 fclose(fp);
 
         rsp.op_ret = ret;
-        rsp.op_errstr = err_str;
+        if (rsp.op_errstr == NULL)
+                rsp.op_errstr = err_str;
 
         ret = dict_allocate_and_serialize (dict, &rsp.dict.dict_val,
                                            &rsp.dict.dict_len);
