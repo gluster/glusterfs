@@ -154,7 +154,8 @@ enum gf1_cli_info_op {
 };
 
 enum gf_cli_get_state_op {
-        GF_CLI_GET_STATE_DETAIL = 1
+        GF_CLI_GET_STATE_DETAIL = 1,
+        GF_CLI_GET_STATE_VOLOPTS = 2
 };
 
 enum gf1_cli_top_op {

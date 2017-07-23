@@ -42,7 +42,7 @@ struct cli_cmd global_cmds[] = {
            "list global commands",
         },
         { "get-state [<daemon>] [[odir </path/to/output/dir/>] "
-          "[file <filename>]] [detail]",
+          "[file <filename>]] [detail|volumeoptions]",
           cli_cmd_get_state_cbk,
           "Get local state representation of mentioned daemon",
         },

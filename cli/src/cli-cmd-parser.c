@@ -887,10 +887,16 @@ cli_cmd_get_state_parse (struct cli_state *state,
                                 }
                         } else {
                                 if (count > 1) {
-                                        if (count == wordcount-1 &&
-                                            !strcmp (words[count], "detail")) {
-                                                cmd = GF_CLI_GET_STATE_DETAIL;
-                                                continue;
+                                        if (count == wordcount-1) {
+                                                if (strcmp (words[count],
+                                                            "detail") == 0) {
+                                                        cmd = GF_CLI_GET_STATE_DETAIL;
+                                                        continue;
+                                                } else if (strcmp (words[count],
+                                                                   "volumeoptions") == 0) {
+                                                        cmd = GF_CLI_GET_STATE_VOLOPTS;
+                                                        continue;
+                                                }
                                         } else {
                                                 *op_errstr = gf_strdup ("Problem"
                                                         " parsing arguments. "
@@ -903,10 +909,16 @@ cli_cmd_get_state_parse (struct cli_state *state,
                                 if (strcmp (words[count], "glusterd") == 0) {
                                         continue;
                                 } else {
-                                        if (count == wordcount-1 &&
-                                            !strcmp (words[count], "detail")) {
-                                                cmd = GF_CLI_GET_STATE_DETAIL;
-                                                continue;
+                                        if (count == wordcount-1) {
+                                                if (strcmp (words[count],
+                                                            "detail") == 0) {
+                                                        cmd = GF_CLI_GET_STATE_DETAIL;
+                                                        continue;
+                                                } else if (strcmp (words[count],
+                                                                   "volumeoptions") == 0) {
+                                                        cmd = GF_CLI_GET_STATE_VOLOPTS;
+                                                        continue;
+                                                }
                                         }
 
                                         *op_errstr = gf_strdup ("glusterd is "
