@@ -5522,6 +5522,8 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                          volinfo->rebal.rebalance_files);
                 fprintf (fp, "Volume%d.rebalance.data: %s\n", count,
                          gf_uint64_2human_readable (volinfo->rebal.rebalance_data));
+                fprintf (fp, "Volume%d.time_left: %"PRIu64"\n", count,
+                         volinfo->rebal.time_left);
 
                 if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
                         ret = glusterd_volume_get_hot_tier_type_str (
