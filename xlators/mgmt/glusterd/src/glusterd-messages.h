@@ -41,7 +41,7 @@
 
 #define GLUSTERD_COMP_BASE      GLFS_MSGID_GLUSTERD
 
-#define GLFS_NUM_MESSAGES       606
+#define GLFS_NUM_MESSAGES       610
 
 #define GLFS_MSGID_END          (GLUSTERD_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
@@ -4908,6 +4908,30 @@
  *
  */
 #define GD_MSG_STATVFS_FAILED  (GLUSTERD_COMP_BASE + 607)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_LOCALTIME_LOGGING_VOL_OPT_VALIDATE_FAIL (GLUSTERD_COMP_BASE + 608)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_LOCALTIME_LOGGING_ENABLE (GLUSTERD_COMP_BASE + 609)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_LOCALTIME_LOGGING_DISABLE (GLUSTERD_COMP_BASE + 610)
 
 /*------------*/
 

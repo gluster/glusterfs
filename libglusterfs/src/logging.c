@@ -141,6 +141,31 @@ gf_log_set_loglevel (gf_loglevel_t level)
                 ctx->log.loglevel = level;
 }
 
+int
+gf_log_get_localtime (void)
+{
+        glusterfs_ctx_t *ctx = NULL;
+
+        ctx = THIS->ctx;
+
+        if (ctx)
+                return ctx->log.localtime;
+        else
+                /* return global defaults (see gf_log_globals_init) */
+                return 0;
+}
+
+void
+gf_log_set_localtime (int on_off)
+{
+        glusterfs_ctx_t *ctx = NULL;
+
+        ctx = THIS->ctx;
+
+        if (ctx)
+                ctx->log.localtime = on_off;
+}
+
 void
 gf_log_flush (void)
 {
@@ -655,6 +680,7 @@ gf_log_globals_init (void *data, gf_loglevel_t level)
         ctx->log.logformat        = gf_logformat_withmsgid;
         ctx->log.lru_size         = GF_LOG_LRU_BUFSIZE_DEFAULT;
         ctx->log.timeout          = GF_LOG_FLUSH_TIMEOUT_DEFAULT;
+        ctx->log.localtime        = GF_LOG_LOCALTIME_DEFAULT;
 
         pthread_mutex_init (&ctx->log.log_buf_lock, NULL);
 
