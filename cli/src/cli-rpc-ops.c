@@ -19,6 +19,10 @@
 
 #define INDENT_MAIN_HEAD "%-25s %s "
 
+/* Do not show estimates if greater than this number */
+#define REBAL_ESTIMATE_SEC_UPPER_LIMIT    (60*24*3600)
+#define REBAL_ESTIMATE_START_TIME         600
+
 #include "cli.h"
 #include "compat-errno.h"
 #include "cli-cmd.h"
@@ -1589,27 +1593,28 @@ int
 gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
                                gf_boolean_t is_tier)
 {
-        int                ret          = -1;
-        int                count        = 0;
-        int                i            = 1;
-        char               key[256]     = {0,};
-        gf_defrag_status_t status_rcd   = GF_DEFRAG_STATUS_NOT_STARTED;
-        uint64_t           files        = 0;
-        uint64_t           size         = 0;
-        uint64_t           lookup       = 0;
-        char               *node_name   = NULL;
-        uint64_t           failures     = 0;
-        uint64_t           skipped      = 0;
-        double             elapsed      = 0;
-        char               *status_str  = NULL;
-        char               *size_str    = NULL;
-        int                hrs          = 0;
-        int                min          = 0;
-        int                sec          = 0;
-        gf_boolean_t       down         = _gf_false;
-	gf_boolean_t       fix_layout   = _gf_false;
-        uint64_t           max_time     = 0;
-        uint64_t           time_left    = 0;
+        int                ret            = -1;
+        int                count          = 0;
+        int                i              = 1;
+        char               key[256]       = {0,};
+        gf_defrag_status_t status_rcd     = GF_DEFRAG_STATUS_NOT_STARTED;
+        uint64_t           files          = 0;
+        uint64_t           size           = 0;
+        uint64_t           lookup         = 0;
+        char               *node_name     = NULL;
+        uint64_t           failures       = 0;
+        uint64_t           skipped        = 0;
+        double             elapsed        = 0;
+        char               *status_str    = NULL;
+        char               *size_str      = NULL;
+        int32_t            hrs            = 0;
+        uint32_t           min            = 0;
+        uint32_t           sec            = 0;
+        gf_boolean_t       down           = _gf_false;
+        gf_boolean_t       fix_layout     = _gf_false;
+        uint64_t           max_time       = 0;
+        uint64_t           time_left      = 0;
+        gf_boolean_t       show_estimates = _gf_false;
 
 
         ret = dict_get_int32 (dict, "count", &count);
@@ -1688,6 +1693,8 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
                 if (GF_DEFRAG_STATUS_NOT_STARTED == status_rcd)
                         continue;
 
+                if (GF_DEFRAG_STATUS_STARTED == status_rcd)
+                        show_estimates = _gf_true;
 
                 snprintf (key, 256, "node-name-%d", i);
                 ret = dict_get_str (dict, key, &node_name);
@@ -1747,6 +1754,7 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE,
                                 "failed to get time left");
+
                 if (time_left > max_time)
                         max_time = time_left;
 
@@ -1757,8 +1765,8 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
                 status_str = cli_vol_task_status_str[status_rcd];
                 size_str = gf_uint64_2human_readable(size);
                 hrs = elapsed / 3600;
-                min = ((int) elapsed % 3600) / 60;
-                sec = ((int) elapsed % 3600) % 60;
+                min = ((uint64_t) elapsed % 3600) / 60;
+                sec = ((uint64_t) elapsed % 3600) % 60;
 
                 if (fix_layout) {
                         cli_out ("%35s %50s %8d:%d:%d", node_name, status_str,
@@ -1785,12 +1793,36 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
                          " Please check the nodes that are down using \'gluster"
                          " peer status\' and start the glusterd on those nodes,"
                          " else tier detach commit might fail!");
+
+        /* Max time will be non-zero if rebalance is still running */
         if (max_time) {
                 hrs = max_time / 3600;
-                min = ((int) max_time % 3600) / 60;
-                sec = ((int) max_time % 3600) % 60;
-                cli_out ("Estimated time left for rebalance to complete :"
-                         " %8d:%02d:%02d", hrs, min, sec);
+                min = (max_time % 3600) / 60;
+                sec = (max_time % 3600) % 60;
+
+                if (hrs < REBAL_ESTIMATE_SEC_UPPER_LIMIT) {
+                        cli_out ("Estimated time left for rebalance to "
+                                 "complete : %8d:%02d:%02d", hrs, min, sec);
+                } else {
+                        cli_out ("Estimated time left for rebalance to "
+                                 "complete : > 2 months. Please try again "
+                                 "later.");
+                }
+        } else {
+                /* Rebalance will return 0 if it could not calculate the
+                 * estimates or if it is complete.
+                 */
+                if (!show_estimates) {
+                        goto out;
+                }
+                if (elapsed <= REBAL_ESTIMATE_START_TIME) {
+                        cli_out ("The estimated time for rebalance to complete "
+                                 "will be unavailable for the first 10 "
+                                 "minutes.");
+                } else {
+                        cli_out ("Rebalance estimated time unavailable. Please "
+                                 "try again later.");
+                }
         }
 out:
         return ret;
