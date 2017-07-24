@@ -18,13 +18,14 @@
 #include <signal.h>
 #include "events.h"
 
-#define GF_DISK_SECTOR_SIZE             512
+#define GF_DISK_SECTOR_SIZE              512
 #define DHT_REBALANCE_PID               4242 /* Change it if required */
 #define DHT_REBALANCE_BLKSIZE           (1024 * 1024)  /* 1 MB */
-#define MAX_MIGRATE_QUEUE_COUNT         500
-#define MIN_MIGRATE_QUEUE_COUNT         200
-#define MAX_REBAL_TYPE_SIZE             16
-#define FILE_CNT_INTERVAL               600 /* 10 mins */
+#define MAX_MIGRATE_QUEUE_COUNT          500
+#define MIN_MIGRATE_QUEUE_COUNT          200
+#define MAX_REBAL_TYPE_SIZE               16
+#define FILE_CNT_INTERVAL                600 /* 10 mins */
+#define ESTIMATE_START_INTERVAL          600 /* 10 mins */
 
 #ifndef MAX
 #define MAX(a, b) (((a) > (b))?(a):(b))
@@ -2980,7 +2981,6 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
                     !strcmp (df_entry->d_name, ".."))
                         continue;
 
-
                 if (IA_ISDIR (df_entry->d_stat.ia_type)) {
                         defrag->size_processed += df_entry->d_stat.ia_size;
                         continue;
@@ -4731,6 +4731,19 @@ gf_defrag_get_estimates_based_on_size (dht_conf_t *conf)
         gettimeofday (&now, NULL);
         elapsed = now.tv_sec - defrag->start_time.tv_sec;
 
+        /* Don't calculate the estimates for the first 10 minutes.
+         * It is unlikely to be accurate and estimates are not required
+         * if the process finishes in less than 10 mins.
+         */
+
+        if (elapsed < ESTIMATE_START_INTERVAL) {
+                gf_msg (THIS->name, GF_LOG_INFO, 0, 0,
+                        "Rebalance estimates will not be available for the "
+                        "first %d seconds.", ESTIMATE_START_INTERVAL);
+
+                goto out;
+        }
+
         total_processed = defrag->size_processed;
 
         /* rate at which files processed */
@@ -4742,7 +4755,6 @@ gf_defrag_get_estimates_based_on_size (dht_conf_t *conf)
                 time_to_complete = (tmp_count)/rate_processed;
 
         } else {
-
                 gf_msg (THIS->name, GF_LOG_ERROR, 0, 0,
                         "Unable to calculate estimated time for rebalance");
         }
@@ -4888,8 +4900,8 @@ gf_defrag_status_get (dht_conf_t *conf, dict_t *dict)
                         "TIME: Estimated total time to complete based on"
                         " count = %"PRIu64 " seconds, seconds left = %"PRIu64"",
                         time_to_complete, time_left);
-
 */
+
                 time_to_complete = gf_defrag_get_estimates_based_on_size (conf);
 
                 if (time_to_complete && (time_to_complete > elapsed))
