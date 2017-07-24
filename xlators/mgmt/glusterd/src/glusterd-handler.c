@@ -5232,6 +5232,7 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
         uint32_t                     get_state_cmd = 0;
         uint64_t                     memtotal = 0;
         uint64_t                     memfree = 0;
+        int                          start_index = 0;
 
         char    *vol_type_str = NULL;
         char    *hot_tier_type_str = NULL;
@@ -5459,7 +5460,30 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                                  brickinfo->path);
                         fprintf (fp, "Volume%d.Brick%d.hostname: %s\n",
                                  count_bkp, count, brickinfo->hostname);
-
+                        /* Determine which one is the arbiter brick */
+                        if (volinfo->arbiter_count == 1) {
+                                if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                                        if (volinfo->tier_info.cold_replica_count != 1) {
+                                                start_index =
+                                                volinfo->tier_info.hot_brick_count + 1;
+                                                if (count >= start_index &&
+                                                    ((count - start_index + 1) %
+                                                     volinfo->tier_info.cold_replica_count == 0)) {
+                                                        fprintf (fp, "Volume%d.Brick%d."
+                                                                 "is_arbiter: 1\n",
+                                                                 count_bkp,
+                                                                 count);
+                                                }
+                                        }
+                                } else {
+                                        if (count %
+                                            volinfo->replica_count == 0) {
+                                                fprintf (fp, "Volume%d.Brick%d."
+                                                         "is_arbiter: 1\n",
+                                                         count_bkp, count);
+                                        }
+                                }
+                        }
                         /* Add following information only for bricks
                          *  local to current node */
                         if (gf_uuid_compare (brickinfo->uuid, MY_UUID))
