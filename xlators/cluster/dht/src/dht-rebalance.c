@@ -1023,7 +1023,7 @@ find_new_subvol:
                  * removed-brick, do not mark the error as failure */
                 if (conf->decommission_subvols_cnt) {
                         *ignore_failure = _gf_true;
-                        for (i = 0; i < conf->decommission_subvols_cnt; i++) {
+                        for (i = 0; i < conf->subvolume_cnt; i++) {
                                 if (conf->decommissioned_bricks[i] == from) {
                                         *ignore_failure = _gf_false;
                                          break;
