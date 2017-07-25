@@ -947,18 +947,26 @@ err:
 char *
 mnt3_get_volume_subdir (char *dirpath, char **volname)
 {
-        char    *subdir = NULL;
-        int     volname_len = 0;
+        /* subdir points to the first / after the volume name while dirpath
+         * points to the first char of the volume name.
+         */
+        char          *subdir        = NULL;
+        int            volname_len   = 0;
+        static char   *root          = "/";
 
-        if (!dirpath)
-                return NULL;
+        /* all callers are expected to pass a valid *dirpath */
+        GF_ASSERT (dirpath);
 
         if (dirpath[0] == '/')
                 dirpath++;
 
         subdir = index (dirpath, (int)'/');
-        if (!subdir)
-                goto out;
+        if (!subdir) {
+                subdir = root;
+                volname_len = strlen (dirpath);
+        } else {
+                volname_len = subdir - dirpath;
+        }
 
         if (!volname)
                 goto out;
@@ -966,10 +974,6 @@ mnt3_get_volume_subdir (char *dirpath, char **volname)
         if (!*volname)
                 goto out;
 
-        /* subdir points to the first / after the volume name while dirpath
-         * points to the first char of the volume name.
-         */
-        volname_len = subdir - dirpath;
         strncpy (*volname, dirpath, volname_len);
         *(*volname + volname_len) = '\0';
 out:
@@ -1588,8 +1592,6 @@ mnt3_resolve_export_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
                 return ret;
 
         volume_subdir = mnt3_get_volume_subdir (exp->expname, NULL);
-        if (!volume_subdir)
-                goto err;
 
         ret = mnt3_resolve_subdir (req, ms, exp, volume_subdir, _gf_true);
         if (ret < 0) {
@@ -1788,11 +1790,6 @@ mnt3_parse_dir_exports (rpcsvc_request_t *req, struct mount3_state *ms,
 
         volname_ptr = volname;
         subdir = mnt3_get_volume_subdir (path, &volname_ptr);
-        if (!subdir) {
-                gf_msg_trace (GF_MNT, 0, "Could not parse volname/subdir from "
-                              "%s", path);
-                goto err;
-        }
 
         /* first try to match the full export/subdir */
         exp = mnt3_mntpath_to_export (ms, path, _gf_false);
