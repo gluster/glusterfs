@@ -72,56 +72,85 @@ static struct mdc_key {
 	const char *name;
 	int         load;
 	int         check;
+	int         prefix_match;
 } mdc_keys[] = {
 	{
 		.name = POSIX_ACL_ACCESS_XATTR,
 		.load = 0,
 		.check = 1,
+		.prefix_match = 0,
 	},
 	{
 		.name = POSIX_ACL_DEFAULT_XATTR,
 		.load = 0,
 		.check = 1,
+		.prefix_match = 0,
 	},
 	{
 		.name = GF_POSIX_ACL_ACCESS,
 		.load = 0,
 		.check = 1,
+		.prefix_match = 0,
 	},
 	{
 		.name = GF_POSIX_ACL_DEFAULT,
 		.load = 0,
 		.check = 1,
+		.prefix_match = 0,
 	},
 	{
 		.name = GF_SELINUX_XATTR_KEY,
 		.load = 0,
 		.check = 1,
+		.prefix_match = 0,
 	},
         {
                 .name = "user.swift.metadata",
                 .load = 0,
                 .check = 1,
+                .prefix_match = 0,
         },
         {
                 .name = "user.DOSATTRIB",
                 .load = 0,
                 .check = 1,
+                .prefix_match = 0,
+        },
+        {
+                .name = "user.DosStream.",
+                .load = 0,
+                .check = 1,
+                .prefix_match = 1,
+        },
+        {
+                .name = "user.org.netatalk.Metadata",
+                .load = 0,
+                .check = 1,
+                .prefix_match = 0,
+        },
+        {
+                .name = "user.org.netatalk.ResourceFork",
+                .load = 0,
+                .check = 1,
+                .prefix_match = 0,
         },
         {
                 .name = "security.NTACL",
                 .load = 0,
                 .check = 1,
+                .prefix_match = 0,
         },
 	{
 		.name = "security.capability",
 		.load = 0,
 		.check = 1,
+		.prefix_match = 0,
 	},
 	{
 		.name = "gfid-req",
 		.load = 0,
 		.check = 1,
+		.prefix_match = 0,
 	},
         {
                 .name = "security.ima",
@@ -132,6 +161,7 @@ static struct mdc_key {
                 .name = NULL,
                 .load = 0,
                 .check = 0,
+                .prefix_match = 0,
         }
 };
 
@@ -606,8 +636,14 @@ updatefn(dict_t *dict, char *key, data_t *value, void *data)
 	for (mdc_key = mdc_keys[i].name; (mdc_key = mdc_keys[i].name); i++) {
 		if (!mdc_keys[i].check)
 			continue;
-		if (strcmp(mdc_key, key))
-			continue;
+
+		if (mdc_keys[i].prefix_match) {
+			if (strncmp (mdc_key, key, strlen(mdc_key)))
+				continue;
+		} else {
+			if (strcmp(mdc_key, key))
+				continue;
+		}
 
 		if (!u->dict) {
 			u->dict = dict_new();
@@ -986,8 +1022,13 @@ is_mdc_key_satisfied (const char *key)
 	for (mdc_key = mdc_keys[i].name; (mdc_key = mdc_keys[i].name); i++) {
 		if (!mdc_keys[i].load)
 			continue;
-		if (strcmp (mdc_key, key) == 0)
-			return 1;
+		if (mdc_keys[i].prefix_match) {
+			if (strncmp (mdc_key, key, strlen(mdc_key)) == 0)
+				return 1;
+		} else {
+			if (strcmp (mdc_key, key) == 0)
+				return 1;
+		}
 	}
 
         gf_msg_trace ("md-cache", 0, "xattr key %s doesn't satisfy "
@@ -2905,6 +2946,12 @@ reconfigure (xlator_t *this, dict_t *options)
                           options, bool, out);
         mdc_key_load_set (mdc_keys, "user.DOSATTRIB",
                           conf->cache_samba_metadata);
+        mdc_key_load_set (mdc_keys, "user.DosStream.",
+                          conf->cache_samba_metadata);
+        mdc_key_load_set (mdc_keys, "user.org.netatalk.Metadata",
+                          conf->cache_samba_metadata);
+        mdc_key_load_set (mdc_keys, "user.org.netatalk.ResourceFork",
+                          conf->cache_samba_metadata);
         mdc_key_load_set (mdc_keys, "security.NTACL",
                           conf->cache_samba_metadata);
 
@@ -2978,6 +3025,12 @@ init (xlator_t *this)
         GF_OPTION_INIT ("cache-samba-metadata", conf->cache_samba_metadata,
                         bool, out);
         mdc_key_load_set (mdc_keys, "user.DOSATTRIB",
+                          conf->cache_samba_metadata);
+        mdc_key_load_set (mdc_keys, "user.DosStream.",
+                          conf->cache_samba_metadata);
+        mdc_key_load_set (mdc_keys, "user.org.netatalk.Metadata",
+                          conf->cache_samba_metadata);
+        mdc_key_load_set (mdc_keys, "user.org.netatalk.ResourceFork",
                           conf->cache_samba_metadata);
         mdc_key_load_set (mdc_keys, "security.NTACL",
                           conf->cache_samba_metadata);
@@ -3137,8 +3190,9 @@ struct volume_options options[] = {
         { .key = {"cache-samba-metadata"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "false",
-          .description = "Cache samba metadata (user.DOSATTRIB, security.NTACL"
-                         " xattrs)",
+          .description = "Cache samba metadata (user.DOSATTRIB, security.NTACL,"
+                         " org.netatalk.Metadata, org.netatalk.ResourceFork, "
+                         "and user.DosStream. xattrs)",
         },
 	{ .key = {"cache-posix-acl"},
 	  .type = GF_OPTION_TYPE_BOOL,
