@@ -2521,6 +2521,7 @@ gf_defrag_migrate_single_file (void *opaque)
         int                      fop_errno      = 0;
         gf_dht_migrate_data_type_t rebal_type   = GF_DHT_MIGRATE_DATA;
         char                     value[MAX_REBAL_TYPE_SIZE]    = {0,};
+        struct iatt             *iatt_ptr       = NULL;
 
         rebal_entry = (struct dht_container *)opaque;
         if (!rebal_entry) {
@@ -2540,6 +2541,7 @@ gf_defrag_migrate_single_file (void *opaque)
         migrate_data = rebal_entry->migrate_data;
 
         entry = rebal_entry->df_entry;
+        iatt_ptr = &entry->d_stat;
 
         if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
                 ret = -1;
@@ -2595,6 +2597,7 @@ gf_defrag_migrate_single_file (void *opaque)
                 goto out;
         }
 
+        iatt_ptr = &iatt;
 
         hashed_subvol = dht_subvol_get_hashed (this, &entry_loc);
         if (!hashed_subvol) {
@@ -2661,7 +2664,6 @@ gf_defrag_migrate_single_file (void *opaque)
                         LOCK (&defrag->lock);
                         {
                                 defrag->skipped += 1;
-                                defrag->size_processed += iatt.ia_size;
                         }
                         UNLOCK (&defrag->lock);
                 } else if (fop_errno == ENOTSUP) {
@@ -2670,7 +2672,6 @@ gf_defrag_migrate_single_file (void *opaque)
                         LOCK (&defrag->lock);
                         {
                                 defrag->skipped += 1;
-                                defrag->size_processed += iatt.ia_size;
                         }
                         UNLOCK (&defrag->lock);
                 } else if (fop_errno != EEXIST) {
@@ -2681,7 +2682,6 @@ gf_defrag_migrate_single_file (void *opaque)
                         LOCK (&defrag->lock);
                         {
                                 defrag->total_failures += 1;
-                                defrag->size_processed += iatt.ia_size;
                         }
                         UNLOCK (&defrag->lock);
 
@@ -2705,7 +2705,6 @@ gf_defrag_migrate_single_file (void *opaque)
         {
                 defrag->total_files += 1;
                 defrag->total_data += iatt.ia_size;
-                defrag->size_processed += iatt.ia_size;
         }
         UNLOCK (&defrag->lock);
 
@@ -2724,6 +2723,13 @@ out:
                 STACK_DESTROY (statfs_frame->root);
         }
 
+        if (iatt_ptr) {
+                LOCK (&defrag->lock);
+                {
+                        defrag->size_processed += iatt_ptr->ia_size;
+                }
+                UNLOCK (&defrag->lock);
+        }
         loc_wipe (&entry_loc);
 
         return ret;
@@ -4987,8 +4993,6 @@ log:
                 "Files migrated: %"PRIu64", size: %"
                 PRIu64", lookups: %"PRIu64", failures: %"PRIu64", skipped: "
                 "%"PRIu64, files, size, lookup, failures, skipped);
-
-
 out:
         return 0;
 }
