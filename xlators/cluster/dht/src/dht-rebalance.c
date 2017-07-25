@@ -2792,20 +2792,18 @@ gf_defrag_task (void *opaque)
                               (defrag->recon_thread_count <
                                         defrag->current_thread_count)) {
                                 defrag->current_thread_count--;
-                                gf_log ("DHT", GF_LOG_INFO,
-                                        "Thread sleeping. "
-                                        "current thread count: %d",
-                                         defrag->current_thread_count);
+                                gf_msg_debug ("DHT", 0, "Thread sleeping. "
+                                              "current thread count: %d",
+                                              defrag->current_thread_count);
 
                                 pthread_cond_wait (
                                            &defrag->df_wakeup_thread,
                                            &defrag->dfq_mutex);
 
                                 defrag->current_thread_count++;
-                                gf_log ("DHT", GF_LOG_INFO,
-                                        "Thread wokeup. "
-                                        "current thread count: %d",
-                                         defrag->current_thread_count);
+                                gf_msg_debug ("DHT", 0, "Thread wokeup. "
+                                              "current thread count: %d",
+                                              defrag->current_thread_count);
 
                         }
 
@@ -2861,11 +2859,11 @@ gf_defrag_task (void *opaque)
                                 if (!defrag->crawl_done) {
 
                                         defrag->current_thread_count--;
-                                        gf_log ("DHT", GF_LOG_INFO, "Thread "
-                                                " sleeping while  waiting for "
-                                                "migration entries. current "
-                                                "thread  count :%d",
-                                                defrag->current_thread_count);
+                                        gf_msg_debug ("DHT", 0, "Thread "
+                                                      "sleeping while  waiting "
+                                                      "for migration entries. "
+                                                      "current thread  count:%d",
+                                                      defrag->current_thread_count);
 
                                         pthread_cond_wait (
                                            &defrag->parallel_migration_cond,
