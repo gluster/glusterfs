@@ -244,6 +244,8 @@ static struct argp_option gf_options[] = {
          "Override default for secure (SSL) management connections"},
         {"localtime-logging", ARGP_LOCALTIME_LOGGING_KEY, 0, 0,
          "Enable localtime logging"},
+        {"process-name", ARGP_PROCESS_NAME_KEY, "PROCESS-NAME", OPTION_HIDDEN,
+         "option to specify the process type" },
         {0, 0, 0, 0, "Miscellaneous Options:"},
         {0, }
 };
@@ -300,7 +302,7 @@ set_fuse_mount_options (glusterfs_ctx_t *ctx, dict_t *options)
                                        cmd_args->fuse_attribute_timeout);
 
                 if (ret < 0) {
-                        gf_msg ("glusterfsd", GF_LOG_ERROR, errno, 
+                        gf_msg ("glusterfsd", GF_LOG_ERROR, errno,
                                 glusterfsd_msg_4, ZR_ATTR_TIMEOUT_OPT);
                         goto err;
                 }
@@ -1278,6 +1280,9 @@ no_oom_api:
 
         case ARGP_LOCALTIME_LOGGING_KEY:
                 cmd_args->localtime_logging = 1;
+
+        case ARGP_PROCESS_NAME_KEY:
+                cmd_args->process_name = gf_strdup (arg);
                 break;
         case ARGP_SUBDIR_MOUNT_KEY:
                 if (arg[0] != '/') {
@@ -1928,6 +1933,9 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
         process_mode = gf_get_process_mode (argv[0]);
         ctx->process_mode = process_mode;
 
+        if (cmd_args->process_name) {
+                ctx->cmd_args.process_name = cmd_args->process_name;
+        }
         /* Make sure after the parsing cli, if '--volfile-server' option is
            given, then '--volfile-id' is mandatory */
         if (cmd_args->volfile_server && !cmd_args->volfile_id) {

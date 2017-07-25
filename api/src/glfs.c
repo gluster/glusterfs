@@ -31,6 +31,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <limits.h>
+#ifdef GF_LINUX_HOST_OS
+#include <sys/prctl.h>
+#endif
 
 #include "glusterfs.h"
 #include "logging.h"
@@ -739,6 +742,8 @@ pub_glfs_new (const char *volname)
 	int              ret            = -1;
 	glusterfs_ctx_t *ctx            = NULL;
         xlator_t        *old_THIS       = NULL;
+        char            pname[16]       = "";
+        char            msg[32]         = "";
 
         if (!volname) {
                 errno = EINVAL;
@@ -789,6 +794,16 @@ pub_glfs_new (const char *volname)
                 goto out;
         }
 
+        ret = -1;
+#ifdef GF_LINUX_HOST_OS
+        ret = prctl (PR_GET_NAME, (unsigned long) pname, 0, 0, 0);
+#endif
+        if (ret)
+                fs->ctx->cmd_args.process_name = gf_strdup ("gfapi");
+        else {
+                snprintf (msg, sizeof(msg), "gfapi.%s", pname);
+                fs->ctx->cmd_args.process_name = gf_strdup (msg);
+        }
         ret = 0;
 
 out:
@@ -1115,6 +1130,7 @@ glusterfs_ctx_destroy (glusterfs_ctx_t *ctx)
 
         GF_FREE (ctx->process_uuid);
         GF_FREE (ctx->cmd_args.volfile_id);
+        GF_FREE (ctx->cmd_args.process_name);
 
         LOCK_DESTROY (&ctx->lock);
         pthread_mutex_destroy (&ctx->notify_lock);

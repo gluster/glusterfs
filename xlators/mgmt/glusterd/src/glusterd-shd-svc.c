@@ -17,6 +17,7 @@
 #include "glusterd-shd-svc.h"
 #include "glusterd-svc-helper.h"
 
+#define GD_SHD_PROCESS_NAME    "--process-name"
 char *shd_svc_name = "glustershd";
 
 void
@@ -162,6 +163,14 @@ glusterd_shdsvc_start (glusterd_svc_t *svc, int flags)
         /* Pass cmdline arguments as key-value pair. The key is merely
          * a carrier and is not used. Since dictionary follows LIFO the value
          * should be put in reverse order*/
+        ret = dict_set_str (cmdline, "arg4", svc->name);
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (cmdline, "arg3", GD_SHD_PROCESS_NAME);
+        if (ret)
+                goto out;
+
         ret = dict_set_str (cmdline, "arg2", glusterd_uuid_option);
         if (ret)
                 goto out;

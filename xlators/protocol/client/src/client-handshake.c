@@ -1360,6 +1360,12 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
                 goto fail;
         }
 
+        ret = dict_set_str (options, "process-name", this->ctx->cmd_args.process_name);
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_INFO, 0, PC_MSG_DICT_SET_FAILED,
+                        "failed to set process-name in handshake msg");
+        }
+
         ret = dict_set_str (options, "client-version", PACKAGE_VERSION);
         if (ret < 0) {
                 gf_msg (this->name, GF_LOG_WARNING, 0, PC_MSG_DICT_SET_FAILED,

@@ -330,6 +330,7 @@ glusterd_tierdsvc_start (glusterd_svc_t *svc, int flags)
                          "--xlator-option", "*dht.readdir-optimize=on",
                          "--xlator-option",
                          "*tier-dht.xattr-name=trusted.tier.tier-dht",
+                         "--process-name", svc->name,
                          NULL);
 
 
