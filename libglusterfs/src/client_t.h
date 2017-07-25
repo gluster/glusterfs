@@ -33,6 +33,7 @@ typedef struct _client {
         xlator_t    *this;
         int          tbl_index;
         char        *client_uid;
+        char        *client_name;
         struct {
                 int                  flavour;
                 size_t               len;

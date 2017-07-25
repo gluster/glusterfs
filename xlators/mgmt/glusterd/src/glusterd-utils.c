@@ -2060,6 +2060,7 @@ retry:
                          "--brick-name", brickinfo->path,
                          "-l", brickinfo->logfile,
                          "--xlator-option", glusterd_uuid,
+                         "--process-name", "brick",
                          NULL);
 
         if (dict_get_str (priv->opts, GLUSTERD_LOCALTIME_LOGGING_KEY,

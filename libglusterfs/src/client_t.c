@@ -386,6 +386,7 @@ client_destroy (client_t *client)
         GF_FREE (client->scratch_ctx.ctx);
         GF_FREE (client->client_uid);
         GF_FREE (client->subdir_mount);
+        GF_FREE (client->client_name);
         GF_FREE (client);
 out:
         return;

@@ -297,7 +297,9 @@ glusterd_snapdsvc_start (glusterd_svc_t *svc, int flags)
                          "-p", svc->proc.pidfile,
                          "-l", svc->proc.logfile,
                          "--brick-name", snapd_id,
-                         "-S", svc->conn.sockpath, NULL);
+                         "-S", svc->conn.sockpath,
+                         "--process-name", svc->name,
+                         NULL);
 
         snapd_port = pmap_assign_port (THIS, volinfo->snapd.port, snapd_id);
         volinfo->snapd.port = snapd_port;

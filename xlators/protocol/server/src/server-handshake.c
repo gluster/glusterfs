@@ -475,6 +475,7 @@ server_setvolume (rpcsvc_request_t *req)
         glusterfs_ctx_t     *ctx           = NULL;
         struct  _child_status *tmp         = NULL;
         char                *subdir_mount  = NULL;
+        char                *client_name   = NULL;
 
         params = dict_new ();
         reply  = dict_new ();
@@ -609,6 +610,10 @@ server_setvolume (rpcsvc_request_t *req)
         if (ret < 0) {
                 /* Not a problem at all as the key is optional */
         }
+        ret = dict_get_str (params, "process-name", &client_name);
+        if (ret < 0) {
+                client_name = "unknown";
+        }
 
         /*lk_verion :: [1..2^31-1]*/
         ret = dict_get_uint32 (params, "clnt-lk-version", &lk_version);
@@ -630,6 +635,8 @@ server_setvolume (rpcsvc_request_t *req)
                 op_errno = ENOMEM;
                 goto fail;
         }
+
+        client->client_name = gf_strdup(client_name);
 
         gf_msg_debug (this->name, 0, "Connected to %s", client->client_uid);
         cancelled = server_cancel_grace_timer (this, client);
