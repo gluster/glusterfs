@@ -4293,6 +4293,8 @@ glusterd_store_retrieve_peers (xlator_t *this)
         glusterd_peerctx_args_t   args               = {0};
         gf_store_op_errno_t       op_errno           = GD_STORE_SUCCESS;
         glusterd_peer_hostname_t *address            = NULL;
+        uuid_t                    tmp_uuid;
+        gf_boolean_t              is_ok;
 
         GF_ASSERT (this);
         priv = this->private;
@@ -4312,21 +4314,29 @@ glusterd_store_retrieve_peers (xlator_t *this)
                 goto out;
         }
 
-        GF_FOR_EACH_ENTRY_IN_DIR (entry, dir, scratch);
-
-        while (entry) {
+        for (;;) {
+                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir, scratch);
+                if (!entry) {
+                        break;
+                }
+                if (gf_uuid_parse (entry->d_name, tmp_uuid) != 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "skipping non-peer file %s", entry->d_name);
+                        continue;
+                }
+                is_ok = _gf_false;
                 snprintf (filepath, PATH_MAX, "%s/%s", path, entry->d_name);
                 ret = gf_store_handle_retrieve (filepath, &shandle);
                 if (ret)
-                        goto out;
+                        goto next;
 
                 ret = gf_store_iter_new (shandle, &iter);
                 if (ret)
-                        goto out;
+                        goto next;
 
                 ret = gf_store_iter_get_next (iter, &key, &value, &op_errno);
                 if (ret)
-                        goto out;
+                        goto next;
 
                 /* Create an empty peerinfo object before reading in the
                  * details
@@ -4335,7 +4345,7 @@ glusterd_store_retrieve_peers (xlator_t *this)
                                                   NULL, 0);
                 if (peerinfo == NULL) {
                         ret = -1;
-                        goto out;
+                        goto next;
                 }
 
                 while (!ret) {
@@ -4367,10 +4377,17 @@ glusterd_store_retrieve_peers (xlator_t *this)
                                                       &op_errno);
                 }
                 if (op_errno != GD_STORE_EOF) {
-                        goto out;
+                        goto next;
                 }
 
                 (void) gf_store_iter_destroy (iter);
+
+                if (gf_uuid_is_null (peerinfo->uuid)) {
+                        gf_log ("", GF_LOG_ERROR,
+                            "Null UUID while attempting to read peer from '%s'",
+                            filepath);
+                        goto next;
+                }
 
                 /* Set first hostname from peerinfo->hostnames to
                  * peerinfo->hostname
@@ -4380,17 +4397,27 @@ glusterd_store_retrieve_peers (xlator_t *this)
                                           hostname_list);
                 if (!address) {
                         ret = -1;
-                        goto out;
+                        goto next;
                 }
                 peerinfo->hostname = gf_strdup (address->hostname);
 
                 ret = glusterd_friend_add_from_peerinfo (peerinfo, 1, NULL);
                 if (ret)
-                        goto out;
+                        goto next;
 
                 peerinfo->shandle = shandle;
+                is_ok = _gf_true;
+
+next:
+                if (!is_ok) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "skipping malformed peer file %s",
+                                entry->d_name);
+                        if (peerinfo) {
+                                glusterd_peerinfo_cleanup (peerinfo);
+                        }
+                }
                 peerinfo = NULL;
-                GF_FOR_EACH_ENTRY_IN_DIR (entry, dir, scratch);
         }
 
         args.mode = GD_MODE_ON;
@@ -4405,9 +4432,6 @@ glusterd_store_retrieve_peers (xlator_t *this)
         peerinfo = NULL;
 
 out:
-        if (peerinfo)
-                glusterd_peerinfo_cleanup (peerinfo);
-
         if (dir)
                 sys_closedir (dir);
         gf_msg_debug (this->name, 0, "Returning with %d", ret);
