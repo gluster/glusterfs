@@ -173,6 +173,8 @@ gf_changelog_cleanup_this (xlator_t *this)
 
         this->private = NULL;
         this->ctx = NULL;
+
+        mem_pools_fini ();
 }
 
 static int
@@ -206,7 +208,13 @@ gf_changelog_init_context ()
 static int
 gf_changelog_init_master ()
 {
-        return gf_changelog_init_context ();
+        int              ret = 0;
+
+        mem_pools_init_early ();
+        ret = gf_changelog_init_context ();
+        mem_pools_init_late ();
+
+        return ret;
 }
 
 /* TODO: cleanup clnt/svc on failure */
