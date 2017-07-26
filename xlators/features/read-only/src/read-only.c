@@ -115,6 +115,7 @@ struct xlator_fops fops = {
         .entrylk     = ro_entrylk,
         .fentrylk    = ro_fentrylk,
         .lk          = ro_lk,
+        .fallocate   = ro_fallocate,
 };
 
 struct xlator_cbks cbks = {
