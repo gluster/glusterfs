@@ -12,6 +12,22 @@
 #include "statedump.h"
 #include "defaults.h"
 
+/*
+ * The user can specify an error probability as a float percentage, but we
+ * store it internally as a numerator with this as the denominator.  When it's
+ * used, it's like this:
+ *
+ *    (rand() % FAILURE_GRANULARITY) < error_rate
+ *
+ * To minimize rounding errors from the modulo operation, it's good for this to
+ * be a power of two.
+ *
+ * (BTW this is just the normal case.  If "random-failure" is set, that does
+ * something completely different and this number is irrelevant.  See error_gen
+ * for the legacy code.)
+ */
+#define FAILURE_GRANULARITY     (1 << 20)
+
 sys_error_t error_no_list[] = {
         [GF_FOP_LOOKUP]            = { .error_no_count = 4,
                                     .error_no = {ENOENT,ENOTDIR,
@@ -246,32 +262,52 @@ error_gen (xlator_t *this, int op_no)
 {
         eg_t             *egp = NULL;
         int              count = 0;
-        int              failure_iter_no = GF_FAILURE_DEFAULT;
         int              error_no_int = 0;
         int              rand_no = 0;
         int              ret = 0;
+        gf_boolean_t     should_err = _gf_false;
 
         egp = this->private;
 
-        LOCK (&egp->lock);
-        {
-                count = ++egp->op_count;
-                failure_iter_no = egp->failure_iter_no;
-                error_no_int = egp->error_no_int;
-        }
-        UNLOCK (&egp->lock);
-
-        if((count % failure_iter_no) == 0) {
+        if (egp->random_failure) {
+                /*
+                 * I honestly don't know why anyone would use this "feature"
+                 * but I'll try to preserve its functionality anyway.  Without
+                 * locking twice to update failure_iter_no and egp->op_count
+                 * separately, then not locking at all to update
+                 * egp->failure_iter_no.  That's not needed for compatibility,
+                 * and it's abhorrently wrong.  I have *some* standards.
+                 */
                 LOCK (&egp->lock);
                 {
-                        egp->op_count = 0;
+                        count = ++(egp->op_count);
+                        error_no_int = egp->error_no_int;
+                        if ((count % egp->failure_iter_no) == 0) {
+                                egp->op_count = 0;
+                                /* coverty[DC.WEAK_CRYPTO] */
+                                egp->failure_iter_no = 3
+                                        + (rand () % GF_UNIVERSAL_ANSWER);
+                                should_err = _gf_true;
+                        }
                 }
                 UNLOCK (&egp->lock);
+        } else {
+                /*
+                 * It turns out that rand() is almost universally implemented
+                 * as a linear congruential PRNG, which is about as cheap as
+                 * it gets.  This gets us real random behavior, including
+                 * phenomena like streaks and dry spells, with controllable
+                 * long-term probability, cheaply.
+                 */
+                if ((rand () % FAILURE_GRANULARITY) < egp->failure_iter_no) {
+                        should_err = _gf_true;
+                }
+        }
 
+        if (should_err) {
                 if (error_no_int)
                         ret = error_no_int;
                 else {
-
                         rand_no = generate_rand_no (op_no);
                         if (op_no >= GF_FOP_MAXVALUE)
                                 op_no = 0;
@@ -279,10 +315,8 @@ error_gen (xlator_t *this, int op_no)
                                 rand_no = 0;
                         ret = error_no_list[op_no].error_no[rand_no];
                 }
-                if (egp->random_failure == _gf_true)
-                        /* coverty[DC.WEAK_CRYPTO] */
-                        egp->failure_iter_no = 3 + (rand () % GF_UNIVERSAL_ANSWER);
         }
+
         return ret;
 }
 
@@ -1379,14 +1413,14 @@ error_gen_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 }
 
 static void
-error_gen_set_failure (eg_t *pvt, int percent)
+error_gen_set_failure (eg_t *pvt, double percent)
 {
+        double  ppm;
+
         GF_ASSERT (pvt);
 
-        if (percent)
-                pvt->failure_iter_no = 100/percent;
-        else
-                pvt->failure_iter_no = 100/GF_FAILURE_DEFAULT;
+        ppm = (percent / 100.0) * (double)FAILURE_GRANULARITY;
+        pvt->failure_iter_no = (int)ppm;
 }
 
 static void
@@ -1482,7 +1516,7 @@ reconfigure (xlator_t *this, dict_t *options)
         eg_t            *pvt = NULL;
         int32_t          ret = 0;
         char            *error_enable_fops = NULL;
-        int32_t          failure_percent_int = 0;
+        double           failure_percent_dbl = 0.0;
 
         if (!this || !this->private)
                 goto out;
@@ -1496,7 +1530,7 @@ reconfigure (xlator_t *this, dict_t *options)
         if (pvt->error_no)
                 pvt->error_no_int = conv_errno_to_int (&pvt->error_no);
 
-        GF_OPTION_RECONF ("failure", failure_percent_int, options, int32,
+        GF_OPTION_RECONF ("failure", failure_percent_dbl, options, percent,
                           out);
 
         GF_OPTION_RECONF ("enable", error_enable_fops, options, str, out);
@@ -1505,7 +1539,7 @@ reconfigure (xlator_t *this, dict_t *options)
                           bool, out);
 
         error_gen_parse_fill_fops (pvt, error_enable_fops);
-        error_gen_set_failure (pvt, failure_percent_int);
+        error_gen_set_failure (pvt, failure_percent_dbl);
 
         ret = 0;
 out:
@@ -1519,7 +1553,7 @@ init (xlator_t *this)
         eg_t            *pvt = NULL;
         int32_t          ret = 0;
         char            *error_enable_fops = NULL;
-        int32_t          failure_percent_int = 0;
+        double          failure_percent_dbl = 0.0;
 
         if (!this->children || this->children->next) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1549,7 +1583,7 @@ init (xlator_t *this)
         if (pvt->error_no)
                 pvt->error_no_int = conv_errno_to_int (&pvt->error_no);
 
-        GF_OPTION_INIT ("failure", failure_percent_int, int32, out);
+        GF_OPTION_INIT ("failure", failure_percent_dbl, percent, out);
 
         GF_OPTION_INIT ("enable", error_enable_fops, str, out);
 
@@ -1557,7 +1591,7 @@ init (xlator_t *this)
 
 
         error_gen_parse_fill_fops (pvt, error_enable_fops);
-        error_gen_set_failure (pvt, failure_percent_int);
+        error_gen_set_failure (pvt, failure_percent_dbl);
 
         this->private = pvt;
 
@@ -1641,7 +1675,7 @@ struct xlator_fops fops = {
 
 struct volume_options options[] = {
         { .key  = {"failure"},
-          .type = GF_OPTION_TYPE_INT,
+          .type = GF_OPTION_TYPE_PERCENT,
           .description = "Percentage failure of operations when enabled.",
         },
 

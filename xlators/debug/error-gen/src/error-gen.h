@@ -29,6 +29,12 @@ enum GF_PSEUDO_ERRORS {
 typedef struct {
         int enable[GF_FOP_MAXVALUE];
         int op_count;
+        /*
+         * This is only an iteration number in the random-failure case.  For
+         * the normal controlled-probability case, it's actually a numerator
+         * for the failure probability (see FAILURE_GRANULARITY declaration).
+         * It's just not worth blowing up the diff by changing it.
+         */
         int failure_iter_no;
         char *error_no;
         int error_no_int;
