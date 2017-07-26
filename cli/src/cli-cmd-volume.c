@@ -1980,6 +1980,7 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
         call_frame_t            *frame = NULL;
         dict_t                  *options = NULL;
         gf_answer_t             answer = GF_ANSWER_NO;
+        int                     brick_count = 0;
         int                     sent = 0;
         int                     parse_error = 0;
         int                     need_question = 0;
@@ -1998,13 +1999,19 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
                 goto out;
 
         ret = cli_cmd_volume_remove_brick_parse (words, wordcount, &options,
-                                                 &need_question);
+                                                 &need_question, &brick_count);
         if (ret) {
                 cli_usage_out (word->pattern);
                 parse_error = 1;
                 goto out;
         }
-
+        if (!brick_count) {
+                cli_err ("No bricks specified");
+                cli_usage_out (word->pattern);
+                parse_error = 1;
+                ret = -1;
+                goto out;
+        }
         ret = dict_get_str (options, "volname", &volname);
         if (ret || !volname) {
                 gf_log ("cli", GF_LOG_ERROR, "Failed to fetch volname");
