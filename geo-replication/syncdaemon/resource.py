@@ -797,6 +797,14 @@ class Server(object):
                 if isinstance(st, int):
                     blob = entry_pack_reg(
                         gfid, bname, e['mode'], e['uid'], e['gid'])
+                # Self healed hardlinks are recorded as MKNOD.
+                # So if the gfid already exists, it should be
+                # processed as hard link not mknod.
+                elif op in ['MKNOD']:
+                    cmd_ret = errno_wrap(os.link,
+                                         [slink, entry],
+                                         [ENOENT, EEXIST], [ESTALE])
+                    collect_failure(e, cmd_ret)
             elif op == 'MKDIR':
                 slink = os.path.join(pfx, gfid)
                 st = lstat(slink)
