@@ -1747,7 +1747,11 @@ parse_bricks:
                                     &brick_count);
         if (ret)
                 goto out;
-
+        if (!brick_count) {
+                cli_err ("No bricks specified");
+                ret = -1;
+                goto out;
+        }
         ret = dict_set_dynstr (dict, "bricks", bricks);
         if (ret)
                 goto out;
@@ -1920,14 +1924,15 @@ out:
 
 int32_t
 cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
-                                   dict_t **options, int *question)
+                                   dict_t **options, int *question,
+                                   int *brick_count)
 {
         dict_t  *dict = NULL;
         char    *volname = NULL;
         char    *delimiter = NULL;
         int     ret = -1;
         char    key[50];
-        int     brick_count = 0, brick_index = 0;
+        int     brick_index = 0;
         int32_t tmp_index = 0;
         int32_t j = 0;
         char    *tmp_brick = NULL;
@@ -2060,7 +2065,7 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                         }
                         j++;
                 }
-                snprintf (key, 50, "brick%d", ++brick_count);
+                snprintf (key, 50, "brick%d", ++(*brick_count));
                 ret = dict_set_str (dict, key, (char *)words[brick_index++]);
 
                 if (ret)
@@ -2068,7 +2073,7 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
         }
 
         if (command != GF_OP_CMD_STATUS && command != GF_OP_CMD_STOP) {
-                ret = dict_set_int32 (dict, "count", brick_count);
+                ret = dict_set_int32 (dict, "count", *brick_count);
                 if (ret)
                         goto out;
         }
