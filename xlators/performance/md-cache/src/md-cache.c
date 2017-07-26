@@ -2891,7 +2891,10 @@ reconfigure (xlator_t *this, dict_t *options)
 
 	GF_OPTION_RECONF ("cache-posix-acl", conf->cache_posix_acl, options, bool, out);
 	mdc_key_load_set (mdc_keys, "system.posix_acl_", conf->cache_posix_acl);
-	mdc_key_load_set (mdc_keys, "glusterfs.posix_acl.", conf->cache_posix_acl);
+	mdc_key_load_set (mdc_keys, GF_POSIX_ACL_ACCESS,
+			  conf->cache_posix_acl);
+	mdc_key_load_set (mdc_keys, GF_POSIX_ACL_DEFAULT,
+			  conf->cache_posix_acl);
 
         GF_OPTION_RECONF ("cache-swift-metadata", conf->cache_swift_metadata,
                           options, bool, out);
@@ -2962,7 +2965,10 @@ init (xlator_t *this)
 
 	GF_OPTION_INIT ("cache-posix-acl", conf->cache_posix_acl, bool, out);
 	mdc_key_load_set (mdc_keys, "system.posix_acl_", conf->cache_posix_acl);
-	mdc_key_load_set (mdc_keys, "glusterfs.posix_acl.", conf->cache_posix_acl);
+	mdc_key_load_set (mdc_keys, GF_POSIX_ACL_ACCESS,
+			  conf->cache_posix_acl);
+	mdc_key_load_set (mdc_keys, GF_POSIX_ACL_DEFAULT,
+			  conf->cache_posix_acl);
 
         GF_OPTION_INIT ("cache-swift-metadata",
                         conf->cache_swift_metadata, bool, out);
