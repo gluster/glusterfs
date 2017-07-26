@@ -750,6 +750,13 @@ sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sha
 install -D -p -m 0644 extras/glusterfs-logrotate \
     %{buildroot}%{_sysconfdir}/logrotate.d/glusterfs
 
+# ganesha ghosts
+mkdir -p %{buildroot}%{_sysconfdir}/ganesha
+touch %{buildroot}%{_sysconfdir}/ganesha/ganesha-ha.conf
+mkdir -p %{buildroot}%{_localstatedir}/run/gluster/shared_storage/nfs-ganesha/exports
+touch %{buildroot}%{_localstatedir}/run/gluster/shared_storage/nfs-ganesha/ganesha.conf
+touch %{buildroot}%{_localstatedir}/run/gluster/shared_storage/nfs-ganesha/ganesha-ha.conf
+
 %if ( 0%{!?_without_georeplication:1} )
 # geo-rep ghosts
 mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/geo-replication
@@ -1096,10 +1103,16 @@ exit 0
 %endif
 
 %files ganesha
-%{_sysconfdir}/ganesha/*
+%dir %{_libexecdir}/ganesha
 %{_libexecdir}/ganesha/*
 %{_prefix}/lib/ocf/resource.d/heartbeat/*
 %{_sharedstatedir}/glusterd/hooks/1/start/post/S31ganesha-start.sh
+%{_sysconfdir}/ganesha/ganesha-ha.conf.sample
+%ghost %config(noreplace) %{_sysconfdir}/ganesha/ganesha-ha.conf
+%ghost %dir %{_localstatedir}/run/gluster/shared_storage/nfs-ganesha
+%ghost %dir %{_localstatedir}/run/gluster/shared_storage/nfs-ganesha/exports
+%ghost %config(noreplace) %{_localstatedir}/run/gluster/shared_storage/nfs-ganesha/ganesha.conf
+%ghost %config(noreplace) %{_localstatedir}/run/gluster/shared_storage/nfs-ganesha/ganesha-ha.conf
 
 %if ( 0%{!?_without_georeplication:1} )
 %files geo-replication
