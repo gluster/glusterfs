@@ -881,8 +881,7 @@ __dht_check_free_space (xlator_t *this, xlator_t *to, xlator_t *from, loc_t *loc
         dht_layout_t   *layout     = NULL;
         uint64_t        src_statfs_blocks = 1;
         uint64_t        dst_statfs_blocks = 1;
-        double   post_availspace = 0;
-        double   post_percent = 0;
+        double          post_availspacepercent = 0;
         int             i = 0;
 
         xdata = dict_new ();
@@ -975,9 +974,12 @@ __dht_check_free_space (xlator_t *this, xlator_t *to, xlator_t *from, loc_t *loc
 check_avail_space:
 
         if (conf->disk_unit == 'p' && dst_statfs.f_blocks) {
-                post_availspace = (dst_statfs.f_bavail * dst_statfs.f_frsize) - stbuf->ia_size;
-                post_percent = (post_availspace * 100) / (dst_statfs.f_blocks * dst_statfs.f_frsize);
-                if (post_percent < conf->min_free_disk) {
+                post_availspacepercent = (dst_statfs.f_bavail * 100) / dst_statfs.f_blocks;
+                gf_msg_debug (this->name, 0, "file : %s, post_availspacepercent : %lf "
+                              "f_bavail : %lu min-free-disk: %lf", loc->path,
+                              post_availspacepercent, dst_statfs.f_bavail, conf->min_free_disk);
+
+                if (post_availspacepercent < conf->min_free_disk) {
                         gf_msg (this->name, GF_LOG_WARNING, 0, 0,
                                 "Write will cross min-free-disk for "
                                 "file - %s on subvol - %s. Looking "
@@ -991,7 +993,11 @@ check_avail_space:
         }
 
         if (conf->disk_unit != 'p' &&
-            ((dst_statfs.f_bavail * dst_statfs.f_frsize) - stbuf->ia_size) < conf->min_free_disk) {
+            ((dst_statfs.f_bavail * dst_statfs.f_frsize) < conf->min_free_disk)) {
+                gf_msg_debug (this->name, 0, "file : %s,  destination frsize: %lu "
+                              "f_bavail : %lu min-free-disk: %lf", loc->path,
+                              dst_statfs.f_frsize, dst_statfs.f_bavail, conf->min_free_disk);
+
                 gf_msg (this->name, GF_LOG_WARNING, 0, 0, "Write will cross "
                         "min-free-disk for file - %s on subvol - %s. Looking "
                         "for new subvol", loc->path, to->name);
