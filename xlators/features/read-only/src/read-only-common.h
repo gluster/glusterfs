@@ -111,3 +111,7 @@ ro_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 int32_t
 ro_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 const char *name, dict_t *xdata);
+
+int32_t
+ro_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
+              off_t offset, size_t len, dict_t *xdata);

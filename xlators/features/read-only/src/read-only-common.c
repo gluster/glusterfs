@@ -196,6 +196,21 @@ ro_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset, dict_
 	return 0;
 }
 
+int32_t
+ro_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
+              off_t offset, size_t len, dict_t *xdata)
+{
+        if (is_readonly_or_worm_enabled (frame, this))
+                STACK_UNWIND_STRICT (fallocate, frame, -1, EROFS, NULL, NULL,
+                                     xdata);
+        else
+                STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                                 FIRST_CHILD(this)->fops->fallocate, fd, mode,
+                                 offset, len, xdata);
+        return 0;
+}
+
+
 int
 ro_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
           dev_t rdev, mode_t umask, dict_t *xdata)
