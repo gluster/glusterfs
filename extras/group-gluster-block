@@ -12,5 +12,6 @@ cluster.locking-scheme=granular
 cluster.shd-max-threads=8
 cluster.shd-wait-qlength=10000
 features.shard=on
+features.shard-block-size=64MB
 user.cifs=off
 server.allow-insecure=on
