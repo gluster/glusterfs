@@ -374,8 +374,6 @@ gf_get_mem_type (void *ptr)
 #define POOL_SMALLEST   7       /* i.e. 128 */
 #define POOL_LARGEST    20      /* i.e. 1048576 */
 #define NPOOLS          (POOL_LARGEST - POOL_SMALLEST + 1)
-#define N_COLD_LISTS    1024
-#define POOL_SWEEP_SECS 30
 
 static pthread_key_t            pool_key;
 static pthread_mutex_t          pool_lock       = PTHREAD_MUTEX_INITIALIZER;
@@ -384,6 +382,11 @@ static pthread_mutex_t          pool_free_lock  = PTHREAD_MUTEX_INITIALIZER;
 static struct list_head         pool_free_threads;
 static struct mem_pool          pools[NPOOLS];
 static size_t                   pool_list_size;
+
+#if !defined(GF_DISABLE_MEMPOOL)
+#define N_COLD_LISTS    1024
+#define POOL_SWEEP_SECS 30
+
 static unsigned long            sweep_times;
 static unsigned long            sweep_usecs;
 static unsigned long            frees_to_system;
@@ -393,6 +396,19 @@ typedef struct {
         pooled_obj_hdr_t        *cold_lists[N_COLD_LISTS];
         unsigned int            n_cold_lists;
 } sweep_state_t;
+
+enum init_state {
+        GF_MEMPOOL_INIT_NONE = 0,
+        GF_MEMPOOL_INIT_PREINIT,
+        GF_MEMPOOL_INIT_EARLY,
+        GF_MEMPOOL_INIT_LATE,
+        GF_MEMPOOL_INIT_DESTROY
+};
+
+static enum init_state  init_done       = GF_MEMPOOL_INIT_NONE;
+static pthread_mutex_t  init_mutex      = PTHREAD_MUTEX_INITIALIZER;
+static unsigned int     init_count      = 0;
+static pthread_t        sweeper_tid;
 
 
 void
@@ -533,12 +549,9 @@ mem_pools_preinit (void)
 
         pool_list_size = sizeof (per_thread_pool_list_t)
                        + sizeof (per_thread_pool_t) * (NPOOLS - 1);
-}
 
-#if !defined(GF_DISABLE_MEMPOOL)
-static pthread_mutex_t  init_mutex      = PTHREAD_MUTEX_INITIALIZER;
-static unsigned int     init_count      = 0;
-static pthread_t        sweeper_tid;
+        init_done = GF_MEMPOOL_INIT_PREINIT;
+}
 
 /* Use mem_pools_init_early() function for basic initialization. There will be
  * no cleanup done by the pool_sweeper thread until mem_pools_init_late() has
@@ -553,13 +566,21 @@ mem_pools_init_early (void)
          * We won't increase init_count here, that is only done when the
          * pool_sweeper thread is started too.
          */
-        if (pthread_getspecific (pool_key) == NULL) {
+        if (init_done == GF_MEMPOOL_INIT_PREINIT ||
+            init_done == GF_MEMPOOL_INIT_DESTROY) {
                 /* key has not been created yet */
                 if (pthread_key_create (&pool_key, pool_destructor) != 0) {
                         gf_log ("mem-pool", GF_LOG_CRITICAL,
                                 "failed to initialize mem-pool key");
                 }
+
+                init_done = GF_MEMPOOL_INIT_EARLY;
+        } else {
+                gf_log ("mem-pool", GF_LOG_CRITICAL,
+                        "incorrect order of mem-pool initialization "
+                        "(init_done=%d)", init_done);
         }
+
         pthread_mutex_unlock (&init_mutex);
 }
 
@@ -573,6 +594,8 @@ mem_pools_init_late (void)
         if ((init_count++) == 0) {
                 (void) gf_thread_create (&sweeper_tid, NULL, pool_sweeper,
                                          NULL, "memsweep");
+
+                init_done = GF_MEMPOOL_INIT_LATE;
         }
         pthread_mutex_unlock (&init_mutex);
 }
@@ -634,6 +657,7 @@ mem_pools_fini (void)
                         FREE (pool_list);
                 }
 
+                init_done = GF_MEMPOOL_INIT_DESTROY;
                 /* Fall through. */
         }
         default:
