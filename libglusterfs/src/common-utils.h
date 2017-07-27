@@ -444,7 +444,7 @@ union gf_sock_union {
 
 #define IOV_MIN(n) min(IOV_MAX,n)
 
-#define GF_FOR_EACH_ENTRY_IN_DIR(entry, dir, scr) \
+#define GF_SKIP_IRRELEVANT_ENTRIES(entry, dir, scr) \
         do {\
                 entry = NULL;\
                 if (dir) { \

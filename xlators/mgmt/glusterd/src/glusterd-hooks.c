@@ -361,7 +361,7 @@ glusterd_hooks_run_hooks (char *hooks_path, glusterd_op_t op, dict_t *op_ctx,
 
         ret = -1;
         line_count = 0;
-        GF_FOR_EACH_ENTRY_IN_DIR (entry, hookdir, scratch);
+        GF_SKIP_IRRELEVANT_ENTRIES (entry, hookdir, scratch);
         while (entry) {
                 if (line_count == N-1) {
                         N *= 2;
@@ -375,7 +375,7 @@ glusterd_hooks_run_hooks (char *hooks_path, glusterd_op_t op, dict_t *op_ctx,
                         line_count++;
                 }
 
-                GF_FOR_EACH_ENTRY_IN_DIR (entry, hookdir, scratch);
+                GF_SKIP_IRRELEVANT_ENTRIES (entry, hookdir, scratch);
         }
 
         lines[line_count] = NULL;
