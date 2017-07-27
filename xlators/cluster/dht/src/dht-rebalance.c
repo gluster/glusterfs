@@ -872,7 +872,7 @@ static int
 __dht_check_free_space (xlator_t *this, xlator_t *to, xlator_t *from, loc_t *loc,
                         struct iatt *stbuf, int flag, dht_conf_t *conf,
                         gf_boolean_t *target_changed, xlator_t **new_subvol,
-                        gf_boolean_t *ignore_failure,  int *fop_errno)
+                        int *fop_errno)
 {
         struct statvfs  src_statfs = {0,};
         struct statvfs  dst_statfs = {0,};
@@ -882,7 +882,6 @@ __dht_check_free_space (xlator_t *this, xlator_t *to, xlator_t *from, loc_t *loc
         uint64_t        src_statfs_blocks = 1;
         uint64_t        dst_statfs_blocks = 1;
         double          post_availspacepercent = 0;
-        int             i = 0;
 
         xdata = dict_new ();
         if (!xdata) {
@@ -1026,21 +1025,7 @@ find_new_subvol:
                         " with space accomodating the file - %s. Consider adding "
                         "bricks", loc->path);
 
-                /* For remove-brick case if the source is not one of the
-                 * removed-brick, do not mark the error as failure */
-                if (conf->decommission_subvols_cnt) {
-                        *ignore_failure = _gf_true;
-                        for (i = 0; i < conf->subvolume_cnt; i++) {
-                                if (conf->decommissioned_bricks[i] == from) {
-                                        *ignore_failure = _gf_false;
-                                         break;
-                                }
-                        }
-                } else {
-                        *ignore_failure = _gf_false;
-                }
-
-                *target_changed = _gf_false;
+               *target_changed = _gf_false;
                 *fop_errno = ENOSPC;
                 ret = -1;
                 goto out;
@@ -1500,7 +1485,6 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         xlator_t                *new_target             = NULL;
         xlator_t                *old_target             = NULL;
         fd_t                    *linkto_fd              = NULL;
-        gf_boolean_t            ignore_failure          = _gf_false;
 
 
         if (from == to) {
@@ -1652,7 +1636,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         clean_dst = _gf_true;
 
         ret = __dht_check_free_space (this, to, from, loc, &stbuf, flag, conf,
-                                      &target_changed, &new_target, &ignore_failure, fop_errno);
+                                      &target_changed, &new_target, fop_errno);
         if (target_changed) {
                 /* Can't handle for hardlinks. Marking this as failure */
                 if (flag == GF_DHT_MIGRATE_HARDLINK_IN_PROGRESS || stbuf.ia_nlink > 1) {
@@ -1701,9 +1685,6 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         }
 
         if (ret) {
-                if (ignore_failure)
-                        ret = 0;
-
                 goto out;
         }
 
@@ -2528,6 +2509,8 @@ gf_defrag_migrate_single_file (void *opaque)
         gf_dht_migrate_data_type_t rebal_type   = GF_DHT_MIGRATE_DATA;
         char                     value[MAX_REBAL_TYPE_SIZE]    = {0,};
         struct iatt             *iatt_ptr       = NULL;
+        gf_boolean_t            update_skippedcount = _gf_true;
+        int                     i = 0;
 
         rebal_entry = (struct dht_container *)opaque;
         if (!rebal_entry) {
@@ -2667,11 +2650,32 @@ gf_defrag_migrate_single_file (void *opaque)
                         gf_msg_debug (this->name, 0, "migrate-data skipped for"
                                       " %s due to space constraints",
                                       entry_loc.path);
-                        LOCK (&defrag->lock);
-                        {
-                                defrag->skipped += 1;
+
+                        /* For remove-brick case if the source is not one of the
+                        * removed-brick, do not mark the error as failure */
+                        if (conf->decommission_subvols_cnt) {
+                                for (i = 0; i < conf->subvolume_cnt; i++) {
+                                        if (conf->decommissioned_bricks[i] == cached_subvol) {
+                                                LOCK (&defrag->lock);
+                                                {
+                                                    defrag->total_failures += 1;
+                                                    update_skippedcount = _gf_false;
+                                                }
+                                                UNLOCK (&defrag->lock);
+
+                                                break;
+                                        }
+                                }
                         }
-                        UNLOCK (&defrag->lock);
+
+                        if (update_skippedcount) {
+                                LOCK (&defrag->lock);
+                                {
+                                        defrag->skipped += 1;
+                                }
+                                UNLOCK (&defrag->lock);
+                        }
+
                 } else if (fop_errno == ENOTSUP) {
                         gf_msg_debug (this->name, 0, "migrate-data skipped for"
                                       " hardlink %s ", entry_loc.path);
@@ -2701,10 +2705,9 @@ gf_defrag_migrate_single_file (void *opaque)
                                "migrate-data on %s failed:", entry_loc.path);
                 } else if (ret == 1) {
                         ret = 0;
-                        goto out;
-                } else if (ret == -1) {
-                        goto out;
                 }
+
+                goto out;
         }
 
         LOCK (&defrag->lock);
