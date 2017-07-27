@@ -125,6 +125,17 @@ glusterfs_this_destroy (void *ptr)
         FREE (ptr);
 }
 
+static struct xlator_cbks global_cbks = {
+        .forget                 = NULL,
+        .release                = NULL,
+        .releasedir             = NULL,
+        .invalidate             = NULL,
+        .client_destroy         = NULL,
+        .client_disconnect      = NULL,
+        .ictxmerge              = NULL,
+        .ictxsize               = NULL,
+        .fdctxsize              = NULL,
+};
 
 int
 glusterfs_this_init ()
@@ -141,6 +152,7 @@ glusterfs_this_init ()
 
         global_xlator.name = "glusterfs";
         global_xlator.type = "global";
+        global_xlator.cbks = &global_cbks;
 
         INIT_LIST_HEAD (&global_xlator.volume_options);
 
