@@ -1282,19 +1282,19 @@ auth_set_username_passwd (dict_t *input_params, dict_t *config_params,
                                         goto out;
                                 }
 
-                                ret = !((strcmp (data_to_str (passwd_data),
-                                                    password))?0: -1);
+                                ret = strcmp (data_to_str (passwd_data),
+                                              password);
                                 if (!ret) {
                                         client->auth.username =
                                                 gf_strdup (username);
                                         client->auth.passwd =
                                                 gf_strdup (password);
-                                }
-                                if (ret == -1)
+                                } else {
                                         gf_msg ("auth/login", GF_LOG_ERROR, 0,
                                                 PS_MSG_LOGIN_ERROR, "wrong "
                                                 "password for user %s",
                                                 username);
+                                }
                                 break;
                         }
                         username_str = strtok_r (NULL, " ,", &tmp);
