@@ -796,8 +796,9 @@ class GMasterChangelogMixin(GMasterCommon):
                 slave_gfid = failure[2]['slave_gfid']
                 st = lstat(os.path.join(pfx, slave_gfid))
                 if isinstance(st, int) and st == ENOENT:
-                    logging.info ("Fixing gfid mismatch [%s]: Deleting %s"
-                                  % (retry_count, repr(failure)))
+                    logging.info(lf('Fixing gfid mismatch in slave. Deleting'
+                                    ' the entry', retry_count=retry_count,
+                                    entry=repr(failure)))
                     #Add deletion to fix_entry_ops list
                     pbname = failure[0]['entry']
                     if failure[2]['slave_isdir']:
@@ -812,8 +813,9 @@ class GMasterChangelogMixin(GMasterCommon):
                     #The file exists on master but with different name.
                     #Probabaly renamed and got missed during xsync crawl.
                     if failure[2]['slave_isdir']:
-                        logging.info ("Fixing gfid mismatch [%s]: %s"
-                                      % (retry_count, repr(failure)))
+                        logging.info(lf('Fixing gfid mismatch in slave',
+                                        retry_count=retry_count,
+                                        entry=repr(failure)))
                         realpath = os.readlink(os.path.join(gconf.local_path,
                                                             ".glusterfs",
                                                             slave_gfid[0:2],
@@ -825,18 +827,23 @@ class GMasterChangelogMixin(GMasterCommon):
                                            entry=failure[0]['entry'],
                                            entry1=dst_entry, stat=st,
                                            link=None)
-                        logging.info ("Fixing gfid mismatch [%s]: Renaming %s"
-                                      % (retry_count, repr(rename_dict)))
+                        logging.info(lf('Fixing gfid mismatch in slave. '
+                                        'Renaming', retry_count=retry_count,
+                                        entry=repr(rename_dict)))
                         fix_entry_ops.append(rename_dict)
                     else:
-                        logging.info ("Fixing gfid mismatch [%s]: Deleting %s"
-                                      % (retry_count, repr(failure)))
+                        logging.info(lf('Fixing gfid mismatch in slave. '
+                                        ' Deleting the entry',
+                                        retry_count=retry_count,
+                                        entry=repr(failure)))
                         pbname = failure[0]['entry']
                         fix_entry_ops.append(edct('UNLINK',
                                                   gfid=failure[2]['slave_gfid'],
                                                   entry=pbname))
-                        logging.error ("GFID MISMATCH: ENTRY CANNOT BE FIXED: "
-                                       "gfid: %s" % slave_gfid)
+                        logging.error(lf('Entry cannot be fixed in slave due '
+                                         'to GFID mismatch, find respective '
+                                         'path for the GFID and trigger sync',
+                                         gfid=slave_gfid))
 
         if fix_entry_ops:
             #Process deletions of entries whose gfids are mismatched
