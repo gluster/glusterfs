@@ -95,9 +95,10 @@ gf_fuse_unmount_daemon (const char *mountpoint, int fd)
 
         pid = fork ();
         switch (pid) {
+        case 0:
+        {
                 char c = 0;
                 sigset_t sigset;
-        case 0:
 
                 close_fds_except (ump, 1);
 
@@ -110,6 +111,7 @@ gf_fuse_unmount_daemon (const char *mountpoint, int fd)
 
                 gf_fuse_unmount (mountpoint, fd);
                 exit (0);
+        }
         case -1:
                 close (fd);
                 fd = -1;
