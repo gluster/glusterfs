@@ -2316,6 +2316,8 @@ notify (xlator_t *this, int event, void *data, ...)
                                 CTR_MSG_CLOSE_DB_CONN_FAILED, "Failed closing "
                                 "db connection");
                }
+               if (priv->_db_conn)
+                        priv->_db_conn = NULL;
        }
        ret = default_notify (this, event, data);
 
