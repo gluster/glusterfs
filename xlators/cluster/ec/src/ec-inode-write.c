@@ -1025,11 +1025,19 @@ out:
     }
 }
 
-/*********************************************************************
- *
- * File Operation : truncate
- *
- *********************************************************************/
+int32_t
+ec_truncate_writev_cbk (call_frame_t *frame, void *cookie,
+                        xlator_t *this, int32_t op_ret, int32_t op_errno,
+                        struct iatt *prebuf, struct iatt *postbuf,
+                        dict_t *xdata)
+{
+    ec_fop_data_t *fop = cookie;
+
+    fop->parent->good &= fop->good;
+    ec_trace("TRUNCATE_WRITEV_CBK", cookie, "ret=%d, errno=%d",
+             op_ret, op_errno);
+    return 0;
+}
 
 int32_t ec_truncate_write(ec_fop_data_t * fop, uintptr_t mask)
 {
@@ -1059,8 +1067,8 @@ int32_t ec_truncate_write(ec_fop_data_t * fop, uintptr_t mask)
     iobuf_unref (iobuf);
     iobuf = NULL;
 
-    ec_writev(fop->frame, fop->xl, mask, fop->minimum, NULL, NULL, fop->fd,
-              &vector, 1, fop->user_size, 0, iobref, NULL);
+    ec_writev(fop->frame, fop->xl, mask, fop->minimum, ec_truncate_writev_cbk,
+              NULL, fop->fd, &vector, 1, fop->user_size, 0, iobref, NULL);
 
     err = 0;
 
@@ -1082,6 +1090,7 @@ int32_t ec_truncate_open_cbk(call_frame_t * frame, void * cookie,
     ec_fop_data_t * fop = cookie;
     int32_t err;
 
+    fop->parent->good &= fop->good;
     if (op_ret >= 0) {
         fd_bind (fd);
         err = ec_truncate_write(fop->parent, fop->answer->mask);
