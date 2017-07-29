@@ -84,7 +84,7 @@ _gf_ref_init (gf_ref_t *ref, gf_ref_release_t release, void *data);
  *
  * Sets the refcount to 1.
  */
-#define GF_REF_INIT(p, d)   _gf_ref_init (&(p)->_ref, d, p)
+#define GF_REF_INIT(p, d)   _gf_ref_init (&(p)->_ref, (gf_ref_release_t) d, p)
 
 /* GF_REF_GET -- increase the refcount of a GF_REF_DECL structure
  *

@@ -583,15 +583,11 @@ pub_glfs_from_glfd (struct glfs_fd *glfd)
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_from_glfd, 3.4.0);
 
-void
-glfs_fd_destroy (void *data)
+static void
+glfs_fd_destroy (struct glfs_fd *glfd)
 {
-        struct glfs_fd  *glfd = NULL;
-
-        if (!data)
+        if (!glfd)
                 return;
-
-        glfd = (struct glfs_fd *)data;
 
         glfs_lock (glfd->fs, _gf_true);
         {
