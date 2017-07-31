@@ -1325,7 +1325,7 @@ exit 0
        %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop/pre
             %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop/pre/S30samba-stop.sh
             %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop/pre/S29CTDB-teardown.sh
-%ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/options
+%config(noreplace) %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/options
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/peers
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/quotad
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/scrub
