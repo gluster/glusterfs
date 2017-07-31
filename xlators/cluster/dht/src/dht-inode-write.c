@@ -44,6 +44,13 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
+        if (op_ret == -1 && (op_errno == EBADF)) {
+                ret = dht_check_and_open_fd_on_subvol (this, frame);
+                if (ret)
+                        goto out;
+                return 0;
+        }
+
         if (op_ret == -1 && !dht_inode_missing(op_errno)) {
                 local->op_errno = op_errno;
                 local->op_ret = -1;
@@ -162,7 +169,6 @@ dht_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         xlator_t     *subvol   = NULL;
         int           op_errno = -1;
         dht_local_t  *local    = NULL;
-        int           ret      = -1;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -183,7 +189,6 @@ dht_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto err;
         }
 
-
         if (xdata)
                 local->xattr_req = dict_ref (xdata);
 
@@ -194,22 +199,13 @@ dht_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         local->rebalance.iobref = iobref_ref (iobref);
         local->call_cnt = 1;
 
-        if (dht_fd_open_on_dst (this, fd, subvol)) {
-
-                STACK_WIND_COOKIE (frame, dht_writev_cbk, subvol, subvol,
-                                   subvol->fops->writev, fd,
-                                   local->rebalance.vector,
-                                   local->rebalance.count,
-                                   local->rebalance.offset,
-                                   local->rebalance.flags,
-                                   local->rebalance.iobref, local->xattr_req);
-                return 0;
-
-        } else {
-                ret = dht_check_and_open_fd_on_subvol (this, frame);
-                if (ret)
-                        goto err;
-        }
+        STACK_WIND_COOKIE (frame, dht_writev_cbk, subvol, subvol,
+                           subvol->fops->writev, fd,
+                           local->rebalance.vector,
+                           local->rebalance.count,
+                           local->rebalance.offset,
+                           local->rebalance.flags,
+                           local->rebalance.iobref, local->xattr_req);
 
         return 0;
 
@@ -251,6 +247,14 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                               prev->name);
 
                 goto out;
+        }
+
+        /* Can only occur for ftruncate */
+        if (op_ret == -1 && (op_errno == EBADF)) {
+                ret = dht_check_and_open_fd_on_subvol (this, frame);
+                if (ret)
+                        goto out;
+                return 0;
         }
 
         if (local->call_cnt != 1) {
@@ -408,7 +412,6 @@ dht_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         xlator_t     *subvol = NULL;
         int           op_errno = -1;
         dht_local_t  *local = NULL;
-        int           ret   = -1;
 
 
         VALIDATE_OR_GOTO (frame, err);
@@ -434,20 +437,9 @@ dht_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         if (xdata)
                 local->xattr_req = dict_ref (xdata);
 
-        if (dht_fd_open_on_dst (this, fd, subvol)) {
-
-                STACK_WIND_COOKIE (frame, dht_truncate_cbk, subvol, subvol,
-                                   subvol->fops->ftruncate, fd,
-                                   local->rebalance.offset, local->xattr_req);
-                return 0;
-
-        } else {
-
-                ret = dht_check_and_open_fd_on_subvol (this, frame);
-                if (ret)
-                        goto err;
-        }
-
+        STACK_WIND_COOKIE (frame, dht_truncate_cbk, subvol, subvol,
+                           subvol->fops->ftruncate, fd,
+                           local->rebalance.offset, local->xattr_req);
         return 0;
 
 err:
@@ -485,6 +477,13 @@ dht_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                               prev->name);
 
                 goto out;
+        }
+
+        if (op_ret == -1 && (op_errno == EBADF)) {
+                ret = dht_check_and_open_fd_on_subvol (this, frame);
+                if (ret)
+                        goto out;
+                return 0;
         }
 
         if (local->call_cnt != 1) {
@@ -586,7 +585,6 @@ dht_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
         xlator_t     *subvol = NULL;
         int           op_errno = -1;
         dht_local_t  *local = NULL;
-        int           ret      = -1;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -614,22 +612,12 @@ dht_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
         if (xdata)
                 local->xattr_req = dict_ref (xdata);
 
-        if (dht_fd_open_on_dst (this, fd, subvol)) {
-
-                STACK_WIND_COOKIE (frame, dht_fallocate_cbk, subvol, subvol,
-                                   subvol->fops->fallocate, fd,
-                                   local->rebalance.flags,
-                                   local->rebalance.offset,
-                                   local->rebalance.size,
-                                   local->xattr_req);
-                return 0;
-
-        } else {
-
-                ret = dht_check_and_open_fd_on_subvol (this, frame);
-                if (ret)
-                        goto err;
-        }
+        STACK_WIND_COOKIE (frame, dht_fallocate_cbk, subvol, subvol,
+                           subvol->fops->fallocate, fd,
+                           local->rebalance.flags,
+                           local->rebalance.offset,
+                           local->rebalance.size,
+                           local->xattr_req);
 
         return 0;
 
@@ -668,6 +656,13 @@ dht_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                               prev->name);
 
                 goto out;
+        }
+
+        if (op_ret == -1 && (op_errno == EBADF)) {
+                ret = dht_check_and_open_fd_on_subvol (this, frame);
+                if (ret)
+                        goto out;
+                return 0;
         }
 
         if (local->call_cnt != 1) {
@@ -769,7 +764,6 @@ dht_discard (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         xlator_t     *subvol = NULL;
         int           op_errno = -1;
         dht_local_t  *local = NULL;
-        int           ret      = -1;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -796,22 +790,11 @@ dht_discard (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         if (xdata)
                 local->xattr_req = dict_ref (xdata);
 
-        if (dht_fd_open_on_dst (this, fd, subvol)) {
-
-                STACK_WIND_COOKIE (frame, dht_discard_cbk, subvol, subvol,
-                                   subvol->fops->discard, fd,
-                                   local->rebalance.offset,
-                                   local->rebalance.size,
-                                   local->xattr_req);
-                return 0;
-
-        } else {
-
-                ret = dht_check_and_open_fd_on_subvol (this, frame);
-                if (ret)
-                        goto err;
-
-        }
+        STACK_WIND_COOKIE (frame, dht_discard_cbk, subvol, subvol,
+                           subvol->fops->discard, fd,
+                           local->rebalance.offset,
+                           local->rebalance.size,
+                           local->xattr_req);
 
         return 0;
 
@@ -847,6 +830,13 @@ dht_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                               "subvolume %s returned -1",
                               prev->name);
                 goto out;
+        }
+
+        if (op_ret == -1 && (op_errno == EBADF)) {
+                ret = dht_check_and_open_fd_on_subvol (this, frame);
+                if (ret)
+                        goto out;
+                return 0;
         }
 
         if (local->call_cnt != 1) {
@@ -952,7 +942,6 @@ dht_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         xlator_t     *subvol       = NULL;
         int           op_errno     = -1;
         dht_local_t  *local        = NULL;
-        int           ret          = -1;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -979,21 +968,10 @@ dht_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         if (xdata)
                 local->xattr_req = dict_ref (xdata);
 
-        if (dht_fd_open_on_dst (this, fd, subvol)) {
-
-                STACK_WIND_COOKIE (frame, dht_zerofill_cbk, subvol, subvol,
-                                   subvol->fops->zerofill, fd,
-                                   local->rebalance.offset,
-                                   local->rebalance.size, local->xattr_req);
-                return 0;
-
-        } else {
-
-                ret = dht_check_and_open_fd_on_subvol (this, frame);
-                if (ret)
-                        goto err;
-        }
-
+        STACK_WIND_COOKIE (frame, dht_zerofill_cbk, subvol, subvol,
+                           subvol->fops->zerofill, fd,
+                           local->rebalance.offset,
+                           local->rebalance.size, local->xattr_req);
 
         return 0;
 
@@ -1027,8 +1005,16 @@ dht_file_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
+
         if (local->call_cnt != 1)
                 goto out;
+
+        if (op_ret == -1 && (op_errno == EBADF)) {
+                ret = dht_check_and_open_fd_on_subvol (this, frame);
+                if (ret)
+                        goto out;
+                return 0;
+        }
 
         local->op_ret = op_ret;
         local->op_errno = op_errno;
@@ -1241,8 +1227,6 @@ dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
         int           op_errno = -1;
         int           i = -1;
         int           call_cnt = 0;
-        int           ret      = -1;
-
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -1279,21 +1263,11 @@ dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
                 local->call_cnt = 1;
                 subvol = local->cached_subvol;
 
-                if (dht_fd_open_on_dst (this, fd, subvol)) {
-
-                        STACK_WIND_COOKIE (frame, dht_file_setattr_cbk, subvol,
-                                           subvol, subvol->fops->fsetattr, fd,
-                                           &local->rebalance.stbuf,
-                                           local->rebalance.flags,
-                                           local->xattr_req);
-                        return 0;
-
-                } else {
-                        ret = dht_check_and_open_fd_on_subvol (this, frame);
-                        if (ret)
-                                goto err;
-
-                }
+                STACK_WIND_COOKIE (frame, dht_file_setattr_cbk, subvol,
+                                   subvol, subvol->fops->fsetattr, fd,
+                                   &local->rebalance.stbuf,
+                                   local->rebalance.flags,
+                                   local->xattr_req);
                 return 0;
         }
 
