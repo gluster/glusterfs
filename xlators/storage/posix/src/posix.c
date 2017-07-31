@@ -109,6 +109,37 @@ static char *disallow_removexattrs[] = {
         NULL
 };
 
+gf_boolean_t
+posix_symlinks_match (xlator_t *this, loc_t *loc, uuid_t gfid)
+{
+        struct posix_private *priv = NULL;
+        char linkname_actual[PATH_MAX] = {0,};
+        char linkname_expected[PATH_MAX] = {0};
+        char *dir_handle = NULL;
+        size_t len = 0;
+        size_t handle_size = 0;
+        gf_boolean_t ret = _gf_false;
+
+        priv = this->private;
+        handle_size = POSIX_GFID_HANDLE_SIZE(priv->base_path_length);
+        dir_handle = alloca0 (handle_size);
+
+        snprintf (linkname_expected, handle_size, "../../%02x/%02x/%s/%s",
+                  loc->pargfid[0], loc->pargfid[1], uuid_utoa (loc->pargfid),
+                  loc->name);
+
+        MAKE_HANDLE_GFID_PATH (dir_handle, this, gfid, NULL);
+        len = sys_readlink (dir_handle, linkname_actual, PATH_MAX);
+        if (len < 0)
+                goto out;
+        linkname_actual[len] = '\0';
+
+        if (!strncmp (linkname_actual, linkname_expected, handle_size))
+                ret = _gf_true;
+
+out:
+        return ret;
+}
 
 dict_t*
 posix_dict_set_nlink (dict_t *req, dict_t *res, int32_t nlink)
@@ -1592,19 +1623,29 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                                 posix_handle_path (this, uuid_req, NULL,
                                                    gfid_path, size);
 
-                        gf_msg (this->name, GF_LOG_WARNING, 0,
-                                P_MSG_DIR_OF_SAME_ID, "mkdir (%s): gfid (%s) "
-                                "is already associated with directory (%s). "
-                                "Hence, both directories will share same gfid "
-                                "and this can lead to inconsistencies.",
-                                loc->path, uuid_utoa (uuid_req),
-                                gfid_path ? gfid_path : "<NULL>");
+                        if (frame->root->pid != GF_CLIENT_PID_SELF_HEALD) {
+                                gf_msg (this->name, GF_LOG_WARNING, 0,
+                                        P_MSG_DIR_OF_SAME_ID, "mkdir (%s): "
+                                        "gfid (%s) is already associated with "
+                                        "directory (%s). Hence, both "
+                                        "directories will share same gfid and "
+                                        "this can lead to inconsistencies.",
+                                        loc->path, uuid_utoa (uuid_req),
+                                        gfid_path ? gfid_path : "<NULL>");
 
-                        gf_event (EVENT_POSIX_SAME_GFID, "gfid=%s;path=%s;"
-                                  "newpath=%s;brick=%s:%s",
-                                  uuid_utoa (uuid_req),
-                                  gfid_path ? gfid_path : "<NULL>", loc->path,
-                                  priv->hostname, priv->base_path);
+                                gf_event (EVENT_POSIX_SAME_GFID, "gfid=%s;"
+                                          "path=%s;newpath=%s;brick=%s:%s",
+                                          uuid_utoa (uuid_req),
+                                          gfid_path ? gfid_path : "<NULL>",
+                                          loc->path, priv->hostname,
+                                          priv->base_path);
+                        }
+                        if (!posix_symlinks_match (this, loc, uuid_req))
+                                /* For afr selfheal of dir renames, we need to
+                                 * remove the old symlink in order for
+                                 * posix_gfid_set to set the symlink to the
+                                 * new dir.*/
+                                posix_handle_unset (this, stbuf.ia_gfid, NULL);
                 }
         } else if (!uuid_req && frame->root->pid != GF_SERVER_PID_TRASH) {
                 op_ret = -1;
@@ -2295,7 +2336,8 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         op_errno = errno;
 
         if (op_ret == 0) {
-                posix_handle_unset (this, stbuf.ia_gfid, NULL);
+                if (posix_symlinks_match (this, loc, stbuf.ia_gfid))
+                        posix_handle_unset (this, stbuf.ia_gfid, NULL);
         }
 
         if (op_errno == EEXIST)
