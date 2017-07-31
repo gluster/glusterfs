@@ -17,6 +17,9 @@
 
 #define EC_GF_MAX_REGS 16
 
+enum _ec_heal_need;
+typedef enum _ec_heal_need ec_heal_need_t;
+
 enum _ec_read_policy;
 typedef enum _ec_read_policy ec_read_policy_t;
 
@@ -113,6 +116,12 @@ enum _ec_read_policy {
         EC_ROUND_ROBIN,
         EC_GFID_HASH,
         EC_READ_POLICY_MAX
+};
+
+enum _ec_heal_need {
+        EC_HEAL_NONEED,
+        EC_HEAL_MAYBE,
+        EC_HEAL_MUST
 };
 
 struct _ec_config {
