@@ -2,7 +2,7 @@
 
 . $(dirname $0)/../include.rc
 
-PEER_DIR=/var/lib/glusterd/peers
+PEER_DIR="$GLUSTERD_WORKDIR"/peers
 TEST mkdir -p $PEER_DIR
 
 declare -i HOST_NUM=100
