@@ -5537,39 +5537,6 @@ gf_cli_gsync_config_command (dict_t *dict)
         return runner_run (&runner);
 }
 
-char*
-get_struct_variable (int mem_num, gf_gsync_status_t *sts_val)
-{
-        switch (mem_num) {
-        case 0:  return (sts_val->node);
-        case 1:  return (sts_val->master);
-        case 2:  return (sts_val->brick);
-        case 3:  return (sts_val->slave_user);
-        case 4:  return (sts_val->slave);
-        case 5:  return (sts_val->slave_node);
-        case 6:  return (sts_val->worker_status);
-        case 7:  return (sts_val->crawl_status);
-        case 8:  return (sts_val->last_synced);
-        case 9:  return (sts_val->entry);
-        case 10:  return (sts_val->data);
-        case 11:  return (sts_val->meta);
-        case 12: return (sts_val->failures);
-        case 13:  return (sts_val->checkpoint_time);
-        case 14:  return (sts_val->checkpoint_completed);
-        case 15:  return (sts_val->checkpoint_completion_time);
-        case 16: return (sts_val->brick_host_uuid);
-        case 17: return (sts_val->last_synced_utc);
-        case 18: return (sts_val->checkpoint_time_utc);
-        case 19: return (sts_val->checkpoint_completion_time_utc);
-        case 20: return (sts_val->slavekey);
-        case 21: return (sts_val->session_slave);
-        default:
-                 goto out;
-        }
-
-out:
-        return NULL;
-}
 
 int
 gf_cli_print_status (char **title_values,
