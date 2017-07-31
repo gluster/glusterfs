@@ -4882,7 +4882,7 @@ out:
         return ret;
 }
 
-static int
+int
 glusterd_get_gsync_status_mst (glusterd_volinfo_t *volinfo, dict_t *rsp_dict,
                                char *node)
 {

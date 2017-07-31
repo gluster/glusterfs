@@ -45,5 +45,9 @@ int
 _get_slave_status (dict_t *dict, char *key, data_t *value, void *data);
 int
 glusterd_check_geo_rep_running (gsync_status_param_t *param, char **op_errstr);
+
+int
+glusterd_get_gsync_status_mst (glusterd_volinfo_t *volinfo, dict_t *rsp_dict,
+                               char *node);
 #endif
 

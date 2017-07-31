@@ -92,6 +92,7 @@ libglusterfs/src/y.tab.h
 libglusterfs/src/defaults.c
 libglusterfs/src/glusterfs-fops.h
 libglusterfs/src/cli1-xdr.h
+libglusterfs/src/protocol-common.h
 libtool
 # copied XDR for cyclic libglusterfs <-> rpc-header dependency
 rpc/xdr/gen/*.x

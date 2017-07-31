@@ -44,6 +44,7 @@ void trap (void);
 #include "iatt.h"
 #include "uuid.h"
 #include "libglusterfs-messages.h"
+#include "protocol-common.h"
 
 #define STRINGIFY(val) #val
 #define TOSTRING(val) STRINGIFY(val)
@@ -939,5 +940,7 @@ gf_getgrouplist (const char *user, gid_t group, gid_t **groups);
 int
 glusterfs_compute_sha256 (const unsigned char *content, size_t size,
                           char *sha256_hash);
+char*
+get_struct_variable (int mem_num, gf_gsync_status_t *sts_val);
 
 #endif /* _COMMON_UTILS_H */
