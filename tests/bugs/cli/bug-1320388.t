@@ -19,7 +19,7 @@ SSL_CA=$SSL_BASE/glusterfs.ca
 
 cleanup;
 rm -f $SSL_BASE/glusterfs.*
-touch /var/lib/glusterd/secure-access
+touch "$GLUSTERD_WORKDIR"/secure-access
 
 TEST openssl genrsa -out $SSL_KEY 1024
 TEST openssl req -new -x509 -key $SSL_KEY -subj /CN=Anyone -out $SSL_CERT

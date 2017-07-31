@@ -41,7 +41,7 @@ function build_dirs () {
 }
 
 function export_allow_this_host_ipv6 () {
-        printf "$EXPORT_ALLOW6\n" > /var/lib/glusterd/nfs/exports
+        printf "$EXPORT_ALLOW6\n" > "$GLUSTERD_WORKDIR"/nfs/exports
 }
 
 function export_allow_this_host () {
