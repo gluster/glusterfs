@@ -38,9 +38,12 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	compound-fop-utils.c throttle-tbf.c
 
 nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c defaults.c
-nodist_libglusterfs_la_HEADERS = y.tab.h
+nodist_libglusterfs_la_HEADERS = y.tab.h protocol-common.h
 
-BUILT_SOURCES = graph.lex.c defaults.c eventtypes.h
+BUILT_SOURCES = graph.lex.c defaults.c eventtypes.h protocol-common.h
+
+protocol-common.h: $(top_srcdir)/rpc/rpc-lib/src/protocol-common.h
+	cp $(top_srcdir)/rpc/rpc-lib/src/protocol-common.h .
 
 libglusterfs_la_HEADERS = common-utils.h defaults.h default-args.h \
 	dict.h glusterfs.h hashfn.h timespec.h logging.h xlator.h \

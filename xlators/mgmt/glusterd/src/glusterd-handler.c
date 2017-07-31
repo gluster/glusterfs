@@ -32,6 +32,7 @@
 #include "glusterd-store.h"
 #include "glusterd-locks.h"
 #include "glusterd-snapshot-utils.h"
+#include "glusterd-geo-rep.h"
 
 #include "glusterd1-xdr.h"
 #include "cli1-xdr.h"
@@ -4985,6 +4986,128 @@ out:
 }
 
 static int
+glusterd_print_gsync_status (FILE *fp, dict_t *gsync_dict)
+{
+        int                     ret = -1;
+        int                     gsync_count = 0;
+        int                     i = 0;
+        gf_gsync_status_t       **status_vals = NULL;
+        char                    status_val_name[PATH_MAX] = {0,};
+
+        GF_VALIDATE_OR_GOTO (THIS->name, fp, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, gsync_dict, out);
+
+        ret = dict_get_int32 (gsync_dict, "gsync-count", &gsync_count);
+
+        fprintf (fp, "Volume%d.gsync_count: %d\n", volcount, gsync_count);
+
+        if (gsync_count == 0) {
+                ret = 0;
+                goto out;
+        }
+
+        status_vals = GF_CALLOC (gsync_count, sizeof (gf_gsync_status_t *),
+                                 gf_common_mt_char);
+        if (!status_vals) {
+                ret = -1;
+                goto out;
+        }
+        for (i = 0; i < gsync_count; i++) {
+                status_vals[i] = GF_CALLOC (1, sizeof (gf_gsync_status_t),
+                                            gf_common_mt_char);
+                if (!status_vals[i]) {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        for (i = 0; i < gsync_count; i++) {
+                snprintf (status_val_name, sizeof(status_val_name), "status_value%d", i);
+
+                ret = dict_get_bin (gsync_dict, status_val_name, (void **)&(status_vals[i]));
+                if (ret)
+                        goto out;
+
+                fprintf (fp, "Volume%d.pair%d.session_slave: %s\n", volcount, i+1,
+                         get_struct_variable(21, status_vals[i]));
+                fprintf (fp, "Volume%d.pair%d.master_node: %s\n", volcount, i+1,
+                         get_struct_variable(0, status_vals[i]));
+                fprintf (fp, "Volume%d.pair%d.master_volume: %s\n", volcount, i+1,
+                         get_struct_variable(1, status_vals[i]));
+                fprintf (fp, "Volume%d.pair%d.master_brick: %s\n", volcount, i+1,
+                         get_struct_variable(2, status_vals[i]));
+                fprintf (fp, "Volume%d.pair%d.slave_user: %s\n", volcount, i+1,
+                         get_struct_variable(3, status_vals[i]));
+                fprintf (fp, "Volume%d.pair%d.slave: %s\n", volcount, i+1,
+                         get_struct_variable(4, status_vals[i]));
+                fprintf (fp, "Volume%d.pair%d.slave_node: %s\n", volcount, i+1,
+                         get_struct_variable(5, status_vals[i]));
+                fprintf (fp, "Volume%d.pair%d.status: %s\n", volcount, i+1,
+                         get_struct_variable(6, status_vals[i]));
+                fprintf (fp, "Volume%d.pair%d.crawl_status: %s\n", volcount, i+1,
+                         get_struct_variable(7, status_vals[i]));
+                fprintf (fp, "Volume%d.pair%d.last_synced: %s\n", volcount, i+1,
+                         get_struct_variable(8, status_vals[i]));
+                fprintf (fp, "Volume%d.pair%d.entry: %s\n", volcount, i+1,
+                         get_struct_variable(9, status_vals[i]));
+                fprintf (fp, "Volume%d.pair%d.data: %s\n", volcount, i+1,
+                         get_struct_variable(10, status_vals[i]));
+                fprintf (fp, "Volume%d.pair%d.meta: %s\n", volcount, i+1,
+                         get_struct_variable(11, status_vals[i]));
+                fprintf (fp, "Volume%d.pair%d.failures: %s\n", volcount, i+1,
+                         get_struct_variable(12, status_vals[i]));
+                fprintf (fp, "Volume%d.pair%d.checkpoint_time: %s\n", volcount,
+                         i+1, get_struct_variable(13, status_vals[i]));
+                fprintf (fp, "Volume%d.pair%d.checkpoint_completed: %s\n",
+                         volcount, i+1, get_struct_variable(14, status_vals[i]));
+                fprintf (fp, "Volume%d.pair%d.checkpoint_completion_time: %s\n",
+                         volcount, i+1, get_struct_variable(15, status_vals[i]));
+        }
+out:
+        for (i = 0; i < gsync_count; i++) {
+                if (status_vals[i]) {
+                        GF_FREE (status_vals[i]);
+                }
+        }
+
+        if (status_vals)
+                GF_FREE (status_vals);
+
+        return ret;
+}
+
+static int
+glusterd_print_gsync_status_by_vol (FILE *fp, glusterd_volinfo_t *volinfo)
+{
+        int                     ret = -1;
+        dict_t                  *gsync_rsp_dict = NULL;
+        char                    my_hostname[256] = {0,};
+
+        GF_VALIDATE_OR_GOTO (THIS->name, volinfo, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, fp, out);
+
+        gsync_rsp_dict = dict_new();
+        if (!gsync_rsp_dict)
+                goto out;
+
+        ret = gethostname(my_hostname, 256);
+        if (ret) {
+                /* stick to N/A */
+                (void) strcpy (my_hostname, "N/A");
+        }
+
+        ret = glusterd_get_gsync_status_mst (volinfo, gsync_rsp_dict,
+                                             my_hostname);
+        /* Ignoring ret as above function always returns ret = 0 */
+
+        ret = glusterd_print_gsync_status (fp, gsync_rsp_dict);
+        if (ret)
+                goto out;
+out:
+        return ret;
+}
+
+static int
 glusterd_print_snapinfo_by_vol (FILE *fp, glusterd_volinfo_t *volinfo, int volcount)
 {
         int                     ret = -1;
@@ -5635,6 +5758,10 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                 }
 
                 volcount = count;
+                ret = glusterd_print_gsync_status_by_vol (fp, volinfo);
+                if (ret)
+                        goto out;
+
                 if (volinfo->dict)
                         dict_foreach (volinfo->dict,
                                       glusterd_print_volume_options, fp);
