@@ -2421,9 +2421,9 @@ ec_heal_do (xlator_t *this, void *data, loc_t *loc, int32_t partial)
         intptr_t      bad            = 0;
         ec_fop_data_t *fop           = data;
         gf_boolean_t  blocking       = _gf_false;
-        gf_boolean_t  need_heal      = _gf_false;
+        ec_heal_need_t  need_heal    = EC_HEAL_NONEED;
         unsigned char *up_subvols    = NULL;
-	char up_bricks[32];
+        char up_bricks[32];
 
         ec = this->private;
 
@@ -2470,7 +2470,8 @@ ec_heal_do (xlator_t *this, void *data, loc_t *loc, int32_t partial)
          * triggers heals periodically which need not be thorough*/
         ec_heal_inspect (frame, ec, loc->inode, up_subvols, _gf_false,
                          !ec->shd.iamshd, &need_heal);
-        if (!need_heal) {
+
+        if (need_heal == EC_HEAL_NONEED)  {
                 gf_msg (ec->xl->name, GF_LOG_DEBUG, 0,
                         EC_MSG_HEAL_FAIL, "Heal is not required for : %s ",
                         uuid_utoa(loc->gfid));
@@ -2776,18 +2777,18 @@ out:
 static int32_t
 _need_heal_calculate (ec_t *ec, uint64_t *dirty, unsigned char *sources,
                       gf_boolean_t self_locked, int32_t lock_count,
-                      gf_boolean_t *need_heal)
+                      ec_heal_need_t *need_heal)
 {
         int i = 0;
         int source_count = 0;
 
         source_count = EC_COUNT (sources, ec->nodes);
         if (source_count == ec->nodes) {
-                *need_heal = _gf_false;
+                *need_heal = EC_HEAL_NONEED;
                 if (self_locked || lock_count == 0) {
                         for (i = 0; i < ec->nodes; i++) {
                                 if (dirty[i]) {
-                                        *need_heal = _gf_true;
+                                        *need_heal = EC_HEAL_MUST;
                                         goto out;
                                 }
                         }
@@ -2799,13 +2800,13 @@ _need_heal_calculate (ec_t *ec, uint64_t *dirty, unsigned char *sources,
                                  * set and this indicates a problem in the
                                  * inode.*/
                                 if (dirty[i] > 1) {
-                                        *need_heal = _gf_true;
+                                        *need_heal = EC_HEAL_MUST;
                                         goto out;
                                 }
                         }
                 }
         } else {
-                *need_heal = _gf_true;
+                *need_heal = EC_HEAL_MUST;
         }
 
 out:
@@ -2815,7 +2816,7 @@ out:
 static int32_t
 ec_need_metadata_heal (ec_t *ec, inode_t *inode, default_args_cbk_t *replies,
                        int32_t lock_count, gf_boolean_t self_locked,
-                       gf_boolean_t thorough, gf_boolean_t *need_heal)
+                       gf_boolean_t thorough, ec_heal_need_t *need_heal)
 {
         uint64_t           *dirty         = NULL;
         unsigned char      *sources       = NULL;
@@ -2836,10 +2837,10 @@ ec_need_metadata_heal (ec_t *ec, inode_t *inode, default_args_cbk_t *replies,
 
         ret = _need_heal_calculate (ec, dirty, sources, self_locked, lock_count,
                                     need_heal);
-        if (ret == ec->nodes && !(*need_heal)) {
+        if (ret == ec->nodes && *need_heal == EC_HEAL_NONEED) {
                 for (i = 1; i < ec->nodes; i++) {
                         if (meta_versions[i] != meta_versions[0]) {
-                                *need_heal = _gf_true;
+                                *need_heal = EC_HEAL_MUST;
                                 goto out;
                         }
                 }
@@ -2851,7 +2852,7 @@ out:
 static int32_t
 ec_need_data_heal (ec_t *ec, inode_t *inode, default_args_cbk_t *replies,
                    int32_t lock_count, gf_boolean_t self_locked,
-                   gf_boolean_t thorough, gf_boolean_t *need_heal)
+                   gf_boolean_t thorough, ec_heal_need_t *need_heal)
 {
         uint64_t           *dirty         = NULL;
         unsigned char      *sources       = NULL;
@@ -2888,7 +2889,7 @@ out:
 static int32_t
 ec_need_entry_heal (ec_t *ec, inode_t *inode, default_args_cbk_t *replies,
                     int32_t lock_count, gf_boolean_t self_locked,
-                    gf_boolean_t thorough, gf_boolean_t *need_heal)
+                    gf_boolean_t thorough, ec_heal_need_t *need_heal)
 {
         uint64_t           *dirty         = NULL;
         unsigned char      *sources       = NULL;
@@ -2916,7 +2917,7 @@ out:
 static int32_t
 ec_need_heal (ec_t *ec, inode_t *inode, default_args_cbk_t *replies,
               int32_t lock_count, gf_boolean_t self_locked,
-              gf_boolean_t thorough, gf_boolean_t *need_heal)
+              gf_boolean_t thorough, ec_heal_need_t *need_heal)
 {
         int                ret            = 0;
 
@@ -2926,7 +2927,7 @@ ec_need_heal (ec_t *ec, inode_t *inode, default_args_cbk_t *replies,
         if (ret < 0)
                 goto out;
 
-        if (*need_heal)
+        if (*need_heal == EC_HEAL_MUST)
                 goto out;
 
         if (inode->ia_type == IA_IFREG) {
@@ -2945,7 +2946,7 @@ int32_t
 ec_heal_inspect (call_frame_t *frame, ec_t *ec,
                  inode_t *inode, unsigned char *locked_on,
                  gf_boolean_t self_locked, gf_boolean_t thorough,
-                 gf_boolean_t *need_heal)
+                 ec_heal_need_t *need_heal)
 {
         loc_t              loc           = {0};
         int                i             = 0;
@@ -2989,7 +2990,7 @@ ec_heal_inspect (call_frame_t *frame, ec_t *ec,
 
         if (ret != ec->nodes) {
                 ret = ec->nodes;
-                *need_heal = _gf_true;
+                *need_heal = EC_HEAL_MUST;
                 goto out;
         }
 
@@ -3009,6 +3010,9 @@ need_heal:
         ret = ec_need_heal (ec, inode, replies, lock_count,
                             self_locked, thorough, need_heal);
 
+        if (!self_locked && *need_heal == EC_HEAL_MUST) {
+                *need_heal = EC_HEAL_MAYBE;
+        }
 out:
         cluster_replies_wipe (replies, ec->nodes);
         loc_wipe (&loc);
@@ -3020,7 +3024,7 @@ out:
 
 int32_t
 ec_heal_locked_inspect (call_frame_t *frame, ec_t *ec, inode_t *inode,
-                        gf_boolean_t *need_heal)
+                        ec_heal_need_t *need_heal)
 {
         unsigned char      *locked_on  = NULL;
         unsigned char      *up_subvols = NULL;
@@ -3038,7 +3042,7 @@ ec_heal_locked_inspect (call_frame_t *frame, ec_t *ec, inode_t *inode,
                                replies, locked_on, frame, ec->xl,
                                ec->xl->name, inode, 0, 0);
         if (ret != ec->nodes) {
-                *need_heal = _gf_true;
+                *need_heal = EC_HEAL_MUST;
                 goto unlock;
         }
         ret = ec_heal_inspect (frame, ec, inode, locked_on, _gf_true, _gf_true,
@@ -3055,7 +3059,7 @@ int32_t
 ec_get_heal_info (xlator_t *this, loc_t *entry_loc, dict_t **dict_rsp)
 {
         int             ret             = -ENOMEM;
-        gf_boolean_t    need_heal       = _gf_false;
+        ec_heal_need_t  need_heal       = EC_HEAL_NONEED;
         call_frame_t    *frame          = NULL;
         ec_t            *ec             = NULL;
         unsigned char   *up_subvols     = NULL;
@@ -3068,6 +3072,10 @@ ec_get_heal_info (xlator_t *this, loc_t *entry_loc, dict_t **dict_rsp)
         up_subvols = alloca0(ec->nodes);
         ec_mask_to_char_array (ec->xl_up, up_subvols, ec->nodes);
 
+        if (EC_COUNT (up_subvols, ec->nodes) != ec->nodes) {
+                need_heal = EC_HEAL_MUST;
+                goto set_heal;
+        }
         frame = create_frame (this, this->ctx->pool);
         if (!frame) {
                 goto out;
@@ -3092,16 +3100,16 @@ ec_get_heal_info (xlator_t *this, loc_t *entry_loc, dict_t **dict_rsp)
 
         ret = ec_heal_inspect (frame, ec, loc.inode, up_subvols, _gf_false,
                                _gf_false, &need_heal);
-        if (ret == ec->nodes && !need_heal) {
+        if (ret == ec->nodes && need_heal == EC_HEAL_NONEED) {
                 goto set_heal;
         }
-        need_heal = _gf_false;
+        need_heal = EC_HEAL_NONEED;
         ret = ec_heal_locked_inspect (frame, ec, loc.inode,
                                       &need_heal);
         if (ret < 0)
                 goto out;
 set_heal:
-        if (need_heal) {
+        if (need_heal == EC_HEAL_MUST) {
                 ret =  ec_set_heal_info (dict_rsp, "heal");
         } else {
                 ret =  ec_set_heal_info (dict_rsp, "no-heal");
