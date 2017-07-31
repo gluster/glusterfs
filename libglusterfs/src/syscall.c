@@ -492,7 +492,10 @@ sys_llistxattr (const char *path, char *list, size_t size)
 #endif
 
 #ifdef GF_BSD_HOST_OS
-        return extattr_list_link (path, EXTATTR_NAMESPACE_USER, list, size);
+        ssize_t ret = extattr_list_link (path, EXTATTR_NAMESPACE_USER,
+                                         list, size);
+        gf_extattr_list_reshape (list, ret);
+        return ret;
 #endif
 
 #ifdef GF_SOLARIS_HOST_OS
@@ -608,7 +611,10 @@ sys_flistxattr (int filedes, char *list, size_t size)
 #endif
 
 #ifdef GF_BSD_HOST_OS
-        return extattr_list_fd (filedes, EXTATTR_NAMESPACE_USER, list, size);
+        ssize_t ret = extattr_list_fd (filedes, EXTATTR_NAMESPACE_USER,
+                                       list, size);
+        gf_extattr_list_reshape (list, ret);
+        return ret;
 #endif
 
 #ifdef GF_SOLARIS_HOST_OS

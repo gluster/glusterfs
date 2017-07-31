@@ -535,6 +535,34 @@ out:
 
 #endif /* GF_SOLARIS_HOST_OS */
 
+#ifdef GF_BSD_HOST_OS
+void
+gf_extattr_list_reshape(char *bsd_list, ssize_t size)
+{
+        /*
+         * the format of bsd_list is
+         *     <attr_len>attr<attr_len>attr...
+         * we try to reformat it as Linux's
+         *     attr<\0>attr<\0>...
+         * */
+        if (NULL == bsd_list || size <= 0)
+                return;
+
+        size_t i = 0, j;
+
+        while (i < size) {
+                size_t attr_len = bsd_list[i];
+
+                for (j = i; j < i+attr_len; ++j)
+                        bsd_list[j] = bsd_list[j+1];
+                bsd_list[j] = '\0';
+
+                i += attr_len + 1;
+                gf_msg_debug ("syscall", 0, "syscall debug: %lu", attr_len);
+        }
+}
+#endif /* GF_BSD_HOST_OS */
+
 #ifndef HAVE_STRNLEN
 size_t
 strnlen(const char *string, size_t maxlen)
