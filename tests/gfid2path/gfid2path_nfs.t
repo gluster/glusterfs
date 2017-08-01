@@ -28,9 +28,6 @@ TEST $CLI volume set $V0 nfs.disable false
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
-## enable gfid2path
-TEST $CLI volume set $V0 gfid2path enable
-
 ## Wait for volume to register with rpc.mountd
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
 

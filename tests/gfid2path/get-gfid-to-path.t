@@ -20,9 +20,6 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 
-## enable gfid2path
-TEST $CLI volume set $V0 gfid2path enable
-
 ## Mount the volume
 TEST $GFS --volfile-server=$H0 --aux-gfid-mount --volfile-id=$V0 $M0;
 
