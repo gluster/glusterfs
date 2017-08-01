@@ -21,9 +21,6 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0;
 
-## enable gfid2path
-TEST $CLI volume set $V0 gfid2path enable
-
 ## Mount the volume
 TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0;
 

@@ -30,6 +30,9 @@ EXPECT 'Started' volinfo_field $V0 'Status';
 ## Mount the volume
 TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0;
 
+## disable gfid2path
+TEST $CLI volume set $V0 gfid2path disable
+
 pgfid="00000000-0000-0000-0000-000000000001"
 xxh64_file=$B0/${V0}1/xxh64_file
 
