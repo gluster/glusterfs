@@ -292,6 +292,7 @@
 #define GF_LOG_FLUSH_TIMEOUT_MAX 300
 #define GF_LOG_FLUSH_TIMEOUT_MIN_STR "30"
 #define GF_LOG_FLUSH_TIMEOUT_MAX_STR "300"
+#define GF_LOG_LOCALTIME_DEFAULT 0
 
 #define GF_BACKTRACE_LEN        4096
 #define GF_BACKTRACE_FRAME_COUNT 7
@@ -416,6 +417,7 @@ struct _cmd_args {
          * functions that prevent valgrind from working correctly, like
          * dlclose(). */
         int                valgrind;
+        int                localtime_logging;
 };
 typedef struct _cmd_args cmd_args_t;
 

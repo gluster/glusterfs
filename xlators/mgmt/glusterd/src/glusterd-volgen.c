@@ -1310,6 +1310,25 @@ log_format_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
 }
 
 static int
+log_localtime_logging_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
+                                      void *param)
+{
+        char  *role = NULL;
+        struct volopt_map_entry vme2 = {0,};
+
+        role = (char *) param;
+
+        if (strcmp (vme->option, "!cluster.localtime-logging") != 0 ||
+            !strstr (vme->key, role))
+                return 0;
+
+        memcpy (&vme2, vme, sizeof (vme2));
+        vme2.option = GLUSTERD_LOCALTIME_LOGGING_KEY;
+
+        return basic_option_handler (graph, &vme2, NULL);
+}
+
+static int
 log_buf_size_option_handler (volgen_graph_t *graph,
                              struct volopt_map_entry *vme,
                              void *param)
@@ -1413,6 +1432,9 @@ server_spec_option_handler (volgen_graph_t *graph,
 
         if (!ret)
                 ret = log_flush_timeout_option_handler (graph, vme, "brick");
+
+        if (!ret)
+                ret = log_localtime_logging_option_handler (graph, vme, "brick");
 
         return ret;
 }
@@ -3974,6 +3996,14 @@ graph_set_generic_options (xlator_t *this, volgen_graph_t *graph,
                         GD_MSG_GRAPH_SET_OPT_FAIL,
                         "Failed to change "
                         "log-flush-timeout option");
+
+        ret = volgen_graph_set_options_generic (graph, set_dict, "client",
+                                                &log_localtime_logging_option_handler);
+        if (ret)
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_GRAPH_SET_OPT_FAIL,
+                        "Failed to change "
+                        "log-localtime-logging option");
         return 0;
 }
 

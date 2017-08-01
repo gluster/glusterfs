@@ -240,6 +240,8 @@ static struct argp_option gf_options[] = {
          " [default: \"yes\"]"},
         {"secure-mgmt", ARGP_SECURE_MGMT_KEY, "BOOL", OPTION_ARG_OPTIONAL,
          "Override default for secure (SSL) management connections"},
+        {"localtime-logging", ARGP_LOCALTIME_LOGGING_KEY, 0, 0,
+         "Enable localtime logging"},
         {0, 0, 0, 0, "Miscellaneous Options:"},
         {0, }
 };
@@ -1271,6 +1273,10 @@ no_oom_api:
                 argp_failure (state, -1, 0,
                               "unknown secure-mgmt setting \"%s\"", arg);
                 break;
+
+        case ARGP_LOCALTIME_LOGGING_KEY:
+                cmd_args->localtime_logging = 1;
+                break;
 	}
 
         return 0;
@@ -1634,6 +1640,8 @@ logging_init (glusterfs_ctx_t *ctx, const char *progpath)
 
         /* finish log set parameters before init */
         gf_log_set_loglevel (cmd_args->log_level);
+
+        gf_log_set_localtime (cmd_args->localtime_logging);
 
         gf_log_set_logger (cmd_args->logger);
 

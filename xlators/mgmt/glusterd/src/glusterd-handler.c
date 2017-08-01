@@ -4585,6 +4585,7 @@ gd_is_global_option (char *opt_key)
                 strcmp (opt_key, GLUSTERD_QUORUM_RATIO_KEY) == 0 ||
                 strcmp (opt_key, GLUSTERD_GLOBAL_OP_VERSION_KEY) == 0 ||
                 strcmp (opt_key, GLUSTERD_BRICK_MULTIPLEX_KEY) == 0 ||
+                strcmp (opt_key, GLUSTERD_LOCALTIME_LOGGING_KEY) == 0 ||
                 strcmp (opt_key, GLUSTERD_MAX_OP_VERSION_KEY) == 0);
 
 out:

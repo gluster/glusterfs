@@ -54,8 +54,8 @@
 #define GLUSTER_SHARED_STORAGE          "gluster_shared_storage"
 #define GLUSTERD_SHARED_STORAGE_KEY     "cluster.enable-shared-storage"
 #define GLUSTERD_BRICK_MULTIPLEX_KEY    "cluster.brick-multiplex"
-
 #define GLUSTERD_BRICKMUX_LIMIT_KEY     "cluster.max-bricks-per-process"
+#define GLUSTERD_LOCALTIME_LOGGING_KEY  "cluster.localtime-logging"
 
 #define GLUSTERD_SNAPS_MAX_HARD_LIMIT 256
 #define GLUSTERD_SNAPS_DEF_SOFT_LIMIT_PERCENT 90

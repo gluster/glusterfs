@@ -96,6 +96,7 @@ enum argp_option_keys {
 #ifdef GF_LINUX_HOST_OS
         ARGP_OOM_SCORE_ADJ_KEY            = 176,
 #endif
+        ARGP_LOCALTIME_LOGGING_KEY        = 177,
 };
 
 struct _gfd_vol_top_priv {
