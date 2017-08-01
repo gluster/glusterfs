@@ -36,7 +36,19 @@ extern rpc_clnt_prog_t cli_quotad_clnt;
 
 int
 cli_cmd_volume_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
-                      const char **words, int wordcount);
+                         const char **words, int wordcount);
+
+int
+cli_cmd_bitrot_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
+                         const char **words, int wordcount);
+
+int
+cli_cmd_quota_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
+                        const char **words, int wordcount);
+
+int
+cli_cmd_tier_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
+                       const char **words, int wordcount);
 
 int
 cli_cmd_volume_info_cbk (struct cli_state *state, struct cli_cmd_word *word,
@@ -1293,9 +1305,12 @@ cli_cmd_volume_tier_cbk (struct cli_state *state,
 
 
         if (wordcount < 4) {
-                cli_usage_out (word->pattern);
-                if (wordcount == 3 && !strcmp(words[2], "help"))
+                if (wordcount == 3 && !strcmp(words[2], "help")) {
+                        cli_cmd_tier_help_cbk (state, word, words, wordcount);
                         ret = 0;
+                } else {
+                        cli_usage_out (word->pattern);
+                }
                 goto out;
         }
 
@@ -1719,6 +1734,8 @@ out:
         return ret;
 }
 
+
+
 int
 cli_cmd_bitrot_cbk (struct cli_state *state, struct cli_cmd_word *word,
                     const char **words, int wordcount)
@@ -1744,6 +1761,13 @@ cli_cmd_bitrot_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 cli_usage_out (word->pattern);
                 parse_err = 1;
                 goto out;
+        }
+
+        if (ret == 1) {
+                /* this is 'volume bitrot help' */
+                cli_cmd_bitrot_help_cbk (state, word, words, wordcount);
+                ret = 0;
+                goto out2;
         }
 
         frame = create_frame (THIS, THIS->ctx->pool);
@@ -1834,7 +1858,7 @@ out:
 #endif
 
         CLI_STACK_DESTROY (frame);
-
+out2:
         return ret;
 }
 
@@ -1866,6 +1890,12 @@ cli_cmd_quota_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 }
         } else {
                 ret = cli_cmd_quota_parse (words, wordcount, &options);
+
+                if (ret == 1) {
+                        cli_cmd_quota_help_cbk (state, word, words, wordcount);
+                        ret = 0;
+                        goto out;
+                }
                 if (ret < 0) {
                         cli_usage_out (word->pattern);
                         parse_err = 1;
@@ -3164,7 +3194,159 @@ out:
         return ret;
 }
 
+
+/* This is a bit of a hack to display the help. The current bitrot cmd
+ * format does not work well when registering the cmds.
+ * Ideally the should have been of the form
+ * gluster volume bitrot <subcommand> <volumename> ...
+ */
+
+struct cli_cmd bitrot_cmds[] = {
+
+        {"volume bitrot help",
+         cli_cmd_bitrot_help_cbk,
+         "display help for volume bitrot commands"
+        },
+
+        {"volume bitrot <VOLNAME> {enable|disable}",
+         NULL, /*cli_cmd_bitrot_cbk,*/
+         "Enable/disable bitrot for volume <VOLNAME>"
+        },
+
+        {"volume bitrot <VOLNAME> scrub-throttle {lazy|normal|aggressive}",
+         NULL, /*cli_cmd_bitrot_cbk,*/
+         "Set the speed of the scrubber for volume <VOLNAME>"
+        },
+
+        {"volume bitrot <VOLNAME> scrub-frequency {hourly|daily|weekly|biweekly"
+         "|monthly}",
+         NULL, /*cli_cmd_bitrot_cbk,*/
+         "Set the frequency of the scrubber for volume <VOLNAME>"
+        },
+
+        {"volume bitrot <VOLNAME> scrub {pause|resume|status|ondemand}",
+         NULL, /*cli_cmd_bitrot_cbk,*/
+         "Pause/resume the scrubber for <VOLNAME>. Status displays the status of "
+         "the scrubber. ondemand starts the scrubber immediately."
+        },
+
+        {"volume bitrot <VOLNAME> {enable|disable}\n"
+         "volume bitrot <volname> scrub-throttle {lazy|normal|aggressive}\n"
+         "volume bitrot <volname> scrub-frequency {hourly|daily|weekly|biweekly"
+         "|monthly}\n"
+         "volume bitrot <volname> scrub {pause|resume|status|ondemand}",
+         cli_cmd_bitrot_cbk,
+         NULL
+        },
+
+        { NULL, NULL, NULL }
+};
+
+
+struct cli_cmd quota_cmds[] = {
+
+        /* Quota commands */
+        {"volume quota help",
+         cli_cmd_quota_help_cbk,
+         "display help for volume quota commands"
+        },
+
+        {"volume quota <VOLNAME> {enable|disable|list [<path> ...]| "
+         "list-objects [<path> ...] | remove <path>| remove-objects <path> | "
+         "default-soft-limit <percent>}",
+         cli_cmd_quota_cbk,
+         "Enable/disable and configure quota for <VOLNAME>"
+        },
+
+        {"volume quota <VOLNAME> {limit-usage <path> <size> [<percent>]}",
+         cli_cmd_quota_cbk,
+         "Set maximum size for <path> for <VOLNAME>"
+        },
+
+        {"volume quota <VOLNAME> {limit-objects <path> <number> [<percent>]}",
+         cli_cmd_quota_cbk,
+         "Set the maximum number of entries allowed in <path> for <VOLNAME>"
+        },
+
+        {"volume quota <VOLNAME> {alert-time|soft-timeout|hard-timeout} {<time>}",
+         cli_cmd_quota_cbk,
+         "Set quota timeout for <VOLNAME>"
+        },
+
+        { "volume inode-quota <VOLNAME> enable",
+          cli_cmd_quota_cbk,
+          "Enable/disable inode-quota for <VOLNAME>"
+        },
+
+        { "volume quota <VOLNAME> {enable|disable|list [<path> ...]| "
+          "list-objects [<path> ...] | remove <path>| remove-objects <path> | "
+          "default-soft-limit <percent>}\n"
+          "volume quota <VOLNAME> {limit-usage <path> <size> [<percent>]}\n"
+          "volume quota <VOLNAME> {limit-objects <path> <number> [<percent>]}\n"
+          "volume quota <VOLNAME> {alert-time|soft-timeout|hard-timeout} {<time>}",
+          cli_cmd_quota_cbk,
+          NULL
+        },
+
+        { NULL, NULL, NULL }
+};
+
+struct cli_cmd tier_cmds[] = {
+
+        { "volume tier help",
+          cli_cmd_tier_help_cbk,
+          "display help for volume tier commands"},
+
+        { "volume tier <VOLNAME> status",
+          cli_cmd_volume_tier_cbk,
+          "Display tier status for <VOLNAME>"},
+
+        { "volume tier <VOLNAME> start [force]",
+          cli_cmd_volume_tier_cbk,
+          "Start the tier service for <VOLNAME>"},
+
+        { "volume tier <VOLNAME> stop [force]",
+          cli_cmd_volume_tier_cbk,
+          "Stop the tier service for <VOLNAME>"},
+
+        { "volume tier <VOLNAME> attach [<replica COUNT>] <NEW-BRICK>... [force]",
+          cli_cmd_volume_tier_cbk,
+          "Attach a hot tier to <VOLNAME>"},
+
+        { "volume tier <VOLNAME> detach <start|stop|status|commit|[force]>",
+          cli_cmd_volume_tier_cbk,
+          "Detach the hot tier from <VOLNAME>"},
+
+        { "volume attach-tier <VOLNAME> [<replica COUNT>] <NEW-BRICK>...",
+          cli_cmd_volume_tier_cbk,
+          "NOTE: this is old syntax, will be deprecated in next release. "
+          "Please use gluster volume tier <vol> attach "
+          "[<replica COUNT>] <NEW-BRICK>..."},
+
+        { "volume detach-tier <VOLNAME> "
+          "<start|stop|status|commit|force>",
+          cli_cmd_volume_tier_cbk,
+          "NOTE: this is old syntax, will be deprecated in next release. "
+          "Please use gluster volume tier <vol> detach "
+          "{start|stop|commit} [force]"},
+
+        { "volume tier <VOLNAME> status\n"
+          "volume tier <VOLNAME> start [force]\n"
+          "volume tier <VOLNAME> stop\n"
+          "volume tier <VOLNAME> attach [<replica COUNT>] <NEW-BRICK>... [force]\n"
+          "volume tier <VOLNAME> detach <start|stop|status|commit|[force]>\n",
+          cli_cmd_volume_tier_cbk,
+          NULL },
+
+        {NULL, NULL, NULL}
+
+        };
+
 struct cli_cmd volume_cmds[] = {
+        { "volume help",
+          cli_cmd_volume_help_cbk,
+          "display help for volume commands"},
+
         { "volume info [all|<VOLNAME>]",
           cli_cmd_volume_info_cbk,
           "list information of all volumes"},
@@ -3197,29 +3379,6 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_rename_cbk,
           "rename volume <VOLNAME> to <NEW-VOLNAME>"},*/
 
-#if !defined(__NetBSD__)
-        { "volume tier <VOLNAME> status\n"
-        "volume tier <VOLNAME> start [force]\n"
-        "volume tier <VOLNAME> stop\n"
-        "volume tier <VOLNAME> attach [<replica COUNT>] <NEW-BRICK>... [force]\n"
-        "volume tier <VOLNAME> detach <start|stop|status|commit|[force]>\n",
-        cli_cmd_volume_tier_cbk,
-        "Tier translator specific operations."},
-
-        { "volume attach-tier <VOLNAME> [<replica COUNT>] <NEW-BRICK>...",
-        cli_cmd_volume_tier_cbk,
-          "NOTE: this is old syntax, will be depreciated in next release. "
-          "Please use gluster volume tier <vol> attach "
-          "[<replica COUNT>] <NEW-BRICK>..."},
-
-        { "volume detach-tier <VOLNAME> "
-          " <start|stop|status|commit|force>",
-        cli_cmd_volume_tier_cbk,
-          "NOTE: this is old syntax, will be depreciated in next release. "
-          "Please use gluster volume tier <vol> detach "
-          "{start|stop|commit} [force]"},
-#endif
-
         { "volume add-brick <VOLNAME> [<stripe|replica> <COUNT> "
           "[arbiter <COUNT>]] <NEW-BRICK> ... [force]",
           cli_cmd_volume_add_brick_cbk,
@@ -3247,9 +3406,6 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_set_cbk,
          "set options for volume <VOLNAME>"},
 
-        { "volume help",
-          cli_cmd_volume_help_cbk,
-          "display help for the volume command"},
 
         { "volume log <VOLNAME> rotate [BRICK]",
           cli_cmd_log_rotate_cbk,
@@ -3279,19 +3435,6 @@ struct cli_cmd volume_cmds[] = {
          { "volume profile <VOLNAME> {start|info [peek|incremental [peek]|cumulative|clear]|stop} [nfs]",
            cli_cmd_volume_profile_cbk,
            "volume profile operations"},
-
-        { "volume quota <VOLNAME> {enable|disable|list [<path> ...]| "
-          "list-objects [<path> ...] | remove <path>| remove-objects <path> | "
-          "default-soft-limit <percent>} |\n"
-          "volume quota <VOLNAME> {limit-usage <path> <size> [<percent>]} |\n"
-          "volume quota <VOLNAME> {limit-objects <path> <number> [<percent>]} |\n"
-          "volume quota <VOLNAME> {alert-time|soft-timeout|hard-timeout} {<time>}",
-          cli_cmd_quota_cbk,
-          "quota translator specific operations"},
-
-        { "volume inode-quota <VOLNAME> enable",
-          cli_cmd_quota_cbk,
-          "quota translator specific operations"},
 
          { "volume top <VOLNAME> {open|read|write|opendir|readdir|clear} [nfs|brick <brick>] [list-cnt <value>] |\n"
            "volume top <VOLNAME> {read-perf|write-perf} [bs <size> count <count>] [brick <brick>] [list-cnt <value>]",
@@ -3336,26 +3479,99 @@ struct cli_cmd volume_cmds[] = {
          " or all option. gluster volume get all all is to get all global "
          "options"
         },
-        {"volume bitrot <VOLNAME> {enable|disable} |\n"
-         "volume bitrot <volname> scrub-throttle {lazy|normal|aggressive} |\n"
-         "volume bitrot <volname> scrub-frequency {hourly|daily|weekly|biweekly"
-         "|monthly} |\n"
-         "volume bitrot <volname> scrub {pause|resume|status|ondemand}",
-         cli_cmd_bitrot_cbk,
-         "Bitrot translator specific operation. For more information about "
-         "bitrot command type  'man gluster'"
-        },
+
         { "volume reset-brick <VOLNAME> <SOURCE-BRICK> {{start} |"
           " {<NEW-BRICK> commit}}",
           cli_cmd_volume_reset_brick_cbk,
           "reset-brick operations"},
 
+
         { NULL, NULL, NULL }
 };
 
 int
+cli_cmd_quota_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
+                        const char **words, int wordcount)
+{
+        struct cli_cmd        *cmd     = NULL;
+        struct cli_cmd        *quota_cmd = NULL;
+        int                   count    = 0;
+
+        cmd = GF_CALLOC (1, sizeof (quota_cmds), cli_mt_cli_cmd);
+        memcpy (cmd, quota_cmds, sizeof (quota_cmds));
+        count = (sizeof (quota_cmds) / sizeof (struct cli_cmd));
+        cli_cmd_sort (cmd, count);
+
+        cli_out ("\ngluster quota commands");
+        cli_out ("=======================\n");
+
+        for (quota_cmd = cmd; quota_cmd->pattern; quota_cmd++)
+                if ((_gf_false == quota_cmd->disable) && (quota_cmd->desc))
+                        cli_out ("%s - %s", quota_cmd->pattern,
+                                 quota_cmd->desc);
+
+        cli_out ("\n");
+        GF_FREE (cmd);
+
+        return 0;
+}
+
+int
+cli_cmd_bitrot_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
+                         const char **words, int wordcount)
+{
+        struct cli_cmd        *cmd     = NULL;
+        struct cli_cmd        *bitrot_cmd = NULL;
+        int                   count    = 0;
+
+        cmd = GF_CALLOC (1, sizeof (bitrot_cmds), cli_mt_cli_cmd);
+        memcpy (cmd, bitrot_cmds, sizeof (bitrot_cmds));
+        count = (sizeof (bitrot_cmds) / sizeof (struct cli_cmd));
+        cli_cmd_sort (cmd, count);
+
+        cli_out ("\ngluster bitrot commands");
+        cli_out ("========================\n");
+
+        for (bitrot_cmd = cmd; bitrot_cmd->pattern; bitrot_cmd++)
+                if ((_gf_false == bitrot_cmd->disable) && (bitrot_cmd->desc))
+                        cli_out ("%s - %s", bitrot_cmd->pattern,
+                                 bitrot_cmd->desc);
+
+        cli_out ("\n");
+        GF_FREE (cmd);
+
+        return 0;
+}
+
+int
+cli_cmd_tier_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
+                       const char **words, int wordcount)
+{
+        struct cli_cmd        *cmd     = NULL;
+        struct cli_cmd        *tier_cmd = NULL;
+        int                   count    = 0;
+
+        cmd = GF_CALLOC (1, sizeof (tier_cmds), cli_mt_cli_cmd);
+        memcpy (cmd, tier_cmds, sizeof (tier_cmds));
+        count = (sizeof (tier_cmds) / sizeof (struct cli_cmd));
+        cli_cmd_sort (cmd, count);
+
+        cli_out ("\ngluster tier commands");
+        cli_out ("======================\n");
+
+        for (tier_cmd = cmd; tier_cmd->pattern; tier_cmd++) {
+                if ((_gf_false == tier_cmd->disable) && tier_cmd->desc) {
+                        cli_out ("%s - %s", tier_cmd->pattern, tier_cmd->desc);
+                }
+        }
+        cli_out ("\n");
+        GF_FREE (cmd);
+        return 0;
+}
+
+int
 cli_cmd_volume_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
-                      const char **words, int wordcount)
+                         const char **words, int wordcount)
 {
         struct cli_cmd        *cmd     = NULL;
         struct cli_cmd        *vol_cmd = NULL;
@@ -3366,10 +3582,14 @@ cli_cmd_volume_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
         count = (sizeof (volume_cmds) / sizeof (struct cli_cmd));
         cli_cmd_sort (cmd, count);
 
+        cli_out ("\ngluster volume commands");
+        cli_out ("========================\n");
+
         for (vol_cmd = cmd; vol_cmd->pattern; vol_cmd++)
                 if (_gf_false == vol_cmd->disable)
                         cli_out ("%s - %s", vol_cmd->pattern, vol_cmd->desc);
 
+        cli_out ("\n");
         GF_FREE (cmd);
         return 0;
 }
@@ -3381,11 +3601,32 @@ cli_cmd_volume_register (struct cli_state *state)
         struct cli_cmd *cmd = NULL;
 
         for (cmd = volume_cmds; cmd->pattern; cmd++) {
-
                 ret = cli_cmd_register (&state->tree, cmd);
                 if (ret)
                         goto out;
         }
+
+        for (cmd = bitrot_cmds; cmd->pattern; cmd++) {
+                ret = cli_cmd_register (&state->tree, cmd);
+                if (ret)
+                        goto out;
+        }
+
+        for (cmd = quota_cmds; cmd->pattern; cmd++) {
+                ret = cli_cmd_register (&state->tree, cmd);
+                if (ret)
+                        goto out;
+        }
+
+#if !defined(__NetBSD__)
+        for (cmd = tier_cmds; cmd->pattern; cmd++) {
+                ret = cli_cmd_register (&state->tree, cmd);
+                if (ret)
+                        goto out;
+        }
+
+#endif
+
 out:
         return ret;
 }

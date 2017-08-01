@@ -264,7 +264,7 @@ struct cli_cmd cli_probe_cmds[] = {
 
 	{ "peer help",
            cli_cmd_peer_help_cbk,
-           "Help command for peer "},
+           "display help for peer commands"},
 
         { "pool list",
           cli_cmd_pool_list_cbk,
@@ -281,17 +281,20 @@ cli_cmd_peer_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
         struct cli_cmd        *probe_cmd = NULL;
         int                   count     = 0;
 
+        cli_out ("\ngluster peer commands");
+        cli_out ("======================\n");
+
         cmd = GF_CALLOC (1, sizeof (cli_probe_cmds), cli_mt_cli_cmd);
         memcpy (cmd, cli_probe_cmds, sizeof (cli_probe_cmds));
         count = (sizeof (cli_probe_cmds) / sizeof (struct cli_cmd));
         cli_cmd_sort (cmd, count);
 
-
-
         for (probe_cmd = cmd; probe_cmd->pattern; probe_cmd++)
                 cli_out ("%s - %s", probe_cmd->pattern, probe_cmd->desc);
 
         GF_FREE (cmd);
+
+        cli_out ("\n");
         return 0;
 }
 

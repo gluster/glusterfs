@@ -62,11 +62,14 @@ cli_cmd_global_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
         count = (sizeof (global_cmds) / sizeof (struct cli_cmd));
         cli_cmd_sort (cmd, count);
 
+        cli_out ("\ngluster global commands");
+        cli_out ("========================\n");
         for (global_cmd = cmd; global_cmd->pattern; global_cmd++)
                 if (_gf_false == global_cmd->disable)
                         cli_out ("%s - %s", global_cmd->pattern,
                                  global_cmd->desc);
 
+        cli_out ("\n");
         GF_FREE (cmd);
         return 0;
 }

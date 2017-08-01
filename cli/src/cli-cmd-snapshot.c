@@ -140,9 +140,14 @@ cli_cmd_snapshot_help_cbk (struct cli_state *state,
         count = (sizeof (snapshot_cmds) / sizeof (struct cli_cmd));
         cli_cmd_sort (cmd, count);
 
+        cli_out ("\ngluster snapshot commands");
+        cli_out ("=========================\n");
+
         for (snap_cmd = cmd; snap_cmd->pattern; snap_cmd++)
                 if (_gf_false == snap_cmd->disable)
                         cli_out ("%s - %s", snap_cmd->pattern, snap_cmd->desc);
+        cli_out ("\n");
+
         GF_FREE (cmd);
         return 0;
 }
