@@ -8,7 +8,7 @@
 cleanup;
 
 function get_gfid_count {
-        getfattr -d -m. -e hex $B0/brick{0,1,2,3,4,5}/$1 2>&1 | grep trusted.gfid | wc -l
+        getfattr -d -m. -e hex $B0/brick{0,1,2,3,4,5}/$1 2>&1 | grep trusted.gfid | grep -v gfid2path | wc -l
 }
 
 TEST glusterd

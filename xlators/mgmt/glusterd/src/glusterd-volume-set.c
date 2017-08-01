@@ -2792,6 +2792,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
         { .option      = "gfid2path",
           .key         = "storage.gfid2path",
+          .type        = NO_DOC,
           .voltype     = "storage/posix",
           .op_version  = GD_OP_VERSION_3_12_0,
         },

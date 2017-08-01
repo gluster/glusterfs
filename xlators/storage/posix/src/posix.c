@@ -7663,18 +7663,6 @@ init (xlator_t *this)
                                       " set.");
         }
 
-        tmp_data = dict_get (this->options, "gfid2path");
-        if (tmp_data) {
-                if (gf_string2boolean (tmp_data->data,
-                                       &_private->gfid2path) == -1) {
-                        ret = -1;
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                P_MSG_INVALID_OPTION, "wrong value provided "
-                                "for 'gfid2path'");
-                        goto out;
-                }
-        }
-
         ret = dict_get_str (this->options, "glusterd-uuid", &guuid);
         if (!ret) {
                 if (gf_uuid_parse (guuid, _private->glusterd_uuid))
@@ -7840,6 +7828,8 @@ init (xlator_t *this)
                         "Unknown mode string: %s", batch_fsync_mode_str);
 		goto out;
 	}
+
+        GF_OPTION_INIT ("gfid2path", _private->gfid2path, bool, out);
 
 	GF_OPTION_INIT ("gfid2path-separator", gfid2path_sep, str, out);
         if (set_gfid2path_separator (_private, gfid2path_sep) != 0) {
@@ -8045,7 +8035,7 @@ struct volume_options options[] = {
         },
         { .key = {"gfid2path"},
           .type = GF_OPTION_TYPE_BOOL,
-          .default_value = "off",
+          .default_value = "on",
           .description = "Enable logging metadata for gfid to path conversion"
         },
         { .key = {"gfid2path-separator"},
