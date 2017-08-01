@@ -85,6 +85,7 @@ glusterd_all_vol_opts valid_all_vol_opts[] = {
          * TBD: Discuss the default value for this. Maybe this should be a
          * dynamic value depending on the memory specifications per node */
         { GLUSTERD_BRICKMUX_LIMIT_KEY,          "0"},
+        { GLUSTERD_LOCALTIME_LOGGING_KEY,       "disable"},
         { NULL },
 };
 
@@ -870,6 +871,60 @@ out:
 }
 
 static int
+glusterd_validate_localtime_logging (char *key, char *value, char *errstr)
+{
+        int32_t            ret                      = -1;
+        xlator_t          *this                     = NULL;
+        glusterd_conf_t   *conf                     = NULL;
+        int                already_enabled          = 0;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        GF_VALIDATE_OR_GOTO (this->name, key, out);
+        GF_VALIDATE_OR_GOTO (this->name, value, out);
+        GF_VALIDATE_OR_GOTO (this->name, errstr, out);
+
+        ret = 0;
+
+        if (strcmp (key, GLUSTERD_LOCALTIME_LOGGING_KEY)) {
+                goto out;
+        }
+
+        if ((strcmp (value, "enable")) &&
+            (strcmp (value, "disable"))) {
+                snprintf (errstr, PATH_MAX,
+                          "Invalid option(%s). Valid options "
+                          "are 'enable' and 'disable'", value);
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_INVALID_ENTRY, "%s", errstr);
+                ret = -1;
+        }
+
+        already_enabled = gf_log_get_localtime ();
+
+        if (strcmp (value, "enable") == 0) {
+                gf_log_set_localtime (1);
+                if (!already_enabled)
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                GD_MSG_LOCALTIME_LOGGING_ENABLE,
+                                "localtime logging enable");
+        } else if (strcmp (value, "disable") == 0) {
+                gf_log_set_localtime (0);
+                if (already_enabled)
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                GD_MSG_LOCALTIME_LOGGING_DISABLE,
+                                "localtime logging disable");
+        }
+
+out:
+        return ret;
+}
+
+static int
 glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
 {
         int                   ret                         = -1;
@@ -1253,6 +1308,14 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                         goto out;
                 }
 
+                ret = glusterd_validate_localtime_logging (key, value, errstr);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_LOCALTIME_LOGGING_VOL_OPT_VALIDATE_FAIL,
+                                "Failed to validate localtime "
+                                "logging volume options");
+                        goto out;
+                }
 
                 if (volinfo) {
                         ret = glusterd_volinfo_get (volinfo,
@@ -2639,6 +2702,7 @@ out:
         return ret;
 }
 
+
 int
 glusterd_op_get_max_opversion (char **op_errstr, dict_t *rsp_dict)
 {
@@ -2657,6 +2721,7 @@ out:
         gf_msg_debug (THIS->name, 0, "Returning %d", ret);
         return ret;
 }
+
 
 static int
 glusterd_set_shared_storage (dict_t *dict, char *key, char *value,
@@ -2733,7 +2798,6 @@ out:
 
         return ret;
 }
-
 
 
 static int

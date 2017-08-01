@@ -1401,6 +1401,7 @@ init (xlator_t *this)
         int32_t            workers                    = 0;
         gf_boolean_t       upgrade                    = _gf_false;
         gf_boolean_t       downgrade                  = _gf_false;
+        char              *localtime_logging          = NULL;
 
 #ifndef GF_DARWIN_HOST_OS
         {
@@ -1845,6 +1846,25 @@ init (xlator_t *this)
         ret = glusterd_restore ();
         if (ret < 0)
                 goto out;
+
+        if (dict_get_str (conf->opts, GLUSTERD_LOCALTIME_LOGGING_KEY,
+                          &localtime_logging) == 0) {
+                int already_enabled = gf_log_get_localtime ();
+
+                if (strcmp (localtime_logging, "enable") == 0) {
+                        gf_log_set_localtime (1);
+                        if (!already_enabled)
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        GD_MSG_LOCALTIME_LOGGING_ENABLE,
+                                        "localtime logging enable");
+                } else if (strcmp (localtime_logging, "disable") == 0) {
+                        gf_log_set_localtime (0);
+                        if (already_enabled)
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        GD_MSG_LOCALTIME_LOGGING_DISABLE,
+                                        "localtime logging disable");
+                }
+        }
 
         conf->blockers = 0;
         /* If the peer count is less than 2 then this would be the best time to

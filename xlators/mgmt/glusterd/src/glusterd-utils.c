@@ -1944,6 +1944,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         int                     port = 0;
         int                     rdma_port = 0;
         char                    *bind_address = NULL;
+        char                    *localtime_logging = NULL;
         char                    socketpath[PATH_MAX] = {0};
         char                    glusterd_uuid[1024] = {0,};
         char                    valgrind_logfile[PATH_MAX] = {0};
@@ -2062,6 +2063,12 @@ retry:
                          "-l", brickinfo->logfile,
                          "--xlator-option", glusterd_uuid,
                          NULL);
+
+        if (dict_get_str (priv->opts, GLUSTERD_LOCALTIME_LOGGING_KEY,
+                          &localtime_logging) == 0) {
+                if (strcmp (localtime_logging, "enable") == 0)
+                        runner_add_arg (&runner, "--localtime-logging");
+        }
 
         runner_add_arg (&runner, "--brick-port");
         if (volinfo->transport_type != GF_TRANSPORT_BOTH_TCP_RDMA) {

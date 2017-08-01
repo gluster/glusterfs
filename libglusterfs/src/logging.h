@@ -116,6 +116,7 @@ typedef struct gf_log_handle_ {
         uint32_t          timeout;
         pthread_mutex_t   log_buf_lock;
         struct _gf_timer *log_flush_timer;
+        int               localtime;
 } gf_log_handle_t;
 
 
@@ -280,6 +281,8 @@ void gf_log_disable_syslog (void);
 void gf_log_enable_syslog (void);
 gf_loglevel_t gf_log_get_loglevel (void);
 void gf_log_set_loglevel (gf_loglevel_t level);
+int gf_log_get_localtime (void);
+void gf_log_set_localtime (int);
 void gf_log_flush (void);
 gf_loglevel_t gf_log_get_xl_loglevel (void *xl);
 void gf_log_set_xl_loglevel (void *xl, gf_loglevel_t level);
