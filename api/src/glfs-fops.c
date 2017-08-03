@@ -3571,6 +3571,7 @@ glfs_setxattr_common (struct glfs *fs, const char *path, const char *name,
 	struct iatt      iatt = {0, };
 	dict_t          *xattr = NULL;
 	int              reval = 0;
+        void            *value_cp = NULL;
 
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
@@ -3605,8 +3606,13 @@ retry:
 	if (ret)
 		goto out;
 
-	xattr = dict_for_key_value (name, value, size);
+        value_cp = gf_memdup (value, size);
+        GF_CHECK_ALLOC_AND_LOG (subvol->name, value_cp, ret, "Failed to"
+                                " duplicate setxattr value", out);
+
+	xattr = dict_for_key_value (name, value_cp, size, _gf_false);
 	if (!xattr) {
+                GF_FREE (value_cp);
 		ret = -1;
 		errno = ENOMEM;
 		goto out;
@@ -3614,8 +3620,6 @@ retry:
 
 	ret = syncop_setxattr (subvol, &loc, xattr, flags, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
-
-	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 
 out:
 	loc_wipe (&loc);
@@ -3659,6 +3663,7 @@ pub_glfs_fsetxattr (struct glfs_fd *glfd, const char *name, const void *value,
 	xlator_t        *subvol = NULL;
 	dict_t          *xattr = NULL;
 	fd_t            *fd = NULL;
+        void            *value_cp = NULL;
 
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -3691,8 +3696,13 @@ pub_glfs_fsetxattr (struct glfs_fd *glfd, const char *name, const void *value,
 		goto out;
 	}
 
-	xattr = dict_for_key_value (name, value, size);
+        value_cp = gf_memdup (value, size);
+        GF_CHECK_ALLOC_AND_LOG (subvol->name, value_cp, ret, "Failed to"
+                                " duplicate setxattr value", out);
+
+	xattr = dict_for_key_value (name, value_cp, size, _gf_false);
 	if (!xattr) {
+                GF_FREE (value_cp);
 		ret = -1;
 		errno = ENOMEM;
 		goto out;

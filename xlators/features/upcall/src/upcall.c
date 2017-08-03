@@ -1876,7 +1876,7 @@ up_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         EXIT_IF_UPCALL_OFF (this, out);
 
-        xattr = dict_for_key_value (name, "", 1);
+        xattr = dict_for_key_value (name, "", 1, _gf_true);
         if (!xattr) {
                 op_errno = ENOMEM;
                 goto err;
@@ -1964,7 +1964,7 @@ up_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         EXIT_IF_UPCALL_OFF (this, out);
 
-        xattr = dict_for_key_value (name, "", 1);
+        xattr = dict_for_key_value (name, "", 1, _gf_true);
         if (!xattr) {
                 op_errno = ENOMEM;
                 goto err;
