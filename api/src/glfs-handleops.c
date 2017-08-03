@@ -481,6 +481,7 @@ pub_glfs_h_setxattrs (struct glfs *fs, struct glfs_object *object,
         inode_t         *inode = NULL;
         loc_t            loc = {0, };
         dict_t          *xattr = NULL;
+        void            *value_cp = NULL;
 
         /* validate in args */
         if ((fs == NULL) || (object == NULL) ||
@@ -517,8 +518,13 @@ pub_glfs_h_setxattrs (struct glfs *fs, struct glfs_object *object,
                 goto out;
         }
 
-        xattr = dict_for_key_value (name, value, size);
+        value_cp = gf_memdup (value, size);
+        GF_CHECK_ALLOC_AND_LOG (subvol->name, value_cp, ret, "Failed to"
+                                " duplicate setxattr value", out);
+
+        xattr = dict_for_key_value (name, value_cp, size, _gf_false);
         if (!xattr) {
+                GF_FREE (value_cp);
                 ret = -1;
                 errno = ENOMEM;
                 goto out;

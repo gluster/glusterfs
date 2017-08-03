@@ -421,7 +421,7 @@ br_object_read_sign (inode_t *linked_inode, fd_t *fd, br_object_t *object,
 
         xattr = dict_for_key_value
                 (GLUSTERFS_SET_OBJECT_SIGNATURE,
-                 (void *)sign, signature_size (SHA256_DIGEST_LENGTH));
+                 (void *)sign, signature_size (SHA256_DIGEST_LENGTH), _gf_true);
 
         if (!xattr) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, BRB_MSG_SET_SIGN_FAILED,
