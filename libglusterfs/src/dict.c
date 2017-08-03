@@ -3060,7 +3060,8 @@ dict_dump_to_statedump (dict_t *dict, char *dict_name, char *domain)
 }
 
 dict_t *
-dict_for_key_value (const char *name, const char *value, size_t size)
+dict_for_key_value (const char *name, const char *value, size_t size,
+                    gf_boolean_t is_static)
 {
 	dict_t *xattr = NULL;
 	int     ret = 0;
@@ -3069,7 +3070,12 @@ dict_for_key_value (const char *name, const char *value, size_t size)
 	if (!xattr)
 		return NULL;
 
-	ret = dict_set_static_bin (xattr, (char *)name, (void *)value, size);
+        if (is_static)
+                ret = dict_set_static_bin (xattr, (char *)name, (void *)value,
+                                           size);
+        else
+                ret = dict_set_bin (xattr, (char *)name, (void *)value, size);
+
 	if (ret) {
 		dict_destroy (xattr);
 		xattr = NULL;
