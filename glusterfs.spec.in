@@ -1280,7 +1280,7 @@ exit 0
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/nfs-server.vol
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs/run
 %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
-%ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/options
+%config(noreplace) %ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/options
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/peers
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/quotad
 %ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/scrub
