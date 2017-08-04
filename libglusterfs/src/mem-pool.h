@@ -203,18 +203,31 @@ out:
         return dup_mem;
 }
 
+/* kind of 'header' for the actual mem_pool_shared structure, this might make
+ * it possible to dump some more details in a statedump */
+struct mem_pool {
+        unsigned long           sizeof_type;
+        unsigned long           count;
+        char                    *name;
+
+        struct mem_pool_shared  *pool;
+};
+
 typedef struct pooled_obj_hdr {
         unsigned long                   magic;
         struct pooled_obj_hdr           *next;
         struct per_thread_pool_list     *pool_list;
         unsigned int                    power_of_two;
+
+        /* track the pool that was used to request this object */
+        struct mem_pool                 *pool;
 } pooled_obj_hdr_t;
 
 #define AVAILABLE_SIZE(p2)      ((1 << (p2)) - sizeof(pooled_obj_hdr_t))
 
 typedef struct per_thread_pool {
-        /* This never changes, so doesn't need a lock. */
-        struct mem_pool         *parent;
+        /* the pool that was used to request this allocation */
+        struct mem_pool_shared  *parent;
         /* Everything else is protected by our own lock. */
         pooled_obj_hdr_t        *hot_list;
         pooled_obj_hdr_t        *cold_list;
@@ -242,7 +255,8 @@ typedef struct per_thread_pool_list {
         per_thread_pool_t       pools[1];
 } per_thread_pool_list_t;
 
-struct mem_pool {
+/* actual pool structure, shared between different mem_pools */
+struct mem_pool_shared {
         unsigned int            power_of_two;
         /*
          * Updates to these are *not* protected by a global lock, so races
