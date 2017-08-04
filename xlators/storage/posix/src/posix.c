@@ -1089,8 +1089,10 @@ posix_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
         ret = posix_do_zerofill (frame, this, fd, offset, len,
                                  &statpre, &statpost, xdata);
-        if (ret < 0)
+        if (ret < 0) {
+                op_errno = -ret;
                 goto out;
+        }
 
         STACK_UNWIND_STRICT(zerofill, frame, 0, 0, &statpre, &statpost, NULL);
         return 0;

@@ -352,6 +352,9 @@ struct dht_local {
 
         /* rename rollback */
         int    *ret_cache ;
+
+        /* fd open check */
+        gf_boolean_t fd_checked;
 };
 typedef struct dht_local dht_local_t;
 

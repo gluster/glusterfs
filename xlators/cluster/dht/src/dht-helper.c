@@ -483,6 +483,7 @@ dht_check_and_open_fd_on_subvol_task (void *data)
         fd = local->fd;
         subvol = local->cached_subvol;
 
+        local->fd_checked = _gf_true;
 
         if (fd_is_anonymous (fd) || dht_fd_open_on_dst (this, fd, subvol)) {
                 ret = 0;
