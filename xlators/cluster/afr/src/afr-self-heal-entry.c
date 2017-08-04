@@ -84,10 +84,20 @@ afr_selfheal_recreate_entry (call_frame_t *frame, int dst, int source,
         unsigned char *newentry = NULL;
 
         priv = this->private;
+	iatt = &replies[source].poststat;
+        if (iatt->ia_type == IA_INVAL || gf_uuid_is_null (iatt->ia_gfid)) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, AFR_MSG_SELF_HEAL_FAILED,
+                        "Invalid ia_type (%d) or gfid(%s). source brick=%d, "
+                        "pargfid=%s, name=%s", iatt->ia_type,
+                        uuid_utoa(iatt->ia_gfid), source,
+                        uuid_utoa(dir->gfid), name);
+                ret = -EINVAL;
+                goto out;
+        }
+
 	xdata = dict_new();
 	if (!xdata)
 		return -ENOMEM;
-
         newentry = alloca0 (priv->child_count);
 	loc.parent = inode_ref (dir);
 	gf_uuid_copy (loc.pargfid, dir->gfid);
@@ -102,8 +112,6 @@ afr_selfheal_recreate_entry (call_frame_t *frame, int dst, int source,
 				   replies[source].poststat.ia_gfid, 16);
 	if (ret)
 		goto out;
-
-	iatt = &replies[source].poststat;
 
 	srcloc.inode = inode_ref (inode);
 	gf_uuid_copy (srcloc.gfid, iatt->ia_gfid);
