@@ -538,9 +538,6 @@ typedef ssize_t (*nfs3_serializer) (struct iovec outmsg, void *args);
 static void
 __nfs3_call_state_wipe (nfs3_call_state_t *cs)
 {
-        if (!cs)
-                return;
-
         if (cs->fd) {
                 gf_msg_trace (GF_NFS3, 0, "fd 0x%lx ref: %d",
                         (long)cs->fd, cs->fd->refcount);
@@ -599,6 +596,10 @@ err:
 void
 nfs3_call_state_wipe (nfs3_call_state_t *cs)
 {
+        if (!cs) {
+                gf_log_callingfn ("nfs", GF_LOG_WARNING, "nfs calling state NULL");
+                return;
+        }
         GF_REF_PUT (cs);
 }
 
