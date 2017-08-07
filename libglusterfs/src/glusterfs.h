@@ -419,6 +419,9 @@ struct _cmd_args {
 
         /* For the subdir mount */
         char           *subdir_mount;
+
+        /* latency monitoring */
+        char disable_latency_monitoring;
 };
 typedef struct _cmd_args cmd_args_t;
 

@@ -162,6 +162,8 @@ static struct argp_option gf_options[] = {
          "Enable Capability (extended attributes) support on inodes"},
         {"subdir-mount", ARGP_SUBDIR_MOUNT_KEY, "SUBDIR-PATH", 0,
          "Mount subdirectory given [default: NULL]"},
+        {"disable-latency-monitoring", ARGP_DISABLE_LATENCY_MONITORING_KEY, 0, 0,
+         "Disable the latency monitoring feature [default: enabled]"},
 
         {"print-netgroups", ARGP_PRINT_NETGROUPS, "NETGROUP-FILE", 0,
          "Validate the netgroups file and print it out"},
@@ -1281,6 +1283,10 @@ no_oom_api:
                         break;
                 }
                 cmd_args->subdir_mount = gf_strdup (arg);
+                break;
+
+        case ARGP_DISABLE_LATENCY_MONITORING_KEY:
+                cmd_args->disable_latency_monitoring = _gf_true;
                 break;
 	}
 

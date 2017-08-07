@@ -309,7 +309,8 @@ STACK_RESET (call_stack_t *stack)
                               "winding from %s to %s",                  \
                               frame->root, old_THIS->name,              \
                               THIS->name);                              \
-                timespec_now (&_new->begin);                            \
+                if (!frame->root->ctx->cmd_args.disable_latency_monitoring) \
+                        timespec_now (&_new->begin);                    \
                 set_fop_index(_new->op, _new->this, fn);                \
                 GF_ATOMIC_INC (obj->metrics[_new->op].fop);             \
                 fn (_new, obj, params);                                 \
@@ -364,11 +365,13 @@ STACK_RESET (call_stack_t *stack)
                 THIS = _parent->this;                                   \
                 frame->complete = _gf_true;                             \
                 frame->unwind_from = __FUNCTION__;                      \
-                timespec_now (&frame->end);                             \
+                if (!frame->root->ctx->cmd_args.disable_latency_monitoring) \
+                        timespec_now (&frame->end);                     \
                 if (op_ret < 0) {                                       \
                         GF_ATOMIC_INC (THIS->metrics[frame->op].cbk);   \
                 }                                                       \
-                if (_parent->ret == NULL) {                             \
+                if ((!frame->root->ctx->cmd_args.disable_latency_monitoring) && \
+                    (_parent->ret == NULL)) {                           \
                         timespec_now (&_parent->end);                   \
                 }                                                       \
                 fn (_parent, frame->cookie, _parent->this, op_ret,      \
@@ -463,7 +466,9 @@ copy_frame (call_frame_t *frame)
         newstack->lk_owner = oldstack->lk_owner;
         newstack->ctx = oldstack->ctx;
 
-        timespec_now (&newstack->tv);
+        if (!frame->root->ctx->cmd_args.disable_latency_monitoring)
+                timespec_now (&newstack->tv);
+
         memcpy (&newframe->begin, &newstack->tv,
                 sizeof (newstack->tv));
 

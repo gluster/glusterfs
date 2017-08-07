@@ -33,6 +33,9 @@ gf_update_latency (void *fr)
         begin = &frame->begin;
         end   = &frame->end;
 
+        if (frame->root->ctx->cmd_args.disable_latency_monitoring)
+                goto out;
+
         if (!(begin->tv_sec && end->tv_sec))
                 goto out;
 
