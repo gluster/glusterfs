@@ -1579,6 +1579,8 @@ trash_truncate_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
         GF_VALIDATE_OR_GOTO ("trash", local, out);
 
+        TRASH_UNSET_PID (frame, local);
+
         /* Checks whether path is present in trash directory or not */
 
         if ((op_ret == -1) && (op_errno == ENOENT)) {
@@ -1753,6 +1755,9 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strcat (real_path, local->origpath);
                         /* Call create again once directory structure
                            is created. */
+
+                        TRASH_SET_PID (frame, local);
+
                         STACK_WIND (frame, trash_truncate_create_cbk,
                                     FIRST_CHILD(this),
                                     FIRST_CHILD(this)->fops->create,
@@ -1956,6 +1961,8 @@ trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_uuid_copy (local->newloc.pargfid, dir_entry->parent->gfid);
 
         flags = O_CREAT|O_EXCL|O_WRONLY;
+
+        TRASH_SET_PID (frame, local);
 
         STACK_WIND (frame, trash_truncate_create_cbk,
                     FIRST_CHILD(this),
