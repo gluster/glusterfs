@@ -1365,6 +1365,8 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
         VALIDATE_OR_GOTO (priv, out);
+        GFID_NULL_CHECK_AND_GOTO (frame, this, loc, xdata, op_ret, op_errno,
+                                  out);
         DISK_SPACE_CHECK_AND_GOTO (frame, priv, op_ret, op_errno, out);
 
         MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, NULL);
@@ -1584,6 +1586,8 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
         VALIDATE_OR_GOTO (priv, out);
+        GFID_NULL_CHECK_AND_GOTO (frame, this, loc, xdata, op_ret, op_errno,
+                                  out);
         DISK_SPACE_CHECK_AND_GOTO (frame, priv, op_ret, op_errno, out);
 
         MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, NULL);
@@ -2409,6 +2413,8 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
         VALIDATE_OR_GOTO (priv, out);
+        GFID_NULL_CHECK_AND_GOTO (frame, this, loc, xdata, op_ret, op_errno,
+                                  out);
         DISK_SPACE_CHECK_AND_GOTO (frame, priv, op_ret, op_errno, out);
 
         MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &stbuf);
@@ -3059,6 +3065,8 @@ posix_create (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
         VALIDATE_OR_GOTO (priv, out);
+        GFID_NULL_CHECK_AND_GOTO (frame, this, loc, xdata, op_ret, op_errno,
+                                  out);
         DISK_SPACE_CHECK_AND_GOTO (frame, priv, op_ret, op_errno, out);
 
         MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &stbuf);

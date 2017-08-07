@@ -855,6 +855,12 @@ posix_gfid_set (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
                         loc->path);
                 goto out;
         }
+        if (gf_uuid_is_null (uuid_req)) {
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL, P_MSG_NULL_GFID,
+                        "gfid is null for %s", loc ? loc->path : "");
+                ret = -1;
+                goto out;
+        }
 
         ret = sys_lsetxattr (path, GFID_XATTR_KEY, uuid_req, 16, XATTR_CREATE);
         if (ret == -1) {

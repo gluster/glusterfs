@@ -74,6 +74,35 @@
                }                                                              \
         } while (0)
 
+#define GFID_NULL_CHECK_AND_GOTO(frame, this, loc, xattr_req, op_ret,         \
+                                 op_errno, out)                               \
+        do {                                                                  \
+                void *_uuid_req = NULL;                                       \
+                int _ret = 0;                                                 \
+                /* TODO: Remove pid check once trash implements client side   \
+                 * logic to assign gfid for entry creations inside .trashcan  \
+                 */                                                           \
+                if (frame->root->pid == GF_SERVER_PID_TRASH)                  \
+                        break;                                                \
+                _ret = dict_get_ptr (xattr_req, "gfid-req", &_uuid_req);      \
+                if (_ret) {                                                   \
+                        gf_msg (this->name, GF_LOG_ERROR, EINVAL,             \
+                               P_MSG_NULL_GFID, "failed to get the gfid from" \
+                               " dict for %s", loc->path);                    \
+                        op_ret = -1;                                          \
+                        op_errno = EINVAL;                                    \
+                        goto out;                                             \
+                }                                                             \
+                if (gf_uuid_is_null (_uuid_req)) {                            \
+                        gf_msg (this->name, GF_LOG_ERROR, EINVAL,             \
+                                P_MSG_NULL_GFID, "gfid is null for %s",       \
+                                loc->path);                                   \
+                        op_ret = -1;                                          \
+                        op_errno = EINVAL;                                    \
+                        goto out;                                             \
+                }                                                             \
+        } while (0)
+
 
 /**
  * posix_fd - internal structure common to file and directory fd's
