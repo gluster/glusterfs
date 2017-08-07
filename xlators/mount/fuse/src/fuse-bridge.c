@@ -2960,7 +2960,6 @@ fuse_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (!((strcmp (entry->d_name, ".") == 0) ||
                       (strcmp (entry->d_name, "..") == 0))) {
                         inode_lookup (linked_inode);
-                        inode_set_need_lookup (linked_inode, this);
                 }
 
 		inode_unref (linked_inode);
