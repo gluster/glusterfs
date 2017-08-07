@@ -1232,16 +1232,9 @@ mdc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         loc_copy (&local->loc, loc);
 
-	if (!loc->name) {
-                GF_ATOMIC_INC (conf->mdc_counter.nameless_lookup);
-
-                gf_msg_trace ("md-cache", 0, "Nameless lookup(%s) sent to the "
-                              "brick", uuid_utoa (loc->inode->gfid));
-		/* A nameless discovery is dangerous to serve from cache. We
-		   perform nameless lookup with the intention of
-		   re-establishing an inode "properly"
-		*/
-		goto uncached;
+        if (!inode_is_linked(loc->inode)) {
+                GF_ATOMIC_INC (conf->mdc_counter.stat_miss);
+                goto uncached;
         }
 
         if (mdc_inode_reset_need_lookup (this, loc->inode)) {
@@ -1329,6 +1322,11 @@ mdc_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 goto uncached;
 
         loc_copy (&local->loc, loc);
+
+        if (!inode_is_linked(loc->inode)) {
+                GF_ATOMIC_INC (conf->mdc_counter.stat_miss);
+                goto uncached;
+        }
 
         ret = mdc_inode_iatt_get (this, loc->inode, &stbuf);
         if (ret != 0)
