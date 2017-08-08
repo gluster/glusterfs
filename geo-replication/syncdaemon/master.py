@@ -24,7 +24,7 @@ from datetime import datetime
 from gconf import gconf
 from syncdutils import Thread, GsyncdError, boolify, escape_space_newline
 from syncdutils import unescape_space_newline, gauxpfx, md5hex, selfkill
-from syncdutils import lstat, errno_wrap, FreeObject, lf
+from syncdutils import lstat, errno_wrap, FreeObject, lf, matching_disk_gfid
 from syncdutils import NoStimeAvailable, PartialHistoryAvailable
 
 URXTIME = (-1, 0)
@@ -792,6 +792,10 @@ class GMasterChangelogMixin(GMasterCommon):
         fix_entry_ops = []
         failures1 = []
         for failure in failures:
+            if failure[2]['dst']:
+                pbname = failure[0]['entry1']
+            else:
+                pbname = failure[0]['entry']
             if failure[2]['gfid_mismatch']:
                 slave_gfid = failure[2]['slave_gfid']
                 st = lstat(os.path.join(pfx, slave_gfid))
@@ -800,7 +804,6 @@ class GMasterChangelogMixin(GMasterCommon):
                                     ' the entry', retry_count=retry_count,
                                     entry=repr(failure)))
                     #Add deletion to fix_entry_ops list
-                    pbname = failure[0]['entry']
                     if failure[2]['slave_isdir']:
                         fix_entry_ops.append(edct('RMDIR',
                                                   gfid=failure[2]['slave_gfid'],
@@ -836,7 +839,6 @@ class GMasterChangelogMixin(GMasterCommon):
                                         ' Deleting the entry',
                                         retry_count=retry_count,
                                         entry=repr(failure)))
-                        pbname = failure[0]['entry']
                         fix_entry_ops.append(edct('UNLINK',
                                                   gfid=failure[2]['slave_gfid'],
                                                   entry=pbname))
@@ -1024,15 +1026,27 @@ class GMasterChangelogMixin(GMasterCommon):
                                         stat=st, link=rl))
                 else:
                     # stat() to get mode and other information
+                    if not matching_disk_gfid(gfid, en):
+                        logging.debug(lf('Ignoring entry, purged in the '
+                                      'interim', file=en, gfid=gfid))
+                        continue
+
                     go = os.path.join(pfx, gfid)
                     st = lstat(go)
                     if isinstance(st, int):
-                        logging.debug(lf('file got purged in the interim',
-                                         file=go))
+                        logging.debug(lf('Ignoring entry, purged in the '
+                                      'interim', file=en, gfid=gfid))
                         continue
 
                     if ty == 'LINK':
-                        entries.append(edct(ty, stat=st, entry=en, gfid=gfid))
+                        rl = None
+                        if st and stat.S_ISLNK(st.st_mode):
+                            rl = errno_wrap(os.readlink, [en], [ENOENT],
+                                            [ESTALE])
+                            if isinstance(rl, int):
+                                rl = None
+                        entries.append(edct(ty, stat=st, entry=en, gfid=gfid,
+                                       link=rl))
                     elif ty == 'SYMLINK':
                         rl = errno_wrap(os.readlink, [en], [ENOENT], [ESTALE])
                         if isinstance(rl, int):
