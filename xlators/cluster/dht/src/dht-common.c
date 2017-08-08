@@ -3815,6 +3815,14 @@ dht_file_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local->op_errno = op_errno;
 
+        if ((local->fop == GF_FOP_FSETXATTR) &&
+            op_ret == -1 && (op_errno == EBADF) && !(local->fd_checked)) {
+                ret = dht_check_and_open_fd_on_subvol (this, frame);
+                if (ret)
+                        goto out;
+                return 0;
+        }
+
         if ((op_ret == -1) && !dht_inode_missing (op_errno)) {
                 gf_msg_debug (this->name, op_errno,
                               "subvolume %s returned -1.",
@@ -4387,6 +4395,14 @@ dht_file_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         prev = cookie;
 
         local->op_errno = op_errno;
+
+        if ((local->fop == GF_FOP_FREMOVEXATTR) &&
+            (op_ret == -1) && (op_errno == EBADF) && !(local->fd_checked)) {
+                ret = dht_check_and_open_fd_on_subvol (this, frame);
+                if (ret)
+                        goto out;
+                return 0;
+        }
 
         if ((op_ret == -1) && !dht_inode_missing (op_errno)) {
                 gf_msg_debug (this->name, op_errno,
