@@ -66,6 +66,8 @@ except ImportError:
 _CL_AUX_GFID_PFX = ".gfid/"
 GF_OP_RETRIES = 10
 
+GX_GFID_CANONICAL_LEN = 37  # canonical gfid len + '\0'
+
 CHANGELOG_AGENT_SERVER_VERSION = 1.0
 CHANGELOG_AGENT_CLIENT_VERSION = 1.0
 NodeID = None
@@ -371,6 +373,33 @@ class GsyncdError(Exception):
     pass
 
 
+class _MetaXattr(object):
+
+    """singleton class, a lazy wrapper around the
+    libcxattr module
+
+    libcxattr (a heavy import due to ctypes) is
+    loaded only when when the single
+    instance is tried to be used.
+
+    This reduces runtime for those invocations
+    which do not need filesystem manipulation
+    (eg. for config, url parsing)
+    """
+
+    def __getattr__(self, meth):
+        from libcxattr import Xattr as LXattr
+        xmeth = [m for m in dir(LXattr) if m[0] != '_']
+        if meth not in xmeth:
+            return
+        for m in xmeth:
+            setattr(self, m, getattr(LXattr, m))
+        return getattr(self, meth)
+
+
+Xattr = _MetaXattr()
+
+
 def getusername(uid=None):
     if uid is None:
         uid = os.geteuid()
@@ -522,6 +551,23 @@ def errno_wrap(call, arg=[], errnos=[], retry_errnos=[]):
 
 def lstat(e):
     return errno_wrap(os.lstat, [e], [ENOENT], [ESTALE, EBUSY])
+
+
+def get_gfid_from_mnt(gfidpath):
+    return errno_wrap(Xattr.lgetxattr,
+                      [gfidpath, 'glusterfs.gfid.string',
+                       GX_GFID_CANONICAL_LEN], [ENOENT], [ESTALE])
+
+
+def matching_disk_gfid(gfid, entry):
+    disk_gfid = get_gfid_from_mnt(entry)
+    if isinstance(disk_gfid, int):
+        return False
+
+    if not gfid == disk_gfid:
+        return False
+
+    return True
 
 
 class NoStimeAvailable(Exception):
