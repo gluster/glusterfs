@@ -1613,6 +1613,7 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
         gf_boolean_t       down           = _gf_false;
         gf_boolean_t       fix_layout     = _gf_false;
         uint64_t           max_time       = 0;
+        uint64_t           max_elapsed    = 0;
         uint64_t           time_left      = 0;
         gf_boolean_t       show_estimates = _gf_false;
 
@@ -1755,6 +1756,9 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
                         gf_log ("cli", GF_LOG_TRACE,
                                 "failed to get time left");
 
+                if (elapsed > max_elapsed)
+                        max_elapsed = elapsed;
+
                 if (time_left > max_time)
                         max_time = time_left;
 
@@ -1815,7 +1819,7 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
                 if (!show_estimates) {
                         goto out;
                 }
-                if (elapsed <= REBAL_ESTIMATE_START_TIME) {
+                if (max_elapsed <= REBAL_ESTIMATE_START_TIME) {
                         cli_out ("The estimated time for rebalance to complete "
                                  "will be unavailable for the first 10 "
                                  "minutes.");
