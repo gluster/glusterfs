@@ -37,7 +37,6 @@
 #include "compat.h"
 #include "timer.h"
 #include "posix-mem-types.h"
-#include "posix-handle.h"
 #include "call-stub.h"
 
 #ifdef HAVE_LIBAIO
@@ -321,4 +320,47 @@ posix_fdget_objectsignature (int, dict_t *);
 
 gf_boolean_t
 posix_is_bulk_removexattr (char *name, dict_t *dict);
+
+int32_t
+posix_set_iatt_in_dict (dict_t *, struct iatt *);
+
+/* posix-entry.c FOP signatures */
+int32_t
+posix_lookup (call_frame_t *frame, xlator_t *this,
+              loc_t *loc, dict_t *xdata);
+
+int
+posix_create (call_frame_t *frame, xlator_t *this,
+              loc_t *loc, int32_t flags, mode_t mode,
+              mode_t umask, fd_t *fd, dict_t *xdata);
+
+int
+posix_symlink (call_frame_t *frame, xlator_t *this,
+               const char *linkname, loc_t *loc, mode_t umask, dict_t *xdata);
+
+int
+posix_rename (call_frame_t *frame, xlator_t *this,
+              loc_t *oldloc, loc_t *newloc, dict_t *xdata);
+
+int
+posix_link (call_frame_t *frame, xlator_t *this,
+            loc_t *oldloc, loc_t *newloc, dict_t *xdata);
+
+int
+posix_mknod (call_frame_t *frame, xlator_t *this,
+             loc_t *loc, mode_t mode, dev_t dev, mode_t umask, dict_t *xdata);
+
+int
+posix_mkdir (call_frame_t *frame, xlator_t *this,
+             loc_t *loc, mode_t mode, mode_t umask, dict_t *xdata);
+
+int32_t
+posix_unlink (call_frame_t *frame, xlator_t *this,
+              loc_t *loc, int xflag, dict_t *xdata);
+
+int
+posix_rmdir (call_frame_t *frame, xlator_t *this,
+             loc_t *loc, int flags, dict_t *xdata);
+
+
 #endif /* _POSIX_H */

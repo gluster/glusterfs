@@ -37,6 +37,8 @@
 #include "dict.h"
 #include "logging.h"
 #include "posix.h"
+#include "posix-messages.h"
+#include "posix-handle.h"
 #include "xlator.h"
 #include "defaults.h"
 #include "common-utils.h"
@@ -2571,4 +2573,26 @@ posix_is_bulk_removexattr (char *name, dict_t *xdata)
         if (name && (strlen (name) == 0) && xdata)
                 return _gf_true;
         return _gf_false;
+}
+
+int32_t posix_set_iatt_in_dict (dict_t *dict, struct iatt *in_stbuf)
+{
+        int ret             = -1;
+        struct iatt *stbuf  = NULL;
+        int32_t len         = sizeof(struct iatt);
+
+        if (!dict || !in_stbuf)
+                return ret;
+
+        stbuf = GF_CALLOC (1, len, gf_common_mt_char);
+        if (!stbuf)
+                return ret;
+
+        memcpy (stbuf, in_stbuf, len);
+
+        ret = dict_set_bin (dict, DHT_IATT_IN_XDATA_KEY, stbuf, len);
+        if (ret)
+                GF_FREE (stbuf);
+
+        return ret;
 }
