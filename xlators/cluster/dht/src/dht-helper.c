@@ -305,7 +305,6 @@ dht_check_and_open_fd_on_subvol_complete (int ret, call_frame_t *frame,
         switch (fop) {
 
         case GF_FOP_WRITE:
-
                 STACK_WIND_COOKIE (frame, dht_writev_cbk, subvol, subvol,
                                    subvol->fops->writev, fd,
                                    local->rebalance.vector,
@@ -316,13 +315,11 @@ dht_check_and_open_fd_on_subvol_complete (int ret, call_frame_t *frame,
                 break;
 
         case GF_FOP_FLUSH:
-
                 STACK_WIND (frame, dht_flush_cbk, subvol,
                             subvol->fops->flush, fd, local->xattr_req);
                 break;
 
         case GF_FOP_FSETATTR:
-
                 STACK_WIND_COOKIE (frame, dht_file_setattr_cbk, subvol,
                                    subvol, subvol->fops->fsetattr, fd,
                                    &local->rebalance.stbuf,
@@ -378,6 +375,20 @@ dht_check_and_open_fd_on_subvol_complete (int ret, call_frame_t *frame,
                 STACK_WIND_COOKIE (frame, dht_file_attr_cbk, subvol,
                                    subvol, subvol->fops->fstat, fd,
                                    local->xattr_req);
+                break;
+
+        case GF_FOP_FSETXATTR:
+                STACK_WIND_COOKIE (frame, dht_file_setxattr_cbk, subvol,
+                                   subvol, subvol->fops->fsetxattr, local->fd,
+                                   local->rebalance.xattr,
+                                   local->rebalance.flags, local->xattr_req);
+                break;
+
+        case GF_FOP_FREMOVEXATTR:
+                STACK_WIND_COOKIE (frame, dht_file_removexattr_cbk, subvol,
+                                   subvol, subvol->fops->fremovexattr,
+                                   local->fd, local->key, local->xattr_req);
+
                 break;
 
         default:
@@ -443,6 +454,14 @@ handle_err:
 
         case GF_FOP_FSTAT:
                 DHT_STACK_UNWIND (fstat, frame, -1, op_errno, NULL, NULL);
+                break;
+
+        case GF_FOP_FSETXATTR:
+                DHT_STACK_UNWIND (fsetxattr, frame, -1, op_errno, NULL);
+                break;
+
+        case GF_FOP_FREMOVEXATTR:
+                DHT_STACK_UNWIND (fremovexattr, frame, -1, op_errno, NULL);
                 break;
 
         default:

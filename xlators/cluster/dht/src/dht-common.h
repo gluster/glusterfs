@@ -1388,6 +1388,12 @@ dht_file_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int op_ret, int op_errno, struct iatt *stbuf, dict_t *xdata);
 
 
+int
+dht_file_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                          int op_ret, int op_errno, dict_t *xdata);
 
 
+int
+dht_file_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int op_ret, int op_errno, dict_t *xdata);
 #endif/* _DHT_H */
