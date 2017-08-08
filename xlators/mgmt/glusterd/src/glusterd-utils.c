@@ -2109,6 +2109,7 @@ retry:
         brickinfo->port = port;
         brickinfo->rdma_port = rdma_port;
         brickinfo->status = GF_BRICK_STARTING;
+        brickinfo->port_registered = _gf_false;
 
         if (wait) {
                 synclock_unlock (&priv->big_lock);
@@ -5392,13 +5393,6 @@ attach_brick (xlator_t *this,
 
         GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, unslashed);
 
-        ret = pmap_registry_extend (this, other_brick->port,
-                                    brickinfo->path);
-        if (ret != 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "adding brick to process failed");
-                return -1;
-        }
         GLUSTERD_GET_BRICK_PIDFILE (pidfile1, other_vol, other_brick, conf);
         GLUSTERD_GET_BRICK_PIDFILE (pidfile2, volinfo, brickinfo, conf);
 
@@ -5421,6 +5415,14 @@ attach_brick (xlator_t *this,
                                                GLUSTERD_BRICK_ATTACH);
                         rpc_clnt_unref (rpc);
                         if (!ret) {
+                                ret = pmap_registry_extend (this, other_brick->port,
+                                                            brickinfo->path);
+                                if (ret != 0) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "adding brick to process failed");
+                                        return ret;
+                                }
+
                                 /* PID file is copied once brick has attached
                                   successfully
                                 */
@@ -5429,6 +5431,7 @@ attach_brick (xlator_t *this,
                                 brickinfo->status = GF_BRICK_STARTED;
                                 brickinfo->rpc =
                                         rpc_clnt_ref (other_brick->rpc);
+                                brickinfo->port_registered = _gf_true;
                                 ret = glusterd_brick_process_add_brick (brickinfo,
                                                                         volinfo);
                                 if (ret) {
@@ -5482,6 +5485,7 @@ find_compat_brick_in_vol (glusterd_conf_t *conf,
         int16_t                 retries                 = 15;
         int                     mux_limit               = -1;
         int                     ret                     = -1;
+        gf_boolean_t            brick_status            = _gf_false;
 
         /*
          * If comp_vol is provided, we have to check *volume* compatibility
@@ -5556,31 +5560,45 @@ find_compat_brick_in_vol (glusterd_conf_t *conf,
                                 "set. Continuing with no limit set for "
                                 "brick multiplexing.");
                 }
-
-                GLUSTERD_GET_BRICK_PIDFILE (pidfile2, srch_vol, other_brick,
-                                            conf);
-
-                /* It is possible that the pidfile hasn't yet been populated,
-                 * when bricks are started in "no-wait" mode; for example
-                 * when bricks are started by glusterd_restart_bricks(). So
-                 * wait for the pidfile to be populated with a value before
-                 * checking if the service is running */
+                /* The first brick process might take some time to finish its
+                 * handshake with glusterd and prepare the graph. We can't
+                 * afford to send attach_req for other bricks till that time.
+                 * brick process sends PMAP_SIGNIN event after processing the
+                 * volfile and hence it's safe to assume that if glusterd has
+                 * received a pmap signin request for the same brick, we are
+                 * good for subsequent attach requests.
+                 */
+                retries = 15;
                 while (retries > 0) {
-                        if (sys_access (pidfile2, F_OK) == 0 &&
-                            gf_is_service_running (pidfile2, &pid2)) {
-                                break;
+                        if (other_brick->port_registered) {
+                                GLUSTERD_GET_BRICK_PIDFILE (pidfile2, srch_vol,
+                                                            other_brick, conf);
+                                if (sys_access (pidfile2, F_OK) == 0 &&
+                                    gf_is_service_running (pidfile2, &pid2)) {
+                                        gf_msg_debug (this->name, 0,
+                                                      "brick %s is running as a pid %d ",
+                                                      other_brick->path, pid2);
+                                        brick_status = _gf_true;
+                                        break;
+                                }
                         }
 
-                        sleep (1);
+                        synclock_unlock (&conf->big_lock);
+                        gf_msg_debug (this->name, 0, "brick %s is still"
+                                      " starting, waiting for 2 seconds ",
+                                      other_brick->path);
+                        sleep(2);
+                        synclock_lock (&conf->big_lock);
                         retries--;
                 }
 
-                if (retries == 0) {
+                if (!brick_status) {
                         gf_log (this->name, GF_LOG_INFO,
-                                "cleaning up dead brick %s:%s",
+                                "brick has not come up so cleaning up dead brick %s:%s",
                                 other_brick->hostname, other_brick->path);
                         other_brick->status = GF_BRICK_STOPPED;
-                        sys_unlink (pidfile2);
+                        if (pidfile2[0])
+                                sys_unlink (pidfile2);
                         continue;
                 }
                 return other_brick;
@@ -5856,6 +5874,12 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                                         brickinfo->path);
                                 goto out;
                         }
+                        /* We need to set the status back to STARTING so that
+                         * while the other (re)start brick requests come in for
+                         * other bricks, this brick can be considered as
+                         * compatible.
+                         */
+                        brickinfo->status = GF_BRICK_STARTING;
                 }
                 return 0;
         }
@@ -5899,7 +5923,8 @@ run:
          *
          * TBD: pray for GlusterD 2 to be ready soon.
          */
-
+        gf_log (this->name, GF_LOG_INFO, "starting a fresh brick process for "
+                "brick %s", brickinfo->path);
         ret = glusterd_volume_start_glusterfs (volinfo, brickinfo, wait);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
