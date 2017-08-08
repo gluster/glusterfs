@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2011-2012 Red Hat, Inc. <http://www.redhat.com>
+   Copyright (c) 2017 Red Hat, Inc. <http://www.redhat.com>
    This file is part of GlusterFS.
 
    This file is licensed to you under your choice of the GNU Lesser
@@ -7,8 +7,8 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#ifndef _POSIX2_HANDLE_H
-#define _POSIX2_HANDLE_H
+#ifndef _POSIX_INODE_HANDLE_H
+#define _POSIX_INODE_HANDLE_H
 
 #include <limits.h>
 #include <sys/types.h>
@@ -106,4 +106,4 @@ posix_handle_init (xlator_t *this);
 int
 posix_handle_trash_init (xlator_t *this);
 
-#endif /* !_POSIX2_HANDLE_H */
+#endif /* !_POSIX_INODE_HANDLE_H */

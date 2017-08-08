@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2011-2012 Red Hat, Inc. <http://www.redhat.com>
+   Copyright (c) 2011-2017 Red Hat, Inc. <http://www.redhat.com>
    This file is part of GlusterFS.
 
    This file is licensed to you under your choice of the GNU Lesser
@@ -7,8 +7,8 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#ifndef _POSIX_HANDLE1_H
-#define _POSIX_HANDLE1_H
+#ifndef _POSIX_HANDLE_H
+#define _POSIX_HANDLE_H
 
 #include "posix-inode-handle.h"
 
@@ -188,4 +188,4 @@ int
 posix_create_link_if_gfid_exists (xlator_t *this, uuid_t gfid,
                                   char *real_path, inode_table_t *itable);
 
-#endif /* !_POSIX_HANDLE1_H */
+#endif /* !_POSIX_HANDLE_H */
