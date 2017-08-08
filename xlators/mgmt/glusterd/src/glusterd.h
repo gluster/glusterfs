@@ -238,6 +238,7 @@ struct glusterd_brickinfo {
            the backend filesystem */
         uint64_t           statfs_fsid;
         uint32_t           fs_share_count;
+        gf_boolean_t       port_registered;
 };
 
 typedef struct glusterd_brickinfo glusterd_brickinfo_t;

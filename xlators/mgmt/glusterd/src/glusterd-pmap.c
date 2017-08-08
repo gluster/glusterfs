@@ -502,6 +502,9 @@ __gluster_pmap_signin (rpcsvc_request_t *req)
                                          GF_PMAP_PORT_BRICKSERVER, req->trans);
 
         ret = glusterd_get_brickinfo (THIS, args.brick, args.port, &brickinfo);
+        /* Update portmap status in brickinfo */
+        if (brickinfo)
+                brickinfo->port_registered = _gf_true;
 
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
@@ -554,6 +557,10 @@ __gluster_pmap_signout (rpcsvc_request_t *req)
                                 brick_path, GF_PMAP_PORT_BRICKSERVER,
                                 req->trans);
         }
+        /* Update portmap status on brickinfo */
+        if (brickinfo)
+                brickinfo->port_registered = _gf_false;
+
         /* Clean up the pidfile for this brick given glusterfsd doesn't clean it
          * any more. This is required to ensure we don't end up with having
          * stale pid files in case a brick is killed from the backend
