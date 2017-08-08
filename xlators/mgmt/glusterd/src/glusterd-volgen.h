@@ -57,7 +57,8 @@
 
 typedef enum {
         GF_CLIENT_TRUSTED,
-        GF_CLIENT_OTHER
+        GF_CLIENT_OTHER,
+        GF_CLIENT_TRUSTED_PROXY,
 } glusterd_client_type_t;
 
 /* It indicates the type of volfile that the graph is built for */
