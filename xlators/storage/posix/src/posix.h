@@ -324,6 +324,24 @@ posix_is_bulk_removexattr (char *name, dict_t *dict);
 int32_t
 posix_set_iatt_in_dict (dict_t *, struct iatt *);
 
+int32_t
+posix_priv (xlator_t *this);
+
+int32_t
+posix_inode (xlator_t *this);
+
+void
+posix_fini (xlator_t *this);
+
+int
+posix_init (xlator_t *this);
+
+int
+posix_reconfigure (xlator_t *this, dict_t *options);
+
+int32_t
+posix_notify (xlator_t *this, int32_t event, void *data, ...);
+
 /* posix-entry-ops.c FOP signatures */
 int32_t
 posix_lookup (call_frame_t *frame, xlator_t *this,

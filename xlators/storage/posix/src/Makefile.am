@@ -5,7 +5,8 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/storage
 posix_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 posix_la_SOURCES = posix.c posix-helpers.c posix-handle.c posix-aio.c \
-	posix-gfid-path.c posix-entry-ops.c posix-inode-fd-ops.c
+	posix-gfid-path.c posix-entry-ops.c posix-inode-fd-ops.c \
+        posix-common.c
 posix_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(LIBAIO) \
 	$(ACL_LIBS)
 
