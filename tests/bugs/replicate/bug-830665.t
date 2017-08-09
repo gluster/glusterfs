@@ -77,9 +77,8 @@ volid=$(getfattr -e hex -n trusted.glusterfs.volume-id $B0/${V0}-0 2> /dev/null 
 rm -rf $B0/${V0}-0;
 mkdir $B0/${V0}-0;
 #Ideally, disk replacement is done using reset-brick or replace-brick gluster CLI
-#which will create .glusterfs/indices folder.
+#which will create .glusterfs folder.
 mkdir $B0/${V0}-0/.glusterfs && chmod 600 $B0/${V0}-0/.glusterfs
-mkdir $B0/${V0}-0/.glusterfs/indices && chmod 600 $B0/${V0}-0/.glusterfs/indices
 
 setfattr -n trusted.glusterfs.volume-id -v $volid $B0/${V0}-0
 
