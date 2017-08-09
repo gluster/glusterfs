@@ -1444,7 +1444,7 @@ glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
         struct stat  root_st             = {0,};
         char         msg[2048]           = {0,};
         gf_boolean_t is_created          = _gf_false;
-        char         index_basepath[PATH_MAX] = {0};
+        char         glusterfs_dir_path[PATH_MAX] = {0};
 
         ret = sys_mkdir (brickinfo->path, 0777);
         if (ret) {
@@ -1457,18 +1457,6 @@ glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
                 }
         } else {
                 is_created = _gf_true;
-        }
-
-        glusterd_get_index_basepath (brickinfo, index_basepath,
-                                     sizeof(index_basepath));
-
-        ret = mkdir_p (index_basepath, 0600, _gf_true);
-        if (ret && (errno != EEXIST)) {
-                snprintf (msg, sizeof (msg), "Failed to create index "
-                          "basepath (%s) for brick %s:%s. Reason : %s ",
-                          index_basepath, brickinfo->hostname,
-                          brickinfo->path, strerror (errno));
-                goto out;
         }
 
         ret = sys_lstat (brickinfo->path, &brick_st);
@@ -1546,6 +1534,18 @@ glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
                                                   op_errstr, is_force);
         if (ret)
                 goto out;
+
+        /* create .glusterfs directory */
+        snprintf (glusterfs_dir_path, sizeof (glusterfs_dir_path), "%s/%s",
+                  brickinfo->path, ".glusterfs");
+        ret = sys_mkdir (glusterfs_dir_path, 0600);
+        if (ret && (errno != EEXIST)) {
+                snprintf (msg, sizeof (msg), "Failed to create .glusterfs "
+                          "directory for brick %s:%s. Reason : %s ",
+                          brickinfo->hostname, brickinfo->path,
+                          strerror (errno));
+                goto out;
+        }
 
         ret = 0;
 

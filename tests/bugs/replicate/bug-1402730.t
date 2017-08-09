@@ -24,9 +24,8 @@ rm -rf $B0/${V0}2/*
 rm -rf $B0/${V0}2/.glusterfs
 
 #Ideally, disk replacement is done using reset-brick or replace-brick gluster CLI
-#which will create .glusterfs/indices folder.
+#which will create .glusterfs folder.
 mkdir $B0/${V0}2/.glusterfs && chmod 600 $B0/${V0}2/.glusterfs
-mkdir $B0/${V0}2/.glusterfs/indices && chmod 600 $B0/${V0}2/.glusterfs/indices
 
 TEST $CLI volume start $V0 force
 

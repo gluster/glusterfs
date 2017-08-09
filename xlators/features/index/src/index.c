@@ -15,6 +15,7 @@
 #include "common-utils.h"
 #include "index-messages.h"
 #include <ftw.h>
+#include <libgen.h> /* for dirname() */
 #include <signal.h>
 
 #define XATTROP_SUBDIR "xattrop"
@@ -2285,6 +2286,8 @@ init (xlator_t *this)
         char            *watchlist = NULL;
         char            *dirtylist = NULL;
         char            *pendinglist = NULL;
+        char            *index_base_parent = NULL;
+        char            *tmp = NULL;
 
 	if (!this->children || this->children->next) {
 		gf_msg (this->name, GF_LOG_ERROR, EINVAL,
@@ -2336,12 +2339,14 @@ init (xlator_t *this)
         }
 
         GF_OPTION_INIT ("index-base", priv->index_basepath, path, out);
-        if (gf_lstat_dir (priv->index_basepath, NULL) != 0) {
+        tmp = gf_strdup(priv->index_basepath);
+        index_base_parent = dirname(tmp);
+        if (gf_lstat_dir (index_base_parent, NULL) != 0) {
                 ret = -1;
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         INDEX_MSG_INDEX_DIR_CREATE_FAILED,
-                        "Failed to find index basepath %s.",
-                        priv->index_basepath);
+                        "Failed to find parent dir (%s) of index basepath %s.",
+                        index_base_parent, priv->index_basepath);
                 goto out;
         }
 
@@ -2414,6 +2419,8 @@ init (xlator_t *this)
 
         ret = 0;
 out:
+        GF_FREE(tmp);
+
         if (ret) {
                 if (cond_inited)
                         pthread_cond_destroy (&priv->cond);

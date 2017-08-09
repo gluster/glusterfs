@@ -2012,8 +2012,8 @@ brick_graph_add_index (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (!xl)
                 goto out;
 
-        glusterd_get_index_basepath (brickinfo, index_basepath,
-                                     sizeof(index_basepath));
+        snprintf (index_basepath, sizeof (index_basepath), "%s/%s",
+                  brickinfo->path, ".glusterfs/indices");
 
         ret = xlator_set_option (xl, "index-base", index_basepath);
         if (ret)
