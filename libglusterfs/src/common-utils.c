@@ -3735,6 +3735,28 @@ gf_compare_sockaddr (const struct sockaddr *addr1,
         return _gf_false;
 }
 
+
+/*
+ * gf_compare_double
+ * simple compare function for doubles
+ * for the purpose of sorting
+ */
+
+int
+gf_compare_double (const void* a, const void* b)
+{
+        double da = *(double *) a, db = *(double *) b;
+
+        if (da == db) {
+                return 0;
+        } else if (da < db) {
+                return -1;
+        } else {
+                return 1;
+        }
+}
+
+
 /*
  * gf_set_timestamp:
  *      It sets the mtime and atime of 'dest' file as of 'src'.

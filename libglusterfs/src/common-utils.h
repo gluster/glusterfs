@@ -795,6 +795,9 @@ gf_boolean_t
 gf_compare_sockaddr (const struct sockaddr *addr1,
                      const struct sockaddr *addr2);
 
+int
+gf_compare_double (const void *a, const void *b);
+
 char *
 gf_backtrace_save (char *buf);
 
