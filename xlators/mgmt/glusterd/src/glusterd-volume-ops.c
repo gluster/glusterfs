@@ -100,9 +100,11 @@ glusterd_check_brick_order(dict_t *dict, char *err_str)
                                 " if you want to override this behavior. ";
         const char      found_string[2048]  = "Multiple bricks of a %s "
                                 "volume are present on the same server. This "
-                                "setup is not optimal. Use 'force' at the "
-                                "end of the command if you want to override "
-                                "this behavior. ";
+                                "setup is not optimal. Bricks should be on "
+                                "different nodes to have best fault tolerant "
+                                "configuration. Use 'force' at the end of the "
+                                "command if you want to override this "
+                                "behavior. ";
 
         this = THIS;
 
