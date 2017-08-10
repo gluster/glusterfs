@@ -9,4 +9,5 @@ volume management
     option event-threads 1
 #   option transport.address-family inet6
 #   option base-port 49152
+#   option max-port  65535
 end-volume
