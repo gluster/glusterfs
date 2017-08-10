@@ -2002,7 +2002,14 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         }
 
         port = pmap_assign_port (THIS, brickinfo->port, brickinfo->path);
-
+        if (!port) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_PORTS_EXHAUSTED,
+                        "All the ports in the range are exhausted, can't start "
+                        "brick %s for volume %s", brickinfo->path,
+                        volinfo->volname);
+                ret = -1;
+                goto out;
+        }
         /* Build the exp_path, before starting the glusterfsd even in
            valgrind mode. Otherwise all the glusterfsd processes start
            writing the valgrind log to the same file.
@@ -2077,6 +2084,15 @@ retry:
                           brickinfo->path);
                 rdma_port = pmap_assign_port (THIS, brickinfo->rdma_port,
                                               rdma_brick_path);
+                if (!rdma_port) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_PORTS_EXHAUSTED, "All rdma ports in the "
+                                "range are exhausted, can't start brick %s for "
+                                "volume %s", rdma_brick_path,
+                                volinfo->volname);
+                        ret = -1;
+                        goto out;
+                }
                 runner_argprintf (&runner, "%d,%d", port, rdma_port);
                 runner_add_arg (&runner, "--xlator-option");
                 runner_argprintf (&runner, "%s-server.transport.rdma.listen-port=%d",

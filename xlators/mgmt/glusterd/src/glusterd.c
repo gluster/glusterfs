@@ -1823,11 +1823,19 @@ init (xlator_t *this)
         if (ret)
                 goto out;
 
-         conf->base_port = GF_IANA_PRIV_PORTS_START;
-         if (dict_get_uint32(this->options, "base-port", &conf->base_port) == 0) {
+        conf->base_port = GF_IANA_PRIV_PORTS_START;
+        if (dict_get_uint32 (this->options, "base-port",
+                             &conf->base_port) == 0) {
                 gf_msg (this->name, GF_LOG_INFO, 0,
                         GD_MSG_DICT_SET_FAILED,
                         "base-port override: %d", conf->base_port);
+         }
+         conf->max_port = GF_PORT_MAX;
+         if (dict_get_uint32 (this->options, "max-port",
+                              &conf->max_port) == 0) {
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        GD_MSG_DICT_SET_FAILED,
+                        "max-port override: %d", conf->max_port);
          }
 
         /* Set option to run bricks on valgrind if enabled in glusterd.vol */
@@ -2133,6 +2141,11 @@ struct volume_options options[] = {
         { .key = {"base-port"},
           .type = GF_OPTION_TYPE_INT,
           .description = "Sets the base port for portmap query"
+        },
+        { .key = {"max-port"},
+          .type = GF_OPTION_TYPE_INT,
+          .max = GF_PORT_MAX,
+          .description = "Sets the max port for portmap query"
         },
         { .key = {"snap-brick-path"},
           .type = GF_OPTION_TYPE_STR,

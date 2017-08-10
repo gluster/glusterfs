@@ -41,7 +41,7 @@
 
 #define GLUSTERD_COMP_BASE      GLFS_MSGID_GLUSTERD
 
-#define GLFS_NUM_MESSAGES       611
+#define GLFS_NUM_MESSAGES       612
 
 #define GLFS_MSGID_END          (GLUSTERD_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
@@ -4936,6 +4936,14 @@
  *
  */
 #define GD_MSG_LOCALTIME_LOGGING_DISABLE (GLUSTERD_COMP_BASE + 611)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_PORTS_EXHAUSTED (GLUSTERD_COMP_BASE + 612)
 
 /*------------*/
 

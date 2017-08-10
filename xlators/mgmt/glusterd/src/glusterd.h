@@ -187,6 +187,7 @@ typedef struct {
         gf_boolean_t               restart_done;
         rpcsvc_t                  *uds_rpc; /* RPCSVC for the unix domain socket */
         uint32_t                   base_port;
+        uint32_t                   max_port;
         char                      *snap_bricks_directory;
         gf_store_handle_t         *missed_snaps_list_shandle;
         struct cds_list_head       missed_snaps_list;

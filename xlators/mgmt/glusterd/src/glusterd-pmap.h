@@ -31,8 +31,9 @@ struct pmap_port_status {
 
 struct pmap_registry {
         int     base_port;
+        int     max_port;
         int     last_alloc;
-        struct  pmap_port_status ports[65536];
+        struct  pmap_port_status ports[GF_PORT_MAX + 1];
 };
 
 int pmap_assign_port (xlator_t *this, int port, const char *path);

@@ -61,8 +61,8 @@ pmap_registry_new (xlator_t *this)
 
         pmap->base_port = pmap->last_alloc =
                 ((glusterd_conf_t *)(this->private))->base_port;
-
-        for (i = pmap->base_port; i <= GF_PORT_MAX; i++) {
+        pmap->max_port = ((glusterd_conf_t *)(this->private))->max_port;
+        for (i = pmap->base_port; i <= pmap->max_port; i++) {
                 if (pmap_port_isfree (i))
                         pmap->ports[i].type = GF_PMAP_PORT_FREE;
                 else
@@ -184,10 +184,12 @@ pmap_registry_search_by_xprt (xlator_t *this, void *xprt,
 static char *
 pmap_registry_search_by_port (xlator_t *this, int port)
 {
-        struct pmap_registry *pmap = NULL;
-        char *brickname = NULL;
+        struct  pmap_registry *pmap = NULL;
+        char   *brickname           = NULL;
+        int     max_port            = 0;
 
-        if (port > GF_PORT_MAX)
+        max_port = ((glusterd_conf_t *)(this->private))->max_port;
+        if (port > max_port)
                 goto out;
 
         pmap = pmap_registry_get (this);
@@ -209,7 +211,7 @@ pmap_registry_alloc (xlator_t *this)
 
         pmap = pmap_registry_get (this);
 
-        for (p = pmap->base_port; p <= GF_PORT_MAX; p++) {
+        for (p = pmap->base_port; p <= pmap->max_port; p++) {
                 /* GF_PMAP_PORT_FOREIGN may be freed up ? */
                 if ((pmap->ports[p].type == GF_PMAP_PORT_FREE) ||
                     (pmap->ports[p].type == GF_PMAP_PORT_FOREIGN)) {
@@ -260,7 +262,7 @@ pmap_registry_bind (xlator_t *this, int port, const char *brickname,
 
         pmap = pmap_registry_get (this);
 
-        if (port > GF_PORT_MAX)
+        if (port > pmap->max_port)
                 goto out;
 
         p = port;
@@ -296,7 +298,7 @@ pmap_registry_extend (xlator_t *this, int port, const char *brickname)
 
         pmap = pmap_registry_get (this);
 
-        if (port > GF_PORT_MAX) {
+        if (port > pmap->max_port) {
                 return -1;
         }
 
@@ -355,7 +357,7 @@ pmap_registry_remove (xlator_t *this, int port, const char *brickname,
                 goto out;
 
         if (port) {
-                if (port > GF_PORT_MAX)
+                if (port > pmap->max_port)
                         goto out;
 
                 p = port;
