@@ -994,7 +994,9 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                 ret = -1;
                                 snprintf (errstr, sizeof (errstr),
                                           "Required op_version (%d) is not "
-                                          "supported", new_op_version);
+                                          "supported. Max supported op version "
+                                          "is %d", new_op_version,
+                                          priv->op_version);
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_UNSUPPORTED_VERSION, "%s",
                                         errstr);
@@ -1219,7 +1221,9 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                 ret = -1;
                                 snprintf (errstr, sizeof (errstr),
                                           "Required op_version (%d) is not "
-                                          "supported", local_key_op_version);
+                                          "supported. Max supported op version "
+                                          "is %d", local_key_op_version,
+                                          priv->op_version);
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_VERSION_UNSUPPORTED,
                                         "%s", errstr);
