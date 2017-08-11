@@ -414,13 +414,16 @@ gf_svc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         }
 
         if (strcmp (loc->name, priv->path)) {
-                if (parent_type == NORMAL_INODE) {
-                        subvolume = FIRST_CHILD (this);
-                        local->subvolume = subvolume;
-                } else {
+                if (parent_type == VIRTUAL_INODE) {
                         subvolume = SECOND_CHILD (this);
-                        local->subvolume = subvolume;
+                } else {
+                        /*
+                         * Either parent type is normal graph, or the parent
+                         * type is uncertain.
+                         */
+                        subvolume = FIRST_CHILD (this);
                 }
+                local->subvolume = subvolume;
         } else {
                 subvolume = SECOND_CHILD (this);
                 local->subvolume = subvolume;
