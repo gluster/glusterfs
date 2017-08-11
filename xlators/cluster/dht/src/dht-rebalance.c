@@ -2674,6 +2674,11 @@ gf_defrag_migrate_single_file (void *opaque)
                                         defrag->skipped += 1;
                                 }
                                 UNLOCK (&defrag->lock);
+
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        DHT_MSG_MIGRATE_FILE_SKIPPED,
+                                        "File migration skipped for %s.",
+                                        entry_loc.path);
                         }
 
                 } else if (fop_errno == ENOTSUP) {
@@ -2684,6 +2689,12 @@ gf_defrag_migrate_single_file (void *opaque)
                                 defrag->skipped += 1;
                         }
                         UNLOCK (&defrag->lock);
+
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                DHT_MSG_MIGRATE_FILE_SKIPPED,
+                                "File migration skipped for %s.",
+                                entry_loc.path);
+
                 } else if (fop_errno != EEXIST) {
                         gf_msg (this->name, GF_LOG_ERROR, fop_errno,
                                 DHT_MSG_MIGRATE_FILE_FAILED,

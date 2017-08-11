@@ -40,7 +40,7 @@
  */
 
 #define GLFS_DHT_BASE                   GLFS_MSGID_COMP_DHT
-#define GLFS_DHT_NUM_MESSAGES           125
+#define GLFS_DHT_NUM_MESSAGES           126
 #define GLFS_MSGID_END          (GLFS_DHT_BASE + GLFS_DHT_NUM_MESSAGES + 1)
 
 /* Messages with message IDs */
@@ -1133,6 +1133,13 @@
  * @recommendedaction None
  */
 #define DHT_MSG_UNKNOWN_FOP            (GLFS_DHT_BASE + 125)
+
+/*
+ * @messageid 109126
+ * @diagnosis
+ * @recommendedaction None
+ */
+#define DHT_MSG_MIGRATE_FILE_SKIPPED        (GLFS_DHT_BASE + 126)
 
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* _DHT_MESSAGES_H_ */
