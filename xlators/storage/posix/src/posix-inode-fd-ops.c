@@ -41,7 +41,11 @@
 #include "dict.h"
 #include "logging.h"
 #include "posix.h"
+#ifdef POSIX2
+#include "posix2-inode-handle.h"
+#else
 #include "posix-inode-handle.h"
+#endif
 #include "xlator.h"
 #include "defaults.h"
 #include "common-utils.h"

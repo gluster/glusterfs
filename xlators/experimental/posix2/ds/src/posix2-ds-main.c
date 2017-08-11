@@ -14,29 +14,21 @@
  * The entire functionality including comments is TODO.
  */
 
-#include "glusterfs.h"
 #include "xlator.h"
-#include "logging.h"
-#include "statedump.h"
 
-#include "posix2-common.h"
 #include "posix2-common-fops.h"
-
-int32_t
-posix2_ds_init (xlator_t *this)
-{
-        return posix2_common_init (this);
-}
-
-void
-posix2_ds_fini (xlator_t *this)
-{
-        return posix2_common_fini (this);
-}
+#include "posix.h"
 
 class_methods_t class_methods = {
-        .init           = posix2_ds_init,
-        .fini           = posix2_ds_fini,
+        .init           = posix_init,
+        .fini           = posix_fini,
+        .reconfigure    = posix_reconfigure,
+        .notify         = posix_notify
+};
+
+struct xlator_dumpops dumpops = {
+        .priv    = posix_priv,
+        .inode   = posix_inode,
 };
 
 struct xlator_fops fops = {
@@ -44,7 +36,7 @@ struct xlator_fops fops = {
         .stat           = posix2_common_stat,
         .fstat          = posix2_common_fstat,
         .truncate       = posix2_common_truncate,
-        .ftruncate      = posix2_common_ftruncate,
+        .ftruncate      = posix_ftruncate,
         .access         = posix2_common_access,
         .readlink       = posix2_common_readlink,
         .mknod          = posix2_common_mknod,
@@ -56,46 +48,46 @@ struct xlator_fops fops = {
         .link           = posix2_common_link,
         .create         = posix2_common_create,
         .open           = posix2_common_open,
-        .readv          = posix2_common_readv,
-        .writev         = posix2_common_writev,
-        .flush          = posix2_common_flush,
-        .fsync          = posix2_common_fsync,
+        .readv          = posix_readv,
+        .writev         = posix_writev,
+        .flush          = posix_flush,
+        .fsync          = posix_fsync,
         .opendir        = posix2_common_opendir,
         .readdir        = posix2_common_readdir,
         .readdirp       = posix2_common_readdirp,
         .fsyncdir       = posix2_common_fsyncdir,
-        .statfs         = posix2_common_statfs,
+        .statfs         = posix_statfs,
         .setxattr       = posix2_common_setxattr,
         .getxattr       = posix2_common_getxattr,
         .fsetxattr      = posix2_common_fsetxattr,
         .fgetxattr      = posix2_common_fgetxattr,
         .removexattr    = posix2_common_removexattr,
         .fremovexattr   = posix2_common_fremovexattr,
-        .lk             = posix2_common_lk,
-        .inodelk        = posix2_common_inodelk,
-        .finodelk       = posix2_common_finodelk,
-        .entrylk        = posix2_common_entrylk,
-        .fentrylk       = posix2_common_fentrylk,
-        .rchecksum      = posix2_common_rchecksum,
+        .lk             = posix_lk,
+        .inodelk        = posix_inodelk,
+        .finodelk       = posix_finodelk,
+        .entrylk        = posix_entrylk,
+        .fentrylk       = posix_fentrylk,
+        .rchecksum      = posix_rchecksum,
         .xattrop        = posix2_common_xattrop,
         .fxattrop       = posix2_common_fxattrop,
         .setattr        = posix2_common_setattr,
         .fsetattr       = posix2_common_fsetattr,
-        .fallocate      = posix2_common_fallocate,
-        .discard        = posix2_common_discard,
-        .zerofill       = posix2_common_zerofill,
-        .ipc            = posix2_common_ipc,
-        .seek           = posix2_common_seek,
-        .lease          = posix2_common_lease,
+        .fallocate      = posix_glfallocate,
+        .discard        = posix_discard,
+        .zerofill       = posix_zerofill,
+        .ipc            = posix_ipc,
+#ifdef HAVE_SEEK_HOLE
+        .seek           = posix_seek,
+#endif
+        .lease          = posix_lease,
 /*        .compound       = posix2_common_compound, */
-        .getactivelk    = posix2_common_getactivelk,
-        .setactivelk    = posix2_common_setactivelk,
+/*        .getactivelk    = posix2_common_getactivelk,*/
+/*        .setactivelk    = posix2_common_setactivelk,*/
 };
 
 struct xlator_cbks cbks = {
+        .release     = posix_release,
+        .releasedir  = posix_releasedir,
+        .forget      = posix_forget
 };
-
-/*
-struct xlator_dumpops dumpops = {
-};
-*/
