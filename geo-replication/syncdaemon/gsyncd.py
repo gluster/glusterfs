@@ -117,6 +117,8 @@ def main():
     p.add_argument("--slave-log-level", help="Slave Gsyncd Log level")
     p.add_argument("--slave-gluster-log-level",
                    help="Slave Gluster mount Log level")
+    p.add_argument("--slave-gluster-command-dir",
+                   help="Directory where Gluster binaries exist on slave")
     p.add_argument("--slave-access-mount", action="store_true",
                    help="Do not lazy umount the slave volume")
 

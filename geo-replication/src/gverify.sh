@@ -11,11 +11,19 @@ slave_log_file=`gluster --print-logdir`/geo-replication-slaves/slave.log
 
 function SSHM()
 {
-    ssh -p ${SSH_PORT} -q \
-	-oPasswordAuthentication=no \
-	-oStrictHostKeyChecking=no \
-	-oControlMaster=yes \
-	"$@";
+    if [[ -z "${GR_SSH_IDENTITY_KEY}" ]]; then
+        ssh -p ${SSH_PORT} -q \
+	    -oPasswordAuthentication=no \
+	    -oStrictHostKeyChecking=no \
+	    -oControlMaster=yes \
+	    "$@";
+    else
+        ssh -p ${SSH_PORT} -i ${GR_SSH_IDENTITY_KEY} -q \
+	    -oPasswordAuthentication=no \
+	    -oStrictHostKeyChecking=no \
+	    -oControlMaster=yes \
+	    "$@";
+    fi
 }
 
 function get_inode_num()
@@ -172,7 +180,12 @@ function main()
         exit 1;
     fi;
 
-    ssh -p ${SSH_PORT} -oNumberOfPasswordPrompts=0 -oStrictHostKeyChecking=no $2@$3 "echo Testing_Passwordless_SSH";
+    if [[ -z "${GR_SSH_IDENTITY_KEY}" ]]; then
+        ssh -p ${SSH_PORT} -oNumberOfPasswordPrompts=0 -oStrictHostKeyChecking=no $2@$3 "echo Testing_Passwordless_SSH";
+    else
+        ssh -p ${SSH_PORT} -i ${GR_SSH_IDENTITY_KEY} -oNumberOfPasswordPrompts=0 -oStrictHostKeyChecking=no $2@$3 "echo Testing_Passwordless_SSH";
+    fi
+
     if [ $? -ne 0 ]; then
         echo "FORCE_BLOCKER|Passwordless ssh login has not been setup with $3 for user $2." > $log_file
         exit 1;

@@ -86,9 +86,16 @@ if [ -f $pub_file ]; then
         scp -P ${SSH_PORT} $pub_file $slave_user@$slave_ip:$slave_user_home_dir/common_secret.pem.pub_tmp
         ssh -p ${SSH_PORT} $slave_user@$slave_ip "mv $slave_user_home_dir/common_secret.pem.pub_tmp $slave_user_home_dir/${mastervol}_${slavevol}_common_secret.pem.pub"
     else
-        scp -P ${SSH_PORT} $pub_file $slave_ip:$pub_file_tmp
-        ssh -p ${SSH_PORT} $slave_ip "mv $pub_file_tmp ${pub_file_dname}/${mastervol}_${slavevol}_${pub_file_bname}"
-        ssh -p ${SSH_PORT} $slave_ip "gluster system:: copy file /geo-replication/${mastervol}_${slavevol}_common_secret.pem.pub > /dev/null"
-        ssh -p ${SSH_PORT} $slave_ip "gluster system:: execute add_secret_pub root geo-replication/${mastervol}_${slavevol}_common_secret.pem.pub > /dev/null"
+        if [[ -z "${GR_SSH_IDENTITY_KEY}" ]]; then
+            scp -P ${SSH_PORT} $pub_file $slave_ip:$pub_file_tmp
+            ssh -p ${SSH_PORT} $slave_ip "mv $pub_file_tmp ${pub_file_dname}/${mastervol}_${slavevol}_${pub_file_bname}"
+            ssh -p ${SSH_PORT} $slave_ip "gluster system:: copy file /geo-replication/${mastervol}_${slavevol}_common_secret.pem.pub > /dev/null"
+            ssh -p ${SSH_PORT} $slave_ip "gluster system:: execute add_secret_pub root geo-replication/${mastervol}_${slavevol}_common_secret.pem.pub > /dev/null"
+        else
+            scp -P ${SSH_PORT} -i ${GR_SSH_IDENTITY_KEY} $pub_file $slave_ip:$pub_file_tmp
+            ssh -p ${SSH_PORT} -i ${GR_SSH_IDENTITY_KEY} $slave_ip "mv $pub_file_tmp ${pub_file_dname}/${mastervol}_${slavevol}_${pub_file_bname}"
+            ssh -p ${SSH_PORT} -i ${GR_SSH_IDENTITY_KEY} $slave_ip "gluster system:: copy file /geo-replication/${mastervol}_${slavevol}_common_secret.pem.pub > /dev/null"
+            ssh -p ${SSH_PORT} -i ${GR_SSH_IDENTITY_KEY} $slave_ip "gluster system:: execute add_secret_pub root geo-replication/${mastervol}_${slavevol}_common_secret.pem.pub > /dev/null"
+        fi
     fi
 fi

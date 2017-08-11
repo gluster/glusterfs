@@ -117,7 +117,11 @@ help=If SSH keys are not secured with gsyncd prefix then use this configuration 
 
 [gluster-command-dir]
 value=/usr/local/sbin/
-help=Directory where Gluster binary exists
+help=Directory where Gluster binaries exist on master
+
+[slave-gluster-command-dir]
+value=/usr/local/sbin/
+help=Directory where Gluster binaries exist on slave
 
 [gluster-params]
 value = aux-gfid-mount acl
