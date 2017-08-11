@@ -135,6 +135,7 @@ reconfigure (xlator_t *this, dict_t *options)
         char          *qtype       = NULL;
         char          *fav_child_policy = NULL;
         gf_boolean_t   consistent_io = _gf_false;
+        gf_boolean_t   choose_local_old = _gf_false;
 
         priv = this->private;
 
@@ -201,6 +202,16 @@ reconfigure (xlator_t *this, dict_t *options)
                               uint32, out);
 
         GF_OPTION_RECONF ("read-subvolume", read_subvol, options, xlator, out);
+
+        choose_local_old = priv->choose_local;
+        GF_OPTION_RECONF ("choose-local", priv->choose_local, options, bool,
+                          out);
+
+        if (choose_local_old != priv->choose_local) {
+                priv->read_child = -1;
+                if (choose_local_old == _gf_false)
+                        priv->did_discovery = _gf_false;
+        }
 
         GF_OPTION_RECONF ("read-hash-mode", priv->hash_mode,
                           options, uint32, out);
