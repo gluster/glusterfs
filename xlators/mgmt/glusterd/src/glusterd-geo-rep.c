@@ -67,7 +67,7 @@ struct gsync_config_opt_vals_ gsync_confopt_vals[] = {
 };
 
 static char *gsync_reserved_opts[] = {
-        "gluster-command-dir",
+        "gluster-command",
         "pid-file",
         "state-file",
         "session-owner",
@@ -1201,6 +1201,10 @@ gsync_verify_config_options (dict_t *dict, char **op_errstr, char *volname)
                                 continue;
                         banned = _gf_false;
                 }
+
+                if (op_name[i] != '\0')
+                        banned = _gf_false;
+
                 if (banned) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 GD_MSG_RESERVED_OPTION,
@@ -6091,9 +6095,9 @@ create_conf_file (glusterd_conf_t *conf, char *conf_path)
          * slave pre-configuration
          ************/
 
-        /* gluster-command-dir */
+        /* slave-gluster-command-dir */
         runinit_gsyncd_setrx (&runner, conf_path);
-        runner_add_args (&runner, "gluster-command-dir", SBIN_DIR"/",
+        runner_add_args (&runner, "slave-gluster-command-dir", SBIN_DIR"/",
                          ".", NULL);
         RUN_GSYNCD_CMD;
 

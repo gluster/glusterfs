@@ -854,9 +854,9 @@ configure_syncdaemon (glusterd_conf_t *conf)
          * slave pre-configuration
          ************/
 
-        /* gluster-command-dir */
+        /* slave-gluster-command-dir */
         runinit_gsyncd_setrx (&runner, conf);
-        runner_add_args (&runner, "gluster-command-dir", SBIN_DIR"/",
+        runner_add_args (&runner, "slave-gluster-command-dir", SBIN_DIR"/",
                          ".", NULL);
         RUN_GSYNCD_CMD;
 

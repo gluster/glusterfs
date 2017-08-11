@@ -807,8 +807,10 @@ class Mounter(object):
 
     @classmethod
     def get_glusterprog(cls):
-        return os.path.join(gconf.get("gluster-command-dir"),
-                            cls.glusterprog)
+        gluster_cmd_dir = gconf.get("gluster-command-dir")
+        if rconf.args.subcmd == "slave":
+            gluster_cmd_dir = gconf.get("slave-gluster-command-dir")
+        return os.path.join(gluster_cmd_dir, cls.glusterprog)
 
     def umount_l(self, d):
         """perform lazy umount"""
@@ -1371,7 +1373,9 @@ class SSH(object):
                 '--slave-timeout', str(gconf.get("slave-timeout")),
                 '--slave-log-level', gconf.get("slave-log-level"),
                 '--slave-gluster-log-level',
-                gconf.get("slave-gluster-log-level")]
+                gconf.get("slave-gluster-log-level"),
+                '--slave-gluster-command-dir',
+                gconf.get("slave-gluster-command-dir")]
 
         if gconf.get("slave-access-mount"):
             args_to_slave.append('--slave-access-mount')
