@@ -58,10 +58,16 @@ struct gf_memory_stats {
 };
 typedef struct gf_memory_stats gf_memory_stats_t;
 
+struct gf_mem_stats_blk_values {
+        char *blk_size_str;
+        uint32_t blk_size;
+};
+
 void mem_accounting_stats_init ();
 
 void update_blk_count (size_t size);
 extern gf_memory_stats_t gf_memory_stat_counts;
+extern struct gf_mem_stats_blk_values gf_mem_stats_blk[GF_BLK_MAX_VALUE];
 
 #define UPDATE_MEMORY_STATS(op,size)                            \
         do {                                                    \
@@ -71,7 +77,7 @@ extern gf_memory_stats_t gf_memory_stat_counts;
 
 #define UPDATE_MEMORY_FREE_STATS() GF_ATOMIC_INC(gf_memory_stat_counts.total_free)
 
-#else
+#else /* MEM_ACC_STATS */
 #define UPDATE_MEMORY_STATS(op,size) {}
 #define UPDATE_MEMORY_FREE_STATS() {}
 #endif

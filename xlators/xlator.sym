@@ -8,3 +8,5 @@ notify
 mem_acct_init
 reconfigure
 dumpops
+dump_metrics
+reset_metrics

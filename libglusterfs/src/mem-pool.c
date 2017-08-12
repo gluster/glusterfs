@@ -30,6 +30,14 @@
 #if MEMORY_ACCOUNTING_STATS
 gf_memory_stats_t gf_memory_stat_counts;
 
+struct gf_mem_stats_blk_values gf_mem_stats_blk[GF_BLK_MAX_VALUE] = {
+        {"128b", 128},
+        {"512b", 512},
+        {"1k", 1024 },
+        {"4k", 4 * 1024 },
+        {">4k", 4 * 1024 }
+};
+
 void
 mem_accounting_stats_init ()
 {
@@ -51,19 +59,19 @@ void
 update_blk_count (size_t size)
 {
 #if MEMORY_ACCOUNTING_STATS
-        /* TODO: We can make this better by keeping value to compare,
-           and string to log in a structure and use that here for all this */
-        if (size <= 128) {
-                GF_ATOMIC_INC (gf_memory_stat_counts.blk_size[GF_BLK_LT_128B]);
-        } else if (size <= 512) {
-                GF_ATOMIC_INC (gf_memory_stat_counts.blk_size[GF_BLK_LT_512B]);
-        } else if (size <= 1024) {
-                GF_ATOMIC_INC (gf_memory_stat_counts.blk_size[GF_BLK_LT_1KB]);
-        } else if (size <= 4096) {
-                GF_ATOMIC_INC (gf_memory_stat_counts.blk_size[GF_BLK_LT_4KB]);
-        } else {
-                GF_ATOMIC_INC (gf_memory_stat_counts.blk_size[GF_BLK_MT_4KB]);
+        int i = 0;
+        gf_boolean_t done = _gf_false;
+
+        for (i = 0; i < (GF_BLK_MAX_VALUE - 1); i++) {
+                if (size <= gf_mem_stats_blk[i].blk_size) {
+                        GF_ATOMIC_INC (gf_memory_stat_counts.blk_size[i]);
+                        done = _gf_true;
+                        break;
+                }
         }
+        if (!done)
+                GF_ATOMIC_INC (gf_memory_stat_counts.blk_size[GF_BLK_MAX_VALUE - 1]);
+
 #endif
 }
 

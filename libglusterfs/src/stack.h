@@ -253,7 +253,10 @@ STACK_RESET (call_stack_t *stack)
                 /* Need to capture counts at leaf node */               \
                 if (!next_xl->children) {                               \
                         int op = get_fop_index_from_fn((next_xl), (fn)); \
-                        GF_ATOMIC_INC (next_xl->metrics[op].fop);       \
+                        GF_ATOMIC_INC (next_xl->stats.total.metrics[op].fop); \
+                        GF_ATOMIC_INC (next_xl->stats.interval.metrics[op].fop); \
+                        GF_ATOMIC_INC (next_xl->stats.total.count);     \
+                        GF_ATOMIC_INC (next_xl->stats.interval.count);  \
                 }                                                       \
                 next_xl_fn (frame, next_xl, params);                    \
                 THIS = old_THIS;                                        \
@@ -309,10 +312,13 @@ STACK_RESET (call_stack_t *stack)
                               "winding from %s to %s",                  \
                               frame->root, old_THIS->name,              \
                               THIS->name);                              \
-                if (!frame->root->ctx->cmd_args.disable_latency_monitoring) \
-                        timespec_now (&_new->begin);                    \
+                /* if (!frame->root->ctx->cmd_args.disable_latency_monitoring) \ */ \
+                timespec_now (&_new->begin);                            \
                 set_fop_index(_new->op, _new->this, fn);                \
-                GF_ATOMIC_INC (obj->metrics[_new->op].fop);             \
+                GF_ATOMIC_INC (obj->stats.total.metrics[_new->op].fop); \
+                GF_ATOMIC_INC (obj->stats.interval.metrics[_new->op].fop); \
+                GF_ATOMIC_INC (obj->stats.total.count);                 \
+                GF_ATOMIC_INC (obj->stats.interval.count);              \
                 fn (_new, obj, params);                                 \
                 THIS = old_THIS;                                        \
         } while (0)
@@ -365,13 +371,13 @@ STACK_RESET (call_stack_t *stack)
                 THIS = _parent->this;                                   \
                 frame->complete = _gf_true;                             \
                 frame->unwind_from = __FUNCTION__;                      \
-                if (!frame->root->ctx->cmd_args.disable_latency_monitoring) \
-                        timespec_now (&frame->end);                     \
+                /* if (!frame->root->ctx->cmd_args.disable_latency_monitoring) \ */ \
+                timespec_now (&frame->end);                             \
                 if (op_ret < 0) {                                       \
-                        GF_ATOMIC_INC (THIS->metrics[frame->op].cbk);   \
+                        GF_ATOMIC_INC (THIS->stats.total.metrics[frame->op].cbk); \
+                        GF_ATOMIC_INC (THIS->stats.interval.metrics[frame->op].cbk); \
                 }                                                       \
-                if ((!frame->root->ctx->cmd_args.disable_latency_monitoring) && \
-                    (_parent->ret == NULL)) {                           \
+                if (_parent->ret == NULL) {                             \
                         timespec_now (&_parent->end);                   \
                 }                                                       \
                 fn (_parent, frame->cookie, _parent->this, op_ret,      \

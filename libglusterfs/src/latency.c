@@ -33,16 +33,19 @@ gf_update_latency (void *fr)
         begin = &frame->begin;
         end   = &frame->end;
 
-        if (frame->root->ctx->cmd_args.disable_latency_monitoring)
+        if (!(begin->tv_sec && end->tv_sec)) {
                 goto out;
-
-        if (!(begin->tv_sec && end->tv_sec))
-                goto out;
+        }
 
         elapsed = (end->tv_sec - begin->tv_sec) * 1e9
                 + (end->tv_nsec - begin->tv_nsec);
 
-        lat = &frame->this->latencies[frame->op];
+        /* Can happen mostly at initiator xlator, as STACK_WIND/UNWIND macros
+           set it right anyways for those frames */
+        if (!frame->op)
+                frame->op = frame->root->op;
+
+        lat = &frame->this->stats.interval.latencies[frame->op];
 
         lat->total += elapsed;
         lat->count++;
@@ -68,12 +71,12 @@ gf_proc_dump_latency_info (xlator_t *xl)
                                         (char *)gf_fop_list[i]);
 
                 gf_proc_dump_write (key, "%.03f,%"PRId64",%.03f",
-                                    xl->latencies[i].mean,
-                                    xl->latencies[i].count,
-                                    xl->latencies[i].total);
+                                    xl->stats.interval.latencies[i].mean,
+                                    xl->stats.interval.latencies[i].count,
+                                    xl->stats.interval.latencies[i].total);
         }
 
-        memset (xl->latencies, 0, sizeof (xl->latencies));
+        memset (xl->stats.interval.latencies, 0, sizeof (xl->stats.interval.latencies));
 }
 
 

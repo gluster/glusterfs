@@ -1015,6 +1015,32 @@ client_destroy_cbk (xlator_t *this, client_t *client)
         return 0;
 }
 
+int32_t
+dump_metrics (xlator_t *this, int fd)
+{
+        rpc_transport_t *xprt   = NULL;
+        server_conf_t   *conf   = NULL;
+        client_t        *client = NULL;
+        conf = this->private;
+
+        list_for_each_entry (xprt, &conf->xprt_list, list) {
+                client = xprt->xl_private;
+
+                if (!client)
+                        continue;
+
+                dprintf (fd, "%s.total.rpc.%s.bytes_read %lu\n", this->name,
+                         client->client_uid, xprt->total_bytes_read);
+                dprintf (fd, "%s.total.rpc.%s.bytes_write %lu\n", this->name,
+                         client->client_uid, xprt->total_bytes_write);
+                dprintf (fd, "%s.total.rpc.%s.outstanding %d\n", this->name,
+                         client->client_uid, xprt->outstanding_rpc_count);
+        }
+
+        return 0;
+}
+
+
 int
 init (xlator_t *this)
 {

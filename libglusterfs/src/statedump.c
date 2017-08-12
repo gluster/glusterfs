@@ -299,13 +299,12 @@ xl_dump_metrics (xlator_t *xl)
                                   xl->type, xl->name);
 
         for (i = 0; i < GF_FOP_MAXVALUE; i++) {
-                if (GF_ATOMIC_GET(xl->metrics[i].fop) == 0)
+                if (GF_ATOMIC_GET(xl->stats.total.metrics[i].fop) == 0)
                         continue;
                 gf_proc_dump_write (gf_fop_list[i],
-                                    "fop: %lu, cbk: %lu, failed_cbk: %u",
-                                    GF_ATOMIC_GET(xl->metrics[i].fop),
-                                    GF_ATOMIC_GET(xl->metrics[i].cbk),
-                                    GF_ATOMIC_GET(xl->metrics[i].failed_cbk));
+                                    "fop: %lu, cbk: %lu",
+                                    GF_ATOMIC_GET(xl->stats.total.metrics[i].fop),
+                                    GF_ATOMIC_GET(xl->stats.total.metrics[i].cbk));
         }
 }
 

@@ -621,6 +621,8 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
                 goto err;
         }
 
+        master->enable_monitoring = _gf_true;
+
         ctx->master = master;
 
         return 0;

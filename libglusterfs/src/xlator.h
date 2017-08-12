@@ -938,8 +938,7 @@ typedef struct xlator_list {
 
 typedef struct fop_metrics {
         gf_atomic_t fop;
-        gf_atomic_t cbk;
-        gf_atomic_t failed_cbk;
+        gf_atomic_t cbk; /* only updaed when there is failure */
 } fop_metrics_t;
 
 struct _xlator {
@@ -970,12 +969,24 @@ struct _xlator {
 
         gf_loglevel_t    loglevel;   /* Log level for translator */
 
-        int64_t             client_latency;
-        /* for latency measurement */
-        fop_latency_t latencies[GF_FOP_MAXVALUE];
+        struct {
+                int64_t  client_latency;
+                struct {
+                        /* for latency measurement */
+                        fop_metrics_t metrics[GF_FOP_MAXVALUE];
 
-        /* for latency measurement */
-        fop_metrics_t metrics[GF_FOP_MAXVALUE];
+                        gf_atomic_t count;
+                } total;
+
+                struct {
+                        /* for latency measurement */
+                        fop_latency_t latencies[GF_FOP_MAXVALUE];
+                        /* for latency measurement */
+                        fop_metrics_t metrics[GF_FOP_MAXVALUE];
+
+                        gf_atomic_t count;
+                } interval;
+        } stats;
 
         /* Misc */
         eh_t               *history; /* event history context */
@@ -997,6 +1008,8 @@ struct _xlator {
 
         /* Its used as an index to inode_ctx*/
         uint32_t            xl_id;
+
+        gf_boolean_t        enable_monitoring;
 };
 
 typedef struct {

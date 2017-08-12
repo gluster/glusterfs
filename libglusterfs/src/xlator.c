@@ -185,6 +185,19 @@ xlator_volopt_dynload (char *xlator_type, void **dl_handle,
 
 }
 
+/* Use this function for generic options */
+static void
+check_generic_options_and_set_flags (xlator_t *this)
+{
+        /* TODO: enhance it later */
+        if (!this->children)
+                this->enable_monitoring = _gf_true;
+
+        if (!this->parents)
+                this->enable_monitoring = _gf_true;
+
+        return;
+}
 
 int
 xlator_dynload (xlator_t *xl)
@@ -484,14 +497,22 @@ __xlator_init(xlator_t *xl)
 
         /* initialize the metrics related locks */
         for (fop_idx = 0; fop_idx < GF_FOP_MAXVALUE; fop_idx++) {
-                GF_ATOMIC_INIT (xl->metrics[fop_idx].fop, 0);
-                GF_ATOMIC_INIT (xl->metrics[fop_idx].cbk, 0);
-                GF_ATOMIC_INIT (xl->metrics[fop_idx].failed_cbk, 0);
+                GF_ATOMIC_INIT (xl->stats.total.metrics[fop_idx].fop, 0);
+                GF_ATOMIC_INIT (xl->stats.total.metrics[fop_idx].cbk, 0);
+
+                GF_ATOMIC_INIT (xl->stats.interval.metrics[fop_idx].fop, 0);
+                GF_ATOMIC_INIT (xl->stats.interval.metrics[fop_idx].cbk, 0);
         }
+        GF_ATOMIC_INIT (xl->stats.total.count, 0);
+        GF_ATOMIC_INIT (xl->stats.interval.count, 0);
 
         xlator_init_lock ();
         ret = xl->init (xl);
         xlator_init_unlock ();
+
+        xl->enable_monitoring = _gf_false;
+        /* considering this is a global option, handling these here */
+        check_generic_options_and_set_flags (xl);
 
         THIS = old_THIS;
 

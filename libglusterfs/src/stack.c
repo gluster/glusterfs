@@ -44,7 +44,7 @@ create_frame (xlator_t *xl, call_pool_t *pool)
         stack->ctx = xl->ctx;
 
         timespec_now (&stack->tv);
-        memcpy (&frame->begin, &stack->tv, sizeof (stack->tv));
+        timespec_now (&frame->begin);
 
         LOCK (&pool->lock);
         {
