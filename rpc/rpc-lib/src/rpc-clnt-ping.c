@@ -112,7 +112,7 @@ rpc_clnt_ping_timer_expired (void *rpc_ptr)
         rpc_clnt_connection_t   *conn               = NULL;
         int                      disconnect         = 0;
         int                      transport_activity = 0;
-        struct timeval           current            = {0, };
+        struct timespec          current            = {0, };
         int                      unref              = 0;
 
         rpc = (struct rpc_clnt*) rpc_ptr;
@@ -129,7 +129,7 @@ rpc_clnt_ping_timer_expired (void *rpc_ptr)
         {
                 unref = rpc_clnt_remove_ping_timer_locked (rpc);
 
-                gettimeofday (&current, NULL);
+                clock_gettime (CLOCK_REALTIME, &current);
                 if (((current.tv_sec - conn->last_received.tv_sec) <
                      conn->ping_timeout)
                     || ((current.tv_sec - conn->last_sent.tv_sec) <
