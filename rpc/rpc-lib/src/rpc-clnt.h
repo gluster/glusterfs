@@ -143,8 +143,8 @@ struct rpc_clnt_connection {
         gf_boolean_t             disconnected;
         struct saved_frames     *saved_frames;
         int32_t                  frame_timeout;
-	struct timeval           last_sent;
-	struct timeval           last_received;
+	struct timespec          last_sent;
+	struct timespec          last_received;
 	int32_t                  ping_started;
         char                    *name;
 	int32_t                  ping_timeout;
