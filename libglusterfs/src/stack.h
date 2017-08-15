@@ -32,6 +32,7 @@ typedef struct call_pool call_pool_t;
 #include "globals.h"
 #include "lkowner.h"
 #include "client_t.h"
+#include "fd.h"
 #include "libglusterfs-messages.h"
 
 #define NFS_PID 1
@@ -78,6 +79,13 @@ struct _call_frame_t {
         const char      *unwind_to;
 };
 
+struct _ns_info {
+        uint32_t     hash;  /* Hash of the namespace from SuperFastHash */
+        gf_boolean_t found; /* Set to true if we found a namespace */
+};
+
+typedef struct _ns_info ns_info_t;
+
 #define SMALL_GROUP_COUNT 128
 
 struct _call_stack_t {
@@ -110,6 +118,8 @@ struct _call_stack_t {
         int32_t                       op;
         int8_t                        type;
         struct timeval                tv;
+
+        ns_info_t                     ns_info;
 };
 
 

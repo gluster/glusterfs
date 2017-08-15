@@ -1919,6 +1919,25 @@ out:
         return ret;
 }
 
+static int
+brick_graph_add_namespace (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                           dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+
+        xlator_t        *xl = NULL;
+        int             ret = -1;
+
+        if (!graph || !volinfo || !set_dict)
+                goto out;
+
+        xl = volgen_graph_add (graph, "features/namespace", volinfo->volname);
+        if (!xl)
+                goto out;
+        ret = 0;
+out:
+        return ret;
+}
+
 xlator_t *
 add_one_peer (volgen_graph_t *graph, glusterd_brickinfo_t *peer,
               char *volname, uint16_t index)
@@ -2430,6 +2449,7 @@ static volgen_brick_xlator_t server_graph_table[] = {
         {brick_graph_add_server, NULL},
         {brick_graph_add_decompounder, "decompounder"},
         {brick_graph_add_io_stats, "NULL"},
+        {brick_graph_add_namespace, "namespace"},
         {brick_graph_add_cdc, NULL},
         {brick_graph_add_quota, "quota"},
         {brick_graph_add_index, "index"},

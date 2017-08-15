@@ -143,6 +143,8 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/read-only/src/Makefile
                 xlators/features/compress/Makefile
                 xlators/features/compress/src/Makefile
+                xlators/features/namespace/Makefile
+                xlators/features/namespace/src/Makefile
                 xlators/features/mac-compat/Makefile
                 xlators/features/mac-compat/src/Makefile
                 xlators/features/quiesce/Makefile
