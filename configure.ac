@@ -929,7 +929,7 @@ GF_LDFLAGS="-rdynamic"
 BUILD_ASAN=no
 if test "x$with_asan" = "xyes"; then
     echo -n "checking for address sanitizer (ASAN) support... "
-    AC_LANG_CONFTEST(AC_LANG_PROGRAM())
+    AC_LANG_CONFTEST([AC_LANG_PROGRAM()])
     $CC conftest.c $CFLAGS -fsanitize=address -o conftest
     ret=$?
     rm -f conftest.o conftest
