@@ -45,9 +45,7 @@
 int32_t
 afr_quorum_errno (afr_private_t *priv)
 {
-        if (priv->quorum_reads)
-                return ENOTCONN;
-        return EROFS;
+        return ENOTCONN;
 }
 
 int
@@ -1091,8 +1089,6 @@ afr_replies_interpret (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	return ret;
 }
 
-
-
 int
 afr_refresh_selfheal_done (int ret, call_frame_t *heal, void *opaque)
 {
@@ -1663,6 +1659,29 @@ afr_inode_read_subvol_type_get (inode_t *inode, xlator_t *this,
 	return ret;
 }
 
+void
+afr_readables_intersect_get (inode_t *inode, xlator_t *this, int *event,
+                             unsigned char *intersection)
+{
+	afr_private_t *priv = NULL;
+	unsigned char *data_readable = NULL;
+	unsigned char *metadata_readable = NULL;
+	unsigned char *intersect = NULL;
+
+	priv = this->private;
+	data_readable = alloca0 (priv->child_count);
+	metadata_readable = alloca0 (priv->child_count);
+	intersect = alloca0 (priv->child_count);
+
+	afr_inode_read_subvol_get (inode, this, data_readable,
+                                   metadata_readable, event);
+
+	AFR_INTERSECT (intersect, data_readable, metadata_readable,
+		       priv->child_count);
+        if (intersection)
+                memcpy (intersection, intersect,
+                        sizeof (*intersection) * priv->child_count);
+}
 
 int
 afr_read_subvol_get (inode_t *inode, xlator_t *this, int *subvol_p,
@@ -1671,8 +1690,6 @@ afr_read_subvol_get (inode_t *inode, xlator_t *this, int *subvol_p,
                      afr_read_subvol_args_t *args)
 {
 	afr_private_t *priv = NULL;
-	unsigned char *data_readable = NULL;
-	unsigned char *metadata_readable = NULL;
 	unsigned char *readable = NULL;
 	unsigned char *intersection = NULL;
 	int subvol = -1;
@@ -1681,17 +1698,11 @@ afr_read_subvol_get (inode_t *inode, xlator_t *this, int *subvol_p,
 	priv = this->private;
 
 	readable = alloca0 (priv->child_count);
-	data_readable = alloca0 (priv->child_count);
-	metadata_readable = alloca0 (priv->child_count);
 	intersection = alloca0 (priv->child_count);
 
 	afr_inode_read_subvol_type_get (inode, this, readable, &event, type);
 
-	afr_inode_read_subvol_get (inode, this, data_readable, metadata_readable,
-				   &event);
-
-	AFR_INTERSECT (intersection, data_readable, metadata_readable,
-		       priv->child_count);
+        afr_readables_intersect_get (inode, this, &event, intersection);
 
 	if (AFR_COUNT (intersection, priv->child_count) > 0)
 		subvol = afr_read_subvol_select_by_policy (inode, this,
@@ -2144,18 +2155,28 @@ afr_get_parent_read_subvol (xlator_t *this, inode_t *parent,
 
 int
 afr_read_subvol_decide (inode_t *inode, xlator_t *this,
-                        afr_read_subvol_args_t *args)
+                        afr_read_subvol_args_t *args, unsigned char *readable)
 {
-        int data_subvol  = -1;
-        int mdata_subvol = -1;
+        int event = 0;
+        afr_private_t *priv = NULL;
+        unsigned char *intersection = NULL;
 
-        data_subvol = afr_data_subvol_get (inode, this, NULL, NULL, NULL, args);
-        mdata_subvol = afr_metadata_subvol_get (inode, this,
-                                                NULL, NULL, NULL, args);
-        if (data_subvol == -1 || mdata_subvol == -1)
+        priv = this->private;
+        intersection = alloca0 (priv->child_count);
+
+        afr_readables_intersect_get (inode, this, &event, intersection);
+
+        if (AFR_COUNT (intersection, priv->child_count) <= 0) {
+                /* TODO: If we have one brick with valid data_readable and
+                 * another with metadata_readable, try to send an iatt with
+                 * valid bits from both.*/
                 return -1;
+        }
 
-        return data_subvol;
+        memcpy (readable, intersection, sizeof (*readable) * priv->child_count);
+
+        return afr_read_subvol_select_by_policy (inode, this, intersection,
+                                                 args);
 }
 
 static inline int
@@ -2172,7 +2193,49 @@ afr_first_up_child (call_frame_t *frame, xlator_t *this)
                 if (local->replies[i].valid &&
                     local->replies[i].op_ret == 0)
                         return i;
-        return 0;
+        return -1;
+}
+
+static void
+afr_attempt_readsubvol_set (call_frame_t *frame, xlator_t *this,
+                            unsigned char *success_replies,
+                            unsigned char *data_readable, int *read_subvol)
+{
+        afr_private_t *priv = NULL;
+        afr_local_t *local = NULL;
+        int spb_choice = -1;
+        int child_count = -1;
+
+        if (*read_subvol != -1)
+                return;
+
+        priv = this->private;
+        local = frame->local;
+        child_count = priv->child_count;
+
+        afr_inode_split_brain_choice_get (local->inode, this,
+                                          &spb_choice);
+        if ((spb_choice >= 0) &&
+            (AFR_COUNT(success_replies, child_count) == child_count)) {
+                *read_subvol = spb_choice;
+        } else if (!priv->quorum_count) {
+                *read_subvol = afr_first_up_child (frame, this);
+        } else if (priv->quorum_count &&
+                   afr_has_quorum (data_readable, this)) {
+                /* read_subvol is guaranteed to be valid if we hit this path. */
+                *read_subvol = afr_first_up_child (frame, this);
+        } else {
+               /* If quorum is enabled and we do not have a
+                  readable yet, it means all good copies are down.
+               */
+               local->op_ret = -1;
+               local->op_errno = ENOTCONN;
+               gf_msg (this->name, GF_LOG_WARNING, 0,
+                       AFR_MSG_READ_SUBVOL_ERROR, "no read "
+                       "subvols for %s", local->loc.path);
+        }
+        if (*read_subvol >= 0)
+                dict_del (local->replies[*read_subvol].xdata, GF_CONTENT_KEY);
 }
 
 static void
@@ -2186,13 +2249,13 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
         int                 par_read_subvol = 0;
         int                 ret         = -1;
 	unsigned char      *readable = NULL;
+        unsigned char      *success_replies = NULL;
 	int                 event = 0;
 	struct afr_reply   *replies = NULL;
 	uuid_t              read_gfid = {0, };
 	gf_boolean_t        locked_entry = _gf_false;
 	gf_boolean_t        can_interpret = _gf_true;
         inode_t            *parent = NULL;
-        int                 spb_choice = -1;
         ia_type_t           ia_type = IA_INVAL;
         afr_read_subvol_args_t args = {0,};
         char               *gfid_heal_msg = NULL;
@@ -2206,11 +2269,12 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
                                                   this);
 
 	readable = alloca0 (priv->child_count);
+	success_replies = alloca0 (priv->child_count);
 
 	afr_inode_read_subvol_get (parent, this, readable, NULL, &event);
+        par_read_subvol = afr_get_parent_read_subvol (this, parent, replies,
+                                                      readable);
 
-        afr_inode_split_brain_choice_get (local->inode, this,
-                                                &spb_choice);
 	/* First, check if we have a gfid-change from somewhere,
 	   If so, propagate that so that a fresh lookup can be
 	   issued
@@ -2218,13 +2282,17 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
         if (local->cont.lookup.needs_fresh_lookup) {
                 local->op_ret = -1;
                 local->op_errno = ESTALE;
-                goto unwind;
+                goto error;
         }
 
 	op_errno = afr_final_errno (frame->local, this->private);
 	local->op_errno = op_errno;
 
 	read_subvol = -1;
+        for (i = 0; i < priv->child_count; i++)
+                if (replies[i].valid && replies[i].op_ret == 0)
+                        success_replies[i] = 1;
+
 	for (i = 0; i < priv->child_count; i++) {
 		if (!replies[i].valid)
 			continue;
@@ -2233,9 +2301,9 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 		    replies[i].op_errno == ENOENT) {
 			/* Second, check entry is still
 			   "underway" in creation */
-			local->op_ret = -1;
-			local->op_errno = ENOENT;
-			goto unwind;
+                        local->op_ret = -1;
+                        local->op_errno = ENOENT;
+                        goto error;
 		}
 
 		if (replies[i].op_ret == -1)
@@ -2249,8 +2317,8 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 		}
 	}
 
-	if (read_subvol == -1)
-		goto unwind;
+        if (read_subvol == -1)
+                goto error;
 	/* We now have a read_subvol, which is readable[] (if there
 	   were any). Next we look for GFID mismatches. We don't
 	   consider a GFID mismatch as an error if read_subvol is
@@ -2276,58 +2344,61 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 		if (readable[read_subvol] && !readable[i])
 			continue;
 
+                /* If we were called from glfsheal and there is still a gfid
+                 * mismatch, succeed the lookup and let glfsheal print the
+                 * response via gfid-heal-msg.*/
+                if (!dict_get_str (local->xattr_req, "gfid-heal-msg",
+                                   &gfid_heal_msg))
+                        goto cant_interpret;
+
 		/* LOG ERROR */
 		local->op_ret = -1;
 		local->op_errno = EIO;
-		goto unwind;
+		goto error;
 	}
 
 	/* Forth, for the finalized GFID, pick the best subvolume
 	   to return stats from.
 	*/
+        read_subvol = -1;
+        memset (readable, 0, sizeof (*readable) * priv->child_count);
 	if (can_interpret) {
+                if (!afr_has_quorum (success_replies, this))
+                        goto cant_interpret;
 		/* It is safe to call afr_replies_interpret() because we have
 		   a response from all the UP subvolumes and all of them resolved
 		   to the same GFID
 		*/
                 gf_uuid_copy (args.gfid, read_gfid);
                 args.ia_type = ia_type;
-		if (afr_replies_interpret (frame, this, local->inode, NULL)) {
-                        read_subvol = afr_read_subvol_decide (local->inode,
-                                                              this, &args);
+		ret = afr_replies_interpret (frame, this, local->inode, NULL);
+                read_subvol = afr_read_subvol_decide (local->inode, this, &args,
+                                                      readable);
+                if (read_subvol == -1)
+                        goto cant_interpret;
+                if (ret) {
 			afr_inode_event_gen_reset (local->inode, this);
-			goto cant_interpret;
-		} else {
-                        read_subvol = afr_data_subvol_get (local->inode, this,
-                                                       NULL, NULL, NULL, &args);
-		}
+                        dict_del (local->replies[read_subvol].xdata,
+                                  GF_CONTENT_KEY);
+                }
 	} else {
 	cant_interpret:
+                afr_attempt_readsubvol_set (frame, this, success_replies,
+                                            readable, &read_subvol);
                 if (read_subvol == -1) {
-                        if (spb_choice >= 0)
-                                read_subvol = spb_choice;
-                        else
-                                read_subvol = afr_first_up_child (frame, this);
+                        goto error;
                 }
-		dict_del (replies[read_subvol].xdata, GF_CONTENT_KEY);
 	}
 
 	afr_handle_quota_size (frame, this);
 
-unwind:
         afr_set_need_heal (this, local);
-        if (read_subvol == -1) {
-                if (spb_choice >= 0)
-                        read_subvol = spb_choice;
-                else
-                        read_subvol = afr_first_up_child (frame, this);
-
-        }
-        par_read_subvol = afr_get_parent_read_subvol (this, parent, replies,
-                                                      readable);
         if (AFR_IS_ARBITER_BRICK (priv, read_subvol) && local->op_ret == 0) {
-                        local->op_ret = -1;
-                        local->op_errno = ENOTCONN;
+                local->op_ret = -1;
+                local->op_errno = ENOTCONN;
+                gf_msg_debug(this->name, 0, "Arbiter cannot be a read subvol "
+                             "for %s", local->loc.path);
+                goto error;
         }
 
         ret = dict_get_str (local->xattr_req, "gfid-heal-msg", &gfid_heal_msg);
@@ -2347,6 +2418,11 @@ unwind:
 			  local->inode, &local->replies[read_subvol].poststat,
 			  local->replies[read_subvol].xdata,
 			  &local->replies[par_read_subvol].postparent);
+        return;
+
+error:
+        AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno, NULL,
+                          NULL, NULL, NULL);
 }
 
 /*
@@ -2764,55 +2840,54 @@ afr_discover_done (call_frame_t *frame, xlator_t *this)
         afr_local_t         *local = NULL;
 	int                 i = -1;
 	int                 op_errno = 0;
-	int                 spb_choice = -1;
 	int                 read_subvol = -1;
+        unsigned char *data_readable = NULL;
+        unsigned char *success_replies = NULL;
 
         priv  = this->private;
         local = frame->local;
-
-        afr_inode_split_brain_choice_get (local->inode, this,
-                                          &spb_choice);
+        data_readable = alloca0 (priv->child_count);
+        success_replies = alloca0 (priv->child_count);
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (!local->replies[i].valid)
 			continue;
-		if (local->replies[i].op_ret == 0)
+		if (local->replies[i].op_ret == 0) {
+                        success_replies[i] = 1;
 			local->op_ret = 0;
+                }
 	}
 
 	op_errno = afr_final_errno (frame->local, this->private);
 
         if (local->op_ret < 0) {
-		local->op_errno = op_errno;
-		local->op_ret = -1;
-                goto unwind;
+                AFR_STACK_UNWIND (lookup, frame, -1, op_errno, NULL, NULL,
+                                  NULL, NULL);
+                return;
 	}
+
+        if (!afr_has_quorum (success_replies, this))
+                goto unwind;
 
 	afr_replies_interpret (frame, this, local->inode, NULL);
 
-	read_subvol = afr_read_subvol_decide (local->inode, this, NULL);
-	if (read_subvol == -1) {
-	        gf_msg (this->name, GF_LOG_WARNING, 0,
-                        AFR_MSG_READ_SUBVOL_ERROR, "no read subvols for %s",
-			local->loc.path);
-
-                if (spb_choice >= 0) {
-                        read_subvol = spb_choice;
-                } else {
-                        read_subvol = afr_first_up_child (frame, this);
-                }
-	}
+	read_subvol = afr_read_subvol_decide (local->inode, this, NULL,
+                                              data_readable);
 
 unwind:
+        afr_attempt_readsubvol_set (frame, this, success_replies, data_readable,
+                                    &read_subvol);
 	if (read_subvol == -1) {
-                if (spb_choice >= 0)
-                        read_subvol = spb_choice;
-                else
-                        read_subvol = afr_first_up_child (frame, this);
+                AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
+                                  NULL, NULL, NULL, NULL);
+                return;
         }
+
         if (AFR_IS_ARBITER_BRICK (priv, read_subvol) && local->op_ret == 0) {
-                        local->op_ret = -1;
-                        local->op_errno = ENOTCONN;
+                local->op_ret = -1;
+                local->op_errno = ENOTCONN;
+	        gf_msg_debug (this->name, 0, "Arbiter cannot be a read subvol "
+                              "for %s", local->loc.path);
         }
 
 	AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
@@ -4672,7 +4747,6 @@ afr_priv_dump (xlator_t *this)
         gf_proc_dump_write("read_child", "%d", priv->read_child);
         gf_proc_dump_write("favorite_child", "%d", priv->favorite_child);
         gf_proc_dump_write("wait_count", "%u", priv->wait_count);
-        gf_proc_dump_write("quorum-reads", "%d", priv->quorum_reads);
         gf_proc_dump_write("heal-wait-queue-length", "%d",
                            priv->heal_wait_qlen);
         gf_proc_dump_write("heal-waiters", "%d", priv->heal_waiters);

@@ -31,11 +31,7 @@ TEST $CLI volume set $V0 cluster.quorum-count 2
 TEST test_write
 TEST kill_brick $V0 $H0 $B0/${V0}1
 TEST ! test_write
-EXPECT "abc" cat $M0/b
-TEST $CLI volume set $V0 cluster.quorum-reads on
-EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "1" mount_get_option_value $M0 $V0-replicate-0 quorum-reads
 TEST ! cat $M0/b
-TEST $CLI volume reset $V0 cluster.quorum-reads
 
 TEST $CLI volume set $V0 cluster.quorum-type auto
 EXPECT auto volume_option $V0 cluster.quorum-type
@@ -44,11 +40,7 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
 TEST test_write
 TEST kill_brick $V0 $H0 $B0/${V0}1
 TEST ! test_write
-EXPECT "abc" cat $M0/b
-TEST $CLI volume set $V0 cluster.quorum-reads on
-EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "1" mount_get_option_value $M0 $V0-replicate-0 quorum-reads
 TEST ! cat $M0/b
-TEST $CLI volume reset $V0 cluster.quorum-reads
 
 TEST $CLI volume set $V0 cluster.quorum-type none
 EXPECT none volume_option $V0 cluster.quorum-type
@@ -57,11 +49,6 @@ TEST test_write
 TEST $CLI volume reset $V0 cluster.quorum-type
 TEST test_write
 EXPECT "abc" cat $M0/b
-TEST $CLI volume set $V0 cluster.quorum-reads on
-EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "1" mount_get_option_value $M0 $V0-replicate-0 quorum-reads
-EXPECT "abc" cat $M0/b
-TEST $CLI volume reset $V0 cluster.quorum-reads
-
 
 cleanup;
 TEST glusterd;
@@ -86,24 +73,14 @@ TEST $CLI volume set $V0 cluster.quorum-count 3
 TEST test_write
 TEST kill_brick $V0 $H0 $B0/${V0}1
 TEST ! test_write
-EXPECT "abc" cat $M0/b
-TEST $CLI volume set $V0 cluster.quorum-reads on
-EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "1" mount_get_option_value $M0 $V0-replicate-0 quorum-reads
 TEST ! cat $M0/b
-TEST $CLI volume reset $V0 cluster.quorum-reads
-
 
 TEST $CLI volume set $V0 cluster.quorum-type auto
 EXPECT auto volume_option $V0 cluster.quorum-type
 TEST test_write
 TEST kill_brick $V0 $H0 $B0/${V0}3
 TEST ! test_write
-EXPECT "abc" cat $M0/b
-TEST $CLI volume set $V0 cluster.quorum-reads on
-EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "1" mount_get_option_value $M0 $V0-replicate-0 quorum-reads
 TEST ! cat $M0/b
-TEST $CLI volume reset $V0 cluster.quorum-reads
-
 
 TEST $CLI volume set $V0 cluster.quorum-type none
 EXPECT none volume_option $V0 cluster.quorum-type

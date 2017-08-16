@@ -278,8 +278,6 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("heal-timeout", priv->shd.timeout, options,
                           int32, out);
 
-        GF_OPTION_RECONF ("quorum-reads", priv->quorum_reads, options,
-                          bool, out);
         GF_OPTION_RECONF ("consistent-metadata", priv->consistent_metadata,
                           options, bool, out);
 
@@ -554,7 +552,6 @@ init (xlator_t *this)
 	GF_OPTION_INIT ("iam-self-heal-daemon", priv->shd.iamshd, bool, out);
         GF_OPTION_INIT ("heal-timeout", priv->shd.timeout, int32, out);
 
-        GF_OPTION_INIT ("quorum-reads", priv->quorum_reads, bool, out);
         GF_OPTION_INIT ("consistent-metadata", priv->consistent_metadata, bool,
                         out);
         GF_OPTION_INIT ("consistent-io", priv->consistent_io, bool, out);
@@ -998,8 +995,8 @@ struct volume_options options[] = {
         { .key = {"quorum-reads"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "no",
-          .description = "If quorum-reads is \"true\" only allow reads if "
-                         "quorum is met when quorum is enabled.",
+          .description = "This option has been removed. Reads are not allowed "
+                          "if quorum is not met.",
         },
         { .key  = {"node-uuid"},
           .type = GF_OPTION_TYPE_STR,
