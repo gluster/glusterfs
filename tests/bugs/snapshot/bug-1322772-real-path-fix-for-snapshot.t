@@ -26,6 +26,7 @@ EXPECT 'Started' volinfo_field $V0 'Status'
 TEST $CLI volume start $V1
 EXPECT 'Started' volinfo_field $V1 'Status'
 
+TEST $CLI snapshot config activate-on-create enable
 TEST $CLI snapshot create ${V0}_snap $V0 no-timestamp
 TEST $CLI snapshot create ${V1}_snap $V1 no-timestamp
 

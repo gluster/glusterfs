@@ -3515,7 +3515,7 @@ out:
         return ret;
 }
 
-static int32_t
+int32_t
 glusterd_recreate_vol_brick_mounts (xlator_t  *this,
                                     glusterd_volinfo_t *volinfo)
 {
@@ -4521,17 +4521,22 @@ glusterd_recreate_all_snap_brick_mounts (xlator_t  *this)
                 }
         }
 
-        /* Recreate bricks of snapshot volumes */
+        /* Recreate bricks of snapshot volumes
+         * We are not creating brick mounts for stopped snaps.
+         */
         cds_list_for_each_entry (snap, &priv->snapshots, snap_list) {
                 cds_list_for_each_entry (volinfo, &snap->volumes, vol_list) {
-                        ret = glusterd_recreate_vol_brick_mounts (this,
-                                                                  volinfo);
-                        if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        GD_MSG_BRK_MNT_RECREATE_FAIL,
-                                        "Failed to recreate brick mounts "
-                                        "for %s", snap->snapname);
-                                goto out;
+                        if (volinfo->status != GLUSTERD_STATUS_STOPPED) {
+                                ret = glusterd_recreate_vol_brick_mounts
+                                                           (this, volinfo);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_BRK_MNT_RECREATE_FAIL,
+                                                "Failed to recreate brick "
+                                                "mounts for %s",
+                                                snap->snapname);
+                                        goto out;
+                                }
                         }
                 }
         }
