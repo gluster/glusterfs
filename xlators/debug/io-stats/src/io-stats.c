@@ -907,7 +907,8 @@ ios_stats_cleanup (xlator_t *this, inode_t *inode)
 
 
 void
-io_stats_log_px_stat (xlator_t *this, FILE* logfp, float pval, const char *desc,
+io_stats_log_px_stat (xlator_t *this, ios_sample_buf_t *sample_buf,
+                      FILE* logfp, float pval, const char *desc,
                       int *num_fop, double **ios_latencies,
                       double *global_ios_latency)
 {
@@ -918,8 +919,7 @@ io_stats_log_px_stat (xlator_t *this, FILE* logfp, float pval, const char *desc,
         int    px = 0;
         struct ios_conf *conf = NULL;
  
-        conf = this->private;
-        collected = conf->ios_sample_buf->collected;
+        collected = sample_buf->collected;
  
         px = (int)(pval * 100);
         pn_idx = (int)(pval * collected);
@@ -940,7 +940,7 @@ io_stats_log_px_stat (xlator_t *this, FILE* logfp, float pval, const char *desc,
 
 
 double
-io_stats_prepare_latency_samples (struct ios_conf *conf, int *num_fop,
+io_stats_prepare_latency_samples (ios_sample_buf_t *sample_buf, int *num_fop,
                                   double **ios_latencies,
                                   double *global_ios_latency)
 {
@@ -951,8 +951,8 @@ io_stats_prepare_latency_samples (struct ios_conf *conf, int *num_fop,
         ios_sample_t   *ios_samples = NULL;
         glusterfs_fop_t fop_type = 0;
 
-        collected = conf->ios_sample_buf->collected;
-        ios_samples = conf->ios_sample_buf->ios_samples;
+        collected = sample_buf->collected;
+        ios_samples = sample_buf->ios_samples;
 
         for (i = 0; i < collected; i++) {
                 global_ios_latency[i] = ios_samples[i].elapsed;
@@ -969,8 +969,8 @@ io_stats_prepare_latency_samples (struct ios_conf *conf, int *num_fop,
 }
 
 double
-io_stats_dump_pn_latencies (xlator_t *this, FILE* logfp, char * key_prefix,
-                            char * str_prefix)
+io_stats_dump_pn_latencies (xlator_t *this, ios_sample_buf_t *sample_buf,
+                            FILE* logfp, char * key_prefix, char * str_prefix)
 {
         double *ios_latencies[GF_FOP_MAXVALUE] = {NULL, };
         double *global_ios_latency = NULL;
@@ -980,10 +980,8 @@ io_stats_dump_pn_latencies (xlator_t *this, FILE* logfp, char * key_prefix,
         int     j = 0;
         int     collected = 0;
         char   *prefix = NULL;
-        struct  ios_conf *conf = NULL;
 
-        conf = this->private;
-        collected = conf->ios_sample_buf->collected;
+        collected = sample_buf->collected;
 
         /* allocate memory */
         global_ios_latency = GF_CALLOC (collected, sizeof (double), 0);
@@ -1005,7 +1003,7 @@ io_stats_dump_pn_latencies (xlator_t *this, FILE* logfp, char * key_prefix,
         }
 
         /* gather data */
-        ret = io_stats_prepare_latency_samples (conf,
+        ret = io_stats_prepare_latency_samples (sample_buf,
                                                 num_fop,
                                                 ios_latencies,
                                                 global_ios_latency);
@@ -1020,14 +1018,14 @@ io_stats_dump_pn_latencies (xlator_t *this, FILE* logfp, char * key_prefix,
                 goto out;
         }
 
-        io_stats_log_px_stat (this, logfp, 0.50, prefix, num_fop,
-                              ios_latencies, global_ios_latency);
-        io_stats_log_px_stat (this, logfp, 0.90, prefix, num_fop,
-                              ios_latencies, global_ios_latency);
-        io_stats_log_px_stat (this, logfp, 0.95, prefix, num_fop,
-                              ios_latencies, global_ios_latency);
-        io_stats_log_px_stat (this, logfp, 0.99, prefix, num_fop,
-                              ios_latencies, global_ios_latency);
+        io_stats_log_px_stat (this, sample_buf, logfp, 0.50, prefix,
+                              num_fop, ios_latencies, global_ios_latency);
+        io_stats_log_px_stat (this, sample_buf, logfp, 0.90, prefix,
+                              num_fop, ios_latencies, global_ios_latency);
+        io_stats_log_px_stat (this, sample_buf, logfp, 0.95, prefix,
+                              num_fop, ios_latencies, global_ios_latency);
+        io_stats_log_px_stat (this, sample_buf, logfp, 0.99, prefix,
+                              num_fop, ios_latencies, global_ios_latency);
 
 out:
         GF_FREE (prefix);
@@ -1153,8 +1151,8 @@ err:
 
 int
 io_stats_dump_global_to_json_logfp (xlator_t *this,
-    struct ios_global_stats *stats, struct timeval *now, int interval,
-    FILE *logfp)
+    struct ios_global_stats *stats, ios_sample_buf_t *sample_buf,
+    struct timeval *now, int interval, FILE* logfp)
 {
         int                   i = 0;
         int                   j = 0;
@@ -1373,8 +1371,8 @@ io_stats_dump_global_to_json_logfp (xlator_t *this,
                 "\"%s.%s.fop.GOT1\":\"%0.4lf\",",
                 key_prefix, str_prefix, fop_ave_usec);
         if (conf->dump_percentile_latencies) {
-                io_stats_dump_pn_latencies (this, logfp, key_prefix,
-                                             str_prefix);
+                io_stats_dump_pn_latencies (this, sample_buf, logfp,
+                                            key_prefix, str_prefix);
                 ios_log (this, logfp,
                         "\"%s.%s.fop.GOT2\":\"%0.4lf\",",
                         key_prefix, str_prefix, fop_ave_usec);
@@ -1609,45 +1607,20 @@ out:
 }
 
 /*
- * Takes our current sample buffer in conf->io_sample_buf, and saves
- * a reference to this, init's a new buffer, and then dumps out the
- * contents of the saved reference.
+ * Takes in our sample buffer and then dumps out the contents
  */
 int
-io_stats_dump_latency_samples_logfp (xlator_t *this, FILE *logfp)
+io_stats_dump_latency_samples_logfp (xlator_t *this, FILE* logfp,
+                                     ios_sample_buf_t *sample_buf)
 {
         uint64_t              i = 0;
-        struct ios_conf       *conf = NULL;
-        ios_sample_buf_t      *sample_buf = NULL;
         int                   ret = 1;  /* Default to error */
 
-        conf = this->private;
-
-        /* Save pointer to old buffer; the CS equivalent of
-         * Indiana Jones: https://www.youtube.com/watch?v=Pr-8AP0To4k,
-         * though ours will end better I hope!
-         */
-        sample_buf = conf->ios_sample_buf;
-        if (!sample_buf) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "Sampling buffer is null, bailing!");
-                goto out;
-        }
-
         /* Empty case, nothing to do, exit. */
-        if (sample_buf->collected == 0) {
+        if (sample_buf == NULL || sample_buf->collected == 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "No samples, dump not required.");
                 ret = 0;
-                goto out;
-        }
-
-        /* Init a new buffer, so we are free to work on the one we saved a
-         * reference to above.
-         */
-        if (ios_init_sample_buf (conf) != 0) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "Failed to init new sampling buffer, out of memory?");
                 goto out;
         }
 
@@ -1667,7 +1640,6 @@ io_stats_dump_latency_samples_logfp (xlator_t *this, FILE *logfp)
                 _io_stats_write_latency_sample (this,
                         &(sample_buf->ios_samples[i]), logfp);
         }
-        ios_destroy_sample_buf (sample_buf);
 
 out:
         return ret;
@@ -1958,6 +1930,7 @@ out:
 
 int
 io_stats_dump_global (xlator_t *this, struct ios_global_stats *stats,
+                      ios_sample_buf_t *sample_buf,
                       struct timeval *now, int interval,
                       struct ios_dump_args *args)
 {
@@ -1973,7 +1946,7 @@ io_stats_dump_global (xlator_t *this, struct ios_global_stats *stats,
         switch (args->type) {
         case IOS_DUMP_TYPE_JSON_FILE:
                 ret = io_stats_dump_global_to_json_logfp (
-                    this, stats, now, interval, args->u.logfp);
+                    this, stats, sample_buf, now, interval, args->u.logfp);
         break;
         case IOS_DUMP_TYPE_FILE:
                 ret = io_stats_dump_global_to_logfp (this, stats, now,
@@ -2081,8 +2054,9 @@ static int io_stats_dump_quorum (xlator_t *this, struct ios_dump_args *args) {
 }
 
 int
-io_stats_dump (xlator_t *this, struct ios_dump_args *args,
-               gf1_cli_info_op op, gf_boolean_t is_peek)
+io_stats_dump (xlator_t *this, ios_sample_buf_t *sample_buf,
+               struct ios_dump_args *args, gf1_cli_info_op op,
+               gf_boolean_t is_peek)
 {
         struct ios_conf         *conf = NULL;
         struct ios_global_stats  cumulative = {0, };
@@ -2119,13 +2093,15 @@ io_stats_dump (xlator_t *this, struct ios_dump_args *args,
         }
         UNLOCK (&conf->lock);
 
-        if (op == GF_CLI_INFO_ALL ||
-            op == GF_CLI_INFO_CUMULATIVE)
-                io_stats_dump_global (this, &cumulative, &now, -1, args);
+        if (op == GF_CLI_INFO_ALL || op == GF_CLI_INFO_CUMULATIVE) {
+                io_stats_dump_global (this, &cumulative, sample_buf, &now,
+                                      -1, args);
+        }
 
-        if (op == GF_CLI_INFO_ALL ||
-            op == GF_CLI_INFO_INCREMENTAL)
-                io_stats_dump_global (this, &incremental, &now, increment, args);
+        if (op == GF_CLI_INFO_ALL || op == GF_CLI_INFO_INCREMENTAL) {
+                io_stats_dump_global (this, &incremental, sample_buf, &now,
+                                      increment, args);
+        }
 
         if (conf->iamnfsd) {
                 io_stats_dump_quorum (this, args);
@@ -3731,7 +3707,7 @@ conditional_dump (dict_t *dict, char *key, data_t *value, void *data)
                 (void) ios_dump_args_init (&args, IOS_DUMP_TYPE_FILE,
                                 logfp);
         }
-        io_stats_dump (this, &args, GF_CLI_INFO_ALL, _gf_false);
+        io_stats_dump (this, NULL, &args, GF_CLI_INFO_ALL, _gf_false);
         fclose (logfp);
         return 0;
 }
@@ -3746,12 +3722,54 @@ _ios_destroy_dump_thread (struct ios_conf *conf) {
         return 0;
 }
 
+int
+_ios_swap_sample_buf (xlator_t *this, ios_sample_buf_t **dest)
+{
+        struct ios_conf *conf = NULL;
+        int ret = 0;
+        ios_sample_buf_t *sample_buf;
+
+        conf = this->private;
+
+        /*
+         * Save pointer to old buffer; the CS equivalent of
+         * Indiana Jones: https://www.youtube.com/watch?v=Pr-8AP0To4k,
+         * though ours will end better I hope!
+         *
+         */
+        sample_buf = conf->ios_sample_buf;
+        if (!sample_buf) {
+                ret = 0;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Sampling buffer is null, bailing!");
+                goto out;
+        }
+
+        /*
+         * Init a new buffer, so we are free to work on the one we saved a
+         * reference to above.
+         *
+         */
+        if (ios_init_sample_buf (conf) != 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Failed to init new sampling buffer, out of memory?");
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        *dest = sample_buf;
+
+out:
+        return ret;
+}
+
 void *
 _ios_dump_thread (xlator_t *this) {
         struct ios_conf         *conf = NULL;
         FILE                    *stats_logfp = NULL;
         FILE                    *samples_logfp = NULL;
         struct ios_dump_args args = {0};
+        ios_sample_buf_t        *sample_buf = NULL;
         int                     i;
         int                     stats_bytes_written = 0;
         int                     samples_bytes_written = 0;
@@ -3762,6 +3780,7 @@ _ios_dump_thread (xlator_t *this) {
         gf_boolean_t            log_stats_fopen_failure = _gf_true;
         gf_boolean_t            log_samples_fopen_failure = _gf_true;
         int                     old_cancel_type;
+        int                     ret;
 
         conf = this->private;
         gf_log (this->name, GF_LOG_INFO, "IO stats dump thread started, "
@@ -3827,6 +3846,14 @@ _ios_dump_thread (xlator_t *this) {
                 sleep (conf->ios_dump_interval);
                 (void) pthread_setcanceltype (PTHREAD_CANCEL_DEFERRED,
                                               &old_cancel_type);
+                /* Swap buffers */
+                ret = _ios_swap_sample_buf (this, &sample_buf);
+                if (ret != 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                               "Failed to swap sample buffer");
+                        goto out;
+                }
+
                 /*
                  * It's not clear whether we should reopen this each time, or
                  * just hold it open and rewind/truncate on each iteration.
@@ -3837,7 +3864,8 @@ _ios_dump_thread (xlator_t *this) {
                         (void) ios_dump_args_init (&args,
                                                    IOS_DUMP_TYPE_JSON_FILE,
                                                    stats_logfp);
-                        io_stats_dump (this, &args, GF_CLI_INFO_ALL, _gf_false);
+                        io_stats_dump (this, sample_buf, &args,
+                                       GF_CLI_INFO_ALL, _gf_false);
                         fclose (stats_logfp);
                         log_stats_fopen_failure = _gf_true;
                 } else if (log_stats_fopen_failure) {
@@ -3849,7 +3877,8 @@ _ios_dump_thread (xlator_t *this) {
                 samples_logfp = fopen (samples_filename, "a");
                 if (samples_logfp) {
                         io_stats_dump_latency_samples_logfp (this,
-                                                             samples_logfp);
+                                                             samples_logfp,
+                                                             sample_buf);
                         fclose (samples_logfp);
                         log_samples_fopen_failure = _gf_true;
                 } else if (log_samples_fopen_failure) {
@@ -3858,6 +3887,9 @@ _ios_dump_thread (xlator_t *this) {
                                 samples_filename, strerror(errno));
                         log_samples_fopen_failure = _gf_false;
                 }
+
+                /* cleanup sample buf */
+                ios_destroy_sample_buf (sample_buf);
         }
 out:
         gf_log (this->name, GF_LOG_INFO, "IO stats dump thread terminated");
@@ -4768,7 +4800,8 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 
                                 (void) ios_dump_args_init (&args,
                                                 IOS_DUMP_TYPE_DICT, output);
-                                ret = io_stats_dump (this, &args, op, is_peek);
+                                ret = io_stats_dump (this, NULL, &args, op,
+                                                     is_peek);
                         }
                 }
                 break;
