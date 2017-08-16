@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
+. $(dirname $0)/../dht.rc
 
 cleanup
 
@@ -183,13 +184,20 @@ TEST file_exists $V0 rebal1 rebal2
 TEST $CLI volume add-brick $V0 $H0:$B0/${V0}3
 TEST [ -d $B0/${V0}3 ]
 
+
 # perform rebalance [36]
 TEST $CLI volume rebalance $V0 start force
+EXPECT_WITHIN $REBALANCE_TIMEOUT "0" rebalance_completed
+
+#Find out which file was migrated to the new brick
+file_name=$(ls $B0/${V0}3/rebal*| xargs basename)
 
 # check whether rebalance was succesful [37-40]
-EXPECT_WITHIN $REBALANCE_TIMEOUT "Y" wildcard_exists $B0/${V0}3/rebal2
-EXPECT_WITHIN $REBALANCE_TIMEOUT "Y" wildcard_exists $B0/${V0}1/.trashcan/internal_op/rebal2*
+EXPECT "Y" wildcard_exists $B0/${V0}3/$file_name*
+EXPECT "Y" wildcard_exists $B0/${V0}1/.trashcan/internal_op/$file_name*
+
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
+
 # force required in case rebalance is not over
 TEST $CLI volume stop $V0 force
 
@@ -236,7 +244,7 @@ EXPECT_WITHIN $HEAL_TIMEOUT "Y" wildcard_exists $B0/${V1}1/.trashcan/internal_op
 TEST $CLI volume set $V0 trash-dir abc
 TEST start_vol $V0 $M0 $M0/abc
 TEST [ -e $M0/abc -a ! -e $M0/.trashcan ]
-EXPECT "Y" wildcard_exists $B0/${V0}1/abc/internal_op/rebal2*
+EXPECT "Y" wildcard_exists $B0/${V0}1/abc/internal_op/rebal*
 
 # ensure that rename and delete operation on trash directory fails [63-65]
 rm -rf $M0/abc/internal_op
