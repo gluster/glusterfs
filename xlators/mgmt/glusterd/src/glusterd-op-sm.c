@@ -2001,12 +2001,12 @@ _delete_reconfig_opt (dict_t *this, char *key, data_t *value, void *data)
         GF_ASSERT (data);
         is_force = (int32_t*)data;
 
-        /* Keys which has the flag OPT_FLAG_NEVER_RESET
+        /* Keys which has the flag VOLOPT_FLAGNEVER_RESET
          * should not be deleted
          */
 
         if (_gf_true == glusterd_check_voloption_flags (key,
-                                                OPT_FLAG_NEVER_RESET)) {
+                                                VOLOPT_FLAGNEVER_RESET)) {
                 if (*is_force != 1)
                         *is_force = *is_force | GD_OP_PROTECTED;
                 goto out;
@@ -2014,7 +2014,7 @@ _delete_reconfig_opt (dict_t *this, char *key, data_t *value, void *data)
 
         if (*is_force != 1) {
                 if (_gf_true == glusterd_check_voloption_flags (key,
-                                                         OPT_FLAG_FORCE)) {
+                                                         VOLOPT_FLAGFORCE)) {
                 /* indicate to caller that we don't set the option
                  * due to being protected
                  */
