@@ -1360,9 +1360,9 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .type        = NO_DOC,
           .op_version  = 1
         },
-        { .key         = "diagnostics.dump-p99-latencies",
+        { .key         = "diagnostics.dump-percentile-latencies",
           .voltype     = "debug/io-stats",
-          .option      = "dump-p99-latencies",
+          .option      = "dump-percentile-latencies",
           .value       = "off",
           .type        = NO_DOC,
           .op_version  = 1

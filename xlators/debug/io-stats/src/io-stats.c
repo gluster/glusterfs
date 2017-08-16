@@ -308,7 +308,7 @@ struct ios_conf {
         gf_boolean_t              sample_hard_errors;
         gf_boolean_t              sample_all_errors;
         uint32_t                  outstanding_req;
-        gf_boolean_t              dump_p99_latencies;
+        gf_boolean_t              dump_percentile_latencies;
 };
 
 
@@ -905,43 +905,55 @@ ios_stats_cleanup (xlator_t *this, inode_t *inode)
                 gf_log (this->name, GF_LOG_TRACE, fmt);         \
         } while (0)
 
-double
-io_stats_dump_p99_latencies (xlator_t *this, FILE* logfp, char * key_prefix, char * str_prefix)
-{
-        struct ios_conf  *conf = NULL;
-        double           *ios_latencies[GF_FOP_MAXVALUE] = {NULL, };
-        double           *global_ios_latency = NULL;
-        int               num_fop[GF_FOP_MAXVALUE] = {0, };
-        ios_sample_t     *ios_samples = NULL;
-        int               collected = 0;
-        int               i = 0;
-        int               j = 0;
-        int               fop_idx = 0;
-        glusterfs_fop_t   fop_type = 0;
-        double            p99_val = 0.0;
-        int               p99_idx = 0;
-        int               ret = 0;
 
+void
+io_stats_log_px_stat (xlator_t *this, FILE* logfp, float pval, const char *desc,
+                      int *num_fop, double **ios_latencies,
+                      double *global_ios_latency)
+{
+        int    pn_idx = 0;
+        double pn_val = 0;
+        int    collected = 0;
+        int    i = 0;
+        int    px = 0;
+        struct ios_conf *conf = NULL;
+ 
         conf = this->private;
         collected = conf->ios_sample_buf->collected;
+ 
+        px = (int)(pval * 100);
+        pn_idx = (int)(pval * collected);
+        pn_val = global_ios_latency[pn_idx];
+
+        ios_log (this, logfp, "\"%s.%s.p%d_latency_usec\":\"%0.4lf\",", desc,
+                 "global", px, pn_val);
 
         for (i = 0; i < GF_FOP_MAXVALUE; i++) {
-                ios_latencies[i] = GF_CALLOC (collected,
-                                              sizeof (double),
-                                              0);
-                if (!ios_latencies[i]) {
-                        ret = -ENOMEM;
-                        goto out;
-                }
+                qsort (ios_latencies[i], num_fop[i], sizeof (double),
+                       gf_compare_double);
+                pn_idx = (int)(pval*num_fop[i]);
+                pn_val = ios_latencies[i][pn_idx];
+                ios_log (this, logfp,
+                         "\"%s.%s.p%d_latency_usec\":\"%0.4lf\",", desc, gf_fop_list[i], px, pn_val);
         }
-        global_ios_latency = GF_CALLOC (collected, sizeof (double),
-                                        0);
-        if (!global_ios_latency) {
-                ret = -ENOMEM;
-                goto out;
-        }
+}
 
+
+double
+io_stats_prepare_latency_samples (struct ios_conf *conf, int *num_fop,
+                                  double **ios_latencies,
+                                  double *global_ios_latency)
+{
+        int             ret = 0;
+        int             collected = 0;
+        int             fop_idx = 0;
+        int             i = 0;
+        ios_sample_t   *ios_samples = NULL;
+        glusterfs_fop_t fop_type = 0;
+
+        collected = conf->ios_sample_buf->collected;
         ios_samples = conf->ios_sample_buf->ios_samples;
+
         for (i = 0; i < collected; i++) {
                 global_ios_latency[i] = ios_samples[i].elapsed;
                 fop_type = ios_samples[i].fop_type;
@@ -953,23 +965,72 @@ io_stats_dump_p99_latencies (xlator_t *this, FILE* logfp, char * key_prefix, cha
         qsort (global_ios_latency, collected, sizeof (double),
                gf_compare_double);
 
-        p99_idx = (int)(0.99 * collected);
-        p99_val = global_ios_latency[p99_idx];
-        ios_log (this, logfp,
-                "\"%s.%s.fop.%s.p99_latency_usec\":\"%0.4lf\",",
-                key_prefix, str_prefix, "global", p99_val);
+        return ret;
+}
+
+double
+io_stats_dump_pn_latencies (xlator_t *this, FILE* logfp, char * key_prefix,
+                            char * str_prefix)
+{
+        double *ios_latencies[GF_FOP_MAXVALUE] = {NULL, };
+        double *global_ios_latency = NULL;
+        int     num_fop[GF_FOP_MAXVALUE] = {0, };
+        int     ret = 0;
+        int     i = 0;
+        int     j = 0;
+        int     collected = 0;
+        char   *prefix = NULL;
+        struct  ios_conf *conf = NULL;
+
+        conf = this->private;
+        collected = conf->ios_sample_buf->collected;
+
+        /* allocate memory */
+        global_ios_latency = GF_CALLOC (collected, sizeof (double), 0);
+        if (!global_ios_latency) {
+                ret = -ENOMEM;
+                goto out;
+        }
 
         for (i = 0; i < GF_FOP_MAXVALUE; i++) {
                 qsort (ios_latencies[i], num_fop[i], sizeof (double),
                        gf_compare_double);
-                p99_idx = (int)(0.99*num_fop[i]);
-                p99_val = ios_latencies[i][p99_idx];
-                ios_log (this, logfp,
-                        "\"%s.%s.fop.%s.p99_latency_usec\":\"%0.4lf\",",
-                        key_prefix, str_prefix, gf_fop_list[i], p99_val);
+                ios_latencies[i] = GF_CALLOC (collected,
+                                              sizeof (double),
+                                              0);
+                if (!ios_latencies[i]) {
+                        ret = -ENOMEM;
+                        goto out;
+                }
         }
 
+        /* gather data */
+        ret = io_stats_prepare_latency_samples (conf,
+                                                num_fop,
+                                                ios_latencies,
+                                                global_ios_latency);
+        if (ret) {
+                goto out;
+        }
+
+        /* build prefix and log data */
+        ret = gf_asprintf (&prefix, "%s.%s", key_prefix, str_prefix);
+        if (ret <= 0) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        io_stats_log_px_stat (this, logfp, 0.50, prefix, num_fop,
+                              ios_latencies, global_ios_latency);
+        io_stats_log_px_stat (this, logfp, 0.90, prefix, num_fop,
+                              ios_latencies, global_ios_latency);
+        io_stats_log_px_stat (this, logfp, 0.95, prefix, num_fop,
+                              ios_latencies, global_ios_latency);
+        io_stats_log_px_stat (this, logfp, 0.99, prefix, num_fop,
+                              ios_latencies, global_ios_latency);
+
 out:
+        GF_FREE (prefix);
         GF_FREE (global_ios_latency);
         for (j = 0; j < i; j++) {
                 GF_FREE (ios_latencies[j]);
@@ -1311,8 +1372,8 @@ io_stats_dump_global_to_json_logfp (xlator_t *this,
         ios_log (this, logfp,
                 "\"%s.%s.fop.GOT1\":\"%0.4lf\",",
                 key_prefix, str_prefix, fop_ave_usec);
-        if (conf->dump_p99_latencies) {
-                io_stats_dump_p99_latencies (this, logfp, key_prefix,
+        if (conf->dump_percentile_latencies) {
+                io_stats_dump_pn_latencies (this, logfp, key_prefix,
                                              str_prefix);
                 ios_log (this, logfp,
                         "\"%s.%s.fop.GOT2\":\"%0.4lf\",",
@@ -4400,8 +4461,8 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("fop-sample-hard-errors",
                           conf->sample_hard_errors, options, bool, out);
 
-        GF_OPTION_RECONF ("dump-p99-latencies", conf->dump_p99_latencies,
-                          options, bool, out);
+        GF_OPTION_RECONF ("dump-percentile-latencies",
+                          conf->dump_percentile_latencies, options, bool, out);
 
         ret = 0;
 out:
@@ -4568,9 +4629,9 @@ init (xlator_t *this)
         GF_OPTION_INIT ("log-flush-timeout", log_flush_timeout, time, out);
         gf_log_set_log_flush_timeout (log_flush_timeout);
 
-        GF_OPTION_INIT ("dump-p99-latencies", conf->dump_p99_latencies,
-                        bool, out);
-
+        GF_OPTION_INIT ("dump-percentile-latencies",
+                        conf->dump_percentile_latencies, bool, out);
+ 
         this->private = conf;
         if (conf->ios_dump_interval > 0) {
                 pthread_create (&conf->dump_thread, NULL,
@@ -4977,11 +5038,12 @@ struct volume_options options[] = {
           .description = "This option samples all fops with \"hard errors\""
                          "including EROFS, ENOSPC, etc."
         },
-        { .key  = { "dump-p99-latencies" },
+        { .key  = { "dump-percentile-latencies" },
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
-          .description = "If on the p99 latency of each operation "
-                         "and all types is dumped at each sample interval. "
+          .description = "If on the p50, p90, p95, and p99 latency of each "
+                         "operation and all types is dumped at each sample "
+                         "interval."
         },
         { .key  = {NULL} },
 
