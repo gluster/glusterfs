@@ -76,6 +76,9 @@ int32_t
 glusterd_umount (const char *path);
 
 int32_t
+glusterd_snap_unmount (xlator_t  *this, glusterd_volinfo_t *volinfo);
+
+int32_t
 glusterd_add_snapshots_to_export_dict (dict_t *peer_data);
 
 int32_t

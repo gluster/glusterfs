@@ -202,4 +202,8 @@ glusterd_quota_conf_write_header (int fd);
 int32_t
 glusterd_quota_conf_write_gfid (int fd, void *buf, char type);
 
+int32_t
+glusterd_recreate_vol_brick_mounts (xlator_t  *this,
+                                    glusterd_volinfo_t *volinfo);
+
 #endif

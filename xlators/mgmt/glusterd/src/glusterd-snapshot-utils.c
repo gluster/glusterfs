@@ -1678,10 +1678,31 @@ glusterd_import_friend_snap (dict_t *peer_data, int32_t snap_count,
                                 "for snap %s", peer_snap_name);
                         goto out;
                 }
+                /* During handshake, after getting updates from friend mount
+                 * point for activated snapshot should exist and should not
+                 * for deactivated snapshot.
+                 */
                 if (glusterd_is_volume_started (snap_vol)) {
+                        ret = glusterd_recreate_vol_brick_mounts (this,
+                                                                  snap_vol);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_BRK_MNT_RECREATE_FAIL,
+                                        "Failed to recreate brick mounts"
+                                        " for %s", snap->snapname);
+                                goto out;
+                        }
+
                         (void) glusterd_start_bricks (snap_vol);
                 } else {
                         (void) glusterd_stop_bricks(snap_vol);
+                        ret = glusterd_snap_unmount(this, snap_vol);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_GLUSTERD_UMOUNT_FAIL,
+                                        "Failed to unmounts for %s",
+                                        snap->snapname);
+                        }
                 }
 
                 ret = glusterd_import_quota_conf (peer_data, i,
@@ -3334,6 +3355,70 @@ glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
         ret = 0;
 
 out:
+        return ret;
+}
+
+/* This function will do unmount for snaps.
+ */
+int32_t
+glusterd_snap_unmount (xlator_t  *this, glusterd_volinfo_t *volinfo)
+{
+        char                    *brick_mount_path    = NULL;
+        glusterd_brickinfo_t    *brickinfo           = NULL;
+        int32_t                  ret                 = -1;
+        int                      retry_count         = 0;
+
+        GF_ASSERT (this);
+        GF_ASSERT (volinfo);
+
+        cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                /* If the brick is not of this node, we continue */
+                if (gf_uuid_compare (brickinfo->uuid, MY_UUID)) {
+                        continue;
+                }
+                /* If snapshot is pending, we continue */
+                if  (brickinfo->snap_status == -1) {
+                        continue;
+                }
+
+                /* Fetch the brick mount path from the brickinfo->path */
+                ret = glusterd_get_brick_root (brickinfo->path,
+                                               &brick_mount_path);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                GD_MSG_BRICK_PATH_UNMOUNTED,
+                                "Failed to find brick_mount_path for %s",
+                                brickinfo->path);
+                        /* There is chance that brick path is already
+                         * unmounted. */
+                        ret = 0;
+                        goto out;
+                }
+                /* unmount cannot be done when the brick process is still in
+                 * the process of shutdown, so give three re-tries
+                 */
+                retry_count = 0;
+                while (retry_count <= 2) {
+                        retry_count++;
+                        /* umount2 system call doesn't cleanup mtab entry
+                         * after un-mount, using external umount command.
+                         */
+                        ret = glusterd_umount(brick_mount_path);
+                        if (!ret)
+                                break;
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_GLUSTERD_UMOUNT_FAIL, "umount failed "
+                                "for path %s (brick: %s): %s. Retry(%d)",
+                                 brick_mount_path, brickinfo->path,
+                                 strerror (errno), retry_count);
+                        sleep (3);
+               }
+        }
+
+out:
+        if (brick_mount_path)
+                GF_FREE(brick_mount_path);
+
         return ret;
 }
 
