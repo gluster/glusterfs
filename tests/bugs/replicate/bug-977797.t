@@ -53,6 +53,8 @@ TEST chmod 757 $M0/a/file
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 1;
 
+#Trigger entry heal of $M0/a
+getfattr -n user.nosuchattr $M0/a
 dd if=$M0/a/file of=/dev/null bs=1024k
 #read fails, but heal is triggered.
 TEST [ $? -ne 0 ]
