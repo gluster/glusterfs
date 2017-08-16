@@ -44,8 +44,33 @@ typedef enum {
         GF_OPT_VALIDATE_MAX,
 } opt_validate_type_t;
 
+typedef enum {
+        OPT_FLAG_NONE        = 0,
+        OPT_FLAG_SETTABLE    = 1 << 0, /* can be set using volume set */
+        OPT_FLAG_CLIENT_OPT  = 1 << 1, /* affects clients */
+        OPT_FLAG_GLOBAL      = 1 << 2, /* affects all instances of the particular xlator */
+        OPT_FLAG_FORCE       = 1 << 3, /* needs force to be reset */
+        OPT_FLAG_NEVER_RESET = 1 << 4, /* which should not be reset */
+        OPT_FLAG_DOC         = 1 << 5, /* can be shown in volume set help */
+} opt_flags_t;
+
 #define ZR_VOLUME_MAX_NUM_KEY    4
 #define ZR_OPTION_MAX_ARRAY_SIZE 64
+/* The maximum number of releases that an option could be backported to
+ * based on the release schedule as in August 2017 (3), plus one more
+ * Refer comment on volume_options.op_version for more information.
+ */
+#define GF_MAX_RELEASES 4
+
+/* Custom validation functoins for options
+ * TODO: Need to check what sorts of validation is being done, and decide if
+ * passing the volinfo is actually required. If it is, then we should possibly
+ * try a solution in GD2 for this.
+ */
+/* typedef int (*option_validation_fn) (glusterd_volinfo_t *volinfo, dict_t *dict,
+                                       char *key, char *value, char **op_errstr);
+*/
+
 
 /* Each translator should define this structure */
 typedef struct volume_options {
@@ -64,6 +89,34 @@ typedef struct volume_options {
          * happen
          */
         opt_validate_type_t     validate;
+
+        /* The op-version at which this option was introduced.
+         * This is an array to support options that get backported to supported
+         * releases.
+         * Normally, an option introduced for a major release just has a single
+         * entry in the array, with op-version of the major release
+         * For an option that is backported, the op-versions of the all the
+         * releases it was ported to should be added, starting from the newest,
+         * to the oldest.
+         */
+        uint32_t op_version[GF_MAX_RELEASES];
+        /* The op-version at which this option was deprecated.
+         * Follows the same rules as above.
+         */
+        uint32_t deprecated[GF_MAX_RELEASES];
+        /* Additional flags for an option
+         * Check the OPT_FLAG_* enums for available flags
+         */
+        uint32_t flags;
+        /* Tags applicable to this option, which can be used to group similar
+         * options
+         */
+        char *tags[ZR_OPTION_MAX_ARRAY_SIZE];
+        /* A custom validation function if required
+         * TODO: See todo above for option_validation_fn
+         */
+        /* option_validation_fn validate_fn; */
+
 } volume_option_t;
 
 

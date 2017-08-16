@@ -6712,7 +6712,7 @@ gd_is_client_option (char *key)
         GF_ASSERT (key);
 
         vmep = _gd_get_vmep (key);
-        if (vmep && (vmep->flags & OPT_FLAG_CLIENT_OPT))
+        if (vmep && (vmep->flags & VOLOPT_FLAG_CLIENT_OPT))
                 return _gf_true;
 
         return _gf_false;
@@ -6726,7 +6726,7 @@ gd_is_xlator_option (char *key)
         GF_ASSERT (key);
 
         vmep = _gd_get_vmep (key);
-        if (vmep && (vmep->flags & OPT_FLAG_XLATOR_OPT))
+        if (vmep && (vmep->flags & VOLOPT_FLAG_XLATOR_OPT))
                 return _gf_true;
 
         return _gf_false;
