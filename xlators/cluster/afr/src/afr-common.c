@@ -146,6 +146,7 @@ __afr_inode_ctx_get (xlator_t *this, inode_t *inode, afr_inode_ctx_t **ctx)
                 }
                 tmp_ctx->spb_choice = -1;
                 tmp_ctx->read_subvol = 0;
+                tmp_ctx->write_subvol = 0;
         } else {
                 tmp_ctx = (afr_inode_ctx_t *) ctx_int;
         }
@@ -213,7 +214,7 @@ __afr_set_in_flight_sb_status (xlator_t *this, afr_local_t *local,
         if (ret < 0)
                 return ret;
 
-        val = ctx->read_subvol;
+        val = ctx->write_subvol;
 
         metadatamap_old = metadatamap = (val & 0x000000000000ffff);
         datamap_old = datamap = (val & 0x00000000ffff0000) >> 16;
@@ -274,6 +275,7 @@ __afr_set_in_flight_sb_status (xlator_t *this, afr_local_t *local,
                 (((uint64_t) datamap) << 16) |
                 (((uint64_t) event) << 32);
 
+        ctx->write_subvol = val;
         ctx->read_subvol = val;
 
         return ret;
@@ -6484,4 +6486,76 @@ afr_serialize_xattrs_with_delimiter (call_frame_t *frame, xlator_t *this,
 
 out:
         return ret;
+}
+
+int
+afr_write_subvol_set (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t      *local = NULL;
+        afr_inode_ctx_t  *ctx   = NULL;
+        uint64_t          val   = 0;
+        uint64_t          val1  = 0;
+        int               ret   = -1;
+
+        local = frame->local;
+        LOCK(&local->inode->lock);
+        {
+                ret = __afr_inode_ctx_get (this, local->inode, &ctx);
+                if (ret < 0) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_DICT_GET_FAILED,
+                                "ERROR GETTING INODE CTX");
+                        UNLOCK(&local->inode->lock);
+                        return ret;
+                }
+
+                val = ctx->write_subvol;
+                /*
+                 * We need to set the value of write_subvol to read_subvol in 2
+                 * cases:
+                 * 1. Initially when the value is 0. i.e., it's the first lock
+                 * request.
+                 * 2. If it's a metadata transaction. If metadata transactions
+                 * comes in between data transactions and we have a brick
+                 * disconnect, the next metadata transaction won't get the
+                 * latest value of readables, since we do resetting of
+                 * write_subvol in unlock code path only if it's a data
+                 * transaction. To handle those scenarios we need to set the
+                 * value of write_subvol to read_subvol in case of metadata
+                 * transactions.
+                */
+                if (val == 0 ||
+                    local->transaction.type == AFR_METADATA_TRANSACTION) {
+                        val1 = ctx->read_subvol;
+                        ctx->write_subvol = val1;
+                }
+        }
+        UNLOCK (&local->inode->lock);
+
+        return 0;
+}
+
+int
+afr_write_subvol_reset (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t      *local = NULL;
+        afr_inode_ctx_t  *ctx   = NULL;
+        int               ret   = -1;
+
+        local = frame->local;
+        LOCK(&local->inode->lock);
+        {
+                ret = __afr_inode_ctx_get (this, local->inode, &ctx);
+                if (ret < 0) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                AFR_MSG_DICT_GET_FAILED,
+                                "ERROR GETTING INODE CTX");
+                        UNLOCK(&local->inode->lock);
+                        return ret;
+                }
+                ctx->write_subvol = 0;
+        }
+        UNLOCK(&local->inode->lock);
+
+        return 0;
 }
