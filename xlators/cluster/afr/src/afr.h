@@ -838,6 +838,7 @@ typedef struct _afr_local {
 
 typedef struct _afr_inode_ctx {
         uint64_t        read_subvol;
+        uint64_t        write_subvol;
         int             spb_choice;
         gf_timer_t      *timer;
         gf_boolean_t    need_refresh;
@@ -1265,4 +1266,13 @@ afr_serialize_xattrs_with_delimiter (call_frame_t *frame, xlator_t *this,
                                      int32_t *serz_len, char delimiter);
 gf_boolean_t
 afr_is_symmetric_error (call_frame_t *frame, xlator_t *this);
+
+int
+__afr_inode_ctx_get (xlator_t *this, inode_t *inode, afr_inode_ctx_t **ctx);
+
+int
+afr_write_subvol_set (call_frame_t *frame, xlator_t *this);
+
+int
+afr_write_subvol_reset (call_frame_t *frame, xlator_t *this);
 #endif /* __AFR_H__ */
