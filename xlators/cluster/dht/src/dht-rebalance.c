@@ -3581,37 +3581,6 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                 }
         }
 
-        if ((defrag->cmd != GF_DEFRAG_CMD_START_TIER) &&
-            (defrag->cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX)) {
-                ret = gf_defrag_process_dir (this, defrag, loc, migrate_data,
-                                             &perrno);
-
-                if (ret && (ret != 2)) {
-                        if (perrno == ENOENT || perrno == ESTALE) {
-                                ret = 0;
-                                goto out;
-                        } else {
-
-                                defrag->total_failures++;
-
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        DHT_MSG_DEFRAG_PROCESS_DIR_FAILED,
-                                        "gf_defrag_process_dir failed for "
-                                        "directory: %s", loc->path);
-
-                                if (conf->decommission_in_progress) {
-                                        goto out;
-                                }
-
-                                should_commit_hash = 0;
-                        }
-                } else if (ret == 2) {
-                        should_commit_hash = 0;
-                }
-        }
-
-        gf_msg_trace (this->name, 0, "fix layout called on %s", loc->path);
-
         fd = fd_create (loc->inode, defrag->pid);
         if (!fd) {
                 gf_log (this->name, GF_LOG_ERROR, "Failed to create fd");
@@ -3635,10 +3604,10 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
         fd_bind (fd);
         INIT_LIST_HEAD (&entries.list);
+
         while ((ret = syncop_readdirp (this, fd, 131072, offset, &entries,
                                        NULL, NULL)) != 0)
         {
-
                 if (ret < 0) {
                         if (-ret == ENOENT || -ret == ESTALE) {
                                 ret = 0;
@@ -3753,7 +3722,9 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                                 DHT_MSG_DIR_LOOKUP_FAILED,
                                                 "lookup failed for:%s",
                                                 entry_loc.path);
+
                                         defrag->total_failures++;
+
                                         if (conf->decommission_in_progress) {
                                                 defrag->defrag_status =
                                                 GF_DEFRAG_STATUS_FAILED;
@@ -3761,37 +3732,6 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                                 goto out;
                                         } else {
                                                 should_commit_hash = 0;
-                                                continue;
-                                        }
-                                }
-                        }
-
-                        ret = syncop_setxattr (this, &entry_loc, fix_layout,
-                                               0, NULL, NULL);
-                        if (ret) {
-                                if (-ret == ENOENT || -ret == ESTALE) {
-                                        gf_msg (this->name, GF_LOG_INFO, -ret,
-                                                DHT_MSG_LAYOUT_FIX_FAILED,
-                                                "Setxattr failed. Dir %s "
-                                                "renamed or removed",
-                                                entry_loc.path);
-                                        ret = 0;
-                                        continue;
-                                } else {
-
-                                        gf_msg (this->name, GF_LOG_ERROR, -ret,
-                                                DHT_MSG_LAYOUT_FIX_FAILED,
-                                                "Setxattr failed for %s",
-                                                entry_loc.path);
-
-                                        defrag->total_failures++;
-
-                                        if (conf->decommission_in_progress) {
-                                                defrag->defrag_status =
-                                                GF_DEFRAG_STATUS_FAILED;
-                                                ret = -1;
-                                                goto out;
-                                        } else {
                                                 continue;
                                         }
                                 }
@@ -3823,30 +3763,85 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                         continue;
                                 }
                         }
-
-                        if (ret != 2 &&
-                            gf_defrag_settle_hash (this, defrag, &entry_loc,
-                            fix_layout) != 0) {
-                                defrag->total_failures++;
-
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        DHT_MSG_SETTLE_HASH_FAILED,
-                                        "Settle hash failed for %s",
-                                        entry_loc.path);
-
-                                ret = -1;
-
-                                if (conf->decommission_in_progress) {
-                                        defrag->defrag_status =
-                                        GF_DEFRAG_STATUS_FAILED;
-
-                                        goto out;
-                                }
-                        }
                 }
+
                 gf_dirent_free (&entries);
                 free_entries = _gf_false;
                 INIT_LIST_HEAD (&entries.list);
+        }
+
+        ret = syncop_setxattr (this, loc, fix_layout, 0, NULL, NULL);
+        if (ret) {
+                if (-ret == ENOENT || -ret == ESTALE) {
+                        gf_msg (this->name, GF_LOG_INFO, -ret,
+                                DHT_MSG_LAYOUT_FIX_FAILED,
+                                "Setxattr failed. Dir %s "
+                                "renamed or removed",
+                                loc->path);
+                        ret = 0;
+                } else {
+                        gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                DHT_MSG_LAYOUT_FIX_FAILED,
+                                "Setxattr failed for %s",
+                                loc->path);
+
+                        defrag->total_failures++;
+
+                        if (conf->decommission_in_progress) {
+                                defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
+                                ret = -1;
+                                goto out;
+                        }
+                 }
+        }
+
+        if ((defrag->cmd != GF_DEFRAG_CMD_START_TIER) &&
+            (defrag->cmd != GF_DEFRAG_CMD_START_LAYOUT_FIX)) {
+                ret = gf_defrag_process_dir (this, defrag, loc, migrate_data,
+                                             &perrno);
+
+                if (ret && (ret != 2)) {
+                        if (perrno == ENOENT || perrno == ESTALE) {
+                                ret = 0;
+                                goto out;
+                        } else {
+
+                                defrag->total_failures++;
+
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        DHT_MSG_DEFRAG_PROCESS_DIR_FAILED,
+                                        "gf_defrag_process_dir failed for "
+                                        "directory: %s", loc->path);
+
+                                if (conf->decommission_in_progress) {
+                                        goto out;
+                                }
+
+                                should_commit_hash = 0;
+                        }
+                } else if (ret == 2) {
+                        should_commit_hash = 0;
+                }
+        }
+
+        gf_msg_trace (this->name, 0, "fix layout called on %s", loc->path);
+
+        if (should_commit_hash &&
+            gf_defrag_settle_hash (this, defrag, loc, fix_layout) != 0) {
+
+                defrag->total_failures++;
+
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_SETTLE_HASH_FAILED,
+                        "Settle hash failed for %s",
+                         loc->path);
+
+                ret = -1;
+
+                if (conf->decommission_in_progress) {
+                        defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
+                        goto out;
+                }
         }
 
         ret = 0;
