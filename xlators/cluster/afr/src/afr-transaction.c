@@ -1750,6 +1750,10 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 	if (pre_nop)
 		goto next;
 
+        ret = afr_write_subvol_set (frame, this);
+        if (ret)
+                goto err;
+
 	if (!local->pre_op_compat) {
 		dict_copy (xdata_req, local->xdata_req);
 		goto next;
