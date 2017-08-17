@@ -1138,8 +1138,12 @@ reconfigure (xlator_t *this, dict_t *options)
 	GF_OPTION_RECONF ("least-rate-limit", conf->throttle.rate_limit,
                           options, int32, out);
 
+        GF_OPTION_RECONF ("cleanup-disconnected-reqs",
+                          conf->cleanup_disconnected_reqs, options, bool, out);
+
         GF_OPTION_RECONF ("watchdog-secs", conf->watchdog_secs, options,
                           int32, out);
+
         if (conf->watchdog_secs > 0) {
                 start_iot_watchdog (this);
         } else {
@@ -1217,8 +1221,12 @@ init (xlator_t *this)
                         conf->ac_iot_limit[IOT_PRI_LEAST], int32, out);
 
         GF_OPTION_INIT ("idle-time", conf->idle_time, int32, out);
+
         GF_OPTION_INIT ("enable-least-priority", conf->least_priority,
                         bool, out);
+
+        GF_OPTION_INIT ("cleanup-disconnected-reqs",
+                        conf->cleanup_disconnected_reqs, bool, out);
 
 	GF_OPTION_INIT ("least-rate-limit", conf->throttle.rate_limit, int32,
 		        out);
@@ -1321,6 +1329,10 @@ iot_disconnect_cbk (xlator_t *this, client_t *client)
         call_stub_t     *next;
         iot_conf_t      *conf   = this->private;
 
+        if (!conf || !conf->cleanup_disconnected_reqs) {
+                goto out;
+        }
+
         pthread_mutex_lock (&conf->mutex);
         for (i = 0; i < IOT_PRI_MAX; i++) {
                 list_for_each_entry_safe (curr, next, &conf->reqs[i], list) {
@@ -1336,6 +1348,7 @@ iot_disconnect_cbk (xlator_t *this, client_t *client)
         }
         pthread_mutex_unlock (&conf->mutex);
 
+out:
         return 0;
 }
 
@@ -1478,6 +1491,11 @@ struct volume_options options[] = {
           .default_value = 0,
           .description = "Number of seconds a queue must be stalled before "
                          "starting an 'emergency' thread."
+        },
+        { .key  = {"cleanup-disconnected-reqs"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "'Poison' queued requests when a client disconnects"
         },
 	{ .key  = {NULL},
         },

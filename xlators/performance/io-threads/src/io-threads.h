@@ -83,6 +83,7 @@ struct iot_conf {
         gf_boolean_t        watchdog_running;
         pthread_t           watchdog_thread;
         gf_boolean_t        queue_marked[IOT_PRI_MAX];
+	gf_boolean_t        cleanup_disconnected_reqs;
 };
 
 typedef struct iot_conf iot_conf_t;
