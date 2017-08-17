@@ -1,0 +1,54 @@
+#!/bin/bash
+
+#
+# Note: The GF_CONF_OPTS (configure) options will only be used for dev or
+# test builds.  For RPM builds the configure options are defined in the
+# glusterfs.spec.in file. ASAN is not enabled by for RPMs as it degrades
+# performance.  In specific instances it can be enabled simply be appending
+# the --with-asan option in the %build step of the spec file.
+#
+
+GF_CONF_OPTS="--localstatedir=/var --sysconfdir /var/lib --prefix /usr --libdir /usr/lib64 \
+             --enable-fusermount --enable-api --with-jemalloc  \
+             --with-ipv6-default --with-fbextras --disable-tiering"
+
+if [ -x /usr/lib/rpm/redhat/dist.sh ]; then
+  REDHAT_MAJOR=$(/usr/lib/rpm/redhat/dist.sh --distnum)
+else
+  REDHAT_MAJOR=0
+fi
+
+# Enable systemd support on CentOS >= 7
+if [ $REDHAT_MAJOR -ge 7 ]; then
+    GF_CONF_OPTS="$GF_CONF_OPTS --with-systemd"
+fi
+export GF_CONF_OPTS
+
+# Check if ASAN is enabled
+if [ "$ASAN_ENABLED" -eq "1" ]; then
+    GF_CONF_OPTS="$GF_CONF_OPTS --with-asan"
+fi
+
+if [ $REDHAT_MAJOR -eq "7" ]; then
+  GCC_BIN="/opt/rh/devtoolset-4/root/usr/bin/gcc"
+  GCC_LIB="/opt/rh/devtoolset-4/root/lib64"
+  DESTDIR='/' # pycompile is finicky in centos7 if --destdir is passed nothing.
+elif [ $REDHAT_MAJOR -eq "6" ]; then
+  ENGSHARE_GCC_PATH="/mnt/vol/engshare/third-party2/gcc"
+  GCC_BIN="$ENGSHARE_GCC_PATH/4.9.x/centos6-native/108cf83/bin/gcc"
+  GCC_LIB="$ENGSHARE_GCC_PATH/4.9.x/centos6-native/108cf83/lib64"
+else
+  echo "Centos $REDHAT_MAJOR is not currently supported"
+  exit 1
+fi
+
+export LIB_DIR="$GCC_LIB"
+export CC="$GCC_BIN"
+
+#export CC="/mnt/vol/engshare/third-party2/gcc/4.9.x/centos6-native/108cf83/bin/gcc"
+
+# If you think this should all be done in configure.ac you'd be 100%
+# correct; aside from the fact that it simply doesn't work when done there :).
+# You'll find the debug symbols are not present in resultant binaries nor is
+# the code un-optimized.
+export CFLAGS="-O0 -ggdb -fPIC -Wall -Werror -L${LIB_DIR}"
