@@ -807,6 +807,14 @@ glusterd_volopt_validate (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                 if ((vme->validate_fn) &&
                     ((!strcmp (key, vme->key)) ||
                      (!strcmp (key, strchr (vme->key, '.') + 1)))) {
+                        if ((vme->type != GLOBAL_DOC &&
+                            vme->type != GLOBAL_NO_DOC) && !volinfo) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_INVALID_ENTRY, "%s is not"
+                                        " a global option", vme->key);
+                                ret = -1;
+                                goto out;
+                        }
                         ret = vme->validate_fn (volinfo, dict, key, value,
                                                 op_errstr);
                         if (ret)
