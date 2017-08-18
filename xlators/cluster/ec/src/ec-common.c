@@ -42,10 +42,11 @@ ec_select_first_by_read_policy (ec_t *ec, ec_fop_data_t *fop)
 
 int32_t ec_child_valid(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
 {
-    return (idx < ec->nodes) && (((fop->remaining >> idx) & 1) == 1);
+    return (idx >= 0 && idx < ec->nodes) &&
+           (((fop->remaining >> idx) & 1) == 1);
 }
 
-int32_t ec_child_next(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
+int32_t ec_child_next(ec_t * ec, ec_fop_data_t * fop, uint32_t idx)
 {
     while (!ec_child_valid(ec, fop, idx))
     {
@@ -512,15 +513,17 @@ int32_t ec_child_select(ec_fop_data_t * fop)
     return 1;
 }
 
-int32_t ec_dispatch_next(ec_fop_data_t * fop, int32_t idx)
+void ec_dispatch_next(ec_fop_data_t * fop, uint32_t idx)
 {
+    int32_t i = -1;
     ec_t * ec = fop->xl->private;
 
     LOCK(&fop->lock);
 
-    idx = ec_child_next(ec, fop, idx);
-    if (idx >= 0)
-    {
+    i = ec_child_next(ec, fop, idx);
+    if (i >= 0 && i < 64) {
+        idx = i;
+
         fop->remaining ^= 1ULL << idx;
 
         ec_trace("EXECUTE", fop, "idx=%d", idx);
@@ -531,12 +534,10 @@ int32_t ec_dispatch_next(ec_fop_data_t * fop, int32_t idx)
 
     UNLOCK(&fop->lock);
 
-    if (idx >= 0)
+    if (i >= 0 && i < 64)
     {
         fop->wind(ec, fop, idx);
     }
-
-    return idx;
 }
 
 void ec_dispatch_mask(ec_fop_data_t * fop, uintptr_t mask)
@@ -646,7 +647,8 @@ void ec_dispatch_min(ec_fop_data_t * fop)
 {
     ec_t * ec = fop->xl->private;
     uintptr_t mask;
-    int32_t idx, count;
+    int32_t idx;
+    int count;
 
     ec_dispatch_start(fop);
 
@@ -659,7 +661,8 @@ void ec_dispatch_min(ec_fop_data_t * fop)
         while (count-- > 0)
         {
             idx = ec_child_next(ec, fop, idx + 1);
-            mask |= 1ULL << idx;
+            if (idx >= 0 && idx < 64)
+                mask |= 1ULL << idx;
         }
 
         ec_dispatch_mask(fop, mask);

@@ -328,7 +328,7 @@ struct _ec_cbk_data {
     struct list_head  answer_list; /* item in the list of answers */
     ec_fop_data_t    *fop;
     ec_cbk_data_t    *next;        /* next answer in the same group */
-    int32_t           idx;
+    uint32_t          idx;
     int32_t           op_ret;
     int32_t           op_errno;
     int32_t           count;
