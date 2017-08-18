@@ -689,9 +689,12 @@ mem_get0 (struct mem_pool *mem_pool)
         }
 
         ptr = mem_get(mem_pool);
-
         if (ptr) {
+#if defined(GF_DISABLE_MEMPOOL)
+                memset (ptr, 0, mem_pool->sizeof_type);
+#else
                 memset (ptr, 0, AVAILABLE_SIZE(mem_pool->pool->power_of_two));
+#endif
         }
 
         return ptr;
@@ -770,8 +773,7 @@ void *
 mem_get (struct mem_pool *mem_pool)
 {
 #if defined(GF_DISABLE_MEMPOOL)
-        return GF_CALLOC (1, AVAILABLE_SIZE (mem_pool->pool->power_of_two),
-                          gf_common_mt_mem_pool);
+        return GF_MALLOC (mem_pool->sizeof_type, gf_common_mt_mem_pool);
 #else
         per_thread_pool_list_t  *pool_list;
         per_thread_pool_t       *pt_pool;
