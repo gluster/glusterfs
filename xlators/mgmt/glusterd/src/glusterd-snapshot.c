@@ -4001,7 +4001,7 @@ glusterd_handle_snapshot_create (rpcsvc_request_t *req, glusterd_op_t op,
         uuid_t       *uuid_ptr                             = NULL;
         uuid_t        tmp_uuid                             = {0};
         int           i                                    = 0;
-        gf_boolean_t  timestamp                            = _gf_false;
+        int           timestamp                            = 0;
         char          snap_volname[GD_VOLUME_NAME_MAX]     = {0, };
         char          new_snapname[GLUSTERD_MAX_SNAP_NAME] = {0, };
         char          gmt_snaptime[GLUSTERD_MAX_SNAP_NAME] = {0, };
