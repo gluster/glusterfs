@@ -24,13 +24,16 @@ __afr_selfheal_assign_gfid (xlator_t *this, inode_t *parent, uuid_t pargfid,
 	int             ret          = 0;
         int             up_count     = 0;
         int             locked_count = 0;
+        int             i            = 0;
 	afr_private_t  *priv         = NULL;
 	dict_t         *xdata        = NULL;
 	loc_t           loc          = {0, };
         call_frame_t   *new_frame    = NULL;
         afr_local_t    *new_local    = NULL;
+        unsigned char  *wind_on      = NULL;
 
 	priv = this->private;
+        wind_on = alloca0 (priv->child_count);
 
         new_frame = afr_frame_create (this);
         if (!new_frame) {
@@ -76,20 +79,26 @@ __afr_selfheal_assign_gfid (xlator_t *this, inode_t *parent, uuid_t pargfid,
                 }
         }
 
-        /* Clear out old replies here and wind lookup on all locked
-         * subvolumes to achieve two things:
-         *   a. gfid heal on those subvolumes that do not have gfid associated
-         *      with the inode, and
-         *   b. refresh replies, which can be consumed by
-         *      __afr_selfheal_name_impunge().
+        /* gfid heal on those subvolumes that do not have gfid associated
+         * with the inode and update those replies.
          */
+        for (i = 0; i < priv->child_count; i++) {
+                if (replies[i].valid && replies[i].op_ret == 0 &&
+                    !gf_uuid_is_null (replies[i].poststat.ia_gfid) &&
+                    !gf_uuid_compare (replies[i].poststat.ia_gfid, gfid))
+                        continue;
+                wind_on[i] = 1;
+        }
 
-        AFR_ONLIST (locked_on, new_frame, afr_selfheal_discover_cbk, lookup,
+        AFR_ONLIST (wind_on, new_frame, afr_selfheal_discover_cbk, lookup,
                     &loc, xdata);
 
-        afr_replies_wipe (replies, priv->child_count);
-
-        afr_replies_copy (replies, new_local->replies, priv->child_count);
+        for (i = 0; i < priv->child_count; i++) {
+                if (!wind_on[i])
+                        continue;
+                afr_reply_wipe (&replies[i]);
+                afr_reply_copy (&replies[i], &new_local->replies[i]);
+        }
 
 out:
 	loc_wipe (&loc);
@@ -119,7 +128,7 @@ __afr_selfheal_name_impunge (call_frame_t *frame, xlator_t *this,
 	gf_uuid_copy (parent->gfid, pargfid);
 
 	for (i = 0; i < priv->child_count; i++) {
-		if (!replies[i].valid)
+                if (!replies[i].valid || replies[i].op_ret != 0)
 			continue;
 
 		if (gf_uuid_compare (replies[i].poststat.ia_gfid,
@@ -213,7 +222,7 @@ afr_selfheal_gfid_idx_get (xlator_t *this, struct afr_reply *replies,
         priv = this->private;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (!replies[i].valid)
+                if (!replies[i].valid || replies[i].op_ret != 0)
                         continue;
 
                 if (!sources[i])
@@ -281,7 +290,7 @@ afr_selfheal_name_type_mismatch_check (xlator_t *this, struct afr_reply *replies
         priv = this->private;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (!replies[i].valid)
+                if (!replies[i].valid || replies[i].op_ret != 0)
                         continue;
 
                 if (replies[i].poststat.ia_type == IA_INVAL)
@@ -343,8 +352,8 @@ afr_selfheal_name_gfid_mismatch_check (xlator_t *this, struct afr_reply *replies
         priv = this->private;
 
 	for (i = 0; i < priv->child_count; i++) {
-		if (!replies[i].valid)
-			continue;
+                if (!replies[i].valid || replies[i].op_ret != 0)
+                        continue;
 
 		if (gf_uuid_is_null (replies[i].poststat.ia_gfid))
 			continue;
@@ -496,7 +505,6 @@ int
 __afr_selfheal_name_finalize_source (xlator_t *this, unsigned char *sources,
 				     unsigned char *healed_sinks,
 				     unsigned char *locked_on,
-				     struct afr_reply *replies,
                                      uint64_t *witness)
 {
 	int i = 0;
@@ -565,8 +573,7 @@ __afr_selfheal_name_prepare (call_frame_t *frame, xlator_t *this, inode_t *paren
 
 	source = __afr_selfheal_name_finalize_source (this, sources,
                                                       healed_sinks,
-						      locked_on, replies,
-                                                      witness);
+						      locked_on, witness);
 	if (source < 0) {
 		/* If source is < 0 (typically split-brain), we perform a
 		   conservative merge of entries rather than erroring out */
