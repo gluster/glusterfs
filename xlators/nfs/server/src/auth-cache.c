@@ -39,6 +39,98 @@
                 hashkey = alloca (nbytes);                              \
                 snprintf (hashkey, nbytes, "%s:%s", path, host);        \
         } while (0);
+
+// Internal lookup
+enum _internal_cache_lookup_results {
+        ENTRY_NOT_FOUND = -1,
+        ENTRY_EXPIRED = -2,
+};
+
+struct auth_cache_entry {
+        time_t timestamp;
+        struct export_item *item;
+        gf_boolean_t access_allowed;
+};
+
+typedef struct {
+        /*
+         * Create and destroy are for *permanent* implementation-specific
+         * structures, when the process starts or when we switch between
+         * one implementation and another.  Warm_init creates transient
+         * structures (e.g. cache_dict) in other cases.  Reset might just
+         * operate on permanent structures (new code) or free those from
+         * warm_init (old code).
+         */
+        int     (*create)       (struct auth_cache *);
+        int     (*warm_init)    (struct auth_cache *);
+        int     (*lookup)       (struct auth_cache *cache, char *key,
+                                 struct auth_cache_entry **entry);
+        int32_t (*insert)       (struct auth_cache *cache, char *hashkey,
+                                 struct auth_cache_entry *entry);
+        void    (*reset)        (struct auth_cache *cache);
+        void    (*destroy)      (struct auth_cache *cache);
+} ac_vtbl_t;
+
+static int
+old_create (struct auth_cache *cache)
+{
+        pthread_mutex_init (&cache->lock, NULL);
+        return 0;
+}
+
+static int
+old_warm_init (struct auth_cache *cache)
+{
+        if (!cache->cache_dict) {
+                cache->cache_dict = dict_new ();
+                if (!cache->cache_dict) {
+                        return -ENOMEM;
+                }
+        }
+
+        return 0;
+}
+
+static int _cache_lookup (struct auth_cache *cache, char *key,
+                          struct auth_cache_entry **entry);
+
+static int32_t
+old_cache_insert (struct auth_cache *cache, char *hashkey,
+                  struct auth_cache_entry *entry)
+{
+        return dict_set_bin (cache->cache_dict, hashkey,
+                             entry, sizeof (*entry));
+}
+
+static void
+old_cache_reset (struct auth_cache *cache)
+{
+        dict_t *old_cache_dict;
+
+        if (!cache) {
+                return;
+        }
+
+        old_cache_dict = __sync_lock_test_and_set (&cache->cache_dict,
+                                                   NULL);
+
+        if (old_cache_dict) {
+                dict_unref (old_cache_dict);
+        }
+}
+
+static ac_vtbl_t old_methods = {
+        old_create,
+        old_warm_init,
+        _cache_lookup,
+        old_cache_insert,
+        /* Reset and destroy are the same thing for old code. */
+        old_cache_reset,
+        old_cache_reset,
+};
+
+static ac_vtbl_t *methods = &old_methods;
+
 /**
  * auth_cache_init -- Initialize an auth cache and set the ttl_sec
  *
@@ -51,27 +143,13 @@ auth_cache_init (time_t ttl_sec)
 {
         struct auth_cache *cache = GF_CALLOC (1, sizeof (*cache),
                                               gf_nfs_mt_auth_cache);
-
-        GF_VALIDATE_OR_GOTO ("auth-cache", cache, out);
-
-        cache->cache_dict = dict_new ();
-        if (!cache->cache_dict) {
+        if (methods->create (cache) != 0) {
                 GF_FREE (cache);
-                cache = NULL;
-                goto out;
+                return NULL;
         }
-
-        LOCK_INIT (&cache->lock);
         cache->ttl_sec = ttl_sec;
-out:
         return cache;
 }
-
-struct auth_cache_entry {
-        time_t timestamp;
-        struct export_item *item;
-        gf_boolean_t access_allowed;
-};
 
 /**
  * auth_cache_entry_init -- Initialize an auth cache entry
@@ -92,12 +170,6 @@ auth_cache_entry_init ()
         return entry;
 }
 
-// Internal lookup
-enum _internal_cache_lookup_results {
-        ENTRY_NOT_FOUND = -1,
-        ENTRY_EXPIRED = -2,
-};
-
 /**
  * auth_cache_purge -- Purge the dict in the cache and set
  *                     the dict pointer to NULL. It will be allocated
@@ -109,25 +181,18 @@ enum _internal_cache_lookup_results {
 void
 auth_cache_purge (struct auth_cache *cache)
 {
-        dict_t *new_cache_dict = NULL;
-        dict_t *old_cache_dict = cache->cache_dict;
-
-        if (!cache || !cache->cache_dict)
-                goto out;
-
-        (void)__sync_lock_test_and_set (&cache->cache_dict, new_cache_dict);
-
-        dict_destroy (old_cache_dict);
-out:
-        return;
+        pthread_mutex_lock (&cache->lock);
+        (methods->reset) (cache);
+        pthread_mutex_unlock (&cache->lock);
 }
 
 
 /**
  * Lookup filehandle or path from the cache.
  */
-int _cache_lookup (struct auth_cache *cache, char *key,
-                   struct auth_cache_entry **entry)
+static int
+_cache_lookup (struct auth_cache *cache, char *key,
+               struct auth_cache_entry **entry)
 {
         int ret = ENTRY_NOT_FOUND;
         struct auth_cache_entry *lookup_res;
@@ -149,6 +214,10 @@ int _cache_lookup (struct auth_cache *cache, char *key,
         }
 
         lookup_res = (struct auth_cache_entry *)(entry_data->data);
+        if (!lookup_res) {
+                goto out;
+        }
+
         if (time (NULL) - lookup_res->timestamp > cache->ttl_sec) {
                 GF_FREE (lookup_res);
                 entry_data->data = NULL;
@@ -168,9 +237,9 @@ out:
 /**
  * Lookup filehandle from the cache.
  */
-int
-_cache_lookup_fh (struct auth_cache *cache, struct nfs3_fh *fh,
-                  const char *host_addr, struct auth_cache_entry **ec)
+static int
+__cache_lookup_fh (struct auth_cache *cache, struct nfs3_fh *fh,
+                   const char *host_addr, struct auth_cache_entry **ec)
 {
         char *hashkey;
         int ret = ENTRY_NOT_FOUND;
@@ -184,9 +253,9 @@ _cache_lookup_fh (struct auth_cache *cache, struct nfs3_fh *fh,
 /**
  * Lookup path from the cache.
  */
-int
-_cache_lookup_path (struct auth_cache *cache, const char *path,
-                    const char *host_addr, struct auth_cache_entry **ec)
+static int
+__cache_lookup_path (struct auth_cache *cache, const char *path,
+                     const char *host_addr, struct auth_cache_entry **ec)
 {
         char *hashkey;
         int ret = ENTRY_NOT_FOUND;
@@ -201,13 +270,12 @@ _cache_lookup_path (struct auth_cache *cache, const char *path,
  * cache_item -- Caches either a filehandle or path.
  *               See descriptions of functions that invoke this one.
  */
-int
-cache_item (struct auth_cache *cache, const char *path, struct nfs3_fh *fh,
-            const char *host_addr, struct export_item *export_item,
-            auth_cache_status_t status)
+static int
+__cache_item (struct auth_cache *cache, const char *path, struct nfs3_fh *fh,
+              const char *host_addr, struct export_item *export_item,
+              auth_cache_status_t status)
 {
         int ret = -EINVAL;
-        data_t *entry_data = NULL;
         struct auth_cache_entry *entry = NULL;
         char *hashkey = NULL;
 
@@ -221,12 +289,9 @@ cache_item (struct auth_cache *cache, const char *path, struct nfs3_fh *fh,
         }
 
         // If a dict has not been allocated already, allocate it.
-        if (!cache->cache_dict) {
-                cache->cache_dict = dict_new ();
-                if (!cache->cache_dict) {
-                        ret = -ENOMEM;
-                        goto out;
-                }
+        ret = (methods->warm_init) (cache);
+        if (ret != 0) {
+                goto out;
         }
 
 
@@ -234,12 +299,12 @@ cache_item (struct auth_cache *cache, const char *path, struct nfs3_fh *fh,
         // on which one is defined. Validation for these parameters
         // is above.
         if (fh) {
-                ret = _cache_lookup_fh (cache, fh, host_addr, &entry);
+                ret = __cache_lookup_fh (cache, fh, host_addr, &entry);
                 make_fh_hashkey (hashkey, fh, host_addr)
         }
 
         if (path) {
-                ret = _cache_lookup_path (cache, path, host_addr, &entry);
+                ret = __cache_lookup_path (cache, path, host_addr, &entry);
                 make_path_hashkey (hashkey, path, host_addr)
         }
 
@@ -257,11 +322,16 @@ cache_item (struct auth_cache *cache, const char *path, struct nfs3_fh *fh,
         entry->access_allowed = (status == AUTH_CACHE_HOST_AUTH_OK);
 
         // Put the entry into the cache
-        entry_data = bin_to_data (entry, sizeof (*entry));
-        dict_set (cache->cache_dict, hashkey, entry_data);
-        gf_log (GF_NFS, GF_LOG_TRACE, "Caching %s for host(%s) as %s",
-                path ? path : "fh", host_addr, entry->access_allowed ?
-                "ALLOWED" : "NOT ALLOWED");
+        if ((methods->insert) (cache, hashkey, entry) == 0) {
+                gf_log (GF_NFS, GF_LOG_TRACE, "Caching %s for host(%s) as %s",
+                        path ? path : "fh", host_addr,
+                        entry->access_allowed ?  "ALLOWED" : "NOT ALLOWED");
+        } else {
+                gf_log (GF_NFS, GF_LOG_TRACE,
+                        "Caching %s for host(%s) FAILED",
+                        path ? path : "fh", host_addr);
+        }
+
 out:
         return ret;
 }
@@ -284,7 +354,22 @@ cache_nfs_path (struct auth_cache *cache, const char *path,
                 const char *host_addr, struct export_item *export_item,
                 auth_cache_status_t status)
 {
-        return cache_item (cache, path, NULL, host_addr, export_item, status);
+        int     ret = -EINVAL;
+
+        GF_VALIDATE_OR_GOTO ("nfs", cache, out);
+        GF_VALIDATE_OR_GOTO ("nfs", path, out);
+        GF_VALIDATE_OR_GOTO ("nfs", host_addr, out);
+        GF_VALIDATE_OR_GOTO ("nfs", export_item, out);
+
+        pthread_mutex_lock (&cache->lock);
+        {
+                ret = __cache_item (cache, path, /* fh = */ NULL,
+                                    host_addr, export_item, status);
+        }
+        pthread_mutex_unlock (&cache->lock);
+
+out:
+        return ret;
 }
 
 /**
@@ -305,13 +390,28 @@ cache_nfs_fh (struct auth_cache *cache, struct nfs3_fh *fh,
               const char *host_addr, struct export_item *export_item,
               auth_cache_status_t status)
 {
-        return cache_item (cache, NULL, fh, host_addr, export_item, status);
+        int     ret = -EINVAL;
+
+        GF_VALIDATE_OR_GOTO ("nfs", cache, out);
+        GF_VALIDATE_OR_GOTO ("nfs", fh, out);
+        GF_VALIDATE_OR_GOTO ("nfs", host_addr, out);
+        GF_VALIDATE_OR_GOTO ("nfs", export_item, out);
+
+        pthread_mutex_lock (&cache->lock);
+        {
+                ret = __cache_item (cache, /* path = */ NULL, fh,
+                                    host_addr, export_item, status);
+        }
+        pthread_mutex_unlock (&cache->lock);
+
+out:
+        return ret;
 }
 
-auth_cache_status_t
-auth_cache_allows (struct auth_cache *cache, struct nfs3_fh *fh,
-                   const char *path, const char *host_addr,
-                   gf_boolean_t check_rw_access)
+static auth_cache_status_t
+__auth_cache_allows (struct auth_cache *cache, struct nfs3_fh *fh,
+                     const char *path, const char *host_addr,
+                     gf_boolean_t check_rw_access)
 {
         int ret = 0;
         int status = AUTH_CACHE_HOST_EACCES;
@@ -324,11 +424,11 @@ auth_cache_allows (struct auth_cache *cache, struct nfs3_fh *fh,
         }
 
         if (fh) {
-                ret = _cache_lookup_fh (cache, fh, host_addr, &ace);
+                ret = __cache_lookup_fh (cache, fh, host_addr, &ace);
         }
 
         if (path) {
-                ret = _cache_lookup_path (cache, path, host_addr, &ace);
+                ret = __cache_lookup_path (cache, path, host_addr, &ace);
         }
 
         cache_allows = (ret == 0) && ace->access_allowed;
@@ -351,19 +451,64 @@ auth_cache_status_t
 auth_cache_allows_fh (struct auth_cache *cache, struct nfs3_fh *fh,
                       const char *host_addr)
 {
-        return auth_cache_allows (cache, fh, NULL, host_addr, FALSE);
+        auth_cache_status_t     ret = AUTH_CACHE_HOST_ENOENT;
+
+        GF_VALIDATE_OR_GOTO ("nfs", cache, out);
+        GF_VALIDATE_OR_GOTO ("nfs", fh, out);
+        GF_VALIDATE_OR_GOTO ("nfs", host_addr, out);
+
+        pthread_mutex_lock (&cache->lock);
+        {
+                ret = __auth_cache_allows (cache, fh, /* path = */ NULL,
+                                           host_addr,
+                                           /* check_rw_access = */ FALSE);
+        }
+        pthread_mutex_unlock (&cache->lock);
+
+out:
+        return ret;
 }
 
 auth_cache_status_t
 auth_cache_allows_write_to_fh (struct auth_cache *cache, struct nfs3_fh *fh,
                                const char *host_addr)
 {
-        return auth_cache_allows (cache, fh, NULL, host_addr, TRUE);
+        auth_cache_status_t     ret = AUTH_CACHE_HOST_ENOENT;
+
+        GF_VALIDATE_OR_GOTO ("nfs", cache, out);
+        GF_VALIDATE_OR_GOTO ("nfs", fh, out);
+        GF_VALIDATE_OR_GOTO ("nfs", host_addr, out);
+
+        pthread_mutex_lock (&cache->lock);
+        {
+                ret = __auth_cache_allows (cache, fh, /* path = */ NULL,
+                                           host_addr,
+                                           /* check_rw_access = */ TRUE);
+        }
+        pthread_mutex_unlock (&cache->lock);
+
+out:
+        return ret;
 }
 
 auth_cache_status_t
 auth_cache_allows_path (struct auth_cache *cache, const char *path,
                         const char *host_addr)
 {
-        return auth_cache_allows (cache, NULL, path, host_addr, FALSE);
+        auth_cache_status_t     ret = AUTH_CACHE_HOST_ENOENT;
+
+        GF_VALIDATE_OR_GOTO ("nfs", cache, out);
+        GF_VALIDATE_OR_GOTO ("nfs", path, out);
+        GF_VALIDATE_OR_GOTO ("nfs", host_addr, out);
+
+        pthread_mutex_lock (&cache->lock);
+        {
+                ret = __auth_cache_allows (cache, /* fh = */ NULL,
+                                           path, host_addr,
+                                           /* check_rw_access = */ FALSE);
+        }
+        pthread_mutex_unlock (&cache->lock);
+
+out:
+        return ret;
 }
