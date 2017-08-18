@@ -75,7 +75,7 @@ typedef enum {
 #define EC_STATE_HEAL_DISPATCH              218
 
 gf_boolean_t ec_dispatch_one_retry (ec_fop_data_t *fop, ec_cbk_data_t **cbk);
-int32_t ec_dispatch_next(ec_fop_data_t * fop, int32_t idx);
+void ec_dispatch_next(ec_fop_data_t * fop, uint32_t idx);
 
 void ec_complete(ec_fop_data_t *fop);
 
