@@ -195,12 +195,16 @@ gf_store_read_and_tokenize (FILE *file, char *str, int size, char **iter_key,
         GF_ASSERT (iter_val);
         GF_ASSERT (store_errno);
 
+retry:
         temp = fgets (str, size, file);
         if (temp == NULL || feof (file)) {
                 ret = -1;
                 *store_errno = GD_STORE_EOF;
                 goto out;
         }
+
+        if (strcmp (str, "\n") == 0)
+                goto retry;
 
         str_len = strlen(str);
         str[str_len - 1] = '\0';
