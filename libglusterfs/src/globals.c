@@ -17,6 +17,7 @@
 #include "syncop.h"
 #include "libglusterfs-messages.h"
 #include "upcall-utils.h"
+#include "compat-errno.h"
 
 const char *gf_fop_list[GF_FOP_MAXVALUE] = {
         [GF_FOP_NULL]        = "NULL",
@@ -465,8 +466,9 @@ glusterfs_globals_init (glusterfs_ctx_t *ctx)
 
         gf_log_globals_init (ctx, GF_LOG_INFO);
 
-        ret =  pthread_once (&globals_inited, gf_globals_init_once);
+        gf_error_code_init();
 
+        ret =  pthread_once (&globals_inited, gf_globals_init_once);
         if (ret)
                 gf_msg ("", GF_LOG_CRITICAL, ret, LG_MSG_PTHREAD_FAILED,
                         "pthread_once failed");
