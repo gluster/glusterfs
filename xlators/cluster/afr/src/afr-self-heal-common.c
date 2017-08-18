@@ -549,38 +549,42 @@ afr_selfheal_undo_pending (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	return 0;
 }
 
+void
+afr_reply_copy (struct afr_reply *dst, struct afr_reply *src)
+{
+	dict_t *xdata = NULL;
+
+        dst->valid = src->valid;
+	dst->op_ret = src->op_ret;
+	dst->op_errno = src->op_errno;
+	dst->prestat = src->prestat;
+	dst->poststat = src->poststat;
+	dst->preparent = src->preparent;
+	dst->postparent = src->postparent;
+	dst->preparent2 = src->preparent2;
+	dst->postparent2 = src->postparent2;
+	if (src->xdata)
+		xdata = dict_ref (src->xdata);
+	else
+		xdata = NULL;
+	if (dst->xdata)
+		dict_unref (dst->xdata);
+	dst->xdata = xdata;
+	memcpy (dst->checksum, src->checksum, MD5_DIGEST_LENGTH);
+}
 
 void
 afr_replies_copy (struct afr_reply *dst, struct afr_reply *src, int count)
 {
 	int i = 0;
-	dict_t *xdata = NULL;
 
 	if (dst == src)
 		return;
 
 	for (i = 0; i < count; i++) {
-		dst[i].valid = src[i].valid;
-		dst[i].op_ret = src[i].op_ret;
-		dst[i].op_errno = src[i].op_errno;
-		dst[i].prestat = src[i].prestat;
-		dst[i].poststat = src[i].poststat;
-		dst[i].preparent = src[i].preparent;
-		dst[i].postparent = src[i].postparent;
-		dst[i].preparent2 = src[i].preparent2;
-		dst[i].postparent2 = src[i].postparent2;
-		if (src[i].xdata)
-			xdata = dict_ref (src[i].xdata);
-		else
-			xdata = NULL;
-		if (dst[i].xdata)
-			dict_unref (dst[i].xdata);
-		dst[i].xdata = xdata;
-		memcpy (dst[i].checksum, src[i].checksum,
-			MD5_DIGEST_LENGTH);
+                afr_reply_copy (&dst[i], &src[i]);
 	}
 }
-
 
 int
 afr_selfheal_fill_dirty (xlator_t *this, int *dirty, int subvol,
@@ -650,6 +654,9 @@ afr_selfheal_extract_xattr (xlator_t *this, struct afr_reply *replies,
 	priv = this->private;
 
 	for (i = 0; i < priv->child_count; i++) {
+                if (!replies[i].valid || replies[i].op_ret != 0)
+                        continue;
+
 		if (!replies[i].xdata)
 			continue;
 

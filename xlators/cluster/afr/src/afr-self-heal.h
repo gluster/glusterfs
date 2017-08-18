@@ -215,6 +215,8 @@ afr_selfheal_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			   int op_ret, int op_errno, inode_t *inode,
 			   struct iatt *buf, dict_t *xdata,
                            struct iatt *parbuf);
+void
+afr_reply_copy (struct afr_reply *dst, struct afr_reply *src);
 
 void
 afr_replies_copy (struct afr_reply *dst, struct afr_reply *src, int count);
