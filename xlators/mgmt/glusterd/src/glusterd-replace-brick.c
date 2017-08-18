@@ -21,6 +21,7 @@
 #include "glusterd-nfs-svc.h"
 #include "glusterd-volgen.h"
 #include "glusterd-messages.h"
+#include "glusterd-server-quorum.h"
 #include "glusterd-mgmt.h"
 #include "run.h"
 #include "syscall.h"
@@ -209,6 +210,14 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                                                op_errstr, rsp_dict);
         if (ret)
                 goto out;
+
+        ret = glusterd_validate_quorum (this, gd_op,  dict, op_errstr);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_SERVER_QUORUM_NOT_MET,
+                        "Server quorum not met. Rejecting operation.");
+                goto out;
+        }
 
         if (strcmp (op, "GF_REPLACE_OP_COMMIT_FORCE")) {
                 ret = -1;
