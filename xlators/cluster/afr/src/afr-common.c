@@ -1699,6 +1699,19 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
 
 }
 
+void
+afr_reply_wipe (struct afr_reply *reply)
+{
+        if (reply->xdata) {
+                dict_unref (reply->xdata);
+                reply->xdata = NULL;
+        }
+
+        if (reply->xattr) {
+                dict_unref (reply->xattr);
+                reply->xattr = NULL;
+        }
+}
 
 void
 afr_replies_wipe (struct afr_reply *replies, int count)
@@ -1706,15 +1719,7 @@ afr_replies_wipe (struct afr_reply *replies, int count)
         int i = 0;
 
         for (i = 0; i < count; i++) {
-                if (replies[i].xdata) {
-                        dict_unref (replies[i].xdata);
-                        replies[i].xdata = NULL;
-                }
-
-                if (replies[i].xattr) {
-                        dict_unref (replies[i].xattr);
-                        replies[i].xattr = NULL;
-                }
+                afr_reply_wipe (&replies[i]);
         }
 }
 

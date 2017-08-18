@@ -1159,6 +1159,9 @@ void
 afr_remove_eager_lock_stub (afr_local_t *local);
 
 void
+afr_reply_wipe (struct afr_reply *reply);
+
+void
 afr_replies_wipe (struct afr_reply *replies, int count);
 
 gf_boolean_t
