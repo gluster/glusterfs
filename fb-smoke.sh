@@ -3,27 +3,7 @@
 #
 # Tests
 #
-DESIRED_TESTS="\
- tests/basic/*.t\
- tests/basic/afr/*.t\
- tests/basic/distribute/*.t\
- tests/basic/dht/*.t\
- tests/features/brick-min-free-space.t\
- "
-
-KNOWN_FLAKY_TESTS="\
- tests/basic/afr/shd-autofix-nogfid.t\
- tests/basic/accept-v6v4.t\
- tests/basic/bd.t\
- tests/basic/fop-throttling.t\
- tests/basic/fops-sanity.t\
- tests/basic/mgmt_v3-locks.t\
- tests/basic/mount.t\
- tests/basic/pump.t\
- tests/basic/rpm.t\
- tests/basic/uss.t\
- tests/basic/volume-snapshot.t\
-"
+source ./test_env
 
 #
 # Helpers
@@ -138,7 +118,9 @@ function run_remote {
         flags="$flags --asan"
     fi
 
-    "$FBCODE/storage/gluster/gluster-build/fb-gluster-test.py" $flags --tester --n "$N" --hosts "$REMOTE_HOSTS" --tests "$REMOTE_TESTS"
+    "$FBCODE/storage/gluster/gluster-build/fb-gluster-test.py" $flags --tester \
+        --n "$N" --hosts "$REMOTE_HOSTS" --tests "$REMOTE_TESTS"\
+        --flaky_tests "$REMOTE_FLAKY_TESTS"
 }
 
 #
@@ -157,7 +139,8 @@ FBCODE=${FBCODE:="$HOME/fbsource/fbcode"}
 N=${N:=0}
 REMOTE_HOSTS=${REMOTE_HOSTS:="$(smcc ls-hosts -s gluster.build.ash | xargs)"}
 REMOTE=${REMOTE:=0}
-REMOTE_TESTS=${REMOTE_TESTS:='smoke'}
+REMOTE_TESTS=${REMOTE_TESTS:=$DESIRED_TESTS}
+REMOTE_FLAKY_TESTS=${REMOTE_FLAKY_TESTS:=$KNOWN_FLAKY_TESTS}
 VERBOSE=${VERBOSE:=0}
 VALGRIND=${VALGRIND:=0}
 ASAN=${ASAN:=0}
