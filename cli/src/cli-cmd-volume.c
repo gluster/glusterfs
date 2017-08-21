@@ -3289,7 +3289,7 @@ struct cli_cmd volume_cmds[] = {
            "volume top operations"},
 
         { "volume status [all | <VOLNAME> [nfs|shd|<BRICK>|quotad|tierd]]"
-          " [detail|clients|mem|inode|fd|callpool|tasks]",
+          " [detail|clients|mem|inode|fd|callpool|tasks|client-list]",
           cli_cmd_volume_status_cbk,
           "display status of all or specified volume(s)/brick"},
 

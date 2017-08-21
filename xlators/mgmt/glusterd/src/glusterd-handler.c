@@ -4303,6 +4303,16 @@ __glusterd_handle_status_volume (rpcsvc_request_t *req)
                         "Received status volume req for volume %s", volname);
 
         }
+        if ((cmd & GF_CLI_STATUS_CLIENT_LIST) &&
+            (conf->op_version < GD_OP_VERSION_4_0_0)) {
+                snprintf (err_str, sizeof (err_str), "The cluster is operating "
+                          "at version less than %d. Getting the client-list "
+                          "is not allowed in this state.",
+                          GD_OP_VERSION_4_0_0);
+                ret = -1;
+                goto out;
+        }
+
         if ((cmd & GF_CLI_STATUS_QUOTAD) &&
             (conf->op_version == GD_OP_VERSION_MIN)) {
                 snprintf (err_str, sizeof (err_str), "The cluster is operating "

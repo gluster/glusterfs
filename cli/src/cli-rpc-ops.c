@@ -7299,6 +7299,141 @@ out:
 }
 
 void
+cli_print_volume_status_client_list (dict_t *dict, gf_boolean_t notbrick)
+{
+        int             ret                     = -1;
+        char            *volname                = NULL;
+        int             client_count            = 0;
+        int             current_count           = 0;
+        char            key[1024]               = {0,};
+        int             i                       = 0;
+        int             total                   = 0;
+        char            *name                   = NULL;
+        gf_boolean_t    is_fuse_done            = _gf_false;
+        gf_boolean_t    is_gfapi_done           = _gf_false;
+        gf_boolean_t    is_tierd_done           = _gf_false;
+        gf_boolean_t    is_rebalance_done       = _gf_false;
+        gf_boolean_t    is_glustershd_done      = _gf_false;
+        gf_boolean_t    is_quotad_done          = _gf_false;
+        gf_boolean_t    is_snapd_done           = _gf_false;
+
+        GF_ASSERT (dict);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret)
+                goto out;
+        cli_out ("Client connections for volume %s", volname);
+
+        ret = dict_get_int32 (dict, "client-count", &client_count);
+        if (ret)
+                goto out;
+
+                cli_out ("%-48s %15s", "Name", "count");
+                cli_out ("%-48s %15s", "-----", "------");
+                for (i = 0; i < client_count; i++) {
+                        name = NULL;
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key),
+                                        "client%d.name", i);
+                        ret = dict_get_str (dict, key, &name);
+
+                        if (!strncmp (name, "fuse", 4)) {
+                                if (!is_fuse_done) {
+                                        is_fuse_done = _gf_true;
+                                        ret = dict_get_int32 (dict,
+                                                        "fuse-count",
+                                                        &current_count);
+                                        if (ret)
+                                                goto out;
+                                        total = total + current_count;
+                                        goto print;
+                                }
+                                continue;
+                        } else if (!strncmp (name, "gfapi", 5)) {
+                                if (!is_gfapi_done) {
+                                        is_gfapi_done = _gf_true;
+                                        ret = dict_get_int32 (dict,
+                                                        "gfapi-count",
+                                                        &current_count);
+                                        if (ret)
+                                                goto out;
+                                        total = total + current_count;
+                                        goto print;
+                                }
+                                continue;
+                        } else if (!strcmp(name, "tierd")) {
+                                if (!is_tierd_done) {
+                                        is_tierd_done = _gf_true;
+                                        ret = dict_get_int32 (dict,
+                                                        "tierd-count",
+                                                        &current_count);
+                                        if (ret)
+                                                goto out;
+                                        total = total + current_count;
+                                        goto print;
+                                }
+                                continue;
+                        } else if (!strcmp(name, "rebalance")) {
+                                if (!is_rebalance_done) {
+                                        is_rebalance_done = _gf_true;
+                                        ret = dict_get_int32 (dict,
+                                                        "rebalance-count",
+                                                        &current_count);
+                                        if (ret)
+                                                goto out;
+                                        total = total + current_count;
+                                        goto print;
+                                }
+                                continue;
+                        } else if (!strcmp(name, "glustershd")) {
+                                if (!is_glustershd_done) {
+                                        is_glustershd_done = _gf_true;
+                                        ret = dict_get_int32 (dict,
+                                                        "glustershd-count",
+                                                        &current_count);
+                                        if (ret)
+                                                goto out;
+                                        total = total + current_count;
+                                        goto print;
+                                }
+                                continue;
+                        } else if (!strcmp(name, "quotad")) {
+                                if (!is_quotad_done) {
+                                        is_quotad_done = _gf_true;
+                                        ret = dict_get_int32 (dict,
+                                                        "quotad-count",
+                                                        &current_count);
+                                        if (ret)
+                                                goto out;
+                                        total = total + current_count;
+                                        goto print;
+                                }
+                                continue;
+                        } else if (!strcmp(name, "snapd")) {
+                                if (!is_snapd_done) {
+                                        is_snapd_done = _gf_true;
+                                        ret = dict_get_int32 (dict,
+                                                        "snapd-count",
+                                                        &current_count);
+                                        if (ret)
+                                                goto out;
+                                        total = total + current_count;
+                                        goto print;
+                                }
+                                continue;
+                        }
+
+print:
+                cli_out ("%-48s %15d", name, current_count);
+
+        }
+out:
+                cli_out ("\ntotal clients for volume %s : %d ", volname, total);
+                cli_out ("-----------------------------------------------------------------\n");
+        return;
+}
+
+void
 cli_print_volume_status_clients (dict_t *dict, gf_boolean_t notbrick)
 {
         int             ret = -1;
@@ -8291,6 +8426,10 @@ xml_end:
                         break;
                 case GF_CLI_STATUS_CLIENTS:
                         cli_print_volume_status_clients (dict, notbrick);
+                        goto cont;
+                        break;
+                case GF_CLI_STATUS_CLIENT_LIST:
+                        cli_print_volume_status_client_list (dict, notbrick);
                         goto cont;
                         break;
                 case GF_CLI_STATUS_INODE:

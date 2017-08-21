@@ -3249,7 +3249,8 @@ cli_cmd_get_statusop (const char *arg)
         uint32_t   ret       = GF_CLI_STATUS_NONE;
         char      *w         = NULL;
         char      *opwords[] = {"detail", "mem", "clients", "fd",
-                                "inode", "callpool", "tasks", NULL};
+                                "inode", "callpool", "tasks", "client-list",
+                                NULL};
         struct {
                 char      *opname;
                 uint32_t   opcode;
@@ -3261,6 +3262,7 @@ cli_cmd_get_statusop (const char *arg)
                 { "inode",    GF_CLI_STATUS_INODE    },
                 { "callpool", GF_CLI_STATUS_CALLPOOL },
                 { "tasks",    GF_CLI_STATUS_TASKS    },
+                { "client-list",  GF_CLI_STATUS_CLIENT_LIST },
                 { NULL }
         };
 

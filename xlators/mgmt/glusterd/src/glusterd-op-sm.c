@@ -7281,6 +7281,7 @@ glusterd_bricks_select_status_volume (dict_t *dict, char **op_errstr,
         case GF_CLI_STATUS_TIERD:
         case GF_CLI_STATUS_BITD:
         case GF_CLI_STATUS_SCRUB:
+        case GF_CLI_STATUS_CLIENT_LIST:
                 break;
         default:
                 goto out;
