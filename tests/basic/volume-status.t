@@ -6,6 +6,10 @@
 
 cleanup;
 
+function gluster_client_list_status () {
+        gluster volume status $V0 client-list | sed -n '/Name/','/total/'p | wc -l
+}
+
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume info;
@@ -20,6 +24,8 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" nfs_up_status
 
 ## Mount FUSE
 TEST $GFS -s $H0 --volfile-id $V0 $M0;
+
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "7" gluster_client_list_status
 
 ##Wait for connection establishment between nfs server and brick process
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;

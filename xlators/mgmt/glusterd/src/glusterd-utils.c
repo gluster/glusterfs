@@ -11378,6 +11378,206 @@ out:
 }
 
 int
+glusterd_status_volume_client_list (dict_t *rsp_dict, dict_t *op_ctx,
+                                  char **op_errstr)
+{
+        int                             ret             = 0;
+        char                            *process        = 0;
+        int32_t                         count           = 0;
+        int32_t                         fuse_count      = 0;
+        int32_t                         gfapi_count     = 0;
+        int32_t                         tierd_count     = 0;
+        int32_t                         rebalance_count = 0;
+        int32_t                         glustershd_count = 0;
+        int32_t                         quotad_count    = 0;
+        int32_t                         snapd_count     = 0;
+        int32_t                         client_count    = 0;
+        int                             i               = 0;
+        char                            key[256]        = {0,};
+
+        GF_ASSERT (rsp_dict);
+        GF_ASSERT (op_ctx);
+        GF_ASSERT (op_errstr);
+
+        ret = dict_get_int32 (rsp_dict, "clientcount", &client_count);
+        if (ret) {
+                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                                GD_MSG_DICT_GET_FAILED,
+                        "Couldn't get node index");
+        }
+        ret = dict_set_int32 (op_ctx, "client-count", client_count);
+        if (ret) {
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
+                                "Couldn't get node index");
+                goto out;
+        }
+        for (i = 0; i < client_count; i++) {
+                count = 0;
+                snprintf (key, sizeof (key), "client%d.name", i);
+                ret = dict_get_str (rsp_dict, key, &process);
+                if (ret) {
+                        gf_msg (THIS->name, GF_LOG_INFO, 0,
+                                GD_MSG_DICT_GET_FAILED,
+                                "Couldn't get client name");
+                        goto out;
+                }
+                ret = dict_add_dynstr_with_alloc (op_ctx, key, process);
+                if (ret) {
+                        gf_msg (THIS->name, GF_LOG_INFO, 0,
+                                        GD_MSG_DICT_SET_FAILED,
+                                        "Couldn't set client name");
+                }
+                if (!strncmp(process, "fuse", 4)) {
+                        ret = dict_get_int32 (op_ctx, "fuse-count",
+                                              &count);
+                        if (ret) {
+                                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                                        GD_MSG_DICT_GET_FAILED,
+                                        "Couldn't get fuse-count");
+                        }
+                        fuse_count++;
+                        continue;
+                } else if (!strncmp(process, "gfapi", 5)) {
+                        ret = dict_get_int32 (op_ctx, "gfapi-count",
+                                              &count);
+                        if (ret) {
+                                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                                        GD_MSG_DICT_GET_FAILED,
+                                        "Couldn't get gfapi-count");
+                        }
+                        gfapi_count++;
+                        continue;
+
+                } else if (!strcmp(process, "tierd")) {
+                        ret = dict_get_int32 (op_ctx, "tierd-count",
+                                              &count);
+                        if (ret) {
+                                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                                        GD_MSG_DICT_GET_FAILED,
+                                        "Couldn't get tierd-count");
+                        }
+                        tierd_count++;
+                        continue;
+                } else if (!strcmp(process, "rebalance")) {
+                        ret = dict_get_int32 (op_ctx, "rebalance-count",
+                                              &count);
+                        if (ret) {
+                                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                                        GD_MSG_DICT_GET_FAILED,
+                                        "Couldn't get rebalance-count");
+                        }
+                        rebalance_count++;
+                        continue;
+                } else if (!strcmp(process, "glustershd")) {
+                        ret = dict_get_int32 (op_ctx,
+                                              "glustershd-count", &count);
+                        if (ret) {
+                                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                                        GD_MSG_DICT_GET_FAILED,
+                                        "Couldn't get glustershd-count");
+                        }
+                        glustershd_count++;
+                        continue;
+                } else if (!strcmp(process, "quotad")) {
+                        ret = dict_get_int32 (op_ctx, "quotad-count",
+                                              &count);
+                        if (ret) {
+                                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                                        GD_MSG_DICT_GET_FAILED,
+                                        "Couldn't get quotad-count");
+                        }
+                        quotad_count++;
+                        continue;
+                } else if (!strcmp(process, "snapd")) {
+                        ret = dict_get_int32 (op_ctx, "snapd-count",
+                                              &count);
+                        if (ret) {
+                                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                                        GD_MSG_DICT_GET_FAILED,
+                                        "Couldn't get snapd-count");
+                        }
+                        snapd_count++;
+
+                }
+        }
+
+        if (fuse_count) {
+                ret = dict_set_int32 (op_ctx, "fuse-count",
+                                      fuse_count);
+                if (ret) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Couldn't set fuse-count");
+                        goto out;
+                }
+        }
+        if (gfapi_count) {
+                ret = dict_set_int32 (op_ctx, "gfapi-count",
+                                      gfapi_count);
+                if (ret) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Couldn't set gfapi-count");
+                        goto out;
+                }
+        }
+        if (tierd_count) {
+                ret = dict_set_int32 (op_ctx, "tierd-count",
+                                      tierd_count);
+                if (ret) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Couldn't set tierd-count");
+                        goto out;
+                }
+        }
+        if (rebalance_count) {
+                ret = dict_set_int32 (op_ctx, "rebalance-count",
+                                      rebalance_count);
+                if (ret) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Couldn't set rebalance-count");
+                        goto out;
+                }
+        }
+        if (glustershd_count) {
+                ret = dict_set_int32 (op_ctx, "glustershd-count",
+                                      glustershd_count);
+                if (ret) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Couldn't set glustershd-count");
+                        goto out;
+                }
+        }
+        if (quotad_count) {
+                ret = dict_set_int32 (op_ctx, "quotad-count",
+                                      quotad_count);
+                if (ret) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Couldn't set quotad-count");
+                        goto out;
+                }
+        }
+        if (snapd_count) {
+                ret = dict_set_int32 (op_ctx, "snapd-count",
+                                      snapd_count);
+                if (ret) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Couldn't set snapd-count");
+                        goto out;
+                }
+        }
+
+out:
+        return ret;
+}
+
+int
 glusterd_tier_or_rebalance_rsp (dict_t *op_ctx, glusterd_rebalance_t *index, int32_t i)
 {
         int                             ret = 0;
@@ -11542,6 +11742,7 @@ glusterd_handle_node_rsp (dict_t *req_dict, void *pending_entry,
                           char **op_errstr, gd_node_type type)
 {
         int                     ret = 0;
+        int32_t                 cmd = GF_OP_CMD_NONE;
 
         GF_ASSERT (op_errstr);
 
@@ -11552,8 +11753,13 @@ glusterd_handle_node_rsp (dict_t *req_dict, void *pending_entry,
                                                          op_errstr, type);
                 break;
         case GD_OP_STATUS_VOLUME:
-                ret = glusterd_status_volume_brick_rsp (rsp_dict, op_ctx,
-                                                        op_errstr);
+                ret = dict_get_int32 (req_dict, "cmd", &cmd);
+                if (!ret && (cmd & GF_CLI_STATUS_CLIENT_LIST)) {
+                        ret = glusterd_status_volume_client_list (rsp_dict,
+                                        op_ctx, op_errstr);
+                } else
+                        ret = glusterd_status_volume_brick_rsp (rsp_dict,
+                                        op_ctx, op_errstr);
                 break;
         case GD_OP_TIER_STATUS:
         case GD_OP_DETACH_TIER_STATUS:

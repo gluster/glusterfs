@@ -1050,6 +1050,7 @@ glusterfs_handle_brick_status (rpcsvc_request_t *req)
                         break;
 
                 case GF_CLI_STATUS_CLIENTS:
+                case GF_CLI_STATUS_CLIENT_LIST:
                         ret = xlator->dumpops->priv_to_dict (xlator, output);
                         break;
 

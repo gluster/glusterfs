@@ -277,6 +277,14 @@ server_priv_to_dict (xlator_t *this, dict_t *dict)
                         if (ret)
                                 goto unlock;
 
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "client%d.name",
+                                  count);
+                        ret = dict_set_str (dict, key,
+                                               xprt->xl_private->client_name);
+                        if (ret)
+                                goto unlock;
+
                         count++;
                 }
         }

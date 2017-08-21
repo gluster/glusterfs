@@ -987,7 +987,6 @@ gd_syncop_mgmt_brick_op (struct rpc_clnt *rpc, glusterd_pending_node_t *pnode,
                 else
                         GF_FREE (args.errstr);
         }
-
         if (op == GD_OP_STOP_VOLUME || op == GD_OP_REMOVE_BRICK) {
                 if (args.op_ret == 0) {
                         brickinfo = pnode->node;
@@ -1758,7 +1757,16 @@ gd_brick_op_phase (glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                 }
                 ret = gd_syncop_mgmt_brick_op (rpc, pending_node, op, req_dict,
                                                op_ctx, op_errstr);
-                if (cmd == GF_OP_CMD_DETACH_START) {
+                if (op == GD_OP_STATUS_VOLUME) {
+                        /* for client-list its enough to quit the loop
+                         * once we get the value from one brick
+                         * */
+                        ret = dict_get_int32 (req_dict, "cmd", &cmd);
+                        if (!ret && (cmd & GF_CLI_STATUS_CLIENT_LIST)) {
+                                if (dict_get (op_ctx, "client-count"))
+                                        break;
+                        }
+                } else if (cmd == GF_OP_CMD_DETACH_START) {
                         op = GD_OP_REMOVE_BRICK;
                         dict_del (req_dict, "rebalance-command");
                 } else if (cmd == GF_DEFRAG_CMD_DETACH_START) {
