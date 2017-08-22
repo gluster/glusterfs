@@ -300,6 +300,8 @@ iot_schedule (call_frame_t *frame, xlator_t *this, call_stub_t *stub)
         case GF_FOP_GETACTIVELK:
         case GF_FOP_SETACTIVELK:
         case GF_FOP_DISCOVER:
+        case GF_FOP_ICREATE:
+        case GF_FOP_NAMELINK:
                 pri = IOT_PRI_HI;
                 break;
 
