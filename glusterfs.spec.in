@@ -26,7 +26,7 @@
 %{?_without_rdma:%global _without_rdma --disable-ibverbs}
 
 # No RDMA Support on s390(x)
-%ifarch s390 s390x
+%ifarch s390 s390x armv7hl
 %global _without_rdma --disable-ibverbs
 %endif
 
@@ -479,8 +479,12 @@ Obsoletes:        python-gluster < 3.10
 %package rdma
 Summary:          GlusterFS rdma support for ib-verbs
 Group:            Applications/File
+%if ( 0%{?fedora} && 0%{?fedora} > 26 )
+BuildRequires:    rdma-core-devel
+%else
 BuildRequires:    libibverbs-devel
 BuildRequires:    librdmacm-devel >= 1.0.15
+%endif
 Requires:         %{name}%{?_isa} = %{version}-%{release}
 
 %description rdma
@@ -1375,6 +1379,9 @@ exit 0
 %endif
 
 %changelog
+* Tue Aug 22 2017 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- libibverbs-devel, librdmacm-devel -> rdma-core-devel #1483995
+
 * Thu Jul 20 2017 Aravinda VK <avishwan@redhat.com>
 - Added new tool/binary to set the gfid2path xattr on files
 
