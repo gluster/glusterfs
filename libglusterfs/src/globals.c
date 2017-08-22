@@ -75,6 +75,8 @@ const char *gf_fop_list[GF_FOP_MAXVALUE] = {
         [GF_FOP_GETACTIVELK] = "GETACTIVELK",
         [GF_FOP_SETACTIVELK] = "SETACTIVELK",
         [GF_FOP_PUT]         = "PUT",
+        [GF_FOP_ICREATE]     = "ICREATE",
+        [GF_FOP_NAMELINK]    = "NAMELINK",
 };
 
 const char *gf_upcall_list[GF_UPCALL_FLAGS_MAXVALUE] = {

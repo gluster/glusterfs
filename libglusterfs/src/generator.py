@@ -575,6 +575,23 @@ ops['put'] = (
         ('cbk-arg',     'xdata',                'dict_t *'),
 )
 
+ops['icreate'] = (
+        ('fop-arg',     'loc',                   'loc_t *'),
+        ('fop-arg',     'mode',                  'mode_t'),
+        ('fop-arg',     'xdata',                 'dict_t *'),
+        ('cbk-arg',     'inode',                 'inode_t *'),
+        ('cbk-arg',     'buf',                   'struct iatt *'),
+        ('cbk-arg',     'xdata',                 'dict_t *'),
+)
+
+ops['namelink'] = (
+        ('fop-arg',     'loc',                   'loc_t *'),
+        ('fop-arg',     'xdata',                 'dict_t *'),
+        ('cbk-arg',     'prebuf',                'struct iatt *'),
+        ('cbk-arg',     'postbuf',               'struct iatt *'),
+        ('cbk-arg',     'xdata',                 'dict_t *'),
+)
+
 #####################################################################
 xlator_cbks['forget'] = (
         ('fn-arg',      'this',        'xlator_t *'),

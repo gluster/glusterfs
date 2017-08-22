@@ -3251,3 +3251,79 @@ syncop_setactivelk (xlator_t *subvol, loc_t *loc,
         return args.op_ret;
 
 }
+
+int
+syncop_icreate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, inode_t *inode,
+                   struct iatt *buf, dict_t *xdata)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+        if (xdata)
+                args->xdata  = dict_ref (xdata);
+
+	if (buf)
+		args->iatt1 = *buf;
+
+        __wake (args);
+
+        return 0;
+}
+
+int
+syncop_namelink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                   struct iatt *postbuf, dict_t *xdata)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+
+        if (xdata)
+                args->xdata  = dict_ref (xdata);
+
+        __wake (args);
+
+        return 0;
+}
+
+int
+syncop_icreate (xlator_t *subvol, loc_t *loc, mode_t mode, dict_t *xdata)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_icreate_cbk, subvol->fops->icreate,
+                loc, mode, xdata);
+
+        if (xdata)
+                xdata = args.xdata;
+        else if (args.xdata)
+                dict_unref (args.xdata);
+
+        errno = args.op_errno;
+        return args.op_ret;
+}
+
+int
+syncop_namelink (xlator_t *subvol, loc_t *loc, dict_t *xdata)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_namelink_cbk, subvol->fops->namelink,
+                loc, xdata);
+
+        if (xdata)
+                xdata = args.xdata;
+        else if (args.xdata)
+                dict_unref (args.xdata);
+
+        errno = args.op_errno;
+        return args.op_ret;
+}
