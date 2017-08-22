@@ -1580,6 +1580,29 @@ args_lease_cbk_store (default_args_cbk_t *args,
                 args->xdata = dict_ref (xdata);
 }
 
+int
+args_icreate_store (default_args_t *args,
+                    loc_t *loc, mode_t mode, dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+        args->mode = mode;
+
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
+
+int
+args_namelink_store (default_args_t *args,
+                     loc_t *loc, dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
+
 void
 args_cbk_wipe (default_args_cbk_t *args_cbk)
 {

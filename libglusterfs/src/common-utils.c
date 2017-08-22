@@ -4591,6 +4591,8 @@ fop_enum_to_pri_string (glusterfs_fop_t fop)
         case GF_FOP_READDIRP:
         case GF_FOP_GETACTIVELK:
         case GF_FOP_SETACTIVELK:
+        case GF_FOP_ICREATE:
+        case GF_FOP_NAMELINK:
                 return "HIGH";
 
         case GF_FOP_CREATE:
@@ -4940,4 +4942,3 @@ get_struct_variable (int mem_num, gf_gsync_status_t *sts_val)
 out:
         return NULL;
 }
-

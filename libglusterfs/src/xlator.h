@@ -471,6 +471,16 @@ typedef int32_t (*fop_put_cbk_t) (call_frame_t *frame, void *cookie,
                                   struct iatt *buf, struct iatt *preparent,
                                   struct iatt *postparent, dict_t *xdata);
 
+typedef int32_t (*fop_icreate_cbk_t) (call_frame_t *frame, void *cookie,
+                                      xlator_t *this, int32_t op_ret,
+                                      int32_t op_errno, inode_t *inode,
+                                      struct iatt *buf, dict_t *xdata);
+
+typedef int32_t (*fop_namelink_cbk_t) (call_frame_t *frame, void *cookie,
+                                       xlator_t *this, int32_t op_ret,
+                                       int32_t op_errno, struct iatt *prebuf,
+                                       struct iatt *postbuf, dict_t *xdata);
+
 typedef int32_t (*fop_lookup_t) (call_frame_t *frame,
                                  xlator_t *this,
                                  loc_t *loc,
@@ -737,6 +747,12 @@ typedef int32_t (*fop_put_t) (call_frame_t *frame, xlator_t *this, loc_t *loc,
                               struct iobref *iobref, dict_t *xattr,
                               dict_t *xdata);
 
+typedef int32_t (*fop_icreate_t) (call_frame_t *frame, xlator_t *this,
+                                  loc_t *loc, mode_t mode, dict_t *xdata);
+
+typedef int32_t (*fop_namelink_t) (call_frame_t *frame, xlator_t *this,
+                                   loc_t *loc, dict_t *xdata);
+
 /* WARNING: make sure the list is in order with FOP definition in
    `rpc/xdr/src/glusterfs-fops.x`.
    If it is not in order, mainly the metrics related feature would be broken */
@@ -799,6 +815,8 @@ struct xlator_fops {
         fop_getactivelk_t    getactivelk;
         fop_setactivelk_t    setactivelk;
         fop_put_t            put;
+        fop_icreate_t        icreate;
+        fop_namelink_t       namelink;
 
         /* these entries are used for a typechecking hack in STACK_WIND _only_ */
         /* make sure to add _cbk variables only after defining regular fops as
@@ -861,6 +879,8 @@ struct xlator_fops {
         fop_getactivelk_cbk_t    getactivelk_cbk;
         fop_setactivelk_cbk_t    setactivelk_cbk;
         fop_put_cbk_t            put_cbk;
+        fop_icreate_cbk_t        icreate_cbk;
+        fop_namelink_cbk_t       namelink_cbk;
 };
 
 typedef int32_t (*cbk_forget_t) (xlator_t *this,

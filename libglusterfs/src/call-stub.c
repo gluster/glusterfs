@@ -2009,6 +2009,126 @@ out:
         return stub;
 }
 
+call_stub_t *
+fop_icreate_stub (call_frame_t *frame, fop_icreate_t fn,
+                  loc_t *loc, mode_t mode, dict_t *xdata)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+        GF_VALIDATE_OR_GOTO ("call-stub", fn, out);
+
+        stub = stub_new (frame, 1, GF_FOP_ICREATE);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->fn.icreate = fn;
+
+        stub->args.mode = mode;
+        if (loc)
+                loc_copy (&stub->args.loc, loc);
+        if (xdata)
+                stub->args.xdata = dict_ref (xdata);
+
+ out:
+        return stub;
+}
+
+static void
+args_icreate_store_cbk (default_args_cbk_t *args,
+                        int32_t op_ret, int32_t op_errno,
+                        inode_t *inode, struct iatt *buf, dict_t *xdata)
+{
+        args->op_ret = op_ret;
+        args->op_errno = op_errno;
+        if (inode)
+                args->inode = inode_ref (inode);
+        if (buf)
+                args->stat = *buf;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+}
+
+call_stub_t *
+fop_icreate_cbk_stub (call_frame_t *frame,
+                      fop_icreate_cbk_t fn,
+                      int32_t op_ret, int32_t op_errno,
+                      inode_t *inode, struct iatt *buf, dict_t *xdata)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+
+        stub = stub_new (frame, 0, GF_FOP_ICREATE);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->fn_cbk.icreate = fn;
+        args_icreate_store_cbk (&stub->args_cbk,
+                                op_ret, op_errno, inode, buf, xdata);
+
+ out:
+        return stub;
+}
+
+call_stub_t *
+fop_namelink_stub (call_frame_t *frame,
+                   fop_namelink_t fn, loc_t *loc, dict_t *xdata)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+        GF_VALIDATE_OR_GOTO ("call-stub", fn, out);
+
+        stub = stub_new (frame, 1, GF_FOP_NAMELINK);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->fn.namelink = fn;
+
+        if (loc)
+                loc_copy (&stub->args.loc, loc);
+        if (xdata)
+                stub->args.xdata = dict_ref (xdata);
+
+ out:
+        return stub;
+}
+
+static void
+args_namelink_store_cbk (default_args_cbk_t *args,
+                         int32_t op_ret, int32_t op_errno,
+                         struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata)
+{
+        args->op_ret = op_ret;
+        args->op_errno = op_errno;
+
+        if (prebuf)
+                args->prestat = *prebuf;
+        if (postbuf)
+                args->poststat = *postbuf;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+}
+
+call_stub_t *
+fop_namelink_cbk_stub (call_frame_t *frame,
+                       fop_namelink_cbk_t fn,
+                       int32_t op_ret, int32_t op_errno,
+                       struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+
+        stub = stub_new (frame, 0, GF_FOP_NAMELINK);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->fn_cbk.namelink = fn;
+        args_namelink_store_cbk (&stub->args_cbk,
+                                 op_ret, op_errno, prebuf, postbuf, xdata);
+
+ out:
+        return stub;
+}
+
 void
 call_resume_wind (call_stub_t *stub)
 {

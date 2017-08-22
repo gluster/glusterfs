@@ -2207,6 +2207,97 @@ out:
         return 0;
 }
 
+int
+server_namelink_cbk (call_frame_t *frame,
+                     void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno,
+                     struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata)
+{
+        gfs4_namelink_rsp       rsp        = {0,};
+        rpcsvc_request_t    *req        = NULL;
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
+                                    rsp.xdata.xdata_len, op_errno, out);
+
+        if (op_ret < 0)
+                goto out;
+
+        gf_stat_from_iatt (&rsp.preparent, prebuf);
+        gf_stat_from_iatt (&rsp.postparent, postbuf);
+
+        /**
+         * no point in linking inode here -- there's no stbuf anyway and a
+         * lookup() for this name entry would be a negative lookup.
+         */
+
+out:
+        rsp.op_ret    = op_ret;
+        rsp.op_errno  = gf_errno_to_error (op_errno);
+
+        req = frame->local;
+        server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
+                             (xdrproc_t)xdr_gfs4_namelink_rsp);
+
+        GF_FREE (rsp.xdata.xdata_val);
+
+        return 0;
+}
+
+int
+server_icreate_cbk (call_frame_t *frame,
+                    void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno,
+                    inode_t *inode, struct iatt *stbuf, dict_t *xdata)
+{
+        server_state_t      *state      = NULL;
+        inode_t             *link_inode = NULL;
+        rpcsvc_request_t    *req        = NULL;
+        gfs3_create_rsp      rsp        = {0,};
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
+                                    rsp.xdata.xdata_len, op_errno, out);
+
+        state = CALL_STATE (frame);
+
+        if (op_ret < 0) {
+                gf_msg (this->name, GF_LOG_INFO, op_errno, PS_MSG_CREATE_INFO,
+                        "%"PRId64": ICREATE [%s] ==> (%s)",
+                        frame->root->unique, uuid_utoa (state->resolve.gfid),
+                        strerror (op_errno));
+                goto out;
+        }
+
+        gf_msg_trace (frame->root->client->bound_xl->name, 0, "%"PRId64": "
+                      "ICREATE [%s]", frame->root->unique,
+                      uuid_utoa (stbuf->ia_gfid));
+
+        link_inode = inode_link (inode,
+                                 state->loc.parent, state->loc.name, stbuf);
+
+        if (!link_inode) {
+                op_ret = -1;
+                op_errno = ENOENT;
+                goto out;
+        }
+
+        inode_lookup (link_inode);
+        inode_unref (link_inode);
+
+        gf_stat_from_iatt (&rsp.stat, stbuf);
+
+out:
+        rsp.op_ret    = op_ret;
+        rsp.op_errno  = gf_errno_to_error (op_errno);
+
+        req = frame->local;
+        server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
+                             (xdrproc_t)xdr_gfs4_icreate_rsp);
+
+        GF_FREE (rsp.xdata.xdata_val);
+
+        return 0;
+}
+
 /* Resume function section */
 
 int
@@ -3452,6 +3543,53 @@ err:
         return ret;
 }
 
+int
+server_namelink_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t *state = NULL;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+        state->loc.inode = inode_new (state->itable);
+
+        STACK_WIND (frame, server_namelink_cbk,
+                    bound_xl, bound_xl->fops->namelink,
+                    &(state->loc), state->xdata);
+        return 0;
+
+ err:
+        server_namelink_cbk (frame, NULL,
+                             frame->this,
+                             state->resolve.op_ret,
+                             state->resolve.op_errno, NULL, NULL, NULL);
+        return 0;
+}
+
+int
+server_icreate_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t *state = NULL;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+        state->loc.inode = inode_new (state->itable);
+
+        STACK_WIND (frame, server_icreate_cbk,
+                    bound_xl, bound_xl->fops->icreate,
+                    &(state->loc), state->mode, state->xdata);
+
+        return 0;
+err:
+        server_icreate_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                            state->resolve.op_errno, NULL, NULL, NULL);
+        return 0;
+}
 
 /* Fop section */
 static inline int
@@ -6091,6 +6229,100 @@ out:
 }
 
 int
+server3_3_namelink (rpcsvc_request_t *req)
+{
+        server_state_t    *state    = NULL;
+        call_frame_t      *frame    = NULL;
+        gfs4_namelink_req  args     = {{0,},};
+        int                ret      = -1;
+        int                op_errno = 0;
+
+        if (!req)
+                return ret;
+
+        ret = rpc_receive_common (req, &frame, &state, NULL, &args,
+                                  xdr_gfs4_namelink_req, GF_FOP_NAMELINK);
+
+        if (ret != 0)
+                goto out;
+
+        state->resolve.bname = gf_strdup (args.bname);
+        memcpy (state->resolve.pargfid, args.pargfid, sizeof (uuid_t));
+
+        state->resolve.type = RESOLVE_NOT;
+
+        /* TODO: can do alloca for xdata field instead of stdalloc */
+        GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
+                                      state->xdata,
+                                      args.xdata.xdata_val,
+                                      args.xdata.xdata_len, ret,
+                                      op_errno, out);
+
+        ret = 0;
+        resolve_and_resume (frame, server_namelink_resume);
+
+out:
+        /* memory allocated by libc, don't use GF_FREE */
+        free (args.xdata.xdata_val);
+
+        if (op_errno)
+                SERVER_REQ_SET_ERROR (req, ret);
+
+        return ret;
+
+}
+
+int
+server3_3_icreate (rpcsvc_request_t *req)
+{
+        server_state_t   *state    = NULL;
+        call_frame_t     *frame    = NULL;
+        gfs4_icreate_req  args     = {{0,},};
+        int               ret      = -1;
+        int               op_errno = 0;
+        uuid_t            gfid     = {0,};
+
+        if (!req)
+                return ret;
+
+        ret = rpc_receive_common (req, &frame, &state, NULL, &args,
+                                  xdr_gfs4_icreate_req, GF_FOP_ICREATE);
+
+        if (ret != 0)
+                goto out;
+
+        memcpy (gfid, args.gfid, sizeof (uuid_t));
+
+        state->mode  = args.mode;
+        gf_asprintf (&state->resolve.bname, INODE_PATH_FMT, uuid_utoa (gfid));
+
+        /* parent is an auxillary inode number */
+        memset (state->resolve.pargfid, 0, sizeof (uuid_t));
+        state->resolve.pargfid[15] = GF_AUXILLARY_PARGFID;
+
+        state->resolve.type = RESOLVE_NOT;
+
+        /* TODO: can do alloca for xdata field instead of stdalloc */
+        GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
+                                      state->xdata,
+                                      args.xdata.xdata_val,
+                                      args.xdata.xdata_len, ret,
+                                      op_errno, out);
+
+        ret = 0;
+        resolve_and_resume (frame, server_icreate_resume);
+
+out:
+        /* memory allocated by libc, don't use GF_FREE */
+        free (args.xdata.xdata_val);
+
+        if (op_errno)
+                SERVER_REQ_SET_ERROR (req, ret);
+
+        return ret;
+}
+
+int
 server4_0_fsetattr (rpcsvc_request_t *req)
 {
         server_state_t       *state    = NULL;
@@ -6297,6 +6529,8 @@ rpcsvc_actor_t glusterfs4_0_fop_actors[] = {
         [GFS3_OP_GETACTIVELK]  = {"GETACTIVELK",  GFS3_OP_GETACTIVELK,  server3_3_getactivelk,  NULL, 0, DRC_NA},
         [GFS3_OP_SETACTIVELK]  = {"SETACTIVELK",  GFS3_OP_SETACTIVELK,  server3_3_setactivelk,  NULL, 0, DRC_NA},
         [GFS3_OP_COMPOUND]     = {"COMPOUND",     GFS3_OP_COMPOUND,     server3_3_compound,     NULL, 0, DRC_NA},
+        [GFS3_OP_ICREATE]     =  {"ICREATE",      GFS3_OP_ICREATE,      server3_3_icreate,      NULL, 0, DRC_NA},
+        [GFS3_OP_NAMELINK]    =  {"NAMELINK",     GFS3_OP_NAMELINK,     server3_3_namelink,     NULL, 0, DRC_NA},
 };
 
 

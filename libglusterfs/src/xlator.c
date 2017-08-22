@@ -106,6 +106,8 @@ fill_defaults (xlator_t *xl)
         SET_DEFAULT_FOP (put);
 
         SET_DEFAULT_FOP (getspec);
+        SET_DEFAULT_FOP (icreate);
+        SET_DEFAULT_FOP (namelink);
 
         if (!xl->cbks)
                 xl->cbks = &default_cbks;

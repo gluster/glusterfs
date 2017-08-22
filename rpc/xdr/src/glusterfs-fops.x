@@ -75,6 +75,8 @@ enum glusterfs_fop_t {
         GF_FOP_GETACTIVELK,
         GF_FOP_SETACTIVELK,
         GF_FOP_PUT,
+        GF_FOP_ICREATE,
+        GF_FOP_NAMELINK,
         GF_FOP_MAXVALUE
 };
 

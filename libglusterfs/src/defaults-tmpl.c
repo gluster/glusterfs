@@ -82,6 +82,8 @@ struct xlator_fops _default_fops = {
         .getactivelk = default_getactivelk,
         .setactivelk = default_setactivelk,
         .put = default_put,
+        .icreate = default_icreate,
+        .namelink = default_namelink,
 };
 struct xlator_fops *default_fops = &_default_fops;
 

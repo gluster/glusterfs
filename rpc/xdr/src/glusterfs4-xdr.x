@@ -31,3 +31,30 @@
         unsigned int  len;
         opaque   xdata<>; /* Extra data */
 }  ;
+
+struct gfs4_icreate_rsp {
+       int op_ret;
+       int op_errno;
+       gf_iatt stat;
+       opaque xdata<>;
+};
+
+struct gfs4_icreate_req {
+       opaque gfid[16];
+       unsigned int mode;
+       opaque xdata<>;
+};
+
+struct gfs4_namelink_rsp {
+       int op_ret;
+       int op_errno;
+       gf_iatt preparent;
+       gf_iatt postparent;
+       opaque xdata<>;
+};
+
+struct gfs4_namelink_req {
+       opaque pargfid[16];
+       string bname<>;
+       opaque xdata<>;
+};

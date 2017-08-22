@@ -306,6 +306,7 @@ const char *fop_enum_to_pri_string (glusterfs_fop_t fop);
 #define GF_SET_OVERWRITE      0x2 /* Overwrite with the buf given */
 #define GF_SET_DIR_ONLY       0x4
 #define GF_SET_EPOCH_TIME     0x8 /* used by afr dir lookup selfheal */
+#define GF_AUXILLARY_PARGFID  0xd /* RIO dummy parent gfid */
 
 /* key value which quick read uses to get small files in lookup cbk */
 #define GF_CONTENT_KEY "glusterfs.content"

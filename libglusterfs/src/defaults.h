@@ -359,6 +359,12 @@ default_put (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
              mode_t umask, uint32_t flags, struct iovec *vector, int32_t count,
              off_t off, struct iobref *iobref, dict_t *xattr, dict_t *xdata);
 
+int32_t default_icreate (call_frame_t *frame, xlator_t *this,
+                         loc_t *loc, mode_t mode, dict_t *xdata);
+
+int32_t default_namelink (call_frame_t *frame,
+                          xlator_t *this, loc_t *loc, dict_t *xdata);
+
 /* Resume */
 int32_t default_getspec_resume (call_frame_t *frame,
                                 xlator_t *this,
@@ -912,6 +918,14 @@ default_put_cbk_resume (call_frame_t *frame, void *cookie, xlator_t *this,
                         struct iatt *buf, struct iatt *preparent,
                         struct iatt *postparent, dict_t *xdata);
 
+int32_t
+default_icreate_resume (call_frame_t *frame, xlator_t *this,
+                        loc_t *loc, mode_t mode, dict_t *xdata);
+
+int32_t
+default_namelink_resume (call_frame_t *frame,
+                         xlator_t *this, loc_t *loc, dict_t *xdata);
+
 /* _CBK */
 int32_t
 default_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -1166,6 +1180,18 @@ default_put_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  struct iatt *postparent, dict_t *xdata);
 
 int32_t
+default_icreate_cbk (call_frame_t *frame,
+                     void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno,
+                     inode_t *inode, struct iatt *buf, dict_t *xdata);
+
+int32_t
+default_namelink_cbk (call_frame_t *frame, void *cookie,
+                      xlator_t *this, int32_t op_ret,
+                      int32_t op_errno, struct iatt *prebuf,
+                      struct iatt *postbuf, dict_t *xdata);
+
+int32_t
 default_lookup_failure_cbk (call_frame_t *frame, int32_t op_errno);
 
 int32_t
@@ -1319,6 +1345,12 @@ default_setactivelk_failure_cbk (call_frame_t *frame, int32_t op_errno);
 
 int32_t
 default_put_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_icreate_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_namelink_failure_cbk (call_frame_t *frame, int32_t op_errno);
 
 int32_t
 default_mem_acct_init (xlator_t *this);

@@ -569,4 +569,14 @@ syncop_put (xlator_t *subvol, loc_t *loc, mode_t mode, mode_t umask,
             off_t offset, struct iobref *iobref, dict_t *xattr,
             struct iatt *iatt, dict_t *xdata_in, dict_t **xdata_out);
 
+int
+syncop_setactivelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, dict_t *xdata);
+
+int
+syncop_icreate (xlator_t *subvol, loc_t *loc, mode_t mode, dict_t *xdata_out);
+
+int
+syncop_namelink (xlator_t *subvol, loc_t *loc, dict_t *xdata_out);
+
 #endif /* _SYNCOP_H */
