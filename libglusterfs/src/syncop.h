@@ -567,4 +567,14 @@ int syncop_discover (xlator_t *subvol, loc_t *loc, dict_t *xattr_req,
                      /* out */
                      struct iatt *iatt, dict_t **xattr_rsp);
 
+int
+syncop_setactivelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, dict_t *xdata);
+
+int
+syncop_icreate (xlator_t *subvol, loc_t *loc, mode_t mode, dict_t *xdata_out);
+
+int
+syncop_namelink (xlator_t *subvol, loc_t *loc, dict_t *xdata_out);
+
 #endif /* _SYNCOP_H */

@@ -476,6 +476,16 @@ typedef int32_t (*fop_setactivelk_cbk_t) (call_frame_t *frame, void *cookie,
                                             xlator_t *this, int32_t op_ret,
                                             int32_t op_errno, dict_t *xdata);
 
+typedef int32_t (*fop_icreate_cbk_t) (call_frame_t *frame, void *cookie,
+                                      xlator_t *this, int32_t op_ret,
+                                      int32_t op_errno, inode_t *inode,
+                                      struct iatt *buf, dict_t *xdata);
+
+typedef int32_t (*fop_namelink_cbk_t) (call_frame_t *frame, void *cookie,
+                                       xlator_t *this, int32_t op_ret,
+                                       int32_t op_errno, struct iatt *prebuf,
+                                       struct iatt *postbuf, dict_t *xdata);
+
 typedef int32_t (*fop_lookup_t) (call_frame_t *frame,
                                  xlator_t *this,
                                  loc_t *loc,
@@ -741,6 +751,12 @@ typedef int32_t (*fop_setactivelk_t) (call_frame_t *frame, xlator_t *this,
                                       lock_migration_info_t *locklist,
                                       dict_t *xdata);
 
+typedef int32_t (*fop_icreate_t) (call_frame_t *frame, xlator_t *this,
+                                  loc_t *loc, mode_t mode, dict_t *xdata);
+
+typedef int32_t (*fop_namelink_t) (call_frame_t *frame, xlator_t *this,
+                                   loc_t *loc, dict_t *xdata);
+
 struct xlator_fops {
         fop_stat_t           stat;
         fop_readlink_t       readlink;
@@ -800,6 +816,8 @@ struct xlator_fops {
         fop_getactivelk_t    getactivelk;
         fop_setactivelk_t    setactivelk;
         fop_discover_t       discover;
+        fop_icreate_t        icreate;
+        fop_namelink_t       namelink;
 
         /* these entries are used for a typechecking hack in STACK_WIND _only_ */
         /* make sure to add _cbk variables only after defining regular fops as
@@ -862,6 +880,8 @@ struct xlator_fops {
         fop_getactivelk_cbk_t    getactivelk_cbk;
         fop_setactivelk_cbk_t    setactivelk_cbk;
         fop_discover_cbk_t       discover_cbk;
+        fop_icreate_cbk_t        icreate_cbk;
+        fop_namelink_cbk_t       namelink_cbk;
 };
 
 typedef int32_t (*cbk_forget_t) (xlator_t *this,

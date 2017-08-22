@@ -4616,6 +4616,8 @@ fop_enum_to_pri_string (glusterfs_fop_t fop)
         case GF_FOP_GETACTIVELK:
         case GF_FOP_SETACTIVELK:
         case GF_FOP_DISCOVER:
+        case GF_FOP_ICREATE:
+        case GF_FOP_NAMELINK:
                 return "HIGH";
 
         case GF_FOP_CREATE:
