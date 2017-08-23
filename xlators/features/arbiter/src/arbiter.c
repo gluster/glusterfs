@@ -89,15 +89,6 @@ arbiter_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 }
 
 int32_t
-arbiter_readv (call_frame_t *frame,  xlator_t *this, fd_t *fd, size_t size,
-               off_t offset, uint32_t flags, dict_t *xdata)
-{
-        STACK_UNWIND_STRICT (readv, frame, -1, ENOTCONN, NULL, 0, NULL, NULL,
-                             NULL);
-        return 0;
-}
-
-int32_t
 arbiter_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                   dict_t *xdata)
 {
@@ -270,6 +261,23 @@ unwind:
         return 0;
 }
 
+static int32_t
+arbiter_readv (call_frame_t *frame,  xlator_t *this, fd_t *fd, size_t size,
+               off_t offset, uint32_t flags, dict_t *xdata)
+{
+        STACK_UNWIND_STRICT (readv, frame, -1, ENOSYS, NULL, 0, NULL, NULL,
+                             NULL);
+        return 0;
+}
+
+static int32_t
+arbiter_seek (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+              gf_seek_what_t what, dict_t *xdata)
+{
+        STACK_UNWIND_STRICT (seek, frame, -1, ENOSYS, 0, xdata);
+        return 0;
+}
+
 int32_t
 mem_acct_init (xlator_t *this)
 {
@@ -328,13 +336,30 @@ fini (xlator_t *this)
 
 struct xlator_fops fops = {
         .lookup = arbiter_lookup,
-        .readv  = arbiter_readv,
+
+        /* Return success for these inode write FOPS without winding it down to
+         * posix; this is needed for AFR write transaction logic to work.*/
         .truncate = arbiter_truncate,
         .writev = arbiter_writev,
         .ftruncate = arbiter_ftruncate,
         .fallocate = arbiter_fallocate,
         .discard = arbiter_discard,
         .zerofill = arbiter_zerofill,
+
+        /* AFR is not expected to wind these inode read FOPS initiated by the
+         * application to the arbiter brick. But in case a bug causes them
+         * to be called, we return ENOSYS. */
+        .readv = arbiter_readv,
+        .seek = arbiter_seek,
+
+        /* The following inode read FOPS initiated by the application are not
+         * wound by AFR either but internal logic like  shd, glfsheal and
+         * client side healing in AFR will send them for selfheal/ inode refresh
+         * operations etc.,so we need to wind them down to posix:
+         *
+         * (f)stat, readdir(p), readlink, (f)getxattr.*/
+
+        /* All other FOPs not listed here are safe to be wound down to posix.*/
 };
 
 struct xlator_cbks cbks = {
