@@ -106,9 +106,8 @@
 # From https://fedoraproject.org/wiki/Packaging:Python#Macros
 %if ( 0%{?rhel} && 0%{?rhel} <= 6 )
 %{!?python2_sitelib: %global python2_sitelib %(python2 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
-%global _rundir %{_localstatedir}/run
 %{!?python2_sitearch: %global python2_sitearch %(python2 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(1))")}
-%global _rundir /run
+%global _rundir %{_localstatedir}/run
 %endif
 
 %if ( 0%{?_with_systemd:1} )
