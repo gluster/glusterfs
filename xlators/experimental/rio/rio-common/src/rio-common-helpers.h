@@ -21,5 +21,6 @@
 
 int rio_process_volume_lists (xlator_t *, struct rio_conf *);
 void rio_destroy_volume_lists (struct rio_conf *);
+int32_t rio_lookup_is_nameless (loc_t *);
 
 #endif /* _RIO_COMMON_HELPERS_H */

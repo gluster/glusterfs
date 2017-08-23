@@ -1,7 +1,7 @@
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/experimental
 xlator_LTLIBRARIES = rios.la
 
-rios_sources = rio-server-main.c
+rios_sources = rio-server-main.c rio-server-fops.c
 
 RIOCOMMON_SRC = $(top_srcdir)/xlators/experimental/rio/rio-common/src
 RIOCOMMON_BLD = $(top_builddir)/xlators/experimental/rio/rio-common/src
@@ -18,7 +18,8 @@ noinst_HEADERS_riocommon = $(RIOCOMMON_BLD)/rio-common.h \
         $(RIOCOMMON_BLD)/rio-common-helpers.h \
         $(RIOCOMMON_BLD)/rio-mem-types.h \
         $(RIOCOMMON_BLD)/rio-messages.h \
-        $(RIOCOMMON_BLD)/layout.h
+        $(RIOCOMMON_BLD)/layout.h \
+        rio-server-fops.h
 
 noinst_HEADERS = $(top_builddir)/xlators/lib/src/libxlator.h \
         $(noinst_HEADERS_riocommon)

@@ -23,36 +23,42 @@
 #define RIO_SERVER_NONE_SUBVOL "rio-server-none-subvol"
 
 struct rio_subvol {
-        struct list_head d2svl_node;
-        xlator_t *d2svl_xlator; /* subvolume xlator */
+        struct list_head riosvl_node;
+        xlator_t *riosvl_xlator; /* subvolume xlator */
 };
 
 struct rio_conf {
         /* memory pools */
 
         /* subvolume configuration */
-        char    *d2cnf_data_subvolumes; /* string of data subvolumes */
-        char    *d2cnf_metadata_subvolumes;  /* string of metadata subvolumes */
-        struct rio_subvol d2cnf_dc_list; /* list of dc xlators */
-        struct rio_subvol d2cnf_mdc_list; /* list of mdc xlators */
-        int     d2cnf_dc_count; /* count of dc subvolumes in dc_list */
-        int     d2cnf_mdc_count; /* count of dc subvolumes in mdc_list */
+        char    *riocnf_data_subvolumes; /* string of data subvolumes */
+        char    *riocnf_metadata_subvolumes;  /* metadata subvolumes string */
+        struct rio_subvol riocnf_dc_list; /* list of dc xlators */
+        struct rio_subvol riocnf_mdc_list; /* list of mdc xlators */
+        int     riocnf_dc_count; /* count of dc subvolumes in dc_list */
+        int     riocnf_mdc_count; /* count of dc subvolumes in mdc_list */
 
         /* layout */
-        char    *d2cnf_layout_type_dc;  /* defines the layout type as a string
+        char    *riocnf_layout_type_dc;  /* defines the layout type as a string
                                         permissible values are, inodehash-bucket
                                         */
-        char    *d2cnf_layout_type_mdc; /* defines the layout type as a string
+        char    *riocnf_layout_type_mdc; /* defines the layout type as a string
                                         permissible values are, static-bucket */
-        struct layout *d2cnf_dclayout; /* layout class for dc */
-        struct layout *d2cnf_mdclayout; /* layout class for mdc */
+        struct layout *riocnf_dclayout; /* layout class for dc */
+        struct layout *riocnf_mdclayout; /* layout class for mdc */
 
         /* Store the name of the local subvolume, for RIO server */
-        char    *d2cnf_server_local_subvol;
-        /* Store the xlator pointer for d2cnf_server_local_subvol */
-        xlator_t *d2cnf_server_local_xlator;
+        char    *riocnf_server_local_subvol;
+        /* Store the xlator pointer for riocnf_server_local_subvol */
+        xlator_t *riocnf_server_local_xlator;
         /* xattr specification */
-        char    *d2cnf_xattr_base_name; /* xattr base name for RIO xattrs */
+        char    *riocnf_xattr_base_name; /* xattr base name for RIO xattrs */
+
+        /* lock for updation of conf */
+        gf_lock_t riocnf_lock;
+
+        /* TODO: HACK! notify count */
+        int riocnf_notify_count;
 };
 
 int32_t rio_common_init (xlator_t *);

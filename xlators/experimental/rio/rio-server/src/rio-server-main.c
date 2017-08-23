@@ -18,6 +18,7 @@
 
 #include "rio-common.h"
 #include "defaults.h"
+#include "rio-server-fops.h"
 
 int
 rio_server_notify (xlator_t *this, int32_t event, void *data, ...)
@@ -37,7 +38,7 @@ rio_server_notify (xlator_t *this, int32_t event, void *data, ...)
                 struct rio_conf *conf = this->private;
 
                 /* send local child events only to parents */
-                if (!strcmp (subvol->name, conf->d2cnf_server_local_subvol)) {
+                if (!strcmp (subvol->name, conf->riocnf_server_local_subvol)) {
                         ret = default_notify (this, event, data);
                 }
         }
@@ -70,6 +71,7 @@ class_methods_t class_methods = {
 };
 
 struct xlator_fops fops = {
+        .lookup = rio_server_lookup
 };
 
 struct xlator_cbks cbks = {

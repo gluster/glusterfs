@@ -76,16 +76,28 @@ rpath is further allocated on the stack (alloca), which is why this is a MACRO
         if (gf_uuid_is_null (loc->gfid)) {                              \
                 gf_msg (this->name, GF_LOG_ERROR, 0,                    \
                         P_MSG_INODE_HANDLE_CREATE,                      \
-                        "null gfid for path %s", (loc)->path);          \
+                        "Missing gfid for inode resolution");           \
+                op_ret = -1;                                            \
+                errno = EINVAL;                                         \
                 break;                                                  \
         }                                                               \
         errno = 0;                                                      \
         priv = this->private;                                           \
         reqlen = posix2_handle_length (priv->base_path_length);         \
         rpath = alloca (reqlen);                                        \
-        retlen = posix2_make_handle (loc->gfid, priv->base_path, rpath, reqlen);\
-        if (reqlen == retlen) {                                         \
-                op_ret = posix2_istat_path (this, loc->gfid, rpath, iatt_p, _gf_false);\
+        retlen = posix2_make_handle (loc->gfid, priv->base_path,        \
+                                     rpath, reqlen);                    \
+        if (retlen <= reqlen) {                                         \
+                op_ret = posix2_istat_path (this, loc->gfid, rpath,     \
+                                            iatt_p, _gf_false);         \
+        } else {                                                        \
+                gf_msg (this->name, GF_LOG_ERROR, 0,                    \
+                        P_MSG_INODE_HANDLE_CREATE,                      \
+                        "Unable to make handle for inode %s",           \
+                        uuid_utoa ((loc)->gfid));                       \
+                op_ret = -1;                                            \
+                errno = ENOMEM;                                         \
+                break;                                                  \
         }                                                               \
         } while (0)
 

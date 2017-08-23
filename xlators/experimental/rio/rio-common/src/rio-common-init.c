@@ -16,6 +16,7 @@
 #include "xlator.h"
 #include "logging.h"
 #include "statedump.h"
+#include "locking.h"
 
 #include "rio-common.h"
 #include "rio-common-helpers.h"
@@ -52,10 +53,12 @@ rio_free_conf (struct rio_conf **conf)
 
         local_conf = *conf;
 
-        layout_destroy (local_conf->d2cnf_dclayout);
-        layout_destroy (local_conf->d2cnf_mdclayout);
+        layout_destroy (local_conf->riocnf_dclayout);
+        layout_destroy (local_conf->riocnf_mdclayout);
 
         rio_destroy_volume_lists (local_conf);
+
+        LOCK_DESTROY (&(local_conf->riocnf_lock));
 
         GF_FREE (*conf);
         *conf = NULL;
@@ -89,6 +92,10 @@ rio_common_init (xlator_t *this)
         conf = GF_CALLOC (1, sizeof (*conf), gf_rio_mt_rio_conf);
         if (!conf)
                 goto err;
+
+        INIT_LIST_HEAD (&conf->riocnf_dc_list.riosvl_node);
+        INIT_LIST_HEAD (&conf->riocnf_mdc_list.riosvl_node);
+        LOCK_INIT (&(conf->riocnf_lock));
 
         /* RIO subvolume list is separated into 2 lists, one that forms the
         meta-data cluster and the other that forms the data cluster. The list
@@ -125,9 +132,9 @@ rio_common_init (xlator_t *this)
         workaround at present. */
 
         GF_OPTION_INIT("rio-data-subvolumes",
-                       conf->d2cnf_data_subvolumes, str, err);
+                       conf->riocnf_data_subvolumes, str, err);
         GF_OPTION_INIT("rio-metadata-subvolumes",
-                       conf->d2cnf_metadata_subvolumes, str, err);
+                       conf->riocnf_metadata_subvolumes, str, err);
 
         /* Process the string based volume lists */
         ret = rio_process_volume_lists (this, conf);
@@ -136,8 +143,8 @@ rio_common_init (xlator_t *this)
                         RIO_MSG_VOLUME_CONF_ERROR,
                         "Error processing data or metadata subvolume lists."
                         " Check volfile (Data - %s : Metadata - %s)",
-                        conf->d2cnf_data_subvolumes,
-                        conf->d2cnf_metadata_subvolumes);
+                        conf->riocnf_data_subvolumes,
+                        conf->riocnf_metadata_subvolumes);
                 goto err;
         }
 
@@ -146,45 +153,45 @@ rio_common_init (xlator_t *this)
         layouts can be used, and also when stacking RIO (if that makes sense)
         it is easier to adapt the code to different layouts, than poke around in
         every function */
-        GF_OPTION_INIT ("rio-layout-type-dc", conf->d2cnf_layout_type_dc,
+        GF_OPTION_INIT ("rio-layout-type-dc", conf->riocnf_layout_type_dc,
                         str, err);
-        GF_OPTION_INIT ("rio-layout-type-mdc", conf->d2cnf_layout_type_mdc,
+        GF_OPTION_INIT ("rio-layout-type-mdc", conf->riocnf_layout_type_mdc,
                         str, err);
 
         /* Initialize the layout */
-        conf->d2cnf_dclayout = layout_init (conf->d2cnf_layout_type_dc,
-                                            conf->d2cnf_dc_count,
-                                            &conf->d2cnf_dc_list,
+        conf->riocnf_dclayout = layout_init (conf->riocnf_layout_type_dc,
+                                            conf->riocnf_dc_count,
+                                            &conf->riocnf_dc_list,
                                             this->options);
-        conf->d2cnf_mdclayout = layout_init (conf->d2cnf_layout_type_mdc,
-                                             conf->d2cnf_mdc_count,
-                                             &conf->d2cnf_mdc_list,
+        conf->riocnf_mdclayout = layout_init (conf->riocnf_layout_type_mdc,
+                                             conf->riocnf_mdc_count,
+                                             &conf->riocnf_mdc_list,
                                              this->options);
 
         /* TODO: If we end up with a common init routine for the client and
         server, then the following code in the same file makes sense */
         GF_OPTION_INIT("rio-server-local-subvol",
-                       conf->d2cnf_server_local_subvol, str, err);
-        if (strncmp(RIO_SERVER_NONE_SUBVOL, conf->d2cnf_server_local_subvol,
+                       conf->riocnf_server_local_subvol, str, err);
+        if (strncmp(RIO_SERVER_NONE_SUBVOL, conf->riocnf_server_local_subvol,
                     strlen (RIO_SERVER_NONE_SUBVOL)) != 0) {
                 /* We have a defined server subvol, assuming this is a
                 rio server instance */
                 for (children = this->children; children;
                      children = children->next) {
                         child = children->xlator;
-                        if (strcmp (conf->d2cnf_server_local_subvol,
+                        if (strcmp (conf->riocnf_server_local_subvol,
                                     child->name) == 0) {
-                                conf->d2cnf_server_local_xlator = child;
+                                conf->riocnf_server_local_xlator = child;
                                 break;
                         }
                 }
 
-                if (conf->d2cnf_server_local_xlator == NULL) {
+                if (conf->riocnf_server_local_xlator == NULL) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 RIO_MSG_VOLUME_CONF_ERROR,
                                 "Missing xlator for provided server local"
                                 " subvolume name %s",
-                                conf->d2cnf_server_local_subvol);
+                                conf->riocnf_server_local_subvol);
 
                         goto err;
                 }
@@ -192,31 +199,32 @@ rio_common_init (xlator_t *this)
 
 #ifdef RIO_DEBUG
         {
-                struct rio_subvol *d2subvol;
+                struct rio_subvol *riosubvol;
 
-                list_for_each_entry (d2subvol, &conf->d2cnf_dc_list.d2svl_node,
-                                     d2svl_node) {
+                list_for_each_entry (riosubvol,
+                                     &conf->riocnf_dc_list.riosvl_node,
+                                     riosvl_node) {
                         gf_msg (this->name, GF_LOG_INFO, 0, 0,
                                 "DCSubvolList: %s",
-                                d2subvol->d2svl_xlator->name);
+                                riosubvol->riosvl_xlator->name);
                 }
 
-                list_for_each_entry (d2subvol,
-                                     &conf->d2cnf_mdc_list.d2svl_node,
-                                     d2svl_node) {
+                list_for_each_entry (riosubvol,
+                                     &conf->riocnf_mdc_list.riosvl_node,
+                                     riosvl_node) {
                         gf_msg (this->name, GF_LOG_INFO, 0, 0,
                                 "MDCSubvolList: %s",
-                                d2subvol->d2svl_xlator->name);
+                                riosubvol->riosvl_xlator->name);
                 }
 
                 gf_msg (this->name, GF_LOG_INFO, 0, 0, "ServerSubvol: %s",
-                        conf->d2cnf_server_local_subvol);
+                        conf->riocnf_server_local_subvol);
         }
 #endif
 
         /* This is held as a pointer to the similar feature provided in DHT
         so that it can/may be leveraged in a similar manner. */
-        GF_OPTION_INIT ("rio-xattr-base-name", conf->d2cnf_xattr_base_name,
+        GF_OPTION_INIT ("rio-xattr-base-name", conf->riocnf_xattr_base_name,
                         str, err);
 
         this->private = conf;

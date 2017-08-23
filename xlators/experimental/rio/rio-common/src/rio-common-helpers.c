@@ -29,8 +29,8 @@ rio_add_subvol_child (xlator_t *child, struct list_head *head)
                 goto out;
         }
 
-        newnode->d2svl_xlator = child;
-        list_add_tail (&newnode->d2svl_node, head);
+        newnode->riosvl_xlator = child;
+        list_add_tail (&newnode->riosvl_node, head);
 
         ret = 0;
 out:
@@ -148,28 +148,25 @@ rio_process_volume_lists (xlator_t *this, struct rio_conf *conf)
 {
         int ret;
 
-        INIT_LIST_HEAD (&conf->d2cnf_dc_list.d2svl_node);
-        INIT_LIST_HEAD (&conf->d2cnf_mdc_list.d2svl_node);
-
-        ret = rio_create_subvol_list (this, conf->d2cnf_data_subvolumes,
-                                      &conf->d2cnf_dc_list.d2svl_node);
+        ret = rio_create_subvol_list (this, conf->riocnf_data_subvolumes,
+                                      &conf->riocnf_dc_list.riosvl_node);
         if (ret == -1 || ret == 0) {
                 /* no volumes in either data or metadata lists is an error */
                 ret = -1;
                 goto out;
         } else {
-                conf->d2cnf_dc_count = ret;
+                conf->riocnf_dc_count = ret;
                 ret = 0;
         }
 
-        ret = rio_create_subvol_list (this, conf->d2cnf_metadata_subvolumes,
-                                      &conf->d2cnf_mdc_list.d2svl_node);
+        ret = rio_create_subvol_list (this, conf->riocnf_metadata_subvolumes,
+                                      &conf->riocnf_mdc_list.riosvl_node);
         if (ret == -1 || ret == 0) {
                 /* no volumes in either data or metadata lists is an error */
                 ret = -1;
                 goto out;
         } else {
-                conf->d2cnf_mdc_count = ret;
+                conf->riocnf_mdc_count = ret;
                 ret = 0;
         }
 
@@ -183,17 +180,30 @@ rio_destroy_volume_lists (struct rio_conf *conf)
 {
         struct rio_subvol *node, *tmp;
 
-        list_for_each_entry_safe (node, tmp, &conf->d2cnf_dc_list.d2svl_node,
-                                  d2svl_node) {
-                list_del_init (&node->d2svl_node);
+
+        list_for_each_entry_safe (node, tmp,
+                                  &conf->riocnf_dc_list.riosvl_node,
+                                  riosvl_node) {
+                list_del_init (&node->riosvl_node);
                 GF_FREE (node);
         }
 
-        list_for_each_entry_safe (node, tmp, &conf->d2cnf_mdc_list.d2svl_node,
-                                  d2svl_node) {
-                list_del_init (&node->d2svl_node);
+        list_for_each_entry_safe (node, tmp,
+                                  &conf->riocnf_mdc_list.riosvl_node,
+                                  riosvl_node) {
+                list_del_init (&node->riosvl_node);
                 GF_FREE (node);
         }
 
         return;
+}
+
+int32_t
+rio_lookup_is_nameless (loc_t *loc)
+{
+        /* pargfid is NULL, then there is no parent under which to lookup the
+        name, hence it is a nameless lookup and gfid should exist in loc.
+        If there is no name, then again it is a nameless lookup and gfid should
+        exist in loc */
+        return (gf_uuid_is_null (loc->pargfid) || !loc->name);
 }

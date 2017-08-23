@@ -53,6 +53,7 @@ def del_unsupported_server_xlators (volfile, volname):
     del_xl(volfile, volname + "-index")
     del_xl(volfile, volname + "-quota")
     del_xl(volfile, volname + "-selinux")
+    del_xl(volfile, volname + "-sdfs")
 
 def del_unsupported_tcp_client_xlators (volfile, volname):
     del_xl(volfile, volname + "-write-behind")
@@ -184,6 +185,7 @@ def generate_rio_server_volfile(volname, brick_list, mds_count, ds_count, orig_v
 
     #Prepare rio client-0 xlator
     rio_volfile[volname + "-client-" + str(n)] = copy.deepcopy(volfile[volname + "-posix"])
+    rio_volfile[volname + "-client-" + str(n)]["type"] = "experimental/posix2-mds"
 
     #Preapre rio client (1...n) xlators
     prepare_rio_client_xlators(rio_volfile, volname, mds_count, ds_count, brick_list, n)

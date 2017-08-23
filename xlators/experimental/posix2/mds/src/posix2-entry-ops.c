@@ -122,6 +122,7 @@ posix2_nameless_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc)
         char        *entry    = NULL;
         uuid_t       tgtuuid  = {0,};
         struct iatt  buf      = {0,};
+        struct iatt  pbuf     = {0,};
         struct posix_private *priv = NULL;
 
         priv = this->private;
@@ -158,7 +159,11 @@ posix2_nameless_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 }
         }
 
-        STACK_UNWIND_STRICT (lookup, frame, 0, 0, loc->inode, &buf, NULL, NULL);
+        /* TODO: Things above the stack expect valid pbuf pointers, even when
+        data in it is filled incorrectly, continue the behaviour and revisit
+        later. see syncop_lookup_cbk dereferencing parent iatt without checks */
+        STACK_UNWIND_STRICT (lookup, frame, 0, 0, loc->inode, &buf,
+                             NULL, &pbuf);
         return 0;
 
  unwind_err:

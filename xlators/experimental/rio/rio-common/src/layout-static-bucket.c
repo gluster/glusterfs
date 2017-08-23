@@ -53,8 +53,9 @@ layout_staticbucket_init (char *layouttype, int count,
         for (i = 0; i < MAX_BUCKETS;) {
                 struct rio_subvol *subvol = NULL;
 
-                list_for_each_entry (subvol, &xlators->d2svl_node, d2svl_node) {
-                        new_layout->layou_buckets[i] = subvol->d2svl_xlator;
+                list_for_each_entry (subvol, &xlators->riosvl_node,
+                                     riosvl_node) {
+                        new_layout->layou_buckets[i] = subvol->riosvl_xlator;
                         i++;
                         if (i >= MAX_BUCKETS)
                                 break;

@@ -298,7 +298,11 @@ posix2_save_openfd (xlator_t *this, fd_t *fd, int openfd, int32_t flags)
 int32_t
 posix2_lookup_is_nameless (loc_t *loc)
 {
-        return (gf_uuid_is_null (loc->pargfid) && !loc->name);
+        /* pargfid is NULL, then there is no parent under which to lookup the
+        name, hence it is a nameless lookup and gfid should exist in loc.
+        If there is no name, then again it is a nameless lookup and gfid should
+        exist in loc */
+        return (gf_uuid_is_null (loc->pargfid) || !loc->name);
 }
 
 void
