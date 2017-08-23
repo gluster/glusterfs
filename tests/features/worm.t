@@ -48,6 +48,15 @@ TEST ! link $M0/file1 $M0/file2
 sleep 5
 TEST rm -f $M0/file1
 
+## Test for mv over WORM/Reatined state
+TEST `echo "worm 1" > $M0/file1`
+TEST chmod 0444 $M0/file1
+TEST `echo "worm 2" > $M0/file2`
+TEST ! mv $M0/file2 $M0/file1
+TEST rm -f $M0/file2
+sleep 10
+TEST rm -f $M0/file1
+
 TEST $CLI volume stop $V0
 EXPECT 'Stopped' volinfo_field $V0 'Status'
 

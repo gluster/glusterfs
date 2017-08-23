@@ -137,10 +137,24 @@ worm_rename (call_frame_t *frame, xlator_t *this,
         gf_uuid_copy (oldloc->gfid, oldloc->inode->gfid);
         if (is_wormfile (this, _gf_false, oldloc)) {
                 op_errno = 0;
-                goto out;
+                goto check_newloc;
         }
         op_errno = gf_worm_state_transition (this, _gf_false, oldloc,
-                                           GF_FOP_RENAME);
+                                             GF_FOP_RENAME);
+
+        if (op_errno == 0) {
+check_newloc:
+                if (newloc->inode != NULL) {
+                        gf_uuid_copy (newloc->gfid, newloc->inode->gfid);
+                        if (is_wormfile (this, _gf_false, newloc)) {
+                                op_errno = 0;
+                                goto out;
+                        }
+                        op_errno = gf_worm_state_transition (this, _gf_false,
+                                                             newloc,
+                                                             GF_FOP_RENAME);
+                }
+        }
 
 out:
         if (op_errno)
