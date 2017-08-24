@@ -1433,7 +1433,7 @@ fail:
  */
 
 
-static int
+int
 dict_get_with_ref (dict_t *this, char *key, data_t **data)
 {
         data_pair_t * pair = NULL;
@@ -1453,14 +1453,13 @@ dict_get_with_ref (dict_t *this, char *key, data_t **data)
         LOCK (&this->lock);
         {
                 pair = dict_lookup_common (this, key, hash);
+
+                if (pair) {
+                        ret = 0;
+                        *data = data_ref (pair->value);
+                 }
         }
         UNLOCK (&this->lock);
-
-        if (pair) {
-                ret = 0;
-                *data = data_ref (pair->value);
-        }
-
 err:
         return ret;
 }
