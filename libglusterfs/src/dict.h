@@ -105,6 +105,7 @@ int32_t dict_set (dict_t *this, char *key, data_t *value);
 /* function to set a new key/value pair (without checking for duplicate) */
 int32_t dict_add (dict_t *this, char *key, data_t *value);
 
+int dict_get_with_ref (dict_t *this, char *key, data_t **data);
 data_t *dict_get (dict_t *this, char *key);
 void dict_del (dict_t *this, char *key);
 int dict_reset (dict_t *dict);
