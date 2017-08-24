@@ -5684,12 +5684,6 @@ no_dvm:
         if (exp->trusted_sync)
                 exp->trusted_write = 1;
 
-        gf_msg_trace (GF_NFS3, 0, "%s: %s, %s, %s", exp->subvol->name,
-                (exp->access == GF_NFS3_VOLACCESS_RO)?"read-only":"read-write",
-                (exp->trusted_sync == 0)?"no trusted_sync":"trusted_sync",
-                (exp->trusted_write == 0)?"no trusted_write":"trusted_write");
-        ret = 0;
-
         ret = snprintf (searchkey, 1024, "nfs.%s.exports-auth-enable", name);
         if (ret < 0) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "snprintf failed");
@@ -5717,6 +5711,12 @@ no_dvm:
                         priv->nfs3state->exports_auth = boolt;
                 }
         }
+
+        gf_log (GF_NFS3, GF_LOG_TRACE, "%s: %s, %s, %s", exp->subvol->name,
+                (exp->access == GF_NFS3_VOLACCESS_RO)?"read-only":"read-write",
+                (exp->trusted_sync == 0)?"no trusted_sync":"trusted_sync",
+                (exp->trusted_write == 0)?"no trusted_write":"trusted_write");
+        ret = 0;
 
 err:
         return ret;
