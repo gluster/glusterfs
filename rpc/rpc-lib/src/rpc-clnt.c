@@ -478,10 +478,6 @@ rpc_clnt_reconnect_cleanup (rpc_clnt_connection_t *conn)
         {
 
                 if (conn->reconnect) {
-                        /* setting disabled = 1 helps to stop rearming of the
-                         * reconnection timer and unref the rpc_clnt_t object
-                         */
-                        clnt->disabled = 1;
                         ret = gf_timer_call_cancel (clnt->ctx, conn->reconnect);
                         if (!ret) {
                                 reconnect_unref = _gf_true;
