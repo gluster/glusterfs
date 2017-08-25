@@ -44,7 +44,6 @@ xdr_to_rpc_reply (char *msgbuf, size_t len, struct rpc_msg *reply,
         xdrmem_create (&xdr, msgbuf, len, XDR_DECODE);
         if (!xdr_replymsg (&xdr, reply)) {
                 gf_log ("rpc", GF_LOG_WARNING, "failed to decode reply msg");
-                ret = -errno;
                 goto out;
         }
         if (payload) {
