@@ -663,7 +663,7 @@ void mem_pools_fini (void) {}
 #endif
 
 struct mem_pool *
-mem_pool_new_fn (unsigned long sizeof_type,
+mem_pool_new_fn (glusterfs_ctx_t *ctx, unsigned long sizeof_type,
                  unsigned long count, char *name)
 {
         unsigned int            i;
@@ -693,10 +693,18 @@ mem_pool_new_fn (unsigned long sizeof_type,
         if (!new)
                 return NULL;
 
+        new->ctx = ctx;
         new->sizeof_type = sizeof_type;
         new->count = count;
         new->name = name;
         new->pool = pool;
+        INIT_LIST_HEAD (&new->owner);
+
+        LOCK (&ctx->lock);
+        {
+                list_add (&new->owner, &ctx->mempool_list);
+        }
+        UNLOCK (&ctx->lock);
 
         return new;
 }
@@ -867,6 +875,14 @@ mem_put (void *ptr)
 void
 mem_pool_destroy (struct mem_pool *pool)
 {
+        /* remove this pool from the owner (glusterfs_ctx_t) */
+        LOCK (&pool->ctx->lock);
+        {
+                list_del (&pool->owner);
+        }
+        UNLOCK (&pool->ctx->lock);
+
+        /* free this pool, but keep the mem_pool_shared */
         GF_FREE (pool);
 
         /*

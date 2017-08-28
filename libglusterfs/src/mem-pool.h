@@ -16,6 +16,7 @@
 #include "atomic.h"
 #include "logging.h"
 #include "mem-types.h"
+#include "glusterfs.h" /* for glusterfs_ctx_t */
 #include <stdlib.h>
 #include <inttypes.h>
 #include <string.h>
@@ -206,11 +207,15 @@ out:
 /* kind of 'header' for the actual mem_pool_shared structure, this might make
  * it possible to dump some more details in a statedump */
 struct mem_pool {
+        /* object size, without pooled_obj_hdr_t */
         unsigned long           sizeof_type;
         unsigned long           count;
         char                    *name;
 
-        struct mem_pool_shared  *pool;
+        struct list_head        owner;  /* glusterfs_ctx_t->mempool_list */
+        glusterfs_ctx_t         *ctx;   /* take ctx->lock when updating owner */
+
+        struct mem_pool_shared  *pool;  /* the initial pool that was returned */
 };
 
 typedef struct pooled_obj_hdr {
@@ -275,9 +280,14 @@ void mem_pools_init_late (void);   /* start the pool_sweeper thread */
 void mem_pools_fini (void);        /* cleanup memory pools */
 
 struct mem_pool *
-mem_pool_new_fn (unsigned long sizeof_type, unsigned long count, char *name);
+mem_pool_new_fn (glusterfs_ctx_t *ctx, unsigned long sizeof_type, unsigned long
+                 count, char *name);
 
-#define mem_pool_new(type,count) mem_pool_new_fn (sizeof(type), count, #type)
+#define mem_pool_new(type,count) \
+        mem_pool_new_fn (THIS->ctx, sizeof(type), count, #type)
+
+#define mem_pool_new_ctx(ctx,type,count) \
+        mem_pool_new_fn (ctx, sizeof(type), count, #type)
 
 void mem_put (void *ptr);
 void *mem_get (struct mem_pool *pool);

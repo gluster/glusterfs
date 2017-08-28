@@ -5786,7 +5786,8 @@ nfs3_init_state (xlator_t *nfsx)
 
         localpool = nfs->memfactor * GF_NFS_CONCURRENT_OPS_MULT;
         gf_msg_trace (GF_NFS3, 0, "local pool: %d", localpool);
-        nfs3->localpool = mem_pool_new (nfs3_call_state_t, localpool);
+        nfs3->localpool = mem_pool_new_ctx (nfsx->ctx, nfs3_call_state_t,
+                                            localpool);
         if (!nfs3->localpool) {
                 gf_msg (GF_NFS3, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
                         "local mempool creation failed");
