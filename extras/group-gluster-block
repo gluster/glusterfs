@@ -4,6 +4,7 @@ performance.io-cache=off
 performance.stat-prefetch=off
 performance.open-behind=off
 performance.readdir-ahead=off
+performance.strict-o-direct=on
 network.remote-dio=disable
 cluster.eager-lock=disable
 cluster.quorum-type=auto
