@@ -209,8 +209,9 @@ out:
 struct mem_pool {
         /* object size, without pooled_obj_hdr_t */
         unsigned long           sizeof_type;
-        unsigned long           count;
+        unsigned long           count;  /* requested pool size (unused) */
         char                    *name;
+        gf_atomic_t             active; /* current allocations */
 
         struct list_head        owner;  /* glusterfs_ctx_t->mempool_list */
         glusterfs_ctx_t         *ctx;   /* take ctx->lock when updating owner */
