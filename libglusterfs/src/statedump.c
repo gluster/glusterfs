@@ -399,14 +399,10 @@ gf_proc_dump_mempool_info (glusterfs_ctx_t *ctx)
         LOCK (&ctx->lock);
         {
                 list_for_each_entry (pool, &ctx->mempool_list, owner) {
-                        int64_t active = GF_ATOMIC_GET (pool->active);
-
                         gf_proc_dump_write ("-----", "-----");
                         gf_proc_dump_write ("pool-name", "%s", pool->name);
-                        gf_proc_dump_write ("active-count", "%"GF_PRI_ATOMIC, active);
                         gf_proc_dump_write ("sizeof-type", "%d", pool->sizeof_type);
                         gf_proc_dump_write ("padded-sizeof", "%lu", 1 << pool->pool->power_of_two);
-                        gf_proc_dump_write ("size", "%lu", (1 << pool->pool->power_of_two) * active);
                         gf_proc_dump_write ("shared-pool", "%p", pool->pool);
                 }
         }
