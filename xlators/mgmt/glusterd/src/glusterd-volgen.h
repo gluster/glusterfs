@@ -101,11 +101,11 @@ typedef int (*glusterd_graph_builder_t) (volgen_graph_t *graph,
         } while (0);
 
 typedef enum gd_volopt_flags_ {
-        VOLOPT_FLAGNONE,
-        VOLOPT_FLAGFORCE = 0x01,      // option needs force to be reset
-        VOLOPT_FLAGXLATOR_OPT = 0x02, // option enables/disables xlators
-        VOLOPT_FLAGCLIENT_OPT = 0x04, // option affects clients
-        VOLOPT_FLAGNEVER_RESET = 0x08, /* option which should not be reset */
+        OPT_FLAG_NONE,
+        OPT_FLAG_FORCE = 0x01,      // option needs force to be reset
+        OPT_FLAG_XLATOR_OPT = 0x02, // option enables/disables xlators
+        OPT_FLAG_CLIENT_OPT = 0x04, // option affects clients
+        OPT_FLAG_NEVER_RESET = 0x08, /* option which should not be reset */
 } gd_volopt_flags_t;
 
 typedef enum {

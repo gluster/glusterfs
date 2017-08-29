@@ -44,31 +44,8 @@ typedef enum {
         GF_OPT_VALIDATE_MAX,
 } opt_validate_type_t;
 
-typedef enum {
-        OPT_FLAG_NONE = 0,
-        OPT_FLAG_SETTABLE, // option can be set using volume set
-        OPT_FLAG_CLIENT_OPT, // option affects clients
-        OPT_FLAG_GLOBAL, // option affects all instances of the particular xlator
-        OPT_FLAG_FORCE, // option needs force to be reset
-        OPT_FLAG_NEVER_RESET, // option which should not be reset
-        OPT_FLAG_NODOC, // option should be hidden from volume set help
-} opt_flags_t;
-
 #define ZR_VOLUME_MAX_NUM_KEY    4
 #define ZR_OPTION_MAX_ARRAY_SIZE 64
-/* The maximum number of releases that an option could be backported to
- * based on the release schedule as in August 2017 (3), plus one more
- */
-#define ZR_MAX_RELEASES 4
-
-/* Custom validation functoins for options
- * TODO: Need to check what sorts of validation is being done, and decide if
- * passing the volinfo is actually required. If it is, then we should possibly
- * try a solution in GD2 for this.
- */
-// typedef int (*option_validation_fn) (glusterd_volinfo_t *volinfo, dict_t *dict,
-//                                       char *key, char *value, char **op_errstr);
-
 
 /* Each translator should define this structure */
 typedef struct volume_options {
@@ -87,40 +64,6 @@ typedef struct volume_options {
          * happen
          */
         opt_validate_type_t     validate;
-
-        /* The op-version at which this option was introduced.
-         * This is an array to support options that get backported to supported
-         * releases.
-         * Normally, an option introduced for a major release just has a single
-         * entry in the array, with op-version of the major release
-         * For an option that is backported, the op-versions of the all the
-         * releases it was ported to should be added, starting from the newest,
-         * to the oldest.
-         */
-        uint32_t op_version[ZR_MAX_RELEASES];
-        /* The op-version at which this option was deprecated.
-         * Follows the same rules as above.
-         */
-        uint32_t deprecated[ZR_MAX_RELEASES];
-        /* Additional flags for an option
-         * Available flags :
-         * - Settable
-         * - Client Opt
-         * - Global
-         * - Force
-         * - NoReset
-         * - NoDoc
-         */
-        uint32_t flags;
-        /* Tags applicable to this option, which can be used to group similar
-         * options
-         */
-        char *tags[ZR_OPTION_MAX_ARRAY_SIZE];
-        /* A custom validation function if required
-         * TODO: See todo above for option_validation_fn
-         */
-        //option_validation_fn validate_fn;
-
 } volume_option_t;
 
 
