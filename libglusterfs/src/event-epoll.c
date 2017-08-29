@@ -35,6 +35,7 @@ struct event_slot_epoll {
 	int ref;
 	int do_close;
 	int in_handler;
+        int handled_error;
 	void *data;
 	event_handler_t handler;
 	gf_lock_t lock;
@@ -159,6 +160,8 @@ __event_slot_dealloc (struct event_pool *event_pool, int idx)
 	slot->gen++;
 
 	slot->fd = -1;
+        slot->handled_error = 0;
+        slot->in_handler = 0;
 	event_pool->slots_used[table_idx]--;
 
 	return;
@@ -527,6 +530,7 @@ event_dispatch_epoll_handler (struct event_pool *event_pool,
 	int                 gen = -1;
         int                 ret = -1;
 	int                 fd = -1;
+        gf_boolean_t        handled_error_previously = _gf_false;
 
 	ev_data = (void *)&event->data;
         handler = NULL;
@@ -561,7 +565,13 @@ event_dispatch_epoll_handler (struct event_pool *event_pool,
 		handler = slot->handler;
 		data = slot->data;
 
-		slot->in_handler++;
+                if (slot->handled_error) {
+                        handled_error_previously = _gf_true;
+                } else {
+                        slot->handled_error = (event->events
+                                               & (EPOLLERR|EPOLLHUP));
+                        slot->in_handler++;
+                }
 	}
 pre_unlock:
 	UNLOCK (&slot->lock);
@@ -569,11 +579,12 @@ pre_unlock:
         if (!handler)
 		goto out;
 
-	ret = handler (fd, idx, gen, data,
-		       (event->events & (EPOLLIN|EPOLLPRI)),
-		       (event->events & (EPOLLOUT)),
-		       (event->events & (EPOLLERR|EPOLLHUP)));
-
+        if (!handled_error_previously) {
+                ret = handler (fd, idx, gen, data,
+                               (event->events & (EPOLLIN|EPOLLPRI)),
+                               (event->events & (EPOLLOUT)),
+                               (event->events & (EPOLLERR|EPOLLHUP)));
+        }
 out:
 	event_slot_unref (event_pool, slot, idx);
 
