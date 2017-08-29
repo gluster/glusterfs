@@ -639,6 +639,7 @@ dht_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                    else mkdir/chmod/chown and fix
                 */
+
                 ret = dht_layout_merge (this, layout, prev,
                                         op_ret, op_errno, xattr);
                 if (ret)
@@ -665,8 +666,14 @@ dht_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 } else {
                         local->file_count ++;
 
-                        if (!is_linkfile) {
+                        if (!is_linkfile && !local->cached_subvol) {
                                 /* real file */
+                                /* Ok, we somehow managed to find a file on
+                                 * more than one subvol. ignore this or we
+                                 * will end up overwriting information while a
+                                 * a thread is potentially unwinding from
+                                 * dht_discover_complete
+                                 */
                                 local->cached_subvol = prev;
                                 attempt_unwind = 1;
                         } else {
@@ -679,7 +686,9 @@ dht_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (local->xattr == NULL) {
                         local->xattr = dict_ref (xattr);
                 } else {
-                        dht_aggregate_xattr (local->xattr, xattr);
+                        /* Don't aggregate for files. See BZ#1484113 */
+                        if (is_dir)
+                                dht_aggregate_xattr (local->xattr, xattr);
                 }
 
                 if (local->inode == NULL)
