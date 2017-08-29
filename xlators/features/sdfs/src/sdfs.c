@@ -147,7 +147,6 @@ sdfs_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        gf_log ("mydfs", GF_LOG_WARNING, "here o %d o %d", op_ret, op_errno);
         STACK_UNWIND_STRICT (mkdir, local->main_frame, op_ret, op_errno, inode,
                              stbuf, preparent, postparent, NULL);
 
@@ -715,8 +714,12 @@ sdfs_common_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         this_call_cnt = sdfs_frame_return (frame);
-        if (this_call_cnt != 0)
+        if (this_call_cnt > 0) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "As there are more callcnt (%d) returning without WIND",
+                        this_call_cnt);
                 return 0;
+        }
 
         if (local->stub) {
                 stub = local->stub;
@@ -743,6 +746,7 @@ sdfs_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         sdfs_local_t             *local          = NULL;
         sdfs_lock_t              *lock           = NULL;
         int                      i              = 0;
+        int lock_count = 0;
 
         local = frame->local;
         lock  = local->lock;
@@ -751,7 +755,8 @@ sdfs_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              stbuf, preparent, postparent, xdata);
 
         local->main_frame = NULL;
-        for (i = 0; i < lock->lock_count; i++) {
+        lock_count = lock->lock_count;
+        for (i = 0; i < lock_count; i++) {
                 STACK_WIND_COOKIE (frame, sdfs_common_entrylk_cbk,
                                 (void *) (long) i,
                                 FIRST_CHILD (this),
@@ -795,6 +800,16 @@ err:
 
         local->main_frame = NULL;
         for (i = 0; i < locks->lock_count && locks->locked[i]; i++) {
+                lock_count++;
+        }
+        local->call_cnt = lock_count;
+
+        for (i = 0; i < lock_count; i++) {
+                if (!locks->locked[i]) {
+                        lock_count++;
+                        continue;
+                }
+
                 stack_destroy = 0;
                 STACK_WIND (frame, sdfs_common_entrylk_cbk,
                             FIRST_CHILD (this),
@@ -802,10 +817,7 @@ err:
                             this->name, &locks->entrylk[i].parent_loc,
                             locks->entrylk[i].basename,
                             ENTRYLK_UNLOCK, ENTRYLK_WRLCK, xdata);
-                lock_count++;
 	}
-
-        local->call_cnt = lock_count;
 
         if (stack_destroy)
                 SDFS_STACK_DESTROY (frame);
@@ -864,6 +876,7 @@ sdfs_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         int                      ret        = 0;
         int                      op_errno   = 0;
         int                      i          = 0;
+        int                      call_cnt   = 0;
 
         new_frame = copy_frame (frame);
         if (!new_frame) {
@@ -909,8 +922,9 @@ sdfs_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         }
 
         local->stub = stub;
+        call_cnt = local->call_cnt;
 
-        for (i = 0; i < local->call_cnt; i++) {
+        for (i = 0; i < call_cnt; i++) {
                 STACK_WIND_COOKIE (new_frame, sdfs_common_entrylk_cbk,
                             (void *) (long) i,
                             FIRST_CHILD (this),
@@ -1052,6 +1066,7 @@ sdfs_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         sdfs_local_t    *local = NULL;
         sdfs_lock_t     *lock  = NULL;
         int              i     = 0;
+        int              call_cnt = 0;
 
         local = frame->local;
         lock = local->lock;
@@ -1062,7 +1077,9 @@ sdfs_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              postnewparent, xdata);
 
         local->main_frame = NULL;
-        for (i = 0; i < lock->lock_count; i++) {
+        call_cnt = local->call_cnt;
+
+        for (i = 0; i < call_cnt; i++) {
                 STACK_WIND_COOKIE (frame, sdfs_common_entrylk_cbk,
                                   (void *) (long) i,
                                   FIRST_CHILD (this),
@@ -1088,7 +1105,6 @@ sdfs_rename_helper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         local = frame->local;
         lock = local->lock;
 
-
         if (local->op_ret < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         SDFS_MSG_ENTRYLK_ERROR,
@@ -1108,6 +1124,15 @@ err:
 
         local->main_frame = NULL;
         for (i = 0; i < lock->lock_count && lock->locked[i]; i++) {
+                lock_count++;
+        }
+        local->call_cnt = lock_count;
+
+        for (i = 0; i < lock_count; i++) {
+                if (!lock->locked[i]) {
+                        lock_count++;
+                        continue;
+                }
                 stack_destroy = 0;
                 STACK_WIND (frame, sdfs_common_entrylk_cbk,
                             FIRST_CHILD (this),
@@ -1115,10 +1140,7 @@ err:
                             this->name, &lock->entrylk[i].parent_loc,
                             lock->entrylk[i].basename,
                             ENTRYLK_UNLOCK, ENTRYLK_WRLCK, xdata);
-                lock_count++;
 	}
-
-        local->call_cnt = lock_count;
 
         if (stack_destroy)
                 SDFS_STACK_DESTROY (frame);
@@ -1137,6 +1159,7 @@ sdfs_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         int              ret        = 0;
         int              op_errno   = -1;
         int              i          = 0;
+        int              call_cnt   = 0;
 
         new_frame = copy_frame (frame);
         if (!new_frame) {
@@ -1187,7 +1210,8 @@ sdfs_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         }
 
         local->stub = stub;
-        for (i = 0; i < local->call_cnt; i++) {
+        call_cnt = local->call_cnt;
+        for (i = 0; i < call_cnt; i++) {
                 STACK_WIND_COOKIE (new_frame, sdfs_common_entrylk_cbk,
                             (void *) (long) i,
                             FIRST_CHILD (this),
