@@ -12,6 +12,7 @@
  * ZeroFile store directory operations
  */
 
+#include "syscall.h"
 #include "posix2-helpers.h"
 #include "common-utils.h"
 #include "posix.h"
@@ -201,7 +202,7 @@ posix2_open_and_save (xlator_t *this, fd_t *fd, char *entry, int32_t flags)
         return 0;
 
  closefd:
-        close (openfd);
+        sys_close (openfd);
  error_return:
         return -1;
 }

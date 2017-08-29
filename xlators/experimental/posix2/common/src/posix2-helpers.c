@@ -187,7 +187,7 @@ posix2_create_dir_hashes (xlator_t *this, char *entry)
         parpath = dirname (duppath);
         parpath = dirname (duppath);
 
-        ret = mkdir (parpath, 0700);
+        ret = sys_mkdir (parpath, 0700);
         if ((ret == -1) && (errno != EEXIST)) {
                 gf_msg (this->name, GF_LOG_ERROR, errno, 0,
                         "Error creating directory level #1 for [%s]", entry);
@@ -197,7 +197,7 @@ posix2_create_dir_hashes (xlator_t *this, char *entry)
         strcpy (duppath, entry);
         parpath = dirname (duppath);
 
-        ret = mkdir (parpath, 0700);
+        ret = sys_mkdir (parpath, 0700);
         if ((ret == -1) && (errno != EEXIST)) {
                 gf_msg (this->name, GF_LOG_ERROR, errno, 0,
                         "Error creating directory level #2 for [%s]", entry);
@@ -226,7 +226,7 @@ posix2_create_inode (xlator_t *this, char *entry, int32_t flags, mode_t mode)
                 goto error_return;
         }
         if (isdir) {
-                ret = mkdir (entry, mode);
+                ret = sys_mkdir (entry, mode);
         } else {
                 if (!flags)
                         flags = (O_CREAT | O_RDWR | O_EXCL);
@@ -259,7 +259,7 @@ posix2_link_inode (xlator_t *this, char *parpath, const char *basename,
 
         ret = sys_fsetxattr (fd, GFID_XATTR_KEY, gfid, sizeof (*gfid), 0);
 
-        close (fd);
+        sys_close (fd);
 
 error_return:
         return (ret < 0) ? -1 : 0;
