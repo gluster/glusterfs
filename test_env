@@ -161,5 +161,5 @@ KNOWN_FLAKY_TESTS="\
    tests/basic/afr/gfid-mismatch.t\
 "
 
-DESIRED_TESTS=$(echo "$DESIRED_TESTS" | tr -s ' ' ' ')
-KNOWN_FLAKY_TESTS=$(echo "$KNOWN_FLAKY_TESTS" | tr -s ' ' ' ')
+DESIRED_TESTS=$(echo $DESIRED_TESTS | tr -s ' ' ' ')
+KNOWN_FLAKY_TESTS=$(echo $KNOWN_FLAKY_TESTS | tr -s ' ' ' ')
