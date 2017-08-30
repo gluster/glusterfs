@@ -4104,8 +4104,8 @@ glfs_realpath_common (struct glfs *fs, const char *path, char *resolved_path,
                                 "glfs_realpath()");
                 }
         } else {
-                retpath = allocpath = GF_CALLOC (1, PATH_MAX + 1,
-                                                 glfs_mt_realpath_t);
+                retpath = allocpath = GLFS_CALLOC (1, PATH_MAX + 1, NULL,
+                                                   glfs_mt_realpath_t);
         }
 
 	if (!retpath) {
@@ -4140,7 +4140,7 @@ out:
                 if (warn_deprecated && allocpath)
                         free (allocpath);
                 else if (allocpath)
-                        GF_FREE (allocpath);
+                        GLFS_FREE (allocpath);
                 retpath = NULL;
 	}
 
@@ -4619,6 +4619,14 @@ invalid_fs:
         return ret;
 }
 
+static void glfs_release_xreaddirp_stat (void *ptr)
+{
+        struct glfs_xreaddirp_stat *to_free = ptr;
+
+        if (to_free->object)
+                glfs_h_close (to_free->object);
+}
+
 /*
  * Given glfd of a directory, this function does readdirp and returns
  * xstat along with dirents.
@@ -4652,8 +4660,9 @@ pub_glfs_xreaddirplus_r (struct glfs_fd *glfd, uint32_t flags,
         if (!buf)
                 goto out;
 
-        xstat = GF_CALLOC(1, sizeof(struct glfs_xreaddirp_stat),
-                          glfs_mt_xreaddirp_stat_t);
+        xstat = GLFS_CALLOC(1, sizeof(struct glfs_xreaddirp_stat),
+                            glfs_release_xreaddirp_stat,
+                            glfs_mt_xreaddirp_stat_t);
 
         if (!xstat)
                 goto out;
@@ -4677,7 +4686,7 @@ pub_glfs_xreaddirplus_r (struct glfs_fd *glfd, uint32_t flags,
                 *xstat_p = NULL;
 
                 /* free xstat as applications shall not be using it */
-                glfs_free (xstat);
+                GLFS_FREE (xstat);
 
                 goto out;
         }
@@ -4728,7 +4737,7 @@ out:
                         strerror(errno));
 
                 if (xstat)
-                        glfs_free (xstat);
+                        GLFS_FREE (xstat);
         }
 
         __GLFS_EXIT_FS;

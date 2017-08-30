@@ -1987,6 +1987,14 @@ out:
         return ret;
 }
 
+static void glfs_release_upcall (void *ptr)
+{
+        struct glfs_upcall *to_free = ptr;
+
+        if (to_free->event)
+                to_free->free_event (to_free->event);
+}
+
 /*
  * This API is used to poll for upcall events stored in the upcall list.
  * Current users of this API is NFS-Ganesha. Incase of any event received, it
@@ -2068,8 +2076,9 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct glfs_upcall **up_arg)
         if (upcall_data) {
                 switch (upcall_data->event_type) {
                 case GF_UPCALL_CACHE_INVALIDATION:
-                        *up_arg = GF_CALLOC (1, sizeof (struct gf_upcall),
-                                             glfs_mt_upcall_entry_t);
+                        *up_arg = GLFS_CALLOC (1, sizeof (struct gf_upcall),
+                                               glfs_release_upcall,
+                                               glfs_mt_upcall_entry_t);
                         if (!*up_arg) {
                                 errno = ENOMEM;
                                 break; /* goto free u_list */
@@ -2088,7 +2097,7 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct glfs_upcall **up_arg)
                                 if ((*up_arg)->reason == GLFS_UPCALL_EVENT_NULL)
                                         errno = ENOENT;
 
-                                GF_FREE (*up_arg);
+                                GLFS_FREE (*up_arg);
                                 *up_arg = NULL;
                         }
                         break;

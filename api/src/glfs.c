@@ -1390,34 +1390,7 @@ GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_ipc, 3.12.0);
 void
 pub_glfs_free (void *ptr)
 {
-        int mem_type = 0;
-
-        mem_type = gf_get_mem_type (ptr);
-
-        switch (mem_type) {
-        case glfs_mt_upcall_entry_t:
-        {
-                struct glfs_upcall *to_free = ptr;
-
-                if (to_free->event)
-                        to_free->free_event (to_free->event);
-
-                GF_FREE (ptr);
-                break;
-        }
-        case glfs_mt_xreaddirp_stat_t:
-        {
-                struct glfs_xreaddirp_stat *to_free = ptr;
-
-                if (to_free->object)
-                        glfs_h_close (to_free->object);
-
-                GF_FREE (ptr);
-                break;
-        }
-        default:
-                GF_FREE (ptr);
-        }
+        GLFS_FREE (ptr);
 }
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_free, 3.7.16);
