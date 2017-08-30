@@ -640,8 +640,23 @@ server_setvolume (rpcsvc_request_t *req)
 
         gf_msg_debug (this->name, 0, "Connected to %s", client->client_uid);
         cancelled = server_cancel_grace_timer (this, client);
-        if (cancelled)//Do gf_client_put on behalf of grace-timer-handler.
+        if (cancelled) {
+                /* If timer has been successfully cancelled then it means
+                 * that the client has reconnected within grace period.
+                 * Since we've bumped up the bind count with a gf_client_get()
+                 * for this connect attempt, we need to drop the bind count
+                 * for earlier connect, since grace timer handler couldn't
+                 * drop it since the timer was cancelled.
+                 */
                 gf_client_put (client, NULL);
+
+                /* We need to drop the ref count for this reconnected client
+                 * since one ref was taken before delegating to the grace
+                 * timer handler. Since grace timer handler was cancelled,
+                 * it couldn't run and drop the ref either.
+                 */
+                gf_client_unref (client);
+        }
 
         serv_ctx = server_ctx_get (client, client->this);
         if (serv_ctx == NULL) {

@@ -73,10 +73,8 @@ grace_time_handler (void *data)
         if (cancelled) {
 
                 /*
-                 * client must not be destroyed in gf_client_put(),
-                 * so take a ref.
+                 * ref has already been taken in server_rpc_notify()
                  */
-                gf_client_ref (client);
                 gf_client_put (client, &detached);
 
                 if (detached) /* reconnection did not happen :-( */
@@ -543,13 +541,12 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                  * new transport will be created upon reconnect.
                  */
                 pthread_mutex_lock (&conf->mutex);
+                client = trans->xl_private;
                 list_del_init (&trans->list);
-                rpc_transport_unref (trans);
                 pthread_mutex_unlock (&conf->mutex);
 
-                client = trans->xl_private;
                 if (!client)
-                        break;
+                        goto unref_transport;
 
                 gf_msg (this->name, GF_LOG_INFO, 0,
                         PS_MSG_CLIENT_DISCONNECTING, "disconnecting connection"
@@ -582,18 +579,13 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                                           trans->myinfo.identifier,
                                           auth_path);
                         }
-                        gf_client_unref (client);
-                        break;
+
+                        /*
+                         * gf_client_unref will be done while handling
+                         * RPC_EVENT_TRANSPORT_DESTROY
+                         */
+                        goto unref_transport;
                 }
-                trans->xl_private = NULL;
-                server_connection_cleanup (this, client, INTERNAL_LOCKS);
-                gf_event (EVENT_CLIENT_DISCONNECT, "client_uid=%s;"
-                          "client_identifier=%s;server_identifier=%s;"
-                          "brick_path=%s",
-                          client->client_uid,
-                          trans->peerinfo.identifier,
-                          trans->myinfo.identifier,
-                          auth_path);
 
                 serv_ctx = server_ctx_get (client, this);
 
@@ -601,7 +593,7 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                         gf_msg (this->name, GF_LOG_INFO, 0,
                                 PS_MSG_SERVER_CTX_GET_FAILED,
                                 "server_ctx_get() failed");
-                        goto out;
+                        goto unref_transport;
                 }
 
                 grace_ts.tv_sec = conf->grace_timeout;
@@ -616,6 +608,12 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                                         "starting a grace timer for %s",
                                         client->client_uid);
 
+                                /* ref to protect against client destruction
+                                 * in RPCSVC_EVENT_TRANSPORT_DESTROY while
+                                 * we are starting a grace timer
+                                 */
+                                gf_client_ref (client);
+
                                 serv_ctx->grace_timer =
                                         gf_timer_call_after (this->ctx,
                                                              grace_ts,
@@ -624,13 +622,42 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                         }
                 }
                 UNLOCK (&serv_ctx->fdtable_lock);
+
+                ret = dict_get_str (this->options, "auth-path", &auth_path);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                PS_MSG_DICT_GET_FAILED,
+                                "failed to get auth-path");
+                        auth_path = NULL;
+                }
+
+                gf_event (EVENT_CLIENT_DISCONNECT, "client_uid=%s;"
+                          "client_identifier=%s;server_identifier=%s;"
+                          "brick_path=%s",
+                          client->client_uid,
+                          trans->peerinfo.identifier,
+                          trans->myinfo.identifier,
+                          auth_path);
+
+unref_transport:
+                /* rpc_transport_unref() causes a RPCSVC_EVENT_TRANSPORT_DESTROY
+                 * to be called in blocking manner
+                 * So no code should ideally be after this unref
+                 */
+                rpc_transport_unref (trans);
+
                 break;
+
         case RPCSVC_EVENT_TRANSPORT_DESTROY:
-                /*- conn obj has been disassociated from trans on first
-                 *  disconnect.
-                 *  conn cleanup and destruction is handed over to
-                 *  grace_time_handler or the subsequent handler that 'owns'
-                 *  the conn. Nothing left to be done here. */
+                client = trans->xl_private;
+                if (!client)
+                        break;
+
+                /* unref only for if (!client->lk_heal) */
+                if (!conf->lk_heal)
+                        gf_client_unref (client);
+
+                trans->xl_private = NULL;
                 break;
         default:
                 break;
