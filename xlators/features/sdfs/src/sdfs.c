@@ -148,7 +148,7 @@ sdfs_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
 
         STACK_UNWIND_STRICT (mkdir, local->main_frame, op_ret, op_errno, inode,
-                             stbuf, preparent, postparent, NULL);
+                             stbuf, preparent, postparent, xdata);
 
         local->main_frame = NULL;
         STACK_WIND (frame, sdfs_entrylk_cbk, FIRST_CHILD (this),
@@ -258,7 +258,7 @@ sdfs_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
 
         STACK_UNWIND_STRICT (rmdir, local->main_frame, op_ret, op_errno,
-                             preparent, postparent, NULL);
+                             preparent, postparent, xdata);
 
         local->main_frame = NULL;
         STACK_WIND (frame, sdfs_entrylk_cbk, FIRST_CHILD (this),
@@ -591,7 +591,7 @@ sdfs_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
 
         STACK_UNWIND_STRICT (link, local->main_frame, op_ret, op_errno, inode,
-                             stbuf, preparent, postparent, NULL);
+                             stbuf, preparent, postparent, xdata);
 
         local->main_frame = NULL;
         STACK_WIND (frame, sdfs_entrylk_cbk, FIRST_CHILD (this),
