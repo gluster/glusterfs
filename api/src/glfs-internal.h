@@ -258,6 +258,114 @@ struct glfs_xreaddirp_stat {
 
 #define GF_MEMPOOL_COUNT_OF_LRU_BUF_T     256
 
+typedef void (glfs_mem_release_t) (void *ptr);
+
+struct glfs_mem_header {
+        uint32_t            magic;
+        size_t              nmemb;
+        size_t              size;
+        glfs_mem_release_t *release;
+};
+
+#define GLFS_MEM_HEADER_SIZE  (sizeof (struct glfs_mem_header))
+#define GLFS_MEM_HEADER_MAGIC 0x20170830
+
+static inline void *
+__glfs_calloc (size_t nmemb, size_t size, glfs_mem_release_t release,
+               uint32_t type, const char *typestr)
+{
+        struct glfs_mem_header *header = NULL;
+
+        header = __gf_calloc(nmemb, (size + GLFS_MEM_HEADER_SIZE),
+                             type, typestr);
+        if (!header)
+                return NULL;
+
+        header->magic   = GLFS_MEM_HEADER_MAGIC;
+        header->nmemb   = nmemb;
+        header->size    = size;
+        header->release = release;
+
+        return header + 1;
+}
+
+static inline void *
+__glfs_malloc (size_t size, glfs_mem_release_t release,
+               uint32_t type, const char *typestr)
+{
+        struct glfs_mem_header *header = NULL;
+
+        header = __gf_malloc((size + GLFS_MEM_HEADER_SIZE), type, typestr);
+        if (!header)
+                return NULL;
+
+        header->magic   = GLFS_MEM_HEADER_MAGIC;
+        header->nmemb   = 1;
+        header->size    = size;
+        header->release = release;
+
+        return header + 1;
+}
+
+static inline void *
+__glfs_realloc (void *ptr, size_t size)
+{
+        struct glfs_mem_header *old_header = NULL;
+        struct glfs_mem_header *new_header = NULL;
+        struct glfs_mem_header tmp_header;
+        void *new_ptr = NULL;
+
+        GF_ASSERT (NULL != ptr);
+
+        old_header = (struct glfs_mem_header *) (ptr - GLFS_MEM_HEADER_SIZE);
+        GF_ASSERT (old_header->magic == GLFS_MEM_HEADER_MAGIC);
+        tmp_header = *old_header;
+
+        new_ptr = __gf_realloc (old_header, (size + GLFS_MEM_HEADER_SIZE));
+        if (!new_ptr)
+                return NULL;
+
+        new_header = (struct glfs_mem_header *) new_ptr;
+        *new_header = tmp_header;
+        new_header->size = size;
+
+        return new_header + 1;
+}
+
+static inline void
+__glfs_free (void *free_ptr)
+{
+        struct glfs_mem_header *header = NULL;
+        void *release_ptr = NULL;
+        int i = 0;
+
+        if (!free_ptr)
+                return;
+
+        header = (struct glfs_mem_header *) (free_ptr - GLFS_MEM_HEADER_SIZE);
+        GF_ASSERT (header->magic == GLFS_MEM_HEADER_MAGIC);
+
+        if (header->release) {
+                release_ptr = free_ptr;
+                for (i = 0; i < header->nmemb; i++) {
+                        header->release (release_ptr);
+                        release_ptr += header->size;
+                }
+        }
+
+        __gf_free (header);
+}
+
+#define GLFS_CALLOC(nmemb, size, release, type) \
+        __glfs_calloc (nmemb, size, release, type, #type)
+
+#define GLFS_MALLOC(size, release, type) \
+        __glfs_malloc (size, release, type, #type)
+
+#define GLFS_REALLOC(ptr, size) __glfs_realloc(ptr, size)
+
+#define GLFS_FREE(free_ptr) __glfs_free(free_ptr)
+
 int glfs_mgmt_init (struct glfs *fs);
 void glfs_init_done (struct glfs *fs, int ret)
         GFAPI_PRIVATE(glfs_init_done, 3.4.0);

@@ -328,39 +328,6 @@ free:
         FREE (ptr);
 }
 
-
-/*
- * Based on the mem-type that is used for the allocation, GF_FREE can be
- * called, or something more intelligent for the structure can be done.
- *
- * NOTE: this will not work for allocations from a memory pool.  It never did,
- * because those allocations never set the type in the first place.  Any caller
- * that relies on knowing whether a particular type was allocated via a pool or
- * not is *BROKEN*, or will be any time either this module or the module
- * "owning" the type changes.  The proper way to handle this, assuming the
- * caller is not smart enough to call a type-specific free function themselves,
- * would be to create a callback interface where destructors for specific types
- * can be registered so that code *here* (GF_FREE, mem_put, etc.) can do the
- * right thing.  That allows type-specific behavior without creating the kind
- * of fragile coupling that we have now.
- */
-int
-gf_get_mem_type (void *ptr)
-{
-        struct mem_header *header = NULL;
-
-        if (!ptr || !THIS->ctx->mem_acct_enable)
-                return 0;
-
-        header = (struct mem_header *) (ptr - GF_MEM_HEADER_SIZE);
-
-        /* Possible corruption, assert here */
-        GF_ASSERT (GF_MEM_HEADER_MAGIC == header->magic);
-
-        return header->type;
-}
-
-
 #define POOL_SMALLEST   7       /* i.e. 128 */
 #define POOL_LARGEST    20      /* i.e. 1048576 */
 #define NPOOLS          (POOL_LARGEST - POOL_SMALLEST + 1)

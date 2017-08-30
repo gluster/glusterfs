@@ -92,9 +92,6 @@ gf_asprintf (char **string_ptr, const char *format, ...);
 void
 __gf_free (void *ptr);
 
-int
-gf_get_mem_type (void *ptr);
-
 static inline
 void* __gf_default_malloc (size_t size)
 {
