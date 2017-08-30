@@ -40,9 +40,11 @@ if [ ! $debuginfo_rpm ] || [ ! $backtrace_file ]; then
         exit 1
 fi
 
-if [ $debuginfo_rpm != "none" ] && [ ! -f $debuginfo_rpm ]; then
-        echo "no such rpm file: $debuginfo_rpm"
-        exit 1
+if [ $debuginfo_rpm != "none" ]; then
+        if [ ! -f $debuginfo_rpm ]; then
+                echo "no such rpm file: $debuginfo_rpm"
+                exit 1
+        fi
 fi
 
 if [ ! -f $backtrace_file ]; then
@@ -50,9 +52,11 @@ if [ ! -f $backtrace_file ]; then
         exit 1
 fi
 
-if ! file $debuginfo_rpm | grep RPM >/dev/null 2>&1 ; then
-        echo "file does not look like an rpm: $debuginfo_rpm"
-        exit 1
+if [ "$debuginfo_rpm" != "none" ]; then
+        if ! file $debuginfo_rpm | grep RPM >/dev/null 2>&1 ; then
+                echo "file does not look like an rpm: $debuginfo_rpm"
+                exit 1
+        fi
 fi
 
 cpio_version=$(cpio --version|grep cpio|cut -f 2 -d ')'|sed -e 's/^[[:space:]]*//')
@@ -92,15 +96,16 @@ else
 fi
 
 # NOTE: backtrace file should contain only the lines which need to be resolved
-for bt in $(grep glusterfs $backtrace_file)
+for bt in $(cat $backtrace_file)
 do
         libname=$(echo $bt | cut -f 1 -d '(')
         addr=$(echo $bt | cut -f 2 -d '(' | cut -f 1 -d ')')
-        # only unresolved addresses start with a '+'
-        if echo $addr | egrep '^\+' >/dev/null 2>&1 ; then
-                newbt=( $(eu-addr2line --functions --exe=${debuginfo_path}${libname}${debuginfo_extension} $addr) )
-                echo "$bt ${newbt[*]}"
+        libpath=${debuginfo_path}${libname}${debuginfo_extension}
+        if [ ! -f $libpath ]; then
+                continue
         fi
+        newbt=( $(eu-addr2line --functions --exe=$libpath $addr) )
+        echo "$bt ${newbt[*]}"
 done
 
 # remove the temporary directory
