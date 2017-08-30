@@ -465,6 +465,14 @@ copy_frame (call_frame_t *frame)
 		mem_put (newstack);
 		return NULL;
 	}
+        if (!oldstack->groups) {
+                gf_log ("stack", GF_LOG_DEBUG, "groups is null (ngrps: %d)",
+                        oldstack->ngrps);
+                if (oldstack->groups_large)
+                        oldstack->groups = oldstack->groups_large;
+                else
+                        oldstack->groups = oldstack->groups_small;
+        }
         memcpy (newstack->groups, oldstack->groups,
                 sizeof (gid_t) * oldstack->ngrps);
         newstack->unique = oldstack->unique;
