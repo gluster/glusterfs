@@ -37,8 +37,13 @@ MD5=$(md5sum $M0/foo/testfile | cut -d\  -f1)
 
 mkdir $B0/${V0}1/foo
 
+TEST $CLI volume stop $V0
+# Give GlusterD a moment to get its $#@! together.  If we issue these commands
+# back to back (or use "start force") then the start doesn't work properly and
+# get_pending_heal_count fails.
+sleep 5
 # Kick off the SHD and wait 30 seconds for healing to take place
-TEST gluster vol start $V0 force
+TEST $CLI volume start $V0
 EXPECT_WITHIN 30 "0" get_pending_heal_count $V0
 
 # Verify the file was healed back to brick 1

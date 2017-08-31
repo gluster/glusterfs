@@ -269,6 +269,9 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" umount_nfs $N0
 TEST export_allow_this_host_l1
 TEST netgroup_allow_this_host
 
+# Give the auth stuff a moment to catch up.
+sleep 5
+
 EXPECT_WITHIN $MY_MOUNT_TIMEOUT "Y" check_mount_success $V0L1
 EXPECT "Y" small_write
 
