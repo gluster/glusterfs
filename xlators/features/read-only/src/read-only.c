@@ -125,6 +125,9 @@ struct volume_options options[] = {
 	{ .key  = {"read-only"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          /*.validate_fn = validate_boolean,*/
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE,
           .description = "When \"on\", makes a volume read-only. It is turned "
                          "\"off\" by default."
         },
