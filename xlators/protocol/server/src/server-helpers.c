@@ -490,6 +490,10 @@ get_frame_from_request (rpcsvc_request_t *req)
                 }
         }
 
+        /* Add a ref for this fop */
+        if (client)
+                gf_client_ref (client);
+
         frame->root->uid      = req->uid;
         frame->root->gid      = req->gid;
         frame->root->pid      = req->pid;
