@@ -2405,7 +2405,8 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL,
           .value = {"on", "off"},
           .default_value = "off",
-          .description = "Enables the CTR"
+          .description = "Enables the CTR",
+          .flags       = OPT_FLAG_SETTABLE
         },
         { .key  = {"record-entry"},
           .type = GF_OPTION_TYPE_BOOL,
@@ -2420,25 +2421,40 @@ struct volume_options options[] = {
         { .key  = {"record-counters"},
           .type = GF_OPTION_TYPE_BOOL,
           .value = {"on", "off"},
-          .default_value = "off"
+          .default_value = "off",
+          .op_version  = {GD_OP_VERSION_3_7_0},
+          .flags       = OPT_FLAG_SETTABLE,
+          .tags = {}
         },
         { .key  = {"ctr-record-metadata-heat"},
           .type = GF_OPTION_TYPE_BOOL,
           .value = {"on", "off"},
-          .default_value = "off"
+          .default_value = "off",
+          .flags       = OPT_FLAG_SETTABLE,
+          .op_version  = {GD_OP_VERSION_3_7_0},
+          .tags = {}
         },
         { .key  = {"ctr_link_consistency"},
           .type = GF_OPTION_TYPE_BOOL,
           .value = {"on", "off"},
-          .default_value = "off"
+          .default_value = "off",
+          .flags       = OPT_FLAG_SETTABLE,
+          .op_version  = {GD_OP_VERSION_3_7_0},
+          .tags = {}
         },
         { .key  = {"ctr_lookupheal_link_timeout"},
           .type = GF_OPTION_TYPE_INT,
-          .default_value = "300"
+          .default_value = "300",
+          .flags       = OPT_FLAG_SETTABLE,
+          .op_version  = {GD_OP_VERSION_3_7_2},
+          .tags = {}
         },
         { .key  = {"ctr_lookupheal_inode_timeout"},
           .type = GF_OPTION_TYPE_INT,
-          .default_value = "300"
+          .default_value = "300",
+          .flags       = OPT_FLAG_SETTABLE,
+          .op_version  = {GD_OP_VERSION_3_7_2},
+          .tags = {}
         },
         { .key  = {"hot-brick"},
           .type = GF_OPTION_TYPE_BOOL,
@@ -2449,7 +2465,10 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_STR,
           .value = {"hashfile", "rocksdb", "changelog", "sqlite3",
                     "hyperdex"},
-          .default_value = "sqlite3"
+          .default_value = "sqlite3",
+          .op_version  = {GD_OP_VERSION_3_7_0},
+          .flags       = OPT_FLAG_SETTABLE,
+          .tags = {}
         },
         { .key  = {"db-sync"},
           .type = GF_OPTION_TYPE_STR,
@@ -2470,24 +2489,39 @@ struct volume_options options[] = {
         { .key  = {GFDB_SQL_PARAM_JOURNAL_MODE},
           .type = GF_OPTION_TYPE_STR,
           .value = {"delete", "truncate", "persist", "memory", "wal", "off"},
-          .default_value = "wal"
+          .default_value = "wal",
+          .flags       = OPT_FLAG_SETTABLE,
+          .op_version  = {GD_OP_VERSION_3_7_0},
+          .tags = {}
         },
         { .key  = {GFDB_SQL_PARAM_AUTO_VACUUM},
           .type = GF_OPTION_TYPE_STR,
           .value = {"off", "full", "incr"},
-          .default_value = "off"
+          .default_value = "off",
+          .flags       = OPT_FLAG_SETTABLE,
+          .op_version  = {GD_OP_VERSION_3_7_0},
+          .tags = {}
         },
         { .key  = {GFDB_SQL_PARAM_WAL_AUTOCHECK},
           .type = GF_OPTION_TYPE_INT,
-          .default_value = "25000"
+          .default_value = "25000",
+          .flags       = OPT_FLAG_SETTABLE,
+          .op_version  = {GD_OP_VERSION_3_7_0},
+          .tags = {}
         },
         { .key  = {GFDB_SQL_PARAM_CACHE_SIZE},
           .type = GF_OPTION_TYPE_INT,
-          .default_value = "12500"
+          .default_value = "12500",
+          .flags       = OPT_FLAG_SETTABLE,
+          .op_version  = {GD_OP_VERSION_3_7_0},
+          .tags = {}
         },
         { .key  = {GFDB_SQL_PARAM_PAGE_SIZE},
           .type = GF_OPTION_TYPE_INT,
-          .default_value = "4096"
+          .default_value = "4096",
+          .flags       = OPT_FLAG_SETTABLE,
+          .op_version  = {GD_OP_VERSION_3_7_0},
+          .tags = {}
         },
         { .key  = {NULL} },
 };
