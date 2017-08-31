@@ -25,6 +25,7 @@ typedef struct {
         int               queue_size;
         pthread_t         thr;
         struct mem_pool  *local_pool;
+        uint32_t          timeout;
 } quiesce_priv_t;
 
 typedef struct {
