@@ -123,7 +123,7 @@ gf_quiesce_enqueue (xlator_t *this, call_stub_t *stub)
         UNLOCK (&priv->lock);
 
         if (!priv->timer) {
-                timeout.tv_sec = 20;
+                timeout.tv_sec = priv->timeout;
                 timeout.tv_nsec = 0;
 
                 priv->timer = gf_timer_call_after (this->ctx,
@@ -2451,6 +2451,8 @@ init (xlator_t *this)
         if (!priv)
                 goto out;
 
+        GF_OPTION_INIT ("timeout", priv->timeout, time, out);
+
         priv->local_pool =  mem_pool_new (quiesce_local_t,
                                           GF_FOPS_EXPECTED_IN_PARALLEL);
 
@@ -2520,7 +2522,7 @@ notify (xlator_t *this, int event, void *data, ...)
 
                 if (priv->timer)
                         break;
-                timeout.tv_sec = 20;
+                timeout.tv_sec = priv->timeout;
                 timeout.tv_nsec = 0;
 
                 priv->timer = gf_timer_call_after (this->ctx,
@@ -2602,5 +2604,12 @@ struct xlator_cbks cbks;
 
 
 struct volume_options options[] = {
+        { .key = {"timeout"},
+          .type = GF_OPTION_TYPE_TIME,
+          .default_value = "20s",
+          .description = "timeout for ignoring all the quiesced calls",
+          .tags = {"debug", "dev-only"},
+          .op_version = { GD_OP_VERSION_4_0_0 },
+        },
 	{ .key  = {NULL} },
 };
