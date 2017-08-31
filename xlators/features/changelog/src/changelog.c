@@ -2974,39 +2974,58 @@ struct volume_options options[] = {
         {.key = {"changelog"},
          .type = GF_OPTION_TYPE_BOOL,
          .default_value = "off",
-         .description = "enable/disable change-logging"
+         .description = "enable/disable change-logging",
+         .op_version = {3},
+         .flags = OPT_FLAG_SETTABLE,
+         .tags = {"journal", "georep", "glusterfind"}
         },
         {.key = {"changelog-brick"},
          .type = GF_OPTION_TYPE_PATH,
          .description = "brick path to generate unique socket file name."
-                       " should be the export directory of the volume strictly."
+                       " should be the export directory of the volume strictly.",
+         .op_version = {3},
+         .tags = {"journal"}
         },
         {.key = {"changelog-dir"},
          .type = GF_OPTION_TYPE_PATH,
-         .description = "directory for the changelog files"
+         .description = "directory for the changelog files",
+         .op_version = {3},
+         .flags = OPT_FLAG_SETTABLE,
+         .tags = {"journal", "georep", "glusterfind"}
         },
         {.key = {"op-mode"},
          .type = GF_OPTION_TYPE_STR,
          .default_value = "realtime",
          .value = {"realtime"},
-         .description = "operation mode - futuristic operation modes"
+         .description = "operation mode - futuristic operation modes",
+         .op_version = {3},
+         .tags = {"journal"}
         },
         {.key = {"encoding"},
          .type = GF_OPTION_TYPE_STR,
          .default_value = "ascii",
          .value = {"binary", "ascii"},
-         .description = "encoding type for changelogs"
+         .description = "encoding type for changelogs",
+         .op_version = {3},
+         .flags = OPT_FLAG_SETTABLE,
+         .tags = {"journal"}
         },
         {.key = {"rollover-time"},
          .default_value = "15",
          .type = GF_OPTION_TYPE_TIME,
-         .description = "time to switch to a new changelog file (in seconds)"
+         .description = "time to switch to a new changelog file (in seconds)",
+         .op_version = {3},
+         .flags = OPT_FLAG_SETTABLE,
+         .tags = {"journal", "georep", "glusterfind"}
         },
         {.key = {"fsync-interval"},
          .type = GF_OPTION_TYPE_TIME,
          .default_value = "5",
          .description = "do not open CHANGELOG file with O_SYNC mode."
-                        " instead perform fsync() at specified intervals"
+                        " instead perform fsync() at specified intervals",
+         .op_version = {3},
+         .flags = OPT_FLAG_SETTABLE,
+         .tags = {"journal"}
         },
         { .key = {"changelog-barrier-timeout"},
           .type = GF_OPTION_TYPE_TIME,
@@ -3014,12 +3033,18 @@ struct volume_options options[] = {
           .description = "After 'timeout' seconds since the time 'barrier' "
                          "option was set to \"on\", unlink/rmdir/rename  "
                          "operations are no longer blocked and previously "
-                         "blocked fops are allowed to go through"
+                         "blocked fops are allowed to go through",
+         .op_version = {3},
+         .flags = OPT_FLAG_SETTABLE,
+         .tags = {"journal"}
         },
         {.key = {"capture-del-path"},
          .type = GF_OPTION_TYPE_BOOL,
          .default_value = "off",
-         .description = "enable/disable capturing paths of deleted entries"
+         .description = "enable/disable capturing paths of deleted entries",
+         .op_version = {3},
+         .flags = OPT_FLAG_SETTABLE,
+         .tags = {"journal", "glusterfind"}
         },
         {.key = {NULL}
         },
