@@ -5756,18 +5756,27 @@ struct volume_options options[] = {
           .default_value = "128KB",
           .min = STRIPE_MIN_BLOCK_SIZE,
           .description = "Size of the stripe unit that would be read "
-                         "from or written to the striped servers."
+          "from or written to the striped servers.",
+          .op_version = { 1 },
+          .tags = { "stripe" },
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE,
         },
         { .key  = {"use-xattr"},
           .type = GF_OPTION_TYPE_BOOL,
-          .default_value = "true"
+          .default_value = "true",
+          .description = "handle the stripe without the xattr",
+          .tags = { "stripe", "dev-only" },
+          .flags = OPT_FLAG_CLIENT_OPT,
         },
 	{ .key = {"coalesce"},
 	  .type = GF_OPTION_TYPE_BOOL,
 	  .default_value = "true",
 	  .description = "Enable/Disable coalesce mode to flatten striped "
-			 "files as stored on the server (i.e., eliminate holes "
-			 "caused by the traditional format)."
+          "files as stored on the server (i.e., eliminate holes "
+          "caused by the traditional format).",
+          .op_version = { 1 },
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE,
+          .tags = { "stripe" },
 	},
         { .key  = {NULL} },
 };
