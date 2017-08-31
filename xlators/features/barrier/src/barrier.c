@@ -780,8 +780,10 @@ struct xlator_cbks cbks;
 struct volume_options options[] = {
         { .key  = {"barrier"},
           .type = GF_OPTION_TYPE_BOOL,
-          .default_value = "off",
-          .description = "When \"on\", blocks acknowledgements to application "
+          .default_value = "disable",
+          .op_version = {GD_OP_VERSION_3_6_0},
+          .flags = OPT_FLAG_SETTABLE,
+          .description = "When \"enabled\", blocks acknowledgements to application "
                          "for file operations such as rmdir, rename, unlink, "
                          "removexattr, fremovexattr, truncate, ftruncate, "
                          "write (with O_SYNC), fsync. It is turned \"off\" by "
@@ -790,6 +792,8 @@ struct volume_options options[] = {
         { .key = {"barrier-timeout"},
           .type = GF_OPTION_TYPE_TIME,
           .default_value = BARRIER_TIMEOUT,
+          .op_version = {GD_OP_VERSION_3_6_0},
+          .flags = OPT_FLAG_SETTABLE,
           .description = "After 'timeout' seconds since the time 'barrier' "
                          "option was set to \"on\", acknowledgements to file "
                          "operations are no longer blocked and previously "
