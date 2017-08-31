@@ -5284,23 +5284,32 @@ struct xlator_dumpops dumpops = {
         .priv    = quota_priv_dump,
 };
 struct volume_options options[] = {
-        {.key = {"limit-set"}},
         {.key = {"deem-statfs"},
          .type = GF_OPTION_TYPE_BOOL,
          .default_value = "on",
          .description = "If set to on, it takes quota limits into"
                         " consideration while estimating fs size. (df command)"
-                        " (Default is on)."
+                        " (Default is on).",
+	 .op_version = {2},
+	 .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+	 .tags = {},
         },
         {.key = {"server-quota"},
          .type = GF_OPTION_TYPE_BOOL,
          .default_value = "off",
          .description = "Skip the quota enforcement if the feature is"
-                        " not turned on. This is not a user exposed option."
+                        " not turned on. This is not a user exposed option.",
+	 .flags = OPT_FLAG_NONE,
         },
         {.key = {"default-soft-limit"},
          .type = GF_OPTION_TYPE_PERCENT,
          .default_value = "80%",
+	 .op_version = {3},
+         .description = "Soft limit is expressed as a proportion of hard limit."
+                        " Default-soft-limit is the proportion used when the "
+                        " user does not supply any soft limit value.",
+	 .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+	 .tags = {},
         },
         {.key = {"soft-timeout"},
          .type = GF_OPTION_TYPE_TIME,
@@ -5309,7 +5318,10 @@ struct volume_options options[] = {
          .default_value = "60",
          .description = "quota caches the directory sizes on client. "
                         "soft-timeout indicates the timeout for the validity of"
-                        " cache before soft-limit has been crossed."
+                        " cache before soft-limit has been crossed.",
+	 .op_version = {3},
+	 .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+	 .tags = {},
         },
         {.key = {"hard-timeout"},
          .type = GF_OPTION_TYPE_TIME,
@@ -5318,27 +5330,14 @@ struct volume_options options[] = {
          .default_value = "5",
          .description = "quota caches the directory sizes on client. "
                         "hard-timeout indicates the timeout for the validity of"
-                        " cache after soft-limit has been crossed."
+                        " cache after soft-limit has been crossed.",
+	 .op_version = {3},
+	 .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+	 .tags = {},
         },
-        { .key   = {"username"},
-          .type  = GF_OPTION_TYPE_ANY,
-        },
-        { .key   = {"password"},
-          .type  = GF_OPTION_TYPE_ANY,
-        },
-        { .key   = {"transport-type"},
-          .value = {"tcp", "socket", "ib-verbs", "unix", "ib-sdp",
-                    "tcp/client", "ib-verbs/client", "rdma"},
-          .type  = GF_OPTION_TYPE_STR,
-        },
-        { .key   = {"remote-host"},
-          .type  = GF_OPTION_TYPE_INTERNET_ADDRESS,
-        },
-        { .key   = {"remote-port"},
-          .type  = GF_OPTION_TYPE_INT,
-        },
-        { .key  = {"volume-uuid"},
+       { .key  = {"volume-uuid"},
           .type = GF_OPTION_TYPE_STR,
+          .default_value = "{{ volume.id }}",
           .description = "uuid of the volume this brick is part of."
         },
         { .key  = {"alert-time"},
@@ -5346,6 +5345,10 @@ struct volume_options options[] = {
           .min = 0,
           .max = 7*86400,
           .default_value = "86400",
+	  .op_version = {3},
+	  .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .description = "Frequency of limit breach messages in log.",
+	  .tags = {},
         },
         {.key = {NULL}}
 };
