@@ -1149,6 +1149,8 @@ struct volume_options options[] = {
           .min  = 0,
           .max  = INFINITY,
           .default_value = "128MB",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
           .description = "Size of the read cache."
         },
         { .key  = {"cache-timeout"},
