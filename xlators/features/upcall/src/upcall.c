@@ -2598,14 +2598,20 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
           .description = "When \"on\", sends cache-invalidation"
-                         " notifications."
+                         " notifications.",
+          .op_version = {GD_OP_VERSION_3_7_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"cache", "cacheconsistency", "upcall"},
         },
         { .key  = {"cache-invalidation-timeout"},
           .type = GF_OPTION_TYPE_INT,
           .default_value = CACHE_INVALIDATION_TIMEOUT,
           .description = "After 'timeout' seconds since the time"
                          " client accessed any file, cache-invalidation"
-                         " notifications are no longer sent to that client."
+                         " notifications are no longer sent to that client.",
+          .op_version = {GD_OP_VERSION_3_7_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"cache", "cachetimeout", "upcall"}
         },
         { .key = {NULL} },
 };
