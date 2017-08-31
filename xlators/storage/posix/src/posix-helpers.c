@@ -95,6 +95,57 @@ out:
         return flag;
 }
 
+int
+posix_handle_georep_xattrs (call_frame_t *frame, const char *name,
+                            int *op_errno, gf_boolean_t is_getxattr)
+{
+
+        int                i                = 0;
+        int                ret              = 0;
+        int                pid              = 1;
+        gf_boolean_t       filter_xattr     = _gf_true;
+        static const char *georep_xattr[]   = { "*.glusterfs.*.stime",
+                                                "*.glusterfs.*.xtime",
+                                                "*.glusterfs.*.entry_stime",
+                                                NULL
+                                              };
+        if (frame && frame->root) {
+                pid = frame->root->pid;
+        }
+
+        if (!name) {
+                /* No need to do anything here */
+                ret = 0;
+                goto out;
+        }
+
+        if (pid == GF_CLIENT_PID_GSYNCD && is_getxattr) {
+                filter_xattr = _gf_false;
+
+                /* getxattr from gsyncd process should return all the
+                 * internal xattr. In other cases ignore such xattrs
+                 */
+        }
+
+        for (i = 0; filter_xattr && georep_xattr[i]; i++) {
+                if (fnmatch (georep_xattr[i] , name, FNM_PERIOD) == 0) {
+                        ret = -1;
+                        if (op_errno)
+                               *op_errno = ENOATTR;
+
+                        gf_msg_debug ("posix", ENOATTR,
+                                      "Ignoring the key %s as an internal "
+                                      "xattrs.", name);
+                        goto out;
+                }
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+
 static gf_boolean_t
 _is_in_array (char **str_array, char *str)
 {
@@ -731,7 +782,7 @@ _handle_list_xattr (dict_t *xattr_req, const char *real_path, int fdnum,
                 if (posix_special_xattr (marker_xattrs, key))
                         goto next;
 
-                if (!fnmatch (GF_XATTR_STIME_PATTERN, key, 0))
+                if (posix_handle_georep_xattrs (NULL, key, NULL, _gf_false))
                         goto next;
 
                 if (dict_get (filler->xattr, key))
@@ -1499,23 +1550,21 @@ posix_gfid_heal (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req
         struct stat  stat = {0, };
 
         if (!xattr_req)
-                goto out;
+                return 0;
 
-        if (sys_lstat (path, &stat) != 0)
-                goto out;
+        if (sys_lstat (path, &stat) != 0) {
+                return -errno;
+        }
 
         ret = sys_lgetxattr (path, GFID_XATTR_KEY, uuid_curr, 16);
         if (ret != 16) {
                 if (is_fresh_file (&stat)) {
-                        ret = -1;
-                        errno = ENOENT;
-                        goto out;
+                        return -ENOENT;
                 }
         }
 
-        ret = posix_gfid_set (this, path, loc, xattr_req);
-out:
-        return ret;
+        posix_gfid_set (this, path, loc, xattr_req);
+        return 0;
 }
 
 
@@ -1663,6 +1712,10 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p,
                 dir = sys_opendir (real_path);
                 if (!dir) {
                         op_errno = errno;
+                        gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                                P_MSG_READ_FAILED,
+                                "Failed to get anonymous fd for "
+                                "real_path: %s.", real_path);
                         GF_FREE (pfd);
                         pfd = NULL;
                         goto out;
@@ -1686,8 +1739,9 @@ __posix_fd_ctx_get (fd_t *fd, xlator_t *this, struct posix_fd **pfd_p,
                         op_errno = errno;
                         gf_msg (this->name, GF_LOG_ERROR, op_errno,
                                 P_MSG_READ_FAILED,
-                                "Failed to get anonymous "
-                                "real_path: %s _fd = %d", real_path, _fd);
+                                "Failed to get anonymous fd for "
+                                "real_path: %s.", real_path);
+
                         GF_FREE (pfd);
                         pfd = NULL;
                         goto out;
@@ -2214,10 +2268,14 @@ __posix_inode_ctx_get (inode_t *inode, xlator_t *this)
                 return NULL;
 
         pthread_mutex_init (&ctx_p->xattrop_lock, NULL);
+        pthread_mutex_init (&ctx_p->write_atomic_lock, NULL);
+        pthread_mutex_init (&ctx_p->pgfid_lock, NULL);
 
         ret = __inode_ctx_set (inode, this, (uint64_t *)&ctx_p);
         if (ret < 0) {
                 pthread_mutex_destroy (&ctx_p->xattrop_lock);
+                pthread_mutex_destroy (&ctx_p->write_atomic_lock);
+                pthread_mutex_destroy (&ctx_p->pgfid_lock);
                 GF_FREE (ctx_p);
                 return NULL;
         }

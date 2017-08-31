@@ -45,7 +45,7 @@
 
 /* TODO:
  * 1) 2 opens racing .. creating an fd leak.
- * 2) use mempool for nlmclnt - destroy if no fd exists, create during 1st call
+ * 2) use GF_REF_* for nlm_clnt_t
  */
 
 typedef ssize_t (*nlm4_serializer) (struct iovec outmsg, void *args);
@@ -333,6 +333,24 @@ ret:
         return rpc_clnt;
 }
 
+static void
+nlm_client_free (nlm_client_t *nlmclnt)
+{
+        list_del (&nlmclnt->fdes);
+        list_del (&nlmclnt->nlm_clients);
+        list_del (&nlmclnt->shares);
+
+        GF_FREE (nlmclnt->caller_name);
+
+        if (nlmclnt->rpc_clnt) {
+                /* cleanup the saved-frames before last unref */
+                rpc_clnt_connection_cleanup (&nlmclnt->rpc_clnt->conn);
+                /* rpc_clnt_connection_cleanup() calls rpc_clnt_unref() */
+        }
+
+        GF_FREE (nlmclnt);
+}
+
 int
 nlm_set_rpc_clnt (rpc_clnt_t *rpc_clnt, char *caller_name)
 {
@@ -375,26 +393,16 @@ int
 nlm_unset_rpc_clnt (rpc_clnt_t *rpc)
 {
         nlm_client_t *nlmclnt = NULL;
-        rpc_clnt_t *rpc_clnt = NULL;
 
         LOCK (&nlm_client_list_lk);
         list_for_each_entry (nlmclnt, &nlm_client_list, nlm_clients) {
                 if (rpc == nlmclnt->rpc_clnt) {
-                        rpc_clnt = nlmclnt->rpc_clnt;
-                        nlmclnt->rpc_clnt = NULL;
+                        nlm_client_free (nlmclnt);
                         break;
                 }
         }
         UNLOCK (&nlm_client_list_lk);
-        if (rpc_clnt == NULL) {
-                return -1;
-        }
-        if (rpc_clnt) {
-                /* cleanup the saved-frames before last unref */
-                rpc_clnt_connection_cleanup (&rpc_clnt->conn);
 
-                rpc_clnt_unref (rpc_clnt);
-        }
         return 0;
 }
 
@@ -923,10 +931,16 @@ nlm_rpcclnt_notify (struct rpc_clnt *rpc_clnt, void *mydata,
         nfs3_call_state_t *cs          = NULL;
 
         cs = mydata;
-        caller_name = cs->args.nlm4_lockargs.alock.caller_name;
 
         switch (fn) {
         case RPC_CLNT_CONNECT:
+                if (!cs->req) {
+                        gf_msg (GF_NLM, GF_LOG_ERROR, EINVAL,
+                                NFS_MSG_RPC_CLNT_ERROR, "Spurious notify?!");
+                        goto err;
+                }
+
+                caller_name = cs->args.nlm4_lockargs.alock.caller_name;
                 ret = nlm_set_rpc_clnt (rpc_clnt, caller_name);
                 if (ret == -1) {
                         gf_msg (GF_NLM, GF_LOG_ERROR, 0,
@@ -934,8 +948,8 @@ nlm_rpcclnt_notify (struct rpc_clnt *rpc_clnt, void *mydata,
                                 "rpc clnt");
                         goto err;
                 }
-                rpc_clnt_unref (rpc_clnt);
                 nlm4svc_send_granted (cs);
+                rpc_clnt_unref (rpc_clnt);
 
                 break;
 
@@ -1199,7 +1213,7 @@ ret:
 }
 
 void
-nlm_search_and_delete (fd_t *fd, char *caller_name)
+nlm_search_and_delete (fd_t *fd, nlm4_lock *lk)
 {
         nlm_fde_t *fde = NULL;
         nlm_client_t *nlmclnt = NULL;
@@ -1210,7 +1224,7 @@ nlm_search_and_delete (fd_t *fd, char *caller_name)
         LOCK (&nlm_client_list_lk);
         list_for_each_entry (nlmclnt,
                              &nlm_client_list, nlm_clients) {
-                if (!strcmp(caller_name, nlmclnt->caller_name)) {
+                if (!strcmp (lk->caller_name, nlmclnt->caller_name)) {
                         nlmclnt_found = 1;
                         break;
                 }
@@ -1232,6 +1246,9 @@ nlm_search_and_delete (fd_t *fd, char *caller_name)
         if (transit_cnt)
                 goto ret;
         list_del (&fde->fde_list);
+
+        if (list_empty (&nlmclnt->fdes) && list_empty (&nlmclnt->shares))
+                nlm_client_free (nlmclnt);
 
 ret:
         UNLOCK (&nlm_client_list_lk);
@@ -1348,7 +1365,8 @@ nlm4svc_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == -1) {
                 if (transit_cnt == 0)
-                        nlm_search_and_delete (cs->fd, caller_name);
+                        nlm_search_and_delete (cs->fd,
+                                               &cs->args.nlm4_lockargs.alock);
                 stat = nlm4_errno_to_nlm4stat (op_errno);
                 goto err;
         } else {
@@ -1539,8 +1557,10 @@ nlm4svc_cancel_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1) {
                 stat = nlm4_errno_to_nlm4stat (op_errno);
                 goto err;
-        } else
+        } else {
                 stat = nlm4_granted;
+                nlm_search_and_delete (cs->fd, &cs->args.nlm4_lockargs.alock);
+        }
 
 err:
         nlm4_generic_reply (cs->req, cs->args.nlm4_cancargs.cookie,
@@ -1693,7 +1713,7 @@ nlm4svc_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 stat = nlm4_granted;
                 if (flock->l_type == F_UNLCK)
                         nlm_search_and_delete (cs->fd,
-                                               cs->args.nlm4_unlockargs.alock.caller_name);
+                                               &cs->args.nlm4_unlockargs.alock);
         }
 
 err:
@@ -1730,18 +1750,20 @@ nlm4_unlock_resume (void *carg)
         int                             ret = -1;
         nfs3_call_state_t               *cs = NULL;
         nlm_client_t                    *nlmclnt = NULL;
+        char                            *caller_name = NULL;
 
         if (!carg)
                 return ret;
 
         cs = (nfs3_call_state_t *)carg;
         nlm4_check_fh_resolve_status (cs, stat, nlm4err);
+        caller_name = cs->args.nlm4_unlockargs.alock.caller_name;
 
-        nlmclnt = nlm_get_uniq (cs->args.nlm4_unlockargs.alock.caller_name);
+        nlmclnt = nlm_get_uniq (caller_name);
         if (nlmclnt == NULL) {
                 stat = nlm4_granted;
                 gf_msg (GF_NLM, GF_LOG_WARNING, ENOLCK, NFS_MSG_NO_MEMORY,
-                        "nlm_get_uniq() returned NULL");
+                        "nlm_get_uniq() returned NULL for %s", caller_name);
                 goto nlm4err;
         }
         cs->fd = fd_lookup_uint64 (cs->resolvedloc.inode, (uint64_t)nlmclnt);

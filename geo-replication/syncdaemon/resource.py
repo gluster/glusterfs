@@ -24,7 +24,7 @@ import tempfile
 import threading
 import subprocess
 from errno import EEXIST, ENOENT, ENODATA, ENOTDIR, ELOOP
-from errno import EISDIR, ENOTEMPTY, ESTALE, EINVAL
+from errno import EISDIR, ENOTEMPTY, ESTALE, EINVAL, EBUSY
 from select import error as SelectError
 import shutil
 
@@ -618,11 +618,12 @@ class Server(object):
             if not matching_disk_gfid(gfid, entry):
                 return
 
-            er = errno_wrap(os.unlink, [entry], [ENOENT, ESTALE, EISDIR])
+            er = errno_wrap(os.unlink, [entry], [ENOENT, ESTALE, EISDIR],
+                            [EBUSY])
             if isinstance(er, int):
                 if er == EISDIR:
                     er = errno_wrap(os.rmdir, [entry], [ENOENT, ESTALE,
-                                                        ENOTEMPTY])
+                                                        ENOTEMPTY], [EBUSY])
                     if er == ENOTEMPTY:
                         return er
 
@@ -630,15 +631,18 @@ class Server(object):
             # We do this for failing fops on Slave
             # Master should be logging this
             if cmd_ret is None:
-                return
+                return False
 
             if cmd_ret == EEXIST:
                 disk_gfid = cls.gfid_mnt(e['entry'])
-                if isinstance(disk_gfid, basestring):
-                    if e['gfid'] != disk_gfid:
-                        failures.append((e, cmd_ret, disk_gfid))
+                if isinstance(disk_gfid, basestring) and e['gfid'] != disk_gfid:
+                    failures.append((e, cmd_ret, disk_gfid))
+                else:
+                    return False
             else:
                 failures.append((e, cmd_ret))
+
+            return True
 
         failures = []
 
@@ -674,7 +678,7 @@ class Server(object):
                 if not matching_disk_gfid(gfid, entry):
                     return
                 er = errno_wrap(os.remove, [fullname], [ENOENT, ESTALE,
-                                                        EISDIR])
+                                                        EISDIR], [EBUSY])
 
                 if er == EISDIR:
                     recursive_rmdir(gfid, entry, fullname)
@@ -682,7 +686,7 @@ class Server(object):
             if not matching_disk_gfid(gfid, entry):
                 return
 
-            errno_wrap(os.rmdir, [path], [ENOENT, ESTALE])
+            errno_wrap(os.rmdir, [path], [ENOENT, ESTALE], [EBUSY])
 
         def rename_with_disk_gfid_confirmation(gfid, entry, en):
             if not matching_disk_gfid(gfid, entry):
@@ -695,7 +699,7 @@ class Server(object):
 
             cmd_ret = errno_wrap(os.rename,
                                  [entry, en],
-                                 [ENOENT, EEXIST], [ESTALE])
+                                 [ENOENT, EEXIST], [ESTALE, EBUSY])
             collect_failure(e, cmd_ret)
 
 
@@ -785,12 +789,12 @@ class Server(object):
                             # we have a hard link, we can now unlink source
                             try:
                                 errno_wrap(os.unlink, [entry],
-                                           [ENOENT, ESTALE])
+                                           [ENOENT, ESTALE], [EBUSY])
                             except OSError as e:
                                 if e.errno == EISDIR:
                                     try:
                                         errno_wrap(os.rmdir, [entry],
-                                                   [ENOENT, ESTALE])
+                                                   [ENOENT, ESTALE], [EBUSY])
                                     except OSError as e:
                                         if e.errno == ENOTEMPTY:
                                             logging.error(
@@ -808,8 +812,16 @@ class Server(object):
                 cmd_ret = errno_wrap(Xattr.lsetxattr,
                                      [pg, 'glusterfs.gfid.newfile', blob],
                                      [EEXIST, ENOENT],
-                                     [ESTALE, EINVAL])
-                collect_failure(e, cmd_ret)
+                                     [ESTALE, EINVAL, EBUSY])
+                failed = collect_failure(e, cmd_ret)
+
+                # If directory creation is failed, return immediately before
+                # further processing. Allowing it to further process will
+                # cause the entire directory tree to fail syncing to slave.
+                # Hence master will log and raise exception if it's
+                # directory failure.
+                if failed and op == 'MKDIR':
+                    return failures
 
                 # If UID/GID is different than zero that means we are trying
                 # create Entry with different UID/GID. Create Entry with
@@ -818,7 +830,7 @@ class Server(object):
                     path = os.path.join(pfx, gfid)
                     cmd_ret = errno_wrap(os.chown, [path, uid, gid], [ENOENT],
                                          [ESTALE, EINVAL])
-                collect_failure(e, cmd_ret)
+                    collect_failure(e, cmd_ret)
 
         return failures
 

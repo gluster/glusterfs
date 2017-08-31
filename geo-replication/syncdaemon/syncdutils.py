@@ -18,7 +18,7 @@ import logging
 import socket
 from threading import Lock, Thread as baseThread
 from errno import EACCES, EAGAIN, EPIPE, ENOTCONN, ECONNABORTED
-from errno import EINTR, ENOENT, EPERM, ESTALE, errorcode
+from errno import EINTR, ENOENT, EPERM, ESTALE, EBUSY, errorcode
 from signal import signal, SIGTERM
 import select as oselect
 from os import waitpid as owaitpid
@@ -487,12 +487,12 @@ def errno_wrap(call, arg=[], errnos=[], retry_errnos=[]):
                 # probably a screwed state, cannot do much...
                 logging.warn('reached maximum retries (%s)...%s' %
                              (repr(arg), ex))
-                return ex.errno
+                raise
             time.sleep(0.250)  # retry the call
 
 
 def lstat(e):
-    return errno_wrap(os.lstat, [e], [ENOENT], [ESTALE])
+    return errno_wrap(os.lstat, [e], [ENOENT], [ESTALE, EBUSY])
 
 class NoPurgeTimeAvailable(Exception):
     pass

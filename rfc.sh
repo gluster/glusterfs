@@ -46,6 +46,72 @@ is_num()
     [ -z "$(echo $num | sed -e 's/[0-9]//g')" ]
 }
 
+backport_id_message()
+{
+    echo ""
+    echo "This commit is to a non-master branch, and hence is treated as a backport."
+    echo ""
+    echo "For backports we would like to retain the same gerrit Change-Id across"
+    echo "branches. On auto inspection it is found that a gerrit Change-Id is"
+    echo "missing, or the Change-Id is not found on your local master"
+    echo ""
+    echo "This could mean a few things:"
+    echo "    1. This is not a backport, hence choose Y on the prompt to proceed"
+    echo "    2. Your origin master is not up to date, hence the script is unable"
+    echo "       to find the corresponding Change-Id on master. Either choose N,"
+    echo "       'git fetch', and try again, OR if you are sure you used the"
+    echo "       same Change-Id, choose Y at the prompt to proceed"
+    echo "    3. You commented or removed the Change-Id in your commit message after"
+    echo "       cherry picking the commit. Choose N, fix the commit message to"
+    echo "       use the same Change-Id as master (git commit --amend), resubmit"
+    echo ""
+}
+
+check_backport()
+{
+    moveon='N'
+
+    # Backports are never made to master
+    if [ $branch = "master" ]; then
+        return;
+    fi
+
+    # Extract the change ID from the commit message
+    changeid=$(git show --format='%b' | grep -i '^Change-Id: ' | awk '{print $2}')
+
+    # If there is no change ID ask if we should continue
+    if [ -z "$changeid" ]; then
+        backport_id_message;
+        echo -n "Did not find a Change-Id for a possible backport. Continue (y/N): "
+        read moveon
+    else
+        # Search master for the same change ID (rebase_changes has run, so we
+        # should never not find a Change-Id)
+        mchangeid=$(git log origin/master --format='%b' --grep="^Change-Id: ${changeid}" | grep ${changeid} | awk '{print $2}')
+
+        # Check if we found the change ID on master, else throw a message to
+        # decide if we should continue.
+        # NOTE: If master was not rebased, we will not find the Change-ID and
+        # could hit a false positive case here (or if someone checks out some
+        # other branch as master).
+        if [ $mchangeid = $changeid ]; then
+            moveon="Y"
+        else
+            backport_id_message;
+            echo "Change-Id of commit: $changeid"
+            echo "Change-Id on master: $mchangeid"
+            echo -n "Did not find mentioned Change-Id on master for a possible backport. Continue (y/N): "
+            read moveon
+        fi
+    fi
+
+    if [ "${moveon}" = 'Y' ] || [ "${moveon}" = 'y' ]; then
+        return;
+    else
+        exit 1
+    fi
+}
+
 
 rebase_changes()
 {
@@ -139,6 +205,8 @@ main()
 {
     set_hooks_commit_msg;
 
+    # rfc.sh calls itself from rebase_changes, which uses rfc.sh as the EDITOR
+    # thus, getting the commit message to work with in the editor_mode.
     if [ -e "$1" ]; then
         editor_mode "$@";
         return;
@@ -147,6 +215,8 @@ main()
     check_patches_for_coding_style;
 
     rebase_changes;
+
+    check_backport;
 
     assert_diverge;
 

@@ -1,4 +1,4 @@
-gsyncddir = $(libexecdir)/glusterfs
+gsyncddir = $(GLUSTERFS_LIBEXECDIR)
 
 gsyncd_SCRIPTS = gverify.sh peer_gsec_create \
 	set_geo_rep_pem_keys.sh peer_mountbroker
@@ -19,7 +19,7 @@ noinst_HEADERS = procdiggy.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/libglusterfs/src\
-	-DGSYNCD_PREFIX=\"$(libexecdir)/glusterfs\"\
+	-DGSYNCD_PREFIX=\"$(GLUSTERFS_LIBEXECDIR)\"\
 	-DUSE_LIBGLUSTERFS\
 	-DSBIN_DIR=\"$(sbindir)\" -DPYTHON=\"$(PYTHON)\"
 

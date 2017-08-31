@@ -76,7 +76,7 @@ dht_open2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
         if (we_are_not_migrating (ret)) {
                 /* This DHT layer is not migrating the file */
                 DHT_STACK_UNWIND (open, frame, -1, local->op_errno,
-                                  NULL, NULL);
+                                  NULL, local->rebalance.xdata);
                 return 0;
 
         }
@@ -88,7 +88,7 @@ dht_open2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 
         STACK_WIND (frame, dht_open_cbk, subvol, subvol->fops->open,
                     &local->loc, local->rebalance.flags, local->fd,
-                    NULL);
+                    local->xattr_req);
         return 0;
 
 out:
@@ -132,6 +132,8 @@ dht_open (call_frame_t *frame, xlator_t *this,
                 op_errno = ENOSPC;
                 goto err;
         }
+        if (xdata)
+                local->xattr_req = dict_ref (xdata);
 
         local->rebalance.flags = flags;
         local->call_cnt = 1;
@@ -249,10 +251,10 @@ dht_attr2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 
         if (local->fop == GF_FOP_FSTAT) {
                 STACK_WIND (frame, dht_file_attr_cbk, subvol,
-                            subvol->fops->fstat, local->fd, NULL);
+                            subvol->fops->fstat, local->fd, local->xattr_req);
         } else {
                 STACK_WIND (frame, dht_file_attr_cbk, subvol,
-                            subvol->fops->stat, &local->loc, NULL);
+                            subvol->fops->stat, &local->loc, local->xattr_req);
         }
 
         return 0;
@@ -335,6 +337,8 @@ dht_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 op_errno = EINVAL;
                 goto err;
         }
+        if (xdata)
+                local->xattr_req = dict_ref (xdata);
 
         if (IA_ISREG (loc->inode->ia_type)) {
                 local->call_cnt = 1;
@@ -395,6 +399,8 @@ dht_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
                 op_errno = EINVAL;
                 goto err;
         }
+        if (xdata)
+                local->xattr_req = dict_ref (xdata);
 
         if (IA_ISREG (fd->inode->ia_type)) {
                 local->call_cnt = 1;
@@ -516,7 +522,7 @@ dht_readv2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 
         STACK_WIND (frame, dht_readv_cbk, subvol, subvol->fops->readv,
                     local->fd, local->rebalance.size, local->rebalance.offset,
-                    local->rebalance.flags, NULL);
+                    local->rebalance.flags, local->xattr_req);
 
         return 0;
 
@@ -551,6 +557,8 @@ dht_readv (call_frame_t *frame, xlator_t *this,
                 op_errno = EINVAL;
                 goto err;
         }
+        if (xdata)
+                local->xattr_req = dict_ref (xdata);
 
         local->rebalance.offset = off;
         local->rebalance.size   = size;
@@ -645,7 +653,7 @@ dht_access2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
         local->call_cnt = 2;
 
         STACK_WIND (frame, dht_access_cbk, subvol, subvol->fops->access,
-                    &local->loc, local->rebalance.flags, NULL);
+                    &local->loc, local->rebalance.flags, local->xattr_req);
 
         return 0;
 
@@ -684,6 +692,8 @@ dht_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask,
                 op_errno = EINVAL;
                 goto err;
         }
+        if (xdata)
+                local->xattr_req = dict_ref (xdata);
 
         STACK_WIND (frame, dht_access_cbk, subvol, subvol->fops->access,
                     loc, mask, xdata);
@@ -717,9 +727,6 @@ dht_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local->op_ret = op_ret;
         local->op_errno = op_errno;
-
-        if (xdata)
-                local->rebalance.xdata = dict_ref (xdata);
 
         /* If context is set, then send flush() it to the destination */
         dht_inode_ctx_get_mig_info (this, local->fd->inode, NULL, &subvol);
@@ -761,7 +768,7 @@ dht_flush2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 
         STACK_WIND (frame, dht_flush_cbk,
                     subvol, subvol->fops->flush, local->fd,
-                    local->rebalance.xdata);
+                    local->xattr_req);
 
         return 0;
 
@@ -795,6 +802,8 @@ dht_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
                 op_errno = EINVAL;
                 goto err;
         }
+        if (xdata)
+                local->xattr_req = dict_ref (xdata);
 
         local->call_cnt = 1;
 
@@ -917,7 +926,7 @@ dht_fsync2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
         local->call_cnt = 2; /* This is the second attempt */
 
         STACK_WIND (frame, dht_fsync_cbk, subvol, subvol->fops->fsync,
-                    local->fd, local->rebalance.flags, NULL);
+                    local->fd, local->rebalance.flags, local->xattr_req);
 
         return 0;
 
@@ -944,6 +953,8 @@ dht_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync,
 
                 goto err;
         }
+        if (xdata)
+                local->xattr_req = dict_ref (xdata);
 
         local->call_cnt = 1;
         local->rebalance.flags = datasync;
@@ -1034,7 +1045,7 @@ dht_lk2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
 
         STACK_WIND (frame, dht_lk_cbk, subvol, subvol->fops->lk, local->fd,
                     local->rebalance.lock_cmd, &local->rebalance.flock,
-                    local->rebalance.xdata);
+                    local->xattr_req);
 
         return 0;
 
@@ -1069,6 +1080,8 @@ dht_lk (call_frame_t *frame, xlator_t *this,
                 op_errno = EINVAL;
                 goto err;
         }
+        if (xdata)
+                local->xattr_req = dict_ref (xdata);
 
         local->rebalance.flock = *flock;
         local->rebalance.lock_cmd = cmd;

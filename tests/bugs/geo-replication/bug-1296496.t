@@ -29,7 +29,8 @@ xtime="trusted.glusterfs.$vol_uuid.xtime"
 
 #TEST xtime
 TEST ! getfattr -n $xtime $M0
-TEST getfattr -n $xtime $M1
+TEST getfattr -n $xtime $B0/${V0}-0
+TEST getfattr -n $xtime $B0/${V0}-1
 
 #TEST stime
 slave_uuid=$(uuidgen)

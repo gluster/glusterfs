@@ -301,21 +301,20 @@ afr_compute_pre_op_sources (call_frame_t *frame, xlator_t *this)
                 }
 }
 
-void
-afr_txn_arbitrate_fop_cbk (call_frame_t *frame, xlator_t *this)
+gf_boolean_t
+afr_has_arbiter_fop_cbk_quorum (call_frame_t *frame)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
+        xlator_t *this = NULL;
         gf_boolean_t fop_failed = _gf_false;
         unsigned char *pre_op_sources = NULL;
         int i = 0;
 
         local = frame->local;
+        this = frame->this;
         priv  = this->private;
         pre_op_sources = local->transaction.pre_op_sources;
-
-        if (priv->arbiter_count != 1 || local->op_ret < 0)
-                return;
 
         /* If the fop failed on the brick, it is not a source. */
         for (i = 0; i < priv->child_count; i++)
@@ -332,12 +331,10 @@ afr_txn_arbitrate_fop_cbk (call_frame_t *frame, xlator_t *this)
                 break;
         }
 
-        if (fop_failed) {
-                local->op_ret = -1;
-                local->op_errno = ENOTCONN;
-        }
+        if (fop_failed)
+                return _gf_false;
 
-        return;
+        return _gf_true;
 }
 
 void
@@ -588,11 +585,17 @@ afr_locked_nodes_get (afr_transaction_type type, afr_internal_lock_t *int_lock)
 int
 afr_changelog_call_count (afr_transaction_type type,
 			  unsigned char *pre_op_subvols,
+                          unsigned char *failed_subvols,
 			  unsigned int child_count)
 {
+        int i = 0;
         int call_count = 0;
 
-	call_count = AFR_COUNT(pre_op_subvols, child_count);
+        for (i = 0; i < child_count; i++) {
+                if (pre_op_subvols[i] && !failed_subvols[i]) {
+                        call_count++;
+                }
+        }
 
         if (type == AFR_ENTRY_RENAME_TRANSACTION)
                 call_count *= 2;
@@ -779,8 +782,12 @@ afr_handle_quorum (call_frame_t *frame)
          * no split-brain with the fix. The problem is eliminated completely.
          */
 
-        if (afr_has_fop_cbk_quorum (frame))
+        if (priv->arbiter_count) {
+                if (afr_has_arbiter_fop_cbk_quorum (frame))
+                        return;
+        } else if (afr_has_fop_cbk_quorum (frame)) {
                 return;
+        }
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->transaction.pre_op[i])
@@ -1244,6 +1251,7 @@ afr_changelog_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
 
         call_count = afr_changelog_call_count (local->transaction.type,
 					       local->transaction.pre_op,
+                                              local->transaction.failed_subvols,
 					       priv->child_count);
 
 	if (call_count == 0) {
@@ -1257,7 +1265,8 @@ afr_changelog_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
 	local->transaction.changelog_resume = changelog_resume;
 
         for (i = 0; i < priv->child_count; i++) {
-                if (!local->transaction.pre_op[i])
+                if (!local->transaction.pre_op[i] ||
+                     local->transaction.failed_subvols[i])
                         continue;
 
                 switch (local->transaction.type) {

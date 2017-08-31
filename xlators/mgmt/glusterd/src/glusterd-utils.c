@@ -5013,7 +5013,7 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         glusterd_conf_t    *priv                        = NULL;
         gf_boolean_t        is_template_in_use          = _gf_false;
         gf_boolean_t        is_paused                   = _gf_false;
-        char               *key1                        = NULL;
+        char                key1[1024]                  = {0,};
         xlator_t           *this1                       = NULL;
 
         this1 = THIS;
@@ -5108,9 +5108,8 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
                 goto out;
         }
 
-        /* Move the pointer two characters ahead to surpass '//' */
-        if ((key1 = strchr (slave, '/')))
-                key1 = key1 + 2;
+        /* Form key1 which is "<user@><slave_host>::<slavevol>" */
+        snprintf (key1, sizeof (key1), "%s::%s", slave_url, slave_vol);
 
         /* Looks for the last status, to find if the session was running
          * when the node went down. If the session was just created or
@@ -5390,6 +5389,7 @@ static struct fs_info {
         { "ext3", "tune2fs", "-l", "Inode size:", "e2fsprogs" },
         { "ext4", "tune2fs", "-l", "Inode size:", "e2fsprogs" },
         { "btrfs", NULL, NULL, NULL, NULL },
+        { "zfs", NULL, NULL, NULL, NULL },
         { NULL, NULL, NULL, NULL, NULL}
 };
 
@@ -5434,6 +5434,16 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
 
         for (fs = glusterd_fs ; fs->fs_type_name; fs++) {
                 if (strcmp (fs_name, fs->fs_type_name) == 0) {
+                        if (!fs->fs_tool_name) {
+                                /* dynamic inodes */
+                                gf_msg (THIS->name, GF_LOG_INFO, 0,
+                                        GD_MSG_INODE_SIZE_GET_FAIL, "the "
+                                        "brick on %s (%s) uses dynamic inode "
+                                        "sizes", device, fs_name);
+                                cur_word = "N/A";
+                                goto cached;
+                        }
+
                         snprintf (fs_tool_name, sizeof (fs_tool_name),
                                   "/usr/sbin/%s", fs->fs_tool_name);
                         if (sys_access (fs_tool_name, R_OK|X_OK) == 0)
@@ -10565,21 +10575,12 @@ glusterd_remove_auxiliary_mount (char *volname)
 {
         int       ret                = -1;
         char      mountdir[PATH_MAX] = {0,};
-        char      pidfile[PATH_MAX]  = {0,};
         xlator_t *this               = NULL;
 
         this = THIS;
         GF_ASSERT (this);
 
-        GLUSTERFS_GET_AUX_MOUNT_PIDFILE (pidfile, volname);
-
-        if (!gf_is_service_running (pidfile, NULL)) {
-                gf_msg_debug (this->name, 0, "Aux mount of volume %s "
-                        "absent, hence returning", volname);
-                return 0;
-        }
-
-        GLUSTERD_GET_QUOTA_AUX_MOUNT_PATH (mountdir, volname, "/");
+        GLUSTERD_GET_QUOTA_LIMIT_MOUNT_PATH (mountdir, volname, "/");
         ret = gf_umount_lazy (this->name, mountdir, 1);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,

@@ -200,6 +200,8 @@ typedef struct {
 typedef struct {
         uint64_t unlink_flag;
         pthread_mutex_t xattrop_lock;
+        pthread_mutex_t write_atomic_lock;
+        pthread_mutex_t pgfid_lock;
 } posix_inode_ctx_t;
 
 #define POSIX_BASE_PATH(this) (((struct posix_private *)this->private)->base_path)
@@ -280,7 +282,8 @@ int
 posix_get_ancestry (xlator_t *this, inode_t *leaf_inode,
                     gf_dirent_t *head, char **path, int type, int32_t *op_errno,
                     dict_t *xdata);
-
+int
+posix_handle_georep_xattrs (call_frame_t *, const char *, int *, gf_boolean_t);
 void
 posix_gfid_unset (xlator_t *this, dict_t *xdata);
 

@@ -26,11 +26,11 @@ TEST touch $M0
 vol_uuid=`getfattr -n trusted.glusterfs.volume-mark -ehex $M1 | sed -n 's/^trusted.glusterfs.volume-mark=0x//p' | cut -b5-36 | sed 's/\([a-f0-9]\{8\}\)\([a-f0-9]\{4\}\)\([a-f0-9]\{4\}\)\([a-f0-9]\{4\}\)/\1-\2-\3-\4-/'`
 xtime=trusted.glusterfs.$vol_uuid.xtime
 
-TEST "getfattr -n $xtime $M1 | grep -q ${xtime}="
+TEST "getfattr -n $xtime $B0/${V0}-0 | grep -q ${xtime}="
 
 TEST kill_brick $V0 $H0 $B0/${V0}-0
 
-TEST "getfattr -n $xtime $M1 | grep -q ${xtime}="
+TEST "getfattr -n $xtime $B0/${V0}-1 | grep -q ${xtime}="
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M1

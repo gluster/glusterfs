@@ -99,7 +99,6 @@ $CLI volume statedump $V0 all
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 
 TEST $CLI volume stop $V0
-EXPECT "1" get_aux
 
 rm -f $QDD
 

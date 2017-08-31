@@ -1083,7 +1083,7 @@ refresh_done:
 }
 
 int
-afr_inode_refresh_done (call_frame_t *frame, xlator_t *this)
+afr_inode_refresh_done (call_frame_t *frame, xlator_t *this, int error)
 {
 	afr_private_t *priv = NULL;
     call_frame_t *heal_frame = NULL;
@@ -1093,6 +1093,11 @@ afr_inode_refresh_done (call_frame_t *frame, xlator_t *this)
         int op_errno = ENOMEM;
 	int ret = 0;
 	int err = 0;
+
+	if (error != 0) {
+		err = error;
+		goto refresh_done;
+	}
 
 	local = frame->local;
     priv = this->private;
@@ -1159,7 +1164,7 @@ afr_inode_refresh_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_count = afr_frame_return (frame);
         if (call_count == 0) {
                 afr_set_need_heal (this, local);
-		afr_inode_refresh_done (frame, this);
+		afr_inode_refresh_done (frame, this, 0);
         }
 
 }
@@ -1250,20 +1255,21 @@ afr_inode_refresh_do (call_frame_t *frame, xlator_t *this)
         if (local->fd) {
                 fd_ctx = afr_fd_ctx_get (local->fd, this);
                 if (!fd_ctx) {
-                        afr_inode_refresh_done (frame, this);
+                        afr_inode_refresh_done (frame, this, EINVAL);
                         return 0;
                 }
         }
 
 	xdata = dict_new ();
 	if (!xdata) {
-		afr_inode_refresh_done (frame, this);
+		afr_inode_refresh_done (frame, this, ENOMEM);
 		return 0;
 	}
 
-	if (afr_xattr_req_prepare (this, xdata) != 0) {
+	ret = afr_xattr_req_prepare (this, xdata);
+	if (ret != 0) {
 		dict_unref (xdata);
-		afr_inode_refresh_done (frame, this);
+		afr_inode_refresh_done (frame, this, -ret);
 		return 0;
 	}
 
@@ -1296,7 +1302,10 @@ afr_inode_refresh_do (call_frame_t *frame, xlator_t *this)
 	call_count = local->call_count;
         if (!call_count) {
                 dict_unref (xdata);
-                afr_inode_refresh_done (frame, this);
+		if (local->fd && AFR_COUNT(local->child_up, priv->child_count))
+	                afr_inode_refresh_done (frame, this, EBADFD);
+		else
+	                afr_inode_refresh_done (frame, this, ENOTCONN);
                 return 0;
         }
 	for (i = 0; i < priv->child_count; i++) {
@@ -3230,47 +3239,65 @@ afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                struct iatt *postbuf, dict_t *xdata)
 {
         afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+        int i = 0;
         int call_count = -1;
         int child_index = (long) cookie;
 	int read_subvol = 0;
 	call_stub_t *stub = NULL;
 
         local = frame->local;
-
-	read_subvol = afr_data_subvol_get (local->inode, this, NULL, NULL,
-                                           NULL, NULL);
+        priv = this->private;
 
         LOCK (&frame->lock);
         {
+                local->replies[child_index].valid = 1;
+                local->replies[child_index].op_ret = op_ret;
+                local->replies[child_index].op_errno = op_errno;
                 if (op_ret == 0) {
-                        if (local->op_ret == -1) {
-				local->op_ret = 0;
-
-                                local->cont.inode_wfop.prebuf  = *prebuf;
-                                local->cont.inode_wfop.postbuf = *postbuf;
-
-				if (xdata)
-					local->xdata_rsp = dict_ref (xdata);
-                        }
-
-                        if (child_index == read_subvol) {
-                                local->cont.inode_wfop.prebuf  = *prebuf;
-                                local->cont.inode_wfop.postbuf = *postbuf;
-				if (xdata) {
-					if (local->xdata_rsp)
-						dict_unref (local->xdata_rsp);
-					local->xdata_rsp = dict_ref (xdata);
-				}
-                        }
-                } else {
-			local->op_errno = op_errno;
-		}
+                        if (prebuf)
+                                local->replies[child_index].prestat = *prebuf;
+                        if (postbuf)
+                                local->replies[child_index].poststat = *postbuf;
+                        if (xdata)
+                                local->replies[child_index].xdata =
+                                        dict_ref (xdata);
+                }
         }
         UNLOCK (&frame->lock);
 
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
+                local->op_ret = -1;
+                local->op_errno = afr_final_errno (local, priv);
+	        read_subvol = afr_data_subvol_get (local->inode, this, NULL,
+                                                   local->readable, NULL, NULL);
+                /* Pick a reply that is valid and readable, with a preference
+                 * given to read_subvol. */
+                for (i = 0; i < priv->child_count; i++) {
+                        if (!local->replies[i].valid)
+                                continue;
+                        if (local->replies[i].op_ret != 0)
+                                continue;
+                        if (!local->readable[i])
+                                continue;
+                        local->op_ret = local->replies[i].op_ret;
+                        local->op_errno = local->replies[i].op_errno;
+                        local->cont.inode_wfop.prebuf =
+                                local->replies[i].prestat;
+                        local->cont.inode_wfop.postbuf =
+                                local->replies[i].poststat;
+                        if (local->replies[i].xdata) {
+                                if (local->xdata_rsp)
+                                        dict_unref (local->xdata_rsp);
+                                local->xdata_rsp =
+                                        dict_ref (local->replies[i].xdata);
+                        }
+                        if (i == read_subvol)
+                                break;
+                }
+
 		/* Make a stub out of the frame, and register it
 		   with the waking up post-op. When the call-stub resumes,
 		   we are guaranteed that there was no post-op pending

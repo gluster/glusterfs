@@ -17,7 +17,7 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/rpc/xdr/src\
 	-DDATADIR=\"$(localstatedir)\" \
 	-DCONFDIR=\"$(sysconfdir)/glusterfs\" \
-	-DGSYNCD_PREFIX=\"$(libexecdir)/glusterfs\"\
+	-DGSYNCD_PREFIX=\"$(GLUSTERFS_LIBEXECDIR)\"\
 	-DSYNCDAEMON_COMPILE=$(SYNCDAEMON_COMPILE) -DSBIN_DIR=\"$(sbindir)\"\
 	$(XML_CPPFLAGS)
 

@@ -139,6 +139,7 @@ ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ra_waitq_t   *waitq          = NULL;
         fd_t         *fd             = NULL;
         uint64_t      tmp_file       = 0;
+        gf_boolean_t  stale          = _gf_false;
 
         GF_ASSERT (frame);
 
@@ -171,6 +172,13 @@ ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                       "wasted copy: "
                                       "%"PRId64"[+%"PRId64"] file=%p",
                                       pending_offset, file->page_size, file);
+                        goto unlock;
+                }
+
+                if (page->stale) {
+                        page->stale = 0;
+                        page->ready = 0;
+                        stale = 1;
                         goto unlock;
                 }
 
@@ -218,6 +226,16 @@ ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 unlock:
         ra_file_unlock (file);
+
+        if (stale) {
+                STACK_WIND (frame, ra_fault_cbk,
+                            FIRST_CHILD (frame->this),
+                            FIRST_CHILD (frame->this)->fops->readv,
+                            local->fd, local->pending_size,
+                            local->pending_offset, 0, NULL);
+
+                return 0;
+        }
 
         ra_waitq_return (waitq);
 

@@ -136,6 +136,8 @@ posix_forget (xlator_t *this, inode_t *inode)
         }
 out:
         pthread_mutex_destroy (&ctx->xattrop_lock);
+        pthread_mutex_destroy (&ctx->write_atomic_lock);
+        pthread_mutex_destroy (&ctx->pgfid_lock);
         GF_FREE (ctx);
         return ret;
 }
@@ -158,6 +160,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         char        *pgfid_xattr_key   = NULL;
         int32_t     nlink_samepgfid    = 0;
         struct  posix_private *priv    = NULL;
+        posix_inode_ctx_t *ctx         = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -193,7 +196,12 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
                 MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &buf);
 
                 if (gf_uuid_is_null (loc->inode->gfid)) {
-                        posix_gfid_heal (this, real_path, loc, xdata);
+                        op_ret = posix_gfid_heal (this, real_path, loc, xdata);
+                        if (op_ret < 0) {
+                                op_errno = -op_ret;
+                                op_ret = -1;
+                                goto out;
+                        }
                         MAKE_ENTRY_HANDLE (real_path, par_path, this,
                                            loc, &buf);
                 }
@@ -224,7 +232,14 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
                                               PGFID_XATTR_KEY_PREFIX,
                                               loc->pargfid);
 
-                        LOCK (&loc->inode->lock);
+                        op_ret = posix_inode_ctx_get_all (loc->inode, this,
+                                                          &ctx);
+                        if (op_ret < 0) {
+                                op_errno = ENOMEM;
+                                goto out;
+                        }
+
+                        pthread_mutex_lock (&ctx->pgfid_lock);
                         {
                                 SET_PGFID_XATTR_IF_ABSENT (real_path,
                                                            pgfid_xattr_key,
@@ -233,7 +248,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
                                                            this, unlock);
                         }
 unlock:
-                        UNLOCK (&loc->inode->lock);
+                        pthread_mutex_unlock (&ctx->pgfid_lock);
                 }
         }
 
@@ -768,6 +783,7 @@ posix_do_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
         struct posix_fd    *pfd    = NULL;
         gf_boolean_t        locked = _gf_false;
         struct posix_private *priv = this->private;
+        posix_inode_ctx_t  *ctx    = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -789,9 +805,15 @@ posix_do_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto out;
         }
 
+        ret = posix_inode_ctx_get_all (fd->inode, this, &ctx);
+        if (ret < 0) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
         if (dict_get (xdata, GLUSTERFS_WRITE_UPDATE_ATOMIC)) {
                 locked = _gf_true;
-                LOCK(&fd->inode->lock);
+                pthread_mutex_lock (&ctx->write_atomic_lock);
         }
 
         ret = posix_fdstat (this, pfd->fd, statpre);
@@ -818,7 +840,7 @@ posix_do_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 out:
         if (locked) {
-                UNLOCK (&fd->inode->lock);
+                pthread_mutex_unlock (&ctx->write_atomic_lock);
                 locked = _gf_false;
         }
         SET_TO_OLD_FS_ID ();
@@ -932,6 +954,7 @@ posix_do_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         int32_t            flags     = 0;
         struct posix_fd   *pfd       = NULL;
         gf_boolean_t       locked    = _gf_false;
+        posix_inode_ctx_t *ctx       = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -947,9 +970,15 @@ posix_do_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 goto out;
         }
 
+        ret = posix_inode_ctx_get_all (fd->inode, this, &ctx);
+        if (ret < 0) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
         if (dict_get (xdata, GLUSTERFS_WRITE_UPDATE_ATOMIC)) {
                 locked = _gf_true;
-                LOCK(&fd->inode->lock);
+                pthread_mutex_lock (&ctx->write_atomic_lock);
         }
 
         ret = posix_fdstat (this, pfd->fd, statpre);
@@ -999,7 +1028,7 @@ fsync:
 
 out:
 	if (locked) {
-		UNLOCK (&fd->inode->lock);
+		pthread_mutex_unlock (&ctx->write_atomic_lock);
 		locked = _gf_false;
 	}
         SET_TO_OLD_FS_ID ();
@@ -1998,6 +2027,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         char                   uuid_str[GF_UUID_BUF_SIZE] = {0};
         char                   gfid_str[GF_UUID_BUF_SIZE] = {0};
         gf_boolean_t           get_link_count     = _gf_false;
+        posix_inode_ctx_t     *ctx                = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -2101,14 +2131,19 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         if (priv->update_pgfid_nlinks && (stbuf.ia_nlink > 1)) {
                 MAKE_PGFID_XATTR_KEY (pgfid_xattr_key, PGFID_XATTR_KEY_PREFIX,
                                       loc->pargfid);
-                LOCK (&loc->inode->lock);
+                op_ret = posix_inode_ctx_get_all (loc->inode, this, &ctx);
+                if (op_ret < 0) {
+                        op_errno = ENOMEM;
+                        goto out;
+                }
+                pthread_mutex_lock (&ctx->pgfid_lock);
                 {
                         UNLINK_MODIFY_PGFID_XATTR (real_path, pgfid_xattr_key,
                                                    nlink_samepgfid, 0, op_ret,
                                                    this, unlock);
                 }
         unlock:
-                UNLOCK (&loc->inode->lock);
+                pthread_mutex_unlock (&ctx->pgfid_lock);
 
                 if (op_ret < 0) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
@@ -2463,6 +2498,8 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         dict_t               *unwind_dict     = NULL;
         gf_boolean_t          locked          = _gf_false;
         gf_boolean_t          get_link_count  = _gf_false;
+        posix_inode_ctx_t    *ctx_old         = NULL;
+        posix_inode_ctx_t    *ctx_new         = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -2545,10 +2582,26 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        op_ret = posix_inode_ctx_get_all (oldloc->inode, this, &ctx_old);
+        if (op_ret < 0) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+                goto out;
+        }
+
+        if (newloc->inode) {
+                op_ret = posix_inode_ctx_get_all (newloc->inode, this, &ctx_new);
+                if (op_ret < 0) {
+                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        goto out;
+                }
+        }
+
         if (IA_ISDIR (oldloc->inode->ia_type))
                 posix_handle_unset (this, oldloc->inode->gfid, NULL);
 
-        LOCK (&oldloc->inode->lock);
+        pthread_mutex_lock (&ctx_old->pgfid_lock);
         {
                 if (priv->update_pgfid_nlinks) {
                         MAKE_PGFID_XATTR_KEY (pgfid_xattr_key,
@@ -2563,7 +2616,7 @@ posix_rename (call_frame_t *frame, xlator_t *this,
 
                 if ((xdata) && (dict_get (xdata, GET_LINK_COUNT))
                     && (real_newpath) && (was_present)) {
-                        LOCK (&newloc->inode->lock);
+                        pthread_mutex_lock (&ctx_new->pgfid_lock);
                         locked = _gf_true;
                         get_link_count = _gf_true;
                         op_ret = posix_pstat (this, newloc->gfid, real_newpath,
@@ -2605,7 +2658,7 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                 }
 
                 if (locked) {
-                        UNLOCK (&newloc->inode->lock);
+                        pthread_mutex_unlock (&ctx_new->pgfid_lock);
                         locked = _gf_false;
                 }
 
@@ -2629,10 +2682,10 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         }
 unlock:
         if (locked) {
-                UNLOCK (&newloc->inode->lock);
+                pthread_mutex_unlock (&ctx_new->pgfid_lock);
                 locked = _gf_false;
         }
-        UNLOCK (&oldloc->inode->lock);
+        pthread_mutex_unlock (&ctx_old->pgfid_lock);
 
         if (op_ret < 0) {
                 gf_msg (this->name, GF_LOG_WARNING, 0, P_MSG_XATTR_FAILED,
@@ -2713,6 +2766,7 @@ posix_link (call_frame_t *frame, xlator_t *this,
         int32_t               nlink_samepgfid = 0;
         char                 *pgfid_xattr_key = NULL;
         gf_boolean_t          entry_created   = _gf_false;
+        posix_inode_ctx_t    *ctx             = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -2779,14 +2833,20 @@ posix_link (call_frame_t *frame, xlator_t *this,
                 MAKE_PGFID_XATTR_KEY (pgfid_xattr_key, PGFID_XATTR_KEY_PREFIX,
                                       newloc->pargfid);
 
-                LOCK (&newloc->inode->lock);
+                op_ret = posix_inode_ctx_get_all (newloc->inode, this, &ctx);
+                if (op_ret < 0) {
+                        op_errno = ENOMEM;
+                        goto out;
+                }
+
+                pthread_mutex_lock (&ctx->pgfid_lock);
                 {
                         LINK_MODIFY_PGFID_XATTR (real_newpath, pgfid_xattr_key,
                                                  nlink_samepgfid, 0, op_ret,
                                                  this, unlock);
                 }
         unlock:
-                UNLOCK (&newloc->inode->lock);
+                pthread_mutex_unlock (&ctx->pgfid_lock);
 
                 if (op_ret < 0) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
@@ -3401,6 +3461,7 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	gf_boolean_t           locked = _gf_false;
 	gf_boolean_t           write_append = _gf_false;
 	gf_boolean_t           update_atomic = _gf_false;
+        posix_inode_ctx_t     *ctx      = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -3422,7 +3483,6 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (ret < 0) {
                 gf_msg (this->name, GF_LOG_WARNING, ret, P_MSG_PFD_NULL,
                         "pfd is NULL from fd=%p", fd);
-                op_errno = -ret;
                 goto out;
         }
 
@@ -3450,9 +3510,15 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
          * as of today).
          */
 
+        op_ret = posix_inode_ctx_get_all (fd->inode, this, &ctx);
+        if (op_ret < 0) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+
         if (write_append || update_atomic) {
 		locked = _gf_true;
-		LOCK(&fd->inode->lock);
+		pthread_mutex_lock (&ctx->write_atomic_lock);
         }
 
         op_ret = posix_fdstat (this, _fd, &preop);
@@ -3472,7 +3538,7 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                                  (pfd->flags & O_DIRECT));
 
 	if (locked && (!update_atomic)) {
-		UNLOCK (&fd->inode->lock);
+		pthread_mutex_unlock (&ctx->write_atomic_lock);
 		locked = _gf_false;
 	}
 
@@ -3502,7 +3568,7 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
 
 	if (locked) {
-		UNLOCK (&fd->inode->lock);
+		pthread_mutex_unlock (&ctx->write_atomic_lock);
 		locked = _gf_false;
 	}
 
@@ -3528,7 +3594,7 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 out:
 
 	if (locked) {
-		UNLOCK (&fd->inode->lock);
+		pthread_mutex_unlock (&ctx->write_atomic_lock);
 		locked = _gf_false;
 	}
 
@@ -4416,11 +4482,10 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         op_ret = -1;
         priv = this->private;
 
-        /* Allow access to stime xattr only to geo-rep worker */
-        if (frame->root->pid != GF_CLIENT_PID_GSYNCD && name &&
-            fnmatch ("*.glusterfs.*.stime", name, FNM_PERIOD) == 0) {
+        ret = posix_handle_georep_xattrs (frame, name, &op_errno, _gf_true);
+        if (ret == -1) {
                 op_ret = -1;
-                op_errno = ENOATTR;
+                /* errno should be set from the above function*/
                 goto out;
         }
 
@@ -4732,9 +4797,11 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         remaining_size = size;
         list_offset = 0;
         while (remaining_size > 0) {
-                strcpy (keybuffer, list + list_offset);
-                if (frame->root->pid != GF_CLIENT_PID_GSYNCD &&
-                    fnmatch ("*.glusterfs.*.stime", keybuffer, FNM_PERIOD) == 0)
+                strncpy (keybuffer, list + list_offset, sizeof(keybuffer));
+
+                ret = posix_handle_georep_xattrs (frame, keybuffer, NULL,
+                                                  _gf_false);
+                if (ret == -1)
                         goto ignore;
 
                 size = sys_lgetxattr (real_path, keybuffer, NULL, 0);
@@ -5952,7 +6019,6 @@ posix_fstat (call_frame_t *frame, xlator_t *this,
         if (ret < 0) {
                 gf_msg (this->name, GF_LOG_WARNING, op_errno, P_MSG_PFD_NULL,
                         "pfd is NULL, fd=%p", fd);
-                op_errno = -ret;
                 goto out;
         }
 
@@ -6384,7 +6450,7 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
 
         ret = posix_fd_ctx_get (fd, this, &pfd, &op_errno);
         if (ret < 0) {
-                gf_msg (this->name, GF_LOG_WARNING, -ret, P_MSG_PFD_NULL,
+                gf_msg (this->name, GF_LOG_WARNING, op_errno, P_MSG_PFD_NULL,
                         "pfd is NULL, fd=%p", fd);
                 goto out;
         }
