@@ -627,35 +627,53 @@ struct volume_options options[] = {
         { .key  = {"worm"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          /*.validate_fn = validate_boolean,*/
+          .op_version = {2},
+          .flags = OPT_FLAG_SETTABLE,
           .description = "When \"on\", makes a volume get write once read many "
                          " feature. It is turned \"off\" by default."
         },
         { .key = {"worm-file-level"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          /*.validate_fn = validate_boolean,*/
+          .op_version = {GD_OP_VERSION_3_8_0},
+          .flags = OPT_FLAG_SETTABLE,
           .description = "When \"on\", activates the file level worm. "
                          "It is turned \"off\" by default."
         },
         { .key = {"worm-files-deletable"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+          /*.validate_fn = validate_boolean,*/
+          .op_version = {GD_OP_VERSION_3_13_0},
+          .flags = OPT_FLAG_SETTABLE,
           .description = "When \"off\", doesn't allow the Worm files"
                          "to be deleted. It is turned \"on\" by default."
         },
         { .key = {"default-retention-period"},
           .type = GF_OPTION_TYPE_TIME,
           .default_value = "120",
+          /*.validate_fn = validate_worm_period,*/
+          .op_version = {GD_OP_VERSION_3_8_0},
+          .flags = OPT_FLAG_SETTABLE,
           .description = "The default retention period for the files."
         },
         { .key = {"retention-mode"},
           .type = GF_OPTION_TYPE_STR,
           .default_value = "relax",
+          /*.validate_fn = validate_reten_mode,*/
+          .op_version = {GD_OP_VERSION_3_8_0},
+          .flags = OPT_FLAG_SETTABLE,
           .description = "The mode of retention (relax/enterprise). "
                          "It is relax by default."
         },
         { .key = {"auto-commit-period"},
           .type = GF_OPTION_TYPE_TIME,
           .default_value = "180",
+          /*.validate_fn = validate_worm_period,*/
+          .op_version = {GD_OP_VERSION_3_8_0},
+          .flags = OPT_FLAG_SETTABLE,
           .description = "Auto commit period for the files."
         },
         { .key  = {NULL}
