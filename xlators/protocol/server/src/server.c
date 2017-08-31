@@ -1652,6 +1652,8 @@ struct volume_options options[] = {
         { .key   = {"transport.listen-backlog"},
           .type  = GF_OPTION_TYPE_INT,
           .default_value = "10",
+          .op_version = {GD_OP_VERSION_3_11_1},
+          /* .validate_fn = validate_server_options, */
         },
         { .key   = {"volume-filename.*"},
           .type  = GF_OPTION_TYPE_PATH,
@@ -1660,6 +1662,7 @@ struct volume_options options[] = {
           .type  = GF_OPTION_TYPE_TIME,
           .min   = 0,
           .max   = 1013,
+          .op_version = {GD_OP_VERSION_3_10_2},
           .default_value = "42", /* default like network.ping-timeout */
         },
         { .key   = {"transport.*"},
@@ -1670,6 +1673,7 @@ struct volume_options options[] = {
           .min   = 0,
           .max   = 1048576,
           .default_value = "16384",
+          .op_version = {1},
           .description = "Specifies the limit on the number of inodes "
           "in the lru list of the inode cache."
         },
@@ -1683,12 +1687,13 @@ struct volume_options options[] = {
                     "conf-dir"},
           .type  = GF_OPTION_TYPE_PATH,
         },
-        { .key   = {"rpc-auth-allow-insecure"},
+        { .key   = {"rpc-auth-allow-insecure", "allow-insecure"},
           .type  = GF_OPTION_TYPE_BOOL,
         },
         { .key   = {"root-squash"},
           .type  = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          .op_version = {2},
           .description = "Map requests from uid/gid 0 to the anonymous "
                          "uid/gid. Note that this does not apply to any other "
                          "uids or gids that might be equally sensitive, such "
@@ -1699,6 +1704,7 @@ struct volume_options options[] = {
           .default_value = "65534", /* RPC_NOBODY_UID */
           .min           = 0,
           .max           = (uint32_t) -1,
+          .op_version    = {3},
           .description   = "value of the uid used for the anonymous "
                            "user/nfsnobody when root-squash is enabled."
         },
@@ -1707,29 +1713,34 @@ struct volume_options options[] = {
           .default_value = "65534", /* RPC_NOBODY_GID */
           .min           = 0,
           .max           = (uint32_t) -1,
+          .op_version    = {3},
           .description   = "value of the gid used for the anonymous "
                            "user/nfsnobody when root-squash is enabled."
         },
         { .key           = {"statedump-path"},
           .type          = GF_OPTION_TYPE_PATH,
           .default_value = DEFAULT_VAR_RUN_DIRECTORY,
+          .op_version    = {1},
           .description = "Specifies directory in which gluster should save its"
                          " statedumps."
         },
-        { .key   = {"lk-heal"},
+        { .key   = {"lk-heal", "lock-heal"},
           .type  = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          .op_version = {1},
         },
         {.key  = {"grace-timeout"},
          .type = GF_OPTION_TYPE_INT,
          .min  = 10,
          .max  = 1800,
+         .op_version = {1},
          .default_value = "10",
         },
         {.key  = {"tcp-window-size"},
          .type = GF_OPTION_TYPE_SIZET,
          .min  = GF_MIN_SOCKET_WINDOW_SIZE,
          .max  = GF_MAX_SOCKET_WINDOW_SIZE,
+         .op_version  = {1},
          .description = "Specifies the window size for tcp socket."
         },
 
@@ -1755,6 +1766,7 @@ struct volume_options options[] = {
           .min  = RPCSVC_MIN_OUTSTANDING_RPC_LIMIT,
           .max  = RPCSVC_MAX_OUTSTANDING_RPC_LIMIT,
           .default_value = TOSTRING(RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT),
+          .op_version = {3},
           .description = "Parameter to throttle the number of incoming RPC "
                          "requests from a client. 0 means no limit (can "
                          "potentially run out of memory)"
@@ -1762,11 +1774,13 @@ struct volume_options options[] = {
         { .key   = {"manage-gids"},
           .type  = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          .op_version  = GD_OP_VERSION_3_6_0,
           .description = "Resolve groups on the server-side."
         },
         { .key = {"gid-timeout"},
           .type = GF_OPTION_TYPE_INT,
           .default_value = "300",
+          .op_version  = {GD_OP_VERSION_3_6_0},
           .description = "Timeout in seconds for the cached groups to expire."
         },
         { .key   = {"event-threads"},
@@ -1774,6 +1788,7 @@ struct volume_options options[] = {
           .min   = 1,
           .max   = 1024,
           .default_value = "1",
+          .op_version  = {GD_OP_VERSION_3_7_0},
           .description = "Specifies the number of event threads to execute "
                          "in parallel. Larger values would help process"
                          " responses faster, depending on available processing"
@@ -1782,6 +1797,7 @@ struct volume_options options[] = {
         { .key   = {"dynamic-auth"},
           .type  = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+          .op_version  = {GD_OP_VERSION_3_7_5},
           .description   = "When 'on' perform dynamic authentication of volume "
                            "options in order to allow/terminate client "
                            "transport connection immediately in response to "
