@@ -319,6 +319,9 @@ struct volume_options options[] = {
           .type                 = GF_OPTION_TYPE_BOOL,
           .default_value        = "on",
           .description          = "Enable/disable selinux translator",
+          .op_version           = {GD_OP_VERSION_3_11_0},
+          .flags                = OPT_FLAG_SETTABLE,
+          .tags                 = {"security" , "linux"},
         },
         { .key                  = { NULL }, }
 };
