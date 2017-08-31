@@ -3504,10 +3504,15 @@ struct volume_options options[] = {
         { .key = {"bitrot"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          .op_version  = {GD_OP_VERSION_3_7_0},
+          .flags       = OPT_FLAG_SETTABLE | OPT_FLAG_FORCE,
+          .tags        = {"bitrot"},
           .description = "enable/disable bitrot stub"
         },
         { .key = {"export"},
           .type = GF_OPTION_TYPE_PATH,
+          .op_version  = {GD_OP_VERSION_3_7_0},
+          .tags        = {"bitrot"},
           .description = "brick path for versioning"
         },
 	{ .key  = {NULL} },
