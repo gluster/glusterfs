@@ -1462,6 +1462,9 @@ struct volume_options options[] =
         .type = GF_OPTION_TYPE_BOOL,
         .description = "self-heal daemon enable/disable",
         .default_value = "enable",
+        .op_version = {GD_OP_VERSION_3_7_0},
+        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+        .tags = {"disperse"},
     },
     { .key = {"iam-self-heal-daemon"},
       .type = GF_OPTION_TYPE_BOOL,
@@ -1473,6 +1476,9 @@ struct volume_options options[] =
     { .key = {"eager-lock"},
       .type = GF_OPTION_TYPE_BOOL,
       .default_value = "on",
+      .op_version = {GD_OP_VERSION_3_7_10},
+      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
+      .tags = {"disperse"},
       .description = "Enable/Disable eager lock for regular files on a "
                      "disperse volume. If a fop takes a lock and completes "
                      "its operation, it waits for next 1 second before "
@@ -1524,6 +1530,9 @@ struct volume_options options[] =
       .min = 0,/*Disabling background heals*/
       .max = 256,
       .default_value = "8",
+      .op_version = {GD_OP_VERSION_3_7_3},
+      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
+      .tags = {"disperse"},
       .description = "This option can be used to control number of parallel"
                      " heals",
     },
@@ -1532,6 +1541,9 @@ struct volume_options options[] =
       .min = 0,
       .max = 65536, /*Around 100MB as of now with sizeof(ec_fop_data_t) at 1800*/
       .default_value = "128",
+      .op_version = {GD_OP_VERSION_3_7_3},
+      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
+      .tags = {"disperse"},
       .description = "This option can be used to control number of heals"
                      " that can wait",
     },
@@ -1540,6 +1552,9 @@ struct volume_options options[] =
       .min  = 60,
       .max  = INT_MAX,
       .default_value = "600",
+      .op_version = {GD_OP_VERSION_3_7_3},
+      .flags = OPT_FLAG_SETTABLE,
+      .tags = {"disperse"},
       .description = "time interval for checking the need to self-heal "
                      "in self-heal-daemon"
     },
@@ -1547,6 +1562,9 @@ struct volume_options options[] =
       .type = GF_OPTION_TYPE_STR,
       .value = {"round-robin", "gfid-hash"},
       .default_value = "round-robin",
+      .op_version = {GD_OP_VERSION_3_7_6},
+      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
+      .tags = {"disperse"},
       .description = "inode-read fops happen only on 'k' number of bricks in"
               " n=k+m disperse subvolume. 'round-robin' selects the read"
               " subvolume using round-robin algo. 'gfid-hash' selects read"
@@ -1557,6 +1575,9 @@ struct volume_options options[] =
       .min   = 1,
       .max   = 64,
       .default_value = "1",
+      .op_version = {GD_OP_VERSION_3_9_0},
+      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+      .tags = {"disperse"},
       .description = "Maximum number of parallel heals SHD can do per local "
                       "brick.  This can substantially lower heal times, "
                       "but can also crush your bricks if you don't have "
@@ -1565,8 +1586,11 @@ struct volume_options options[] =
     { .key   = {"shd-wait-qlength"},
       .type  = GF_OPTION_TYPE_INT,
       .min   = 1,
-      .max   = 655536,
+      .max   = 65536,
       .default_value = "1024",
+      .op_version = {GD_OP_VERSION_3_9_0},
+      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+      .tags = {"disperse"},
       .description = "This option can be used to control number of heals"
                      " that can wait in SHD per subvolume"
     },
@@ -1575,6 +1599,9 @@ struct volume_options options[] =
         .type = GF_OPTION_TYPE_STR,
         .value = { "none", "auto", "x64", "sse", "avx" },
         .default_value = "auto",
+        .op_version = {GD_OP_VERSION_3_9_0},
+        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
+        .tags = {"disperse"},
         .description = "force the cpu extensions to be used to accelerate the "
                        "galois field computations."
     },
@@ -1583,12 +1610,18 @@ struct volume_options options[] =
       .min  = 1,
       .max  = 1024,
       .default_value = "1",
+      .op_version = {GD_OP_VERSION_3_11_0},
+      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
+      .tags = {"disperse"},
       .description = "Maximum number blocks(128KB) per file for which "
                      "self-heal process would be applied simultaneously."
     },
     { .key = {"optimistic-change-log"},
       .type = GF_OPTION_TYPE_BOOL,
       .default_value = "on",
+      .op_version = {GD_OP_VERSION_3_10_1},
+      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT,
+      .tags = {"disperse"},
       .description =  "Set/Unset dirty flag for every update fop at the start"
                       "of the fop. If OFF, this option impacts performance of"
                       "entry  operations or metadata operations as it will"
