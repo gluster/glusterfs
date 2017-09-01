@@ -1,6 +1,6 @@
 ## Admin Guide ##
 
-The gluster administration guide is maintained at [github](https://github.com/gluster/glusterdocs). The browsable admin guide can be found [here](http://gluster.readthedocs.org/en/latest/Administrator%20Guide/README/).
+The gluster administration guide is maintained at [github](https://github.com/gluster/glusterdocs). The browsable admin guide can be found [here](http://docs.gluster.org/en/latest/Administrator%20Guide/README/).
 
 The doc patch has to be sent against the above mentioned repository.
 
@@ -10,7 +10,7 @@ The Gluster features which are 'in progress' or implemented can be found at [git
 
 ## Upgrade Guide ##
 
-The gluster upgrade guide is maintained at [github](https://github.com/gluster/glusterdocs). The browsable upgrade guide can be found [here](http://gluster.readthedocs.org/en/latest/Upgrade-Guide/README/)
+The gluster upgrade guide is maintained at [github](https://github.com/gluster/glusterdocs). The browsable upgrade guide can be found [here](http://docs.gluster.org/en/latest/Upgrade-Guide/README/)
 
 The doc patch has to be sent against the above mentioned repository.
 

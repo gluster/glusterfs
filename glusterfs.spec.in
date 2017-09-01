@@ -182,7 +182,7 @@ Release:          0.@PACKAGE_RELEASE@%{?dist}
 %endif
 License:          GPLv2 or LGPLv3+
 Group:            System Environment/Base
-URL:              http://gluster.readthedocs.io/en/latest/
+URL:              http://docs.gluster.org/
 %if ( 0%{_for_fedora_koji_builds} )
 Source0:          http://bits.gluster.org/pub/gluster/glusterfs/src/glusterfs-%{version}%{?prereltag}.tar.gz
 Source1:          glusterd.sysconfig
