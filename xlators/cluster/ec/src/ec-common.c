@@ -21,6 +21,8 @@
 #include "ec.h"
 #include "ec-messages.h"
 
+#define EC_INVALID_INDEX UINT32_MAX
+
 uint32_t
 ec_select_first_by_read_policy (ec_t *ec, ec_fop_data_t *fop)
 {
@@ -40,13 +42,14 @@ ec_select_first_by_read_policy (ec_t *ec, ec_fop_data_t *fop)
         return 0;
 }
 
-int32_t ec_child_valid(ec_t * ec, ec_fop_data_t * fop, int32_t idx)
+static
+gf_boolean_t ec_child_valid(ec_t * ec, ec_fop_data_t * fop, uint32_t idx)
 {
-    return (idx >= 0 && idx < ec->nodes) &&
-           (((fop->remaining >> idx) & 1) == 1);
+    return (idx < ec->nodes) && (((fop->remaining >> idx) & 1) == 1);
 }
 
-int32_t ec_child_next(ec_t * ec, ec_fop_data_t * fop, uint32_t idx)
+static
+uint32_t ec_child_next(ec_t * ec, ec_fop_data_t * fop, uint32_t idx)
 {
     while (!ec_child_valid(ec, fop, idx))
     {
@@ -56,7 +59,7 @@ int32_t ec_child_next(ec_t * ec, ec_fop_data_t * fop, uint32_t idx)
         }
         if (idx == fop->first)
         {
-            return -1;
+            return EC_INVALID_INDEX;
         }
     }
 
@@ -515,13 +518,13 @@ int32_t ec_child_select(ec_fop_data_t * fop)
 
 void ec_dispatch_next(ec_fop_data_t * fop, uint32_t idx)
 {
-    int32_t i = -1;
+    uint32_t i = EC_INVALID_INDEX;
     ec_t * ec = fop->xl->private;
 
     LOCK(&fop->lock);
 
     i = ec_child_next(ec, fop, idx);
-    if (i >= 0 && i < 64) {
+    if (i < EC_METHOD_MAX_NODES) {
         idx = i;
 
         fop->remaining ^= 1ULL << idx;
@@ -534,7 +537,7 @@ void ec_dispatch_next(ec_fop_data_t * fop, uint32_t idx)
 
     UNLOCK(&fop->lock);
 
-    if (i >= 0 && i < 64)
+    if (i < EC_METHOD_MAX_NODES)
     {
         fop->wind(ec, fop, idx);
     }
@@ -647,8 +650,8 @@ void ec_dispatch_min(ec_fop_data_t * fop)
 {
     ec_t * ec = fop->xl->private;
     uintptr_t mask;
-    int32_t idx;
-    int count;
+    uint32_t idx;
+    int32_t count;
 
     ec_dispatch_start(fop);
 
@@ -661,7 +664,7 @@ void ec_dispatch_min(ec_fop_data_t * fop)
         while (count-- > 0)
         {
             idx = ec_child_next(ec, fop, idx + 1);
-            if (idx >= 0 && idx < 64)
+            if (idx < EC_METHOD_MAX_NODES)
                 mask |= 1ULL << idx;
         }
 
