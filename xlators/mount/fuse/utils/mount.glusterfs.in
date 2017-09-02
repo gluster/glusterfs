@@ -673,8 +673,9 @@ main ()
         [ -n "$volume_str" ] && {
             volume_id=$volume_str
             volume_str_temp=$volume_str
-            [ ${volume_str:0:1} = '/' ] && {
-                volume_str_temp=${volume_str:1}
+            first_char=$(echo "$volume_str" | cut -c 1)
+            [ ${first_char} = '/' ] && {
+                volume_str_temp=$(echo "$volume_str" | cut -c 2-)
             }
             [ $(echo $volume_str_temp | grep -c "/") -eq 1 ] && {
                 volume_id=$(echo "$volume_str_temp" | cut -f1 -d '/');
