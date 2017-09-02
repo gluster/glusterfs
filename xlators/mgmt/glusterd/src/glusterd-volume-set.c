@@ -253,7 +253,7 @@ validate_tier_thresholds (glusterd_volinfo_t    *volinfo,
         ret = glusterd_volinfo_get_boolean (volinfo,
                                         "features.record-counters");
         if (ret == -1) {
-                snprintf (errstr, sizeof (errstr), "Failed to retrive value of"
+                snprintf (errstr, sizeof (errstr), "Failed to retrieve value of"
                         "features.record-counters from volume info");
                 goto out;
         }
@@ -273,7 +273,7 @@ validate_tier_thresholds (glusterd_volinfo_t    *volinfo,
                                               "cluster.read-freq-threshold");
                          if (current_rt == -1) {
                                 snprintf (errstr, sizeof (errstr),
-                                        " Failed to retrive value of"
+                                        " Failed to retrieve value of"
                                         "cluster.read-freq-threshold");
                                 goto out;
                          }
@@ -285,7 +285,7 @@ validate_tier_thresholds (glusterd_volinfo_t    *volinfo,
                                               "cluster.write-freq-threshold");
                          if (current_wt == -1) {
                                 snprintf (errstr, sizeof (errstr),
-                                        " Failed to retrive value of"
+                                        " Failed to retrieve value of"
                                         "cluster.write-freq-threshold");
                                 goto out;
                          }
