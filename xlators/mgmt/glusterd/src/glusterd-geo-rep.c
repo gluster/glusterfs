@@ -3615,7 +3615,7 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                                         "geo-replication start failed",
                                         strerror (errno));
                                 snprintf (errmsg, sizeof(errmsg),
-                                          "fuse unvailable");
+                                          "fuse unavailable");
                                 ret = -1;
                                 goto out;
                         }
