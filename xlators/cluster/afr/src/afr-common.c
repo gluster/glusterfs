@@ -45,12 +45,6 @@
 #include "afr-messages.h"
 #include "compound-fop-utils.h"
 
-typedef struct afr_lookup_heal_data {
-        call_frame_t *fop_frame;
-        void (*heal_done_cbk)(call_frame_t *, xlator_t *);
-        gf_boolean_t can_free;
-} afr_lookup_heal_data_t;
-
 int32_t
 afr_quorum_errno (afr_private_t *priv)
 {
@@ -65,6 +59,9 @@ afr_fav_child_reset_sink_xattrs (void *opaque);
 int
 afr_fav_child_reset_sink_xattrs_cbk (int ret, call_frame_t *frame,
                                      void *opaque);
+
+static void
+afr_discover_done (call_frame_t *frame, xlator_t *this);
 
 gf_boolean_t
 afr_is_consistent_io_possible (afr_local_t *local, afr_private_t *priv,
@@ -1037,14 +1034,14 @@ afr_replies_interpret (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	return ret;
 }
 
+
+
 int
 afr_refresh_selfheal_done (int ret, call_frame_t *heal, void *opaque)
 {
-        afr_lookup_heal_data_t *data = opaque;
-
-        if (data && data->can_free)
-                GF_FREE (data);
-        return 0;
+	if (heal)
+                AFR_STACK_DESTROY (heal);
+	return 0;
 }
 
 int
@@ -2404,8 +2401,7 @@ afr_attempt_local_discovery (xlator_t *this, int32_t child_index)
 int
 afr_lookup_sh_metadata_wrap (void *opaque)
 {
-        afr_lookup_heal_data_t *data = opaque;
-        call_frame_t *frame       = data->fop_frame;
+        call_frame_t *frame       = opaque;
         afr_local_t  *local       = NULL;
         xlator_t     *this        = NULL;
         inode_t      *inode       = NULL;
@@ -2443,23 +2439,25 @@ afr_lookup_sh_metadata_wrap (void *opaque)
                               "Unable to set link-count in dict ");
         }
 
-        if (!local->loc.parent && gf_uuid_is_null (local->loc.pargfid)) {
+        if (loc_is_nameless (&local->loc)) {
                 ret = afr_selfheal_unlocked_discover_on (frame, local->inode,
                                                          local->loc.gfid,
                                                          local->replies,
                                                          local->child_up);
         } else {
                 inode = afr_selfheal_unlocked_lookup_on (frame,
-                                                         local->loc.parent,
-                                                         local->loc.name,
-                                                         local->replies,
-                                                         local->child_up, dict);
+                                                        local->loc.parent,
+                                                        local->loc.name,
+                                                        local->replies,
+                                                        local->child_up, dict);
         }
         if (inode)
                 inode_unref (inode);
 out:
-        data->can_free = _gf_true;
-        data->heal_done_cbk (frame, this);
+        if (loc_is_nameless (&local->loc))
+                afr_discover_done (frame, this);
+        else
+                afr_lookup_done (frame, this);
 
         if (dict)
                 dict_unref (dict);
@@ -2520,23 +2518,33 @@ afr_can_start_metadata_self_heal(call_frame_t *frame, xlator_t *this)
 }
 
 int
-afr_lookup_metadata_heal_check (afr_lookup_heal_data_t *data, xlator_t *this)
+afr_lookup_metadata_heal_check (call_frame_t *frame, xlator_t *this)
 
 {
-        call_frame_t *frame = data->fop_frame;
-        int ret            = -1;
+        call_frame_t *heal = NULL;
+        afr_local_t *local = NULL;
+        int ret            = 0;
 
+        local = frame->local;
         if (!afr_can_start_metadata_self_heal (frame, this))
                 goto out;
 
+        heal = afr_frame_create (this);
+        if (!heal)
+                goto out;
+
         ret = synctask_new (this->ctx->env, afr_lookup_sh_metadata_wrap,
-                            afr_refresh_selfheal_done, NULL, data);
-        if(ret)
+                            afr_refresh_selfheal_done, heal, frame);
+        if (ret)
                 goto out;
         return ret;
 out:
-        data->can_free = _gf_true;
-        data->heal_done_cbk (frame, this);
+        if (loc_is_nameless (&local->loc))
+                afr_discover_done (frame, this);
+        else
+                afr_lookup_done (frame, this);
+        if (heal)
+                AFR_STACK_DESTROY (heal);
         return ret;
 }
 
@@ -2544,8 +2552,7 @@ int
 afr_lookup_selfheal_wrap (void *opaque)
 {
         int ret = 0;
-	afr_lookup_heal_data_t *data = opaque;
-	call_frame_t *frame = data->fop_frame;
+	call_frame_t *frame = opaque;
 	afr_local_t *local = NULL;
 	xlator_t *this = NULL;
 	inode_t *inode = NULL;
@@ -2568,11 +2575,10 @@ afr_lookup_selfheal_wrap (void *opaque)
 	if (inode)
 		inode_unref (inode);
 
-        afr_lookup_metadata_heal_check (data, this);
+        afr_lookup_metadata_heal_check(frame, this);
         return 0;
 
 unwind:
-        data->can_free = _gf_true;
 	AFR_STACK_UNWIND (lookup, frame, -1, EIO, NULL, NULL, NULL, NULL);
         return 0;
 }
@@ -2582,19 +2588,15 @@ afr_lookup_entry_heal (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
+	call_frame_t *heal = NULL;
 	int i = 0, first = -1;
 	gf_boolean_t need_heal = _gf_false;
 	struct afr_reply *replies = NULL;
-        afr_lookup_heal_data_t *data = NULL;
 	int ret = 0;
 
 	local = frame->local;
 	replies = local->replies;
 	priv = this->private;
-        data = GF_CALLOC (1, sizeof (afr_lookup_heal_data_t),
-                          gf_afr_mt_afr_lookup_heal_data_t);
-        data->fop_frame = frame;
-        data->heal_done_cbk = afr_lookup_done;
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (!replies[i].valid)
@@ -2622,16 +2624,20 @@ afr_lookup_entry_heal (call_frame_t *frame, xlator_t *this)
 	}
 
 	if (need_heal) {
+		heal = afr_frame_create (this);
+		if (!heal)
+                        goto metadata_heal;
+
 		ret = synctask_new (this->ctx->env, afr_lookup_selfheal_wrap,
-				    afr_refresh_selfheal_done, NULL, data);
-		if (ret)
+				    afr_refresh_selfheal_done, heal, frame);
+		if (ret) {
+                        AFR_STACK_DESTROY (heal);
 			goto metadata_heal;
+                }
                 return ret;
 	}
 metadata_heal:
-        ret = afr_lookup_metadata_heal_check (data, this);
-        if (ret && data->can_free)
-                GF_FREE (data);
+        ret = afr_lookup_metadata_heal_check (frame, this);
 
 	return ret;
 }
@@ -2684,6 +2690,8 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	return 0;
 }
+
+
 
 static void
 afr_discover_done (call_frame_t *frame, xlator_t *this)
@@ -2760,7 +2768,6 @@ afr_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int             child_index     = -1;
         GF_UNUSED int ret               = 0;
 	int8_t need_heal                = 1;
-        afr_lookup_heal_data_t *data    = NULL;
 
 	child_index = (long) cookie;
 
@@ -2788,14 +2795,8 @@ afr_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         call_count = afr_frame_return (frame);
         if (call_count == 0) {
-                data = GF_CALLOC (1, sizeof (afr_lookup_heal_data_t),
-                                  gf_afr_mt_afr_lookup_heal_data_t);
-                data->fop_frame = frame;
-                data->heal_done_cbk = afr_discover_done;
                 afr_set_need_heal (this, local);
-                ret = afr_lookup_metadata_heal_check (data, this);
-                if (ret && data->can_free)
-                        GF_FREE (data);
+                afr_lookup_metadata_heal_check (frame, this);
         }
 
 	return 0;
@@ -3008,7 +3009,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         void          *gfid_req = NULL;
         int            ret = 0;
 
-	if (!loc->parent && gf_uuid_is_null (loc->pargfid)) {
+        if (loc_is_nameless (loc)) {
                 if (xattr_req)
                         dict_del (xattr_req, "gfid-req");
 		afr_discover (frame, this, loc, xattr_req);
