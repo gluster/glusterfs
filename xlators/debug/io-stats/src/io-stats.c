@@ -150,6 +150,7 @@ struct ios_conf {
         ios_sample_buf_t          *ios_sample_buf;
         struct dnscache           *dnscache;
         int32_t                   ios_dnscache_ttl_sec;
+        gf_boolean_t              iamshd;
         gf_boolean_t              iamnfsd;
         gf_boolean_t              iamgfproxyd;
 };
@@ -792,16 +793,14 @@ _io_stats_get_key_prefix (xlator_t *this, char **key_prefix) {
         }
 
         instance_name = this->instance_name;
-        if (this->name && strcmp (this->name, "glustershd") == 0) {
+        if (conf->iamshd) {
                 xlator_name = "shd";
-        } else if (this->prev &&
-                   strcmp (this->prev->name, "nfs-server") == 0) {
+        } else if (conf->iamnfsd) {
                 xlator_name = "nfsd";
-                if (this->prev->instance_name)
-                        instance_name = strdupa (this->prev->instance_name);
+                instance_name = strdupa (this->name);
         } else if (conf->iamgfproxyd) {
                 xlator_name = "gfproxyd";
-                instance_name = this->name;
+                instance_name = strdupa (this->name);
         }
 
         if (strcmp (__progname, "glusterfsd") == 0)
@@ -3343,12 +3342,11 @@ _ios_dump_thread (xlator_t *this) {
                         xlator_name[i] = '_';
         }
         instance_name = this->instance_name;
-        if (this->name && strcmp (this->name, "glustershd") == 0) {
+        if (conf->iamshd) {
                 xlator_name = "shd";
-        } else if (this->prev &&
-                   strcmp (this->prev->name, "nfs-server") == 0) {
+        } else if (conf->iamnfsd) {
                 xlator_name = "nfsd";
-                instance_name = this->prev->instance_name;
+                instance_name = strdupa (this->name);
         } else if (conf->iamgfproxyd == _gf_true) {
                 xlator_name = "gfproxyd";
                 instance_name = strdupa (this->name);
@@ -4115,6 +4113,8 @@ init (xlator_t *this)
         if (ret)
                 goto out;
 
+        GF_OPTION_INIT ("iam-self-heal-daemon", conf->iamshd, bool, out);
+
         GF_OPTION_INIT ("iam-nfs-daemon", conf->iamnfsd, bool, out);
 
         GF_OPTION_INIT ("iam-gfproxy-daemon", conf->iamgfproxyd, bool, out);
@@ -4537,6 +4537,13 @@ struct volume_options options[] = {
           .description = "This option determines the maximum number of unique "
                          "log messages that can be buffered for a time equal to"
                          " the value of the option brick-log-flush-timeout."
+        },
+        {  .key = {"iam-self-heal-daemon"},
+           .type = GF_OPTION_TYPE_BOOL,
+           .default_value = "off",
+           .description = "This option differentiates if the io-stats "
+                          "translator is running as part of an self-heal "
+                          "daemon or not."
         },
         {  .key = {"iam-nfs-daemon"},
            .type = GF_OPTION_TYPE_BOOL,

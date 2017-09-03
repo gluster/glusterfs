@@ -4972,7 +4972,7 @@ volgen_graph_set_iam_nfsd (const volgen_graph_t *graph)
 
         for (trav = first_of ((volgen_graph_t *)graph); trav;
                         trav = trav->next) {
-                if (strcmp (trav->type, "cluster/replicate") != 0 ||
+                if (strcmp (trav->type, "cluster/replicate") != 0 &&
                     strcmp (trav->type, "debug/io-stats") != 0) {
                         continue;
                 }

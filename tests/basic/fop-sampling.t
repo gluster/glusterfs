@@ -6,7 +6,7 @@
 . $(dirname $0)/../volume.rc
 
 BRICK_SAMPLES="$(gluster --print-logdir)/samples/glusterfsd__d_backends_${V0}0.samp"
-NFS_SAMPLES="$(gluster --print-logdir)/samples/glusterfs_nfsd.samp"
+NFS_SAMPLES="$(gluster --print-logdir)/samples/glusterfs_nfsd_${V0}.samp"
 
 function check_path {
         op=$1

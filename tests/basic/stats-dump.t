@@ -32,13 +32,13 @@ sleep 2
 # and the FUSE mount
 BRICK_OUTPUT="$(grep 'aggr.fop.write.count": "0"' ${GLUSTERD_WORKDIR}/stats/glusterfsd__d_backends_patchy?.dump)"
 BRICK_RET="$?"
-NFSD_OUTPUT="$(grep 'aggr.fop.write.count": "0"'  ${GLUSTERD_WORKDIR}/stats/glusterfs_nfsd.dump)"
+NFSD_OUTPUT="$(grep 'aggr.fop.write.count": "0"'  ${GLUSTERD_WORKDIR}/stats/glusterfs_nfsd_$V0.dump)"
 NFSD_RET="$?"
-FUSE_OUTPUT="$(grep 'aggr.fop.write.count": "0"'  ${GLUSTERD_WORKDIR}/stats/glusterfs_patchy.dump)"
+FUSE_OUTPUT="$(grep 'aggr.fop.write.count": "0"'  ${GLUSTERD_WORKDIR}/stats/glusterfs_$V0.dump)"
 FUSE_RET="$?"
 
 # Test that io-stats is getting queue sizes from io-threads
-TEST grep 'queue_size' ${GLUSTERD_WORKDIR}/stats/glusterfs_nfsd.dump
+TEST grep 'queue_size' ${GLUSTERD_WORKDIR}/stats/glusterfs_nfsd_$V0.dump
 TEST grep 'queue_size' ${GLUSTERD_WORKDIR}/stats/glusterfsd__d_backends_patchy?.dump
 
 TEST [ 0 -ne "$BRICK_RET" ]
