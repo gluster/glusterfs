@@ -42,6 +42,7 @@
 #define MAX_LIST_MEMBERS 100
 #define DEFAULT_PWD_BUF_SZ 16384
 #define DEFAULT_GRP_BUF_SZ 16384
+#define IOS_MAX_ERRORS 132
 
 typedef enum {
         IOS_STATS_TYPE_NONE,
@@ -131,6 +132,154 @@ struct ios_global_stats {
         struct timeval  max_openfd_time;
 };
 
+/* This is a list of errors which are in some way critical.
+ * It is useful to sample these errors even if other errors
+ * should be ignored. */
+const int32_t ios_hard_error_list[] = {
+        EIO,
+        EROFS,
+        ENOSPC,
+        ENOTCONN,
+        ESTALE,
+};
+
+#define IOS_HARD_ERROR_LIST_SIZE (sizeof(ios_hard_error_list) / sizeof(int32_t))
+
+const char *errno_to_name[IOS_MAX_ERRORS] = {
+      "success",       /* 0 */
+      "eperm",
+      "enoent",
+      "esrch",
+      "eintr",
+      "eio",
+      "enxio",
+      "e2big",
+      "enoexec",
+      "ebadf",
+      "echild",
+      "eagain",
+      "enomem",
+      "eacces",
+      "efault",
+      "enotblk",
+      "ebusy",
+      "eexist",
+      "exdev",
+      "enodev",
+      "enotdir",
+      "eisdir",
+      "einval",
+      "enfile",
+      "emfile",
+      "enotty",
+      "etxtbsy",
+      "efbig",
+      "enospc",
+      "espipe",
+      "erofs",
+      "emlink",
+      "epipe",
+      "edom",
+      "erange",
+      "edeadlk",
+      "enametoolong",
+      "enolck",
+      "enosys",
+      "enotempty",
+      "eloop",
+      "ewouldblock",
+      "enomsg",
+      "eidrm",
+      "echrng",
+      "el2nsync",
+      "el3hlt",
+      "el3rst",
+      "elnrng",
+      "eunatch",
+      "enocsi",
+      "el2hlt",
+      "ebade",
+      "ebadr",
+      "exfull",
+      "enoano",
+      "ebadrqc",
+      "ebadslt",
+      "edeadlock",
+      "ebfont",
+      "enostr",
+      "enodata",
+      "etime",
+      "enosr",
+      "enonet",
+      "enopkg",
+      "eremote",
+      "enolink",
+      "eadv",
+      "esrmnt",
+      "ecomm",
+      "eproto",
+      "emultihop",
+      "edotdot",
+      "ebadmsg",
+      "eoverflow",
+      "enotuniq",
+      "ebadfd",
+      "eremchg",
+      "elibacc",
+      "elibbad",
+      "elibscn",
+      "elibmax",
+      "elibexec",
+      "eilseq",
+      "erestart",
+      "estrpipe",
+      "eusers",
+      "enotsock",
+      "edestaddrreq",
+      "emsgsize",
+      "eprototype",
+      "enoprotoopt",
+      "eprotonosupport",
+      "esocktnosupport",
+      "eopnotsupp",
+      "epfnosupport",
+      "eafnosupport",
+      "eaddrinuse",
+      "eaddrnotavail",
+      "enetdown",
+      "enetunreach",
+      "enetreset",
+      "econnaborted",
+      "econnreset",
+      "enobufs",
+      "eisconn",
+      "enotconn",
+      "eshutdown",
+      "etoomanyrefs",
+      "etimedout",
+      "econnrefused",
+      "ehostdown",
+      "ehostunreach",
+      "ealready",
+      "einprogress",
+      "estale",
+      "euclean",
+      "enotnam",
+      "enavail",
+      "eisnam",
+      "eremoteio",
+      "edquot",
+      "enomedium",
+      "emediumtype",
+      "ecanceled",
+      "enokey",
+      "ekeyexpired",
+      "ekeyrevoked",
+      "ekeyrejected",
+      "eownerdead",
+      "enotrecoverable"
+};
+
 struct ios_conf {
         gf_lock_t                 lock;
         struct ios_global_stats   cumulative;
@@ -153,6 +302,9 @@ struct ios_conf {
         gf_boolean_t              iamshd;
         gf_boolean_t              iamnfsd;
         gf_boolean_t              iamgfproxyd;
+        gf_boolean_t              audit_creates_and_unlinks;
+        gf_boolean_t              sample_hard_errors;
+        gf_boolean_t              sample_all_errors;
 };
 
 
@@ -1887,6 +2039,52 @@ out:
         return;
 }
 
+gf_boolean_t
+_should_sample (struct ios_conf *conf, glusterfs_fop_t fop_type,
+                ios_sample_buf_t* ios_sample_buf, int32_t op_ret,
+                int32_t op_errno)
+{
+        int i;
+
+        /* If sampling is disabled, return false */
+        if (conf->ios_sample_interval == 0)
+                return _gf_false;
+
+        /* Sometimes it's useful to sample errors. If `fop-sample-all-errors`
+         * is active, then we should sample ALL errors. */
+        if (op_ret < 0 && op_errno != 0 && conf->sample_all_errors) {
+                return _gf_true;
+        }
+
+        /* If `fop-sample-hard-errors` is active, we only look through a small
+         * subset of errno values to sample, those which are critical to Gluster
+         * functioning. */
+        if (op_ret < 0 && op_errno != 0 && conf->sample_hard_errors) {
+                for (i = 0; i < IOS_HARD_ERROR_LIST_SIZE; i++) {
+                        if (abs (op_errno) == ios_hard_error_list[i]) {
+                                return _gf_true;
+                        }
+                }
+        }
+
+        /* If auditing is on, sample TRUNCATE, CREATE, UNLINK, RMDIR, MKDIR 1:1 */
+        if (conf->audit_creates_and_unlinks) {
+                switch (fop_type) {
+                        case GF_FOP_TRUNCATE:
+                        case GF_FOP_CREATE:
+                        case GF_FOP_UNLINK:
+                        case GF_FOP_MKDIR:
+                        case GF_FOP_RMDIR:
+                                return _gf_true;
+                        default:
+                                break;
+                }
+        }
+
+        /* Sample only 1 out of ios_sample_interval number of fops. */
+        return (ios_sample_buf->observed % conf->ios_sample_interval == 0);
+}
+
 void collect_ios_latency_sample (struct ios_conf *conf,
                 glusterfs_fop_t fop_type, double elapsed,
                 call_frame_t *frame, int32_t op_ret, int32_t op_errno)
@@ -1901,9 +2099,9 @@ void collect_ios_latency_sample (struct ios_conf *conf,
 
         ios_sample_buf = conf->ios_sample_buf;
         LOCK (&conf->ios_sampling_lock);
-        if (conf->ios_sample_interval == 0 ||
-            ios_sample_buf->observed % conf->ios_sample_interval != 0)
+        if (!_should_sample (conf, fop_type, ios_sample_buf, op_ret, op_errno)) {
                 goto out;
+        }
 
         timestamp = &frame->begin;
         root = frame->root;
@@ -4022,6 +4220,15 @@ reconfigure (xlator_t *this, dict_t *options)
                           time, out);
         gf_log_set_log_flush_timeout (log_flush_timeout);
 
+        GF_OPTION_RECONF ("fop-sample-enable-audit",
+                          conf->audit_creates_and_unlinks, options, bool, out);
+
+        GF_OPTION_RECONF ("fop-sample-all-errors",
+                          conf->sample_all_errors, options, bool, out);
+
+        GF_OPTION_RECONF ("fop-sample-hard-errors",
+                          conf->sample_hard_errors, options, bool, out);
+
         ret = 0;
 out:
         gf_log (this ? this->name : "io-stats",
@@ -4118,6 +4325,15 @@ init (xlator_t *this)
         GF_OPTION_INIT ("iam-nfs-daemon", conf->iamnfsd, bool, out);
 
         GF_OPTION_INIT ("iam-gfproxy-daemon", conf->iamgfproxyd, bool, out);
+
+        GF_OPTION_INIT ("fop-sample-hard-errors", conf->sample_hard_errors,
+                        bool, out);
+
+        GF_OPTION_INIT ("fop-sample-all-errors", conf->sample_all_errors,
+                        bool, out);
+
+        GF_OPTION_INIT ("fop-sample-enable-audit",
+                        conf->audit_creates_and_unlinks, bool, out);
 
         GF_OPTION_INIT ("dump-fd-stats", conf->dump_fd_stats, bool, out);
 
@@ -4558,6 +4774,23 @@ struct volume_options options[] = {
           .description = "This option differentiates if the io-stats "
                          "translator is running as part of an GFProxy daemon "
                          "or not."
+        },
+        { .key = {"fop-sample-enable-audit"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "This option samples the following FOPs 1:1: "
+                         "CREATE, UNLINK, MKDIR, RMDIR, TRUNCATE. "
+        },
+        { .key = {"fop-sample-all-errors"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "This option samples all fops that failed."
+        },
+        { .key = {"fop-sample-hard-errors"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "on",
+          .description = "This option samples all fops with \"hard errors\""
+                         "including EROFS, ENOSPC, etc."
         },
         { .key  = {NULL} },
 

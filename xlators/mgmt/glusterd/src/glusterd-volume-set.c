@@ -1442,6 +1442,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "ios-dnscache-ttl-sec",
           .op_version  = 1
         },
+        { .key         = "diagnostics.fop-sample-enable-audit",
+          .voltype     = "debug/io-stats",
+          .option      = "fop-sample-enable-audit",
+          .value       = "off",
+          .op_version  = 2
+        },
 
         /* IO-cache xlator options */
         { .key         = "performance.cache-max-file-size",
