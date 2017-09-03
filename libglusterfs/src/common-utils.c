@@ -4539,3 +4539,42 @@ gf_bits_index (uint64_t n)
 {
     return ffsll(n) - 1;
 }
+
+
+int
+gf_peerinfo_to_hostname_and_port (const char *peerinfo, char **hostname)
+{
+        int ret         = -EINVAL;
+        char *ip        = NULL;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, peerinfo, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, hostname, out);
+
+        *hostname = NULL;
+
+        ip = strdupa (peerinfo);
+
+        char *c = strrchr (ip, ':');
+        if (!c)
+                goto err;
+
+        *c = '\0';
+
+        *hostname = gf_rev_dns_lookup (ip);
+        if (!*hostname) {
+                *hostname = gf_strdup (ip);
+                if (!*hostname) {
+                        ret = -ENOMEM;
+                        goto err;
+                }
+        }
+
+        ret = 0;
+        goto out;
+
+err:
+        GF_FREE (*hostname);
+        *hostname = NULL;
+out:
+        return ret;
+}

@@ -846,4 +846,7 @@ gf_bits_count (uint64_t n);
 int32_t
 gf_bits_index (uint64_t n);
 
+int
+gf_peerinfo_to_hostname_and_port (const char *peerinfo, char **hostname);
+
 #endif /* _COMMON_UTILS_H */

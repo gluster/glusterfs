@@ -11212,11 +11212,19 @@ glusterd_check_client_op_version_support (char *volname, uint32_t op_version,
         xlator_t                *this = NULL;
         glusterd_conf_t         *priv = NULL;
         rpc_transport_t         *xprt = NULL;
+        int                     print_ret       = 0;
+        int                     num_bad_clients = 0;
+        char                    *bad_clients    = NULL;
+        char                    *bad_clients_tmp = NULL;
+        char                    *bad_client      = NULL;
+        char                    *last_colon     = NULL;
+        char                    *bad_hostname = NULL;
 
         this = THIS;
         GF_ASSERT(this);
         priv = this->private;
         GF_ASSERT(priv);
+        gf_asprintf (&bad_clients, "\n");
 
         pthread_mutex_lock (&priv->xprt_lock);
         list_for_each_entry (xprt, &priv->xprt_list, list) {
@@ -11224,6 +11232,26 @@ glusterd_check_client_op_version_support (char *volname, uint32_t op_version,
                     ((op_version > xprt->peerinfo.max_op_version) ||
                      (op_version < xprt->peerinfo.min_op_version))) {
                         ret = -1;
+                        num_bad_clients++;
+                        if (num_bad_clients <= 20) {
+                                bad_clients_tmp = bad_clients;
+
+                                gf_peerinfo_to_hostname_and_port (
+                                        xprt->peerinfo.identifier,
+                                        &bad_hostname);
+                                if (!bad_hostname) {
+                                        continue;
+                                }
+
+                                gf_asprintf (&bad_clients,
+                                             "%sClient: %-40s\tMin Op Version: "
+                                             "%d\tMax Op Version: %d\n",
+                                             bad_clients_tmp, bad_hostname,
+                                             xprt->peerinfo.min_op_version,
+                                             xprt->peerinfo.max_op_version);
+
+                                GF_FREE (bad_clients_tmp);
+                        }
                         break;
                 }
         }
@@ -11237,19 +11265,18 @@ glusterd_check_client_op_version_support (char *volname, uint32_t op_version,
                         "op-version %d", xprt->peerinfo.identifier,
                         xprt->peerinfo.min_op_version,
                         xprt->peerinfo.max_op_version, op_version);
-                if (op_errstr)
-                        ret = gf_asprintf (op_errstr, "One of the client %s is "
-                                           "running with op-version %d and "
-                                           "doesn't support the required "
-                                           "op-version %d. This client needs to"
-                                           " be upgraded or disconnected "
-                                           "before running this command again",
-                                           xprt->peerinfo.identifier,
-                                           xprt->peerinfo.max_op_version,
-                                           op_version);
+                if (op_errstr) {
+                        ret = gf_asprintf (op_errstr, "At least %d clients "
+                                           "cannot support the feature being set. "
+                                           "These clients need to be upgraded or "
+                                           "disconnected before running this command"
+                                           " again:\n%s", num_bad_clients, bad_clients);
 
+                }
+                GF_FREE (bad_clients);
                 return -1;
         }
+        GF_FREE (bad_clients);
         return 0;
 }
 
