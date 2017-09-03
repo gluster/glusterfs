@@ -151,6 +151,7 @@ struct ios_conf {
         struct dnscache           *dnscache;
         int32_t                   ios_dnscache_ttl_sec;
         gf_boolean_t              iamnfsd;
+        gf_boolean_t              iamgfproxyd;
 };
 
 
@@ -782,6 +783,7 @@ _io_stats_get_key_prefix (xlator_t *this, char **key_prefix) {
         int                   bytes_written = 0;
         int                   i = 0;
         int                   ret = 0;
+        struct ios_conf *conf = this->private;
 
         xlator_name = strdupa (this->name);
         for (i = 0; i < strlen (xlator_name); i++) {
@@ -797,6 +799,9 @@ _io_stats_get_key_prefix (xlator_t *this, char **key_prefix) {
                 xlator_name = "nfsd";
                 if (this->prev->instance_name)
                         instance_name = strdupa (this->prev->instance_name);
+        } else if (conf->iamgfproxyd) {
+                xlator_name = "gfproxyd";
+                instance_name = this->name;
         }
 
         if (strcmp (__progname, "glusterfsd") == 0)
@@ -3314,6 +3319,9 @@ _ios_dump_thread (xlator_t *this) {
                    strcmp (this->prev->name, "nfs-server") == 0) {
                 xlator_name = "nfsd";
                 instance_name = this->prev->instance_name;
+        } else if (conf->iamgfproxyd == _gf_true) {
+                xlator_name = "gfproxyd";
+                instance_name = strdupa (this->name);
         }
         if (sys_mkdir (_IOS_DUMP_DIR, S_IRWXU | S_IRWXO | S_IRWXG) == (-1)) {
                 if (errno != EEXIST) {
@@ -4079,6 +4087,8 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("iam-nfs-daemon", conf->iamnfsd, bool, out);
 
+        GF_OPTION_INIT ("iam-gfproxy-daemon", conf->iamgfproxyd, bool, out);
+
         GF_OPTION_INIT ("dump-fd-stats", conf->dump_fd_stats, bool, out);
 
         GF_OPTION_INIT ("count-fop-hits", conf->count_fop_hits, bool, out);
@@ -4504,6 +4514,13 @@ struct volume_options options[] = {
            .description = "This option differentiates if the io-stats "
                           "translator is running as part of an NFS daemon "
                           "or not."
+        },
+        { .key = {"iam-gfproxy-daemon"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "This option differentiates if the io-stats "
+                         "translator is running as part of an GFProxy daemon "
+                         "or not."
         },
         { .key  = {NULL} },
 

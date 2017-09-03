@@ -1462,6 +1462,24 @@ server_spec_extended_option_handler (volgen_graph_t *graph,
 static void get_vol_tstamp_file (char *filename, glusterd_volinfo_t *volinfo);
 
 static int
+volgen_graph_set_iam_gfproxyd (volgen_graph_t *graph)
+{
+        xlator_t        *trav;
+        int             ret = 0;
+
+        for (trav = first_of (graph); trav; trav = trav->next) {
+                if (strcmp (trav->type, "debug/io-stats") != 0) {
+                        continue;
+                }
+
+                ret = xlator_set_option (trav, "iam-gfproxy-daemon", "yes");
+                if (ret)
+                        break;
+        }
+        return ret;
+}
+
+static int
 gfproxy_server_graph_builder (volgen_graph_t *graph,
                                 glusterd_volinfo_t *volinfo,
                                 dict_t *set_dict, void *param)
@@ -1497,6 +1515,11 @@ gfproxy_server_graph_builder (volgen_graph_t *graph,
         get_vol_transport_type (volinfo, transt);
         xl = volgen_graph_add (graph, "protocol/server", volinfo->volname);
         if (!xl)
+                goto out;
+
+        /* Tell the graph we are a gfproxy daemon */
+        ret = volgen_graph_set_iam_gfproxyd (graph);
+        if (ret != 0)
                 goto out;
 
         ret = xlator_set_option (xl, "listen-port", GF_PROXY_DAEMON_PORT_STR);
