@@ -39,7 +39,7 @@ FUSE_RET="$?"
 
 # Test that io-stats is getting queue sizes from io-threads
 TEST grep 'queue_size' ${GLUSTERD_WORKDIR}/stats/glusterfs_nfsd_$V0.dump
-TEST grep 'queue_size' ${GLUSTERD_WORKDIR}/stats/glusterfsd__d_backends_patchy?.dump
+TEST ! grep 'queue_size' ${GLUSTERD_WORKDIR}/stats/glusterfsd__d_backends_patchy?.dump
 
 TEST [ 0 -ne "$BRICK_RET" ]
 TEST [ 0 -ne "$NFSD_RET" ]

@@ -1152,28 +1152,29 @@ io_stats_dump_global_to_json_logfp (xlator_t *this,
                 "\"%s.%s.fop.unweighted_latency_ave_usec\":\"%0.4lf\",",
                 key_prefix, str_prefix, fop_ave_usec);
 
-        dict_t *xattr = NULL;
-        ret = syncop_getxattr (this, &unused_loc, &xattr,
-                               IO_THREADS_QUEUE_SIZE_KEY, NULL, NULL);
-        if (xattr) {
-                // Iterate over the dictionary returned to us by io-threads and
-                // dump the results to the stats file.
-                data_pair_t *curr = NULL;
-                dict_for_each (xattr, curr) {
-                        ios_log (this, logfp,
-                                  "\"%s.%s.%s.queue_size\": \"%d\",",
-                                  key_prefix, str_prefix, curr->key,
-                                  data_to_int32 (curr->value));
+        if (conf->iamnfsd) {
+                dict_t *xattr = NULL;
+                ret = syncop_getxattr (this, &unused_loc, &xattr,
+                                       IO_THREADS_QUEUE_SIZE_KEY, NULL, NULL);
+                if (xattr) {
+                        // Iterate over the dictionary returned to us by io-threads and
+                        // dump the results to the stats file.
+                        data_pair_t *curr = NULL;
+                        dict_for_each (xattr, curr) {
+                                ios_log (this, logfp,
+                                          "\"%s.%s.%s.queue_size\": \"%d\",",
+                                          key_prefix, str_prefix, curr->key,
+                                          data_to_int32 (curr->value));
+                        }
+
+                        // Free the dictionary
+                        dict_unref (xattr);
+                } else {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Unable to get queue size counts from "
+                                "the io-threads translator!");
                 }
-
-                // Free the dictionary
-                dict_unref (xattr);
-        } else {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "Unable to get queue size counts from "
-                        "the io-threads translator!");
         }
-
         if (interval == -1) {
                 ios_log (this, logfp, "\"%s.%s.uptime\": \"%"PRId64"\",",
                          key_prefix, str_prefix,
