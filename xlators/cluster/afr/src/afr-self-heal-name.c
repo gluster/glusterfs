@@ -84,6 +84,19 @@ _afr_sh_create_unsplit_loc (struct afr_reply *replies, const int child_idx,
                 ret = ENOMEM;
                 goto err;
         }
+
+        /*
+         * Attempting to do a rename on a file that is too long
+         * will return ENAMETOOLONG and heals will fail. Therefore
+         * we should just limit the name to NAME_MAX
+         * knowing that the filename will be truncated.
+         */
+        if (new_name_len > NAME_MAX) {
+                gf_log ("afr", GF_LOG_WARNING,
+                        "Filename too long, truncating to %d bytes.", NAME_MAX);
+                new_name_len = NAME_MAX;
+        }
+
         snprintf (new_name, new_name_len, ".unsplit_%s_%s", tmp_gfid_str,
                 loc->name);
         unsplit_loc->name = new_name;
@@ -376,7 +389,7 @@ __afr_selfheal_assign_gfid (xlator_t *this, inode_t *parent, uuid_t pargfid,
                                 continue;
                         }
                         gf_log (this->name, GF_LOG_WARNING,
-                                "type[%d] = %d (not %d)", i, 
+                                "type[%d] = %d (not %d)", i,
                                 replies[i].poststat.ia_type, ia_type);
                         if (ia_type != IA_INVAL) {
                                 ret = -EIO;
