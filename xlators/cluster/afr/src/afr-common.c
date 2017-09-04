@@ -60,6 +60,9 @@ int
 afr_fav_child_reset_sink_xattrs_cbk (int ret, call_frame_t *frame,
                                      void *opaque);
 
+static void
+afr_discover_done (call_frame_t *frame, xlator_t *this);
+
 gf_boolean_t
 afr_is_consistent_io_possible (afr_local_t *local, afr_private_t *priv,
                                int32_t *op_errno)
@@ -1037,7 +1040,7 @@ int
 afr_refresh_selfheal_done (int ret, call_frame_t *heal, void *opaque)
 {
 	if (heal)
-		STACK_DESTROY (heal->root);
+                AFR_STACK_DESTROY (heal);
 	return 0;
 }
 
@@ -2436,13 +2439,25 @@ afr_lookup_sh_metadata_wrap (void *opaque)
                               "Unable to set link-count in dict ");
         }
 
-        inode = afr_selfheal_unlocked_lookup_on (frame, local->loc.parent,
-                                                 local->loc.name, local->replies,
-                                                 local->child_up, dict);
+        if (loc_is_nameless (&local->loc)) {
+                ret = afr_selfheal_unlocked_discover_on (frame, local->inode,
+                                                         local->loc.gfid,
+                                                         local->replies,
+                                                         local->child_up);
+        } else {
+                inode = afr_selfheal_unlocked_lookup_on (frame,
+                                                         local->loc.parent,
+                                                         local->loc.name,
+                                                         local->replies,
+                                                         local->child_up, dict);
+        }
         if (inode)
                 inode_unref (inode);
 out:
-        afr_lookup_done (frame, this);
+        if (loc_is_nameless (&local->loc))
+                afr_discover_done (frame, this);
+        else
+                afr_lookup_done (frame, this);
 
         if (dict)
                 dict_unref (dict);
@@ -2507,21 +2522,29 @@ afr_lookup_metadata_heal_check (call_frame_t *frame, xlator_t *this)
 
 {
         call_frame_t *heal = NULL;
+        afr_local_t *local = NULL;
         int ret            = 0;
 
+        local = frame->local;
         if (!afr_can_start_metadata_self_heal (frame, this))
                 goto out;
 
-        heal = copy_frame (frame);
-        if (heal)
-                heal->root->pid = GF_CLIENT_PID_SELF_HEALD;
+        heal = afr_frame_create (this);
+        if (!heal)
+                goto out;
+
         ret = synctask_new (this->ctx->env, afr_lookup_sh_metadata_wrap,
                             afr_refresh_selfheal_done, heal, frame);
-        if(ret)
+        if (ret)
                 goto out;
         return ret;
 out:
-        afr_lookup_done (frame, this);
+        if (loc_is_nameless (&local->loc))
+                afr_discover_done (frame, this);
+        else
+                afr_lookup_done (frame, this);
+        if (heal)
+                AFR_STACK_DESTROY (heal);
         return ret;
 }
 
@@ -2601,14 +2624,16 @@ afr_lookup_entry_heal (call_frame_t *frame, xlator_t *this)
 	}
 
 	if (need_heal) {
+		heal = afr_frame_create (this);
+		if (!heal)
+                        goto metadata_heal;
 
-		heal = copy_frame (frame);
-		if (heal)
-			heal->root->pid = GF_CLIENT_PID_SELF_HEALD;
 		ret = synctask_new (this->ctx->env, afr_lookup_selfheal_wrap,
 				    afr_refresh_selfheal_done, heal, frame);
-		if (ret)
+		if (ret) {
+                        AFR_STACK_DESTROY (heal);
 			goto metadata_heal;
+                }
                 return ret;
 	}
 metadata_heal:
@@ -2770,8 +2795,8 @@ afr_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         call_count = afr_frame_return (frame);
         if (call_count == 0) {
-               afr_set_need_heal (this, local);
-               afr_discover_done (frame, this);
+                afr_set_need_heal (this, local);
+                afr_lookup_metadata_heal_check (frame, this);
         }
 
 	return 0;
@@ -2984,7 +3009,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         void          *gfid_req = NULL;
         int            ret = 0;
 
-	if (!loc->parent && gf_uuid_is_null (loc->pargfid)) {
+        if (loc_is_nameless (loc)) {
                 if (xattr_req)
                         dict_del (xattr_req, "gfid-req");
 		afr_discover (frame, this, loc, xattr_req);
