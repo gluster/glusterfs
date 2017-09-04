@@ -626,51 +626,10 @@ afr_txn_nothing_failed (call_frame_t *frame, xlator_t *this)
         return _gf_true;
 }
 
-
 void
 afr_handle_symmetric_errors (call_frame_t *frame, xlator_t *this)
 {
-	afr_local_t *local = NULL;
-	afr_private_t *priv = NULL;
-	int op_errno = 0;
-	int i_errno = 0;
-	gf_boolean_t matching_errors = _gf_true;
-	int i = 0;
-
-	priv = this->private;
-	local = frame->local;
-
-	for (i = 0; i < priv->child_count; i++) {
-		if (!local->replies[i].valid)
-			continue;
-		if (local->replies[i].op_ret != -1) {
-			/* Operation succeeded on at least on subvol,
-			   so it is not a failed-everywhere situation.
-			*/
-			matching_errors = _gf_false;
-			break;
-		}
-		i_errno = local->replies[i].op_errno;
-
-		if (i_errno == ENOTCONN) {
-			/* ENOTCONN is not a symmetric error. We do not
-			   know if the operation was performed on the
-			   backend or not.
-			*/
-			matching_errors = _gf_false;
-			break;
-		}
-
-		if (!op_errno) {
-			op_errno = i_errno;
-		} else if (op_errno != i_errno) {
-			/* Mismatching op_errno's */
-			matching_errors = _gf_false;
-			break;
-		}
-	}
-
-	if (matching_errors)
+	if (afr_is_symmetric_error (frame, this))
 		__mark_all_success (frame, this);
 }
 

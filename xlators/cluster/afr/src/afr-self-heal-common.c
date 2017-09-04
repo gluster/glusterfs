@@ -66,9 +66,9 @@ afr_lookup_and_heal_gfid (xlator_t *this, inode_t *parent, const char *name,
                 goto out;
         }
 
-        frame = afr_frame_create (this);
+        frame = afr_frame_create (this, &ret);
         if (!frame) {
-                ret = -ENOMEM;
+                ret = -ret;
                 goto out;
         }
 
@@ -2349,18 +2349,17 @@ afr_inode_find (xlator_t *this, uuid_t gfid)
 
 
 call_frame_t *
-afr_frame_create (xlator_t *this)
+afr_frame_create (xlator_t *this, int32_t *op_errno)
 {
 	call_frame_t *frame    = NULL;
 	afr_local_t  *local    = NULL;
-	int           op_errno = 0;
 	pid_t         pid      = GF_CLIENT_PID_SELF_HEALD;
 
 	frame = create_frame (this, this->ctx->pool);
 	if (!frame)
 		return NULL;
 
-	local = AFR_FRAME_INIT (frame, op_errno);
+	local = AFR_FRAME_INIT (frame, (*op_errno));
 	if (!local) {
 		STACK_DESTROY (frame->root);
 		return NULL;
@@ -2490,7 +2489,7 @@ afr_selfheal (xlator_t *this, uuid_t gfid)
 	call_frame_t *frame = NULL;
         afr_local_t *local = NULL;
 
-	frame = afr_frame_create (this);
+	frame = afr_frame_create (this, NULL);
 	if (!frame)
 		return ret;
 

@@ -131,7 +131,7 @@ __afr_inode_write_finalize (call_frame_t *frame, xlator_t *this)
 		}
 	}
 
-        afr_set_in_flight_sb_status (this, local, local->inode);
+        afr_set_in_flight_sb_status (this, frame, local->inode);
 }
 
 
