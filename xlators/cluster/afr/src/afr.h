@@ -519,6 +519,7 @@ typedef struct _afr_local {
 
                 struct {
                         int32_t flags;
+                        fd_t *fd;
                 } open;
 
                 struct {
@@ -1213,7 +1214,7 @@ int
 afr_get_msg_id (char *op_type);
 
 int
-afr_set_in_flight_sb_status (xlator_t *this, afr_local_t *local,
+afr_set_in_flight_sb_status (xlator_t *this, call_frame_t *frame,
                              inode_t *inode);
 
 int32_t
@@ -1262,4 +1263,6 @@ int
 afr_serialize_xattrs_with_delimiter (call_frame_t *frame, xlator_t *this,
                                      char *buf, const char *default_str,
                                      int32_t *serz_len, char delimiter);
+gf_boolean_t
+afr_is_symmetric_error (call_frame_t *frame, xlator_t *this);
 #endif /* __AFR_H__ */

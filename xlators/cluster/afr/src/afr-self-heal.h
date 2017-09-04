@@ -209,7 +209,7 @@ afr_selfheal_post_op (call_frame_t *frame, xlator_t *this, inode_t *inode,
 		      int subvol, dict_t *xattr, dict_t *xdata);
 
 call_frame_t *
-afr_frame_create (xlator_t *this);
+afr_frame_create (xlator_t *this, int32_t *op_errno);
 
 inode_t *
 afr_inode_find (xlator_t *this, uuid_t gfid);
