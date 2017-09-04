@@ -776,13 +776,37 @@ out:
 	return ret;
 }
 
+int
+afr_selfheal_data_open_cbk (call_frame_t *frame, void *cookie,
+                            xlator_t *this, int32_t op_ret, int32_t op_errno,
+                            fd_t *fd, dict_t *xdata)
+{
+        afr_local_t *local = NULL;
+        int         i      = (long) cookie;
+
+        local = frame->local;
+
+        local->replies[i].valid = 1;
+        local->replies[i].op_ret = op_ret;
+        local->replies[i].op_errno = op_errno;
+
+        syncbarrier_wake (&local->barrier);
+
+        return 0;
+}
 
 int
 afr_selfheal_data_open (xlator_t *this, inode_t *inode, fd_t **fd)
 {
-	int         ret    = 0;
-        fd_t       *fd_tmp = NULL;
-	loc_t       loc    = {0,};
+        int           ret      = 0;
+        fd_t          *fd_tmp  = NULL;
+        loc_t         loc      = {0,};
+        call_frame_t  *frame   = NULL;
+        afr_local_t   *local   = NULL;
+        afr_private_t *priv    = NULL;
+        int           i        = 0;
+
+        priv = this->private;
 
 	fd_tmp = fd_create (inode, 0);
 	if (!fd_tmp)
@@ -791,7 +815,31 @@ afr_selfheal_data_open (xlator_t *this, inode_t *inode, fd_t **fd)
 	loc.inode = inode_ref (inode);
 	gf_uuid_copy (loc.gfid, inode->gfid);
 
-	ret = syncop_open (this, &loc, O_RDWR|O_LARGEFILE, fd_tmp, NULL, NULL);
+        frame = afr_frame_create (this, &ret);
+        if (!frame) {
+                ret = -ret;
+                fd_unref (fd_tmp);
+                goto out;
+        }
+        local = frame->local;
+
+        AFR_ONLIST (local->child_up, frame, afr_selfheal_data_open_cbk, open,
+                    &loc, O_RDWR|O_LARGEFILE, fd_tmp, NULL);
+
+        ret = -ENOTCONN;
+        for (i = 0; i < priv->child_count; i++) {
+                if (!local->replies[i].valid)
+                        continue;
+
+                if (local->replies[i].op_ret < 0) {
+                        ret = -local->replies[i].op_errno;
+                        continue;
+                }
+
+                ret = 0;
+                break;
+        }
+
 	if (ret < 0) {
 		fd_unref (fd_tmp);
                 goto out;
@@ -802,6 +850,8 @@ afr_selfheal_data_open (xlator_t *this, inode_t *inode, fd_t **fd)
         *fd = fd_tmp;
 out:
         loc_wipe (&loc);
+        if (frame)
+                AFR_STACK_DESTROY (frame);
 	return ret;
 }
 

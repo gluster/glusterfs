@@ -486,9 +486,9 @@ afr_selfheal_metadata_by_stbuf (xlator_t *this, struct iatt *stbuf)
                 goto out;
         }
 
-        frame = afr_frame_create (this);
+        frame = afr_frame_create (this, &ret);
         if (!frame) {
-                ret = -ENOMEM;
+                ret = -ret;
                 goto out;
         }
 

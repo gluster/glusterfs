@@ -260,7 +260,7 @@ afr_shd_zero_xattrop (xlator_t *this, uuid_t gfid)
         int raw[AFR_NUM_CHANGE_LOGS] = {0};
 
         priv = this->private;
-        frame = afr_frame_create (this);
+        frame = afr_frame_create (this, NULL);
         if (!frame)
                 goto out;
         inode = afr_inode_find (this, gfid);
@@ -457,9 +457,9 @@ afr_shd_index_sweep (struct subvol_healer *healer, char *vgfid)
 	priv = healer->this->private;
 	subvol = priv->children[healer->subvol];
 
-        frame = afr_frame_create (healer->this);
+        frame = afr_frame_create (healer->this, &ret);
         if (!frame) {
-                ret = -ENOMEM;
+                ret = -ret;
                 goto out;
         }
 

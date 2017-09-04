@@ -253,8 +253,9 @@ __afr_set_in_flight_sb_status (xlator_t *this, afr_local_t *local,
                         local->transaction.in_flight_sb = _gf_true;
                         metadatamap |= (1 << index);
                 }
-                if (metadatamap_old != metadatamap)
+                if (metadatamap_old != metadatamap) {
                         event = 0;
+                }
                 break;
 
         case AFR_DATA_TRANSACTION:
@@ -281,17 +282,69 @@ __afr_set_in_flight_sb_status (xlator_t *this, afr_local_t *local,
         return ret;
 }
 
-int
-afr_set_in_flight_sb_status (xlator_t *this, afr_local_t *local, inode_t *inode)
+gf_boolean_t
+afr_is_symmetric_error (call_frame_t *frame, xlator_t *this)
 {
-        int            ret  = -1;
+        afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
+        int op_errno = 0;
+        int i_errno = 0;
+        gf_boolean_t matching_errors = _gf_true;
+        int i = 0;
 
         priv = this->private;
+        local = frame->local;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!local->replies[i].valid)
+                        continue;
+                if (local->replies[i].op_ret != -1) {
+                        /* Operation succeeded on at least one subvol,
+                           so it is not a failed-everywhere situation.
+                        */
+                        matching_errors = _gf_false;
+                        break;
+                }
+                i_errno = local->replies[i].op_errno;
+
+                if (i_errno == ENOTCONN) {
+                        /* ENOTCONN is not a symmetric error. We do not
+                           know if the operation was performed on the
+                           backend or not.
+                        */
+                        matching_errors = _gf_false;
+                        break;
+                }
+
+                if (!op_errno) {
+                        op_errno = i_errno;
+                } else if (op_errno != i_errno) {
+                        /* Mismatching op_errno's */
+                        matching_errors = _gf_false;
+                        break;
+                }
+        }
+
+        return matching_errors;
+}
+
+int
+afr_set_in_flight_sb_status (xlator_t *this, call_frame_t *frame,
+                             inode_t *inode)
+{
+        int           ret    = -1;
+        afr_private_t *priv  = NULL;
+        afr_local_t   *local = NULL;
+
+        priv = this->private;
+        local = frame->local;
 
         /* If this transaction saw no failures, then exit. */
         if (AFR_COUNT (local->transaction.failed_subvols,
                        priv->child_count) == 0)
+                return 0;
+
+        if (afr_is_symmetric_error (frame, this))
                 return 0;
 
         LOCK (&inode->lock);
@@ -546,8 +599,9 @@ afr_inode_get_readable (call_frame_t *frame, inode_t *inode, xlator_t *this,
                 }
         } else {
                 /* For files, abort in case of data/metadata split-brain. */
-                if (!data_count || !metadata_count)
+                if (!data_count || !metadata_count) {
                         return -EIO;
+                }
         }
 
         if (type == AFR_METADATA_TRANSACTION && readable)
@@ -1952,6 +2006,11 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
                 GF_FREE (local->cont.opendir.checksum);
         }
 
+        { /* open */
+                if (local->cont.open.fd)
+                        fd_unref (local->cont.open.fd);
+        }
+
         { /* readdirp */
                 if (local->cont.readdir.dict)
                         dict_unref (local->cont.readdir.dict);
@@ -2529,9 +2588,11 @@ afr_lookup_metadata_heal_check (call_frame_t *frame, xlator_t *this)
         if (!afr_can_start_metadata_self_heal (frame, this))
                 goto out;
 
-        heal = afr_frame_create (this);
-        if (!heal)
+        heal = afr_frame_create (this, &ret);
+        if (!heal) {
+                ret = -ret;
                 goto out;
+        }
 
         ret = synctask_new (this->ctx->env, afr_lookup_sh_metadata_wrap,
                             afr_refresh_selfheal_done, heal, frame);
@@ -2624,7 +2685,7 @@ afr_lookup_entry_heal (call_frame_t *frame, xlator_t *this)
 	}
 
 	if (need_heal) {
-		heal = afr_frame_create (this);
+		heal = afr_frame_create (this, NULL);
 		if (!heal)
                         goto metadata_heal;
 

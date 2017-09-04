@@ -66,16 +66,15 @@ afr_open_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-
 int
 afr_open_cbk (call_frame_t *frame, void *cookie,
               xlator_t *this, int32_t op_ret, int32_t op_errno,
               fd_t *fd, dict_t *xdata)
 {
-        afr_local_t *  local       = NULL;
-        int            call_count  = -1;
-        int            child_index = (long) cookie;
-	afr_fd_ctx_t  *fd_ctx = NULL;
+        afr_local_t   *local           = NULL;
+        int           call_count       = -1;
+        int           child_index      = (long) cookie;
+        afr_fd_ctx_t  *fd_ctx          = NULL;
 
         local = frame->local;
 	fd_ctx = local->fd_ctx;
@@ -103,11 +102,48 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
                                     fd, 0, NULL);
                 } else {
                         AFR_STACK_UNWIND (open, frame, local->op_ret,
-                                          local->op_errno, local->fd,
-					  local->xdata_rsp);
+                                          local->op_errno, local->cont.open.fd,
+                                          local->xdata_rsp);
                 }
         }
 
+        return 0;
+}
+
+
+int
+afr_open_continue (call_frame_t *frame, xlator_t *this, int err)
+{
+        afr_local_t   *local     = NULL;
+        afr_private_t *priv      = NULL;
+        int           call_count = 0;
+        int           i          = 0;
+
+        local  = frame->local;
+        priv   = this->private;
+
+        if (err) {
+                AFR_STACK_UNWIND (open, frame, -1, -err, NULL, NULL);
+        } else {
+                local->call_count = AFR_COUNT (local->child_up,
+                                               priv->child_count);
+                call_count = local->call_count;
+
+                for (i = 0; i < priv->child_count; i++) {
+                        if (local->child_up[i]) {
+                                STACK_WIND_COOKIE (frame, afr_open_cbk,
+                                                   (void *)(long)i,
+                                                   priv->children[i],
+                                                  priv->children[i]->fops->open,
+                                                   &local->loc,
+                                            (local->cont.open.flags & ~O_TRUNC),
+                                                   local->cont.open.fd,
+                                                   local->xdata_req);
+                                if (!--call_count)
+                                        break;
+                        }
+                }
+        }
         return 0;
 }
 
@@ -115,12 +151,13 @@ int
 afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
           fd_t *fd, dict_t *xdata)
 {
-        afr_private_t * priv       = NULL;
-        afr_local_t *   local      = NULL;
-        int             i          = 0;
-        int32_t         call_count = 0;
-        int32_t         op_errno   = 0;
-	afr_fd_ctx_t   *fd_ctx = NULL;
+        afr_private_t *priv            = NULL;
+        afr_local_t   *local           = NULL;
+        int           spb_choice       = 0;
+        int           event_generation = 0;
+        int           ret              = 0;
+        int32_t       op_errno         = 0;
+        afr_fd_ctx_t  *fd_ctx          = NULL;
 
         //We can't let truncation to happen outside transaction.
 
@@ -140,23 +177,27 @@ afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         if (!afr_is_consistent_io_possible (local, priv, &op_errno))
 		goto out;
 
-        local->fd = fd_ref (fd);
+        local->inode = inode_ref (loc->inode);
+        loc_copy (&local->loc, loc);
 	local->fd_ctx = fd_ctx;
 	fd_ctx->flags = flags;
-
-        call_count = local->call_count;
+        if (xdata)
+                local->xdata_req = dict_ref (xdata);
 
         local->cont.open.flags = flags;
+        local->cont.open.fd = fd_ref (fd);
 
-        for (i = 0; i < priv->child_count; i++) {
-                if (local->child_up[i]) {
-                        STACK_WIND_COOKIE (frame, afr_open_cbk, (void *) (long) i,
-                                           priv->children[i],
-                                           priv->children[i]->fops->open,
-                                           loc, (flags & ~O_TRUNC), fd, xdata);
-                        if (!--call_count)
-                                break;
-                }
+        ret = afr_inode_get_readable (frame, local->inode, this,
+                                      NULL, &event_generation,
+                                      AFR_DATA_TRANSACTION);
+        if ((ret < 0) &&
+            (afr_inode_split_brain_choice_get (local->inode,
+                                             this, &spb_choice) == 0) &&
+            spb_choice < 0) {
+                afr_inode_refresh (frame, this, local->inode,
+                                   local->inode->gfid, afr_open_continue);
+        } else {
+                afr_open_continue (frame, this, 0);
         }
 
 	return 0;

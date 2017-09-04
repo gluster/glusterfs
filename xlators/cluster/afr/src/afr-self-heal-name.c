@@ -670,7 +670,7 @@ afr_selfheal_name (xlator_t *this, uuid_t pargfid, const char *bname,
 	if (!parent)
 		goto out;
 
-	frame = afr_frame_create (this);
+	frame = afr_frame_create (this, NULL);
 	if (!frame)
 		goto out;
 
