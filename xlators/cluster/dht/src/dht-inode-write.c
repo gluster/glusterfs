@@ -1034,8 +1034,8 @@ dht_file_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local->op_errno = op_errno;
 
-        if ((op_ret == -1) && (op_errno == EBADF)
-             && !(local->fd_checked)) {
+        if ((local->fop == GF_FOP_FSETATTR) &&
+            (op_ret == -1) && (op_errno == EBADF) && !(local->fd_checked)) {
                 ret = dht_check_and_open_fd_on_subvol (this, frame);
                 if (ret)
                         goto out;
