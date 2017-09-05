@@ -9306,6 +9306,7 @@ dht_rmdir_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t  *local = NULL;
         dht_conf_t   *conf  = NULL;
         int           i     = 0;
+        xlator_t     *hashed_subvol;
 
         VALIDATE_OR_GOTO (this->private, err);
 
@@ -9323,9 +9324,10 @@ dht_rmdir_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto err;
         }
 
+        hashed_subvol = local->hashed_subvol;
         for (i = 0; i < conf->subvolume_cnt; i++) {
-                if (local->hashed_subvol &&
-                    (local->hashed_subvol == conf->subvolumes[i]))
+                if (hashed_subvol &&
+                    (hashed_subvol == conf->subvolumes[i]))
                         continue;
 
                 STACK_WIND_COOKIE (frame, dht_rmdir_cbk, conf->subvolumes[i],
