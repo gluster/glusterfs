@@ -1703,7 +1703,11 @@ shard_common_lookup_shards_cbk (call_frame_t *frame, void *cookie,
                 case GF_FOP_FALLOCATE:
                         if ((!local->first_lookup_done) &&
                             (op_errno == ENOENT)) {
-                                local->create_count++;
+                                LOCK (&frame->lock);
+                                {
+                                        local->create_count++;
+                                }
+                                UNLOCK (&frame->lock);
                                 goto done;
                         }
                         break;
@@ -3270,7 +3274,11 @@ shard_common_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret < 0) {
                 if (op_errno == EEXIST) {
-                        local->eexist_count++;
+                        LOCK (&frame->lock);
+                        {
+                                local->eexist_count++;
+                        }
+                        UNLOCK (&frame->lock);
                 } else {
                         local->op_ret = op_ret;
                         local->op_errno = op_errno;
