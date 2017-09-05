@@ -2233,11 +2233,16 @@ shard_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   struct iatt *postparent,
                   dict_t *xdata)
 {
+        shard_local_t *local = NULL;
+
+        local = frame->local;
         if (op_ret < 0)
                 goto err;
 
         shard_inode_ctx_set (inode, this, buf, 0,
                              SHARD_MASK_NLINK | SHARD_MASK_TIMES);
+        buf->ia_size = local->prebuf.ia_size;
+        buf->ia_blocks = local->prebuf.ia_blocks;
 
         SHARD_STACK_UNWIND (link, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent, xdata);
@@ -2248,12 +2253,32 @@ err:
         return 0;
 }
 
+int
+shard_post_lookup_link_handler (call_frame_t *frame, xlator_t *this)
+{
+        shard_local_t *local = NULL;
+
+        local = frame->local;
+
+        if (local->op_ret < 0) {
+                SHARD_STACK_UNWIND (link, frame, local->op_ret, local->op_errno,
+                                    NULL, NULL, NULL, NULL, NULL);
+                return 0;
+        }
+
+        STACK_WIND (frame, shard_link_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->link, &local->loc, &local->loc2,
+                    local->xattr_req);
+        return 0;
+}
+
 int32_t
 shard_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
               dict_t *xdata)
 {
         int                ret        = -1;
         uint64_t           block_size = 0;
+        shard_local_t     *local      = NULL;
 
         ret = shard_inode_ctx_get_block_size (oldloc->inode, this, &block_size);
         if (ret) {
@@ -2271,8 +2296,23 @@ shard_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
                 return 0;
         }
 
-        STACK_WIND (frame, shard_link_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->link, oldloc, newloc, xdata);
+        if (!this->itable)
+                this->itable = oldloc->inode->table;
+
+        local = mem_get0 (this->local_pool);
+        if (!local)
+                goto err;
+
+        frame->local = local;
+
+        loc_copy (&local->loc, oldloc);
+        loc_copy (&local->loc2, newloc);
+        local->xattr_req = (xdata) ? dict_ref (xdata) : dict_new ();
+        if (!local->xattr_req)
+                goto err;
+
+        shard_lookup_base_file (frame, this, &local->loc,
+                                shard_post_lookup_link_handler);
         return 0;
 
 err:
