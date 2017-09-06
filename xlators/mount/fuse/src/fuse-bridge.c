@@ -5684,9 +5684,13 @@ init (xlator_t *this_xl)
         fsname = cmd_args->volfile;
         if (!fsname && cmd_args->volfile_server) {
                 if (cmd_args->volfile_id) {
+                        int dir_len = 0;
+                        if (cmd_args->subdir_mount)
+                                dir_len = strlen (cmd_args->subdir_mount) + 1;
                         fsname = GF_MALLOC (
                                    strlen (cmd_args->volfile_server) + 1 +
-                                   strlen (cmd_args->volfile_id) + 1,
+                                   strlen (cmd_args->volfile_id) + 1 +
+                                   dir_len,
                                    gf_fuse_mt_fuse_private_t);
                         if (!fsname) {
                                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
@@ -5697,6 +5701,8 @@ init (xlator_t *this_xl)
                         strcpy (fsname, cmd_args->volfile_server);
                         strcat (fsname, ":");
                         strcat (fsname, cmd_args->volfile_id);
+                        if (dir_len)
+                                strcat (fsname, cmd_args->subdir_mount);
                 } else
                         fsname = cmd_args->volfile_server;
         }
