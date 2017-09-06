@@ -57,6 +57,8 @@ typedef struct export_options export_options_t;
 struct export_item {
         char             *name;  /* Name of the export item */
         export_options_t *opts;  /* NFS Options */
+        uint32_t refcount;
+        pthread_mutex_t lock;
 };
 typedef struct export_item export_item_t;
 
@@ -93,5 +95,11 @@ exp_dir_get_netgroup (const struct export_dir *expdir, const char *netgroup);
 struct export_dir *
 exp_file_dir_from_uuid (const struct exports_file *file,
                         const uuid_t export_uuid);
+
+export_item_t *
+exp_item_ref (export_item_t *item);
+
+void
+exp_item_unref (export_item_t *item);
 
 #endif  /* _EXPORTS_H_ */

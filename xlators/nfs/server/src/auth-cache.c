@@ -98,8 +98,12 @@ static int32_t
 old_cache_insert (struct auth_cache *cache, char *hashkey,
                   struct auth_cache_entry *entry)
 {
-        return dict_set_bin (cache->cache_dict, hashkey,
-                             entry, sizeof (*entry));
+        /* We must use dict_set_static_bin() to ensure that
+         * the ownership of "entry" remains with us, and not
+         * the dict library.
+         */
+        return dict_set_static_bin (cache->cache_dict, hashkey,
+                                    entry, sizeof (*entry));
 }
 
 static void
@@ -181,8 +185,14 @@ auth_cache_entry_init ()
 void
 auth_cache_purge (struct auth_cache *cache)
 {
+        if (!cache) {
+                return;
+        }
+
         pthread_mutex_lock (&cache->lock);
-        (methods->reset) (cache);
+        {
+                (methods->reset) (cache);
+        }
         pthread_mutex_unlock (&cache->lock);
 }
 
@@ -219,7 +229,11 @@ _cache_lookup (struct auth_cache *cache, char *key,
         }
 
         if (time (NULL) - lookup_res->timestamp > cache->ttl_sec) {
+                // Destroy the auth cache entry
+                exp_item_unref (lookup_res->item);
+                lookup_res->item = NULL;
                 GF_FREE (lookup_res);
+
                 entry_data->data = NULL;
                 dict_del (cache->cache_dict, key);  // Remove from the cache
                 ret = ENTRY_EXPIRED;
@@ -314,9 +328,16 @@ __cache_item (struct auth_cache *cache, const char *path, struct nfs3_fh *fh,
                 GF_CHECK_ALLOC (entry, ret, out);
         }
 
-        // Populate the entry
+        // Update the timestamp
         entry->timestamp = time (NULL);
-        entry->item = export_item;
+
+        // Update entry->item if it is NULL or
+        // pointing to a different export_item
+        if (entry->item != export_item) {
+                exp_item_unref (entry->item);
+                entry->item = exp_item_ref (export_item);
+        }
+
         // Access is only allowed if  the status is set to
         // AUTH_CACHE_HOST_AUTH_OK
         entry->access_allowed = (status == AUTH_CACHE_HOST_AUTH_OK);

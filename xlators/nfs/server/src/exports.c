@@ -240,9 +240,10 @@ _export_item_init ()
         struct export_item *item = GF_CALLOC (1, sizeof (*item),
                                               gf_common_mt_nfs_exports);
 
-        if (!item)
-                gf_msg (GF_EXP, GF_LOG_CRITICAL, ENOMEM, NFS_MSG_NO_MEMORY,
-                        "Failed to allocate export item!");
+        if (item) {
+                pthread_mutex_init (&item->lock, NULL);
+                exp_item_ref (item);
+        }
 
         return item;
 }
@@ -260,6 +261,7 @@ _export_item_deinit (struct export_item *item)
         if (!item)
                 return;
 
+        pthread_mutex_destroy (&item->lock);
         _export_options_deinit (item->opts);
         GF_FREE (item->name);
         GF_FREE (item);
@@ -355,7 +357,7 @@ static int
 __exp_dict_free_walk (dict_t *dict, char *key, data_t *val, void *tmp)
 {
         if (val) {
-                _export_item_deinit ((struct export_item *)val->data);
+                exp_item_unref ((export_item_t *)val->data);
                 val->data = NULL;
                 dict_del (dict, key);
         }
@@ -379,6 +381,42 @@ _exp_dict_destroy (dict_t *ng_dict)
         dict_foreach (ng_dict, __exp_dict_free_walk, NULL);
 out:
         return;
+}
+
+export_item_t *
+exp_item_ref (export_item_t *item)
+{
+        if (!item) {
+                return NULL;
+        }
+
+        pthread_mutex_lock (&item->lock);
+        {
+                item->refcount++;
+        }
+        pthread_mutex_unlock (&item->lock);
+        return item;
+}
+
+void
+exp_item_unref (export_item_t *item)
+{
+        uint32_t refcount = 0;
+
+        if (!item) {
+                return;
+        }
+
+        pthread_mutex_lock (&item->lock);
+        {
+                item->refcount--;
+                refcount = item->refcount;
+        }
+        pthread_mutex_unlock (&item->lock);
+
+        if (refcount == 0) {
+                _export_item_deinit (item);
+        }
 }
 
 /**
@@ -768,7 +806,7 @@ __exp_line_ng_host_str_parse (char *str, struct export_item **exp_item)
         ret = __exp_line_opt_parse (optstr, &exp_opts);
         if (ret != 0) {
                 /* Bubble up the error to the caller */
-                _export_item_deinit (item);
+                exp_item_unref (item);
                 goto out;
         }
 
