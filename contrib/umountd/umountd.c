@@ -56,7 +56,8 @@ sanity_check (char *path, dev_t *devp)
                         break;
                 default:
                         gf_log ("umountd", GF_LOG_ERROR,
-                                "Cannot access %s\n", path, strerror (errno));
+                                "Cannot access %s: %s\n",
+                                path, strerror (errno));
                         goto out;
                 }
         }
@@ -70,7 +71,8 @@ sanity_check (char *path, dev_t *devp)
 
         if (stat (parent, &parent_st) != 0) {
                 gf_log ("umountd", GF_LOG_ERROR,
-                        "Cannot access %s\n", parent, strerror (errno));
+                        "Cannot access %s: %s\n",
+                        parent, strerror (errno));
                 goto out;
         }
 
