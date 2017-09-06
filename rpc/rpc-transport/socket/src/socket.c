@@ -843,7 +843,9 @@ __socket_keepalive (int fd, int family, int keepaliveintvl,
 {
         int     on = 1;
         int     ret = -1;
+#if defined(TCP_USER_TIMEOUT)
         int     timeout_ms = timeout * 1000;
+#endif
 
         ret = setsockopt (fd, SOL_SOCKET, SO_KEEPALIVE, &on, sizeof (on));
         if (ret == -1) {
