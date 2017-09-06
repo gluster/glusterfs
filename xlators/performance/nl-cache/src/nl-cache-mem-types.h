@@ -9,7 +9,7 @@
  */
 
 
-#ifndef __NL_CACHe_MEM_TYPES_H__
+#ifndef __NL_CACHE_MEM_TYPES_H__
 #define __NL_CACHE_MEM_TYPES_H__
 
 #include "mem-types.h"
