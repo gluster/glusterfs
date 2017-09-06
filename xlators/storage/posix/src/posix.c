@@ -116,7 +116,7 @@ posix_symlinks_match (xlator_t *this, loc_t *loc, uuid_t gfid)
         char linkname_actual[PATH_MAX] = {0,};
         char linkname_expected[PATH_MAX] = {0};
         char *dir_handle = NULL;
-        size_t len = 0;
+        ssize_t len = 0;
         size_t handle_size = 0;
         gf_boolean_t ret = _gf_false;
 
