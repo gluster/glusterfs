@@ -3759,7 +3759,7 @@ gf_thread_create (pthread_t *thread, const pthread_attr_t *attr,
                 #else
                         gf_msg (THIS->name, GF_LOG_WARNING, 0,
                                 LG_MSG_PTHREAD_NAMING_FAILED,
-                                "Thread names not implemented on this ",
+                                "Thread names not implemented on this "
                                 "platform");
                 #endif
         }
