@@ -2785,6 +2785,16 @@ posix_link (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (priv->max_hardlinks && stbuf.ia_nlink >= priv->max_hardlinks) {
+                op_ret = -1;
+                op_errno = EMLINK;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "hardlink failed: %s exceeds max link count (%u/%u).",
+                        real_oldpath, stbuf.ia_nlink, priv->max_hardlinks);
+                goto out;
+        }
+
+
         MAKE_ENTRY_HANDLE (real_newpath, par_newpath, this, newloc, &stbuf);
         if (!real_newpath || !par_newpath) {
                 op_ret = -1;
@@ -6883,7 +6893,13 @@ struct posix_private *priv = NULL;
         }
         pthread_mutex_unlock (&priv->freespace_check_lock);
 
-	ret = 0;
+        GF_OPTION_RECONF ("fadvise-random", priv->fadvise_random,
+                          options, bool, out);
+
+        GF_OPTION_RECONF ("max-hardlinks", priv->max_hardlinks,
+                          options, uint32, out);
+
+        ret = 0;
 out:
 	return ret;
 }
@@ -7506,6 +7522,8 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("fadvise-random", _private->fadvise_random, bool, out);
 
+        GF_OPTION_INIT ("max-hardlinks", _private->max_hardlinks, uint32, out);
+
         pthread_mutex_init (&_private->freespace_check_lock, NULL);
         sys_statvfs (_private->base_path, &_private->freespace_stats);
         clock_gettime (CLOCK_MONOTONIC, &_private->freespace_check_last);
@@ -7712,6 +7730,14 @@ struct volume_options options[] = {
           .description = "fadvise fd's with POSIX_FADV_RANDOM to bypass "
                          "read-ahead limits",
         },
-
+        {
+          .key = {"max-hardlinks"},
+          .type = GF_OPTION_TYPE_INT,
+          .min = 0,
+          .default_value = "100",
+          .validate = GF_OPT_VALIDATE_MIN,
+          .description = "max number of hardlinks allowed on any one inode.\n"
+                         "0 is unlimited, 1 prevents any hardlinking at all."
+        },
         { .key  = {NULL} }
 };

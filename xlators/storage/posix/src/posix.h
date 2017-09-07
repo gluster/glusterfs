@@ -183,6 +183,7 @@ struct posix_private {
         uint32_t freespace_check_interval;
         gf_boolean_t freespace_check_passed;
         gf_boolean_t fadvise_random;
+        uint32_t max_hardlinks;
 };
 
 typedef struct {
