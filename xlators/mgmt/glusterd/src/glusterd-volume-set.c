@@ -2843,6 +2843,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "storage/posix",
           .op_version  = GD_OP_VERSION_4_0_0,
         },
+        { .option      = "max-hardlinks",
+          .key         = "storage.max-hardlinks",
+          .voltype     = "storage/posix",
+          .op_version  = GD_OP_VERSION_4_0_0,
+        },
         { .key         = "storage.bd-aio",
           .voltype     = "storage/bd",
           .op_version  = 3
