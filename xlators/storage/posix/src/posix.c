@@ -3130,6 +3130,7 @@ int32_t
 posix_open (call_frame_t *frame, xlator_t *this,
             loc_t *loc, int32_t flags, fd_t *fd, dict_t *xdata)
 {
+        int32_t               local_ret    = 0;
         int32_t               op_ret       = -1;
         int32_t               op_errno     = 0;
         char                 *real_path    = NULL;
@@ -3172,9 +3173,21 @@ posix_open (call_frame_t *frame, xlator_t *this,
         if (_fd == -1) {
                 op_ret   = -1;
                 op_errno = errno;
-                gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_FILE_OP_FAILED,
+                gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_FILE_OP_FAILED ,
                         "open on %s, flags: %d", real_path, flags);
                 goto out;
+        } else {
+                if (priv->fadvise_random) {
+                        local_ret = posix_fadvise (_fd, 0, 0,
+                                                   POSIX_FADV_RANDOM);
+                        if (local_ret != 0) {
+                                gf_msg (this->name, GF_LOG_WARNING, 0,
+                                        P_MSG_FADV_FAILED,
+                                        "Failed to fadvise "
+                                        "POSIX_FADV_RANDOM! "
+                                        "Error: %s", strerror (errno));
+                        }
+                }
         }
 
         pfd = GF_CALLOC (1, sizeof (*pfd), gf_posix_mt_posix_fd);
@@ -7491,6 +7504,8 @@ init (xlator_t *this)
         GF_OPTION_INIT ("min-free-disk", _private->min_free_disk,
                         percent_or_size, out);
 
+        GF_OPTION_INIT ("fadvise-random", _private->fadvise_random, bool, out);
+
         pthread_mutex_init (&_private->freespace_check_lock, NULL);
         sys_statvfs (_private->base_path, &_private->freespace_stats);
         clock_gettime (CLOCK_MONOTONIC, &_private->freespace_check_last);
@@ -7689,6 +7704,13 @@ struct volume_options options[] = {
           .description = "Interval in seconds between freespace measurements "
                          "used for the min-free-disk determination. "
                          "Set to 0 to disable."
+        },
+        {
+          .key = {"fadvise-random"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "fadvise fd's with POSIX_FADV_RANDOM to bypass "
+                         "read-ahead limits",
         },
 
         { .key  = {NULL} }

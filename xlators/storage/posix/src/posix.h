@@ -182,6 +182,7 @@ struct posix_private {
         /* mutex protection ends. */
         uint32_t freespace_check_interval;
         gf_boolean_t freespace_check_passed;
+        gf_boolean_t fadvise_random;
 };
 
 typedef struct {

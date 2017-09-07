@@ -2575,6 +2575,10 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "storage/posix",
           .op_version  = 2,
         },
+        { .key         = "storage.fadvise-random",
+          .voltype     = "storage/posix",
+          .op_version  = 2,
+        },
         { .key         = "storage.bd-aio",
           .voltype     = "storage/bd",
           .op_version  = 3
