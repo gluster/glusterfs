@@ -39,5 +39,6 @@ for i in {1..10}; do
 done
 
 EXPECT_WITHIN 30 "Y" check_brick_inter_stats fop.weighted_latency_ave_usec
+EXPECT_WITHIN 30 "Y" check_brick_inter_stats errors.eio.per_sec
 
 cleanup

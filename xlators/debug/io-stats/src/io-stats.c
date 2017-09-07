@@ -127,6 +127,7 @@ struct ios_global_stats {
         uint64_t        fop_hits[GF_FOP_MAXVALUE];
         struct timeval  started_at;
         struct ios_lat  latency[GF_FOP_MAXVALUE];
+        uint64_t        errno_count[IOS_MAX_ERRORS];
         uint64_t        nr_opens;
         uint64_t        max_nr_opens;
         struct timeval  max_openfd_time;
@@ -490,6 +491,11 @@ ios_track_fd (call_frame_t *frame, fd_t *fd)
                         if (conf && conf->measure_latency &&                  \
                             conf->count_fop_hits) {                           \
                                 BUMP_FOP(op);                                 \
+                                if (op_ret != 0 && op_errno > 0               \
+                                    && op_errno < IOS_MAX_ERRORS) {           \
+                                        conf->cumulative.errno_count[op_errno]++; \
+                                        conf->incremental.errno_count[op_errno]++; \
+                                }                                             \
                                 gettimeofday (&frame->end, NULL);             \
                                 update_ios_latency (conf, frame, GF_FOP_##op, \
                                                         op_ret, op_errno);    \
@@ -1011,7 +1017,9 @@ io_stats_dump_global_to_json_logfp (xlator_t *this,
         int                   ret = 1;  /* Default to error */
         int                   rw_size;
         char                  *rw_unit = NULL;
+        const char            *errno_name = NULL;
         long                  fop_hits;
+        long                  error_count;
         float                 fop_lat_ave;
         float                 fop_lat_min;
         float                 fop_lat_max;
@@ -1084,6 +1092,22 @@ io_stats_dump_global_to_json_logfp (xlator_t *this,
                 ios_log (this, logfp,
                         "\"%s.%s.fds.max_open_count\": \"%"PRId64"\",",
                         key_prefix, str_prefix, conf->cumulative.max_nr_opens);
+        }
+
+        for (i = 0; i < IOS_MAX_ERRORS; i++) {
+                errno_name = errno_to_name[i];
+                error_count = stats->errno_count[i];
+                if (interval == -1) {
+                        ios_log (this, logfp,
+                                "\"%s.%s.errors.%s.count\": \"%"PRId64"\",",
+                                key_prefix, str_prefix, errno_name,
+                                error_count);
+                } else {
+                        ios_log (this, logfp,
+                                "\"%s.%s.errors.%s.per_sec\": \"%0.2lf\",",
+                                key_prefix, str_prefix, errno_name,
+                                (double)(error_count/interval_sec));
+                }
         }
 
         for (i = 0; i < GF_FOP_MAXVALUE; i++) {
