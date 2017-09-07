@@ -1817,6 +1817,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
                          "(Integrity Measurement Architecture)",
           .flags      = VOLOPT_FLAG_CLIENT_OPT
         },
+        { .key        = "performance.md-cache-statfs",
+          .voltype    = "performance/md-cache",
+          .option     = "md-cache-statfs",
+          .op_version = GD_OP_VERSION_4_0_0,
+          .flags      = VOLOPT_FLAG_CLIENT_OPT
+        },
 
          /* Crypt xlator options */
 
