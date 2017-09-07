@@ -1814,6 +1814,15 @@ posix_link (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (priv->max_hardlinks && stbuf.ia_nlink >= priv->max_hardlinks) {
+                op_ret = -1;
+                op_errno = EMLINK;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "hardlink failed: %s exceeds max link count (%u/%u).",
+                        real_oldpath, stbuf.ia_nlink, priv->max_hardlinks);
+                goto out;
+        }
+
         MAKE_ENTRY_HANDLE (real_newpath, par_newpath, this, newloc, &stbuf);
         if (!real_newpath || !par_newpath) {
                 op_ret = -1;

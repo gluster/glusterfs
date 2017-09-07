@@ -398,6 +398,8 @@ posix_reconfigure (xlator_t *this, dict_t *options)
                           options, int32, out);
         priv->create_directory_mask = create_directory_mask;
 
+        GF_OPTION_RECONF ("max-hardlinks", priv->max_hardlinks,
+                          options, uint32, out);
         ret = 0;
 out:
         return ret;
@@ -1075,6 +1077,8 @@ posix_init (xlator_t *this)
         GF_OPTION_INIT ("create-directory-mask",
                         create_directory_mask, int32, out);
         _private->create_directory_mask = create_directory_mask;
+
+        GF_OPTION_INIT ("max-hardlinks", _private->max_hardlinks, uint32, out);
 out:
         if (ret) {
                 if (_private) {
@@ -1321,6 +1325,18 @@ struct volume_options options[] = {
           .validate = GF_OPT_VALIDATE_MAX,
           .description = "Any bit not set here will be removed from the"
           "modes set on a directory when it is created"
+        },
+        {
+          .key = {"max-hardlinks"},
+          .type = GF_OPTION_TYPE_INT,
+          .min = 0,
+          .default_value = "100",
+          .op_version  = {GD_OP_VERSION_4_0_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"posix"},
+          .validate = GF_OPT_VALIDATE_MIN,
+          .description = "max number of hardlinks allowed on any one inode.\n"
+                         "0 is unlimited, 1 prevents any hardlinking at all."
         },
         { .key  = {NULL} }
 };
