@@ -8,6 +8,7 @@
   cases as published by the Free Software Foundation.
 */
 
+#include "timespec.h"
 #include "glusterfs.h"
 #include "defaults.h"
 #include "logging.h"
@@ -29,6 +30,13 @@
    - cache symlink() link names and nuke symlink-cache
    - send proper postbuf in setattr_cbk even when op_ret = -1
 */
+
+struct mdc_statfs_cache {
+        pthread_mutex_t lock;
+        gf_boolean_t initialized;
+        struct timespec last_refreshed;
+        struct statvfs buf;
+};
 
 struct mdc_statistics {
         gf_atomic_t stat_hit; /* No. of times lookup/stat was served from
@@ -65,6 +73,8 @@ struct mdc_conf {
         time_t last_child_down;
         gf_lock_t lock;
         struct mdc_statistics mdc_counter;
+        gf_boolean_t cache_statfs;
+        struct mdc_statfs_cache statfs_cache;
 };
 
 
@@ -1062,6 +1072,111 @@ mdc_xattr_satisfied (xlator_t *this, dict_t *req, dict_t *rsp)
         return pair.ret;
 }
 
+static void
+mdc_cache_statfs (xlator_t *this, struct statvfs *buf)
+{
+        struct mdc_conf *conf = this->private;
+
+        pthread_mutex_lock (&conf->statfs_cache.lock);
+        {
+                memcpy (&conf->statfs_cache.buf, buf, sizeof (struct statvfs));
+                clock_gettime (CLOCK_MONOTONIC,
+                               &conf->statfs_cache.last_refreshed);
+                conf->statfs_cache.initialized = _gf_true;
+        }
+        pthread_mutex_unlock (&conf->statfs_cache.lock);
+}
+
+int
+mdc_load_statfs_info_from_cache (xlator_t *this, struct statvfs **buf)
+{
+        struct mdc_conf *conf = this->private;
+        struct timespec now;
+        double cache_age = 0.0;
+        int ret = 0;
+
+        if (!buf || !conf) {
+                ret = -1;
+                goto err;
+        }
+
+        pthread_mutex_lock (&conf->statfs_cache.lock);
+        {
+                *buf = NULL;
+
+                /* Skip if the cache is not initialized */
+                if (!conf->statfs_cache.initialized) {
+                        ret = -1;
+                        goto err;
+                }
+
+                timespec_now (&now);
+
+                cache_age = (
+                  now.tv_sec - conf->statfs_cache.last_refreshed.tv_sec);
+
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "STATFS cache age = %lf", cache_age);
+                if (cache_age > conf->timeout) {
+                        /* Expire the cache */
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Cache age %lf exceeded timeout %d",
+                                cache_age, conf->timeout);
+                        ret = -1;
+                        goto err;
+                }
+
+                *buf = &conf->statfs_cache.buf;
+        }
+err:
+        pthread_mutex_unlock (&conf->statfs_cache.lock);
+        return ret;
+}
+
+int
+mdc_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno,
+                struct statvfs *buf, dict_t *xdata)
+{
+        struct mdc_conf *conf = this->private;
+
+        if (op_ret == 0 && conf && conf->cache_statfs) {
+                mdc_cache_statfs (this, buf);
+        }
+
+        STACK_UNWIND_STRICT (statfs, frame, op_ret, op_errno, buf, xdata);
+
+        return 0;
+}
+
+int
+mdc_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
+{
+        int ret = 0;
+        struct statvfs *buf = NULL;
+        struct mdc_conf *conf = this->private;
+
+        if (!conf) {
+                goto uncached;
+        }
+
+        if (!conf->cache_statfs) {
+                goto uncached;
+        }
+
+        ret = mdc_load_statfs_info_from_cache (this, &buf);
+        if (ret == 0 && buf) {
+                STACK_UNWIND_STRICT (statfs, frame, 0, 0, buf, xdata);
+                goto out;
+        }
+
+uncached:
+        STACK_WIND (frame, mdc_statfs_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->statfs, loc, xdata);
+
+out:
+        return 0;
+}
 
 int
 mdc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2958,6 +3073,10 @@ reconfigure (xlator_t *this, dict_t *options)
 	GF_OPTION_RECONF("force-readdirp", conf->force_readdirp, options, bool, out);
         GF_OPTION_RECONF("cache-invalidation", conf->mdc_invalidation, options,
                          bool, out);
+        GF_OPTION_RECONF ("md-cache-statfs", conf->cache_statfs, options,
+                          bool, out);
+
+
 
         /* If timeout is greater than 60s (default before the patch that added
          * cache invalidation support was added) then, cache invalidation
@@ -3037,6 +3156,9 @@ init (xlator_t *this)
 
 	GF_OPTION_INIT("force-readdirp", conf->force_readdirp, bool, out);
         GF_OPTION_INIT("cache-invalidation", conf->mdc_invalidation, bool, out);
+
+        pthread_mutex_init (&conf->statfs_cache.lock, NULL);
+        GF_OPTION_INIT ("md-cache-statfs", conf->cache_statfs, bool, out);
 
         LOCK_INIT (&conf->lock);
         time (&conf->last_child_down);
@@ -3156,6 +3278,7 @@ struct xlator_fops fops = {
 	.fallocate   = mdc_fallocate,
 	.discard     = mdc_discard,
         .zerofill    = mdc_zerofill,
+        .statfs      = mdc_statfs,
 };
 
 
@@ -3217,5 +3340,11 @@ struct volume_options options[] = {
           .description = "When \"on\", invalidates/updates the metadata cache,"
                          " on receiving the cache-invalidation notifications",
         },
+    { .key = {"md-cache-statfs"},
+      .type = GF_OPTION_TYPE_BOOL,
+      .default_value = "off",
+      .op_version = {GD_OP_VERSION_4_0_0},
+      .flags = OPT_FLAG_SETTABLE,
+    },
     { .key = {NULL} },
 };
