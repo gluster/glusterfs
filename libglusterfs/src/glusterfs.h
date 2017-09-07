@@ -423,6 +423,7 @@ struct _cmd_args {
         char           *subdir_mount;
 
         char              *process_name;
+        char              *event_history;
 };
 typedef struct _cmd_args cmd_args_t;
 
