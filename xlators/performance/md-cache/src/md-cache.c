@@ -1894,6 +1894,40 @@ mdc_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync,
 
 
 int
+mdc_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        mdc_local_t  *local = NULL;
+
+        local = frame->local;
+
+        if (local && local->fd) {
+                mdc_inode_iatt_invalidate (this, local->fd->inode);
+        }
+
+        MDC_STACK_UNWIND (flush, frame, op_ret, op_errno, xdata);
+
+        return 0;
+}
+
+
+int
+mdc_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
+{
+        mdc_local_t  *local = NULL;
+
+        local = mdc_local_get (frame);
+
+        local->fd = fd_ref (fd);
+
+        STACK_WIND (frame, mdc_flush_cbk, FIRST_CHILD (this),
+                    FIRST_CHILD (this)->fops->flush, fd, xdata);
+
+        return 0;
+}
+
+
+int
 mdc_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -2584,6 +2618,7 @@ struct xlator_fops fops = {
         .setattr     = mdc_setattr,
         .fsetattr    = mdc_fsetattr,
         .fsync       = mdc_fsync,
+        .flush       = mdc_flush,
         .setxattr    = mdc_setxattr,
         .fsetxattr   = mdc_fsetxattr,
         .getxattr    = mdc_getxattr,
