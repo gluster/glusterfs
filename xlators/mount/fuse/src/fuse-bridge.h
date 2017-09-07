@@ -134,6 +134,8 @@ struct fuse_private {
 
         /* Enable or disable capability support */
         gf_boolean_t         capability;
+        /* Enable or disable event history */
+        gf_boolean_t         event_history;
 };
 typedef struct fuse_private fuse_private_t;
 
@@ -277,7 +279,8 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
 
 #define fuse_log_eh_fop(this, state, frame, op_ret, op_errno)               \
         do {                                                            \
-                if (this->history) {                                    \
+                fuse_private_t *priv = this->private;                   \
+                if (this->history && priv->event_history) {             \
                         if (state->fd)                                  \
                                 gf_log_eh ("op_ret: %d, op_errno: %d, " \
                                            "%"PRIu64", %s () => %p, gfid: %s", \
@@ -297,10 +300,11 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
                 }                                                       \
         } while(0)
 
-#define fuse_log_eh(this, args...)              \
-        do {                                    \
-                if (this->history)              \
-                        gf_log_eh(args);        \
+#define fuse_log_eh(this, args...)                            \
+        do {                                                  \
+                fuse_private_t *priv = this->private;         \
+                if (this->history && priv->event_history)     \
+                        gf_log_eh(args);                      \
         } while (0)
 
 static inline xlator_t *

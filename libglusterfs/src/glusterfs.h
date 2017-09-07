@@ -404,6 +404,7 @@ struct _cmd_args {
 #ifdef GF_LINUX_HOST_OS
         char            *oom_score_adj;
 #endif
+        char              *event_history;
 };
 typedef struct _cmd_args cmd_args_t;
 

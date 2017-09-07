@@ -32,7 +32,7 @@ TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
 ## Mount FUSE with caching disabled
-TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
+TEST glusterfs --entry-timeout=0 --attribute-timeout=0 --event-history=on -s $H0 --volfile-id $V0 $M0;
 
 ## Test for checking whether the fops have been saved in the event-history
 TEST ! stat $M0/newfile;
