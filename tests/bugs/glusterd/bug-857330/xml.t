@@ -9,7 +9,7 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume info;
 
-TEST $CLI volume create $V0 $H0:$B0/${V0}1;
+TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}1 $H0:$B0/${V0}2;
 TEST $CLI volume info $V0;
 TEST $CLI volume start $V0;
 
@@ -24,7 +24,7 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 ###############
 ## Rebalance ##
 ###############
-TEST $CLI volume add-brick $V0 $H0:$B0/${V0}2;
+TEST $CLI volume add-brick $V0 replica 2 $H0:$B0/${V0}3 $H0:$B0/${V0}4;
 
 COMMAND="volume rebalance $V0 start"
 PATTERN="task-id"
@@ -47,14 +47,14 @@ EXPECT_WITHIN $REBALANCE_TIMEOUT "0" get-task-status $PATTERN
 ###################
 ## Replace-brick ##
 ###################
-TEST $CLI volume replace-brick $V0 $H0:$B0/${V0}2 $H0:$B0/${V0}3 commit force
+TEST $CLI volume replace-brick $V0 $H0:$B0/${V0}4 $H0:$B0/${V0}5 commit force
 
 ##################
 ## Remove-brick ##
 ##################
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}3
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}5
 
-COMMAND="volume remove-brick $V0 $H0:$B0/${V0}3 start"
+COMMAND="volume remove-brick $V0 $H0:$B0/${V0}3 $H0:$B0/${V0}5 start"
 PATTERN="task-id"
 TEST check-and-store-task-id-xml
 
@@ -62,17 +62,17 @@ COMMAND="volume status $V0"
 PATTERN="id"
 EXPECT $TASK_ID get-task-id-xml
 
-COMMAND="volume remove-brick $V0 $H0:$B0/${V0}3 status"
+COMMAND="volume remove-brick $V0 $H0:$B0/${V0}3 $H0:$B0/${V0}5 status"
 PATTERN="task-id"
 EXPECT $TASK_ID get-task-id-xml
 
-COMMAND="volume remove-brick $V0 $H0:$B0/${V0}3 status"
+COMMAND="volume remove-brick $V0 $H0:$B0/${V0}3 $H0:$B0/${V0}5 status"
 PATTERN="completed"
 EXPECT_WITHIN  $REBALANCE_TIMEOUT "0" get-task-status $PATTERN
 
 ## TODO: Add tests for remove-brick stop
 
-COMMAND="volume remove-brick $V0 $H0:$B0/${V0}3 commit"
+COMMAND="volume remove-brick $V0 $H0:$B0/${V0}3 $H0:$B0/${V0}5 commit"
 PATTERN="task-id"
 EXPECT $TASK_ID get-task-id-xml
 

@@ -12,7 +12,7 @@ TEST glusterd
 TEST pidof glusterd
 
 ## Lets create and start volume
-TEST $CLI volume create $V0 $H0:$B0/brick1 $H0:$B0/brick2
+TEST $CLI volume create $V0 replica 2 $H0:$B0/brick1 $H0:$B0/brick2
 TEST $CLI volume start $V0
 
 ## Now with this patch replace-brick only accept following commad
