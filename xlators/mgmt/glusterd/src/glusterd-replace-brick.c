@@ -211,9 +211,19 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
         if (ret)
                 goto out;
 
+        if (volinfo->type == GF_CLUSTER_TYPE_NONE) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_OP_NOT_PERMITTED,
+                        "replace-brick is not permitted on distribute only "
+                        "volumes");
+                gf_asprintf (op_errstr, "replace-brick is not permitted on "
+                             "distribute only volumes. Please use add-brick "
+                             "and remove-brick operations instead.");
+                ret = -1;
+                goto out;
+        }
         ret = glusterd_validate_quorum (this, gd_op,  dict, op_errstr);
         if (ret) {
-                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_SERVER_QUORUM_NOT_MET,
                         "Server quorum not met. Rejecting operation.");
                 goto out;
