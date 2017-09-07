@@ -18,7 +18,7 @@ TEST $CLI_1 peer probe $H3;
 EXPECT_WITHIN $PROBE_TIMEOUT 2 peer_count
 
 # Lets create the volume and set quorum type as a server
-TEST $CLI_1 volume create $V0 $H1:$B1/${V0}0 $H2:$B2/${V0}1 $H3:$B3/${V0}2
+TEST $CLI_1 volume create $V0 replica 3 $H1:$B1/${V0}0 $H2:$B2/${V0}1 $H3:$B3/${V0}2
 TEST $CLI_1 volume set $V0 cluster.server-quorum-type server
 
 # Start the volume
