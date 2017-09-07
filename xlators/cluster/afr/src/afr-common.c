@@ -5113,6 +5113,13 @@ afr_notify (xlator_t *this, int32_t event,
         }
         UNLOCK (&priv->lock);
 
+        if (event == GF_EVENT_CHILD_UP && priv->have_sent_early_up) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "Suppressing initial up message: sent earlier.");
+                propagate = 0;
+        }
+
+
         if (priv->quorum_count) {
                 has_quorum = afr_has_quorum (priv->child_up, this);
                 if (!had_quorum && has_quorum)
@@ -5129,7 +5136,23 @@ afr_notify (xlator_t *this, int32_t event,
         if (have_heard_from_all)
                 propagate = 1;
 
+        /* If we have just obtained quorum, send an UP even if
+         * we have not yet heard from all children. No need to wait
+         * for (possible offline) children to respond, we're not
+         * going to get any more quorumy.
+         */
+        if (!have_heard_from_all &&
+            has_quorum &&
+            event == GF_EVENT_CHILD_UP &&
+            !priv->have_sent_early_up) {
+                gf_log (this->name, GF_LOG_INFO,
+                        "Sending early up message due to meeting quorum.");
+                priv->have_sent_early_up = _gf_true;
+                propagate = 1;
+        }
+
         ret = 0;
+
         if (propagate)
                 ret = default_notify (this, event, data);
 

@@ -128,7 +128,7 @@ typedef struct _afr_private {
         gf_boolean_t metadata_change_log;   /* on/off */
         gf_boolean_t entry_change_log;      /* on/off */
 
-	gf_boolean_t metadata_splitbrain_forced_heal; /* on/off */
+	      gf_boolean_t metadata_splitbrain_forced_heal; /* on/off */
         gf_boolean_t gfid_splitbrain_forced_heal;  /* on/off */
         int read_child;               /* read-subvolume */
         unsigned int hash_mode;       /* for when read_child is not set */
@@ -148,23 +148,23 @@ typedef struct _afr_private {
         gf_boolean_t      optimistic_change_log;
         gf_boolean_t      eager_lock;
         gf_boolean_t      pre_op_compat;      /* on/off */
-	uint32_t          post_op_delay_secs;
+	      uint32_t          post_op_delay_secs;
         unsigned int      quorum_count;
         gf_boolean_t      quorum_reads;
 
         char                   vol_uuid[UUID_SIZE + 1];
         int32_t                *last_event;
 
-	/* @event_generation: Keeps count of number of events received which can
-	   potentially impact consistency decisions. The events are CHILD_UP
-	   and CHILD_DOWN, when we have to recalculate the freshness/staleness
-	   of copies to detect if changes had happened while the other server
-	   was down. CHILD_DOWN and CHILD_UP can also be received on network
-	   disconnect/reconnects and not necessarily server going down/up.
-	   Recalculating freshness/staleness on network events is equally
-	   important as we might have had a network split brain.
-	*/
-	uint32_t               event_generation;
+        /* @event_generation: Keeps count of number of events received which can
+           potentially impact consistency decisions. The events are CHILD_UP
+           and CHILD_DOWN, when we have to recalculate the freshness/staleness
+           of copies to detect if changes had happened while the other server
+           was down. CHILD_DOWN and CHILD_UP can also be received on network
+           disconnect/reconnects and not necessarily server going down/up.
+           Recalculating freshness/staleness on network events is equally
+           important as we might have had a network split brain.
+        */
+	      uint32_t               event_generation;
 
         gf_boolean_t           choose_local;
         gf_boolean_t           did_local_discovery;
@@ -172,8 +172,9 @@ typedef struct _afr_private {
         uint64_t               sh_readdir_size;
         gf_boolean_t           ensure_durability;
         char                   *sh_domain;
-	char                   *afr_dirty;
+	      char                   *afr_dirty;
         gf_boolean_t           halo_enabled;
+        gf_boolean_t           have_sent_early_up;
 
         /* Halo geo-replication tunables */
         gf_boolean_t           halo_failover_enabled;
@@ -191,10 +192,10 @@ typedef struct _afr_private {
         uint64_t               spb_choice_timeout;
         gf_boolean_t           need_heal;
 
-	/* pump dependencies */
-	void                   *pump_private;
-	gf_boolean_t           use_afr_in_pump;
-	char                   *locking_scheme;
+	      /* pump dependencies */
+	      void                   *pump_private;
+	      gf_boolean_t           use_afr_in_pump;
+	      char                   *locking_scheme;
         gf_boolean_t            esh_granular;
 } afr_private_t;
 
