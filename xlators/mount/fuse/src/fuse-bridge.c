@@ -5162,10 +5162,15 @@ fuse_priv_dump (xlator_t  *this)
 int
 fuse_history_dump (xlator_t *this)
 {
-        int      ret    = -1;
-        char key_prefix[GF_DUMP_MAX_BUF_LEN] = {0,};
+        int             ret                             = -1;
+        char            key_prefix[GF_DUMP_MAX_BUF_LEN] = {0,};
+        fuse_private_t *priv                            = this->private;
 
         GF_VALIDATE_OR_GOTO ("fuse", this, out);
+
+        if (!priv->event_history)
+                goto out;
+
         GF_VALIDATE_OR_GOTO (this->name, this->history, out);
 
         gf_proc_dump_build_key (key_prefix, "xlator.mount.fuse",
@@ -5660,6 +5665,9 @@ init (xlator_t *this_xl)
                 }
         }
 
+        GF_OPTION_INIT("event-history", priv->event_history, bool,
+                       cleanup_exit);
+
         /* user has set only background-qlen, not congestion-threshold,
            use the fuse kernel driver formula to set congestion. ie, 75% */
         if (dict_get (this_xl->options, "background-qlen") &&
@@ -5758,14 +5766,16 @@ init (xlator_t *this_xl)
                         goto cleanup_exit;
         }
 
-        event = eh_new (FUSE_EVENT_HISTORY_SIZE, _gf_false, NULL);
-        if (!event) {
-                gf_log (this_xl->name, GF_LOG_ERROR,
-                        "could not create a new event history");
-                goto cleanup_exit;
-        }
+        if (priv->event_history) {
+                event = eh_new (FUSE_EVENT_HISTORY_SIZE, _gf_false, NULL);
+                if (!event) {
+                        gf_log (this_xl->name, GF_LOG_ERROR,
+                                "could not create a new event history");
+                        goto cleanup_exit;
+                }
 
-        this_xl->history = event;
+                this_xl->history = event;
+        }
 
         pthread_mutex_init (&priv->fuse_dump_mutex, NULL);
         pthread_cond_init (&priv->sync_cond, NULL);
@@ -5961,6 +5971,12 @@ struct volume_options options[] = {
         { .key = {"capability"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "false"
+        },
+        { .key = {"event-history"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "false",
+          .description = "This option can be used to enable or disable fuse "
+          "event history.",
         },
         { .key = {NULL} },
 };

@@ -244,6 +244,8 @@ static struct argp_option gf_options[] = {
          "Override default for secure (SSL) management connections"},
         {"localtime-logging", ARGP_LOCALTIME_LOGGING_KEY, 0, 0,
          "Enable localtime logging"},
+        {"event-history", ARGP_FUSE_EVENT_HISTORY_KEY, "BOOL",
+         OPTION_ARG_OPTIONAL, "disable/enable fuse event-history"},
         {0, 0, 0, 0, "Miscellaneous Options:"},
         {0, }
 };
@@ -551,6 +553,15 @@ set_fuse_mount_options (glusterfs_ctx_t *ctx, dict_t *options)
                 if (ret < 0) {
                         gf_msg ("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
                                 "use-readdirp");
+                        goto err;
+                }
+        }
+        if (cmd_args->event_history) {
+                ret = dict_set_str (options, "event-history",
+                                    cmd_args->event_history);
+                if (ret < 0) {
+                        gf_msg ("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
+                                "event-history");
                         goto err;
                 }
         }
@@ -1286,6 +1297,23 @@ no_oom_api:
                         break;
                 }
                 cmd_args->subdir_mount = gf_strdup (arg);
+                break;
+        case ARGP_FUSE_EVENT_HISTORY_KEY:
+                if (!arg)
+                        arg = "no";
+
+                if (gf_string2boolean (arg, &b) == 0) {
+                        if (b) {
+                                cmd_args->event_history = "yes";
+                        } else {
+                                cmd_args->event_history = "no";
+                        }
+
+                        break;
+                }
+
+                argp_failure (state, -1, 0,
+                              "unknown event-history setting \"%s\"", arg);
                 break;
 	}
 

@@ -421,6 +421,8 @@ struct _cmd_args {
 
         /* For the subdir mount */
         char           *subdir_mount;
+
+        char              *event_history;
 };
 typedef struct _cmd_args cmd_args_t;
 
