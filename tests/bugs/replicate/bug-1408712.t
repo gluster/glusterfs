@@ -14,6 +14,7 @@ TEST pidof glusterd
 TEST $CLI volume create $V0 replica 3 $H0:$B0/${V0}{0,1,2}
 TEST $CLI volume start $V0
 TEST $CLI volume set $V0 features.shard on
+TEST $CLI volume set $V0 features.shard-block-size 4MB
 TEST $CLI volume heal $V0 granular-entry-heal enable
 TEST $CLI volume set $V0 cluster.data-self-heal off
 TEST $CLI volume set $V0 cluster.metadata-self-heal off
