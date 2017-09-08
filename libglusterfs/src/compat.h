@@ -508,9 +508,9 @@ int gf_mkostemp (char *tmpl, int suffixlen, int flags);
 
 #if defined(__GNUC__) && !defined(RELAX_POISONING)
 /* Use run API, see run.h */
-#include <stdlib.h> /* system(), mkostemp() */
+#include <stdlib.h> /* mkostemp() */
 #include <stdio.h> /* popen() */
-#pragma GCC poison system mkostemp popen
+#pragma GCC poison mkostemp popen
 #endif
 
 int gf_umount_lazy(char *xlname, char *path, int rmdir);
