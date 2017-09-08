@@ -75,12 +75,27 @@ def node_cmd(host, host_uuid, task, cmd, args, opts):
             cmd = ["ssh",
                    "-oNumberOfPasswordPrompts=0",
                    "-oStrictHostKeyChecking=no",
+                   # We force TTY allocation (-t -t) so that Ctrl+C is handed
+                   # through; see:
+                   #   https://bugzilla.redhat.com/show_bug.cgi?id=1382236
+                   # Note that this turns stderr of the remote `cmd`
+                   # into stdout locally.
                    "-t",
                    "-t",
                    "-i", pem_key_path,
                    "root@%s" % host] + cmd
 
-        execute(cmd, exit_msg="%s - %s failed" % (host, task), logger=logger)
+        (returncode, err, out) = execute(cmd, logger=logger)
+        if returncode != 0:
+            # Because the `-t -t` above turns the remote stderr into
+            # local stdout, we need to log both stderr and stdout
+            # here to print all error messages.
+            fail("%s - %s failed; stdout (including remote stderr):\n"
+                 "%s\n"
+                 "stderr:\n"
+                 "%s" % (host, task, out, err),
+                 returncode,
+                 logger=logger)
 
         if opts.get("copy_outfile", False) and not localdir:
             cmd_copy = ["scp",
