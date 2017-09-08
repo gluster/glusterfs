@@ -10,6 +10,7 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1,2,3}
 TEST $CLI volume set $V0 features.shard on
+TEST $CLI volume set $V0 features.shard-block-size 4MB
 TEST $CLI volume start $V0
 
 TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M0
