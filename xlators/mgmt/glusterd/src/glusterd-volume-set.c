@@ -2395,7 +2395,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key         = NFS_DISABLE_MAP_KEY,
           .voltype     = "nfs/server",
           .option      = "!nfs-disable",
-          .value       = "on",
+          .value       = "off",
           .op_version  = 1
         },
         { .key         = "nfs.nlm",
