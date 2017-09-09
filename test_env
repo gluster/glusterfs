@@ -159,6 +159,7 @@ KNOWN_FLAKY_TESTS="\
    tests/basic/quota-anon-fd-nfs.t\
    tests/basic/rpc-coverage.t\
    tests/basic/afr/gfid-mismatch.t\
+   tests/basic/read-size.t\
 "
 
 DESIRED_TESTS=$(echo $DESIRED_TESTS | tr -s ' ' ' ')
