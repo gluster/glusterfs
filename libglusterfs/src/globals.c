@@ -137,6 +137,29 @@ static struct xlator_cbks global_cbks = {
         .fdctxsize              = NULL,
 };
 
+/* This is required to get through the check in graph.c */
+static struct xlator_fops global_fops = {
+};
+
+static int
+global_xl_reconfigure (xlator_t *this, dict_t *options)
+{
+        dict_dump_to_log (options);
+        return 0;
+}
+
+static int
+global_xl_init (xlator_t *this)
+{
+        return 0;
+}
+
+static void
+global_xl_fini (xlator_t *this)
+{
+        return;
+}
+
 int
 glusterfs_this_init ()
 {
@@ -151,8 +174,12 @@ glusterfs_this_init ()
         }
 
         global_xlator.name = "glusterfs";
-        global_xlator.type = "global";
+        global_xlator.type = GF_GLOBAL_XLATOR_NAME;
         global_xlator.cbks = &global_cbks;
+        global_xlator.fops = &global_fops;
+        global_xlator.reconfigure = global_xl_reconfigure;
+        global_xlator.init = global_xl_init;
+        global_xlator.fini = global_xl_fini;
 
         INIT_LIST_HEAD (&global_xlator.volume_options);
 
