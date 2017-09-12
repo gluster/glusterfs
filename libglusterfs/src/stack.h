@@ -56,6 +56,7 @@ struct call_pool {
                 } all_stacks;
         };
         int64_t                     cnt;
+        gf_atomic_t                 total_count;
         gf_lock_t                   lock;
         struct mem_pool             *frame_mem_pool;
         struct mem_pool             *stack_mem_pool;
@@ -253,6 +254,14 @@ STACK_RESET (call_stack_t *stack)
                               "winding from %s to %s",                  \
                               frame->root, old_THIS->name,              \
                               THIS->name);                              \
+                /* Need to capture counts at leaf node */               \
+                if (!next_xl->children) {                               \
+                        int op = get_fop_index_from_fn((next_xl), (fn)); \
+                        GF_ATOMIC_INC (next_xl->stats.total.metrics[op].fop); \
+                        GF_ATOMIC_INC (next_xl->stats.interval.metrics[op].fop); \
+                        GF_ATOMIC_INC (next_xl->stats.total.count);     \
+                        GF_ATOMIC_INC (next_xl->stats.interval.count);  \
+                }                                                       \
                 next_xl_fn (frame, next_xl, params);                    \
                 THIS = old_THIS;                                        \
         } while (0)
@@ -309,6 +318,10 @@ STACK_RESET (call_stack_t *stack)
                 if (obj->ctx->measure_latency)                          \
                         timespec_now (&_new->begin);                    \
                 _new->op = get_fop_index_from_fn ((_new->this), (fn));  \
+                GF_ATOMIC_INC (obj->stats.total.metrics[_new->op].fop); \
+                GF_ATOMIC_INC (obj->stats.interval.metrics[_new->op].fop); \
+                GF_ATOMIC_INC (obj->stats.total.count);                 \
+                GF_ATOMIC_INC (obj->stats.interval.count);              \
                 fn (_new, obj, params);                                 \
                 THIS = old_THIS;                                        \
         } while (0)
@@ -366,6 +379,10 @@ STACK_RESET (call_stack_t *stack)
                         /* required for top most xlator */              \
                         if (_parent->ret == NULL)                       \
                                 timespec_now (&_parent->end);           \
+                }                                                       \
+                if (op_ret < 0) {                                       \
+                        GF_ATOMIC_INC (THIS->stats.total.metrics[frame->op].cbk); \
+                        GF_ATOMIC_INC (THIS->stats.interval.metrics[frame->op].cbk); \
                 }                                                       \
                 fn (_parent, frame->cookie, _parent->this, op_ret,      \
                     op_errno, params);                                  \
@@ -485,6 +502,7 @@ copy_frame (call_frame_t *frame)
                 newstack->pool->cnt++;
         }
         UNLOCK (&oldstack->pool->lock);
+        GF_ATOMIC_INC (newstack->pool->total_count);
 
         return newframe;
 }

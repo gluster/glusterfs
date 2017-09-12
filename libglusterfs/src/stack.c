@@ -55,6 +55,7 @@ create_frame (xlator_t *xl, call_pool_t *pool)
                 pool->cnt++;
         }
         UNLOCK (&pool->lock);
+        GF_ATOMIC_INC (pool->total_count);
 
         LOCK_INIT (&stack->stack_lock);
 

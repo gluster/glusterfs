@@ -923,6 +923,11 @@ typedef struct xlator_list {
         struct xlator_list *next;
 } xlator_list_t;
 
+typedef struct fop_metrics {
+        gf_atomic_t fop;
+        gf_atomic_t cbk; /* only updaed when there is failure */
+} fop_metrics_t;
+
 struct _xlator {
         /* Built during parsing */
         char          *name;
@@ -953,7 +958,18 @@ struct _xlator {
                 int64_t  client_latency; /* This is in 'milliseconds' units */
                 struct {
                         /* for latency measurement */
+                        fop_metrics_t metrics[GF_FOP_MAXVALUE];
+
+                        gf_atomic_t count;
+                } total;
+
+                struct {
+                        /* for latency measurement */
                         fop_latency_t latencies[GF_FOP_MAXVALUE];
+                        /* for latency measurement */
+                        fop_metrics_t metrics[GF_FOP_MAXVALUE];
+
+                        gf_atomic_t count;
                 } interval;
         } stats;
 
