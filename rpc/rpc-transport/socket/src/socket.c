@@ -4365,7 +4365,9 @@ socket_init (rpc_transport_t *this)
 	if (priv->ssl_enabled || priv->mgmt_ssl) {
                 BIO *bio = NULL;
 
-#if HAVE_TLSV1_2_METHOD
+#if HAVE_TLS_METHOD
+		priv->ssl_meth = (SSL_METHOD *)TLS_method();
+#elif HAVE_TLSV1_2_METHOD
 		priv->ssl_meth = (SSL_METHOD *)TLSv1_2_method();
 #else
 /*
