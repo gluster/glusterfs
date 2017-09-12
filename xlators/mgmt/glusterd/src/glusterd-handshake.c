@@ -441,6 +441,7 @@ glusterd_get_args_from_dict (gf_getspec_req *args, peer_info_t *peerinfo,
         int        client_min_op_version = 1;
         int32_t    ret                   = -1;
         xlator_t  *this                  = NULL;
+        char      *name                  = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -485,12 +486,16 @@ glusterd_get_args_from_dict (gf_getspec_req *args, peer_info_t *peerinfo,
                 goto out;
         }
 
-        ret = dict_get_str (dict, "brick_name",
-                            brick_name);
+        ret = dict_get_str (dict, "brick_name", &name);
         if (ret) {
                 gf_msg_debug (this->name, 0,
                         "No brick name present");
                 ret = 0;
+                goto out;
+        }
+        *brick_name = gf_strdup(name);
+        if (*brick_name == NULL) {
+                ret = -1;
                 goto out;
         }
 
@@ -942,6 +947,8 @@ __server_getspec (rpcsvc_request_t *req)
 fail:
         if (spec_fd > 0)
                 sys_close (spec_fd);
+
+        GF_FREE(brick_name);
 
         rsp.op_ret   = ret;
 
