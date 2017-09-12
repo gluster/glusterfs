@@ -14,6 +14,7 @@
 #define GF_DEFAULT_BASE_PORT 24007
 #define GF_DEFAULT_VOLFILE_TRANSPORT "tcp"
 
+#define GF_GLOBAL_XLATOR_NAME "global"
 #define GD_OP_VERSION_KEY     "operating-version"
 #define GD_MIN_OP_VERSION_KEY "minimum-operating-version"
 #define GD_MAX_OP_VERSION_KEY "maximum-operating-version"
@@ -105,6 +106,8 @@
 xlator_t **__glusterfs_this_location (void);
 xlator_t *glusterfs_this_get (void);
 int glusterfs_this_set (xlator_t *);
+
+extern xlator_t global_xlator;
 
 /* syncopctx */
 void *syncopctx_getctx (void);

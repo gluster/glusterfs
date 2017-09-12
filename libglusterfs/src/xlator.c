@@ -305,10 +305,28 @@ xlator_set_type (xlator_t *xl, const char *type)
 {
         int ret = 0;
 
+        /* Handle 'global' translator differently */
+        if (!strncmp (GF_GLOBAL_XLATOR_NAME, type,
+                      strlen (GF_GLOBAL_XLATOR_NAME))) {
+                /* set the required values from Global xlator */
+                xl->type = gf_strdup (GF_GLOBAL_XLATOR_NAME);
+                xl->cbks = global_xlator.cbks;
+                xl->fops = global_xlator.fops;
+                xl->init = global_xlator.init;
+                xl->fini = global_xlator.fini;
+                xl->reconfigure = global_xlator.reconfigure;
+
+                INIT_LIST_HEAD (&xl->volume_options);
+
+                fill_defaults(xl);
+
+                goto out;
+        }
+
         ret = xlator_set_type_virtual (xl, type);
         if (!ret)
                 ret = xlator_dynload (xl);
-
+out:
         return ret;
 }
 
