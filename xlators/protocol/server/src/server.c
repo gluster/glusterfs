@@ -631,14 +631,6 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                 }
                 UNLOCK (&serv_ctx->fdtable_lock);
 
-                ret = dict_get_str (this->options, "auth-path", &auth_path);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_WARNING, 0,
-                                PS_MSG_DICT_GET_FAILED,
-                                "failed to get auth-path");
-                        auth_path = NULL;
-                }
-
                 gf_event (EVENT_CLIENT_DISCONNECT, "client_uid=%s;"
                           "client_identifier=%s;server_identifier=%s;"
                           "brick_path=%s",
