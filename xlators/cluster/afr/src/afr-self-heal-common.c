@@ -1172,6 +1172,65 @@ afr_mark_split_brain_source_sinks_by_policy (call_frame_t *frame,
         return fav_child;
 }
 
+int
+afr_mark_source_sinks_if_file_empty (xlator_t *this, unsigned char *sources,
+                                     unsigned char *sinks,
+                                     unsigned char *healed_sinks,
+                                     unsigned char *locked_on,
+                                     struct afr_reply *replies,
+                                     afr_transaction_type type)
+{
+        int source = -1;
+        int i = 0;
+        afr_private_t *priv = this->private;
+        struct iatt stbuf = {0, };
+
+        if ((AFR_COUNT (locked_on, priv->child_count) < priv->child_count) ||
+            (afr_success_count(replies, priv->child_count) < priv->child_count))
+                return -1;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (replies[i].poststat.ia_size != 0)
+                        return -1;
+        }
+
+        if (type == AFR_DATA_TRANSACTION)
+                goto mark;
+
+        /*For AFR_METADATA_TRANSACTION, metadata must be same on all bricks.*/
+        stbuf = replies[0].poststat;
+        for (i = 1; i < priv->child_count; i++) {
+                if ((!IA_EQUAL (stbuf, replies[i].poststat, type)) ||
+                    (!IA_EQUAL (stbuf, replies[i].poststat, uid)) ||
+                    (!IA_EQUAL (stbuf, replies[i].poststat, gid)) ||
+                    (!IA_EQUAL (stbuf, replies[i].poststat, prot)))
+                        return -1;
+        }
+        for (i = 1; i < priv->child_count; i++) {
+                if (!afr_xattrs_are_equal (replies[0].xdata,
+                                           replies[i].xdata))
+                        return -1;
+        }
+
+mark:
+        /* All bricks have a zero-byte file. Pick one of them as source. Rest
+         * are sinks.*/
+        for (i = 0 ; i < priv->child_count; i++) {
+                if (source == -1) {
+                        source = i;
+                        sources[i] = 1;
+                        sinks[i] = 0;
+                        healed_sinks[i] = 0;
+                        continue;
+                }
+                sources[i] = 0;
+                sinks[i] = 1;
+                healed_sinks[i] = 1;
+        }
+
+        return source;
+}
+
 /* Return a source depending on the type of heal_op, and set sources[source],
  * sinks[source] and healed_sinks[source] to 1, 0 and 0 respectively. Do so
  * only if the following condition is met:
@@ -1199,6 +1258,12 @@ afr_mark_split_brain_source_sinks (call_frame_t *frame, xlator_t *this,
         local = frame->local;
         priv = this->private;
         xdata_req = local->xdata_req;
+
+        source = afr_mark_source_sinks_if_file_empty (this, sources, sinks,
+                                                      healed_sinks, locked_on,
+                                                      replies, type);
+        if (source >= 0)
+                return source;
 
         ret = dict_get_int32 (xdata_req, "heal-op", &heal_op);
         if (ret)

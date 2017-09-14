@@ -28,7 +28,7 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT '1' afr_child_up_status_meta $M0 $V0-replicate-0
 TEST kill_brick $V0 $H0 $B0/$V0"0"
 TEST stat $M0/datafile
 TEST `echo append>>$M0/datafile`
-TEST chmod +x $M0/mdatafile
+TEST chmod -x $M0/mdatafile
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT '1' afr_child_up_status_meta $M0 $V0-replicate-0 0
 TEST ! cat $M0/datafile

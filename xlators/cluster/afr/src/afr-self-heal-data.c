@@ -581,6 +581,12 @@ __afr_selfheal_data_finalize_source (call_frame_t *frame, xlator_t *this,
         afr_mark_largest_file_as_source (this, sources, replies);
         afr_mark_biggest_witness_as_source (this, sources, witness);
         afr_mark_newest_file_as_source (this, sources, replies);
+        if (priv->arbiter_count)
+                /* Choose non-arbiter brick as source for empty files. */
+                afr_mark_source_sinks_if_file_empty (this, sources, sinks,
+                                                     healed_sinks, locked_on,
+                                                     replies,
+                                                     AFR_DATA_TRANSACTION);
 
 out:
         afr_mark_active_sinks (this, sources, locked_on, healed_sinks);
