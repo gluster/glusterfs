@@ -1687,11 +1687,10 @@ tier_migrate_files_using_qfile (migration_args_t *comp,
         int ret                                 = -1;
         tier_brick_list_t *local_brick          = NULL;
         tier_brick_list_t *temp                 = NULL;
-        char query_file_path_err[PATH_MAX]      = "";
-        struct tm tm                            = {0};
-        gfdb_time_t current_time                = {0};
-        char time_str[256]                      = {0};
-        char time_format[20]                    = "%Y-%m-%d-%H-%M-%S";
+        char query_file_path_err[PATH_MAX+128]  = {0,};
+        struct tm tm                            = {0,};
+        gfdb_time_t current_time                = {0,};
+        char time_str[128]                      = {0,};
         ssize_t qfile_array_size                = 0;
         int count                               = 0;
         int temp_fd                             = 0;
@@ -1702,7 +1701,7 @@ tier_migrate_files_using_qfile (migration_args_t *comp,
         /* Time format for error query files */
         gettimeofday (&current_time, NULL);
         gmtime_r (&current_time.tv_sec, &tm);
-        strftime (time_str, 256, time_format, &tm);
+        strftime (time_str, sizeof (time_str), "%F-%T", &tm);
 
         /* Build the qfile list */
         list_for_each_entry_safe (local_brick, temp, comp->brick_list, list) {
@@ -1760,8 +1759,10 @@ out:
                 list_for_each_entry_safe (local_brick, temp, comp->brick_list,
                                         list) {
                         /* rename error qfile*/
-                        snprintf (query_file_path_err, PATH_MAX, "%s-%s.err",
-                                local_brick->qfile_path, time_str);
+                        snprintf (query_file_path_err,
+                                  sizeof (query_file_path_err),
+                                  "%s-%s.err", local_brick->qfile_path,
+                                  time_str);
                         sys_rename (local_brick->qfile_path,
                                 query_file_path_err);
                 }
