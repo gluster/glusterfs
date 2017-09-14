@@ -25,6 +25,9 @@
 
 #define BAD_OBJECT_THREAD_STACK_SIZE   ((size_t)(1024*1024))
 
+#define BR_PATH_MAX_EXTRA (PATH_MAX+1024)
+#define BR_PATH_MAX_PLUS (PATH_MAX+2048)
+
 /*
  * Oops. Spelling mistake. Correcting it
  */
@@ -122,7 +125,7 @@ typedef struct br_stub_private {
         } container;
         struct mem_pool *local_pool;
 
-        char stub_basepath[PATH_MAX];
+        char stub_basepath[BR_PATH_MAX_EXTRA];
 
         uuid_t bad_object_dir_gfid;
 } br_stub_private_t;

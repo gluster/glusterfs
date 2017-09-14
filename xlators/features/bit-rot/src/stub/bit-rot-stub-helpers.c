@@ -96,57 +96,6 @@ out:
         return ret;
 }
 
-
-/**
- * prints the path to the bad object's entry into the buffer provided.
- * @priv: xlator private
- * @filename: gfid of the bad object.
- * @file_path: buffer provided into which path of the bad object is printed
- *            using above 2 arguments.
- */
-static void
-br_stub_link_path (br_stub_private_t *priv, const char *filename,
-                        char *file_path, size_t len)
-{
-        snprintf (file_path, len, "%s/%s", priv->stub_basepath, filename);
-}
-
-/**
- * Prints the path of the object which acts as a container for all the bad
- * objects. Each new entry corresponding to a bad object is a hard link to
- * the object with name "stub-0000000000000008".
- * @priv: xlator's private
- * @stub_gfid_path: buffer into which the path to the container of bad objects
- *                  is printed.
- */
-static void
-br_stub_container_entry (br_stub_private_t *priv, char *stub_gfid_path,
-                         size_t len)
-{
-
-        snprintf (stub_gfid_path, len, "%s/stub-%s", priv->stub_basepath,
-                  uuid_utoa (priv->bad_object_dir_gfid));
-}
-
-/**
- * Prints the path to the bad object's entry into the buffer provided.
- * @priv: xlator private
- * @gfid: gfid of the bad object.
- * @gfid_path: buffer provided into which path of the bad object is printed
- *            using above 2 arguments.
- * This function is same as br_stub_link_path. But in this function the
- * gfid of the bad object is obtained as an argument (i.e. uuid_t gfid),
- * where as in br_stub_link_path, the gfid is received as filename
- * (i.e. char *filename)
- */
-static void
-br_stub_linked_entry (br_stub_private_t *priv, char *gfid_path, uuid_t gfid,
-                        size_t len)
-{
-        snprintf (gfid_path, len, "%s/%s", priv->stub_basepath,
-                  uuid_utoa (gfid));
-}
-
 /**
  * Adds an entry to the bad objects directory.
  * @gfid: gfid of the bad object being added to the bad objects directory
@@ -154,8 +103,8 @@ br_stub_linked_entry (br_stub_private_t *priv, char *gfid_path, uuid_t gfid,
 int
 br_stub_add (xlator_t *this, uuid_t gfid)
 {
-        char              gfid_path[PATH_MAX] = {0};
-        char              bad_gfid_path[PATH_MAX] = {0};
+        char              gfid_path[BR_PATH_MAX_PLUS] = {0};
+        char              bad_gfid_path[BR_PATH_MAX_PLUS] = {0};
         int               ret = 0;
         br_stub_private_t *priv = NULL;
         struct stat       st = {0};
@@ -164,12 +113,14 @@ br_stub_add (xlator_t *this, uuid_t gfid)
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name, !gf_uuid_is_null (gfid),
                                        out, errno, EINVAL);
 
-        br_stub_linked_entry (priv, gfid_path, gfid, sizeof (gfid_path));
+        snprintf (gfid_path, sizeof (gfid_path), "%s/%s",
+                  priv->stub_basepath, uuid_utoa (gfid));
 
         ret = sys_stat (gfid_path, &st);
         if (!ret)
                 goto out;
-        br_stub_container_entry (priv, bad_gfid_path, sizeof (bad_gfid_path));
+        snprintf (bad_gfid_path, sizeof (bad_gfid_path), "%s/stub-%s",
+                  priv->stub_basepath, uuid_utoa (priv->bad_object_dir_gfid));
 
         ret = sys_link (bad_gfid_path, gfid_path);
         if (ret) {
@@ -198,13 +149,13 @@ br_stub_del (xlator_t *this, uuid_t gfid)
         int32_t      op_errno __attribute__((unused)) = 0;
         br_stub_private_t *priv = NULL;
         int          ret = 0;
-        char         gfid_path[PATH_MAX] = {0};
+        char         gfid_path[BR_PATH_MAX_PLUS] = {0};
 
         priv = this->private;
         GF_ASSERT_AND_GOTO_WITH_ERROR (this->name, !gf_uuid_is_null (gfid),
                                        out, op_errno, EINVAL);
-        br_stub_linked_entry (priv, gfid_path, gfid,
-                              sizeof (gfid_path));
+        snprintf (gfid_path, sizeof (gfid_path), "%s/%s",
+                  priv->stub_basepath, uuid_utoa (gfid));
         ret = sys_unlink (gfid_path);
         if (ret && (errno != ENOENT)) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -226,13 +177,13 @@ br_stub_check_stub_directory (xlator_t *this, char *fullpath)
 {
         int         ret         = 0;
         struct stat st          = {0,};
-        char  oldpath[PATH_MAX] = {0};
+        char  oldpath[BR_PATH_MAX_PLUS] = {0};
         br_stub_private_t    *priv = NULL;
 
         priv = this->private;
 
-        (void) snprintf (oldpath, PATH_MAX,
-                         "%s/%s", priv->export, OLD_BR_STUB_QUARANTINE_DIR);
+        snprintf (oldpath, sizeof (oldpath), "%s/%s",
+                  priv->export, OLD_BR_STUB_QUARANTINE_DIR);
 
         ret = sys_stat (fullpath, &st);
         if (!ret && !S_ISDIR (st.st_mode))
@@ -301,14 +252,15 @@ int
 br_stub_dir_create (xlator_t *this, br_stub_private_t *priv)
 {
         int          ret = -1;
-        char         fullpath[PATH_MAX] = {0};
-        char         stub_gfid_path[PATH_MAX] = {0, };
+        char         fullpath[BR_PATH_MAX_PLUS] = {0,};
+        char         stub_gfid_path[BR_PATH_MAX_PLUS] = {0,};
 
         gf_uuid_copy (priv->bad_object_dir_gfid, BR_BAD_OBJ_CONTAINER);
 
-        snprintf (fullpath, sizeof (fullpath), "%s", priv->stub_basepath);
+        strncpy (fullpath, priv->stub_basepath, sizeof (fullpath));
 
-        br_stub_container_entry (priv, stub_gfid_path, sizeof (stub_gfid_path));
+        snprintf (stub_gfid_path, sizeof (stub_gfid_path), "%s/stub-%s",
+                  priv->stub_basepath, uuid_utoa (priv->bad_object_dir_gfid));
 
         ret = br_stub_check_stub_directory (this, fullpath);
         if (ret)
@@ -455,7 +407,7 @@ check_delete_stale_bad_file (xlator_t *this, char *filename)
 {
         int             ret = 0;
         struct stat     st = {0};
-        char            filepath[PATH_MAX] = {0};
+        char            filepath[BR_PATH_MAX_PLUS] = {0};
         br_stub_private_t    *priv = NULL;
 
         priv = this->private;
@@ -463,7 +415,8 @@ check_delete_stale_bad_file (xlator_t *this, char *filename)
         if (is_bad_gfid_file_current (filename, priv->bad_object_dir_gfid))
                 return;
 
-        br_stub_link_path (priv, filename, filepath, sizeof (filepath));
+        snprintf (filepath, sizeof (filepath), "%s/%s",
+                  priv->stub_basepath, filename);
 
         ret = sys_stat (filepath, &st);
         if (!ret && st.st_nlink == 1)

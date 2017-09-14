@@ -139,9 +139,9 @@ init (xlator_t *this)
         GF_OPTION_INIT ("bitrot", priv->do_versioning, bool, free_mempool);
 
         GF_OPTION_INIT ("export", tmp, str, free_mempool);
-        memcpy (priv->export, tmp, strlen (tmp) + 1);
+        strncpy (priv->export, tmp, sizeof (priv->export));
 
-        (void) snprintf (priv->stub_basepath, PATH_MAX,
+        (void) snprintf (priv->stub_basepath, sizeof (priv->stub_basepath),
                          "%s/%s", priv->export, BR_STUB_QUARANTINE_DIR);
 
         (void) gettimeofday (&tv, NULL);
