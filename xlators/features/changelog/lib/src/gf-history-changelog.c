@@ -618,8 +618,8 @@ gf_history_consume (void * data)
 
                         curr->retval = 0;
                         memset (curr->changelog, '\0', PATH_MAX);
-                        snprintf (thread_name, sizeof(thread_name), "%s%d",
-                                  "clogc", iter + 1);
+                        snprintf (thread_name, sizeof(thread_name),
+                                  "clogc%03hx", ((iter + 1) & 0x3ff));
 
                         ret = gf_thread_create (&th_id[iter], NULL,
                                                 gf_changelog_consume_wrap, curr,

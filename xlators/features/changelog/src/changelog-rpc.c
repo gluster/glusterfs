@@ -116,7 +116,7 @@ changelog_init_rpc_threads (xlator_t *this, changelog_priv_t *priv,
         /* spawn dispatcher threads */
         for (; j < nr_dispatchers; j++) {
                 snprintf (thread_name, sizeof(thread_name),
-                          "%s%d", "clogd", j);
+                          "clogd%03hx", (j & 0x3ff));
                 ret = gf_thread_create (&priv->ev_dispatcher[j],
                                         NULL, changelog_ev_dispatch, conn,
                                         thread_name);

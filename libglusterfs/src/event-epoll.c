@@ -714,7 +714,7 @@ event_dispatch_epoll (struct event_pool *event_pool)
                         ev_data->event_index = i + 1;
 
                         snprintf (thread_name, sizeof(thread_name),
-                                  "%s%d", "epoll", i);
+                                  "epoll%03hx", (i & 0x3ff));
                         ret = gf_thread_create (&t_id, NULL,
                                                 event_dispatch_epoll_worker,
                                                 ev_data, thread_name);
@@ -826,8 +826,7 @@ event_reconfigure_threads_epoll (struct event_pool *event_pool, int value)
 
                                         snprintf (thread_name,
                                                   sizeof(thread_name),
-                                                  "%s%d",
-                                                  "epoll", i);
+                                                  "epoll%03hx", (i & 0x3ff));
                                         ret = gf_thread_create (&t_id, NULL,
                                                 event_dispatch_epoll_worker,
                                                 ev_data, thread_name);
