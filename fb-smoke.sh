@@ -99,30 +99,6 @@ function print_result {
     fi
 }
 
-function run_remote {
-    if [ ! -d "$FBCODE" ]; then
-        echo "fbcode does not exists. Please checkout fbcode"
-        return 1
-    fi
-
-    local flags=''
-    if [ "$VERBOSE" -eq "1" ]; then
-        flags="$flags -v"
-    fi
-
-    if [ "$VALGRIND" -eq "1" ]; then
-        flags="$flags --valgrind"
-    fi
-
-    if [ "$ASAN" -eq "1" ]; then
-        flags="$flags --asan"
-    fi
-
-    "$FBCODE/storage/gluster/gluster-build/fb-gluster-test.py" $flags --tester \
-        --n "$N" --hosts "$REMOTE_HOSTS" --tests "$REMOTE_TESTS"\
-        --flaky_tests "$REMOTE_FLAKY_TESTS"
-}
-
 #
 # Main
 #
@@ -135,20 +111,9 @@ declare -a FAILED_TESTS
 TEST_TIMEOUT=${TEST_TIMEOUT:=300}
 SKIP_FLAKY=${SKIP_FLAKY:=1}
 STOP_ON_FAIL=${STOP_ON_FAIL:=0}
-FBCODE=${FBCODE:="$HOME/fbsource/fbcode"}
-N=${N:=0}
-REMOTE_HOSTS=${REMOTE_HOSTS:="$(smcc ls-hosts -s gluster.build.ash | xargs)"}
-REMOTE=${REMOTE:=0}
-REMOTE_TESTS=${REMOTE_TESTS:=$DESIRED_TESTS}
-REMOTE_FLAKY_TESTS=${REMOTE_FLAKY_TESTS:=$KNOWN_FLAKY_TESTS}
-VERBOSE=${VERBOSE:=0}
 VALGRIND=${VALGRIND:=0}
 ASAN=${ASAN:=0}
-
-if [ "$REMOTE" -eq "1" ]; then
-    run_remote
-    exit $?
-fi
+ASAN_NOLEAKS=${ASAN_NOLEAKS:=0}
 
 if [ "$SKIP_FLAKY" -eq "0" ]; then
     ATTEMPT=${ATTEMPT:=3}

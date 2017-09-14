@@ -1,0 +1,7 @@
+{
+    "aliases" : {
+        "smoke" : [ "!./fb-remote-test.sh" ],
+        "test" : [ "!./fb-remote-test.sh --tests=all" ],
+        "asan-noleaks" : [ "!./fb-remote-test.sh --tests=all --asan-noleaks" ]
+    }
+}
