@@ -135,9 +135,11 @@ void trap (void);
 #define GF_PERCENTAGE(val, total) (((val)*100)/(total))
 
 /* pthread related */
-#define GF_THREAD_NAMEMAX 9
-#define GF_THREAD_NAME_PREFIX "gluster"
-#define GF_THREAD_NAME_PREFIX_LEN 7
+/* as per the man page, thread-name should be at max 16 bytes */
+/* with prefix of 'glfs_' (5), we are left with 11 more bytes */
+#define GF_THREAD_NAMEMAX 11
+#define GF_THREAD_NAME_PREFIX "glfs_"
+#define GF_THREAD_NAME_PREFIX_LEN 5
 
 #include <stdbool.h>
 #define gf_boolean_t    bool

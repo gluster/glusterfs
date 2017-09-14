@@ -4642,7 +4642,7 @@ gf_defrag_parallel_migration_init (xlator_t *this, gf_defrag_info_t *defrag,
         /*Spawn Threads Here*/
         while (index < thread_spawn_count) {
                 snprintf (thread_name, sizeof(thread_name),
-                          "%s%d", "dhtmig", index + 1);
+                          "dhtmig%d", ((index + 1) & 0x3ff));
                 ret = gf_thread_create (&(tid[index]), NULL,
                                         &gf_defrag_task, (void *)defrag,
                                         thread_name);
@@ -4885,7 +4885,6 @@ gf_defrag_start_crawl (void *data)
                 } else {
                         fc_thread_started = _gf_true;
                 }
-
         }
 
 

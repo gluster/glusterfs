@@ -733,7 +733,7 @@ syncenv_scale (struct syncenv *env)
 
                         env->proc[i].env = env;
                         snprintf (thread_name, sizeof(thread_name),
-                                  "%s%d", "sproc", env->procs);
+                                  "sproc%03hx", (env->procs & 0x3ff));
                         ret = gf_thread_create (&env->proc[i].processor, NULL,
                                                 syncenv_processor,
                                                 &env->proc[i], thread_name);

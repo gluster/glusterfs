@@ -835,7 +835,7 @@ __iot_workers_scale (iot_conf_t *conf)
                 diff --;
 
                 snprintf (thread_name, sizeof(thread_name),
-                          "%s%d", "iotwr", conf->curr_count);
+                          "iotwr%03hx", (conf->curr_count & 0x3ff));
                 ret = gf_thread_create (&thread, &conf->w_attr, iot_worker,
                                         conf, thread_name);
                 if (ret == 0) {
