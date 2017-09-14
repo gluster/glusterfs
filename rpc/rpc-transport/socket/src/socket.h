@@ -84,10 +84,10 @@ typedef enum {
         SP_STATE_READ_PROGHDR,
         SP_STATE_READING_PROGHDR_XDATA,
         SP_STATE_READ_PROGHDR_XDATA,    /* It's a bad "name" in the generic
-					   RPC state machine, but greatly
-					   aids code review (and xdata is
-					   the only "consumer" of this state)
-					*/
+                                           RPC state machine, but greatly
+                                           aids code review (and xdata is
+                                           the only "consumer" of this state)
+                                        */
         SP_STATE_READING_PROG,
 } sp_rpcfrag_vectored_request_state_t;
 
@@ -186,10 +186,10 @@ struct gf_sock_incoming {
         msg_type_t           msg_type;
         size_t               total_bytes_read;
 
-	size_t               ra_read;
-	size_t               ra_max;
-	size_t               ra_served;
-	char                *ra_buf;
+        size_t               ra_read;
+        size_t               ra_max;
+        size_t               ra_served;
+        char                *ra_buf;
 };
 
 typedef enum {
@@ -237,18 +237,18 @@ typedef struct {
         gf_boolean_t           ssl_enabled;     /* outbound I/O */
         gf_boolean_t           mgmt_ssl;        /* outbound mgmt */
         mgmt_ssl_t             srvr_ssl;
-	gf_boolean_t           use_ssl;
-	SSL_METHOD            *ssl_meth;
-	SSL_CTX               *ssl_ctx;
-	int                    ssl_session_id;
-	BIO                   *ssl_sbio;
-	SSL                   *ssl_ssl;
-	char                  *ssl_own_cert;
-	char                  *ssl_private_key;
-	char                  *ssl_ca_list;
-	pthread_t              thread;
-	int                    pipe[2];
-	gf_boolean_t           own_thread;
+        gf_boolean_t           use_ssl;
+        SSL_METHOD            *ssl_meth;
+        SSL_CTX               *ssl_ctx;
+        int                    ssl_session_id;
+        BIO                   *ssl_sbio;
+        SSL                   *ssl_ssl;
+        char                  *ssl_own_cert;
+        char                  *ssl_private_key;
+        char                  *ssl_ca_list;
+        pthread_t              thread;
+        int                    pipe[2];
+        gf_boolean_t           own_thread;
         gf_boolean_t           own_thread_done;
         ot_state_t             ot_state;
         uint32_t               ot_gen;

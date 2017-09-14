@@ -192,29 +192,29 @@ static int socket_init (rpc_transport_t *this);
 static void
 ssl_dump_error_stack (const char *caller)
 {
-	unsigned long  errnum = 0;
-	char           errbuf[120] = {0,};
+        unsigned long  errnum = 0;
+        char           errbuf[120] = {0,};
 
-	/* OpenSSL docs explicitly give 120 as the error-string length. */
+        /* OpenSSL docs explicitly give 120 as the error-string length. */
 
-	while ((errnum = ERR_get_error())) {
-		ERR_error_string(errnum,errbuf);
-		gf_log(caller,GF_LOG_ERROR,"  %s",errbuf);
-	}
+        while ((errnum = ERR_get_error())) {
+                ERR_error_string(errnum,errbuf);
+                gf_log(caller,GF_LOG_ERROR,"  %s",errbuf);
+        }
 }
 
 static int
 ssl_do (rpc_transport_t *this, void *buf, size_t len, SSL_trinary_func *func)
 {
-	int               r = (-1);
-	struct pollfd     pfd = {-1,};
-	socket_private_t *priv = NULL;
+        int               r = (-1);
+        struct pollfd     pfd = {-1,};
+        socket_private_t *priv = NULL;
 
-	GF_VALIDATE_OR_GOTO(this->name,this->private,out);
-	priv = this->private;
+        GF_VALIDATE_OR_GOTO(this->name,this->private,out);
+        priv = this->private;
 
-	for (;;) {
-		if (buf) {
+        for (;;) {
+                if (buf) {
                         if (priv->connected == -1) {
                                 /*
                                  * Fields in the SSL structure (especially
@@ -226,19 +226,19 @@ ssl_do (rpc_transport_t *this, void *buf, size_t len, SSL_trinary_func *func)
                                        "lost connection in %s", __func__);
                                 break;
                         }
-			r = func(priv->ssl_ssl,buf,len);
-		}
-		else {
+                        r = func(priv->ssl_ssl,buf,len);
+                }
+                else {
                         /*
                          * We actually need these functions to get to
                          * priv->connected == 1.
                          */
-			r = ((SSL_unary_func *)func)(priv->ssl_ssl);
-		}
-		switch (SSL_get_error(priv->ssl_ssl,r)) {
-		case SSL_ERROR_NONE:
-			return r;
-		case SSL_ERROR_WANT_READ:
+                        r = ((SSL_unary_func *)func)(priv->ssl_ssl);
+                }
+                switch (SSL_get_error(priv->ssl_ssl,r)) {
+                case SSL_ERROR_NONE:
+                        return r;
+                case SSL_ERROR_WANT_READ:
                         /* If we are attempting to connect/accept then we
                          * should wait here on the poll, for the SSL
                          * (re)negotiation to complete, else we would error out
@@ -255,39 +255,39 @@ ssl_do (rpc_transport_t *this, void *buf, size_t len, SSL_trinary_func *func)
                                 return r;
                         }
 
-			pfd.fd = priv->sock;
-			pfd.events = POLLIN;
-			if (poll(&pfd,1,-1) < 0) {
-				gf_log(this->name,GF_LOG_ERROR,"poll error %d",
-				       errno);
-			}
-			break;
-		case SSL_ERROR_WANT_WRITE:
+                        pfd.fd = priv->sock;
+                        pfd.events = POLLIN;
+                        if (poll(&pfd,1,-1) < 0) {
+                                gf_log(this->name,GF_LOG_ERROR,"poll error %d",
+                                       errno);
+                        }
+                        break;
+                case SSL_ERROR_WANT_WRITE:
                         if ((func == (SSL_trinary_func *)SSL_read)
                             || (func == (SSL_trinary_func *) SSL_write)) {
                                 errno = EAGAIN;
                                 return r;
                         }
-			pfd.fd = priv->sock;
-			pfd.events = POLLOUT;
-			if (poll(&pfd,1,-1) < 0) {
-				gf_log(this->name,GF_LOG_ERROR,"poll error %d",
-				       errno);
-			}
-			break;
-		case SSL_ERROR_SYSCALL:
-			/* This is what we get when remote disconnects. */
-			gf_log(this->name,GF_LOG_DEBUG,
-			       "syscall error (probably remote disconnect)");
-			errno = ENODATA;
-			goto out;
-		default:
-			errno = EIO;
-			goto out;	/* "break" would just loop again */
-		}
-	}
+                        pfd.fd = priv->sock;
+                        pfd.events = POLLOUT;
+                        if (poll(&pfd,1,-1) < 0) {
+                                gf_log(this->name,GF_LOG_ERROR,"poll error %d",
+                                       errno);
+                        }
+                        break;
+                case SSL_ERROR_SYSCALL:
+                        /* This is what we get when remote disconnects. */
+                        gf_log(this->name,GF_LOG_DEBUG,
+                               "syscall error (probably remote disconnect)");
+                        errno = ENODATA;
+                        goto out;
+                default:
+                        errno = EIO;
+                        goto out;       /* "break" would just loop again */
+                }
+        }
 out:
-	return -1;
+        return -1;
 }
 
 #define ssl_connect_one(t)   ssl_do((t),NULL,0,(SSL_trinary_func *)SSL_connect)
@@ -298,70 +298,70 @@ out:
 static char *
 ssl_setup_connection (rpc_transport_t *this, int server)
 {
-	X509             *peer = NULL;
-	char              peer_CN[256] = "";
-	int               ret = -1;
-	socket_private_t *priv = NULL;
+        X509             *peer = NULL;
+        char              peer_CN[256] = "";
+        int               ret = -1;
+        socket_private_t *priv = NULL;
 
-	GF_VALIDATE_OR_GOTO(this->name,this->private,done);
-	priv = this->private;
+        GF_VALIDATE_OR_GOTO(this->name,this->private,done);
+        priv = this->private;
 
-	priv->ssl_ssl = SSL_new(priv->ssl_ctx);
-	if (!priv->ssl_ssl) {
-		gf_log(this->name,GF_LOG_ERROR,"SSL_new failed");
-		ssl_dump_error_stack(this->name);
-		goto done;
-	}
-	priv->ssl_sbio = BIO_new_socket(priv->sock,BIO_NOCLOSE);
-	if (!priv->ssl_sbio) {
-		gf_log(this->name,GF_LOG_ERROR,"BIO_new_socket failed");
-		ssl_dump_error_stack(this->name);
-		goto free_ssl;
-	}
-	SSL_set_bio(priv->ssl_ssl,priv->ssl_sbio,priv->ssl_sbio);
+        priv->ssl_ssl = SSL_new(priv->ssl_ctx);
+        if (!priv->ssl_ssl) {
+                gf_log(this->name,GF_LOG_ERROR,"SSL_new failed");
+                ssl_dump_error_stack(this->name);
+                goto done;
+        }
+        priv->ssl_sbio = BIO_new_socket(priv->sock,BIO_NOCLOSE);
+        if (!priv->ssl_sbio) {
+                gf_log(this->name,GF_LOG_ERROR,"BIO_new_socket failed");
+                ssl_dump_error_stack(this->name);
+                goto free_ssl;
+        }
+        SSL_set_bio(priv->ssl_ssl,priv->ssl_sbio,priv->ssl_sbio);
 
-	if (server) {
-		ret = ssl_accept_one(this);
-	}
-	else {
-		ret = ssl_connect_one(this);
-	}
+        if (server) {
+                ret = ssl_accept_one(this);
+        }
+        else {
+                ret = ssl_connect_one(this);
+        }
 
-	/* Make sure _the call_ succeeded. */
-	if (ret < 0) {
-		goto ssl_error;
-	}
+        /* Make sure _the call_ succeeded. */
+        if (ret < 0) {
+                goto ssl_error;
+        }
 
-	/* Make sure _SSL verification_ succeeded, yielding an identity. */
-	if (SSL_get_verify_result(priv->ssl_ssl) != X509_V_OK) {
-		goto ssl_error;
-	}
-	peer = SSL_get_peer_certificate(priv->ssl_ssl);
-	if (!peer) {
-		goto ssl_error;
-	}
+        /* Make sure _SSL verification_ succeeded, yielding an identity. */
+        if (SSL_get_verify_result(priv->ssl_ssl) != X509_V_OK) {
+                goto ssl_error;
+        }
+        peer = SSL_get_peer_certificate(priv->ssl_ssl);
+        if (!peer) {
+                goto ssl_error;
+        }
 
-	/* Finally, everything seems OK. */
-	X509_NAME_get_text_by_NID(X509_get_subject_name(peer),
-		NID_commonName, peer_CN, sizeof(peer_CN)-1);
-	peer_CN[sizeof(peer_CN)-1] = '\0';
-	gf_log(this->name, GF_LOG_DEBUG, "peer CN = %s", peer_CN);
+        /* Finally, everything seems OK. */
+        X509_NAME_get_text_by_NID(X509_get_subject_name(peer),
+                NID_commonName, peer_CN, sizeof(peer_CN)-1);
+        peer_CN[sizeof(peer_CN)-1] = '\0';
+        gf_log(this->name, GF_LOG_DEBUG, "peer CN = %s", peer_CN);
         gf_log (this->name, GF_LOG_DEBUG,
                 "SSL verification succeeded (client: %s) (server: %s)",
                 this->peerinfo.identifier, this->myinfo.identifier);
         return gf_strdup(peer_CN);
 
-	/* Error paths. */
+        /* Error paths. */
 ssl_error:
-	gf_log (this->name, GF_LOG_ERROR,
+        gf_log (this->name, GF_LOG_ERROR,
                 "SSL connect error (client: %s) (server: %s)",
                 this->peerinfo.identifier, this->myinfo.identifier);
-	ssl_dump_error_stack(this->name);
+        ssl_dump_error_stack(this->name);
 free_ssl:
-	SSL_free(priv->ssl_ssl);
+        SSL_free(priv->ssl_ssl);
         priv->ssl_ssl = NULL;
 done:
-	return NULL;
+        return NULL;
 }
 
 
@@ -381,103 +381,103 @@ ssl_teardown_connection (socket_private_t *priv)
 static ssize_t
 __socket_ssl_readv (rpc_transport_t *this, struct iovec *opvector, int opcount)
 {
-	socket_private_t    *priv = NULL;
-	int                  sock = -1;
-	int                  ret = -1;
+        socket_private_t    *priv = NULL;
+        int                  sock = -1;
+        int                  ret = -1;
 
-	priv = this->private;
-	sock = priv->sock;
+        priv = this->private;
+        sock = priv->sock;
 
-	if (priv->use_ssl) {
-		ret = ssl_read_one (this, opvector->iov_base, opvector->iov_len);
-	} else {
-		ret = sys_readv (sock, opvector, IOV_MIN(opcount));
-	}
+        if (priv->use_ssl) {
+                ret = ssl_read_one (this, opvector->iov_base, opvector->iov_len);
+        } else {
+                ret = sys_readv (sock, opvector, IOV_MIN(opcount));
+        }
 
-	return ret;
+        return ret;
 }
 
 
 static ssize_t
 __socket_ssl_read (rpc_transport_t *this, void *buf, size_t count)
 {
-	struct iovec iov = {0, };
-	int          ret = -1;
+        struct iovec iov = {0, };
+        int          ret = -1;
 
-	iov.iov_base = buf;
-	iov.iov_len = count;
+        iov.iov_base = buf;
+        iov.iov_len = count;
 
-	ret = __socket_ssl_readv (this, &iov, 1);
+        ret = __socket_ssl_readv (this, &iov, 1);
 
-	return ret;
+        return ret;
 }
 
 
 static int
 __socket_cached_read (rpc_transport_t *this, struct iovec *opvector, int opcount)
 {
-	socket_private_t   *priv = NULL;
-	struct gf_sock_incoming *in = NULL;
-	int                 req_len = -1;
-	int                 ret = -1;
+        socket_private_t   *priv = NULL;
+        struct gf_sock_incoming *in = NULL;
+        int                 req_len = -1;
+        int                 ret = -1;
 
-	priv = this->private;
-	in = &priv->incoming;
-	req_len = iov_length (opvector, opcount);
+        priv = this->private;
+        in = &priv->incoming;
+        req_len = iov_length (opvector, opcount);
 
-	if (in->record_state == SP_STATE_READING_FRAGHDR) {
-		in->ra_read = 0;
-		in->ra_served = 0;
-		in->ra_max = 0;
-		in->ra_buf = NULL;
-		goto uncached;
-	}
+        if (in->record_state == SP_STATE_READING_FRAGHDR) {
+                in->ra_read = 0;
+                in->ra_served = 0;
+                in->ra_max = 0;
+                in->ra_buf = NULL;
+                goto uncached;
+        }
 
-	if (!in->ra_max) {
-		/* first call after passing SP_STATE_READING_FRAGHDR */
-		in->ra_max = min (RPC_FRAGSIZE (in->fraghdr), GF_SOCKET_RA_MAX);
-		/* Note that the in->iobuf is the primary iobuf into which
-		   headers are read into, and in->frag.fragcurrent points to
- 		   some position in the buffer. By using this itself as our
-		   read-ahead cache, we can avoid memory copies in iov_load
-		*/
-		in->ra_buf = in->frag.fragcurrent;
-	}
+        if (!in->ra_max) {
+                /* first call after passing SP_STATE_READING_FRAGHDR */
+                in->ra_max = min (RPC_FRAGSIZE (in->fraghdr), GF_SOCKET_RA_MAX);
+                /* Note that the in->iobuf is the primary iobuf into which
+                   headers are read into, and in->frag.fragcurrent points to
+                   some position in the buffer. By using this itself as our
+                   read-ahead cache, we can avoid memory copies in iov_load
+                */
+                in->ra_buf = in->frag.fragcurrent;
+        }
 
-	/* fill read-ahead */
-	if (in->ra_read < in->ra_max) {
-		ret = __socket_ssl_read (this, &in->ra_buf[in->ra_read],
-					 (in->ra_max - in->ra_read));
-		if (ret > 0)
-			in->ra_read += ret;
+        /* fill read-ahead */
+        if (in->ra_read < in->ra_max) {
+                ret = __socket_ssl_read (this, &in->ra_buf[in->ra_read],
+                                         (in->ra_max - in->ra_read));
+                if (ret > 0)
+                        in->ra_read += ret;
 
-		/* we proceed to test if there is still cached data to
-		   be served even if readahead could not progress */
-	}
+                /* we proceed to test if there is still cached data to
+                   be served even if readahead could not progress */
+        }
 
-	/* serve cached */
-	if (in->ra_served < in->ra_read) {
-		ret = iov_load (opvector, opcount, &in->ra_buf[in->ra_served],
-				min (req_len, (in->ra_read - in->ra_served)));
+        /* serve cached */
+        if (in->ra_served < in->ra_read) {
+                ret = iov_load (opvector, opcount, &in->ra_buf[in->ra_served],
+                                min (req_len, (in->ra_read - in->ra_served)));
 
-		in->ra_served += ret;
-		/* Do not read uncached and cached in the same call */
-		goto out;
-	}
+                in->ra_served += ret;
+                /* Do not read uncached and cached in the same call */
+                goto out;
+        }
 
-	if (in->ra_read < in->ra_max)
-		/* If there was no cached data to be served, (and we are
-		   guaranteed to have already performed an attempt to progress
-		   readahead above), and we have not yet read out the full
-		   readahead capacity, then bail out for now without doing
-		   the uncached read below (as that will overtake future cached
-		   read)
-		*/
-		goto out;
+        if (in->ra_read < in->ra_max)
+                /* If there was no cached data to be served, (and we are
+                   guaranteed to have already performed an attempt to progress
+                   readahead above), and we have not yet read out the full
+                   readahead capacity, then bail out for now without doing
+                   the uncached read below (as that will overtake future cached
+                   read)
+                */
+                goto out;
 uncached:
-	ret = __socket_ssl_readv (this, opvector, opcount);
+        ret = __socket_ssl_readv (this, opvector, opcount);
 out:
-	return ret;
+        return ret;
 }
 
 static gf_boolean_t
@@ -543,12 +543,12 @@ __socket_rwv (rpc_transport_t *this, struct iovec *vector, int count,
                          */
                         ret = -1;
                 } else if (write) {
-			if (priv->use_ssl) {
+                        if (priv->use_ssl) {
                                 ret = ssl_write_one (this, opvector->iov_base,
                                                      opvector->iov_len);
-			} else {
-				ret = sys_writev (sock, opvector, IOV_MIN(opcount));
-			}
+                        } else {
+                                ret = sys_writev (sock, opvector, IOV_MIN(opcount));
+                        }
 
                         if (ret == 0 || (ret == -1 && errno == EAGAIN)) {
                                 /* done for now */
@@ -556,13 +556,13 @@ __socket_rwv (rpc_transport_t *this, struct iovec *vector, int count,
                         }
                         this->total_bytes_write += ret;
                 } else {
-			ret = __socket_cached_read (this, opvector, opcount);
+                        ret = __socket_cached_read (this, opvector, opcount);
 
-			if (ret == 0) {
-				gf_log(this->name,GF_LOG_DEBUG,"EOF on socket");
-				errno = ENODATA;
-				ret = -1;
-			}
+                        if (ret == 0) {
+                                gf_log(this->name,GF_LOG_DEBUG,"EOF on socket");
+                                errno = ENODATA;
+                                ret = -1;
+                        }
                         if (ret == -1 && errno == EAGAIN) {
                                 /* done for now */
                                 break;
@@ -593,9 +593,9 @@ __socket_rwv (rpc_transport_t *this, struct iovec *vector, int count,
                                                     strerror (errno));
                         }
 
-			if (priv->use_ssl && priv->ssl_ssl) {
-				ssl_dump_error_stack(this->name);
-			}
+                        if (priv->use_ssl && priv->ssl_ssl) {
+                                ssl_dump_error_stack(this->name);
+                        }
                         opcount = -1;
                         break;
                 }
@@ -733,7 +733,7 @@ __socket_disconnect (rpc_transport_t *this)
                                 strerror (errno));
                 }
 
-		if (priv->own_thread) {
+                if (priv->own_thread) {
                         /*
                          * Without this, reconnect (= disconnect + connect)
                          * won't work except by accident.
@@ -1111,8 +1111,8 @@ static int
 __socket_ioq_churn_entry (rpc_transport_t *this, struct ioq *entry, int direct)
 {
         int               ret = -1;
-	socket_private_t *priv = NULL;
-	char              a_byte = 0;
+        socket_private_t *priv = NULL;
+        char              a_byte = 0;
 
         ret = __socket_writev (this, entry->pending_vector,
                                entry->pending_count,
@@ -1123,18 +1123,18 @@ __socket_ioq_churn_entry (rpc_transport_t *this, struct ioq *entry, int direct)
                 /* current entry was completely written */
                 GF_ASSERT (entry->pending_count == 0);
                 __socket_ioq_entry_free (entry);
-		priv = this->private;
-		if (priv->own_thread) {
-			/*
-			 * The pipe should only remain readable if there are
-			 * more entries after this, so drain the byte
-			 * representing this entry.
-			 */
-			if (!direct && sys_read (priv->pipe[0], &a_byte, 1) < 1) {
-				gf_log(this->name,GF_LOG_WARNING,
-				       "read error on pipe");
-			}
-		}
+                priv = this->private;
+                if (priv->own_thread) {
+                        /*
+                         * The pipe should only remain readable if there are
+                         * more entries after this, so drain the byte
+                         * representing this entry.
+                         */
+                        if (!direct && sys_read (priv->pipe[0], &a_byte, 1) < 1) {
+                                gf_log(this->name,GF_LOG_WARNING,
+                                       "read error on pipe");
+                        }
+                }
         }
 
         return ret;
@@ -1406,8 +1406,8 @@ __socket_read_vectored_request (rpc_transport_t *this, rpcsvc_vector_sizer vecto
 
         case SP_STATE_READ_VERFBYTES:
 sp_state_read_verfbytes:
-		/* set the base_addr 'persistently' across multiple calls
-		   into the state machine */
+                /* set the base_addr 'persistently' across multiple calls
+                   into the state machine */
                 in->proghdr_base_addr = frag->fragcurrent;
 
                 request->vector_sizer_state =
@@ -1423,11 +1423,11 @@ sp_state_read_verfbytes:
         case SP_STATE_READING_PROGHDR:
                 __socket_proto_read (priv, ret);
 
-		request->vector_state =	SP_STATE_READ_PROGHDR;
+                request->vector_state = SP_STATE_READ_PROGHDR;
 
-		/* fall through */
+                /* fall through */
 
-	case SP_STATE_READ_PROGHDR:
+        case SP_STATE_READ_PROGHDR:
 sp_state_read_proghdr:
                 request->vector_sizer_state =
                         vector_sizer (request->vector_sizer_state,
@@ -1435,21 +1435,21 @@ sp_state_read_proghdr:
                                       frag->fragcurrent);
                 if (readsize == 0) {
                         request->vector_state = SP_STATE_READ_PROGHDR_XDATA;
-			goto sp_state_read_proghdr_xdata;
+                        goto sp_state_read_proghdr_xdata;
                 }
 
-		__socket_proto_init_pending (priv, readsize);
+                __socket_proto_init_pending (priv, readsize);
 
-                request->vector_state =	SP_STATE_READING_PROGHDR_XDATA;
+                request->vector_state = SP_STATE_READING_PROGHDR_XDATA;
 
-		/* fall through */
+                /* fall through */
 
-	case SP_STATE_READING_PROGHDR_XDATA:
-		__socket_proto_read (priv, ret);
+        case SP_STATE_READING_PROGHDR_XDATA:
+                __socket_proto_read (priv, ret);
 
-		request->vector_state =	SP_STATE_READ_PROGHDR;
-		/* check if the vector_sizer() has more to say */
-		goto sp_state_read_proghdr;
+                request->vector_state = SP_STATE_READ_PROGHDR;
+                /* check if the vector_sizer() has more to say */
+                goto sp_state_read_proghdr;
 
         case SP_STATE_READ_PROGHDR_XDATA:
 sp_state_read_proghdr_xdata:
@@ -2298,7 +2298,7 @@ socket_event_poll_in (rpc_transport_t *this, gf_boolean_t notify_handled)
 
         ctx = this->ctx;
 
-	ret = socket_proto_state_machine (this, &pollin);
+        ret = socket_proto_state_machine (this, &pollin);
 
         if (pollin) {
                 pthread_mutex_lock (&priv->notify.lock);
@@ -2313,7 +2313,7 @@ socket_event_poll_in (rpc_transport_t *this, gf_boolean_t notify_handled)
                 event_handled (ctx->event_pool, priv->sock, priv->idx,
                                priv->gen);
 
-	if (pollin) {
+        if (pollin) {
                 priv->ot_state = OT_CALLBACK;
 
                 ret = rpc_transport_notify (this, RPC_TRANSPORT_MSG_RECEIVED,
@@ -2422,7 +2422,7 @@ socket_event_handler (int fd, int idx, int gen, void *data,
 {
         rpc_transport_t  *this          = NULL;
         socket_private_t *priv          = NULL;
-	int               ret           = -1;
+        int               ret           = -1;
         glusterfs_ctx_t  *ctx           = NULL;
         gf_boolean_t      socket_closed = _gf_false, notify_handled = _gf_false;
 
@@ -2486,12 +2486,12 @@ socket_event_handler (int fd, int idx, int gen, void *data,
                 if (socket_closed)
                         rpc_transport_unref (this);
 
-	} else if (!notify_handled) {
+        } else if (!notify_handled) {
                 event_handled (ctx->event_pool, fd, idx, gen);
         }
 
 out:
-	return ret;
+        return ret;
 }
 
 static int poll_err_cnt;
@@ -2500,9 +2500,9 @@ socket_poller (void *ctx)
 {
         rpc_transport_t  *this = ctx;
         socket_private_t *priv = this->private;
-	struct pollfd     pfd[2] = {{0,},};
-	gf_boolean_t      to_write = _gf_false;
-	int               ret = 0;
+        struct pollfd     pfd[2] = {{0,},};
+        gf_boolean_t      to_write = _gf_false;
+        int               ret = 0;
         uint32_t          gen = 0;
         char             *cname = NULL;
 
@@ -2561,31 +2561,31 @@ socket_poller (void *ctx)
         }
 
         gen = priv->ot_gen;
-	for (;;) {
-		pthread_mutex_lock(&priv->out_lock);
-		to_write = !list_empty(&priv->ioq);
-		pthread_mutex_unlock(&priv->out_lock);
-		pfd[0].fd = priv->pipe[0];
-		pfd[0].events = POLL_MASK_ERROR;
-		pfd[0].revents = 0;
-		pfd[1].fd = priv->sock;
-		pfd[1].events = POLL_MASK_INPUT | POLL_MASK_ERROR;
-		pfd[1].revents = 0;
-		if (to_write) {
-			pfd[1].events |= POLL_MASK_OUTPUT;
-		}
-		else {
-			pfd[0].events |= POLL_MASK_INPUT;
-		}
-		if (poll(pfd,2,-1) < 0) {
-			gf_log(this->name,GF_LOG_ERROR,"poll failed");
-			break;
-		}
-		if (pfd[0].revents & POLL_MASK_ERROR) {
-			gf_log(this->name,GF_LOG_ERROR,
-			       "poll error on pipe");
-			break;
-		}
+        for (;;) {
+                pthread_mutex_lock(&priv->out_lock);
+                to_write = !list_empty(&priv->ioq);
+                pthread_mutex_unlock(&priv->out_lock);
+                pfd[0].fd = priv->pipe[0];
+                pfd[0].events = POLL_MASK_ERROR;
+                pfd[0].revents = 0;
+                pfd[1].fd = priv->sock;
+                pfd[1].events = POLL_MASK_INPUT | POLL_MASK_ERROR;
+                pfd[1].revents = 0;
+                if (to_write) {
+                        pfd[1].events |= POLL_MASK_OUTPUT;
+                }
+                else {
+                        pfd[0].events |= POLL_MASK_INPUT;
+                }
+                if (poll(pfd,2,-1) < 0) {
+                        gf_log(this->name,GF_LOG_ERROR,"poll failed");
+                        break;
+                }
+                if (pfd[0].revents & POLL_MASK_ERROR) {
+                        gf_log(this->name,GF_LOG_ERROR,
+                               "poll error on pipe");
+                        break;
+                }
 
                 if (priv->ot_state == OT_PLEASE_DIE) {
                         gf_log (this->name, GF_LOG_DEBUG,
@@ -2594,70 +2594,70 @@ socket_poller (void *ctx)
                         break;
                 }
 
-		if (pfd[1].revents & POLL_MASK_INPUT) {
-			ret = socket_event_poll_in(this, 0);
-			if (ret >= 0) {
-				/* Suppress errors while making progress. */
-				pfd[1].revents &= ~POLL_MASK_ERROR;
-			}
-			else if (errno == ENOTCONN) {
-				ret = 0;
-			}
+                if (pfd[1].revents & POLL_MASK_INPUT) {
+                        ret = socket_event_poll_in(this, 0);
+                        if (ret >= 0) {
+                                /* Suppress errors while making progress. */
+                                pfd[1].revents &= ~POLL_MASK_ERROR;
+                        }
+                        else if (errno == ENOTCONN) {
+                                ret = 0;
+                        }
                         if (priv->ot_state == OT_PLEASE_DIE) {
                                 gf_log (this->name, GF_LOG_TRACE,
                                         "OT_IDLE on %p (input request)",
                                         this);
                                 break;
                         }
-		}
-		else if (pfd[1].revents & POLL_MASK_OUTPUT) {
-			ret = socket_event_poll_out(this);
-			if (ret >= 0) {
-				/* Suppress errors while making progress. */
-				pfd[1].revents &= ~POLL_MASK_ERROR;
-			}
-			else if (errno == ENOTCONN) {
-				ret = 0;
-			}
+                }
+                else if (pfd[1].revents & POLL_MASK_OUTPUT) {
+                        ret = socket_event_poll_out(this);
+                        if (ret >= 0) {
+                                /* Suppress errors while making progress. */
+                                pfd[1].revents &= ~POLL_MASK_ERROR;
+                        }
+                        else if (errno == ENOTCONN) {
+                                ret = 0;
+                        }
                         if (priv->ot_state == OT_PLEASE_DIE) {
                                 gf_log (this->name, GF_LOG_TRACE,
                                         "OT_IDLE on %p (output request)",
                                         this);
                                 break;
                         }
-		}
-		else {
-			/*
-			 * This usually means that we left poll() because
-			 * somebody pushed a byte onto our pipe.  That wakeup
-			 * is why the pipe is there, but once awake we can do
-			 * all the checking we need on the next iteration.
-			 */
-			ret = 0;
-		}
-		if (pfd[1].revents & POLL_MASK_ERROR) {
-			gf_log(this->name,GF_LOG_ERROR,
-			       "poll error on socket");
-			break;
-		}
-		if (ret < 0) {
+                }
+                else {
+                        /*
+                         * This usually means that we left poll() because
+                         * somebody pushed a byte onto our pipe.  That wakeup
+                         * is why the pipe is there, but once awake we can do
+                         * all the checking we need on the next iteration.
+                         */
+                        ret = 0;
+                }
+                if (pfd[1].revents & POLL_MASK_ERROR) {
+                        gf_log(this->name,GF_LOG_ERROR,
+                               "poll error on socket");
+                        break;
+                }
+                if (ret < 0) {
                         GF_LOG_OCCASIONALLY (poll_err_cnt, this->name,
                                              GF_LOG_ERROR,
                                              "socket_poller %s failed (%s)",
                                              this->peerinfo.identifier,
                                              strerror (errno));
-			break;
-		}
+                        break;
+                }
                 if (priv->ot_gen != gen) {
                         gf_log (this->name, GF_LOG_TRACE,
                                 "generation mismatch, my %u != %u",
                                 gen, priv->ot_gen);
                         return NULL;
                 }
-	}
+        }
 
 err:
-	/* All (and only) I/O errors should come here. */
+        /* All (and only) I/O errors should come here. */
         pthread_mutex_lock(&priv->in_lock);
         pthread_mutex_lock(&priv->out_lock);
         {
@@ -2682,7 +2682,7 @@ err:
 
         rpc_transport_unref (this);
 
-	return NULL;
+        return NULL;
 }
 
 
@@ -3599,7 +3599,7 @@ socket_submit_request (rpc_transport_t *this, rpc_transport_req_t *req)
         char              need_append = 1;
         struct ioq       *entry = NULL;
         glusterfs_ctx_t  *ctx = NULL;
-	char              a_byte = 'j';
+        char              a_byte = 'j';
 
         GF_VALIDATE_OR_GOTO ("socket", this, out);
         GF_VALIDATE_OR_GOTO ("socket", this->private, out);
@@ -3629,24 +3629,24 @@ socket_submit_request (rpc_transport_t *this, rpc_transport_req_t *req)
 
                         if (ret == 0) {
                                 need_append = 0;
-			}
+                        }
                         if (ret > 0) {
                                 need_poll_out = 1;
-			}
+                        }
                 }
 
                 if (need_append) {
                         list_add_tail (&entry->list, &priv->ioq);
-			if (priv->own_thread) {
-				/*
-				 * Make sure the polling thread wakes up, by
-				 * writing a byte to represent this entry.
-				 */
-				if (sys_write (priv->pipe[1], &a_byte, 1) < 1) {
-					gf_log(this->name,GF_LOG_WARNING,
-					       "write error on pipe");
-				}
-			}
+                        if (priv->own_thread) {
+                                /*
+                                 * Make sure the polling thread wakes up, by
+                                 * writing a byte to represent this entry.
+                                 */
+                                if (sys_write (priv->pipe[1], &a_byte, 1) < 1) {
+                                        gf_log(this->name,GF_LOG_WARNING,
+                                               "write error on pipe");
+                                }
+                        }
                         ret = 0;
                 }
                 if (!priv->own_thread && need_poll_out) {
@@ -3673,7 +3673,7 @@ socket_submit_reply (rpc_transport_t *this, rpc_transport_reply_t *reply)
         char              need_append = 1;
         struct ioq       *entry = NULL;
         glusterfs_ctx_t  *ctx = NULL;
-	char              a_byte = 'd';
+        char              a_byte = 'd';
 
         GF_VALIDATE_OR_GOTO ("socket", this, out);
         GF_VALIDATE_OR_GOTO ("socket", this->private, out);
@@ -3703,24 +3703,24 @@ socket_submit_reply (rpc_transport_t *this, rpc_transport_reply_t *reply)
 
                         if (ret == 0) {
                                 need_append = 0;
-			}
+                        }
                         if (ret > 0) {
                                 need_poll_out = 1;
-			}
+                        }
                 }
 
                 if (need_append) {
                         list_add_tail (&entry->list, &priv->ioq);
-			if (priv->own_thread) {
-				/*
-				 * Make sure the polling thread wakes up, by
-				 * writing a byte to represent this entry.
-				 */
-				if (sys_write (priv->pipe[1], &a_byte, 1) < 1) {
-					gf_log(this->name,GF_LOG_WARNING,
-					       "write error on pipe");
-				}
-			}
+                        if (priv->own_thread) {
+                                /*
+                                 * Make sure the polling thread wakes up, by
+                                 * writing a byte to represent this entry.
+                                 */
+                                if (sys_write (priv->pipe[1], &a_byte, 1) < 1) {
+                                        gf_log(this->name,GF_LOG_WARNING,
+                                               "write error on pipe");
+                                }
+                        }
                         ret = 0;
                 }
                 if (!priv->own_thread && need_poll_out) {
@@ -3861,7 +3861,7 @@ struct rpc_transport_ops tops = {
         .get_peeraddr       = socket_getpeeraddr,
         .get_myname         = socket_getmyname,
         .get_myaddr         = socket_getmyaddr,
-	.throttle           = socket_throttle,
+        .throttle           = socket_throttle,
 };
 
 int
@@ -4015,8 +4015,8 @@ threadid_func (CRYPTO_THREADID *id)
 static unsigned long
 legacy_threadid_func (void)
 {
-	/* See comments above, it applies here too. */
-	return (unsigned long)pthread_self();
+        /* See comments above, it applies here too. */
+        return (unsigned long)pthread_self();
 }
 #endif
 
@@ -4107,7 +4107,7 @@ socket_init (rpc_transport_t *this)
         int               keepaliveintvl = GF_KEEPALIVE_INTERVAL;
         int               keepalivecnt   = GF_KEEPALIVE_COUNT;
         uint32_t          backlog = 0;
-	int               session_id = 0;
+        int               session_id = 0;
         int32_t           cert_depth = DEFAULT_VERIFY_DEPTH;
         char             *cipher_list = DEFAULT_CIPHER_LIST;
         char             *dh_param = DEFAULT_DH_PARAM;
@@ -4267,59 +4267,59 @@ socket_init (rpc_transport_t *this)
         priv->windowsize = (int)windowsize;
 
         priv->ssl_enabled = _gf_false;
-	if (dict_get_str(this->options,SSL_ENABLED_OPT,&optstr) == 0) {
+        if (dict_get_str(this->options,SSL_ENABLED_OPT,&optstr) == 0) {
                 if (gf_string2boolean (optstr, &priv->ssl_enabled) != 0) {
                         gf_log (this->name, GF_LOG_ERROR,
-				"invalid value given for ssl-enabled boolean");
-		}
-	}
+                                "invalid value given for ssl-enabled boolean");
+                }
+        }
         priv->mgmt_ssl = this->ctx->secure_mgmt;
         priv->srvr_ssl = this->ctx->secure_srvr;
 
         priv->ssl_own_cert = DEFAULT_CERT_PATH;
-	if (dict_get_str(this->options,SSL_OWN_CERT_OPT,&optstr) == 0) {
+        if (dict_get_str(this->options,SSL_OWN_CERT_OPT,&optstr) == 0) {
                 if (!priv->ssl_enabled) {
                         gf_log(this->name,GF_LOG_WARNING,
                                "%s specified without %s (ignored)",
                                SSL_OWN_CERT_OPT, SSL_ENABLED_OPT);
                 }
                 priv->ssl_own_cert = optstr;
-	}
+        }
         priv->ssl_own_cert = gf_strdup(priv->ssl_own_cert);
 
         priv->ssl_private_key = DEFAULT_KEY_PATH;
-	if (dict_get_str(this->options,SSL_PRIVATE_KEY_OPT,&optstr) == 0) {
+        if (dict_get_str(this->options,SSL_PRIVATE_KEY_OPT,&optstr) == 0) {
                 if (!priv->ssl_enabled) {
                         gf_log(this->name,GF_LOG_WARNING,
                                "%s specified without %s (ignored)",
                                SSL_PRIVATE_KEY_OPT, SSL_ENABLED_OPT);
                 }
                 priv->ssl_private_key = optstr;
-	}
+        }
         priv->ssl_private_key = gf_strdup(priv->ssl_private_key);
 
         priv->ssl_ca_list = DEFAULT_CA_PATH;
-	if (dict_get_str(this->options,SSL_CA_LIST_OPT,&optstr) == 0) {
+        if (dict_get_str(this->options,SSL_CA_LIST_OPT,&optstr) == 0) {
                 if (!priv->ssl_enabled) {
                         gf_log(this->name,GF_LOG_WARNING,
                                "%s specified without %s (ignored)",
                                SSL_CA_LIST_OPT, SSL_ENABLED_OPT);
                 }
                 priv->ssl_ca_list = optstr;
-	}
+        }
         priv->ssl_ca_list = gf_strdup(priv->ssl_ca_list);
 
-	if (dict_get_str(this->options,SSL_CRL_PATH_OPT,&optstr) == 0) {
+        if (dict_get_str(this->options,SSL_CRL_PATH_OPT,&optstr) == 0) {
                 if (!priv->ssl_enabled) {
                         gf_log(this->name,GF_LOG_WARNING,
                                "%s specified without %s (ignored)",
                                SSL_CRL_PATH_OPT, SSL_ENABLED_OPT);
-		}
-		if (strcasecmp(optstr, "NULL") == 0)
-			crl_path = NULL;
-		else
-			crl_path = optstr;
-	}
+                }
+                if (strcasecmp(optstr, "NULL") == 0)
+                        crl_path = NULL;
+                else
+                        crl_path = optstr;
+        }
 
         gf_log(this->name, priv->ssl_enabled ? GF_LOG_INFO: GF_LOG_DEBUG,
                "SSL support on the I/O path is %s",
@@ -4333,17 +4333,17 @@ socket_init (rpc_transport_t *this)
          */
         priv->use_ssl = priv->ssl_enabled;
 
-	priv->own_thread = priv->use_ssl;
-	if (dict_get_str(this->options,OWN_THREAD_OPT,&optstr) == 0) {
+        priv->own_thread = priv->use_ssl;
+        if (dict_get_str(this->options,OWN_THREAD_OPT,&optstr) == 0) {
                 gf_log (this->name, GF_LOG_INFO, "OWN_THREAD_OPT found");
                 if (gf_string2boolean (optstr, &priv->own_thread) != 0) {
                         gf_log (this->name, GF_LOG_WARNING,
-				"invalid value given for own-thread boolean");
-		}
-	}
-	gf_log(this->name, priv->own_thread ? GF_LOG_INFO: GF_LOG_DEBUG,
+                                "invalid value given for own-thread boolean");
+                }
+        }
+        gf_log(this->name, priv->own_thread ? GF_LOG_INFO: GF_LOG_DEBUG,
                "using %s polling thread",
-	       priv->own_thread ? "private" : "system");
+               priv->own_thread ? "private" : "system");
 
         if (!dict_get_int32 (this->options, SSL_CERT_DEPTH_OPT, &cert_depth)) {
                 gf_log (this->name, GF_LOG_INFO,
@@ -4362,13 +4362,13 @@ socket_init (rpc_transport_t *this)
                         "using EC curve %s", ec_curve);
         }
 
-	if (priv->ssl_enabled || priv->mgmt_ssl) {
+        if (priv->ssl_enabled || priv->mgmt_ssl) {
                 BIO *bio = NULL;
 
 #if HAVE_TLS_METHOD
-		priv->ssl_meth = (SSL_METHOD *)TLS_method();
+                priv->ssl_meth = (SSL_METHOD *)TLS_method();
 #elif HAVE_TLSV1_2_METHOD
-		priv->ssl_meth = (SSL_METHOD *)TLSv1_2_method();
+                priv->ssl_meth = (SSL_METHOD *)TLSv1_2_method();
 #else
 /*
  * Nobody should use an OpenSSL so old it does not support TLS 1.2.
@@ -4377,10 +4377,10 @@ socket_init (rpc_transport_t *this)
 #ifndef USE_INSECURE_OPENSSL
 #error Old and insecure OpenSSL, use -DUSE_INSECURE_OPENSSL to use it anyway
 #endif
-		/* SSLv23_method uses highest available protocol */
-		priv->ssl_meth = (SSL_METHOD *)SSLv23_method();
+                /* SSLv23_method uses highest available protocol */
+                priv->ssl_meth = (SSL_METHOD *)SSLv23_method();
 #endif
-		priv->ssl_ctx = SSL_CTX_new(priv->ssl_meth);
+                priv->ssl_ctx = SSL_CTX_new(priv->ssl_meth);
 
                 SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_NO_SSLv2);
                 SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_NO_SSLv3);
@@ -4391,13 +4391,13 @@ socket_init (rpc_transport_t *this)
                 SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_NO_COMPRESSION);
 #endif
 
-		if ((bio = BIO_new_file(dh_param, "r")) == NULL) {
-			gf_log(this->name,GF_LOG_ERROR,
-			       "failed to open %s, "
-			       "DH ciphers are disabled", dh_param);
-		}
+                if ((bio = BIO_new_file(dh_param, "r")) == NULL) {
+                        gf_log(this->name,GF_LOG_ERROR,
+                               "failed to open %s, "
+                               "DH ciphers are disabled", dh_param);
+                }
 
-		if (bio != NULL) {
+                if (bio != NULL) {
 #ifdef HAVE_OPENSSL_DH_H
                         DH *dh;
                         unsigned long err;
@@ -4405,10 +4405,10 @@ socket_init (rpc_transport_t *this)
                         dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
                         BIO_free(bio);
                         if (dh != NULL) {
-				SSL_CTX_set_options(priv->ssl_ctx,
-						    SSL_OP_SINGLE_DH_USE);
-				SSL_CTX_set_tmp_dh(priv->ssl_ctx, dh);
-				DH_free(dh);
+                                SSL_CTX_set_options(priv->ssl_ctx,
+                                                    SSL_OP_SINGLE_DH_USE);
+                                SSL_CTX_set_tmp_dh(priv->ssl_ctx, dh);
+                                DH_free(dh);
                         } else {
                                 err = ERR_get_error();
                                 gf_log(this->name,GF_LOG_ERROR,
@@ -4434,79 +4434,79 @@ socket_init (rpc_transport_t *this)
                                 ecdh = EC_KEY_new_by_curve_name(nid);
 
                         if (ecdh != NULL) {
-				SSL_CTX_set_options(priv->ssl_ctx,
-						    SSL_OP_SINGLE_ECDH_USE);
-				SSL_CTX_set_tmp_ecdh(priv->ssl_ctx, ecdh);
-				EC_KEY_free(ecdh);
+                                SSL_CTX_set_options(priv->ssl_ctx,
+                                                    SSL_OP_SINGLE_ECDH_USE);
+                                SSL_CTX_set_tmp_ecdh(priv->ssl_ctx, ecdh);
+                                EC_KEY_free(ecdh);
                         } else {
                                 err = ERR_get_error();
                                 gf_log(this->name, GF_LOG_ERROR,
                                        "failed to load EC curve %s: %s. "
-				       "ECDH ciphers are disabled.",
+                                       "ECDH ciphers are disabled.",
                                        ec_curve, ERR_error_string(err, NULL));
-			}
+                        }
 #else /* HAVE_OPENSSL_ECDH_H */
                         gf_log(this->name, GF_LOG_ERROR,
                                "OpenSSL has no ECDH support");
 #endif /* HAVE_OPENSSL_ECDH_H */
                 }
 
-		/* This must be done after DH and ECDH setups */
+                /* This must be done after DH and ECDH setups */
                 if (SSL_CTX_set_cipher_list(priv->ssl_ctx, cipher_list) == 0) {
                         gf_log(this->name,GF_LOG_ERROR,
                                "failed to find any valid ciphers");
                         goto err;
                 }
 
-		SSL_CTX_set_options(priv->ssl_ctx,
+                SSL_CTX_set_options(priv->ssl_ctx,
                                     SSL_OP_CIPHER_SERVER_PREFERENCE);
 
-		if (!SSL_CTX_use_certificate_chain_file(priv->ssl_ctx,
-							priv->ssl_own_cert)) {
-			gf_log(this->name,GF_LOG_ERROR,
-			       "could not load our cert");
-			goto err;
-		}
+                if (!SSL_CTX_use_certificate_chain_file(priv->ssl_ctx,
+                                                        priv->ssl_own_cert)) {
+                        gf_log(this->name,GF_LOG_ERROR,
+                               "could not load our cert");
+                        goto err;
+                }
 
-		if (!SSL_CTX_use_PrivateKey_file(priv->ssl_ctx,
-						 priv->ssl_private_key,
-						 SSL_FILETYPE_PEM)) {
-			gf_log(this->name,GF_LOG_ERROR,
-			       "could not load private key");
-			goto err;
-		}
+                if (!SSL_CTX_use_PrivateKey_file(priv->ssl_ctx,
+                                                 priv->ssl_private_key,
+                                                 SSL_FILETYPE_PEM)) {
+                        gf_log(this->name,GF_LOG_ERROR,
+                               "could not load private key");
+                        goto err;
+                }
 
-		if (!SSL_CTX_load_verify_locations(priv->ssl_ctx,
-						   priv->ssl_ca_list,
-						   crl_path)) {
-			gf_log(this->name,GF_LOG_ERROR,
-			       "could not load CA list");
-			goto err;
-		}
+                if (!SSL_CTX_load_verify_locations(priv->ssl_ctx,
+                                                   priv->ssl_ca_list,
+                                                   crl_path)) {
+                        gf_log(this->name,GF_LOG_ERROR,
+                               "could not load CA list");
+                        goto err;
+                }
 
 #if (OPENSSL_VERSION_NUMBER < 0x00905100L)
-		SSL_CTX_set_verify_depth(ctx,cert_depth);
+                SSL_CTX_set_verify_depth(ctx,cert_depth);
 #endif
 
-		if (crl_path) {
+                if (crl_path) {
 #ifdef X509_V_FLAG_CRL_CHECK_ALL
-			X509_STORE *x509store;
+                        X509_STORE *x509store;
 
-			x509store  = SSL_CTX_get_cert_store(priv->ssl_ctx);
-			X509_STORE_set_flags(x509store,
-			    X509_V_FLAG_CRL_CHECK|X509_V_FLAG_CRL_CHECK_ALL);
+                        x509store  = SSL_CTX_get_cert_store(priv->ssl_ctx);
+                        X509_STORE_set_flags(x509store,
+                            X509_V_FLAG_CRL_CHECK|X509_V_FLAG_CRL_CHECK_ALL);
 #else
-			gf_log(this->name,GF_LOG_ERROR,
-			       "OpenSSL version does not support CRL");
+                        gf_log(this->name,GF_LOG_ERROR,
+                               "OpenSSL version does not support CRL");
 #endif
-		}
+                }
 
-		priv->ssl_session_id = ++session_id;
-		SSL_CTX_set_session_id_context(priv->ssl_ctx,
-					       (void *)&priv->ssl_session_id,
-					       sizeof(priv->ssl_session_id));
+                priv->ssl_session_id = ++session_id;
+                SSL_CTX_set_session_id_context(priv->ssl_ctx,
+                                               (void *)&priv->ssl_session_id,
+                                               sizeof(priv->ssl_session_id));
 
-		SSL_CTX_set_verify(priv->ssl_ctx,SSL_VERIFY_PEER,0);
+                SSL_CTX_set_verify(priv->ssl_ctx,SSL_VERIFY_PEER,0);
 
                 /*
                  * Since glusterfs shares the same settings for client-side
@@ -4515,7 +4515,7 @@ socket_init (rpc_transport_t *this)
                  * SSL connexions will fail with 'unsupported cerritifcate"
                  */
                 SSL_CTX_set_purpose(priv->ssl_ctx, X509_PURPOSE_ANY);
-	}
+        }
 
         if (priv->own_thread) {
                 priv->ot_state = OT_IDLE;
@@ -4567,15 +4567,15 @@ fini (rpc_transport_t *this)
                 pthread_mutex_destroy (&priv->out_lock);
                 pthread_mutex_destroy (&priv->cond_lock);
                 pthread_cond_destroy (&priv->cond);
-		if (priv->ssl_private_key) {
-			GF_FREE(priv->ssl_private_key);
-		}
-		if (priv->ssl_own_cert) {
-			GF_FREE(priv->ssl_own_cert);
-		}
-		if (priv->ssl_ca_list) {
-			GF_FREE(priv->ssl_ca_list);
-		}
+                if (priv->ssl_private_key) {
+                        GF_FREE(priv->ssl_private_key);
+                }
+                if (priv->ssl_own_cert) {
+                        GF_FREE(priv->ssl_own_cert);
+                }
+                if (priv->ssl_ca_list) {
+                        GF_FREE(priv->ssl_ca_list);
+                }
                 GF_FREE (priv);
         }
 
@@ -4666,33 +4666,33 @@ struct volume_options options[] = {
         { .key   = {SSL_ENABLED_OPT},
           .type  = GF_OPTION_TYPE_BOOL
         },
-	{ .key   = {SSL_OWN_CERT_OPT},
-	  .type  = GF_OPTION_TYPE_STR
-	},
-	{ .key   = {SSL_PRIVATE_KEY_OPT},
-	  .type  = GF_OPTION_TYPE_STR
-	},
-	{ .key   = {SSL_CA_LIST_OPT},
-	  .type  = GF_OPTION_TYPE_STR
-	},
-	{ .key   = {SSL_CERT_DEPTH_OPT},
-	  .type  = GF_OPTION_TYPE_STR
-	},
-	{ .key   = {SSL_CIPHER_LIST_OPT},
-	  .type  = GF_OPTION_TYPE_STR
-	},
-	{ .key   = {SSL_DH_PARAM_OPT},
-	  .type  = GF_OPTION_TYPE_STR
-	},
-	{ .key   = {SSL_EC_CURVE_OPT},
-	  .type  = GF_OPTION_TYPE_STR
-	},
-	{ .key   = {SSL_CRL_PATH_OPT},
-	  .type  = GF_OPTION_TYPE_STR
-	},
-	{ .key   = {OWN_THREAD_OPT},
-	  .type  = GF_OPTION_TYPE_BOOL
-	},
+        { .key   = {SSL_OWN_CERT_OPT},
+          .type  = GF_OPTION_TYPE_STR
+        },
+        { .key   = {SSL_PRIVATE_KEY_OPT},
+          .type  = GF_OPTION_TYPE_STR
+        },
+        { .key   = {SSL_CA_LIST_OPT},
+          .type  = GF_OPTION_TYPE_STR
+        },
+        { .key   = {SSL_CERT_DEPTH_OPT},
+          .type  = GF_OPTION_TYPE_STR
+        },
+        { .key   = {SSL_CIPHER_LIST_OPT},
+          .type  = GF_OPTION_TYPE_STR
+        },
+        { .key   = {SSL_DH_PARAM_OPT},
+          .type  = GF_OPTION_TYPE_STR
+        },
+        { .key   = {SSL_EC_CURVE_OPT},
+          .type  = GF_OPTION_TYPE_STR
+        },
+        { .key   = {SSL_CRL_PATH_OPT},
+          .type  = GF_OPTION_TYPE_STR
+        },
+        { .key   = {OWN_THREAD_OPT},
+          .type  = GF_OPTION_TYPE_BOOL
+        },
         { .key   = {"ssl-own-cert"},
           .type  = GF_OPTION_TYPE_STR,
           .description = "SSL certificate. Ignored if SSL is not enabled."
