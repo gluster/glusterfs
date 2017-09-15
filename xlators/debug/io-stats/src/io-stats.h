@@ -216,7 +216,7 @@ ios_local_free (struct ios_local *local)
 
 struct volume_options options[];
 
-inline static int
+static int
 is_fop_latency_started (call_frame_t *frame)
 {
         GF_ASSERT (frame);

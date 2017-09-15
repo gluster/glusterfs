@@ -7,11 +7,7 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
 #include "xlator.h"
-#endif
 
 /**
  * xlators/debug/io_stats :
@@ -41,6 +37,7 @@
 #include "io-stats.h"
 #include "syncop.h"
 #include "hashfn.h"
+#include "syscall.h"
 #include <pwd.h>
 #include <grp.h>
 
@@ -654,11 +651,13 @@ ios_stat_add_to_list (struct ios_stat_head *list_head, uint64_t value,
                         new->value = value;
                         ios_stat_ref (iosstat);
                         list_add_tail (&new->list, &tmp->list);
-                        stat = last->iosstat;
-                        last->iosstat = NULL;
-                        ios_stat_unref (stat);
-                        list_del (&last->list);
-                        GF_FREE (last);
+                        if (last) {
+                                stat = last->iosstat;
+                                last->iosstat = NULL;
+                                ios_stat_unref (stat);
+                                list_del (&last->list);
+                                GF_FREE (last);
+                        }
                         if (reposition == MAX_LIST_MEMBERS)
                                 list_head->min_cnt = value;
                         else if (min_count) {
@@ -685,7 +684,7 @@ out:
         return 0;
 }
 
-static inline int
+static int
 ios_stats_cleanup (xlator_t *this, inode_t *inode)
 {
 
@@ -845,7 +844,8 @@ out:
 }
 
 int
-ios_dump_file_stats (struct ios_stat_head *list_head, xlator_t *this, FILE* logfp)
+ios_dump_file_stats (struct ios_stat_head *list_head, xlator_t *this,
+                     FILE *logfp)
 {
         struct ios_stat_list *entry = NULL;
 
@@ -862,7 +862,7 @@ ios_dump_file_stats (struct ios_stat_head *list_head, xlator_t *this, FILE* logf
 
 int
 ios_dump_throughput_stats (struct ios_stat_head *list_head, xlator_t *this,
-                            FILE* logfp, ios_stats_type_t type)
+                           FILE *logfp, ios_stats_thru_t type)
 {
         struct ios_stat_list *entry = NULL;
         struct timeval        time  = {0, };
@@ -1911,7 +1911,7 @@ out:
 
 int
 io_stats_dump_global_to_logfp (xlator_t *this, struct ios_global_stats *stats,
-                               struct timeval *now, int interval, FILE* logfp)
+                               struct timeval *now, int interval, FILE *logfp)
 {
         int                   i = 0;
         int                   per_line = 0;
@@ -2053,13 +2053,15 @@ io_stats_dump_global_to_logfp (xlator_t *this, struct ios_global_stats *stats,
                 ios_log (this, logfp, "\nTIMESTAMP \t\t\t THROUGHPUT(KBPS)"
                          "\tFILE NAME");
                 list_head = &conf->thru_list[IOS_STATS_THRU_READ];
-                ios_dump_throughput_stats(list_head, this, logfp, IOS_STATS_TYPE_READ);
+                ios_dump_throughput_stats(list_head, this, logfp,
+                                          IOS_STATS_THRU_READ);
 
                 ios_log (this, logfp, "\n======Write Throughput File Stats======");
                 ios_log (this, logfp, "\nTIMESTAMP \t\t\t THROUGHPUT(KBPS)"
                          "\tFILE NAME");
                 list_head = &conf->thru_list[IOS_STATS_THRU_WRITE];
-                ios_dump_throughput_stats (list_head, this, logfp, IOS_STATS_TYPE_WRITE);
+                ios_dump_throughput_stats (list_head, this, logfp,
+                                           IOS_STATS_THRU_WRITE);
         }
         return 0;
 }
@@ -3933,43 +3935,41 @@ conditional_dump (dict_t *dict, char *key, data_t *value, void *data)
         struct ios_dump_args args = {0};
         int                   pid;
         char                  dump_key[100];
+        struct ios_conf      *conf;
 
         stub  = data;
         this  = stub->this;
+        conf = this->private;
 
         filename = alloca (value->len + 1);
         memset (filename, 0, value->len + 1);
         memcpy (filename, data_to_str (value), value->len);
 
-        if (fnmatch ("*io*stat*dump", key, 0) == 0) {
-                pid = getpid ();
+        pid = getpid ();
 
-
-                if (!strncmp (filename, "", 1)) {
-                        gf_log (this->name, GF_LOG_ERROR, "No filename given");
-                        return -1;
-                }
-                logfp = fopen (filename, "w+");
-                if (!logfp) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to open %s "
-                                "for writing", filename);
-                        return -1;
-                }
-                sprintf (dump_key, "*io*stat*%d_json_dump", pid);
-                if (fnmatch (dump_key, key, 0) == 0) {
-                        (void) ios_dump_args_init (
-                                        &args, IOS_DUMP_TYPE_JSON_FILE,
-                                        logfp);
-                } else {
-                        (void) ios_dump_args_init (&args, IOS_DUMP_TYPE_FILE,
-                                                   logfp);
-                }
-
-                io_stats_dump (this, NULL, &args, GF_CLI_INFO_ALL,
-                               _gf_false);
-
-                fclose (logfp);
+        if (!strncmp (filename, "", 1)) {
+                gf_log (this->name, GF_LOG_ERROR, "No filename given");
+                return -1;
         }
+        logfp = fopen (filename, "w+");
+        if (!logfp) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to open %s "
+                                 "for writing", filename);
+
+                return -1;
+        }
+        sprintf (dump_key, "*io*stat*%d_json_dump", pid);
+        if (fnmatch (dump_key, key, 0) == 0) {
+                (void) ios_dump_args_init (
+                                &args, IOS_DUMP_TYPE_JSON_FILE,
+                                logfp);
+        } else {
+                (void) ios_dump_args_init (&args, IOS_DUMP_TYPE_FILE,
+                                logfp);
+        }
+        io_stats_dump (this, conf->ios_sample_buf, &args, GF_CLI_INFO_ALL,
+                       _gf_false);
+        fclose (logfp);
 
         return 0;
 }
@@ -4067,8 +4067,8 @@ _ios_dump_thread (xlator_t *this) {
                 xlator_name = "gfproxyd";
         }
 
-        mkdir (_IOS_DUMP_DIR, S_IRWXU | S_IRWXO | S_IRWXG);
-        mkdir (_IOS_SAMP_DIR, S_IRWXU | S_IRWXO | S_IRWXG);
+        sys_mkdir (_IOS_DUMP_DIR, S_IRWXU | S_IRWXO | S_IRWXG);
+        sys_mkdir (_IOS_SAMP_DIR, S_IRWXU | S_IRWXO | S_IRWXG);
 
         if (instance_name) {
                 stats_bytes_written = snprintf (stats_filename, PATH_MAX,
@@ -4175,6 +4175,17 @@ out:
         return NULL;
 }
 
+static gf_boolean_t
+match_special_xattr (dict_t *d, char *k, data_t *val, void *mdata)
+{
+        gf_boolean_t ret = _gf_false;
+        if (fnmatch ("*io*stat*dump", k, 0) == 0) {
+                ret = _gf_true;
+        }
+
+        return ret;
+}
+
 int
 io_stats_setxattr (call_frame_t *frame, xlator_t *this,
                    loc_t *loc, dict_t *dict,
@@ -4185,12 +4196,19 @@ io_stats_setxattr (call_frame_t *frame, xlator_t *this,
                 inode_t      *inode;
                 const char   *path;
         } stub;
+        int ret = 0;
 
         stub.this  = this;
         stub.inode = loc->inode;
         stub.path  = loc->path;
 
-        dict_foreach (dict, conditional_dump, &stub);
+        ret = dict_foreach_match (dict, match_special_xattr, NULL,
+                                  conditional_dump, &stub);
+        if (ret > 0) {
+                /* Setxattr was on key 'io-stat-dump', hence dump and unwind
+                 * from here */
+                goto out;
+        }
 
         ios_track_loc (frame, loc);
 
@@ -4200,6 +4218,10 @@ io_stats_setxattr (call_frame_t *frame, xlator_t *this,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->setxattr,
                     loc, dict, flags, xdata);
+        return 0;
+
+out:
+        STACK_UNWIND_STRICT (setxattr, frame, 0, 0, NULL);
         return 0;
 }
 
@@ -4766,6 +4788,7 @@ reconfigure (xlator_t *this, dict_t *options)
         int                 logger = -1;
         uint32_t            log_buf_size = 0;
         uint32_t            log_flush_timeout = 0;
+        int32_t             old_dump_interval;
 
         if (!this || !this->private)
                 goto out;
@@ -4781,10 +4804,17 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("latency-measurement", conf->measure_latency,
                           options, bool, out);
 
+        old_dump_interval = conf->ios_dump_interval;
         GF_OPTION_RECONF ("ios-dump-interval", conf->ios_dump_interval, options,
-                         int32, out);
+                          int32, out);
+        if ((old_dump_interval <= 0) && (conf->ios_dump_interval > 0)) {
+                pthread_create (&conf->dump_thread, NULL,
+                                (void *) &_ios_dump_thread, this);
+        } else if ((old_dump_interval > 0) && (conf->ios_dump_interval <= 0)) {
+                (void) _ios_destroy_dump_thread (conf);
+        }
 
-         GF_OPTION_RECONF ("ns-rate-window", conf->ns_rate_window, options,
+        GF_OPTION_RECONF ("ns-rate-window", conf->ns_rate_window, options,
                           int32, out);
 
         GF_OPTION_RECONF ("ios-sample-interval", conf->ios_sample_interval,
@@ -4840,7 +4870,8 @@ reconfigure (xlator_t *this, dict_t *options)
 
         ret = 0;
 out:
-        gf_log (this->name, GF_LOG_DEBUG, "reconfigure returning %d", ret);
+        gf_log (this ? this->name : "io-stats",
+                        GF_LOG_DEBUG, "reconfigure returning %d", ret);
         return ret;
 }
 
@@ -5136,7 +5167,8 @@ init (xlator_t *this)
         GF_OPTION_INIT ("log-level", log_str, str, out);
         if (log_str) {
                 log_level = glusterd_check_log_level (log_str);
-                gf_log_set_loglevel (log_level);
+                if (DEFAULT_LOG_LEVEL != log_level)
+                        gf_log_set_loglevel (log_level);
         }
 
         GF_OPTION_INIT ("logger", logger_str, str, out);
@@ -5159,8 +5191,10 @@ init (xlator_t *this)
 
 
         this->private = conf;
-        pthread_create (&conf->dump_thread, NULL,
-                        (void *) &_ios_dump_thread, this);
+        if (conf->ios_dump_interval > 0) {
+                pthread_create (&conf->dump_thread, NULL,
+                                (void *) &_ios_dump_thread, this);
+        }
         ret = 0;
 out:
         if (!this->private) {
@@ -5385,10 +5419,11 @@ struct volume_options options[] = {
         },
         { .key  = { "ios-dump-interval" },
           .type = GF_OPTION_TYPE_INT,
-          .min = 1,
+          .min = 0,
           .max = 3600,
-          .default_value = "5",
-          .description = "Interval in which we want to auto-dump statistics."
+          .default_value = "0",
+          .description = "Interval (in seconds) at which to auto-dump "
+                         "statistics. Zero disables automatic dumping."
         },
         { .key  = { "ns-rate-window" },
           .type = GF_OPTION_TYPE_INT,
