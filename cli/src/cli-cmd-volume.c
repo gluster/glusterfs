@@ -196,6 +196,7 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int                     parse_error = 0;
         cli_local_t             *local = NULL;
         char                    *trans_type = NULL;
+        char                    *bricks = NULL;
 
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_CREATE_VOLUME];
 
@@ -203,7 +204,8 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (!frame)
                 goto out;
 
-        ret = cli_cmd_volume_create_parse (state, words, wordcount, &options);
+        ret = cli_cmd_volume_create_parse (state, words, wordcount, &options,
+                                           &bricks);
 
         if (ret) {
                 cli_usage_out (word->pattern);
@@ -241,7 +243,8 @@ out:
 
         CLI_STACK_DESTROY (frame);
         if (ret == 0) {
-                gf_event (EVENT_VOLUME_CREATE, "name=%s", (char *)words[2]);
+                gf_event (EVENT_VOLUME_CREATE, "name=%s;bricks=%s",
+                          (char *)words[2], bricks);
         }
         return ret;
 }

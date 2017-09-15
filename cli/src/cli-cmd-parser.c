@@ -431,7 +431,7 @@ out:
 
 int32_t
 cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
-                             int wordcount, dict_t **options)
+                             int wordcount, dict_t **options, char **brick_list)
 {
         dict_t  *dict = NULL;
         char    *volname = NULL;
@@ -749,7 +749,7 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                 goto out;
 
         *options = dict;
-
+        *brick_list = bricks;
 out:
         if (ret) {
                 gf_log ("cli", GF_LOG_ERROR, "Unable to parse create volume CLI");
