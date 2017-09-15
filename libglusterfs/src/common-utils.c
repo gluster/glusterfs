@@ -4349,9 +4349,11 @@ list_node_del (struct list_node *node)
         GF_FREE (node);
 }
 
-const char *
-fop_enum_to_pri_string (glusterfs_fop_t fop)
+iot_pri_t
+iot_fop_to_pri (glusterfs_fop_t fop)
 {
+        iot_pri_t       pri = IOT_PRI_MAX - 1;
+
         switch (fop) {
         case GF_FOP_OPEN:
         case GF_FOP_STAT:
@@ -4365,7 +4367,8 @@ fop_enum_to_pri_string (glusterfs_fop_t fop)
         case GF_FOP_READDIRP:
         case GF_FOP_GETACTIVELK:
         case GF_FOP_SETACTIVELK:
-                return "HIGH";
+                pri = IOT_PRI_HI;
+                break;
 
         case GF_FOP_CREATE:
         case GF_FOP_FLUSH:
@@ -4391,7 +4394,8 @@ fop_enum_to_pri_string (glusterfs_fop_t fop)
         case GF_FOP_FREMOVEXATTR:
         case GF_FOP_IPC:
         case GF_FOP_LEASE:
-                return "NORMAL";
+                pri = IOT_PRI_NORMAL;
+                break;
 
         case GF_FOP_READ:
         case GF_FOP_WRITE:
@@ -4402,22 +4406,26 @@ fop_enum_to_pri_string (glusterfs_fop_t fop)
         case GF_FOP_XATTROP:
         case GF_FOP_FXATTROP:
         case GF_FOP_RCHECKSUM:
+	case GF_FOP_FALLOCATE:
+	case GF_FOP_DISCARD:
         case GF_FOP_ZEROFILL:
-        case GF_FOP_FALLOCATE:
         case GF_FOP_SEEK:
-                return "LOW";
+                pri = IOT_PRI_LO;
+                break;
 
         case GF_FOP_NULL:
         case GF_FOP_FORGET:
         case GF_FOP_RELEASE:
         case GF_FOP_RELEASEDIR:
         case GF_FOP_GETSPEC:
+        case GF_FOP_COMPOUND:
         case GF_FOP_MAXVALUE:
-        case GF_FOP_DISCARD:
-                return "LEAST";
-        default:
-                return "UNKNOWN";
+                //fail compilation on missing fop
+                //new fop must choose priority.
+                break;
         }
+
+        return pri;
 }
 
 const char *

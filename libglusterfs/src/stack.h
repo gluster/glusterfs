@@ -77,6 +77,8 @@ struct _call_frame_t {
         const char      *wind_to;
         const char      *unwind_from;
         const char      *unwind_to;
+
+        gf_fop_pri_t    pri;
 };
 
 struct _ns_info {
@@ -122,6 +124,16 @@ struct _call_stack_t {
         ns_info_t                     ns_info;
 };
 
+#define frame_set_throttling(frm, should_throttle)              \
+        do {                                                    \
+                if (frm) {                                      \
+                        if (should_throttle) {                  \
+                                frm->pri = IOT_PRI_LEAST;       \
+                        } else {                                \
+                                frm->pri = IOT_PRI_UNSPEC;      \
+                        }                                       \
+                }                                               \
+        } while (0)
 
 #define frame_set_uid_gid(frm, u, g)            \
         do {                                    \
@@ -259,6 +271,7 @@ STACK_RESET (call_stack_t *stack)
                 _new->wind_from = __FUNCTION__;                         \
                 _new->wind_to = #fn;                                    \
                 _new->unwind_to = #rfn;                                 \
+                _new->pri = frame->pri;                                 \
                                                                         \
                 LOCK_INIT (&_new->lock);                                \
                 LOCK(&frame->root->stack_lock);                         \
@@ -321,6 +334,8 @@ STACK_RESET (call_stack_t *stack)
                 _new->wind_from = __FUNCTION__;                         \
                 _new->wind_to = #fn;                                    \
                 _new->unwind_to = #rfn;                                 \
+                _new->pri = frame->pri;                                 \
+                                                                        \
                 LOCK_INIT (&_new->lock);                                \
                 LOCK(&frame->root->stack_lock);                         \
                 {                                                       \

@@ -2447,8 +2447,8 @@ out:
  * the topology of the brick graph */
 static volgen_brick_xlator_t server_graph_table[] = {
         {brick_graph_add_server, NULL},
-        {brick_graph_add_decompounder, "decompounder"},
         {brick_graph_add_io_stats, "NULL"},
+        {brick_graph_add_decompounder, "decompounder"},
         {brick_graph_add_namespace, "namespace"},
         {brick_graph_add_cdc, NULL},
         {brick_graph_add_quota, "quota"},

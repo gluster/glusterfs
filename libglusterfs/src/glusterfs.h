@@ -331,7 +331,14 @@ static inline const char *fop_pri_to_string (gf_fop_pri_t pri)
         return FOP_PRI_STRINGS[pri];
 }
 
-const char *fop_enum_to_pri_string (glusterfs_fop_t fop);
+iot_pri_t iot_fop_to_pri (glusterfs_fop_t fop);
+
+static inline const char *fop_enum_to_pri_string (glusterfs_fop_t fop)
+{
+        iot_pri_t pri = iot_fop_to_pri (fop);
+        return fop_pri_to_string (pri);
+}
+
 const char *fop_enum_to_string (glusterfs_fop_t fop);
 
 #define GF_SET_IF_NOT_PRESENT 0x1 /* default behaviour */
@@ -444,6 +451,8 @@ struct _cmd_args {
 #ifdef GF_LINUX_HOST_OS
         char            *oom_score_adj;
 #endif
+
+        char           *stats_instance_name;
 };
 typedef struct _cmd_args cmd_args_t;
 

@@ -13,6 +13,7 @@
 
 typedef struct {
 	gf_boolean_t tag_namespaces;
+	gf_boolean_t wind_lookups;
 } ns_private_t;
 
 typedef struct {

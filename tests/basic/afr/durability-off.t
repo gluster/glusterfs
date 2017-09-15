@@ -5,6 +5,14 @@
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
 
+did_fsync () {
+        local count=$($CLI volume profile $V0 info | grep -w FSYNC | wc -l)
+        if [ "$count" != "0" ]; then
+                echo "Y"
+        else
+                echo "N"
+        fi
+}
 cleanup;
 
 TEST glusterd
@@ -24,7 +32,7 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
-EXPECT "^0$" echo $($CLI volume profile $V0 info | grep -w FSYNC | wc -l)
+EXPECT "N" did_fsync
 
 #Test that fsyncs happen when durability is on
 TEST $CLI volume set $V0 cluster.ensure-durability on
@@ -39,6 +47,6 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
-EXPECT "^2$" echo $($CLI volume profile $V0 info | grep -w FSYNC | wc -l)
+EXPECT "Y" did_fsync
 
 cleanup;

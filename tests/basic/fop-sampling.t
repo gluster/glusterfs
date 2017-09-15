@@ -13,7 +13,7 @@ function check_path {
         op=$1
         path=$2
         file=$3
-        grep $op $file | awk -F, '{print $11}' | grep $path 2>&1 > /dev/null
+        grep $op $file | awk -F, '{print $12}' | grep $path 2>&1 > /dev/null
         if [ $? -eq 0 ]; then
           echo "Y"
         else
@@ -105,6 +105,8 @@ for dir in "$N0" "$M0"; do
   rm $dir/file1
   rm $dir/file2
 done;
+
+read -p "Continue? " nothing
 
 EXPECT_WITHIN 10 "Y" check_path CREATE /file1 $BRICK_SAMPLES
 EXPECT_WITHIN 10 "Y" check_path LOOKUP /file1 $BRICK_SAMPLES

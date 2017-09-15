@@ -36,6 +36,7 @@ create_frame (xlator_t *xl, call_pool_t *pool)
 
         frame->root = stack;
         frame->this = xl;
+        frame->pri = GF_FOP_PRI_UNSPEC;
         LOCK_INIT (&frame->lock);
         INIT_LIST_HEAD (&frame->frames);
         list_add (&frame->frames, &stack->myframes);

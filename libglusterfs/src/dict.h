@@ -22,7 +22,6 @@ typedef struct _data data_t;
 typedef struct _dict dict_t;
 typedef struct _data_pair data_pair_t;
 
-
 #define GF_PROTOCOL_DICT_SERIALIZE(this,from_dict,to,len,ope,labl) do { \
                 int    ret     = 0;                                     \
                                                                         \
@@ -161,11 +160,20 @@ dict_t *get_new_dict ();
 
 #define dict_for_each(d, c) for (c = d->members_list; c; c = c->next)
 
+#define dict_foreach_inline(d, c) for (c = d->members_list; c; c = c->next)
+
 int dict_foreach (dict_t *this,
                   int (*fn)(dict_t *this,
                             char *key,
                             data_t *value,
                             void *data),
+                  void *data);
+
+int dict_foreach_with_idx (dict_t *this,
+                  int (*fn)(dict_t *this,
+                            char *key,
+                            data_t *value,
+                            void *data, uint64_t idx),
                   void *data);
 
 int dict_foreach_fnmatch (dict_t *dict, char *pattern,
@@ -246,6 +254,12 @@ GF_MUST_CHECK int dict_get_str (dict_t *this, char *key, char **str);
 GF_MUST_CHECK int dict_get_str_boolean (dict_t *this, char *key, int default_val);
 GF_MUST_CHECK int dict_serialize_value_with_delim (dict_t *this, char *buf, int32_t *serz_len,
                                                     char delimiter);
+/* Log_10(2^32) + 1. This is the length of the longest string representation of
+ * a 32-bit integer, plus space for '\0'. */
+#define DICT_UINT32_KEY_SIZE 11
+
+void dict_uint32_to_key (uint32_t num, char *key_buf);
+
 void
 dict_dump_to_statedump (dict_t *dict, char *dict_name, char *domain);
 

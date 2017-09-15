@@ -1258,6 +1258,38 @@ dict_foreach (dict_t *dict,
         return ret;
 }
 
+int
+dict_foreach_with_idx (dict_t *dict,
+              int (*fn)(dict_t *this,
+                        char *key,
+                        data_t *value,
+                        void *data, uint64_t idx),
+              void *data)
+{
+        if (!dict) {
+                gf_log_callingfn ("dict", GF_LOG_WARNING,
+                                  "dict is NULL");
+                return -1;
+        }
+
+        uint64_t     idx   = 0;
+        int          ret   = -1;
+        data_pair_t *pairs = NULL;
+        data_pair_t *next  = NULL;
+
+        pairs = dict->members_list;
+        while (pairs) {
+                next = pairs->next;
+                ret = fn (dict, pairs->key, pairs->value, data, idx);
+                if (ret < 0)
+                        return ret;
+                pairs = next;
+                idx++;
+        }
+
+        return 0;
+}
+
 /* return values:
    -1 = failure,
     0 = no matches found,
@@ -2977,6 +3009,16 @@ dict_dump_to_str (dict_t *dict, char *dump, int dumpsize, char *format)
                 dumplen += ret;
         }
         return 0;
+}
+
+/* This function converts a uint32 to a (string) key for use in a dictionary.
+ * Ensure that the key string buffer is at least DICT_UINT32_KEY_SIZE in
+ * length, since that's the maximum length of a uint32's string representation
+ * plus a NULL delimiter char. */
+void
+dict_uint32_to_key (uint32_t num, char *key_buf)
+{
+        snprintf (key_buf, DICT_UINT32_KEY_SIZE, "%u", num);
 }
 
 void

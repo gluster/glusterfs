@@ -129,6 +129,10 @@ static struct argp_option gf_options[] = {
          "buffer size, [default: 5]"},
         {"log-flush-timeout", ARGP_LOG_FLUSH_TIMEOUT, "LOG-FLUSH-TIMEOUT", 0,
          "Set log flush timeout, [default: 2 minutes]"},
+        {"stats-instance-name", ARGP_STATS_INSTANCE_NAME,
+         "STATS-INSTANCE-NAME", 0,
+         "Specify instance name for io-stats translator"},
+
 
         {0, 0, 0, 0, "Advanced Options:"},
         {"volfile-server-port", ARGP_VOLFILE_SERVER_PORT_KEY, "PORT", 0,
@@ -1244,6 +1248,10 @@ no_oom_api:
                                       GF_LOG_LRU_BUFSIZE_MAX_STR"]", arg);
                 }
 
+                break;
+
+        case ARGP_STATS_INSTANCE_NAME:
+                cmd_args->stats_instance_name = gf_strdup (arg);
                 break;
 
         case ARGP_LOG_FLUSH_TIMEOUT:

@@ -143,7 +143,7 @@ ns_inode_ctx_put (inode_t *inode, xlator_t *this, ns_info_t *info)
         int        ret            = -1;
 
         if (!inode || !this) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "Need a valid inode and xlator to cache ns_info.");
                 ret = -1;
                 goto out;
@@ -253,10 +253,10 @@ get_path_resume_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "G>P %s %10u namespace found %s",
                         uuid_utoa (local->loc.inode->gfid), info->hash, path);
         } else if (ret == PATH_PARSE_RESULT_NO_PATH) {
-                gf_log (this->name, GF_LOG_WARNING, "G>P %s has no path",
+                gf_log (this->name, GF_LOG_DEBUG, "G>P %s has no path",
                         uuid_utoa (local->loc.inode->gfid));
         } else if (ret == PATH_PARSE_RESULT_IS_GFID) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "G>P %s winding failed, still have gfid",
                         uuid_utoa (local->loc.inode->gfid));
         }
@@ -303,16 +303,26 @@ set_ns_from_loc (const char *fn, call_frame_t *frame, xlator_t *this, loc_t *loc
          * from the inode context, then from the loc's path itself. */
         if (!loc || !loc->path || !loc->inode) {
                 ret = PATH_PARSE_RESULT_NO_PATH;
-        } else if (!ns_inode_ctx_get (loc->inode, this, info)) {
-                ret = PATH_PARSE_RESULT_FOUND;
-        } else {
-                ret = parse_path (info, loc->path);
-                gf_log (this->name, GF_LOG_DEBUG, "%s: LOC retrieved path %s",
-                        fn, loc->path);
+                goto out;
+        }
 
-                if (ret == PATH_PARSE_RESULT_FOUND) {
-                        ns_inode_ctx_put (loc->inode, this, info);
-                }
+        if (!ns_inode_ctx_get (loc->inode, this, info)) {
+                ret = PATH_PARSE_RESULT_FOUND;
+                goto out;
+        }
+
+        if (gf_uuid_is_null (loc->inode->gfid) && gf_uuid_is_null (loc->gfid)) {
+                ret = PATH_PARSE_RESULT_NO_PATH;
+                goto out;
+        }
+
+        ret = parse_path (info, loc->path);
+        gf_log (this->name, GF_LOG_DEBUG, "%s: LOC retrieved path %s",
+                fn, loc->path);
+
+        if (ret == PATH_PARSE_RESULT_FOUND) {
+                ns_inode_ctx_put (loc->inode, this, info);
+                goto out;
         }
 
         /* Keep trying by calling inode_path next, making sure to copy
@@ -337,6 +347,7 @@ set_ns_from_loc (const char *fn, call_frame_t *frame, xlator_t *this, loc_t *loc
                 }
         }
 
+out:
         /* Report our status, and if we have a GFID, we'll eventually try a
          * GET_ANCESTRY_PATH_KEY wind when we return from this function. */
         if (ret == PATH_PARSE_RESULT_FOUND) {
@@ -344,7 +355,7 @@ set_ns_from_loc (const char *fn, call_frame_t *frame, xlator_t *this, loc_t *loc
                         "%s: LOC %s %10u namespace found for %s", fn,
                         uuid_utoa (loc->inode->gfid), info->hash, loc->path);
         } else if (ret == PATH_PARSE_RESULT_NO_PATH) {
-                gf_log (this->name, GF_LOG_WARNING, "%s: LOC has no path", fn);
+                gf_log (this->name, GF_LOG_DEBUG, "%s: LOC has no path", fn);
         } else if (ret == PATH_PARSE_RESULT_IS_GFID) {
                 /* Make sure to copy the inode's gfid for the eventual wind. */
                 if (gf_uuid_is_null (loc->inode->gfid)) {
@@ -381,9 +392,20 @@ set_ns_from_fd (const char *fn, call_frame_t *frame, xlator_t *this, fd_t *fd)
          * from the inode context, then inode_path. */
         if (!fd || !fd->inode) {
                 ret = PATH_PARSE_RESULT_NO_PATH;
-        } else if (!ns_inode_ctx_get (fd->inode, this, info)) {
+                goto out;
+        }
+
+        if (!ns_inode_ctx_get (fd->inode, this, info)) {
                 ret = PATH_PARSE_RESULT_FOUND;
-        } else if (inode_path (fd->inode, NULL, &path) >= 0 && path) {
+                goto out;
+        }
+
+        if (gf_uuid_is_null (fd->inode->gfid)) {
+                ret = PATH_PARSE_RESULT_NO_PATH;
+                goto out;
+        }
+
+        if (inode_path (fd->inode, NULL, &path) >= 0 && path) {
                 ret = parse_path (info, path);
                 gf_log (this->name, GF_LOG_DEBUG, "%s: FD  retrieved path %s",
                         fn, path);
@@ -397,13 +419,14 @@ set_ns_from_fd (const char *fn, call_frame_t *frame, xlator_t *this, fd_t *fd)
                 GF_FREE (path);
         }
 
+out:
         /* Report our status, and if we have a GFID, we'll eventually try a
          * GET_ANCESTRY_PATH_KEY wind when we return from this function. */
         if (ret == PATH_PARSE_RESULT_FOUND) {
                 gf_log (this->name, GF_LOG_DEBUG, "%s: FD  %s %10u namespace found",
                         fn, uuid_utoa (fd->inode->gfid), info->hash);
         } else if (ret == PATH_PARSE_RESULT_NO_PATH) {
-                gf_log (this->name, GF_LOG_WARNING, "%s: FD  has no path", fn);
+                gf_log (this->name, GF_LOG_DEBUG, "%s: FD  has no path", fn);
         } else if (ret == PATH_PARSE_RESULT_IS_GFID) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "%s: FD  %s winding, looking for path",
@@ -439,6 +462,12 @@ set_ns_from_fd (const char *fn, call_frame_t *frame, xlator_t *this, fd_t *fd)
                 if (!stub) {                                                   \
                         gf_log (this->name, GF_LOG_ERROR,                      \
                                 "Cannot allocate function stub.");             \
+                        goto wind;                                             \
+                }                                                              \
+                                                                               \
+                if (gf_uuid_is_null (inode->gfid)) {                           \
+                        gf_log (this->name, GF_LOG_DEBUG,                      \
+                                "Cannot wind on a NULL GFID.");                \
                         goto wind;                                             \
                 }                                                              \
                                                                                \
@@ -750,8 +779,10 @@ wind:
 int32_t
 ns_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
+        ns_private_t        *priv = (ns_private_t *)this->private;
+
         path_parse_result_t ret = set_ns_from_loc (__FUNCTION__, frame, this, loc);
-        if (ret == PATH_PARSE_RESULT_IS_GFID) {
+        if (ret == PATH_PARSE_RESULT_IS_GFID && priv->wind_lookups) {
                 GET_ANCESTRY_PATH_WIND (lookup, loc->inode, loc, xdata);
                 return 0;
         }
@@ -1229,6 +1260,7 @@ init (xlator_t *this)
         }
 
         GF_OPTION_INIT ("tag-namespaces", priv->tag_namespaces, bool, out);
+        GF_OPTION_INIT ("wind-lookups", priv->wind_lookups, bool, out);
 
         gf_log (this->name, GF_LOG_INFO, "Namespace xlator loaded");
         this->private = priv;
@@ -1262,6 +1294,8 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("tag-namespaces", priv->tag_namespaces, options, bool,
                           out);
+        GF_OPTION_RECONF ("wind-lookups", priv->wind_lookups, options,
+                          bool, out);
 
         ret = 0;
 out:
@@ -1330,6 +1364,17 @@ struct volume_options options[] = {
         .description   = "This option enables this translator's functionality "
                        "that tags every fop with a namespace hash for later "
                        "throttling, stats collection, logging, etc.",
+        },
+        {
+        .key           = { "wind-lookups" },
+        .type          = GF_OPTION_TYPE_BOOL,
+        .default_value = "on",
+        .description   = "If enabled, a GET_ANCESTRY_PATH_KEY getxattr wind "
+                         "will be scheduled for a LOOKUP. Since we have many "
+                         "LOOKUP requests which are sent for files that don't "
+                         "exist, it's often benificial to disable this option, "
+                         "so we don't have a high percentage of bad GETXATTRs "
+                         "in io-stats.",
         },
         {.key = { NULL } },
 };
