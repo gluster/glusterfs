@@ -11,12 +11,6 @@
 #ifndef __IOT_H
 #define __IOT_H
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
-#include "config.h"
-#endif
-
-
 #include "compat-errno.h"
 #include "glusterfs.h"
 #include "logging.h"
@@ -108,6 +102,9 @@ struct iot_conf {
         gf_boolean_t        queue_marked[IOT_PRI_MAX];
 
 	gf_boolean_t        cleanup_disconnected_reqs;
+        gf_boolean_t         down; /*PARENT_DOWN event is notified*/
+        gf_boolean_t         mutex_inited;
+        gf_boolean_t         cond_inited;
 };
 
 typedef struct iot_conf iot_conf_t;
