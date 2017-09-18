@@ -144,8 +144,20 @@ static struct xlator_fops global_fops = {
 static int
 global_xl_reconfigure (xlator_t *this, dict_t *options)
 {
+        int ret = -1;
+        gf_boolean_t bool_opt = _gf_false;
+
+        /* This is not added in volume dump, hence adding the options in log
+           would be helpful for debugging later */
         dict_dump_to_log (options);
-        return 0;
+
+        GF_OPTION_RECONF ("measure-latency", bool_opt, options, bool, out);
+        this->ctx->measure_latency = bool_opt;
+
+        /* TODO: add more things here */
+        ret = 0;
+out:
+        return ret;
 }
 
 static int
@@ -160,11 +172,25 @@ global_xl_fini (xlator_t *this)
         return;
 }
 
+struct volume_options global_xl_options[] = {
+        { .key   = {"measure-latency"},
+          .type  = GF_OPTION_TYPE_BOOL,
+          .default_value = "no",
+          .op_version = {GD_OP_VERSION_4_0_0},
+          .flags = OPT_FLAG_SETTABLE,
+          .tags = {"global", "context"},
+          .description = "Use this option to toggle measuring latency"
+        },
+
+        { .key = {NULL},},
+};
+
+static volume_opt_list_t global_xl_opt_list;
+
 int
 glusterfs_this_init ()
 {
-        int  ret = 0;
-
+        int ret = 0;
         ret = pthread_key_create (&this_xlator_key, glusterfs_this_destroy);
         if (ret != 0) {
                 gf_msg ("", GF_LOG_WARNING, ret,
@@ -182,6 +208,10 @@ glusterfs_this_init ()
         global_xlator.fini = global_xl_fini;
 
         INIT_LIST_HEAD (&global_xlator.volume_options);
+        INIT_LIST_HEAD (&global_xl_opt_list.list);
+        global_xl_opt_list.given_opt = global_xl_options;
+
+        list_add_tail (&global_xl_opt_list.list, &global_xlator.volume_options);
 
         return ret;
 }

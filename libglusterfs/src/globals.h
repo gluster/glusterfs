@@ -98,6 +98,7 @@
 #define GD_OP_VER_PERSISTENT_AFR_XATTRS GD_OP_VERSION_3_6_0
 
 #include "xlator.h"
+#include "options.h"
 
 /* THIS */
 #define THIS (*__glusterfs_this_location())
@@ -108,6 +109,7 @@ xlator_t *glusterfs_this_get (void);
 int glusterfs_this_set (xlator_t *);
 
 extern xlator_t global_xlator;
+extern struct volume_options global_xl_options[];
 
 /* syncopctx */
 void *syncopctx_getctx (void);
