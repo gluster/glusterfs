@@ -18,6 +18,7 @@ import fcntl
 from errno import EACCES, EAGAIN
 import signal
 import sys
+import time
 
 import requests
 from prettytable import PrettyTable
@@ -26,7 +27,7 @@ from gluster.cliutils import (Cmd, node_output_ok, node_output_notok,
                               sync_file_to_peers, GlusterCmdException,
                               output_error, execute_in_peers, runcli,
                               set_common_args_func)
-from events.utils import LockedOpen
+from events.utils import LockedOpen, get_jwt_token
 
 from events.eventsapiconf import (WEBHOOKS_FILE_TO_SYNC,
                                   WEBHOOKS_FILE,
@@ -307,6 +308,8 @@ class WebhookAddCmd(Cmd):
         parser.add_argument("url", help="URL of Webhook")
         parser.add_argument("--bearer_token", "-t", help="Bearer Token",
                             default="")
+        parser.add_argument("--secret", "-s",
+                            help="Secret to add JWT Bearer Token", default="")
 
     def run(self, args):
         create_webhooks_file_if_not_exists(args)
@@ -318,7 +321,8 @@ class WebhookAddCmd(Cmd):
                                     errcode=ERROR_WEBHOOK_ALREADY_EXISTS,
                                     json_output=args.json)
 
-            data[args.url] = args.bearer_token
+            data[args.url] = {"token": args.bearer_token,
+                              "secret": args.secret}
             file_content_overwrite(WEBHOOKS_FILE, data)
 
         sync_to_peers(args)
@@ -331,6 +335,8 @@ class WebhookModCmd(Cmd):
         parser.add_argument("url", help="URL of Webhook")
         parser.add_argument("--bearer_token", "-t", help="Bearer Token",
                             default="")
+        parser.add_argument("--secret", "-s",
+                            help="Secret to add JWT Bearer Token", default="")
 
     def run(self, args):
         create_webhooks_file_if_not_exists(args)
@@ -342,7 +348,16 @@ class WebhookModCmd(Cmd):
                                     errcode=ERROR_WEBHOOK_NOT_EXISTS,
                                     json_output=args.json)
 
-            data[args.url] = args.bearer_token
+            if isinstance(data[args.url], str) or \
+               isinstance(data[args.url], unicode):
+                data[args.url]["token"] = data[args.url]
+
+            if args.bearer_token != "":
+                data[args.url]["token"] = args.bearer_token
+
+            if args.secret != "":
+                data[args.url]["secret"] = args.secret
+
             file_content_overwrite(WEBHOOKS_FILE, data)
 
         sync_to_peers(args)
@@ -376,11 +391,19 @@ class NodeWebhookTestCmd(Cmd):
     def args(self, parser):
         parser.add_argument("url")
         parser.add_argument("bearer_token")
+        parser.add_argument("secret")
 
     def run(self, args):
         http_headers = {}
+        hashval = ""
         if args.bearer_token != ".":
-            http_headers["Authorization"] = "Bearer " + args.bearer_token
+            hashval = args.bearer_token
+
+        if args.secret != ".":
+            hashval = get_jwt_token(args.secret, "TEST", int(time.time()))
+
+        if hashval:
+            http_headers["Authorization"] = "Bearer " + hashval
 
         try:
             resp = requests.post(args.url, headers=http_headers)
@@ -401,16 +424,23 @@ class WebhookTestCmd(Cmd):
     def args(self, parser):
         parser.add_argument("url", help="URL of Webhook")
         parser.add_argument("--bearer_token", "-t", help="Bearer Token")
+        parser.add_argument("--secret", "-s",
+                            help="Secret to generate Bearer Token")
 
     def run(self, args):
         url = args.url
         bearer_token = args.bearer_token
+        secret = args.secret
+
         if not args.url:
             url = "."
         if not args.bearer_token:
             bearer_token = "."
+        if not args.secret:
+            secret = "."
 
-        out = execute_in_peers("node-webhook-test", [url, bearer_token])
+        out = execute_in_peers("node-webhook-test", [url, bearer_token,
+                                                     secret])
 
         if not args.json:
             table = PrettyTable(["NODE", "NODE STATUS", "WEBHOOK STATUS"])
