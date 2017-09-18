@@ -5288,6 +5288,13 @@ list:
         }
 
 done:
+        if ((op_ret == 0) && op_errno != ENOENT) {
+                /* remaining buffer size is not enough to hold even one
+                 * dentry
+                 */
+                goto unwind;
+        }
+
         if ((count == 0) || (local && (local->filled < local->size))) {
                 if ((next_offset == 0) || (op_errno == ENOENT)) {
                         next_offset = 0;
@@ -5318,8 +5325,8 @@ done:
 
                 STACK_WIND_COOKIE (frame, dht_readdirp_cbk, next_subvol,
                                    next_subvol, next_subvol->fops->readdirp,
-                                   local->fd, local->size, next_offset,
-                                   local->xattr);
+                                   local->fd, (local->size - local->filled),
+                                   next_offset, local->xattr);
                 return 0;
         }
 
@@ -5409,6 +5416,13 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 done:
+        if ((op_ret == 0) && op_errno != ENOENT) {
+                /* remaining buffer size is not enough to hold even one
+                 * dentry
+                 */
+                goto unwind;
+        }
+
         if ((count == 0) || (local && (local->filled < local->size))) {
                 if ((op_ret <= 0) || (op_errno == ENOENT)) {
                         next_subvol = dht_subvol_next (this, prev);
@@ -5422,7 +5436,8 @@ done:
 
                 STACK_WIND_COOKIE (frame, dht_readdir_cbk, next_subvol,
                                    next_subvol, next_subvol->fops->readdir,
-                                   local->fd, local->size, next_offset, NULL);
+                                   local->fd, (local->size - local->filled),
+                                   next_offset, NULL);
                 return 0;
         }
 
