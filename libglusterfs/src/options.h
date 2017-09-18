@@ -296,7 +296,7 @@ xlator_option_reconf_##type (xlator_t *this, dict_t *options, char *key, \
                         "option %s using default value %s",             \
                         key, value);                                    \
         } else {                                                        \
-                gf_msg_debug (this->name, 0,                            \
+                gf_msg (this->name, GF_LOG_INFO, 0, 0,                  \
                         "option %s using set value %s",                 \
                         key, value);                                    \
         }                                                               \

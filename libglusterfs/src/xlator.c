@@ -308,6 +308,8 @@ xlator_set_type (xlator_t *xl, const char *type)
         /* Handle 'global' translator differently */
         if (!strncmp (GF_GLOBAL_XLATOR_NAME, type,
                       strlen (GF_GLOBAL_XLATOR_NAME))) {
+                volume_opt_list_t *vol_opt = NULL;
+
                 /* set the required values from Global xlator */
                 xl->type = gf_strdup (GF_GLOBAL_XLATOR_NAME);
                 xl->cbks = global_xlator.cbks;
@@ -316,10 +318,21 @@ xlator_set_type (xlator_t *xl, const char *type)
                 xl->fini = global_xlator.fini;
                 xl->reconfigure = global_xlator.reconfigure;
 
+                vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
+                                     gf_common_mt_volume_opt_list_t);
+                if (!vol_opt) {
+                        ret = -1;
+                        goto out;
+                }
+
+                vol_opt->given_opt = global_xl_options;
+
                 INIT_LIST_HEAD (&xl->volume_options);
+                INIT_LIST_HEAD (&vol_opt->list);
+                list_add_tail (&vol_opt->list, &xl->volume_options);
 
                 fill_defaults(xl);
-
+                ret = 0;
                 goto out;
         }
 
