@@ -3503,6 +3503,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_3_10_1,
           .flags      = VOLOPT_FLAG_CLIENT_OPT
         },
+        { .key        = "disperse.stripe-cache",
+          .voltype    = "cluster/disperse",
+          .type       = NO_DOC,
+          .op_version = GD_OP_VERSION_3_13_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
 
         /* Halo replication options */
         { .key        = "cluster.halo-enabled",

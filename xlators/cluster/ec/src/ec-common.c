@@ -1437,6 +1437,23 @@ ec_set_inode_size(ec_fop_data_t *fop, inode_t *inode,
     return found;
 }
 
+static void
+ec_release_stripe_cache (ec_inode_t *ctx)
+{
+        ec_stripe_list_t *stripe_cache = NULL;
+        ec_stripe_t      *stripe = NULL;
+
+        stripe_cache = &ctx->stripe_cache;
+        while (!list_empty (&stripe_cache->lru)) {
+                stripe = list_first_entry (&stripe_cache->lru, ec_stripe_t,
+                                           lru);
+                list_del (&stripe->lru);
+                GF_FREE (stripe);
+        }
+        stripe_cache->count = 0;
+        stripe_cache->max = 0;
+}
+
 void ec_clear_inode_info(ec_fop_data_t *fop, inode_t *inode)
 {
     ec_inode_t *ctx;
@@ -1448,6 +1465,7 @@ void ec_clear_inode_info(ec_fop_data_t *fop, inode_t *inode)
         goto unlock;
     }
 
+    ec_release_stripe_cache (ctx);
     ctx->have_info = _gf_false;
     ctx->have_config = _gf_false;
     ctx->have_version = _gf_false;
@@ -2465,6 +2483,102 @@ ec_use_eager_lock(ec_t *ec, ec_fop_data_t *fop)
         return ec->other_eager_lock;
 }
 
+static void
+ec_update_stripe(ec_t *ec, ec_stripe_list_t *stripe_cache, ec_stripe_t *stripe,
+                 ec_fop_data_t *fop)
+{
+        off_t base;
+
+        /* On write fops, we only update existing fragments if the write has
+         * succeeded. Otherwise, we remove them from the cache. */
+        if ((fop->id == GF_FOP_WRITE) && (fop->answer != NULL) &&
+            (fop->answer->op_ret >= 0)) {
+                base = stripe->frag_offset - fop->frag_range.first;
+                base *= ec->fragments;
+
+                /* We check if the stripe offset falls inside the real region
+                 * modified by the write fop (a write request is allowed,
+                 * though uncommon, to write less bytes than requested). The
+                 * current write fop implementation doesn't allow partial
+                 * writes of fragments, so if there's no error, we are sure
+                 * that a full stripe has been completely modified or not
+                 * touched at all. The value of op_ret may not be a multiple
+                 * of the stripe size because it depends on the requested
+                 * size by the user, so we update the stripe if the write has
+                 * modified at least one byte (meaning ec has written the full
+                 * stripe). */
+                if (base < fop->answer->op_ret) {
+                        memcpy(stripe->data, fop->vector[0].iov_base + base,
+                               ec->stripe_size);
+                        list_move_tail(&stripe->lru, &stripe_cache->lru);
+
+                        GF_ATOMIC_INC(ec->stats.stripe_cache.updates);
+                }
+        } else {
+                stripe->frag_offset = -1;
+                list_move (&stripe->lru, &stripe_cache->lru);
+
+                GF_ATOMIC_INC(ec->stats.stripe_cache.invals);
+        }
+}
+
+static void
+ec_update_cached_stripes (ec_fop_data_t *fop)
+{
+        uint64_t          first;
+        uint64_t          last;
+        ec_stripe_t      *stripe       = NULL;
+        ec_inode_t       *ctx          = NULL;
+        ec_stripe_list_t *stripe_cache = NULL;
+        inode_t          *inode        = NULL;
+        struct list_head *temp;
+        struct list_head  sentinel;
+
+        first = fop->frag_range.first;
+        /* 'last' represents the first stripe not touched by the operation */
+        last = fop->frag_range.last;
+
+        /* If there are no modified stripes, we don't need to do anything
+         * else. */
+        if (last <= first) {
+                return;
+        }
+
+        if (!fop->use_fd) {
+                inode = fop->loc[0].inode;
+        } else {
+                inode = fop->fd->inode;
+        }
+
+        LOCK(&inode->lock);
+
+        ctx = __ec_inode_get (inode, fop->xl);
+        if (ctx == NULL) {
+                goto out;
+        }
+        stripe_cache = &ctx->stripe_cache;
+
+        /* Since we'll be moving elements of the list to the tail, we might
+         * end in an infinite loop. To avoid it, we insert a sentinel element
+         * into the list, so that it will be used to detect when we have
+         * traversed all existing elements once. */
+        list_add_tail(&sentinel, &stripe_cache->lru);
+        temp = stripe_cache->lru.next;
+        while (temp != &sentinel) {
+                stripe = list_entry(temp, ec_stripe_t, lru);
+                temp = temp->next;
+                if ((first <= stripe->frag_offset) &&
+                    (stripe->frag_offset < last)) {
+                        ec_update_stripe (fop->xl->private, stripe_cache,
+                                          stripe, fop);
+                }
+        }
+        list_del(&sentinel);
+
+out:
+        UNLOCK(&inode->lock);
+}
+
 void ec_lock_reuse(ec_fop_data_t *fop)
 {
     ec_cbk_data_t *cbk;
@@ -2491,6 +2605,7 @@ void ec_lock_reuse(ec_fop_data_t *fop)
          * the lock. */
         release = _gf_true;
     }
+    ec_update_cached_stripes (fop);
 
     for (i = 0; i < fop->lock_count; i++) {
         ec_lock_next_owner(&fop->locks[i], cbk, release);

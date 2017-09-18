@@ -706,6 +706,17 @@ void ec_owner_copy(call_frame_t *frame, gf_lkowner_t *owner)
     lk_owner_copy (&frame->root->lk_owner, owner);
 }
 
+static void
+ec_stripe_cache_init (ec_t *ec, ec_inode_t *ctx)
+{
+        ec_stripe_list_t *stripe_cache = NULL;
+
+        stripe_cache = &(ctx->stripe_cache);
+        if (stripe_cache->max == 0) {
+                stripe_cache->max = ec->stripe_cache;
+        }
+}
+
 ec_inode_t * __ec_inode_get(inode_t * inode, xlator_t * xl)
 {
     ec_inode_t * ctx = NULL;
@@ -718,7 +729,7 @@ ec_inode_t * __ec_inode_get(inode_t * inode, xlator_t * xl)
         {
             memset(ctx, 0, sizeof(*ctx));
             INIT_LIST_HEAD(&ctx->heal);
-
+            INIT_LIST_HEAD(&ctx->stripe_cache.lru);
             value = (uint64_t)(uintptr_t)ctx;
             if (__inode_ctx_set(inode, xl, &value) != 0)
             {
@@ -732,6 +743,8 @@ ec_inode_t * __ec_inode_get(inode_t * inode, xlator_t * xl)
     {
         ctx = (ec_inode_t *)(uintptr_t)value;
     }
+    if (ctx)
+        ec_stripe_cache_init (xl->private, ctx);
 
     return ctx;
 }

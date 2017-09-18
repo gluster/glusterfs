@@ -299,6 +299,8 @@ reconfigure (xlator_t *this, dict_t *options)
                           options, bool, failed);
         GF_OPTION_RECONF ("parallel-writes", ec->parallel_writes,
                           options, bool, failed);
+        GF_OPTION_RECONF ("stripe-cache", ec->stripe_cache, options, uint32,
+                          failed);
         ret = 0;
         if (ec_assign_read_policy (ec, read_policy)) {
                 ret = -1;
@@ -581,6 +583,18 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         return ret;
 }
 
+static void
+ec_statistics_init(ec_t *ec)
+{
+        GF_ATOMIC_INIT(ec->stats.stripe_cache.hits, 0);
+        GF_ATOMIC_INIT(ec->stats.stripe_cache.misses, 0);
+        GF_ATOMIC_INIT(ec->stats.stripe_cache.updates, 0);
+        GF_ATOMIC_INIT(ec->stats.stripe_cache.invals, 0);
+        GF_ATOMIC_INIT(ec->stats.stripe_cache.evicts, 0);
+        GF_ATOMIC_INIT(ec->stats.stripe_cache.allocs, 0);
+        GF_ATOMIC_INIT(ec->stats.stripe_cache.errors, 0);
+}
+
 int32_t
 init (xlator_t *this)
 {
@@ -671,6 +685,7 @@ init (xlator_t *this)
     GF_OPTION_INIT ("shd-wait-qlength", ec->shd.wait_qlength, uint32, failed);
     GF_OPTION_INIT ("optimistic-change-log", ec->optimistic_changelog, bool, failed);
     GF_OPTION_INIT ("parallel-writes", ec->parallel_writes, bool, failed);
+    GF_OPTION_INIT ("stripe-cache", ec->stripe_cache, uint32, failed);
 
     this->itable = inode_table_new (EC_SHD_INODE_LRU_LIMIT, this);
     if (!this->itable)
@@ -696,6 +711,8 @@ init (xlator_t *this)
                 "dictionary");
         goto failed;
     }
+
+    ec_statistics_init(ec);
 
     return 0;
 
@@ -1252,6 +1269,9 @@ int32_t ec_gf_forget(xlator_t * this, inode_t * inode)
     if ((inode_ctx_del(inode, this, &value) == 0) && (value != 0))
     {
         ctx = (ec_inode_t *)(uintptr_t)value;
+        /* We can only forget an inode if it has been unlocked, so the stripe
+         * cache should also be empty. */
+        GF_ASSERT(list_empty(&ctx->stripe_cache.lru));
         GF_FREE(ctx);
     }
 
@@ -1312,6 +1332,25 @@ int32_t ec_dump_private(xlator_t *this)
     gf_proc_dump_write("healers", "%d", ec->healers);
     gf_proc_dump_write("heal-waiters", "%d", ec->heal_waiters);
     gf_proc_dump_write("read-policy", "%s", ec_read_policies[ec->read_policy]);
+
+    snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s.stats.stripe_cache",
+             this->type, this->name);
+    gf_proc_dump_add_section(key_prefix);
+
+    gf_proc_dump_write("hits", "%llu",
+                       GF_ATOMIC_GET(ec->stats.stripe_cache.hits));
+    gf_proc_dump_write("misses", "%llu",
+                       GF_ATOMIC_GET(ec->stats.stripe_cache.misses));
+    gf_proc_dump_write("updates", "%llu",
+                       GF_ATOMIC_GET(ec->stats.stripe_cache.updates));
+    gf_proc_dump_write("invalidations", "%llu",
+                       GF_ATOMIC_GET(ec->stats.stripe_cache.invals));
+    gf_proc_dump_write("evicts", "%llu",
+                       GF_ATOMIC_GET(ec->stats.stripe_cache.evicts));
+    gf_proc_dump_write("allocations", "%llu",
+                       GF_ATOMIC_GET(ec->stats.stripe_cache.allocs));
+    gf_proc_dump_write("errors", "%llu",
+                       GF_ATOMIC_GET(ec->stats.stripe_cache.errors));
 
     return 0;
 }
@@ -1511,6 +1550,19 @@ struct volume_options options[] =
       .default_value = "on",
       .description = "This controls if writes can be wound in parallel as long"
                      "as it doesn't modify same stripes"
+    },
+    {   .key = {"stripe-cache"},
+        .type = GF_OPTION_TYPE_INT,
+        .min = 0,/*Disabling stripe_cache*/
+        .max = EC_STRIPE_CACHE_MAX_SIZE,
+        .default_value = "0",
+        .description =  "This option will keep the last stripe of write fop"
+                        "in memory. If next write falls in this stripe, we need"
+                        "not to read it again from backend and we can save READ"
+                        "fop going over the network. This will improve performance,"
+                        "specially for sequential writes. However, this will also"
+                        "lead to extra memory consumption, maximum "
+                        "(cache size * stripe size) Bytes per open file."
     },
     { .key = {NULL} }
 };
