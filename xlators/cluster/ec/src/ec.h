@@ -17,7 +17,7 @@
 #define EC_XATTR_VERSION EC_XATTR_PREFIX"version"
 #define EC_XATTR_HEAL    EC_XATTR_PREFIX"heal"
 #define EC_XATTR_DIRTY   EC_XATTR_PREFIX"dirty"
-
+#define EC_STRIPE_CACHE_MAX_SIZE    10
 #define EC_VERSION_SIZE 2
 #define EC_SHD_INODE_LRU_LIMIT          10
 

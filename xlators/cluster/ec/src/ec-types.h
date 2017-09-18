@@ -14,11 +14,15 @@
 #include "xlator.h"
 #include "timer.h"
 #include "libxlator.h"
+#include "atomic.h"
 
 #define EC_GF_MAX_REGS 16
 
 enum _ec_heal_need;
 typedef enum _ec_heal_need ec_heal_need_t;
+
+enum _ec_stripe_part;
+typedef enum _ec_stripe_part ec_stripe_part_t;
 
 enum _ec_read_policy;
 typedef enum _ec_read_policy ec_read_policy_t;
@@ -28,6 +32,9 @@ typedef struct _ec_config ec_config_t;
 
 struct _ec_fd;
 typedef struct _ec_fd ec_fd_t;
+
+struct _ec_fragment_range;
+typedef struct _ec_fragment_range ec_fragment_range_t;
 
 struct _ec_inode;
 typedef struct _ec_inode ec_inode_t;
@@ -77,6 +84,12 @@ typedef struct _ec_code_builder ec_code_builder_t;
 struct _ec_code_chunk;
 typedef struct _ec_code_chunk ec_code_chunk_t;
 
+struct _ec_stripe;
+typedef struct _ec_stripe ec_stripe_t;
+
+struct _ec_stripe_list;
+typedef struct _ec_stripe_list ec_stripe_list_t;
+
 struct _ec_code_space;
 typedef struct _ec_code_space ec_code_space_t;
 
@@ -105,6 +118,9 @@ typedef struct _ec_heal ec_heal_t;
 struct _ec_self_heald;
 typedef struct _ec_self_heald ec_self_heald_t;
 
+struct _ec_statistics;
+typedef struct _ec_statistics ec_statistics_t;
+
 struct _ec;
 typedef struct _ec ec_t;
 
@@ -124,6 +140,11 @@ enum _ec_heal_need {
         EC_HEAL_MUST
 };
 
+enum _ec_stripe_part {
+        EC_STRIPE_HEAD,
+        EC_STRIPE_TAIL
+};
+
 struct _ec_config {
     uint32_t version;
     uint8_t  algorithm;
@@ -139,6 +160,18 @@ struct _ec_fd {
     int32_t   flags;
 };
 
+struct _ec_stripe {
+    struct list_head lru;         /* LRU list member */
+    uint64_t         frag_offset; /* Fragment offset of this stripe */
+    char             data[];      /* Contents of the stripe */
+};
+
+struct _ec_stripe_list {
+    struct          list_head lru;
+    uint32_t        count;
+    uint32_t        max;
+};
+
 struct _ec_inode {
     ec_lock_t        *inode_lock;
     gf_boolean_t      have_info;
@@ -152,7 +185,9 @@ struct _ec_inode {
     uint64_t          post_size;
     uint64_t          dirty[2];
     struct list_head  heal;
+    ec_stripe_list_t  stripe_cache;
 };
+
 
 typedef int32_t (*fop_heal_cbk_t)(call_frame_t *, void *, xlator_t *, int32_t,
                                   int32_t, uintptr_t, uintptr_t, uintptr_t,
@@ -263,75 +298,88 @@ struct _ec_lock_link {
     off_t             fl_end;
 };
 
+/* This structure keeps a range of fragment offsets affected by a fop. Since
+ * real file offsets can be difficult to handle correctly because of overflows,
+ * we use the 'scaled' offset, which corresponds to the offset of the fragment
+ * seen by the bricks, which is always smaller and cannot overflow. */
+struct _ec_fragment_range {
+    uint64_t first; /* Address of the first affected fragment as seen by the
+                       bricks (offset on brick) */
+    uint64_t last;  /* Address of the first non affected fragment as seen by
+                       the bricks (offset on brick) */
+};
+
 struct _ec_fop_data {
-    int32_t            id;
-    int32_t            refs;
-    int32_t            state;
-    int32_t            minimum;
-    int32_t            expected;
-    int32_t            winds;
-    int32_t            jobs;
-    int32_t            error;
-    ec_fop_data_t     *parent;
-    xlator_t          *xl;
-    call_frame_t      *req_frame;    /* frame of the calling xlator */
-    call_frame_t      *frame;        /* frame used by this fop */
-    struct list_head   cbk_list;     /* sorted list of groups of answers */
-    struct list_head   answer_list;  /* list of answers */
-    struct list_head   pending_list; /* member of ec_t.pending_fops */
-    ec_cbk_data_t     *answer;       /* accepted answer */
-    int32_t            lock_count;
-    int32_t            locked;
-    ec_lock_link_t     locks[2];
-    int32_t            first_lock;
-    gf_lock_t          lock;
+    int32_t              id;
+    int32_t              refs;
+    int32_t              state;
+    int32_t              minimum;
+    int32_t              expected;
+    int32_t              winds;
+    int32_t              jobs;
+    int32_t              error;
+    ec_fop_data_t       *parent;
+    xlator_t            *xl;
+    call_frame_t        *req_frame;    /* frame of the calling xlator */
+    call_frame_t        *frame;        /* frame used by this fop */
+    struct list_head     cbk_list;     /* sorted list of groups of answers */
+    struct list_head     answer_list;  /* list of answers */
+    struct list_head     pending_list; /* member of ec_t.pending_fops */
+    ec_cbk_data_t       *answer;       /* accepted answer */
+    int32_t              lock_count;
+    int32_t              locked;
+    ec_lock_link_t       locks[2];
+    int32_t              first_lock;
+    gf_lock_t            lock;
 
-    uint32_t           flags;
-    uint32_t           first;
-    uintptr_t          mask;
-    uintptr_t          healing; /*Dispatch is done but call is successful only
-                                  if fop->minimum number of subvolumes succeed
-                                  which are not healing*/
-    uintptr_t          remaining;
-    uintptr_t          received; /* Mask of responses */
-    uintptr_t          good;
+    uint32_t             flags;
+    uint32_t             first;
+    uintptr_t            mask;
+    uintptr_t            healing; /*Dispatch is done but call is successful
+                                    only if fop->minimum number of subvolumes
+                                    succeed which are not healing*/
+    uintptr_t            remaining;
+    uintptr_t            received; /* Mask of responses */
+    uintptr_t            good;
 
-    uid_t              uid;
-    gid_t              gid;
+    uid_t                uid;
+    gid_t                gid;
 
-    ec_wind_f          wind;
-    ec_handler_f       handler;
-    ec_resume_f        resume;
-    ec_cbk_t           cbks;
-    void              *data;
-    ec_heal_t         *heal;
-    struct list_head   healer;
+    ec_wind_f            wind;
+    ec_handler_f         handler;
+    ec_resume_f          resume;
+    ec_cbk_t             cbks;
+    void                *data;
+    ec_heal_t           *heal;
+    struct list_head     healer;
 
-    uint64_t           user_size;
-    uint32_t           head;
+    uint64_t             user_size;
+    uint32_t             head;
 
-    int32_t            use_fd;
+    int32_t              use_fd;
 
-    dict_t            *xdata;
-    dict_t            *dict;
-    int32_t            int32;
-    uint32_t           uint32;
-    uint64_t           size;
-    off_t              offset;
-    mode_t             mode[2];
-    entrylk_cmd        entrylk_cmd;
-    entrylk_type       entrylk_type;
-    gf_xattrop_flags_t xattrop_flags;
-    dev_t              dev;
-    inode_t           *inode;
-    fd_t              *fd;
-    struct iatt        iatt;
-    char              *str[2];
-    loc_t              loc[2];
-    struct gf_flock    flock;
-    struct iovec      *vector;
-    struct iobref     *buffers;
-    gf_seek_what_t     seek;
+    dict_t              *xdata;
+    dict_t              *dict;
+    int32_t              int32;
+    uint32_t             uint32;
+    uint64_t             size;
+    off_t                offset;
+    mode_t               mode[2];
+    entrylk_cmd          entrylk_cmd;
+    entrylk_type         entrylk_type;
+    gf_xattrop_flags_t   xattrop_flags;
+    dev_t                dev;
+    inode_t             *inode;
+    fd_t                *fd;
+    struct iatt          iatt;
+    char                *str[2];
+    loc_t                loc[2];
+    struct gf_flock      flock;
+    struct iovec        *vector;
+    struct iobref       *buffers;
+    gf_seek_what_t       seek;
+    ec_fragment_range_t  frag_range; /* This will hold the range of stripes
+                                         affected by the fop. */
 };
 
 struct _ec_cbk_data {
@@ -551,6 +599,26 @@ struct _ec_self_heald {
         struct subvol_healer   *full_healers;
 };
 
+struct _ec_statistics {
+        struct {
+                gf_atomic_t hits;    /* Cache hits. */
+                gf_atomic_t misses;  /* Cache misses. */
+                gf_atomic_t updates; /* Number of times an existing stripe has
+                                        been updated with new content. */
+                gf_atomic_t invals;  /* Number of times an existing stripe has
+                                        been invalidated because of truncates
+                                        or discards. */
+                gf_atomic_t evicts;  /* Number of times that an existing entry
+                                        has been evicted to make room for newer
+                                        entries. */
+                gf_atomic_t allocs;  /* Number of memory allocations made to
+                                        store stripes. */
+                gf_atomic_t errors;  /* Number of errors that have caused extra
+                                        requests. (Basically memory allocation
+                                        errors). */
+        } stripe_cache;
+};
+
 struct _ec {
     xlator_t          *xl;
     int32_t            healers;
@@ -576,6 +644,7 @@ struct _ec {
     gf_boolean_t       other_eager_lock;
     gf_boolean_t       optimistic_changelog;
     gf_boolean_t       parallel_writes;
+    uint32_t           stripe_cache;
     uint32_t           background_heals;
     uint32_t           heal_wait_qlen;
     uint32_t           self_heal_window_size; /* max size of read/writes */
@@ -590,6 +659,7 @@ struct _ec {
     dict_t            *leaf_to_subvolid;
     ec_read_policy_t   read_policy;
     ec_matrix_list_t   matrix;
+    ec_statistics_t    stats;
 };
 
 #endif /* __EC_TYPES_H__ */

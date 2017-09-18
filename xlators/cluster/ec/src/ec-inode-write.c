@@ -18,6 +18,7 @@
 #include "ec-combine.h"
 #include "ec-method.h"
 #include "ec-fops.h"
+#include "ec-mem-types.h"
 
 int32_t
 ec_update_writev_cbk (call_frame_t *frame, void *cookie,
@@ -1169,12 +1170,14 @@ void ec_discard_adjust_offset_size(ec_fop_data_t *fop)
          * write zeros.
          */
         fop->int32 = ec_adjust_offset_up(ec, &fop->offset, _gf_true);
+        fop->frag_range.first = fop->offset;
         if (fop->size < fop->int32) {
                 fop->size = 0;
         } else {
                 fop->size -= fop->int32;
                 ec_adjust_size_down(ec, &fop->size, _gf_true);
         }
+        fop->frag_range.last = fop->offset + fop->size;
 }
 
 int32_t ec_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
@@ -1436,6 +1439,8 @@ int32_t ec_manager_truncate(ec_fop_data_t * fop, int32_t state)
         case EC_STATE_INIT:
             fop->user_size = fop->offset;
             ec_adjust_offset_up(fop->xl->private, &fop->offset, _gf_true);
+            fop->frag_range.first = fop->offset;
+            fop->frag_range.last = UINT64_MAX;
 
         /* Fall through */
 
@@ -1696,6 +1701,78 @@ out:
 }
 
 /* FOP: writev */
+static ec_stripe_t *
+ec_allocate_stripe (ec_t *ec, ec_stripe_list_t *stripe_cache)
+{
+        ec_stripe_t *stripe = NULL;
+
+        if (stripe_cache->count >= stripe_cache->max) {
+                GF_ASSERT (!list_empty(&stripe_cache->lru));
+                stripe = list_first_entry(&stripe_cache->lru, ec_stripe_t, lru);
+                list_move_tail(&stripe->lru, &stripe_cache->lru);
+                GF_ATOMIC_INC(ec->stats.stripe_cache.evicts);
+        } else {
+                stripe = GF_MALLOC (sizeof (ec_stripe_t) + ec->stripe_size,
+                                    ec_mt_ec_stripe_t);
+                if (stripe != NULL) {
+                        stripe_cache->count++;
+                        list_add_tail (&stripe->lru, &stripe_cache->lru);
+                        GF_ATOMIC_INC(ec->stats.stripe_cache.allocs);
+                } else {
+                        GF_ATOMIC_INC(ec->stats.stripe_cache.errors);
+                }
+        }
+
+        return stripe;
+}
+
+static void
+ec_write_stripe_data (ec_t *ec, ec_fop_data_t *fop,
+                      ec_stripe_t *stripe)
+{
+        off_t   base;
+
+        base = fop->size - ec->stripe_size;
+        memcpy(stripe->data, fop->vector[0].iov_base + base, ec->stripe_size);
+        stripe->frag_offset = fop->frag_range.last - ec->fragment_size;
+}
+
+static void
+ec_add_stripe_in_cache (ec_t *ec, ec_fop_data_t *fop)
+{
+        ec_inode_t       *ctx    = NULL;
+        ec_stripe_t      *stripe = NULL;
+        ec_stripe_list_t *stripe_cache = NULL;
+        gf_boolean_t      failed = _gf_true;
+
+        LOCK(&fop->fd->inode->lock);
+
+        ctx = __ec_inode_get (fop->fd->inode, fop->xl);
+        if (ctx == NULL) {
+                goto out;
+        }
+
+        stripe_cache = &ctx->stripe_cache;
+        if (stripe_cache->max > 0) {
+                stripe = ec_allocate_stripe (ec, stripe_cache);
+                if (stripe == NULL) {
+                        goto out;
+                }
+
+                ec_write_stripe_data (ec, fop, stripe);
+        }
+
+        failed = _gf_false;
+
+out:
+        UNLOCK(&fop->fd->inode->lock);
+
+        if (failed) {
+                gf_msg (ec->xl->name, GF_LOG_DEBUG, ENOMEM,
+                        EC_MSG_FILE_DESC_REF_FAIL,
+                        "Failed to create and add stripe in cache");
+        }
+}
 
 int32_t ec_writev_merge_tail(call_frame_t * frame, void * cookie,
                              xlator_t * this, int32_t op_ret, int32_t op_errno,
@@ -1725,8 +1802,11 @@ int32_t ec_writev_merge_tail(call_frame_t * frame, void * cookie,
         {
             memset(fop->vector[0].iov_base + fop->size - size, 0, size);
         }
-    }
 
+        if (ec->stripe_cache) {
+                ec_add_stripe_in_cache (ec, fop);
+        }
+    }
     return 0;
 }
 
@@ -1775,7 +1855,7 @@ ec_make_internal_fop_xdata (dict_t **xdata)
     dict_t *dict = NULL;
 
     if (*xdata)
-	return 0;
+        return 0;
 
     dict = dict_new();
     if (!dict)
@@ -1802,8 +1882,10 @@ ec_writev_prepare_buffers(ec_t *ec, ec_fop_data_t *fop)
 
     fop->user_size = iov_length(fop->vector, fop->int32);
     fop->head = ec_adjust_offset_down(ec, &fop->offset, _gf_false);
+    fop->frag_range.first = fop->offset / ec->fragments;
     fop->size = fop->user_size + fop->head;
     ec_adjust_size_up(ec, &fop->size, _gf_false);
+    fop->frag_range.last = fop->frag_range.first + fop->size / ec->fragments;
 
     if ((fop->int32 != 1) || (fop->head != 0) ||
         (fop->size > fop->user_size) ||
@@ -1850,6 +1932,98 @@ out:
     return err;
 }
 
+static void
+ec_merge_stripe_head_locked (ec_t *ec, ec_fop_data_t *fop, ec_stripe_t *stripe)
+{
+        size_t head, size;
+
+        head = fop->head;
+        memcpy(fop->vector[0].iov_base, stripe->data, head);
+
+        size = ec->stripe_size - head;
+        if (size > fop->user_size) {
+                head += fop->user_size;
+                size = ec->stripe_size - head;
+                memcpy(fop->vector[0].iov_base + head, stripe->data + head,
+                       size);
+        }
+}
+
+static void
+ec_merge_stripe_tail_locked (ec_t *ec, ec_fop_data_t *fop, ec_stripe_t *stripe)
+{
+        size_t head, tail;
+        off_t  offset;
+
+        offset = fop->user_size + fop->head;
+        tail = fop->size - offset;
+        head = ec->stripe_size - tail;
+
+        memcpy(fop->vector[0].iov_base + offset, stripe->data + head, tail);
+}
+
+static ec_stripe_t *
+ec_get_stripe_from_cache_locked (ec_t *ec, ec_fop_data_t *fop,
+                                 uint64_t frag_offset)
+{
+        ec_inode_t       *ctx    = NULL;
+        ec_stripe_t      *stripe = NULL;
+        ec_stripe_list_t *stripe_cache = NULL;
+
+        ctx = __ec_inode_get (fop->fd->inode, fop->xl);
+        if (ctx == NULL) {
+                GF_ATOMIC_INC(ec->stats.stripe_cache.errors);
+                return NULL;
+        }
+
+        stripe_cache = &ctx->stripe_cache;
+        list_for_each_entry (stripe, &stripe_cache->lru, lru) {
+                if (stripe->frag_offset == frag_offset) {
+                        list_move_tail (&stripe->lru, &stripe_cache->lru);
+                        GF_ATOMIC_INC(ec->stats.stripe_cache.hits);
+                        return stripe;
+                }
+        }
+
+        GF_ATOMIC_INC(ec->stats.stripe_cache.misses);
+
+        return NULL;
+}
+
+static gf_boolean_t
+ec_get_and_merge_stripe (ec_t *ec, ec_fop_data_t *fop, ec_stripe_part_t which)
+{
+        uint64_t      frag_offset;
+        ec_stripe_t  *stripe = NULL;
+        gf_boolean_t  found  = _gf_false;
+
+        if (!ec->stripe_cache) {
+                return found;
+        }
+
+        LOCK(&fop->fd->inode->lock);
+        if (which == EC_STRIPE_HEAD) {
+                frag_offset = fop->frag_range.first;
+                stripe = ec_get_stripe_from_cache_locked(ec, fop, frag_offset);
+                if (stripe) {
+                        ec_merge_stripe_head_locked (ec, fop, stripe);
+                        found = _gf_true;
+                }
+        }
+
+        if (which == EC_STRIPE_TAIL) {
+                frag_offset = fop->frag_range.last - ec->fragment_size;
+                stripe = ec_get_stripe_from_cache_locked(ec, fop, frag_offset);
+                if (stripe) {
+                        ec_merge_stripe_tail_locked (ec, fop, stripe);
+                        found = _gf_true;
+                }
+        }
+        UNLOCK(&fop->fd->inode->lock);
+
+        return found;
+}
+
 void ec_writev_start(ec_fop_data_t *fop)
 {
     ec_t *ec = fop->xl->private;
@@ -1858,6 +2032,7 @@ void ec_writev_start(ec_fop_data_t *fop)
     dict_t *xdata = NULL;
     uint64_t tail, current;
     int32_t err = -ENOMEM;
+    gf_boolean_t found_stripe = _gf_false;
 
     /* This shouldn't fail because we have the inode locked. */
     GF_ASSERT(ec_get_inode_size(fop, fop->fd->inode, &current));
@@ -1884,15 +2059,19 @@ void ec_writev_start(ec_fop_data_t *fop)
     if (err != 0) {
         goto failed_fd;
     }
-
     if (fop->head > 0) {
-        if (ec_make_internal_fop_xdata (&xdata)) {
-                err = -ENOMEM;
-                goto failed_xdata;
+        found_stripe = ec_get_and_merge_stripe (ec, fop, EC_STRIPE_HEAD);
+        if (!found_stripe) {
+                if (ec_make_internal_fop_xdata (&xdata)) {
+                        err = -ENOMEM;
+                        goto failed_xdata;
+                }
+                ec_readv(fop->frame, fop->xl, -1, EC_MINIMUM_MIN,
+                         ec_writev_merge_head,
+                         NULL, fd, ec->stripe_size, fop->offset, 0, xdata);
         }
-        ec_readv(fop->frame, fop->xl, -1, EC_MINIMUM_MIN, ec_writev_merge_head,
-                 NULL, fd, ec->stripe_size, fop->offset, 0, xdata);
     }
+
     tail = fop->size - fop->user_size - fop->head;
     if ((tail > 0) && ((fop->head == 0) || (fop->size > ec->stripe_size))) {
             /* Current locking scheme will make sure the 'current' below will
@@ -1900,13 +2079,17 @@ void ec_writev_start(ec_fop_data_t *fop)
              * work as expected
              */
         if (current > fop->offset + fop->head + fop->user_size) {
-            if (ec_make_internal_fop_xdata (&xdata)) {
-                    err = -ENOMEM;
-                    goto failed_xdata;
+            found_stripe = ec_get_and_merge_stripe (ec, fop, EC_STRIPE_TAIL);
+            if (!found_stripe) {
+                    if (ec_make_internal_fop_xdata (&xdata)) {
+                            err = -ENOMEM;
+                            goto failed_xdata;
+                    }
+                    ec_readv(fop->frame, fop->xl, -1, EC_MINIMUM_MIN,
+                             ec_writev_merge_tail, NULL, fd, ec->stripe_size,
+                             fop->offset + fop->size - ec->stripe_size,
+                             0, xdata);
             }
-            ec_readv(fop->frame, fop->xl, -1, EC_MINIMUM_MIN,
-                     ec_writev_merge_tail, NULL, fd, ec->stripe_size,
-                     fop->offset + fop->size - ec->stripe_size, 0, xdata);
         } else {
             memset(fop->vector[0].iov_base + fop->size - tail, 0, tail);
         }

@@ -25,6 +25,7 @@ enum gf_ec_mem_types_
     ec_mt_ec_code_t,
     ec_mt_ec_code_builder_t,
     ec_mt_ec_matrix_t,
+    ec_mt_ec_stripe_t,
     ec_mt_end
 };
 
