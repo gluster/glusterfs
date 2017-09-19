@@ -794,7 +794,7 @@ server_setvolume (rpcsvc_request_t *req)
 
                 gf_event (EVENT_CLIENT_CONNECT, "client_uid=%s;"
                           "client_identifier=%s;server_identifier=%s;"
-                          "brick_path=%s,subdir_mount=%s",
+                          "brick_path=%s;subdir_mount=%s",
                           client->client_uid,
                           req->trans->peerinfo.identifier,
                           req->trans->myinfo.identifier,
