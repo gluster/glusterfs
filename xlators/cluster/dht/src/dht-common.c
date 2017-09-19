@@ -6274,6 +6274,49 @@ err:
 }
 
 
+/* dht_readdirp_cbk creates a new dentry and dentry->inode is not assigned.
+   This functions assigns an inode if all of the following conditions are true:
+
+   * DHT has only one child. In this case the entire layout is present on this
+     single child and hence we can set complete layout in inode.
+   * backend has complete layout and there are no anomalies in it and from this
+    information layout can be constructed and set in inode.
+*/
+
+void
+dht_populate_inode_for_dentry (xlator_t *this, xlator_t *subvol,
+                               gf_dirent_t *entry, gf_dirent_t *orig_entry)
+{
+        dht_layout_t *layout = NULL;
+        int           ret    = 0;
+        loc_t         loc    = {0, };
+
+        layout = dht_layout_new (this, 1);
+        if (!layout)
+                goto out;
+
+        ret = dht_layout_merge (this, layout, subvol, 0, 0, orig_entry->dict);
+        if (!ret) {
+                gf_uuid_copy (loc.gfid, orig_entry->d_stat.ia_gfid);
+                loc.inode = inode_ref (orig_entry->inode);
+
+                ret = dht_layout_normalize (this, &loc, layout);
+                if (ret == 0) {
+                        dht_layout_set (this, orig_entry->inode, layout);
+                        entry->inode = inode_ref (orig_entry->inode);
+                        layout = NULL;
+                }
+
+                loc_wipe (&loc);
+        }
+
+        if (layout)
+                dht_layout_unref (this, layout);
+
+out:
+        return;
+}
+
 int
 dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                   int op_errno, gf_dirent_t *orig_entries, dict_t *xdata)
@@ -6285,7 +6328,7 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         xlator_t                *next_subvol = NULL;
         off_t                    next_offset = 0;
         int                      count = 0;
-        dht_layout_t            *layout = 0;
+        dht_layout_t            *layout = NULL;
         dht_conf_t              *conf   = NULL;
         dht_methods_t           *methods = NULL;
         xlator_t                *subvol = 0;
@@ -6411,6 +6454,13 @@ list:
                                 dht_inode_ctx_time_update (orig_entry->inode,
                                                            this, &entry->d_stat,
                                                            1);
+
+                                if (conf->subvolume_cnt == 1) {
+                                        dht_populate_inode_for_dentry (this,
+                                                                       prev,
+                                                                       entry,
+                                                                       orig_entry);
+                                }
                         }
                 } else {
                         if (orig_entry->inode) {
@@ -6694,6 +6744,21 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                                                   GF_READDIR_SKIP_DIRS);
                                 }
                         }
+
+                        if (conf->subvolume_cnt == 1) {
+                                ret = dict_set_uint32 (local->xattr,
+                                                       conf->xattr_name, 4 * 4);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_WARNING,
+                                                ENOMEM,
+                                                DHT_MSG_DICT_SET_FAILED,
+                                                "Failed to set dictionary "
+                                                "value:key = %s ",
+                                                conf->xattr_name);
+                                }
+                        }
+
+
                 }
 
                 STACK_WIND_COOKIE (frame, dht_readdirp_cbk, xvol, xvol,
