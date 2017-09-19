@@ -366,6 +366,9 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
                 err = op_errno;
         }
 
+        if (!layout)
+                goto out;
+
         for (i = 0; i < layout->cnt; i++) {
                 if (layout->list[i].xlator == NULL) {
                         layout->list[i].err    = err;
