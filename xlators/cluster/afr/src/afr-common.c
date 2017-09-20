@@ -4923,6 +4923,7 @@ __afr_handle_child_up_event (xlator_t *this, xlator_t *child_xlator,
                         "Subvolume '%s' came back up; "
                         "going online.",
                         child_xlator->name);
+                gf_event (EVENT_AFR_SUBVOL_UP, "subvol=%s", this->name);
         } else {
                 *event = GF_EVENT_SOME_DESCENDENT_UP;
         }
@@ -4999,6 +5000,7 @@ __afr_handle_child_down_event (xlator_t *this, xlator_t *child_xlator,
                         "All subvolumes are down. Going "
                         "offline until atleast one of them "
                         "comes back up.");
+                gf_event (EVENT_AFR_SUBVOLS_DOWN, "subvol=%s", this->name);
         } else {
                 *event = GF_EVENT_SOME_DESCENDENT_DOWN;
         }
