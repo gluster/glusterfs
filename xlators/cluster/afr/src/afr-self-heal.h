@@ -110,6 +110,10 @@ afr_selfheal_metadata (call_frame_t *frame, xlator_t *this, inode_t *inode);
 int
 afr_selfheal_entry (call_frame_t *frame, xlator_t *this, inode_t *inode);
 
+int
+afr_lookup_and_heal_gfid (xlator_t *this, inode_t *parent, const char *name,
+                          inode_t *inode, struct afr_reply *replies, int source,
+                          void *gfid);
 
 int
 afr_selfheal_inodelk (call_frame_t *frame, xlator_t *this, inode_t *inode,

@@ -18,49 +18,17 @@ int
 __afr_selfheal_assign_gfid (xlator_t *this, inode_t *parent, uuid_t pargfid,
                             const char *bname, inode_t *inode,
                             struct afr_reply *replies, void *gfid,
-                            unsigned char *locked_on,
+                            unsigned char *locked_on, int source,
                             gf_boolean_t is_gfid_absent)
 {
 	int             ret          = 0;
         int             up_count     = 0;
         int             locked_count = 0;
-        int             i            = 0;
 	afr_private_t  *priv         = NULL;
-	dict_t         *xdata        = NULL;
-	loc_t           loc          = {0, };
-        call_frame_t   *new_frame    = NULL;
-        afr_local_t    *new_local    = NULL;
-        unsigned char  *wind_on      = NULL;
 
 	priv = this->private;
-        wind_on = alloca0 (priv->child_count);
-
-        new_frame = afr_frame_create (this);
-        if (!new_frame) {
-                ret = -ENOMEM;
-                goto out;
-        }
-
-        new_local = new_frame->local;
 
 	gf_uuid_copy (parent->gfid, pargfid);
-
-	xdata = dict_new ();
-	if (!xdata) {
-                ret = -ENOMEM;
-		goto out;
-	}
-
-	ret = dict_set_static_bin (xdata, "gfid-req", gfid, 16);
-	if (ret) {
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	loc.parent = inode_ref (parent);
-	loc.inode = inode_ref (inode);
-	gf_uuid_copy (loc.pargfid, pargfid);
-	loc.name = bname;
 
         if (is_gfid_absent) {
                 /* Ensure all children of AFR are up before performing gfid heal, to
@@ -79,34 +47,10 @@ __afr_selfheal_assign_gfid (xlator_t *this, inode_t *parent, uuid_t pargfid,
                 }
         }
 
-        /* gfid heal on those subvolumes that do not have gfid associated
-         * with the inode and update those replies.
-         */
-        for (i = 0; i < priv->child_count; i++) {
-                if (replies[i].valid && replies[i].op_ret == 0 &&
-                    !gf_uuid_is_null (replies[i].poststat.ia_gfid) &&
-                    !gf_uuid_compare (replies[i].poststat.ia_gfid, gfid))
-                        continue;
-                wind_on[i] = 1;
-        }
-
-        AFR_ONLIST (wind_on, new_frame, afr_selfheal_discover_cbk, lookup,
-                    &loc, xdata);
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (!wind_on[i])
-                        continue;
-                afr_reply_wipe (&replies[i]);
-                afr_reply_copy (&replies[i], &new_local->replies[i]);
-        }
+        afr_lookup_and_heal_gfid (this, parent, bname, inode, replies, source,
+                                  gfid);
 
 out:
-	loc_wipe (&loc);
-        if (xdata)
-                dict_unref (xdata);
-        if (new_frame)
-                AFR_STACK_DESTROY (new_frame);
-
 	return ret;
 }
 
@@ -481,7 +425,7 @@ __afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
 
         is_gfid_absent = (gfid_idx == -1) ? _gf_true : _gf_false;
 	ret = __afr_selfheal_assign_gfid (this, parent, pargfid, bname, inode,
-                                          replies, gfid, locked_on,
+                                          replies, gfid, locked_on, source,
                                           is_gfid_absent);
         if (ret)
                 return ret;
