@@ -20,6 +20,84 @@ void
 afr_heal_synctask (xlator_t *this, afr_local_t *local);
 
 int
+afr_lookup_and_heal_gfid (xlator_t *this, inode_t *parent, const char *name,
+                          inode_t *inode, struct afr_reply *replies,
+                          int source,  void *gfid)
+{
+        afr_private_t *priv = NULL;
+        call_frame_t   *frame    = NULL;
+        afr_local_t *local = NULL;
+        unsigned char *wind_on = NULL;
+        ia_type_t ia_type = IA_INVAL;
+        dict_t *xdata = NULL;
+        loc_t loc = {0, };
+        int ret = 0;
+        int i = 0;
+
+        priv = this->private;
+        wind_on = alloca0 (priv->child_count);
+        ia_type = replies[source].poststat.ia_type;
+
+        /* gfid heal on those subvolumes that do not have gfid associated
+         * with the inode and update those replies.
+         */
+        for (i = 0; i < priv->child_count; i++) {
+                if (!replies[i].valid || replies[i].op_ret != 0)
+                        continue;
+                if (!gf_uuid_is_null (replies[i].poststat.ia_gfid) ||
+                    replies[i].poststat.ia_type != ia_type)
+                        continue;
+
+                wind_on[i] = 1;
+        }
+
+        if (AFR_COUNT(wind_on, priv->child_count) == 0)
+                return 0;
+
+        xdata = dict_new ();
+        if (!xdata) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        ret = dict_set_static_bin (xdata, "gfid-req", gfid, 16);
+        if (ret) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        frame = afr_frame_create (this);
+        if (!frame) {
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        local = frame->local;
+        loc.parent = inode_ref (parent);
+        gf_uuid_copy (loc.pargfid, parent->gfid);
+        loc.name = name;
+        loc.inode = inode_ref (inode);
+
+        AFR_ONLIST (wind_on, frame, afr_selfheal_discover_cbk, lookup,
+                    &loc, xdata);
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!wind_on[i])
+                        continue;
+                afr_reply_wipe (&replies[i]);
+                afr_reply_copy (&replies[i], &local->replies[i]);
+        }
+out:
+        loc_wipe (&loc);
+        if (frame)
+                AFR_STACK_DESTROY (frame);
+        if (xdata)
+                dict_unref (xdata);
+
+        return ret;
+}
+
+int
 afr_gfid_sbrain_source_from_src_brick (xlator_t *this,
                                        struct afr_reply *replies,
                                        char *src_brick)

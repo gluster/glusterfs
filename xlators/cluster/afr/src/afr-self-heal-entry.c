@@ -64,7 +64,6 @@ afr_selfheal_entry_delete (xlator_t *this, inode_t *dir, const char *name,
 	return ret;
 }
 
-
 int
 afr_selfheal_recreate_entry (call_frame_t *frame, int dst, int source,
                              unsigned char *sources, inode_t *dir,
@@ -164,7 +163,6 @@ out:
 	return ret;
 }
 
-
 static int
 __afr_selfheal_heal_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 			    char *name, inode_t *inode, int source,
@@ -186,6 +184,14 @@ __afr_selfheal_heal_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if ((replies[source].op_ret < 0) &&
             (replies[source].op_errno != ENOENT))
                 return -replies[source].op_errno;
+
+        if (replies[source].op_ret == 0) {
+                ret = afr_lookup_and_heal_gfid (this, fd->inode, name,
+                                                inode, replies, source,
+                                             &replies[source].poststat.ia_gfid);
+                if (ret)
+                        return ret;
+        }
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (!healed_sinks[i])
@@ -223,8 +229,12 @@ afr_selfheal_detect_gfid_and_type_mismatch (xlator_t *this,
         int             i        = 0;
         int             ret      = -1;
         afr_private_t  *priv     = NULL;
+        void *gfid               = NULL;
+        ia_type_t ia_type        = IA_INVAL;
 
         priv = this->private;
+        gfid = &replies[src_idx].poststat.ia_gfid;
+        ia_type = replies[src_idx].poststat.ia_type;
 
         for (i = 0; i < priv->child_count; i++) {
                 if (i == src_idx)
@@ -236,8 +246,8 @@ afr_selfheal_detect_gfid_and_type_mismatch (xlator_t *this,
                 if (replies[i].op_ret != 0)
                         continue;
 
-                if (gf_uuid_compare (replies[src_idx].poststat.ia_gfid,
-                                     replies[i].poststat.ia_gfid)) {
+                if (gf_uuid_compare (gfid, replies[i].poststat.ia_gfid) &&
+                    (ia_type == replies[i].poststat.ia_type)) {
                         ret = afr_gfid_split_brain_source (this, replies, inode,
                                                            pargfid, bname,
                                                            src_idx, i,
@@ -251,8 +261,7 @@ afr_selfheal_detect_gfid_and_type_mismatch (xlator_t *this,
                         return ret;
                 }
 
-                if ((replies[src_idx].poststat.ia_type) !=
-                    (replies[i].poststat.ia_type)) {
+                if (ia_type != replies[i].poststat.ia_type) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 AFR_MSG_SPLIT_BRAIN, "Type mismatch detected "
                                 "for <gfid:%s>/%s>, %s on %s and %s on %s. "
@@ -309,6 +318,12 @@ __afr_selfheal_merge_dirent (call_frame_t *frame, xlator_t *this, fd_t *fd,
 			sources[i] = 1;
 		}
 	}
+
+        ret = afr_lookup_and_heal_gfid (this, fd->inode, name, inode, replies,
+                                        source,
+                                        &replies[source].poststat.ia_gfid);
+        if (ret)
+                return ret;
 
         /* In case of type mismatch / unable to resolve gfid mismatch on the
          * entry, return -1.*/
@@ -542,8 +557,18 @@ afr_selfheal_entry_dirent (call_frame_t *frame, xlator_t *this,
         struct afr_reply  *replies      = NULL;
         struct afr_reply  *par_replies  = NULL;
         afr_private_t     *priv         = NULL;
+        dict_t            *xattr        = NULL;
 
 	priv = this->private;
+
+        xattr = dict_new ();
+        if (!xattr)
+                return -ENOMEM;
+        ret = dict_set_int32 (xattr, GF_GFIDLESS_LOOKUP, 1);
+        if (ret) {
+                dict_unref (xattr);
+                return -1;
+        }
 
         sources = alloca0 (priv->child_count);
         sinks   = alloca0 (priv->child_count);
@@ -576,7 +601,7 @@ afr_selfheal_entry_dirent (call_frame_t *frame, xlator_t *this,
 
 		inode = afr_selfheal_unlocked_lookup_on (frame, fd->inode, name,
 							 replies, locked_on,
-                                                         NULL);
+                                                         xattr);
 		if (!inode) {
 			ret = -ENOMEM;
 			goto unlock;
@@ -608,6 +633,8 @@ unlock:
                 afr_replies_wipe (replies, priv->child_count);
         if (par_replies)
                 afr_replies_wipe (par_replies, priv->child_count);
+        if (xattr)
+                dict_unref (xattr);
 
 	return ret;
 }
