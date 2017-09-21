@@ -886,8 +886,7 @@ client3_3_flush_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         ret = client_post_flush (this, &rsp, &xdata);
-        if (ret < 0)
-                goto out;
+
 out:
         if (rsp.op_ret == -1) {
                 gf_msg (this->name, fop_log_level (GF_FOP_FLUSH,
