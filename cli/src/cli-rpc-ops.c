@@ -4992,9 +4992,6 @@ gf_cli_attach_tier (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        if (ret)
-                goto out;
-
         ret = cli_to_glusterd (&req, frame, gf_cli_attach_tier_cbk,
                                (xdrproc_t) xdr_gf_cli_req, dict,
                                GLUSTER_CLI_ATTACH_TIER, this,
