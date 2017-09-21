@@ -16,7 +16,7 @@ import logging
 import uuid
 import xml.etree.ElementTree as XET
 from subprocess import PIPE
-from resource import Popen, FILE, GLUSTER, SSH
+from resource import FILE, GLUSTER, SSH
 from threading import Lock
 from errno import ECHILD, ESRCH
 import re
@@ -24,8 +24,9 @@ import random
 from gconf import gconf
 from syncdutils import select, waitpid, errno_wrap, lf
 from syncdutils import set_term_handler, is_host_local, GsyncdError
-from syncdutils import escape, Thread, finalize, memoize
+from syncdutils import escape, Thread, finalize
 from syncdutils import gf_event, EVENT_GEOREP_FAULTY
+from syncdutils import Volinfo, Popen
 
 from gsyncdstatus import GeorepStatus, set_monitor_status
 
@@ -89,86 +90,6 @@ def get_slave_bricks_status(host, vol):
                         error=e))
 
     return list(up_hosts)
-
-
-class Volinfo(object):
-
-    def __init__(self, vol, host='localhost', prelude=[]):
-        po = Popen(prelude + ['gluster', '--xml', '--remote-host=' + host,
-                              'volume', 'info', vol],
-                   stdout=PIPE, stderr=PIPE)
-        vix = po.stdout.read()
-        po.wait()
-        po.terminate_geterr()
-        vi = XET.fromstring(vix)
-        if vi.find('opRet').text != '0':
-            if prelude:
-                via = '(via %s) ' % prelude.join(' ')
-            else:
-                via = ' '
-            raise GsyncdError('getting volume info of %s%s '
-                              'failed with errorcode %s' %
-                              (vol, via, vi.find('opErrno').text))
-        self.tree = vi
-        self.volume = vol
-        self.host = host
-
-    def get(self, elem):
-        return self.tree.findall('.//' + elem)
-
-    def is_tier(self):
-        return (self.get('typeStr')[0].text == 'Tier')
-
-    def is_hot(self, brickpath):
-        logging.debug('brickpath: ' + repr(brickpath))
-        return brickpath in self.hot_bricks
-
-    @property
-    @memoize
-    def bricks(self):
-        def bparse(b):
-            host, dirp = b.find("name").text.split(':', 2)
-            return {'host': host, 'dir': dirp, 'uuid': b.find("hostUuid").text}
-        return [bparse(b) for b in self.get('brick')]
-
-    @property
-    @memoize
-    def uuid(self):
-        ids = self.get('id')
-        if len(ids) != 1:
-            raise GsyncdError("volume info of %s obtained from %s: "
-                              "ambiguous uuid" % (self.volume, self.host))
-        return ids[0].text
-
-    def replica_count(self, tier, hot):
-        if (tier and hot):
-            return int(self.get('hotBricks/hotreplicaCount')[0].text)
-        elif (tier and not hot):
-            return int(self.get('coldBricks/coldreplicaCount')[0].text)
-        else:
-            return int(self.get('replicaCount')[0].text)
-
-    def disperse_count(self, tier, hot):
-        if (tier and hot):
-            # Tiering doesn't support disperse volume as hot brick,
-            # hence no xml output, so returning 0. In case, if it's
-            # supported later, we should change here.
-            return 0
-        elif (tier and not hot):
-            return int(self.get('coldBricks/colddisperseCount')[0].text)
-        else:
-            return int(self.get('disperseCount')[0].text)
-
-    @property
-    @memoize
-    def hot_bricks(self):
-        return [b.text for b in self.get('hotBricks/brick')]
-
-    def get_hot_bricks_count(self, tier):
-        if (tier):
-            return int(self.get('hotBricks/hotbrickCount')[0].text)
-        else:
-            return 0
 
 
 class Monitor(object):
