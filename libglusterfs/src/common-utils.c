@@ -1393,13 +1393,8 @@ gf_string2int64 (const char *str, int64_t *n)
         if (rv != 0)
                 return rv;
 
-        if (l <= INT64_MAX) {
-                *n = (int64_t) l;
-                return 0;
-        }
-
-        errno = ERANGE;
-        return -1;
+        *n = (int64_t) l;
+        return 0;
 }
 
 int
