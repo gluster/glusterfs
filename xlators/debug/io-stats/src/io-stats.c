@@ -1018,8 +1018,9 @@ _resolve_group_name (xlator_t *this, gid_t gid)
                 goto err;
         }
 
-        getgrgid_r (gid, &grp, grp_buf, grp_buf_len,
-                   &grp_result);
+        if (getgrgid_r (gid, &grp, grp_buf, grp_buf_len, &grp_result) != 0)
+                goto err;
+
         if (!grp_result)
                 goto err;
 
