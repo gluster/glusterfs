@@ -16,14 +16,18 @@ import fcntl
 import shutil
 import logging
 import socket
+import errno
+import threading
 import subprocess
+from subprocess import PIPE
 from threading import Lock, Thread as baseThread
 from errno import EACCES, EAGAIN, EPIPE, ENOTCONN, ECONNABORTED
 from errno import EINTR, ENOENT, EPERM, ESTALE, EBUSY, errorcode
 from signal import signal, SIGTERM
 import select as oselect
 from os import waitpid as owaitpid
-import subprocess
+import xml.etree.ElementTree as XET
+from select import error as SelectError
 
 from conf import GLUSTERFS_LIBEXECDIR, UUID_FILE
 sys.path.insert(1, GLUSTERFS_LIBEXECDIR)
@@ -75,6 +79,15 @@ rsync_version = None
 SPACE_ESCAPE_CHAR = "%20"
 NEWLINE_ESCAPE_CHAR = "%0A"
 PERCENTAGE_ESCAPE_CHAR = "%25"
+
+
+def sup(x, *a, **kw):
+    """a rubyesque "super" for python ;)
+
+    invoke caller method in parent class with given args.
+    """
+    return getattr(super(type(x), x),
+                   sys._getframe(1).f_code.co_name)(*a, **kw)
 
 
 def escape(s):
@@ -648,3 +661,226 @@ def lf(event, **kwargs):
     for k, v in kwargs.items():
         msg += "\t{0}={1}".format(k, v)
     return msg
+
+
+class Popen(subprocess.Popen):
+
+    """customized subclass of subprocess.Popen with a ring
+    buffer for children error output"""
+
+    @classmethod
+    def init_errhandler(cls):
+        """start the thread which handles children's error output"""
+        cls.errstore = {}
+
+        def tailer():
+            while True:
+                errstore = cls.errstore.copy()
+                try:
+                    poe, _, _ = select(
+                        [po.stderr for po in errstore], [], [], 1)
+                except (ValueError, SelectError):
+                    # stderr is already closed wait for some time before
+                    # checking next error
+                    time.sleep(0.5)
+                    continue
+                for po in errstore:
+                    if po.stderr not in poe:
+                        continue
+                    po.lock.acquire()
+                    try:
+                        if po.on_death_row:
+                            continue
+                        la = errstore[po]
+                        try:
+                            fd = po.stderr.fileno()
+                        except ValueError:  # file is already closed
+                            time.sleep(0.5)
+                            continue
+
+                        try:
+                            l = os.read(fd, 1024)
+                        except OSError:
+                            time.sleep(0.5)
+                            continue
+
+                        if not l:
+                            continue
+                        tots = len(l)
+                        for lx in la:
+                            tots += len(lx)
+                        while tots > 1 << 20 and la:
+                            tots -= len(la.pop(0))
+                        la.append(l)
+                    finally:
+                        po.lock.release()
+        t = Thread(target=tailer)
+        t.start()
+        cls.errhandler = t
+
+    @classmethod
+    def fork(cls):
+        """fork wrapper that restarts errhandler thread in child"""
+        pid = os.fork()
+        if not pid:
+            cls.init_errhandler()
+        return pid
+
+    def __init__(self, args, *a, **kw):
+        """customizations for subprocess.Popen instantiation
+
+        - 'close_fds' is taken to be the default
+        - if child's stderr is chosen to be managed,
+          register it with the error handler thread
+        """
+        self.args = args
+        if 'close_fds' not in kw:
+            kw['close_fds'] = True
+        self.lock = threading.Lock()
+        self.on_death_row = False
+        self.elines = []
+        try:
+            sup(self, args, *a, **kw)
+        except:
+            ex = sys.exc_info()[1]
+            if not isinstance(ex, OSError):
+                raise
+            raise GsyncdError("""execution of "%s" failed with %s (%s)""" %
+                              (args[0], errno.errorcode[ex.errno],
+                               os.strerror(ex.errno)))
+        if kw.get('stderr') == subprocess.PIPE:
+            assert(getattr(self, 'errhandler', None))
+            self.errstore[self] = []
+
+    def errlog(self):
+        """make a log about child's failure event"""
+        logging.error(lf("command returned error",
+                         cmd=" ".join(self.args),
+                         error=self.returncode))
+        lp = ''
+
+        def logerr(l):
+            logging.error(self.args[0] + "> " + l)
+        for l in self.elines:
+            ls = l.split('\n')
+            ls[0] = lp + ls[0]
+            lp = ls.pop()
+            for ll in ls:
+                logerr(ll)
+        if lp:
+            logerr(lp)
+
+    def errfail(self):
+        """fail nicely if child did not terminate with success"""
+        self.errlog()
+        finalize(exval=1)
+
+    def terminate_geterr(self, fail_on_err=True):
+        """kill child, finalize stderr harvesting (unregister
+        from errhandler, set up .elines), fail on error if
+        asked for
+        """
+        self.lock.acquire()
+        try:
+            self.on_death_row = True
+        finally:
+            self.lock.release()
+        elines = self.errstore.pop(self)
+        if self.poll() is None:
+            self.terminate()
+            if self.poll() is None:
+                time.sleep(0.1)
+                self.kill()
+                self.wait()
+        while True:
+            if not select([self.stderr], [], [], 0.1)[0]:
+                break
+            b = os.read(self.stderr.fileno(), 1024)
+            if b:
+                elines.append(b)
+            else:
+                break
+        self.stderr.close()
+        self.elines = elines
+        if fail_on_err and self.returncode != 0:
+            self.errfail()
+
+
+class Volinfo(object):
+
+    def __init__(self, vol, host='localhost', prelude=[]):
+        po = Popen(prelude + ['gluster', '--xml', '--remote-host=' + host,
+                              'volume', 'info', vol],
+                   stdout=PIPE, stderr=PIPE)
+        vix = po.stdout.read()
+        po.wait()
+        po.terminate_geterr()
+        vi = XET.fromstring(vix)
+        if vi.find('opRet').text != '0':
+            if prelude:
+                via = '(via %s) ' % prelude.join(' ')
+            else:
+                via = ' '
+            raise GsyncdError('getting volume info of %s%s '
+                              'failed with errorcode %s' %
+                              (vol, via, vi.find('opErrno').text))
+        self.tree = vi
+        self.volume = vol
+        self.host = host
+
+    def get(self, elem):
+        return self.tree.findall('.//' + elem)
+
+    def is_tier(self):
+        return (self.get('typeStr')[0].text == 'Tier')
+
+    def is_hot(self, brickpath):
+        logging.debug('brickpath: ' + repr(brickpath))
+        return brickpath in self.hot_bricks
+
+    @property
+    @memoize
+    def bricks(self):
+        def bparse(b):
+            host, dirp = b.find("name").text.split(':', 2)
+            return {'host': host, 'dir': dirp, 'uuid': b.find("hostUuid").text}
+        return [bparse(b) for b in self.get('brick')]
+
+    @property
+    @memoize
+    def uuid(self):
+        ids = self.get('id')
+        if len(ids) != 1:
+            raise GsyncdError("volume info of %s obtained from %s: "
+                              "ambiguous uuid" % (self.volume, self.host))
+        return ids[0].text
+
+    def replica_count(self, tier, hot):
+        if (tier and hot):
+            return int(self.get('hotBricks/hotreplicaCount')[0].text)
+        elif (tier and not hot):
+            return int(self.get('coldBricks/coldreplicaCount')[0].text)
+        else:
+            return int(self.get('replicaCount')[0].text)
+
+    def disperse_count(self, tier, hot):
+        if (tier and hot):
+            # Tiering doesn't support disperse volume as hot brick,
+            # hence no xml output, so returning 0. In case, if it's
+            # supported later, we should change here.
+            return 0
+        elif (tier and not hot):
+            return int(self.get('coldBricks/colddisperseCount')[0].text)
+        else:
+            return int(self.get('disperseCount')[0].text)
+
+    @property
+    @memoize
+    def hot_bricks(self):
+        return [b.text for b in self.get('hotBricks/brick')]
+
+    def get_hot_bricks_count(self, tier):
+        if (tier):
+            return int(self.get('hotBricks/hotbrickCount')[0].text)
+        else:
+            return 0
