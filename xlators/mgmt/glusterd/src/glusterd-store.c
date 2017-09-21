@@ -2059,9 +2059,13 @@ glusterd_store_global_info (xlator_t *this)
                 ret = -1;
                 goto out;
         }
-
-        ret = gf_store_save_value (handle->fd, GLUSTERD_STORE_UUID_KEY,
-                                   uuid_str);
+        pthread_mutex_lock (&conf->mutex);
+        {
+                        ret = gf_store_save_value (handle->fd,
+                                                   GLUSTERD_STORE_UUID_KEY,
+                                                   uuid_str);
+        }
+        pthread_mutex_unlock (&conf->mutex);
         if (ret) {
                 gf_msg (this->name, GF_LOG_CRITICAL, 0,
                         GD_MSG_UUID_SET_FAIL,
@@ -2296,14 +2300,18 @@ glusterd_retrieve_uuid ()
 
                 priv->handle = handle;
         }
-
-        ret = gf_store_retrieve_value (priv->handle, GLUSTERD_STORE_UUID_KEY,
-                                       &uuid_str);
-
+        pthread_mutex_lock (&priv->mutex);
+        {
+                ret = gf_store_retrieve_value (priv->handle,
+                                               GLUSTERD_STORE_UUID_KEY,
+                                               &uuid_str);
+        }
+        pthread_mutex_unlock (&priv->mutex);
         if (ret) {
                 gf_msg_debug (this->name, 0, "No previous uuid is present");
                 goto out;
         }
+
 
         gf_uuid_parse (uuid_str, priv->uuid);
 
