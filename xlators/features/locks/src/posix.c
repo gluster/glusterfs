@@ -2294,7 +2294,6 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 
                 /* fall through */
         case F_RESLK_LCK:
-                memcpy (&reqlock->user_flock, flock, sizeof (struct gf_flock));
                 reqlock->frame = frame;
                 reqlock->this = this;
 
@@ -2377,8 +2376,6 @@ pl_lk (call_frame_t *frame, xlator_t *this,
         case F_SETLK:
                 reqlock->frame  = frame;
                 reqlock->this   = this;
-
-                memcpy (&reqlock->user_flock, flock, sizeof (struct gf_flock));
 
                 pthread_mutex_lock (&pl_inode->mutex);
                 {
