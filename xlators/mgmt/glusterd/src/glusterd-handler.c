@@ -5111,8 +5111,6 @@ glusterd_print_gsync_status_by_vol (FILE *fp, glusterd_volinfo_t *volinfo)
         /* Ignoring ret as above function always returns ret = 0 */
 
         ret = glusterd_print_gsync_status (fp, gsync_rsp_dict);
-        if (ret)
-                goto out;
 out:
         return ret;
 }
