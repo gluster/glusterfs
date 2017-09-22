@@ -491,6 +491,7 @@ new_posix_lock (struct gf_flock *flock, client_t *client, pid_t client_pid,
         lock->lk_flags   = lk_flags;
 
         lock->blocking  = blocking;
+        memcpy (&lock->user_flock, flock, sizeof (lock->user_flock));
 
         INIT_LIST_HEAD (&lock->list);
 
@@ -528,6 +529,7 @@ __copy_lock(posix_lock_t *src)
                         GF_FREE(dst);
                         dst = NULL;
                 }
+                INIT_LIST_HEAD (&dst->list);
         }
 
         return dst;
@@ -537,7 +539,7 @@ __copy_lock(posix_lock_t *src)
 void
 posix_lock_to_flock (posix_lock_t *lock, struct gf_flock *flock)
 {
-        flock->l_pid   = lock->client_pid;
+        flock->l_pid   = lock->user_flock.l_pid;
         flock->l_type  = lock->fl_type;
         flock->l_start = lock->fl_start;
         flock->l_owner = lock->owner;
@@ -607,17 +609,18 @@ __delete_unlck_locks (pl_inode_t *pl_inode)
 
 /* Add two locks */
 static posix_lock_t *
-add_locks (posix_lock_t *l1, posix_lock_t *l2)
+add_locks (posix_lock_t *l1, posix_lock_t *l2, posix_lock_t *dst)
 {
         posix_lock_t *sum = NULL;
 
-        sum = GF_CALLOC (1, sizeof (posix_lock_t),
-                         gf_locks_mt_posix_lock_t);
+        sum = __copy_lock (dst);
         if (!sum)
                 return NULL;
 
         sum->fl_start = min (l1->fl_start, l2->fl_start);
         sum->fl_end   = max (l1->fl_end, l2->fl_end);
+
+        posix_lock_to_flock (sum, &sum->user_flock);
 
         return sum;
 }
@@ -643,6 +646,7 @@ subtract_locks (posix_lock_t *big, posix_lock_t *small)
                 }
 
                 v.locks[0]->fl_type = small->fl_type;
+                v.locks[0]->user_flock.l_type = small->fl_type;
                 goto done;
         }
 
@@ -659,6 +663,8 @@ subtract_locks (posix_lock_t *big, posix_lock_t *small)
 
                 v.locks[0]->fl_end = small->fl_start - 1;
                 v.locks[2]->fl_start = small->fl_end + 1;
+                posix_lock_to_flock (v.locks[0], &v.locks[0]->user_flock);
+                posix_lock_to_flock (v.locks[2], &v.locks[2]->user_flock);
                 goto done;
 
         }
@@ -672,6 +678,7 @@ subtract_locks (posix_lock_t *big, posix_lock_t *small)
                 }
 
                 v.locks[0]->fl_start = small->fl_end + 1;
+                posix_lock_to_flock (v.locks[0], &v.locks[0]->user_flock);
                 goto done;
         }
 
@@ -683,6 +690,7 @@ subtract_locks (posix_lock_t *big, posix_lock_t *small)
                 }
 
                 v.locks[0]->fl_end = small->fl_start - 1;
+                posix_lock_to_flock (v.locks[0], &v.locks[0]->user_flock);
                 goto done;
         }
 
@@ -793,7 +801,6 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
         posix_lock_t  *sum = NULL;
         int            i = 0;
         struct _values v = { .locks = {0, 0, 0} };
-        client_t      *client = NULL;
 
         list_for_each_entry_safe (conf, t, &pl_inode->ext_list, list) {
                 if (conf->blocked)
@@ -804,17 +811,7 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
                 if (same_owner (conf, lock)) {
                         if (conf->fl_type == lock->fl_type &&
                                         conf->lk_flags == lock->lk_flags) {
-                                sum = add_locks (lock, conf);
-
-                                sum->fl_type    = lock->fl_type;
-                                sum->client     = lock->client;
-                                client          = sum->client;
-                                sum->client_uid =
-                                         gf_strdup (client->client_uid);
-                                sum->fd_num     = lock->fd_num;
-                                sum->client_pid = lock->client_pid;
-                                sum->owner      = lock->owner;
-                                sum->lk_flags   = lock->lk_flags;
+                                sum = add_locks (lock, conf, lock);
 
                                 __delete_lock (conf);
                                 __destroy_lock (conf);
@@ -826,18 +823,7 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
 
                                 return;
                         } else {
-                                sum = add_locks (lock, conf);
-
-                                sum->fl_type    = conf->fl_type;
-                                sum->client     = conf->client;
-                                client          = sum->client;
-                                sum->client_uid =
-                                         gf_strdup (client->client_uid);
-
-                                sum->fd_num     = conf->fd_num;
-                                sum->client_pid = conf->client_pid;
-                                sum->owner      = conf->owner;
-                                sum->lk_flags   = conf->lk_flags;
+                                sum = add_locks (lock, conf, conf);
 
                                 v = subtract_locks (sum, lock);
 
@@ -853,9 +839,6 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
                                         if (!v.locks[i])
                                                 continue;
 
-                                        INIT_LIST_HEAD (&v.locks[i]->list);
-                                        posix_lock_to_flock (v.locks[i],
-                                                       &v.locks[i]->user_flock);
                                         __insert_and_merge (pl_inode,
                                                             v.locks[i]);
                                 }
@@ -990,6 +973,7 @@ pl_send_prelock_unlock (xlator_t *this, pl_inode_t *pl_inode,
         flock.l_whence = old_lock->user_flock.l_whence;
         flock.l_start  = old_lock->user_flock.l_start;
         flock.l_len    = old_lock->user_flock.l_len;
+        flock.l_pid    = old_lock->user_flock.l_pid;
 
 
         unlock_lock = new_posix_lock (&flock, old_lock->client,
