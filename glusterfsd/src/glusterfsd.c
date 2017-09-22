@@ -1290,7 +1290,7 @@ no_oom_api:
 
         case ARGP_LOCALTIME_LOGGING_KEY:
                 cmd_args->localtime_logging = 1;
-
+                break;
         case ARGP_PROCESS_NAME_KEY:
                 cmd_args->process_name = gf_strdup (arg);
                 break;
