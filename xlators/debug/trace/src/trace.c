@@ -3109,11 +3109,13 @@ reconfigure (xlator_t *this, dict_t *options)
                         if (gf_fop_list[i])
                                 strncpy (trace_fop_names[i].name,
                                          gf_fop_list[i],
-                                         strlen (gf_fop_list[i]));
+                                         sizeof (trace_fop_names[i].name));
                         else
-                                strncpy (trace_fop_names[i].name, ":O",
-                                         strlen (":O"));
+                                strncpy (trace_fop_names[i].name, ":0",
+                                         sizeof (trace_fop_names[i].name));
                         trace_fop_names[i].enabled = 1;
+                        trace_fop_names[i].name[sizeof (
+                                        trace_fop_names[i].name) - 1] = 0;
                 }
         }
 
