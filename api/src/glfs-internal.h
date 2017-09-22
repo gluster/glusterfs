@@ -194,6 +194,12 @@ struct glfs {
 
         uint32_t            pin_refcnt;
         uint32_t            pthread_flags; /* GLFS_INIT_* # defines set this flag */
+
+        uint32_t            upcall_events; /* Mask of upcall events application
+                                            * is interested in */
+        glfs_upcall_cbk     up_cbk;   /* upcall cbk function to be registered */
+        void                *up_data; /* Opaque data provided by application
+                                       * during upcall registration */
 };
 
 /* This enum is used to maintain the state of glfd. In case of async fops
@@ -604,4 +610,5 @@ gf_dirent_to_dirent (gf_dirent_t *gf_dirent, struct dirent *dirent);
 int glfs_ipc (glfs_fd_t *fd, int cmd,  void *xd_in, void **xd_out) __THROW
         GFAPI_PRIVATE(glfs_ipc, 3.12.0);
 
+void glfs_release_upcall (void *ptr);
 #endif /* !_GLFS_INTERNAL_H */

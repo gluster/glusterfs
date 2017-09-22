@@ -102,49 +102,6 @@ __BEGIN_DECLS
 struct glfs_object;
 typedef struct glfs_object glfs_object_t;
 
-/*
- * Applications (currently NFS-Ganesha) can make use of this
- * structure to read upcall notifications sent by server.
- *
- * On success, applications need to check for 'reason' to decide
- * if any upcall event is received.
- *
- * Currently supported upcall_events -
- *      GFAPI_INODE_INVALIDATE -
- *              'event_arg' - glfs_upcall_inode
- *
- * After processing the event, applications need to free 'event_arg' with
- * glfs_free().
- *
- * Also similar to I/Os, the application should ideally stop polling
- * before calling glfs_fini(..). Hence making an assumption that
- * 'fs' & ctx structures cannot be freed while in this routine.
- */
-struct glfs_upcall;
-
-struct glfs*
-glfs_upcall_get_fs (struct glfs_upcall *arg) __THROW
-        GFAPI_PUBLIC(glfs_upcall_get_fs, 3.7.16);
-
-enum glfs_upcall_reason {
-        GLFS_UPCALL_EVENT_NULL = 0,
-        GLFS_UPCALL_INODE_INVALIDATE,    /* invalidate cache entry */
-};
-
-enum glfs_upcall_reason
-glfs_upcall_get_reason (struct glfs_upcall *arg) __THROW
-        GFAPI_PUBLIC(glfs_upcall_get_reason, 3.7.16);
-
-
-/*
- * After processing upcall event, glfs_free() should be called on the
- * glfs_upcall.
- */
-void*
-glfs_upcall_get_event (struct glfs_upcall *arg) __THROW
-        GFAPI_PUBLIC(glfs_upcall_get_event, 3.7.16);
-
-
 /* Functions for getting details about the glfs_upcall_inode
  *
  * None of the pointers returned by the below functions should be free()'d,

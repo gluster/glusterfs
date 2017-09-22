@@ -883,6 +883,154 @@ glfs_xreaddirplus_r (struct glfs_fd *glfd, uint32_t flags,
  */
 int glfs_fd_set_lkowner (glfs_fd_t *glfd, void *data, int len);
         GFAPI_PUBLIC(glfs_fd_set_lkowner, 3.10.7);
-__END_DECLS
 
+/*
+ * Applications (currently NFS-Ganesha) can make use of this
+ * structure to read upcall notifications sent by server either
+ * by polling or registering a callback function.
+ *
+ * On success, applications need to check for 'reason' to decide
+ * if any upcall event is received.
+ *
+ * Currently supported upcall_events -
+ *      GLFS_UPCALL_INODE_INVALIDATE -
+ *              'event_arg' - glfs_upcall_inode
+ *
+ * After processing the event, applications need to free 'event_arg' with
+ * glfs_free().
+ *
+ * Also similar to I/Os, the application should ideally stop polling
+ * or unregister upcall_cbk function before calling glfs_fini(..).
+ * Hence making an assumption that 'fs' & ctx structures cannot be
+ * freed while in this routine.
+ */
+struct glfs_upcall;
+
+struct glfs*
+glfs_upcall_get_fs (struct glfs_upcall *arg) __THROW
+        GFAPI_PUBLIC(glfs_upcall_get_fs, 3.7.16);
+
+enum glfs_upcall_reason {
+        GLFS_UPCALL_EVENT_NULL = 0,
+        GLFS_UPCALL_INODE_INVALIDATE,    /* invalidate cache entry */
+};
+
+enum glfs_upcall_reason
+glfs_upcall_get_reason (struct glfs_upcall *arg) __THROW
+        GFAPI_PUBLIC(glfs_upcall_get_reason, 3.7.16);
+
+
+/*
+ * Applications first need to make use of above API i.e,
+ * "glfs_upcall_get_reason" to determine which upcall event it has
+ * received. Post that below API - "glfs_upcall_get_event" should
+ * be used to get corresponding upcall event object.
+ *
+ * Below are the upcall_reason and corresponding upcall_event objects:
+ *      ==========================================================
+ *      glfs_upcall_reason           -    event_object
+ *      ==========================================================
+ *      GLFS_UPCALL_EVENT_NULL       -    NULL
+ *      GLFS_UPCALL_INODE_INVALIDATE -    struct glfs_upcall_inode
+ *
+ * After processing upcall event, glfs_free() should be called on the
+ * glfs_upcall.
+ */
+void*
+glfs_upcall_get_event (struct glfs_upcall *arg) __THROW
+        GFAPI_PUBLIC(glfs_upcall_get_event, 3.7.16);
+
+/*
+ * SYNOPSIS
+ *
+ * glfs_upcall_cbk: Upcall callback definition
+ *
+ * This is function type definition of the callback function pointer
+ * which has to be provided by the caller while registering for any
+ * upcall events.
+ *
+ * This function is called whenever any upcall which the application
+ * has registered for is received from the server.
+ *
+ * @up_arg: Upcall structure whose contents need to be interpreted by
+ * making use of glfs_upcall_* helper routines.
+ *
+ * @data: The same context pointer provided by the caller at the time of
+ * registering of upcall events. This may be used by the caller for any
+ * of its internal use while processing upcalls.
+ */
+typedef void (*glfs_upcall_cbk) (struct glfs_upcall *up_arg, void *data);
+
+/*
+ * List of upcall events supported by gluster/gfapi
+ */
+#define GLFS_EVENT_INODE_INVALIDATE    0x00000001 /* invalidate cache entry */
+#define GLFS_EVENT_ANY                 0xffffffff /* for all the above events */
+
+/*
+ * SYNOPSIS
+ *
+ * glfs_upcall_register: Register for upcall events
+ *
+ * DESCRIPTION
+ *
+ * This function is used to register for various upcall events application
+ * is interested in and the callback function to be invoked when such
+ * events are triggered.
+ *
+ * Multiple calls of this routine shall override cbk function. That means
+ * only one cbk function can be used for all the upcall events registered
+ * and that shall be the one last updated.
+ *
+ * PARAMETERS:
+ *
+ * INPUT:
+ * @fs: The 'virtual mount' object
+ *
+ * @event_list: List of upcall events to be registered.
+ *              Current available values are:
+ *               - GFAPI_UPCALL_INODE_INVALIDATE
+ *
+ * @cbk: The cbk routine to be invoked incase of any upcall received
+ * @data: Any opaque pointer provided by caller which shall be using while
+ * making cbk calls. This pointer may be used by caller for any of its
+ * internal use while processing upcalls. Can be NULL.
+ *
+ * RETURN VALUE:
+ * >0: SUCCESS (value contains the events successfully registered)
+ * -1: FAILURE
+ */
+int
+glfs_upcall_register (struct glfs *fs, uint32_t event_list,
+                      glfs_upcall_cbk cbk, void *data);
+        GFAPI_PUBLIC(glfs_upcall_register, 3.13.0);
+
+/*
+ * SYNOPSIS
+ *
+ * glfs_upcall_unregister: Unregister for upcall events
+ *
+ * DESCRIPTION
+ *
+ * This function is used to unregister the upcall events application
+ * is not interested in. In case if the caller unregisters all the events
+ * it has registered for, it shall no more receive any upcall event.
+ *
+ * PARAMETERS:
+ *
+ * INPUT:
+ * @fs: The 'virtual mount' object
+ *
+ * @event_list: List of upcall events to be unregistered.
+ *              Current available values are:
+ *               - GFAPI_UPCALL_INODE_INVALIDATE
+ * RETURN VALUE:
+ * >0: SUCCESS (value contains the events successfully unregistered)
+ * -1: FAILURE
+ */
+int
+glfs_upcall_unregister (struct glfs *fs, uint32_t event_list);
+        GFAPI_PUBLIC(glfs_upcall_unregister, 3.13.0);
+
+__END_DECLS
 #endif /* !_GLFS_H */

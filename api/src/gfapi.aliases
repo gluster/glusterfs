@@ -164,3 +164,6 @@ _pub_glfs_xreaddirplus_r_get_object _glfs_xreaddirplus_r_get_object$GFAPI_3.11.0
 _pub_glfs_object_copy _glfs_object_copy$GFAPI_3.11.0
 
 _priv_glfs_ipc _glfs_ipc$GFAPI_3.12.0
+
+_pub_glfs_upcall_register _glfs_upcall_register$GFAPI_3.13.0
+_pub_glfs_upcall_unregister _glfs_upcall_unregister$GFAPI_3.13.0

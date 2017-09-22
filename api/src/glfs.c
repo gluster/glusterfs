@@ -703,6 +703,9 @@ glfs_new_fs (const char *volname)
                 goto err;
 
         fs->pin_refcnt = 0;
+        fs->upcall_events = 0;
+        fs->up_cbk = NULL;
+        fs->up_data = NULL;
 
         return fs;
 
@@ -1551,3 +1554,100 @@ out:
 }
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_sysrq, 3.10.0);
+
+int
+glfs_upcall_register (struct glfs *fs, uint32_t event_list,
+                      glfs_upcall_cbk cbk, void *data)
+{
+        int ret = 0;
+
+        /* list of supported upcall events */
+        uint32_t up_events = GLFS_EVENT_INODE_INVALIDATE;
+
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
+
+        GF_VALIDATE_OR_GOTO (THIS->name, cbk, out);
+
+        /* Event list should be either GLFS_EVENT_ANY
+         * or list of supported individual events (up_events)
+         */
+        if ((event_list != GLFS_EVENT_ANY) &&
+            (event_list & ~up_events)) {
+                errno = EINVAL;
+                ret = -1;
+                gf_msg (THIS->name, GF_LOG_ERROR, errno, LG_MSG_INVALID_ARG,
+                        "invalid event_list (0x%08x)", event_list);
+                goto out;
+        }
+
+        /* incase other thread does unregister */
+        pthread_mutex_lock (&fs->mutex);
+        {
+                if (event_list & GLFS_EVENT_INODE_INVALIDATE) {
+                        /* @todo: Check if features.cache-invalidation is
+                         * enabled.
+                         */
+                        fs->upcall_events |=  GF_UPCALL_CACHE_INVALIDATION;
+                        ret |= GF_UPCALL_CACHE_INVALIDATION;
+                }
+
+                /* Override cbk function if existing */
+                fs->up_cbk = cbk;
+                fs->up_data = data;
+                fs->cache_upcalls = _gf_true;
+        }
+        pthread_mutex_unlock (&fs->mutex);
+
+out:
+        __GLFS_EXIT_FS;
+
+invalid_fs:
+        return ret;
+}
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_register, 3.13.0);
+
+int glfs_upcall_unregister (struct glfs *fs, uint32_t event_list)
+{
+        int ret = 0;
+        /* list of supported upcall events */
+        uint32_t up_events = GLFS_EVENT_INODE_INVALIDATE;
+
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
+
+        /* Event list should be either GLFS_EVENT_ANY
+         * or list of supported individual events (up_events)
+         */
+        if ((event_list != GLFS_EVENT_ANY) &&
+            (event_list & ~up_events)) {
+                errno = EINVAL;
+                ret = -1;
+                gf_msg (THIS->name, GF_LOG_ERROR, errno, LG_MSG_INVALID_ARG,
+                        "invalid event_list (0x%08x)", event_list);
+                goto out;
+        }
+
+        pthread_mutex_lock (&fs->mutex);
+        {
+                if (event_list & GLFS_EVENT_INODE_INVALIDATE) {
+                        fs->upcall_events &=  ~GF_UPCALL_CACHE_INVALIDATION;
+                        ret |= GF_UPCALL_CACHE_INVALIDATION;
+                }
+
+                /* If there are no upcall events registered, reset cbk */
+                if (fs->upcall_events == 0) {
+                        fs->up_cbk = NULL;
+                        fs->up_data = NULL;
+                        fs->cache_upcalls = _gf_false;
+                }
+        }
+        pthread_mutex_unlock (&fs->mutex);
+
+out:
+        __GLFS_EXIT_FS;
+
+invalid_fs:
+        return ret;
+}
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_unregister, 3.13.0);
