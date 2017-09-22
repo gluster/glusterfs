@@ -257,17 +257,21 @@ gf_store_retrieve_value (gf_store_handle_t *handle, char *key, char **value)
                         "Unable to open file %s", handle->path);
                 goto out;
         }
-        if (!handle->read)
-                handle->read = fdopen (dup(handle->fd), "r");
-        else
-                fseek (handle->read, 0, SEEK_SET);
-
         if (!handle->read) {
-                gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
-                        "Unable to open file %s", handle->path);
-                goto out;
-        }
+                int duped_fd = dup(handle->fd);
 
+                if (duped_fd >= 0)
+                        handle->read = fdopen (duped_fd, "r");
+                if (!handle->read) {
+                        if (duped_fd != -1)
+                                sys_close (duped_fd);
+                        gf_msg ("", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
+                                "Unable to open file %s", handle->path);
+                        goto out;
+                }
+        } else {
+                fseek (handle->read, 0, SEEK_SET);
+        }
         ret = sys_fstat (handle->fd, &st);
         if (ret < 0) {
                 gf_msg ("", GF_LOG_WARNING, errno, LG_MSG_FILE_OP_FAILED,
