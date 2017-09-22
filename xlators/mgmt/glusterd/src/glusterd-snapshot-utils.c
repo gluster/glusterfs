@@ -264,7 +264,7 @@ glusterd_snap_volinfo_restore (dict_t *dict, dict_t *rsp_dict,
                 ret = dict_get_str (dict, key, &value);
                 if (!ret)
                         strncpy (new_brickinfo->mnt_opts, value,
-                                 sizeof(new_brickinfo->mnt_opts));
+                                 sizeof(new_brickinfo->mnt_opts) - 1);
 
                 /* If the brick is not of this peer, or snapshot is missed *
                  * for the brick do not replace the xattr for it */
