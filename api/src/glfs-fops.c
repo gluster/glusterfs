@@ -4398,54 +4398,14 @@ invalid_fs:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_dup, 3.4.0);
 
-/*
- * This routine is called in case of any notification received
- * from the server. All the upcall events are queued up in a list
- * to be read by the applications.
- *
- * XXX: Applications may register a cbk function for each 'fs'
- * which then needs to be called by this routine incase of any
- * event received. The cbk fn is responsible for notifying the
- * applications the way it desires for each event queued (for eg.,
- * can raise a signal or broadcast a cond variable etc.)
- */
-void
-priv_glfs_process_upcall_event (struct glfs *fs, void *data)
+static void
+glfs_enqueue_upcall_data (struct glfs *fs, struct gf_upcall *upcall_data)
 {
-        int                ret             = -1;
-        upcall_entry       *u_list         = NULL;
-        glusterfs_ctx_t    *ctx            = NULL;
-        struct gf_upcall   *upcall_data    = NULL;
+        int ret = -1;
+        upcall_entry *u_list = NULL;
 
-        gf_msg_debug (THIS->name, 0,
-                      "Upcall gfapi callback is called");
-
-        if (!fs || !data)
+        if (!fs || !upcall_data)
                 goto out;
-
-        /* Unlike in I/O path, "glfs_fini" would not have freed
-         * 'fs' by the time we take lock as it waits for all epoll
-         * threads to exit including this
-         */
-        pthread_mutex_lock (&fs->mutex);
-        {
-                ctx = fs->ctx;
-
-                /* if we're not interested in upcalls (anymore), skip them */
-                if (ctx->cleanup_started || !fs->cache_upcalls) {
-                        pthread_mutex_unlock (&fs->mutex);
-                        goto out;
-                }
-
-                fs->pin_refcnt++;
-        }
-        pthread_mutex_unlock (&fs->mutex);
-
-
-        upcall_data = (struct gf_upcall *)data;
-
-        gf_msg_trace (THIS->name, 0, "Upcall gfapi gfid = %s"
-                      "ret = %d", (char *)(upcall_data->gfid), ret);
 
         u_list = GF_CALLOC (1, sizeof(*u_list),
                             glfs_mt_upcall_entry_t);
@@ -4467,7 +4427,7 @@ priv_glfs_process_upcall_event (struct glfs *fs, void *data)
                                                           upcall_data);
                 break;
         default:
-                goto out;
+                break;
         }
 
         if (ret) {
@@ -4484,21 +4444,147 @@ priv_glfs_process_upcall_event (struct glfs *fs, void *data)
         }
         pthread_mutex_unlock (&fs->upcall_list_mutex);
 
+        ret = 0;
+
+out:
+        if (ret && u_list) {
+                GF_FREE (u_list->upcall_data.data);
+                GF_FREE(u_list);
+        }
+}
+
+static void
+glfs_cbk_upcall_data (struct glfs *fs, struct gf_upcall *upcall_data)
+{
+        int ret = -1;
+        struct glfs_upcall *up_arg = NULL;
+
+        if (!fs || !upcall_data)
+                goto out;
+
+        if (!(fs->upcall_events & upcall_data->event_type)) {
+                /* ignore events which application hasn't registered*/
+                goto out;
+        }
+
+        up_arg = GLFS_CALLOC (1, sizeof (struct gf_upcall),
+                              glfs_release_upcall,
+                              glfs_mt_upcall_entry_t);
+        if (!up_arg) {
+                gf_msg (THIS->name, GF_LOG_ERROR, ENOMEM, API_MSG_ALLOC_FAILED,
+                        "Upcall entry allocation failed.");
+                goto out;
+        }
+
+        switch (upcall_data->event_type) {
+        case GF_UPCALL_CACHE_INVALIDATION:
+                ret = glfs_h_poll_cache_invalidation (fs, up_arg, upcall_data);
+                break;
+        default:
+                errno = EINVAL;
+        }
+
+        if (!ret && (up_arg->reason != GLFS_UPCALL_EVENT_NULL)) {
+                /* It could so happen that the file which got
+                 * upcall notification may have got deleted by
+                 * the same client. In such cases up_arg->reason
+                 * is set to GLFS_UPCALL_EVENT_NULL. No need to
+                 * send upcall then */
+                (fs->up_cbk) (up_arg, fs->up_data);
+        } else if (up_arg->reason == GLFS_UPCALL_EVENT_NULL) {
+                gf_msg (THIS->name, GF_LOG_DEBUG, errno,
+                        API_MSG_INVALID_ENTRY,
+                        "Upcall_EVENT_NULL received. Skipping it.");
+                goto out;
+        } else {
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        API_MSG_INVALID_ENTRY,
+                        "Upcall entry validation failed.");
+                goto out;
+        }
+
+        /* application takes care of calling glfs_free on up_arg post
+         * their processing */
+        ret = 0;
+
+out:
+        if (ret && up_arg) {
+                GLFS_FREE (up_arg);
+        }
+
+        return;
+}
+
+/*
+ * This routine is called in case of any notification received
+ * from the server. All the upcall events are queued up in a list
+ * to be read by the applications.
+ *
+ * In case if the application registers a cbk function, that shall
+ * be called by this routine incase of any event received.
+ * The cbk fn is responsible for notifying the
+ * applications the way it desires for each event queued (for eg.,
+ * can raise a signal or broadcast a cond variable etc.)
+ *
+ * Otherwise all the upcall events are queued up in a list
+ * to be read/polled by the applications.
+ */
+void
+priv_glfs_process_upcall_event (struct glfs *fs, void *data)
+{
+        glusterfs_ctx_t    *ctx            = NULL;
+        struct gf_upcall   *upcall_data    = NULL;
+
+        DECLARE_OLD_THIS;
+
+        gf_msg_debug (THIS->name, 0,
+                      "Upcall gfapi callback is called");
+
+        __GLFS_ENTRY_VALIDATE_FS (fs, err);
+
+        if (!data)
+                goto out;
+
+        /* Unlike in I/O path, "glfs_fini" would not have freed
+         * 'fs' by the time we take lock as it waits for all epoll
+         * threads to exit including this
+         */
+        pthread_mutex_lock (&fs->mutex);
+        {
+                ctx = fs->ctx;
+
+                /* if we're not interested in upcalls (anymore), skip them */
+                if (ctx->cleanup_started || !fs->cache_upcalls) {
+                        pthread_mutex_unlock (&fs->mutex);
+                        goto out;
+                }
+
+                fs->pin_refcnt++;
+        }
+        pthread_mutex_unlock (&fs->mutex);
+
+        upcall_data = (struct gf_upcall *)data;
+
+        gf_msg_trace (THIS->name, 0, "Upcall gfapi gfid = %s" ,
+                      (char *)(upcall_data->gfid));
+
+        if (fs->up_cbk) { /* upcall cbk registered */
+                (void) glfs_cbk_upcall_data (fs, upcall_data);
+        } else {
+                (void) glfs_enqueue_upcall_data (fs, upcall_data);
+        }
+
         pthread_mutex_lock (&fs->mutex);
         {
                 fs->pin_refcnt--;
         }
         pthread_mutex_unlock (&fs->mutex);
 
-        ret = 0;
 out:
-        if (ret && u_list) {
-                GF_FREE (u_list->upcall_data.data);
-                GF_FREE(u_list);
-        }
+        __GLFS_EXIT_FS;
+err:
         return;
 }
-
 GFAPI_SYMVER_PRIVATE_DEFAULT(glfs_process_upcall_event, 3.7.0);
 
 ssize_t

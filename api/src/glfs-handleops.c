@@ -1987,7 +1987,7 @@ out:
         return ret;
 }
 
-static void glfs_release_upcall (void *ptr)
+void glfs_release_upcall (void *ptr)
 {
         struct glfs_upcall *to_free = ptr;
 
