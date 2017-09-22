@@ -620,7 +620,7 @@ socket_server_get_local_sockaddr (rpc_transport_t *this, struct sockaddr *addr,
         {
         case AF_INET_SDP:
                 addr->sa_family = AF_INET;
-
+                /* Fall through */
         case AF_INET:
         case AF_INET6:
         case AF_UNSPEC:
