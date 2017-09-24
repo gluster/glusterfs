@@ -71,9 +71,12 @@ worm_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
                                              GF_FOP_LINK);
 
 out:
-        if (op_errno)
+        if (op_errno) {
+                if (op_errno < 0)
+                        op_errno = EROFS;
                 STACK_UNWIND_STRICT (link, frame, -1, op_errno, NULL, NULL,
                                      NULL, NULL, NULL);
+        }
         else
                 STACK_WIND_TAIL (frame, FIRST_CHILD(this),
                                  FIRST_CHILD(this)->fops->link,
@@ -107,9 +110,12 @@ worm_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         op_errno = gf_worm_state_transition (this, _gf_false, loc,
                                              GF_FOP_UNLINK);
 out:
-        if (op_errno)
+        if (op_errno) {
+                if (op_errno < 0)
+                        op_errno = EROFS;
                 STACK_UNWIND_STRICT (unlink, frame, -1, op_errno, NULL, NULL,
                                      NULL);
+        }
         else
                 STACK_WIND_TAIL (frame, FIRST_CHILD(this),
                                  FIRST_CHILD(this)->fops->unlink,
@@ -157,9 +163,12 @@ check_newloc:
         }
 
 out:
-        if (op_errno)
+        if (op_errno) {
+                if (op_errno < 0)
+                        op_errno = EROFS;
                 STACK_UNWIND_STRICT (rename, frame, -1, op_errno, NULL,
                                      NULL, NULL, NULL, NULL, NULL);
+        }
         else
                 STACK_WIND_TAIL (frame, FIRST_CHILD (this),
                                  FIRST_CHILD (this)->fops->rename,
@@ -192,9 +201,12 @@ worm_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                                              GF_FOP_TRUNCATE);
 
 out:
-        if (op_errno)
+        if (op_errno) {
+                if (op_errno < 0)
+                        op_errno = EROFS;
                 STACK_UNWIND_STRICT (truncate, frame, -1, op_errno, NULL, NULL,
                                      NULL);
+        }
         else
                 STACK_WIND_TAIL (frame, FIRST_CHILD (this),
                                  FIRST_CHILD (this)->fops->truncate,
@@ -227,9 +239,12 @@ worm_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                                              GF_FOP_FTRUNCATE);
 
 out:
-        if (op_errno)
+        if (op_errno) {
+                if (op_errno < 0)
+                        op_errno = EROFS;
                 STACK_UNWIND_STRICT (ftruncate, frame, -1, op_errno, NULL, NULL,
                                      NULL);
+        }
         else
                 STACK_WIND_TAIL (frame, FIRST_CHILD (this),
                                  FIRST_CHILD (this)->fops->ftruncate,
