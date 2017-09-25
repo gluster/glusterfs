@@ -6051,9 +6051,15 @@ afr_get_split_brain_status (void *opaque)
                                   &m_spb);
         if (ret) {
                 op_errno = -ret;
-                if (ret == -EAGAIN)
+                if (ret == -EAGAIN) {
                         ret = dict_set_str (dict, GF_AFR_SBRAIN_STATUS,
                                             SBRAIN_HEAL_NO_GO_MSG);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_WARNING,
+                                        -ret, AFR_MSG_DICT_SET_FAILED,
+                                        "Failed to set GF_AFR_SBRAIN_STATUS in dict");
+                        }
+                }
                 ret = -1;
                 goto out;
         }
