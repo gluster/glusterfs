@@ -2023,7 +2023,7 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
     if ((lock->loc.inode->ia_type == IA_IFREG) && !ctx->have_config) {
         /* A failure requesting this xattr is ignored because it's not
          * absolutely required right now. */
-        ec_dict_set_number(dict, EC_XATTR_CONFIG, 0);
+        (void)ec_dict_set_number(dict, EC_XATTR_CONFIG, 0);
     }
 
     fop->frame->root->uid = 0;
