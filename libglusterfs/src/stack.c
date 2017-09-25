@@ -43,14 +43,11 @@ create_frame (xlator_t *xl, call_pool_t *pool)
         stack->pool = pool;
         stack->ctx = xl->ctx;
 
-        if (stack->ctx->measure_latency) {
-                if (gettimeofday (&stack->tv, NULL) == -1)
-                        gf_msg ("stack", GF_LOG_ERROR, errno,
-                                LG_MSG_GETTIMEOFDAY_FAILED,
-                                "gettimeofday () failed");
-                memcpy (&frame->begin, &stack->tv, sizeof (stack->tv));
+        if (frame->root->ctx->measure_latency) {
+                timespec_now (&stack->tv);
+                memcpy (&frame->begin, &stack->tv,
+                        sizeof (stack->tv));
         }
-
 
         LOCK (&pool->lock);
         {
@@ -92,19 +89,26 @@ gf_proc_dump_call_frame (call_frame_t *call_frame, const char *key_buf,...)
         memcpy(&my_frame, call_frame, sizeof(my_frame));
         UNLOCK(&call_frame->lock);
 
-        if (my_frame.this->ctx->measure_latency) {
-                gf_time_fmt (timestr, sizeof timestr, my_frame.begin.tv_sec,
+        if (my_frame.root->ctx->measure_latency) {
+                gf_time_fmt (timestr, sizeof (timestr), my_frame.begin.tv_sec,
                              gf_timefmt_FT);
                 snprintf (timestr + strlen (timestr),
-                          sizeof timestr - strlen (timestr),
-                          ".%"GF_PRI_SUSECONDS, my_frame.begin.tv_usec);
+                          sizeof (timestr) - strlen (timestr),
+                          ".%"GF_PRI_SNSECONDS, my_frame.begin.tv_nsec);
                 gf_proc_dump_write("frame-creation-time", "%s", timestr);
+                gf_proc_dump_write("timings", "%ld.%"GF_PRI_SNSECONDS
+                                   " -> %ld.%"GF_PRI_SNSECONDS,
+                                   my_frame.begin.tv_sec,
+                                   my_frame.begin.tv_nsec,
+                                   my_frame.end.tv_sec,
+                                   my_frame.end.tv_nsec);
         }
 
         gf_proc_dump_write("frame", "%p", call_frame);
         gf_proc_dump_write("ref_count", "%d", my_frame.ref_count);
         gf_proc_dump_write("translator", "%s", my_frame.this->name);
         gf_proc_dump_write("complete", "%d", my_frame.complete);
+
         if (my_frame.parent)
                 gf_proc_dump_write("parent", "%s", my_frame.parent->this->name);
 
@@ -150,14 +154,12 @@ gf_proc_dump_call_stack (call_stack_t *call_stack, const char *key_buf,...)
         va_end(ap);
 
         cnt = call_frames_count (call_stack);
-        if (call_stack->ctx->measure_latency) {
-                gf_time_fmt (timestr, sizeof timestr, call_stack->tv.tv_sec,
-                             gf_timefmt_FT);
-                snprintf (timestr + strlen (timestr),
-                          sizeof timestr - strlen (timestr),
-                          ".%"GF_PRI_SUSECONDS, call_stack->tv.tv_usec);
+        gf_time_fmt (timestr, sizeof (timestr), call_stack->tv.tv_sec,
+                     gf_timefmt_FT);
+        snprintf (timestr + strlen (timestr),
+                  sizeof (timestr) - strlen (timestr),
+                  ".%"GF_PRI_SNSECONDS, call_stack->tv.tv_nsec);
         gf_proc_dump_write("callstack-creation-time", "%s", timestr);
-        }
 
         gf_proc_dump_write("stack", "%p", call_stack);
         gf_proc_dump_write("uid", "%d", call_stack->uid);
@@ -165,6 +167,8 @@ gf_proc_dump_call_stack (call_stack_t *call_stack, const char *key_buf,...)
         gf_proc_dump_write("pid", "%d", call_stack->pid);
         gf_proc_dump_write("unique", "%Ld", call_stack->unique);
         gf_proc_dump_write("lk-owner", "%s", lkowner_utoa (&call_stack->lk_owner));
+        gf_proc_dump_write("ctime", "%lld.%"GF_PRI_SNSECONDS,
+                           call_stack->tv.tv_sec, call_stack->tv.tv_nsec);
 
         if (call_stack->type == GF_OP_TYPE_FOP)
                 gf_proc_dump_write("op", "%s",
@@ -230,6 +234,7 @@ gf_proc_dump_call_frame_to_dict (call_frame_t *call_frame,
 {
         int             ret = -1;
         char            key[GF_DUMP_MAX_BUF_LEN] = {0,};
+        char            msg[GF_DUMP_MAX_BUF_LEN] = {0,};
         call_frame_t    tmp_frame = {0,};
 
         if (!call_frame || !dict)
@@ -258,6 +263,18 @@ gf_proc_dump_call_frame_to_dict (call_frame_t *call_frame,
         ret = dict_set_int32 (dict, key, tmp_frame.complete);
         if (ret)
                 return;
+
+        if (tmp_frame.root->ctx->measure_latency) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%s.timings", prefix);
+                snprintf (msg, sizeof (msg), "%ld.%"GF_PRI_SNSECONDS
+                          " -> %ld.%"GF_PRI_SNSECONDS,
+                          tmp_frame.begin.tv_sec, tmp_frame.begin.tv_nsec,
+                          tmp_frame.end.tv_sec, tmp_frame.end.tv_nsec);
+                ret = dict_set_str (dict, key, msg);
+                if (ret)
+                        return;
+        }
 
         if (tmp_frame.parent) {
                 memset (key, 0, sizeof (key));

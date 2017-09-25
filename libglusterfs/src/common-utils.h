@@ -422,6 +422,14 @@ BIT_VALUE (unsigned char *array, unsigned int index)
         } while (0)
 #endif
 
+#define GF_ABORT(msg)                                                   \
+        do {                                                            \
+                gf_msg_callingfn ("", GF_LOG_CRITICAL, 0,               \
+                                  LG_MSG_ASSERTION_FAILED,              \
+                                  "Assertion failed: " msg);            \
+                abort();                                                \
+        } while (0)
+
 #define GF_UUID_ASSERT(u) \
         if (gf_uuid_is_null (u))\
                 GF_ASSERT (!"uuid null");

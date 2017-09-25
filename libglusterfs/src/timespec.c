@@ -12,6 +12,7 @@
 #include <inttypes.h>
 #include <time.h>
 #include <sys/time.h>
+#include <string.h>
 
 #if defined GF_DARWIN_HOST_OS
 #include <mach/mach_time.h>
@@ -21,17 +22,30 @@ static mach_timebase_info_data_t gf_timebase;
 #include "logging.h"
 #include "timespec.h"
 #include "libglusterfs-messages.h"
+#include "common-utils.h"
 
 void timespec_now (struct timespec *ts)
 {
 #if defined GF_LINUX_HOST_OS || defined GF_SOLARIS_HOST_OS || defined GF_BSD_HOST_OS
-        if (0 == clock_gettime(CLOCK_MONOTONIC, ts))
+        if (0 == clock_gettime(CLOCK_MONOTONIC, ts)) {
+                /* All good */
                 return;
-        else {
-                struct timeval tv;
-                if (0 == gettimeofday(&tv, NULL))
-                        TIMEVAL_TO_TIMESPEC(&tv, ts);
         }
+
+        /* Fall back, but there is hope in gettimeofday() syscall */
+        struct timeval tv;
+        if (0 == gettimeofday(&tv, NULL)) {
+                /* Again, all good */
+                TIMEVAL_TO_TIMESPEC(&tv, ts);
+                return;
+        }
+
+        /* If control hits here, there is surely a problem,
+           mainly because, as per man page too, these syscalls
+           shouldn't fail. Best way is to ABORT, because it is
+           not right */
+        GF_ABORT ("gettimeofday() failed!!");
+
 #elif defined GF_DARWIN_HOST_OS
         uint64_t time = mach_absolute_time();
         static double scaling = 0.0;

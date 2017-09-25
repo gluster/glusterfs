@@ -48,9 +48,9 @@ frames_file_fill (xlator_t *this, inode_t *file, strfd_t *strfd)
                                                 frame->this->name);
                                 if (frame->begin.tv_sec)
                                         strprintf (strfd,
-                                                        "\t\t\t\"Creation_time\": %d.%d,\n",
-                                                        (int)frame->begin.tv_sec,
-                                                        (int)frame->begin.tv_usec);
+                                                   "\t\t\t\"Creation_time\": %d.%09d,\n",
+                                                   (int)frame->begin.tv_sec,
+                                                   (int)frame->begin.tv_nsec);
                                 strprintf (strfd, " \t\t\t\"Refcount\": %d,\n",
                                                 frame->ref_count);
                                 if (frame->parent)

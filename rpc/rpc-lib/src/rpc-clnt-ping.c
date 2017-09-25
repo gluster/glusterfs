@@ -205,7 +205,8 @@ rpc_clnt_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         pthread_mutex_lock (&conn->lock);
         {
-                this->client_latency = latency_msec;
+                /* TODO: concerned people, check why this is used nowhere? */
+                this->stats.client_latency = latency_msec;
                 gf_log (THIS->name, GF_LOG_DEBUG,
                         "Ping latency is %" PRIu64 "ms",
                         latency_msec);
