@@ -503,8 +503,9 @@ gf_changelog_decode (xlator_t *this, gf_changelog_journal_t *jnl,
         /**
          * start processing after the header
          */
-        sys_lseek (from_fd, elen, SEEK_SET);
-
+        if (sys_lseek (from_fd, elen, SEEK_SET) < 0) {
+                goto out;
+        }
         switch (encoding) {
         case CHANGELOG_ENCODE_BINARY:
                 /**
@@ -525,7 +526,7 @@ gf_changelog_decode (xlator_t *this, gf_changelog_journal_t *jnl,
                 ret = gf_changelog_copy (this, from_fd, to_fd);
         }
 
- out:
+out:
         return ret;
 }
 
