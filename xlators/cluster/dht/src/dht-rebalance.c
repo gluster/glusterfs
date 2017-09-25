@@ -1028,16 +1028,13 @@ find_new_subvol:
                *target_changed = _gf_false;
                 *fop_errno = ENOSPC;
                 ret = -1;
-                goto out;
         } else {
                 gf_msg (this->name, GF_LOG_INFO, 0, 0, "new target found - %s"
                         " for file - %s", (*new_subvol)->name, loc->path);
                 *target_changed = _gf_true;
                 ret = 0;
-                goto out;
         }
 
-        ret = 0;
 out:
         if (xdata)
                 dict_unref (xdata);
