@@ -3207,7 +3207,7 @@ client_fdctx_destroy (xlator_t *this, clnt_fd_ctx_t *fdctx)
                 memcpy (req.gfid, fdctx->gfid, 16);
                 req.fd = fdctx->remote_fd;
                 gf_msg_trace (this->name, 0, "sending release on fd");
-                client_submit_request (this, &req, fr, &clnt3_3_fop_prog,
+                (void)client_submit_request (this, &req, fr, &clnt3_3_fop_prog,
                                        GFS3_OP_RELEASE,
                                        client3_3_release_cbk, NULL,
                                        NULL, 0, NULL, 0, NULL,
