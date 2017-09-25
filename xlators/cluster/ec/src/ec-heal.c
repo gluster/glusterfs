@@ -1151,7 +1151,7 @@ ec_create_name (call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
         switch (ia->ia_type) {
         case IA_IFDIR:
                 ec_set_new_entry_dirty (ec, &loc, ia, frame, ec->xl, on);
-                ret = cluster_mkdir (ec->xl_list, enoent, ec->nodes,
+                (void) cluster_mkdir (ec->xl_list, enoent, ec->nodes,
                                    replies, output, frame, ec->xl, &loc,
                                    st_mode_from_ia (ia->ia_prot,
                                                 ia->ia_type), 0, xdata);
