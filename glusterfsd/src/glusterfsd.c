@@ -1115,10 +1115,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
                         cmd_args->brick_port = n;
                         port_str = strtok_r (NULL, ",", &tmp_str);
                         if (port_str) {
-                                if (gf_string2uint_base10 (port_str, &n) == 0)
+                                if (gf_string2uint_base10 (port_str, &n) == 0) {
                                         cmd_args->brick_port2 = n;
-                                break;
-
+                                        break;
+                                }
                                 argp_failure (state, -1, 0,
                                               "wrong brick (listen) port %s", arg);
                         }
