@@ -29,7 +29,6 @@ struct _dentry;
 typedef struct _dentry dentry_t;
 
 #include "list.h"
-#include "xlator.h"
 #include "iatt.h"
 #include "compat-uuid.h"
 #include "fd.h"
