@@ -5176,7 +5176,6 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                                 size = sys_fgetxattr (_fd, key, NULL, 0);
                         }
                         if (size == -1) {
-                                op_ret = -1;
                                 op_errno = errno;
                                 if (errno == ENODATA || errno == ENOATTR) {
                                         gf_msg_debug (this->name, 0, "fgetxattr"
