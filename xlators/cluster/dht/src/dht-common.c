@@ -8742,7 +8742,7 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (!readdirp_frame) {
                         cnt--;
                         /* Reduce the local->call_cnt as well */
-                        dht_frame_return (frame);
+                        (void) dht_frame_return (frame);
                         continue;
                 }
 
