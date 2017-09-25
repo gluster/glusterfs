@@ -46,7 +46,6 @@
 #include "revision.h"
 #include "glusterfs.h"
 #include "stack.h"
-#include "globals.h"
 #include "lkowner.h"
 #include "syscall.h"
 #include "cli1-xdr.h"

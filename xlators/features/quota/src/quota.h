@@ -21,7 +21,6 @@
 #include "dict.h"
 #include "stack.h"
 #include "event.h"
-#include "globals.h"
 #include "rpcsvc.h"
 #include "rpc-clnt.h"
 #include "byte-order.h"
