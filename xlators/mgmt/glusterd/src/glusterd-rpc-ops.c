@@ -1527,7 +1527,8 @@ glusterd_rpc_probe (call_frame_t *frame, xlator_t *this,
 
 out:
         GF_FREE (req.hostname);
-        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
+        gf_msg_debug (this ? this->name : "glusterd", 0,
+                      "Returning %d", ret);
         return ret;
 }
 
@@ -1629,7 +1630,8 @@ out:
         if (peer_data)
                 dict_unref (peer_data);
 
-        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
+        gf_msg_debug (this ? this->name : "glusterd", 0,
+                      "Returning %d", ret);
         return ret;
 }
 
@@ -1678,7 +1680,8 @@ glusterd_rpc_friend_remove (call_frame_t *frame, xlator_t *this,
 out:
         GF_FREE (req.hostname);
 
-        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
+        gf_msg_debug (this ? this->name : "glusterd", 0,
+                      "Returning %d", ret);
         return ret;
 }
 
@@ -1727,7 +1730,8 @@ out:
         if (ret && dummy_frame)
                 STACK_DESTROY (dummy_frame->root);
 
-        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
+        gf_msg_debug (this ? this->name : "glusterd", 0,
+                      "Returning %d", ret);
         return ret;
 }
 
@@ -1761,7 +1765,8 @@ glusterd_cluster_lock (call_frame_t *frame, xlator_t *this,
                                        this, glusterd_cluster_lock_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_cluster_lock_req);
 out:
-        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
+        gf_msg_debug (this ? this->name : "glusterd", 0,
+                      "Returning %d", ret);
 
         if (ret && dummy_frame)
                 STACK_DESTROY (dummy_frame->root);
@@ -1839,7 +1844,8 @@ glusterd_mgmt_v3_lock_peers (call_frame_t *frame, xlator_t *this,
                                        this, glusterd_mgmt_v3_lock_peers_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_v3_lock_req);
 out:
-        gf_msg_debug (this->name, 0, "Returning %d", ret);
+        gf_msg_debug (this ? this->name : "glusterd", 0,
+                      "Returning %d", ret);
         if (dict)
                 dict_unref (dict);
         if (req.dict.dict_val)
@@ -1920,7 +1926,8 @@ glusterd_mgmt_v3_unlock_peers (call_frame_t *frame, xlator_t *this,
                                        (xdrproc_t)
                                        xdr_gd1_mgmt_v3_unlock_req);
 out:
-        gf_msg_debug (this->name, 0, "Returning %d", ret);
+        gf_msg_debug (this ? this->name : "glusterd", 0,
+                      "Returning %d", ret);
         if (dict)
                 dict_unref(dict);
 
@@ -1959,7 +1966,8 @@ glusterd_cluster_unlock (call_frame_t *frame, xlator_t *this,
                                        this, glusterd_cluster_unlock_cbk,
                                        (xdrproc_t)xdr_gd1_mgmt_cluster_unlock_req);
 out:
-        gf_msg_debug (this ? this->name : "glusterd", 0, "Returning %d", ret);
+        gf_msg_debug (this ? this->name : "glusterd", 0,
+                      "Returning %d", ret);
 
         if (ret && dummy_frame)
                 STACK_DESTROY (dummy_frame->root);
@@ -2044,7 +2052,8 @@ out:
         if ((_gf_true == is_alloc) && req.buf.buf_val)
                 GF_FREE (req.buf.buf_val);
 
-        gf_msg_debug (this->name, 0, "Returning %d", ret);
+        gf_msg_debug (this ? this->name : "glusterd", 0,
+                      "Returning %d", ret);
         return ret;
 }
 
@@ -2124,7 +2133,8 @@ out:
         if ((_gf_true == is_alloc) && req.buf.buf_val)
                 GF_FREE (req.buf.buf_val);
 
-        gf_msg_debug (this->name, 0, "Returning %d", ret);
+        gf_msg_debug (this ? this->name : "glusterd", 0,
+                      "Returning %d", ret);
         return ret;
 }
 
@@ -2405,7 +2415,8 @@ out:
                 opinfo.op_ret = ret;
         }
 
-        gf_msg_debug (this ? this->name : "glusterd", 0, "Returning %d", ret);
+        gf_msg_debug (this ? this->name : "glusterd", 0,
+                      "Returning %d", ret);
         return ret;
 }
 
