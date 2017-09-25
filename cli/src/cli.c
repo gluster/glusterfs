@@ -55,7 +55,6 @@
 #include "revision.h"
 #include "common-utils.h"
 #include "event.h"
-#include "globals.h"
 #include "syscall.h"
 #include "call-stub.h"
 #include <fnmatch.h>

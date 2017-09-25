@@ -29,7 +29,6 @@ typedef struct call_pool call_pool_t;
 #include "dict.h"
 #include "list.h"
 #include "common-utils.h"
-#include "globals.h"
 #include "lkowner.h"
 #include "client_t.h"
 #include "libglusterfs-messages.h"
