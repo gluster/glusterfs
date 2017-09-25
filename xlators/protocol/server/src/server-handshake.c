@@ -904,14 +904,6 @@ fail:
 
         rsp->op_ret = 0;
         rsp->dict.dict_len = dict_serialized_length (reply);
-        if (rsp->dict.dict_len > UINT_MAX) {
-                gf_msg_debug ("server-handshake", 0, "failed to get serialized"
-                               " length of reply dict");
-                op_ret   = -1;
-                op_errno = EINVAL;
-                rsp->dict.dict_len = 0;
-        }
-
         if (rsp->dict.dict_len) {
                 rsp->dict.dict_val = GF_CALLOC (1, rsp->dict.dict_len,
                                                 gf_server_mt_rsp_buf_t);
