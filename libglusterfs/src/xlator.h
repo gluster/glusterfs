@@ -727,13 +727,11 @@ typedef int32_t (*fop_setactivelk_t) (call_frame_t *frame, xlator_t *this,
                                       lock_migration_info_t *locklist,
                                       dict_t *xdata);
 
+/* WARNING: make sure the list is in order with FOP definition in
+   `rpc/xdr/src/glusterfs-fops.x`.
+   If it is not in order, mainly the metrics related feature would be broken */
 struct xlator_fops {
-        fop_lookup_t         lookup;
         fop_stat_t           stat;
-        fop_fstat_t          fstat;
-        fop_truncate_t       truncate;
-        fop_ftruncate_t      ftruncate;
-        fop_access_t         access;
         fop_readlink_t       readlink;
         fop_mknod_t          mknod;
         fop_mkdir_t          mkdir;
@@ -742,51 +740,59 @@ struct xlator_fops {
         fop_symlink_t        symlink;
         fop_rename_t         rename;
         fop_link_t           link;
-        fop_create_t         create;
+        fop_truncate_t       truncate;
         fop_open_t           open;
         fop_readv_t          readv;
         fop_writev_t         writev;
+        fop_statfs_t         statfs;
         fop_flush_t          flush;
         fop_fsync_t          fsync;
-        fop_opendir_t        opendir;
-        fop_readdir_t        readdir;
-        fop_readdirp_t       readdirp;
-        fop_fsyncdir_t       fsyncdir;
-        fop_statfs_t         statfs;
         fop_setxattr_t       setxattr;
         fop_getxattr_t       getxattr;
-        fop_fsetxattr_t      fsetxattr;
-        fop_fgetxattr_t      fgetxattr;
         fop_removexattr_t    removexattr;
-        fop_fremovexattr_t   fremovexattr;
+        fop_opendir_t        opendir;
+        fop_fsyncdir_t       fsyncdir;
+        fop_access_t         access;
+        fop_create_t         create;
+        fop_ftruncate_t      ftruncate;
+        fop_fstat_t          fstat;
         fop_lk_t             lk;
+        fop_lookup_t         lookup;
+        fop_readdir_t        readdir;
         fop_inodelk_t        inodelk;
         fop_finodelk_t       finodelk;
         fop_entrylk_t        entrylk;
         fop_fentrylk_t       fentrylk;
-        fop_rchecksum_t      rchecksum;
         fop_xattrop_t        xattrop;
         fop_fxattrop_t       fxattrop;
+        fop_fgetxattr_t      fgetxattr;
+        fop_fsetxattr_t      fsetxattr;
+        fop_rchecksum_t      rchecksum;
         fop_setattr_t        setattr;
         fop_fsetattr_t       fsetattr;
+        fop_readdirp_t       readdirp;
+
+        /* These 3 are required to keep the index same as GF_FOP_##FOP */
+        void *forget_placeholder;
+        void *release_placeholder;
+        void *releasedir_placeholder;
+
         fop_getspec_t        getspec;
-	fop_fallocate_t	     fallocate;
-	fop_discard_t	     discard;
+        fop_fremovexattr_t   fremovexattr;
+        fop_fallocate_t	     fallocate;
+        fop_discard_t	     discard;
         fop_zerofill_t       zerofill;
         fop_ipc_t            ipc;
         fop_seek_t           seek;
         fop_lease_t          lease;
         fop_compound_t       compound;
-        fop_getactivelk_t   getactivelk;
-        fop_setactivelk_t  setactivelk;
+        fop_getactivelk_t    getactivelk;
+        fop_setactivelk_t    setactivelk;
 
         /* these entries are used for a typechecking hack in STACK_WIND _only_ */
-        fop_lookup_cbk_t         lookup_cbk;
+        /* make sure to add _cbk variables only after defining regular fops as
+           its relative position is used to get the index */
         fop_stat_cbk_t           stat_cbk;
-        fop_fstat_cbk_t          fstat_cbk;
-        fop_truncate_cbk_t       truncate_cbk;
-        fop_ftruncate_cbk_t      ftruncate_cbk;
-        fop_access_cbk_t         access_cbk;
         fop_readlink_cbk_t       readlink_cbk;
         fop_mknod_cbk_t          mknod_cbk;
         fop_mkdir_cbk_t          mkdir_cbk;
@@ -795,43 +801,54 @@ struct xlator_fops {
         fop_symlink_cbk_t        symlink_cbk;
         fop_rename_cbk_t         rename_cbk;
         fop_link_cbk_t           link_cbk;
-        fop_create_cbk_t         create_cbk;
+        fop_truncate_cbk_t       truncate_cbk;
         fop_open_cbk_t           open_cbk;
         fop_readv_cbk_t          readv_cbk;
         fop_writev_cbk_t         writev_cbk;
+        fop_statfs_cbk_t         statfs_cbk;
         fop_flush_cbk_t          flush_cbk;
         fop_fsync_cbk_t          fsync_cbk;
-        fop_opendir_cbk_t        opendir_cbk;
-        fop_readdir_cbk_t        readdir_cbk;
-        fop_readdirp_cbk_t       readdirp_cbk;
-        fop_fsyncdir_cbk_t       fsyncdir_cbk;
-        fop_statfs_cbk_t         statfs_cbk;
         fop_setxattr_cbk_t       setxattr_cbk;
         fop_getxattr_cbk_t       getxattr_cbk;
-        fop_fsetxattr_cbk_t      fsetxattr_cbk;
-        fop_fgetxattr_cbk_t      fgetxattr_cbk;
         fop_removexattr_cbk_t    removexattr_cbk;
-        fop_fremovexattr_cbk_t   fremovexattr_cbk;
+        fop_opendir_cbk_t        opendir_cbk;
+        fop_fsyncdir_cbk_t       fsyncdir_cbk;
+        fop_access_cbk_t         access_cbk;
+        fop_create_cbk_t         create_cbk;
+        fop_ftruncate_cbk_t      ftruncate_cbk;
+        fop_fstat_cbk_t          fstat_cbk;
         fop_lk_cbk_t             lk_cbk;
+        fop_lookup_cbk_t         lookup_cbk;
+        fop_readdir_cbk_t        readdir_cbk;
         fop_inodelk_cbk_t        inodelk_cbk;
         fop_finodelk_cbk_t       finodelk_cbk;
         fop_entrylk_cbk_t        entrylk_cbk;
         fop_fentrylk_cbk_t       fentrylk_cbk;
-        fop_rchecksum_cbk_t      rchecksum_cbk;
         fop_xattrop_cbk_t        xattrop_cbk;
         fop_fxattrop_cbk_t       fxattrop_cbk;
+        fop_fgetxattr_cbk_t      fgetxattr_cbk;
+        fop_fsetxattr_cbk_t      fsetxattr_cbk;
+        fop_rchecksum_cbk_t      rchecksum_cbk;
         fop_setattr_cbk_t        setattr_cbk;
         fop_fsetattr_cbk_t       fsetattr_cbk;
+        fop_readdirp_cbk_t       readdirp_cbk;
+
+        /* These 3 are required to keep the index same as GF_FOP_##FOP */
+        void *forget_placeholder_cbk;
+        void *release_placeholder_cbk;
+        void *releasedir_placeholder_cbk;
+
         fop_getspec_cbk_t        getspec_cbk;
-	fop_fallocate_cbk_t	 fallocate_cbk;
-	fop_discard_cbk_t	 discard_cbk;
+        fop_fremovexattr_cbk_t   fremovexattr_cbk;
+        fop_fallocate_cbk_t      fallocate_cbk;
+        fop_discard_cbk_t        discard_cbk;
         fop_zerofill_cbk_t       zerofill_cbk;
         fop_ipc_cbk_t            ipc_cbk;
         fop_seek_cbk_t           seek_cbk;
         fop_lease_cbk_t          lease_cbk;
         fop_compound_cbk_t       compound_cbk;
-        fop_getactivelk_cbk_t   getactivelk_cbk;
-        fop_setactivelk_cbk_t  setactivelk_cbk;
+        fop_getactivelk_cbk_t    getactivelk_cbk;
+        fop_setactivelk_cbk_t    setactivelk_cbk;
 };
 
 typedef int32_t (*cbk_forget_t) (xlator_t *this,
@@ -906,7 +923,6 @@ typedef struct xlator_list {
         struct xlator_list *next;
 } xlator_list_t;
 
-
 struct _xlator {
         /* Built during parsing */
         char          *name;
@@ -933,9 +949,13 @@ struct _xlator {
 
         gf_loglevel_t    loglevel;   /* Log level for translator */
 
-        int64_t             client_latency;
-        /* for latency measurement */
-        fop_latency_t latencies[GF_FOP_MAXVALUE];
+        struct {
+                int64_t  client_latency; /* This is in 'milliseconds' units */
+                struct {
+                        /* for latency measurement */
+                        fop_latency_t latencies[GF_FOP_MAXVALUE];
+                } interval;
+        } stats;
 
         /* Misc */
         eh_t               *history; /* event history context */

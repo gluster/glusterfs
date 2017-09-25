@@ -231,7 +231,7 @@ struct syncopctx {
 	} while (0)
 
 
-#define SYNCOP(subvol, stb, cbk, op, params ...) do {                   \
+#define SYNCOP(subvol, stb, cbk, fn_op, params ...) do {                \
                 struct  synctask        *task = NULL;                   \
                 call_frame_t            *frame = NULL;                  \
                                                                         \
@@ -249,8 +249,9 @@ struct syncopctx {
                                                                         \
                 __yawn (stb);                                           \
                                                                         \
+                frame->op = get_fop_index_from_fn (subvol, fn_op);      \
                 STACK_WIND_COOKIE (frame, cbk, (void *)stb, subvol,     \
-                                   op, params);                         \
+                                   fn_op, params);                      \
                                                                         \
                 __yield (stb);                                          \
                 if (task)                                               \
