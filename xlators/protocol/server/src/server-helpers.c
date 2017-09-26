@@ -29,7 +29,7 @@ gid_resolve (server_conf_t *conf, call_stack_t *root)
         struct passwd     mypw;
         char              mystrs[1024];
         struct passwd    *result;
-        gid_t            *mygroups;
+        gid_t            *mygroups = NULL;
         gid_list_t        gl;
         const gid_list_t *agl;
         int               ngroups;
