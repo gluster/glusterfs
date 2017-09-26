@@ -776,7 +776,7 @@ ec_fd_t * __ec_fd_get(fd_t * fd, xlator_t * xl)
     }
 
     /* Treat anonymous fd specially */
-    if (fd->anonymous) {
+    if (fd->anonymous && ctx) {
         /* Mark the fd open for all subvolumes. */
         ctx->open = -1;
         /* Try to populate ctx->loc with fd->inode information. */
