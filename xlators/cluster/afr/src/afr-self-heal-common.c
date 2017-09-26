@@ -1189,13 +1189,14 @@ afr_mark_source_sinks_if_file_empty (xlator_t *this, unsigned char *sources,
             (afr_success_count(replies, priv->child_count) < priv->child_count))
                 return -1;
 
-        for (i = 0; i < priv->child_count; i++) {
-                if (replies[i].poststat.ia_size != 0)
-                        return -1;
-        }
+        if (type == AFR_DATA_TRANSACTION) {
+                for (i = 0; i < priv->child_count; i++) {
+                        if (replies[i].poststat.ia_size != 0)
+                                return -1;
+                }
 
-        if (type == AFR_DATA_TRANSACTION)
                 goto mark;
+        }
 
         /*For AFR_METADATA_TRANSACTION, metadata must be same on all bricks.*/
         stbuf = replies[0].poststat;
@@ -1213,7 +1214,7 @@ afr_mark_source_sinks_if_file_empty (xlator_t *this, unsigned char *sources,
         }
 
 mark:
-        /* All bricks have a zero-byte file. Pick one of them as source. Rest
+        /* data/metadata is same on all bricks. Pick one of them as source. Rest
          * are sinks.*/
         for (i = 0 ; i < priv->child_count; i++) {
                 if (source == -1) {
