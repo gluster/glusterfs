@@ -379,7 +379,9 @@ ec_method_fini(ec_matrix_list_t *list)
     ec_code_destroy(list->code);
     ec_gf_destroy(list->gf);
     GF_FREE(list->objects);
-    mem_pool_destroy(list->pool);
+
+    if (list->pool)
+        mem_pool_destroy(list->pool);
 }
 
 int32_t
