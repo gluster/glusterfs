@@ -55,6 +55,7 @@ ec_cbk_data_t * ec_cbk_data_allocate(call_frame_t * frame, xlator_t * this,
         gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                 EC_MSG_NO_MEMORY, "Failed to allocate memory for an "
                                          "answer.");
+        return NULL;
     }
 
     cbk->fop = fop;
