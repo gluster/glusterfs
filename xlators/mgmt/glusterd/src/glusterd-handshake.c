@@ -1792,7 +1792,7 @@ gd_validate_peer_op_version (xlator_t *this, glusterd_peerinfo_t *peerinfo,
         int32_t          peer_min_op_version = 0;
         int32_t          peer_max_op_version = 0;
 
-        if (!dict && !this && !peerinfo)
+        if (!dict || !this || !peerinfo)
                 goto out;
 
         conf = this->private;
