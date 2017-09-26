@@ -462,7 +462,7 @@ if __name__ == "__main__":
                         "stop Geo-replication if Checkpoint is not complete "
                         "in the specified timeout time", type=int,
                         default=0)
-    parser.add_argument("--no-color", help="Use Color in CLI output",
+    parser.add_argument("--no-color", help="Don't use Color in CLI output",
                         action="store_true")
     args = parser.parse_args()
     if args.no_color:
