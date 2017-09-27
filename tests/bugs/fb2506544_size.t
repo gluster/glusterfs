@@ -16,7 +16,6 @@ TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST $CLI volume set $V0 cluster.data-self-heal on
 TEST $CLI volume set $V0 cluster.metadata-self-heal on
 TEST $CLI volume set $V0 cluster.entry-self-heal on
-#EST $CLI volume set $V0 cluster.favorite-child-by-size off
 TEST $CLI volume set $V0 cluster.quorum-type fixed
 TEST $CLI volume set $V0 cluster.quorum-count 1
 TEST $CLI volume start $V0
@@ -61,8 +60,7 @@ sleep 1
 # Ok now turn the favorite-child option and we should be able to read it.
 # Compare MD5's, the MD5 should be of the file that is the largest.
 umount $M0
-#EST $CLI volume set $V0 cluster.favorite-child-by-size on
-TEST $CLI volume set $V0 cluster.favorite-child-policy size
+TEST $CLI volume set $V0 cluster.favorite-child-by-size on
 sleep 1
 # Mount the volume
 TEST glusterfs --log-level DEBUG --volfile-id=/$V0 --volfile-server=$H0 $M0 \
@@ -88,7 +86,6 @@ TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST $CLI volume set $V0 cluster.data-self-heal off
 TEST $CLI volume set $V0 cluster.metadata-self-heal off
 TEST $CLI volume set $V0 cluster.entry-self-heal off
-#EST $CLI volume set $V0 cluster.favorite-child-by-size off
 TEST $CLI volume set $V0 cluster.quorum-type fixed
 TEST $CLI volume set $V0 cluster.quorum-count 1
 TEST $CLI volume start $V0
@@ -135,8 +132,7 @@ sleep 1
 # Ok now turn the favorite-child option and we should be able to read it.
 # Compare MD5's, the MD5 should be of the file that is the largest.
 umount $M0
-#EST $CLI volume set $V0 cluster.favorite-child-by-size on
-TEST $CLI volume set $V0 cluster.favorite-child-policy size
+TEST $CLI volume set $V0 cluster.favorite-child-by-size on
 TEST $CLI volume set $V0 cluster.self-heal-daemon on
 sleep 1
 /etc/init.d/glusterd restart_shd 

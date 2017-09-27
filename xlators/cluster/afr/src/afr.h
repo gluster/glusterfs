@@ -68,12 +68,16 @@ typedef int (*afr_changelog_resume_t) (call_frame_t *frame, xlator_t *this);
                                 uuid_utoa (local->inode->gfid));               \
         } while (0)
 
+/*
+ * These *must* be defined in order of decreasing precedence in order for
+ * afr_sh_get_fav_by_policy to work correctly.
+ */
 typedef enum {
-        AFR_FAV_CHILD_NONE,
-        AFR_FAV_CHILD_BY_SIZE,
-        AFR_FAV_CHILD_BY_CTIME,
+        AFR_FAV_CHILD_NONE = 0,
+        AFR_FAV_CHILD_BY_MAJORITY,      /* Highest precedence. */
         AFR_FAV_CHILD_BY_MTIME,
-        AFR_FAV_CHILD_BY_MAJORITY,
+        AFR_FAV_CHILD_BY_CTIME,
+        AFR_FAV_CHILD_BY_SIZE,          /* Lowest precedence. */
         AFR_FAV_CHILD_POLICY_MAX,
 } afr_favorite_child_policy;
 
@@ -136,8 +140,13 @@ typedef struct _afr_private {
         int favorite_child;  /* subvolume to be preferred in resolving
                                          split-brain cases */
 
-        afr_favorite_child_policy fav_child_policy;/*Policy to use for automatic
-                                                 resolution of split-brains.*/
+        /*
+         * Policy to use for automatic resolution of split-brains.  This needs
+         * to be a bit-field so that we can iterate over multiple policies when
+         * earlier ones yield ties.  The actual bits used are (1 << X) where X
+         * is one of the enum values from afr_favorite_child_policy.
+         */
+        uint32_t fav_child_policy;
 
         gf_boolean_t inodelk_trace;
         gf_boolean_t entrylk_trace;

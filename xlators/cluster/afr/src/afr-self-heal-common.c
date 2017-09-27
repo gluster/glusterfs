@@ -867,12 +867,30 @@ afr_sh_fav_by_size (xlator_t *this, struct afr_reply *replies, inode_t *inode)
         return fav_child;
 }
 
+
+typedef struct {
+        int             (*func)         (xlator_t *this,
+                                         struct afr_reply *replies,
+                                         inode_t *inode);
+        char            *name;
+} _policy_pair;
+
+static _policy_pair afr_sh_fav_child_policies[AFR_FAV_CHILD_POLICY_MAX] = {
+        [AFR_FAV_CHILD_BY_MAJORITY]     =  { afr_sh_fav_by_majority,
+                                             "MAJORITY"                   },
+        [AFR_FAV_CHILD_BY_MTIME]        =  { afr_sh_fav_by_mtime, "MTIME" },
+        [AFR_FAV_CHILD_BY_CTIME]        =  { afr_sh_fav_by_ctime, "CTIME" },
+        [AFR_FAV_CHILD_BY_SIZE]         =  { afr_sh_fav_by_size,  "SIZE"  },
+};
+
 int
 afr_sh_get_fav_by_policy (xlator_t *this, struct afr_reply *replies,
                           inode_t *inode, char **policy_str)
 {
         afr_private_t *priv = NULL;
-        int fav_child = -1;
+        int fav_child;
+        int pol_index;
+        _policy_pair *policy;
 
         priv = this->private;
         if (!afr_can_decide_split_brain_source_sinks (replies,
@@ -880,37 +898,26 @@ afr_sh_get_fav_by_policy (xlator_t *this, struct afr_reply *replies,
                 return -1;
         }
 
-        switch (priv->fav_child_policy) {
-        case AFR_FAV_CHILD_BY_SIZE:
-                fav_child = afr_sh_fav_by_size (this, replies, inode);
-                if (policy_str && fav_child >= 0) {
-                        *policy_str = "SIZE";
+        pol_index = AFR_FAV_CHILD_NONE + 1;
+        while (pol_index < AFR_FAV_CHILD_POLICY_MAX) {
+                if (priv->fav_child_policy & (1 << pol_index)) {
+                        policy = &afr_sh_fav_child_policies[pol_index];
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "trying policy %s", policy->name);
+                        fav_child = policy->func (this, replies, inode);
+                        if (fav_child >= 0) {
+                                gf_log (this->name, GF_LOG_TRACE,
+                                        "policy %s WORKED", policy->name);
+                                if (policy_str) {
+                                        *policy_str = policy->name;
+                                }
+                                return fav_child;
+                        }
                 }
-                break;
-        case AFR_FAV_CHILD_BY_CTIME:
-                fav_child = afr_sh_fav_by_ctime (this, replies, inode);
-                if (policy_str && fav_child >= 0) {
-                        *policy_str = "CTIME";
-                }
-                break;
-        case AFR_FAV_CHILD_BY_MTIME:
-                fav_child = afr_sh_fav_by_mtime (this, replies, inode);
-                if (policy_str && fav_child >= 0) {
-                        *policy_str = "MTIME";
-                }
-                break;
-        case AFR_FAV_CHILD_BY_MAJORITY:
-                fav_child = afr_sh_fav_by_majority (this, replies, inode);
-                if (policy_str && fav_child >= 0) {
-                        *policy_str = "MAJORITY";
-                }
-                break;
-        case AFR_FAV_CHILD_NONE:
-        default:
-                break;
+                ++pol_index;
         }
 
-        return fav_child;
+        return -1;
 }
 
 int

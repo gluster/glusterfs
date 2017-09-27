@@ -16,8 +16,6 @@ TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST $CLI volume set $V0 cluster.data-self-heal on
 TEST $CLI volume set $V0 cluster.metadata-self-heal on
 TEST $CLI volume set $V0 cluster.entry-self-heal on
-#EST $CLI volume set $V0 cluster.favorite-child-by-majority off
-TEST $CLI volume set $V0 cluster.favorite-child-policy majority
 # This would normally be a toxic combination because it allows us to create a
 # split brain by writing to 1/3 replicas ... but for testing that's exactly
 # what we want.
@@ -67,8 +65,7 @@ sleep 1
 # Compare MD5's, the healed file should be that of the file which is
 # on 2/3 bricks.
 umount $M0
-#EST $CLI volume set $V0 cluster.favorite-child-by-majority on
-TEST $CLI volume set $V0 cluster.favorite-child-policy majority
+TEST $CLI volume set $V0 cluster.favorite-child-by-majority on
 sleep 1
 # Mount the volume
 TEST glusterfs --log-level DEBUG --volfile-id=/$V0 --volfile-server=$H0 $M0 \
@@ -91,7 +88,6 @@ TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST $CLI volume set $V0 cluster.data-self-heal off
 TEST $CLI volume set $V0 cluster.metadata-self-heal off
 TEST $CLI volume set $V0 cluster.entry-self-heal off
-#EST $CLI volume set $V0 cluster.favorite-child-by-majority off
 TEST $CLI volume set $V0 cluster.quorum-type fixed
 TEST $CLI volume set $V0 cluster.quorum-count 1
 TEST $CLI volume start $V0
@@ -139,8 +135,7 @@ sleep 1
 # Compare MD5's, the healed file should be that of the file which is
 # on 2/3 bricks.
 umount $M0
-#EST $CLI volume set $V0 cluster.favorite-child-by-majority on
-TEST $CLI volume set $V0 cluster.favorite-child-policy majority
+TEST $CLI volume set $V0 cluster.favorite-child-by-majority on
 TEST $CLI volume set $V0 cluster.self-heal-daemon on
 sleep 1
 /etc/init.d/glusterd restart_shd

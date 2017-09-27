@@ -15,9 +15,8 @@ TEST $CLI volume set $V0 cluster.choose-local off
 TEST $CLI volume set $V0 cluster.self-heal-daemon on
 TEST $CLI volume set $V0 nfs.disable on
 TEST $CLI volume set $V0 cluster.quorum-type none
-TEST $CLI volume set $V0 cluster.favorite-child-policy majority
-#EST $CLI volume set $V0 cluster.favorite-child-by-majority on
-#EST $CLI volume set $V0 cluster.favorite-child-by-mtime on
+TEST $CLI volume set $V0 cluster.favorite-child-by-majority on
+TEST $CLI volume set $V0 cluster.favorite-child-by-mtime on
 TEST $CLI volume set $V0 cluster.metadata-self-heal off
 TEST $CLI volume set $V0 cluster.data-self-heal off
 TEST $CLI volume set $V0 cluster.entry-self-heal off

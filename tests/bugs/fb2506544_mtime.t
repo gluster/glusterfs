@@ -16,7 +16,6 @@ TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST $CLI volume set $V0 cluster.data-self-heal on
 TEST $CLI volume set $V0 cluster.metadata-self-heal on
 TEST $CLI volume set $V0 cluster.entry-self-heal on
-#EST $CLI volume set $V0 cluster.favorite-child-by-mtime off
 TEST $CLI volume set $V0 cluster.quorum-type fixed
 TEST $CLI volume set $V0 cluster.quorum-count 1
 TEST $CLI volume start $V0
@@ -62,8 +61,7 @@ sleep 1
 # Ok now turn the favorite-child option and we should be able to read it.
 # Compare MD5's, the MD5 should be of the file we modified last.
 umount $M0
-#EST $CLI volume set $V0 cluster.favorite-child-by-mtime on
-TEST $CLI volume set $V0 cluster.favorite-child-policy mtime
+TEST $CLI volume set $V0 cluster.favorite-child-by-mtime on
 sleep 1
 # Mount the volume
 TEST glusterfs --log-level DEBUG --volfile-id=/$V0 --volfile-server=$H0 $M0 \
@@ -86,7 +84,6 @@ TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST $CLI volume set $V0 cluster.data-self-heal off
 TEST $CLI volume set $V0 cluster.metadata-self-heal off
 TEST $CLI volume set $V0 cluster.entry-self-heal off
-#EST $CLI volume set $V0 cluster.favorite-child-by-mtime off
 TEST $CLI volume set $V0 cluster.quorum-type fixed
 TEST $CLI volume set $V0 cluster.quorum-count 1
 TEST $CLI volume start $V0
@@ -134,8 +131,7 @@ sleep 1
 # Ok now turn the favorite-child option and we should be able to read it.
 # Compare MD5's, the MD5 should be of the file we modified last.
 umount $M0
-#EST $CLI volume set $V0 cluster.favorite-child-by-mtime on
-TEST $CLI volume set $V0 cluster.favorite-child-policy mtime
+TEST $CLI volume set $V0 cluster.favorite-child-by-mtime on
 TEST $CLI volume set $V0 cluster.self-heal-daemon on
 sleep 1
 /etc/init.d/glusterd restart_shd

@@ -112,14 +112,29 @@ fix_quorum_options (xlator_t *this, afr_private_t *priv, char *qtype,
 int
 afr_set_favorite_child_policy (afr_private_t *priv, char *policy)
 {
-        int index = -1;
+        char            *token;
+        char            *saveptr;
+        uint32_t        retval  = 0;
 
-        index = gf_get_index_by_elem (afr_favorite_child_policies, policy);
-        if (index  < 0 || index >= AFR_FAV_CHILD_POLICY_MAX)
-                return -1;
+        if (strcasecmp (policy, "none") != 0) {
+                token = strtok_r (policy, ",", &saveptr);
+                while (token) {
+                        if (strcasecmp (token, "majority") == 0) {
+                                retval |= (1 << AFR_FAV_CHILD_BY_MAJORITY);
+                        } else if (strcasecmp (token, "mtime") == 0) {
+                                retval |= (1 << AFR_FAV_CHILD_BY_MTIME);
+                        } else if (strcasecmp (token, "ctime") == 0) {
+                                retval |= (1 << AFR_FAV_CHILD_BY_CTIME);
+                        } else if (strcasecmp (token, "size") == 0) {
+                                retval |= (1 << AFR_FAV_CHILD_BY_SIZE);
+                        } else {
+                                return -1;
+                        }
+                        token = strtok_r (NULL, ",", &saveptr);
+                }
+        }
 
-        priv->fav_child_policy = index;
-
+        priv->fav_child_policy = retval;
         return 0;
 }
 int
@@ -132,6 +147,7 @@ reconfigure (xlator_t *this, dict_t *options)
         int            index       = -1;
         char          *qtype       = NULL;
         char          *fav_child_policy = NULL;
+        gf_boolean_t   policy_flag;
 
         priv = this->private;
 
@@ -302,6 +318,33 @@ reconfigure (xlator_t *this, dict_t *options)
         if (afr_set_favorite_child_policy (priv, fav_child_policy) == -1)
                 goto out;
 
+        GF_OPTION_RECONF ("favorite-child-by-majority", policy_flag, options,
+                          bool, out);
+        if (policy_flag) {
+                priv->fav_child_policy |= (1 << AFR_FAV_CHILD_BY_MAJORITY);
+        }
+
+        GF_OPTION_RECONF ("favorite-child-by-mtime", policy_flag, options,
+                          bool, out);
+        if (policy_flag) {
+                priv->fav_child_policy |= (1 << AFR_FAV_CHILD_BY_MTIME);
+        }
+
+        GF_OPTION_RECONF ("favorite-child-by-ctime", policy_flag, options,
+                          bool, out);
+        if (policy_flag) {
+                priv->fav_child_policy |= (1 << AFR_FAV_CHILD_BY_CTIME);
+        }
+
+        GF_OPTION_RECONF ("favorite-child-by-size", policy_flag, options,
+                          bool, out);
+        if (policy_flag) {
+                priv->fav_child_policy |= (1 << AFR_FAV_CHILD_BY_SIZE);
+        }
+
+        gf_log (this->name, GF_LOG_DEBUG, "fav_child policy = 0x%x",
+                priv->fav_child_policy);
+
         priv->did_local_discovery = _gf_false;
         priv->did_discovery = _gf_false;
 
@@ -335,6 +378,7 @@ init (xlator_t *this)
         xlator_t      *fav_child   = NULL;
         char          *qtype       = NULL;
         char          *fav_child_policy = NULL;
+        gf_boolean_t   policy_flag;
 
         if (!this->children) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -420,6 +464,29 @@ init (xlator_t *this)
         GF_OPTION_INIT ("favorite-child-policy", fav_child_policy, str, out);
         if (afr_set_favorite_child_policy(priv, fav_child_policy) == -1)
                 goto out;
+
+        GF_OPTION_INIT ("favorite-child-by-majority", policy_flag, bool, out);
+        if (policy_flag) {
+                priv->fav_child_policy |= (1 << AFR_FAV_CHILD_BY_MAJORITY);
+        }
+
+        GF_OPTION_INIT ("favorite-child-by-mtime", policy_flag, bool, out);
+        if (policy_flag) {
+                priv->fav_child_policy |= (1 << AFR_FAV_CHILD_BY_MTIME);
+        }
+
+        GF_OPTION_INIT ("favorite-child-by-ctime", policy_flag, bool, out);
+        if (policy_flag) {
+                priv->fav_child_policy |= (1 << AFR_FAV_CHILD_BY_CTIME);
+        }
+
+        GF_OPTION_INIT ("favorite-child-by-size", policy_flag, bool, out);
+        if (policy_flag) {
+                priv->fav_child_policy |= (1 << AFR_FAV_CHILD_BY_SIZE);
+        }
+
+        gf_log (this->name, GF_LOG_DEBUG, "fav_child policy = 0x%x",
+                priv->fav_child_policy);
 
         GF_OPTION_INIT ("shd-max-threads", priv->shd.max_threads,
                          uint32, out);
@@ -1102,7 +1169,6 @@ struct volume_options options[] = {
         },
         { .key   = {"favorite-child-policy"},
           .type  = GF_OPTION_TYPE_STR,
-          .value = {"none", "size", "ctime", "mtime", "majority"},
           .default_value = "none",
           .description = "This option can be used to automatically resolve "
                          "split-brains using various policies without user "
@@ -1111,7 +1177,45 @@ struct volume_options options[] = {
                          "pick the file with the latest ctime and mtime "
                          "respectively as the source. \"majority\" picks a file"
                          " with identical mtime and size in more than half the "
-                         "number of bricks in the replica.",
+                         "number of bricks in the replica. More than one "
+                         "policy can be specified, separated by commas. The "
+                         "order of attempted application (regardless of the "
+                         "specification order) is: majority, mtime, ctime, "
+                         "size. The value set here can be modified by the "
+                         "favorite-child-by-xxx options."
+        },
+        { .key = {"favorite-child-by-majority"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "no",
+          .description = "Allow automatic resolution of split-brains by "
+                         "majority (more than half of the copies with same "
+                         "mtime and size). This can be combined with other "
+                         "favorite-child-by-xxx options, and can modify the "
+                         "value set by favorite-child-policy."
+        },
+        { .key = {"favorite-child-by-mtime"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "no",
+          .description = "Allow automatic resolution of split-brains by "
+                         "latest mtime. This can be combined with other "
+                         "favorite-child-by-xxx options, and can modify the "
+                         "value set by favorite-child-policy."
+        },
+        { .key = {"favorite-child-by-ctime"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "no",
+          .description = "Allow automatic resolution of split-brains by "
+                         "latest ctime. This can be combined with other "
+                         "favorite-child-by-xxx options, and can modify the "
+                         "value set by favorite-child-policy."
+        },
+        { .key = {"favorite-child-by-size"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "no",
+          .description = "Allow automatic resolution of split-brains by "
+                         "greatest size. This can be combined with other "
+                         "favorite-child-by-xxx options, and can modify the "
+                         "value set by favorite-child-policy."
         },
         { .key  = {"pgfid-self-heal"},
           .type = GF_OPTION_TYPE_BOOL,
