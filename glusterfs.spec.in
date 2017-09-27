@@ -1353,6 +1353,8 @@ exit 0
      %{_datadir}/glusterfs/scripts/stop-all-gluster-processes.sh
 %if ( 0%{?_with_systemd:1} )
      %{_libexecdir}/glusterfs/mount-shared-storage.sh
+     %{_datadir}/glusterfs/scripts/control-cpu-load.sh
+     %{_datadir}/glusterfs/scripts/control-mem.sh
 %endif
 
 # Incrementalapi
@@ -1387,6 +1389,9 @@ exit 0
 %endif
 
 %changelog
+* Wed Nov 10 2017 Mohit Agrawal <moagrawa@redhat.com>
+- Added control-cpu-load.sh and control-mem.sh scripts to glusterfs-server section(#1496335)
+
 * Tue Aug 22 2017 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - libibverbs-devel, librdmacm-devel -> rdma-core-devel #1483995
 
