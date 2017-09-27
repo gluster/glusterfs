@@ -19,6 +19,10 @@ vol_DATA = glusterd.vol
 scriptsdir = $(datadir)/glusterfs/scripts
 scripts_SCRIPTS = post-upgrade-script-for-quota.sh \
 	pre-upgrade-script-for-quota.sh stop-all-gluster-processes.sh
+if USE_SYSTEMD
+scripts_SCRIPTS += control-cpu-load.sh
+scripts_SCRIPTS += control-mem.sh
+endif
 
 EXTRA_DIST = $(conf_DATA) specgen.scm glusterfs-mode.el glusterfs.vim \
 	migrate-unify-to-distribute.sh backend-xattr-sanitize.sh backend-cleanup.sh \
@@ -26,7 +30,7 @@ EXTRA_DIST = $(conf_DATA) specgen.scm glusterfs-mode.el glusterfs.vim \
 	post-upgrade-script-for-quota.sh pre-upgrade-script-for-quota.sh \
 	command-completion/gluster.bash command-completion/Makefile \
 	command-completion/README stop-all-gluster-processes.sh clang-checker.sh \
-	mount-shared-storage.sh
+	mount-shared-storage.sh control-cpu-load.sh control-mem.sh
 
 install-data-local:
 	if [ -n "$(tmpfilesdir)" ]; then \
