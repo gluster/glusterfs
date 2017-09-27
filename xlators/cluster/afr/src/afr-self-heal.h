@@ -317,4 +317,12 @@ afr_choose_source_by_policy (afr_private_t *priv, unsigned char *sources,
 
 int
 afr_selfheal_metadata_by_stbuf (xlator_t *this, struct iatt *stbuf);
+
+int
+afr_mark_source_sinks_if_file_empty (xlator_t *this, unsigned char *sources,
+                                     unsigned char *sinks,
+                                     unsigned char *healed_sinks,
+                                     unsigned char *locked_on,
+                                     struct afr_reply *replies,
+                                     afr_transaction_type type);
 #endif /* !_AFR_SELFHEAL_H */
