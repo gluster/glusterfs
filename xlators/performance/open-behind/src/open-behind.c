@@ -1023,12 +1023,20 @@ struct volume_options options[] = {
           .description = "Perform open in the backend only when a necessary "
           "FOP arrives (e.g writev on the FD, unlink of the file). When option "
           "is disabled, perform backend open right after unwinding open().",
+          .op_version = {3},
+          .flags      = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT,
+          .tags       = {},
+          /* option_validation_fn validate_fn; */
         },
         { .key  = {"read-after-open"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "no",
           .description = "read is sent only after actual open happens and real "
           "fd is obtained, instead of doing on anonymous fd (similar to write)",
+          .op_version = {3},
+          .flags      = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT,
+          .tags       = {},
+          /* option_validation_fn validate_fn; */
         },
         { .key  = {NULL} }
 
