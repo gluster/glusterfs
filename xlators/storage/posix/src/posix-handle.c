@@ -224,13 +224,10 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
                 }
 
                 inode_unref (*parent);
-                *parent = inode_ref(inode);
+                *parent = inode;
                 top--;
         }
 out:
-        if (*parent != NULL) {
-                inode_unref (*parent);
-        }
         return ret;
 }
 
