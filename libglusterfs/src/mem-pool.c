@@ -849,6 +849,9 @@ mem_put (void *ptr)
 void
 mem_pool_destroy (struct mem_pool *pool)
 {
+        if (!pool)
+                return;
+
         /* remove this pool from the owner (glusterfs_ctx_t) */
         LOCK (&pool->ctx->lock);
         {
