@@ -111,12 +111,12 @@
 %endif
 
 %if ( 0%{?_with_systemd:1} )
-%global _init_enable()  /bin/systemctl enable %1.service ;
-%global _init_disable() /bin/systemctl disable %1.service ;
-%global _init_restart() /bin/systemctl try-restart %1.service ;
-%global _init_start()   /bin/systemctl start %1.service ;
-%global _init_stop()    /bin/systemctl stop %1.service ;
-%global _init_install() install -D -p -m 0644 %1 %{buildroot}%{_unitdir}/%2.service ;
+%global _init_enable()  %systemd_post %1.service
+%global _init_disable() %systemd_preun %1.service
+%global _init_restart() %systemd_postun_with_restart %1.service
+%global _init_start()   /bin/systemctl start %1.service
+%global _init_stop()    /bin/systemctl stop %1.service
+%global _init_install() install -D -p -m 0644 %1 %{buildroot}%{_unitdir}/%2.service
 # can't seem to make a generic macro that works
 %global _init_glusterd   %{_unitdir}/glusterd.service
 %global _init_glusterfsd %{_unitdir}/glusterfsd.service
