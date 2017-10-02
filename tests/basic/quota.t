@@ -204,6 +204,7 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 ## ---------------------------
 ## Test quota volume options
 ## ---------------------------
+read -p "Continue? " nothing
 TEST $CLI volume reset $V0
 EXPECT 'on' volinfo_field $V0 'features.quota'
 EXPECT 'on' volinfo_field $V0 'features.inode-quota'

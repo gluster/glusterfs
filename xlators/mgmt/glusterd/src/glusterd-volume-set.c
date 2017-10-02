@@ -1485,6 +1485,32 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .value       = "off",
           .op_version  = 2
         },
+        { .key         = "diagnostics.fop-sample-all-errors",
+          .voltype     = "debug/io-stats",
+          .option      = "fop-sample-all-errors",
+          .value       = "off",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "diagnostics.fop-sample-hard-errors",
+          .voltype     = "debug/io-stats",
+          .option      = "fop-sample-hard-errors",
+          .value       = "on",
+          .type        = NO_DOC,
+          .op_version  = 2
+        },
+        { .key         = "diagnostics.measure-namespace-rates",
+          .voltype     = "debug/io-stats",
+          .option      = "measure-namespace-rates",
+          .value       = "off",
+          .type        = NO_DOC,
+          .op_version  = 1
+        },
+        { .key         = "diagnostics.ns-rate-window",
+          .voltype     = "debug/io-stats",
+          .option      = "ns-rate-window",
+          .op_version  = 1
+        },
 
         /* IO-cache xlator options */
         { .key         = "performance.cache-max-file-size",
@@ -1588,7 +1614,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "cleanup-disconnected-reqs",
           .op_version  = 2
         },
- 
+        { .key         = "performance.iot-ns-weighted-queueing",
+          .voltype     = "performance/io-threads",
+          .option      = "ns-weighted-queueing",
+          .op_version  = 2
+        },
 
         /* Other perf xlators' options */
         { .key        = "performance.cache-size",
@@ -2117,6 +2147,19 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .description = "This option enables this translator's functionality "
                          "that tags every fop with a namespace hash for later "
                          "throttling, stats collection, logging, etc."
+        },
+        { .key         = "features.ns-wind-lookups",
+          .voltype     = "features/namespace",
+          .op_version  = GD_OP_VERSION_3_6_0,
+          .option      = "wind-lookups",
+          .value       = "on",
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .description = "If enabled, a GET_ANCESTRY_PATH_KEY getxattr wind "
+                         "will be scheduled for a LOOKUP. Since we have many "
+                         "LOOKUP requests which are sent for files that don't "
+                         "exist, it's often benificial to disable this option, "
+                         "so we don't have a high percentage of bad GETXATTRs "
+                         "in io-stats."
         },
 
 #ifdef HAVE_LIB_Z
@@ -3153,8 +3196,8 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_3_8_0,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
-        { .option      = "revocation-secs",
-          .key         = "features.locks-revocation-secs",
+        { .key         = "features.locks-revocation-secs",
+          .option      = "revocation-secs",
           .voltype     = "features/locks",
           .op_version  = 2,
         },
