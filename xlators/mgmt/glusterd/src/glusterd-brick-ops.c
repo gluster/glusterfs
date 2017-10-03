@@ -1432,6 +1432,24 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
         /* Gets changed only if the options are given in add-brick cli */
         if (type)
                 volinfo->type = type;
+        /* performance.client-io-threads is turned on by default,
+         * however this has adverse effects on replicate volumes due to
+         * replication design issues, till that get addressed
+         * performance.client-io-threads option is turned off for all
+         * replicate volumes if not already explicitly enabled.
+         */
+        if (type && glusterd_is_volume_replicate (volinfo) &&
+            conf->op_version >= GD_OP_VERSION_3_12_2) {
+                ret = dict_set_str (volinfo->dict,
+                                    "performance.client-io-threads",
+                                    "off");
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED, "Failed to set "
+                                "performance.client-io-threads to off");
+                        goto out;
+                }
+        }
 
         if (replica_count) {
                 volinfo->replica_count = replica_count;
@@ -2713,9 +2731,12 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         char                    *cold_shd_key  = NULL;
         char                    *hot_shd_key   = NULL;
         int                      delete_key    = 1;
+        glusterd_conf_t         *conf          = NULL;
 
         this = THIS;
         GF_ASSERT (this);
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
 
         ret = dict_get_str (dict, "volname", &volname);
 
@@ -3004,6 +3025,19 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         }
         volinfo->subvol_count = (volinfo->brick_count /
                                  volinfo->dist_leaf_count);
+
+        if (!glusterd_is_volume_replicate (volinfo) &&
+            conf->op_version >= GD_OP_VERSION_3_12_2) {
+                ret = dict_set_str (volinfo->dict,
+                                    "performance.client-io-threads",
+                                    "on");
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED, "Failed to set "
+                                "performance.client-io-threads to on");
+                        goto out;
+                }
+        }
 
         ret = glusterd_create_volfiles_and_notify_services (volinfo);
         if (ret) {
