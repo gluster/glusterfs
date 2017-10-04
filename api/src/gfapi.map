@@ -209,3 +209,8 @@ GFAPI_PRIVATE_3.12.0 {
 	global:
 		glfs_ipc;
 } GFAPI_3.11.0;
+
+GFAPI_3.13.0 {
+	global:
+		glfd_set_lk_owner;
+} GFAPI_PRIVATE_3.12.0;
