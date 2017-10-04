@@ -855,6 +855,34 @@ glfs_xreaddirplus_r (struct glfs_fd *glfd, uint32_t flags,
                      struct dirent *ext, struct dirent **res);
         GFAPI_PUBLIC(glfs_xreaddirplus_r, 3.11.0);
 
+#define GFAPI_MAX_LOCK_OWNER_LEN 255
+
+/*
+ *
+ * DESCRIPTION
+ *
+ * This API allows application to set lk_owner on a fd.
+ * A glfd can be associated with only single lk_owner. In case if there
+ * is need to set another lk_owner, applications can make use of
+ * 'glfs_dup' to get duplicate glfd and set new lk_owner on that second
+ * glfd.
+ *
+ * Also its not recommended to override or clear lk_owner value as the
+ * same shall be used to flush any outstanding locks while closing the fd.
+ *
+ * PARAMETERS
+ *
+ * INPUT:
+ * @glfd: GFAPI file descriptor
+ * @len: Size of lk_owner buffer. Max value can be GFAPI_MAX_LOCK_OWNER_LEN
+ * @data: lk_owner data buffer.
+ *
+ * OUTPUT:
+ * 0: SUCCESS
+ * -1: FAILURE
+ */
+int glfd_set_lk_owner (glfs_fd_t *glfd, void *data, int len);
+        GFAPI_PUBLIC(glfd_set_lk_owner, 3.13.0);
 __END_DECLS
 
 #endif /* !_GLFS_H */

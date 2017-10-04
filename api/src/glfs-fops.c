@@ -267,6 +267,12 @@ pub_glfs_close (struct glfs_fd *glfd)
 		goto out;
 	}
 
+        if (glfd->lk_owner.len != 0) {
+                ret = syncopctx_setfslkowner (&glfd->lk_owner);
+                if (ret)
+                        goto out;
+        }
+
 	ret = syncop_flush (subvol, fd, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 out:
@@ -4272,6 +4278,14 @@ pub_glfs_posix_lock (struct glfs_fd *glfd, int cmd, struct flock *flock)
 
 	gf_flock_from_flock (&gf_flock, flock);
 	gf_flock_from_flock (&saved_flock, flock);
+
+        if (glfd->lk_owner.len != 0) {
+                ret = syncopctx_setfslkowner (&glfd->lk_owner);
+
+                if (ret)
+                        goto out;
+        }
+
 	ret = syncop_lk (subvol, fd, cmd, &gf_flock, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 	gf_flock_to_flock (&gf_flock, flock);
@@ -4294,6 +4308,43 @@ invalid_fs:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_posix_lock, 3.4.0);
 
+int
+pub_glfd_set_lk_owner (glfs_fd_t *glfd, void *data, int len)
+{
+        int ret = -1;
+
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
+
+        if (!GF_REF_GET (glfd)) {
+                goto invalid_fs;
+        }
+
+        GF_VALIDATE_OR_GOTO (THIS->name, data, out);
+
+        if ((len <= 0) || (len > GFAPI_MAX_LOCK_OWNER_LEN)) {
+                errno = EINVAL;
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        LG_MSG_INVALID_ARG,
+                        "Invalid lk_owner len (%d)", len);
+                goto out;
+        }
+
+        glfd->lk_owner.len = len;
+
+        memcpy (glfd->lk_owner.data, data, len);
+
+        ret = 0;
+out:
+        if (glfd)
+                GF_REF_PUT (glfd);
+
+        __GLFS_EXIT_FS;
+
+invalid_fs:
+        return ret;
+}
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfd_set_lk_owner, 3.13.0);
 
 struct glfs_fd *
 pub_glfs_dup (struct glfs_fd *glfd)

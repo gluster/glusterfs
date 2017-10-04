@@ -163,3 +163,5 @@ _pub_glfs_xreaddirplus_r_get_object _glfs_xreaddirplus_r_get_object$GFAPI_3.11.0
 _pub_glfs_object_copy _glfs_object_copy$GFAPI_3.11.0
 
 _priv_glfs_ipc _glfs_ipc$GFAPI_3.12.0
+
+_pub_glfd_set_lk_owner _glfd_set_lk_owner$GFAPI_3.13.0

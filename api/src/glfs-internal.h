@@ -215,6 +215,7 @@ struct glfs_fd {
 	struct list_head   entries;
 	gf_dirent_t       *next;
 	struct dirent     *readdirbuf;
+        gf_lkowner_t       lk_owner;
 };
 
 /* glfs object handle introduced for the alternate gfapi implementation based
