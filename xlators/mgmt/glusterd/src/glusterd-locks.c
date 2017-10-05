@@ -94,6 +94,50 @@ glusterd_mgmt_v3_lock_fini ()
                 dict_unref (priv->mgmt_v3_lock);
 }
 
+/* Initialize the global mgmt_v3_timer lock list(dict) when
+ * glusterd is spawned */
+int32_t
+glusterd_mgmt_v3_lock_timer_init ()
+{
+        int32_t             ret = -1;
+        xlator_t           *this   = NULL;
+        glusterd_conf_t    *priv   = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+
+        priv->mgmt_v3_lock_timer = dict_new ();
+        if (!priv->mgmt_v3_lock_timer)
+                goto out;
+
+        ret = 0;
+out:
+        return ret;
+}
+
+/* Destroy the global mgmt_v3_timer lock list(dict) when
+ * glusterd cleanup is performed */
+void
+glusterd_mgmt_v3_lock_timer_fini ()
+{
+        xlator_t           *this   = NULL;
+        glusterd_conf_t    *priv   = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+
+        if (priv->mgmt_v3_lock_timer)
+                dict_unref (priv->mgmt_v3_lock_timer);
+out:
+        return;
+}
+
 int32_t
 glusterd_get_mgmt_v3_lock_owner (char *key, uuid_t *uuid)
 {
@@ -513,17 +557,23 @@ int32_t
 glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, uint32_t *op_errno,
                        char *type)
 {
-        char                            key[PATH_MAX]   = "";
-        int32_t                         ret             = -1;
-        glusterd_mgmt_v3_lock_obj      *lock_obj        = NULL;
-        glusterd_conf_t                *priv            = NULL;
-        gf_boolean_t                    is_valid        = _gf_true;
-        uuid_t                          owner           = {0};
-        xlator_t                       *this            = NULL;
-        char                           *bt              = NULL;
+        char                            key[PATH_MAX]       = "";
+        int32_t                         ret                 = -1;
+        glusterd_mgmt_v3_lock_obj      *lock_obj            = NULL;
+        glusterd_mgmt_v3_lock_timer    *mgmt_lock_timer     = NULL;
+        glusterd_conf_t                *priv                = NULL;
+        gf_boolean_t                    is_valid            = _gf_true;
+        uuid_t                          owner               = {0};
+        xlator_t                       *this                = NULL;
+        char                           *bt                  = NULL;
+        struct timespec                 delay               = {0};
+        char                           *key_dup             = NULL;
+        glusterfs_ctx_t                *mgmt_lock_timer_ctx = NULL;
+        xlator_t                       *mgmt_lock_timer_xl  = NULL;
 
         this = THIS;
         GF_ASSERT (this);
+
         priv = this->private;
         GF_ASSERT (priv);
 
@@ -594,6 +644,42 @@ glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, uint32_t *op_errno,
                 goto out;
         }
 
+        mgmt_lock_timer = GF_CALLOC (1, sizeof(glusterd_mgmt_v3_lock_timer),
+                                     gf_common_mt_mgmt_v3_lock_timer_t);
+
+        if (!mgmt_lock_timer) {
+                ret = -1;
+                goto out;
+        }
+
+        mgmt_lock_timer->xl = THIS;
+        key_dup = gf_strdup (key);
+        delay.tv_sec = priv->mgmt_v3_lock_timeout;
+        delay.tv_nsec = 0;
+
+        ret = -1;
+        mgmt_lock_timer_xl = mgmt_lock_timer->xl;
+        GF_VALIDATE_OR_GOTO (this->name, mgmt_lock_timer_xl, out);
+
+        mgmt_lock_timer_ctx = mgmt_lock_timer_xl->ctx;
+        GF_VALIDATE_OR_GOTO (this->name, mgmt_lock_timer_ctx, out);
+
+        mgmt_lock_timer->timer = gf_timer_call_after
+                                     (mgmt_lock_timer_ctx, delay,
+                                      gd_mgmt_v3_unlock_timer_cbk,
+                                      key_dup);
+
+        ret = dict_set_bin (priv->mgmt_v3_lock_timer, key, mgmt_lock_timer,
+                            sizeof (glusterd_mgmt_v3_lock_timer));
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
+                        "Unable to set timer in mgmt_v3 lock");
+                GF_FREE (mgmt_lock_timer);
+                goto out;
+        }
+
+
         /* Saving the backtrace into the pre-allocated buffer, ctx->btbuf*/
         if ((bt = gf_backtrace_save (NULL))) {
                 snprintf (key, sizeof (key), "debug.last-success-bt-%s-%s",
@@ -617,18 +703,99 @@ out:
         return ret;
 }
 
+/*
+ * This call back will ensure to unlock the lock_obj, in case we hit a situation
+ * where unlocking failed and stale lock exist*/
+void
+gd_mgmt_v3_unlock_timer_cbk (void *data)
+{
+        xlator_t                        *this               = NULL;
+        glusterd_conf_t                 *conf               = NULL;
+        glusterd_mgmt_v3_lock_timer     *mgmt_lock_timer    = NULL;
+        char                            *key                = NULL;
+        char                            *type               = NULL;
+        char                            bt_key[PATH_MAX]    = "";
+        char                            name[PATH_MAX]      = "";
+        int32_t                         ret                 = -1;
+        glusterfs_ctx_t                *mgmt_lock_timer_ctx = NULL;
+        xlator_t                       *mgmt_lock_timer_xl  = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        gf_log (THIS->name, GF_LOG_INFO, "In gd_mgmt_v3_unlock_timer_cbk");
+        GF_ASSERT (NULL != data);
+        key = (char *)data;
+
+        dict_del (conf->mgmt_v3_lock, key);
+
+        type = strrchr (key, '_');
+        strncpy (name, key, strlen (key) - strlen (type) - 1);
+
+        ret = snprintf (bt_key, PATH_MAX, "debug.last-success-bt-%s-%s",
+                        name, type + 1);
+        if (ret != strlen ("debug.last-success-bt-") + strlen (name) +
+                   strlen (type)) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_CREATE_KEY_FAIL, "Unable to create backtrace "
+                        "key");
+                goto out;
+        }
+
+        dict_del (conf->mgmt_v3_lock, bt_key);
+
+        ret = dict_get_bin (conf->mgmt_v3_lock_timer, key,
+                            (void **)&mgmt_lock_timer);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
+                        "Unable to get lock owner in mgmt_v3 lock");
+                goto out;
+        }
+
+out:
+        if (mgmt_lock_timer->timer) {
+                mgmt_lock_timer_xl = mgmt_lock_timer->xl;
+                GF_VALIDATE_OR_GOTO (this->name, mgmt_lock_timer_xl,
+                                     ret_function);
+
+                mgmt_lock_timer_ctx = mgmt_lock_timer_xl->ctx;
+                GF_VALIDATE_OR_GOTO (this->name, mgmt_lock_timer_ctx,
+                                     ret_function);
+
+                gf_timer_call_cancel (mgmt_lock_timer_ctx,
+                                      mgmt_lock_timer->timer);
+                GF_FREE(key);
+                dict_del (conf->mgmt_v3_lock_timer, bt_key);
+                mgmt_lock_timer->timer = NULL;
+        }
+
+ret_function:
+
+        return;
+
+}
+
 int32_t
 glusterd_mgmt_v3_unlock (const char *name, uuid_t uuid, char *type)
 {
-        char                    key[PATH_MAX]   = "";
-        int32_t                 ret             = -1;
-        gf_boolean_t            is_valid        = _gf_true;
-        glusterd_conf_t        *priv            = NULL;
-        uuid_t                  owner           = {0};
-        xlator_t               *this            = NULL;
+        char                            key[PATH_MAX]       = "";
+        char                            key_dup[PATH_MAX]   = "";
+        int32_t                         ret                 = -1;
+        gf_boolean_t                    is_valid            = _gf_true;
+        glusterd_conf_t                 *priv               = NULL;
+        glusterd_mgmt_v3_lock_timer     *mgmt_lock_timer    = NULL;
+        uuid_t                          owner               = {0};
+        xlator_t                        *this               = NULL;
+        glusterfs_ctx_t                *mgmt_lock_timer_ctx = NULL;
+        xlator_t                       *mgmt_lock_timer_xl  = NULL;
 
         this = THIS;
         GF_ASSERT (this);
+
         priv = this->private;
         GF_ASSERT (priv);
 
@@ -657,6 +824,7 @@ glusterd_mgmt_v3_unlock (const char *name, uuid_t uuid, char *type)
                 ret = -1;
                 goto out;
         }
+        strncpy (key_dup, key, strlen(key));
 
         gf_msg_debug (this->name, 0,
                 "Trying to release lock of %s %s for %s as %s",
@@ -690,6 +858,15 @@ glusterd_mgmt_v3_unlock (const char *name, uuid_t uuid, char *type)
         /* Removing the mgmt_v3 lock from the global list */
         dict_del (priv->mgmt_v3_lock, key);
 
+        ret = dict_get_bin (priv->mgmt_v3_lock_timer, key,
+                            (void **)&mgmt_lock_timer);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED,
+                        "Unable to get mgmt lock key in mgmt_v3 lock");
+                goto out;
+        }
+
         /* Remove the backtrace key as well */
         ret = snprintf (key, sizeof(key), "debug.last-success-bt-%s-%s", name,
                         type);
@@ -708,7 +885,22 @@ glusterd_mgmt_v3_unlock (const char *name, uuid_t uuid, char *type)
                 type, name);
 
         ret = 0;
+        /* Release owner refernce which was held during lock */
+        if (mgmt_lock_timer->timer) {
+                ret = -1;
+                mgmt_lock_timer_xl = mgmt_lock_timer->xl;
+                GF_VALIDATE_OR_GOTO (this->name, mgmt_lock_timer_xl, out);
+
+                mgmt_lock_timer_ctx = mgmt_lock_timer_xl->ctx;
+                GF_VALIDATE_OR_GOTO (this->name, mgmt_lock_timer_ctx, out);
+                ret = 0;
+                gf_timer_call_cancel (mgmt_lock_timer_ctx,
+                                    mgmt_lock_timer->timer);
+                dict_del (priv->mgmt_v3_lock_timer, key_dup);
+                mgmt_lock_timer->timer = NULL;
+        }
 out:
+
         gf_msg_trace (this->name, 0, "Returning %d", ret);
         return ret;
 }

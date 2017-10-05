@@ -1857,6 +1857,13 @@ init (xlator_t *this)
                         GD_MSG_DICT_SET_FAILED,
                         "base-port override: %d", conf->base_port);
          }
+        conf->mgmt_v3_lock_timeout = GF_LOCK_TIMER;
+        if (dict_get_uint32 (this->options, "lock-timer",
+                             &conf->mgmt_v3_lock_timeout) == 0) {
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        GD_MSG_DICT_SET_FAILED,
+                        "lock-timer override: %d", conf->mgmt_v3_lock_timeout);
+        }
 
         /* Set option to run bricks on valgrind if enabled in glusterd.vol */
         conf->valgrind = _gf_false;
@@ -1880,6 +1887,7 @@ init (xlator_t *this)
 
         this->private = conf;
         glusterd_mgmt_v3_lock_init ();
+        glusterd_mgmt_v3_lock_timer_init();
         glusterd_txn_opinfo_dict_init ();
         glusterd_svcs_build ();
 
@@ -2018,6 +2026,7 @@ fini (xlator_t *this)
                 gf_store_handle_destroy (conf->handle);
         glusterd_sm_tr_log_delete (&conf->op_sm_log);
         glusterd_mgmt_v3_lock_fini ();
+        glusterd_mgmt_v3_lock_timer_fini ();
         glusterd_txn_opinfo_dict_fini ();
         GF_FREE (conf);
 
@@ -2135,6 +2144,14 @@ struct volume_options options[] = {
         { .key = {"base-port"},
           .type = GF_OPTION_TYPE_INT,
           .description = "Sets the base port for portmap query"
+        },
+        { .key = {"mgmt-v3-lock-timeout"},
+          .type = GF_OPTION_TYPE_INT,
+          .max = 600,
+          .description = "Sets the mgmt-v3-lock-timeout for transactions."
+                         "Specifes the default timeout value after which "
+                         "lock acquired while performing transaction will "
+                         "be released."
         },
         { .key = {"snap-brick-path"},
           .type = GF_OPTION_TYPE_STR,
