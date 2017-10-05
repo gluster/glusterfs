@@ -174,6 +174,7 @@ typedef struct {
                                                  * cluster with no
                                                  * transaction ids */
 
+        dict_t                    *mgmt_v3_lock_timer;
         struct cds_list_head       mount_specs;
         pthread_t                  brick_thread;
         void                      *hooks_priv;
@@ -195,6 +196,7 @@ typedef struct {
         uint32_t                   generation;
         int32_t                    workers;
         uint32_t                   blockers;
+        uint32_t                   mgmt_v3_lock_timeout;
 } glusterd_conf_t;
 
 

@@ -7,6 +7,7 @@ volume management
     option transport.socket.read-fail-log off
     option ping-timeout 0
     option event-threads 1
+#   option lock-timer 180
 #   option transport.address-family inet6
 #   option base-port 49152
 #   option max-port  65535
