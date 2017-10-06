@@ -374,6 +374,7 @@ struct dht_local {
         /* This is use only for directory operation */
         int32_t valid;
         gf_boolean_t heal_layout;
+        int32_t mds_heal_fresh_lookup;
 };
 typedef struct dht_local dht_local_t;
 
@@ -1440,17 +1441,22 @@ xlator_t *
 dht_inode_get_hashed_subvol (inode_t *inode, xlator_t *this, loc_t *loc);
 
 int
-dht_mark_mds_subvolume (call_frame_t *frame, xlator_t *this);
+dht_common_mark_mdsxattr (call_frame_t *frame, int *errst, int flag);
 
 int
-dht_mds_internal_setxattr_cbk (call_frame_t *frame, void *cookie,
-                               xlator_t *this, int op_ret, int op_errno,
-                               dict_t *xdata);
+dht_common_mark_mdsxattr_cbk (call_frame_t *frame, void *cookie,
+                              xlator_t *this, int op_ret, int op_errno,
+                              dict_t *xdata);
+
 int
 dht_inode_ctx_mdsvol_set (inode_t *inode, xlator_t *this,
                           xlator_t *mds_subvol);
 int
 dht_inode_ctx_mdsvol_get (inode_t *inode, xlator_t *this,
                           xlator_t **mdsvol);
+
+int
+dht_selfheal_dir_setattr (call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
+                          int32_t valid, dht_layout_t *layout);
 
 #endif/* _DHT_H */
