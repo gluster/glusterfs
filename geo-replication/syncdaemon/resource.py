@@ -23,6 +23,7 @@ import logging
 import tempfile
 import threading
 import subprocess
+import errno
 from errno import EEXIST, ENOENT, ENODATA, ENOTDIR, ELOOP, EACCES
 from errno import EISDIR, ENOTEMPTY, ESTALE, EINVAL, EBUSY, EPERM
 from select import error as SelectError
@@ -49,6 +50,7 @@ UrlRX = re.compile('\A(\w+)://([^ *?[]*)\Z')
 HostRX = re.compile('[a-zA-Z\d](?:[a-zA-Z\d.-]*[a-zA-Z\d])?', re.I)
 UserRX = re.compile("[\w!\#$%&'*+-\/=?^_`{|}~]+")
 
+ENOTSUP = getattr(errno, 'ENOTSUP', 'EOPNOTSUPP')
 
 def sup(x, *a, **kw):
     """a rubyesque "super" for python ;)
@@ -677,7 +679,7 @@ class Server(object):
                 return
 
             names = []
-            names = errno_wrap(os.listdir, [path], [ENOENT], [ESTALE])
+            names = errno_wrap(os.listdir, [path], [ENOENT], [ESTALE, ENOTSUP])
             if isinstance(names, int):
                 return
 
