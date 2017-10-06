@@ -5857,7 +5857,7 @@ gf_cli_gsync_status_output (dict_t *dict, gf_boolean_t is_detail)
 
                 gf_log ("cli", GF_LOG_INFO, "%s", errmsg);
                 cli_out ("%s", errmsg);
-                ret = 0;
+                ret = -1;
                 goto out;
         }
 
