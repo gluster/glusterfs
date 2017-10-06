@@ -1670,7 +1670,8 @@ ec_heal_data_find_direction (ec_t *ec, default_args_cbk_t *replies,
          * well*/
 
         if (check_ondisksize) {
-                source_size = ec_adjust_size (ec, size[source], 1);
+                source_size = size[source];
+                ec_adjust_size_up (ec, &source_size, _gf_true);
 
                 for (i = 0; i < ec->nodes; i++) {
                         if (sources[i]) {
@@ -1983,7 +1984,7 @@ ec_rebuild_data (call_frame_t *frame, ec_t *ec, fd_t *fd, uint64_t size,
         heal->fd = fd_ref (fd);
         heal->xl = ec->xl;
         heal->data = &barrier;
-        size = ec_adjust_size (ec, size, 0);
+        ec_adjust_size_up (ec, &size, _gf_false);
         heal->total_size = size;
         heal->size = (128 * GF_UNIT_KB * (ec->self_heal_window_size));
         /* We need to adjust the size to a multiple of the stripe size of the
@@ -2038,7 +2039,8 @@ __ec_heal_trim_sinks (call_frame_t *frame, ec_t *ec,
                 ret = 0;
                 goto out;
         }
-        trim_offset = ec_adjust_size (ec, size, 1);
+        trim_offset = size;
+        ec_adjust_offset_up (ec, &trim_offset, _gf_true);
         ret = cluster_ftruncate (ec->xl_list, trim, ec->nodes, replies, output,
                                  frame, ec->xl, fd, trim_offset, NULL);
         for (i = 0; i < ec->nodes; i++) {

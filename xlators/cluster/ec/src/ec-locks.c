@@ -572,10 +572,10 @@ int32_t ec_manager_inodelk(ec_fop_data_t * fop, int32_t state)
     switch (state)
     {
         case EC_STATE_INIT:
-            fop->flock.l_len += ec_adjust_offset(fop->xl->private,
-                                                 &fop->flock.l_start, 1);
-            fop->flock.l_len = ec_adjust_size(fop->xl->private,
-                                              fop->flock.l_len, 1);
+            fop->flock.l_len += ec_adjust_offset_down(fop->xl->private,
+                                                      &fop->flock.l_start,
+                                                      _gf_true);
+            ec_adjust_offset_up(fop->xl->private, &fop->flock.l_len, _gf_true);
             if ((fop->int32 == F_SETLKW) && (fop->flock.l_type != F_UNLCK))
             {
                 fop->uint32 = EC_LOCK_MODE_ALL;

@@ -870,8 +870,10 @@ int32_t ec_manager_fallocate(ec_fop_data_t *fop, int32_t state)
                 return EC_STATE_REPORT;
         }
         fop->user_size = fop->offset + fop->size;
-        fop->head = ec_adjust_offset (fop->xl->private, &fop->offset, 1);
-        fop->size = ec_adjust_size (fop->xl->private, fop->head + fop->size, 1);
+        fop->head = ec_adjust_offset_down (fop->xl->private, &fop->offset,
+                                           _gf_true);
+        fop->size += fop->head;
+        ec_adjust_size_up (fop->xl->private, &fop->size, _gf_true);
 
         /* Fall through */
 
@@ -1145,7 +1147,7 @@ int32_t ec_manager_truncate(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
             fop->user_size = fop->offset;
-            fop->offset = ec_adjust_size(fop->xl->private, fop->offset, 1);
+            ec_adjust_offset_up(fop->xl->private, &fop->offset, _gf_true);
 
         /* Fall through */
 
@@ -1508,8 +1510,9 @@ ec_writev_prepare_buffers(ec_t *ec, ec_fop_data_t *fop)
     int32_t err;
 
     fop->user_size = iov_length(fop->vector, fop->int32);
-    fop->head = ec_adjust_offset(ec, &fop->offset, 0);
-    fop->size = ec_adjust_size(ec, fop->user_size + fop->head, 0);
+    fop->head = ec_adjust_offset_down(ec, &fop->offset, _gf_false);
+    fop->size = fop->user_size + fop->head;
+    ec_adjust_size_up(ec, &fop->size, _gf_false);
 
     if ((fop->int32 != 1) || (fop->head != 0) ||
         (fop->size > fop->user_size) ||
