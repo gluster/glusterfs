@@ -1164,141 +1164,6 @@ dht_selfheal_dir_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-int
-dht_selfheal_dir_check_set_mdsxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                                         int op_ret, int op_errno, dict_t *xdata)
-{
-        dht_local_t  *local = NULL;
-        xlator_t     *prev  = cookie;
-        int           ret   = -1;
-        dht_conf_t   *conf  = 0;
-
-        GF_VALIDATE_OR_GOTO (this->name, frame, out);
-        GF_VALIDATE_OR_GOTO (this->name, frame->local, out);
-
-        local = frame->local;
-        conf = this->private;
-
-        if (op_ret) {
-                gf_msg_debug (this->name, op_ret,
-                              "internal mds setxattr %s is failed on mds subvol "
-                              "at the time of heal on path %s " ,
-                               conf->mds_xattr_key, local->loc.path);
-        } else {
-                /* Save mds subvol on inode ctx */
-                ret = dht_inode_ctx_mdsvol_set (local->inode, this, prev);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                DHT_MSG_SET_INODE_CTX_FAILED,
-                                "Failed to set hashed subvol "
-                                " %s for %s ", prev->name,
-                                local->loc.path);
-                }
-        }
-
-out:
-        DHT_STACK_DESTROY (frame);
-        return 0;
-}
-
-/* Code to set internal mds xattr if it is not present
-*/
-int
-dht_selfheal_dir_check_set_mdsxattr (call_frame_t *frame, loc_t *loc)
-{
-        dht_local_t  *local          = NULL;
-        xlator_t     *this           = NULL;
-        xlator_t     *hashed_subvol  = NULL;
-        int ret                      = -1;
-        dict_t       *xattrs         = NULL;
-        char          gfid_local[GF_UUID_BUF_SIZE] = {0,};
-        int32_t       zero[1]        = {0};
-        call_frame_t *xattr_frame    = NULL;
-        dht_local_t  *copy_local     = NULL;
-        dht_conf_t   *conf           = 0;
-
-        local = frame->local;
-        this = frame->this;
-        conf = this->private;
-        gf_uuid_unparse(local->gfid, gfid_local);
-
-        if (!dict_get (local->xattr, conf->mds_xattr_key)) {
-                /* It means no internal MDS xattr has been set yet
-                */
-                /* Calculate hashed subvol based on inode and
-                   parent inode
-                */
-                hashed_subvol = dht_inode_get_hashed_subvol (local->inode, this,
-                                                             loc);
-                if (!hashed_subvol) {
-                        gf_msg (this->name, GF_LOG_DEBUG, 0,
-                                DHT_MSG_HASHED_SUBVOL_GET_FAILED,
-                                "Failed to get hashed subvol for path %s"
-                                "gfid is %s ",
-                                local->loc.path, gfid_local);
-                        ret = -1;
-                        goto out;
-                } else {
-                        /* Set internal mds xattr on disk   */
-                        xattrs = dict_new ();
-                        if (!xattrs) {
-                                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                                        DHT_MSG_NO_MEMORY, "dict_new failed");
-                                ret = -1;
-                                goto out;
-                        }
-                        /* Add internal MDS xattr on disk for hashed subvol
-                        */
-                        ret = dht_dict_set_array (xattrs, conf->mds_xattr_key, zero, 1);
-                        if (ret) {
-                                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
-                                        DHT_MSG_DICT_SET_FAILED,
-                                        "Failed to set dictionary"
-                                        "  value:key = %s for "
-                                        "path %s", conf->mds_xattr_key,
-                                        local->loc.path);
-                                ret = -1;
-                                goto out;
-                        }
-
-                        xattr_frame = create_frame (this, this->ctx->pool);
-                        if (!xattr_frame) {
-                                ret = -1;
-                                goto out;
-                        }
-                        copy_local = dht_local_init (xattr_frame, &(local->loc),
-                                                     NULL, 0);
-                        if (!copy_local) {
-                                ret = -1;
-                                DHT_STACK_DESTROY (xattr_frame);
-                                goto out;
-                        }
-
-                        copy_local->stbuf = local->stbuf;
-                        copy_local->inode = inode_ref (local->inode);
-                        gf_uuid_copy (copy_local->loc.gfid, local->gfid);
-
-                        STACK_WIND_COOKIE (xattr_frame,
-                                           dht_selfheal_dir_check_set_mdsxattr_cbk,
-                                           (void *)hashed_subvol, hashed_subvol,
-                                           hashed_subvol->fops->setxattr,
-                                           loc, xattrs, 0, NULL);
-                        ret = 0;
-                }
-        } else {
-                ret = 0;
-                gf_msg_debug (this->name, 0,
-                              "internal xattr %s is present on subvol"
-                              "on path %s gfid is %s " , conf->mds_xattr_key,
-                               local->loc.path, gfid_local);
-        }
-
-out:
-        if (xattrs)
-                dict_unref (xattrs);
-        return ret;
-}
-
 
 int
 dht_selfheal_dir_setattr (call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
@@ -1317,32 +1182,6 @@ dht_selfheal_dir_setattr (call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
                 if (layout->list[i].err == -1)
                         missing_attr++;
         }
-
-        if (!__is_root_gfid (local->stbuf.ia_gfid)) {
-                if (local->need_xattr_heal) {
-                        local->need_xattr_heal = 0;
-                        ret =  dht_dir_xattr_heal (this, local);
-                        if (ret)
-                                gf_msg (this->name, GF_LOG_ERROR,
-                                        ret,
-                                        DHT_MSG_DIR_XATTR_HEAL_FAILED,
-                                        "xattr heal failed for "
-                                        "directory  %s gfid %s ",
-                                        local->loc.path,
-                                        local->gfid);
-                } else {
-                        ret = dht_selfheal_dir_check_set_mdsxattr (frame, loc);
-                        if (ret)
-                                gf_msg (this->name, GF_LOG_INFO, ret,
-                                        DHT_MSG_DIR_XATTR_HEAL_FAILED,
-                                        "set mds internal xattr failed for "
-                                        "directory  %s gfid %s ", local->loc.path,
-                                        local->gfid);
-                }
-        }
-
-        if (!gf_uuid_is_null (local->gfid))
-                gf_uuid_copy (loc->gfid, local->gfid);
 
         if (missing_attr == 0) {
                 if (!local->heal_layout) {
@@ -1794,6 +1633,33 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
         }
 
         if (missing_dirs == 0) {
+                if (!__is_root_gfid (local->stbuf.ia_gfid)) {
+                        if (local->need_xattr_heal) {
+                                local->need_xattr_heal = 0;
+                                ret =  dht_dir_xattr_heal (this, local);
+                                if (ret)
+                                        gf_msg (this->name, GF_LOG_ERROR,
+                                                ret,
+                                                DHT_MSG_DIR_XATTR_HEAL_FAILED,
+                                                "xattr heal failed for "
+                                                "directory  %s gfid %s ",
+                                                local->loc.path,
+                                                local->gfid);
+                        } else {
+                                if (!gf_uuid_is_null (local->gfid))
+                                        gf_uuid_copy (loc->gfid, local->gfid);
+
+                                ret = dht_common_mark_mdsxattr (frame, NULL, 0);
+                                if (!ret)
+                                        return 0;
+
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        DHT_MSG_DIR_XATTR_HEAL_FAILED,
+                                        "Failed to set mds xattr "
+                                        "for directory  %s gfid %s ",
+                                        local->loc.path, local->gfid);
+                        }
+                }
                 dht_selfheal_dir_setattr (frame, loc, &local->stbuf,
                                           0xffffffff, layout);
                 return 0;
