@@ -1356,9 +1356,10 @@ int32_t ec_manager_readv(ec_fop_data_t * fop, int32_t state)
     {
         case EC_STATE_INIT:
             fop->user_size = fop->size;
-            fop->head = ec_adjust_offset(fop->xl->private, &fop->offset, 1);
-            fop->size = ec_adjust_size(fop->xl->private, fop->size + fop->head,
-                                       1);
+            fop->head = ec_adjust_offset_down(fop->xl->private, &fop->offset,
+                                              _gf_true);
+            fop->size += fop->head;
+            ec_adjust_size_up(fop->xl->private, &fop->size, _gf_true);
 
         /* Fall through */
 
@@ -1561,7 +1562,8 @@ int32_t ec_manager_seek(ec_fop_data_t *fop, int32_t state)
     switch (state) {
     case EC_STATE_INIT:
         fop->user_size = fop->offset;
-        fop->head = ec_adjust_offset(fop->xl->private, &fop->offset, 1);
+        fop->head = ec_adjust_offset_down(fop->xl->private, &fop->offset,
+                                          _gf_true);
 
     /* Fall through */
 

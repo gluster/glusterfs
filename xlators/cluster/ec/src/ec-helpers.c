@@ -799,35 +799,6 @@ ec_fd_t * ec_fd_get(fd_t * fd, xlator_t * xl)
     return ctx;
 }
 
-uint32_t ec_adjust_offset(ec_t * ec, off_t * offset, int32_t scale)
-{
-    off_t head, tmp;
-
-    tmp = *offset;
-    head = tmp % ec->stripe_size;
-    tmp -= head;
-    if (scale)
-    {
-        tmp /= ec->fragments;
-    }
-
-    *offset = tmp;
-
-    return head;
-}
-
-uint64_t ec_adjust_size(ec_t * ec, uint64_t size, int32_t scale)
-{
-    size += ec->stripe_size - 1;
-    size -= size % ec->stripe_size;
-    if (scale)
-    {
-        size /= ec->fragments;
-    }
-
-    return size;
-}
-
 gf_boolean_t
 ec_is_internal_xattr (dict_t *dict, char *key, data_t *value, void *data)
 {

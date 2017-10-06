@@ -55,8 +55,112 @@ ec_inode_t * ec_inode_get(inode_t * inode, xlator_t * xl);
 ec_fd_t * __ec_fd_get(fd_t * fd, xlator_t * xl);
 ec_fd_t * ec_fd_get(fd_t * fd, xlator_t * xl);
 
-uint32_t ec_adjust_offset(ec_t * ec, off_t * offset, int32_t scale);
-uint64_t ec_adjust_size(ec_t * ec, uint64_t size, int32_t scale);
+static inline uint32_t
+ec_adjust_size_down(ec_t *ec, uint64_t *value, gf_boolean_t scale)
+{
+        uint64_t head, tmp;
+
+        tmp = *value;
+        head = tmp % ec->stripe_size;
+        tmp -= head;
+
+        if (scale) {
+                tmp /= ec->fragments;
+        }
+
+        *value = tmp;
+
+        return (uint32_t)head;
+}
+
+/* This function can cause an overflow if the passed value is too near to the
+ * uint64_t limit. If this happens, it returns the tail in negative form and
+ * the value is set to UINT64_MAX. */
+static inline int32_t
+ec_adjust_size_up(ec_t *ec, uint64_t *value, gf_boolean_t scale)
+{
+        uint64_t tmp;
+        int32_t tail;
+
+        tmp = *value;
+        /* We first adjust the value down. This never causes overflow. */
+        tail = ec_adjust_size_down(ec, &tmp, scale);
+
+        /* If the value was already aligned, tail will be 0 and nothing else
+         * needs to be done. */
+        if (tail != 0) {
+                /* Otherwise, we need to compute the real tail and adjust the
+                 * returned value to the next stripe. */
+                tail = ec->stripe_size - tail;
+                if (scale) {
+                        tmp += ec->fragment_size;
+                } else {
+                        tmp += ec->stripe_size;
+                        /* If no scaling is requested there's a posibility of
+                         * overflow. */
+                        if (tmp < ec->stripe_size) {
+                                tmp = UINT64_MAX;
+                                tail = -tail;
+                        }
+                }
+        }
+
+        *value = tmp;
+
+        return tail;
+}
+
+/* This function is equivalent to ec_adjust_size_down() but with a potentially
+ * different parameter size (off_t vs uint64_t). */
+static inline uint32_t
+ec_adjust_offset_down(ec_t *ec, off_t *value, gf_boolean_t scale)
+{
+        off_t head, tmp;
+
+        tmp = *value;
+        head = tmp % ec->stripe_size;
+        tmp -= head;
+
+        if (scale) {
+                tmp /= ec->fragments;
+        }
+
+        *value = tmp;
+
+        return (uint32_t)head;
+}
+
+/* This function is equivalent to ec_adjust_size_up() but with a potentially
+ * different parameter size (off_t vs uint64_t). */
+static inline int32_t
+ec_adjust_offset_up(ec_t *ec, off_t *value, gf_boolean_t scale)
+{
+        uint64_t tail, tmp;
+
+        /* An offset is a signed type that can only have positive values, so
+         * we take advantage of this to avoid overflows. We simply convert it
+         * to an unsigned integer and operate normally. This won't cause an
+         * overflow. Overflow is only checked when converting back to an
+         * off_t. */
+        tmp = *value;
+        tail = ec->stripe_size;
+        tail -= (tmp + tail - 1) % tail + 1;
+        tmp += tail;
+        if (scale) {
+                /* If we are scaling, we'll never get an overflow. */
+                tmp /= ec->fragments;
+        } else {
+                /* Check if there has been an overflow. */
+                if ((off_t)tmp < 0) {
+                        tmp = (1ULL << (sizeof(off_t) * 8 - 1)) - 1ULL;
+                        tail = -tail;
+                }
+        }
+
+        *value = (off_t)tmp;
+
+        return (int32_t)tail;
+}
 
 static inline int32_t ec_is_power_of_2(uint32_t value)
 {
