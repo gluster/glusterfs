@@ -468,6 +468,10 @@ if __name__ == "__main__":
     if args.no_color:
         USE_CLI_COLOR = False
     try:
+        # Check for session existence
+        cmd = ["@SBIN_DIR@/gluster", "volume", "geo-replication",
+               args.mastervol, "%s::%s" % (args.slave, args.slavevol), "status"]
+        execute(cmd)
         main(args)
     except KeyboardInterrupt:
         output_notok("Exiting...")
