@@ -348,17 +348,14 @@ class Server(object):
     @classmethod
     @_pathguard
     def gfid(cls, path):
-        try:
-            buf = Xattr.lgetxattr(path, cls.GFID_XATTR, 16)
+        buf = errno_wrap(Xattr.lgetxattr, [path, cls.GFID_XATTR, 16],
+                         [ENOENT], [ESTALE, ENODATA])
+        if buf == ENOENT:
+            return buf
+        else:
             m = re.match('(.{8})(.{4})(.{4})(.{4})(.{12})', "".join(
                 ['%02x' % x for x in struct.unpack(cls.GFID_FMTSTR, buf)]))
             return '-'.join(m.groups())
-        except (IOError, OSError):
-            ex = sys.exc_info()[1]
-            if ex.errno == ENOENT:
-                return ex.errno
-            else:
-                raise
 
     @classmethod
     @_pathguard
