@@ -18,7 +18,7 @@ import fcntl
 import string
 import errno
 import tarfile
-from errno import ENOENT, ENODATA, EEXIST, EACCES, EAGAIN, ESTALE
+from errno import ENOENT, ENODATA, EEXIST, EACCES, EAGAIN, ESTALE, EINTR
 from threading import Condition, Lock
 from datetime import datetime
 from gconf import gconf
@@ -1017,7 +1017,8 @@ class GMasterChangelogMixin(GMasterCommon):
 
                     rl = None
                     if st and stat.S_ISLNK(st.st_mode):
-                        rl = errno_wrap(os.readlink, [en], [ENOENT], [ESTALE])
+                        rl = errno_wrap(os.readlink, [en], [ENOENT],
+                                        [ESTALE, EINTR])
                         if isinstance(rl, int):
                             rl = None
 
@@ -1043,13 +1044,14 @@ class GMasterChangelogMixin(GMasterCommon):
                         rl = None
                         if st and stat.S_ISLNK(st.st_mode):
                             rl = errno_wrap(os.readlink, [en], [ENOENT],
-                                            [ESTALE])
+                                            [ESTALE, EINTR])
                             if isinstance(rl, int):
                                 rl = None
                         entries.append(edct(ty, stat=st, entry=en, gfid=gfid,
                                        link=rl))
                     elif ty == 'SYMLINK':
-                        rl = errno_wrap(os.readlink, [en], [ENOENT], [ESTALE])
+                        rl = errno_wrap(os.readlink, [en], [ENOENT],
+                                        [ESTALE, EINTR])
                         if isinstance(rl, int):
                             continue
 
