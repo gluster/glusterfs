@@ -1771,6 +1771,9 @@ rpc_clnt_trigger_destroy (struct rpc_clnt *rpc)
 static void
 rpc_clnt_destroy (struct rpc_clnt *rpc)
 {
+        rpcclnt_cb_program_t *program = NULL;
+        rpcclnt_cb_program_t *tmp = NULL;
+
         if (!rpc)
                 return;
 
@@ -1782,6 +1785,10 @@ rpc_clnt_destroy (struct rpc_clnt *rpc)
            it will cause huge memory leaks */
         mem_pool_destroy (rpc->reqpool);
         mem_pool_destroy (rpc->saved_frames_pool);
+
+        list_for_each_entry_safe (program, tmp, &rpc->programs, program) {
+                GF_FREE (program);
+        }
 
         GF_FREE (rpc);
         return;
