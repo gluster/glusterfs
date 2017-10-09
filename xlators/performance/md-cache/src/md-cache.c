@@ -633,7 +633,7 @@ updatefn(dict_t *dict, char *key, data_t *value, void *data)
                  * not update their cache if the value of a xattr is a 0 byte
                  * data (i.e. "").
                  */
-                if (!strcmp (value->data, ""))
+                if (value->len == 1 && value->data[0] == '\0')
                         continue;
 
 		if (dict_set(u->dict, key, value) < 0) {
