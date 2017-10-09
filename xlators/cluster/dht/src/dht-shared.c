@@ -237,9 +237,25 @@ dht_fini (xlator_t *this)
 
                 dict_unref(conf->leaf_to_subvol);
 
+                /* allocated in dht_init_subvolumes() */
                 GF_FREE (conf->subvolumes);
-
                 GF_FREE (conf->subvolume_status);
+                GF_FREE (conf->last_event);
+                GF_FREE (conf->subvol_up_time);
+                GF_FREE (conf->du_stats);
+                GF_FREE (conf->decommissioned_bricks);
+
+                /* allocated in dht_init() */
+                GF_FREE (conf->mds_xattr_key);
+                GF_FREE (conf->link_xattr_name);
+                GF_FREE (conf->commithash_xattr_name);
+                GF_FREE (conf->wild_xattr_name);
+
+                /* allocated in dht_init_regex() */
+                if (conf->rsync_regex_valid)
+                        regfree (&conf->rsync_regex);
+                if (conf->extra_regex_valid)
+                        regfree (&conf->extra_regex);
 
                 synclock_destroy (&conf->link_lock);
 
