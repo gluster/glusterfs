@@ -4837,7 +4837,7 @@ glusterd_get_volume_opts (rpcsvc_request_t *req, dict_t *dict)
                                                                (dict,
                                                                 _gf_false,
                                                                 key, orig_key,
-                                                                volinfo,
+                                                                volinfo->dict,
                                                                 &rsp.op_errstr);
                                         if (ret && !rsp.op_errstr) {
                                                 snprintf (err_str,
@@ -4863,7 +4863,7 @@ glusterd_get_volume_opts (rpcsvc_request_t *req, dict_t *dict)
         } else {
                 /* Handle the "all" volume option request */
                 ret = glusterd_get_default_val_for_volopt (dict, _gf_true, NULL,
-                                                           NULL, volinfo,
+                                                           NULL, volinfo->dict,
                                                            &rsp.op_errstr);
                 if (ret && !rsp.op_errstr) {
                         snprintf (err_str, sizeof(err_str),
@@ -5454,7 +5454,8 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                         vol_all_opts = dict_new ();
 
                         ret = glusterd_get_default_val_for_volopt (vol_all_opts,
-                                        _gf_true, NULL, NULL, volinfo, &rsp.op_errstr);
+                                        _gf_true, NULL, NULL, volinfo->dict,
+                                        &rsp.op_errstr);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_VOL_OPTS_IMPORT_FAIL, "Failed to "

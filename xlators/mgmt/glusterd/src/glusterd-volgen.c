@@ -2676,9 +2676,15 @@ perfxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
 {
         gf_boolean_t enabled = _gf_false;
         glusterd_volinfo_t *volinfo = NULL;
+        xlator_t *this = NULL;
+        glusterd_conf_t *priv = NULL;
 
-        GF_ASSERT (param);
+        GF_VALIDATE_OR_GOTO ("glusterd", param, out);
         volinfo = param;
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+        priv = this->private;
+        GF_VALIDATE_OR_GOTO ("glusterd", priv, out);
 
         if (strcmp (vme->option, "!perf") != 0)
                 return 0;
@@ -2694,13 +2700,15 @@ perfxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
             (vme->op_version > volinfo->client_op_version))
                 return 0;
 
-        /* For replicate volumes do not load io-threads as it affects
-         * performance
-         */
-        if (!strcmp (vme->key, "performance.client-io-threads") &&
-            (GF_CLUSTER_TYPE_STRIPE_REPLICATE == volinfo->type ||
-             GF_CLUSTER_TYPE_REPLICATE == volinfo->type))
-                return 0;
+        if (priv->op_version < GD_OP_VERSION_3_12_2) {
+                /* For replicate volumes do not load io-threads as it affects
+                 * performance
+                 */
+                if (!strcmp (vme->key, "performance.client-io-threads") &&
+                    (GF_CLUSTER_TYPE_STRIPE_REPLICATE == volinfo->type ||
+                     GF_CLUSTER_TYPE_REPLICATE == volinfo->type))
+                        return 0;
+        }
 
         /* if VKEY_READDIR_AHEAD is enabled and parallel readdir is
          * not enabled then load readdir-ahead here else it will be
@@ -2711,8 +2719,8 @@ perfxl_option_handler (volgen_graph_t *graph, struct volopt_map_entry *vme,
 
         if (volgen_graph_add (graph, vme->voltype, volinfo->volname))
                 return 0;
-        else
-                return -1;
+out:
+        return -1;
 }
 
 static int

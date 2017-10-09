@@ -12613,8 +12613,7 @@ out:
 int
 glusterd_get_default_val_for_volopt (dict_t *ctx, gf_boolean_t all_opts,
                                      char *input_key, char *orig_key,
-                                     glusterd_volinfo_t *volinfo,
-                                     char **op_errstr)
+                                     dict_t *vol_dict, char **op_errstr)
 {
         struct volopt_map_entry *vme = NULL;
         int                      ret = -1;
@@ -12625,7 +12624,6 @@ glusterd_get_default_val_for_volopt (dict_t *ctx, gf_boolean_t all_opts,
         char                     dict_key[50] = {0,};
         gf_boolean_t             key_found = _gf_false;
         glusterd_conf_t         *priv = NULL;
-        dict_t                  *vol_dict = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -12633,7 +12631,6 @@ glusterd_get_default_val_for_volopt (dict_t *ctx, gf_boolean_t all_opts,
         priv = this->private;
         GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
-        vol_dict = volinfo->dict;
         GF_VALIDATE_OR_GOTO (this->name, vol_dict, out);
 
         /* Check whether key is passed for a single option */
@@ -12655,20 +12652,6 @@ glusterd_get_default_val_for_volopt (dict_t *ctx, gf_boolean_t all_opts,
                 if (!def_val) {
                         ret = dict_get_str (vol_dict, vme->key, &def_val);
                         if (!def_val) {
-                                /* For replicate volumes
-                                 * performance.client-io-threads will be set to
-                                 * off by default until explicitly turned on
-                                 */
-                                if (!strcmp (vme->key,
-                                            "performance.client-io-threads")) {
-                                        if (volinfo->type ==
-                                            GF_CLUSTER_TYPE_REPLICATE ||
-                                            volinfo->type ==
-                                            GF_CLUSTER_TYPE_STRIPE_REPLICATE) {
-                                                def_val = "off";
-                                                goto set_count;
-                                        }
-                                }
                                 if (vme->value) {
                                         def_val = vme->value;
                                 } else {
@@ -12681,7 +12664,6 @@ glusterd_get_default_val_for_volopt (dict_t *ctx, gf_boolean_t all_opts,
                                 }
                         }
                 }
-set_count:
                 count++;
                 sprintf (dict_key, "key%d", count);
                 ret = dict_set_str(ctx, dict_key, vme->key);

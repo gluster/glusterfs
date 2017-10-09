@@ -2231,6 +2231,23 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
         volinfo->stripe_count = 1;
 
         if (GF_CLUSTER_TYPE_REPLICATE == volinfo->type) {
+                /* performance.client-io-threads is turned on to default,
+                 * however this has adverse effects on replicate volumes due to
+                 * replication design issues, till that get addressed
+                 * performance.client-io-threads option is turned off for all
+                 * replicate volumes
+                 */
+                if (priv->op_version >= GD_OP_VERSION_3_12_2) {
+                        ret = dict_set_str (volinfo->dict,
+                                            "performance.client-io-threads",
+                                            "off");
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_DICT_SET_FAILED, "Failed to set "
+                                        "performance.client-io-threads to off");
+                                goto out;
+                        }
+                }
                 ret = dict_get_int32 (dict, "replica-count",
                                       &volinfo->replica_count);
                 if (ret) {
@@ -2251,6 +2268,23 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                         goto out;
                 }
         } else if (GF_CLUSTER_TYPE_STRIPE_REPLICATE == volinfo->type) {
+                /* performance.client-io-threads is turned on to default,
+                 * however this has adverse effects on replicate volumes due to
+                 * replication design issues, till that get addressed
+                 * performance.client-io-threads option is turned off for all
+                 * replicate volumes
+                 */
+                if (priv->op_version >= GD_OP_VERSION_3_12_2) {
+                        ret = dict_set_str (volinfo->dict,
+                                            "performance.client-io-threads",
+                                            "off");
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_DICT_SET_FAILED, "Failed to set "
+                                        "performance.client-io-threads to off");
+                                goto out;
+                        }
+                }
                 ret = dict_get_int32 (dict, "stripe-count",
                                       &volinfo->stripe_count);
                 if (ret) {
