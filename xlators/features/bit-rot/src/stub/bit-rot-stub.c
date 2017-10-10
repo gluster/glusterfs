@@ -3513,7 +3513,8 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_PATH,
           .op_version  = {GD_OP_VERSION_3_7_0},
           .tags        = {"bitrot"},
-          .description = "brick path for versioning"
+          .description = "brick path for versioning",
+          .default_value = "{{ brick.path }}"
         },
 	{ .key  = {NULL} },
 };
