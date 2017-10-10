@@ -97,6 +97,8 @@ libtool
 # copied XDR for cyclic libglusterfs <-> rpc-header dependency
 rpc/xdr/gen/*.x
 run-tests.sh
+!tests/basic/fuse/Makefile
+!tests/basic/gfapi/Makefile
 tests/env.rc
 tests/utils/arequal-checksum
 xlators/features/glupy/src/__init__.py
