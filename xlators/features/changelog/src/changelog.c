@@ -2983,12 +2983,14 @@ struct volume_options options[] = {
          .type = GF_OPTION_TYPE_PATH,
          .description = "brick path to generate unique socket file name."
                        " should be the export directory of the volume strictly.",
+         .default_value = "{{ brick.path }}",
          .op_version = {3},
          .tags = {"journal"}
         },
         {.key = {"changelog-dir"},
          .type = GF_OPTION_TYPE_PATH,
          .description = "directory for the changelog files",
+         .default_value = "{{ brick.path }}/.glusterfs/changelogs",
          .op_version = {3},
          .flags = OPT_FLAG_SETTABLE,
          .tags = {"journal", "georep", "glusterfind"}
