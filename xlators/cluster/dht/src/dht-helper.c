@@ -1174,7 +1174,8 @@ dht_init_local_subvolumes (xlator_t *this, dht_conf_t *conf)
                                         gf_dht_mt_xlator_t);
 
         /* FIX FIX : do this dynamically*/
-        conf->local_nodeuuids = GF_CALLOC (cnt, sizeof (subvol_nodeuuid_t),
+        conf->local_nodeuuids = GF_CALLOC (cnt,
+                                           sizeof (subvol_nodeuuids_info_t),
                                            gf_dht_nodeuuids_t);
 
         if (!conf->local_subvols || !conf->local_nodeuuids) {

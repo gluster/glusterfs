@@ -2450,7 +2450,12 @@ gf_defrag_ctx_subvols_init (dht_dfoffset_ctx_t *offset_var, xlator_t *this) {
 /* Return value
  * 0 : this node does not migrate the file
  * 1 : this node migrates the file
+ *
+ * Use the hash value of the gfid to determine which node will migrate files.
+ * Using the gfid instead of the name also ensures that the same node handles
+ * all hardlinks.
  */
+
 int
 gf_defrag_should_i_migrate (xlator_t *this, int local_subvol_index, uuid_t gfid)
 {
@@ -2471,13 +2476,14 @@ gf_defrag_should_i_migrate (xlator_t *this, int local_subvol_index, uuid_t gfid)
         }
 
         str = uuid_utoa_r (gfid, buf);
-
         ret = dht_hash_compute (this, 0, str, &hashval);
         if (ret == 0) {
                 index = (hashval % conf->local_nodeuuids[i].count);
-                if (!gf_uuid_compare (conf->defrag->node_uuid,
-                                      conf->local_nodeuuids[i].uuids[index]))
+                if (conf->local_nodeuuids[i].elements[index].info
+                                 == REBAL_NODEUUID_MINE) {
+                        /* Index matches this node's nodeuuid.*/
                         ret = 1;
+                }
         }
         return ret;
 }
@@ -4309,7 +4315,7 @@ gf_defrag_start_crawl (void *data)
         xlator_t                *old_THIS               = NULL;
         int                      j                      = 0;
         gf_boolean_t             fc_thread_started      = _gf_false;
-
+        uuid_t                  *uuid_ptr               = NULL;
 
         this = data;
         if (!this)
@@ -4447,10 +4453,12 @@ gf_defrag_start_crawl (void *data)
                 for (i = 0 ; i < conf->local_subvols_cnt; i++) {
                         gf_msg (this->name, GF_LOG_INFO, 0, 0, "local subvols "
                                 "are %s", conf->local_subvols[i]->name);
+
                         for (j = 0; j < conf->local_nodeuuids[i].count; j++) {
+                                uuid_ptr = &(conf->local_nodeuuids[i].elements[j].uuid);
                                 gf_msg (this->name, GF_LOG_INFO, 0, 0,
                                         "node uuids are %s",
-                                  uuid_utoa(conf->local_nodeuuids[i].uuids[j]));
+                                        uuid_utoa(*uuid_ptr));
                         }
                 }
 

@@ -3033,7 +3033,7 @@ dht_find_local_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           i              = 0;
         int           index          = 0;
         int           found          = 0;
-
+        nodeuuid_info_t *tmp_ptr     = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (frame->local, out);
@@ -3118,8 +3118,8 @@ dht_find_local_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 conf->local_nodeuuids[index].count = count;
-                conf->local_nodeuuids[index].uuids
-                                 = GF_CALLOC (count, sizeof (uuid_t), 1);
+                conf->local_nodeuuids[index].elements
+                               = GF_CALLOC (count, sizeof (nodeuuid_info_t), 1);
 
                 /* The node-uuids are guaranteed to be returned in the same
                  * order as the bricks
@@ -3134,9 +3134,15 @@ dht_find_local_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      uuid_str = next_uuid_str) {
 
                         next_uuid_str = strtok_r (NULL, " ", &saveptr);
-                        gf_uuid_parse (uuid_str,
-                                       conf->local_nodeuuids[index].uuids[i]);
+                        tmp_ptr = &(conf->local_nodeuuids[index].elements[i]);
+                        gf_uuid_parse (uuid_str, tmp_ptr->uuid);
+
+                        if (!gf_uuid_compare (tmp_ptr->uuid,
+                                              conf->defrag->node_uuid)) {
+                                tmp_ptr->info = REBAL_NODEUUID_MINE;
+                        }
                         i++;
+                        tmp_ptr = NULL;
                 }
         }
 
@@ -3156,8 +3162,8 @@ dht_find_local_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
  unwind:
 
-        GF_FREE (conf->local_nodeuuids[index].uuids);
-        conf->local_nodeuuids[index].uuids = NULL;
+        GF_FREE (conf->local_nodeuuids[index].elements);
+        conf->local_nodeuuids[index].elements = NULL;
 
         DHT_STACK_UNWIND (getxattr, frame, -1, local->op_errno, NULL, xdata);
  out:
