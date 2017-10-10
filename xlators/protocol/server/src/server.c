@@ -1627,7 +1627,8 @@ struct volume_options options[] = {
                     "rdma*([ \t]),*([ \t])tcp",
                     "tcp*([ \t]),*([ \t])rdma",
                     "socket*([ \t]),*([ \t])rdma"},
-          .type  = GF_OPTION_TYPE_STR
+          .type  = GF_OPTION_TYPE_STR,
+          .default_value = "{{ volume.transport }}"
         },
         { .key   = {"transport.listen-backlog"},
           .type  = GF_OPTION_TYPE_INT,
@@ -1651,7 +1652,9 @@ struct volume_options options[] = {
           .max   = 1048576,
           .default_value = "16384",
           .description = "Specifies the limit on the number of inodes "
-          "in the lru list of the inode cache."
+          "in the lru list of the inode cache.",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key   = {"verify-volfile-checksum"},
           .type  = GF_OPTION_TYPE_BOOL
@@ -1663,8 +1666,11 @@ struct volume_options options[] = {
                     "conf-dir"},
           .type  = GF_OPTION_TYPE_PATH,
         },
-        { .key   = {"rpc-auth-allow-insecure"},
+        { .key   = {"rpc-auth-allow-insecure", "allow-insecure"},
           .type  = GF_OPTION_TYPE_BOOL,
+          .default_value = "on",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key   = {"root-squash"},
           .type  = GF_OPTION_TYPE_BOOL,
@@ -1672,7 +1678,9 @@ struct volume_options options[] = {
           .description = "Map requests from uid/gid 0 to the anonymous "
                          "uid/gid. Note that this does not apply to any other "
                          "uids or gids that might be equally sensitive, such "
-                         "as user bin or group staff."
+                         "as user bin or group staff.",
+          .op_version = {2},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key           = {"anonuid"},
           .type          = GF_OPTION_TYPE_INT,
@@ -1680,7 +1688,9 @@ struct volume_options options[] = {
           .min           = 0,
           .max           = (uint32_t) -1,
           .description   = "value of the uid used for the anonymous "
-                           "user/nfsnobody when root-squash is enabled."
+                           "user/nfsnobody when root-squash is enabled.",
+          .op_version = {3},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key           = {"anongid"},
           .type          = GF_OPTION_TYPE_INT,
@@ -1688,29 +1698,39 @@ struct volume_options options[] = {
           .min           = 0,
           .max           = (uint32_t) -1,
           .description   = "value of the gid used for the anonymous "
-                           "user/nfsnobody when root-squash is enabled."
+                           "user/nfsnobody when root-squash is enabled.",
+          .op_version = {3},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key           = {"statedump-path"},
           .type          = GF_OPTION_TYPE_PATH,
           .default_value = DEFAULT_VAR_RUN_DIRECTORY,
           .description = "Specifies directory in which gluster should save its"
-                         " statedumps."
+                         " statedumps.",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key   = {"lk-heal"},
           .type  = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE
         },
         {.key  = {"grace-timeout"},
          .type = GF_OPTION_TYPE_INT,
          .min  = 10,
          .max  = 1800,
          .default_value = "10",
+         .op_version = {1},
+         .flags = OPT_FLAG_SETTABLE
         },
         {.key  = {"tcp-window-size"},
          .type = GF_OPTION_TYPE_SIZET,
          .min  = GF_MIN_SOCKET_WINDOW_SIZE,
          .max  = GF_MAX_SOCKET_WINDOW_SIZE,
-         .description = "Specifies the window size for tcp socket."
+         .description = "Specifies the window size for tcp socket.",
+         .op_version = {1},
+         .flags = OPT_FLAG_SETTABLE
         },
 
         /*  The following two options are defined in addr.c, redifined here *
@@ -1740,17 +1760,23 @@ struct volume_options options[] = {
           .default_value = TOSTRING(RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT),
           .description = "Parameter to throttle the number of incoming RPC "
                          "requests from a client. 0 means no limit (can "
-                         "potentially run out of memory)"
+                         "potentially run out of memory)",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_GLOBAL
         },
         { .key   = {"manage-gids"},
           .type  = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
-          .description = "Resolve groups on the server-side."
+          .description = "Resolve groups on the server-side.",
+          .op_version = {GD_OP_VERSION_3_6_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key = {"gid-timeout"},
           .type = GF_OPTION_TYPE_INT,
           .default_value = "300",
-          .description = "Timeout in seconds for the cached groups to expire."
+          .description = "Timeout in seconds for the cached groups to expire.",
+          .op_version = {GD_OP_VERSION_3_6_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key   = {"event-threads"},
           .type  = GF_OPTION_TYPE_INT,
@@ -1760,7 +1786,9 @@ struct volume_options options[] = {
           .description = "Specifies the number of event threads to execute "
                          "in parallel. Larger values would help process"
                          " responses faster, depending on available processing"
-                         " power."
+                         " power.",
+          .op_version = {GD_OP_VERSION_3_7_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key   = {"dynamic-auth"},
           .type  = GF_OPTION_TYPE_BOOL,
@@ -1768,7 +1796,9 @@ struct volume_options options[] = {
           .description   = "When 'on' perform dynamic authentication of volume "
                            "options in order to allow/terminate client "
                            "transport connection immediately in response to "
-                           "*.allow | *.reject volume set options."
+                           "*.allow | *.reject volume set options.",
+          .op_version = {GD_OP_VERSION_3_7_5},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key   = {NULL} },
 };
