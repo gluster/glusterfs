@@ -576,6 +576,7 @@ class GMasterCommon(object):
                     if brick_stime < cluster_stime:
                         self.slave.server.set_stime(
                             self.FLAT_DIR_HIERARCHY, self.uuid, cluster_stime)
+                        self.upd_stime(cluster_stime)
                         # Purge all changelogs available in processing dir
                         # less than cluster_stime
                         proc_dir = os.path.join(self.tempdir,
