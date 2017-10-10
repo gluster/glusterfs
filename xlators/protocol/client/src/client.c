@@ -2979,16 +2979,19 @@ struct volume_options options[] = {
         { .key   = {"transport-type"},
           .value = {"tcp", "socket", "ib-verbs", "unix", "ib-sdp",
                     "tcp/client", "ib-verbs/client", "rdma"},
-          .type  = GF_OPTION_TYPE_STR
+          .type  = GF_OPTION_TYPE_STR,
+          .default_value = "tcp",
         },
         { .key   = {"remote-host"},
-          .type  = GF_OPTION_TYPE_INTERNET_ADDRESS
+          .type  = GF_OPTION_TYPE_INTERNET_ADDRESS,
+          .default_value = "{{ brick.hostname }}"
         },
         { .key   = {"remote-port"},
           .type  = GF_OPTION_TYPE_INT,
         },
         { .key   = {"remote-subvolume"},
-          .type  = GF_OPTION_TYPE_ANY
+          .type  = GF_OPTION_TYPE_ANY,
+          .default_value = "{{ brick.path }}"
         },
         { .key   = {"frame-timeout",
                     "rpc-timeout" },
@@ -2998,7 +3001,9 @@ struct volume_options options[] = {
           .default_value = "1800",
           .description = "Time frame after which the (file) operation would be "
                          "declared as dead, if the server does not respond for "
-                         "a particular (file) operation."
+                         "a particular (file) operation.",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key   = {"ping-timeout"},
           .type  = GF_OPTION_TYPE_TIME,
@@ -3006,7 +3011,9 @@ struct volume_options options[] = {
           .max   = 1013,
           .default_value = "42",
           .description = "Time duration for which the client waits to "
-                         "check if the server is responsive."
+                         "check if the server is responsive.",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key   = {"client-bind-insecure"},
           .type  = GF_OPTION_TYPE_BOOL
@@ -3017,7 +3024,9 @@ struct volume_options options[] = {
           .description = "When the connection to client is lost, server "
                          "cleans up all the locks held by the client. After "
                          "the connection is restored, the client reacquires "
-                         "(heals) the fcntl locks released by the server."
+                         "(heals) the fcntl locks released by the server.",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key   = {"grace-timeout"},
           .type  = GF_OPTION_TYPE_INT,
@@ -3026,13 +3035,17 @@ struct volume_options options[] = {
           .default_value = "10",
           .description = "Specifies the duration for the lock state to be "
                          "maintained on the client after a network "
-                         "disconnection. Range 10-1800 seconds."
+                         "disconnection. Range 10-1800 seconds.",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
-        {.key  = {"tcp-window-size"},
-         .type = GF_OPTION_TYPE_SIZET,
-         .min  = GF_MIN_SOCKET_WINDOW_SIZE,
-         .max  = GF_MAX_SOCKET_WINDOW_SIZE,
-         .description = "Specifies the window size for tcp socket."
+        { .key  = {"tcp-window-size"},
+          .type = GF_OPTION_TYPE_SIZET,
+          .min  = GF_MIN_SOCKET_WINDOW_SIZE,
+          .max  = GF_MAX_SOCKET_WINDOW_SIZE,
+          .description = "Specifies the window size for tcp socket.",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key   = {"filter-O_DIRECT"},
           .type  = GF_OPTION_TYPE_BOOL,
@@ -3042,10 +3055,14 @@ struct volume_options options[] = {
           "server will still continue to cache the file. This works similar to "
           "NFS's behavior of O_DIRECT. Anon-fds can choose to readv/writev "
           "using O_DIRECT",
+          .op_version = {2},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key   = {"send-gids"},
           .type  = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+          .op_version = {GD_OP_VERSION_3_6_0},
+          .flags = OPT_FLAG_SETTABLE
         },
         { .key   = {"event-threads"},
           .type  = GF_OPTION_TYPE_INT,
@@ -3055,7 +3072,9 @@ struct volume_options options[] = {
           .description = "Specifies the number of event threads to execute "
                          "in parallel. Larger values would help process"
                          " responses faster, depending on available processing"
-                         " power. Range 1-32 threads."
+                         " power. Range 1-32 threads.",
+          .op_version = {GD_OP_VERSION_3_7_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key   = {NULL} },
 };
