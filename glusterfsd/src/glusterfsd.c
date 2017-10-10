@@ -192,6 +192,8 @@ static struct argp_option gf_options[] = {
 	 "Do not purge the cache on file open"},
         {"global-timer-wheel", ARGP_GLOBAL_TIMER_WHEEL, "BOOL",
          OPTION_ARG_OPTIONAL, "Instantiate process global timer-wheel"},
+        {"thin-client", ARGP_THIN_CLIENT_KEY, 0, 0,
+         "Enables thin mount and connects via gfproxyd daemon"},
 
         {0, 0, 0, 0, "Fuse options:"},
         {"direct-io-mode", ARGP_DIRECT_IO_MODE_KEY, "BOOL", OPTION_ARG_OPTIONAL,
@@ -566,6 +568,15 @@ set_fuse_mount_options (glusterfs_ctx_t *ctx, dict_t *options)
                         goto err;
                 }
         }
+        if (cmd_args->thin_client) {
+                ret = dict_set_static_ptr (options, "thin-client", "on");
+                if (ret < 0) {
+                        gf_msg ("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
+                                "thin-client");
+                        goto err;
+                }
+        }
+
         ret = 0;
 err:
         return ret;
@@ -978,6 +989,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 cmd_args->volfile_id = gf_strdup (arg);
                 break;
 
+        case ARGP_THIN_CLIENT_KEY:
+                cmd_args->thin_client = _gf_true;
+                break;
+
         case ARGP_PID_FILE_KEY:
                 cmd_args->pid_file = gf_strdup (arg);
                 break;
@@ -1320,7 +1335,6 @@ no_oom_api:
                               "unknown event-history setting \"%s\"", arg);
                 break;
 	}
-
         return 0;
 }
 
@@ -1923,6 +1937,8 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
         char        *tmp_logfile_dyn = NULL;
         char        *tmp_logfilebase = NULL;
         cmd_args_t  *cmd_args = NULL;
+        int          len = 0;
+        char        *thin_volfileid = NULL;
 
         cmd_args = &ctx->cmd_args;
 
@@ -1991,6 +2007,15 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
                                  argv[0]);
                         goto out;
                 }
+        }
+
+        if (cmd_args->thin_client) {
+                len = strlen (cmd_args->volfile_id) + strlen ("gfproxy-client/");
+                thin_volfileid = GF_CALLOC (1, len + 1, gf_common_mt_char);
+                snprintf (thin_volfileid, len + 1, "gfproxy-client/%s",
+                          cmd_args->volfile_id);
+                GF_FREE (cmd_args->volfile_id);
+                cmd_args->volfile_id = thin_volfileid;
         }
 
         if (cmd_args->run_id) {

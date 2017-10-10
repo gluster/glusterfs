@@ -5671,6 +5671,9 @@ init (xlator_t *this_xl)
         GF_OPTION_INIT("event-history", priv->event_history, bool,
                        cleanup_exit);
 
+        GF_OPTION_INIT("thin-client", priv->thin_client, bool,
+                       cleanup_exit);
+
         /* user has set only background-qlen, not congestion-threshold,
            use the fuse kernel driver formula to set congestion. ie, 75% */
         if (dict_get (this_xl->options, "background-qlen") &&
@@ -5980,6 +5983,11 @@ struct volume_options options[] = {
           .default_value = "false",
           .description = "This option can be used to enable or disable fuse "
           "event history.",
+        },
+        { .key = {"thin-client"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "false",
+          .description = "Enables thin mount and connects via gfproxyd daemon.",
         },
         { .key = {NULL} },
 };

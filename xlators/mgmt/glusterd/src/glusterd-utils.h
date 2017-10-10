@@ -742,10 +742,6 @@ void
 glusterd_get_gfproxy_client_volfile (glusterd_volinfo_t *volinfo,
                                      char *path, int path_len);
 
-void
-glusterd_get_gfproxyd_volfile (glusterd_volinfo_t *volinfo,
-                               char *path, int path_len);
-
 int32_t
 glusterd_brickinfo_dup (glusterd_brickinfo_t *brickinfo,
                         glusterd_brickinfo_t *dup_brickinfo);

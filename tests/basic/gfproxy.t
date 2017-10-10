@@ -4,21 +4,17 @@
 . $(dirname $0)/../volume.rc
 . $(dirname $0)/../nfs.rc
 
+function file_exists
+{
+        if [ -f $1 ]; then echo "Y"; else echo "N"; fi
+}
+
 cleanup;
-
-function start_gfproxyd {
-        glusterfs --volfile-id=gfproxy/${V0} --volfile-server=$H0  -l /var/log/glusterfs/${V0}-gfproxy.log
-}
-
-function restart_gfproxyd {
-        pkill -f gfproxy/${V0}
-        start_gfproxyd
-}
 
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 3 $H0:$B0/${V0}{0,1,2}
-TEST $CLI volume set $V0 config.gfproxyd-remote-host $H0
+TEST $CLI volume set $V0 config.gfproxyd enable
 TEST $CLI volume start $V0
 
 sleep 2
@@ -47,7 +43,27 @@ TEST grep "cluster/distribute" $GFPROXYD_VOLFILE
 TEST ! grep "performance/write-behind" $GFPROXYD_VOLFILE
 
 # Test that we can start the server and the client
-TEST start_gfproxyd
+TEST glusterfs --thin-client --volfile-id=patchy --volfile-server=$H0 -l /var/log/glusterfs/${V0}-gfproxy-client.log $M0
+sleep 2
+TEST grep gfproxy-client/${V0} /proc/mounts
+
+# Write data to the mount and checksum it
+TEST dd if=/dev/urandom bs=1M count=10 of=/tmp/testfile1
+md5=$(md5sum /tmp/testfile1 | awk '{print $1}')
+TEST cp -v /tmp/testfile1 $M0/testfile1
+TEST [ "$(md5sum $M0/testfile1 | awk '{print $1}')" == "$md5" ]
+
+rm /tmp/testfile1
+
+dd if=/dev/zero of=$M0/bigfile bs=1K count=10240 &
+BG_STRESS_PID=$!
+
+TEST wait $BG_STRESS_PID
+
+# Perform graph change and make sure the gfproxyd restarts
+TEST $CLI volume set $V0 stat-prefetch off
+
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" file_exists $M0/bigfile
 
 cleanup;
 #G_TESTDEF_TEST_STATUS_NETBSD7=1501392

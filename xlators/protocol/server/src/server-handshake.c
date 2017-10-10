@@ -535,6 +535,8 @@ server_setvolume (rpcsvc_request_t *req)
         LOCK (&ctx->volfile_lock);
         {
                 xl = get_xlator_by_name (this, name);
+                if (!xl)
+                        xl = this;
         }
         UNLOCK (&ctx->volfile_lock);
         if (xl == NULL) {

@@ -2820,10 +2820,15 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "!config",
           .op_version  = 2
         },
-        { .key         = "config.gfproxyd-remote-host",
+        { .key         = VKEY_CONFIG_GFPROXY,
           .voltype     = "configuration",
-          .option      = "gfproxyd-remote-host",
-          .op_version  = 2
+          .option      = "gfproxyd",
+          .value       = "off",
+          .type        = DOC,
+          .op_version  = GD_OP_VERSION_3_13_0,
+          .description = "If this option is enabled, the proxy client daemon "
+                         "called gfproxyd will be started on all the trusted "
+                         "storage pool nodes"
         },
         { .key         = GLUSTERD_QUORUM_TYPE_KEY,
           .voltype     = "mgmt/glusterd",

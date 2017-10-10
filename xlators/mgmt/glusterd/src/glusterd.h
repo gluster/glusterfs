@@ -38,6 +38,7 @@
 #include "store.h"
 #include "glusterd-rcu.h"
 #include "events.h"
+#include "glusterd-gfproxyd-svc.h"
 
 #define GLUSTERD_TR_LOG_SIZE            50
 #define GLUSTERD_QUORUM_TYPE_KEY        "cluster.server-quorum-type"
@@ -473,6 +474,7 @@ struct glusterd_volinfo_ {
 
         glusterd_snapdsvc_t       snapd;
         glusterd_tierdsvc_t       tierd;
+        glusterd_gfproxydsvc_t    gfproxyd;
         int32_t                   quota_xattr_version;
 };
 

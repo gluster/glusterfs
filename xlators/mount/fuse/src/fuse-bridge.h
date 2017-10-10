@@ -140,6 +140,9 @@ struct fuse_private {
 
         /* whether to run the unmount daemon */
         gf_boolean_t auto_unmount;
+
+        /* Load the thin volfile, and connect to gfproxyd*/
+        gf_boolean_t         thin_client;
 };
 typedef struct fuse_private fuse_private_t;
 
