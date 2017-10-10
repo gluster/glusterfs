@@ -6873,6 +6873,125 @@ out:
         return ret;
 }
 
+int
+server4_0_fsetattr (rpcsvc_request_t *req)
+{
+        server_state_t       *state    = NULL;
+        call_frame_t         *frame    = NULL;
+        gfs3_fsetattr_req_v2  args     = {{0},};
+        int                   ret      = -1;
+        int                   op_errno = 0;
+
+        if (!req)
+                return ret;
+
+        ret = xdr_to_generic (req->msg[0], &args,
+                              (xdrproc_t)xdr_gfs3_fsetattr_req_v2);
+        if (ret < 0) {
+                /* failed to decode msg; */
+                SERVER_REQ_SET_ERROR (req, ret);
+                goto out;
+        }
+
+        frame = get_frame_from_request (req);
+        if (!frame) {
+                /* something wrong, mostly insufficient memory */
+                SERVER_REQ_SET_ERROR (req, ret);
+                goto out;
+        }
+        frame->root->op = GF_FOP_FSETATTR;
+
+        state = CALL_STATE (frame);
+        if (!frame->root->client->bound_xl) {
+                /* auth failure, request on subvolume without setvolume */
+                SERVER_REQ_SET_ERROR (req, ret);
+                goto out;
+        }
+
+        state->resolve.type   = RESOLVE_MUST;
+        state->resolve.fd_no  = args.fd;
+        memcpy (state->resolve.gfid, args.gfid, 16);
+
+        gf_stat_to_iatt (&args.stbuf, &state->stbuf);
+        state->valid = args.valid;
+
+        GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
+                                      state->xdata, (args.xdata.xdata_val),
+                                      (args.xdata.xdata_len), ret,
+                                      op_errno, out);
+
+        ret = 0;
+        resolve_and_resume (frame, server_fsetattr_resume);
+
+out:
+        free (args.xdata.xdata_val);
+
+        if (op_errno)
+                SERVER_REQ_SET_ERROR (req, ret);
+
+        return ret;
+}
+
+int
+server4_0_rchecksum (rpcsvc_request_t *req)
+{
+        server_state_t        *state    = NULL;
+        call_frame_t          *frame    = NULL;
+        gfs3_rchecksum_req_v2  args     = {{0},};
+        int                    ret      = -1;
+        int                    op_errno = 0;
+
+        if (!req)
+                return ret;
+
+        ret = xdr_to_generic (req->msg[0], &args,
+                              (xdrproc_t)xdr_gfs3_rchecksum_req_v2);
+        if (ret < 0) {
+                /* failed to decode msg; */
+                SERVER_REQ_SET_ERROR (req, ret);
+                goto out;
+        }
+
+        frame = get_frame_from_request (req);
+        if (!frame) {
+                /* something wrong, mostly insufficient memory */
+                SERVER_REQ_SET_ERROR (req, ret);
+                goto out;
+        }
+        frame->root->op = GF_FOP_RCHECKSUM;
+
+        state = CALL_STATE(frame);
+        if (!frame->root->client->bound_xl) {
+                /* auth failure, request on subvolume without setvolume */
+                SERVER_REQ_SET_ERROR (req, ret);
+                goto out;
+        }
+
+        state->resolve.type  = RESOLVE_MAY;
+        state->resolve.fd_no = args.fd;
+        state->offset        = args.offset;
+        state->size          = args.len;
+
+        memcpy (state->resolve.gfid, args.gfid, 16);
+
+        GF_PROTOCOL_DICT_UNSERIALIZE (frame->root->client->bound_xl,
+                                      state->xdata, (args.xdata.xdata_val),
+                                      (args.xdata.xdata_len), ret,
+                                      op_errno, out);
+
+        ret = 0;
+        resolve_and_resume (frame, server_rchecksum_resume);
+out:
+        free (args.xdata.xdata_val);
+
+        if (op_errno)
+                SERVER_REQ_SET_ERROR (req, ret);
+
+        return ret;
+}
+
+
+
 rpcsvc_actor_t glusterfs3_3_fop_actors[GLUSTER_FOP_PROCCNT] = {
         [GFS3_OP_NULL]         = {"NULL",         GFS3_OP_NULL,         server_null,            NULL, 0, DRC_NA},
         [GFS3_OP_STAT]         = {"STAT",         GFS3_OP_STAT,         server3_3_stat,         NULL, 0, DRC_NA},
@@ -6937,4 +7056,69 @@ struct rpcsvc_program glusterfs3_3_fop_prog = {
         .numactors = GLUSTER_FOP_PROCCNT,
         .actors    = glusterfs3_3_fop_actors,
         .ownthread = _gf_true,
+};
+
+rpcsvc_actor_t glusterfs4_0_fop_actors[] = {
+        [GFS3_OP_NULL]        = { "NULL",       GFS3_OP_NULL, server_null, NULL, 0},
+        [GFS3_OP_STAT]        = { "STAT",       GFS3_OP_STAT, server3_3_stat, NULL, 0},
+        [GFS3_OP_READLINK]    = { "READLINK",   GFS3_OP_READLINK, server3_3_readlink, NULL, 0},
+        [GFS3_OP_MKNOD]       = { "MKNOD",      GFS3_OP_MKNOD, server3_3_mknod, NULL, 0},
+        [GFS3_OP_MKDIR]       = { "MKDIR",      GFS3_OP_MKDIR, server3_3_mkdir, NULL, 0},
+        [GFS3_OP_UNLINK]      = { "UNLINK",     GFS3_OP_UNLINK, server3_3_unlink, NULL, 0},
+        [GFS3_OP_RMDIR]       = { "RMDIR",      GFS3_OP_RMDIR, server3_3_rmdir, NULL, 0},
+        [GFS3_OP_SYMLINK]     = { "SYMLINK",    GFS3_OP_SYMLINK, server3_3_symlink, NULL, 0},
+        [GFS3_OP_RENAME]      = { "RENAME",     GFS3_OP_RENAME, server3_3_rename, NULL, 0},
+        [GFS3_OP_LINK]        = { "LINK",       GFS3_OP_LINK, server3_3_link, NULL, 0},
+        [GFS3_OP_TRUNCATE]    = { "TRUNCATE",   GFS3_OP_TRUNCATE, server3_3_truncate, NULL, 0},
+        [GFS3_OP_OPEN]        = { "OPEN",       GFS3_OP_OPEN, server3_3_open, NULL, 0},
+        [GFS3_OP_READ]        = { "READ",       GFS3_OP_READ, server3_3_readv, NULL, 0},
+        [GFS3_OP_WRITE]       = { "WRITE",      GFS3_OP_WRITE, server3_3_writev, server3_3_writev_vecsizer, 0},
+        [GFS3_OP_STATFS]      = { "STATFS",     GFS3_OP_STATFS, server3_3_statfs, NULL, 0},
+        [GFS3_OP_FLUSH]       = { "FLUSH",      GFS3_OP_FLUSH, server3_3_flush, NULL, 0},
+        [GFS3_OP_FSYNC]       = { "FSYNC",      GFS3_OP_FSYNC, server3_3_fsync, NULL, 0},
+        [GFS3_OP_SETXATTR]    = { "SETXATTR",   GFS3_OP_SETXATTR, server3_3_setxattr, NULL, 0},
+        [GFS3_OP_GETXATTR]    = { "GETXATTR",   GFS3_OP_GETXATTR, server3_3_getxattr, NULL, 0},
+        [GFS3_OP_REMOVEXATTR] = { "REMOVEXATTR", GFS3_OP_REMOVEXATTR, server3_3_removexattr, NULL, 0},
+        [GFS3_OP_OPENDIR]     = { "OPENDIR",    GFS3_OP_OPENDIR, server3_3_opendir, NULL, 0},
+        [GFS3_OP_FSYNCDIR]    = { "FSYNCDIR",   GFS3_OP_FSYNCDIR, server3_3_fsyncdir, NULL, 0},
+        [GFS3_OP_ACCESS]      = { "ACCESS",     GFS3_OP_ACCESS, server3_3_access, NULL, 0},
+        [GFS3_OP_CREATE]      = { "CREATE",     GFS3_OP_CREATE, server3_3_create, NULL, 0},
+        [GFS3_OP_FTRUNCATE]   = { "FTRUNCATE",  GFS3_OP_FTRUNCATE, server3_3_ftruncate, NULL, 0},
+        [GFS3_OP_FSTAT]       = { "FSTAT",      GFS3_OP_FSTAT, server3_3_fstat, NULL, 0},
+        [GFS3_OP_LK]          = { "LK",         GFS3_OP_LK, server3_3_lk, NULL, 0},
+        [GFS3_OP_LOOKUP]      = { "LOOKUP",     GFS3_OP_LOOKUP, server3_3_lookup, NULL, 0},
+        [GFS3_OP_READDIR]     = { "READDIR",    GFS3_OP_READDIR, server3_3_readdir, NULL, 0},
+        [GFS3_OP_INODELK]     = { "INODELK",    GFS3_OP_INODELK, server3_3_inodelk, NULL, 0},
+        [GFS3_OP_FINODELK]    = { "FINODELK",   GFS3_OP_FINODELK, server3_3_finodelk, NULL, 0},
+        [GFS3_OP_ENTRYLK]     = { "ENTRYLK",    GFS3_OP_ENTRYLK, server3_3_entrylk, NULL, 0},
+        [GFS3_OP_FENTRYLK]    = { "FENTRYLK",   GFS3_OP_FENTRYLK, server3_3_fentrylk, NULL, 0},
+        [GFS3_OP_XATTROP]     = { "XATTROP",    GFS3_OP_XATTROP, server3_3_xattrop, NULL, 0},
+        [GFS3_OP_FXATTROP]    = { "FXATTROP",   GFS3_OP_FXATTROP, server3_3_fxattrop, NULL, 0},
+        [GFS3_OP_FGETXATTR]   = { "FGETXATTR",  GFS3_OP_FGETXATTR, server3_3_fgetxattr, NULL, 0},
+        [GFS3_OP_FSETXATTR]   = { "FSETXATTR",  GFS3_OP_FSETXATTR, server3_3_fsetxattr, NULL, 0},
+        [GFS3_OP_RCHECKSUM]   = { "RCHECKSUM",  GFS3_OP_RCHECKSUM, server4_0_rchecksum, NULL, 0},
+        [GFS3_OP_SETATTR]     = { "SETATTR",    GFS3_OP_SETATTR, server3_3_setattr, NULL, 0},
+        [GFS3_OP_FSETATTR]    = { "FSETATTR",   GFS3_OP_FSETATTR, server4_0_fsetattr, NULL, 0},
+        [GFS3_OP_READDIRP]    = { "READDIRP",   GFS3_OP_READDIRP, server3_3_readdirp, NULL, 0},
+        [GFS3_OP_RELEASE]     = { "RELEASE",    GFS3_OP_RELEASE, server3_3_release, NULL, 0},
+        [GFS3_OP_RELEASEDIR]  = { "RELEASEDIR", GFS3_OP_RELEASEDIR, server3_3_releasedir, NULL, 0},
+        [GFS3_OP_FREMOVEXATTR] = { "FREMOVEXATTR", GFS3_OP_FREMOVEXATTR, server3_3_fremovexattr, NULL, 0},
+        [GFS3_OP_FALLOCATE]    = {"FALLOCATE",    GFS3_OP_FALLOCATE,    server3_3_fallocate,    NULL, 0, DRC_NA},
+        [GFS3_OP_DISCARD]      = {"DISCARD",      GFS3_OP_DISCARD,      server3_3_discard,      NULL, 0, DRC_NA},
+        [GFS3_OP_ZEROFILL]     = {"ZEROFILL",     GFS3_OP_ZEROFILL,     server3_3_zerofill,     NULL, 0, DRC_NA},
+        [GFS3_OP_IPC]          = {"IPC",          GFS3_OP_IPC,          server3_3_ipc,          NULL, 0, DRC_NA},
+        [GFS3_OP_SEEK]         = {"SEEK",         GFS3_OP_SEEK,         server3_3_seek,         NULL, 0, DRC_NA},
+        [GFS3_OP_LEASE]       =  {"LEASE",        GFS3_OP_LEASE,        server3_3_lease,        NULL, 0, DRC_NA},
+        [GFS3_OP_GETACTIVELK]  = {"GETACTIVELK",  GFS3_OP_GETACTIVELK,  server3_3_getactivelk,  NULL, 0, DRC_NA},
+        [GFS3_OP_SETACTIVELK]  = {"SETACTIVELK",  GFS3_OP_SETACTIVELK,  server3_3_setactivelk,  NULL, 0, DRC_NA},
+        [GFS3_OP_COMPOUND]     = {"COMPOUND",     GFS3_OP_COMPOUND,     server3_3_compound,     NULL, 0, DRC_NA},
+};
+
+
+struct rpcsvc_program glusterfs4_0_fop_prog = {
+        .progname  = "GlusterFS 4.x v1",
+        .prognum   = GLUSTER_FOP_PROGRAM,
+        .progver   = GLUSTER_FOP_VERSION_v2,
+        .numactors = GLUSTER_FOP_PROCCNT,
+        .actors    = glusterfs4_0_fop_actors,
 };

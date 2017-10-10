@@ -332,6 +332,8 @@ typedef enum gf_get_snapshot_info_type gf_get_snapshot_info_type;
 #define GLUSTER_FOP_VERSION   330 /* 3.3.0 */
 #define GLUSTER_FOP_PROCCNT   GFS3_OP_MAXVALUE
 
+#define GLUSTER_FOP_VERSION_v2   400 /* 4.0.0 */
+
 /* Aggregator */
 #define GLUSTER_AGGREGATOR_PROGRAM 29852134 /* Completely random */
 #define GLUSTER_AGGREGATOR_VERSION 1
