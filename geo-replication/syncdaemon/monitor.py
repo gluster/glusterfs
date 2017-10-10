@@ -389,7 +389,6 @@ class Monitor(object):
                 nwait(apid)  # wait for agent
                 ret = nwait(cpid)
             if ret is None:
-                self.status[w[0]['dir']].set_worker_status(self.ST_STABLE)
                 # If worker dies, agent terminates on EOF.
                 # So lets wait for agent first.
                 nwait(apid)
