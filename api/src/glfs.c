@@ -522,7 +522,7 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_set_volfile_server, 3.4.0);
 /* *
  * Used to free the arguments allocated by glfs_set_volfile_server()
  */
-void
+static void
 glfs_free_volfile_servers (cmd_args_t *cmd_args)
 {
         server_cmdline_t *server = NULL;
@@ -540,6 +540,25 @@ glfs_free_volfile_servers (cmd_args_t *cmd_args)
         cmd_args->curr_server = NULL;
 out:
         return;
+}
+
+static void
+glfs_free_xlator_options (cmd_args_t *cmd_args)
+{
+        xlator_cmdline_option_t *xo     = NULL;
+        xlator_cmdline_option_t *tmp_xo = NULL;
+
+        if (!&(cmd_args->xlator_options))
+                return;
+
+        list_for_each_entry_safe (xo, tmp_xo, &cmd_args->xlator_options,
+                                  cmd_args) {
+                list_del_init (&xo->cmd_args);
+                GF_FREE (xo->volume);
+                GF_FREE (xo->key);
+                GF_FREE (xo->value);
+                GF_FREE (xo);
+        }
 }
 
 int
@@ -1091,6 +1110,8 @@ glusterfs_ctx_destroy (glusterfs_ctx_t *ctx)
 
         if (ctx->cmd_args.curr_server)
                 glfs_free_volfile_servers (&ctx->cmd_args);
+
+        glfs_free_xlator_options (&ctx->cmd_args);
 
         /* For all the graphs, crawl through the xlator_t structs and free
          * all its members except for the mem_acct member,
