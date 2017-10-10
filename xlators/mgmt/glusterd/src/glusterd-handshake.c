@@ -29,6 +29,7 @@
 #include "protocol-common.h"
 #include "rpcsvc.h"
 #include "rpc-common-xdr.h"
+#include "glusterd-gfproxyd-svc-helper.h"
 
 extern struct rpc_clnt_program gd_peer_prog;
 extern struct rpc_clnt_program gd_mgmt_prog;
@@ -286,7 +287,7 @@ build_volfile_path (char *volume_id, char *path,
                 goto out;
         }
 
-        volid_ptr = strstr (volume_id, "gfproxy/");
+        volid_ptr = strstr (volume_id, "gfproxyd/");
         if (volid_ptr) {
                 volid_ptr = strchr (volid_ptr, '/');
                 if (!volid_ptr) {
@@ -302,8 +303,8 @@ build_volfile_path (char *volume_id, char *path,
                         goto out;
                 }
 
-                glusterd_get_gfproxyd_volfile (volinfo, path, path_len);
-
+                glusterd_svc_build_gfproxyd_volfile_path (volinfo, path,
+                                                          path_len);
                 ret = 0;
                 goto out;
         }

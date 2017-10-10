@@ -2682,6 +2682,8 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
         }
 
 
+        svc = &(volinfo->gfproxyd.svc);
+        ret = svc->manager (svc, volinfo, PROC_START_NO_WAIT);
         ret = glusterd_svcs_manager (volinfo);
 
 out:

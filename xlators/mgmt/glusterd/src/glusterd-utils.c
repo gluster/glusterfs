@@ -58,6 +58,7 @@
 #include "glusterd-quotad-svc.h"
 #include "glusterd-snapd-svc.h"
 #include "glusterd-bitd-svc.h"
+#include "glusterd-gfproxyd-svc.h"
 #include "glusterd-server-quorum.h"
 #include "quota-common-utils.h"
 #include "common-utils.h"
@@ -670,6 +671,7 @@ glusterd_volinfo_new (glusterd_volinfo_t **volinfo)
 
         glusterd_snapdsvc_build (&new_volinfo->snapd.svc);
         glusterd_tierdsvc_build (&new_volinfo->tierd.svc);
+        glusterd_gfproxydsvc_build (&new_volinfo->gfproxyd.svc);
 
         pthread_mutex_init (&new_volinfo->reflock, NULL);
         *volinfo = glusterd_volinfo_ref (new_volinfo);
@@ -3519,6 +3521,7 @@ glusterd_spawn_daemons (void *opaque)
         glusterd_restart_rebalance (conf);
         ret = glusterd_snapdsvc_restart ();
         ret = glusterd_tierdsvc_restart ();
+        ret = glusterd_gfproxydsvc_restart ();
 
         return ret;
 }
@@ -12539,19 +12542,6 @@ glusterd_get_gfproxy_client_volfile (glusterd_volinfo_t *volinfo,
         default:
                 break;
         }
-}
-
-void
-glusterd_get_gfproxyd_volfile (glusterd_volinfo_t *volinfo,
-                                char *path, int path_len)
-{
-        char                    workdir[PATH_MAX]      = {0, };
-        glusterd_conf_t        *priv                    = THIS->private;
-
-        GLUSTERD_GET_VOLUME_DIR (workdir, volinfo, priv);
-
-        snprintf (path, path_len, "%s/%s.gfproxyd.vol", workdir,
-                  volinfo->volname);
 }
 
 void

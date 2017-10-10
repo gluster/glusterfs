@@ -36,6 +36,7 @@
 #include "glusterd-svc-mgmt.h"
 #include "glusterd-svc-helper.h"
 #include "glusterd-snapd-svc-helper.h"
+#include "glusterd-gfproxyd-svc-helper.h"
 
 struct gd_validate_reconf_opts {
         dict_t *options;
@@ -58,11 +59,6 @@ extern struct volopt_map_entry glusterd_volopt_map[];
         }                                                               \
 } while (0 /* CONSTCOND */)
 
-/**
- * Needed for GFProxy
- */
-#define GF_PROXY_DAEMON_PORT 40000
-#define GF_PROXY_DAEMON_PORT_STR "40000"
 
 static int
 volgen_graph_build_clients (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
@@ -1518,10 +1514,6 @@ gfproxy_server_graph_builder (volgen_graph_t *graph,
         if (!xl)
                 goto out;
 
-        ret = xlator_set_option (xl, "listen-port", GF_PROXY_DAEMON_PORT_STR);
-        if (ret != 0)
-                goto out;
-
         ret = xlator_set_option (xl, "transport-type", transt);
         if (ret != 0)
                 goto out;
@@ -1530,13 +1522,15 @@ gfproxy_server_graph_builder (volgen_graph_t *graph,
         username = glusterd_auth_get_username (volinfo);
         password = glusterd_auth_get_password (volinfo);
         if (username) {
-                snprintf (key, sizeof (key), "auth.login.%s-server.allow",
-                                volinfo->volname);
+                snprintf (key, sizeof (key),
+                          "auth.login.gfproxyd-%s.allow",
+                          volinfo->volname);
                 ret = xlator_set_option (xl, key, username);
                 if (ret)
                         return -1;
         }
 
+        memset (key, 0, sizeof (key));
         if (password) {
                 snprintf (key, sizeof (key), "auth.login.%s.password",
                                 username);
@@ -1544,6 +1538,10 @@ gfproxy_server_graph_builder (volgen_graph_t *graph,
                 if (ret != 0)
                         goto out;
         }
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "gfproxyd-%s", volinfo->volname);
+        ret = xlator_set_option (xl, "auth-path", key);
 
 out:
         return ret;
@@ -4325,7 +4323,8 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         int              uss_enabled   = -1;
         xlator_t        *this          = THIS;
         char            *subvol        = NULL;
-        size_t          subvol_namelen = 0;
+        size_t           namelen       = 0;
+        char            *xl_id         = NULL;
 
         GF_ASSERT (this);
         GF_ASSERT (conf);
@@ -4351,20 +4350,17 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 if (ret == -1)
                         goto out;
         } else {
-                ret = dict_get_str (set_dict,
-                                        "config.gfproxyd-remote-host", &tmp);
-                if (ret == -1)
-                        goto out;
+                namelen = strlen (volinfo->volname) + strlen ("gfproxyd-") + 1;
+                subvol = alloca (namelen);
+                snprintf (subvol, namelen, "gfproxyd-%s", volinfo->volname);
 
-                subvol_namelen = strlen (volinfo->volname) +
-                                strlen ("-server") + 1;
-                subvol = alloca (subvol_namelen);
-                snprintf (subvol, subvol_namelen,
-                                "%s-server", volinfo->volname);
-
-                volgen_graph_build_client (graph, volinfo, tmp,
-                                           GF_PROXY_DAEMON_PORT_STR, subvol,
-                                           "gfproxy", "tcp", set_dict);
+                namelen = strlen (volinfo->volname) +
+                          strlen ("-gfproxy-client") + 1;
+                xl_id = alloca (namelen);
+                snprintf (xl_id, namelen, "%s-gfproxy-client",
+                          volinfo->volname);
+                volgen_graph_build_client (graph, volinfo, NULL, NULL,
+                                           subvol, xl_id, "tcp", set_dict);
         }
 
         ret = dict_get_str_boolean (set_dict, "features.shard", _gf_false);
@@ -5500,20 +5496,6 @@ get_brick_filepath (char *filename, glusterd_volinfo_t *volinfo,
                           brickinfo->hostname, brick);
 }
 
-static void
-get_gfproxyd_filepath (char *filename, glusterd_volinfo_t *volinfo)
-{
-        char  path[PATH_MAX]   = {0, };
-        glusterd_conf_t *priv  = NULL;
-
-        priv = THIS->private;
-
-        GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
-
-        snprintf (filename, PATH_MAX,
-                        "%s/%s.gfproxyd.vol", path,
-                        volinfo->volname);
-}
 
 gf_boolean_t
 glusterd_is_valid_volfpath (char *volname, char *brick)
@@ -5559,28 +5541,35 @@ out:
         return ret;
 }
 
-static int
-glusterd_generate_gfproxyd_volfile (glusterd_volinfo_t *volinfo)
+int
+glusterd_build_gfproxyd_volfile (glusterd_volinfo_t *volinfo, char *filename)
 {
         volgen_graph_t graph = {0, };
-        char    filename[PATH_MAX] = {0, };
         int     ret = -1;
 
-        GF_ASSERT (volinfo);
-
-        get_gfproxyd_filepath (filename, volinfo);
-
-        struct glusterd_gfproxyd_info info = {
-                .port = GF_PROXY_DAEMON_PORT,
-        };
-
         ret = build_graph_generic (&graph, volinfo,
-                                   NULL, &info,
+                                   NULL, NULL,
                                    &gfproxy_server_graph_builder);
         if (ret == 0)
                 ret = volgen_write_volfile (&graph, filename);
 
         volgen_graph_free (&graph);
+
+        return ret;
+}
+
+int
+glusterd_generate_gfproxyd_volfile (glusterd_volinfo_t *volinfo)
+{
+        char    filename[PATH_MAX] = {0, };
+        int     ret = -1;
+
+        GF_ASSERT (volinfo);
+
+        glusterd_svc_build_gfproxyd_volfile_path (volinfo, filename,
+                                                  PATH_MAX - 1);
+
+        ret = glusterd_build_gfproxyd_volfile (volinfo, filename);
 
         return ret;
 }

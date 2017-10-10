@@ -424,6 +424,7 @@ struct _cmd_args {
 
         char              *process_name;
         char              *event_history;
+        int                thin_client;
 };
 typedef struct _cmd_args cmd_args_t;
 

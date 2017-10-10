@@ -52,6 +52,7 @@
 #include <sys/types.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include "glusterd-gfproxyd-svc-helper.h"
 
 extern char local_node_hostname[PATH_MAX];
 static int
@@ -2175,6 +2176,10 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo, char *key,
                 if (ret)
                         goto out;
         }
+        svc = &(volinfo->gfproxyd.svc);
+        ret = svc->reconfigure (volinfo);
+        if (ret)
+                goto out;
 
         ret = glusterd_create_volfiles_and_notify_services (volinfo);
         if (ret) {
@@ -2619,6 +2624,11 @@ glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict,
                                                 goto out;
                                 }
 
+                                svc = &(volinfo->gfproxyd.svc);
+                                ret = svc->reconfigure (volinfo);
+                                if (ret)
+                                        goto out;
+
                                 ret = glusterd_create_volfiles_and_notify_services (volinfo);
                                 if (ret) {
                                         gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -3019,6 +3029,11 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
                         if (ret)
                                 goto out;
                 }
+                svc = &(volinfo->gfproxyd.svc);
+                ret = svc->reconfigure (volinfo);
+                if (ret)
+                        goto out;
+
                 ret = glusterd_create_volfiles_and_notify_services (volinfo);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -3062,6 +3077,11 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
                                 if (ret)
                                         goto out;
                         }
+
+                        svc = &(volinfo->gfproxyd.svc);
+                        ret = svc->reconfigure (volinfo);
+                        if (ret)
+                                goto out;
 
                         ret = glusterd_create_volfiles_and_notify_services (volinfo);
                         if (ret) {

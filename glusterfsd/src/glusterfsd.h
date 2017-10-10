@@ -100,6 +100,7 @@ enum argp_option_keys {
         ARGP_SUBDIR_MOUNT_KEY             = 178,
         ARGP_PROCESS_NAME_KEY             = 179,
         ARGP_FUSE_EVENT_HISTORY_KEY       = 180,
+        ARGP_THIN_CLIENT_KEY              = 181,
 };
 
 struct _gfd_vol_top_priv {

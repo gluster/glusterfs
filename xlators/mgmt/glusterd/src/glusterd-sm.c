@@ -34,6 +34,7 @@
 #include "glusterd-svc-helper.h"
 #include "glusterd-snapshot-utils.h"
 #include "glusterd-server-quorum.h"
+#include "glusterd-gfproxyd-svc-helper.h"
 
 char local_node_hostname[PATH_MAX] = {0, };
 
@@ -745,6 +746,17 @@ glusterd_peer_detach_cleanup (glusterd_conf_t *priv)
                                                 "to stop tierd daemon service");
                                 }
                         }
+
+                        if (glusterd_is_gfproxyd_enabled (volinfo)) {
+                                svc = &(volinfo->gfproxyd.svc);
+                                ret = svc->stop (svc, SIGTERM);
+                                if (ret) {
+                                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_SVC_STOP_FAIL, "Failed "
+                                                "to stop gfproxyd daemon service");
+                                }
+                        }
+
                         ret = glusterd_cleanup_snaps_for_volume (volinfo);
                         if (ret) {
                                 gf_msg (THIS->name, GF_LOG_ERROR, 0,

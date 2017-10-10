@@ -37,6 +37,7 @@
 #define VKEY_READDIR_AHEAD        "performance.readdir-ahead"
 #define VKEY_RDA_CACHE_LIMIT      "performance.rda-cache-limit"
 #define VKEY_RDA_REQUEST_SIZE     "performance.rda-request-size"
+#define VKEY_CONFIG_GFPROXY       "config.gfproxyd"
 
 #define AUTH_ALLOW_MAP_KEY "auth.allow"
 #define AUTH_REJECT_MAP_KEY "auth.reject"
@@ -310,4 +311,9 @@ gd_is_self_heal_enabled (glusterd_volinfo_t *volinfo, dict_t *dict);
 int
 generate_dummy_client_volfiles (glusterd_volinfo_t *volinfo);
 
+int
+glusterd_generate_gfproxyd_volfile (glusterd_volinfo_t *volinfo);
+
+int
+glusterd_build_gfproxyd_volfile (glusterd_volinfo_t *volinfo, char *filename);
 #endif
