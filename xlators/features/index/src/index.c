@@ -2579,18 +2579,22 @@ struct volume_options options[] = {
         { .key  = {"index-base" },
           .type = GF_OPTION_TYPE_PATH,
           .description = "path where the index files need to be stored",
+          .default_value = "{{ brick.path }}/.glusterfs/indices"
         },
         { .key  = {"xattrop64-watchlist" },
           .type = GF_OPTION_TYPE_STR,
           .description = "Comma separated list of xattrs that are watched",
+          .default_value = "trusted.ec.dirty"
         },
         { .key  = {"xattrop-dirty-watchlist" },
           .type = GF_OPTION_TYPE_STR,
           .description = "Comma separated list of xattrs that are watched",
+          .default_value = "trusted.afr.dirty"
         },
         { .key  = {"xattrop-pending-watchlist" },
           .type = GF_OPTION_TYPE_STR,
           .description = "Comma separated list of xattrs that are watched",
+          .default_value = "trusted.afr.{{ volume.name }}"
         },
         { .key  = {NULL} },
 };
