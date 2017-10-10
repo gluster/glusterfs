@@ -15,6 +15,7 @@
 
 #include "xdr-generic.h"
 #include "glusterfs3-xdr.h"
+#include "glusterfs4-xdr.h"
 #include "iatt.h"
 #include "protocol-common.h"
 #include "upcall-utils.h"

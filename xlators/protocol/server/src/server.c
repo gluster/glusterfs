@@ -1201,6 +1201,18 @@ init (xlator_t *this)
                 goto out;
         }
 
+        glusterfs4_0_fop_prog.options = this->options;
+        ret = rpcsvc_program_register (conf->rpc, &glusterfs4_0_fop_prog);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "registration of program (name:%s, prognum:%d, "
+                        "progver:%d) failed", glusterfs4_0_fop_prog.progname,
+                        glusterfs4_0_fop_prog.prognum,
+                        glusterfs4_0_fop_prog.progver);
+                rpcsvc_program_unregister (conf->rpc, &glusterfs3_3_fop_prog);
+                goto out;
+        }
+
         gluster_handshake_prog.options = this->options;
         ret = rpcsvc_program_register (conf->rpc, &gluster_handshake_prog,
                                        _gf_false);
@@ -1211,6 +1223,7 @@ init (xlator_t *this)
                         gluster_handshake_prog.prognum,
                         gluster_handshake_prog.progver);
                 rpcsvc_program_unregister (conf->rpc, &glusterfs3_3_fop_prog);
+                rpcsvc_program_unregister (conf->rpc, &glusterfs4_0_fop_prog);
                 goto out;
         }
 

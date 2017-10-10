@@ -6249,6 +6249,100 @@ unwind:
         return 0;
 }
 
+int32_t
+client4_0_fsetattr (call_frame_t *frame, xlator_t *this, void *data)
+{
+        clnt_args_t          *args      = NULL;
+        int64_t               remote_fd = -1;
+        clnt_conf_t          *conf      = NULL;
+        gfs3_fsetattr_req_v2  req       = {{0},};
+        int                   op_errno  = ESTALE;
+        int                   ret       = 0;
+
+        if (!frame || !this || !data)
+                goto unwind;
+
+        args = data;
+        conf = this->private;
+
+        CLIENT_GET_REMOTE_FD(this, args->fd, DEFAULT_REMOTE_FD,
+                             remote_fd, op_errno, unwind);
+
+        req.fd = remote_fd;
+        req.valid = args->valid;
+        gf_stat_from_iatt (&req.stbuf, args->stbuf);
+        memcpy (req.gfid, args->fd->inode->gfid, 16);
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, args->xdata, (&req.xdata.xdata_val),
+                                    req.xdata.xdata_len, op_errno, unwind);
+
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_FSETATTR,
+                                     client3_3_fsetattr_cbk, NULL,
+                                     NULL, 0, NULL, 0,
+                                     NULL, (xdrproc_t)xdr_gfs3_fsetattr_req_v2);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
+        }
+
+        GF_FREE (req.xdata.xdata_val);
+
+        return 0;
+unwind:
+        CLIENT_STACK_UNWIND (fsetattr, frame, -1, op_errno, NULL, NULL, NULL);
+        GF_FREE (req.xdata.xdata_val);
+
+        return 0;
+}
+
+int32_t
+client4_0_rchecksum (call_frame_t *frame, xlator_t *this,
+                     void *data)
+{
+        clnt_args_t           *args      = NULL;
+        int64_t                remote_fd = -1;
+        clnt_conf_t           *conf      = NULL;
+        gfs3_rchecksum_req_v2  req       = {{0},};
+        int                    op_errno  = ESTALE;
+        int                    ret       = 0;
+
+        if (!frame || !this || !data)
+                goto unwind;
+
+        args = data;
+        conf = this->private;
+
+        CLIENT_GET_REMOTE_FD(this, args->fd, DEFAULT_REMOTE_FD,
+                             remote_fd, op_errno, unwind);
+
+        req.len    = args->len;
+        req.offset = args->offset;
+        req.fd     = remote_fd;
+        memcpy (req.gfid, args->fd->inode->gfid, 16);
+
+        GF_PROTOCOL_DICT_SERIALIZE (this, args->xdata, (&req.xdata.xdata_val),
+                                    req.xdata.xdata_len, op_errno, unwind);
+
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_RCHECKSUM,
+                                     client3_3_rchecksum_cbk, NULL,
+                                     NULL, 0, NULL,
+                                     0, NULL,
+                                     (xdrproc_t)xdr_gfs3_rchecksum_req_v2);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING, "failed to send the fop");
+        }
+
+        GF_FREE (req.xdata.xdata_val);
+
+        return 0;
+unwind:
+        CLIENT_STACK_UNWIND (rchecksum, frame, -1, op_errno, 0, NULL, NULL);
+        GF_FREE (req.xdata.xdata_val);
+
+        return 0;
+}
+
 /* Table Specific to FOPS */
 rpc_clnt_procedure_t clnt3_3_fop_actors[GF_FOP_MAXVALUE] = {
         [GF_FOP_NULL]         = { "NULL",         NULL},
@@ -6370,5 +6464,72 @@ rpc_clnt_prog_t clnt3_3_fop_prog = {
         .progver   = GLUSTER_FOP_VERSION,
         .numproc   = GLUSTER_FOP_PROCCNT,
         .proctable = clnt3_3_fop_actors,
+        .procnames = clnt3_3_fop_names,
+};
+
+rpc_clnt_procedure_t clnt4_0_fop_actors[GF_FOP_MAXVALUE] = {
+        [GF_FOP_NULL]        = { "NULL",        NULL},
+        [GF_FOP_STAT]        = { "STAT",        client3_3_stat },
+        [GF_FOP_READLINK]    = { "READLINK",    client3_3_readlink },
+        [GF_FOP_MKNOD]       = { "MKNOD",       client3_3_mknod },
+        [GF_FOP_MKDIR]       = { "MKDIR",       client3_3_mkdir },
+        [GF_FOP_UNLINK]      = { "UNLINK",      client3_3_unlink },
+        [GF_FOP_RMDIR]       = { "RMDIR",       client3_3_rmdir },
+        [GF_FOP_SYMLINK]     = { "SYMLINK",     client3_3_symlink },
+        [GF_FOP_RENAME]      = { "RENAME",      client3_3_rename },
+        [GF_FOP_LINK]        = { "LINK",        client3_3_link },
+        [GF_FOP_TRUNCATE]    = { "TRUNCATE",    client3_3_truncate },
+        [GF_FOP_OPEN]        = { "OPEN",        client3_3_open },
+        [GF_FOP_READ]        = { "READ",        client3_3_readv },
+        [GF_FOP_WRITE]       = { "WRITE",       client3_3_writev },
+        [GF_FOP_STATFS]      = { "STATFS",      client3_3_statfs },
+        [GF_FOP_FLUSH]       = { "FLUSH",       client3_3_flush },
+        [GF_FOP_FSYNC]       = { "FSYNC",       client3_3_fsync },
+        [GF_FOP_SETXATTR]    = { "SETXATTR",    client3_3_setxattr },
+        [GF_FOP_GETXATTR]    = { "GETXATTR",    client3_3_getxattr },
+        [GF_FOP_REMOVEXATTR] = { "REMOVEXATTR", client3_3_removexattr },
+        [GF_FOP_OPENDIR]     = { "OPENDIR",     client3_3_opendir },
+        [GF_FOP_FSYNCDIR]    = { "FSYNCDIR",    client3_3_fsyncdir },
+        [GF_FOP_ACCESS]      = { "ACCESS",      client3_3_access },
+        [GF_FOP_CREATE]      = { "CREATE",      client3_3_create },
+        [GF_FOP_FTRUNCATE]   = { "FTRUNCATE",   client3_3_ftruncate },
+        [GF_FOP_FSTAT]       = { "FSTAT",       client3_3_fstat },
+        [GF_FOP_LK]          = { "LK",          client3_3_lk },
+        [GF_FOP_LOOKUP]      = { "LOOKUP",      client3_3_lookup },
+        [GF_FOP_READDIR]     = { "READDIR",     client3_3_readdir },
+        [GF_FOP_INODELK]     = { "INODELK",     client3_3_inodelk },
+        [GF_FOP_FINODELK]    = { "FINODELK",    client3_3_finodelk },
+        [GF_FOP_ENTRYLK]     = { "ENTRYLK",     client3_3_entrylk },
+        [GF_FOP_FENTRYLK]    = { "FENTRYLK",    client3_3_fentrylk },
+        [GF_FOP_XATTROP]     = { "XATTROP",     client3_3_xattrop },
+        [GF_FOP_FXATTROP]    = { "FXATTROP",    client3_3_fxattrop },
+        [GF_FOP_FGETXATTR]   = { "FGETXATTR",   client3_3_fgetxattr },
+        [GF_FOP_FSETXATTR]   = { "FSETXATTR",   client3_3_fsetxattr },
+        [GF_FOP_RCHECKSUM]   = { "RCHECKSUM",   client4_0_rchecksum },
+        [GF_FOP_SETATTR]     = { "SETATTR",     client3_3_setattr },
+        [GF_FOP_FSETATTR]    = { "FSETATTR",    client4_0_fsetattr },
+        [GF_FOP_READDIRP]    = { "READDIRP",    client3_3_readdirp },
+	[GF_FOP_FALLOCATE]   = { "FALLOCATE",	client3_3_fallocate },
+	[GF_FOP_DISCARD]     = { "DISCARD",	client3_3_discard },
+        [GF_FOP_ZEROFILL]     = { "ZEROFILL",     client3_3_zerofill},
+        [GF_FOP_RELEASE]     = { "RELEASE",     client3_3_release },
+        [GF_FOP_RELEASEDIR]  = { "RELEASEDIR",  client3_3_releasedir },
+        [GF_FOP_GETSPEC]     = { "GETSPEC",     client3_getspec },
+        [GF_FOP_FREMOVEXATTR] = { "FREMOVEXATTR", client3_3_fremovexattr },
+        [GF_FOP_IPC]          = { "IPC",          client3_3_ipc },
+        [GF_FOP_SEEK]         = { "SEEK",         client3_3_seek },
+        [GF_FOP_LEASE]        = { "LEASE",        client3_3_lease },
+        [GF_FOP_GETACTIVELK]  = { "GETACTIVELK", client3_3_getactivelk},
+        [GF_FOP_SETACTIVELK]  = { "SETACTIVELK", client3_3_setactivelk},
+        [GF_FOP_COMPOUND]     = { "COMPOUND",     client3_3_compound },
+};
+
+
+rpc_clnt_prog_t clnt4_0_fop_prog = {
+        .progname  = "GlusterFS 4.x v1",
+        .prognum   = GLUSTER_FOP_PROGRAM,
+        .progver   = GLUSTER_FOP_VERSION_v2,
+        .numproc   = GLUSTER_FOP_PROCCNT,
+        .proctable = clnt4_0_fop_actors,
         .procnames = clnt3_3_fop_names,
 };
