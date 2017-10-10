@@ -8,6 +8,8 @@ CLEANFILES = eventtypes.py
 eventsdir = $(GLUSTERFS_LIBEXECDIR)/events
 events_PYTHON = __init__.py gf_event.py eventsapiconf.py eventtypes.py \
 	utils.py
+# this does not work, see the Makefile.am in the root for a workaround
+#nodist_events_PYTHON = eventtypes.py
 
 eventtypes.py: $(top_srcdir)/events/eventskeygen.py
 	$(PYTHON) $(top_srcdir)/events/eventskeygen.py PY_HEADER
