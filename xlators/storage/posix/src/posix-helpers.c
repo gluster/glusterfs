@@ -111,6 +111,7 @@ posix_handle_georep_xattrs (call_frame_t *frame, const char *name,
         static const char *georep_xattr[]   = { "*.glusterfs.*.stime",
                                                 "*.glusterfs.*.xtime",
                                                 "*.glusterfs.*.entry_stime",
+                                                "*.glusterfs.volume-mark.*",
                                                 NULL
                                               };
         if (frame && frame->root) {
