@@ -3067,7 +3067,7 @@ notify (xlator_t *this, int event, void *data, ...)
 void
 fini (xlator_t *this)
 {
-        return;
+        GF_FREE (this->private);
 }
 
 
