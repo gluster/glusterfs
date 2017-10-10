@@ -1777,6 +1777,7 @@ rpc_clnt_destroy (struct rpc_clnt *rpc)
         if (!rpc)
                 return;
 
+        GF_FREE (rpc->conn.name);
         saved_frames_destroy (rpc->conn.saved_frames);
         pthread_mutex_destroy (&rpc->lock);
         pthread_mutex_destroy (&rpc->conn.lock);
