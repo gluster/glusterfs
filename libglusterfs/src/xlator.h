@@ -982,6 +982,8 @@ struct _xlator {
         int32_t           (*init) (xlator_t *this);
         int32_t           (*reconfigure) (xlator_t *this, dict_t *options);
 	int32_t           (*mem_acct_init) (xlator_t *this);
+	int32_t           (*dump_metrics) (xlator_t *this, int fd);
+
 	event_notify_fn_t notify;
 
         gf_loglevel_t    loglevel;   /* Log level for translator */
@@ -1070,6 +1072,9 @@ typedef struct {
         /* mem_acct_init(): used for memory accounting inside of the xlator.
            optional. called during translator initialization */
 	int32_t (*mem_acct_init) (xlator_t *this);
+
+        /* dump_metrics(): used for providing internal metrics. optional */
+	int32_t (*dump_metrics) (xlator_t *this, int fd);
 
         /* notify(): used for handling the notification of events from either
            the parent or child in the graph. optional. */

@@ -32,6 +32,7 @@
 #include "syncop.h"
 #include "xlator.h"
 #include "syscall.h"
+#include "monitoring.h"
 
 static gf_boolean_t is_mgmt_rpc_reconnect = _gf_false;
 int need_emancipate = 0;
@@ -895,6 +896,74 @@ out:
 }
 
 int
+glusterfs_handle_dump_metrics (rpcsvc_request_t *req)
+{
+        int32_t                 ret             = -1;
+        gd1_mgmt_brick_op_req   xlator_req      = {0,};
+        xlator_t                *this           = NULL;
+        glusterfs_ctx_t         *ctx            = NULL;
+        char  *filepath = NULL;
+        int    fd  = -1;
+        struct stat statbuf = {0,};
+        char *msg = NULL;
+
+        GF_ASSERT (req);
+        this = THIS;
+        GF_ASSERT (this);
+
+        ret = xdr_to_generic (req->msg[0], &xlator_req,
+                             (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
+
+        if (ret < 0) {
+                /*failed to decode msg;*/
+                req->rpc_err = GARBAGE_ARGS;
+                return -1;
+        }
+        ret = -1;
+        ctx = this->ctx;
+
+        /* Infra for monitoring */
+        filepath = gf_monitor_metrics (ctx);
+        if (!filepath)
+                goto out;
+
+        fd = sys_open (filepath, O_RDONLY, 0);
+        if (fd < 0)
+                goto out;
+
+        if (sys_fstat (fd, &statbuf) < 0)
+                goto out;
+
+        if (statbuf.st_size > GF_UNIT_MB) {
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                        LG_MSG_NO_MEMORY,
+                        "Allocated size exceeds expectation: "
+                        "reconsider logic (%"GF_PRI_SIZET")",
+                        statbuf.st_size);
+        }
+        msg = GF_CALLOC (1, (statbuf.st_size + 1), gf_common_mt_char);
+        if (!msg)
+                goto out;
+
+        ret = sys_read (fd, msg, statbuf.st_size);
+        if (ret < 0)
+                goto out;
+
+        /* Send all the data in errstr, instead of dictionary for now */
+        glusterfs_translator_info_response_send (req, 0, msg, NULL);
+
+        ret = 0;
+out:
+        if (fd >= 0)
+                sys_close (fd);
+
+        GF_FREE (msg);
+        GF_FREE (filepath);
+
+        return ret;
+}
+
+int
 glusterfs_handle_defrag (rpcsvc_request_t *req)
 {
         int32_t                  ret     = -1;
@@ -1694,6 +1763,11 @@ rpcsvc_actor_t glusterfs_actors[GLUSTERD_BRICK_MAXVALUE] = {
         [GLUSTERD_BRICK_ATTACH]        = {"ATTACH",
                                           GLUSTERD_BRICK_ATTACH,
                                           glusterfs_handle_attach,
+                                          NULL, 0, DRC_NA},
+
+        [GLUSTERD_DUMP_METRICS]        = {"DUMP METRICS",
+                                          GLUSTERD_DUMP_METRICS,
+                                          glusterfs_handle_dump_metrics,
                                           NULL, 0, DRC_NA},
 };
 

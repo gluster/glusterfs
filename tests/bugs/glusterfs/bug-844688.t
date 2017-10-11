@@ -13,7 +13,7 @@ TEST glusterfs -s $H0 --volfile-id $V0 $M0
 
 mount_pid=$(get_mount_process_pid $V0);
 # enable dumping of call stack creation and frame creation times in statedump
-kill -USR2 $mount_pid;
+# monitoring is enabled by default
 
 TEST touch $M0/touchfile;
 (dd if=/dev/urandom of=$M0/file bs=5k 2>/dev/null 1>/dev/null)&
