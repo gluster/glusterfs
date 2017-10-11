@@ -239,6 +239,7 @@ enum glusterd_brick_procnum {
         GLUSTERD_BRICK_BARRIER,
         GLUSTERD_NODE_BITROT,
         GLUSTERD_BRICK_ATTACH,
+        GLUSTERD_DUMP_METRICS,
         GLUSTERD_BRICK_MAXVALUE,
 };
 

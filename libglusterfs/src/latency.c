@@ -93,15 +93,3 @@ gf_proc_dump_latency_info (xlator_t *xl)
         }
 }
 
-
-void
-gf_latency_toggle (int signum, glusterfs_ctx_t *ctx)
-{
-        if (ctx) {
-                ctx->measure_latency = !ctx->measure_latency;
-                gf_msg ("[core]", GF_LOG_INFO, 0,
-                        LG_MSG_LATENCY_MEASUREMENT_STATE,
-                        "Latency measurement turned %s",
-                        ctx->measure_latency ? "on" : "off");
-        }
-}

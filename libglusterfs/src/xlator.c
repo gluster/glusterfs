@@ -373,6 +373,12 @@ int xlator_dynload_newway (xlator_t *xl)
                               xl->name);
         }
 
+        xl->dump_metrics = xlapi->dump_metrics;
+        if (!xl->dump_metrics) {
+                gf_msg_trace ("xlator", 0, "%s: method missing (dump_metrics)",
+                              xl->name);
+        }
+
         vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
                              gf_common_mt_volume_opt_list_t);
         if (!vol_opt) {

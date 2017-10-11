@@ -157,6 +157,9 @@ global_xl_reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("measure-latency", bool_opt, options, bool, out);
         this->ctx->measure_latency = bool_opt;
 
+        GF_OPTION_RECONF ("metrics-dump-path", this->ctx->config.metrics_dumppath,
+                          options, str, out);
+
         /* TODO: add more things here */
         ret = 0;
 out:
@@ -166,7 +169,19 @@ out:
 static int
 global_xl_init (xlator_t *this)
 {
-        return 0;
+        int ret = -1;
+        gf_boolean_t bool_opt = false;
+
+        GF_OPTION_INIT ("measure-latency", bool_opt, bool, out);
+        this->ctx->measure_latency = bool_opt;
+
+        GF_OPTION_INIT ("metrics-dump-path", this->ctx->config.metrics_dumppath,
+                        str, out);
+
+        ret = 0;
+
+out:
+        return ret;
 }
 
 static void
@@ -183,6 +198,14 @@ struct volume_options global_xl_options[] = {
           .flags = OPT_FLAG_SETTABLE,
           .tags = {"global", "context"},
           .description = "Use this option to toggle measuring latency"
+        },
+        { .key   = {"metrics-dump-path"},
+          .type  = GF_OPTION_TYPE_STR,
+          .default_value = "{{gluster_workdir}}/metrics",
+          .op_version = {GD_OP_VERSION_4_0_0},
+          .flags = OPT_FLAG_SETTABLE,
+          .tags = {"global", "context"},
+          .description = "Use this option to set the metrics dump path"
         },
 
         { .key = {NULL},},

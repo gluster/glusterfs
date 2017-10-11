@@ -76,6 +76,7 @@
 #include "client_t.h"
 #include "netgroups.h"
 #include "exports.h"
+#include "monitoring.h"
 
 #include "daemon.h"
 
@@ -1542,6 +1543,9 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
          */
         ret = -1;
 
+        /* monitoring should be enabled by default */
+        ctx->measure_latency = true;
+
         ctx->process_uuid = generate_glusterfs_ctx_id ();
         if (!ctx->process_uuid) {
                 gf_msg ("", GF_LOG_CRITICAL, 0, glusterfsd_msg_13);
@@ -2175,14 +2179,14 @@ glusterfs_sigwaiter (void *arg)
         sigset_t  set;
         int       ret = 0;
         int       sig = 0;
-
+        char     *file = NULL;
 
         sigemptyset (&set);
         sigaddset (&set, SIGINT);   /* cleanup_and_exit */
         sigaddset (&set, SIGTERM);  /* cleanup_and_exit */
         sigaddset (&set, SIGHUP);   /* reincarnate */
         sigaddset (&set, SIGUSR1);  /* gf_proc_dump_info */
-        sigaddset (&set, SIGUSR2);  /* gf_latency_toggle */
+        sigaddset (&set, SIGUSR2);
 
         for (;;) {
                 ret = sigwait (&set, &sig);
@@ -2202,7 +2206,11 @@ glusterfs_sigwaiter (void *arg)
                         gf_proc_dump_info (sig, glusterfsd_ctx);
                         break;
                 case SIGUSR2:
-                        gf_latency_toggle (sig, glusterfsd_ctx);
+                        file = gf_monitor_metrics (glusterfsd_ctx);
+
+                        /* Nothing needed to be done here */
+                        GF_FREE (file);
+
                         break;
                 default:
 
@@ -2243,7 +2251,7 @@ glusterfs_signals_setup (glusterfs_ctx_t *ctx)
         sigaddset (&set, SIGTERM);  /* cleanup_and_exit */
         sigaddset (&set, SIGHUP);   /* reincarnate */
         sigaddset (&set, SIGUSR1);  /* gf_proc_dump_info */
-        sigaddset (&set, SIGUSR2);  /* gf_latency_toggle */
+        sigaddset (&set, SIGUSR2);
 
         ret = pthread_sigmask (SIG_BLOCK, &set, NULL);
         if (ret) {

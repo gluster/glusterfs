@@ -20,7 +20,4 @@ typedef struct fop_latency {
         uint64_t count;
 } fop_latency_t;
 
-void
-gf_latency_toggle (int signum, glusterfs_ctx_t *ctx);
-
 #endif /* __LATENCY_H__ */

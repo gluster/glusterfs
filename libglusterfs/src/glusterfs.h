@@ -553,6 +553,11 @@ struct _glusterfs_ctx {
 
         gf_lock_t          volfile_lock;
 
+        /* configuration related elements, which gets changed
+           from global xlator */
+        struct {
+                char *metrics_dumppath;
+        } config;
 
         struct {
                 gf_atomic_t max_dict_pairs;
