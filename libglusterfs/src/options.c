@@ -590,7 +590,7 @@ xlator_option_validate_addr (xlator_t *xl, const char *key, const char *value,
         return ret;
 }
 
-static int
+int
 xlator_option_validate_addr_list (xlator_t *xl, const char *key,
                                   const char *value, volume_option_t *opt,
                                   char **op_errstr)
@@ -668,7 +668,7 @@ xlator_option_validate_addr_list (xlator_t *xl, const char *key,
 out:
         if (ret) {
                 snprintf (errstr, sizeof (errstr), "option %s %s: '%s' is not "
-                "a valid internet-address-list", key, value, value);
+                          "a valid internet-address-list", key, value, value);
                 gf_msg (xl->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY, "%s",
                         errstr);
                 if (op_errstr)
