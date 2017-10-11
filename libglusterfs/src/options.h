@@ -140,6 +140,11 @@ int xlator_options_validate_list (xlator_t *xl, dict_t *options,
 int xlator_option_validate (xlator_t *xl, char *key, char *value,
                             volume_option_t *opt, char **op_errstr);
 int xlator_options_validate (xlator_t *xl, dict_t *options, char **errstr);
+
+int xlator_option_validate_addr_list (xlator_t *xl, const char *key,
+                                      const char *value, volume_option_t *opt,
+                                      char **op_errstr);
+
 volume_option_t *
 xlator_volume_option_get (xlator_t *xl, const char *key);
 

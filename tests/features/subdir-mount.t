@@ -78,6 +78,10 @@ TEST ! $CLI volume set $V0 auth.allow "subdir2\(1.2.3.4\)"
 # support subdir inside subdir
 TEST $CLI volume set $V0 auth.allow '/subdir1/subdir1.1/subdir1.2/\(1.2.3.4\|::1\),/\(192.168.10.1\|192.168.11.1\),/subdir2\(1.2.3.4\)'
 
+TEST $CLI volume stop $V0
+
+TEST $CLI volume start $V0
+
 # /subdir2 has not allowed IP
 TEST $GFS --subdir-mount /subdir2 -s $H0 --volfile-id $V0 $M1
 TEST stat $M1

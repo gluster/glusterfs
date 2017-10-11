@@ -394,9 +394,6 @@ _check_for_auth_option (dict_t *d, char *k, data_t *v,
         int       ret           = 0;
         xlator_t *xl            = NULL;
         char     *tail          = NULL;
-        char     *tmp_addr_list = NULL;
-        char     *addr          = NULL;
-        char     *tmp_str       = NULL;
 
         xl = tmp;
 
@@ -425,38 +422,15 @@ _check_for_auth_option (dict_t *d, char *k, data_t *v,
                  * valid auth.allow.<xlator>
                  * Now we verify the ip address
                  */
-                if (!strcmp (v->data, "*")) {
-                        ret = 0;
-                        goto out;
-                }
-
-                /* TODO-SUBDIR-MOUNT: fix the format */
-                tmp_addr_list = gf_strdup (v->data);
-                addr = strtok_r (tmp_addr_list, ",", &tmp_str);
-                if (!addr)
-                        addr = v->data;
-
-                while (addr) {
-                        if (valid_internet_address (addr, _gf_true)) {
-                                ret = 0;
-                        } else {
-                                ret = -1;
-                                gf_msg (xl->name, GF_LOG_ERROR, 0,
-                                        PS_MSG_INTERNET_ADDR_ERROR,
-                                        "internet address '%s'"
-                                        " does not conform to"
-                                        " standards.", addr);
-                                goto out;
-                        }
-                        if (tmp_str)
-                                addr = strtok_r (NULL, ",", &tmp_str);
-                        else
-                                addr = NULL;
-                }
+                ret = xlator_option_validate_addr_list (xl, "auth-*", v->data,
+                                                        NULL, NULL);
+                if (ret)
+                        gf_msg (xl->name, GF_LOG_ERROR, 0,
+                                PS_MSG_INTERNET_ADDR_ERROR,
+                                "internet address '%s' does not conform "
+                                "to standards.", v->data);
         }
 out:
-        GF_FREE (tmp_addr_list);
-
         return ret;
 }
 
