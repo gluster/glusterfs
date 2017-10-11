@@ -28,7 +28,7 @@ USERSMB_SET=""
 USERCIFS_SET=""
 
 function parse_args () {
-        ARGS=$(getopt -l $OPTSPEC  --name $PROGNAME -o "o:" -- $@)
+        ARGS=$(getopt -l $OPTSPEC  --name $PROGNAME -o "o:" -- "$@")
         eval set -- "$ARGS"
 
         while true; do
@@ -123,23 +123,23 @@ function get_smb () {
         usersmbvalue=$(grep user.smb $GLUSTERD_WORKDIR/vols/"$volname"/info |\
                        cut -d"=" -f2)
 
-        if [[ $usercifsvalue = "disable" || $usersmbvalue = "disable" ]]; then
+        if [ $usercifsvalue = "disable" ] || [ $usersmbvalue = "disable" ]; then
                 uservalue="disable"
         fi
         echo "$uservalue"
 }
 
-parse_args $@
-if [ "0" = $(is_volume_started "$VOL") ]; then
+parse_args "$@"
+if [ "0" = "$(is_volume_started "$VOL")" ]; then
     exit 0
 fi
 
 
-if [[ "$USERCIFS_SET" = "YES" || "$USERSMB_SET" = "YES" ]]; then
+if [ "$USERCIFS_SET" = "YES" ] || [ "$USERSMB_SET" = "YES" ]; then
     #Find smb.conf, smbd pid directory and smbd logfile path
     find_config_info
 
-    if [ $(get_smb "$VOL") = "disable" ]; then
+    if [ "$(get_smb "$VOL")" = "disable" ]; then
         del_samba_share $VOL
         sighup_samba
     else

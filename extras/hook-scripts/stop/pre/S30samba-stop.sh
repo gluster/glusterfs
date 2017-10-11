@@ -22,7 +22,7 @@ CONFIGFILE=
 PIDDIR=
 
 function parse_args () {
-        ARGS=$(getopt -l $OPTSPEC  -name $PROGNAME $@)
+        ARGS=$(getopt -l $OPTSPEC  -name $PROGNAME "$@")
         eval set -- "$ARGS"
 
         while true; do
@@ -46,8 +46,8 @@ function find_config_info () {
                 echo "Samba is not installed"
                 exit 1
         fi
-        CONFIGFILE=`echo $cmdout | awk {'print $2'}`
-        PIDDIR=`smbd -b | grep PIDDIR | awk {'print $2'}`
+        CONFIGFILE=`echo $cmdout | awk '{print $2}'`
+        PIDDIR=`smbd -b | grep PIDDIR | awk '{print $2}'`
 }
 
 function del_samba_share () {
@@ -65,7 +65,7 @@ function sighup_samba () {
         fi
 }
 
-parse_args $@
+parse_args "$@"
 find_config_info
 del_samba_share $VOL
 sighup_samba

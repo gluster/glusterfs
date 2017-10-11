@@ -21,7 +21,7 @@ VOL=
 META="all"
 
 function parse_args () {
-        ARGS=$(getopt -l $OPTSPEC  -name $PROGNAME $@)
+        ARGS=$(getopt -l $OPTSPEC  -name $PROGNAME "$@")
         eval set -- "$ARGS"
 
         while true; do
@@ -55,7 +55,7 @@ function add_fstab_entry () {
         fi
 }
 
-parse_args $@
+parse_args "$@"
 if [ "$META" = "$VOL" ]
 then
         mkdir -p $CTDB_MNT
