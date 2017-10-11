@@ -13,12 +13,9 @@
 PROGNAME="Sselinux"
 OPTSPEC="volname:"
 VOL=
-CONFIGFILE=
-LOGFILEBASE=
-PIDDIR=
 
 function parse_args () {
-        ARGS=$(getopt -l $OPTSPEC  -name $PROGNAME $@)
+        ARGS=$(getopt -l $OPTSPEC  -name $PROGNAME "$@")
         eval set -- "$ARGS"
 
         while true; do
@@ -53,7 +50,7 @@ function delete_brick_fcontext()
 SELINUX_STATE=$(which getenforce && getenforce)
 [ "${SELINUX_STATE}" = 'Disabled' ] && exit 0
 
-parse_args $@
+parse_args "$@"
 [ -z "$VOL" ] && exit 1
 
 delete_brick_fcontext $VOL

@@ -12,7 +12,7 @@ VOL=
 META="all"
 
 function parse_args () {
-        ARGS=$(getopt -l $OPTSPEC  -name $PROGNAME $@)
+        ARGS=$(getopt -l $OPTSPEC  -name $PROGNAME "$@")
         eval set -- "$ARGS"
 
         while true; do
@@ -51,7 +51,7 @@ function remove_fstab_entry () {
         fi
 }
 
-parse_args $@
+parse_args "$@"
 if [ "$META" = "$VOL" ]
 then
         umount "$CTDB_MNT"

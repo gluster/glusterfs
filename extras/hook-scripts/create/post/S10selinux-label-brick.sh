@@ -14,7 +14,7 @@ OPTSPEC="volname:"
 VOL=
 
 parse_args () {
-        ARGS=$(getopt -l $OPTSPEC  -name $PROGNAME $@)
+        ARGS=$(getopt -l $OPTSPEC  -name $PROGNAME "$@")
         eval set -- "$ARGS"
 
         while true; do
@@ -53,7 +53,7 @@ set_brick_labels()
 SELINUX_STATE=$(which getenforce && getenforce)
 [ "${SELINUX_STATE}" = 'Disabled' ] && exit 0
 
-parse_args $@
+parse_args "$@"
 [ -z "$VOL" ] && exit 1
 
 set_brick_labels $VOL

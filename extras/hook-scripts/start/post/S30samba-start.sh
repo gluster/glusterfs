@@ -29,7 +29,7 @@ PIDDIR=
 GLUSTERD_WORKDIR=
 
 function parse_args () {
-        ARGS=$(getopt -l $OPTSPEC  -name $PROGNAME $@)
+        ARGS=$(getopt -l $OPTSPEC  -name $PROGNAME "$@")
         eval set -- "$ARGS"
 
         while true; do
@@ -57,8 +57,8 @@ function find_config_info () {
                 echo "Samba is not installed"
                 exit 1
         fi
-        CONFIGFILE=`echo $cmdout | awk {'print $2'}`
-        PIDDIR=`smbd -b | grep PIDDIR | awk {'print $2'}`
+        CONFIGFILE=`echo $cmdout | awk '{print $2}'`
+        PIDDIR=`smbd -b | grep PIDDIR | awk '{print $2}'`
         LOGFILEBASE=`smbd -b | grep 'LOGFILEBASE' | awk '{print $2}'`
 }
 
@@ -95,13 +95,13 @@ function get_smb () {
         usersmbvalue=$(grep user.smb $GLUSTERD_WORKDIR/vols/"$volname"/info |\
                        cut -d"=" -f2)
 
-        if [[ $usercifsvalue = "disable" || $usersmbvalue = "disable" ]]; then
+        if [ $usercifsvalue = "disable" ] || [ $usersmbvalue = "disable" ]; then
                 uservalue="disable"
         fi
         echo "$uservalue"
 }
 
-parse_args $@
+parse_args "$@"
 if [ "$(get_smb "$VOL")" = "disable" ]; then
         exit 0
 fi
