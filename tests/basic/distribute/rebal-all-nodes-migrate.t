@@ -141,3 +141,4 @@ TEST $CLI_1 volume delete $V0
 ##############################################################
 
 cleanup
+#G_TESTDEF_TEST_STATUS_NETBSD7=1501388
