@@ -152,10 +152,11 @@ changelog_rmdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
         if (barrier_enabled && !stub) {
-                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                        CHANGELOG_MSG_NO_MEMORY,
-                        "Failed to barrier FOPs, disabling changelog barrier "
-                        "FOP: rmdir");
+                gf_smsg (this->name, GF_LOG_ERROR, ENOMEM,
+                         CHANGELOG_MSG_NO_MEMORY,
+                         "Failed to barrier FOPs, disabling changelog barrier",
+                         "fop=rmdir",
+                         NULL);
                 chlog_barrier_dequeue_all (this, &queue);
         }
 
@@ -309,10 +310,11 @@ changelog_unlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
         if (barrier_enabled && !stub) {
-                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                        CHANGELOG_MSG_NO_MEMORY,
-                        "Failed to barrier FOPs, disabling changelog barrier "
-                        "FOP: unlink");
+                gf_smsg (this->name, GF_LOG_ERROR, ENOMEM,
+                         CHANGELOG_MSG_NO_MEMORY,
+                         "Failed to barrier FOPs, disabling changelog barrier",
+                         "fop=unlink",
+                         NULL);
                 chlog_barrier_dequeue_all (this, &queue);
         }
 
@@ -435,10 +437,11 @@ changelog_rename (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
         if (barrier_enabled && !stub) {
-                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                        CHANGELOG_MSG_NO_MEMORY,
-                        "Failed to barrier FOPs, disabling changelog barrier "
-                        "FOP: rename");
+                gf_smsg (this->name, GF_LOG_ERROR, ENOMEM,
+                         CHANGELOG_MSG_NO_MEMORY,
+                         "Failed to barrier FOPs, disabling changelog barrier",
+                         "fop=rename",
+                         NULL);
                 chlog_barrier_dequeue_all (this, &queue);
         }
 /* changelog barrier */
@@ -553,10 +556,11 @@ changelog_link (call_frame_t *frame,
         }
 
         if (barrier_enabled && !stub) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        CHANGELOG_MSG_NO_MEMORY,
-                        "Failed to barrier FOPs, disabling changelog barrier "
-                        "FOP: link");
+                gf_smsg (this->name, GF_LOG_ERROR, 0,
+                         CHANGELOG_MSG_NO_MEMORY,
+                         "Failed to barrier FOPs, disabling changelog barrier",
+                         "fop=link",
+                         NULL);
                 chlog_barrier_dequeue_all (this, &queue);
         }
  wind:
@@ -688,10 +692,11 @@ changelog_mkdir (call_frame_t *frame, xlator_t *this,
         }
 
         if (barrier_enabled && !stub) {
-                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                        CHANGELOG_MSG_NO_MEMORY,
-                        "Failed to barrier FOPs, disabling changelog barrier "
-                        "FOP: mkdir");
+                gf_smsg (this->name, GF_LOG_ERROR, ENOMEM,
+                         CHANGELOG_MSG_NO_MEMORY,
+                         "Failed to barrier FOPs, disabling changelog barrier",
+                         "fop=mkdir",
+                         NULL);
                 chlog_barrier_dequeue_all (this, &queue);
         }
 
@@ -818,10 +823,11 @@ changelog_symlink (call_frame_t *frame, xlator_t *this,
         }
 
         if (barrier_enabled && !stub) {
-                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                        CHANGELOG_MSG_NO_MEMORY,
-                        "Failed to barrier FOPs, disabling changelog barrier "
-                        "FOP: symlink");
+                gf_smsg (this->name, GF_LOG_ERROR, ENOMEM,
+                         CHANGELOG_MSG_NO_MEMORY,
+                         "Failed to barrier FOPs, disabling changelog barrier",
+                         "fop=symlink",
+                         NULL);
                 chlog_barrier_dequeue_all (this, &queue);
         }
 
@@ -972,10 +978,11 @@ changelog_mknod (call_frame_t *frame,
         }
 
         if (barrier_enabled && !stub) {
-                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                        CHANGELOG_MSG_NO_MEMORY,
-                        "Failed to barrier FOPs, disabling changelog barrier "
-                        "FOP: mknod");
+                gf_smsg (this->name, GF_LOG_ERROR, ENOMEM,
+                         CHANGELOG_MSG_NO_MEMORY,
+                         "Failed to barrier FOPs, disabling changelog barrier",
+                         "fop=mknod",
+                         NULL);
                 chlog_barrier_dequeue_all (this, &queue);
         }
 
@@ -1133,10 +1140,11 @@ changelog_create (call_frame_t *frame, xlator_t *this,
         }
 
         if (barrier_enabled && !stub) {
-                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                        CHANGELOG_MSG_NO_MEMORY,
-                        "Failed to barrier FOPs, disabling changelog barrier "
-                        "FOP: create");
+                gf_smsg (this->name, GF_LOG_ERROR, ENOMEM,
+                         CHANGELOG_MSG_NO_MEMORY,
+                         "Failed to barrier FOPs, disabling changelog barrier",
+                         "fop=create",
+                         NULL);
                 chlog_barrier_dequeue_all (this, &queue);
         }
 
@@ -1454,11 +1462,13 @@ changelog_handle_virtual_xattr (call_frame_t *frame, xlator_t *this,
         if (valid) {
                 ret = changelog_fill_entry_buf (frame, this, loc, &local);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_INFO, 0,
-                                CHANGELOG_MSG_ENTRY_BUF_INFO,
-                                "Entry cannot be"
-                                " captured for gfid: %s. Capturing DATA"
-                                " entry.", uuid_utoa (loc->inode->gfid));
+                        gf_smsg (this->name, GF_LOG_INFO, 0,
+                                 CHANGELOG_MSG_ENTRY_BUF_INFO,
+                                 "Entry cannot be"
+                                 " captured for gfid, Capturing DATA"
+                                 " entry.",
+                                 "gfid=%s", uuid_utoa (loc->inode->gfid),
+                                 NULL);
                         goto unwind;
                 }
                 changelog_update (this, priv, local, CHANGELOG_TYPE_ENTRY);
@@ -2410,18 +2420,22 @@ changelog_barrier_pthread_init (xlator_t *this, changelog_priv_t *priv)
         int             ret                   = 0;
 
         if ((ret = pthread_mutex_init(&priv->bn.bnotify_mutex, NULL)) != 0) {
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        CHANGELOG_MSG_PTHREAD_MUTEX_INIT_FAILED,
-                        "bnotify pthread_mutex_init failed (%d)", ret);
+                gf_smsg (this->name, GF_LOG_ERROR, errno,
+                         CHANGELOG_MSG_PTHREAD_MUTEX_INIT_FAILED,
+                         "bnotify pthread_mutex_init failed",
+                         "ret=%d", ret,
+                         NULL);
                 ret = -1;
                 goto out;
         }
         bn_mutex_init = _gf_true;
 
         if ((ret = pthread_cond_init(&priv->bn.bnotify_cond, NULL)) != 0) {
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        CHANGELOG_MSG_PTHREAD_COND_INIT_FAILED,
-                        "bnotify pthread_cond_init failed (%d)", ret);
+                gf_smsg (this->name, GF_LOG_ERROR, errno,
+                         CHANGELOG_MSG_PTHREAD_COND_INIT_FAILED,
+                         "bnotify pthread_cond_init failed",
+                         "ret=%d", ret,
+                         NULL);
                 ret = -1;
                 goto out;
         }
@@ -2429,18 +2443,22 @@ changelog_barrier_pthread_init (xlator_t *this, changelog_priv_t *priv)
 
         if ((ret = pthread_mutex_init(&priv->dm.drain_black_mutex, NULL)) != 0)
         {
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        CHANGELOG_MSG_PTHREAD_MUTEX_INIT_FAILED,
-                        "drain_black pthread_mutex_init failed (%d)", ret);
+                gf_smsg (this->name, GF_LOG_ERROR, errno,
+                         CHANGELOG_MSG_PTHREAD_MUTEX_INIT_FAILED,
+                         "drain_black pthread_mutex_init failed",
+                         "ret=%d", ret,
+                         NULL);
                 ret = -1;
                 goto out;
         }
         dm_mutex_black_init = _gf_true;
 
         if ((ret = pthread_cond_init(&priv->dm.drain_black_cond, NULL)) != 0) {
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        CHANGELOG_MSG_PTHREAD_COND_INIT_FAILED,
-                        "drain_black pthread_cond_init failed (%d)", ret);
+                gf_smsg (this->name, GF_LOG_ERROR, errno,
+                         CHANGELOG_MSG_PTHREAD_COND_INIT_FAILED,
+                         "drain_black pthread_cond_init failed",
+                         "ret=%d", ret,
+                         NULL);
                 ret = -1;
                 goto out;
         }
@@ -2448,36 +2466,44 @@ changelog_barrier_pthread_init (xlator_t *this, changelog_priv_t *priv)
 
         if ((ret = pthread_mutex_init(&priv->dm.drain_white_mutex, NULL)) != 0)
         {
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        CHANGELOG_MSG_PTHREAD_MUTEX_INIT_FAILED,
-                        "drain_white pthread_mutex_init failed (%d)", ret);
+                gf_smsg (this->name, GF_LOG_ERROR, errno,
+                         CHANGELOG_MSG_PTHREAD_MUTEX_INIT_FAILED,
+                         "drain_white pthread_mutex_init failed",
+                         "ret=%d", ret,
+                         NULL);
                 ret = -1;
                 goto out;
         }
         dm_mutex_white_init = _gf_true;
 
         if ((ret = pthread_cond_init(&priv->dm.drain_white_cond, NULL)) != 0) {
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        CHANGELOG_MSG_PTHREAD_COND_INIT_FAILED,
-                        "drain_white pthread_cond_init failed (%d)", ret);
+                gf_smsg (this->name, GF_LOG_ERROR, errno,
+                         CHANGELOG_MSG_PTHREAD_COND_INIT_FAILED,
+                         "drain_white pthread_cond_init failed",
+                         "ret=%d", ret,
+                         NULL);
                 ret = -1;
                 goto out;
         }
         dm_cond_white_init = _gf_true;
 
         if ((pthread_mutex_init(&priv->cr.lock, NULL)) != 0) {
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        CHANGELOG_MSG_PTHREAD_MUTEX_INIT_FAILED,
-                        "changelog_rollover lock init failed (%d)", ret);
+                gf_smsg (this->name, GF_LOG_ERROR, errno,
+                         CHANGELOG_MSG_PTHREAD_MUTEX_INIT_FAILED,
+                         "changelog_rollover lock init failed",
+                         "ret=%d", ret,
+                         NULL);
                 ret = -1;
                 goto out;
         }
         cr_mutex_init = _gf_true;
 
         if ((pthread_cond_init(&priv->cr.cond, NULL)) != 0) {
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        CHANGELOG_MSG_PTHREAD_COND_INIT_FAILED,
-                        "changelog_rollover cond init failed (%d)", ret);
+                gf_smsg (this->name, GF_LOG_ERROR, errno,
+                         CHANGELOG_MSG_PTHREAD_COND_INIT_FAILED,
+                         "changelog_rollover cond init failed",
+                         "ret=%d", ret,
+                         NULL);
                 ret = -1;
                 goto out;
         }
