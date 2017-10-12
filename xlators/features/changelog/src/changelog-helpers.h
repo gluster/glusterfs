@@ -656,9 +656,9 @@ resolve_pargfid_to_path (xlator_t *this, const uuid_t gfid, char **path,
 /* Log pthread error and goto label */
 #define CHANGELOG_PTHREAD_ERROR_HANDLE_0(ret, label) do {                      \
                 if (ret) {                                                     \
-                        gf_msg (this->name, GF_LOG_ERROR,                      \
-                                0, CHANGELOG_MSG_PTHREAD_ERROR,                \
-                                "pthread error: Error: %d", ret);              \
+                        gf_smsg (this->name, GF_LOG_ERROR,                     \
+                                 0, CHANGELOG_MSG_PTHREAD_ERROR,               \
+                                 "pthread error", "error=%d", ret, NULL);      \
                         ret = -1;                                              \
                         goto label;                                            \
                 }                                                              \
@@ -667,9 +667,9 @@ resolve_pargfid_to_path (xlator_t *this, const uuid_t gfid, char **path,
 /* Log pthread error, set flag and goto label */
 #define CHANGELOG_PTHREAD_ERROR_HANDLE_1(ret, label, flag) do {                \
                 if (ret) {                                                     \
-                        gf_msg (this->name, GF_LOG_ERROR, 0,                   \
-                                CHANGELOG_MSG_PTHREAD_ERROR,                   \
-                                "pthread error: Error: %d", ret);              \
+                        gf_smsg (this->name, GF_LOG_ERROR, 0,                  \
+                                 CHANGELOG_MSG_PTHREAD_ERROR,                  \
+                                 "pthread error", "error=%d", ret, NULL);      \
                         ret = -1;                                              \
                         flag = _gf_true;                                       \
                         goto label;                                            \
