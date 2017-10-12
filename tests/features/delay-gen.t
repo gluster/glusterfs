@@ -37,3 +37,4 @@ TEST [ ! -z $write_max_latency ];
 TEST [ -z $create_max_latency ];
 
 cleanup;
+#G_TESTDEF_TEST_STATUS_NETBSD7=1501397

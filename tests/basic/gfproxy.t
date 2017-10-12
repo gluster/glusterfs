@@ -50,3 +50,4 @@ TEST ! grep "performance/write-behind" $GFPROXYD_VOLFILE
 TEST start_gfproxyd
 
 cleanup;
+#G_TESTDEF_TEST_STATUS_NETBSD7=1501392
