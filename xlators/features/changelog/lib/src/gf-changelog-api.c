@@ -55,10 +55,12 @@ gf_changelog_done (char *file)
                       "moving %s to processed directory", file);
         ret = sys_rename (buffer, to_path);
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        CHANGELOG_LIB_MSG_RENAME_FAILED,
-                        "cannot move %s to %s",
-                        file, to_path);
+                gf_smsg (this->name, GF_LOG_ERROR, errno,
+                         CHANGELOG_LIB_MSG_RENAME_FAILED,
+                         "cannot move changelog file",
+                         "from=%s", file,
+                         "to=%s", to_path,
+                         NULL);
                 goto out;
         }
 

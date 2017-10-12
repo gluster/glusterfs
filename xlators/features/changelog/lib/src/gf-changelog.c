@@ -554,10 +554,12 @@ gf_changelog_register_generic (struct gf_brick_spec *bricks, int count,
 
         brick = bricks;
         while (count--) {
-                gf_msg (this->name, GF_LOG_INFO, 0,
-                        CHANGELOG_LIB_MSG_NOTIFY_REGISTER_INFO,
-                        "Registering brick: %s [notify filter: %d]",
-                        brick->brick_path, brick->filter);
+                gf_smsg (this->name, GF_LOG_INFO, 0,
+                         CHANGELOG_LIB_MSG_NOTIFY_REGISTER_INFO,
+                         "Registering brick",
+                         "brick=%s", brick->brick_path,
+                         "notify_filter=%d", brick->filter,
+                         NULL);
 
                 ret = gf_changelog_register_brick (this, brick, need_order, xl);
                 if (ret != 0) {

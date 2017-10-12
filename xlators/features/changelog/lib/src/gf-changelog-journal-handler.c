@@ -555,10 +555,11 @@ gf_changelog_publish (xlator_t *this,
 
         ret = sys_rename (to_path, dest);
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        CHANGELOG_LIB_MSG_RENAME_FAILED,
-                        "error moving %s to processing dir",
-                        to_path);
+                gf_smsg (this->name, GF_LOG_ERROR, errno,
+                         CHANGELOG_LIB_MSG_RENAME_FAILED,
+                         "error moving changelog to processing dir",
+                         "path=%s", to_path,
+                         NULL);
         }
 
 out:
@@ -581,18 +582,21 @@ gf_changelog_consume (xlator_t *this,
         ret = sys_stat (from_path, &stbuf);
         if (ret || !S_ISREG(stbuf.st_mode)) {
                 ret = -1;
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        CHANGELOG_LIB_MSG_STAT_FAILED,
-                        "stat failed on changelog file: %s", from_path);
+                gf_smsg (this->name, GF_LOG_ERROR, errno,
+                         CHANGELOG_LIB_MSG_STAT_FAILED,
+                         "stat failed on changelog file",
+                         "path=%s", from_path,
+                         NULL);
                 goto out;
         }
 
         fd1 = open (from_path, O_RDONLY);
         if (fd1 < 0) {
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        CHANGELOG_LIB_MSG_OPEN_FAILED,
-                        "cannot open changelog file: %s",
-                        from_path);
+                gf_smsg (this->name, GF_LOG_ERROR, errno,
+                         CHANGELOG_LIB_MSG_OPEN_FAILED,
+                         "cannot open changelog file",
+                         "path=%s", from_path,
+                         NULL);
                 goto out;
         }
 
@@ -604,10 +608,11 @@ gf_changelog_consume (xlator_t *this,
         fd2 = open (to_path, O_CREAT | O_TRUNC | O_RDWR,
                     S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
         if (fd2 < 0) {
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        CHANGELOG_LIB_MSG_OPEN_FAILED,
-                        "cannot create ascii changelog file %s",
-                        to_path);
+                gf_smsg (this->name, GF_LOG_ERROR, errno,
+                         CHANGELOG_LIB_MSG_OPEN_FAILED,
+                         "cannot create ascii changelog file",
+                         "path=%s", to_path,
+                         NULL);
                 goto close_fd;
         } else {
                 ret = gf_changelog_decode (this, jnl, fd1,
@@ -622,10 +627,11 @@ gf_changelog_consume (xlator_t *this,
                                 goto close_fd;
                         ret = sys_rename (to_path, dest);
                         if (ret)
-                                gf_msg (this->name, GF_LOG_ERROR, errno,
-                                        CHANGELOG_LIB_MSG_RENAME_FAILED,
-                                        "error moving %s to processing dir",
-                                        to_path);
+                                gf_smsg (this->name, GF_LOG_ERROR, errno,
+                                         CHANGELOG_LIB_MSG_RENAME_FAILED,
+                                         "error moving changelog to processing dir",
+                                         "path=%s", to_path,
+                                         NULL);
                 }
 
                 /* remove it from .current if it's an empty file */
@@ -633,10 +639,11 @@ gf_changelog_consume (xlator_t *this,
                         /* zerob changelogs must be unlinked */
                         ret = sys_unlink (to_path);
                         if (ret)
-                                gf_msg (this->name, GF_LOG_ERROR, errno,
-                                        CHANGELOG_LIB_MSG_UNLINK_FAILED,
-                                        "could not unlink %s",
-                                        to_path);
+                                gf_smsg (this->name, GF_LOG_ERROR, errno,
+                                         CHANGELOG_LIB_MSG_UNLINK_FAILED,
+                                         "could not unlink empty changelog",
+                                         "path=%s", to_path,
+                                         NULL);
                 }
         }
 
@@ -855,10 +862,11 @@ gf_changelog_open_dirs (xlator_t *this, gf_changelog_journal_t *jnl)
                          jnl->jnl_working_dir);
         ret = recursive_rmdir (jnl->jnl_current_dir);
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        CHANGELOG_LIB_MSG_FAILED_TO_RMDIR,
-                        "Failed to rmdir: %s",
-                        jnl->jnl_current_dir);
+                gf_smsg (this->name, GF_LOG_ERROR, errno,
+                         CHANGELOG_LIB_MSG_FAILED_TO_RMDIR,
+                         "Failed to rmdir",
+                         "path=%s", jnl->jnl_current_dir,
+                         NULL);
                 goto out;
         }
         ret = mkdir_p (jnl->jnl_current_dir, 0600, _gf_false);
@@ -879,10 +887,11 @@ gf_changelog_open_dirs (xlator_t *this, gf_changelog_journal_t *jnl)
                          jnl->jnl_working_dir);
         ret = recursive_rmdir (jnl->jnl_processing_dir);
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, errno,
-                        CHANGELOG_LIB_MSG_FAILED_TO_RMDIR,
-                        "Failed to rmdir: %s",
-                        jnl->jnl_processing_dir);
+                gf_smsg (this->name, GF_LOG_ERROR, errno,
+                         CHANGELOG_LIB_MSG_FAILED_TO_RMDIR,
+                         "Failed to rmdir",
+                         "path=%s", jnl->jnl_processing_dir,
+                         NULL);
                 goto out;
         }
 
