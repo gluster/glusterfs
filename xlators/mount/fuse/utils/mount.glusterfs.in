@@ -684,8 +684,10 @@ main ()
             [ ${first_char} = '/' ] && {
                 volume_str_temp=$(echo "$volume_str" | cut -c 2-)
             }
-            [ $(echo $volume_str_temp | grep -c "/") -eq 1 ] && {
-                volume_id=$(echo "$volume_str_temp" | cut -f1 -d '/');
+            volume_id_temp=$(echo "$volume_str_temp" | cut -f1 -d '/');
+            [ $(echo $volume_str_temp | grep -c "/") -eq 1 ] &&
+                    [ "$volume_id_temp" != "snaps" ]  && {
+                volume_id=$volume_id_temp;
                 subdir_mount=$(echo "$volume_str_temp" | cut -f2- -d '/');
             }
         }
