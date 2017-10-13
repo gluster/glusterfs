@@ -1716,14 +1716,17 @@ struct volume_options options[] = {
         /*  The following two options are defined in addr.c, redifined here *
          * for the sake of validation during volume set from cli            */
 
-        { .key   = {"auth.addr.*.allow"},
+        { .key   = {"auth.addr.*.allow", "auth.allow"},
+          .setkey = "auth.addr.{{ brick.path }}.allow",
+          .default_value = "*",
           .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
           .description = "Allow a comma separated list of addresses and/or "
                          "hostnames to connect to the server. Option "
                          "auth.reject overrides this option. By default, all "
                          "connections are allowed."
         },
-        { .key   = {"auth.addr.*.reject"},
+        { .key   = {"auth.addr.*.reject", "auth.reject"},
+          .setkey = "auth.addr.{{ brick.path }}.reject",
           .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
           .description = "Reject a comma separated list of addresses and/or "
                          "hostnames to connect to the server. This option "
