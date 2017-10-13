@@ -881,8 +881,8 @@ glfs_xreaddirplus_r (struct glfs_fd *glfd, uint32_t flags,
  * 0: SUCCESS
  * -1: FAILURE
  */
-int glfd_set_lk_owner (glfs_fd_t *glfd, void *data, int len);
-        GFAPI_PUBLIC(glfd_set_lk_owner, 3.13.0);
+int glfs_fd_set_lkowner (glfs_fd_t *glfd, void *data, int len);
+        GFAPI_PUBLIC(glfs_fd_set_lkowner, 3.10.7);
 __END_DECLS
 
 #endif /* !_GLFS_H */

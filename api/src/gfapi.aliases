@@ -156,6 +156,7 @@ _pub_glfs_upcall_inode_get_oldpstat _glfs_upcall_inode_get_oldpstat$GFAPI_3.7.16
 _pub_glfs_realpath _glfs_realpath$GFAPI_3.7.17
 
 _pub_glfs_sysrq _glfs_sysrq$GFAPI_3.10.0
+_pub_glfs_fd_set_lkowner _glfs_fd_set_lkowner$GFAPI_3.10.7
 
 _pub_glfs_xreaddirplus_r _glfs_xreaddirplus_r$GFAPI_3.11.0
 _pub_glfs_xreaddirplus_r_get_stat _glfs_xreaddirplus_r_get_stat$GFAPI_3.11.0
@@ -163,5 +164,3 @@ _pub_glfs_xreaddirplus_r_get_object _glfs_xreaddirplus_r_get_object$GFAPI_3.11.0
 _pub_glfs_object_copy _glfs_object_copy$GFAPI_3.11.0
 
 _priv_glfs_ipc _glfs_ipc$GFAPI_3.12.0
-
-_pub_glfd_set_lk_owner _glfd_set_lk_owner$GFAPI_3.13.0

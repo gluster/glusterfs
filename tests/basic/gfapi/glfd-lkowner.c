@@ -43,8 +43,8 @@ lock1:
         lock1.l_start = l1_start;
         lock1.l_len = l1_len;
 
-        ret = glfd_set_lk_owner (glfd1, l1_owner, lo1_len);
-        LOG_ERR ("glfd_set_lk_owner on glfd1", ret);
+        ret = glfs_fd_set_lkowner (glfd1, l1_owner, lo1_len);
+        LOG_ERR ("glfs_fd_set_lkowner on glfd1", ret);
 
         ret = glfs_posix_lock (glfd1, F_SETLK, &lock1);
         LOG_ERR ("glfs_posix_lock on glfd1", ret);
@@ -59,8 +59,8 @@ lock2:
         lock2.l_start = l2_start;
         lock2.l_len = l2_len;
 
-        ret = glfd_set_lk_owner (glfd2, l2_owner, lo2_len);
-        LOG_ERR ("glfd_set_lk_owner on glfd2", ret);
+        ret = glfs_fd_set_lkowner (glfd2, l2_owner, lo2_len);
+        LOG_ERR ("glfs_fd_set_lkowner on glfd2", ret);
 
         ret = glfs_posix_lock (glfd2, F_SETLK, &lock2);
 

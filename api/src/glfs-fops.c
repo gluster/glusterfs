@@ -4309,7 +4309,7 @@ invalid_fs:
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_posix_lock, 3.4.0);
 
 int
-pub_glfd_set_lk_owner (glfs_fd_t *glfd, void *data, int len)
+pub_glfs_fd_set_lkowner (glfs_fd_t *glfd, void *data, int len)
 {
         int ret = -1;
 
@@ -4344,7 +4344,7 @@ out:
 invalid_fs:
         return ret;
 }
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfd_set_lk_owner, 3.13.0);
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fd_set_lkowner, 3.10.7);
 
 struct glfs_fd *
 pub_glfs_dup (struct glfs_fd *glfd)
