@@ -116,6 +116,10 @@ typedef struct volume_options {
          * TODO: See todo above for option_validation_fn
          */
         /* option_validation_fn validate_fn; */
+        /* This is actual key that should be set in the options dict. Can
+         * contain varstrings
+         */
+        char *setkey;
 
 } volume_option_t;
 
