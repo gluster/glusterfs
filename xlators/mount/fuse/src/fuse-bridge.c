@@ -1066,6 +1066,13 @@ fuse_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 fd_bind (fd);
         } else {
         err:
+                /* OPEN(DIR) being an operation on inode should never fail with
+                 * ENOENT. If gfid is not present, the appropriate error is
+                 * ESTALE.
+                 */
+                if (op_errno == ENOENT)
+                        op_errno = ESTALE;
+
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRIu64": %s() %s => -1 (%s)", frame->root->unique,
                         gf_fop_list[frame->root->op], state->loc.path,
