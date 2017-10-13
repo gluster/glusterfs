@@ -428,13 +428,24 @@ copy_frame (call_frame_t *frame)
         newstack->uid = oldstack->uid;
         newstack->gid = oldstack->gid;
         newstack->pid = oldstack->pid;
-        newstack->ngrps = oldstack->ngrps;
         newstack->op  = oldstack->op;
         newstack->type = oldstack->type;
 	if (call_stack_alloc_groups (newstack, oldstack->ngrps) != 0) {
 		mem_put (newstack);
 		return NULL;
 	}
+        if (!oldstack->groups) {
+                gf_msg_debug ("stack", EINVAL, "groups is null (ngrps: %d)",
+                              oldstack->ngrps);
+                /* Considering 'groups' is NULL, set ngrps to 0 */
+                oldstack->ngrps = 0;
+
+                if (oldstack->groups_large)
+                        oldstack->groups = oldstack->groups_large;
+                else
+                        oldstack->groups = oldstack->groups_small;
+        }
+        newstack->ngrps = oldstack->ngrps;
         memcpy (newstack->groups, oldstack->groups,
                 sizeof (gid_t) * oldstack->ngrps);
         newstack->unique = oldstack->unique;
