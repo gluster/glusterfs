@@ -575,8 +575,13 @@ def get_selinux_status():
     getenforce_cli = ["getenforce"]
     log.debug("Running command '%s'", " ".join(getenforce_cli))
 
-    p1 = subprocess.Popen(getenforce_cli, stdout=subprocess.PIPE,
-                          stderr=subprocess.PIPE)
+    try:
+        p1 = subprocess.Popen(getenforce_cli, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE)
+    except OSError as oserr:
+        log.error("Failed to run the command \"getenforce\". Error: %s" %\
+                  oserr)
+        return -1
 
     output, err = p1.communicate()
     rv = p1.returncode
