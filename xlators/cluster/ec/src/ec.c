@@ -276,6 +276,8 @@ reconfigure (xlator_t *this, dict_t *options)
                           bool, failed);
         GF_OPTION_RECONF ("eager-lock", ec->eager_lock, options,
                           bool, failed);
+        GF_OPTION_RECONF ("other-eager-lock", ec->other_eager_lock, options,
+                          bool, failed);
         GF_OPTION_RECONF ("background-heals", background_heals, options,
                           uint32, failed);
         GF_OPTION_RECONF ("heal-wait-qlength", heal_wait_qlen, options,
@@ -654,6 +656,7 @@ init (xlator_t *this)
     GF_OPTION_INIT ("self-heal-daemon", ec->shd.enabled, bool, failed);
     GF_OPTION_INIT ("iam-self-heal-daemon", ec->shd.iamshd, bool, failed);
     GF_OPTION_INIT ("eager-lock", ec->eager_lock, bool, failed);
+    GF_OPTION_INIT ("other-eager-lock", ec->other_eager_lock, bool, failed);
     GF_OPTION_INIT ("background-heals", ec->background_heals, uint32, failed);
     GF_OPTION_INIT ("heal-wait-qlength", ec->heal_wait_qlen, uint32, failed);
     GF_OPTION_INIT ("self-heal-window-size", ec->self_heal_window_size, uint32,
@@ -1397,18 +1400,28 @@ struct volume_options options[] =
     { .key = {"eager-lock"},
       .type = GF_OPTION_TYPE_BOOL,
       .default_value = "on",
-      .description = "Enable/Disable eager lock for disperse volume. "
-                     "If a fop takes a lock and completes its operation, "
-                     "it waits for next 1 second before releasing the lock, "
-                     "to see if the lock can be reused for next fop from "
-                     "the same client. If ec finds any lock contention within "
-                     "1 second it releases the lock immediately before time "
-                     "expires. This improves the performance of file operations."
-                     "However, as it takes lock on first brick, for few operations "
-                     "like read, discovery of lock contention might take long time "
-                     "and can actually degrade the performance. "
-                     "If eager lock is disabled, lock will be released as soon as fop "
-                     "completes. "
+      .description = "Enable/Disable eager lock for regular files on a "
+                     "disperse volume. If a fop takes a lock and completes "
+                     "its operation, it waits for next 1 second before "
+                     "releasing the lock, to see if the lock can be reused "
+                     "for next fop from the same client. If ec finds any lock "
+                     "contention within 1 second it releases the lock "
+                     "immediately before time expires. This improves the "
+                     "performance of file operations. However, as it takes "
+                     "lock on first brick, for few operations like read, "
+                     "discovery of lock contention might take long time and "
+                     "can actually degrade the performance. If eager lock is "
+                     "disabled, lock will be released as soon as fop "
+                     "completes."
+    },
+    { .key = {"other-eager-lock"},
+      .type = GF_OPTION_TYPE_BOOL,
+      .default_value = "on",
+      .op_version = { GD_OP_VERSION_3_12_3 },
+      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
+      .tags = { "disperse" },
+      .description = "It's equivalent to the eager-lock option but for non "
+                     "regular files."
     },
     { .key = {"background-heals"},
       .type = GF_OPTION_TYPE_INT,
