@@ -191,6 +191,10 @@ AC_CONFIG_FILES([Makefile
                 extras/init.d/glustereventsd-Debian
                 extras/init.d/glustereventsd-Redhat
                 extras/init.d/glustereventsd-FreeBSD
+                extras/ganesha/Makefile
+                extras/ganesha/config/Makefile
+                extras/ganesha/scripts/Makefile
+                extras/ganesha/ocf/Makefile
                 extras/systemd/Makefile
                 extras/systemd/glusterd.service
                 extras/systemd/glustereventsd.service

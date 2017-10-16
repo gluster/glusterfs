@@ -1,0 +1,19 @@
+# Name of the HA cluster created.
+# must be unique within the subnet
+HA_NAME="ganesha-ha-360"
+#
+# N.B. you may use short names or long names; you may not use IP addrs.
+# Once you select one, stay with it as it will be mildly unpleasant to
+# clean up if you switch later on. Ensure that all names - short and/or
+# long - are in DNS or /etc/hosts on all machines in the cluster.
+#
+# The subset of nodes of the Gluster Trusted Pool that form the ganesha
+# HA cluster. Hostname is specified.
+HA_CLUSTER_NODES="server1,server2,..."
+#HA_CLUSTER_NODES="server1.lab.redhat.com,server2.lab.redhat.com,..."
+#
+# Virtual IPs for each of the nodes specified above.
+VIP_server1="10.0.2.1"
+VIP_server2="10.0.2.2"
+#VIP_server1_lab_redhat_com="10.0.2.1"
+#VIP_server2_lab_redhat_com="10.0.2.2"
