@@ -17,6 +17,7 @@ TEST $CLI volume set $V0 performance.read-ahead off
 TEST $CLI volume set $V0 performance.io-cache off
 TEST $CLI volume set $V0 disperse.background-heals 0
 TEST $CLI volume set $V0 disperse.eager-lock off
+TEST $CLI volume set $V0 disperse.other-eager-lock off
 TEST $CLI volume start $V0
 
 TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
