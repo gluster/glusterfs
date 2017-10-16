@@ -41,8 +41,18 @@ string:"EXPORT(Path=/$VOL)"
 #This function removes an export dynamically(uses the export_id of the export)
 function dynamic_export_remove()
 {
-        removed_id=`cat $GANESHA_DIR/exports/export.$VOL.conf |\
-grep Export_Id | awk -F"[=,;]" '{print$2}'| tr -d '[[:space:]]'`
+        # Below bash fetch all the export from ShowExport command and search
+        # export entry based on path and then get its export entry.
+        # There are two possiblities for path, either entire volume will be
+        # exported or subdir. It handles both cases. But it remove only first
+        # entry from the list based on assumption that entry exported via cli
+        # has lowest export id value
+	removed_id=$(dbus-send --type=method_call --print-reply --system \
+                    --dest=org.ganesha.nfsd /org/ganesha/nfsd/ExportMgr \
+                    org.ganesha.nfsd.exportmgr.ShowExports | grep -B 1 -we \
+                    "/"$VOL -e "/"$VOL"/" | grep uint16 | awk '{print $2}' \
+		    | head -1)
+
         dbus-send --print-reply --system \
 --dest=org.ganesha.nfsd /org/ganesha/nfsd/ExportMgr \
 org.ganesha.nfsd.exportmgr.RemoveExport uint16:$removed_id

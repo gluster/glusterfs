@@ -48,16 +48,6 @@
 #include "mntent_compat.h"
 #endif
 
-#define GLUSTERD_GET_SNAP_DIR(path, snap, priv)                                \
-    do {                                                                       \
-        int32_t _snap_dir_len;                                                 \
-        _snap_dir_len = snprintf(path, PATH_MAX, "%s/snaps/%s", priv->workdir, \
-                                 snap->snapname);                              \
-        if ((_snap_dir_len < 0) || (_snap_dir_len >= PATH_MAX)) {              \
-            path[0] = 0;                                                       \
-        }                                                                      \
-    } while (0)
-
 #define GLUSTERD_GET_BRICK_DIR(path, volinfo, priv)                            \
     do {                                                                       \
         int32_t _brick_len;                                                    \

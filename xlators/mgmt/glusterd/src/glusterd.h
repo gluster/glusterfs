@@ -65,6 +65,9 @@
 #define GLUSTERD_LOCALTIME_LOGGING_KEY "cluster.localtime-logging"
 #define GLUSTERD_DAEMON_LOG_LEVEL_KEY "cluster.daemon-log-level"
 
+#define GANESHA_HA_CONF CONFDIR "/ganesha-ha.conf"
+#define GANESHA_EXPORT_DIRECTORY CONFDIR "/exports"
+
 #define GLUSTERD_SNAPS_MAX_HARD_LIMIT 256
 #define GLUSTERD_SNAPS_DEF_SOFT_LIMIT_PERCENT 90
 #define GLUSTERD_SNAPS_MAX_SOFT_LIMIT_PERCENT 100
@@ -1176,6 +1179,26 @@ int
 glusterd_op_stop_volume(dict_t *dict);
 int
 glusterd_op_delete_volume(dict_t *dict);
+int
+glusterd_handle_ganesha_op(dict_t *dict, char **op_errstr, char *key,
+                           char *value);
+int
+glusterd_check_ganesha_cmd(char *key, char *value, char **errstr, dict_t *dict);
+int
+glusterd_op_stage_set_ganesha(dict_t *dict, char **op_errstr);
+int
+glusterd_op_set_ganesha(dict_t *dict, char **errstr);
+int
+ganesha_manage_export(dict_t *dict, char *value,
+                      gf_boolean_t update_cache_invalidation, char **op_errstr);
+gf_boolean_t
+glusterd_is_ganesha_cluster();
+gf_boolean_t
+glusterd_check_ganesha_export(glusterd_volinfo_t *volinfo);
+int
+stop_ganesha(char **op_errstr);
+int
+tear_down_cluster(gf_boolean_t run_teardown);
 int
 manage_export_config(char *volname, char *value, char **op_errstr);
 

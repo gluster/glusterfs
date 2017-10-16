@@ -2609,6 +2609,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         .voltype = "features/upcall",
         .op_version = GD_OP_VERSION_3_7_0,
     },
+    {
+        .key = "ganesha.enable",
+        .voltype = "mgmt/ganesha",
+        .value = "off",
+        .option = "ganesha.enable",
+        .op_version = GD_OP_VERSION_7_0,
+    },
     /* Lease translator options */
     {
         .key = "features.leases",

@@ -110,6 +110,8 @@ typedef enum glusterd_store_ver_ac_ {
 #define GLUSTERD_STORE_KEY_VOL_MIGRATIONS_SKIPPED "migration-skipped"
 #define GLUSTERD_STORE_KEY_VOL_MIGRATION_RUN_TIME "migration-run-time"
 
+#define GLUSTERD_STORE_KEY_GANESHA_GLOBAL "nfs-ganesha"
+
 int32_t
 glusterd_store_volinfo(glusterd_volinfo_t *volinfo,
                        glusterd_volinfo_ver_ac_t ac);

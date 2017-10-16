@@ -25,7 +25,7 @@ glusterd_la_SOURCES = glusterd.c glusterd-handler.c glusterd-sm.c \
 	glusterd-conn-helper.c glusterd-snapd-svc.c glusterd-snapd-svc-helper.c \
 	glusterd-bitd-svc.c glusterd-scrub-svc.c glusterd-server-quorum.c \
 	glusterd-reset-brick.c glusterd-shd-svc.c glusterd-shd-svc-helper.c \
-        glusterd-gfproxyd-svc.c glusterd-gfproxyd-svc-helper.c
+        glusterd-gfproxyd-svc.c glusterd-gfproxyd-svc-helper.c glusterd-ganesha.c
 
 
 glusterd_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
@@ -55,6 +55,8 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(CONTRIBDIR)/mount -I$(CONTRIBDIR)/userspace-rcu \
 	-DSBIN_DIR=\"$(sbindir)\" -DDATADIR=\"$(localstatedir)\" \
 	-DGSYNCD_PREFIX=\"$(GLUSTERFS_LIBEXECDIR)\" \
+	-DCONFDIR=\"$(localstatedir)/run/gluster/shared_storage/nfs-ganesha\" \
+	-DGANESHA_PREFIX=\"$(libexecdir)/ganesha\" \
 	-DSYNCDAEMON_COMPILE=$(SYNCDAEMON_COMPILE) \
 	-I$(top_srcdir)/libglusterd/src/
 
