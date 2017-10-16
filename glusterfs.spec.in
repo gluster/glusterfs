@@ -284,7 +284,6 @@ BuildRequires:    firewalld
 Obsoletes:        %{name}-common < %{version}-%{release}
 Obsoletes:        %{name}-core < %{version}-%{release}
 Obsoletes:        %{name}-ufo
-Obsoletes:        %{name}-ganesha
 Obsoletes:        %{name}-rdma
 %if ( 0%{!?_with_gnfs:1} )
 Obsoletes:        %{name}-gnfs
@@ -419,6 +418,50 @@ Much of the code in GlusterFS is in user space and easily manageable.
 
 This package provides support to FUSE based clients and inlcudes the
 glusterfs(d) binary.
+
+%if ( 0%{!?_without_server:1} )
+%package ganesha
+Summary:          NFS-Ganesha configuration
+Group:            Applications/File
+
+Requires:         %{name}-server%{?_isa} = %{version}-%{release}
+Requires:         nfs-ganesha-gluster >= 2.7.6
+Requires:         pcs >= 0.10.0
+Requires:         resource-agents >= 4.2.0
+Requires:         dbus
+
+%if ( 0%{?rhel} && 0%{?rhel} == 6 )
+Requires:         cman, pacemaker, corosync
+%endif
+
+%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} > 5 )
+# we need portblock resource-agent in 3.9.5 and later.
+Requires:         net-tools
+%endif
+
+%if ( 0%{?fedora} && 0%{?fedora} > 25  || ( 0%{?rhel} && 0%{?rhel} > 6 ) )
+%if ( 0%{?rhel} )
+Requires: selinux-policy >= 3.13.1-160
+Requires(post):   policycoreutils-python
+Requires(postun): policycoreutils-python
+%else
+Requires(post):   policycoreutils-python-utils
+Requires(postun): policycoreutils-python-utils
+%endif
+%endif
+
+%description ganesha
+GlusterFS is a distributed file-system capable of scaling to several
+petabytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file systems in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in user space and easily manageable.
+
+This package provides the configuration and related files for using
+NFS-Ganesha as the NFS server using GlusterFS
+%endif
 
 %if ( 0%{!?_without_georeplication:1} )
 %package geo-replication
@@ -752,6 +795,15 @@ sed -i 's|option working-directory /etc/glusterd|option working-directory %{_sha
 install -D -p -m 0644 extras/glusterfs-logrotate \
     %{buildroot}%{_sysconfdir}/logrotate.d/glusterfs
 
+# ganesha ghosts
+%if ( 0%{!?_without_server:1} )
+mkdir -p %{buildroot}%{_sysconfdir}/ganesha
+touch %{buildroot}%{_sysconfdir}/ganesha/ganesha-ha.conf
+mkdir -p %{buildroot}%{_localstatedir}/run/gluster/shared_storage/nfs-ganesha/
+touch %{buildroot}%{_localstatedir}/run/gluster/shared_storage/nfs-ganesha/ganesha.conf
+touch %{buildroot}%{_localstatedir}/run/gluster/shared_storage/nfs-ganesha/ganesha-ha.conf
+%endif
+
 %if ( 0%{!?_without_georeplication:1} )
 # geo-rep ghosts
 mkdir -p %{buildroot}%{_sharedstatedir}/glusterd/geo-replication
@@ -808,6 +860,14 @@ exit 0
 %if ( 0%{!?_without_events:1} )
 %post events
 %systemd_post glustereventsd
+%endif
+
+%if ( 0%{!?_without_server:1} )
+%if ( 0%{?fedora} && 0%{?fedora} > 25 || ( 0%{?rhel} && 0%{?rhel} > 6 ) )
+%post ganesha
+semanage boolean -m ganesha_use_fusefs --on
+exit 0
+%endif
 %endif
 
 %if ( 0%{!?_without_georeplication:1} )
@@ -964,6 +1024,36 @@ fi
 exit 0
 %endif
 
+%if ( 0%{!?_without_server:1} )
+%if ( 0%{?fedora} && 0%{?fedora} > 25  || ( 0%{?rhel} && 0%{?rhel} > 6 ) )
+%postun ganesha
+semanage boolean -m ganesha_use_fusefs --off
+exit 0
+%endif
+%endif
+
+##-----------------------------------------------------------------------------
+## All %%trigger should be placed here and keep them sorted
+##
+%if ( 0%{!?_without_server:1} )
+%if ( 0%{?fedora} && 0%{?fedora} > 25  || ( 0%{?rhel} && 0%{?rhel} > 6 ) )
+%trigger ganesha -- selinux-policy-targeted
+semanage boolean -m ganesha_use_fusefs --on
+exit 0
+%endif
+%endif
+
+##-----------------------------------------------------------------------------
+## All %%triggerun should be placed here and keep them sorted
+##
+%if ( 0%{!?_without_server:1} )
+%if ( 0%{?fedora} && 0%{?fedora} > 25  || ( 0%{?rhel} && 0%{?rhel} > 6 ) )
+%triggerun ganesha -- selinux-policy-targeted
+semanage boolean -m ganesha_use_fusefs --off
+exit 0
+%endif
+%endif
+
 ##-----------------------------------------------------------------------------
 ## All %%files should be placed here and keep them grouped
 ##
@@ -1025,6 +1115,13 @@ exit 0
 %dir %attr(0775,gluster,gluster) %{_rundir}/gluster
 %if 0%{?_tmpfilesdir:1} && 0%{!?_without_server:1}
 %{_tmpfilesdir}/gluster.conf
+%endif
+
+%if ( 0%{?_without_server:1} )
+#exclude ganesha related files
+%exclude %{_sysconfdir}/ganesha/ganesha-ha.conf.sample
+%exclude %{_libexecdir}/ganesha/*
+%exclude %{_prefix}/lib/ocf/resource.d/heartbeat/*
 %endif
 
 %files api
@@ -1110,7 +1207,6 @@ exit 0
 %{_unitdir}/gluster-ta-volume.service
 %endif
 
-
 %if ( 0%{!?_without_georeplication:1} )
 %files geo-replication
 %config(noreplace) %{_sysconfdir}/logrotate.d/glusterfs-georep
@@ -1171,6 +1267,19 @@ exit 0
      %{_datadir}/glusterfs/run-tests.sh
      %{_datadir}/glusterfs/tests
 %exclude %{_datadir}/glusterfs/tests/vagrant
+
+%if ( 0%{!?_without_server:1} )
+%files ganesha
+%dir %{_libexecdir}/ganesha
+%{_sysconfdir}/ganesha/ganesha-ha.conf.sample
+%{_libexecdir}/ganesha/*
+%{_prefix}/lib/ocf/resource.d/heartbeat/*
+%{_sharedstatedir}/glusterd/hooks/1/start/post/S31ganesha-start.sh
+%ghost      %attr(0644,-,-) %config(noreplace) %{_sysconfdir}/ganesha/ganesha-ha.conf
+%ghost %dir %attr(0755,-,-) %{_localstatedir}/run/gluster/shared_storage/nfs-ganesha
+%ghost      %attr(0644,-,-) %config(noreplace) %{_localstatedir}/run/gluster/shared_storage/nfs-ganesha/ganesha.conf
+%ghost      %attr(0644,-,-) %config(noreplace) %{_localstatedir}/run/gluster/shared_storage/nfs-ganesha/ganesha-ha.conf
+%endif
 
 %if ( 0%{!?_without_ocf:1} )
 %files resource-agents
@@ -1351,6 +1460,9 @@ exit 0
 %endif
 
 %changelog
+* Mon Jul 15 2019 Jiffin Tony Thottan <jthottan@redhat.com>
+- Adding ganesha ha bits back in gluster repository
+
 * Fri Jul 12 2019 Amar Tumballi <amarts@redhat.com>
 - Remove rdma package, and mark older rdma package as 'Obsoletes'
 
@@ -1443,9 +1555,6 @@ exit 0
 
 * Thu Feb 16 2017 Niels de Vos <ndevos@redhat.com>
 - Obsolete and Provide python-gluster for upgrading from glusterfs < 3.10
-
-* Tue Feb 7 2017 Kaleb S. KEITHLEY <kkeithle@redhat.com>
-- remove ganesha (#1418417)
 
 * Wed Feb 1 2017 Poornima G <pgurusid@redhat.com>
 - Install /var/lib/glusterd/groups/metadata-cache by default
