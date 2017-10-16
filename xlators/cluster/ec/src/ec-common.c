@@ -2445,6 +2445,26 @@ void ec_flush_size_version(ec_fop_data_t * fop)
     ec_update_info(&fop->locks[0]);
 }
 
+static gf_boolean_t
+ec_use_eager_lock(ec_t *ec, ec_fop_data_t *fop)
+{
+        /* Fops with no locks at this point mean that they are sent as sub-fops
+         * of other higher level fops. In this case we simply assume that the
+         * parent fop will take correct care of the eager lock. */
+        if (fop->lock_count == 0) {
+                return _gf_true;
+        }
+
+        /* We may have more than one lock, but this only happens in the rename
+         * fop, and both locks will reference an inode of the same type (a
+         * directory in this case), so we only need to check the first lock. */
+        if (fop->locks[0].lock->loc.inode->ia_type == IA_IFREG) {
+                return ec->eager_lock;
+        }
+
+        return ec->other_eager_lock;
+}
+
 void ec_lock_reuse(ec_fop_data_t *fop)
 {
     ec_cbk_data_t *cbk;
@@ -2454,7 +2474,7 @@ void ec_lock_reuse(ec_fop_data_t *fop)
     ec = fop->xl->private;
     cbk = fop->answer;
 
-    if (ec->eager_lock && cbk != NULL) {
+    if (ec_use_eager_lock(ec, fop) && cbk != NULL) {
         if (cbk->xdata != NULL) {
             if ((dict_get_int32(cbk->xdata, GLUSTERFS_INODELK_COUNT,
                                 &count) == 0) && (count > 1)) {

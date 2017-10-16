@@ -1445,6 +1445,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_3_7_10,
           .flags      = VOLOPT_FLAG_CLIENT_OPT
         },
+        { .key        = "disperse.other-eager-lock",
+          .voltype    = "cluster/disperse",
+          .op_version = GD_OP_VERSION_3_12_2,
+          .flags      = VOLOPT_FLAG_CLIENT_OPT
+        },
         { .key        = "cluster.quorum-type",
           .voltype    = "cluster/replicate",
           .option     = "quorum-type",

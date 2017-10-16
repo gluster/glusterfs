@@ -573,6 +573,7 @@ struct _ec {
     gf_timer_t        *timer;
     gf_boolean_t       shutdown;
     gf_boolean_t       eager_lock;
+    gf_boolean_t       other_eager_lock;
     gf_boolean_t       optimistic_changelog;
     gf_boolean_t       parallel_writes;
     uint32_t           background_heals;

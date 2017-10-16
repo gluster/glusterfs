@@ -29,6 +29,7 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 disperse 6 redundancy 2 $H0:$B0/${V0}{0..5}
 TEST $CLI volume set $V0 disperse.eager-lock off
+TEST $CLI volume set $V0 disperse.other-eager-lock off
 TEST $CLI volume start $V0
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "^6$" ec_child_up_count $V0 0
