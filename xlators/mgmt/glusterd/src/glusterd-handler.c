@@ -5982,8 +5982,10 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         glusterd_volinfo_t      *volinfo           = NULL;
         xlator_t                *this              = NULL;
         int                      temp              = 0;
+        int32_t                  pid               = -1;
         glusterd_brickinfo_t    *brickinfo_tmp     = NULL;
         glusterd_brick_proc_t   *brick_proc        = NULL;
+        char                     pidfile[PATH_MAX] = {0};
 
         brickid = mydata;
         if (!brickid)
@@ -6082,6 +6084,29 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                                   "peer=%s;volume=%s;brick=%s",
                                   brickinfo->hostname, volinfo->volname,
                                   brickinfo->path);
+                        /* In case of an abrupt shutdown of a brick PMAP_SIGNOUT
+                         * event is not received by glusterd which can lead to a
+                         * stale port entry in glusterd, so forcibly clean up
+                         * the same if the process is not running
+                         */
+                        GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo,
+                                                    brickinfo, conf);
+                        if (!gf_is_service_running (pidfile, &pid)) {
+                                ret = pmap_registry_remove (
+                                                      THIS, brickinfo->port,
+                                                      brickinfo->path,
+                                                      GF_PMAP_PORT_BRICKSERVER,
+                                                      NULL, _gf_true);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_WARNING,
+                                                GD_MSG_PMAP_REGISTRY_REMOVE_FAIL,
+                                                0, "Failed to remove pmap "
+                                                "registry for port %d for "
+                                                "brick %s", brickinfo->port,
+                                                brickinfo->path);
+                                        ret = 0;
+                                }
+                        }
                 }
 
                 if (is_brick_mx_enabled()) {
