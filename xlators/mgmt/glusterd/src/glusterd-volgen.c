@@ -1219,6 +1219,56 @@ loglevel_option_handler (volgen_graph_t *graph,
 }
 
 static int
+server_check_changelog_off (volgen_graph_t *graph, struct volopt_map_entry *vme,
+                            glusterd_volinfo_t *volinfo)
+{
+        gf_boolean_t enabled = _gf_false;
+        int ret = 0;
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (vme);
+
+        if (strcmp (vme->option, "changelog") != 0)
+                return 0;
+
+        ret = gf_string2boolean (vme->value, &enabled);
+        if (ret || enabled)
+                goto out;
+
+        ret = glusterd_volinfo_get_boolean (volinfo, VKEY_CHANGELOG);
+        if (ret < 0) {
+                gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                        GD_MSG_CHANGELOG_GET_FAIL,
+                        "failed to get the changelog status");
+                ret = -1;
+                goto out;
+        }
+
+        if (ret) {
+                enabled = _gf_false;
+                glusterd_check_geo_rep_configured (volinfo, &enabled);
+
+                if (enabled) {
+                        gf_msg ("glusterd", GF_LOG_WARNING, 0,
+                                GD_MSG_XLATOR_SET_OPT_FAIL,
+                                GEOREP" sessions active"
+                                "for the volume %s, cannot disable changelog ",
+                                volinfo->volname);
+                        set_graph_errstr (graph,
+                                          VKEY_CHANGELOG" cannot be disabled "
+                                          "while "GEOREP" sessions exist");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        ret = 0;
+ out:
+        gf_msg_debug ("glusterd", 0, "Returning %d", ret);
+        return ret;
+}
+
+static int
 server_check_marker_off (volgen_graph_t *graph, struct volopt_map_entry *vme,
                          glusterd_volinfo_t *volinfo)
 {
@@ -1432,6 +1482,9 @@ server_spec_option_handler (volgen_graph_t *graph,
         ret = server_auth_option_handler (graph, vme, NULL);
         if (!ret)
                 ret = server_check_marker_off (graph, vme, volinfo);
+
+        if (!ret)
+                ret = server_check_changelog_off (graph, vme, volinfo);
 
         if (!ret)
                 ret = loglevel_option_handler (graph, vme, "brick");
