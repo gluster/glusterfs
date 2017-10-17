@@ -241,7 +241,8 @@ pmap_assign_port (xlator_t *this, int old_port, const char *path)
 
         if (old_port) {
                 ret = pmap_registry_remove (this, 0, path,
-                                            GF_PMAP_PORT_BRICKSERVER, NULL);
+                                            GF_PMAP_PORT_BRICKSERVER, NULL,
+                                            _gf_false);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING,
                                 GD_MSG_PMAP_REGISTRY_REMOVE_FAIL, 0, "Failed to"
@@ -344,7 +345,8 @@ pmap_registry_extend (xlator_t *this, int port, const char *brickname)
 
 int
 pmap_registry_remove (xlator_t *this, int port, const char *brickname,
-                      gf_pmap_port_type_t type, void *xprt)
+                      gf_pmap_port_type_t type, void *xprt,
+                      gf_boolean_t brick_disconnect)
 {
         struct pmap_registry *pmap = NULL;
         int                   p = 0;
@@ -391,11 +393,16 @@ remove:
          * can delete the entire entry.
          */
         if (!pmap->ports[p].xprt) {
-                brick_str = pmap->ports[p].brickname;
-                if (brick_str) {
-                        while (*brick_str != '\0') {
-                                if (*(brick_str++) != ' ') {
-                                        goto out;
+                /* If the signout call is being triggered by brick disconnect
+                 * then clean up all the bricks (in case of brick mux)
+                 */
+                if (!brick_disconnect) {
+                        brick_str = pmap->ports[p].brickname;
+                        if (brick_str) {
+                                while (*brick_str != '\0') {
+                                        if (*(brick_str++) != ' ') {
+                                                goto out;
+                                        }
                                 }
                         }
                 }
@@ -550,14 +557,15 @@ __gluster_pmap_signout (rpcsvc_request_t *req)
                 goto fail;
         }
         rsp.op_ret = pmap_registry_remove (THIS, args.port, args.brick,
-                                           GF_PMAP_PORT_BRICKSERVER, req->trans);
+                                           GF_PMAP_PORT_BRICKSERVER, req->trans,
+                                           _gf_false);
 
         ret = glusterd_get_brickinfo (THIS, args.brick, args.port, &brickinfo);
         if (args.rdma_port) {
                 snprintf(brick_path, PATH_MAX, "%s.rdma", args.brick);
                 rsp.op_ret = pmap_registry_remove (THIS, args.rdma_port,
                                 brick_path, GF_PMAP_PORT_BRICKSERVER,
-                                req->trans);
+                                req->trans, _gf_false);
         }
         /* Update portmap status on brickinfo */
         if (brickinfo)
