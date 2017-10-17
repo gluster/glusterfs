@@ -23,7 +23,8 @@ from eventsapiconf import (LOG_FILE,
                            WEBHOOKS_FILE,
                            DEFAULT_CONFIG_FILE,
                            CUSTOM_CONFIG_FILE,
-                           UUID_FILE)
+                           UUID_FILE,
+                           CERTS_DIR)
 import eventtypes
 
 
@@ -195,11 +196,33 @@ def get_jwt_token(secret, event_type, event_ts, jwt_expiry_time_seconds=60):
     return jwt.encode(payload, secret, algorithm='HS256')
 
 
+def save_https_cert(domain, port, cert_path):
+    import ssl
+
+    # Cert file already available for this URL
+    if os.path.exists(cert_path):
+        return
+
+    cert_data = ssl.get_server_certificate((domain, port))
+    with open(cert_path, "w") as f:
+        f.write(cert_data)
+
+
 def publish_to_webhook(url, token, secret, message_queue):
     # Import requests here since not used in any other place
     import requests
 
     http_headers = {"Content-Type": "application/json"}
+    urldata = requests.utils.urlparse(url)
+    parts = urldata.netloc.split(":")
+    domain = parts[0]
+    # Default https port if not specified
+    port = 443
+    if len(parts) == 2:
+        port = int(parts[1])
+
+    cert_path = os.path.join(CERTS_DIR, url.replace("/", "_").strip())
+
     while True:
         hashval = ""
         event_type, event_ts, message_json = message_queue.get()
@@ -212,26 +235,55 @@ def publish_to_webhook(url, token, secret, message_queue):
         if hashval:
             http_headers["Authorization"] = "Bearer " + hashval
 
-        try:
-            resp = requests.post(url, headers=http_headers, data=message_json)
-        except requests.ConnectionError as e:
-            logger.warn("Event push failed to URL: {url}, "
-                        "Event: {event}, "
-                        "Status: {error}".format(
-                            url=url,
-                            event=message_json,
-                            error=e))
-            continue
-        finally:
-            message_queue.task_done()
+        verify = True
+        while True:
+            try:
+                resp = requests.post(url, headers=http_headers,
+                                     data=message_json,
+                                     verify=verify)
+                # Successful webhook push
+                message_queue.task_done()
+                if resp.status_code != 200:
+                    logger.warn("Event push failed to URL: {url}, "
+                                "Event: {event}, "
+                                "Status Code: {status_code}".format(
+                                    url=url,
+                                    event=message_json,
+                                    status_code=resp.status_code))
+                break
+            except requests.exceptions.SSLError as e:
+                # If verify is equal to cert path, but still failed with
+                # SSLError, Looks like some issue with custom downloaded
+                # certificate, Try with verify = false
+                if verify == cert_path:
+                    logger.warn("Event push failed with certificate, "
+                                "ignoring verification url={0} "
+                                "Error={1}".format(url, e))
+                    verify = False
+                    continue
 
-        if resp.status_code != 200:
-            logger.warn("Event push failed to URL: {url}, "
-                        "Event: {event}, "
-                        "Status Code: {status_code}".format(
-                            url=url,
-                            event=message_json,
-                            status_code=resp.status_code))
+                # If verify is instance of bool and True, then custom cert
+                # is required, download the cert and retry
+                try:
+                    save_https_cert(domain, port, cert_path)
+                    verify = cert_path
+                except Exception as ex:
+                    verify = False
+                    logger.warn("Unable to get Server certificate, "
+                                "ignoring verification url={0} "
+                                "Error={1}".format(url, ex))
+
+                # Done with collecting cert, continue
+                continue
+            except Exception as e:
+                logger.warn("Event push failed to URL: {url}, "
+                            "Event: {event}, "
+                            "Status: {error}".format(
+                                url=url,
+                                event=message_json,
+                                error=e))
+                message_queue.task_done()
+                break
 
 
 def plugin_webhook(message):
