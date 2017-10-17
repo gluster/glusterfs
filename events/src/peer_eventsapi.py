@@ -27,7 +27,7 @@ from gluster.cliutils import (Cmd, node_output_ok, node_output_notok,
                               sync_file_to_peers, GlusterCmdException,
                               output_error, execute_in_peers, runcli,
                               set_common_args_func)
-from events.utils import LockedOpen, get_jwt_token
+from events.utils import LockedOpen, get_jwt_token, save_https_cert
 
 from events.eventsapiconf import (WEBHOOKS_FILE_TO_SYNC,
                                   WEBHOOKS_FILE,
@@ -47,7 +47,8 @@ from events.eventsapiconf import (WEBHOOKS_FILE_TO_SYNC,
                                   ERROR_PARTIAL_SUCCESS,
                                   ERROR_ALL_NODES_STATUS_NOT_OK,
                                   ERROR_SAME_CONFIG,
-                                  ERROR_WEBHOOK_SYNC_FAILED)
+                                  ERROR_WEBHOOK_SYNC_FAILED,
+                                  CERTS_DIR)
 
 
 def handle_output_error(err, errcode=1, json_output=False):
@@ -405,12 +406,43 @@ class NodeWebhookTestCmd(Cmd):
         if hashval:
             http_headers["Authorization"] = "Bearer " + hashval
 
-        try:
-            resp = requests.post(args.url, headers=http_headers)
-        except requests.ConnectionError as e:
-            node_output_notok("{0}".format(e))
-        except requests.exceptions.InvalidSchema as e:
-            node_output_notok("{0}".format(e))
+        urldata = requests.utils.urlparse(args.url)
+        parts = urldata.netloc.split(":")
+        domain = parts[0]
+        # Default https port if not specified
+        port = 443
+        if len(parts) == 2:
+            port = int(parts[1])
+
+        cert_path = os.path.join(CERTS_DIR, args.url.replace("/", "_").strip())
+        verify = True
+        while True:
+            try:
+                resp = requests.post(args.url, headers=http_headers,
+                                     verify=verify)
+                # Successful webhook push
+                break
+            except requests.exceptions.SSLError as e:
+                # If verify is equal to cert path, but still failed with
+                # SSLError, Looks like some issue with custom downloaded
+                # certificate, Try with verify = false
+                if verify == cert_path:
+                    verify = False
+                    continue
+
+                # If verify is instance of bool and True, then custom cert
+                # is required, download the cert and retry
+                try:
+                    save_https_cert(domain, port, cert_path)
+                    verify = cert_path
+                except Exception:
+                    verify = False
+
+                # Done with collecting cert, continue
+                continue
+            except Exception as e:
+                node_output_notok("{0}".format(e))
+                break
 
         if resp.status_code != 200:
             node_output_notok("{0}".format(resp.status_code))
