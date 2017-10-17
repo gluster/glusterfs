@@ -128,4 +128,6 @@ struct volume_options options[] = {
           .description = "When \"on\", makes a volume read-only. It is turned "
                          "\"off\" by default."
         },
+        { .key  = {NULL}
+        },
 };
