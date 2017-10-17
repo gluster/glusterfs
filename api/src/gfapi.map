@@ -198,3 +198,8 @@ GFAPI_3.10.0 {
 	global:
 		glfs_sysrq;
 } GFAPI_3.7.17;
+
+GFAPI_3.10.7 {
+	global:
+		glfs_fd_set_lkowner;
+} GFAPI_3.10.0;
