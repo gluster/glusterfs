@@ -642,4 +642,6 @@ struct volume_options options[] = {
           .default_value = "180",
           .description = "Auto commit period for the files."
         },
+        { .key  = {NULL}
+        },
 };
