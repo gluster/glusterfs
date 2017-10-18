@@ -144,7 +144,8 @@ out:
 
         iobref_unref (iobref);
         iobuf_unref (iobuf);
-        STACK_DESTROY (frame->root);
+        if (frame)
+                STACK_DESTROY (frame->root);
 
         if (rpc_status != 0) {
                 fprintf (stderr, "got error %d on RPC\n", rpc_status);
