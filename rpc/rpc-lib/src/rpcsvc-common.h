@@ -42,7 +42,7 @@ typedef struct rpcsvc_state {
          * other options.
          */
 
-        pthread_mutex_t         rpclock;
+        pthread_rwlock_t        rpclock;
 
         unsigned int            memfactor;
 
