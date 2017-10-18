@@ -784,6 +784,7 @@ afr_set_split_brain_choice_cbk (void *data)
         xlator_t     *this      = THIS;
 
         afr_spb_choice_timeout_cancel (this, inode);
+        inode_invalidate (inode);
         inode_unref (inode);
         return;
 }
@@ -803,6 +804,7 @@ afr_set_split_brain_choice (int ret, call_frame_t *frame, void *opaque)
         gf_boolean_t        timer_set        = _gf_false;
         gf_boolean_t        timer_cancelled  = _gf_false;
         gf_boolean_t        timer_reset      = _gf_false;
+        gf_boolean_t        need_invalidate  = _gf_true;
         int                 old_spb_choice   = -1;
 
         frame = data->frame;
@@ -915,6 +917,7 @@ set_timer:
                         timer_set = _gf_true;
                 if (timer_reset && !ctx->timer)
                         timer_cancelled = _gf_true;
+                need_invalidate = _gf_false;
         }
 unlock:
         UNLOCK(&inode->lock);
@@ -927,7 +930,8 @@ unlock:
          * reads from an older cached value despite a change in spb_choice to
          * a new value.
          */
-        inode_invalidate (inode);
+        if (need_invalidate)
+                inode_invalidate (inode);
 out:
         if (data)
                 GF_FREE (data);
