@@ -92,11 +92,11 @@ rpcsvc_listener_destroy (rpcsvc_listener_t *listener)
                 goto listener_free;
         }
 
-        pthread_mutex_lock (&svc->rpclock);
+        pthread_rwlock_wrlock (&svc->rpclock);
         {
                 list_del_init (&listener->list);
         }
-        pthread_mutex_unlock (&svc->rpclock);
+        pthread_rwlock_unlock (&svc->rpclock);
 
 listener_free:
         GF_FREE (listener);
@@ -114,7 +114,7 @@ rpcsvc_get_program_vector_sizer (rpcsvc_t *svc, uint32_t prognum,
         if (!svc)
                 return NULL;
 
-        pthread_mutex_lock (&svc->rpclock);
+        pthread_rwlock_rdlock (&svc->rpclock);
         {
                 /* Find the matching RPC program from registered list */
                 list_for_each_entry (program, &svc->programs, program) {
@@ -125,7 +125,7 @@ rpcsvc_get_program_vector_sizer (rpcsvc_t *svc, uint32_t prognum,
                         }
                 }
         }
-        pthread_mutex_unlock (&svc->rpclock);
+        pthread_rwlock_unlock (&svc->rpclock);
 
         if (found) {
                 /* Make sure the requested procnum is supported by RPC prog */
@@ -241,7 +241,7 @@ rpcsvc_program_actor (rpcsvc_request_t *req)
 
         svc = req->svc;
         peername = req->trans->peerinfo.identifier;
-        pthread_mutex_lock (&svc->rpclock);
+        pthread_rwlock_rdlock (&svc->rpclock);
         {
                 list_for_each_entry (program, &svc->programs, program) {
                         if (program->prognum == req->prognum) {
@@ -255,7 +255,7 @@ rpcsvc_program_actor (rpcsvc_request_t *req)
                         }
                 }
         }
-        pthread_mutex_unlock (&svc->rpclock);
+        pthread_rwlock_unlock (&svc->rpclock);
 
         if (!found) {
                 if (err != PROG_MISMATCH) {
@@ -739,7 +739,7 @@ rpcsvc_handle_disconnect (rpcsvc_t *svc, rpc_transport_t *trans)
         event = (trans->listener == NULL) ? RPCSVC_EVENT_LISTENER_DEAD
                 : RPCSVC_EVENT_DISCONNECT;
 
-        pthread_mutex_lock (&svc->rpclock);
+        pthread_rwlock_rdlock (&svc->rpclock);
         {
                 if (!svc->notify_count)
                         goto unlock;
@@ -759,7 +759,7 @@ rpcsvc_handle_disconnect (rpcsvc_t *svc, rpc_transport_t *trans)
                 wrapper_count = i;
         }
 unlock:
-        pthread_mutex_unlock (&svc->rpclock);
+        pthread_rwlock_unlock (&svc->rpclock);
 
         if (wrappers) {
                 for (i = 0; i < wrapper_count; i++) {
@@ -1575,7 +1575,7 @@ rpcsvc_get_listener (rpcsvc_t *svc, uint16_t port, rpc_transport_t *trans)
                 goto out;
         }
 
-        pthread_mutex_lock (&svc->rpclock);
+        pthread_rwlock_rdlock (&svc->rpclock);
         {
                 list_for_each_entry (listener, &svc->listeners, list) {
                         if (trans != NULL) {
@@ -1601,7 +1601,7 @@ rpcsvc_get_listener (rpcsvc_t *svc, uint16_t port, rpc_transport_t *trans)
                         }
                 }
         }
-        pthread_mutex_unlock (&svc->rpclock);
+        pthread_rwlock_unlock (&svc->rpclock);
 
         if (!found) {
                 listener = NULL;
@@ -1654,7 +1654,7 @@ rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t *program)
                 goto out;
         }
 #endif
-        pthread_mutex_lock (&svc->rpclock);
+        pthread_rwlock_rdlock (&svc->rpclock);
         {
                 list_for_each_entry (prog, &svc->programs, program) {
                         if ((prog->prognum == program->prognum)
@@ -1663,7 +1663,7 @@ rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t *program)
                         }
                 }
         }
-        pthread_mutex_unlock (&svc->rpclock);
+        pthread_rwlock_unlock (&svc->rpclock);
 
         if (prog == NULL) {
                 ret = -1;
@@ -1680,11 +1680,11 @@ rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t *program)
                 goto out;
         }
 
-        pthread_mutex_lock (&svc->rpclock);
+        pthread_rwlock_wrlock (&svc->rpclock);
         {
                 list_del_init (&prog->program);
         }
-        pthread_mutex_unlock (&svc->rpclock);
+        pthread_rwlock_unlock (&svc->rpclock);
 
         ret = 0;
 out:
@@ -1743,11 +1743,11 @@ rpcsvc_listener_alloc (rpcsvc_t *svc, rpc_transport_t *trans)
 
         INIT_LIST_HEAD (&listener->list);
 
-        pthread_mutex_lock (&svc->rpclock);
+        pthread_rwlock_wrlock (&svc->rpclock);
         {
                 list_add_tail (&listener->list, &svc->listeners);
         }
-        pthread_mutex_unlock (&svc->rpclock);
+        pthread_rwlock_unlock (&svc->rpclock);
 out:
         return listener;
 }
@@ -1901,7 +1901,7 @@ rpcsvc_unregister_notify (rpcsvc_t *svc, rpcsvc_notify_t notify, void *mydata)
                 goto out;
         }
 
-        pthread_mutex_lock (&svc->rpclock);
+        pthread_rwlock_wrlock (&svc->rpclock);
         {
                 list_for_each_entry_safe (wrapper, tmp, &svc->notify, list) {
                         if ((wrapper->notify == notify)
@@ -1912,7 +1912,7 @@ rpcsvc_unregister_notify (rpcsvc_t *svc, rpcsvc_notify_t notify, void *mydata)
                         }
                 }
         }
-        pthread_mutex_unlock (&svc->rpclock);
+        pthread_rwlock_unlock (&svc->rpclock);
 
 out:
         return ret;
@@ -1932,12 +1932,12 @@ rpcsvc_register_notify (rpcsvc_t *svc, rpcsvc_notify_t notify, void *mydata)
         wrapper->data = mydata;
         wrapper->notify = notify;
 
-        pthread_mutex_lock (&svc->rpclock);
+        pthread_rwlock_wrlock (&svc->rpclock);
         {
                 list_add_tail (&wrapper->list, &svc->notify);
                 svc->notify_count++;
         }
-        pthread_mutex_unlock (&svc->rpclock);
+        pthread_rwlock_unlock (&svc->rpclock);
 
         ret = 0;
 out:
@@ -2009,7 +2009,7 @@ rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t *program)
                 goto out;
         }
 
-        pthread_mutex_lock (&svc->rpclock);
+        pthread_rwlock_rdlock (&svc->rpclock);
         {
                 list_for_each_entry (newprog, &svc->programs, program) {
                         if ((newprog->prognum == program->prognum)
@@ -2019,7 +2019,7 @@ rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t *program)
                         }
                 }
         }
-        pthread_mutex_unlock (&svc->rpclock);
+        pthread_rwlock_unlock (&svc->rpclock);
 
         if (already_registered) {
                 ret = 0;
@@ -2050,11 +2050,11 @@ rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t *program)
                                   newprog, "rpcsvcrh");
         }
 
-        pthread_mutex_lock (&svc->rpclock);
+        pthread_rwlock_wrlock (&svc->rpclock);
         {
                 list_add_tail (&newprog->program, &svc->programs);
         }
-        pthread_mutex_unlock (&svc->rpclock);
+        pthread_rwlock_unlock (&svc->rpclock);
 
         ret = 0;
         gf_log (GF_RPCSVC, GF_LOG_DEBUG, "New program registered: %s, Num: %d,"
@@ -2096,7 +2096,7 @@ build_prog_details (rpcsvc_request_t *req, gf_dump_rsp *rsp)
         if (!req || !req->trans || !req->svc)
                 goto out;
 
-        pthread_mutex_lock (&req->svc->rpclock);
+        pthread_rwlock_rdlock (&req->svc->rpclock);
         {
                 list_for_each_entry (program, &req->svc->programs, program) {
                         prog = GF_CALLOC (1, sizeof (*prog), 0);
@@ -2117,7 +2117,7 @@ build_prog_details (rpcsvc_request_t *req, gf_dump_rsp *rsp)
                         ret = 0;
         }
 unlock:
-        pthread_mutex_unlock (&req->svc->rpclock);
+        pthread_rwlock_unlock (&req->svc->rpclock);
 out:
         return ret;
 }
@@ -2475,7 +2475,7 @@ rpcsvc_init (xlator_t *xl, glusterfs_ctx_t *ctx, dict_t *options,
         if (!svc)
                 return NULL;
 
-        pthread_mutex_init (&svc->rpclock, NULL);
+        pthread_rwlock_init (&svc->rpclock, NULL);
         INIT_LIST_HEAD (&svc->authschemes);
         INIT_LIST_HEAD (&svc->notify);
         INIT_LIST_HEAD (&svc->listeners);
