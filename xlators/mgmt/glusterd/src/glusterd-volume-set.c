@@ -1954,7 +1954,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key         = "server.allow-insecure",
           .voltype     = "protocol/server",
           .option      = "rpc-auth-allow-insecure",
-          .type        = NO_DOC,
+          .type        = DOC,
           .op_version  = 1
         },
         { .key         = "server.root-squash",
