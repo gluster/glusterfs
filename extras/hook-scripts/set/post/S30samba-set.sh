@@ -28,7 +28,7 @@ USERSMB_SET=""
 USERCIFS_SET=""
 
 function parse_args () {
-        ARGS=$(getopt -l $OPTSPEC  --name $PROGNAME -o "o:" -- "$@")
+        ARGS=$(getopt -o 'o:' -l $OPTSPEC -n $PROGNAME -- "$@")
         eval set -- "$ARGS"
 
         while true; do

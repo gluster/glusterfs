@@ -38,7 +38,7 @@ activate ()
 ##------------------------------------------
 ## Parse the arguments
 ##------------------------------------------
-ARGS=$(getopt -l $OPTSPEC  -name $PROGNAME "$@")
+ARGS=$(getopt -o '' -l $OPTSPEC -n $PROGNAME -- "$@")
 eval set -- "$ARGS"
 
 while true;
