@@ -416,7 +416,8 @@ quotad_aggregator_init (xlator_t *this)
         priv->quotad_aggregator = &quotad_aggregator_prog;
         quotad_aggregator_prog.options = this->options;
 
-        ret = rpcsvc_program_register (priv->rpcsvc, &quotad_aggregator_prog);
+        ret = rpcsvc_program_register (priv->rpcsvc, &quotad_aggregator_prog,
+                                       _gf_false);
         if (ret) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         Q_MSG_RPCSVC_REGISTER_FAILED,

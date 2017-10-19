@@ -1995,7 +1995,8 @@ rpcsvc_request_handler (void *arg)
 }
 
 int
-rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t *program)
+rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t *program,
+                         gf_boolean_t add_to_head)
 {
         int               ret                = -1;
         rpcsvc_program_t *newprog            = NULL;
@@ -2052,7 +2053,10 @@ rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t *program)
 
         pthread_rwlock_wrlock (&svc->rpclock);
         {
-                list_add_tail (&newprog->program, &svc->programs);
+                if (add_to_head)
+                        list_add (&newprog->program, &svc->programs);
+                else
+                        list_add_tail (&newprog->program, &svc->programs);
         }
         pthread_rwlock_unlock (&svc->rpclock);
 
@@ -2513,7 +2517,7 @@ rpcsvc_init (xlator_t *xl, glusterfs_ctx_t *ctx, dict_t *options,
 
         gluster_dump_prog.options = options;
 
-        ret = rpcsvc_program_register (svc, &gluster_dump_prog);
+        ret = rpcsvc_program_register (svc, &gluster_dump_prog, _gf_false);
         if (ret) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR,
                         "failed to register DUMP program");

@@ -2344,7 +2344,7 @@ glusterfs_listener_init (glusterfs_ctx_t *ctx)
                 goto out;
         }
 
-        ret = rpcsvc_program_register (rpc, &glusterfs_mop_prog);
+        ret = rpcsvc_program_register (rpc, &glusterfs_mop_prog, _gf_false);
         if (ret) {
                 goto out;
         }

@@ -324,7 +324,7 @@ changelog_rpc_server_init (xlator_t *this, char *sockfile, void *cbkdata,
 
         while (*progs) {
                 prog = *progs;
-                ret = rpcsvc_program_register (rpc, prog);
+                ret = rpcsvc_program_register (rpc, prog, _gf_false);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 CHANGELOG_MSG_PROGRAM_NAME_REG_FAILED,
