@@ -444,7 +444,7 @@ glusterd_program_register (xlator_t *this, rpcsvc_t *svc,
 {
         int32_t ret = -1;
 
-        ret = rpcsvc_program_register (svc, prog);
+        ret = rpcsvc_program_register (svc, prog, _gf_false);
         if (ret) {
                 gf_msg_debug (this->name, 0,
                         "cannot register program (name: %s, prognum:%d, "

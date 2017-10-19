@@ -423,7 +423,8 @@ typedef struct rpcsvc_cbk_program {
  * procedure handlers.
  */
 extern int
-rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t *program);
+rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t *program,
+                         gf_boolean_t add_to_head);
 
 extern int
 rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t *program);

@@ -98,7 +98,7 @@ nfs_init_version (xlator_t *this, nfs_version_initer_t init,
 
         gf_msg_debug (GF_NFS, 0, "Starting program: %s", prog->progname);
 
-        ret = rpcsvc_program_register (nfs->rpcsvc, prog);
+        ret = rpcsvc_program_register (nfs->rpcsvc, prog, _gf_false);
         if (ret == -1) {
                 gf_msg (GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_PGM_INIT_FAIL,
                         "Program: %s init failed", prog->progname);
@@ -321,7 +321,7 @@ nfs_init_versions (struct nfs_state *nfs, xlator_t *this)
                 gf_msg_debug (GF_NFS, 0, "Starting program: %s",
                         prog->progname);
 
-                ret = rpcsvc_program_register (nfs->rpcsvc, prog);
+                ret = rpcsvc_program_register (nfs->rpcsvc, prog, _gf_false);
                 if (ret == -1) {
                         gf_msg (GF_NFS, GF_LOG_ERROR, 0,
                                 NFS_MSG_PGM_INIT_FAIL,

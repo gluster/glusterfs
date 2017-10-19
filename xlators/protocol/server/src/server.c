@@ -1187,7 +1187,11 @@ init (xlator_t *this)
         }
 
         glusterfs3_3_fop_prog.options = this->options;
-        ret = rpcsvc_program_register (conf->rpc, &glusterfs3_3_fop_prog);
+        /* make sure we register the fop prgram at the head to optimize
+         * lookup
+         */
+        ret = rpcsvc_program_register (conf->rpc, &glusterfs3_3_fop_prog,
+                                       _gf_true);
         if (ret) {
                 gf_msg (this->name, GF_LOG_WARNING, 0, PS_MSG_PGM_REG_FAILED,
                         "registration of program (name:%s, prognum:%d, "
@@ -1198,7 +1202,8 @@ init (xlator_t *this)
         }
 
         gluster_handshake_prog.options = this->options;
-        ret = rpcsvc_program_register (conf->rpc, &gluster_handshake_prog);
+        ret = rpcsvc_program_register (conf->rpc, &gluster_handshake_prog,
+                                       _gf_false);
         if (ret) {
                 gf_msg (this->name, GF_LOG_WARNING, 0, PS_MSG_PGM_REG_FAILED,
                         "registration of program (name:%s, prognum:%d, "
