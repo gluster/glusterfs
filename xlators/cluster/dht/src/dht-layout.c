@@ -48,12 +48,12 @@ dht_layout_new (xlator_t *this, int cnt)
                 layout->gen = conf->gen;
         }
 
-        layout->ref = 1;
+        GF_ATOMIC_INIT (layout->ref, 1);
 
         ENSURE(NULL != layout);
         ENSURE(layout->type == DHT_HASH_TYPE_DM);
         ENSURE(layout->cnt == cnt);
-        ENSURE(layout->ref == 1);
+        ENSURE(GF_ATOMIC_GET (layout->ref) == 1);
 out:
         return layout;
 }
@@ -62,24 +62,13 @@ out:
 dht_layout_t *
 dht_layout_get (xlator_t *this, inode_t *inode)
 {
-        dht_conf_t   *conf = NULL;
         dht_layout_t *layout = NULL;
         int           ret = 0;
 
-        conf = this->private;
-        if (!conf)
-                goto out;
-
-        LOCK (&conf->layout_lock);
-        {
-                ret = dht_inode_ctx_layout_get (inode, this, &layout);
-                if ((!ret) && layout) {
-                        layout->ref++;
-                }
+        ret = dht_inode_ctx_layout_get (inode, this, &layout);
+        if ((!ret) && layout) {
+                GF_ATOMIC_INC (layout->ref);
         }
-        UNLOCK (&conf->layout_lock);
-
-out:
         return layout;
 }
 
@@ -100,7 +89,7 @@ dht_layout_set (xlator_t *this, inode_t *inode, dht_layout_t *layout)
         {
                 oldret = dht_inode_ctx_layout_get (inode, this, &old_layout);
                 if (layout)
-                        layout->ref++;
+                        GF_ATOMIC_INC (layout->ref);
                 ret = dht_inode_ctx_layout_set (inode, this, layout);
         }
         UNLOCK (&conf->layout_lock);
@@ -108,6 +97,8 @@ dht_layout_set (xlator_t *this, inode_t *inode, dht_layout_t *layout)
         if (!oldret) {
                 dht_layout_unref (this, old_layout);
         }
+        if (ret)
+                GF_ATOMIC_DEC (layout->ref);
 
 out:
         return ret;
@@ -117,19 +108,12 @@ out:
 void
 dht_layout_unref (xlator_t *this, dht_layout_t *layout)
 {
-        dht_conf_t  *conf = NULL;
         int          ref = 0;
 
         if (!layout || layout->preset || !this->private)
                 return;
 
-        conf = this->private;
-
-        LOCK (&conf->layout_lock);
-        {
-                ref = --layout->ref;
-        }
-        UNLOCK (&conf->layout_lock);
+        ref = GF_ATOMIC_DEC (layout->ref);
 
         if (!ref)
                 GF_FREE (layout);
@@ -139,17 +123,10 @@ dht_layout_unref (xlator_t *this, dht_layout_t *layout)
 dht_layout_t *
 dht_layout_ref (xlator_t *this, dht_layout_t *layout)
 {
-        dht_conf_t  *conf = NULL;
-
         if (layout->preset || !this->private)
                 return layout;
 
-        conf = this->private;
-        LOCK (&conf->layout_lock);
-        {
-                layout->ref++;
-        }
-        UNLOCK (&conf->layout_lock);
+        GF_ATOMIC_INC (layout->ref);
 
         return layout;
 }

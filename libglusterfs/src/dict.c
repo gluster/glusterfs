@@ -579,8 +579,8 @@ dict_destroy (dict_t *this)
         data_pair_t *pair = this->members_list;
         data_pair_t *prev = this->members_list;
         glusterfs_ctx_t *ctx = NULL;
-        uint32_t total_pairs = 0;
         uint64_t current_max = 0;
+        uint32_t total_pairs = 0;
 
         LOCK_DESTROY (&this->lock);
 
@@ -629,7 +629,7 @@ dict_destroy (dict_t *this)
 void
 dict_unref (dict_t *this)
 {
-        int32_t ref;
+        uint64_t ref = 0;
 
         if (!this) {
                 gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
@@ -637,12 +637,7 @@ dict_unref (dict_t *this)
                 return;
         }
 
-        LOCK (&this->lock);
-
-        this->refcount--;
-        ref = this->refcount;
-
-        UNLOCK (&this->lock);
+        ref = GF_ATOMIC_DEC (this->refcount);
 
         if (!ref)
                 dict_destroy (this);
@@ -657,12 +652,7 @@ dict_ref (dict_t *this)
                 return NULL;
         }
 
-        LOCK (&this->lock);
-
-        this->refcount++;
-
-        UNLOCK (&this->lock);
-
+        GF_ATOMIC_INC (this->refcount);
         return this;
 }
 
@@ -678,12 +668,7 @@ data_unref (data_t *this)
                 return;
         }
 
-        LOCK (&this->lock);
-
-        this->refcount--;
-        ref = this->refcount;
-
-        UNLOCK (&this->lock);
+        ref = GF_ATOMIC_DEC (this->refcount);
 
         if (!ref)
                 data_destroy (this);
@@ -698,11 +683,7 @@ data_ref (data_t *this)
                 return NULL;
         }
 
-        LOCK (&this->lock);
-
-        this->refcount++;
-
-        UNLOCK (&this->lock);
+        GF_ATOMIC_INC (this->refcount);
 
         return this;
 }

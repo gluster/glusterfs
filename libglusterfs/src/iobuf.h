@@ -65,7 +65,7 @@ struct iobuf {
         struct iobuf_arena  *iobuf_arena;
 
         gf_lock_t            lock; /* for ->ptr and ->ref */
-        int                  ref;  /* 0 == passive, >0 == active */
+        gf_atomic_t          ref;  /* 0 == passive, >0 == active */
 
         void                *ptr;  /* usable memory region by the consumer */
 
@@ -150,7 +150,7 @@ void iobuf_to_iovec(struct iobuf *iob, struct iovec *iov);
 
 struct iobref {
         gf_lock_t          lock;
-        int                ref;
+        gf_atomic_t        ref;
         struct iobuf     **iobrefs;
 	int                alloced;
 	int                used;

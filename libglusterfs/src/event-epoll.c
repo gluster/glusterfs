@@ -32,7 +32,7 @@ struct event_slot_epoll {
 	int fd;
 	int events;
 	int gen;
-	int ref;
+	gf_atomic_t ref;
 	int do_close;
 	int in_handler;
         int handled_error;
@@ -197,12 +197,7 @@ event_slot_get (struct event_pool *event_pool, int idx)
 		return NULL;
 
 	slot = &table[offset];
-
-	LOCK (&slot->lock);
-	{
-		slot->ref++;
-	}
-	UNLOCK (&slot->lock);
+        GF_ATOMIC_INC (slot->ref);
 
 	return slot;
 }
@@ -216,9 +211,10 @@ event_slot_unref (struct event_pool *event_pool, struct event_slot_epoll *slot,
 	int fd = -1;
 	int do_close = 0;
 
+        ref = GF_ATOMIC_DEC (slot->ref);
+
 	LOCK (&slot->lock);
 	{
-		ref = --slot->ref;
 		fd = slot->fd;
 		do_close = slot->do_close;
 	}

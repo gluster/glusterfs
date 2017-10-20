@@ -184,7 +184,7 @@ struct rpc_transport {
         void                      *xl;       /* Used for THIS */
         void                      *mydata;
         pthread_mutex_t            lock;
-        int32_t                    refcount;
+        gf_atomic_t                refcount;
 
         int32_t                    outstanding_rpc_count;
 

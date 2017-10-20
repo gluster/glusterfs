@@ -1740,11 +1740,8 @@ rpc_clnt_ref (struct rpc_clnt *rpc)
 {
         if (!rpc)
                 return NULL;
-        pthread_mutex_lock (&rpc->lock);
-        {
-                rpc->refcount++;
-        }
-        pthread_mutex_unlock (&rpc->lock);
+
+        GF_ATOMIC_INC (rpc->refcount);
         return rpc;
 }
 
@@ -1806,11 +1803,9 @@ rpc_clnt_unref (struct rpc_clnt *rpc)
 
         if (!rpc)
                 return NULL;
-        pthread_mutex_lock (&rpc->lock);
-        {
-                count = --rpc->refcount;
-        }
-        pthread_mutex_unlock (&rpc->lock);
+
+        count = GF_ATOMIC_DEC (rpc->refcount);
+
         if (!count) {
                 rpc_clnt_trigger_destroy (rpc);
                 return NULL;

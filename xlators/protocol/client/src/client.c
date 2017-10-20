@@ -2844,7 +2844,7 @@ client_fd_lk_ctx_dump (xlator_t *this, fd_lk_ctx_t *lk_ctx, int nth_fd)
         fd_lk_ctx_node_t        *plock                   = NULL;
         char                    key[GF_DUMP_MAX_BUF_LEN] = {0,};
 
-        lk_ctx_ref = fd_lk_ctx_try_ref (lk_ctx);
+        lk_ctx_ref = fd_lk_ctx_ref (lk_ctx);
         if (!lk_ctx_ref)
                 return;
 

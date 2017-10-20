@@ -74,7 +74,7 @@ struct ios_stat {
         char           *filename;
         gf_atomic_t     counters[IOS_STATS_TYPE_MAX];
         struct ios_stat_lat thru_counters [IOS_STATS_THRU_MAX];
-        int             refcnt;
+        gf_atomic_t     refcnt;
 };
 
 struct ios_stat_list {
@@ -333,13 +333,10 @@ ios_fd_ctx_set (fd_t *fd, xlator_t *this, struct ios_fd *iosfd)
 static int
 ios_stat_ref (struct ios_stat *iosstat)
 {
-        LOCK (&iosstat->lock);
-        {
-                iosstat->refcnt++;
-        }
-        UNLOCK (&iosstat->lock);
+        uint64_t refcnt = 0;
+        refcnt = GF_ATOMIC_INC (iosstat->refcnt);
 
-        return iosstat->refcnt;
+        return refcnt;
 }
 
 
@@ -347,18 +344,16 @@ static int
 ios_stat_unref (struct ios_stat *iosstat)
 {
         int cleanup = 0;
-        LOCK (&iosstat->lock);
-        {
-                iosstat->refcnt--;
-                if (iosstat->refcnt == 0) {
-                        if (iosstat->filename) {
-                                GF_FREE (iosstat->filename);
-                                iosstat->filename = NULL;
-                        }
-                        cleanup = 1;
+        uint64_t refcnt = 0;
+
+        refcnt = GF_ATOMIC_DEC (iosstat->refcnt);
+        if (refcnt == 0) {
+                if (iosstat->filename) {
+                        GF_FREE (iosstat->filename);
+                        iosstat->filename = NULL;
                 }
+                cleanup = 1;
         }
-        UNLOCK (&iosstat->lock);
 
         if (cleanup) {
                 LOCK_DESTROY (&iosstat->lock);

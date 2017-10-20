@@ -24,7 +24,7 @@ typedef struct changelog_rpc_clnt {
 
         gf_lock_t lock;
 
-        unsigned long ref;
+        gf_atomic_t   ref;
         gf_boolean_t  disconnected;
 
         unsigned int filter;
@@ -43,11 +43,7 @@ typedef struct changelog_rpc_clnt {
 static inline void
 changelog_rpc_clnt_ref (changelog_rpc_clnt_t *crpc)
 {
-        LOCK (&crpc->lock);
-        {
-                ++crpc->ref;
-        }
-        UNLOCK (&crpc->lock);
+        GF_ATOMIC_INC (crpc->ref);
 }
 
 static inline void
@@ -66,16 +62,14 @@ static inline void
 changelog_rpc_clnt_unref (changelog_rpc_clnt_t *crpc)
 {
         gf_boolean_t gone = _gf_false;
+        uint64_t     ref  = 0;
 
-        LOCK (&crpc->lock);
-        {
-                if (!(--crpc->ref)
-                    && changelog_rpc_clnt_is_disconnected (crpc)) {
-                        list_del (&crpc->list);
-                        gone = _gf_true;
-                }
+        ref = GF_ATOMIC_DEC (crpc->ref);
+
+        if (!ref && changelog_rpc_clnt_is_disconnected (crpc)) {
+                list_del (&crpc->list);
+                gone = _gf_true;
         }
-        UNLOCK (&crpc->lock);
 
         if (gone)
                 crpc->cleanup (crpc);
