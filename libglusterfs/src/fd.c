@@ -435,7 +435,7 @@ gf_fd_fdptr_get (fdtable_t *fdtable, int64_t fd)
 fd_t *
 __fd_ref (fd_t *fd)
 {
-        ++fd->refcount;
+        GF_ATOMIC_INC (fd->refcount);
 
         return fd;
 }
@@ -444,28 +444,13 @@ __fd_ref (fd_t *fd)
 fd_t *
 fd_ref (fd_t *fd)
 {
-        fd_t *refed_fd = NULL;
-
         if (!fd) {
                 gf_msg_callingfn ("fd", GF_LOG_ERROR, EINVAL,
                                   LG_MSG_INVALID_ARG, "null fd");
                 return NULL;
         }
 
-        LOCK (&fd->inode->lock);
-        refed_fd = __fd_ref (fd);
-        UNLOCK (&fd->inode->lock);
-
-        return refed_fd;
-}
-
-
-fd_t *
-__fd_unref (fd_t *fd)
-{
-        GF_ASSERT (fd->refcount);
-
-        --fd->refcount;
+        GF_ATOMIC_INC (fd->refcount);
 
         return fd;
 }
@@ -551,8 +536,7 @@ fd_unref (fd_t *fd)
 
         LOCK (&fd->inode->lock);
         {
-                __fd_unref (fd);
-                refcount = fd->refcount;
+                refcount = GF_ATOMIC_DEC (fd->refcount);
                 if (refcount == 0) {
                         if (!list_empty (&fd->inode_list)) {
                                 list_del_init (&fd->inode_list);
@@ -1186,7 +1170,7 @@ fdentry_dump_to_dict (fdentry_t *fdentry, char *prefix, dict_t *dict,
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.refcount", prefix);
-                ret = dict_set_int32 (dict, key, fdentry->fd->refcount);
+                ret = dict_set_int32 (dict, key, GF_ATOMIC_GET (fdentry->fd->refcount));
                 if (ret)
                         return;
 

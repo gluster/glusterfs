@@ -40,7 +40,7 @@ struct _fd_ctx {
 struct _fd {
         uint64_t          pid;
 	int32_t           flags;
-        int32_t           refcount;
+        gf_atomic_t       refcount;
         struct list_head  inode_list;
         struct _inode    *inode;
         gf_lock_t         lock; /* used ONLY for manipulating

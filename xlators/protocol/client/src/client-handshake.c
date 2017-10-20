@@ -32,7 +32,7 @@ int client_set_lk_version_cbk (struct rpc_req *req, struct iovec *iov,
 int client_set_lk_version (xlator_t *this);
 
 typedef struct client_fd_lk_local {
-        int             ref;
+        gf_atomic_t     ref;
         gf_boolean_t    error;
         gf_lock_t       lock;
         clnt_fd_ctx_t *fdctx;
@@ -285,11 +285,7 @@ clnt_fd_lk_local_ref (xlator_t *this, clnt_fd_lk_local_t *local)
 {
         GF_VALIDATE_OR_GOTO (this->name, local, out);
 
-        LOCK (&local->lock);
-        {
-                local->ref++;
-        }
-        UNLOCK (&local->lock);
+        GF_ATOMIC_INC (local->ref);
 out:
         return local;
 }
@@ -301,11 +297,7 @@ clnt_fd_lk_local_unref (xlator_t *this, clnt_fd_lk_local_t *local)
 
         GF_VALIDATE_OR_GOTO (this->name, local, out);
 
-        LOCK (&local->lock);
-        {
-                ref = --local->ref;
-        }
-        UNLOCK (&local->lock);
+        ref = GF_ATOMIC_DEC (local->ref);
 
         if (ref == 0) {
                 LOCK_DESTROY (&local->lock);
@@ -325,7 +317,7 @@ clnt_fd_lk_local_create (clnt_fd_ctx_t *fdctx)
         if (!local)
                 goto out;
 
-        local->ref    = 1;
+        GF_ATOMIC_INIT (local->ref, 1);
         local->error  = _gf_false;
         local->fdctx = fdctx;
 

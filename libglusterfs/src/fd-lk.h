@@ -30,7 +30,7 @@ struct _fd;
 
 struct fd_lk_ctx {
         struct list_head lk_list;
-        int   ref;
+        gf_atomic_t ref;
         gf_lock_t lock;
 };
 typedef struct fd_lk_ctx fd_lk_ctx_t;
@@ -45,14 +45,9 @@ struct fd_lk_ctx_node {
 };
 typedef struct fd_lk_ctx_node fd_lk_ctx_node_t;
 
-fd_lk_ctx_t *
-_fd_lk_ctx_ref (fd_lk_ctx_t *lk_ctx);
 
 fd_lk_ctx_t *
 fd_lk_ctx_ref (fd_lk_ctx_t *lk_ctx);
-
-fd_lk_ctx_t *
-fd_lk_ctx_try_ref (fd_lk_ctx_t *lk_ctx);
 
 fd_lk_ctx_t *
 fd_lk_ctx_create (void);

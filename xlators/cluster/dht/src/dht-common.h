@@ -87,8 +87,8 @@ struct dht_layout {
          */
         int                gen;
         int                type;
-        int                ref; /* use with dht_conf_t->layout_lock */
-        uint32_t           search_unhashed;
+        gf_atomic_t        ref; /* use with dht_conf_t->layout_lock */
+        gf_boolean_t       search_unhashed;
         struct {
                 int        err;   /* 0 = normal
                                      -1 = dir exists and no xattr

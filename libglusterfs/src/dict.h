@@ -67,7 +67,7 @@ struct _data {
         unsigned char  is_const:1;
         int32_t        len;
         char          *data;
-        int32_t        refcount;
+        gf_atomic_t    refcount;
         gf_lock_t      lock;
 };
 
@@ -84,7 +84,7 @@ struct _dict {
         unsigned char   is_static:1;
         int32_t         hash_size;
         int32_t         count;
-        int32_t         refcount;
+        gf_atomic_t     refcount;
         data_pair_t   **members;
         data_pair_t    *members_list;
         char           *extra_free;
@@ -93,7 +93,7 @@ struct _dict {
         data_pair_t    *members_internal;
         data_pair_t     free_pair;
         gf_boolean_t    free_pair_in_use;
-        uint32_t        max_count;
+        uint64_t        max_count;
 };
 
 typedef gf_boolean_t (*dict_match_t) (dict_t *d, char *k, data_t *v,

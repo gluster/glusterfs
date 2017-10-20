@@ -211,7 +211,7 @@ changelog_rpc_clnt_init (xlator_t *this,
         /* Take a ref, the last unref will be on RPC_CLNT_DESTROY
          * which comes as a result of last rpc_clnt_unref.
          */
-        crpc->ref = 1;
+        GF_ATOMIC_INIT (crpc->ref, 1);
         changelog_set_disconnect_flag (crpc, _gf_false);
 
         crpc->filter = rpc_req->filter;

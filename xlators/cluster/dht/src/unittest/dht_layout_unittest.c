@@ -90,7 +90,7 @@ test_dht_layout_new(void **state)
     assert_non_null(layout);
     assert_int_equal(layout->type, DHT_HASH_TYPE_DM);
     assert_int_equal(layout->cnt, cnt);
-    assert_int_equal(layout->ref, 1);
+    assert_int_equal(GF_ATOMIC_GET (layout->ref), 1);
     assert_int_equal(layout->gen, 0);
     assert_int_equal(layout->spread_cnt, 0);
     free(layout);
@@ -107,7 +107,7 @@ test_dht_layout_new(void **state)
     assert_non_null(layout);
     assert_int_equal(layout->type, DHT_HASH_TYPE_DM);
     assert_int_equal(layout->cnt, cnt);
-    assert_int_equal(layout->ref, 1);
+    assert_int_equal(GF_ATOMIC_GET (layout->ref), 1);
     assert_int_equal(layout->gen, conf->gen);
     assert_int_equal(layout->spread_cnt, conf->dir_spread_cnt);
     free(layout);

@@ -126,7 +126,7 @@ __iobuf_arena_destroy_iobufs (struct iobuf_arena *iobuf_arena)
 
         iobuf = iobuf_arena->iobufs;
         for (i = 0; i < iobuf_cnt; i++) {
-                GF_ASSERT (iobuf->ref == 0);
+                GF_ASSERT (GF_ATOMIC_GET(iobuf->ref) == 0);
 
                 LOCK_DESTROY (&iobuf->lock);
                 list_del_init (&iobuf->list);
@@ -529,23 +529,6 @@ out:
 
 
 struct iobuf *
-__iobuf_ref (struct iobuf *iobuf)
-{
-        iobuf->ref++;
-
-        return iobuf;
-}
-
-
-struct iobuf *
-__iobuf_unref (struct iobuf *iobuf)
-{
-        iobuf->ref--;
-
-        return iobuf;
-}
-
-struct iobuf *
 __iobuf_get (struct iobuf_arena *iobuf_arena, size_t page_size)
 {
         struct iobuf      *iobuf        = NULL;
@@ -619,7 +602,7 @@ iobuf_get_from_stdalloc (struct iobuf_pool *iobuf_pool, size_t page_size)
         LOCK_INIT (&iobuf->lock);
 
         /* Hold a ref because you are allocating and using it */
-        iobuf->ref = 1;
+        GF_ATOMIC_INIT (iobuf->ref, 1);
 
         ret = 0;
 out:
@@ -835,12 +818,7 @@ iobuf_unref (struct iobuf *iobuf)
 
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf, out);
 
-        LOCK (&iobuf->lock);
-        {
-                __iobuf_unref (iobuf);
-                ref = iobuf->ref;
-        }
-        UNLOCK (&iobuf->lock);
+        ref = GF_ATOMIC_DEC (iobuf->ref);
 
         if (!ref)
                 iobuf_put (iobuf);
@@ -854,12 +832,7 @@ struct iobuf *
 iobuf_ref (struct iobuf *iobuf)
 {
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf, out);
-
-        LOCK (&iobuf->lock);
-        {
-                __iobuf_ref (iobuf);
-        }
-        UNLOCK (&iobuf->lock);
+        GF_ATOMIC_INC (iobuf->ref);
 
 out:
         return iobuf;
@@ -888,8 +861,7 @@ iobref_new ()
 
         LOCK_INIT (&iobref->lock);
 
-        iobref->ref++;
-
+        GF_ATOMIC_INIT (iobref->ref, 1);
         return iobref;
 }
 
@@ -898,12 +870,7 @@ struct iobref *
 iobref_ref (struct iobref *iobref)
 {
         GF_VALIDATE_OR_GOTO ("iobuf", iobref, out);
-
-        LOCK (&iobref->lock);
-        {
-                iobref->ref++;
-        }
-        UNLOCK (&iobref->lock);
+        GF_ATOMIC_INC (iobref->ref);
 
 out:
         return iobref;
@@ -940,12 +907,7 @@ iobref_unref (struct iobref *iobref)
         int ref = 0;
 
         GF_VALIDATE_OR_GOTO ("iobuf", iobref, out);
-
-        LOCK (&iobref->lock);
-        {
-                ref = (--iobref->ref);
-        }
-        UNLOCK (&iobref->lock);
+        ref = GF_ATOMIC_DEC (iobref->ref);
 
         if (!ref)
                 iobref_destroy (iobref);
