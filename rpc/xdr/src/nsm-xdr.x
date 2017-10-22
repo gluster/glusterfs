@@ -46,11 +46,11 @@ struct my_id {
 
 struct mon_id {
     string mon_name<SM_MAXSTRLEN>; /* name of the host to be monitored */
-    struct my_id my_id;
+    my_id my_id;
 };
 
 struct mon {
-    struct mon_id mon_id;
+    mon_id mon_id;
     opaque    priv[16];        /*  private information  */
 };
 

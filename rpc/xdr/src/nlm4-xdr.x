@@ -90,7 +90,7 @@ struct nlm4_share {
 
 union nlm4_testrply switch (nlm4_stats stat) {
 	case nlm4_denied:
-		struct nlm4_holder holder;
+		nlm4_holder holder;
 	default:
 		void;
 };
@@ -103,7 +103,7 @@ struct nlm4_testres {
 struct nlm4_testargs {
 	nlm4_netobj cookie;
 	bool exclusive;
-	struct nlm4_lock alock;
+	nlm4_lock alock;
 };
 
 struct nlm4_res {
@@ -115,7 +115,7 @@ struct nlm4_lockargs {
 	nlm4_netobj cookie;
 	bool block;
 	bool exclusive;
-	struct nlm4_lock alock;
+	nlm4_lock alock;
 	bool reclaim;		/* used for recovering locks */
 	int32_t state;		/* specify local status monitor state */
 };
@@ -124,12 +124,12 @@ struct nlm4_cancargs {
 	nlm4_netobj cookie;
 	bool block;
 	bool exclusive;
-	struct nlm4_lock alock;
+	nlm4_lock alock;
 };
 
 struct nlm4_unlockargs {
 	nlm4_netobj cookie;
-	struct nlm4_lock alock;
+	nlm4_lock alock;
 };
 
 struct	nlm4_shareargs {
@@ -162,6 +162,6 @@ struct nlm_sm_status {
 
 program NLMCBK_PROGRAM {
         version NLMCBK_V1 {
-                void NLMCBK_SM_NOTIFY(struct nlm_sm_status) = 16;
+                void NLMCBK_SM_NOTIFY(nlm_sm_status) = 16;
         } = 1;
 } = 100021;
