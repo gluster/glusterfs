@@ -28,25 +28,25 @@ struct getaclargs {
 struct getaclreply {
 	int status;
 	int attr_follows;
-	struct fattr3 attr;
+	fattr3 attr;
 	int	mask;
 	int aclcount;
-	struct aclentry aclentry<>;
+	aclentry aclentry<>;
 	int daclcount;
-	struct aclentry daclentry<>;
+	aclentry daclentry<>;
 };
 
 struct setaclargs {
 	netobj fh;
 	int mask;
 	int aclcount;
-	struct aclentry aclentry<>;
+	aclentry aclentry<>;
 	int daclcount;
-	struct aclentry daclentry<>;
+	aclentry daclentry<>;
 };
 
 struct setaclreply {
 	int status;
 	int attr_follows;
-	struct fattr3 attr;
+	fattr3 attr;
 };

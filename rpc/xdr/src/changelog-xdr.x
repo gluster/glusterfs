@@ -27,16 +27,16 @@ struct changelog_probe_rsp {
 /* XDR: changelog -> libgfchangelog */
 struct changelog_event_req {
        /* sequence number for the buffer */
-       unsigned long seq;
+       unsigned hyper seq;
 
        /* time of dispatch */
-       unsigned long tv_sec;
-       unsigned long tv_usec;
+       unsigned hyper tv_sec;
+       unsigned hyper tv_usec;
 };
 
 struct changelog_event_rsp {
        int op_ret;
 
        /* ack'd buffers sequence number */
-       unsigned long seq;
+       unsigned hyper seq;
 };
