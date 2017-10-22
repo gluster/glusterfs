@@ -1079,10 +1079,14 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
         int32_t               op_errno      = 0;
         gf_boolean_t          auth_fail     = _gf_false;
         uint32_t              lk_ver        = 0;
+        glusterfs_ctx_t      *ctx           = NULL;
 
         frame = myframe;
         this  = frame->this;
         conf  = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+        ctx = this->ctx;
+        GF_VALIDATE_OR_GOTO (this->name, ctx, out);
 
         if (-1 == req->rpc_status) {
                 gf_msg (frame->this->name, GF_LOG_WARNING, ENOTCONN,
@@ -1145,9 +1149,13 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
                         auth_fail = _gf_true;
                         op_ret = 0;
                 }
-                if ((op_errno == ENOENT) && this->ctx->cmd_args.subdir_mount) {
+                if ((op_errno == ENOENT) && this->ctx->cmd_args.subdir_mount &&
+                    (ctx->graph_id <= 1)) {
                         /* A case of subdir not being present at the moment,
                            ride on auth_fail framework to notify the error */
+                        /* Make sure this case is handled only in the new
+                           graph, so mount may fail in this case. In case
+                           of 'add-brick' etc, we need to continue retry */
                         auth_fail = _gf_true;
                         op_ret = 0;
                 }

@@ -82,17 +82,38 @@ TEST $CLI volume stop $V0
 
 TEST $CLI volume start $V0
 
-# /subdir2 has not allowed IP
-TEST $GFS --subdir-mount /subdir2 -s $H0 --volfile-id $V0 $M1
-TEST stat $M1
-
 TEST $GFS --subdir-mount /subdir1/subdir1.1/subdir1.2 -s $H0 --volfile-id $V0 $M2
 TEST stat $M2
+
+# mount shouldn't fail even after add-brick
+TEST $CLI volume add-brick $V0 replica 2 $H0:$B0/${V0}{5,6};
+
+# Give time for client process to get notified and use the new
+# volfile after add-brick
+sleep 1
+
+# Existing mount should still be active
+mount_inode=$(stat --format "%i" "$M2")
+TEST test "$mount_inode" == "1"
+
+TEST umount $M2
+
+# because the subdir is not yet 'healed', below should fail.
+TEST $GFS --subdir-mount /subdir2 -s $H0 --volfile-id $V0 $M2
+mount_inode=$(stat --format "%i" "$M2")
+TEST test "$mount_inode" != "1"
+
+# Allow the heal to complete
+TEST stat $M0/subdir1/subdir1.1/subdir1.2/subdir1.2_file;
+TEST stat $M0/subdir2/
+
+# Now the mount should succeed
+TEST $GFS --subdir-mount /subdir2 -s $H0 --volfile-id $V0 $M1
+TEST stat $M1
 
 # umount $M1 / $M2
 TEST umount $M0
 TEST umount $M1
-TEST umount $M2
 
 
 TEST $CLI volume stop $V0;
