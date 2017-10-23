@@ -802,18 +802,18 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
 
         pthread_attr_t attr;
 
+        this = THIS;
+        if (!this) {
+                ret = -1;
+                goto out;
+        }
+
         ret = pthread_attr_init (&attr);
         if (ret != 0) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         CHANGELOG_LIB_MSG_PTHREAD_ERROR,
                         "Pthread init failed");
                 return -1;
-        }
-
-        this = THIS;
-        if (!this) {
-                ret = -1;
-                goto out;
         }
 
         jnl = (gf_changelog_journal_t *) GF_CHANGELOG_GET_API_PTR (this);
