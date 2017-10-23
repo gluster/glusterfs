@@ -12,22 +12,22 @@
 void
 server_post_stat (server_state_t *state, gfs3_stat_rsp *rsp, struct iatt *stbuf)
 {
-        if (state->client->subdir_mount) {
-                if (gf_uuid_compare (stbuf->ia_gfid,
-                                     state->client->subdir_gfid)) {
-                        /* This is very important as when we send iatt of
-                           root-inode, fuse/client expect the gfid to be 1,
-                           along with inode number. As for subdirectory mount,
-                           we use inode table which is shared by everyone, but
-                           make sure we send fops only from subdir and below,
-                           we have to alter inode gfid and send it to client */
-                        uuid_t gfid = {0,};
+        if (state->client->subdir_mount &&
+            !gf_uuid_compare (stbuf->ia_gfid,
+                              state->client->subdir_gfid)) {
+                /* This is very important as when we send iatt of
+                   root-inode, fuse/client expect the gfid to be 1,
+                   along with inode number. As for subdirectory mount,
+                   we use inode table which is shared by everyone, but
+                   make sure we send fops only from subdir and below,
+                   we have to alter inode gfid and send it to client */
+                uuid_t gfid = {0,};
 
-                        gfid[15] = 1;
-                        stbuf->ia_ino = 1;
-                        gf_uuid_copy (stbuf->ia_gfid, gfid);
-                }
+                gfid[15] = 1;
+                stbuf->ia_ino = 1;
+                gf_uuid_copy (stbuf->ia_gfid, gfid);
         }
+
         gf_stat_from_iatt (&rsp->stat, stbuf);
 }
 
@@ -185,22 +185,22 @@ void
 server_post_fstat (server_state_t *state, gfs3_fstat_rsp *rsp,
                    struct iatt *stbuf)
 {
-        if (state->client->subdir_mount) {
-                if (gf_uuid_compare (stbuf->ia_gfid,
-                                     state->client->subdir_gfid)) {
-                        /* This is very important as when we send iatt of
-                           root-inode, fuse/client expect the gfid to be 1,
-                           along with inode number. As for subdirectory mount,
-                           we use inode table which is shared by everyone, but
-                           make sure we send fops only from subdir and below,
-                           we have to alter inode gfid and send it to client */
-                        uuid_t gfid = {0,};
+        if (state->client->subdir_mount &&
+            !gf_uuid_compare (stbuf->ia_gfid,
+                              state->client->subdir_gfid)) {
+                /* This is very important as when we send iatt of
+                   root-inode, fuse/client expect the gfid to be 1,
+                   along with inode number. As for subdirectory mount,
+                   we use inode table which is shared by everyone, but
+                   make sure we send fops only from subdir and below,
+                   we have to alter inode gfid and send it to client */
+                uuid_t gfid = {0,};
 
-                        gfid[15] = 1;
-                        stbuf->ia_ino = 1;
-                        gf_uuid_copy (stbuf->ia_gfid, gfid);
-                }
+                gfid[15] = 1;
+                stbuf->ia_ino = 1;
+                gf_uuid_copy (stbuf->ia_gfid, gfid);
         }
+
         gf_stat_from_iatt (&rsp->stat, stbuf);
 }
 
