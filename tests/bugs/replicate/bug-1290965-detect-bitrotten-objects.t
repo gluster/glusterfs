@@ -14,7 +14,7 @@ TEST $CLI volume set $V0 metadata-self-heal off
 TEST $CLI volume set $V0 data-self-heal off
 TEST $CLI volume set $V0 performance.stat-prefetch off
 TEST $CLI volume start $V0
-TEST $CLI volume attach-tier $V0 replica 2 $H0:$B0/brick{2,3}
+TEST $CLI volume tier $V0 attach replica 2 $H0:$B0/brick{2,3}
 TEST $CLI volume bitrot $V0 enable
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" get_bitd_count
 TEST $CLI volume bitrot $V0 scrub-frequency hourly

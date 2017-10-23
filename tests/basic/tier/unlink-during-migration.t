@@ -19,7 +19,7 @@ function create_dist_rep_vol () {
 }
 
 function attach_dist_rep_tier () {
-        TEST $CLI volume attach-tier $V0 replica 2 $H0:$B0/hot/${V0}{0..3}
+        TEST $CLI volume tier $V0 attach replica 2 $H0:$B0/hot/${V0}{0..3}
         TEST $CLI volume set $V0 cluster.tier-demote-frequency $DEMOTE_FREQ
         TEST $CLI volume set $V0 cluster.tier-promote-frequency $PROMOTE_FREQ
         TEST $CLI volume set $V0 cluster.read-freq-threshold 0

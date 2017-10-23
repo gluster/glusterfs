@@ -50,7 +50,7 @@ TEST create_many_files file $NUM_FILES
 wait
 
 # Attach tier
-TEST $CLI volume attach-tier $V0 replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
+TEST $CLI volume tier $V0 attach replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
 
 TEST $CLI volume set $V0 cluster.tier-mode test
 TEST $CLI volume set $V0 cluster.tier-demote-frequency $DEMOTE_FREQ

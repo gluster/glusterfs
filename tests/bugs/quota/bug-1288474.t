@@ -32,9 +32,9 @@ TEST $CLI volume quota $V0 limit-usage / 10MB
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "10.0MB" quota_list_field "/" 5
 
 #check quota list after detach tier
-TEST $CLI volume detach-tier $V0 start
+TEST $CLI volume tier $V0 detach start
 sleep 1
-TEST $CLI volume detach-tier $V0 force
+TEST $CLI volume tier $V0 detach force
 
 EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "10.0MB" quota_list_field "/" 5
 
