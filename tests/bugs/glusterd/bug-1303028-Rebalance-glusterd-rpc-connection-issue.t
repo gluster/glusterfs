@@ -15,7 +15,7 @@ function create_dist_tier_vol () {
         TEST $CLI volume set $V0 performance.quick-read off
         TEST $CLI volume set $V0 performance.io-cache off
         TEST $CLI volume start $V0
-        TEST $CLI volume attach-tier $V0 $H0:$B0/hot/${V0}{1..2}
+        TEST $CLI volume tier $V0 attach $H0:$B0/hot/${V0}{1..2}
         TEST $CLI volume set $V0 cluster.tier-mode test
 }
 

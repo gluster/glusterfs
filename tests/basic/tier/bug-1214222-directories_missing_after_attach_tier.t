@@ -33,7 +33,7 @@ TEST [ -d d1 ]
 TEST touch file1
 TEST [ -e file1 ]
 
-TEST $CLI volume attach-tier $V0 replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
+TEST $CLI volume tier $V0 attach replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
 TEST $CLI volume set $V0 features.ctr-enabled on
 
 #check whether the directory's and files are present on mount or not.
@@ -48,9 +48,9 @@ tier_status ()
 	$CLI volume tier $V0 detach status | grep progress | wc -l
 }
 
-TEST $CLI volume detach-tier $V0 start
+TEST $CLI volume tier $V0 detach start
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" tier_status
-TEST $CLI volume detach-tier $V0 commit
+TEST $CLI volume tier $V0 detach commit
 
 EXPECT "0" confirm_tier_removed ${V0}${CACHE_BRICK_FIRST}
 

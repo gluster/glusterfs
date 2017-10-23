@@ -16,7 +16,7 @@ function check_peers {
 function create_dist_tier_vol () {
         TEST $CLI_1 volume create $V0 $H1:$B1/${V0} $H2:$B2/${V0}
         TEST $CLI_1 volume start $V0
-        TEST $CLI_1 volume attach-tier $V0 $H1:$B1/${V0}_h1 $H2:$B2/${V0}_h2
+        TEST $CLI_1 volume tier $V0 attach $H1:$B1/${V0}_h1 $H2:$B2/${V0}_h2
 }
 
 function tier_status () {

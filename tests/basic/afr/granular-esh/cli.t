@@ -30,7 +30,7 @@ TEST ! $CLI volume heal $V1 granular-entry-heal disable
 #######################
 # Execute the same command on a disperse + replicate tiered volume and make
 # sure the option is set on the replicate leg of the volume
-TEST $CLI volume attach-tier $V1 replica 2 $H0:$B0/${V1}{3,4}
+TEST $CLI volume tier $V1 attach replica 2 $H0:$B0/${V1}{3,4}
 TEST $CLI volume heal $V1 granular-entry-heal enable
 EXPECT "enable" volume_get_field $V1 cluster.granular-entry-heal
 TEST $CLI volume heal $V1 granular-entry-heal disable

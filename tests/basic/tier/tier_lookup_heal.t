@@ -43,7 +43,7 @@ TEST [ $ENTRY_COUNT -eq 0 ]
 
 
 #Attach tier and switch ON CTR Xlator.
-TEST $CLI volume attach-tier $V0 replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
+TEST $CLI volume tier $V0 attach replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
 TEST $CLI volume set $V0 features.ctr-enabled on
 TEST $CLI volume set $V0 cluster.tier-demote-frequency 4
 TEST $CLI volume set $V0 cluster.tier-promote-frequency 4

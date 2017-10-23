@@ -14,7 +14,7 @@ TEST $CLI volume create $V0 replica 2 $H0:$L1 $H0:$L2 ;
 
 TEST $CLI volume start $V0;
 
-TEST $CLI volume attach-tier $V0 replica 2 $H0:$L3 $H0:$L4 ;
+TEST $CLI volume tier $V0 attach replica 2 $H0:$L3 $H0:$L4 ;
 
 TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0;
 

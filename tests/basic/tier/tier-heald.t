@@ -18,7 +18,7 @@ volfile=$(gluster system:: getwd)"/glustershd/glustershd-server.vol"
 # volumes
 TEST $CLI volume create dist_tier $H0:$B0/cold
 TEST $CLI volume start dist_tier
-TEST $CLI volume attach-tier dist_tier $H0:$B0/hot
+TEST $CLI volume tier dist_tier attach $H0:$B0/hot
 
 TEST "[ -z $(get_shd_process_pid)]"
 TEST ! $CLI volume heal dist_tier enable
@@ -29,7 +29,7 @@ TEST $CLI volume create r2 replica 2 $H0:$B0/r2_0 $H0:$B0/r2_1
 TEST "[ -z $(get_shd_process_pid)]"
 TEST $CLI volume start r2
 
-TEST $CLI volume attach-tier r2 $H0:$B0/r2_hot
+TEST $CLI volume tier r2 attach $H0:$B0/r2_hot
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "[0-9][0-9]*" get_shd_process_pid
 TEST $CLI volume heal r2 enable
@@ -44,7 +44,7 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "[0-9][0-9]*" get_shd_process_pid
 TEST $CLI volume create ec2 disperse 3 redundancy 1 $H0:$B0/ec2_0 $H0:$B0/ec2_1 $H0:$B0/ec2_2
 TEST $CLI volume start ec2
 
-TEST $CLI volume attach-tier ec2 replica 2 $H0:$B0/ec2_hot{1..4}
+TEST $CLI volume tier ec2 attach replica 2 $H0:$B0/ec2_hot{1..4}
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "[0-9][0-9]*" get_shd_process_pid
 TEST $CLI volume heal ec2 enable
 EXPECT "enable" volume_option ec2 "cluster.disperse-self-heal-daemon"
@@ -75,7 +75,7 @@ TEST $CLI volume start ec2
 EXPECT "Y" volgen_volume_exists $volfile ec2-disperse-0 cluster disperse
 EXPECT "Y" volgen_volume_exists $volfile ec2-replicate-0 cluster replicate
 
-TEST $CLI volume detach-tier ec2 force
+TEST $CLI volume tier ec2 detach force
 
 EXPECT "Y" volgen_volume_exists $volfile ec2-disperse-0 cluster disperse
 EXPECT "N" volgen_volume_exists $volfile ec2-replicate-0 cluster replicate
