@@ -57,6 +57,13 @@ TEST rm -f $M0/file2
 sleep 10
 TEST rm -f $M0/file1
 
+## Test for state transition over write.
+TEST `echo "worm 1" > $M0/file3`
+sleep 5
+TEST `echo "worm 2" >> $M0/file3`
+EXPECT 'worm 1' cat $M0/file3
+TEST ! rm -f $M0/file3
+
 TEST $CLI volume stop $V0
 EXPECT 'Stopped' volinfo_field $V0 'Status'
 
