@@ -126,6 +126,48 @@ Check status of data movement from the hot to cold tier.
 .TP
 \fB\ volume tier <VOLNAME> detach stop\fR
 Stop detaching the hot tier from the volume.
+
+.SS "Quota Commands"
+.TP
+\fB\ volume quota <VOLNAME> enable \fR
+Enable quota on the specified volume. This will cause all the directories in the filesystem hierarchy to be accounted and updated thereafter on each operation in the the filesystem. To kick start this accounting, a crawl is done over the hierarchy with an auxiliary client.
+.TP
+\fB\ volume quota <VOLNAME> disable \fR
+Disable quota on the volume. This will disable enforcement and accounting in the filesystem. Any configured limits will be lost.
+.TP
+\fB\ volume quota <VOLNAME> limit-usage <PATH> <SIZE> [<PERCENT>] \fR
+Set a usage  limit on the given path. Any previously set limit is overridden to the new value. The soft limit can optionally be specified (as a percentage of hard limit). If soft limit percentage is not provided the default soft limit value for the volume is used to decide the soft limit.
+.TP
+\fB\ volume quota <VOLNAME> limit-objects <PATH> <SIZE> [<PERCENT>] \fR
+Set an inode limit on the given path. Any previously set limit is overridden to the new value. The soft limit can optionally be specified (as a percentage of hard limit). If soft limit percentage is not provided the default soft limit value for the volume is used to decide the soft limit.
+.TP
+NOTE: valid units of SIZE are : B, KB, MB, GB, TB, PB. If no unit is specified, the unit defaults to bytes.
+.TP
+\fB\ volume quota <VOLNAME> remove <PATH> \fR
+Remove any usage limit configured on the specified directory. Note that if any limit is configured on the ancestors of this directory (previous directories along the path), they will still be honored and enforced.
+.TP
+\fB\ volume quota <VOLNAME> remove-objects <PATH> \fR
+Remove any inode limit configured on the specified directory. Note that if any limit is configured on the ancestors of this directory (previous directories along the path), they will still be honored and enforced.
+.TP
+\fB\ volume quota <VOLNAME> list <PATH> \fR
+Lists the  usage and limits configured on directory(s). If a path is given only the limit that has been configured on the directory(if any) is displayed along with the directory's usage. If no path is given, usage and limits are displayed for all directories that has limits configured.
+.TP
+\fB\ volume quota <VOLNAME> list-objects <PATH> \fR
+Lists the inode usage and inode limits configured on directory(s). If a path is given only the limit that has been configured on the directory(if any) is displayed along with the directory's inode usage. If no path is given, usage and limits are displayed for all directories that has limits configured.
+.TP
+\fB\ volume quota <VOLNAME> default-soft-limit <PERCENT> \fR
+Set the percentage value for default soft limit for the volume.
+.TP
+\fB\ volume quota <VOLNAME> soft-timeout <TIME> \fR
+Set the soft timeout for the volume. The interval in which limits are retested before the soft limit is breached.
+.TP
+\fB\ volume quota <VOLNAME> hard-timeout <TIME> \fR
+Set the hard timeout for the volume. The interval in which limits are retested after the soft limit is breached.
+.TP
+\fB\ volume quota <VOLNAME> alert-time <TIME> \fR
+Set the frequency in which warning messages need to be logged (in the brick logs) once soft limit is breached.
+.TP
+NOTE: valid units of time and their symbols are : hours(h/hr), minutes(m/min), seconds(s/sec), weeks(w/wk), Days(d/days).
 .SS "Geo-replication Commands"
 .TP
 \fI\ Note\fR: password-less ssh, from the master node (where these commands are executed) to the slave node <SLAVE_HOST>, is a prerequisite for the geo-replication commands.
