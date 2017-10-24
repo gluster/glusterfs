@@ -820,18 +820,6 @@ __dht_rebalance_create_dst_file (xlator_t *this, xlator_t *to, xlator_t *from,
 
         }
 
-        /* TODO: Need to add a detailed comment about why we moved away from
-        ftruncate.
-
-        ret = syncop_ftruncate (to, fd, stbuf->ia_size, NULL, NULL);
-        if (ret < 0) {
-                *fop_errno = -ret;
-                gf_msg (this->name, GF_LOG_ERROR, -ret,
-                        DHT_MSG_MIGRATE_FILE_FAILED,
-                        "ftruncate failed for %s on %s",
-                        loc->path, to->name);
-        */
-
         ret = syncop_fsetattr (to, fd, stbuf,
                                (GF_SET_ATTR_UID | GF_SET_ATTR_GID),
                                 NULL, NULL, NULL, NULL);
@@ -843,18 +831,35 @@ __dht_rebalance_create_dst_file (xlator_t *this, xlator_t *to, xlator_t *from,
                         loc->path, to->name);
         }
 
-        /* Fallocate does not work for size 0, hence the check. Anyway we don't
-         * need to care about min-free-disk for 0 byte size file */
+        /* No need to bother about 0 byte size files */
         if (stbuf->ia_size > 0) {
-                ret = syncop_fallocate (to, fd, 0, 0, stbuf->ia_size, NULL,
-                                        NULL);
-                if (ret < 0) {
-                        gf_msg (this->name, GF_LOG_ERROR, -ret,
-                                DHT_MSG_MIGRATE_FILE_FAILED,
-                                "fallocate failed for %s on %s",
-                                loc->path, to->name);
-                        ret = -1;
-                        goto out;
+                if (conf->use_fallocate) {
+                        ret = syncop_fallocate (to, fd, 0, 0, stbuf->ia_size,
+                                                NULL, NULL);
+                        if (ret < 0) {
+                                if (ret == -EOPNOTSUPP || ret == -EINVAL ||
+                                    ret == -ENOSYS) {
+                                        conf->use_fallocate = _gf_false;
+                                } else {
+                                        gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                                "fallocate failed for %s on %s",
+                                                loc->path, to->name);
+                                        *fop_errno = -ret;
+                                        goto out;
+                                }
+                        }
+                }
+
+                if (!conf->use_fallocate) {
+                        ret = syncop_ftruncate (to, fd, stbuf->ia_size, NULL, NULL);
+                        if (ret < 0) {
+                                *fop_errno = -ret;
+                                gf_msg (this->name, GF_LOG_WARNING, -ret,
+                                        DHT_MSG_MIGRATE_FILE_FAILED,
+                                        "ftruncate failed for %s on %s",
+                                        loc->path, to->name);
+                        }
                 }
         }
 
@@ -877,10 +882,10 @@ out:
 }
 
 static int
-__dht_check_free_space (xlator_t *this, xlator_t *to, xlator_t *from, loc_t *loc,
-                        struct iatt *stbuf, int flag, dht_conf_t *conf,
-                        gf_boolean_t *target_changed, xlator_t **new_subvol,
-                        int *fop_errno)
+__dht_check_free_space (xlator_t *this, xlator_t *to, xlator_t *from,
+                        loc_t *loc, struct iatt *stbuf, int flag,
+                        dht_conf_t *conf, gf_boolean_t *target_changed,
+                        xlator_t **new_subvol, int *fop_errno)
 {
         struct statvfs  src_statfs = {0,};
         struct statvfs  dst_statfs = {0,};
@@ -890,6 +895,8 @@ __dht_check_free_space (xlator_t *this, xlator_t *to, xlator_t *from, loc_t *loc
         uint64_t        src_statfs_blocks = 1;
         uint64_t        dst_statfs_blocks = 1;
         double          post_availspacepercent = 0;
+        uint64_t        file_blocks = 0;
+        uint64_t        dst_total_blocks = 0;
 
         xdata = dict_new ();
         if (!xdata) {
@@ -933,9 +940,21 @@ __dht_check_free_space (xlator_t *this, xlator_t *to, xlator_t *from, loc_t *loc
                 goto out;
         }
 
-        gf_msg_debug (this->name, 0, "min_free_disk - %f , block available - %lu ,"
-                      " block size - %lu ", conf->min_free_disk, dst_statfs.f_bavail,
-                      dst_statfs.f_bsize);
+        gf_msg_debug (this->name, 0, "min_free_disk - %f , block available - "
+                      "%lu , block size - %lu ", conf->min_free_disk,
+                      dst_statfs.f_bavail, dst_statfs.f_bsize);
+
+        dst_statfs_blocks = dst_statfs.f_bavail *
+                            (dst_statfs.f_frsize /
+                            GF_DISK_SECTOR_SIZE);
+
+        src_statfs_blocks = src_statfs.f_bavail *
+                            (src_statfs.f_frsize /
+                            GF_DISK_SECTOR_SIZE);
+
+        dst_total_blocks = dst_statfs.f_blocks *
+                           (dst_statfs.f_frsize /
+                           GF_DISK_SECTOR_SIZE);
 
         /* if force option is given, do not check for space @ dst.
          * Check only if space is avail for the file */
@@ -950,24 +969,27 @@ __dht_check_free_space (xlator_t *this, xlator_t *to, xlator_t *from, loc_t *loc
            the space could be scantily available.
          */
         if (stbuf) {
-                dst_statfs_blocks = ((dst_statfs.f_bavail *
-                                      dst_statfs.f_bsize) /
-                                     GF_DISK_SECTOR_SIZE);
-                src_statfs_blocks = ((src_statfs.f_bavail *
-                                      src_statfs.f_bsize) /
-                                     GF_DISK_SECTOR_SIZE);
-                if ((dst_statfs_blocks) <
-                    (src_statfs_blocks + stbuf->ia_blocks)) {
+                if (!conf->use_fallocate) {
+                        file_blocks = stbuf->ia_size + GF_DISK_SECTOR_SIZE - 1;
+                        file_blocks /= GF_DISK_SECTOR_SIZE;
 
+                        if (file_blocks >= dst_statfs_blocks) {
+                                dst_statfs_blocks = 0;
+                        } else {
+                                dst_statfs_blocks -= file_blocks;
+                        }
+                }
+
+                if (dst_statfs_blocks <= src_statfs_blocks) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
-                               DHT_MSG_MIGRATE_FILE_FAILED,
-                               "data movement of file "
-                               "{blocks:%"PRIu64" name:(%s) } would result in "
-                               "dst node (%s:%"PRIu64") having lower disk "
-                               "space then the source node (%s:%"PRIu64")"
-                               ".Skipping file.", stbuf->ia_blocks, loc->path,
-                               to->name, dst_statfs_blocks, from->name,
-                               src_statfs_blocks);
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "data movement of file "
+                                "{blocks:%"PRIu64" name:(%s) } would result in "
+                                "dst node (%s:%"PRIu64") having lower disk "
+                                "space then the source node (%s:%"PRIu64")"
+                                ".Skipping file.", stbuf->ia_blocks, loc->path,
+                                to->name, dst_statfs_blocks, from->name,
+                                src_statfs_blocks);
 
                         /* this is not a 'failure', but we don't want to
                            consider this as 'success' too :-/ */
@@ -977,14 +999,15 @@ __dht_check_free_space (xlator_t *this, xlator_t *to, xlator_t *from, loc_t *loc
                 }
         }
 
-
 check_avail_space:
-
         if (conf->disk_unit == 'p' && dst_statfs.f_blocks) {
-                post_availspacepercent = (dst_statfs.f_bavail * 100) / dst_statfs.f_blocks;
-                gf_msg_debug (this->name, 0, "file : %s, post_availspacepercent : %lf "
-                              "f_bavail : %lu min-free-disk: %lf", loc->path,
-                              post_availspacepercent, dst_statfs.f_bavail, conf->min_free_disk);
+                post_availspacepercent =
+                        (dst_statfs_blocks * 100) / dst_total_blocks;
+
+                gf_msg_debug (this->name, 0, "file : %s, post_availspacepercent"
+                              " : %lf f_bavail : %lu min-free-disk: %lf",
+                              loc->path, post_availspacepercent,
+                              dst_statfs.f_bavail, conf->min_free_disk);
 
                 if (post_availspacepercent < conf->min_free_disk) {
                         gf_msg (this->name, GF_LOG_WARNING, 0, 0,
@@ -999,22 +1022,27 @@ check_avail_space:
                 }
         }
 
-        if (conf->disk_unit != 'p' &&
-            ((dst_statfs.f_bavail * dst_statfs.f_frsize) < conf->min_free_disk)) {
-                gf_msg_debug (this->name, 0, "file : %s,  destination frsize: %lu "
-                              "f_bavail : %lu min-free-disk: %lf", loc->path,
-                              dst_statfs.f_frsize, dst_statfs.f_bavail, conf->min_free_disk);
+        if (conf->disk_unit != 'p') {
+                if ((dst_statfs_blocks * GF_DISK_SECTOR_SIZE) <
+                                                      conf->min_free_disk) {
+                        gf_msg_debug (this->name, 0, "file : %s,  destination "
+                                      "frsize: %lu f_bavail : %lu "
+                                      "min-free-disk: %lf", loc->path,
+                                      dst_statfs.f_frsize, dst_statfs.f_bavail,
+                                      conf->min_free_disk);
 
-                gf_msg (this->name, GF_LOG_WARNING, 0, 0, "Write will cross "
-                        "min-free-disk for file - %s on subvol - %s. Looking "
-                        "for new subvol", loc->path, to->name);
+                        gf_msg (this->name, GF_LOG_WARNING, 0, 0, "write will"
+                                " cross min-free-disk for file - %s on subvol -"
+                                " %s. looking for new subvol", loc->path,
+                                to->name);
 
-                goto find_new_subvol;
-        } else {
-                ret = 0;
-                goto out;
+                        goto find_new_subvol;
+
+                } else {
+                        ret = 0;
+                        goto out;
+                }
         }
-
 
 find_new_subvol:
         layout = dht_layout_get (this, loc->parent);
@@ -1030,10 +1058,10 @@ find_new_subvol:
         if ((!(*new_subvol)) || (*new_subvol == from)) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_SUBVOL_INSUFF_SPACE, "Could not find any subvol"
-                        " with space accomodating the file - %s. Consider adding "
-                        "bricks", loc->path);
+                        " with space accomodating the file - %s. Consider "
+                        "adding bricks", loc->path);
 
-               *target_changed = _gf_false;
+                *target_changed = _gf_false;
                 *fop_errno = ENOSPC;
                 ret = -1;
         } else {

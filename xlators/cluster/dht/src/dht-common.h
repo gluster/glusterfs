@@ -583,8 +583,6 @@ struct gf_defrag_info_ {
 
         pthread_cond_t               fc_wakeup_cond;
         pthread_mutex_t              fc_mutex;
-
-
 };
 
 typedef struct gf_defrag_info_ gf_defrag_info_t;
@@ -687,6 +685,7 @@ struct dht_conf {
         /* Hard link handle requirement for migration triggered from client*/
         synclock_t      link_lock;
 
+        gf_boolean_t    use_fallocate;
 };
 typedef struct dht_conf dht_conf_t;
 
