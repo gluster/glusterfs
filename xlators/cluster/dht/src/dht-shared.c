@@ -762,8 +762,9 @@ dht_init (xlator_t *this)
                 pthread_cond_init  (&defrag->fc_wakeup_cond, 0);
 
                 defrag->global_error = 0;
-
         }
+
+        conf->use_fallocate = 1;
 
         conf->search_unhashed = GF_DHT_LOOKUP_UNHASHED_ON;
         if (dict_get_str (this->options, "lookup-unhashed", &temp_str) == 0) {
