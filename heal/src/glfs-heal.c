@@ -120,6 +120,7 @@ int
 glfsh_print_hr_spb_status (char *path, uuid_t gfid, char *status)
 {
         printf ("%s\n", path);
+        fflush (stdout);
         return 0;
 }
 
@@ -133,6 +134,7 @@ int
 glfsh_print_hr_heal_status (char *path, uuid_t gfid, char *status)
 {
         printf ("%s%s\n", path, status);
+        fflush (stdout);
         return 0;
 }
 
