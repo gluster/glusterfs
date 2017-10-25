@@ -16,27 +16,33 @@
 #event by removing the volume related entries(if any) in smb.conf file.
 
 PROGNAME="Ssamba-stop"
-OPTSPEC="volname:"
+OPTSPEC="volname:,last:"
 VOL=
 CONFIGFILE=
 PIDDIR=
+LAST=
 
 function parse_args () {
         ARGS=$(getopt -o '' -l $OPTSPEC -n $PROGNAME -- "$@")
         eval set -- "$ARGS"
 
         while true; do
-        case $1 in
-        --volname)
-         shift
-         VOL=$1
-         ;;
-        *)
-         shift
-         break
-         ;;
-        esac
-        shift
+            case $1 in
+                --volname)
+                    shift
+                    VOL=$1
+                    ;;
+                --last)
+                    shift
+                    LAST=$1
+                    ;;
+                *)
+                    shift
+                    break
+                    ;;
+            esac
+
+            shift
         done
 }
 
