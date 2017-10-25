@@ -21,12 +21,15 @@
 #volume.
 
 PROGNAME="Ssamba-start"
-OPTSPEC="volname:,gd-workdir:"
+OPTSPEC="volname:,gd-workdir:,version:,volume-op:,first:"
 VOL=
 CONFIGFILE=
 LOGFILEBASE=
 PIDDIR=
 GLUSTERD_WORKDIR=
+VERSION=
+VOLUME_OP=
+FIRST=
 
 function parse_args () {
         ARGS=$(getopt -o '' -l $OPTSPEC -n $PROGNAME -- "$@")
@@ -42,11 +45,24 @@ function parse_args () {
                     shift
                     GLUSTERD_WORKDIR=$1
                     ;;
+                --version)
+                    shift
+                    VERSION=$1
+                    ;;
+                --volume-op)
+                    shift
+                    VOLUME_OP=$1
+                    ;;
+                --first)
+                    shift
+                    FIRST=$1
+                    ;;
                 *)
                     shift
                     break
                     ;;
             esac
+
             shift
         done
 }
