@@ -5401,7 +5401,7 @@ attach_brick (xlator_t *this,
         char            unslashed[PATH_MAX]     = {'\0',};
         char            full_id[PATH_MAX]       = {'\0',};
         char            path[PATH_MAX]          = {'\0',};
-        int             ret;
+        int             ret = -1;
         int             tries;
         rpc_clnt_t      *rpc;
 
