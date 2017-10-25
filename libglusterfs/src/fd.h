@@ -65,7 +65,7 @@ typedef struct fd_table_entry fdentry_t;
 struct _fdtable {
         int             refcount;
         uint32_t        max_fds;
-        pthread_mutex_t lock;
+        pthread_rwlock_t lock;
         fdentry_t       *fdentries;
         int             first_free;
 };

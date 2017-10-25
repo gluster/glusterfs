@@ -105,13 +105,13 @@ gf_fd_fdtable_alloc (void)
         if (!fdtable)
                 return NULL;
 
-        pthread_mutex_init (&fdtable->lock, NULL);
+        pthread_rwlock_init (&fdtable->lock, NULL);
 
-        pthread_mutex_lock (&fdtable->lock);
+        pthread_rwlock_wrlock (&fdtable->lock);
         {
                 gf_fd_fdtable_expand (fdtable, 0);
         }
-        pthread_mutex_unlock (&fdtable->lock);
+        pthread_rwlock_unlock (&fdtable->lock);
 
         return fdtable;
 }
@@ -145,11 +145,11 @@ gf_fd_fdtable_get_all_fds (fdtable_t *fdtable, uint32_t *count)
         fdentry_t       *entries = NULL;
 
         if (fdtable) {
-                pthread_mutex_lock (&fdtable->lock);
+                pthread_rwlock_wrlock (&fdtable->lock);
                 {
                         entries = __gf_fd_fdtable_get_all_fds (fdtable, count);
                 }
-                pthread_mutex_unlock (&fdtable->lock);
+                pthread_rwlock_unlock (&fdtable->lock);
         }
 
         return entries;
@@ -193,11 +193,11 @@ gf_fd_fdtable_copy_all_fds (fdtable_t *fdtable, uint32_t *count)
         fdentry_t *entries = NULL;
 
         if (fdtable) {
-                pthread_mutex_lock (&fdtable->lock);
+                pthread_rwlock_rdlock (&fdtable->lock);
                 {
                         entries = __gf_fd_fdtable_copy_all_fds (fdtable, count);
                 }
-                pthread_mutex_unlock (&fdtable->lock);
+                pthread_rwlock_unlock (&fdtable->lock);
         }
 
         return entries;
@@ -221,12 +221,12 @@ gf_fd_fdtable_destroy (fdtable_t *fdtable)
                 return;
         }
 
-        pthread_mutex_lock (&fdtable->lock);
+        pthread_rwlock_wrlock (&fdtable->lock);
         {
                 fdentries = __gf_fd_fdtable_get_all_fds (fdtable, &fd_count);
                 GF_FREE (fdtable->fdentries);
         }
-        pthread_mutex_unlock (&fdtable->lock);
+        pthread_rwlock_unlock (&fdtable->lock);
 
         if (fdentries != NULL) {
                 for (i = 0; i < fd_count; i++) {
@@ -237,7 +237,7 @@ gf_fd_fdtable_destroy (fdtable_t *fdtable)
                 }
 
                 GF_FREE (fdentries);
-                pthread_mutex_destroy (&fdtable->lock);
+                pthread_rwlock_destroy (&fdtable->lock);
                 GF_FREE (fdtable);
         }
 }
@@ -257,7 +257,7 @@ gf_fd_unused_get (fdtable_t *fdtable, fd_t *fdptr)
                 return EINVAL;
         }
 
-        pthread_mutex_lock (&fdtable->lock);
+        pthread_rwlock_wrlock (&fdtable->lock);
         {
         fd_alloc_try_again:
                 if (fdtable->first_free != GF_FDTABLE_END) {
@@ -296,7 +296,7 @@ gf_fd_unused_get (fdtable_t *fdtable, fd_t *fdptr)
                 }
         }
 out:
-        pthread_mutex_unlock (&fdtable->lock);
+        pthread_rwlock_unlock (&fdtable->lock);
 
         return fd;
 }
@@ -323,7 +323,7 @@ gf_fd_put (fdtable_t *fdtable, int32_t fd)
                 return;
         }
 
-        pthread_mutex_lock (&fdtable->lock);
+        pthread_rwlock_wrlock (&fdtable->lock);
         {
                 fde = &fdtable->fdentries[fd];
                 /* If the entry is not allocated, put operation must return
@@ -341,7 +341,7 @@ gf_fd_put (fdtable_t *fdtable, int32_t fd)
                 fdtable->first_free = fd;
         }
 unlock_out:
-        pthread_mutex_unlock (&fdtable->lock);
+        pthread_rwlock_unlock (&fdtable->lock);
 
         if (fdptr) {
                 fd_unref (fdptr);
@@ -361,7 +361,7 @@ gf_fdptr_put (fdtable_t *fdtable, fd_t *fd)
                 return;
         }
 
-        pthread_mutex_lock (&fdtable->lock);
+        pthread_rwlock_wrlock (&fdtable->lock);
         {
                 for (i = 0; i < fdtable->max_fds; i++) {
                         if (fdtable->fdentries[i].fd == fd) {
@@ -392,7 +392,7 @@ gf_fdptr_put (fdtable_t *fdtable, fd_t *fd)
                 fdtable->first_free = i;
         }
 unlock_out:
-        pthread_mutex_unlock (&fdtable->lock);
+        pthread_rwlock_unlock (&fdtable->lock);
 
         if ((fd != NULL) && (fde != NULL)) {
                 fd_unref (fd);
@@ -419,14 +419,14 @@ gf_fd_fdptr_get (fdtable_t *fdtable, int64_t fd)
                 return NULL;
         }
 
-        pthread_mutex_lock (&fdtable->lock);
+        pthread_rwlock_rdlock (&fdtable->lock);
         {
                 fdptr = fdtable->fdentries[fd].fd;
                 if (fdptr) {
                         fd_ref (fdptr);
                 }
         }
-        pthread_mutex_unlock (&fdtable->lock);
+        pthread_rwlock_unlock (&fdtable->lock);
 
         return fdptr;
 }
@@ -1084,8 +1084,7 @@ fdtable_dump (fdtable_t *fdtable, char *prefix)
         if (!fdtable)
                 return;
 
-        ret = pthread_mutex_trylock (&fdtable->lock);
-
+        ret = pthread_rwlock_tryrdlock (&fdtable->lock);
         if (ret)
                 goto out;
 
@@ -1106,7 +1105,7 @@ fdtable_dump (fdtable_t *fdtable, char *prefix)
                 }
         }
 
-        pthread_mutex_unlock(&fdtable->lock);
+        pthread_rwlock_unlock(&fdtable->lock);
 
 out:
         if (ret != 0)
@@ -1213,9 +1212,9 @@ fdtable_dump_to_dict (fdtable_t *fdtable, char *prefix, dict_t *dict)
         if (!dict)
                 return;
 
-        ret = pthread_mutex_trylock (&fdtable->lock);
+        ret = pthread_rwlock_tryrdlock (&fdtable->lock);
         if (ret)
-                goto out;
+                return;
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.fdtable.refcount", prefix);
@@ -1251,6 +1250,6 @@ fdtable_dump_to_dict (fdtable_t *fdtable, char *prefix, dict_t *dict)
         ret = dict_set_int32 (dict, key, openfds);
 
 out:
-        pthread_mutex_unlock (&fdtable->lock);
+        pthread_rwlock_unlock (&fdtable->lock);
         return;
 }
