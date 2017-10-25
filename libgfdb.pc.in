@@ -8,5 +8,5 @@ Name: libgfdb
 Description: GlusterFS Database Library
 Version: @LIBGFDB_VERSION@
 Libs: -L${libdir} -lgfchangedb -lglusterfs
-Cflags: -I${includedir}/glusterfs/gfdb
+Cflags: -I${includedir}
 Requires: sqlite3 @PKGCONFIG_UUID@

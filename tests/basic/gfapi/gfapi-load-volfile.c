@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <api/glfs.h>
+#include <glusterfs/api/glfs.h>
 
 #define PROGNAME "gfapi-load-volfile"
 
