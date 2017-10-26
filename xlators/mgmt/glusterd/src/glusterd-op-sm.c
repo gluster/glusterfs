@@ -2411,18 +2411,25 @@ glusterd_start_bricks (glusterd_volinfo_t *volinfo)
         GF_ASSERT (volinfo);
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                ret = glusterd_brick_start (volinfo, brickinfo, _gf_false);
-                if (ret) {
-                        gf_msg (THIS->name, GF_LOG_ERROR, 0,
-                                GD_MSG_BRICK_DISCONNECTED,
-                                "Failed to start %s:%s for %s",
-                                brickinfo->hostname, brickinfo->path,
-                                volinfo->volname);
-                        gf_event (EVENT_BRICK_START_FAILED,
-                                  "peer=%s;volume=%s;brick=%s",
-                                  brickinfo->hostname, volinfo->volname,
-                                  brickinfo->path);
-                        goto out;
+                if (!brickinfo->start_triggered) {
+                        pthread_mutex_lock (&brickinfo->restart_mutex);
+                        {
+                                ret = glusterd_brick_start (volinfo, brickinfo,
+                                                            _gf_false);
+                        }
+                        pthread_mutex_unlock (&brickinfo->restart_mutex);
+                        if (ret) {
+                                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_BRICK_DISCONNECTED,
+                                        "Failed to start %s:%s for %s",
+                                        brickinfo->hostname, brickinfo->path,
+                                        volinfo->volname);
+                                gf_event (EVENT_BRICK_START_FAILED,
+                                          "peer=%s;volume=%s;brick=%s",
+                                          brickinfo->hostname, volinfo->volname,
+                                          brickinfo->path);
+                                goto out;
+                        }
                 }
 
         }

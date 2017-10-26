@@ -2550,6 +2550,14 @@ glusterd_start_volume (glusterd_volinfo_t *volinfo, int flags,
         GF_ASSERT (volinfo);
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                /* Mark start_triggered to false so that in case if this brick
+                 * was brought down through gf_attach utility, the
+                 * brickinfo->start_triggered wouldn't have been updated to
+                 * _gf_false
+                 */
+                if (flags & GF_CLI_FLAG_OP_FORCE) {
+                        brickinfo->start_triggered = _gf_false;
+                }
                 ret = glusterd_brick_start (volinfo, brickinfo, wait);
                 /* If 'force' try to start all bricks regardless of success or
                  * failure

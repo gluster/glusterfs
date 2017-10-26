@@ -363,10 +363,19 @@ glusterd_do_volume_quorum_action (xlator_t *this, glusterd_volinfo_t *volinfo,
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 if (!glusterd_is_local_brick (this, volinfo, brickinfo))
                         continue;
-                if (quorum_status == DOESNT_MEET_QUORUM)
+                if (quorum_status == DOESNT_MEET_QUORUM) {
                         glusterd_brick_stop (volinfo, brickinfo, _gf_false);
-                else
-                        glusterd_brick_start (volinfo, brickinfo, _gf_false);
+                } else {
+                        if (!brickinfo->start_triggered) {
+                                pthread_mutex_lock (&brickinfo->restart_mutex);
+                                {
+                                        glusterd_brick_start (volinfo,
+                                                              brickinfo,
+                                                              _gf_false);
+                                }
+                                pthread_mutex_unlock (&brickinfo->restart_mutex);
+                        }
+                }
         }
         volinfo->quorum_status = quorum_status;
         if (quorum_status == MEETS_QUORUM) {
