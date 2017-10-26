@@ -1086,7 +1086,7 @@ glusterd_brickinfo_new (glusterd_brickinfo_t **brickinfo)
                 goto out;
 
         CDS_INIT_LIST_HEAD (&new_brickinfo->brick_list);
-
+        pthread_mutex_init (&new_brickinfo->restart_mutex, NULL);
         *brickinfo = new_brickinfo;
 
         ret = 0;
@@ -2500,7 +2500,7 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
         (void) sys_unlink (pidfile);
 
         brickinfo->status = GF_BRICK_STOPPED;
-
+        brickinfo->start_triggered = _gf_false;
         if (del_brick)
                 glusterd_delete_brick (volinfo, brickinfo);
 out:
@@ -5837,13 +5837,14 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
          * three different triggers for an attempt to start the brick process
          * due to the quorum handling code in glusterd_friend_sm.
          */
-        if (brickinfo->status == GF_BRICK_STARTING) {
+        if (brickinfo->status == GF_BRICK_STARTING ||
+            brickinfo->start_triggered) {
                 gf_msg_debug (this->name, 0, "brick %s is already in starting "
                               "phase", brickinfo->path);
                 ret = 0;
                 goto out;
         }
-
+        brickinfo->start_triggered = _gf_true;
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, conf);
         if (gf_is_service_running (pidfile, &pid)) {
                 if (brickinfo->status != GF_BRICK_STARTING &&
@@ -5956,6 +5957,9 @@ run:
         }
 
 out:
+        if (ret && brickinfo) {
+                brickinfo->start_triggered = _gf_false;
+        }
         gf_msg_debug (this->name, 0, "returning %d ", ret);
         return ret;
 }
@@ -6017,11 +6021,19 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                                 start_svcs = _gf_true;
                                 glusterd_svcs_manager (NULL);
                         }
-
                         cds_list_for_each_entry (brickinfo, &volinfo->bricks,
                                                  brick_list) {
-                                glusterd_brick_start (volinfo, brickinfo,
-                                                     _gf_false);
+                                if (!brickinfo->start_triggered) {
+                                        pthread_mutex_lock
+                                                (&brickinfo->restart_mutex);
+                                        {
+                                                glusterd_brick_start
+                                                         (volinfo, brickinfo,
+                                                          _gf_false);
+                                        }
+                                        pthread_mutex_unlock
+                                                (&brickinfo->restart_mutex);
+                                }
                         }
                         ret = glusterd_store_volinfo
                                 (volinfo, GLUSTERD_VOLINFO_VER_AC_NONE);
@@ -6060,8 +6072,17 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                                 "volume %s", volinfo->volname);
                         cds_list_for_each_entry (brickinfo, &volinfo->bricks,
                                                  brick_list) {
-                                glusterd_brick_start (volinfo, brickinfo,
-                                                      _gf_false);
+                                if (!brickinfo->start_triggered) {
+                                        pthread_mutex_lock
+                                                (&brickinfo->restart_mutex);
+                                        {
+                                                glusterd_brick_start
+                                                         (volinfo, brickinfo,
+                                                          _gf_false);
+                                        }
+                                        pthread_mutex_unlock
+                                                (&brickinfo->restart_mutex);
+                                }
                         }
                         ret = glusterd_store_volinfo
                                 (volinfo, GLUSTERD_VOLINFO_VER_AC_NONE);
