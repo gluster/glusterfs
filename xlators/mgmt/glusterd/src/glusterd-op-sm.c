@@ -2424,8 +2424,15 @@ glusterd_start_bricks (glusterd_volinfo_t *volinfo)
                                   brickinfo->path);
                         goto out;
                 }
-        }
 
+        }
+        ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_NONE);
+        if (ret) {
+                gf_msg (THIS->name, GF_LOG_ERROR, 0, GD_MSG_VOLINFO_STORE_FAIL,
+                        "Failed to write volinfo for volume %s",
+                        volinfo->volname);
+                goto out;
+        }
         ret = 0;
 out:
         return ret;
