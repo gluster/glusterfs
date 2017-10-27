@@ -12,6 +12,7 @@
 #include "glusterd-utils.h"
 #include "glusterd-messages.h"
 #include "glusterd-server-quorum.h"
+#include "glusterd-store.h"
 #include "glusterd-syncop.h"
 #include "glusterd-op-sm.h"
 
@@ -311,6 +312,7 @@ void
 glusterd_do_volume_quorum_action (xlator_t *this, glusterd_volinfo_t *volinfo,
                                   gf_boolean_t meets_quorum)
 {
+        int                   ret           = -1;
         glusterd_brickinfo_t *brickinfo     = NULL;
         gd_quorum_status_t   quorum_status  = NOT_APPLICABLE_QUORUM;
         gf_boolean_t         follows_quorum = _gf_false;
@@ -367,6 +369,20 @@ glusterd_do_volume_quorum_action (xlator_t *this, glusterd_volinfo_t *volinfo,
                         glusterd_brick_start (volinfo, brickinfo, _gf_false);
         }
         volinfo->quorum_status = quorum_status;
+        if (quorum_status == MEETS_QUORUM) {
+                /* bricks might have been restarted and so as the port change
+                 * might have happened
+                 */
+                ret = glusterd_store_volinfo (volinfo,
+                                              GLUSTERD_VOLINFO_VER_AC_NONE);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_VOLINFO_STORE_FAIL,
+                                "Failed to write volinfo for volume %s",
+                                volinfo->volname);
+                        goto out;
+                }
+        }
 out:
         return;
 }

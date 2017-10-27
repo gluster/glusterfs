@@ -703,6 +703,15 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
         }
 
         brickinfo->snap_status = 0;
+        ret = glusterd_brick_start (snap_vol, brickinfo, _gf_false);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_BRICK_DISCONNECTED, "starting the "
+                        "brick %s:%s for the snap %s failed",
+                        brickinfo->hostname, brickinfo->path,
+                        snap->snapname);
+                goto out;
+        }
         ret = glusterd_store_volinfo (snap_vol,
                                       GLUSTERD_VOLINFO_VER_AC_NONE);
         if (ret) {
@@ -713,15 +722,6 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
                 goto out;
         }
 
-        ret = glusterd_brick_start (snap_vol, brickinfo, _gf_false);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        GD_MSG_BRICK_DISCONNECTED, "starting the "
-                        "brick %s:%s for the snap %s failed",
-                        brickinfo->hostname, brickinfo->path,
-                        snap->snapname);
-                goto out;
-        }
 out:
         if (device)
                 GF_FREE (device);
