@@ -1680,6 +1680,16 @@ glusterd_import_friend_snap (dict_t *peer_data, int32_t snap_count,
                 }
                 if (glusterd_is_volume_started (snap_vol)) {
                         (void) glusterd_start_bricks (snap_vol);
+                        ret = glusterd_store_volinfo
+                                               (snap_vol,
+                                                GLUSTERD_VOLINFO_VER_AC_NONE);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_VOLINFO_STORE_FAIL, "Failed to "
+                                        "write volinfo for volume %s",
+                                        snap_vol->volname);
+                                goto out;
+                        }
                 } else {
                         (void) glusterd_stop_bricks(snap_vol);
                 }
