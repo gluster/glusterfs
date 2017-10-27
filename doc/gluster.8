@@ -252,7 +252,6 @@ Pause/Resume scrub. Upon resume, scrubber continues where it left off. status op
 Display help for volume bitrot commands
 .TP
 .SS "Snapshot Commands"
-.PP
 .TP
 \fB\ snapshot create <snapname> <volname> [no-timestamp] [description <description>] [force] \fR
 Creates a snapshot of a GlusterFS volume. User can provide a snap-name and a description to identify the snap. Snap will be created by appending timestamp in GMT. User can override this behaviour using "no-timestamp" option. The description cannot be more than 1024 characters. To be able to take a snapshot, volume should be present and it should be in started state.
