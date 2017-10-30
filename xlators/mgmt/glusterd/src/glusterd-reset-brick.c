@@ -343,7 +343,7 @@ glusterd_op_reset_brick (dict_t *dict, dict_t *rsp_dict)
                         gf_msg_debug (this->name, 0, "I AM THE DESTINATION HOST");
                         ret = glusterd_volume_stop_glusterfs (volinfo,
                                                               src_brickinfo,
-                                                              _gf_true);
+                                                              _gf_false);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_CRITICAL, 0,
                                         GD_MSG_BRICK_STOP_FAIL,
