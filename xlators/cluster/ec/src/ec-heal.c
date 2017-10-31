@@ -2144,6 +2144,11 @@ __ec_fd_data_adjust_versions (call_frame_t *frame, ec_t *ec, fd_t *fd,
                 }
         }
 
+        if (source == -1) {
+                op_ret = -ENOTCONN;
+                goto out;
+        }
+
         for (i = 0; i < ec->nodes; i++) {
                 if (healed_sinks[i]) {
                         ret = ec_data_undo_pending (frame, ec, fd, xattr,
