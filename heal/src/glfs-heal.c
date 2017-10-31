@@ -59,8 +59,8 @@ typedef struct glfs_info {
         int (*print_heal_op_status)(int ret, uint64_t num_entries,
                         char *fmt_str);
         int (*print_heal_op_summary)(int ret, num_entries_t *num_entries);
-        void (*print_heal_status)(char *path, uuid_t gfid, char *status);
-        void (*print_spb_status)(char *path, uuid_t gfid, char *status);
+        int (*print_heal_status)(char *path, uuid_t gfid, char *status);
+        int (*print_spb_status)(char *path, uuid_t gfid, char *status);
         int (*end) (int op_ret, char *op_errstr);
 } glfsh_info_t;
 
@@ -116,23 +116,24 @@ glfsh_end (int op_ret, char *op_errstr)
         return 0;
 }
 
-void
+int
 glfsh_print_hr_spb_status (char *path, uuid_t gfid, char *status)
 {
         printf ("%s\n", path);
-        return;
+        return 0;
 }
 
-void
-glfsh_no_print_hr_heal_status (char *path, uuid_t gfid, char *status)
+int
+glfsh_no_print_hr_status (char *path, uuid_t gfid, char *status)
 {
-        return;
+        return 0;
 }
 
-void
+int
 glfsh_print_hr_heal_status (char *path, uuid_t gfid, char *status)
 {
         printf ("%s%s\n", path, status);
+        return 0;
 }
 
 #if (HAVE_LIB_XML)
@@ -156,12 +157,13 @@ glfsh_xml_init ()
         XML_RET_CHECK_AND_GOTO (ret, xml_out);
 
         /* <healInfo> */
-        xmlTextWriterStartElement (glfsh_writer,
+        ret = xmlTextWriterStartElement (glfsh_writer,
                         (xmlChar *)"healInfo");
         XML_RET_CHECK_AND_GOTO (ret, xml_out);
         /* <bricks> */
-        xmlTextWriterStartElement (glfsh_writer,
+        ret = xmlTextWriterStartElement (glfsh_writer,
                         (xmlChar *)"bricks");
+        XML_RET_CHECK_AND_GOTO (ret, xml_out);
         xmlTextWriterFlush (glfsh_writer);
 xml_out:
         return ret;
@@ -211,6 +213,7 @@ glfsh_xml_end (int op_ret, char *op_errstr)
                 ret = xmlTextWriterWriteFormatElement (glfsh_writer,
                                 (xmlChar *)"opErrstr",
                                 "%s", "");
+        XML_RET_CHECK_AND_GOTO (ret, xml_out);
         ret = xmlTextWriterEndDocument (glfsh_writer);
         XML_RET_CHECK_AND_GOTO (ret, xml_out);
 
@@ -229,101 +232,139 @@ xml_out:
 int
 glfsh_print_xml_heal_op_status (int ret, uint64_t num_entries, char *fmt_str)
 {
+        int x_ret = 0;
         if (ret < 0 && num_entries == 0) {
-                xmlTextWriterWriteFormatElement (glfsh_writer,
+                x_ret = xmlTextWriterWriteFormatElement (glfsh_writer,
                                 (xmlChar *)"status",
                                 "%s", strerror (-ret));
+                XML_RET_CHECK_AND_GOTO (x_ret, out);
                 if (fmt_str) {
-                        xmlTextWriterWriteFormatElement (glfsh_writer,
+                        x_ret = xmlTextWriterWriteFormatElement (glfsh_writer,
                                         (xmlChar *)"numberOfEntries",
                                         "-");
+                        XML_RET_CHECK_AND_GOTO (x_ret, out);
                 }
                 goto out;
         } else if (ret == 0) {
-                xmlTextWriterWriteFormatElement (glfsh_writer,
+                x_ret = xmlTextWriterWriteFormatElement (glfsh_writer,
                                                  (xmlChar *)"status",
                                                  "%s", "Connected");
+                XML_RET_CHECK_AND_GOTO (x_ret, out);
         }
 
         if (ret < 0) {
                 if (fmt_str) {
-                        xmlTextWriterWriteFormatElement (glfsh_writer,
+                        x_ret = xmlTextWriterWriteFormatElement (glfsh_writer,
                                         (xmlChar *)"status",
                                         "Failed to process entries completely. "
                                         "(%s)%s %"PRIu64"", strerror (-ret),
                                         fmt_str,
                                         num_entries);
+                        XML_RET_CHECK_AND_GOTO (x_ret, out);
                 }
         } else {
-                if (fmt_str)
-                        xmlTextWriterWriteFormatElement (glfsh_writer,
+                if (fmt_str) {
+                        x_ret = xmlTextWriterWriteFormatElement (glfsh_writer,
                                         (xmlChar *)"numberOfEntries",
                                         "%"PRIu64"", num_entries);
+                        XML_RET_CHECK_AND_GOTO (x_ret, out);
+                }
         }
 out:
-        ret = xmlTextWriterEndElement (glfsh_writer);
-        xmlTextWriterFlush (glfsh_writer);
-        return ret;
+        if (x_ret >= 0) {
+                x_ret = xmlTextWriterEndElement (glfsh_writer);
+                if (x_ret >= 0) {
+                        xmlTextWriterFlush (glfsh_writer);
+                        x_ret = 0;
+                } else {
+                        x_ret = -1;
+                }
+        }
+        return x_ret;
 }
 
 int
 glfsh_print_xml_heal_op_summary (int ret, num_entries_t *num_entries)
 {
+        int x_ret = 0;
+
         if (ret < 0 && num_entries == 0) {
-                xmlTextWriterWriteFormatElement (glfsh_writer,
+                x_ret = xmlTextWriterWriteFormatElement (glfsh_writer,
                                 (xmlChar *)"status",
                                 "%s", strerror (-ret));
-                xmlTextWriterWriteFormatElement (glfsh_writer,
+                XML_RET_CHECK_AND_GOTO (x_ret, out);
+                x_ret = xmlTextWriterWriteFormatElement (glfsh_writer,
                                 (xmlChar *)"totalNumberOfEntries", "-");
-                xmlTextWriterWriteFormatElement (glfsh_writer,
+                XML_RET_CHECK_AND_GOTO (x_ret, out);
+                x_ret = xmlTextWriterWriteFormatElement (glfsh_writer,
                                 (xmlChar *)"numberOfEntriesInHealPending", "-");
-                xmlTextWriterWriteFormatElement (glfsh_writer,
+                XML_RET_CHECK_AND_GOTO (x_ret, out);
+                x_ret = xmlTextWriterWriteFormatElement (glfsh_writer,
                                 (xmlChar *)"numberOfEntriesInSplitBrain", "-");
-                xmlTextWriterWriteFormatElement (glfsh_writer,
+                XML_RET_CHECK_AND_GOTO (x_ret, out);
+                x_ret = xmlTextWriterWriteFormatElement (glfsh_writer,
                                 (xmlChar *)"numberOfEntriesPossiblyHealing",
                                 "-");
+                XML_RET_CHECK_AND_GOTO (x_ret, out);
                 goto out;
         } else if (ret == 0) {
-                xmlTextWriterWriteFormatElement (glfsh_writer,
+                x_ret = xmlTextWriterWriteFormatElement (glfsh_writer,
                                                  (xmlChar *)"status",
                                                  "%s", "Connected");
+                XML_RET_CHECK_AND_GOTO (x_ret, out);
         }
 
         if (ret < 0) {
-                xmlTextWriterWriteFormatElement (glfsh_writer,
+                x_ret = xmlTextWriterWriteFormatElement (glfsh_writer,
                                 (xmlChar *)"status", "Failed to process entries"
                                 " completely. "
                                 "(%s)totalNumberOfEntries%"PRIu64"",
                                 strerror (-ret), num_entries->num_entries);
+                XML_RET_CHECK_AND_GOTO (x_ret, out);
         } else {
-                xmlTextWriterWriteFormatElement (glfsh_writer,
+                x_ret = xmlTextWriterWriteFormatElement (glfsh_writer,
                                 (xmlChar *)"totalNumberOfEntries",
                                 "%"PRIu64"", num_entries->num_entries);
-                xmlTextWriterWriteFormatElement (glfsh_writer,
+                XML_RET_CHECK_AND_GOTO (x_ret, out);
+                x_ret = xmlTextWriterWriteFormatElement (glfsh_writer,
                                 (xmlChar *)"numberOfEntriesInHealPending",
                                 "%"PRIu64"", num_entries->pending_entries);
-                xmlTextWriterWriteFormatElement (glfsh_writer,
+                XML_RET_CHECK_AND_GOTO (x_ret, out);
+                x_ret = xmlTextWriterWriteFormatElement (glfsh_writer,
                                 (xmlChar *)"numberOfEntriesInSplitBrain",
                                 "%"PRIu64"", num_entries->spb_entries);
-                xmlTextWriterWriteFormatElement (glfsh_writer,
+                XML_RET_CHECK_AND_GOTO (x_ret, out);
+                x_ret = xmlTextWriterWriteFormatElement (glfsh_writer,
                                 (xmlChar *)"numberOfEntriesPossiblyHealing",
                                 "%"PRIu64"",
                                 num_entries->possibly_healing_entries);
+                XML_RET_CHECK_AND_GOTO (x_ret, out);
         }
 out:
-        return xmlTextWriterEndElement (glfsh_writer);
+        if (x_ret >= 0) {
+                x_ret = xmlTextWriterEndElement (glfsh_writer);
+        }
+        return x_ret;
 }
 
-void
+int
 glfsh_print_xml_file_status (char *path, uuid_t gfid, char *status)
 {
-        xmlTextWriterStartElement (glfsh_writer, (xmlChar *)"file");
-        xmlTextWriterWriteFormatAttribute (glfsh_writer, (xmlChar *)"gfid",
-                                           "%s", uuid_utoa (gfid));
-        xmlTextWriterWriteFormatString (glfsh_writer, "%s", path);
-        xmlTextWriterEndElement (glfsh_writer);
+        int x_ret = 0;
+
+        x_ret = xmlTextWriterStartElement (glfsh_writer, (xmlChar *)"file");
+        XML_RET_CHECK_AND_GOTO (x_ret, out);
+        x_ret = xmlTextWriterWriteFormatAttribute (glfsh_writer,
+                                                   (xmlChar *)"gfid",
+                                                   "%s", uuid_utoa (gfid));
+        XML_RET_CHECK_AND_GOTO (x_ret, out);
+        x_ret = xmlTextWriterWriteFormatString (glfsh_writer, "%s", path);
+        XML_RET_CHECK_AND_GOTO (x_ret, out);
+        x_ret = xmlTextWriterEndElement (glfsh_writer);
+        XML_RET_CHECK_AND_GOTO (x_ret, out);
         xmlTextWriterFlush (glfsh_writer);
-        return;
+out:
+        return x_ret;
 }
 
 int
@@ -508,7 +549,13 @@ glfsh_get_index_dir_loc (loc_t *rootloc, xlator_t *xl, loc_t *dirloc,
         ret = glfsh_link_inode_update_loc (dirloc, &iattr);
         if (ret)
                 goto out;
-        glfs_loc_touchup (dirloc);
+
+        ret = glfs_loc_touchup (dirloc);
+        if (ret < 0) {
+                *op_errno = errno;
+                goto out;
+        }
+
 
         ret = 0;
 out:
@@ -710,7 +757,7 @@ glfsh_heal_status_boolean (dict_t *dict, char *path, uuid_t gfid,
                 return -1;
 }
 
-static int
+static void
 glfsh_heal_entries (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                     gf_dirent_t *entries,  uint64_t *offset,
                     num_entries_t *num_entries, dict_t *xattr_req) {
@@ -733,8 +780,6 @@ glfsh_heal_entries (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                         continue;
                 (num_entries->num_entries)++;
         }
-
-        return ret;
 }
 
 static int
@@ -865,9 +910,8 @@ glfsh_crawl_directory (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                         if (ret < 0)
                                 goto out;
                 } else if (heal_op == GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK) {
-                        ret = glfsh_heal_entries (fs, top_subvol, rootloc,
-                                                  &entries, &offset,
-                                                  num_entries, xattr_req);
+                        glfsh_heal_entries (fs, top_subvol, rootloc, &entries,
+                                            &offset, num_entries, xattr_req);
                 } else if (heal_op == GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE) {
                         ret = glfsh_process_entries (readdir_xl, fd, &entries,
                                                      &offset, num_entries,
@@ -1484,8 +1528,8 @@ glfsh_info_t glfsh_no_print = {
         .init = glfsh_init,
         .print_brick_from_xl = glfsh_no_print_brick_from_xl,
         .print_heal_op_status = glfsh_no_print_hr_heal_op_status,
-        .print_heal_status = glfsh_no_print_hr_heal_status,
-        .print_spb_status = glfsh_no_print_hr_heal_status,
+        .print_heal_status = glfsh_no_print_hr_status,
+        .print_spb_status = glfsh_no_print_hr_status,
         .end = glfsh_end_op_granular_entry_heal
 };
 
@@ -1679,7 +1723,11 @@ main (int argc, char **argv)
                 goto out;
         }
         rootloc.inode = inode_ref (top_subvol->itable->root);
-        glfs_loc_touchup (&rootloc);
+        ret = glfs_loc_touchup (&rootloc);
+        if (ret < 0) {
+                ret = -errno;
+                goto out;
+        }
 
         switch (heal_op) {
         case GF_SHD_OP_INDEX_SUMMARY:
@@ -1698,7 +1746,17 @@ main (int argc, char **argv)
                 ret = glfsh_heal_from_brick (fs, top_subvol, &rootloc,
                                              hostname, path, file);
                 break;
-        default:
+        case GF_SHD_OP_INVALID:
+        case GF_SHD_OP_HEAL_INDEX:
+        case GF_SHD_OP_HEAL_FULL:
+        case GF_SHD_OP_HEALED_FILES:
+        case GF_SHD_OP_HEAL_FAILED_FILES:
+        case GF_SHD_OP_STATISTICS:
+        case GF_SHD_OP_STATISTICS_HEAL_COUNT:
+        case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
+        case GF_SHD_OP_HEAL_ENABLE:
+        case GF_SHD_OP_HEAL_DISABLE:
+        case GF_SHD_OP_GRANULAR_ENTRY_HEAL_DISABLE:
                 ret = -EINVAL;
                 break;
         }
