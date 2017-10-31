@@ -4004,7 +4004,9 @@ stripe_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                      &mlocal->post_buf, NULL);
         }
 out:
-	STRIPE_STACK_DESTROY(frame);
+        if (frame)
+                STRIPE_STACK_DESTROY(frame);
+
         return 0;
 }
 
