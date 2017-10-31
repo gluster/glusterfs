@@ -2579,8 +2579,7 @@ ec_heal_fail (ec_t *ec, ec_fop_data_t *fop)
             fop->cbks.heal (fop->req_frame, NULL, ec->xl, -1, fop->error, 0, 0,
                             0, NULL);
         }
-        if (fop)
-            ec_fop_data_release (fop);
+        ec_fop_data_release (fop);
 }
 
 void
