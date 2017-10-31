@@ -1027,9 +1027,13 @@ ec_delete_stale_name (dict_t *gfid_db, char *key, data_t *d, void *data)
         if (IA_ISDIR (ia->ia_type)) {
                 ret = cluster_rmdir (ec->xl_list, same, ec->nodes, replies,
                                      output, frame, ec->xl, &loc, 1, NULL);
+                gf_msg_debug (ec->xl->name, 0, "cluster rmdir succeeded on %d "
+                              "nodes", ret);
         } else {
                 ret = cluster_unlink (ec->xl_list, same, ec->nodes, replies,
                                       output, frame, ec->xl, &loc, 0, NULL);
+                gf_msg_debug (ec->xl->name, 0, "cluster unlink succeeded on %d "
+                              "nodes", ret);
         }
 
         for (i = 0; i < ec->nodes; i++) {
