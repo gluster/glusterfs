@@ -1219,6 +1219,9 @@ ec_create_name (call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
                 if (ret != 0) {
                         goto out;
                 }
+
+        /* Fall through */
+
         default:
                 ret = dict_set_int32 (xdata, GLUSTERFS_INTERNAL_FOP_KEY,
                                       1);
