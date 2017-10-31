@@ -170,6 +170,7 @@ void ec_heal_lock(ec_heal_t *heal, int32_t type, fd_t *fd, loc_t *loc,
         } else {
             ec_clear_inode_info(heal->fop, heal->fd->inode);
         }
+        cbk = ec_lock_unlocked;
     } else {
         /* Otherwise use the callback to update size information. */
         cbk = ec_heal_lock_cbk;
