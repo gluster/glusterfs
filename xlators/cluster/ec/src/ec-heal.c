@@ -525,11 +525,13 @@ ec_adjust_versions (call_frame_t *frame, ec_t *ec, ec_txn_t type,
 
 out:
         /* Cleanup */
-        for (i = 0; i < ec->nodes; i++) {
-                if (xattr[i])
-                        dict_unref (xattr[i]);
+        if (xattr) {
+                for (i = 0; i < ec->nodes; i++) {
+                        if (xattr[i])
+                                dict_unref (xattr[i]);
+                }
+                GF_FREE (xattr);
         }
-        GF_FREE (xattr);
         cluster_replies_wipe (replies, ec->nodes);
         loc_wipe (&loc);
         return op_ret;
