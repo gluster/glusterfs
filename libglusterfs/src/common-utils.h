@@ -136,11 +136,10 @@ void trap (void);
 #define GF_THREAD_NAME_PREFIX "gluster"
 #define GF_THREAD_NAME_PREFIX_LEN 7
 
-enum _gf_boolean
-{
-	_gf_false = 0,
-	_gf_true = 1
-};
+#include <stdbool.h>
+#define gf_boolean_t    bool
+#define _gf_false       false
+#define _gf_true        true
 
 /*
  * we could have initialized these as +ve values and treated
@@ -170,7 +169,6 @@ enum _gf_xlator_ipc_targets {
         GF_IPC_TARGET_UPCALL = 2
 };
 
-typedef enum _gf_boolean gf_boolean_t;
 typedef enum _gf_special_pid gf_special_pid_t;
 typedef enum _gf_xlator_ipc_targets _gf_xlator_ipc_targets_t;
 

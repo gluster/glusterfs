@@ -1179,7 +1179,8 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
                 goto out;
         }
 
-        ret = dict_get_uint32 (reply, "child_up", &conf->child_up);
+        uint32_t child_up_int;
+        ret = dict_get_uint32 (reply, "child_up", &child_up_int);
         if (ret) {
                 /*
                  * This would happen in cases where the server trying to     *
@@ -1189,6 +1190,8 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
                 gf_msg (this->name, GF_LOG_WARNING, 0, PC_MSG_DICT_GET_FAILED,
                         "failed to find key 'child_up' in the options");
                 conf->child_up = _gf_true;
+        } else {
+                conf->child_up = (child_up_int != 0);
         }
 
         ret = dict_get_uint32 (reply, "clnt-lk-version", &lk_ver);
