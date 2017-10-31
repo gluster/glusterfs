@@ -29,6 +29,7 @@
 #define GF_XATTR_TIER_LAYOUT_FIXED_KEY  "trusted.tier.fix.layout.complete"
 #define GF_XATTR_FILE_MIGRATE_KEY       "trusted.distribute.migrate-data"
 #define DHT_MDS_STR                     "mds"
+#define GF_DHT_LOOKUP_UNHASHED_OFF      0
 #define GF_DHT_LOOKUP_UNHASHED_ON       1
 #define GF_DHT_LOOKUP_UNHASHED_AUTO     2
 #define DHT_PATHINFO_HEADER             "DISTRIBUTE:"

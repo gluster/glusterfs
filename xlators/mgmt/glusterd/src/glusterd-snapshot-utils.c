@@ -968,13 +968,15 @@ gd_import_volume_snap_details (dict_t *dict, glusterd_volinfo_t *volinfo,
         }
 
         snprintf (key, sizeof (key), "%s.is_snap_volume", prefix);
-        ret = dict_get_uint32 (dict, key, &volinfo->is_snap_volume);
+        uint32_t is_snap_int;
+        ret = dict_get_uint32 (dict, key, &is_snap_int);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DICT_GET_FAILED, "%s missing in payload "
                         "for %s", key, volname);
                 goto out;
         }
+        volinfo->is_snap_volume = (is_snap_int != 0);
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.restored_from_snap", prefix);

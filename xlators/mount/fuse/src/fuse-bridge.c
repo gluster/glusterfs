@@ -5583,8 +5583,11 @@ init (xlator_t *this_xl)
         priv->direct_io_mode = 2;
         ret = dict_get_str (options, ZR_DIRECT_IO_OPT, &value_string);
         if (ret == 0) {
-                ret = gf_string2boolean (value_string, &priv->direct_io_mode);
-                GF_ASSERT (ret == 0);
+                gf_boolean_t direct_io_mode_bool;
+                ret = gf_string2boolean (value_string, &direct_io_mode_bool);
+                if (ret == 0) {
+                        priv->direct_io_mode = direct_io_mode_bool ? 1 : 0;
+                }
         }
 
         GF_OPTION_INIT (ZR_STRICT_VOLFILE_CHECK, priv->strict_volfile_check,

@@ -769,13 +769,18 @@ dht_init (xlator_t *this)
         if (dict_get_str (this->options, "lookup-unhashed", &temp_str) == 0) {
                 /* If option is not "auto", other options _should_ be boolean */
                 if (strcasecmp (temp_str, "auto")) {
-                        ret = gf_string2boolean (temp_str,
-                                                 &conf->search_unhashed);
-                        if (ret == -1)
+                        gf_boolean_t    search_unhashed_bool;
+                        ret = gf_string2boolean (temp_str, &search_unhashed_bool);
+                        if (ret == -1) {
                                 goto err;
+                        }
+                        conf->search_unhashed = search_unhashed_bool
+                                              ? GF_DHT_LOOKUP_UNHASHED_ON
+                                              : GF_DHT_LOOKUP_UNHASHED_OFF;
                 }
-                else
+                else {
                         conf->search_unhashed = GF_DHT_LOOKUP_UNHASHED_AUTO;
+                }
         }
 
         GF_OPTION_INIT ("lookup-optimize", conf->lookup_optimize, bool, err);
