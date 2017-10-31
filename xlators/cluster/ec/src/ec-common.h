@@ -135,4 +135,8 @@ ec_heal_inspect (call_frame_t *frame, ec_t *ec,
                  ec_heal_need_t *need_heal);
 int32_t
 ec_get_heal_info (xlator_t *this, loc_t *loc, dict_t **dict);
+
+int32_t ec_lock_unlocked(call_frame_t *frame, void *cookie,
+                         xlator_t *this, int32_t op_ret, int32_t op_errno,
+                         dict_t *xdata);
 #endif /* __EC_COMMON_H__ */
