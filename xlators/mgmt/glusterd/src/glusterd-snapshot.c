@@ -6718,9 +6718,6 @@ glusterd_create_snap_object_for_clone (dict_t *dict, dict_t *rsp_dict)
 
 out:
         if (ret) {
-                if (snap)
-                        glusterd_snap_remove (rsp_dict, snap,
-                                              _gf_true, _gf_true, _gf_true);
                 snap = NULL;
         }
 
@@ -7347,15 +7344,8 @@ glusterd_get_brick_lvm_details (dict_t *rsp_dict,
                         break;
                 token = strtok (buf, ":");
                 if (token != NULL) {
-                        while (token && token[0] == ' ')
+                        while (token[0] == ' ')
                                 token++;
-                        if (!token) {
-                                ret = -1;
-                                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
-                                        GD_MSG_INVALID_ENTRY,
-                                        "Invalid vg entry");
-                                goto end;
-                        }
                         value = gf_strdup (token);
                         if (!value) {
                                 ret = -1;
