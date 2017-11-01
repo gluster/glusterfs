@@ -629,6 +629,8 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
                 if (ret)
                         goto out;
                 ret = glusterd_volinfo_find (volname, &volinfo);
+                if (ret)
+                        goto out;
                 if (volinfo->type == GF_CLUSTER_TYPE_TIER)
                         snprintf (name, 1024, "%s-tier-dht", volname);
                 else
