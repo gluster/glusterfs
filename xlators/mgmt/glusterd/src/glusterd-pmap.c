@@ -362,7 +362,6 @@ pmap_registry_remove (xlator_t *this, int port, const char *brickname,
                 if (port > pmap->max_port)
                         goto out;
 
-                p = port;
         }
 
         if (brickname) {
