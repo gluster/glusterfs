@@ -594,14 +594,6 @@ gd_add_friend_to_dict (glusterd_peerinfo_t *friend, dict_t *dict,
         snprintf (key, sizeof (key), "%s.hostname", prefix);
         address = cds_list_entry (&friend->hostnames, glusterd_peer_hostname_t,
                                   hostname_list);
-        if (!address) {
-                ret = -1;
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_PEER_ADDRESS_GET_FAIL,
-                        "Could not retrieve first "
-                        "address for peer");
-                goto out;
-        }
         ret = dict_set_dynstr_with_alloc (dict, key, address->hostname);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
