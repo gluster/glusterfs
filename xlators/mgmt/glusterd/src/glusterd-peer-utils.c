@@ -13,6 +13,7 @@
 #include "glusterd-server-quorum.h"
 #include "glusterd-messages.h"
 #include "common-utils.h"
+#include "glusterd-utils.h"
 
 void
 glusterd_peerinfo_destroy (struct rcu_head *head)

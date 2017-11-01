@@ -8,11 +8,11 @@
    cases as published by the Free Software Foundation.
 */
 
+
 #ifndef _GLUSTERD_PEER_UTILS_H
 #define _GLUSTERD_PEER_UTILS_H
 
 #include "glusterd.h"
-#include "glusterd-utils.h"
 
 int32_t
 glusterd_peerinfo_cleanup (glusterd_peerinfo_t *peerinfo);
