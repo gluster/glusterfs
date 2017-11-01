@@ -603,6 +603,8 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
                 if (ret)
                         goto out;
                 ret = dict_set_int32 (dict, "xl-op", heal_op);
+                if (ret)
+                        goto out;
         }
                 break;
         case GD_OP_STATUS_VOLUME:
@@ -754,6 +756,10 @@ glusterd_validate_quorum_options (xlator_t *this, char *fullkey, char *value,
         }
         key++;
         opt = xlator_volume_option_get (this, key);
+        if (!opt) {
+                ret = -1;
+                goto out;
+        }
         ret = xlator_option_validate (this, key, value, opt, op_errstr);
 out:
         return ret;
@@ -3188,6 +3194,8 @@ glusterd_op_sync_volume (dict_t *dict, char **op_errstr,
         if (volname) {
                 ret = glusterd_add_volume_to_dict (volinfo, rsp_dict,
                                                    1, "volume");
+                if (ret)
+                        goto out;
                 vol_count = 1;
         } else {
                 cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
@@ -3330,8 +3338,11 @@ glusterd_op_stats_volume (dict_t *dict, char **op_errstr,
         if (ret)
                 goto out;
 
-        if (GLUSTERD_STATUS_STARTED == volinfo->status)
+        if (GLUSTERD_STATUS_STARTED == volinfo->status) {
                 ret = glusterd_svcs_reconfigure ();
+                if (ret)
+                        goto out;
+        }
 
         ret = 0;
 
@@ -5068,7 +5079,9 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                                          goto out;
                          }
                  }
-                 glusterd_volinfo_find (volname, &volinfo);
+                 ret = glusterd_volinfo_find (volname, &volinfo);
+                 if (ret)
+                        goto out;
                  if (conf->op_version < GD_OP_VERSION_3_7_0 &&
                      volinfo->transport_type == GF_TRANSPORT_RDMA) {
                          ret = glusterd_op_modify_port_key (op_ctx,
