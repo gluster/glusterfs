@@ -687,7 +687,6 @@ glusterd_mgmt_v3_initiate_lockdown (glusterd_op_t op, dict_t *dict,
                                     gf_boolean_t  *is_acquired,
                                     uint32_t txn_generation)
 {
-        char                *volname    = NULL;
         glusterd_peerinfo_t *peerinfo   = NULL;
         int32_t              ret        = -1;
         int32_t              peer_cnt   = 0;
@@ -763,15 +762,9 @@ out:
                                 GD_MSG_MGMTV3_LOCK_GET_FAIL, "%s",
                                 *op_errstr);
 
-                if (volname)
-                        ret = gf_asprintf (op_errstr,
-                                           "Another transaction is in progress "
-                                           "for %s. Please try again after "
-                                           "sometime.", volname);
-                else
-                        ret = gf_asprintf (op_errstr,
-                                           "Another transaction is in progress "
-                                           "Please try again after sometime.");
+                ret = gf_asprintf (op_errstr,
+                                   "Another transaction is in progress. "
+                                   "Please try again after sometime.");
 
                 if (ret == -1)
                         *op_errstr = NULL;
@@ -2051,9 +2044,10 @@ glusterd_mgmt_v3_release_peer_locks (glusterd_op_t op, dict_t *dict,
 
         /* Sending mgmt_v3 unlock req to other nodes in the cluster */
         gd_syncargs_init (&args, NULL);
-        synctask_barrier_init((&args));
+        ret = synctask_barrier_init((&args));
+        if (ret)
+                goto out;
         peer_cnt = 0;
-
         rcu_read_lock ();
         cds_list_for_each_entry_rcu (peerinfo, &conf->peers, uuid_list) {
                 /* Only send requests to peers who were available before the
