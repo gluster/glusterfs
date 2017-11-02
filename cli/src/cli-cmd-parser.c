@@ -19,6 +19,7 @@
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
 #include "dict.h"
+#include "list.h"
 
 #include "protocol-common.h"
 #include "cli1-xdr.h"
@@ -60,6 +61,12 @@ enum cli_snap_config_set_types {
 };
 typedef enum cli_snap_config_set_types cli_snap_config_set_types;
 
+typedef struct _cli_brick {
+        struct list_head  list;
+        const char       *name;
+        int32_t           len;
+} cli_brick_t;
+
 int
 cli_cmd_validate_volume (char *volname);
 
@@ -79,17 +86,15 @@ int32_t
 cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
                       char **bricks, int *brick_count)
 {
-        int                    ret = 0;
-        char             *tmp_list = NULL;
-        char    brick_list[120000] = {0,};
-        char                *space = " ";
-        char            *delimiter = NULL;
-        char            *host_name = NULL;
-        char        *free_list_ptr = NULL;
-        char               *tmpptr = NULL;
-        int                      j = 0;
-        int         brick_list_len = 0;
-        char             *tmp_host = NULL;
+        int                         ret = 0;
+        char                 *delimiter = NULL;
+        char                 *host_name = NULL;
+        char                  *tmp_host = NULL;
+        char                *bricks_str = NULL;
+        int                         len = 0;
+        int              brick_list_len = 1; /* For initial space */
+        struct list_head     brick_list = { 0, };
+        cli_brick_t              *brick = NULL;
 
         GF_ASSERT (words);
         GF_ASSERT (wordcount);
@@ -97,8 +102,8 @@ cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
         GF_ASSERT (brick_index > 0);
         GF_ASSERT (brick_index < wordcount);
 
-        strncpy (brick_list, space, strlen (space));
-        brick_list_len++;
+        INIT_LIST_HEAD(&brick_list);
+
         while (brick_index < wordcount) {
                 if (validate_brick_name ((char *)words[brick_index])) {
                         cli_err ("Wrong brick type: %s, use <HOSTNAME>:"
@@ -112,13 +117,6 @@ cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
                                 goto out;
                 }
 
-                if ((brick_list_len + strlen (words[brick_index]) + 1) > sizeof (brick_list)) {
-                        cli_err ("Total brick list is larger than a request. "
-                                 "Can take (brick_count %d)", *brick_count);
-                        ret = -1;
-                        goto out;
-                }
-
                 tmp_host = gf_strdup ((char *)words[brick_index]);
                 if (!tmp_host) {
                         gf_log ("cli", GF_LOG_ERROR, "Out of memory");
@@ -130,6 +128,7 @@ cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
                         ret = -1;
                         gf_log("cli",GF_LOG_ERROR, "Unable to allocate "
                                "memory");
+                        GF_FREE (tmp_host);
                         goto out;
                 }
 
@@ -148,36 +147,59 @@ cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
                                  "standards", host_name);
                 }
                 GF_FREE (tmp_host);
-                tmp_list = gf_strdup (brick_list + 1);
-                if (free_list_ptr) {
-                        GF_FREE (free_list_ptr);
-                        free_list_ptr = NULL;
-                }
-                free_list_ptr = tmp_list;
-                j = 0;
-                while(j < *brick_count) {
-                        strtok_r (tmp_list, " ", &tmpptr);
-                        if (!(strcmp (tmp_list, words[brick_index]))) {
+                list_for_each_entry(brick, &brick_list, list) {
+                        if (strcmp(brick->name, words[brick_index]) == 0) {
                                 ret = -1;
-                                cli_err ("Found duplicate"
-                                         " exports %s",words[brick_index]);
+                                cli_err("Found duplicate exports %s",
+                                        words[brick_index]);
                                 goto out;
-                       }
-                       tmp_list = tmpptr;
-                       j++;
+                        }
                 }
-                strcat (brick_list, words[brick_index]);
-                strcat (brick_list, " ");
-                brick_list_len += (strlen (words[brick_index]) + 1);
+
+                brick = GF_MALLOC(sizeof(cli_brick_t), gf_common_list_node);
+                if (brick == NULL) {
+                        ret = -1;
+                        gf_log("cli", GF_LOG_ERROR, "Out of memory");
+                        goto out;
+                }
+                len = strlen(words[brick_index]);
+                brick->name = words[brick_index];
+                brick->len = len;
+                list_add_tail(&brick->list, &brick_list);
+
+                brick_list_len += len + 1; /* Brick name + space */
                 ++(*brick_count);
                 ++brick_index;
         }
 
-        *bricks = gf_strdup (brick_list);
-        if (!*bricks)
+        brick_list_len++; /* For terminating null char */
+
+        bricks_str = GF_MALLOC(brick_list_len, gf_common_mt_char);
+        if (bricks_str == NULL) {
                 ret = -1;
+                gf_log("cli", GF_LOG_ERROR, "Out of memory");
+                goto out;
+        }
+        *bricks = bricks_str;
+        *bricks_str = ' ';
+        bricks_str++;
+        while (!list_empty(&brick_list)) {
+                brick = list_first_entry(&brick_list, cli_brick_t, list);
+                list_del_init(&brick->list);
+                memcpy(bricks_str, brick->name, brick->len);
+                bricks_str[brick->len] = ' ';
+                bricks_str += brick->len + 1;
+                GF_FREE(brick);
+        }
+        *bricks_str = 0;
+
 out:
-        GF_FREE (free_list_ptr);
+        while (!list_empty(&brick_list)) {
+                brick = list_first_entry(&brick_list, cli_brick_t, list);
+                list_del_init(&brick->list);
+                GF_FREE(brick);
+        }
+
         return ret;
 }
 
@@ -933,7 +955,7 @@ cli_cmd_get_state_parse (struct cli_state *state,
                         }
                 }
 
-                ret = dict_set_str (dict, "daemon", daemon_name);
+                ret = dict_set_dynstr (dict, "daemon", daemon_name);
                 if (ret) {
                         *op_errstr = gf_strdup ("Command failed. Please check "
                                                 " log file for more details.");
@@ -941,6 +963,7 @@ cli_cmd_get_state_parse (struct cli_state *state,
                                 "Setting daemon name to dictionary failed");
                         goto out;
                 }
+                daemon_name = NULL;
 
                 if (odir) {
                         ret = dict_set_str (dict, "odir", odir);
@@ -987,6 +1010,8 @@ cli_cmd_get_state_parse (struct cli_state *state,
 
         if (ret && dict)
                 dict_unref (dict);
+
+        GF_FREE(daemon_name);
 
         return ret;
 }
@@ -1271,11 +1296,6 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
         }
 
         if (strcmp (w, "list-objects") == 0) {
-                if (wordcount < 4) {
-                        ret = -1;
-                        goto out;
-                }
-
                 type = GF_QUOTA_OPTION_TYPE_LIST_OBJECTS;
 
                 i = 4;
@@ -1395,22 +1415,49 @@ cli_is_key_spl (char *key)
         return (strcmp (key, "group") == 0);
 }
 
+static int32_t
+cli_add_key_group_value(dict_t *dict, const char *name, const char *value,
+                        int32_t id, char **op_errstr)
+{
+        char         *key  = NULL;
+        char         *data = NULL;
+        int32_t       ret  = -1;
+
+        ret = gf_asprintf(&key, "%s%d", name, id);
+        if (ret < 0) {
+                goto out;
+        }
+        data = gf_strdup(value);
+        if (data == NULL) {
+                goto out;
+        }
+
+        ret = dict_set_dynstr(dict, key, data);
+        if (ret == 0) {
+                data = NULL;
+        }
+
+out:
+        GF_FREE(key);
+        GF_FREE(data);
+
+        if ((ret != 0) && (op_errstr != NULL)) {
+                *op_errstr = gf_strdup("Failed to allocate memory");
+        }
+
+        return ret;
+}
+
 static int
 cli_add_key_group (dict_t *dict, char *key, char *value, char **op_errstr)
 {
         int             ret = -1;
         int             opt_count = 0;
-        char            iter_key[1024] = {0,};
-        char            iter_val[1024] = {0,};
         char            *saveptr = NULL;
         char            *tok_key = NULL;
         char            *tok_val = NULL;
-        char            *dkey = NULL;
-        char            *dval = NULL;
         char            *tagpath = NULL;
-        char            *buf = NULL;
         char            line[PATH_MAX + 256] = {0,};
-        char            errstr[2048] = "";
         FILE            *fp = NULL;
 
         ret = gf_asprintf (&tagpath, "%s/groups/%s",
@@ -1423,62 +1470,60 @@ cli_add_key_group (dict_t *dict, char *key, char *value, char **op_errstr)
         fp = fopen (tagpath, "r");
         if (!fp) {
                 ret = -1;
-                snprintf(errstr, sizeof(errstr), "Unable to open file '%s'."
-                         " Error: %s", tagpath, strerror (errno));
-                if (op_errstr)
-                        *op_errstr = gf_strdup(errstr);
+                if (op_errstr) {
+                        gf_asprintf(op_errstr, "Unable to open file '%s'. "
+                                               "Error: %s",
+                                    tagpath, strerror(errno));
+                }
                 goto out;
         }
 
         opt_count = 0;
-        buf = line;
-        while (fscanf (fp, "%s", buf) != EOF) {
-
+        while (fgets(line, sizeof(line), fp) != NULL) {
+                if (strlen(line) >= sizeof(line) - 1) {
+                        ret = -1;
+                        if (op_errstr != NULL) {
+                                *op_errstr = gf_strdup("Line too long");
+                        }
+                        goto out;
+                }
                 opt_count++;
                 tok_key = strtok_r (line, "=", &saveptr);
-                tok_val = strtok_r (NULL, "=", &saveptr);
+                tok_val = strtok_r (NULL, "\r\n", &saveptr);
                 if (!tok_key || !tok_val) {
                         ret = -1;
-                        snprintf(errstr, sizeof(errstr), "'%s' file format "
-                                 "not valid.", tagpath);
-                        if (op_errstr)
-                                *op_errstr = gf_strdup(errstr);
+                        if (op_errstr) {
+                                gf_asprintf(op_errstr, "'%s' file format "
+                                                       "not valid.",
+                                            tagpath);
+                        }
                         goto out;
                 }
 
-                snprintf (iter_key, sizeof (iter_key), "key%d", opt_count);
-                dkey = gf_strdup (tok_key);
-                ret = dict_set_dynstr (dict, iter_key, dkey);
-                if (ret)
+                ret = cli_add_key_group_value(dict, "key", tok_key, opt_count,
+                                              op_errstr);
+                if (ret != 0) {
                         goto out;
-                dkey = NULL;
-
-                snprintf (iter_val, sizeof (iter_val), "value%d", opt_count);
-                dval = gf_strdup (tok_val);
-                ret = dict_set_dynstr (dict, iter_val, dval);
-                if (ret)
+                }
+                ret = cli_add_key_group_value(dict, "value", tok_val,
+                                              opt_count, op_errstr);
+                if (ret != 0) {
                         goto out;
-                dval = NULL;
-
+                }
         }
 
         if (!opt_count) {
                 ret = -1;
-                snprintf(errstr, sizeof(errstr), "'%s' file format "
-                         "not valid.", tagpath);
-                if (op_errstr)
-                        *op_errstr = gf_strdup(errstr);
+                if (op_errstr) {
+                        gf_asprintf(op_errstr, "'%s' file format not valid.",
+                                    tagpath);
+                }
                 goto out;
         }
         ret = dict_set_int32 (dict, "count", opt_count);
 out:
 
         GF_FREE (tagpath);
-
-        if (ret) {
-                GF_FREE (dkey);
-                GF_FREE (dval);
-        }
 
         if (fp)
                 fclose (fp);
@@ -2637,6 +2682,10 @@ config_parse (const char **words, int wordcount, dict_t *dict,
                 }
 
                 ret = dict_set_dynstr (dict, "op_value", append_str);
+                if (ret != 0) {
+                        goto out;
+                }
+                append_str = NULL;
         }
 
         ret = -1;
@@ -2647,9 +2696,7 @@ config_parse (const char **words, int wordcount, dict_t *dict,
         }
 
 out:
-        if (ret && append_str)
-                GF_FREE (append_str);
-
+        GF_FREE (append_str);
         GF_FREE (subop);
 
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -2942,6 +2989,10 @@ cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
                  * pass down only <slavehost> else pass as it is.
                  */
                 slave_temp = gf_strdup (words[slavei]);
+                if (slave_temp == NULL) {
+                        ret = -1;
+                        goto out;
+                }
                 token = strtok_r (slave_temp, "@", &save_ptr);
                 if (token && !strcmp (token, "root")) {
                         ret = dict_set_str (dict, "slave",
@@ -3507,7 +3558,8 @@ cli_cmd_volume_statedump_options_parse (const char **words, int wordcount,
         dict_t  *dict = NULL;
         int     option_cnt = 0;
         char    *option = NULL;
-        char    option_str[_POSIX_HOST_NAME_MAX + 100] = {0,};
+        char    *option_str = NULL;
+        char    *tmp_str = NULL;
         char    *tmp = NULL;
         char    *ip_addr = NULL;
         char    *pid = NULL;
@@ -3522,11 +3574,11 @@ cli_cmd_volume_statedump_options_parse (const char **words, int wordcount,
                 pid = strtok(NULL, ":");
                 if (valid_internet_address (ip_addr, _gf_true)
                    && pid && gf_valid_pid (pid, strlen(pid))) {
-                        strncat (option_str, words[3], strlen (words[3]));
-                        strncat (option_str, " ", 1);
-                        strncat (option_str, ip_addr, strlen (ip_addr));
-                        strncat (option_str, " ", 1);
-                        strncat (option_str, pid, strlen (pid));
+                        ret = gf_asprintf(&option_str, "%s %s %s", words[3],
+                                          ip_addr, pid);
+                        if (ret < 0) {
+                                goto out;
+                        }
                         option_cnt = 3;
                 } else {
                         ret = -1;
@@ -3538,8 +3590,14 @@ cli_cmd_volume_statedump_options_parse (const char **words, int wordcount,
                                 ret = -1;
                                 goto out;
                         }
-                        strncat (option_str, option, strlen (option));
-                        strncat (option_str, " ", 1);
+                        tmp_str = option_str;
+                        option_str = NULL;
+                        ret = gf_asprintf(&option_str, "%s%s ",
+                                          tmp_str ? tmp_str : "", option);
+                        GF_FREE(tmp_str);
+                        if (ret < 0) {
+                                goto out;
+                        }
                 }
                 if ((strstr (option_str, "nfs")) && strstr (option_str, "quotad")) {
                         ret = -1;
@@ -3548,12 +3606,15 @@ cli_cmd_volume_statedump_options_parse (const char **words, int wordcount,
         }
 
         dict = dict_new ();
-        if (!dict)
+        if (!dict) {
+                ret = -1;
                 goto out;
+        }
 
-        ret = dict_set_dynstr (dict, "options", gf_strdup (option_str));
+        ret = dict_set_dynstr (dict, "options", option_str);
         if (ret)
                 goto out;
+        option_str = NULL;
 
         ret = dict_set_int32 (dict, "option_cnt", option_cnt);
         if (ret)
@@ -3562,6 +3623,7 @@ cli_cmd_volume_statedump_options_parse (const char **words, int wordcount,
         *options = dict;
 out:
         GF_FREE (tmp);
+        GF_FREE (option_str);
         if (ret && dict)
                 dict_unref (dict);
         if (ret)
@@ -3738,16 +3800,26 @@ set_hostname_path_in_dict (const char *token, dict_t *dict, int heal_op)
                                        hostname);
                 if (ret)
                         goto out;
+                hostname = NULL;
                 ret = dict_set_dynstr (dict, "heal-source-brickpath",
                                        path);
+                if (ret) {
+                        goto out;
+                }
+                path = NULL;
                 break;
         case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
                 ret = dict_set_dynstr (dict, "per-replica-cmd-hostname",
                                        hostname);
                 if (ret)
                         goto out;
+                hostname = NULL;
                 ret = dict_set_dynstr (dict, "per-replica-cmd-path",
                                        path);
+                if (ret) {
+                        goto out;
+                }
+                path = NULL;
                 break;
         default:
                 ret = -1;
@@ -3755,6 +3827,8 @@ set_hostname_path_in_dict (const char *token, dict_t *dict, int heal_op)
         }
 
 out:
+        GF_FREE(hostname);
+        GF_FREE(path);
         return ret;
 }
 
