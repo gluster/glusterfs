@@ -204,6 +204,8 @@ F: xlators/performance/nl-cache/
 
 NFS
 M: Niels de Vos <ndevos@redhat.com>
+M: Shreyas Siravara <sshreyas@fb.com>
+M: Jeff Darcy <jeff@pl.atyp.us>
 P: Jiffin Tony Thottan <jthottan@redhat.com>
 P: Soumya Koduri <skoduri@redhat.com>
 S: Maintained
@@ -285,7 +287,7 @@ F: xlators/features/read-only/
 Experimental Features:
 ----------------------
 
-Distributed Hash Table 2
+RIO-Distribution
 M: Shyamsundar Ranganathan <srangana@redhat.com>
 P: Kotresh HR <khiremat@redhat.com>
 P: Susant Palai <spalai@redhat.com>
