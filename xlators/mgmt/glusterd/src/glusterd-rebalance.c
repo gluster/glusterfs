@@ -676,6 +676,7 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
                         ret = -1;
                         goto out;
                 }
+                /* Fall through */
         case GF_DEFRAG_CMD_START:
         case GF_DEFRAG_CMD_START_LAYOUT_FIX:
                 /* Check if the connected clients are all of version
@@ -697,7 +698,7 @@ glusterd_op_stage_rebalance (dict_t *dict, char **op_errstr)
                                            volname);
                         goto out;
                 }
-
+                /* Fall through */
         case GF_DEFRAG_CMD_START_FORCE:
                 if (is_origin_glusterd (dict)) {
                         op_ctx = glusterd_op_get_ctx ();
