@@ -3409,9 +3409,6 @@ unwind:
         if (rsp_iobref)
                 iobref_unref (rsp_iobref);
 
-        if (rsp_iobuf)
-                iobuf_unref (rsp_iobuf);
-
         return 0;
 }
 
@@ -4769,9 +4766,6 @@ client3_3_fgetxattr (call_frame_t *frame, xlator_t *this,
 unwind:
         CLIENT_STACK_UNWIND (fgetxattr, frame, -1, op_errno, NULL, NULL);
 
-        if (rsp_iobuf)
-                iobuf_unref (rsp_iobuf);
-
         if (rsp_iobref)
                 iobref_unref (rsp_iobref);
 
@@ -4849,6 +4843,12 @@ client3_3_getxattr (call_frame_t *frame, xlator_t *this,
         if (args && args->name) {
                 if (is_client_dump_locks_cmd ((char *)args->name)) {
                         dict = dict_new ();
+
+                        if (!dict) {
+                                op_errno = ENOMEM;
+                                goto unwind;
+                        }
+
                         ret = client_dump_locks ((char *)args->name,
                                                  args->loc->inode,
                                                  dict);
@@ -4856,7 +4856,8 @@ client3_3_getxattr (call_frame_t *frame, xlator_t *this,
                                 gf_msg (this->name, GF_LOG_WARNING, EINVAL,
                                         PC_MSG_INVALID_ENTRY, "Client dump "
                                         "locks failed");
-                                op_errno = EINVAL;
+                                op_errno = ENOMEM;
+                                goto unwind;
                         }
 
                         GF_ASSERT (dict);
@@ -4887,13 +4888,14 @@ client3_3_getxattr (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        if (rsp_iobuf)
-                iobuf_unref (rsp_iobuf);
-
         if (rsp_iobref)
                 iobref_unref (rsp_iobref);
 
         CLIENT_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict, NULL);
+
+        if (dict) {
+                dict_unref(dict);
+        }
 
         GF_FREE (req.xdata.xdata_val);
 
@@ -4988,9 +4990,6 @@ unwind:
 
         GF_FREE (req.dict.dict_val);
 
-        if (rsp_iobuf)
-                iobuf_unref (rsp_iobuf);
-
         if (rsp_iobref)
                 iobref_unref (rsp_iobref);
 
@@ -5083,9 +5082,6 @@ unwind:
 
         if (rsp_iobref)
                 iobref_unref (rsp_iobref);
-
-        if (rsp_iobuf)
-                iobuf_unref (rsp_iobuf);
 
         GF_FREE (req.xdata.xdata_val);
 
@@ -5601,9 +5597,6 @@ unwind:
         if (rsp_iobref)
                 iobref_unref (rsp_iobref);
 
-        if (rsp_iobuf)
-                iobuf_unref (rsp_iobuf);
-
         CLIENT_STACK_UNWIND (readdir, frame, -1, op_errno, NULL, NULL);
         GF_FREE (req.xdata.xdata_val);
 
@@ -5700,9 +5693,6 @@ client3_3_readdirp (call_frame_t *frame, xlator_t *this,
 unwind:
         if (rsp_iobref)
                 iobref_unref (rsp_iobref);
-
-        if (rsp_iobuf)
-                iobuf_unref (rsp_iobuf);
 
         GF_FREE (req.dict.dict_val);
 
@@ -6042,7 +6032,7 @@ client3_3_compound (call_frame_t *frame, xlator_t *this, void *data)
 
         GF_ASSERT (frame);
 
-        if (!this || !data)
+        if (!this)
                 goto unwind;
 
         memset (req_vector, 0, sizeof (req_vector));
