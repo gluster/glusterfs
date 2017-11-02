@@ -232,6 +232,13 @@ struct posix_private {
         /* Option to handle the cases of multiple bricks exported from
            same backend. Very much usable in brick-splitting feature. */
         int32_t shared_brick_count;
+
+        /*Option to set mode bit permission that will always be set on
+          file/directory. */
+        mode_t          force_create_mode;
+        mode_t          force_directory_mode;
+        mode_t          create_mask;
+        mode_t          create_directory_mask;
 };
 
 typedef struct {

@@ -394,14 +394,27 @@ out:
         return 0;
 }
 
+static inline mode_t override_umask (mode_t mode, mode_t mode_bit)
+{
+        gf_msg_debug ("posix", 0, "The value of mode is %u", mode);
+        mode = mode >> 9; /* 3x3 (bits for each octal digit)*/
+        mode = (mode << 9) | mode_bit;
+        gf_msg_debug ("posix", 0, "The value of mode is %u", mode);
+        return mode;
+}
+
 static int
 posix_do_chmod (xlator_t *this, const char *path, struct iatt *stbuf)
 {
         int32_t     ret = -1;
         mode_t      mode = 0;
+        mode_t      mode_bit = 0;
+        struct posix_private *priv = NULL;
         struct stat stat;
         int         is_symlink = 0;
 
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
         ret = sys_lstat (path, &stat);
         if (ret != 0) {
                 gf_msg (this->name, GF_LOG_WARNING, 0, P_MSG_LSTAT_FAILED,
@@ -412,7 +425,17 @@ posix_do_chmod (xlator_t *this, const char *path, struct iatt *stbuf)
         if (S_ISLNK (stat.st_mode))
                 is_symlink = 1;
 
-        mode = st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type);
+        if (S_ISDIR (stat.st_mode)) {
+                mode = st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type);
+                mode_bit = (mode & priv->create_directory_mask)
+                            | priv->force_directory_mode;
+                mode = override_umask(mode, mode_bit);
+        } else {
+                mode = st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type);
+                mode_bit = (mode & priv->create_mask)
+                            | priv->force_create_mode;
+                mode = override_umask(mode, mode_bit);
+        }
         ret = lchmod (path, mode);
         if ((ret == -1) && (errno == ENOSYS)) {
                 /* in Linux symlinks are always in mode 0777 and no
@@ -633,10 +656,20 @@ int32_t
 posix_do_fchmod (xlator_t *this,
                  int fd, struct iatt *stbuf)
 {
-        mode_t  mode = 0;
+        int32_t     ret = -1;
+        mode_t      mode = 0;
+        mode_t      mode_bit = 0;
+        struct posix_private *priv = NULL;
 
+        priv = this->private;
+        VALIDATE_OR_GOTO (priv, out);
         mode = st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type);
-        return sys_fchmod (fd, mode);
+        mode_bit = (mode & priv->create_mask)
+                    | priv->force_create_mode;
+        mode = override_umask (mode, mode_bit);
+        ret = sys_fchmod (fd, mode);
+out:
+        return ret;
 }
 
 static int
@@ -1392,6 +1425,7 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         gf_boolean_t          entry_created   = _gf_false, gfid_set = _gf_false;
         gf_boolean_t          linked          = _gf_false;
         gf_loglevel_t         level           = GF_LOG_NONE;
+        mode_t                mode_bit        = 0;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1405,11 +1439,13 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
                                   out);
         MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, NULL);
 
+        mode_bit = (priv->create_mask & mode) | priv->force_create_mode;
+        mode = override_umask (mode, mode_bit);
+
         gid = frame->root->gid;
 
         SET_FS_ID (frame->root->uid, gid);
         DISK_SPACE_CHECK_AND_GOTO (frame, priv, xdata, op_ret, op_errno, out);
-
         if (!real_path || !par_path) {
                 op_ret = -1;
                 op_errno = ESTALE;
@@ -1452,9 +1488,9 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
 
 real_op:
 #ifdef __NetBSD__
-	if (S_ISFIFO(mode))
-		op_ret = mkfifo (real_path, mode);
-	else
+        if (S_ISFIFO(mode))
+                op_ret = mkfifo (real_path, mode);
+        else
 #endif /* __NetBSD__ */
         op_ret = sys_mknod (real_path, mode, dev);
 
@@ -1600,6 +1636,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         char          pgfid[GF_UUID_BUF_SIZE] = {0};
         char                 value_buf[4096]  = {0,};
         gf_boolean_t         have_val         = _gf_false;
+        mode_t               mode_bit         = 0;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1642,6 +1679,10 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         op_ret = posix_pstat (this, NULL, real_path, &stbuf);
 
         SET_FS_ID (frame->root->uid, gid);
+
+        mode_bit = (priv->create_directory_mask & mode)
+                   | priv->force_directory_mode;
+        mode = override_umask (mode, mode_bit);
 
         if (xdata) {
                 op_ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
@@ -3089,6 +3130,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
         int                    nlink_samepgfid = 0;
         char *                 pgfid_xattr_key = NULL;
         gf_boolean_t           entry_created   = _gf_false, gfid_set = _gf_false;
+        mode_t                 mode_bit        = 0;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -3143,6 +3185,9 @@ posix_create (call_frame_t *frame, xlator_t *this,
         if (priv->o_direct)
                 _flags |= O_DIRECT;
 
+
+        mode_bit = (priv->create_mask & mode) | priv->force_create_mode;
+        mode = override_umask (mode, mode_bit);
         _fd = sys_open (real_path, _flags, mode);
 
         if (_fd == -1) {
@@ -3312,7 +3357,7 @@ posix_open (call_frame_t *frame, xlator_t *this,
         if (priv->o_direct)
                 flags |= O_DIRECT;
 
-        _fd = sys_open (real_path, flags, 0);
+        _fd = sys_open (real_path, flags, priv->force_create_mode);
         if (_fd == -1) {
                 op_ret   = -1;
                 op_errno = errno;
@@ -7176,10 +7221,13 @@ reconfigure (xlator_t *this, dict_t *options)
         int32_t               uid = -1;
         int32_t               gid = -1;
 	char                 *batch_fsync_mode_str = NULL;
-    char                 *gfid2path_sep = NULL;
+        char                 *gfid2path_sep = NULL;
+        int32_t              force_create_mode = -1;
+        int32_t              force_directory_mode = -1;
+        int32_t              create_mask = -1;
+        int32_t              create_directory_mask = -1;
 
-	priv = this->private;
-
+        priv = this->private;
         GF_OPTION_RECONF ("brick-uid", uid, options, int32, out);
         GF_OPTION_RECONF ("brick-gid", gid, options, int32, out);
 	if (uid != -1 || gid != -1)
@@ -7258,8 +7306,23 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("shared-brick-count", priv->shared_brick_count,
                           options, int32, out);
+        GF_OPTION_RECONF ("force-create-mode", force_create_mode,
+                          options, int32, out);
+        priv->force_create_mode = force_create_mode;
 
-	ret = 0;
+        GF_OPTION_RECONF ("force-directory-mode", force_directory_mode,
+                          options, int32, out);
+        priv->force_directory_mode = force_directory_mode;
+
+        GF_OPTION_RECONF ("create-mask", create_mask,
+                          options, int32, out);
+        priv->create_mask = create_mask;
+
+        GF_OPTION_RECONF ("create-directory-mask", create_directory_mask,
+                          options, int32, out);
+        priv->create_directory_mask = create_directory_mask;
+
+        ret = 0;
 out:
 	return ret;
 }
@@ -7401,6 +7464,10 @@ init (xlator_t *this)
         int32_t               gid           = -1;
 	char                 *batch_fsync_mode_str;
         char                 *gfid2path_sep = NULL;
+        int                  force_create  = -1;
+        int                  force_directory = -1;
+        int                  create_mask  = -1;
+        int                  create_directory_mask = -1;
 
         dir_data = dict_get (this->options, "directory");
 
@@ -7919,6 +7986,19 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("batch-fsync-delay-usec", _private->batch_fsync_delay_usec,
                         uint32, out);
+        GF_OPTION_INIT ("force-create-mode", force_create, int32, out);
+        _private->force_create_mode = force_create;
+
+        GF_OPTION_INIT ("force-directory-mode", force_directory, int32, out);
+        _private->force_directory_mode = force_directory;
+
+        GF_OPTION_INIT ("create-mask",
+                        create_mask, int32, out);
+        _private->create_mask = create_mask;
+
+        GF_OPTION_INIT ("create-directory-mask",
+                        create_directory_mask, int32, out);
+        _private->create_directory_mask = create_directory_mask;
 out:
         if (ret) {
                 if (_private) {
@@ -8189,6 +8269,44 @@ struct volume_options options[] = {
           .description = "Number of bricks sharing the same backend export."
           " Useful for displaying the proper usable size through statvfs() "
           "call (df command)",
+        },
+        { .key  = {"force-create-mode"},
+          .type = GF_OPTION_TYPE_INT,
+          .min = 0000,
+          .max = 0777,
+          .default_value = "0000",
+          .validate = GF_OPT_VALIDATE_MIN,
+          .validate = GF_OPT_VALIDATE_MAX,
+          .description = "Mode bit permission that will always be set on a file."
+        },
+        { .key  = {"force-directory-mode"},
+          .type = GF_OPTION_TYPE_INT,
+          .min = 0000,
+          .max = 0777,
+          .default_value = "0000",
+          .validate = GF_OPT_VALIDATE_MIN,
+          .validate = GF_OPT_VALIDATE_MAX,
+          .description = "Mode bit permission that will be always set on directory"
+        },
+        { .key  = {"create-mask"},
+          .type = GF_OPTION_TYPE_INT,
+          .min = 0000,
+          .max = 0777,
+          .default_value = "0777",
+          .validate = GF_OPT_VALIDATE_MIN,
+          .validate = GF_OPT_VALIDATE_MAX,
+          .description = "Any bit not set here will be removed from the"
+          "modes set on a file when it is created"
+        },
+        { .key  = {"create-directory-mask"},
+          .type = GF_OPTION_TYPE_INT,
+          .min = 0000,
+          .max = 0777,
+          .default_value = "0777",
+          .validate = GF_OPT_VALIDATE_MIN,
+          .validate = GF_OPT_VALIDATE_MAX,
+          .description = "Any bit not set here will be removed from the"
+          "modes set on a directory when it is created"
         },
         { .key  = {NULL} }
 };
