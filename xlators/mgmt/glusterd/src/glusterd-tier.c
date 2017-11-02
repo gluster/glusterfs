@@ -499,6 +499,12 @@ glusterd_op_remove_tier_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                 ret = dict_set_str (rsp_dict,
                                                     GF_REMOVE_BRICK_TID_KEY,
                                                     task_id_str);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                                GD_MSG_DICT_SET_FAILED,
+                                                "failed to set remove-brick-id"
+                                                "in the dict");
+                                }
                                 gf_uuid_parse (task_id_str,
                                                volinfo->tier.rebalance_id);
                         }
@@ -520,6 +526,7 @@ glusterd_op_remove_tier_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                              "migration has failed");
                                 goto out;
                         }
+                        /* Fall through */
 
         case GF_DEFRAG_CMD_DETACH_COMMIT_FORCE:
                         glusterd_op_perform_detach_tier (volinfo);
@@ -1268,9 +1275,12 @@ out:
         if ((rsp.op_errstr) && (strcmp (rsp.op_errstr, "") != 0))
                 free (rsp.op_errstr);
         free (rsp.output.output_val);
-        if (req->rpc_status != -1)
+        if (req && (req->rpc_status != -1) && (frame)) {
                 GLUSTERD_STACK_DESTROY(frame);
-        __wake (args);
+        }
+        if (args) {
+                __wake (args);
+        }
 
         return ret;
 
@@ -1378,7 +1388,7 @@ glusterd_op_tier_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict,
                 GD_SYNCOP (rpc, (&args), NULL, glusterd_tier_status_cbk, req,
                            &gd_brick_prog, req->op, xdr_gd1_mgmt_brick_op_req);
 
-                if (req) {
+                if (req != NULL) {
                         GF_FREE (req);
                         req = NULL;
                 }
