@@ -586,7 +586,7 @@ gf_rdma_server_get_local_sockaddr (rpc_transport_t *this,
         case AF_INET_SDP:
                 is_inet_sdp = 1;
                 addr->sa_family = AF_INET;
-
+                /* Fall through */
         case AF_INET:
         case AF_INET6:
         case AF_UNSPEC:
@@ -685,7 +685,7 @@ gf_rdma_get_transport_identifiers (rpc_transport_t *this)
         case AF_INET_SDP:
                 is_inet_sdp = 1;
                 ((struct sockaddr *) &this->peerinfo.sockaddr)->sa_family = ((struct sockaddr *) &this->myinfo.sockaddr)->sa_family = AF_INET;
-
+                /* Fall through */
         case AF_INET:
         case AF_INET6: {
                 ret = fill_inet6_inet_identifiers (this,
