@@ -1246,6 +1246,7 @@ pub_glfs_pwritev_async (struct glfs_fd *glfd, const struct iovec *iovec,
         frame = syncop_create_frame (THIS);
         if (!frame) {
                 errno = ENOMEM;
+                ret = -1;
                 goto out;
         }
 
@@ -1263,9 +1264,10 @@ out:
                 if (glfd)
                         GF_REF_PUT (glfd);
                 GF_FREE (gio);
-                if (frame)
-                        STACK_DESTROY (frame->root);
-
+                /*
+                 * If there is any error condition check after the frame
+                 * creation, we have to destroy the frame root.
+                 */
                 glfs_subvol_done (glfd->fs, subvol);
         }
 
