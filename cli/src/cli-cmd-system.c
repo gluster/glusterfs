@@ -461,6 +461,10 @@ cli_cmd_sys_exec_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
 
         command = strtok_r ((char *)words[2], " ", &saveptr);
+        if (command == NULL) {
+                gf_log("cli", GF_LOG_ERROR, "Failed to parse command");
+                goto out;
+        }
         do {
                 tmp = strtok_r (NULL, " ", &saveptr);
                 if (tmp) {
@@ -513,14 +517,31 @@ cli_cmd_sys_exec_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_SYS_EXEC];
-        if (proc && proc->fn) {
+        if (proc->fn) {
                 frame = create_frame (THIS, THIS->ctx->pool);
                 if (!frame)
                         goto out;
                 CLI_LOCAL_INIT (local, words, frame, dict);
                 ret = proc->fn (frame, THIS, (void*)dict);
+
+                /* proc->fn is processed synchronously, which means that the
+                 * execution flow won't return here until the operation is
+                 * fully processed, including any related callback. For this
+                 * reason, it's safe to destroy the stack here, since no one
+                 * can still be using it. Additionally, it's not easy to move
+                 * the stack destroy to the callback executed after completion
+                 * of the operation because there are multiple things than can
+                 * fail even before having queued the callback, so we would
+                 * still need to destroy the stack if proc->fn returns an
+                 * error. */
+                CLI_STACK_DESTROY(frame);
+                dict = NULL;
         }
 out:
+        if (dict != NULL) {
+                dict_unref(dict);
+        }
+
         return ret;
 }
 
