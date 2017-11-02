@@ -35,10 +35,6 @@ cli_cmd_snapshot_cbk (struct cli_state *state, struct cli_cmd_word *word,
         cli_local_t             *local     = NULL;
 
         proc = &cli_rpc_prog->proctable [GLUSTER_CLI_SNAP];
-        if (proc == NULL) {
-               ret = -1;
-                goto out;
-        }
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (frame == NULL) {
