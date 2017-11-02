@@ -1077,9 +1077,11 @@ out:
         } else {
 #if (USE_EVENTS)
                 gf_event (EVENT_VOLUME_ADD_BRICK, "%s", event_str);
-                GF_FREE (event_str);
 #endif
         }
+#if (USE_EVENTS)
+        GF_FREE(event_str);
+#endif
 
         CLI_STACK_DESTROY (frame);
         return ret;
@@ -1777,10 +1779,6 @@ cli_cmd_bitrot_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
         proc = &cli_rpc_prog->proctable[GLUSTER_CLI_BITROT];
-        if (proc == NULL) {
-                ret = -1;
-                goto out;
-        }
 
         CLI_LOCAL_INIT (local, words, frame, options);
 
@@ -2865,6 +2863,7 @@ cli_launch_glfs_heal (int heal_op, dict_t *options)
                 break;
         default:
                 ret = -1;
+                goto out;
         }
         ret = runner_start (&runner);
         if (ret == -1)
