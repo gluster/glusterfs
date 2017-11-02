@@ -553,7 +553,6 @@ ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         ioc_local_t *local         = NULL;
         ioc_table_t *table         = NULL;
         ioc_inode_t *ioc_inode     = NULL;
-        uint32_t     weight        = 0xffffffff;
 
         local = frame->local;
         if (!this || !this->private) {
@@ -598,13 +597,6 @@ ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 if ((local->flags & O_DIRECT)){
                         /* O_DIRECT is only for one fd, not the inode
                          * as a whole
-                         */
-                        fd_ctx_set (fd, this, 1);
-                }
-
-                /* weight = 0, we disable caching on it */
-                if (weight == 0) {
-                        /* we allow a pattern-matched cache disable this way
                          */
                         fd_ctx_set (fd, this, 1);
                 }
