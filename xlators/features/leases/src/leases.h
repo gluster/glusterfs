@@ -19,7 +19,6 @@
 #include "common-utils.h"
 #include "glusterfs.h"
 #include "xlator.h"
-#include "inode.h"
 #include "call-stub.h"
 #include "logging.h"
 #include "client_t.h"

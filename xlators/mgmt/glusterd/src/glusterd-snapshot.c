@@ -35,7 +35,6 @@
 
 #include <regex.h>
 
-#include "globals.h"
 #include "compat.h"
 #include "protocol-common.h"
 #include "xlator.h"

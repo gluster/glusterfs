@@ -33,7 +33,6 @@
 #endif
 
 #include "xlator.h"
-#include "inode.h"
 #include "compat.h"
 #include "timer.h"
 #include "posix-mem-types.h"

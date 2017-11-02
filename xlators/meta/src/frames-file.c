@@ -14,7 +14,6 @@
 #include "meta-mem-types.h"
 #include "meta.h"
 #include "strfd.h"
-#include "globals.h"
 #include "lkowner.h"
 
 static int

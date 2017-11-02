@@ -22,7 +22,6 @@
 #include "xlator.h"
 #include "hashfn.h"
 #include "logging.h"
-#include "stack.h"
 #include "list.h"
 #include "call-stub.h"
 #include "defaults.h"

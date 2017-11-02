@@ -19,7 +19,6 @@
 #include "compat.h"
 #include "logging.h"
 #include "dict.h"
-#include "stack.h"
 #include "event.h"
 #include "rpcsvc.h"
 #include "rpc-clnt.h"

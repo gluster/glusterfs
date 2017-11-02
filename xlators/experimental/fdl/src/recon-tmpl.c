@@ -5,7 +5,6 @@
 #endif
 
 #include "glusterfs.h"
-#include "fd.h"
 #include "iatt.h"
 #include "syncop.h"
 #include "xlator.h"

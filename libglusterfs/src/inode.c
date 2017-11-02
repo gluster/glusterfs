@@ -9,7 +9,6 @@
 */
 
 #include "inode.h"
-#include "fd.h"
 #include "common-utils.h"
 #include "statedump.h"
 #include <pthread.h>

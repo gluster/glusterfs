@@ -13,7 +13,6 @@
 #include <limits.h>
 #include <sys/types.h>
 #include "xlator.h"
-#include "gf-dirent.h"
 #include "posix-messages.h"
 
 /* From Open Group Base Specifications Issue 6 */

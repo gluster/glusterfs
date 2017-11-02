@@ -14,7 +14,6 @@
 #include "xlator.h"
 #include "defaults.h"
 #include "default-args.h"
-#include "stack.h"
 #include "list.h"
 
 typedef struct _call_stub {

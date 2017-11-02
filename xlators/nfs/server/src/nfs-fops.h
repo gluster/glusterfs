@@ -15,7 +15,6 @@
 #include "xlator.h"
 #include "iobuf.h"
 #include "call-stub.h"
-#include "stack.h"
 #include "nfs.h"
 #include "nfs-common.h"
 #include "nfs-messages.h"

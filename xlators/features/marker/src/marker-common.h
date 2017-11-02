@@ -10,7 +10,6 @@
 #ifndef _MARKER_COMMON_H
 #define _MARKER_COMMON_H
 
-#include "inode.h"
 #include "xlator.h"
 #include "marker.h"
 

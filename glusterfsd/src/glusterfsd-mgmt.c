@@ -14,7 +14,6 @@
 #include <signal.h>
 
 #include "glusterfs.h"
-#include "stack.h"
 #include "dict.h"
 #include "event.h"
 #include "defaults.h"

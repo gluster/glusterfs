@@ -13,7 +13,6 @@
 #include <sys/resource.h>
 #include <sys/statvfs.h>
 
-#include "globals.h"
 #include "compat.h"
 #include "protocol-common.h"
 #include "xlator.h"

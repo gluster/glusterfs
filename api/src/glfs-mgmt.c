@@ -18,7 +18,6 @@
 
 #include "glusterfs.h"
 #include "glfs.h"
-#include "stack.h"
 #include "dict.h"
 #include "event.h"
 #include "defaults.h"

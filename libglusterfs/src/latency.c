@@ -15,7 +15,6 @@
  */
 
 #include "glusterfs.h"
-#include "stack.h"
 #include "xlator.h"
 #include "common-utils.h"
 #include "statedump.h"

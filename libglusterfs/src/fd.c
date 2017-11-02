@@ -10,7 +10,6 @@
 
 #include "fd.h"
 #include "glusterfs.h"
-#include "inode.h"
 #include "dict.h"
 #include "statedump.h"
 #include "libglusterfs-messages.h"

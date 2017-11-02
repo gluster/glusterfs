@@ -8,7 +8,6 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "globals.h"
 #include "glusterfs.h"
 #include "dict.h"
 #include "xlator.h"
