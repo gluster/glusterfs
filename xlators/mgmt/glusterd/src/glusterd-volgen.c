@@ -4011,7 +4011,7 @@ client_graph_set_rda_options (volgen_graph_t *graph,
                 if (ret < 0)
                         goto out;
         }
-        gf_string2bytesize_uint64 (rda_req_s, &rda_req_size);
+        ret =  gf_string2bytesize_uint64 (rda_req_s, &rda_req_size);
         if (ret < 0) {
                 set_graph_errstr (graph, "invalid number format in option "
                                   VKEY_RDA_REQUEST_SIZE);
