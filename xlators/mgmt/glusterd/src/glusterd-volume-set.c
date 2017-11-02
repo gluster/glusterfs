@@ -2738,6 +2738,14 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version  = GD_OP_VERSION_3_8_0,
           .flags      = VOLOPT_FLAG_CLIENT_OPT | VOLOPT_FLAG_XLATOR_OPT
         },
+        { .key         = "features.worm-files-deletable",
+          .voltype     = "features/worm",
+          .option      = "worm-files-deletable",
+          .value       = "on",
+          .validate_fn = validate_boolean,
+          .op_version  = GD_OP_VERSION_3_13_0,
+          .flags       = VOLOPT_FLAG_CLIENT_OPT | VOLOPT_FLAG_XLATOR_OPT
+        },
         { .key         = "features.default-retention-period",
           .voltype     = "features/worm",
           .option      = "default-retention-period",

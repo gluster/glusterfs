@@ -379,7 +379,7 @@ gf_worm_state_transition (xlator_t *this, gf_boolean_t fop_with_fd,
                                       &reten_state, &stbuf);
         }
         if (reten_state.worm && !reten_state.retain &&
-                 op == GF_FOP_UNLINK) {
+                priv->worm_files_deletable && op == GF_FOP_UNLINK) {
                 op_errno = 0;
                 goto out;
         }
