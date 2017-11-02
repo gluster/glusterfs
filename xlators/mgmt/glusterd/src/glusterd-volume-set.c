@@ -1,4 +1,4 @@
-/*
+	/*
    Copyright (c) 2013 Red Hat, Inc. <http://www.redhat.com>
    This file is part of GlusterFS.
 
@@ -2820,6 +2820,26 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
         { .option      = "health-check-timeout",
           .key         = "storage.health-check-timeout",
+          .voltype     = "storage/posix",
+          .op_version  = GD_OP_VERSION_4_0_0,
+        },
+        { .option      = "force-create-mode",
+          .key         = "storage.force-create-mode",
+          .voltype     = "storage/posix",
+          .op_version  = GD_OP_VERSION_4_0_0,
+        },
+        { .option      = "force-directory-mode",
+          .key         = "storage.force-directory-mode",
+          .voltype     = "storage/posix",
+          .op_version  = GD_OP_VERSION_4_0_0,
+        },
+        { .option      = "create-mask",
+          .key         = "storage.create-mask",
+          .voltype     = "storage/posix",
+          .op_version  = GD_OP_VERSION_4_0_0,
+        },
+        { .option      = "create-directory-mask",
+          .key         = "storage.create-directory-mask",
           .voltype     = "storage/posix",
           .op_version  = GD_OP_VERSION_4_0_0,
         },
