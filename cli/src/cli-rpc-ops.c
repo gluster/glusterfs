@@ -294,6 +294,11 @@ gf_cli_output_peer_status (dict_t *dict, int count)
                         ret = gf_cli_output_peer_hostnames (dict,
                                                             hostname_count,
                                                             key);
+                        if (ret) {
+                                gf_log ("cli", GF_LOG_WARNING,
+                                        "error outputting peer other names");
+                                goto out;
+                        }
                 }
                 i++;
         }
@@ -412,8 +417,6 @@ gf_cli_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
 
         gf_log ("cli", GF_LOG_DEBUG, "Received resp to list: %d",
                 rsp.op_ret);
-
-        ret = rsp.op_ret;
 
         if (!rsp.op_ret) {
 
@@ -784,7 +787,6 @@ gf_cli_print_tier_info (dict_t *dict, int i, int brick_count)
                 goto out;
 
         cli_out ("Hot Tier :");
-        vol_type = hot_type;
         hot_dist_count = (hot_replica_count ?
                           hot_replica_count : 1);
 
@@ -1381,7 +1383,6 @@ gf_cli3_1_uuid_reset_cbk (struct rpc_req *req, struct iovec *iov,
         int                     ret   = -1;
         cli_local_t             *local = NULL;
         call_frame_t            *frame = NULL;
-        dict_t                  *dict = NULL;
 
         GF_ASSERT (myframe);
 
@@ -1407,7 +1408,7 @@ gf_cli3_1_uuid_reset_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("cli", GF_LOG_INFO, "Received resp to uuid reset");
 
         if (global_state->mode & GLUSTER_MODE_XML) {
-                ret = cli_xml_output_dict ("uuidReset", dict, rsp.op_ret,
+                ret = cli_xml_output_dict ("uuidReset", NULL, rsp.op_ret,
                                            rsp.op_errno, rsp.op_errstr);
                 if (ret)
                         gf_log ("cli", GF_LOG_ERROR,
@@ -1427,8 +1428,6 @@ out:
         cli_local_wipe (local);
         if (rsp.dict.dict_val)
                 free (rsp.dict.dict_val);
-        if (dict)
-                dict_unref (dict);
 
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
@@ -2005,6 +2004,12 @@ gf_cli_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
               (cmd == GF_DEFRAG_CMD_STATUS_TIER)) &&
              !(global_state->mode & GLUSTER_MODE_XML)) {
                 ret = dict_get_str (dict, GF_REBALANCE_TID_KEY, &task_id_str);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_WARNING,
+                                "failed to get %s from dict",
+                                GF_REBALANCE_TID_KEY);
+                        goto out;
+                }
                 if (rsp.op_ret && strcmp (rsp.op_errstr, "")) {
                         snprintf (msg, sizeof (msg), "%s", rsp.op_errstr);
                 } else {
@@ -2318,6 +2323,11 @@ gf_cli_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         ret = dict_unserialize (rsp.dict.dict_val, rsp.dict.dict_len, &dict);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR,
+                        "failed to unserialize volume set respone dict");
+                goto out;
+        }
 
         /* For brick processes graph change does not happen on the fly.
          * The process has to be restarted. So this is a check from the
@@ -3548,6 +3558,12 @@ print_quota_list_output (cli_local_t *local, char *path, char *default_sl,
         if (limit_set) {
                 if (limits->sl < 0) {
                         ret = gf_string2percent (default_sl, &sl_num);
+                        if (ret) {
+                                gf_log ("cli", GF_LOG_ERROR,
+                                        "could not convert default soft limit"
+                                        " to percent");
+                                goto out;
+                        }
                         sl_num = (sl_num * limits->hl) / 100;
                         sl_final = default_sl;
                 } else {
@@ -3584,7 +3600,7 @@ print_quota_list_output (cli_local_t *local, char *path, char *default_sl,
                                                       sl_final, limits,
                                                       used_space, sl, hl,
                                                       sl_num, limit_set);
-
+out:
         return ret;
 }
 
@@ -3717,8 +3733,6 @@ gf_cli_print_limit_list_from_dict (cli_local_t *local, char *volname,
         char            key[1024]               = {0,};
         char            mountdir[PATH_MAX]      = {0,};
         char            *path                   = NULL;
-        gf_boolean_t    xml_err_flag            = _gf_false;
-        char            err_str[NAME_MAX]       = {0,};
         int             type                    = -1;
 
         if (!dict|| count <= 0)
@@ -3761,13 +3775,6 @@ gf_cli_print_limit_list_from_dict (cli_local_t *local, char *volname,
         }
 
 out:
-        if (xml_err_flag) {
-                ret = cli_xml_output_str ("volQuota", NULL, -1, 0, err_str);
-                if (ret) {
-                        gf_log ("cli", GF_LOG_ERROR, "Error outputting in xml "
-                                "format");
-                }
-        }
         return ret;
 }
 
@@ -4456,7 +4463,7 @@ gf_cli_list_friends (call_frame_t *frame, xlator_t *this,
                               (xdrproc_t) xdr_gf1_cli_peer_list_req);
 
 out:
-        if (ret) {
+        if (ret && frame) {
                 /*
                  * If everything goes fine, gf_cli_list_friends_cbk()
                  * [invoked through cli_cmd_submit()]resets the
@@ -4587,6 +4594,11 @@ gf_cli_get_volume (call_frame_t *frame, xlator_t *this,
 
         ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
                                            &req.dict.dict_len);
+        if (ret) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "failed to serialize dict");
+                goto out;
+        }
 
         ret = cli_cmd_submit (NULL, &req, frame, cli_rpc_prog,
                               GLUSTER_CLI_GET_VOLUME, NULL,
@@ -5602,7 +5614,7 @@ gf_cli_gsync_config_command (dict_t *dict)
                 op_name = NULL;
 
         ret = dict_get_str (dict, "conf_path", &confpath);
-        if (!confpath) {
+        if (ret || !confpath) {
                 ret = snprintf (conf_path, sizeof(conf_path) - 1,
                                 "%s/"GEOREP"/gsyncd_template.conf", gwd);
                 conf_path[ret] = '\0';
@@ -6179,8 +6191,6 @@ gf_cli_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
         ret = dict_get_str (dict, "gsync-status", &gsync_status);
         if (!ret)
                 cli_out ("%s", gsync_status);
-        else
-                ret = 0;
 
         ret = dict_get_int32 (dict, "type", &type);
         if (ret) {
@@ -6381,6 +6391,10 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                 snprintf (key, sizeof (key), "%d-%d-read-%d", count,
                           interval, (1 << i));
                 ret = dict_get_uint64 (dict, key, &rb_counts[i]);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_DEBUG,
+                                "failed to get %s from dict", key);
+                }
         }
 
         for (i = 0; i < 32; i++) {
@@ -6388,12 +6402,20 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                 snprintf (key, sizeof (key), "%d-%d-write-%d", count, interval,
                           (1<<i));
                 ret = dict_get_uint64 (dict, key, &wb_counts[i]);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_DEBUG,
+                                "failed to get %s from dict", key);
+                }
         }
 
         for (i = 0; i < GF_UPCALL_FLAGS_MAXVALUE; i++) {
                 snprintf (key, sizeof (key), "%d-%d-%d-upcall-hits", count,
                           interval, i);
                 ret = dict_get_uint64 (dict, key, &upcall_info[i].fop_hits);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_DEBUG,
+                                "failed to get %s from dict", key);
+                }
                 upcall_info[i].fop_name = (char *)gf_upcall_list[i];
         }
 
@@ -6402,21 +6424,37 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                 snprintf (key, sizeof (key), "%d-%d-%d-hits", count,
                           interval, i);
                 ret = dict_get_uint64 (dict, key, &profile_info[i].fop_hits);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_DEBUG,
+                                "failed to get %s from dict", key);
+                }
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%d-%d-%d-avglatency", count,
                           interval, i);
                 ret = dict_get_double (dict, key, &profile_info[i].avg_latency);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_DEBUG,
+                                "failed to get %s from dict", key);
+                }
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%d-%d-%d-minlatency", count,
                           interval, i);
                 ret = dict_get_double (dict, key, &profile_info[i].min_latency);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_DEBUG,
+                                "failed to get %s from dict", key);
+                }
 
                 memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%d-%d-%d-maxlatency", count,
                           interval, i);
                 ret = dict_get_double (dict, key, &profile_info[i].max_latency);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_DEBUG,
+                                "failed to get %s from dict", key);
+                }
                 profile_info[i].fop_name = (char *)gf_fop_list[i];
 
                 total_percentage_latency +=
@@ -6435,16 +6473,22 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%d-%d-duration", count, interval);
         ret = dict_get_uint64 (dict, key, &sec);
+        if (ret) {
+                gf_log ("cli", GF_LOG_DEBUG, "failed to get %s from dict", key);
+        }
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%d-%d-total-read", count, interval);
         ret = dict_get_uint64 (dict, key, &r_count);
+        if (ret) {
+                gf_log ("cli", GF_LOG_DEBUG, "failed to get %s from dict", key);
+        }
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%d-%d-total-write", count, interval);
         ret = dict_get_uint64 (dict, key, &w_count);
-
-        if (ret == 0) {
+        if (ret) {
+                gf_log ("cli", GF_LOG_DEBUG, "failed to get %s from dict", key);
         }
 
         if (interval == -1)
@@ -8976,8 +9020,7 @@ cmd_heal_volume_brick_out (dict_t *dict, int brick)
         snprintf (key, sizeof key, "%d-shd-status",brick);
         ret = dict_get_str (dict, key, &shd_status);
 
-        if(!shd_status)
-        {
+        if (!shd_status) {
                 snprintf (key, sizeof key, "%d-count", brick);
                 ret = dict_get_uint64 (dict, key, &num_entries);
                 cli_out ("Number of entries: %"PRIu64, num_entries);
@@ -8992,7 +9035,7 @@ cmd_heal_volume_brick_out (dict_t *dict, int brick)
                         snprintf (key, sizeof key, "%d-%"PRIu64"-time",
                                   brick, i);
                         ret = dict_get_uint32 (dict, key, &time);
-                        if (!time) {
+                        if (ret || !time) {
                                 cli_out ("%s", path);
                         } else {
                                 gf_time_fmt (timestr, sizeof timestr,
@@ -10872,21 +10915,46 @@ gf_cli_snapshot_get_data_from_dict (dict_t *dict, char **snap_name,
 
         GF_VALIDATE_OR_GOTO ("cli", dict, out);
 
-        if (snap_name)
+        if (snap_name) {
                 ret = dict_get_str (dict, "snapname", snap_name);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_DEBUG,
+                                "failed to get snapname from dict");
+                }
+        }
 
-        if (volname)
+        if (volname) {
                 ret = dict_get_str (dict, "volname1", volname);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_DEBUG,
+                                "failed to get volname1 from dict");
+                }
+        }
 
-        if (snap_uuid)
+        if (snap_uuid) {
                 ret = dict_get_str (dict, "snapuuid", snap_uuid);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_DEBUG,
+                                "failed to get snapuuid from dict");
+                }
+        }
 
-        if (soft_limit_flag)
+        if (soft_limit_flag) {
                 ret = dict_get_int8 (dict, "soft-limit-reach",
                                      soft_limit_flag);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_DEBUG,
+                                "failed to get soft-limit-reach from dict");
+                }
+        }
 
-        if (clone_name)
+        if (clone_name) {
                 ret = dict_get_str (dict, "clonename", clone_name);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_DEBUG,
+                                "failed to get clonename from dict");
+                }
+        }
 
         ret = 0;
 out:
@@ -11384,6 +11452,13 @@ gf_cli_snapshot_for_status (call_frame_t *frame, xlator_t *this,
                  * then it will show snapshot not present. Which will
                  * not be appropriate.
                  */
+                if (ret &&
+                    (cmd != GF_SNAP_STATUS_TYPE_ALL ||
+                     cmd != GF_SNAP_STATUS_TYPE_VOL)) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "cli_to_glusterd for snapshot status failed");
+                        goto out;
+                }
                 dict_unref (snap_dict);
                 snap_dict = NULL;
         }
@@ -11500,7 +11575,6 @@ gf_cli_barrier_volume_cbk (struct rpc_req *req, struct iovec *iov,
 {
         gf_cli_rsp                      rsp = {0,};
         int                             ret = -1;
-        dict_t                          *dict = NULL;
 
         GF_ASSERT (myframe);
 
@@ -11528,8 +11602,6 @@ gf_cli_barrier_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
-        if (dict)
-                dict_unref (dict);
         free (rsp.op_errstr);
         free (rsp.dict.dict_val);
         cli_cmd_broadcast_response (ret);
