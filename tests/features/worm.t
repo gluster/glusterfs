@@ -64,6 +64,14 @@ TEST `echo "worm 2" >> $M0/file3`
 EXPECT 'worm 1' cat $M0/file3
 TEST ! rm -f $M0/file3
 
+## Test for checking if Worm files are undeletable after setting worm-files-deletable as 0.
+TEST $CLI volume set $V0 features.worm-files-deletable 0
+TEST `echo "worm 1" > $M0/file4`
+TEST chmod 0444 $M0/file4
+sleep 10
+TEST `echo "worm 1" >> $M0/file4`
+TEST ! rm -f $M0/file4
+
 TEST $CLI volume stop $V0
 EXPECT 'Stopped' volinfo_field $V0 'Status'
 

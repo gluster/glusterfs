@@ -542,6 +542,8 @@ init (xlator_t *this)
                         uint64, out);
         GF_OPTION_INIT ("auto-commit-period", priv->com_period, uint64, out);
         GF_OPTION_INIT ("retention-mode", priv->reten_mode, str, out);
+        GF_OPTION_INIT ("worm-files-deletable", priv->worm_files_deletable,
+                        bool, out);
 
         this->private = priv;
         ret = 0;
@@ -569,6 +571,8 @@ reconfigure (xlator_t *this, dict_t *options)
                           out);
         GF_OPTION_RECONF ("auto-commit-period", priv->com_period, options,
                           uint64, out);
+        GF_OPTION_RECONF ("worm-files-deletable", priv->worm_files_deletable,
+                          options, bool, out);
         ret = 0;
 out:
         gf_log (this->name, GF_LOG_DEBUG, "returning %d", ret);
@@ -631,6 +635,12 @@ struct volume_options options[] = {
           .default_value = "off",
           .description = "When \"on\", activates the file level worm. "
                          "It is turned \"off\" by default."
+        },
+        { .key = {"worm-files-deletable"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "on",
+          .description = "When \"off\", doesn't allow the Worm files"
+                         "to be deleted. It is turned \"on\" by default."
         },
         { .key = {"default-retention-period"},
           .type = GF_OPTION_TYPE_TIME,

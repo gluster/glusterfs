@@ -28,6 +28,7 @@ typedef struct {
 typedef struct {
         gf_boolean_t          readonly_or_worm_enabled;
         gf_boolean_t          worm_file;
+        gf_boolean_t          worm_files_deletable;
         uint64_t              reten_period;
         uint64_t              com_period;
         char                  *reten_mode;
