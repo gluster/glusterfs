@@ -2239,15 +2239,24 @@ index_make_xattrop_watchlist (xlator_t *this, index_priv_t *priv,
 
         switch (type) {
         case DIRTY:
-                priv->dirty_watchlist = xattrs;
+                priv->dirty_watchlist = dict_copy_with_ref (xattrs,
+                                                         priv->dirty_watchlist);
+                if (!priv->dirty_watchlist) {
+                        ret = -1;
+                        goto out;
+                }
                 break;
         case XATTROP:
-                priv->pending_watchlist = xattrs;
+                priv->pending_watchlist = dict_copy_with_ref (xattrs,
+                                                       priv->pending_watchlist);
+                if (!priv->pending_watchlist) {
+                        ret = -1;
+                        goto out;
+                }
                 break;
         default:
                 break;
         }
-        xattrs = NULL;
 
         ret = 0;
 out:
