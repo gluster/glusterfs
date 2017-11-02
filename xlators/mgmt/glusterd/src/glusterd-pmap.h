@@ -17,7 +17,6 @@
 #include "xlator.h"
 #include "logging.h"
 #include "call-stub.h"
-#include "fd.h"
 #include "byte-order.h"
 #include "rpcsvc.h"
 

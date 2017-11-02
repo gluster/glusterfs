@@ -62,7 +62,6 @@
 #include "list.h"
 #include "timer.h"
 #include "glusterfsd.h"
-#include "stack.h"
 #include "revision.h"
 #include "common-utils.h"
 #include "event.h"

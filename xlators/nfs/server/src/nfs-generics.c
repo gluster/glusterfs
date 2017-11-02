@@ -11,7 +11,6 @@
 
 #include "string.h"
 
-#include "inode.h"
 #include "nfs.h"
 #include "nfs-fops.h"
 #include "nfs-inodes.h"

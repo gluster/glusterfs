@@ -14,7 +14,6 @@
 #include "defaults.h"
 #include "mem-types.h"
 #include "call-stub.h"
-#include "inode.h"
 #include "byte-order.h"
 #include "iatt.h"
 #include <ctype.h>

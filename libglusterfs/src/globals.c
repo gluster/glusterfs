@@ -11,7 +11,6 @@
 #include <pthread.h>
 
 #include "glusterfs.h"
-#include "globals.h"
 #include "xlator.h"
 #include "mem-pool.h"
 #include "syncop.h"

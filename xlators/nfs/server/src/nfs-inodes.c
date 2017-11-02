@@ -10,7 +10,6 @@
 
 #include "string.h"
 
-#include "inode.h"
 #include "nfs.h"
 #include "nfs-inodes.h"
 #include "nfs-fops.h"

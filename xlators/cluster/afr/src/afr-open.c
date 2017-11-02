@@ -21,7 +21,6 @@
 #include "xlator.h"
 #include "hashfn.h"
 #include "logging.h"
-#include "stack.h"
 #include "list.h"
 #include "call-stub.h"
 #include "defaults.h"
@@ -30,8 +29,6 @@
 #include "compat.h"
 #include "byte-order.h"
 #include "statedump.h"
-
-#include "fd.h"
 
 #include "afr-inode-read.h"
 #include "afr-inode-write.h"

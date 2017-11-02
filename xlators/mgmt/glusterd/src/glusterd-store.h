@@ -18,7 +18,6 @@
 #include "run.h"
 #include "logging.h"
 #include "call-stub.h"
-#include "fd.h"
 #include "byte-order.h"
 #include "glusterd.h"
 #include "rpcsvc.h"

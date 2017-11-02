@@ -9,7 +9,6 @@
 */
 #include <inttypes.h>
 
-#include "globals.h"
 #include "glusterfs.h"
 #include "compat.h"
 #include "dict.h"
@@ -48,7 +47,6 @@
 
 #include "common-utils.h"
 
-#include "globals.h"
 #include "glusterd-syncop.h"
 #include "glusterd-messages.h"
 

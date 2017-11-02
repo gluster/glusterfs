@@ -10,7 +10,6 @@
 #include "glusterfs.h"
 #include "compat.h"
 #include "xlator.h"
-#include "inode.h"
 #include "logging.h"
 #include "common-utils.h"
 #include "list.h"

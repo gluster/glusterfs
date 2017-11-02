@@ -58,8 +58,6 @@ typedef int32_t (*event_notify_fn_t) (xlator_t *this, int32_t event, void *data,
 #include "gf-dirent.h"
 #include "stack.h"
 #include "iobuf.h"
-#include "inode.h"
-#include "fd.h"
 #include "globals.h"
 #include "iatt.h"
 #include "options.h"

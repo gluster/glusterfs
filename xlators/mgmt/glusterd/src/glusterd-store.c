@@ -12,7 +12,6 @@
 #include <inttypes.h>
 
 
-#include "globals.h"
 #include "glusterfs.h"
 #include "compat.h"
 #include "dict.h"

@@ -21,7 +21,6 @@
 #include "mem-pool.h"
 #include "logging.h"
 #include "nfs-fops.h"
-#include "inode.h"
 #include "mount3.h"
 #include "nfs3.h"
 #include "nfs-mem-types.h"
