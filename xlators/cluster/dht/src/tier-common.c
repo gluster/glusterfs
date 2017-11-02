@@ -235,8 +235,10 @@ tier_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dht_linkfile_attr_heal (frame, this);
         }
 out:
-        if (local->xattr_req) {
-                dict_del (local->xattr_req, TIER_LINKFILE_GFID);
+        if (local) {
+                if (local->xattr_req) {
+                        dict_del (local->xattr_req, TIER_LINKFILE_GFID);
+                }
         }
 
         DHT_STRIP_PHASE1_FLAGS (stbuf);
@@ -766,25 +768,17 @@ tier_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int op_ret, int op_errno, gf_dirent_t *orig_entries,
                  dict_t *xdata)
 {
-        dht_local_t  *local = NULL;
         gf_dirent_t   entries;
         gf_dirent_t  *orig_entry = NULL;
         gf_dirent_t  *entry = NULL;
-        xlator_t     *prev = NULL;
-        xlator_t     *next_subvol = NULL;
-        off_t         next_offset = 0;
         int           count = 0;
 
         INIT_LIST_HEAD (&entries.list);
-        prev = cookie;
-        local = frame->local;
 
         if (op_ret < 0)
-                goto done;
+                goto unwind;
 
         list_for_each_entry (orig_entry, (&orig_entries->list), list) {
-                next_offset = orig_entry->d_off;
-
                 entry = gf_dirent_for_name (orig_entry->d_name);
                 if (!entry) {
                         gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
@@ -802,23 +796,6 @@ tier_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 count++;
         }
         op_ret = count;
-
-done:
-        if (count == 0) {
-                /* non-zero next_offset means that
-                   EOF is not yet hit on the current subvol
-                */
-                if (next_offset != 0) {
-                        next_subvol = prev;
-                } else {
-                        goto unwind;
-                }
-
-                STACK_WIND_COOKIE (frame, tier_readdir_cbk, next_subvol,
-                                   next_subvol, next_subvol->fops->readdir,
-                                   local->fd, local->size, next_offset, NULL);
-                return 0;
-        }
 
 unwind:
         if (op_ret < 0)
