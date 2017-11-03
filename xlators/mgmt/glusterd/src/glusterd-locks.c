@@ -699,6 +699,7 @@ glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, uint32_t *op_errno,
 
         ret = 0;
 out:
+        GF_FREE (key_dup);
         gf_msg_trace (this->name, 0, "Returning %d", ret);
         return ret;
 }
@@ -753,11 +754,10 @@ gd_mgmt_v3_unlock_timer_cbk (void *data)
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DICT_SET_FAILED,
                         "Unable to get lock owner in mgmt_v3 lock");
-                goto out;
         }
 
 out:
-        if (mgmt_lock_timer->timer) {
+        if (mgmt_lock_timer && mgmt_lock_timer->timer) {
                 mgmt_lock_timer_xl = mgmt_lock_timer->xl;
                 GF_VALIDATE_OR_GOTO (this->name, mgmt_lock_timer_xl,
                                      ret_function);
