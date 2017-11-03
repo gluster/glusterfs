@@ -98,22 +98,14 @@ TEST test "$mount_inode" == "1"
 
 TEST umount $M2
 
-# because the subdir is not yet 'healed', below should fail.
+# Now the exported subdirs should be automatically healed due to
+# hook scripts. Check if the mount is successful.
 TEST $GFS --subdir-mount /subdir2 -s $H0 --volfile-id $V0 $M2
 mount_inode=$(stat --format "%i" "$M2")
-TEST test "$mount_inode" != "1"
+TEST test "$mount_inode" == "1"
 
-# Allow the heal to complete
-TEST stat $M0/subdir1/subdir1.1/subdir1.2/subdir1.2_file;
-TEST stat $M0/subdir2/
-
-# Now the mount should succeed
-TEST $GFS --subdir-mount /subdir2 -s $H0 --volfile-id $V0 $M1
-TEST stat $M1
-
-# umount $M1 / $M2
 TEST umount $M0
-TEST umount $M1
+TEST umount $M2
 
 
 TEST $CLI volume stop $V0;
