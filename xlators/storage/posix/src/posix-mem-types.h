@@ -22,6 +22,7 @@ enum gf_posix_mem_types_ {
         gf_posix_mt_trash_path,
 	gf_posix_mt_paiocb,
         gf_posix_mt_inode_ctx_t,
+        gf_posix_mt_mdata_attr,
         gf_posix_mt_end
 };
 #endif

@@ -88,24 +88,6 @@ extern char *marker_xattrs[];
 
 #endif
 
-/* Setting microseconds or nanoseconds depending on what's supported:
-   The passed in `tv` can be
-       struct timespec
-   if supported (better, because it supports nanosecond resolution) or
-       struct timeval
-   otherwise. */
-#if HAVE_UTIMENSAT
-#define SET_TIMESPEC_NSEC_OR_TIMEVAL_USEC(tv, nanosecs) \
-        tv.tv_nsec = nanosecs
-#define PATH_SET_TIMESPEC_OR_TIMEVAL(path, tv) \
-        (sys_utimensat (AT_FDCWD, path, tv, AT_SYMLINK_NOFOLLOW))
-#else
-#define SET_TIMESPEC_NSEC_OR_TIMEVAL_USEC(tv, nanosecs) \
-        tv.tv_usec = nanosecs / 1000
-#define PATH_SET_TIMESPEC_OR_TIMEVAL(path, tv) \
-        (lutimes (path, tv))
-#endif
-
 gf_boolean_t
 posix_symlinks_match (xlator_t *this, loc_t *loc, uuid_t gfid)
 {
