@@ -143,6 +143,7 @@
 #define GFID2PATH_XATTR_KEY_PREFIX_LENGTH 18
 #define VIRTUAL_GFID_XATTR_KEY_STR  "glusterfs.gfid.string"
 #define VIRTUAL_GFID_XATTR_KEY      "glusterfs.gfid"
+#define GF_XATTR_MDATA_KEY  "trusted.glusterfs.mdata"
 #define UUID_CANONICAL_FORM_LEN 36
 
 #define GET_ANCESTRY_PATH_KEY "glusterfs.ancestry.path"
