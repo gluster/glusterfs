@@ -1655,12 +1655,14 @@ __socket_read_accepted_successful_reply (rpc_transport_t *this)
 
                 frag->call_body.reply.accepted_success_state
                         = SP_STATE_READING_PROC_OPAQUE;
+                /* fall through */
 
         case SP_STATE_READING_PROC_OPAQUE:
                 __socket_proto_read (priv, ret);
 
                 frag->call_body.reply.accepted_success_state
                         = SP_STATE_READ_PROC_OPAQUE;
+                /* fall through */
 
         case SP_STATE_READ_PROC_OPAQUE:
         read_proc_opaque:
@@ -1683,11 +1685,13 @@ __socket_read_accepted_successful_reply (rpc_transport_t *this)
                                 }
                         }
 
-                        iobref_add (in->iobref, iobuf);
+                        ret = iobref_add (in->iobref, iobuf);
                         iobuf_unref (iobuf);
+                        if (ret < 0) {
+                                goto out;
+                        }
 
                         in->payload_vector.iov_base = iobuf_ptr (iobuf);
-
                         in->payload_vector.iov_len = size;
                 }
 
@@ -2978,7 +2982,8 @@ socket_server_event_handler (int fd, int idx, int gen, void *data,
                 }
         }
 out:
-        event_handled (ctx->event_pool, fd, idx, gen);
+        if (ctx)
+                event_handled (ctx->event_pool, fd, idx, gen);
 
         if (cname && (cname != this->ssl_name)) {
                 GF_FREE(cname);
@@ -3206,8 +3211,8 @@ socket_connect (rpc_transport_t *this, int port)
                  * net.ipv6.bindv6only to 1 so that gluster services are
                  * avalable over IPv4 & IPv6.
                  */
-                int disable_v6only = 0;
-
+#ifdef IPV6_DEFAULT
+                int     disable_v6only  = 0;
                 if (setsockopt (priv->sock, IPPROTO_IPV6, IPV6_V6ONLY,
                                 (void *)&disable_v6only,
                                 sizeof (disable_v6only)) < 0) {
@@ -3215,6 +3220,7 @@ socket_connect (rpc_transport_t *this, int port)
                                 "Error disabling sockopt IPV6_V6ONLY: \"%s\"",
                                 strerror (errno));
                 }
+#endif
 
                 if (priv->nodelay && (sa_family != AF_UNIX)) {
                         ret = __socket_nodelay (priv->sock);
@@ -3778,14 +3784,13 @@ socket_getpeeraddr (rpc_transport_t *this, char *peeraddr, int addrlen,
 
         GF_VALIDATE_OR_GOTO ("socket", this, out);
         GF_VALIDATE_OR_GOTO ("socket", sa, out);
+        ret = 0;
 
         *sa = this->peerinfo.sockaddr;
 
         if (peeraddr != NULL) {
                 ret = socket_getpeername (this, peeraddr, addrlen);
         }
-        ret = 0;
-
 out:
         return ret;
 }
