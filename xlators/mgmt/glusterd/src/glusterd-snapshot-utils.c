@@ -2757,7 +2757,6 @@ glusterd_volume_quorum_calculate (glusterd_volinfo_t *volinfo, dict_t *dict,
         gf_boolean_t  quorum_met        = _gf_false;
         char          err_str[PATH_MAX] = {0, };
         xlator_t     *this              = NULL;
-        int           up_count          = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2781,43 +2780,11 @@ glusterd_volume_quorum_calculate (glusterd_volinfo_t *volinfo, dict_t *dict,
                         GD_MSG_BRICK_DISCONNECTED, "%s", err_str);
                 *op_errstr = gf_strdup (err_str);
                 *op_errno = EG_BRCKDWN;
-                goto out;
         } else {
                 quorum_met = _gf_true;
-                goto out;
         }
 
-        up_count = volinfo->dist_leaf_count - down_count;
-
-        if (quorum_type && !strcmp (quorum_type, "fixed")) {
-                if (up_count >= quorum_count) {
-                        quorum_met = _gf_true;
-                        goto out;
-                }
-        } else {
-                if ((GF_CLUSTER_TYPE_DISPERSE != volinfo->type) &&
-                    (volinfo->dist_leaf_count % 2 == 0)) {
-                        if ((up_count > quorum_count) ||
-                            ((up_count == quorum_count) && first_brick_on)) {
-                                quorum_met = _gf_true;
-                                goto out;
-                        }
-                } else {
-                        if (up_count >= quorum_count) {
-                                quorum_met = _gf_true;
-                                goto out;
-                        }
-                }
-        }
-
-        if (!quorum_met) {
-                snprintf (err_str, sizeof (err_str), "quorum is not met");
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        GD_MSG_SERVER_QUORUM_NOT_MET, "%s", err_str);
-                *op_errstr = gf_strdup (err_str);
-                *op_errno = EG_BRCKDWN;
-        }
-
+        /* TODO : Support for n-way relication in snapshot*/
 out:
         return quorum_met;
 }
