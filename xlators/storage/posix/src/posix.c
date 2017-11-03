@@ -4506,7 +4506,8 @@ posix_get_ancestry_non_directory (xlator_t *this, inode_t *leaf_inode,
         }
 
         while (remaining_size > 0) {
-                strncpy (key, list + list_offset, sizeof(key));
+                strncpy (key, list + list_offset, sizeof(key)-1);
+                key[sizeof(key)-1] = '\0';
                 if (strncmp (key, PGFID_XATTR_KEY_PREFIX,
                              strlen (PGFID_XATTR_KEY_PREFIX)) != 0)
                         goto next;
@@ -4525,13 +4526,15 @@ posix_get_ancestry_non_directory (xlator_t *this, inode_t *leaf_inode,
                 nlink_samepgfid = ntoh32 (nlink_samepgfid);
 
                 strncpy (pgfidstr, key + strlen(PGFID_XATTR_KEY_PREFIX),
-                         sizeof(pgfidstr));
+                         sizeof(pgfidstr)-1);
+                pgfidstr[sizeof(pgfidstr)-1] = '\0';
                 gf_uuid_parse (pgfidstr, pgfid);
 
                 handle_size = POSIX_GFID_HANDLE_SIZE(priv->base_path_length);
 
                 /* constructing the absolute real path of parent dir */
-                strncpy (dirpath, priv->base_path, sizeof(dirpath));
+                strncpy (dirpath, priv->base_path, sizeof(dirpath)-1);
+                dirpath[sizeof(dirpath)-1] = '\0';
                 pathlen = PATH_MAX + 1 - priv->base_path_length;
 
                 op_ret = posix_make_ancestryfromgfid (this,
@@ -4621,14 +4624,13 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         int                   ret                   = -1;
         char                 *path                  = NULL;
         char                 *rpath                 = NULL;
-        char                 *dyn_rpath             = NULL;
         ssize_t               size                  = 0;
         char                 *list                  = NULL;
         int32_t               list_offset           = 0;
         size_t                remaining_size        = 0;
-        char                  host_buf[1024]        = {0,};
-        char                  keybuffer[4096]       = {0,};
-        char                  value_buf[8192]       = {0,};
+        char                 *host_buf              = NULL;
+        char                 *keybuffer             = NULL;
+        char                 *value_buf             = NULL;
         gf_boolean_t          have_val              = _gf_false;
 
         DECLARE_OLD_FS_ID_VAR;
@@ -4646,7 +4648,6 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         ret = posix_handle_georep_xattrs (frame, name, &op_errno, _gf_true);
         if (ret == -1) {
                 op_ret = -1;
-                /* errno should be set from the above function*/
                 goto out;
         }
 
@@ -4678,11 +4679,11 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         if (loc->inode && name && GF_POSIX_ACL_REQUEST (name)) {
                 ret = posix_pacl_get (real_path, name, &value);
                 if (ret || !value) {
+                        op_errno = errno;
                         gf_msg (this->name, GF_LOG_WARNING, errno,
                                 P_MSG_ACL_FAILED, "could not get acl (%s) for"
                                 "%s", name, real_path);
                         op_ret = -1;
-                        op_errno = errno;
                         goto out;
                 }
 
@@ -4693,7 +4694,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                                 P_MSG_ACL_FAILED, "could not set acl (%s) for"
                                 "%s in dictionary", name, real_path);
                         op_ret = -1;
-                        op_errno = errno;
+                        op_errno = ENOMEM;
                         goto out;
                 }
 
@@ -4729,16 +4730,22 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         if (loc->inode && name && !strcmp (name, GLUSTERFS_OPEN_FD_COUNT)) {
                 if (!fd_list_empty (loc->inode)) {
                         ret = dict_set_uint32 (dict, (char *)name, 1);
-                        if (ret < 0)
+                        if (ret < 0) {
                                 gf_msg (this->name, GF_LOG_WARNING, 0,
                                         P_MSG_DICT_SET_FAILED, "Failed to set "
                                         "dictionary value for %s", name);
+                                op_errno = ENOMEM;
+                                goto out;
+                        }
                 } else {
                         ret = dict_set_uint32 (dict, (char *)name, 0);
-                        if (ret < 0)
+                        if (ret < 0) {
                                 gf_msg (this->name, GF_LOG_WARNING, 0,
                                         P_MSG_DICT_SET_FAILED,  "Failed to set "
                                         "dictionary value for %s", name);
+                                op_errno = ENOMEM;
+                                goto out;
+                        }
                 }
                 goto done;
         }
@@ -4748,26 +4755,24 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 else
                         rpath = real_path;
 
-                (void) snprintf (host_buf, sizeof(host_buf),
-                                 "<POSIX(%s):%s:%s>", priv->base_path,
-                                 ((priv->node_uuid_pathinfo
-                                   && !gf_uuid_is_null(priv->glusterd_uuid))
-                                      ? uuid_utoa (priv->glusterd_uuid)
-                                      : priv->hostname),
-                                 rpath);
-
-                dyn_rpath = gf_strdup (host_buf);
-                if (!dyn_rpath) {
-                        ret = -1;
-                        goto done;
+                size = gf_asprintf (&host_buf, "<POSIX(%s):%s:%s>",
+                                    priv->base_path,
+                                    ((priv->node_uuid_pathinfo &&
+                                     !gf_uuid_is_null(priv->glusterd_uuid))
+                                     ? uuid_utoa (priv->glusterd_uuid)
+                                     : priv->hostname), rpath);
+                if (size < 0) {
+                        op_errno = ENOMEM;
+                        goto out;
                 }
-                size = strlen (dyn_rpath) + 1;
-                ret = dict_set_dynstr (dict, (char *)name, dyn_rpath);
+                ret = dict_set_dynstr (dict, (char *)name, host_buf);
                 if (ret < 0) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 P_MSG_DICT_SET_FAILED, "could not set value"
-                                " (%s) in dictionary", dyn_rpath);
-                        GF_FREE (dyn_rpath);
+                                " (%s) in dictionary", host_buf);
+                        GF_FREE (host_buf);
+                        op_errno = ENOMEM;
+                        goto out;
                 }
 
                 goto done;
@@ -4776,23 +4781,19 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         if (loc->inode && name &&
             (strcmp (name, GF_XATTR_NODE_UUID_KEY) == 0)
             && !gf_uuid_is_null (priv->glusterd_uuid)) {
-                (void) snprintf (host_buf, sizeof(host_buf), "%s",
-                                 uuid_utoa (priv->glusterd_uuid));
-
-                dyn_rpath = gf_strdup (host_buf);
-                if (!dyn_rpath) {
+                size = gf_asprintf (&host_buf, "%s",
+                                    uuid_utoa (priv->glusterd_uuid));
+                if (size == -1) {
                         op_errno = ENOMEM;
                         goto out;
                 }
-
-                size = strlen (dyn_rpath) + 1;
                 ret = dict_set_dynstr (dict, GF_XATTR_NODE_UUID_KEY,
-                                       dyn_rpath);
+                                       host_buf);
                 if (ret < 0) {
                         gf_msg (this->name, GF_LOG_WARNING, -ret,
                                 P_MSG_DICT_SET_FAILED, "could not set value"
-                                "(%s) in dictionary", dyn_rpath);
-                        GF_FREE (dyn_rpath);
+                                "(%s) in dictionary", host_buf);
+                        GF_FREE (host_buf);
                         op_errno = -ret;
                         goto out;
                 }
@@ -4850,15 +4851,15 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         op_errno = ENODATA;
                         goto out;
                 }
-
+                size = op_ret;
                 op_ret = dict_set_dynstr (dict, GET_ANCESTRY_PATH_KEY, path);
                 if (op_ret < 0) {
                         gf_msg (this->name, GF_LOG_WARNING, -op_ret,
                                 P_MSG_GET_KEY_VALUE_FAILED, "could not get "
                                 "value for key (%s)", GET_ANCESTRY_PATH_KEY);
                         GF_FREE (path);
-                        op_errno = -op_ret;
-                        op_ret = -1;
+                        op_errno = ENOMEM;
+                        goto out;
                 }
 
                 goto done;
@@ -4870,15 +4871,22 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 op_ret = posix_get_objectsignature (real_path, dict);
                 if (op_ret < 0) {
                         op_errno = -op_ret;
-                        op_ret = -1;
+                        goto out;
                 }
 
                 goto done;
         }
 
+        /* here allocate value_buf of 8192 bytes to avoid one extra getxattr
+           call,If buffer size is small to hold the xattr result then it will
+           allocate a new buffer value of required size and call getxattr again
+        */
+
+        value_buf = alloca (XATTR_VAL_BUF_SIZE);
         if (name) {
-                strncpy (keybuffer, name, sizeof(keybuffer));
-                char *key = keybuffer;
+                char *key = (char *)name;
+
+                keybuffer = key;
 #if defined(GF_DARWIN_HOST_OS_DISABLED)
                 if (priv->xattr_user_namespace == XATTR_STRIP) {
                         if (strncmp(key, "user.",5) == 0) {
@@ -4889,9 +4897,9 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         }
                 }
 #endif
-                memset (value_buf, '\0', sizeof(value_buf));
+                memset (value_buf, '\0', XATTR_VAL_BUF_SIZE);
                 size = sys_lgetxattr (real_path, key, value_buf,
-                                                        sizeof (value_buf) - 1);
+                                      XATTR_VAL_BUF_SIZE-1);
                 if (size >= 0) {
                         have_val = _gf_true;
                 } else {
@@ -4925,7 +4933,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                                                 "getxattr failed on %s: %s ",
                                                 real_path, key);
                                 }
-                                goto done;
+                                goto out;
                         }
                 }
                 value = GF_CALLOC (size + 1, sizeof(char), gf_posix_mt_char);
@@ -4964,8 +4972,8 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         }
 
         have_val = _gf_false;
-        memset (value_buf, '\0', sizeof(value_buf));
-        size = sys_llistxattr (real_path, value_buf, sizeof (value_buf) - 1);
+        memset (value_buf, '\0', XATTR_VAL_BUF_SIZE);
+        size = sys_llistxattr (real_path, value_buf, XATTR_VAL_BUF_SIZE-1);
         if (size > 0) {
                 have_val = _gf_true;
         } else {
@@ -5012,8 +5020,10 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         }
         remaining_size = size;
         list_offset = 0;
+        keybuffer = alloca (XATTR_KEY_BUF_SIZE);
         while (remaining_size > 0) {
-                strncpy (keybuffer, list + list_offset, sizeof(keybuffer));
+                strncpy (keybuffer, list + list_offset, XATTR_KEY_BUF_SIZE-1);
+                keybuffer[XATTR_KEY_BUF_SIZE-1] = '\0';
 
                 ret = posix_handle_georep_xattrs (frame, keybuffer, NULL,
                                                   _gf_false);
@@ -5024,10 +5034,10 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         goto ignore;
                 }
 
-                memset (value_buf, '\0', sizeof(value_buf));
+                memset (value_buf, '\0', XATTR_VAL_BUF_SIZE);
                 have_val = _gf_false;
                 size = sys_lgetxattr (real_path, keybuffer, value_buf,
-                                      sizeof (value_buf) - 1);
+                                      XATTR_VAL_BUF_SIZE-1);
                 if (size >= 0) {
                         have_val = _gf_true;
                 } else {
@@ -5041,12 +5051,11 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                                                       NULL, 0);
                         }
                         if (size == -1) {
-                                op_ret = -1;
                                 op_errno = errno;
                                 gf_msg (this->name, GF_LOG_ERROR, errno,
                                         P_MSG_XATTR_FAILED, "getxattr failed on"
                                         " %s: key = %s ", real_path, keybuffer);
-                                break;
+                                goto out;
                         }
                 }
                 value = GF_CALLOC (size + 1, sizeof(char),
@@ -5060,13 +5069,12 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 } else {
                         size = sys_lgetxattr (real_path, keybuffer, value, size);
                         if (size == -1) {
-                                op_ret = -1;
                                 op_errno = errno;
                                 gf_msg (this->name, GF_LOG_ERROR, errno,
                                         P_MSG_XATTR_FAILED, "getxattr failed on"
                                         " %s: key = %s ", real_path, keybuffer);
                                 GF_FREE (value);
-                                break;
+                                goto out;
                         }
                 }
                 value [size] = '\0';
@@ -5131,7 +5139,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
         dict_t *          dict           = NULL;
         int               ret            = -1;
         char              key[4096]      = {0,};
-        char              value_buf[8192] = {0,};
+        char             *value_buf      = NULL;
         gf_boolean_t      have_val        = _gf_false;
 
         DECLARE_OLD_FS_ID_VAR;
@@ -5169,6 +5177,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 P_MSG_DICT_SET_FAILED, "Failed to set "
                                 "dictionary value for %s", name);
+                        goto out;
                 }
                 goto done;
         }
@@ -5182,10 +5191,18 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                         op_errno = -op_ret;
                         op_ret = -1;
                         size = -1;
+                        goto out;
                 }
 
                 goto done;
         }
+
+        /* here allocate value_buf of 8192 bytes to avoid one extra getxattr
+           call,If buffer size is small to hold the xattr result then it will
+           allocate a new buffer value of required size and call getxattr again
+        */
+        value_buf = alloca (XATTR_VAL_BUF_SIZE);
+        memset (value_buf, '\0', XATTR_VAL_BUF_SIZE);
 
         if (name) {
                 strncpy (key, name, sizeof(key));
@@ -5199,7 +5216,8 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                         GF_FREE (newkey);
                 }
 #endif
-                size = sys_fgetxattr (_fd, key, value_buf, sizeof(value_buf) - 1);
+                size = sys_fgetxattr (_fd, key, value_buf,
+                                      XATTR_VAL_BUF_SIZE-1);
                 if (size >= 0) {
                         have_val = _gf_true;
                 } else {
@@ -5260,8 +5278,8 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
 
                 goto done;
         }
-        memset (value_buf, '\0', sizeof(value_buf));
-        size = sys_flistxattr (_fd, value_buf, sizeof (value_buf) - 1);
+        memset (value_buf, '\0', XATTR_VAL_BUF_SIZE);
+        size = sys_flistxattr (_fd, value_buf, XATTR_VAL_BUF_SIZE-1);
         if (size > 0) {
                 have_val = _gf_true;
         } else {
@@ -5309,9 +5327,10 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                         break;
 
                 strncpy (key, list + list_offset, sizeof(key));
-                memset (value_buf, '\0', sizeof(value_buf));
+                memset (value_buf, '\0', XATTR_VAL_BUF_SIZE);
                 have_val = _gf_false;
-                size = sys_fgetxattr (_fd, key, value_buf, sizeof (value_buf) - 1);
+                size = sys_fgetxattr (_fd, key, value_buf,
+                                      XATTR_VAL_BUF_SIZE-1);
                 if (size >= 0) {
                         have_val = _gf_true;
                 } else {
@@ -5433,7 +5452,14 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
         }
         _fd = pfd->fd;
 
-        posix_fdstat (this, pfd->fd, &stbuf);
+        ret = posix_fdstat (this, pfd->fd, &stbuf);
+        if (ret == -1) {
+                op_errno = errno;
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        P_MSG_FSTAT_FAILED, "fsetxattr (fstat)"
+                        "failed on fd=%p", fd);
+                goto out;
+        }
 
         dict_del (dict, GFID_XATTR_KEY);
         dict_del (dict, GF_XATTR_VOL_ID_KEY);
@@ -7890,6 +7916,19 @@ init (xlator_t *this)
         GF_OPTION_INIT ("batch-fsync-delay-usec", _private->batch_fsync_delay_usec,
                         uint32, out);
 out:
+        if (ret) {
+                if (_private) {
+                        GF_FREE (_private->base_path);
+
+                        GF_FREE (_private->hostname);
+
+                        GF_FREE (_private->trash_path);
+
+                        GF_FREE (_private);
+                }
+
+                this->private = NULL;
+        }
         return ret;
 }
 
@@ -7903,7 +7942,12 @@ fini (xlator_t *this)
         /*unlock brick dir*/
         if (priv->mount_lock)
                 (void) sys_closedir (priv->mount_lock);
+
+        GF_FREE (priv->base_path);
+        GF_FREE (priv->hostname);
+        GF_FREE (priv->trash_path);
         GF_FREE (priv);
+
         return;
 }
 struct xlator_dumpops dumpops = {

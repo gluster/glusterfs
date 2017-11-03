@@ -47,6 +47,9 @@
 #define VECTOR_SIZE 64 * 1024 /* vector size 64KB*/
 #define MAX_NO_VECT 1024
 
+#define XATTR_KEY_BUF_SIZE 4096
+#define XATTR_VAL_BUF_SIZE 8192
+
 #define ACL_BUFFER_MAX 4096 /* size of character buffer */
 
 #define DHT_LINKTO "trusted.glusterfs.dht.linkto"
