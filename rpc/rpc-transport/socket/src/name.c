@@ -460,7 +460,7 @@ client_bind (rpc_transport_t *this,
         case AF_INET_SDP:
         case AF_INET:
                 *sockaddr_len = sizeof (struct sockaddr_in);
-
+        /* Fall through */
         case AF_INET6:
                 if (!this->bind_insecure) {
                         ret = af_inet_bind_to_port_lt_ceiling (sock, sockaddr,
@@ -528,7 +528,7 @@ socket_client_get_remote_sockaddr (rpc_transport_t *this,
         {
         case AF_INET_SDP:
                 sockaddr->sa_family = AF_INET;
-
+        /* Fall through */
         case AF_INET:
         case AF_INET6:
         case AF_UNSPEC:
@@ -729,7 +729,7 @@ get_transport_identifiers (rpc_transport_t *this)
         case AF_INET_SDP:
                 is_inet_sdp = 1;
                 ((struct sockaddr *) &this->peerinfo.sockaddr)->sa_family = ((struct sockaddr *) &this->myinfo.sockaddr)->sa_family = AF_INET;
-
+        /* Fall through */
         case AF_INET:
         case AF_INET6:
         {
