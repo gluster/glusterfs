@@ -4304,11 +4304,11 @@ __glusterd_handle_status_volume (rpcsvc_request_t *req)
 
         }
         if ((cmd & GF_CLI_STATUS_CLIENT_LIST) &&
-            (conf->op_version < GD_OP_VERSION_4_0_0)) {
+            (conf->op_version < GD_OP_VERSION_3_13_0)) {
                 snprintf (err_str, sizeof (err_str), "The cluster is operating "
                           "at version less than %d. Getting the client-list "
                           "is not allowed in this state.",
-                          GD_OP_VERSION_4_0_0);
+                          GD_OP_VERSION_3_13_0);
                 ret = -1;
                 goto out;
         }
