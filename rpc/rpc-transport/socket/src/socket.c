@@ -4614,7 +4614,9 @@ socket_init (rpc_transport_t *this)
                 if (!SSL_CTX_use_certificate_chain_file(priv->ssl_ctx,
                                                         priv->ssl_own_cert)) {
                         gf_log(this->name, GF_LOG_ERROR,
-                               "could not load our cert");
+                               "could not load our cert at %s",
+                               priv->ssl_own_cert);
+                        ssl_dump_error_stack(this->name);
                         goto err;
                 }
 
@@ -4622,7 +4624,9 @@ socket_init (rpc_transport_t *this)
                                                  priv->ssl_private_key,
                                                  SSL_FILETYPE_PEM)) {
                         gf_log(this->name, GF_LOG_ERROR,
-                               "could not load private key");
+                               "could not load private key at %s",
+                               priv->ssl_private_key);
+                        ssl_dump_error_stack(this->name);
                         goto err;
                 }
 
