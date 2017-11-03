@@ -2905,13 +2905,19 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
                         continue;
                 }
 
-                ret = sys_lstat (brick_mount_path, &stbuf);
-                if (ret) {
-                        gf_msg_debug (this->name, 0,
-                                "Brick %s:%s already deleted.",
-                                brickinfo->hostname, brickinfo->path);
-                        ret = 0;
-                        continue;
+                /* As deactivated snapshot have no active mount point we
+                 * check only for activated snapshot.
+                 */
+                if (snap_vol->status == GLUSTERD_STATUS_STARTED) {
+                        ret = sys_lstat (brick_mount_path, &stbuf);
+                        if (ret) {
+                                gf_msg_debug (this->name, 0,
+                                              "Brick %s:%s already deleted.",
+                                              brickinfo->hostname,
+                                              brickinfo->path);
+                                ret = 0;
+                                continue;
+                        }
                 }
 
                 if (brickinfo->snap_status == -1) {
