@@ -82,6 +82,13 @@ gf_timer_call_cancel (glusterfs_ctx_t *ctx,
                 return 0;
         }
 
+        if (ctx->cleanup_started) {
+                gf_msg_callingfn ("timer", GF_LOG_INFO, 0,
+                                  LG_MSG_CTX_CLEANUP_STARTED,
+                                  "ctx cleanup started");
+                return 0;
+        }
+
         LOCK (&ctx->lock);
         {
                 reg = ctx->timer;
@@ -89,9 +96,11 @@ gf_timer_call_cancel (glusterfs_ctx_t *ctx,
         UNLOCK (&ctx->lock);
 
         if (!reg) {
-                gf_msg ("timer", GF_LOG_ERROR, 0, LG_MSG_INIT_TIMER_FAILED,
-                        "!reg");
-                GF_FREE (event);
+                /* This can happen when cleanup may have just started and
+                 * gf_timer_registry_destroy() sets ctx->timer to NULL.
+                 * Just bail out as success as gf_timer_proc() takes
+                 * care of cleaning up the events.
+                 */
                 return 0;
         }
 
