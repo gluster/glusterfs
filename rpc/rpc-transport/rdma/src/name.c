@@ -449,7 +449,7 @@ gf_rdma_client_bind (rpc_transport_t *this, struct sockaddr *sockaddr,
         case AF_INET_SDP:
         case AF_INET:
                 *sockaddr_len = sizeof (struct sockaddr_in);
-
+        /* Fall through */
         case AF_INET6:
                 if (!this->bind_insecure) {
                         ret = af_inet_bind_to_port_lt_ceiling (cm_id, sockaddr,
@@ -513,7 +513,7 @@ gf_rdma_client_get_remote_sockaddr (rpc_transport_t *this,
         case AF_INET_SDP:
                 sockaddr->sa_family = AF_INET;
                 is_inet_sdp = 1;
-
+        /* Fall through */
         case AF_INET:
         case AF_INET6:
         case AF_UNSPEC:
