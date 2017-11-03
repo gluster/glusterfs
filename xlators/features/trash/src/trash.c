@@ -97,15 +97,19 @@ out:
  * internal_op directory inside trash.
  */
 void
-copy_trash_path (const char *priv_value, gf_boolean_t internal, char *path)
+copy_trash_path (const char *priv_value, gf_boolean_t internal, char *path,
+                 size_t path_size)
 {
         char                    trash_path[PATH_MAX]    = {0,};
 
-        strcpy (trash_path, priv_value);
+        strncpy (trash_path, priv_value, sizeof (trash_path));
+        trash_path[sizeof (trash_path) - 1] = 0;
         if (internal)
-                strcat (trash_path, "internal_op/");
+                strncat (trash_path, "internal_op/",
+                         sizeof (trash_path) - strlen (trash_path) - 1);
 
-        strcpy (path, trash_path);
+        strncpy (path, trash_path, path_size);
+        path[path_size - 1] = 0;
 }
 
 /**
@@ -175,7 +179,8 @@ store_eliminate_path (char *str, trash_elim_path **eliminate)
                         sprintf(elm_path, "/%s", component);
 
                 if (component[strlen(component)-1] != '/')
-                        strcat (elm_path, "/");
+                        strncat (elm_path, "/",
+                                 sizeof (elm_path) - strlen (elm_path) - 1);
 
                 trav->path = gf_strdup(elm_path);
                 if (!trav->path) {
@@ -195,7 +200,7 @@ out:
  * Appends time stamp to given string
  */
 void
-append_time_stamp (char *name)
+append_time_stamp (char *name, size_t name_size)
 {
         int                     i;
         char                    timestr[64]            = {0,};
@@ -208,8 +213,8 @@ append_time_stamp (char *name)
                 if (timestr[i] == ' ')
                         timestr[i] = '_';
         }
-        strcat (name, "_");
-        strcat (name, timestr);
+        strncat (name, "_", name_size - strlen (name) - 1);
+        strncat (name, timestr, name_size - strlen (name) - 1);
 }
 
 /* *
@@ -921,10 +926,13 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         ret = ENOMEM;
                         goto out;
                 }
-                strcpy (real_path, priv->brick_path);
+                strncpy (real_path, priv->brick_path, sizeof (real_path));
+                real_path[sizeof (real_path) - 1] = 0;
+
                 remove_trash_path (tmp_path, (frame->root->pid < 0), &tmp_stat);
                 if (tmp_stat)
-                        strcat (real_path, tmp_stat);
+                        strncat (real_path, tmp_stat,
+                                 sizeof (real_path) - strlen (real_path) - 1);
 
                 TRASH_SET_PID (frame, local);
 
@@ -1005,10 +1013,13 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        strcpy (real_path, priv->brick_path);
+        strncpy (real_path, priv->brick_path, sizeof (real_path));
+        real_path[sizeof (real_path) - 1] = 0;
+
         remove_trash_path (tmp_path, (frame->root->pid < 0), &tmp_stat);
         if (tmp_stat)
-                strcat (real_path, tmp_stat);
+                strncat (real_path, tmp_stat,
+                         sizeof (real_path) - strlen (real_path) - 1);
 
         TRASH_SET_PID (frame, local);
 
@@ -1079,10 +1090,12 @@ trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         ret = ENOMEM;
                         goto out;
                 }
-                strcpy (real_path, priv->brick_path);
+                strncpy (real_path, priv->brick_path, sizeof (real_path));
+                real_path[sizeof (real_path) - 1] = 0;
                 remove_trash_path (tmp_str, (frame->root->pid < 0), &tmp_stat);
                 if (tmp_stat)
-                        strcat (real_path, tmp_stat);
+                        strncat (real_path, tmp_stat,
+                                 sizeof (real_path) - strlen (real_path) - 1);
 
                 TRASH_SET_PID (frame, local);
 
@@ -1370,13 +1383,14 @@ trash_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
 
         /* rename new location of file as starting from trash directory */
         copy_trash_path (priv->newtrash_dir, (frame->root->pid < 0),
-                                                        local->newpath);
-        strcat (local->newpath, pathbuf);
+                         local->newpath, sizeof (local->newpath));
+        strncat (local->newpath, pathbuf,
+                 sizeof (local->newpath) - strlen (local->newpath) - 1);
 
         /* append timestamp to file name so that we can avoid
          * name collisions inside trash
          */
-        append_time_stamp (local->newpath);
+        append_time_stamp (local->newpath, sizeof (local->newpath));
         if (strlen (local->newpath) > PATH_MAX) {
                 STACK_WIND (frame, trash_common_unwind_cbk,
                             FIRST_CHILD(this),
@@ -1603,10 +1617,12 @@ trash_truncate_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                         goto out;
                 }
-                strcpy (real_path, priv->brick_path);
+                strncpy (real_path, priv->brick_path, sizeof (real_path));
+                real_path[sizeof (real_path) - 1] = 0;
                 remove_trash_path (tmp_path, (frame->root->pid < 0), &tmp_stat);
                 if (tmp_stat)
-                        strcat (real_path, tmp_stat);
+                        strncat (real_path, tmp_stat,
+                                 sizeof (real_path) - strlen (real_path) - 1);
 
                 TRASH_SET_PID (frame, local);
 
@@ -1731,10 +1747,12 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         ret = ENOMEM;
                         goto out;
                 }
-                strcpy (real_path, priv->brick_path);
+                strncpy (real_path, priv->brick_path, sizeof (real_path));
+                real_path[sizeof (real_path) - 1] = 0;
                 remove_trash_path (tmp_path, (frame->root->pid < 0), &tmp_stat);
                 if (tmp_stat)
-                        strcat (real_path, tmp_stat);
+                        strncat (real_path, tmp_stat,
+                                 sizeof (real_path) - strlen (real_path) - 1);
 
                 TRASH_SET_PID (frame, local);
 
@@ -1751,8 +1769,11 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dir_name = dirname (tmp_str);
                 if (strcmp ((char*)cookie, dir_name) == 0) {
                         flags = O_CREAT|O_EXCL|O_WRONLY;
-                        strcpy (real_path, priv->brick_path);
-                        strcat (real_path, local->origpath);
+                        strncpy (real_path, priv->brick_path,
+                                 sizeof (real_path));
+                        real_path[sizeof (real_path) - 1] = 0;
+                        strncat (real_path, local->origpath,
+                                 sizeof (real_path) - strlen(real_path) - 1);
                         /* Call create again once directory structure
                            is created. */
 
@@ -1819,10 +1840,12 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        strcpy (real_path, priv->brick_path);
+        strncpy (real_path, priv->brick_path, sizeof (real_path));
+        real_path[sizeof (real_path) - 1] = 0;
         remove_trash_path (tmp_path, (frame->root->pid < 0), &tmp_stat);
         if (tmp_stat)
-                strcat (real_path, tmp_stat);
+                strncat (real_path, tmp_stat,
+                         sizeof (real_path) - strlen (real_path) - 1);
 
         TRASH_SET_PID (frame, local);
 
@@ -1914,12 +1937,13 @@ trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* Stores new path for source file */
         copy_trash_path (priv->newtrash_dir, (frame->root->pid < 0),
-                                                        local->newpath);
-        strcat (local->newpath, local->loc.path);
+                         local->newpath, sizeof (local->newpath));
+        strncat (local->newpath, local->loc.path,
+                 sizeof (local->newpath) - strlen (local->newpath) - 1);
 
         /* append timestamp to file name so that we can avoid
            name collisions inside trash */
-        append_time_stamp (local->newpath);
+        append_time_stamp (local->newpath, sizeof (local->newpath));
         if (strlen (local->newpath) > PATH_MAX) {
                 STACK_WIND (frame,  trash_common_unwind_buf_cbk,
                             FIRST_CHILD(this),
@@ -1928,8 +1952,9 @@ trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        strcpy (loc_newname, local->loc.name);
-        append_time_stamp (loc_newname);
+        strncpy (loc_newname, local->loc.name, sizeof (loc_newname));
+        loc_newname[sizeof (loc_newname) - 1] = 0;
+        append_time_stamp (loc_newname, sizeof (loc_newname));
         /* local->newloc represents old file(file inside trash),
            where as local->loc represents truncated file. We need
            to create new inode and fd for new file*/
@@ -2050,7 +2075,8 @@ trash_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto out;
         }
 
-        strcpy (local->origpath, pathbuf);
+        strncpy (local->origpath, pathbuf, sizeof (local->origpath));
+        local->origpath[sizeof (local->origpath) - 1] = 0;
 
         loc_copy (&local->loc, loc);
         local->loc.path = pathbuf;
@@ -2146,7 +2172,8 @@ trash_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 goto out;
         }
 
-        strcpy (local->origpath, pathbuf);
+        strncpy (local->origpath, pathbuf, sizeof (local->origpath));
+        local->origpath[sizeof (local->origpath) - 1] = 0;
 
         /* To convert fd to location */
         frame->local=local;
