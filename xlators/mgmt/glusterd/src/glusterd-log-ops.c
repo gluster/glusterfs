@@ -244,6 +244,7 @@ cont:
 
                 ret = fscanf (file, "%d", &pid);
                 if (ret <= 0) {
+                        fclose (file);
                         gf_msg ("glusterd", GF_LOG_ERROR, errno,
                                 GD_MSG_FILE_OP_FAILED, "Unable to read pidfile: %s",
                                 pidfile);

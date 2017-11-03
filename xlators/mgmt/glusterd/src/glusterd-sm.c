@@ -1475,6 +1475,11 @@ glusterd_friend_sm ()
                         }
 
                         ret = glusterd_store_peerinfo (peerinfo);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_PEERINFO_CREATE_FAIL,
+                                        "Failed to store peerinfo");
+                        }
                         rcu_read_unlock ();
 
                         glusterd_destroy_friend_event_context (event);

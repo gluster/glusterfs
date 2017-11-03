@@ -1005,7 +1005,7 @@ check_prepare_mountbroker_root (char *mountbroker_root)
                 sys_close (dfd0);
         if (dfd != -1)
                 sys_close (dfd);
-        if (dfd2 != -1)
+        if (dfd2 != -1 && dfd != dfd2)
                 sys_close (dfd2);
 
         return ret;
@@ -1807,8 +1807,8 @@ init (xlator_t *this)
         conf->rpc = rpc;
         conf->uds_rpc = uds_rpc;
         conf->gfs_mgmt = &gd_brick_prog;
-        strncpy (conf->workdir, workdir, PATH_MAX);
-        strncpy (conf->rundir, rundir, PATH_MAX);
+        (void) strncpy (conf->workdir, workdir, strlen (workdir) + 1);
+        (void) strncpy (conf->rundir, rundir, strlen (rundir) + 1);
 
         synclock_init (&conf->big_lock, SYNC_LOCK_RECURSIVE);
         pthread_mutex_init (&conf->xprt_lock, NULL);

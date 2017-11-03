@@ -364,16 +364,30 @@ glusterd_do_volume_quorum_action (xlator_t *this, glusterd_volinfo_t *volinfo,
                 if (!glusterd_is_local_brick (this, volinfo, brickinfo))
                         continue;
                 if (quorum_status == DOESNT_MEET_QUORUM) {
-                        glusterd_brick_stop (volinfo, brickinfo, _gf_false);
+                        ret = glusterd_brick_stop (volinfo, brickinfo,
+                                                   _gf_false);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_BRICK_STOP_FAIL, "Failed to "
+                                        "stop brick %s:%s",
+                                        brickinfo->hostname, brickinfo->path);
+                        }
                 } else {
                         if (!brickinfo->start_triggered) {
                                 pthread_mutex_lock (&brickinfo->restart_mutex);
                                 {
-                                        glusterd_brick_start (volinfo,
-                                                              brickinfo,
-                                                              _gf_false);
+                                        ret = glusterd_brick_start (volinfo,
+                                                                    brickinfo,
+                                                                    _gf_false);
                                 }
                                 pthread_mutex_unlock (&brickinfo->restart_mutex);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_BRICK_DISCONNECTED,
+                                                "Failed to start %s:%s",
+                                                brickinfo->hostname,
+                                                brickinfo->path);
+                                }
                         }
                 }
         }
