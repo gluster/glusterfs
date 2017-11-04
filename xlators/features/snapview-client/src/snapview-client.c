@@ -1716,7 +1716,7 @@ gf_svc_readdirp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
         SVC_STACK_UNWIND (readdirp, frame, op_ret, op_errno, &entries,
-                          local->xdata);
+                          local ? local->xdata : NULL);
 
         gf_dirent_free (&entries);
 

@@ -58,10 +58,12 @@ svs_lookup_entry_point (xlator_t *this, loc_t *loc, inode_t *parent,
                         *op_errno = ENOMEM;
                         goto out;
                 }
+
                 gf_uuid_copy (inode_ctx->pargfid, loc->pargfid);
                 memcpy (&inode_ctx->buf, buf, sizeof (*buf));
                 inode_ctx->type = SNAP_VIEW_ENTRY_POINT_INODE;
         } else {
+                inode_ctx = svs_inode_ctx_get (this, loc->inode);
                 if (inode_ctx) {
                         memcpy (buf, &inode_ctx->buf, sizeof (*buf));
                         svs_iatt_fill (inode_ctx->pargfid, postparent);
