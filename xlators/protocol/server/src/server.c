@@ -77,7 +77,7 @@ grace_time_handler (void *data)
                  */
                 gf_client_put (client, &detached);
 
-                if (detached) /* reconnection did not happen :-( */
+                if (client && detached) /* reconnection did not happen :-( */
                         server_connection_cleanup (this, client,
                                                    INTERNAL_LOCKS | POSIX_LOCKS);
                 gf_client_unref (client);
@@ -547,7 +547,7 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                 if (!conf->lk_heal) {
                         gf_client_ref (client);
                         gf_client_put (client, &detached);
-                        if (detached) {
+                        if (client && detached) {
                                 server_connection_cleanup (this, client,
                                                            INTERNAL_LOCKS | POSIX_LOCKS);
 
@@ -833,7 +833,6 @@ reconfigure (xlator_t *this, dict_t *options)
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         PS_MSG_STATEDUMP_PATH_ERROR,
                         "Error while reconfiguring statedump path");
-                ret = -1;
                 goto do_auth;
         }
         gf_path_strip_trailing_slashes (statedump_path);
