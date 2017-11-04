@@ -233,7 +233,9 @@ unlock:
         return 0;
 
 err:
-        local->refresh_layout_unlock (frame, this, -1, 1);
+        if (local) {
+                local->refresh_layout_unlock (frame, this, -1, 1);
+        }
         return 0;
 }
 
@@ -309,7 +311,9 @@ dht_refresh_layout (call_frame_t *frame)
         return 0;
 
 out:
-        local->refresh_layout_unlock (frame, this, -1, 1);
+        if (local) {
+                local->refresh_layout_unlock (frame, this, -1, 1);
+        }
         return 0;
 }
 
