@@ -38,14 +38,14 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	conf = this->private;
 	prev = cookie;
 
-	if (op_ret == -1) {
+	if (op_ret == -1 || !statvfs) {
 		gf_msg (this->name, GF_LOG_WARNING, op_errno,
                         DHT_MSG_GET_DISK_INFO_ERROR,
 			"failed to get disk info from %s", prev->name);
 		goto out;
 	}
 
-	if (statvfs && statvfs->f_blocks) {
+	if (statvfs->f_blocks) {
 		percent = (statvfs->f_bavail * 100) / statvfs->f_blocks;
 		bytes = (statvfs->f_bavail * statvfs->f_frsize);
                 /*
@@ -60,7 +60,7 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 chunks = (statvfs->f_blocks + bpc - 1) / bpc;
 	}
 
-	if (statvfs && statvfs->f_files) {
+	if (statvfs->f_files) {
 		percent_inodes = (statvfs->f_ffree * 100) / statvfs->f_files;
 	} else {
                 /*

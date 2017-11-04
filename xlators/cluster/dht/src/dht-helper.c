@@ -1158,7 +1158,9 @@ dht_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
 
         return 0;
 err:
-        loc_wipe (child);
+        if (child) {
+            loc_wipe (child);
+        }
         return -1;
 }
 
