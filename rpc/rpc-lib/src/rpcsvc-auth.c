@@ -22,6 +22,8 @@ extern rpcsvc_auth_t *
 rpcsvc_auth_glusterfs_init (rpcsvc_t *svc, dict_t *options);
 extern rpcsvc_auth_t *
 rpcsvc_auth_glusterfs_v2_init (rpcsvc_t *svc, dict_t *options);
+extern rpcsvc_auth_t *
+rpcsvc_auth_glusterfs_v3_init (rpcsvc_t *svc, dict_t *options);
 
 int
 rpcsvc_auth_add_initer (struct list_head *list, char *idfier,
@@ -66,6 +68,15 @@ rpcsvc_auth_add_initers (rpcsvc_t *svc)
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR,
                         "Failed to add AUTH_GLUSTERFS-v2");
+                goto err;
+        }
+
+        ret = rpcsvc_auth_add_initer (&svc->authschemes, "auth-glusterfs-v3",
+                                      (rpcsvc_auth_initer_t)
+                                      rpcsvc_auth_glusterfs_v3_init);
+        if (ret == -1) {
+                gf_log (GF_RPCSVC, GF_LOG_ERROR,
+                        "Failed to add AUTH_GLUSTERFS-v3");
                 goto err;
         }
 
@@ -507,6 +518,7 @@ rpcsvc_auth_unix_auxgids (rpcsvc_request_t *req, int *arrlen)
         case AUTH_UNIX:
         case AUTH_GLUSTERFS:
         case AUTH_GLUSTERFS_v2:
+        case AUTH_GLUSTERFS_v3:
                 break;
         default:
                 gf_log ("rpc", GF_LOG_DEBUG, "auth type not unix or glusterfs");

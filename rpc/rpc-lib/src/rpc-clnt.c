@@ -937,6 +937,10 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
         case RPC_TRANSPORT_DISCONNECT:
         {
                 rpc_clnt_handle_disconnect (clnt, conn);
+                /* reset auth_type to use v2 (if its not auth-null), it
+                   would be set to appropriate type in handshake again */
+                if (clnt->auth_value)
+                        clnt->auth_value = AUTH_GLUSTERFS_v2;
                 break;
         }
 
@@ -1161,7 +1165,11 @@ rpc_clnt_new (dict_t *options, xlator_t *owner, char *name,
                 goto out;
         }
 
-        rpc->auth_null = dict_get_str_boolean (options, "auth-null", 0);
+        /* This is handled to make sure we have modularity in getting the
+           auth data changed */
+        gf_boolean_t auth_null = dict_get_str_boolean(options, "auth-null", 0);
+
+        rpc->auth_value = (auth_null) ? 0 : AUTH_GLUSTERFS_v2;
 
         rpc = rpc_clnt_ref (rpc);
         INIT_LIST_HEAD (&rpc->programs);
@@ -1236,51 +1244,177 @@ rpc_clnt_register_notify (struct rpc_clnt *rpc, rpc_clnt_notify_t fn,
 /* used for GF_LOG_OCCASIONALLY() */
 static int gf_auth_max_groups_log = 0;
 
-ssize_t
-xdr_serialize_glusterfs_auth (char *dest, struct auth_glusterfs_parms_v2 *au)
+static inline int
+setup_glusterfs_auth_param_v3 (call_frame_t *frame,
+                               auth_glusterfs_params_v3 *au,
+                               int lk_owner_len, char *owner_data)
+{
+        int ret = -1;
+        unsigned int max_groups = 0;
+        int max_lkowner_len = 0;
+
+        au->pid      = frame->root->pid;
+        au->uid      = frame->root->uid;
+        au->gid      = frame->root->gid;
+
+        au->flags = frame->root->flags;
+        au->ctime_sec = frame->root->ctime.tv_sec;
+        au->ctime_nsec = frame->root->ctime.tv_nsec;
+
+        au->lk_owner.lk_owner_val = owner_data;
+        au->lk_owner.lk_owner_len = lk_owner_len;
+        au->groups.groups_val = frame->root->groups;
+        au->groups.groups_len = frame->root->ngrps;
+
+        /* The number of groups and the size of lk_owner depend on oneother.
+         * We can truncate the groups, but should not touch the lk_owner. */
+        max_groups = GF_AUTH_GLUSTERFS_MAX_GROUPS (lk_owner_len, AUTH_GLUSTERFS_v3);
+        if (au->groups.groups_len > max_groups) {
+                GF_LOG_OCCASIONALLY (gf_auth_max_groups_log, "rpc-auth",
+                                     GF_LOG_WARNING, "truncating grouplist "
+                                     "from %d to %d", au->groups.groups_len,
+                                     max_groups);
+
+                au->groups.groups_len = max_groups;
+        }
+
+        max_lkowner_len = GF_AUTH_GLUSTERFS_MAX_LKOWNER (au->groups.groups_len,
+                                                         AUTH_GLUSTERFS_v3);
+        if (lk_owner_len > max_lkowner_len) {
+                gf_log ("rpc-clnt", GF_LOG_ERROR, "lkowner field is too "
+                        "big (%d), it does not fit in the rpc-header",
+                        au->lk_owner.lk_owner_len);
+                errno = E2BIG;
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+static inline int
+setup_glusterfs_auth_param_v2 (call_frame_t *frame,
+                               auth_glusterfs_parms_v2 *au,
+                               int lk_owner_len, char *owner_data)
+{
+        unsigned int max_groups = 0;
+        int max_lkowner_len = 0;
+        int ret = -1;
+
+        au->pid      = frame->root->pid;
+        au->uid      = frame->root->uid;
+        au->gid      = frame->root->gid;
+
+        au->lk_owner.lk_owner_val = owner_data;
+        au->lk_owner.lk_owner_len = lk_owner_len;
+        au->groups.groups_val = frame->root->groups;
+        au->groups.groups_len = frame->root->ngrps;
+
+        /* The number of groups and the size of lk_owner depend on oneother.
+         * We can truncate the groups, but should not touch the lk_owner. */
+        max_groups = GF_AUTH_GLUSTERFS_MAX_GROUPS (lk_owner_len, AUTH_GLUSTERFS_v2);
+        if (au->groups.groups_len > max_groups) {
+                GF_LOG_OCCASIONALLY (gf_auth_max_groups_log, "rpc-auth",
+                                     GF_LOG_WARNING, "truncating grouplist "
+                                     "from %d to %d", au->groups.groups_len,
+                                     max_groups);
+
+                au->groups.groups_len = max_groups;
+        }
+
+        max_lkowner_len = GF_AUTH_GLUSTERFS_MAX_LKOWNER (au->groups.groups_len,
+                                                         AUTH_GLUSTERFS_v2);
+        if (lk_owner_len > max_lkowner_len) {
+                gf_log ("rpc-auth", GF_LOG_ERROR, "lkowner field is too "
+                        "big (%d), it does not fit in the rpc-header",
+                        au->lk_owner.lk_owner_len);
+                errno = E2BIG;
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+
+static ssize_t
+xdr_serialize_glusterfs_auth (struct rpc_clnt *clnt, call_frame_t *frame,
+                              char *dest)
 {
         ssize_t ret = -1;
         XDR     xdr;
-        u_long  ngroups = 0;
-        int     max_groups = 0;
+        char    owner[4] = {0,};
+        int32_t pid = 0;
+        char   *lk_owner_data = NULL;
+        int     lk_owner_len = 0;
 
-        if ((!dest) || (!au))
+        if ((!dest))
                 return -1;
-
-        max_groups = GF_AUTH_GLUSTERFS_MAX_GROUPS (au->lk_owner.lk_owner_len);
 
         xdrmem_create (&xdr, dest, GF_MAX_AUTH_BYTES, XDR_ENCODE);
 
-        if (au->groups.groups_len > max_groups) {
-                ngroups = au->groups.groups_len;
-                au->groups.groups_len = max_groups;
+        if (frame->root->lk_owner.len) {
+                lk_owner_data = frame->root->lk_owner.data;
+                lk_owner_len = frame->root->lk_owner.len;
+        } else {
+                pid = frame->root->pid;
+                owner[0] = (char)(pid & 0xff);
+                owner[1] = (char)((pid >> 8) & 0xff);
+                owner[2] = (char)((pid >> 16) & 0xff);
+                owner[3] = (char)((pid >> 24) & 0xff);
 
-                GF_LOG_OCCASIONALLY (gf_auth_max_groups_log,
-                                     THIS->name, GF_LOG_WARNING,
-                                     "too many groups, reducing %ld -> %d",
-                                     ngroups, max_groups);
+                lk_owner_data = owner;
+                lk_owner_len = 4;
         }
 
-        if (!xdr_auth_glusterfs_parms_v2 (&xdr, au)) {
+        if (clnt->auth_value == AUTH_GLUSTERFS_v2) {
+                auth_glusterfs_parms_v2 au_v2 = {0,};
+
+                ret = setup_glusterfs_auth_param_v2 (frame, &au_v2,
+                                                     lk_owner_len,
+                                                     lk_owner_data);
+                if (ret)
+                        goto out;
+                if (!xdr_auth_glusterfs_parms_v2 (&xdr, &au_v2)) {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "failed to encode auth glusterfs elements");
+                        ret = -1;
+                        goto out;
+                }
+        } else if (clnt->auth_value == AUTH_GLUSTERFS_v3) {
+                auth_glusterfs_params_v3 au_v3 = {0,};
+
+                ret = setup_glusterfs_auth_param_v3 (frame, &au_v3,
+                                                     lk_owner_len,
+                                                     lk_owner_data);
+                if (ret)
+                        goto out;
+
+                if (!xdr_auth_glusterfs_params_v3 (&xdr, &au_v3)) {
+                        gf_log (THIS->name, GF_LOG_WARNING,
+                                "failed to encode auth glusterfs elements");
+                        ret = -1;
+                        goto out;
+                }
+        } else {
                 gf_log (THIS->name, GF_LOG_WARNING,
                         "failed to encode auth glusterfs elements");
                 ret = -1;
-                goto ret;
+                goto out;
         }
 
         ret = (((size_t)(&xdr)->x_private) - ((size_t)(&xdr)->x_base));
 
-ret:
-        if (ngroups)
-                au->groups.groups_len = ngroups;
-
+out:
         return ret;
 }
 
 
 int
-rpc_clnt_fill_request (int prognum, int progver, int procnum,
-                       uint64_t xid, struct auth_glusterfs_parms_v2 *au,
+rpc_clnt_fill_request (struct rpc_clnt *clnt, int prognum, int progver,
+                       int procnum, uint64_t xid, call_frame_t *fr,
                        struct rpc_msg *request, char *auth_data)
 {
         int   ret          = -1;
@@ -1299,25 +1433,21 @@ rpc_clnt_fill_request (int prognum, int progver, int procnum,
         request->rm_call.cb_vers = progver;
         request->rm_call.cb_proc = procnum;
 
-        /* TODO: Using AUTH_(GLUSTERFS/NULL) in a kludgy way for time-being.
-         * Make it modular in future so it is easy to plug-in new
-         * authentication schemes.
-         */
-        if (auth_data) {
-                ret = xdr_serialize_glusterfs_auth (auth_data, au);
-                if (ret == -1) {
-                        gf_log ("rpc-clnt", GF_LOG_DEBUG,
-                                "cannot encode credentials");
-                        goto out;
-                }
-
-                request->rm_call.cb_cred.oa_flavor = AUTH_GLUSTERFS_v2;
-                request->rm_call.cb_cred.oa_base   = auth_data;
-                request->rm_call.cb_cred.oa_length = ret;
-        } else {
+        if (!clnt->auth_value) {
                 request->rm_call.cb_cred.oa_flavor = AUTH_NULL;
                 request->rm_call.cb_cred.oa_base   = NULL;
                 request->rm_call.cb_cred.oa_length = 0;
+        } else {
+                ret = xdr_serialize_glusterfs_auth (clnt, fr, auth_data);
+                if (ret == -1) {
+                        gf_log ("rpc-clnt", GF_LOG_WARNING,
+                                "cannot encode auth credentials");
+                        goto out;
+                }
+
+                request->rm_call.cb_cred.oa_flavor = clnt->auth_value;
+                request->rm_call.cb_cred.oa_base   = auth_data;
+                request->rm_call.cb_cred.oa_length = ret;
         }
         request->rm_call.cb_verf.oa_flavor = AUTH_NONE;
         request->rm_call.cb_verf.oa_base = NULL;
@@ -1365,9 +1495,9 @@ out:
 
 
 struct iobuf *
-rpc_clnt_record_build_record (struct rpc_clnt *clnt, int prognum, int progver,
+rpc_clnt_record_build_record (struct rpc_clnt *clnt, call_frame_t *fr,
+                              int prognum, int progver,
                               int procnum, size_t hdrsize, uint64_t xid,
-                              struct auth_glusterfs_parms_v2 *au,
                               struct iovec *recbuf)
 {
         struct rpc_msg  request                      = {0, };
@@ -1379,17 +1509,13 @@ rpc_clnt_record_build_record (struct rpc_clnt *clnt, int prognum, int progver,
         size_t          xdr_size                     = 0;
         char            auth_data[GF_MAX_AUTH_BYTES] = {0, };
 
-        if ((!clnt) || (!recbuf) || (!au)) {
+        if ((!clnt) || (!recbuf)) {
                 goto out;
         }
 
         /* Fill the rpc structure and XDR it into the buffer got above. */
-        if (clnt->auth_null)
-                ret = rpc_clnt_fill_request (prognum, progver, procnum,
-                                             xid, NULL, &request, NULL);
-        else
-                ret = rpc_clnt_fill_request (prognum, progver, procnum,
-                                             xid, au, &request, auth_data);
+        ret = rpc_clnt_fill_request (clnt, prognum, progver, procnum,
+                                     xid, fr, &request, auth_data);
 
         if (ret == -1) {
                 gf_log (clnt->conn.name, GF_LOG_WARNING,
@@ -1431,80 +1557,21 @@ out:
 }
 
 
-struct iobuf *
+static inline struct iobuf *
 rpc_clnt_record (struct rpc_clnt *clnt, call_frame_t *call_frame,
                  rpc_clnt_prog_t *prog, int procnum, size_t hdrlen,
                  struct iovec *rpchdr, uint64_t callid)
 {
-        struct auth_glusterfs_parms_v2  au          = {0, };
-        struct iobuf                   *request_iob = NULL;
-        char                            owner[4] = {0,};
-        int                             max_groups = 0;
-        int                             max_lkowner_len = 0;
 
         if (!prog || !rpchdr || !call_frame) {
-                goto out;
+                return NULL;
         }
 
-        au.pid                   = call_frame->root->pid;
-        au.uid                   = call_frame->root->uid;
-        au.gid                   = call_frame->root->gid;
-        au.groups.groups_len     = call_frame->root->ngrps;
-        au.lk_owner.lk_owner_len = call_frame->root->lk_owner.len;
-
-        if (au.groups.groups_len)
-                au.groups.groups_val = call_frame->root->groups;
-
-        if (call_frame->root->lk_owner.len)
-                au.lk_owner.lk_owner_val = call_frame->root->lk_owner.data;
-        else {
-                owner[0] = (char)(au.pid & 0xff);
-                owner[1] = (char)((au.pid >> 8) & 0xff);
-                owner[2] = (char)((au.pid >> 16) & 0xff);
-                owner[3] = (char)((au.pid >> 24) & 0xff);
-
-                au.lk_owner.lk_owner_val = owner;
-                au.lk_owner.lk_owner_len = 4;
-        }
-
-        /* The number of groups and the size of lk_owner depend on oneother.
-         * We can truncate the groups, but should not touch the lk_owner. */
-        max_groups = GF_AUTH_GLUSTERFS_MAX_GROUPS (au.lk_owner.lk_owner_len);
-        if (au.groups.groups_len > max_groups) {
-                GF_LOG_OCCASIONALLY (gf_auth_max_groups_log, clnt->conn.name,
-                                     GF_LOG_WARNING, "truncating grouplist "
-                                     "from %d to %d", au.groups.groups_len,
-                                     max_groups);
-
-                au.groups.groups_len = max_groups;
-        }
-
-        max_lkowner_len = GF_AUTH_GLUSTERFS_MAX_LKOWNER (au.groups.groups_len);
-        if (au.lk_owner.lk_owner_len > max_lkowner_len) {
-                gf_log (clnt->conn.name, GF_LOG_ERROR, "lkowner field is too "
-                        "big (%d), it does not fit in the rpc-header",
-                        au.lk_owner.lk_owner_len);
-                errno = E2BIG;
-                goto out;
-        }
-
-        gf_log (clnt->conn.name, GF_LOG_TRACE, "Auth Info: pid: %u, uid: %d"
-                ", gid: %d, owner: %s", au.pid, au.uid, au.gid,
-                lkowner_utoa (&call_frame->root->lk_owner));
-
-        request_iob = rpc_clnt_record_build_record (clnt, prog->prognum,
-                                                    prog->progver,
-                                                    procnum, hdrlen,
-                                                    callid, &au,
-                                                    rpchdr);
-        if (!request_iob) {
-                gf_log (clnt->conn.name, GF_LOG_WARNING,
-                        "cannot build rpc-record");
-                goto out;
-        }
-
-out:
-        return request_iob;
+        return rpc_clnt_record_build_record (clnt, call_frame,
+                                             prog->prognum,
+                                             prog->progver,
+                                             procnum, hdrlen,
+                                             callid, rpchdr);
 }
 
 int
@@ -1887,6 +1954,10 @@ rpc_clnt_disable (struct rpc_clnt *rpc)
 
         if (trans) {
                 rpc_transport_disconnect (trans, _gf_true);
+                /* reset auth_type to use v2 (if its not auth-null), it
+                   would be set to appropriate type in handshake again */
+                if (rpc->auth_value)
+                        rpc->auth_value = AUTH_GLUSTERFS_v2;
         }
 
         if (unref)
@@ -1946,6 +2017,10 @@ rpc_clnt_disconnect (struct rpc_clnt *rpc)
 
         if (trans) {
                 rpc_transport_disconnect (trans, _gf_true);
+                /* reset auth_type to use v2 (if its not auth-null), it
+                   would be set to appropriate type in handshake again */
+                if (rpc->auth_value)
+                        rpc->auth_value = AUTH_GLUSTERFS_v2;
         }
         if (unref)
                 rpc_clnt_unref (rpc);

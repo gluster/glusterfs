@@ -507,6 +507,9 @@ get_frame_from_request (rpcsvc_request_t *req)
                         sizeof (trans->peerinfo.identifier));
         }
 
+        /* more fields, for the clients which are 3.x series this will be 0 */
+        frame->root->flags = req->flags;
+        frame->root->ctime = req->ctime;
 
         frame->local = req;
 

@@ -250,6 +250,16 @@ struct rpcsvc_request {
 
         /* request queue in rpcsvc */
         struct list_head         request_list;
+
+        /* Things passed to rpc layer from client */
+
+        /* @flags: Can be used for binary data passed in xdata to be
+           passed here instead */
+        unsigned int flags;
+
+        /* ctime: origin of time on the client side, ideally this is
+           the one we should consider for time */
+        struct timespec ctime;
 };
 
 #define rpcsvc_request_program(req) ((rpcsvc_program_t *)((req)->prog))

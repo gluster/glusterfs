@@ -117,6 +117,11 @@ struct _call_stack {
         struct timespec               tv;
         xlator_t                     *err_xl;
         int32_t                       error;
+
+        uint32_t flags; /* use it wisely, think of it as a mechanism to
+                           send information over the wire too */
+        struct timespec ctime; /* timestamp, most probably set at
+                                  creation of stack. */
 };
 
 

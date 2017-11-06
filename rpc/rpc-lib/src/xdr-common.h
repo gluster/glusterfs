@@ -54,11 +54,15 @@ enum gf_dump_procnum {
  * Note that the on-wire protocol has tighter requirements than the internal
  * structures. It is possible for xlators to use more groups and a bigger
  * lk_owner than that can be sent by a GlusterFS-client.
+ *
+ * -------
+ * On v3, there are 4 more units, and hence it will be 9 xdr-units
  */
-#define GF_AUTH_GLUSTERFS_MAX_GROUPS(lk_owner_len) \
-           (95 - lk_owner_len)
-#define GF_AUTH_GLUSTERFS_MAX_LKOWNER(groups_len)  \
-           (95 - groups_len)
+#define GF_AUTH_GLUSTERFS_MAX_GROUPS(lk_len, type)                      \
+        ((type == AUTH_GLUSTERFS_v2) ? (95 - lk_len) : (91 - lk_len))
+#define GF_AUTH_GLUSTERFS_MAX_LKOWNER(groups_len, type)                 \
+        ((type == AUTH_GLUSTERFS_v2) ? (95 - groups_len) : (91 - groups_len))
+
 
 #ifdef GF_LINUX_HOST_OS
 #define xdr_u_int32_t xdr_uint32_t

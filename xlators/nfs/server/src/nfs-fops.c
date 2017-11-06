@@ -44,7 +44,8 @@ nfs_fix_groups (xlator_t *this, call_stack_t *root)
         }
 
         /* RPC enforces the GF_AUTH_GLUSTERFS_MAX_GROUPS limit */
-        max_groups = GF_AUTH_GLUSTERFS_MAX_GROUPS(root->lk_owner.len);
+        max_groups = GF_AUTH_GLUSTERFS_MAX_GROUPS(root->lk_owner.len,
+                                                  AUTH_GLUSTERFS_v2);
 
 	agl = gid_cache_lookup(&priv->gid_cache, root->uid, 0, 0);
 	if (agl) {
