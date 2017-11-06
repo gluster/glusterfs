@@ -1,5 +1,6 @@
 xdr_auth_glusterfs_parms
 xdr_auth_glusterfs_parms_v2
+xdr_auth_glusterfs_params_v3
 xdr_changelog_event_req
 xdr_changelog_event_rsp
 xdr_changelog_probe_req

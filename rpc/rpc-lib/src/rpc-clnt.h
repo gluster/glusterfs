@@ -15,6 +15,7 @@
 #include "rpc-transport.h"
 #include "timer.h"
 #include "xdr-common.h"
+#include "glusterfs3.h"
 
 typedef enum {
         RPC_CLNT_CONNECT,
@@ -188,11 +189,10 @@ typedef struct rpc_clnt {
 
         glusterfs_ctx_t       *ctx;
         gf_atomic_t           refcount;
-        int                   auth_null;
+        int                   auth_value;
         char                  disabled;
         xlator_t             *owner;
 } rpc_clnt_t;
-
 
 struct rpc_clnt *rpc_clnt_new (dict_t *options, xlator_t *owner,
                                char *name, uint32_t reqpool_size);

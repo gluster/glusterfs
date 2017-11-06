@@ -33,6 +33,31 @@ union gfx_value switch (gf_dict_data_type_t type) {
                 opaque other<>;
 };
 
+/* AUTH */
+/* This is used in the rpc header part itself, And not program payload.
+   Avoid sending large data load here. Allowed maximum is 400 bytes.
+   Ref: http://tools.ietf.org/html/rfc5531#section-8.2
+   this is also handled in xdr-common.h
+*/
+struct auth_glusterfs_params_v3 {
+        int pid;
+        unsigned int uid;
+        unsigned int gid;
+
+        /* flags */
+        /* Makes sense to use it for each bits */
+        /* 0x1 == IS_INTERNAL? */
+        /* Another 31 bits are reserved */
+        unsigned int flags;
+
+        /* birth time of the frame / call */
+        unsigned int ctime_nsec; /* good to have 32bit for this */
+        unsigned hyper ctime_sec;
+
+        unsigned int groups<>;
+        opaque lk_owner<>;
+};
+
 struct gfx_dict_pair {
        opaque key<>;
        gfx_value value;

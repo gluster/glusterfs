@@ -20,6 +20,7 @@
 #include "portmap-xdr.h"
 #include "rpc-common-xdr.h"
 #include "client-messages.h"
+#include "xdr-rpc.h"
 
 #define CLIENT_REOPEN_MAX_ATTEMPTS 1024
 extern rpc_clnt_prog_t clnt3_3_fop_prog;
@@ -1482,34 +1483,38 @@ select_server_supported_programs (xlator_t *this, gf_prog_detail *prog)
         while (trav) {
                 /* Select 'programs' */
                 if ((clnt3_3_fop_prog.prognum == trav->prognum) &&
-                    (clnt3_3_fop_prog.progver == trav->progver)) {
+                    (clnt3_3_fop_prog.progver == trav->progver) &&
+                    !conf->fops) {
                         conf->fops = &clnt3_3_fop_prog;
-                        gf_msg (this->name, GF_LOG_INFO, 0,
-                                PC_MSG_VERSION_INFO, "Using Program %s, "
-                                "Num (%"PRId64"), Version (%"PRId64")",
-                                trav->progname, trav->prognum, trav->progver);
+                        if (conf->rpc)
+                                conf->rpc->auth_value = AUTH_GLUSTERFS_v2;
                         ret = 0;
                 }
 
                 if ((clnt4_0_fop_prog.prognum == trav->prognum) &&
                     (clnt4_0_fop_prog.progver == trav->progver)) {
                         conf->fops = &clnt4_0_fop_prog;
-                        gf_msg (this->name, GF_LOG_INFO, 0,
-                                PC_MSG_VERSION_INFO, "Using Program %s,"
-                                " Num (%"PRId64"), Version (%"PRId64")",
-                                trav->progname, trav->prognum, trav->progver);
+                        if (conf->rpc)
+                                conf->rpc->auth_value = AUTH_GLUSTERFS_v3;
                         ret = 0;
                         /* this is latest program, lets use it */
                         goto out;
                 }
 
                 if (ret) {
-                        gf_msg_trace (this->name, 0,
+                        gf_msg_debug (this->name, 0,
                                       "%s (%"PRId64") not supported",
                                       trav->progname, trav->progver);
                 }
                 trav = trav->next;
         }
+
+        if (!ret)
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        PC_MSG_VERSION_INFO, "Using Program %s,"
+                        " Num (%d), Version (%d)",
+                        conf->fops->progname, conf->fops->prognum,
+                        conf->fops->progver);
 
 out:
         return ret;
