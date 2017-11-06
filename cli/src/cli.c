@@ -509,7 +509,6 @@ int
 cli_usage_out (const char *usage)
 {
         GF_ASSERT (usage);
-        GF_ASSERT (usage[0] != '\0');
 
         if (!usage || usage[0] == '\0')
                 return -1;
