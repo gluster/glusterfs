@@ -3368,12 +3368,12 @@ client3_3_lookup (call_frame_t *frame, xlator_t *this,
                         }
 
                         iobref_add (rsp_iobref, rsp_iobuf);
-                        iobuf_unref (rsp_iobuf);
                         rsphdr = &vector[0];
                         rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
                         rsphdr->iov_len = iobuf_pagesize (rsp_iobuf);
                         count = 1;
                         local->iobref = rsp_iobref;
+                        iobuf_unref (rsp_iobuf);
                         rsp_iobuf = NULL;
                         rsp_iobref = NULL;
                 }
@@ -5559,13 +5559,13 @@ client3_3_readdir (call_frame_t *frame, xlator_t *this,
                 }
 
                 iobref_add (rsp_iobref, rsp_iobuf);
-                iobuf_unref (rsp_iobuf);
 
                 rsphdr = &vector[0];
                 rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
                 rsphdr->iov_len  = iobuf_pagesize (rsp_iobuf);
                 count = 1;
                 local->iobref = rsp_iobref;
+                iobuf_unref (rsp_iobuf);
                 rsp_iobuf = NULL;
                 rsp_iobref = NULL;
         }
