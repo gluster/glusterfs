@@ -18,7 +18,7 @@ get_version()
       sub(/^v/,"") ; print $1
     }'
 
-    echo $PKG_VERSION | awk "$AWK_VERSION" | tr -cd '[:alnum:].'
+    echo $PKG_VERSION | awk "$AWK_VERSION"
 }
 
 get_release()
@@ -37,7 +37,7 @@ get_release()
       else if (NF == 4) print $2, $3, "git" substr($4, 2)
     }'
 
-    echo $PKG_VERSION | awk "$AWK_RELEASE" | tr -cd '[:alnum:].'
+    echo $PKG_VERSION | awk "$AWK_RELEASE"
 }
 
 if test "x$1" = "x--full"; then

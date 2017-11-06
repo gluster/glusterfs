@@ -1,0 +1,15 @@
+[Unit]
+Description=GlusterFS Management Daemon
+After=network.target rpcbind.service
+Before=network-online.target
+
+[Service]
+Type=forking
+PIDFile=@localstatedir@/lib/glusterd/run/glusterd.pid
+LimitNOFILE=65536
+ExecStart=@prefix@/sbin/glusterd -p @localstatedir@/lib/glusterd/run/glusterd.pid --skip-shd-start --skip-nfsd-start
+KillMode=process
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

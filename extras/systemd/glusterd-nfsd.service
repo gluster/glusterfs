@@ -1,0 +1,16 @@
+[Unit]
+Description=GlusterFS NFS Daemon
+After=network.target rpcbind.service
+Before=network-online.target
+
+[Service]
+Type=forking
+EnvironmentFile=/var/lib/glusterd/glusterd.info
+ExecStartPre=-/bin/pkill -f 'glusterfs.*gluster/nfs'
+ExecStart=/usr/sbin/glusterfs -s localhost --volfile-id gluster/nfs -p /var/lib/glusterd/nfs/run/nfs.pid -l /var/log/glusterfs/nfs.log -S /var/lib/glusterd/nfs/run/${UUID}.socket
+PIDFile=/var/lib/glusterd/nfs/run/nfs.pid
+ExecStop=-/bin/pkill -f 'glusterfs.*gluster/nfs'
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

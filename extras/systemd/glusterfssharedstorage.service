@@ -1,0 +1,13 @@
+[Unit]
+Description=Mount glusterfs sharedstorage
+Requires=glusterd.service remote-fs-pre.target local-fs.target
+
+[Service]
+Type=forking
+ExecStart=/usr/local/libexec/glusterfs/mount-shared-storage.sh
+Restart=on-failure
+RestartSec=3
+RestartForceExitStatus=1
+
+[Install]
+WantedBy=multi-user.target

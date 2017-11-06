@@ -1,0 +1,31 @@
+#!/bin/sh
+
+# If $1 is a mountpoint, return it; else if it is a mounted device,
+# return the mountpoint for the device; else return eror.
+#
+# value returned in global $mountpoint.
+get_mountpoint() {
+    if mountpoint -q -- $1; then
+        mountpoint=$1
+        return 0
+    fi
+
+    mountpoint=$(grep "^$1" /proc/mounts | cut -d' ' -f2)
+
+    if [ -n "$mountpoint" ]; then
+        return 0
+    fi
+
+    return 1
+}
+
+for arg in $@; do
+    if get_mountpoint $arg; then
+        # Please keep in sync with mount script, which starts this process.
+        squashed_mountpoint=$(echo ${mountpoint} | sed s^/^_^g)
+        pkill -f "gfs_clientstats_scuba.*gfs_client${squashed_mountpoint}.log"
+        pkill -f "gfs_clientstats_ods.*_${squashed_mountpoint}.dump"
+     fi
+done
+
+umount -i $@

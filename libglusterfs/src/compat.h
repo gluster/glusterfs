@@ -483,6 +483,7 @@ int gf_mkostemp (char *tmpl, int suffixlen, int flags);
 #define CLOCK_REALTIME_COARSE CLOCK_REALTIME
 #endif
 
+#if 0
 #ifndef IPV6_DEFAULT
 
 #ifndef IXDR_GET_LONG
@@ -502,6 +503,7 @@ int gf_mkostemp (char *tmpl, int suffixlen, int flags);
 #endif
 
 #endif /* IPV6_DEFAULT */
+#endif
 
 #if defined(__GNUC__) && !defined(RELAX_POISONING)
 /* Use run API, see run.h */

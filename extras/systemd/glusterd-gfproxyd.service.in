@@ -1,0 +1,16 @@
+[Unit]
+Description=GlusterFS GFProxy Daemon
+After=network.target rpcbind.service
+Before=network-online.target
+
+[Service]
+Type=forking
+EnvironmentFile=@localstatedir@/lib/glusterd/glusterd.info
+ExecStartPre=/bin/mkdir -p @localstatedir@/lib/glusterd/gfproxy/run
+ExecStart=@prefix@/sbin/glusterfs -s localhost --volfile-id gfproxy/groot -p @localstatedir@/lib/glusterd/gfproxy/run/gfproxy.pid -l /var/log/glusterfs/gfproxyd.log -S @localstatedir@/lib/glusterd/gfproxy/run/${UUID}.socket
+PIDFile=@localstatedir@/lib/glusterd/gfproxy/run/gfproxy.pid
+ExecStop='pkill -f '^@prefix@/sbin/glusterfs.*gluster/gfproxy''
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

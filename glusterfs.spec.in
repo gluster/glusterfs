@@ -1,5 +1,14 @@
 %global _hardened_build 1
 
+%undefine _missing_build_ids_terminate_build
+
+%if 0%{?rhel} == 7
+# CentOS 7 would force ".el7.centos", we want to avoid that.
+  %define dist .el7
+%endif
+
+%global release fb_release
+
 %global _for_fedora_koji_builds 0
 
 # uncomment and add '%' to use the prereltag for pre-releases
@@ -13,10 +22,6 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with debug
 %{?_with_debug:%global _with_debug --enable-debug}
 
-# if you wish to compile an rpm with Facebook specfic extras...
-# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with fbextras
-%{?_with_fbextras:%global _with_fbextras --with-fbextras}
-
 # if you wish to compile an rpm with cmocka unit testing...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with cmocka
 %{?_with_cmocka:%global _with_cmocka --enable-cmocka}
@@ -29,6 +34,10 @@
 %ifarch s390 s390x
 %global _without_rdma --disable-ibverbs
 %endif
+
+# if you wish to compile an rpm with ASAN enabled...
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with asan
+%{?_with_asan:%global _with_asan --with-asan}
 
 # if you wish to compile an rpm without epoll...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without epoll
@@ -76,17 +85,17 @@
 %global _without_tiering --disable-tiering
 %endif
 
+# if you wish to compile an rpm with Facebook specfic extras...
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with fbextras
+%{?_with_fbextras:%global _with_fbextras --with-fbextras}
+
 ##-----------------------------------------------------------------------------
 ## All %%global definitions should be placed here and keep them sorted
 ##
 
-%if ( 0%{?fedora} && 0%{?fedora} > 16 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
 %global _with_systemd true
-%endif
 
-%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 7 )
-%global _with_firewalld --enable-firewalld
-%endif
+%global _without_firewalld --disable-firewalld
 
 %if 0%{?_tmpfilesdir:1}
 %global _with_tmpfilesdir --with-tmpfilesdir=%{_tmpfilesdir}
@@ -103,13 +112,15 @@
 %if ( 0%{?_with_systemd:1} )
 %global _init_enable()  /bin/systemctl enable %1.service ;
 %global _init_disable() /bin/systemctl disable %1.service ;
-%global _init_restart() /bin/systemctl try-restart %1.service ;
+%global _init_restart() /bin/systemctl restart %1.service ;
 %global _init_start()   /bin/systemctl start %1.service ;
 %global _init_stop()    /bin/systemctl stop %1.service ;
 %global _init_install() install -D -p -m 0644 %1 %{buildroot}%{_unitdir}/%2.service ;
 # can't seem to make a generic macro that works
-%global _init_glusterd   %{_unitdir}/glusterd.service
-%global _init_glusterfsd %{_unitdir}/glusterfsd.service
+%global _init_glusterd   %{_unitdir}/glusterd-mgmt.service
+%global _init_glusterd_nfsd   %{_unitdir}/glusterd-nfsd.service
+%global _init_glusterd_gfproxyd   %{_unitdir}/glusterd-gfproxyd.service
+%global _init_glusterd_shd   %{_unitdir}/glusterd-shd.service
 %else
 %global _init_enable()  /sbin/chkconfig --add %1 ;
 %global _init_disable() /sbin/chkconfig --del %1 ;
@@ -137,21 +148,24 @@
 %global _sharedstatedir /var/lib
 %endif
 
+# Commenting this out, this doesn't actually work with FB CentOS6.  Frankly
+# I've no idea what they are trying to accomplish here, these "useless"
+# provides don't bother me.
 # We do not want to generate useless provides and requires for xlator
 # .so files to be set for glusterfs packages.
 # Filter all generated:
 #
 # TODO: RHEL5 does not have a convenient solution
-%if ( 0%{?rhel} == 6 )
+#%if ( 0%{?rhel} == 6 )
 # filter_setup exists in RHEL6 only
-%filter_provides_in %{_libdir}/glusterfs/%{version}/
-%global __filter_from_req %{?__filter_from_req} | grep -v -P '^(?!lib).*\.so.*$'
-%filter_setup
-%else
-# modern rpm and current Fedora do not generate requires when the
-# provides are filtered
-%global __provides_exclude_from ^%{_libdir}/glusterfs/%{version}/.*$
-%endif
+#    %filter_provides_in %{_libdir}/glusterfs/%{version}/
+#    %global __filter_from_req %{?__filter_from_req} | grep -v -P '^(?!lib).*\.so.*$'
+#    %filter_setup
+#%else
+#    # modern rpm and current Fedora do not generate requires when the
+#    # provides are filtered
+#    %global __provides_exclude_from ^%{_libdir}/glusterfs/%{version}/.*$
+#%endif
 
 
 ##-----------------------------------------------------------------------------
@@ -160,13 +174,13 @@
 Summary:          Distributed File System
 %if ( 0%{_for_fedora_koji_builds} )
 Name:             glusterfs
-Version:          3.8.0
-Release:          0.1%{?prereltag:.%{prereltag}}%{?dist}
+Version:          3.8_fb
+Release:          %{release}
 Vendor:           Fedora Project
 %else
 Name:             @PACKAGE_NAME@
 Version:          @PACKAGE_VERSION@
-Release:          0.@PACKAGE_RELEASE@%{?dist}
+Release:          %{release}
 Vendor:           Gluster Community
 %endif
 License:          GPLv2 or LGPLv3+
@@ -200,10 +214,13 @@ BuildRequires:    libxml2-devel openssl-devel
 BuildRequires:    libaio-devel libacl-devel
 BuildRequires:    python-devel
 BuildRequires:    python-ctypes
-%if ( 0%{?_with_fbextras:1} )
-BuildRequires:    fb-libtirpc fb-libtirpc-devel
-BuildRequires:    jemalloc jemalloc-devel
+%if ( 0%{?rhel} && 0%{?rhel} == 7 )
+BuildRequires:    libtirpc libtirpc-devel
+%else
+BuildRequires:    libfbtirpc libfbtirpc-devel
 %endif
+BuildRequires:    jemalloc jemalloc-devel
+BuildRequires:    gperftools-devel gperftools-libs
 BuildRequires:    userspace-rcu-devel >= 0.7
 %if ( 0%{?rhel} && 0%{?rhel} <= 6 )
 BuildRequires:    automake
@@ -226,7 +243,7 @@ BuildRequires:    lvm2-devel
 BuildRequires:    libattr-devel
 %endif
 
-%if (0%{?_with_firewalld:1})
+%if (0%{!?_without_firewalld:1})
 BuildRequires:    firewalld-filesystem
 %endif
 
@@ -348,6 +365,9 @@ Requires:         psmisc
 
 Requires:         %{name}%{?_isa} = %{version}-%{release}
 Requires:         %{name}-client-xlators%{?_isa} = %{version}-%{release}
+%if ( 0%{?_with_fbextras:1} )
+Requires:         fb-glusterfs-clientstats >= 0.0.2
+%endif
 
 Obsoletes:        %{name}-client < %{version}-%{release}
 Provides:         %{name}-client = %{version}-%{release}
@@ -521,13 +541,15 @@ Requires:         %{name}-cli%{?_isa} = %{version}-%{release}
 Requires:         %{name}-libs%{?_isa} = %{version}-%{release}
 # some daemons (like quota) use a fuse-mount, glusterfsd is part of -fuse
 Requires:         %{name}-fuse%{?_isa} = %{version}-%{release}
-%if ( 0%{?_with_fbextras:1} )
-Requires:         fb-libtirpc >= 0.2.5-1
-Requires:         jemalloc >= 3.6.0-1
-%endif
 # self-heal daemon, rebalance, nfs-server etc. are actually clients
 Requires:         %{name}-api%{?_isa} = %{version}-%{release}
 Requires:         %{name}-client-xlators%{?_isa} = %{version}-%{release}
+%if ( 0%{?rhel} && 0%{?rhel} == 7 )
+Requires:         libtirpc >= 0.2.4
+%else
+Requires:         libfbtirpc >= 0.2.5-1
+%endif
+Requires:         jemalloc >= 3.6.0-1
 # psmisc for killall, lvm2 for snapshot, and nfs-utils and
 # rpcbind/portmap for gnfs server
 Requires:         psmisc
@@ -543,7 +565,7 @@ Requires(preun):  /sbin/service
 Requires(preun):  /sbin/chkconfig
 Requires(postun): /sbin/service
 %endif
-%if (0%{?_with_firewalld:1})
+%if (0%{!?_without_firewalld:1})
 # we install firewalld rules, so we need to have the directory owned
 Requires:         firewalld-filesystem
 %endif
@@ -586,6 +608,58 @@ is in user space and easily manageable.
 
 This package provides the translators needed on any GlusterFS client.
 
+%package server-nodeps
+Summary:          Clustered file-system server
+Group:            System Environment/Daemons
+%if ( 0%{?rhel} && 0%{?rhel} == 7 )
+Requires:         libtirpc >= 0.2.4
+%else
+Requires:         libfbtirpc >= 0.2.5-1
+%endif
+Requires:         jemalloc >= 3.6.0-1
+# psmisc for killall, lvm2 for snapshot, and nfs-utils and
+# rpcbind/portmap for gnfs server
+Requires:         psmisc
+Requires:         lvm2
+Requires:         nfs-utils
+%if ( 0%{?_with_systemd:1} )
+Requires(post):   systemd-units, systemd
+Requires(preun):  systemd-units
+Requires(postun): systemd-units
+%else
+Requires(post):   /sbin/chkconfig
+Requires(preun):  /sbin/service
+Requires(preun):  /sbin/chkconfig
+Requires(postun): /sbin/service
+%endif
+%if (0%{!?_without_firewalld:1})
+# we install firewalld rules, so we need to have the directory owned
+Requires:         firewalld-filesystem
+%endif
+%if ( 0%{?fedora} ) || ( 0%{?rhel} && 0%{?rhel} >= 6 )
+Requires:         rpcbind
+%else
+Requires:         portmap
+%endif
+%if ( 0%{?rhel} && 0%{?rhel} < 6 )
+Obsoletes:        %{name}-geo-replication = %{version}-%{release}
+%endif
+%if ( 0%{?rhel} && 0%{?rhel} <= 6 )
+Requires:         python-argparse
+%endif
+Requires:         pyxattr
+
+%description server-nodeps
+GlusterFS is a distributed file-system capable of scaling to several
+petabytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file systems in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in user space and easily manageable.
+
+This package provides the glusterfs server daemon.
+
 %prep
 %setup -q -n %{name}-%{version}%{?prereltag}
 
@@ -601,6 +675,8 @@ export CFLAGS
 %endif
 
 %configure \
+        --with-jemalloc \
+        --enable-mempool \
         %{?_with_cmocka} \
         %{?_with_debug} \
         %{?_with_tmpfilesdir} \
@@ -608,12 +684,14 @@ export CFLAGS
         %{?_without_epoll} \
         %{?_without_fusermount} \
         %{?_without_georeplication} \
-        %{?_with_firewalld} \
+        %{?_without_firewalld} \
         %{?_without_ocf} \
         %{?_without_rdma} \
         %{?_without_syslog} \
         %{?_without_tiering} \
-        %{?_with_fbextras}
+        %{?_with_asan} \
+        %{?_with_fbextras} \
+        %{?_with_systemd:--with-systemd}
 
 # fix hardening and remove rpath in shlibs
 %if ( 0%{?fedora} && 0%{?fedora} > 17 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
@@ -628,6 +706,7 @@ make %{?_smp_mflags}
 make check
 
 %install
+export DONT_STRIP=1
 rm -rf %{buildroot}
 make install DESTDIR=%{buildroot}
 # Install include directory
@@ -736,6 +815,18 @@ find ./tests ./run-tests.sh -type f | cpio -pd %{buildroot}%{_prefix}/share/glus
 install -p -m 0744 -D extras/command-completion/gluster.bash \
     %{buildroot}%{_sysconfdir}/bash_completion.d/gluster
 
+%if ( 0%{?_with_systemd:1} )
+%{__mkdir_p} %{buildroot}/usr/lib/systemd/system
+%{__install} -p -m 0755 extras/systemd/glusterd-mgmt.service   \
+    %{buildroot}/usr/lib/systemd/system/glusterd-mgmt.service
+%{__install} -p -m 0755 extras/systemd/glusterd-nfsd.service   \
+    %{buildroot}/usr/lib/systemd/system/glusterd-nfsd.service
+%{__install} -p -m 0755 extras/systemd/glusterd-shd.service   \
+    %{buildroot}/usr/lib/systemd/system/glusterd-shd.service
+%{__install} -p -m 0755 extras/systemd/glusterd-gfproxyd.service   \
+    %{buildroot}/usr/lib/systemd/system/glusterd-gfproxyd.service
+%endif
+
 %clean
 rm -rf %{buildroot}
 
@@ -772,6 +863,12 @@ exit 0
 /sbin/ldconfig
 
 %post server
+CONF_DIR="%{_sharedstatedir}/glusterd"
+if [ -d "$CONF_DIR" ]; then
+  BACKUP_FILE="/var/tmp/var-lib-glusterd-$(date +%Y_%m_%d_%H_%M).tgz"
+  echo "Creating backup of $CONF_DIR @ $BACKUP_FILE..." 
+  tar czf "$BACKUP_FILE" -c $CONF_DIR 2> /dev/null
+fi
 # Legacy server
 %_init_enable glusterd
 %if ( 0%{_for_fedora_koji_builds} )
@@ -816,21 +913,15 @@ if [ -e /etc/ld.so.conf.d/glusterfs.conf ]; then
     /sbin/ldconfig
 fi
 
-%if (0%{?_with_firewalld:1})
+%if (0%{!?_without_firewalld:1})
     %firewalld_reload
-%endif
-
-%if ( 0%{?_with_fbextras:1} )
-if ! [ -f %{_sharedstatedir}/glusterd/glusterd.info ]; then
-  echo "UUID=$(/usr/bin/uuidgen)" >> %{_sharedstatedir}/glusterd/glusterd.info
-fi
 %endif
 
 pidof -c -o %PPID -x glusterd &> /dev/null
 if [ $? -eq 0 ]; then
     kill -9 `pgrep -f gsyncd.py` &> /dev/null
 
-    killall --wait glusterd &> /dev/null
+    timeout 30 killall --wait glusterd &> /dev/null
     glusterd --xlator-option *.upgrade=on -N
 
     #Cleaning leftover glusterd socket file which is created by glusterd in
@@ -840,6 +931,21 @@ if [ $? -eq 0 ]; then
     # glusterd _was_ running, we killed it, it exited after *.upgrade=on,
     # so start it again
     %_init_start glusterd
+    sleep 3
+    echo "Restarting daemons..."
+    %if ( 0%{?_with_systemd:1} )
+       pkill -f @prefix@/sbin/glusterfsd.*  
+       pkill -f @prefix@/sbin/glusterd.*    
+       pkill -f @prefix@/sbin/glusterfs.*   
+       /bin/systemctl daemon-reload
+       %_init_restart glusterd-nfsd
+       %_init_restart glusterd-shd
+       %_init_restart glusterd-gfproxyd
+       %_init_restart glusterd
+    %else
+       service glusterd restart
+    %endif
+
 else
     glusterd --xlator-option *.upgrade=on -N
 
@@ -849,10 +955,144 @@ else
 fi
 exit 0
 
+if ! [ -f %{_sharedstatedir}/glusterd/glusterd.info ]; then
+  echo "UUID=$(/usr/bin/uuidgen)" >> %{_sharedstatedir}/glusterd/glusterd.info
+fi
+
+%post server-nodeps
+CONF_DIR="%{_sharedstatedir}/glusterd"
+if [ -d "$CONF_DIR" ]; then
+  BACKUP_FILE="/var/tmp/var-lib-glusterd-$(date +%Y_%m_%d_%H_%M).tgz"
+  echo "Creating backup of $CONF_DIR @ $BACKUP_FILE..." 
+  tar czf "$BACKUP_FILE" -c $CONF_DIR 2> /dev/null
+fi
+# Legacy server
+%_init_enable glusterd
+%if ( 0%{_for_fedora_koji_builds} )
+%_init_enable glusterfsd
+%endif
+# ".cmd_log_history" is renamed to "cmd_history.log" in GlusterFS-3.7 .
+# While upgrading glusterfs-server package form GlusterFS version <= 3.6 to
+# GlusterFS version 3.7, ".cmd_log_history" should be renamed to
+# "cmd_history.log" to retain cli command history contents.
+if [ -f %{_localstatedir}/log/glusterfs/.cmd_log_history ]; then
+    mv %{_localstatedir}/log/glusterfs/.cmd_log_history \
+       %{_localstatedir}/log/glusterfs/cmd_history.log
+fi
+
+# Genuine Fedora (and EPEL) builds never put gluster files in /etc; if
+# there are any files in /etc from a prior gluster.org install, move them
+# to /var/lib. (N.B. Starting with 3.3.0 all gluster files are in /var/lib
+# in gluster.org RPMs.) Be careful to copy them on the off chance that
+# /etc and /var/lib are on separate file systems
+if [ -d /etc/glusterd -a ! -h %{_sharedstatedir}/glusterd ]; then
+    mkdir -p %{_sharedstatedir}/glusterd
+    cp -a /etc/glusterd %{_sharedstatedir}/glusterd
+    rm -rf /etc/glusterd
+    ln -sf %{_sharedstatedir}/glusterd /etc/glusterd
+fi
+
+# Rename old volfiles in an RPM-standard way.  These aren't actually
+# considered package config files, so %%config doesn't work for them.
+if [ -d %{_sharedstatedir}/glusterd/vols ]; then
+    for file in $(find %{_sharedstatedir}/glusterd/vols -name '*.vol'); do
+        newfile=${file}.rpmsave
+        echo "warning: ${file} saved as ${newfile}"
+        cp ${file} ${newfile}
+    done
+fi
+
+# add marker translator
+# but first make certain that there are no old libs around to bite us
+# BZ 834847
+if [ -e /etc/ld.so.conf.d/glusterfs.conf ]; then
+    rm -f /etc/ld.so.conf.d/glusterfs.conf
+    /sbin/ldconfig
+fi
+
+%if (0%{!?_without_firewalld:1})
+    %firewalld_reload
+%endif
+
+pidof -c -o %PPID -x glusterd &> /dev/null
+if [ $? -eq 0 ]; then
+    kill -9 `pgrep -f gsyncd.py` &> /dev/null
+
+    timeout 30 killall --wait glusterd &> /dev/null
+    glusterd --xlator-option *.upgrade=on -N
+
+    #Cleaning leftover glusterd socket file which is created by glusterd in
+    #rpm_script_t context.
+    rm -rf /var/run/glusterd.socket
+
+    # glusterd _was_ running, we killed it, it exited after *.upgrade=on,
+    # so start it again
+    %_init_start glusterd
+    sleep 3
+    echo "Restarting daemons..."
+    %if ( 0%{?_with_systemd:1} )
+       pkill -f @prefix@/sbin/glusterfsd.*  
+       pkill -f @prefix@/sbin/glusterd.*    
+       pkill -f @prefix@/sbin/glusterfs.*   
+       /bin/systemctl daemon-reload
+       %_init_restart glusterd-nfsd
+       %_init_restart glusterd-shd
+       %_init_restart glusterd-gfproxyd
+       %_init_restart glusterd
+    %else
+       service glusterd restart
+    %endif
+
+else
+    glusterd --xlator-option *.upgrade=on -N
+
+    #Cleaning leftover glusterd socket file which is created by glusterd in
+    #rpm_script_t context.
+    rm -rf /var/run/glusterd.socket
+fi
+exit 0
+
+if ! [ -f %{_sharedstatedir}/glusterd/glusterd.info ]; then
+  echo "UUID=$(/usr/bin/uuidgen)" >> %{_sharedstatedir}/glusterd/glusterd.info
+fi
+
+/sbin/ldconfig
+
+%if ( 0%{?rhel} == 5 )
+modprobe fuse
+%endif
+
+%if ( 0%{!?_without_georeplication:1} )
+if [ $1 -ge 1 ]; then
+    %_init_restart glusterd
+fi
+%endif
+
+exit 0
+
 ##-----------------------------------------------------------------------------
 ## All %%preun should be placed here and keep them sorted
 ##
 %preun server
+if [ $1 -eq 0 ]; then
+    if [ -f %_init_glusterfsd ]; then
+        %_init_stop glusterfsd
+    fi
+    %_init_stop glusterd
+    if [ -f %_init_glusterfsd ]; then
+        %_init_disable glusterfsd
+    fi
+    %_init_disable glusterd
+fi
+if [ $1 -ge 1 ]; then
+    if [ -f %_init_glusterfsd ]; then
+        %_init_restart glusterfsd
+    fi
+    %_init_restart glusterd
+fi
+exit 0
+
+%preun server-nodeps
 if [ $1 -eq 0 ]; then
     if [ -f %_init_glusterfsd ]; then
         %_init_stop glusterfsd
@@ -890,7 +1130,14 @@ exit 0
 
 %postun server
 /sbin/ldconfig
-%if (0%{?_with_firewalld:1})
+%if (0%{!?_without_firewalld:1})
+    %firewalld_reload
+%endif
+exit 0
+
+%postun server-nodeps
+/sbin/ldconfig
+%if (0%{!?_without_firewalld:1})
     %firewalld_reload
 %endif
 exit 0
@@ -932,7 +1179,6 @@ exit 0
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/shard.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/snapview-client.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/worm.so
-%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/namespace.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/meta.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/io-cache.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/io-threads.so
@@ -944,6 +1190,8 @@ exit 0
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/stat-prefetch.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/write-behind.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/system/posix-acl.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/ganesha.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/namespace.so
 %dir %{_localstatedir}/run/gluster
 %if 0%{?_tmpfilesdir:1}
 %{_tmpfilesdir}/gluster.conf
@@ -983,6 +1231,7 @@ exit 0
 %files client-xlators
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/*.so
 %exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/pump.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/client.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/ganesha.so
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/client.so
 
@@ -1006,6 +1255,9 @@ exit 0
 %config(noreplace) %{_sysconfdir}/logrotate.d/glusterfs
 %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/fuse.so
 /sbin/mount.glusterfs
+%if ( 0%{?_with_fbextras:1} )
+/sbin/umount.fuse.glusterfs
+%endif
 %if ( 0%{!?_without_fusermount:1} )
 %{_bindir}/fusermount-glusterfs
 %endif
@@ -1090,6 +1342,13 @@ exit 0
 
 # init files
 %_init_glusterd
+%if ( 0%{!?_with_systemd:1} )
+%_init_glusterd_functions
+%else
+%_init_glusterd_nfsd
+%_init_glusterd_shd
+%_init_glusterd_gfproxyd
+%endif
 %if ( 0%{_for_fedora_koji_builds} )
 %_init_glusterfsd
 %endif
@@ -1196,16 +1455,245 @@ exit 0
 %{_bindir}/glusterfind
 %{_libexecdir}/glusterfs/peer_add_secret_pub
 
-%if ( 0%{?_with_firewalld:1} )
+%if ( 0%{!?_without_firewalld:1} )
 %{_prefix}/lib/firewalld/services/glusterfs.xml
+%endif
+
+%files server-nodeps
+%doc extras/clear_xattrs.sh
+# sysconf
+%config(noreplace) %{_sysconfdir}/glusterfs
+%config(noreplace) %{_sysconfdir}/sysconfig/glusterd
+%if ( 0%{_for_fedora_koji_builds} )
+%config(noreplace) %{_sysconfdir}/sysconfig/glusterfsd
+%endif
+
+# init files
+%_init_glusterd
+%if ( 0%{!?_with_systemd:1} )
+%_init_glusterd_functions
+%else
+%_init_glusterd_nfsd
+%_init_glusterd_shd
+%_init_glusterd_gfproxyd
+%endif
+%if ( 0%{_for_fedora_koji_builds} )
+%_init_glusterfsd
+%endif
+
+# binaries
+%{_sbindir}/glusterd
+%{_sbindir}/glfsheal
+# {_sbindir}/glusterfsd is the actual binary, but glusterfs (client) is a
+# symlink. The binary itself (and symlink) are part of the glusterfs-fuse
+# package, because glusterfs-server depends on that anyway.
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/pump.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/arbiter.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bit-rot.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bitrot-stub.so
+%if ( 0%{!?_without_tiering:1} )
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/changetimerecorder.so
+%endif
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/index.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/locks.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/posix*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/snapview-server.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/marker.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/quota*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/trash.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/upcall.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/leases.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/nfs*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/decompounder.so
+%if ( 0%{!?_without_tiering:1} )
+%{_libdir}/libgfdb.so.*
+%endif
+
+# snap_scheduler
+%{_sbindir}/snap_scheduler.py
+%{_sbindir}/gcron.py
+
+# /var/lib/glusterd, e.g. hookscripts, etc.
+%ghost      %attr(0644,-,-) %config(noreplace) %{_sharedstatedir}/glusterd/glusterd.info
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/bitd
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/groups
+            %attr(0644,-,-) %{_sharedstatedir}/glusterd/groups/virt
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glusterfind
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glusterfind/.keys
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/glustershd
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/add-brick
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/add-brick/post
+            %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/add-brick/post/disabled-quota-root-xattr-heal.sh
+            %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/add-brick/pre/S28Quota-enable-root-xattr-heal.sh
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/add-brick/pre
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/create
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/create/post
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/create/pre
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/copy-file
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/copy-file/post
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/copy-file/pre
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/post
+                            %{_sharedstatedir}/glusterd/hooks/1/delete/post/S57glusterfind-delete-post
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/delete/pre
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/remove-brick
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/remove-brick/post
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/remove-brick/pre
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/reset
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/reset/post
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/reset/pre
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/set
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/set/post
+            %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/set/post/S30samba-set.sh
+            %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/set/post/S32gluster_enable_shared_storage.sh
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/set/pre
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/start
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/start/post
+            %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/start/post/S29CTDBsetup.sh
+            %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/start/post/S30samba-start.sh
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/start/pre
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop/post
+       %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop/pre
+            %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop/pre/S30samba-stop.sh
+            %attr(0755,-,-) %{_sharedstatedir}/glusterd/hooks/1/stop/pre/S29CTDB-teardown.sh
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs
+%ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/nfs-server.vol
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/nfs/run
+%ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/nfs/run/nfs.pid
+%ghost      %attr(0600,-,-) %{_sharedstatedir}/glusterd/options
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/peers
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/quotad
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/scrub
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/snaps
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/ss_brick
+%ghost %dir %attr(0755,-,-) %{_sharedstatedir}/glusterd/vols
+
+# Extra utility script
+%{_datadir}/glusterfs/scripts/stop-all-gluster-processes.sh
+
+# Incrementalapi
+%{_libexecdir}/glusterfs/glusterfind
+%{_bindir}/glusterfind
+%{_libexecdir}/glusterfs/peer_add_secret_pub
+
+%if ( 0%{!?_without_firewalld:1} )
+%{_prefix}/lib/firewalld/services/glusterfs.xml
+%endif
+
+%{_libdir}/*.so
+# libgfapi files
+%{_libdir}/libgfapi.*
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/api.so
+%{_sbindir}/gluster
+%{_mandir}/man8/gluster.8*
+%{_sysconfdir}/bash_completion.d/gluster
+
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/*.so
+%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/cluster/pump.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/client.so
+
+# glusterfs is a symlink to glusterfsd, -server depends on -fuse.
+%{_sbindir}/glusterfs
+%{_sbindir}/glusterfsd
+%config(noreplace) %{_sysconfdir}/logrotate.d/glusterfs
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mount/fuse.so
+/sbin/mount.glusterfs
+%if ( 0%{?_with_fbextras:1} )
+/sbin/umount.fuse.glusterfs
+%endif
+%if ( 0%{!?_without_fusermount:1} )
+%{_bindir}/fusermount-glusterfs
+%endif
+%if ( 0%{_for_fedora_koji_builds} )
+%if ( 0%{?rhel} && 0%{?rhel} <= 5 )
+%{_sysconfdir}/sysconfig/modules/glusterfs-fuse.modules
+%endif
+%endif
+
+%{_libdir}/*.so.*
+%{_libdir}/libgfapi.*
+%if ( 0%{!?_without_tiering:1} )
+# libgfdb is only needed server-side
+%{_libdir}/libgfdb.*
+%endif
+
+%{_mandir}/man8/*gluster*.8*
+%exclude %{_mandir}/man8/gluster.8*
+%dir %{_localstatedir}/log/glusterfs
+%if ( 0%{!?_without_rdma:1} )
+%exclude %{_libdir}/glusterfs/%{version}%{?prereltag}/rpc-transport/rdma*
+%endif
+%dir %{_datadir}/glusterfs/scripts
+%{_datadir}/glusterfs/scripts/post-upgrade-script-for-quota.sh
+%{_datadir}/glusterfs/scripts/pre-upgrade-script-for-quota.sh
+# xlators that are needed on the client- and on the server-side
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/auth
+%{_libdir}/glusterfs/%{version}%{?prereltag}/auth/addr.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/auth/login.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/rpc-transport
+%{_libdir}/glusterfs/%{version}%{?prereltag}/rpc-transport/socket.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/error-gen.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/io-stats.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/debug/trace.so
+%if ( ! ( 0%{?rhel} && 0%{?rhel} < 6 ) )
+# RHEL-5 based distributions have a too old openssl
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/crypt.so
+%endif
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/access-control.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/barrier.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/cdc.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/changelog.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/gfid-access.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/read-only.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/shard.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/snapview-client.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/worm.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/meta.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/io-cache.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/io-threads.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/md-cache.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/open-behind.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/quick-read.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/read-ahead.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/readdir-ahead.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/stat-prefetch.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/write-behind.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/system/posix-acl.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/ganesha.so
+%{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/namespace.so
+%dir %{_localstatedir}/run/gluster
+%if 0%{?_tmpfilesdir:1}
+%{_tmpfilesdir}/gluster.conf
+%endif
+
+%if ( 0%{?_without_georeplication:1} )
+%exclude %{_datadir}/glusterfs/scripts/get-gfid.sh
+%exclude %{_datadir}/glusterfs/scripts/slave-upgrade.sh
+%exclude %{_datadir}/glusterfs/scripts/gsync-upgrade.sh
+%exclude %{_datadir}/glusterfs/scripts/generate-gfid-file.sh
+%exclude %{_datadir}/glusterfs/scripts/gsync-sync-gfid
+%exclude %{_datadir}/glusterfs/scripts/schedule_georep.py*
+%exclude %{_libexecdir}/glusterfs/gsyncd
+%exclude %{_libexecdir}/glusterfs/python/syncdaemon/*
+%exclude %{_libexecdir}/glusterfs/gverify.sh
+%exclude %{_libexecdir}/glusterfs/set_geo_rep_pem_keys.sh
+%exclude %{_libexecdir}/glusterfs/peer_gsec_create
+%exclude %{_libexecdir}/glusterfs/peer_mountbroker
+%exclude %{_libexecdir}/glusterfs/gfind_missing_files
+%exclude %{_sbindir}/gfind_missing_files
 %endif
 
 %changelog
 * Fri Jan 6 2017 Niels de Vos <ndevos@redhat.com>
 - use macro provided by firewalld-filesystem to reload firewalld
-
-* Thu Dec 19 2016 Jiffin Tony Thottan <jhottan@redhat.com>
-- remove S31ganesha-reset.sh from hooks (#1405951)
 
 * Mon Aug 22 2016 Milind Changire <mchangir@redhat.com>
 - Add psmisc as dependency for glusterfs-fuse for killall command (#1367665)

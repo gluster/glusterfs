@@ -1,0 +1,630 @@
+
+# Include this file only on CentOS 6, it breaks things on CentOS 7 
+CENTOS_RELEASE=$(/usr/lib/rpm/redhat/dist.sh --distnum)
+if [ "$CENTOS_RELEASE" == "6" ]; then
+  . /etc/rc.d/init.d/functions
+fi
+
+PATH="$PATH:/usr/local/bin:/usr/bin:/bin:/usr/sbin"
+
+GLUSTERD_DATA_DIR="/data/gluster_vols"
+GLUSTERD_CONF_DIR="/var/lib/glusterd"
+GLUSTERD_PORT=24007
+# Can be over-written by the glusterfs.root_mount SMC service/tier property
+GLUSTER_ROOT_MOUNT="/mnt/groot"
+# Can be over-written by the glusterfs.root_volume SMC service/tier property
+GLUSTER_ROOT_VOLUME="groot"
+HOST_IP=$(host $HOSTNAME | awk '{print $NF}')
+OOM_SCORE_ADJ="-1000"
+NICENESS="-10"
+
+NETCAT_OPTS="-w1 -6"
+
+# Simple port probe.
+probe_glusterd()
+{
+  return $(nc $NETCAT_OPTS $1 $2 < /dev/null)
+}
+
+#
+# FUNCTION wait_for_smc
+#
+# DESCRIPTION: As you might guess this function just sits around and waits
+# for SMC proxy to start or it times out whichever comes first.
+#
+wait_for_smc()
+{
+  CNT=0
+  while ! (smcc tiers $HOSTNAME &> /dev/null) && (( $CNT < $SMC_TIMEOUT ))
+  do
+    echo "Gluster init waiting for SMC proxy..." && sleep 1
+    CNT=$(($CNT+1))
+  done
+  if (( $CNT >= $SMC_TIMEOUT )); then
+    echo_failure; echo "Timed out waiting on SMC"
+    return 1
+  else
+    echo_success && echo "SMC proxy is alive!"
+    return 0
+  fi
+}
+
+#
+# FUNCTION set_smc_Tier
+#
+# DESCRIPTION: Tries to find the storage.gluster SMC tier for this host,
+# if it finds the tier it will set a few enviro variables to their SMC
+# values,
+#
+set_smc_tier()
+{
+  [ -n "$GLUSTER_SMC_TIER" ] && return 0
+  wait_for_smc || return 1
+  if GLUSTER_SMC_TIER=$(smcc tiers $HOSTNAME | \
+      /bin/grep "storage.gluster" 2> /dev/null); then
+    TIER_VOL_DIR=$(smcc getprop $GLUSTER_SMC_TIER \
+      glusterfs.data_dir 2>/dev/null) && GLUSTERD_DATA_DIR="$TIER_VOL_DIR"
+    TIER_ROOT_VOLUME=$(smcc getprop $GLUSTER_SMC_TIER \
+      glusterfs.root_volume 2>/dev/null) && [ -n "$TIER_ROOT_VOLUME" ] &&
+      GLUSTER_ROOT_VOLUME="$TIER_ROOT_VOLUME"
+    SVC_ROOT_VOLUME=$(smcc getsvcprop $GLUSTER_SMC_TIER \
+      $HOSTNAME glusterfs.root_volume 2>/dev/null) &&
+	    [ -n "$SVC_ROOT_VOLUME" ] && GLUSTER_ROOT_VOLUME="$SVC_ROOT_VOLUME"
+    TIER_ROOT_MOUNT=$(smcc getprop $GLUSTER_SMC_TIER glusterfs.root_mount \
+      2> /dev/null) && [ -n "$TIER_ROOT_MOUNT" ] &&
+      GLUSTER_ROOT_MOUNT="$TIER_ROOT_MOUNT"
+    SVC_ROOT_MOUNT=$(smcc getsvcprop $GLUSTER_SMC_TIER $HOSTNAME \
+      glusterfs.root_mount 2> /dev/null) && [ -n "$SVC_ROOT_MOUNT" ] &&
+      GLUSTER_ROOT_MOUNT="$SVC_ROOT_MOUNT"
+    SVC_UUID=$(smcc getsvcprop $GLUSTER_SMC_TIER $HOSTNAME glusterfs.uuid \
+      2> /dev/null)
+    NICE_DAEMON=$(smcc getprop $GLUSTER_SMC_TIER \
+      glusterfs.nice_daemon 2> /dev/null)
+    WARM_INODE_CACHE=$(smcc getprop $GLUSTER_SMC_TIER \
+      glusterfs.warm_inode_cache 2> /dev/null)
+    # Fatal if we don't find any services
+    TIER_SERVICES=($(smcc ls $GLUSTER_SMC_TIER | /bin/cut -d: -f1)) || return 1
+    return 0
+  fi
+  return 1
+}
+
+# FUNCTION nice_daemon
+#
+# DESCRIPTION: Nice the glustefsd (brick) and glusterd (management)
+# daemons.  Also, adjust their OOM scores to prevent the OOM killer
+# from killing them in OOM low memory conditions.
+#
+# Also consider adjusting vm.min_free_kbytes kernel property via
+# /etc/sysctl.conf and disabling swap (swapoff -a).
+#
+nice_daemon()
+{
+  set_smc_tier || return 1
+  if [ "$NICE_DAEMON" == "1" ]; then
+    sleep 2
+    renice $NICENESS -g $(pgrep -x glusterfsd) &> /dev/null && \
+      echo_success && echo "Nice'ing glusterfsd..."
+    renice $NICENESS -g $(pgrep -x glusterd) &> /dev/null && \
+      echo_success && echo "Nice'ing glusterd..."
+    for p in $(pgrep -x glusterfsd);do echo $OOM_SCORE_ADJ > \
+      /proc/$p/oom_score_adj;done
+    for p in $(pgrep -x glusterd);do echo $OOM_SCORE_ADJ > \
+      /proc/$p/oom_score_adj;done
+    echo_success && echo "Adjusting OOM score..."
+  fi
+}
+
+#
+# FUNCTION set_bricks
+#
+# DESCRIPTION: Populates "$BRICKS" with a list of hostnames which are
+# found to be in the groot volume.  Currently this won't work for clusters
+# with more than volume.
+#
+set_bricks()
+{
+  if [ -z "$BRICKS" ]; then
+    if ! BRICKS=($(gluster volume info all | grep -E "^Brick[0-9]+:" |
+        awk '{print $NF}' | cut -d: -f1)); then
+      echo "Unable to find any bricks."
+      return 1
+    else
+      echo "Found ${#BRICKS[@]} bricks..."
+    fi
+  fi
+  return 0
+}
+
+set_hosted_vols()
+{
+  local ALL_VOLS=($(\ls $GLUSTERD_CONF_DIR/vols))
+  for VOL in ${ALL_VOLS[@]}; do
+    if grep ${HOSTNAME/.facebook.com/} $GLUSTERD_CONF_DIR/vols/$VOL/info &> /dev/null; then
+      HOSTED_VOLS+=($VOL)
+    fi
+   done
+}
+
+#
+# FUNCTION set_replica_cnt
+#
+# DESCRIPTION: Sets $REPLICA_CNT to the current replication factor for the
+# cluster.
+#
+set_replica_cnt()
+{
+  set_hosted_vols
+  if [ -n "$REPLICA_CNT" ]; then
+    return 0
+  fi
+  
+  for VOL in ${HOSTED_VOLS[@]}; do
+    REPLICA_CNT=$(grep disperse_count /var/lib/glusterd/vols/$VOL/info  | cut -d= -f2)
+    if (( $REPLICA_CNT > 0 )); then
+      return 0
+    fi
+  done
+    
+  if BRICK_NO_STR=$(gluster volume info all | grep -E \
+      "Number of Bricks: [0-9]+ x [0-9] = [0-9]+"); then
+    REPLICA_CNT=$(echo $BRICK_NO_STR | grep "Number of Bricks" |
+      awk '{print $6}')
+  elif BRICK_NO_STR=$(gluster volume info all | grep -E \
+      "Number of Bricks: [0-9]+"); then
+    REPLICA_CNT=$(echo $BRICK_NO_STR | grep "Number of Bricks" |
+      awk '{print $NF}')
+  else
+    echo "Unable to determine number of brick!"
+    return 1
+  fi
+  return 0
+}
+
+#
+# FUNCTION set_node_index
+#
+# DESCRIPTION: Sets $NODE_INDEX to the position this node has in the
+# brick list given by the "volume info all" command.  We will use this
+# for quorum calculations.
+#
+set_node_index()
+{
+  set_bricks || return 1
+  if [ -n "$NODE_INDEX" ]; then
+    return 0
+  fi
+  local POS=0
+  local BRICK=""
+  for BRICK in ${BRICKS[@]}
+  do
+    if echo $BRICK | grep -E "[[:digit:]]{1,3}\.[[:digit:]]{1,3}\.[[:digit:]]{1,3}\.[[:digit:]]{1,3}" &> /dev/null; then
+      BRICK=$(host $BRICK | awk '{print $NF}')
+    fi
+    BRICK_IP=$(host $BRICK | awk '{print $NF}')
+    if [ "$BRICK_IP" = "$HOST_IP" ]; then
+      NODE_INDEX=$POS
+      return 0
+    fi
+    POS=$(($POS+1))
+  done
+  return 1
+}
+
+#
+# FUNCTION set_replicas
+#
+# DESCRIPTION: Sets $REPLICAS to a list of hosts which are replicas
+# of this host.
+#
+set_replicas()
+{
+  set_replica_cnt || return 1
+  set_bricks || return 1
+  if ! set_node_index; then
+    echo "$HOSTNAME not a member of any replica group."
+    return 2
+  fi
+  local MODULUS=$((($NODE_INDEX+1) % $REPLICA_CNT))
+  local START_POS=0
+  if (( $MODULUS == 0 )); then
+    START_POS=$(($NODE_INDEX-$REPLICA_CNT+1))
+  else
+    START_POS=$(($NODE_INDEX-$MODULUS+1))
+  fi
+  local OFFSET=0
+  while (( $OFFSET < $REPLICA_CNT ))
+  do
+    POS=$(($OFFSET+$START_POS))
+    if (( $POS != $NODE_INDEX )); then
+      REPLICAS+=(${BRICKS[$POS]})
+    fi
+  OFFSET=$(($OFFSET + 1))
+  done
+}
+
+#
+# FUNCTION set_live_replica
+#
+# DESCRIPTION: Sets $LIVE_REPLICA to a host fromthe $REPLICAS list which is
+# confirmed to be "alive" by way of a probe sent to the hosts Gluster
+# management port (we can't use the brick port since it is dynamic).
+#
+set_live_replica()
+{
+  set_replicas || return 0
+  local REPLICA=""
+  for REPLICA in ${REPLICAS[@]}
+  do
+    echo -n "Checking host $REPLICA..."
+    if probe_glusterd $REPLICA $GLUSTERD_PORT; then
+      echo "ALIVE, setting as replica host."
+      LIVE_REPLICA=$REPLICA
+      return 0
+    else
+      echo "DEAD"
+    fi
+  done
+  return 1
+}
+
+#
+# FUNCTION: probe_peer
+#
+# DESCRIPTION: This function will find a working host in the hosts SMC tier
+# to probe.
+#
+probe_peer()
+{
+  for HOST in ${TIER_SERVICES[@]};
+  do
+    if [ ! "$HOST" == "$HOSTNAME" ] &&
+          probe_glusterd $HOST $GLUSTERD_PORT; then
+      if gluster peer probe $HOST &> /dev/null; then
+        echo_success  && echo "Probed @ $HOST"
+        return 0
+      else
+        echo_failure; echo "Failed to probe $HOST"
+      fi
+    fi
+  done
+  return 1
+}
+
+#
+# FUNCTION: sync_uuid_smc
+#
+# DESCRIPTION: This function will copy the hosts UUID into SMC for later
+# use i.e. re-adding a node to a cluster after re-imaging.
+#
+sync_uuid_smc()
+{
+  if ! smcc setsvcprop $GLUSTER_SMC_TIER $HOSTNAME glusterfs.uuid $1 &> \
+        /dev/null; then
+    echo_failure; echo "Failed to save UUID to SMC"
+    return 1
+  fi
+  echo_success && echo "Sync'd UUID to SMC"
+  return 0
+}
+
+#
+# FUNCTION: smartmount_vol
+#
+# DESCRIPTION: This function figures out how to mount a Gluster volume in
+# a SMC tier by trying to find a host which has a working daemon. Once
+# a working daemon is found it will attempt to mount against that node.
+# After the initial mount is made and the cluster topology is
+# downloaded to the client this host is no longer required.
+#
+smartmount_vol()
+{
+  set_smc_tier || return 1
+  /sbin/modprobe fuse || (echo "Failed to load FUSE!" && return 1)
+  local VOLUME="$1"
+  local MOUNT="$2"
+  rpm -q nmap &> /dev/null || yum -y -q install nmap &> /dev/null
+  for HOST in ${TIER_SERVICES[@]};
+  do
+    if probe_glusterd $HOST $GLUSTERD_PORT; then
+      echo_success  && echo "Found GlusterFS host @ $HOST"
+      if grep -E "^[[:graph:]]+ $MOUNT fuse.glusterfs" /proc/mounts &> /dev/null; then
+        echo_success && echo "$MOUNT already mounted"
+        return 0
+      elif mkdir -p "$GLUSTER_ROOT_MOUNT" &> /dev/null &&
+        mount -t glusterfs $HOST:/"$VOLUME" "$MOUNT" &&
+        sleep 1 && cat /proc/mounts | grep "$MOUNT" &> /dev/null; then
+        echo_success && echo "Mounted GlusterFS $VOLUME @ $MOUNT"
+        return 0
+      else
+        echo_failure; echo "Failed to mount from $HOST"
+      fi
+    fi
+  done
+}
+
+#
+# FUNCTION: patch_services
+#
+# DESCRIPTION: Patch /etc/services off the get-go so we don't
+# steal fbagent's port.  cfengine can handle this as well but
+# it takes some time to run, so we don't want to take a chance
+# given how vital it is.
+#
+patch_etc_services()
+{
+  if ! grep  "fbagent.*988" /etc/services &> /dev/null; then
+    grep  "fbagent.*988/tcp" /etc/services || \
+      echo "fbagent         988/tcp" >> /etc/services
+    grep  "fbagent.*988/udp" /etc/services || \
+      echo "fbagent         988/udp" >> /etc/services
+    echo_success && echo "Added fbagent to /etc/services"
+  fi
+}
+
+#
+# FUNCTION: heal_volume
+#
+# DESCRIPTION: Heal volume will traverse a given volume stat'ing each
+# file in order to trigger a self-heal & ensure the file is re-mirrored
+# to a host which has been re-imaged or otherwise become out of sync.
+#
+heal_volume()
+{
+  set_smc_tier || return 1
+  local VOLUME="$(echo $1 | sed 's/\./_/g')"
+  local CONCURRENT_HEALS="2"
+  [ -n "$2" ] && CONCURRENT_HEALS="$2"
+  local TMP_MOUNT="/tmp/$VOLUME.healer"
+  [ -d "$TMP_MOUNT" ] || mkdir -p $TMP_MOUNT
+  cat /proc/mounts | grep "$TMP_MOUNT" &> /dev/null && umount "$TMP_MOUNT"
+  if smartmount_vol "$VOLUME" "$TMP_MOUNT"; then
+    umount "$TMP_MOUNT"
+    smartmount_vol "$VOLUME" "$TMP_MOUNT"
+    cd "$TMP_MOUNT"
+    for ((CNT=1; CNT<=$CONCURRENT_HEALS; CNT++))
+    do
+      for ENTRY in $(ls | sed -n "$CNT~""$CONCURRENT_HEALS""p");do
+        echo "Healing $ENTRY..." &&
+          ( [ -d "$ENTRY" ] && \
+          ls "$ENTRY"/* | xargs -n50 -P1 stat >/dev/null ) ||
+              stat "$ENTRY" &> /dev/null
+      done &
+    done
+    cd /
+    wait
+    # Don't umount here, as the actual heals are backgrounded by
+    # the FUSE client.  If we umount now they will go unfinished.
+    # (Don't worry, this all goes away as of v3.3).
+    echo_success && echo "Healed $VOLUME"
+  else
+    echo_failure; echo "Failed to heal $VOLUME"
+    return 1
+  fi
+}
+
+#
+# FUNCTION: check_config
+#
+# DESCRIPTION: This function verifies the hosts Gluster configuration and if
+# necessary will restore the hosts UUID & re-sync the configuration from a
+# working node in the cluster.  Afterwards it will re-create the volume
+# directories and trigger a self-heal on all files
+#
+# NOTE: This function will only run if the node is *not* Gluster MService
+# managed, as the MService handles these functions and then some.  It's
+# here for cases where we are testing out new configs but still want to be
+# resilient through re-imaging cycles.  For long-term production use the
+# MService should be used.
+#
+check_config()
+{
+  # If the host isn't listed in a storage.gluster.* tier do nothing
+  set_smc_tier || return 0
+  # If tier uses Gluster MService don't do anything, the MService
+  # will handle these functions
+  smcc getprop $GLUSTER_SMC_TIER fbd_package 2>&1 |
+      grep -E "gluster_mservice|antfarm" &> /dev/null && return 0
+  LOCAL_UUID=$(cat $GLUSTERD_CONF/glusterd.info 2> /dev/null | cut -d= -f2)
+
+  if [ -n "$SVC_UUID" ]; then
+    # We have a storaged UUID in SMC, two cases, either
+    # we have been re-imaged, or we just need to sync it to SMC
+    if ! grep "UUID=$SVC_UUID" $GLUSTERD_CONF/glusterd.info &> /dev/null; then
+      # SMC UUID doesn't match, restore it!
+      echo "UUID=$SVC_UUID" > $GLUSTERD_CONF/glusterd.info
+      echo_success && echo "Restored UUID from SMC"
+      start_daemon
+      sleep 5
+      probe_peer
+      sleep 5
+      stop
+      sleep 5
+      start_daemon
+      sleep 5
+      if VOL_DIRS=($(gluster volume info | grep -Eo \
+            "(^Brick[0-9]+: $HOSTNAME)|(^Brick[0-9]+: $(echo $HOSTNAME |
+            sed 's/.facebook.com//g')):$GLUSTERD_DATA_DIR.*" |
+            cut -d: -f3)); then
+        stop
+        start_daemon
+        for VOL_DIR in ${VOL_DIRS[@]}; do
+          mkdir -p "$VOL_DIR"
+          heal_volume "${VOL_DIR##*/}"
+        done
+        echo_success && echo "Created volume dirs"
+      else
+        echo_failure; echo "No volume dirs found"
+      fi
+    fi
+  else
+    # We don't have any UUID stored in SMC, either we need to record it
+    # or this is a completely fresh install.
+    if [ -z "$LOCAL_UUID" ]; then
+      # Not even a local UUID, fresh install case
+      start_daemon
+      sleep 5
+      if ! LOCAL_UUID=$(cat $GLUSTERD_CONF/glusterd.info | cut -d= -f2); then
+        echo_failure; echo "UUID not generated"
+        return 1
+      fi
+      stop
+    fi
+    sync_uuid_smc $LOCAL_UUID
+  fi
+  return 0
+}
+
+#
+# FUNCTION: mount_root
+#
+# DESCRIPTION: Mount root will attempt to find a defined "root" volume which
+# is assigned this this host and mount it
+#
+mount_root()
+{
+  if ! set_smc_tier; then
+    echo_failure; echo "Mounting root not possible, no GFS SMC tier found"
+    return 1
+  fi
+  if [ -z "$SVC_UUID" ]; then
+    echo_failure;echo "Not mounting, no UUID in SMC, new node?"
+    return 1
+  fi
+  if smartmount_vol $GLUSTER_ROOT_VOLUME $GLUSTER_ROOT_MOUNT; then
+    return 0
+  else
+    echo_failure; echo \
+        "WARNING: GlusterFS not mounted @ $GLUSTER_ROOT_MOUNT" && return 1
+  fi
+}
+
+#
+# FUNCTION: warm_inode_cache
+#
+# DESCRIPTION: This function effectively "pre-warms" the inode cache of a
+# Gluster host by simply doing an ls -lR on the data directory.  This is
+# very useful for hosts which run with only 1 spindle as the number of
+# meta-data requests which flood a host which participates in a cluster
+# with large numbers of files creates head contention.  The result of this
+# contention can be a cluster which is unresponsive and/or laggy.  Loading
+# this meta-data into memory ahead of time eliminates this problem.
+#
+warm_inode_cache()
+{
+  # Don't fail here, attempt to run with defaults
+  set_smc_tier
+  if [ "$WARM_INODE_CACHE" == "1" ] && [ -n "$GLUSTERD_DATA_DIR" ] && \
+      [ -d "$GLUSTERD_DATA_DIR" ]; then
+    echo -n "Warming inode cache ($GLUSTERD_DATA_DIR)..."
+    mkdir -p $GLUSTERD_DATA_DIR
+    if CNT=$(ls -lR $GLUSTERD_DATA_DIR | wc -l); then
+      echo -n "$CNT entries"
+      echo_success && echo ""
+    else
+      echo_failure && echo ""
+    fi
+  fi
+  return 0
+}
+
+#
+# FUNCTION: check_quorum
+#
+# DESCRIPTION: Checks the quorum status of the local node.  Will non-zero if
+# the node quorum margin is <= 0, where node margin is defined by how many
+# nodes can be downed before we have a loss of quorum.  This will principally
+# be used by FBAR to easily figure out if it can remediate a Gluster node
+# (it can call this via SSH).
+#
+check_quorum()
+{
+  # Return 0 here so FBAR knows it's ok to take a spare or otherwise
+  # dead node.
+  if ! pgrep glusterd &> /dev/null; then
+    echo "glusterd not running!"
+    return 1
+  fi
+  set_replica_cnt || return 1
+  set_replicas
+  local REPLICAS_RET_CODE=$?
+  if (( $REPLICAS_RET_CODE == 2 )); then
+    return 0
+  elif (( $REPLICAS_RET_CODE != 0 )); then
+    return 1
+  fi
+
+  local REDUNDANCY_CNT=0
+  for VOL in ${HOSTED_VOLS[@]}; do
+    REDUNDANCY_CNT=$(grep redundancy_count /var/lib/glusterd/vols/groot/info  | cut -d= -f2)
+    if (( REDUNDANCY_COUNT > 0 )); then
+      break;
+    fi
+  done
+  if ! (( REDUNDANCY_CNT > 0 )); then
+    REDUNDANCY_CNT=${#REPLICAS[@]}
+    QUORUM_THRESHOLD=$(((${REDUNDANCY_CNT}+1)/2+1))
+    echo "Quorum threshold: $QUORUM_THRESHOLD"
+  else
+    QUORUM_THRESHOLD=$((${REDUNDANCY_CNT}/2))
+    echo "Quorum threshold (EC @ 50% of ${REDUNDANCY_CNT} redundant bricks): $QUORUM_THRESHOLD"
+  fi
+
+  local LIVING_BRICKS=$REPLICA_CNT
+  local CHECK_LIST=(${REPLICAS[@]})
+  CHECK_LIST+=($HOST)
+  local CHECK_HOST=""
+  local DEAD_BRICKS=0
+  for CHECK_HOST in ${CHECK_LIST[@]}
+  do
+    echo -n "Replica $CHECK_HOST: "
+    if ! probe_glusterd $CHECK_HOST $GLUSTERD_PORT; then
+      echo "DEAD"
+      LIVING_BRICKS=$(($LIVING_BRICKS-1))
+      DEAD_BRICKS=$(($DEAD_BRICKS+1))
+    else
+      echo "ALIVE"
+    fi
+  done
+  QUORUM_MARGIN=$(($QUORUM_THRESHOLD-$DEAD_BRICKS))
+  echo "Quorum margin: $QUORUM_MARGIN"
+  if (( $QUORUM_MARGIN > 0 )); then
+    return 0
+  else
+    return 1
+  fi
+}
+
+#
+# FUNCTION: fsdiff
+#
+# DESCRIPTION: Does a quick sanity check on the file sets between the local node
+# and one of it's partner nodes.  This function will return a list of all files
+# which differ in size.  Keep in mind this will be approximate on running live
+# hosts since the script can't get a perfect snapshot of each FS.  On a node
+# which is about to be re-integrated into the cluster however it will give a
+# good view of how much data is out of sync.
+#
+fsdiff()
+{
+  WORK_DIR="/tmp/gfsdiff"
+  set_smc_tier
+  if ! set_node_index; then
+    echo "$HOSTNAME not a member of any replica group."
+    exit 1
+  fi
+  set_replicas || ( echo "No replicas found!" && return 1 )
+  set_live_replica || ( echo "No live replica found!" && return 1 )
+  mkdir -p $WORK_DIR
+  echo -n "Getting local file list for $HOSTNAME..."
+  find $GLUSTERD_DATA_DIR -type f -printf '%s\t%p\n' |
+    sort > $WORK_DIR/$HOSTNAME.lst
+  echo "DONE"
+  echo -n "Getting file list for $LIVE_REPLICA..."
+  ssh root@$LIVE_REPLICA "find $GLUSTERD_DATA_DIR -type f -printf '%s\t%p\n'" \
+    | sort > $WORK_DIR/$LIVE_REPLICA.lst
+  echo "DONE"
+  echo "Finding differences..."
+  comm -1 -3 $WORK_DIR/$LIVE_REPLICA.lst $WORK_DIR/$HOSTNAME.lst |
+    awk '{print $NF}'
+}

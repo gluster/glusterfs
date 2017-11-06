@@ -1,0 +1,17 @@
+[Unit]
+Description=GlusterFS Self-Heal Daemon
+After=network.target rpcbind.service
+Before=network-online.target
+
+[Service]
+Type=forking
+EnvironmentFile=@localstatedir@/lib/glusterd/glusterd.info
+LimitNOFILE=65536
+ExecStartPre=-/bin/pkill -f '^@prefix@/sbin/glusterfs.*gluster/glustershd'
+ExecStart= @prefix@/sbin/glusterfs -s localhost --volfile-id gluster/glustershd -p @localstatedir@/lib/glusterd/glustershd/run/glustershd.pid -l /var/log/glusterfs/glustershd.log --xlator-option *replicate*.node-uuid=${UUID} -S @localstatedir@/lib/glusterd/glustershd/run/${UUID}.socket
+PIDFile=@localstatedir@/lib/glusterd/glustershd/run/glustershd.pid
+ExecStop=/bin/pkill -f '^@prefix@/sbin/glusterfs.*gluster/glustershd'
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

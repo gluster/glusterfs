@@ -6,8 +6,7 @@ dnl  General Public License, version 3 or any later version (LGPLv3 or
 dnl  later), or the GNU General Public License, version 2 (GPLv2), in all
 dnl  cases as published by the Free Software Foundation.
 
-AC_INIT([glusterfs],
-        [m4_esyscmd([build-aux/pkg-version --version])],
+AC_INIT([glusterfs],[3.8_fb],
         [gluster-users@gluster.org],,[https://github.com/gluster/glusterfs.git])
 
 AC_SUBST([PACKAGE_RELEASE],
@@ -33,7 +32,7 @@ if libtool --help 2>&1 | grep -q quiet; then
    AM_LIBTOOLFLAGS="--quiet";
 fi
 
-AC_CONFIG_HEADERS([config.h site.h])
+AC_CONFIG_HEADERS([config.h])
 
 AC_CONFIG_FILES([Makefile
                 libglusterfs/Makefile
@@ -106,6 +105,8 @@ AC_CONFIG_FILES([Makefile
                 xlators/debug/trace/src/Makefile
                 xlators/debug/error-gen/Makefile
                 xlators/debug/error-gen/src/Makefile
+                xlators/debug/delay-gen/Makefile
+                xlators/debug/delay-gen/src/Makefile
                 xlators/debug/io-stats/Makefile
                 xlators/debug/io-stats/src/Makefile
                 xlators/protocol/Makefile
@@ -204,12 +205,17 @@ AC_CONFIG_FILES([Makefile
                 extras/init.d/glusterd-Redhat
                 extras/init.d/glusterd-FreeBSD
                 extras/init.d/glusterd-SuSE
+                extras/init.d/glusterd-FbRedhat
+                extras/init.d/glusterd.functions-FbRedhat
                 extras/ganesha/Makefile
                 extras/ganesha/config/Makefile
                 extras/ganesha/scripts/Makefile
                 extras/ganesha/ocf/Makefile
                 extras/systemd/Makefile
-                extras/systemd/glusterd.service
+                extras/systemd/glusterd-mgmt.service
+                extras/systemd/glusterd-nfsd.service
+                extras/systemd/glusterd-gfproxyd.service
+                extras/systemd/glusterd-shd.service
                 extras/run-gluster.tmpfiles
                 extras/benchmarking/Makefile
                 extras/hook-scripts/Makefile
@@ -257,6 +263,12 @@ AC_CONFIG_FILES([Makefile
                 tests/basic/fuse/Makefile
                 tests/basic/gfapi/Makefile])
 
+if test "xBUILD_FBEXTRAS" = "xyes"; then
+AC_CONFIG_FILES([
+                xlators/mount/fuse/utils/umount.fuse.glusterfs
+                ])
+fi
+
 AC_CANONICAL_HOST
 
 AC_PROG_CC
@@ -279,19 +291,35 @@ if test "x$enable_debug" = "xyes"; then
         CFLAGS="${CFLAGS} -g -O0 -DDEBUG"
 else
         BUILD_DEBUG=no
-        CFLAGS="${CFLAGS} -g"
 fi
 
-AC_ARG_WITH([fbextras], AC_HELP_STRING([--with-fbextras], [Enable Facebook specific extras.]))
+AC_ARG_WITH([fbextras],
+            AC_HELP_STRING([--with-fbextras],
+                           [Enable Facebook specific extras.]))
 if test "x$with_fbextras" = "xyes"; then
         BUILD_FBEXTRAS=yes
 else
         BUILD_FBEXTRAS=no
 fi
 
-AC_ARG_ENABLE([privport_prefer], AC_HELP_STRING([--disable-privport_prefer], [Disable preferred usage of privleged ports.]))
-if test "x$enable_privport_prefer" = "xno"; then
-    CFLAGS="${CFLAGS} -DNO_PRIVPORT"
+AC_ARG_WITH([systemd],
+            AC_HELP_STRING([--with-systemd],
+                           [Enable systemd support.]))
+if test "x$with_systemd" = "xyes"; then
+        WITH_SYSTEMD=1
+else
+        WITH_SYSTEMD=0
+fi
+
+AC_ARG_ENABLE([mempool],
+              AC_HELP_STRING([--enable-mempool],
+                             [Enable the Gluster memory pooler.]))
+MEMPOOL_CFLAGS=""
+if test "x$enable_mempool" = "xyes"; then
+        MEMPOOL_CFLAGS="-DENABLE_MEMPOOL"
+        USE_MEMPOOL="yes"
+else
+        USE_MEMPOOL="no"
 fi
 
 case $host_os in
@@ -488,6 +516,16 @@ AC_SUBST(ZLIB_LIBS)
 
 AC_CHECK_HEADERS([linux/falloc.h])
 
+AC_CHECK_HEADER([tirpc/rpc/rpc.h])
+
+case $host_os in
+  darwin*)
+    if ! test "`/usr/bin/sw_vers | grep ProductVersion: | cut -f 2 | cut -d. -f2`" -ge 5; then
+      AC_MSG_ERROR([You need at least OS X 10.5 (Leopard) to build Glusterfs])
+    fi
+    ;;
+esac
+
 AC_CHECK_HEADERS([linux/oom.h], AC_DEFINE(HAVE_LINUX_OOM_H, 1, [have linux/oom.h]))
 
 dnl Mac OS X does not have spinlocks
@@ -672,9 +710,14 @@ AC_SUBST(RDMA_SUBDIR)
 
 
 # SYNCDAEMON section
+enable_georeplication=yes
 AC_ARG_ENABLE([georeplication],
               AC_HELP_STRING([--disable-georeplication],
-                             [Do not install georeplication components]))
+                             [Do not install georeplication components]),
+                             [enable_georeplication=no],[])
+
+echo "enable_georeplication=$enable_georeplication"
+enable_georeplication=no
 
 BUILD_SYNCDAEMON=no
 case $host_os in
@@ -689,9 +732,9 @@ case $host_os in
         enable_georeplication=no
         ;;
 esac
+SYNCDAEMON_SUBDIR=geo-replication
 SYNCDAEMON_COMPILE=0
 if test "x$enable_georeplication" != "xno"; then
-  SYNCDAEMON_SUBDIR=geo-replication
   SYNCDAEMON_COMPILE=1
 
   BUILD_SYNCDAEMON="yes"
@@ -715,10 +758,7 @@ AC_SUBST(SYNCDAEMON_COMPILE)
 AC_SUBST(SYNCDAEMON_SUBDIR)
 # end SYNCDAEMON section
 
-# only install scripts from extras/geo-rep when enabled
-if test "x$enable_georeplication" != "xno"; then
-  GEOREP_EXTRAS_SUBDIR=geo-rep
-fi
+GEOREP_EXTRAS_SUBDIR=geo-rep
 AC_SUBST(GEOREP_EXTRAS_SUBDIR)
 AM_CONDITIONAL(USE_GEOREP, test "x$enable_georeplication" != "xno")
 
@@ -843,8 +883,7 @@ fi
 AC_SUBST(HAVE_LINKAT)
 
 dnl check for Monotonic clock
-AC_CHECK_LIB([rt], [clock_gettime], ,
-             AC_MSG_WARN([System doesn't have monotonic clock using contrib]))
+AC_CHECK_FUNC([clock_gettime], [has_monotonic_clock=yes], AC_CHECK_LIB([rt], [clock_gettime], , AC_MSG_WARN([System does not have monotonic clock using contrib])))
 
 dnl Check for argp
 AC_CHECK_HEADER([argp.h], AC_DEFINE(HAVE_ARGP, 1, [have argp]))
@@ -922,12 +961,16 @@ fi
 if test "x$ac_cv_file__etc_redhat_release" = "xyes"; then
    GF_DISTRIBUTION=Redhat
 fi
+if uname -a | grep fbk &> /dev/null; then
+    GF_DISTRIBUTION=FbRedhat
+fi
 
 AC_SUBST(GF_DISTRIBUTION)
 
 GF_HOST_OS=""
 GF_LDFLAGS="-rdynamic"
 
+ASAN_CFLAGS=""
 BUILD_ASAN=no
 if test "x$with_asan" = "xyes"; then
     echo -n "checking for address sanitizer (ASAN) support... "
@@ -938,7 +981,7 @@ if test "x$with_asan" = "xyes"; then
     if test $ret -eq 0 ; then
       echo "yes"
       BUILD_ASAN=yes
-      GF_CFLAGS="$GF_CFLAGS -DASAN -fsanitize=address -O0 -ggdb"
+      ASAN_CFLAGS="-DASAN -fsanitize=address -O0 -ggdb"
       GF_LDFLAGS="-gdb -static-libasan $GF_LDFLAGS"
     else
       echo "no"
@@ -947,17 +990,18 @@ if test "x$with_asan" = "xyes"; then
     fi
 fi
 
+TSAN_CFLAGS=""
 BUILD_TSAN=no
 if test "x$with_tsan" = "xyes"; then
     echo -n "checking for thread sanitizer (TSAN) support... "
     AC_LANG_CONFTEST([AC_LANG_PROGRAM()])
-    $CC conftest.c $CFLAGS -fsanitize=address -o conftest > /dev/null 2> /dev/null
+    $CC conftest.c $CFLAGS -fsanitize=thread -o conftest > /dev/null 2> /dev/null
     ret=$?
     rm -f conftest.o conftest
     if test $ret -eq 0 ; then
       echo "yes"
       BUILD_TSAN=yes
-      GF_CFLAGS="$GF_CFLAGS -fsanitize=thread -O0 -ggdb -fPIC -pie"
+      TSAN_CFLAGS="-fsanitize=thread -O0 -ggdb -fPIC -pie"
       GF_LDFLAGS="-gdb -static-libtsan $GF_LDFLAGS"
     else
       echo "no"
@@ -966,6 +1010,7 @@ if test "x$with_tsan" = "xyes"; then
     fi
 fi
 
+JEMALLOC_CFLAGS=""
 BUILD_JEMALLOC=no
 if test "x$with_jemalloc" = "xyes"; then
     echo -n "checking for jemalloc support... "
@@ -984,42 +1029,9 @@ if test "x$with_jemalloc" = "xyes"; then
     fi
 fi
 
-TESTER_CFLAGS=""
-dnl include tirpc for FB builds
 if test "x$BUILD_FBEXTRAS" = "xyes"; then
-        TIRPC_CFLAGS="-I/usr/include/tirpc"
-        GF_LDFLAGS="-ltirpc $GF_LDFLAGS"
-        GF_CFLAGS="$TIRPC_CFLAGS $GF_CFLAGS -DIPV6_DEFAULT -DGF_FBEXTRAS"
-        TESTER_CFLAGS="$TESTER_CFLAGS -ltirpc"
-fi
-
-dnl check for gcc -Werror=format-security
-saved_CFLAGS=$CFLAGS
-CFLAGS="-Wformat -Werror=format-security"
-AC_MSG_CHECKING([whether $CC accepts -Werror=format-security])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM()], [cc_werror_format_security=yes], [cc_werror_format_security=no])
-echo $cc_werror_format_security
-if test "x$cc_werror_format_security" = "xno"; then
-    CFLAGS="$saved_CFLAGS"
-else
-    CFLAGS="$saved_CFLAGS $CFLAGS"
-    GF_CFLAGS="$GF_CFLAGS $CFLAGS"
-fi
-
-dnl check for gcc -Werror=implicit-function-declaration
-saved_CFLAGS=$CFLAGS
-saved_GF_CFLAGS=$GF_CFLAGS
-CFLAGS="-Werror=implicit-function-declaration"
-GF_CFLAGS="-Werror=implicit-function-declaration"
-AC_MSG_CHECKING([whether $CC accepts -Werror=implicit-function-declaration])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM()], [cc_werror_implicit=yes], [cc_werror_implicit=no])
-echo $cc_werror_implicit
-if test "x$cc_werror_implicit" = "xno"; then
-    CFLAGS="$saved_CFLAGS"
-    GF_CFLAGS="$saved_GF_CFLAGS"
-else
-    CFLAGS="$saved_CFLAGS $CFLAGS"
-    GF_CFLAGS="$saved_GF_CFLAGS $GF_CFLAGS"
+    TIRPC_CFLAGS="-I/usr/include/tirpc -DIPV6_DEFAULT"
+    GF_LDFLAGS="-ltirpc $GF_LDFLAGS"
 fi
 
 dnl clang is mostly GCC-compatible, but its version is much lower,
@@ -1083,6 +1095,9 @@ prefix=$old_prefix
 case $host_os in
      linux*)
         GF_HOST_OS="GF_LINUX_HOST_OS"
+        GF_CFLAGS="${GF_CFLAGS} $MEMPOOL_CFLAGS $ASAN_CFLAGS $TSAN_CFLAGS \
+                   $JEMALLOC_CFLAGS $TIRPC_CFLAGS"
+        GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
         GF_FUSE_CFLAGS="-DFUSERMOUNT_DIR=\\\"\$(bindir)\\\""
         GLUSTERD_WORKDIR="${LOCALSTATEDIR}/lib/glusterd"
         ;;
@@ -1179,17 +1194,14 @@ fi
 AC_SUBST(UMOUNTD_SUBDIR)
 
 
+AC_CHECK_PROG(NFUSR, nfusr, "yes", "no")
+AC_SUBST(NFUSR)
+
 # enable debug section
 AC_ARG_ENABLE([debug],
               AC_HELP_STRING([--enable-debug],
                              [Enable debug build options.]))
 
-AC_ARG_ENABLE([mempool],
-              AC_HELP_STRING([--disable-mempool],
-                             [Disable the Gluster memory pooler.]))
-if test "x$enable_mempool" = "xno"; then
-        CFLAGS="${CFLAGS} -DDISABLE_MEMPOOL"
-fi
 
 # syslog section
 AC_ARG_ENABLE([syslog],
@@ -1378,7 +1390,7 @@ CONTRIBDIR='$(top_srcdir)/contrib'
 AC_SUBST(CONTRIBDIR)
 
 GF_CPPDEFINES='-D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(GF_HOST_OS)'
-GF_CPPINCLUDES='-include $(top_builddir)/config.h -include $(top_builddir)/site.h -I$(top_srcdir)/libglusterfs/src -I$(top_builddir)/libglusterfs/src'
+GF_CPPINCLUDES='-include $(top_builddir)/config.h -I$(top_srcdir)/libglusterfs/src -I$(top_builddir)/libglusterfs/src'
 GF_CPPFLAGS="$GF_CPPFLAGS $GF_CPPDEFINES $GF_CPPINCLUDES"
 AC_SUBST([GF_CPPFLAGS])
 
@@ -1386,13 +1398,14 @@ AM_CONDITIONAL([GF_LINUX_HOST_OS], test "${GF_HOST_OS}" = "GF_LINUX_HOST_OS")
 AM_CONDITIONAL([GF_DARWIN_HOST_OS], test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS")
 AM_CONDITIONAL([GF_BSD_HOST_OS], test "${GF_HOST_OS}" = "GF_BSD_HOST_OS")
 AM_CONDITIONAL([GF_FBEXTRAS], test "${BUILD_FBEXTRAS}" = "yes")
+AM_CONDITIONAL([GF_WITH_SYSTEMD], test "${WITH_SYSTEMD}" = "1")
+AC_SUBST(WITH_SYSTEMD)
 
 AC_SUBST(GLUSTERD_WORKDIR)
 AM_CONDITIONAL([GF_INSTALL_GLUSTERD_WORKDIR], test ! -d ${GLUSTERD_WORKDIR} && test -d ${sysconfdir}/glusterd )
 AC_SUBST(GLUSTERD_VOLFILE)
 AC_SUBST(GLUSTERFS_LIBEXECDIR)
 AC_SUBST(GLUSTERFSD_MISCDIR)
-AC_SUBST(TESTER_CFLAGS)
 
 dnl pkg-config versioning
 dnl
@@ -1457,4 +1470,5 @@ echo "Experimental xlators : $BUILD_EXPERIMENTAL"
 echo "ASAN enabled         : $BUILD_ASAN"
 echo "TSAN enabled         : $BUILD_TSAN"
 echo "jemalloc enabled     : $BUILD_JEMALLOC"
+echo "mempool enabled      : $USE_MEMPOOL"
 echo
