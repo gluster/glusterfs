@@ -343,7 +343,8 @@ glusterd_do_volume_quorum_action (xlator_t *this, glusterd_volinfo_t *volinfo,
          * the bricks that are down are brought up again. In this process it
          * also brings up the brick that is purposefully taken down.
          */
-        if (volinfo->quorum_status == quorum_status)
+        if (quorum_status != NOT_APPLICABLE_QUORUM &&
+            volinfo->quorum_status == quorum_status)
                 goto out;
 
         if (quorum_status == MEETS_QUORUM) {
