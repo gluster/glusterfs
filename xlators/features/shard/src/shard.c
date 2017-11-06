@@ -4972,7 +4972,7 @@ init (xlator_t *this)
         if (!this) {
                 gf_msg ("shard", GF_LOG_ERROR, 0, SHARD_MSG_NULL_THIS,
                         "this is NULL. init() failed");
-                goto out;
+                return -1;
         }
 
         if (!this->parents) {
@@ -5096,17 +5096,20 @@ shard_priv_dump (xlator_t *this)
 {
         shard_priv_t *priv                             = NULL;
         char          key_prefix[GF_DUMP_MAX_BUF_LEN]  = {0,};
+        char         *str                              = NULL;
 
         priv = this->private;
 
         snprintf (key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type,
                   this->name);
         gf_proc_dump_add_section (key_prefix);
-        gf_proc_dump_write ("shard-block-size", "%s",
-                            gf_uint64_2human_readable (priv->block_size));
+        str = gf_uint64_2human_readable (priv->block_size);
+        gf_proc_dump_write ("shard-block-size", "%s", str);
         gf_proc_dump_write ("inode-count", "%d", priv->inode_count);
         gf_proc_dump_write ("ilist_head", "%p", &priv->ilist_head);
         gf_proc_dump_write ("lru-max-limit", "%d", SHARD_MAX_INODES);
+
+        GF_FREE (str);
 
         return 0;
 }
