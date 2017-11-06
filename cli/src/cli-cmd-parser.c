@@ -1075,8 +1075,13 @@ cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
                 goto out;
         }
 
-        if (wordcount < 4)
+        if (wordcount < 4) {
+
+                if ((wordcount == 3) && !(strcmp (words[2], "help"))) {
+                        ret = 1;
+                }
                 goto out;
+        }
 
         volname = (char *)words[2];
         if (!volname) {
@@ -5477,14 +5482,21 @@ cli_cmd_bitrot_parse (const char **words, int wordcount, dict_t **options)
         GF_ASSERT (words);
         GF_ASSERT (options);
 
-        dict = dict_new ();
-        if (!dict)
-                goto out;
+
+        /* Hack to print out bitrot help properly */
+        if ((wordcount == 3) && !(strcmp (words[2], "help"))) {
+                ret = 1;
+                return ret;
+        }
 
         if (wordcount < 4 || wordcount > 5) {
                 gf_log ("cli", GF_LOG_ERROR, "Invalid syntax");
                 goto out;
         }
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
 
         volname = (char *)words[2];
         if (!volname) {

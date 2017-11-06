@@ -514,7 +514,7 @@ cli_usage_out (const char *usage)
         if (!usage || usage[0] == '\0')
                 return -1;
 
-        cli_err ("Usage: %s", usage);
+        cli_err ("\nUsage:\n%s\n", usage);
         return 0;
 }
 
