@@ -117,7 +117,7 @@ static void *
 gf_timer_proc (void *data)
 {
         gf_timer_registry_t *reg = data;
-        const struct timespec sleepts = {.tv_sec = 1, .tv_nsec = 0, };
+        struct timespec sleepts;
         gf_timer_t *event = NULL;
         gf_timer_t *tmp = NULL;
         xlator_t   *old_THIS = NULL;
@@ -132,8 +132,29 @@ gf_timer_proc (void *data)
                         uint64_t at;
                         char need_cbk = 0;
 
+                        /*
+                         * This will be overridden with a shorter interval if
+                         * there's an event scheduled sooner. That makes the
+                         * system more responsive in most cases, but doesn't
+                         * include the case where a timer is added while we're
+                         * asleep. It's tempting to use pthread_cond_timedwait,
+                         * with the caveat that we'd be relying on system time
+                         * instead of monotonic time. That's a mess when the
+                         * system time is adjusted.  Another alternative might
+                         * be to use pthread_kill, but that will remain TBD for
+                         * now.
+                         */
+                        sleepts.tv_sec = 1;
+                        sleepts.tv_nsec = 0;
+
                         LOCK (&reg->lock);
                         {
+                                /*
+                                 * Using list_for_each and then always breaking
+                                 * after the first iteration might seem strange,
+                                 * but (unlike alternatives) is independent of
+                                 * the underlying list implementation.
+                                 */
                                 list_for_each_entry_safe (event,
                                              tmp, &reg->active, list) {
                                         at = TS (event->at);
@@ -141,8 +162,15 @@ gf_timer_proc (void *data)
                                                 need_cbk = 1;
                                                 event->fired = _gf_true;
                                                 list_del (&event->list);
-                                                break;
+                                        } else {
+                                                uint64_t diff = now - at;
+
+                                                if (diff < 1000000000) {
+                                                        sleepts.tv_sec = 0;
+                                                        sleepts.tv_nsec = diff;
+                                                }
                                         }
+                                        break;
                                 }
                         }
                         UNLOCK (&reg->lock);
