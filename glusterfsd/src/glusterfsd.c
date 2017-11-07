@@ -2122,7 +2122,7 @@ glusterfs_pidfile_cleanup (glusterfs_ctx_t *ctx)
 }
 
 int
-glusterfs_pidfile_update (glusterfs_ctx_t *ctx)
+glusterfs_pidfile_update (glusterfs_ctx_t *ctx, pid_t pid)
 {
         cmd_args_t  *cmd_args = NULL;
         int          ret = 0;
@@ -2148,7 +2148,7 @@ glusterfs_pidfile_update (glusterfs_ctx_t *ctx)
                 return ret;
         }
 
-        ret = fprintf (pidfp, "%d\n", getpid ());
+        ret = fprintf (pidfp, "%d\n", pid);
         if (ret <= 0) {
                 gf_msg ("glusterfsd", GF_LOG_ERROR, errno, glusterfsd_msg_21,
                         cmd_args->pid_file);
@@ -2163,7 +2163,7 @@ glusterfs_pidfile_update (glusterfs_ctx_t *ctx)
         }
 
         gf_msg_debug ("glusterfsd", 0, "pidfile %s updated with pid %d",
-                      cmd_args->pid_file, getpid ());
+                      cmd_args->pid_file, pid);
 
         return 0;
 }
@@ -2274,6 +2274,7 @@ daemonize (glusterfs_ctx_t *ctx)
         cmd_args_t    *cmd_args = NULL;
         int            cstatus = 0;
         int            err = 1;
+        int            child_pid = 0;
 
         cmd_args = &ctx->cmd_args;
 
@@ -2281,8 +2282,12 @@ daemonize (glusterfs_ctx_t *ctx)
         if (ret)
                 goto out;
 
-        if (cmd_args->no_daemon_mode)
+        if (cmd_args->no_daemon_mode) {
+                ret = glusterfs_pidfile_update (ctx, getpid());
+                if (ret)
+                        goto out;
                 goto postfork;
+        }
 
         if (cmd_args->debug_mode)
                 goto postfork;
@@ -2314,6 +2319,7 @@ daemonize (glusterfs_ctx_t *ctx)
         default:
                 /* parent */
                 /* close write */
+                child_pid = ret;
                 sys_close (ctx->daemon_pipe[1]);
 
                 if (ctx->mnt_pid > 0) {
@@ -2332,14 +2338,15 @@ daemonize (glusterfs_ctx_t *ctx)
                 sys_read (ctx->daemon_pipe[0], (void *)&err, sizeof (err));
                 /* NOTE: Only the least significant 8 bits i.e (err & 255)
                    will be available to parent process on calling exit() */
-                _exit (abs(err));
+                if (err)
+                        _exit (abs(err));
+                ret = glusterfs_pidfile_update (ctx, child_pid);
+                if (ret)
+                        _exit (1);
+                _exit (0);
         }
 
 postfork:
-        ret = glusterfs_pidfile_update (ctx);
-        if (ret)
-                goto out;
-
         ret = gf_log_inject_timer_event (ctx);
 
         glusterfs_signals_setup (ctx);
