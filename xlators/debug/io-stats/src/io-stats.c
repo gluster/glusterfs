@@ -746,7 +746,7 @@ _io_stats_get_key_prefix (xlator_t *this, char **key_prefix) {
                         strlen (instance_name) + 3;
                 *key_prefix = GF_CALLOC (key_len, sizeof (char),
                         gf_common_mt_char);
-                if (!key_prefix) {
+                if (!*key_prefix) {
                         ret = -ENOMEM;
                         goto err;
                 }
@@ -761,7 +761,7 @@ _io_stats_get_key_prefix (xlator_t *this, char **key_prefix) {
                 key_len = strlen (key_root) + strlen (xlator_name) + 2;
                 *key_prefix = GF_CALLOC (key_len, sizeof (char),
                         gf_common_mt_char);
-                if (!key_prefix) {
+                if (!*key_prefix) {
                         ret = -ENOMEM;
                         goto err;
                 }
@@ -1090,6 +1090,9 @@ _io_stats_write_latency_sample (xlator_t *this, ios_sample_t *sample,
         username = _resolve_username (this, sample->uid);
         if (!username) {
                 username = GF_MALLOC (30, gf_common_mt_char);
+                if (!username) {
+                        goto out;
+                }
                 sprintf (username, "%d", (int32_t)sample->uid);
         }
 
@@ -1097,6 +1100,9 @@ _io_stats_write_latency_sample (xlator_t *this, ios_sample_t *sample,
         group_name = _resolve_group_name (this, sample->gid);
         if (!group_name) {
                 group_name = GF_MALLOC (30, gf_common_mt_char);
+                if (!group_name) {
+                        goto out;
+                }
                 sprintf (group_name, "%d", (int32_t)sample->gid);
         }
 
@@ -3824,8 +3830,14 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("ios-dump-interval", conf->ios_dump_interval, options,
                          int32, out);
         if ((old_dump_interval <= 0) && (conf->ios_dump_interval > 0)) {
-                gf_thread_create (&conf->dump_thread, NULL,
+                ret = gf_thread_create (&conf->dump_thread, NULL,
                                   (void *) &_ios_dump_thread, this, "iosdump");
+                if (ret) {
+                        gf_log (this ? this->name : "io-stats",
+                                GF_LOG_ERROR, "Failed to start thread"
+                                "while reconfigure. Returning %d", ret);
+                        goto out;
+                }
         }
 
         GF_OPTION_RECONF ("ios-sample-interval", conf->ios_sample_interval,
@@ -4005,10 +4017,11 @@ init (xlator_t *this)
         GF_OPTION_INIT ("ios-sample-buf-size", conf->ios_sample_buf_size,
                         int32, out);
 
-        if (ios_init_sample_buf (conf) != 0) {
+        ret = ios_init_sample_buf (conf);
+        if (ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory.");
-                return -1;
+                goto out;
         }
 
         GF_OPTION_INIT ("ios-dnscache-ttl-sec", conf->ios_dnscache_ttl_sec,
@@ -4048,16 +4061,19 @@ init (xlator_t *this)
 
         this->private = conf;
         if (conf->ios_dump_interval > 0) {
-                gf_thread_create (&conf->dump_thread, NULL,
-                                  (void *) &_ios_dump_thread, this, "iosdump");
+                ret = gf_thread_create (&conf->dump_thread, NULL,
+                                        (void *) &_ios_dump_thread,
+                                        this, "iosdump");
+                if (ret) {
+                        gf_log (this ? this->name : "io-stats",
+                                GF_LOG_ERROR, "Failed to start thread"
+                                "in init. Returning %d", ret);
+                        goto out;
+                }
         }
-        ret = 0;
+        return 0;
 out:
-        if (!this->private) {
-                ios_conf_destroy (conf);
-                ret = -1;
-        }
-
+        ios_conf_destroy (conf);
         return ret;
 }
 
