@@ -28,6 +28,7 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status_1 $V0 $H3 $B3/${V0}3
 # Bring down 2nd and 3rd glusterd
 TEST kill_glusterd 2
 TEST kill_glusterd 3
+EXPECT_WITHIN $PROBE_TIMEOUT 0 peer_count
 
 # Server quorum is not met. Brick on 1st node must be down
 EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" brick_up_status_1 $V0 $H1 $B1/${V0}1
