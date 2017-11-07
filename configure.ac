@@ -1013,18 +1013,24 @@ AC_SUBST(ARGP_STANDALONE_LDADD)
 AC_SUBST(ARGP_STANDALONE_DIR)
 
 dnl Check for atomic operation support
-AC_CHECK_FUNC([__atomic_load], [have_atomic_builtins])
+AC_MSG_CHECKING([for gcc __atomic builtins])
+AC_TRY_LINK([], [int v; __atomic_load_n(&v, __ATOMIC_ACQUIRE);],
+            [have_atomic_builtins=yes], [have_atomic_builtins=no])
 if test "x${have_atomic_builtins}" = "xyes"; then
    AC_DEFINE(HAVE_ATOMIC_BUILTINS, 1, [define if __atomic_*() builtins are available])
 fi
 AC_SUBST(HAVE_ATOMIC_BUILTINS)
+AC_MSG_RESULT([$have_atomic_builtins])
 
 dnl __sync_*() will not be needed if __atomic_*() is available
-AC_CHECK_FUNC([__sync_fetch_and_add], [have_sync_builtins])
-if test "x${have_sync_builtind}" = "xyes"; then
+AC_MSG_CHECKING([for gcc __sync builtins])
+AC_TRY_LINK([], [__sync_synchronize();],
+            [have_sync_builtins=yes], [have_sync_builtins=no])
+if test "x${have_sync_builtins}" = "xyes"; then
    AC_DEFINE(HAVE_SYNC_BUILTINS, 1, [define if __sync_*() builtins are available])
 fi
 AC_SUBST(HAVE_SYNC_BUILTINS)
+AC_MSG_RESULT([$have_sync_builtins])
 
 AC_CHECK_HEADER([malloc.h], AC_DEFINE(HAVE_MALLOC_H, 1, [have malloc.h]))
 

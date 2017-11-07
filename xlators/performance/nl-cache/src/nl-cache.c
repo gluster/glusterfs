@@ -618,29 +618,29 @@ nlc_priv_dump (xlator_t *this)
         gf_proc_dump_add_section(key_prefix);
 
         gf_proc_dump_write("negative_lookup_hit_count", "%"PRId64,
-                           conf->nlc_counter.nlc_hit.cnt);
+                           GF_ATOMIC_GET(conf->nlc_counter.nlc_hit));
         gf_proc_dump_write("negative_lookup_miss_count", "%"PRId64,
-                           conf->nlc_counter.nlc_miss.cnt);
+                           GF_ATOMIC_GET(conf->nlc_counter.nlc_miss));
         gf_proc_dump_write("get_real_filename_hit_count", "%"PRId64,
-                           conf->nlc_counter.getrealfilename_hit.cnt);
+                         GF_ATOMIC_GET(conf->nlc_counter.getrealfilename_hit));
         gf_proc_dump_write("get_real_filename_miss_count", "%"PRId64,
-                           conf->nlc_counter.getrealfilename_miss.cnt);
+                        GF_ATOMIC_GET(conf->nlc_counter.getrealfilename_miss));
         gf_proc_dump_write("nameless_lookup_count", "%"PRId64,
-                           conf->nlc_counter.nameless_lookup.cnt);
+                           GF_ATOMIC_GET(conf->nlc_counter.nameless_lookup));
         gf_proc_dump_write("inodes_with_positive_dentry_cache", "%"PRId64,
-                           conf->nlc_counter.pe_inode_cnt.cnt);
+                           GF_ATOMIC_GET(conf->nlc_counter.pe_inode_cnt));
         gf_proc_dump_write("inodes_with_negative_dentry_cache", "%"PRId64,
-                           conf->nlc_counter.ne_inode_cnt.cnt);
+                           GF_ATOMIC_GET(conf->nlc_counter.ne_inode_cnt));
         gf_proc_dump_write("dentry_invalidations_recieved", "%"PRId64,
-                           conf->nlc_counter.nlc_invals.cnt);
+                           GF_ATOMIC_GET(conf->nlc_counter.nlc_invals));
         gf_proc_dump_write("cache_limit", "%"PRIu64,
                            conf->cache_size);
         gf_proc_dump_write("consumed_cache_size", "%"PRId64,
-                           conf->current_cache_size.cnt);
+                           GF_ATOMIC_GET(conf->current_cache_size));
         gf_proc_dump_write("inode_limit", "%"PRIu64,
                            conf->inode_limit);
         gf_proc_dump_write("consumed_inodes", "%"PRId64,
-                           conf->refd_inodes.cnt);
+                           GF_ATOMIC_GET(conf->refd_inodes));
 
         return 0;
 }
