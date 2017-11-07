@@ -6583,7 +6583,9 @@ glusterd_schedule_brick_snapshot (dict_t *dict, dict_t *rsp_dict,
         GF_ASSERT(dict);
         GF_ASSERT(snap);
 
-        synctask_barrier_init ((&args));
+        ret = synctask_barrier_init ((&args));
+        if (ret)
+                goto out;
         cds_list_for_each_entry (snap_vol, &snap->volumes, vol_list) {
                 volcount++;
                 brickcount = 0;
