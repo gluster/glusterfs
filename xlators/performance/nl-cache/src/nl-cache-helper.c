@@ -600,8 +600,8 @@ nlc_lru_prune (xlator_t *this, inode_t *inode)
 
         LOCK (&conf->lock);
         {
-                if ((conf->current_cache_size.cnt < conf->cache_size) &&
-                    (conf->refd_inodes.cnt < conf->inode_limit))
+                if ((GF_ATOMIC_GET(conf->refd_inodes) < conf->inode_limit) &&
+                   (GF_ATOMIC_GET(conf->current_cache_size) < conf->cache_size))
                         goto unlock;
 
                 list_for_each_entry_safe (lru_node, tmp, &conf->lru, list) {

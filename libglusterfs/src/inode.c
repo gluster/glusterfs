@@ -2341,6 +2341,8 @@ inode_dump(inode_t *inode, char *prefix)
                     gf_proc_dump_build_key(key, "ref_by_xl:", "%s", xl->name);
                     gf_proc_dump_write(key, "%d", ref);
                 }
+            }
+        }    
 
 		if (dump_options.xl_options.dump_fdctx != _gf_true)
 			goto unlock;
@@ -2349,7 +2351,8 @@ inode_dump(inode_t *inode, char *prefix)
                 list_for_each_entry (fd, &inode->fd_list, inode_list) {
                         fd_ctx_dump (fd, prefix);
                 }
-        }
+           
+       }   
 unlock:
         UNLOCK(&inode->lock);
 
