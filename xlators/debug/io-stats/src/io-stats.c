@@ -1578,8 +1578,8 @@ io_stats_dump (xlator_t *this, struct ios_dump_args *args,
                gf1_cli_info_op op, gf_boolean_t is_peek)
 {
         struct ios_conf         *conf = NULL;
-        struct ios_global_stats  cumulative = {{0,}, };
-        struct ios_global_stats  incremental = {{0,}, };
+        struct ios_global_stats  cumulative = { };
+        struct ios_global_stats  incremental = { };
         int                      increment = 0;
         struct timeval           now;
 
