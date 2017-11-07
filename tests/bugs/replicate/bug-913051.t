@@ -37,17 +37,6 @@ TEST fd_open $rfd "r" $M0/dir/b
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
 
-#check that the files are not opned on brick-0
-TEST stat $M0/dir/a
-realpatha=$(gf_get_gfid_backend_file_path $B0/${V0}0 "dir/a")
-EXPECT "N" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 "$realpatha"
-EXPECT "N" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 $B0/${V0}0/dir/a
-
-TEST stat $M0/dir/b
-realpathb=$(gf_get_gfid_backend_file_path $B0/${V0}0 "dir/b")
-EXPECT "N" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 "$realpathb"
-EXPECT "N" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 $B0/${V0}0/dir/b
-
 #attempt self-heal so that the files are created on brick-0
 
 TEST dd if=$M0/dir/a of=/dev/null bs=1024k

@@ -905,7 +905,7 @@ fuse_getattr_resume (fuse_state_t *state)
         }
 
         if (!IA_ISDIR (state->loc.inode->ia_type)) {
-                state->fd = fd_lookup (state->loc.inode, state->finh->pid);
+                state->fd = fd_lookup (state->loc.inode, 0);
         }
 
         if (!state->fd) {
