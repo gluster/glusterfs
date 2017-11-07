@@ -1202,7 +1202,8 @@ init (xlator_t *this)
         }
 
         glusterfs4_0_fop_prog.options = this->options;
-        ret = rpcsvc_program_register (conf->rpc, &glusterfs4_0_fop_prog);
+        ret = rpcsvc_program_register (conf->rpc, &glusterfs4_0_fop_prog,
+                                       _gf_true);
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "registration of program (name:%s, prognum:%d, "
