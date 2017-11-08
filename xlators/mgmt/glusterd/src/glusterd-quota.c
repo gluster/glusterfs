@@ -907,24 +907,31 @@ out:
 }
 
 /* The function glusterd_copy_to_tmp_file() reads the "remaining" bytes from
- * the source fd and writes them to destination fd, at the rate of 128K bytes
- * of read+write at a time.
+ * the source fd and writes them to destination fd, at the rate of 1000 entries
+ * a time (qconf_line_sz is the size of an entry)
  */
 
 static int
-glusterd_copy_to_tmp_file (int src_fd, int dst_fd)
+glusterd_copy_to_tmp_file (int src_fd, int dst_fd, int qconf_line_sz)
 {
         int            ret         = 0;
-        size_t         entry_sz    = 131072;
         ssize_t        bytes_read  = 0;
-        unsigned char  buf[131072] = {0,};
         xlator_t      *this        = NULL;
+        unsigned char  *buf        = 0;
+        int            buf_sz      = qconf_line_sz * 1000;
 
         this = THIS;
         GF_ASSERT (this);
+        GF_ASSERT (buf_sz > 0);
 
-        while ((bytes_read = sys_read (src_fd, (void *)&buf, entry_sz)) > 0) {
-                if (bytes_read % 16 != 0) {
+        buf = GF_CALLOC(buf_sz, 1, gf_common_mt_char);
+        if (!buf) {
+                ret = -1;
+                goto out;
+        }
+
+        while ((bytes_read = sys_read (src_fd, buf, buf_sz)) > 0) {
+                if (bytes_read % qconf_line_sz != 0) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_QUOTA_CONF_CORRUPT, "quota.conf "
                                 "corrupted");
@@ -942,6 +949,8 @@ glusterd_copy_to_tmp_file (int src_fd, int dst_fd)
         ret = 0;
 
 out:
+        if (buf)
+                GF_FREE(buf);
         return ret;
 }
 
@@ -1034,7 +1043,6 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
         int                conf_fd               = -1;
         ssize_t            bytes_read            = 0;
         size_t             bytes_to_write        = 0;
-        unsigned char      buf[131072]           = {0,};
         uuid_t             gfid                  = {0,};
         xlator_t          *this                  = NULL;
         gf_boolean_t       found                 = _gf_false;
@@ -1045,6 +1053,8 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
         float              version               = 0.0f;
         char               type                  = 0;
         int                quota_conf_line_sz    = 16;
+        unsigned char      *buf                  = 0;
+        int                buf_sz                = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1098,6 +1108,14 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
         if (conf->op_version >= GD_OP_VERSION_3_7_0)
                 quota_conf_line_sz++;
 
+        buf_sz = quota_conf_line_sz * 1000;
+
+        buf = GF_CALLOC(buf_sz, 1, gf_common_mt_char);
+        if (!buf) {
+                ret = -1;
+                goto out;
+        }
+
         fd = gf_store_mkstemp (volinfo->quota_conf_shandle);
         if (fd < 0) {
                 ret = -1;
@@ -1129,7 +1147,7 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
                 type = GF_QUOTA_CONF_TYPE_USAGE;
 
         for (;;) {
-                bytes_read = sys_read (conf_fd, (void *)&buf, sizeof (buf));
+                bytes_read = sys_read (conf_fd, buf, buf_sz);
                 if (bytes_read <= 0) {
                         /*The flag @is_first_read is TRUE when the loop is
                          * entered, and is set to false if the first read
@@ -1166,7 +1184,8 @@ glusterd_store_quota_config (glusterd_volinfo_t *volinfo, char *path,
                  * Else continue with the search.
                  */
                 if (found) {
-                        ret = glusterd_copy_to_tmp_file (conf_fd, fd);
+                        ret = glusterd_copy_to_tmp_file (conf_fd, fd,
+                                                         quota_conf_line_sz);
                         if (ret)
                                 goto out;
                         break;
@@ -1238,6 +1257,9 @@ out:
                 sys_close (conf_fd);
         }
 
+        if (buf)
+                GF_FREE(buf);
+
         if (ret && (fd > 0)) {
                 gf_store_unlink_tmppath (volinfo->quota_conf_shandle);
         } else if (!ret && GF_QUOTA_OPTION_TYPE_UPGRADE != opcode) {
@@ -1260,8 +1282,7 @@ out:
                                         "store quota version and cksum");
                 }
         }
-
-        return ret;
+       return ret;
 }
 
 int32_t
