@@ -1632,10 +1632,9 @@ br_read_bad_object_dir (xlator_t *this, br_child_t *child, fd_t *fd,
                                       NULL, NULL))) {
                 if (ret < 0)
                         goto out;
-		if (ret == 0)
-			break;
-		list_for_each_entry (entry, &entries.list, list) {
-			offset = entry->d_off;
+
+                list_for_each_entry (entry, &entries.list, list) {
+                         offset = entry->d_off;
 
                          snprintf (key, sizeof (key), "quarantine-%d", count);
 
@@ -1648,10 +1647,10 @@ br_read_bad_object_dir (xlator_t *this, br_child_t *child, fd_t *fd,
                                                            entry->d_name);
                         if (!ret)
                                 count++;
-		}
+                }
 
-		gf_dirent_free (&entries);
-	}
+                gf_dirent_free (&entries);
+        }
 
         ret = count;
         ret = dict_set_int32 (dict, "count", count);

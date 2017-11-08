@@ -1988,7 +1988,7 @@ init (xlator_t *this)
                 goto out;
         }
 
-        GF_OPTION_INIT ("scrubber", priv->iamscrubber, bool, out);
+        GF_OPTION_INIT ("scrubber", priv->iamscrubber, bool, free_priv);
 
         ret = br_init_children (this, priv);
         if (ret)
