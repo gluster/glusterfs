@@ -164,7 +164,9 @@ gf_changelog_parse_binary (xlator_t *this,
         char    current_mover    = ' ';
         size_t  blen             = 0;
         int     parse_err        = 0;
-        char ascii[LINE_BUFSIZE] = {0,};
+        char   *ascii            = NULL;
+
+        ascii = GF_CALLOC (LINE_BUFSIZE, sizeof(char), gf_common_mt_char);
 
         nleft = stbuf->st_size;
 
@@ -245,6 +247,8 @@ gf_changelog_parse_binary (xlator_t *this,
                         CHANGELOG_LIB_MSG_MUNMAP_FAILED,
                         "munmap() error");
  out:
+        if (ascii)
+                GF_FREE (ascii);
         return ret;
 }
 
@@ -272,8 +276,10 @@ gf_changelog_parse_ascii (xlator_t *this,
         char         *mover         = NULL;
         int           parse_err     = 0;
         char          current_mover = ' ';
-        char ascii[LINE_BUFSIZE]    = {0,};
+        char         *ascii         = NULL;
         const char   *fopname       = NULL;
+
+        ascii = GF_CALLOC (LINE_BUFSIZE, sizeof(char), gf_common_mt_char);
 
         nleft = stbuf->st_size;
 
@@ -432,32 +438,10 @@ gf_changelog_parse_ascii (xlator_t *this,
                         "munmap() error");
 
  out:
+        if (ascii)
+                GF_FREE (ascii);
+
         return ret;
-}
-
-#define COPY_BUFSIZE  8192
-static int
-gf_changelog_copy (xlator_t *this, int from_fd, int to_fd)
-{
-        ssize_t size                  = 0;
-        char   buffer[COPY_BUFSIZE+1] = {0,};
-
-        while (1) {
-                size = sys_read (from_fd, buffer, COPY_BUFSIZE);
-                if (size <= 0)
-                        break;
-
-                if (gf_changelog_write (to_fd,
-                                        buffer, size) != size) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                CHANGELOG_LIB_MSG_COPY_FROM_BUFFER_FAILED,
-                                "error processing ascii changlog");
-                        size = -1;
-                        break;
-                }
-        }
-
-        return (size < 0 ? -1 : 0);
 }
 
 static int
@@ -522,8 +506,6 @@ gf_changelog_decode (xlator_t *this, gf_changelog_journal_t *jnl,
                                                 to_fd, elen, stbuf,
                                                 version_idx);
                 break;
-        default:
-                ret = gf_changelog_copy (this, from_fd, to_fd);
         }
 
 out:
@@ -678,7 +660,9 @@ gf_changelog_process (void *data)
 
                         entry = list_first_entry (&jnl_proc->entries,
                                                   gf_changelog_entry_t, list);
-                        list_del (&entry->list);
+                        if (entry)
+                                list_del (&entry->list);
+
                         jnl_proc->waiting = _gf_false;
                 }
                 pthread_mutex_unlock (&jnl_proc->lock);
@@ -708,6 +692,7 @@ gf_changelog_queue_journal (gf_changelog_processor_t *jnl_proc,
 
         len = strlen (event->u.journal.path);
         (void)memcpy (entry->path, event->u.journal.path, len+1);
+        entry->path[len] = '\0';
 
         pthread_mutex_lock (&jnl_proc->lock);
         {

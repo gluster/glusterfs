@@ -517,7 +517,7 @@ gf_changelog_consume_wrap (void* data)
 
         ccd->retval = -1;
 
-        nread = sys_pread (ccd->fd, ccd->changelog, PATH_MAX, ccd->offset);
+        nread = sys_pread (ccd->fd, ccd->changelog, PATH_MAX-1, ccd->offset);
         if (nread < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         CHANGELOG_LIB_MSG_READ_ERROR,
@@ -628,7 +628,6 @@ gf_history_consume (void * data)
                                 gf_msg (this->name, GF_LOG_ERROR, ret,
                                         CHANGELOG_LIB_MSG_THREAD_CREATION_FAILED
                                         , "could not create consume-thread");
-                                ret = -1;
                                 goto sync;
                         } else
                                 n_envoked++;
@@ -1003,9 +1002,6 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
                         goto out;
                 }
         } /* end of readdir() */
-
-        if (!from || !to)
-                ret = -1;
 
 out:
         if (dirp != NULL)
