@@ -1270,6 +1270,7 @@ pub_glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
         xlator_t           *subvol = NULL;
         struct glfs_object *object = NULL;
         uint64_t            ctx_value = LOOKUP_NOT_NEEDED;
+        gf_boolean_t        lookup_needed = _gf_false;
 
         /* validate in args */
         if ((fs == NULL) || (handle == NULL) || (len != GFAPI_HANDLE_LENGTH)) {
@@ -1295,10 +1296,29 @@ pub_glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
 
         newinode = inode_find (subvol->itable, loc.gfid);
         if (newinode) {
-                if (!stat) /* No need of lookup */
+                lookup_needed = inode_needs_lookup (newinode, THIS);
+                if (lookup_needed) {
+                        loc.inode = newinode;
+                } else if (!stat) {
                         goto found;
+                } else {
+                        /* populate loc */
+                        GLFS_LOC_FILL_INODE (newinode, loc, fill_out);
 
-                loc.inode = newinode;
+                        /* fop/op */
+                        ret = syncop_stat (subvol, &loc, &iatt, NULL, NULL);
+                        DECODE_SYNCOP_ERR (ret);
+
+                        if (ret) {
+fill_out:
+                                /* Drop the reference hold in inode_find */
+                                inode_unref (newinode);
+                                goto out;
+                        }
+
+                        glfs_iatt_to_stat (fs, &iatt, stat);
+                        goto found;
+                }
         } else {
                 loc.inode = inode_new (subvol->itable);
                 if (!loc.inode) {
