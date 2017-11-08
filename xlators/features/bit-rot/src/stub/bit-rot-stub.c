@@ -139,7 +139,8 @@ init (xlator_t *this)
         GF_OPTION_INIT ("bitrot", priv->do_versioning, bool, free_mempool);
 
         GF_OPTION_INIT ("export", tmp, str, free_mempool);
-        strncpy (priv->export, tmp, sizeof (priv->export));
+        strncpy (priv->export, tmp, PATH_MAX-1);
+        priv->export[PATH_MAX-1] = '\0';
 
         (void) snprintf (priv->stub_basepath, sizeof (priv->stub_basepath),
                          "%s/%s", priv->export, BR_STUB_QUARANTINE_DIR);
@@ -1304,6 +1305,28 @@ br_stub_handle_internal_xattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return 0;
 }
 
+static void
+br_stub_dump_xattr (xlator_t *this, dict_t *dict, int *op_errno)
+{
+        char                *format   = "(%s:%s)";
+        char                *dump     = NULL;
+
+        dump = GF_CALLOC (1, BR_STUB_DUMP_STR_SIZE, gf_br_stub_mt_misc);
+        if (!dump) {
+                *op_errno = ENOMEM;
+                goto out;
+        }
+        dict_dump_to_str (dict, dump, BR_STUB_DUMP_STR_SIZE, format);
+        gf_msg (this->name, GF_LOG_ERROR, 0,
+                BRS_MSG_SET_INTERNAL_XATTR, "fsetxattr called on "
+                "internal xattr %s", dump);
+ out:
+        if (dump) {
+                GF_FREE (dump);
+        }
+        return;
+}
+
 int
 br_stub_fsetxattr (call_frame_t *frame, xlator_t *this,
                    fd_t *fd, dict_t *dict, int flags, dict_t *xdata)
@@ -1314,18 +1337,13 @@ br_stub_fsetxattr (call_frame_t *frame, xlator_t *this,
         br_stub_private_t   *priv     = NULL;
         int32_t              op_ret   = -1;
         int32_t              op_errno = EINVAL;
-        char                *format   = "(%s:%s)";
-        char                 dump[64*1024]  = {0,};
 
         priv = this->private;
 
         if ((frame->root->pid != GF_CLIENT_PID_BITD &&
             frame->root->pid != GF_CLIENT_PID_SCRUB) &&
             br_stub_internal_xattr (dict)) {
-                dict_dump_to_str (dict, dump, sizeof(dump), format);
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        BRS_MSG_SET_INTERNAL_XATTR, "fsetxattr called on "
-                        "internal xattr %s", dump);
+                br_stub_dump_xattr (this, dict, &op_errno);
                 goto unwind;
         }
 
@@ -1405,14 +1423,9 @@ br_stub_setxattr (call_frame_t *frame, xlator_t *this,
 {
         int32_t  op_ret                    = -1;
         int32_t  op_errno                  = EINVAL;
-        char     dump[64*1024]             = {0,};
-        char    *format                    = "(%s:%s)";
 
         if (br_stub_internal_xattr (dict)) {
-                dict_dump_to_str (dict, dump, sizeof(dump), format);
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        BRS_MSG_SET_INTERNAL_XATTR, "setxattr called on "
-                        "internal xattr %s", dump);
+                br_stub_dump_xattr (this, dict, &op_errno);
                 goto unwind;
         }
 

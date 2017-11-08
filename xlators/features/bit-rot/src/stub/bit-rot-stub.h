@@ -24,6 +24,7 @@
 #include "glusterfs3-xdr.h"
 
 #define BAD_OBJECT_THREAD_STACK_SIZE   ((size_t)(1024*1024))
+#define BR_STUB_DUMP_STR_SIZE 65536
 
 #define BR_PATH_MAX_EXTRA (PATH_MAX+1024)
 #define BR_PATH_MAX_PLUS (PATH_MAX+2048)
