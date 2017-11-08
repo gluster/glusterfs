@@ -455,7 +455,6 @@ gotvolinfo:
                                 strcat (dup_volid, ".tcp");
                                 break;
                         default:
-                                ret = -1;
                                 break;
                         }
                 }
@@ -652,7 +651,7 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
                 goto out;
         }
         strncpy (brickinfo->device_path, device,
-                 sizeof(brickinfo->device_path));
+                 sizeof(brickinfo->device_path) - 1);
 
         /* Update the backend file-system type of snap brick in
          * snap volinfo. */
@@ -869,7 +868,6 @@ __server_getspec (rpcsvc_request_t *req)
         char                 *brick_name             = NULL;
         char                 *volume                 = NULL;
         char                 *tmp                    = NULL;
-        int                   cookie                 = 0;
         rpc_transport_t      *trans                  = NULL;
         gf_getspec_req        args                   = {0,};
         gf_getspec_rsp        rsp                    = {0,};
@@ -999,8 +997,6 @@ fail:
 
         if (op_errno)
                 rsp.op_errno = gf_errno_to_error (op_errno);
-        if (cookie)
-                rsp.op_errno = cookie;
 
         if (!rsp.spec)
                 rsp.spec = strdup ("");
@@ -1072,7 +1068,6 @@ __server_event_notify (rpcsvc_request_t *req)
 
 fail:
         rsp.op_ret   = ret;
-
 
         if (need_rsp)
                 glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
@@ -1820,8 +1815,9 @@ gd_validate_peer_op_version (xlator_t *this, glusterd_peerinfo_t *peerinfo,
 
         ret = 0;
 out:
-        gf_msg_debug (this->name , 0, "Peer %s %s", peerinfo->hostname,
-                ((ret < 0) ? "rejected" : "accepted"));
+        gf_msg_debug ((this ? this->name : "glusterd") , 0, "Peer %s %s",
+                      peerinfo->hostname, ((ret < 0) ? "rejected" : "accepted")
+                     );
         return ret;
 }
 
@@ -1888,7 +1884,7 @@ __glusterd_mgmt_hndsk_version_ack_cbk (struct rpc_req *req, struct iovec *iov,
         ret = default_notify (this, GF_EVENT_CHILD_UP, NULL);
 
         if (GD_MODE_ON == peerctx->args.mode) {
-                ret = glusterd_event_connected_inject (peerctx);
+                (void) glusterd_event_connected_inject (peerctx);
                 peerctx->args.req = NULL;
         } else if (GD_MODE_SWITCH_ON == peerctx->args.mode) {
                 peerctx->args.mode = GD_MODE_ON;
@@ -2283,7 +2279,7 @@ __glusterd_peer_dump_version_cbk (struct rpc_req *req, struct iovec *iov,
         ret = default_notify (this, GF_EVENT_CHILD_UP, NULL);
 
         if (GD_MODE_ON == peerctx->args.mode) {
-                ret = glusterd_event_connected_inject (peerctx);
+                (void) glusterd_event_connected_inject (peerctx);
                 peerctx->args.req = NULL;
         } else if (GD_MODE_SWITCH_ON == peerctx->args.mode) {
                 peerctx->args.mode = GD_MODE_ON;
