@@ -45,7 +45,14 @@ TEST start_glusterd 2
 
 EXPECT_WITHIN $PROBE_TIMEOUT 2 peer_count
 
+# checking peer_count is not enough to call that quorum is regained as
+# peer_count is based on peerinfo->connected where as quorum is calculated based
+# on peerinfo->quorum_contrib. To avoid this spurious race of replace brick
+# commit force to execute and fail before the quorum is regained run the command
+# in EXPECT_WITHIN to ensure that with multiple attempts the command goes
+# through once the quorum is regained.
+
 # Now quorum is met. replace-brick will execute successfuly
-TEST  $CLI_1 volume replace-brick $V0 $H2:$B2/${V0}1 $H1:$B1/${V0}1_new commit force
+EXPECT_WITHIN $PEER_SYNC_TIMEOUT 0 attempt_replace_brick 1 $V0 $H2:$B2/${V0}1 $H1:$B1/${V0}1_new
 
 #cleanup;
