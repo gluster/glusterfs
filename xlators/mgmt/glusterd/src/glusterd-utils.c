@@ -5050,6 +5050,12 @@ glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
          * the brick as hostname+path, so this will make more sense
          * when output.
          */
+
+        if (!strcmp(server, "")) {
+                ret = 0;
+                goto out;
+        }
+
         snprintf (key, sizeof (key), "brick%d.hostname", count);
         if (!strcmp (server, priv->nfs_svc.name))
                 ret = dict_set_str (dict, key, "NFS Server");
