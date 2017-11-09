@@ -5363,6 +5363,7 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
         char                        *odir = NULL;
         char                        *filename = NULL;
         char                        *ofilepath = NULL;
+        char                        *tmp_str = NULL;
         int                          count = 0;
         int                          count_bkp = 0;
         int                          odirlen = 0;
@@ -5372,6 +5373,7 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
         uint64_t                     memtotal = 0;
         uint64_t                     memfree = 0;
         int                          start_index = 0;
+        char                         id_str[64] = {0,};
 
         char    *vol_type_str = NULL;
         char    *hot_tier_type_str = NULL;
@@ -5390,12 +5392,14 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
 
         GF_VALIDATE_OR_GOTO (this->name, dict, out);
 
-        ret = dict_get_str (dict, "odir", &odir);
+        ret = dict_get_str (dict, "odir", &tmp_str);
         if (ret) {
                 gf_asprintf (&odir, "%s", "/var/run/gluster/");
                 gf_msg (this->name, GF_LOG_INFO, 0,
                         GD_MSG_DICT_GET_FAILED,
                         "Default output directory: %s", odir);
+        } else {
+                gf_asprintf (&odir, "%s", tmp_str);
         }
 
         dp = sys_opendir (odir);
@@ -5418,7 +5422,7 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                 goto out;
         }
 
-        ret = dict_get_str (dict, "filename", &filename);
+        ret = dict_get_str (dict, "filename", &tmp_str);
         if (ret) {
                 now = time (NULL);
                 strftime (timestamp, sizeof (timestamp),
@@ -5428,6 +5432,8 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                 gf_msg (this->name, GF_LOG_INFO, 0,
                         GD_MSG_DICT_GET_FAILED,
                         "Default filename: %s", filename);
+        } else {
+                gf_asprintf (&filename, "%s", tmp_str);
         }
 
         odirlen = strlen (odir);
@@ -5435,6 +5441,9 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                 strcat (odir, "/");
 
         gf_asprintf (&ofilepath, "%s%s", odir, filename);
+
+        GF_FREE (odir);
+        GF_FREE (filename);
 
         ret = dict_set_str (dict, "ofilepath", ofilepath);
         if (ret) {
@@ -5491,7 +5500,9 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
 
         fprintf (fp, "[Global]\n");
 
-        fprintf (fp, "MYUUID: %s\n", gf_strdup (uuid_utoa (priv->uuid)));
+        uuid_utoa_r (priv->uuid, id_str);
+        fprintf (fp, "MYUUID: %s\n", id_str);
+
         fprintf (fp, "op-version: %d\n", priv->op_version);
 
         fprintf (fp, "\n[Global options]\n");
@@ -5583,8 +5594,10 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                 }
 
                 fprintf (fp, "Volume%d.name: %s\n", ++count, volinfo->volname);
-                fprintf (fp, "Volume%d.id: %s\n", count,
-                         gf_strdup (uuid_utoa (volinfo->volume_id)));
+
+                uuid_utoa_r (volinfo->volume_id, id_str);
+                fprintf (fp, "Volume%d.id: %s\n", count, id_str);
+
                 fprintf (fp, "Volume%d.type: %s\n", count, vol_type_str);
                 fprintf (fp, "Volume%d.transport_type: %s\n", count,
                          transport_type_str);
@@ -5702,8 +5715,11 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                 fprintf (fp, "Volume%d.snapd_svc.inited: %s\n", count,
                          volinfo->snapd.svc.inited ? "True" : "False");
 
-                fprintf (fp, "Volume%d.rebalance.id: %s\n", count,
-                         gf_strdup (uuid_utoa (volinfo->rebal.rebalance_id)));
+                uuid_utoa_r (volinfo->rebal.rebalance_id, id_str);
+                char *rebal_data = gf_uint64_2human_readable (
+                                                volinfo->rebal.rebalance_data);
+
+                fprintf (fp, "Volume%d.rebalance.id: %s\n", count, id_str);
                 fprintf (fp, "Volume%d.rebalance.status: %s\n", count,
                          rebal_status_str);
                 fprintf (fp, "Volume%d.rebalance.failures: %"PRIu64"\n", count,
@@ -5714,10 +5730,11 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                          volinfo->rebal.lookedup_files);
                 fprintf (fp, "Volume%d.rebalance.files: %"PRIu64"\n", count,
                          volinfo->rebal.rebalance_files);
-                fprintf (fp, "Volume%d.rebalance.data: %s\n", count,
-                         gf_uint64_2human_readable (volinfo->rebal.rebalance_data));
+                fprintf (fp, "Volume%d.rebalance.data: %s\n", count, rebal_data);
                 fprintf (fp, "Volume%d.time_left: %"PRIu64"\n", count,
                          volinfo->rebal.time_left);
+
+                GF_FREE (rebal_data);
 
                 if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
                         ret = glusterd_volume_get_hot_tier_type_str (
