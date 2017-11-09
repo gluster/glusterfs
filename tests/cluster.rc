@@ -142,6 +142,16 @@ function peer_count() {
     $CLI_1 peer status | grep 'Peer in Cluster (Connected)' | wc -l
 }
 
+function attempt_replace_brick {
+    local cli_no=$1
+    local vol=$2;
+    local src_brick=$3;
+    local dst_brick=$4;
+
+    eval \$CLI_$cli_no volume replace-brick $vol $src_brick $dst_brick commit force;
+    echo $?
+}
+
 function cluster_rebalance_status_field {
         #The rebalance status can be up to 3 words, (e.g.:'fix-layout in progress'), hence the awk-print $7 thru $9.
         #But if the status is less than 3 words, it also prints the next field i.e the run_time_in_secs.(e.g.:'completed 3.00').
