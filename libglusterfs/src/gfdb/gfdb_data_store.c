@@ -111,6 +111,7 @@ add_connection_node (gfdb_conn_node_t *_conn_node) {
                         LG_MSG_UNLOCK_LIST_FAILED, "Failed unlock db "
                         "connection list %s", strerror(ret));
                 ret = -1;
+                goto out;
                 /*TODO What if the unlock fails.
                 * Will it lead to deadlock?
                 * Most of the gluster code
@@ -261,7 +262,6 @@ init_db (dict_t *args, gfdb_db_type_t gfdb_db_type)
                 gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
                         LG_MSG_INIT_DB_FAILED, "Failed initializing database "
                         "operation failed.");
-                ret = -1;
                 goto init_db_failed;
         }
 
@@ -272,7 +272,6 @@ init_db (dict_t *args, gfdb_db_type_t gfdb_db_type)
         if (ret) {
                 gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,
                         LG_MSG_INIT_DB_FAILED, "Failed initializing database");
-                ret = -1;
                 goto init_db_failed;
         }
         _conn_node->gfdb_connection.gfdb_db_type = gfdb_db_type;
