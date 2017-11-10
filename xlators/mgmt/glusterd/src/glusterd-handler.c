@@ -235,7 +235,9 @@ glusterd_handle_unfriend_req (rpcsvc_request_t *req, uuid_t  uuid,
                 goto out;
         }
 
-        event->peername = gf_strdup (hostname);
+        if (hostname)
+                event->peername = gf_strdup (hostname);
+
         gf_uuid_copy (event->peerid, uuid);
 
         ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_friend_req_ctx_t);
@@ -2188,9 +2190,16 @@ glusterd_fsm_log_send_resp (rpcsvc_request_t *req, int op_ret,
 
         rsp.op_ret = op_ret;
         rsp.op_errstr = op_errstr;
-        if (rsp.op_ret == 0)
+        if (rsp.op_ret == 0) {
                 ret = dict_allocate_and_serialize (dict, &rsp.fsm_log.fsm_log_val,
                                                 &rsp.fsm_log.fsm_log_len);
+                if (ret < 0) {
+                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SERL_LENGTH_GET_FAIL,
+                                "failed to get serialized length of dict");
+                        return ret;
+                }
+        }
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      (xdrproc_t)xdr_gf1_cli_fsm_log_rsp);
@@ -5018,7 +5027,7 @@ glusterd_print_gsync_status (FILE *fp, dict_t *gsync_dict)
                                  gf_common_mt_char);
         if (!status_vals) {
                 ret = -1;
-                goto out;
+                return ret;
         }
         for (i = 0; i < gsync_count; i++) {
                 status_vals[i] = GF_CALLOC (1, sizeof (gf_gsync_status_t),
@@ -5985,7 +5994,7 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         glusterd_brickinfo_t    *brickinfo         = NULL;
         glusterd_volinfo_t      *volinfo           = NULL;
         xlator_t                *this              = NULL;
-        int                      temp              = 0;
+        int                      brick_proc_found  = 0;
         int32_t                  pid               = -1;
         glusterd_brickinfo_t    *brickinfo_tmp     = NULL;
         glusterd_brick_proc_t   *brick_proc        = NULL;
@@ -6134,11 +6143,11 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                                                                brickinfo->path);
                                                         goto out;
                                                 }
-                                                temp = 1;
+                                                brick_proc_found = 1;
                                                 break;
                                         }
                                 }
-                                if (temp == 1)
+                                if (brick_proc_found == 1)
                                         break;
                         }
                 } else {
