@@ -48,6 +48,7 @@ glusterfs_ctx_new ()
 	if (ret) {
 		free (ctx);
 		ctx = NULL;
+                goto out;
 	}
 
         GF_ATOMIC_INIT (ctx->stats.max_dict_pairs, 0);

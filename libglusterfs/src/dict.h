@@ -60,6 +60,8 @@ typedef struct _data_pair data_pair_t;
                                                                         \
         } while (0)
 
+#define DICT_KEY_VALUE_MAX_SIZE                     1048576
+
 struct _data {
         unsigned char  is_static:1;
         unsigned char  is_const:1;
