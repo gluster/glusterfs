@@ -104,7 +104,6 @@ call_bail (void *data)
         struct saved_frame    *tmp = NULL;
         char                   frame_sent[256] = {0,};
         struct timespec        timeout = {0,};
-        struct iovec           iov = {0,};
         char                   peerid[UNIX_PATH_MAX] = {0};
         gf_boolean_t           need_unref = _gf_false;
 
@@ -186,7 +185,7 @@ call_bail (void *data)
 
                 clnt = rpc_clnt_ref (clnt);
                 trav->rpcreq->rpc_status = -1;
-		trav->rpcreq->cbkfn (trav->rpcreq, &iov, 1, trav->frame);
+		trav->rpcreq->cbkfn (trav->rpcreq, NULL, 0, trav->frame);
 
                 rpc_clnt_reply_deinit (trav->rpcreq, clnt->reqpool);
                 clnt = rpc_clnt_unref (clnt);
@@ -324,7 +323,6 @@ saved_frames_unwind (struct saved_frames *saved_frames)
 	struct saved_frame   *trav = NULL;
 	struct saved_frame   *tmp = NULL;
         char                  timestr[1024] = {0,};
-        struct iovec          iov = {0,};
 
         list_splice_init (&saved_frames->lk_sf.list, &saved_frames->sf.list);
 
@@ -351,7 +349,7 @@ saved_frames_unwind (struct saved_frames *saved_frames)
 		saved_frames->count--;
 
                 trav->rpcreq->rpc_status = -1;
-                trav->rpcreq->cbkfn (trav->rpcreq, &iov, 1, trav->frame);
+                trav->rpcreq->cbkfn (trav->rpcreq, NULL, 0, trav->frame);
 
                 rpc_clnt_reply_deinit (trav->rpcreq,
                                        trav->rpcreq->conn->rpc_clnt->reqpool);
