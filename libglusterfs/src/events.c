@@ -108,6 +108,7 @@ _gf_event (eventtypes_t event, const char *fmt, ...)
         if (sendto (sock, eventstr, strlen (eventstr),
                     0, (struct sockaddr *)&server, sizeof (server)) <= 0) {
                 ret = EVENT_ERROR_SEND;
+                goto out;
         }
 
         ret = EVENT_SEND_OK;
