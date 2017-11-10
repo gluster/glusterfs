@@ -2337,7 +2337,7 @@ dict_set_bin_common (dict_t *this, char *key, void *ptr, size_t size,
         data_t * data = NULL;
         int      ret  = 0;
 
-        if (!ptr || (size > ULONG_MAX)) {
+        if (!ptr || (size > DICT_KEY_VALUE_MAX_SIZE)) {
                 ret = -EINVAL;
                 goto err;
         }
@@ -2845,7 +2845,9 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
                 value->is_static = 0;
                 buf += vallen;
 
-                dict_add (*fill, key, value);
+                ret = dict_add (*fill, key, value);
+                if (ret < 0)
+                        goto out;
         }
 
         ret = 0;
@@ -3032,23 +3034,34 @@ void
 dict_dump_to_log (dict_t *dict)
 {
         int          ret                       = -1;
-        char         dump[64*1024]             = {0,};
+        char        *dump                      = NULL;
+        int          dump_size                 = 64*1024;
         char        *format                    = "(%s:%s)";
 
         if (!dict) {
                 gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
                                   LG_MSG_INVALID_ARG, "dict is NULL");
-                return;
+                goto out;
         }
 
-        ret = dict_dump_to_str (dict, dump, sizeof(dump), format);
+        dump = GF_CALLOC (1, dump_size, gf_common_mt_char);
+        if (!dump) {
+                gf_msg_callingfn ("dict", GF_LOG_WARNING, ENOMEM,
+                                  LG_MSG_NO_MEMORY, "dump buffer is NULL");
+                goto out;
+        }
+
+        ret = dict_dump_to_str (dict, dump, dump_size, format);
         if (ret) {
                 gf_msg ("dict", GF_LOG_WARNING, 0, LG_MSG_FAILED_TO_LOG_DICT,
                         "Failed to log dictionary");
-                return;
+                goto out;
         }
         gf_msg_callingfn ("dict", GF_LOG_INFO, 0, LG_MSG_DICT_ERROR,
                           "dict=%p (%s)", dict, dump);
+out:
+        GF_FREE (dump);
+
 
         return;
 }
@@ -3057,24 +3070,35 @@ void
 dict_dump_to_statedump (dict_t *dict, char *dict_name, char *domain)
 {
         int          ret                       = -1;
-        char         dump[64*1024]             = {0,};
+        char        *dump                      = NULL;
+        int          dump_size                 = 64*1024;
         char         key[4096]                 = {0,};
         char        *format                    = "\n\t%s:%s";
 
         if (!dict) {
                 gf_msg_callingfn (domain, GF_LOG_WARNING, EINVAL,
                                   LG_MSG_INVALID_ARG, "dict is NULL");
-                return;
+                goto out;
         }
 
-        ret = dict_dump_to_str (dict, dump, sizeof(dump), format);
+        dump = GF_CALLOC (1, dump_size, gf_common_mt_char);
+        if (!dump) {
+                gf_msg_callingfn (domain, GF_LOG_WARNING, ENOMEM,
+                                  LG_MSG_NO_MEMORY, "dump buffer is NULL");
+                goto out;
+        }
+
+        ret = dict_dump_to_str (dict, dump, dump_size, format);
         if (ret) {
                 gf_msg (domain, GF_LOG_WARNING, 0, LG_MSG_FAILED_TO_LOG_DICT,
                         "Failed to log dictionary %s", dict_name);
-                return;
+                goto out;
         }
         gf_proc_dump_build_key (key, domain, "%s", dict_name);
         gf_proc_dump_write (key, "%s", dump);
+
+out:
+        GF_FREE (dump);
 
         return;
 }
