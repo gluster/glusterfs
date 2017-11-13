@@ -3824,7 +3824,7 @@ set_afr_pending_xattrs_option (volgen_graph_t *graph,
                                                  "afr-pending-xattr",
                                                  afr_xattrs_list);
                         if (ret)
-                                return ret;
+                                goto out;
                         memset (afr_xattrs_list, 0, list_size);
                         ptr = afr_xattrs_list;
                         i = 1;

@@ -930,8 +930,7 @@ unlock:
         if (need_invalidate)
                 inode_invalidate (inode);
 out:
-        if (data)
-                GF_FREE (data);
+        GF_FREE (data);
         AFR_STACK_UNWIND (setxattr, frame, ret, op_errno, NULL);
         return 0;
 }
@@ -2956,7 +2955,6 @@ afr_discover_do (call_frame_t *frame, xlator_t *this, int err)
 
 	if (err) {
 		local->op_errno = -err;
-		ret = -1;
 		goto out;
 	}
 
@@ -2967,7 +2965,6 @@ afr_discover_do (call_frame_t *frame, xlator_t *this, int err)
 					    &local->loc);
         if (ret) {
                 local->op_errno = -ret;
-		ret = -1;
                 goto out;
         }
 
@@ -3835,7 +3832,7 @@ afr_fop_lock_proceed (call_frame_t *frame)
          * gaining the locks and unwinds with EAGAIN errno.
          */
         local->op_ret = -1;
-        local->op_ret = EUCLEAN;
+        local->op_errno = EUCLEAN;
         local->fop_lock_state = AFR_FOP_LOCK_SERIAL;
         afr_local_replies_wipe (local, priv);
         if (local->xdata_rsp)
@@ -5398,10 +5395,16 @@ out:
 int
 afr_local_init (afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
 {
+        int __ret = -1;
         local->op_ret = -1;
         local->op_errno = EUCLEAN;
 
-	syncbarrier_init (&local->barrier);
+	__ret = syncbarrier_init (&local->barrier);
+        if (__ret) {
+                if (op_errno)
+                        *op_errno = __ret;
+                goto out;
+        }
 
         local->child_up = GF_CALLOC (priv->child_count,
                                      sizeof (*local->child_up),
@@ -6420,8 +6423,7 @@ afr_fav_child_reset_sink_xattrs_cbk (int ret, call_frame_t *heal_frame,
         afr_inode_refresh (txn_frame, this, local->inode, NULL,
                            local->refreshfn);
 
-        if (heal_frame)
-                AFR_STACK_DESTROY (heal_frame);
+        AFR_STACK_DESTROY (heal_frame);
 
         return 0;
 }

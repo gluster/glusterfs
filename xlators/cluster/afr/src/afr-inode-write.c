@@ -47,10 +47,11 @@ __afr_inode_write_finalize (call_frame_t *frame, xlator_t *this)
 
 	local = frame->local;
 	priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, local->inode, out);
 
         /*This code needs to stay till DHT sends fops on linked
          * inodes*/
-        if (local->inode && !inode_is_linked (local->inode)) {
+        if (!inode_is_linked (local->inode)) {
                 for (i = 0; i < priv->child_count; i++) {
                         if (!local->replies[i].valid)
                                 continue;
@@ -76,14 +77,15 @@ __afr_inode_write_finalize (call_frame_t *frame, xlator_t *this)
                 }
         }
 
-	if (local->inode) {
-		if (local->transaction.type == AFR_METADATA_TRANSACTION)
-                        read_subvol = afr_metadata_subvol_get (local->inode,
-                                      this, NULL, local->readable, NULL, &args);
-		else
-			read_subvol = afr_data_subvol_get (local->inode, this,
-                                            NULL, local->readable, NULL, &args);
-	}
+        if (local->transaction.type == AFR_METADATA_TRANSACTION) {
+                read_subvol = afr_metadata_subvol_get (local->inode, this,
+                                                       NULL, local->readable,
+                                                       NULL, &args);
+	} else {
+                read_subvol = afr_data_subvol_get (local->inode, this,
+                                                   NULL, local->readable,
+                                                   NULL, &args);
+        }
 
 	local->op_ret = -1;
 	local->op_errno = afr_final_errno (local, priv);
@@ -131,6 +133,8 @@ __afr_inode_write_finalize (call_frame_t *frame, xlator_t *this)
 	}
 
         afr_set_in_flight_sb_status (this, frame, local->inode);
+out:
+        return;
 }
 
 

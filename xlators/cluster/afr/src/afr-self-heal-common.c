@@ -2557,8 +2557,7 @@ afr_refresh_heal_done (int ret, call_frame_t *frame, void *opaque)
         }
         UNLOCK (&priv->lock);
 
-        if (heal_frame)
-                AFR_STACK_DESTROY (heal_frame);
+        AFR_STACK_DESTROY (heal_frame);
 
         if (local)
                 afr_heal_synctask (this, local);
