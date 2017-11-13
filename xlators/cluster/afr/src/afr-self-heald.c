@@ -1197,9 +1197,6 @@ afr_xl_op (xlator_t *this, dict_t *input, dict_t *output)
 			}
 		}
 
-//                ret = _do_crawl_op_on_local_subvols (this, INDEX_TO_BE_HEALED,
-//                                                     STATISTICS_TO_BE_HEALED,
-//                                                     output);
                 break;
 
         default:

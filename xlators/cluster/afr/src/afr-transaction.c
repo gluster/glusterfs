@@ -1240,8 +1240,6 @@ afr_changelog_populate_xdata (call_frame_t *frame, afr_xattrop_type_t op,
 out:
         if (xdata1)
                 dict_unref (xdata1);
-        if (xdata2)
-                dict_unref (xdata2);
         return;
 }
 
