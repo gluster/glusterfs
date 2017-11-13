@@ -3929,7 +3929,7 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
         ret = dict_get_str (peer_data, key, &parent_volname);
         if (!ret)
                 strncpy (new_volinfo->parent_volname, parent_volname,
-                         sizeof(new_volinfo->parent_volname));
+                         sizeof(new_volinfo->parent_volname)-1);
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.brick_count", prefix, count);
