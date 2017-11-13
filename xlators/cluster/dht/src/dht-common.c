@@ -5051,6 +5051,7 @@ dht_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                 op_errno = ENOMEM;
                 goto err;
         }
+        local->first_up_subvol = dht_first_up_subvol (this);
 
         if (!xdata) {
                 xdata = dict_new ();
@@ -5073,6 +5074,10 @@ dht_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         call_count = local->call_cnt = conf->subvolume_cnt;
         subvolumes = conf->subvolumes;
 
+        /* In case of parallel-readdir, the readdir-ahead will be loaded
+         * below dht, in this case, if we want to enable or disable SKIP_DIRs
+         * it has to be done in opendir, so that prefetching logic in
+         * readdir-ahead, honors it */
         for (i = 0; i < call_count; i++) {
                 if (conf->readdir_optimize == _gf_true) {
                         if (subvolumes[i] != local->first_up_subvol) {
