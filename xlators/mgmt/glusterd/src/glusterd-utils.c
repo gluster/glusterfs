@@ -1552,7 +1552,7 @@ glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
 
 out:
         if (ret && is_created) {
-                recursive_rmdir (brickinfo->path);
+               (void)recursive_rmdir (brickinfo->path);
         }
         if (ret && !*op_errstr && msg[0] != '\0')
                 *op_errstr = gf_strdup (msg);
