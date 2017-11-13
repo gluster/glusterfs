@@ -13884,6 +13884,15 @@ glusterd_brick_op_prerequisites (dict_t *dict,
                                         (*src_brickinfo)->port);
                         }
                 }
+                /* setting mount_dir */
+                ret = dict_set_dynstr_with_alloc (rsp_dict, "brick1.mount_dir",
+                                                  (*src_brickinfo)->mount_dir);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_SET_FAILED,
+                                "Failed to set brick1.mount_dir");
+                        goto out;
+                }
 
                 v = *volinfo;
                 b = *src_brickinfo;

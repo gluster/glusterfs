@@ -319,14 +319,6 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                         goto out;
                 }
 
-                ret = dict_set_dynstr_with_alloc (rsp_dict, "brick1.mount_dir",
-                                                  dst_brickinfo->mount_dir);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_DICT_SET_FAILED,
-                                "Failed to set brick1.mount_dir");
-                        goto out;
-                }
 
                 ret = dict_set_int32 (rsp_dict, "brick_count", 1);
                 if (ret) {
