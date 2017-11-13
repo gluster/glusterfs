@@ -688,8 +688,17 @@ class Server(object):
                             elif not matching_disk_gfid(gfid, en):
                                 collect_failure(e, EEXIST, True)
                         else:
-                            (pg, bname) = entry2pb(en)
-                            blob = entry_pack_reg_stat(gfid, bname, e['stat'])
+                            slink = os.path.join(pfx, gfid)
+                            st = lstat(slink)
+                            # don't create multiple entries with same gfid
+                            if isinstance(st, int):
+                                (pg, bname) = entry2pb(en)
+                                blob = entry_pack_reg_stat(gfid, bname,
+                                                           e['stat'])
+                            else:
+                                cmd_ret = errno_wrap(os.link, [slink, en],
+                                                    [ENOENT, EEXIST], [ESTALE])
+                                collect_failure(e, cmd_ret)
                 else:
                     st1 = lstat(en)
                     if isinstance(st1, int):
