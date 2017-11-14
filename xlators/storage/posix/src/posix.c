@@ -8063,7 +8063,18 @@ struct volume_options options[] = {
         },
         { .key = {"gfid2path"},
           .type = GF_OPTION_TYPE_BOOL,
+#ifdef __NetBSD__
+          /*
+           * NetBSD storage of extended attributes for UFS1 badly
+           * scales when the list of extended attributes names rises.
+           * This option can add as many extended attributes names
+           * as we have files, hence we keep it disabled for performance
+           * sake.
+           */
+          .default_value = "off",
+#else
           .default_value = "on",
+#endif
           .description = "Enable logging metadata for gfid to path conversion"
         },
         { .key = {"gfid2path-separator"},
