@@ -103,7 +103,7 @@ gf_fuse_unmount_daemon (const char *mountpoint, int fd)
                 close_fds_except (ump, 1);
 
                 setsid();
-                chdir("/");
+                (void)chdir("/");
                 sigfillset(&sigset);
                 sigprocmask(SIG_BLOCK, &sigset, NULL);
 
