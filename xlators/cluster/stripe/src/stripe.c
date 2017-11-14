@@ -156,8 +156,6 @@ stripe_entry_self_heal (call_frame_t *frame, xlator_t *this,
 out:
         if (rframe)
                 STRIPE_STACK_DESTROY (rframe);
-        if (xdata)
-                dict_unref (xdata);
 
         return 0;
 }
