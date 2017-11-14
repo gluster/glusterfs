@@ -9,12 +9,29 @@
 #  cases as published by the Free Software Foundation.
 #
 
+import subprocess
+glusterd_workdir = None
+
+# Methods
+def get_glusterd_workdir():
+    global glusterd_workdir
+    if glusterd_workdir is not None:
+        return glusterd_workdir
+    proc = subprocess.Popen(["gluster", "system::", "getwd"],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = proc.communicate()
+    if proc.returncode == 0:
+        glusterd_workdir = out.strip()
+    else:
+        glusterd_workdir = "@GLUSTERD_WORKDIR@"
+    return glusterd_workdir
+
 SERVER_ADDRESS = "0.0.0.0"
 DEFAULT_CONFIG_FILE = "@SYSCONF_DIR@/glusterfs/eventsconfig.json"
 CUSTOM_CONFIG_FILE_TO_SYNC = "/events/config.json"
-CUSTOM_CONFIG_FILE = "@GLUSTERD_WORKDIR@" + CUSTOM_CONFIG_FILE_TO_SYNC
+CUSTOM_CONFIG_FILE = get_glusterd_workdir() + CUSTOM_CONFIG_FILE_TO_SYNC
 WEBHOOKS_FILE_TO_SYNC = "/events/webhooks.json"
-WEBHOOKS_FILE = "@GLUSTERD_WORKDIR@" + WEBHOOKS_FILE_TO_SYNC
+WEBHOOKS_FILE = get_glusterd_workdir() + WEBHOOKS_FILE_TO_SYNC
 LOG_FILE = "@localstatedir@/log/glusterfs/events.log"
 EVENTSD = "glustereventsd"
 CONFIG_KEYS = ["log-level", "port", "disable-events-log"]
@@ -22,11 +39,11 @@ BOOL_CONFIGS = ["disable-events-log"]
 INT_CONFIGS = ["port"]
 RESTART_CONFIGS = ["port"]
 EVENTS_ENABLED = @EVENTS_ENABLED@
-UUID_FILE = "@GLUSTERD_WORKDIR@/glusterd.info"
+UUID_FILE = get_glusterd_workdir() + "/glusterd.info"
 PID_FILE = "@localstatedir@/run/glustereventsd.pid"
 AUTO_BOOL_ATTRIBUTES = ["force", "push-pem", "no-verify"]
 AUTO_INT_ATTRIBUTES = ["ssh-port"]
-CERTS_DIR = "@GLUSTERD_WORKDIR@/events"
+CERTS_DIR = get_glusterd_workdir() + "/events"
 
 # Errors
 ERROR_SAME_CONFIG = 2
