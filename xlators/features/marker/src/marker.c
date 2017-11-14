@@ -1366,7 +1366,7 @@ marker_rename_unwind (call_frame_t *frame, void *cookie, xlator_t *this,
                  * remove-xattr has failed as the rename is already performed
                  * if local->stub is set, which means rename was sucessful
                  */
-                mq_inode_ctx_get (oplocal->loc.inode, this, &ctx);
+                (void) mq_inode_ctx_get (oplocal->loc.inode, this, &ctx);
                 if (ctx) {
                         contri = mq_get_contribution_node (oplocal->loc.parent,
                                                            ctx);
