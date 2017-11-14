@@ -3296,7 +3296,7 @@ glusterd_store_retrieve_options (xlator_t *this)
                 goto out;
         ret = 0;
 out:
-        gf_store_iter_destroy (iter);
+        (void) gf_store_iter_destroy (iter);
         gf_store_handle_destroy (shandle);
         return ret;
 }
