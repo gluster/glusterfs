@@ -235,8 +235,7 @@ int extract_db_params(xlator_t *this, dict_t *params_dict,
         case GFDB_HASH_FILE_STORE:
         case GFDB_INVALID_DB:
         case GFDB_DB_END:
-                ret = -1;
-                break;
+                goto out;
         }
         ret = 0;
 out:
