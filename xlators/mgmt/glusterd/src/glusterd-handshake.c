@@ -1025,7 +1025,6 @@ int32_t
 __server_event_notify (rpcsvc_request_t *req)
 {
         int32_t                 ret             = -1;
-        int32_t                 op_errno        =  0;
         gf_event_notify_req     args            = {0,};
         gf_event_notify_rsp     rsp             = {0,};
         dict_t                 *dict            = NULL;
@@ -1074,8 +1073,6 @@ __server_event_notify (rpcsvc_request_t *req)
 fail:
         rsp.op_ret   = ret;
 
-        if (op_errno)
-                rsp.op_errno = gf_errno_to_error (op_errno);
 
         if (need_rsp)
                 glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
