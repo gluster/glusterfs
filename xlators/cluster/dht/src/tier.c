@@ -446,7 +446,7 @@ tier_do_migration (xlator_t *this, int promote)
                 migrate = promote ? 0 : 1;
                 break;
         case TIER_WM_MID:
-                /* coverty[DC.WEAK_CRYPTO] */
+                /* coverity[DC.WEAK_CRYPTO] */
                 rand = random() % 100;
                 if (promote) {
                         migrate = (rand > tier_conf->percent_full);
@@ -1454,6 +1454,7 @@ tier_process_ctr_query (tier_brick_list_t *local_brick, void *args)
                 GF_FREE (ipc_ctr_params);
                 goto out;
         }
+        ipc_ctr_params = NULL;
 
         ret = syncop_ipc (local_brick->xlator, GF_IPC_TARGET_CTR,
                                 ctr_ipc_in_dict, &ctr_ipc_out_dict);
@@ -1498,6 +1499,8 @@ out:
                 dict_unref(ctr_ipc_out_dict);
                 ctr_ipc_out_dict = NULL;
         }
+
+        GF_FREE (ipc_ctr_params);
 
         return ret;
 }
@@ -1763,8 +1766,10 @@ out:
                                   sizeof (query_file_path_err),
                                   "%s-%s.err", local_brick->qfile_path,
                                   time_str);
-                        sys_rename (local_brick->qfile_path,
-                                query_file_path_err);
+                        if (sys_rename (local_brick->qfile_path,
+                                        query_file_path_err) == -1)
+                                gf_msg_debug ("tier", 0, "rename "
+                                              "failed");
                 }
         }
 
@@ -2109,7 +2114,6 @@ tier_get_bricklist (xlator_t *xl, struct list_head *local_bricklist_head)
         xlator_list_t           *child = NULL;
         char                    *rv        = NULL;
         char                    *rh        = NULL;
-        char                    localhost[256] = {0};
         char                    *brickname = NULL;
         char                    db_name[PATH_MAX] = "";
         int                     ret = 0;
@@ -2117,8 +2121,6 @@ tier_get_bricklist (xlator_t *xl, struct list_head *local_bricklist_head)
 
         GF_VALIDATE_OR_GOTO ("tier", xl, out);
         GF_VALIDATE_OR_GOTO ("tier", local_bricklist_head, out);
-
-        gethostname (localhost, sizeof (localhost));
 
         /*
          * This function obtains remote subvolumes and filters out only
@@ -2764,7 +2766,7 @@ out:
         return ret;
 }
 
-static int
+static tier_mode_t
 tier_validate_mode (char *mode)
 {
         int ret = -1;
@@ -2860,6 +2862,8 @@ tier_init (xlator_t *this)
         char             *voldir         = NULL;
         char             *mode           = NULL;
         char             *paused         = NULL;
+        tier_mode_t	  tier_mode	 = DEFAULT_TIER_MODE;
+        gf_boolean_t	  compact_mode	 = _gf_false;
 
         ret = dht_init (this);
         if (ret) {
@@ -3012,18 +3016,11 @@ tier_init (xlator_t *this)
         if (ret) {
                 defrag->tier_conf.compact_active = DEFAULT_COMP_MODE;
         } else {
-                ret = tier_validate_compact_mode (mode);
-                if (ret < 0) {
-                        gf_msg(this->name, GF_LOG_ERROR, 0,
-                               DHT_MSG_LOG_TIER_ERROR,
-                               "tier_init failed - invalid compaction mode");
-                        goto out;
-                }
-
+                compact_mode = tier_validate_compact_mode (mode);
                 /* If compaction is now active, we need to inform the bricks on
                    the hot and cold tier of this. See dht-common.h for more. */
-                defrag->tier_conf.compact_active = ret;
-                if (ret) {
+                defrag->tier_conf.compact_active = compact_mode;
+                if (compact_mode) {
                         defrag->tier_conf.compact_mode_switched_hot = _gf_true;
                         defrag->tier_conf.compact_mode_switched_cold = _gf_true;
                 }
@@ -3034,14 +3031,8 @@ tier_init (xlator_t *this)
         if (ret) {
                 defrag->tier_conf.mode = DEFAULT_TIER_MODE;
         } else {
-                ret = tier_validate_mode (mode);
-                if (ret < 0) {
-                        gf_msg(this->name, GF_LOG_ERROR, 0,
-                               DHT_MSG_LOG_TIER_ERROR,
-                               "tier_init failed - invalid mode");
-                        goto out;
-                }
-                defrag->tier_conf.mode = ret;
+                tier_mode = tier_validate_mode (mode);
+                defrag->tier_conf.mode = tier_mode;
         }
 
         pthread_mutex_init (&defrag->tier_conf.pause_mutex, 0);
