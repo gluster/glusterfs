@@ -213,6 +213,7 @@ static gf_timer_registry_t *
 gf_timer_registry_init (glusterfs_ctx_t *ctx)
 {
         gf_timer_registry_t *reg = NULL;
+        int ret = -1;
 
         if (ctx == NULL) {
                 gf_msg_callingfn ("timer", GF_LOG_ERROR, EINVAL,
@@ -245,7 +246,13 @@ gf_timer_registry_init (glusterfs_ctx_t *ctx)
                 INIT_LIST_HEAD (&reg->active);
         }
         UNLOCK (&ctx->lock);
-        gf_thread_create (&reg->th, NULL, gf_timer_proc, reg, "timer");
+        ret = gf_thread_create (&reg->th, NULL, gf_timer_proc, reg, "timer");
+        if (ret) {
+                gf_msg (THIS->name, GF_LOG_ERROR, ret,
+                        LG_MSG_PTHREAD_FAILED,
+                        "Thread creation failed");
+        }
+
 out:
         return reg;
 }
