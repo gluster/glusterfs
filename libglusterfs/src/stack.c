@@ -63,6 +63,26 @@ create_frame (xlator_t *xl, call_pool_t *pool)
 }
 
 void
+call_stack_set_groups (call_stack_t *stack, int ngrps, gid_t **groupbuf_p)
+{
+        /* We take the ownership of the passed group buffer. */
+
+        if (ngrps <= SMALL_GROUP_COUNT) {
+                memcpy (stack->groups_small, *groupbuf_p,
+                        sizeof (gid_t) * ngrps);
+                stack->groups = stack->groups_small;
+                GF_FREE (*groupbuf_p);
+        } else {
+                stack->groups_large = *groupbuf_p;
+                stack->groups = stack->groups_large;
+        }
+
+        stack->ngrps = ngrps;
+        /* Set a canary. */
+        *groupbuf_p = (void *)0xdeadf00d;
+}
+
+void
 gf_proc_dump_call_frame (call_frame_t *call_frame, const char *key_buf,...)
 {
 

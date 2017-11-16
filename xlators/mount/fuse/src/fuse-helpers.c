@@ -181,7 +181,7 @@ frame_fill_groups (call_frame_t *frame)
                         return;
                 }
 
-                call_stack_set_groups (frame->root, ngroups, mygroups);
+                call_stack_set_groups (frame->root, ngroups, &mygroups);
         } else {
                 ret = snprintf (filename, sizeof filename, "/proc/%d/status",
                                 frame->root->pid);

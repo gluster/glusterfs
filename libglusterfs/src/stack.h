@@ -390,25 +390,20 @@ STACK_RESET (call_stack_t *stack)
         } while (0)
 
 
-static void
-call_stack_set_groups (call_stack_t *stack, int ngrps, gid_t *groupbuf)
-{
-        stack->groups = groupbuf;
-        stack->ngrps = ngrps;
-}
-
 static inline int
 call_stack_alloc_groups (call_stack_t *stack, int ngrps)
 {
 	if (ngrps <= SMALL_GROUP_COUNT) {
-		call_stack_set_groups (stack, ngrps, stack->groups_small);
+		stack->groups = stack->groups_small;
 	} else {
 		stack->groups_large = GF_CALLOC (ngrps, sizeof (gid_t),
 						 gf_common_mt_groups_t);
 		if (!stack->groups_large)
 			return -1;
-		call_stack_set_groups (stack, ngrps, stack->groups_large);
+		stack->groups = stack->groups_large;
 	}
+
+	stack->ngrps = ngrps;
 
 	return 0;
 }
@@ -507,6 +502,7 @@ copy_frame (call_frame_t *frame)
         return newframe;
 }
 
+void call_stack_set_groups (call_stack_t *stack, int ngrps, gid_t **groupbuf_p);
 void gf_proc_dump_pending_frames(call_pool_t *call_pool);
 void gf_proc_dump_pending_frames_to_dict (call_pool_t *call_pool,
                                           dict_t *dict);
