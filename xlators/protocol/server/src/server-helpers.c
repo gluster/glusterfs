@@ -31,13 +31,24 @@ gid_resolve (server_conf_t *conf, call_stack_t *root)
         struct passwd    *result;
         gid_t            *mygroups = NULL;
         gid_list_t        gl;
-        const gid_list_t *agl;
         int               ngroups;
+        const gid_list_t *agl;
 
         agl = gid_cache_lookup (&conf->gid_cache, root->uid, 0, 0);
         if (agl) {
                 root->ngrps = agl->gl_count;
-                goto fill_groups;
+
+                if (root->ngrps > 0) {
+                        ret = call_stack_alloc_groups (root, agl->gl_count);
+                        if (ret == 0) {
+                                memcpy (root->groups, agl->gl_list,
+                                        sizeof (gid_t) * agl->gl_count);
+                        }
+                }
+
+                gid_cache_release (&conf->gid_cache, agl);
+
+                return ret;
         }
 
         ret = getpwuid_r (root->uid, &mypw, mystrs, sizeof(mystrs), &result);
@@ -66,42 +77,28 @@ gid_resolve (server_conf_t *conf, call_stack_t *root)
         }
         root->ngrps = (uint16_t) ngroups;
 
-fill_groups:
-        if (agl) {
-                /* the gl is not complete, we only use gl.gl_list later on */
-                gl.gl_list = agl->gl_list;
-        } else {
-                /* setup a full gid_list_t to add it to the gid_cache */
-                gl.gl_id = root->uid;
-                gl.gl_uid = root->uid;
-                gl.gl_gid = root->gid;
-                gl.gl_count = root->ngrps;
+        /* setup a full gid_list_t to add it to the gid_cache */
+        gl.gl_id = root->uid;
+        gl.gl_uid = root->uid;
+        gl.gl_gid = root->gid;
+        gl.gl_count = root->ngrps;
 
-                gl.gl_list = GF_MALLOC (root->ngrps * sizeof(gid_t),
-                                        gf_common_mt_groups_t);
-                if (gl.gl_list)
-                        memcpy (gl.gl_list, mygroups,
-                                sizeof(gid_t) * root->ngrps);
-                else {
-                        GF_FREE (mygroups);
-                        return -1;
-                }
+        gl.gl_list = GF_MALLOC (root->ngrps * sizeof(gid_t),
+                                gf_common_mt_groups_t);
+        if (gl.gl_list)
+                memcpy (gl.gl_list, mygroups,
+                        sizeof(gid_t) * root->ngrps);
+        else {
+                GF_FREE (mygroups);
+                return -1;
         }
 
-        if (root->ngrps == 0) {
-                ret = 0;
-                goto out;
+        if (root->ngrps > 0) {
+                call_stack_set_groups (root, root->ngrps, &mygroups);
         }
 
-        call_stack_set_groups (root, root->ngrps, mygroups);
-
-out:
-        if (agl) {
-                gid_cache_release (&conf->gid_cache, agl);
-        } else {
-                if (gid_cache_add (&conf->gid_cache, &gl) != 1)
-                        GF_FREE (gl.gl_list);
-        }
+        if (gid_cache_add (&conf->gid_cache, &gl) != 1)
+                GF_FREE (gl.gl_list);
 
         return ret;
 }
