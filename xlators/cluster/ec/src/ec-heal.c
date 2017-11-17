@@ -1559,9 +1559,9 @@ ec_heal_entry (call_frame_t *frame, ec_t *ec, inode_t *inode,
         sprintf (selfheal_domain, "%s:self-heal", ec->xl->name);
         ec_mask_to_char_array (ec->xl_up, up_subvols, ec->nodes);
         /*If other processes are already doing the heal, don't block*/
-        ret = cluster_inodelk (ec->xl_list, up_subvols, ec->nodes, replies,
-                               locked_on, frame, ec->xl, selfheal_domain, inode,
-                               0, 0);
+        ret = cluster_tiebreaker_inodelk (ec->xl_list, up_subvols, ec->nodes,
+                                          replies, locked_on, frame, ec->xl,
+                                          selfheal_domain, inode, 0, 0);
         {
                 if (ret <= ec->fragments) {
                         gf_msg_debug (ec->xl->name, 0, "%s: Skipping heal "
@@ -2391,9 +2391,10 @@ ec_heal_data (call_frame_t *frame, ec_t *ec, gf_boolean_t block, inode_t *inode,
                                        locked_on, frame, ec->xl,
                                        selfheal_domain, inode, 0, 0);
         } else {
-                ret = cluster_tryinodelk (ec->xl_list, output, ec->nodes,
-                                          replies, locked_on, frame, ec->xl,
-                                          selfheal_domain, inode, 0, 0);
+                ret = cluster_tiebreaker_inodelk (ec->xl_list, output,
+                                                  ec->nodes, replies, locked_on,
+                                                  frame, ec->xl,
+                                                  selfheal_domain, inode, 0, 0);
         }
         {
                 if (ret <= ec->fragments) {
@@ -2444,8 +2445,10 @@ ec_heal_do (xlator_t *this, void *data, loc_t *loc, int32_t partial)
 
         /* If it is heal request from getxattr, complete the heal and then
          * unwind, if it is ec_heal with NULL as frame then no need to block
-         * the heal as the caller doesn't care about its completion*/
-        if (fop->req_frame)
+         * the heal as the caller doesn't care about its completion. In case
+         * of heald whichever gets tiebreaking inodelk will take care of the
+         * heal, so no need to block*/
+        if (fop->req_frame && !ec->shd.iamshd)
                 blocking = _gf_true;
 
         frame = create_frame (this, this->ctx->pool);
