@@ -1191,3 +1191,99 @@ cluster_entrylk (xlator_t **subvols, unsigned char *on, int numsubvols,
         loc_wipe (&loc);
         return cluster_fop_success_fill (replies, numsubvols, locked_on);
 }
+
+int
+cluster_tiebreaker_inodelk (xlator_t **subvols, unsigned char *on,
+                            int numsubvols, default_args_cbk_t *replies,
+                            unsigned char *locked_on, call_frame_t *frame,
+                            xlator_t *this, char *dom, inode_t *inode,
+                            off_t off, size_t size)
+{
+        struct gf_flock flock = {0, };
+        int i = 0;
+        int num_success = 0;
+        loc_t loc = {0};
+        unsigned char *output = NULL;
+
+        flock.l_type = F_WRLCK;
+        flock.l_start = off;
+        flock.l_len = size;
+
+        output = alloca(numsubvols);
+        loc.inode = inode_ref (inode);
+        gf_uuid_copy (loc.gfid, inode->gfid);
+        FOP_ONLIST (subvols, on, numsubvols, replies, locked_on, frame,
+                    inodelk, dom, &loc, F_SETLK, &flock, NULL);
+
+        for (i = 0; i < numsubvols; i++) {
+                if (replies[i].valid && replies[i].op_ret == 0) {
+                        num_success++;
+                        continue;
+                }
+                if (replies[i].op_ret == -1 && replies[i].op_errno == EAGAIN) {
+                        cluster_fop_success_fill (replies, numsubvols,
+                                                  locked_on);
+                        cluster_uninodelk (subvols, locked_on, numsubvols,
+                                           replies, output, frame, this, dom,
+                                           inode, off, size);
+
+                        if (num_success) {
+                                FOP_SEQ (subvols, on, numsubvols, replies,
+                                         locked_on, frame, inodelk, dom, &loc,
+                                         F_SETLKW, &flock, NULL);
+                        } else {
+                                memset (locked_on, 0, numsubvols);
+                        }
+                        break;
+                }
+        }
+
+        loc_wipe (&loc);
+        return cluster_fop_success_fill (replies, numsubvols, locked_on);
+}
+
+int
+cluster_tiebreaker_entrylk (xlator_t **subvols, unsigned char *on,
+                            int numsubvols, default_args_cbk_t *replies,
+                            unsigned char *locked_on, call_frame_t *frame,
+                            xlator_t *this, char *dom, inode_t *inode,
+                            const char *name)
+{
+        int i = 0;
+        loc_t loc = {0};
+        unsigned char *output = NULL;
+        int num_success = 0;
+
+        output = alloca(numsubvols);
+        loc.inode = inode_ref (inode);
+        gf_uuid_copy (loc.gfid, inode->gfid);
+        FOP_ONLIST (subvols, on, numsubvols, replies, locked_on, frame,
+                    entrylk, dom, &loc, name, ENTRYLK_LOCK_NB, ENTRYLK_WRLCK,
+                    NULL);
+
+        for (i = 0; i < numsubvols; i++) {
+                if (replies[i].valid && replies[i].op_ret == 0) {
+                        num_success++;
+                        continue;
+                }
+                if (replies[i].op_ret == -1 && replies[i].op_errno == EAGAIN) {
+                        cluster_fop_success_fill (replies, numsubvols,
+                                                  locked_on);
+                        cluster_unentrylk (subvols, locked_on, numsubvols,
+                                           replies, output, frame, this, dom,
+                                           inode, name);
+                        if (num_success) {
+                                FOP_SEQ (subvols, on, numsubvols, replies,
+                                         locked_on, frame, entrylk, dom, &loc,
+                                         name, ENTRYLK_LOCK, ENTRYLK_WRLCK,
+                                         NULL);
+                        } else {
+                                memset (locked_on, 0, numsubvols);
+                        }
+                        break;
+                }
+        }
+
+        loc_wipe (&loc);
+        return cluster_fop_success_fill (replies, numsubvols, locked_on);
+}
