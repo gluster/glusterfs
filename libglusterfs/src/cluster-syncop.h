@@ -209,4 +209,11 @@ int32_t
 cluster_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *dict,
                      dict_t *xdata);
+
+int
+cluster_tiebreaker_inodelk (xlator_t **subvols, unsigned char *on,
+                            int numsubvols, default_args_cbk_t *replies,
+                            unsigned char *locked_on, call_frame_t *frame,
+                            xlator_t *this, char *dom, inode_t *inode,
+                            off_t off, size_t size);
 #endif /* !_CLUSTER_SYNCOP_H */
