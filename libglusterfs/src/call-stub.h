@@ -14,6 +14,7 @@
 #include "xlator.h"
 #include "defaults.h"
 #include "default-args.h"
+#include "stack.h"
 #include "list.h"
 
 typedef struct _call_stub {
@@ -76,6 +77,7 @@ typedef struct _call_stub {
                 fop_lease_t lease;
                 fop_getactivelk_t getactivelk;
 	        fop_setactivelk_t setactivelk;
+                fop_put_t put;
         } fn;
 
 	union {
@@ -128,6 +130,7 @@ typedef struct _call_stub {
                 fop_lease_cbk_t lease;
                 fop_getactivelk_cbk_t getactivelk;
                 fop_setactivelk_cbk_t setactivelk;
+                fop_put_cbk_t put;
 	} fn_cbk;
 
         default_args_t args;
@@ -760,6 +763,18 @@ fop_setactivelk_stub (call_frame_t *frame, fop_setactivelk_t fn,
 call_stub_t *
 fop_setactivelk_cbk_stub (call_frame_t *frame, fop_setactivelk_cbk_t fn,
                            int32_t op_ret, int32_t op_errno, dict_t *xdata);
+
+call_stub_t *
+fop_put_stub (call_frame_t *frame, fop_put_t fn, loc_t *loc,
+              mode_t mode, mode_t umask, uint32_t flags,
+              struct iovec *vector, int32_t count, off_t offset,
+              struct iobref *iobref, dict_t *xattr, dict_t *xdata);
+
+call_stub_t *
+fop_put_cbk_stub (call_frame_t *frame, fop_put_cbk_t fn, int32_t op_ret,
+                  int32_t op_errno, inode_t *inode, struct iatt *buf,
+                  struct iatt *preparent, struct iatt *postparent,
+                  dict_t *xdata);
 
 void call_resume (call_stub_t *stub);
 void call_resume_keep_stub (call_stub_t *stub);

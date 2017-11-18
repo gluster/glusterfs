@@ -11,6 +11,7 @@
 #include <pthread.h>
 
 #include "glusterfs.h"
+#include "globals.h"
 #include "xlator.h"
 #include "mem-pool.h"
 #include "syncop.h"
@@ -73,6 +74,7 @@ const char *gf_fop_list[GF_FOP_MAXVALUE] = {
         [GF_FOP_COMPOUND]    = "COMPOUND",
         [GF_FOP_GETACTIVELK] = "GETACTIVELK",
         [GF_FOP_SETACTIVELK] = "SETACTIVELK",
+        [GF_FOP_PUT]         = "PUT",
 };
 
 const char *gf_upcall_list[GF_UPCALL_FLAGS_MAXVALUE] = {

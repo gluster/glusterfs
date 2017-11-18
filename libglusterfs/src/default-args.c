@@ -594,6 +594,46 @@ args_writev_cbk_store (default_args_cbk_t *args,
 }
 
 int
+args_put_store (default_args_t *args, loc_t *loc, mode_t mode, mode_t umask,
+                uint32_t flags, struct iovec *vector, int32_t count, off_t off,
+                struct iobref *iobref, dict_t *xattr, dict_t *xdata)
+{
+        loc_copy (&args->loc, loc);
+        args->mode = mode;
+        args->umask = umask;
+        args->flags  = flags;
+        args->vector = iov_dup (vector, count);
+        args->count  = count;
+        args->offset = off;
+        args->iobref = iobref_ref (iobref);
+        if (xattr)
+                args->xattr = dict_ref (xattr);
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+        return 0;
+}
+
+int
+args_put_cbk_store (default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
+                    inode_t *inode, struct iatt *buf, struct iatt *preparent,
+                    struct iatt *postparent, dict_t *xdata)
+{
+        args->op_ret = op_ret;
+        args->op_errno = op_errno;
+        if (op_ret >= 0)
+                args->stat = *buf;
+        if (inode)
+                args->inode = inode_ref (inode);
+        if (preparent)
+                args->preparent = *preparent;
+        if (postparent)
+                args->postparent = *postparent;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        return 0;
+}
+int
 args_flush_store (default_args_t *args, fd_t *fd, dict_t *xdata)
 {
         if (fd)

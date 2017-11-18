@@ -125,6 +125,10 @@ args_writev_cbk_store (default_args_cbk_t *args,
                      int32_t op_ret, int32_t op_errno,
                      struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata);
 
+int
+args_put_cbk_store (default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
+                    inode_t *inode, struct iatt *buf, struct iatt *preparent,
+                    struct iatt *postparent, dict_t *xdata);
 
 int
 args_flush_cbk_store (default_args_cbk_t *args,
@@ -347,6 +351,11 @@ int
 args_writev_store (default_args_t *args, fd_t *fd, struct iovec *vector,
                    int32_t count, off_t off, uint32_t flags,
                    struct iobref *iobref, dict_t *xdata);
+
+int
+args_put_store (default_args_t *args, loc_t *loc, mode_t mode, mode_t umask,
+                uint32_t flags, struct iovec *vector, int32_t count, off_t off,
+                struct iobref *iobref, dict_t *xattr, dict_t *xdata);
 
 int
 args_flush_store (default_args_t *args, fd_t *fd, dict_t *xdata);
