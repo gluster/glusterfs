@@ -345,6 +345,10 @@ default_zerofill
 default_zerofill_cbk
 default_zerofill_failure_cbk
 default_zerofill_resume
+default_put
+default_put_cbk
+default_put_failure_cbk
+default_put_resume
 __dentry_grep
 dht_is_linkfile
 dict_add
