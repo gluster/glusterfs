@@ -465,6 +465,12 @@ typedef int32_t (*fop_setactivelk_cbk_t) (call_frame_t *frame, void *cookie,
                                             xlator_t *this, int32_t op_ret,
                                             int32_t op_errno, dict_t *xdata);
 
+typedef int32_t (*fop_put_cbk_t) (call_frame_t *frame, void *cookie,
+                                  xlator_t *this, int32_t op_ret,
+                                  int32_t op_errno, inode_t *inode,
+                                  struct iatt *buf, struct iatt *preparent,
+                                  struct iatt *postparent, dict_t *xdata);
+
 typedef int32_t (*fop_lookup_t) (call_frame_t *frame,
                                  xlator_t *this,
                                  loc_t *loc,
@@ -725,6 +731,12 @@ typedef int32_t (*fop_setactivelk_t) (call_frame_t *frame, xlator_t *this,
                                       lock_migration_info_t *locklist,
                                       dict_t *xdata);
 
+typedef int32_t (*fop_put_t) (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                              mode_t mode, mode_t umask, uint32_t flags,
+                              struct iovec *vector, int32_t count, off_t offset,
+                              struct iobref *iobref, dict_t *xattr,
+                              dict_t *xdata);
+
 /* WARNING: make sure the list is in order with FOP definition in
    `rpc/xdr/src/glusterfs-fops.x`.
    If it is not in order, mainly the metrics related feature would be broken */
@@ -786,6 +798,7 @@ struct xlator_fops {
         fop_compound_t       compound;
         fop_getactivelk_t    getactivelk;
         fop_setactivelk_t    setactivelk;
+        fop_put_t            put;
 
         /* these entries are used for a typechecking hack in STACK_WIND _only_ */
         /* make sure to add _cbk variables only after defining regular fops as
@@ -847,6 +860,7 @@ struct xlator_fops {
         fop_compound_cbk_t       compound_cbk;
         fop_getactivelk_cbk_t    getactivelk_cbk;
         fop_setactivelk_cbk_t    setactivelk_cbk;
+        fop_put_cbk_t            put_cbk;
 };
 
 typedef int32_t (*cbk_forget_t) (xlator_t *this,

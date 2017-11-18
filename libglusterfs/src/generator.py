@@ -557,6 +557,24 @@ ops['setactivelk'] = (
         ('cbk-arg',     'xdata',                'dict_t *'),
 )
 
+ops['put'] = (
+        ('fop-arg',     'loc',                  'loc_t *',                      'loc'),
+        ('fop-arg',     'mode',                 'mode_t',                       'mode'),
+        ('fop-arg',     'umask',                'mode_t',                       'umask'),
+        ('fop-arg',     'flags',                'uint32_t',                     'flags'),
+        ('fop-arg',     'vector',               'struct iovec *',               'vector'),
+        ('fop-arg',     'count',                'int32_t'),
+        ('fop-arg',     'off',                  'off_t',                        'offset'),
+        ('fop-arg',     'iobref',               'struct iobref *'),
+        ('fop-arg',     'dict',                 'dict_t *',                     'xattr'),
+        ('fop-arg',     'xdata',                'dict_t *',                     'xdata'),
+        ('cbk-arg',     'inode',                'inode_t *'),
+        ('cbk-arg',     'buf',                  'struct iatt *'),
+        ('cbk-arg',     'preparent',            'struct iatt *'),
+        ('cbk-arg',     'postparent',           'struct iatt *'),
+        ('cbk-arg',     'xdata',                'dict_t *'),
+)
+
 #####################################################################
 xlator_cbks['forget'] = (
         ('fn-arg',      'this',        'xlator_t *'),

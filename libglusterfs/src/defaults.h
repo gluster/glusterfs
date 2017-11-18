@@ -354,6 +354,11 @@ int32_t
 default_setactivelk (call_frame_t *frame, xlator_t *this, loc_t *loc,
                        lock_migration_info_t *locklist, dict_t *xdata);
 
+int32_t
+default_put (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
+             mode_t umask, uint32_t flags, struct iovec *vector, int32_t count,
+             off_t off, struct iobref *iobref, dict_t *xattr, dict_t *xdata);
+
 /* Resume */
 int32_t default_getspec_resume (call_frame_t *frame,
                                 xlator_t *this,
@@ -598,6 +603,12 @@ default_getactivelk_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
 int32_t
 default_setactivelk_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
                             lock_migration_info_t *locklist, dict_t *xdata);
+
+int32_t
+default_put_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                    mode_t mode, mode_t umask, uint32_t flags,
+                    struct iovec *vector, int32_t count, off_t off,
+                    struct iobref *iobref, dict_t *xattr, dict_t *xdata);
 
 /* _cbk_resume */
 
@@ -895,6 +906,12 @@ default_setactivelk_cbk_resume (call_frame_t *frame, void *cookie,
                                 xlator_t *this, int32_t op_ret,
                                 int32_t op_errno, dict_t *xdata);
 
+int32_t
+default_put_cbk_resume (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, inode_t *inode,
+                        struct iatt *buf, struct iatt *preparent,
+                        struct iatt *postparent, dict_t *xdata);
+
 /* _CBK */
 int32_t
 default_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -1142,6 +1159,11 @@ int32_t
 default_setactivelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno, dict_t *xdata);
 
+int32_t
+default_put_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, inode_t *inode,
+                 struct iatt *buf, struct iatt *preparent,
+                 struct iatt *postparent, dict_t *xdata);
 
 int32_t
 default_lookup_failure_cbk (call_frame_t *frame, int32_t op_errno);
@@ -1294,6 +1316,9 @@ default_getactivelk_failure_cbk (call_frame_t *frame, int32_t op_errno);
 
 int32_t
 default_setactivelk_failure_cbk (call_frame_t *frame, int32_t op_errno);
+
+int32_t
+default_put_failure_cbk (call_frame_t *frame, int32_t op_errno);
 
 int32_t
 default_mem_acct_init (xlator_t *this);

@@ -2080,6 +2080,55 @@ syncop_create (xlator_t *subvol, loc_t *loc, int32_t flags, mode_t mode,
 
 }
 
+int32_t
+syncop_put_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, inode_t *inode,
+                struct iatt *buf, struct iatt *preparent,
+                struct iatt *postparent, dict_t *xdata)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+        if (xdata)
+                args->xdata  = dict_ref (xdata);
+
+        if (buf)
+                args->iatt1 = *buf;
+
+        __wake (args);
+
+        return 0;
+}
+
+int
+syncop_put (xlator_t *subvol, loc_t *loc, mode_t mode, mode_t umask,
+            uint32_t flags, struct iovec *vector, int32_t count,
+            off_t offset, struct iobref *iobref, dict_t *xattr,
+            struct iatt *iatt, dict_t *xdata_in, dict_t **xdata_out)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_put_cbk, subvol->fops->put,
+                loc, mode, umask, flags, (struct iovec *) vector, count,
+                offset, iobref, xattr, xdata_in);
+
+        if (iatt)
+                *iatt = args.iatt1;
+
+        if (xdata_out)
+                *xdata_out = args.xdata;
+        else if (args.xdata)
+                dict_unref (args.xdata);
+
+        if (args.op_ret < 0)
+                return -args.op_errno;
+        return args.op_ret;
+
+}
+
 int
 syncop_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int op_ret, int op_errno, struct iatt *preparent,

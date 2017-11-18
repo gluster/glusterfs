@@ -304,6 +304,18 @@ cluster_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int32_t
+cluster_put_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, inode_t *inode,
+                 struct iatt *buf, struct iatt *preparent,
+                 struct iatt *postparent, dict_t *xdata)
+{
+        FOP_CBK (put, frame, cookie, op_ret, op_errno, inode, buf, preparent,
+                 postparent, xdata);
+        return 0;
+}
+
+
+int32_t
 cluster_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno,
                    dict_t *xdata)
@@ -682,6 +694,20 @@ cluster_writev (xlator_t **subvols, unsigned char *on, int numsubvols,
 {
         FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, writev, fd,
                     vector, count, off, flags, iobref, xdata);
+        return cluster_fop_success_fill (replies, numsubvols, output);
+}
+
+int32_t
+cluster_put (xlator_t **subvols, unsigned char *on, int numsubvols,
+             default_args_cbk_t *replies, unsigned char *output,
+             call_frame_t *frame, xlator_t *this, loc_t *loc,
+             mode_t mode, mode_t umask, uint32_t flags, struct iovec *vector,
+             int32_t count, off_t offset, struct iobref *iobref, dict_t *xattr,
+             dict_t *xdata)
+{
+        FOP_ONLIST (subvols, on, numsubvols, replies, output, frame, put, loc,
+                    mode, umask, flags, vector, count, offset, iobref, xattr,
+                    xdata);
         return cluster_fop_success_fill (replies, numsubvols, output);
 }
 

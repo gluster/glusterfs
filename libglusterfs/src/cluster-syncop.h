@@ -198,6 +198,14 @@ cluster_fsetattr (xlator_t **subvols, unsigned char *on, int numsubvols,
                   call_frame_t *frame, xlator_t *this, fd_t *fd,
                   struct iatt *stbuf, int32_t valid, dict_t *xdata);
 
+int32_t
+cluster_put (xlator_t **subvols, unsigned char *on, int numsubvols,
+             default_args_cbk_t *replies, unsigned char *output,
+             call_frame_t *frame, xlator_t *this, loc_t *loc,
+             mode_t mode, mode_t umask, uint32_t flags, struct iovec *vector,
+             int32_t count, off_t offset, struct iobref *iobref, dict_t *xattr,
+             dict_t *xdata);
+
 void
 cluster_replies_wipe (default_args_cbk_t *replies, int num_subvols);
 

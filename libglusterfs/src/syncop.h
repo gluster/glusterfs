@@ -563,4 +563,10 @@ syncop_setactivelk (xlator_t *subvol, loc_t *loc,
                      lock_migration_info_t *locklist,  dict_t *xdata_in,
                      dict_t **xdata_out);
 
+int
+syncop_put (xlator_t *subvol, loc_t *loc, mode_t mode, mode_t umask,
+            uint32_t flags, struct iovec *vector, int32_t count,
+            off_t offset, struct iobref *iobref, dict_t *xattr,
+            struct iatt *iatt, dict_t *xdata_in, dict_t **xdata_out);
+
 #endif /* _SYNCOP_H */

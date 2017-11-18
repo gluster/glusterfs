@@ -1968,6 +1968,47 @@ out:
 
 }
 
+call_stub_t *
+fop_put_stub (call_frame_t *frame, fop_put_t fn,
+              loc_t *loc, mode_t mode, mode_t umask, uint32_t flags,
+              struct iovec *vector, int32_t count, off_t offset,
+              struct iobref *iobref, dict_t *xattr, dict_t *xdata)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+        GF_VALIDATE_OR_GOTO ("call-stub", vector, out);
+
+        stub = stub_new (frame, 1, GF_FOP_PUT);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->fn.put = fn;
+        args_put_store (&stub->args, loc, mode, umask, flags, vector,
+                        count, offset, iobref, xattr, xdata);
+out:
+        return stub;
+}
+
+call_stub_t *
+fop_put_cbk_stub (call_frame_t *frame, fop_put_cbk_t fn,
+                  int32_t op_ret, int32_t op_errno, inode_t *inode,
+                  struct iatt *buf, struct iatt *preparent,
+                  struct iatt *postparent, dict_t *xdata)
+{
+        call_stub_t *stub = NULL;
+
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+
+        stub = stub_new (frame, 0, GF_FOP_PUT);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+        stub->fn_cbk.put = fn;
+        args_put_cbk_store (&stub->args_cbk, op_ret, op_errno, inode,
+                            buf, preparent, postparent, xdata);
+out:
+        return stub;
+}
+
 void
 call_resume_wind (call_stub_t *stub)
 {
@@ -2226,6 +2267,14 @@ call_resume_wind (call_stub_t *stub)
                                         stub->args.xdata);
                 break;
 
+        case GF_FOP_PUT:
+                stub->fn.put (stub->frame, stub->frame->this,
+                              &stub->args.loc, stub->args.mode, stub->args.umask,
+                              stub->args.flags, stub->args.vector,
+                              stub->args.count, stub->args.offset,
+                              stub->args.iobref, stub->args.xattr,
+                              stub->args.xdata);
+
         default:
                 gf_msg_callingfn ("call-stub", GF_LOG_ERROR, EINVAL,
                                   LG_MSG_INVALID_ENTRY, "Invalid value of FOP"
@@ -2451,6 +2500,14 @@ call_resume_unwind (call_stub_t *stub)
 
         case GF_FOP_SETACTIVELK:
                 STUB_UNWIND (stub, setactivelk, stub->args_cbk.xdata);
+                break;
+
+        case GF_FOP_PUT:
+                STUB_UNWIND (stub, put, stub->args_cbk.inode,
+                             &stub->args_cbk.stat,
+                             &stub->args_cbk.preparent,
+                             &stub->args_cbk.postparent,
+                             stub->args_cbk.xdata);
                 break;
 
         default:
