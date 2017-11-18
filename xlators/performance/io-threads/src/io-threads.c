@@ -331,6 +331,7 @@ iot_schedule (call_frame_t *frame, xlator_t *this, call_stub_t *stub)
         case GF_FOP_FSETXATTR:
         case GF_FOP_REMOVEXATTR:
         case GF_FOP_FREMOVEXATTR:
+        case GF_FOP_PUT:
                 pri = GF_FOP_PRI_NORMAL;
                 break;
 
@@ -467,6 +468,17 @@ iot_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
             mode_t mode, mode_t umask, fd_t *fd, dict_t *xdata)
 {
         IOT_FOP (create, frame, this, loc, flags, mode, umask, fd, xdata);
+        return 0;
+}
+
+
+int
+iot_put (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
+         mode_t umask, uint32_t flags, struct iovec *vector, int32_t count,
+         off_t offset, struct iobref *iobref, dict_t *xattr, dict_t *xdata)
+{
+        IOT_FOP (put, frame, this, loc, mode, umask, flags, vector, count,
+                 offset, iobref, xattr, xdata);
         return 0;
 }
 
@@ -1222,6 +1234,7 @@ struct xlator_fops fops = {
         .lease       = iot_lease,
         .getactivelk = iot_getactivelk,
         .setactivelk = iot_setactivelk,
+        .put         = iot_put,
 };
 
 struct xlator_cbks cbks = {
