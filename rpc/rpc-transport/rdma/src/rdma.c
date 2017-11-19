@@ -3761,9 +3761,6 @@ out:
                 while (total_ref-- > 0)
                         gf_rdma_post_unref (post);
 
-                if (iobuf != NULL) {
-                        iobuf_unref (iobuf);
-                }
         }
 
         return ret;
