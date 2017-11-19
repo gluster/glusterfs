@@ -8786,9 +8786,6 @@ err:
 
         DHT_STACK_UNWIND (mkdir, frame, -1, op_errno, NULL, NULL, NULL,
                           NULL, NULL);
-        if (stub) {
-                call_stub_destroy (stub);
-        }
 
         return 0;
 }
