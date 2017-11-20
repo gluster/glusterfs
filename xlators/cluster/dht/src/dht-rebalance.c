@@ -163,6 +163,14 @@ dht_send_rebalance_event (xlator_t *this, int cmd, gf_defrag_status_t status)
 }
 
 
+static void
+dht_strip_out_acls (dict_t *dict)
+{
+        if (dict) {
+                dict_del (dict, "trusted.SGI_ACL_FILE");
+                dict_del (dict, "POSIX_ACL_ACCESS_XATTR");
+        }
+}
 
 
 
@@ -1620,6 +1628,9 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         "%s: failed to get xattr from %s",
                         loc->path, from->name);
         }
+
+        /* Copying posix acls to the linkto file messes up the permissions*/
+        dht_strip_out_acls (xattr);
 
         /* create the destination, with required modes/xattr */
         ret = __dht_rebalance_create_dst_file (this, to, from, loc, &stbuf,
