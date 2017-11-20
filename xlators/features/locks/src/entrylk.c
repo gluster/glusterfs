@@ -783,7 +783,7 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
                 break;
 
         default:
-                inode_unref (pinode->inode);
+                need_inode_unref = _gf_true;
                 gf_log (this->name, GF_LOG_ERROR,
                         "Unexpected case in entrylk (cmd=%d). Please file"
                         "a bug report at http://bugs.gluster.com", cmd);
@@ -959,6 +959,7 @@ pl_entrylk_client_cleanup (xlator_t *this, pl_ctx_t *ctx)
 			__pl_entrylk_unref (l);
 		}
 		pthread_mutex_unlock (&pinode->mutex);
+
                 inode_unref (pinode->inode);
         }
 

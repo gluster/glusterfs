@@ -720,15 +720,16 @@ out:
 	if (ctx)
 		pthread_mutex_unlock (&ctx->lock);
 
-        if (need_inode_unref)
-                inode_unref (pl_inode->inode);
-
         /* The following (extra) unref corresponds to the ref that
          * was done at the time the lock was granted.
          */
         if ((fl_type == F_UNLCK) && (ret == 0)) {
                 inode_unref (pl_inode->inode);
                 grant_blocked_inode_locks (this, pl_inode, dom);
+        }
+
+        if (need_inode_unref) {
+                inode_unref (pl_inode->inode);
         }
 
         return ret;

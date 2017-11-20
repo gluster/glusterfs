@@ -437,6 +437,7 @@ pl_inode_get (xlator_t *this, inode_t *inode)
 
                 ret = __inode_ctx_put (inode, this, (uint64_t)(long)(pl_inode));
                 if (ret) {
+                        pthread_mutex_destroy (&pl_inode->mutex);
                         GF_FREE (pl_inode);
                         pl_inode = NULL;
                         goto unlock;
