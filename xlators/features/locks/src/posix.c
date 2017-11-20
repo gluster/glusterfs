@@ -2475,6 +2475,7 @@ pl_forget (xlator_t *this,
                                                   list) {
 
                                 list_del (&rw_req->list);
+                                call_stub_destroy(rw_req->stub);
                                 GF_FREE (rw_req);
                         }
                 }
@@ -2557,6 +2558,8 @@ pl_forget (xlator_t *this,
                 GF_FREE (entry_l);
 
         }
+
+        pthread_mutex_destroy(&pl_inode->mutex);
 
         GF_FREE (pl_inode);
 
