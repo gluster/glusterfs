@@ -1359,7 +1359,6 @@ done:
                         "%s: failed to perform setattr on %s",
                         loc->path, to->name);
                 *fop_errno = -ret;
-                ret = -1;
         }
 
         ret = syncop_unlink (from, loc, NULL, NULL);
@@ -1621,7 +1620,6 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         ret = syncop_listxattr (from, loc, &xattr, NULL, NULL);
         if (ret < 0) {
                 *fop_errno = -ret;
-                ret = -1;
                 gf_msg (this->name, GF_LOG_WARNING, *fop_errno,
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "Migrate file failed:"
@@ -1662,7 +1660,6 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         gf_log (this->name, GF_LOG_WARNING,
                                 "%s: failed to perform truncate on %s (%s)",
                                 loc->path, to->name, strerror (-ret));
-                        ret = -1;
                 }
 
                 syncop_close (dst_fd);
@@ -1757,7 +1754,6 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         "%s: failed to fsync on %s (%s)",
                         loc->path, to->name, strerror (-ret));
                 *fop_errno = -ret;
-                ret = -1;
         }
 
 
@@ -1926,74 +1922,65 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         }
 
         if (target_changed) {
-               if (!dict) {
-                        dict = dict_new ();
-                        if (!dict) {
-                                *fop_errno = ENOMEM;
-                                ret = -1;
-                                goto out;
-                        }
-               } else {
-                        dict_del (dict, conf->link_xattr_name);
-                        dict_del (dict, GLUSTERFS_POSIXLK_COUNT);
-                        ret = dict_set_str (dict, conf->link_xattr_name, to->name);
-                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "failed to set xattr in dict for %s (linkto:%s)",
-                                        loc->path, to->name);
-                                *fop_errno = ENOMEM;
-                                ret = -1;
-                                goto out;
-                        }
+                dict_del (dict, conf->link_xattr_name);
+                dict_del (dict, GLUSTERFS_POSIXLK_COUNT);
+                ret = dict_set_str (dict, conf->link_xattr_name, to->name);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "failed to set xattr in dict for %s (linkto:%s)",
+                                loc->path, to->name);
+                        *fop_errno = ENOMEM;
+                        ret = -1;
+                        goto out;
+                }
 
-                        ret = syncop_setxattr (old_target, loc, dict, 0, NULL, NULL);
-                        if (ret && -ret != ESTALE && -ret != ENOENT) {
-                                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                ret = syncop_setxattr (old_target, loc, dict, 0, NULL, NULL);
+                if (ret && -ret != ESTALE && -ret != ENOENT) {
+                        gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "failed to set xattr on %s in %s",
+                                loc->path, old_target->name);
+                        *fop_errno = -ret;
+                        ret = -1;
+                        goto out;
+                } else if (-ret == ESTALE || -ret == ENOENT) {
+                       /* The failure ESTALE indicates that the linkto
+                        * file on the hashed subvol might have been deleted.
+                        * In this case will create a linkto file with new target
+                        * as linkto xattr value*/
+                        linkto_fd = fd_create (loc->inode, DHT_REBALANCE_PID);
+                        if (!linkto_fd) {
+                                gf_msg (this->name, GF_LOG_ERROR, errno,
                                         DHT_MSG_MIGRATE_FILE_FAILED,
-                                        "failed to set xattr on %s in %s",
-                                        loc->path, old_target->name);
+                                        "%s: fd create failed", loc->path);
+                                *fop_errno = ENOMEM;
+                                ret = -1;
+                                goto out;
+                        }
+                        ret = syncop_create (old_target, loc, O_RDWR,
+                                             DHT_LINKFILE_MODE, linkto_fd,
+                                             NULL, dict, NULL);
+                        if (ret != 0 && -ret != EEXIST && -ret != ESTALE) {
                                 *fop_errno = -ret;
                                 ret = -1;
+                                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                        DHT_MSG_MIGRATE_FILE_FAILED,
+                                        "failed to create linkto file on %s in %s",
+                                        loc->path, old_target->name);
                                 goto out;
-                        } else if (-ret == ESTALE || -ret == ENOENT) {
-                               /* The failure ESTALE indicates that the linkto
-                                * file on the hashed subvol might have been deleted.
-                                * In this case will create a linkto file with new target
-                                * as linkto xattr value*/
-                                linkto_fd = fd_create (loc->inode, DHT_REBALANCE_PID);
-                                if (!linkto_fd) {
-                                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                                DHT_MSG_MIGRATE_FILE_FAILED,
-                                                "%s: fd create failed",
-                                                loc->path);
-                                        *fop_errno = ENOMEM;
-                                        ret = -1;
-                                        goto out;
-                                }
-                                ret = syncop_create (old_target, loc, O_RDWR,
-                                                     DHT_LINKFILE_MODE, linkto_fd,
-                                                     NULL, dict, NULL);
-                                if (ret != 0 && -ret != EEXIST && -ret != ESTALE) {
+                        } else if (ret == 0) {
+                                ret = syncop_fsetattr (old_target, linkto_fd, &stbuf,
+                                                       (GF_SET_ATTR_UID | GF_SET_ATTR_GID),
+                                                       NULL, NULL, NULL, NULL);
+                                if (ret < 0) {
                                         *fop_errno = -ret;
-                                        ret = -1;
                                         gf_msg (this->name, GF_LOG_ERROR, -ret,
                                                 DHT_MSG_MIGRATE_FILE_FAILED,
-                                                "failed to create linkto file on %s in %s",
-                                                loc->path, old_target->name);
-                                        goto out;
-                                } else if (ret == 0) {
-                                        ret = syncop_fsetattr (old_target, linkto_fd, &stbuf,
-                                                               (GF_SET_ATTR_UID | GF_SET_ATTR_GID),
-                                                               NULL, NULL, NULL, NULL);
-                                        if (ret < 0)
-                                                *fop_errno = -ret;
-                                                gf_msg (this->name, GF_LOG_ERROR,
-                                                -ret, DHT_MSG_MIGRATE_FILE_FAILED,
                                                 "chown failed for %s on %s",
                                                 loc->path, old_target->name);
                                 }
                         }
-               }
+                }
         }
 
         clean_dst = _gf_false;
@@ -2016,7 +2003,6 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         "%s: failed to get xattr from %s",
                         loc->path, from->name);
                 *fop_errno = -ret;
-                ret = -1;
         } else {
                 ret = syncop_setxattr (to, loc, xattr, 0, NULL, NULL);
                 if (ret < 0) {
@@ -2029,7 +2015,6 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                                 "%s: failed to set xattr on %s",
                                 loc->path, to->name);
                         *fop_errno = -ret;
-                        ret = -1;
                 }
         }
 
@@ -2071,7 +2056,6 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         "%s: failed to perform truncate on %s (%s)",
                         loc->path, from->name, strerror (-ret));
                 *fop_errno = -ret;
-                ret = -1;
         }
 
         /* remove the 'linkto' xattr from the destination */
@@ -2081,7 +2065,6 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         "%s: failed to perform removexattr on %s (%s)",
                         loc->path, to->name, strerror (-ret));
                 *fop_errno = -ret;
-                ret = -1;
         }
 
         /* Do a stat and check the gfid before unlink */
@@ -2132,7 +2115,6 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                               "%s: failed to lookup the file on subvolumes",
                               loc->path);
                 *fop_errno = -ret;
-                ret = -1;
         }
 
         gf_msg (this->name, log_level, 0,
@@ -2372,27 +2354,32 @@ dht_build_root_loc (inode_t *inode, loc_t *loc)
 int32_t
 gf_defrag_handle_migrate_error (int32_t op_errno, gf_defrag_info_t *defrag)
 {
+        int ret = 0;
         /* if errno is not ENOSPC or ENOTCONN, we can still continue
            with rebalance process */
-        if ((op_errno != ENOSPC) && (op_errno != ENOTCONN))
-                return 1;
+        if ((op_errno != ENOSPC) && (op_errno != ENOTCONN)) {
+                ret = 1;
+                goto out;
+        }
 
         if (op_errno == ENOTCONN) {
                 /* Most probably mount point went missing (mostly due
                    to a brick down), say rebalance failure to user,
                    let him restart it if everything is fine */
                 defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
-                return -1;
+                ret = -1;
+                goto out;
         }
 
         if (op_errno == ENOSPC) {
                 /* rebalance process itself failed, may be
                    remote brick went down, or write failed due to
                    disk full etc etc.. */
-                return 0;
+                ret = 0;
         }
 
-        return 0;
+out:
+        return ret;
 }
 
 static gf_boolean_t
@@ -2944,7 +2931,6 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
         int                     ret             = -1;
         char                    is_linkfile     = 0;
         gf_dirent_t            *df_entry        = NULL;
-        dict_t                 *xattr_rsp       = NULL;
         struct dht_container   *tmp_container   = NULL;
 
         if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
@@ -3114,10 +3100,6 @@ out:
                 }
         }
 
-        if (xattr_rsp)
-                dict_unref (xattr_rsp);
-
-
         return ret;
 }
 
@@ -3129,7 +3111,6 @@ gf_defrag_process_dir (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         fd_t                    *fd                = NULL;
         dht_conf_t              *conf              = NULL;
         gf_dirent_t              entries;
-        dict_t                  *dict              = NULL;
         dict_t                  *xattr_req         = NULL;
         struct timeval           dir_start         = {0,};
         struct timeval           end               = {0,};
@@ -3364,9 +3345,6 @@ gf_defrag_process_dir (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 out:
 
         GF_FREE_DIR_DFMETA (dir_dfmeta);
-
-        if (dict)
-                dict_unref(dict);
 
         if (xattr_req)
                 dict_unref(xattr_req);
@@ -3980,7 +3958,7 @@ gf_tier_do_fix_layout (void *args)
 
         ret = 0;
 out:
-        if (ret)
+        if (ret && defrag)
                 defrag->total_failures++;
 
         if (dict)
@@ -4308,7 +4286,6 @@ gf_defrag_start_crawl (void *data)
         dict_t                  *fix_layout             = NULL;
         dict_t                  *migrate_data           = NULL;
         dict_t                  *status                 = NULL;
-        dict_t                  *dict                   = NULL;
         glusterfs_ctx_t         *ctx                    = NULL;
         dht_methods_t           *methods                = NULL;
         int                      i                      = 0;
@@ -4671,9 +4648,6 @@ out:
 
         GF_FREE (defrag);
         conf->defrag = NULL;
-
-        if (dict)
-                dict_unref (dict);
 
         if (migrate_data)
                 dict_unref (migrate_data);
