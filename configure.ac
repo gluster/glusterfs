@@ -1098,10 +1098,10 @@ GF_LDFLAGS="-rdynamic"
 
 dnl include tirpc for IPv6 builds
 if test "x$with_libtirpc" = "xyes" || test "x$IPV6_DEFAULT" = "xyes" ; then
-        AC_CHECK_LIB([tirpc], [xdr_string], , AC_MSG_ERROR([libtirpc is required to build glusterfs with IPv6 default]))
-        TIRPC_CFLAGS="-I/usr/include/tirpc"
-        GF_LDFLAGS="-ltirpc $GF_LDFLAGS"
-        GF_CFLAGS="$GF_CFLAGS $TIRPC_CFLAGS"
+    PKG_CHECK_MODULES([TIRPC], [libtirpc],
+       [GF_CFLAGS="$GF_CFLAGS $TIRPC_CFLAGS"; GF_LDFLAGS="$GF_LDFLAGS $TIRPC_LIBS";],
+       [AC_MSG_ERROR([libtirpc requested or needed for IPv6 default but library not found])]
+    )
 fi
 
 if test "x$IPV6_DEFAULT" = "xyes" ; then
