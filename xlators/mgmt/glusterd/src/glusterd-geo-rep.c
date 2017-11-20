@@ -448,6 +448,7 @@ _glusterd_urltransform_add_iter (dict_t *dict, char *key, data_t *value, void *d
         gf_msg_debug (this->name, 0, "value->data %s", value->data);
 
         strncpy (slv_url, value->data, sizeof(slv_url));
+        slv_url[sizeof(slv_url) - 1] = 0;
         ret = parse_slave_url (slv_url, &slave);
         if (ret == -1) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -1287,6 +1288,7 @@ _get_status_mst_slv (dict_t *dict, char *key, data_t *value, void *data)
         GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
         strncpy (slv_url, value->data, sizeof(slv_url));
+        slv_url[sizeof(slv_url) - 1] = 0;
         ret = parse_slave_url (slv_url, &slave);
         if (ret == -1) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -1531,6 +1533,7 @@ update_slave_voluuid (dict_t *dict, char *key, data_t *value, void *data)
          */
         if (cnt == 4) {
                 strncpy (slv_url, value->data, sizeof(slv_url));
+                slv_url[sizeof(slv_url) - 1] = 0;
 
                 ret = parse_slave_url (slv_url, &slave);
                 if (ret == -1) {
@@ -1828,6 +1831,7 @@ glusterd_op_verify_gsync_start_options (glusterd_volinfo_t *volinfo,
         /* check session directory as statefile may not present
          * during upgrade */
         strncpy (statefiledir, statefile, sizeof(statefiledir));
+        statefiledir[sizeof(statefiledir) - 1] = 0;
         statedir = dirname (statefiledir);
 
         ret = sys_lstat (statedir, &stbuf);
@@ -3225,6 +3229,7 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
         }
 
         strncpy (statefiledir, statefile, sizeof(statefiledir));
+        statefiledir[sizeof(statefiledir) - 1] = 0;
         statedir = dirname (statefiledir);
 
         ret = sys_lstat (statedir, &stbuf);
@@ -3550,6 +3555,7 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                 /* check session directory as statefile may not present
                  * during upgrade */
                 strncpy (statefiledir, statefile, sizeof(statefiledir));
+                statefiledir[sizeof(statefiledir) - 1] = 0;
                 statedir = dirname (statefiledir);
 
                 ret = sys_lstat (statedir, &stbuf);
