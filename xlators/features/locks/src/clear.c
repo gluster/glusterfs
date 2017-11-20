@@ -183,7 +183,7 @@ clrlk_clear_posixlk (xlator_t *this, pl_inode_t *pl_inode, clrlk_args *args,
                         } else {
                                 gcount++;
                         }
-                        GF_FREE (plock);
+                        __destroy_lock(plock);
                 }
         }
         pthread_mutex_unlock (&pl_inode->mutex);
