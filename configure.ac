@@ -313,6 +313,10 @@ else
         CFLAGS="${CFLAGS} -g -rdynamic"
 fi
 
+AC_ARG_WITH([libtirpc],
+        AS_HELP_STRING([--with-libtirpc], [Use libtirpc as RPC implementation (instead of sunrpc)]),
+        [], [with_libtirpc=no])
+
 AC_ARG_WITH([ipv6-default], AC_HELP_STRING([--with-ipv6-default], [Set IPv6 as default.]))
 if test "x$with_ipv6_default" = "xyes"; then
         IPV6_DEFAULT=yes
@@ -1093,11 +1097,15 @@ GF_HOST_OS=""
 GF_LDFLAGS="-rdynamic"
 
 dnl include tirpc for IPv6 builds
-if test "x$IPV6_DEFAULT" = "xyes"; then
+if test "x$with_libtirpc" = "xyes" || test "x$IPV6_DEFAULT" = "xyes" ; then
         AC_CHECK_LIB([tirpc], [xdr_string], , AC_MSG_ERROR([libtirpc is required to build glusterfs with IPv6 default]))
         TIRPC_CFLAGS="-I/usr/include/tirpc"
         GF_LDFLAGS="-ltirpc $GF_LDFLAGS"
-        GF_CFLAGS="$GF_CFLAGS $TIRPC_CFLAGS -DIPV6_DEFAULT"
+        GF_CFLAGS="$GF_CFLAGS $TIRPC_CFLAGS"
+fi
+
+if test "x$IPV6_DEFAULT" = "xyes" ; then
+   GF_CFLAGS="$GF_CFLAGS -DIPV6_DEFAULT"
 fi
 
 dnl check for gcc -Werror=format-security
