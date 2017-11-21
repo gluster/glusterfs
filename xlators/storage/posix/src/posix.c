@@ -7973,7 +7973,9 @@ struct volume_options options[] = {
         { .key  = {"o-direct"},
           .type = GF_OPTION_TYPE_BOOL },
         { .key  = {"directory"},
-          .type = GF_OPTION_TYPE_PATH },
+          .type = GF_OPTION_TYPE_PATH,
+          .default_value = "{{brick.path}}"
+        },
         { .key  = {"hostname"},
           .type = GF_OPTION_TYPE_ANY },
         { .key  = {"export-statfs-size"},
@@ -7991,14 +7993,18 @@ struct volume_options options[] = {
                          "'landfill' directory is emptied."
         },
         { .key  = {"volume-id"},
-          .type = GF_OPTION_TYPE_ANY },
+          .type = GF_OPTION_TYPE_ANY,
+          .default_value = "{{brick.volumeid}}"
+        },
         { .key  = {"glusterd-uuid"},
           .type = GF_OPTION_TYPE_STR },
 	{
 	  .key  = {"linux-aio"},
 	  .type = GF_OPTION_TYPE_BOOL,
 	  .default_value = "off",
-          .description = "Support for native Linux AIO"
+          .description = "Support for native Linux AIO",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
 	},
         {
           .key = {"brick-uid"},
@@ -8006,7 +8012,9 @@ struct volume_options options[] = {
           .min = -1,
           .validate = GF_OPT_VALIDATE_MIN,
 	  .default_value = "-1",
-          .description = "Support for setting uid of brick's owner"
+          .description = "Support for setting uid of brick's owner",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         {
           .key = {"brick-gid"},
@@ -8014,13 +8022,17 @@ struct volume_options options[] = {
           .min = -1,
           .validate = GF_OPT_VALIDATE_MIN,
 	  .default_value = "-1",
-          .description = "Support for setting gid of brick's owner"
+          .description = "Support for setting gid of brick's owner",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key = {"node-uuid-pathinfo"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
           .description = "return glusterd's node-uuid in pathinfo xattr"
-                         " string instead of hostname"
+                         " string instead of hostname",
+          .op_version = {3},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         {
           .key = {"health-check-interval"},
@@ -8029,7 +8041,9 @@ struct volume_options options[] = {
           .default_value = "30",
           .validate = GF_OPT_VALIDATE_MIN,
           .description = "Interval in seconds for a filesystem health check, "
-                         "set to 0 to disable"
+                         "set to 0 to disable",
+          .op_version = {3},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         {
           .key = {"reserve"},
@@ -8038,7 +8052,9 @@ struct volume_options options[] = {
           .default_value = "1",
           .validate = GF_OPT_VALIDATE_MIN,
           .description = "Percentage of disk space to be reserved."
-           " Set to 0 to disable"
+           " Set to 0 to disable",
+          .op_version = {GD_OP_VERSION_3_12_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
 	{ .key = {"batch-fsync-mode"},
 	  .type = GF_OPTION_TYPE_STR,
@@ -8052,18 +8068,24 @@ struct volume_options options[] = {
 	  " of fsyncs and fsync() each file in the batch in reverse order.\n"
 	  " in reverse order.\n"
 	  "\t- reverse-fsync: Perform fsync() of each file in the batch in"
-	  " reverse order."
+	  " reverse order.",
+          .op_version = {3},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
 	},
 	{ .key = {"batch-fsync-delay-usec"},
 	  .type = GF_OPTION_TYPE_INT,
 	  .default_value = "0",
 	  .description = "Num of usecs to wait for aggregating fsync"
 	  " requests",
+          .op_version = {3},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
 	},
         { .key = {"update-link-count-parent"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
-          .description = "Enable placeholders for gfid to path conversion"
+          .description = "Enable placeholders for gfid to path conversion",
+          .op_version = {GD_OP_VERSION_3_6_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key = {"gfid2path"},
           .type = GF_OPTION_TYPE_BOOL,
@@ -8079,12 +8101,16 @@ struct volume_options options[] = {
 #else
           .default_value = "on",
 #endif
-          .description = "Enable logging metadata for gfid to path conversion"
+          .description = "Enable logging metadata for gfid to path conversion",
+          .op_version = {GD_OP_VERSION_3_12_0},
+          .flags = OPT_FLAG_SETTABLE
         },
         { .key = {"gfid2path-separator"},
           .type = GF_OPTION_TYPE_STR,
           .default_value = ":",
-          .description = "Path separator for glusterfs.gfidtopath virt xattr"
+          .description = "Path separator for glusterfs.gfidtopath virt xattr",
+          .op_version = {GD_OP_VERSION_3_12_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
 #if GF_DARWIN_HOST_OS
         { .key = {"xattr-user-namespace-mode"},
@@ -8093,7 +8119,9 @@ struct volume_options options[] = {
           .description = "Option to control XATTR user namespace on the raw filesystem: "
 	  "\t- None: Will use the user namespace, so files will be exchangable with Linux.\n"
 	  " The raw filesystem will not be compatible with OS X Finder.\n"
-	  "\t- Strip: Will strip the user namespace before setting. The raw filesystem will work in OS X.\n"
+	  "\t- Strip: Will strip the user namespace before setting. The raw filesystem will work in OS X.\n",
+          .op_version = {GD_OP_VERSION_3_6_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
 #endif
         { .key  = {"shared-brick-count"},
