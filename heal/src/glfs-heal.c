@@ -465,6 +465,7 @@ glfsh_print_hr_heal_op_summary (int ret, num_entries_t *num_entries)
         }
 out:
         printf ("\n");
+        fflush (stdout);
         return 0;
 }
 
