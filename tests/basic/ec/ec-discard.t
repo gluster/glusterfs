@@ -137,6 +137,15 @@ TEST md5_sum=`get_md5_sum $B0/test_file`
 EXPECT $md5_sum get_md5_sum $M0/test_file
 TEST rm -f $B0/test_file $M0/test_file
 
+#Offset and Size not at boundary covering a stripe
+TEST dd if=/dev/urandom of=$B0/test_file bs=1024 count=8
+TEST cp $B0/test_file $M0/test_file
+TEST fallocate -p -o 1500 -l 3000 $B0/test_file
+TEST fallocate -p -o 1500 -l 3000 $M0/test_file
+TEST md5_sum=`get_md5_sum $B0/test_file`
+EXPECT $md5_sum get_md5_sum $M0/test_file
+TEST rm -f $B0/test_file $M0/test_file
+
 #Offset and Size not at boundary
 TEST dd if=/dev/urandom of=$B0/test_file bs=1024 count=8
 TEST cp $B0/test_file $M0/test_file
@@ -144,7 +153,6 @@ TEST fallocate -p -o 1000 -l 3072 $B0/test_file
 TEST fallocate -p -o 1000 -l 3072 $M0/test_file
 TEST md5_sum=`get_md5_sum $B0/test_file`
 EXPECT $md5_sum get_md5_sum $M0/test_file
-#TEST rm -f $B0/test_file $M0/test_file
 
 #Data Corruption Tests
 #Kill brick1 and brick2
