@@ -1145,11 +1145,13 @@ void ec_update_discard_write(ec_fop_data_t *fop, uintptr_t mask)
             error = ec_update_write (fop, mask, off_head, fop->user_size);
     } else {
             size_head = fop->int32;
-            size_tail = (fop->user_size - fop->int32) % ec->stripe_size;
+            size_tail = (off_head + fop->user_size) % ec->stripe_size;
             off_tail = off_head + fop->user_size - size_tail;
             if (size_head) {
                     error = ec_update_write (fop, mask, off_head, size_head);
-                    goto out;
+                    if (error) {
+                        goto out;
+                    }
             }
             if (size_tail) {
                     error = ec_update_write (fop, mask, off_tail, size_tail);
