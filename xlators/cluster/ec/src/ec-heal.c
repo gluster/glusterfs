@@ -1428,6 +1428,12 @@ ec_name_heal_handler (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
         int                 i          = 0;
         int                 ret        = 0;
 
+        if (ec->shutdown) {
+                gf_msg_debug(this->name, 0, "Cancelling directory heal "
+                                            "because EC is stopping.");
+                return -ENOTCONN;
+        }
+
         memcpy (name_on, name_data->participants, ec->nodes);
         ret = ec_heal_name (name_data->frame, ec, parent->inode,
                             entry->d_name, name_on);
@@ -1449,6 +1455,7 @@ ec_heal_names (call_frame_t *frame, ec_t *ec, inode_t *inode,
         int j = 0;
         loc_t loc = {0};
         struct ec_name_data name_data = {0};
+        int ret = 0;
 
         loc.inode = inode_ref (inode);
         gf_uuid_copy (loc.gfid, inode->gfid);
@@ -1459,18 +1466,23 @@ ec_heal_names (call_frame_t *frame, ec_t *ec, inode_t *inode,
         for (i = 0; i < ec->nodes; i++) {
                 if (!participants[i])
                         continue;
-                syncop_dir_scan (ec->xl_list[i], &loc,
-                                GF_CLIENT_PID_SELF_HEALD, &name_data,
-                                ec_name_heal_handler);
+                ret = syncop_dir_scan (ec->xl_list[i], &loc,
+                                       GF_CLIENT_PID_SELF_HEALD, &name_data,
+                                       ec_name_heal_handler);
+                if (ret < 0) {
+                        break;
+                }
                 for (j = 0; j < ec->nodes; j++)
                         if (name_data.failed_on[j])
                                 participants[j] = 0;
 
-                if (EC_COUNT (participants, ec->nodes) <= ec->fragments)
-                        return -ENOTCONN;
+                if (EC_COUNT (participants, ec->nodes) <= ec->fragments) {
+                        ret = -ENOTCONN;
+                        break;
+                }
         }
         loc_wipe (&loc);
-        return 0;
+        return ret;
 }
 
 int
@@ -2009,6 +2021,17 @@ ec_rebuild_data (call_frame_t *frame, ec_t *ec, fd_t *fd, uint64_t size,
 
         for (heal->offset = 0; (heal->offset < size) && !heal->done;
                                                    heal->offset += heal->size) {
+                /* We immediately abort any heal if a shutdown request has been
+                 * received to avoid delays. The healing of this file will be
+                 * restarted by another SHD or other client that accesses the
+                 * file. */
+                if (ec->shutdown) {
+                        gf_msg_debug(ec->xl->name, 0, "Cancelling heal because "
+                                                      "EC is stopping.");
+                        ret = -ENOTCONN;
+                        break;
+                }
+
                 gf_msg_debug (ec->xl->name, 0, "%s: sources: %d, sinks: "
                         "%d, offset: %"PRIu64" bsize: %"PRIu64,
                         uuid_utoa (fd->inode->gfid),
@@ -2612,16 +2635,32 @@ ec_handle_healers_done (ec_fop_data_t *fop)
                 return;
 
         LOCK (&ec->lock);
-        {
-                list_del_init (&fop->healer);
+
+        list_del_init (&fop->healer);
+
+        do {
                 ec->healers--;
                 heal_fop = __ec_dequeue_heals (ec);
-        }
+
+                if ((heal_fop != NULL) && ec->shutdown) {
+                        /* This will prevent ec_handle_healers_done() to be
+                         * called recursively. That would be problematic if
+                         * the queue is too big. */
+                        list_del_init(&heal_fop->healer);
+
+                        UNLOCK(&ec->lock);
+
+                        ec_fop_set_error(fop, ENOTCONN);
+                        ec_heal_fail(ec, heal_fop);
+
+                        LOCK(&ec->lock);
+                }
+        } while ((heal_fop != NULL) && ec->shutdown);
+
         UNLOCK (&ec->lock);
 
         if (heal_fop)
                 ec_launch_heal (ec, heal_fop);
-
 }
 
 void

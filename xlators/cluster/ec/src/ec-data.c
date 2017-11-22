@@ -104,19 +104,6 @@ void ec_cbk_data_destroy(ec_cbk_data_t * cbk)
     mem_put(cbk);
 }
 
-/* PARENT_DOWN will be notified to children only after these fops are complete
- * when graph switch happens.  We do not want graph switch to be waiting on
- * heal to complete as healing big file/directory could take a while. Which
- * will lead to hang on the mount.
- */
-static gf_boolean_t
-ec_needs_graceful_completion (ec_fop_data_t *fop)
-{
-        if ((fop->id != EC_FOP_HEAL) && (fop->id != EC_FOP_FHEAL))
-                return _gf_true;
-        return _gf_false;
-}
-
 ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
                                      int32_t id, uint32_t flags,
                                      uintptr_t target, int32_t minimum,
@@ -203,13 +190,11 @@ ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
         fop->parent = parent;
     }
 
-    if (ec_needs_graceful_completion (fop)) {
-            LOCK(&ec->lock);
+    LOCK(&ec->lock);
 
-            list_add_tail(&fop->pending_list, &ec->pending_fops);
+    list_add_tail(&fop->pending_list, &ec->pending_fops);
 
-            UNLOCK(&ec->lock);
-    }
+    UNLOCK(&ec->lock);
 
     return fop;
 }
