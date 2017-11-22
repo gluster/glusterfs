@@ -946,6 +946,11 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
                         clnt->mydata = NULL;
                         ret = clnt->notifyfn (clnt, clnt_mydata,
                                               RPC_CLNT_DESTROY, NULL);
+                        if (ret < 0) {
+                                gf_log (trans->name, GF_LOG_WARNING,
+                                        "client notify handler returned error "
+                                        "while handling RPC_CLNT_DESTROY");
+                        }
                 }
                 rpc_clnt_destroy (clnt);
                 ret = 0;
@@ -1667,6 +1672,13 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
                 if (conn->connected == 0 && !rpc->disabled) {
                         ret = rpc_transport_connect (conn->trans,
                                                      conn->config.remote_port);
+                        if (ret < 0) {
+                                gf_log (conn->name, GF_LOG_WARNING,
+                                        "error returned while attempting to "
+                                        "connect to host:%s, port:%d",
+                                        conn->config.remote_host,
+                                        conn->config.remote_port);
+                        }
                 }
 
                 ret = rpc_transport_submit_request (conn->trans, &req);

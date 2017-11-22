@@ -175,6 +175,7 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 	volume_opt_list_t *vol_opt = NULL;
         gf_boolean_t bind_insecure = _gf_false;
         xlator_t   *this = NULL;
+        gf_boolean_t    success = _gf_false;
 
 	GF_VALIDATE_OR_GOTO("rpc-transport", options, fail);
 	GF_VALIDATE_OR_GOTO("rpc-transport", ctx, fail);
@@ -357,26 +358,32 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 
         GF_FREE (name);
 
-	return return_trans;
+	success = _gf_true;
 
 fail:
-        if (trans) {
-                GF_FREE (trans->name);
+        if (!success) {
+                if (trans) {
+                        GF_FREE (trans->name);
 
-                if (trans->dl_handle)
-                        dlclose (trans->dl_handle);
+                        if (trans->dl_handle)
+                                dlclose (trans->dl_handle);
 
-                GF_FREE (trans);
+                        GF_FREE (trans);
+                }
+
+                GF_FREE (name);
+
+                return_trans = NULL;
         }
 
-        GF_FREE (name);
-
-        if (vol_opt && !list_empty (&vol_opt->list)) {
-                list_del_init (&vol_opt->list);
+        if (vol_opt) {
+                if (!list_empty (&vol_opt->list)) {
+                        list_del_init (&vol_opt->list);
+                }
                 GF_FREE (vol_opt);
         }
 
-        return NULL;
+        return return_trans;
 }
 
 

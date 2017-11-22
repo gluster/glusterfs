@@ -482,15 +482,13 @@ rpcsvc_auth_array (rpcsvc_t *svc, char *volname, int *autharr, int arrlen)
 
                 switch (ret) {
                 case _gf_true:
-                        result = RPCSVC_AUTH_ACCEPT;
                         autharr[count] = auth->auth->authnum;
                         ++count;
                         break;
-                case _gf_false:
-                        result = RPCSVC_AUTH_REJECT;
-                        break;
+
                 default:
-                        result = RPCSVC_AUTH_DONTCARE;
+                        /* nothing to do */
+                        break;
                 }
         }
 
