@@ -514,8 +514,8 @@ rpcsvc_auth_check (rpcsvc_t *svc, char *volname, char *ipaddr);
 extern int
 rpcsvc_transport_privport_check (rpcsvc_t *svc, char *volname, uint16_t port);
 
-#define rpcsvc_request_seterr(req, err)                 (req)->rpc_err = err
-#define rpcsvc_request_set_autherr(req, err)            (req)->auth_err = err
+#define rpcsvc_request_seterr(req, err)         ((req)->rpc_err = (int)(err))
+#define rpcsvc_request_set_autherr(req, err)    ((req)->auth_err = (int)(err))
 
 extern int rpcsvc_submit_vectors (rpcsvc_request_t *req);
 

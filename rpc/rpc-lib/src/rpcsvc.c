@@ -46,10 +46,15 @@
 
 struct rpcsvc_program gluster_dump_prog;
 
-#define rpcsvc_alloc_request(svc, request)                              \
-        do {                                                            \
-                request = (rpcsvc_request_t *) mem_get ((svc)->rxpool); \
-                memset (request, 0, sizeof (rpcsvc_request_t));         \
+#define rpcsvc_alloc_request(svc, request)                                \
+        do {                                                              \
+                request = (rpcsvc_request_t *)mem_get ((svc)->rxpool);   \
+                if (request) {                                            \
+                        memset (request, 0, sizeof (rpcsvc_request_t));   \
+                } else {                                                  \
+                        gf_log ("rpcsvc", GF_LOG_ERROR,                   \
+                                "error getting memory for rpc request");  \
+                }                                                         \
         } while (0)
 
 rpcsvc_listener_t *
@@ -1353,6 +1358,10 @@ rpcsvc_submit_generic (rpcsvc_request_t *req, struct iovec *proghdr,
                                           proghdr, hdrcount,
                                           payload, payloadcount);
                 UNLOCK (&drc->lock);
+                if (ret < 0) {
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR,
+                                "failed to cache reply");
+                }
         }
 
         ret = rpcsvc_transport_submit (trans, &recordhdr, 1, proghdr, hdrcount,
@@ -1664,11 +1673,6 @@ rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t *program)
                 }
         }
         pthread_rwlock_unlock (&svc->rpclock);
-
-        if (prog == NULL) {
-                ret = -1;
-                goto out;
-        }
 
         gf_log (GF_RPCSVC, GF_LOG_DEBUG, "Program unregistered: %s, Num: %d,"
                 " Ver: %d, Port: %d", prog->progname, prog->prognum,
@@ -2046,9 +2050,13 @@ rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t *program,
                 newprog->ownthread = _gf_false;
 
         if (newprog->ownthread) {
-                gf_thread_create (&newprog->thread, NULL,
-                                  rpcsvc_request_handler,
-                                  newprog, "rpcsvcrh");
+                ret = gf_thread_create (&newprog->thread, NULL,
+                                        rpcsvc_request_handler,
+                                        newprog, "rpcsvcrh");
+                if (ret != 0) {
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR,
+                                "error creating request handler thread");
+                }
         }
 
         pthread_rwlock_wrlock (&svc->rpclock);
@@ -2884,17 +2892,24 @@ rpcsvc_match_subnet_v4 (const char *addrtok, const char *ipaddr)
                 goto out;
 
         /* Find the network socket addr of subnet pattern */
-        slash = strchr (netaddr, '/');
-        *slash = '\0';
         if (inet_pton (AF_INET, netaddr, &sin2.sin_addr) == 0)
                 goto out;
 
-        /*
-         * Find the IPv4 network mask in network byte order.
-         * IMP: String slash+1 is already validated, it cant have value
-         * more than IPv4_ADDR_SIZE (32).
-         */
-        prefixlen = (uint32_t) atoi (slash + 1);
+        slash = strchr (netaddr, '/');
+        if (slash) {
+                *slash = '\0';
+                /*
+                 * Find the IPv4 network mask in network byte order.
+                 * IMP: String slash+1 is already validated, it cant have value
+                 * more than IPv4_ADDR_SIZE (32).
+                 */
+                prefixlen = (uint32_t) atoi (slash + 1);
+                if (prefixlen > 31)
+                        goto out;
+        } else {
+                goto out;
+        }
+
         shift = IPv4_ADDR_SIZE - prefixlen;
         mask.sin_addr.s_addr = htonl ((uint32_t)~0 << shift);
 
