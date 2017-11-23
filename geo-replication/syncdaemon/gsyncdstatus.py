@@ -399,6 +399,15 @@ class GeorepStatus(object):
 
         return data
 
-    def print_status(self, checkpoint_time=0):
-        for key, value in self.get_status(checkpoint_time).items():
+    def print_status(self, checkpoint_time=0, json_output=False):
+        status_out = self.get_status(checkpoint_time)
+        if json_output:
+            out = {}
+            # Convert all values as string
+            for k, v in status_out.items():
+                out[k] = str(v)
+            print json.dumps(out)
+            return
+
+        for key, value in status_out.items():
             print ("%s: %s" % (key, value))
