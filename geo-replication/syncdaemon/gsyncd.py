@@ -129,6 +129,7 @@ def main():
     p.add_argument("-c", "--config-file", help="Config File")
     p.add_argument("--local-path", help="Local Brick Path")
     p.add_argument("--debug", action="store_true")
+    p.add_argument("--json", action="store_true")
 
     # Config-check
     p = sp.add_parser("config-check")
@@ -146,6 +147,7 @@ def main():
     p.add_argument("--show-defaults", action="store_true")
     p.add_argument("--only-value", action="store_true")
     p.add_argument("--use-underscore", action="store_true")
+    p.add_argument("--json", action="store_true")
 
     # Config-set
     p = sp.add_parser("config-set")

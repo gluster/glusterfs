@@ -329,7 +329,7 @@ def to_float(value):
 
 
 def to_bool(value):
-    return True if value == "true" else False
+    return True if value in ["true", "True"] else False
 
 
 def get(name, default_value=None):

@@ -32,7 +32,8 @@ def subcmd_status(args):
                                 slave_data,
                                 gconf.get("pid-file"))
     checkpoint_time = gconf.get("checkpoint", 0)
-    brick_status.print_status(checkpoint_time=checkpoint_time)
+    brick_status.print_status(checkpoint_time=checkpoint_time,
+                              json_output=args.json)
 
 
 def subcmd_monitor(args):
@@ -232,6 +233,7 @@ def config_name_format(val):
 
 def subcmd_config_get(args):
     import sys
+    import json
 
     all_config = gconf.getall(show_defaults=args.show_defaults,
                               show_non_configurable=True)
@@ -243,6 +245,15 @@ def subcmd_config_get(args):
 
         print_config(args.name, val, only_value=args.only_value,
                      use_underscore=args.use_underscore)
+        return
+
+    if args.json:
+        out = {}
+        # Convert all values as string
+        for k, v in all_config.items():
+            out[k] = str(v)
+
+        print(json.dumps(out))
         return
 
     for k in sorted(all_config):
