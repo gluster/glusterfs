@@ -305,16 +305,6 @@ out:
 
 }
 
-
-static const char *favorite_child_warning_str = "You have specified subvolume '%s' "
-        "as the 'favorite child'. This means that if a discrepancy in the content "
-        "or attributes (ownership, permission, etc.) of a file is detected among "
-        "the subvolumes, the file on '%s' will be considered the definitive "
-        "version and its contents will OVERWRITE the contents of the file on other "
-        "subvolumes. All versions of the file except that on '%s' "
-        "WILL BE LOST.";
-
-
 static int
 afr_pending_xattrs_init (afr_private_t *priv, xlator_t *this)
 {
@@ -387,7 +377,6 @@ init (xlator_t *this)
         GF_UNUSED int  op_errno    = 0;
         xlator_t      *read_subvol = NULL;
         int            read_subvol_index = -1;
-        xlator_t      *fav_child   = NULL;
         char          *qtype       = NULL;
         char          *fav_child_policy = NULL;
 
@@ -454,20 +443,6 @@ init (xlator_t *this)
         GF_OPTION_INIT ("read-hash-mode", priv->hash_mode, uint32, out);
 
         priv->favorite_child = -1;
-        GF_OPTION_INIT ("favorite-child", fav_child, xlator, out);
-        if (fav_child) {
-                priv->favorite_child = xlator_subvolume_index (this, fav_child);
-                if (priv->favorite_child == -1) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                AFR_MSG_INVALID_SUBVOL, "%s not a subvolume, "
-                                "cannot set it as favorite child",
-                                fav_child->name);
-                        goto out;
-                }
-                gf_msg (this->name, GF_LOG_WARNING, 0, AFR_MSG_FAVORITE_CHILD,
-                        favorite_child_warning_str, fav_child->name,
-                        fav_child->name, fav_child->name);
-        }
 
         GF_OPTION_INIT ("favorite-child-policy", fav_child_policy, str, out);
         if (afr_set_favorite_child_policy(priv, fav_child_policy) == -1)
@@ -734,6 +709,9 @@ struct xlator_cbks cbks = {
 struct volume_options options[] = {
         { .key  = {"read-subvolume" },
           .type = GF_OPTION_TYPE_XLATOR,
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description = "inode-read fops happen only on one of the bricks in "
                          "replicate. Afr will prefer the one specified using "
                          "this option if it is not stale. Option value must be "
@@ -744,6 +722,9 @@ struct volume_options options[] = {
         { .key  = {"read-subvolume-index" },
           .type = GF_OPTION_TYPE_INT,
           .default_value = "-1",
+          .op_version = {2},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description = "inode-read fops happen only on one of the bricks in "
                          "replicate. AFR will prefer the one specified using "
                          "this option if it is not stale. allowed options"
@@ -754,6 +735,9 @@ struct volume_options options[] = {
           .min = 0,
           .max = 2,
           .default_value = "1",
+          .op_version = {2},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description = "inode-read fops happen only on one of the bricks in "
                          "replicate. AFR will prefer the one computed using "
                          "the method specified using this option"
@@ -765,13 +749,11 @@ struct volume_options options[] = {
         { .key  = {"choose-local" },
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "true",
+          .op_version = {2},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description = "Choose a local subvolume (i.e. Brick) to read from"
 	                 " if read-subvolume is not explicitly set.",
-        },
-        { .key  = {"favorite-child"},
-          .type = GF_OPTION_TYPE_XLATOR,
-          .description = "If a split-brain happens choose subvol/brick set by "
-                         "this option as source."
         },
         { .key  = {"background-self-heal-count"},
           .type = GF_OPTION_TYPE_INT,
@@ -779,6 +761,9 @@ struct volume_options options[] = {
           .max  = 256,
           .default_value = "8",
           .validate = GF_OPT_VALIDATE_MIN,
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description = "This specifies the number of per client self-heal "
                          "jobs that can perform parallel heals in the "
                          "background."
@@ -788,33 +773,48 @@ struct volume_options options[] = {
           .min   = 1,
           .max   = 99999,
           .default_value = "99999",
-           .description = "Maximum latency for shd halo replication in msec."
+          .op_version = {GD_OP_VERSION_3_11_0},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate", "halo"},
+          .description = "Maximum latency for shd halo replication in msec."
         },
         { .key   = {"halo-enabled"},
           .type  = GF_OPTION_TYPE_BOOL,
           .default_value = "False",
-           .description = "Enable Halo (geo) replication mode."
+          .op_version = {GD_OP_VERSION_3_11_0},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate", "halo"},
+          .description = "Enable Halo (geo) replication mode."
         },
         { .key   = {"halo-nfsd-max-latency"},
           .type  = GF_OPTION_TYPE_INT,
           .min   = 1,
           .max   = 99999,
           .default_value = "5",
-           .description = "Maximum latency for nfsd halo replication in msec."
+          .op_version = {GD_OP_VERSION_3_11_0},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate", "halo"},
+          .description = "Maximum latency for nfsd halo replication in msec."
         },
         { .key   = {"halo-max-latency"},
           .type  = GF_OPTION_TYPE_INT,
           .min   = 1,
           .max   = 99999,
           .default_value = "5",
-           .description = "Maximum latency for halo replication in msec."
+          .op_version = {GD_OP_VERSION_3_11_0},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate", "halo"},
+          .description = "Maximum latency for halo replication in msec."
         },
         { .key   = {"halo-max-replicas"},
           .type  = GF_OPTION_TYPE_INT,
           .min   = 1,
           .max   = 99999,
           .default_value = "99999",
-           .description = "The maximum number of halo replicas; replicas"
+          .op_version = {GD_OP_VERSION_3_11_0},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate", "halo"},
+          .description = "The maximum number of halo replicas; replicas"
                           " beyond this value will be written asynchronously"
                           "via the SHD."
         },
@@ -823,7 +823,10 @@ struct volume_options options[] = {
           .min   = 1,
           .max   = 99999,
           .default_value = "2",
-           .description = "The minimmum number of halo replicas, before adding "
+          .op_version = {GD_OP_VERSION_3_11_0},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate", "halo"},
+          .description = "The minimmum number of halo replicas, before adding "
                           "out of region replicas."
          },
          { .key  = {"heal-wait-queue-length"},
@@ -832,6 +835,9 @@ struct volume_options options[] = {
           .max  = 10000, /*Around 100MB with sizeof(afr_local_t)= 10496 bytes*/
           .default_value = "128",
           .validate = GF_OPT_VALIDATE_MIN,
+          .op_version = {GD_OP_VERSION_3_7_10},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description = "This specifies the number of heals that can be queued"
                          " for the parallel background self heal jobs."
         },
@@ -841,6 +847,9 @@ struct volume_options options[] = {
                     "0", "off", "no", "false", "disable",
                     "open"},
           .default_value = "on",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description   = "Using this option we can enable/disable data "
                            "self-heal on the file. \"open\" means data "
                            "self-heal action will only be triggered by file "
@@ -848,6 +857,9 @@ struct volume_options options[] = {
         },
         { .key  = {"data-self-heal-algorithm"},
           .type = GF_OPTION_TYPE_STR,
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description   = "Select between \"full\", \"diff\". The "
                            "\"full\" algorithm copies the entire file from "
                            "source to sink. The \"diff\" algorithm copies to "
@@ -866,12 +878,19 @@ struct volume_options options[] = {
           .min  = 1,
           .max  = 1024,
           .default_value = "1",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description = "Maximum number blocks per file for which self-heal "
                          "process would be applied simultaneously."
         },
         { .key  = {"metadata-self-heal"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
+          /*.validate_fn = validate_replica*/
           .description = "Using this option we can enable/disable metadata "
                          "i.e. Permissions, ownerships, xattrs self-heal on "
                          "the file/directory."
@@ -879,12 +898,19 @@ struct volume_options options[] = {
         { .key  = {"entry-self-heal"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
+          /*.validate_fn = validate_replica*/
           .description = "Using this option we can enable/disable entry "
                          "self-heal on the directory."
         },
         { .key  = {"data-change-log"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description = "Data fops like write/truncate will not perform "
                          "pre/post fop changelog operations in afr transaction "
                          "if this option is disabled"
@@ -892,6 +918,9 @@ struct volume_options options[] = {
         { .key  = {"metadata-change-log"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description = "Metadata fops like setattr/setxattr will not perform "
                          "pre/post fop changelog operations in afr transaction "
                          "if this option is disabled"
@@ -899,6 +928,9 @@ struct volume_options options[] = {
         { .key  = {"entry-change-log"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description = "Entry fops like create/unlink will not perform "
                          "pre/post fop changelog operations in afr transaction "
                          "if this option is disabled"
@@ -929,6 +961,9 @@ struct volume_options options[] = {
         { .key = {"eager-lock"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description = "Enable/Disable eager lock for replica volume. "
                          "Lock phase of a transaction has two sub-phases. "
                          "First is an attempt to acquire locks in parallel by "
@@ -955,6 +990,10 @@ struct volume_options options[] = {
         { .key = {"self-heal-daemon"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE,
+          .tags = {"replicate"},
+          /*.validate_fn   = validate_replica_heal_enable_disable*/
           .description = "This option applies to only self-heal-daemon. "
                          "Index directory crawl and automatic healing of files "
                          "will not be performed if this option is turned off."
@@ -977,6 +1016,10 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_STR,
           .value = { "none", "auto", "fixed"},
           .default_value = "none",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
+          /*.option = quorum-type*/
           .description = "If value is \"fixed\" only allow writes if "
                          "quorum-count bricks are present.  If value is "
                          "\"auto\" only allow writes if more than half of "
@@ -988,6 +1031,10 @@ struct volume_options options[] = {
           .min = 1,
           .max = INT_MAX,
           .default_value = 0,
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
+          /*.option = quorum-count*/
           .description = "If quorum-type is \"fixed\" only allow writes if "
                          "this many bricks or present.  Other quorum types "
                          "will OVERWRITE this value.",
@@ -995,6 +1042,9 @@ struct volume_options options[] = {
         { .key = {"quorum-reads"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "no",
+          .op_version = {GD_OP_VERSION_3_7_0},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description = "This option has been removed. Reads are not allowed "
                           "if quorum is not met.",
         },
@@ -1009,6 +1059,9 @@ struct volume_options options[] = {
           .min  = 0,
           .max  = INT_MAX,
           .default_value = "1",
+          .op_version = {2},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description = "Time interval induced artificially before "
 	                 "post-operation phase of the transaction to "
                          "enhance overlap of adjacent write operations.",
@@ -1018,10 +1071,16 @@ struct volume_options options[] = {
           .description = "readdirp size for performing entry self-heal",
           .min = 1024,
           .max = 131072,
+          .op_version = {2},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE,
+          .tags = {"replicate"},
           .default_value = "1KB",
         },
         { .key = {"ensure-durability"},
           .type = GF_OPTION_TYPE_BOOL,
+          .op_version = {3},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description = "Afr performs fsyncs for transactions if this "
                          "option is on to make sure the changelogs/data is "
                          "written to the disk",
@@ -1045,12 +1104,18 @@ struct volume_options options[] = {
           .min  = 60,
           .max  = INT_MAX,
           .default_value = "600",
+          .op_version = {2},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description = "time interval for checking the need to self-heal "
                          "in self-heal-daemon"
         },
         { .key = {"consistent-metadata"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "no",
+          .op_version = {GD_OP_VERSION_3_7_0},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description = "If this option is enabled, readdirp will force "
                          "lookups on those entries read whose read child is "
                          "not the same as that of the parent. This will "
@@ -1067,7 +1132,10 @@ struct volume_options options[] = {
           .min   = 1,
           .max   = 64,
           .default_value = "1",
-           .description = "Maximum number of parallel heals SHD can do per "
+          .op_version = {GD_OP_VERSION_3_7_12},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
+          .description = "Maximum number of parallel heals SHD can do per "
                           "local brick. This can substantially lower heal times"
                           ", but can also crush your bricks if you don't have "
                           "the storage hardware to support this."
@@ -1077,13 +1145,19 @@ struct volume_options options[] = {
           .min   = 1,
           .max   = 655536,
           .default_value = "1024",
-           .description = "This option can be used to control number of heals"
+          .op_version = {GD_OP_VERSION_3_7_12},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
+          .description = "This option can be used to control number of heals"
                           " that can wait in SHD per subvolume",
         },
         { .key = {"locking-scheme"},
           .type = GF_OPTION_TYPE_STR,
           .value = { "full", "granular"},
           .default_value = "full",
+          .op_version = {GD_OP_VERSION_3_7_12},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description = "If this option is set to granular, self-heal will "
                          "stop being compatible with afr-v1, which helps afr "
                          "be more granular while self-healing",
@@ -1091,6 +1165,9 @@ struct volume_options options[] = {
         { .key = {"granular-entry-heal"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "no",
+          .op_version = {GD_OP_VERSION_3_8_0},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description = "If this option is enabled, self-heal will resort to "
                          "granular way of recording changelogs and doing entry "
                          "self-heal.",
@@ -1099,6 +1176,9 @@ struct volume_options options[] = {
           .type  = GF_OPTION_TYPE_STR,
           .value = {"none", "size", "ctime", "mtime", "majority"},
           .default_value = "none",
+          .op_version = {GD_OP_VERSION_3_7_12},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description = "This option can be used to automatically resolve "
                          "split-brains using various policies without user "
                          "intervention. \"size\" picks the file with the "
@@ -1117,6 +1197,9 @@ struct volume_options options[] = {
         { .key   = {"use-compound-fops"},
           .type  = GF_OPTION_TYPE_BOOL,
           .default_value = "no",
+          .op_version = {GD_OP_VERSION_3_8_4},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"replicate"},
           .description = "Use compound fops framework to modify afr "
                          "transaction such that network roundtrips are "
                          "reduced, thus improving the performance.",

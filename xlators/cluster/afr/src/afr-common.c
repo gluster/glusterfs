@@ -4742,7 +4742,6 @@ afr_priv_dump (xlator_t *this)
         gf_proc_dump_write("metadata_change_log", "%d", priv->metadata_change_log);
         gf_proc_dump_write("entry-change_log", "%d", priv->entry_change_log);
         gf_proc_dump_write("read_child", "%d", priv->read_child);
-        gf_proc_dump_write("favorite_child", "%d", priv->favorite_child);
         gf_proc_dump_write("wait_count", "%u", priv->wait_count);
         gf_proc_dump_write("heal-wait-queue-length", "%d",
                            priv->heal_wait_qlen);
