@@ -235,11 +235,17 @@ def main():
 
     rconf.config_file = config_file
 
+    # Override gconf values from argument values only if it is slave gsyncd
+    override_from_args = False
+    if args.subcmd == "slave":
+        override_from_args = True
+
     # Load Config file
     gconf.load(GLUSTERFS_CONFDIR + "/gsyncd.conf",
                config_file,
                vars(args),
-               extra_tmpl_args)
+               extra_tmpl_args,
+               override_from_args)
 
     # Default label to print in log file
     label = args.subcmd

@@ -19,7 +19,7 @@ class GconfInvalidValue(Exception):
 
 class Gconf(object):
     def __init__(self, default_conf_file, custom_conf_file=None,
-                 args={}, extra_tmpl_args={}):
+                 args={}, extra_tmpl_args={}, override_from_args=False):
         self.default_conf_file = default_conf_file
         self.custom_conf_file = custom_conf_file
         self.tmp_conf_file = None
@@ -35,6 +35,7 @@ class Gconf(object):
         self.session_conf_items = []
         self.args = args
         self.extra_tmpl_args = extra_tmpl_args
+        self.override_from_args = override_from_args
         self._load()
 
     def _tmpl_substitute(self):
@@ -197,6 +198,14 @@ class Gconf(object):
                 self.session_conf_items.append(k)
                 self.gconf[k] = v.strip()
 
+        # Overwrite the Slave configurations which are sent as
+        # arguments to gsyncd slave
+        if self.override_from_args:
+            for k, v in self.args.items():
+                k = k.replace("_", "-")
+                if k.startswith("slave-") and k in self.gconf:
+                    self.gconf[k] = v
+
         self._tmpl_substitute()
         self._do_typecast()
 
@@ -345,9 +354,11 @@ def getr(name, default_value=None):
     return _gconf.getr(name, default_value)
 
 
-def load(default_conf, custom_conf=None, args={}, extra_tmpl_args={}):
+def load(default_conf, custom_conf=None, args={}, extra_tmpl_args={},
+         override_from_args=False):
     global _gconf
-    _gconf = Gconf(default_conf, custom_conf, args, extra_tmpl_args)
+    _gconf = Gconf(default_conf, custom_conf, args, extra_tmpl_args,
+                   override_from_args)
 
 
 def setconfig(name, value):
