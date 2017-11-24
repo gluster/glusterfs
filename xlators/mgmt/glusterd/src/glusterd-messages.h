@@ -41,7 +41,7 @@
 
 #define GLUSTERD_COMP_BASE      GLFS_MSGID_GLUSTERD
 
-#define GLFS_NUM_MESSAGES       613
+#define GLFS_NUM_MESSAGES       614
 
 #define GLFS_MSGID_END          (GLUSTERD_COMP_BASE + GLFS_NUM_MESSAGES + 1)
 /* Messaged with message IDs */
@@ -4952,6 +4952,14 @@
  *
  */
 #define GD_MSG_CHANGELOG_GET_FAIL (GLUSTERD_COMP_BASE + 613)
+
+/*!
+ * @messageid
+ * @diagnosis
+ * @recommendedaction
+ *
+ */
+#define GD_MSG_MANAGER_FUNCTION_FAILED  (GLUSTERD_COMP_BASE + 614)
 
 /*------------*/
 

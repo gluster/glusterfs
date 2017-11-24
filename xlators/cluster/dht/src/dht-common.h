@@ -405,10 +405,17 @@ enum gf_defrag_type {
         GF_DEFRAG_CMD_PAUSE_TIER = 1 + 9,
         GF_DEFRAG_CMD_RESUME_TIER = 1 + 10,
         GF_DEFRAG_CMD_DETACH_STATUS = 1 + 11,
-        GF_DEFRAG_CMD_DETACH_START = 1 + 12,
-        GF_DEFRAG_CMD_DETACH_STOP = 1 + 13,
+        GF_DEFRAG_CMD_STOP_TIER = 1 + 12,
+        GF_DEFRAG_CMD_DETACH_START = 1 + 13,
+        GF_DEFRAG_CMD_DETACH_COMMIT = 1 + 14,
+        GF_DEFRAG_CMD_DETACH_COMMIT_FORCE = 1 + 15,
+        GF_DEFRAG_CMD_DETACH_STOP = 1 + 16,
         /* new labels are used so it will help
-         * while removing old labels by easily differentiating
+         * while removing old labels by easily differentiating.
+         * A few labels are added so that the count remains same
+         * between this enum and the ones on the xdr file.
+         * different values for the same enum cause errors and
+         * confusion.
          */
 };
 typedef enum gf_defrag_type gf_defrag_type;
