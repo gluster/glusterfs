@@ -12174,6 +12174,16 @@ glusterd_is_volume_inode_quota_enabled (glusterd_volinfo_t *volinfo)
 }
 
 int
+glusterd_is_tierd_supposed_to_be_enabled (glusterd_volinfo_t *volinfo)
+{
+        if ((volinfo->type != GF_CLUSTER_TYPE_TIER) ||
+                        (volinfo->tier.op == GD_OP_DETACH_TIER))
+                return _gf_false;
+        else
+                return _gf_true;
+}
+
+int
 glusterd_is_tierd_enabled (glusterd_volinfo_t *volinfo)
 {
         return volinfo->is_tier_enabled;

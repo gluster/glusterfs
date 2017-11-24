@@ -2729,6 +2729,16 @@ glusterd_stop_volume (glusterd_volinfo_t *volinfo)
                 }
         }
 
+        /* call tier manager before the voluem status is set as stopped
+         * as tier uses that as a check in the manager
+         * */
+        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                svc = &(volinfo->tierd.svc);
+                ret = svc->manager (svc, volinfo, PROC_START_NO_WAIT);
+                if (ret)
+                        goto out;
+        }
+
         glusterd_set_volume_status (volinfo, GLUSTERD_STATUS_STOPPED);
 
         ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
@@ -2741,13 +2751,6 @@ glusterd_stop_volume (glusterd_volinfo_t *volinfo)
 
         if (!volinfo->is_snap_volume) {
                 svc = &(volinfo->snapd.svc);
-                ret = svc->manager (svc, volinfo, PROC_START_NO_WAIT);
-                if (ret)
-                        goto out;
-        }
-
-        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-                svc = &(volinfo->tierd.svc);
                 ret = svc->manager (svc, volinfo, PROC_START_NO_WAIT);
                 if (ret)
                         goto out;

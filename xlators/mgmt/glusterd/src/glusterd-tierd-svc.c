@@ -72,6 +72,8 @@ glusterd_tierdsvc_init (void *data)
         notify = glusterd_svc_common_rpc_notify;
         glusterd_store_perform_node_state_store (volinfo);
 
+        volinfo->type = GF_CLUSTER_TYPE_TIER;
+
         glusterd_svc_build_tierd_rundir (volinfo, rundir, sizeof (rundir));
         glusterd_svc_create_rundir (rundir);
 
@@ -150,6 +152,7 @@ glusterd_tierdsvc_manager (glusterd_svc_t *svc, void *data, int flags)
         int                 ret     = 0;
         xlator_t           *this    = THIS;
         glusterd_volinfo_t *volinfo = NULL;
+        int                 is_force = 0;
 
         volinfo = data;
         GF_VALIDATE_OR_GOTO (this->name, data, out);
@@ -169,13 +172,16 @@ glusterd_tierdsvc_manager (glusterd_svc_t *svc, void *data, int flags)
                 }
         }
 
-        ret = glusterd_is_tierd_enabled (volinfo);
-        if (ret == -1) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_VOLINFO_GET_FAIL, "Failed to read volume "
-                        "options");
-                goto out;
+        ret = dict_get_int32 (volinfo->dict, "force", &is_force);
+        if (ret) {
+                gf_msg_debug (this->name, errno, "Unable to get"
+                              " is_force from dict");
         }
+
+        if (is_force)
+                ret = 1;
+        else
+                ret = (glusterd_is_tierd_supposed_to_be_enabled (volinfo));
 
         if (ret) {
                 if (!glusterd_is_volume_started (volinfo)) {
@@ -183,11 +189,12 @@ glusterd_tierdsvc_manager (glusterd_svc_t *svc, void *data, int flags)
                                 ret = svc->stop (svc, SIGTERM);
                                 if (ret)
                                         gf_msg (this->name, GF_LOG_ERROR, 0,
-                                                GD_MSG_TIERD_STOP_FAIL,
+                                                GD_MSG_SNAPD_STOP_FAIL,
                                                 "Couldn't stop tierd for "
                                                 "volume: %s",
                                                 volinfo->volname);
                         } else {
+                                /* Since tierd is not running set ret to 0 */
                                 ret = 0;
                         }
                         goto out;
@@ -209,6 +216,7 @@ glusterd_tierdsvc_manager (glusterd_svc_t *svc, void *data, int flags)
                                 "tierd for volume: %s", volinfo->volname);
                         goto out;
                 }
+                volinfo->is_tier_enabled = _gf_true;
 
                 glusterd_volinfo_ref (volinfo);
                 ret = glusterd_conn_connect (&(svc->conn));
@@ -216,16 +224,19 @@ glusterd_tierdsvc_manager (glusterd_svc_t *svc, void *data, int flags)
                         glusterd_volinfo_unref (volinfo);
                         goto out;
                 }
-
-        } else if (glusterd_proc_is_running (&svc->proc)) {
-                ret = svc->stop (svc, SIGTERM);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_TIERD_STOP_FAIL,
-                                "Couldn't stop tierd for volume: %s",
-                                volinfo->volname);
-                        goto out;
+        } else {
+                if (glusterd_proc_is_running (&svc->proc)) {
+                        ret = svc->stop (svc, SIGTERM);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_TIERD_STOP_FAIL,
+                                        "Couldn't stop tierd for volume: %s",
+                                        volinfo->volname);
+                                goto out;
+                        }
+                        volinfo->is_tier_enabled = _gf_false;
                 }
+                ret = 0;
         }
 
 out:
@@ -362,7 +373,6 @@ out:
         return ret;
 }
 
-
 int
 glusterd_tierdsvc_restart ()
 {
@@ -380,15 +390,18 @@ glusterd_tierdsvc_restart ()
         cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 /* Start per volume tierd svc */
                 if (volinfo->status == GLUSTERD_STATUS_STARTED &&
-                    glusterd_is_tierd_enabled (volinfo)) {
+                    volinfo->type == GF_CLUSTER_TYPE_TIER) {
                         svc = &(volinfo->tierd.svc);
-                        ret = svc->manager (svc, volinfo, PROC_START_NO_WAIT);
-                        if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        GD_MSG_TIERD_START_FAIL,
-                                        "Couldn't restart tierd for "
-                                        "vol: %s", volinfo->volname);
-                                goto out;
+                           if (volinfo->tier.op != GD_OP_DETACH_TIER) {
+                                ret = svc->manager (svc, volinfo,
+                                                PROC_START_NO_WAIT);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_TIERD_START_FAIL,
+                                                "Couldn't restart tierd for "
+                                                "vol: %s", volinfo->volname);
+                                        goto out;
+                                }
                         }
                 }
         }
@@ -419,7 +432,7 @@ glusterd_tierdsvc_reconfigure (void *data)
         this = THIS;
         GF_VALIDATE_OR_GOTO (THIS->name, this, out);
 
-        if (glusterd_is_tierd_enabled (volinfo))
+        if (!glusterd_is_tierd_enabled (volinfo))
                 goto manager;
         /*
          * Check both OLD and NEW volfiles, if they are SAME by size

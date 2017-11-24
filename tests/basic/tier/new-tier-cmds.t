@@ -14,9 +14,9 @@ function check_peers {
 }
 
 function create_dist_tier_vol () {
-        TEST $CLI_1 volume create $V0 $H1:$B1/${V0} $H2:$B2/${V0} $H3:$B3/${V0}
+        TEST $CLI_1 volume create $V0 disperse 6 redundancy 2 $H1:$B1/${V0}_b1 $H2:$B2/${V0}_b2 $H3:$B3/${V0}_b3 $H1:$B1/${V0}_b4 $H2:$B2/${V0}_b5 $H3:$B3/${V0}_b6
         TEST $CLI_1 volume start $V0
-        TEST $CLI_1 volume tier $V0 attach $H1:$B1/${V0}_h1 $H2:$B2/${V0}_h2 $H3:$B3/${V0}_h3
+        TEST $CLI_1 volume tier $V0 attach replica 2 $H1:$B1/${V0}_h1 $H2:$B2/${V0}_h2 $H3:$B3/${V0}_h3 $H1:$B1/${V0}_h4 $H2:$B2/${V0}_h5 $H3:$B3/${V0}_h6
 }
 
 function tier_daemon_status {
@@ -59,8 +59,19 @@ EXPECT "Tier command failed" $CLI_1 volume tier $V0 detach status
 
 EXPECT "0" detach_xml_status
 
-#after starting detach tier the detach tier status should display the status
+#kill a node
+TEST kill_node 2
 
+#check if we have the rest of the node available printed in the output of detach status
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" tier_status_node_down
+
+TEST $glusterd_2;
+
+EXPECT_WITHIN $PROBE_TIMEOUT 2 check_peers;
+
+#after starting detach tier the detach tier status should display the status
+sleep 2
+$CLI_1 volume status
 TEST $CLI_1 volume tier $V0 detach start
 
 EXPECT "1" detach_xml_status
@@ -73,14 +84,11 @@ TEST kill_node 2
 #check if we have the rest of the node available printed in the output of detach status
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" tier_detach_status_node_down
 
-#check if we have the rest of the node available printed in the output of tier status
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" tier_status_node_down
-
 TEST $glusterd_2;
 
 EXPECT_WITHIN $PROBE_TIMEOUT 2 check_peers;
 # Make sure we check that the *bricks* are up and not just the node.  >:-(
-EXPECT_WITHIN $CHILD_UP_TIMEOUT 1 brick_up_status_1 $V0 $H2 $B2/${V0}
+EXPECT_WITHIN $CHILD_UP_TIMEOUT 1 brick_up_status_1 $V0 $H2 $B2/${V0}_b2
 EXPECT_WITHIN $CHILD_UP_TIMEOUT 1 brick_up_status_1 $V0 $H2 $B2/${V0}_h2
 
 # Parsing normal output doesn't work because of line-wrap issues on our

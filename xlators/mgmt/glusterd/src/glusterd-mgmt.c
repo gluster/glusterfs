@@ -539,8 +539,6 @@ gd_mgmt_v3_post_validate_fn (glusterd_op_t op, int32_t op_ret, dict_t *dict,
                                 goto out;
                         }
 
-                        volinfo->is_tier_enabled = _gf_true;
-
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, errno,
                                         GD_MSG_DICT_SET_FAILED, "dict set "

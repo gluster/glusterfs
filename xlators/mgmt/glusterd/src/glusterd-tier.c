@@ -244,116 +244,6 @@ glusterd_handle_tier (rpcsvc_request_t *req)
         return glusterd_big_locked_handler (req, __glusterd_handle_tier);
 }
 
-
-static int
-glusterd_manage_tier (glusterd_volinfo_t *volinfo, int opcode)
-{
-        int              ret   = -1;
-        xlator_t         *this = NULL;
-        glusterd_conf_t  *priv = NULL;
-
-        this = THIS;
-        GF_VALIDATE_OR_GOTO (THIS->name, this, out);
-        GF_VALIDATE_OR_GOTO (this->name, volinfo, out);
-        priv = this->private;
-        GF_VALIDATE_OR_GOTO (this->name, priv, out);
-
-        switch (opcode) {
-        case GF_DEFRAG_CMD_START_TIER:
-        case GF_DEFRAG_CMD_STOP_TIER:
-                ret = volinfo->tierd.svc.manager (&(volinfo->tierd.svc),
-                                                volinfo, PROC_START_NO_WAIT);
-                break;
-        default:
-                ret = 0;
-                break;
-        }
-
-out:
-        return ret;
-
-}
-
-static int
-glusterd_tier_enable (glusterd_volinfo_t *volinfo, char **op_errstr)
-{
-        int32_t                 ret                     = -1;
-        xlator_t                *this                   = NULL;
-        int32_t                 tier_online             = -1;
-        char                    pidfile[PATH_MAX]       = {0};
-        int32_t                 pid                     = -1;
-        glusterd_conf_t         *priv                   = NULL;
-
-        this = THIS;
-
-        GF_VALIDATE_OR_GOTO (THIS->name, this, out);
-        GF_VALIDATE_OR_GOTO (this->name, volinfo, out);
-        GF_VALIDATE_OR_GOTO (this->name, op_errstr, out);
-        priv = this->private;
-        GF_VALIDATE_OR_GOTO (this->name, priv, out);
-
-        if (glusterd_is_volume_started (volinfo) == 0) {
-                *op_errstr = gf_strdup ("Volume is stopped, start volume "
-                                        "to enable tier.");
-                ret = -1;
-                goto out;
-        }
-
-        GLUSTERD_GET_TIER_PID_FILE(pidfile, volinfo, priv);
-        tier_online = gf_is_service_running (pidfile, &pid);
-
-        if (tier_online) {
-                *op_errstr = gf_strdup ("tier is already enabled");
-                ret = -1;
-                goto out;
-        }
-
-        volinfo->is_tier_enabled = _gf_true;
-
-        ret = 0;
-out:
-        if (ret && op_errstr && !*op_errstr)
-                gf_asprintf (op_errstr, "Enabling tier on volume %s has been "
-                             "unsuccessful", volinfo->volname);
-        return ret;
-}
-
-static int
-glusterd_tier_disable (glusterd_volinfo_t *volinfo, char **op_errstr)
-{
-        int32_t                 ret                     = -1;
-        xlator_t                *this                   = NULL;
-        int32_t                 tier_online             = -1;
-        char                    pidfile[PATH_MAX]       = {0};
-        int32_t                 pid                     = -1;
-        glusterd_conf_t         *priv                   = NULL;
-
-        this = THIS;
-
-        GF_VALIDATE_OR_GOTO (THIS->name, this, out);
-        GF_VALIDATE_OR_GOTO (this->name, volinfo, out);
-        GF_VALIDATE_OR_GOTO (this->name, op_errstr, out);
-        priv = this->private;
-
-        GLUSTERD_GET_TIER_PID_FILE(pidfile, volinfo, priv);
-        tier_online = gf_is_service_running (pidfile, &pid);
-
-        if (!tier_online) {
-                *op_errstr = gf_strdup ("tier is already disabled");
-                ret = -1;
-                goto out;
-        }
-
-        volinfo->is_tier_enabled = _gf_false;
-
-        ret = 0;
-out:
-        if (ret && op_errstr && !*op_errstr)
-                gf_asprintf (op_errstr, "Disabling tier volume %s has "
-                             "been unsuccessful", volinfo->volname);
-        return ret;
-}
-
 int
 glusterd_op_remove_tier_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 {
@@ -455,6 +345,19 @@ glusterd_op_remove_tier_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                         continue;
                                 brickinfo->decommissioned = 0;
                         }
+                        volinfo->tier.op = GD_OP_DETACH_NOT_STARTED;
+                        ret = volinfo->tierd.svc.manager (&(volinfo->tierd.svc),
+                                                          volinfo,
+                                                          PROC_START_NO_WAIT);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_MANAGER_FUNCTION_FAILED,
+                                        "Calling manager for tier "
+                                        "failed on volume: %s for "
+                                        "detach stop", volinfo->volname);
+                                goto out;
+                        }
+
                         ret = glusterd_create_volfiles_and_notify_services
                                 (volinfo);
 
@@ -473,22 +376,24 @@ glusterd_op_remove_tier_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                         "failed to store volinfo");
                                 goto out;
                         }
-                        ret = glusterd_tierdsvc_restart ();
-                        if (ret) {
-                                gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        GD_MSG_TIERD_START_FAIL,
-                                        "Couldn't restart tierd for "
-                                        "vol: %s", volinfo->volname);
-                                goto out;
-                        }
-
-                        volinfo->tier.op = GD_OP_DETACH_NOT_STARTED;
                         ret = 0;
                         goto out;
 
 
 
         case GF_DEFRAG_CMD_DETACH_START:
+                        volinfo->tier.op = GD_OP_DETACH_TIER;
+                        svc = &(volinfo->tierd.svc);
+                        ret = svc->manager (svc, volinfo,
+                                        PROC_START_NO_WAIT);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_MANAGER_FUNCTION_FAILED,
+                                        "calling manager for tier "
+                                        "failed on volume: %s for "
+                                        "detach start", volname);
+                                goto out;
+                        }
                         ret = dict_get_str (dict, GF_REMOVE_BRICK_TID_KEY,
                                             &task_id_str);
                         if (ret) {
@@ -510,8 +415,6 @@ glusterd_op_remove_tier_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         }
                         force = 0;
 
-                        volinfo->tier.op = GD_OP_DETACH_TIER;
-                        volinfo->tier.defrag_status = GF_DEFRAG_STATUS_STARTED;
                         break;
 
         case GF_DEFRAG_CMD_DETACH_COMMIT:
@@ -529,6 +432,19 @@ glusterd_op_remove_tier_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         /* Fall through */
 
         case GF_DEFRAG_CMD_DETACH_COMMIT_FORCE:
+                        if (cmd == GF_DEFRAG_CMD_DETACH_COMMIT_FORCE) {
+                                svc = &(volinfo->tierd.svc);
+                                ret = svc->manager (svc, volinfo,
+                                                PROC_START_NO_WAIT);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_MANAGER_FUNCTION_FAILED,
+                                                "calling manager for tier "
+                                                "failed on volume: %s for "
+                                                "commit force", volname);
+                                        goto out;
+                                }
+                        }
                         glusterd_op_perform_detach_tier (volinfo);
                         detach_commit = 1;
 
@@ -707,11 +623,6 @@ glusterd_op_remove_tier_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         if (cmd == GF_DEFRAG_CMD_DETACH_START &&
                         volinfo->status == GLUSTERD_STATUS_STARTED) {
 
-                svc = &(volinfo->tierd.svc);
-                ret = svc->reconfigure (volinfo);
-                if (ret)
-                        goto out;
-
                 ret = glusterd_svcs_reconfigure ();
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
@@ -780,6 +691,7 @@ glusterd_op_tier_start_stop (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         glusterd_conf_t         *priv                   = NULL;
         int32_t                 pid                     = -1;
         char                    pidfile[PATH_MAX]       = {0};
+        int                     is_force                = 0;
 
         this = THIS;
         GF_VALIDATE_OR_GOTO (THIS->name, this, out);
@@ -821,24 +733,48 @@ glusterd_op_tier_start_stop (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         if (!retval)
                 goto out;
 
+        if (glusterd_is_volume_started (volinfo) == 0) {
+                *op_errstr = gf_strdup ("Volume is stopped, start "
+                                "volume to enable/disable tier.");
+                ret = -1;
+                goto out;
+        }
+
+        GLUSTERD_GET_TIER_PID_FILE(pidfile, volinfo, priv);
+
         switch (cmd) {
         case GF_DEFRAG_CMD_START_TIER:
-                GLUSTERD_GET_TIER_PID_FILE(pidfile, volinfo, priv);
                 /* we check if its running and skip so that we dont get a
                  * failure during force start
                  */
-                if (gf_is_service_running (pidfile, &pid))
-                        goto out;
-                ret = glusterd_tier_enable (volinfo, op_errstr);
-                if (ret < 0)
-                        goto out;
-                glusterd_store_perform_node_state_store (volinfo);
+                ret = dict_get_int32 (dict, "force", &is_force);
+                if (ret) {
+                        gf_msg_debug (this->name, 0, "Unable to get is_force"
+                                        " from dict");
+                }
+                ret = dict_set_int32 (volinfo->dict, "force", is_force);
+                if (ret) {
+                        gf_msg_debug (this->name, errno, "Unable to set"
+                                        " is_force to dict");
+                }
+
+                if (!is_force) {
+                        if (gf_is_service_running (pidfile, &pid)) {
+                                gf_asprintf (op_errstr, "Tier is already "
+                                             "enabled on volume %s." ,
+                                             volinfo->volname);
+                                goto out;
+                        }
+                }
+
                 break;
 
         case GF_DEFRAG_CMD_STOP_TIER:
-                ret = glusterd_tier_disable (volinfo, op_errstr);
-                if (ret < 0)
+                if (!gf_is_service_running (pidfile, &pid)) {
+                        gf_asprintf (op_errstr, "Tier is alreaady disabled on "
+                                     "volume %s.", volinfo->volname);
                         goto out;
+                }
                 break;
         default:
                 gf_asprintf (op_errstr, "tier command failed. Invalid "
@@ -847,7 +783,8 @@ glusterd_op_tier_start_stop (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
         }
 
-        ret = glusterd_manage_tier (volinfo, cmd);
+        ret = volinfo->tierd.svc.manager (&(volinfo->tierd.svc),
+                                          volinfo, PROC_START_NO_WAIT);
         if (ret)
                 goto out;
 
@@ -982,6 +919,19 @@ glusterd_op_stage_tier (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         gf_msg (this->name, 0, GF_LOG_ERROR,
                                 GD_MSG_REBALANCE_START_FAIL,
                                 "start validate failed");
+                        goto out;
+                }
+                if (volinfo->tier.op == GD_OP_DETACH_TIER) {
+                        snprintf (msg, sizeof (msg), "A detach tier task "
+                                  "exists for volume %s. Either commit it"
+                                  " or stop it before starting a new task.",
+                                  volinfo->volname);
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_OLD_REMOVE_BRICK_EXISTS,
+                                "Earlier detach-tier"
+                                " task exists for volume %s.",
+                                volinfo->volname);
+                        ret = -1;
                         goto out;
                 }
                 break;
