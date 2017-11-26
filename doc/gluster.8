@@ -35,6 +35,9 @@ The Gluster Console Manager is a command line utility for elastic volume managem
 \fB\ volume info [all|<VOLNAME>] \fR
 Display information about all volumes, or the specified volume.
 .TP
+\fB\ volume list \fR
+List all volumes in cluster
+.TP
 \fB\ volume status [all | <VOLNAME> [nfs|shd|<BRICK>|quotad|tierd]] [detail|clients|mem|inode|fd|callpool|tasks|client-list] \fR
 Display status of all or specified volume(s)/brick
 .TP
@@ -54,8 +57,17 @@ Stop the specified volume.
 \fB\ volume set <VOLNAME> <OPTION> <PARAMETER> [<OPTION> <PARAMETER>] ... \fR
 Set the volume options.
 .TP
-\fB\ volume get <VOLNAME> <OPTION/all>\fR
-Get the volume options.
+\fB\ volume get <VOLNAME/all> <OPTION/all> \fR
+Get the value of the all options or given option for volume <VOLNAME> or all option. gluster volume get all all is to get all global options
+.TP
+\fB\ volume reset <VOLNAME> [option] [force] \fR
+Reset all the reconfigured options
+.TP
+\fB\ volume barrier <VOLNAME> {enable|disable} \fR
+Barrier/unbarrier file operations on a volume
+.TP
+\fB\ volume clear-locks <VOLNAME> <path> kind {blocked|granted|all}{inode [range]|entry [basename]|posix [range]} \fR
+Clear locks held on path
 .TP
 \fB\ volume help \fR
 Display help for the volume command.
@@ -72,6 +84,9 @@ Remove the specified brick from the specified volume.
 If you remove the brick, the data stored in that brick will not be available. You can migrate data from one brick to another using
 .B replace-brick
 option.
+.TP
+\fB\ volume reset-brick <VOLNAME> <SOURCE-BRICK> {{start} | {<NEW-BRICK> commit}} \fR
+Brings down or replaces the specified source brick with the new brick.
 .TP
 \fB\ volume replace-brick <VOLNAME> <SOURCE-BRICK> <NEW-BRICK> commit force \fR
 Replace the specified source brick with a new brick.
@@ -94,6 +109,15 @@ Locate the log file for corresponding volume/brick.
 .TP
 \fB\ volume log rotate <VOLNAME> [BRICK] \fB
 Rotate the log file for corresponding volume/brick.
+.TP
+\fB\ volume profile <VOLNAME> {start|info [peek|incremental [peek]|cumulative|clear]|stop} [nfs] \fR
+Profile operations on the volume. Once started, volume profile <volname> info provides cumulative statistics of the FOPs performed.
+.TP
+\fB\ volume statedump <VOLNAME> [[nfs|quotad] [all|mem|iobuf|callpool|priv|fd|inode|history]... | [client <hostname:process-id>]] \fR
+Dumps the in memory state of the specified process or the bricks of the volume.
+.TP
+\fB\ volume sync <HOSTNAME> [all|<VOLNAME>] \fR
+Sync the volume information from a peer
 .SS "Peer Commands"
 .TP
 \fB\ peer probe <HOSTNAME> \fR
@@ -105,6 +129,9 @@ Detach the specified peer.
 \fB\ peer status \fR
 Display the status of peers.
 .TP
+\fB\ pool list \fR
+List all the nodes in the pool (including localhost)
+.TP
 \fB\ peer help \fR
 Display help for the peer command.
 .SS "Tier Commands"
@@ -112,8 +139,14 @@ Display help for the peer command.
 \fB\ volume tier <VOLNAME> attach [<replica COUNT>] <NEW-BRICK>... \fR
 Attach to an existing volume a tier of specified type using the specified bricks.
 .TP
+\fB\ volume tier <VOLNAME> start [force] \fR
+Start the tier service for <VOLNAME>
+.TP
 \fB\ volume tier <VOLNAME> status \fR
 Display statistics on data migration between the hot and cold tiers.
+.TP
+\fB\ volume tier <VOLNAME> stop [force] \fR
+Stop the tier service for <VOLNAME>
 .TP
 \fB\ volume tier <VOLNAME> detach start\fR
 Begin detaching the hot tier from the volume. Data will be moved from the hot tier to the cold tier.
@@ -167,6 +200,12 @@ Set the hard timeout for the volume. The interval in which limits are retested a
 \fB\ volume quota <VOLNAME> alert-time <TIME> \fR
 Set the frequency in which warning messages need to be logged (in the brick logs) once soft limit is breached.
 .TP
+\fB\ volume inode-quota <VOLNAME> enable/disable \fR
+Enable/disable inode-quota for <VOLNAME>
+.TP
+\fB\ volume quota help \fR
+Display help for volume quota commands
+.TP
 NOTE: valid units of time and their symbols are : hours(h/hr), minutes(m/min), seconds(s/sec), weeks(w/wk), Days(d/days).
 .SS "Geo-replication Commands"
 .TP
@@ -208,6 +247,9 @@ Scrub frequency for volume <VOLNAME>
 .TP
 \fB\ volume bitrot <VOLNAME> scrub {pause|resume|status|ondemand} \fR
 Pause/Resume scrub. Upon resume, scrubber continues where it left off. status option shows the statistics of scrubber. ondemand option starts the scrubbing immediately if the scrubber is not paused or already running.
+.TP
+\fB\ volume bitrot help \fR
+Display help for volume bitrot commands
 .TP
 .SS "Snapshot Commands"
 .PP
