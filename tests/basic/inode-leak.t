@@ -39,3 +39,10 @@ EXPECT "1" get_mount_active_size_value $V0
 EXPECT "0" get_mount_lru_size_value $V0
 
 cleanup
+
+# Mainly marking it as known-issue as it is taking a *lot* of time.
+# Revert back if we are below an hour in regression runs.
+# Or consider running only in nightly regressions.
+
+#G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=000000
+#G_TESTDEF_TEST_STATUS_CENTOS6=KNOWN_ISSUE,BUG=000000
