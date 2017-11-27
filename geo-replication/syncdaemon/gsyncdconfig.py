@@ -338,6 +338,8 @@ def to_float(value):
 
 
 def to_bool(value):
+    if isinstance(value, bool):
+        return value
     return True if value in ["true", "True"] else False
 
 
