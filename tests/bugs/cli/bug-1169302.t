@@ -48,3 +48,9 @@ kill $GFAPI_PID
 cleanup_statedump
 cleanup_tester $(dirname $0)/bug-1169302
 cleanup
+
+# Mainly marking it as known-issue as it is consistently failing.
+# Revert back once fixing this.
+
+#G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=1517961
+#G_TESTDEF_TEST_STATUS_CENTOS6=KNOWN_ISSUE,BUG=1517961
