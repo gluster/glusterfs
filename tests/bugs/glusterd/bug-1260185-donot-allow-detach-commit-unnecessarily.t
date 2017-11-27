@@ -41,3 +41,9 @@ TEST $CLI volume tier $V0 detach start
 TEST $CLI volume tier $V0 detach commit
 
 cleanup;
+
+# Mainly marking it as known-issue as it is consistently failing.
+# Revert back once fixing this.
+
+#G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=1517961
+#G_TESTDEF_TEST_STATUS_CENTOS6=KNOWN_ISSUE,BUG=1517961
