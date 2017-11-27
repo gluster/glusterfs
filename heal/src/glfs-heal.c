@@ -1749,17 +1749,7 @@ main (int argc, char **argv)
                 ret = glfsh_heal_from_brick (fs, top_subvol, &rootloc,
                                              hostname, path, file);
                 break;
-        case GF_SHD_OP_INVALID:
-        case GF_SHD_OP_HEAL_INDEX:
-        case GF_SHD_OP_HEAL_FULL:
-        case GF_SHD_OP_HEALED_FILES:
-        case GF_SHD_OP_HEAL_FAILED_FILES:
-        case GF_SHD_OP_STATISTICS:
-        case GF_SHD_OP_STATISTICS_HEAL_COUNT:
-        case GF_SHD_OP_STATISTICS_HEAL_COUNT_PER_REPLICA:
-        case GF_SHD_OP_HEAL_ENABLE:
-        case GF_SHD_OP_HEAL_DISABLE:
-        case GF_SHD_OP_GRANULAR_ENTRY_HEAL_DISABLE:
+        default:
                 ret = -EINVAL;
                 break;
         }
