@@ -1220,6 +1220,10 @@ cluster_tiebreaker_inodelk (xlator_t **subvols, unsigned char *on,
                         num_success++;
                         continue;
                 }
+
+                /* TODO: If earlier subvols fail with an error other
+                 * than EAGAIN, we could still have 2 clients competing
+                 * for the lock*/
                 if (replies[i].op_ret == -1 && replies[i].op_errno == EAGAIN) {
                         cluster_fop_success_fill (replies, numsubvols,
                                                   locked_on);
@@ -1231,8 +1235,6 @@ cluster_tiebreaker_inodelk (xlator_t **subvols, unsigned char *on,
                                 FOP_SEQ (subvols, on, numsubvols, replies,
                                          locked_on, frame, inodelk, dom, &loc,
                                          F_SETLKW, &flock, NULL);
-                        } else {
-                                memset (locked_on, 0, numsubvols);
                         }
                         break;
                 }
