@@ -77,8 +77,6 @@ def main():
                    help="Remote node ID to connect to Slave Volume")
     p.add_argument("--slave-id", help="Slave Volume ID")
     p.add_argument("-c", "--config-file", help="Config File")
-    p.add_argument("--access-mount", action="store_true",
-                   help="Do not umount the mount")
     p.add_argument("--debug", action="store_true")
 
     # Agent
@@ -120,7 +118,7 @@ def main():
     p.add_argument("--slave-gluster-log-level",
                    help="Slave Gluster mount Log level")
     p.add_argument("--slave-access-mount", action="store_true",
-                   help="Do not umount the mount")
+                   help="Do not lazy umount the slave volume")
 
     # Status
     p = sp.add_parser("status")

@@ -46,7 +46,15 @@ configurable=false
 
 [access-mount]
 value=false
-help=Do not unmount the Aux mounts when stopped or crash
+type=bool
+validation=bool
+help=Do not lazy unmount the master volume. This allows admin to access the mount for debugging.
+
+[slave-access-mount]
+value=false
+type=bool
+validation=bool
+help=Do not lazy unmount the slave volume. This allows admin to access the mount for debugging.
 
 [isolated-slaves]
 value=
