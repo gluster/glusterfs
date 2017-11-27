@@ -50,7 +50,7 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT 3 count_brick_pids
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 7 count_up_bricks
 
 TEST $CLI volume remove-brick $V0 $H0:$B0/brick3 start
-TEST $CLI volume remove-brick $V0 $H0:$B0/brick3 commit
+TEST $CLI volume remove-brick $V0 $H0:$B0/brick3 force
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 3 count_brick_processes
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 3 count_brick_pids
