@@ -210,6 +210,8 @@ struct posix_private {
 
         /* seconds to sleep between health checks */
         uint32_t        health_check_interval;
+        /* seconds to sleep to wait for aio write finish for health checks */
+        uint32_t        health_check_timeout;
         pthread_t       health_check;
         gf_boolean_t    health_check_active;
 

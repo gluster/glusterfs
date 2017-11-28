@@ -18,6 +18,7 @@
 #include <ftw.h>
 #include <sys/stat.h>
 #include <signal.h>
+#include <aio.h>
 
 #ifdef HAVE_SYS_ACL_H
 #ifdef HAVE_ACL_LIBACL_H /* for acl_to_any_text() */
@@ -1768,44 +1769,108 @@ posix_fs_health_check (xlator_t *this)
         char    timestamp[256]          = {0,};
         int     fd                      = -1;
         int     timelen                 = -1;
-        int     nofbytes                = 0;
         time_t  time_sec                = {0,};
-        char    buff[64]                = {0};
+        char    buff[256]               = {0};
         char    file_path[PATH_MAX]     = {0};
         char    *op                     = NULL;
         int     op_errno                = 0;
+        int     cnt                     = 0;
+        int     timeout                 = 0;
+        struct  aiocb aiocb;
 
         GF_VALIDATE_OR_GOTO (this->name, this, out);
         priv = this->private;
         GF_VALIDATE_OR_GOTO ("posix-helpers", priv, out);
 
         subvol_path = priv->base_path;
-        snprintf (file_path, sizeof (file_path), "%s/%s/health_check",
+        timeout = priv->health_check_timeout;
+        snprintf (file_path, sizeof (file_path)-1, "%s/%s/health_check",
                   subvol_path, GF_HIDDEN_PATH);
 
         time_sec = time (NULL);
         gf_time_fmt (timestamp, sizeof timestamp, time_sec, gf_timefmt_FT);
         timelen = strlen (timestamp);
 
-        fd = open (file_path, O_CREAT|O_RDWR, 0644);
+        fd = open (file_path, O_CREAT|O_WRONLY|O_TRUNC, 0644);
         if (fd == -1) {
                 op_errno = errno;
-                op = "open";
+                op = "open_for_write";
                 goto out;
         }
-        nofbytes = sys_write (fd, timestamp, timelen);
-        if (nofbytes < 0) {
+        memset(&aiocb, 0, sizeof(struct aiocb));
+        aiocb.aio_fildes = fd;
+        aiocb.aio_buf = timestamp;
+        aiocb.aio_nbytes = timelen;
+        aiocb.aio_sigevent.sigev_notify = SIGEV_NONE;
+        if (aio_write(&aiocb) == -1) {
                 op_errno = errno;
-                op = "write";
+                op  = "aio_write";
                 goto out;
         }
-        /* Seek the offset to the beginning of the file, so that the offset for
-        read is from beginning of file */
-        sys_lseek(fd, 0, SEEK_SET);
-        nofbytes = sys_read (fd, buff, timelen);
-        if (nofbytes == -1) {
+
+        /* Wait until write completion */
+        while ((aio_error (&aiocb) == EINPROGRESS) && (++cnt <= timeout))
+                sleep (1);
+
+        ret = aio_error (&aiocb);
+        if (ret != 0) {
                 op_errno = errno;
-                op = "read";
+                op  = "aio_write_error";
+                ret = -1;
+                goto out;
+        }
+
+        ret = aio_return (&aiocb);
+        if (ret != timelen) {
+                op_errno = errno;
+                op  = "aio_write_buf";
+                ret = -1;
+                goto out;
+        }
+
+        sys_close (fd);
+
+        fd = open (file_path, O_RDONLY);
+        if (fd == -1) {
+                op_errno = errno;
+                op = "open_for_read";
+                goto out;
+        }
+
+        memset(&aiocb, 0, sizeof(struct aiocb));
+        aiocb.aio_fildes = fd;
+        aiocb.aio_buf = buff;
+        aiocb.aio_nbytes = sizeof(buff);
+        if (aio_read(&aiocb) == -1) {
+                op_errno = errno;
+                op  = "aio_read";
+                goto out;
+        }
+        cnt = 0;
+        /* Wait until read completion */
+        while ((aio_error (&aiocb) == EINPROGRESS) && (++cnt <= timeout))
+                sleep (1);
+
+        ret = aio_error (&aiocb);
+        if (ret != 0) {
+                op_errno = errno;
+                op  = "aio_read_error";
+                ret = -1;
+                goto out;
+        }
+
+        ret = aio_return (&aiocb);
+        if (ret != timelen) {
+                op_errno = errno;
+                op  = "aio_read_buf";
+                ret = -1;
+                goto out;
+        }
+
+        if (memcmp (timestamp, buff, ret)) {
+                op_errno = EUCLEAN;
+                op  = "aio_read_cmp_buf";
+                ret = -1;
                 goto out;
         }
         ret = 0;
@@ -1818,8 +1883,9 @@ out:
                         P_MSG_HEALTHCHECK_FAILED,
                         "%s() on %s returned", op, file_path);
                 gf_event (EVENT_POSIX_HEALTH_CHECK_FAILED,
-                          "op=%s;path=%s;error=%s;brick=%s:%s", op, file_path,
-                          strerror (op_errno), priv->hostname, priv->base_path);
+                          "op=%s;path=%s;error=%s;brick=%s:%s timeout is %d",
+                          op, file_path, strerror (op_errno), priv->hostname,
+                          priv->base_path, timeout);
         }
         return ret;
 
