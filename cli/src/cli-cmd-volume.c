@@ -3441,7 +3441,7 @@ struct cli_cmd volume_cmds[] = {
 
         { "volume heal <VOLNAME> [enable | disable | full |"
           "statistics [heal-count [replica <HOSTNAME:BRICKNAME>]] |"
-          "info [summary | split-brain] |"
+          "info [split-brain] |"
           "split-brain {bigger-file <FILE> | latest-mtime <FILE> |"
                        "source-brick <HOSTNAME:BRICKNAME> [<FILE>]} |"
           "granular-entry-heal {enable | disable}]",
