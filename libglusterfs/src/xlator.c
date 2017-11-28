@@ -40,6 +40,10 @@ xlator_init_unlock (void)
         (void) pthread_mutex_unlock (&xlator_init_mutex);
 }
 
+static struct xlator_cbks default_cbks = { };
+struct volume_options default_options[] = {
+        { .key   = {NULL} },
+};
 
 static void
 fill_defaults (xlator_t *xl)
@@ -102,9 +106,15 @@ fill_defaults (xlator_t *xl)
 
         SET_DEFAULT_FOP (getspec);
 
+        if (!xl->cbks)
+                xl->cbks = &default_cbks;
+
         SET_DEFAULT_CBK (release);
         SET_DEFAULT_CBK (releasedir);
         SET_DEFAULT_CBK (forget);
+
+        if (!xl->fini)
+                xl->fini = default_fini;
 
         if (!xl->notify)
                 xl->notify = default_notify;
@@ -136,9 +146,10 @@ int
 xlator_volopt_dynload (char *xlator_type, void **dl_handle,
                        volume_opt_list_t *opt_list)
 {
-        int                     ret = -1;
-        char                    *name = NULL;
-        void                    *handle = NULL;
+        int            ret = -1;
+        char          *name = NULL;
+        void          *handle = NULL;
+        xlator_api_t  *xlapi = NULL;
 
         GF_VALIDATE_OR_GOTO ("xlator", xlator_type, out);
 
@@ -163,11 +174,28 @@ xlator_volopt_dynload (char *xlator_type, void **dl_handle,
                 goto out;
         }
 
-        if (!(opt_list->given_opt = dlsym (handle, "options"))) {
-                dlerror ();
-                gf_msg ("xlator", GF_LOG_ERROR, 0, LG_MSG_LOAD_FAILED,
-                        "Failed to load xlator opt table");
-                goto out;
+        /* check new struct first, and then check this */
+        xlapi = dlsym (handle, "xlator_api");
+        if (!xlapi) {
+                gf_msg ("xlator", GF_LOG_DEBUG, 0, LG_MSG_DLSYM_ERROR,
+                        "dlsym(xlator_api) on %s. "
+                        "Fall back to old symbols", dlerror ());
+                /* This case is not an error for now, so allow it
+                   to fall back to old methods. */
+                opt_list->given_opt = dlsym (handle, "options");
+                if (!opt_list->given_opt) {
+                        dlerror ();
+                        gf_msg ("xlator", GF_LOG_ERROR, 0, LG_MSG_LOAD_FAILED,
+                                "Failed to load xlator opt table");
+                        goto out;
+                }
+        } else {
+                opt_list->given_opt = xlapi->options;
+                if (!opt_list->given_opt) {
+                        gf_msg ("xlator", GF_LOG_ERROR, 0, LG_MSG_LOAD_FAILED,
+                                "Failed to load xlator options table");
+                        goto out;
+                }
         }
 
         *dl_handle = handle;
@@ -184,44 +212,24 @@ xlator_volopt_dynload (char *xlator_type, void **dl_handle,
 
 }
 
-
-int
-xlator_dynload (xlator_t *xl)
+int xlator_dynload_oldway (xlator_t *xl)
 {
         int                ret = -1;
-        char              *name = NULL;
         void              *handle = NULL;
         volume_opt_list_t *vol_opt = NULL;
         class_methods_t   *vtbl = NULL;
 
-        GF_VALIDATE_OR_GOTO ("xlator", xl, out);
+        handle = xl->dlhandle;
 
-        INIT_LIST_HEAD (&xl->volume_options);
-
-        ret = gf_asprintf (&name, "%s/%s.so", XLATORDIR, xl->type);
-        if (-1 == ret) {
-                goto out;
-        }
-
-        ret = -1;
-
-        gf_msg_trace ("xlator", 0, "attempt to load file %s", name);
-
-        handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
-        if (!handle) {
-                gf_msg ("xlator", GF_LOG_WARNING, 0, LG_MSG_DLOPEN_FAILED,
-                        "%s", dlerror ());
-                goto out;
-        }
-        xl->dlhandle = handle;
-
-        if (!(xl->fops = dlsym (handle, "fops"))) {
+        xl->fops = dlsym (handle, "fops");
+        if (!xl->fops) {
                 gf_msg ("xlator", GF_LOG_WARNING, 0, LG_MSG_DLSYM_ERROR,
                         "dlsym(fops) on %s", dlerror ());
                 goto out;
         }
 
-        if (!(xl->cbks = dlsym (handle, "cbks"))) {
+        xl->cbks = dlsym (handle, "cbks");
+        if (!xl->cbks) {
                 gf_msg ("xlator", GF_LOG_WARNING, 0, LG_MSG_DLSYM_ERROR,
                         "dlsym(cbks) on %s", dlerror ());
                 goto out;
@@ -276,19 +284,157 @@ xlator_dynload (xlator_t *xl)
         }
 
         vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
-                         gf_common_mt_volume_opt_list_t);
+                             gf_common_mt_volume_opt_list_t);
 
         if (!vol_opt) {
                 goto out;
         }
 
         if (!(vol_opt->given_opt = dlsym (handle, "options"))) {
-                dlerror ();
                 gf_msg_trace (xl->name, 0, "Strict option validation not "
-                              "enforced -- neglecting");
+                              "enforced -- neglecting (%s)", dlerror ());
         }
         INIT_LIST_HEAD (&vol_opt->list);
         list_add_tail (&vol_opt->list, &xl->volume_options);
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+int xlator_dynload_newway (xlator_t *xl)
+{
+        int                ret = -1;
+        void              *handle = NULL;
+        volume_opt_list_t *vol_opt = NULL;
+        xlator_api_t      *xlapi = NULL;
+
+        handle = xl->dlhandle;
+
+        xlapi = dlsym (handle, "xlator_api");
+        if (!xlapi) {
+                gf_msg ("xlator", GF_LOG_INFO, 0, LG_MSG_DLSYM_ERROR,
+                        "dlsym(xlator_api) on %s. "
+                        "Fall back to old symbols", dlerror ());
+                /* This case is not an error for now, so allow it
+                   to fall back to old methods. */
+                ret = 1;
+                goto out;
+        }
+
+        xl->fops = xlapi->fops;
+        if (!xl->fops) {
+                gf_msg ("xlator", GF_LOG_WARNING, 0, LG_MSG_DLSYM_ERROR,
+                        "%s: struct missing (fops)", xl->name);
+                goto out;
+        }
+
+        xl->cbks = xlapi->cbks;
+        if (!xl->cbks) {
+                gf_msg_trace ("xlator", 0, "%s: struct missing (cbks)",
+                              xl->name);
+        }
+
+        xl->init = xlapi->init;
+        if (!xl->init) {
+                gf_msg ("xlator", GF_LOG_WARNING, 0, LG_MSG_DLSYM_ERROR,
+                        "%s: method missing (init)", xl->name);
+                goto out;
+        }
+
+        xl->fini = xlapi->fini;
+        if (!xl->fini) {
+                gf_msg_trace ("xlator", 0, "%s: method missing (fini)",
+                              xl->name);
+        }
+
+        xl->reconfigure = xlapi->reconfigure;
+        if (!xl->reconfigure) {
+                gf_msg_trace ("xlator", 0, "%s: method missing (reconfigure)",
+                              xl->name);
+        }
+        xl->notify = xlapi->notify;
+        if (!xl->notify) {
+                gf_msg_trace ("xlator", 0, "%s: method missing (notify)",
+                              xl->name);
+        }
+        xl->dumpops = xlapi->dumpops;
+        if (!xl->dumpops) {
+                gf_msg_trace ("xlator", 0, "%s: method missing (dumpops)",
+                              xl->name);
+        }
+        xl->mem_acct_init = xlapi->mem_acct_init;
+        if (!xl->mem_acct_init) {
+                gf_msg_trace ("xlator", 0, "%s: method missing (mem_acct_init)",
+                              xl->name);
+        }
+
+        vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
+                             gf_common_mt_volume_opt_list_t);
+        if (!vol_opt) {
+                goto out;
+        }
+
+        vol_opt->given_opt = xlapi->options;
+        if (!vol_opt->given_opt) {
+                gf_msg ("xlator", GF_LOG_INFO, 0, LG_MSG_DLSYM_ERROR,
+                        "%s: options not provided, using default", xl->name);
+                vol_opt->given_opt = default_options;
+        }
+
+        INIT_LIST_HEAD (&vol_opt->list);
+        list_add_tail (&vol_opt->list, &xl->volume_options);
+
+        xl->id         = xlapi->xlator_id;
+        xl->flags      = xlapi->flags;
+        xl->identifier = xlapi->identifier;
+        memcpy (xl->op_version, xlapi->op_version,
+                sizeof (uint32_t) * GF_MAX_RELEASES);
+
+        ret = 0;
+out:
+        return ret;
+}
+
+
+int
+xlator_dynload (xlator_t *xl)
+{
+        int                ret = -1;
+        char              *name = NULL;
+        void              *handle = NULL;
+
+        GF_VALIDATE_OR_GOTO ("xlator", xl, out);
+
+        INIT_LIST_HEAD (&xl->volume_options);
+
+        ret = gf_asprintf (&name, "%s/%s.so", XLATORDIR, xl->type);
+        if (-1 == ret) {
+                goto out;
+        }
+
+        ret = -1;
+
+        gf_msg_trace ("xlator", 0, "attempt to load file %s", name);
+
+        handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
+        if (!handle) {
+                gf_msg ("xlator", GF_LOG_WARNING, 0, LG_MSG_DLOPEN_FAILED,
+                        "%s", dlerror ());
+                goto out;
+        }
+        xl->dlhandle = handle;
+
+        ret = xlator_dynload_newway (xl);
+        if (-1 == ret)
+                goto out;
+        if (1 == ret) {
+                /* it means we don't find the new symbol in xlator code */
+                ret = xlator_dynload_oldway (xl);
+                if (-1 == ret)
+                        goto out;
+        }
 
         fill_defaults (xl);
 

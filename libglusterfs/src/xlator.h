@@ -991,6 +991,18 @@ struct _xlator {
 
         /* Its used as an index to inode_ctx*/
         uint32_t            xl_id;
+
+        /* op_version: initialized in xlator code itself */
+        uint32_t op_version[GF_MAX_RELEASES];
+
+        /* flags: initialized in xlator code itself */
+        uint32_t flags;
+
+        /* id: unique, initialized in xlator code itself */
+        uint32_t id;
+
+        /* identifier: a full string which can unique identify the xlator */
+        char *identifier;
 };
 
 typedef struct {
@@ -1000,6 +1012,68 @@ typedef struct {
                                                 dict_t *options);
         event_notify_fn_t       notify;
 } class_methods_t;
+
+/* This would be the only structure which needs to be exported by
+   the translators. For the backward compatibility, in 4.x series
+   even the old exported fields will be supported */
+typedef struct {
+        /* init(): mandatory method, will be called during the
+           graph initialization */
+        int32_t (*init) (xlator_t *this);
+
+        /* fini(): optional method, will be initialized to default
+           method which would just free the 'xlator->private' variable.
+           This method is called when the graph is no more in use, and
+           is being destroyed. Also when SIGTERM is received */
+        void (*fini) (xlator_t *this);
+
+        /* reconfigure(): optional method, will be initialized to default
+           method in case not provided by xlator. This method is called
+           when there are only option changes in xlator, and no graph change.
+           eg., a 'gluster volume set' command */
+        int32_t (*reconfigure) (xlator_t *this, dict_t *options);
+
+        /* mem_acct_init(): used for memory accounting inside of the xlator.
+           optional. called during translator initialization */
+	int32_t (*mem_acct_init) (xlator_t *this);
+
+        /* notify(): used for handling the notification of events from either
+           the parent or child in the graph. optional. */
+        event_notify_fn_t notify;
+
+        /* struct fops: mandatory. provides all the filesystem operations
+           methods of the xlator */
+        struct xlator_fops *fops;
+        /* struct cbks: optional. provides methods to handle
+           inode forgets, and fd releases */
+        struct xlator_cbks *cbks;
+
+        /* dumpops: a structure again, with methods to dump the details.
+           optional. */
+        struct xlator_dumpops  *dumpops;
+
+        /* struct options: if the translator takes any 'options' from the
+           volume file, then that should be defined here. optional. */
+        volume_option_t *options;
+
+        /* op_version: will be used by volume generation logic to figure
+           out whether to insert it in graph or no, based on cluster's
+           operating version.
+           default value: 0, which means good to insert always */
+        uint32_t op_version[GF_MAX_RELEASES];
+
+        /* flags: will be used by volume generation logic to optimize the
+           placements etc.
+           default value: 0, which means don't treat it specially */
+        uint32_t flags;
+
+        /* xlator_id: unique per xlator. make sure to have no collission
+           in this ID */
+        uint32_t xlator_id;
+
+        /* identifier: a string constant */
+        char *identifier;
+} xlator_api_t;
 
 #define xlator_has_parent(xl) (xl->parents != NULL)
 

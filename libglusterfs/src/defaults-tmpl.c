@@ -223,3 +223,10 @@ default_mem_acct_init (xlator_t *this)
 
         return ret;
 }
+
+void
+default_fini (xlator_t *this)
+{
+        if (this && this->private)
+                GF_FREE (this->private);
+}
