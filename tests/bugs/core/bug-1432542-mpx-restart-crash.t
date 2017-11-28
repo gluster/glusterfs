@@ -28,6 +28,11 @@ get_mount_point () {
 	printf "%s/vol%02d" $MOUNT_BASE $1
 }
 
+function count_up_bricks {
+        vol=$1;
+        $CLI --xml volume status $vol | grep '<status>1' | wc -l
+}
+
 create_volume () {
 
 	local vol_name=$(printf "%s-vol%02d" $V0 $1)
@@ -42,7 +47,8 @@ create_volume () {
 	done
 	TEST $cmd
 	TEST $CLI volume start $vol_name
-	EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Started" volinfo_field $vol_name "Status"
+	# check for 6 bricks and 1 shd daemon to be up and running
+        EXPECT_WITHIN $PROCESS_UP_TIMEOUT 7 count_up_bricks $vol_name
 	local mount_point=$(get_mount_point $1)
 	mkdir -p $mount_point
 	TEST $GFS -s $H0 --volfile-id=$vol_name $mount_point
