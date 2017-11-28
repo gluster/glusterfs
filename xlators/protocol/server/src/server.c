@@ -642,7 +642,7 @@ out:
 }
 
 int32_t
-mem_acct_init (xlator_t *this)
+server_mem_acct_init (xlator_t *this)
 {
         int     ret = -1;
 
@@ -747,7 +747,7 @@ server_check_event_threads (xlator_t *this, server_conf_t *conf, int32_t new)
 }
 
 int
-reconfigure (xlator_t *this, dict_t *options)
+server_reconfigure (xlator_t *this, dict_t *options)
 {
 
         server_conf_t            *conf =NULL;
@@ -1015,8 +1015,38 @@ client_destroy_cbk (xlator_t *this, client_t *client)
         return 0;
 }
 
+int32_t
+server_dump_metrics (xlator_t *this, int fd)
+{
+        rpc_transport_t *xprt   = NULL;
+        server_conf_t   *conf   = NULL;
+        client_t        *client = NULL;
+
+        conf = this->private;
+
+        pthread_mutex_lock (&conf->mutex);
+
+        list_for_each_entry (xprt, &conf->xprt_list, list) {
+                client = xprt->xl_private;
+
+                if (!client)
+                        continue;
+
+                dprintf (fd, "%s.total.rpc.%s.bytes_read %lu\n", this->name,
+                         client->client_uid, xprt->total_bytes_read);
+                dprintf (fd, "%s.total.rpc.%s.bytes_write %lu\n", this->name,
+                         client->client_uid, xprt->total_bytes_write);
+                dprintf (fd, "%s.total.rpc.%s.outstanding %d\n", this->name,
+                         client->client_uid, xprt->outstanding_rpc_count);
+        }
+
+        pthread_mutex_unlock (&conf->mutex);
+
+        return 0;
+}
+
 int
-init (xlator_t *this)
+server_init (xlator_t *this)
 {
         int32_t            ret      = -1;
         server_conf_t     *conf     = NULL;
@@ -1276,7 +1306,7 @@ out:
 
 
 void
-fini (xlator_t *this)
+server_fini (xlator_t *this)
 {
 #if 0
         server_conf_t *conf = NULL;
@@ -1431,7 +1461,7 @@ out:
 
 
 int
-notify (xlator_t *this, int32_t event, void *data, ...)
+server_notify (xlator_t *this, int32_t event, void *data, ...)
 {
         int              ret          = -1;
         server_conf_t    *conf        = NULL;
@@ -1603,13 +1633,13 @@ out:
 }
 
 
-struct xlator_fops fops;
+struct xlator_fops server_fops;
 
-struct xlator_cbks cbks = {
+struct xlator_cbks server_cbks = {
         .client_destroy = client_destroy_cbk,
 };
 
-struct xlator_dumpops dumpops = {
+struct xlator_dumpops server_dumpops = {
         .priv           = server_priv,
         .fd             = gf_client_dump_fdtables,
         .inode          = gf_client_dump_inodes,
@@ -1619,7 +1649,7 @@ struct xlator_dumpops dumpops = {
 };
 
 
-struct volume_options options[] = {
+struct volume_options server_options[] = {
         { .key   = {"transport-type"},
           .value = {"rpc", "rpc-over-rdma", "tcp", "socket", "ib-verbs",
                     "unix", "ib-sdp", "tcp/server", "ib-verbs/server", "rdma",
@@ -1801,4 +1831,20 @@ struct volume_options options[] = {
           .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key   = {NULL} },
+};
+
+
+xlator_api_t xlator_api = {
+        .init          = server_init,
+        .fini          = server_fini,
+        .notify        = server_notify,
+        .reconfigure   = server_reconfigure,
+        .mem_acct_init = server_mem_acct_init,
+        .dump_metrics  = server_dump_metrics,
+        .op_version    = {1}, /* Present from the initial version */
+        .dumpops       = &server_dumpops,
+        .fops          = &server_fops,
+        .cbks          = &server_cbks,
+        .options       = server_options,
+        .identifier    = "server-protocol",
 };
