@@ -1297,4 +1297,8 @@ default_setactivelk_failure_cbk (call_frame_t *frame, int32_t op_errno);
 
 int32_t
 default_mem_acct_init (xlator_t *this);
+
+void
+default_fini (xlator_t *this);
+
 #endif /* _DEFAULTS_H */
