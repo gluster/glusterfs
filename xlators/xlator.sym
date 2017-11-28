@@ -1,3 +1,4 @@
+class_methods
 xlator_api
 init
 fini
