@@ -7252,6 +7252,8 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("health-check-interval", priv->health_check_interval,
                           options, uint32, out);
+        GF_OPTION_RECONF ("health-check-timeout", priv->health_check_timeout,
+                          options, uint32, out);
         posix_spawn_health_check_thread (this);
 
         GF_OPTION_RECONF ("shared-brick-count", priv->shared_brick_count,
@@ -7858,6 +7860,8 @@ init (xlator_t *this)
         _private->health_check_active = _gf_false;
         GF_OPTION_INIT ("health-check-interval",
                         _private->health_check_interval, uint32, out);
+        GF_OPTION_INIT ("health-check-timeout",
+                        _private->health_check_timeout, uint32, out);
         if (_private->health_check_interval)
                 posix_spawn_health_check_thread (this);
 
@@ -8087,6 +8091,17 @@ struct volume_options options[] = {
           .description = "Interval in seconds for a filesystem health check, "
                          "set to 0 to disable",
           .op_version = {3},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
+        },
+        {
+          .key = {"health-check-timeout"},
+          .type = GF_OPTION_TYPE_INT,
+          .min = 0,
+          .default_value = "10",
+          .validate = GF_OPT_VALIDATE_MIN,
+          .description = "Interval in seconds to wait aio_write finish for health check, "
+                         "set to 0 to disable",
+          .op_version = {GD_OP_VERSION_4_0_0},
           .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         {
