@@ -26,6 +26,9 @@
 
 #include "compat-errno.h"
 
+int
+posix_handle_mkdir_hashes (xlator_t *this, const char *newpath);
+
 inode_t *
 posix_resolve (xlator_t *this, inode_table_t *itable, inode_t *parent,
                char *bname, struct iatt *iabuf)

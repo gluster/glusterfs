@@ -363,4 +363,247 @@ posix_fdget_objectsignature (int, dict_t *);
 
 gf_boolean_t
 posix_is_bulk_removexattr (char *name, dict_t *dict);
+
+int32_t
+posix_set_iatt_in_dict (dict_t *, struct iatt *);
+
+mode_t
+posix_override_umask (mode_t , mode_t);
+
+int32_t
+posix_priv (xlator_t *this);
+
+int32_t
+posix_inode (xlator_t *this);
+
+void
+posix_fini (xlator_t *this);
+
+int
+posix_init (xlator_t *this);
+
+int
+posix_reconfigure (xlator_t *this, dict_t *options);
+
+int32_t
+posix_notify (xlator_t *this, int32_t event, void *data, ...);
+
+/* posix-entry-ops.c FOP signatures */
+int32_t
+posix_lookup (call_frame_t *frame, xlator_t *this,
+              loc_t *loc, dict_t *xdata);
+
+int
+posix_create (call_frame_t *frame, xlator_t *this,
+              loc_t *loc, int32_t flags, mode_t mode,
+              mode_t umask, fd_t *fd, dict_t *xdata);
+
+int
+posix_symlink (call_frame_t *frame, xlator_t *this,
+               const char *linkname, loc_t *loc, mode_t umask, dict_t *xdata);
+
+int
+posix_rename (call_frame_t *frame, xlator_t *this,
+              loc_t *oldloc, loc_t *newloc, dict_t *xdata);
+
+int
+posix_link (call_frame_t *frame, xlator_t *this,
+            loc_t *oldloc, loc_t *newloc, dict_t *xdata);
+
+int
+posix_mknod (call_frame_t *frame, xlator_t *this,
+             loc_t *loc, mode_t mode, dev_t dev, mode_t umask, dict_t *xdata);
+
+int
+posix_mkdir (call_frame_t *frame, xlator_t *this,
+             loc_t *loc, mode_t mode, mode_t umask, dict_t *xdata);
+
+int32_t
+posix_unlink (call_frame_t *frame, xlator_t *this,
+              loc_t *loc, int xflag, dict_t *xdata);
+
+int
+posix_rmdir (call_frame_t *frame, xlator_t *this,
+             loc_t *loc, int flags, dict_t *xdata);
+
+/* posix-inode-fs-ops.c FOP signatures */
+int
+posix_forget (xlator_t *this, inode_t *inode);
+
+int32_t
+posix_discover (call_frame_t *frame, xlator_t *this,
+                loc_t *loc, dict_t *xdata);
+
+int32_t
+posix_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata);
+
+int
+posix_setattr (call_frame_t *frame, xlator_t *this,
+               loc_t *loc, struct iatt *stbuf, int32_t valid, dict_t *xdata);
+
+int
+posix_fsetattr (call_frame_t *frame, xlator_t *this,
+                fd_t *fd, struct iatt *stbuf, int32_t valid, dict_t *xdata);
+
+int32_t
+posix_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+              size_t len, dict_t *xdata);
+
+int32_t
+posix_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+               off_t len, dict_t *xdata);
+
+int32_t
+posix_glfallocate(call_frame_t *frame, xlator_t *this, fd_t *fd,
+                int32_t keep_size, off_t offset, size_t len, dict_t *xdata);
+
+int32_t
+posix_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata);
+
+int32_t
+posix_seek (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+            gf_seek_what_t what, dict_t *xdata);
+
+int32_t
+posix_opendir (call_frame_t *frame, xlator_t *this,
+               loc_t *loc, fd_t *fd, dict_t *xdata);
+
+int32_t
+posix_releasedir (xlator_t *this,
+                  fd_t *fd);
+
+int32_t
+posix_readlink (call_frame_t *frame, xlator_t *this,
+                loc_t *loc, size_t size, dict_t *xdata);
+
+int32_t
+posix_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
+                dict_t *xdata);
+
+int32_t
+posix_open (call_frame_t *frame, xlator_t *this,
+            loc_t *loc, int32_t flags, fd_t *fd, dict_t *xdata);
+
+int
+posix_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+             off_t offset, uint32_t flags, dict_t *xdata);
+
+int32_t
+posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
+              struct iovec *vector, int32_t count, off_t offset,
+              uint32_t flags, struct iobref *iobref, dict_t *xdata);
+
+int32_t
+posix_statfs (call_frame_t *frame, xlator_t *this,
+              loc_t *loc, dict_t *xdata);
+
+int32_t
+posix_flush (call_frame_t *frame, xlator_t *this,
+             fd_t *fd, dict_t *xdata);
+
+int32_t
+posix_release (xlator_t *this, fd_t *fd);
+
+int32_t
+posix_fsync (call_frame_t *frame, xlator_t *this,
+             fd_t *fd, int32_t datasync, dict_t *xdata);
+
+int32_t
+posix_setxattr (call_frame_t *frame, xlator_t *this,
+                loc_t *loc, dict_t *dict, int flags, dict_t *xdata);
+
+int
+posix_get_ancestry_non_directory (xlator_t *this, inode_t *leaf_inode,
+                                  gf_dirent_t *head, char **path, int type,
+                                  int32_t *op_errno, dict_t *xdata);
+
+int
+posix_get_ancestry (xlator_t *this, inode_t *leaf_inode,
+                    gf_dirent_t *head, char **path, int type, int32_t *op_errno,
+                    dict_t *xdata);
+
+int32_t
+posix_getxattr (call_frame_t *frame, xlator_t *this,
+                loc_t *loc, const char *name, dict_t *xdata);
+
+int32_t
+posix_fgetxattr (call_frame_t *frame, xlator_t *this,
+                 fd_t *fd, const char *name, dict_t *xdata);
+
+int32_t
+posix_fsetxattr (call_frame_t *frame, xlator_t *this,
+                 fd_t *fd, dict_t *dict, int flags, dict_t *xdata);
+
+int32_t
+posix_removexattr (call_frame_t *frame, xlator_t *this,
+                   loc_t *loc, const char *name, dict_t *xdata);
+
+int32_t
+posix_fremovexattr (call_frame_t *frame, xlator_t *this,
+                    fd_t *fd, const char *name, dict_t *xdata);
+
+int32_t
+posix_fsyncdir (call_frame_t *frame, xlator_t *this,
+                fd_t *fd, int datasync, dict_t *xdata);
+
+int
+posix_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
+               gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata);
+
+int
+posix_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata);
+
+int
+posix_access (call_frame_t *frame, xlator_t *this,
+              loc_t *loc, int32_t mask, dict_t *xdata);
+
+int32_t
+posix_ftruncate (call_frame_t *frame, xlator_t *this,
+                 fd_t *fd, off_t offset, dict_t *xdata);
+
+int32_t
+posix_fstat (call_frame_t *frame, xlator_t *this,
+             fd_t *fd, dict_t *xdata);
+
+int32_t
+posix_lease (call_frame_t *frame, xlator_t *this,
+             loc_t *loc, struct gf_lease *lease, dict_t *xdata);
+
+int32_t
+posix_lk (call_frame_t *frame, xlator_t *this,
+          fd_t *fd, int32_t cmd, struct gf_flock *lock, dict_t *xdata);
+
+int32_t
+posix_inodelk (call_frame_t *frame, xlator_t *this,
+               const char *volume, loc_t *loc, int32_t cmd,
+               struct gf_flock *lock, dict_t *xdata);
+
+int32_t
+posix_finodelk (call_frame_t *frame, xlator_t *this,
+                const char *volume, fd_t *fd, int32_t cmd,
+                struct gf_flock *lock, dict_t *xdata);
+
+int32_t
+posix_entrylk (call_frame_t *frame, xlator_t *this,
+               const char *volume, loc_t *loc, const char *basename,
+               entrylk_cmd cmd, entrylk_type type, dict_t *xdata);
+
+int32_t
+posix_fentrylk (call_frame_t *frame, xlator_t *this,
+                const char *volume, fd_t *fd, const char *basename,
+                entrylk_cmd cmd, entrylk_type type, dict_t *xdata);
+
+int32_t
+posix_readdir (call_frame_t *frame, xlator_t *this,
+               fd_t *fd, size_t size, off_t off, dict_t *xdata);
+
+int32_t
+posix_readdirp (call_frame_t *frame, xlator_t *this,
+                fd_t *fd, size_t size, off_t off, dict_t *dict);
+
+int32_t
+posix_rchecksum (call_frame_t *frame, xlator_t *this,
+                 fd_t *fd, off_t offset, int32_t len, dict_t *xdata);
+
 #endif /* _POSIX_H */
