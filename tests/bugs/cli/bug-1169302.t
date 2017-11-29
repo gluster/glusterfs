@@ -40,7 +40,9 @@ cleanup_statedump
 # hostname or IP-address with the connection from the bug-1169302 executable.
 # In our CI it seems not possible to use $H0, 'localhost', $(hostname --fqdn)
 # or even "127.0.0.1"....
-TEST $CLI_3 volume statedump $V0 client $H1:$GFAPI_PID
+sleep 2
+host=`netstat -nap | grep $GFAPI_PID | grep 24007 |  awk '{print $4}' | cut -d: -f1`
+TEST $CLI_3 volume statedump $V0 client $host:$GFAPI_PID
 EXPECT_WITHIN $STATEDUMP_TIMEOUT "Y" path_exists $statedumpdir/glusterdump.$GFAPI_PID*
 
 kill $GFAPI_PID
@@ -48,9 +50,3 @@ kill $GFAPI_PID
 cleanup_statedump
 cleanup_tester $(dirname $0)/bug-1169302
 cleanup
-
-# Mainly marking it as known-issue as it is consistently failing.
-# Revert back once fixing this.
-
-#G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=1517961
-#G_TESTDEF_TEST_STATUS_CENTOS6=KNOWN_ISSUE,BUG=1517961
