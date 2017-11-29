@@ -60,7 +60,6 @@ int
 dump_client_locks (inode_t *inode)
 {
         fd_t             *fd    = NULL;
-        clnt_conf_t    *conf  = NULL;
         xlator_t         *this  = NULL;
         clnt_fd_ctx_t  *fdctx = NULL;
 
@@ -68,19 +67,13 @@ dump_client_locks (inode_t *inode)
         int locks_fd_count   = 0;
 
         this = THIS;
-        conf = this->private;
 
         LOCK (&inode->lock);
         {
                 list_for_each_entry (fd, &inode->fd_list, inode_list) {
                         locks_fd_count = 0;
 
-                        pthread_mutex_lock (&conf->lock);
-                        {
-                                fdctx = this_fd_get_ctx (fd, this);
-                        }
-                        pthread_mutex_unlock (&conf->lock);
-
+                        fdctx = this_fd_get_ctx (fd, this);
                         if (fdctx)
                                 locks_fd_count = dump_client_locks_fd (fdctx);
 
@@ -504,19 +497,12 @@ client_add_lock_for_recovery (fd_t *fd, struct gf_flock *flock,
         clnt_fd_ctx_t       *fdctx = NULL;
         xlator_t            *this  = NULL;
         client_posix_lock_t *lock  = NULL;
-        clnt_conf_t         *conf  = NULL;
 
         int ret = 0;
 
         this = THIS;
-        conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_get_ctx (fd, this);
-        }
-        pthread_mutex_unlock (&conf->lock);
-
+        fdctx = this_fd_get_ctx (fd, this);
         if (!fdctx) {
                 gf_msg (this->name, GF_LOG_WARNING, 0, PC_MSG_FD_GET_FAIL,
                         "failed to get fd context. sending EBADFD");

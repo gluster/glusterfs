@@ -164,12 +164,12 @@ clnt_fd_lk_reacquire_failed (xlator_t *this, clnt_fd_ctx_t *fdctx,
         GF_VALIDATE_OR_GOTO (this->name, conf, out);
         GF_VALIDATE_OR_GOTO (this->name, fdctx, out);
 
-        pthread_mutex_lock (&conf->lock);
+        pthread_spin_lock (&conf->fd_lock);
         {
                 fdctx->remote_fd     = -1;
                 fdctx->lk_heal_state = GF_LK_HEAL_DONE;
         }
-        pthread_mutex_unlock (&conf->lock);
+        pthread_spin_unlock (&conf->fd_lock);
 
         ret = 0;
 out:
@@ -488,11 +488,11 @@ client_reacquire_lock_cbk (struct rpc_req *req, struct iovec *iov,
 
         if (!clnt_fd_lk_local_error_status (this, local) &&
             clnt_fd_lk_local_unref (this, local) == 0) {
-                pthread_mutex_lock (&conf->lock);
+                pthread_spin_lock (&conf->fd_lock);
                 {
                         fdctx->lk_heal_state = GF_LK_HEAL_DONE;
                 }
-                pthread_mutex_unlock (&conf->lock);
+                pthread_spin_unlock (&conf->fd_lock);
 
                 fdctx->reopen_done (fdctx, fdctx->remote_fd, this);
         }
@@ -634,7 +634,7 @@ client_reopen_done (clnt_fd_ctx_t *fdctx, int64_t rfd, xlator_t *this)
 
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
+        pthread_spin_lock (&conf->fd_lock);
         {
                 fdctx->remote_fd = rfd;
                 fdctx->reopen_attempts = 0;
@@ -644,7 +644,7 @@ client_reopen_done (clnt_fd_ctx_t *fdctx, int64_t rfd, xlator_t *this)
                 else
                         destroy = _gf_true;
         }
-        pthread_mutex_unlock (&conf->lock);
+        pthread_spin_unlock (&conf->fd_lock);
 
         if (destroy)
                 client_fdctx_destroy (this, fdctx);
@@ -726,7 +726,7 @@ client3_3_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        pthread_mutex_lock (&conf->lock);
+        pthread_spin_lock (&conf->fd_lock);
         {
                 if (!fdctx->released) {
                         if (conf->lk_heal &&
@@ -737,7 +737,7 @@ client3_3_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         }
                 }
         }
-        pthread_mutex_unlock (&conf->lock);
+        pthread_spin_unlock (&conf->fd_lock);
 
         ret = 0;
 
@@ -975,11 +975,12 @@ client_attempt_reopen (fd_t *fd, xlator_t *this)
                 goto out;
 
         conf = this->private;
-        pthread_mutex_lock (&conf->lock);
+
+        fdctx = this_fd_get_ctx (fd, this);
+        if (!fdctx)
+                goto out;
+        pthread_spin_lock (&conf->fd_lock);
         {
-                fdctx = this_fd_get_ctx (fd, this);
-                if (!fdctx)
-                        goto unlock;
                 if (__is_fd_reopen_in_progress (fdctx))
                         goto unlock;
                 if (fdctx->remote_fd != -1)
@@ -994,7 +995,7 @@ client_attempt_reopen (fd_t *fd, xlator_t *this)
                 }
         }
 unlock:
-        pthread_mutex_unlock (&conf->lock);
+        pthread_spin_unlock (&conf->fd_lock);
         if (reopen)
                 protocol_client_reopen (fdctx, this);
 out:
@@ -1017,7 +1018,7 @@ client_post_handshake (call_frame_t *frame, xlator_t *this)
         conf = this->private;
         INIT_LIST_HEAD (&reopen_head);
 
-        pthread_mutex_lock (&conf->lock);
+        pthread_spin_lock (&conf->fd_lock);
         {
                 list_for_each_entry_safe (fdctx, tmp, &conf->saved_fds,
                                           sfd_pos) {
@@ -1030,7 +1031,7 @@ client_post_handshake (call_frame_t *frame, xlator_t *this)
                         count++;
                 }
         }
-        pthread_mutex_unlock (&conf->lock);
+        pthread_spin_unlock (&conf->fd_lock);
 
         /* Delay notifying CHILD_UP to parents
            until all locks are recovered */

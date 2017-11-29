@@ -49,6 +49,7 @@ client_fini_complete (xlator_t *this)
 
         this->private = NULL;
 
+        pthread_spin_destroy (&conf->fd_lock);
         pthread_mutex_destroy (&conf->lock);
         GF_FREE (conf);
 
@@ -2243,14 +2244,14 @@ client_mark_fd_bad (xlator_t *this)
 
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
+        pthread_spin_lock (&conf->fd_lock);
         {
                 list_for_each_entry_safe (fdctx, tmp, &conf->saved_fds,
                                           sfd_pos) {
                         fdctx->remote_fd = -1;
                 }
         }
-        pthread_mutex_unlock (&conf->lock);
+        pthread_spin_unlock (&conf->fd_lock);
 
         return 0;
 }
@@ -2755,6 +2756,7 @@ init (xlator_t *this)
                 goto out;
 
         pthread_mutex_init (&conf->lock, NULL);
+        pthread_spin_init (&conf->fd_lock, 0);
         INIT_LIST_HEAD (&conf->saved_fds);
 
         conf->child_up = _gf_false;
@@ -2909,12 +2911,14 @@ client_priv_dump (xlator_t *this)
 
         gf_proc_dump_add_section(key_prefix);
 
+        pthread_spin_lock (&conf->fd_lock);
         list_for_each_entry(tmp, &conf->saved_fds, sfd_pos) {
                 sprintf (key, "fd.%d.remote_fd", i);
                 gf_proc_dump_write(key, "%d", tmp->remote_fd);
                 client_fd_lk_ctx_dump (this, tmp->lk_ctx, i);
                 i++;
         }
+        pthread_spin_unlock (&conf->fd_lock);
 
         gf_proc_dump_write("connecting", "%d", conf->connecting);
 

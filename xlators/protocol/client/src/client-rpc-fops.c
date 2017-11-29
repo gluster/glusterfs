@@ -371,11 +371,11 @@ client_add_fd_to_saved_fds (xlator_t *this, fd_t *fd, loc_t *loc, int32_t flags,
 
         this_fd_set_ctx (fd, this, loc, fdctx);
 
-        pthread_mutex_lock (&conf->lock);
+        pthread_spin_lock (&conf->fd_lock);
         {
                 list_add_tail (&fdctx->sfd_pos, &conf->saved_fds);
         }
-        pthread_mutex_unlock (&conf->lock);
+        pthread_spin_unlock (&conf->fd_lock);
 out:
         return ret;
 }
@@ -3268,10 +3268,10 @@ client_fdctx_destroy (xlator_t *this, clnt_fd_ctx_t *fdctx)
         pthread_mutex_lock (&conf->lock);
         {
                 parent_down   = conf->parent_down;
-                lk_ctx        = fdctx->lk_ctx;
-                fdctx->lk_ctx = NULL;
         }
         pthread_mutex_unlock (&conf->lock);
+        lk_ctx        = fdctx->lk_ctx;
+        fdctx->lk_ctx = NULL;
 
         if (lk_ctx)
                 fd_lk_ctx_unref (lk_ctx);
@@ -3336,10 +3336,10 @@ client3_3_releasedir (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_del_ctx (args->fd, this);
-                if (fdctx != NULL) {
+        fdctx = this_fd_del_ctx (args->fd, this);
+        if (fdctx != NULL) {
+                pthread_spin_lock (&conf->fd_lock);
+                {
                         remote_fd = fdctx->remote_fd;
 
                         /* fdctx->remote_fd == -1 indicates a reopen attempt
@@ -3354,8 +3354,8 @@ client3_3_releasedir (call_frame_t *frame, xlator_t *this,
                                 destroy = _gf_true;
                         }
                 }
+                pthread_spin_unlock (&conf->fd_lock);
         }
-        pthread_mutex_unlock (&conf->lock);
 
         if (destroy)
                 client_fdctx_destroy (this, fdctx);
@@ -3382,10 +3382,10 @@ client3_3_release (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_del_ctx (args->fd, this);
-                if (fdctx != NULL) {
+        fdctx = this_fd_del_ctx (args->fd, this);
+        if (fdctx != NULL) {
+                pthread_spin_lock (&conf->fd_lock);
+                {
                         remote_fd     = fdctx->remote_fd;
                         lk_heal_state = fdctx->lk_heal_state;
 
@@ -3400,8 +3400,8 @@ client3_3_release (call_frame_t *frame, xlator_t *this,
                                 destroy = _gf_true;
                         }
                 }
+                pthread_spin_unlock (&conf->fd_lock);
         }
-        pthread_mutex_unlock (&conf->lock);
 
         if (destroy)
                 client_fdctx_destroy (this, fdctx);

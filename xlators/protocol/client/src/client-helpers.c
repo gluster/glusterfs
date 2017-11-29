@@ -299,18 +299,20 @@ client_get_remote_fd (xlator_t *this, fd_t *fd, int flags, int64_t *remote_fd)
         GF_VALIDATE_OR_GOTO (this->name, fd, out);
         GF_VALIDATE_OR_GOTO (this->name, remote_fd, out);
 
-        conf = this->private;
-        pthread_mutex_lock (&conf->lock);
-        {
-                fdctx = this_fd_get_ctx (fd, this);
-                if (!fdctx)
-                        *remote_fd = GF_ANON_FD_NO;
-                else if (__is_fd_reopen_in_progress (fdctx))
-                        *remote_fd = -1;
-                else
-                        *remote_fd = fdctx->remote_fd;
+        fdctx = this_fd_get_ctx (fd, this);
+        if (!fdctx) {
+                *remote_fd = GF_ANON_FD_NO;
+        } else {
+                conf = this->private;
+                pthread_spin_lock (&conf->fd_lock);
+                {
+                        if (__is_fd_reopen_in_progress (fdctx))
+                                *remote_fd = -1;
+                        else
+                                *remote_fd = fdctx->remote_fd;
+                }
+                pthread_spin_unlock (&conf->fd_lock);
         }
-        pthread_mutex_unlock (&conf->lock);
 
         if ((flags & FALLBACK_TO_ANON_FD) && (*remote_fd == -1))
                 *remote_fd = GF_ANON_FD_NO;
