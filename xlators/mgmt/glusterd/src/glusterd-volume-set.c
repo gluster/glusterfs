@@ -3514,7 +3514,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         { .key        = "disperse.stripe-cache",
           .voltype    = "cluster/disperse",
           .type       = NO_DOC,
-          .op_version = GD_OP_VERSION_3_13_0,
+          .op_version = GD_OP_VERSION_4_0_0,
           .flags      = OPT_FLAG_CLIENT_OPT
         },
 
