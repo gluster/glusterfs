@@ -699,7 +699,6 @@ glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, uint32_t *op_errno,
 
         ret = 0;
 out:
-        GF_FREE (key_dup);
         gf_msg_trace (this->name, 0, "Returning %d", ret);
         return ret;
 }
