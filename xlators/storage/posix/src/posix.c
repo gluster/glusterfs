@@ -8097,7 +8097,7 @@ struct volume_options options[] = {
           .validate = GF_OPT_VALIDATE_MIN,
           .description = "Percentage of disk space to be reserved."
            " Set to 0 to disable",
-          .op_version = {GD_OP_VERSION_3_12_0},
+          .op_version = {GD_OP_VERSION_3_13_0},
           .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
 	{ .key = {"batch-fsync-mode"},
