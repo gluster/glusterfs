@@ -2816,7 +2816,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
         { .key         = "storage.reserve",
           .voltype     = "storage/posix",
-          .op_version  = GD_OP_VERSION_3_12_0,
+          .op_version  = GD_OP_VERSION_3_13_0,
         },
         { .key         = "storage.bd-aio",
           .voltype     = "storage/bd",
