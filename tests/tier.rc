@@ -153,3 +153,7 @@ function tier_detach_status () {
 function wait_for_tier_start () {
         sleep 5
 }
+
+function tier_detach_commit_for_single_node () {
+	$CLI volume tier $V0 detach commit | grep "success" | wc -l
+}

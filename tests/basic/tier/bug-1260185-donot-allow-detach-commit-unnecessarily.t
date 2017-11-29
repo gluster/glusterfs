@@ -7,6 +7,7 @@
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../cluster.rc
+. $(dirname $0)/../../tier.rc
 
 cleanup;
 
@@ -38,12 +39,9 @@ TEST $CLI volume tier $V0 attach $H0:$B0/${V0}{5..6}
 TEST $CLI volume tier $V0 detach start
 
 ## Now detach-tier commit on volume $V0 should succeed.
-TEST $CLI volume tier $V0 detach commit
+## wait for the detach to complete
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" tier_detach_commit_for_single_node
 
 cleanup;
 
-# Mainly marking it as known-issue as it is consistently failing.
-# Revert back once fixing this.
-
 #G_TESTDEF_TEST_STATUS_NETBSD7=KNOWN_ISSUE,BUG=1517961
-#G_TESTDEF_TEST_STATUS_CENTOS6=KNOWN_ISSUE,BUG=1517961
