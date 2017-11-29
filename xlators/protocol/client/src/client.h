@@ -145,6 +145,8 @@ typedef struct clnt_conf {
         struct clnt_options    opt;
         struct rpc_clnt_config rpc_conf;
 	struct list_head       saved_fds;
+        pthread_spinlock_t     fd_lock; /* protects saved_fds list
+                                         * and all fdctx */
         pthread_mutex_t        lock;
         int                    connecting;
         int                    connected;
