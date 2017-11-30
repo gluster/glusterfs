@@ -1,6 +1,26 @@
 [__meta__]
 version = 4.0
 
+[master-bricks]
+configurable=false
+
+[slave-bricks]
+configurable=false
+
+[master-volume-id]
+configurable=false
+
+[slave-volume-id]
+configurable=false
+
+[master-replica-count]
+configurable=false
+type=int
+
+[master-disperse_count]
+configurable=false
+type=int
+
 [glusterd-workdir]
 value = @GLUSTERD_WORKDIR@
 
@@ -234,6 +254,7 @@ allowed_values=ERROR,INFO,WARNING,DEBUG
 value=22
 validation=int
 help=Set SSH port
+type=int
 
 [ssh-command]
 value=ssh

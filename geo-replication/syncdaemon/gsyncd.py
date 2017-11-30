@@ -56,6 +56,7 @@ def main():
                    help="Start with Paused state")
     p.add_argument("--local-node-id", help="Local Node ID")
     p.add_argument("--debug", action="store_true")
+    p.add_argument("--use-gconf-volinfo", action="store_true")
 
     # Worker
     p = sp.add_parser("worker")
