@@ -18,6 +18,7 @@ import logging
 import errno
 import threading
 import subprocess
+import socket
 from subprocess import PIPE
 from threading import Lock, Thread as baseThread
 from errno import EACCES, EAGAIN, EPIPE, ENOTCONN, ECONNABORTED
@@ -871,3 +872,90 @@ class Volinfo(object):
             return int(self.get('hotBricks/hotbrickCount')[0].text)
         else:
             return 0
+
+
+class VolinfoFromGconf(object):
+    # Glusterd will generate following config items before Geo-rep start
+    # So that Geo-rep need not run gluster commands from inside
+    # Volinfo object API/interface kept as is so that caller need not
+    # change anything exept calling this instead of Volinfo()
+    #
+    # master-bricks=
+    # master-bricks=NODEID:HOSTNAME:PATH,..
+    # slave-bricks=NODEID:HOSTNAME,..
+    # master-volume-id=
+    # slave-volume-id=
+    # master-replica-count=
+    # master-disperse_count=
+    def __init__(self, vol, host='localhost', master=True):
+        self.volume = vol
+        self.host = host
+        self.master = master
+
+    def is_tier(self):
+        return False
+
+    def is_hot(self, brickpath):
+        return False
+
+    @property
+    @memoize
+    def bricks(self):
+        pfx = "master-" if self.master else "slave-"
+        bricks_data = gconf.get(pfx + "bricks")
+        if bricks_data is None:
+            return []
+
+        bricks_data = bricks_data.split(",")
+        bricks_data = [b.strip() for b in bricks_data]
+        out = []
+        for b in bricks_data:
+            parts = b.split(":")
+            bpath = parts[2] if len(parts) == 3 else ""
+            out.append({"host": parts[1], "dir": bpath, "uuid": parts[0]})
+
+        return out
+
+    @property
+    @memoize
+    def uuid(self):
+        if self.master:
+            return gconf.get("master-volume-id")
+        else:
+            return gconf.get("slave-volume-id")
+
+    def replica_count(self, tier, hot):
+        return gconf.get("master-replica-count")
+
+    def disperse_count(self, tier, hot):
+        return gconf.get("master-disperse-count")
+
+    @property
+    @memoize
+    def hot_bricks(self):
+        return []
+
+    def get_hot_bricks_count(self, tier):
+        return 0
+
+
+def can_ssh(host, port=22):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.connect((host, port))
+        flag = True
+    except socket.error:
+        flag = False
+
+    s.close()
+    return flag
+
+
+def get_up_nodes(hosts, port):
+    # List of hosts with Hostname/IP and UUID
+    up_nodes = []
+    for h in hosts:
+        if can_ssh(h[0], port):
+            up_nodes.append(h)
+
+    return up_nodes
