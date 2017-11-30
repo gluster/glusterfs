@@ -46,9 +46,10 @@ init (xlator_t *this)
         if (!priv)
                 goto out;
 
+        this->private = priv;
+
         GF_OPTION_INIT ("read-only", priv->readonly_or_worm_enabled, bool, out);
 
-        this->private = priv;
         ret = 0;
 out:
         return ret;
