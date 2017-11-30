@@ -434,9 +434,12 @@ worm_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         op_errno = gf_worm_state_transition (this, _gf_true, fd, GF_FOP_WRITE);
 
 out:
-        if (op_errno)
+        if (op_errno) {
+                if (op_errno < 0)
+                        op_errno = EROFS;
                 STACK_UNWIND_STRICT (writev, frame, -1, op_errno, NULL, NULL,
                                      NULL);
+        }
         else
                 STACK_WIND_TAIL (frame, FIRST_CHILD (this),
                                  FIRST_CHILD (this)->fops->writev,
@@ -535,6 +538,8 @@ init (xlator_t *this)
                 goto out;
         }
 
+        this->private = priv;
+
         GF_OPTION_INIT ("worm", priv->readonly_or_worm_enabled,
                         bool, out);
         GF_OPTION_INIT ("worm-file-level", priv->worm_file, bool, out);
@@ -545,7 +550,6 @@ init (xlator_t *this)
         GF_OPTION_INIT ("worm-files-deletable", priv->worm_files_deletable,
                         bool, out);
 
-        this->private = priv;
         ret = 0;
 out:
         return ret;
