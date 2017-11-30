@@ -1946,7 +1946,6 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         "%s: failed to perform setattr on %s ",
                         loc->path, to->name);
                 *fop_errno = -ret;
-                ret = -1;
         }
 
         if (target_changed) {
