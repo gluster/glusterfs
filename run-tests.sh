@@ -6,6 +6,7 @@ export TZ=UTC
 force="no"
 head="yes"
 retry="yes"
+retry_count=5
 tests=""
 exit_on_failure="yes"
 skip_bad_tests="yes"
@@ -236,6 +237,7 @@ function run_tests()
 
     # key = path of .t file; value = time taken to run the .t file
     declare -A ELAPSEDTIMEMAP
+    declare -A TESTS_NEEDED_RETRY
 
     for t in $(find ${regression_testsdir}/tests -name '*.t' \
                | LC_COLLATE=C sort) ; do
@@ -271,18 +273,24 @@ function run_tests()
             prove -vfe '/bin/bash' $t
             TMP_RES=$?
             ELAPSEDTIMEMAP[$t]=`expr $(date +%s) - $starttime`
-            if [ ${TMP_RES} -ne 0 ]  && [ "x${retry}" = "xyes" ] ; then
-                echo "$t: bad status $TMP_RES"
-                echo ""
-                echo "       *********************************"
-                echo "       *       REGRESSION FAILED       *"
-                echo "       * Retrying failed tests in case *"
-                echo "       * we got some spurious failures *"
-                echo "       *********************************"
-                echo ""
-                prove -vfe '/bin/bash' $t
-                TMP_RES=$?
-            fi
+            cnt=0
+            while [ $cnt -lt $retry_count ];
+            do
+                cnt=$((cnt+1))
+                if [ ${TMP_RES} -ne 0 ]  && [ "x${retry}" = "xyes" ] ; then
+                    echo "$t: bad status $TMP_RES (count: $cnt)"
+                    echo ""
+                    echo "       *********************************"
+                    echo "       *       REGRESSION FAILED       *"
+                    echo "       * Retrying failed tests in case *"
+                    echo "       * we got some spurious failures *"
+                    echo "       *********************************"
+                    echo ""
+                    prove -vfe '/bin/bash' $t
+                    TESTS_NEEDED_RETRY[$t]=$cnt
+                    TMP_RES=$?
+                fi
+            done
             if [ ${TMP_RES} -ne 0 ] ; then
                 RES=${TMP_RES}
                 FAILED="${FAILED}${t} "
@@ -327,6 +335,13 @@ function run_tests()
         GENERATED_CORE_COUNT=$( echo -n "${GENERATED_CORE}" | grep -c '^' )
         echo -e "\n$GENERATED_CORE_COUNT test(s) generated core \n${GENERATED_CORE}"
     fi
+
+    echo
+    echo "tests which needed retry, ordered on the number of times they needed to be retried"
+    for key in "${!TESTS_NEEDED_RETRY[@]}"
+    do
+        echo "$key  -  ${TESTS_NEEDED_RETRY["$key"]} times"
+    done | sort -rn -k3
 
     echo
     echo "Result is $RES"
