@@ -38,6 +38,10 @@ leases_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         EXIT_IF_LEASES_OFF (this, out);
 
         fd_ctx = GF_CALLOC (1, sizeof (*fd_ctx), gf_leases_mt_fd_ctx_t);
+        if (!fd_ctx) {
+                op_errno = ENOMEM;
+                goto err;
+        }
 
         fd_ctx->client_uid = gf_strdup (frame->root->client->client_uid);
         if (!fd_ctx->client_uid) {
@@ -78,6 +82,11 @@ out:
         return 0;
 
 err:
+        if (fd_ctx) {
+                GF_FREE (fd_ctx->client_uid);
+                GF_FREE (fd_ctx);
+        }
+
         op_errno = (op_errno == -1) ? errno : op_errno;
         STACK_UNWIND_STRICT (open, frame, -1, op_errno, NULL, NULL);
         return 0;
@@ -101,7 +110,6 @@ leases_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                struct iobref *iobref, dict_t *xdata)
 {
         uint32_t         fop_flags       = 0;
-        int32_t          op_errno        = -1;
         char            *lease_id        = NULL;
         int              ret             = 0;
 
@@ -130,8 +138,7 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
-        STACK_UNWIND_STRICT (writev, frame, -1, op_errno, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT (writev, frame, -1, errno, NULL, NULL, NULL);
         return 0;
 }
 
@@ -154,7 +161,6 @@ leases_readv (call_frame_t *frame, xlator_t *this,
               uint32_t flags, dict_t *xdata)
 {
         uint32_t         fop_flags       = 0;
-        int32_t          op_errno        = -1;
         char            *lease_id        = NULL;
         int              ret             = 0;
 
@@ -183,8 +189,7 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
-        STACK_UNWIND_STRICT (readv, frame, -1, op_errno, NULL, 0,
+        STACK_UNWIND_STRICT (readv, frame, -1, errno, NULL, 0,
                              NULL, NULL, NULL);
         return 0;
 }
@@ -203,7 +208,6 @@ int32_t
 leases_lk (call_frame_t *frame, xlator_t *this,
            fd_t *fd, int32_t cmd, struct gf_flock *flock, dict_t *xdata)
 {
-        int32_t         op_errno         = 0;
         uint32_t        fop_flags        = 0;
         char            *lease_id        = NULL;
         int              ret             = 0;
@@ -233,8 +237,7 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
-        STACK_UNWIND_STRICT (lk, frame, -1, op_errno, NULL, NULL);
+        STACK_UNWIND_STRICT (lk, frame, -1, errno, NULL, NULL);
         return 0;
 }
 
@@ -286,7 +289,6 @@ leases_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                  dict_t *xdata)
 {
         uint32_t         fop_flags       = 0;
-        int32_t          op_errno        = -1;
         char            *lease_id        = NULL;
         int              ret             = 0;
 
@@ -315,8 +317,7 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
-        STACK_UNWIND_STRICT (truncate, frame, -1, op_errno, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT (truncate, frame, -1, errno, NULL, NULL, NULL);
         return 0;
 }
 
@@ -336,7 +337,6 @@ leases_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 struct iatt *stbuf, int32_t valid, dict_t *xdata)
 {
         uint32_t         fop_flags       = 0;
-        int32_t          op_errno        = -1;
         char            *lease_id        = NULL;
         int              ret             = 0;
 
@@ -365,8 +365,7 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
-        STACK_UNWIND_STRICT (setattr, frame, -1, op_errno, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT (setattr, frame, -1, errno, NULL, NULL, NULL);
         return 0;
 }
 
@@ -389,7 +388,6 @@ leases_rename (call_frame_t *frame, xlator_t *this,
                loc_t *oldloc, loc_t *newloc, dict_t *xdata)
 {
         uint32_t         fop_flags       = 0;
-        int32_t          op_errno        = -1;
         char            *lease_id        = NULL;
         int              ret             = 0;
 
@@ -419,8 +417,7 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
-        STACK_UNWIND_STRICT (rename, frame, -1, op_errno, NULL,
+        STACK_UNWIND_STRICT (rename, frame, -1, errno, NULL,
                              NULL, NULL, NULL, NULL, NULL);
         return 0;
 }
@@ -441,7 +438,6 @@ leases_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
                dict_t *xdata)
 {
         uint32_t         fop_flags       = 0;
-        int32_t          op_errno        = -1;
         char            *lease_id        = NULL;
         int              ret             = 0;
 
@@ -470,8 +466,7 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
-        STACK_UNWIND_STRICT (unlink, frame, -1, op_errno, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT (unlink, frame, -1, errno, NULL, NULL, NULL);
         return 0;
 }
 
@@ -491,7 +486,6 @@ leases_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
              loc_t *newloc, dict_t *xdata)
 {
         uint32_t         fop_flags       = 0;
-        int32_t          op_errno        = -1;
         char            *lease_id        = NULL;
         int              ret             = 0;
 
@@ -519,8 +513,7 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
-        STACK_UNWIND_STRICT (link, frame, -1, op_errno, NULL,
+        STACK_UNWIND_STRICT (link, frame, -1, errno, NULL,
                              NULL, NULL, NULL, NULL);
         return 0;
 }
@@ -543,7 +536,6 @@ leases_create (call_frame_t *frame, xlator_t *this,
                mode_t umask, fd_t *fd, dict_t *xdata)
 {
         uint32_t         fop_flags       = 0;
-        int32_t          op_errno        = -1;
         char            *lease_id        = NULL;
         int              ret             = 0;
 
@@ -572,8 +564,7 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
-        STACK_UNWIND_STRICT (create, frame, -1, op_errno, NULL, NULL, NULL,
+        STACK_UNWIND_STRICT (create, frame, -1, errno, NULL, NULL, NULL,
                              NULL, NULL, NULL);
         return 0;
 }
@@ -594,7 +585,6 @@ leases_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
               int32_t flags, dict_t *xdata)
 {
         uint32_t         fop_flags       = 0;
-        int32_t          op_errno        = -1;
         char            *lease_id        = NULL;
         int              ret             = 0;
 
@@ -621,8 +611,7 @@ out:
                     FIRST_CHILD(this)->fops->fsync, fd, flags, xdata);
         return 0;
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
-        STACK_UNWIND_STRICT (fsync, frame, -1, op_errno, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT (fsync, frame, -1, errno, NULL, NULL, NULL);
         return 0;
 }
 
@@ -642,7 +631,6 @@ leases_ftruncate (call_frame_t *frame, xlator_t *this,
                   fd_t *fd, off_t offset, dict_t *xdata)
 {
         uint32_t         fop_flags       = 0;
-        int32_t          op_errno        = -1;
         char            *lease_id        = NULL;
         int              ret             = 0;
 
@@ -671,8 +659,7 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
-        STACK_UNWIND_STRICT (ftruncate, frame, -1, op_errno, NULL,
+        STACK_UNWIND_STRICT (ftruncate, frame, -1, errno, NULL,
                              NULL, NULL);
         return 0;
 }
@@ -692,7 +679,6 @@ leases_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                  struct iatt  *stbuf, int32_t valid, dict_t *xdata)
 {
         uint32_t         fop_flags       = 0;
-        int32_t          op_errno        = -1;
         char            *lease_id        = NULL;
         int              ret             = 0;
 
@@ -721,8 +707,7 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
-        STACK_UNWIND_STRICT (fsetattr, frame, -1, op_errno, NULL,
+        STACK_UNWIND_STRICT (fsetattr, frame, -1, errno, NULL,
                              NULL, NULL);
         return 0;
 }
@@ -743,7 +728,6 @@ leases_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
                   int32_t mode, off_t offset, size_t len, dict_t *xdata)
 {
         uint32_t         fop_flags       = 0;
-        int32_t          op_errno        = -1;
         char            *lease_id        = NULL;
         int              ret             = 0;
 
@@ -772,8 +756,7 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
-        STACK_UNWIND_STRICT (fallocate, frame, -1, op_errno, NULL,
+        STACK_UNWIND_STRICT (fallocate, frame, -1, errno, NULL,
                              NULL, NULL);
         return 0;
 }
@@ -794,7 +777,6 @@ leases_discard (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 off_t offset, size_t len, dict_t *xdata)
 {
         uint32_t         fop_flags       = 0;
-        int32_t          op_errno        = -1;
         char            *lease_id        = NULL;
         int              ret             = 0;
 
@@ -823,8 +805,7 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
-        STACK_UNWIND_STRICT (discard, frame, -1, op_errno, NULL,
+        STACK_UNWIND_STRICT (discard, frame, -1, errno, NULL,
                              NULL, NULL);
         return 0;
 }
@@ -845,7 +826,6 @@ leases_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd,
                  off_t offset, off_t len, dict_t *xdata)
 {
         uint32_t         fop_flags       = 0;
-        int32_t          op_errno        = -1;
         char            *lease_id        = NULL;
         int              ret             = 0;
 
@@ -874,8 +854,7 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
-        STACK_UNWIND_STRICT (zerofill, frame, -1, op_errno, NULL,
+        STACK_UNWIND_STRICT (zerofill, frame, -1, errno, NULL,
                              NULL, NULL);
         return 0;
 }
@@ -893,7 +872,6 @@ int
 leases_flush (call_frame_t *frame, xlator_t *this,
               fd_t *fd, dict_t *xdata)
 {
-        int32_t       op_errno       = -1;
         uint32_t      fop_flags      = 0;
         char         *lease_id       = NULL;
         int          ret             = 0;
@@ -922,8 +900,7 @@ out:
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
-        STACK_UNWIND_STRICT (create, frame, -1, op_errno, NULL,
+        STACK_UNWIND_STRICT (create, frame, -1, errno, NULL,
                              NULL, NULL, NULL, NULL, NULL);
         return 0;
 }
@@ -965,9 +942,11 @@ leases_init_priv (xlator_t *this)
         }
 
         if (!priv->inited_recall_thr) {
-                gf_thread_create (&priv->recall_thr, NULL,
-                                  expired_recall_cleanup, this, "leasercl");
-                priv->inited_recall_thr = _gf_true;
+                ret = gf_thread_create (&priv->recall_thr, NULL,
+                                        expired_recall_cleanup, this,
+                                        "leasercl");
+                if (!ret)
+                        priv->inited_recall_thr = _gf_true;
         }
 
 out:
