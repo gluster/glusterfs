@@ -2507,7 +2507,7 @@ ec_update_stripe(ec_t *ec, ec_stripe_list_t *stripe_cache, ec_stripe_t *stripe,
                  * size by the user, so we update the stripe if the write has
                  * modified at least one byte (meaning ec has written the full
                  * stripe). */
-                if (base < fop->answer->op_ret) {
+                if (base < fop->answer->op_ret + fop->head) {
                         memcpy(stripe->data, fop->vector[0].iov_base + base,
                                ec->stripe_size);
                         list_move_tail(&stripe->lru, &stripe_cache->lru);
