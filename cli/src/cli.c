@@ -179,8 +179,8 @@ logging_init (glusterfs_ctx_t *ctx, struct cli_state *state)
 
         /* CLI should not have something to DEBUG after the release,
            hence defaulting to INFO loglevel */
-        gf_log_set_loglevel ((state->log_level == GF_LOG_NONE) ? GF_LOG_INFO :
-                             state->log_level);
+        gf_log_set_loglevel (ctx, (state->log_level == GF_LOG_NONE) ?
+                             GF_LOG_INFO : state->log_level);
 
         return 0;
 }

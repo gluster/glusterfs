@@ -431,7 +431,7 @@ gf_changelog_setup_logging (xlator_t *this, char *logfile, int loglevel)
         if (gf_log_init (this->ctx, logfile, NULL))
                 return -1;
 
-        gf_log_set_loglevel ((loglevel == -1) ? GF_LOG_INFO :
+        gf_log_set_loglevel (this->ctx, (loglevel == -1) ? GF_LOG_INFO :
                              loglevel);
         return 0;
 }

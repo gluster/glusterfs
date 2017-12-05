@@ -1698,7 +1698,7 @@ logging_init (glusterfs_ctx_t *ctx, const char *progpath)
         }
 
         /* finish log set parameters before init */
-        gf_log_set_loglevel (cmd_args->log_level);
+        gf_log_set_loglevel (ctx, cmd_args->log_level);
 
         gf_log_set_localtime (cmd_args->localtime_logging);
 

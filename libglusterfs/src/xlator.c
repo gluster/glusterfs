@@ -1294,7 +1294,7 @@ is_gf_log_command (xlator_t *this, const char *name, char *value)
                         LG_MSG_SET_LOG_LEVEL,
                         "setting log level to %d (old-value=%d)",
                         log_level, gf_log_get_loglevel());
-                gf_log_set_loglevel (log_level);
+                gf_log_set_loglevel (this->ctx, log_level);
                 ret = 0;
                 goto out;
         }

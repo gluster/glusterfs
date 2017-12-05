@@ -162,14 +162,14 @@ main (int argc, char *argv[])
 
         /* TEST 6: Change level */
         gf_msg ("logchecks", GF_LOG_ALERT, 0, logchecks_msg_11);
-        gf_log_set_loglevel (GF_LOG_CRITICAL);
+        gf_log_set_loglevel (ctx, GF_LOG_CRITICAL);
         gf_msg ("logchecks", GF_LOG_ALERT, 0, logchecks_msg_15);
         go_log ();
         gf_msg ("logchecks", GF_LOG_ALERT, 0, logchecks_msg_11);
 
         /* Reset to run with syslog */
         gf_log_set_logformat (gf_logformat_withmsgid);
-        gf_log_set_loglevel (GF_LOG_INFO);
+        gf_log_set_loglevel (ctx, GF_LOG_INFO);
 
         /* Run tests with logger changed to syslog */
         /* TEST 7: No more gluster logs */
@@ -188,7 +188,7 @@ main (int argc, char *argv[])
 
         /* TEST 9: Change level */
         gf_msg ("logchecks", GF_LOG_ALERT, 0, logchecks_msg_11);
-        gf_log_set_loglevel (GF_LOG_CRITICAL);
+        gf_log_set_loglevel (ctx, GF_LOG_CRITICAL);
         gf_msg ("logchecks", GF_LOG_ALERT, 0, logchecks_msg_15);
         go_log ();
         gf_msg ("logchecks", GF_LOG_ALERT, 0, logchecks_msg_11);
