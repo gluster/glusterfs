@@ -2094,6 +2094,9 @@ void ec_writev_start(ec_fop_data_t *fop)
             }
         } else {
             memset(fop->vector[0].iov_base + fop->size - tail, 0, tail);
+            if (ec->stripe_cache) {
+                ec_add_stripe_in_cache (ec, fop);
+            }
         }
     }
 
