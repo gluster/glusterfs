@@ -2195,7 +2195,7 @@ quota_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_msg (this->name, GF_LOG_INFO, EINVAL,
 			Q_MSG_INODE_CTX_GET_FAILED,
 			"quota context not set inode (gfid:%s)",
-                        uuid_utoa (local->loc.inode->gfid));
+                        uuid_utoa (local->loc.gfid));
                 goto out;
         }
 
