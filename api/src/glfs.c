@@ -929,13 +929,9 @@ pub_glfs_set_logging (struct glfs *fs, const char *logfile, int loglevel)
 {
         int              ret     = -1;
         char            *tmplog  = NULL;
-        glusterfs_ctx_t *old_ctx = NULL;
 
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
-
-        old_ctx = THIS->ctx;
-        THIS->ctx = fs->ctx;
 
         if (!logfile) {
                 ret = gf_set_log_file_path (&fs->ctx->cmd_args, fs->ctx);
@@ -959,7 +955,6 @@ pub_glfs_set_logging (struct glfs *fs, const char *logfile, int loglevel)
                 goto out;
 
 out:
-        THIS->ctx = old_ctx;
         __GLFS_EXIT_FS;
 
 invalid_fs:
