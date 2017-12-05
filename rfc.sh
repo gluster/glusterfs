@@ -4,6 +4,7 @@
 # i.e. where we are interested in the result of a command,
 # we have to run the command in an if-statement.
 
+ORIGIN=${GLUSTER_ORIGIN:-origin}
 
 while getopts "v" opt; do
     case $opt in
@@ -57,7 +58,7 @@ backport_id_message()
     echo ""
     echo "This could mean a few things:"
     echo "    1. This is not a backport, hence choose Y on the prompt to proceed"
-    echo "    2. Your origin master is not up to date, hence the script is unable"
+    echo "    2. Your $ORIGIN master is not up to date, hence the script is unable"
     echo "       to find the corresponding Change-Id on master. Either choose N,"
     echo "       'git fetch', and try again, OR if you are sure you used the"
     echo "       same Change-Id, choose Y at the prompt to proceed"
@@ -87,7 +88,7 @@ check_backport()
     else
         # Search master for the same change ID (rebase_changes has run, so we
         # should never not find a Change-Id)
-        mchangeid=$(git log origin/master --format='%b' --grep="^Change-Id: ${changeid}" | grep ${changeid} | awk '{print $2}')
+        mchangeid=$(git log $ORIGIN/master --format='%b' --grep="^Change-Id: ${changeid}" | grep ${changeid} | awk '{print $2}')
 
         # Check if we found the change ID on master, else throw a message to
         # decide if we should continue.
@@ -115,7 +116,7 @@ check_backport()
 
 rebase_changes()
 {
-    GIT_EDITOR=$0 git rebase -i origin/$branch;
+    GIT_EDITOR=$0 git rebase -i $ORIGIN/$branch;
 }
 
 
@@ -158,13 +159,13 @@ EOF
 
 assert_diverge()
 {
-    git diff origin/$branch..HEAD | grep -q .;
+    git diff $ORIGIN/$branch..HEAD | grep -q .;
 }
 
 
 check_patches_for_coding_style()
 {
-    git fetch origin;
+    git fetch $ORIGIN;
 
     check_patch_script=./build-aux/checkpatch.pl
     if [ ! -e ${check_patch_script} ] ; then
@@ -179,17 +180,17 @@ check_patches_for_coding_style()
     head=$(git rev-parse --abbrev-ref HEAD)
     # Kludge: "1>&2 && echo $? || echo $?" is to get around
     #         "-e" from script invocation
-    RES=$(git format-patch --stdout origin/${branch}..${head} \
+    RES=$(git format-patch --stdout $ORIGIN/${branch}..${head} \
           | ${check_patch_script} --strict --terse - 1>&2 && echo $? || echo $?)
     if [ "$RES" -eq 1 ] ; then
         echo "Errors caught, get details by:"
-        echo "  git format-patch --stdout  origin/${branch}..${head} \\"
+        echo "  git format-patch --stdout  $ORIGIN/${branch}..${head} \\"
         echo "  | ${check_patch_script} --strict --gerrit-url ${GERRIT_URL} -"
         echo "and correct errors"
         exit 1
     elif [ "$RES" -eq 2 ] ; then
         echo "Warnings or checks caught, get details by:"
-        echo "  git format-patch --stdout  origin/${branch}..${head} \\"
+        echo "  git format-patch --stdout  $ORIGIN/${branch}..${head} \\"
         echo "  | ${check_patch_script} --strict --gerrit-url ${GERRIT_URL} -"
         echo -n "Do you want to continue anyway [no/yes]: "
         read yesno
@@ -311,9 +312,9 @@ main()
     fi
 
     if [ -z "$bug" ]; then
-        $drier git push origin HEAD:refs/for/$branch/rfc;
+        $drier git push $ORIGIN HEAD:refs/for/$branch/rfc;
     else
-        $drier git push origin HEAD:refs/for/$branch/bug-$bug;
+        $drier git push $ORIGIN HEAD:refs/for/$branch/bug-$bug;
     fi
 }
 
