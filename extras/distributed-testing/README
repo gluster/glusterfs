@@ -1,0 +1,28 @@
+PROBLEM
+
+The testing methodology of Gluster is extremely slow. It takes a very long time (6+ hrs) to run the basic tests on a single machine. It takes about 20+ hours to run code analysis version of tests like valgrind, asan, tsan etc.
+
+SOLUTION
+
+The fundamental problem is that the tests cannot be parallelized on a single machine. The natural solution is to run these tests on a cluster of machines. In a nutshell, apply map-reduce to run unit tests.
+
+WORK @ Facebook
+
+At Facebook we have applied the map-reduce approach to testing and have observed 10X improvements.
+
+The solution supports the following
+
+Distribute tests across machines, collect results/logs
+Share worker pool across different testers
+Try failure 3 times on 3 different machines before calling it a failure
+Support running asan, valgrind, asan-noleaks
+Self management of worker pools. The clients will manage the worker pool including version update, no manual maintenance required
+WORK
+
+Port the code from gluster-fb-3.8 to gluster master
+
+HOW TO RUN
+
+./extras/distributed-testing/distributed-test.sh --hosts '<h1> <h2> <h3>'
+
+All hosts should have no password for ssh via root. This can be achieved with keys setup on the client and the server machines.

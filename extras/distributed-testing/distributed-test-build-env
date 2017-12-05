@@ -1,0 +1,21 @@
+#!/bin/bash
+
+GF_CONF_OPTS="--localstatedir=/var --sysconfdir /var/lib --prefix /usr --libdir /usr/lib64 \
+            --enable-fusermount --enable-mempool --enable-api --with-jemalloc\
+	    --disable-tiering --with-ipv6-default --enable-gnfs"
+
+if [ -x /usr/lib/rpm/redhat/dist.sh ]; then
+  REDHAT_MAJOR=$(/usr/lib/rpm/redhat/dist.sh --distnum)
+else
+  REDHAT_MAJOR=0
+fi
+
+ASAN_ENABLED=${ASAN_ENABLED:=0}
+if [ "$ASAN_ENABLED" -eq "1" ]; then
+    GF_CONF_OPTS="$GF_CONF_OPTS --with-asan"
+fi
+
+GF_CONF_OPTS="$GF_CONF_OPTS --with-systemd"
+export GF_CONF_OPTS
+
+export CFLAGS="-O0 -ggdb -fPIC -Wall"
