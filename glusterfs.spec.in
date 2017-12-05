@@ -83,6 +83,8 @@
 # Disable data-tiering on EL5, sqlite is too old
 %if ( 0%{?rhel} && 0%{?rhel} < 6 )
 %global _without_tiering --disable-tiering
+%else
+%{?_without_tiering:%global _without_tiering --disable-tiering}
 %endif
 
 # if you wish to compile an rpm with Facebook specfic extras...
@@ -93,7 +95,9 @@
 ## All %%global definitions should be placed here and keep them sorted
 ##
 
-%global _with_systemd true
+%if ( 0%{rhel} && 0%{?rhel} >= 7 )
+%global _with_systemd --with-systemd
+%endif
 
 %global _without_firewalld --disable-firewalld
 
@@ -110,17 +114,16 @@
 %endif
 
 %if ( 0%{?_with_systemd:1} )
+%global _init_glusterd   %{_unitdir}/glusterd-mgmt.service
+%global _init_glusterd_nfsd   %{_unitdir}/glusterd-nfsd.service
+%global _init_glusterd_gfproxyd   %{_unitdir}/glusterd-gfproxyd.service
+%global _init_glusterd_shd   %{_unitdir}/glusterd-shd.service
 %global _init_enable()  /bin/systemctl enable %1.service ;
 %global _init_disable() /bin/systemctl disable %1.service ;
 %global _init_restart() /bin/systemctl restart %1.service ;
 %global _init_start()   /bin/systemctl start %1.service ;
 %global _init_stop()    /bin/systemctl stop %1.service ;
 %global _init_install() install -D -p -m 0644 %1 %{buildroot}%{_unitdir}/%2.service ;
-# can't seem to make a generic macro that works
-%global _init_glusterd   %{_unitdir}/glusterd-mgmt.service
-%global _init_glusterd_nfsd   %{_unitdir}/glusterd-nfsd.service
-%global _init_glusterd_gfproxyd   %{_unitdir}/glusterd-gfproxyd.service
-%global _init_glusterd_shd   %{_unitdir}/glusterd-shd.service
 %else
 %global _init_enable()  /sbin/chkconfig --add %1 ;
 %global _init_disable() /sbin/chkconfig --del %1 ;
@@ -128,9 +131,11 @@
 %global _init_start()   /sbin/service %1 start &>/dev/null ;
 %global _init_stop()    /sbin/service %1 stop &>/dev/null ;
 %global _init_install() install -D -p -m 0755 %1 %{buildroot}%{_sysconfdir}/init.d/%2 ;
-# can't seem to make a generic macro that works
 %global _init_glusterd   %{_sysconfdir}/init.d/glusterd
 %global _init_glusterfsd %{_sysconfdir}/init.d/glusterfsd
+%if ( 0%{?_with_fbextras:1} )
+%global _init_glusterd_functions %{_sysconfdir}/init.d/glusterd.functions
+%endif
 %endif
 
 %if ( 0%{_for_fedora_koji_builds} )
@@ -214,11 +219,7 @@ BuildRequires:    libxml2-devel openssl-devel
 BuildRequires:    libaio-devel libacl-devel
 BuildRequires:    python-devel
 BuildRequires:    python-ctypes
-%if ( 0%{?rhel} && 0%{?rhel} == 7 )
 BuildRequires:    libtirpc libtirpc-devel
-%else
-BuildRequires:    libfbtirpc libfbtirpc-devel
-%endif
 BuildRequires:    jemalloc jemalloc-devel
 BuildRequires:    gperftools-devel gperftools-libs
 BuildRequires:    userspace-rcu-devel >= 0.7
@@ -544,11 +545,7 @@ Requires:         %{name}-fuse%{?_isa} = %{version}-%{release}
 # self-heal daemon, rebalance, nfs-server etc. are actually clients
 Requires:         %{name}-api%{?_isa} = %{version}-%{release}
 Requires:         %{name}-client-xlators%{?_isa} = %{version}-%{release}
-%if ( 0%{?rhel} && 0%{?rhel} == 7 )
 Requires:         libtirpc >= 0.2.4
-%else
-Requires:         libfbtirpc >= 0.2.5-1
-%endif
 Requires:         jemalloc >= 3.6.0-1
 # psmisc for killall, lvm2 for snapshot, and nfs-utils and
 # rpcbind/portmap for gnfs server
@@ -611,11 +608,7 @@ This package provides the translators needed on any GlusterFS client.
 %package server-nodeps
 Summary:          Clustered file-system server
 Group:            System Environment/Daemons
-%if ( 0%{?rhel} && 0%{?rhel} == 7 )
 Requires:         libtirpc >= 0.2.4
-%else
-Requires:         libfbtirpc >= 0.2.5-1
-%endif
 Requires:         jemalloc >= 3.6.0-1
 # psmisc for killall, lvm2 for snapshot, and nfs-utils and
 # rpcbind/portmap for gnfs server
@@ -675,8 +668,6 @@ export CFLAGS
 %endif
 
 %configure \
-        --with-jemalloc \
-        --enable-mempool \
         %{?_with_cmocka} \
         %{?_with_debug} \
         %{?_with_tmpfilesdir} \
@@ -691,7 +682,7 @@ export CFLAGS
         %{?_without_tiering} \
         %{?_with_asan} \
         %{?_with_fbextras} \
-        %{?_with_systemd:--with-systemd}
+        %{?_with_systemd}
 
 # fix hardening and remove rpath in shlibs
 %if ( 0%{?fedora} && 0%{?fedora} > 17 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
@@ -869,8 +860,15 @@ if [ -d "$CONF_DIR" ]; then
   echo "Creating backup of $CONF_DIR @ $BACKUP_FILE..." 
   tar czf "$BACKUP_FILE" -c $CONF_DIR 2> /dev/null
 fi
+%if ( 0%{?_with_fbextras:1} )
+%_init_enable glusterd-mgmt
+%_init_enable glusterd-shd
+%_init_enable glusterd-shd
+%_init_enable glusterd-gfproxyd
+%else
 # Legacy server
 %_init_enable glusterd
+%endif
 %if ( 0%{_for_fedora_koji_builds} )
 %_init_enable glusterfsd
 %endif
@@ -967,7 +965,15 @@ if [ -d "$CONF_DIR" ]; then
   tar czf "$BACKUP_FILE" -c $CONF_DIR 2> /dev/null
 fi
 # Legacy server
+%if ( 0%{?_with_fbextras:1} )
+%_init_enable glusterd-mgmt
+%_init_enable glusterd-shd
+%_init_enable glusterd-shd
+%_init_enable glusterd-gfproxyd
+%else
+# Legacy server
 %_init_enable glusterd
+%endif
 %if ( 0%{_for_fedora_koji_builds} )
 %_init_enable glusterfsd
 %endif
@@ -1342,12 +1348,14 @@ exit 0
 
 # init files
 %_init_glusterd
-%if ( 0%{!?_with_systemd:1} )
-%_init_glusterd_functions
-%else
+%if ( 0%{?_with_systemd:1} )
 %_init_glusterd_nfsd
 %_init_glusterd_shd
 %_init_glusterd_gfproxyd
+%else
+%if ( 0%{?_with_fbextras:1} )
+%_init_glusterd_functions
+%endif
 %endif
 %if ( 0%{_for_fedora_koji_builds} )
 %_init_glusterfsd
@@ -1470,12 +1478,14 @@ exit 0
 
 # init files
 %_init_glusterd
-%if ( 0%{!?_with_systemd:1} )
-%_init_glusterd_functions
-%else
+%if ( 0%{?_with_systemd:1} )
 %_init_glusterd_nfsd
 %_init_glusterd_shd
 %_init_glusterd_gfproxyd
+%else
+%if ( 0%{?_with_fbextras:1} )
+%_init_glusterd_functions
+%endif
 %endif
 %if ( 0%{_for_fedora_koji_builds} )
 %_init_glusterfsd

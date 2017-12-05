@@ -10,7 +10,7 @@
 
 GF_CONF_OPTS="--localstatedir=/var --sysconfdir /var/lib --prefix /usr --libdir /usr/lib64 \
              --enable-fusermount --enable-api --with-jemalloc  \
-             --with-ipv6-default --with-fbextras --disable-tiering"
+             --with-ipv6-default --with-fbextras --disable-tiering --disable-georeplication"
 
 if [ -x /usr/lib/rpm/redhat/dist.sh ]; then
   REDHAT_MAJOR=$(/usr/lib/rpm/redhat/dist.sh --distnum)

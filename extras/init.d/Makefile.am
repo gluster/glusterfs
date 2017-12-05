@@ -7,11 +7,21 @@ INIT_DIR = @initdir@
 SYSTEMD_DIR = @systemddir@
 LAUNCHD_DIR = @launchddir@
 
+install-glusterd:
+	$(mkdir_p) $(DESTDIR)$(INIT_DIR)
+	$(INSTALL_PROGRAM) glusterd-$(GF_DISTRIBUTION) $(DESTDIR)$(INIT_DIR)/glusterd
+
+install-glusterd-functions:
+if GF_FBEXTRAS
+	$(INSTALL_PROGRAM) glusterd.functions-$(GF_DISTRIBUTION) $(DESTDIR)$(INIT_DIR)/glusterd.functions
+endif
+
+if GF_WITH_SYSTEMD
 $(GF_DISTRIBUTION):
-	@if [ ! -d $(SYSTEMD_DIR) ]; then \
-		$(mkdir_p) $(DESTDIR)$(INIT_DIR); \
-		$(INSTALL_PROGRAM) glusterd-$(GF_DISTRIBUTION) $(DESTDIR)$(INIT_DIR)/glusterd; \
-	fi
+	@echo Using systemd, null installation
+else
+$(GF_DISTRIBUTION): install-glusterd install-glusterd-functions
+endif
 
 install-exec-local: $(GF_DISTRIBUTION)
 

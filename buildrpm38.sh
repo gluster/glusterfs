@@ -86,7 +86,11 @@ echo DONE
 
 MY_TARBALL=~/local/rpmbuild/glusterfs-3.8.15_fb.tar.gz
 cp $(basename $MY_TARBALL) $MY_TARBALL
-MY_RPM_BUILD_FLAGS="--with fbextras --without georeplication"
+# These flags have a different syntax when passed through rpmbuild than when
+# passed directly to configure, but please keep them in sync with GF_CONF_OPTS
+# in build_env.
+MY_RPM_BUILD_FLAGS="--with jemalloc --with ipv6-default --with fbextras \
+        --with fusermount --with api --without tiering --without georeplication"
 ALL_RPM_BUILD_FLAGS="$MY_RPM_BUILD_FLAGS $EXTRA_RPM_BUILD_FLAGS"
 if ! $RPMBUILD_BIN -tb $MY_TARBALL $ALL_RPM_BUILD_FLAGS; then
   exit 1

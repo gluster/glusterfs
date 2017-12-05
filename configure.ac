@@ -6,7 +6,7 @@ dnl  General Public License, version 3 or any later version (LGPLv3 or
 dnl  later), or the GNU General Public License, version 2 (GPLv2), in all
 dnl  cases as published by the Free Software Foundation.
 
-AC_INIT([glusterfs],[3.8_fb],
+AC_INIT([glusterfs],[3.8.15_fb],
         [gluster-users@gluster.org],,[https://github.com/gluster/glusterfs.git])
 
 AC_SUBST([PACKAGE_RELEASE],
@@ -105,8 +105,6 @@ AC_CONFIG_FILES([Makefile
                 xlators/debug/trace/src/Makefile
                 xlators/debug/error-gen/Makefile
                 xlators/debug/error-gen/src/Makefile
-                xlators/debug/delay-gen/Makefile
-                xlators/debug/delay-gen/src/Makefile
                 xlators/debug/io-stats/Makefile
                 xlators/debug/io-stats/src/Makefile
                 xlators/protocol/Makefile
@@ -206,7 +204,6 @@ AC_CONFIG_FILES([Makefile
                 extras/init.d/glusterd-FreeBSD
                 extras/init.d/glusterd-SuSE
                 extras/init.d/glusterd-FbRedhat
-                extras/init.d/glusterd.functions-FbRedhat
                 extras/ganesha/Makefile
                 extras/ganesha/config/Makefile
                 extras/ganesha/scripts/Makefile
@@ -263,12 +260,6 @@ AC_CONFIG_FILES([Makefile
                 tests/basic/fuse/Makefile
                 tests/basic/gfapi/Makefile])
 
-if test "xBUILD_FBEXTRAS" = "xyes"; then
-AC_CONFIG_FILES([
-                xlators/mount/fuse/utils/umount.fuse.glusterfs
-                ])
-fi
-
 AC_CANONICAL_HOST
 
 AC_PROG_CC
@@ -295,9 +286,16 @@ fi
 
 AC_ARG_WITH([fbextras],
             AC_HELP_STRING([--with-fbextras],
-                           [Enable Facebook specific extras.]))
+                           [Enable Facebook specific extras.]),
+            [with_fbextras="${withval}"],
+            [with_fbextras="no"])
+
 if test "x$with_fbextras" = "xyes"; then
         BUILD_FBEXTRAS=yes
+        AC_CONFIG_FILES([
+                xlators/mount/fuse/utils/umount.fuse.glusterfs
+                extras/init.d/glusterd.functions-FbRedhat
+                ])
 else
         BUILD_FBEXTRAS=no
 fi
@@ -710,14 +708,11 @@ AC_SUBST(RDMA_SUBDIR)
 
 
 # SYNCDAEMON section
-enable_georeplication=yes
 AC_ARG_ENABLE([georeplication],
               AC_HELP_STRING([--disable-georeplication],
                              [Do not install georeplication components]),
-                             [enable_georeplication=no],[])
-
-echo "enable_georeplication=$enable_georeplication"
-enable_georeplication=no
+              [enable_georeplication="${enableval}"],
+              [enable_georeplication="yes"])
 
 BUILD_SYNCDAEMON=no
 case $host_os in
@@ -798,7 +793,7 @@ AM_CONDITIONAL([USE_FIREWALLD],test ["x${BUILD_FIREWALLD}" =  "xyes"])
 AC_ARG_ENABLE([tiering],
                AC_HELP_STRING([--disable-tiering],
                              [Disable data classification/tiering]),
-              [BUILD_GFDB="${enableval}"], [BUILD_GFDB="yes"])
+              [BUILD_GFDB="no"], [BUILD_GFDB="yes"])
 
 case $host_os in
   darwin*)
@@ -1400,6 +1395,7 @@ AM_CONDITIONAL([GF_BSD_HOST_OS], test "${GF_HOST_OS}" = "GF_BSD_HOST_OS")
 AM_CONDITIONAL([GF_FBEXTRAS], test "${BUILD_FBEXTRAS}" = "yes")
 AM_CONDITIONAL([GF_WITH_SYSTEMD], test "${WITH_SYSTEMD}" = "1")
 AC_SUBST(WITH_SYSTEMD)
+AC_SUBST(BUILD_FBEXTRAS)
 
 AC_SUBST(GLUSTERD_WORKDIR)
 AM_CONDITIONAL([GF_INSTALL_GLUSTERD_WORKDIR], test ! -d ${GLUSTERD_WORKDIR} && test -d ${sysconfdir}/glusterd )
