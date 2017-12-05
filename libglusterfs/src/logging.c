@@ -131,12 +131,8 @@ gf_log_get_loglevel (void)
 }
 
 void
-gf_log_set_loglevel (gf_loglevel_t level)
+gf_log_set_loglevel (glusterfs_ctx_t *ctx, gf_loglevel_t level)
 {
-        glusterfs_ctx_t *ctx = NULL;
-
-        ctx = THIS->ctx;
-
         if (ctx)
                 ctx->log.loglevel = level;
 }

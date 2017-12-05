@@ -279,10 +279,12 @@ int _gf_log_eh (const char *function, const char *fmt, ...);
                 gf_log (args);                                          \
         }
 
+struct _glusterfs_ctx;
+
 void gf_log_disable_syslog (void);
 void gf_log_enable_syslog (void);
 gf_loglevel_t gf_log_get_loglevel (void);
-void gf_log_set_loglevel (gf_loglevel_t level);
+void gf_log_set_loglevel (struct _glusterfs_ctx *ctx, gf_loglevel_t level);
 int gf_log_get_localtime (void);
 void gf_log_set_localtime (int);
 void gf_log_flush (void);
@@ -309,8 +311,6 @@ gf_log_set_log_buf_size (uint32_t buf_size);
 
 void
 gf_log_set_log_flush_timeout (uint32_t timeout);
-
-struct _glusterfs_ctx;
 
 void
 gf_log_flush_msgs (struct _glusterfs_ctx *ctx);

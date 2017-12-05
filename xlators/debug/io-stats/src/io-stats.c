@@ -3856,7 +3856,7 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("log-level", log_str, options, str, out);
         if (log_str) {
                 log_level = glusterd_check_log_level (log_str);
-                gf_log_set_loglevel (log_level);
+                gf_log_set_loglevel (this->ctx, log_level);
         }
 
         GF_OPTION_RECONF ("logger", logger_str, options, str, out);
@@ -4038,7 +4038,7 @@ init (xlator_t *this)
         if (log_str) {
                 log_level = glusterd_check_log_level (log_str);
                 if (DEFAULT_LOG_LEVEL != log_level)
-                        gf_log_set_loglevel (log_level);
+                        gf_log_set_loglevel (this->ctx, log_level);
         }
 
         GF_OPTION_INIT ("logger", logger_str, str, out);
