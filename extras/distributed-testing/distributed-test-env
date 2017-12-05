@@ -1,0 +1,144 @@
+#!/bin/bash
+
+SMOKE_TESTS="\
+    tests/basic/*.t\
+    tests/basic/afr/*.t\
+    tests/basic/distribute/*.t\
+    tests/bugs/fb*.t\
+    tests/features/brick-min-free-space.t\
+"
+
+KNOWN_FLAKY_TESTS="\
+"
+
+BROKEN_TESTS="\
+	tests/features/recon.t\
+	tests/features/ipc.t\
+	tests/bugs/io-cache/bug-read-hang.t\
+	tests/bugs/rpc/bug-847624.t\
+	tests/encryption/crypt.t\
+	tests/bugs/shard/bug-shard-zerofill.t\
+	tests/bugs/shard/shard-append-test.t\
+	tests/bugs/shard/zero-flag.t\
+	tests/bugs/shard/bug-shard-discard.t\
+	tests/bugs/rpc/bug-921072.t\
+	tests/bugs/protocol/bug-1433815-auth-allow.t\
+	tests/bugs/glusterfs-server/bug-904300.t\
+	tests/bugs/glusterd/bug-1507466-reset-brick-commit-force.t\
+	tests/bugs/glusterd/bug-948729/bug-948729-mode-script.t\
+	tests/bugs/glusterd/bug-948729/bug-948729.t\
+	tests/bugs/glusterd/bug-948729/bug-948729-force.t\
+	tests/bugs/glusterd/bug-1482906-peer-file-blank-line.t\
+	tests/bugs/glusterd/bug-889630.t\
+	tests/bugs/glusterd/bug-1047955.t\
+	tests/bugs/glusterd/bug-1344407-volume-delete-on-node-down.t\
+	tests/bugs/glusterd/bug-888752.t\
+	tests/bugs/glusterd/bug-1245142-rebalance_test.t\
+	tests/bugs/glusterd/bug-1109741-auth-mgmt-handshake.t\
+	tests/bugs/glusterd/bug-1223213-peerid-fix.t\
+	tests/bugs/glusterd/bug-1454418-seg-fault.t\
+	tests/bugs/glusterd/bug-1266818-shared-storage-disable.t\
+	tests/bugs/gfapi/glfs_vol_set_IO_ERR.t\
+	tests/bugs/gfapi/bug-1447266/1460514.t\
+	tests/bugs/gfapi/bug-1093594.t\
+	tests/bugs/gfapi/bug-1319374-THIS-crash.t\
+	tests/bugs/cli/bug-1169302.t\
+	tests/bugs/ec/bug-1161886.t\
+	tests/bugs/glusterd/bug-1238706-daemons-stop-on-peer-cleanup.t\
+	tests/bugs/gfapi/bug-1447266/bug-1447266.t\
+	tests/bugs/tier/bug-1205545-CTR-and-trash-integration.t\
+	tests/bugs/glusterd/bug-1091935-brick-order-check-from-cli-to-glusterd.t\
+	tests/bugs/glusterd/bug-964059.t\
+	tests/bugs/glusterd/bug-1230121-replica_subvol_count_correct_cal.t\
+	tests/bugs/glusterd/bug-1022055.t\
+	tests/bugs/glusterd/bug-1322145-disallow-detatch-peer.t\
+	tests/bugs/distribute/bug-1066798.t\
+	tests/bugs/posix/disallow-gfid-volumeid-fremovexattr.t\
+	tests/bugs/tier/bug-1279376-rename-demoted-file.t\
+	tests/bugs/glusterd/bug-1303028-Rebalance-glusterd-rpc-connection-issue.t\
+	tests/bugs/posix/bug-990028.t\
+	tests/bugs/snapshot/bug-1140162-file-snapshot-features-encrypt-opts-validation.t\
+	tests/bugs/glusterd/bug-948686.t\
+	tests/bugs/glusterd/bug-1213295-snapd-svc-uninitialized.t\
+	tests/bugs/glusterd/bug-1352277-spawn-daemons-on-two-node-setup.t\
+	tests/bugs/glusterd/bug-1323287-real_path-handshake-test.t\
+	tests/bugs/distribute/bug-1389697.t\
+	tests/bugs/glusterd/bug-1173414-mgmt-v3-remote-lock-failure.t\
+	tests/bugs/md-cache/afr-stale-read.t\
+	tests/bugs/snapshot/bug-1202436-calculate-quota-cksum-during-snap-restore.t\
+	tests/bugs/snapshot/bug-1112613.t\
+	tests/bugs/snapshot/bug-1049834.t\
+	tests/bugs/glusterd/bug-1420637-volume-sync-fix.t\
+	tests/bugs/glusterd/bug-1104642.t\
+	tests/bugs/glusterd/bug-1177132-quorum-validation.t\
+	tests/bugs/snapshot/bug-1087203.t\
+	tests/bugs/glusterd/bug-1293414-import-brickinfo-uuid.t\
+	tests/bugs/snapshot/bug-1512451-snapshot-creation-failed-after-brick-reset.t\
+	tests/bugs/glusterd/bug-1383893-daemons-to-follow-quorum.t\
+	tests/bugs/nfs/bug-1116503.t\
+	tests/bugs/nfs/bug-1157223-symlink-mounting.t\
+	tests/bugs/glusterd/bug-1483058-replace-brick-quorum-validation.t\
+	tests/bugs/bitrot/1207029-bitrot-daemon-should-start-on-valid-node.t\
+	tests/bugs/snapshot/bug-1205592.t\
+	tests/bugs/replicate/bug-1473026.t\
+	tests/bugs/glusterd/bug-913555.t\
+	tests/basic/bd.t\
+	tests/bugs/quota/bug-1287996.t\
+	tests/bugs/bitrot/1209752-volume-status-should-show-bitrot-scrub-info.t\
+	tests/bugs/quota/bug-1288474.t\
+	tests/bugs/snapshot/bug-1482023-snpashot-issue-with-other-processes-accessing-mounted-path.t\
+	tests/basic/gfapi/bug-1241104.t\
+	tests/basic/gfapi/glfs_sysrq.t\
+	tests/basic/gfapi/glfd-lkowner.t\
+	tests/basic/gfapi/upcall-register-api.t\
+	tests/basic/gfapi/bug1291259.t\
+	tests/basic/gfapi/gfapi-dup.t\
+	tests/basic/gfapi/anonymous_fd.t\
+	tests/basic/gfapi/gfapi-trunc.t\
+	tests/basic/gfapi/glfs_xreaddirplus_r.t\
+	tests/basic/gfapi/upcall-cache-invalidate.t\
+	tests/basic/gfapi/gfapi-async-calls-test.t\
+	tests/basic/gfapi/gfapi-ssl-test.t\
+	tests/bugs/glusterd/bug-1245045-remove-brick-validation.t\
+	tests/basic/ec/ec-seek.t\
+	tests/bugs/glusterd/bug-1345727-bricks-stop-on-no-quorum-validation.t\
+	tests/bugs/glusterd/bug-1367478-volume-start-validation-after-glusterd-restart.t\
+	tests/basic/meta.t\
+	tests/geo-rep/georep-basic-dr-tarssh.t\
+	tests/basic/tier/file_with_spaces.t\
+	tests/basic/tier/bug-1214222-directories_missing_after_attach_tier.t\
+	tests/basic/tier/readdir-during-migration.t\
+	tests/basic/tier/ctr-rename-overwrite.t\
+	tests/basic/tier/tier_lookup_heal.t\
+	tests/basic/tier/record-metadata-heat.t\
+	tests/basic/tier/bug-1260185-donot-allow-detach-commit-unnecessarily.t\
+	tests/basic/tier/locked_file_migration.t\
+	tests/bugs/glusterd/bug-1231437-rebalance-test-in-cluster.t\
+	tests/basic/tier/tier-heald.t\
+	tests/basic/tier/frequency-counters.t\
+	tests/basic/glusterd/arbiter-volume-probe.t\
+	tests/basic/tier/tier-snapshot.t\
+	tests/basic/glusterd/volfile_server_switch.t\
+	tests/geo-rep/georep-basic-dr-rsync.t\
+	tests/basic/distribute/rebal-all-nodes-migrate.t\
+	tests/basic/jbr/jbr.t\
+	tests/basic/volume-snapshot.t\
+	tests/basic/afr/granular-esh/cli.t\
+	tests/bitrot/bug-1294786.t\
+ 	tests/basic/mgmt_v3-locks.t\
+	tests/basic/tier/tierd_check.t\
+	tests/basic/volume-snapshot-clone.t\
+	tests/bugs/replicate/bug-1290965-detect-bitrotten-objects.t\
+	tests/basic/tier/fops-during-migration.t\
+	tests/basic/tier/fops-during-migration-pause.t\
+	tests/basic/tier/unlink-during-migration.t\
+	tests/basic/tier/new-tier-cmds.t\
+	tests/basic/tier/tier.t\
+	tests/bugs/readdir-ahead/bug-1436090.t\
+	tests/basic/tier/legacy-many.t\
+	tests/basic/gfapi/gfapi-load-volfile.t
+"
+
+SMOKE_TESTS=$(echo $SMOKE_TESTS | tr -s ' ' ' ')
+KNOWN_FLAKY_TESTS=$(echo $KNOWN_FLAKY_TESTS | tr -s ' ' ' ')
+BROKEN_TESTS=$(echo $BROKEN_TESTS | tr -s ' ' ' ')
