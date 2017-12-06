@@ -1158,6 +1158,10 @@ nfs_init_state (xlator_t *this)
 
         nfs->register_portmap = rpcsvc_register_portmap_enabled (nfs->rpcsvc);
 
+        GF_OPTION_INIT ("nfs.event-threads",
+                        nfs->event_threads, uint32, free_foppool);
+        event_reconfigure_threads (this->ctx->event_pool, nfs->event_threads);
+
         this->private = (void *)nfs;
         INIT_LIST_HEAD (&nfs->versions);
         nfs->generation = 1965;
@@ -1383,6 +1387,11 @@ nfs_reconfigure_state (xlator_t *this, dict_t *options)
                 nfs->enable_acl = optbool;
                 nfs_reconfigure_acl3 (this);
         }
+
+        GF_OPTION_RECONF ("nfs.event-threads",
+                            nfs->event_threads, options, uint32, out);
+        event_reconfigure_threads (this->ctx->event_pool, nfs->event_threads);
+
 
         ret = 0;
 out:
@@ -2122,6 +2131,17 @@ struct volume_options options[] = {
           .description = "When this option is set to off NFS falls back to "
                          "standard readdir instead of readdirp"
         },
-
+        { .key = {"nfs.event-threads"},
+          .type = GF_OPTION_TYPE_SIZET,
+          .min = 1,
+          .max = 32,
+          .default_value = "1",
+          .description = "Specifies the number of event threads to execute in"
+                         "in parallel. Larger values would help process"
+                         " responses faster, depending on available processing"
+                         " power. Range 1-32 threads.",
+          .op_version = {GD_OP_VERSION_4_0_0},
+          .flags = OPT_FLAG_SETTABLE,
+        },
         { .key  = {NULL} },
 };

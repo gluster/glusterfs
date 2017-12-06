@@ -93,13 +93,14 @@ struct nfs_state {
         char                    *rmtab;
         struct rpc_clnt         *rpc_clnt;
         gf_boolean_t            server_aux_gids;
-	uint32_t		server_aux_gids_max_age;
-	gid_cache_t		gid_cache;
+        uint32_t		server_aux_gids_max_age;
+        gid_cache_t		gid_cache;
         uint32_t                generation;
         gf_boolean_t            register_portmap;
         char                    *rpc_statd;
         char                    *rpc_statd_pid_file;
         gf_boolean_t            rdirplus;
+        uint32_t                event_threads;
 };
 
 struct nfs_inode_ctx {

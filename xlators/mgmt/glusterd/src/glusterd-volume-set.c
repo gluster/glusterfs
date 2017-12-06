@@ -2694,6 +2694,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .description = "When this option is set to off NFS falls back to "
                          "standard readdir instead of readdirp"
         },
+        {  .key        = "nfs.event-threads",
+           .voltype    = "nfs/server",
+           .option     = "nfs.event-threads",
+           .type       = NO_DOC,
+           .op_version = GD_OP_VERSION_4_0_0,
+        },
 
         /* Cli options for Export authentication on nfs mount */
         { .key         = "nfs.exports-auth-enable",
