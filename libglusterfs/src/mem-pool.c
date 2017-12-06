@@ -78,8 +78,16 @@ gf_mem_set_acct_info (xlator_t *xl, char **alloc_ptr, size_t size,
         header->mem_acct = xl->mem_acct;
         header->magic = GF_MEM_HEADER_MAGIC;
 
+#ifdef DEBUG
+        INIT_LIST_HEAD(&header->acct_list);
+        LOCK(&xl->mem_acct->rec[type].lock);
+        {
+                list_add (&header->acct_list,
+                          &(xl->mem_acct->rec[type].obj_list));
+        }
+        UNLOCK(&xl->mem_acct->rec[type].lock);
+#endif
         ptr += sizeof (struct mem_header);
-
         /* data follows in this gap of 'size' bytes */
         *(uint32_t *) (ptr + size) = GF_MEM_TRAILER_MAGIC;
 
@@ -156,6 +164,27 @@ __gf_realloc (void *ptr, size_t size)
         old_header = (struct mem_header *) (ptr - GF_MEM_HEADER_SIZE);
         GF_ASSERT (old_header->magic == GF_MEM_HEADER_MAGIC);
         tmp_header = *old_header;
+
+#ifdef DEBUG
+        int type = 0;
+        size_t copy_size = 0;
+
+        /* Making these changes for realloc is not straightforward. So
+         * I am simulating realloc using calloc and free
+         */
+
+        type = tmp_header.type;
+        new_ptr = __gf_calloc (1, size, type,
+                               tmp_header.mem_acct->rec[type].typestr);
+        if (new_ptr) {
+                copy_size = (size > tmp_header.size) ? tmp_header.size : size;
+                memcpy (new_ptr, ptr, copy_size);
+                __gf_free (ptr);
+        }
+
+        /* This is not quite what the man page says should happen */
+        return new_ptr;
+#endif
 
         tot_size = size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE;
         new_ptr = realloc (old_header, tot_size);
@@ -313,6 +342,9 @@ __gf_free (void *free_ptr)
                  * to NULL */
                 if (!mem_acct->rec[header->type].num_allocs)
                         mem_acct->rec[header->type].typestr = NULL;
+#ifdef DEBUG
+                list_del (&header->acct_list);
+#endif
         }
         UNLOCK (&mem_acct->rec[header->type].lock);
 
