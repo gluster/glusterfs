@@ -72,6 +72,9 @@
 #define FNM_EXTMATCH 0
 #endif
 
+/*gets max-offset on all architectures correctly*/
+#define GF_OFF_MAX ((1ULL << (sizeof(off_t) * 8 - 1)) - 1ULL)
+
 #define GLUSTERD_MAX_SNAP_NAME  255
 #define GLUSTERFS_SOCKET_LISTEN_BACKLOG  10
 #define ZR_MOUNTPOINT_OPT       "mountpoint"

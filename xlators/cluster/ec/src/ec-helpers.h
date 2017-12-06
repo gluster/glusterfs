@@ -152,7 +152,7 @@ ec_adjust_offset_up(ec_t *ec, off_t *value, gf_boolean_t scale)
         } else {
                 /* Check if there has been an overflow. */
                 if ((off_t)tmp < 0) {
-                        tmp = (1ULL << (sizeof(off_t) * 8 - 1)) - 1ULL;
+                        tmp = GF_OFF_MAX;
                         tail = -tail;
                 }
         }

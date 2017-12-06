@@ -324,13 +324,23 @@ int32_t ec_manager_getxattr(ec_fop_data_t * fop, int32_t state)
             return EC_STATE_DISPATCH;
 
         case EC_STATE_DISPATCH:
-            ec_dispatch_all(fop);
+            if (fop->minimum == EC_MINIMUM_ALL) {
+                ec_dispatch_all(fop);
+            } else {
+                ec_dispatch_one(fop);
+            }
 
             return EC_STATE_PREPARE_ANSWER;
 
         case EC_STATE_PREPARE_ANSWER:
             ec_handle_special_xattrs (fop);
-            cbk = ec_fop_prepare_answer(fop, _gf_true);
+            if (fop->minimum == EC_MINIMUM_ALL) {
+                cbk = ec_fop_prepare_answer(fop, _gf_true);
+            } else {
+                if (ec_dispatch_one_retry (fop, &cbk)) {
+                    return EC_STATE_DISPATCH;
+                }
+            }
             if (cbk != NULL) {
                 int32_t err;
 
@@ -1809,6 +1819,7 @@ int32_t ec_manager_stat(ec_fop_data_t * fop, int32_t state)
 
         case EC_STATE_PREPARE_ANSWER:
             cbk = ec_fop_prepare_answer(fop, _gf_true);
+
             if (cbk != NULL) {
                 if (cbk->iatt[0].ia_type == IA_IFREG) {
                     ec_iatt_rebuild(fop->xl->private, cbk->iatt, 1,
