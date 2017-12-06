@@ -14,7 +14,7 @@ TEST $CLI volume start $V0
 
 TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M0
 
-TEST dd if=/dev/zero of=$M0/one-plus-five-shards bs=1M count=23
+TEST dd if=/dev/zero conv=fsync of=$M0/one-plus-five-shards bs=1M count=23
 
 ACTIVE_INODES_BEFORE=$(get_mount_active_size_value $V0)
 TEST rm -f $M0/one-plus-five-shards

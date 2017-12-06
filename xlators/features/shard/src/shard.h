@@ -215,6 +215,7 @@ typedef struct shard_local {
         uint32_t gid;
         uint64_t block_size;
         uint64_t dst_block_size;
+        int32_t datasync;
         off_t offset;
         size_t total_size;
         size_t written_size;
@@ -270,6 +271,11 @@ typedef struct shard_inode_ctx {
         uuid_t base_gfid;
         int block_num;
         gf_boolean_t refreshed;
+        struct list_head to_fsync_list;
+        int fsync_needed;
+        inode_t *inode;
+        int fsync_count;
+        inode_t *base_inode;
 } shard_inode_ctx_t;
 
 #endif /* __SHARD_H__ */
