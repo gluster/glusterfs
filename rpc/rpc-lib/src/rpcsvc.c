@@ -992,7 +992,7 @@ rpcsvc_callback_build_record (rpcsvc_t *rpc, int prognum, int progver,
                                     &request);
         if (ret == -1) {
                 gf_log ("rpcsvc", GF_LOG_WARNING, "cannot build a rpc-request "
-                        "xid (%" GF_PRI_RPC_XID ")", xid);
+                        "xid (%lu)", xid);
                 goto out;
         }
 
