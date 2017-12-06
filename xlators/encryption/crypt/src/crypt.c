@@ -3682,7 +3682,7 @@ static int32_t __crypt_ftruncate_done(call_frame_t *frame,
 
 	STACK_UNWIND_STRICT(ftruncate,
 			    frame,
-			    local->op_ret < 0 ? -1 : 0,
+			    ((local->op_ret < 0) ? -1 : 0),
 			    local->op_errno,
 			    &local->prebuf,
 			    &local->postbuf,
