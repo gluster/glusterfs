@@ -326,6 +326,7 @@ struct __gf_rdma_device {
         struct mem_pool *ioq_pool;
         struct mem_pool *reply_info_pool;
         struct list_head all_mr;
+        pthread_mutex_t all_mr_lock;
 };
 typedef struct __gf_rdma_device gf_rdma_device_t;
 

@@ -368,47 +368,61 @@ gf_rdma_deregister_iobuf_pool (gf_rdma_device_t *device)
         gf_rdma_arena_mr   *tmp       = NULL;
 
         while (device) {
-                if (!list_empty(&device->all_mr)) {
-                        list_for_each_entry_safe (arena_mr, tmp,
-                                                  &device->all_mr, list) {
-                                if (ibv_dereg_mr(arena_mr->mr)) {
-                                        gf_msg ("rdma", GF_LOG_WARNING, 0,
-                                                RDMA_MSG_DEREGISTER_ARENA_FAILED,
-                                                "deallocation of memory region "
-                                                "failed");
-                                        return;
+                pthread_mutex_lock (&device->all_mr_lock);
+                {
+                        if (!list_empty(&device->all_mr)) {
+                                list_for_each_entry_safe (arena_mr, tmp,
+                                                        &device->all_mr, list) {
+                                        if (ibv_dereg_mr(arena_mr->mr)) {
+                                                gf_msg ("rdma", GF_LOG_WARNING, 0,
+                                                        RDMA_MSG_DEREGISTER_ARENA_FAILED,
+                                                        "deallocation of memory region "
+                                                        "failed");
+                                                pthread_mutex_unlock (&device->all_mr_lock);
+                                                return;
+                                        }
+                                        list_del(&arena_mr->list);
+                                        GF_FREE(arena_mr);
                                 }
-                                list_del(&arena_mr->list);
-                                GF_FREE(arena_mr);
                         }
                 }
+                pthread_mutex_unlock (&device->all_mr_lock);
+
                 device = device->next;
         }
 }
+
 int
 gf_rdma_deregister_arena (struct list_head **mr_list,
                           struct iobuf_arena *iobuf_arena)
 {
         gf_rdma_arena_mr *tmp     = NULL;
         gf_rdma_arena_mr *dummy   = NULL;
+        gf_rdma_device_t *device  = NULL;
         int               count   = 0, i = 0;
 
         count = iobuf_arena->iobuf_pool->rdma_device_count;
         for (i = 0; i < count; i++) {
-                list_for_each_entry_safe (tmp, dummy, mr_list[i], list) {
-                        if (tmp->iobuf_arena == iobuf_arena) {
-                                if (ibv_dereg_mr(tmp->mr)) {
-                                        gf_msg ("rdma", GF_LOG_WARNING, 0,
-                                               RDMA_MSG_DEREGISTER_ARENA_FAILED,
-                                                "deallocation of memory region "
-                                                "failed");
-                                        return -1;
+                device = iobuf_arena->iobuf_pool->device[i];
+                pthread_mutex_lock (&device->all_mr_lock);
+                {
+                        list_for_each_entry_safe (tmp, dummy, mr_list[i], list) {
+                                if (tmp->iobuf_arena == iobuf_arena) {
+                                        if (ibv_dereg_mr(tmp->mr)) {
+                                                gf_msg ("rdma", GF_LOG_WARNING, 0,
+                                                        RDMA_MSG_DEREGISTER_ARENA_FAILED,
+                                                        "deallocation of memory region "
+                                                        "failed");
+                                                        pthread_mutex_unlock (&device->all_mr_lock);
+                                                return -1;
+                                        }
+                                        list_del(&tmp->list);
+                                        GF_FREE(tmp);
+                                        break;
                                 }
-                                list_del(&tmp->list);
-                                GF_FREE(tmp);
-                                break;
                         }
                 }
+                pthread_mutex_unlock (&device->all_mr_lock);
         }
 
         return 0;
@@ -452,7 +466,11 @@ gf_rdma_register_arena (void **arg1, void *arg2)
                                 "failed");
 
                 new->mr = mr;
-                list_add (&new->list, &device[i]->all_mr);
+                pthread_mutex_lock (&device[i]->all_mr_lock);
+                {
+                        list_add (&new->list, &device[i]->all_mr);
+                }
+                pthread_mutex_unlock (&device[i]->all_mr_lock);
                 new = NULL;
         }
 
@@ -498,7 +516,11 @@ gf_rdma_register_iobuf_pool (gf_rdma_device_t *device,
 
                         }
                         new->mr = mr;
-                        list_add (&new->list, &device->all_mr);
+                        pthread_mutex_lock (&device->all_mr_lock);
+                        {
+                                list_add (&new->list, &device->all_mr);
+                        }
+                        pthread_mutex_unlock (&device->all_mr_lock);
 
                         new = NULL;
                 }
@@ -528,14 +550,20 @@ gf_rdma_get_pre_registred_mr(rpc_transport_t *this, void *ptr, int size)
         priv = this->private;
         device = priv->device;
 
-        if (!list_empty(&device->all_mr)) {
-                list_for_each_entry_safe (tmp, dummy, &device->all_mr, list) {
-                        if (tmp->iobuf_arena->mem_base <= ptr &&
-                            ptr < tmp->iobuf_arena->mem_base +
-                            tmp->iobuf_arena->arena_size)
-                                return tmp->mr;
+        pthread_mutex_lock (&device->all_mr_lock);
+        {
+                if (!list_empty(&device->all_mr)) {
+                        list_for_each_entry_safe (tmp, dummy, &device->all_mr, list) {
+                                if (tmp->iobuf_arena->mem_base <= ptr &&
+                                    ptr < tmp->iobuf_arena->mem_base +
+                                    tmp->iobuf_arena->arena_size) {
+                                        pthread_mutex_unlock (&device->all_mr_lock);
+                                        return tmp->mr;
+                                }
                         }
+                }
         }
+        pthread_mutex_unlock (&device->all_mr_lock);
 
         return NULL;
 }
@@ -804,6 +832,7 @@ gf_rdma_get_device (rpc_transport_t *this, struct ibv_context *ibctx,
                 gf_rdma_queue_init (&trav->recvq);
 
                 INIT_LIST_HEAD (&trav->all_mr);
+                pthread_mutex_init (&trav->all_mr_lock, NULL);
                 gf_rdma_register_iobuf_pool(trav, iobuf_pool);
 
                 if (gf_rdma_create_posts (this) < 0) {
@@ -1746,14 +1775,18 @@ __gf_rdma_deregister_mr (gf_rdma_device_t *device,
 
         for (i = 0; i < count; i++) {
                  found = 0;
-                 if (!list_empty(&device->all_mr)) {
-                 list_for_each_entry_safe (tmp, dummy, &device->all_mr, list) {
-                        if (tmp->mr == mr[i]) {
-                                found = 1;
-                                break;
-                        }
-                 }
-                 }
+                 pthread_mutex_lock (&device->all_mr_lock);
+                 {
+                         if (!list_empty(&device->all_mr)) {
+                                list_for_each_entry_safe (tmp, dummy, &device->all_mr, list) {
+                                        if (tmp->mr == mr[i]) {
+                                                found = 1;
+                                                break;
+                                        }
+                                }
+                         }
+                }
+                pthread_mutex_unlock (&device->all_mr_lock);
                 if (!found)
                         ibv_dereg_mr (mr[i]);
 
