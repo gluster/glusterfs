@@ -1027,6 +1027,11 @@ glusterd_volinfo_delete (glusterd_volinfo_t *volinfo)
         if (volinfo->rebal.dict)
                 dict_unref (volinfo->rebal.dict);
 
+        /* Destroy the connection object for per volume svc daemons */
+        glusterd_conn_term (&volinfo->snapd.svc.conn);
+        glusterd_conn_term (&volinfo->tierd.svc.conn);
+        glusterd_conn_term (&volinfo->gfproxyd.svc.conn);
+
         gf_store_handle_destroy (volinfo->quota_conf_shandle);
         gf_store_handle_destroy (volinfo->shandle);
         gf_store_handle_destroy (volinfo->node_state_shandle);
