@@ -1089,28 +1089,18 @@ tier_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
                 local->op_ret = 0;
 
-                switch (local->quota_deem_statfs) {
-                case _gf_true:
-                        if (event == _gf_true)
+                if (local->quota_deem_statfs) {
+                        if (event == _gf_true) {
                                 action = qdstatfs_action_COMPARE;
-                        else
+                        } else {
                                 action = qdstatfs_action_NEGLECT;
-                        break;
+                        }
+                } else {
 
-                case _gf_false:
                         if (event == _gf_true) {
                                 action = qdstatfs_action_REPLACE;
                                 local->quota_deem_statfs = _gf_true;
                         }
-                        break;
-
-                default:
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                DHT_MSG_INVALID_VALUE,
-                                "Encountered third "
-                                "value for boolean variable %d",
-                                local->quota_deem_statfs);
-                        break;
                 }
 
                 if (local->quota_deem_statfs) {
