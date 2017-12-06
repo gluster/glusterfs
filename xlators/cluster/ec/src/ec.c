@@ -864,7 +864,7 @@ ec_gf_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         int     error = 0;
         ec_t    *ec = this->private;
-        int32_t minimum = EC_MINIMUM_MIN;
+        int32_t minimum = EC_MINIMUM_ONE;
 
         if (name && strcmp (name, EC_XATTR_HEAL) != 0) {
                 EC_INTERNAL_XATTR_OR_GOTO(name, NULL, error, out);
@@ -901,7 +901,7 @@ ec_gf_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         EC_INTERNAL_XATTR_OR_GOTO(name, NULL, error, out);
 
-        ec_fgetxattr (frame, this, -1, EC_MINIMUM_MIN, default_fgetxattr_cbk,
+        ec_fgetxattr (frame, this, -1, EC_MINIMUM_ONE, default_fgetxattr_cbk,
                       NULL, fd, name, xdata);
         return 0;
 out:

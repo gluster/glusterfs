@@ -53,6 +53,13 @@ ec_is_range_conflict (ec_lock_link_t *l1, ec_lock_link_t *l2)
 static gf_boolean_t
 ec_lock_conflict (ec_lock_link_t *l1, ec_lock_link_t *l2)
 {
+        /* Fops like access/stat won't have to worry what the other fops are
+         * modifying as the fop is wound only to one brick. So it can be
+         * executed in parallel*/
+        if (l1->fop->minimum == EC_MINIMUM_ONE ||
+            l2->fop->minimum == EC_MINIMUM_ONE)
+                return _gf_false;
+
         if ((l1->fop->flags & EC_FLAG_LOCK_SHARED) &&
             (l2->fop->flags & EC_FLAG_LOCK_SHARED))
                 return _gf_false;
