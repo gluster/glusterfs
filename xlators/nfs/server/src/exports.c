@@ -227,27 +227,6 @@ out:
 }
 
 /**
- * _export_item_init -- Initialize an export item structure
- *
- * @return  : success: Pointer to an allocated exports item struct
- *            failure: NULL
- *
- * Not for external use.
- */
-static struct export_item *
-_export_item_init ()
-{
-        struct export_item *item = GF_CALLOC (1, sizeof (*item),
-                                              gf_common_mt_nfs_exports);
-
-        if (!item)
-                gf_msg (GF_EXP, GF_LOG_CRITICAL, ENOMEM, NFS_MSG_NO_MEMORY,
-                        "Failed to allocate export item!");
-
-        return item;
-}
-
-/**
  * _export_item_deinit -- Free memory used by an export item
  *
  * @expdir : Pointer to the export item to free
@@ -263,6 +242,30 @@ _export_item_deinit (struct export_item *item)
         _export_options_deinit (item->opts);
         GF_FREE (item->name);
         GF_FREE (item);
+}
+
+/**
+ * _export_item_init -- Initialize an export item structure
+ *
+ * @return  : success: Pointer to an allocated exports item struct
+ *            failure: NULL
+ *
+ * Not for external use.
+ */
+static struct export_item *
+_export_item_init ()
+{
+        struct export_item *item = GF_CALLOC (1, sizeof (*item),
+                                              gf_common_mt_nfs_exports);
+
+        if (item) {
+                GF_REF_INIT(item, _export_item_deinit);
+        } else {
+                gf_msg (GF_EXP, GF_LOG_CRITICAL, ENOMEM, NFS_MSG_NO_MEMORY,
+                        "Failed to allocate export item!");
+        }
+
+        return item;
 }
 
 /**
@@ -355,7 +358,7 @@ static int
 __exp_dict_free_walk (dict_t *dict, char *key, data_t *val, void *tmp)
 {
         if (val) {
-                _export_item_deinit ((struct export_item *)val->data);
+                GF_REF_PUT ((struct export_item *)val->data);
                 val->data = NULL;
                 dict_del (dict, key);
         }
@@ -768,7 +771,7 @@ __exp_line_ng_host_str_parse (char *str, struct export_item **exp_item)
         ret = __exp_line_opt_parse (optstr, &exp_opts);
         if (ret != 0) {
                 /* Bubble up the error to the caller */
-                _export_item_deinit (item);
+                GF_REF_PUT (item);
                 goto out;
         }
 

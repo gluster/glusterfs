@@ -55,6 +55,7 @@ struct export_options {
 struct export_item {
         char                  *name;  /* Name of the export item */
         struct export_options *opts;  /* NFS Options */
+        GF_REF_DECL;
 };
 
 struct export_dir {

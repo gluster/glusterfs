@@ -232,6 +232,8 @@ auth_cache_get (struct auth_cache *cache, char *hashkey,
 
                 if (_auth_cache_expired (cache, lookup_res)) {
                         ret = ENTRY_EXPIRED;
+                        GF_REF_PUT (lookup_res->item);
+                        lookup_res->item = NULL;
 
                         /* free entry and remove from the cache */
                         GF_FREE (lookup_res);
@@ -473,7 +475,11 @@ cache_nfs_fh (struct auth_cache *cache, struct nfs3_fh *fh,
         }
 
         entry->timestamp = time (NULL);
-        entry->item = export_item;
+        /* Update entry->item if it is pointing to a different export_item */
+        if (entry->item && entry->item != export_item) {
+                GF_REF_PUT (entry->item);
+        }
+        entry->item = GF_REF_GET (export_item);
 
         ret = auth_cache_add (cache, hashkey, entry);
         GF_REF_PUT (entry);
