@@ -182,6 +182,10 @@ def update_status_from_exception_table():
     # this script, and inviting people to update the MD (say in hackMD), and
     # weekly import content from that MD into the table in the script. Hence,
     # generating a new MD and posting that up for further work.
+    for row in commit_table:
+        for erow in exception_table:
+            if erow[0] == row[0][:10]:
+                row[7] = "4:SKIP"
     return
 
 
@@ -242,5 +246,39 @@ rel38fb_start_commit = "d1ac991503b0153b12406d16ce99cd22dadfe0f7"
 # status - 5:MERGED/1:UNDERREVIEW/3:EXCEPTION/2:TOBEPORTED/4:SKIP
 # notes - typically for exceptions
 commit_table = []
+
+exception_table = [
+    ["69509ee7d2"],
+    ["035a9b742d"],
+    ["6455c52a33"],
+    ["07b32d43b0"],
+    ["627611998b"],
+    ["0f0d00e8a5"],
+    ["49d0f911bd"],
+    ["9aca3f636b"],
+    ["60c6b1729b"],
+    ["493746d10f"],
+    ["9f9da37e3a"],
+    ["233156d6fc"],
+    ["bc02e5423d"],
+    ["9d240c8bff"],
+    ["35cfc2853a"],
+    ["13317ddf8a"],
+    ["c48979df06"],
+    ["11afb5954e"],
+    ["401d1ee7e3"],
+    ["e537c79909"],
+    ["4625432603"],
+    ["5823eec46f"],
+    ["c1a1472168"],
+    ["5f6586ca9c"],
+    ["8c50512d12"],
+    ["9255f94bc2"],
+    ["2f34312030"],
+    ["35cfc2853a"],
+    ["13317ddf8a"],
+    ["c48979df06"],
+    ["4625432603"]
+]
 
 main(args.workdir)
