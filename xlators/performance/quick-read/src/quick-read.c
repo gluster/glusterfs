@@ -668,6 +668,41 @@ qr_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 	return 0;
 }
 
+static int
+qr_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd, int keep_size,
+              off_t offset, size_t len, dict_t *xdata)
+{
+        qr_inode_prune (this, fd->inode);
+
+        STACK_WIND (frame, default_fallocate_cbk,
+                    FIRST_CHILD (this), FIRST_CHILD (this)->fops->fallocate,
+                    fd, keep_size, offset, len, xdata);
+        return 0;
+}
+
+static int
+qr_discard (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+              size_t len, dict_t *xdata)
+{
+        qr_inode_prune (this, fd->inode);
+
+        STACK_WIND (frame, default_discard_cbk,
+                    FIRST_CHILD (this), FIRST_CHILD (this)->fops->discard,
+                    fd, offset, len, xdata);
+        return 0;
+}
+
+static int
+qr_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+              off_t len, dict_t *xdata)
+{
+        qr_inode_prune (this, fd->inode);
+
+        STACK_WIND (frame, default_zerofill_cbk,
+                    FIRST_CHILD (this), FIRST_CHILD (this)->fops->zerofill,
+                    fd, offset, len, xdata);
+        return 0;
+}
 
 int
 qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
@@ -1128,7 +1163,10 @@ struct xlator_fops fops = {
         .readv       = qr_readv,
 	.writev      = qr_writev,
 	.truncate    = qr_truncate,
-	.ftruncate   = qr_ftruncate
+        .ftruncate   = qr_ftruncate,
+        .fallocate   = qr_fallocate,
+        .discard     = qr_discard,
+        .zerofill    = qr_zerofill
 };
 
 struct xlator_cbks cbks = {
