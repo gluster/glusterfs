@@ -604,6 +604,9 @@ xlator_mem_acct_init (xlator_t *xl, int num_types)
                 if (ret) {
                         fprintf(stderr, "Unable to lock..errno : %d",errno);
                 }
+#ifdef DEBUG
+                INIT_LIST_HEAD(&(xl->mem_acct->rec[i].obj_list));
+#endif
         }
 
         return 0;
