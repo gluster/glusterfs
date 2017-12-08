@@ -46,6 +46,9 @@ struct mem_acct_rec {
         uint32_t        total_allocs;
         uint32_t        max_num_allocs;
         gf_lock_t       lock;
+#ifdef DEBUG
+        struct list_head   obj_list;
+#endif
 };
 
 struct mem_acct {
@@ -59,6 +62,9 @@ struct mem_header {
         size_t          size;
         struct mem_acct *mem_acct;
         uint32_t        magic;
+#ifdef DEBUG
+        struct list_head   acct_list;
+#endif
         int             padding[8];
 };
 
