@@ -58,6 +58,11 @@
                         frame->local = NULL;                \
         } while (0)
 
+#define BR_STUB_RESET_LOCAL_NULL(frame) do {           \
+                if (frame->local == (void *)0x1)      \
+                        frame->local = NULL;           \
+        } while (0)
+
 typedef int (br_stub_version_cbk) (call_frame_t *, void *,
                                    xlator_t *, int32_t, int32_t, dict_t *);
 
