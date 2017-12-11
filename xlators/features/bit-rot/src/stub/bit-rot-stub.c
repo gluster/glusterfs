@@ -1585,6 +1585,7 @@ br_stub_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int32_t              ret          = 0;
         size_t               totallen     = 0;
         size_t               signaturelen = 0;
+        br_stub_private_t   *priv         = NULL;
         br_version_t        *obuf         = NULL;
         br_signature_t      *sbuf         = NULL;
         br_isignature_out_t *sign         = NULL;
@@ -1592,9 +1593,15 @@ br_stub_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         br_stub_local_t     *local        = NULL;
         inode_t             *inode        = NULL;
         gf_boolean_t         bad_object   = _gf_false;
+        gf_boolean_t         ver_enabled  = _gf_false;
+
+        BR_STUB_VER_ENABLED_IN_CALLPATH(frame, ver_enabled);
+        priv = this->private;
 
         if (op_ret < 0)
                 goto unwind;
+        BR_STUB_VER_COND_GOTO (priv, (!ver_enabled), delkeys);
+
         if (cookie != (void *) BR_STUB_REQUEST_COOKIE)
                 goto unwind;
 
@@ -1740,8 +1747,7 @@ br_stub_getxattr (call_frame_t *frame, xlator_t *this,
                 goto unwind;
 
         priv = this->private;
-        if (!priv->do_versioning)
-                goto wind;
+        BR_STUB_VER_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         /**
          * If xattr is node-uuid and the inode is marked bad, return EIO.
@@ -1762,6 +1768,7 @@ br_stub_getxattr (call_frame_t *frame, xlator_t *this,
                           strlen (GLUSTERFS_GET_BR_STUB_INIT_TIME)) == 0)
             && ((gf_uuid_compare (loc->gfid, rootgfid) == 0)
                 || (gf_uuid_compare (loc->inode->gfid, rootgfid) == 0))) {
+                BR_STUB_RESET_LOCAL_NULL (frame);
                 br_stub_send_stub_init_time (frame, this);
                 return 0;
         }
@@ -1792,6 +1799,7 @@ br_stub_getxattr (call_frame_t *frame, xlator_t *this,
                        FIRST_CHILD (this)->fops->getxattr, loc, name, xdata);
         return 0;
 unwind:
+        BR_STUB_RESET_LOCAL_NULL (frame);
         STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, NULL, NULL);
                 return 0;
 }
@@ -1809,6 +1817,7 @@ br_stub_fgetxattr (call_frame_t *frame, xlator_t *this,
         br_stub_private_t  *priv = NULL;
 
         rootgfid[15] = 1;
+        priv = this->private;
 
         if (!name) {
                 cbk = br_stub_listxattr_cbk;
@@ -1818,9 +1827,7 @@ br_stub_fgetxattr (call_frame_t *frame, xlator_t *this,
         if (br_stub_is_internal_xattr (name))
                 goto unwind;
 
-        priv = this->private;
-        if (!priv->do_versioning)
-                goto wind;
+        BR_STUB_VER_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
         /**
          * If xattr is node-uuid and the inode is marked bad, return EIO.
@@ -1840,6 +1847,7 @@ br_stub_fgetxattr (call_frame_t *frame, xlator_t *this,
             && (strncmp (name, GLUSTERFS_GET_BR_STUB_INIT_TIME,
                          strlen (GLUSTERFS_GET_BR_STUB_INIT_TIME)) == 0)
             && (gf_uuid_compare (fd->inode->gfid, rootgfid) == 0)) {
+                BR_STUB_RESET_LOCAL_NULL (frame);
                 br_stub_send_stub_init_time (frame, this);
                 return 0;
         }
@@ -1870,6 +1878,7 @@ br_stub_fgetxattr (call_frame_t *frame, xlator_t *this,
                        FIRST_CHILD (this)->fops->fgetxattr, fd, name, xdata);
         return 0;
 unwind:
+        BR_STUB_RESET_LOCAL_NULL (frame);
         STACK_UNWIND_STRICT (fgetxattr, frame, op_ret, op_errno, NULL, NULL);
         return 0;
 }
@@ -2867,12 +2876,13 @@ br_stub_lookup_cbk (call_frame_t *frame, void *cookie,
 
         BR_STUB_VER_ENABLED_IN_CALLPATH(frame, ver_enabled);
         priv = this->private;
-        BR_STUB_VER_COND_GOTO (priv, (!ver_enabled), unwind);
 
         if (op_ret < 0) {
                 (void) br_stub_handle_lookup_error (this, inode, op_errno);
                 goto unwind;
         }
+
+        BR_STUB_VER_COND_GOTO (priv, (!ver_enabled), delkey);
 
         if (!IA_ISREG (stbuf->ia_type))
                 goto unwind;
@@ -2892,7 +2902,6 @@ br_stub_lookup_cbk (call_frame_t *frame, void *cookie,
                         op_errno = EIO;
                         goto unwind;
                 }
-
                 goto delkey;
         }
 
