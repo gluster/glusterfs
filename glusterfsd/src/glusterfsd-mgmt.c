@@ -245,6 +245,9 @@ glusterfs_handle_terminate (rpcsvc_request_t *req)
                         "terminating after loss of last child %s",
                         xlator_req.name);
                 glusterfs_mgmt_pmap_signout (glusterfsd_ctx, xlator_req.name);
+                sleep(1); /* to avoid race between above messages and socket
+                           * disconnect notification to glusterd
+                           */
                 kill (getpid(), SIGTERM);
         } else {
                 /*
