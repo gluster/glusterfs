@@ -13,15 +13,19 @@
 
 #include "glfs-message-id.h"
 
-#define GLFS_COMP_BASE_DC      GLFS_MSGID_COMP_DC
-#define GLFS_NUM_MESSAGES           2
-#define GLFS_MSGID_END         (GLFS_COMP_BASE_DC + GLFS_NUM_MESSAGES + 1)
+/* To add new message IDs, append new identifiers at the end of the list.
+ *
+ * Never remove a message ID. If it's not used anymore, you can rename it or
+ * leave it as it is, but not delete it. This is to prevent reutilization of
+ * IDs by other messages.
+ *
+ * The component name must match one of the entries defined in
+ * glfs-message-id.h.
+ */
 
-#define glfs_msg_start_x GLFS_COMP_BASE_DC, "Invalid: Start of messages"
+GLFS_MSGID(DC,
+        DC_MSG_VOL_MISCONFIGURED,
+        DC_MSG_ERROR_RECEIVED
+);
 
-#define DC_MSG_VOL_MISCONFIGURED               (GLFS_COMP_BASE_DC + 1)
-
-#define DC_MSG_ERROR_RECEIVED                  (GLFS_COMP_BASE_DC + 2)
-
-#define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* !_DC_MESSAGES_H_ */
