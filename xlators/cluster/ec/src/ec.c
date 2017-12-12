@@ -1420,6 +1420,7 @@ struct volume_options options[] =
     {
         .key = { "redundancy" },
         .type = GF_OPTION_TYPE_INT,
+        .default_value = "{{ volume.redundancy }}",
         .description = "Maximum number of bricks that can fail "
                        "simultaneously without losing data."
     },
