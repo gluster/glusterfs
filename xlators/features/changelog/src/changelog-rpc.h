@@ -26,4 +26,6 @@ changelog_init_rpc_listener (xlator_t *, changelog_priv_t *, rbuf_t *, int);
 void
 changelog_destroy_rpc_listner (xlator_t *, changelog_priv_t *);
 
+int
+changelog_cleanup_rpc_threads (xlator_t *this, changelog_priv_t *priv);
 #endif

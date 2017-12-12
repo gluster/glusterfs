@@ -2112,7 +2112,6 @@ notify (xlator_t *this, int event, void *data, ...)
         int                     ret             = 0;
         int                     ret1            = 0;
         struct list_head        queue           = {0, };
-        int                     i               = 0;
 
         INIT_LIST_HEAD (&queue);
 
@@ -2121,17 +2120,11 @@ notify (xlator_t *this, int event, void *data, ...)
                 goto out;
 
         if (event == GF_EVENT_CLEANUP) {
-                if (priv->connector) {
-                        (void) gf_thread_cleanup_xint (priv->connector);
-                        priv->connector = 0;
-                }
+               /* terminate helper threads */
+               changelog_cleanup_helper_threads (this, priv);
 
-                for (; i < NR_DISPATCHERS; i++) {
-                        if (priv->ev_dispatcher[i]) {
-                                (void) gf_thread_cleanup_xint (priv->ev_dispatcher[i]);
-                                priv->ev_dispatcher[i] = 0;
-                        }
-               }
+               /* terminate RPC server/threads */
+               changelog_cleanup_rpc_threads (this, priv);
         }
 
         if (event == GF_EVENT_TRANSLATOR_OP) {
