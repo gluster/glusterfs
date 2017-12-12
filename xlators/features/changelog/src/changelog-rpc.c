@@ -22,10 +22,11 @@ changelog_cleanup_dispatchers (xlator_t *this,
         for (count--; count >= 0; count--) {
                 (void) changelog_thread_cleanup
                         (this, priv->ev_dispatcher[count]);
+                priv->ev_dispatcher[count] = 0;
         }
 }
 
-static int
+int
 changelog_cleanup_rpc_threads (xlator_t *this, changelog_priv_t *priv)
 {
         int ret = 0;
@@ -39,6 +40,8 @@ changelog_cleanup_rpc_threads (xlator_t *this, changelog_priv_t *priv)
         ret = changelog_thread_cleanup (this, priv->connector);
         if (ret != 0)
                 goto error_return;
+        priv->connector = 0;
+
         /** terminate dispatcher thread(s) */
         changelog_cleanup_dispatchers (this, priv, priv->nr_dispatchers);
 
