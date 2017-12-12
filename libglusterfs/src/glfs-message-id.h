@@ -20,183 +20,75 @@
  * if extensions are being made post the next segment already allocated) */
 #define GLFS_MSGID_SEGMENT      1000
 
+/* Macro to define a range of messages for a component. The first argument is
+ * the name of the component. The second argument is the number of segments
+ * to allocate. The defined values will be GLFS_MSGID_COMP_<name> and
+ * GLFS_MSGID_COMP_<name>_END. */
+#define GLFS_MSGID_COMP(_name, _blocks) \
+        GLFS_MSGID_COMP_##_name, \
+        GLFS_MSGID_COMP_##_name##_END = (GLFS_MSGID_COMP_##_name + \
+                                         (GLFS_MSGID_SEGMENT * (_blocks)) - 1)
+
+#define GLFS_MSGID(_name, _msgs...) \
+        enum _msgid_table_##_name { \
+                GLFS_##_name##_COMP_BASE = GLFS_MSGID_COMP_##_name, ## _msgs, \
+                GLGS_##_name##_COMP_END \
+        }
+
 /* Per module message segments allocated */
 /* NOTE: For any new module add to the end the modules */
-#define GLFS_MSGID_COMP_GLUSTERFSD         GLFS_MSGID_BASE
-#define GLFS_MSGID_COMP_GLUSTERFSD_END     GLFS_MSGID_COMP_GLUSTERFSD + \
-                                           GLFS_MSGID_SEGMENT
+enum _msgid_comp {
+        GLFS_MSGID_RESERVED = GLFS_MSGID_BASE - 1,
 
-#define GLFS_MSGID_COMP_LIBGLUSTERFS       GLFS_MSGID_COMP_GLUSTERFSD_END
-#define GLFS_MSGID_COMP_LIBGLUSTERFS_END   GLFS_MSGID_COMP_LIBGLUSTERFS + \
-                                           GLFS_MSGID_SEGMENT
-
-#define GLFS_MSGID_COMP_RPC_LIB            GLFS_MSGID_COMP_LIBGLUSTERFS_END
-#define GLFS_MSGID_COMP_RPC_LIB_END        GLFS_MSGID_COMP_RPC_LIB + \
-                                           GLFS_MSGID_SEGMENT
-
-#define GLFS_MSGID_COMP_RPC_TRANS_RDMA     GLFS_MSGID_COMP_RPC_LIB_END
-#define GLFS_MSGID_COMP_RPC_TRANS_RDMA_END (GLFS_MSGID_COMP_RPC_TRANS_RDMA + \
-                                           GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_API                GLFS_MSGID_COMP_RPC_TRANS_RDMA_END
-#define GLFS_MSGID_COMP_API_END            GLFS_MSGID_COMP_API + \
-                                           GLFS_MSGID_SEGMENT
-
-#define GLFS_MSGID_COMP_CLI                GLFS_MSGID_COMP_API_END
-#define GLFS_MSGID_COMP_CLI_END            GLFS_MSGID_COMP_CLI + \
-                                           GLFS_MSGID_SEGMENT
-
+        GLFS_MSGID_COMP(GLUSTERFSD,       1),
+        GLFS_MSGID_COMP(LIBGLUSTERFS,     1),
+        GLFS_MSGID_COMP(RPC_LIB,          1),
+        GLFS_MSGID_COMP(RPC_TRANS_RDMA,   1),
+        GLFS_MSGID_COMP(API,              1),
+        GLFS_MSGID_COMP(CLI,              1),
 /* glusterd has a lot of messages, taking 2 segments for the same */
-#define GLFS_MSGID_GLUSTERD                GLFS_MSGID_COMP_CLI_END
-#define GLFS_MSGID_GLUSTERD_END            GLFS_MSGID_GLUSTERD + \
-                                           GLFS_MSGID_SEGMENT + \
-                                           GLFS_MSGID_SEGMENT
-
-#define GLFS_MSGID_COMP_AFR                GLFS_MSGID_GLUSTERD_END
-#define GLFS_MSGID_COMP_AFR_END            GLFS_MSGID_COMP_AFR +\
-                                           GLFS_MSGID_SEGMENT
-
-#define GLFS_MSGID_COMP_DHT                GLFS_MSGID_COMP_AFR_END
-#define GLFS_MSGID_COMP_DHT_END            GLFS_MSGID_COMP_DHT +\
-                                           GLFS_MSGID_SEGMENT
-
-
+        GLFS_MSGID_COMP(GLUSTERD,         2),
+        GLFS_MSGID_COMP(AFR,              1),
+        GLFS_MSGID_COMP(DHT,              1),
 /* there is no component called 'common', however reserving this segment
  * for common actions/errors like dict_{get/set}, memory accounting*/
-
-#define GLFS_MSGID_COMP_COMMON             GLFS_MSGID_COMP_DHT_END
-#define GLFS_MSGID_COMP_COMMON_END         (GLFS_MSGID_COMP_COMMON +\
-                                           GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_UPCALL             GLFS_MSGID_COMP_COMMON_END
-#define GLFS_MSGID_COMP_UPCALL_END         (GLFS_MSGID_COMP_UPCALL +\
-                                           GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_NFS                GLFS_MSGID_COMP_UPCALL_END
-#define GLFS_MSGID_COMP_NFS_END            (GLFS_MSGID_COMP_NFS +\
-                                           GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_POSIX              GLFS_MSGID_COMP_NFS_END
-#define GLFS_MSGID_COMP_POSIX_END          (GLFS_MSGID_COMP_POSIX +\
-                                           GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_PC                 GLFS_MSGID_COMP_POSIX_END
-#define GLFS_MSGID_COMP_PC_END             (GLFS_MSGID_COMP_PC +\
-                                           GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_PS                 GLFS_MSGID_COMP_PC_END
-#define GLFS_MSGID_COMP_PS_END             (GLFS_MSGID_COMP_PS +\
-                                           GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_BITROT_STUB        GLFS_MSGID_COMP_PS_END
-#define GLFS_MSGID_COMP_BITROT_STUB_END    (GLFS_MSGID_COMP_BITROT_STUB +\
-                                           GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_CHANGELOG          GLFS_MSGID_COMP_BITROT_STUB_END
-#define GLFS_MSGID_COMP_CHANGELOG_END      (GLFS_MSGID_COMP_CHANGELOG +\
-                                           GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_BITROT_BITD        GLFS_MSGID_COMP_CHANGELOG_END
-#define GLFS_MSGID_COMP_BITROT_BITD_END    (GLFS_MSGID_COMP_BITROT_BITD +\
-                                           GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_RPC_TRANS_SOCKET        GLFS_MSGID_COMP_BITROT_BITD_END
-#define GLFS_MSGID_COMP_RPC_TRANS_SOCKET_END    (GLFS_MSGID_COMP_RPC_TRANS_SOCKET + \
-                                                GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_QUOTA              GLFS_MSGID_COMP_RPC_TRANS_SOCKET_END
-#define GLFS_MSGID_COMP_QUOTA_END          (GLFS_MSGID_COMP_QUOTA +\
-                                           GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_CTR                GLFS_MSGID_COMP_QUOTA_END
-#define GLFS_MSGID_COMP_CTR_END            (GLFS_MSGID_COMP_CTR+\
-                                           GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_EC               GLFS_MSGID_COMP_CTR_END
-#define GLFS_MSGID_COMP_EC_END           (GLFS_MSGID_COMP_EC +\
-                                         GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_IO_CACHE                GLFS_MSGID_COMP_EC_END
-#define GLFS_MSGID_COMP_IO_CACHE_END            (GLFS_MSGID_COMP_IO_CACHE+\
-                                                GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_IO_THREADS              GLFS_MSGID_COMP_IO_CACHE_END
-#define GLFS_MSGID_COMP_IO_THREADS_END          (GLFS_MSGID_COMP_IO_THREADS+\
-                                                GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_MD_CACHE                GLFS_MSGID_COMP_IO_THREADS_END
-#define GLFS_MSGID_COMP_MD_CACHE_END            (GLFS_MSGID_COMP_MD_CACHE+\
-                                                GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_OPEN_BEHIND             GLFS_MSGID_COMP_MD_CACHE_END
-#define GLFS_MSGID_COMP_OPEN_BEHIND_END         (GLFS_MSGID_COMP_OPEN_BEHIND+\
-                                                GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_QUICK_READ              GLFS_MSGID_COMP_OPEN_BEHIND_END
-#define GLFS_MSGID_COMP_QUICK_READ_END          (GLFS_MSGID_COMP_QUICK_READ+\
-                                                GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_READ_AHEAD              GLFS_MSGID_COMP_QUICK_READ_END
-#define GLFS_MSGID_COMP_READ_AHEAD_END          (GLFS_MSGID_COMP_READ_AHEAD+\
-                                                GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_READDIR_AHEAD           GLFS_MSGID_COMP_READ_AHEAD_END
-#define GLFS_MSGID_COMP_READDIR_AHEAD_END       (GLFS_MSGID_COMP_READDIR_AHEAD+\
-                                                GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_SYMLINK_CACHE           \
-        GLFS_MSGID_COMP_READDIR_AHEAD_END
-#define GLFS_MSGID_COMP_SYMLINK_CACHE_END \
-(GLFS_MSGID_COMP_SYMLINK_CACHE+ \
-                                                GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_WRITE_BEHIND             \
-GLFS_MSGID_COMP_SYMLINK_CACHE_END
-#define GLFS_MSGID_COMP_WRITE_BEHIND_END        (GLFS_MSGID_COMP_WRITE_BEHIND+\
-                                                GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_CHANGELOG_LIB           GLFS_MSGID_COMP_WRITE_BEHIND_END
-#define GLFS_MSGID_COMP_CHANGELOG_LIB_END       (GLFS_MSGID_COMP_CHANGELOG_LIB+\
-                                                GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_SHARD               GLFS_MSGID_COMP_CHANGELOG_LIB_END
-#define GLFS_MSGID_COMP_SHARD_END           (GLFS_MSGID_COMP_SHARD +\
-                                             GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_JBR                     GLFS_MSGID_COMP_SHARD_END
-#define GLFS_MSGID_COMP_JBR_END                 (GLFS_MSGID_COMP_JBR +\
-                                                 GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_PL               GLFS_MSGID_COMP_JBR_END
-#define GLFS_MSGID_COMP_PL_END           (GLFS_MSGID_COMP_PL +\
-                                         GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_DC                     GLFS_MSGID_COMP_PL_END
-#define GLFS_MSGID_COMP_DC_END                 (GLFS_MSGID_COMP_DC +\
-                                                 GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_LEASES             GLFS_MSGID_COMP_DC_END
-#define GLFS_MSGID_COMP_LEASES_END         (GLFS_MSGID_COMP_LEASES +\
-                                           GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_INDEX              GLFS_MSGID_COMP_LEASES_END
-#define GLFS_MSGID_COMP_INDEX_END          (GLFS_MSGID_COMP_INDEX +\
-                                           GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_POSIX_ACL          GLFS_MSGID_COMP_INDEX_END
-#define GLFS_MSGID_COMP_POSIX_ACL_END      (GLFS_MSGID_COMP_POSIX_ACL +\
-                                           GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_NLC                GLFS_MSGID_COMP_POSIX_ACL_END
-#define GLFS_MSGID_COMP_NLC_END            (GLFS_MSGID_COMP_NLC +\
-                                           GLFS_MSGID_SEGMENT)
-
-#define GLFS_MSGID_COMP_SL                 GLFS_MSGID_COMP_NLC
-#define GLFS_MSGID_COMP_SL_END             (GLFS_MSGID_COMP_SL +\
-                                            GLFS_MSGID_SEGMENT)
-
-
+        GLFS_MSGID_COMP(COMMON,           1),
+        GLFS_MSGID_COMP(UPCALL,           1),
+        GLFS_MSGID_COMP(NFS,              1),
+        GLFS_MSGID_COMP(POSIX,            1),
+        GLFS_MSGID_COMP(PC,               1),
+        GLFS_MSGID_COMP(PS,               1),
+        GLFS_MSGID_COMP(BITROT_STUB,      1),
+        GLFS_MSGID_COMP(CHANGELOG,        1),
+        GLFS_MSGID_COMP(BITROT_BITD,      1),
+        GLFS_MSGID_COMP(RPC_TRANS_SOCKET, 1),
+        GLFS_MSGID_COMP(QUOTA,            1),
+        GLFS_MSGID_COMP(CTR,              1),
+        GLFS_MSGID_COMP(EC,               1),
+        GLFS_MSGID_COMP(IO_CACHE,         1),
+        GLFS_MSGID_COMP(IO_THREADS,       1),
+        GLFS_MSGID_COMP(MD_CACHE,         1),
+        GLFS_MSGID_COMP(OPEN_BEHIND,      1),
+        GLFS_MSGID_COMP(QUICK_READ,       1),
+        GLFS_MSGID_COMP(READ_AHEAD,       1),
+        GLFS_MSGID_COMP(READDIR_AHEAD,    1),
+        GLFS_MSGID_COMP(SYMLINK_CACHE,    1),
+        GLFS_MSGID_COMP(WRITE_BEHIND,     1),
+        GLFS_MSGID_COMP(CHANGELOG_LIB,    1),
+        GLFS_MSGID_COMP(SHARD,            1),
+        GLFS_MSGID_COMP(JBR,              1),
+        GLFS_MSGID_COMP(PL,               1),
+        GLFS_MSGID_COMP(DC,               1),
+        GLFS_MSGID_COMP(LEASES,           1),
+        GLFS_MSGID_COMP(INDEX,            1),
+        GLFS_MSGID_COMP(POSIX_ACL,        1),
+        GLFS_MSGID_COMP(NLC,              1),
+        GLFS_MSGID_COMP(SL,               1),
+        GLFS_MSGID_COMP(HAM,              1),
 
 /* --- new segments for messages goes above this line --- */
+
+        GLFS_MSGID_END
+};
 
 #endif /* !_GLFS_MESSAGE_ID_H_ */

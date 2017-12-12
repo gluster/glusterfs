@@ -8,27 +8,26 @@
  *   cases as published by the Free Software Foundation.
  */
 
-
 #ifndef __NL_CACHE_MESSAGES_H__
 #define __NL_CACHE_MESSAGES_H__
 
+#include "glfs-message-id.h"
 
-#define GLFS_COMP_BASE_NLC GLFS_MSGID_COMP_NLC
-#define GLFS_NUM_MESSAGES 4
-#define GLFS_MSGID_END (GLFS_COMP_BASE_NLC + GLFS_NUM_MESSAGES + 1)
-
-#define glfs_msg_start_x GLFS_COMP_BASE_NLC, "Invalid: Start of messages"
-
-/*!
- * @messageid 110001
- * @diagnosis Out of Memory
- * @recommendedaction None
+/* To add new message IDs, append new identifiers at the end of the list.
+ *
+ * Never remove a message ID. If it's not used anymore, you can rename it or
+ * leave it as it is, but not delete it. This is to prevent reutilization of
+ * IDs by other messages.
+ *
+ * The component name must match one of the entries defined in
+ * glfs-message-id.h.
  */
-#define NLC_MSG_NO_MEMORY             (GLFS_COMP_BASE_NLC + 1)
-#define NLC_MSG_EINVAL                (GLFS_COMP_BASE_NLC + 2)
-#define NLC_MSG_NO_TIMER_WHEEL        (GLFS_COMP_BASE_NLC + 3)
-#define NLC_MSG_DICT_FAILURE          (GLFS_COMP_BASE_NLC + 4)
-#define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 
+GLFS_MSGID(NLC,
+        NLC_MSG_NO_MEMORY,
+        NLC_MSG_EINVAL,
+        NLC_MSG_NO_TIMER_WHEEL,
+        NLC_MSG_DICT_FAILURE
+);
 
 #endif /* __NL_CACHE_MESSAGES_H__ */

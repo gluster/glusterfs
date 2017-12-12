@@ -8,10 +8,19 @@
  *   cases as published by the Free Software Foundation.
  */
 
-
 #ifndef __DELAY_GEN_MESSAGES_H__
 #define __DELAY_GEN_MESSAGES_H__
 
+#include "glfs-message-id.h"
 
+/* To add new message IDs, append new identifiers at the end of the list.
+ *
+ * Never remove a message ID. If it's not used anymore, you can rename it or
+ * leave it as it is, but not delete it. This is to prevent reutilization of
+ * IDs by other messages.
+ *
+ * The component name must match one of the entries defined in
+ * glfs-message-id.h.
+ */
 
 #endif /* __DELAY_GEN_MESSAGES_H__ */

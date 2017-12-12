@@ -780,7 +780,8 @@ glusterfs_handle_bitrot (rpcsvc_request_t *req)
                                 &input);
 
         if (ret < 0) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, glusterfsd_msg_35);
+                gf_msg (this->name, GF_LOG_ERROR, 0, glusterfsd_msg_35,
+                        "rpc req buffer unserialization failed.");
                 goto out;
         }
 
@@ -789,7 +790,8 @@ glusterfs_handle_bitrot (rpcsvc_request_t *req)
         xlator = xlator_search_by_name (any, xname);
         if (!xlator) {
                 snprintf (msg, sizeof (msg), "xlator %s is not loaded", xname);
-                gf_msg (this->name, GF_LOG_ERROR, 0, glusterfsd_msg_36);
+                gf_msg (this->name, GF_LOG_ERROR, 0, glusterfsd_msg_36,
+                        "problem in xlator loading.");
                 goto out;
         }
 
@@ -802,7 +804,8 @@ glusterfs_handle_bitrot (rpcsvc_request_t *req)
         ret = dict_get_str (input, "scrub-value", &scrub_opt);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Failed to get scrub value");
-                gf_msg (this->name, GF_LOG_ERROR, 0, glusterfsd_msg_37);
+                gf_msg (this->name, GF_LOG_ERROR, 0, glusterfsd_msg_37,
+                        "failed to get dict value");
                 ret = -1;
                 goto out;
         }
