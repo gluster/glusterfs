@@ -238,8 +238,8 @@ glusterd_snap_volinfo_restore (dict_t *dict, dict_t *rsp_dict,
                           volcount, brick_count);
                 ret = dict_get_str (dict, key, &value);
                 if (!ret)
-                        strncpy (new_brickinfo->path, value,
-                                 sizeof(new_brickinfo->path));
+                        gf_strncpy (new_brickinfo->path, value,
+                                    sizeof(new_brickinfo->path));
 
                 snprintf (key, sizeof (key), "snap%d.brick%d.snap_status",
                           volcount, brick_count);
@@ -249,22 +249,22 @@ glusterd_snap_volinfo_restore (dict_t *dict, dict_t *rsp_dict,
                           volcount, brick_count);
                 ret = dict_get_str (dict, key, &value);
                 if (!ret)
-                        strncpy (new_brickinfo->device_path, value,
-                                 sizeof(new_brickinfo->device_path));
+                        gf_strncpy (new_brickinfo->device_path, value,
+                                    sizeof(new_brickinfo->device_path));
 
                 snprintf (key, sizeof (key), "snap%d.brick%d.fs_type",
                           volcount, brick_count);
                 ret = dict_get_str (dict, key, &value);
                 if (!ret)
-                        strncpy (new_brickinfo->fstype, value,
-                                 sizeof(new_brickinfo->fstype));
+                        gf_strncpy (new_brickinfo->fstype, value,
+                                    sizeof(new_brickinfo->fstype));
 
                 snprintf (key, sizeof (key), "snap%d.brick%d.mnt_opts",
                           volcount, brick_count);
                 ret = dict_get_str (dict, key, &value);
                 if (!ret)
-                        strncpy (new_brickinfo->mnt_opts, value,
-                                 sizeof(new_brickinfo->mnt_opts) - 1);
+                        gf_strncpy (new_brickinfo->mnt_opts, value,
+                                    sizeof(new_brickinfo->mnt_opts));
 
                 /* If the brick is not of this peer, or snapshot is missed *
                  * for the brick do not replace the xattr for it */
@@ -899,8 +899,8 @@ gd_import_new_brick_snap_details (dict_t *dict, char *prefix,
                         GD_MSG_DICT_GET_FAILED, "%s missing in payload", key);
                 goto out;
         }
-        strcpy (brickinfo->device_path, snap_device);
-
+        gf_strncpy (brickinfo->device_path, snap_device,
+                    sizeof(brickinfo->device_path));
         snprintf (key, sizeof (key), "%s.fs_type", prefix);
         ret = dict_get_str (dict, key, &fs_type);
         if (ret) {
@@ -908,7 +908,7 @@ gd_import_new_brick_snap_details (dict_t *dict, char *prefix,
                         GD_MSG_DICT_GET_FAILED, "%s missing in payload", key);
                 goto out;
         }
-        strcpy (brickinfo->fstype, fs_type);
+        gf_strncpy (brickinfo->fstype, fs_type, sizeof(brickinfo->fstype));
 
         snprintf (key, sizeof (key), "%s.mnt_opts", prefix);
         ret = dict_get_str (dict, key, &mnt_opts);
@@ -917,7 +917,7 @@ gd_import_new_brick_snap_details (dict_t *dict, char *prefix,
                         GD_MSG_DICT_GET_FAILED, "%s missing in payload", key);
                 goto out;
         }
-        strcpy (brickinfo->mnt_opts, mnt_opts);
+        gf_strncpy (brickinfo->mnt_opts, mnt_opts, sizeof(brickinfo->mnt_opts));
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.mount_dir", prefix);
@@ -928,8 +928,8 @@ gd_import_new_brick_snap_details (dict_t *dict, char *prefix,
                                 "%s missing in payload", key);
                 goto out;
         }
-        strncpy (brickinfo->mount_dir, mount_dir,
-                 (sizeof (brickinfo->mount_dir) - 1));
+        gf_strncpy (brickinfo->mount_dir, mount_dir,
+                    sizeof(brickinfo->mount_dir));
 
 out:
         return ret;
@@ -1589,7 +1589,7 @@ glusterd_import_friend_snap (dict_t *peer_data, int32_t snap_count,
                 goto out;
         }
 
-        strncpy (snap->snapname, peer_snap_name, sizeof (snap->snapname) - 1);
+        gf_strncpy (snap->snapname, peer_snap_name, sizeof(snap->snapname));
         gf_uuid_parse (peer_snap_id, snap->snap_id);
 
         snprintf (buf, sizeof(buf), "%s.snapid", prefix);
@@ -2707,7 +2707,7 @@ glusterd_mount_lvm_snapshot (glusterd_brickinfo_t *brickinfo,
         snprintf (msg, sizeof (msg), "mount %s %s",
                   brickinfo->device_path, brick_mount_path);
 
-        strcpy (mnt_opts, brickinfo->mnt_opts);
+        gf_strncpy (mnt_opts, brickinfo->mnt_opts, sizeof(mnt_opts));
 
         /* XFS file-system does not allow to mount file-system with duplicate
          * UUID. File-system UUID of snapshot and its origin volume is same.
@@ -3456,7 +3456,7 @@ glusterd_copy_file (const char *source, const char *destination)
         dest_mode = stbuf.st_mode & 0777;
 
         src_fd = open (source, O_RDONLY);
-        if (src_fd < 0) {
+        if (src_fd == -1) {
                 ret = -1;
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_FILE_OP_FAILED, "Unable to open file %s",
@@ -3494,7 +3494,7 @@ glusterd_copy_file (const char *source, const char *destination)
                 }
         } while (ret > 0);
 out:
-        if (src_fd > 0)
+        if (src_fd != -1)
                 sys_close (src_fd);
 
         if (dest_fd > 0)
@@ -4010,3 +4010,16 @@ out:
         return ret;
 }
 
+/* Safe wrapper function for strncpy.
+ * This wrapper makes sure that when there is no null byte among the first n in
+ * source srting for strncpy function call, the string placed in dest will be
+ * null-terminated.
+ */
+
+char *
+gf_strncpy (char *dest, const char *src, const size_t dest_size)
+{
+        strncpy (dest, src, dest_size - 1);
+        dest[dest_size - 1] = '\0';
+        return dest;
+}
