@@ -31,13 +31,6 @@ static char *ec_read_policies[EC_READ_POLICY_MAX + 1] = {
         [EC_READ_POLICY_MAX] = NULL
 };
 
-#define EC_MAX_FRAGMENTS EC_METHOD_MAX_FRAGMENTS
-/* The maximum number of nodes is derived from the maximum allowed fragments
- * using the rule that redundancy cannot be equal or greater than the number
- * of fragments.
- */
-#define EC_MAX_NODES min(EC_MAX_FRAGMENTS * 2 - 1, EC_METHOD_MAX_NODES)
-
 #define EC_INTERNAL_XATTR_OR_GOTO(name, xattr, op_errno, label)                \
         do {                                                                   \
                 if (ec_is_internal_xattr (NULL, (char *)name, NULL, NULL)) {   \

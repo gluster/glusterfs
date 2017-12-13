@@ -568,7 +568,7 @@ void ec_dispatch_next(ec_fop_data_t * fop, uint32_t idx)
     LOCK(&fop->lock);
 
     i = ec_child_next(ec, fop, idx);
-    if (i < EC_METHOD_MAX_NODES) {
+    if (i < EC_MAX_NODES) {
         idx = i;
 
         fop->remaining ^= 1ULL << idx;
@@ -581,7 +581,7 @@ void ec_dispatch_next(ec_fop_data_t * fop, uint32_t idx)
 
     UNLOCK(&fop->lock);
 
-    if (i < EC_METHOD_MAX_NODES)
+    if (i < EC_MAX_NODES)
     {
         fop->wind(ec, fop, idx);
     }
@@ -708,7 +708,7 @@ void ec_dispatch_min(ec_fop_data_t * fop)
         while (count-- > 0)
         {
             idx = ec_child_next(ec, fop, idx + 1);
-            if (idx < EC_METHOD_MAX_NODES)
+            if (idx < EC_MAX_NODES)
                 mask |= 1ULL << idx;
         }
 
