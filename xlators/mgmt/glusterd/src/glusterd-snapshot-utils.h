@@ -160,5 +160,6 @@ gd_get_snap_conf_values_if_present (dict_t *opts, uint64_t *sys_hard_limit,
 int
 glusterd_get_snap_status_str (glusterd_snap_t *snapinfo, char *snap_status_str);
 
+char *gf_strncpy (char *dest, const char *src, const size_t dest_size);
 #endif
 
