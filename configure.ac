@@ -25,14 +25,6 @@ if make --help 2>&1 | grep -q no-print-directory; then
    AM_MAKEFLAGS="$AM_MAKEFLAGS --no-print-directory";
 fi
 
-if make --help 2>&1 | grep -q quiet; then
-   AM_MAKEFLAGS="$AM_MAKEFLAGS --quiet"
-fi
-
-if libtool --help 2>&1 | grep -q quiet; then
-   AM_LIBTOOLFLAGS="--quiet";
-fi
-
 AC_CONFIG_HEADERS([config.h site.h])
 
 AC_CONFIG_FILES([Makefile
