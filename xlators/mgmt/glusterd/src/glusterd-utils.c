@@ -13074,9 +13074,9 @@ glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
         int                      ret = -1;
         char                    *def_val = NULL;
         char                    *descr = NULL;
-        char                     output_string[51200] = {0, };
         char                    *output = NULL;
-        char                     tmp_str[2048] = {0, };
+        size_t                   size = 0;
+        size_t                   used = 0;
 #if (HAVE_LIB_XML)
         xmlTextWriterPtr         writer = NULL;
         xmlBufferPtr             buf = NULL;
@@ -13087,6 +13087,15 @@ glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
                         goto out;
         }
 #endif
+
+        if (!xml_out) {
+                size = 65536;
+                output = GF_MALLOC(size, gf_common_mt_char);
+                if (output == NULL) {
+                        ret = -1;
+                        goto out;
+                }
+        }
 
         CDS_INIT_LIST_HEAD (&vol_opt_handle.list);
 
@@ -13140,10 +13149,31 @@ glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
                                 "Libxml not present");
 #endif
                 } else {
-                        snprintf (tmp_str, sizeof (tmp_str), "Option: %s\nDefault "
-                                        "Value: %s\nDescription: %s\n\n",
-                                        vme->key, def_val, descr);
-                        strcat (output_string, tmp_str);
+                        void *tmp;
+                        int len;
+
+                        do {
+                                len = snprintf(output + used, size - used,
+                                               "Option: %s\nDefault Value: %s\n"
+                                               "Description: %s\n\n",
+                                               vme->key, def_val, descr);
+                                if (len < 0) {
+                                        ret = -1;
+                                        goto cont;
+                                }
+                                if (used + len < size) {
+                                        used += len;
+                                        break;
+                                }
+
+                                size += (len + 65536) & ~65535;
+                                tmp = GF_REALLOC(output, size);
+                                if (tmp == NULL) {
+                                        ret = -1;
+                                        goto cont;
+                                }
+                                output = tmp;
+                        } while (1);
                 }
 cont:
                 if (dl_handle) {
@@ -13170,24 +13200,25 @@ cont:
                         "Libxml not present");
 #endif
 
-        if (!xml_out)
-                output = gf_strdup (output_string);
-        else
+        if (xml_out)
 #if (HAVE_LIB_XML)
                 output = gf_strdup ((char *)buf->content);
+                if (NULL == output) {
+                        ret = -1;
+                        goto out;
+                }
 #else
                 gf_msg ("glusterd", GF_LOG_ERROR, 0,
                         GD_MSG_MODULE_NOT_INSTALLED,
                         "Libxml not present");
 #endif
 
-        if (NULL == output) {
-                ret = -1;
-                goto out;
-        }
-
         ret = dict_set_dynstr (ctx, "help-str", output);
+        if (ret >= 0) {
+                output = NULL;
+        }
 out:
+        GF_FREE(output);
         gf_msg_debug ("glusterd", 0, "Returning %d", ret);
         return ret;
 }
