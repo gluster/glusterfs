@@ -17,6 +17,7 @@
     - attr
     - autoconf
     - automake
+    - bc
     - bison
       #- libcmocka-devel
     - dbench
