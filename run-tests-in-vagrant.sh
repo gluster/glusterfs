@@ -212,6 +212,7 @@ function compile_gluster()
             --mandir=/usr/share/man \
             --infodir=/usr/share/info \
             --libdir=/usr/lib64 \
+            --enable-gnfs \
             --enable-debug $redirect" -- -t
     if [ $? -ne 0 ]
     then
