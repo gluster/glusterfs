@@ -239,6 +239,10 @@ function compile_gluster()
             popd
             exit 1
     fi
+    # Test for missing dependencies based on the BuildRequires in the
+    # glusterfs.spec. If anything is missing, install them (and only then, dnf
+    # cache is a large download).
+    vagrant ssh -c "cd /home/vagrant/glusterfs; ( sudo dnf -C -y builddep --spec glusterfs.spec || sudo dnf -y builddep --spec glusterfs.spec ) $redirect" -- -t
     vagrant ssh -c "cd /home/vagrant/glusterfs; sudo make -j install $redirect" -- -t
     if [ $? -ne 0 ]
     then
