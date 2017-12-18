@@ -372,14 +372,27 @@ afr_txn_arbitrate_fop (call_frame_t *frame, xlator_t *this)
 int
 afr_transaction_perform_fop (call_frame_t *frame, xlator_t *this)
 {
-        afr_local_t     *local = NULL;
-        afr_private_t   *priv = NULL;
-        fd_t            *fd   = NULL;
+        afr_local_t   *local = NULL;
+        afr_private_t *priv  = NULL;
+        fd_t          *fd    = NULL;
+        int           i      = 0;
+        int           ret    = 0;
 
         local = frame->local;
         priv = this->private;
         fd    = local->fd;
 
+        if (local->transaction.type == AFR_DATA_TRANSACTION &&
+            !local->transaction.inherited) {
+                ret = afr_write_subvol_set (frame, this);
+                if (ret) {
+                        /*act as if operation failed on all subvols*/
+                        local->op_ret = -1;
+                        local->op_errno = -ret;
+                        for (i = 0; i < priv->child_count; i++)
+                                local->transaction.failed_subvols[i] = 1;
+                }
+        }
         /*  Perform fops with the lk-owner from top xlator.
          *  Eg: lk-owner of posix-lk and flush should be same,
          *  flush cant clear the  posix-lks without that lk-owner.
@@ -1116,32 +1129,28 @@ unlock:
 
 int
 afr_changelog_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		   int op_ret, int op_errno, dict_t *xattr, dict_t *xdata)
+                   int op_ret, int op_errno, dict_t *xattr, dict_t *xdata)
 {
         afr_local_t *local = NULL;
-        afr_private_t *priv = NULL;
         int call_count = -1;
         int child_index = -1;
 
         local = frame->local;
-        priv = this->private;
         child_index = (long) cookie;
 
-	if (op_ret == -1) {
+        if (op_ret == -1) {
                 local->op_errno = op_errno;
-		afr_transaction_fop_failed (frame, this, child_index);
+                afr_transaction_fop_failed (frame, this, child_index);
         }
 
-        if (priv->arbiter_count == 1 && !op_ret) {
-                if (xattr)
-                        local->transaction.pre_op_xdata[child_index] =
-                                                               dict_ref (xattr);
+        if (xattr)
+                local->transaction.pre_op_xdata[child_index] = dict_ref (xattr);
+
+        call_count = afr_frame_return (frame);
+
+        if (call_count == 0) {
+                local->transaction.changelog_resume (frame, this);
         }
-
-	call_count = afr_frame_return (frame);
-
-        if (call_count == 0)
-		local->transaction.changelog_resume (frame, this);
 
         return 0;
 }
@@ -1747,10 +1756,6 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 
 	if (pre_nop)
 		goto next;
-
-        ret = afr_write_subvol_set (frame, this);
-        if (ret)
-                goto err;
 
 	if (!local->pre_op_compat) {
 		dict_copy (xdata_req, local->xdata_req);
