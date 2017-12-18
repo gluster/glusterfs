@@ -40,7 +40,7 @@
  */
 
 #define GLFS_COMP_BASE_AFR      GLFS_MSGID_COMP_AFR
-#define GLFS_NUM_MESSAGES       42
+#define GLFS_NUM_MESSAGES       43
 #define GLFS_MSGID_END          (GLFS_COMP_BASE_AFR + GLFS_NUM_MESSAGES + 1)
 
 #define glfs_msg_start_x GLFS_COMP_BASE_AFR, "Invalid: Start of messages"
@@ -368,6 +368,13 @@
  * @recommendedaction
 */
 #define AFR_MSG_SBRAIN_FAV_CHILD_POLICY  (GLFS_COMP_BASE_AFR + 42)
+
+/*!
+ * @messageid 108043
+ * @diagnosis
+ * @recommendation
+*/
+#define AFR_MSG_INODE_CTX_GET_FAILED (GLFS_COMP_BASE_AFR + 43)
 
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* !_AFR_MESSAGES_H_ */

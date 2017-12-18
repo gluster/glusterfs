@@ -615,14 +615,14 @@ afr_unlock_common_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         afr_local_t             *local          = NULL;
         afr_internal_lock_t     *int_lock       = NULL;
-        afr_fd_ctx_t            *fd_ctx         = NULL;
-        afr_private_t           *priv           = NULL;
         int                      call_count     = 0;
         int                      ret            = 0;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
-        priv = this->private;
+
+        if (local->transaction.type == AFR_DATA_TRANSACTION && op_ret != 1)
+                ret = afr_write_subvol_reset (frame, this);
 
         LOCK (&frame->lock);
         {
@@ -633,11 +633,6 @@ afr_unlock_common_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (call_count == 0) {
                 gf_msg_trace (this->name, 0,
                               "All internal locks unlocked");
-                if (local->fd) {
-                        fd_ctx = afr_fd_ctx_get (local->fd, this);
-                        if (0 == AFR_COUNT (fd_ctx->lock_acquired, priv->child_count))
-                                ret = afr_write_subvol_reset (frame, this);
-                }
                 int_lock->lock_cbk (frame, this);
         }
 
@@ -947,6 +942,15 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         } else {
                                 int_lock->locked_nodes[child_index] |= LOCKED_YES;
                                 int_lock->lock_count++;
+
+                                if (local->transaction.type ==
+                                    AFR_DATA_TRANSACTION) {
+                                        LOCK(&local->inode->lock);
+                                        {
+                                                local->inode_ctx->lock_count++;
+                                        }
+                                        UNLOCK (&local->inode->lock);
+                                }
                         }
                 }
                 afr_lock_blocking (frame, this, cky + 1);
@@ -1502,13 +1506,12 @@ int32_t
 afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
-        afr_internal_lock_t *int_lock = NULL;
-        afr_inodelk_t       *inodelk  = NULL;
-        afr_local_t         *local    = NULL;
-        int call_count  = 0;
-        int child_index = (long) cookie;
-        afr_fd_ctx_t        *fd_ctx = NULL;
-
+        afr_internal_lock_t *int_lock    = NULL;
+        afr_inodelk_t       *inodelk     = NULL;
+        afr_local_t         *local       = NULL;
+        afr_fd_ctx_t        *fd_ctx      = NULL;
+        int                  call_count  = 0;
+        int                  child_index = (long) cookie;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
@@ -1553,6 +1556,15 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         fd_ctx->lock_acquired[child_index]++;
 				}
 			}
+
+                        if (local->transaction.type == AFR_DATA_TRANSACTION &&
+                            op_ret == 0) {
+                                LOCK(&local->inode->lock);
+                                {
+                                        local->inode_ctx->lock_count++;
+                                }
+                                UNLOCK (&local->inode->lock);
+                        }
 		}
 
                 call_count = --int_lock->lk_call_count;

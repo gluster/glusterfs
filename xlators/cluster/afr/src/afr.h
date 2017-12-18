@@ -376,6 +376,16 @@ typedef enum {
         AFR_FOP_LOCK_QUORUM_FAILED,
 } afr_fop_lock_state_t;
 
+typedef struct _afr_inode_ctx {
+        uint64_t        read_subvol;
+        uint64_t        write_subvol;
+        int             lock_count;
+        int             spb_choice;
+        gf_timer_t      *timer;
+        gf_boolean_t    need_refresh;
+} afr_inode_ctx_t;
+
+
 typedef struct _afr_local {
 	glusterfs_fop_t  op;
         unsigned int call_count;
@@ -832,16 +842,9 @@ typedef struct _afr_local {
         compound_args_t *c_args;
 
         gf_boolean_t is_read_txn;
+        afr_inode_ctx_t *inode_ctx;
 } afr_local_t;
 
-
-typedef struct _afr_inode_ctx {
-        uint64_t        read_subvol;
-        uint64_t        write_subvol;
-        int             spb_choice;
-        gf_timer_t      *timer;
-        gf_boolean_t    need_refresh;
-} afr_inode_ctx_t;
 
 typedef struct afr_spbc_timeout {
         call_frame_t *frame;
@@ -1274,4 +1277,7 @@ afr_write_subvol_set (call_frame_t *frame, xlator_t *this);
 
 int
 afr_write_subvol_reset (call_frame_t *frame, xlator_t *this);
+
+int
+afr_set_inode_local (xlator_t *this, afr_local_t *local, inode_t *inode);
 #endif /* __AFR_H__ */

@@ -477,7 +477,7 @@ afr_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 	if (!local->fd_ctx)
 		goto out;
 
-	local->inode = inode_ref (loc->inode);
+        local->inode = inode_ref (loc->inode);
 	local->parent = inode_ref (loc->parent);
 
         local->op                = GF_FOP_CREATE;
@@ -609,7 +609,7 @@ afr_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 		goto out;
 
         loc_copy (&local->loc, loc);
-	local->inode = inode_ref (loc->inode);
+        local->inode = inode_ref (loc->inode);
 	local->parent = inode_ref (loc->parent);
 
         local->op               = GF_FOP_MKNOD;
@@ -740,7 +740,7 @@ afr_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 		goto out;
 
         loc_copy (&local->loc, loc);
-	local->inode = inode_ref (loc->inode);
+        local->inode = inode_ref (loc->inode);
 	local->parent = inode_ref (loc->parent);
 
         local->cont.mkdir.mode  = mode;
@@ -877,7 +877,7 @@ afr_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         loc_copy (&local->loc,    oldloc);
         loc_copy (&local->newloc, newloc);
 
-	local->inode = inode_ref (oldloc->inode);
+        local->inode = inode_ref (oldloc->inode);
 	local->parent = inode_ref (newloc->parent);
 
         if (xdata)
@@ -1005,7 +1005,7 @@ afr_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
 		goto out;
 
         loc_copy (&local->loc, loc);
-	local->inode = inode_ref (loc->inode);
+        local->inode = inode_ref (loc->inode);
 	local->parent = inode_ref (loc->parent);
 
         local->cont.symlink.linkpath = gf_strdup (linkpath);
@@ -1142,7 +1142,7 @@ afr_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         loc_copy (&local->loc,    oldloc);
         loc_copy (&local->newloc, newloc);
 
-	local->inode = inode_ref (oldloc->inode);
+        local->inode = inode_ref (oldloc->inode);
 	local->parent = inode_ref (oldloc->parent);
 	local->parent2 = inode_ref (newloc->parent);
 
@@ -1295,7 +1295,7 @@ afr_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
         loc_copy (&local->loc, loc);
         local->xflag = xflag;
 
-	local->inode = inode_ref (loc->inode);
+        local->inode = inode_ref (loc->inode);
 	local->parent = inode_ref (loc->parent);
 
         if (xdata)
@@ -1421,7 +1421,7 @@ afr_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 
 
         loc_copy (&local->loc, loc);
-	local->inode = inode_ref (loc->inode);
+        local->inode = inode_ref (loc->inode);
 	local->parent = inode_ref (loc->parent);
 
         local->cont.rmdir.flags = flags;
