@@ -510,6 +510,7 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
         afr_local_t *local = NULL;
         int op_errno = ENOMEM;
+        int ret = -1;
 
 	local = AFR_FRAME_INIT (frame, op_errno);
 	if (!local)
@@ -532,7 +533,9 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		goto out;
 
         local->fd = fd_ref (fd);
-	local->inode = inode_ref (fd->inode);
+        ret = afr_set_inode_local (this, local, fd->inode);
+        if (ret)
+                goto out;
 
 	if (dict_set_uint32 (local->xdata_req, GLUSTERFS_OPEN_FD_COUNT, 4)) {
 		op_errno = ENOMEM;
@@ -657,7 +660,9 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
         local->transaction.unwind = afr_truncate_unwind;
 
         loc_copy (&local->loc, loc);
-	local->inode = inode_ref (loc->inode);
+        ret = afr_set_inode_local (this, local, loc->inode);
+        if (ret)
+                goto out;
 
         local->op = GF_FOP_TRUNCATE;
 
@@ -771,7 +776,9 @@ afr_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 		goto out;
 
         local->fd = fd_ref (fd);
-	local->inode = inode_ref (fd->inode);
+        ret = afr_set_inode_local (this, local, fd->inode);
+        if (ret)
+                goto out;
 
         local->op = GF_FOP_FTRUNCATE;
 
@@ -889,7 +896,9 @@ afr_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc, struct iatt *buf,
         local->transaction.unwind = afr_setattr_unwind;
 
         loc_copy (&local->loc, loc);
-	local->inode = inode_ref (loc->inode);
+        ret = afr_set_inode_local (this, local, loc->inode);
+        if (ret)
+                goto out;
 
 	local->op = GF_FOP_SETATTR;
 
@@ -994,7 +1003,9 @@ afr_fsetattr (call_frame_t *frame, xlator_t *this,
         local->transaction.unwind = afr_fsetattr_unwind;
 
         local->fd                 = fd_ref (fd);
-	local->inode = inode_ref (fd->inode);
+        ret = afr_set_inode_local (this, local, fd->inode);
+        if (ret)
+                goto out;
 
 	local->op = GF_FOP_FSETATTR;
 
@@ -1636,7 +1647,9 @@ afr_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         local->transaction.unwind = afr_setxattr_unwind;
 
         loc_copy (&local->loc, loc);
-	local->inode = inode_ref (loc->inode);
+        ret = afr_set_inode_local (this, local, loc->inode);
+        if (ret)
+                goto out;
 
         local->transaction.main_frame = frame;
         local->transaction.start   = LLONG_MAX - 1;
@@ -1748,7 +1761,9 @@ afr_fsetxattr (call_frame_t *frame, xlator_t *this,
         local->transaction.unwind = afr_fsetxattr_unwind;
 
         local->fd                 = fd_ref (fd);
-	local->inode = inode_ref (fd->inode);
+        ret = afr_set_inode_local (this, local, fd->inode);
+        if (ret)
+                goto out;
 
 	local->op = GF_FOP_FSETXATTR;
 
@@ -1861,7 +1876,9 @@ afr_removexattr (call_frame_t *frame, xlator_t *this,
         local->transaction.unwind = afr_removexattr_unwind;
 
         loc_copy (&local->loc, loc);
-	local->inode = inode_ref (loc->inode);
+        ret = afr_set_inode_local (this, local, loc->inode);
+        if (ret)
+                goto out;
 
 	local->op = GF_FOP_REMOVEXATTR;
 
@@ -1968,7 +1985,9 @@ afr_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         local->transaction.unwind = afr_fremovexattr_unwind;
 
         local->fd = fd_ref (fd);
-	local->inode = inode_ref (fd->inode);
+        ret = afr_set_inode_local (this, local, fd->inode);
+        if (ret)
+                goto out;
 
 	local->op = GF_FOP_FREMOVEXATTR;
 
@@ -2063,7 +2082,9 @@ afr_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
         local->cont.fallocate.len = len;
 
         local->fd = fd_ref (fd);
-	local->inode = inode_ref (fd->inode);
+        ret = afr_set_inode_local (this, local, fd->inode);
+        if (ret)
+                goto out;
 
 	if (xdata)
 		local->xdata_req = dict_copy_with_ref (xdata, NULL);
@@ -2175,7 +2196,9 @@ afr_discard (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         local->cont.discard.len = len;
 
         local->fd = fd_ref (fd);
-	local->inode = inode_ref (fd->inode);
+        ret = afr_set_inode_local (this, local, fd->inode);
+        if (ret)
+                goto out;
 
 	if (xdata)
 		local->xdata_req = dict_copy_with_ref (xdata, NULL);
@@ -2284,7 +2307,9 @@ afr_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         local->cont.zerofill.len = len;
 
         local->fd = fd_ref (fd);
-	local->inode = inode_ref (fd->inode);
+        ret = afr_set_inode_local (this, local, fd->inode);
+        if (ret)
+                goto out;
 
 	if (xdata)
 		local->xdata_req = dict_copy_with_ref (xdata, NULL);
@@ -2396,7 +2421,9 @@ afr_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         local->transaction.unwind = afr_xattrop_unwind;
 
         loc_copy (&local->loc, loc);
-	local->inode = inode_ref (loc->inode);
+        ret = afr_set_inode_local (this, local, loc->inode);
+        if (ret)
+                goto out;
 
 	local->op = GF_FOP_XATTROP;
 
@@ -2490,7 +2517,9 @@ afr_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
         local->transaction.unwind = afr_fxattrop_unwind;
 
 	local->fd = fd_ref (fd);
-	local->inode = inode_ref (fd->inode);
+        ret = afr_set_inode_local (this, local, fd->inode);
+        if (ret)
+                goto out;
 
 	local->op = GF_FOP_FXATTROP;
 

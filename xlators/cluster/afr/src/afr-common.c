@@ -145,6 +145,7 @@ __afr_inode_ctx_get (xlator_t *this, inode_t *inode, afr_inode_ctx_t **ctx)
                 tmp_ctx->spb_choice = -1;
                 tmp_ctx->read_subvol = 0;
                 tmp_ctx->write_subvol = 0;
+                tmp_ctx->lock_count = 0;
         } else {
                 tmp_ctx = (afr_inode_ctx_t *) ctx_int;
         }
@@ -190,7 +191,6 @@ __afr_set_in_flight_sb_status (xlator_t *this, afr_local_t *local,
                                inode_t *inode)
 {
         int                 i               = 0;
-        int                 ret             = -1;
         int                 txn_type        = 0;
         int                 count           = 0;
         int                 index           = -1;
@@ -203,16 +203,14 @@ __afr_set_in_flight_sb_status (xlator_t *this, afr_local_t *local,
         uint32_t            event           = 0;
         uint64_t            val             = 0;
         afr_private_t      *priv            = NULL;
-        afr_inode_ctx_t    *ctx             = NULL;
 
         priv = this->private;
         txn_type = local->transaction.type;
 
-        ret = __afr_inode_ctx_get (this, inode, &ctx);
-        if (ret < 0)
-                return ret;
-
-        val = ctx->write_subvol;
+        if (txn_type == AFR_DATA_TRANSACTION)
+                val = local->inode_ctx->write_subvol;
+        else
+                val = local->inode_ctx->read_subvol;
 
         metadatamap_old = metadatamap = (val & 0x000000000000ffff);
         datamap_old = datamap = (val & 0x00000000ffff0000) >> 16;
@@ -273,10 +271,11 @@ __afr_set_in_flight_sb_status (xlator_t *this, afr_local_t *local,
                 (((uint64_t) datamap) << 16) |
                 (((uint64_t) event) << 32);
 
-        ctx->write_subvol = val;
-        ctx->read_subvol = val;
+        if (txn_type == AFR_DATA_TRANSACTION)
+                local->inode_ctx->write_subvol = val;
+        local->inode_ctx->read_subvol = val;
 
-        return ret;
+        return 0;
 }
 
 gf_boolean_t
@@ -995,6 +994,81 @@ afr_accuse_smallfiles (xlator_t *this, struct afr_reply *replies,
 }
 
 int
+afr_readables_fill (call_frame_t *frame, xlator_t *this, inode_t *inode,
+                    unsigned char *data_accused,
+                    unsigned char *metadata_accused,
+                    unsigned char *data_readable,
+                    unsigned char *metadata_readable,
+                    struct afr_reply *replies)
+{
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+        dict_t *xdata = NULL;
+        int i = 0;
+        int ret = 0;
+        ia_type_t ia_type = IA_INVAL;
+
+        local = frame->local;
+        priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++) {
+                data_readable[i] = 1;
+                metadata_readable[i] = 1;
+        }
+        if (AFR_IS_ARBITER_BRICK (priv, ARBITER_BRICK_INDEX)) {
+                data_readable[ARBITER_BRICK_INDEX] =  0;
+                metadata_readable[ARBITER_BRICK_INDEX] = 0;
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (replies) {/* Lookup */
+                        if (!replies[i].valid || replies[i].op_ret == -1 ||
+                            (replies[i].xdata && dict_get (replies[i].xdata,
+                                                        GLUSTERFS_BAD_INODE))) {
+                                data_readable[i] = 0;
+                                metadata_readable[i] = 0;
+                                continue;
+                        }
+
+                        xdata = replies[i].xdata;
+                        ia_type = replies[i].poststat.ia_type;
+                } else {/* pre-op xattrop */
+                        xdata = local->transaction.pre_op_xdata[i];
+                        ia_type = inode->ia_type;
+                }
+
+                afr_accused_fill (this, xdata, data_accused,
+                                  (ia_type == IA_IFDIR) ?
+                                  AFR_ENTRY_TRANSACTION : AFR_DATA_TRANSACTION);
+
+                afr_accused_fill (this, xdata,
+                                  metadata_accused, AFR_METADATA_TRANSACTION);
+        }
+
+        if (replies && ia_type != IA_INVAL && ia_type != IA_IFDIR &&
+            /* We want to accuse small files only when we know for
+             * sure that there is no IO happening. Otherwise, the
+             * ia_sizes obtained in post-refresh replies may
+             * mismatch due to a race between inode-refresh and
+             * ongoing writes, causing spurious heal launches*/
+            !afr_is_possibly_under_txn (AFR_DATA_TRANSACTION, local, this)) {
+                afr_accuse_smallfiles (this, replies, data_accused);
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (data_accused[i]) {
+                        data_readable[i] = 0;
+                        ret = 1;
+                }
+                if (metadata_accused[i]) {
+                        metadata_readable[i] = 0;
+                        ret = 1;
+                }
+        }
+        return ret;
+}
+
+int
 afr_replies_interpret (call_frame_t *frame, xlator_t *this, inode_t *inode,
                        gf_boolean_t *start_heal)
 {
@@ -1019,62 +1093,9 @@ afr_replies_interpret (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	metadata_accused = alloca0 (priv->child_count);
 	metadata_readable = alloca0 (priv->child_count);
 
-	for (i = 0; i < priv->child_count; i++) {
-		data_readable[i] = 1;
-		metadata_readable[i] = 1;
-	}
-        if (AFR_IS_ARBITER_BRICK (priv, ARBITER_BRICK_INDEX)) {
-                data_readable[ARBITER_BRICK_INDEX] =  0;
-                metadata_readable[ARBITER_BRICK_INDEX] = 0;
-        }
-
-	for (i = 0; i < priv->child_count; i++) {
-		if (!replies[i].valid) {
-			data_readable[i] = 0;
-			metadata_readable[i] = 0;
-			continue;
-		}
-
-		if (replies[i].op_ret == -1) {
-			data_readable[i] = 0;
-			metadata_readable[i] = 0;
-			continue;
-		}
-
-                if (replies[i].xdata &&
-                    dict_get (replies[i].xdata, GLUSTERFS_BAD_INODE)) {
-			data_readable[i] = 0;
-			metadata_readable[i] = 0;
-			continue;
-                }
-
-		afr_accused_fill (this, replies[i].xdata, data_accused,
-				  (replies[i].poststat.ia_type == IA_IFDIR) ?
-				   AFR_ENTRY_TRANSACTION : AFR_DATA_TRANSACTION);
-
-		afr_accused_fill (this, replies[i].xdata,
-				  metadata_accused, AFR_METADATA_TRANSACTION);
-
-	}
-
-	if ((inode->ia_type != IA_IFDIR) &&
-            /* We want to accuse small files only when we know for sure that
-             * there is no IO happening. Otherwise, the ia_sizes obtained in
-             * post-refresh replies may  mismatch due to a race between inode-
-             * refresh and ongoing writes, causing spurious heal launches*/
-            !afr_is_possibly_under_txn (AFR_DATA_TRANSACTION, local, this))
-		afr_accuse_smallfiles (this, replies, data_accused);
-
-	for (i = 0; i < priv->child_count; i++) {
-		if (data_accused[i]) {
-			data_readable[i] = 0;
-			ret = 1;
-		}
-		if (metadata_accused[i]) {
-			metadata_readable[i] = 0;
-			ret = 1;
-		}
-	}
+        ret = afr_readables_fill (frame, this, inode, data_accused,
+                                  metadata_accused, data_readable,
+                                  metadata_readable, replies);
 
 	for (i = 0; i < priv->child_count; i++) {
                 if (start_heal && priv->child_up[i] &&
@@ -5583,13 +5604,13 @@ afr_transaction_local_init (afr_local_t *local, xlator_t *this)
         if (!local->transaction.pre_op)
                 goto out;
 
-        if (priv->arbiter_count == 1) {
-                local->transaction.pre_op_xdata =
-                        GF_CALLOC (sizeof (*local->transaction.pre_op_xdata),
-                                   priv->child_count, gf_afr_mt_dict_t);
-                if (!local->transaction.pre_op_xdata)
-                        goto out;
+        local->transaction.pre_op_xdata =
+                GF_CALLOC (sizeof (*local->transaction.pre_op_xdata),
+                           priv->child_count, gf_afr_mt_dict_t);
+        if (!local->transaction.pre_op_xdata)
+                goto out;
 
+        if (priv->arbiter_count == 1) {
                 local->transaction.pre_op_sources =
                         GF_CALLOC (sizeof (*local->transaction.pre_op_sources),
                                    priv->child_count, gf_afr_mt_char);
@@ -6567,42 +6588,45 @@ int
 afr_write_subvol_set (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t      *local = NULL;
-        afr_inode_ctx_t  *ctx   = NULL;
+        afr_private_t    *priv  = NULL;
+        unsigned char    *data_accused = NULL;
+        unsigned char    *metadata_accused = NULL;
+        unsigned char    *data_readable = NULL;
+        unsigned char    *metadata_readable = NULL;
+        uint16_t          datamap = 0;
+        uint16_t          metadatamap = 0;
         uint64_t          val   = 0;
-        uint64_t          val1  = 0;
-        int               ret   = -1;
+        int               event = 0;
+        int               i     = 0;
 
         local = frame->local;
+        priv = this->private;
+        data_accused = alloca0 (priv->child_count);
+        metadata_accused = alloca0 (priv->child_count);
+        data_readable = alloca0 (priv->child_count);
+        metadata_readable = alloca0 (priv->child_count);
+        event = local->event_generation;
+
+        afr_readables_fill (frame, this, local->inode, data_accused,
+                            metadata_accused, data_readable, metadata_readable,
+                            NULL);
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (data_readable[i])
+                        datamap |= (1 << i);
+                if (metadata_readable[i])
+                        metadatamap |= (1 << i);
+        }
+
+        val = ((uint64_t) metadatamap) |
+              (((uint64_t) datamap) << 16) |
+              (((uint64_t) event) << 32);
+
         LOCK(&local->inode->lock);
         {
-                ret = __afr_inode_ctx_get (this, local->inode, &ctx);
-                if (ret < 0) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                AFR_MSG_DICT_GET_FAILED,
-                                "ERROR GETTING INODE CTX");
-                        UNLOCK(&local->inode->lock);
-                        return ret;
-                }
-
-                val = ctx->write_subvol;
-                /*
-                 * We need to set the value of write_subvol to read_subvol in 2
-                 * cases:
-                 * 1. Initially when the value is 0. i.e., it's the first lock
-                 * request.
-                 * 2. If it's a metadata transaction. If metadata transactions
-                 * comes in between data transactions and we have a brick
-                 * disconnect, the next metadata transaction won't get the
-                 * latest value of readables, since we do resetting of
-                 * write_subvol in unlock code path only if it's a data
-                 * transaction. To handle those scenarios we need to set the
-                 * value of write_subvol to read_subvol in case of metadata
-                 * transactions.
-                */
-                if (val == 0 ||
-                    local->transaction.type == AFR_METADATA_TRANSACTION) {
-                        val1 = ctx->read_subvol;
-                        ctx->write_subvol = val1;
+                if (local->inode_ctx->write_subvol == 0 &&
+                    local->transaction.type == AFR_DATA_TRANSACTION) {
+                        local->inode_ctx->write_subvol = val;
                 }
         }
         UNLOCK (&local->inode->lock);
@@ -6614,23 +6638,37 @@ int
 afr_write_subvol_reset (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t      *local = NULL;
-        afr_inode_ctx_t  *ctx   = NULL;
-        int               ret   = -1;
 
         local = frame->local;
         LOCK(&local->inode->lock);
         {
-                ret = __afr_inode_ctx_get (this, local->inode, &ctx);
-                if (ret < 0) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                AFR_MSG_DICT_GET_FAILED,
-                                "ERROR GETTING INODE CTX");
-                        UNLOCK(&local->inode->lock);
-                        return ret;
-                }
-                ctx->write_subvol = 0;
+                local->inode_ctx->lock_count--;
+
+                if (!local->inode_ctx->lock_count)
+                        local->inode_ctx->write_subvol = 0;
         }
         UNLOCK(&local->inode->lock);
 
         return 0;
+}
+
+int
+afr_set_inode_local (xlator_t *this, afr_local_t *local, inode_t *inode)
+{
+        int ret = 0;
+
+        local->inode = inode_ref (inode);
+        LOCK(&local->inode->lock);
+        {
+                ret = __afr_inode_ctx_get (this, local->inode,
+                                           &local->inode_ctx);
+        }
+        UNLOCK (&local->inode->lock);
+        if (ret < 0) {
+                gf_msg_callingfn (this->name, GF_LOG_ERROR, ENOMEM,
+                                  AFR_MSG_INODE_CTX_GET_FAILED,
+                                  "Error getting inode ctx %s",
+                                  uuid_utoa (local->inode->gfid));
+        }
+        return ret;
 }
