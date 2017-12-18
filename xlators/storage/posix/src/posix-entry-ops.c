@@ -490,10 +490,6 @@ ignore:
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno,
-                             (loc)?loc->inode:NULL, &stbuf, &preparent,
-                             &postparent, NULL);
-
         if (op_ret < 0) {
                 if (entry_created) {
                         if (S_ISREG (mode))
@@ -505,6 +501,10 @@ out:
                 if (gfid_set)
                         posix_gfid_unset (this, xdata);
         }
+
+        STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno,
+                             (loc)?loc->inode:NULL, &stbuf, &preparent,
+                             &postparent, NULL);
 
         return 0;
 }
@@ -804,10 +804,6 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno,
-                             (loc)?loc->inode:NULL, &stbuf, &preparent,
-                             &postparent, xdata_rsp);
-
         if (op_ret < 0) {
                 if (entry_created)
                         sys_rmdir (real_path);
@@ -815,6 +811,10 @@ out:
                 if (gfid_set)
                         posix_gfid_unset (this, xdata);
         }
+
+        STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno,
+                             (loc)?loc->inode:NULL, &stbuf, &preparent,
+                             &postparent, xdata_rsp);
 
         if (xdata_rsp)
                 dict_unref (xdata_rsp);
@@ -1468,10 +1468,6 @@ ignore:
 out:
         SET_TO_OLD_FS_ID ();
 
-        STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno,
-                             (loc)?loc->inode:NULL, &stbuf, &preparent,
-                             &postparent, NULL);
-
         if (op_ret < 0) {
                 if (entry_created)
                         sys_unlink (real_path);
@@ -1479,6 +1475,10 @@ out:
                 if (gfid_set)
                         posix_gfid_unset (this, xdata);
         }
+
+        STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno,
+                             (loc)?loc->inode:NULL, &stbuf, &preparent,
+                             &postparent, NULL);
 
         return 0;
 }
@@ -2116,21 +2116,20 @@ fill_stat:
 out:
         SET_TO_OLD_FS_ID ();
 
-        if ((-1 == op_ret) && (_fd != -1)) {
-                sys_close (_fd);
-        }
-
-        STACK_UNWIND_STRICT (create, frame, op_ret, op_errno,
-                             fd, (loc)?loc->inode:NULL, &stbuf, &preparent,
-                             &postparent, xdata);
-
         if (op_ret < 0) {
+                if (_fd != -1)
+                        sys_close (_fd);
+
                 if (entry_created)
                         sys_unlink (real_path);
 
                 if (gfid_set)
                         posix_gfid_unset (this, xdata);
         }
+
+        STACK_UNWIND_STRICT (create, frame, op_ret, op_errno,
+                             fd, (loc)?loc->inode:NULL, &stbuf, &preparent,
+                             &postparent, xdata);
 
         return 0;
 }
