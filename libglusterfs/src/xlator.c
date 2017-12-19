@@ -170,7 +170,7 @@ xlator_volopt_dynload (char *xlator_type, void **dl_handle,
 
         gf_msg_trace ("xlator", 0, "attempt to load file %s", name);
 
-        handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
+        handle = dlopen (name, RTLD_NOW);
         if (!handle) {
                 gf_msg ("xlator", GF_LOG_WARNING, 0, LG_MSG_DLOPEN_FAILED,
                         "%s", dlerror ());
@@ -427,7 +427,7 @@ xlator_dynload (xlator_t *xl)
 
         gf_msg_trace ("xlator", 0, "attempt to load file %s", name);
 
-        handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
+        handle = dlopen (name, RTLD_NOW);
         if (!handle) {
                 gf_msg ("xlator", GF_LOG_WARNING, 0, LG_MSG_DLOPEN_FAILED,
                         "%s", dlerror ());
