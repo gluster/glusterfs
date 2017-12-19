@@ -36,24 +36,24 @@
         "GlusterFS Changelog | version: v%d.%d | encoding : %d\n"
 
 #define CHANGELOG_MAKE_SOCKET_PATH(brick_path, sockpath, len) do {      \
-                char md5_sum[MD5_DIGEST_LENGTH*2+1] = {0,};             \
-                md5_wrapper((unsigned char *) brick_path,               \
-                            strlen(brick_path),                         \
-                            md5_sum);                                   \
+                char xxh64[GF_XXH64_DIGEST_LENGTH*2+1] = {0,};          \
+                gf_xxh64_wrapper ((unsigned char *)brick_path,          \
+                                  strlen(brick_path),                   \
+                                  GF_XXHSUM64_DEFAULT_SEED, xxh64);     \
                 (void) snprintf (sockpath, len,                         \
-                                 CHANGELOG_UNIX_SOCK, md5_sum);         \
+                                 CHANGELOG_UNIX_SOCK, xxh64);           \
         } while (0)
 
 #define CHANGELOG_MAKE_TMP_SOCKET_PATH(brick_path, sockpath, len) do {  \
                 unsigned long pid = 0;                                  \
-                char md5_sum[MD5_DIGEST_LENGTH*2+1] = {0,};             \
+                char xxh64[GF_XXH64_DIGEST_LENGTH*2+1] = {0,};          \
                 pid = (unsigned long) getpid ();                        \
-                md5_wrapper((unsigned char *) brick_path,               \
-                            strlen(brick_path),                         \
-                            md5_sum);                                   \
+                gf_xxh64_wrapper ((unsigned char *)brick_path,          \
+                                  strlen(brick_path),                   \
+                                  GF_XXHSUM64_DEFAULT_SEED, xxh64);     \
                 (void) snprintf (sockpath,                              \
                                  len, CHANGELOG_TMP_UNIX_SOCK,          \
-                                 md5_sum, pid);                         \
+                                 xxh64, pid);                           \
         } while (0)
 
 

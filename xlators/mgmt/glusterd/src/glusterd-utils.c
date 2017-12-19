@@ -1842,10 +1842,12 @@ out:
 void
 glusterd_set_socket_filepath (char *sock_filepath, char *sockpath, size_t len)
 {
-        char md5_sum[MD5_DIGEST_LENGTH*2+1] = {0,};
+        char xxh64[GF_XXH64_DIGEST_LENGTH*2+1] = {0,};
 
-        md5_wrapper ((unsigned char *) sock_filepath, strlen(sock_filepath), md5_sum);
-        snprintf (sockpath, len, "%s/%s.socket", GLUSTERD_SOCK_DIR, md5_sum);
+        gf_xxh64_wrapper ((unsigned char *)sock_filepath,
+                          strlen(sock_filepath),
+                          GF_XXHSUM64_DEFAULT_SEED, xxh64);
+        snprintf (sockpath, len, "%s/%s.socket", GLUSTERD_SOCK_DIR, xxh64);
 }
 
 void
