@@ -42,7 +42,7 @@ __checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 replies[i].buf_has_zeroes = dict_get_str_boolean (xdata,
                                                    "buf-has-zeroes", _gf_false);
 	if (strong)
-		memcpy (local->replies[i].checksum, strong, MD5_DIGEST_LENGTH);
+            memcpy (local->replies[i].checksum, strong, SHA256_DIGEST_LENGTH);
 
 	syncbarrier_wake (&local->barrier);
 	return 0;
@@ -92,7 +92,7 @@ __afr_can_skip_data_block_heal (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 if (local->replies[i].valid) {
                         if (memcmp (local->replies[source].checksum,
                                     local->replies[i].checksum,
-                                    MD5_DIGEST_LENGTH)) {
+                                    SHA256_DIGEST_LENGTH)) {
                                 checksum_match = _gf_false;
                                 break;
                         }

@@ -1180,7 +1180,7 @@ args_rchecksum_cbk_store (default_args_cbk_t *args,
                 args->weak_checksum =
                         weak_checksum;
                 args->strong_checksum =
-                        memdup (strong_checksum, MD5_DIGEST_LENGTH);
+                        memdup (strong_checksum, SHA256_DIGEST_LENGTH);
         }
         if (xdata)
                 args->xdata = dict_ref (xdata);

@@ -4852,7 +4852,7 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
         ssize_t                 bytes_read      = 0;
         int32_t                 weak_checksum   = 0;
         int32_t                 zerofillcheck   = 0;
-        unsigned char           strong_checksum[MD5_DIGEST_LENGTH] = {0};
+        unsigned char           strong_checksum[SHA256_DIGEST_LENGTH] = {0};
         struct posix_private    *priv           = NULL;
         dict_t                  *rsp_xdata      = NULL;
         gf_boolean_t            buf_has_zeroes  = _gf_false;
@@ -4862,7 +4862,6 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (fd, out);
 
         priv = this->private;
-        memset (strong_checksum, 0, MD5_DIGEST_LENGTH);
 
         alloc_buf = _page_aligned_alloc (len, &buf);
         if (!alloc_buf) {

@@ -2148,7 +2148,7 @@ bd_rchecksum (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         char           *buf             = NULL;
         int32_t         weak_checksum   = 0;
         bd_fd_t        *bd_fd           = NULL;
-        unsigned char   strong_checksum[MD5_DIGEST_LENGTH] = {0};
+        unsigned char   strong_checksum[SHA256_DIGEST_LENGTH] = {0};
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -2161,8 +2161,6 @@ bd_rchecksum (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                             len, xdata);
                 return 0;
         }
-
-        memset (strong_checksum, 0, MD5_DIGEST_LENGTH);
 
         alloc_buf = page_aligned_alloc (len, &buf);
         if (!alloc_buf) {

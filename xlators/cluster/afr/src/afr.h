@@ -319,7 +319,7 @@ struct afr_reply {
 	struct iatt preparent2;
 	struct iatt postparent2;
         /* For rchecksum */
-	uint8_t checksum[MD5_DIGEST_LENGTH];
+	uint8_t checksum[SHA256_DIGEST_LENGTH];
         gf_boolean_t buf_has_zeroes;
         /* For lookup */
         int8_t need_heal;

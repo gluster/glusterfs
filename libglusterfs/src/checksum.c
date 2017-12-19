@@ -8,9 +8,10 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <openssl/md5.h>
+#include <openssl/sha.h>
 #include <zlib.h>
 #include <stdint.h>
+#include <string.h>
 
 /*
  * The "weak" checksum required for the rsync algorithm.
@@ -30,7 +31,8 @@ gf_rsync_weak_checksum (unsigned char *buf, size_t len)
  * The "strong" checksum required for the rsync algorithm.
  */
 void
-gf_rsync_strong_checksum (unsigned char *data, size_t len, unsigned char *md5)
+gf_rsync_strong_checksum (unsigned char *data, size_t len,
+                          unsigned char *sha256_md)
 {
-        MD5 (data, len, md5);
+        SHA256((const unsigned char *)data, len, sha256_md);
 }
