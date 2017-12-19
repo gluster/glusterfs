@@ -9,6 +9,7 @@
 */
 
 #include <ctype.h>
+#include <dlfcn.h>
 #include <sys/uio.h>
 #include <Python.h>
 
@@ -2331,6 +2332,7 @@ init (xlator_t *this)
 	PyObject                *error_bt       = NULL;
 	static gf_boolean_t      py_inited      = _gf_false;
         void *                   err_cleanup    = &&err_return;
+        char                     libpython[16];
 
         if (dict_get_str(this->options,"module-name",&module_name) != 0) {
                 gf_log (this->name, GF_LOG_ERROR, "missing module-name");
@@ -2345,6 +2347,23 @@ init (xlator_t *this)
         err_cleanup = &&err_free_priv;
 
 	if (!py_inited) {
+                /* FIXME:
+                 * This hack is necessary because glusterfs (rightly) loads
+                 * glupy.so with RTLD_LOCAL but glupy needs libpython to be
+                 * loaded with RTLD_GLOBAL even though glupy is correctly
+                 * linked with libpython.
+                 * This is needed because one of the internal modules of
+                 * python 2.x (lib-dynload/_struct.so) does not explicitly
+                 * link with libpython.
+                 */
+                snprintf(libpython, sizeof(libpython), "libpython%d.%d.so",
+                         PY_MAJOR_VERSION, PY_MINOR_VERSION);
+                if (!dlopen (libpython, RTLD_NOW|RTLD_GLOBAL)) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                LG_MSG_DLOPEN_FAILED, "dlopen(%s) failed: %s",
+                                libpython, dlerror ());
+                }
+
 	        /* 
                  * This must be done before Py_Initialize(),
                  * because it will duplicate the environment,
