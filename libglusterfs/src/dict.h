@@ -69,6 +69,7 @@ struct _data {
         char          *data;
         gf_atomic_t    refcount;
         gf_lock_t      lock;
+        gf_dict_data_type_t data_type;
 };
 
 struct _data_pair {

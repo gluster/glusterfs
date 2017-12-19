@@ -418,4 +418,8 @@ gf_proto_cache_invalidation_to_upcall (xlator_t *this,
   out:
         return ret;
 }
+
+extern int dict_to_xdr (dict_t *this, gfx_dict *xdict);
+extern int xdr_to_dict (gfx_dict *xdict, dict_t **to);
+
 #endif /* !_GLUSTERFS3_H */

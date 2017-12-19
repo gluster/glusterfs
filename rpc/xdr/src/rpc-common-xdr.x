@@ -17,6 +17,7 @@
  * not captured in any section specific file */
 
 %#include "xdr-common.h"
+%#include "glusterfs-fops.h"
 
 struct auth_glusterfs_parms_v2 {
         int pid;
@@ -64,3 +65,25 @@ struct gf_common_rsp {
        int    op_errno;
        opaque   xdata<>; /* Extra data */
 } ;
+
+
+union gfx_value switch (gf_dict_data_type_t type) {
+        case GF_DATA_TYPE_INT:
+                hyper value_int;
+        case GF_DATA_TYPE_UINT:
+                unsigned hyper value_uint;
+        case GF_DATA_TYPE_DOUBLE:
+                double value_dbl;
+        case GF_DATA_TYPE_STR:
+                opaque val_string<>;
+};
+
+struct gfx_dict_pair {
+       opaque key<>;
+       gfx_value value;
+};
+
+struct gfx_dict {
+       unsigned int count;
+       gfx_dict_pair pairs<>;
+};
