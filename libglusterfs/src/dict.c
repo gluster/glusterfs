@@ -28,10 +28,29 @@
 #include "statedump.h"
 #include "libglusterfs-messages.h"
 
+#include "glusterfs-fops.h"
+#include "rpc-common-xdr.h"
+
 struct dict_cmp {
         dict_t *dict;
         gf_boolean_t (*value_ignore) (char *k);
 };
+
+#define VALIDATE_DATA_AND_LOG(data, type, ret_val) do {                 \
+                if (!data || !data->data) {                             \
+                        gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL, \
+                                          LG_MSG_INVALID_ARG, "data is NULL"); \
+                        return ret_val;                                 \
+                }                                                       \
+                                                                        \
+                if (data->data_type != type) {                          \
+                        gf_msg_callingfn ("dict", GF_LOG_INFO, EINVAL,  \
+                                          LG_MSG_INVALID_ARG,           \
+                                          "%s type asked, has %s type", \
+                                          data_type_name[type],         \
+                                          data_type_name[data->data_type]); \
+                }                                                       \
+        } while (0)
 
 data_t *
 get_new_data ()
@@ -253,6 +272,7 @@ data_copy (data_t *old)
                         if (!newdata->data)
                                 goto err_out;
                 }
+                newdata->data_type = old->data_type;
         }
 
         LOCK_INIT (&newdata->lock);
@@ -704,6 +724,7 @@ int_to_data (int64_t value)
                 return NULL;
         }
         data->len = strlen (data->data) + 1;
+        data->data_type = GF_DATA_TYPE_INT;
 
         return data;
 }
@@ -723,6 +744,7 @@ data_from_int64 (int64_t value)
                 return NULL;
         }
         data->len = strlen (data->data) + 1;
+        data->data_type = GF_DATA_TYPE_INT;
 
         return data;
 }
@@ -743,6 +765,7 @@ data_from_int32 (int32_t value)
         }
 
         data->len = strlen (data->data) + 1;
+        data->data_type = GF_DATA_TYPE_INT;
 
         return data;
 }
@@ -763,6 +786,7 @@ data_from_int16 (int16_t value)
         }
 
         data->len = strlen (data->data) + 1;
+        data->data_type = GF_DATA_TYPE_INT;
 
         return data;
 }
@@ -783,6 +807,7 @@ data_from_int8 (int8_t value)
         }
 
         data->len = strlen (data->data) + 1;
+        data->data_type = GF_DATA_TYPE_INT;
 
         return data;
 }
@@ -803,6 +828,7 @@ data_from_uint64 (uint64_t value)
         }
 
         data->len = strlen (data->data) + 1;
+        data->data_type = GF_DATA_TYPE_UINT;
 
         return data;
 }
@@ -824,6 +850,7 @@ data_from_double (double value)
                 return NULL;
         }
         data->len = strlen (data->data) + 1;
+        data->data_type = GF_DATA_TYPE_DOUBLE;
 
         return data;
 }
@@ -845,6 +872,7 @@ data_from_uint32 (uint32_t value)
         }
 
         data->len = strlen (data->data) + 1;
+        data->data_type = GF_DATA_TYPE_UINT;
 
         return data;
 }
@@ -865,6 +893,7 @@ data_from_uint16 (uint16_t value)
         }
 
         data->len = strlen (data->data) + 1;
+        data->data_type = GF_DATA_TYPE_UINT;
 
         return data;
 }
@@ -882,6 +911,7 @@ data_from_ptr_common (void *value, gf_boolean_t is_static)
         data->data = value;
         data->is_static = is_static;
 
+        data->data_type = GF_DATA_TYPE_PTR;
         return data;
 }
 
@@ -899,6 +929,7 @@ str_to_data (char *value)
                 return NULL;
         }
         data->len = strlen (value) + 1;
+        data->data_type = GF_DATA_TYPE_STR;
 
         data->data = value;
         data->is_static = 1;
@@ -921,6 +952,7 @@ data_from_dynstr (char *value)
                 return NULL;
         data->len = strlen (value) + 1;
         data->data = value;
+        data->data_type = GF_DATA_TYPE_STR;
 
         return data;
 }
@@ -935,6 +967,7 @@ data_from_dynptr (void *value, int32_t len)
 
         data->len = len;
         data->data = value;
+        data->data_type = GF_DATA_TYPE_PTR;
 
         return data;
 }
@@ -956,18 +989,24 @@ bin_to_data (void *value, int32_t len)
         data->is_static = 1;
         data->len = len;
         data->data = value;
+        data->data_type = GF_DATA_TYPE_PTR;
 
         return data;
 }
 
+static char *data_type_name[GF_DATA_TYPE_MAX] = {
+        [GF_DATA_TYPE_UNKNOWN] = "unknown",
+        [GF_DATA_TYPE_INT] = "integer",
+        [GF_DATA_TYPE_UINT] = "unsigned integer",
+        [GF_DATA_TYPE_DOUBLE] = "float",
+        [GF_DATA_TYPE_STR] = "string",
+        [GF_DATA_TYPE_PTR] = "pointer",
+};
+
 int64_t
 data_to_int64 (data_t *data)
 {
-        if (!data) {
-                gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
-                                  LG_MSG_INVALID_ARG, "data is NULL");
-                return -1;
-        }
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, -1);
 
         char *str = alloca (data->len + 1);
         if (!str)
@@ -981,11 +1020,7 @@ data_to_int64 (data_t *data)
 int32_t
 data_to_int32 (data_t *data)
 {
-        if (!data) {
-                gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
-                                  LG_MSG_INVALID_ARG, "data is NULL");
-                return -1;
-        }
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, -1);
 
         char *str = alloca (data->len + 1);
         if (!str)
@@ -1000,14 +1035,9 @@ data_to_int32 (data_t *data)
 int16_t
 data_to_int16 (data_t *data)
 {
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, -1);
+
         int16_t value = 0;
-
-        if (!data) {
-                gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
-                                  LG_MSG_INVALID_ARG, "data is NULL");
-                return -1;
-        }
-
         char *str = alloca (data->len + 1);
         if (!str)
                 return -1;
@@ -1033,14 +1063,9 @@ data_to_int16 (data_t *data)
 int8_t
 data_to_int8 (data_t *data)
 {
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, -1);
+
         int8_t value = 0;
-
-        if (!data) {
-                gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
-                                  LG_MSG_INVALID_ARG, "data is NULL");
-                return -1;
-        }
-
         char *str = alloca (data->len + 1);
         if (!str)
                 return -1;
@@ -1066,8 +1091,8 @@ data_to_int8 (data_t *data)
 uint64_t
 data_to_uint64 (data_t *data)
 {
-        if (!data)
-                return -1;
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, -1);
+
         char *str = alloca (data->len + 1);
         if (!str)
                 return -1;
@@ -1081,8 +1106,7 @@ data_to_uint64 (data_t *data)
 uint32_t
 data_to_uint32 (data_t *data)
 {
-        if (!data)
-                return -1;
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, -1);
 
         char *str = alloca (data->len + 1);
         if (!str)
@@ -1097,11 +1121,9 @@ data_to_uint32 (data_t *data)
 uint16_t
 data_to_uint16 (data_t *data)
 {
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, -1);
+
 	uint16_t value = 0;
-
-        if (!data)
-                return -1;
-
         char *str = alloca (data->len + 1);
         if (!str)
                 return -1;
@@ -1127,14 +1149,9 @@ data_to_uint16 (data_t *data)
 uint8_t
 data_to_uint8 (data_t *data)
 {
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, -1);
+
 	uint32_t value = 0;
-
-        if (!data) {
-		gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
-                                  LG_MSG_INVALID_ARG, "data is NULL");
-                return -1;
-	}
-
         char *str = alloca (data->len + 1);
         if (!str)
                 return -1;
@@ -1159,33 +1176,21 @@ data_to_uint8 (data_t *data)
 char *
 data_to_str (data_t *data)
 {
-        if (!data) {
-                gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
-                                  LG_MSG_INVALID_ARG, "data is NULL");
-                return NULL;
-        }
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_STR, NULL);
         return data->data;
 }
 
 void *
 data_to_ptr (data_t *data)
 {
-        if (!data) {
-                gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
-                                  LG_MSG_INVALID_ARG, "data is NULL");
-                return NULL;
-        }
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_PTR, NULL);
         return data->data;
 }
 
 void *
 data_to_bin (data_t *data)
 {
-        if (!data) {
-                gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
-                                  LG_MSG_INVALID_ARG, "data is NULL");
-                return NULL;
-        }
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_PTR, NULL);
         return data->data;
 }
 
@@ -1701,6 +1706,8 @@ dict_get_int8 (dict_t *this, char *key, int8_t *val)
                 goto err;
         }
 
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, -EINVAL);
+
         ret = data_to_int8_ptr (data, val);
 
 err:
@@ -1745,6 +1752,8 @@ dict_get_int16 (dict_t *this, char *key, int16_t *val)
         if (ret != 0) {
                 goto err;
         }
+
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, -EINVAL);
 
         ret = data_to_int16_ptr (data, val);
 
@@ -1791,6 +1800,8 @@ dict_get_int32 (dict_t *this, char *key, int32_t *val)
                 goto err;
         }
 
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, -EINVAL);
+
         ret = data_to_int32_ptr (data, val);
 
 err:
@@ -1835,6 +1846,8 @@ dict_get_int64 (dict_t *this, char *key, int64_t *val)
         if (ret != 0) {
                 goto err;
         }
+
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, -EINVAL);
 
         ret = data_to_int64_ptr (data, val);
 
@@ -1881,6 +1894,8 @@ dict_get_uint16 (dict_t *this, char *key, uint16_t *val)
                 goto err;
         }
 
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, -EINVAL);
+
         ret = data_to_uint16_ptr (data, val);
 
 err:
@@ -1925,6 +1940,8 @@ dict_get_uint32 (dict_t *this, char *key, uint32_t *val)
         if (ret != 0) {
                 goto err;
         }
+
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, -EINVAL);
 
         ret = data_to_uint32_ptr (data, val);
 
@@ -1972,6 +1989,8 @@ dict_get_uint64 (dict_t *this, char *key, uint64_t *val)
                 goto err;
         }
 
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, -EINVAL);
+
         ret = data_to_uint64_ptr (data, val);
 
 err:
@@ -2016,6 +2035,8 @@ dict_get_double (dict_t *this, char *key, double *val)
         if (ret != 0) {
                 goto err;
         }
+
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_DOUBLE, -EINVAL);
 
         ret = data_to_double_ptr (data, val);
 
@@ -2101,6 +2122,8 @@ dict_get_ptr (dict_t *this, char *key, void **ptr)
                 goto err;
         }
 
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_PTR, -EINVAL);
+
         ret = data_to_ptr_common (data, ptr);
         if (ret != 0) {
                 goto err;
@@ -2128,6 +2151,8 @@ dict_get_ptr_and_len (dict_t *this, char *key, void **ptr, int *len)
         if (ret != 0) {
                 goto err;
         }
+
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_PTR, -EINVAL);
 
 	*len = data->len;
 
@@ -2173,15 +2198,13 @@ dict_get_str (dict_t *this, char *key, char **str)
         if (!this || !key || !str) {
                 goto err;
         }
-
         ret = dict_get_with_ref (this, key, &data);
         if (ret < 0) {
                 goto err;
         }
 
-        if (!data || !data->data) {
-                goto err;
-        }
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_STR, -EINVAL);
+
         *str = data->data;
 
 err:
@@ -2290,9 +2313,8 @@ dict_get_bin (dict_t *this, char *key, void **bin)
                 goto err;
         }
 
-        if (!data || !data->data) {
-                goto err;
-        }
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_PTR, ret);
+
         *bin = data->data;
 
 err:
@@ -2408,12 +2430,7 @@ dict_get_str_boolean (dict_t *this, char *key, int default_val)
                 goto err;
         }
 
-        GF_ASSERT (data);
-
-        if (!data->data) {
-                ret = -1;
-                goto err;
-        }
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, -EINVAL);
 
         ret = gf_string2boolean (data->data, &boo);
         if (ret == -1)
@@ -2823,6 +2840,7 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
                 }
                 value->len  = vallen;
                 value->data = memdup (buf, vallen);
+                value->data_type = GF_DATA_TYPE_STR;
                 value->is_static = 0;
                 buf += vallen;
 
@@ -3135,4 +3153,138 @@ dict_has_key_from_array (dict_t *dict, char **strings, gf_boolean_t *result)
 unlock:
         UNLOCK (&dict->lock);
         return 0;
+}
+
+/* dict_to_xdr () */
+int
+dict_to_xdr (dict_t *this, gfx_dict *dict)
+{
+        int ret = -1;
+        int i = 0;
+        int index = 0;
+        data_pair_t *dpair = NULL;
+        gfx_dict_pair *xpair = NULL;
+
+        if (!this || !dict)
+                goto out;
+
+        dict->pairs.pairs_val = GF_CALLOC (1, (this->count *
+                                               sizeof (gfx_dict_pair)),
+                                           gf_common_mt_char);
+        if (!dict->pairs.pairs_val)
+                goto out;
+
+        dpair = this->members_list;
+        for (i = 0; i < this->count; i++) {
+                xpair = &dict->pairs.pairs_val[index];
+
+                xpair->value.type = dpair->value->data_type;
+                xpair->key.key_val = dpair->key;
+                xpair->key.key_len = strlen (dpair->key) + 1;
+
+                switch (dpair->value->data_type) {
+                        /* Add more type here */
+                case GF_DATA_TYPE_INT:
+                        index++;
+                        data_to_int64_ptr (dpair->value, &xpair->value.gfx_value_u.value_int);
+                        break;
+                case GF_DATA_TYPE_UINT:
+                        index++;
+                        data_to_uint64_ptr (dpair->value, &xpair->value.gfx_value_u.value_uint);
+                        break;
+                case GF_DATA_TYPE_DOUBLE:
+                        index++;
+                        data_to_double_ptr (dpair->value,
+                                            &xpair->value.gfx_value_u.value_dbl);
+                        break;
+                case GF_DATA_TYPE_STR:
+                        index++;
+                        xpair->value.gfx_value_u.val_string.val_string_val = dpair->value->data;
+                        xpair->value.gfx_value_u.val_string.val_string_len = dpair->value->len;
+                        break;
+                default:
+                        /* Unknown type and ptr type is not sent on wire */
+                        gf_log ("", GF_LOG_INFO, "%s is not sent on wire", dpair->key);
+                        break;
+                }
+
+                dpair = dpair->next;
+        }
+
+        dict->pairs.pairs_len = index;
+        dict->count = index;
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+xdr_to_dict (gfx_dict *dict, dict_t **to)
+{
+        int ret = -1;
+        int index = 0;
+        char *key = NULL;
+        char *value = NULL;
+        gfx_dict_pair *xpair = NULL;
+        dict_t *this = NULL;
+
+        if (!to || !dict)
+                goto out;
+
+        this = dict_new();
+        if (!this)
+                goto out;
+
+        for (index = 0; index < dict->pairs.pairs_len; index++) {
+                ret = -1;
+                xpair = &dict->pairs.pairs_val[index];
+
+                key = xpair->key.key_val;
+                switch (xpair->value.type) {
+                        /* Add more type here */
+                case GF_DATA_TYPE_INT:
+                        ret = dict_set_int64 (this, key,
+                                    xpair->value.gfx_value_u.value_int);
+                        break;
+                case GF_DATA_TYPE_UINT:
+                        ret = dict_set_uint64 (this, key,
+                                    xpair->value.gfx_value_u.value_uint);
+                        break;
+                case GF_DATA_TYPE_DOUBLE:
+                        ret = dict_set_double (this, key,
+                                    xpair->value.gfx_value_u.value_dbl);
+                        break;
+                case GF_DATA_TYPE_STR:
+                        value = gf_strdup (xpair->value.gfx_value_u.val_string.val_string_val);
+                        if (!value) {
+                                errno = ENOMEM;
+                                goto out;
+                        }
+                        free (xpair->value.gfx_value_u.val_string.val_string_val);
+                        ret = dict_set_dynstr (this, key, value);
+                        break;
+                default:
+                        ret = 0;
+                        /* Unknown type and ptr type is not sent on wire */
+                        break;
+                }
+                if (ret) {
+                        gf_msg_debug ("dict", ENOMEM,
+                                      "failed to set the key (%s) into dict",
+                                      key);
+                }
+                free (xpair->key.key_val);
+        }
+
+        free (dict->pairs.pairs_val);
+        ret = 0;
+
+        /* If everything is fine, assign the dictionary to target */
+        *to = this;
+        this = NULL;
+out:
+        if (this)
+                dict_unref (this);
+
+        return ret;
 }

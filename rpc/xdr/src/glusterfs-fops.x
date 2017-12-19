@@ -231,3 +231,13 @@ enum gf_upcall_flags_t {
         GF_UPCALL_LEASE_RECALL,
         GF_UPCALL_FLAGS_MAXVALUE
 };
+
+enum gf_dict_data_type_t {
+        GF_DATA_TYPE_UNKNOWN,
+        GF_DATA_TYPE_INT,
+        GF_DATA_TYPE_UINT,
+        GF_DATA_TYPE_DOUBLE,
+        GF_DATA_TYPE_STR,
+        GF_DATA_TYPE_PTR,
+        GF_DATA_TYPE_MAX
+};
