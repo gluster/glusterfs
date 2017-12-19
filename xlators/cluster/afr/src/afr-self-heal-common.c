@@ -648,7 +648,7 @@ afr_reply_copy (struct afr_reply *dst, struct afr_reply *src)
 	if (dst->xdata)
 		dict_unref (dst->xdata);
 	dst->xdata = xdata;
-	memcpy (dst->checksum, src->checksum, MD5_DIGEST_LENGTH);
+	memcpy (dst->checksum, src->checksum, SHA256_DIGEST_LENGTH);
 }
 
 void

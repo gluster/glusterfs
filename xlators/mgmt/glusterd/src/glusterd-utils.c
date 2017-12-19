@@ -1863,7 +1863,7 @@ glusterd_set_brick_socket_filepath (glusterd_volinfo_t *volinfo,
         char                    sock_filepath[PATH_MAX] = {0,};
 
         expected_file_len = strlen (GLUSTERD_SOCK_DIR) + strlen ("/") +
-                            MD5_DIGEST_LENGTH*2 + strlen (".socket") + 1;
+                            SHA256_DIGEST_LENGTH*2 + strlen (".socket") + 1;
         GF_ASSERT (len >= expected_file_len);
         this = THIS;
         GF_ASSERT (this);

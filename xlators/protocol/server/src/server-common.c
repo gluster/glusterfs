@@ -298,7 +298,7 @@ server_post_rchecksum (gfs3_rchecksum_rsp *rsp, uint32_t weak_checksum,
         rsp->weak_checksum = weak_checksum;
 
         rsp->strong_checksum.strong_checksum_val = (char *)strong_checksum;
-        rsp->strong_checksum.strong_checksum_len = MD5_DIGEST_LENGTH;
+        rsp->strong_checksum.strong_checksum_len = SHA256_DIGEST_LENGTH;
 
 }
 
