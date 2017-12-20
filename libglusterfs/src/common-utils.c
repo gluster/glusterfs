@@ -4931,3 +4931,17 @@ get_struct_variable (int mem_num, gf_gsync_status_t *sts_val)
 out:
         return NULL;
 }
+
+/* * Safe wrapper function for strncpy.
+ * This wrapper makes sure that when there is no null byte among the first n in
+ * source srting for strncpy function call, the string placed in dest will be
+ * null-terminated.
+ */
+
+char *
+gf_strncpy (char *dest, const char *src, const size_t dest_size)
+{
+        strncpy (dest, src, dest_size - 1);
+        dest[dest_size - 1] = '\0';
+        return dest;
+}

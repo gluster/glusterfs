@@ -948,4 +948,7 @@ glusterfs_compute_sha256 (const unsigned char *content, size_t size,
 char*
 get_struct_variable (int mem_num, gf_gsync_status_t *sts_val);
 
+char *
+gf_strncpy (char *dest, const char *src, const size_t dest_size);
+
 #endif /* _COMMON_UTILS_H */

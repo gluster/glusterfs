@@ -4009,17 +4009,3 @@ glusterd_get_snap_status_str (glusterd_snap_t *snapinfo, char *snap_status_str)
 out:
         return ret;
 }
-
-/* Safe wrapper function for strncpy.
- * This wrapper makes sure that when there is no null byte among the first n in
- * source srting for strncpy function call, the string placed in dest will be
- * null-terminated.
- */
-
-char *
-gf_strncpy (char *dest, const char *src, const size_t dest_size)
-{
-        strncpy (dest, src, dest_size - 1);
-        dest[dest_size - 1] = '\0';
-        return dest;
-}

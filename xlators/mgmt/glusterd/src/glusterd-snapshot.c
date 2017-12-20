@@ -4551,7 +4551,7 @@ glusterd_create_snap_object (dict_t *dict, dict_t *rsp_dict)
                 goto out;
         }
 
-        strcpy (snap->snapname, snapname);
+        gf_strncpy (snap->snapname, snapname, sizeof(snap->snapname));
         gf_uuid_copy (snap->snap_id, *snap_id);
         snap->time_stamp = (time_t)time_stamp;
         /* Set the status as GD_SNAP_STATUS_INIT and once the backend snapshot
@@ -4896,9 +4896,10 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
         ret = dict_get_str (dict, key, &value);
         if (!ret) {
                 /* Update the fstype in original brickinfo as well */
-                strcpy (original_brickinfo->fstype, value);
-                strncpy (snap_brickinfo->fstype, value,
-                         (sizeof (snap_brickinfo->fstype) - 1));
+                gf_strncpy (original_brickinfo->fstype, value,
+                            sizeof(original_brickinfo->fstype));
+                gf_strncpy (snap_brickinfo->fstype, value,
+                            sizeof (snap_brickinfo->fstype));
         } else {
                 if (is_origin_glusterd (dict) == _gf_true)
                         add_missed_snap = _gf_true;
@@ -4909,8 +4910,10 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
         ret = dict_get_str (dict, key, &value);
         if (!ret) {
                 /* Update the mnt_opts in original brickinfo as well */
-                strcpy (original_brickinfo->mnt_opts, value);
-                strcpy (snap_brickinfo->mnt_opts, value);
+                gf_strncpy (original_brickinfo->mnt_opts, value,
+                            sizeof(original_brickinfo->mnt_opts));
+                gf_strncpy (snap_brickinfo->mnt_opts, value,
+                            sizeof(snap_brickinfo->mnt_opts));
         } else {
                 if (is_origin_glusterd (dict) == _gf_true)
                         add_missed_snap = _gf_true;
@@ -4997,7 +5000,8 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
                         GD_MSG_SNAP_NOT_FOUND, "Unable to fetch "
                         "snap device (%s). Leaving empty", key);
         } else
-                strcpy (snap_brickinfo->device_path, snap_device);
+                gf_strncpy (snap_brickinfo->device_path, snap_device,
+                            sizeof(snap_brickinfo->device_path));
 
         ret = gf_canonicalize_path (snap_brick_path);
         if (ret) {
@@ -5007,8 +5011,10 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
                 goto out;
         }
 
-        strcpy (snap_brickinfo->hostname, original_brickinfo->hostname);
-        strcpy (snap_brickinfo->path, snap_brick_path);
+        gf_strncpy (snap_brickinfo->hostname, original_brickinfo->hostname,
+                    sizeof(snap_brickinfo->hostname));
+        gf_strncpy (snap_brickinfo->path, snap_brick_path,
+                    sizeof(snap_brickinfo->path));
 
         if (!realpath (snap_brick_path, abspath)) {
                 /* ENOENT indicates that brick path has not been created which
@@ -5022,9 +5028,11 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
                         goto out;
                 }
         }
-        strncpy (snap_brickinfo->real_path, abspath, strlen(abspath));
+        gf_strncpy (snap_brickinfo->real_path, abspath,
+                    sizeof(snap_brickinfo->real_path));
 
-        strcpy (snap_brickinfo->mount_dir, original_brickinfo->mount_dir);
+        gf_strncpy (snap_brickinfo->mount_dir, original_brickinfo->mount_dir,
+                    sizeof(snap_brickinfo->mount_dir));
         gf_uuid_copy (snap_brickinfo->uuid, original_brickinfo->uuid);
         /* AFR changelog names are based on brick_id and hence the snap
          * volume's bricks must retain the same ID */
@@ -5034,7 +5042,9 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
                 GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO (snap_brickinfo, snap_vol,
                                                       brick_count);
         } else
-                strcpy (snap_brickinfo->brick_id, original_brickinfo->brick_id);
+                gf_strncpy (snap_brickinfo->brick_id,
+                            original_brickinfo->brick_id,
+                            sizeof(snap_brickinfo->brick_id));
 
 out:
         if (ret && snap_brickinfo)
@@ -5363,13 +5373,15 @@ glusterd_do_snap_vol (glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
                         goto out;
                 }
                 cds_list_add_tail (&snap_vol->vol_list, &snap->volumes);
-                strcpy(snap_vol->volname, clonename);
+                gf_strncpy(snap_vol->volname, clonename,
+                           sizeof(snap_vol->volname));
                 gf_uuid_copy (snap_vol->restored_from_snap,
                               origin_vol->snapshot->snap_id);
 
         } else {
                 GLUSTERD_GET_UUID_NOHYPHEN (snap_vol->volname, *snap_volid);
-                strcpy (snap_vol->parent_volname, origin_vol->volname);
+                gf_strncpy (snap_vol->parent_volname, origin_vol->volname,
+                            sizeof(snap_vol->parent_volname));
                 ret = glusterd_list_add_snapvol (origin_vol, snap_vol);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -5615,7 +5627,7 @@ glusterd_snapshot_activate_deactivate_prevalidate (dict_t *dict,
         ret = 0;
 out:
 
-        if (ret && err_str[0] != '\0') {
+        if (ret && err_str[0] != '\0' && op_errstr) {
                 gf_msg (this->name, loglevel, 0,
                         GD_MSG_SNAPSHOT_OP_FAILED, "%s", err_str);
                 *op_errstr = gf_strdup (err_str);
@@ -6718,7 +6730,7 @@ glusterd_create_snap_object_for_clone (dict_t *dict, dict_t *rsp_dict)
                 goto out;
         }
 
-        strcpy (snap->snapname, snapname);
+        gf_strncpy (snap->snapname, snapname, sizeof(snap->snapname));
         gf_uuid_copy (snap->snap_id, *snap_id);
 
         ret = 0;
@@ -8375,8 +8387,14 @@ glusterd_snapshot_create_postvalidate (dict_t *dict, int32_t op_ret,
                                     GLUSTERD_STORE_KEY_SNAP_AUTO_DELETE,
                                     _gf_false);
         if ( _gf_true == ret ) {
-                //ignore the errors of autodelete
                 ret = glusterd_handle_snap_limit (dict, rsp_dict);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                GD_MSG_SNAP_REMOVE_FAIL,
+                                "failed to remove snap");
+                       /* ignore the errors of autodelete */
+                        ret = 0;
+                }
         }
 
         ret = glusterd_snapshot_resume_tier (this, dict);
@@ -9027,7 +9045,7 @@ glusterd_snapshot_revert_restore_from_snap (glusterd_snap_t *snap)
         snap_volinfo = cds_list_entry (snap->volumes.next, glusterd_volinfo_t,
                                        vol_list);
 
-        strcpy (volname, snap_volinfo->parent_volname);
+        gf_strncpy (volname, snap_volinfo->parent_volname, sizeof(volname));
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
@@ -10007,7 +10025,8 @@ gd_restore_snap_volume (dict_t *dict, dict_t *rsp_dict,
         }
 
         /* Following entries need to be derived from origin volume. */
-        strcpy (new_volinfo->volname, orig_vol->volname);
+        gf_strncpy (new_volinfo->volname, orig_vol->volname,
+                    sizeof(new_volinfo->volname));
         gf_uuid_copy (new_volinfo->volume_id, orig_vol->volume_id);
         new_volinfo->snap_count = orig_vol->snap_count;
         gf_uuid_copy (new_volinfo->restored_from_snap,
