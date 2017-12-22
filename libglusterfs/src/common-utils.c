@@ -3564,6 +3564,7 @@ gf_set_log_file_path (cmd_args_t *cmd_args, glusterfs_ctx_t *ctx)
         int   i = 0;
         int   j = 0;
         int   ret = 0;
+        int   tmp_len = 0;
         char  tmp_str[1024] = {0,};
 
         if (!cmd_args)
@@ -3617,11 +3618,28 @@ gf_set_log_file_path (cmd_args_t *cmd_args, glusterfs_ctx_t *ctx)
         }
 
         if (cmd_args->volfile_server) {
-
-                ret = gf_asprintf (&cmd_args->log_file,
-                                   DEFAULT_LOG_FILE_DIRECTORY "/%s-%s-%d.log",
-                                   cmd_args->volfile_server,
-                                   cmd_args->volfile_id, getpid());
+                if (strncmp (cmd_args->volfile_server_transport,
+                             "unix", 4) == 0) {
+                        if (cmd_args->volfile_server[0] == '/')
+                                i = 1;
+                        tmp_len = strlen (cmd_args->volfile_server);
+                        for (j = 0; i < tmp_len; i++, j++) {
+                                tmp_str[j] = cmd_args->volfile_server[i];
+                                if (cmd_args->volfile_server[i] == '/')
+                                        tmp_str[j] = '-';
+                        }
+                        ret = gf_asprintf (&cmd_args->log_file,
+                                           "%s/%s-%s-%d.log",
+                                           DEFAULT_LOG_FILE_DIRECTORY,
+                                           tmp_str,
+                                           cmd_args->volfile_id, getpid());
+                } else {
+                        ret = gf_asprintf (&cmd_args->log_file,
+                                           "%s/%s-%s-%d.log",
+                                           DEFAULT_LOG_FILE_DIRECTORY,
+                                           cmd_args->volfile_server,
+                                           cmd_args->volfile_id, getpid());
+                }
                 if (ret > 0)
                         ret = 0;
         }
