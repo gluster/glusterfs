@@ -1053,6 +1053,28 @@ typedef struct {
    the translators. For the backward compatibility, in 4.x series
    even the old exported fields will be supported */
 typedef struct {
+        /* op_version: will be used by volume generation logic to figure
+           out whether to insert it in graph or no, based on cluster's
+           operating version.
+           default value: 0, which means good to insert always */
+        uint32_t op_version[GF_MAX_RELEASES];
+
+        /* flags: will be used by volume generation logic to optimize the
+           placements etc.
+           default value: 0, which means don't treat it specially */
+        uint32_t flags;
+
+        /* xlator_id: unique per xlator. make sure to have no collission
+           in this ID */
+        uint32_t xlator_id;
+
+        /* identifier: a string constant */
+        char *identifier;
+
+        /* struct options: if the translator takes any 'options' from the
+           volume file, then that should be defined here. optional. */
+        volume_option_t *options;
+
         /* init(): mandatory method, will be called during the
            graph initialization */
         int32_t (*init) (xlator_t *this);
@@ -1090,28 +1112,6 @@ typedef struct {
         /* dumpops: a structure again, with methods to dump the details.
            optional. */
         struct xlator_dumpops  *dumpops;
-
-        /* struct options: if the translator takes any 'options' from the
-           volume file, then that should be defined here. optional. */
-        volume_option_t *options;
-
-        /* op_version: will be used by volume generation logic to figure
-           out whether to insert it in graph or no, based on cluster's
-           operating version.
-           default value: 0, which means good to insert always */
-        uint32_t op_version[GF_MAX_RELEASES];
-
-        /* flags: will be used by volume generation logic to optimize the
-           placements etc.
-           default value: 0, which means don't treat it specially */
-        uint32_t flags;
-
-        /* xlator_id: unique per xlator. make sure to have no collission
-           in this ID */
-        uint32_t xlator_id;
-
-        /* identifier: a string constant */
-        char *identifier;
 } xlator_api_t;
 
 #define xlator_has_parent(xl) (xl->parents != NULL)
