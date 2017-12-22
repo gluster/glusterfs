@@ -962,6 +962,7 @@ __wb_fulfill_short_write (wb_request_t *req, int size, gf_boolean_t *fulfilled)
         } else {
                 accounted_size = size;
                 __wb_modify_write_request (req, size);
+                *fulfilled = 0;
         }
 
 out:
@@ -1003,7 +1004,7 @@ wb_fulfill_short_write (wb_request_t *head, int size)
                 size -= accounted_size;
 
                 if (size == 0) {
-                        if (fulfilled)
+                        if (fulfilled && (next != head))
                                 req = next;
 
                         goto done;
@@ -1015,7 +1016,7 @@ wb_fulfill_short_write (wb_request_t *head, int size)
                         size -= accounted_size;
 
                         if (size == 0) {
-                                if (fulfilled)
+                                if (fulfilled && (next != head))
                                         req = next;
                                 break;
                         }
