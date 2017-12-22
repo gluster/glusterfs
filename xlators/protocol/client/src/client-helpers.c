@@ -142,7 +142,6 @@ client_local_wipe (clnt_local_t *local)
 
         return 0;
 }
-
 int
 unserialize_rsp_dirent (xlator_t *this, struct gfs3_readdir_rsp *rsp,
                         gf_dirent_t *entries)
@@ -272,10 +271,136 @@ clnt_readdirp_rsp_cleanup (gfs3_readdirp_rsp *rsp)
 }
 
 int
+unserialize_rsp_dirent_v2 (xlator_t *this, struct gfx_readdir_rsp *rsp,
+                           gf_dirent_t *entries)
+{
+        struct gfx_dirlist  *trav      = NULL;
+	gf_dirent_t          *entry     = NULL;
+        int                   entry_len = 0;
+        int                   ret       = -1;
+        clnt_conf_t          *conf = NULL;
+
+        conf = this->private;
+
+        trav = rsp->reply;
+        while (trav) {
+                entry_len = gf_dirent_size (trav->name);
+                entry = GF_CALLOC (1, entry_len, gf_common_mt_gf_dirent_t);
+                if (!entry)
+                        goto out;
+
+                entry->d_ino  = trav->d_ino;
+                gf_itransform (this, trav->d_off, &entry->d_off,
+                               conf->client_id);
+                entry->d_len  = trav->d_len;
+                entry->d_type = trav->d_type;
+
+                strcpy (entry->d_name, trav->name);
+
+		list_add_tail (&entry->list, &entries->list);
+
+                trav = trav->nextentry;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+unserialize_rsp_direntp_v2 (xlator_t *this, fd_t *fd,
+                            struct gfx_readdirp_rsp *rsp, gf_dirent_t *entries)
+{
+        struct gfx_dirplist *trav      = NULL;
+	gf_dirent_t          *entry     = NULL;
+        inode_table_t        *itable    = NULL;
+        int                   entry_len = 0;
+        int                   ret       = -1;
+        clnt_conf_t          *conf      = NULL;
+
+        trav = rsp->reply;
+
+        if (fd)
+                itable = fd->inode->table;
+
+        conf = this->private;
+        if (!conf)
+                goto out;
+
+        while (trav) {
+                entry_len = gf_dirent_size (trav->name);
+                entry = GF_CALLOC (1, entry_len, gf_common_mt_gf_dirent_t);
+                if (!entry)
+                        goto out;
+
+                entry->d_ino  = trav->d_ino;
+                gf_itransform (this, trav->d_off, &entry->d_off,
+                                      conf->client_id);
+                entry->d_len  = trav->d_len;
+                entry->d_type = trav->d_type;
+
+                gfx_stat_to_iattx (&trav->stat, &entry->d_stat);
+
+                strcpy (entry->d_name, trav->name);
+
+                xdr_to_dict (&trav->dict, &entry->dict);
+
+                entry->inode = inode_find (itable, entry->d_stat.ia_gfid);
+                if (!entry->inode)
+                        entry->inode = inode_new (itable);
+
+		list_add_tail (&entry->list, &entries->list);
+
+                trav = trav->nextentry;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+clnt_readdirp_rsp_cleanup_v2 (gfx_readdirp_rsp *rsp)
+{
+        gfx_dirplist *prev = NULL;
+        gfx_dirplist *trav = NULL;
+
+        trav = rsp->reply;
+        prev = trav;
+        while (trav) {
+                trav = trav->nextentry;
+                free (prev->name);
+                free (prev);
+                prev = trav;
+        }
+
+        return 0;
+}
+
+int
 clnt_readdir_rsp_cleanup (gfs3_readdir_rsp *rsp)
 {
         gfs3_dirlist *prev = NULL;
         gfs3_dirlist *trav = NULL;
+
+        trav = rsp->reply;
+        prev = trav;
+        while (trav) {
+                trav = trav->nextentry;
+                /* on client, the rpc lib allocates this */
+                free (prev->name);
+                free (prev);
+                prev = trav;
+        }
+
+        return 0;
+}
+
+int
+clnt_readdir_rsp_cleanup_v2 (gfx_readdir_rsp *rsp)
+{
+        gfx_dirlist *prev = NULL;
+        gfx_dirlist *trav = NULL;
 
         trav = rsp->reply;
         prev = trav;
@@ -1650,6 +1775,21 @@ clnt_getactivelk_rsp_cleanup (gfs3_getactivelk_rsp *rsp)
         }
 }
 
+void
+clnt_getactivelk_rsp_cleanup_v2 (gfx_getactivelk_rsp *rsp)
+{
+        gfs3_locklist   *trav = NULL;
+        gfs3_locklist   *next = NULL;
+
+        trav = rsp->reply;
+
+        while (trav) {
+                next = trav->nextentry;
+                free (trav->client_uid);
+                free (trav);
+                trav = next;
+        }
+}
 int
 clnt_unserialize_rsp_locklist (xlator_t *this, struct gfs3_getactivelk_rsp *rsp,
                                lock_migration_info_t *lmi)
@@ -1689,6 +1829,46 @@ clnt_unserialize_rsp_locklist (xlator_t *this, struct gfs3_getactivelk_rsp *rsp,
 out:
         return ret;
 }
+int
+clnt_unserialize_rsp_locklist_v2 (xlator_t *this, struct gfx_getactivelk_rsp *rsp,
+                                  lock_migration_info_t *lmi)
+{
+        struct gfs3_locklist            *trav           = NULL;
+        lock_migration_info_t           *temp           = NULL;
+        int                             ret             = -1;
+        clnt_conf_t                     *conf           = NULL;
+
+        trav = rsp->reply;
+
+        conf = this->private;
+        if (!conf)
+                goto out;
+
+        while (trav) {
+                temp = GF_CALLOC (1, sizeof (*lmi), gf_common_mt_lock_mig);
+                if (temp == NULL) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0, 0, "No memory");
+                        goto out;
+                }
+
+                INIT_LIST_HEAD (&temp->list);
+
+                gf_proto_flock_to_flock (&trav->flock, &temp->flock);
+
+                temp->lk_flags = trav->lk_flags;
+
+                temp->client_uid =  gf_strdup (trav->client_uid);
+
+                list_add_tail (&temp->list, &lmi->list);
+
+                trav = trav->nextentry;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
 
 void
 clnt_setactivelk_req_cleanup (gfs3_setactivelk_req *req)
@@ -1706,9 +1886,90 @@ clnt_setactivelk_req_cleanup (gfs3_setactivelk_req *req)
         }
 }
 
+void
+clnt_setactivelk_req_cleanup_v2 (gfx_setactivelk_req *req)
+{
+        gfs3_locklist   *trav = NULL;
+        gfs3_locklist   *next = NULL;
+
+        trav = req->request;
+
+        while (trav) {
+                next = trav->nextentry;
+                GF_FREE (trav->client_uid);
+                GF_FREE (trav);
+                trav = next;
+        }
+}
+
 int
 serialize_req_locklist (lock_migration_info_t *locklist,
                         gfs3_setactivelk_req *req)
+{
+        lock_migration_info_t   *tmp    = NULL;
+        gfs3_locklist           *trav   = NULL;
+        gfs3_locklist           *prev   = NULL;
+        int                     ret     = -1;
+
+        GF_VALIDATE_OR_GOTO ("server", locklist, out);
+        GF_VALIDATE_OR_GOTO ("server", req, out);
+
+        list_for_each_entry (tmp, &locklist->list, list) {
+                trav = GF_CALLOC (1, sizeof (*trav),
+                                  gf_client_mt_clnt_lock_request_t);
+                if (!trav)
+                        goto out;
+
+                switch (tmp->flock.l_type) {
+                case F_RDLCK:
+                        tmp->flock.l_type = GF_LK_F_RDLCK;
+                        break;
+                case F_WRLCK:
+                        tmp->flock.l_type = GF_LK_F_WRLCK;
+                        break;
+                case F_UNLCK:
+                        tmp->flock.l_type = GF_LK_F_UNLCK;
+                        break;
+
+                default:
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0, 0,
+                                "Unknown lock type: %"PRId32"!",
+                                tmp->flock.l_type);
+                        break;
+                }
+
+                gf_proto_flock_from_flock (&trav->flock, &tmp->flock);
+
+                trav->lk_flags = tmp->lk_flags;
+
+                trav->client_uid = gf_strdup (tmp->client_uid);
+                if (!trav->client_uid) {
+                        gf_msg (THIS->name, GF_LOG_ERROR, 0, 0,
+                                "client_uid could not be allocated");
+                        ret = -1;
+                        goto out;
+                }
+
+                if (prev)
+                        prev->nextentry = trav;
+                else
+                        req->request = trav;
+
+                prev = trav;
+                trav = NULL;
+        }
+
+        ret = 0;
+out:
+        GF_FREE (trav);
+
+        return ret;
+}
+
+
+int
+serialize_req_locklist_v2 (lock_migration_info_t *locklist,
+                           gfx_setactivelk_req *req)
 {
         lock_migration_info_t   *tmp    = NULL;
         gfs3_locklist           *trav   = NULL;
@@ -1973,4 +2234,1043 @@ client_compound_rsp_cleanup (gfs3_compound_rsp *rsp, int len)
                 }
         }
         return;
+}
+
+/* compound v2 */
+int
+client_handle_fop_requirements_v2 (xlator_t *this, call_frame_t *frame,
+                                gfx_compound_req *req,
+                                clnt_local_t *local,
+                                struct iobref **req_iobref,
+                                struct iobref **rsp_iobref,
+                                struct iovec *req_vector,
+                                struct iovec *rsp_vector, int *req_count,
+                                int *rsp_count, default_args_t *args,
+                                int fop_enum, int index)
+{
+        int              ret           = 0;
+        int              op_errno      = ENOMEM;
+        struct iobuf    *rsp_iobuf     = NULL;
+        int64_t          remote_fd     = -1;
+        compound_req_v2 *this_req     = &req->compound_req_array.compound_req_array_val[index];
+
+        this_req->fop_enum = fop_enum;
+
+        switch (fop_enum) {
+        case GF_FOP_STAT:
+                CLIENT4_PRE_FOP (stat, this,
+                                &this_req->compound_req_v2_u.compound_stat_req,
+                                op_errno, out,
+                                &args->loc, args->xdata);
+                break;
+        case GF_FOP_READLINK:
+                CLIENT4_PRE_FOP (readlink, this,
+                                &this_req->compound_req_v2_u.compound_readlink_req,
+                                op_errno, out,
+                                &args->loc, args->size, args->xdata);
+                break;
+        case GF_FOP_MKNOD:
+                CLIENT4_PRE_FOP (mknod, this,
+                                &this_req->compound_req_v2_u.compound_mknod_req,
+                                op_errno, out,
+                                &args->loc, args->mode, args->rdev,
+                                args->umask, args->xdata);
+                loc_copy (&local->loc, &args->loc);
+                loc_path (&local->loc, NULL);
+                break;
+        case GF_FOP_MKDIR:
+                CLIENT4_PRE_FOP (mkdir, this,
+                                &this_req->compound_req_v2_u.compound_mkdir_req,
+                                op_errno, out,
+                                &args->loc, args->mode,
+                                args->umask, args->xdata);
+                loc_copy (&local->loc, &args->loc);
+                loc_path (&local->loc, NULL);
+                break;
+        case GF_FOP_UNLINK:
+                CLIENT4_PRE_FOP (unlink, this,
+                                &this_req->compound_req_v2_u.compound_unlink_req,
+                                op_errno, out,
+                                &args->loc, args->xflag, args->xdata);
+                break;
+        case GF_FOP_RMDIR:
+                CLIENT4_PRE_FOP (rmdir, this,
+                                &this_req->compound_req_v2_u.compound_rmdir_req,
+                                op_errno, out,
+                                &args->loc, args->flags, args->xdata);
+                break;
+        case GF_FOP_SYMLINK:
+                CLIENT4_PRE_FOP (symlink, this,
+                                &this_req->compound_req_v2_u.compound_symlink_req,
+                                op_errno, out,
+                                &args->loc, args->linkname, args->umask,
+                                args->xdata);
+                loc_copy (&local->loc, &args->loc);
+                loc_path (&local->loc, NULL);
+                break;
+        case GF_FOP_RENAME:
+                CLIENT4_PRE_FOP (rename, this,
+                                &this_req->compound_req_v2_u.compound_rename_req,
+                                op_errno, out,
+                                &args->loc, &args->loc2, args->xdata);
+                break;
+        case GF_FOP_LINK:
+                CLIENT4_PRE_FOP (link, this,
+                                &this_req->compound_req_v2_u.compound_link_req,
+                                op_errno, out,
+                                &args->loc, &args->loc2, args->xdata);
+                break;
+        case GF_FOP_TRUNCATE:
+                CLIENT4_PRE_FOP (truncate, this,
+                                &this_req->compound_req_v2_u.compound_truncate_req,
+                                op_errno, out,
+                                &args->loc, args->offset, args->xdata);
+                break;
+        case GF_FOP_OPEN:
+                CLIENT4_PRE_FOP (open, this,
+                                &this_req->compound_req_v2_u.compound_open_req,
+                                op_errno, out,
+                                &args->loc, args->fd, args->flags,
+                                args->xdata);
+                if (!local->fd)
+                        local->fd = fd_ref (args->fd);
+                break;
+        case GF_FOP_READ:
+                op_errno = client_pre_readv_v2 (this,
+                                  &this_req->compound_req_v2_u.compound_read_req,
+                                  args->fd, args->size, args->offset,
+                                  args->flags, args->xdata);
+
+                if (op_errno) {
+                        op_errno = -op_errno;
+                        goto out;
+                }
+                if (!local->fd)
+                        local->fd = fd_ref (args->fd);
+                local->attempt_reopen = client_is_reopen_needed
+                                        (args->fd, this, remote_fd);
+                rsp_iobuf = iobuf_get2 (this->ctx->iobuf_pool, args->size);
+                if (rsp_iobuf == NULL) {
+                        op_errno = ENOMEM;
+                        goto out;
+                }
+
+                if (!*rsp_iobref) {
+                        *rsp_iobref = iobref_new ();
+                        if (*rsp_iobref == NULL) {
+                                op_errno = ENOMEM;
+                                goto out;
+                        }
+                }
+
+                iobref_add (*rsp_iobref, rsp_iobuf);
+                iobuf_unref (rsp_iobuf);
+
+                if (*rsp_count + 1 >= MAX_IOVEC) {
+                        op_errno = ENOMEM;
+                        goto out;
+                }
+                rsp_vector[*rsp_count].iov_base = iobuf_ptr (rsp_iobuf);
+                rsp_vector[*rsp_count].iov_len = iobuf_pagesize (rsp_iobuf);
+                rsp_iobuf = NULL;
+                if (args->size > rsp_vector[*rsp_count].iov_len) {
+                        gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                                PC_MSG_NO_MEMORY,
+                                "read-size (%lu) is bigger than iobuf size "
+                                "(%lu)",
+                                (unsigned long)args->size,
+                                (unsigned long)rsp_vector[*rsp_count].iov_len);
+                        op_errno = EINVAL;
+                        goto out;
+                }
+                *rsp_count += 1;
+
+                break;
+        case GF_FOP_WRITE:
+                op_errno = client_pre_writev_v2 (this,
+                           &this_req->compound_req_v2_u.compound_write_req,
+                           args->fd, iov_length (args->vector, args->count),
+                           args->offset, args->flags, &args->xdata);
+
+                if (op_errno) {
+                        op_errno = -op_errno;
+                        goto out;
+                }
+                if (!local->fd)
+                        local->fd = fd_ref (args->fd);
+                local->attempt_reopen = client_is_reopen_needed
+                                        (args->fd, this, remote_fd);
+
+                if (*req_count + args->count >= MAX_IOVEC) {
+                        op_errno = ENOMEM;
+                        goto out;
+                }
+                memcpy (&req_vector[*req_count], args->vector,
+                        (args->count * sizeof(req_vector[0])));
+                *req_count += args->count;
+
+                if (!*req_iobref)
+                        *req_iobref = args->iobref;
+                else
+                        if (iobref_merge (*req_iobref, args->iobref))
+                                goto out;
+                break;
+        case GF_FOP_STATFS:
+                CLIENT4_PRE_FOP (statfs, this,
+                                &this_req->compound_req_v2_u.compound_statfs_req,
+                                op_errno, out,
+                                &args->loc, args->xdata);
+                break;
+        case GF_FOP_FLUSH:
+                CLIENT4_PRE_FOP (flush, this,
+                                &this_req->compound_req_v2_u.compound_flush_req,
+                                op_errno, out,
+                                args->fd, args->xdata);
+                if (!local->fd)
+                        local->fd = fd_ref (args->fd);
+                local->owner = frame->root->lk_owner;
+                break;
+        case GF_FOP_FSYNC:
+                CLIENT4_PRE_FOP (fsync, this,
+                                &this_req->compound_req_v2_u.compound_fsync_req,
+                                op_errno, out,
+                                args->fd, args->datasync, args->xdata);
+                break;
+        case GF_FOP_SETXATTR:
+                CLIENT4_PRE_FOP (setxattr, this,
+                                &this_req->compound_req_v2_u.compound_setxattr_req,
+                                op_errno, out,
+                                &args->loc, args->xattr, args->flags,
+                                args->xdata);
+                break;
+        case GF_FOP_GETXATTR:
+                CLIENT4_PRE_FOP (getxattr, this,
+                                &this_req->compound_req_v2_u.compound_getxattr_req,
+                                op_errno, out,
+                                &args->loc, args->name, args->xdata);
+                loc_copy (&local->loc, &args->loc);
+                loc_path (&local->loc, NULL);
+                break;
+        case GF_FOP_REMOVEXATTR:
+                CLIENT4_PRE_FOP (removexattr, this,
+                                &this_req->compound_req_v2_u.compound_removexattr_req,
+                                op_errno, out,
+                                &args->loc, args->name, args->xdata);
+                break;
+        case GF_FOP_OPENDIR:
+                CLIENT4_PRE_FOP (opendir, this,
+                                &this_req->compound_req_v2_u.compound_opendir_req,
+                                op_errno, out,
+                                &args->loc, args->fd, args->xdata);
+                if (!local->fd)
+                        local->fd = fd_ref (args->fd);
+                loc_copy (&local->loc, &args->loc);
+                loc_path (&local->loc, NULL);
+                break;
+        case GF_FOP_FSYNCDIR:
+                CLIENT4_PRE_FOP (fsyncdir, this,
+                                &this_req->compound_req_v2_u.compound_fsyncdir_req,
+                                op_errno, out,
+                                args->fd, args->datasync, args->xdata);
+                break;
+        case GF_FOP_ACCESS:
+                CLIENT4_PRE_FOP (access, this,
+                                &this_req->compound_req_v2_u.compound_access_req,
+                                op_errno, out,
+                                &args->loc, args->mask, args->xdata);
+                break;
+        case GF_FOP_CREATE:
+                CLIENT4_PRE_FOP (create, this,
+                                &this_req->compound_req_v2_u.compound_create_req,
+                                op_errno, out,
+                                &args->loc, args->fd, args->mode, args->flags,
+                                args->umask, args->xdata);
+                if (!local->fd)
+                        local->fd = fd_ref (args->fd);
+
+                loc_copy (&local->loc, &args->loc);
+                loc_path (&local->loc, NULL);
+                break;
+        case GF_FOP_FTRUNCATE:
+                CLIENT4_PRE_FOP (ftruncate, this,
+                                &this_req->compound_req_v2_u.compound_ftruncate_req,
+                                op_errno, out,
+                                args->fd, args->offset, args->xdata);
+                break;
+        case GF_FOP_FSTAT:
+                CLIENT4_PRE_FOP (fstat, this,
+                                &this_req->compound_req_v2_u.compound_fstat_req,
+                                op_errno, out,
+                                args->fd, args->xdata);
+                break;
+        case GF_FOP_LK:
+                CLIENT4_PRE_FOP (lk, this,
+                                &this_req->compound_req_v2_u.compound_lk_req,
+                                op_errno, out,
+                                args->cmd, &args->lock, args->fd, args->xdata);
+                if (!local->fd)
+                        local->fd    = fd_ref (args->fd);
+                local->owner = frame->root->lk_owner;
+                break;
+        case GF_FOP_LOOKUP:
+                CLIENT4_PRE_FOP (lookup, this,
+                                &this_req->compound_req_v2_u.compound_lookup_req,
+                                op_errno, out,
+                                &args->loc, args->xdata);
+                loc_copy (&local->loc, &args->loc);
+                loc_path (&local->loc, NULL);
+                break;
+        case GF_FOP_READDIR:
+                CLIENT4_PRE_FOP (readdir, this,
+                                &this_req->compound_req_v2_u.compound_readdir_req,
+                                op_errno, out,
+                                args->fd, args->size, args->offset,
+                                args->xdata);
+                break;
+        case GF_FOP_INODELK:
+                CLIENT4_PRE_FOP (inodelk, this,
+                                &this_req->compound_req_v2_u.compound_inodelk_req,
+                                op_errno, out,
+                                &args->loc, args->cmd, &args->lock,
+                                args->volume, args->xdata);
+                break;
+        case GF_FOP_FINODELK:
+                CLIENT4_PRE_FOP (finodelk, this,
+                                &this_req->compound_req_v2_u.compound_finodelk_req,
+                                op_errno, out,
+                                args->fd, args->cmd, &args->lock,
+                                args->volume, args->xdata);
+                if (!local->fd)
+                        local->fd = fd_ref (args->fd);
+                local->attempt_reopen = client_is_reopen_needed
+                                        (args->fd, this, remote_fd);
+                break;
+        case GF_FOP_ENTRYLK:
+                CLIENT4_PRE_FOP (entrylk, this,
+                                &this_req->compound_req_v2_u.compound_entrylk_req,
+                                op_errno, out,
+                                &args->loc, args->entrylkcmd,
+                                args->entrylktype, args->volume,
+                                args->name, args->xdata);
+                break;
+        case GF_FOP_FENTRYLK:
+                CLIENT4_PRE_FOP (fentrylk, this,
+                                &this_req->compound_req_v2_u.compound_fentrylk_req,
+                                op_errno, out,
+                                args->fd, args->entrylkcmd,
+                                args->entrylktype, args->volume,
+                                args->name, args->xdata);
+                break;
+        case GF_FOP_XATTROP:
+                CLIENT4_PRE_FOP (xattrop, this,
+                                &this_req->compound_req_v2_u.compound_xattrop_req,
+                                op_errno, out,
+                                &args->loc, args->xattr, args->optype,
+                                args->xdata);
+                break;
+        case GF_FOP_FXATTROP:
+                CLIENT4_PRE_FOP (fxattrop, this,
+                                &this_req->compound_req_v2_u.compound_fxattrop_req,
+                                op_errno, out,
+                                args->fd, args->xattr, args->optype,
+                                args->xdata);
+                if (!local->fd)
+                        local->fd = fd_ref (args->fd);
+                local->attempt_reopen = client_is_reopen_needed
+                                        (args->fd, this, remote_fd);
+                break;
+        case GF_FOP_FGETXATTR:
+                CLIENT4_PRE_FOP (fgetxattr, this,
+                                &this_req->compound_req_v2_u.compound_fgetxattr_req,
+                                op_errno, out,
+                                args->fd, args->name, args->xdata);
+                break;
+        case GF_FOP_FSETXATTR:
+                CLIENT4_PRE_FOP (fsetxattr, this,
+                                &this_req->compound_req_v2_u.compound_fsetxattr_req,
+                                op_errno, out,
+                                args->fd, args->flags, args->xattr,
+                                args->xdata);
+                break;
+        case GF_FOP_RCHECKSUM:
+                CLIENT4_PRE_FOP (rchecksum, this,
+                                &this_req->compound_req_v2_u.compound_rchecksum_req,
+                                op_errno, out,
+                                args->fd, args->size, args->offset,
+                                args->xdata);
+                break;
+        case GF_FOP_SETATTR:
+                CLIENT4_PRE_FOP (setattr, this,
+                                &this_req->compound_req_v2_u.compound_setattr_req,
+                                op_errno, out,
+                                &args->loc, args->valid, &args->stat,
+                                args->xdata);
+                break;
+        case GF_FOP_FSETATTR:
+                CLIENT4_PRE_FOP (fsetattr, this,
+                                &this_req->compound_req_v2_u.compound_fsetattr_req,
+                                op_errno, out,
+                                args->fd, args->valid, &args->stat,
+                                args->xdata);
+                break;
+        case GF_FOP_READDIRP:
+                CLIENT4_PRE_FOP (readdirp, this,
+                                &this_req->compound_req_v2_u.compound_readdirp_req,
+                                op_errno, out,
+                                args->fd, args->size, args->offset,
+                                args->xdata);
+                if (!local->fd)
+                        local->fd = fd_ref (args->fd);
+                break;
+        case GF_FOP_FREMOVEXATTR:
+                CLIENT4_PRE_FOP (fremovexattr, this,
+                                &this_req->compound_req_v2_u.compound_fremovexattr_req,
+                                op_errno, out,
+                                args->fd, args->name, args->xdata);
+                break;
+        case GF_FOP_FALLOCATE:
+                CLIENT4_PRE_FOP (fallocate, this,
+                                &this_req->compound_req_v2_u.compound_fallocate_req,
+                                op_errno, out,
+                                args->fd, args->flags, args->offset,
+                                args->size, args->xdata);
+                break;
+        case GF_FOP_DISCARD:
+                CLIENT4_PRE_FOP (discard, this,
+                                &this_req->compound_req_v2_u.compound_discard_req,
+                                op_errno, out,
+                                args->fd, args->offset, args->size,
+                                args->xdata);
+                break;
+        case GF_FOP_ZEROFILL:
+                CLIENT4_PRE_FOP (zerofill, this,
+                                &this_req->compound_req_v2_u.compound_zerofill_req,
+                                op_errno, out,
+                                args->fd, args->offset, args->size,
+                                args->xdata);
+                break;
+        case GF_FOP_IPC:
+                CLIENT4_PRE_FOP (ipc, this,
+                                &this_req->compound_req_v2_u.compound_ipc_req,
+                                op_errno, out,
+                                args->cmd, args->xdata);
+                break;
+        case GF_FOP_SEEK:
+                CLIENT4_PRE_FOP (seek, this,
+                                &this_req->compound_req_v2_u.compound_seek_req,
+                                op_errno, out,
+                                args->fd, args->offset, args->what,
+                                args->xdata);
+                break;
+        case GF_FOP_LEASE:
+                CLIENT4_PRE_FOP (lease, this,
+                                &this_req->compound_req_v2_u.compound_lease_req,
+                                op_errno, out, &args->loc, &args->lease,
+                                args->xdata);
+                break;
+        default:
+                return ENOTSUP;
+        }
+        return 0;
+out:
+        return op_errno;
+}
+
+void
+compound_request_cleanup_v2 (gfx_compound_req *req)
+{
+        int i       = 0;
+        int length  = req->compound_req_array.compound_req_array_len;
+        compound_req_v2  *curr_req = NULL;
+
+        if (!req->compound_req_array.compound_req_array_val)
+                return;
+
+        for (i = 0; i < length; i++) {
+                curr_req = &req->compound_req_array.compound_req_array_val[i];
+
+                switch (curr_req->fop_enum) {
+                case GF_FOP_STAT:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, stat);
+                        break;
+                case GF_FOP_READLINK:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, readlink);
+                        break;
+                case GF_FOP_MKNOD:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, mknod);
+                        break;
+                case GF_FOP_MKDIR:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, mkdir);
+                        break;
+                case GF_FOP_UNLINK:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, unlink);
+                        break;
+                case GF_FOP_RMDIR:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, rmdir);
+                        break;
+                case GF_FOP_SYMLINK:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, symlink);
+                        break;
+                case GF_FOP_RENAME:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, rename);
+                        break;
+                case GF_FOP_LINK:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, link);
+                        break;
+                case GF_FOP_TRUNCATE:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, truncate);
+                        break;
+                case GF_FOP_OPEN:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, open);
+                        break;
+                case GF_FOP_READ:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, read);
+                        break;
+                case GF_FOP_WRITE:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, write);
+                        break;
+                case GF_FOP_STATFS:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, statfs);
+                        break;
+                case GF_FOP_FLUSH:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, flush);
+                        break;
+                case GF_FOP_FSYNC:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, fsync);
+                        break;
+                case GF_FOP_SETXATTR:
+                {
+                        gfx_setxattr_req *args = &CPD4_REQ_FIELD (curr_req,
+                                                                  setxattr);
+                        GF_FREE (args->dict.pairs.pairs_val);
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, setxattr);
+                        break;
+                }
+                case GF_FOP_GETXATTR:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, getxattr);
+                        break;
+                case GF_FOP_REMOVEXATTR:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, removexattr);
+                        break;
+                case GF_FOP_OPENDIR:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, opendir);
+                        break;
+                case GF_FOP_FSYNCDIR:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, fsyncdir);
+                        break;
+                case GF_FOP_ACCESS:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, access);
+                        break;
+                case GF_FOP_CREATE:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, create);
+                        break;
+                case GF_FOP_FTRUNCATE:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, ftruncate);
+                        break;
+                case GF_FOP_FSTAT:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, fstat);
+                        break;
+                case GF_FOP_LK:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, lk);
+                        break;
+                case GF_FOP_LOOKUP:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, lookup);
+                        break;
+                case GF_FOP_READDIR:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, readdir);
+                        break;
+                case GF_FOP_INODELK:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, inodelk);
+                        break;
+                case GF_FOP_FINODELK:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, finodelk);
+                        break;
+                case GF_FOP_ENTRYLK:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, entrylk);
+                        break;
+                case GF_FOP_FENTRYLK:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, fentrylk);
+                        break;
+                case GF_FOP_XATTROP:
+                {
+                        gfx_xattrop_req *args = &CPD4_REQ_FIELD (curr_req,
+                                                 xattrop);
+                        GF_FREE (args->dict.pairs.pairs_val);
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, xattrop);
+                        break;
+                }
+                case GF_FOP_FXATTROP:
+                {
+                        gfx_fxattrop_req *args = &CPD4_REQ_FIELD (curr_req,
+                                                  fxattrop);
+                        GF_FREE (args->dict.pairs.pairs_val);
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, fxattrop);
+                        break;
+                }
+                case GF_FOP_FGETXATTR:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, fgetxattr);
+                        break;
+                case GF_FOP_FSETXATTR:
+                {
+                        gfx_fsetxattr_req *args = &CPD4_REQ_FIELD(curr_req,
+                                                                  fsetxattr);
+                        GF_FREE (args->dict.pairs.pairs_val);
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, fsetxattr);
+                        break;
+                }
+                case GF_FOP_RCHECKSUM:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, rchecksum);
+                        break;
+                case GF_FOP_SETATTR:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, setattr);
+                        break;
+                case GF_FOP_FSETATTR:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, fsetattr);
+                        break;
+                case GF_FOP_READDIRP:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, readdirp);
+                        break;
+                case GF_FOP_FREMOVEXATTR:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, fremovexattr);
+                        break;
+                case GF_FOP_FALLOCATE:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, fallocate);
+                        break;
+                case GF_FOP_DISCARD:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, discard);
+                        break;
+                case GF_FOP_ZEROFILL:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, zerofill);
+                        break;
+                case GF_FOP_IPC:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, ipc);
+                        break;
+                case GF_FOP_SEEK:
+                        CLIENT4_COMPOUND_FOP_CLEANUP (curr_req, seek);
+                        break;
+                default:
+                        break;
+                }
+        }
+
+        GF_FREE (req->compound_req_array.compound_req_array_val);
+        return;
+}
+
+
+void
+client_compound_rsp_cleanup_v2 (gfx_compound_rsp *rsp, int len)
+{
+        int i = 0;
+        compound_rsp_v2            *this_rsp       = NULL;
+
+        for (i = 0; i < len; i++) {
+                this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[i];
+                switch (this_rsp->fop_enum) {
+                /* fops that need extra cleanup */
+                case GF_FOP_LK:
+                {
+                        gfx_lk_rsp *tmp_rsp = &CPD4_RSP_FIELD(this_rsp, lk);
+                        free (tmp_rsp->flock.lk_owner.lk_owner_val);
+                        break;
+                }
+                case GF_FOP_READLINK:
+                {
+                        gfx_readlink_rsp *tmp_rsp = &CPD4_RSP_FIELD(this_rsp,
+                                                                    readlink);
+                        free (tmp_rsp->path);
+                        break;
+                }
+                case GF_FOP_READDIR:
+                {
+
+                        gfx_readdir_rsp *tmp_rsp = &CPD4_RSP_FIELD(this_rsp,
+                                                                   readdir);
+                        clnt_readdir_rsp_cleanup_v2 (tmp_rsp);
+                        break;
+                }
+                case GF_FOP_READDIRP:
+                {
+
+                        gfx_readdirp_rsp *tmp_rsp = &CPD4_RSP_FIELD(this_rsp,
+                                                                    readdirp);
+                        clnt_readdirp_rsp_cleanup_v2 (tmp_rsp);
+                        break;
+                }
+                case GF_FOP_RCHECKSUM:
+                {
+
+                        gfx_rchecksum_rsp *rck = &CPD4_RSP_FIELD(this_rsp,
+                                                  rchecksum);
+                        if (rck->strong_checksum.strong_checksum_val) {
+                                free (rck->strong_checksum.strong_checksum_val);
+                        }
+                        break;
+                }
+                default:
+                        break;
+                }
+        }
+        return;
+}
+
+int
+client_process_response_v2 (call_frame_t *frame, xlator_t *this,
+                            struct rpc_req *req, gfx_compound_rsp *rsp,
+                            compound_args_cbk_t *args_cbk,
+                            int index)
+{
+        int                      ret            = 0;
+        dict_t                  *xdata          = NULL;
+        dict_t                  *xattr          = NULL;
+        struct iovec             vector[MAX_IOVEC] = {{0}, };
+        gf_dirent_t              entries;
+        default_args_cbk_t      *this_args_cbk  = &args_cbk->rsp_list[index];
+        clnt_local_t            *local          = frame->local;
+        compound_rsp_v2         *this_rsp       = NULL;
+        compound_args_t         *args           = local->compound_args;
+
+        this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[index];
+        args_cbk->enum_list[index] = this_rsp->fop_enum;
+
+        INIT_LIST_HEAD (&entries.list);
+
+        switch (args_cbk->enum_list[index]) {
+
+        case GF_FOP_STAT:
+        case GF_FOP_FSTAT:
+        {
+                gfx_common_iatt_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_stat_rsp;
+
+                client_post_common_iatt (this, tmp_rsp, &this_args_cbk->stat, &xdata);
+
+                CLIENT4_POST_FOP_TYPE (stat, common_iatt, this_rsp, this_args_cbk,
+                                       &this_args_cbk->stat, xdata);
+                break;
+        }
+        case GF_FOP_READLINK:
+        {
+                gfx_readlink_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_readlink_rsp;
+
+                gfx_stat_to_iattx (&tmp_rsp->buf, &this_args_cbk->stat);
+                xdr_to_dict (&tmp_rsp->xdata, &xdata);
+
+                CLIENT4_POST_FOP_TYPE (readlink, readlink, this_rsp, this_args_cbk,
+                                      tmp_rsp->path, &this_args_cbk->stat,
+                                      xdata);
+                break;
+        }
+        case GF_FOP_MKDIR:
+        case GF_FOP_MKNOD:
+        case GF_FOP_SYMLINK:
+        case GF_FOP_LINK:
+        {
+                gfx_common_3iatt_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_mknod_rsp;
+
+                client_post_common_3iatt (this, tmp_rsp, &this_args_cbk->stat,
+                                          &this_args_cbk->preparent,
+                                          &this_args_cbk->postparent, &xdata);
+                CLIENT4_POST_FOP_TYPE (mknod, common_3iatt, this_rsp, this_args_cbk,
+                                       local->loc.inode, &this_args_cbk->stat,
+                                       &this_args_cbk->preparent,
+                                       &this_args_cbk->postparent, xdata);
+                break;
+        }
+        case GF_FOP_UNLINK:
+        case GF_FOP_RMDIR:
+        {
+                gfx_common_2iatt_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_unlink_rsp;
+
+                client_post_common_2iatt (this, tmp_rsp, &this_args_cbk->preparent,
+                                          &this_args_cbk->postparent, &xdata);
+                CLIENT4_POST_FOP_TYPE (unlink, common_2iatt, this_rsp, this_args_cbk,
+                                       &this_args_cbk->preparent,
+                                       &this_args_cbk->postparent, xdata);
+                break;
+        }
+        case GF_FOP_RENAME:
+        {
+                gfx_rename_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_rename_rsp;
+
+                client_post_rename_v2 (this, tmp_rsp, &this_args_cbk->stat,
+                                    &this_args_cbk->preparent,
+                                    &this_args_cbk->postparent,
+                                    &this_args_cbk->preparent2,
+                                    &this_args_cbk->postparent2, &xdata);
+                CLIENT4_POST_FOP_TYPE (rename, rename, this_rsp, this_args_cbk,
+                                      &this_args_cbk->stat,
+                                      &this_args_cbk->preparent,
+                                      &this_args_cbk->postparent,
+                                      &this_args_cbk->preparent2,
+                                      &this_args_cbk->postparent2, xdata);
+                break;
+        }
+        case GF_FOP_WRITE:
+        case GF_FOP_TRUNCATE:
+        case GF_FOP_FTRUNCATE:
+        case GF_FOP_FSYNC:
+        case GF_FOP_ZEROFILL:
+        case GF_FOP_DISCARD:
+        case GF_FOP_FALLOCATE:
+        case GF_FOP_FSETATTR:
+        case GF_FOP_SETATTR:
+        {
+                gfx_common_2iatt_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_truncate_rsp;
+
+                client_post_common_2iatt (this, tmp_rsp, &this_args_cbk->prestat,
+                                          &this_args_cbk->poststat, &xdata);
+                CLIENT4_POST_FOP_TYPE (truncate, common_2iatt, this_rsp, this_args_cbk,
+                                      &this_args_cbk->prestat,
+                                      &this_args_cbk->poststat, xdata);
+                break;
+        }
+        case GF_FOP_OPEN:
+        {
+                gfx_open_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_open_rsp;
+
+                xdr_to_dict (&tmp_rsp->xdata, &xdata);
+                CLIENT4_POST_FOP_TYPE (open, open, this_rsp, this_args_cbk, local->fd,
+                                      xdata);
+                if (-1 != this_args_cbk->op_ret)
+                        ret = client_add_fd_to_saved_fds (this, local->fd,
+                                                          &local->loc,
+                                                          args->req_list[index].flags,
+                                                          tmp_rsp->fd,
+                                                          0);
+                break;
+        }
+        case GF_FOP_READ:
+        {
+                gfx_read_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_read_rsp;
+
+                client_post_readv_v2 (this, tmp_rsp, &this_args_cbk->iobref,
+                                  req->rsp_iobref, &this_args_cbk->stat,
+                                  vector, &req->rsp[1], &this_args_cbk->count,
+                                  &xdata);
+
+                /* Each read should be given read response that only
+                 * corresponds to its request.
+                 * Modify the iovecs accordingly.
+                 * After each read, store the length of data already read
+                 * so that the next ones can continue from there.
+                 */
+                if (local->read_length) {
+                        vector[0].iov_base += local->read_length;
+                        local->read_length += tmp_rsp->op_ret;
+                } else {
+                        local->read_length = tmp_rsp->op_ret;
+                }
+
+                args_readv_cbk_store (this_args_cbk, tmp_rsp->op_ret,
+                                      gf_error_to_errno (tmp_rsp->op_errno),
+                                      vector, this_args_cbk->count,
+                                      &this_args_cbk->stat,
+                                      this_args_cbk->iobref, xdata);
+
+                if (tmp_rsp->op_ret >= 0)
+                        if (local->attempt_reopen)
+                                client_attempt_reopen (local->fd, this);
+
+                break;
+        }
+        case GF_FOP_STATFS:
+        {
+                gfx_statfs_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_statfs_rsp;
+
+                gf_statfs_to_statfs (&tmp_rsp->statfs, &this_args_cbk->statvfs);
+                xdr_to_dict (&tmp_rsp->xdata, &xdata);
+
+                CLIENT4_POST_FOP_TYPE (statfs, statfs, this_rsp, this_args_cbk,
+                                      &this_args_cbk->statvfs, xdata);
+                break;
+         }
+        case GF_FOP_FLUSH:
+        {
+                gfx_common_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_flush_rsp;
+
+                xdr_to_dict (&tmp_rsp->xdata, &xdata);
+
+                CLIENT4_POST_FOP (flush, this_rsp, this_args_cbk, xdata);
+                if (this_args_cbk->op_ret >= 0 && !fd_is_anonymous (local->fd)) {
+                        /* Delete all saved locks of the owner issuing flush */
+                        ret = delete_granted_locks_owner (local->fd, &local->owner);
+                        gf_msg_trace (this->name, 0,
+                                      "deleting locks of owner (%s) returned %d",
+                                      lkowner_utoa (&local->owner), ret);
+                }
+                break;
+        }
+        case GF_FOP_FSYNCDIR:
+        case GF_FOP_ACCESS:
+        case GF_FOP_REMOVEXATTR:
+        case GF_FOP_FREMOVEXATTR:
+        case GF_FOP_FSETXATTR:
+        case GF_FOP_SETXATTR:
+        case GF_FOP_INODELK:
+        case GF_FOP_FINODELK:
+        case GF_FOP_ENTRYLK:
+        case GF_FOP_FENTRYLK:
+        case GF_FOP_IPC:
+        {
+                gfx_common_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_setxattr_rsp;
+
+                xdr_to_dict (&tmp_rsp->xdata, &xdata);
+
+                CLIENT4_POST_FOP (setxattr, this_rsp, this_args_cbk, xdata);
+                break;
+        }
+        case GF_FOP_GETXATTR:
+        case GF_FOP_FGETXATTR:
+        case GF_FOP_XATTROP:
+        case GF_FOP_FXATTROP:
+        {
+                gfx_common_dict_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_getxattr_rsp;
+
+                client_post_common_dict (this, tmp_rsp, &xattr, &xdata);
+
+                CLIENT4_POST_FOP_TYPE (getxattr, common_dict, this_rsp, this_args_cbk, xattr,
+                                      xdata);
+                break;
+        }
+        case GF_FOP_OPENDIR:
+        {
+                gfx_open_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_opendir_rsp;
+
+                xdr_to_dict (&tmp_rsp->xdata, &xdata);
+
+                CLIENT4_POST_FOP_TYPE (opendir, open, this_rsp, this_args_cbk,
+                                      local->fd, xdata);
+                if (-1 != this_args_cbk->op_ret)
+                        ret = client_add_fd_to_saved_fds (this, local->fd,
+                                                          &local->loc,
+                                                          args->req_list[index].flags,
+                                                          tmp_rsp->fd, 0);
+                break;
+        }
+        case GF_FOP_CREATE:
+        {
+                gfx_create_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_create_rsp;
+
+                client_post_create_v2 (this, tmp_rsp, &this_args_cbk->stat,
+                                   &this_args_cbk->preparent,
+                                   &this_args_cbk->postparent, local, &xdata);
+
+                CLIENT4_POST_FOP_TYPE (create, create, this_rsp, this_args_cbk,
+                                      local->fd, local->loc.inode,
+                                      &this_args_cbk->stat,
+                                      &this_args_cbk->preparent,
+                                      &this_args_cbk->postparent, xdata);
+                if (-1 != this_args_cbk->op_ret)
+                        ret = client_add_fd_to_saved_fds (this, local->fd,
+                                                          &local->loc,
+                                                          args->req_list[index].flags,
+                                                          tmp_rsp->fd, 0);
+                break;
+        }
+        case GF_FOP_LK:
+        {
+                gfx_lk_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_lk_rsp;
+
+                client_post_lk_v2 (this, tmp_rsp, &this_args_cbk->lock, &xdata);
+
+                CLIENT4_POST_FOP_TYPE (lk, lk, this_rsp, this_args_cbk,
+                                      &this_args_cbk->lock, xdata);
+                break;
+        }
+        case GF_FOP_LOOKUP:
+        {
+                gfx_common_2iatt_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_lookup_rsp;
+
+                client_post_common_2iatt (this, tmp_rsp, &this_args_cbk->stat,
+                                          &this_args_cbk->postparent, &xdata);
+                CLIENT4_POST_FOP_TYPE (lookup, common_2iatt, this_rsp, this_args_cbk,
+                                      local->loc.inode, &this_args_cbk->stat,
+                                      xdata, &this_args_cbk->postparent);
+                break;
+        }
+        case GF_FOP_READDIR:
+        {
+                gfx_readdir_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_readdir_rsp;
+
+                client_post_readdir_v2 (this, tmp_rsp, &entries, &xdata);
+
+                CLIENT4_POST_FOP_TYPE (readdir, readdir, this_rsp, this_args_cbk,
+                                      &entries, xdata);
+                break;
+        }
+        case GF_FOP_RCHECKSUM:
+        {
+                gfx_rchecksum_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_rchecksum_rsp;
+
+                xdr_to_dict (&tmp_rsp->xdata, &xdata);
+
+                CLIENT4_POST_FOP_TYPE (rchecksum, rchecksum, this_rsp, this_args_cbk,
+                                      tmp_rsp->weak_checksum,
+                                      (uint8_t *)tmp_rsp->strong_checksum.strong_checksum_val,
+                                      xdata);
+                break;
+        }
+        case GF_FOP_READDIRP:
+        {
+                gfx_readdirp_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_readdirp_rsp;
+
+                client_post_readdirp_v2 (this, tmp_rsp, local->fd, &entries,
+                                      &xdata);
+
+                CLIENT4_POST_FOP_TYPE (readdirp, readdirp, this_rsp, this_args_cbk,
+                                      &entries, xdata);
+                break;
+        }
+        case GF_FOP_SEEK:
+        {
+                gfx_seek_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_seek_rsp;
+
+                xdr_to_dict (&tmp_rsp->xdata, &xdata);
+
+                CLIENT4_POST_FOP_TYPE (seek, seek, this_rsp, this_args_cbk,
+                                      tmp_rsp->offset, xdata);
+                break;
+        }
+        case GF_FOP_LEASE:
+        {
+                gfx_lease_rsp *tmp_rsp = NULL;
+                tmp_rsp = &this_rsp->compound_rsp_v2_u.compound_lease_rsp;
+
+                client_post_lease_v2 (this, tmp_rsp, &this_args_cbk->lease,
+                                   &xdata);
+
+                CLIENT4_POST_FOP_TYPE (lease, lease, this_rsp, this_args_cbk,
+                                      &this_args_cbk->lease, xdata);
+                break;
+        }
+        default:
+                return -ENOTSUP;
+        }
+
+        if (xdata)
+                dict_unref (xdata);
+        if (xattr)
+                dict_unref (xattr);
+        gf_dirent_free (&entries);
+        return 0;
 }

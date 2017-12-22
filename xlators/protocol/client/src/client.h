@@ -134,6 +134,54 @@ typedef enum {
                 client_local_wipe (__local);                        \
         } while (0)
 
+/* compound v2 */
+#define CPD4_REQ_FIELD(v, f)  ((v)->compound_req_v2_u.compound_##f##_req)
+#define CPD4_RSP_FIELD(v, f)  ((v)->compound_rsp_v2_u.compound_##f##_rsp)
+
+#define CLIENT4_POST_FOP(fop, this_rsp_u, this_args_cbk,  params ...)   \
+        do {                                                            \
+                gfx_common_rsp *_this_rsp = &CPD4_RSP_FIELD(this_rsp_u, fop); \
+                int             _op_ret   = 0;                          \
+                int             _op_errno = 0;                          \
+                                                                        \
+                _op_ret = _this_rsp->op_ret;                            \
+                _op_errno = gf_error_to_errno (_this_rsp->op_errno);    \
+                args_##fop##_cbk_store (this_args_cbk, _op_ret, _op_errno, \
+                                        params);                        \
+        } while (0)
+
+#define CLIENT4_POST_FOP_TYPE(fop, rsp_type, this_rsp_u, this_args_cbk, params ...) \
+        do {                                                            \
+                gfx_##rsp_type##_rsp  *_this_rsp = &CPD4_RSP_FIELD(this_rsp_u, fop); \
+                int                _op_ret   = 0;                       \
+                int                _op_errno = 0;                       \
+                                                                        \
+                _op_ret = _this_rsp->op_ret;                            \
+                _op_errno = gf_error_to_errno (_this_rsp->op_errno);    \
+                args_##fop##_cbk_store (this_args_cbk, _op_ret, _op_errno, \
+                                        params);                        \
+        } while (0)
+
+#define CLIENT4_PRE_FOP(fop, xl, compound_req, op_errno, label, params ...) \
+        do {                                                            \
+                gfx_##fop##_req  *_req = (gfx_##fop##_req *)compound_req; \
+                int                _ret = 0;                            \
+                                                                        \
+                _ret = client_pre_##fop##_v2 (xl, _req, params);        \
+                if (_ret < 0) {                                         \
+                        op_errno = -ret;                                \
+                        goto label;                                     \
+                }                                                       \
+        } while (0)
+
+#define CLIENT4_COMPOUND_FOP_CLEANUP(curr_req, fop)                     \
+        do {                                                            \
+                gfx_##fop##_req *_req = &CPD4_REQ_FIELD(curr_req, fop); \
+                                                                        \
+                GF_FREE (_req->xdata.pairs.pairs_val);                  \
+        } while (0)
+
+
 
 struct clnt_options {
         char *remote_subvolume;
@@ -402,4 +450,47 @@ serialize_req_locklist (lock_migration_info_t *locklist,
 
 void
 client_compound_rsp_cleanup (gfs3_compound_rsp *rsp, int len);
+
+void
+clnt_getactivelk_rsp_cleanup_v2 (gfx_getactivelk_rsp *rsp);
+
+void
+clnt_setactivelk_req_cleanup_v2 (gfx_setactivelk_req *req);
+
+int
+serialize_req_locklist_v2 (lock_migration_info_t *locklist,
+                           gfx_setactivelk_req *req);
+
+int
+clnt_unserialize_rsp_locklist_v2 (xlator_t *this, struct gfx_getactivelk_rsp *rsp,
+                                  lock_migration_info_t *lmi);
+
+int unserialize_rsp_dirent_v2 (xlator_t *this, struct gfx_readdir_rsp *rsp,
+                            gf_dirent_t *entries);
+int unserialize_rsp_direntp_v2 (xlator_t *this, fd_t *fd,
+                             struct gfx_readdirp_rsp *rsp, gf_dirent_t *entries);
+
+int clnt_readdir_rsp_cleanup_v2 (gfx_readdir_rsp *rsp);
+int clnt_readdirp_rsp_cleanup_v2 (gfx_readdirp_rsp *rsp);
+
+int
+client_handle_fop_requirements_v2 (xlator_t *this, call_frame_t *frame,
+                                   gfx_compound_req *req,
+                                   clnt_local_t *local,
+                                   struct iobref **req_iobref,
+                                   struct iobref **rsp_iobref,
+                                   struct iovec *req_vector,
+                                   struct iovec *rsp_vector, int *req_count,
+                                   int *rsp_count, default_args_t *args,
+                                   int fop_enum, int index);
+int
+client_process_response_v2 (call_frame_t *frame, xlator_t *this,
+                            struct rpc_req *req,
+                            gfx_compound_rsp *rsp, compound_args_cbk_t *args_cbk,
+                            int index);
+void
+compound_request_cleanup_v2 (gfx_compound_req *req);
+void
+client_compound_rsp_cleanup_v2 (gfx_compound_rsp *rsp, int len);
+
 #endif /* !_CLIENT_H */

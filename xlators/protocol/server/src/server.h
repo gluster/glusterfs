@@ -58,6 +58,28 @@
                 free (_req->xdata.xdata_val);                                 \
         } while (0)
 
+#define CPD4_REQ_FIELD(v, f)  ((v)->compound_req_v2_u.compound_##f##_req)
+#define CPD4_RSP_FIELD(v, f)  ((v)->compound_rsp_v2_u.compound_##f##_rsp)
+
+#define SERVER4_COMMON_RSP_CLEANUP(rsp, fop, i)                         \
+        do {                                                            \
+                compound_rsp_v2  *this_rsp = NULL;                      \
+                this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[i]; \
+                gfx_common_rsp  *_this_rsp = &CPD4_RSP_FIELD(this_rsp, fop); \
+                                                                        \
+                GF_FREE (_this_rsp->xdata.pairs.pairs_val);             \
+        } while (0)
+
+#define SERVER4_FOP_RSP_CLEANUP(rsp, fop, i, rsp_type)                  \
+        do {                                                            \
+                compound_rsp_v2        *this_rsp = NULL;                \
+                this_rsp = &rsp->compound_rsp_array.compound_rsp_array_val[i]; \
+                gfx_##rsp_type##_rsp  *_this_rsp = &CPD4_RSP_FIELD(this_rsp, fop); \
+                                                                        \
+                GF_FREE (_this_rsp->xdata.pairs.pairs_val);             \
+        } while (0)
+
+
 typedef enum {
         INTERNAL_LOCKS = 1,
         POSIX_LOCKS = 2,
@@ -196,6 +218,11 @@ struct _server_state {
         lock_migration_info_t locklist;
         /* required for compound fops */
         gfs3_compound_req  req;
+        /* TODO: having xdr definition here
+           is not a good idea, but not taking
+           up the functionality right now */
+        gfx_compound_req  req_v2;
+
         /* last length till which iovec for compound
          * writes was processed */
         int               write_length;
@@ -232,16 +259,6 @@ int gf_server_check_getxattr_cmd (call_frame_t *frame, const char *name);
 
 void
 forget_inode_if_no_dentry (inode_t *inode);
-
-int
-unserialize_req_locklist (gfs3_setactivelk_req *req,
-                          lock_migration_info_t *lmi);
-
-int
-serialize_rsp_dirent (gf_dirent_t *entries, gfs3_readdir_rsp *rsp);
-
-int
-serialize_rsp_direntp (gf_dirent_t *entries, gfs3_readdirp_rsp *rsp);
 
 server_ctx_t*
 server_ctx_get (client_t *client, xlator_t *xlator);
