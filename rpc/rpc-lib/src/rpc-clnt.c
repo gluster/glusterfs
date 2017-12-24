@@ -1764,8 +1764,11 @@ rpc_clnt_trigger_destroy (struct rpc_clnt *rpc)
         /* This is to account for rpc_clnt_disable that might have been called
          * before rpc_clnt_unref */
         if (trans) {
-                rpc_transport_unref (trans);
+                /* set conn->trans to NULL before rpc_transport_unref
+                 * as rpc_transport_unref can potentially free conn
+                 */
                 conn->trans = NULL;
+                rpc_transport_unref (trans);
         }
 }
 
