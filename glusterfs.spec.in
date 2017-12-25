@@ -595,7 +595,11 @@ Obsoletes:        %{name}-geo-replication = %{version}-%{release}
 %if ( 0%{?rhel} && 0%{?rhel} <= 6 )
 Requires:         python-argparse
 %endif
+%if ( 0%{?fedora} && 0%{?fedora} >= 28 )
+Requires:         python2-pyxattr
+%else
 Requires:         pyxattr
+%endif
 %if (0%{?_with_valgrind:1})
 Requires:         valgrind
 %endif
@@ -1389,6 +1393,9 @@ exit 0
 %endif
 
 %changelog
+* Mon Dec 25 2017 Niels de Vos <ndevos@redhat.com>
+- Fedora 28 has renamed pyxattr
+
 * Wed Nov 10 2017 Mohit Agrawal <moagrawa@redhat.com>
 - Added control-cpu-load.sh and control-mem.sh scripts to glusterfs-server section(#1496335)
 
