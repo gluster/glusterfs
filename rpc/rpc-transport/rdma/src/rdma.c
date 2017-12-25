@@ -124,7 +124,7 @@ gf_rdma_new_post (rpc_transport_t *this, gf_rdma_device_t *device, int32_t len,
 
         ret = 0;
 out:
-        if (ret != 0) {
+        if (ret != 0 && post) {
                 free (post->buf);
 
                 GF_FREE (post);
@@ -674,7 +674,7 @@ gf_rdma_create_cq (rpc_transport_t *this)
                         goto out;
                 }
 
-                send_cqe = options->send_count * 128;
+                send_cqe = (uint64_t)options->send_count * 128;
                 send_cqe = (send_cqe > device_attr.max_cqe)
                         ? device_attr.max_cqe : send_cqe;
 
@@ -4224,38 +4224,39 @@ gf_rdma_recv_completion_proc (void *data)
                                         peer = __gf_rdma_lookup_peer (device,
                                                            wc[index].qp_num);
 
-                                /*
-                                 * keep a refcount on transport so that it
-                                 * does not get freed because of some error
-                                 * indicated by wc.status till we are done
-                                 * with usage of peer and thereby that of
-                                 * trans.
-                                 */
-                                if (peer != NULL) {
-                                        rpc_transport_ref (peer->trans);
-                                }
+                                        /*
+                                         * keep a refcount on transport so that it
+                                         * does not get freed because of some error
+                                         * indicated by wc.status till we are done
+                                         * with usage of peer and thereby that of
+                                         * trans.
+                                         */
+                                        if (peer != NULL) {
+                                                rpc_transport_ref (peer->trans);
+                                        }
                                 }
                                 pthread_mutex_unlock (&device->qpreg.lock);
 
                                 if (wc[index].status != IBV_WC_SUCCESS) {
                                         gf_msg (GF_RDMA_LOG_NAME,
-                                        GF_LOG_ERROR, 0,
-                                        RDMA_MSG_RECV_ERROR, "recv work "
-                                        "request on `%s' returned error (%d)",
-                                        device->device_name,
-                                        wc[index].status);
-                                        failed = 1;
-                                if (peer) {
-                                        ibv_ack_cq_events (event_cq, num_wr);
-                                        rpc_transport_unref (peer->trans);
-                                        rpc_transport_disconnect (peer->trans,
-                                                                  _gf_false);
-                                }
+                                                GF_LOG_ERROR, 0,
+                                                RDMA_MSG_RECV_ERROR, "recv work "
+                                                "request on `%s' returned error (%d)",
+                                                device->device_name,
+                                                wc[index].status);
+                                                failed = 1;
+                                        if (peer) {
+                                                ibv_ack_cq_events (event_cq, num_wr);
+                                                rpc_transport_disconnect (peer->trans,
+                                                                          _gf_false);
+                                                rpc_transport_unref (peer->trans);
+                                        }
 
-                                if (post) {
-                                        gf_rdma_post_unref (post);
-                                }
-                                continue;
+                                        if (post) {
+                                                gf_rdma_post_unref (post);
+                                        }
+
+                                        continue;
                                 }
 
                                 if (peer) {
@@ -4640,7 +4641,7 @@ __gf_rdma_ctx_create (void)
         }
 
 out:
-        if (ret < 0) {
+        if (ret < 0 && rdma_ctx) {
                 if (rdma_ctx->rdma_cm_event_channel != NULL) {
                         rdma_destroy_event_channel (rdma_ctx->rdma_cm_event_channel);
                 }
@@ -4940,17 +4941,18 @@ init (rpc_transport_t *this)
                 return -1;
         }
         rdma_ctx = this->ctx->ib;
+        if (!rdma_ctx)
+                return -1;
+
         pthread_mutex_lock (&rdma_ctx->lock);
         {
-                if (rdma_ctx != NULL) {
-                        if (this->dl_handle && (++(rdma_ctx->dlcount)) == 1) {
+                if (this->dl_handle && (++(rdma_ctx->dlcount)) == 1) {
                         iobuf_pool = this->ctx->iobuf_pool;
                         iobuf_pool->rdma_registration = gf_rdma_register_arena;
                         iobuf_pool->rdma_deregistration =
                                                       gf_rdma_deregister_arena;
                         gf_rdma_register_iobuf_pool_with_device
                                                 (rdma_ctx->device, iobuf_pool);
-                        }
                 }
         }
         pthread_mutex_unlock (&rdma_ctx->lock);
