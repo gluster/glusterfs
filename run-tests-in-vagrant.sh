@@ -23,10 +23,25 @@ popd () {
     command popd "$@" >/dev/null
 }
 
+usage() {
+    echo "Usage: $0 [...]"
+    echo ''
+    echo 'The options that this script accepts are:'
+    echo ''
+    echo '-a, --autostart        configure the testVM to autostart on boot'
+    echo '--destroy-now          cleanup the testVM'
+    echo '--destroy-after-test   cleanup once the tests finishes'
+    echo '-h, --help             show this help text'
+    echo '--os=<flavor>          select the OS for the testVM (fedora, centos6)'
+    echo '--ssh                  ssh into the testVM'
+    echo '--verbose              show what commands in the testVM are executed'
+    echo ''
+}
+
 function parse_args () {
     args=`getopt \
-              --options a \
-              --long autostart,os:,destroy-now,destroy-after-test,verbose,ssh \
+              --options ah \
+              --long autostart,os:,destroy-now,destroy-after-test,verbose,ssh,help \
               -n 'run-tests-in-vagrant.sh' \
               --  "$@"`
     eval set -- "$args"
@@ -35,6 +50,7 @@ function parse_args () {
             -a|--autostart) autostart="yes"; shift ;;
             --destroy-after-test) destroy_after_test="yes"; shift ;;
             --destroy-now)  destroy_now="yes"; shift ;;
+            -h|--help) usage ; exit 0 ;;
             --ssh)  sshvm="yes"; shift ;;
             --os)
                 case "$2" in
