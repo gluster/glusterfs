@@ -98,8 +98,8 @@ ec_combine_write (ec_fop_data_t *fop, ec_cbk_data_t *dst,
         return 1;
 }
 
-void ec_iatt_time_merge(uint32_t * dst_sec, uint32_t * dst_nsec,
-                        uint32_t src_sec, uint32_t src_nsec)
+void ec_iatt_time_merge(int64_t *dst_sec, uint32_t *dst_nsec,
+                        int64_t src_sec, uint32_t src_nsec)
 {
     if ((*dst_sec < src_sec) ||
         ((*dst_sec == src_sec) && (*dst_nsec < src_nsec)))

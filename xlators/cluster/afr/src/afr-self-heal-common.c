@@ -1015,7 +1015,7 @@ afr_sh_fav_by_majority (xlator_t *this, struct afr_reply *replies,
         for (i = 0; i < priv->child_count; i++) {
                 if (replies[i].valid == 1) {
                         gf_msg_debug (this->name, 0, "Child:%s "
-                                "mtime_sec = %d, size = %lu for gfid %s",
+                                "mtime_sec = %ld, size = %lu for gfid %s",
                                 priv->children[i]->name,
                                 replies[i].poststat.ia_mtime,
                                 replies[i].poststat.ia_size,
@@ -1056,7 +1056,7 @@ afr_sh_fav_by_mtime (xlator_t *this, struct afr_reply *replies, inode_t *inode)
         for (i = 0; i < priv->child_count; i++) {
                 if (replies[i].valid == 1) {
                         gf_msg_debug (this->name, 0, "Child:%s "
-                                "mtime = %d, mtime_nsec = %d for gfid %s",
+                                "mtime = %ld, mtime_nsec = %d for gfid %s",
                                 priv->children[i]->name,
                                 replies[i].poststat.ia_mtime,
                                 replies[i].poststat.ia_mtime_nsec,
@@ -1096,7 +1096,7 @@ afr_sh_fav_by_ctime (xlator_t *this, struct afr_reply *replies, inode_t *inode)
         for (i = 0; i < priv->child_count; i++) {
                 if (replies[i].valid == 1) {
                         gf_msg_debug (this->name, 0, "Child:%s "
-                                "ctime = %d, ctime_nsec = %d for gfid %s",
+                                "ctime = %ld, ctime_nsec = %d for gfid %s",
                                 priv->children[i]->name,
                                 replies[i].poststat.ia_ctime,
                                 replies[i].poststat.ia_ctime_nsec,

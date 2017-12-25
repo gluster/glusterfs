@@ -597,6 +597,7 @@ posix_fill_ino_from_gfid (xlator_t *this, struct iatt *buf)
                 goto out;
         }
         buf->ia_ino = gfid_to_ino (buf->ia_gfid);
+        buf->ia_flags |= IATT_INO;
 out:
         return;
 }
@@ -618,6 +619,7 @@ posix_fdstat (xlator_t *this, int fd, struct iatt *stbuf_p)
         iatt_from_stat (&stbuf, &fstatbuf);
 
         ret = posix_fill_gfid_fd (this, fd, &stbuf);
+        stbuf.ia_flags |= IATT_GFID;
 
         posix_fill_ino_from_gfid (this, &stbuf);
 
@@ -688,6 +690,7 @@ posix_istat (xlator_t *this, uuid_t gfid, const char *basename,
                 posix_fill_gfid_path (this, real_path, &stbuf);
         else
                 gf_uuid_copy (stbuf.ia_gfid, gfid);
+        stbuf.ia_flags |= IATT_GFID;
 
         posix_fill_ino_from_gfid (this, &stbuf);
 
@@ -716,6 +719,7 @@ posix_pstat (xlator_t *this, uuid_t gfid, const char *path,
                 gf_uuid_copy (stbuf.ia_gfid, gfid);
         else
                 posix_fill_gfid_path (this, path, &stbuf);
+        stbuf.ia_flags |= IATT_GFID;
 
         ret = sys_lstat (path, &lstatbuf);
         if (ret == -1) {
