@@ -2661,14 +2661,14 @@ nfs3svc_create_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if ((cs->stbuf.ia_mtime == buf->ia_mtime) &&
             (cs->stbuf.ia_atime == buf->ia_atime)) {
                 gf_msg_debug (GF_NFS3, 0,
-                        "Create req retransmitted verf %x %x",
+                        "Create req retransmitted verf %ld %ld",
                         cs->stbuf.ia_mtime, cs->stbuf.ia_atime);
                 stat = NFS3_OK;
                 nfs3_fh_build_child_fh (&cs->parent, buf, &cs->fh);
         } else {
                 gf_msg_debug (GF_NFS3, 0,
-                        "File already exist new_verf %x %x"
-                        "old_verf %x %x", cs->stbuf.ia_mtime,
+                        "File already exist new_verf %ld %ld"
+                        "old_verf %ld %ld", cs->stbuf.ia_mtime,
                         cs->stbuf.ia_atime,
                         buf->ia_mtime, buf->ia_atime);
                 stat = NFS3ERR_EXIST;

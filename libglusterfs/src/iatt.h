@@ -33,7 +33,6 @@ typedef enum {
         IA_IFSOCK
 } ia_type_t;
 
-
 typedef struct {
         uint8_t    suid:1;
         uint8_t    sgid:1;
@@ -45,28 +44,63 @@ typedef struct {
         } owner, group, other;
 } ia_prot_t;
 
-
 struct iatt {
+        uint64_t     ia_flags;
         uint64_t     ia_ino;        /* inode number */
-        uuid_t       ia_gfid;
         uint64_t     ia_dev;        /* backing device ID */
-        ia_type_t    ia_type;       /* type of file */
-        ia_prot_t    ia_prot;       /* protection */
+        uint64_t     ia_rdev;       /* device ID (if special file) */
+        uint64_t     ia_size;       /* file size in bytes */
         uint32_t     ia_nlink;      /* Link count */
         uint32_t     ia_uid;        /* user ID of owner */
         uint32_t     ia_gid;        /* group ID of owner */
-        uint64_t     ia_rdev;       /* device ID (if special file) */
-        uint64_t     ia_size;       /* file size in bytes */
         uint32_t     ia_blksize;    /* blocksize for filesystem I/O */
         uint64_t     ia_blocks;     /* number of 512B blocks allocated */
-        uint32_t     ia_atime;      /* last access time */
+        int64_t      ia_atime;      /* last access time */
+        int64_t      ia_mtime;      /* last modification time */
+        int64_t      ia_ctime;      /* last status change time */
+        int64_t      ia_btime;      /* creation time. Fill using statx */
         uint32_t     ia_atime_nsec;
-        uint32_t     ia_mtime;      /* last modification time */
         uint32_t     ia_mtime_nsec;
-        uint32_t     ia_ctime;      /* last status change time */
         uint32_t     ia_ctime_nsec;
+        uint32_t     ia_btime_nsec;
+        uint64_t     ia_attributes; /* chattr related:compressed, immutable,
+                                     * append only, encrypted etc.*/
+        uint64_t     ia_attributes_mask; /* Mask for the attributes */
+
+        uuid_t       ia_gfid;
+        ia_type_t    ia_type;       /* type of file */
+        ia_prot_t    ia_prot;       /* protection */
 };
 
+/* 64-bit mask for valid members in struct iatt. */
+#define IATT_TYPE             0x0000000000000001U
+#define IATT_MODE             0x0000000000000002U
+#define IATT_NLINK            0x0000000000000004U
+#define IATT_UID              0x0000000000000008U
+#define IATT_GID              0x0000000000000010U
+#define IATT_ATIME            0x0000000000000020U
+#define IATT_MTIME            0x0000000000000040U
+#define IATT_CTIME            0x0000000000000080U
+#define IATT_INO              0x0000000000000100U
+#define IATT_SIZE             0x0000000000000200U
+#define IATT_BLOCKS           0x0000000000000400U
+#define IATT_BTIME            0x0000000000000800U
+#define IATT_GFID             0x0000000000001000U
+
+/* Macros for checking validity of struct iatt members.*/
+#define IATT_TYPE_VALID(iaflags) (iaflags & IATT_TYPE)
+#define IATT_MODE_VALID(iaflags) (iaflags & IATT_MODE)
+#define IATT_NLINK_VALID(iaflags) (iaflags & IATT_NLINK)
+#define IATT_UID_VALID(iaflags) (iaflags & IATT_UID)
+#define IATT_GID_VALID(iaflags) (iaflags & IATT_GID)
+#define IATT_ATIME_VALID(iaflags) (iaflags & IATT_ATIME)
+#define IATT_MTIME_VALID(iaflags) (iaflags & IATT_MTIME)
+#define IATT_CTIME_VALID(iaflags) (iaflags & IATT_CTIME)
+#define IATT_INO_VALID(iaflags) (iaflags & IATT_INO)
+#define IATT_SIZE_VALID(iaflags) (iaflags & IATT_SIZE)
+#define IATT_BLOCKS_VALID(iaflags) (iaflags & IATT_BLOCKS)
+#define IATT_BTIME_VALID(iaflags) (iaflags & IATT_BTIME)
+#define IATT_GFID_VALID(iaflags) (iaflags & IATT_GFID)
 
 #define IA_ISREG(t) (t == IA_IFREG)
 #define IA_ISDIR(t) (t == IA_IFDIR)
@@ -301,6 +335,11 @@ iatt_from_stat (struct iatt *iatt, struct stat *stat)
 
         iatt->ia_ctime      = stat->st_ctime;
         iatt->ia_ctime_nsec = ST_CTIM_NSEC (stat);
+
+        /* Setting IATT_INO in ia_flags is done in posix_fill_ino_from_gfid. */
+        iatt->ia_flags = iatt->ia_flags | IATT_TYPE | IATT_MODE | IATT_NLINK |
+                         IATT_UID | IATT_GID | IATT_SIZE | IATT_BLOCKS |
+                         IATT_ATIME | IATT_MTIME | IATT_CTIME;
 
         return 0;
 }
