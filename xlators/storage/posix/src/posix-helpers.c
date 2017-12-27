@@ -856,7 +856,7 @@ posix_gfid_unset (xlator_t *this, dict_t *xdata)
         if (xdata == NULL)
                 goto out;
 
-        ret = dict_get_ptr (xdata, "gfid-req", (void **)&uuid);
+        ret = dict_get_gfuuid (xdata, "gfid-req", &uuid);
         if (ret) {
                 goto out;
         }
@@ -869,7 +869,7 @@ out:
 int
 posix_gfid_set (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
 {
-        void        *uuid_req = NULL;
+        uuid_t       uuid_req;
         uuid_t       uuid_curr;
         int          ret = 0;
         ssize_t      size = 0;
@@ -888,7 +888,7 @@ posix_gfid_set (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
                 goto verify_handle;
         }
 
-        ret = dict_get_ptr (xattr_req, "gfid-req", &uuid_req);
+        ret = dict_get_gfuuid (xattr_req, "gfid-req", &uuid_req);
         if (ret) {
                 gf_msg_debug (this->name, 0,
                         "failed to get the gfid from dict for %s",
@@ -2705,7 +2705,7 @@ posix_set_iatt_in_dict (dict_t *dict, struct iatt *in_stbuf)
 
         memcpy (stbuf, in_stbuf, len);
 
-        ret = dict_set_bin (dict, DHT_IATT_IN_XDATA_KEY, stbuf, len);
+        ret = dict_set_iatt (dict, DHT_IATT_IN_XDATA_KEY, stbuf, false);
         if (ret)
                 GF_FREE (stbuf);
 

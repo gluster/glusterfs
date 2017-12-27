@@ -314,7 +314,7 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         gid_t                 gid             = 0;
         struct iatt           preparent       = {0,};
         struct iatt           postparent      = {0,};
-        void *                uuid_req        = NULL;
+        uuid_t                uuid_req        = {0,};
         int32_t               nlink_samepgfid = 0;
         char                 *pgfid_xattr_key = NULL;
         gf_boolean_t          entry_created   = _gf_false, gfid_set = _gf_false;
@@ -366,7 +366,7 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
            linkfile may be for a hardlinked file */
         if (dict_get (xdata, GLUSTERFS_INTERNAL_FOP_KEY)) {
                 dict_del (xdata, GLUSTERFS_INTERNAL_FOP_KEY);
-                op_ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
+                op_ret = dict_get_gfuuid (xdata, "gfid-req", &uuid_req);
                 if (op_ret) {
                         gf_msg_debug (this->name, 0, "failed to get the gfid from "
                                 "dict for %s", loc->path);
@@ -523,7 +523,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         struct iatt           preparent       = {0,};
         struct iatt           postparent      = {0,};
         gf_boolean_t          entry_created   = _gf_false, gfid_set = _gf_false;
-        void                 *uuid_req        = NULL;
+        uuid_t                uuid_req        = {0,};
         ssize_t               size            = 0;
         dict_t               *xdata_rsp       = NULL;
         void                 *disk_xattr      = NULL;
@@ -580,7 +580,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         mode = posix_override_umask (mode, mode_bit);
 
         if (xdata) {
-                op_ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
+                op_ret = dict_get_gfuuid (xdata, "gfid-req", &uuid_req);
                 if (!op_ret && !gf_uuid_compare (stbuf.ia_gfid, uuid_req)) {
                         op_ret = -1;
                         op_errno = EEXIST;
@@ -588,7 +588,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        if (uuid_req && !gf_uuid_is_null (uuid_req)) {
+        if (!gf_uuid_is_null (uuid_req)) {
                 op_ret = posix_istat (this, uuid_req, NULL, &stbuf);
                 if ((op_ret == 0) && IA_ISDIR (stbuf.ia_type)) {
                         size = posix_handle_path (this, uuid_req, NULL, NULL,
@@ -624,7 +624,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                                  * new dir.*/
                                 posix_handle_unset (this, stbuf.ia_gfid, NULL);
                 }
-        } else if (!uuid_req && frame->root->pid != GF_SERVER_PID_TRASH) {
+        } else if (frame->root->pid != GF_SERVER_PID_TRASH) {
                 op_ret = -1;
                 op_errno = EPERM;
                 gf_msg_callingfn (this->name, GF_LOG_WARNING, op_errno,

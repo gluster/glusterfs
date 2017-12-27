@@ -239,5 +239,7 @@ enum gf_dict_data_type_t {
         GF_DATA_TYPE_DOUBLE,
         GF_DATA_TYPE_STR,
         GF_DATA_TYPE_PTR,
+        GF_DATA_TYPE_GFUUID,
+        GF_DATA_TYPE_IATT,
         GF_DATA_TYPE_MAX
 };

@@ -30,6 +30,7 @@
 
 #include "glusterfs-fops.h"
 #include "rpc-common-xdr.h"
+#include "glusterfs3.h"
 
 struct dict_cmp {
         dict_t *dict;
@@ -989,7 +990,6 @@ bin_to_data (void *value, int32_t len)
         data->is_static = 1;
         data->len = len;
         data->data = value;
-        data->data_type = GF_DATA_TYPE_PTR;
 
         return data;
 }
@@ -1001,6 +1001,8 @@ static char *data_type_name[GF_DATA_TYPE_MAX] = {
         [GF_DATA_TYPE_DOUBLE] = "float",
         [GF_DATA_TYPE_STR] = "string",
         [GF_DATA_TYPE_PTR] = "pointer",
+        [GF_DATA_TYPE_GFUUID] = "gf-uuid",
+        [GF_DATA_TYPE_IATT] = "iatt",
 };
 
 int64_t
@@ -2335,7 +2337,7 @@ err:
  *******************************************************************/
 static int
 dict_set_bin_common (dict_t *this, char *key, void *ptr, size_t size,
-                     gf_boolean_t is_static)
+                     gf_boolean_t is_static, gf_dict_data_type_t type)
 {
         data_t * data = NULL;
         int      ret  = 0;
@@ -2352,6 +2354,7 @@ dict_set_bin_common (dict_t *this, char *key, void *ptr, size_t size,
         }
 
         data->is_static = is_static;
+        data->data_type = type;
 
         ret = dict_set (this, key, data);
         if (ret < 0) {
@@ -2374,7 +2377,8 @@ err:
 int
 dict_set_bin (dict_t *this, char *key, void *ptr, size_t size)
 {
-        return dict_set_bin_common (this, key, ptr, size, _gf_false);
+        return dict_set_bin_common (this, key, ptr, size, _gf_false,
+                                    GF_DATA_TYPE_PTR);
 }
 
 /********************************************************************
@@ -2387,7 +2391,73 @@ dict_set_bin (dict_t *this, char *key, void *ptr, size_t size)
 int
 dict_set_static_bin (dict_t *this, char *key, void *ptr, size_t size)
 {
-        return dict_set_bin_common (this, key, ptr, size, _gf_true);
+        return dict_set_bin_common (this, key, ptr, size, _gf_true,
+                                    GF_DATA_TYPE_PTR);
+}
+
+/*  */
+int
+dict_set_gfuuid (dict_t *this, char *key, uuid_t gfid, bool is_static)
+{
+        return dict_set_bin_common (this, key, gfid, sizeof (uuid_t),
+                                    is_static, GF_DATA_TYPE_GFUUID);
+}
+
+int
+dict_get_gfuuid (dict_t *this, char *key, uuid_t *gfid)
+{
+        data_t *data = NULL;
+        int     ret  = -EINVAL;
+
+        if (!this || !key || !gfid) {
+                goto err;
+        }
+        ret = dict_get_with_ref (this, key, &data);
+        if (ret < 0) {
+                goto err;
+        }
+
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_GFUUID, -EINVAL);
+
+        memcpy (*gfid, data->data, min(data->len, sizeof (uuid_t)));
+
+err:
+        if (data)
+                data_unref (data);
+
+        return ret;
+}
+
+int
+dict_set_iatt (dict_t *this, char *key, struct iatt *iatt, bool is_static)
+{
+        return dict_set_bin_common (this, key, iatt, sizeof (struct iatt),
+                                    is_static, GF_DATA_TYPE_IATT);
+}
+
+int
+dict_get_iatt (dict_t *this, char *key, struct iatt *iatt)
+{
+        data_t *data = NULL;
+        int     ret  = -EINVAL;
+
+        if (!this || !key || !iatt) {
+                goto err;
+        }
+        ret = dict_get_with_ref (this, key, &data);
+        if (ret < 0) {
+                goto err;
+        }
+
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_IATT, -EINVAL);
+
+        memcpy (iatt, data->data, min(data->len, sizeof (struct iatt)));
+
+err:
+        if (data)
+                data_unref (data);
+
+        return ret;
 }
 
 
@@ -3165,8 +3235,18 @@ dict_to_xdr (dict_t *this, gfx_dict *dict)
         data_pair_t *dpair = NULL;
         gfx_dict_pair *xpair = NULL;
 
-        if (!this || !dict)
+        /* This is a failure as we expect destination to be valid */
+        if (!dict)
                 goto out;
+
+        /* This is OK as dictionary can be null, in which case, destination
+           will be set as 0 sized dictionary */
+        if (!this) {
+                ret = 0;
+                dict->count = 0;
+                dict->pairs.pairs_len = 0;
+                goto out;
+        }
 
         dict->pairs.pairs_val = GF_CALLOC (1, (this->count *
                                                sizeof (gfx_dict_pair)),
@@ -3202,9 +3282,41 @@ dict_to_xdr (dict_t *this, gfx_dict *dict)
                         xpair->value.gfx_value_u.val_string.val_string_val = dpair->value->data;
                         xpair->value.gfx_value_u.val_string.val_string_len = dpair->value->len;
                         break;
+                case GF_DATA_TYPE_IATT:
+                        index++;
+                        gf_stat_from_iatt (&xpair->value.gfx_value_u.iatt,
+                                           (struct iatt *)dpair->value->data);
+                        break;
+                case GF_DATA_TYPE_GFUUID:
+                        index++;
+                        memcpy (&xpair->value.gfx_value_u.uuid,
+                                dpair->value->data, sizeof (uuid_t));
+                        break;
+
+                case GF_DATA_TYPE_PTR:
+                        index++;
+                        /* Ideally, each type of data stored in dictionary
+                           should have type. A pointer type shouldn't be
+                           sent on wire */
+
+                        /* This is done for backward compatibility as dict is
+                           heavily used for transporting data over wire.
+                           Ideally, whereever there is an issue, fix and move on */
+                        xpair->value.gfx_value_u.other.other_val =
+                                dpair->value->data;
+                        xpair->value.gfx_value_u.other.other_len =
+                                dpair->value->len;
+
+                        /* Change this to INFO, after taking the above down */
+                        gf_msg ("dict", GF_LOG_INFO, EINVAL,
+                                LG_MSG_DICT_SERIAL_FAILED,
+                                "key '%s' is would not be sent on wire in future",
+                                dpair->key);
+                        break;
                 default:
                         /* Unknown type and ptr type is not sent on wire */
-                        gf_log ("", GF_LOG_INFO, "%s is not sent on wire", dpair->key);
+                        gf_msg ("dict", GF_LOG_WARNING, EINVAL, LG_MSG_DICT_SERIAL_FAILED,
+                                "key '%s' is not sent on wire", dpair->key);
                         break;
                 }
 
@@ -3227,6 +3339,8 @@ xdr_to_dict (gfx_dict *dict, dict_t **to)
         char *value = NULL;
         gfx_dict_pair *xpair = NULL;
         dict_t *this = NULL;
+        unsigned char *uuid = NULL;
+        struct iatt *iatt = NULL;
 
         if (!to || !dict)
                 goto out;
@@ -3262,6 +3376,35 @@ xdr_to_dict (gfx_dict *dict, dict_t **to)
                         }
                         free (xpair->value.gfx_value_u.val_string.val_string_val);
                         ret = dict_set_dynstr (this, key, value);
+                        break;
+                case GF_DATA_TYPE_GFUUID:
+                        uuid = GF_CALLOC (1, 20, gf_common_mt_uuid_t);
+                        if (!uuid) {
+                                errno = ENOMEM;
+                                goto out;
+                        }
+                        memcpy (uuid, xpair->value.gfx_value_u.uuid, 16);
+                        ret = dict_set_gfuuid (this, key, uuid, false);
+                        break;
+                case GF_DATA_TYPE_IATT:
+                        iatt = GF_CALLOC (1, sizeof (struct iatt), gf_common_mt_char);
+                        if (!iatt) {
+                                errno = ENOMEM;
+                                goto out;
+                        }
+                        gf_stat_to_iatt (&xpair->value.gfx_value_u.iatt, iatt);
+                        ret = dict_set_iatt (this, key, iatt, false);
+                        break;
+                case GF_DATA_TYPE_PTR:
+                        value = gf_memdup (xpair->value.gfx_value_u.other.other_val,
+                                xpair->value.gfx_value_u.other.other_len);
+                        if (!value) {
+                                errno = ENOMEM;
+                                goto out;
+                        }
+                        free (xpair->value.gfx_value_u.other.other_val);
+                        ret = dict_set_dynptr (this, key, value,
+                                               xpair->value.gfx_value_u.other.other_len);
                         break;
                 default:
                         ret = 0;

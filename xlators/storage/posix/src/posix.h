@@ -81,14 +81,14 @@
 #define GFID_NULL_CHECK_AND_GOTO(frame, this, loc, xattr_req, op_ret,         \
                                  op_errno, out)                               \
         do {                                                                  \
-                void *_uuid_req = NULL;                                       \
+                uuid_t _uuid_req;                                             \
                 int _ret = 0;                                                 \
                 /* TODO: Remove pid check once trash implements client side   \
                  * logic to assign gfid for entry creations inside .trashcan  \
                  */                                                           \
                 if (frame->root->pid == GF_SERVER_PID_TRASH)                  \
                         break;                                                \
-                _ret = dict_get_ptr (xattr_req, "gfid-req", &_uuid_req);      \
+                _ret = dict_get_gfuuid (xattr_req, "gfid-req", &_uuid_req);   \
                 if (_ret) {                                                   \
                         gf_msg (this->name, GF_LOG_ERROR, EINVAL,             \
                                P_MSG_NULL_GFID, "failed to get the gfid from" \
