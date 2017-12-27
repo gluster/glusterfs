@@ -309,16 +309,28 @@ glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                 /* A bricks mount dir is required only by snapshots which were
                  * introduced in gluster-3.6.0
                  */
-                ret = glusterd_get_brick_mount_dir (dst_brickinfo->path,
-                                                    dst_brickinfo->hostname,
-                                                    dst_brickinfo->mount_dir);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_BRICK_MOUNTDIR_GET_FAIL,
-                                "Failed to get brick mount_dir");
-                        goto out;
-                }
 
+                if (!(gf_uuid_compare (dst_brickinfo->uuid, MY_UUID))) {
+                        ret = glusterd_get_brick_mount_dir
+                                        (dst_brickinfo->path,
+                                         dst_brickinfo->hostname,
+                                         dst_brickinfo->mount_dir);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_BRICK_MOUNTDIR_GET_FAIL,
+                                        "Failed to get brick mount_dir");
+                                goto out;
+                        }
+                        ret = dict_set_dynstr_with_alloc
+                                        (rsp_dict, "brick1.mount_dir",
+                                         dst_brickinfo->mount_dir);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_DICT_SET_FAILED,
+                                        "Failed to set brick.mount_dir");
+                                goto out;
+                        }
+                }
 
                 ret = dict_set_int32 (rsp_dict, "brick_count", 1);
                 if (ret) {
