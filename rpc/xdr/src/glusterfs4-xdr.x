@@ -12,10 +12,38 @@
 %#include "rpc-pragmas.h"
 #endif
 %#include "compat.h"
-%#include "rpc-common-xdr.h"
 %#include "glusterfs-fops.h"
 %#include "glusterfs3-xdr.h"
 
+
+union gfx_value switch (gf_dict_data_type_t type) {
+        case GF_DATA_TYPE_INT:
+                hyper value_int;
+        case GF_DATA_TYPE_UINT:
+                unsigned hyper value_uint;
+        case GF_DATA_TYPE_DOUBLE:
+                double value_dbl;
+        case GF_DATA_TYPE_STR:
+                opaque val_string<>;
+        case GF_DATA_TYPE_IATT:
+                gf_iatt iatt;
+        case GF_DATA_TYPE_GFUUID:
+                opaque uuid[20];
+        case GF_DATA_TYPE_PTR:
+                opaque other<>;
+};
+
+struct gfx_dict_pair {
+       opaque key<>;
+       gfx_value value;
+};
+
+struct gfx_dict {
+       unsigned int count;
+       gfx_dict_pair pairs<>;
+};
+
+/* fops */
  struct gfs3_fsetattr_req_v2 {
         opaque gfid[16];
         hyper        fd;

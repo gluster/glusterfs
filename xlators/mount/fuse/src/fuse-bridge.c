@@ -4257,7 +4257,7 @@ fuse_first_lookup (xlator_t *this)
 
         memset (gfid, 0, 16);
         gfid[15] = 1;
-        ret = dict_set_static_bin (dict, "gfid-req", gfid, 16);
+        ret = dict_set_gfuuid (dict, "gfid-req", gfid, true);
         if (ret) {
                 gf_log (xl->name, GF_LOG_ERROR, "failed to set 'gfid-req'");
                 goto out;

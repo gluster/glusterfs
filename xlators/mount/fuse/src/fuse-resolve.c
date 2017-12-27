@@ -585,8 +585,8 @@ fuse_gfid_set (fuse_state_t *state)
                 goto out;
         }
 
-        ret = dict_set_static_bin (state->xdata, "gfid-req",
-                                   state->gfid, sizeof (state->gfid));
+        ret = dict_set_gfuuid (state->xdata, "gfid-req",
+                               state->gfid, true);
 out:
         return ret;
 }

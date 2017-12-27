@@ -362,6 +362,8 @@ dict_for_key_value
 dict_get
 dict_get_bin
 dict_get_double
+dict_get_gfuuid
+dict_get_iatt
 dict_get_int16
 dict_get_int32
 dict_get_int64
@@ -392,6 +394,8 @@ dict_set_double
 dict_set_dynptr
 dict_set_dynstr
 dict_set_dynstr_with_alloc
+dict_set_gfuuid
+dict_set_iatt
 dict_set_int16
 dict_set_int32
 dict_set_int64

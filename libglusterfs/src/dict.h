@@ -248,6 +248,15 @@ GF_MUST_CHECK int dict_get_str_boolean (dict_t *this, char *key, int default_val
 GF_MUST_CHECK int dict_rename_key (dict_t *this, char *key, char *replace_key);
 GF_MUST_CHECK int dict_serialize_value_with_delim (dict_t *this, char *buf, int32_t *serz_len,
                                                     char delimiter);
+
+GF_MUST_CHECK int dict_set_gfuuid (dict_t *this, char *key, uuid_t uuid,
+                                   bool is_static);
+GF_MUST_CHECK int dict_get_gfuuid (dict_t *this, char *key, uuid_t *uuid);
+
+GF_MUST_CHECK int dict_set_iatt (dict_t *this, char *key, struct iatt *iatt,
+                                 bool is_static);
+GF_MUST_CHECK int dict_get_iatt (dict_t *this, char *key, struct iatt *iatt);
+
 void
 dict_dump_to_statedump (dict_t *dict, char *dict_name, char *domain);
 
