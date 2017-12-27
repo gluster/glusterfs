@@ -13,7 +13,7 @@ libglusterfs_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 	-I$(CONTRIBDIR)/xxhash
 
 libglusterfs_la_LIBADD = $(ZLIB_LIBS) $(MATH_LIB) $(UUID_LIBS)
-libglusterfs_la_LDFLAGS = -version-info $(LIBGLUSTERFS_LT_VERSION)
+libglusterfs_la_LDFLAGS = -version-info $(LIBGLUSTERFS_LT_VERSION) -export-symbols $(top_srcdir)/libglusterfs/src/libglusterfs.sym
 
 lib_LTLIBRARIES = libglusterfs.la
 libgfchangelogdir = $(includedir)/glusterfs/gfchangelog
@@ -90,7 +90,7 @@ endif
 
 libgfchangelog_HEADERS = changelog.h
 
-EXTRA_DIST = graph.l graph.y defaults-tmpl.c
+EXTRA_DIST = graph.l graph.y defaults-tmpl.c libglusterfs.sym
 
 graph.lex.c: graph.l y.tab.h
 	$(LEX) -Pgraphyy -t $(srcdir)/graph.l > $@
