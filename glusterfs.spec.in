@@ -638,9 +638,9 @@ Requires:         %{name}-server%{?_isa} = %{version}-%{release}
 Requires:         python2 python-prettytable
 Requires:         python2-gluster = %{version}-%{release}
 %if ( 0%{?rhel} )
-Requires:         python-requests python-jwt
+Requires:         python-requests
 %else
-Requires:         python2-requests python2-jwt
+Requires:         python2-requests
 %endif
 %if ( 0%{?rhel} && 0%{?rhel} < 7 )
 Requires:         python-argparse
