@@ -171,7 +171,10 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         dict_t *    xattr              = NULL;
         char *      real_path          = NULL;
         char *      par_path           = NULL;
+        char        *gfid_path         = NULL;
+        uuid_t      gfid               = {0};
         struct iatt postparent         = {0,};
+        struct stat statbuf            = {0};
         int32_t     gfidless           = 0;
         char        *pgfid_xattr_key   = NULL;
         int32_t     nlink_samepgfid    = 0;
@@ -225,7 +228,19 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
                                 "lstat on %s failed",
                                 real_path ? real_path : "null");
                 }
-
+                if (loc_is_nameless(loc)) {
+                        if (!op_errno)
+                                op_errno = ESTALE;
+                        loc_gfid (loc, gfid);
+                        MAKE_HANDLE_ABSPATH (gfid_path, this, gfid);
+                        op_ret = sys_lstat(gfid_path, &statbuf);
+                        if (op_ret == 0 && statbuf.st_nlink == 1) {
+                                gf_msg (this->name, GF_LOG_WARNING, ESTALE,
+                                        P_MSG_HANDLE_DELETE, "Found stale gfid "
+                                        "handle %s, removing it.", gfid_path);
+                                posix_handle_unset (this, gfid, NULL);
+                        }
+                }
                 entry_ret = -1;
                 goto parent;
         }
