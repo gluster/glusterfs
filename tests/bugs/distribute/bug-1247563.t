@@ -30,6 +30,7 @@ TEST glusterfs --acl -s $H0 --volfile-id $V0 $M0
 TEST mkdir $M0/dir1
 
 echo "Testing pacls on rebalance" > $M0/dir1/FILE1
+
 FPATH1=`find $B0/ -name FILE1`
 
 # Rename the file to create a linkto, for rebalance to
@@ -55,3 +56,7 @@ COUNT=`getfacl $FPATH2 |grep -c "user:root:rwx"`
 EXPECT "0" echo $COUNT
 
 cleanup;
+
+
+#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=000000
+#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=000000
