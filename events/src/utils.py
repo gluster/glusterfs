@@ -18,6 +18,10 @@ from threading import Thread
 import multiprocessing
 from Queue import Queue
 from datetime import datetime, timedelta
+import base64
+import hmac
+from hashlib import sha256
+from calendar import timegm
 
 from eventsapiconf import (LOG_FILE,
                            WEBHOOKS_FILE,
@@ -185,15 +189,25 @@ def autoload_webhooks():
             load_webhooks()
 
 
+def base64_urlencode(inp):
+    return base64.urlsafe_b64encode(inp).replace("=", "").strip()
+
+
 def get_jwt_token(secret, event_type, event_ts, jwt_expiry_time_seconds=60):
-    import jwt
+    exp = datetime.utcnow() + timedelta(seconds=jwt_expiry_time_seconds)
     payload = {
-        "exp": datetime.utcnow() + timedelta(seconds=jwt_expiry_time_seconds),
+        "exp": timegm(exp.utctimetuple()),
         "iss": "gluster",
         "sub": event_type,
         "iat": event_ts
     }
-    return jwt.encode(payload, secret, algorithm='HS256')
+    header = '{"alg":"HS256","typ":"JWT"}'
+    payload = json.dumps(payload, separators=(',', ':'), sort_keys=True)
+    msg = base64_urlencode(header) + "." + base64_urlencode(payload)
+    return "%s.%s" % (
+        msg,
+        base64_urlencode(hmac.HMAC(secret, msg, sha256).digest())
+    )
 
 
 def save_https_cert(domain, port, cert_path):
