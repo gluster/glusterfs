@@ -317,7 +317,7 @@ def log_raise_exception(excont):
                 rconf.transport.terminate_geterr()
         elif isinstance(exc, OSError) and exc.errno in (ENOTCONN,
                                                         ECONNABORTED):
-            logging.error(lf('glusterfs session went down',
+            logging.error(lf('Gluster Mount process exited',
                              error=errorcode[exc.errno]))
         else:
             logtag = "FAIL"
