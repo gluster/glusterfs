@@ -1035,8 +1035,9 @@ struct volume_options options[] = {
           .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
           .tags = {"replicate"},
           /*.option = quorum-count*/
+          /*.validate_fn = validate_quorum_count*/
           .description = "If quorum-type is \"fixed\" only allow writes if "
-                         "this many bricks or present.  Other quorum types "
+                         "this many bricks are present.  Other quorum types "
                          "will OVERWRITE this value.",
         },
         { .key = {"quorum-reads"},

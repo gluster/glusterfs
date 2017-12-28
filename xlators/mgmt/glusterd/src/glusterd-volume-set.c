@@ -847,6 +847,40 @@ out:
 }
 
 static int
+validate_quorum_count (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
+                       char *value, char **op_errstr)
+{
+        int                  ret           = 0;
+        xlator_t            *this          = NULL;
+        int                  q_count       = 0;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        ret = gf_string2int (value, &q_count);
+        if (ret) {
+                gf_asprintf (op_errstr, "%s is not an integer. %s expects a "
+                             "valid integer value.", value, key);
+                goto out;
+        }
+
+        if (q_count < 1 || q_count > volinfo->replica_count) {
+                gf_asprintf (op_errstr, "%d in %s %d is out of range [1 - %d]",
+                             q_count, key, q_count, volinfo->replica_count);
+                ret = -1;
+        }
+
+out:
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY, "%s",
+                        *op_errstr);
+        }
+        gf_msg_debug (this->name, 0, "Returning %d", ret);
+
+        return ret;
+}
+
+static int
 validate_subvols_per_directory (glusterd_volinfo_t *volinfo, dict_t *dict,
                                 char *key, char *value, char **op_errstr)
 {
@@ -1456,11 +1490,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 1,
           .flags      = VOLOPT_FLAG_CLIENT_OPT
         },
-        { .key        = "cluster.quorum-count",
-          .voltype    = "cluster/replicate",
-          .option     = "quorum-count",
-          .op_version = 1,
-          .flags      = VOLOPT_FLAG_CLIENT_OPT
+        { .key         = "cluster.quorum-count",
+          .voltype     = "cluster/replicate",
+          .option      = "quorum-count",
+          .op_version  = 1,
+          .validate_fn = validate_quorum_count,
+          .flags       = VOLOPT_FLAG_CLIENT_OPT
         },
         { .key        = "cluster.choose-local",
           .voltype    = "cluster/replicate",
