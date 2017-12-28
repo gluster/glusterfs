@@ -1660,8 +1660,8 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
             if isinstance(xtr_root, int):
                 if xtr_root != ENOENT:
                     logging.warn(lf("slave cluster not returning the "
-                                    "correct xtime for root",
-                                    xtime=xtr_root))
+                                    "xtime for root",
+                                    error=xtr_root))
                 xtr_root = self.minus_infinity
         xtl = self.xtime(path)
         if isinstance(xtl, int):
@@ -1670,9 +1670,9 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
         if isinstance(xtr, int):
             if xtr != ENOENT:
                 logging.warn(lf("slave cluster not returning the "
-                                "correct xtime",
+                                "xtime for dir",
                                 path=path,
-                                xtime=xtr))
+                                error=xtr))
             xtr = self.minus_infinity
         xtr = max(xtr, xtr_root)
         zero_zero = (0, 0)

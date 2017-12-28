@@ -662,8 +662,8 @@ class Server(object):
                                     except OSError as e:
                                         if e.errno == ENOTEMPTY:
                                             logging.error(
-                                                lf("Unable to delete directory"
-                                                   ", Both Old and New"
+                                                lf("Directory Rename failed. "
+                                                   "Both Old and New"
                                                    " directories exists",
                                                    old=entry,
                                                    new=en))

@@ -191,7 +191,7 @@ class RepceClient(object):
             meth, *args, **{'cbk': lambda rj, res: rj.wakeup(res)})
         exc, res = rjob.wait()
         if exc:
-            logging.error(lf('call failed on peer',
+            logging.error(lf('call failed',
                              call=repr(rjob),
                              method=meth,
                              error=str(type(res).__name__)))

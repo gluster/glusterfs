@@ -66,7 +66,7 @@ def subcmd_worker(args):
     remote = SSH(slavehost, slavevol)
     remote.connect_remote()
     local.connect()
-    logging.info("Closing feedback fd, waking up the monitor")
+    logging.info("Worker spawn successful. Acknowledging back to monitor")
     os.close(args.feedback_fd)
     local.service_loop(remote)
 
