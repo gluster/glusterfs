@@ -112,6 +112,11 @@ class ChangelogData(object):
         """
         self.cursor.execute(create_table)
 
+        create_index = """
+        CREATE INDEX gfid_index ON gfidpath(gfid);
+        """
+        self.cursor.execute(create_index)
+
     def _create_table_inodegfid(self):
         drop_table = "DROP TABLE IF EXISTS inodegfid"
         self.cursor.execute(drop_table)
