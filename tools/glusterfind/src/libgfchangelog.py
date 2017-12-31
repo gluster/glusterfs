@@ -21,28 +21,29 @@ class ChangelogException(OSError):
 libgfc = CDLL(find_library("gfchangelog"), use_errno=True, mode=RTLD_GLOBAL)
 
 
-def raise_oserr():
+def raise_oserr(prefix=None):
     errn = get_errno()
-    raise ChangelogException(errn, os.strerror(errn))
+    prefix_or_empty = prefix + ": " if prefix else ""
+    raise ChangelogException(errn, prefix_or_empty + os.strerror(errn))
 
 
 def cl_init():
     ret = libgfc.gf_changelog_init(None)
     if ret == -1:
-        raise_oserr()
+        raise_oserr(prefix="gf_changelog_init")
 
 
 def cl_register(brick, path, log_file, log_level, retries=0):
     ret = libgfc.gf_changelog_register(brick, path, log_file,
                                        log_level, retries)
     if ret == -1:
-        raise_oserr()
+        raise_oserr(prefix="gf_changelog_register")
 
 
 def cl_history_scan():
     ret = libgfc.gf_history_changelog_scan()
     if ret == -1:
-        raise_oserr()
+        raise_oserr(prefix="gf_history_changelog_scan")
 
     return ret
 
@@ -53,7 +54,7 @@ def cl_history_changelog(changelog_path, start, end, num_parallel):
                                       num_parallel,
                                       byref(actual_end))
     if ret == -1:
-        raise_oserr()
+        raise_oserr(prefix="gf_history_changelog")
 
     return actual_end.value
 
@@ -61,7 +62,7 @@ def cl_history_changelog(changelog_path, start, end, num_parallel):
 def cl_history_startfresh():
     ret = libgfc.gf_history_changelog_start_fresh()
     if ret == -1:
-        raise_oserr()
+        raise_oserr(prefix="gf_history_changelog_start_fresh")
 
 
 def cl_history_getchanges():
@@ -78,7 +79,7 @@ def cl_history_getchanges():
             break
         changes.append(buf.raw[:ret - 1])
     if ret == -1:
-        raise_oserr()
+        raise_oserr(prefix="gf_history_changelog_next_change")
 
     return sorted(changes, key=clsort)
 
@@ -86,4 +87,4 @@ def cl_history_getchanges():
 def cl_history_done(clfile):
     ret = libgfc.gf_history_changelog_done(clfile)
     if ret == -1:
-        raise_oserr()
+        raise_oserr(prefix="gf_history_changelog_done")
