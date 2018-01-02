@@ -4432,6 +4432,9 @@ struct volume_options options[] = {
         { .key  = { "mandatory-locking" },
           .type = GF_OPTION_TYPE_STR,
           .default_value = "off",
+          .op_version = {GD_OP_VERSION_3_8_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags  = {"locks"},
           .description = "Specifies the mandatory-locking mode. Valid options "
                          "are 'file' to use linux style mandatory locks, "
                          "'forced' to use volume striclty under mandatory lock "
@@ -4441,12 +4444,18 @@ struct volume_options options[] = {
         { .key  = { "trace" },
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          .op_version = {GD_OP_VERSION_3_7_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags  = {"locks"},
           .description = "Trace the different lock requests "
                          "to logs."
         },
         { .key  = { "monkey-unlocking" },
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "false",
+          .op_version = {GD_OP_VERSION_3_9_0},
+          .flags = OPT_FLAG_SETTABLE,
+          .tags  = {"locks"},
           .description = "Ignore a random number of unlock requests.  Useful "
                          "for testing/creating robust lock recovery mechanisms."
         },
@@ -4455,12 +4464,18 @@ struct volume_options options[] = {
           .min = 0,
           .max = INT_MAX,
           .default_value = "0",
+          .op_version = {GD_OP_VERSION_3_9_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags  = {"locks"},
           .description = "Maximum time a lock can be taken out, before"
                          "being revoked.",
         },
         { .key = {"revocation-clear-all"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "false",
+          .op_version = {GD_OP_VERSION_3_9_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags  = {"locks"},
           .description = "If set to true, will revoke BOTH granted and blocked "
                          "(pending) lock requests if a revocation threshold is "
                          "hit.",
@@ -4470,6 +4485,9 @@ struct volume_options options[] = {
           .min = 0,
           .max = INT_MAX,
           .default_value = "0",
+          .op_version = {GD_OP_VERSION_3_9_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags  = {"locks"},
           .description = "A number of blocked lock requests after which a lock "
                          "will be revoked to allow the others to proceed.  Can "
                          "be used in conjunction w/ revocation-clear-all."
