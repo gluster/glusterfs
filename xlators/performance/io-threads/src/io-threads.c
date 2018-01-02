@@ -1186,6 +1186,10 @@ struct volume_options options[] = {
 	  .min  = IOT_MIN_THREADS,
 	  .max  = IOT_MAX_THREADS,
           .default_value = "16",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"io-threads"},
+          /*.option = "thread-count"*/
           .description = "Number of threads in IO threads translator which "
                          "perform concurrent IO operations"
 
@@ -1195,6 +1199,9 @@ struct volume_options options[] = {
 	  .min  = IOT_MIN_THREADS,
 	  .max  = IOT_MAX_THREADS,
           .default_value = "16",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"io-threads"},
           .description = "Max number of threads in IO threads translator which "
                          "perform high priority IO operations at a given time"
 
@@ -1204,6 +1211,9 @@ struct volume_options options[] = {
 	  .min  = IOT_MIN_THREADS,
 	  .max  = IOT_MAX_THREADS,
           .default_value = "16",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"io-threads"},
           .description = "Max number of threads in IO threads translator which "
                          "perform normal priority IO operations at a given time"
 
@@ -1213,6 +1223,9 @@ struct volume_options options[] = {
 	  .min  = IOT_MIN_THREADS,
 	  .max  = IOT_MAX_THREADS,
           .default_value = "16",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"io-threads"},
           .description = "Max number of threads in IO threads translator which "
                          "perform low priority IO operations at a given time"
 
@@ -1222,12 +1235,18 @@ struct volume_options options[] = {
 	  .min  = IOT_MIN_THREADS,
 	  .max  = IOT_MAX_THREADS,
           .default_value = "1",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"io-threads"},
           .description = "Max number of threads in IO threads translator which "
                          "perform least priority IO operations at a given time"
 	},
         { .key  = {"enable-least-priority"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags = {"io-threads"},
           .description = "Enable/Disable least priority"
         },
         {.key   = {"idle-time"},
