@@ -391,7 +391,7 @@ remove:
          * there's no xprt either, then we have nothing left worth saving and
          * can delete the entire entry.
          */
-        if (!pmap->ports[p].xprt) {
+        if (brick_disconnect || !pmap->ports[p].xprt) {
                 /* If the signout call is being triggered by brick disconnect
                  * then clean up all the bricks (in case of brick mux)
                  */
