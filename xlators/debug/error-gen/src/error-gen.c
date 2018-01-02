@@ -1695,6 +1695,8 @@ struct volume_options options[] = {
 
         { .key  = {"enable"},
           .type = GF_OPTION_TYPE_STR,
+          .description = "Accepts a string which takes ',' separated fop "
+                         "strings to denote which fops are enabled for error",
         },
 
         { .key  = {NULL} }

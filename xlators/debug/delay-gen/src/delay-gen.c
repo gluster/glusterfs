@@ -529,7 +529,7 @@ delay_gen_parse_fill_fops (dg_t *dg, char *enable_fops)
         char            *saveptr = NULL;
         char            *dup_enable_fops = NULL;
 
-        if (!enable_fops) {
+        if (strlen (enable_fops) == 0) {
                 for (i = GF_FOP_NULL + 1; i < GF_FOP_MAXVALUE; i++)
                         dg->enable[i] = 1;
         } else {
@@ -720,16 +720,28 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_PERCENT,
           .default_value = "10%",
           .description = "Percentage delay of operations when enabled.",
+          .op_version  = {GD_OP_VERSION_3_13_0},
+          .flags       = OPT_FLAG_SETTABLE,
+          .tags        = {"delay-gen"},
         },
 
         { .key  = {"delay-duration"},
           .type = GF_OPTION_TYPE_INT,
           .description = "Delay duration in micro seconds",
           .default_value = "100000",
+          .op_version = {GD_OP_VERSION_3_13_0},
+          .flags = OPT_FLAG_SETTABLE,
+          .tags  = {"delay-gen"},
         },
 
         { .key  = {"enable"},
           .type = GF_OPTION_TYPE_STR,
+          .description = "Accepts a string which takes ',' separated fop "
+                         "strings to denote which fops are enabled for delay",
+          .op_version = {GD_OP_VERSION_3_13_0},
+          .flags = OPT_FLAG_SETTABLE,
+          .tags  = {"delay-gen"},
+          .default_value = "",
         },
 
         { .key  = {NULL} }
