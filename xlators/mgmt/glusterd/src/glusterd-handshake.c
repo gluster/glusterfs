@@ -702,7 +702,7 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
         }
 
         brickinfo->snap_status = 0;
-        ret = glusterd_brick_start (snap_vol, brickinfo, _gf_false);
+        ret = glusterd_brick_start (snap_vol, brickinfo, _gf_false, _gf_false);
         if (ret) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         GD_MSG_BRICK_DISCONNECTED, "starting the "

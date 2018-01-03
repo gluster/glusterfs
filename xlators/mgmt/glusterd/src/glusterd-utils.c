@@ -5815,7 +5815,8 @@ glusterd_get_sock_from_brick_pid (int pid, char *sockpath, size_t len)
 int
 glusterd_brick_start (glusterd_volinfo_t *volinfo,
                       glusterd_brickinfo_t *brickinfo,
-                      gf_boolean_t wait)
+                      gf_boolean_t wait,
+                      gf_boolean_t only_connect)
 {
         int                     ret   = -1;
         xlator_t                *this = NULL;
@@ -5866,7 +5867,9 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                 ret = 0;
                 goto out;
         }
-        brickinfo->start_triggered = _gf_true;
+        if (!only_connect)
+                brickinfo->start_triggered = _gf_true;
+
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, conf);
         if (gf_is_service_running (pidfile, &pid)) {
                 if (brickinfo->status != GF_BRICK_STARTING &&
@@ -5924,6 +5927,8 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                 }
                 return 0;
         }
+        if (only_connect)
+                return 0;
 
 run:
         ret = _mk_rundir_p (volinfo);
@@ -6051,7 +6056,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                                         {
                                                 glusterd_brick_start
                                                          (volinfo, brickinfo,
-                                                          _gf_false);
+                                                          _gf_false, _gf_false);
                                         }
                                         pthread_mutex_unlock
                                                 (&brickinfo->restart_mutex);
@@ -6100,7 +6105,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                                         {
                                                 glusterd_brick_start
                                                          (volinfo, brickinfo,
-                                                          _gf_false);
+                                                          _gf_false, _gf_false);
                                         }
                                         pthread_mutex_unlock
                                                 (&brickinfo->restart_mutex);

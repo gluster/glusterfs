@@ -429,7 +429,8 @@ glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
                 goto out;
 
         if (GLUSTERD_STATUS_STARTED == volinfo->status) {
-                ret = glusterd_brick_start (volinfo, new_brickinfo, _gf_false);
+                ret = glusterd_brick_start (volinfo, new_brickinfo, _gf_false,
+                                            _gf_false);
                 if (ret)
                         goto out;
         }

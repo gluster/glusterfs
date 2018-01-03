@@ -2558,7 +2558,8 @@ glusterd_start_volume (glusterd_volinfo_t *volinfo, int flags,
                 if (flags & GF_CLI_FLAG_OP_FORCE) {
                         brickinfo->start_triggered = _gf_false;
                 }
-                ret = glusterd_brick_start (volinfo, brickinfo, wait);
+                ret = glusterd_brick_start (volinfo, brickinfo, wait,
+                                            _gf_false);
                 /* If 'force' try to start all bricks regardless of success or
                  * failure
                  */

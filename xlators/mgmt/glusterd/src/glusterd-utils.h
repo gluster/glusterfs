@@ -276,7 +276,8 @@ glusterd_all_volume_cond_check (glusterd_condition_func func, int status,
 int
 glusterd_brick_start (glusterd_volinfo_t *volinfo,
                       glusterd_brickinfo_t *brickinfo,
-                      gf_boolean_t wait);
+                      gf_boolean_t wait,
+                      gf_boolean_t only_connect);
 int
 glusterd_brick_stop (glusterd_volinfo_t *volinfo,
                      glusterd_brickinfo_t *brickinfo,
