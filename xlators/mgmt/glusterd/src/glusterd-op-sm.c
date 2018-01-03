@@ -2423,6 +2423,7 @@ glusterd_start_bricks (glusterd_volinfo_t *volinfo)
                         pthread_mutex_lock (&brickinfo->restart_mutex);
                         {
                                 ret = glusterd_brick_start (volinfo, brickinfo,
+                                                            _gf_false,
                                                             _gf_false);
                         }
                         pthread_mutex_unlock (&brickinfo->restart_mutex);
