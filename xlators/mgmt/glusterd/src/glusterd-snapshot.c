@@ -6972,7 +6972,7 @@ glusterd_snapshot_create_commit (dict_t *dict, char **op_errstr,
                 cds_list_for_each_entry (brickinfo, &snap_vol->bricks,
                                          brick_list) {
                         ret = glusterd_brick_start (snap_vol, brickinfo,
-                                                    _gf_false);
+                                                    _gf_false, _gf_false);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_WARNING, 0,
                                         GD_MSG_BRICK_DISCONNECTED, "starting "

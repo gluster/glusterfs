@@ -1554,7 +1554,7 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                         }
                 }
                 ret = glusterd_brick_start (volinfo, brickinfo,
-                                            _gf_true);
+                                            _gf_true, _gf_false);
                 if (ret)
                         goto out;
                 i++;
