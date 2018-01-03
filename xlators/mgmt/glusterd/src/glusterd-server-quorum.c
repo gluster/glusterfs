@@ -316,6 +316,7 @@ glusterd_do_volume_quorum_action (xlator_t *this, glusterd_volinfo_t *volinfo,
         glusterd_brickinfo_t *brickinfo     = NULL;
         gd_quorum_status_t   quorum_status  = NOT_APPLICABLE_QUORUM;
         gf_boolean_t         follows_quorum = _gf_false;
+        gf_boolean_t         quorum_status_unchanged = _gf_false;
 
         if (volinfo->status != GLUSTERD_STATUS_STARTED) {
                 volinfo->quorum_status = NOT_APPLICABLE_QUORUM;
@@ -343,9 +344,10 @@ glusterd_do_volume_quorum_action (xlator_t *this, glusterd_volinfo_t *volinfo,
          * the bricks that are down are brought up again. In this process it
          * also brings up the brick that is purposefully taken down.
          */
-        if (quorum_status != NOT_APPLICABLE_QUORUM &&
-            volinfo->quorum_status == quorum_status)
+        if (volinfo->quorum_status == quorum_status) {
+                quorum_status_unchanged = _gf_true;
                 goto out;
+        }
 
         if (quorum_status == MEETS_QUORUM) {
                 gf_msg (this->name, GF_LOG_CRITICAL, 0,
@@ -370,9 +372,10 @@ glusterd_do_volume_quorum_action (xlator_t *this, glusterd_volinfo_t *volinfo,
                         if (!brickinfo->start_triggered) {
                                 pthread_mutex_lock (&brickinfo->restart_mutex);
                                 {
-                                        glusterd_brick_start (volinfo,
-                                                              brickinfo,
-                                                              _gf_false);
+                                        ret = glusterd_brick_start (volinfo,
+                                                                    brickinfo,
+                                                                    _gf_false,
+                                                                    _gf_false);
                                 }
                                 pthread_mutex_unlock (&brickinfo->restart_mutex);
                         }
@@ -394,6 +397,20 @@ glusterd_do_volume_quorum_action (xlator_t *this, glusterd_volinfo_t *volinfo,
                 }
         }
 out:
+        if (quorum_status_unchanged) {
+                list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                        if (!glusterd_is_local_brick (this, volinfo, brickinfo))
+                                continue;
+                        ret = glusterd_brick_start (volinfo, brickinfo,
+                                                    _gf_false, _gf_true);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_BRICK_DISCONNECTED, "Failed to "
+                                        "connect to %s:%s", brickinfo->hostname,
+                                        brickinfo->path);
+                        }
+                }
+        }
         return;
 }
 
