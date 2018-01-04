@@ -475,31 +475,6 @@ err:
 	return -1;
 }
 
-
-static int
-rda_unpack_mdc_loaded_keys_to_dict(char *payload, dict_t *dict)
-{
-        int      ret = -1;
-        char    *mdc_key = NULL;
-
-        if (!payload || !dict) {
-                goto out;
-        }
-
-        mdc_key = strtok(payload, " ");
-        while (mdc_key != NULL) {
-                ret = dict_set_int8 (dict, mdc_key, 0);
-                if (ret) {
-                        goto out;
-                }
-                mdc_key = strtok(NULL, " ");
-        }
-
-out:
-        return ret;
-}
-
-
 static int32_t
 rda_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 		    int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
@@ -529,9 +504,7 @@ static int32_t
 rda_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
 		dict_t *xdata)
 {
-        int                  ret = -1;
         int                  op_errno = 0;
-        char                *payload = NULL;
         struct rda_local    *local = NULL;
         dict_t              *xdata_from_req = NULL;
 
@@ -553,21 +526,10 @@ rda_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                  * Retrieve list of keys set by md-cache xlator and store it
                  * in local to be consumed in rda_opendir_cbk
                  */
-                ret = dict_get_str (xdata, GF_MDC_LOADED_KEY_NAMES, &payload);
-                if (ret)
-                        goto wind;
-                ret = rda_unpack_mdc_loaded_keys_to_dict((char *) payload,
-                                                         xdata_from_req);
-                if (ret)
-                        goto wind;
-
-                dict_copy (xdata, xdata_from_req);
-                dict_del (xdata_from_req, GF_MDC_LOADED_KEY_NAMES);
-
-                local->xattrs = xdata_from_req;
+                local->xattrs = dict_ref (xdata);
                 frame->local = local;
         }
-wind:
+
         STACK_WIND(frame, rda_opendir_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->opendir, loc, fd, xdata);
         return 0;
