@@ -422,7 +422,9 @@ _posix_xattr_get_set (dict_t *xattr_req, char *key, data_t *data,
         int       _fd      = -1;
         loc_t    *loc      = NULL;
         ssize_t  req_size  = 0;
-
+        int32_t  list_offset = 0;
+        ssize_t  remaining_size = 0;
+        char     *xattr    = NULL;
 
         if (posix_xattr_ignorable (key))
                 goto out;
@@ -542,12 +544,19 @@ _posix_xattr_get_set (dict_t *xattr_req, char *key, data_t *data,
                                                filler->stbuf->ia_size);
                 }
         } else {
-                ret = _posix_xattr_get_set_from_backend (filler, key);
+                remaining_size = filler->list_size;
+                while (remaining_size > 0) {
+                        xattr = filler->list + list_offset;
+                        if (fnmatch (key, xattr, 0) == 0)
+                                ret = _posix_xattr_get_set_from_backend (filler,
+                                                                         xattr);
+                        remaining_size -= strlen (xattr) + 1;
+                        list_offset += strlen (xattr) + 1;
+                }
         }
 out:
         return 0;
 }
-
 
 int
 posix_fill_gfid_path (xlator_t *this, const char *path, struct iatt *iatt)
@@ -751,42 +760,50 @@ out:
         return ret;
 }
 
+
 static void
-_handle_list_xattr (dict_t *xattr_req, const char *real_path, int fdnum,
-                    posix_xattr_filler_t *filler)
+_get_list_xattr (posix_xattr_filler_t *filler)
 {
         ssize_t               size                  = 0;
-        char                 *list                  = NULL;
-        int32_t               list_offset           = 0;
-        ssize_t               remaining_size        = 0;
-        char                  *key                  = NULL;
 
-        if ((!real_path) && (fdnum < 0))
+        if ((!filler) && (!filler->real_path) && (filler->fdnum < 0))
                 goto out;
 
-        if (real_path)
-                size = sys_llistxattr (real_path, NULL, 0);
+        if (filler->real_path)
+                size = sys_llistxattr (filler->real_path, NULL, 0);
         else
-                size = sys_flistxattr (fdnum, NULL, 0);
+                size = sys_flistxattr (filler->fdnum, NULL, 0);
 
         if (size <= 0)
                 goto out;
 
-        list = alloca (size);
-        if (!list)
+        filler->list = GF_CALLOC (1, size, gf_posix_mt_char);
+        if (!filler->list)
                 goto out;
 
-        if (real_path)
-                remaining_size = sys_llistxattr (real_path, list, size);
+        if (filler->real_path)
+                size = sys_llistxattr (filler->real_path, filler->list, size);
         else
-                remaining_size = sys_flistxattr (fdnum, list, size);
+                size = sys_flistxattr (filler->fdnum, filler->list, size);
 
-        if (remaining_size <= 0)
-                goto out;
+        filler->list_size = size;
+out:
+        return;
+}
+
+
+static void
+_handle_list_xattr (dict_t *xattr_req, const char *real_path, int fdnum,
+                    posix_xattr_filler_t *filler)
+{
+        int32_t               list_offset           = 0;
+        ssize_t               remaining_size        = 0;
+        char                  *key                  = NULL;
 
         list_offset = 0;
+        remaining_size = filler->list_size;
         while (remaining_size > 0) {
-                key = list + list_offset;
+                key = filler->list + list_offset;
 
                 if (gf_get_index_by_elem (list_xattr_ignore_xattrs, key) >= 0)
                         goto next;
@@ -809,7 +826,6 @@ next:
                 list_offset += strlen (key) + 1;
 
         } /* while (remaining_size > 0) */
-out:
         return;
 }
 
@@ -837,12 +853,14 @@ posix_xattr_fill (xlator_t *this, const char *real_path, loc_t *loc, fd_t *fd,
         filler.stbuf     = buf;
         filler.loc       = loc;
         filler.fd        = fd;
-        filler.fdnum    = fdnum;
+        filler.fdnum     = fdnum;
 
+        _get_list_xattr (&filler);
         dict_foreach (xattr_req, _posix_xattr_get_set, &filler);
         if (list)
                 _handle_list_xattr (xattr_req, real_path, fdnum, &filler);
 
+        GF_FREE (filler.list);
 out:
         return xattr;
 }
