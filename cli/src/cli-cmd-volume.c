@@ -253,11 +253,12 @@ out:
                         cli_out ("Volume create failed");
         }
 
-        CLI_STACK_DESTROY (frame);
         if (ret == 0) {
                 gf_event (EVENT_VOLUME_CREATE, "name=%s;bricks=%s",
                           (char *)words[2], bricks);
         }
+
+        CLI_STACK_DESTROY (frame);
         return ret;
 }
 
