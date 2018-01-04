@@ -5119,6 +5119,8 @@ glusterd_print_gsync_status_by_vol (FILE *fp, glusterd_volinfo_t *volinfo)
 
         ret = glusterd_print_gsync_status (fp, gsync_rsp_dict);
 out:
+        if (gsync_rsp_dict)
+                dict_unref (gsync_rsp_dict);
         return ret;
 }
 
@@ -5440,12 +5442,19 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
         if (odir[odirlen-1] != '/')
                 strcat (odir, "/");
 
-        gf_asprintf (&ofilepath, "%s%s", odir, filename);
-
+        ret = gf_asprintf (&ofilepath, "%s%s", odir, filename);
+        if (ret < 0) {
+                GF_FREE (odir);
+                GF_FREE (filename);
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                        "Unable to get the output path");
+                ret = -1;
+                goto out;
+        }
         GF_FREE (odir);
         GF_FREE (filename);
 
-        ret = dict_set_str (dict, "ofilepath", ofilepath);
+        ret = dict_set_dynstr (dict, "ofilepath", ofilepath);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DICT_SET_FAILED, "Unable to set output path");
