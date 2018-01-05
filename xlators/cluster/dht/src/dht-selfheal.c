@@ -1392,7 +1392,7 @@ dht_selfheal_dir_mkdir_lookup_done (call_frame_t *frame, xlator_t *this)
                 if (!dict)
                         return -1;
 
-                ret = dict_set_static_bin (dict, "gfid-req", local->gfid, 16);
+                ret = dict_set_gfuuid (dict, "gfid-req", local->gfid, true);
                 if (ret)
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 DHT_MSG_DICT_SET_FAILED,

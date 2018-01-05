@@ -107,8 +107,8 @@ afr_selfheal_recreate_entry (call_frame_t *frame, int dst, int source,
 	if (ret)
 		goto out;
 
-	ret = dict_set_static_bin (xdata, "gfid-req",
-				   replies[source].poststat.ia_gfid, 16);
+	ret = dict_set_gfuuid (xdata, "gfid-req",
+                               replies[source].poststat.ia_gfid, true);
 	if (ret)
 		goto out;
 

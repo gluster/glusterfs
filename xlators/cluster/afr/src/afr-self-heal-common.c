@@ -60,7 +60,7 @@ afr_lookup_and_heal_gfid (xlator_t *this, inode_t *parent, const char *name,
                 goto out;
         }
 
-        ret = dict_set_static_bin (xdata, "gfid-req", gfid, 16);
+        ret = dict_set_gfuuid (xdata, "gfid-req", gfid, true);
         if (ret) {
                 ret = -ENOMEM;
                 goto out;

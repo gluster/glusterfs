@@ -947,8 +947,8 @@ shard_lookup_dot_shard (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-        ret = dict_set_static_bin (xattr_req, "gfid-req", priv->dot_shard_gfid,
-                                   16);
+        ret = dict_set_gfuuid (xattr_req, "gfid-req", priv->dot_shard_gfid,
+                               true);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_DICT_SET_FAILED,
                         "Failed to set gfid of /.shard into dict");
@@ -1751,7 +1751,7 @@ shard_create_gfid_dict (dict_t *dict)
 {
         int    ret   = 0;
         dict_t *new  = NULL;
-        uuid_t *gfid = NULL;
+        unsigned char *gfid = NULL;
 
         new = dict_copy_with_ref (dict, NULL);
         if (!new)
@@ -1763,9 +1763,9 @@ shard_create_gfid_dict (dict_t *dict)
                 goto out;
         }
 
-        gf_uuid_generate (*gfid);
+        gf_uuid_generate (gfid);
 
-        ret = dict_set_dynptr (new, "gfid-req", gfid, sizeof (uuid_t));
+        ret = dict_set_gfuuid (new, "gfid-req", gfid, false);
 
 out:
         if (ret) {
@@ -4168,8 +4168,8 @@ shard_mkdir_dot_shard (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto err;
 
-        ret = dict_set_static_bin (xattr_req, "gfid-req", priv->dot_shard_gfid,
-                                   16);
+        ret = dict_set_gfuuid (xattr_req, "gfid-req", priv->dot_shard_gfid,
+                               true);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_DICT_SET_FAILED,
                         "Failed to set gfid-req for /.shard");

@@ -377,7 +377,7 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
                         goto out;
                 }
 
-                ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
+                ret = dict_set_gfuuid (xattr_req, "gfid-req", gfid, true);
                 if (ret) {
                         errno = ENOMEM;
                         goto out;
@@ -416,7 +416,7 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
 
 		gf_uuid_generate (gfid);
 
-		ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
+		ret = dict_set_gfuuid (xattr_req, "gfid-req", gfid, true);
 		if (ret) {
 			errno = ENOMEM;
 			goto out;

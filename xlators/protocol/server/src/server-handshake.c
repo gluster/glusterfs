@@ -328,7 +328,7 @@ do_path_lookup (xlator_t *xl, dict_t *dict, inode_t *parinode, char *basename)
         loc.inode = inode_new (xl->itable);
 
         gf_uuid_generate (gfid);
-        ret = dict_set_static_bin (dict, "gfid-req", gfid, 16);
+        ret = dict_set_gfuuid (dict, "gfid-req", gfid, true);
         if (ret) {
                 gf_log (xl->name, GF_LOG_ERROR,
                         "failed to set 'gfid-req' for subdir");

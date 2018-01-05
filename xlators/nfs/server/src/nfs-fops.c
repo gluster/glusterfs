@@ -328,7 +328,7 @@ dict_t *
 nfs_gfid_dict (inode_t *inode)
 {
         uuid_t  newgfid = {0, };
-        char    *dyngfid = NULL;
+        unsigned char *dyngfid = NULL;
         dict_t  *dictgfid = NULL;
         int     ret = -1;
         uuid_t  rootgfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
@@ -353,7 +353,7 @@ nfs_gfid_dict (inode_t *inode)
                 return (NULL);
         }
 
-        ret = dict_set_bin (dictgfid, "gfid-req", dyngfid, sizeof (uuid_t));
+        ret = dict_set_gfuuid (dictgfid, "gfid-req", dyngfid, false);
         if (ret < 0) {
                 GF_FREE (dyngfid);
                 dict_unref (dictgfid);

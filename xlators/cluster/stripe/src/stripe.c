@@ -124,7 +124,7 @@ stripe_entry_self_heal (call_frame_t *frame, xlator_t *this,
         if (!xdata)
                 goto out;
 
-        ret = dict_set_static_bin (xdata, "gfid-req", local->stbuf.ia_gfid, 16);
+        ret = dict_set_gfuuid (xdata, "gfid-req", local->stbuf.ia_gfid, true);
         if (ret)
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s: failed to set gfid-req", local->loc.path);
