@@ -4,7 +4,7 @@ XDRGENFILES = glusterfs3-xdr.x glusterfs4-xdr.x cli1-xdr.x nlm4-xdr.x nsm-xdr.x 
 XDRHEADERS = $(XDRGENFILES:.x=.h)
 XDRSOURCES = $(XDRGENFILES:.x=.c)
 
-EXTRA_DIST = $(XDRGENFILES)
+EXTRA_DIST = $(XDRGENFILES) libgfxdr.sym
 
 lib_LTLIBRARIES = libgfxdr.la
 
@@ -16,7 +16,8 @@ libgfxdr_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 
 libgfxdr_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-libgfxdr_la_LDFLAGS = -version-info $(LIBGFXDR_LT_VERSION)
+libgfxdr_la_LDFLAGS = -version-info $(LIBGFXDR_LT_VERSION) \
+		      -export-symbols $(top_srcdir)/rpc/xdr/src/libgfxdr.sym
 
 libgfxdr_la_SOURCES = xdr-generic.c xdr-nfs3.c msg-nfs3.c
 nodist_libgfxdr_la_SOURCES = $(XDRSOURCES)
