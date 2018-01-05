@@ -3163,7 +3163,6 @@ afr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         afr_local_t   *local = NULL;
         int32_t        op_errno = 0;
 	int            event = 0;
-        void          *gfid_req = NULL;
         int            ret = 0;
 
         if (loc_is_nameless (loc)) {
@@ -3203,9 +3202,9 @@ afr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 		        op_errno = ENOMEM;
 		        goto out;
                 }
-                ret = dict_get_ptr (local->xattr_req, "gfid-req", &gfid_req);
+                ret = dict_get_gfuuid (local->xattr_req, "gfid-req",
+                                       &local->cont.lookup.gfid_req);
                 if (ret == 0) {
-                        gf_uuid_copy (local->cont.lookup.gfid_req, gfid_req);
                         dict_del (local->xattr_req, "gfid-req");
                 }
         }

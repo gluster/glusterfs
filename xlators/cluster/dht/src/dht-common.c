@@ -2895,8 +2895,8 @@ dht_lookup_directory (call_frame_t *frame, xlator_t *this, loc_t *loc)
         }
 
         if (!gf_uuid_is_null (local->gfid)) {
-                ret = dict_set_static_bin (local->xattr_req, "gfid-req",
-                                           local->gfid, 16);
+                ret = dict_set_gfuuid (local->xattr_req, "gfid-req",
+                                       local->gfid, true);
                 if (ret)
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 DHT_MSG_DICT_SET_FAILED,

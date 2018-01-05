@@ -692,7 +692,7 @@ __dht_rebalance_create_dst_file (xlator_t *this, xlator_t *to, xlator_t *from,
                         "path:%s", loc->path);
                 goto out;
         }
-        ret = dict_set_static_bin (dict, "gfid-req", stbuf->ia_gfid, 16);
+        ret = dict_set_gfuuid (dict, "gfid-req", stbuf->ia_gfid, true);
         if (ret) {
                 *fop_errno = ENOMEM;
                 ret = -1;
@@ -1336,7 +1336,7 @@ migrate_special_files (xlator_t *this, xlator_t *from, xlator_t *to, loc_t *loc,
         }
 
         /* Set the gfid of the source file in dict */
-        ret = dict_set_static_bin (dict, "gfid-req", buf->ia_gfid, 16);
+        ret = dict_set_gfuuid (dict, "gfid-req", buf->ia_gfid, true);
         if (ret) {
                 *fop_errno = ENOMEM;
                 ret = -1;

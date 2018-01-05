@@ -135,7 +135,7 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
         if (!gf_uuid_is_null (local->gfid)) {
                 gf_uuid_unparse(local->gfid, gfid);
 
-                ret = dict_set_static_bin (dict, "gfid-req", local->gfid, 16);
+                ret = dict_set_gfuuid (dict, "gfid-req", local->gfid, true);
                 if (ret)
                         gf_msg ("dht-linkfile", GF_LOG_INFO, 0,
                                 DHT_MSG_DICT_SET_FAILED,

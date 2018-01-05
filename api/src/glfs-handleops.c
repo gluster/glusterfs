@@ -756,7 +756,7 @@ pub_glfs_h_creat (struct glfs *fs, struct glfs_object *parent, const char *path,
         }
 
         gf_uuid_generate (gfid);
-        ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
+        ret = dict_set_gfuuid (xattr_req, "gfid-req", gfid, true);
         if (ret) {
                 ret = -1;
                 errno = ENOMEM;
@@ -865,7 +865,7 @@ pub_glfs_h_mkdir (struct glfs *fs, struct glfs_object *parent, const char *path,
         }
 
         gf_uuid_generate (gfid);
-        ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
+        ret = dict_set_gfuuid (xattr_req, "gfid-req", gfid, true);
         if (ret) {
                 ret = -1;
                 errno = ENOMEM;
@@ -961,7 +961,7 @@ pub_glfs_h_mknod (struct glfs *fs, struct glfs_object *parent, const char *path,
         }
 
         gf_uuid_generate (gfid);
-        ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
+        ret = dict_set_gfuuid (xattr_req, "gfid-req", gfid, true);
         if (ret) {
                 ret = -1;
                 errno = ENOMEM;
@@ -1504,7 +1504,7 @@ pub_glfs_h_symlink (struct glfs *fs, struct glfs_object *parent,
         }
 
         gf_uuid_generate (gfid);
-        ret = dict_set_static_bin (xattr_req, "gfid-req", gfid, 16);
+        ret = dict_set_gfuuid (xattr_req, "gfid-req", gfid, true);
         if (ret) {
                 ret = -1;
                 errno = ENOMEM;

@@ -291,7 +291,7 @@ ga_fill_tmp_loc (loc_t *loc, xlator_t *this, uuid_t gfid,
         int       ret    = -1;
         uint64_t  value  = 0;
         inode_t  *parent = NULL;
-        uuid_t *gfid_ptr = NULL;
+        unsigned char *gfid_ptr = NULL;
 
         parent = loc->inode;
         ret = inode_ctx_get (loc->inode, this, &value);
@@ -323,8 +323,8 @@ ga_fill_tmp_loc (loc_t *loc, xlator_t *this, uuid_t gfid,
                 ret = -1;
                 goto out;
         }
-        gf_uuid_copy (*gfid_ptr, gfid);
-        ret = dict_set_dynptr (xdata, "gfid-req", gfid_ptr, sizeof (uuid_t));
+        gf_uuid_copy (gfid_ptr, gfid);
+        ret = dict_set_gfuuid (xdata, "gfid-req", gfid_ptr, false);
         if (ret < 0)
                 goto out;
 

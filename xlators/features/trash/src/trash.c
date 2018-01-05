@@ -553,8 +553,7 @@ trash_internalop_dir_lookup_cbk (call_frame_t *frame, void *cookie,
                         ret = ENOMEM;
                         goto out;
                 }
-                ret = dict_set_dynptr (dict, "gfid-req", gfid_ptr,
-                               sizeof (uuid_t));
+                ret = dict_set_gfuuid (dict, "gfid-req", *gfid_ptr, false);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "setting key gfid-req failed");
@@ -692,8 +691,7 @@ trash_dir_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 /* Fixed gfid is set for trash directory with
                  * this function
                  */
-                ret = dict_set_dynptr (dict, "gfid-req", gfid_ptr,
-                                      sizeof (uuid_t));
+                ret = dict_set_gfuuid (dict, "gfid-req", *gfid_ptr, false);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "setting key gfid-req failed");

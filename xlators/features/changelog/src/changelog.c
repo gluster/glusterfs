@@ -627,7 +627,6 @@ changelog_mkdir (call_frame_t *frame, xlator_t *this,
 {
         int               ret              = -1;
         uuid_t            gfid             = {0,};
-        void             *uuid_req         = NULL;
         size_t            xtra_len         = 0;
         changelog_priv_t *priv             = NULL;
         changelog_opt_t  *co               = NULL;
@@ -638,13 +637,12 @@ changelog_mkdir (call_frame_t *frame, xlator_t *this,
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
-        ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
+        ret = dict_get_gfuuid (xdata, "gfid-req", &gfid);
         if (ret) {
                 gf_msg_debug (this->name, 0,
                               "failed to get gfid from dict");
                 goto wind;
         }
-        gf_uuid_copy (gfid, uuid_req);
 
         CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, gfid, 5);
 
@@ -767,7 +765,6 @@ changelog_symlink (call_frame_t *frame, xlator_t *this,
         int               ret              = -1;
         size_t            xtra_len         = 0;
         uuid_t            gfid             = {0,};
-        void             *uuid_req         = NULL;
         changelog_priv_t *priv             = NULL;
         changelog_opt_t  *co               = NULL;
         call_stub_t      *stub             = NULL;
@@ -777,13 +774,12 @@ changelog_symlink (call_frame_t *frame, xlator_t *this,
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
-        ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
+        ret = dict_get_gfuuid (xdata, "gfid-req", &gfid);
         if (ret) {
                 gf_msg_debug (this->name, 0,
                               "failed to get gfid from dict");
                 goto wind;
         }
-        gf_uuid_copy (gfid, uuid_req);
 
         CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, gfid, 2);
 
@@ -896,7 +892,6 @@ changelog_mknod (call_frame_t *frame,
 {
         int               ret              = -1;
         uuid_t            gfid             = {0,};
-        void             *uuid_req         = NULL;
         size_t            xtra_len         = 0;
         changelog_priv_t *priv             = NULL;
         changelog_opt_t  *co               = NULL;
@@ -924,13 +919,12 @@ changelog_mknod (call_frame_t *frame,
                         goto wind;
         }
 
-        ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
+        ret = dict_get_gfuuid (xdata, "gfid-req", &gfid);
         if (ret) {
                 gf_msg_debug (this->name, 0,
                               "failed to get gfid from dict");
                 goto wind;
         }
-        gf_uuid_copy (gfid, uuid_req);
 
         CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, gfid, 5);
 
@@ -1071,7 +1065,6 @@ changelog_create (call_frame_t *frame, xlator_t *this,
 {
         int               ret              = -1;
         uuid_t            gfid             = {0,};
-        void             *uuid_req         = NULL;
         changelog_opt_t  *co               = NULL;
         changelog_priv_t *priv             = NULL;
         size_t            xtra_len         = 0;
@@ -1082,13 +1075,12 @@ changelog_create (call_frame_t *frame, xlator_t *this,
         priv = this->private;
         CHANGELOG_NOT_ACTIVE_THEN_GOTO (frame, priv, wind);
 
-        ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
+        ret = dict_get_gfuuid (xdata, "gfid-req", &gfid);
         if (ret) {
                 gf_msg_debug (this->name, 0,
                               "failed to get gfid from dict");
                 goto wind;
         }
-        gf_uuid_copy (gfid, uuid_req);
 
         /* init with two extra records */
         CHANGELOG_INIT_NOCHECK (this, frame->local, NULL, gfid, 5);

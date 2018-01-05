@@ -1378,7 +1378,6 @@ ctr_mknod (call_frame_t *frame, xlator_t *this,
         gf_ctr_inode_context_t *_inode_cx = &ctr_inode_cx;
         gf_ctr_link_context_t  ctr_link_cx;
         gf_ctr_link_context_t  *_link_cx = &ctr_link_cx;
-        void *uuid_req                          = NULL;
         uuid_t gfid                             = {0,};
         uuid_t *ptr_gfid                        = &gfid;
 
@@ -1389,12 +1388,11 @@ ctr_mknod (call_frame_t *frame, xlator_t *this,
         GF_ASSERT(frame->root);
 
         /*get gfid from xdata dict*/
-        ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
+        ret = dict_get_gfuuid (xdata, "gfid-req", &gfid);
         if (ret) {
                 gf_msg_debug (this->name, 0, "failed to get gfid from dict");
                 goto out;
         }
-        gf_uuid_copy (gfid, uuid_req);
 
         /*fill ctr link context*/
         FILL_CTR_LINK_CX (_link_cx, loc->pargfid, loc->name, out);
@@ -1467,7 +1465,6 @@ ctr_create (call_frame_t *frame, xlator_t *this,
         gf_ctr_inode_context_t *_inode_cx = &ctr_inode_cx;
         gf_ctr_link_context_t  ctr_link_cx;
         gf_ctr_link_context_t  *_link_cx = &ctr_link_cx;
-        void             *uuid_req              = NULL;
         uuid_t            gfid                  = {0,};
         uuid_t            *ptr_gfid             = &gfid;
         struct iatt dummy_stat                  = {0};
@@ -1478,14 +1475,13 @@ ctr_create (call_frame_t *frame, xlator_t *this,
         GF_ASSERT(frame->root);
 
         /*Get GFID from Xdata dict*/
-        ret = dict_get_ptr (xdata, "gfid-req", &uuid_req);
+        ret = dict_get_gfuuid (xdata, "gfid-req", &gfid);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         CTR_MSG_GET_GFID_FROM_DICT_FAILED,
                         "failed to get gfid from dict");
                 goto out;
         }
-        gf_uuid_copy (gfid, uuid_req);
 
         /*fill ctr link context*/
         FILL_CTR_LINK_CX(_link_cx, loc->pargfid, loc->name, out);
