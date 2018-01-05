@@ -1814,13 +1814,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype    = "performance/write-behind",
           .option     = "trickling-writes",
           .op_version = GD_OP_VERSION_3_13_1,
-          .flags      = OPT_FLAG_CLIENT_OPT
+          .flags      = VOLOPT_FLAG_CLIENT_OPT
         },
         { .key        = "performance.nfs.write-behind-trickling-writes",
           .voltype    = "performance/write-behind",
           .option     = "trickling-writes",
           .op_version = GD_OP_VERSION_3_13_1,
-          .flags      = OPT_FLAG_CLIENT_OPT
+          .flags      = VOLOPT_FLAG_CLIENT_OPT
         },
         { .key        = "performance.lazy-open",
           .voltype    = "performance/open-behind",
@@ -3616,7 +3616,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype    = "cluster/disperse",
           .type       = NO_DOC,
           .op_version = GD_OP_VERSION_4_0_0,
-          .flags      = OPT_FLAG_CLIENT_OPT
+          .flags      = VOLOPT_FLAG_CLIENT_OPT
         },
 
         /* Halo replication options */
