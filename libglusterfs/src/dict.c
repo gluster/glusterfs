@@ -37,7 +37,7 @@ struct dict_cmp {
         gf_boolean_t (*value_ignore) (char *k);
 };
 
-#define VALIDATE_DATA_AND_LOG(data, type, ret_val) do {                 \
+#define VALIDATE_DATA_AND_LOG(data, type, key, ret_val) do {                 \
                 if (!data || !data->data) {                             \
                         gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL, \
                                           LG_MSG_INVALID_ARG, "data is NULL"); \
@@ -47,8 +47,8 @@ struct dict_cmp {
                 if (data->data_type != type) {                          \
                         gf_msg_callingfn ("dict", GF_LOG_INFO, EINVAL,  \
                                           LG_MSG_INVALID_ARG,           \
-                                          "%s type asked, has %s type", \
-                                          data_type_name[type],         \
+                                          "key %s, %s type asked, has %s type", \
+                                          key, data_type_name[type],         \
                                           data_type_name[data->data_type]); \
                 }                                                       \
         } while (0)
@@ -1008,7 +1008,7 @@ static char *data_type_name[GF_DATA_TYPE_MAX] = {
 int64_t
 data_to_int64 (data_t *data)
 {
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, -1);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, "null", -1);
 
         char *str = alloca (data->len + 1);
         if (!str)
@@ -1022,7 +1022,7 @@ data_to_int64 (data_t *data)
 int32_t
 data_to_int32 (data_t *data)
 {
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, -1);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, "null", -1);
 
         char *str = alloca (data->len + 1);
         if (!str)
@@ -1037,7 +1037,7 @@ data_to_int32 (data_t *data)
 int16_t
 data_to_int16 (data_t *data)
 {
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, -1);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, "null", -1);
 
         int16_t value = 0;
         char *str = alloca (data->len + 1);
@@ -1065,7 +1065,7 @@ data_to_int16 (data_t *data)
 int8_t
 data_to_int8 (data_t *data)
 {
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, -1);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, "null", -1);
 
         int8_t value = 0;
         char *str = alloca (data->len + 1);
@@ -1093,7 +1093,7 @@ data_to_int8 (data_t *data)
 uint64_t
 data_to_uint64 (data_t *data)
 {
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, -1);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, "null", -1);
 
         char *str = alloca (data->len + 1);
         if (!str)
@@ -1108,7 +1108,7 @@ data_to_uint64 (data_t *data)
 uint32_t
 data_to_uint32 (data_t *data)
 {
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, -1);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, "null", -1);
 
         char *str = alloca (data->len + 1);
         if (!str)
@@ -1123,7 +1123,7 @@ data_to_uint32 (data_t *data)
 uint16_t
 data_to_uint16 (data_t *data)
 {
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, -1);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, "null", -1);
 
 	uint16_t value = 0;
         char *str = alloca (data->len + 1);
@@ -1151,7 +1151,7 @@ data_to_uint16 (data_t *data)
 uint8_t
 data_to_uint8 (data_t *data)
 {
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, -1);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, "null", -1);
 
 	uint32_t value = 0;
         char *str = alloca (data->len + 1);
@@ -1178,21 +1178,21 @@ data_to_uint8 (data_t *data)
 char *
 data_to_str (data_t *data)
 {
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_STR, NULL);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_STR, "null", NULL);
         return data->data;
 }
 
 void *
 data_to_ptr (data_t *data)
 {
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_PTR, NULL);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_PTR, "null", NULL);
         return data->data;
 }
 
 void *
 data_to_bin (data_t *data)
 {
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_PTR, NULL);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_PTR, "null", NULL);
         return data->data;
 }
 
@@ -1708,7 +1708,7 @@ dict_get_int8 (dict_t *this, char *key, int8_t *val)
                 goto err;
         }
 
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, -EINVAL);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, key, -EINVAL);
 
         ret = data_to_int8_ptr (data, val);
 
@@ -1755,7 +1755,7 @@ dict_get_int16 (dict_t *this, char *key, int16_t *val)
                 goto err;
         }
 
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, -EINVAL);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, key, -EINVAL);
 
         ret = data_to_int16_ptr (data, val);
 
@@ -1802,7 +1802,7 @@ dict_get_int32 (dict_t *this, char *key, int32_t *val)
                 goto err;
         }
 
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, -EINVAL);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, key, -EINVAL);
 
         ret = data_to_int32_ptr (data, val);
 
@@ -1849,7 +1849,7 @@ dict_get_int64 (dict_t *this, char *key, int64_t *val)
                 goto err;
         }
 
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, -EINVAL);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, key, -EINVAL);
 
         ret = data_to_int64_ptr (data, val);
 
@@ -1896,7 +1896,7 @@ dict_get_uint16 (dict_t *this, char *key, uint16_t *val)
                 goto err;
         }
 
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, -EINVAL);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, key, -EINVAL);
 
         ret = data_to_uint16_ptr (data, val);
 
@@ -1943,7 +1943,7 @@ dict_get_uint32 (dict_t *this, char *key, uint32_t *val)
                 goto err;
         }
 
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, -EINVAL);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, key, -EINVAL);
 
         ret = data_to_uint32_ptr (data, val);
 
@@ -1991,7 +1991,7 @@ dict_get_uint64 (dict_t *this, char *key, uint64_t *val)
                 goto err;
         }
 
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, -EINVAL);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, key, -EINVAL);
 
         ret = data_to_uint64_ptr (data, val);
 
@@ -2038,7 +2038,7 @@ dict_get_double (dict_t *this, char *key, double *val)
                 goto err;
         }
 
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_DOUBLE, -EINVAL);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_DOUBLE, key, -EINVAL);
 
         ret = data_to_double_ptr (data, val);
 
@@ -2124,7 +2124,7 @@ dict_get_ptr (dict_t *this, char *key, void **ptr)
                 goto err;
         }
 
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_PTR, -EINVAL);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_PTR, key, -EINVAL);
 
         ret = data_to_ptr_common (data, ptr);
         if (ret != 0) {
@@ -2154,7 +2154,7 @@ dict_get_ptr_and_len (dict_t *this, char *key, void **ptr, int *len)
                 goto err;
         }
 
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_PTR, -EINVAL);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_PTR, key, -EINVAL);
 
 	*len = data->len;
 
@@ -2205,7 +2205,7 @@ dict_get_str (dict_t *this, char *key, char **str)
                 goto err;
         }
 
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_STR, -EINVAL);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_STR, key, -EINVAL);
 
         *str = data->data;
 
@@ -2315,7 +2315,7 @@ dict_get_bin (dict_t *this, char *key, void **bin)
                 goto err;
         }
 
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_PTR, ret);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_PTR, key, ret);
 
         *bin = data->data;
 
@@ -2500,7 +2500,7 @@ dict_get_str_boolean (dict_t *this, char *key, int default_val)
                 goto err;
         }
 
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, -EINVAL);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, key, -EINVAL);
 
         ret = gf_string2boolean (data->data, &boo);
         if (ret == -1)
