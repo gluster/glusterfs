@@ -2417,7 +2417,7 @@ dict_get_gfuuid (dict_t *this, char *key, uuid_t *gfid)
                 goto err;
         }
 
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_GFUUID, -EINVAL);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_GFUUID, key, -EINVAL);
 
         memcpy (*gfid, data->data, min(data->len, sizeof (uuid_t)));
 
@@ -2449,7 +2449,7 @@ dict_get_iatt (dict_t *this, char *key, struct iatt *iatt)
                 goto err;
         }
 
-        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_IATT, -EINVAL);
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_IATT, key, -EINVAL);
 
         memcpy (iatt, data->data, min(data->len, sizeof (struct iatt)));
 
