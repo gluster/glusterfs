@@ -3091,6 +3091,9 @@ struct volume_options options[] = {
         { .key  = {"flush-behind"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+          .tags = {"write-behind"},
           .description = "If this option is set ON, instructs write-behind "
                           "translator to perform flush in background, by "
                           "returning success (or any errors, if any of "
@@ -3102,28 +3105,43 @@ struct volume_options options[] = {
           .min  = 512 * GF_UNIT_KB,
           .max  = 1 * GF_UNIT_GB,
           .default_value = "1MB",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+          .tags = {"write-behind"},
           .description = "Size of the write-behind buffer for a single file "
                          "(inode)."
         },
         { .key = {"trickling-writes"},
           .type = GF_OPTION_TYPE_BOOL,
+          .op_version = {GD_OP_VERSION_3_13_1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+          .tags = {"write-behind"},
           .default_value = "on",
         },
         { .key = {"strict-O_DIRECT"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          .op_version = {2},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+          .tags = {"write-behind"},
           .description = "This option when set to off, ignores the "
           "O_DIRECT flag."
         },
         { .key = {"strict-write-ordering"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          .op_version = {2},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+          .tags = {"write-behind"},
 	  .description = "Do not let later writes overtake earlier writes even "
 	                  "if they do not overlap",
         },
         { .key = {"resync-failed-syncs-after-fsync"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          .op_version = {GD_OP_VERSION_3_7_7},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+          .tags = {"write-behind"},
           .description = "If sync of \"cached-writes issued before fsync\" "
                          "(to backend) fails, this option configures whether "
                          "to retry syncing them after fsync or forget them. "
