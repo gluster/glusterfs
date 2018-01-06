@@ -203,9 +203,10 @@ glusterfs_handle_terminate (rpcsvc_request_t *req)
         xlator_t                *victim         = NULL;
         xlator_list_t           **trav_p        = NULL;
         gf_boolean_t            lockflag        = _gf_false;
+        gf_boolean_t            last_brick      = _gf_false;
 
         ret = xdr_to_generic (req->msg[0], &xlator_req,
-                              (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
+                        (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
         if (ret < 0) {
                 req->rpc_err = GARBAGE_ARGS;
                 return -1;
@@ -218,38 +219,31 @@ glusterfs_handle_terminate (rpcsvc_request_t *req)
                 if (glusterfsd_ctx->active) {
                         top = glusterfsd_ctx->active->first;
                         for (trav_p = &top->children; *trav_p;
-                                                    trav_p = &(*trav_p)->next) {
+                                        trav_p = &(*trav_p)->next) {
                                 victim = (*trav_p)->xlator;
                                 if (strcmp (victim->name, xlator_req.name) == 0) {
                                         break;
                                 }
                         }
                 }
-        }
-        if (!*trav_p) {
-                gf_log (THIS->name, GF_LOG_ERROR,
-                        "can't terminate %s - not found",
-                          xlator_req.name);
-                /*
-                 * Used to be -ENOENT.  However, the caller asked us to
-                 * make sure it's down and if it's already down that's
-                 * good enough.
-                 */
-                glusterfs_terminate_response_send (req, 0);
-                goto err;
-        }
+                if (!*trav_p) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                        "can't terminate %s - not found",
+                                        xlator_req.name);
+                        /*
+                         * Used to be -ENOENT.  However, the caller asked us to
+                         * make sure it's down and if it's already down that's
+                         * good enough.
+                         */
+                        UNLOCK (&ctx->volfile_lock);
+                        lockflag = _gf_true;
+                        glusterfs_terminate_response_send (req, 0);
+                        goto err;
+                }
 
-        glusterfs_terminate_response_send (req, 0);
-        if ((trav_p == &top->children) && !(*trav_p)->next) {
-                gf_log (THIS->name, GF_LOG_INFO,
-                        "terminating after loss of last child %s",
-                        xlator_req.name);
-                glusterfs_mgmt_pmap_signout (glusterfsd_ctx, xlator_req.name);
-                sleep(1); /* to avoid race between above messages and socket
-                           * disconnect notification to glusterd
-                           */
-                kill (getpid(), SIGTERM);
-        } else {
+                if ((trav_p == &top->children) && !(*trav_p)->next) {
+                        last_brick = _gf_true;
+                }
                 /*
                  * This is terribly unsafe without quiescing or shutting
                  * things down properly but it gets us to the point
@@ -257,11 +251,24 @@ glusterfs_handle_terminate (rpcsvc_request_t *req)
                  *
                  * TBD: finish implementing this "detach" code properly
                  */
-                UNLOCK (&ctx->volfile_lock);
-                lockflag = _gf_true;
+        }
+        UNLOCK (&ctx->volfile_lock);
+        lockflag = _gf_true;
+        if (!last_brick) {
                 gf_log (THIS->name, GF_LOG_INFO, "detaching not-only"
-                         " child %s", xlator_req.name);
-                top->notify (top, GF_EVENT_CLEANUP, victim);
+                        " child %s", xlator_req.name);
+        }
+
+        top->notify (top, GF_EVENT_CLEANUP, victim);
+
+        glusterfs_terminate_response_send (req, 0);
+
+        if (last_brick) {
+                gf_log (THIS->name, GF_LOG_INFO,
+                        "terminating after loss of last child %s",
+                        xlator_req.name);
+                sleep (1);
+                kill (getpid(), SIGTERM);
         }
 err:
         if (!lockflag)

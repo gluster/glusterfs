@@ -99,6 +99,7 @@ send_attach_req (xlator_t *this, struct rpc_clnt *rpc, char *path, int op);
 gf_boolean_t
 is_brick_mx_enabled (void)
 {
+#if 0
         char            *value = NULL;
         int             ret = 0;
         gf_boolean_t    enabled = _gf_false;
@@ -115,6 +116,9 @@ is_brick_mx_enabled (void)
                 ret = gf_string2boolean (value, &enabled);
 
         return ret ? _gf_false: enabled;
+#else
+        return _gf_true;
+#endif
 }
 
 int
