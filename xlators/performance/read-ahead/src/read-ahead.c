@@ -1257,6 +1257,8 @@ struct xlator_dumpops dumpops = {
 struct volume_options options[] = {
         { .key  = {"force-atime-update"},
           .type = GF_OPTION_TYPE_BOOL,
+          .op_version = {1},
+          .tags = {"read-ahead"},
           .default_value = "false"
         },
         { .key  = {"page-count"},
@@ -1264,6 +1266,8 @@ struct volume_options options[] = {
           .min  = 1,
           .max  = 16,
           .default_value = "4",
+          .op_version = {1},
+          .tags = {"read-ahead"},
           .description = "Number of pages that will be pre-fetched"
         },
 	{ .key = {"page-size"},
@@ -1271,6 +1275,9 @@ struct volume_options options[] = {
 	  .min = 4096,
 	  .max = 1048576 * 64,
 	  .default_value = "131072",
+          .op_version = {1},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+          .tags = {"read-ahead"},
 	  .description = "Page size with which read-ahead performs server I/O"
 	},
         { .key = {NULL} },
