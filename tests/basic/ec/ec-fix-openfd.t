@@ -43,7 +43,7 @@ EXPECT "1" get_fd_count $V0 $H0 $B0/${V0}1 test_file
 EXPECT "1" get_fd_count $V0 $H0 $B0/${V0}2 test_file
 
 #Write to file
-dd iflag=fullblock if=/dev/random bs=1024 count=2 >&$fd 2>/dev/null
+dd iflag=fullblock if=/dev/urandom bs=1024 count=2 >&$fd 2>/dev/null
 
 #Test the fd count
 EXPECT "1" get_fd_count $V0 $H0 $B0/${V0}0 test_file
