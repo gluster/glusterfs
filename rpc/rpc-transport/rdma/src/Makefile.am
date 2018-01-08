@@ -6,8 +6,10 @@ transportdir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/rpc-transport
 rdma_la_LDFLAGS = -module -avoid-version -nostartfiles
 
 rdma_la_SOURCES = rdma.c name.c
-rdma_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la     \
-	-libverbs -lrdmacm
+rdma_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
+                 $(top_builddir)/rpc/xdr/src/libgfxdr.la \
+                 $(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
+                 -libverbs -lrdmacm
 
 noinst_HEADERS = rdma.h name.h rpc-trans-rdma-messages.h
 
