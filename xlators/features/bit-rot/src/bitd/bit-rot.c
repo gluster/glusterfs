@@ -2148,6 +2148,8 @@ struct volume_options options[] = {
         { .key = {"expiry-time"},
           .type = GF_OPTION_TYPE_INT,
           .default_value = SIGNING_TIMEOUT,
+          .op_version = {GD_OP_VERSION_3_7_0},
+          .flags = OPT_FLAG_SETTABLE,
           .description = "Waiting time for an object on which it waits "
                          "before it is signed",
         },
@@ -2156,13 +2158,17 @@ struct volume_options options[] = {
           .description = "Total number of bricks for the current node for "
                          "all volumes in the trusted storage pool.",
         },
-        { .key = {"scrubber"},
+        { .key = {"scrubber", "scrub"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "false",
+          .op_version = {GD_OP_VERSION_3_7_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_FORCE,
           .description = "option to run as a scrubber",
         },
         { .key = {"scrub-throttle"},
           .type = GF_OPTION_TYPE_STR,
+          .op_version = {GD_OP_VERSION_3_7_0},
+          .flags = OPT_FLAG_SETTABLE,
           .description = "Scrub-throttle value is a measure of how fast "
                          "or slow the scrubber scrubs the filesystem for "
                          "volume <VOLNAME>",
@@ -2170,11 +2176,15 @@ struct volume_options options[] = {
         { .key = {"scrub-freq"},
           .type = GF_OPTION_TYPE_STR,
           .default_value = "biweekly",
+          .op_version = {GD_OP_VERSION_3_7_0},
+          .flags = OPT_FLAG_SETTABLE,
           .description = "Scrub frequency for volume <VOLNAME>",
         },
         { .key = {"scrub-state"},
           .type = GF_OPTION_TYPE_STR,
           .default_value = "active",
+          .op_version = {GD_OP_VERSION_4_0_0},
+          .flags = OPT_FLAG_SETTABLE,
           .description = "Pause/Resume scrub. Upon resume, scrubber "
                          "continues from where it left off.",
         },
