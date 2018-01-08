@@ -1128,11 +1128,15 @@ struct volume_options options[] = {
         { .key  = {"leases"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          .op_version = {GD_OP_VERSION_3_8_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
           .description = "When \"on\", enables leases support"
         },
         { .key  = {"lease-lock-recall-timeout"},
           .type = GF_OPTION_TYPE_INT,
           .default_value = RECALL_LEASE_LK_TIMEOUT,
+          .op_version = {GD_OP_VERSION_3_8_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
           .description = "After 'timeout' seconds since the recall_lease"
                          " request has been sent to the client, the lease lock"
                          " will be forcefully purged by the server."
