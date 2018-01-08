@@ -6,11 +6,13 @@ quotad_la_LDFLAGS = -module -avoid-version -export-symbols $(top_srcdir)/xlators
 
 quota_la_SOURCES = quota.c quota-enforcer-client.c
 quota_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
-                  $(top_builddir)/rpc/xdr/src/libgfxdr.la
+                  $(top_builddir)/rpc/xdr/src/libgfxdr.la \
+                  $(top_builddir)/rpc/rpc-lib/src/libgfrpc.la
 
 quotad_la_SOURCES = quotad.c quotad-helpers.c quotad-aggregator.c
 quotad_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
-                   $(top_builddir)/rpc/xdr/src/libgfxdr.la
+                   $(top_builddir)/rpc/xdr/src/libgfxdr.la \
+                   $(top_builddir)/rpc/rpc-lib/src/libgfrpc.la
 
 noinst_HEADERS = quota-mem-types.h quota.h quotad-aggregator.h \
 	quotad-helpers.h quota-messages.h
