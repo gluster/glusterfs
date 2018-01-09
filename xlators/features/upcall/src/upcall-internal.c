@@ -465,11 +465,29 @@ up_filter_afr_xattr (dict_t *xattrs, char *xattr, data_t *v)
 }
 
 
-static int
+static gf_boolean_t
+up_key_is_regd_xattr (dict_t *regd_xattrs, char *regd_xattr, data_t *v,
+                      void *xattr)
+{
+        int ret = _gf_false;
+        char *key = xattr;
+
+        if (fnmatch (regd_xattr, key, 0) == 0)
+                ret = _gf_true;
+
+        return ret;
+}
+
+
+int
 up_filter_unregd_xattr (dict_t *xattrs, char *xattr, data_t *v,
                         void *regd_xattrs)
 {
-        if (dict_get ((dict_t *)regd_xattrs, xattr) == NULL) {
+        int ret = 0;
+
+        ret = dict_foreach_match (regd_xattrs, up_key_is_regd_xattr, xattr,
+                                  dict_null_foreach_fn, NULL);
+        if (ret == 0) {
                 /* xattr was not found in the registered xattr, hence do not
                  * send notification for its change
                  */
@@ -487,9 +505,8 @@ up_filter_xattr (dict_t *xattr, dict_t *regd_xattrs)
 {
         int ret = 0;
 
-        /* Remove the xattrs from the dict, if they are not registered for
-         * cache invalidation */
         ret = dict_foreach (xattr, up_filter_unregd_xattr, regd_xattrs);
+
         return ret;
 }
 
