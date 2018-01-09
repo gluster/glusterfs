@@ -1686,17 +1686,27 @@ struct volume_options options[] = {
                     "ENODEV","EXDEV","EMFILE","ENFILE","ENOSYS","EINTR",
                     "EFBIG","EAGAIN","GF_ERROR_SHORT_WRITE"},
           .type = GF_OPTION_TYPE_STR,
+          .op_version = {3},
+          .tags = {"error-gen"},
+          .flags = OPT_FLAG_SETTABLE,
+
         },
 
         { .key = {"random-failure"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
+          .op_version = {3},
+          .tags = {"error-gen"},
+          .flags = OPT_FLAG_SETTABLE,
         },
 
-        { .key  = {"enable"},
+        { .key  = {"enable", "error-fops"},
           .type = GF_OPTION_TYPE_STR,
           .description = "Accepts a string which takes ',' separated fop "
                          "strings to denote which fops are enabled for error",
+          .op_version = {3},
+          .tags = {"error-gen"},
+          .flags = OPT_FLAG_SETTABLE,
         },
 
         { .key  = {NULL} }
