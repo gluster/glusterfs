@@ -355,6 +355,7 @@ dict_copy_with_ref
 dict_del
 dict_dump_to_statedump
 dict_dump_to_str
+dict_dump_to_log
 dict_foreach
 dict_foreach_fnmatch
 dict_foreach_match
