@@ -44,7 +44,7 @@ struct rda_priv {
 	uint64_t rda_low_wmark;
 	uint64_t rda_high_wmark;
         uint64_t rda_cache_limit;
-        uint64_t rda_cache_size;
+        gf_atomic_t rda_cache_size;
 };
 
 #endif /* __READDIR_AHEAD_H */
