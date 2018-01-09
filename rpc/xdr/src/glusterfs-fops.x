@@ -234,6 +234,9 @@ enum gf_upcall_flags_t {
 
 enum gf_dict_data_type_t {
         GF_DATA_TYPE_UNKNOWN,
+        GF_DATA_TYPE_STR_OLD, /* Will be set by volgen and dict-serialize
+                                 and unserialize. Used to reduce warnings
+                                 if one is using old protocol */
         GF_DATA_TYPE_INT,
         GF_DATA_TYPE_UINT,
         GF_DATA_TYPE_DOUBLE,

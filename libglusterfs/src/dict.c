@@ -43,8 +43,9 @@ struct dict_cmp {
                                           LG_MSG_INVALID_ARG, "data is NULL"); \
                         return ret_val;                                 \
                 }                                                       \
-                                                                        \
-                if (data->data_type != type) {                          \
+                /* Not of the asked type, or old version */             \
+                if ((data->data_type != type) &&                        \
+                    (data->data_type != GF_DATA_TYPE_STR_OLD)) {        \
                         gf_msg_callingfn ("dict", GF_LOG_INFO, EINVAL,  \
                                           LG_MSG_INVALID_ARG,           \
                                           "key %s, %s type asked, has %s type", \
@@ -996,6 +997,7 @@ bin_to_data (void *value, int32_t len)
 
 static char *data_type_name[GF_DATA_TYPE_MAX] = {
         [GF_DATA_TYPE_UNKNOWN] = "unknown",
+        [GF_DATA_TYPE_STR_OLD] = "string-old-version",
         [GF_DATA_TYPE_INT] = "integer",
         [GF_DATA_TYPE_UINT] = "unsigned integer",
         [GF_DATA_TYPE_DOUBLE] = "float",
@@ -2273,6 +2275,28 @@ err:
         return ret;
 }
 
+/* This function is called only by the volgen for now.
+   Check how else you can handle it */
+int
+dict_set_option (dict_t *this, char *key, char *str)
+{
+        data_t *data = NULL;
+        int     ret  = 0;
+
+        data = data_from_dynstr (str);
+        if (!data) {
+                ret = -EINVAL;
+                goto err;
+        }
+
+        data->data_type = GF_DATA_TYPE_STR_OLD;
+        ret = dict_set (this, key, data);
+        if (ret < 0)
+                data_destroy (data);
+err:
+        return ret;
+}
+
 int
 dict_add_dynstr_with_alloc (dict_t *this, char *key, char *str)
 {
@@ -2910,7 +2934,7 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
                 }
                 value->len  = vallen;
                 value->data = memdup (buf, vallen);
-                value->data_type = GF_DATA_TYPE_STR;
+                value->data_type = GF_DATA_TYPE_STR_OLD;
                 value->is_static = 0;
                 buf += vallen;
 
@@ -3088,6 +3112,9 @@ dict_dump_to_str (dict_t *dict, char *dump, int dumpsize, char *format)
         int          dumplen                   = 0;
         data_pair_t *trav                      = NULL;
 
+        if (!dict)
+                return 0;
+
         for (trav = dict->members_list; trav; trav = trav->next) {
                 ret = snprintf (&dump[dumplen], dumpsize - dumplen,
                                 format, trav->key, trav->value->data);
@@ -3126,8 +3153,8 @@ dict_dump_to_log (dict_t *dict)
                         "Failed to log dictionary");
                 goto out;
         }
-        gf_msg_callingfn ("dict", GF_LOG_INFO, 0, LG_MSG_DICT_ERROR,
-                          "dict=%p (%s)", dict, dump);
+        gf_msg ("dict", GF_LOG_INFO, 0, LG_MSG_DICT_ERROR,
+                "dict=%p (%s)", dict, dump);
 out:
         GF_FREE (dump);
 
