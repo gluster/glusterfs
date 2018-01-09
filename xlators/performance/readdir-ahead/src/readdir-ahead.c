@@ -86,7 +86,7 @@ rda_reset_ctx(xlator_t *this, struct rda_fd_ctx *ctx)
         ctx->op_errno = 0;
 
 	gf_dirent_free(&ctx->entries);
-        priv->rda_cache_size -= ctx->cur_size;
+        GF_ATOMIC_SUB (priv->rda_cache_size, ctx->cur_size);
         ctx->cur_size = 0;
 
         if (ctx->xattrs) {
@@ -136,7 +136,7 @@ __rda_fill_readdirp (xlator_t *this, gf_dirent_t *entries, size_t request_size,
 		list_del_init(&dirent->list);
 		ctx->cur_size -= dirent_size;
 
-                priv->rda_cache_size -= dirent_size;
+                GF_ATOMIC_SUB(priv->rda_cache_size, dirent_size);
 
 		list_add_tail(&dirent->list, &entries->list);
 		ctx->cur_offset = dirent->d_off;
@@ -324,7 +324,7 @@ rda_fill_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 			ctx->cur_size += dirent_size;
 
-                        priv->rda_cache_size += dirent_size;
+                        GF_ATOMIC_ADD(priv->rda_cache_size, dirent_size);
 
 			ctx->next_offset = dirent->d_off;
 		}
@@ -363,8 +363,9 @@ out:
 	 * If we have been marked for bypass and have no pending stub, clear the
 	 * run state so we stop preloading the context with entries.
 	 */
-	if (!ctx->stub && ((ctx->state & RDA_FD_BYPASS)
-                           || (priv->rda_cache_size > priv->rda_cache_limit)))
+	if (!ctx->stub &&
+	    ((ctx->state & RDA_FD_BYPASS) ||
+	     GF_ATOMIC_GET(priv->rda_cache_size) > priv->rda_cache_limit))
 		ctx->state &= ~RDA_FD_RUNNING;
 
 	if (!(ctx->state & RDA_FD_RUNNING)) {
@@ -666,6 +667,8 @@ init(xlator_t *this)
 	if (!priv)
 		goto err;
 	this->private = priv;
+
+        GF_ATOMIC_INIT (priv->rda_cache_size, 0);
 
 	this->local_pool = mem_pool_new(struct rda_local, 32);
 	if (!this->local_pool)
