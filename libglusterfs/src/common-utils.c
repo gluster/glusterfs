@@ -2069,6 +2069,23 @@ skipwhite (char **s)
                 (*s)++;
 }
 
+void
+gf_strTrim (char **s)
+{
+        char *end = NULL;
+
+        end = *s + strlen(*s) - 1;
+        while (end > *s && isspace ((unsigned char)*end))
+                end--;
+
+        *(end+1) = '\0';
+
+        while (isspace (**s))
+                (*s)++;
+
+        return;
+}
+
 char *
 nwstrtail (char *str, char *pattern)
 {

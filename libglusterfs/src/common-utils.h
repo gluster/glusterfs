@@ -951,4 +951,7 @@ get_struct_variable (int mem_num, gf_gsync_status_t *sts_val);
 char *
 gf_strncpy (char *dest, const char *src, const size_t dest_size);
 
+void
+gf_strTrim (char **s);
+
 #endif /* _COMMON_UTILS_H */

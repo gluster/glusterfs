@@ -677,6 +677,7 @@ gf_string2uint64
 gf_string2uint_base10
 gf_strip_whitespace
 gf_strncpy
+gf_strTrim
 gf_strstr
 gf_thread_cleanup_xint
 gf_thread_create
