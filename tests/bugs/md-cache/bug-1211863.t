@@ -16,7 +16,7 @@ TEST $CLI volume start $V0
 
 ## 4. Enable the upcall xlator, and increase the md-cache timeout to max
 TEST $CLI volume set $V0 performance.md-cache-timeout 600
-TEST $CLI volume set $V0 performance.cache-samba-metadata on
+TEST $CLI volume set $V0 performance.xattr-cache-list "user.*"
 
 ## 6. Create two gluster mounts
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0

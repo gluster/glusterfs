@@ -1898,7 +1898,14 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_4_0_0,
           .flags      = VOLOPT_FLAG_CLIENT_OPT
         },
-
+        { .key        = "performance.xattr-cache-list",
+          .voltype    = "performance/md-cache",
+          .option     = "xattr-cache-list",
+          .op_version = GD_OP_VERSION_4_0_0,
+          .flags      = VOLOPT_FLAG_CLIENT_OPT,
+          .description = "A comma separeted list of xattrs that shall be "
+                         "cached by md-cache. The only wildcard allowed is '*'"
+        },
          /* Crypt xlator options */
 
         { .key         = "features.encryption",

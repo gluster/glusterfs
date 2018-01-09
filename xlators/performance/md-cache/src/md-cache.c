@@ -60,6 +60,7 @@ struct mdc_statistics {
                                     xlators requested for explicit lookup */
 };
 
+
 struct mdc_conf {
 	int  timeout;
 	gf_boolean_t cache_posix_acl;
@@ -75,105 +76,9 @@ struct mdc_conf {
         struct mdc_statistics mdc_counter;
         gf_boolean_t cache_statfs;
         struct mdc_statfs_cache statfs_cache;
+        char *mdc_xattr_str;
 };
 
-
-static struct mdc_key {
-	const char *name;
-	int         load;
-	int         check;
-	int         prefix_match;
-} mdc_keys[] = {
-	{
-		.name = POSIX_ACL_ACCESS_XATTR,
-		.load = 0,
-		.check = 1,
-		.prefix_match = 0,
-	},
-	{
-		.name = POSIX_ACL_DEFAULT_XATTR,
-		.load = 0,
-		.check = 1,
-		.prefix_match = 0,
-	},
-	{
-		.name = GF_POSIX_ACL_ACCESS,
-		.load = 0,
-		.check = 1,
-		.prefix_match = 0,
-	},
-	{
-		.name = GF_POSIX_ACL_DEFAULT,
-		.load = 0,
-		.check = 1,
-		.prefix_match = 0,
-	},
-	{
-		.name = GF_SELINUX_XATTR_KEY,
-		.load = 0,
-		.check = 1,
-		.prefix_match = 0,
-	},
-        {
-                .name = "user.swift.metadata",
-                .load = 0,
-                .check = 1,
-                .prefix_match = 0,
-        },
-        {
-                .name = "user.DOSATTRIB",
-                .load = 0,
-                .check = 1,
-                .prefix_match = 0,
-        },
-        {
-                .name = "user.DosStream.",
-                .load = 0,
-                .check = 1,
-                .prefix_match = 1,
-        },
-        {
-                .name = "user.org.netatalk.Metadata",
-                .load = 0,
-                .check = 1,
-                .prefix_match = 0,
-        },
-        {
-                .name = "user.org.netatalk.ResourceFork",
-                .load = 0,
-                .check = 1,
-                .prefix_match = 0,
-        },
-        {
-                .name = "security.NTACL",
-                .load = 0,
-                .check = 1,
-                .prefix_match = 0,
-        },
-	{
-		.name = "security.capability",
-		.load = 0,
-		.check = 1,
-		.prefix_match = 0,
-	},
-	{
-		.name = "gfid-req",
-		.load = 0,
-		.check = 1,
-		.prefix_match = 0,
-	},
-        {
-                .name = "security.ima",
-                .load = 0,
-                .check = 1,
-        },
-        {
-                .name = NULL,
-                .load = 0,
-                .check = 0,
-                .prefix_match = 0,
-        }
-};
 
 struct mdc_local;
 typedef struct mdc_local mdc_local_t;
@@ -637,25 +542,52 @@ struct updatedict {
 };
 
 static int
+is_mdc_key_satisfied (xlator_t *this, const char *key)
+{
+        int  ret = 0;
+        char *pattern = NULL;
+        struct mdc_conf *conf = this->private;
+        char *mdc_xattr_str = NULL;
+        char *tmp = NULL;
+        char *tmp1 = NULL;
+
+        if (!key)
+                goto out;
+
+        /* conf->mdc_xattr_str, is never freed and is hence safely used outside
+         * of lock*/
+        tmp1 = conf->mdc_xattr_str;
+        if (!tmp1)
+                goto out;
+
+        mdc_xattr_str = gf_strdup (tmp1);
+        if (!mdc_xattr_str)
+                goto out;
+
+        pattern = strtok_r (mdc_xattr_str, ",", &tmp);
+        while (pattern) {
+                gf_strTrim (&pattern);
+                if (fnmatch (pattern, key, 0) == 0) {
+                        ret = 1;
+                        break;
+                } else {
+                        gf_msg_trace ("md-cache", 0, "xattr key %s doesn't satisfy "
+                              "caching requirements", key);
+                }
+                pattern = strtok_r (NULL, ",", &tmp);
+        }
+        GF_FREE (mdc_xattr_str);
+out:
+        return ret;
+}
+
+static int
 updatefn(dict_t *dict, char *key, data_t *value, void *data)
 {
 	struct updatedict *u = data;
-	const char *mdc_key;
-	int i = 0;
 
-	for (mdc_key = mdc_keys[i].name; (mdc_key = mdc_keys[i].name); i++) {
-		if (!mdc_keys[i].check)
-			continue;
-
-		if (mdc_keys[i].prefix_match) {
-			if (strncmp (mdc_key, key, strlen(mdc_key)))
-				continue;
-		} else {
-			if (strcmp(mdc_key, key))
-				continue;
-		}
-
-		if (!u->dict) {
+        if (is_mdc_key_satisfied (THIS, key)) {
+                if (!u->dict) {
 			u->dict = dict_new();
 			if (!u->dict) {
 				u->ret = -1;
@@ -680,14 +612,12 @@ updatefn(dict_t *dict, char *key, data_t *value, void *data)
                  * data (i.e. "").
                  */
                 if (value->len == 1 && value->data[0] == '\0')
-                        continue;
+                        return 0;
 
 		if (dict_set(u->dict, key, value) < 0) {
 			u->ret = -1;
 			return -1;
 		}
-
-		break;
 	}
         return 0;
 }
@@ -956,63 +886,38 @@ out:
 void
 mdc_load_reqs (xlator_t *this, dict_t *dict)
 {
-	const char *mdc_key = NULL;
-	int  i = 0;
-	int  ret = 0;
+        struct mdc_conf *conf = this->private;
+        char *pattern = NULL;
+        char *mdc_xattr_str = NULL;
+        char *tmp = NULL;
+        char *tmp1 = NULL;
+        int ret = 0;
 
-	for (mdc_key = mdc_keys[i].name; (mdc_key = mdc_keys[i].name); i++) {
-		if (!mdc_keys[i].load)
-			continue;
-		ret = dict_set_int8 (dict, (char *)mdc_key, 0);
-		if (ret)
-			return;
-	}
-}
-
-
-static char*
-mdc_serialize_loaded_key_names (xlator_t *this)
-{
-        int             max_len = 0;
-        int             len = 0;
-        int             i = 0;
-        char           *mdc_key_names = NULL;
-        const char     *mdc_key = NULL;
-        gf_boolean_t    at_least_one_key_loaded = _gf_false;
-
-        for (mdc_key = mdc_keys[i].name; (mdc_key = mdc_keys[i].name); i++) {
-                max_len += (strlen(mdc_keys[i].name) + 1);
-                if (mdc_keys[i].load)
-                        at_least_one_key_loaded = _gf_true;
-        }
-
-        if (!at_least_one_key_loaded)
+        tmp1 = conf->mdc_xattr_str;
+        if (!tmp1)
                 goto out;
 
-        mdc_key_names = GF_CALLOC (1, max_len + 1, gf_common_mt_char);
-        if (!mdc_key_names)
+         mdc_xattr_str = gf_strdup (tmp1);
+         if (!mdc_xattr_str)
                 goto out;
 
-        i = 0;
-        for (mdc_key = mdc_keys[i].name; (mdc_key = mdc_keys[i].name); i++) {
-                if (!mdc_keys[i].load)
-                        continue;
-                strcat (mdc_key_names, mdc_keys[i].name);
-                strcat (mdc_key_names, " ");
+        pattern = strtok_r (mdc_xattr_str, ",", &tmp);
+        while (pattern) {
+                gf_strTrim (&pattern);
+                ret = dict_set_int8 (dict, pattern, 0);
+                if (ret) {
+                        conf->mdc_xattr_str = NULL;
+                        gf_msg ("md-cache", GF_LOG_ERROR, 0,
+                                MD_CACHE_MSG_NO_XATTR_CACHE,
+                                "Disabled cache for xattrs, dict_set failed");
+                }
+                pattern = strtok_r (NULL, ",", &tmp);
         }
 
-        len = strlen (mdc_key_names);
-        if (len > 0) {
-                mdc_key_names[len - 1] = '\0';
-        } else {
-                GF_FREE (mdc_key_names);
-                mdc_key_names = NULL;
-        }
-
+        GF_FREE (mdc_xattr_str);
 out:
-        return mdc_key_names;
+        return;
 }
-
 
 struct checkpair {
 	int  ret;
@@ -1020,40 +925,14 @@ struct checkpair {
 };
 
 
-static int
-is_mdc_key_satisfied (const char *key)
-{
-	const char *mdc_key = NULL;
-	int  i = 0;
-
-	if (!key)
-		return 0;
-
-	for (mdc_key = mdc_keys[i].name; (mdc_key = mdc_keys[i].name); i++) {
-		if (!mdc_keys[i].load)
-			continue;
-		if (mdc_keys[i].prefix_match) {
-			if (strncmp (mdc_key, key, strlen(mdc_key)) == 0)
-				return 1;
-		} else {
-			if (strcmp (mdc_key, key) == 0)
-				return 1;
-		}
-	}
-
-        gf_msg_trace ("md-cache", 0, "xattr key %s doesn't satisfy "
-                      "caching requirements", key);
-	return 0;
-}
-
 
 static int
 checkfn (dict_t *this, char *key, data_t *value, void *data)
 {
         struct checkpair *pair = data;
 
-	if (!is_mdc_key_satisfied (key))
-		pair->ret = 0;
+        if (!is_mdc_key_satisfied (THIS, key))
+                pair->ret = 0;
 
         return 0;
 }
@@ -2266,7 +2145,7 @@ mdc_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
 
         loc_copy (&local->loc, loc);
 
-	if (!is_mdc_key_satisfied (key))
+	if (!is_mdc_key_satisfied (this, key))
 		goto uncached;
 
 	ret = mdc_inode_xatt_get (this, loc->inode, &xattr);
@@ -2331,7 +2210,7 @@ mdc_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *key,
 
         local->fd = fd_ref (fd);
 
-	if (!is_mdc_key_satisfied (key))
+	if (!is_mdc_key_satisfied (this, key))
 		goto uncached;
 
 	ret = mdc_inode_xatt_get (this, fd->inode, &xattr);
@@ -2399,7 +2278,7 @@ mdc_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 	local->key = gf_strdup (name);
 
-        if (!is_mdc_key_satisfied (name))
+        if (!is_mdc_key_satisfied (this, name))
                 goto uncached;
 
         ret = mdc_inode_xatt_get (this, loc->inode, &xattr);
@@ -2468,7 +2347,7 @@ mdc_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 	local->key = gf_strdup (name);
 
-        if (!is_mdc_key_satisfied (name))
+        if (!is_mdc_key_satisfied (this, name))
                 goto uncached;
 
         ret = mdc_inode_xatt_get (this, fd->inode, &xattr);
@@ -2497,9 +2376,7 @@ int
 mdc_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc,
             fd_t *fd, dict_t *xdata)
 {
-        int          ret = -1;
-        char        *mdc_key_names = NULL;
-        dict_t      *xattr_alloc = NULL;
+        dict_t          *xattr_alloc = NULL;
 
         if (!xdata)
                 xdata = xattr_alloc = dict_new ();
@@ -2507,16 +2384,9 @@ mdc_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (xdata) {
                 /* Tell readdir-ahead to include these keys in xdata when it
                  * internally issues readdirp() in it's opendir_cbk */
-                mdc_key_names = mdc_serialize_loaded_key_names(this);
-                if (!mdc_key_names)
-                        goto wind;
-                ret = dict_set_dynstr (xdata, GF_MDC_LOADED_KEY_NAMES,
-                                       mdc_key_names);
-                if (ret)
-                        goto wind;
+                mdc_load_reqs (this, xdata);
         }
 
-wind:
         STACK_WIND (frame, default_opendir_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->opendir, loc, fd, xdata);
 
@@ -2786,29 +2656,70 @@ is_strpfx (const char *str1, const char *str2)
 
 
 static int
-mdc_key_unload_all (struct mdc_key *keys)
+mdc_key_unload_all (struct mdc_conf *conf)
 {
-        struct mdc_key *key = NULL;
-
-        for (key = keys; key->name; key++) {
-                key->load = 0;
-        }
+        conf->mdc_xattr_str = NULL;
 
         return 0;
 }
 
+
 int
-mdc_key_load_set (struct mdc_key *keys, char *pattern, gf_boolean_t val)
+mdc_xattr_list_populate (struct mdc_conf *conf, char *tmp_str)
 {
-	struct mdc_key *key = NULL;
+        char   *mdc_xattr_str     = NULL;
+        size_t  max_size          = 0;
+        int     ret               = 0;
 
-	for (key = keys; key->name; key++) {
-		if (is_strpfx (key->name, pattern))
-			key->load = val;
-	}
+        max_size = strlen ("security.capability,security.selinux,security.ima,"
+                           POSIX_ACL_ACCESS_XATTR","POSIX_ACL_DEFAULT_XATTR","
+                           GF_POSIX_ACL_ACCESS","GF_POSIX_ACL_DEFAULT","
+                           "user.swift.metadata,user.DOSATTRIB,user.DosStream.*"
+                           ",user.org.netatalk.Metadata,security.NTACL,"
+                           "user.org.netatalk.ResourceFork")
+                   + strlen (tmp_str) + 5; /*Some buffer bytes*/
 
-	return 0;
+        mdc_xattr_str = GF_CALLOC (1, max_size, gf_common_mt_char);
+        GF_CHECK_ALLOC (mdc_xattr_str, ret, out);
+
+        if (conf->cache_capability)
+                strcat (mdc_xattr_str, "security.capability,");
+
+        if (conf->cache_selinux)
+                strcat (mdc_xattr_str, "security.selinux,");
+
+        if (conf->cache_ima)
+                strcat (mdc_xattr_str, "security.ima,");
+
+        if (conf->cache_posix_acl)
+                strcat (mdc_xattr_str, POSIX_ACL_ACCESS_XATTR","
+                        POSIX_ACL_DEFAULT_XATTR","GF_POSIX_ACL_ACCESS
+                        ","GF_POSIX_ACL_DEFAULT",");
+
+        if (conf->cache_swift_metadata)
+                strcat (mdc_xattr_str, "user.swift.metadata,");
+
+        if (conf->cache_samba_metadata)
+                strcat (mdc_xattr_str, "user.DOSATTRIB,user.DosStream.*,"
+                        "user.org.netatalk.Metadata,user.org.netatalk."
+                        "ResourceFork,security.NTACL,");
+
+        strcat (mdc_xattr_str, tmp_str);
+
+        LOCK (&conf->lock);
+        {
+                /* This is not freed, else is_mdc_key_satisfied, which is
+                 * called by every fop has to take lock, and will lead to
+                 * lock contention
+                 */
+                conf->mdc_xattr_str = mdc_xattr_str;
+        }
+        UNLOCK (&conf->lock);
+
+out:
+        return ret;
 }
+
 
 struct set {
        inode_t *inode;
@@ -2915,7 +2826,7 @@ mdc_send_xattrs_cbk (int ret, call_frame_t *frame, void *data)
         struct mdc_ipc *tmp = data;
 
         if (ret < 0) {
-                mdc_key_unload_all (mdc_keys);
+                mdc_key_unload_all (THIS->private);
                 gf_msg ("md-cache", GF_LOG_INFO, 0, MD_CACHE_MSG_NO_XATTR_CACHE,
                         "Disabled cache for all xattrs, as registering for "
                         "xattr cache invalidation failed");
@@ -3006,7 +2917,7 @@ mdc_register_xattr_inval (xlator_t *this)
 
 out:
         if (ret < 0) {
-                mdc_key_unload_all (mdc_keys);
+                mdc_key_unload_all (conf);
                 if (xattr)
                         dict_unref (xattr);
                 if (frame)
@@ -3026,54 +2937,35 @@ reconfigure (xlator_t *this, dict_t *options)
 {
 	struct mdc_conf *conf = NULL;
         int    timeout = 0;
+        char *tmp_str = NULL;
 
 	conf = this->private;
 
 	GF_OPTION_RECONF ("md-cache-timeout", timeout, options, int32, out);
 
 	GF_OPTION_RECONF ("cache-selinux", conf->cache_selinux, options, bool, out);
-	mdc_key_load_set (mdc_keys, "security.selinux", conf->cache_selinux);
 
         GF_OPTION_RECONF ("cache-capability-xattrs", conf->cache_capability,
                           options, bool, out);
-        mdc_key_load_set (mdc_keys, "security.capability",
-                          conf->cache_capability);
 
         GF_OPTION_RECONF ("cache-ima-xattrs", conf->cache_ima, options, bool,
                           out);
-        mdc_key_load_set (mdc_keys, "security.ima", conf->cache_ima);
 
 	GF_OPTION_RECONF ("cache-posix-acl", conf->cache_posix_acl, options, bool, out);
-	mdc_key_load_set (mdc_keys, "system.posix_acl_", conf->cache_posix_acl);
-	mdc_key_load_set (mdc_keys, GF_POSIX_ACL_ACCESS,
-			  conf->cache_posix_acl);
-	mdc_key_load_set (mdc_keys, GF_POSIX_ACL_DEFAULT,
-			  conf->cache_posix_acl);
-
         GF_OPTION_RECONF ("cache-swift-metadata", conf->cache_swift_metadata,
                           options, bool, out);
-        mdc_key_load_set (mdc_keys, "user.swift.metadata",
-                          conf->cache_swift_metadata);
 
         GF_OPTION_RECONF ("cache-samba-metadata", conf->cache_samba_metadata,
                           options, bool, out);
-        mdc_key_load_set (mdc_keys, "user.DOSATTRIB",
-                          conf->cache_samba_metadata);
-        mdc_key_load_set (mdc_keys, "user.DosStream.",
-                          conf->cache_samba_metadata);
-        mdc_key_load_set (mdc_keys, "user.org.netatalk.Metadata",
-                          conf->cache_samba_metadata);
-        mdc_key_load_set (mdc_keys, "user.org.netatalk.ResourceFork",
-                          conf->cache_samba_metadata);
-        mdc_key_load_set (mdc_keys, "security.NTACL",
-                          conf->cache_samba_metadata);
 
-	GF_OPTION_RECONF("force-readdirp", conf->force_readdirp, options, bool, out);
-        GF_OPTION_RECONF("cache-invalidation", conf->mdc_invalidation, options,
+	GF_OPTION_RECONF ("force-readdirp", conf->force_readdirp, options, bool, out);
+        GF_OPTION_RECONF ("cache-invalidation", conf->mdc_invalidation, options,
                          bool, out);
         GF_OPTION_RECONF ("md-cache-statfs", conf->cache_statfs, options,
                           bool, out);
 
+        GF_OPTION_RECONF ("xattr-cache-list", tmp_str, options, str, out);
+        mdc_xattr_list_populate (conf, tmp_str);
 
 
         /* If timeout is greater than 60s (default before the patch that added
@@ -3106,6 +2998,7 @@ init (xlator_t *this)
 {
 	struct mdc_conf *conf = NULL;
         int    timeout = 0;
+        char *tmp_str = NULL;
 
 	conf = GF_CALLOC (sizeof (*conf), 1, gf_mdc_mt_mdc_conf_t);
 	if (!conf) {
@@ -3117,46 +3010,28 @@ init (xlator_t *this)
         GF_OPTION_INIT ("md-cache-timeout", timeout, int32, out);
 
 	GF_OPTION_INIT ("cache-selinux", conf->cache_selinux, bool, out);
-	mdc_key_load_set (mdc_keys, "security.selinux", conf->cache_selinux);
 
         GF_OPTION_INIT ("cache-capability-xattrs", conf->cache_capability,
                         bool, out);
-        mdc_key_load_set (mdc_keys, "security.capability",
-                          conf->cache_capability);
 
         GF_OPTION_INIT ("cache-ima-xattrs", conf->cache_ima, bool, out);
-        mdc_key_load_set (mdc_keys, "security.ima", conf->cache_ima);
 
 	GF_OPTION_INIT ("cache-posix-acl", conf->cache_posix_acl, bool, out);
-	mdc_key_load_set (mdc_keys, "system.posix_acl_", conf->cache_posix_acl);
-	mdc_key_load_set (mdc_keys, GF_POSIX_ACL_ACCESS,
-			  conf->cache_posix_acl);
-	mdc_key_load_set (mdc_keys, GF_POSIX_ACL_DEFAULT,
-			  conf->cache_posix_acl);
 
         GF_OPTION_INIT ("cache-swift-metadata",
                         conf->cache_swift_metadata, bool, out);
-        mdc_key_load_set (mdc_keys, "user.swift.metadata",
-                          conf->cache_swift_metadata);
 
         GF_OPTION_INIT ("cache-samba-metadata", conf->cache_samba_metadata,
                         bool, out);
-        mdc_key_load_set (mdc_keys, "user.DOSATTRIB",
-                          conf->cache_samba_metadata);
-        mdc_key_load_set (mdc_keys, "user.DosStream.",
-                          conf->cache_samba_metadata);
-        mdc_key_load_set (mdc_keys, "user.org.netatalk.Metadata",
-                          conf->cache_samba_metadata);
-        mdc_key_load_set (mdc_keys, "user.org.netatalk.ResourceFork",
-                          conf->cache_samba_metadata);
-        mdc_key_load_set (mdc_keys, "security.NTACL",
-                          conf->cache_samba_metadata);
 
 	GF_OPTION_INIT("force-readdirp", conf->force_readdirp, bool, out);
         GF_OPTION_INIT("cache-invalidation", conf->mdc_invalidation, bool, out);
 
         pthread_mutex_init (&conf->statfs_cache.lock, NULL);
         GF_OPTION_INIT ("md-cache-statfs", conf->cache_statfs, bool, out);
+
+        GF_OPTION_INIT("xattr-cache-list", tmp_str, str, out);
+        mdc_xattr_list_populate (conf, tmp_str);
 
         LOCK_INIT (&conf->lock);
         time (&conf->last_child_down);
@@ -3177,8 +3052,8 @@ init (xlator_t *this)
          * previous max which is 60s
          */
         if ((timeout > 60) && (!conf->mdc_invalidation)) {
-                        conf->timeout = 60;
-                        goto out;
+                conf->timeout = 60;
+                goto out;
         }
         conf->timeout = timeout;
 
@@ -3338,11 +3213,19 @@ struct volume_options options[] = {
           .description = "When \"on\", invalidates/updates the metadata cache,"
                          " on receiving the cache-invalidation notifications",
         },
-    { .key = {"md-cache-statfs"},
-      .type = GF_OPTION_TYPE_BOOL,
-      .default_value = "off",
-      .op_version = {GD_OP_VERSION_4_0_0},
-      .flags = OPT_FLAG_SETTABLE,
-    },
+        { .key = {"md-cache-statfs"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .op_version = {GD_OP_VERSION_4_0_0},
+          .flags = OPT_FLAG_SETTABLE,
+        },
+        { .key = {"xattr-cache-list"},
+          .type = GF_OPTION_TYPE_STR,
+          .default_value = "",
+          .op_version = {GD_OP_VERSION_4_0_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .description = "A comma separeted list of xattrs that shall be "
+                         "cached by md-cache. The only wildcard allowed is '*'",
+        },
     { .key = {NULL} },
 };
