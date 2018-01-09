@@ -512,6 +512,7 @@ struct _cmd_args {
         char              *process_name;
         char              *event_history;
         int                thin_client;
+        uint32_t           reader_thread_count;
 };
 typedef struct _cmd_args cmd_args_t;
 
