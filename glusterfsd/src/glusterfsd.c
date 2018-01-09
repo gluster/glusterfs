@@ -247,6 +247,8 @@ static struct argp_option gf_options[] = {
          "option to specify the process type" },
         {"event-history", ARGP_FUSE_EVENT_HISTORY_KEY, "BOOL",
          OPTION_ARG_OPTIONAL, "disable/enable fuse event-history"},
+        {"reader-thread-count", ARGP_READER_THREAD_COUNT_KEY, "INTEGER",
+         OPTION_ARG_OPTIONAL, "set fuse reader thread count"},
         {0, 0, 0, 0, "Miscellaneous Options:"},
         {0, }
 };
@@ -595,6 +597,16 @@ set_fuse_mount_options (glusterfs_ctx_t *ctx, dict_t *options)
                         gf_msg ("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
                                 "failed to set dict value for key "
                                 "thin-client");
+                        goto err;
+                }
+        }
+        if (cmd_args->reader_thread_count) {
+                ret = dict_set_uint32 (options, "reader-thread-count",
+                                       cmd_args->reader_thread_count);
+                if (ret < 0) {
+                        gf_msg ("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
+                                "failed to set dict value for key "
+                                "reader-thread-count");
                         goto err;
                 }
         }
@@ -1340,6 +1352,20 @@ no_oom_api:
                 argp_failure (state, -1, 0,
                               "unknown event-history setting \"%s\"", arg);
                 break;
+        case ARGP_READER_THREAD_COUNT_KEY:
+                if (gf_string2uint32 (arg, &cmd_args->reader_thread_count)) {
+                        argp_failure (state, -1, 0,
+                                      "unknown reader thread count option %s",
+                                      arg);
+                } else if ((cmd_args->reader_thread_count < 1) ||
+                           (cmd_args->reader_thread_count > 64)) {
+                        argp_failure (state, -1, 0,
+                                      "Invalid reader thread count %s. "
+                                      "Valid range: [\"1, 64\"]", arg);
+                }
+
+                break;
+
 	}
         return 0;
 }

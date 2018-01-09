@@ -225,6 +225,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --event-history=$event_history");
     fi
 
+    if [ -n "$reader_thread_count" ]; then
+        cmd_line=$(echo "$cmd_line --reader-thread-count=$reader_thread_count");
+    fi
+
     if [ -n "$volume_name" ]; then
         cmd_line=$(echo "$cmd_line --volume-name=$volume_name");
     fi
@@ -498,6 +502,9 @@ with_options()
             ;;
         "event-history")
             event_history=$value
+            ;;
+        "reader-thread-count")
+            reader_thread_count=$value
             ;;
         "no-root-squash")
             if [ $value = "yes" ] ||

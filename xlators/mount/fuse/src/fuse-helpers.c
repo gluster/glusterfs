@@ -123,6 +123,9 @@ get_fuse_state (xlator_t *this, fuse_in_header_t *finh)
 
         pthread_mutex_lock (&priv->sync_mutex);
         {
+                while (priv->handle_graph_switch)
+                        pthread_cond_wait (&priv->migrate_cond,
+                                           &priv->sync_mutex);
                 active_subvol = fuse_active_subvol (state->this);
                 active_subvol->winds++;
         }
