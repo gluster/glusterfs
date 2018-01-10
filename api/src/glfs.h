@@ -370,6 +370,9 @@ int glfs_get_volumeid (struct glfs *fs, char *volid, size_t size) __THROW
 struct glfs_fd;
 typedef struct glfs_fd glfs_fd_t;
 
+#define GFAPI_LEASE_ID_SIZE 16 /* 128bits */
+typedef char leaseid_t[GFAPI_LEASE_ID_SIZE];
+
 /*
  * PER THREAD IDENTITY MODIFIERS
  *
@@ -387,6 +390,8 @@ typedef struct glfs_fd glfs_fd_t;
  *    caller
  *  - The groups once set, need to be unset by setting the size to 0 (in which
  *    case the list argument is a do not care)
+ *  - In case of leases feature enables, setfsleaseid is used to set and reset
+ *    leaseid before and after every I/O operation.
  *  - Once a process for a thread of operation choses to set the IDs, all glfs
  *    calls made from that thread would default to the IDs set for the thread.
  *    As a result use these APIs with care and ensure that the set IDs are
@@ -399,6 +404,8 @@ int glfs_setfsgid (gid_t fsgid) __THROW
         GFAPI_PUBLIC(glfs_setfsgid, 3.4.2);
 int glfs_setfsgroups (size_t size, const gid_t *list) __THROW
         GFAPI_PUBLIC(glfs_setfsgroups, 3.4.2);
+int glfs_setfsleaseid (leaseid_t leaseid) __THROW
+        GFAPI_PUBLIC(glfs_setfsleaseid, 4.0.0);
 
 /*
   SYNOPSIS
