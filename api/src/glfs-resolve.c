@@ -953,6 +953,7 @@ __glfs_active_subvol (struct glfs *fs)
 	}
 
 	__glfs_migrate_openfds (fs, new_subvol);
+        /* TODO: Migrate the fds and inodes which have leases to the new graph (issue #350)*/
 
 	/* switching @active_subvol and @cwd
 	   should be atomic

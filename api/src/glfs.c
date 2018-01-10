@@ -597,7 +597,7 @@ pub_glfs_setfsgroups (size_t size, const gid_t *list)
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_setfsgroups, 3.4.2);
 
 int
-pub_glfs_setfsleaseid (leaseid_t leaseid)
+pub_glfs_setfsleaseid (glfs_leaseid_t leaseid)
 {
         int           ret     = -1;
         char         *gleaseid = NULL;
