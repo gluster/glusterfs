@@ -220,3 +220,7 @@ GFAPI_3.13.0 {
                 glfs_upcall_register;
                 glfs_upcall_unregister;
 } GFAPI_PRIVATE_3.12.0;
+
+GFAPI_4.0.0 {
+                glfs_setfsleaseid;
+} GFAPI_3.13.0;

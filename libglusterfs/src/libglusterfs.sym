@@ -1094,3 +1094,4 @@ global_ctx_mutex
 global_xlator
 use_spinlocks
 dump_options
+glusterfs_leaseid_buf_get
