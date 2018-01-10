@@ -961,7 +961,9 @@ struct volume_options options[] = {
           .description = "This option if set to ON, does a lookup through "
           "all the sub-volumes, in case a lookup didn't return any result "
           "from the hash subvolume. If set to OFF, it does not do a lookup "
-          "on the remaining subvolumes."
+          "on the remaining subvolumes.",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE
         },
         { .key = {"lookup-optimize"},
           .type = GF_OPTION_TYPE_BOOL,
@@ -969,7 +971,9 @@ struct volume_options options[] = {
           .description = "This option if set to ON enables the optimization "
           "of -ve lookups, by not doing a lookup on non-hashed subvolumes for "
           "files, in case the hashed subvolume does not return any result. "
-          "This option disregards the lookup-unhashed setting, when enabled."
+          "This option disregards the lookup-unhashed setting, when enabled.",
+          .op_version = {GD_OP_VERSION_3_7_2},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key  = {"min-free-disk"},
           .type = GF_OPTION_TYPE_PERCENT_OR_SIZET,
@@ -977,12 +981,16 @@ struct volume_options options[] = {
           .description = "Percentage/Size of disk space, after which the "
           "process starts balancing out the cluster, and logs will appear "
           "in log files",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key  = {"min-free-inodes"},
           .type = GF_OPTION_TYPE_PERCENT,
           .default_value = "5%",
           .description = "after system has only N% of inodes, warnings "
           "starts to appear in log files",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key = {"unhashed-sticky-bit"},
           .type = GF_OPTION_TYPE_BOOL,
@@ -992,7 +1000,8 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "on",
           .description = "This option if set to ON, forces the use of "
-          "readdirp, and hence also displays the stats of the files."
+          "readdirp, and hence also displays the stats of the files.",
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key = {"assert-no-child-down"},
           .type = GF_OPTION_TYPE_BOOL,
@@ -1005,7 +1014,9 @@ struct volume_options options[] = {
           .min  = 1,
           .validate = GF_OPT_VALIDATE_MIN,
           .description = "Specifies the directory layout spread. Takes number "
-                         "of subvolumes as default value."
+                         "of subvolumes as default value.",
+
+          .op_version = {2},
         },
         { .key  = {"decommissioned-bricks"},
           .type = GF_OPTION_TYPE_ANY,
@@ -1028,28 +1039,35 @@ struct volume_options options[] = {
           .description = "This option if set to ON displays and logs the "
           " time taken for migration of each file, during the rebalance "
           "process. If set to OFF, the rebalance logs will only display the "
-          "time spent in each directory."
+          "time spent in each directory.",
+          .op_version = {2},
         },
         { .key = {"readdir-optimize"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
           .description = "This option if set to ON enables the optimization "
           "that allows DHT to requests non-first subvolumes to filter out "
-          "directory entries."
+          "directory entries.",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key = {"rsync-hash-regex"},
           .type = GF_OPTION_TYPE_STR,
           /* Setting a default here doesn't work.  See dht_init_regex. */
           .description = "Regular expression for stripping temporary-file "
           "suffix and prefix used by rsync, to prevent relocation when the "
-          "file is renamed."
+          "file is renamed.",
+          .op_version = {3},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key = {"extra-hash-regex"},
           .type = GF_OPTION_TYPE_STR,
           /* Setting a default here doesn't work.  See dht_init_regex. */
           .description = "Regular expression for stripping temporary-file "
           "suffix and prefix used by an application, to prevent relocation when "
-          "the file is renamed."
+          "the file is renamed.",
+          .op_version = {3},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key = {"rebalance-filter"},
           .type = GF_OPTION_TYPE_STR,
@@ -1060,7 +1078,8 @@ struct volume_options options[] = {
           .default_value = "trusted.glusterfs.dht",
           .description = "Base for extended attributes used by this "
           "translator instance, to avoid conflicts with others above or "
-          "below it."
+          "below it.",
+          .op_version = {3},
         },
 
         { .key = {"weighted-rebalance"},
@@ -1068,7 +1087,9 @@ struct volume_options options[] = {
           .default_value = "on",
           .description = "When enabled, files will be allocated to bricks "
           "with a probability proportional to their size.  Otherwise, all "
-          "bricks will have the same probability (legacy behavior)."
+          "bricks will have the same probability (legacy behavior).",
+          .op_version  = {GD_OP_VERSION_3_6_0},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
 
         /* NUFA option */
@@ -1085,13 +1106,11 @@ struct volume_options options[] = {
         { .key  = {"tier-promote-frequency"},
           .type = GF_OPTION_TYPE_INT,
           .default_value = "120",
-          .description = "Frequency to promote files to fast tier"
         },
 
         { .key  = {"tier-demote-frequency"},
           .type = GF_OPTION_TYPE_INT,
           .default_value = "3600",
-          .description = "Frequency to demote files to slow tier"
         },
 
         { .key  = {"write-freq-threshold"},
@@ -1156,7 +1175,8 @@ struct volume_options options[] = {
           .description = "Use gfid of directory to determine the subvolume "
           "from which hash ranges are allocated starting with 0. "
           "Note that we still use a directory/file's name to determine the "
-          "subvolume to which it hashes"
+          "subvolume to which it hashes",
+          .op_version  = {GD_OP_VERSION_3_6_0},
         },
 
         { .key =  {"rebal-throttle"},
@@ -1168,14 +1188,19 @@ struct volume_options options[] = {
                          "[($(processing units) - 4) / 2), 2]  files to be "
                          "migrated at a time. Lazy will allow only one file to "
                          "be migrated at a time and aggressive will allow "
-                         "max of [($(processing units) - 4) / 2), 4]"
+                         "max of [($(processing units) - 4) / 2), 4]",
+          .op_version  = {GD_OP_VERSION_3_7_0},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
+
         },
 
         { .key =  {"lock-migration"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "off",
           .description = " If enabled this feature will migrate the posix locks"
-                         " associated with a file during rebalance"
+                         " associated with a file during rebalance",
+          .op_version  = {GD_OP_VERSION_3_8_0},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
 
         { .key  = {NULL} },
