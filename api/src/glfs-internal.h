@@ -222,6 +222,8 @@ struct glfs_fd {
 	gf_dirent_t       *next;
 	struct dirent     *readdirbuf;
         gf_lkowner_t       lk_owner;
+        glfs_leaseid_t     lease_id; /* Stores lease_id of client in glfd */
+        gf_lock_t          lock; /* lock taken before updating fd state */
 };
 
 /* glfs object handle introduced for the alternate gfapi implementation based
@@ -460,6 +462,7 @@ glfs_unlock (struct glfs *fs)
 
 struct glfs_fd *glfs_fd_new (struct glfs *fs);
 void glfs_fd_bind (struct glfs_fd *glfd);
+void glfd_set_state_bind (struct glfs_fd *glfd);
 
 xlator_t *glfs_active_subvol (struct glfs *fs)
         GFAPI_PRIVATE(glfs_active_subvol, 3.4.0);
@@ -604,11 +607,11 @@ glfd_entry_next (struct glfs_fd *glfd, int plus);
 void
 gf_dirent_to_dirent (gf_dirent_t *gf_dirent, struct dirent *dirent);
 
-/*
- * Nobody needs this call at all yet except for the test script.
- */
-int glfs_ipc (glfs_fd_t *fd, int cmd,  void *xd_in, void **xd_out) __THROW
-        GFAPI_PRIVATE(glfs_ipc, 3.12.0);
+void
+gf_lease_to_glfs_lease (struct gf_lease *gf_lease, struct glfs_lease *lease);
+
+void
+glfs_lease_to_gf_lease (struct glfs_lease *lease, struct gf_lease *gf_lease);
 
 void glfs_release_upcall (void *ptr);
 #endif /* !_GLFS_INTERNAL_H */

@@ -965,6 +965,7 @@ syncop_write
 syncop_writev
 syncop_xattrop
 syncop_zerofill
+syncop_lease
 synctask_get
 synctask_new
 synctask_new1

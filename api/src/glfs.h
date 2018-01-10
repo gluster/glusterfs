@@ -370,8 +370,8 @@ int glfs_get_volumeid (struct glfs *fs, char *volid, size_t size) __THROW
 struct glfs_fd;
 typedef struct glfs_fd glfs_fd_t;
 
-#define GFAPI_LEASE_ID_SIZE 16 /* 128bits */
-typedef char leaseid_t[GFAPI_LEASE_ID_SIZE];
+#define GLFS_LEASE_ID_SIZE 16 /* 128bits */
+typedef char glfs_leaseid_t[GLFS_LEASE_ID_SIZE];
 
 /*
  * PER THREAD IDENTITY MODIFIERS
@@ -404,7 +404,7 @@ int glfs_setfsgid (gid_t fsgid) __THROW
         GFAPI_PUBLIC(glfs_setfsgid, 3.4.2);
 int glfs_setfsgroups (size_t size, const gid_t *list) __THROW
         GFAPI_PUBLIC(glfs_setfsgroups, 3.4.2);
-int glfs_setfsleaseid (leaseid_t leaseid) __THROW
+int glfs_setfsleaseid (glfs_leaseid_t leaseid) __THROW
         GFAPI_PUBLIC(glfs_setfsleaseid, 4.0.0);
 
 /*
@@ -1082,6 +1082,77 @@ glfs_upcall_register (struct glfs *fs, uint32_t event_list,
 int
 glfs_upcall_unregister (struct glfs *fs, uint32_t event_list);
         GFAPI_PUBLIC(glfs_upcall_unregister, 3.13.0);
+
+/* Lease Types */
+enum glfs_lease_types {
+        GLFS_RD_LEASE = 1,
+        GLFS_RW_LEASE = 2,
+};
+typedef enum glfs_lease_types glfs_lease_types_t;
+
+/* Lease cmds */
+enum glfs_lease_cmds {
+        GLFS_GET_LEASE = 1,
+        GLFS_SET_LEASE = 2,
+        GLFS_UNLK_LEASE = 3,
+};
+typedef enum glfs_lease_cmds glfs_lease_cmds_t;
+
+struct glfs_lease {
+        glfs_lease_cmds_t  cmd;
+        glfs_lease_types_t lease_type;
+        glfs_leaseid_t     lease_id;
+        unsigned int  lease_flags;
+};
+
+typedef void (*glfs_recall_cbk) (struct glfs_lease lease, void *data);
+
+/*
+  SYNOPSIS
+
+  glfs_lease: Takes a lease on a file.
+
+  DESCRIPTION
+
+  This function takes lease on an open file.
+
+  PARAMETERS
+
+  @glfd: The fd of the file on which lease should be taken,
+   this fd is returned by glfs_open/glfs_create.
+
+  @lease: Struct that defines the lease operation to be performed
+   on the file.
+      @lease.cmd - Can be one of the following values
+         GF_GET_LEASE:  Get the lease type currently present on the file,
+                        lease.lease_type will contain GF_RD_LEASE
+                        or GF_RW_LEASE or 0 if no leases.
+         GF_SET_LEASE:  Set the lease of given lease.lease_type on the file.
+         GF_UNLK_LEASE: Unlock the lease present on the given fd.
+                        Note that the every lease request should have
+                        a corresponding unlk_lease.
+
+      @lease.lease_type - Can be one of the following values
+         GF_RD_LEASE:   Read lease on a file, shared lease.
+         GF_RW_LEASE:   Read-Write lease on a file, exclusive lease.
+
+      @lease.lease_id - A unique identification of lease, 128bits.
+
+  @fn: This is the function that is invoked when the lease has to be recalled
+  @data: It is a cookie, this pointer is returned as a part of recall
+
+  fn and data field are stored as a part of glfs_fd, hence if there are multiple
+  glfs_lease calls, each of them updates the fn and data fileds. glfs_recall_cbk
+  will be invoked with the last updated fn and data
+
+  RETURN VALUES
+  0:  Successfull completion
+  <0: Failure. @errno will be set with the type of failure
+*/
+
+int glfs_lease (struct glfs_fd *glfd, struct glfs_lease *lease,
+                glfs_recall_cbk fn, void *data) __THROW
+        GFAPI_PUBLIC(glfs_lease, 4.0.0);
 
 __END_DECLS
 #endif /* !_GLFS_H */

@@ -682,8 +682,6 @@ pub_glfs_h_open (struct glfs *fs, struct glfs_object *object, int flags)
         DECODE_SYNCOP_ERR (ret);
 
         glfd->fd->flags = flags;
-        fd_bind (glfd->fd);
-        glfs_fd_bind (glfd);
 
 out:
         loc_wipe (&loc);
@@ -695,7 +693,7 @@ out:
                 GF_REF_PUT (glfd);
                 glfd = NULL;
         } else if (glfd) {
-                glfd->state = GLFD_OPEN;
+                glfd_set_state_bind (glfd);
         }
 
         glfs_subvol_done (fs, subvol);
@@ -1150,9 +1148,7 @@ out:
                 GF_REF_PUT (glfd);
                 glfd = NULL;
         } else if (glfd) {
-                glfd->state = GLFD_OPEN;
-                fd_bind (glfd->fd);
-                glfs_fd_bind (glfd);
+                glfd_set_state_bind (glfd);
         }
 
         glfs_subvol_done (fs, subvol);
@@ -2460,3 +2456,63 @@ out:
         return NULL;
 }
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_xreaddirplus_get_object, 3.11.0);
+
+int
+pub_glfs_h_lease (struct glfs *fs, struct glfs_object *object,
+                  struct glfs_lease *lease)
+{
+        int              ret = -1;
+        xlator_t        *subvol = NULL;
+        inode_t         *inode = NULL;
+        loc_t            loc = {0, };
+        struct gf_lease  gf_lease = {0, };
+
+        /* validate in args */
+        if ((fs == NULL) || (object == NULL)) {
+                errno = EINVAL;
+                return -1;
+        }
+
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
+
+        /* get the active volume */
+        subvol = glfs_active_subvol (fs);
+        if (!subvol) {
+                ret = -1;
+                errno = EIO;
+                goto out;
+        }
+
+        /* get/refresh the in arg objects inode in correlation to the xlator */
+        inode = glfs_resolve_inode (fs, subvol, object);
+        if (!inode) {
+                errno = ESTALE;
+                goto out;
+        }
+
+        /* populate loc */
+        GLFS_LOC_FILL_INODE (inode, loc, out);
+
+        glfs_lease_to_gf_lease (lease, &gf_lease);
+
+        ret = syncop_lease (subvol, &loc, &gf_lease, NULL, NULL);
+        DECODE_SYNCOP_ERR (ret);
+
+        gf_lease_to_glfs_lease (&gf_lease, lease);
+
+out:
+        loc_wipe (&loc);
+
+        if (inode)
+                inode_unref (inode);
+
+        glfs_subvol_done (fs, subvol);
+
+        __GLFS_EXIT_FS;
+
+invalid_fs:
+        return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_lease, 4.0.0);

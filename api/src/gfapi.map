@@ -225,4 +225,6 @@ GFAPI_4.0.0 {
         global:
                 glfs_setfsleaseid;
                 glfs_file_lock;
+                glfs_lease;
+                glfs_h_lease;
 } GFAPI_3.13.0;
