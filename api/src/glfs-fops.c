@@ -39,7 +39,11 @@
 int
 glfs_mark_glfd_for_deletion (struct glfs_fd *glfd)
 {
-        glfd->state = GLFD_CLOSE;
+        LOCK (&glfd->lock);
+        {
+                glfd->state = GLFD_CLOSE;
+        }
+        UNLOCK (&glfd->lock);
 
         GF_REF_PUT (glfd);
 
@@ -56,10 +60,31 @@ glfs_mark_glfd_for_deletion (struct glfs_fd *glfd)
 gf_boolean_t
 glfs_is_glfd_still_valid (struct glfs_fd *glfd)
 {
-        if (glfd->state != GLFD_CLOSE)
-                return _gf_true;
+        gf_boolean_t ret = _gf_false;
 
-        return _gf_false;
+        LOCK (&glfd->lock);
+        {
+                if (glfd->state != GLFD_CLOSE)
+                        ret = _gf_true;
+        }
+        UNLOCK (&glfd->lock);
+
+        return ret;
+}
+
+void
+glfd_set_state_bind (struct glfs_fd *glfd)
+{
+        LOCK (&glfd->lock);
+        {
+                glfd->state = GLFD_OPEN;
+        }
+        UNLOCK (&glfd->lock);
+
+        fd_bind (glfd->fd);
+        glfs_fd_bind (glfd);
+
+        return;
 }
 
 /*
@@ -227,9 +252,7 @@ out:
                 GF_REF_PUT (glfd);
 		glfd = NULL;
 	} else if (glfd) {
-                glfd->state = GLFD_OPEN;
-		fd_bind (glfd->fd);
-		glfs_fd_bind (glfd);
+                glfd_set_state_bind (glfd);
 	}
 
 	glfs_subvol_done (fs, subvol);
@@ -549,9 +572,7 @@ out:
                 GF_REF_PUT (glfd);
 		glfd = NULL;
 	} else if (glfd) {
-                glfd->state = GLFD_OPEN;
-		fd_bind (glfd->fd);
-		glfs_fd_bind (glfd);
+                glfd_set_state_bind (glfd);
 	}
 
 	glfs_subvol_done (fs, subvol);
@@ -2411,9 +2432,7 @@ out:
 		GF_REF_PUT (glfd);
 		glfd = NULL;
 	} else if (glfd) {
-                glfd->state = GLFD_OPEN;
-		fd_bind (glfd->fd);
-		glfs_fd_bind (glfd);
+                glfd_set_state_bind (glfd);
 	}
 
 	glfs_subvol_done (fs, subvol);
@@ -4636,6 +4655,12 @@ priv_glfs_process_upcall_event (struct glfs *fs, void *data)
         gf_msg_trace (THIS->name, 0, "Upcall gfapi gfid = %s" ,
                       (char *)(upcall_data->gfid));
 
+        /* *
+         * TODO: RECALL LEASE
+         * Refer issue #350
+         * Proposed patch https://review.gluster.org/#/c/14019/
+         * */
+
         if (fs->up_cbk) { /* upcall cbk registered */
                 (void) glfs_cbk_upcall_data (fs, upcall_data);
         } else {
@@ -4972,3 +4997,87 @@ out:
 }
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_xreaddirplus_get_stat, 3.11.0);
 
+void
+gf_lease_to_glfs_lease (struct gf_lease *gf_lease, struct glfs_lease *lease)
+{
+        lease->cmd = gf_lease->cmd;
+        lease->lease_type = gf_lease->lease_type;
+        memcpy (lease->lease_id, gf_lease->lease_id, LEASE_ID_SIZE);
+}
+
+void
+glfs_lease_to_gf_lease (struct glfs_lease *lease, struct gf_lease *gf_lease)
+{
+        gf_lease->cmd = lease->cmd;
+        gf_lease->lease_type = lease->lease_type;
+        memcpy (gf_lease->lease_id, lease->lease_id, LEASE_ID_SIZE);
+}
+
+int
+pub_glfs_lease (struct glfs_fd *glfd, struct glfs_lease *lease)
+{
+        int              ret = -1;
+        loc_t            loc = {0, };
+        xlator_t        *subvol = NULL;
+        fd_t            *fd = NULL;
+        struct gf_lease  gf_lease = {0, };
+
+        DECLARE_OLD_THIS;
+        __GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
+
+        GF_REF_GET (glfd);
+
+        if (!is_valid_lease_id (lease->lease_id)) {
+                ret = -1;
+                errno = EINVAL;
+                goto out;
+        }
+
+        subvol = glfs_active_subvol (glfd->fs);
+        if (!subvol) {
+                ret = -1;
+                errno = EIO;
+                goto out;
+        }
+
+        fd = glfs_resolve_fd (glfd->fs, subvol, glfd);
+        if (!fd) {
+                ret = -1;
+                errno = EBADFD;
+                goto out;
+        }
+
+        /* populate loc */
+        GLFS_LOC_FILL_INODE (fd->inode, loc, out);
+
+        glfs_lease_to_gf_lease (lease, &gf_lease);
+
+        ret = syncop_lease (subvol, &loc, &gf_lease, NULL, NULL);
+        DECODE_SYNCOP_ERR (ret);
+
+        gf_lease_to_glfs_lease (&gf_lease, lease);
+
+        /* TODO: Add leases for client replay
+        if (ret == 0 && (cmd == F_SETLK || cmd == F_SETLKW))
+                fd_lk_insert_and_merge (fd, cmd, &saved_flock);
+        */
+
+out:
+        if (fd)
+                fd_unref (fd);
+
+        if (glfd) {
+                GF_REF_PUT (glfd);
+                glfd = NULL;
+        }
+
+        if (subvol)
+                glfs_subvol_done (glfd->fs, subvol);
+
+        __GLFS_EXIT_FS;
+
+invalid_fs:
+        return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_lease, 4.0.0);
