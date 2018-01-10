@@ -2158,35 +2158,45 @@ struct volume_options options[] = {
           .description = "Assigns priority to filenames with specific "
           "patterns so that when a page needs to be ejected "
           "out of the cache, the page of a file whose "
-          "priority is the lowest will be ejected earlier"
+          "priority is the lowest will be ejected earlier",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key  = {"cache-timeout", "force-revalidate-timeout"},
           .type = GF_OPTION_TYPE_INT,
           .min  = 0,
           .max  = 60,
           .default_value = "1",
-          .description = "The cached data for a file will be retained till "
+          .description = "The cached data for a file will be retained for "
           "'cache-refresh-timeout' seconds, after which data "
-          "re-validation is performed."
+          "re-validation is performed.",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key  = {"cache-size"},
           .type = GF_OPTION_TYPE_SIZET,
           .min  = 4 * GF_UNIT_MB,
           .max  = INFINITY,
           .default_value = "32MB",
-          .description = "Size of the read cache."
+          .description = "Size of the read cache.",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key  = {"min-file-size"},
           .type = GF_OPTION_TYPE_SIZET,
           .default_value = "0",
           .description = "Minimum file size which would be cached by the "
-          "io-cache translator."
+          "io-cache translator.",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key  = {"max-file-size"},
           .type = GF_OPTION_TYPE_SIZET,
           .default_value = "0",
           .description = "Maximum file size which would be cached by the "
-          "io-cache translator."
+          "io-cache translator.",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key = {NULL} },
 };
