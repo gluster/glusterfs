@@ -300,14 +300,32 @@ out:
 
 struct volume_options options[] = {
         { .key   = {"auth.addr.*.allow"},
-          .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST
+          .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
+          .default_value = "*",
+          .description   = "List of addresses to be allowed to access volume",
+          .op_version    = {1},
+          .flags         = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags          = {},
+          /* option_validation_fn validate_fn; */
         },
         { .key   = {"auth.addr.*.reject"},
-          .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST
+          .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
+          .default_value = "*",
+          .description   = "List of addresses to be rejected to access volume",
+          .op_version    = {1},
+          .flags         = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags          = {},
+          /* option_validation_fn validate_fn; */
         },
         /* Backword compatibility */
         { .key   = {"auth.ip.*.allow"},
-          .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST
+          .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
+          .default_value = "*",
+          .description   = "List of addresses to be allowed to access volume",
+          .op_version    = {1},
+          .flags         = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags          = {},
+          /* option_validation_fn validate_fn; */
         },
         { .key = {NULL} }
 };
