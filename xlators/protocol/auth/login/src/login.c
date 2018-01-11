@@ -155,10 +155,22 @@ out:
 
 struct volume_options options[] = {
         { .key   = {"auth.login.*.allow"},
-          .type  = GF_OPTION_TYPE_ANY
+          .type  = GF_OPTION_TYPE_ANY,
+          .default_value = "*",
+          .description   = "Username to be allowed access to the volume",
+          .op_version    = {1},
+          .flags         = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags          = {},
+          /* option_validation_fn validate_fn; */
         },
         { .key   = {"auth.login.*.password"},
-          .type  = GF_OPTION_TYPE_ANY
+          .type  = GF_OPTION_TYPE_ANY,
+          .default_value = "*",
+          .description   = "Password for the allowed username",
+          .op_version    = {1},
+          .flags         = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .tags          = {},
+          /* option_validation_fn validate_fn; */
         },
         { .key = {NULL} }
 };
