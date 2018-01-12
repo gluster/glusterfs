@@ -1709,6 +1709,7 @@ posix_statfs (call_frame_t *frame, xlator_t *this,
         struct posix_private * priv      = NULL;
         int                    shared_by = 1;
         int                    percent   = 0;
+        uint64_t               reserved_blocks = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -1734,7 +1735,17 @@ posix_statfs (call_frame_t *frame, xlator_t *this,
         }
 
         percent = priv->disk_reserve;
-        buf.f_bfree = (buf.f_bfree - ((buf.f_blocks * percent) / 100));
+        reserved_blocks = (buf.f_blocks * percent) / 100;
+
+        if (buf.f_bfree > reserved_blocks) {
+                buf.f_bfree = (buf.f_bfree - reserved_blocks);
+                if (buf.f_bavail > buf.f_bfree) {
+                        buf.f_bavail = buf.f_bfree;
+                }
+        } else {
+                buf.f_bfree = 0;
+                buf.f_bavail = 0;
+        }
 
         shared_by = priv->shared_brick_count;
         if (shared_by > 1) {
