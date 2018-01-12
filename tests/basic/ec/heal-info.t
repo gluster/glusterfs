@@ -71,3 +71,4 @@ done
 EXPECT "^105$" get_pending_heal_count $V0
 
 cleanup
+#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=1533815
