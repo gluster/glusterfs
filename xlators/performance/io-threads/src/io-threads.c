@@ -849,7 +849,7 @@ out:
 }
 
 
-void
+int
 set_stack_size (iot_conf_t *conf)
 {
         int     err = 0;
@@ -858,22 +858,32 @@ set_stack_size (iot_conf_t *conf)
 
         this = THIS;
 
-        pthread_attr_init (&conf->w_attr);
+        err = pthread_attr_init (&conf->w_attr);
+        if (err != 0) {
+                gf_msg (this->name, GF_LOG_ERROR, err,
+                        IO_THREADS_MSG_INIT_FAILED,
+                        "Thread attribute initialization failed");
+                return err;
+        }
+
         err = pthread_attr_setstacksize (&conf->w_attr, stacksize);
         if (err == EINVAL) {
                 err = pthread_attr_getstacksize (&conf->w_attr, &stacksize);
-                if (!err)
+                if (!err) {
                         gf_msg (this->name, GF_LOG_WARNING,
                                 0, IO_THREADS_MSG_SIZE_NOT_SET,
                                 "Using default thread stack size %zd",
                                 stacksize);
-                else
+                } else {
                         gf_msg (this->name, GF_LOG_WARNING,
                                 0, IO_THREADS_MSG_SIZE_NOT_SET,
                                 "Using default thread stack size");
+                        err = 0;
+                }
         }
 
         conf->stack_size = stacksize;
+        return err;
 }
 
 
@@ -1011,7 +1021,10 @@ init (xlator_t *this)
         }
         conf->mutex_inited = _gf_true;
 
-        set_stack_size (conf);
+        ret = set_stack_size (conf);
+
+        if (ret != 0)
+                goto out;
 
         GF_OPTION_INIT ("thread-count", conf->max_count, int32, out);
 
