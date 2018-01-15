@@ -195,6 +195,59 @@ fusedump_setup_meta (struct iovec *iovs, char *dir,
         iovs[3] = (struct iovec){ fsig, fsig->len };
 }
 
+static int
+check_and_dump_fuse_W (fuse_private_t *priv, struct iovec *iov_out, int count,
+                       ssize_t res)
+{
+        char w                         = 'W';
+        struct iovec diov[4]           = {{0,},};
+        uint32_t fusedump_item_count   = 3;
+        struct fusedump_timespec fts   = {0,};
+        struct fusedump_signature fsig = {0,};
+        struct fuse_out_header *fouh   = NULL;
+
+        if (res == -1) {
+                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+                        "writing to fuse device failed: %s",
+                        strerror (errno));
+                return errno;
+        }
+
+        fouh = iov_out[0].iov_base;
+        if (res != fouh->len) {
+                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+                        "inconsistent write to fuse device: "
+                        "written %zd, expectd %d",
+                        res, fouh->len);
+                return EINVAL;
+        }
+
+        if (priv->fuse_dump_fd == -1)
+                return 0;
+
+        fusedump_setup_meta (diov, &w, &fusedump_item_count,
+                             &fts, &fsig);
+
+        pthread_mutex_lock (&priv->fuse_dump_mutex);
+        res = sys_writev (priv->fuse_dump_fd, diov,
+                          sizeof (diov)/sizeof (diov[0]));
+        if (res != -1)
+                res = sys_writev (priv->fuse_dump_fd, iov_out, count);
+        pthread_mutex_unlock (&priv->fuse_dump_mutex);
+
+        if (res == -1)
+                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+                        "failed to dump fuse message (W): %s",
+                        strerror (errno));
+
+        /*
+         * Return value reflects check on write to /dev/fuse,
+         * so ignore issues with dumping.
+         */
+
+         return 0;
+}
+
 /*
  * iov_out should contain a fuse_out_header at zeroth position.
  * The error value of this header is sent to kernel.
@@ -224,35 +277,7 @@ send_fuse_iov (xlator_t *this, fuse_in_header_t *finh, struct iovec *iov_out,
         gf_log ("glusterfs-fuse", GF_LOG_TRACE, "writev() result %d/%d %s",
                 res, fouh->len, res == -1 ? strerror (errno) : "");
 
-        if (res == -1)
-                return errno;
-        if (res != fouh->len)
-                return EINVAL;
-
-        if (priv->fuse_dump_fd != -1) {
-                char w                         = 'W';
-                struct iovec diov[4]           = {{0,},};
-                uint32_t fusedump_item_count   = 3;
-                struct fusedump_timespec fts   = {0,};
-                struct fusedump_signature fsig = {0,};
-
-                fusedump_setup_meta (diov, &w, &fusedump_item_count,
-                                     &fts, &fsig);
-
-                pthread_mutex_lock (&priv->fuse_dump_mutex);
-                res = sys_writev (priv->fuse_dump_fd, diov,
-                                  sizeof (diov)/sizeof (diov[0]));
-                if (res != -1)
-                        res = sys_writev (priv->fuse_dump_fd, iov_out, count);
-                pthread_mutex_unlock (&priv->fuse_dump_mutex);
-
-                if (res == -1)
-                        gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                                "failed to dump fuse message (W): %s",
-                                strerror (errno));
-        }
-
-        return 0;
+        return check_and_dump_fuse_W (priv, iov_out, count, res);
 }
 
 static int
@@ -3981,6 +4006,7 @@ notify_kernel_loop (void *data)
         fuse_invalidate_node_t *node = NULL;
         fuse_invalidate_node_t  *tmp = NULL;
         struct fuse_out_header *pfoh = NULL;
+        struct iovec         iov_out = {0,};
 
         this = data;
         priv = this->private;
@@ -4013,7 +4039,10 @@ notify_kernel_loop (void *data)
                  * the risk of stalling the insn pipeline.
                  */
 
-                rv = sys_write (priv->fd, node->inval_buf, len);
+                iov_out.iov_base = node->inval_buf;
+                iov_out.iov_len = len;
+                rv = sys_writev (priv->fd, &iov_out, 1);
+                check_and_dump_fuse_W (priv, &iov_out, 1, rv);
 
                 GF_FREE (node);
 
