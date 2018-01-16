@@ -610,6 +610,11 @@ client_pre_lease_v2 (xlator_t *this, gfx_lease_req *req, loc_t *loc,
                   struct gf_lease *lease, dict_t *xdata);
 
 int
+client_pre_put_v2 (xlator_t *this, gfx_put_req *req, loc_t *loc, mode_t mode,
+                   mode_t umask, int32_t flags, size_t size, off_t offset,
+                   dict_t *xattr, dict_t *xdata);
+
+int
 client_post_readv_v2 (xlator_t *this, gfx_read_rsp *rsp, struct iobref **iobref,
                       struct iobref *rsp_iobref, struct iatt *stat,
                       struct iovec *vector, struct iovec *rsp_vector,

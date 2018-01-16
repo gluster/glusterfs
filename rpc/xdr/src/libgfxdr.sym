@@ -339,6 +339,7 @@ xdr_gfx_getsnap_name_uuid_rsp
 xdr_gfx_getactivelk_rsp
 xdr_gfx_getactivelk_req
 xdr_gfx_setactivelk_req
+xdr_gfx_put_req
 xdr_compound_req_v2
 xdr_gfx_compound_req
 xdr_compound_rsp_v2
