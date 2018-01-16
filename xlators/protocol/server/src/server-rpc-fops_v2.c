@@ -2131,6 +2131,50 @@ out:
         return 0;
 }
 
+int
+server4_put_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, inode_t *inode,
+                struct iatt *stbuf, struct iatt *preparent,
+                struct iatt *postparent, dict_t *xdata)
+{
+        server_state_t      *state      = NULL;
+        rpcsvc_request_t    *req        = NULL;
+        gfx_common_3iatt_rsp rsp        = {0,};
+
+        dict_to_xdr (xdata, &rsp.xdata);
+
+        state = CALL_STATE (frame);
+
+        if (op_ret < 0) {
+                gf_msg (this->name, GF_LOG_INFO, op_errno, PS_MSG_PUT_INFO,
+                        "%"PRId64": PUT %s (%s/%s), client: %s, "
+                        "error-xlator: %s", frame->root->unique,
+                        state->loc.path, uuid_utoa (state->resolve.pargfid),
+                        state->resolve.bname, STACK_CLIENT_NAME (frame->root),
+                        STACK_ERR_XL_NAME (frame->root));
+                goto out;
+        }
+
+        gf_msg_trace (frame->root->client->bound_xl->name, 0, "%"PRId64": "
+                      "PUT %s (%s)", frame->root->unique, state->loc.name,
+                      uuid_utoa (stbuf->ia_gfid));
+
+        server4_post_common_3iatt (state, &rsp, inode, stbuf, preparent,
+                                   postparent);
+
+out:
+        rsp.op_ret    = op_ret;
+        rsp.op_errno  = gf_errno_to_error (op_errno);
+
+        req = frame->local;
+        server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
+                             (xdrproc_t)xdr_gfx_common_3iatt_rsp);
+
+        GF_FREE (rsp.xdata.pairs.pairs_val);
+
+        return 0;
+}
+
 /* Resume function section */
 
 int
@@ -2179,6 +2223,32 @@ server4_lease_resume (call_frame_t *frame, xlator_t *bound_xl)
 err:
         server4_lease_cbk (frame, NULL, frame->this, state->resolve.op_ret,
                           state->resolve.op_errno, NULL, NULL);
+        return 0;
+}
+
+int
+server4_put_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t *state = NULL;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+        state->loc.inode = inode_new (state->itable);
+
+        STACK_WIND (frame, server4_put_cbk,
+                    bound_xl, bound_xl->fops->put,
+                    &(state->loc), state->mode, state->umask, state->flags,
+                    state->payload_vector, state->payload_count, state->offset,
+                    state->iobref, state->dict, state->xdata);
+
+        return 0;
+err:
+        server4_put_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                        state->resolve.op_errno, NULL, NULL, NULL,
+                        NULL, NULL);
         return 0;
 }
 
@@ -5670,6 +5740,75 @@ server4_0_rchecksum (rpcsvc_request_t *req)
         xdr_to_dict (&args.xdata, &state->xdata);
         ret = 0;
         resolve_and_resume (frame, server4_rchecksum_resume);
+out:
+        if (op_errno)
+                SERVER_REQ_SET_ERROR (req, ret);
+
+        return ret;
+}
+
+int
+server4_0_put (rpcsvc_request_t *req)
+{
+        server_state_t  *state    = NULL;
+        call_frame_t    *frame    = NULL;
+        gfx_put_req      args     = {{0,},};
+        int              ret      = -1;
+        int              op_errno = 0;
+        ssize_t          len      = 0;
+        int              i        = 0;
+
+        if (!req)
+                return ret;
+
+        args.bname = alloca (req->msg[0].iov_len);
+
+        ret = rpc_receive_common (req, &frame, &state, &len, &args,
+                                  xdr_gfx_put_req, GF_FOP_PUT);
+        if (ret != 0) {
+                goto out;
+        }
+
+        state->resolve.bname  = gf_strdup (args.bname);
+        state->mode           = args.mode;
+        state->umask          = args.umask;
+        state->flags          = gf_flags_to_flags (args.flag);
+        state->offset         = args.offset;
+        state->size           = args.size;
+        state->iobref         = iobref_ref (req->iobref);
+
+        if (len < req->msg[0].iov_len) {
+                state->payload_vector[0].iov_base
+                        = (req->msg[0].iov_base + len);
+                state->payload_vector[0].iov_len
+                        = req->msg[0].iov_len - len;
+                state->payload_count = 1;
+        }
+
+        for (i = 1; i < req->count; i++) {
+                state->payload_vector[state->payload_count++]
+                        = req->msg[i];
+        }
+
+        len = iov_length (state->payload_vector, state->payload_count);
+
+        GF_ASSERT (state->size == len);
+
+        set_resolve_gfid (frame->root->client, state->resolve.pargfid,
+                          args.pargfid);
+
+        if (state->flags & O_EXCL) {
+                state->resolve.type = RESOLVE_NOT;
+        } else {
+                state->resolve.type = RESOLVE_DONTCARE;
+        }
+
+        xdr_to_dict (&args.xattr, &state->dict);
+        xdr_to_dict (&args.xdata, &state->xdata);
+
+        ret = 0;
+        resolve_and_resume (frame, server4_put_resume);
+
 out:
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);

@@ -3523,6 +3523,41 @@ out:
 }
 
 int
+client_pre_put_v2 (xlator_t *this, gfx_put_req *req, loc_t *loc, mode_t mode,
+                   mode_t umask, int32_t flags, size_t size, off_t offset,
+                   dict_t *xattr, dict_t *xdata)
+{
+        int              op_errno = ESTALE;
+
+        if (!(loc && loc->parent))
+                goto out;
+
+        if (!gf_uuid_is_null (loc->parent->gfid))
+                memcpy (req->pargfid,  loc->parent->gfid, 16);
+        else
+                memcpy (req->pargfid, loc->pargfid, 16);
+
+        GF_ASSERT_AND_GOTO_WITH_ERROR (this->name,
+                                   !gf_uuid_is_null (*((uuid_t *)req->pargfid)),
+                                   out, op_errno, EINVAL);
+        req->bname = (char *)loc->name;
+        req->mode  = mode;
+        req->umask = umask;
+        req->flag = gf_flags_from_flags (flags);
+        req->size  = size;
+        req->offset = offset;
+
+        if (xattr)
+                dict_to_xdr (xattr, &req->xattr);
+
+        dict_to_xdr (xdata, &req->xdata);
+
+        return 0;
+out:
+        return -op_errno;
+}
+
+int
 client_post_create_v2 (xlator_t *this, gfx_create_rsp *rsp,
                        struct iatt *stbuf, struct iatt *preparent,
                        struct iatt *postparent,

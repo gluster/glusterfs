@@ -153,6 +153,18 @@ struct gfx_icreate_req {
        gfx_dict xdata;
 };
 
+struct gfx_put_req {
+        opaque       pargfid[16];
+        string       bname<>;
+        unsigned int mode;
+        unsigned int umask;
+        unsigned int flag;
+        u_quad_t     offset;
+        unsigned int size;
+        gfx_dict     xattr;
+        gfx_dict     xdata;
+};
+
 struct gfx_namelink_req {
        opaque pargfid[16];
        string bname<>;

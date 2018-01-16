@@ -2134,6 +2134,45 @@ client_icreate (call_frame_t *frame,
         return 0;
 }
 
+int32_t
+client_put (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
+            mode_t umask, uint32_t flags, struct iovec *vector, int32_t count,
+            off_t off, struct iobref *iobref, dict_t *xattr, dict_t *xdata)
+{
+        int          ret  = -1;
+        clnt_conf_t *conf = NULL;
+        rpc_clnt_procedure_t *proc = NULL;
+        clnt_args_t  args = {0,};
+
+        conf = this->private;
+        if (!conf || !conf->fops)
+                goto out;
+
+        args.loc = loc;
+        args.mode = mode;
+        args.umask = umask;
+        args.flags  = flags;
+        args.vector = vector;
+        args.count  = count;
+        args.offset = off;
+        args.size   = iov_length (vector, count);
+        args.iobref = iobref;
+        args.xattr = xattr;
+        args.xdata = xdata;
+
+        client_filter_o_direct (conf, &args.flags);
+
+        proc = &conf->fops->proctable[GF_FOP_PUT];
+        if (proc->fn)
+                ret = proc->fn (frame, this, &args);
+out:
+        if (ret)
+                STACK_UNWIND_STRICT (put, frame, -1, ENOTCONN, NULL, NULL,
+                                     NULL, NULL, NULL);
+
+        return 0;
+}
+
 int
 client_mark_fd_bad (xlator_t *this)
 {
@@ -2854,6 +2893,7 @@ struct xlator_fops fops = {
         .setactivelk = client_setactivelk,
         .icreate      = client_icreate,
         .namelink     = client_namelink,
+        .put          = client_put,
 };
 
 

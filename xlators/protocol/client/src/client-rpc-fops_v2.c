@@ -5479,6 +5479,68 @@ client4_icreate_cbk (struct rpc_req *req,
                 dict_unref (xdata);
         return 0;
 }
+
+int
+client4_0_put_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                   void *myframe)
+{
+        gfx_common_3iatt_rsp  rsp        = {0,};
+        call_frame_t         *frame      = NULL;
+        int                   ret        = 0;
+        xlator_t             *this       = NULL;
+        dict_t               *xdata      = NULL;
+        clnt_local_t         *local      = NULL;
+        struct iatt           stbuf      = {0, };
+        struct iatt           preparent  = {0, };
+        struct iatt           postparent = {0, };
+        inode_t              *inode      = NULL;
+
+        this = THIS;
+
+        frame = myframe;
+        local = frame->local;
+        inode = local->loc.inode;
+
+        if (-1 == req->rpc_status) {
+                rsp.op_ret   = -1;
+                rsp.op_errno = ENOTCONN;
+                goto out;
+        }
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gfx_common_3iatt_rsp);
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        PC_MSG_XDR_DECODING_FAILED, "XDR decoding failed");
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+
+        if (-1 != rsp.op_ret) {
+                ret = client_post_common_3iatt (this, &rsp, &stbuf, &preparent,
+                                                &postparent, &xdata);
+                if (ret < 0)
+                        goto out;
+        }
+out:
+        if (rsp.op_ret == -1) {
+                gf_msg (this->name, GF_LOG_WARNING,
+                        gf_error_to_errno (rsp.op_errno),
+                        PC_MSG_REMOTE_OP_FAILED,
+                        "remote operation failed");
+        }
+
+        CLIENT_STACK_UNWIND (put, frame, rsp.op_ret,
+                             gf_error_to_errno (rsp.op_errno), inode, &stbuf,
+                             &preparent, &postparent, xdata);
+
+        if (xdata)
+                dict_unref (xdata);
+
+        return 0;
+}
+
 int32_t
 client4_namelink (call_frame_t *frame, xlator_t *this, void *data)
 {
@@ -5571,6 +5633,65 @@ client4_icreate (call_frame_t *frame, xlator_t *this, void *data)
  unwind:
         CLIENT_STACK_UNWIND (icreate, frame,
                              -1, op_errno, NULL, NULL, NULL);
+        return 0;
+}
+
+
+int32_t
+client4_0_put (call_frame_t *frame, xlator_t *this, void *data)
+{
+        clnt_args_t    *args     = NULL;
+        clnt_conf_t    *conf     = NULL;
+        gfx_put_req     req      = {{0,},};
+        int             op_errno = ESTALE;
+        int             ret      = 0;
+        clnt_local_t   *local    = NULL;
+
+        if (!frame || !this || !data)
+                goto unwind;
+
+        args = data;
+        conf = this->private;
+
+        local = mem_get0 (this->local_pool);
+        if (!local) {
+                op_errno = ENOMEM;
+                goto unwind;
+        }
+        frame->local = local;
+
+        loc_copy (&local->loc, args->loc);
+        loc_path (&local->loc, NULL);
+
+        ret = client_pre_put_v2 (this, &req, args->loc, args->mode, args->umask,
+                                 args->flags, args->size, args->offset,
+                                 args->xattr, args->xdata);
+
+        if (ret) {
+                op_errno = -ret;
+                goto unwind;
+        }
+
+        ret = client_submit_vec_request (this, &req, frame, conf->fops,
+                                         GFS3_OP_PUT, client4_0_put_cbk,
+                                         args->vector, args->count,
+                                         args->iobref,
+                                         (xdrproc_t)xdr_gfx_put_req);
+        if (ret) {
+                /*
+                 * If the lower layers fail to submit a request, they'll also
+                 * do the unwind for us (see rpc_clnt_submit), so don't unwind
+                 * here in such cases.
+                 */
+                gf_msg (this->name, GF_LOG_WARNING, 0, PC_MSG_FOP_SEND_FAILED,
+                        "failed to send the fop");
+        }
+
+        return 0;
+
+unwind:
+        CLIENT_STACK_UNWIND (put, frame, -1, op_errno, NULL, NULL, NULL, NULL,
+                             NULL);
         return 0;
 }
 
