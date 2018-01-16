@@ -123,9 +123,18 @@ function get_smb () {
         usersmbvalue=$(grep user.smb $GLUSTERD_WORKDIR/vols/"$volname"/info |\
                        cut -d"=" -f2)
 
-        if [ $usercifsvalue = "disable" ] || [ $usersmbvalue = "disable" ]; then
-                uservalue="disable"
+        if [ -n "$usercifsvalue" ]; then
+                if [ "$usercifsvalue" = "disable" ] || [ "$usercifsvalue" = "off" ]; then
+                        uservalue="disable"
+                fi
         fi
+
+        if [ -n "$usersmbvalue" ]; then
+                if [ "$usersmbvalue" = "disable" ] || [ "$usersmbvalue" = "off" ]; then
+                        uservalue="disable"
+                fi
+        fi
+
         echo "$uservalue"
 }
 
