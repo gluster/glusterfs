@@ -60,6 +60,7 @@
 #include "events.h"
 #include "posix-gfid-path.h"
 #include "compat-uuid.h"
+#include "syncop.h"
 
 extern char *marker_xattrs[];
 #define ALIGN_SIZE 4096
@@ -2157,6 +2158,104 @@ out:
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno,
                              fd, (loc)?loc->inode:NULL, &stbuf, &preparent,
                              &postparent, xdata);
+
+        return 0;
+}
+
+/* TODO: Ensure atomocity of put, and rollback in case of failure
+ * One of the ways, is to perform put in the hidden directory
+ * and rename it to the specified location, if the put was successful
+ */
+int32_t
+posix_put (call_frame_t *frame, xlator_t *this, loc_t *loc,
+           mode_t mode, mode_t umask, uint32_t flags,
+           struct iovec *vector, int32_t count, off_t offset,
+           struct iobref *iobref, dict_t *xattr, dict_t *xdata)
+{
+        int32_t               op_ret       = -1;
+        int32_t               op_errno     = 0;
+        fd_t                 *fd           = NULL;
+        char                 *real_path    = NULL;
+        char                 *par_path     = NULL;
+        struct iatt           stbuf        = {0, };
+        struct iatt           preparent    = {0,};
+        struct iatt           postparent   = {0,};
+
+        MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &stbuf);
+
+        op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
+        if (op_ret < 0) {
+                op_errno = errno;
+                gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
+                        "pre-operation lstat on parent %s failed",
+                        par_path);
+                goto out;
+        }
+        fd = fd_create (loc->inode, getpid());
+        if (!fd) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+                goto out;
+        }
+        fd->flags = flags;
+
+        /* No xlators are expected below posix, but we cannot still call sys_create()
+         * directly here, as posix_create does many other things like chmod, setxattr
+         * etc. along with sys_create(). But we cannot also directly call posix_create()
+         * as it calls STACK_UNWIND. Hence using syncop()
+         */
+        op_ret = syncop_create (this, loc, flags, mode, fd, &stbuf, xdata, NULL);
+        if (op_ret < 0) {
+                op_errno = errno;
+                gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_CREATE_FAILED,
+                        "create of %s failed", loc->path);
+                goto out;
+        }
+
+        op_ret = posix_pstat (this, loc->pargfid, par_path, &postparent);
+        if (op_ret < 0) {
+                op_errno = errno;
+                gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
+                        "post-operation lstat on parent %s failed",
+                        par_path);
+                goto out;
+        }
+
+        op_ret = syncop_writev (this, fd, vector, count, offset, iobref,
+                                flags, xdata, NULL);
+        if (op_ret < 0) {
+                op_errno = errno;
+                gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_WRITE_FAILED,
+                        "write on file %s failed", loc->path);
+                goto out;
+        }
+
+        op_ret = syncop_fsetxattr (this, fd, xattr, flags, xdata, NULL);
+        if (op_ret < 0) {
+                op_errno = errno;
+                gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_XATTR_FAILED,
+                        "setxattr on file %s failed", loc->path);
+                goto out;
+        }
+
+        op_ret = syncop_flush (this, fd, xdata, NULL);
+        if (op_ret < 0) {
+                op_errno = errno;
+                gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_CLOSE_FAILED,
+                        "setxattr on file %s failed", loc->path);
+                goto out;
+        }
+
+        op_ret = posix_pstat (this, loc->gfid, real_path, &stbuf);
+        if (op_ret < 0) {
+                op_errno = errno;
+                gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
+                        "post-operation lstat on %s failed", real_path);
+                goto out;
+        }
+out:
+        STACK_UNWIND_STRICT (put, frame, op_ret, op_errno, loc->inode, &stbuf,
+                             &preparent, &postparent, NULL);
 
         return 0;
 }

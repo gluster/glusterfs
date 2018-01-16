@@ -79,6 +79,7 @@ struct xlator_fops fops = {
         .seek        = posix_seek,
 #endif
         .lease       = posix_lease,
+        .put         = posix_put,
 };
 
 struct xlator_cbks cbks = {
