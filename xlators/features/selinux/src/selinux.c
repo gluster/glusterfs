@@ -22,7 +22,7 @@ selinux_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int ret = 0;
         char *name = cookie;
 
-        if (op_errno == 0 && name && (!strcmp(name, SELINUX_GLUSTER_XATTR))) {
+        if (op_errno == 0 && dict && name && (!strcmp(name, SELINUX_GLUSTER_XATTR))) {
                 ret = dict_rename_key (dict, SELINUX_GLUSTER_XATTR,
                                        SELINUX_XATTR);
                 if (ret < 0)
@@ -77,7 +77,7 @@ selinux_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int   ret   = 0;
         char  *name = cookie;
 
-        if (op_errno == 0 && name && (!strcmp(name, SELINUX_GLUSTER_XATTR))) {
+        if (op_errno == 0 && dict && name && (!strcmp(name, SELINUX_GLUSTER_XATTR))) {
                 ret = dict_rename_key (dict, SELINUX_GLUSTER_XATTR,
                                        SELINUX_XATTR);
                 if (ret < 0)
@@ -147,7 +147,7 @@ selinux_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
 
         GF_VALIDATE_OR_GOTO ("selinux", priv, err);
 
-        if (!priv->selinux_enabled)
+        if (!priv->selinux_enabled && !dict)
                 goto off;
 
         ret = dict_rename_key (dict, SELINUX_XATTR, SELINUX_GLUSTER_XATTR);
@@ -189,7 +189,7 @@ selinux_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         GF_VALIDATE_OR_GOTO ("selinux", priv, err);
 
-        if (!priv->selinux_enabled)
+        if (!priv->selinux_enabled && !dict)
                 goto off;
 
         ret = dict_rename_key (dict, SELINUX_XATTR, SELINUX_GLUSTER_XATTR);
