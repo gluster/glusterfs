@@ -1551,6 +1551,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_3_7_12,
           .flags      = VOLOPT_FLAG_CLIENT_OPT
         },
+        { .key        = "cluster.full-lock",
+          .voltype    = "cluster/replicate",
+          .type       = NO_DOC,
+          .op_version = GD_OP_VERSION_3_13_2,
+          .flags      = VOLOPT_FLAG_CLIENT_OPT
+        },
 
         /* stripe xlator options */
         { .key         = "cluster.stripe-block-size",

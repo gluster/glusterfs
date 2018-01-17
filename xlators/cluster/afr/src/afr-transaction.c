@@ -1960,7 +1960,7 @@ afr_set_transaction_flock (xlator_t *this, afr_local_t *local)
         inodelk = afr_get_inodelk (int_lock, int_lock->domain);
         priv = this->private;
 
-        if (priv->arbiter_count &&
+        if ((priv->arbiter_count || priv->full_lock) &&
             local->transaction.type == AFR_DATA_TRANSACTION) {
                 /*Lock entire file to avoid network split brains.*/
                 inodelk->flock.l_len   = 0;
