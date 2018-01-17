@@ -177,9 +177,10 @@ typedef struct _afr_private {
 	void                   *pump_private;
 	gf_boolean_t           use_afr_in_pump;
 	char                   *locking_scheme;
-        gf_boolean_t            esh_granular;
+        gf_boolean_t           full_lock;
+        gf_boolean_t           esh_granular;
         gf_boolean_t           consistent_io;
-        gf_boolean_t            use_compound_fops;
+        gf_boolean_t           use_compound_fops;
 } afr_private_t;
 
 

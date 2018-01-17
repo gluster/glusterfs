@@ -244,6 +244,7 @@ reconfigure (xlator_t *this, dict_t *options)
                           out);
         GF_OPTION_RECONF ("locking-scheme", priv->locking_scheme, options, str,
                           out);
+        GF_OPTION_RECONF ("full-lock", priv->full_lock, options, bool, out);
         GF_OPTION_RECONF ("use-compound-fops", priv->use_compound_fops,
                           options, bool,
                           out);
@@ -507,6 +508,7 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("pre-op-compat", priv->pre_op_compat, bool, out);
         GF_OPTION_INIT ("locking-scheme", priv->locking_scheme, str, out);
+        GF_OPTION_INIT ("full-lock", priv->full_lock, bool, out);
         GF_OPTION_INIT ("use-compound-fops", priv->use_compound_fops,
                         bool, out);
         GF_OPTION_INIT ("granular-entry-heal", priv->esh_granular, bool, out);
@@ -1162,6 +1164,15 @@ struct volume_options options[] = {
           .description = "If this option is set to granular, self-heal will "
                          "stop being compatible with afr-v1, which helps afr "
                          "be more granular while self-healing",
+        },
+        { .key = {"full-lock"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "yes",
+          .op_version = {GD_OP_VERSION_3_13_2},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE,
+          .tags = {"replicate"},
+          .description = "If this option is disabled, then the IOs will take "
+                         "range locks same as versions till 3.13.1."
         },
         { .key = {"granular-entry-heal"},
           .type = GF_OPTION_TYPE_BOOL,
