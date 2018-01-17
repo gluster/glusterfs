@@ -2167,6 +2167,7 @@ struct volume_options options[] = {
         },
         { .key = {"scrub-throttle"},
           .type = GF_OPTION_TYPE_STR,
+          .default_value = "lazy",
           .op_version = {GD_OP_VERSION_3_7_0},
           .flags = OPT_FLAG_SETTABLE,
           .description = "Scrub-throttle value is a measure of how fast "
