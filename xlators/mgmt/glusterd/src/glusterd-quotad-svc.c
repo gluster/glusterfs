@@ -124,12 +124,6 @@ glusterd_quotadsvc_start (glusterd_svc_t *svc, int flags)
         char            *options[] = {
                                       svc->name,
                                       "--process-name",
-                                      "*replicate*.entry-self-heal=off",
-                                      "--xlator-option",
-                                      "*replicate*.metadata-self-heal=off",
-                                      "--xlator-option",
-                                      "*replicate*.data-self-heal=off",
-                                      "--xlator-option",
                                       NULL
                                       };
 
