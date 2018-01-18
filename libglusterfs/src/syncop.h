@@ -481,8 +481,9 @@ int syncop_unlink (xlator_t *subvol, loc_t *loc, dict_t *xdata_in,
 int syncop_rmdir (xlator_t *subvol, loc_t *loc, int flags, dict_t *xdata_in,
                   dict_t **xdata_out);
 
-int syncop_fsync (xlator_t *subvol, fd_t *fd, int dataonly, dict_t *xdata_in,
-                  dict_t **xdata_out);
+int syncop_fsync (xlator_t *subvol, fd_t *fd, int dataonly,
+                  struct iatt *preiatt, struct iatt *postiatt,
+                  dict_t *xdata_in, dict_t **xdata_out);
 
 int syncop_flush (xlator_t *subvol, fd_t *fd, dict_t *xdata_in,
                   dict_t **xdata_out);

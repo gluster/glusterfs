@@ -42,9 +42,7 @@ GFAPI_3.4.0 {
 		glfs_lstat;
 		glfs_stat;
 		glfs_fstat;
-		glfs_fsync;
 		glfs_fsync_async;
-		glfs_fdatasync;
 		glfs_fdatasync_async;
 		glfs_access;
 		glfs_symlink;
@@ -227,4 +225,6 @@ GFAPI_4.0.0 {
                 glfs_h_lease;
                 glfs_pread;
                 glfs_pwrite;
+                glfs_fsync;
+                glfs_fdatasync;
 } GFAPI_3.13.0;

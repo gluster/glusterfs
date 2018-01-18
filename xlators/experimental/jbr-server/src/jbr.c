@@ -940,7 +940,7 @@ jbr_flush_thread (void *ctx)
 
                 list_for_each_entry_safe (fd_ctx, fd_tmp, &dirty_fds, fd_list) {
                         ret = syncop_fsync(FIRST_CHILD(this), fd_ctx->fd, 0,
-                                           NULL, NULL);
+                                           NULL, NULL, NULL, NULL);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_WARNING, 0,
                                         J_MSG_SYS_CALL_FAILURE,

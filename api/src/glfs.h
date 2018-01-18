@@ -584,13 +584,15 @@ int glfs_stat (glfs_t *fs, const char *path, struct stat *buf) __THROW
 int glfs_fstat (glfs_fd_t *fd, struct stat *buf) __THROW
         GFAPI_PUBLIC(glfs_fstat, 3.4.0);
 
-int glfs_fsync (glfs_fd_t *fd) __THROW
-        GFAPI_PUBLIC(glfs_fsync, 3.4.0);
+int glfs_fsync (glfs_fd_t *fd, struct stat *prestat,
+                struct stat *poststat) __THROW
+        GFAPI_PUBLIC(glfs_fsync, 4.0.0);
 int glfs_fsync_async (glfs_fd_t *fd, glfs_io_cbk fn, void *data) __THROW
         GFAPI_PUBLIC(glfs_fsync_async, 3.4.0);
 
-int glfs_fdatasync (glfs_fd_t *fd) __THROW
-        GFAPI_PUBLIC(glfs_fdatasync, 3.4.0);
+int glfs_fdatasync (glfs_fd_t *fd, struct stat *prestat,
+                    struct stat *poststat) __THROW
+        GFAPI_PUBLIC(glfs_fdatasync, 4.0.0);
 int glfs_fdatasync_async (glfs_fd_t *fd, glfs_io_cbk fn, void *data) __THROW
         GFAPI_PUBLIC(glfs_fdatasync_async, 3.4.0);
 

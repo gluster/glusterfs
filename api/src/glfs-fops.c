@@ -1420,12 +1420,14 @@ pub_glfs_writev_async (struct glfs_fd *glfd, const struct iovec *iov, int count,
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_writev_async, 3.4.0);
 
 
-int
-pub_glfs_fsync (struct glfs_fd *glfd)
+static int
+glfs_fsync_common (struct glfs_fd *glfd, struct stat *prestat,
+                   struct stat *poststat)
 {
 	int              ret = -1;
 	xlator_t        *subvol = NULL;
 	fd_t            *fd = NULL;
+        struct iatt      preiatt = {0, }, postiatt = {0, };
 
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -1446,8 +1448,15 @@ pub_glfs_fsync (struct glfs_fd *glfd)
 		goto out;
 	}
 
-	ret = syncop_fsync (subvol, fd, 0, NULL, NULL);
+	ret = syncop_fsync (subvol, fd, 0, &preiatt, &postiatt, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
+
+        if (ret >= 0) {
+                if (prestat)
+                        glfs_iatt_to_stat (glfd->fs, &preiatt, prestat);
+                if (poststat)
+                        glfs_iatt_to_stat (glfd->fs, &postiatt, poststat);
+        }
 out:
 	if (fd)
 		fd_unref (fd);
@@ -1462,7 +1471,24 @@ invalid_fs:
 	return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fsync, 3.4.0);
+int
+pub_glfs_fsync34 (struct glfs_fd *glfd)
+{
+	return glfs_fsync_common (glfd, NULL, NULL);
+}
+
+GFAPI_SYMVER_PUBLIC(glfs_fsync34, glfs_fsync, 3.4.0);
+
+
+int
+pub_glfs_fsync (struct glfs_fd *glfd, struct stat *prestat,
+                struct stat *poststat)
+{
+	return glfs_fsync_common (glfd, prestat, poststat);
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fsync, 4.0.0);
+
 
 static int
 glfs_fsync_async_cbk (call_frame_t *frame, void *cookie,
@@ -1563,12 +1589,14 @@ invalid_fs:
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fsync_async, 3.4.0);
 
 
-int
-pub_glfs_fdatasync (struct glfs_fd *glfd)
+static int
+glfs_fdatasync_common (struct glfs_fd *glfd, struct stat *prestat,
+                       struct stat *poststat)
 {
 	int              ret = -1;
 	xlator_t        *subvol = NULL;
 	fd_t            *fd = NULL;
+        struct iatt      preiatt = {0, }, postiatt = {0, };
 
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -1589,8 +1617,15 @@ pub_glfs_fdatasync (struct glfs_fd *glfd)
 		goto out;
 	}
 
-	ret = syncop_fsync (subvol, fd, 1, NULL, NULL);
+	ret = syncop_fsync (subvol, fd, 1, &preiatt, &postiatt, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
+
+        if (ret >= 0) {
+                if (prestat)
+                        glfs_iatt_to_stat (glfd->fs, &preiatt, prestat);
+                if (poststat)
+                        glfs_iatt_to_stat (glfd->fs, &postiatt, poststat);
+        }
 out:
 	if (fd)
 		fd_unref (fd);
@@ -1605,7 +1640,23 @@ invalid_fs:
 	return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fdatasync, 3.4.0);
+int
+pub_glfs_fdatasync34 (struct glfs_fd *glfd)
+{
+        return glfs_fdatasync_common (glfd, NULL, NULL);
+}
+
+GFAPI_SYMVER_PUBLIC(glfs_fdatasync34, glfs_fdatasync, 3.4.0);
+
+
+int
+pub_glfs_fdatasync (struct glfs_fd *glfd, struct stat *prestat,
+                    struct stat *poststat)
+{
+       return glfs_fdatasync_common (glfd, prestat, poststat);
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fdatasync, 4.0.0);
 
 
 int
