@@ -186,4 +186,8 @@ int
 posix_create_link_if_gfid_exists (xlator_t *this, uuid_t gfid,
                                   char *real_path, inode_table_t *itable);
 
+int
+posix_check_internal_writes (xlator_t *this, fd_t *fd, int sysfd,
+                             dict_t *xdata);
+
 #endif /* !_POSIX_HANDLE_H */

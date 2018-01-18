@@ -26,7 +26,8 @@
 #define MAX_REBAL_TYPE_SIZE               16
 #define FILE_CNT_INTERVAL                600 /* 10 mins */
 #define ESTIMATE_START_INTERVAL          600 /* 10 mins */
-
+#define HARDLINK_MIG_INPROGRESS          -2
+#define SKIP_MIGRATION_FD_POSITIVE       -3
 #ifndef MAX
 #define MAX(a, b) (((a) > (b))?(a):(b))
 #endif
@@ -680,6 +681,7 @@ __dht_rebalance_create_dst_file (xlator_t *this, xlator_t *to, xlator_t *from,
         struct iatt  check_stbuf= {0,};
         dht_conf_t  *conf = NULL;
         dict_t      *dict = NULL;
+        dict_t      *xdata = NULL;
 
         conf = this->private;
 
@@ -725,7 +727,31 @@ __dht_rebalance_create_dst_file (xlator_t *this, xlator_t *to, xlator_t *from,
                 goto out;
         }
 
-        ret = syncop_lookup (to, loc, &new_stbuf, NULL, NULL, NULL);
+        if (!!dht_is_tier_xlator (this)) {
+                xdata = dict_new ();
+                if (!xdata) {
+                        *fop_errno = ENOMEM;
+                        ret = -1;
+                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "%s: dict_new failed)",
+                                loc->path);
+                        goto out;
+                }
+
+                ret = dict_set_int32 (xdata, GF_CLEAN_WRITE_PROTECTION, 1);
+                if (ret) {
+                        *fop_errno = ENOMEM;
+                        ret = -1;
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_DICT_SET_FAILED,
+                                "%s: failed to set dictionary value: key = %s ",
+                                loc->path, GF_CLEAN_WRITE_PROTECTION);
+                        goto out;
+                }
+        }
+
+        ret = syncop_lookup (to, loc, &new_stbuf, NULL, xdata, NULL);
         if (!ret) {
                 /* File exits in the destination, check if gfid matches */
                 if (gf_uuid_compare (stbuf->ia_gfid, new_stbuf.ia_gfid) != 0) {
@@ -874,6 +900,10 @@ out:
         }
         if (dict)
                 dict_unref (dict);
+
+        if (xdata)
+                dict_unref (dict);
+
 
         return ret;
 }
@@ -1090,9 +1120,9 @@ out:
 }
 
 static int
-__dht_rebalance_migrate_data (gf_defrag_info_t *defrag, xlator_t *from,
-                              xlator_t *to, fd_t *src, fd_t *dst,
-                              uint64_t ia_size, int hole_exists,
+__dht_rebalance_migrate_data (xlator_t *this, gf_defrag_info_t *defrag,
+                              xlator_t *from, xlator_t *to, fd_t *src,
+                              fd_t *dst, uint64_t ia_size, int hole_exists,
                               int *fop_errno)
 {
         int            ret    = 0;
@@ -1102,7 +1132,10 @@ __dht_rebalance_migrate_data (gf_defrag_info_t *defrag, xlator_t *from,
         struct iobref *iobref = NULL;
         uint64_t       total  = 0;
         size_t         read_size = 0;
+        dict_t        *xdata = NULL;
+        dht_conf_t    *conf  = NULL;
 
+        conf = this->private;
         /* if file size is '0', no need to enter this loop */
         while (total < ia_size) {
                 read_size = (((ia_size - total) > DHT_REBALANCE_BLKSIZE) ?
@@ -1121,8 +1154,42 @@ __dht_rebalance_migrate_data (gf_defrag_info_t *defrag, xlator_t *from,
                                                     ret, offset, iobref,
                                                     fop_errno);
                 } else {
+                        if (!conf->force_migration &&
+                            !dht_is_tier_xlator (this)) {
+                                xdata = dict_new ();
+                                if (!xdata) {
+                                        gf_msg ("dht", GF_LOG_ERROR, 0,
+                                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                                "insufficient memory");
+                                        ret = -1;
+                                        *fop_errno = ENOMEM;
+                                        break;
+                                }
+
+                                /* Fail this write and abort rebalance if we
+                                 * detect a write from client since migration of
+                                 * this file started. This is done to avoid
+                                 * potential data corruption due to out of order
+                                 * writes from rebalance and client to the same
+                                 * region (as compared between src and dst
+                                 * files). See
+                                 * https://github.com/gluster/glusterfs/issues/308
+                                 * for more details.
+                                 */
+                                ret = dict_set_int32 (xdata,
+                                                      GF_AVOID_OVERWRITE, 1);
+                                if (ret) {
+                                        gf_msg ("dht", GF_LOG_ERROR, 0,
+                                                ENOMEM, "failed to set dict");
+                                        ret = -1;
+                                        *fop_errno = ENOMEM;
+                                        break;
+                                }
+
+                        }
+
                         ret = syncop_writev (to, dst, vector, count,
-                                             offset, iobref, 0, NULL, NULL);
+                                             offset, iobref, 0, xdata, NULL);
                         if (ret < 0) {
                                 *fop_errno = -ret;
                         }
@@ -1157,6 +1224,10 @@ __dht_rebalance_migrate_data (gf_defrag_info_t *defrag, xlator_t *from,
                 ret = 0;
         else
                 ret = -1;
+
+        if (xdata) {
+                dict_unref (xdata);
+        }
 
         return ret;
 }
@@ -1575,7 +1646,6 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 goto out;
         }
 
-
         /* Do not migrate file in case lock migration is not enabled on the
          * volume*/
         if (!conf->lock_migration_enabled) {
@@ -1642,7 +1712,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         ret = __is_file_migratable (this, loc, &stbuf, xattr_rsp, flag, defrag, conf,
                                     fop_errno);
         if (ret) {
-                if (ret == -2)
+                if (ret == HARDLINK_MIG_INPROGRESS)
                         ret = 0;
                 goto out;
         }
@@ -1785,7 +1855,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         ret = __check_file_has_hardlink (this, loc, &stbuf, xattr_rsp,
                                          flag, defrag, conf, fop_errno);
         if (ret) {
-                if (ret == -2)
+                if (ret == HARDLINK_MIG_INPROGRESS)
                         ret = 0;
                 goto out;
         }
@@ -1794,8 +1864,8 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 file_has_holes = 1;
 
 
-        ret = __dht_rebalance_migrate_data (defrag, from, to, src_fd, dst_fd,
-                                            stbuf.ia_size,
+        ret = __dht_rebalance_migrate_data (this, defrag, from, to,
+                                            src_fd, dst_fd, stbuf.ia_size,
                                             file_has_holes, fop_errno);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -2277,6 +2347,17 @@ out:
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "%s: failed to unlock file on %s",
                                 loc->path, from->name);
+                }
+        }
+
+        if (!dht_is_tier_xlator (this)) {
+                lk_ret = syncop_removexattr (to, loc,
+                                             GF_PROTECT_FROM_EXTERNAL_WRITES,
+                                             NULL, NULL);
+                if (lk_ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, -lk_ret, 0,
+                                "%s: removexattr failed key %s", loc->path,
+                                GF_CLEAN_WRITE_PROTECTION);
                 }
         }
 

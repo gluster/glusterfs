@@ -19,6 +19,11 @@
 #define GD_MIN_OP_VERSION_KEY "minimum-operating-version"
 #define GD_MAX_OP_VERSION_KEY "maximum-operating-version"
 
+#define GF_PROTECT_FROM_EXTERNAL_WRITES "trusted.glusterfs.protect.writes"
+#define GF_AVOID_OVERWRITE "glusterfs.avoid.overwrite"
+#define GF_CLEAN_WRITE_PROTECTION "glusterfs.clean.writexattr"
+
+
 /* Gluster versions - OP-VERSION mapping
  *
  * 3.3.x                - 1

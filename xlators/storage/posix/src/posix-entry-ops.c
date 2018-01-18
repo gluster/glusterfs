@@ -180,6 +180,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         int32_t     nlink_samepgfid    = 0;
         struct  posix_private *priv    = NULL;
         posix_inode_ctx_t *ctx         = NULL;
+        int         ret                = 0;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -248,6 +249,17 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         if (xdata && (op_ret == 0)) {
                 xattr = posix_xattr_fill (this, real_path, loc, NULL, -1, xdata,
                                           &buf);
+
+                if (dict_get (xdata, GF_CLEAN_WRITE_PROTECTION)) {
+                        ret = sys_lremovexattr (real_path,
+                                                GF_PROTECT_FROM_EXTERNAL_WRITES);
+                        if (ret == -1 && (errno != ENODATA && errno != ENOATTR))
+                                gf_msg (this->name, GF_LOG_ERROR,
+                                        P_MSG_XATTR_NOT_REMOVED, errno,
+                                        "removexattr failed. key %s path %s",
+                                        GF_PROTECT_FROM_EXTERNAL_WRITES,
+                                        loc->path);
+                }
         }
 
         if (priv->update_pgfid_nlinks) {
