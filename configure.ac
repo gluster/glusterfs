@@ -283,9 +283,9 @@ AC_CONFIG_FILES([Makefile
                 heal/Makefile
                 heal/src/Makefile
                 glusterfs.spec
-		tools/glusterfind/src/tool.conf
-	        tools/glusterfind/glusterfind
-	        tools/glusterfind/Makefile
+                tools/glusterfind/src/tool.conf
+                tools/glusterfind/glusterfind
+                tools/glusterfind/Makefile
                 tools/glusterfind/src/Makefile
                 tools/setgfid2path/Makefile
                 tools/setgfid2path/src/Makefile])
@@ -316,19 +316,19 @@ else
 fi
 
 AC_ARG_WITH([libtirpc],
-        AS_HELP_STRING([--with-libtirpc], [Use libtirpc as RPC implementation (instead of sunrpc)]),
-        [], [with_libtirpc=no])
+        [AC_HELP_STRING([--without-libtirpc], [Use legacy glibc RPC.])],
+        [], [with_libtirpc=yes])
+AC_MSG_RESULT([$with_libtirpc])
 
-AC_ARG_WITH([ipv6-default], AC_HELP_STRING([--with-ipv6-default], [Set IPv6 as default.]))
-if test "x$with_ipv6_default" = "xyes"; then
-        IPV6_DEFAULT=yes
-else
-        IPV6_DEFAULT=no
-fi
+AC_ARG_WITH([ipv6-default],
+        AC_HELP_STRING([--with-ipv6-default], [Set IPv6 as default.]),
+        [with_ipv6_default=$with_libtirpc], [with_ipv6_default=no])
+AC_MSG_RESULT([$with_ipv6_default])
+
 if test "x$ac_cv_file__etc_redhat_release" = "xyes"; then
         if rpm -qa centos-release | grep centos; then
                 if rpm -q centos-release | grep "release-6"; then
-                        IPV6_DEFAULT=no;
+                        with_ipv6_default=no
                 fi
         fi
 fi
@@ -1098,15 +1098,31 @@ AC_SUBST(GF_DISTRIBUTION)
 GF_HOST_OS=""
 GF_LDFLAGS="-rdynamic"
 
+DISABLE_LIBTIRPC=no
 dnl include tirpc for IPv6 builds
-if test "x$with_libtirpc" = "xyes" || test "x$IPV6_DEFAULT" = "xyes" ; then
+if test "x$with_libtirpc" = "xyes" || test "x$with_ipv6_default" = "xyes" ; then
     PKG_CHECK_MODULES([TIRPC], [libtirpc],
        [GF_CFLAGS="$GF_CFLAGS $TIRPC_CFLAGS"; GF_LDFLAGS="$GF_LDFLAGS $TIRPC_LIBS";],
-       [AC_MSG_ERROR([libtirpc requested or needed for IPv6 default but library not found])]
-    )
+       [DISABLE_LIBTIRPC=yes])
 fi
 
-if test "x$IPV6_DEFAULT" = "xyes" ; then
+if test "x$DISABLE_LIBTIRPC" = "xyes" ; then
+    with_libtirpc=no; with_ipv6_default=no
+    AC_CHECK_HEADERS([rpc/rpc.h],[
+        AC_MSG_WARN([
+            ---------------------------------------------------------------------------------
+            libtirpc or ipv6-default were enabled (by default) but libtirpc-devel is not
+            installed. Disabling libtirpc and ipv6-default and using legacy glibc rpc headers
+            This is a transistional warning message. Eventually it will be an error message
+            ---------------------------------------------------------------------------------])],[
+        AC_MSG_ERROR([
+            ---------------------------------------------------------------------------------
+            libtirpc or ipv6-default were enabled (by default) but libtirpc-devel is not
+            installed and there were no legacy glibc rpc headers and library to fall back to.
+            ---------------------------------------------------------------------------------])])
+fi
+
+if test "x$with_ipv6_default" = "xyes" ; then
    GF_CFLAGS="$GF_CFLAGS -DIPV6_DEFAULT"
 fi
 
@@ -1174,11 +1190,11 @@ fi
 
 old_prefix=$prefix
 if test "x$prefix" = xNONE; then
-	prefix=$ac_default_prefix
+        prefix=$ac_default_prefix
 fi
 old_exec_prefix=$exec_prefix
 if test "x$exec_prefix" = xNONE; then
-	exec_prefix="$(eval echo $prefix)"
+        exec_prefix="$(eval echo $prefix)"
 fi
 GLUSTERFS_LIBEXECDIR="$(eval echo $libexecdir)/glusterfs"
 GLUSTERFSD_MISCDIR="$(eval echo $prefix)/var/lib/misc/glusterfsd"
@@ -1662,4 +1678,6 @@ echo "EC dynamic support   : $EC_DYNAMIC_SUPPORT"
 echo "Use memory pools     : $USE_MEMPOOL"
 echo "Nanosecond m/atimes  : $BUILD_NANOSECOND_TIMESTAMPS"
 echo "Legacy gNFS server   : $BUILD_GNFS"
+echo "IPV6 default         : $with_ipv6_default"
+echo "Use TIRPC            : $with_libtirpc"
 echo
