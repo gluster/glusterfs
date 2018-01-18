@@ -2383,6 +2383,11 @@ syncop_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (xdata)
                 args->xdata  = dict_ref (xdata);
 
+        if (op_ret >= 0) {
+                args->iatt1 = *prebuf;
+                args->iatt2 = *postbuf;
+        }
+
         __wake (args);
 
         return 0;
@@ -2390,13 +2395,18 @@ syncop_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
-syncop_fsync (xlator_t *subvol, fd_t *fd, int dataonly, dict_t *xdata_in,
-              dict_t **xdata_out)
+syncop_fsync (xlator_t *subvol, fd_t *fd, int dataonly, struct iatt *preiatt,
+              struct iatt *postiatt, dict_t *xdata_in, dict_t **xdata_out)
 {
         struct syncargs args = {0, };
 
         SYNCOP (subvol, (&args), syncop_fsync_cbk, subvol->fops->fsync,
                 fd, dataonly, xdata_in);
+
+        if (preiatt)
+                *preiatt = args.iatt1;
+        if (postiatt)
+                *postiatt = args.iatt2;
 
         if (xdata_out)
                 *xdata_out = args.xdata;

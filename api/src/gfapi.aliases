@@ -39,9 +39,9 @@ _pub_glfs_ftruncate_async _glfs_ftruncate_async$GFAPI_3.4.0
 _pub_glfs_lstat _glfs_lstat$GFAPI_3.4.0
 _pub_glfs_stat _glfs_stat$GFAPI_3.4.0
 _pub_glfs_fstat _glfs_fstat$GFAPI_3.4.0
-_pub_glfs_fsync _glfs_fsync$GFAPI_3.4.0
+_pub_glfs_fsync34 _glfs_fsync34$GFAPI_3.4.0
 _pub_glfs_fsync_async _glfs_fsync_async$GFAPI_3.4.0
-_pub_glfs_fdatasync _glfs_fdatasync$GFAPI_3.4.0
+_pub_glfs_fdatasync34 _glfs_fdatasync34$GFAPI_3.4.0
 _pub_glfs_fdatasync_async _glfs_fdatasync_async$GFAPI_3.4.0
 _pub_glfs_access _glfs_access$GFAPI_3.4.0
 _pub_glfs_symlink _glfs_symlink$GFAPI_3.4.0
@@ -174,3 +174,5 @@ _pub_glfs_lease _glfs_lease$GFAPI_4.0.0
 _pub_glfs_h_lease _glfs_h_lease$GFAPI_4.0.0
 _pub_glfs_pread _glfs_pread$GFAPI_4.0.0
 _pub_glfs_pwrite _glfs_pwrite$GFAPI_4.0.0
+_pub_glfs_fsync _glfs_fsync$GFAPI_4.0.0
+_pub_glfs_fdatasync _glfs_fdatasync$GFAPI_4.0.0

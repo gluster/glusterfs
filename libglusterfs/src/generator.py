@@ -123,6 +123,8 @@ ops['fstat'] = (
 ops['fsync'] = (
 	('fop-arg',	'fd',			'fd_t *'),
 	('fop-arg',	'flags',		'int32_t'),
+	('extra',	'preop',		'struct iatt',		'&preop'),
+	('extra',	'postop',		'struct iatt',		'&postop'),
 	('fop-arg',	'xdata',		'dict_t *'),
 	('cbk-arg',	'prebuf',		'struct iatt *'),
 	('cbk-arg',	'postbuf',		'struct iatt *'),

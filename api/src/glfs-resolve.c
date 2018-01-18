@@ -730,7 +730,7 @@ glfs_migrate_fd_safe (struct glfs *fs, xlator_t *newsubvol, fd_t *oldfd)
 		return fd_ref (oldfd);
 
 	if (!oldsubvol->switched) {
-		ret = syncop_fsync (oldsubvol, oldfd, 0, NULL, NULL);
+		ret = syncop_fsync (oldsubvol, oldfd, 0, NULL, NULL, NULL, NULL);
                 DECODE_SYNCOP_ERR (ret);
 		if (ret) {
 			gf_msg (fs->volname, GF_LOG_WARNING, errno,
