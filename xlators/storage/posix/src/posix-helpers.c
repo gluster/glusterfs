@@ -2739,3 +2739,45 @@ posix_override_umask (mode_t mode, mode_t mode_bit)
         gf_msg_debug ("posix", 0, "The value of mode is %u", mode);
         return mode;
 }
+
+int
+posix_check_internal_writes (xlator_t *this, fd_t *fd, int sysfd,
+                             dict_t *xdata)
+{
+        int          ret = 0;
+        size_t       xattrsize = 0;
+        data_t      *val = NULL;
+
+        LOCK (&fd->inode->lock);
+        {
+                val = dict_get (xdata, GF_PROTECT_FROM_EXTERNAL_WRITES);
+                if (val) {
+                        ret = sys_fsetxattr (sysfd,
+                                             GF_PROTECT_FROM_EXTERNAL_WRITES,
+                                             val->data, val->len, 0);
+                        if (ret == -1) {
+                                gf_msg (this->name, GF_LOG_ERROR,
+                                        P_MSG_XATTR_FAILED,
+                                        errno, "setxattr failed key %s",
+                                        GF_PROTECT_FROM_EXTERNAL_WRITES);
+                        }
+
+                        goto out;
+                }
+
+                if (dict_get (xdata, GF_AVOID_OVERWRITE)) {
+                        xattrsize = sys_fgetxattr (sysfd,
+                                                   GF_PROTECT_FROM_EXTERNAL_WRITES,
+                                                   NULL, 0);
+                        if ((xattrsize == -1) && ((errno == ENOATTR) ||
+                            (errno == ENODATA))) {
+                                ret = 0;
+                        } else {
+                                ret = -1;
+                        }
+                }
+        }
+out:
+        UNLOCK (&fd->inode->lock);
+        return ret;
+}
