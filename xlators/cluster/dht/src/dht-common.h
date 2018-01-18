@@ -695,6 +695,8 @@ struct dht_conf {
         synclock_t      link_lock;
 
         gf_boolean_t    use_fallocate;
+
+        gf_boolean_t    force_migration;
 };
 typedef struct dht_conf dht_conf_t;
 

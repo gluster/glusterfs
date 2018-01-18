@@ -1349,6 +1349,14 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .flags       = VOLOPT_FLAG_CLIENT_OPT,
         },
 
+        { .key         = "cluster.force-migration",
+          .voltype     = "cluster/distribute",
+          .option      = "force-migration",
+          .value       = "off",
+          .op_version  = GD_OP_VERSION_4_0_0,
+          .flags       = VOLOPT_FLAG_CLIENT_OPT,
+        },
+
         /* NUFA xlator options (Distribute special case) */
         { .key        = "cluster.nufa",
           .voltype    = "cluster/distribute",
