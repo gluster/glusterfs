@@ -1,5 +1,7 @@
 #!/bin/bash
 
+SCRIPT_TIMEOUT=300
+
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../fileio.rc

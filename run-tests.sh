@@ -11,6 +11,8 @@ exit_on_failure="yes"
 skip_bad_tests="yes"
 skip_known_bugs="yes"
 section_separator="========================================"
+run_timeout=200
+kill_after_time=5
 
 OSTYPE=$(uname -s)
 
@@ -227,6 +229,7 @@ function run_tests()
 {
     RES=0
     FAILED=''
+    TESTS_NEEDED_RETRY=''
     GENERATED_CORE=''
     total_tests=0
     selected_tests=0
@@ -236,6 +239,15 @@ function run_tests()
 
     # key = path of .t file; value = time taken to run the .t file
     declare -A ELAPSEDTIMEMAP
+
+    # Test if -k is supported for timeout command
+    # This is not supported on centos6, but spuported on centos7
+    # The flags is required for running the command in both flavors
+    timeout_cmd_exists="yes"
+    timeout -k 1 10 echo "testing 'timeout' command"
+    if [ $? -ne 0 ]; then
+        timeout_cmd_exists="no"
+    fi
 
     for t in $(find ${regression_testsdir}/tests -name '*.t' \
                | LC_COLLATE=C sort) ; do
@@ -268,9 +280,24 @@ function run_tests()
             total_run_tests=$((total_run_tests+1))
             echo "[$(date +%H:%M:%S)] Running tests in file $t"
             starttime="$(date +%s)"
-            prove -vmfe '/bin/bash' $t
+
+            local cmd_timeout=$run_timeout;
+            if [ ${timeout_cmd_exists} == "yes" ]; then
+                if [ $(grep -c "SCRIPT_TIMEOUT=" ${t}) == 1 ] ; then
+                    cmd_timeout=$(grep "SCRIPT_TIMEOUT=" ${t} | cut -f2 -d'=');
+                    echo "Timeout set is ${cmd_timeout}, default ${run_timeout}"
+                fi
+                timeout -k ${kill_after_time} ${cmd_timeout} prove -vmfe '/bin/bash' ${t}
+            else
+                prove -vmfe '/bin/bash' ${t}
+            fi
             TMP_RES=$?
             ELAPSEDTIMEMAP[$t]=`expr $(date +%s) - $starttime`
+            # timeout always return 124 if it is actually a timeout.
+            if ((${TMP_RES} == 124)); then
+                echo "${t} timed out after ${cmd_timeout} seconds"
+            fi
+
             if [ ${TMP_RES} -ne 0 ]  && [ "x${retry}" = "xyes" ] ; then
                 echo "$t: bad status $TMP_RES"
                 echo ""
@@ -280,13 +307,23 @@ function run_tests()
                 echo "       * we got some spurious failures *"
                 echo "       *********************************"
                 echo ""
-                prove -vmfe '/bin/bash' $t
+                if [ ${timeout_cmd_exists} == "yes" ]; then
+                    timeout -k ${kill_after_time} ${cmd_timeout} prove -vmfe '/bin/bash' ${t}
+                else
+                    prove -vmfe '/bin/bash' ${t}
+                fi
                 TMP_RES=$?
+                if ((${TMP_RES} == 124)); then
+                    echo "${t} timed out after ${cmd_timeout} seconds"
+                fi
+
+                TESTS_NEEDED_RETRY="${TESTS_NEEDED_RETRY}${t} "
             fi
             if [ ${TMP_RES} -ne 0 ] ; then
                 RES=${TMP_RES}
                 FAILED="${FAILED}${t} "
             fi
+
             new_cores=$(ls /*-*.core 2> /dev/null | wc -l)
             if [ x"$new_cores" != x"$old_cores" ]; then
                 core_diff=$((new_cores-old_cores))
@@ -326,6 +363,11 @@ function run_tests()
         GENERATED_CORE=$( echo  ${GENERATED_CORE} | tr ' ' '\n' | sort -u )
         GENERATED_CORE_COUNT=$( echo -n "${GENERATED_CORE}" | grep -c '^' )
         echo -e "\n$GENERATED_CORE_COUNT test(s) generated core \n${GENERATED_CORE}"
+    fi
+    TESTS_NEEDED_RETRY=$( echo ${TESTS_NEEDED_RETRY} | tr ' ' '\n' | sort -u )
+    RETRY_COUNT=$( echo -n "${TESTS_NEEDED_RETRY}" | grep -c '^' )
+    if [ ${RETRY_COUNT} -ne 0 ] ; then
+        echo -e "\n${RETRY_COUNT} test(s) needed retry \n${TESTS_NEEDED_RETRY}"
     fi
 
     echo
