@@ -20,6 +20,8 @@
 
 extern int32_t
 client3_getspec (call_frame_t *frame, xlator_t *this, void *data);
+extern int32_t
+client3_3_getxattr (call_frame_t *frame, xlator_t *this, void *data);
 
 extern int
 client_submit_vec_request (xlator_t  *this, void *req, call_frame_t  *frame,
@@ -891,6 +893,12 @@ out:
                                 loc_gfid_utoa (&local->loc),
                                 (local->name) ? local->name : "(null)");
                 }
+        } else {
+                /* This is required as many places, `if (ret)` is checked
+                   for syncop_getxattr() */
+                gf_msg_debug (this->name, 0, "resetting op_ret to 0 from %d",
+                              rsp.op_ret);
+                rsp.op_ret = 0;
         }
 
         CLIENT_STACK_UNWIND (getxattr, frame, rsp.op_ret, op_errno, dict, xdata);
@@ -952,6 +960,12 @@ out:
                                 PC_MSG_REMOTE_OP_FAILED, "remote operation "
                                 "failed");
                 }
+        } else {
+                /* This is required as many places, `if (ret)` is checked
+                   for syncop_fgetxattr() */
+                gf_msg_debug (this->name, 0, "resetting op_ret to 0 from %d",
+                              rsp.op_ret);
+                rsp.op_ret = 0;
         }
 
         CLIENT_STACK_UNWIND (fgetxattr, frame, rsp.op_ret, op_errno, dict, xdata);
@@ -1488,6 +1502,12 @@ out:
                         PC_MSG_REMOTE_OP_FAILED, "remote operation failed. "
                         "Path: %s (%s)",
                         local->loc.path, loc_gfid_utoa (&local->loc));
+        } else {
+                /* This is required as many places, `if (ret)` is checked
+                   for syncop_xattrop() */
+                gf_msg_debug (this->name, 0, "resetting op_ret to 0 from %d",
+                              rsp.op_ret);
+                rsp.op_ret = 0;
         }
 
         CLIENT_STACK_UNWIND (xattrop, frame, rsp.op_ret,
@@ -1548,10 +1568,17 @@ out:
                         gf_error_to_errno (rsp.op_errno),
                         PC_MSG_REMOTE_OP_FAILED,
                         "remote operation failed");
-        } else if (rsp.op_ret == 0) {
+        } else {
+                /* This is required as many places, `if (ret)` is checked
+                   for syncop_fxattrop() */
+                gf_msg_debug (this->name, 0, "resetting op_ret to 0 from %d",
+                              rsp.op_ret);
+                rsp.op_ret = 0;
+
                 if (local->attempt_reopen)
                         client_attempt_reopen (local->fd, this);
         }
+
         CLIENT_STACK_UNWIND (fxattrop, frame, rsp.op_ret,
                              gf_error_to_errno (op_errno), dict, xdata);
         if (xdata)
@@ -5542,7 +5569,7 @@ out:
 }
 
 int32_t
-client4_namelink (call_frame_t *frame, xlator_t *this, void *data)
+client4_0_namelink (call_frame_t *frame, xlator_t *this, void *data)
 {
         int32_t ret = 0;
         int32_t op_errno = EINVAL;
@@ -5588,7 +5615,7 @@ client4_namelink (call_frame_t *frame, xlator_t *this, void *data)
 }
 
 int32_t
-client4_icreate (call_frame_t *frame, xlator_t *this, void *data)
+client4_0_icreate (call_frame_t *frame, xlator_t *this, void *data)
 {
         int32_t ret = 0;
         int32_t op_errno = EINVAL;
@@ -6054,4 +6081,73 @@ char *clnt4_0_fop_names[GFS3_OP_MAXVALUE] = {
         [GFS3_OP_COMPOUND]    = "COMPOUND",
         [GFS3_OP_ICREATE]     = "ICREATE",
         [GFS3_OP_NAMELINK]    = "NAMELINK",
+};
+
+rpc_clnt_procedure_t clnt4_0_fop_actors[GF_FOP_MAXVALUE] = {
+        [GF_FOP_NULL]        = { "NULL",        NULL},
+        [GF_FOP_STAT]        = { "STAT",        client4_0_stat },
+        [GF_FOP_READLINK]    = { "READLINK",    client4_0_readlink },
+        [GF_FOP_MKNOD]       = { "MKNOD",       client4_0_mknod },
+        [GF_FOP_MKDIR]       = { "MKDIR",       client4_0_mkdir },
+        [GF_FOP_UNLINK]      = { "UNLINK",      client4_0_unlink },
+        [GF_FOP_RMDIR]       = { "RMDIR",       client4_0_rmdir },
+        [GF_FOP_SYMLINK]     = { "SYMLINK",     client4_0_symlink },
+        [GF_FOP_RENAME]      = { "RENAME",      client4_0_rename },
+        [GF_FOP_LINK]        = { "LINK",        client4_0_link },
+        [GF_FOP_TRUNCATE]    = { "TRUNCATE",    client4_0_truncate },
+        [GF_FOP_OPEN]        = { "OPEN",        client4_0_open },
+        [GF_FOP_READ]        = { "READ",        client4_0_readv },
+        [GF_FOP_WRITE]       = { "WRITE",       client4_0_writev },
+        [GF_FOP_STATFS]      = { "STATFS",      client4_0_statfs },
+        [GF_FOP_FLUSH]       = { "FLUSH",       client4_0_flush },
+        [GF_FOP_FSYNC]       = { "FSYNC",       client4_0_fsync },
+        [GF_FOP_GETXATTR]    = { "GETXATTR",    client4_0_getxattr },
+        [GF_FOP_SETXATTR]    = { "SETXATTR",    client4_0_setxattr },
+        [GF_FOP_REMOVEXATTR] = { "REMOVEXATTR", client4_0_removexattr },
+        [GF_FOP_OPENDIR]     = { "OPENDIR",     client4_0_opendir },
+        [GF_FOP_FSYNCDIR]    = { "FSYNCDIR",    client4_0_fsyncdir },
+        [GF_FOP_ACCESS]      = { "ACCESS",      client4_0_access },
+        [GF_FOP_CREATE]      = { "CREATE",      client4_0_create },
+        [GF_FOP_FTRUNCATE]   = { "FTRUNCATE",   client4_0_ftruncate },
+        [GF_FOP_FSTAT]       = { "FSTAT",       client4_0_fstat },
+        [GF_FOP_LK]          = { "LK",          client4_0_lk },
+        [GF_FOP_LOOKUP]      = { "LOOKUP",      client4_0_lookup },
+        [GF_FOP_READDIR]     = { "READDIR",     client4_0_readdir },
+        [GF_FOP_INODELK]     = { "INODELK",     client4_0_inodelk },
+        [GF_FOP_FINODELK]    = { "FINODELK",    client4_0_finodelk },
+        [GF_FOP_ENTRYLK]     = { "ENTRYLK",     client4_0_entrylk },
+        [GF_FOP_FENTRYLK]    = { "FENTRYLK",    client4_0_fentrylk },
+        [GF_FOP_XATTROP]     = { "XATTROP",     client4_0_xattrop },
+        [GF_FOP_FXATTROP]    = { "FXATTROP",    client4_0_fxattrop },
+        [GF_FOP_FGETXATTR]   = { "FGETXATTR",   client4_0_fgetxattr },
+        [GF_FOP_FSETXATTR]   = { "FSETXATTR",   client4_0_fsetxattr },
+        [GF_FOP_RCHECKSUM]   = { "RCHECKSUM",   client4_0_rchecksum },
+        [GF_FOP_SETATTR]     = { "SETATTR",     client4_0_setattr },
+        [GF_FOP_FSETATTR]    = { "FSETATTR",    client4_0_fsetattr },
+        [GF_FOP_READDIRP]    = { "READDIRP",    client4_0_readdirp },
+	[GF_FOP_FALLOCATE]   = { "FALLOCATE",	client4_0_fallocate },
+	[GF_FOP_DISCARD]     = { "DISCARD",	client4_0_discard },
+        [GF_FOP_ZEROFILL]     = { "ZEROFILL",     client4_0_zerofill},
+        [GF_FOP_RELEASE]     = { "RELEASE",     client4_0_release },
+        [GF_FOP_RELEASEDIR]  = { "RELEASEDIR",  client4_0_releasedir },
+        [GF_FOP_GETSPEC]     = { "GETSPEC",     client3_getspec },
+        [GF_FOP_FREMOVEXATTR] = { "FREMOVEXATTR", client4_0_fremovexattr },
+        [GF_FOP_IPC]          = { "IPC",          client4_0_ipc },
+        [GF_FOP_SEEK]         = { "SEEK",         client4_0_seek },
+        [GF_FOP_LEASE]        = { "LEASE",        client4_0_lease },
+        [GF_FOP_GETACTIVELK]  = { "GETACTIVELK", client4_0_getactivelk },
+        [GF_FOP_SETACTIVELK]  = { "SETACTIVELK", client4_0_setactivelk },
+        [GF_FOP_COMPOUND]     = { "COMPOUND",     client4_0_compound },
+        [GF_FOP_ICREATE]      = { "ICREATE",      client4_0_icreate },
+        [GF_FOP_NAMELINK]     = { "NAMELINK",     client4_0_namelink },
+};
+
+
+rpc_clnt_prog_t clnt4_0_fop_prog = {
+        .progname  = "GlusterFS 4.x v1",
+        .prognum   = GLUSTER_FOP_PROGRAM,
+        .progver   = GLUSTER_FOP_VERSION_v2,
+        .numproc   = GLUSTER_FOP_PROCCNT,
+        .proctable = clnt4_0_fop_actors,
+        .procnames = clnt4_0_fop_names,
 };

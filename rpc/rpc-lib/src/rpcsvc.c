@@ -565,7 +565,8 @@ rpcsvc_check_and_reply_error (int ret, call_frame_t *frame, void *opaque)
 
         if (ret)
                 gf_log ("rpcsvc", GF_LOG_ERROR,
-                        "rpc actor failed to complete successfully");
+                        "rpc actor (%d:%d:%d) failed to complete successfully",
+                        req->prognum, req->progver, req->procnum);
 
         if (ret == RPCSVC_ACTOR_ERROR) {
                 ret = rpcsvc_error_reply (req);

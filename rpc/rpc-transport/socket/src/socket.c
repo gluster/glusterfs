@@ -24,6 +24,7 @@
 /* ugly #includes below */
 #include "protocol-common.h"
 #include "glusterfs3-xdr.h"
+#include "glusterfs4-xdr.h"
 #include "xdr-nfs3.h"
 #include "rpcsvc.h"
 
@@ -1716,6 +1717,137 @@ out:
         return ret;
 }
 
+static int
+__socket_read_accepted_successful_reply_v2 (rpc_transport_t *this)
+{
+        socket_private_t *priv              = NULL;
+        int               ret               = 0;
+        struct iobuf     *iobuf             = NULL;
+        gfx_read_rsp      read_rsp          = {0, };
+        ssize_t           size              = 0;
+        ssize_t           default_read_size = 0;
+        XDR               xdr;
+        struct gf_sock_incoming      *in         = NULL;
+        struct gf_sock_incoming_frag *frag       = NULL;
+
+        GF_VALIDATE_OR_GOTO ("socket", this, out);
+        GF_VALIDATE_OR_GOTO ("socket", this->private, out);
+
+        priv = this->private;
+
+        /* used to reduce the indirection */
+        in = &priv->incoming;
+        frag = &in->frag;
+
+        switch (frag->call_body.reply.accepted_success_state) {
+
+        case SP_STATE_ACCEPTED_SUCCESS_REPLY_INIT:
+                default_read_size = xdr_sizeof ((xdrproc_t) xdr_gfx_read_rsp,
+                                                &read_rsp);
+
+                /* We need to store the current base address because we will
+                 * need it after a partial read. */
+                in->proghdr_base_addr = frag->fragcurrent;
+
+                __socket_proto_init_pending (priv, default_read_size);
+
+                frag->call_body.reply.accepted_success_state
+                        = SP_STATE_READING_PROC_HEADER;
+
+                /* fall through */
+
+        case SP_STATE_READING_PROC_HEADER:
+                __socket_proto_read (priv, ret);
+
+                /* there can be 'xdata' in read response, figure it out */
+                default_read_size = frag->fragcurrent - in->proghdr_base_addr;
+
+                xdrmem_create (&xdr, in->proghdr_base_addr, default_read_size,
+                               XDR_DECODE);
+
+                /* This will fail if there is xdata sent from server, if not,
+                   well and good, we don't need to worry about  */
+                xdr_gfx_read_rsp (&xdr, &read_rsp);
+
+                free (read_rsp.xdata.pairs.pairs_val);
+
+                /* need to round off to proper roof (%4), as XDR packing pads
+                   the end of opaque object with '0' */
+                size = roof (read_rsp.xdata.xdr_size, 4);
+
+                if (!size) {
+                        frag->call_body.reply.accepted_success_state
+                                = SP_STATE_READ_PROC_OPAQUE;
+                        goto read_proc_opaque;
+                }
+
+                __socket_proto_init_pending (priv, size);
+
+                frag->call_body.reply.accepted_success_state
+                        = SP_STATE_READING_PROC_OPAQUE;
+                /* fall through */
+
+        case SP_STATE_READING_PROC_OPAQUE:
+                __socket_proto_read (priv, ret);
+
+                frag->call_body.reply.accepted_success_state
+                        = SP_STATE_READ_PROC_OPAQUE;
+                /* fall through */
+
+        case SP_STATE_READ_PROC_OPAQUE:
+        read_proc_opaque:
+                if (in->payload_vector.iov_base == NULL) {
+
+                        size = (RPC_FRAGSIZE (in->fraghdr) - frag->bytes_read);
+
+                        iobuf = iobuf_get2 (this->ctx->iobuf_pool, size);
+                        if (iobuf == NULL) {
+                                ret = -1;
+                                goto out;
+                        }
+
+                        if (in->iobref == NULL) {
+                                in->iobref = iobref_new ();
+                                if (in->iobref == NULL) {
+                                        ret = -1;
+                                        iobuf_unref (iobuf);
+                                        goto out;
+                                }
+                        }
+
+                        ret = iobref_add (in->iobref, iobuf);
+                        iobuf_unref (iobuf);
+                        if (ret < 0) {
+                                goto out;
+                        }
+
+                        in->payload_vector.iov_base = iobuf_ptr (iobuf);
+                        in->payload_vector.iov_len = size;
+                }
+
+                frag->fragcurrent = in->payload_vector.iov_base;
+
+                frag->call_body.reply.accepted_success_state
+                        = SP_STATE_READ_PROC_HEADER;
+
+                /* fall through */
+
+        case SP_STATE_READ_PROC_HEADER:
+                /* now read the entire remaining msg into new iobuf */
+                ret = __socket_read_simple_msg (this);
+                if ((ret == -1)
+                    || ((ret == 0) && RPC_LASTFRAG (in->fraghdr))) {
+                        frag->call_body.reply.accepted_success_state
+                                = SP_STATE_ACCEPTED_SUCCESS_REPLY_INIT;
+                }
+
+                break;
+        }
+
+out:
+        return ret;
+}
+
 #define rpc_reply_verflen_addr(fragcurrent) ((char *)fragcurrent - 4)
 #define rpc_reply_accept_status_addr(fragcurrent) ((char *)fragcurrent - 4)
 
@@ -1789,7 +1921,16 @@ __socket_read_accepted_reply (rpc_transport_t *this)
 
                 if (frag->call_body.reply.accept_status
                     == SUCCESS) {
-                        ret = __socket_read_accepted_successful_reply (this);
+                        /* Need two different methods here for different protocols
+                           Mainly because the exact XDR is used to calculate the
+                           size of response */
+                        if ((in->request_info->procnum == GFS3_OP_READ) &&
+                            (in->request_info->prognum == GLUSTER_FOP_PROGRAM) &&
+                            (in->request_info->progver == GLUSTER_FOP_VERSION_v2)) {
+                                ret = __socket_read_accepted_successful_reply_v2 (this);
+                        } else {
+                                ret = __socket_read_accepted_successful_reply (this);
+                        }
                 } else {
                         /* read entire remaining msg into buffer pointed to by
                          * fragcurrent
