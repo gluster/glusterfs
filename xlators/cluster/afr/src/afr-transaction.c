@@ -534,6 +534,29 @@ afr_lock_server_count (afr_private_t *priv, afr_transaction_type type)
 /* {{{ pending */
 
 
+gf_boolean_t
+afr_post_op_has_quorum (afr_local_t *local, xlator_t *this)
+{
+        afr_private_t *priv = NULL;
+        int i = 0;
+        unsigned char *post_op_children = NULL;
+
+        priv = this->private;
+        post_op_children = alloca0 (priv->child_count);
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!local->transaction.failed_subvols[i]) {
+                        post_op_children[i] = 1;
+                }
+        }
+
+        if (afr_has_quorum (post_op_children, this)) {
+                return _gf_true;
+        }
+
+        return _gf_false;
+}
+
 int
 afr_changelog_post_op_done (call_frame_t *frame, xlator_t *this)
 {
@@ -544,6 +567,12 @@ afr_changelog_post_op_done (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv = this->private;
         int_lock = &local->internal_lock;
+
+        /* Fail the FOP if post-op did not succeed on quorum no. of bricks. */
+        if (!afr_post_op_has_quorum (local, this)) {
+                local->op_ret = -1;
+                local->op_errno = ENOTCONN;
+        }
 
 	if (local->transaction.resume_stub) {
 		call_resume (local->transaction.resume_stub);
