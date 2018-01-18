@@ -33,16 +33,6 @@
 
 extern int
 server3_3_getxattr (rpcsvc_request_t *req);
-extern int
-server3_3_fgetxattr (rpcsvc_request_t *req);
-extern int
-server3_3_setxattr (rpcsvc_request_t *req);
-extern int
-server3_3_fsetxattr (rpcsvc_request_t *req);
-extern int
-server3_3_xattrop (rpcsvc_request_t *req);
-extern int
-server3_3_fxattrop (rpcsvc_request_t *req);
 
 extern void
 set_resolve_gfid (client_t *client, uuid_t resolve_gfid,
@@ -5599,7 +5589,7 @@ out:
 }
 
 int
-server4_namelink (rpcsvc_request_t *req)
+server4_0_namelink (rpcsvc_request_t *req)
 {
         server_state_t    *state    = NULL;
         call_frame_t      *frame    = NULL;
@@ -5634,7 +5624,7 @@ out:
 }
 
 int
-server4_icreate (rpcsvc_request_t *req)
+server4_0_icreate (rpcsvc_request_t *req)
 {
         server_state_t   *state    = NULL;
         call_frame_t     *frame    = NULL;
@@ -5996,3 +5986,71 @@ out:
 
         return ret;
 }
+
+
+rpcsvc_actor_t glusterfs4_0_fop_actors[] = {
+        [GFS3_OP_NULL]        = { "NULL",       GFS3_OP_NULL, server_null, NULL, 0},
+        [GFS3_OP_STAT]        = { "STAT",       GFS3_OP_STAT, server4_0_stat, NULL, 0},
+        [GFS3_OP_READLINK]    = { "READLINK",   GFS3_OP_READLINK, server4_0_readlink, NULL, 0},
+        [GFS3_OP_MKNOD]       = { "MKNOD",      GFS3_OP_MKNOD, server4_0_mknod, NULL, 0},
+        [GFS3_OP_MKDIR]       = { "MKDIR",      GFS3_OP_MKDIR, server4_0_mkdir, NULL, 0},
+        [GFS3_OP_UNLINK]      = { "UNLINK",     GFS3_OP_UNLINK, server4_0_unlink, NULL, 0},
+        [GFS3_OP_RMDIR]       = { "RMDIR",      GFS3_OP_RMDIR, server4_0_rmdir, NULL, 0},
+        [GFS3_OP_SYMLINK]     = { "SYMLINK",    GFS3_OP_SYMLINK, server4_0_symlink, NULL, 0},
+        [GFS3_OP_RENAME]      = { "RENAME",     GFS3_OP_RENAME, server4_0_rename, NULL, 0},
+        [GFS3_OP_LINK]        = { "LINK",       GFS3_OP_LINK, server4_0_link, NULL, 0},
+        [GFS3_OP_TRUNCATE]    = { "TRUNCATE",   GFS3_OP_TRUNCATE, server4_0_truncate, NULL, 0},
+        [GFS3_OP_OPEN]        = { "OPEN",       GFS3_OP_OPEN, server4_0_open, NULL, 0},
+        [GFS3_OP_READ]        = { "READ",       GFS3_OP_READ, server4_0_readv, NULL, 0},
+        [GFS3_OP_WRITE]       = { "WRITE",      GFS3_OP_WRITE, server4_0_writev, server4_0_writev_vecsizer, 0},
+        [GFS3_OP_STATFS]      = { "STATFS",     GFS3_OP_STATFS, server4_0_statfs, NULL, 0},
+        [GFS3_OP_FLUSH]       = { "FLUSH",      GFS3_OP_FLUSH, server4_0_flush, NULL, 0},
+        [GFS3_OP_FSYNC]       = { "FSYNC",      GFS3_OP_FSYNC, server4_0_fsync, NULL, 0},
+        [GFS3_OP_GETXATTR]    = { "GETXATTR",   GFS3_OP_GETXATTR, server4_0_getxattr, NULL, 0},
+        [GFS3_OP_SETXATTR]    = { "SETXATTR",   GFS3_OP_SETXATTR, server4_0_setxattr, NULL, 0},
+        [GFS3_OP_REMOVEXATTR] = { "REMOVEXATTR", GFS3_OP_REMOVEXATTR, server4_0_removexattr, NULL, 0},
+        [GFS3_OP_OPENDIR]     = { "OPENDIR",    GFS3_OP_OPENDIR, server4_0_opendir, NULL, 0},
+        [GFS3_OP_FSYNCDIR]    = { "FSYNCDIR",   GFS3_OP_FSYNCDIR, server4_0_fsyncdir, NULL, 0},
+        [GFS3_OP_ACCESS]      = { "ACCESS",     GFS3_OP_ACCESS, server4_0_access, NULL, 0},
+        [GFS3_OP_CREATE]      = { "CREATE",     GFS3_OP_CREATE, server4_0_create, NULL, 0},
+        [GFS3_OP_FTRUNCATE]   = { "FTRUNCATE",  GFS3_OP_FTRUNCATE, server4_0_ftruncate, NULL, 0},
+        [GFS3_OP_FSTAT]       = { "FSTAT",      GFS3_OP_FSTAT, server4_0_fstat, NULL, 0},
+        [GFS3_OP_LK]          = { "LK",         GFS3_OP_LK, server4_0_lk, NULL, 0},
+        [GFS3_OP_LOOKUP]      = { "LOOKUP",     GFS3_OP_LOOKUP, server4_0_lookup, NULL, 0},
+        [GFS3_OP_READDIR]     = { "READDIR",    GFS3_OP_READDIR, server4_0_readdir, NULL, 0},
+        [GFS3_OP_INODELK]     = { "INODELK",    GFS3_OP_INODELK, server4_0_inodelk, NULL, 0},
+        [GFS3_OP_FINODELK]    = { "FINODELK",   GFS3_OP_FINODELK, server4_0_finodelk, NULL, 0},
+        [GFS3_OP_ENTRYLK]     = { "ENTRYLK",    GFS3_OP_ENTRYLK, server4_0_entrylk, NULL, 0},
+        [GFS3_OP_FENTRYLK]    = { "FENTRYLK",   GFS3_OP_FENTRYLK, server4_0_fentrylk, NULL, 0},
+        [GFS3_OP_XATTROP]     = { "XATTROP",    GFS3_OP_XATTROP, server4_0_xattrop, NULL, 0},
+        [GFS3_OP_FXATTROP]    = { "FXATTROP",   GFS3_OP_FXATTROP, server4_0_fxattrop, NULL, 0},
+        [GFS3_OP_FGETXATTR]   = { "FGETXATTR",  GFS3_OP_FGETXATTR, server4_0_fgetxattr, NULL, 0},
+        [GFS3_OP_FSETXATTR]   = { "FSETXATTR",  GFS3_OP_FSETXATTR, server4_0_fsetxattr, NULL, 0},
+        [GFS3_OP_RCHECKSUM]   = { "RCHECKSUM",  GFS3_OP_RCHECKSUM, server4_0_rchecksum, NULL, 0},
+        [GFS3_OP_SETATTR]     = { "SETATTR",    GFS3_OP_SETATTR, server4_0_setattr, NULL, 0},
+        [GFS3_OP_FSETATTR]    = { "FSETATTR",   GFS3_OP_FSETATTR, server4_0_fsetattr, NULL, 0},
+        [GFS3_OP_READDIRP]    = { "READDIRP",   GFS3_OP_READDIRP, server4_0_readdirp, NULL, 0},
+        [GFS3_OP_RELEASE]     = { "RELEASE",    GFS3_OP_RELEASE, server4_0_release, NULL, 0},
+        [GFS3_OP_RELEASEDIR]  = { "RELEASEDIR", GFS3_OP_RELEASEDIR, server4_0_releasedir, NULL, 0},
+        [GFS3_OP_FREMOVEXATTR] = { "FREMOVEXATTR", GFS3_OP_FREMOVEXATTR, server4_0_fremovexattr, NULL, 0},
+        [GFS3_OP_FALLOCATE]    = {"FALLOCATE",    GFS3_OP_FALLOCATE,    server4_0_fallocate,    NULL, 0, DRC_NA},
+        [GFS3_OP_DISCARD]      = {"DISCARD",      GFS3_OP_DISCARD,      server4_0_discard,      NULL, 0, DRC_NA},
+        [GFS3_OP_ZEROFILL]     = {"ZEROFILL",     GFS3_OP_ZEROFILL,     server4_0_zerofill,     NULL, 0, DRC_NA},
+        [GFS3_OP_IPC]          = {"IPC",          GFS3_OP_IPC,          server4_0_ipc,          NULL, 0, DRC_NA},
+        [GFS3_OP_SEEK]         = {"SEEK",         GFS3_OP_SEEK,         server4_0_seek,         NULL, 0, DRC_NA},
+        [GFS3_OP_LEASE]       =  {"LEASE",        GFS3_OP_LEASE,        server4_0_lease,        NULL, 0, DRC_NA},
+        [GFS3_OP_GETACTIVELK]  = {"GETACTIVELK",  GFS3_OP_GETACTIVELK,  server4_0_getactivelk,  NULL, 0, DRC_NA},
+        [GFS3_OP_SETACTIVELK]  = {"SETACTIVELK",  GFS3_OP_SETACTIVELK,  server4_0_setactivelk,  NULL, 0, DRC_NA},
+        [GFS3_OP_COMPOUND]     = {"COMPOUND",     GFS3_OP_COMPOUND,     server4_0_compound,     NULL, 0, DRC_NA},
+        [GFS3_OP_ICREATE]  = {"ICREATE",      GFS3_OP_ICREATE,      server4_0_icreate,  NULL, 0, DRC_NA},
+        [GFS3_OP_NAMELINK]     = {"NAMELINK",     GFS3_OP_NAMELINK,     server4_0_namelink,     NULL, 0, DRC_NA},
+};
+
+
+struct rpcsvc_program glusterfs4_0_fop_prog = {
+        .progname  = "GlusterFS 4.x v1",
+        .prognum   = GLUSTER_FOP_PROGRAM,
+        .progver   = GLUSTER_FOP_VERSION_v2,
+        .numactors = GLUSTER_FOP_PROCCNT,
+        .actors    = glusterfs4_0_fop_actors,
+};

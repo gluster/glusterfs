@@ -655,6 +655,257 @@ protocol_client_reopen (clnt_fd_ctx_t *fdctx, xlator_t *this)
                 protocol_client_reopenfile (fdctx, this);
 }
 
+/* v4.x +  */
+int
+client4_0_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                      void *myframe)
+{
+        int32_t        ret   = -1;
+        gfx_open_rsp   rsp   = {0,};
+        clnt_local_t  *local = NULL;
+        clnt_fd_ctx_t *fdctx = NULL;
+        call_frame_t  *frame = NULL;
+        xlator_t      *this  = NULL;
+
+        frame = myframe;
+        this  = frame->this;
+        local = frame->local;
+        fdctx = local->fdctx;
+
+        if (-1 == req->rpc_status) {
+                gf_msg (frame->this->name, GF_LOG_WARNING, ENOTCONN,
+                        PC_MSG_RPC_STATUS_ERROR, "received RPC status error, "
+                        "returning ENOTCONN");
+                rsp.op_ret   = -1;
+                rsp.op_errno = ENOTCONN;
+                goto out;
+        }
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gfx_open_rsp);
+        if (ret < 0) {
+                gf_msg (frame->this->name, GF_LOG_ERROR, EINVAL,
+                        PC_MSG_XDR_DECODING_FAILED, "XDR decoding failed");
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+        if (rsp.op_ret < 0) {
+                gf_msg (frame->this->name, GF_LOG_WARNING, rsp.op_errno,
+                        PC_MSG_DIR_OP_SUCCESS, "reopen on %s failed.",
+                        local->loc.path);
+        } else {
+                gf_msg_debug (frame->this->name, 0,
+                              "reopen on %s succeeded (remote-fd = %"PRId64")",
+                              local->loc.path, rsp.fd);
+        }
+
+        if (rsp.op_ret == -1) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        fdctx->reopen_done (fdctx, (rsp.op_ret) ? -1 : rsp.fd, this);
+
+        frame->local = NULL;
+        STACK_DESTROY (frame->root);
+
+        client_local_wipe (local);
+
+        return 0;
+}
+
+int
+client4_0_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                         void           *myframe)
+{
+        int32_t        ret   = -1;
+        gfx_open_rsp   rsp   = {0,};
+        clnt_local_t  *local = NULL;
+        clnt_fd_ctx_t *fdctx = NULL;
+        call_frame_t  *frame = NULL;
+
+        frame = myframe;
+        local = frame->local;
+        fdctx = local->fdctx;
+
+        if (-1 == req->rpc_status) {
+                gf_msg (frame->this->name, GF_LOG_WARNING, ENOTCONN,
+                        PC_MSG_RPC_STATUS_ERROR, "received RPC status error, "
+                        "returning ENOTCONN");
+                rsp.op_ret   = -1;
+                rsp.op_errno = ENOTCONN;
+                goto out;
+        }
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gfx_open_rsp);
+        if (ret < 0) {
+                gf_msg (frame->this->name, GF_LOG_ERROR, EINVAL,
+                        PC_MSG_XDR_DECODING_FAILED, "XDR decoding failed");
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+        if (rsp.op_ret < 0) {
+                gf_msg (frame->this->name, GF_LOG_WARNING, rsp.op_errno,
+                        PC_MSG_DIR_OP_FAILED, "reopendir on %s failed",
+                        local->loc.path);
+        } else {
+                gf_msg (frame->this->name, GF_LOG_INFO, 0,
+                        PC_MSG_DIR_OP_SUCCESS, "reopendir on %s succeeded "
+                        "(fd = %"PRId64")", local->loc.path, rsp.fd);
+        }
+
+        if (-1 == rsp.op_ret) {
+                ret = -1;
+                goto out;
+        }
+
+out:
+        fdctx->reopen_done (fdctx, (rsp.op_ret) ? -1 : rsp.fd, frame->this);
+
+        frame->local = NULL;
+        STACK_DESTROY (frame->root);
+        client_local_wipe (local);
+
+        return 0;
+}
+
+static int
+protocol_client_reopendir_v2 (clnt_fd_ctx_t *fdctx, xlator_t *this)
+{
+        int               ret   = -1;
+        gfx_opendir_req   req   = {{0,},};
+        clnt_local_t     *local = NULL;
+        call_frame_t     *frame = NULL;
+        clnt_conf_t      *conf  = NULL;
+
+        conf = this->private;
+
+        local = mem_get0 (this->local_pool);
+        if (!local) {
+                ret = -1;
+                goto out;
+        }
+        local->fdctx    = fdctx;
+
+        gf_uuid_copy (local->loc.gfid, fdctx->gfid);
+        ret = loc_path (&local->loc, NULL);
+        if (ret < 0)
+                goto out;
+
+        frame = create_frame (this, this->ctx->pool);
+        if (!frame) {
+                ret = -1;
+                goto out;
+        }
+
+        memcpy (req.gfid, fdctx->gfid, 16);
+
+        gf_msg_debug (frame->this->name, 0,
+                      "attempting reopen on %s", local->loc.path);
+
+        frame->local = local;
+
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_OPENDIR,
+                                     client4_0_reopendir_cbk, NULL,
+                                     NULL, 0, NULL, 0, NULL,
+                                     (xdrproc_t)xdr_gfx_opendir_req);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, PC_MSG_DIR_OP_FAILED,
+                        "failed to send the re-opendir request");
+        }
+
+        return 0;
+
+out:
+        if (local)
+                client_local_wipe (local);
+
+        fdctx->reopen_done (fdctx, fdctx->remote_fd, this);
+
+        return 0;
+
+}
+
+static int
+protocol_client_reopenfile_v2 (clnt_fd_ctx_t *fdctx, xlator_t *this)
+{
+        int            ret   = -1;
+        gfx_open_req   req   = {{0,},};
+        clnt_local_t  *local = NULL;
+        call_frame_t  *frame = NULL;
+        clnt_conf_t   *conf  = NULL;
+
+        conf  = this->private;
+
+        frame = create_frame (this, this->ctx->pool);
+        if (!frame) {
+                ret = -1;
+                goto out;
+        }
+
+        local = mem_get0 (this->local_pool);
+        if (!local) {
+                ret = -1;
+                goto out;
+        }
+
+        local->fdctx    = fdctx;
+        gf_uuid_copy (local->loc.gfid, fdctx->gfid);
+        ret = loc_path (&local->loc, NULL);
+        if (ret < 0)
+                goto out;
+
+        frame->local    = local;
+
+        memcpy (req.gfid, fdctx->gfid, 16);
+        req.flags    = gf_flags_from_flags (fdctx->flags);
+        req.flags    = req.flags & (~(O_TRUNC|O_CREAT|O_EXCL));
+
+        gf_msg_debug (frame->this->name, 0,
+                      "attempting reopen on %s", local->loc.path);
+
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_OPEN, client4_0_reopen_cbk, NULL,
+                                     NULL, 0, NULL, 0, NULL,
+                                     (xdrproc_t)xdr_gfx_open_req);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, PC_MSG_DIR_OP_FAILED,
+                        "failed to send the re-open request");
+        }
+
+        return 0;
+
+out:
+        if (frame) {
+                frame->local = NULL;
+                STACK_DESTROY (frame->root);
+        }
+
+        if (local)
+                client_local_wipe (local);
+
+        fdctx->reopen_done (fdctx, fdctx->remote_fd, this);
+
+        return 0;
+
+}
+
+static void
+protocol_client_reopen_v2 (clnt_fd_ctx_t *fdctx, xlator_t *this)
+{
+        if (fdctx->is_dir)
+                protocol_client_reopendir_v2 (fdctx, this);
+        else
+                protocol_client_reopenfile_v2 (fdctx, this);
+}
+
 gf_boolean_t
 __is_fd_reopen_in_progress (clnt_fd_ctx_t *fdctx)
 {
@@ -695,8 +946,12 @@ client_attempt_reopen (fd_t *fd, xlator_t *this)
         }
 unlock:
         pthread_spin_unlock (&conf->fd_lock);
-        if (reopen)
-                protocol_client_reopen (fdctx, this);
+        if (reopen) {
+                if (conf->fops->progver == GLUSTER_FOP_VERSION_v2)
+                        protocol_client_reopen_v2 (fdctx, this);
+                else
+                        protocol_client_reopen (fdctx, this);
+        }
 out:
         return;
 }
@@ -743,7 +998,10 @@ client_post_handshake (call_frame_t *frame, xlator_t *this)
                 list_for_each_entry_safe (fdctx, tmp, &reopen_head, sfd_pos) {
                         list_del_init (&fdctx->sfd_pos);
 
-                        protocol_client_reopen (fdctx, this);
+                        if (conf->fops->progver == GLUSTER_FOP_VERSION_v2)
+                                protocol_client_reopen_v2 (fdctx, this);
+                        else
+                                protocol_client_reopen (fdctx, this);
                 }
         } else {
                 gf_msg_debug (this->name, 0,
