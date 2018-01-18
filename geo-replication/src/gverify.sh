@@ -191,6 +191,17 @@ function main()
         exit 1;
     fi;
 
+    if [[ -z "${GR_SSH_IDENTITY_KEY}" ]]; then
+        err=$((ssh -p ${SSH_PORT} -oNumberOfPasswordPrompts=0 -oStrictHostKeyChecking=no $2@$3 "gluster --version") 2>&1)
+    else
+        err=$((ssh -p ${SSH_PORT} -i ${GR_SSH_IDENTITY_KEY} -oNumberOfPasswordPrompts=0 -oStrictHostKeyChecking=no $2@$3 "gluster --version") 2>&1)
+    fi
+
+    if [ $? -ne 0 ]; then
+        echo "FORCE_BLOCKER|gluster command on $2@$3 failed. Error: $err" > $log_file
+        exit 1;
+    fi;
+
     ERRORS=0;
     master_data=$(master_stats $1);
     slave_data=$(slave_stats $2 $3 $4);
@@ -236,7 +247,7 @@ function main()
     fi;
 
     if [[ $master_version != $slave_version ]]; then
-        echo "Gluster version mismatch between master and slave." >> $log_file;
+        echo "Gluster version mismatch between master and slave. Master version: $master_version Slave version: $slave_version" >> $log_file;
         ERRORS=$(($ERRORS + 1));
     fi;
 
