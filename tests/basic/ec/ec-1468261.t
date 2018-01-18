@@ -4,6 +4,8 @@
 # changelog enabled on EC volume.
 ###
 
+SCRIPT_TIMEOUT=300
+
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
 
