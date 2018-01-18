@@ -27,7 +27,7 @@ TEST $CLI volume set $V0 cluster.data-self-heal off
 TEST $CLI volume set $V0 cluster.metadata-self-heal off
 TEST $CLI volume set $V0 cluster.entry-self-heal off
 TEST $CLI volume start $V0
-TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0 --direct-io-mode=enable
+TEST $GFS --volfile-id=$V0 --volfile-server=$H0 --direct-io-mode=enable $M0
 
 cd $M0
 
