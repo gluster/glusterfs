@@ -331,4 +331,8 @@ posix_fdget_objectsignature (int, dict_t *);
 
 gf_boolean_t
 posix_is_bulk_removexattr (char *name, dict_t *dict);
+
+int32_t
+posix_set_mode_in_dict (dict_t *in_dict, dict_t *out_dict,
+                        struct iatt *in_stbuf);
 #endif /* _POSIX_H */
