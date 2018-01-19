@@ -37,6 +37,8 @@ TEST fd_open $fd 'rw' "$M0/test_file"
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "3" ec_child_up_count $V0 0
 
+sleep 1
+
 #Test the fd count
 EXPECT "0" get_fd_count $V0 $H0 $B0/${V0}0 test_file
 EXPECT "1" get_fd_count $V0 $H0 $B0/${V0}1 test_file

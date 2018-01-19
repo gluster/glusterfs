@@ -19,12 +19,12 @@ EXPECT 'Started' cluster_volinfo_field 1 $V0 'Status';
 TEST glusterfs -s $H1 --volfile-id $V0 $M0;
 TEST mkdir $M0/dir1
 
-# Create a large file (3.2 GB), so that rebalance takes time
-# Reading from /dev/urandom is slow, so we will cat it together
-dd if=/dev/urandom of=/tmp/FILE2 bs=64k count=10240
-for i in {1..5}; do
-  cat /tmp/FILE2 >> $M0/dir1/foo
-done
+# Create a large file (4 GB), so that rebalance takes time
+# Since we really don't care about the contents of the file, we use fallocate
+# to generate the file much faster. We could also use truncate, which is even
+# faster, but rebalance could take advantage of an sparse file and migrate it
+# in an optimized way, but we don't want a fast migration.
+TEST fallocate -l 4G $M0/dir1/foo
 
 TEST mv $M0/dir1/foo $M0/dir1/bar
 

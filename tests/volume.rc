@@ -116,16 +116,34 @@ function cleanup_statedump {
        #.vimrc friendly comment */
 }
 
+function wait_statedump_ready {
+        local maxtime="${1}000000000"
+        local pid="$2"
+        local deadline="$(($(date +%s%N) + maxtime))"
+        local fname
+
+        while [[ "$(date +%s%N)" < "$deadline" ]]; do
+                fname="$statedumpdir/$(ls $statedumpdir | grep -E "\.$pid\.dump\.")"
+                if [[ -f "$fname" ]]; then
+                        grep "^DUMP-END-TIME" "$fname" >/dev/null
+                        if [[ $? -eq 0 ]]; then
+                                echo $fname
+                                return
+                        fi
+                fi
+                usleep 100000
+        done
+
+        echo "nostatedump"
+}
+
 function generate_statedump {
         local fpath=""
         pid=$1
         #remove old stale statedumps
         cleanup_statedump $pid
         kill -USR1 $pid
-        #Wait till the statedump is generated
-        sleep 1
-        fname=$(ls $statedumpdir | grep -E "\.$pid\.dump\.")
-        echo $statedumpdir/$fname
+        wait_statedump_ready 3 $pid
 }
 
 function generate_mount_statedump {
@@ -309,15 +327,12 @@ function kill_brick {
 	local socket=$(cat $cmdline | tr '\0' '\n' | grep '\.socket$')
 
 	gf_attach -d $socket $brick
-	cnt=1
-        while [ "$cnt" -le "$PROCESS_UP_TIMEOUT" ] ;
-        do
-            online=`$CLI volume status $vol $host:$brick --xml | sed -ne 's/.*<status>\([01]\)<\/status>/\1/p'`
-            if [ $online -eq 0 ] ; then
-                break;
-            fi
-            cnt=$(( $cnt + 1 ))
-            sleep 1
+
+        local deadline="$(($(date +%s%N) + ${PROCESS_UP_TIMEOUT}000000000))"
+        while [[ "$(date +%s%N)" < "$deadline" ]]; do
+                if [[ "$(brick_up_status $vol $host $brick)" == "0" ]]; then
+                        break
+                fi
         done
 }
 
@@ -546,9 +561,8 @@ function volume_exists() {
 }
 
 function killall_gluster() {
-        pkill gluster
+        terminate_pids $(process_pids gluster)
         find $GLUSTERD_PIDFILEDIR -name '*.pid' | xargs rm -f
-        sleep 1
 }
 
 function afr_get_index_count {
@@ -868,7 +882,6 @@ function get_mount_active_size_value {
         local vol=$1
         local mount=$2
         local statedump=$(generate_mount_statedump $vol $mount)
-        sleep 1
         local val=$(grep "active_size" $statedump | cut -f2 -d'=' | tail -1)
         rm -f $statedump
         echo $val
@@ -878,7 +891,6 @@ function get_mount_lru_size_value {
         local vol=$1
         local mount=$2
         local statedump=$(generate_mount_statedump $vol $mount)
-        sleep 1
         local val=$(grep "lru_size" $statedump | cut -f2 -d'=' | tail -1)
         rm -f $statedump
         echo $val

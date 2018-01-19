@@ -22,7 +22,8 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "6" ec_child_up_count_shd $V0 0
 # active heal
 TEST $CLI volume heal $V0 full
 #ls -l gives "Total" line so number of lines will be 1 more
-EXPECT_WITHIN $HEAL_TIMEOUT "^11$" num_entries $B0/${V0}6
+EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count ${V0}
+EXPECT "^11$" num_entries $B0/${V0}6
 ec_version=$(get_hex_xattr trusted.ec.version $B0/${V0}0)
 EXPECT "$ec_version" get_hex_xattr trusted.ec.version $B0/${V0}1
 EXPECT "$ec_version" get_hex_xattr trusted.ec.version $B0/${V0}2

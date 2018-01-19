@@ -19,9 +19,9 @@ TEST $CLI volume create $V0 $H0:$L1 $H0:$L2 $H0:$L3;
 
 TEST $CLI volume start $V0;
 
-TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0;
+TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0;
 
-MOUNT_PID=`ps ax |grep "glusterfs --volfile-sever $H0 --volfile-id=$V0 $M0" | grep -v grep | awk '{print $1}' | head -1`
+MOUNT_PID=$(get_mount_process_pid $V0 $M0)
 
 for i in {1..10} ; do echo "file" > $M0/file$i ; done
 

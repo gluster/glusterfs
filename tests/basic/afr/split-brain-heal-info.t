@@ -47,9 +47,11 @@ SPB_FILES=$(($SPB_FILES + 1))
 
 #### Simulate entry-split-brain
 TEST kill_brick $V0 $H0 $B0/${V0}0
+EXPECT_WITHIN ${PROCESS_DOWN_TIMEOUT} "^0$" afr_child_up_status $V0 0
 TEST touch $M0/espb/a
 volume_start_force $V0
 TEST kill_brick $V0 $H0 $B0/${V0}1
+EXPECT_WITHIN ${PROCESS_DOWN_TIMEOUT} "^0$" afr_child_up_status $V0 1
 TEST mkdir $M0/espb/a
 volume_start_force $V0
 SPB_FILES=$(($SPB_FILES + 1))

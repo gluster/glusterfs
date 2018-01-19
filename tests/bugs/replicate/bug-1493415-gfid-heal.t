@@ -27,6 +27,11 @@ gfid_str_f1=$(gf_gfid_xattr_to_str $gfid_f1)
 TEST setfattr -x trusted.gfid $B0/${V0}1/f1
 TEST rm $B0/${V0}1/.glusterfs/${gfid_str_f1:0:2}/${gfid_str_f1:2:2}/$gfid_str_f1
 
+# storage/posix considers that a file without gfid changed less than a second
+# before doesn't exist, so we need to wait for a second to force posix to
+# consider that this is a valid file but without gfid.
+sleep 2
+
 # Assume there were no pending xattrs on parent dir due to 1st brick crashing
 # too. Then name heal from client must heal the gfid.
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
@@ -51,6 +56,11 @@ TEST rm $B0/${V0}1/.glusterfs/${gfid_str_f2:0:2}/${gfid_str_f2:2:2}/$gfid_str_f2
 #Now simulate setting of pending entry xattr on parent dir of 1st brick.
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000000000000000000001 $B0/${V0}0/dir
 create_brick_xattrop_entry $B0/${V0}0 dir
+
+# storage/posix considers that a file without gfid changed less than a second
+# before doesn't exist, so we need to wait for a second to force posix to
+# consider that this is a valid file but without gfid.
+sleep 2
 
 #Trigger entry-heal via shd
 TEST $CLI volume set $V0 self-heal-daemon on

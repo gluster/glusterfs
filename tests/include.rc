@@ -1,3 +1,6 @@
+
+checkpoint_time="$(date +%s%N)"
+
 M0=${M0:=/mnt/glusterfs/0};   # 0th mount point for FUSE
 M1=${M1:=/mnt/glusterfs/1};   # 1st mount point for FUSE
 M2=${M2:=/mnt/glusterfs/2};   # 2nd mount point for FUSE
@@ -130,8 +133,8 @@ _GFS () {
 	while true; do
 		touch $mount_point/xy_zzy 2> /dev/null && break
 		i=$((i+1))
-		[ $i -lt 10 ] || break
-		sleep 1
+		[ $i -lt 100 ] || break
+		usleep 100000
 	done
 	rm -f $mount_point/xy_zzy
 	return $mount_ret
@@ -207,6 +210,7 @@ function test_header()
         dbg "=========================";
         dbg "TEST $t (line $TESTLINE): $*";
         saved_cmd="$*"
+        start_time="$(date +%s%N)"
 }
 
 
@@ -215,15 +219,18 @@ function test_footer()
         RET=$?
         local lineno=$1
         local err=$2
+        local end_time
+        local elapsed1
+        local elapsed2
 
+        end_time="$(date +%s%N)"
+        elapsed1="$(((start_time - checkpoint_time) / 1000000))"
+        elapsed2="$(((end_time - start_time) / 1000000))"
+        checkpoint_time="$end_time"
         if [ $RET -eq 0 ]; then
-                echo "ok $t, LINENUM:$lineno";
+                printf "ok %3d [%7d/%7d] <%4d> '%s'\n" "$t" "$elapsed1" "$elapsed2" "$lineno" "$saved_cmd";
         else
-                echo "not ok $t $err, LINENUM:$lineno";
-                # With DEBUG, this was already printed out, so skip it.
-                if [ x"$DEBUG" = x"0" ]; then
-                        echo "FAILED COMMAND: $saved_cmd"
-                fi
+                printf "not ok %3d [%7d/%7d] <%4d> '%s' -> '%s'\n" "$t" "$elapsed1" "$elapsed2" "$lineno" "$saved_cmd" "$err"
                 if [ "$EXIT_EARLY" = "1" ]; then
 			cleanup
                         exit $RET
@@ -356,12 +363,12 @@ function _EXPECT_WITHIN()
         a="";
         shift;
 
-        local endtime=$(( ${timeout}+`date +%s` ))
+        local endtime="$(( ${timeout}000000000 + $(date +%s%N) ))"
 
         # We *want* this to be globally visible.
         EW_RETRIES=0
 
-        while [ `date +%s` -lt $endtime ]; do
+        while [[ "$(date +%s%N)" < "$endtime" ]]; do
                 a=$("$@" | tail -1 ; exit ${PIPESTATUS[0]})
                 ## Check command success
                 if [ $? -ne 0 ]; then
@@ -371,7 +378,7 @@ function _EXPECT_WITHIN()
                 if [[ "$a" =~ $e ]]; then
                         break;
                 fi
-                sleep 1;
+                usleep 250000;
                 EW_RETRIES=$((EW_RETRIES+1))
         done
 
@@ -546,6 +553,7 @@ function process_pids() {
 
 function cleanup()
 {
+        local end_time
 
         # Prepare flags for umount
         case `uname -s` in

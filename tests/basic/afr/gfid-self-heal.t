@@ -50,6 +50,10 @@ TEST kill_brick $V0 $H0 $B0/${V0}0
 TEST touch $M0/a
 gfid_1=$(gf_get_gfid_xattr $B0/${V0}1/a)
 TEST touch $B0/${V0}0/a
+# storage/posix considers that a file without gfid changed less than a second
+# before doesn't exist, so we need to wait for a second to force posix to
+# consider that this is a valid file but without gfid.
+sleep 1
 $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
 TEST stat $M0/a
@@ -62,6 +66,10 @@ TEST kill_brick $V0 $H0 $B0/${V0}0
 TEST touch $M0/b
 TEST mkdir $B0/${V0}0/b
 TEST setfattr -x trusted.afr.$V0-client-0 $B0/${V0}1
+# storage/posix considers that a file without gfid changed less than a second
+# before doesn't exist, so we need to wait for a second to force posix to
+# consider that this is a valid file but without gfid.
+sleep 1
 $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
 TEST ! stat $M0/b
@@ -71,6 +79,10 @@ TEST "[[ -z \"$gfid_0\" ]]"
 #Check gfid assigning doesn't happen when there is type mismatch
 TEST touch $B0/${V0}1/c
 TEST mkdir $B0/${V0}0/c
+# storage/posix considers that a file without gfid changed less than a second
+# before doesn't exist, so we need to wait for a second to force posix to
+# consider that this is a valid file but without gfid.
+sleep 1
 TEST ! stat $M0/c
 gfid_1=$(gf_get_gfid_xattr $B0/${V0}1/c)
 gfid_0=$(gf_get_gfid_xattr $B0/${V0}0/c)
@@ -81,6 +93,10 @@ TEST "[[ -z \"$gfid_0\" ]]"
 # gfid split-brain
 TEST kill_brick $V0 $H0 $B0/${V0}0
 TEST touch $B0/${V0}1/d
+# storage/posix considers that a file without gfid changed less than a second
+# before doesn't exist, so we need to wait for a second to force posix to
+# consider that this is a valid file but without gfid.
+sleep 1
 TEST ! stat $M0/d
 gfid_1=$(gf_get_gfid_xattr $B0/${V0}1/d)
 TEST "[[ -z \"$gfid_1\" ]]"

@@ -32,13 +32,17 @@ EXPECT "000000010000000000000000" get_hex_xattr trusted.afr.$V0-client-0 $B0/bri
 EXPECT "000000010000000000000000" get_hex_xattr trusted.afr.$V0-client-0 $B0/ta/trusted.afr.patchy-ta-2
 
 #Umount and mount to remove cached data.
-TEST umount $M0
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST ta_start_mount_process $M0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" ta_up_status $V0 $M0 0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 1
 # Read must be allowed since good brick is up.
 TEST  cat $M0/FILE
 
+#Umount and mount to remove cached data.
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
+TEST ta_start_mount_process $M0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" ta_up_status $V0 $M0 0
 # Toggle good and bad data brick processes.
 TEST ta_start_brick_process brick0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 0

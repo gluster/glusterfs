@@ -35,26 +35,30 @@ function parse_args () {
 
 function delete_brick_fcontext()
 {
-  volname="${1}"
+  local volname=$1
+  local fctx
+  local list=()
 
+  fctx="$(semanage fcontext --list -C)"
   # grab the path for each local brick
   brickpath="/var/lib/glusterd/vols/${volname}/bricks/"
-  brickdirs=$(
-    find "${brickpath}" -type f -exec grep '^path=' {} \; | \
-    cut -d= -f 2 | \
-    sort -u
-  )
-
+  brickdirs=$(find "${brickpath}" -type f -exec grep '^path=' {} \; | \
+    cut -d= -f 2 | sort -u)
   for b in ${brickdirs}
   do
-    # remove the file context associated with the brick path
     pattern="${b}(/.*)?"
-    semanage fcontext --delete "${pattern}"
-
-    # remove the labels on brick path.
+    echo "${fctx}" | grep "^${pattern}\s" >/dev/null
+    if [[ $? -eq 0 ]]; then
+      list+=("${pattern}")
+    fi
+  done
+  if [[ ${#list[@]} -gt 0 ]]; then
+    printf 'fcontext --delete %s\n' "${list[@]}" | semanage -i -
+  fi
+  for b in ${brickdirs}
+  do
     restorecon -R "${b}"
- done
-
+  done
 }
 
 SELINUX_STATE=$(which getenforce && getenforce)
