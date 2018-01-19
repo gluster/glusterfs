@@ -1641,14 +1641,26 @@ unlock:
 }
 
 static int
-is_fresh_file(int64_t ctime_sec)
+is_fresh_file(int64_t sec, int64_t ns)
 {
     struct timeval tv;
+    int64_t elapsed;
 
     gettimeofday(&tv, NULL);
 
-    if ((ctime_sec >= (tv.tv_sec - 1)) && (ctime_sec <= tv.tv_sec))
+    elapsed = (tv.tv_sec - sec) * 1000000L;
+    elapsed += tv.tv_usec - (ns / 1000L);
+    if (elapsed < 0) {
+        /* The file has been modified in the future !!!
+         * Is it fresh ? previous implementation considered this as a
+         * non-fresh file, so maintaining the same behavior. */
+        return 0;
+    }
+
+    /* If the file is newer than a second, we consider it fresh. */
+    if (elapsed < 1000000) {
         return 1;
+    }
 
     return 0;
 }
@@ -1711,7 +1723,9 @@ posix_gfid_heal(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
         }
         ret = sys_lgetxattr(path, GFID_XATTR_KEY, uuid_curr, 16);
         if (ret != 16) {
-            if (is_fresh_file(stbuf.ia_ctime)) {
+            /* TODO: This is a very hacky way of doing this, and very prone to
+             *       errors and unexpected behavior. This should be changed. */
+            if (is_fresh_file(stbuf.ia_ctime, stbuf.ia_ctime_nsec)) {
                 gf_msg(this->name, GF_LOG_ERROR, ENOENT, P_MSG_FRESHFILE,
                        "Fresh file: %s", path);
                 return -ENOENT;
@@ -1723,7 +1737,9 @@ posix_gfid_heal(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
         }
         ret = sys_lgetxattr(path, GFID_XATTR_KEY, uuid_curr, 16);
         if (ret != 16) {
-            if (is_fresh_file(stat.st_ctime)) {
+            /* TODO: This is a very hacky way of doing this, and very prone to
+             *       errors and unexpected behavior. This should be changed. */
+            if (is_fresh_file(stat.st_ctim.tv_sec, stat.st_ctim.tv_nsec)) {
                 gf_msg(this->name, GF_LOG_ERROR, ENOENT, P_MSG_FRESHFILE,
                        "Fresh file: %s", path);
                 return -ENOENT;
