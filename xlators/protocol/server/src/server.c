@@ -1815,6 +1815,11 @@ struct volume_options server_options[] = {
                          "overrides the auth.allow option. By default, all"
                          " connections are allowed."
         },
+        /* This is not a valid path w.r.t daemons, hence it's string */
+        { .key   = {"auth-path"},
+          .type  = GF_OPTION_TYPE_STR,
+          .default_value = "{{ brick.path }}"
+        },
         { .key  = {"rpc.outstanding-rpc-limit"},
           .type = GF_OPTION_TYPE_INT,
           .min  = RPCSVC_MIN_OUTSTANDING_RPC_LIMIT,
