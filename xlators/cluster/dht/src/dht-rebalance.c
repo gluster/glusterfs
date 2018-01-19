@@ -17,6 +17,7 @@
 #include <fnmatch.h>
 #include <signal.h>
 #include "events.h"
+#include "glusterfs-acl.h"
 
 #define GF_DISK_SECTOR_SIZE             512
 #define DHT_REBALANCE_PID               4242 /* Change it if required */
@@ -160,7 +161,14 @@ dht_send_rebalance_event (xlator_t *this, int cmd, gf_defrag_status_t status)
 }
 
 
-
+static void
+dht_strip_out_acls (dict_t *dict)
+{
+        if (dict) {
+                dict_del (dict, "trusted.SGI_ACL_FILE");
+                dict_del (dict, POSIX_ACL_ACCESS_XATTR);
+        }
+}
 
 
 static int
@@ -654,7 +662,7 @@ out:
 static int
 __dht_rebalance_create_dst_file (xlator_t *this, xlator_t *to, xlator_t *from,
                                  loc_t *loc, struct iatt *stbuf, fd_t **dst_fd,
-                                 dict_t *xattr, int *fop_errno)
+                                 int *fop_errno)
 {
         int          ret  = -1;
         fd_t        *fd   = NULL;
@@ -798,28 +806,6 @@ __dht_rebalance_create_dst_file (xlator_t *this, xlator_t *to, xlator_t *from,
                 ret = -1;
                 goto out;
         }
-
-        ret = syncop_fsetxattr (to, fd, xattr, 0, NULL, NULL);
-        if (ret < 0) {
-                *fop_errno = -ret;
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        DHT_MSG_MIGRATE_FILE_FAILED,
-                        "%s: failed to set xattr on %s (%s)",
-                        loc->path, to->name, strerror (-ret));
-
-        }
-
-        /* TODO: Need to add a detailed comment about why we moved away from
-        ftruncate.
-
-        ret = syncop_ftruncate (to, fd, stbuf->ia_size, NULL, NULL);
-        if (ret < 0) {
-                *fop_errno = -ret;
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        DHT_MSG_MIGRATE_FILE_FAILED,
-                        "ftruncate failed for %s on %s (%s)",
-                        loc->path, to->name, strerror (-ret));
-        */
 
         ret = syncop_fsetattr (to, fd, stbuf,
                                (GF_SET_ATTR_UID | GF_SET_ATTR_GID),
@@ -1676,21 +1662,9 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         }
 
 
-        /* TODO: move all xattr related operations to fd based operations */
-        ret = syncop_listxattr (from, loc, &xattr, NULL, NULL);
-        if (ret < 0) {
-                *fop_errno = -ret;
-                ret = -1;
-                gf_msg (this->name, GF_LOG_WARNING, 0,
-                        DHT_MSG_MIGRATE_FILE_FAILED,
-                        "Migrate file failed:"
-                        "%s: failed to get xattr from %s (%s)",
-                        loc->path, from->name, strerror (*fop_errno));
-        }
-
         /* create the destination, with required modes/xattr */
         ret = __dht_rebalance_create_dst_file (this, to, from, loc, &stbuf,
-                                               &dst_fd, xattr, fop_errno);
+                                               &dst_fd, fop_errno);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, 0, "Create dst failed"
                         " on - %s for file - %s", to->name, loc->path);
@@ -1732,7 +1706,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                  * as in case of failure the linkto needs to point to the source
                  * subvol */
                 ret = __dht_rebalance_create_dst_file (this, to, from, loc, &stbuf,
-                                                       &dst_fd, xattr, fop_errno);
+                                                       &dst_fd, fop_errno);
                 if (ret) {
                         gf_log (this->name, GF_LOG_ERROR, "Create dst failed"
                                 " on - %s for file - %s", to->name, loc->path);
@@ -1760,6 +1734,43 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         loc->path, from->name);
                 goto out;
         }
+
+        /* TODO: move all xattr related operations to fd based operations */
+        ret = syncop_listxattr (from, loc, &xattr, NULL, NULL);
+        if (ret < 0) {
+                *fop_errno = -ret;
+                gf_msg (this->name, GF_LOG_WARNING, *fop_errno,
+                        DHT_MSG_MIGRATE_FILE_FAILED,
+                        "Migrate file failed:"
+                        "%s: failed to get xattr from %s",
+                        loc->path, from->name);
+                ret = -1;
+                goto out;
+        }
+
+        /* Copying posix acls to the linkto file messes up the permissions*/
+        dht_strip_out_acls (xattr);
+
+        /* Remove the linkto xattr as we don't want to overwrite the value
+         * set on the dst.
+         */
+        dict_del (xattr, conf->link_xattr_name);
+
+        /* We need to error out if this fails as having the wrong shard xattrs
+         * set on the dst could cause data corruption
+         */
+        ret = syncop_fsetxattr (to, dst_fd, xattr, 0, NULL, NULL);
+        if (ret < 0) {
+                *fop_errno = -ret;
+                gf_msg (this->name, GF_LOG_WARNING, -ret,
+                        DHT_MSG_MIGRATE_FILE_FAILED,
+                        "%s: failed to set xattr on %s",
+                        loc->path, to->name);
+                ret = -1;
+                goto out;
+        }
+
+
         if (xattr_rsp) {
                 /* we no more require this key */
                 dict_del (dict, conf->link_xattr_name);
@@ -2070,7 +2081,9 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 xattr = NULL;
         }
 
-        ret = syncop_listxattr (from, loc, &xattr, NULL, NULL);
+        /* Set only the Posix ACLs this time */
+        ret = syncop_getxattr (from, loc, &xattr, POSIX_ACL_ACCESS_XATTR,
+                               NULL, NULL);
         if (ret < 0) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_MIGRATE_FILE_FAILED,

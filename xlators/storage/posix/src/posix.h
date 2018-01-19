@@ -321,4 +321,7 @@ posix_get_objectsignature (char *, dict_t *);
 int32_t
 posix_fdget_objectsignature (int, dict_t *);
 
+int32_t
+posix_set_mode_in_dict (dict_t *in_dict, dict_t *out_dict,
+                        struct iatt *in_stbuf);
 #endif /* _POSIX_H */
