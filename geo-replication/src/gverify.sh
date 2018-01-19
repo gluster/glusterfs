@@ -7,7 +7,8 @@
 # Considering buffer_size 100MB
 BUFFER_SIZE=104857600;
 SSH_PORT=$5;
-slave_log_file=`gluster --print-logdir`/geo-replication-slaves/slave.log
+master_log_file=`gluster --print-logdir`/geo-replication/gverify-mastermnt.log
+slave_log_file=`gluster --print-logdir`/geo-replication/gverify-slavemnt.log
 
 function SSHM()
 {
@@ -101,7 +102,7 @@ function master_stats()
     local m_status;
 
     d=$(mktemp -d -t ${0##*/}.XXXXXX 2>/dev/null);
-    glusterfs -s localhost --xlator-option="*dht.lookup-unhashed=off" --volfile-id $MASTERVOL -l $slave_log_file $d;
+    glusterfs -s localhost --xlator-option="*dht.lookup-unhashed=off" --volfile-id $MASTERVOL -l $master_log_file $d;
     i=$(get_inode_num $d);
     if [[ "$i" -ne "1" ]]; then
         echo 0:0;
@@ -214,12 +215,12 @@ function main()
     slave_no_of_files=$(echo $slave_data | cut -f4 -d':');
 
     if [[ "x$master_disk_size" = "x" || "x$master_version" = "x" || "$master_disk_size" -eq "0" ]]; then
-        echo "FORCE_BLOCKER|Unable to fetch master volume details. Please check the master cluster and master volume." > $log_file;
+        echo "FORCE_BLOCKER|Unable to mount and fetch master volume details. Please check the log: $master_log_file" > $log_file;
 	exit 1;
     fi;
 
     if [[ "x$slave_disk_size" = "x" || "x$slave_version" = "x" || "$slave_disk_size" -eq "0" ]]; then
-	echo "FORCE_BLOCKER|Unable to fetch slave volume details. Please check the slave cluster and slave volume." > $log_file;
+	echo "FORCE_BLOCKER|Unable to mount and fetch slave volume details. Please check the log: $slave_log_file" > $log_file;
 	exit 1;
     fi;
 
