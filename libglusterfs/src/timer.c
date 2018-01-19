@@ -53,7 +53,7 @@ gf_timer_call_after(glusterfs_ctx_t *ctx, struct timespec delta,
     event->callbk = callbk;
     event->data = data;
     event->xl = THIS;
-    LOCK(&reg->lock);
+    pthread_mutex_lock(&reg->lock);
     {
         list_for_each_entry_reverse(trav, &reg->active, list)
         {
@@ -61,8 +61,11 @@ gf_timer_call_after(glusterfs_ctx_t *ctx, struct timespec delta,
                 break;
         }
         list_add(&event->list, &trav->list);
+        if (&trav->list == &reg->active) {
+            pthread_cond_signal(&reg->cond);
+        }
     }
-    UNLOCK(&reg->lock);
+    pthread_mutex_unlock(&reg->lock);
     return event;
 }
 
@@ -98,7 +101,7 @@ gf_timer_call_cancel(glusterfs_ctx_t *ctx, gf_timer_t *event)
         return -1;
     }
 
-    LOCK(&reg->lock);
+    pthread_mutex_lock(&reg->lock);
     {
         fired = event->fired;
         if (fired)
@@ -106,7 +109,7 @@ gf_timer_call_cancel(glusterfs_ctx_t *ctx, gf_timer_t *event)
         list_del(&event->list);
     }
 unlock:
-    UNLOCK(&reg->lock);
+    pthread_mutex_unlock(&reg->lock);
 
     if (!fired) {
         GF_FREE(event);
@@ -119,64 +122,28 @@ static void *
 gf_timer_proc(void *data)
 {
     gf_timer_registry_t *reg = data;
-    struct timespec sleepts;
     gf_timer_t *event = NULL;
     gf_timer_t *tmp = NULL;
     xlator_t *old_THIS = NULL;
 
+    pthread_mutex_lock(&reg->lock);
+
     while (!reg->fin) {
-        uint64_t now;
-        struct timespec now_ts;
+        if (list_empty(&reg->active)) {
+            pthread_cond_wait(&reg->cond, &reg->lock);
+        } else {
+            struct timespec now;
 
-        timespec_now(&now_ts);
-        now = TS(now_ts);
-        while (1) {
-            uint64_t at;
-            char need_cbk = 0;
+            timespec_now(&now);
+            event = list_first_entry(&reg->active, gf_timer_t, list);
+            if (TS(now) < TS(event->at)) {
+                pthread_cond_timedwait(&reg->cond, &reg->lock, &event->at);
+            } else {
+                event->fired = _gf_true;
+                list_del_init(&event->list);
 
-            /*
-             * This will be overridden with a shorter interval if
-             * there's an event scheduled sooner. That makes the
-             * system more responsive in most cases, but doesn't
-             * include the case where a timer is added while we're
-             * asleep. It's tempting to use pthread_cond_timedwait,
-             * with the caveat that we'd be relying on system time
-             * instead of monotonic time. That's a mess when the
-             * system time is adjusted.  Another alternative might
-             * be to use pthread_kill, but that will remain TBD for
-             * now.
-             */
-            sleepts.tv_sec = 1;
-            sleepts.tv_nsec = 0;
+                pthread_mutex_unlock(&reg->lock);
 
-            LOCK(&reg->lock);
-            {
-                /*
-                 * Using list_for_each and then always breaking
-                 * after the first iteration might seem strange,
-                 * but (unlike alternatives) is independent of
-                 * the underlying list implementation.
-                 */
-                list_for_each_entry_safe(event, tmp, &reg->active, list)
-                {
-                    at = TS(event->at);
-                    if (now >= at) {
-                        need_cbk = 1;
-                        event->fired = _gf_true;
-                        list_del(&event->list);
-                    } else {
-                        uint64_t diff = now - at;
-
-                        if (diff < 1000000000) {
-                            sleepts.tv_sec = 0;
-                            sleepts.tv_nsec = diff;
-                        }
-                    }
-                    break;
-                }
-            }
-            UNLOCK(&reg->lock);
-            if (need_cbk) {
                 old_THIS = NULL;
                 if (event->xl) {
                     old_THIS = THIS;
@@ -187,33 +154,29 @@ gf_timer_proc(void *data)
                 if (old_THIS) {
                     THIS = old_THIS;
                 }
-            } else {
-                break;
+
+                pthread_mutex_lock(&reg->lock);
             }
         }
-        nanosleep(&sleepts, NULL);
     }
 
-    LOCK(&reg->lock);
+    /* Do not call gf_timer_call_cancel(),
+     * it will lead to deadlock
+     */
+    list_for_each_entry_safe(event, tmp, &reg->active, list)
     {
-        /* Do not call gf_timer_call_cancel(),
-         * it will lead to deadlock
+        list_del(&event->list);
+        /* TODO Possible resource leak
+         * Before freeing the event, we need to call the respective
+         * event functions and free any resources.
+         * For example, In case of rpc_clnt_reconnect, we need to
+         * unref rpc object which was taken when added to timer
+         * wheel.
          */
-        list_for_each_entry_safe(event, tmp, &reg->active, list)
-        {
-            list_del(&event->list);
-            /* TODO Possible resource leak
-             * Before freeing the event, we need to call the respective
-             * event functions and free any resources.
-             * For example, In case of rpc_clnt_reconnect, we need to
-             * unref rpc object which was taken when added to timer
-             * wheel.
-             */
-            GF_FREE(event);
-        }
+        GF_FREE(event);
     }
-    UNLOCK(&reg->lock);
-    LOCK_DESTROY(&reg->lock);
+
+    pthread_mutex_unlock(&reg->lock);
 
     return NULL;
 }
@@ -223,6 +186,7 @@ gf_timer_registry_init(glusterfs_ctx_t *ctx)
 {
     gf_timer_registry_t *reg = NULL;
     int ret = -1;
+    pthread_condattr_t attr;
 
     LOCK(&ctx->lock);
     {
@@ -237,7 +201,10 @@ gf_timer_registry_init(glusterfs_ctx_t *ctx)
             goto out;
         }
         ctx->timer = reg;
-        LOCK_INIT(&reg->lock);
+        pthread_mutex_init(&reg->lock, NULL);
+        pthread_condattr_init(&attr);
+        pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
+        pthread_cond_init(&reg->cond, &attr);
         INIT_LIST_HEAD(&reg->active);
     }
     UNLOCK(&ctx->lock);
@@ -271,7 +238,18 @@ gf_timer_registry_destroy(glusterfs_ctx_t *ctx)
         return;
 
     thr_id = reg->th;
+
+    pthread_mutex_lock(&reg->lock);
+
     reg->fin = 1;
+    pthread_cond_signal(&reg->cond);
+
+    pthread_mutex_unlock(&reg->lock);
+
     pthread_join(thr_id, NULL);
+
+    pthread_cond_destroy(&reg->cond);
+    pthread_mutex_destroy(&reg->lock);
+
     GF_FREE(reg);
 }

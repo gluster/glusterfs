@@ -34,11 +34,12 @@ EXPECT_WITHIN $IO_WAIT_TIMEOUT "^$" get_hex_xattr trusted.ec.dirty $B0/${V0}3/te
 EXPECT_WITHIN $IO_WAIT_TIMEOUT "^$" get_hex_xattr trusted.ec.dirty $B0/${V0}4/test_dir
 EXPECT_WITHIN $IO_WAIT_TIMEOUT "^$" get_hex_xattr trusted.ec.dirty $B0/${V0}5/test_dir
 
-#Touch a file and kill two bricks
-TEST touch $M0/test_dir/new_file
+#Kill two bricks and touch a file
 TEST kill_brick $V0 $H0 $B0/${V0}0
 TEST kill_brick $V0 $H0 $B0/${V0}1
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "4" ec_child_up_count $V0 0
+TEST touch $M0/test_dir/new_file
+sleep 2
 
 #Dirty should be set on up bricks
 EXPECT_WITHIN $IO_WAIT_TIMEOUT  "^00000000000000010000000000000001$" get_hex_xattr trusted.ec.dirty $B0/${V0}2/test_dir
@@ -59,7 +60,7 @@ TEST glusterfs -s $H0 --volfile-id $V0 $M0;
 
 #Create a tar file
 TEST mkdir /tmp/test_dir
-echo /tmp/test_dir/file-{1..3000} | xargs -n 1 -P 20 -I {} dd if=/dev/urandom of={} bs=10K count=1
+seq 1 3000 | xargs -n 1 -P 20 -I {} dd if=/dev/urandom of=/tmp/test_dir/file-{} bs=10K count=1
 tar -cf /tmp/test_dir.tar /tmp/test_dir/ 2>/dev/null
 rm -rf /tmp/test_dir/
 

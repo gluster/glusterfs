@@ -34,10 +34,11 @@ struct _gf_timer {
 };
 
 struct _gf_timer_registry {
+    struct list_head active;
+    pthread_mutex_t lock;
+    pthread_cond_t cond;
     pthread_t th;
     char fin;
-    struct list_head active;
-    gf_lock_t lock;
 };
 
 typedef struct _gf_timer gf_timer_t;
