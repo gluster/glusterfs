@@ -136,6 +136,7 @@ struct rpc_clnt_connection {
     struct saved_frames *saved_frames;
     struct timespec last_sent;
     struct timespec last_received;
+    struct timespec reconnect_delay;
     uint64_t pingcnt;
     uint64_t msgcnt;
     uint64_t cleanup_gen;
