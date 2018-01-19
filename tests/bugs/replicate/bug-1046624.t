@@ -25,11 +25,12 @@ TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
 ## Mount native
-TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0 --use-readdirp=no
+TEST ${GFS} --volfile-server=$H0 --volfile-id=$V0 --use-readdirp=no $M0
 
 TEST `echo "TEST-FILE" > $M0/File`
 TEST `mkdir $M0/Dir`
 TEST kill_brick $V0 $H0 $B0/${V0}-0
+EXPECT_WITHIN ${PROCESS_DOWN_TIMEOUT} "^0$" afr_child_up_status $V0 0
 
 TEST `ln -s $M0/File $M0/Link1`
 TEST `ln -s $M0/Dir $M0/Link2`

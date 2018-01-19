@@ -37,12 +37,12 @@ TEST write_to "$M0/test.txt" "$D1"
 EXPECT "$D1" cat $M0/test.txt
 EXPECT "$D0" cat $M1/test.txt
 
-sleep 1
+sleep 2
 EXPECT "$D1" cat $M1/test.txt
 
 TEST $CLI volume set $V0 features.cache-invalidation on
-TEST $CLI volume set $V0 performance.qr-cache-timeout 60
-TEST $CLI volume set $V0 performance.md-cache-timeout 60
+TEST $CLI volume set $V0 performance.qr-cache-timeout 15
+TEST $CLI volume set $V0 performance.md-cache-timeout 15
 
 TEST write_to "$M0/test1.txt" "$D0"
 EXPECT "$D0" cat $M0/test1.txt
@@ -55,7 +55,7 @@ EXPECT "$D0" cat $M1/test1.txt
 sleep 1
 EXPECT "$D0" cat $M1/test1.txt
 
-sleep 60
+sleep 30
 EXPECT "$D1" cat $M1/test1.txt
 
 TEST $CLI volume set $V0 performance.cache-invalidation on
