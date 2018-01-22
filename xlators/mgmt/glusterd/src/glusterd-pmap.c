@@ -267,6 +267,21 @@ pmap_registry_bind (xlator_t *this, int port, const char *brickname,
                 goto out;
 
         p = port;
+        if (pmap->ports[p].type == GF_PMAP_PORT_FREE) {
+                /* Because of some crazy race in volume start code path because
+                 * of friend handshaking with volumes with quorum enabled we
+                 * might end up into a situation where glusterd would start a
+                 * brick and get a disconnect and then immediately try to start
+                 * the same brick instance based on another friend update
+                 * request. And then if for the very first brick even if the
+                 * process doesn't come up at the end sign in event gets sent
+                 * and we end up having two duplicate portmap entries for the
+                 * same brick. Since in brick start we mark the previous port as
+                 * free, its better to consider a sign in request as no op if
+                 * the corresponding port type is marked as free
+                 */
+                goto out;
+        }
         if (pmap->ports[p].brickname) {
                 char *tmp = pmap->ports[p].brickname;
                 asprintf (&pmap->ports[p].brickname, "%s %s", tmp, brickname);
