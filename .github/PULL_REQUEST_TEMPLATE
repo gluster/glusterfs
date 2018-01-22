@@ -1,0 +1,33 @@
+Many thanks for your interest in improving GlusterFS!
+
+GlusterFS does not use GitHub Pull-Requests. Instead, changes are reviewed
+on the Gerrit instance of the Gluster Community at https://review.gluster.org
+
+In order to send your changes for review, follow these steps:
+
+1. login on https://review.gluster.org with your GitHub account
+2. add a public ssh-key to your profile on https://review.gluster.org/#/settings/ssh-keys
+3. add the Gerrit remote to your locally cloned git repository
+
+   $ git remote add gerrit ssh://$USER@review.gluster.org/glusterfs.git
+
+4. configure the commit hooks
+
+   $ git review --setup
+
+5. post your changes to Gerrit
+
+   $ git review
+
+
+You may need to install the 'git-review' package if 'git review' is not
+available. Note that the hooks for the repository make sure to add a ChangeId
+label in the commit messages. Gerrit uses the ChangeId to track single patches
+and its updated versions.
+
+For more details, see the documented development workflow at
+  http://gluster.readthedocs.io/en/latest/Developer-guide/Simplified-Development-Workflow/
+
+If there are any troubles or difficulties with these instructions, please
+contact us on gluster-devel@gluster.org or on Freenode IRC in the #gluster-dev
+channel.
