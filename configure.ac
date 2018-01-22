@@ -152,6 +152,8 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/marker/src/Makefile
                 xlators/features/selinux/Makefile
                 xlators/features/selinux/src/Makefile
+                xlators/features/sdfs/Makefile
+                xlators/features/sdfs/src/Makefile
                 xlators/features/read-only/Makefile
                 xlators/features/read-only/src/Makefile
                 xlators/features/compress/Makefile
