@@ -2453,7 +2453,10 @@ valid_ipv4_subnetwork (const char *address)
                                   "Invalid IPv4 subnetwork address");
                 goto out;
         }
-
+        /*
+         * Reset errno before checking it
+         */
+        errno = 0;
         prefixlen = strtol (slash + 1, &endptr, 10);
         if ((errno != 0) || (*endptr != '\0') ||
             (prefixlen < 0) || (prefixlen > IPv4_ADDR_SIZE)) {
