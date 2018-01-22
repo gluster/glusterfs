@@ -3718,6 +3718,16 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_3_13_0,
           .flags      = VOLOPT_FLAG_CLIENT_OPT
         },
+        { .key         = "features.sdfs",
+          .voltype     = "features/sdfs",
+          .value       = "off",
+          .option      = "!features",
+          .op_version  = GD_OP_VERSION_4_0_0,
+          .description = "enable/disable dentry serialization xlator in volume",
+          .flags       = VOLOPT_FLAG_CLIENT_OPT | VOLOPT_FLAG_XLATOR_OPT,
+          .type        = NO_DOC,
+        },
+
         { .key         = NULL
         }
 };
