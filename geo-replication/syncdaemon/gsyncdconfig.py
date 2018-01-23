@@ -36,6 +36,8 @@ class Gconf(object):
         self.args = args
         self.extra_tmpl_args = extra_tmpl_args
         self.override_from_args = override_from_args
+        # Store default values only if overwriten, Only for JSON/CLI output
+        self.default_values = {}
         self._load()
 
     def _tmpl_substitute(self):
@@ -63,6 +65,8 @@ class Gconf(object):
                 "to_" + self.gconf_typecast.get(k, "string"), None)
             if cast_func is not None:
                 self.gconf[k] = cast_func(v)
+                if self.default_values.get(k, None) is not None:
+                    self.default_values[k] = cast_func(v)
 
     def reset(self, name):
         # If custom conf file is not set then it is only read only configs
@@ -150,6 +154,7 @@ class Gconf(object):
         self.gconf_typecast = {}
         self.non_configurable_configs = []
         self.session_conf_items = []
+        self.default_values = {}
 
         conf = ConfigParser()
         # Default Template config file
@@ -196,6 +201,7 @@ class Gconf(object):
         if conf.has_section("vars"):
             for k, v in conf.items("vars"):
                 self.session_conf_items.append(k)
+                self.default_values[k] = self.gconf.get(k, "")
                 self.gconf[k] = v.strip()
 
         # Overwrite the Slave configurations which are sent as
@@ -221,17 +227,36 @@ class Gconf(object):
         if not show_defaults:
             for k in self.session_conf_items:
                 if k not in self.non_configurable_configs:
-                    cnf[k] = self.get(k)
-
+                    dv = self.default_values.get(k, "")
+                    cnf[k] = {
+                        "value": self.get(k),
+                        "default": dv,
+                        "configurable": True,
+                        "modified": False if dv == "" else True
+                    }
             return cnf
 
         # Show all configs including defaults
         for k, v in self.gconf.items():
+            configurable = False if k in self.non_configurable_configs \
+                           else True
+            dv = self.default_values.get(k, "")
+            modified = False if dv == "" else True
             if show_non_configurable:
-                cnf[k] = v
+                cnf[k] = {
+                    "value": v,
+                    "default": dv,
+                    "configurable": configurable,
+                    "modified": modified
+                }
             else:
                 if k not in self.non_configurable_configs:
-                    cnf[k] = v
+                    cnf[k] = {
+                        "value": v,
+                        "default": dv,
+                        "configurable": configurable,
+                        "modified": modified
+                    }
 
         return cnf
 

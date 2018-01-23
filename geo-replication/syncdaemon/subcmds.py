@@ -243,21 +243,29 @@ def subcmd_config_get(args):
             sys.stderr.write("Invalid config name \"%s\"\n" % args.name)
             sys.exit(ERROR_CONFIG_INVALID)
 
-        print_config(args.name, val, only_value=args.only_value,
+        print_config(args.name, val["value"], only_value=args.only_value,
                      use_underscore=args.use_underscore)
         return
 
     if args.json:
-        out = {}
+        out = []
         # Convert all values as string
-        for k, v in all_config.items():
-            out[k] = str(v)
+        for k in sorted(all_config):
+            v = all_config[k]
+            out.append({
+                "name": k,
+                "value": str(v["value"]),
+                "default": str(v["default"]),
+                "configurable": v["configurable"],
+                "modified": v["modified"]
+            })
 
         print(json.dumps(out))
         return
 
     for k in sorted(all_config):
-        print_config(k, all_config[k], use_underscore=args.use_underscore)
+        print_config(k, all_config[k]["value"],
+                     use_underscore=args.use_underscore)
 
 
 def subcmd_config_check(args):
