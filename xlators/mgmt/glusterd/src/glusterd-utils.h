@@ -880,4 +880,7 @@ glusterd_brick_op_prerequisites (dict_t *dict,
 int
 glusterd_get_volinfo_from_brick (char *brick, glusterd_volinfo_t **volinfo);
 
+gf_boolean_t
+glusterd_is_profile_on (glusterd_volinfo_t *volinfo);
+
 #endif

@@ -5611,6 +5611,8 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                 fprintf (fp, "Volume%d.transport_type: %s\n", count,
                          transport_type_str);
                 fprintf (fp, "Volume%d.status: %s\n", count, vol_status_str);
+                fprintf (fp, "Volume%d.profile_enabled: %d\n", count,
+                         glusterd_is_profile_on (volinfo));
                 fprintf (fp, "Volume%d.brickcount: %d\n", count,
                          volinfo->brick_count);
 
