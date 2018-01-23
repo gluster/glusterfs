@@ -14148,3 +14148,25 @@ gd_rb_op_to_str (char *op)
                 return "replace-brick commit force";
         return NULL;
 }
+
+gf_boolean_t
+glusterd_is_profile_on (glusterd_volinfo_t *volinfo)
+{
+        int                                     ret = -1;
+        gf_boolean_t                            is_latency_on = _gf_false;
+        gf_boolean_t                            is_fd_stats_on = _gf_false;
+
+        GF_ASSERT (volinfo);
+
+        ret = glusterd_volinfo_get_boolean (volinfo, VKEY_DIAG_CNT_FOP_HITS);
+        if (ret != -1)
+                is_fd_stats_on = ret;
+        ret = glusterd_volinfo_get_boolean (volinfo, VKEY_DIAG_LAT_MEASUREMENT);
+        if (ret != -1)
+                is_latency_on = ret;
+        if ((_gf_true == is_latency_on) &&
+            (_gf_true == is_fd_stats_on))
+                return _gf_true;
+        return _gf_false;
+}
+
