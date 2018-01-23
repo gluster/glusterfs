@@ -16,10 +16,12 @@ configurable=false
 [master-replica-count]
 configurable=false
 type=int
+value=1
 
-[master-disperse_count]
+[master-disperse-count]
 configurable=false
 type=int
+value=1
 
 [glusterd-workdir]
 value = @GLUSTERD_WORKDIR@
