@@ -6332,6 +6332,11 @@ dht_populate_inode_for_dentry (xlator_t *this, xlator_t *subvol,
         int           ret    = 0;
         loc_t         loc    = {0, };
 
+        if (gf_uuid_is_null (orig_entry->d_stat.ia_gfid)) {
+                /* this skips the '..' entry for the root of the volume */
+                return;
+        }
+
         layout = dht_layout_new (this, 1);
         if (!layout)
                 goto out;
