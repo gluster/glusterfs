@@ -5120,6 +5120,11 @@ dht_populate_inode_for_dentry (xlator_t *this, xlator_t *subvol,
         int           ret    = 0;
         loc_t         loc    = {0, };
 
+        if (gf_uuid_is_null (orig_entry->d_stat.ia_gfid)) {
+                /* this skips the '..' entry for the root of the volume */
+                return;
+        }
+
         gf_uuid_copy (loc.gfid, orig_entry->d_stat.ia_gfid);
         loc.inode = inode_ref (orig_entry->inode);
 
