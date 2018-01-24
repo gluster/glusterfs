@@ -376,19 +376,20 @@ rpc_clnt_reconnect(void *conn_ptr)
     struct timespec ts = {0, 0};
     struct rpc_clnt *clnt = NULL;
     gf_boolean_t need_unref = _gf_false;
+    gf_boolean_t canceled_unref = _gf_false;
 
     conn = conn_ptr;
     clnt = conn->rpc_clnt;
-
     pthread_mutex_lock(&conn->lock);
     {
         trans = conn->trans;
-        if (!trans) {
-            pthread_mutex_unlock(&conn->lock);
-            return;
+        if (!trans)
+            goto out_unlock;
+
+        if (conn->reconnect) {
+            if (!gf_timer_call_cancel(clnt->ctx, conn->reconnect))
+                canceled_unref = _gf_true;
         }
-        if (conn->reconnect)
-            gf_timer_call_cancel(clnt->ctx, conn->reconnect);
         conn->reconnect = 0;
 
         if ((conn->connected == 0) && !clnt->disabled) {
@@ -409,10 +410,13 @@ rpc_clnt_reconnect(void *conn_ptr)
             gf_log(conn->name, GF_LOG_TRACE, "breaking reconnect chain");
         }
     }
+out_unlock:
     pthread_mutex_unlock(&conn->lock);
 
     rpc_clnt_unref(clnt);
     if (need_unref)
+        rpc_clnt_unref(clnt);
+    if (canceled_unref)
         rpc_clnt_unref(clnt);
     return;
 }
