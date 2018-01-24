@@ -241,7 +241,7 @@ BuildRequires:    ncurses-devel readline-devel
 BuildRequires:    libxml2-devel openssl-devel
 BuildRequires:    libaio-devel libacl-devel
 BuildRequires:    python2-devel
-%if ( 0%{?fedora} && 0%{?fedora} < 26 ) || ( 0%{?rhel} )
+%if ( 0%{?fedora} && 0%{?fedora} < 26 ) || ( 0%{?rhel} && 0%{?rhel} <= 7 )
 BuildRequires:    python-ctypes
 %endif
 %if ( 0%{?_with_ipv6default:1} ) || ( 0%{!?_without_libtirpc:1} )
@@ -373,9 +373,6 @@ Group:            Applications/File
 # site-packages area
 Requires:         python2-gluster = %{version}-%{release}
 Requires:         python2
-%if ( 0%{?fedora} && 0%{?fedora} < 26 ) || ( 0%{?rhel} )
-BuildRequires:    python-ctypes
-%endif
 
 %description extra-xlators
 GlusterFS is a distributed file-system capable of scaling to several
@@ -422,9 +419,6 @@ Requires:         %{name}%{?_isa} = %{version}-%{release}
 Requires:         %{name}-server%{?_isa} = %{version}-%{release}
 Requires:         python2
 Requires:         python-prettytable
-%if ( 0%{?fedora} && 0%{?fedora} < 26 ) || ( 0%{?rhel} )
-BuildRequires:    python-ctypes
-%endif
 Requires:         python2-gluster = %{version}-%{release}
 Requires:         rsync
 
@@ -1420,6 +1414,9 @@ exit 0
 %endif
 
 %changelog
+* Wed Jan 24 2018 Kaleb S. KEITHLEY <kkeithle@redhat.com>
+- python-ctypes no long exists, now in python stdlib (#1538258)
+
 * Thu Jan 18 2018 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - Fedora 28 glibc has removed rpc headers and rpcgen, use libtirpc
 
