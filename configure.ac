@@ -310,12 +310,10 @@ fi
 AC_ARG_WITH([libtirpc],
         [AC_HELP_STRING([--without-libtirpc], [Use legacy glibc RPC.])],
         [], [with_libtirpc=yes])
-AC_MSG_RESULT([$with_libtirpc])
 
 AC_ARG_WITH([ipv6-default],
         AC_HELP_STRING([--with-ipv6-default], [Set IPv6 as default.]),
         [with_ipv6_default=$with_libtirpc], [with_ipv6_default=no])
-AC_MSG_RESULT([$with_ipv6_default])
 
 if test "x$ac_cv_file__etc_redhat_release" = "xyes"; then
         if rpm -qa centos-release | grep centos; then
