@@ -3198,7 +3198,7 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_INT,
           .min = 0,
           .max = 600,
-          .default_value = "1",
+          .default_value = SITE_H_MD_CACHE_TIMEOUT,
           .description = "Time period after which cache has to be refreshed",
         },
 	{ .key = {"force-readdirp"},

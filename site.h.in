@@ -20,8 +20,25 @@
  * what works.
  */
 
+#define SITE_H_ENABLE_LEAST_PRIORITY    "on"
+#define SITE_H_MD_CACHE_TIMEOUT         "1"
+#define SITE_H_NFS_DISABLE              "on"
+
 /*
- * This is just an example, and a way to check whether site.h is actually being
- * included automatically.
+ * As an example of how to use this file, here's what the Facebook version looks
+ * like:
+
+#define SITE_H_ENABLE_LEAST_PRIORITY    "off"
+#define SITE_H_MD_CACHE_TIMEOUT         "180"
+#define SITE_H_NFS_DISABLE              "off"
+
+ * Each time we add a value here, we lessen the risk of values being
+ * inconsistent across production automation, test automation, and manual
+ * developer testing. We also save effort compared to updating values for each
+ * kind of external automation. To do the same thing with configure scripts or
+ * specfiles, we'd have to make much more complicated and less discoverable
+ * changes there.
+ *
+ * Other orgs are likely to have the same issues regarding their preferred
+ * settings, and likewise should add their favorites here as well.
  */
-#define SITE_DOT_H_TEST		9987
