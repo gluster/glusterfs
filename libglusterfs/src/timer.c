@@ -30,10 +30,11 @@ gf_timer_call_after (glusterfs_ctx_t *ctx,
         gf_timer_t *trav = NULL;
         uint64_t at = 0;
 
-        if (ctx == NULL)
+        if ((ctx == NULL) || (ctx->cleanup_started))
         {
                 gf_msg_callingfn ("timer", GF_LOG_ERROR, EINVAL,
-                                  LG_MSG_INVALID_ARG, "invalid argument");
+                                  LG_MSG_INVALID_ARG, "Either ctx is NULL or"
+                                  " ctx cleanup started");
                 return NULL;
         }
 
@@ -223,19 +224,6 @@ gf_timer_registry_init (glusterfs_ctx_t *ctx)
 {
         gf_timer_registry_t *reg = NULL;
         int ret = -1;
-
-        if (ctx == NULL) {
-                gf_msg_callingfn ("timer", GF_LOG_ERROR, EINVAL,
-                                  LG_MSG_INVALID_ARG, "invalid argument");
-                return NULL;
-        }
-
-        if (ctx->cleanup_started) {
-                gf_msg_callingfn ("timer", GF_LOG_INFO, 0,
-                                  LG_MSG_CTX_CLEANUP_STARTED,
-                                  "ctx cleanup started");
-                return NULL;
-        }
 
         LOCK (&ctx->lock);
         {
