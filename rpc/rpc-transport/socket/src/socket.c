@@ -4763,22 +4763,34 @@ struct volume_options options[] = {
         { .key   = {"transport.socket.listen-path", "listen-path"},
           .type  = GF_OPTION_TYPE_ANY
         },
-        { .key   = { "transport.address-family",
-                     "address-family" },
-          .value = {"inet", "inet6", "unix", "inet-sdp" },
+        { .key   = {"transport.address-family", "address-family"},
+          .value = {"inet", "inet6", "unix", "inet-sdp"},
+          .op_version = {GD_OP_VERSION_3_7_4},
           .type  = GF_OPTION_TYPE_STR
         },
-
         { .key   = {"non-blocking-io"},
           .type  = GF_OPTION_TYPE_BOOL
         },
         { .key   = {"tcp-window-size"},
           .type  = GF_OPTION_TYPE_SIZET,
+          .op_version = {1},
+          .flags      = OPT_FLAG_SETTABLE,
+          .description = "Option to set TCP SEND/RECV BUFFER SIZE",
           .min   = GF_MIN_SOCKET_WINDOW_SIZE,
           .max   = GF_MAX_SOCKET_WINDOW_SIZE
         },
+        { .key   = {"transport.listen-backlog"},
+          .type  = GF_OPTION_TYPE_SIZET,
+          .op_version  = {GD_OP_VERSION_3_11_1},
+          .flags      = OPT_FLAG_SETTABLE,
+          .description = "This option uses the value of backlog argument that "
+                         "defines the maximum length to which the queue of "
+                         "pending connections for socket fd may grow.",
+          .default_value = "10",
+        },
         { .key   = {"transport.tcp-user-timeout"},
           .type  = GF_OPTION_TYPE_INT,
+          .op_version  = {GD_OP_VERSION_3_10_2},
           .default_value = "0"
         },
         { .key   = {"transport.socket.nodelay"},
@@ -4790,18 +4802,22 @@ struct volume_options options[] = {
         },
         { .key   = {"transport.socket.keepalive"},
           .type  = GF_OPTION_TYPE_BOOL,
+          .op_version  = {1},
           .default_value = "1"
         },
         { .key   = {"transport.socket.keepalive-interval"},
           .type  = GF_OPTION_TYPE_INT,
+          .op_version  = {GD_OP_VERSION_3_10_2},
           .default_value = "2"
         },
         { .key   = {"transport.socket.keepalive-time"},
           .type  = GF_OPTION_TYPE_INT,
+          .op_version  = {GD_OP_VERSION_3_10_2},
           .default_value = "20"
         },
         { .key   = {"transport.socket.keepalive-count"},
           .type  = GF_OPTION_TYPE_INT,
+          .op_version  = {GD_OP_VERSION_3_10_2},
           .default_value = "9"
         },
         { .key   = {"transport.socket.read-fail-log"},
@@ -4838,19 +4854,27 @@ struct volume_options options[] = {
           .type  = GF_OPTION_TYPE_BOOL
         },
         { .key   = {"ssl-own-cert"},
+          .op_version = {GD_OP_VERSION_3_7_4},
+          .flags      = OPT_FLAG_SETTABLE,
           .type  = GF_OPTION_TYPE_STR,
           .description = "SSL certificate. Ignored if SSL is not enabled."
         },
         { .key   = {"ssl-private-key"},
+          .op_version = {GD_OP_VERSION_3_7_4},
+          .flags      = OPT_FLAG_SETTABLE,
           .type  = GF_OPTION_TYPE_STR,
           .description = "SSL private key. Ignored if SSL is not enabled."
         },
         { .key   = {"ssl-ca-list"},
+          .op_version = {GD_OP_VERSION_3_7_4},
+          .flags      = OPT_FLAG_SETTABLE,
           .type  = GF_OPTION_TYPE_STR,
           .description = "SSL CA list. Ignored if SSL is not enabled."
         },
         { .key   = {"ssl-cert-depth"},
           .type  = GF_OPTION_TYPE_INT,
+          .op_version  = {GD_OP_VERSION_3_6_0},
+          .flags      = OPT_FLAG_SETTABLE,
           .description = "Maximum certificate-chain depth.  If zero, the "
                          "peer's certificate itself must be in the local "
                          "certificate list.  Otherwise, there may be up to N "
@@ -4859,18 +4883,26 @@ struct volume_options options[] = {
         },
         { .key   = {"ssl-cipher-list"},
           .type  = GF_OPTION_TYPE_STR,
+          .op_version  = {GD_OP_VERSION_3_6_0},
+          .flags      = OPT_FLAG_SETTABLE,
           .description = "Allowed SSL ciphers. Ignored if SSL is not enabled."
         },
         { .key   = {"ssl-dh-param"},
           .type  = GF_OPTION_TYPE_STR,
+          .op_version = {GD_OP_VERSION_3_7_4},
+          .flags      = OPT_FLAG_SETTABLE,
           .description = "DH parameters file. Ignored if SSL is not enabled."
         },
         { .key   = {"ssl-ec-curve"},
           .type  = GF_OPTION_TYPE_STR,
+          .op_version = {GD_OP_VERSION_3_7_4},
+          .flags      = OPT_FLAG_SETTABLE,
           .description = "ECDH curve name. Ignored if SSL is not enabled."
         },
         { .key   = {"ssl-crl-path"},
           .type  = GF_OPTION_TYPE_STR,
+          .op_version = {GD_OP_VERSION_3_7_4},
+          .flags      = OPT_FLAG_SETTABLE,
           .description = "Path to directory containing CRL. "
                          "Ignored if SSL is not enabled."
         },
