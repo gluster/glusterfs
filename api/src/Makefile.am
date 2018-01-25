@@ -21,7 +21,7 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)
 
-libgfapi_la_LDFLAGS = -version-info $(GFAPI_LT_VERSION) \
+libgfapi_la_LDFLAGS = -version-info $(GFAPI_LT_VERSION) $(GF_LDFLAGS) \
 	$(GFAPI_EXTRA_LDFLAGS) $(ACL_LIBS)
 
 xlator_LTLIBRARIES = api.la

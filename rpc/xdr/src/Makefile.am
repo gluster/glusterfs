@@ -16,7 +16,7 @@ libgfxdr_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 
 libgfxdr_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-libgfxdr_la_LDFLAGS = -version-info $(LIBGFXDR_LT_VERSION) \
+libgfxdr_la_LDFLAGS = -version-info $(LIBGFXDR_LT_VERSION) $(GF_LDFLAGS) \
 		      -export-symbols $(top_srcdir)/rpc/xdr/src/libgfxdr.sym
 
 libgfxdr_la_SOURCES = xdr-generic.c xdr-nfs3.c msg-nfs3.c
