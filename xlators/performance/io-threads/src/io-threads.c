@@ -1256,7 +1256,7 @@ struct volume_options options[] = {
 	},
         { .key  = {"enable-least-priority"},
           .type = GF_OPTION_TYPE_BOOL,
-          .default_value = "on",
+          .default_value = SITE_H_ENABLE_LEAST_PRIORITY,
           .op_version = {1},
           .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
           .tags = {"io-threads"},
