@@ -13,7 +13,8 @@ libglusterfs_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 	-I$(CONTRIBDIR)/xxhash
 
 libglusterfs_la_LIBADD = $(ZLIB_LIBS) $(MATH_LIB) $(UUID_LIBS)
-libglusterfs_la_LDFLAGS = -version-info $(LIBGLUSTERFS_LT_VERSION) -export-symbols $(top_srcdir)/libglusterfs/src/libglusterfs.sym
+libglusterfs_la_LDFLAGS = -version-info $(LIBGLUSTERFS_LT_VERSION) $(GF_LDFLAGS) \
+	-export-symbols $(top_srcdir)/libglusterfs/src/libglusterfs.sym
 
 lib_LTLIBRARIES = libglusterfs.la
 libgfchangelogdir = $(includedir)/glusterfs/gfchangelog
