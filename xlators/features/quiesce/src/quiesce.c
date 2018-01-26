@@ -14,6 +14,9 @@
 /* TODO: */
 /* Think about 'writev/_*_lk/setattr/xattrop/' fops to do re-transmittion */
 
+void
+gf_quiesce_timeout (void *data);
+
 
 /* Quiesce Specific Functions */
 void
@@ -35,6 +38,173 @@ gf_quiesce_local_wipe (xlator_t *this, quiesce_local_t *local)
         GF_FREE (local->vector);
 
         mem_put (local);
+}
+
+void
+__gf_quiesce_start_timer (xlator_t *this, quiesce_priv_t *priv)
+{
+        struct timespec timeout = {0,};
+
+        if (!priv->timer) {
+                timeout.tv_sec = priv->timeout;
+                timeout.tv_nsec = 0;
+
+                priv->timer = gf_timer_call_after (this->ctx,
+                                                   timeout,
+                                                   gf_quiesce_timeout,
+                                                   (void *) this);
+                if (priv->timer == NULL) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Cannot create timer");
+                }
+        }
+}
+
+static void
+__gf_quiesce_cleanup_failover_hosts (xlator_t *this, quiesce_priv_t *priv)
+{
+        quiesce_failover_hosts_t *tmp = NULL;
+        quiesce_failover_hosts_t *failover_host = NULL;
+
+        list_for_each_entry_safe (failover_host, tmp,
+                                  &priv->failover_list, list) {
+                GF_FREE (failover_host->addr);
+                list_del (&failover_host->list);
+                GF_FREE (failover_host);
+        }
+        return;
+}
+
+void
+gf_quiesce_populate_failover_hosts (xlator_t *this, quiesce_priv_t *priv,
+                                    const char *value)
+{
+        char         *dup_val = NULL;
+        char         *addr_tok = NULL;
+        char         *save_ptr = NULL;
+        quiesce_failover_hosts_t *failover_host = NULL;
+
+        if (!value)
+                goto out;
+
+        dup_val = gf_strdup (value);
+        if (!dup_val)
+                goto out;
+
+        LOCK (&priv->lock);
+        {
+                if (!list_empty (&priv->failover_list))
+                        __gf_quiesce_cleanup_failover_hosts (this, priv);
+                addr_tok = strtok_r (dup_val, ",", &save_ptr);
+                while (addr_tok) {
+                        if (!valid_internet_address (addr_tok, _gf_true)) {
+                                gf_msg (this->name, GF_LOG_INFO, 0,
+                                        QUIESCE_MSG_INVAL_HOST, "Specified "
+                                        "invalid internet address:%s",
+                                        addr_tok);
+                                continue;
+                        }
+                        failover_host = GF_CALLOC (1, sizeof(*failover_host),
+                                                   gf_quiesce_mt_failover_hosts);
+                        failover_host->addr = gf_strdup (addr_tok);
+                        INIT_LIST_HEAD (&failover_host->list);
+                        list_add (&failover_host->list, &priv->failover_list);
+                        addr_tok = strtok_r (NULL, ",", &save_ptr);
+                }
+        }
+        UNLOCK (&priv->lock);
+        GF_FREE (dup_val);
+out:
+        return;
+}
+
+int32_t
+gf_quiesce_failover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        quiesce_priv_t *priv = NULL;
+
+        if (op_ret < 0) {
+                /* Failure here doesn't mean the failover to another host didn't
+                 * succeed, we will know if failover succeeds or not by the
+                 * CHILD_UP/CHILD_DOWN event. A failure here indicates something
+                 * went wrong with the submission of failover command, hence
+                 * just abort the failover attempts without retrying with other
+                 * hosts.
+                 */
+                gf_msg (this->name, GF_LOG_INFO, op_errno,
+                        QUIESCE_MSG_FAILOVER_FAILED,
+                        "Initiating failover to host:%s failed:", (char *)cookie);
+        }
+
+        GF_FREE (cookie);
+        STACK_DESTROY (frame->root);
+
+        priv = this->private;
+        __gf_quiesce_start_timer (this, priv);
+
+        return 0;
+}
+
+int
+__gf_quiesce_perform_failover (xlator_t *this)
+{
+        int ret = 0;
+        call_frame_t *frame = NULL;
+        dict_t *dict = NULL;
+        quiesce_priv_t *priv = NULL;
+        quiesce_failover_hosts_t *failover_host = NULL;
+        quiesce_failover_hosts_t *host = NULL;
+
+        priv = this->private;
+
+        if (priv->pass_through) {
+                gf_msg_trace (this->name, 0, "child is up, hence not "
+                                "performing any failover");
+                goto out;
+        }
+
+        list_for_each_entry (failover_host, &priv->failover_list, list) {
+                if (failover_host->tried == 0) {
+                        host = failover_host;
+                        failover_host->tried = 1;
+                        break;
+                }
+        }
+        if (!host) {
+                /*TODO: Keep trying until any of the gfproxy comes back up.
+                        Currently it tries failing over once for each host,
+                        if it doesn't succeed then returns error to mount point
+                   list_for_each_entry (failover_host,
+                                &priv->failover_list, list) {
+                        failover_host->tried = 0;
+                }*/
+                gf_msg_debug (this->name, 0, "all the failover hosts have "
+                              "been tried and looks like didn't succeed");
+                ret = -1;
+                goto out;
+        }
+
+        frame = create_frame (this, this->ctx->pool);
+
+        dict = dict_new ();
+
+        ret = dict_set_dynstr (dict, CLIENT_CMD_CONNECT,
+                               gf_strdup (host->addr));
+
+        gf_msg_trace (this->name, 0, "Initiating failover to:%s",
+                      host->addr);
+
+        STACK_WIND_COOKIE (frame, gf_quiesce_failover_cbk, NULL,
+                        FIRST_CHILD (this),
+                        FIRST_CHILD (this)->fops->setxattr,
+                        NULL, dict, 0, NULL);
+out:
+
+        if (dict)
+                dict_unref (dict);
+
+        return ret;
 }
 
 call_stub_t *
@@ -86,6 +256,7 @@ gf_quiesce_timeout (void *data)
 {
         xlator_t       *this = NULL;
         quiesce_priv_t *priv = NULL;
+        int             ret  = -1;
 
         this = data;
         priv = this->private;
@@ -93,12 +264,21 @@ gf_quiesce_timeout (void *data)
 
         LOCK (&priv->lock);
         {
-                priv->pass_through = _gf_true;
+                priv->timer = NULL;
+                if (priv->pass_through) {
+                        UNLOCK (&priv->lock);
+                        goto out;
+                }
+                ret = __gf_quiesce_perform_failover (THIS);
         }
         UNLOCK (&priv->lock);
 
-        gf_quiesce_dequeue_start (this);
+        if (ret < 0) {
+                priv->pass_through = _gf_true;
+                gf_quiesce_dequeue_start (this);
+        }
 
+out:
         return;
 }
 
@@ -106,7 +286,6 @@ void
 gf_quiesce_enqueue (xlator_t *this, call_stub_t *stub)
 {
         quiesce_priv_t *priv    = NULL;
-        struct timespec timeout = {0,};
 
         priv = this->private;
         if (!priv) {
@@ -119,18 +298,9 @@ gf_quiesce_enqueue (xlator_t *this, call_stub_t *stub)
         {
                 list_add_tail (&stub->list, &priv->req);
                 priv->queue_size++;
+                __gf_quiesce_start_timer (this, priv);
         }
         UNLOCK (&priv->lock);
-
-        if (!priv->timer) {
-                timeout.tv_sec = priv->timeout;
-                timeout.tv_nsec = 0;
-
-                priv->timer = gf_timer_call_after (this->ctx,
-                                                   timeout,
-                                                   gf_quiesce_timeout,
-                                                   (void *) this);
-        }
 
         return;
 }
@@ -2553,6 +2723,10 @@ reconfigure (xlator_t *this, dict_t *options)
         priv = this->private;
 
         GF_OPTION_RECONF("timeout", priv->timeout, options, time, out);
+        GF_OPTION_RECONF ("failover-hosts", priv->failover_hosts, options,
+                          str, out);
+        gf_quiesce_populate_failover_hosts (this, priv, priv->failover_hosts);
+
         ret = 0;
 out:
         return ret;
@@ -2579,7 +2753,11 @@ init (xlator_t *this)
         if (!priv)
                 goto out;
 
+        INIT_LIST_HEAD (&priv->failover_list);
+
         GF_OPTION_INIT ("timeout", priv->timeout, time, out);
+        GF_OPTION_INIT ("failover-hosts", priv->failover_hosts, str, out);
+        gf_quiesce_populate_failover_hosts (this, priv, priv->failover_hosts);
 
         priv->local_pool =  mem_pool_new (quiesce_local_t,
                                           GF_FOPS_EXPECTED_IN_PARALLEL);
@@ -2617,7 +2795,6 @@ notify (xlator_t *this, int event, void *data, ...)
 {
         int             ret     = 0;
         quiesce_priv_t *priv    = NULL;
-        struct timespec timeout = {0,};
 
         priv = this->private;
         if (!priv)
@@ -2645,24 +2822,10 @@ notify (xlator_t *this, int event, void *data, ...)
                 LOCK (&priv->lock);
                 {
                         priv->pass_through = _gf_false;
+                        __gf_quiesce_start_timer (this, priv);
+
                 }
                 UNLOCK (&priv->lock);
-
-                if (priv->timer)
-                        break;
-                timeout.tv_sec = priv->timeout;
-                timeout.tv_nsec = 0;
-
-                priv->timer = gf_timer_call_after (this->ctx,
-                                                   timeout,
-                                                   gf_quiesce_timeout,
-                                                   (void *) this);
-
-                if (priv->timer == NULL) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Cannot create timer");
-                }
-
                 break;
         default:
                 break;
@@ -2735,14 +2898,22 @@ struct xlator_cbks cbks;
 struct volume_options options[] = {
         { .key = {"timeout"},
           .type = GF_OPTION_TYPE_TIME,
-          .default_value = "20",
+          .default_value = "45",
           .description = "After 'timeout' seconds since the time 'quiesce' "
           "option was set to \"!pass-through\", acknowledgements to file "
           "operations are no longer quiesced and previously "
           "quiesced acknowledgements are sent to the application",
-          .tags = {"debug", "diagnose"},
           .op_version = { GD_OP_VERSION_4_0_0 },
-          .flags = OPT_FLAG_CLIENT_OPT,
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+        },
+        { .key = {"failover-hosts"},
+          .type = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
+          .op_version = { GD_OP_VERSION_4_0_0 },
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .description = "It is a comma separated list of hostname/IP "
+                         "addresses. It Specifies the list of hosts where "
+                         "the gfproxy daemons are running, to which the "
+                         "the thin clients can failover to."
         },
 	{ .key  = {NULL} },
 };

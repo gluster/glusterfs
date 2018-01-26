@@ -85,7 +85,8 @@ enum _msgid_comp {
         GLFS_MSGID_COMP(NLC,              1),
         GLFS_MSGID_COMP(SL,               1),
         GLFS_MSGID_COMP(HAM,              1),
-        GLFS_MSGID_COMP(SDFS,              1),
+        GLFS_MSGID_COMP(SDFS,             1),
+        GLFS_MSGID_COMP(QUIESCE,          1),
 
 /* --- new segments for messages goes above this line --- */
 

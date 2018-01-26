@@ -1121,10 +1121,6 @@ is_client_rpc_init_command (dict_t *dict, xlator_t *this,
         gf_boolean_t ret      = _gf_false;
         int          dict_ret = -1;
 
-        if (!strstr (this->name, "replace-brick")) {
-                gf_msg_trace (this->name, 0, "name is !replace-brick");
-                goto out;
-        }
         dict_ret = dict_get_str (dict, CLIENT_CMD_CONNECT, value);
         if (dict_ret) {
                 gf_msg_trace (this->name, 0, "key %s not present",
@@ -1165,7 +1161,7 @@ out:
 
 }
 
-static gf_boolean_t
+static int
 client_set_remote_options (char *value, xlator_t *this)
 {
         char         *dup_value       = NULL;
@@ -1176,56 +1172,53 @@ client_set_remote_options (char *value, xlator_t *this)
         char         *remote_port_str = NULL;
         char         *tmp             = NULL;
         int           remote_port     = 0;
-        gf_boolean_t  ret             = _gf_false;
+        int           ret             = 0;
 
         dup_value = gf_strdup (value);
         host = strtok_r (dup_value, ":", &tmp);
         subvol = strtok_r (NULL, ":", &tmp);
         remote_port_str = strtok_r (NULL, ":", &tmp);
 
-        if (!subvol) {
-                gf_msg (this->name, GF_LOG_WARNING, EINVAL,
-                        PC_MSG_INVALID_ENTRY, "proper value not passed as "
-                        "subvolume");
-                goto out;
+        if (host) {
+                host_dup = gf_strdup (host);
+                if (!host_dup) {
+                        goto out;
+                }
+                ret = dict_set_dynstr (this->options, "remote-host", host_dup);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0, PC_MSG_DICT_SET_FAILED,
+                                "failed to set remote-host with %s", host);
+                        goto out;
+                }
         }
 
-        host_dup = gf_strdup (host);
-        if (!host_dup) {
-                goto out;
+        if (subvol) {
+                subvol_dup = gf_strdup (subvol);
+                if (!subvol_dup) {
+                        goto out;
+                }
+
+                ret = dict_set_dynstr (this->options, "remote-subvolume", subvol_dup);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0, PC_MSG_DICT_SET_FAILED,
+                                "failed to set remote-host with %s", host);
+                        goto out;
+                }
         }
 
-        ret = dict_set_dynstr (this->options, "remote-host", host_dup);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_WARNING, 0, PC_MSG_DICT_SET_FAILED,
-                        "failed to set remote-host with %s", host);
-                goto out;
+        if (remote_port_str) {
+                remote_port = atoi (remote_port_str);
+
+                ret = dict_set_int32 (this->options, "remote-port",
+                                      remote_port);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0, PC_MSG_DICT_SET_FAILED,
+                                "failed to set remote-port to %d", remote_port);
+                        goto out;
+                }
         }
 
-        subvol_dup = gf_strdup (subvol);
-        if (!subvol_dup) {
-                goto out;
-        }
-
-        ret = dict_set_dynstr (this->options, "remote-subvolume", subvol_dup);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_WARNING, 0, PC_MSG_DICT_SET_FAILED,
-                        "failed to set remote-host with %s", host);
-                goto out;
-        }
-
-        remote_port = atoi (remote_port_str);
-        GF_ASSERT (remote_port);
-
-        ret = dict_set_int32 (this->options, "remote-port",
-                              remote_port);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, PC_MSG_DICT_SET_FAILED,
-                        "failed to set remote-port to %d", remote_port);
-                goto out;
-        }
-
-        ret = _gf_true;
+        ret = 0;
 out:
         GF_FREE (dup_value);
 
@@ -1252,11 +1245,6 @@ client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                 gf_msg (this->name, GF_LOG_INFO, 0, PC_MSG_RPC_INIT,
                         "client rpc init command");
                 ret = client_set_remote_options (value, this);
-                if (ret) {
-                        (void) client_destroy_rpc (this);
-                        ret = client_init_rpc (this);
-                }
-
                 if (!ret) {
                         op_ret      = 0;
                         op_errno    = 0;

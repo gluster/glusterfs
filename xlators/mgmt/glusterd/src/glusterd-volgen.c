@@ -4404,6 +4404,7 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         char            *subvol        = NULL;
         size_t           namelen       = 0;
         char            *xl_id         = NULL;
+        gf_boolean_t     gfproxy_clnt  = _gf_false;
 
         GF_ASSERT (this);
         GF_ASSERT (conf);
@@ -4429,6 +4430,7 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 if (ret == -1)
                         goto out;
         } else {
+                gfproxy_clnt = _gf_true;
                 namelen = strlen (volinfo->volname) + strlen ("gfproxyd-") + 1;
                 subvol = alloca (namelen);
                 snprintf (subvol, namelen, "gfproxyd-%s", volinfo->volname);
@@ -4495,6 +4497,15 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 goto out;
         if (ret) {
                 xl = volgen_graph_add (graph, "encryption/crypt", volname);
+                if (!xl) {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        /* gfproxy needs the quiesce translator */
+        if (gfproxy_clnt) {
+                xl = volgen_graph_add (graph, "features/quiesce", volname);
                 if (!xl) {
                         ret = -1;
                         goto out;

@@ -15,6 +15,8 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 3 $H0:$B0/${V0}{0,1,2}
 TEST $CLI volume set $V0 config.gfproxyd enable
+TEST $CLI volume set $V0 failover-hosts "127.0.0.1,192.168.122.215,192.168.122.90"
+TEST $CLI volume set $V0 client-log-level TRACE
 TEST $CLI volume start $V0
 
 sleep 2

@@ -15,6 +15,7 @@
 
 enum gf_quiesce_mem_types_ {
         gf_quiesce_mt_priv_t = gf_common_mt_end + 1,
+        gf_quiesce_mt_failover_hosts,
         gf_quiesce_mt_end
 };
 #endif

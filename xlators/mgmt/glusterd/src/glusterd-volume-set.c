@@ -3333,6 +3333,27 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_3_7_0,
           .flags      = VOLOPT_FLAG_CLIENT_OPT
         },
+        { .key         = "features.timeout",
+          .voltype     = "features/quiesce",
+          .option      = "timeout",
+          .op_version  = GD_OP_VERSION_4_0_0,
+          .flags       = VOLOPT_FLAG_CLIENT_OPT,
+          .description = "Specifies the number of seconds the "
+                         "quiesce translator will wait "
+                         "for a CHILD_UP event before "
+                         "force-unwinding the frames it has "
+                         "currently stored for retry."
+        },
+        { .key         = "features.failover-hosts",
+          .voltype     = "features/quiesce",
+          .option      = "failover-hosts",
+          .op_version  = GD_OP_VERSION_4_0_0,
+          .flags       = VOLOPT_FLAG_CLIENT_OPT,
+          .description = "It is a comma separated list of hostname/IP "
+                         "addresses. It Specifies the list of hosts where "
+                         "the gfproxy daemons are running, to which the "
+                         "the thin clients can failover to."
+        },
         { .key        = "features.shard",
           .voltype    = "features/shard",
           .value      = "off",
