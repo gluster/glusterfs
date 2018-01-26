@@ -12,10 +12,17 @@
 #define __QUIESCE_H__
 
 #include "quiesce-mem-types.h"
+#include "quiesce-messages.h"
 #include "xlator.h"
 #include "timer.h"
 
 #define GF_FOPS_EXPECTED_IN_PARALLEL 512
+
+typedef struct {
+        struct list_head list;
+        char *addr;
+        gf_boolean_t tried; /* indicates attempted connecting */
+} quiesce_failover_hosts_t;
 
 typedef struct {
         gf_timer_t       *timer;
@@ -26,6 +33,8 @@ typedef struct {
         pthread_t         thr;
         struct mem_pool  *local_pool;
         uint32_t          timeout;
+        char             *failover_hosts;
+        struct list_head  failover_list;
 } quiesce_priv_t;
 
 typedef struct {

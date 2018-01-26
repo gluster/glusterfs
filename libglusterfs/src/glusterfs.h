@@ -285,6 +285,9 @@
 
 #define CTR_ATTACH_TIER_LOOKUP    "ctr_attach_tier_lookup"
 
+#define CLIENT_CMD_CONNECT    "trusted.glusterfs.client-connect"
+#define CLIENT_CMD_DISCONNECT "trusted.glusterfs.client-disconnect"
+
 #define GF_LOG_LRU_BUFSIZE_DEFAULT 5
 #define GF_LOG_LRU_BUFSIZE_MIN 0
 #define GF_LOG_LRU_BUFSIZE_MAX 20
