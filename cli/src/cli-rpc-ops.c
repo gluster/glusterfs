@@ -12056,6 +12056,10 @@ gf_cli_bitrot_cbk (struct rpc_req *req, struct iovec *iov,
         int                  type                      = 0;
         gf_cli_rsp           rsp                       = {0, };
         dict_t               *dict                     = NULL;
+        char                 *scrub_cmd                = NULL;
+        char                 *volname                  = NULL;
+        char                 *cmd_str                  = NULL;
+        char                 *cmd_op                   = NULL;
 
         GF_ASSERT (myframe);
 
@@ -12111,6 +12115,22 @@ gf_cli_bitrot_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+        /* Ignoring the error, as using dict val for cli output only */
+        ret = dict_get_str (dict, "scrub-value", &scrub_cmd);
+        if (ret)
+                gf_log ("cli", GF_LOG_TRACE, "Failed to get scrub command");
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret)
+                gf_log ("cli", GF_LOG_TRACE, "failed to get volume name");
+
+        ret = dict_get_str (dict, "cmd-str", &cmd_str);
+        if (ret)
+                gf_log ("cli", GF_LOG_TRACE, "failed to get command string");
+
+        if (cmd_str)
+                cmd_op = strrchr(cmd_str, ' ') + 1;
+
         if ((type == GF_BITROT_CMD_SCRUB_STATUS) &&
              !(global_state->mode & GLUSTER_MODE_XML)) {
                 ret = gf_cli_print_bitrot_scrub_status (dict);
@@ -12118,6 +12138,43 @@ gf_cli_bitrot_cbk (struct rpc_req *req, struct iovec *iov,
                         gf_log ("cli", GF_LOG_ERROR, "Failed to print bitrot "
                                 "scrub status");
                 }
+                goto out;
+        }
+
+        switch (type) {
+        case  GF_BITROT_OPTION_TYPE_ENABLE:
+                cli_out("volume bitrot: success bitrot enabled "
+                        "for volume %s", volname);
+                ret = 0;
+                goto out;
+        case GF_BITROT_OPTION_TYPE_DISABLE:
+                cli_out("volume bitrot: success bitrot disabled "
+                        "for volume %s", volname);
+                ret = 0;
+                goto out;
+        case GF_BITROT_CMD_SCRUB_ONDEMAND:
+                cli_out("volume bitrot: scrubber started ondemand "
+                        "for volume %s", volname);
+                ret = 0;
+                goto out;
+        case GF_BITROT_OPTION_TYPE_SCRUB:
+                if (!strncmp ("pause", scrub_cmd, strlen("pause")))
+                        cli_out("volume bitrot: scrubber paused "
+                                "for volume %s", volname);
+                if (!strncmp ("resume", scrub_cmd, strlen("resume")))
+                        cli_out("volume bitrot: scrubber resumed "
+                                "for volume %s", volname);
+                ret = 0;
+                goto out;
+        case GF_BITROT_OPTION_TYPE_SCRUB_FREQ:
+                cli_out("volume bitrot: scrub-frequency is set to %s "
+                        "successfully for volume %s", cmd_op, volname);
+                ret = 0;
+                goto out;
+        case GF_BITROT_OPTION_TYPE_SCRUB_THROTTLE:
+                cli_out("volume bitrot: scrub-throttle is set to %s "
+                        "successfully for volume %s", cmd_op, volname);
+                ret = 0;
                 goto out;
         }
 
