@@ -150,9 +150,9 @@ static const algoType g_defaultAlgo = algo_xxh64;    /* required within main() &
 /* ************************************
 *  Display macros
 **************************************/
-#define DISPLAY(...)         fprintf(stderr, __VA_ARGS__)
+#define DISPLAY(...)         /*fprintf(stderr, __VA_ARGS__)*/
 #define DISPLAYRESULT(...)   fprintf(stdout, __VA_ARGS__)
-#define DISPLAYLEVEL(l, ...) if (g_displayLevel>=l) DISPLAY(__VA_ARGS__);
+#define DISPLAYLEVEL(l, ...) /*if (g_displayLevel>=l) DISPLAY(__VA_ARGS__);*/
 static U32 g_displayLevel = 1;
 
 
@@ -302,7 +302,7 @@ static int BMK_benchFiles(const char** fileNamesTable, int nbFiles)
         }
 
         /* Fill input buffer */
-        DISPLAY("\rLoading %s...        \n", inFileName);
+        DISPLAY("\nLoading %s...        \n", inFileName);
         {   size_t const readSize = fread(alignedBuffer, 1, benchedSize, inFile);
             fclose(inFile);
             if(readSize != benchedSize) {
@@ -548,7 +548,7 @@ static int BMK_hash(const char* fileName,
               &&(fileNameEnd[-1-infoFilenameSize] != '/')
               &&(fileNameEnd[-1-infoFilenameSize] != '\\') )
               infoFilenameSize++;
-        DISPLAY("\rLoading %s...                        \r", fileNameEnd - infoFilenameSize);
+        DISPLAY("\nLoading %s...                        \n", fileNameEnd - infoFilenameSize);
     }
 
     /* Load file & update hash */
