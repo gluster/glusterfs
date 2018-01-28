@@ -10,6 +10,18 @@ function write_file()
 }
 
 cleanup;
+
+#####################################################
+# We are currently not triggering data heal unless all bricks of the replica are
+# up. We will need to modify this .t once the fix for preventing stale reads
+# being served to clients for files in spurious split-brains is done. Spurious
+# split-brains here means afr xattrs indicates sbrain but it is actually not.
+# Self-heal will heal such files automatically but before the heal completes,
+# reads can be served which needs fixing.
+#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=000000
+#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=000000
+######################################################
+
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume info;
