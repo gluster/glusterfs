@@ -1455,6 +1455,36 @@ afr_does_witness_exist (xlator_t *this, uint64_t *witness)
         return _gf_false;
 }
 
+unsigned int
+afr_get_quorum_count (afr_private_t *priv)
+{
+        if (priv->quorum_count == AFR_QUORUM_AUTO) {
+                return priv->child_count/2 + 1;
+        } else {
+                return priv->quorum_count;
+        }
+}
+
+void
+afr_selfheal_post_op_failure_accounting (afr_private_t *priv, char *accused,
+                                         unsigned char *sources,
+                                         unsigned char *locked_on)
+{
+        int i = 0;
+        unsigned int  quorum_count = 0;
+
+        if (AFR_COUNT (sources, priv->child_count) != 0)
+                return;
+
+        quorum_count = afr_get_quorum_count (priv);
+        for (i = 0; i < priv->child_count; i++) {
+                if ((accused[i] < quorum_count) && locked_on[i]) {
+                        sources[i] = 1;
+                }
+        }
+        return;
+}
+
 /*
  * This function determines if a self-heal is required for a given inode,
  * and if needed, in what direction.
@@ -1490,6 +1520,7 @@ afr_selfheal_find_direction (call_frame_t *frame, xlator_t *this,
         char *accused = NULL;/* Accused others without any self-accusal */
         char *pending = NULL;/* Have pending operations on others */
         char *self_accused = NULL; /* Accused itself */
+        int min_participants = -1;
 
 	priv = this->private;
 
@@ -1513,8 +1544,13 @@ afr_selfheal_find_direction (call_frame_t *frame, xlator_t *this,
                 }
         }
 
+        if (type == AFR_DATA_TRANSACTION) {
+                min_participants = priv->child_count;
+        } else {
+                min_participants = AFR_SH_MIN_PARTICIPANTS;
+        }
         if (afr_success_count (replies,
-                               priv->child_count) < AFR_SH_MIN_PARTICIPANTS) {
+                               priv->child_count) < min_participants) {
                 /* Treat this just like locks not being acquired */
                 return -ENOTCONN;
         }
@@ -1530,11 +1566,10 @@ afr_selfheal_find_direction (call_frame_t *frame, xlator_t *this,
 	for (i = 0; i < priv->child_count; i++) {
 		for (j = 0; j < priv->child_count; j++) {
                         if (matrix[i][j]) {
-                                 if (!self_accused[i])
-                                         accused[j] = 1;
-
-                                 if (i != j)
-                                         pending[i] = 1;
+                                if (!self_accused[i])
+                                        accused[j] += 1;
+                                if (i != j)
+                                        pending[i] += 1;
                          }
 		}
 	}
@@ -1574,6 +1609,10 @@ afr_selfheal_find_direction (call_frame_t *frame, xlator_t *this,
                         witness[i] += matrix[i][j];
                 }
         }
+
+        if (type == AFR_DATA_TRANSACTION)
+                afr_selfheal_post_op_failure_accounting (priv, accused,
+                                                         sources, locked_on);
 
          /* If no sources, all locked nodes are sinks - split brain */
          if (AFR_COUNT (sources, priv->child_count) == 0) {

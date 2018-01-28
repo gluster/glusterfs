@@ -12,6 +12,8 @@ TEST $CLI volume set $V0 performance.stat-prefetch off
 TEST $CLI volume start $V0
 TEST $CLI volume set $V0 self-heal-daemon off
 TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0;
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
 TEST mkdir  $M0/dir1
 TEST dd if=/dev/urandom of=$M0/file1 bs=1024 count=1
 
@@ -24,6 +26,7 @@ TEST dd if=/dev/urandom of=$M0/file1 bs=1024 count=1024
 #convert replica 2 to arbiter volume
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
 
 #syntax check for add-brick.
 TEST ! $CLI volume add-brick $V0 replica 2 arbiter 1 $H0:$B0/${V0}2
@@ -31,6 +34,19 @@ TEST ! $CLI volume add-brick $V0 replica 3 arbiter 2 $H0:$B0/${V0}2
 
 TEST $CLI volume add-brick $V0 replica 3 arbiter 1 $H0:$B0/${V0}2
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}2
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 2
+
+#Trigger name heals from client. If we just rely on index heal, the first index
+#crawl on B0 fails for /, dir2 and /file either due to lock collision or files
+#not being present on the other 2 bricks yet. It is getting healed only in the
+#next crawl after priv->shd.timeout (600 seconds) or by manually launching
+#index heal again.
+TEST $CLI volume set $V0 data-self-heal off
+TEST $CLI volume set $V0 metadata-self-heal off
+TEST $CLI volume set $V0 entry-self-heal off
+TEST stat $M0/dir1
+TEST stat $M0/dir2
+TEST stat $M0/file1
 
 #Heal files
 TEST $CLI volume set $V0 self-heal-daemon on

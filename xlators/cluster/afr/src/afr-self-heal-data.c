@@ -684,7 +684,7 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	ret = afr_selfheal_inodelk (frame, this, fd->inode, this->name, 0, 0,
 				    data_lock);
 	{
-		if (ret < AFR_SH_MIN_PARTICIPANTS) {
+		if (ret < priv->child_count) {
                         gf_msg_debug (this->name, 0, "%s: Skipping "
                                       "self-heal as only %d number "
                                       "of subvolumes "
@@ -749,7 +749,7 @@ restore_time:
         if (!is_arbiter_the_only_sink) {
                 ret = afr_selfheal_inodelk (frame, this, fd->inode, this->name,
                                             0, 0, data_lock);
-                if (ret < AFR_SH_MIN_PARTICIPANTS) {
+                if (ret < priv->child_count) {
                         ret = -ENOTCONN;
                         did_sh = _gf_false;
                         goto skip_undo_pending;
@@ -878,7 +878,7 @@ afr_selfheal_data (call_frame_t *frame, xlator_t *this, inode_t *inode)
 	                                        priv->sh_domain, 0, 0,
 				                locked_on);
 	{
-		if (ret < AFR_SH_MIN_PARTICIPANTS) {
+		if (ret < priv->child_count) {
                         gf_msg_debug (this->name, 0, "%s: Skipping "
                                       "self-heal as only %d number of "
                                       "subvolumes could be locked",
