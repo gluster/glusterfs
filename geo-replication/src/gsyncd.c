@@ -111,43 +111,10 @@ str2argv (char *str, char ***argv)
 static int
 invoke_gsyncd (int argc, char **argv)
 {
-        char config_file[PATH_MAX] = {0,};
-        size_t gluster_workdir_len = 0;
-        runner_t runner            = {0,};
         int i                      = 0;
         int j                      = 0;
         char *nargv[argc + 4];
         char *python = NULL;
-
-        if (restricted) {
-                size_t len;
-                /* in restricted mode we forcibly use the system-wide config */
-                runinit (&runner);
-                runner_add_args (&runner, SBIN_DIR"/gluster",
-                                 "--remote-host=localhost",
-                                 "--log-file=-", "system::", "getwd",
-                                 NULL);
-                runner_redir (&runner, STDOUT_FILENO, RUN_PIPE);
-                if (runner_start (&runner) == 0 &&
-                    fgets (config_file, PATH_MAX,
-                           runner_chio (&runner, STDOUT_FILENO)) != NULL &&
-                    (len = strlen (config_file)) &&
-                    config_file[len - 1] == '\n' &&
-                    runner_end (&runner) == 0)
-                        gluster_workdir_len = len - 1;
-
-                if (gluster_workdir_len) {
-                        if (gluster_workdir_len + 1 + strlen (GSYNCD_CONF_TEMPLATE) + 1 >
-                            PATH_MAX)
-                                goto error;
-                        config_file[gluster_workdir_len] = '/';
-                        strcat (config_file, GSYNCD_CONF_TEMPLATE);
-                } else
-                        goto error;
-
-                if (setenv ("_GSYNCD_RESTRICTED_", "1", 1) == -1)
-                        goto error;
-        }
 
         if (chdir ("/") == -1)
                 goto error;
@@ -160,10 +127,7 @@ invoke_gsyncd (int argc, char **argv)
         nargv[j++] = GSYNCD_PREFIX"/python/syncdaemon/"GSYNCD_PY;
         for (i = 1; i < argc; i++)
                 nargv[j++] = argv[i];
-        if (config_file[0]) {
-                nargv[j++] = "-c";
-                nargv[j++] = config_file;
-        }
+
         nargv[j++] = NULL;
 
         execvp (python, nargv);
