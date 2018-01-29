@@ -248,12 +248,36 @@ typedef struct {
         char                  *ssl_ca_list;
         pthread_t              thread;
         int                    pipe[2];
-        gf_boolean_t           own_thread;
-        gf_boolean_t           own_thread_done;
-        ot_state_t             ot_state;
-        uint32_t               ot_gen;
         gf_boolean_t           is_server;
         int                    log_ctr;
+        gf_boolean_t           ssl_accepted; /* To indicate SSL_accept() */
+        gf_boolean_t           ssl_connected;/* or SSL_connect() has been
+                                              * been completed on this socket.
+                                              * These are valid only when
+                                              * use_ssl is true.
+                                              */
+        /* SSL_CTX is created for each transport. Since we are now using non-
+         * blocking mechanism for SSL_accept() and SSL_connect(), the SSL
+         * context is created on the first EPOLLIN event which may lead to
+         * SSL_ERROR_WANT_READ/SSL_ERROR_WANT_WRITE and may not complete the
+         * SSL connection at the first attempt.
+         * ssl_context_created is a flag to note that we've created the SSL
+         * context for the connection so that we don't blindly create any more
+         * while !ssl_accepted or !ssl_connected.
+         */
+        gf_boolean_t           ssl_context_created;
+        gf_boolean_t           accepted; /* explicit flag to be set in
+                                          * socket_event_handler() for
+                                          * newly accepted socket
+                                          */
+
+        /* ssl_error_required is used only during the SSL connection setup
+         * phase.
+         * It holds the error code returned by SSL_get_error() and is used to
+         * arm the epoll event set for the required event for the specific fd.
+         */
+        int                    ssl_error_required;
+
         GF_REF_DECL;           /* refcount to keep track of socket_poller
                                   threads */
         struct {
