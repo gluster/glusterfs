@@ -4832,16 +4832,18 @@ glusterd_compare_friend_data (dict_t *peer_data, int32_t *status,
                         ret = 0;
                         goto out;
                 }
-                if (GLUSTERD_VOL_COMP_UPDATE_REQ == *status)
+                if (GLUSTERD_VOL_COMP_UPDATE_REQ == *status) {
+                        ret = glusterd_import_friend_volume (peer_data, i);
+                        if (ret) {
+                                goto out;
+                        }
                         update = _gf_true;
-
+                        *status = GLUSTERD_VOL_COMP_NONE;
+                }
                 i++;
         }
 
         if (update) {
-                ret = glusterd_import_friend_volumes (peer_data);
-                if (ret)
-                        goto out;
                 glusterd_svcs_manager (NULL);
         }
 
