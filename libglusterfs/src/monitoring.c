@@ -81,7 +81,8 @@ dump_latency_and_count (xlator_t *xl, int fd)
         uint64_t cbk;
         uint64_t count;
 
-        dprintf (fd, "%s.total.winds.count %lu\n", xl->name, xl->winds);
+        if (xl->winds)
+                dprintf (fd, "%s.total.pending-winds.count %lu\n", xl->name, xl->winds);
 
         /* Need 'fuse' data, and don't need all the old graph info */
         if ((xl != xl->ctx->master) && (xl->ctx->active != xl->graph))
