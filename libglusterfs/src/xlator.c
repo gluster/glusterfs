@@ -217,6 +217,7 @@ xlator_volopt_dynload (char *xlator_type, void **dl_handle,
 
 int xlator_dynload_oldway (xlator_t *xl)
 {
+        int                i = 0;
         int                ret = -1;
         void              *handle = NULL;
         volume_opt_list_t *vol_opt = NULL;
@@ -299,6 +300,12 @@ int xlator_dynload_oldway (xlator_t *xl)
         }
         INIT_LIST_HEAD (&vol_opt->list);
         list_add_tail (&vol_opt->list, &xl->volume_options);
+
+        /* make sure 'min' is set to high value, so it would be
+           properly set later */
+        for (i = 0; i < GF_FOP_MAXVALUE; i++) {
+                xl->stats.interval.latencies[i].min = 0xffffffff;
+        }
 
         ret = 0;
 
