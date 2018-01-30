@@ -40,8 +40,8 @@ TEST touch $M0/newfile;
 TEST stat $M0/newfile;
 TEST rm $M0/newfile;
 
-nfs_pid=$(cat $GLUSTERD_PIDFILEDIR/nfs/nfs.pid);
-glustershd_pid=$(cat $GLUSTERD_PIDFILEDIR/glustershd/glustershd.pid);
+nfs_pid=$(cat $GLUSTERD_PIDFILEDIR/nfs/nfs.pid || echo -1);
+glustershd_pid=$(cat $GLUSTERD_PIDFILEDIR/glustershd/glustershd.pid || echo -1);
 
 pids=$(pidof glusterfs);
 for i in $pids
