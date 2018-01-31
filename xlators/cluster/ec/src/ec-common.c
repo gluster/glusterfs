@@ -1673,18 +1673,27 @@ ec_lock_update_fd(ec_lock_t *lock, ec_fop_data_t *fop)
 }
 
 static gf_boolean_t
-ec_link_has_lock_conflict (ec_lock_link_t *link, struct list_head *owners)
+ec_link_has_lock_conflict (ec_lock_link_t *link, gf_boolean_t waitlist_check)
 {
-        ec_lock_link_t *owner_link = NULL;
+        ec_lock_link_t *trav_link = NULL;
         ec_t           *ec = link->fop->xl->private;
 
         if (!ec->parallel_writes)
                 return _gf_true;
 
-        list_for_each_entry (owner_link, owners, owner_list) {
-                if (ec_lock_conflict (owner_link, link))
+        list_for_each_entry (trav_link, &link->lock->owners, owner_list) {
+                if (ec_lock_conflict (trav_link, link))
                         return _gf_true;
         }
+
+        if (!waitlist_check)
+                return _gf_false;
+
+        list_for_each_entry (trav_link, &link->lock->waiting, wait_list) {
+                if (ec_lock_conflict (trav_link, link))
+                        return _gf_true;
+        }
+
         return _gf_false;
 }
 
@@ -1706,7 +1715,7 @@ ec_lock_wake_shared(ec_lock_t *lock, struct list_head *list)
 
         /* If the fop is not shareable, only this fop can be assigned as owner.
          * Other fops will need to wait until this one finishes. */
-        if (ec_link_has_lock_conflict (link, &lock->owners)) {
+        if (ec_link_has_lock_conflict (link, _gf_false)) {
             conflict = _gf_true;
         }
 
@@ -1960,9 +1969,7 @@ ec_lock_assign_owner(ec_lock_link_t *link)
          * owners, or waiters(to prevent starvation).
          * Otherwise we need to wait.
          */
-        if (!lock->acquired ||
-            ec_link_has_lock_conflict (link, &lock->owners) ||
-            ec_link_has_lock_conflict (link, &lock->waiting)) {
+        if (!lock->acquired || ec_link_has_lock_conflict (link, _gf_true)) {
             ec_trace("LOCK_QUEUE_WAIT", fop, "lock=%p", lock);
 
             list_add_tail(&link->wait_list, &lock->waiting);
