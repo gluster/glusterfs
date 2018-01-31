@@ -1,4 +1,6 @@
+if WITH_SERVER
 sbin_PROGRAMS = glfsheal
+endif
 
 glfsheal_SOURCES = glfs-heal.c
 

@@ -1,4 +1,7 @@
+if WITH_SERVER
 xlator_LTLIBRARIES = arbiter.la
+endif
+
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
 arbiter_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)

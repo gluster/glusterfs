@@ -1,5 +1,7 @@
-xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/experimental
+if WITH_SERVER
 xlator_LTLIBRARIES = dht2s.la
+endif
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/experimental
 
 dht2s_sources = dht2-server-main.c
 

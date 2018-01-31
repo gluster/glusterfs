@@ -1,4 +1,6 @@
+if WITH_SERVER
 xlator_LTLIBRARIES = sdfs.la
+endif
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
 sdfs_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)

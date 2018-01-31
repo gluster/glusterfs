@@ -1,4 +1,6 @@
+if WITH_SERVER
 xlator_LTLIBRARIES = decompounder.la
+endif
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance
 
 decompounder_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)

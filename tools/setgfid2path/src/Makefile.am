@@ -1,6 +1,8 @@
 gluster_setgfid2pathdir = $(sbindir)
 
+if WITH_SERVER
 gluster_setgfid2path_PROGRAMS = gluster-setgfid2path
+endif
 
 gluster_setgfid2path_SOURCES = main.c
 

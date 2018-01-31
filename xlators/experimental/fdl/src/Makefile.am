@@ -1,5 +1,7 @@
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/experimental
+if WITH_SERVER
 xlator_LTLIBRARIES = fdl.la
+endif
 
 noinst_HEADERS = fdl.h
 
@@ -7,7 +9,9 @@ nodist_fdl_la_SOURCES = fdl.c
 fdl_la_LDFLAGS = -module -avoid-version
 fdl_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
+if WITH_SERVER
 sbin_PROGRAMS = gf_logdump gf_recon
+endif
 gf_logdump_SOURCES = logdump.c
 nodist_gf_logdump_SOURCES = libfdl.c
 gf_logdump_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \

@@ -1,4 +1,7 @@
+if WITH_SERVER
 xlator_LTLIBRARIES = glusterd.la
+endif
+
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/mgmt
 glusterd_la_CPPFLAGS = $(AM_CPPFLAGS) \
 	-DFILTERDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/filter\" \
@@ -62,9 +65,11 @@ AM_LDFLAGS = -L$(xlatordir) $(URCU_LIBS) $(URCU_CDS_LIBS)
 CLEANFILES =
 
 install-data-hook:
+if WITH_SERVER
 if GF_INSTALL_GLUSTERD_WORKDIR
 	$(mkdir_p) $(DESTDIR)$(GLUSTERD_WORKDIR)
 	(stat $(DESTDIR)$(sysconfdir)/glusterd && \
 	    mv $(DESTDIR)$(sysconfdir)/glusterd $(DESTDIR)$(GLUSTERD_WORKDIR)) || true;
 	(ln -sf $(DESTDIR)$(GLUSTERD_WORKDIR) $(sysconfdir)/glusterd) || true;
+endif
 endif

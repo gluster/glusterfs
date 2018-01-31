@@ -1,4 +1,6 @@
+if WITH_SERVER
 xlator_LTLIBRARIES = locks.la
+endif
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
 locks_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
@@ -18,8 +20,10 @@ AM_CFLAGS = -Wall -fno-strict-aliasing $(GF_CFLAGS)
 
 CLEANFILES = 
 
+if WITH_SERVER
 uninstall-local:
 	rm -f $(DESTDIR)$(xlatordir)/posix-locks.so
 
 install-data-hook:
 	ln -sf locks.so $(DESTDIR)$(xlatordir)/posix-locks.so
+endif

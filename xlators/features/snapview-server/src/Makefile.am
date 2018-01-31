@@ -1,4 +1,6 @@
+if WITH_SERVER
 xlator_LTLIBRARIES = snapview-server.la
+endif
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
 snapview_server_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
