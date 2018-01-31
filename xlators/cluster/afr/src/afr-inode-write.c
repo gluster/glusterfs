@@ -344,14 +344,14 @@ afr_process_post_writev (call_frame_t *frame, xlator_t *this)
                    the xattrs are not reliably pointing at
                    a stale file.
                 */
-                afr_fd_report_unstable_write (this, local->fd);
+                afr_fd_report_unstable_write (this, local);
 
         __afr_inode_write_finalize (frame, this);
 
         afr_writev_handle_short_writes (frame, this);
 
         if (local->update_open_fd_count)
-                afr_handle_open_fd_count (frame, this);
+                local->inode_ctx->open_fd_count = local->open_fd_count;
 
 }
 
@@ -2593,7 +2593,7 @@ afr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
         local->op = GF_FOP_FSYNC;
         local->cont.fsync.datasync = datasync;
 
-	if (afr_fd_has_witnessed_unstable_write (this, fd)) {
+	if (afr_fd_has_witnessed_unstable_write (this, fd->inode)) {
 		/* don't care. we only wanted to CLEAR the bit */
 	}
 

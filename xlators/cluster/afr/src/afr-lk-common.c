@@ -52,31 +52,6 @@ afr_entry_lockee_cmp (const void *l1, const void *l2)
 
 int afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index);
 
-static int
-afr_copy_locked_nodes (call_frame_t *frame, xlator_t *this);
-
-static uint64_t afr_lock_number = 1;
-
-static uint64_t
-get_afr_lock_number ()
-{
-        return (++afr_lock_number);
-}
-
-int
-afr_set_lock_number (call_frame_t *frame, xlator_t *this)
-{
-        afr_local_t         *local    = NULL;
-        afr_internal_lock_t *int_lock = NULL;
-
-        local    = frame->local;
-        int_lock = &local->internal_lock;
-
-        int_lock->lock_number = get_afr_lock_number ();
-
-        return 0;
-}
-
 void
 afr_set_lk_owner (call_frame_t *frame, xlator_t *this, void *lk_owner)
 {
@@ -203,21 +178,16 @@ initialize_inodelk_variables (call_frame_t *frame, xlator_t *this)
         afr_local_t         *local    = NULL;
         afr_internal_lock_t *int_lock = NULL;
         afr_private_t       *priv     = NULL;
-        afr_inodelk_t       *inodelk  = NULL;
 
         priv     = this->private;
         local    = frame->local;
         int_lock = &local->internal_lock;
 
-        inodelk = afr_get_inodelk (int_lock, int_lock->domain);
-
-        inodelk->lock_count    = 0;
+        int_lock->lock_count    = 0;
         int_lock->lk_attempted_count = 0;
         int_lock->lock_op_ret   = -1;
         int_lock->lock_op_errno = 0;
 
-        memset (inodelk->locked_nodes, 0,
-                sizeof (*inodelk->locked_nodes) * priv->child_count);
         memset (int_lock->locked_nodes, 0,
                 sizeof (*int_lock->locked_nodes) * priv->child_count);
 
@@ -286,12 +256,7 @@ void
 afr_update_uninodelk (afr_local_t *local, afr_internal_lock_t *int_lock,
                     int32_t child_index)
 {
-        afr_inodelk_t       *inodelk = NULL;
-
-        inodelk = afr_get_inodelk (int_lock, int_lock->domain);
-        inodelk->locked_nodes[child_index] &= LOCKED_NO;
-        if (local->transaction.eager_lock)
-                local->transaction.eager_lock[child_index] = 0;
+        int_lock->locked_nodes[child_index] &= LOCKED_NO;
 
 }
 
@@ -331,35 +296,27 @@ static int
 afr_unlock_inodelk (call_frame_t *frame, xlator_t *this)
 {
         afr_internal_lock_t *int_lock = NULL;
-        afr_inodelk_t       *inodelk  = NULL;
         afr_local_t         *local    = NULL;
         afr_private_t       *priv     = NULL;
         struct gf_flock flock = {0,};
-        struct gf_flock full_flock = {0,};
-        struct gf_flock *flock_use = NULL;
         int call_count = 0;
         int i = 0;
-        int piggyback = 0;
-        afr_fd_ctx_t        *fd_ctx      = NULL;
-
 
         local    = frame->local;
         int_lock = &local->internal_lock;
         priv     = this->private;
 
-        inodelk = afr_get_inodelk (int_lock, int_lock->domain);
-
-        flock.l_start = inodelk->flock.l_start;
-        flock.l_len   = inodelk->flock.l_len;
+        flock.l_start = int_lock->flock.l_start;
+        flock.l_len   = int_lock->flock.l_len;
         flock.l_type  = F_UNLCK;
 
-        full_flock.l_type = F_UNLCK;
-        call_count = afr_locked_nodes_count (inodelk->locked_nodes,
+        call_count = afr_locked_nodes_count (int_lock->locked_nodes,
                                              priv->child_count);
 
         int_lock->lk_call_count = call_count;
 
         if (!call_count) {
+                GF_ASSERT (!local->transaction.do_eager_unlock);
                 gf_msg_trace (this->name, 0,
                               "No internal locks unlocked");
 
@@ -367,64 +324,28 @@ afr_unlock_inodelk (call_frame_t *frame, xlator_t *this)
                 goto out;
         }
 
-        if (local->fd)
-                fd_ctx = afr_fd_ctx_get (local->fd, this);
-
         for (i = 0; i < priv->child_count; i++) {
-                if ((inodelk->locked_nodes[i] & LOCKED_YES) != LOCKED_YES)
+                if ((int_lock->locked_nodes[i] & LOCKED_YES) != LOCKED_YES)
                         continue;
 
                 if (local->fd) {
-                        flock_use = &flock;
-                        if (!local->transaction.eager_lock[i]) {
-                                goto wind;
-                        }
-
-                        piggyback = 0;
-
-                        LOCK (&local->fd->lock);
-                        {
-                                if (fd_ctx->lock_piggyback[i]) {
-                                        fd_ctx->lock_piggyback[i]--;
-                                        piggyback = 1;
-                                } else {
-                                        fd_ctx->lock_acquired[i]--;
-                                }
-                        }
-                        UNLOCK (&local->fd->lock);
-
-                        if (piggyback) {
-                                afr_unlock_inodelk_cbk (frame, (void *) (long) i,
-                                                        this, 1, 0, NULL);
-                                if (!--call_count)
-                                        break;
-                                continue;
-                        }
-
-                        flock_use = &full_flock;
-                wind:
                         STACK_WIND_COOKIE (frame, afr_unlock_inodelk_cbk,
                                            (void *) (long)i,
                                            priv->children[i],
                                            priv->children[i]->fops->finodelk,
                                            int_lock->domain, local->fd,
-                                           F_SETLK, flock_use, NULL);
-
-                        if (!--call_count)
-                                break;
-
+                                           F_SETLK, &flock, NULL);
                 } else {
-
                         STACK_WIND_COOKIE (frame, afr_unlock_inodelk_cbk,
                                            (void *) (long)i,
                                            priv->children[i],
                                            priv->children[i]->fops->inodelk,
                                            int_lock->domain, &local->loc,
                                            F_SETLK, &flock, NULL);
-
-                        if (!--call_count)
-                                break;
                 }
+
+                if (!--call_count)
+                        break;
         }
 out:
         return 0;
@@ -512,6 +433,18 @@ out:
 
 }
 
+int32_t
+afr_unlock_now (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t *local = frame->local;
+
+        if (afr_is_inodelk_transaction(local->transaction.type))
+                afr_unlock_inodelk (frame, this);
+        else
+                afr_unlock_entrylk (frame, this);
+        return 0;
+}
+
 static int32_t
 afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
               int32_t op_ret, int32_t op_errno, dict_t *xdata)
@@ -553,7 +486,7 @@ afr_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if ((op_ret == -1) &&
             (op_errno == ENOSYS)) {
-                afr_unlock (frame, this);
+                afr_unlock_now (frame, this);
         } else {
                 if (op_ret == 0) {
                         if (local->transaction.type == AFR_ENTRY_TRANSACTION ||
@@ -596,38 +529,6 @@ afr_blocking_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         afr_lock_cbk (frame, cookie, this, op_ret, op_errno, xdata);
         return 0;
-}
-
-static int
-afr_copy_locked_nodes (call_frame_t *frame, xlator_t *this)
-{
-        afr_internal_lock_t *int_lock = NULL;
-        afr_inodelk_t       *inodelk  = NULL;
-        afr_local_t         *local    = NULL;
-        afr_private_t       *priv     = NULL;
-
-        priv     = this->private;
-        local    = frame->local;
-        int_lock = &local->internal_lock;
-
-        switch (local->transaction.type) {
-        case AFR_DATA_TRANSACTION:
-        case AFR_METADATA_TRANSACTION:
-                inodelk = afr_get_inodelk (int_lock, int_lock->domain);
-                memcpy (inodelk->locked_nodes, int_lock->locked_nodes,
-                        sizeof (*inodelk->locked_nodes) * priv->child_count);
-                inodelk->lock_count = int_lock->lock_count;
-                break;
-
-        case AFR_ENTRY_RENAME_TRANSACTION:
-        case AFR_ENTRY_TRANSACTION:
-                /*entrylk_count is being used in both non-blocking and blocking
-                 * modes */
-                break;
-        }
-
-        return 0;
-
 }
 
 static gf_boolean_t
@@ -733,7 +634,6 @@ int
 afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
 {
         afr_internal_lock_t *int_lock    = NULL;
-        afr_inodelk_t       *inodelk     = NULL;
         afr_local_t         *local       = NULL;
         afr_private_t       *priv        = NULL;
         struct gf_flock flock = {0,};
@@ -752,10 +652,9 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
 
 
         if (!is_entrylk) {
-                inodelk = afr_get_inodelk (int_lock, int_lock->domain);
-                flock.l_start = inodelk->flock.l_start;
-                flock.l_len   = inodelk->flock.l_len;
-                flock.l_type  = inodelk->flock.l_type;
+                flock.l_start = int_lock->flock.l_start;
+                flock.l_len   = int_lock->flock.l_len;
+                flock.l_type  = int_lock->flock.l_type;
         }
 
         if (local->fd) {
@@ -770,9 +669,7 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
                         local->op_ret           = -1;
                         int_lock->lock_op_ret   = -1;
 
-                        afr_copy_locked_nodes (frame, this);
-
-                        afr_unlock (frame, this);
+                        afr_unlock_now (frame, this);
 
                         return 0;
                 }
@@ -784,9 +681,7 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
                         local->op_ret           = -1;
                         int_lock->lock_op_ret   = -1;
 
-                        afr_copy_locked_nodes (frame, this);
-
-                        afr_unlock(frame, this);
+                        afr_unlock_now(frame, this);
 
                         return 0;
                 }
@@ -797,8 +692,6 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
 
                 gf_msg_debug (this->name, 0,
                               "we're done locking");
-
-                afr_copy_locked_nodes (frame, this);
 
                 int_lock->lock_op_ret = 0;
                 int_lock->lock_cbk (frame, this);
@@ -815,7 +708,6 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
         case AFR_METADATA_TRANSACTION:
 
                 if (local->fd) {
-
                         STACK_WIND_COOKIE (frame, afr_blocking_inodelk_cbk,
                                            (void *) (long) child_index,
                                            priv->children[child_index],
@@ -824,7 +716,6 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
                                            F_SETLKW, &flock, NULL);
 
                 } else {
-
                         STACK_WIND_COOKIE (frame, afr_blocking_inodelk_cbk,
                                            (void *) (long) child_index,
                                            priv->children[child_index],
@@ -841,7 +732,6 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
                  *and 'fd-less' children */
 
                 if (local->fd) {
-
                         STACK_WIND_COOKIE (frame, afr_blocking_entrylk_cbk,
                                            (void *) (long) cookie,
                                            priv->children[child_index],
@@ -850,7 +740,6 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int cookie)
                                            int_lock->lockee[lockee_no].basename,
                                            ENTRYLK_LOCK, ENTRYLK_WRLCK, NULL);
                 } else {
-
                         STACK_WIND_COOKIE (frame, afr_blocking_entrylk_cbk,
                                            (void *) (long) cookie,
                                            priv->children[child_index],
@@ -922,7 +811,6 @@ afr_nonblocking_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local    = frame->local;
         int_lock = &local->internal_lock;
 
-
 	LOCK (&frame->lock);
 	{
 		if (op_ret < 0 ) {
@@ -969,7 +857,7 @@ afr_nonblocking_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                       "with blocking calls",
                                       int_lock->lock_count);
 
-                        afr_unlock(frame, this);
+                        afr_unlock_now(frame, this);
                 }
         }
 
@@ -1009,7 +897,7 @@ afr_nonblocking_entrylk (call_frame_t *frame, xlator_t *this)
                         local->op_errno         = EINVAL;
                         int_lock->lock_op_errno = EINVAL;
 
-			afr_unlock (frame, this);
+			afr_unlock_now (frame, this);
                         return -1;
                 }
 
@@ -1021,7 +909,7 @@ afr_nonblocking_entrylk (call_frame_t *frame, xlator_t *this)
                         gf_msg (this->name, GF_LOG_INFO, 0,
                                 AFR_MSG_INFO_COMMON,
                                 "fd not open on any subvolumes. aborting.");
-                        afr_unlock (frame, this);
+                        afr_unlock_now (frame, this);
                         goto out;
                 }
 
@@ -1031,7 +919,6 @@ afr_nonblocking_entrylk (call_frame_t *frame, xlator_t *this)
                         index = i%copies;
                         lockee_no = i/copies;
                         if (local->child_up[index]) {
-
                                 STACK_WIND_COOKIE (frame, afr_nonblocking_entrylk_cbk,
                                                    (void *) (long) i,
                                                    priv->children[index],
@@ -1053,7 +940,6 @@ afr_nonblocking_entrylk (call_frame_t *frame, xlator_t *this)
                         index = i%copies;
                         lockee_no = i/copies;
                         if (local->child_up[index]) {
-
                                 STACK_WIND_COOKIE (frame, afr_nonblocking_entrylk_cbk,
                                                    (void *) (long) i,
                                                    priv->children[index],
@@ -1077,18 +963,12 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         afr_internal_lock_t *int_lock    = NULL;
-        afr_inodelk_t       *inodelk     = NULL;
         afr_local_t         *local       = NULL;
-        afr_fd_ctx_t        *fd_ctx      = NULL;
         int                  call_count  = 0;
         int                  child_index = (long) cookie;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
-        inodelk = afr_get_inodelk (int_lock, int_lock->domain);
-
-	if (local->fd)
-		fd_ctx = afr_fd_ctx_get (local->fd, this);
 
         LOCK (&frame->lock);
         {
@@ -1105,43 +985,27 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				int_lock->lock_op_errno      = op_errno;
 				local->op_errno              = op_errno;
 			}
-			if (local->transaction.eager_lock)
-				local->transaction.eager_lock[child_index] = 0;
 		} else {
-			inodelk->locked_nodes[child_index] |= LOCKED_YES;
-			inodelk->lock_count++;
-
-			if (local->transaction.eager_lock &&
-			    local->transaction.eager_lock[child_index] &&
-			    local->fd) {
-				/* piggybacked */
-				if (op_ret == 1) {
-					/* piggybacked */
-				} else if (op_ret == 0) {
-					/* lock acquired from server */
-                                        fd_ctx->lock_acquired[child_index]++;
-				}
-			}
-
-                        if (local->transaction.type == AFR_DATA_TRANSACTION &&
-                            op_ret == 0) {
-                                LOCK(&local->inode->lock);
-                                {
-                                        local->inode_ctx->lock_count++;
-                                }
-                                UNLOCK (&local->inode->lock);
-                        }
+			int_lock->locked_nodes[child_index] |= LOCKED_YES;
+			int_lock->lock_count++;
 		}
 
                 call_count = --int_lock->lk_call_count;
         }
         UNLOCK (&frame->lock);
 
+        if (op_ret == 0 && local->transaction.type == AFR_DATA_TRANSACTION) {
+                LOCK (&local->inode->lock);
+                {
+                        local->inode_ctx->lock_count++;
+                }
+                UNLOCK (&local->inode->lock);
+        }
         if (call_count == 0) {
                 gf_msg_trace (this->name, 0,
                               "Last inode locking reply received");
                 /* all locks successful. Proceed to call FOP */
-                if (inodelk->lock_count == int_lock->lk_expected_count) {
+                if (int_lock->lock_count == int_lock->lk_expected_count) {
                         gf_msg_trace (this->name, 0,
                                       "All servers locked. Calling the cbk");
                         int_lock->lock_op_ret = 0;
@@ -1155,7 +1019,7 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                       "Trying again with blocking calls",
                                       int_lock->lock_count);
 
-                        afr_unlock(frame, this);
+                        afr_unlock_now(frame, this);
                 }
         }
 
@@ -1166,29 +1030,16 @@ int
 afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
 {
         afr_internal_lock_t *int_lock = NULL;
-        afr_inodelk_t       *inodelk  = NULL;
         afr_local_t         *local    = NULL;
         afr_private_t       *priv     = NULL;
         afr_fd_ctx_t        *fd_ctx   = NULL;
         int32_t             call_count = 0;
         int                 i          = 0;
         int                 ret        = 0;
-        struct              gf_flock flock = {0,};
-        struct              gf_flock full_flock = {0,};
-        struct              gf_flock *flock_use = NULL;
-        int                 piggyback = 0;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
         priv     = this->private;
-
-        inodelk = afr_get_inodelk (int_lock, int_lock->domain);
-
-        flock.l_start = inodelk->flock.l_start;
-        flock.l_len   = inodelk->flock.l_len;
-        flock.l_type  = inodelk->flock.l_type;
-
-        full_flock.l_type = inodelk->flock.l_type;
 
         initialize_inodelk_variables (frame, this);
 
@@ -1205,88 +1056,48 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
                         local->op_errno         = EINVAL;
                         int_lock->lock_op_errno = EINVAL;
 
-			afr_unlock (frame, this);
+			afr_unlock_now (frame, this);
                         ret = -1;
                         goto out;
                 }
+        }
 
-                call_count = internal_lock_count (frame, this);
-                int_lock->lk_call_count = call_count;
-                int_lock->lk_expected_count = call_count;
+        call_count = internal_lock_count (frame, this);
+        int_lock->lk_call_count = call_count;
+        int_lock->lk_expected_count = call_count;
 
-                if (!call_count) {
-                        gf_msg (this->name, GF_LOG_INFO, 0,
-                                AFR_MSG_SUBVOLS_DOWN,
-                                "All bricks are down, aborting.");
-                        afr_unlock (frame, this);
-                        goto out;
-                }
+        if (!call_count) {
+                gf_msg (this->name, GF_LOG_INFO, 0,
+                        AFR_MSG_SUBVOLS_DOWN,
+                        "All bricks are down, aborting.");
+                afr_unlock_now (frame, this);
+                goto out;
+        }
 
-                /* Send non-blocking inodelk calls only on up children
-                   and where the fd has been opened */
-                for (i = 0; i < priv->child_count; i++) {
-                        if (!local->child_up[i])
-                                continue;
+        /* Send non-blocking inodelk calls only on up children
+           and where the fd has been opened */
+        for (i = 0; i < priv->child_count; i++) {
+                if (!local->child_up[i])
+                        continue;
 
-                        flock_use = &flock;
-                        if (!local->transaction.eager_lock_on) {
-                                goto wind;
-                        }
-
-                        piggyback = 0;
-                        local->transaction.eager_lock[i] = 1;
-
-			afr_set_delayed_post_op (frame, this);
-
-                        LOCK (&local->fd->lock);
-                        {
-                                if (fd_ctx->lock_acquired[i]) {
-                                        fd_ctx->lock_piggyback[i]++;
-                                        piggyback = 1;
-                                }
-                        }
-                        UNLOCK (&local->fd->lock);
-
-                        if (piggyback) {
-                                /* (op_ret == 1) => indicate piggybacked lock */
-                                afr_nonblocking_inodelk_cbk (frame, (void *) (long) i,
-                                                             this, 1, 0, NULL);
-                                if (!--call_count)
-                                        break;
-                                continue;
-                        }
-                        flock_use = &full_flock;
-                wind:
-
+                if (local->fd) {
                         STACK_WIND_COOKIE (frame, afr_nonblocking_inodelk_cbk,
                                            (void *) (long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->finodelk,
                                            int_lock->domain, local->fd,
-                                           F_SETLK, flock_use, NULL);
-
-                        if (!--call_count)
-                                break;
-                }
-        } else {
-                call_count = internal_lock_count (frame, this);
-                int_lock->lk_call_count = call_count;
-                int_lock->lk_expected_count = call_count;
-
-                for (i = 0; i < priv->child_count; i++) {
-                        if (!local->child_up[i])
-                                continue;
+                                           F_SETLK, &int_lock->flock, NULL);
+                } else {
 
                         STACK_WIND_COOKIE (frame, afr_nonblocking_inodelk_cbk,
                                            (void *) (long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->inodelk,
                                            int_lock->domain, &local->loc,
-                                           F_SETLK, &flock, NULL);
-
-                        if (!--call_count)
-                                break;
+                                           F_SETLK, &int_lock->flock, NULL);
                 }
+                if (!--call_count)
+                        break;
         }
 out:
         return ret;
@@ -1296,13 +1107,32 @@ int32_t
 afr_unlock (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
+        afr_lock_t  *lock  = NULL;
 
         local = frame->local;
 
-        if (afr_is_inodelk_transaction(local->transaction.type))
-                afr_unlock_inodelk (frame, this);
-        else
-                afr_unlock_entrylk (frame, this);
+        if (!local->transaction.eager_lock_on)
+                goto out;
+        lock = &local->inode_ctx->lock[local->transaction.type];
+        LOCK (&local->inode->lock);
+        {
+                list_del_init (&local->transaction.owner_list);
+                if (list_empty (&lock->owners) && list_empty (&lock->post_op)) {
+                        local->transaction.do_eager_unlock = _gf_true;
+        /*TODO: Need to get metadata use on_disk and inherit/uninherit
+         *GF_ASSERT (!local->inode_ctx->on_disk[local->transaction.type]);
+         *GF_ASSERT (!local->inode_ctx->inherited[local->transaction.type]);
+        */
+                        GF_ASSERT (lock->release);
+                }
+        }
+        UNLOCK (&local->inode->lock);
+        if (!local->transaction.do_eager_unlock) {
+                local->internal_lock.lock_cbk (frame, this);
+                return 0;
+        }
 
+out:
+        afr_unlock_now (frame, this);
         return 0;
 }

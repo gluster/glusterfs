@@ -229,19 +229,12 @@ int
 afr_entry_lockee_cmp (const void *l1, const void *l2);
 
 typedef struct {
-        char    *domain; /* Domain on which inodelk is taken */
-        struct gf_flock flock;
-        unsigned char *locked_nodes;
-        int32_t lock_count;
-} afr_inodelk_t;
-
-typedef struct {
         loc_t *lk_loc;
 
         int                     lockee_count;
         afr_entry_lockee_t      lockee[AFR_LOCKEE_COUNT_MAX];
 
-        afr_inodelk_t       inodelk[AFR_DOM_COUNT_MAX];
+        struct gf_flock flock;
         const char *lk_basename;
         const char *lower_basename;
         const char *higher_basename;
@@ -254,7 +247,6 @@ typedef struct {
         int32_t lock_count;
         int32_t entrylk_lock_count;
 
-        uint64_t lock_number;
         int32_t lk_call_count;
         int32_t lk_expected_count;
         int32_t lk_attempted_count;
@@ -292,36 +284,8 @@ typedef enum {
 } afr_fd_open_status_t;
 
 typedef struct {
-        unsigned int *pre_op_done[AFR_NUM_CHANGE_LOGS];
-	int inherited[AFR_NUM_CHANGE_LOGS];
-	int on_disk[AFR_NUM_CHANGE_LOGS];
         afr_fd_open_status_t *opened_on; /* which subvolumes the fd is open on */
-
-        unsigned int *lock_piggyback;
-        unsigned int *lock_acquired;
-
         int flags;
-
-	/* used for delayed-post-op optimization */
-	pthread_mutex_t    delay_lock;
-	gf_timer_t        *delay_timer;
-	call_frame_t      *delay_frame;
-
-	/* set if any write on this fd was a non stable write
-	   (i.e, without O_SYNC or O_DSYNC)
-	*/
-	gf_boolean_t      witnessed_unstable_write;
-
-	/* @open_fd_count:
-	   Number of open FDs queried from the server, as queried through
-	   xdata in FOPs. Currently, used to decide if eager-locking must be
-	   temporarily disabled.
-	*/
-        uint32_t        open_fd_count;
-
-
-	/* list of frames currently in progress */
-	struct list_head  eager_locked;
 
 	/* the subvolume on which the latest sequence of readdirs (starting
 	   at offset 0) has begun. Till the next readdir request with 0 offset
@@ -336,6 +300,20 @@ typedef enum {
         AFR_FOP_LOCK_QUORUM_FAILED,
 } afr_fop_lock_state_t;
 
+typedef struct _afr_inode_lock_t {
+        unsigned int event_generation;
+        gf_boolean_t    release;
+        gf_boolean_t    acquired;
+        gf_timer_t        *delay_timer;
+        struct list_head  owners; /*Transactions that are performing fop*/
+        struct list_head  post_op;/*Transactions that are done with the fop
+                                   *So can not conflict with the fops*/
+        struct list_head waiting;/*Transaction that are waiting for
+                                   *conflicting transactions to complete*/
+        struct list_head frozen;/*Transactions that need to go as part of
+                                 * next batch of eager-lock*/
+} afr_lock_t;
+
 typedef struct _afr_inode_ctx {
         uint64_t        read_subvol;
         uint64_t        write_subvol;
@@ -343,6 +321,23 @@ typedef struct _afr_inode_ctx {
         int             spb_choice;
         gf_timer_t      *timer;
         gf_boolean_t    need_refresh;
+        unsigned int *pre_op_done[AFR_NUM_CHANGE_LOGS];
+        int inherited[AFR_NUM_CHANGE_LOGS];
+        int on_disk[AFR_NUM_CHANGE_LOGS];
+
+        /* set if any write on this fd was a non stable write
+           (i.e, without O_SYNC or O_DSYNC)
+        */
+        gf_boolean_t      witnessed_unstable_write;
+
+        /* @open_fd_count:
+           Number of open FDs queried from the server, as queried through
+           xdata in FOPs. Currently, used to decide if eager-locking must be
+           temporarily disabled.
+        */
+        uint32_t        open_fd_count;
+        /*Only 2 types of transactions support eager-locks now. DATA/METADATA*/
+        afr_lock_t lock[2];
 } afr_inode_ctx_t;
 
 
@@ -457,7 +452,6 @@ typedef struct _afr_local {
         dict_t  *dict;
 
         int      optimistic_change_log;
-	gf_boolean_t      delayed_post_op;
 
 	/* Is the current writev() going to perform a stable write?
 	   i.e, is fd->flags or @flags writev param have O_SYNC or
@@ -693,7 +687,7 @@ typedef struct _afr_local {
                 off_t start, len;
 
                 gf_boolean_t    eager_lock_on;
-                int *eager_lock;
+                gf_boolean_t    do_eager_unlock;
 
                 char *basename;
                 char *new_basename;
@@ -707,7 +701,8 @@ typedef struct _afr_local {
 		   of the transaction frame */
 		call_stub_t      *resume_stub;
 
-		struct list_head  eager_locked;
+		struct list_head  owner_list;
+                struct list_head  wait_list;
 
                 unsigned char   *pre_op;
 
@@ -768,7 +763,8 @@ typedef struct _afr_local {
 		*/
 		afr_changelog_resume_t changelog_resume;
 
-                call_frame_t *main_frame;
+                call_frame_t *main_frame; /*Fop frame*/
+                call_frame_t *frame; /*Transaction frame*/
 
                 int (*wind) (call_frame_t *frame, xlator_t *this, int subvol);
 
@@ -1009,7 +1005,7 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd);
 		afr_local_cleanup (frame->local, THIS);		       \
 		mem_put (frame->local);				       \
 		frame->local = NULL; };				       \
-	frame->local;})
+	frame->local; })
 
 #define AFR_STACK_RESET(frame)                                         \
         do {                                                           \
@@ -1096,22 +1092,10 @@ afr_filter_xattrs (dict_t *xattr);
 #define AFR_QUORUM_AUTO INT_MAX
 
 int
-afr_fd_report_unstable_write (xlator_t *this, fd_t *fd);
+afr_fd_report_unstable_write (xlator_t *this, afr_local_t *local);
 
 gf_boolean_t
-afr_fd_has_witnessed_unstable_write (xlator_t *this, fd_t *fd);
-
-void
-afr_delayed_changelog_wake_resume (xlator_t *this, fd_t *fd, call_stub_t *stub);
-
-int
-afr_inodelk_init (afr_inodelk_t *lk, char *dom, size_t child_count);
-
-void
-afr_handle_open_fd_count (call_frame_t *frame, xlator_t *this);
-
-void
-afr_remove_eager_lock_stub (afr_local_t *local);
+afr_fd_has_witnessed_unstable_write (xlator_t *this, inode_t *inode);
 
 void
 afr_reply_wipe (struct afr_reply *reply);
@@ -1225,5 +1209,4 @@ afr_write_subvol_reset (call_frame_t *frame, xlator_t *this);
 
 int
 afr_set_inode_local (xlator_t *this, afr_local_t *local, inode_t *inode);
-
 #endif /* __AFR_H__ */

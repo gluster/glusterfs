@@ -17,20 +17,11 @@ void
 afr_transaction_fop_failed (call_frame_t *frame, xlator_t *this,
 			    int child_index);
 
-int
-afr_lock_server_count (afr_private_t *priv, afr_transaction_type type);
-
-afr_inodelk_t*
-afr_get_inodelk (afr_internal_lock_t *int_lock, char *dom);
-
 int32_t
 afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type);
 
 int
 afr_set_pending_dict (afr_private_t *priv, dict_t *xattr, int32_t **pending);
-
-void
-afr_set_delayed_post_op (call_frame_t *frame, xlator_t *this);
 
 void
 afr_delayed_changelog_wake_up (xlator_t *this, fd_t *fd);
@@ -57,4 +48,8 @@ afr_pick_error_xdata (afr_local_t *local, afr_private_t *priv,
                       inode_t *inode2, unsigned char *readable2);
 int
 afr_transaction_resume (call_frame_t *frame, xlator_t *this);
+int
+afr_lock (call_frame_t *frame, xlator_t *this);
+void
+afr_delayed_changelog_wake_up_cbk (void *data);
 #endif /* __TRANSACTION_H__ */

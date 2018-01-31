@@ -121,37 +121,77 @@ afr_is_possibly_under_txn (afr_transaction_type type, afr_local_t *local,
         return _gf_false;
 }
 
+static void
+afr_inode_ctx_destroy (afr_inode_ctx_t *ctx)
+{
+        int i = 0;
+
+        if (!ctx)
+                return;
+
+        for (i = 0; i < AFR_NUM_CHANGE_LOGS; i++) {
+                GF_FREE (ctx->pre_op_done[i]);
+        }
+
+        GF_FREE (ctx);
+}
+
 int
 __afr_inode_ctx_get (xlator_t *this, inode_t *inode, afr_inode_ctx_t **ctx)
 {
-        uint64_t                ctx_int = 0;
-        int                     ret     = -1;
-        afr_inode_ctx_t        *tmp_ctx = NULL;
+        uint64_t        ctx_int   = 0;
+        int             ret       = -1;
+        int             i         = -1;
+        int             num_locks = -1;
+        afr_inode_ctx_t *ictx     = NULL;
+        afr_lock_t      *lock     = NULL;
+        afr_private_t   *priv     = this->private;
 
         ret = __inode_ctx_get (inode, this, &ctx_int);
-        if (ret) {
-                tmp_ctx = GF_CALLOC (1, sizeof (afr_inode_ctx_t),
-                                     gf_afr_mt_inode_ctx_t);
-                if (!tmp_ctx)
-                        goto out;
-
-                ctx_int = (long) tmp_ctx;
-                ret = __inode_ctx_set (inode, this, &ctx_int);
-                if (ret) {
-                        GF_FREE (tmp_ctx);
-                        goto out;
-                }
-                tmp_ctx->spb_choice = -1;
-                tmp_ctx->read_subvol = 0;
-                tmp_ctx->write_subvol = 0;
-                tmp_ctx->lock_count = 0;
-        } else {
-                tmp_ctx = (afr_inode_ctx_t *) ctx_int;
+        if (ret == 0) {
+                *ctx = (afr_inode_ctx_t *)ctx_int;
+                return 0;
         }
 
-        *ctx = tmp_ctx;
+        ictx = GF_CALLOC (1, sizeof (afr_inode_ctx_t), gf_afr_mt_inode_ctx_t);
+        if (!ictx)
+                goto out;
+
+        for (i = 0; i < AFR_NUM_CHANGE_LOGS; i++) {
+                ictx->pre_op_done[i] = GF_CALLOC (sizeof *ictx->pre_op_done[i],
+                                                  priv->child_count,
+                                                  gf_afr_mt_int32_t);
+                if (!ictx->pre_op_done[i]) {
+                        ret = -ENOMEM;
+                        goto out;
+                }
+        }
+
+        num_locks = sizeof(ictx->lock)/sizeof(afr_lock_t);
+        for (i = 0; i < num_locks; i++) {
+                lock = &ictx->lock[i];
+                INIT_LIST_HEAD (&lock->post_op);
+                INIT_LIST_HEAD (&lock->frozen);
+                INIT_LIST_HEAD (&lock->waiting);
+                INIT_LIST_HEAD (&lock->owners);
+        }
+
+        ctx_int = (uint64_t)ictx;
+        ret = __inode_ctx_set (inode, this, &ctx_int);
+        if (ret) {
+                goto out;
+        }
+
+        ictx->spb_choice = -1;
+        ictx->read_subvol = 0;
+        ictx->write_subvol = 0;
+        ictx->lock_count = 0;
         ret = 0;
+        *ctx = ictx;
 out:
+        if (ret) {
+                afr_inode_ctx_destroy (ictx);
+        }
         return ret;
 }
 
@@ -1752,10 +1792,6 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
 
         GF_FREE (local->internal_lock.locked_nodes);
 
-        for (i = 0; local->internal_lock.inodelk[i].domain; i++) {
-                GF_FREE (local->internal_lock.inodelk[i].locked_nodes);
-        }
-
         GF_FREE (local->internal_lock.lower_locked_nodes);
 
         afr_entry_lockee_cleanup (&local->internal_lock);
@@ -1772,7 +1808,6 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
                 GF_FREE (local->transaction.changelog_xdata);
         }
 
-        GF_FREE (local->transaction.eager_lock);
         GF_FREE (local->transaction.failed_subvols);
 
         GF_FREE (local->transaction.basename);
@@ -1817,16 +1852,6 @@ afr_local_replies_wipe (afr_local_t *local, afr_private_t *priv)
         afr_replies_wipe (local->replies, priv->child_count);
 
 	memset (local->replies, 0, sizeof(*local->replies) * priv->child_count);
-}
-
-void
-afr_remove_eager_lock_stub (afr_local_t *local)
-{
-        LOCK (&local->fd->lock);
-        {
-                list_del_init (&local->transaction.eager_locked);
-        }
-        UNLOCK (&local->fd->lock);
 }
 
 static gf_boolean_t
@@ -1932,10 +1957,6 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
                 return;
 
 	syncbarrier_destroy (&local->barrier);
-
-        if (local->transaction.eager_lock_on &&
-            !list_empty (&local->transaction.eager_locked))
-                afr_remove_eager_lock_stub (local);
 
         afr_local_transaction_cleanup (local, this);
 
@@ -3228,22 +3249,8 @@ out:
 void
 _afr_cleanup_fd_ctx (afr_fd_ctx_t *fd_ctx)
 {
-        int i = 0;
-
-
-	for (i = 0; i < AFR_NUM_CHANGE_LOGS; i++)
-		GF_FREE (fd_ctx->pre_op_done[i]);
-
         GF_FREE (fd_ctx->opened_on);
-
-        GF_FREE (fd_ctx->lock_piggyback);
-
-        GF_FREE (fd_ctx->lock_acquired);
-
-	pthread_mutex_destroy (&fd_ctx->delay_lock);
-
         GF_FREE (fd_ctx);
-
         return;
 }
 
@@ -3261,15 +3268,7 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd)
         fd_ctx = (afr_fd_ctx_t *)(long) ctx;
 
         if (fd_ctx) {
-                /*no need to take any locks*/
-                if (!list_empty (&fd_ctx->eager_locked))
-                        gf_msg (this->name, GF_LOG_WARNING, 0,
-                                AFR_MSG_INVALID_DATA, "%s: Stale "
-                                "Eager-lock stubs found",
-                                uuid_utoa (fd->inode->gfid));
-
                 _afr_cleanup_fd_ctx (fd_ctx);
-
         }
 
 out:
@@ -3350,23 +3349,6 @@ __afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                 goto out;
         }
 
-        ret = pthread_mutex_init (&fd_ctx->delay_lock, NULL);
-        if (ret) {
-                GF_FREE (fd_ctx);
-                fd_ctx = NULL;
-                goto out;
-        }
-
-	for (i = 0; i < AFR_NUM_CHANGE_LOGS; i++) {
-		fd_ctx->pre_op_done[i] = GF_CALLOC (sizeof (*fd_ctx->pre_op_done[i]),
-						    priv->child_count,
-						    gf_afr_mt_int32_t);
-		if (!fd_ctx->pre_op_done[i]) {
-			ret = -ENOMEM;
-			goto out;
-		}
-	}
-
         fd_ctx->opened_on = GF_CALLOC (sizeof (*fd_ctx->opened_on),
                                        priv->child_count,
                                        gf_afr_mt_int32_t);
@@ -3382,25 +3364,7 @@ __afr_fd_ctx_set (xlator_t *this, fd_t *fd)
 			fd_ctx->opened_on[i] = AFR_FD_NOT_OPENED;
 	}
 
-        fd_ctx->lock_piggyback = GF_CALLOC (sizeof (*fd_ctx->lock_piggyback),
-                                            priv->child_count,
-                                            gf_afr_mt_char);
-        if (!fd_ctx->lock_piggyback) {
-                ret = -ENOMEM;
-                goto out;
-        }
-
-        fd_ctx->lock_acquired = GF_CALLOC (sizeof (*fd_ctx->lock_acquired),
-                                           priv->child_count,
-                                           gf_afr_mt_char);
-        if (!fd_ctx->lock_acquired) {
-                ret = -ENOMEM;
-                goto out;
-        }
-
 	fd_ctx->readdir_subvol = -1;
-
-        INIT_LIST_HEAD (&fd_ctx->eager_locked);
 
         ret = __fd_ctx_set (fd, this, (uint64_t)(long) fd_ctx);
         if (ret)
@@ -3473,12 +3437,70 @@ afr_flush_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         return 0;
 }
 
+afr_local_t*
+afr_wakeup_same_fd_delayed_op (xlator_t *this, afr_lock_t *lock, fd_t *fd)
+{
+        afr_local_t *local = NULL;
+
+        if (lock->delay_timer) {
+                local = list_entry(lock->post_op.next, afr_local_t,
+                                   transaction.owner_list);
+                if (fd == local->fd) {
+                        if (gf_timer_call_cancel (this->ctx,
+                                                  lock->delay_timer)) {
+                                local = NULL;
+                        } else {
+                                lock->delay_timer = NULL;
+                        }
+                } else {
+                        local = NULL;
+                }
+        }
+
+        return local;
+}
+
+void
+afr_delayed_changelog_wake_resume (xlator_t *this, inode_t *inode,
+                                   call_stub_t *stub)
+{
+        afr_inode_ctx_t *ctx = NULL;
+        afr_lock_t      *lock = NULL;
+        afr_local_t     *metadata_local = NULL;
+        afr_local_t     *data_local = NULL;
+        LOCK (&inode->lock);
+        {
+                (void)__afr_inode_ctx_get (this, inode, &ctx);
+                lock = &ctx->lock[AFR_DATA_TRANSACTION];
+                data_local = afr_wakeup_same_fd_delayed_op (this, lock,
+                                                            stub->args.fd);
+                lock = &ctx->lock[AFR_METADATA_TRANSACTION];
+                metadata_local = afr_wakeup_same_fd_delayed_op (this, lock,
+                                                                stub->args.fd);
+        }
+        UNLOCK (&inode->lock);
+
+        if (data_local) {
+                data_local->transaction.resume_stub = stub;
+        } else if (metadata_local) {
+                metadata_local->transaction.resume_stub = stub;
+        } else {
+                call_resume (stub);
+        }
+        if (data_local) {
+                afr_delayed_changelog_wake_up_cbk (data_local);
+        }
+        if (metadata_local) {
+                afr_delayed_changelog_wake_up_cbk (metadata_local);
+        }
+}
+
 int
 afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
-        afr_local_t   *local = NULL;
-        call_stub_t   *stub = NULL;
-        int            op_errno   = ENOMEM;
+        afr_local_t *local   = NULL;
+        call_stub_t *stub    = NULL;
+        int         op_errno = ENOMEM;
 
 	local = AFR_FRAME_INIT (frame, op_errno);
 	if (!local)
@@ -3494,14 +3516,13 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         if (!stub)
                 goto out;
 
-        afr_delayed_changelog_wake_resume (this, fd, stub);
+        afr_delayed_changelog_wake_resume (this, fd->inode, stub);
 
 	return 0;
 out:
 	AFR_STACK_UNWIND (flush, frame, -1, op_errno, NULL);
         return 0;
 }
-
 
 int
 afr_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -4565,7 +4586,7 @@ afr_forget (xlator_t *this, inode_t *inode)
                 return 0;
 
         ctx = (afr_inode_ctx_t *)ctx_int;
-        GF_FREE (ctx);
+        afr_inode_ctx_destroy (ctx);
         return 0;
 }
 
@@ -5382,21 +5403,6 @@ out:
 }
 
 int
-afr_inodelk_init (afr_inodelk_t *lk, char *dom, size_t child_count)
-{
-        int             ret = -ENOMEM;
-
-        lk->domain = dom;
-        lk->locked_nodes = GF_CALLOC (sizeof (*lk->locked_nodes),
-                                      child_count, gf_afr_mt_char);
-        if (NULL == lk->locked_nodes)
-                goto out;
-        ret = 0;
-out:
-        return ret;
-}
-
-int
 afr_transaction_local_init (afr_local_t *local, xlator_t *this)
 {
         int            ret = -ENOMEM;
@@ -5407,24 +5413,8 @@ afr_transaction_local_init (afr_local_t *local, xlator_t *this)
         if (ret < 0)
                 goto out;
 
-        if ((local->transaction.type == AFR_DATA_TRANSACTION) ||
-            (local->transaction.type == AFR_METADATA_TRANSACTION)) {
-                ret = afr_inodelk_init (&local->internal_lock.inodelk[0],
-                                        this->name, priv->child_count);
-                if (ret < 0)
-                        goto out;
-        }
-
         ret = -ENOMEM;
 	local->pre_op_compat = priv->pre_op_compat;
-
-        local->transaction.eager_lock =
-                GF_CALLOC (sizeof (*local->transaction.eager_lock),
-                           priv->child_count,
-                           gf_afr_mt_int32_t);
-
-        if (!local->transaction.eager_lock)
-                goto out;
 
         local->transaction.pre_op = GF_CALLOC (sizeof (*local->transaction.pre_op),
                                                priv->child_count,
@@ -5457,9 +5447,9 @@ afr_transaction_local_init (afr_local_t *local, xlator_t *this)
         if (!local->pending)
                 goto out;
 
-	INIT_LIST_HEAD (&local->transaction.eager_locked);
-
         ret = 0;
+        INIT_LIST_HEAD (&local->transaction.wait_list);
+        INIT_LIST_HEAD (&local->transaction.owner_list);
 out:
         return ret;
 }
@@ -5492,24 +5482,6 @@ afr_priv_destroy (afr_private_t *priv)
         GF_FREE (priv);
 out:
         return;
-}
-
-void
-afr_handle_open_fd_count (call_frame_t *frame, xlator_t *this)
-{
-        afr_local_t     *local = NULL;
-        afr_fd_ctx_t    *fd_ctx   = NULL;
-
-        local = frame->local;
-
-        if (!local->fd)
-		return;
-
-	fd_ctx = afr_fd_ctx_get (local->fd, this);
-	if (!fd_ctx)
-		return;
-
-	fd_ctx->open_fd_count = local->open_fd_count;
 }
 
 int**
@@ -5620,7 +5592,7 @@ out:
 
 int
 afr_selfheal_locked_data_inspect (call_frame_t *frame, xlator_t *this,
-                                  inode_t *inode, gf_boolean_t *dsh,
+                                  fd_t *fd, gf_boolean_t *dsh,
                                   gf_boolean_t *pflag)
 {
         int ret = -1;
@@ -5630,8 +5602,8 @@ afr_selfheal_locked_data_inspect (call_frame_t *frame, xlator_t *this,
         unsigned char *healed_sinks = NULL;
         unsigned char *undid_pending = NULL;
         afr_private_t   *priv = NULL;
-        fd_t          *fd = NULL;
         struct afr_reply *locked_replies = NULL;
+        inode_t *inode = fd->inode;
 
         priv = this->private;
         data_lock = alloca0 (priv->child_count);
@@ -5639,18 +5611,6 @@ afr_selfheal_locked_data_inspect (call_frame_t *frame, xlator_t *this,
         sinks = alloca0 (priv->child_count);
         healed_sinks = alloca0 (priv->child_count);
         undid_pending = alloca0 (priv->child_count);
-
-        /* Heal-info does an open() on the file being examined so that the
-         * current eager-lock holding client, if present, at some point sees
-         * open-fd count being > 1 and releases the eager-lock so that heal-info
-         * doesn't remain blocked forever until IO completes.
-         */
-        ret = afr_selfheal_data_open (this, inode, &fd);
-        if (ret < 0) {
-                gf_msg_debug (this->name, -ret, "%s: Failed to open",
-                              uuid_utoa (inode->gfid));
-                goto out;
-        }
 
         locked_replies = alloca0 (sizeof (*locked_replies) * priv->child_count);
 
@@ -5674,8 +5634,6 @@ afr_selfheal_locked_data_inspect (call_frame_t *frame, xlator_t *this,
 out:
         if (locked_replies)
                 afr_replies_wipe (locked_replies, priv->child_count);
-        if (fd)
-                fd_unref (fd);
         return ret;
 }
 
@@ -5760,6 +5718,7 @@ afr_selfheal_locked_inspect (call_frame_t *frame, xlator_t *this, uuid_t gfid,
 
 {
         int ret             = -1;
+        fd_t *fd            = NULL;
         gf_boolean_t    dsh = _gf_false;
         gf_boolean_t    msh = _gf_false;
         gf_boolean_t    esh = _gf_false;
@@ -5771,6 +5730,21 @@ afr_selfheal_locked_inspect (call_frame_t *frame, xlator_t *this, uuid_t gfid,
 
         /* For every heal type hold locks and check if it indeed needs heal */
 
+
+        /* Heal-info does an open() on the file being examined so that the
+         * current eager-lock holding client, if present, at some point sees
+         * open-fd count being > 1 and releases the eager-lock so that heal-info
+         * doesn't remain blocked forever until IO completes.
+         */
+        if ((*inode)->ia_type == IA_IFREG) {
+                ret = afr_selfheal_data_open (this, *inode, &fd);
+                if (ret < 0) {
+                        gf_msg_debug (this->name, -ret, "%s: Failed to open",
+                                      uuid_utoa ((*inode)->gfid));
+                        goto out;
+                }
+        }
+
         if (msh) {
                 ret = afr_selfheal_locked_metadata_inspect (frame, this,
                                                             *inode, &msh,
@@ -5780,7 +5754,7 @@ afr_selfheal_locked_inspect (call_frame_t *frame, xlator_t *this, uuid_t gfid,
         }
 
         if (dsh) {
-                ret = afr_selfheal_locked_data_inspect (frame, this, *inode,
+                ret = afr_selfheal_locked_data_inspect (frame, this, fd,
                                                         &dsh, pending);
                 if (ret == -EIO || (ret == -EAGAIN))
                         goto out;
@@ -5795,6 +5769,8 @@ out:
         *data_selfheal = dsh;
         *entry_selfheal = esh;
         *metadata_selfheal = msh;
+        if (fd)
+                fd_unref (fd);
         return ret;
 }
 
@@ -6429,6 +6405,7 @@ afr_write_subvol_reset (call_frame_t *frame, xlator_t *this)
         local = frame->local;
         LOCK(&local->inode->lock);
         {
+                GF_ASSERT (local->inode_ctx->lock_count > 0);
                 local->inode_ctx->lock_count--;
 
                 if (!local->inode_ctx->lock_count)
