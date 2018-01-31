@@ -2469,6 +2469,7 @@ afr_selfheal_do (call_frame_t *frame, xlator_t *this, uuid_t gfid)
         int           data_ret          = 1;
         int           or_ret            = 0;
         inode_t      *inode             = NULL;
+        fd_t         *fd                = NULL;
 	gf_boolean_t  data_selfheal     = _gf_false;
 	gf_boolean_t  metadata_selfheal = _gf_false;
 	gf_boolean_t  entry_selfheal    = _gf_false;
@@ -2493,8 +2494,16 @@ afr_selfheal_do (call_frame_t *frame, xlator_t *this, uuid_t gfid)
                 goto out;
         }
 
+        if (inode->ia_type == IA_IFREG) {
+                ret = afr_selfheal_data_open (this, inode, &fd);
+                if (!fd) {
+                        ret = -EIO;
+                        goto out;
+                }
+        }
+
 	if (data_selfheal && dataheal_enabled)
-                data_ret = afr_selfheal_data (frame, this, inode);
+                data_ret = afr_selfheal_data (frame, this, fd);
 
 	if (metadata_selfheal && priv->metadata_self_heal)
                 metadata_ret = afr_selfheal_metadata (frame, this, inode);
@@ -2516,6 +2525,8 @@ afr_selfheal_do (call_frame_t *frame, xlator_t *this, uuid_t gfid)
 out:
         if (inode)
                 inode_unref (inode);
+        if (fd)
+                fd_unref (fd);
         return ret;
 }
 /*

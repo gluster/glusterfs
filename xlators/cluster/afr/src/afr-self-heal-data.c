@@ -869,21 +869,14 @@ out:
 }
 
 int
-afr_selfheal_data (call_frame_t *frame, xlator_t *this, inode_t *inode)
+afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
 	afr_private_t *priv = NULL;
 	unsigned char *locked_on = NULL;
 	int ret = 0;
-	fd_t *fd = NULL;
+        inode_t *inode = fd->inode;
 
 	priv = this->private;
-
-	ret = afr_selfheal_data_open (this, inode, &fd);
-	if (!fd) {
-                gf_msg_debug (this->name, -ret, "%s: Failed to open",
-                              uuid_utoa (inode->gfid));
-                return -EIO;
-        }
 
 	locked_on = alloca0 (priv->child_count);
 
@@ -910,9 +903,6 @@ afr_selfheal_data (call_frame_t *frame, xlator_t *this, inode_t *inode)
 unlock:
 	afr_selfheal_uninodelk (frame, this, inode, priv->sh_domain, 0, 0,
 	                        locked_on);
-
-	if (fd)
-		fd_unref (fd);
 
 	return ret;
 }
