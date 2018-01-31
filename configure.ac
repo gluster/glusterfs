@@ -402,6 +402,13 @@ AC_ARG_WITH([ocf],
             )
 AC_SUBST(OCF_SUBDIR)
 
+AC_ARG_WITH([server],
+            [AS_HELP_STRING([--without-server], [do not build server components])],
+            [with_server='no'],
+            [with_server='yes'],
+            )
+AM_CONDITIONAL([WITH_SERVER], [test x$with_server = xyes])
+
 # LEX needs a check
 AC_PROG_LEX
 if test  "x${LEX}" != "xflex" -a "x${FLEX}" != "xlex"; then
@@ -615,7 +622,7 @@ fi
 AC_ARG_ENABLE([bd-xlator],
               AC_HELP_STRING([--enable-bd-xlator], [Build BD xlator]))
 
-if test "x$enable_bd_xlator" != "xno"; then
+if test "x${with_server}" = "xyes" -a "x$enable_bd_xlator" != "xno"; then
   AC_CHECK_LIB([lvm2app],
                [lvm_init,lvm_lv_from_name],
                [HAVE_BD_LIB="yes"],
@@ -777,7 +784,7 @@ case $host_os in
         ;;
 esac
 SYNCDAEMON_COMPILE=0
-if test "x$enable_georeplication" != "xno"; then
+if test "x${with_server}" = "xyes" -a "x$enable_georeplication" != "xno"; then
   SYNCDAEMON_SUBDIR=geo-replication
   SYNCDAEMON_COMPILE=1
 
@@ -803,7 +810,7 @@ AC_SUBST(SYNCDAEMON_SUBDIR)
 # end SYNCDAEMON section
 
 # only install scripts from extras/geo-rep when enabled
-if test "x$enable_georeplication" != "xno"; then
+if test "x${with_server}" = "xyes" -a "x$enable_georeplication" != "xno"; then
   GEOREP_EXTRAS_SUBDIR=geo-rep
 fi
 AC_SUBST(GEOREP_EXTRAS_SUBDIR)
@@ -863,7 +870,7 @@ AC_ARG_ENABLE([firewalld],
                              [enable installation configuration for firewalld]),
               [BUILD_FIREWALLD="${enableval}"], [BUILD_FIREWALLD="no"])
 
-if test "x${BUILD_FIREWALLD}" = "xyes"; then
+if test "x${with_server}" = "xyes" -a "x${BUILD_FIREWALLD}" = "xyes"; then
         if !(test -d /usr/lib/firewalld/services 1>/dev/null 2>&1) ; then
                 BUILD_FIREWALLD="no (firewalld not installed)"
         fi
@@ -896,8 +903,8 @@ esac
 
 AC_SUBST(SQLITE_CFLAGS)
 AC_SUBST(SQLITE_LIBS)
-AM_CONDITIONAL(BUILD_GFDB, test "x${BUILD_GFDB}" = "xyes")
-AM_CONDITIONAL(USE_GFDB, test "x${BUILD_GFDB}" = "xyes")
+AM_CONDITIONAL(BUILD_GFDB, test "x${with_server}" = "xyes" -a "x${BUILD_GFDB}" = "xyes")
+AM_CONDITIONAL(USE_GFDB, test "x${with_server}" = "xyes" -a "x${BUILD_GFDB}" = "xyes")
 
 # xml-output
 AC_ARG_ENABLE([xml-output],
@@ -1403,7 +1410,7 @@ BUILD_GNFS="no"
 AC_ARG_ENABLE([gnfs],
               AC_HELP_STRING([--enable-gnfs],
                              [Enable legacy gnfs server xlator.]))
-if test "x$enable_gnfs" = "xyes"; then
+if test "x${with_server}" = "xyes" -a "x$enable_gnfs" = "xyes"; then
     BUILD_GNFS="yes"
 fi
 AM_CONDITIONAL([BUILD_GNFS], [test x$BUILD_GNFS = xyes])
@@ -1643,6 +1650,7 @@ echo "Events               : $BUILD_EVENTS"
 echo "EC dynamic support   : $EC_DYNAMIC_SUPPORT"
 echo "Use memory pools     : $USE_MEMPOOL"
 echo "Nanosecond m/atimes  : $BUILD_NANOSECOND_TIMESTAMPS"
+echo "Server components    : $with_server"
 echo "Legacy gNFS server   : $BUILD_GNFS"
 echo "IPV6 default         : $with_ipv6_default"
 echo "Use TIRPC            : $with_libtirpc"

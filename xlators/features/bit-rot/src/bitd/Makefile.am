@@ -1,4 +1,6 @@
+if WITH_SERVER
 xlator_LTLIBRARIES = bit-rot.la
+endif
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
 bit_rot_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)

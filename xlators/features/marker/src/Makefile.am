@@ -1,4 +1,6 @@
+if WITH_SERVER
 xlator_LTLIBRARIES = marker.la
+endif
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
 marker_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
