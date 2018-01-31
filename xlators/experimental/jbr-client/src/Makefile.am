@@ -1,4 +1,6 @@
+if WITH_SERVER
 xlator_LTLIBRARIES = jbrc.la
+endif
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/experimental
 
 nodist_jbrc_la_SOURCES = jbrc-cg.c

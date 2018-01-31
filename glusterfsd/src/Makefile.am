@@ -1,4 +1,7 @@
-sbin_PROGRAMS = glusterfsd gf_attach
+sbin_PROGRAMS = glusterfsd
+if WITH_SERVER
+sbin_PROGRAMS += glusterfsd gf_attach
+endif
 
 glusterfsd_SOURCES = glusterfsd.c glusterfsd-mgmt.c
 glusterfsd_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
@@ -41,6 +44,8 @@ install-data-local:
 	$(INSTALL) -d -m 755 $(DESTDIR)$(localstatedir)/log/glusterfs
 	$(INSTALL) -d -m 755 $(DESTDIR)$(sbindir)
 	rm -f $(DESTDIR)$(sbindir)/glusterfs
-	rm -f $(DESTDIR)$(sbindir)/glusterd
 	ln -s glusterfsd $(DESTDIR)$(sbindir)/glusterfs
+if WITH_SERVER
+	rm -f $(DESTDIR)$(sbindir)/glusterd
 	ln -s glusterfsd $(DESTDIR)$(sbindir)/glusterd
+endif

@@ -1,4 +1,6 @@
+if WITH_SERVER
 xlator_LTLIBRARIES = bitrot-stub.la
+endif
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
 bitrot_stub_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)

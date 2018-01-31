@@ -1,4 +1,6 @@
+if WITH_SERVER
 xlator_LTLIBRARIES = trash.la
+endif
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
 trash_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)

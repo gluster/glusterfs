@@ -1,5 +1,7 @@
-xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/experimental
+if WITH_SERVER
 xlator_LTLIBRARIES = posix2-ds.la
+endif
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/experimental
 
 posix2_ds_sources = posix2-ds-main.c
 

@@ -1,5 +1,6 @@
-
+if WITH_SERVER
 xlator_LTLIBRARIES = posix.la
+endif
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/storage
 
 posix_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)

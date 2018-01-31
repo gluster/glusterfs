@@ -1,5 +1,6 @@
+if WITH_SERVER
 xlator_LTLIBRARIES = selinux.la
-
+endif
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
 selinux_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)

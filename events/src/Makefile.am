@@ -6,8 +6,10 @@ BUILT_SOURCES = eventtypes.py
 CLEANFILES = eventtypes.py
 
 eventsdir = $(GLUSTERFS_LIBEXECDIR)/events
+if BUILD_EVENTS
 events_PYTHON = __init__.py gf_event.py eventsapiconf.py eventtypes.py \
 	utils.py
+endif
 # this does not work, see the Makefile.am in the root for a workaround
 #nodist_events_PYTHON = eventtypes.py
 

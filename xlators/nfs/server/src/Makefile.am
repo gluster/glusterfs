@@ -1,4 +1,7 @@
+if WITH_SERVER
 xlator_LTLIBRARIES = server.la
+endif
+
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/nfs
 nfsrpclibdir = $(top_srcdir)/rpc/rpc-lib/src
 server_la_LDFLAGS = -module -avoid-version -export-symbols \
