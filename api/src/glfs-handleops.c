@@ -1292,11 +1292,12 @@ pub_glfs_h_create_from_handle (struct glfs *fs, unsigned char *handle, int len,
 
         newinode = inode_find (subvol->itable, loc.gfid);
         if (newinode) {
+                if (!stat)  /* No need of lookup */
+                        goto found;
+
                 lookup_needed = inode_needs_lookup (newinode, THIS);
                 if (lookup_needed) {
                         loc.inode = newinode;
-                } else if (!stat) {
-                        goto found;
                 } else {
                         /* populate loc */
                         GLFS_LOC_FILL_INODE (newinode, loc, fill_out);
