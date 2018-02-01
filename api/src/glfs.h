@@ -571,8 +571,9 @@ off_t glfs_lseek (glfs_fd_t *fd, off_t offset, int whence) __THROW
 int glfs_truncate (glfs_t *fs, const char *path, off_t length) __THROW
         GFAPI_PUBLIC(glfs_truncate, 3.7.15);
 
-int glfs_ftruncate (glfs_fd_t *fd, off_t length) __THROW
-        GFAPI_PUBLIC(glfs_ftruncate, 3.4.0);
+int glfs_ftruncate (glfs_fd_t *fd, off_t length, struct stat *prestat,
+                    struct stat *poststat) __THROW
+        GFAPI_PUBLIC(glfs_ftruncate, 4.0.0);
 int glfs_ftruncate_async (glfs_fd_t *fd, off_t length, glfs_io_cbk fn,
 			  void *data) __THROW
         GFAPI_PUBLIC(glfs_ftruncate_async, 3.4.0);

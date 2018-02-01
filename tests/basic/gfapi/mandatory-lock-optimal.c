@@ -366,7 +366,7 @@ void run_test_7 (int i) {
         if (!fd2)
                 LOG_ERR ("glfs_open", errno);
 
-        ret = glfs_ftruncate (fd2, 4);
+        ret = glfs_ftruncate (fd2, 4, NULL, NULL);
         if (ret == 0 || errno != EAGAIN)
                 LOG_ERR ("glfs_ftruncate", errno);
 

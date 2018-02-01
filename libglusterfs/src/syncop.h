@@ -470,6 +470,7 @@ int syncop_readv (xlator_t *subvol, fd_t *fd, size_t size, off_t off,
                   struct iatt *iatt, dict_t *xdata_in, dict_t **xdata_out);
 
 int syncop_ftruncate (xlator_t *subvol, fd_t *fd, off_t offset,
+                      struct iatt *preiatt, struct iatt *postiatt,
                       dict_t *xdata_in, dict_t **xdata_out);
 
 int syncop_truncate (xlator_t *subvol, loc_t *loc, off_t offset,

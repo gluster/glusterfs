@@ -37,7 +37,6 @@ GFAPI_3.4.0 {
 		glfs_preadv_async;
 		glfs_pwritev_async;
 		glfs_lseek;
-		glfs_ftruncate;
 		glfs_ftruncate_async;
 		glfs_lstat;
 		glfs_stat;
@@ -227,4 +226,5 @@ GFAPI_4.0.0 {
                 glfs_pwrite;
                 glfs_fsync;
                 glfs_fdatasync;
+                glfs_ftruncate;
 } GFAPI_3.13.0;
