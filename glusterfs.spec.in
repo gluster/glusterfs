@@ -1323,6 +1323,7 @@ exit 0
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/arbiter.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/thin-arbiter.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bit-rot.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/bitrot-stub.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/sdfs.so
