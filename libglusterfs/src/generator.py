@@ -303,6 +303,8 @@ ops['access'] = (
 ops['ftruncate'] = (
 	('fop-arg',	'fd',			'fd_t *',				'fd'),
 	('fop-arg',	'offset',		'off_t',				'offset'),
+	('extra',	'preop',		'struct iatt',		'&preop'),
+	('extra',	'postop',		'struct iatt',		'&postop'),
 	('fop-arg',	'xdata',		'dict_t *',				'xdata'),
 	('cbk-arg',	'prebuf',		'struct iatt *'),
 	('cbk-arg',	'postbuf',		'struct iatt *'),

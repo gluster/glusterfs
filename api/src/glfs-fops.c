@@ -1678,12 +1678,14 @@ invalid_fs:
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fdatasync_async, 3.4.0);
 
 
-int
-pub_glfs_ftruncate (struct glfs_fd *glfd, off_t offset)
+static int
+glfs_ftruncate_common (struct glfs_fd *glfd, off_t offset,
+                       struct stat *prestat, struct stat *poststat)
 {
 	int              ret = -1;
 	xlator_t        *subvol = NULL;
 	fd_t            *fd = NULL;
+        struct iatt      preiatt = {0, }, postiatt = {0, };
 
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -1704,8 +1706,16 @@ pub_glfs_ftruncate (struct glfs_fd *glfd, off_t offset)
 		goto out;
 	}
 
-	ret = syncop_ftruncate (subvol, fd, offset, NULL, NULL);
+	ret = syncop_ftruncate (subvol, fd, offset, &preiatt, &postiatt,
+                                NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
+
+        if (ret >= 0) {
+                if (prestat)
+                        glfs_iatt_to_stat (glfd->fs, &preiatt, prestat);
+                if (poststat)
+                        glfs_iatt_to_stat (glfd->fs, &postiatt, poststat);
+        }
 out:
 	if (fd)
 		fd_unref (fd);
@@ -1720,7 +1730,24 @@ invalid_fs:
 	return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_ftruncate, 3.4.0);
+int
+pub_glfs_ftruncate34 (struct glfs_fd *glfd, off_t offset)
+{
+        return glfs_ftruncate_common (glfd, offset, NULL, NULL);
+}
+
+GFAPI_SYMVER_PUBLIC(glfs_ftruncate34, glfs_ftruncate, 3.4.0);
+
+
+int
+pub_glfs_ftruncate (struct glfs_fd *glfd, off_t offset, struct stat *prestat,
+                    struct stat *poststat)
+{
+        return glfs_ftruncate_common (glfd, offset, prestat, poststat);
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_ftruncate, 4.0.0);
+
 
 int
 pub_glfs_truncate (struct glfs *fs, const char *path, off_t length)
