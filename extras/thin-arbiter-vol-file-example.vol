@@ -1,0 +1,66 @@
+volume rep-posix
+    type storage/posix
+    option shared-brick-count 3
+    option volume-id dcd39537-006d-4bb5-abdd-b843636c18f6
+    option directory /home/apandey/bricks/gluster/rep-3
+end-volume
+
+volume rep-thin-arbiter
+    type features/thin-arbiter
+    subvolumes rep-posix
+end-volume
+
+volume rep-locks
+    type features/locks
+    subvolumes rep-thin-arbiter
+end-volume
+
+volume rep-upcall
+    type features/upcall
+    option cache-invalidation off
+    subvolumes rep-locks
+end-volume
+
+volume rep-io-threads
+    type performance/io-threads
+    subvolumes rep-upcall
+end-volume
+
+volume rep-index
+    type features/index
+    option xattrop-pending-watchlist trusted.afr.rep-
+    option xattrop-dirty-watchlist trusted.afr.dirty
+    option index-base /home/apandey/bricks/gluster/rep-3/.glusterfs/indices
+    subvolumes rep-io-threads
+end-volume
+
+volume rep-io-stats
+    type debug/io-stats
+    option count-fop-hits off
+    option latency-measurement off
+    option log-level INFO
+    option unique-id /home/apandey/bricks/gluster/rep-3
+    subvolumes rep-index
+end-volume
+
+volume /home/apandey/bricks/gluster/rep-3
+    type performance/decompounder
+    subvolumes rep-io-stats
+end-volume
+
+volume rep-server
+    type protocol/server
+    option transport.listen-backlog 10
+    option transport.socket.keepalive-count 9
+    option transport.socket.keepalive-interval 2
+    option transport.socket.keepalive-time 20
+    option transport.tcp-user-timeout 0
+    option transport.socket.keepalive 1
+    option auth.addr./home/apandey/bricks/gluster/rep-3.allow *
+    option auth-path /home/apandey/bricks/gluster/rep-3
+    option auth.login.96d610de-c290-4ff9-ba22-783b5b1330ef.password b6f0db12-5e91-4aa7-9333-fd5339c6ea2d
+    option auth.login./home/apandey/bricks/gluster/rep-3.allow 96d610de-c290-4ff9-ba22-783b5b1330ef
+    option transport.address-family inet
+    option transport-type tcp
+    subvolumes /home/apandey/bricks/gluster/rep-3
+end-volume
