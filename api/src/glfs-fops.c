@@ -2745,16 +2745,9 @@ glfd_entry_refresh (struct glfs_fd *glfd, int plus)
         DECODE_SYNCOP_ERR (ret);
 	if (ret >= 0) {
 		if (plus) {
-                        /**
-                         * Set inode_needs_lookup flag before linking the
-                         * inode. Doing it later post linkage might lead
-                         * to a race where a fop comes after inode link
-                         * but before setting need_lookup flag.
-                         */
                         list_for_each_entry (entry, &entries.list, list) {
-                                if (entry->inode)
-                                        inode_set_need_lookup (entry->inode, THIS);
-                                else if (!IA_ISDIR (entry->d_stat.ia_type)) {
+                                if (!entry->inode &&
+                                    !IA_ISDIR (entry->d_stat.ia_type)) {
                                         /* entry->inode for directories will be
                                          * always set to null to force a lookup
                                          * on the dentry. Also we will have
