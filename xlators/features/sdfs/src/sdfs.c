@@ -263,7 +263,8 @@ sdfs_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                 goto err;
         }
 
-        ((sdfs_local_t *)new_frame->local)->stub = stub;
+        local = new_frame->local;
+        local->stub = stub;
 
         STACK_WIND (new_frame, sdfs_entrylk_cbk,
                     FIRST_CHILD (this),
@@ -355,7 +356,8 @@ sdfs_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
                 goto err;
         }
 
-        ((sdfs_local_t *)new_frame->local)->stub = stub;
+        local = new_frame->local;
+        local->stub = stub;
 
         STACK_WIND (new_frame, sdfs_entrylk_cbk,
                     FIRST_CHILD (this),
@@ -452,7 +454,8 @@ sdfs_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto err;
         }
 
-        ((sdfs_local_t *)new_frame->local)->stub = stub;
+        local = new_frame->local;
+        local->stub = stub;
 
         STACK_WIND (new_frame, sdfs_entrylk_cbk,
                     FIRST_CHILD (this),
@@ -544,7 +547,8 @@ sdfs_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto err;
         }
 
-        ((sdfs_local_t *)new_frame->local)->stub = stub;
+        local = new_frame->local;
+        local->stub = stub;
 
         STACK_WIND (new_frame, sdfs_entrylk_cbk,
                     FIRST_CHILD (this),
@@ -639,7 +643,8 @@ sdfs_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
                 goto err;
         }
 
-        ((sdfs_local_t *)new_frame->local)->stub = stub;
+        local = new_frame->local;
+        local->stub = stub;
 
         STACK_WIND (new_frame, sdfs_entrylk_cbk,
                     FIRST_CHILD (this),
@@ -861,7 +866,6 @@ sdfs_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 
         local->main_frame = frame;
 
-
         lock = GF_CALLOC (1, sizeof (*lock), gf_common_mt_char);
         if (!lock)
                 goto err;
@@ -986,7 +990,8 @@ sdfs_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                 goto err;
         }
 
-        ((sdfs_local_t *)new_frame->local)->stub = stub;
+        local = new_frame->local;
+        local->stub = stub;
 
         STACK_WIND (new_frame, sdfs_entrylk_cbk,
                     FIRST_CHILD (this),
@@ -1279,7 +1284,8 @@ sdfs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto err;
         }
 
-        ((sdfs_local_t *)new_frame->local)->stub = stub;
+        local = new_frame->local;
+        local->stub = stub;
 
         STACK_WIND (new_frame, sdfs_entrylk_cbk,
                     FIRST_CHILD (this),
