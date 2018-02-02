@@ -751,7 +751,7 @@ typedef struct dht_fd_ctx {
 
 #define ENTRY_MISSING(op_ret, op_errno) (op_ret == -1 && op_errno == ENOENT)
 
-#define is_revalidate(loc) (dht_inode_ctx_layout_get (loc->inode, this, NULL) == 0)
+#define is_revalidate(loc) (dht_inode_ctx_layout_get ((loc)->inode, this, NULL) == 0)
 
 #define is_last_call(cnt) (cnt == 0)
 
