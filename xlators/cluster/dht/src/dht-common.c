@@ -6337,15 +6337,20 @@ dht_populate_inode_for_dentry (xlator_t *this, xlator_t *subvol,
                 return;
         }
 
+        gf_uuid_copy (loc.gfid, orig_entry->d_stat.ia_gfid);
+        loc.inode = inode_ref (orig_entry->inode);
+
+        if (is_revalidate (&loc)) {
+                loc_wipe (&loc);
+                return;
+        }
+
         layout = dht_layout_new (this, 1);
         if (!layout)
                 goto out;
 
         ret = dht_layout_merge (this, layout, subvol, 0, 0, orig_entry->dict);
         if (!ret) {
-                gf_uuid_copy (loc.gfid, orig_entry->d_stat.ia_gfid);
-                loc.inode = inode_ref (orig_entry->inode);
-
                 ret = dht_layout_normalize (this, &loc, layout);
                 if (ret == 0) {
                         dht_layout_set (this, orig_entry->inode, layout);
@@ -6507,6 +6512,7 @@ list:
                                                                        entry,
                                                                        orig_entry);
                                 }
+
                         }
                 } else {
                         if (orig_entry->inode) {
