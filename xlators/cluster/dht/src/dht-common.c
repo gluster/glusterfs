@@ -6341,8 +6341,7 @@ dht_populate_inode_for_dentry (xlator_t *this, xlator_t *subvol,
         loc.inode = inode_ref (orig_entry->inode);
 
         if (is_revalidate (&loc)) {
-                loc_wipe (&loc);
-                return;
+                goto out;
         }
 
         layout = dht_layout_new (this, 1);
@@ -6358,13 +6357,13 @@ dht_populate_inode_for_dentry (xlator_t *this, xlator_t *subvol,
                         layout = NULL;
                 }
 
-                loc_wipe (&loc);
         }
 
         if (layout)
                 dht_layout_unref (this, layout);
 
 out:
+        loc_wipe (&loc);
         return;
 }
 
