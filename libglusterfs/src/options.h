@@ -54,6 +54,15 @@ typedef enum {
         OPT_FLAG_DOC         = 1 << 5, /* can be shown in volume set help */
 } opt_flags_t;
 
+
+typedef enum {
+        OPT_STATUS_ADVANCED       = 0,
+        OPT_STATUS_BASIC          = 1,
+        OPT_STATUS_EXPERIMENTAL   = 2,
+        OPT_STATUS_DEPRECATED     = 3,
+} opt_level_t;
+
+
 #define ZR_VOLUME_MAX_NUM_KEY    4
 #define ZR_OPTION_MAX_ARRAY_SIZE 64
 /* The maximum number of releases that an option could be backported to
@@ -89,6 +98,7 @@ typedef struct volume_options {
          * happen
          */
         opt_validate_type_t     validate;
+        opt_level_t             level;
 
         /* The op-version at which this option was introduced.
          * This is an array to support options that get backported to supported
