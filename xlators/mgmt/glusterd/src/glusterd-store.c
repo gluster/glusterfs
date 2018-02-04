@@ -2627,6 +2627,25 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                                          strlen(abspath));
                         }
                 }
+
+                /* Handle upgrade case of shared_brick_count 'fsid' */
+                /* Ideally statfs_fsid should never be 0 if done right */
+                if (!gf_uuid_compare(brickinfo->uuid, MY_UUID) &&
+                    brickinfo->statfs_fsid == 0) {
+                        struct statvfs brickstat = {0,};
+                        ret = sys_statvfs (brickinfo->path, &brickstat);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_WARNING,
+                                        errno,
+                                        GD_MSG_BRICKINFO_CREATE_FAIL,
+                                        "failed to get statfs() call on brick %s",
+                                        brickinfo->path);
+                                /* No need for treating it as an error, lets continue
+                                   with just a message */
+                        }
+                        brickinfo->statfs_fsid = brickstat.f_fsid;
+                }
+
                 cds_list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
                 brick_count++;
         }
