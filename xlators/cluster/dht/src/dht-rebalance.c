@@ -676,6 +676,7 @@ __dht_rebalance_create_dst_file (xlator_t *this, xlator_t *to, xlator_t *from,
                                  int *fop_errno)
 {
         int          ret  = -1;
+        int          ret2 = -1;
         fd_t        *fd   = NULL;
         struct iatt  new_stbuf = {0,};
         struct iatt  check_stbuf= {0,};
@@ -836,7 +837,7 @@ __dht_rebalance_create_dst_file (xlator_t *this, xlator_t *to, xlator_t *from,
 
         if (-ret == ENOENT) {
                 gf_msg (this->name, GF_LOG_ERROR, -ret,
-                        DHT_MSG_MIGRATE_FILE_FAILED, "%s: file does not exists"
+                        DHT_MSG_MIGRATE_FILE_FAILED, "%s: file does not exist"
                         "on %s", loc->path, to->name);
                 *fop_errno = -ret;
                 ret = -1;
@@ -868,7 +869,22 @@ __dht_rebalance_create_dst_file (xlator_t *this, xlator_t *to, xlator_t *from,
                                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                                 "fallocate failed for %s on %s",
                                                 loc->path, to->name);
+
                                         *fop_errno = -ret;
+
+                                        /* fallocate does not release the space
+                                         * in some cases
+                                         */
+                                        ret2 = syncop_ftruncate (to, fd, 0,
+                                                                 NULL, NULL);
+                                        if (ret2 < 0) {
+                                                gf_msg (this->name,
+                                                        GF_LOG_WARNING, -ret2,
+                                                        DHT_MSG_MIGRATE_FILE_FAILED,
+                                                        "ftruncate failed for "
+                                                        "%s on %s",
+                                                        loc->path, to->name);
+                                        }
                                         goto out;
                                 }
                         }
