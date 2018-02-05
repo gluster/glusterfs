@@ -34,18 +34,21 @@ parse_args () {
 
 set_brick_labels()
 {
-  volname=${1}
+  volname="${1}"
 
   # grab the path for each local brick
-  brickpath="/var/lib/glusterd/vols/${volname}/bricks/*"
-  brickdirs=$(grep '^path=' "${brickpath}" | cut -d= -f 2 | sort -u)
+  brickpath="/var/lib/glusterd/vols/${volname}/bricks/"
+  brickdirs=$(
+    find "${brickpath}" -type f -exec grep '^path=' {} \; | \
+    cut -d= -f 2 | \
+    sort -u
+  )
 
   for b in ${brickdirs}; do
     # Add a file context for each brick path and associate with the
     # glusterd_brick_t SELinux type.
-    pattern="${b}\(/.*\)?"
+    pattern="${b}(/.*)?"
     semanage fcontext --add -t glusterd_brick_t -r s0 "${pattern}"
-
     # Set the labels on the new brick path.
     restorecon -R "${b}"
   done
