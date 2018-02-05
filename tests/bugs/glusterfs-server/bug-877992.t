@@ -46,7 +46,9 @@ TEST $CLI volume create $V0 $H0:$B0/${V0}1;
 EXPECT "$V0" volinfo_field $V0 'Volume Name';
 EXPECT 'Created' volinfo_field $V0 'Status';
 EXPECT 'createPre' cat /tmp/pre.out;
-EXPECT 'createPost' cat /tmp/post.out;
+# Spost.sh comes after S10selinux-label-brick.sh under create post hook script
+# list. So consider the delay in setting SELinux context on bricks
+EXPECT_WITHIN 5 'createPost' cat /tmp/post.out;
 hooks_cleanup 'create'
 
 
