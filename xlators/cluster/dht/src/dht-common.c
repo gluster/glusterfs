@@ -2023,6 +2023,8 @@ dht_lookup_unlink_of_false_linkto_cbk (call_frame_t *frame, void *cookie,
         local =  (dht_local_t*)frame->local;
         path = local->loc.path;
 
+        FRAME_SU_UNDO (frame, dht_local_t);
+
         gf_msg (this->name, GF_LOG_INFO, 0,
                 DHT_MSG_UNLINK_LOOKUP_INFO, "lookup_unlink returned with "
                 "op_ret -> %d and op-errno -> %d for %s", op_ret, op_errno,
@@ -2092,6 +2094,7 @@ dht_lookup_unlink_stale_linkto_cbk (call_frame_t *frame, void *cookie,
                 "op_errno %d for %s", op_ret, op_errno,
                 ((path==NULL)?"null":path));
 
+        FRAME_SU_UNDO (frame, dht_local_t);
         DHT_STACK_UNWIND (lookup, frame, -1, ENOENT, NULL, NULL, NULL,
                           NULL);
 
@@ -2248,15 +2251,15 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                                 DHT_STACK_UNWIND (lookup, frame, -1, ENOENT,
                                                   NULL, NULL, NULL, NULL);
                         } else {
-                               local->skip_unlink.handle_valid_link = _gf_false;
+                                local->skip_unlink.handle_valid_link = _gf_false;
 
                                 gf_msg_debug (this->name, 0,
                                               "No Cached was found and "
                                               "unlink on hashed was skipped"
                                               " so performing now: %s",
                                               local->loc.path);
-
-                               STACK_WIND (frame,
+                                FRAME_SU_DO (frame, dht_local_t);
+                                STACK_WIND (frame,
                                             dht_lookup_unlink_stale_linkto_cbk,
                                             hashed_subvol,
                                             hashed_subvol->fops->unlink,
@@ -2381,6 +2384,7 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                                                             NULL, NULL);
                                         } else {
                                                 local->call_cnt = 1;
+                                                FRAME_SU_DO (frame, dht_local_t);
                                                 STACK_WIND (frame,
                                           dht_lookup_unlink_of_false_linkto_cbk,
                                                     hashed_subvol,
