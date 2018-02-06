@@ -12,6 +12,7 @@ TEST $CLI volume create $V0 replica 3 $H0:$B0/${V0}{0,1,2}
 TEST $CLI volume set $V0 diagnostics.latency-measurement on
 TEST $CLI volume set $V0 diagnostics.count-fop-hits on
 TEST $CLI volume set $V0 diagnostics.stats-dump-interval 1
+TEST $CLI volume set $V0 performance.nfs.io-threads on
 TEST $CLI volume set $V0 nfs.disable off
 TEST $CLI volume start $V0
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available
@@ -34,5 +35,11 @@ TEST [ $(grep 'aggr.fop.write.count' ${GLUSTERD_WORKDIR}/stats/glusterfs_patchy.
 TEST [ $(grep 'aggr.fop.write.count' ${GLUSTERD_WORKDIR}/stats/glusterfsd__d_backends_patchy0.dump|tail -1|cut -d: -f2) != "0," ]
 TEST [ $(grep 'aggr.fop.write.count' ${GLUSTERD_WORKDIR}/stats/glusterfsd__d_backends_patchy1.dump|tail -1|cut -d: -f2) != "0," ]
 TEST [ $(grep 'aggr.fop.write.count' ${GLUSTERD_WORKDIR}/stats/glusterfsd__d_backends_patchy2.dump|tail -1|cut -d: -f2) != "0," ]
+
+# Test that io-stats is getting queue sizes from io-threads
+TEST grep '.queue_size' ${GLUSTERD_WORKDIR}/stats/glusterfs_nfsd.dump
+TEST grep '.queue_size' ${GLUSTERD_WORKDIR}/stats/glusterfsd__d_backends_patchy0.dump
+TEST grep '.queue_size' ${GLUSTERD_WORKDIR}/stats/glusterfsd__d_backends_patchy1.dump
+TEST grep '.queue_size' ${GLUSTERD_WORKDIR}/stats/glusterfsd__d_backends_patchy2.dump
 
 cleanup;

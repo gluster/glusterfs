@@ -36,17 +36,7 @@ struct iot_conf;
 #define IOT_DEFAULT_THREADS     16
 #define IOT_MAX_THREADS         64
 
-
 #define IOT_THREAD_STACK_SIZE   ((size_t)(256*1024))
-
-
-typedef enum {
-        IOT_PRI_HI = 0, /* low latency */
-        IOT_PRI_NORMAL, /* normal */
-        IOT_PRI_LO,     /* bulk */
-        IOT_PRI_LEAST,  /* least */
-        IOT_PRI_MAX,
-} iot_pri_t;
 
 typedef struct {
         struct list_head        clients;
@@ -63,18 +53,18 @@ struct iot_conf {
 
         int32_t              idle_time;   /* in seconds */
 
-        struct list_head     clients[IOT_PRI_MAX];
+        struct list_head     clients[GF_FOP_PRI_MAX];
         /*
          * It turns out that there are several ways a frame can get to us
          * without having an associated client (server_first_lookup was the
          * first one I hit).  Instead of trying to update all such callers,
          * we use this to queue them.
          */
-        iot_client_ctx_t     no_client[IOT_PRI_MAX];
+        iot_client_ctx_t     no_client[GF_FOP_PRI_MAX];
 
-        int32_t              ac_iot_limit[IOT_PRI_MAX];
-        int32_t              ac_iot_count[IOT_PRI_MAX];
-        int                  queue_sizes[IOT_PRI_MAX];
+        int32_t              ac_iot_limit[GF_FOP_PRI_MAX];
+        int32_t              ac_iot_count[GF_FOP_PRI_MAX];
+        int                  queue_sizes[GF_FOP_PRI_MAX];
         int                  queue_size;
         pthread_attr_t       w_attr;
         gf_boolean_t         least_priority; /*Enable/Disable least-priority */
