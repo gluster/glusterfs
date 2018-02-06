@@ -62,6 +62,8 @@ typedef struct _data_pair data_pair_t;
 
 #define DICT_KEY_VALUE_MAX_SIZE                     1048576
 
+#define dict_for_each(d, c) for (c = d->members_list; c; c = c->next)
+
 struct _data {
         unsigned char  is_static:1;
         unsigned char  is_const:1;
@@ -160,8 +162,8 @@ data_t *data_from_uint16 (uint16_t value);
 char *data_to_str (data_t *data);
 void *data_to_bin (data_t *data);
 void *data_to_ptr (data_t *data);
-
 data_t * data_copy (data_t *old);
+
 int dict_foreach (dict_t *this,
                   int (*fn)(dict_t *this,
                             char *key,

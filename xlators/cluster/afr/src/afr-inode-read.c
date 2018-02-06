@@ -1648,6 +1648,15 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
 
         /*
+         * Heal daemons don't have IO threads ... and as a result they
+         * send this getxattr down and eventually crash :(
+         */
+        if (strcmp (name, IO_THREADS_QUEUE_SIZE_KEY) == 0) {
+                ret = -EINVAL;
+                goto out;
+        }
+
+        /*
          * Special xattrs which need responses from all subvols
          */
         if (afr_is_special_xattr (name, &cbk, 0)) {

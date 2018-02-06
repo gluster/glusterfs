@@ -36,6 +36,7 @@
 #include "logging.h"
 #include "cli1-xdr.h"
 #include "statedump.h"
+#include "syncop.h"
 #include <pwd.h>
 #include <grp.h>
 #include "upcall-utils.h"
@@ -798,6 +799,8 @@ io_stats_dump_global_to_json_logfp (xlator_t *this,
         double                weighted_fop_ave_usec = 0.0;
         double                weighted_fop_ave_usec_sum = 0.0;
         long                  total_fop_hits = 0;
+        loc_t                 unused_loc = {0, };
+        dict_t                *xattr = NULL;
 
         interval_sec = ((now->tv_sec * 1000000.0 + now->tv_usec) -
                 (stats->started_at.tv_sec * 1000000.0 +
@@ -948,6 +951,30 @@ io_stats_dump_global_to_json_logfp (xlator_t *this,
                                 key_prefix, str_prefix, lc_fop_name,
                                 (double)(fop_hits / interval_sec));
                 }
+        }
+
+        ret = syncop_getxattr (this, &unused_loc, &xattr,
+                               IO_THREADS_QUEUE_SIZE_KEY, NULL, NULL);
+        if (xattr) {
+                /*
+                 * Iterate over the dictionary returned to us by io-threads and
+                 * dump the results to the stats file.
+                 */
+                data_pair_t *curr = NULL;
+
+                dict_for_each (xattr, curr) {
+                        ios_log (this, logfp,
+                                 "\"%s.%s.%s.queue_size\": \"%d\",",
+                                 key_prefix, str_prefix, curr->key,
+                                 data_to_int32 (curr->value));
+                }
+
+                /* Free the dictionary */
+                dict_unref (xattr);
+        } else {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Unable to get queue size counts from "
+                        "the io-threads translator!");
         }
 
         if (interval == -1) {
