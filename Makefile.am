@@ -22,7 +22,7 @@ pkgconfig_DATA += libgfdb.pc
 endif
 
 CLEANFILES = glusterfs-api.pc libgfchangelog.pc libgfdb.pc \
-	tests/env.rc contrib/umountd/Makefile
+	contrib/umountd/Makefile
 CONFIG_CLEAN_FILES = $(CONTRIB_BUILDDIR)/uuid/uuid_types.h
 
 gitclean: distclean
