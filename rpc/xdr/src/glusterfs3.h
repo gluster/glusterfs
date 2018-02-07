@@ -732,7 +732,7 @@ dict_to_xdr (dict_t *this, gfx_dict *dict)
                                 dpair->value->len;
 
                         /* Change this to INFO, after taking the above down */
-                        gf_msg ("dict", GF_LOG_INFO, EINVAL,
+                        gf_msg ("dict", GF_LOG_DEBUG, EINVAL,
                                 LG_MSG_DICT_SERIAL_FAILED,
                                 "key '%s' is would not be sent on wire in future",
                                 dpair->key);
