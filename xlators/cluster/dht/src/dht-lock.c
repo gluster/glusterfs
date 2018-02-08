@@ -1015,10 +1015,11 @@ static int32_t
 dht_blocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                           int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
-        int          lk_index                   = 0;
-        int          i                          = 0;
-        dht_local_t *local                      = NULL;
-        char         gfid[GF_UUID_BUF_SIZE]     = {0,};
+        int                  lk_index       = 0;
+        int                  i              = 0;
+        dht_local_t         *local          = NULL;
+        char         gfid[GF_UUID_BUF_SIZE] = {0,};
+        dht_reaction_type_t  reaction       = 0;
 
         lk_index = (long) cookie;
 
@@ -1029,8 +1030,9 @@ dht_blocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 switch (op_errno) {
                 case ESTALE:
                 case ENOENT:
-                        if (local->lock[0].layout.my_layout.locks[lk_index]->do_on_failure
-                            != IGNORE_ENOENT_ESTALE) {
+                        reaction = local->lock[0].layout.my_layout.locks[lk_index]->do_on_failure;
+                        if ((reaction != IGNORE_ENOENT_ESTALE) &&
+                            (reaction != IGNORE_ENOENT_ESTALE_EIO)) {
                                 gf_uuid_unparse (local->lock[0].layout.my_layout.locks[lk_index]->loc.gfid, gfid);
                                 local->lock[0].layout.my_layout.op_ret = -1;
                                 local->lock[0].layout.my_layout.op_errno = op_errno;
@@ -1042,6 +1044,21 @@ dht_blocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 goto cleanup;
                         }
                         break;
+                case EIO:
+                        reaction = local->lock[0].layout.my_layout.locks[lk_index]->do_on_failure;
+                        if (reaction != IGNORE_ENOENT_ESTALE_EIO) {
+                                gf_uuid_unparse (local->lock[0].layout.my_layout.locks[lk_index]->loc.gfid, gfid);
+                                local->lock[0].layout.my_layout.op_ret = -1;
+                                local->lock[0].layout.my_layout.op_errno = op_errno;
+                                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                                        DHT_MSG_INODELK_FAILED,
+                                        "inodelk failed on subvol %s. gfid:%s",
+                                        local->lock[0].layout.my_layout.locks[lk_index]->xl->name,
+                                        gfid);
+                                goto cleanup;
+                        }
+                        break;
+
                 default:
                         gf_uuid_unparse (local->lock[0].layout.my_layout.locks[lk_index]->loc.gfid, gfid);
                         local->lock[0].layout.my_layout.op_ret = -1;

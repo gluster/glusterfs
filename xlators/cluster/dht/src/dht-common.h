@@ -169,7 +169,8 @@ typedef enum {
 typedef enum {
         REACTION_INVALID,
         FAIL_ON_ANY_ERROR,
-        IGNORE_ENOENT_ESTALE
+        IGNORE_ENOENT_ESTALE,
+        IGNORE_ENOENT_ESTALE_EIO,
 } dht_reaction_type_t;
 
 struct dht_skip_linkto_unlink {
@@ -361,6 +362,10 @@ struct dht_local {
 
         dht_dir_transaction_t lock[2], *current;
 
+        /* inodelks during filerename for backward compatibility */
+        dht_lock_t           **rename_inodelk_backward_compatible;
+        int                    rename_inodelk_bc_count;
+
         short           lock_type;
 
         call_stub_t *stub;
@@ -379,6 +384,9 @@ struct dht_local {
         int32_t valid;
         gf_boolean_t heal_layout;
         int32_t mds_heal_fresh_lookup;
+        loc_t        loc2_copy;
+        gf_boolean_t locked;
+        gf_boolean_t dont_create_linkto;
 };
 typedef struct dht_local dht_local_t;
 

@@ -735,6 +735,7 @@ dht_local_wipe (xlator_t *this, dht_local_t *local)
 
         loc_wipe (&local->loc);
         loc_wipe (&local->loc2);
+        loc_wipe (&local->loc2_copy);
 
         if (local->xattr)
                 dict_unref (local->xattr);

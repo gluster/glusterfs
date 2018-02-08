@@ -1931,13 +1931,15 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         GF_VALIDATE_OR_GOTO ("dht", this, out);
         GF_VALIDATE_OR_GOTO ("dht", frame->local, out);
         GF_VALIDATE_OR_GOTO ("dht", this->private, out);
-        GF_VALIDATE_OR_GOTO ("dht", cookie, out);
 
         local = frame->local;
         cached_subvol = local->cached_subvol;
         conf = this->private;
 
         gf_uuid_unparse(local->loc.gfid, gfid);
+
+        if (local->locked)
+                dht_unlock_namespace (frame, &local->lock[0]);
 
         ret = dht_layout_preset (this, local->cached_subvol, local->loc.inode);
         if (ret < 0) {
@@ -1961,6 +1963,7 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
                 dht_inode_ctx_time_update (local->loc.parent, this,
                                            postparent, 1);
         }
+
 
 unwind:
         gf_msg_debug (this->name, 0,
@@ -2133,6 +2136,134 @@ err:
         return -1;
 
 }
+
+int32_t
+dht_linkfile_create_lookup_cbk (call_frame_t *frame, void *cookie,
+                                xlator_t *this, int32_t op_ret,
+                                int32_t op_errno, inode_t *inode,
+                                struct iatt *buf, dict_t *xdata,
+                                struct iatt *postparent)
+{
+        dht_local_t *local                      = NULL;
+        int          call_cnt                   = 0, ret = 0;
+        xlator_t    *subvol                     = NULL;
+        uuid_t       gfid                       = {0, };
+        char         gfid_str[GF_UUID_BUF_SIZE] = {0};
+
+        subvol = cookie;
+        local = frame->local;
+
+        if (subvol == local->hashed_subvol) {
+                if ((op_ret == 0) || (op_errno != ENOENT))
+                        local->dont_create_linkto = _gf_true;
+        } else {
+                if (gf_uuid_is_null (local->gfid))
+                        gf_uuid_copy (gfid, local->loc.gfid);
+                else
+                        gf_uuid_copy (gfid, local->gfid);
+
+                if ((op_ret == 0) && gf_uuid_compare (gfid, buf->ia_gfid)) {
+                        gf_uuid_unparse (gfid, gfid_str);
+                        gf_msg_debug (this->name, 0,
+                                      "gfid (%s) different on cached subvol "
+                                      "(%s) and looked up inode (%s), not "
+                                      "creating linkto",
+                                      uuid_utoa (buf->ia_gfid), subvol->name,
+                                      gfid_str);
+                        local->dont_create_linkto = _gf_true;
+                } else if (op_ret == -1) {
+                        local->dont_create_linkto = _gf_true;
+                }
+        }
+
+        call_cnt = dht_frame_return (frame);
+        if (is_last_call (call_cnt)) {
+                if (local->dont_create_linkto)
+                        goto no_linkto;
+                else {
+                        gf_msg_debug (this->name, 0,
+                                      "Creating linkto file on %s(hash) to "
+                                      "%s on %s (gfid = %s)",
+                                      local->hashed_subvol->name,
+                                      local->loc.path,
+                                      local->cached_subvol->name, gfid);
+
+                        ret = dht_linkfile_create
+                                (frame, dht_lookup_linkfile_create_cbk,
+                                 this, local->cached_subvol,
+                                 local->hashed_subvol, &local->loc);
+
+                        if (ret < 0)
+                                goto no_linkto;
+                }
+        }
+
+        return 0;
+
+no_linkto:
+        gf_msg_debug (this->name, 0,
+                      "skipped linkto creation (path:%s) (gfid:%s) "
+                      "(hashed-subvol:%s) (cached-subvol:%s)",
+                      local->loc.path, gfid_str, local->hashed_subvol->name,
+                      local->cached_subvol->name);
+
+        dht_lookup_linkfile_create_cbk (frame, NULL, this, 0, 0,
+                                        local->loc.inode, &local->stbuf,
+                                        &local->preparent, &local->postparent,
+                                        local->xattr);
+        return 0;
+}
+
+
+int32_t
+dht_call_lookup_linkfile_create (call_frame_t *frame, void *cookie,
+                                 xlator_t *this, int32_t op_ret,
+                                 int32_t op_errno, dict_t *xdata)
+{
+        dht_local_t *local          = NULL;
+        char gfid[GF_UUID_BUF_SIZE] = {0};
+        int          i              = 0;
+        xlator_t    *subvol         = NULL;
+
+        local = frame->local;
+        if (gf_uuid_is_null (local->gfid))
+                gf_uuid_unparse (local->loc.gfid, gfid);
+        else
+                gf_uuid_unparse (local->gfid, gfid);
+
+        if (op_ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "protecting namespace failed, skipping linkto "
+                        "creation (path:%s)(gfid:%s)(hashed-subvol:%s)"
+                        "(cached-subvol:%s)", local->loc.path, gfid,
+                        local->hashed_subvol->name, local->cached_subvol->name);
+                goto err;
+        }
+
+        local->locked = _gf_true;
+
+
+        local->call_cnt = 2;
+
+        for (i = 0; i < 2; i++) {
+                subvol = (subvol == NULL) ? local->hashed_subvol
+                        : local->cached_subvol;
+
+                STACK_WIND_COOKIE (frame, dht_linkfile_create_lookup_cbk,
+                                   subvol, subvol, subvol->fops->lookup,
+                                   &local->loc, NULL);
+        }
+
+        return 0;
+
+err:
+        dht_lookup_linkfile_create_cbk (frame, NULL, this, 0, 0,
+                                        local->loc.inode,
+                                        &local->stbuf, &local->preparent,
+                                        &local->postparent, local->xattr);
+        return 0;
+}
+
 /* Rebalance is performed from cached_node to hashed_node. Initial cached_node
  * contains a non-linkto file. After migration it is converted to linkto and
  * then unlinked. And at hashed_subvolume, first a linkto file is present,
@@ -2176,12 +2307,12 @@ err:
 int
 dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
 {
-        int           ret = 0;
-        dht_local_t  *local = NULL;
-        xlator_t     *hashed_subvol = NULL;
-        xlator_t     *cached_subvol = NULL;
-        dht_layout_t *layout = NULL;
-        char gfid[GF_UUID_BUF_SIZE] = {0};
+        int           ret                        = 0;
+        dht_local_t  *local                      = NULL;
+        xlator_t     *hashed_subvol              = NULL;
+        xlator_t     *cached_subvol              = NULL;
+        dht_layout_t *layout                     = NULL;
+        char gfid[GF_UUID_BUF_SIZE]              = {0};
         gf_boolean_t  found_non_linkto_on_hashed = _gf_false;
 
         local = frame->local;
@@ -2273,8 +2404,8 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                                       "unlink on hashed is not skipped %s",
                                       local->loc.path);
 
-                        DHT_STACK_UNWIND (lookup, frame, -1, ENOENT, NULL, NULL,
-                                          NULL, NULL);
+                        DHT_STACK_UNWIND (lookup, frame, -1, ENOENT,
+                                          NULL, NULL, NULL, NULL);
                 }
                 return 0;
         }
@@ -2490,14 +2621,23 @@ preset_layout:
                 return 0;
         }
 
-        gf_msg_debug (this->name, 0,
-                      "Creating linkto file on %s(hash) to %s on %s (gfid = %s)",
-                      hashed_subvol->name, local->loc.path,
-                      cached_subvol->name, gfid);
+        if (frame->root->op != GF_FOP_RENAME) {
+                local->current = &local->lock[0];
+                ret = dht_protect_namespace (frame, &local->loc, hashed_subvol,
+                                             &local->current->ns,
+                                             dht_call_lookup_linkfile_create);
+        } else {
+                gf_msg_debug (this->name, 0,
+                              "Creating linkto file on %s(hash) to %s on %s "
+                              "(gfid = %s)",
+                              hashed_subvol->name, local->loc.path,
+                              cached_subvol->name, gfid);
 
-        ret = dht_linkfile_create (frame,
-                                   dht_lookup_linkfile_create_cbk, this,
-                                   cached_subvol, hashed_subvol, &local->loc);
+                ret = dht_linkfile_create (frame,
+                                           dht_lookup_linkfile_create_cbk, this,
+                                           cached_subvol, hashed_subvol,
+                                           &local->loc);
+        }
 
         return ret;
 
@@ -2800,6 +2940,7 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
                 removed, which can take away the namespace, and subvol is
                 anyways down. */
 
+                local->cached_subvol = NULL;
                 if (op_errno != ENOTCONN)
                         goto err;
                 else
@@ -8243,7 +8384,7 @@ out:
 
 int
 dht_build_parent_loc (xlator_t *this, loc_t *parent, loc_t *child,
-                                                 int32_t *op_errno)
+                      int32_t *op_errno)
 {
         inode_table_t   *table = NULL;
         int     ret = -1;
