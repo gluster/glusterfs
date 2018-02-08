@@ -3460,6 +3460,14 @@ glusterd_compare_friend_volume (dict_t *peer_data, int32_t count,
         *status = GLUSTERD_VOL_COMP_SCS;
 
 out:
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.update", count);
+
+        if (*status == GLUSTERD_VOL_COMP_UPDATE_REQ) {
+                ret = dict_set_int32 (peer_data, key, 1);
+        } else {
+                ret = dict_set_int32 (peer_data, key, 0);
+        }
         if (*status == GLUSTERD_VOL_COMP_RJT) {
                 gf_event (EVENT_COMPARE_FRIEND_VOLUME_FAILED, "volume=%s",
                           volinfo->volname);
@@ -3532,13 +3540,12 @@ glusterd_spawn_daemons (void *opaque)
         int             ret     = -1;
 
         synclock_lock (&conf->big_lock);
-        glusterd_restart_bricks (conf);
+        glusterd_restart_bricks ();
         glusterd_restart_gsyncds (conf);
         glusterd_restart_rebalance (conf);
         ret = glusterd_snapdsvc_restart ();
         ret = glusterd_tierdsvc_restart ();
         ret = glusterd_gfproxydsvc_restart ();
-
         return ret;
 }
 
@@ -4304,20 +4311,35 @@ out:
 int32_t
 glusterd_volume_disconnect_all_bricks (glusterd_volinfo_t *volinfo)
 {
-        int                  ret = 0;
-        glusterd_brickinfo_t *brickinfo = NULL;
+        int                      ret        = 0;
+        glusterd_brickinfo_t    *brickinfo  = NULL;
+        glusterd_brick_proc_t   *brick_proc = NULL;
+        int                      brick_count = 0;
+
         GF_ASSERT (volinfo);
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 if (glusterd_is_brick_started (brickinfo)) {
-                        ret = glusterd_brick_disconnect (brickinfo);
-                        if (ret) {
-                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
-                                        GD_MSD_BRICK_DISCONNECT_FAIL,
-                                        "Failed to "
-                                        "disconnect %s:%s", brickinfo->hostname,
-                                        brickinfo->path);
-                                break;
+                        /* If brick multiplexing is enabled then we can't
+                         * blindly set brickinfo->rpc to NULL as it might impact
+                         * the other attached bricks.
+                         */
+                        ret = glusterd_brick_proc_for_port (brickinfo->port,
+                                                            &brick_proc);
+                        if (!ret) {
+                                brick_count = brick_proc->brick_count;
+                        }
+                        if (!is_brick_mx_enabled () || brick_count == 0) {
+                                ret = glusterd_brick_disconnect (brickinfo);
+                                if (ret) {
+                                        gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                                GD_MSD_BRICK_DISCONNECT_FAIL,
+                                                "Failed to "
+                                                "disconnect %s:%s",
+                                                brickinfo->hostname,
+                                                brickinfo->path);
+                                        break;
+                                }
                         }
                 }
         }
@@ -4556,7 +4578,7 @@ out:
 }
 
 int32_t
-glusterd_import_friend_volume (dict_t *peer_data, size_t count)
+glusterd_import_friend_volume (dict_t *peer_data, int count)
 {
 
         int32_t                 ret = -1;
@@ -4565,6 +4587,8 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
         glusterd_volinfo_t      *old_volinfo = NULL;
         glusterd_volinfo_t      *new_volinfo = NULL;
         glusterd_svc_t          *svc         = NULL;
+        int32_t                  update      = 0;
+        char                     key[512]    = {0,};
 
         GF_ASSERT (peer_data);
 
@@ -4572,6 +4596,15 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.update", count);
+        ret = dict_get_int32 (peer_data, key, &update);
+        if (ret || !update) {
+                /* if update is 0 that means the volume is not imported */
+                goto out;
+        }
+
         ret = glusterd_import_volinfo (peer_data, count,
                                        &new_volinfo, "volume");
         if (ret)
@@ -4585,6 +4618,14 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
 
         ret = glusterd_volinfo_find (new_volinfo->volname, &old_volinfo);
         if (0 == ret) {
+                if (new_volinfo->version <= old_volinfo->version) {
+                        /* When this condition is true, it already means that
+                         * the other synctask thread of import volume has
+                         * already up to date volume, so just ignore this volume
+                         * now
+                         */
+                        goto out;
+                }
                 /* Ref count the old_volinfo such that deleting it doesn't crash
                  * if its been already in use by other thread
                  */
@@ -4615,7 +4656,8 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
                 }
         }
 
-        ret = glusterd_store_volinfo (new_volinfo, GLUSTERD_VOLINFO_VER_AC_NONE);
+        ret = glusterd_store_volinfo (new_volinfo,
+                                      GLUSTERD_VOLINFO_VER_AC_NONE);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_VOLINFO_STORE_FAIL, "Failed to store "
@@ -4639,6 +4681,60 @@ glusterd_import_friend_volume (dict_t *peer_data, size_t count)
 
 out:
         gf_msg_debug ("glusterd", 0, "Returning with ret: %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_import_friend_volumes_synctask (void *opaque)
+{
+        int32_t                 ret = -1;
+        int32_t                 count = 0;
+        int                     i = 1;
+        xlator_t                *this = NULL;
+        glusterd_conf_t         *conf = NULL;
+        dict_t *peer_data         = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        conf = this->private;
+        GF_ASSERT (conf);
+
+        peer_data = (dict_t *)opaque;
+        GF_ASSERT (peer_data);
+
+        ret = dict_get_int32 (peer_data, "count", &count);
+        if (ret)
+                goto out;
+
+        synclock_lock (&conf->big_lock);
+
+        /* We need to ensure that importing a volume shouldn't race with an
+         * other thread where as part of restarting glusterd, bricks are
+         * restarted (refer glusterd_restart_bricks ())
+         */
+        while (conf->restart_bricks) {
+                synclock_unlock (&conf->big_lock);
+                sleep (2);
+                synclock_lock (&conf->big_lock);
+        }
+        conf->restart_bricks = _gf_true;
+
+        while (i <= count) {
+                ret = glusterd_import_friend_volume (peer_data, i);
+                if (ret) {
+                        conf->restart_bricks = _gf_false;
+                        goto out;
+                }
+                i++;
+        }
+        glusterd_svcs_manager (NULL);
+        conf->restart_bricks = _gf_false;
+out:
+        if (peer_data)
+                dict_unref (peer_data);
+
+        gf_msg_debug ("glusterd", 0, "Returning with %d", ret);
         return ret;
 }
 
@@ -4781,8 +4877,10 @@ glusterd_import_global_opts (dict_t *friend_data)
                  * recompute if quorum is met. If quorum is not met bricks are
                  * not started and those already running are stopped
                  */
-                if (old_quorum != new_quorum)
-                        glusterd_restart_bricks (conf);
+                if (old_quorum != new_quorum) {
+                        glusterd_launch_synctask (glusterd_restart_bricks,
+                                                  NULL);
+                }
         }
 
         ret = 0;
@@ -4802,6 +4900,7 @@ glusterd_compare_friend_data (dict_t *peer_data, int32_t *status,
         gf_boolean_t     update    = _gf_false;
         xlator_t        *this      = NULL;
         glusterd_conf_t *priv      = NULL;
+        dict_t          *peer_data_copy = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -4833,18 +4932,23 @@ glusterd_compare_friend_data (dict_t *peer_data, int32_t *status,
                         goto out;
                 }
                 if (GLUSTERD_VOL_COMP_UPDATE_REQ == *status) {
-                        ret = glusterd_import_friend_volume (peer_data, i);
-                        if (ret) {
-                                goto out;
-                        }
                         update = _gf_true;
-                        *status = GLUSTERD_VOL_COMP_NONE;
                 }
                 i++;
         }
 
         if (update) {
-                glusterd_svcs_manager (NULL);
+                /* Launch the import friend volume as a separate synctask as it
+                 * has to trigger start bricks where we may need to wait for the
+                 * first brick to come up before attaching the subsequent bricks
+                 * in case brick multiplexing is enabled
+                 */
+                peer_data_copy = dict_copy_with_ref (peer_data, NULL);
+                glusterd_launch_synctask
+                        (glusterd_import_friend_volumes_synctask,
+                         peer_data_copy);
+                if (ret)
+                        goto out;
         }
 
 out:
@@ -5994,7 +6098,7 @@ out:
 }
 
 int
-glusterd_restart_bricks (glusterd_conf_t *conf)
+glusterd_restart_bricks (void *opaque)
 {
         int                   ret            = 0;
         glusterd_volinfo_t   *volinfo        = NULL;
@@ -6002,6 +6106,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
         glusterd_snap_t      *snap           = NULL;
         gf_boolean_t          start_svcs     = _gf_false;
         xlator_t             *this           = NULL;
+        glusterd_conf_t      *conf           = NULL;
         int                   active_count   = 0;
         int                   quorum_count   = 0;
         gf_boolean_t          node_quorum    = _gf_false;
@@ -6011,6 +6116,17 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
 
         conf = this->private;
         GF_VALIDATE_OR_GOTO (this->name, conf, return_block);
+
+        /* We need to ensure that restarting the bricks during glusterd restart
+         * shouldn't race with the import volume thread (refer
+         * glusterd_compare_friend_data ())
+         */
+        while (conf->restart_bricks) {
+                synclock_unlock (&conf->big_lock);
+                sleep (2);
+                synclock_lock (&conf->big_lock);
+        }
+        conf->restart_bricks = _gf_true;
 
         ++(conf->blockers);
         ret = glusterd_get_quorum_cluster_counts (this, &active_count,
@@ -6022,8 +6138,9 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
                 node_quorum = _gf_true;
 
         cds_list_for_each_entry (volinfo, &conf->volumes, vol_list) {
-                if (volinfo->status != GLUSTERD_STATUS_STARTED)
+                if (volinfo->status != GLUSTERD_STATUS_STARTED) {
                         continue;
+                }
                 gf_msg_debug (this->name, 0, "starting the volume %s",
                         volinfo->volname);
 
@@ -6130,6 +6247,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
 out:
         --(conf->blockers);
         conf->restart_done = _gf_true;
+        conf->restart_bricks = _gf_false;
 
 return_block:
         return ret;

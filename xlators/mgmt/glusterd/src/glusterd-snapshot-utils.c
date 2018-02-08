@@ -1760,8 +1760,11 @@ out:
  * state, i.e either both would be hosting bricks or both would not be hosting
  * bricks, then a decision can't be taken and a peer-reject will happen.
  *
- * glusterd_compare_and_update_snap() implements the following algorithm to
- * perform the above task:
+ * glusterd_compare_snap()  & glusterd_update_snaps () implement the following
+ * algorithm to perform the above task. Please note the former function tries to
+ * iterate over the snaps one at a time and updating the relevant fields in the
+ * dictionary and then glusterd_update_snaps () go over all the snaps and update
+ * them at one go as part of a synctask.
  * Step  1: Start.
  * Step  2: Check if the peer is missing a delete or restore on the said snap.
  *          If yes, goto step 6.
@@ -1786,21 +1789,18 @@ out:
  *
  */
 int32_t
-glusterd_compare_and_update_snap (dict_t *peer_data, int32_t snap_count,
-                                  char *peername, uuid_t peerid)
+glusterd_compare_snap (dict_t *peer_data, int32_t snap_count,
+                       char *peername, uuid_t peerid)
 {
         char              buf[NAME_MAX]    = "";
         char              prefix[NAME_MAX] = "";
         char             *peer_snap_name   = NULL;
         char             *peer_snap_id     = NULL;
-        dict_t           *dict             = NULL;
         glusterd_snap_t  *snap             = NULL;
         gf_boolean_t      conflict         = _gf_false;
         gf_boolean_t      is_local         = _gf_false;
         gf_boolean_t      is_hosted        = _gf_false;
         gf_boolean_t      missed_delete    = _gf_false;
-        gf_boolean_t      remove_lvm       = _gf_true;
-
         int32_t           ret              = -1;
         int32_t           volcount         = 0;
         xlator_t         *this             = NULL;
@@ -1811,6 +1811,14 @@ glusterd_compare_and_update_snap (dict_t *peer_data, int32_t snap_count,
         GF_ASSERT (peername);
 
         snprintf (prefix, sizeof(prefix), "snap%d", snap_count);
+
+        ret = dict_set_uint32 (peer_data, buf, 0);
+        snprintf (buf, sizeof(buf), "%s.accept_peer_data", prefix);
+        ret = dict_set_uint32 (peer_data, buf, 0);
+        snprintf (buf, sizeof(buf), "%s.remove_lvm", prefix);
+        ret = dict_set_uint32 (peer_data, buf, 0);
+        snprintf (buf, sizeof(buf), "%s.remove_my_data", prefix);
+        ret = dict_set_uint32 (peer_data, buf, 0);
 
         /* Fetch the peer's snapname */
         snprintf (buf, sizeof(buf), "%s.snapname", prefix);
@@ -1868,7 +1876,10 @@ glusterd_compare_and_update_snap (dict_t *peer_data, int32_t snap_count,
                         /* Peer has snap with the same snapname
                         * and snap_id, which local node doesn't have.
                         */
-                        goto accept_peer_data;
+                        snprintf (buf, sizeof(buf), "%s.accept_peer_data",
+                                  prefix);
+                        ret = dict_set_uint32 (peer_data, buf, 1);
+                        goto out;
                 }
                 /* Peer has snap with the same snapname
                  * and snap_id. Now check if peer has a
@@ -1895,12 +1906,15 @@ glusterd_compare_and_update_snap (dict_t *peer_data, int32_t snap_count,
                          * When removing data from local node, make sure
                          * we are not removing backend lvm of the snap.
                          */
-                        remove_lvm = _gf_false;
-                        goto remove_my_data;
+                        snprintf (buf, sizeof(buf), "%s.remove_lvm", prefix);
+                        ret = dict_set_uint32 (peer_data, buf, 0);
+                        snprintf (buf, sizeof(buf), "%s.remove_my_data",
+                                  prefix);
+                        ret = dict_set_uint32 (peer_data, buf, 1);
                 } else {
                         ret = 0;
-                        goto out;
                 }
+                goto out;
         }
 
         /* There is a conflict. Check if the current node is
@@ -1952,50 +1966,176 @@ glusterd_compare_and_update_snap (dict_t *peer_data, int32_t snap_count,
          * And local node isn't. Hence remove local node's
          * data and accept peer data
          */
-
         gf_msg_debug (this->name, 0, "Peer hosts bricks for conflicting "
                 "snap(%s). Removing local data. Accepting peer data.",
                 peer_snap_name);
-        remove_lvm = _gf_true;
+        snprintf (buf, sizeof(buf), "%s.remove_lvm", prefix);
+        ret = dict_set_uint32 (peer_data, buf, 1);
+        snprintf (buf, sizeof(buf), "%s.remove_my_data",
+                  prefix);
+        ret = dict_set_uint32 (peer_data, buf, 1);
+        snprintf (buf, sizeof(buf), "%s.accept_peer_data", prefix);
+        ret = dict_set_uint32 (peer_data, buf, 1);
 
-remove_my_data:
+out:
+        gf_msg_trace (this->name, 0, "Returning %d", ret);
+        return ret;
+}
 
-        dict = dict_new();
-        if (!dict) {
+int32_t
+glusterd_update_snaps_synctask (void *opaque)
+{
+        int32_t           ret              = -1;
+        int32_t           snap_count       = 0;
+        int               i                = 1;
+        xlator_t         *this             = NULL;
+        dict_t           *peer_data        = NULL;
+        char              buf[NAME_MAX]    = "";
+        char              prefix[NAME_MAX] = "";
+        char             *peer_snap_name   = NULL;
+        char             *peer_snap_id     = NULL;
+        char             *peername         = NULL;
+        gf_boolean_t      remove_lvm       = _gf_false;
+        gf_boolean_t      remove_my_data   = _gf_false;
+        gf_boolean_t      accept_peer_data = _gf_false;
+        int32_t           val              = 0;
+        glusterd_snap_t  *snap             = NULL;
+        dict_t           *dict             = NULL;
+        glusterd_conf_t  *conf             = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        conf = this->private;
+        GF_ASSERT (conf);
+
+        peer_data = (dict_t *)opaque;
+        GF_ASSERT (peer_data);
+
+        synclock_lock (&conf->big_lock);
+
+        while (conf->restart_bricks) {
+                synclock_unlock (&conf->big_lock);
+                sleep (2);
+                synclock_lock (&conf->big_lock);
+        }
+        conf->restart_bricks = _gf_true;
+
+        ret = dict_get_int32 (peer_data, "snap_count", &snap_count);
+        if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_DICT_CREATE_FAIL,
-                        "Unable to create dict");
-                ret = -1;
+                        GD_MSG_DICT_GET_FAILED, "Failed to fetch snap_count");
+                goto out;
+        }
+        ret = dict_get_str (peer_data, "peername", &peername);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED, "Failed to fetch peername");
                 goto out;
         }
 
-        ret = glusterd_snap_remove (dict, snap, remove_lvm, _gf_false,
-                                    _gf_false);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_SNAP_REMOVE_FAIL,
-                        "Failed to remove snap %s", snap->snapname);
-                goto out;
-        }
+        for (i = 1; i <= snap_count; i++) {
+                snprintf (prefix, sizeof(prefix), "snap%d", i);
 
-accept_peer_data:
+                /* Fetch the peer's snapname */
+                snprintf (buf, sizeof(buf), "%s.snapname", prefix);
+                ret = dict_get_str (peer_data, buf, &peer_snap_name);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
+                                "Unable to fetch snapname from peer: %s",
+                                peername);
+                        goto out;
+                }
 
-        /* Accept Peer Data */
-        ret = glusterd_import_friend_snap (peer_data, snap_count,
-                                           peer_snap_name, peer_snap_id);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        GD_MSG_SNAP_IMPORT_FAIL,
-                        "Failed to import snap %s from peer %s",
-                        peer_snap_name, peername);
-                goto out;
+                /* Fetch the peer's snap_id */
+                snprintf (buf, sizeof(buf), "%s.snap_id", prefix);
+                ret = dict_get_str (peer_data, buf, &peer_snap_id);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DICT_GET_FAILED,
+                                "Unable to fetch snap_id from peer: %s",
+                                peername);
+                        goto out;
+                }
+
+                /* remove_my_data */
+                snprintf (buf, sizeof(buf), "%s.remove_my_data", prefix);
+                ret = dict_get_int32 (peer_data, buf, &val);
+                if (val)
+                        remove_my_data = _gf_true;
+                else
+                        remove_my_data = _gf_false;
+
+                if (remove_my_data) {
+                        snprintf (buf, sizeof(buf), "%s.remove_lvm", prefix);
+                        ret = dict_get_int32 (peer_data, buf, &val);
+                        if (val)
+                                remove_lvm = _gf_true;
+                        else
+                                remove_lvm = _gf_false;
+
+                        dict = dict_new();
+                        if (!dict) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_DICT_CREATE_FAIL,
+                                        "Unable to create dict");
+                                ret = -1;
+                                goto out;
+                        }
+                        snap = glusterd_find_snap_by_name (peer_snap_name);
+                        if (!snap) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_MISSED_SNAP_PRESENT,
+                                        "Snapshot %s from peer %s missing on "
+                                        "localhost", peer_snap_name,
+                                        peername);
+                                ret = -1;
+                                goto out;
+                        }
+
+                        ret = glusterd_snap_remove (dict, snap, remove_lvm,
+                                                    _gf_false, _gf_false);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_SNAP_REMOVE_FAIL,
+                                        "Failed to remove snap %s",
+                                        snap->snapname);
+                                goto out;
+                        }
+                        if (dict)
+                                dict_unref (dict);
+                }
+                snprintf (buf, sizeof(buf), "%s.accept_peer_data", prefix);
+                ret = dict_get_int32 (peer_data, buf, &val);
+                if (val)
+                        accept_peer_data = _gf_true;
+                else
+                        accept_peer_data = _gf_false;
+
+                if (accept_peer_data) {
+                        /* Accept Peer Data */
+                        ret = glusterd_import_friend_snap (peer_data,
+                                                           i,
+                                                           peer_snap_name,
+                                                           peer_snap_id);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_SNAP_IMPORT_FAIL,
+                                        "Failed to import snap %s from peer %s",
+                                        peer_snap_name, peername);
+                                goto out;
+                        }
+                }
         }
 
 out:
+        if (peer_data)
+                dict_unref (peer_data);
         if (dict)
                 dict_unref (dict);
+        conf->restart_bricks = _gf_false;
 
-        gf_msg_trace (this->name, 0, "Returning %d", ret);
         return ret;
 }
 
@@ -2010,6 +2150,7 @@ glusterd_compare_friend_snapshots (dict_t *peer_data, char *peername,
         int32_t          snap_count   = 0;
         int              i            = 1;
         xlator_t        *this         = NULL;
+        dict_t          *peer_data_copy = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2025,8 +2166,7 @@ glusterd_compare_friend_snapshots (dict_t *peer_data, char *peername,
 
         for (i = 1; i <= snap_count; i++) {
                 /* Compare one snapshot from peer_data at a time */
-                ret = glusterd_compare_and_update_snap (peer_data, i, peername,
-                                                        peerid);
+                ret = glusterd_compare_snap (peer_data, i, peername, peerid);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_SNAPSHOT_OP_FAILED,
@@ -2035,6 +2175,18 @@ glusterd_compare_friend_snapshots (dict_t *peer_data, char *peername,
                         goto out;
                 }
         }
+        /* Update the snaps at one go */
+        peer_data_copy = dict_copy_with_ref (peer_data, NULL);
+        ret = dict_set_str (peer_data_copy, "peername", peername);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                        "Failed to set peername into the dict");
+                if (peer_data_copy)
+                        dict_unref (peer_data_copy);
+                goto out;
+        }
+        glusterd_launch_synctask (glusterd_update_snaps_synctask,
+                                  peer_data_copy);
 
 out:
         gf_msg_trace (this->name, 0, "Returning %d", ret);
