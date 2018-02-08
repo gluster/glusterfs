@@ -1605,7 +1605,9 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         struct gf_flock         flock                   = {0, };
         struct gf_flock         plock                   = {0, };
         loc_t                   tmp_loc                 = {0, };
-        gf_boolean_t            locked                  = _gf_false;
+        loc_t                   parent_loc              = {0, };
+        gf_boolean_t            inodelk_locked          = _gf_false;
+        gf_boolean_t            entrylk_locked          = _gf_false;
         gf_boolean_t            p_locked                = _gf_false;
         int                     lk_ret                  = -1;
         gf_defrag_info_t        *defrag                 =  NULL;
@@ -1619,6 +1621,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         gf_boolean_t            target_changed          = _gf_false;
         xlator_t                *new_target             = NULL;
         xlator_t                *old_target             = NULL;
+        xlator_t                *hashed_subvol          = NULL;
         fd_t                    *linkto_fd              = NULL;
 
 
@@ -1686,6 +1689,28 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                         " for file: %s", loc->path);
         }
 
+        ret = dht_build_parent_loc (this, &parent_loc, loc, fop_errno);
+        if (ret < 0) {
+                ret = -1;
+                gf_msg (this->name, GF_LOG_WARNING, *fop_errno,
+                        DHT_MSG_MIGRATE_FILE_FAILED,
+                        "%s: failed to build parent loc, which is needed to "
+                        "acquire entrylk to synchronize with renames on this "
+                        "path. Skipping migration", loc->path);
+                goto out;
+        }
+
+        hashed_subvol = dht_subvol_get_hashed (this, loc);
+        if (hashed_subvol == NULL) {
+                ret = -1;
+                gf_msg (this->name, GF_LOG_WARNING, EINVAL,
+                        DHT_MSG_MIGRATE_FILE_FAILED,
+                        "%s: cannot find hashed subvol which is needed to "
+                        "synchronize with renames on this path. "
+                        "Skipping migration", loc->path);
+                goto out;
+        }
+
         flock.l_type = F_WRLCK;
 
         tmp_loc.inode = inode_ref (loc->inode);
@@ -1710,7 +1735,26 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 goto out;
         }
 
-        locked = _gf_true;
+        inodelk_locked = _gf_true;
+
+        /* dht_rename has changed to use entrylk on hashed subvol for
+         * synchronization. So, rebalance too has to acquire an entrylk on
+         * hashed subvol.
+         */
+        ret = syncop_entrylk (hashed_subvol, DHT_ENTRY_SYNC_DOMAIN, &parent_loc,
+                              loc->name, ENTRYLK_LOCK, ENTRYLK_WRLCK, NULL,
+                              NULL);
+        if (ret < 0) {
+                *fop_errno = -ret;
+                ret = -1;
+                gf_msg (this->name, GF_LOG_WARNING, *fop_errno,
+                        DHT_MSG_MIGRATE_FILE_FAILED,
+                        "%s: failed to acquire entrylk on subvol %s",
+                        loc->path, hashed_subvol->name);
+                goto out;
+        }
+
+        entrylk_locked = _gf_true;
 
         /* Phase 1 - Data migration is in progress from now on */
         ret = syncop_lookup (from, loc, &stbuf, NULL, dict, &xattr_rsp);
@@ -2348,7 +2392,7 @@ out:
                 }
         }
 
-        if (locked) {
+        if (inodelk_locked) {
                 flock.l_type = F_UNLCK;
 
                 lk_ret = syncop_inodelk (from, DHT_FILE_MIGRATE_DOMAIN,
@@ -2358,6 +2402,18 @@ out:
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "%s: failed to unlock file on %s",
                                 loc->path, from->name);
+                }
+        }
+
+        if (entrylk_locked) {
+                lk_ret = syncop_entrylk (hashed_subvol, DHT_ENTRY_SYNC_DOMAIN,
+                                         &parent_loc, loc->name, ENTRYLK_UNLOCK,
+                                         ENTRYLK_UNLOCK, NULL, NULL);
+                if (lk_ret < 0) {
+                        gf_msg (this->name, GF_LOG_WARNING, -lk_ret,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "%s: failed to unlock entrylk on %s",
+                                loc->path, hashed_subvol->name);
                 }
         }
 
@@ -2400,6 +2456,7 @@ out:
                 syncop_close (linkto_fd);
 
         loc_wipe (&tmp_loc);
+        loc_wipe (&parent_loc);
 
         return ret;
 }
