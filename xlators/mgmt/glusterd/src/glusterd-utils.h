@@ -244,6 +244,10 @@ glusterd_pending_node_put_rpc (glusterd_pending_node_t *pending_node);
 int
 glusterd_remote_hostname_get (rpcsvc_request_t *req,
                               char *remote_host, int len);
+
+int32_t
+glusterd_import_friend_volumes_synctask (void *opaque);
+
 int32_t
 glusterd_import_friend_volumes (dict_t *peer_data);
 void
