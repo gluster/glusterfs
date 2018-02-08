@@ -1620,14 +1620,16 @@ dht_rename_lock (call_frame_t *frame)
                 goto err;
 
         lk_array[0] = dht_lock_new (frame->this, local->src_cached, &local->loc,
-                                    F_WRLCK, DHT_FILE_MIGRATE_DOMAIN, NULL);
+                                    F_WRLCK, DHT_FILE_MIGRATE_DOMAIN, NULL,
+                                    FAIL_ON_ANY_ERROR);
         if (lk_array[0] == NULL)
                 goto err;
 
         if (local->dst_cached) {
                 lk_array[1] = dht_lock_new (frame->this, local->dst_cached,
                                             &local->loc2, F_WRLCK,
-                                            DHT_FILE_MIGRATE_DOMAIN, NULL);
+                                            DHT_FILE_MIGRATE_DOMAIN, NULL,
+                                            FAIL_ON_ANY_ERROR);
                 if (lk_array[1] == NULL)
                         goto err;
         }
@@ -1636,7 +1638,7 @@ dht_rename_lock (call_frame_t *frame)
         local->lock[0].layout.parent_layout.lk_count = count;
 
         ret = dht_blocking_inodelk (frame, lk_array, count,
-                                    FAIL_ON_ANY_ERROR, dht_rename_lock_cbk);
+                                    dht_rename_lock_cbk);
         if (ret < 0) {
                 local->lock[0].layout.parent_layout.locks = NULL;
                 local->lock[0].layout.parent_layout.lk_count = 0;

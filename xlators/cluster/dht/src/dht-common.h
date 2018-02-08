@@ -167,6 +167,7 @@ typedef enum {
 } qdstatfs_action_t;
 
 typedef enum {
+        REACTION_INVALID,
         FAIL_ON_ANY_ERROR,
         IGNORE_ENOENT_ESTALE
 } dht_reaction_type_t;
@@ -181,15 +182,16 @@ struct dht_skip_linkto_unlink {
 };
 
 typedef struct {
-        xlator_t     *xl;
-        loc_t         loc;     /* contains/points to inode to lock on. */
-        short         type;    /* read/write lock.                     */
-        char         *domain;  /* Only locks within a single domain
+        xlator_t            *xl;
+        loc_t                loc; /* contains/points to inode to lock on. */
+        short                type; /* read/write lock.                     */
+        char                *domain;  /* Only locks within a single domain
                                 * contend with each other
                                 */
-        char         *basename; /* Required for entrylk */
-        gf_lkowner_t  lk_owner;
-        gf_boolean_t  locked;
+        char                *basename; /* Required for entrylk */
+        gf_lkowner_t         lk_owner;
+        gf_boolean_t         locked;
+        dht_reaction_type_t  do_on_failure;
 } dht_lock_t;
 
 /* The lock structure represents inodelk. */
