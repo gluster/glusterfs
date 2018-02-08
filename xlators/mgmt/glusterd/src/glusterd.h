@@ -196,6 +196,7 @@ typedef struct {
         int32_t                    workers;
         uint32_t                   blockers;
         uint32_t                   mgmt_v3_lock_timeout;
+        gf_boolean_t               restart_bricks;
 } glusterd_conf_t;
 
 
@@ -1074,7 +1075,7 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                                     dict_t  *volumes, int   count);
 
 int
-glusterd_restart_bricks (glusterd_conf_t *conf);
+glusterd_restart_bricks ();
 
 int32_t
 glusterd_volume_txn (rpcsvc_request_t *req, char *volname, int flags,
