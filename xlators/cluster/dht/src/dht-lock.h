@@ -22,7 +22,8 @@ dht_lock_count (dht_lock_t **lk_array, int lk_count);
 
 dht_lock_t *
 dht_lock_new (xlator_t *this, xlator_t *xl, loc_t *loc, short type,
-              const char *domain, const char *basename);
+              const char *domain, const char *basename,
+              dht_reaction_type_t do_on_failure);
 
 int32_t
 dht_unlock_entrylk_wrapper (call_frame_t *, dht_elock_wrap_t *);
@@ -32,8 +33,7 @@ dht_blocking_entrylk_rec (call_frame_t *frame, int i);
 
 int
 dht_blocking_entrylk (call_frame_t *frame, dht_lock_t **lk_array,
-                      int lk_count, dht_reaction_type_t reaction,
-                      fop_inodelk_cbk_t entrylk_cbk);
+                      int lk_count, fop_inodelk_cbk_t entrylk_cbk);
 
 int32_t
 dht_unlock_inodelk (call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
@@ -70,8 +70,7 @@ dht_blocking_inodelk_rec (call_frame_t *frame, int i);
 
 int
 dht_blocking_inodelk (call_frame_t *frame, dht_lock_t **lk_array,
-                      int lk_count, dht_reaction_type_t reaction,
-                      fop_inodelk_cbk_t inodelk_cbk);
+                      int lk_count, fop_inodelk_cbk_t inodelk_cbk);
 
 int32_t
 dht_blocking_entrylk_after_inodelk (call_frame_t *frame, void *cookie,

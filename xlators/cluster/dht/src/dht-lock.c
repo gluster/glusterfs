@@ -191,7 +191,8 @@ out:
 
 dht_lock_t *
 dht_lock_new (xlator_t *this, xlator_t *xl, loc_t *loc, short type,
-              const char *domain, const char *basename)
+              const char *domain, const char *basename,
+              dht_reaction_type_t do_on_failure)
 {
         dht_conf_t *conf = NULL;
         dht_lock_t *lock = NULL;
@@ -204,6 +205,7 @@ dht_lock_new (xlator_t *this, xlator_t *xl, loc_t *loc, short type,
 
         lock->xl = xl;
         lock->type = type;
+        lock->do_on_failure = do_on_failure;
 
         lock->domain = gf_strdup (domain);
         if (lock->domain == NULL) {
@@ -540,7 +542,7 @@ dht_blocking_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 switch (op_errno) {
                 case ESTALE:
                 case ENOENT:
-                        if (local->lock[0].ns.directory_ns.reaction != IGNORE_ENOENT_ESTALE) {
+                        if (local->lock[0].ns.directory_ns.locks[lk_index]->do_on_failure != IGNORE_ENOENT_ESTALE) {
                                 local->lock[0].ns.directory_ns.op_ret = -1;
                                 local->lock[0].ns.directory_ns.op_errno = op_errno;
                                 goto cleanup;
@@ -597,8 +599,7 @@ dht_blocking_entrylk_rec (call_frame_t *frame, int i)
 
 int
 dht_blocking_entrylk (call_frame_t *frame, dht_lock_t **lk_array,
-                      int lk_count, dht_reaction_type_t reaction,
-                      fop_entrylk_cbk_t entrylk_cbk)
+                      int lk_count, fop_entrylk_cbk_t entrylk_cbk)
 {
         int           ret        = -1;
         call_frame_t *lock_frame = NULL;
@@ -621,7 +622,6 @@ dht_blocking_entrylk (call_frame_t *frame, dht_lock_t **lk_array,
         dht_set_lkowner (lk_array, lk_count, &lock_frame->root->lk_owner);
 
         local = lock_frame->local;
-        local->lock[0].ns.directory_ns.reaction = reaction;
         local->main_frame = frame;
 
         dht_blocking_entrylk_rec (lock_frame, 0);
@@ -1029,7 +1029,8 @@ dht_blocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 switch (op_errno) {
                 case ESTALE:
                 case ENOENT:
-                        if (local->lock[0].layout.my_layout.reaction != IGNORE_ENOENT_ESTALE) {
+                        if (local->lock[0].layout.my_layout.locks[lk_index]->do_on_failure
+                            != IGNORE_ENOENT_ESTALE) {
                                 gf_uuid_unparse (local->lock[0].layout.my_layout.locks[lk_index]->loc.gfid, gfid);
                                 local->lock[0].layout.my_layout.op_ret = -1;
                                 local->lock[0].layout.my_layout.op_errno = op_errno;
@@ -1100,8 +1101,7 @@ dht_blocking_inodelk_rec (call_frame_t *frame, int i)
 
 int
 dht_blocking_inodelk (call_frame_t *frame, dht_lock_t **lk_array,
-                      int lk_count, dht_reaction_type_t reaction,
-                      fop_inodelk_cbk_t inodelk_cbk)
+                      int lk_count, fop_inodelk_cbk_t inodelk_cbk)
 {
         int           ret                       = -1;
         call_frame_t *lock_frame                = NULL;
@@ -1139,7 +1139,6 @@ dht_blocking_inodelk (call_frame_t *frame, dht_lock_t **lk_array,
         dht_set_lkowner (lk_array, lk_count, &lock_frame->root->lk_owner);
 
         local = lock_frame->local;
-        local->lock[0].layout.my_layout.reaction = reaction;
         local->main_frame = frame;
 
         dht_blocking_inodelk_rec (lock_frame, 0);
@@ -1210,7 +1209,7 @@ dht_blocking_entrylk_after_inodelk (call_frame_t *frame, void *cookie,
         lk_array = entrylk->locks;
         count = entrylk->lk_count;
 
-        ret = dht_blocking_entrylk (frame, lk_array, count, FAIL_ON_ANY_ERROR,
+        ret = dht_blocking_entrylk (frame, lk_array, count,
                                     dht_protect_namespace_cbk);
 
         if (ret < 0) {
@@ -1303,7 +1302,8 @@ dht_protect_namespace (call_frame_t *frame, loc_t *loc,
         }
 
         inodelk->locks[0] = dht_lock_new (this, subvol, &parent, F_RDLCK,
-                                        DHT_LAYOUT_HEAL_DOMAIN, NULL);
+                                          DHT_LAYOUT_HEAL_DOMAIN, NULL,
+                                          FAIL_ON_ANY_ERROR);
         if (inodelk->locks[0] == NULL) {
                 local->op_errno = ENOMEM;
                 gf_msg (this->name, GF_LOG_WARNING, local->op_errno,
@@ -1330,7 +1330,8 @@ dht_protect_namespace (call_frame_t *frame, loc_t *loc,
         }
 
         entrylk->locks[0] = dht_lock_new (this, subvol, &parent, F_WRLCK,
-                                          DHT_ENTRY_SYNC_DOMAIN, loc->name);
+                                          DHT_ENTRY_SYNC_DOMAIN, loc->name,
+                                          FAIL_ON_ANY_ERROR);
         if (entrylk->locks[0] == NULL) {
                 local->op_errno = ENOMEM;
                 gf_msg (this->name, GF_LOG_WARNING, local->op_errno,
@@ -1347,7 +1348,7 @@ dht_protect_namespace (call_frame_t *frame, loc_t *loc,
          * on name in cbk.
          */
         lk_array = inodelk->locks;
-        ret = dht_blocking_inodelk (frame, lk_array, count, FAIL_ON_ANY_ERROR,
+        ret = dht_blocking_inodelk (frame, lk_array, count,
                                     dht_blocking_entrylk_after_inodelk);
         if (ret < 0) {
                 local->op_errno = EIO;
