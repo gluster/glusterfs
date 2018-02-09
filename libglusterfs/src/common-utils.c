@@ -3577,6 +3577,136 @@ out:
 
 }
 
+/*
+ * Processes list of volfile servers.
+ * Format: <host1>:<port1> <host2>:<port2>...
+ */
+int
+gf_process_getspec_servers_list(cmd_args_t *cmd_args,
+                                const char *servers_list) {
+        char        *tmp = NULL;
+        char        *address = NULL;
+        char        *host = NULL;
+        char        *last_colon = NULL;
+        char        *save_ptr = NULL;
+        int          port = 0;
+        int          ret = -1;
+
+        tmp = gf_strdup (servers_list);
+        if (!tmp) {
+                errno = ENOMEM;
+                goto out;
+        }
+
+        address = strtok_r (tmp, " ", &save_ptr);
+        if (!address) {
+                errno = EINVAL;
+                goto out;
+        }
+
+        while (1) {
+                last_colon = strrchr (address, ':');
+                if (!last_colon) {
+                        errno = EINVAL;
+                        ret = -1;
+                        break;
+                }
+                *last_colon = '\0';
+                host = address;
+                port = atoi (last_colon + 1);
+                if (port <= 0) {
+                        errno = EINVAL;
+                        ret = -1;
+                        break;
+                }
+                ret = gf_set_volfile_server_common (
+                        cmd_args, host, GF_DEFAULT_VOLFILE_TRANSPORT, port);
+                if (ret && errno != EEXIST) {
+                        break;
+                }
+                address = strtok_r (NULL, " ", &save_ptr);
+                if (!address) {
+                        errno = 0;
+                        ret = 0;
+                        break;
+                }
+        }
+
+out:
+        if (tmp) {
+                GF_FREE (tmp);
+        }
+
+        return ret;
+}
+
+int
+gf_set_volfile_server_common (cmd_args_t *cmd_args, const char *host,
+                              const char *transport, int port)
+{
+        server_cmdline_t      *server = NULL;
+        server_cmdline_t      *tmp = NULL;
+        int                    ret = -1;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, cmd_args, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, host, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, transport, out);
+
+        server = GF_CALLOC (1, sizeof (server_cmdline_t),
+                            gf_common_mt_server_cmdline_t);
+        if (!server) {
+                errno = ENOMEM;
+                goto out;
+        }
+
+        INIT_LIST_HEAD (&server->list);
+
+        server->volfile_server = gf_strdup (host);
+        if (!server->volfile_server) {
+                errno = ENOMEM;
+                goto out;
+        }
+
+        server->transport = gf_strdup (transport);
+        if (!server->transport) {
+                errno = ENOMEM;
+                goto out;
+        }
+
+        server->port = port;
+
+        if (!cmd_args->volfile_server) {
+                cmd_args->volfile_server = server->volfile_server;
+                cmd_args->volfile_server_transport = server->transport;
+                cmd_args->volfile_server_port = server->port;
+                cmd_args->curr_server = server;
+        }
+
+        list_for_each_entry(tmp, &cmd_args->volfile_servers, list) {
+                if ((!strcmp(tmp->volfile_server, server->volfile_server) &&
+                     !strcmp(tmp->transport, server->transport) &&
+                     (tmp->port == server->port))) {
+                        errno = EEXIST;
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        list_add_tail (&server->list, &cmd_args->volfile_servers);
+
+        ret = 0;
+out:
+        if (-1 == ret) {
+                if (server) {
+                        GF_FREE (server->volfile_server);
+                        GF_FREE (server->transport);
+                        GF_FREE (server);
+                }
+        }
+
+        return ret;
+}
+
 /* Sets log file path from user provided arguments */
 int
 gf_set_log_file_path (cmd_args_t *cmd_args, glusterfs_ctx_t *ctx)

@@ -246,6 +246,11 @@ void gf_print_trace (int32_t signal, glusterfs_ctx_t *ctx);
 int  gf_set_log_file_path (cmd_args_t *cmd_args, glusterfs_ctx_t *ctx);
 int  gf_set_log_ident (cmd_args_t *cmd_args);
 
+int gf_process_getspec_servers_list(cmd_args_t *cmd_args,
+                                    const char *servers_list);
+int gf_set_volfile_server_common (cmd_args_t *cmd_args, const char *host,
+                                  const char *transport, int port);
+
 static inline void
 BIT_SET (unsigned char *array, unsigned int index)
 {

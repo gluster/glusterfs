@@ -718,7 +718,6 @@ gf_remember_backup_volfile_server (char *arg)
         glusterfs_ctx_t         *ctx = NULL;
         cmd_args_t              *cmd_args = NULL;
         int                      ret = -1;
-        server_cmdline_t        *server = NULL;
 
         ctx = glusterfsd_ctx;
         if (!ctx)
@@ -728,39 +727,15 @@ gf_remember_backup_volfile_server (char *arg)
         if(!cmd_args)
                 goto out;
 
-        server = GF_CALLOC (1, sizeof (server_cmdline_t),
-                            gfd_mt_server_cmdline_t);
-        if (!server)
-                goto out;
-
-        INIT_LIST_HEAD(&server->list);
-
-        server->volfile_server = gf_strdup(arg);
-
-        if (!cmd_args->volfile_server) {
-                cmd_args->volfile_server = server->volfile_server;
-                cmd_args->curr_server = server;
+        ret = gf_set_volfile_server_common(cmd_args, arg,
+                                           GF_DEFAULT_VOLFILE_TRANSPORT,
+                                           GF_DEFAULT_BASE_PORT);
+        if (ret) {
+                gf_log ("glusterfs", GF_LOG_ERROR,
+                        "failed to set volfile server: %s", strerror (errno));
         }
-
-        if (!server->volfile_server) {
-                gf_msg ("glusterfsd", GF_LOG_WARNING, 0, glusterfsd_msg_10,
-                        "xlator option %s is invalid", arg);
-                goto out;
-        }
-
-        list_add_tail (&server->list, &cmd_args->volfile_servers);
-
-        ret = 0;
 out:
-        if (ret == -1) {
-                if (server) {
-                        GF_FREE (server->volfile_server);
-                        GF_FREE (server);
-                }
-        }
-
         return ret;
-
 }
 
 static int

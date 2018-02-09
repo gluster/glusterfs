@@ -1917,6 +1917,8 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         gf_volfile_t            *volfile_obj = NULL;
         gf_volfile_t            *volfile_tmp = NULL;
         char                     sha256_hash[SHA256_DIGEST_LENGTH] = {0, };
+        dict_t                  *dict = NULL;
+        char                    *servers_list = NULL;
 
         frame = myframe;
         ctx = frame->this->ctx;
@@ -1940,6 +1942,44 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
+        if (!rsp.xdata.xdata_len) {
+                goto volfile;
+        }
+
+        dict = dict_new ();
+        if (!dict) {
+                ret = -1;
+                errno = ENOMEM;
+                goto out;
+        }
+
+        ret = dict_unserialize (rsp.xdata.xdata_val, rsp.xdata.xdata_len,
+                                &dict);
+        if (ret) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "failed to unserialize xdata to dictionary");
+                goto out;
+        }
+        dict->extra_stdfree = rsp.xdata.xdata_val;
+
+        /* glusterd2 only */
+        ret = dict_get_str (dict, "servers-list", &servers_list);
+        if (ret) {
+                goto volfile;
+        }
+
+        gf_log (frame->this->name, GF_LOG_INFO,
+                "Received list of available volfile servers: %s",
+                servers_list);
+
+        ret = gf_process_getspec_servers_list(&ctx->cmd_args, servers_list);
+        if (ret) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed (%s) to process servers list: %s",
+                        strerror (errno), servers_list);
+        }
+
+volfile:
         ret = 0;
         size = rsp.op_ret;
 
@@ -2058,6 +2098,9 @@ out:
 
         free (rsp.spec);
 
+        if (dict)
+                dict_unref (dict);
+
         // Stop if server is running at an unsupported op-version
         if (ENOTSUP == ret) {
                 gf_log ("mgmt", GF_LOG_ERROR, "Server is operating at an "
@@ -2131,6 +2174,11 @@ glusterfs_volfile_fetch_one (glusterfs_ctx_t *ctx, char *volfile_id)
                 gf_log (THIS->name, GF_LOG_ERROR, "Failed to set max-op-version"
                         " in request dict");
                 goto out;
+        }
+
+        /* Ask for a list of volfile (glusterd2 only) servers */
+        if (GF_CLIENT_PROCESS == ctx->process_mode) {
+                req.flags = req.flags | GF_GETSPEC_FLAG_SERVERS_LIST;
         }
 
         if (cmd_args->brick_name) {

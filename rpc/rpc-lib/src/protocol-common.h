@@ -325,6 +325,11 @@ enum gf_get_snapshot_info_type {
 };
 typedef enum gf_get_snapshot_info_type gf_get_snapshot_info_type;
 
+enum gf_getspec_flags_type {
+        GF_GETSPEC_FLAG_SERVERS_LIST = 1
+};
+typedef enum gf_getspec_flags_type gf_getspec_flags_type;
+
 #define GLUSTER_HNDSK_PROGRAM    14398633 /* Completely random */
 #define GLUSTER_HNDSK_VERSION    2   /* 0.0.2 */
 
