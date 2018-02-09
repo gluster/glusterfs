@@ -1911,6 +1911,10 @@ glusterd_compare_snap (dict_t *peer_data, int32_t snap_count,
                         snprintf (buf, sizeof(buf), "%s.remove_my_data",
                                   prefix);
                         ret = dict_set_uint32 (peer_data, buf, 1);
+                        snprintf (buf, sizeof(buf), "%s.accept_peer_data",
+                                  prefix);
+                        ret = dict_set_uint32 (peer_data, buf, 1);
+
                 } else {
                         ret = 0;
                 }
