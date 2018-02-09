@@ -176,6 +176,7 @@ typedef struct wb_request {
 
 typedef struct wb_conf {
         uint64_t         aggregate_size;
+        uint64_t         page_size;
         uint64_t         window_size;
         gf_boolean_t     flush_behind;
         gf_boolean_t     trickling_writes;
@@ -1258,7 +1259,7 @@ __wb_pick_unwinds (wb_inode_t *wb_inode, list_head_t *lies)
 
 
 int
-__wb_collapse_small_writes (wb_request_t *holder, wb_request_t *req)
+__wb_collapse_small_writes (wb_conf_t *conf, wb_request_t *holder, wb_request_t *req)
 {
         char          *ptr    = NULL;
         struct iobuf  *iobuf  = NULL;
@@ -1274,7 +1275,7 @@ __wb_collapse_small_writes (wb_request_t *holder, wb_request_t *req)
                 req_len = iov_length (req->stub->args.vector,
                                       req->stub->args.count);
 
-                required_size = max ((THIS->ctx->page_size),
+                required_size = max ((conf->page_size),
                                      (holder_len + req_len));
                 iobuf = iobuf_get2 (req->wb_inode->this->ctx->iobuf_pool,
                                     required_size);
@@ -1349,8 +1350,8 @@ __wb_preprocess_winds (wb_inode_t *wb_inode)
 	   through the interleaved ops
 	*/
 
-	page_size = wb_inode->this->ctx->page_size;
 	conf = wb_inode->this->private;
+        page_size = conf->page_size;
 
         list_for_each_entry_safe (req, tmp, &wb_inode->todo, todo) {
                 if (wb_inode->dontsync && req->ordering.lied) {
@@ -1416,7 +1417,7 @@ __wb_preprocess_winds (wb_inode_t *wb_inode)
 			continue;
 		}
 
-		ret = __wb_collapse_small_writes (holder, req);
+		ret = __wb_collapse_small_writes (conf, holder, req);
 		if (ret)
 			continue;
 
@@ -2988,7 +2989,8 @@ init (xlator_t *this)
         }
 
         /* configure 'options aggregate-size <size>' */
-        conf->aggregate_size = WB_AGGREGATE_SIZE;
+        GF_OPTION_INIT ("aggregate-size", conf->aggregate_size, size_uint64, out);
+        conf->page_size = conf->aggregate_size;
 
         /* configure 'option window-size <size>' */
         GF_OPTION_INIT ("cache-size", conf->window_size, size_uint64, out);
@@ -3150,6 +3152,20 @@ struct volume_options options[] = {
                          "failures. "
                          "fsync itself is failed irrespective of the value of "
                          "this option. ",
+        },
+        { .key  = {"aggregate-size"},
+          .type = GF_OPTION_TYPE_SIZET,
+          .default_value = "128KB",
+          .op_version = {GD_OP_VERSION_4_1_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+          .description = "Will aggregate writes until data of specified "
+                         "size is fully filled for a single file provided "
+                         "there are no dependent fops on cached writes. This "
+                         "option just sets the aggregate size. Note that "
+                         "aggregation won't happen if performance.write-behind-trickling-writes"
+                         " is turned on. Hence turn off performance.write-behind.trickling-writes"
+                         " so that writes are aggregated till a max of "
+                         "\"aggregate-size\" bytes",
         },
         { .key = {NULL} },
 };
