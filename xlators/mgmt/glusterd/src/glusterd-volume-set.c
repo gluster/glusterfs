@@ -1845,6 +1845,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_3_13_1,
           .flags      = VOLOPT_FLAG_CLIENT_OPT
         },
+        { .key        = "performance.aggregate-size",
+          .voltype    = "performance/write-behind",
+          .option     = "aggregate-size",
+          .op_version = GD_OP_VERSION_4_1_0,
+          .flags      = OPT_FLAG_CLIENT_OPT
+        },
         { .key        = "performance.nfs.write-behind-trickling-writes",
           .voltype    = "performance/write-behind",
           .option     = "trickling-writes",
