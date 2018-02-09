@@ -412,9 +412,9 @@ pub_glfs_set_volfile_server (struct glfs *fs, const char *transport,
                              const char *host, int port)
 {
         cmd_args_t            *cmd_args = NULL;
-        server_cmdline_t      *server = NULL;
-        server_cmdline_t      *tmp = NULL;
         int                    ret = -1;
+        char                  *server_host = NULL;
+        char                  *server_transport = NULL;
 
         if (!fs || !host) {
                 errno = EINVAL;
@@ -425,21 +425,10 @@ pub_glfs_set_volfile_server (struct glfs *fs, const char *transport,
         __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
 
         cmd_args = &fs->ctx->cmd_args;
-
         cmd_args->max_connect_attempts = 1;
 
-        server = GF_CALLOC (1, sizeof (server_cmdline_t),
-                            glfs_mt_server_cmdline_t);
-
-        if (!server) {
-                errno = ENOMEM;
-                goto out;
-        }
-
-        INIT_LIST_HEAD (&server->list);
-
-        server->volfile_server = gf_strdup (host);
-        if (!server->volfile_server) {
+        server_host = gf_strdup (host);
+        if (!server_host) {
                 errno = ENOMEM;
                 goto out;
         }
@@ -447,9 +436,10 @@ pub_glfs_set_volfile_server (struct glfs *fs, const char *transport,
         if (transport) {
                 /* volfile fetch support over tcp|unix only */
                 if (!strcmp(transport, "tcp") || !strcmp(transport, "unix")) {
-                        server->transport = gf_strdup (transport);
+                        server_transport = gf_strdup (transport);
                 } else if (!strcmp(transport, "rdma")) {
-                        server->transport = gf_strdup ("tcp");
+                        server_transport =
+                                gf_strdup (GF_DEFAULT_VOLFILE_TRANSPORT);
                         gf_msg ("glfs", GF_LOG_WARNING, EINVAL,
                                 API_MSG_INVALID_ENTRY,
                                 "transport RDMA is deprecated, "
@@ -460,55 +450,39 @@ pub_glfs_set_volfile_server (struct glfs *fs, const char *transport,
                                 "transport %s is not supported, "
                                 "possible values tcp|unix",
                                 transport);
-                        ret = -1;
                         goto out;
                 }
         } else {
-                server->transport = gf_strdup (GF_DEFAULT_VOLFILE_TRANSPORT);
+                server_transport = gf_strdup (GF_DEFAULT_VOLFILE_TRANSPORT);
         }
 
-        if (!server->transport) {
+        if (!server_transport) {
                 errno = ENOMEM;
                 goto out;
         }
 
-        if (strcmp(server->transport, "unix")) {
-                if (port) {
-                        server->port = port;
-                } else {
-                        server->port = GF_DEFAULT_BASE_PORT;
-                }
-        } else {
-                server->port = 0;
+        if (!port) {
+                port = GF_DEFAULT_BASE_PORT;
         }
 
-        if (!cmd_args->volfile_server) {
-                cmd_args->volfile_server = server->volfile_server;
-                cmd_args->volfile_server_transport = server->transport;
-                cmd_args->volfile_server_port = server->port;
-                cmd_args->curr_server = server;
+        if (!strcmp(server_transport, "unix")) {
+                port = 0;
         }
 
-        list_for_each_entry(tmp, &cmd_args->volfile_servers, list) {
-                if ((!strcmp(tmp->volfile_server, server->volfile_server) &&
-                     !strcmp(tmp->transport, server->transport) &&
-                     (tmp->port == server->port))) {
-                        errno = EEXIST;
-                        ret = -1;
-                        goto out;
-                }
+        ret = gf_set_volfile_server_common(cmd_args, server_host,
+                                           server_transport, port);
+        if (ret) {
+                gf_log ("glfs", GF_LOG_ERROR,
+                        "failed to set volfile server: %s", strerror (errno));
         }
 
-        list_add_tail (&server->list, &cmd_args->volfile_servers);
-
-        ret = 0;
 out:
-        if (ret == -1) {
-                if (server) {
-                        GF_FREE (server->volfile_server);
-                        GF_FREE (server->transport);
-                        GF_FREE (server);
-                }
+        if (server_host) {
+                GF_FREE (server_host);
+        }
+
+        if (server_transport) {
+                GF_FREE (server_transport);
         }
 
         __GLFS_EXIT_FS;
@@ -823,6 +797,7 @@ pub_glfs_new (const char *volname)
                 goto out;
 
         fs->ctx = ctx;
+        fs->ctx->process_mode = GF_CLIENT_PROCESS;
 
         ret = glfs_set_logging (fs, "/dev/null", 0);
         if (ret)

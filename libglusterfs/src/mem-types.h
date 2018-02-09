@@ -176,6 +176,7 @@ enum gf_common_mem_types_ {
         gf_common_ping_local_t,
         gf_common_volfile_t,
         gf_common_mt_mgmt_v3_lock_timer_t,
+        gf_common_mt_server_cmdline_t,
         gf_common_mt_end
 };
 #endif

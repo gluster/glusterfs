@@ -580,6 +580,8 @@ glfs_mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 	FILE			*tmpfp = NULL;
 	int			 need_retry = 0;
 	struct glfs		*fs = NULL;
+        dict_t                  *dict = NULL;
+        char                    *servers_list = NULL;
 
 	frame = myframe;
 	ctx = frame->this->ctx;
@@ -617,6 +619,44 @@ glfs_mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 		goto out;
 	}
 
+        if (!rsp.xdata.xdata_len) {
+                goto volfile;
+        }
+
+        dict = dict_new ();
+        if (!dict) {
+                ret = -1;
+                errno = ENOMEM;
+                goto out;
+        }
+
+        ret = dict_unserialize (rsp.xdata.xdata_val, rsp.xdata.xdata_len,
+                                &dict);
+        if (ret) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "failed to unserialize xdata to dictionary");
+                goto out;
+        }
+        dict->extra_stdfree = rsp.xdata.xdata_val;
+
+        /* glusterd2 only */
+        ret = dict_get_str (dict, "servers-list", &servers_list);
+        if (ret) {
+                goto volfile;
+        }
+
+        gf_log (frame->this->name, GF_LOG_INFO,
+                "Received list of available volfile servers: %s",
+                servers_list);
+
+        ret = gf_process_getspec_servers_list(&ctx->cmd_args, servers_list);
+        if (ret) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "Failed (%s) to process servers list: %s",
+                        strerror (errno), servers_list);
+        }
+
+volfile:
 	ret = 0;
 	size = rsp.op_ret;
 
@@ -676,8 +716,8 @@ out:
 	if (rsp.spec)
 		free (rsp.spec);
 
-        if (rsp.xdata.xdata_val)
-                free (rsp.xdata.xdata_val);
+        if (dict)
+                dict_unref (dict);
 
 	// Stop if server is running at an unsupported op-version
 	if (ENOTSUP == ret) {
@@ -750,6 +790,11 @@ glfs_volfile_fetch (struct glfs *fs)
                         API_MSG_DICT_SET_FAILED,
                         "Failed to set max-op-version in request dict");
                 goto out;
+        }
+
+        /* Ask for a list of volfile (glusterd2 only) servers */
+        if (GF_CLIENT_PROCESS == ctx->process_mode) {
+                req.flags = req.flags | GF_GETSPEC_FLAG_SERVERS_LIST;
         }
 
         ret = dict_allocate_and_serialize (dict, &req.xdata.xdata_val,
