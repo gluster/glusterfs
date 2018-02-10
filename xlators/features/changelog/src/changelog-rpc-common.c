@@ -275,6 +275,10 @@ changelog_rpc_server_destroy (xlator_t *this, rpcsvc_t *rpc, char *sockfile,
 
         (void) rpcsvc_unregister_notify (rpc, fn, this);
         sys_unlink (sockfile);
+        if (rpc->rxpool) {
+                mem_pool_destroy (rpc->rxpool);
+                rpc->rxpool = NULL;
+        }
 
         GF_FREE (rpc);
 }

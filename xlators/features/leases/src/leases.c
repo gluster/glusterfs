@@ -1041,14 +1041,17 @@ fini (xlator_t *this)
 
         priv->fini = _gf_true;
         pthread_cond_broadcast (&priv->cond);
-        pthread_join (priv->recall_thr, NULL);
-
-        priv->inited_recall_thr = _gf_false;
+        if (priv->recall_thr) {
+                gf_thread_cleanup_xint (priv->recall_thr);
+                priv->recall_thr = 0;
+                priv->inited_recall_thr = _gf_false;
+        }
 
         GF_FREE (priv);
-
-        glusterfs_ctx_tw_put (this->ctx);
-
+        if (this->ctx->tw) {
+                glusterfs_ctx_tw_put (this->ctx);
+                this->ctx->tw = NULL;
+        }
         return 0;
 }
 

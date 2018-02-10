@@ -128,5 +128,8 @@ int glusterfs_volume_top_read_perf (uint32_t blk_size, uint32_t blk_count,
 void
 glusterfs_autoscale_threads (glusterfs_ctx_t *ctx, int incr, xlator_t *this);
 
+void
+xlator_mem_cleanup (xlator_t *this);
+
 extern glusterfs_ctx_t *glusterfsd_ctx;
 #endif /* __GLUSTERFSD_H__ */

@@ -5047,6 +5047,9 @@ shard_forget (xlator_t *this, inode_t *inode)
         shard_priv_t       *priv     = NULL;
 
         priv = this->private;
+        if (!priv)
+                return 0;
+
         inode_ctx_del (inode, this, &ctx_uint);
         if (!ctx_uint)
                 return 0;

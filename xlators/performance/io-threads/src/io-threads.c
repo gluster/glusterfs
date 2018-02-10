@@ -370,7 +370,8 @@ iot_schedule (call_frame_t *frame, xlator_t *this, call_stub_t *stub)
 out:
         gf_msg_debug (this->name, 0, "%s scheduled as %s fop",
                       gf_fop_list[stub->fop], iot_get_pri_meaning (pri));
-        ret = do_iot_schedule (this->private, stub, pri);
+        if (this->private)
+                ret = do_iot_schedule (this->private, stub, pri);
         return ret;
 }
 
@@ -1286,8 +1287,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 {
         iot_conf_t *conf = this->private;
 
-        if ((GF_EVENT_PARENT_DOWN == event) ||
-            (GF_EVENT_CLEANUP == event))
+        if (GF_EVENT_PARENT_DOWN == event)
                 iot_exit_threads (conf);
 
         default_notify (this, event, data);
