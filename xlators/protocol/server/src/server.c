@@ -1569,9 +1569,8 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                                 (*trav_p) = (*trav_p)->next;
                         glusterfs_mgmt_pmap_signout (ctx,
                                                      victim->name);
+                        /* we need the protocol/server xlator here as 'this' */
                         glusterfs_autoscale_threads (THIS->ctx, -1);
-                        default_notify (victim, GF_EVENT_CLEANUP, data);
-
                 }
                 break;
 

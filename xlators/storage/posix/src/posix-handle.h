@@ -180,6 +180,12 @@
 
 
 #define MAKE_INODE_HANDLE(rpath, this, loc, iatt_p) do {                \
+        if (!this->private) {                                           \
+                gf_msg ("make_inode_handle", GF_LOG_ERROR, 0,           \
+                         P_MSG_INODE_HANDLE_CREATE,                     \
+                         "private is NULL, fini is already called");    \
+                break;                                                  \
+        }                                                               \
         if (gf_uuid_is_null (loc->gfid)) {                              \
                 gf_msg (this->name, GF_LOG_ERROR, 0,                    \
                         P_MSG_INODE_HANDLE_CREATE,                      \

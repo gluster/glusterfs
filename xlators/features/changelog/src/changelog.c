@@ -2102,27 +2102,12 @@ notify (xlator_t *this, int event, void *data, ...)
         int                     ret             = 0;
         int                     ret1            = 0;
         struct list_head        queue           = {0, };
-        int                     i               = 0;
 
         INIT_LIST_HEAD (&queue);
 
         priv = this->private;
         if (!priv)
                 goto out;
-
-        if (event == GF_EVENT_CLEANUP) {
-                if (priv->connector) {
-                        (void) gf_thread_cleanup_xint (priv->connector);
-                        priv->connector = 0;
-                }
-
-                for (; i < NR_DISPATCHERS; i++) {
-                        if (priv->ev_dispatcher[i]) {
-                                (void) gf_thread_cleanup_xint (priv->ev_dispatcher[i]);
-                                priv->ev_dispatcher[i] = 0;
-                        }
-               }
-        }
 
         if (event == GF_EVENT_TRANSLATOR_OP) {
 
@@ -2901,6 +2886,9 @@ fini (xlator_t *this)
                 /* cleanup barrier related objects */
                 changelog_barrier_pthread_destroy (priv);
 
+                /* cleanup helper threads */
+                changelog_cleanup_helper_threads (this, priv);
+
                 /* cleanup allocated options */
                 changelog_freeup_options (this, priv);
 
@@ -2911,6 +2899,7 @@ fini (xlator_t *this)
         }
 
         this->private = NULL;
+        this->local_pool = NULL;
 
         return;
 }

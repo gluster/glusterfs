@@ -193,6 +193,72 @@ glusterfs_autoscale_threads (glusterfs_ctx_t *ctx, int incr)
         (void) event_reconfigure_threads (pool, pool->eventthreadcount+incr);
 }
 
+static int
+xlator_mem_free (xlator_t *xl)
+{
+        volume_opt_list_t *vol_opt = NULL;
+        volume_opt_list_t *tmp     = NULL;
+
+        if (!xl)
+                return 0;
+
+        GF_FREE (xl->name);
+        GF_FREE (xl->type);
+        xl->name = NULL;
+        xl->type = NULL;
+
+        if (xl->options) {
+                dict_ref (xl->options);
+                dict_unref (xl->options);
+                xl->options = NULL;
+        }
+
+        list_for_each_entry_safe (vol_opt, tmp, &xl->volume_options, list) {
+                list_del_init (&vol_opt->list);
+                GF_FREE (vol_opt);
+        }
+
+        return 0;
+}
+
+void
+xlator_call_fini (xlator_t *this) {
+        if (!this)
+                return;
+        xlator_call_fini (this->next);
+        this->fini (this);
+}
+
+void
+xlator_mem_cleanup (xlator_t *this) {
+        xlator_list_t     *list = this->children;
+        xlator_t          *trav = list->xlator;
+        inode_table_t     *inode_table = NULL;
+        xlator_t          *prev = trav;
+
+        inode_table = this->itable;
+
+        xlator_call_fini (trav);
+
+        while (prev) {
+                trav = prev->next;
+                xlator_mem_free (prev);
+                prev = trav;
+        }
+
+        if (inode_table) {
+                inode_table_destroy (inode_table);
+                this->itable = NULL;
+        }
+
+        if (this->fini) {
+                this->fini (this);
+        }
+
+        xlator_mem_free (this);
+}
+
+
 int
 glusterfs_handle_terminate (rpcsvc_request_t *req)
 {
@@ -259,6 +325,7 @@ glusterfs_handle_terminate (rpcsvc_request_t *req)
                 gf_log (THIS->name, GF_LOG_INFO, "detaching not-only"
                          " child %s", xlator_req.name);
                 top->notify (top, GF_EVENT_CLEANUP, victim);
+                xlator_mem_cleanup (victim);
         }
 err:
         if (!lockflag)
