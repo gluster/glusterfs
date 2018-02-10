@@ -946,5 +946,12 @@ out:
 int32_t
 fini (xlator_t *this)
 {
+        if (!this)
+                return 0;
+
+        if (this->local_pool) {
+                mem_pool_destroy (this->local_pool);
+                this->local_pool = NULL;
+        }
         return 0;
 }
