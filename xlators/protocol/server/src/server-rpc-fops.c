@@ -3486,6 +3486,13 @@ rpc_receive_common (rpcsvc_request_t *req, call_frame_t **fr,
                 SERVER_REQ_SET_ERROR (req, ret);
                 goto out;
         }
+
+        if (!(*fr)->root->client->bound_xl->itable) {
+                /* inode_table is not allocated successful in server_setvolume */
+                SERVER_REQ_SET_ERROR (req, ret);
+                goto out;
+        }
+
         ret = 0;
 
 out:

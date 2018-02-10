@@ -1104,6 +1104,8 @@ posix_releasedir (xlator_t *this,
         }
 
         priv = this->private;
+        if (!priv)
+                goto out;
 
         pthread_mutex_lock (&priv->janitor_lock);
         {
@@ -1838,6 +1840,8 @@ posix_release (xlator_t *this, fd_t *fd)
                         "pfd->dir is %p (not NULL) for file fd=%p",
                         pfd->dir, fd);
         }
+        if (!priv)
+                goto out;
 
         pthread_mutex_lock (&priv->janitor_lock);
         {
@@ -2025,6 +2029,7 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
+        VALIDATE_OR_GOTO (this->private, out);
         VALIDATE_OR_GOTO (loc, out);
         VALIDATE_OR_GOTO (dict, out);
 
@@ -2610,6 +2615,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
+        VALIDATE_OR_GOTO (this->private, out);
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_INODE_HANDLE (real_path, this, loc, NULL);
@@ -2723,11 +2729,12 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 goto done;
         }
         if (loc->inode && name && (XATTR_IS_PATHINFO (name))) {
-                if (LOC_HAS_ABSPATH (loc))
+                VALIDATE_OR_GOTO (this->private, out);
+                if (LOC_HAS_ABSPATH (loc)) {
                         MAKE_REAL_PATH (rpath, this, loc->path);
-                else
+                } else {
                         rpath = real_path;
-
+                }
                 size = gf_asprintf (&host_buf, "<POSIX(%s):%s:%s>",
                                     priv->base_path,
                                     ((priv->node_uuid_pathinfo &&
@@ -4986,6 +4993,8 @@ posix_forget (xlator_t *this, inode_t *inode)
         struct posix_private   *priv_posix  = NULL;
 
         priv_posix = (struct posix_private *) this->private;
+        if (!priv_posix)
+                return 0;
 
         ret = inode_ctx_del (inode, this, &ctx_uint);
         if (!ctx_uint)

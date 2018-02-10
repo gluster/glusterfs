@@ -19,7 +19,6 @@
 #include "tier-ctr-interface.h"
 
 /*******************************inode forget***********************************/
-
 int
 ctr_forget (xlator_t *this, inode_t *inode)
 {
@@ -2306,15 +2305,6 @@ notify (xlator_t *this, int event, void *data, ...)
        if (!priv)
                goto out;
 
-       if (event == GF_EVENT_CLEANUP) {
-               if (fini_db (priv->_db_conn)) {
-                       gf_msg (this->name, GF_LOG_WARNING, 0,
-                               CTR_MSG_CLOSE_DB_CONN_FAILED, "Failed closing "
-                               "db connection");
-               }
-               if (priv->_db_conn)
-                        priv->_db_conn = NULL;
-       }
        ret = default_notify (this, event, data);
 
 out:
@@ -2355,6 +2345,10 @@ fini (xlator_t *this)
                                 CTR_MSG_CLOSE_DB_CONN_FAILED, "Failed closing "
                                 "db connection");
                 }
+
+                if (priv->_db_conn)
+                        priv->_db_conn = NULL;
+
                 GF_FREE (priv->ctr_db_path);
                 if (pthread_mutex_destroy (&priv->compact_lock)) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
@@ -2364,6 +2358,7 @@ fini (xlator_t *this)
         }
         GF_FREE (priv);
         mem_pool_destroy (this->local_pool);
+        this->local_pool = NULL;
 
         return;
 }

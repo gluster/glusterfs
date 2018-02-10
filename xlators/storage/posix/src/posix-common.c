@@ -105,6 +105,7 @@ extern char *marker_xattrs[];
         (lutimes (path, tv))
 #endif
 
+
 int32_t
 posix_priv (xlator_t *this)
 {
@@ -147,9 +148,6 @@ posix_notify (xlator_t *this,
         void *data,
         ...)
 {
-        struct posix_private *priv = NULL;
-
-        priv = this->private;
         switch (event)
         {
         case GF_EVENT_PARENT_UP:
@@ -157,31 +155,6 @@ posix_notify (xlator_t *this,
                 /* Tell the parent that posix xlator is up */
                 default_notify (this, GF_EVENT_CHILD_UP, data);
         }
-        break;
-        case GF_EVENT_CLEANUP:
-                if (priv->health_check) {
-                        priv->health_check_active = _gf_false;
-                        pthread_cancel (priv->health_check);
-                        priv->health_check = 0;
-                }
-                if (priv->disk_space_check) {
-                        priv->disk_space_check_active = _gf_false;
-                        pthread_cancel (priv->disk_space_check);
-                        priv->disk_space_check = 0;
-                }
-                if (priv->janitor) {
-                        (void) gf_thread_cleanup_xint (priv->janitor);
-                        priv->janitor = 0;
-                }
-                if (priv->fsyncer) {
-                        (void) gf_thread_cleanup_xint (priv->fsyncer);
-                        priv->fsyncer = 0;
-                }
-                if (priv->mount_lock) {
-                        (void) sys_closedir (priv->mount_lock);
-                        priv->mount_lock = NULL;
-                }
-
         break;
         default:
                 /* */
@@ -1133,11 +1106,32 @@ posix_fini (xlator_t *this)
         if (!priv)
                 return;
         this->private = NULL;
+        if (priv->health_check) {
+                priv->health_check_active = _gf_false;
+                pthread_cancel (priv->health_check);
+                priv->health_check = 0;
+        }
+        if (priv->disk_space_check) {
+                priv->disk_space_check_active = _gf_false;
+                pthread_cancel (priv->disk_space_check);
+                priv->disk_space_check = 0;
+        }
+        if (priv->janitor) {
+                (void) gf_thread_cleanup_xint (priv->janitor);
+                priv->janitor = 0;
+        }
+        if (priv->fsyncer) {
+                (void) gf_thread_cleanup_xint (priv->fsyncer);
+                priv->fsyncer = 0;
+        }
         /*unlock brick dir*/
         if (priv->mount_lock)
                 (void) sys_closedir (priv->mount_lock);
 
         GF_FREE (priv->base_path);
+        LOCK_DESTROY (&priv->lock);
+        pthread_mutex_destroy (&priv->janitor_lock);
+        pthread_mutex_destroy (&priv->fsync_mutex);
         GF_FREE (priv->hostname);
         GF_FREE (priv->trash_path);
         GF_FREE (priv);

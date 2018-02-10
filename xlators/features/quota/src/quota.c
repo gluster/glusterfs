@@ -5194,6 +5194,8 @@ quota_priv_dump (xlator_t *this)
         GF_ASSERT (this);
 
         priv = this->private;
+        if (!priv)
+            goto out;
 
         gf_proc_dump_add_section ("xlators.features.quota.priv", this->name);
 
@@ -5219,6 +5221,27 @@ out:
 void
 fini (xlator_t *this)
 {
+        quota_priv_t *priv = NULL;
+        rpc_clnt_t   *rpc  = NULL;
+        int           i = 0, cnt = 0;
+
+        priv = this->private;
+        if (!priv)
+                return;
+        rpc = priv->rpc_clnt;
+        priv->rpc_clnt = NULL;
+        this->private = NULL;
+        if (rpc) {
+                cnt = GF_ATOMIC_GET (rpc->refcount);
+                for (i = 0; i < cnt; i++)
+                        rpc_clnt_unref (rpc);
+        }
+        LOCK_DESTROY (&priv->lock);
+        GF_FREE (priv);
+        if (this->local_pool) {
+                mem_pool_destroy (this->local_pool);
+                this->local_pool = NULL;
+        }
         return;
 }
 

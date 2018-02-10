@@ -1507,7 +1507,6 @@ server_notify (xlator_t *this, int32_t event, void *data, ...)
                                                      victim->name);
                         /* we need the protocol/server xlator here as 'this' */
                         glusterfs_autoscale_threads (ctx, -1, this);
-                        default_notify (victim, GF_EVENT_CLEANUP, data);
                 }
                 break;
 

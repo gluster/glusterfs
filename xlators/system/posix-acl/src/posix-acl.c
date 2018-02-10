@@ -582,13 +582,15 @@ posix_acl_unref (xlator_t *this, struct posix_acl *acl)
         int                     refcnt = 0;
 
         conf = this->private;
+        if (!conf)
+                goto out;
 
         LOCK(&conf->acl_lock);
         {
                 refcnt = --acl->refcnt;
         }
         UNLOCK(&conf->acl_lock);
-
+out:
         if (!refcnt)
                 posix_acl_destroy (this, acl);
 }
