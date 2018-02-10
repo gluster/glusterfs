@@ -1480,13 +1480,13 @@ cleanup_and_exit (int signum)
         trav = NULL;
         if (ctx->active)
                 trav = ctx->active->top;
-        while (trav) {
+        /*while (trav) {
                 if (should_call_fini(ctx,trav)) {
                         THIS = trav;
                         trav->fini (trav);
                 }
                 trav = trav->next;
-        }
+        }*/
 
         /* NOTE: Only the least significant 8 bits i.e (signum & 255)
            will be available to parent process on calling exit() */

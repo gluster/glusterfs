@@ -5219,6 +5219,18 @@ out:
 void
 fini (xlator_t *this)
 {
+        quota_priv_t *priv = NULL;
+
+        priv = this->private;
+        if (!priv)
+                return;
+        this->private = NULL;
+        LOCK_DESTROY (&priv->lock);
+        GF_FREE (priv);
+        if (this->local_pool) {
+                mem_pool_destroy (this->local_pool);
+                this->local_pool = NULL;
+        }
         return;
 }
 

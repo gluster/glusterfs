@@ -1500,7 +1500,6 @@ server_notify (xlator_t *this, int32_t event, void *data, ...)
                         glusterfs_mgmt_pmap_signout (ctx,
                                                      victim->name);
                         glusterfs_autoscale_threads (THIS->ctx, -1);
-                        default_notify (victim, GF_EVENT_CLEANUP, data);
 
                 }
                 break;

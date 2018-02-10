@@ -2446,8 +2446,11 @@ fini (xlator_t *this)
 
         priv->fini = 1;
 
-        if (priv->reaper_init_done)
-                pthread_join (priv->reaper_thr, NULL);
+        if (priv->reaper_thr) {
+                gf_thread_cleanup_xint (priv->reaper_thr);
+                priv->reaper_thr = 0;
+                priv->reaper_init_done = _gf_false;
+        }
 
         dict_unref (priv->xattrs);
         LOCK_DESTROY (&priv->inode_ctx_lk);
@@ -2456,6 +2459,11 @@ fini (xlator_t *this)
          * as inode_forget would have been done on all the inodes
          * before calling xlator_fini */
         GF_FREE (priv);
+
+        if (this->local_pool) {
+                mem_pool_destroy (this->local_pool);
+                this->local_pool = NULL;
+        }
 
         return 0;
 }
