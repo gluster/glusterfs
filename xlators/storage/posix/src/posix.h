@@ -243,6 +243,8 @@ struct posix_private {
         mode_t          create_mask;
         mode_t          create_directory_mask;
         uint32_t max_hardlinks;
+
+        gf_boolean_t fips_mode_rchecksum;
 };
 
 typedef struct {

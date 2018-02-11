@@ -322,6 +322,7 @@ struct afr_reply {
         /* For rchecksum */
 	uint8_t checksum[SHA256_DIGEST_LENGTH];
         gf_boolean_t buf_has_zeroes;
+        gf_boolean_t fips_mode_rchecksum;
         /* For lookup */
         int8_t need_heal;
 };
