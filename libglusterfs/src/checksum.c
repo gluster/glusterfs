@@ -8,6 +8,7 @@
   cases as published by the Free Software Foundation.
 */
 
+#include <openssl/md5.h>
 #include <openssl/sha.h>
 #include <zlib.h>
 #include <stdint.h>
@@ -35,4 +36,10 @@ gf_rsync_strong_checksum (unsigned char *data, size_t len,
                           unsigned char *sha256_md)
 {
         SHA256((const unsigned char *)data, len, sha256_md);
+}
+
+void
+gf_rsync_md5_checksum (unsigned char *data, size_t len, unsigned char *md5)
+{
+        MD5 (data, len, md5);
 }

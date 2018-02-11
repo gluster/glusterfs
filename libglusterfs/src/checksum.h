@@ -17,4 +17,6 @@ gf_rsync_weak_checksum (unsigned char *buf, size_t len);
 void
 gf_rsync_strong_checksum (unsigned char *buf, size_t len, unsigned char *sum);
 
+void
+gf_rsync_md5_checksum (unsigned char *data, size_t len, unsigned char *md5);
 #endif /* __CHECKSUM_H__ */

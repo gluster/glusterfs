@@ -387,6 +387,9 @@ posix_reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("max-hardlinks", priv->max_hardlinks,
                           options, uint32, out);
+
+        GF_OPTION_RECONF ("fips-mode-rchecksum", priv->fips_mode_rchecksum,
+                          options, bool, out);
         ret = 0;
 out:
         return ret;
@@ -1076,6 +1079,9 @@ posix_init (xlator_t *this)
         _private->create_directory_mask = create_directory_mask;
 
         GF_OPTION_INIT ("max-hardlinks", _private->max_hardlinks, uint32, out);
+
+        GF_OPTION_INIT ("fips-mode-rchecksum", _private->fips_mode_rchecksum,
+                        bool, out);
 out:
         if (ret) {
                 if (_private) {
@@ -1361,6 +1367,16 @@ struct volume_options options[] = {
           .validate = GF_OPT_VALIDATE_MIN,
           .description = "max number of hardlinks allowed on any one inode.\n"
                          "0 is unlimited, 1 prevents any hardlinking at all."
+        },
+        {
+          .key = {"fips-mode-rchecksum"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .op_version  = {GD_OP_VERSION_4_0_0},
+          .flags = OPT_FLAG_SETTABLE,
+          .tags = {"posix"},
+          .description = "If enabled, posix_rchecksum uses the FIPS compliant"
+                         "SHA256 checksum. MD5 otherwise."
         },
         { .key  = {NULL} }
 };

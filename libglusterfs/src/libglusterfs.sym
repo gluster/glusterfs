@@ -643,6 +643,7 @@ gf_resolve_path_parent
 gf_rev_dns_lookup
 gf_rev_dns_lookup_cached
 gf_rsync_strong_checksum
+gf_rsync_md5_checksum
 gf_rsync_weak_checksum
 gf_set_log_file_path
 gf_set_log_ident

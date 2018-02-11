@@ -38,11 +38,21 @@ __checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	replies[i].valid = 1;
 	replies[i].op_ret = op_ret;
 	replies[i].op_errno = op_errno;
-        if (xdata)
+        if (xdata) {
                 replies[i].buf_has_zeroes = dict_get_str_boolean (xdata,
                                                    "buf-has-zeroes", _gf_false);
-	if (strong)
-            memcpy (local->replies[i].checksum, strong, SHA256_DIGEST_LENGTH);
+                replies[i].fips_mode_rchecksum = dict_get_str_boolean (xdata,
+                                              "fips-mode-rchecksum", _gf_false);
+        }
+	if (strong) {
+                if (replies[i].fips_mode_rchecksum) {
+                        memcpy (local->replies[i].checksum, strong,
+                                SHA256_DIGEST_LENGTH);
+                } else {
+                        memcpy (local->replies[i].checksum, strong,
+                                MD5_DIGEST_LENGTH);
+                }
+        }
 
 	syncbarrier_wake (&local->barrier);
 	return 0;
@@ -58,11 +68,13 @@ __afr_can_skip_data_block_heal (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	afr_local_t *local = NULL;
 	unsigned char *wind_subvols = NULL;
         gf_boolean_t checksum_match = _gf_true;
+        struct afr_reply *replies = NULL;
         dict_t *xdata = NULL;
 	int i = 0;
 
 	priv = this->private;
 	local = frame->local;
+        replies = local->replies;
 
         xdata = dict_new();
         if (!xdata)
@@ -83,16 +95,17 @@ __afr_can_skip_data_block_heal (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (xdata)
                 dict_unref (xdata);
 
-	if (!local->replies[source].valid || local->replies[source].op_ret != 0)
+	if (!replies[source].valid || replies[source].op_ret != 0)
 		return _gf_false;
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (i == source)
 			continue;
-                if (local->replies[i].valid) {
-                        if (memcmp (local->replies[source].checksum,
-                                    local->replies[i].checksum,
-                                    SHA256_DIGEST_LENGTH)) {
+                if (replies[i].valid) {
+                        if (memcmp (replies[source].checksum,
+                                    replies[i].checksum,
+                                    replies[source].fips_mode_rchecksum ?
+                                    SHA256_DIGEST_LENGTH : MD5_DIGEST_LENGTH)) {
                                 checksum_match = _gf_false;
                                 break;
                         }
