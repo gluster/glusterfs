@@ -4873,7 +4873,9 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
         ssize_t                 bytes_read      = 0;
         int32_t                 weak_checksum   = 0;
         int32_t                 zerofillcheck   = 0;
+        unsigned char           md5_checksum[MD5_DIGEST_LENGTH] = {0};
         unsigned char           strong_checksum[SHA256_DIGEST_LENGTH] = {0};
+        unsigned char           *checksum = NULL;
         struct posix_private    *priv           = NULL;
         dict_t                  *rsp_xdata      = NULL;
         gf_boolean_t            buf_has_zeroes  = _gf_false;
@@ -4942,13 +4944,31 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
                 }
         }
         weak_checksum = gf_rsync_weak_checksum ((unsigned char *) buf, (size_t) ret);
-        gf_rsync_strong_checksum ((unsigned char *) buf, (size_t) bytes_read,
-                                  (unsigned char *) strong_checksum);
 
+        if (priv->fips_mode_rchecksum) {
+                ret = dict_set_int32 (rsp_xdata, "fips-mode-rchecksum", 1);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, -ret,
+                                P_MSG_DICT_SET_FAILED, "%s: Failed to set "
+                                "dictionary value for key: %s",
+                                uuid_utoa (fd->inode->gfid),
+                                "fips-mode-rchecksum");
+                        goto out;
+                }
+                checksum = strong_checksum;
+                gf_rsync_strong_checksum ((unsigned char *)buf,
+                                          (size_t) bytes_read,
+                                          (unsigned char *)checksum);
+        } else {
+                checksum = md5_checksum;
+                gf_rsync_md5_checksum ((unsigned char *)buf,
+                                       (size_t) bytes_read,
+                                       (unsigned char *)checksum);
+        }
         op_ret = 0;
 out:
         STACK_UNWIND_STRICT (rchecksum, frame, op_ret, op_errno,
-                             weak_checksum, strong_checksum, rsp_xdata);
+                             weak_checksum, checksum, rsp_xdata);
         if (rsp_xdata)
                 dict_unref (rsp_xdata);
         GF_FREE (alloc_buf);

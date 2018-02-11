@@ -648,7 +648,13 @@ afr_reply_copy (struct afr_reply *dst, struct afr_reply *src)
 	if (dst->xdata)
 		dict_unref (dst->xdata);
 	dst->xdata = xdata;
-	memcpy (dst->checksum, src->checksum, SHA256_DIGEST_LENGTH);
+        if (xdata && dict_get_str_boolean (xdata, "fips-mode-rchecksum",
+            _gf_false) == _gf_true) {
+                memcpy (dst->checksum, src->checksum, SHA256_DIGEST_LENGTH);
+        } else {
+                memcpy (dst->checksum, src->checksum, MD5_DIGEST_LENGTH);
+        }
+        dst->fips_mode_rchecksum = src->fips_mode_rchecksum;
 }
 
 void
