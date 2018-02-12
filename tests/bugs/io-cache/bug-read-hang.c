@@ -102,7 +102,7 @@ main (int argc, char *argv[])
 
         buf = (char *) malloc (5);
 
-        ret = glfs_pread (fd, buf, 5, 0, 0);
+        ret = glfs_pread (fd, buf, 5, 0, 0, NULL);
         if (ret < 0) {
                 fprintf (stderr, "Read(%s): %d (%s)\n", "test", ret,
                          strerror (errno));

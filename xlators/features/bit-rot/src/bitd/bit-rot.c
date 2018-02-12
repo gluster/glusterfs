@@ -296,7 +296,7 @@ br_object_read_block_and_sign (xlator_t *this, fd_t *fd, br_child_t *child,
 
         ret = syncop_readv (child->xl, fd,
                             size, offset, 0, &iovec, &count, &iobref, NULL,
-                            NULL);
+                            NULL, NULL);
 
         if (ret < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, errno, BRB_MSG_READV_FAILED,

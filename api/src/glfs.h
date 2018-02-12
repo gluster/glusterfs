@@ -534,11 +534,12 @@ int glfs_writev_async (glfs_fd_t *fd, const struct iovec *iov, int count,
 // glfs_p{read,write}[_async]
 
 ssize_t glfs_pread (glfs_fd_t *fd, void *buf, size_t count, off_t offset,
-		    int flags) __THROW
-        GFAPI_PUBLIC(glfs_pread, 3.4.0);
+                    int flags, struct stat *poststat) __THROW
+        GFAPI_PUBLIC(glfs_pread, 4.0.0);
 ssize_t glfs_pwrite (glfs_fd_t *fd, const void *buf, size_t count,
-		     off_t offset, int flags) __THROW
-        GFAPI_PUBLIC(glfs_pwrite, 3.4.0);
+                     off_t offset, int flags, struct stat *prestat,
+                     struct stat *poststat) __THROW
+        GFAPI_PUBLIC(glfs_pwrite, 4.0.0);
 int glfs_pread_async (glfs_fd_t *fd, void *buf, size_t count, off_t offset,
 		      int flags, glfs_io_cbk fn, void *data) __THROW
         GFAPI_PUBLIC(glfs_pread_async, 3.4.0);

@@ -694,9 +694,9 @@ invalid_fs:
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_lseek, 3.4.0);
 
 
-ssize_t
-pub_glfs_preadv (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
-                 off_t offset, int flags)
+static ssize_t
+glfs_preadv_common (struct glfs_fd *glfd, const struct iovec *iovec,
+                    int iovcnt, off_t offset, int flags, struct stat *poststat)
 {
 	xlator_t       *subvol = NULL;
 	ssize_t         ret = -1;
@@ -705,6 +705,7 @@ pub_glfs_preadv (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
 	int             cnt = 0;
 	struct iobref  *iobref = NULL;
 	fd_t           *fd = NULL;
+        struct iatt     iatt = {0, };
 
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -728,8 +729,12 @@ pub_glfs_preadv (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
 	size = iov_length (iovec, iovcnt);
 
 	ret = syncop_readv (subvol, fd, size, offset, 0, &iov, &cnt, &iobref,
-                            NULL, NULL);
+                            &iatt, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
+
+        if (ret >= 0 && poststat)
+                glfs_iatt_to_stat (glfd->fs, &iatt, poststat);
+
 	if (ret <= 0)
 		goto out;
 
@@ -757,6 +762,13 @@ invalid_fs:
 	return ret;
 }
 
+ssize_t
+pub_glfs_preadv (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
+                 off_t offset, int flags)
+{
+        return glfs_preadv_common (glfd, iovec, iovcnt, offset, flags, NULL);
+}
+
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_preadv, 3.4.0);
 
 
@@ -778,8 +790,8 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_read, 3.4.0);
 
 
 ssize_t
-pub_glfs_pread (struct glfs_fd *glfd, void *buf, size_t count, off_t offset,
-                int flags)
+pub_glfs_pread34 (struct glfs_fd *glfd, void *buf, size_t count, off_t offset,
+                  int flags)
 {
 	struct iovec iov = {0, };
 	ssize_t      ret = 0;
@@ -792,7 +804,25 @@ pub_glfs_pread (struct glfs_fd *glfd, void *buf, size_t count, off_t offset,
 	return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_pread, 3.4.0);
+GFAPI_SYMVER_PUBLIC(glfs_pread34, glfs_pread, 3.4.0);
+
+
+ssize_t
+pub_glfs_pread (struct glfs_fd *glfd, void *buf, size_t count, off_t offset,
+                int flags, struct stat *poststat)
+{
+        struct iovec iov = {0, };
+        ssize_t      ret = 0;
+
+        iov.iov_base = buf;
+        iov.iov_len = count;
+
+        ret = glfs_preadv_common (glfd, &iov, 1, offset, flags, poststat);
+
+        return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_pread, 4.0.0);
 
 
 ssize_t
@@ -1081,9 +1111,10 @@ out:
 }
 
 
-ssize_t
-pub_glfs_pwritev (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
-                  off_t offset, int flags)
+static ssize_t
+glfs_pwritev_common (struct glfs_fd *glfd, const struct iovec *iovec,
+                     int iovcnt, off_t offset, int flags,
+                     struct stat *prestat, struct stat *poststat)
 {
 	xlator_t       *subvol = NULL;
 	int             ret = -1;
@@ -1091,6 +1122,7 @@ pub_glfs_pwritev (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
 	struct iobuf   *iobuf = NULL;
 	struct iovec    iov = {0, };
 	fd_t           *fd = NULL;
+        struct iatt     preiatt = {0, }, postiatt = {0, };
 
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -1115,15 +1147,21 @@ pub_glfs_pwritev (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
         if (ret)
                 goto out;
 
-	ret = syncop_writev (subvol, fd, &iov, 1, offset, iobref, flags, NULL,
-                             NULL);
+        ret = syncop_writev (subvol, fd, &iov, 1, offset, iobref, flags,
+                             &preiatt, &postiatt, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
+
+        if (ret >= 0) {
+                if (prestat)
+                        glfs_iatt_to_stat (glfd->fs, &preiatt, prestat);
+                if (poststat)
+                        glfs_iatt_to_stat (glfd->fs, &postiatt, poststat);
+        }
 
 	if (ret <= 0)
 		goto out;
 
 	glfd->offset = (offset + iov.iov_len);
-
 out:
         if (iobuf)
                 iobuf_unref (iobuf);
@@ -1140,6 +1178,14 @@ out:
 
 invalid_fs:
 	return ret;
+}
+
+ssize_t
+pub_glfs_pwritev (struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
+                  off_t offset, int flags)
+{
+        return glfs_pwritev_common (glfd, iovec, iovcnt, offset, flags,
+                                    NULL, NULL);
 }
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_pwritev, 3.4.0);
@@ -1177,8 +1223,8 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_writev, 3.4.0);
 
 
 ssize_t
-pub_glfs_pwrite (struct glfs_fd *glfd, const void *buf, size_t count,
-                 off_t offset, int flags)
+pub_glfs_pwrite34 (struct glfs_fd *glfd, const void *buf, size_t count,
+                   off_t offset, int flags)
 {
 	struct iovec iov = {0, };
 	ssize_t      ret = 0;
@@ -1191,8 +1237,26 @@ pub_glfs_pwrite (struct glfs_fd *glfd, const void *buf, size_t count,
 	return ret;
 }
 
-GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_pwrite, 3.4.0);
+GFAPI_SYMVER_PUBLIC(glfs_pwrite34, glfs_pwrite, 3.4.0);
 
+ssize_t
+pub_glfs_pwrite (struct glfs_fd *glfd, const void *buf, size_t count,
+                 off_t offset, int flags, struct stat *prestat,
+                 struct stat *poststat)
+{
+        struct iovec iov = {0, };
+        ssize_t      ret = 0;
+
+        iov.iov_base = (void *) buf;
+        iov.iov_len = count;
+
+        ret = glfs_pwritev_common (glfd, &iov, 1, offset, flags,
+                                   prestat, poststat);
+
+        return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_pwrite, 4.0.0);
 
 extern glfs_t *pub_glfs_from_glfd (glfs_fd_t *);
 
@@ -4746,7 +4810,7 @@ glfs_anonymous_pwritev (struct glfs *fs, struct glfs_object *object,
         iov.iov_len = size;
 
         ret = syncop_writev (subvol, fd, &iov, 1, offset, iobref, flags,
-                             NULL, NULL);
+                             NULL, NULL, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
         iobuf_unref (iobuf);
@@ -4815,7 +4879,7 @@ glfs_anonymous_preadv (struct glfs *fs,  struct glfs_object *object,
         size = iov_length (iovec, iovcnt);
 
 	ret = syncop_readv (subvol, fd, size, offset, flags, &iov, &cnt,
-                            &iobref, NULL, NULL);
+                            &iobref, NULL, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
         if (ret <= 0)
                 goto out;
