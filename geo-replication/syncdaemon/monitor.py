@@ -221,7 +221,13 @@ class Monitor(object):
                 if rconf.args.debug:
                     args_to_worker.append("--debug")
 
-                os.execv(sys.executable, args_to_worker)
+                access_mount = gconf.get("access-mount")
+                if access_mount:
+                    os.execv(sys.executable, args_to_worker)
+                else:
+                    unshare_cmd = ['unshare', '-m', '--propagation', 'private']
+                    cmd = unshare_cmd + args_to_worker
+                    os.execvp("unshare", cmd)
 
             cpids.add(cpid)
             agents.add(apid)

@@ -68,9 +68,6 @@ PERCENTAGE_ESCAPE_CHAR = "%25"
 
 final_lock = Lock()
 
-mntpt_list = []
-
-
 def sup(x, *a, **kw):
     """a rubyesque "super" for python ;)
 
@@ -254,12 +251,16 @@ def finalize(*args, **kwargs):
         shutil.rmtree(rconf.ssh_ctl_dir, onerror=handle_rm_error)
 
     """ Unmount if not done """
-    for mnt in mntpt_list:
-        p0 = subprocess.Popen(["umount", "-l", mnt], stderr=subprocess.PIPE)
+    if rconf.mount_point:
+        if rconf.mountbroker:
+            umount_cmd = rconf.mbr_umount_cmd + [rconf.mount_point, 'lazy']
+        else:
+            umount_cmd = ['umount', '-l', rconf.mount_point]
+        p0 = subprocess.Popen(umount_cmd, stderr=subprocess.PIPE)
         _, errdata = p0.communicate()
         if p0.returncode == 0:
             try:
-                os.rmdir(mnt)
+                os.rmdir(rconf.mount_point)
             except OSError:
                 pass
         else:
@@ -279,6 +280,7 @@ def log_raise_exception(excont):
     Translate some weird sounding but well understood exceptions
     into human-friendly lingo
     """
+
     is_filelog = False
     for h in logging.getLogger().handlers:
         fno = getattr(getattr(h, 'stream', None), 'fileno', None)
