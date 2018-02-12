@@ -494,26 +494,6 @@ int gf_mkostemp (char *tmpl, int suffixlen, int flags);
 #define CLOCK_REALTIME_COARSE CLOCK_REALTIME
 #endif
 
-#ifndef IPV6_DEFAULT
-
-#ifndef IXDR_GET_LONG
-#define IXDR_GET_LONG(buf) ((long)IXDR_GET_U_INT32(buf))
-#endif
-
-#ifndef IXDR_PUT_LONG
-#define IXDR_PUT_LONG(buf, v) ((long)IXDR_PUT_INT32(buf, (long)(v)))
-#endif
-
-#ifndef IXDR_GET_U_LONG
-#define IXDR_GET_U_LONG(buf)          ((u_long)IXDR_GET_LONG(buf))
-#endif
-
-#ifndef IXDR_PUT_U_LONG
-#define IXDR_PUT_U_LONG(buf, v)       IXDR_PUT_LONG(buf, (long)(v))
-#endif
-
-#endif /* IPV6_DEFAULT */
-
 #if defined(__GNUC__) && !defined(RELAX_POISONING)
 /* Use run API, see run.h */
 #include <stdlib.h> /* system(), mkostemp() */
