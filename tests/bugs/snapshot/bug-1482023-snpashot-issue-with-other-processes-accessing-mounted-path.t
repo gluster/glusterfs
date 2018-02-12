@@ -107,6 +107,7 @@ TEST start_glusterd 2
 # Updates form friend should reflect as snap was deactivated while glusterd
 # process was inactive and mount point should also not exist.
 
+EXPECT_WITHIN $PROBE_TIMEOUT 2 peer_count;
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" mounted_snaps ${V0}
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" mounted_snaps ${V1}
 
@@ -114,7 +115,6 @@ kill_glusterd 2
 activate_snapshots
 EXPECT 'Started' snapshot_status ${V0}_snap;
 EXPECT 'Started' snapshot_status ${V1}_snap;
-
 TEST start_glusterd 2
 
 EXPECT_WITHIN $PROBE_TIMEOUT 2 peer_count;
