@@ -141,7 +141,7 @@ def get_special_subs (name, args, fop_type):
 		# is not stored in or read from the journal.  There are other ways to
 		# do that, but this is the only place we need anything similar and we
 		# already have to treat it as a special case so this is simplest.
-		s_args_str = 'fd, &vector, 1, off, iobref, flags, xdata'
+               s_args_str = 'fd, &vector, 1, off, iobref, flags, &preop, &postop, xdata'
 	elif name == 'symlink':
 		# Swap 'linkpath' and 'loc'.
 		s_args_str = '&loc, linkpath, &iatt, xdata'

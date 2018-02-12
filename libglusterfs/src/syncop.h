@@ -460,13 +460,14 @@ int syncop_write (xlator_t *subvol, fd_t *fd, const char *buf, int size,
 
 int syncop_writev (xlator_t *subvol, fd_t *fd, const struct iovec *vector,
                    int32_t count, off_t offset, struct iobref *iobref,
-                   uint32_t flags, dict_t *xdata_in, dict_t **xdata_out);
+                   uint32_t flags, struct iatt *preiatt, struct iatt *postiatt,
+                   dict_t *xdata_in, dict_t **xdata_out);
 
 int syncop_readv (xlator_t *subvol, fd_t *fd, size_t size, off_t off,
                   uint32_t flags,
                   /* out */
                   struct iovec **vector, int *count, struct iobref **iobref,
-		  dict_t *xdata_in, dict_t **xdata_out);
+                  struct iatt *iatt, dict_t *xdata_in, dict_t **xdata_out);
 
 int syncop_ftruncate (xlator_t *subvol, fd_t *fd, off_t offset,
                       dict_t *xdata_in, dict_t **xdata_out);

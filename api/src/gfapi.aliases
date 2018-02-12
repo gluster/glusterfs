@@ -24,8 +24,8 @@ _pub_glfs_readv _glfs_readv$GFAPI_3.4.0
 _pub_glfs_writev _glfs_writev$GFAPI_3.4.0
 _pub_glfs_readv_async _glfs_readv_async$GFAPI_3.4.0
 _pub_glfs_writev_async _glfs_writev_async$GFAPI_3.4.0
-_pub_glfs_pread _glfs_pread$GFAPI_3.4.0
-_pub_glfs_pwrite _glfs_pwrite$GFAPI_3.4.0
+_pub_glfs_pread34 _glfs_pread$GFAPI_3.4.0
+_pub_glfs_pwrite34 _glfs_pwrite$GFAPI_3.4.0
 _pub_glfs_pread_async _glfs_pread_async$GFAPI_3.4.0
 _pub_glfs_pwrite_async _glfs_pwrite_async$GFAPI_3.4.0
 _pub_glfs_preadv _glfs_preadv$GFAPI_3.4.0
@@ -172,3 +172,5 @@ _pub_glfs_setfsleaseid _glfs_setfsleaseid$GFAPI_4.0.0
 _pub_glfs_file_lock _glfs_file_lock$GFAPI_4.0.0
 _pub_glfs_lease _glfs_lease$GFAPI_4.0.0
 _pub_glfs_h_lease _glfs_h_lease$GFAPI_4.0.0
+_pub_glfs_pread _glfs_pread$GFAPI_4.0.0
+_pub_glfs_pwrite _glfs_pwrite$GFAPI_4.0.0

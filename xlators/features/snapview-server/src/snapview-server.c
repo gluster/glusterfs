@@ -1990,7 +1990,7 @@ svs_readv (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ret = glfs_pread (glfd, iobuf->ptr, size, offset, 0);
+        ret = glfs_pread (glfd, iobuf->ptr, size, offset, 0, &fstatbuf);
         if (ret < 0) {
                 op_ret = -1;
                 op_errno = errno;
@@ -2005,16 +2005,6 @@ svs_readv (call_frame_t *frame, xlator_t *this,
         iobref = iobref_new ();
 
         iobref_add (iobref, iobuf);
-
-        ret = glfs_fstat (glfd, &fstatbuf);
-        if (ret) {
-                op_ret = -1;
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, "glfs_fstat failed after "
-                        "readv on %s", uuid_utoa (fd->inode->gfid));
-                goto out;
-        }
-
         iatt_from_stat (&stbuf, &fstatbuf);
         gf_uuid_copy (stbuf.ia_gfid, fd->inode->gfid);
         svs_fill_ino_from_gfid (&stbuf);
