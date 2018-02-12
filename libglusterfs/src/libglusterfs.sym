@@ -221,6 +221,7 @@ default_getactivelk
 default_getactivelk_failure_cbk
 default_getactivelk_resume
 default_getspec
+default_getspec_cbk
 default_getxattr
 default_getxattr_cbk
 default_getxattr_failure_cbk

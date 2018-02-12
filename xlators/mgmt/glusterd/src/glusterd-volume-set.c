@@ -2368,6 +2368,17 @@ struct volopt_map_entry glusterd_volopt_map[] = {
                          "snapdir-entry-path which is set by samba"
         },
 
+        { .key         = "features.tag-namespaces",
+          .voltype     = "features/namespace",
+          .op_version  = GD_OP_VERSION_4_1_0,
+          .option      = "tag-namespaces",
+          .value       = "off",
+          .flags       = OPT_FLAG_CLIENT_OPT,
+          .description = "This option enables this translator's functionality "
+                         "that tags every fop with a namespace hash for later "
+                         "throttling, stats collection, logging, etc."
+        },
+
 #ifdef HAVE_LIB_Z
         /* Compressor-decompressor xlator options
          * defaults used from xlator/features/compress/src/cdc.h

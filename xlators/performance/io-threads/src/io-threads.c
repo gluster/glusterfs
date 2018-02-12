@@ -126,7 +126,6 @@ __iot_dequeue (iot_conf_t *conf, int *pri)
         return stub;
 }
 
-
 void
 __iot_enqueue (iot_conf_t *conf, call_stub_t *stub, int pri)
 {
@@ -156,7 +155,6 @@ __iot_enqueue (iot_conf_t *conf, call_stub_t *stub, int pri)
         conf->queue_size++;
         conf->queue_sizes[pri]++;
 }
-
 
 void *
 iot_worker (void *data)
@@ -231,7 +229,6 @@ iot_worker (void *data)
 
         return NULL;
 }
-
 
 int
 do_iot_schedule (iot_conf_t *conf, call_stub_t *stub, int pri)
@@ -374,7 +371,6 @@ iot_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         return 0;
 }
 
-
 int
 iot_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
              struct iatt *stbuf, int32_t valid, dict_t *xdata)
@@ -382,7 +378,6 @@ iot_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         IOT_FOP (setattr, frame, this, loc, stbuf, valid, xdata);
         return 0;
 }
-
 
 int
 iot_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
@@ -392,7 +387,6 @@ iot_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return 0;
 }
 
-
 int
 iot_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask,
             dict_t *xdata)
@@ -401,14 +395,12 @@ iot_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask,
         return 0;
 }
 
-
 int
 iot_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size, dict_t *xdata)
 {
         IOT_FOP (readlink, frame, this, loc, size, xdata);
         return 0;
 }
-
 
 int
 iot_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
@@ -418,7 +410,6 @@ iot_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         return 0;
 }
 
-
 int
 iot_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
            mode_t umask, dict_t *xdata)
@@ -427,14 +418,12 @@ iot_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         return 0;
 }
 
-
 int
 iot_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, dict_t *xdata)
 {
         IOT_FOP (rmdir, frame, this, loc, flags, xdata);
         return 0;
 }
-
 
 int
 iot_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
@@ -444,7 +433,6 @@ iot_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
         return 0;
 }
 
-
 int
 iot_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
             dict_t *xdata)
@@ -453,7 +441,6 @@ iot_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         return 0;
 }
 
-
 int
 iot_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
           fd_t *fd, dict_t *xdata)
@@ -461,7 +448,6 @@ iot_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         IOT_FOP (open, frame, this, loc, flags, fd, xdata);
         return 0;
 }
-
 
 int
 iot_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
@@ -482,7 +468,6 @@ iot_put (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         return 0;
 }
 
-
 int
 iot_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
            off_t offset, uint32_t flags, dict_t *xdata)
@@ -491,14 +476,12 @@ iot_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         return 0;
 }
 
-
 int
 iot_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
         IOT_FOP (flush, frame, this, fd, xdata);
         return 0;
 }
-
 
 int
 iot_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
@@ -507,7 +490,6 @@ iot_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
         IOT_FOP (fsync, frame, this, fd, datasync, xdata);
         return 0;
 }
-
 
 int
 iot_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
@@ -519,7 +501,6 @@ iot_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return 0;
 }
 
-
 int
 iot_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 	struct gf_flock *flock, dict_t *xdata)
@@ -528,7 +509,6 @@ iot_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         return 0;
 }
 
-
 int
 iot_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
@@ -536,14 +516,12 @@ iot_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         return 0;
 }
 
-
 int
 iot_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
         IOT_FOP (fstat, frame, this, fd, xdata);
         return 0;
 }
-
 
 int
 iot_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
@@ -553,7 +531,6 @@ iot_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
         return 0;
 }
 
-
 int
 iot_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                dict_t *xdata)
@@ -561,8 +538,6 @@ iot_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         IOT_FOP (ftruncate, frame, this, fd, offset, xdata);
         return 0;
 }
-
-
 
 int
 iot_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t xflag,
@@ -572,7 +547,6 @@ iot_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t xflag,
         return 0;
 }
 
-
 int
 iot_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
           dict_t *xdata)
@@ -580,7 +554,6 @@ iot_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         IOT_FOP (link, frame, this, oldloc, newloc, xdata);
         return 0;
 }
-
 
 int
 iot_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
@@ -590,7 +563,6 @@ iot_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         return 0;
 }
 
-
 int
 iot_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync,
               dict_t *xdata)
@@ -599,14 +571,12 @@ iot_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync,
         return 0;
 }
 
-
 int
 iot_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
         IOT_FOP (statfs, frame, this, loc, xdata);
         return 0;
 }
-
 
 int
 iot_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
@@ -616,7 +586,6 @@ iot_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         return 0;
 }
 
-
 int
 iot_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
               const char *name, dict_t *xdata)
@@ -624,6 +593,8 @@ iot_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         iot_conf_t *conf = NULL;
         dict_t     *depths = NULL;
         int i = 0;
+        int32_t op_ret = 0;
+        int32_t op_errno = 0;
 
         conf = this->private;
 
@@ -632,9 +603,12 @@ iot_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                  * We explicitly do not want a reference count
                  * for this dict in this translator
                  */
-                depths = get_new_dict ();
-                if (!depths)
+                depths = dict_new ();
+                if (!depths) {
+                        op_ret = -1;
+                        op_errno = ENOMEM;
                         goto unwind_special_getxattr;
+                }
 
                 for (i = 0; i < GF_FOP_PRI_MAX; i++) {
                         if (dict_set_int32 (depths,
@@ -647,14 +621,16 @@ iot_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 }
 
 unwind_special_getxattr:
-                STACK_UNWIND_STRICT (getxattr, frame, 0, 0, depths, xdata);
+                STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno,
+                                     depths, xdata);
+                if (depths)
+                        dict_unref(depths);
                 return 0;
         }
 
         IOT_FOP (getxattr, frame, this, loc, name, xdata);
         return 0;
 }
-
 
 int
 iot_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
@@ -673,7 +649,6 @@ iot_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
         return 0;
 }
 
-
 int
 iot_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                  const char *name, dict_t *xdata)
@@ -690,7 +665,6 @@ iot_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return 0;
 }
 
-
 int
 iot_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
               off_t offset, dict_t *xdata)
@@ -698,7 +672,6 @@ iot_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         IOT_FOP (readdirp, frame, this, fd, size, offset, xdata);
         return 0;
 }
-
 
 int
 iot_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
@@ -744,7 +717,6 @@ iot_fentrylk (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
-
 int
 iot_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
              gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
@@ -753,7 +725,6 @@ iot_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return 0;
 }
 
-
 int
 iot_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
               gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
@@ -761,7 +732,6 @@ iot_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
         IOT_FOP (fxattrop, frame, this, fd, optype, xattr, xdata);
         return 0;
 }
-
 
 int32_t
 iot_rchecksum (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
@@ -827,7 +797,6 @@ iot_setactivelk (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return 0;
 }
 
-
 int
 __iot_workers_scale (iot_conf_t *conf)
 {
@@ -872,7 +841,6 @@ __iot_workers_scale (iot_conf_t *conf)
         return diff;
 }
 
-
 int
 iot_workers_scale (iot_conf_t *conf)
 {
@@ -892,7 +860,6 @@ iot_workers_scale (iot_conf_t *conf)
 out:
         return ret;
 }
-
 
 int
 set_stack_size (iot_conf_t *conf)
@@ -930,7 +897,6 @@ set_stack_size (iot_conf_t *conf)
         conf->stack_size = stacksize;
         return err;
 }
-
 
 int32_t
 mem_acct_init (xlator_t *this)
@@ -1021,7 +987,6 @@ reconfigure (xlator_t *this, dict_t *options)
 out:
 	return ret;
 }
-
 
 int
 init (xlator_t *this)
@@ -1179,7 +1144,6 @@ iot_client_destroy (xlator_t *this, client_t *client)
 
         return 0;
 }
-
 
 struct xlator_dumpops dumpops = {
         .priv    = iot_priv_dump,

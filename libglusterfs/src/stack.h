@@ -83,6 +83,13 @@ struct _call_frame {
         const char      *unwind_to;
 };
 
+struct _ns_info {
+        uint32_t     hash;  /* Hash of the namespace from SuperFastHash */
+        gf_boolean_t found; /* Set to true if we found a namespace */
+};
+
+typedef struct _ns_info ns_info_t;
+
 #define SMALL_GROUP_COUNT 128
 
 struct _call_stack {
@@ -122,6 +129,8 @@ struct _call_stack {
                            send information over the wire too */
         struct timespec ctime; /* timestamp, most probably set at
                                   creation of stack. */
+
+        ns_info_t                     ns_info;
 };
 
 

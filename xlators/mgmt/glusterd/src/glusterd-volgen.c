@@ -2049,6 +2049,31 @@ out:
         return ret;
 }
 
+static int
+brick_graph_add_namespace (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                           dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+        xlator_t        *xl = NULL;
+        int             ret = -1;
+
+        if (!graph || !volinfo || !set_dict)
+                goto out;
+
+        ret = dict_get_str_boolean (set_dict, "features.tag-namespaces", 0);
+        if (ret == -1)
+                goto out;
+
+        if (ret) {
+                xl = volgen_graph_add (graph, "features/namespace", volinfo->volname);
+                if (!xl)
+                        goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
 xlator_t *
 add_one_peer (volgen_graph_t *graph, glusterd_brickinfo_t *peer,
               char *volname, uint16_t index)
@@ -2642,6 +2667,7 @@ static volgen_brick_xlator_t server_graph_table[] = {
         {brick_graph_add_decompounder, "decompounder"},
         {brick_graph_add_io_stats, "NULL"},
         {brick_graph_add_sdfs, "sdfs"},
+        {brick_graph_add_namespace, "namespace"},
         {brick_graph_add_cdc, NULL},
         {brick_graph_add_quota, "quota"},
         {brick_graph_add_index, "index"},
@@ -4983,7 +5009,7 @@ static gf_boolean_t
 volgen_is_shd_compatible_xl (char *xl_type)
 {
         char            *shd_xls[] = {"cluster/replicate", "cluster/disperse",
-                                      "debug/io-stats", NULL};
+                                       NULL};
         if (gf_get_index_by_elem (shd_xls, xl_type) != -1)
                 return _gf_true;
 
