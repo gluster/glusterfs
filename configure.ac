@@ -150,6 +150,8 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/read-only/src/Makefile
                 xlators/features/compress/Makefile
                 xlators/features/compress/src/Makefile
+                xlators/features/namespace/Makefile
+                xlators/features/namespace/src/Makefile
                 xlators/features/quiesce/Makefile
                 xlators/features/quiesce/src/Makefile
                 xlators/features/barrier/Makefile
