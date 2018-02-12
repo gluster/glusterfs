@@ -32,6 +32,19 @@
 
 #include "glusterfs-fops.h" /* generated XDR values for FOPs */
 
+#ifndef IXDR_GET_LONG
+#define IXDR_GET_LONG(buf) ((long)IXDR_GET_U_INT32(buf))
+#endif
+#ifndef IXDR_PUT_LONG
+#define IXDR_PUT_LONG(buf, v) ((long)IXDR_PUT_INT32(buf, (long)(v)))
+#endif
+#ifndef IXDR_GET_U_LONG
+#define IXDR_GET_U_LONG(buf) ((u_long)IXDR_GET_LONG(buf))
+#endif
+#ifndef IXDR_PUT_U_LONG
+#define IXDR_PUT_U_LONG(buf, v) IXDR_PUT_LONG(buf, (long)(v))
+#endif
+
 #include "list.h"
 #include "locking.h"
 #include "logging.h"
