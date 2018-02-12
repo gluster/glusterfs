@@ -30,5 +30,8 @@ class RConf(object):
     mgmt_lock_fd = None
     args = None
     turns = 0
+    mountbroker = False
+    mount_point = None
+    mbr_umount_cmd = []
 
 rconf = RConf()

@@ -38,7 +38,7 @@ from syncdutils import get_changelog_log_level, get_rsync_version
 from syncdutils import CHANGELOG_AGENT_CLIENT_VERSION
 from syncdutils import GX_GFID_CANONICAL_LEN
 from gsyncdstatus import GeorepStatus
-from syncdutils import mntpt_list, lf, Popen, sup, Volinfo
+from syncdutils import lf, Popen, sup, Volinfo
 from syncdutils import Xattr, matching_disk_gfid, get_gfid_from_mnt
 
 
@@ -804,6 +804,7 @@ class Mounter(object):
     def __init__(self, params):
         self.params = params
         self.mntpt = None
+        self.umount_cmd = []
 
     @classmethod
     def get_glusterprog(cls):
@@ -838,10 +839,6 @@ class Mounter(object):
         change into the mount, and lazy unmount the
         filesystem.
         """
-        access_mount = gconf.get("access-mount")
-        if rconf.args.subcmd == "slave":
-            access_mount = gconf.get("slave-access-mount")
-
         mpi, mpo = os.pipe()
         mh = Popen.fork()
         if mh:
@@ -903,13 +900,15 @@ class Mounter(object):
                     assert(mntdata[-1] == '\0')
                     mntpt = mntdata[:-1]
                     assert(mntpt)
-                    if mounted and not access_mount:
+                    if mounted and rconf.args.subcmd == "slave" \
+                       and not gconf.get("slave-access-mount"):
                         po = self.umount_l(mntpt)
                         po.terminate_geterr(fail_on_err=False)
                         if po.returncode != 0:
                             po.errlog()
                             rv = po.returncode
-                    if not access_mount:
+                    if rconf.args.subcmd == "slave" \
+                       and not gconf.get("slave-access-mount"):
                         self.cleanup_mntpt(mntpt)
             except:
                 logging.exception('mount cleanup failure:')
@@ -931,7 +930,7 @@ class DirectMounter(Mounter):
 
     def make_mount_argv(self, label=None):
         self.mntpt = tempfile.mkdtemp(prefix='gsyncd-aux-mount-')
-        mntpt_list.append(self.mntpt)
+        rconf.mount_point = self.mntpt
         return [self.get_glusterprog()] + \
             ['--' + p for p in self.params] + [self.mntpt]
 
@@ -964,6 +963,10 @@ class MountbrokerMounter(Mounter):
 
     def handle_mounter(self, po):
         self.mntpt = po.stdout.readline()[:-1]
+        rconf.mount_point = self.mntpt
+        rconf.mountbroker = True
+        self.umount_cmd = self.make_cli_argv() + ['umount']
+        rconf.mbr_umount_cmd = self.umount_cmd
         po.stdout.close()
         sup(self, po)
         if po.returncode != 0:
