@@ -128,22 +128,44 @@ editor_mode()
     fi
 
     if [ $(basename "$1") = "COMMIT_EDITMSG" ]; then
-        if grep -qi '^BUG: ' $1; then
+        # see note above function warn_reference_missing for regex elaboration
+        # Lets first check for github issues
+        ref=$(git show --format='%b' | grep -ow -E "([fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])(:)?[[:space:]]+(gluster\/glusterfs)?#[[:digit:]]+" | awk -F '#' '{print $2}');
+        if [ "x${ref}" = "x" ]; then
+            # if not found, check for bugs
+            ref=$(git show --format='%b' | grep -ow -E "([fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])(:)?[[:space:]]+bz#[[:digit:]]+" | awk -F '#' '{print $2}');
+        fi
+
+        if [ "x${ref}" != "x" ]; then
             return;
         fi
+
         while true; do
             echo Commit: "\"$(head -n 1 $1)\""
-            echo -n "Enter Bug ID: "
+            echo -n "Reference (Bugzilla ID or Github Issue ID): "
             read bug
             if [ -z "$bug" ]; then
                 return;
             fi
             if ! is_num "$bug"; then
-                echo "Invalid Bug ID ($bug)!!!";
+                echo "Invalid reference ID ($bug)!!!";
                 continue;
             fi
 
-            sed "/^Change-Id:/{p; s/^.*$/BUG: $bug/;}" $1 > $1.new && \
+            bz_string="bz"
+            if [ $bug -lt 742000 ]; then
+                bz_string=""
+            fi
+
+            echo "Select yes '(y)' if this patch fixes the bug/feature completely,"
+            echo -n "or is the last of the patchset which brings feature (Y/n): "
+            read fixes
+            fixes_string="fixes"
+            if [ "${fixes}" = 'N' ] || [ "${fixes}" = 'n' ]; then
+                fixes_string="updates"
+            fi
+
+            sed "/^Change-Id:/{p; s/^.*$/${fixes_string}: ${bz_string}#${bug}/;}" $1 > $1.new && \
                 mv $1.new $1;
             return;
         done
@@ -201,78 +223,72 @@ check_patches_for_coding_style()
     fi
 }
 
-github_issue_message()
+# Regex elaborated:
+#   grep -w -> --word-regexp (from the man page)
+#      Select only those lines containing matches that form whole words.
+#      The test is that the matching substring must either be at the
+#      beginning of the line, or preceded by a  non-word  constituent
+#      character.  Similarly, it must be either at the end of the line or
+#      followed by a non-word constituent character.  Word-constituent
+#      characters are letters, digits, and the underscore.
+#   IOW, the above helps us find the pattern with leading or training spaces
+#   or non word consituents like , or ;
+#
+#   [fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])
+#      Finds 'fixes' OR 'updates' in any case combination
+#
+#   (:)?
+#      Followed by an optional : (colon)
+#
+#   [[:space:]]+
+#      followed by 1 or more spaces
+#
+#   (gluster\/glusterfs)?
+#      Followed by 0 or more gluster/glusterfs
+#
+#   #
+#      Followed by #
+#
+#   [[:digit:]]+
+#      Followed by 1 or more digits
+warn_reference_missing()
 {
     echo ""
-    echo "=== Missing a github issue reference in a potential enhancement! ==="
+    echo "=== Missing a reference in commit! ==="
     echo ""
-    echo "Gluster code submissions that are enhancements (IOW, not functional"
+    echo "Gluster commits are made with a reference to a bug or a github issue"
+    echo ""
+    echo "Submissions that are enhancements (IOW, not functional"
     echo "bug fixes, but improvements of any nature to the code) are tracked"
-    echo "using github issues. A check on the commit message, reveals that"
-    echo "there is no bug associated with this change, hence it could be a"
-    echo "potential code improvement or feature enhancement"
+    echo "using github issues [1]."
     echo ""
-    echo "If this is an enhancement, request a github issue be filed at [1]"
-    echo "and referenced in the commit message as,"
-    echo "\"Fixes gluster/glusterfs#n\" OR \"Updates gluster/glusterfs#n\","
-    echo "where n is the issue number"
+    echo "Submissions that are bug fixes are tracked using Bugzilla [2]."
     echo ""
-    echo "You can reference multiple issues that this commit addresses as,"
-    echo "\"fixes gluster/glusterfs#n, updates gluster/glusterfs#m\", and so on"
+    echo "A check on the commit message, reveals that there is no bug or"
+    echo "github issue referenced in the commit message"
     echo ""
     echo "[1] https://github.com/gluster/glusterfs/issues/new"
+    echo "[2] https://bugzilla.redhat.com/enter_bug.cgi?product=GlusterFS"
+    echo ""
+    echo "Please file an issue or a bug report and reference the same in the"
+    echo "commit message using the following tags:"
+    echo "GitHub Issues:"
+    echo "\"Fixes: gluster/glusterfs#n\" OR \"Updates: gluster/glusterfs#n\","
+    echo "\"Fixes: #n\" OR \"Updates: #n\","
+    echo "Bugzilla ID:"
+    echo "\"Fixes: bz#n\" OR \"Updates: bz#n\","
+    echo "where n is the issue or bug number"
     echo ""
     echo "You may abort the submission choosing 'N' below and use"
     echo "'git commit --amend' to add the issue reference before posting"
-    echo "to gerrit. If this is a bug fix, choose 'Y' to continue."
+    echo "to gerrit."
     echo ""
-}
-
-check_for_github_issue()
-{
-    # NOTE: Since we run '#!/bin/sh -e', the check is in an if,
-    # as grep count maybe 0
-    #
-    # Regex elaborated:
-    #   grep -w -> --word-regexp (from the man page)
-    #      Select only those lines containing matches that form whole words.
-    #      The test is that the matching substring must either be at the
-    #      beginning of the line, or preceded by a  non-word  constituent
-    #      character.  Similarly, it must be either at the end of the line or
-    #      followed by a non-word constituent character.  Word-constituent
-    #      characters are letters, digits, and the underscore.
-    #   IOW, the above helps us find the pattern with leading or training spaces
-    #   or non word consituents like , or ;
-    #
-    #   grep -c -> gives us a count of matches, which is all we need here
-    #
-    #   [fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])
-    #      Finds 'fixes' OR 'updates' in any case combination
-    #
-    #   (:)?
-    #      Followed by an optional : (colon)
-    #
-    #   [[:space:]]+
-    #      followed by 1 or more spaces
-    #
-    #   (gluster\/glusterfs)?
-    #      Followed by 0 or more gluster/glusterfs
-    #
-    #   #
-    #      Followed by #
-    #
-    #   [[:digit:]]+
-    #      Followed by 1 or more digits
-    if [ 0 = "$(git log --format=%B -n 1 | grep -cow -E "([fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])(:)?[[:space:]]+(gluster\/glusterfs)?#[[:digit:]]+")" ]; then
-        moveon='N'
-        github_issue_message;
-        echo -n "Missing github issue reference in a potential RFE. Continue (y/N): "
-        read moveon
-        if [ "${moveon}" = 'Y' ] || [ "${moveon}" = 'y' ]; then
-            return;
-        else
-            exit 1
-        fi
+    echo -n "Missing reference to a bug or a github issue. Continue (y/N): "
+    read moveon
+    if [ "${moveon}" = 'Y' ] || [ "${moveon}" = 'y' ]; then
+        return;
+    else
+        exit 1
     fi
 }
 
@@ -295,15 +311,14 @@ main()
 
     assert_diverge;
 
-    bug=$(git show --format='%b' | grep -i '^BUG: ' | awk '{print $2}');
+    # see note above function warn_reference_missing for regex elaboration
+    reference=$(git show --format='%b' | grep -ow -E "([fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])(:)?[[:space:]]+(gluster\/glusterfs)?(bz)?#[[:digit:]]+" | awk -F '#' '{print $2}');
 
-    # If this is a commit against master and does not have a bug ID
-    # it could be a feature or an RFE, check if there is a github
-    # issue reference, and if not suggest commit message amendment
-    if [ -z "$bug" ] && [ $branch = "master" ]; then
-        check_for_github_issue;
+    # If this is a commit against master and does not have a bug ID or a github
+    # issue reference. Warn the contributor that one of the 2 is required
+    if [ -z "${reference}" ] && [ $branch = "master" ]; then
+        warn_reference_missing;
     fi
-
 
     if [ "$DRY_RUN" = 1 ]; then
         drier='echo -e Please use the following command to send your commits to review:\n\n'
@@ -311,10 +326,10 @@ main()
         drier=
     fi
 
-    if [ -z "$bug" ]; then
+    if [ -z "${reference}" ]; then
         $drier git push $ORIGIN HEAD:refs/for/$branch/rfc;
     else
-        $drier git push $ORIGIN HEAD:refs/for/$branch/bug-$bug;
+        $drier git push $ORIGIN HEAD:refs/for/$branch/ref-${reference};
     fi
 }
 

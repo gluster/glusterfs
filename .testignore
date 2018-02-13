@@ -1,7 +1,9 @@
 .github/ISSUE_TEMPLATE
 .gitignore
 .mailmap
+.testignore
 rfc.sh
+submit-for-review.sh
 AUTHORS
 CONTRIBUTING
 COPYING-GPLV2
