@@ -1306,6 +1306,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 1,
           .flags      = VOLOPT_FLAG_CLIENT_OPT
         },
+        { .key        = "cluster.readdirplus-for-dir",
+          .voltype    = "cluster/distribute",
+          .op_version = GD_OP_VERSION_4_1_0,
+          .flags      = VOLOPT_FLAG_CLIENT_OPT
+        },
         { .key        = "cluster.rsync-hash-regex",
           .voltype    = "cluster/distribute",
           .type       = NO_DOC,

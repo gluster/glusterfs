@@ -517,6 +517,10 @@ dht_reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("readdir-optimize", conf->readdir_optimize, options,
                           bool, out);
+
+        GF_OPTION_RECONF ("readdirplus-for-dir", conf->readdirplus_for_dir,
+                          options, bool, out);
+
         GF_OPTION_RECONF ("randomize-hash-range-by-gfid",
                           conf->randomize_by_gfid,
                           options, bool, out);
@@ -810,6 +814,8 @@ dht_init (xlator_t *this)
 
         GF_OPTION_INIT ("readdir-optimize", conf->readdir_optimize, bool, err);
 
+        GF_OPTION_INIT ("readdirplus-for-dir", conf->readdirplus_for_dir,
+                        bool, err);
 
         GF_OPTION_INIT ("lock-migration", conf->lock_migration_enabled,
                          bool, err);
@@ -1231,6 +1237,18 @@ struct volume_options options[] = {
                          "are being written to by an application",
           .op_version  = {GD_OP_VERSION_4_0_0},
           .level = OPT_STATUS_ADVANCED,
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
+        },
+
+        { .key =  {"readdirplus-for-dir"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description = "If enabled, the readdir performance is enhanced,"
+                         " but there is remote chance of stale-layout(i.e may"
+                         " cause issues with add/remove-brick, renames). Should"
+                         " be enabled only when feature.cache-invalidation is"
+                         " enabled",
+          .op_version  = {GD_OP_VERSION_4_1_0},
           .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
 

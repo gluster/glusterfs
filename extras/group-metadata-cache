@@ -4,3 +4,4 @@ performance.stat-prefetch=on
 performance.cache-invalidation=on
 performance.md-cache-timeout=600
 network.inode-lru-limit=200000
+cluster.readdirplus-for-dir=on

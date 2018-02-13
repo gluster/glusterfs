@@ -654,6 +654,9 @@ struct dht_conf {
 
         gf_boolean_t    readdir_optimize;
 
+        /* If on, doesn't request lookup on dir post readdirp*/
+        gf_boolean_t    readdirplus_for_dir;
+
         /* Support regex-based name reinterpretation. */
         regex_t         rsync_regex;
         gf_boolean_t    rsync_regex_valid;
