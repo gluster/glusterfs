@@ -6374,6 +6374,9 @@ dht_populate_inode_for_dentry (xlator_t *this, xlator_t *subvol,
         dht_layout_t *layout = NULL;
         int           ret    = 0;
         loc_t         loc    = {0, };
+        dht_conf_t   *conf   = NULL;
+
+        conf  = this->private;
 
         if (gf_uuid_is_null (orig_entry->d_stat.ia_gfid)) {
                 /* this skips the '..' entry for the root of the volume */
@@ -6383,9 +6386,25 @@ dht_populate_inode_for_dentry (xlator_t *this, xlator_t *subvol,
         gf_uuid_copy (loc.gfid, orig_entry->d_stat.ia_gfid);
         loc.inode = inode_ref (orig_entry->inode);
 
-        if (is_revalidate (&loc)) {
+        if ((is_revalidate (&loc)) && conf->readdirplus_for_dir) {
+                layout = dht_layout_get (this, orig_entry->inode);
+                if (!layout)
+                        goto out;
+                ret = dht_layout_normalize (this, &loc, layout);
+                if ((ret < 0) || ((ret > 0)))
+                        gf_msg_debug (this->name, 0,
+                                      "normalizing failed on %s "
+                                      "(overlaps/holes present: %s, "
+                                      "ENOENT errors: %d)", loc.path,
+                                      (ret < 0) ? "yes" : "no", (ret > 0) ? ret : 0);
+                else
+                        entry->inode = inode_ref (orig_entry->inode);
+
                 goto out;
         }
+
+        if (conf->subvolume_cnt > 1)
+                goto out;
 
         layout = dht_layout_new (this, 1);
         if (!layout)
@@ -6402,10 +6421,10 @@ dht_populate_inode_for_dentry (xlator_t *this, xlator_t *subvol,
 
         }
 
+out:
         if (layout)
                 dht_layout_unref (this, layout);
 
-out:
         loc_wipe (&loc);
         return;
 }
@@ -6538,8 +6557,10 @@ list:
                         entry->dict = dict_ref (orig_entry->dict);
 
                 /* making sure we set the inode ctx right with layout,
-                   currently possible only for non-directories, so for
-                   directories don't set entry inodes */
+                   currently possible only for non-directories. For
+                   directories if we do not set the entry inodes, it incurs
+                   a performance penalty, hence do not set the entry inode
+                   only if the layout is absent and upcall is disabled */
                 if (IA_ISDIR(entry->d_stat.ia_type)) {
                         entry->d_stat.ia_blocks = DHT_DIR_STAT_BLOCKS;
                         entry->d_stat.ia_size = DHT_DIR_STAT_SIZE;
@@ -6548,13 +6569,9 @@ list:
                                                            this, &entry->d_stat,
                                                            1);
 
-                                if (conf->subvolume_cnt == 1) {
-                                        dht_populate_inode_for_dentry (this,
-                                                                       prev,
-                                                                       entry,
-                                                                       orig_entry);
-                                }
-
+                                dht_populate_inode_for_dentry (this, prev,
+                                                               entry,
+                                                               orig_entry);
                         }
                 } else {
                         if (orig_entry->inode) {
