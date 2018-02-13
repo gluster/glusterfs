@@ -1039,6 +1039,10 @@ struct _xlator {
 
         /* identifier: a full string which can unique identify the xlator */
         char *identifier;
+
+        /* Is this pass_through? */
+        gf_boolean_t   pass_through;
+        struct xlator_fops    *pass_through_fops;
 };
 
 typedef struct {
@@ -1123,6 +1127,11 @@ typedef struct {
         /* dumpops: a structure again, with methods to dump the details.
            optional. */
         struct xlator_dumpops  *dumpops;
+
+        /* struct pass_through_fops: optional. provides all the filesystem
+           operations which should be used if the xlator is marked as pass_through */
+        /* by default, the default_fops would be used */
+        struct xlator_fops *pass_through_fops;
 } xlator_api_t;
 
 #define xlator_has_parent(xl) (xl->parents != NULL)

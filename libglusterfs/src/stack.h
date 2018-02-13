@@ -258,6 +258,7 @@ STACK_RESET (call_stack_t *stack)
                 xlator_t     *old_THIS = NULL;                          \
                 xlator_t     *next_xl = obj;                            \
                 typeof(fn)    next_xl_fn = fn;                          \
+                int opn = get_fop_index_from_fn((next_xl), (fn));       \
                                                                         \
                 frame->this = next_xl;                                  \
                 frame->wind_to = #fn;                                   \
@@ -269,12 +270,14 @@ STACK_RESET (call_stack_t *stack)
                               frame->root, old_THIS->name,              \
                               THIS->name);                              \
                 /* Need to capture counts at leaf node */               \
-                if (!next_xl->children) {                               \
-                        int op = get_fop_index_from_fn((next_xl), (fn)); \
-                        GF_ATOMIC_INC (next_xl->stats.total.metrics[op].fop); \
-                        GF_ATOMIC_INC (next_xl->stats.interval.metrics[op].fop); \
+                if (!next_xl->pass_through && !next_xl->children) {     \
+                        GF_ATOMIC_INC (next_xl->stats.total.metrics[opn].fop); \
+                        GF_ATOMIC_INC (next_xl->stats.interval.metrics[opn].fop); \
                         GF_ATOMIC_INC (next_xl->stats.total.count);     \
                         GF_ATOMIC_INC (next_xl->stats.interval.count);  \
+                }                                                       \
+                if (next_xl->pass_through) {                            \
+                        next_xl_fn = (void *)*((&next_xl->pass_through_fops->stat) + (opn - 1)); \
                 }                                                       \
                 next_xl_fn (frame, next_xl, params);                    \
                 THIS = old_THIS;                                        \
@@ -298,6 +301,7 @@ STACK_RESET (call_stack_t *stack)
         do {                                                            \
                 call_frame_t *_new = NULL;                              \
                 xlator_t     *old_THIS = NULL;                          \
+                typeof(fn)    next_xl_fn = fn;                          \
                                                                         \
                 _new = mem_get0 (frame->root->pool->frame_mem_pool);    \
                 if (!_new) {                                            \
@@ -332,11 +336,15 @@ STACK_RESET (call_stack_t *stack)
                 if (obj->ctx->measure_latency)                          \
                         timespec_now (&_new->begin);                    \
                 _new->op = get_fop_index_from_fn ((_new->this), (fn));  \
-                GF_ATOMIC_INC (obj->stats.total.metrics[_new->op].fop); \
-                GF_ATOMIC_INC (obj->stats.interval.metrics[_new->op].fop); \
-                GF_ATOMIC_INC (obj->stats.total.count);                 \
-                GF_ATOMIC_INC (obj->stats.interval.count);              \
-                fn (_new, obj, params);                                 \
+                if (!obj->pass_through) {                               \
+                        GF_ATOMIC_INC (obj->stats.total.metrics[_new->op].fop); \
+                        GF_ATOMIC_INC (obj->stats.interval.metrics[_new->op].fop); \
+                        GF_ATOMIC_INC (obj->stats.total.count);         \
+                        GF_ATOMIC_INC (obj->stats.interval.count);      \
+                } else {                                                \
+                        next_xl_fn = (void *)*((&obj->pass_through_fops->stat) + (_new->op - 1)); \
+                }                                                       \
+                next_xl_fn (_new, obj, params);                         \
                 THIS = old_THIS;                                        \
         } while (0)
 
