@@ -15,9 +15,11 @@
 #include "defaults.h"
 #include "libglusterfs-messages.h"
 
-#define SET_DEFAULT_FOP(fn) do {			\
-                if (!xl->fops->fn)			\
-                        xl->fops->fn = default_##fn;	\
+#define SET_DEFAULT_FOP(fn) do {                                        \
+                if (!xl->fops->fn)                                      \
+                        xl->fops->fn = default_##fn;                    \
+                if (!xl->pass_through_fops->fn)                         \
+                        xl->pass_through_fops->fn = default_##fn;       \
         } while (0)
 
 #define SET_DEFAULT_CBK(fn) do {			\
@@ -53,6 +55,9 @@ fill_defaults (xlator_t *xl)
                                   LG_MSG_INVALID_ARG, "invalid argument");
                 return;
         }
+
+        if (!xl->pass_through_fops)
+                xl->pass_through_fops = default_fops;
 
         SET_DEFAULT_FOP (create);
         SET_DEFAULT_FOP (open);
@@ -383,6 +388,13 @@ int xlator_dynload_newway (xlator_t *xl)
         xl->dump_metrics = xlapi->dump_metrics;
         if (!xl->dump_metrics) {
                 gf_msg_trace ("xlator", 0, "%s: method missing (dump_metrics)",
+                              xl->name);
+        }
+
+        xl->pass_through_fops = xlapi->pass_through_fops;
+        if (!xl->pass_through_fops) {
+                gf_msg_trace ("xlator", 0, "%s: method missing (pass_through_fops), "
+                              "falling back to default",
                               xl->name);
         }
 
