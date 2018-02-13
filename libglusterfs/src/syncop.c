@@ -3104,6 +3104,43 @@ syncop_inodelk (xlator_t *subvol, const char *volume, loc_t *loc, int32_t cmd,
 }
 
 int32_t
+syncop_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		    int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+        args->op_ret = op_ret;
+        args->op_errno = op_errno;
+        if (xdata)
+                args->xdata = dict_ref (xdata);
+
+        __wake (args);
+        return 0;
+}
+
+int
+syncop_entrylk (xlator_t *subvol, const char *volume, loc_t *loc,
+                const char *basename, entrylk_cmd cmd, entrylk_type type,
+                dict_t *xdata_in, dict_t **xdata_out)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_entrylk_cbk, subvol->fops->entrylk,
+                volume, loc, basename, cmd, type, xdata_in);
+
+        if (xdata_out)
+                *xdata_out = args.xdata;
+        else if (args.xdata)
+                dict_unref (args.xdata);
+
+        if (args.op_ret < 0)
+                return -args.op_errno;
+
+        return args.op_ret;
+}
+
+int32_t
 syncop_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, dict_t *dict,
                     dict_t *xdata)

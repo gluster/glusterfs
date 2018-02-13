@@ -582,4 +582,9 @@ syncop_icreate (xlator_t *subvol, loc_t *loc, mode_t mode, dict_t *xdata_out);
 int
 syncop_namelink (xlator_t *subvol, loc_t *loc, dict_t *xdata_out);
 
+int
+syncop_entrylk (xlator_t *subvol, const char *volume, loc_t *loc,
+                const char *basename, entrylk_cmd cmd, entrylk_type type,
+                dict_t *xdata_in, dict_t **xdata_out);
+
 #endif /* _SYNCOP_H */

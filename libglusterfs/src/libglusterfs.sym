@@ -938,6 +938,7 @@ syncop_getxattr
 syncop_gfid_to_path
 syncop_inode_find
 syncop_inodelk
+syncop_entrylk
 syncop_ipc
 syncop_is_subvol_local
 syncop_link
