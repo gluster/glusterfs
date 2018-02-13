@@ -2222,7 +2222,7 @@ posix_put (call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
 
         op_ret = syncop_writev (this, fd, vector, count, offset, iobref,
-                                flags, xdata, NULL);
+                                flags, NULL, NULL, xdata, NULL);
         if (op_ret < 0) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_WRITE_FAILED,
