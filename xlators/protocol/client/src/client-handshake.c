@@ -1341,6 +1341,15 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
                 }
         }
 
+        /* Insert a dummy key value pair to avoid failure at server side for
+         * clnt-lk-version with new clients.
+         */
+        ret = dict_set_uint32 (options, "clnt-lk-version", 1);
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_WARNING, 0, PC_MSG_DICT_SET_FAILED,
+                        "failed to set clnt-lk-version(1) in handshake msg");
+        }
+
         ret = dict_set_int32 (options, "opversion", GD_OP_VERSION_MAX);
         if (ret < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, PC_MSG_DICT_SET_FAILED,
