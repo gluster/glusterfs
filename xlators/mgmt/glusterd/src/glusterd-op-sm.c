@@ -2514,6 +2514,15 @@ out:
         return ret;
 }
 
+/* This is a hack to prevent client-io-threads from being loaded in the graph
+ * when the cluster-op-version is bumped up from 3.8.x to 3.13.x. The key is
+ * deleted subsequently in glusterd_create_volfiles(). */
+static int
+glusterd_dict_set_skip_cliot_key (glusterd_volinfo_t *volinfo)
+{
+        return  dict_set_int32 (volinfo->dict, "skip-CLIOT", 1);
+}
+
 static int
 glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict,
                                     char **op_errstr)
@@ -2603,6 +2612,10 @@ glusterd_op_set_all_volume_options (xlator_t *this, dict_t *dict,
                                 ret = glusterd_update_volumes_dict (volinfo);
                                 if (ret)
                                         goto out;
+
+                                if (glusterd_dict_set_skip_cliot_key (volinfo))
+                                        goto out;
+
                                 if (!volinfo->is_snap_volume) {
                                         svc = &(volinfo->snapd.svc);
                                         ret = svc->manager (svc, volinfo,

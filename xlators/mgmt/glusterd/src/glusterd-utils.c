@@ -13091,10 +13091,30 @@ out:
         return ret;
 }
 
+char *
+glusterd_get_option_value (glusterd_volinfo_t *volinfo, char *key)
+{
+        char *value = NULL;
+
+        if (!glusterd_is_volume_replicate(volinfo))
+                goto ret;
+
+        if (!strcmp (key, "performance.client-io-threads")) {
+                value = "off";
+        } else if (!strcmp (key, "cluster.quorum-type")) {
+                if (volinfo->replica_count%2) {
+                        value = "auto";
+                }
+        }
+ret:
+        return value;
+}
+
 int
 glusterd_get_default_val_for_volopt (dict_t *ctx, gf_boolean_t all_opts,
                                      char *input_key, char *orig_key,
-                                     dict_t *vol_dict, char **op_errstr)
+                                     glusterd_volinfo_t *volinfo,
+                                     char **op_errstr)
 {
         struct volopt_map_entry *vme = NULL;
         int                      ret = -1;
@@ -13105,6 +13125,7 @@ glusterd_get_default_val_for_volopt (dict_t *ctx, gf_boolean_t all_opts,
         char                     dict_key[50] = {0,};
         gf_boolean_t             key_found = _gf_false;
         glusterd_conf_t         *priv = NULL;
+        dict_t                  *vol_dict = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -13112,6 +13133,7 @@ glusterd_get_default_val_for_volopt (dict_t *ctx, gf_boolean_t all_opts,
         priv = this->private;
         GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
+        vol_dict = volinfo->dict;
         GF_VALIDATE_OR_GOTO (this->name, vol_dict, out);
 
         /* Check whether key is passed for a single option */
@@ -13132,6 +13154,9 @@ glusterd_get_default_val_for_volopt (dict_t *ctx, gf_boolean_t all_opts,
                 ret = dict_get_str (priv->opts, vme->key, &def_val);
                 if (!def_val) {
                         ret = dict_get_str (vol_dict, vme->key, &def_val);
+                        if (ret == -ENOENT)
+                                def_val = glusterd_get_option_value (volinfo,
+                                                                     vme->key);
                         if (!def_val) {
                                 if (vme->value) {
                                         def_val = vme->value;
