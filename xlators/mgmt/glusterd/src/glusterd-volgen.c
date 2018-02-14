@@ -59,7 +59,6 @@ extern struct volopt_map_entry glusterd_volopt_map[];
         }                                                               \
 } while (0 /* CONSTCOND */)
 
-
 static int
 volgen_graph_build_clients (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                             dict_t *set_dict, void *param);
@@ -524,6 +523,11 @@ volgen_graph_set_options_generic (volgen_graph_t *graph, dict_t *dict,
                 odt.data_t_fake = _gf_false;
 
                 data = dict_get (dict, vme->key);
+                if (!strcmp (vme->key, "performance.client-io-threads") &&
+                    dict_get_str_boolean (dict, "skip-CLIOT",
+                                          _gf_false) == _gf_true) {
+                        continue;
+                }
 
                 if (data)
                         process_option (vme->key, data, &odt);
@@ -6672,10 +6676,12 @@ glusterd_create_volfiles (glusterd_volinfo_t *volinfo)
                         "Could not generate client volfiles");
 
 
-         ret = glusterd_generate_gfproxyd_volfile (volinfo);
+        ret = glusterd_generate_gfproxyd_volfile (volinfo);
         if (ret)
                 gf_log (this->name, GF_LOG_ERROR,
                         "Could not generate gfproxy volfiles");
+
+        dict_del (volinfo->dict, "skip-CLIOT");
 
 out:
         return ret;
