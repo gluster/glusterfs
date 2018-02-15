@@ -502,6 +502,10 @@ __shard_update_shards_inode_list (inode_t *linked_inode, xlator_t *this,
                  * by empty list), and if there is still space in the priv list,
                  * add this ctx to the tail of the list.
                  */
+                        /* For as long as an inode is in lru list, we try to
+                         * keep it alive by holding a ref on it.
+                         */
+                        inode_ref (linked_inode);
                         gf_uuid_copy (ctx->base_gfid, base_inode->gfid);
                         ctx->block_num = block_num;
                         list_add_tail (&ctx->ilist, &priv->ilist_head);
@@ -527,8 +531,16 @@ __shard_update_shards_inode_list (inode_t *linked_inode, xlator_t *this,
                         /* The following unref corresponds to the ref held by
                          * inode_find() above.
                          */
-                        inode_forget (lru_inode, 0);
                         inode_unref (lru_inode);
+                        /* The following unref corresponds to the ref held at
+                         * the time the shard was created or looked up
+                         */
+                        inode_unref (lru_inode);
+                        inode_forget (lru_inode, 0);
+                        /* For as long as an inode is in lru list, we try to
+                         * keep it alive by holding a ref on it.
+                         */
+                        inode_ref (linked_inode);
                         gf_uuid_copy (ctx->base_gfid, base_inode->gfid);
                         ctx->block_num = block_num;
                         list_add_tail (&ctx->ilist, &priv->ilist_head);
@@ -1658,11 +1670,6 @@ shard_link_block_inode (shard_local_t *local, int block_num, inode_t *inode,
                                    buf);
         inode_lookup (linked_inode);
         list_index = block_num - local->first_block;
-
-        /* Defer unref'ing the inodes until write is complete. These inodes are
-         * unref'd in the event of a failure or after successful fop completion
-         * in shard_local_wipe().
-         */
         local->inode_list[list_index] = linked_inode;
 
         LOCK(&priv->lock);
@@ -2520,10 +2527,11 @@ shard_unlink_block_inode (shard_local_t *local, int shard_block_num)
                 if (!list_empty (&ctx->ilist)) {
                         list_del_init (&ctx->ilist);
                         priv->inode_count--;
+                        GF_ASSERT (priv->inode_count >= 0);
+                        inode_unlink (inode, priv->dot_shard_inode, block_bname);
+                        inode_unref (inode);
+                        inode_forget (inode, 0);
                 }
-                GF_ASSERT (priv->inode_count >= 0);
-                inode_unlink (inode, priv->dot_shard_inode, block_bname);
-                inode_forget (inode, 0);
         }
         UNLOCK(&priv->lock);
 

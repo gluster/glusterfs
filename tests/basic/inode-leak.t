@@ -3,23 +3,6 @@
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
 
-function get_mount_active_size_value {
-        local vol=$1
-        local statedump=$(generate_mount_statedump $vol)
-        sleep 1
-        local val=$(grep "active_size" $statedump | cut -f2 -d'=' | tail -1)
-        rm -f $statedump
-        echo $val
-}
-
-function get_mount_lru_size_value {
-        local vol=$1
-        local statedump=$(generate_mount_statedump $vol)
-        sleep 1
-        local val=$(grep "lru_size" $statedump | cut -f2 -d'=' | tail -1)
-        rm -f $statedump
-        echo $val
-}
 cleanup
 
 TEST glusterd
