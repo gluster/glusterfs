@@ -111,8 +111,10 @@ function set_branchname_from_git_branch()
 }
 
 
-function destroy_vm_and_exit()
+function destroy_vm()
 {
+    local retval=0
+
     echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!CAUTION!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
     echo "This will destroy VM and delete tests/vagrant/${BRANCHNAME} dir"
     echo
@@ -128,11 +130,12 @@ function destroy_vm_and_exit()
         eval vagrant destroy $redirect
         popd
         rm -rf "tests/vagrant/${BRANCHNAME}"
-        exit 0
     else
         echo "Could not find vagrant dir for corresponding git branch, exiting"
-        exit 1
+        retval=1
     fi
+
+    return ${retval}
 }
 
 
@@ -248,9 +251,14 @@ function compile_gluster()
 
 function run_tests()
 {
+    local retval=0
+
     pushd "tests/vagrant/${BRANCHNAME}"
     vagrant ssh -c "cd /home/vagrant/glusterfs; sudo ./run-tests.sh $run_tests_args" -- -t
+    retval=$?
     popd
+
+    return ${retval}
 }
 
 function ssh_into_vm_using_exec()
@@ -272,7 +280,8 @@ ansible_check
 set_branchname_from_git_branch
 
 if [ "x$destroy_now" == "xyes" ] ; then
-    destroy_vm_and_exit
+    destroy_vm
+    exit $?
 fi
 
 if [ "x$sshvm" == "xyes" ] ; then
@@ -289,7 +298,10 @@ set_vm_attributes
 copy_source_code
 compile_gluster
 run_tests
+RET=$?
 
 if [ "x$destroy_after_test" == "xyes" ] ; then
-    destroy_vm_and_exit
+    destroy_vm
 fi
+
+exit ${RET}
