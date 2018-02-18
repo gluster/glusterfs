@@ -2460,13 +2460,6 @@ fini (xlator_t *this)
         priv = this->private;
         if (!priv)
                 goto out;
-
-        priv->down = _gf_true;
-        pthread_cond_broadcast (&priv->cond);
-        if (priv->thread) {
-                gf_thread_cleanup_xint (priv->thread);
-                priv->thread = 0;
-        }
         this->private = NULL;
         LOCK_DESTROY (&priv->lock);
         pthread_cond_destroy (&priv->cond);
@@ -2478,11 +2471,8 @@ fini (xlator_t *this)
         if (priv->complete_watchlist)
                 dict_unref (priv->complete_watchlist);
         GF_FREE (priv);
-
-        if (this->local_pool) {
-                mem_pool_destroy (this->local_pool);
-                this->local_pool = NULL;
-        }
+        mem_pool_destroy (this->local_pool);
+        this->local_pool = NULL;
 out:
         return;
 }
@@ -2551,6 +2541,13 @@ notify (xlator_t *this, int event, void *data, ...)
         priv = this->private;
         if (!priv)
                 return 0;
+
+        switch (event) {
+        case GF_EVENT_CLEANUP:
+                priv->down = _gf_true;
+                pthread_cond_broadcast (&priv->cond);
+                break;
+        }
 
         ret = default_notify (this, event, data);
         return ret;
