@@ -229,6 +229,18 @@ notify (xlator_t *this, int event, void *data, ...)
         if (!priv)
                 return 0;
 
+        switch (event) {
+        case GF_EVENT_CLEANUP:
+                if (priv->signth) {
+                        (void) gf_thread_cleanup_xint (priv->signth);
+                        priv->signth = 0;
+                }
+                if (priv->container.thread) {
+                        (void) gf_thread_cleanup_xint (priv->container.thread);
+                        priv->container.thread = 0;
+                }
+                break;
+        }
         default_notify (this, event, data);
         return 0;
 }
@@ -251,7 +263,6 @@ fini (xlator_t *this)
                         "Could not cancel sign serializer thread");
                 goto out;
         }
-        priv->signth = 0;
 
         while (!list_empty (&priv->squeue)) {
                 sigstub = list_first_entry (&priv->squeue,
@@ -273,19 +284,12 @@ fini (xlator_t *this)
                 goto out;
         }
 
-        priv->container.thread = 0;
-
         while (!list_empty (&priv->container.bad_queue)) {
                 stub = list_first_entry (&priv->container.bad_queue, call_stub_t,
                                          list);
                 list_del_init (&stub->list);
                 call_stub_destroy (stub);
-        }
-
-        if (priv->local_pool) {
-                mem_pool_destroy (priv->local_pool);
-                priv->local_pool = NULL;
-        }
+        };
 
         pthread_mutex_destroy (&priv->container.bad_lock);
         pthread_cond_destroy (&priv->container.bad_cond);

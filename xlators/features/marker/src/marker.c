@@ -3292,12 +3292,6 @@ marker_priv_cleanup (xlator_t *this)
         LOCK_DESTROY (&priv->lock);
 
         GF_FREE (priv);
-
-        if (this->local_pool) {
-                mem_pool_destroy (this->local_pool);
-                this->local_pool = NULL;
-        }
-
 out:
         return;
 }
