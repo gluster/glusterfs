@@ -1137,13 +1137,10 @@ glusterfs_graph_attach (glusterfs_graph_t *orig_graph, char *path,
         }
 
         file_len = stbuf.st_size;
-        if (file_len) {
-                volfile_content = GF_CALLOC (file_len+1, sizeof (char),
-                                             gf_common_mt_char);
-                if (!volfile_content) {
-                        return -ENOMEM;
-                }
-        }
+        volfile_content = GF_CALLOC (file_len+1, sizeof (char),
+                                     gf_common_mt_char);
+        if (!volfile_content)
+                return -ENOMEM;
 
         fp = fopen (path, "r");
         if (!fp) {
