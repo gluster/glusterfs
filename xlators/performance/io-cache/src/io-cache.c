@@ -1411,10 +1411,8 @@ ioc_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         char        *path  = NULL;
         fd_t        *fd    = NULL;
 
-        if (frame) {
-                fd = frame->local;
-                frame->local = NULL;
-        }
+        fd = frame->local;
+        frame->local = NULL;
 
         if (op_ret <= 0)
                 goto unwind;
