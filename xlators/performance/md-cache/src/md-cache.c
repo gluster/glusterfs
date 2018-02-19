@@ -986,7 +986,7 @@ mdc_load_statfs_info_from_cache (xlator_t *this, struct statvfs **buf)
                 /* Skip if the cache is not initialized */
                 if (!conf->statfs_cache.initialized) {
                         ret = -1;
-                        goto err;
+                        goto unlock;
                 }
 
                 timespec_now (&now);
@@ -1002,13 +1002,14 @@ mdc_load_statfs_info_from_cache (xlator_t *this, struct statvfs **buf)
                                 "Cache age %lf exceeded timeout %d",
                                 cache_age, conf->timeout);
                         ret = -1;
-                        goto err;
+                        goto unlock;
                 }
 
                 *buf = &conf->statfs_cache.buf;
         }
-err:
+unlock:
         pthread_mutex_unlock (&conf->statfs_cache.lock);
+err:
         return ret;
 }
 
