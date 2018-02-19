@@ -2172,7 +2172,7 @@ static int32_t
 up_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
             gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
 {
-        int32_t          op_errno        = -1;
+        int32_t          op_errno        = EINVAL;
         upcall_local_t   *local          = NULL;
         int              ret             = 0;
         upcall_private_t *priv           = NULL;
@@ -2208,7 +2208,7 @@ static int32_t
 up_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
              gf_xattrop_flags_t optype, dict_t *xattr, dict_t *xdata)
 {
-        int32_t          op_errno        = -1;
+        int32_t          op_errno        = EINVAL;
         upcall_local_t   *local          = NULL;
         int              ret             = 0;
         upcall_private_t *priv           = NULL;
