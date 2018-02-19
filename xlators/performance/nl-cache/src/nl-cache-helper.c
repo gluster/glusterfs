@@ -158,7 +158,7 @@ __nlc_inode_ctx_get (xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p,
                 *nlc_ctx_p = nlc_ctx;
         }
         if (ret == 0 && nlc_pe_p) {
-                nlc_pe = (void *) (long) (&nlc_pe_int);
+                nlc_pe = (void *) (long) (nlc_pe_int);
                 *nlc_pe_p = nlc_pe;
         }
         return ret;
