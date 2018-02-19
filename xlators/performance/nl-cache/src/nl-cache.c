@@ -742,6 +742,9 @@ init (xlator_t *this)
 
         ret = 0;
 out:
+        if (ret < 0)
+                GF_FREE (conf);
+
         return ret;
 }
 
