@@ -3027,6 +3027,12 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (ENTRY_MISSING (op_ret, op_errno)) {
+
+                if (1 == conf->subvolume_cnt) {
+                        /* No need to lookup again */
+                        goto out;
+                }
+
                 gf_msg_debug (this->name, 0,
                               "Entry %s missing on subvol %s",
                               loc->path, prev->name);
@@ -3266,6 +3272,9 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                         "path %s", conf->mds_xattr_key, loc->path);
         }
 
+
+        /* Nameless lookup */
+
         if (gf_uuid_is_null (loc->pargfid) && !gf_uuid_is_null (loc->gfid) &&
             !__is_root_gfid (loc->inode->gfid)) {
                 local->cached_subvol = NULL;
@@ -3283,6 +3292,9 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                 hashed_subvol = dht_subvol_get_hashed (this, loc);
         local->hashed_subvol = hashed_subvol;
 
+
+        /* The entry has been looked up before and has an inode_ctx set
+         */
         if (is_revalidate (loc)) {
                 layout = local->layout;
                 if (!layout) {
@@ -3323,6 +3335,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                                 "path %s", conf->xattr_name, loc->path);
                         goto err;
                 }
+
                 /* need it in case file is not found on cached file
                  * on revalidate path and we may encounter linkto files on
                  * with dht_lookup_everywhere*/
