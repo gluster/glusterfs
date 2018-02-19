@@ -268,9 +268,10 @@ qr_content_extract (dict_t *xdata)
 {
 	data_t  *data = NULL;
 	void    *content = NULL;
+        int      ret = 0;
 
-	dict_get_with_ref (xdata, GF_CONTENT_KEY, &data);
-	if (!data)
+	ret = dict_get_with_ref (xdata, GF_CONTENT_KEY, &data);
+	if (ret < 0 || !data)
 		return NULL;
 
 	content = GF_CALLOC (1, data->len, gf_qr_mt_content_t);
