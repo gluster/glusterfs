@@ -1099,7 +1099,7 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
         ioc_local_t *local         = NULL;
         uint32_t     weight        = 0;
         ioc_table_t *table         = NULL;
-        int32_t      op_errno      = -1;
+        int32_t      op_errno      = EINVAL;
 
         if (!this) {
                 goto out;
