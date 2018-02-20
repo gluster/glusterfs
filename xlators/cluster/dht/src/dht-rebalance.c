@@ -1044,9 +1044,9 @@ __dht_check_free_space (xlator_t *this, xlator_t *to, xlator_t *from,
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "data movement of file "
-                                "{blocks:%"PRIu64" name:(%s) } would result in "
+                                "{blocks:%"PRIu64" name:(%s)} would result in "
                                 "dst node (%s:%"PRIu64") having lower disk "
-                                "space then the source node (%s:%"PRIu64")"
+                                "space than the source node (%s:%"PRIu64")"
                                 ".Skipping file.", stbuf->ia_blocks, loc->path,
                                 to->name, dst_statfs_blocks, from->name,
                                 src_statfs_blocks);
