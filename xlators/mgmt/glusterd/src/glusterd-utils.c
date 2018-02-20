@@ -5675,7 +5675,7 @@ find_compat_brick_in_vol (glusterd_conf_t *conf,
                 if (other_brick == brickinfo) {
                         continue;
                 }
-                if (strcmp (brickinfo->hostname, other_brick->hostname) != 0) {
+                if (gf_uuid_compare (brickinfo->uuid, other_brick->uuid)) {
                         continue;
                 }
                 if (other_brick->status != GF_BRICK_STARTED &&
