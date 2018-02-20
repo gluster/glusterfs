@@ -2148,12 +2148,14 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         ret = syncop_getxattr (from, loc, &xattr, POSIX_ACL_ACCESS_XATTR,
                                NULL, NULL);
         if (ret < 0) {
-                gf_msg (this->name, GF_LOG_WARNING, -ret,
-                        DHT_MSG_MIGRATE_FILE_FAILED,
-                        "Migrate file failed:"
-                        "%s: failed to get xattr from %s",
-                        loc->path, from->name);
-                *fop_errno = -ret;
+                if ((-ret != ENODATA) && (-ret != ENOATTR)) {
+                        gf_msg (this->name, GF_LOG_WARNING, -ret,
+                                DHT_MSG_MIGRATE_FILE_FAILED,
+                                "Migrate file failed:"
+                                "%s: failed to get xattr from %s",
+                                loc->path, from->name);
+                        *fop_errno = -ret;
+                }
         } else {
                 ret = syncop_setxattr (to, loc, xattr, 0, NULL, NULL);
                 if (ret < 0) {
