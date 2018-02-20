@@ -779,6 +779,8 @@ struct volume_options options[] = {
         { .key = {"nl-cache-positive-entry"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "false",
+          .op_version = {GD_OP_VERSION_3_11_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
           .description = "Cache the name of the files/directories that was"
                          " looked up and are present in a directory",
         },
@@ -786,6 +788,8 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_SIZET,
           .min = 0,
           .default_value = "131072",
+          .op_version = {GD_OP_VERSION_3_11_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
           .description = "the value over which caching will be disabled for"
                          "a while and the cache is cleared based on LRU",
         },
@@ -793,6 +797,8 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_TIME,
           .min = 0,
           .default_value = "60",
+          .op_version = {GD_OP_VERSION_3_11_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
           .description = "Time period after which cache has to be refreshed",
         },
         { .key = {NULL} },
