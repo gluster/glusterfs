@@ -322,7 +322,7 @@ ec_get_event_from_state (ec_t *ec)
                 /* If ec is up but some subvolumes are yet to notify, give
                  * grace time for other subvols to notify to prevent start of
                  * I/O which may result in self-heals */
-                if (ec->timer && ec->xl_notify_count < ec->nodes)
+                if (ec->xl_notify_count < ec->nodes)
                         return GF_EVENT_MAXVAL;
 
                 return GF_EVENT_CHILD_UP;
@@ -344,8 +344,8 @@ ec_up (xlator_t *this, ec_t *ec)
         }
 
         ec->up = 1;
-        gf_msg (this->name, GF_LOG_INFO, 0,
-                EC_MSG_EC_UP, "Going UP");
+        gf_msg (this->name, GF_LOG_INFO, 0, EC_MSG_EC_UP, "Going UP");
+
         gf_event (EVENT_EC_MIN_BRICKS_UP, "subvol=%s", this->name);
 }
 
@@ -358,8 +358,8 @@ ec_down (xlator_t *this, ec_t *ec)
         }
 
         ec->up = 0;
-        gf_msg (this->name, GF_LOG_INFO, 0,
-                EC_MSG_EC_DOWN, "Going DOWN");
+        gf_msg (this->name, GF_LOG_INFO, 0, EC_MSG_EC_DOWN, "Going DOWN");
+
         gf_event (EVENT_EC_MIN_BRICKS_NOT_UP, "subvol=%s", this->name);
 }
 
@@ -383,22 +383,22 @@ ec_notify_cbk (void *data)
                 gf_timer_call_cancel (ec->xl->ctx, ec->timer);
                 ec->timer = NULL;
 
+                /* The timeout has expired, so any subvolume that has not
+                 * already reported its state, will be considered to be down.
+                 * We mark as if all bricks had reported. */
+                ec->xl_notify = (1ULL << ec->nodes) - 1ULL;
+                ec->xl_notify_count = ec->nodes;
+
+                /* Since we have marked all subvolumes as notified, it's
+                 * guaranteed that ec_get_event_from_state() will return
+                 * CHILD_UP or CHILD_DOWN, but not MAXVAL. */
                 event = ec_get_event_from_state (ec);
-                /* If event is still MAXVAL then enough subvolumes didn't
-                 * notify, treat it as CHILD_DOWN. */
-                if (event == GF_EVENT_MAXVAL) {
-                        event = GF_EVENT_CHILD_DOWN;
-                        ec->xl_notify = (1ULL << ec->nodes) - 1ULL;
-                        ec->xl_notify_count = ec->nodes;
-                } else if (event == GF_EVENT_CHILD_UP) {
-                        /* Rest of the bricks are still not coming up,
-                         * notify that ec is up. Files/directories will be
-                         * healed as in when they come up. */
+                if (event == GF_EVENT_CHILD_UP) {
+                        /* We are ready to bring the volume up. If there are
+                         * still bricks DOWN, they will be healed when they
+                         * come up. */
                         ec_up (ec->xl, ec);
                 }
-
-                /* CHILD_DOWN should not come here as no grace period is given
-                 * for notifying CHILD_DOWN. */
 
                 propagate = _gf_true;
         }
@@ -406,8 +406,15 @@ unlock:
         UNLOCK(&ec->lock);
 
         if (propagate) {
+                if ((event == GF_EVENT_CHILD_UP) && ec->shd.iamshd) {
+                        /* We have just brought the volume UP, so we trigger
+                         * a self-heal check on the root directory. */
+                        ec_launch_replace_heal (ec);
+                }
+
                 default_notify (ec->xl, event, NULL);
         }
+
 }
 
 void
@@ -442,7 +449,7 @@ ec_pending_fops_completed(ec_t *ec)
         }
 }
 
-static void
+static gf_boolean_t
 ec_set_up_state(ec_t *ec, uintptr_t index_mask, uintptr_t new_state)
 {
         uintptr_t current_state = 0;
@@ -455,7 +462,11 @@ ec_set_up_state(ec_t *ec, uintptr_t index_mask, uintptr_t new_state)
         if (current_state != new_state) {
                 ec->xl_up ^= index_mask;
                 ec->xl_up_count += (current_state ? -1 : 1);
+
+                return _gf_true;
         }
+
+        return _gf_false;
 }
 
 static gf_boolean_t
@@ -498,15 +509,16 @@ ec_upcall(ec_t *ec, struct gf_upcall *upcall)
 int32_t
 ec_notify (xlator_t *this, int32_t event, void *data, void *data2)
 {
-        ec_t             *ec        = this->private;
-        int32_t           idx       = 0;
-        int32_t           error     = 0;
-        glusterfs_event_t old_event = GF_EVENT_MAXVAL;
-        dict_t            *input    = NULL;
-        dict_t            *output   = NULL;
-        gf_boolean_t      propagate = _gf_true;
-        int32_t           orig_event = event;
-        uintptr_t mask = 0;
+        ec_t             *ec              = this->private;
+        int32_t           idx             = 0;
+        int32_t           error           = 0;
+        glusterfs_event_t old_event       = GF_EVENT_MAXVAL;
+        dict_t            *input          = NULL;
+        dict_t            *output         = NULL;
+        gf_boolean_t      propagate       = _gf_true;
+        gf_boolean_t      needs_shd_check = _gf_false;
+        int32_t           orig_event      = event;
+        uintptr_t         mask            = 0;
 
         gf_msg_trace (this->name, 0, "NOTIFY(%d): %p, %p",
                 event, data, data2);
@@ -529,8 +541,6 @@ ec_notify (xlator_t *this, int32_t event, void *data, void *data2)
 
         for (idx = 0; idx < ec->nodes; idx++) {
                 if (ec->xl_list[idx] == data) {
-                        if (event == GF_EVENT_CHILD_UP)
-                                ec_selfheal_childup (ec, idx);
                         break;
                 }
         }
@@ -556,17 +566,27 @@ ec_notify (xlator_t *this, int32_t event, void *data, void *data2)
 
                 mask = 1ULL << idx;
                 if (event == GF_EVENT_CHILD_UP) {
-                    ec_set_up_state(ec, mask, mask);
+                        /* We need to trigger a selfheal if a brick changes
+                         * to UP state. */
+                        needs_shd_check = ec_set_up_state(ec, mask, mask);
                 } else if (event == GF_EVENT_CHILD_DOWN) {
-                    ec_set_up_state(ec, mask, 0);
+                        ec_set_up_state(ec, mask, 0);
                 }
 
                 event = ec_get_event_from_state (ec);
 
-                if (event == GF_EVENT_CHILD_UP && !ec->up) {
-                        ec_up (this, ec);
-                } else if (event == GF_EVENT_CHILD_DOWN && ec->up) {
-                        ec_down (this, ec);
+                if (event == GF_EVENT_CHILD_UP) {
+                        if (!ec->up) {
+                                ec_up (this, ec);
+                        }
+                } else {
+                        /* If the volume is not UP, it's irrelevant if one
+                         * brick has come up. We cannot heal anything. */
+                        needs_shd_check = _gf_false;
+
+                        if ((event == GF_EVENT_CHILD_DOWN) && ec->up) {
+                                ec_down (this, ec);
+                        }
                 }
 
                 if (event != GF_EVENT_MAXVAL) {
@@ -585,14 +605,13 @@ unlock:
 
 done:
         if (propagate) {
+                if (needs_shd_check && ec->shd.iamshd) {
+                        ec_launch_replace_heal (ec);
+                }
+
                 error = default_notify (this, event, data);
         }
 
-        if (ec->shd.iamshd &&
-            ec->xl_notify_count == ec->nodes &&
-            event == GF_EVENT_CHILD_UP) {
-                ec_launch_replace_heal (ec);
-        }
 out:
         return error;
 }

@@ -184,8 +184,19 @@ ec_shd_index_purge (xlator_t *subvol, inode_t *inode, char *name)
 int
 ec_shd_selfheal (struct subvol_healer *healer, int child, loc_t *loc)
 {
-        return syncop_getxattr (healer->this, loc, NULL, EC_XATTR_HEAL, NULL,
-                                NULL);
+        int32_t ret;
+
+        ret = syncop_getxattr (healer->this, loc, NULL, EC_XATTR_HEAL, NULL,
+                               NULL);
+        if ((ret >= 0) && (loc->inode->ia_type == IA_IFDIR)) {
+                /* If we have just healed a directory, it's possible that
+                 * other index entries have appeared to be healed. We put a
+                 * mark so that we can check it later and restart a scan
+                 * without delay. */
+                healer->rerun = _gf_true;
+        }
+
+        return ret;
 }
 
 
@@ -472,11 +483,15 @@ ec_shd_index_healer_spawn (xlator_t *this, int subvol)
 }
 
 void
-ec_selfheal_childup (ec_t *ec, int child)
+ec_shd_index_healer_wake(ec_t *ec)
 {
-        if (!ec->shd.iamshd)
-                return;
-        ec_shd_index_healer_spawn (ec->xl, child);
+        int32_t i;
+
+        for (i = 0; i < ec->nodes; i++) {
+                if (((ec->xl_up >> i) & 1) != 0) {
+                        ec_shd_index_healer_spawn(ec->xl, i);
+                }
+        }
 }
 
 int
