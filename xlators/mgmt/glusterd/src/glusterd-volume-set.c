@@ -1752,6 +1752,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .voltype     = "performance/io-threads",
           .op_version  = 1
         },
+        { .key         = "performance.iot-watchdog-secs",
+          .voltype     = "performance/io-threads",
+          .option      = "watchdog-secs",
+          .op_version  = GD_OP_VERSION_4_1_0
+        },
 
         /* Other perf xlators' options */
         { .key        = "performance.cache-size",
