@@ -25,6 +25,7 @@
 #include "ec-combine.h"
 #include "ec-method.h"
 #include "ec-fops.h"
+#include "ec-heald.h"
 
 #define alloca0(size) ({void *__ptr; __ptr = alloca(size); memset(__ptr, 0, size); __ptr; })
 #define EC_COUNT(array, max) ({int __i; int __res = 0; for (__i = 0; __i < max; __i++) if (array[__i]) __res++; __res; })
@@ -2768,6 +2769,14 @@ ec_replace_heal (ec_t *ec, inode_t *inode)
         if (ret < 0)
                 gf_msg_debug (ec->xl->name, 0,
                         "Heal failed for replace brick ret = %d", ret);
+
+        /* Once the root inode has been checked, it might have triggered a
+         * self-heal on it after a replace brick command or for some other
+         * reason. It can also happen that the volume already had damaged
+         * files in the index, even if the heal on the root directory failed.
+         * In both cases we need to wake all index healers to continue
+         * healing remaining entries that are marked as dirty. */
+        ec_shd_index_healer_wake(ec);
 
         loc_wipe (&loc);
         return ret;
