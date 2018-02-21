@@ -74,6 +74,11 @@ struct iot_conf {
         gf_boolean_t         down; /*PARENT_DOWN event is notified*/
         gf_boolean_t         mutex_inited;
         gf_boolean_t         cond_inited;
+
+        int32_t             watchdog_secs;
+        gf_boolean_t        watchdog_running;
+        pthread_t           watchdog_thread;
+        gf_boolean_t        queue_marked[GF_FOP_PRI_MAX];
 };
 
 typedef struct iot_conf iot_conf_t;
