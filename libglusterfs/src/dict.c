@@ -2022,6 +2022,196 @@ err:
         return ret;
 }
 
+/*
+ * dict_check_flag can be used to check a one bit flag in an array of flags
+ * The flag argument indicates the bit position (within the array of bits).
+ * Currently limited to max of 256 flags for a key.
+ * return value,
+ * 1 : flag is set
+ * 0 : flag is not set
+ * <0: Error
+ */
+int
+dict_check_flag (dict_t *this, char *key, int flag)
+{
+        data_t  *data = NULL;
+        int     ret = -ENOENT;
+
+        ret = dict_get_with_ref (this, key, &data);
+        if (ret < 0) {
+                return ret;
+        }
+
+        if (BIT_VALUE((unsigned char *)(data->data), flag))
+                ret = 1;
+        else
+                ret = 0;
+
+        data_unref(data);
+        return ret;
+}
+
+/*
+ * _dict_modify_flag can be used to set/clear a bit flag in an array of flags
+ * flag: indicates the bit position. limited to max of DICT_MAX_FLAGS.
+ * op: Indicates operation DICT_FLAG_SET / DICT_FLAG_CLEAR
+ */
+static int
+_dict_modify_flag (dict_t *this, char *key, int flag, int op)
+{
+        data_t          *data           = NULL;
+        int             ret             = 0;
+        uint32_t        hash            = 0;
+        data_pair_t     *pair           = NULL;
+        char            *ptr            = NULL;
+        int             hashval         = 0;
+
+        if (!this || !key) {
+                gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG,
+                                  "dict OR key (%s) is NULL", key);
+                ret = -EINVAL;
+                goto err;
+        }
+
+        /*
+         * Using a size of 32 bytes to support max of 256
+         * flags in a single key. This should be suffcient.
+         */
+        GF_ASSERT(flag >= 0 && flag < DICT_MAX_FLAGS);
+
+        hash = SuperFastHash (key, strlen (key));
+        LOCK (&this->lock);
+        {
+                pair = dict_lookup_common (this, key, hash);
+
+                if (pair) {
+                        data = pair->value;
+                        if (op == DICT_FLAG_SET)
+                                BIT_SET((unsigned char *)(data->data), flag);
+                        else
+                                BIT_CLEAR((unsigned char *)(data->data), flag);
+                        ret = 0;
+                } else {
+                        ptr = GF_CALLOC(1, DICT_MAX_FLAGS / 8,
+                                        gf_common_mt_char);
+                        if (!ptr) {
+                                gf_msg("dict", GF_LOG_ERROR, ENOMEM,
+                                       LG_MSG_NO_MEMORY,
+                                       "unable to allocate flag bit array");
+                                ret = -ENOMEM;
+                                goto err;
+                        }
+
+                        data = data_from_dynptr(ptr, DICT_MAX_FLAGS / 8);
+
+                        if (!data) {
+                                gf_msg("dict", GF_LOG_ERROR, ENOMEM,
+                                       LG_MSG_NO_MEMORY,
+                                       "unable to allocate data");
+                                GF_FREE(ptr);
+                                ret = -ENOMEM;
+                                goto err;
+                        }
+
+                        if (op == DICT_FLAG_SET)
+                                BIT_SET((unsigned char *)(data->data), flag);
+                        else
+                                BIT_CLEAR((unsigned char *)(data->data), flag);
+
+                        if (this->free_pair_in_use) {
+                                pair = mem_get0 (THIS->ctx->dict_pair_pool);
+                                if (!pair) {
+                                        gf_msg("dict", GF_LOG_ERROR, ENOMEM,
+                                               LG_MSG_NO_MEMORY,
+                                               "unable to allocate dict pair");
+                                        ret = -ENOMEM;
+                                        goto err;
+                                }
+                        } else {
+                                pair = &this->free_pair;
+                                this->free_pair_in_use = _gf_true;
+                        }
+
+                        pair->key = (char *)GF_CALLOC(1, strlen (key) + 1,
+                                                      gf_common_mt_char);
+                        if (!pair->key) {
+                                gf_msg("dict", GF_LOG_ERROR, ENOMEM,
+                                       LG_MSG_NO_MEMORY,
+                                       "unable to allocate dict pair");
+                                ret = -ENOMEM;
+                                goto err;
+                        }
+                        strcpy (pair->key, key);
+                        pair->key_hash = hash;
+                        pair->value = data_ref (data);
+
+                        hashval = hash % this->hash_size;
+                        pair->hash_next = this->members[hashval];
+                        this->members[hashval] = pair;
+
+                        pair->next = this->members_list;
+                        pair->prev = NULL;
+                        if (this->members_list)
+                                this->members_list->prev = pair;
+                        this->members_list = pair;
+                        this->count++;
+
+
+                        if (this->max_count < this->count)
+                                this->max_count = this->count;
+                }
+        }
+
+        UNLOCK (&this->lock);
+        return 0;
+
+err:
+        UNLOCK (&this->lock);
+        if (pair) {
+                if (pair->key)
+                        free(pair->key);
+
+                if (pair == &this->free_pair) {
+                        this->free_pair_in_use = _gf_false;
+                } else {
+                        mem_put (pair);
+                }
+        }
+
+        if (data)
+                data_destroy(data);
+
+
+        gf_msg("dict", GF_LOG_ERROR, EINVAL,
+               LG_MSG_DICT_SET_FAILED,
+               "unable to set key (%s) in dict ", key);
+
+        return ret;
+}
+
+/*
+ * Todo:
+ * Add below primitives as needed:
+ * dict_check_flags(this, key, flag...): variadic function to check
+ *                                       multiple flags at a time.
+ * dict_set_flags(this, key, flag...): set multiple flags
+ * dict_clear_flags(this, key, flag...): reset multiple flags
+ */
+
+int
+dict_set_flag (dict_t *this, char *key, int flag)
+{
+        return _dict_modify_flag (this, key, flag, DICT_FLAG_SET);
+}
+
+int
+dict_clear_flag (dict_t *this, char *key, int flag)
+{
+        return _dict_modify_flag (this, key, flag, DICT_FLAG_CLEAR);
+}
+
+
 int
 dict_get_double (dict_t *this, char *key, double *val)
 {

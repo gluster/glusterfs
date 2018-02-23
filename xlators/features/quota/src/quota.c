@@ -1591,6 +1591,28 @@ out:
         return ret;
 }
 
+/*
+ * return _gf_true if enforcement is needed and _gf_false otherwise
+ */
+gf_boolean_t
+should_quota_enforce (xlator_t *this, dict_t *dict, glusterfs_fop_t fop)
+{
+        int               ret = 0;
+
+        ret = dict_check_flag(dict, GF_INTERNAL_CTX_KEY, GF_DHT_HEAL_DIR);
+
+        if (fop == GF_FOP_MKDIR && ret == DICT_FLAG_SET) {
+                return _gf_false;
+        } else if (ret == -ENOENT) {
+                gf_msg (this->name, GF_LOG_DEBUG, EINVAL,
+			Q_MSG_INTERNAL_FOP_KEY_MISSING,
+                        "No internal fop context present");
+                goto out;
+        }
+out:
+        return _gf_true;
+}
+
 int32_t
 quota_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, inode_t *inode,
@@ -1965,7 +1987,6 @@ unwind:
         return 0;
 }
 
-
 int32_t
 quota_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
              mode_t umask, dict_t *xdata)
@@ -1976,8 +1997,14 @@ quota_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         call_stub_t   *stub  = NULL;
 
         priv = this->private;
-
         WIND_IF_QUOTAOFF (priv->is_quota_on, off);
+
+        if (!should_quota_enforce(this, xdata, GF_FOP_MKDIR)) {
+                gf_msg (this->name, GF_LOG_DEBUG, 0,
+			Q_MSG_ENFORCEMENT_SKIPPED,
+                        "Enforcement has been skipped(internal fop).");
+                goto off;
+        }
 
         local = quota_local_new ();
         if (local == NULL) {

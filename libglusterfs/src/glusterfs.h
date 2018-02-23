@@ -173,6 +173,33 @@
 #define GLUSTERFS_VERSION_XCHG_KEY     "glusterfs.version.xchg"
 
 #define GLUSTERFS_INTERNAL_FOP_KEY  "glusterfs-internal-fop"
+
+/* GlusterFS Internal FOP Indicator flags
+ * (To pass information on the context in which a paritcular
+ *  fop is performed between translators)
+ * The presence of a particular flag must be treated as an
+ * indicator of the context, however the flag is added only in
+ * a scenario where there is a need for such context across translators.
+ * So it cannot be an absolute information on context.
+ */
+#define GF_INTERNAL_CTX_KEY  "glusterfs.internal-ctx"
+
+/*
+ * Always append entries to end of the enum, do not delete entries.
+ * Currently dict_set_flag allows to set upto 256 flag, if the enum
+ * needs to grow beyond this dict_set_flag has to be changed accordingly
+ */
+enum gf_internal_fop_indicator {
+        GF_DHT_HEAL_DIR       /* Index 0 in bit array*/
+};
+
+/* Todo:
+ * Add GF_FOP_LINK_FILE         0x2ULL
+ * address GLUSTERFS_MARKER_DONT_ACCOUNT_KEY and
+ * GLUSTERFS_INTERNAL_FOP_KEY with this flag
+ */
+
+
 #define DHT_CHANGELOG_RENAME_OP_KEY   "changelog.rename-op"
 
 #define ZR_FILE_CONTENT_STR     "glusterfs.file."
