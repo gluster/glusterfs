@@ -411,6 +411,9 @@ dict_set_static_ptr
 dict_set_str
 dict_set_uint32
 dict_set_uint64
+dict_set_flag
+dict_clear_flag
+dict_check_flag
 dict_unref
 dict_unserialize
 drop_token

@@ -1411,10 +1411,25 @@ dht_selfheal_dir_mkdir_lookup_done (call_frame_t *frame, xlator_t *this)
         dht_dir_set_heal_xattr (this, local, dict, local->xattr, NULL,
                                 NULL);
 
-        if (!dict)
+        if (!dict) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_DICT_SET_FAILED,
                         "dict is NULL, need to make sure gfids are same");
+                dict = dict_new ();
+                if (!dict)
+                        return -1;
+        }
+        ret = dict_set_flag (dict, GF_INTERNAL_CTX_KEY, GF_DHT_HEAL_DIR);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        DHT_MSG_DICT_SET_FAILED,
+                        "Failed to set dictionary value for"
+                        " key = %s at path: %s",
+                        GF_INTERNAL_CTX_KEY, loc->path);
+                /* We can still continue. As heal can still happen
+                 * unless quota limits have reached for the dir.
+                 */
+        }
 
         cnt = layout->cnt;
         for (i = 0; i < cnt; i++) {

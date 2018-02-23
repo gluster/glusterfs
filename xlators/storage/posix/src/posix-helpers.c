@@ -1208,6 +1208,10 @@ posix_handle_pair (xlator_t *this, const char *real_path,
         } else if (!strncmp(key, POSIX_ACL_ACCESS_XATTR, strlen(key))
                    && stbuf && IS_DHT_LINKFILE_MODE (stbuf)) {
                 goto out;
+        } else if (!strncmp(key, GF_INTERNAL_CTX_KEY, strlen(key))) {
+                /* ignore this key value pair */
+                ret = 0;
+                goto out;
         } else {
                 sys_ret = sys_lsetxattr (real_path, key, value->data,
                                          value->len, flags);
