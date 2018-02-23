@@ -725,6 +725,10 @@ typedef struct _afr_local {
                         gf_seek_what_t what;
                 } seek;
 
+                struct {
+                        int32_t datasync;
+                } fsync;
+
         } cont;
 
         struct {

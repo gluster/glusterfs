@@ -2542,3 +2542,111 @@ out:
 	AFR_STACK_UNWIND (fxattrop, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
+
+
+int
+afr_fsync_unwind (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t *local = NULL;
+        call_frame_t   *main_frame = NULL;
+
+        local = frame->local;
+
+        main_frame = afr_transaction_detach_fop_frame (frame);
+        if (!main_frame)
+                return 0;
+
+        AFR_STACK_UNWIND (fsync, main_frame, local->op_ret, local->op_errno,
+                          &local->cont.inode_wfop.prebuf,
+                          &local->cont.inode_wfop.postbuf, local->xdata_rsp);
+
+        return 0;
+}
+
+
+int
+afr_fsync_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                    struct iatt *postbuf, dict_t *xdata)
+{
+        return __afr_inode_write_cbk (frame, cookie, this, op_ret, op_errno,
+                                      prebuf, postbuf, NULL, xdata);
+}
+
+
+int
+afr_fsync_wind (call_frame_t *frame, xlator_t *this, int subvol)
+{
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+
+        local = frame->local;
+        priv = this->private;
+
+        STACK_WIND_COOKIE (frame, afr_fsync_wind_cbk, (void *)(long) subvol,
+                           priv->children[subvol],
+                           priv->children[subvol]->fops->fsync,
+                           local->fd, local->cont.fsync.datasync,
+                           local->xdata_req);
+        return 0;
+}
+
+int
+afr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
+	   dict_t *xdata)
+{
+        afr_local_t *local = NULL;
+        call_frame_t *transaction_frame = NULL;
+        int ret = -1;
+        int32_t op_errno = ENOMEM;
+
+        transaction_frame = copy_frame (frame);
+        if (!transaction_frame)
+                goto out;
+
+	local = AFR_FRAME_INIT (transaction_frame, op_errno);
+	if (!local)
+		goto out;
+
+        if (xdata)
+                local->xdata_req = dict_copy_with_ref (xdata, NULL);
+        else
+                local->xdata_req = dict_new ();
+
+        if (!local->xdata_req)
+                goto out;
+
+        local->fd = fd_ref (fd);
+        ret = afr_set_inode_local (this, local, fd->inode);
+        if (ret)
+                goto out;
+
+        local->op = GF_FOP_FSYNC;
+        local->cont.fsync.datasync = datasync;
+
+	if (afr_fd_has_witnessed_unstable_write (this, fd)) {
+		/* don't care. we only wanted to CLEAR the bit */
+	}
+
+        local->transaction.wind   = afr_fsync_wind;
+        local->transaction.fop    = __afr_txn_write_fop;
+        local->transaction.done   = __afr_txn_write_done;
+        local->transaction.unwind = afr_fsync_unwind;
+
+        local->transaction.main_frame = frame;
+
+        ret = afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
+        if (ret < 0) {
+                op_errno = -ret;
+                goto out;
+        }
+
+	return 0;
+out:
+	if (transaction_frame)
+		AFR_STACK_DESTROY (transaction_frame);
+
+	AFR_STACK_UNWIND (fsync, frame, -1, op_errno, NULL, NULL, NULL);
+
+        return 0;
+}
