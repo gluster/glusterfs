@@ -1991,7 +1991,7 @@ out:
 int32_t
 cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                                    dict_t **options, int *question,
-                                   int *brick_count)
+                                   int *brick_count, int32_t *comm)
 {
         dict_t  *dict = NULL;
         char    *volname = NULL;
@@ -2060,10 +2060,10 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                 wordcount--;
                 if (!strcmp ("start", w)) {
                         command = GF_OP_CMD_START;
-                } else if (!strcmp ("commit", w)) {
-                        command = GF_OP_CMD_COMMIT;
                         if (question)
                                 *question = 1;
+                } else if (!strcmp ("commit", w)) {
+                        command = GF_OP_CMD_COMMIT;
                 } else if (!strcmp ("stop", w)) {
                         command = GF_OP_CMD_STOP;
                 } else if (!strcmp ("status", w)) {
@@ -2155,6 +2155,8 @@ out:
 
         GF_FREE (tmp_brick);
         GF_FREE (tmp_brick1);
+
+        *comm = command;
 
         return ret;
 }
