@@ -279,7 +279,7 @@ cli_cmd_volume_old_tier_parse (const char **words, int wordcount,
 int32_t
 cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                                    dict_t **options, int *question,
-                                   int *brick_count);
+                                   int *brick_count, int32_t *command);
 
 int32_t
 cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,

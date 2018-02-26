@@ -2023,20 +2023,37 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
         char                    *event_str = NULL;
         int                     event_ret = -1;
 #endif
-        const char *question = "Removing brick(s) can result in data loss. "
-                               "Do you want to Continue?";
+        int32_t                 command = GF_OP_CMD_NONE;
+        char                    *question = NULL;
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
 
         ret = cli_cmd_volume_remove_brick_parse (words, wordcount, &options,
-                                                 &need_question, &brick_count);
+                                                 &need_question, &brick_count,
+                                                 &command);
         if (ret) {
                 cli_usage_out (word->pattern);
                 parse_error = 1;
                 goto out;
         }
+
+        if (command == GF_OP_CMD_COMMIT_FORCE) {
+                question = "Remove-brick force will not migrate files from the "
+                           "removed bricks, so they will no longer be available"
+                           " on the volume.\nDo you want to continue?";
+        } else if (command == GF_OP_CMD_START) {
+                question = "Running remove-brick with cluster.force-migration"
+                           " enabled can result in data corruption. It is safer"
+                           " to disable this option so that files that receive "
+                           "writes during migration are not migrated.\nFiles "
+                           "that are not migrated can then be manually copied "
+                           "after the remove-brick commit operation.\nDo you "
+                           "want to continue with your current "
+                           "cluster.force-migration settings?";
+        }
+
         if (!brick_count) {
                 cli_err ("No bricks specified");
                 cli_usage_out (word->pattern);
@@ -2065,7 +2082,6 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
         }
 
         if (!(state->mode & GLUSTER_MODE_SCRIPT) && need_question) {
-                /* we need to ask question only in case of 'commit or force' */
                 answer = cli_cmd_get_confirmation (state, question);
                 if (GF_ANSWER_NO == answer) {
                         ret = 0;
