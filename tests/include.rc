@@ -100,6 +100,24 @@ CLI_NO_FORCE="gluster --mode=script";
 # root partition is ignored while running the command in a "no force" mode
 CLI_IGNORE_PARTITION="gluster --mode=script --wignore-partition"
 
+function wait_delay() {
+        local delay="$1"
+        local interval="$2"
+        shift 2
+        local deadline="$(($(date +%s%N) + ${delay}000000000))"
+
+        $*
+        while [[ $? -ne 0 ]]; do
+                if [[ $(date +%s%N) -ge ${deadline} ]]; then
+                        return 1
+                fi
+                sleep ${interval}
+                $*
+        done
+
+        return 0
+}
+
 _GFS () {
 	glusterfs "$@"
 	local mount_ret=$?
@@ -463,6 +481,68 @@ stat -c %s /dev/null > /dev/null 2>&1 || {
   }
 }
 
+function signal_pids() {
+        local sig="$1"
+        shift
+        local pids=($*)
+
+        if [[ ${#pids[@]} -gt 0 ]]; then
+                kill -${sig} ${pids[@]} 2>/dev/null || true
+        fi
+}
+
+function check_pids() {
+        local pids=($*)
+        local tmp=()
+        local pid
+
+        for pid in "${pids[@]}"; do
+                kill -0 "${pid}" 2>/dev/null && tmp+=(${pid})
+        done
+
+        echo "${tmp[@]}"
+}
+
+function pids_alive() {
+        local pids=($*)
+
+        if [[ "$(check_pids ${pids[@]})" != "" ]]; then
+                return 1;
+        fi
+
+        return 0
+}
+
+function terminate_pids() {
+        local pids=($*)
+
+        signal_pids TERM ${pids[@]}
+        wait_delay ${PROCESS_DOWN_TIMEOUT} 0.1 pids_alive ${pids[@]}
+        if [[ $? -ne 0 ]]; then
+                pids=($(check_pids ${pids[@]}))
+                signal_pids KILL ${pids[@]}
+                wait_delay 1 0.1 pids_alive ${pids[@]}
+                if [[ $? -ne 0 ]]; then
+                        return 2
+                fi
+
+                return 1
+        fi
+
+        return 0
+}
+
+function process_pids() {
+        local proc
+        local pids=()
+
+        for proc in $*; do
+                pids+=($(pgrep ${proc}))
+        done
+
+        echo "${pids[@]}"
+}
+
 function cleanup()
 {
 
@@ -500,8 +580,9 @@ function cleanup()
         umount $flag /tmp/mnt* 2>/dev/null
 
 
-        # Send SIGKILL to all gluster processes and rpc.statd that are still running
-        killall -9 glusterfs glusterfsd glusterd rpc.statd 2>/dev/null || true;
+        # Send SIGTERM to all gluster processes and rpc.statd that are still running
+        terminate_pids $(process_pids glusterfs glusterfsd glusterd rpc.statd)
+
         test x"$OSTYPE" = x"NetBSD" && pkill -9 perfused || true
 
         # unregister nfs and related services from portmapper/rpcbind
@@ -622,7 +703,8 @@ function cleanup()
 	# above to fail, promoting that into a failure of the whole test (and
 	# thus of an entire regression-test run) seems a bit excessive.  Make
 	# sure we return good status anyway.
-	return 0
+
+        return 0
 }
 
 function force_terminate () {
