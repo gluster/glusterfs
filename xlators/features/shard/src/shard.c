@@ -3101,6 +3101,7 @@ shard_readv_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         struct iovec       vec           = {0,};
         shard_local_t     *local         = NULL;
         fd_t              *anon_fd       = cookie;
+        shard_inode_ctx_t *ctx           = NULL;
 
         local = frame->local;
 
@@ -3119,7 +3120,8 @@ shard_readv_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (local->op_ret >= 0)
                 local->op_ret += op_ret;
 
-        fd_ctx_get (anon_fd, this, &block_num);
+        shard_inode_ctx_get (anon_fd->inode, this, &ctx);
+        block_num = ctx->block_num;
 
         if (block_num == local->first_block) {
                 address = local->iobuf->ptr;
@@ -3172,7 +3174,6 @@ int
 shard_readv_do (call_frame_t *frame, xlator_t *this)
 {
         int                i                    = 0;
-        int                ret                  = 0;
         int                call_count           = 0;
         int                last_block           = 0;
         int                cur_block            = 0;
@@ -3227,22 +3228,6 @@ shard_readv_do (call_frame_t *frame, xlator_t *this)
                                                     NULL, NULL, NULL);
                                 goto next;
                         }
-                }
-
-                ret = fd_ctx_set (anon_fd, this, cur_block);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                SHARD_MSG_FD_CTX_SET_FAILED,
-                                "Failed to set fd ctx for block %d,  gfid=%s",
-                                cur_block,
-                                uuid_utoa (local->inode_list[i]->gfid));
-                        local->op_ret = -1;
-                        local->op_errno = ENOMEM;
-                        wind_failed = _gf_true;
-                        shard_readv_do_cbk (frame, (void *) (long) anon_fd,
-                                            this, -1, ENOMEM, NULL, 0, NULL,
-                                            NULL, NULL);
-                        goto next;
                 }
 
                 STACK_WIND_COOKIE (frame, shard_readv_do_cbk, anon_fd,
