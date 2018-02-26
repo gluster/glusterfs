@@ -96,7 +96,7 @@ function kill_node() {
 
     h="H$index";
 
-    kill -9 $(ps -ef | grep gluster | grep ${!h} | awk '{print $2}');
+    terminate_pids $(ps -ef | grep gluster | grep ${!h} | awk '{print $2}')
     find $B0/$index/glusterd/vols -name '*.pid' | xargs rm -f
 }
 
