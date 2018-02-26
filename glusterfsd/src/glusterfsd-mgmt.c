@@ -33,6 +33,7 @@
 #include "xlator.h"
 #include "syscall.h"
 #include "monitoring.h"
+#include "server.h"
 
 static gf_boolean_t is_mgmt_rpc_reconnect = _gf_false;
 int need_emancipate = 0;
@@ -185,12 +186,15 @@ glusterfs_terminate_response_send (rpcsvc_request_t *req, int op_ret)
 }
 
 void
-glusterfs_autoscale_threads (glusterfs_ctx_t *ctx, int incr)
+glusterfs_autoscale_threads (glusterfs_ctx_t *ctx, int incr, xlator_t *this)
 {
         struct event_pool       *pool           = ctx->event_pool;
+        server_conf_t           *conf           = this->private;
+        int                      thread_count   = pool->eventthreadcount;
 
         pool->auto_thread_count += incr;
-        (void) event_reconfigure_threads (pool, pool->eventthreadcount+incr);
+        (void) event_reconfigure_threads (pool, thread_count+incr);
+        rpcsvc_ownthread_reconf (conf->rpc, pool->eventthreadcount);
 }
 
 int
@@ -842,6 +846,7 @@ glusterfs_handle_attach (rpcsvc_request_t *req)
         xlator_t                *nextchild      = NULL;
         glusterfs_graph_t       *newgraph       = NULL;
         glusterfs_ctx_t         *ctx            = NULL;
+        xlator_t                *protocol_server = NULL;
 
         GF_ASSERT (req);
         this = THIS;
@@ -879,7 +884,12 @@ glusterfs_handle_attach (rpcsvc_request_t *req)
                                                 nextchild->name);
                                         goto out;
                                 }
-                                glusterfs_autoscale_threads (this->ctx, 1);
+                                /* we need a protocol/server xlator as
+                                 * nextchild
+                                 */
+                                protocol_server = this->ctx->active->first;
+                                glusterfs_autoscale_threads (this->ctx, 1,
+                                                             protocol_server);
                         }
                 } else {
                         gf_log (this->name, GF_LOG_WARNING,
