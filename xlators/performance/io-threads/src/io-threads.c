@@ -222,8 +222,15 @@ iot_worker (void *data)
                 }
                 pthread_mutex_unlock (&conf->mutex);
 
-                if (stub) /* guard against spurious wakeups */
-                        call_resume (stub);
+                if (stub) { /* guard against spurious wakeups */
+                        if (stub->poison) {
+                                gf_log (this->name, GF_LOG_INFO,
+                                        "Dropping poisoned request %p.", stub);
+                                call_stub_destroy (stub);
+                        } else {
+                                call_resume (stub);
+                        }
+                }
                 stub = NULL;
 
                 if (bye)
@@ -1322,6 +1329,33 @@ iot_client_destroy (xlator_t *this, client_t *client)
                 GF_FREE (tmp);
         }
 
+	return 0;
+}
+
+static int
+iot_disconnect_cbk (xlator_t *this, client_t *client)
+{
+        int			i;
+        call_stub_t             *curr;
+        call_stub_t             *next;
+        iot_conf_t              *conf = this->private;
+        iot_client_ctx_t        *ctx;
+
+        pthread_mutex_lock (&conf->mutex);
+        for (i = 0; i < GF_FOP_PRI_MAX; i++) {
+                ctx = &conf->no_client[i];
+                list_for_each_entry_safe (curr, next, &ctx->reqs, list) {
+                        if (curr->frame->root->client != client) {
+                                continue;
+                        }
+                        gf_log (this->name, GF_LOG_INFO,
+                                "poisoning %s fop at %p for client %s",
+                                gf_fop_list[curr->fop], curr,
+                                client->client_uid);
+                        curr->poison = _gf_true;
+                }
+        }
+        pthread_mutex_unlock (&conf->mutex);
         return 0;
 }
 
@@ -1383,6 +1417,7 @@ struct xlator_fops fops = {
 
 struct xlator_cbks cbks = {
         .client_destroy = iot_client_destroy,
+        .client_disconnect = iot_disconnect_cbk,
 };
 
 struct volume_options options[] = {
