@@ -641,7 +641,6 @@ shard_common_resolve_shards (call_frame_t *frame, xlator_t *this,
                         gf_msg_debug (this->name, 0, "Shard %d already "
                                 "present. gfid=%s. Saving inode for future.",
                                 shard_idx_iter, uuid_utoa(inode->gfid));
-                        shard_idx_iter++;
                         local->inode_list[i] = inode;
                         /* Let the ref on the inodes that are already present
                          * in inode table still be held so that they don't get
@@ -655,6 +654,7 @@ shard_common_resolve_shards (call_frame_t *frame, xlator_t *this,
                                                                 shard_idx_iter);
                         }
                         UNLOCK(&priv->lock);
+                        shard_idx_iter++;
 
                          continue;
                 } else {
