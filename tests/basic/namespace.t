@@ -10,12 +10,35 @@ NAMESPACE_HASH=28153613
 NAMESPACE2_HASH=3926991974
 NAMESPACE3_HASH=3493960770
 
+function check_brick_multiplex() {
+        $CLI volume info|grep "cluster.brick-multiplex" &>/dev/null
+        rt=$?
+        cnt="$(ls /var/log/glusterfs/bricks|wc -l)"
+
+        if [ $rt -eq 0 ]; then
+           local ret=$($CLI volume info|grep "cluster.brick-multiplex"|cut -d" " -f2)
+
+           if [ $ret = "on" ] || [ $cnt -eq 1 ]; then
+              echo "Y"
+           else
+              echo "N"
+           fi
+        else
+           echo "N"
+        fi
+}
+
 function check_samples() {
         local FOP_TYPE=$1
         local NS_HASH=$2
         local FILE=$3
         local BRICK=$4
         local GFID="$(getfattr -n trusted.gfid -e text --only-values $B0/$BRICK$FILE | xxd -p)"
+        local val="$(check_brick_multiplex)"
+
+        if [ $val = "Y" ]; then
+           BRICK="${V0}0"
+        fi
 
         grep -i "ns_$OP" /var/log/glusterfs/bricks/d-backends-$BRICK.log |
              grep -- $NS_HASH | sed 's/\-//g' | grep -- $GFID
