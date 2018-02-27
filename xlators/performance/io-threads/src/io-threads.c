@@ -1154,8 +1154,12 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("enable-least-priority", conf->least_priority,
                           options, bool, out);
 
+        GF_OPTION_RECONF ("cleanup-disconnected-reqs",
+                          conf->cleanup_disconnected_reqs, options, bool, out);
+
         GF_OPTION_RECONF ("watchdog-secs", conf->watchdog_secs, options,
                           int32, out);
+
         if (conf->watchdog_secs > 0) {
                 start_iot_watchdog (this);
         } else {
@@ -1232,8 +1236,12 @@ init (xlator_t *this)
                         conf->ac_iot_limit[GF_FOP_PRI_LEAST], int32, out);
 
         GF_OPTION_INIT ("idle-time", conf->idle_time, int32, out);
+
         GF_OPTION_INIT ("enable-least-priority", conf->least_priority,
                         bool, out);
+
+        GF_OPTION_INIT ("cleanup-disconnected-reqs",
+                        conf->cleanup_disconnected_reqs, bool, out);
 
         conf->this = this;
 
@@ -1341,6 +1349,10 @@ iot_disconnect_cbk (xlator_t *this, client_t *client)
         iot_conf_t              *conf = this->private;
         iot_client_ctx_t        *ctx;
 
+        if (!conf || !conf->cleanup_disconnected_reqs) {
+                goto out;
+        }
+
         pthread_mutex_lock (&conf->mutex);
         for (i = 0; i < GF_FOP_PRI_MAX; i++) {
                 ctx = &conf->no_client[i];
@@ -1356,6 +1368,8 @@ iot_disconnect_cbk (xlator_t *this, client_t *client)
                 }
         }
         pthread_mutex_unlock (&conf->mutex);
+
+out:
         return 0;
 }
 
@@ -1505,6 +1519,14 @@ struct volume_options options[] = {
           .description = "Number of seconds a queue must be stalled before "
                          "starting an 'emergency' thread."
         },
-	{ .key  = {NULL},
+        { .key  = {"cleanup-disconnected-reqs"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .op_version = {GD_OP_VERSION_4_1_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+          .tags = {"io-threads"},
+          .description = "'Poison' queued requests when a client disconnects"
+        },
+        { .key  = {NULL},
         },
 };

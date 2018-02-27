@@ -1757,6 +1757,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "watchdog-secs",
           .op_version  = GD_OP_VERSION_4_1_0
         },
+        { .key         = "performance.iot-cleanup-disconnected-reqs",
+          .voltype     = "performance/io-threads",
+          .option      = "cleanup-disconnected-reqs",
+          .op_version  = GD_OP_VERSION_4_1_0
+        },
 
         /* Other perf xlators' options */
         { .key        = "performance.cache-size",
