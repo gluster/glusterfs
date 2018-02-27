@@ -3033,7 +3033,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .flags      = OPT_FLAG_CLIENT_OPT
         },
         { .key         = "ganesha.enable",
-          .voltype     = "features/ganesha",
+          .voltype     = "mgmt/glusterd",
           .value       = "off",
           .option      = "ganesha.enable",
           .op_version  = GD_OP_VERSION_3_7_0,
