@@ -276,9 +276,9 @@ afr_compute_pre_op_sources (call_frame_t *frame, xlator_t *this)
         matrix = ALLOC_MATRIX (priv->child_count, int);
 
         for (i = 0; i < priv->child_count; i++) {
-                if (!local->transaction.pre_op_xdata[i])
+                if (!local->transaction.changelog_xdata[i])
                         continue;
-                xdata = local->transaction.pre_op_xdata[i];
+                xdata = local->transaction.changelog_xdata[i];
                 afr_selfheal_fill_matrix (this, matrix, i, idx, xdata);
         }
 
@@ -295,13 +295,6 @@ afr_compute_pre_op_sources (call_frame_t *frame, xlator_t *this)
                 for (j = 0; j < priv->child_count; j++)
                         if (matrix[i][j] != 0)
                                 local->transaction.pre_op_sources[j] = 0;
-
-        /*We don't need the xattrs any more. */
-        for (i = 0; i < priv->child_count; i++)
-                if (local->transaction.pre_op_xdata[i]) {
-                        dict_unref (local->transaction.pre_op_xdata[i]);
-                        local->transaction.pre_op_xdata[i] = NULL;
-                }
 }
 
 gf_boolean_t
@@ -1173,7 +1166,7 @@ afr_changelog_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if (xattr)
-                local->transaction.pre_op_xdata[child_index] = dict_ref (xattr);
+                local->transaction.changelog_xdata[child_index] = dict_ref (xattr);
 
         call_count = afr_frame_return (frame);
 
@@ -1602,6 +1595,13 @@ afr_changelog_do (call_frame_t *frame, xlator_t *this, dict_t *xattr,
 
 	local = frame->local;
 	priv = this->private;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->transaction.changelog_xdata[i]) {
+                        dict_unref (local->transaction.changelog_xdata[i]);
+                        local->transaction.changelog_xdata[i] = NULL;
+                }
+        }
 
         ret = afr_changelog_prepare (this, frame, &call_count, changelog_resume,
                                      op, &xdata, &newloc_xdata);
