@@ -1033,7 +1033,7 @@ afr_readables_fill (call_frame_t *frame, xlator_t *this, inode_t *inode,
                         xdata = replies[i].xdata;
                         ia_type = replies[i].poststat.ia_type;
                 } else {/* pre-op xattrop */
-                        xdata = local->transaction.pre_op_xdata[i];
+                        xdata = local->transaction.changelog_xdata[i];
                         ia_type = inode->ia_type;
                 }
 
@@ -1764,13 +1764,13 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
         GF_FREE (local->transaction.pre_op);
 
         GF_FREE (local->transaction.pre_op_sources);
-        if (local->transaction.pre_op_xdata) {
+        if (local->transaction.changelog_xdata) {
                 for (i = 0; i < priv->child_count; i++) {
-                        if (!local->transaction.pre_op_xdata[i])
+                        if (!local->transaction.changelog_xdata[i])
                                 continue;
-                        dict_unref (local->transaction.pre_op_xdata[i]);
+                        dict_unref (local->transaction.changelog_xdata[i]);
                 }
-                GF_FREE (local->transaction.pre_op_xdata);
+                GF_FREE (local->transaction.changelog_xdata);
         }
 
         GF_FREE (local->transaction.eager_lock);
@@ -5603,10 +5603,10 @@ afr_transaction_local_init (afr_local_t *local, xlator_t *this)
         if (!local->transaction.pre_op)
                 goto out;
 
-        local->transaction.pre_op_xdata =
-                GF_CALLOC (sizeof (*local->transaction.pre_op_xdata),
+        local->transaction.changelog_xdata =
+                GF_CALLOC (sizeof (*local->transaction.changelog_xdata),
                            priv->child_count, gf_afr_mt_dict_t);
-        if (!local->transaction.pre_op_xdata)
+        if (!local->transaction.changelog_xdata)
                 goto out;
 
         if (priv->arbiter_count == 1) {
