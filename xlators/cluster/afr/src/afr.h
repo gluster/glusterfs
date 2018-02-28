@@ -749,8 +749,8 @@ typedef struct _afr_local {
 
                 unsigned char   *pre_op;
 
-                /* For arbiter configuration only. */
-                dict_t **pre_op_xdata;
+                /* Changelog xattr dict for [f]xattrop*/
+                dict_t **changelog_xdata;
                 unsigned char *pre_op_sources;
 
 		/* @failed_subvols: subvolumes on which a pre-op or a
