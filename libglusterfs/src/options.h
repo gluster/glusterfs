@@ -82,6 +82,10 @@ typedef enum {
 
 
 /* Each translator should define this structure */
+/* XXX: This structure is in use by GD2, and SHOULD NOT be modified.
+ * If there is a need to add new members, add them to the end of the structure.
+ * If the struct must be modified, GD2 MUST be updated as well
+ */
 typedef struct volume_options {
         char                    *key[ZR_VOLUME_MAX_NUM_KEY];
         /* different key, same meaning */
@@ -98,7 +102,6 @@ typedef struct volume_options {
          * happen
          */
         opt_validate_type_t     validate;
-        opt_level_t             level;
 
         /* The op-version at which this option was introduced.
          * This is an array to support options that get backported to supported
@@ -131,6 +134,9 @@ typedef struct volume_options {
          */
         char *setkey;
 
+        /* The level at which the option is classified
+         */
+        opt_level_t             level;
 } volume_option_t;
 
 
