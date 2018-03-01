@@ -1052,6 +1052,10 @@ typedef struct {
 /* This would be the only structure which needs to be exported by
    the translators. For the backward compatibility, in 4.x series
    even the old exported fields will be supported */
+/* XXX: This struct is in use by GD2, and hence SHOULD NOT be modified.
+ * If the struct must be modified, see instructions at the comment with
+ * GD2MARKER below.
+ */
 typedef struct {
         /* op_version: will be used by volume generation logic to figure
            out whether to insert it in graph or no, based on cluster's
@@ -1074,6 +1078,13 @@ typedef struct {
         /* struct options: if the translator takes any 'options' from the
            volume file, then that should be defined here. optional. */
         volume_option_t *options;
+
+        /* XXX: GD2MARKER
+         * If a new member that needs to be visible to GD2 is introduced,
+         * add it above this comment.
+         * Any other new members need to be added below this comment, or at the
+         * end of the struct
+         */
 
         /* init(): mandatory method, will be called during the
            graph initialization */
