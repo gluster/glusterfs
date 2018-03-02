@@ -44,10 +44,6 @@ typedef int (*afr_inode_refresh_cbk_t) (call_frame_t *frame, xlator_t *this, int
 
 typedef int (*afr_changelog_resume_t) (call_frame_t *frame, xlator_t *this);
 
-typedef int (*afr_compound_cbk_t) (call_frame_t *frame, void *cookie,
-                                   xlator_t *this, int op_ret, int op_errno,
-                                   void *data, dict_t *xdata);
-
 #define AFR_COUNT(array,max) ({int __i; int __res = 0; for (__i = 0; __i < max; __i++) if (array[__i]) __res++; __res;})
 #define AFR_INTERSECT(dst,src1,src2,max) ({int __i; for (__i = 0; __i < max; __i++) dst[__i] = src1[__i] && src2[__i];})
 #define AFR_CMP(a1,a2,len) ({int __cmp = 0; int __i; for (__i = 0; __i < len; __i++) if (a1[__i] != a2[__i]) { __cmp = 1; break;} __cmp;})
@@ -180,7 +176,6 @@ typedef struct _afr_private {
         gf_boolean_t           full_lock;
         gf_boolean_t           esh_granular;
         gf_boolean_t           consistent_io;
-        gf_boolean_t           use_compound_fops;
 } afr_private_t;
 
 
@@ -843,9 +838,7 @@ typedef struct _afr_local {
         call_frame_t *heal_frame;
 
         gf_boolean_t need_full_crawl;
-        gf_boolean_t compound;
         afr_fop_lock_state_t fop_lock_state;
-        compound_args_t *c_args;
 
         gf_boolean_t is_read_txn;
         afr_inode_ctx_t *inode_ctx;
@@ -1252,12 +1245,6 @@ afr_writev_copy_outvars (call_frame_t *src_frame, call_frame_t *dst_frame);
 void
 afr_update_uninodelk (afr_local_t *local, afr_internal_lock_t *int_lock,
                     int32_t child_index);
-gf_boolean_t
-afr_can_compound_pre_op_and_op (afr_private_t *priv, glusterfs_fop_t fop);
-
-afr_compound_cbk_t
-afr_pack_fop_args (call_frame_t *frame, compound_args_t *args,
-                   glusterfs_fop_t fop, int index);
 int
 afr_is_inodelk_transaction(afr_local_t *local);
 

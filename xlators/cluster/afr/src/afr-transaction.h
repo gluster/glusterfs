@@ -58,7 +58,5 @@ afr_pick_error_xdata (afr_local_t *local, afr_private_t *priv,
                       inode_t *inode1, unsigned char *readable1,
                       inode_t *inode2, unsigned char *readable2);
 int
-afr_pre_op_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                       int op_ret, int op_errno,
-                       void *data, dict_t *xdata);
+afr_transaction_resume (call_frame_t *frame, xlator_t *this);
 #endif /* __TRANSACTION_H__ */
