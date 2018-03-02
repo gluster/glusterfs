@@ -1112,7 +1112,7 @@ if test "x$DISABLE_LIBTIRPC" = "xyes" ; then
             ---------------------------------------------------------------------------------
             libtirpc or ipv6-default were enabled (by default) but libtirpc-devel is not
             installed. Disabling libtirpc and ipv6-default and using legacy glibc rpc headers
-            This is a transistional warning message. Eventually it will be an error message
+            This is a transitional warning message. Eventually it will be an error message
             ---------------------------------------------------------------------------------])],[
         AC_MSG_ERROR([
             ---------------------------------------------------------------------------------
