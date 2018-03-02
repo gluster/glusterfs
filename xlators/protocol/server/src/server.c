@@ -23,6 +23,7 @@
 #include "event.h"
 #include "events.h"
 #include "server-messages.h"
+#include "rpc-clnt.h"
 #include "glusterfsd.h"
 
 rpcsvc_cbk_program_t server_cbk_prog = {
@@ -1497,11 +1498,9 @@ server_notify (xlator_t *this, int32_t event, void *data, ...)
                         UNLOCK (&ctx->volfile_lock);
                         if (victim_found)
                                 (*trav_p) = (*trav_p)->next;
-                        glusterfs_mgmt_pmap_signout (ctx,
-                                                     victim->name);
-                        glusterfs_autoscale_threads (THIS->ctx, -1);
+                        rpc_clnt_mgmt_pmap_signout (ctx, victim->name);
+                        rpcsvc_autoscale_threads (ctx, conf->rpc, -1);
                         default_notify (victim, GF_EVENT_CLEANUP, data);
-
                 }
                 break;
 
