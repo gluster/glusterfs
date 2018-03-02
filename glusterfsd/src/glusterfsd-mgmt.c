@@ -185,18 +185,6 @@ glusterfs_terminate_response_send (rpcsvc_request_t *req, int op_ret)
         return ret;
 }
 
-void
-glusterfs_autoscale_threads (glusterfs_ctx_t *ctx, int incr, xlator_t *this)
-{
-        struct event_pool       *pool           = ctx->event_pool;
-        server_conf_t           *conf           = this->private;
-        int                      thread_count   = pool->eventthreadcount;
-
-        pool->auto_thread_count += incr;
-        (void) event_reconfigure_threads (pool, thread_count+incr);
-        rpcsvc_ownthread_reconf (conf->rpc, pool->eventthreadcount);
-}
-
 static int
 xlator_mem_free (xlator_t *xl)
 {
@@ -315,7 +303,7 @@ glusterfs_handle_terminate (rpcsvc_request_t *req)
                 gf_log (THIS->name, GF_LOG_INFO,
                         "terminating after loss of last child %s",
                         xlator_req.name);
-                glusterfs_mgmt_pmap_signout (glusterfsd_ctx, xlator_req.name);
+                rpc_clnt_mgmt_pmap_signout (glusterfsd_ctx, xlator_req.name);
                 kill (getpid(), SIGTERM);
         } else {
                 /*
@@ -914,7 +902,8 @@ glusterfs_handle_attach (rpcsvc_request_t *req)
         xlator_t                *nextchild      = NULL;
         glusterfs_graph_t       *newgraph       = NULL;
         glusterfs_ctx_t         *ctx            = NULL;
-        xlator_t                *protocol_server = NULL;
+        xlator_t                *srv_xl         = NULL;
+        server_conf_t           *srv_conf       = NULL;
 
         GF_ASSERT (req);
         this = THIS;
@@ -955,9 +944,10 @@ glusterfs_handle_attach (rpcsvc_request_t *req)
                                 /* we need a protocol/server xlator as
                                  * nextchild
                                  */
-                                protocol_server = this->ctx->active->first;
-                                glusterfs_autoscale_threads (this->ctx, 1,
-                                                             protocol_server);
+                                srv_xl = this->ctx->active->first;
+                                srv_conf = (server_conf_t *)srv_xl->private;
+                                rpcsvc_autoscale_threads (this->ctx,
+                                                          srv_conf->rpc, 1);
                         }
                 } else {
                         gf_log (this->name, GF_LOG_WARNING,
@@ -2844,73 +2834,3 @@ out:
         return ret;
 }
 
-
-static int
-mgmt_pmap_signout_cbk (struct rpc_req *req, struct iovec *iov, int count,
-                       void *myframe)
-{
-        pmap_signout_rsp  rsp   = {0,};
-        int              ret   = 0;
-
-        if (-1 == req->rpc_status) {
-                rsp.op_ret   = -1;
-                rsp.op_errno = EINVAL;
-                goto out;
-        }
-
-        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_pmap_signout_rsp);
-        if (ret < 0) {
-                gf_log (THIS->name, GF_LOG_ERROR, "XDR decoding failed");
-                rsp.op_ret   = -1;
-                rsp.op_errno = EINVAL;
-                goto out;
-        }
-
-        if (-1 == rsp.op_ret) {
-                gf_log (THIS->name, GF_LOG_ERROR,
-                        "failed to register the port with glusterd");
-                goto out;
-        }
-out:
-        return 0;
-}
-
-
-int
-glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx, char *brickname)
-{
-        int               ret = 0;
-        pmap_signout_req  req = {0, };
-        call_frame_t     *frame = NULL;
-        cmd_args_t       *cmd_args = NULL;
-        char              brick_name[PATH_MAX]  = {0,};
-
-        frame = create_frame (THIS, ctx->pool);
-        cmd_args = &ctx->cmd_args;
-
-        if (!cmd_args->brick_port && (!cmd_args->brick_name || !brickname)) {
-                gf_log ("fsd-mgmt", GF_LOG_DEBUG,
-                        "portmapper signout arguments not given");
-                goto out;
-        }
-
-        if (cmd_args->volfile_server_transport &&
-                      !strcmp(cmd_args->volfile_server_transport, "rdma")) {
-                snprintf (brick_name, sizeof(brick_name), "%s.rdma",
-                          cmd_args->brick_name);
-                req.brick = brick_name;
-        } else {
-                if (brickname)
-                        req.brick = brickname;
-                else
-                        req.brick = cmd_args->brick_name;
-        }
-
-        req.port  = cmd_args->brick_port;
-        req.rdma_port = cmd_args->brick_port2;
-        ret = mgmt_submit_request (&req, frame, ctx, &clnt_pmap_prog,
-                                   GF_PMAP_SIGNOUT, mgmt_pmap_signout_cbk,
-                                   (xdrproc_t)xdr_pmap_signout_req);
-out:
-        return ret;
-}

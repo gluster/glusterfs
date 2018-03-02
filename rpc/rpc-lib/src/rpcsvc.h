@@ -647,4 +647,6 @@ rpcsvc_get_program_vector_sizer (rpcsvc_t *svc, uint32_t prognum,
                                  uint32_t progver, int procnum);
 extern int
 rpcsvc_ownthread_reconf (rpcsvc_t *svc, int new_eventthreadcount);
+
+void rpcsvc_autoscale_threads (glusterfs_ctx_t *ctx, rpcsvc_t *rpc, int incr);
 #endif
