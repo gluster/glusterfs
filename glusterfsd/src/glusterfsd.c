@@ -1411,10 +1411,10 @@ cleanup_and_exit (int signum)
                 for (trav_p = &top->children; *trav_p;
                      trav_p = &(*trav_p)->next) {
                         victim = (*trav_p)->xlator;
-                        glusterfs_mgmt_pmap_signout (ctx, victim->name);
+                        rpc_clnt_mgmt_pmap_signout (ctx, victim->name);
                 }
         } else {
-                glusterfs_mgmt_pmap_signout (ctx, NULL);
+                rpc_clnt_mgmt_pmap_signout (ctx, NULL);
         }
 
         /* below part is a racy code where the rpcsvc object is freed.
