@@ -110,10 +110,6 @@ typedef struct _afr_private {
         gf_boolean_t metadata_self_heal;   /* on/off */
         gf_boolean_t entry_self_heal;      /* on/off */
 
-        gf_boolean_t data_change_log;       /* on/off */
-        gf_boolean_t metadata_change_log;   /* on/off */
-        gf_boolean_t entry_change_log;      /* on/off */
-
 	gf_boolean_t metadata_splitbrain_forced_heal; /* on/off */
         int read_child;               /* read-subvolume */
         unsigned int hash_mode;       /* for when read_child is not set */
@@ -122,9 +118,6 @@ typedef struct _afr_private {
 
         afr_favorite_child_policy fav_child_policy;/*Policy to use for automatic
                                                  resolution of split-brains.*/
-
-        gf_boolean_t inodelk_trace;
-        gf_boolean_t entrylk_trace;
 
         unsigned int wait_count;      /* # of servers to wait for success */
 
@@ -185,33 +178,6 @@ typedef enum {
         AFR_ENTRY_TRANSACTION,         /* create, rmdir, ... */
         AFR_ENTRY_RENAME_TRANSACTION,  /* rename */
 } afr_transaction_type;
-
-typedef enum {
-        AFR_TRANSACTION_LK,
-        AFR_SELFHEAL_LK,
-} transaction_lk_type_t;
-
-typedef enum {
-        AFR_LOCK_OP,
-        AFR_UNLOCK_OP,
-} afr_lock_op_type_t;
-
-typedef enum {
-        AFR_DATA_SELF_HEAL_LK,
-        AFR_METADATA_SELF_HEAL_LK,
-        AFR_ENTRY_SELF_HEAL_LK,
-}selfheal_lk_type_t;
-
-typedef enum {
-        AFR_INODELK_TRANSACTION,
-        AFR_INODELK_NB_TRANSACTION,
-        AFR_ENTRYLK_TRANSACTION,
-        AFR_ENTRYLK_NB_TRANSACTION,
-        AFR_INODELK_SELFHEAL,
-        AFR_INODELK_NB_SELFHEAL,
-        AFR_ENTRYLK_SELFHEAL,
-        AFR_ENTRYLK_NB_SELFHEAL,
-} afr_lock_call_type_t;
 
 /*
   xattr format: trusted.afr.volume = [x y z]
@@ -284,9 +250,6 @@ typedef struct {
 
         unsigned char *locked_nodes;
         unsigned char *lower_locked_nodes;
-
-        selfheal_lk_type_t selfheal_lk_type;
-        transaction_lk_type_t transaction_lk_type;
 
         int32_t lock_count;
         int32_t entrylk_lock_count;
@@ -809,12 +772,6 @@ typedef struct _afr_local {
 
                 int (*wind) (call_frame_t *frame, xlator_t *this, int subvol);
 
-                int (*fop) (call_frame_t *frame, xlator_t *this);
-
-                int (*done) (call_frame_t *frame, xlator_t *this);
-
-                int (*resume) (call_frame_t *frame, xlator_t *this);
-
                 int (*unwind) (call_frame_t *frame, xlator_t *this);
 
                 /* post-op hook */
@@ -973,10 +930,6 @@ int
 afr_internal_lock_finish (call_frame_t *frame, xlator_t *this);
 
 int
-afr_lk_transfer_datalock (call_frame_t *dst, call_frame_t *src, char *dom,
-                          unsigned int child_count);
-
-int
 __afr_fd_ctx_set (xlator_t *this, fd_t *fd);
 
 afr_fd_ctx_t *
@@ -1100,8 +1053,7 @@ int
 afr_local_init (afr_local_t *local, afr_private_t *priv, int32_t *op_errno);
 
 int
-afr_internal_lock_init (afr_internal_lock_t *lk, size_t child_count,
-                        transaction_lk_type_t lk_type);
+afr_internal_lock_init (afr_internal_lock_t *lk, size_t child_count);
 
 int
 afr_higher_errno (int32_t old_errno, int32_t new_errno);
@@ -1246,7 +1198,7 @@ void
 afr_update_uninodelk (afr_local_t *local, afr_internal_lock_t *int_lock,
                     int32_t child_index);
 int
-afr_is_inodelk_transaction(afr_local_t *local);
+afr_is_inodelk_transaction(afr_transaction_type type);
 
 afr_fd_ctx_t *
 __afr_fd_ctx_get (fd_t *fd, xlator_t *this);
@@ -1273,4 +1225,5 @@ afr_write_subvol_reset (call_frame_t *frame, xlator_t *this);
 
 int
 afr_set_inode_local (xlator_t *this, afr_local_t *local, inode_t *inode);
+
 #endif /* __AFR_H__ */

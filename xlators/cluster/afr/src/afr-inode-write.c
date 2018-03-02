@@ -210,7 +210,7 @@ __afr_inode_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->transaction.unwind (frame, this);
                 }
 
-                local->transaction.resume (frame, this);
+                afr_transaction_resume (frame, this);
         }
 
         return 0;
@@ -360,12 +360,9 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
 {
-        afr_local_t     *local = NULL;
         call_frame_t    *fop_frame = NULL;
         int child_index = (long) cookie;
         int call_count  = -1;
-
-        local = frame->local;
 
         afr_inode_write_fill (frame, this, child_index, op_ret, op_errno,
                               prebuf, postbuf, xdata);
@@ -377,7 +374,7 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 if (!afr_txn_nothing_failed (frame, this)) {
                         //Don't unwind until post-op is complete
-                        local->transaction.resume (frame, this);
+                        afr_transaction_resume (frame, this);
                 } else {
                 /*
                  * Generally inode-write fops do transaction.unwind then
@@ -392,7 +389,7 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                         fop_frame = afr_transaction_detach_fop_frame (frame);
                         afr_writev_copy_outvars (frame, fop_frame);
-                        local->transaction.resume (frame, this);
+                        afr_transaction_resume (frame, this);
                         afr_writev_unwind (fop_frame, this);
                 }
         }
@@ -465,8 +462,6 @@ afr_do_writev (call_frame_t *frame, xlator_t *this)
         local->op = GF_FOP_WRITE;
 
         local->transaction.wind   = afr_writev_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_transaction_writev_unwind;
 
         local->transaction.main_frame = frame;
@@ -655,8 +650,6 @@ afr_truncate (call_frame_t *frame, xlator_t *this,
 		goto out;
 
 	local->transaction.wind   = afr_truncate_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_truncate_unwind;
 
         loc_copy (&local->loc, loc);
@@ -783,8 +776,6 @@ afr_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         local->op = GF_FOP_FTRUNCATE;
 
 	local->transaction.wind   = afr_ftruncate_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_ftruncate_unwind;
 
         local->transaction.main_frame = frame;
@@ -891,8 +882,6 @@ afr_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc, struct iatt *buf,
 		goto out;
 
         local->transaction.wind   = afr_setattr_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_setattr_unwind;
 
         loc_copy (&local->loc, loc);
@@ -998,8 +987,6 @@ afr_fsetattr (call_frame_t *frame, xlator_t *this,
 		goto out;
 
         local->transaction.wind   = afr_fsetattr_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_fsetattr_unwind;
 
         local->fd                 = fd_ref (fd);
@@ -1642,8 +1629,6 @@ afr_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 		goto out;
 
         local->transaction.wind   = afr_setxattr_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_setxattr_unwind;
 
         loc_copy (&local->loc, loc);
@@ -1756,8 +1741,6 @@ afr_fsetxattr (call_frame_t *frame, xlator_t *this,
 		goto out;
 
         local->transaction.wind   = afr_fsetxattr_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_fsetxattr_unwind;
 
         local->fd                 = fd_ref (fd);
@@ -1871,8 +1854,6 @@ afr_removexattr (call_frame_t *frame, xlator_t *this,
 		goto out;
 
         local->transaction.wind   = afr_removexattr_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_removexattr_unwind;
 
         loc_copy (&local->loc, loc);
@@ -1980,8 +1961,6 @@ afr_fremovexattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		goto out;
 
         local->transaction.wind   = afr_fremovexattr_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_fremovexattr_unwind;
 
         local->fd = fd_ref (fd);
@@ -2097,8 +2076,6 @@ afr_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
         local->op = GF_FOP_FALLOCATE;
 
         local->transaction.wind   = afr_fallocate_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_fallocate_unwind;
 
         local->transaction.main_frame = frame;
@@ -2211,8 +2188,6 @@ afr_discard (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         local->op = GF_FOP_DISCARD;
 
         local->transaction.wind   = afr_discard_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_discard_unwind;
 
         local->transaction.main_frame = frame;
@@ -2322,8 +2297,6 @@ afr_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         local->op = GF_FOP_ZEROFILL;
 
         local->transaction.wind   = afr_zerofill_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_zerofill_unwind;
 
         local->transaction.main_frame = frame;
@@ -2416,8 +2389,6 @@ afr_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
 		local->xdata_req = dict_ref (xdata);
 
         local->transaction.wind   = afr_xattrop_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_xattrop_unwind;
 
         loc_copy (&local->loc, loc);
@@ -2512,8 +2483,6 @@ afr_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		local->xdata_req = dict_ref (xdata);
 
         local->transaction.wind   = afr_fxattrop_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_fxattrop_unwind;
 
 	local->fd = fd_ref (fd);
@@ -2629,8 +2598,6 @@ afr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
 	}
 
         local->transaction.wind   = afr_fsync_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_fsync_unwind;
 
         local->transaction.main_frame = frame;

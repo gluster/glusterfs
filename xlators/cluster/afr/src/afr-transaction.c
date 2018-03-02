@@ -133,7 +133,7 @@ afr_needs_changelog_update (afr_local_t *local)
 }
 
 int
-__afr_txn_write_fop (call_frame_t *frame, xlator_t *this)
+afr_transaction_fop (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
@@ -150,7 +150,7 @@ __afr_txn_write_fop (call_frame_t *frame, xlator_t *this)
                                                     priv->child_count);
 
         if (call_count == 0) {
-                local->transaction.resume (frame, this);
+                afr_transaction_resume (frame, this);
                 return 0;
         }
 
@@ -170,7 +170,7 @@ __afr_txn_write_fop (call_frame_t *frame, xlator_t *this)
 
 
 int
-__afr_txn_write_done (call_frame_t *frame, xlator_t *this)
+afr_transaction_done (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
         afr_private_t *priv = NULL;
@@ -345,13 +345,13 @@ afr_txn_arbitrate_fop (call_frame_t *frame, xlator_t *this)
         /* If arbiter is the only source, do not proceed. */
         if (pre_op_sources_count < 2 &&
             local->transaction.pre_op_sources[ARBITER_BRICK_INDEX]) {
-                local->internal_lock.lock_cbk = local->transaction.done;
+                local->internal_lock.lock_cbk = afr_transaction_done;
                 local->op_ret = -1;
                 local->op_errno =  ENOTCONN;
                 afr_restore_lk_owner (frame);
                 afr_unlock (frame, this);
         } else {
-                local->transaction.fop (frame, this);
+                afr_transaction_fop (frame, this);
         }
 
         return;
@@ -407,74 +407,11 @@ afr_transaction_perform_fop (call_frame_t *frame, xlator_t *this)
         if (priv->arbiter_count == 1) {
                 afr_txn_arbitrate_fop (frame, this);
         } else {
-                local->transaction.fop (frame, this);
+                afr_transaction_fop (frame, this);
         }
 
 	return 0;
 }
-
-static int
-__changelog_enabled (afr_private_t *priv, afr_transaction_type type)
-{
-        int ret = 0;
-
-        switch (type) {
-        case AFR_DATA_TRANSACTION:
-                if (priv->data_change_log)
-                        ret = 1;
-
-                break;
-
-        case AFR_METADATA_TRANSACTION:
-                if (priv->metadata_change_log)
-                        ret = 1;
-
-                break;
-
-        case AFR_ENTRY_TRANSACTION:
-        case AFR_ENTRY_RENAME_TRANSACTION:
-                if (priv->entry_change_log)
-                        ret = 1;
-
-                break;
-        }
-
-        return ret;
-}
-
-
-static int
-__fop_changelog_needed (call_frame_t *frame, xlator_t *this)
-{
-        afr_private_t * priv  = NULL;
-        afr_local_t   * local = NULL;
-        int op_ret = 0;
-        afr_transaction_type type = -1;
-
-        priv  = this->private;
-        local = frame->local;
-        type  = local->transaction.type;
-
-        if (__changelog_enabled (priv, type)) {
-                switch (local->op) {
-
-                case GF_FOP_WRITE:
-                case GF_FOP_FTRUNCATE:
-                        op_ret = 1;
-                        break;
-
-                case GF_FOP_FLUSH:
-                        op_ret = 0;
-                        break;
-
-                default:
-                        op_ret = 1;
-                }
-        }
-
-        return op_ret;
-}
-
 
 int
 afr_set_pending_dict (afr_private_t *priv, dict_t *xattr, int **pending)
@@ -491,29 +428,6 @@ afr_set_pending_dict (afr_private_t *priv, dict_t *xattr, int **pending)
 
                 if (ret)
                         break;
-        }
-
-        return ret;
-}
-
-int
-afr_lock_server_count (afr_private_t *priv, afr_transaction_type type)
-{
-        int ret = 0;
-
-        switch (type) {
-        case AFR_DATA_TRANSACTION:
-                ret = priv->child_count;
-                break;
-
-        case AFR_METADATA_TRANSACTION:
-                ret = priv->child_count;
-                break;
-
-        case AFR_ENTRY_TRANSACTION:
-        case AFR_ENTRY_RENAME_TRANSACTION:
-                ret = priv->child_count;
-                break;
         }
 
         return ret;
@@ -552,11 +466,9 @@ int
 afr_changelog_post_op_done (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
-	afr_private_t *priv = NULL;
         afr_internal_lock_t *int_lock = NULL;
 
 	local = frame->local;
-	priv = this->private;
         int_lock = &local->internal_lock;
 
         /* Fail the FOP if post-op did not succeed on quorum no. of bricks. */
@@ -567,12 +479,8 @@ afr_changelog_post_op_done (call_frame_t *frame, xlator_t *this)
 		local->transaction.resume_stub = NULL;
 	}
 
-	if (afr_lock_server_count (priv, local->transaction.type) == 0) {
-		local->transaction.done (frame, this);
-	} else {
-		int_lock->lock_cbk = local->transaction.done;
-		afr_unlock (frame, this);
-	}
+        int_lock->lock_cbk = afr_transaction_done;
+        afr_unlock (frame, this);
 
 	return 0;
 }
@@ -1494,7 +1402,7 @@ next:
 
         return 0;
 err:
-	local->internal_lock.lock_cbk = local->transaction.done;
+	local->internal_lock.lock_cbk = afr_transaction_done;
 	local->op_ret = -1;
 	local->op_errno = op_errno;
 
@@ -1520,7 +1428,7 @@ afr_post_blocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
                 gf_msg (this->name, GF_LOG_INFO,
                         0, AFR_MSG_BLOCKING_LKS_FAILED,
                         "Blocking inodelks failed.");
-                local->transaction.done (frame, this);
+                afr_transaction_done (frame, this);
         } else {
 
                 gf_msg_debug (this->name, 0,
@@ -1571,7 +1479,7 @@ afr_post_blocking_entrylk_cbk (call_frame_t *frame, xlator_t *this)
                 gf_msg (this->name, GF_LOG_INFO, 0,
                         AFR_MSG_BLOCKING_LKS_FAILED,
                         "Blocking entrylks failed.");
-                local->transaction.done (frame, this);
+                afr_transaction_done (frame, this);
         } else {
 
                 gf_msg_debug (this->name, 0,
@@ -1624,7 +1532,7 @@ afr_post_blocking_rename_cbk (call_frame_t *frame, xlator_t *this)
                         AFR_MSG_BLOCKING_LKS_FAILED,
                         "Blocking entrylks failed.");
 
-                local->transaction.done (frame, this);
+                afr_transaction_done (frame, this);
         } else {
 
                 gf_msg_debug (this->name, 0,
@@ -1687,7 +1595,6 @@ afr_lock_rec (call_frame_t *frame, xlator_t *this)
         local    = frame->local;
         int_lock = &local->internal_lock;
 
-        int_lock->transaction_lk_type = AFR_TRANSACTION_LK;
         int_lock->domain = this->name;
 
         switch (local->transaction.type) {
@@ -1736,11 +1643,7 @@ afr_lock (call_frame_t *frame, xlator_t *this)
 int
 afr_internal_lock_finish (call_frame_t *frame, xlator_t *this)
 {
-        if (__fop_changelog_needed (frame, this)) {
-                afr_changelog_pre_op (frame, this);
-        } else {
-                afr_transaction_perform_fop (frame, this);
-        }
+        afr_changelog_pre_op (frame, this);
 
         return 0;
 }
@@ -2150,11 +2053,7 @@ afr_transaction_resume (call_frame_t *frame, xlator_t *this)
 		   with OP */
 		afr_changelog_pre_op_update (frame, this);
 
-        if (__fop_changelog_needed (frame, this)) {
-                afr_changelog_post_op (frame, this);
-        } else {
-		afr_changelog_post_op_done (frame, this);
-        }
+        afr_changelog_post_op (frame, this);
 
         return 0;
 }
@@ -2261,7 +2160,6 @@ void
 afr_transaction_start (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t   *local = frame->local;
-        afr_private_t *priv  = this->private;
         fd_t          *fd    = NULL;
 
         afr_transaction_eager_lock_init (local, this);
@@ -2283,11 +2181,7 @@ afr_transaction_start (call_frame_t *frame, xlator_t *this)
                 }
         }
 
-        if (afr_lock_server_count (priv, local->transaction.type) == 0) {
-                afr_internal_lock_finish (frame, this);
-        } else {
-                afr_lock (frame, this);
-        }
+        afr_lock (frame, this);
 }
 
 int
@@ -2319,7 +2213,6 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
         local = frame->local;
         priv  = this->private;
 
-        local->transaction.resume = afr_transaction_resume;
         local->transaction.type   = type;
 
         if (!afr_is_consistent_io_possible (local, priv, &ret)) {
