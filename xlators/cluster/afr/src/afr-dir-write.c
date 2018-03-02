@@ -266,7 +266,7 @@ __afr_dir_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		afr_mark_entry_pending_changelog (frame, this);
 
-                local->transaction.resume (frame, this);
+                afr_transaction_resume (frame, this);
         }
 
         return 0;
@@ -495,8 +495,6 @@ afr_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 		goto out;
 
         local->transaction.wind   = afr_create_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_create_unwind;
 
         ret = afr_build_parent_loc (&local->transaction.parent_loc, loc,
@@ -625,8 +623,6 @@ afr_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 		goto out;
 
         local->transaction.wind   = afr_mknod_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_mknod_unwind;
 
         ret = afr_build_parent_loc (&local->transaction.parent_loc, loc,
@@ -761,8 +757,6 @@ afr_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
         local->op = GF_FOP_MKDIR;
         local->transaction.wind   = afr_mkdir_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_mkdir_unwind;
 
         ret = afr_build_parent_loc (&local->transaction.parent_loc, loc,
@@ -890,8 +884,6 @@ afr_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         local->op = GF_FOP_LINK;
 
         local->transaction.wind   = afr_link_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_link_unwind;
 
         ret = afr_build_parent_loc (&local->transaction.parent_loc, newloc,
@@ -1020,8 +1012,6 @@ afr_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
 
         local->op = GF_FOP_SYMLINK;
         local->transaction.wind   = afr_symlink_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_symlink_unwind;
 
         ret = afr_build_parent_loc (&local->transaction.parent_loc, loc,
@@ -1155,8 +1145,6 @@ afr_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 
         local->op = GF_FOP_RENAME;
         local->transaction.wind   = afr_rename_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_rename_unwind;
 
         ret = afr_build_parent_loc (&local->transaction.parent_loc, oldloc,
@@ -1307,8 +1295,6 @@ afr_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
 
         local->op = GF_FOP_UNLINK;
         local->transaction.wind   = afr_unlink_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_unlink_unwind;
 
         ret = afr_build_parent_loc (&local->transaction.parent_loc, loc,
@@ -1435,8 +1421,6 @@ afr_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 
         local->op = GF_FOP_RMDIR;
         local->transaction.wind   = afr_rmdir_wind;
-        local->transaction.fop    = __afr_txn_write_fop;
-        local->transaction.done   = __afr_txn_write_done;
         local->transaction.unwind = afr_rmdir_unwind;
 
         ret = afr_build_parent_loc (&local->transaction.parent_loc, loc,

@@ -4594,9 +4594,6 @@ afr_priv_dump (xlator_t *this)
         gf_proc_dump_write("data_self_heal", "%s", priv->data_self_heal);
         gf_proc_dump_write("metadata_self_heal", "%d", priv->metadata_self_heal);
         gf_proc_dump_write("entry_self_heal", "%d", priv->entry_self_heal);
-        gf_proc_dump_write("data_change_log", "%d", priv->data_change_log);
-        gf_proc_dump_write("metadata_change_log", "%d", priv->metadata_change_log);
-        gf_proc_dump_write("entry-change_log", "%d", priv->entry_change_log);
         gf_proc_dump_write("read_child", "%d", priv->read_child);
         gf_proc_dump_write("wait_count", "%u", priv->wait_count);
         gf_proc_dump_write("heal-wait-queue-length", "%d",
@@ -5324,8 +5321,7 @@ out:
 }
 
 int
-afr_internal_lock_init (afr_internal_lock_t *lk, size_t child_count,
-                        transaction_lk_type_t lk_type)
+afr_internal_lock_init (afr_internal_lock_t *lk, size_t child_count)
 {
         int             ret = -ENOMEM;
 
@@ -5341,7 +5337,6 @@ afr_internal_lock_init (afr_internal_lock_t *lk, size_t child_count,
 
         lk->lock_op_ret   = -1;
         lk->lock_op_errno = EUCLEAN;
-        lk->transaction_lk_type = lk_type;
 
         ret = 0;
 out:
@@ -5408,8 +5403,7 @@ afr_transaction_local_init (afr_local_t *local, xlator_t *this)
         afr_private_t *priv = NULL;
 
         priv = this->private;
-        ret = afr_internal_lock_init (&local->internal_lock, priv->child_count,
-                                      AFR_TRANSACTION_LK);
+        ret = afr_internal_lock_init (&local->internal_lock, priv->child_count);
         if (ret < 0)
                 goto out;
 
