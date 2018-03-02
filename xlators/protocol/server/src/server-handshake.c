@@ -838,6 +838,16 @@ server_setvolume (rpcsvc_request_t *req)
         if (ret)
                 gf_msg_debug (this->name, 0, "failed to set 'process-uuid'");
 
+        /* Insert a dummy key value pair to avoid failure at client side for
+         * clnt-lk-version with older clients.
+         */
+        ret = dict_set_uint32 (reply, "clnt-lk-version", 0);
+        if (ret) {
+               gf_msg (this->name, GF_LOG_WARNING, 0,
+                       PS_MSG_CLIENT_LK_VERSION_ERROR, "failed to set "
+                       "'clnt-lk-version'");
+        }
+
         ret = dict_set_uint64 (reply, "transport-ptr",
                                ((uint64_t) (long) req->trans));
         if (ret)
