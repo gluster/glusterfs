@@ -930,7 +930,10 @@ fuse_getattr_resume (fuse_state_t *state)
         }
 
         if (!IA_ISDIR (state->loc.inode->ia_type)) {
-                state->fd = fd_lookup (state->loc.inode, 0);
+                if (state->fd == NULL)
+                        state->fd = fd_lookup (state->loc.inode, state->finh->pid);
+                if (state->fd == NULL)
+                        state->fd = fd_lookup (state->loc.inode, 0);
         }
 
         if (!state->fd) {
@@ -956,9 +959,18 @@ fuse_getattr_resume (fuse_state_t *state)
 static void
 fuse_getattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
+#if FUSE_KERNEL_MINOR_VERSION >= 9
+        struct fuse_getattr_in *fgi  = msg;
+        fuse_private_t         *priv = NULL;
+#endif
         fuse_state_t *state;
 
         GET_STATE (this, finh, state);
+#if FUSE_KERNEL_MINOR_VERSION >= 9
+        priv = this->private;
+        if (priv->proto_minor >= 9 && fgi->getattr_flags & FUSE_GETATTR_FH)
+                state->fd = fd_ref ((fd_t *)fgi->fh);
+#endif
 
         fuse_resolve_inode_init (state, &state->resolve, state->finh->nodeid);
 
