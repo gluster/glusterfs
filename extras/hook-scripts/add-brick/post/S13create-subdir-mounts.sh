@@ -6,7 +6,7 @@
 ##---------------------------------------------------------------------------
 
 MOUNT_DIR=`mktemp -d -t ${0##*/}.XXXXXX`;
-OPTSPEC="volname:,go-workdir"
+OPTSPEC="volname:,version:,gd-workdir:,volume-op:"
 PROGNAME="add-brick-create-subdir"
 VOL_NAME=test
 GLUSTERD_WORKDIR="/var/lib/glusterd"
