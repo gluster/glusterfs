@@ -11,12 +11,14 @@ NAMESPACE2_HASH=3926991974
 NAMESPACE3_HASH=3493960770
 
 function check_brick_multiplex() {
-        $CLI volume info|grep "cluster.brick-multiplex" &>/dev/null
-        rt=$?
-        cnt="$(ls /var/log/glusterfs/bricks|wc -l)"
+        local ret=$($CLI volume info|grep "cluster.brick-multiplex"|cut -d" " -f2)
+        local cnt="$(ls /var/log/glusterfs/bricks|wc -l)"
+        local bcnt="$(brick_count)"
 
-        if [ $rt -eq 0 ]; then
-           local ret=$($CLI volume info|grep "cluster.brick-multiplex"|cut -d" " -f2)
+        if [ $bcnt -ne 1 ]; then
+           if [ -z $ret ]; then
+              ret="no"
+           fi
 
            if [ $ret = "on" ] || [ $cnt -eq 1 ]; then
               echo "Y"
