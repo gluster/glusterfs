@@ -74,6 +74,8 @@ getactivelkinfo_rsp_cleanup (gfs3_getactivelk_rsp  *rsp);
 int
 getactivelkinfo_rsp_cleanup_v2 (gfx_getactivelk_rsp  *rsp);
 
+int replace_old_iatt_in_dict (dict_t *);
+
 int
 server_populate_compound_response (xlator_t *this, gfs3_compound_rsp *rsp,
                                    call_frame_t *frame,

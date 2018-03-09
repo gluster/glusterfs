@@ -724,6 +724,12 @@ server_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_state_t      *state = NULL;
         gf_loglevel_t        loglevel = GF_LOG_NONE;
 
+        if (replace_old_iatt_in_dict (xdata)) {
+                op_errno = errno;
+                op_ret = -1;
+                goto out;
+        }
+
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
                                     rsp.xdata.xdata_len, op_errno, out);
 
@@ -765,6 +771,12 @@ server_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_common_rsp        rsp   = {0,};
         rpcsvc_request_t    *req   = NULL;
         server_state_t      *state = NULL;
+
+        if (replace_old_iatt_in_dict (xdata)) {
+                op_errno = errno;
+                op_ret = -1;
+                goto out;
+        }
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -909,6 +921,12 @@ server_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req = NULL;
         server_state_t      *state = NULL;
 
+        if (replace_old_iatt_in_dict (xdata)) {
+                op_errno = errno;
+                op_ret = -1;
+                goto out;
+        }
+
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
                                     rsp.xdata.xdata_len, op_errno, out);
 
@@ -973,6 +991,12 @@ server_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_common_rsp     rsp = {0,};
         rpcsvc_request_t *req = NULL;
         server_state_t      *state = NULL;
+
+        if (replace_old_iatt_in_dict (xdata)) {
+                op_errno = errno;
+                op_ret = -1;
+                goto out;
+        }
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
                                     rsp.xdata.xdata_len, op_errno, out);
@@ -1065,6 +1089,12 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_unlink_rsp      rsp    = {0,};
         server_state_t      *state  = NULL;
         rpcsvc_request_t    *req    = NULL;
+
+        if (replace_old_iatt_in_dict (xdata)) {
+                op_errno = errno;
+                op_ret = -1;
+                goto out;
+        }
 
         GF_PROTOCOL_DICT_SERIALIZE (this, xdata, &rsp.xdata.xdata_val,
                                     rsp.xdata.xdata_len, op_errno, out);
