@@ -284,6 +284,11 @@ P: Karthik US <ksubrahm@redhat.com>
 S: Maintained
 F: xlators/features/read-only/
 
+Cloudsync
+M: Susant Kumar Palai <spalai@redhat.com>
+S: Maintained
+F: xlators/features/cloudsync/
+
 Experimental Features:
 ----------------------
 

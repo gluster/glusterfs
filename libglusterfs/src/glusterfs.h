@@ -358,6 +358,22 @@ enum gf_internal_fop_indicator {
                 }                                               \
         } while (0)                                             \
 
+#define GF_CS_OBJECT_SIZE  "trusted.glusterfs.cs.object_size"
+
+#define GF_CS_OBJECT_UPLOAD_COMPLETE "trusted.glusterfs.csou.complete"
+#define GF_CS_OBJECT_REMOTE "trusted.glusterfs.cs.remote"
+#define GF_CS_OBJECT_DOWNLOADING "trusted.glusterfs.cs.downloading"
+#define GF_CS_OBJECT_DOWNLOADED "trusted.glusterfs.cs.downloaded"
+#define GF_CS_OBJECT_STATUS "trusted.glusterfs.cs.status"
+#define GF_CS_OBJECT_REPAIR "trusted.glusterfs.cs.repair"
+
+typedef enum {
+        GF_CS_LOCAL = 1,
+        GF_CS_REMOTE = 2,
+        GF_CS_REPAIR = 4,
+        GF_CS_DOWNLOADING = 8,
+        GF_CS_ERROR = 16,
+} gf_cs_obj_state;
 
 typedef enum {
         GF_FOP_PRI_UNSPEC = -1,         /* Priority not specified */

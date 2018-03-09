@@ -3766,7 +3766,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .flags       = VOLOPT_FLAG_CLIENT_OPT | VOLOPT_FLAG_XLATOR_OPT,
           .type        = NO_DOC,
         },
-
+        { .key        = "features.cloudsync",
+          .voltype    = "features/cloudsync",
+          .value      = "off",
+          .op_version = GD_OP_VERSION_4_1_0,
+          .flags      = VOLOPT_FLAG_CLIENT_OPT
+        },
         { .key         = NULL
         }
 };

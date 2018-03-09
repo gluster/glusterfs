@@ -1092,6 +1092,7 @@ exit 0
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/shard.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/snapview-client.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/worm.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/cloudsync.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/meta.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/io-cache.so

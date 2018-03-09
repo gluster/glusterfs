@@ -4679,6 +4679,18 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 return -1;
 
+        ret = dict_get_str_boolean (set_dict, "features.cloudsync", _gf_false);
+        if (ret == -1)
+                goto out;
+
+        if (ret) {
+                xl = volgen_graph_add (graph, "features/cloudsync", volname);
+                if (!xl) {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
         ret = -1;
         xl = volgen_graph_add_as (graph, "debug/io-stats", volname);
         if (!xl)
