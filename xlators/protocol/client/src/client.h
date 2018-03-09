@@ -246,7 +246,6 @@ typedef struct _client_fd_ctx {
         char              released;
         int32_t           flags;
         fd_lk_ctx_t      *lk_ctx;
-        pthread_mutex_t   mutex;
         uuid_t            gfid;
         void (*reopen_done)(struct _client_fd_ctx*, int64_t rfd, xlator_t *);
         struct list_head  lock_list;     /* List of all granted locks on this fd */

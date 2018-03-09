@@ -368,10 +368,10 @@ client_add_fd_to_saved_fds (xlator_t *this, fd_t *fd, loc_t *loc, int32_t flags,
         INIT_LIST_HEAD (&fdctx->sfd_pos);
         INIT_LIST_HEAD (&fdctx->lock_list);
 
-        this_fd_set_ctx (fd, this, loc, fdctx);
-
         pthread_spin_lock (&conf->fd_lock);
         {
+                this_fd_set_ctx (fd, this, loc, fdctx);
+
                 list_add_tail (&fdctx->sfd_pos, &conf->saved_fds);
         }
         pthread_spin_unlock (&conf->fd_lock);
@@ -3225,10 +3225,10 @@ client3_3_releasedir (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        fdctx = this_fd_del_ctx (args->fd, this);
-        if (fdctx != NULL) {
-                pthread_spin_lock (&conf->fd_lock);
-                {
+        pthread_spin_lock (&conf->fd_lock);
+        {
+                fdctx = this_fd_del_ctx (args->fd, this);
+                if (fdctx != NULL) {
                         remote_fd = fdctx->remote_fd;
 
                         /* fdctx->remote_fd == -1 indicates a reopen attempt
@@ -3243,8 +3243,8 @@ client3_3_releasedir (call_frame_t *frame, xlator_t *this,
                                 destroy = _gf_true;
                         }
                 }
-                pthread_spin_unlock (&conf->fd_lock);
         }
+        pthread_spin_unlock (&conf->fd_lock);
 
         if (destroy)
                 client_fdctx_destroy (this, fdctx);
@@ -3270,10 +3270,10 @@ client3_3_release (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        fdctx = this_fd_del_ctx (args->fd, this);
-        if (fdctx != NULL) {
-                pthread_spin_lock (&conf->fd_lock);
-                {
+        pthread_spin_lock (&conf->fd_lock);
+        {
+                fdctx = this_fd_del_ctx (args->fd, this);
+                if (fdctx != NULL) {
                         remote_fd     = fdctx->remote_fd;
 
                         /* fdctx->remote_fd == -1 indicates a reopen attempt
@@ -3287,8 +3287,8 @@ client3_3_release (call_frame_t *frame, xlator_t *this,
                                 destroy = _gf_true;
                         }
                 }
-                pthread_spin_unlock (&conf->fd_lock);
         }
+        pthread_spin_unlock (&conf->fd_lock);
 
         if (destroy)
                 client_fdctx_destroy (this, fdctx);

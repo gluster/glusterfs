@@ -43,14 +43,10 @@ dump_client_locks_fd (clnt_fd_ctx_t *fdctx)
         client_posix_lock_t *lock = NULL;
         int count = 0;
 
-        pthread_mutex_lock (&fdctx->mutex);
-        {
-                list_for_each_entry (lock, &fdctx->lock_list, list) {
-                        __dump_client_lock (lock);
-                        count++;
-                }
+        list_for_each_entry (lock, &fdctx->lock_list, list) {
+                __dump_client_lock (lock);
+                count++;
         }
-        pthread_mutex_unlock (&fdctx->mutex);
 
         return count;
 
@@ -59,23 +55,27 @@ dump_client_locks_fd (clnt_fd_ctx_t *fdctx)
 int
 dump_client_locks (inode_t *inode)
 {
-        fd_t             *fd    = NULL;
-        xlator_t         *this  = NULL;
-        clnt_fd_ctx_t  *fdctx = NULL;
+        fd_t          *fd    = NULL;
+        xlator_t      *this  = NULL;
+        clnt_fd_ctx_t *fdctx = NULL;
+        clnt_conf_t   *conf  = NULL;
 
         int total_count = 0;
         int locks_fd_count   = 0;
 
         this = THIS;
+        conf = this->private;
 
         LOCK (&inode->lock);
         {
                 list_for_each_entry (fd, &inode->fd_list, inode_list) {
                         locks_fd_count = 0;
 
+                        pthread_spin_lock(&conf->fd_lock);
                         fdctx = this_fd_get_ctx (fd, this);
                         if (fdctx)
                                 locks_fd_count = dump_client_locks_fd (fdctx);
+                        pthread_spin_unlock(&conf->fd_lock);
 
                         total_count += locks_fd_count;
                 }
@@ -327,13 +327,7 @@ __insert_and_merge (clnt_fd_ctx_t *fdctx, client_posix_lock_t *lock)
 static void
 client_setlk (clnt_fd_ctx_t *fdctx, client_posix_lock_t *lock)
 {
-        pthread_mutex_lock (&fdctx->mutex);
-        {
-                __insert_and_merge (fdctx, lock);
-        }
-        pthread_mutex_unlock (&fdctx->mutex);
-
-        return;
+        __insert_and_merge (fdctx, lock);
 }
 
 static void
@@ -349,6 +343,7 @@ delete_granted_locks_owner (fd_t *fd, gf_lkowner_t *owner)
         client_posix_lock_t *lock  = NULL;
         client_posix_lock_t *tmp   = NULL;
         xlator_t            *this  = NULL;
+        clnt_conf_t         *conf  = NULL;
 
         struct list_head delete_list;
         int ret   = 0;
@@ -356,25 +351,29 @@ delete_granted_locks_owner (fd_t *fd, gf_lkowner_t *owner)
 
         INIT_LIST_HEAD (&delete_list);
         this = THIS;
+        conf = this->private;
+
+        pthread_spin_lock(&conf->fd_lock);
+
         fdctx = this_fd_get_ctx (fd, this);
         if (!fdctx) {
+                pthread_spin_unlock(&conf->fd_lock);
+
                 gf_msg (this->name, GF_LOG_WARNING, EINVAL,
                         PC_MSG_FD_CTX_INVALID, "fdctx not valid");
                 ret = -1;
                 goto out;
         }
 
-        pthread_mutex_lock (&fdctx->mutex);
-        {
-                list_for_each_entry_safe (lock, tmp, &fdctx->lock_list, list) {
-                        if (!is_same_lkowner (&lock->owner, owner)) {
-                                list_del_init (&lock->list);
-                                list_add_tail (&lock->list, &delete_list);
-                                count++;
-                        }
+        list_for_each_entry_safe (lock, tmp, &fdctx->lock_list, list) {
+                if (!is_same_lkowner (&lock->owner, owner)) {
+                        list_del_init (&lock->list);
+                        list_add_tail (&lock->list, &delete_list);
+                        count++;
                 }
         }
-        pthread_mutex_unlock (&fdctx->mutex);
+
+        pthread_spin_unlock(&conf->fd_lock);
 
         list_for_each_entry_safe (lock, tmp, &delete_list, list) {
                 list_del_init (&lock->list);
@@ -387,39 +386,6 @@ delete_granted_locks_owner (fd_t *fd, gf_lkowner_t *owner)
 
 out:
         return ret;
-}
-
-int32_t
-delete_granted_locks_fd (clnt_fd_ctx_t *fdctx)
-{
-        client_posix_lock_t *lock = NULL;
-        client_posix_lock_t *tmp = NULL;
-        xlator_t            *this = NULL;
-
-        struct list_head delete_list;
-        int ret   = 0;
-        int count = 0;
-
-        INIT_LIST_HEAD (&delete_list);
-        this = THIS;
-
-        pthread_mutex_lock (&fdctx->mutex);
-        {
-                list_splice_init (&fdctx->lock_list, &delete_list);
-        }
-        pthread_mutex_unlock (&fdctx->mutex);
-
-        list_for_each_entry_safe (lock, tmp, &delete_list, list) {
-                list_del_init (&lock->list);
-                count++;
-                destroy_client_lock (lock);
-        }
-
-        /* FIXME: Need to actually print the locks instead of count */
-        gf_msg_trace (this->name, 0,
-                      "Number of locks cleared=%d", count);
-
-        return  ret;
 }
 
 int32_t
@@ -497,13 +463,19 @@ client_add_lock_for_recovery (fd_t *fd, struct gf_flock *flock,
         clnt_fd_ctx_t       *fdctx = NULL;
         xlator_t            *this  = NULL;
         client_posix_lock_t *lock  = NULL;
+        clnt_conf_t         *conf  = NULL;
 
         int ret = 0;
 
         this = THIS;
+        conf = this->private;
+
+        pthread_spin_lock(&conf->fd_lock);
 
         fdctx = this_fd_get_ctx (fd, this);
         if (!fdctx) {
+                pthread_spin_unlock(&conf->fd_lock);
+
                 gf_msg (this->name, GF_LOG_WARNING, 0, PC_MSG_FD_GET_FAIL,
                         "failed to get fd context. sending EBADFD");
                 ret = -EBADFD;
@@ -512,11 +484,15 @@ client_add_lock_for_recovery (fd_t *fd, struct gf_flock *flock,
 
         lock = new_client_lock (flock, owner, cmd, fd);
         if (!lock) {
+                pthread_spin_unlock(&conf->fd_lock);
+
                 ret = -ENOMEM;
                 goto out;
         }
 
         client_setlk (fdctx, lock);
+
+        pthread_spin_unlock(&conf->fd_lock);
 
 out:
         return ret;
