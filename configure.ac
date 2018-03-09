@@ -1097,16 +1097,15 @@ AC_SUBST(GF_DISTRIBUTION)
 GF_HOST_OS=""
 GF_LDFLAGS="-rdynamic"
 
-DISABLE_LIBTIRPC=no
 dnl include tirpc for IPv6 builds
 if test "x$with_libtirpc" = "xyes" || test "x$with_ipv6_default" = "xyes" ; then
     PKG_CHECK_MODULES([TIRPC], [libtirpc],
-       [GF_CFLAGS="$GF_CFLAGS $TIRPC_CFLAGS"; GF_LDFLAGS="$GF_LDFLAGS $TIRPC_LIBS";],
-       [DISABLE_LIBTIRPC=yes])
+       [with_libtirpc=yes; GF_CFLAGS="$GF_CFLAGS $TIRPC_CFLAGS"; GF_LDFLAGS="$GF_LDFLAGS $TIRPC_LIBS";],
+       [with_libtirpc=missing])
 fi
 
-if test "x$DISABLE_LIBTIRPC" = "xyes" ; then
-    with_libtirpc=no; with_ipv6_default=no
+if test "x$with_libtirpc" = "xmissing" ; then
+    with_ipv6_default=no
     AC_CHECK_HEADERS([rpc/rpc.h],[
         AC_MSG_WARN([
             ---------------------------------------------------------------------------------
