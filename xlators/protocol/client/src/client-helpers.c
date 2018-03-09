@@ -424,20 +424,20 @@ client_get_remote_fd (xlator_t *this, fd_t *fd, int flags, int64_t *remote_fd)
         GF_VALIDATE_OR_GOTO (this->name, fd, out);
         GF_VALIDATE_OR_GOTO (this->name, remote_fd, out);
 
-        fdctx = this_fd_get_ctx (fd, this);
-        if (!fdctx) {
-                *remote_fd = GF_ANON_FD_NO;
-        } else {
-                conf = this->private;
-                pthread_spin_lock (&conf->fd_lock);
-                {
+        conf = this->private;
+        pthread_spin_lock (&conf->fd_lock);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+                if (!fdctx) {
+                        *remote_fd = GF_ANON_FD_NO;
+                } else {
                         if (__is_fd_reopen_in_progress (fdctx))
                                 *remote_fd = -1;
                         else
                                 *remote_fd = fdctx->remote_fd;
                 }
-                pthread_spin_unlock (&conf->fd_lock);
         }
+        pthread_spin_unlock (&conf->fd_lock);
 
         if ((flags & FALLBACK_TO_ANON_FD) && (*remote_fd == -1))
                 *remote_fd = GF_ANON_FD_NO;
@@ -450,13 +450,21 @@ out:
 gf_boolean_t
 client_is_reopen_needed (fd_t *fd, xlator_t *this, int64_t remote_fd)
 {
+        clnt_conf_t     *conf  = NULL;
         clnt_fd_ctx_t   *fdctx = NULL;
+        gf_boolean_t     res = _gf_false;
 
-        fdctx = this_fd_get_ctx (fd, this);
-        if (fdctx && (fdctx->remote_fd == -1) &&
-            (remote_fd == GF_ANON_FD_NO))
-                return _gf_true;
-        return _gf_false;
+        conf = this->private;
+        pthread_spin_lock(&conf->fd_lock);
+        {
+                fdctx = this_fd_get_ctx (fd, this);
+                if (fdctx && (fdctx->remote_fd == -1) &&
+                    (remote_fd == GF_ANON_FD_NO))
+                        res = _gf_true;
+        }
+        pthread_spin_unlock(&conf->fd_lock);
+
+        return res;
 }
 
 int

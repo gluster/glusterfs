@@ -2758,7 +2758,7 @@ client4_0_releasedir (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
+        pthread_spin_lock (&conf->fd_lock);
         {
                 fdctx = this_fd_del_ctx (args->fd, this);
                 if (fdctx != NULL) {
@@ -2777,7 +2777,7 @@ client4_0_releasedir (call_frame_t *frame, xlator_t *this,
                         }
                 }
         }
-        pthread_mutex_unlock (&conf->lock);
+        pthread_spin_unlock (&conf->fd_lock);
 
         if (destroy)
                 client_fdctx_destroy (this, fdctx);
@@ -2803,7 +2803,7 @@ client4_0_release (call_frame_t *frame, xlator_t *this,
         args = data;
         conf = this->private;
 
-        pthread_mutex_lock (&conf->lock);
+        pthread_spin_lock (&conf->fd_lock);
         {
                 fdctx = this_fd_del_ctx (args->fd, this);
                 if (fdctx != NULL) {
@@ -2821,7 +2821,7 @@ client4_0_release (call_frame_t *frame, xlator_t *this,
                         }
                 }
         }
-        pthread_mutex_unlock (&conf->lock);
+        pthread_spin_unlock (&conf->fd_lock);
 
         if (destroy)
                 client_fdctx_destroy (this, fdctx);

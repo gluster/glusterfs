@@ -926,11 +926,14 @@ client_attempt_reopen (fd_t *fd, xlator_t *this)
 
         conf = this->private;
 
-        fdctx = this_fd_get_ctx (fd, this);
-        if (!fdctx)
-                goto out;
         pthread_spin_lock (&conf->fd_lock);
         {
+                fdctx = this_fd_get_ctx (fd, this);
+                if (!fdctx) {
+                        pthread_spin_unlock(&conf->fd_lock);
+                        goto out;
+                }
+
                 if (__is_fd_reopen_in_progress (fdctx))
                         goto unlock;
                 if (fdctx->remote_fd != -1)
