@@ -176,6 +176,8 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/bit-rot/src/bitd/Makefile
                 xlators/features/leases/Makefile
                 xlators/features/leases/src/Makefile
+                xlators/features/cloudsync/Makefile
+                xlators/features/cloudsync/src/Makefile
                 xlators/playground/Makefile
                 xlators/playground/template/Makefile
                 xlators/playground/template/src/Makefile
