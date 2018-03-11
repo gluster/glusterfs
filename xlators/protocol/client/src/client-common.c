@@ -1461,6 +1461,8 @@ client_post_unlink (xlator_t *this, gfs3_unlink_rsp *rsp,
         GF_PROTOCOL_DICT_UNSERIALIZE (this, *xdata, (rsp->xdata.xdata_val),
                                       (rsp->xdata.xdata_len), ret,
                                       rsp->op_errno, out);
+
+        ret = gf_replace_new_iatt_in_dict (*xdata);
 out:
         return ret;
 }
@@ -1679,6 +1681,8 @@ client_post_setxattr (xlator_t *this, gf_common_rsp *rsp, dict_t **xdata)
         GF_PROTOCOL_DICT_UNSERIALIZE (this, *xdata, (rsp->xdata.xdata_val),
                                       (rsp->xdata.xdata_len), ret,
                                       rsp->op_errno, out);
+
+        ret = gf_replace_new_iatt_in_dict (*xdata);
 out:
         return ret;
 }
@@ -1713,6 +1717,8 @@ client_post_removexattr (xlator_t *this, gf_common_rsp *rsp,
         GF_PROTOCOL_DICT_UNSERIALIZE (this, *xdata, (rsp->xdata.xdata_val),
                                       (rsp->xdata.xdata_len), ret,
                                       rsp->op_errno, out);
+
+        ret = gf_replace_new_iatt_in_dict (*xdata);
 out:
         return ret;
 }
@@ -1983,6 +1989,8 @@ client_post_fsetxattr (xlator_t *this, gf_common_rsp *rsp, dict_t **xdata)
         GF_PROTOCOL_DICT_UNSERIALIZE (this, *xdata, (rsp->xdata.xdata_val),
                                       (rsp->xdata.xdata_len), ret,
                                       rsp->op_errno, out);
+
+        ret = gf_replace_new_iatt_in_dict (*xdata);
 out:
         return ret;
 }
@@ -2062,6 +2070,8 @@ client_post_fremovexattr (xlator_t *this, gf_common_rsp *rsp,
         GF_PROTOCOL_DICT_UNSERIALIZE (this, *xdata, (rsp->xdata.xdata_val),
                                       (rsp->xdata.xdata_len), ret,
                                       rsp->op_errno, out);
+
+        ret = gf_replace_new_iatt_in_dict (*xdata);
 out:
         return ret;
 }

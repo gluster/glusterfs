@@ -1221,38 +1221,6 @@ getactivelkinfo_rsp_cleanup_v2 (gfx_getactivelk_rsp  *rsp)
 }
 
 int
-replace_old_iatt_in_dict (dict_t *xdata)
-{
-        int ret;
-        struct old_iatt *o_iatt; /* old iatt structure */
-        struct iatt *c_iatt; /* current iatt */
-        int32_t len = sizeof(struct old_iatt);
-
-        if (!xdata) {
-                return 0;
-        }
-
-        ret = dict_get_bin (xdata, DHT_IATT_IN_XDATA_KEY, (void **)&c_iatt);
-        if (ret < 0) {
-                return 0;
-        }
-
-        o_iatt = GF_CALLOC (1, len, gf_common_mt_char);
-        if (!o_iatt) {
-                return -1;
-        }
-
-        oldiatt_from_iatt (o_iatt, c_iatt);
-
-        ret = dict_set_bin (xdata, DHT_IATT_IN_XDATA_KEY, o_iatt, len);
-        if (ret) {
-                GF_FREE (o_iatt);
-        }
-
-        return ret;
-}
-
-int
 gf_server_check_getxattr_cmd (call_frame_t *frame, const char *key)
 {
 
@@ -2494,7 +2462,7 @@ server_populate_compound_response (xlator_t *this, gfs3_compound_rsp *rsp,
 
                 rsp_args = &this_rsp->compound_rsp_u.compound_unlink_rsp;
 
-                if (replace_old_iatt_in_dict (this_args_cbk->xdata)) {
+                if (gf_replace_old_iatt_in_dict (this_args_cbk->xdata)) {
                         rsp_args->op_errno = errno;
                         rsp_args->op_ret = -1;
                         goto out;
@@ -2762,7 +2730,7 @@ server_populate_compound_response (xlator_t *this, gfs3_compound_rsp *rsp,
 
                 rsp_args = &this_rsp->compound_rsp_u.compound_setxattr_rsp;
 
-                if (replace_old_iatt_in_dict (this_args_cbk->xdata)) {
+                if (gf_replace_old_iatt_in_dict (this_args_cbk->xdata)) {
                         rsp_args->op_errno = errno;
                         rsp_args->op_ret = -1;
                         goto out;
@@ -2806,7 +2774,7 @@ server_populate_compound_response (xlator_t *this, gfs3_compound_rsp *rsp,
 
                 rsp_args = &this_rsp->compound_rsp_u.compound_removexattr_rsp;
 
-                if (replace_old_iatt_in_dict (this_args_cbk->xdata)) {
+                if (gf_replace_old_iatt_in_dict (this_args_cbk->xdata)) {
                         rsp_args->op_errno = errno;
                         rsp_args->op_ret = -1;
                         goto out;
@@ -3143,7 +3111,7 @@ server_populate_compound_response (xlator_t *this, gfs3_compound_rsp *rsp,
 
                 rsp_args = &this_rsp->compound_rsp_u.compound_setxattr_rsp;
 
-                if (replace_old_iatt_in_dict (this_args_cbk->xdata)) {
+                if (gf_replace_old_iatt_in_dict (this_args_cbk->xdata)) {
                         rsp_args->op_errno = errno;
                         rsp_args->op_ret = -1;
                         goto out;
@@ -3253,7 +3221,7 @@ server_populate_compound_response (xlator_t *this, gfs3_compound_rsp *rsp,
 
                 rsp_args = &this_rsp->compound_rsp_u.compound_fremovexattr_rsp;
 
-                if (replace_old_iatt_in_dict (this_args_cbk->xdata)) {
+                if (gf_replace_old_iatt_in_dict (this_args_cbk->xdata)) {
                         rsp_args->op_errno = errno;
                         rsp_args->op_ret = -1;
                         goto out;

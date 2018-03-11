@@ -1106,3 +1106,5 @@ global_xlator
 use_spinlocks
 dump_options
 glusterfs_leaseid_buf_get
+gf_replace_old_iatt_in_dict
+gf_replace_new_iatt_in_dict
