@@ -5113,3 +5113,67 @@ gf_strncpy (char *dest, const char *src, const size_t dest_size)
         dest[dest_size - 1] = '\0';
         return dest;
 }
+
+int
+gf_replace_old_iatt_in_dict (dict_t *xdata)
+{
+        int ret;
+        struct old_iatt *o_iatt; /* old iatt structure */
+        struct iatt *c_iatt; /* current iatt */
+        int32_t len = sizeof(struct old_iatt);
+
+        if (!xdata) {
+                return 0;
+        }
+
+        ret = dict_get_bin (xdata, DHT_IATT_IN_XDATA_KEY, (void **)&c_iatt);
+        if (ret < 0) {
+                return 0;
+        }
+
+        o_iatt = GF_CALLOC (1, len, gf_common_mt_char);
+        if (!o_iatt) {
+                return -1;
+        }
+
+        oldiatt_from_iatt (o_iatt, c_iatt);
+
+        ret = dict_set_bin (xdata, DHT_IATT_IN_XDATA_KEY, o_iatt, len);
+        if (ret) {
+                GF_FREE (o_iatt);
+        }
+
+        return ret;
+}
+
+int
+gf_replace_new_iatt_in_dict (dict_t *xdata)
+{
+        int ret;
+        struct old_iatt *o_iatt; /* old iatt structure */
+        struct iatt *c_iatt; /* new iatt */
+        int32_t len = sizeof(struct iatt);
+
+        if (!xdata) {
+                return 0;
+        }
+
+        ret = dict_get_bin (xdata, DHT_IATT_IN_XDATA_KEY, (void **)&o_iatt);
+        if (ret < 0) {
+                return 0;
+        }
+
+        c_iatt = GF_CALLOC (1, len, gf_common_mt_char);
+        if (!c_iatt) {
+                return -1;
+        }
+
+        iatt_from_oldiatt (c_iatt, o_iatt);
+
+        ret = dict_set_bin (xdata, DHT_IATT_IN_XDATA_KEY, c_iatt, len);
+        if (ret) {
+                GF_FREE (c_iatt);
+        }
+
+        return ret;
+}

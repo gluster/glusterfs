@@ -959,4 +959,10 @@ gf_strncpy (char *dest, const char *src, const size_t dest_size);
 void
 gf_strTrim (char **s);
 
+int
+gf_replace_old_iatt_in_dict (struct _dict *);
+
+int
+gf_replace_new_iatt_in_dict (struct _dict *);
+
 #endif /* _COMMON_UTILS_H */

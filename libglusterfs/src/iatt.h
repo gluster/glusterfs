@@ -423,6 +423,38 @@ oldiatt_from_iatt (struct old_iatt *o_iatt, struct iatt *c_iatt)
         return;
 }
 
+static inline void
+iatt_from_oldiatt (struct iatt *c_iatt, struct old_iatt *o_iatt)
+{
+        c_iatt->ia_dev        = o_iatt->ia_dev;
+        c_iatt->ia_ino        = o_iatt->ia_ino;
+        c_iatt->ia_type       = o_iatt->ia_type;
+        c_iatt->ia_prot       = o_iatt->ia_prot;
+        c_iatt->ia_nlink      = o_iatt->ia_nlink;
+        c_iatt->ia_uid        = o_iatt->ia_uid;
+        c_iatt->ia_gid        = o_iatt->ia_gid;
+        c_iatt->ia_rdev       = o_iatt->ia_rdev;
+        c_iatt->ia_size       = o_iatt->ia_size;
+        c_iatt->ia_blksize    = o_iatt->ia_blksize;
+        c_iatt->ia_blocks     = o_iatt->ia_blocks;
+        c_iatt->ia_atime      = o_iatt->ia_atime;
+        c_iatt->ia_atime_nsec = o_iatt->ia_atime_nsec;
+        c_iatt->ia_mtime      = o_iatt->ia_mtime;
+        c_iatt->ia_mtime_nsec = o_iatt->ia_mtime_nsec;
+        c_iatt->ia_ctime      = o_iatt->ia_ctime;
+        c_iatt->ia_ctime_nsec = o_iatt->ia_ctime_nsec;
+
+        gf_uuid_copy (c_iatt->ia_gfid, o_iatt->ia_gfid);
+
+        c_iatt->ia_attributes = 0;
+
+        c_iatt->ia_flags = IATT_TYPE | IATT_MODE | IATT_NLINK | IATT_INO |
+                           IATT_UID | IATT_GID | IATT_SIZE | IATT_BLOCKS |
+                           IATT_ATIME | IATT_MTIME | IATT_CTIME | IATT_GFID;
+
+        return;
+}
+
 static inline int
 is_same_mode (ia_prot_t prot1, ia_prot_t prot2)
 {
