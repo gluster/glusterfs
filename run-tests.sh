@@ -41,6 +41,12 @@ function check_dependencies()
       fi
     fi
 
+    # Check for netstat
+    env netstat --version > /dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        MISSING="$MISSING netstat"
+    fi
+
     # Check for the Perl Test Harness
     env prove --version > /dev/null 2>&1
     if [ $? -ne 0 ]; then
