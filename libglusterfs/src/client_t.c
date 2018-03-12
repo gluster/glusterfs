@@ -338,7 +338,7 @@ gf_client_destroy_recursive (xlator_t *xl, client_t *client)
 {
         xlator_list_t   *trav;
 
-        if (xl->cbks->client_destroy) {
+        if (!xl->call_cleanup && xl->cbks->client_destroy) {
                 xl->cbks->client_destroy (xl, client);
         }
 
@@ -398,7 +398,7 @@ gf_client_disconnect_recursive (xlator_t *xl, client_t *client)
         int             ret     = 0;
         xlator_list_t   *trav;
 
-        if (xl->cbks->client_disconnect) {
+        if (!xl->call_cleanup && xl->cbks->client_disconnect) {
                 ret = xl->cbks->client_disconnect (xl, client);
         }
 

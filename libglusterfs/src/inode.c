@@ -327,7 +327,7 @@ __inode_ctx_free (inode_t *inode)
                         xl = (xlator_t *)(long)inode->_ctx[index].xl_key;
                         old_THIS = THIS;
                         THIS = xl;
-                        if (xl->cbks->forget)
+                        if (!xl->call_cleanup && xl->cbks->forget)
                                 xl->cbks->forget (xl, inode);
                         THIS = old_THIS;
                 }

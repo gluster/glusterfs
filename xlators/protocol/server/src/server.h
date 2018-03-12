@@ -99,7 +99,7 @@ struct _child_status {
         struct list_head status_list;
         char *name;
         gf_boolean_t child_up;
-
+        gf_atomic_t  xprtrefcnt;
 };
 struct server_conf {
         rpcsvc_t               *rpc;

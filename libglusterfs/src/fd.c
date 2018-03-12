@@ -484,7 +484,7 @@ fd_destroy (fd_t *fd, gf_boolean_t bound)
                                 xl = fd->_ctx[i].xl_key;
                                 old_THIS = THIS;
                                 THIS = xl;
-                                if (xl->cbks->releasedir)
+                                if (!xl->call_cleanup && xl->cbks->releasedir)
                                         xl->cbks->releasedir (xl, fd);
                                 THIS = old_THIS;
                         }
@@ -495,7 +495,7 @@ fd_destroy (fd_t *fd, gf_boolean_t bound)
                                 xl = fd->_ctx[i].xl_key;
                                 old_THIS = THIS;
                                 THIS = xl;
-                                if (xl->cbks->release)
+                                if (!xl->call_cleanup && xl->cbks->release)
                                         xl->cbks->release (xl, fd);
                                 THIS = old_THIS;
                         }

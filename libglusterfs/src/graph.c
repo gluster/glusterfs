@@ -841,7 +841,7 @@ is_graph_topology_equal (glusterfs_graph_t *graph1, glusterfs_graph_t *graph2)
                 trav2 = trav2->children->xlator;
                 for (ltrav = trav1->children; ltrav; ltrav = ltrav->next) {
                         trav1 = ltrav->xlator;
-                        if (strcmp (trav1->name, trav2->name) == 0) {
+                        if (!trav1->cleanup_starting && !strcmp (trav1->name, trav2->name)) {
                                 break;
                         }
                 }
@@ -1088,7 +1088,7 @@ glusterfs_graph_reconfigure (glusterfs_graph_t *oldgraph,
         new_xl = FIRST_CHILD (new_xl);
 
         for (trav = old_xl->children; trav; trav = trav->next) {
-                if (strcmp (trav->xlator->name, new_xl->name) == 0) {
+                if (!trav->xlator->cleanup_starting && !strcmp (trav->xlator->name, new_xl->name)) {
                         return xlator_tree_reconfigure (trav->xlator, new_xl);
                 }
         }
@@ -1237,7 +1237,7 @@ glusterfs_graph_attach (glusterfs_graph_t *orig_graph, char *path,
                 xl->volfile_id[strlen(xl->volfile_id)-4] = '\0';
         }
 
-        /* TBD: memory leaks everywhere */
+        /* TODO memory leaks everywhere need to free graph in case of error */
         if (glusterfs_graph_prepare (graph, this->ctx, xl->name)) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "failed to prepare graph for xlator %s", xl->name);

@@ -194,11 +194,6 @@ xlator_mem_free (xlator_t *xl)
         if (!xl)
                 return 0;
 
-        GF_FREE (xl->name);
-        GF_FREE (xl->type);
-        xl->name = NULL;
-        xl->type = NULL;
-
         if (xl->options) {
                 dict_ref (xl->options);
                 dict_unref (xl->options);
@@ -210,25 +205,38 @@ xlator_mem_free (xlator_t *xl)
                 GF_FREE (vol_opt);
         }
 
+        xlator_memrec_free (xl);
+
         return 0;
 }
 
 void
 xlator_call_fini (xlator_t *this) {
-        if (!this)
+        if (!this || this->cleanup_starting)
                 return;
+        this->cleanup_starting = 1;
+        this->call_cleanup = 1;
         xlator_call_fini (this->next);
         this->fini (this);
 }
 
 void
 xlator_mem_cleanup (xlator_t *this) {
-        xlator_list_t     *list = this->children;
-        xlator_t          *trav = list->xlator;
-        inode_table_t     *inode_table = NULL;
-        xlator_t          *prev = trav;
+        xlator_list_t     *list         = this->children;
+        xlator_t          *trav         = list->xlator;
+        inode_table_t     *inode_table  = NULL;
+        xlator_t          *prev         = trav;
+        glusterfs_ctx_t   *ctx          = NULL;
+        xlator_list_t    **trav_p       = NULL;
+        xlator_t          *top          = NULL;
+        xlator_t          *victim       = NULL;
 
-        inode_table = this->itable;
+
+        if (this->call_cleanup)
+                return;
+
+        this->call_cleanup = 1;
+        ctx = glusterfsd_ctx;
 
         xlator_call_fini (trav);
 
@@ -238,6 +246,7 @@ xlator_mem_cleanup (xlator_t *this) {
                 prev = trav;
         }
 
+        inode_table = this->itable;
         if (inode_table) {
                 inode_table_destroy (inode_table);
                 this->itable = NULL;
@@ -248,6 +257,33 @@ xlator_mem_cleanup (xlator_t *this) {
         }
 
         xlator_mem_free (this);
+
+        if (glusterfsd_ctx->active) {
+                top = glusterfsd_ctx->active->first;
+                LOCK (&ctx->volfile_lock);
+                /* TODO here we have leak for xlator node in a graph */
+                for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
+                        victim = (*trav_p)->xlator;
+                        if (victim->call_cleanup && !strcmp (victim->name, this->name)) {
+                                        (*trav_p) = (*trav_p)->next;
+                                        break;
+                        }
+                }
+                /* TODO Sometime brick xlator is not moved from graph so followed below
+                   approach to move brick xlator from a graph, will move specific brick
+                   xlator from graph only while inode table and mem_acct are cleaned up
+                */
+                trav_p = &top->children;
+                while (*trav_p) {
+                        victim = (*trav_p)->xlator;
+                        if (victim->call_cleanup && !victim->itable && !victim->mem_acct) {
+                                (*trav_p) = (*trav_p)->next;
+                        } else {
+                                trav_p = &(*trav_p)->next;
+                        }
+                }
+                UNLOCK (&ctx->volfile_lock);
+        }
 
 }
 
@@ -260,8 +296,10 @@ glusterfs_handle_terminate (rpcsvc_request_t *req)
         glusterfs_ctx_t         *ctx            = NULL;
         xlator_t                *top            = NULL;
         xlator_t                *victim         = NULL;
+        xlator_t                *tvictim        = NULL;
         xlator_list_t           **trav_p        = NULL;
         gf_boolean_t            lockflag        = _gf_false;
+        gf_boolean_t            last_brick      = _gf_false;
 
         ret = xdr_to_generic (req->msg[0], &xlator_req,
                               (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
@@ -279,11 +317,15 @@ glusterfs_handle_terminate (rpcsvc_request_t *req)
                         for (trav_p = &top->children; *trav_p;
                                                     trav_p = &(*trav_p)->next) {
                                 victim = (*trav_p)->xlator;
-                                if (strcmp (victim->name, xlator_req.name) == 0) {
+                                if (!victim->cleanup_starting && strcmp (victim->name, xlator_req.name) == 0) {
                                         break;
                                 }
                         }
                 }
+
+                if (!top)
+                        goto err;
+
         }
         if (!*trav_p) {
                 gf_log (THIS->name, GF_LOG_ERROR,
@@ -299,26 +341,38 @@ glusterfs_handle_terminate (rpcsvc_request_t *req)
         }
 
         glusterfs_terminate_response_send (req, 0);
-        if ((trav_p == &top->children) && !(*trav_p)->next) {
+        for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
+                tvictim = (*trav_p)->xlator;
+                if (!tvictim->cleanup_starting && !strcmp (tvictim->name, xlator_req.name)) {
+                        continue;
+                }
+                if (!tvictim->cleanup_starting) {
+                        last_brick = _gf_true;
+                        break;
+                }
+        }
+        if (!last_brick) {
                 gf_log (THIS->name, GF_LOG_INFO,
                         "terminating after loss of last child %s",
                         xlator_req.name);
                 rpc_clnt_mgmt_pmap_signout (glusterfsd_ctx, xlator_req.name);
                 kill (getpid(), SIGTERM);
         } else {
-                /*
-                 * This is terribly unsafe without quiescing or shutting
-                 * things down properly but it gets us to the point
-                 * where we can test other stuff.
-                 *
-                 * TBD: finish implementing this "detach" code properly
-                 */
+                /* TODO cleanup sequence needs to be done properly for
+                   Quota and Changelog
+                */
+                if (victim->cleanup_starting)
+                        goto err;
+
+                victim->cleanup_starting = 1;
+
                 UNLOCK (&ctx->volfile_lock);
                 lockflag = _gf_true;
+
                 gf_log (THIS->name, GF_LOG_INFO, "detaching not-only"
                          " child %s", xlator_req.name);
                 top->notify (top, GF_EVENT_CLEANUP, victim);
-                xlator_mem_cleanup (victim);
+
         }
 err:
         if (!lockflag)

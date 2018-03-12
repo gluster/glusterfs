@@ -1100,6 +1100,7 @@ xlator_tree_free_members
 xlator_volopt_dynload
 xlator_volume_option_get
 xlator_volume_option_get_list
+xlator_memrec_free
 default_fops
 gf_fop_list
 gf_upcall_list

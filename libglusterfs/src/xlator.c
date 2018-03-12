@@ -629,7 +629,7 @@ get_xlator_by_name_or_type (xlator_t *this, char *target, int is_name)
 
         for (trav = this->children; trav; trav = trav->next) {
                 value = is_name ? trav->xlator->name : trav->xlator->type;
-                if (strcmp(value, target) == 0) {
+                if (!strcmp(value, target)) {
                         return trav->xlator;
                 }
                 child_xl = get_xlator_by_name_or_type (trav->xlator, target,
@@ -722,7 +722,9 @@ xlator_init (xlator_t *xl)
         }
 
         xl->init_succeeded = 1;
-
+        /*xl->cleanup_starting = 0;
+          xl->call_cleanup = 0;
+        */
         ret = 0;
 out:
         return ret;
@@ -858,7 +860,7 @@ xlator_list_destroy (xlator_list_t *list)
         return 0;
 }
 
-static int
+int
 xlator_memrec_free (xlator_t *xl)
 {
         uint32_t        i               = 0;

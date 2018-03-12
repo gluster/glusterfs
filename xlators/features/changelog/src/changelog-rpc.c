@@ -258,6 +258,15 @@ changelog_handle_probe (rpcsvc_request_t *req)
         changelog_probe_req   rpc_req = {0,};
         changelog_probe_rsp   rpc_rsp = {0,};
 
+
+        this = req->trans->xl;
+        if (this->cleanup_starting) {
+                gf_msg (this->name, GF_LOG_DEBUG, 0,
+                        CHANGELOG_MSG_HANDLE_PROBE_ERROR,
+                        "cleanup_starting flag is already set for xl");
+                return 0;
+        }
+
         ret = xdr_to_generic (req->msg[0],
                               &rpc_req, (xdrproc_t)xdr_changelog_probe_req);
         if (ret < 0) {
