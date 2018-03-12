@@ -2894,12 +2894,17 @@ void
 fini (xlator_t *this)
 {
         changelog_priv_t *priv = NULL;
+        struct list_head  queue = {0, };
 
         priv = this->private;
 
         if (priv) {
                 /* terminate RPC server/threads */
                 changelog_cleanup_rpc (this, priv);
+
+                /* call barrier_disable to cancel timer */
+                if (priv->barrier_enabled)
+                        __chlog_barrier_disable (this, &queue);
 
                 /* cleanup barrier related objects */
                 changelog_barrier_pthread_destroy (priv);

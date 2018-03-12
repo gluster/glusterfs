@@ -474,6 +474,7 @@ server_setvolume (rpcsvc_request_t *req)
         struct  _child_status *tmp         = NULL;
         char                *subdir_mount  = NULL;
         char                *client_name   = NULL;
+        gf_boolean_t         cleanup_starting = _gf_false;
 
         params = dict_new ();
         reply  = dict_new ();
@@ -575,11 +576,13 @@ server_setvolume (rpcsvc_request_t *req)
                                       "initialised yet. Try again later");
                 goto fail;
         }
+
         list_for_each_entry (tmp, &conf->child_status->status_list,
                                                                   status_list) {
                 if (strcmp (tmp->name, name) == 0)
                         break;
         }
+
         if (!tmp->name) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         PS_MSG_CHILD_STATUS_FAILED,
@@ -593,6 +596,7 @@ server_setvolume (rpcsvc_request_t *req)
                                 "Failed to set 'child_up' for xlator %s "
                                 "in the reply dict", tmp->name);
         }
+
         ret = dict_get_str (params, "process-uuid", &client_uid);
         if (ret < 0) {
                 ret = dict_set_str (reply, "ERROR",
@@ -634,8 +638,27 @@ server_setvolume (rpcsvc_request_t *req)
                 goto fail;
         }
 
-        if (req->trans->xl_private != client)
+        pthread_mutex_lock (&conf->mutex);
+        if (xl->cleanup_starting) {
+                cleanup_starting = _gf_true;
+        } else if (req->trans->xl_private != client) {
                 req->trans->xl_private = client;
+        }
+        pthread_mutex_unlock (&conf->mutex);
+
+        if (cleanup_starting) {
+                op_ret = -1;
+                op_errno = EAGAIN;
+
+                ret = dict_set_str (reply, "ERROR",
+                                    "cleanup flag is set for xlator. "
+                                    " Try again later");
+                if (ret < 0)
+                        gf_msg_debug (this->name, 0, "failed to set error: "
+                                      "cleanup flag is set for xlator. "
+                                      "Try again later");
+                goto fail;
+        }
 
         auth_set_username_passwd (params, config_params, client);
         if (req->trans->ssl_name) {

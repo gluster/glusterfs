@@ -501,21 +501,14 @@ gf_proc_dump_dict_info (glusterfs_ctx_t *ctx)
                             (total_pairs / total_dicts));
 }
 
-void
-gf_proc_dump_xlator_info (xlator_t *top)
+static void
+gf_proc_dump_per_xlator_info (xlator_t *top)
 {
-        xlator_t        *trav = NULL;
-        glusterfs_ctx_t *ctx = NULL;
+        xlator_t        *trav = top;
+        glusterfs_ctx_t *ctx = top->ctx;
         char             itable_key[1024] = {0,};
 
-        if (!top)
-                return;
-
-        ctx = top->ctx;
-
-        trav = top;
-        while (trav) {
-
+        while (trav && !trav->cleanup_starting) {
                 if (ctx->measure_latency)
                         gf_proc_dump_latency_info (trav);
 
@@ -539,7 +532,6 @@ gf_proc_dump_xlator_info (xlator_t *top)
                 if (GF_PROC_DUMP_IS_XL_OPTION_ENABLED (inode) &&
                     (trav->dumpops->inode))
                         trav->dumpops->inode (trav);
-
                 if (trav->dumpops->fd &&
                     GF_PROC_DUMP_IS_XL_OPTION_ENABLED (fd))
                         trav->dumpops->fd (trav);
@@ -549,6 +541,30 @@ gf_proc_dump_xlator_info (xlator_t *top)
                         trav->dumpops->history (trav);
 
                 trav = trav->next;
+        }
+}
+
+
+
+void
+gf_proc_dump_xlator_info (xlator_t *top, gf_boolean_t brick_mux)
+{
+        xlator_t        *trav = NULL;
+        xlator_list_t   **trav_p        = NULL;
+
+        if (!top)
+                return;
+
+        trav = top;
+        gf_proc_dump_per_xlator_info (trav);
+
+        if (brick_mux) {
+                trav_p = &top->children;
+                while (*trav_p) {
+                        trav = (*trav_p)->xlator;
+                        gf_proc_dump_per_xlator_info (trav);
+                        trav_p = &(*trav_p)->next;
+                }
         }
 
         return;
@@ -803,11 +819,26 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
         char               tmp_dump_name[PATH_MAX] = {0,};
         char               path[PATH_MAX]          = {0,};
         struct timeval     tv                      = {0,};
+        gf_boolean_t       is_brick_mux            = _gf_false;
+        xlator_t          *top                     = NULL;
+        xlator_list_t    **trav_p                 = NULL;
+        int                brick_count            = 0;
 
         gf_proc_dump_lock ();
 
         if (!ctx)
                 goto out;
+
+        if (ctx) {
+                top = ctx->active->first;
+                for (trav_p = &top->children; *trav_p;
+                                     trav_p = &(*trav_p)->next) {
+                        brick_count++;
+                }
+
+                if (brick_count > 1)
+                        is_brick_mux = _gf_true;
+        }
 
         if (ctx->cmd_args.brick_name) {
                 GF_REMOVE_SLASH_FROM_PATH (ctx->cmd_args.brick_name, brick_name);
@@ -868,12 +899,12 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
 
         if (ctx->master) {
                 gf_proc_dump_add_section ("fuse");
-                gf_proc_dump_xlator_info (ctx->master);
+                gf_proc_dump_xlator_info (ctx->master, _gf_false);
         }
 
         if (ctx->active) {
                 gf_proc_dump_add_section ("active graph - %d", ctx->graph_id);
-                gf_proc_dump_xlator_info (ctx->active->top);
+                gf_proc_dump_xlator_info (ctx->active->top, is_brick_mux);
         }
 
         i = 0;

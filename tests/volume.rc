@@ -801,26 +801,53 @@ function count_sh_entries()
     ls $1/.glusterfs/indices/xattrop | grep -v "xattrop-" | wc -l
 }
 
+function check_brick_multiplex() {
+        cnt="$(ls /var/log/glusterfs/bricks|wc -l)"
+        local ret=$($CLI volume info|grep "cluster.brick-multiplex"|cut -d" " -f2)
+        local bcnt="$(brick_count)"
+
+        if [ $bcnt -ne 1 ]; then
+           if [ "$ret" = "on" ] || [ $cnt -eq 1 ]; then
+              echo "Y"
+           else
+              echo "N"
+           fi
+        else
+           echo "N"
+        fi
+}
+
 function get_fd_count {
         local vol=$1
         local host=$2
         local brick=$3
         local fname=$4
+        local val="$(check_brick_multiplex)"
         local gfid_str=$(gf_gfid_xattr_to_str $(gf_get_gfid_xattr $brick/$fname))
         local statedump=$(generate_brick_statedump $vol $host $brick)
-        local count=$(grep "gfid=$gfid_str" $statedump -A2 -B1 | grep $brick -A3 | grep -w fd-count | cut -f2 -d'=' | tail -1)
+        if [ $val == "N" ]; then
+            count=$(grep "gfid=$gfid_str" $statedump -A2 | grep fd-count | cut -f2 -d'=' | tail -1)
+        else
+            count=$(grep "${brick}.active.1" -A3 $statedump | grep "gfid=$gfid_str" -A2 | grep fd-count | cut -f2 -d'=' | tail -1)
+        fi
         rm -f $statedump
         echo $count
 }
+
 
 function get_active_fd_count {
         local vol=$1
         local host=$2
         local brick=$3
         local fname=$4
+        local val="$(check_brick_multiplex)"
         local gfid_str=$(gf_gfid_xattr_to_str $(gf_get_gfid_xattr $brick/$fname))
         local statedump=$(generate_brick_statedump $vol $host $brick)
-        local count=$(grep "gfid=$gfid_str" $statedump -A2 -B1 | grep $brick -A3 | grep -w active-fd-count | cut -f2 -d'=' | tail -1)
+        if [ $val == "N" ]; then
+            count=$(grep "gfid=$gfid_str" $statedump -A2 | grep fd-count | cut -f2 -d'=' | tail -1)
+        else
+            count=$(grep "${brick}.active.1" -A3 $statedump | grep "gfid=$gfid_str" -A2 | grep fd-count | cut -f2 -d'=' | tail -1)
+        fi
         rm -f $statedump
         echo $count
 }

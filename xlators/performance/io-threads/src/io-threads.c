@@ -228,7 +228,7 @@ iot_worker (void *data)
                                         "Dropping poisoned request %p.", stub);
                                 call_stub_destroy (stub);
                         } else {
-                                call_resume (stub);
+                                        call_resume (stub);
                         }
                 }
                 stub = NULL;

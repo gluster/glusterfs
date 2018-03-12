@@ -1043,6 +1043,14 @@ struct _xlator {
         /* Is this pass_through? */
         gf_boolean_t   pass_through;
         struct xlator_fops    *pass_through_fops;
+
+        /* cleanup flag to avoid races during xlator cleanup */
+        uint32_t cleanup_starting;
+
+        /* flag to avoid recall of xlator_mem_cleanup for xame xlator */
+        uint32_t call_cleanup;
+
+
 };
 
 typedef struct {
@@ -1236,5 +1244,6 @@ copy_opts_to_child (xlator_t *src, xlator_t *dst, char *glob);
 int
 glusterfs_delete_volfile_checksum (glusterfs_ctx_t *ctx,
                                    const char *volfile_id);
-
+int
+xlator_memrec_free (xlator_t *xl);
 #endif /* _XLATOR_H */
