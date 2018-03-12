@@ -3651,6 +3651,18 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                                 if (path_list)
                                         ret = -1;
                         }
+
+                        /* Check for geo-rep session is active or not for
+                         * configured user.*/
+                        ret = glusterd_gsync_get_uuid (slave, volinfo, uuid);
+                        if (ret) {
+                                snprintf (errmsg, sizeof(errmsg),
+                                          "Geo-replication session between %s "
+                                          "and %s does not exist.",
+                                          volinfo->volname, slave);
+                                ret = -1;
+                                goto out;
+                        }
                 }
                 break;
 
@@ -3673,6 +3685,17 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                                 ret = -1;
                                 goto out;
                         }
+                }
+
+                /* Check for geo-rep session is active or not
+                 * for configured user.*/
+                ret = glusterd_gsync_get_uuid (slave, volinfo, uuid);
+                if (ret) {
+                        snprintf (errmsg, sizeof(errmsg), "Geo-replication"
+                                  " session between %s and %s does not exist.",
+                                  volinfo->volname, slave);
+                        ret = -1;
+                        goto out;
                 }
 
                 if (!is_force) {
