@@ -541,7 +541,7 @@ out:
 
 
 int
-notify (xlator_t *this, int event, void *data, ...)
+nlc_notify (xlator_t *this, int event, void *data, ...)
 {
         int        ret  = 0;
         time_t     now  = 0;
@@ -646,8 +646,45 @@ nlc_priv_dump (xlator_t *this)
 }
 
 
+static int32_t
+nlc_dump_metrics (xlator_t *this, int fd)
+{
+        nlc_conf_t *conf = NULL;
+
+        conf = this->private;
+
+        dprintf (fd, "%s.negative_lookup_hit_count %"PRId64"\n", this->name,
+                 GF_ATOMIC_GET(conf->nlc_counter.nlc_hit));
+        dprintf (fd, "%s.negative_lookup_miss_count %"PRId64"\n", this->name,
+                 GF_ATOMIC_GET(conf->nlc_counter.nlc_miss));
+        dprintf (fd, "%s.get_real_filename_hit_count %"PRId64"\n", this->name,
+                 GF_ATOMIC_GET(conf->nlc_counter.getrealfilename_hit));
+        dprintf (fd, "%s.get_real_filename_miss_count %"PRId64"\n", this->name,
+                 GF_ATOMIC_GET(conf->nlc_counter.getrealfilename_miss));
+        dprintf (fd, "%s.nameless_lookup_count %"PRId64"\n", this->name,
+                 GF_ATOMIC_GET(conf->nlc_counter.nameless_lookup));
+        dprintf (fd, "%s.inodes_with_positive_dentry_cache %"PRId64"\n",
+                 this->name,
+                 GF_ATOMIC_GET(conf->nlc_counter.pe_inode_cnt));
+        dprintf (fd, "%s.inodes_with_negative_dentry_cache %"PRId64"\n",
+                 this->name, GF_ATOMIC_GET(conf->nlc_counter.ne_inode_cnt));
+        dprintf (fd, "%s.dentry_invalidations_recieved %"PRId64"\n",
+                 this->name, GF_ATOMIC_GET(conf->nlc_counter.nlc_invals));
+        dprintf (fd, "%s.cache_limit %"PRIu64"\n", this->name,
+                 conf->cache_size);
+        dprintf (fd, "%s.consumed_cache_size %"PRId64"\n", this->name,
+                 GF_ATOMIC_GET(conf->current_cache_size));
+        dprintf (fd, "%s.inode_limit %"PRIu64"\n", this->name,
+                 conf->inode_limit);
+        dprintf (fd, "%s.consumed_inodes %"PRId64"\n", this->name,
+                 GF_ATOMIC_GET(conf->refd_inodes));
+
+        return 0;
+}
+
+
 void
-fini (xlator_t *this)
+nlc_fini (xlator_t *this)
 {
         nlc_conf_t      *conf       = NULL;
 
@@ -661,7 +698,7 @@ fini (xlator_t *this)
 
 
 int32_t
-mem_acct_init (xlator_t *this)
+nlc_mem_acct_init (xlator_t *this)
 {
         int     ret = -1;
 
@@ -671,7 +708,7 @@ mem_acct_init (xlator_t *this)
 
 
 int32_t
-reconfigure (xlator_t *this, dict_t *options)
+nlc_reconfigure (xlator_t *this, dict_t *options)
 {
         nlc_conf_t *conf = NULL;
 
@@ -690,7 +727,7 @@ out:
 
 
 int32_t
-init (xlator_t *this)
+nlc_init (xlator_t *this)
 {
         nlc_conf_t      *conf       = NULL;
         int              ret        = -1;
@@ -749,7 +786,7 @@ out:
 }
 
 
-struct xlator_fops fops = {
+struct xlator_fops nlc_fops = {
         .rename               = nlc_rename,
         .mknod                = nlc_mknod,
         .create               = nlc_create,
@@ -768,17 +805,17 @@ struct xlator_fops fops = {
 };
 
 
-struct xlator_cbks cbks = {
+struct xlator_cbks nlc_cbks = {
         .forget               = nlc_forget,
 };
 
 
-struct xlator_dumpops dumpops = {
+struct xlator_dumpops nlc_dumpops = {
         .inodectx             = nlc_inodectx,
         .priv                 = nlc_priv_dump,
 };
 
-struct volume_options options[] = {
+struct volume_options nlc_options[] = {
         { .key = {"nl-cache-positive-entry"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "false",
@@ -805,4 +842,19 @@ struct volume_options options[] = {
           .description = "Time period after which cache has to be refreshed",
         },
         { .key = {NULL} },
+};
+
+xlator_api_t xlator_api = {
+        .init          = nlc_init,
+        .fini          = nlc_fini,
+        .notify        = nlc_notify,
+        .reconfigure   = nlc_reconfigure,
+        .mem_acct_init = nlc_mem_acct_init,
+        .dump_metrics  = nlc_dump_metrics,
+        .op_version    = {1}, /* Present from the initial version */
+        .dumpops       = &nlc_dumpops,
+        .fops          = &nlc_fops,
+        .cbks          = &nlc_cbks,
+        .options       = nlc_options,
+        .identifier    = "nl-cache",
 };
