@@ -1452,7 +1452,7 @@ struct volume_options options[] =
     { .key = {"read-policy" },
       .type = GF_OPTION_TYPE_STR,
       .value = {"round-robin", "gfid-hash"},
-      .default_value = "round-robin",
+      .default_value = "gfid-hash",
       .description = "inode-read fops happen only on 'k' number of bricks in"
               " n=k+m disperse subvolume. 'round-robin' selects the read"
               " subvolume using round-robin algo. 'gfid-hash' selects read"
