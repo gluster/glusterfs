@@ -20,10 +20,9 @@ TEST $CLI volume start $V0
 TEST glusterfs --direct-io-mode=yes --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "6" ec_child_up_count $V0 0
 #TEST volume operations work fine
-EXPECT "round-robin" mount_get_option_value $M0 $V0-disperse-0 read-policy
-TEST $CLI volume set $V0 disperse.read-policy gfid-hash
-EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "gfid-hash" mount_get_option_value $M0 $V0-disperse-0 read-policy
-TEST $CLI volume reset $V0 disperse.read-policy
+
+EXPECT "gfid-hash" mount_get_option_value $M0 $V0-disperse-0 read-policy
+TEST $CLI volume set $V0 disperse.read-policy round-robin
 EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "round-robin" mount_get_option_value $M0 $V0-disperse-0 read-policy
 
 #TEST if the option gives the intended behavior. The way we perform this test
