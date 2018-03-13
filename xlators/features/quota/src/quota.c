@@ -1758,6 +1758,7 @@ out:
         return 0;
 }
 
+static int gf_quota_enforcer_log;
 
 int32_t
 quota_writev_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
@@ -1809,6 +1810,26 @@ quota_writev_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                                       "with ENOENT/ESTALE on %s, cannot check "
                                       "quota limits and allowing writes",
                                       uuid_utoa (fd->inode->gfid));
+                } else if ((op_errno == EINVAL) &&
+                           !inode_parent (local->loc.inode, 0, NULL)) {
+                        /* We may get INVAL with parent == NULL,
+                         * in case of below scenario
+                         *     1. enable quota
+                         *     2. glusterfsd stop/start
+                         *     3. nameless lookup
+                         *     4. write on fd
+                         * Here build_ancestry can fail as the file's pgfid
+                         * is't exist.
+                         * For now ignore EINVAL with writes on active fd
+                         * untils the pgfid is created at name lookup
+                         */
+                        GF_LOG_OCCASIONALLY (gf_quota_enforcer_log, this->name,
+                                GF_LOG_CRITICAL, "Quota cannot be enforced as "
+                                "parent is not available and writes are being "
+                                "allowed without checking whether they are "
+                                "within quota limits. This can happen if Quota "
+                                "crawl is not complete. If crawl has been "
+                                "completed, please file a bug.");
                 } else {
                         goto unwind;
                 }
