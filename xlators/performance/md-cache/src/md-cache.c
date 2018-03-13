@@ -2632,6 +2632,38 @@ mdc_priv_dump (xlator_t *this)
 }
 
 
+static int32_t
+mdc_dump_metrics (xlator_t *this, int fd)
+{
+        struct mdc_conf *conf = NULL;
+
+        conf = this->private;
+        if (!conf)
+                goto out;
+
+        dprintf (fd, "%s.stat_cache_hit_count %"PRId64"\n", this->name,
+                 GF_ATOMIC_GET(conf->mdc_counter.stat_hit));
+        dprintf (fd, "%s.stat_cache_miss_count %"PRId64"\n", this->name,
+                 GF_ATOMIC_GET(conf->mdc_counter.stat_miss));
+        dprintf (fd, "%s.xattr_cache_hit_count %"PRId64"\n", this->name,
+                 GF_ATOMIC_GET(conf->mdc_counter.xattr_hit));
+        dprintf (fd, "%s.xattr_cache_miss_count %"PRId64"\n", this->name,
+                 GF_ATOMIC_GET(conf->mdc_counter.xattr_miss));
+        dprintf (fd, "%s.nameless_lookup_count %"PRId64"\n", this->name,
+                 GF_ATOMIC_GET(conf->mdc_counter.nameless_lookup));
+        dprintf (fd, "%s.negative_lookup_count %"PRId64"\n", this->name,
+                 GF_ATOMIC_GET(conf->mdc_counter.negative_lookup));
+        dprintf (fd, "%s.stat_cache_invalidations_received %"PRId64"\n",
+                 this->name,
+                 GF_ATOMIC_GET(conf->mdc_counter.stat_invals));
+        dprintf (fd, "%s.xattr_cache_invalidations_received %"PRId64"\n",
+                 this->name,
+                 GF_ATOMIC_GET(conf->mdc_counter.xattr_invals));
+out:
+        return 0;
+}
+
+
 int
 mdc_forget (xlator_t *this, inode_t *inode)
 {
@@ -2934,7 +2966,7 @@ out:
 
 
 int
-reconfigure (xlator_t *this, dict_t *options)
+mdc_reconfigure (xlator_t *this, dict_t *options)
 {
 	struct mdc_conf *conf = NULL;
         int    timeout = 0;
@@ -2986,7 +3018,7 @@ out:
 }
 
 int32_t
-mem_acct_init (xlator_t *this)
+mdc_mem_acct_init (xlator_t *this)
 {
         int     ret = -1;
 
@@ -2995,7 +3027,7 @@ mem_acct_init (xlator_t *this)
 }
 
 int
-init (xlator_t *this)
+mdc_init (xlator_t *this)
 {
 	struct mdc_conf *conf = NULL;
         int    timeout = 0;
@@ -3081,7 +3113,7 @@ mdc_update_child_down_time (xlator_t *this, time_t *now)
 
 
 int
-notify (xlator_t *this, int event, void *data, ...)
+mdc_notify (xlator_t *this, int event, void *data, ...)
 {
         int ret = 0;
         struct mdc_conf *conf = NULL;
@@ -3114,13 +3146,13 @@ notify (xlator_t *this, int event, void *data, ...)
 
 
 void
-fini (xlator_t *this)
+mdc_fini (xlator_t *this)
 {
         GF_FREE (this->private);
 }
 
 
-struct xlator_fops fops = {
+struct xlator_fops mdc_fops = {
         .lookup      = mdc_lookup,
         .stat        = mdc_stat,
         .fstat       = mdc_fstat,
@@ -3156,17 +3188,17 @@ struct xlator_fops fops = {
 };
 
 
-struct xlator_cbks cbks = {
+struct xlator_cbks mdc_cbks = {
         .forget      = mdc_forget,
 };
 
 
-struct xlator_dumpops dumpops = {
+struct xlator_dumpops mdc_dumpops = {
         .priv       = mdc_priv_dump,
 };
 
 
-struct volume_options options[] = {
+struct volume_options mdc_options[] = {
 	{ .key = {"cache-selinux"},
 	  .type = GF_OPTION_TYPE_BOOL,
 	  .default_value = "false",
@@ -3255,4 +3287,20 @@ struct volume_options options[] = {
                          "cached by md-cache. The only wildcard allowed is '*'",
         },
     { .key = {NULL} },
+};
+
+
+xlator_api_t xlator_api = {
+        .init          = mdc_init,
+        .fini          = mdc_fini,
+        .notify        = mdc_notify,
+        .reconfigure   = mdc_reconfigure,
+        .mem_acct_init = mdc_mem_acct_init,
+        .dump_metrics  = mdc_dump_metrics,
+        .op_version    = {1}, /* Present from the initial version */
+        .dumpops       = &mdc_dumpops,
+        .fops          = &mdc_fops,
+        .cbks          = &mdc_cbks,
+        .options       = mdc_options,
+        .identifier    = "md-cache",
 };
