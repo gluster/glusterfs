@@ -23,6 +23,12 @@ TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 TEST glusterfs -s $H0 --volfile-id=$V0 $M0
 
+#do some operation on mount, so that kill_brick is guaranteed to be
+#done _after_ first lookup on root and dht has a proper layout on
+#it. Otherwise mkdir done in later stages of script might fail due to
+#lack of layout on "/" as dht-self-heal won't proceed if any of its
+#subvolumes are down.
+TEST ls $M0
 #kill one of the brick process
 TEST kill_brick $V0 $H0 $B0/${V0}2
 
