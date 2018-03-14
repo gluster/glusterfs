@@ -196,10 +196,8 @@ static struct argp_option gf_options[] = {
          "Enables thin mount and connects via gfproxyd daemon"},
 
         {0, 0, 0, 0, "Fuse options:"},
-        {"direct-io-mode", ARGP_DIRECT_IO_MODE_KEY, "BOOL", OPTION_ARG_OPTIONAL,
-         "Use direct I/O mode in fuse kernel module"
-         " [default: \"off\" if big writes are supported, else "
-         "\"on\" for fds not opened with O_RDONLY]"},
+        {"direct-io-mode", ARGP_DIRECT_IO_MODE_KEY, "BOOL|auto", OPTION_ARG_OPTIONAL,
+         "Specify direct I/O strategy [default: \"auto\"]"},
         {"entry-timeout", ARGP_ENTRY_TIMEOUT_KEY, "SECONDS", 0,
          "Set entry timeout to SECONDS in fuse kernel module [default: 1]"},
         {"negative-timeout", ARGP_NEGATIVE_TIMEOUT_KEY, "SECONDS", 0,
@@ -528,7 +526,7 @@ set_fuse_mount_options (glusterfs_ctx_t *ctx, dict_t *options)
                         goto err;
                 }
                 break;
-        case GF_OPTION_DEFERRED: /* default */
+        case GF_OPTION_DEFERRED: /* auto */
         default:
                 gf_msg_debug ("glusterfsd", 0, "fuse direct io type %d",
                               cmd_args->fuse_direct_io_mode);
@@ -1030,6 +1028,9 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
                         break;
                 }
+
+                if (strcmp (arg, "auto") == 0)
+                        break;
 
                 argp_failure (state, -1, 0,
                               "unknown direct I/O mode setting \"%s\"", arg);
