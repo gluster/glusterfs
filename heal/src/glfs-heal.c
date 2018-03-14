@@ -1661,6 +1661,7 @@ main (int argc, char **argv)
 
         if (sys_access(SECURE_ACCESS_FILE, F_OK) == 0) {
                 fs->ctx->secure_mgmt = 1;
+                fs->ctx->ssl_cert_depth = glusterfs_read_secure_access_file ();
         }
 
         ret = glfs_set_volfile_server (fs, "unix", DEFAULT_GLUSTERD_SOCKFILE, 0);

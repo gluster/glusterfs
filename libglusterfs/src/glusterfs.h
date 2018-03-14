@@ -593,6 +593,11 @@ struct _glusterfs_ctx {
          */
         int                secure_mgmt;
 
+        /* The option is use to set cert_depth while management connection
+           use SSL
+         */
+        int                ssl_cert_depth;
+
         /*
          * Should *our* server/inbound connections use SSL?  This is only true
          * if we're glusterd and secure_mgmt is set, or if we're glusterfsd
@@ -700,4 +705,5 @@ int glusterfs_graph_parent_up (glusterfs_graph_t *graph);
 void
 gf_free_mig_locks (lock_migration_info_t *locks);
 
+int glusterfs_read_secure_access_file (void);
 #endif /* _GLUSTERFS_H */

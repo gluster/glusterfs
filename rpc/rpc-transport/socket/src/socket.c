@@ -4489,7 +4489,13 @@ socket_init (rpc_transport_t *this)
                "using %s polling thread",
                priv->own_thread ? "private" : "system");
 
-        if (!dict_get_int32 (this->options, SSL_CERT_DEPTH_OPT, &cert_depth)) {
+        if (!priv->mgmt_ssl) {
+                if (!dict_get_int32 (this->options, SSL_CERT_DEPTH_OPT, &cert_depth)) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "using certificate depth %d", cert_depth);
+                }
+        } else {
+                cert_depth = this->ctx->ssl_cert_depth;
                 gf_log (this->name, GF_LOG_INFO,
                         "using certificate depth %d", cert_depth);
         }
@@ -4628,9 +4634,7 @@ socket_init (rpc_transport_t *this)
                         goto err;
                 }
 
-#if (OPENSSL_VERSION_NUMBER < 0x00905100L)
-                SSL_CTX_set_verify_depth(ctx, cert_depth);
-#endif
+                SSL_CTX_set_verify_depth(priv->ssl_ctx, cert_depth);
 
                 if (crl_path) {
 #ifdef X509_V_FLAG_CRL_CHECK_ALL

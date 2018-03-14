@@ -2650,6 +2650,8 @@ glusterfs_mgmt_init (glusterfs_ctx_t *ctx)
                         goto out;
 
                 }
+
+                ctx->ssl_cert_depth = glusterfs_read_secure_access_file ();
         }
 
         rpc = rpc_clnt_new (options, THIS, THIS->name, 8);
