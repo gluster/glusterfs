@@ -71,6 +71,7 @@ struct qr_statistics {
         gf_atomic_t cache_hit;
         gf_atomic_t cache_miss;
         gf_atomic_t file_data_invals; /* No. of invalidates received from upcall */
+        gf_atomic_t files_cached;
 };
 
 struct qr_private {
