@@ -2233,7 +2233,7 @@ glusterd_op_reset_volume (dict_t *dict, char **op_rspstr)
         }
 
         if (!strcmp(key, "ganesha.enable") || !strcmp (key, "all")) {
-                if (glusterd_check_ganesha_export (volinfo)) {
+                if (glusterd_check_ganesha_export (volinfo) && is_origin_glusterd (dict)) {
                         ret = manage_export_config (volname, "off", op_rspstr);
                         if (ret)
                                 gf_msg (this->name, GF_LOG_WARNING, 0,

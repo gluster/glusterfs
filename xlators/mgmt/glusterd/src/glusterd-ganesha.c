@@ -543,7 +543,7 @@ ganesha_manage_export (dict_t *dict, char *value,
          * Create the export file from the node where ganesha.enable "on"
          * is executed
          * */
-         if (option) {
+         if (option && is_origin_glusterd (dict)) {
                 ret  = manage_export_config (volname, "on", op_errstr);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
