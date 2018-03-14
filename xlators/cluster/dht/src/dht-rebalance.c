@@ -594,7 +594,7 @@ __check_file_has_hardlink (xlator_t *this, loc_t *loc,
                                 "Migration skipped for:"
                                 "%s: file has hardlinks", loc->path);
                         *fop_errno = ENOTSUP;
-                        ret = -1;
+                        ret = 1;
                 }
        }
 
@@ -649,7 +649,7 @@ __is_file_migratable (xlator_t *this, loc_t *loc,
                                 "Migrate file failed: %s: File has locks."
                                 " Skipping file migration", loc->path);
                         *fop_errno = ENOTSUP;
-                        ret = -1;
+                        ret = 1;
                         goto out;
                 }
         }
@@ -1015,7 +1015,7 @@ __dht_check_free_space (xlator_t *this, xlator_t *to, xlator_t *from,
                         /* this is not a 'failure', but we don't want to
                            consider this as 'success' too :-/ */
                         *fop_errno = ENOSPC;
-                        ret = -1;
+                        ret = 1;
                         goto out;
                 }
         }
@@ -2730,7 +2730,7 @@ gf_defrag_migrate_single_file (void *opaque)
 
         ret = dht_migrate_file (this, &entry_loc, cached_subvol,
                                 hashed_subvol, rebal_type, &fop_errno);
-        if (ret < 0) {
+        if (ret == 1) {
                 if (fop_errno == ENOSPC) {
                         gf_msg_debug (this->name, 0, "migrate-data skipped for"
                                       " %s due to space constraints",
@@ -2779,8 +2779,12 @@ gf_defrag_migrate_single_file (void *opaque)
                                 DHT_MSG_MIGRATE_FILE_SKIPPED,
                                 "File migration skipped for %s.",
                                 entry_loc.path);
+                }
 
-                } else if (fop_errno != EEXIST) {
+                ret = 0;
+
+        } else if (ret < 0) {
+                if (fop_errno != EEXIST) {
                         gf_msg (this->name, GF_LOG_ERROR, fop_errno,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
                                 "migrate-data failed for %s", entry_loc.path);
