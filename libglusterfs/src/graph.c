@@ -16,7 +16,7 @@
 #include "defaults.h"
 #include <unistd.h>
 #include "syscall.h"
-
+#include <regex.h>
 #include "libglusterfs-messages.h"
 
 #if 0
@@ -68,7 +68,47 @@ _gf_dump_details (int argc, char **argv)
 }
 #endif
 
+int
+glusterfs_read_secure_access_file (void)
+{
+        FILE *fp = NULL;
+        char  line[100] = {0,};
+        int   cert_depth = 1;   /* Default SSL CERT DEPTH */
+        regex_t regcmpl;
+        char *key = {"^option transport.socket.ssl-cert-depth"};
+        char  keyval[50] = {0,};
+        int start = 0, end = 0, copy_len = 0;
+        regmatch_t result[1] = {{0} };
 
+        fp = fopen (SECURE_ACCESS_FILE, "r");
+        if (!fp)
+                goto out;
+
+        /* Check if any line matches with key */
+        while (fgets(line, sizeof(line), fp) != NULL) {
+                if (regcomp (&regcmpl, key, REG_EXTENDED)) {
+                        goto out;
+                }
+                if (!regexec (&regcmpl, line, 1, result, 0)) {
+                        start = result[0].rm_so;
+                        end  = result[0].rm_eo;
+                        copy_len = end - start;
+                        strcpy (keyval, line+copy_len);
+                        if (keyval[0]) {
+                                cert_depth = atoi(keyval);
+                                if (cert_depth == 0)
+                                        cert_depth = 1; /* Default SSL CERT DEPTH */
+                                break;
+                        }
+                }
+                regfree(&regcmpl);
+        }
+
+out:
+        if (fp)
+                fclose (fp);
+        return cert_depth;
+}
 
 int
 glusterfs_xlator_link (xlator_t *pxl, xlator_t *cxl)

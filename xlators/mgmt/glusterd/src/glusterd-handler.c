@@ -3475,6 +3475,9 @@ glusterd_friend_rpc_create (xlator_t *this, glusterd_peerinfo_t *peerinfo,
                                 "failed to set ssl-enabled in dict");
                         goto out;
                 }
+
+                this->ctx->ssl_cert_depth = glusterfs_read_secure_access_file ();
+
         }
 
         ret = glusterd_rpc_create (&peerinfo->rpc, options,

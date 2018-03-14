@@ -733,6 +733,7 @@ glusterfs_graph_deactivate
 glusterfs_graph_destroy
 glusterfs_graph_destroy_residual
 glusterfs_graph_prepare
+glusterfs_read_secure_access_file
 glusterfs_graph_print_file
 glusterfs_graph_set_first
 glusterfs_is_local_pathinfo

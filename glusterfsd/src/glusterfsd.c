@@ -1951,6 +1951,7 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
         /* Do this before argp_parse so it can be overridden. */
         if (sys_access (SECURE_ACCESS_FILE, F_OK) == 0) {
                 cmd_args->secure_mgmt = 1;
+                ctx->ssl_cert_depth = glusterfs_read_secure_access_file ();
         }
 
         argp_parse (&argp, argc, argv, ARGP_IN_ORDER, NULL, cmd_args);

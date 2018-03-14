@@ -1040,6 +1040,7 @@ glfs_mgmt_init (struct glfs *fs)
 
         if (sys_access (SECURE_ACCESS_FILE, F_OK) == 0) {
                 ctx->secure_mgmt = 1;
+                ctx->ssl_cert_depth = glusterfs_read_secure_access_file ();
         }
 
 	rpc = rpc_clnt_new (options, THIS, THIS->name, 8);

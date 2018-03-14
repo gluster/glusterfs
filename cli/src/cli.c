@@ -439,6 +439,7 @@ parse_cmdline (int argc, char *argv[], struct cli_state *state)
         /* Do this first so that an option can override. */
         if (sys_access (SECURE_ACCESS_FILE, F_OK) == 0) {
                 state->ctx->secure_mgmt = 1;
+                state->ctx->ssl_cert_depth = glusterfs_read_secure_access_file ();
         }
 
         if (state->argc > GEO_REP_CMD_CONFIG_INDEX &&
