@@ -15,7 +15,8 @@
 #include "upcall-utils.h"
 
 qr_inode_t *qr_inode_ctx_get (xlator_t *this, inode_t *inode);
-void __qr_inode_prune (qr_inode_table_t *table, qr_inode_t *qr_inode);
+void __qr_inode_prune (xlator_t *this, qr_inode_table_t *table,
+                       qr_inode_t *qr_inode);
 
 
 int
@@ -102,7 +103,7 @@ qr_inode_ctx_get_or_new (xlator_t *this, inode_t *inode)
 
 		ret = __qr_inode_ctx_set (this, inode, qr_inode);
 		if (ret) {
-			__qr_inode_prune (&priv->table, qr_inode);
+			__qr_inode_prune (this, &priv->table, qr_inode);
 			GF_FREE (qr_inode);
                         qr_inode = NULL;
 		}
@@ -130,10 +131,17 @@ qr_get_priority (qr_conf_t *conf, const char *path)
 
 
 void
-__qr_inode_register (qr_inode_table_t *table, qr_inode_t *qr_inode)
+__qr_inode_register (xlator_t *this, qr_inode_table_t *table,
+                     qr_inode_t *qr_inode)
 {
+        qr_private_t     *priv = NULL;
+
 	if (!qr_inode->data)
 		return;
+
+        priv = this->private;
+        if (!priv)
+                return;
 
 	if (list_empty (&qr_inode->lru))
 		/* first time addition of this qr_inode into table */
@@ -142,6 +150,10 @@ __qr_inode_register (qr_inode_table_t *table, qr_inode_t *qr_inode)
 		list_del_init (&qr_inode->lru);
 
 	list_add_tail (&qr_inode->lru, &table->lru[qr_inode->priority]);
+
+        GF_ATOMIC_INC (priv->qr_counter.files_cached);
+
+        return;
 }
 
 
@@ -172,7 +184,7 @@ qr_inode_set_priority (xlator_t *this, inode_t *inode, const char *path)
 	{
 		qr_inode->priority = priority;
 
-		__qr_inode_register (table, qr_inode);
+		__qr_inode_register (this, table, qr_inode);
 	}
 	UNLOCK (&table->lock);
 }
@@ -180,8 +192,12 @@ qr_inode_set_priority (xlator_t *this, inode_t *inode, const char *path)
 
 /* To be called with priv->table.lock held */
 void
-__qr_inode_prune (qr_inode_table_t *table, qr_inode_t *qr_inode)
+__qr_inode_prune (xlator_t *this, qr_inode_table_t *table, qr_inode_t *qr_inode)
 {
+        qr_private_t     *priv = NULL;
+
+        priv = this->private;
+
 	GF_FREE (qr_inode->data);
 	qr_inode->data = NULL;
 
@@ -190,6 +206,8 @@ __qr_inode_prune (qr_inode_table_t *table, qr_inode_t *qr_inode)
 		qr_inode->size = 0;
 
 		list_del_init (&qr_inode->lru);
+
+                GF_ATOMIC_DEC (priv->qr_counter.files_cached);
 	}
 
 	memset (&qr_inode->buf, 0, sizeof (qr_inode->buf));
@@ -212,7 +230,7 @@ qr_inode_prune (xlator_t *this, inode_t *inode)
 
 	LOCK (&table->lock);
 	{
-		__qr_inode_prune (table, qr_inode);
+		__qr_inode_prune (this, table, qr_inode);
 	}
 	UNLOCK (&table->lock);
 }
@@ -220,7 +238,7 @@ qr_inode_prune (xlator_t *this, inode_t *inode)
 
 /* To be called with priv->table.lock held */
 void
-__qr_cache_prune (qr_inode_table_t *table, qr_conf_t *conf)
+__qr_cache_prune (xlator_t *this, qr_inode_table_t *table, qr_conf_t *conf)
 {
         qr_inode_t        *curr = NULL;
 	qr_inode_t        *next = NULL;
@@ -232,7 +250,7 @@ __qr_cache_prune (qr_inode_table_t *table, qr_conf_t *conf)
 
                         size_pruned += curr->size;
 
-                        __qr_inode_prune (table, curr);
+                        __qr_inode_prune (this, table, curr);
 
                         if (table->cache_used < conf->cache_size)
 				return;
@@ -257,7 +275,7 @@ qr_cache_prune (xlator_t *this)
 	LOCK (&table->lock);
 	{
 		if (table->cache_used > conf->cache_size)
-			__qr_cache_prune (table, conf);
+			__qr_cache_prune (this, table, conf);
 	}
 	UNLOCK (&table->lock);
 }
@@ -298,7 +316,7 @@ qr_content_update (xlator_t *this, qr_inode_t *qr_inode, void *data,
 
 	LOCK (&table->lock);
 	{
-		__qr_inode_prune (table, qr_inode);
+		__qr_inode_prune (this, table, qr_inode);
 
 		qr_inode->data = data;
 		qr_inode->size = buf->ia_size;
@@ -310,7 +328,7 @@ qr_content_update (xlator_t *this, qr_inode_t *qr_inode, void *data,
 
 		gettimeofday (&qr_inode->last_refresh, NULL);
 
-		__qr_inode_register (table, qr_inode);
+		__qr_inode_register (this, table, qr_inode);
 	}
 	UNLOCK (&table->lock);
 
@@ -349,9 +367,9 @@ __qr_content_refresh (xlator_t *this, qr_inode_t *qr_inode, struct iatt *buf)
 
 		gettimeofday (&qr_inode->last_refresh, NULL);
 
-		__qr_inode_register (table, qr_inode);
+		__qr_inode_register (this, table, qr_inode);
 	} else {
-		__qr_inode_prune (table, qr_inode);
+		__qr_inode_prune (this, table, qr_inode);
 	}
 
 	return;
@@ -590,7 +608,7 @@ qr_readv_cached (call_frame_t *frame, qr_inode_t *qr_inode, size_t size,
 		buf = qr_inode->buf;
 
 		/* bump LRU */
-		__qr_inode_register (table, qr_inode);
+		__qr_inode_register (frame->this, table, qr_inode);
 	}
 unlock:
 	UNLOCK (&table->lock);
@@ -794,7 +812,6 @@ qr_priv_dump (xlator_t *this)
 
         priv = this->private;
         conf = &priv->conf;
-
         if (!conf)
                 return -1;
 
@@ -823,9 +840,9 @@ qr_priv_dump (xlator_t *this)
         gf_proc_dump_write ("total_cache_used", "%d", total_size);
         gf_proc_dump_write ("cache-hit", "%"PRId64,
                             priv->qr_counter.cache_hit);
-        gf_proc_dump_write ("cache-hit", "%"PRId64,
+        gf_proc_dump_write ("cache-miss", "%"PRId64,
                             priv->qr_counter.cache_miss);
-        gf_proc_dump_write ("cache-hit", "%"PRId64,
+        gf_proc_dump_write ("cache-invalidations", "%"PRId64,
                             priv->qr_counter.file_data_invals);
 
 out:
@@ -833,8 +850,32 @@ out:
 }
 
 
+static int32_t
+qr_dump_metrics (xlator_t *this, int fd)
+{
+        qr_private_t     *priv       = NULL;
+        qr_inode_table_t *table      = NULL;
+
+        priv = this->private;
+        table = &priv->table;
+
+        dprintf (fd, "%s.total_files_cached %"PRId64"\n", this->name,
+                 GF_ATOMIC_GET(priv->qr_counter.files_cached));
+        dprintf (fd, "%s.total_cache_used %"PRId64"\n", this->name,
+                 table->cache_used);
+        dprintf (fd, "%s.cache-hit %"PRId64"\n", this->name,
+                 GF_ATOMIC_GET(priv->qr_counter.cache_hit));
+        dprintf (fd, "%s.cache-miss %"PRId64"\n", this->name,
+                 GF_ATOMIC_GET(priv->qr_counter.cache_miss));
+        dprintf (fd, "%s.cache-invalidations %"PRId64"\n", this->name,
+                 GF_ATOMIC_GET(priv->qr_counter.file_data_invals));
+
+        return 0;
+}
+
+
 int32_t
-mem_acct_init (xlator_t *this)
+qr_mem_acct_init (xlator_t *this)
 {
         int     ret = -1;
 
@@ -893,7 +934,7 @@ out:
 }
 
 int
-reconfigure (xlator_t *this, dict_t *options)
+qr_reconfigure (xlator_t *this, dict_t *options)
 {
         int32_t       ret            = -1;
         qr_private_t *priv           = NULL;
@@ -1031,7 +1072,7 @@ out:
 
 
 int32_t
-init (xlator_t *this)
+qr_init (xlator_t *this)
 {
         int32_t       ret  = -1, i = 0;
         qr_private_t *priv = NULL;
@@ -1207,7 +1248,7 @@ out:
 
 
 int
-notify (xlator_t *this, int event, void *data, ...)
+qr_notify (xlator_t *this, int event, void *data, ...)
 {
         int                  ret  = 0;
         qr_private_t        *priv = NULL;
@@ -1239,7 +1280,7 @@ notify (xlator_t *this, int event, void *data, ...)
 
 
 void
-fini (xlator_t *this)
+qr_fini (xlator_t *this)
 {
         qr_private_t *priv = NULL;
 
@@ -1262,7 +1303,7 @@ out:
         return;
 }
 
-struct xlator_fops fops = {
+struct xlator_fops qr_fops = {
         .lookup      = qr_lookup,
 	.readdirp    = qr_readdirp,
         .open        = qr_open,
@@ -1275,16 +1316,16 @@ struct xlator_fops fops = {
         .zerofill    = qr_zerofill
 };
 
-struct xlator_cbks cbks = {
+struct xlator_cbks qr_cbks = {
         .forget  = qr_forget,
 };
 
-struct xlator_dumpops dumpops = {
+struct xlator_dumpops qr_dumpops = {
         .priv      =  qr_priv_dump,
         .inodectx  =  qr_inodectx_dump,
 };
 
-struct volume_options options[] = {
+struct volume_options qr_options[] = {
         { .key  = {"priority"},
           .type = GF_OPTION_TYPE_ANY
         },
@@ -1300,18 +1341,39 @@ struct volume_options options[] = {
         { .key  = {"cache-timeout"},
           .type = GF_OPTION_TYPE_INT,
           .default_value = "1",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
         },
         { .key  = {"max-file-size"},
           .type = GF_OPTION_TYPE_SIZET,
           .min  = 0,
           .max  = 1 * GF_UNIT_KB * 1000,
           .default_value = "64KB",
+          .op_version = {1},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
         },
         { .key = {"cache-invalidation"},
           .type = GF_OPTION_TYPE_BOOL,
           .default_value = "false",
+          .op_version = {GD_OP_VERSION_4_0_0},
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
           .description = "When \"on\", invalidates/updates the metadata cache,"
                          " on receiving the cache-invalidation notifications",
         },
         { .key  = {NULL} }
+};
+
+xlator_api_t xlator_api = {
+        .init          = qr_init,
+        .fini          = qr_fini,
+        .notify        = qr_notify,
+        .reconfigure   = qr_reconfigure,
+        .mem_acct_init = qr_mem_acct_init,
+        .dump_metrics  = qr_dump_metrics,
+        .op_version    = {1}, /* Present from the initial version */
+        .dumpops       = &qr_dumpops,
+        .fops          = &qr_fops,
+        .cbks          = &qr_cbks,
+        .options       = qr_options,
+        .identifier    = "quick-read",
 };
