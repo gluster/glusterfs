@@ -770,7 +770,6 @@ out:
                 GF_FREE (timer->data);
                 gf_timer_call_cancel (mgmt_lock_timer_ctx,
                                       mgmt_lock_timer->timer);
-                GF_FREE(key);
                 dict_del (conf->mgmt_v3_lock_timer, bt_key);
                 mgmt_lock_timer->timer = NULL;
         }
