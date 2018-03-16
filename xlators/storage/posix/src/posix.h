@@ -623,4 +623,21 @@ posix_put (call_frame_t *frame, xlator_t *this, loc_t *loc,
 int32_t
 posix_set_mode_in_dict (dict_t *in_dict, dict_t *out_dict,
                         struct iatt *in_stbuf);
+
+gf_cs_obj_state
+posix_cs_check_status (xlator_t *this, const char *realpath, int *fd,
+                       struct iatt *buf);
+
+int
+posix_cs_set_state (xlator_t *this, dict_t **rsp, gf_cs_obj_state state,
+                    char const *path, int *fd);
+
+gf_cs_obj_state
+posix_cs_heal_state (xlator_t *this, const char *path, int *fd,
+                     struct iatt *stbuf);
+int
+posix_cs_maintenance (xlator_t *this, fd_t *fd, loc_t *loc, int *pfd,
+                   struct iatt *buf, const char *realpath, dict_t *xattr_req,
+                   dict_t **xattr_rsp, gf_boolean_t ignore_failure);
+
 #endif /* _POSIX_H */

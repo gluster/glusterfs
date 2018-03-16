@@ -252,6 +252,9 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
                 xattr = posix_xattr_fill (this, real_path, loc, NULL, -1, xdata,
                                           &buf);
 
+                posix_cs_maintenance (this, NULL, loc, NULL, &buf, real_path,
+                                   xdata, &xattr, _gf_true);
+
                 if (dict_get (xdata, GF_CLEAN_WRITE_PROTECTION)) {
                         ret = sys_lremovexattr (real_path,
                                                 GF_PROTECT_FROM_EXTERNAL_WRITES);
