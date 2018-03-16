@@ -2984,16 +2984,24 @@ mdc_reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("cache-ima-xattrs", conf->cache_ima, options, bool,
                           out);
 
-	GF_OPTION_RECONF ("cache-posix-acl", conf->cache_posix_acl, options, bool, out);
+        GF_OPTION_RECONF ("cache-posix-acl", conf->cache_posix_acl, options,
+                          bool, out);
+
         GF_OPTION_RECONF ("cache-swift-metadata", conf->cache_swift_metadata,
                           options, bool, out);
 
         GF_OPTION_RECONF ("cache-samba-metadata", conf->cache_samba_metadata,
                           options, bool, out);
 
-	GF_OPTION_RECONF ("force-readdirp", conf->force_readdirp, options, bool, out);
+        GF_OPTION_RECONF ("force-readdirp", conf->force_readdirp, options, bool,
+                          out);
+
         GF_OPTION_RECONF ("cache-invalidation", conf->mdc_invalidation, options,
-                         bool, out);
+                          bool, out);
+
+        GF_OPTION_RECONF ("pass-through", this->pass_through, options, bool,
+                          out);
+
         GF_OPTION_RECONF ("md-cache-statfs", conf->cache_statfs, options,
                           bool, out);
 
@@ -3057,8 +3065,11 @@ mdc_init (xlator_t *this)
         GF_OPTION_INIT ("cache-samba-metadata", conf->cache_samba_metadata,
                         bool, out);
 
-	GF_OPTION_INIT("force-readdirp", conf->force_readdirp, bool, out);
+        GF_OPTION_INIT("force-readdirp", conf->force_readdirp, bool, out);
+
         GF_OPTION_INIT("cache-invalidation", conf->mdc_invalidation, bool, out);
+
+        GF_OPTION_INIT ("pass-through", this->pass_through, bool, out);
 
         pthread_mutex_init (&conf->statfs_cache.lock, NULL);
         GF_OPTION_INIT ("md-cache-statfs", conf->cache_statfs, bool, out);
@@ -3286,7 +3297,15 @@ struct volume_options mdc_options[] = {
           .description = "A comma separeted list of xattrs that shall be "
                          "cached by md-cache. The only wildcard allowed is '*'",
         },
-    { .key = {NULL} },
+        { .key  = {"pass-through"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "false",
+          .op_version = {GD_OP_VERSION_4_1_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+          .tags = {"md-cache"},
+          .description = "Enable/Disable md cache translator"
+        },
+        { .key = {NULL} },
 };
 
 

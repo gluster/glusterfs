@@ -918,9 +918,12 @@ reconfigure (xlator_t *this, dict_t *options)
 			  bool, out);
 
         GF_OPTION_RECONF ("lazy-open", conf->lazy_open, options, bool, out);
+
         GF_OPTION_RECONF ("read-after-open", conf->read_after_open, options,
                           bool, out);
 
+        GF_OPTION_RECONF ("pass-through", this->pass_through, options, bool,
+                          out);
         ret = 0;
 out:
         return ret;
@@ -952,7 +955,11 @@ init (xlator_t *this)
         GF_OPTION_INIT ("use-anonymous-fd", conf->use_anonymous_fd, bool, err);
 
         GF_OPTION_INIT ("lazy-open", conf->lazy_open, bool, err);
+
         GF_OPTION_INIT ("read-after-open", conf->read_after_open, bool, err);
+
+        GF_OPTION_INIT ("pass-through", this->pass_through, bool, err);
+
         this->private = conf;
 
 	return 0;
@@ -1037,6 +1044,14 @@ struct volume_options options[] = {
           .flags      = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT,
           .tags       = {},
           /* option_validation_fn validate_fn; */
+        },
+        { .key  = {"pass-through"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "false",
+          .op_version = {GD_OP_VERSION_4_1_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+          .tags = {"open-behind"},
+          .description = "Enable/Disable open behind translator"
         },
         { .key  = {NULL} }
 

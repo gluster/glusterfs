@@ -1132,6 +1132,9 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("page-size", conf->page_size, options, size_uint64,
                           out);
 
+        GF_OPTION_RECONF ("pass-through", this->pass_through, options, bool,
+                          out);
+
         ret = 0;
  out:
         return ret;
@@ -1171,6 +1174,8 @@ init (xlator_t *this)
         GF_OPTION_INIT ("page-count", conf->page_count, uint32, out);
 
         GF_OPTION_INIT ("force-atime-update", conf->force_atime_update, bool, out);
+
+        GF_OPTION_INIT ("pass-through", this->pass_through, bool, out);
 
         conf->files.next = &conf->files;
         conf->files.prev = &conf->files;
@@ -1280,5 +1285,13 @@ struct volume_options options[] = {
           .tags = {"read-ahead"},
 	  .description = "Page size with which read-ahead performs server I/O"
 	},
+        { .key  = {"pass-through"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "false",
+          .op_version = {GD_OP_VERSION_4_1_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+          .tags = {"read-ahead"},
+          .description = "Enable/Disable read ahead translator"
+        },
         { .key = {NULL} },
 };

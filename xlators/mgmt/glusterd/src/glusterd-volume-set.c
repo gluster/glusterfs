@@ -1762,8 +1762,18 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option      = "cleanup-disconnected-reqs",
           .op_version  = GD_OP_VERSION_4_1_0
         },
+        { .key         = "performance.iot-pass-through",
+          .voltype     = "performance/io-threads",
+          .option      = "pass-through",
+          .op_version  = GD_OP_VERSION_4_1_0
+        },
 
         /* Other perf xlators' options */
+        { .key         = "performance.io-cache-pass-through",
+          .voltype     = "performance/io-cache",
+          .option      = "pass-through",
+          .op_version  = GD_OP_VERSION_4_1_0
+        },
         { .key        = "performance.cache-size",
           .voltype    = "performance/quick-read",
           .type       = NO_DOC,
@@ -1874,11 +1884,31 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = 3,
           .flags      = VOLOPT_FLAG_CLIENT_OPT
         },
+        { .key        = "performance.open-behind-pass-through",
+          .voltype    = "performance/open-behind",
+          .option     = "pass-through",
+          .op_version = GD_OP_VERSION_4_1_0,
+        },
         { .key        = "performance.read-ahead-page-count",
           .voltype    = "performance/read-ahead",
           .option     = "page-count",
           .op_version = 1,
           .flags      = VOLOPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "performance.read-ahead-pass-through",
+          .voltype    = "performance/read-ahead",
+          .option     = "pass-through",
+          .op_version = GD_OP_VERSION_4_1_0,
+        },
+        { .key        = "performance.readdir-ahead-pass-through",
+          .voltype    = "performance/readdir-ahead",
+          .option     = "pass-through",
+          .op_version = GD_OP_VERSION_4_1_0,
+        },
+        { .key        = "performance.md-cache-pass-through",
+          .voltype    = "performance/md-cache",
+          .option     = "pass-through",
+          .op_version = GD_OP_VERSION_4_1_0
         },
         { .key        = "performance.md-cache-timeout",
           .voltype    = "performance/md-cache",
@@ -1930,7 +1960,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .description = "A comma separeted list of xattrs that shall be "
                          "cached by md-cache. The only wildcard allowed is '*'"
         },
-         /* Crypt xlator options */
+        { .key        = "performance.nl-cache-pass-through",
+          .voltype    = "performance/nl-cache",
+          .option     = "pass-through",
+          .op_version = GD_OP_VERSION_4_1_0
+        },
+        /* Crypt xlator options */
 
         { .key         = "features.encryption",
           .voltype     = "encryption/crypt",

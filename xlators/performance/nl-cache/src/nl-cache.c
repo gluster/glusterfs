@@ -720,6 +720,8 @@ nlc_reconfigure (xlator_t *this, dict_t *options)
                           options, bool, out);
         GF_OPTION_RECONF ("nl-cache-limit", conf->cache_size, options,
                           size_uint64, out);
+        GF_OPTION_RECONF ("pass-through", this->pass_through, options, bool,
+                          out);
 
 out:
         return 0;
@@ -741,6 +743,7 @@ nlc_init (xlator_t *this)
         GF_OPTION_INIT ("nl-cache-positive-entry", conf->positive_entry_cache,
                         bool, out);
         GF_OPTION_INIT ("nl-cache-limit", conf->cache_size, size_uint64, out);
+        GF_OPTION_INIT ("pass-through", this->pass_through, bool, out);
 
         /* Since the positive entries are stored as list of refs on
          * existing inodes, we should not overflow the inode lru_limit.
@@ -841,6 +844,15 @@ struct volume_options nlc_options[] = {
           .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
           .description = "Time period after which cache has to be refreshed",
         },
+        { .key  = {"pass-through"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "false",
+          .op_version = {GD_OP_VERSION_4_1_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+          .tags = {"nl-cache"},
+          .description = "Enable/Disable nl cache translator"
+        },
+
         { .key = {NULL} },
 };
 
