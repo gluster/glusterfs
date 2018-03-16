@@ -71,8 +71,8 @@ struct xlator_fops fops = {
         .fxattrop    = posix_fxattrop,
         .setattr     = posix_setattr,
         .fsetattr    = posix_fsetattr,
-	    .fallocate   = posix_glfallocate,
-	    .discard     = posix_discard,
+        .fallocate   = posix_glfallocate,
+        .discard     = posix_discard,
         .zerofill    = posix_zerofill,
         .ipc         = posix_ipc,
 #ifdef HAVE_SEEK_HOLE

@@ -2774,3 +2774,485 @@ out:
         UNLOCK (&fd->inode->lock);
         return ret;
 }
+
+gf_cs_obj_state
+posix_cs_heal_state (xlator_t *this, const char *realpath, int *fd,
+                     struct iatt *buf)
+{
+        gf_boolean_t remote = _gf_false;
+        gf_boolean_t downloading = _gf_false;
+        int          ret = 0;
+        gf_cs_obj_state state = GF_CS_ERROR;
+        size_t       xattrsize = 0;
+
+        if (!buf) {
+                ret = -1;
+                goto out;
+        }
+
+        if (fd) {
+                xattrsize = sys_fgetxattr (*fd, GF_CS_OBJECT_REMOTE, NULL, 0);
+                if ((xattrsize == -1) && ((errno == ENOATTR)  ||
+                    (errno == ENODATA))) {
+                        remote = _gf_false;
+                } else  if (xattrsize == -1) {
+                        ret = -1;
+                        gf_msg (this->name, GF_LOG_ERROR, 0, errno, "fgetxattr"
+                                " failed");
+                        state = GF_CS_ERROR;
+                        goto out;
+                } else {
+                        remote = _gf_true;
+                }
+
+                xattrsize = sys_fgetxattr (*fd, GF_CS_OBJECT_DOWNLOADING, NULL,
+                                           0);
+                if ((xattrsize == -1) && ((errno == ENOATTR)  ||
+                    (errno == ENODATA))) {
+                        downloading = _gf_false;
+                } else if (xattrsize == -1) {
+                        ret = -1;
+                        gf_msg (this->name, GF_LOG_ERROR, 0, errno, "fgetxattr"
+                                " failed");
+                        state = GF_CS_ERROR;
+                        goto out;
+                } else {
+                        downloading = _gf_true;
+                }
+        } else {
+                xattrsize = sys_lgetxattr (realpath, GF_CS_OBJECT_REMOTE, NULL,
+                                           0);
+                if ((xattrsize == -1) && ((errno == ENOATTR) ||
+                    (errno == ENODATA))) {
+                        remote = _gf_false;
+                } else  if (xattrsize == -1) {
+                        ret = -1;
+                        gf_msg (this->name, GF_LOG_ERROR, 0, errno, "getxattr"
+                                " failed");
+                        state = GF_CS_ERROR;
+                        goto out;
+                } else {
+                        remote = _gf_true;
+                }
+
+                xattrsize = sys_lgetxattr (realpath, GF_CS_OBJECT_DOWNLOADING,
+                                           NULL, 0);
+                if ((xattrsize == -1) && ((errno == ENOATTR)  ||
+                    (errno == ENODATA))) {
+                        downloading = _gf_false;
+                } else if (xattrsize == -1) {
+                        ret = -1;
+                        gf_msg (this->name, GF_LOG_ERROR, 0, errno, "getxattr"
+                                " failed");
+                        state = GF_CS_ERROR;
+                        goto out;
+                } else {
+                        downloading = _gf_true;
+                }
+        }
+
+        if (remote && downloading) {
+                if (fd) {
+                        ret = sys_fremovexattr (*fd, GF_CS_OBJECT_DOWNLOADING);
+                } else {
+                        ret = sys_lremovexattr (realpath, GF_CS_OBJECT_DOWNLOADING);
+                }
+
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0, errno,
+                                "failed to remove xattr, repair failed");
+                        state = GF_CS_ERROR;
+                        goto out;
+                }
+
+                if (buf->ia_size) {
+                        if (fd) {
+                                ret = sys_ftruncate (*fd, 0);
+                        } else {
+                                ret = sys_truncate (realpath, 0);
+                        }
+
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0, errno,
+                                        "truncate failed. File is in inconsistent"
+                                        " state");
+                                state = GF_CS_ERROR;
+                                goto out;
+                        }
+                }
+
+                state = GF_CS_REMOTE;
+                goto out;
+
+        } else if (remote) {
+                if (buf->ia_size) {
+                        if (fd) {
+                                ret = sys_ftruncate (*fd, 0);
+                        } else {
+                                ret = sys_truncate (realpath, 0);
+                        }
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0, errno,
+                                        "truncate failed. File is in inconsistent"
+                                        " state");
+                                state = GF_CS_ERROR;
+                                goto out;
+                        }
+                }
+
+                state = GF_CS_REMOTE;
+                goto out;
+        } else if (downloading) {
+                if (buf->ia_size) {
+                        if (fd) {
+                                ret = sys_fremovexattr (*fd, GF_CS_OBJECT_DOWNLOADING);
+                        } else {
+                                ret = sys_lremovexattr (realpath, GF_CS_OBJECT_DOWNLOADING);
+                        }
+
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0, errno,
+                                        "failed to remove xattr, repair failed");
+                                state = GF_CS_ERROR;
+                                goto out;
+                        }
+
+                        state = GF_CS_LOCAL;
+                        goto out;
+                }
+        }
+
+        state = GF_CS_LOCAL;
+out:
+        gf_msg_debug (this->name, 0, "heal state returned %d", state);
+        return state;
+}
+
+gf_cs_obj_state
+posix_cs_check_status (xlator_t *this, const char *realpath, int *fd,
+                       struct iatt *buf)
+{
+        gf_boolean_t remote = _gf_false;
+        gf_boolean_t downloading = _gf_false;
+        int          ret = 0;
+        gf_cs_obj_state state = GF_CS_LOCAL;
+        size_t       xattrsize = 0;
+        int          op_errno = 0;
+
+        if (fd) {
+                xattrsize = sys_fgetxattr (*fd, GF_CS_OBJECT_REMOTE, NULL, 0);
+                if ((xattrsize == -1) && ((errno == ENOATTR)  ||
+                    (errno == ENODATA))) {
+                        remote = _gf_false;
+                } else  if (xattrsize == -1) {
+                        ret = -1;
+                        op_errno = errno;
+                        gf_msg (this->name, GF_LOG_ERROR, 0, 0, "getxattr "
+                                "failed err %d", errno);
+                        goto out;
+                } else {
+                        remote = _gf_true;
+                }
+
+                xattrsize = sys_fgetxattr (*fd, GF_CS_OBJECT_DOWNLOADING, NULL,
+                                           0);
+                if ((xattrsize == -1) && ((errno == ENOATTR)  ||
+                    (errno == ENODATA))) {
+                        downloading = _gf_false;
+                } else if (xattrsize == -1) {
+                        ret = -1;
+                        op_errno = errno;
+                        gf_msg (this->name, GF_LOG_ERROR, 0, 0, "getxattr "
+                                "failed err : %d", errno);
+
+                        goto out;
+                } else {
+                        downloading = _gf_true;
+                }
+
+        }
+
+        if (realpath) {
+                xattrsize = sys_lgetxattr (realpath, GF_CS_OBJECT_REMOTE, NULL,
+                                           0);
+                if ((xattrsize == -1) && ((errno == ENOATTR)  ||
+                    (errno == ENODATA))) {
+                        remote = _gf_false;
+                } else  if (xattrsize == -1) {
+                        ret = -1;
+                        op_errno = errno;
+                        gf_msg (this->name, GF_LOG_ERROR, 0, 0, "getxattr "
+                                "failed err : %d", errno);
+                        goto out;
+                } else {
+                        remote = _gf_true;
+                }
+
+                xattrsize = sys_lgetxattr (realpath, GF_CS_OBJECT_DOWNLOADING,
+                                           NULL, 0);
+                if ((xattrsize == -1) && ((errno == ENOATTR)  ||
+                    (errno == ENODATA))) {
+                        downloading = _gf_false;
+                } else if (xattrsize == -1) {
+                        ret = -1;
+                        op_errno = errno;
+                        gf_msg (this->name, GF_LOG_ERROR, 0, 0, "getxattr "
+                                "failed err : %d", errno);
+                        goto out;
+                } else {
+                        downloading = _gf_true;
+                }
+        }
+
+out:
+        if (ret) {
+                gf_msg ("POSIX", GF_LOG_ERROR, 0, op_errno, "getxattr failed "
+                        "with %d", op_errno);
+                state = GF_CS_ERROR;
+                return state;
+        }
+
+        if ((remote && downloading) || (remote && buf && buf->ia_size)) {
+                state = GF_CS_REPAIR;
+                gf_msg_debug (this->name, 0, "status is REPAIR");
+                return state;
+        }
+
+        if (remote)
+                state = GF_CS_REMOTE;
+        else if (downloading)
+                state = GF_CS_DOWNLOADING;
+        else
+                state = GF_CS_LOCAL;
+
+        gf_msg_debug (this->name, 0, "state returned is %d", state);
+        return state;
+
+}
+
+int
+posix_cs_set_state (xlator_t *this, dict_t **rsp, gf_cs_obj_state state,
+                    char const *path, int *fd)
+{
+        int     ret = 0;
+        char    *value = NULL;
+        size_t  xattrsize = 0;
+
+        if (!(*rsp)) {
+                *rsp = dict_new ();
+                if (!(*rsp)) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0, ENOMEM, "failed to"
+                                " create dict");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        ret = dict_set_uint64 (*rsp, GF_CS_OBJECT_STATUS, state);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, ENOMEM, "failed to set "
+                        "dict");
+                ret = -1;
+                goto out;
+        }
+
+        if (fd) {
+                xattrsize = sys_fgetxattr (*fd, GF_CS_OBJECT_REMOTE, NULL, 0);
+                if (xattrsize != -1) {
+                        value = GF_CALLOC (1, xattrsize + 1, gf_posix_mt_char);
+                        if (!value) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0, 0,
+                                        "no memory for value");
+                                ret = -1;
+                                goto out;
+                        }
+                        /* TODO: Add check for ENODATA */
+                        xattrsize = sys_fgetxattr (*fd, GF_CS_OBJECT_REMOTE,
+                                                   value, xattrsize + 1);
+                        if (xattrsize == -1) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0, errno,
+                                        " getxattr failed for key %s",
+                                        GF_CS_OBJECT_REMOTE);
+                                goto out;
+                        } else {
+                                value[xattrsize] = '\0';
+                        }
+                } else {
+                        gf_msg (this->name, GF_LOG_ERROR, 0, errno,
+                                " getxattr failed for key %s",
+                                GF_CS_OBJECT_REMOTE);
+                        goto out;
+                }
+        } else {
+                xattrsize = sys_lgetxattr (path, GF_CS_OBJECT_REMOTE, NULL, 0);
+                if (xattrsize != -1) {
+                        value = GF_CALLOC (1, xattrsize + 1, gf_posix_mt_char);
+                        if (!value) {
+                                ret = -1;
+                                goto out;
+                        }
+
+                        xattrsize = sys_lgetxattr (path, GF_CS_OBJECT_REMOTE,
+                                                   value, xattrsize + 1);
+                        if (xattrsize == -1) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0, errno,
+                                        " getxattr failed for key %s",
+                                        GF_CS_OBJECT_REMOTE);
+                                goto out;
+                        } else {
+                                value[xattrsize] = '\0';
+                        }
+                } else {
+                        gf_msg (this->name, GF_LOG_ERROR, 0, errno,
+                                " getxattr failed for key %s",
+                                GF_CS_OBJECT_REMOTE);
+                        goto out;
+                }
+        }
+
+        if (ret == 0) {
+                ret = dict_set_str (*rsp, GF_CS_OBJECT_REMOTE, value);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0, 0, "failed to set"
+                                "value");
+                }
+        }
+
+out:
+        return ret;
+}
+
+
+/* This function checks the status of the file and updates the xattr response.
+ * Also it repairs the state of the file which could have been resulted from a
+ * crash or transient failures.
+ */
+int
+posix_cs_maintenance (xlator_t *this, fd_t *fd, loc_t *loc, int *pfd,
+                   struct iatt *buf, const char *realpath, dict_t *xattr_req,
+                   dict_t **xattr_rsp, gf_boolean_t ignore_failure)
+{
+        gf_cs_obj_state    state = GF_CS_ERROR;
+        int                ret   = 0;
+
+        if (!(dict_get (xattr_req, GF_CS_OBJECT_STATUS) ||
+              dict_get (xattr_req, GF_CS_OBJECT_REPAIR)))
+                return 0;
+
+
+        if (fd) {
+                LOCK (&fd->inode->lock);
+                if (dict_get (xattr_req, GF_CS_OBJECT_STATUS)) {
+                        state = posix_cs_check_status (this, NULL, pfd, buf);
+                        gf_msg_debug (this->name, 0, "state : %d", state);
+                        ret = posix_cs_set_state (this, xattr_rsp,
+                                                  state, NULL, pfd);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0, 0,
+                                        "posix_cs_set_state failed");
+                        }
+
+                        if (ignore_failure) {
+                                ret = 0;
+                                goto unlock;
+                        } else {
+                                if (state != GF_CS_LOCAL || ret != 0) {
+                                        ret = -1;
+                                        goto unlock;
+                                }
+                        }
+                }
+
+                if (dict_get (xattr_req, GF_CS_OBJECT_REPAIR)) {
+                        state = posix_cs_check_status (this, NULL, pfd,
+                                                       buf);
+                        gf_msg_debug (this->name, 0, "state : %d", state);
+
+                        if (state == GF_CS_REPAIR) {
+                                state = posix_cs_heal_state (this, NULL,
+                                                             pfd, buf);
+
+                                if (state == GF_CS_ERROR) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0, 0,
+                                                "repair check failed");
+                                }
+                        }
+
+                        ret = posix_cs_set_state (this, xattr_rsp,
+                                                  state, NULL, pfd);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0, 0,
+                                        "posix_cs_set_state failed");
+                                if (ignore_failure)
+                                        ret = 0;
+                                else
+                                        ret = -1;
+                                goto unlock;
+                        }
+                }
+        } else {
+                if (!loc->inode) {
+                        ret = 0;
+                        goto unlock;
+                }
+
+                LOCK (&loc->inode->lock);
+                if (dict_get (xattr_req, GF_CS_OBJECT_STATUS)) {
+                        state = posix_cs_check_status (this, realpath, NULL,
+                                                       buf);
+                        gf_msg_debug (this->name, 0, "state : %d", state);
+                        ret = posix_cs_set_state (this, xattr_rsp, state,
+                                                  realpath, NULL);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0, 0,
+                                        "posix_cs_set_state failed");
+                        }
+
+                        if (ignore_failure) {
+                                ret = 0;
+                                goto unlock;
+                        } else {
+                                if (state != GF_CS_LOCAL || ret != 0) {
+                                        ret = -1;
+                                        goto unlock;
+                                }
+                        }
+                }
+
+                if (dict_get (xattr_req, GF_CS_OBJECT_REPAIR)) {
+                        state = posix_cs_check_status (this, realpath, NULL,
+                                                       buf);
+                        gf_msg_debug (this->name, 0, "state : %d", state);
+
+                        if (state == GF_CS_REPAIR) {
+                                state = posix_cs_heal_state (this, realpath,
+                                                             NULL, buf);
+
+                                if (state == GF_CS_ERROR) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0, 0,
+                                                "repair check failed");
+                                }
+                        }
+
+                        ret = posix_cs_set_state (this, xattr_rsp,
+                                                  state, realpath, NULL);
+                        if (ret) {
+                                 gf_msg (this->name, GF_LOG_ERROR, 0, 0,
+                                                "posix_cs_set_state failed");
+                                if (ignore_failure)
+                                        ret = 0;
+                                else
+                                        ret = -1;
+                                goto unlock;
+                        }
+                }
+        }
+
+unlock:
+        if (fd)
+                UNLOCK (&fd->inode->lock);
+        else
+                UNLOCK (&loc->inode->lock);
+
+        return ret;
+}
