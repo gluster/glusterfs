@@ -4542,7 +4542,9 @@ gf_defrag_start_crawl (void *data)
 
         ret = syncop_setxattr (this, &loc, fix_layout, 0, NULL, NULL);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "fix layout on %s failed",
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to set commit hash on %s. "
+                        "Rebalance cannot proceed.",
                         loc.path);
                 defrag->total_failures++;
                 ret = -1;
