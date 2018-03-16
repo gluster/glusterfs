@@ -1664,6 +1664,9 @@ reconfigure (xlator_t *this, dict_t *options)
 
         ioc_table_lock (table);
         {
+                GF_OPTION_RECONF ("pass-through", this->pass_through, options,
+                                  bool, out);
+
                 GF_OPTION_RECONF ("cache-timeout", table->cache_timeout,
                                   options, int32, unlock);
 
@@ -1761,6 +1764,8 @@ init (xlator_t *this)
 
         table->xl = this;
         table->page_size = this->ctx->page_size;
+
+        GF_OPTION_INIT ("pass-through", this->pass_through, bool, out);
 
         GF_OPTION_INIT ("cache-size", table->cache_size, size_uint64, out);
 
@@ -2195,6 +2200,14 @@ struct volume_options options[] = {
           "io-cache translator.",
           .op_version = {1},
           .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
+        },
+        { .key  = {"pass-through"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "false",
+          .op_version = {GD_OP_VERSION_4_1_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+          .tags = {"io-cache"},
+          .description = "Enable/Disable io cache translator"
         },
         { .key = {NULL} },
 };

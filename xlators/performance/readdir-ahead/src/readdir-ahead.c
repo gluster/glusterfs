@@ -600,6 +600,8 @@ reconfigure(xlator_t *this, dict_t *options)
                          size_uint64, err);
         GF_OPTION_RECONF("parallel-readdir", priv->parallel_readdir, options,
                          bool, err);
+        GF_OPTION_RECONF ("pass-through", this->pass_through, options, bool,
+                          err);
 
 	return 0;
 err:
@@ -647,6 +649,7 @@ init(xlator_t *this)
                        err);
         GF_OPTION_INIT("parallel-readdir", priv->parallel_readdir, bool,
                        err);
+        GF_OPTION_INIT ("pass-through", this->pass_through, bool, err);
 
 	return 0;
 
@@ -724,6 +727,14 @@ struct volume_options options[] = {
                          "improving the performance of readdir. Note that "
                          "the performance improvement is higher in large "
                          "clusters"
+        },
+        { .key  = {"pass-through"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "false",
+          .op_version = {GD_OP_VERSION_4_1_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+          .tags = {"readdir-ahead"},
+          .description = "Enable/Disable readdir ahead translator"
         },
         { .key = {NULL} },
 };

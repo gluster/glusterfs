@@ -1160,6 +1160,9 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("watchdog-secs", conf->watchdog_secs, options,
                           int32, out);
 
+        GF_OPTION_RECONF ("pass-through", this->pass_through, options, bool,
+                          out);
+
         if (conf->watchdog_secs > 0) {
                 start_iot_watchdog (this);
         } else {
@@ -1242,6 +1245,8 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("cleanup-disconnected-reqs",
                         conf->cleanup_disconnected_reqs, bool, out);
+
+        GF_OPTION_INIT ("pass-through", this->pass_through, bool, out);
 
         conf->this = this;
 
@@ -1526,6 +1531,14 @@ struct volume_options options[] = {
           .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
           .tags = {"io-threads"},
           .description = "'Poison' queued requests when a client disconnects"
+        },
+        { .key  = {"pass-through"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "false",
+          .op_version = {GD_OP_VERSION_4_1_0},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+          .tags = {"io-threads"},
+          .description = "Enable/Disable io threads translator"
         },
         { .key  = {NULL},
         },

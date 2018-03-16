@@ -916,29 +916,27 @@ mem_acct_init (xlator_t *this)
 int32_t
 init (xlator_t *this)
 {
-        int     ret = 0;
+        int     ret = -1;
 
         if (!this->children) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DC_MSG_VOL_MISCONFIGURED, "Decompounder must have"
                         " a subvol.");
-                ret = -1;
                 goto out;
         }
 
         if (!this->parents) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DC_MSG_VOL_MISCONFIGURED, "Volume is dangling.");
-                ret = -1;
                 goto out;
         }
 
         this->local_pool = mem_pool_new (dc_local_t, 128);
         if (!this->local_pool) {
-                ret = -1;
                 goto out;
         }
 
+        ret = 0;
 out:
         return ret;
 }
