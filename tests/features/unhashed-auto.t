@@ -114,7 +114,7 @@ TEST [ x"$new_hash" = x"00000001" ]
 
 # Unset the option and check that newly created directories get 1 in the
 # disk layout
-TEST $CLI volume reset $V0 cluster.lookup-optimize
+TEST $CLI volume set $V0 cluster.lookup-optimize off
 TEST mkdir $M0/dir1
 new_hash=$(get_xattr_hash $B0/${V0}1/dir1)
 TEST [ x"$new_hash" = x"00000001" ]

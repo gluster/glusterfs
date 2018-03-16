@@ -976,7 +976,7 @@ struct volume_options options[] = {
         },
         { .key = {"lookup-optimize"},
           .type = GF_OPTION_TYPE_BOOL,
-          .default_value = "off",
+          .default_value = "on",
           .description = "This option if set to ON enables the optimization "
           "of -ve lookups, by not doing a lookup on non-hashed subvolumes for "
           "files, in case the hashed subvolume does not return any result. "
