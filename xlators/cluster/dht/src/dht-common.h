@@ -308,6 +308,7 @@ struct dht_local {
                 uint32_t                overlaps_cnt;
                 uint32_t                down;
                 uint32_t                misc;
+                uint32_t                missing_cnt;
                 dht_selfheal_dir_cbk_t  dir_cbk;
                 dht_selfheal_layout_t   healer;
                 dht_need_heal_t         should_heal;
