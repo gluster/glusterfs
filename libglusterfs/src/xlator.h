@@ -978,18 +978,17 @@ struct _xlator {
         struct xlator_dumpops *dumpops;
         struct list_head       volume_options;  /* list of volume_option_t */
 
-        void              (*fini) (xlator_t *this);
-        int32_t           (*init) (xlator_t *this);
-        int32_t           (*reconfigure) (xlator_t *this, dict_t *options);
-	int32_t           (*mem_acct_init) (xlator_t *this);
-	int32_t           (*dump_metrics) (xlator_t *this, int fd);
+        void    (*fini)(xlator_t *this);
+        int32_t (*init)(xlator_t *this);
+        int32_t (*reconfigure)(xlator_t *this, dict_t *options);
+        int32_t (*mem_acct_init)(xlator_t *this);
+        int32_t (*dump_metrics)(xlator_t *this, int fd);
 
-	event_notify_fn_t notify;
+        event_notify_fn_t notify;
 
-        gf_loglevel_t    loglevel;   /* Log level for translator */
+        gf_loglevel_t     loglevel;   /* Log level for translator */
 
         struct {
-                int64_t  client_latency; /* This is in 'milliseconds' units */
                 struct {
                         /* for latency measurement */
                         fop_metrics_t metrics[GF_FOP_MAXVALUE];
