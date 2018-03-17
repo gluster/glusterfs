@@ -58,10 +58,27 @@ resolve_gfid_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == -1) {
                 if (op_errno == ENOENT) {
-                        gf_msg_debug (this->name, 0, "%s/%s: failed to resolve"
-                                      " (%s)",
+                        gf_msg_debug (this->name, 0,
+                                      "%s/%s: failed to resolve (%s)",
                                       uuid_utoa (resolve_loc->pargfid),
                                       resolve_loc->name, strerror (op_errno));
+                        if (resolve->type == RESOLVE_NOT) {
+                                do {
+                                        inode = inode_grep (state->itable,
+                                                            resolve_loc->parent,
+                                                            resolve->bname);
+
+                                        if (inode) {
+                                                gf_msg_debug (this->name, 0, "%s/%s: "
+                                                              "removing stale dentry",
+                                                              uuid_utoa (resolve_loc->pargfid),
+                                                              resolve->bname);
+                                                inode_unlink (inode,
+                                                              resolve_loc->parent,
+                                                              resolve->bname);
+                                        }
+                                } while (inode);
+                        }
                 } else {
                         gf_msg (this->name, GF_LOG_WARNING, op_errno,
                                 PS_MSG_GFID_RESOLVE_FAILED, "%s/%s: failed to "
@@ -318,11 +335,13 @@ resolve_entry_simple (call_frame_t *frame)
 
         if (resolve->type == RESOLVE_NOT) {
                 gf_msg_debug (this->name, 0, "inode (pointer: %p gfid:%s found"
-                              " for path (%s) while type is RESOLVE_NOT",
+                              " for path (%s) while type is RESOLVE_NOT. "
+                              "Performing lookup on backend to rule out any "
+                              "possible stale dentries in inode table",
                               inode, uuid_utoa (inode->gfid), resolve->path);
                 resolve->op_ret   = -1;
                 resolve->op_errno = EEXIST;
-                ret = -1;
+                ret = 1;
                 goto out;
         }
 
