@@ -317,10 +317,10 @@ afr_inode_write_fill (call_frame_t *frame, xlator_t *this, int child_index,
 		if (ret || !write_is_append)
 			local->append_write = _gf_false;
 
-		ret = dict_get_uint32 (xdata, GLUSTERFS_OPEN_FD_COUNT,
-				       &open_fd_count);
-		if (ret == -1)
-			goto unlock;
+                ret = dict_get_uint32 (xdata, GLUSTERFS_ACTIVE_FD_COUNT,
+                                       &open_fd_count);
+                if (ret < 0)
+                        goto unlock;
 		if (open_fd_count > local->open_fd_count) {
                         local->open_fd_count = open_fd_count;
                         local->update_open_fd_count = _gf_true;
@@ -532,10 +532,10 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (ret)
                 goto out;
 
-	if (dict_set_uint32 (local->xdata_req, GLUSTERFS_OPEN_FD_COUNT, 4)) {
-		op_errno = ENOMEM;
-		goto out;
-	}
+        if (dict_set_uint32 (local->xdata_req, GLUSTERFS_ACTIVE_FD_COUNT, 4)) {
+                op_errno = ENOMEM;
+                goto out;
+        }
 
 	if (dict_set_uint32 (local->xdata_req, GLUSTERFS_WRITE_IS_APPEND, 4)) {
 		op_errno = ENOMEM;
