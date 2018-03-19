@@ -392,27 +392,6 @@ _get_filler_inode (posix_xattr_filler_t *filler)
 }
 
 static int
-_posix_filler_get_openfd_count (posix_xattr_filler_t *filler, char *key)
-{
-        inode_t  *inode            = NULL;
-        int      ret               = -1;
-
-        inode = _get_filler_inode (filler);
-        if (!inode || gf_uuid_is_null (inode->gfid))
-                        goto out;
-
-        ret = dict_set_uint32 (filler->xattr, key, inode->fd_count);
-        if (ret < 0) {
-                gf_msg (filler->this->name, GF_LOG_WARNING, 0,
-                        P_MSG_DICT_SET_FAILED,
-                        "Failed to set dictionary value for %s", key);
-                goto out;
-        }
-out:
-        return ret;
-}
-
-static int
 _posix_xattr_get_set (dict_t *xattr_req, char *key, data_t *data,
                       void *xattrargs)
 {
@@ -420,11 +399,11 @@ _posix_xattr_get_set (dict_t *xattr_req, char *key, data_t *data,
         int       ret      = -1;
         char     *databuf  = NULL;
         int       _fd      = -1;
-        loc_t    *loc      = NULL;
         ssize_t  req_size  = 0;
         int32_t  list_offset = 0;
         ssize_t  remaining_size = 0;
         char     *xattr    = NULL;
+        inode_t  *inode    = NULL;
 
         if (posix_xattr_ignorable (key))
                 goto out;
@@ -500,16 +479,25 @@ _posix_xattr_get_set (dict_t *xattr_req, char *key, data_t *data,
                         GF_FREE (databuf);
                 }
         } else if (!strcmp (key, GLUSTERFS_OPEN_FD_COUNT)) {
-                ret = _posix_filler_get_openfd_count (filler, key);
-                loc = filler->loc;
-                if (loc) {
-                        ret = dict_set_uint32 (filler->xattr, key,
-                                               loc->inode->fd_count);
-                        if (ret < 0)
-                                gf_msg (filler->this->name, GF_LOG_WARNING, 0,
-                                        P_MSG_XDATA_GETXATTR,
-                                        "Failed to set dictionary value for %s",
-                                        key);
+                inode = _get_filler_inode (filler);
+                if (!inode || gf_uuid_is_null (inode->gfid))
+                                goto out;
+                ret = dict_set_uint32 (filler->xattr, key, inode->fd_count);
+                if (ret < 0) {
+                        gf_msg (filler->this->name, GF_LOG_WARNING, 0,
+                                P_MSG_DICT_SET_FAILED,
+                                "Failed to set dictionary value for %s", key);
+                }
+        } else if (!strcmp (key, GLUSTERFS_ACTIVE_FD_COUNT)) {
+                inode = _get_filler_inode (filler);
+                if (!inode || gf_uuid_is_null (inode->gfid))
+                                goto out;
+                ret = dict_set_uint32 (filler->xattr, key,
+                                       inode->active_fd_count);
+                if (ret < 0) {
+                        gf_msg (filler->this->name, GF_LOG_WARNING, 0,
+                                P_MSG_DICT_SET_FAILED,
+                                "Failed to set dictionary value for %s", key);
                 }
         } else if (!strcmp (key, GET_ANCESTRY_PATH_KEY)) {
                 /* As of now, the only consumers of POSIX_ANCESTRY_PATH attempt
