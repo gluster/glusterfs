@@ -4521,7 +4521,6 @@ out:
                         if (op_ret == 0)
                                 ctx->fsync_needed -= fsync_count;
                         GF_ASSERT (ctx->fsync_needed >= 0);
-                        list_del_init (&ctx->to_fsync_list);
                         if (ctx->fsync_needed != 0) {
                                 list_add_tail (&ctx->to_fsync_list,
                                                &base_ictx->to_fsync_list);
@@ -4596,6 +4595,7 @@ shard_post_lookup_fsync_handler (call_frame_t *frame, xlator_t *this)
         anon_fd = NULL;
 
         list_for_each_entry_safe (iter, tmp, &copy, to_fsync_list) {
+                list_del_init (&iter->to_fsync_list);
                 fsync_count = 0;
                 shard_inode_ctx_get_fsync_count (iter->inode, this,
                                                  &fsync_count);
