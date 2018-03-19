@@ -540,6 +540,7 @@ fd_unref (fd_t *fd)
                 if (refcount == 0) {
                         if (!list_empty (&fd->inode_list)) {
                                 list_del_init (&fd->inode_list);
+                                fd->inode->active_fd_count--;
                                 bound = _gf_true;
                         }
                 }
@@ -561,6 +562,7 @@ __fd_bind (fd_t *fd)
         list_del_init (&fd->inode_list);
         list_add (&fd->inode_list, &fd->inode->fd_list);
         fd->inode->fd_count++;
+        fd->inode->active_fd_count++;
 
         return fd;
 }
