@@ -33,7 +33,6 @@
 #include "xlator.h"
 #include "syscall.h"
 #include "monitoring.h"
-#include "server.h"
 
 static gf_boolean_t is_mgmt_rpc_reconnect = _gf_false;
 int need_emancipate = 0;
@@ -834,8 +833,7 @@ glusterfs_handle_attach (rpcsvc_request_t *req)
         xlator_t                *nextchild      = NULL;
         glusterfs_graph_t       *newgraph       = NULL;
         glusterfs_ctx_t         *ctx            = NULL;
-        xlator_t                *srv_xl         = NULL;
-        server_conf_t           *srv_conf       = NULL;
+        xlator_t                *protocol_server = NULL;
 
         GF_ASSERT (req);
         this = THIS;
@@ -876,10 +874,9 @@ glusterfs_handle_attach (rpcsvc_request_t *req)
                                 /* we need a protocol/server xlator as
                                  * nextchild
                                  */
-                                srv_xl = this->ctx->active->first;
-                                srv_conf = (server_conf_t *)srv_xl->private;
-                                rpcsvc_autoscale_threads (this->ctx,
-                                                          srv_conf->rpc, 1);
+                                protocol_server = this->ctx->active->first;
+                                rpcsvc_autoscale_threads (this->ctx, 1,
+                                                          protocol_server);
                         }
                 } else {
                         gf_log (this->name, GF_LOG_WARNING,

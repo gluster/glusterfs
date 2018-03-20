@@ -844,6 +844,12 @@ do_rpc:
         if (ret)
                 goto out;
 
+        /* rpcsvc thread reconfigure should be after events thread
+         * reconfigure
+         */
+        new_nthread =
+        ((struct event_pool *)(this->ctx->event_pool))->eventthreadcount;
+        ret = rpcsvc_ownthread_reconf (rpc_conf, new_nthread);
 out:
         THIS = oldTHIS;
         gf_msg_debug ("", 0, "returning %d", ret);
@@ -1499,7 +1505,8 @@ server_notify (xlator_t *this, int32_t event, void *data, ...)
                         if (victim_found)
                                 (*trav_p) = (*trav_p)->next;
                         rpc_clnt_mgmt_pmap_signout (ctx, victim->name);
-                        rpcsvc_autoscale_threads (ctx, conf->rpc, -1);
+                        /* we need the protocol/server xlator here as 'this' */
+                        rpcsvc_autoscale_threads (ctx, -1, this);
                         default_notify (victim, GF_EVENT_CLEANUP, data);
                 }
                 break;

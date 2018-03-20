@@ -25,7 +25,6 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/rpc/xdr/src \
 	-I$(top_builddir)/rpc/xdr/src \
 	-I$(top_srcdir)/xlators/nfs/server/src \
-	-I$(top_srcdir)/xlators/protocol/server/src \
 	-I$(top_srcdir)/api/src
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)

@@ -422,6 +422,12 @@ struct rpcsvc_program {
         pthread_mutex_t         queue_lock;
         pthread_cond_t          queue_cond;
         pthread_t               thread;
+        int                     threadcount;
+        /* eventthreadcount is just a readonly copy of the actual value
+         * owned by the event sub-system
+         * It is used to control the scaling of rpcsvc_request_handler threads
+         */
+        int                     eventthreadcount;
 };
 
 typedef struct rpcsvc_cbk_program {
@@ -642,6 +648,8 @@ rpcsvc_get_program_vector_sizer (rpcsvc_t *svc, uint32_t prognum,
                                  uint32_t progver, int procnum);
 
 void
-rpcsvc_autoscale_threads (glusterfs_ctx_t *ctx, rpcsvc_t *rpc, int incr);
+rpcsvc_autoscale_threads (glusterfs_ctx_t *ctx, int incr, xlator_t *this);
 
+extern int
+rpcsvc_ownthread_reconf (rpcsvc_t *svc, int new_eventthreadcount);
 #endif
