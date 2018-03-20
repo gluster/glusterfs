@@ -3,4 +3,4 @@ features.cache-invalidation-timeout=600
 performance.stat-prefetch=on
 performance.cache-invalidation=on
 performance.md-cache-timeout=600
-network.inode-lru-limit=50000
+network.inode-lru-limit=200000
