@@ -301,6 +301,14 @@ ec_shd_full_heal (xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
         if (!ec->shd.enabled)
                 return -EBUSY;
 
+        if (gf_uuid_is_null(entry->d_stat.ia_gfid)) {
+                /* It's possible that an entry has been removed just after
+                 * being seen in a directory but before getting its stat info.
+                 * In this case we'll receive a NULL gfid here. Since the file
+                 * doesn't exist anymore, we can safely ignore it. */
+                return 0;
+        }
+
         loc.parent = inode_ref (parent->inode);
         loc.name   = entry->d_name;
         gf_uuid_copy (loc.gfid, entry->d_stat.ia_gfid);
