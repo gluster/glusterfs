@@ -127,5 +127,7 @@ find_config_info
 
 if ! grep --quiet "\[gluster-$VOL\]" ${CONFIGFILE} ; then
         add_samba_share $VOL
-        sighup_samba
+else
+        sed -i '/\[gluster-'"$VOL"'\]/,/^$/!b;/available = no/d' ${CONFIGFILE}
 fi
+sighup_samba

@@ -56,9 +56,9 @@ function find_config_info () {
         PIDDIR=`smbd -b | grep PIDDIR | awk '{print $2}'`
 }
 
-function del_samba_share () {
+function deactivate_samba_share () {
         volname=$1
-        sed -i "/\[gluster-$volname\]/,/^$/d" ${CONFIGFILE}
+        sed -i -e '/^\[gluster-'"$volname"'\]/{ :a' -e 'n; /available = no/H; /^$/!{$!ba;}; x; /./!{ s/^/available = no/; $!{G;x}; $H; }; s/.*//; x; };' ${CONFIGFILE}
 }
 
 function sighup_samba () {
@@ -73,5 +73,5 @@ function sighup_samba () {
 
 parse_args "$@"
 find_config_info
-del_samba_share $VOL
+deactivate_samba_share $VOL
 sighup_samba
