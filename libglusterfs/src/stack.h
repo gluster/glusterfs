@@ -284,8 +284,13 @@ STACK_RESET (call_stack_t *stack)
                         GF_ATOMIC_INC (next_xl->stats.total.count);     \
                         GF_ATOMIC_INC (next_xl->stats.interval.count);  \
                 }                                                       \
+                                                                        \
                 if (next_xl->pass_through) {                            \
-                        next_xl_fn = (void *)*((&next_xl->pass_through_fops->stat) + (opn - 1)); \
+                        /* next_xl_fn = (void *)*((&next_xl->pass_through_fops->stat) + (opn - 1));
+                         * This assignment is changed to fix ARRAY_VS_SINGLETON coverity error.
+                         */                                             \
+                        void *base_addr = &next_xl->pass_through_fops->stat; \
+                        next_xl_fn = base_addr + ((opn - 1) * sizeof(void*)); \
                 }                                                       \
                 next_xl_fn (frame, next_xl, params);                    \
                 THIS = old_THIS;                                        \
@@ -350,7 +355,11 @@ STACK_RESET (call_stack_t *stack)
                         GF_ATOMIC_INC (obj->stats.total.count);         \
                         GF_ATOMIC_INC (obj->stats.interval.count);      \
                 } else {                                                \
-                        next_xl_fn = (void *)*((&obj->pass_through_fops->stat) + (_new->op - 1)); \
+                        /* next_xl_fn = (void *)*((&obj->pass_through_fops->stat) + (_new->op - 1));
+                         * This assignment is changed to fix ARRAY_VS_SINGLETON coverity error.
+                         */                                             \
+                        void *base_addr = &obj->pass_through_fops->stat; \
+                        next_xl_fn = base_addr + ((_new->op - 1) * sizeof(void*)); \
                 }                                                       \
                 next_xl_fn (_new, obj, params);                         \
                 THIS = old_THIS;                                        \
