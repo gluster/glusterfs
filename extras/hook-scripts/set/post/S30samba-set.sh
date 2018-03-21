@@ -103,9 +103,9 @@ function sighup_samba () {
         fi
 }
 
-function del_samba_share () {
+function deactivate_samba_share () {
         volname=$1
-        sed -i "/\[gluster-$volname\]/,/^$/d" ${CONFIGFILE}
+        sed -i -e '/^\[gluster-'"$volname"'\]/{ :a' -e 'n; /available = no/H; /^$/!{$!ba;}; x; /./!{ s/^/available = no/; $!{G;x}; $H; }; s/.*//; x; };' ${CONFIGFILE}
 }
 
 function is_volume_started () {
@@ -140,12 +140,13 @@ if [ "$USERCIFS_SET" = "YES" ] || [ "$USERSMB_SET" = "YES" ]; then
     find_config_info
 
     if [ "$(get_smb "$VOL")" = "disable" ]; then
-        del_samba_share $VOL
-        sighup_samba
+        deactivate_samba_share $VOL
     else
         if ! grep --quiet "\[gluster-$VOL\]" ${CONFIGFILE} ; then
             add_samba_share $VOL
-            sighup_samba
+        else
+            sed -i '/\[gluster-'"$VOL"'\]/,/^$/!b;/available = no/d' ${CONFIGFILE}
         fi
     fi
+    sighup_samba
 fi
