@@ -574,14 +574,18 @@ out:
 }
 
 int
-index_link_to_base (xlator_t *this, char *base, size_t base_len,
-                    char *fpath, const char *subdir)
+index_link_to_base (xlator_t *this, char *fpath, const char *subdir)
 {
         int ret = 0;
         int fd  = 0;
         int op_errno = 0;
         uuid_t index = {0};
         index_priv_t *priv = this->private;
+        char         base[PATH_MAX] = {0};
+
+        index_get_index (priv, index);
+        make_index_path (priv->index_basepath, subdir,
+                         index, base, sizeof (base));
 
         ret = sys_link (base, fpath);
         if (!ret || (errno == EEXIST))  {
@@ -599,7 +603,7 @@ index_link_to_base (xlator_t *this, char *base, size_t base_len,
         } else if (op_errno == EMLINK) {
                 index_generate_index (priv, index);
                 make_index_path (priv->index_basepath, subdir,
-                                 index, base, base_len);
+                                 index, base, sizeof (base));
         } else {
                 goto out;
         }
@@ -634,9 +638,7 @@ index_add (xlator_t *this, uuid_t gfid, const char *subdir,
            index_xattrop_type_t type)
 {
         char              gfid_path[PATH_MAX] = {0};
-        char              index_path[PATH_MAX] = {0};
         int               ret = -1;
-        uuid_t            index = {0};
         index_priv_t      *priv = NULL;
         struct stat       st = {0};
 
@@ -653,11 +655,7 @@ index_add (xlator_t *this, uuid_t gfid, const char *subdir,
         ret = sys_stat (gfid_path, &st);
         if (!ret)
                 goto out;
-        index_get_index (priv, index);
-        make_index_path (priv->index_basepath, subdir,
-                         index, index_path, sizeof (index_path));
-        ret = index_link_to_base (this, index_path, sizeof (index_path),
-                                  gfid_path, subdir);
+        ret = index_link_to_base (this, gfid_path, subdir);
 out:
         return ret;
 }
@@ -810,8 +808,6 @@ index_entry_create (xlator_t *this, inode_t *inode, char *filename)
         int                 op_errno                        = 0;
         char                pgfid_path[PATH_MAX]            = {0};
         char                entry_path[PATH_MAX]            = {0};
-        char                entry_base_index_path[PATH_MAX] = {0};
-        uuid_t              index                           = {0};
         index_priv_t       *priv                            = NULL;
         index_inode_ctx_t  *ctx                             = NULL;
 
@@ -849,12 +845,7 @@ index_entry_create (xlator_t *this, inode_t *inode, char *filename)
 
         snprintf (entry_path, sizeof(entry_path), "%s/%s", pgfid_path,
                   filename);
-        index_get_index (priv, index);
-        make_index_path (priv->index_basepath, ENTRY_CHANGES_SUBDIR, index,
-                         entry_base_index_path, sizeof(entry_base_index_path));
-        ret = index_link_to_base (this, entry_base_index_path,
-                                  sizeof (entry_base_index_path),
-                                  entry_path, ENTRY_CHANGES_SUBDIR);
+        ret = index_link_to_base (this, entry_path, ENTRY_CHANGES_SUBDIR);
 out:
         if (op_errno)
                 ret = -op_errno;
