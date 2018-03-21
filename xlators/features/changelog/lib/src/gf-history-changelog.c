@@ -929,7 +929,7 @@ gf_history_changelog (char* changelog_dir, unsigned long start,
                                 ret = -1;
                                 gf_smsg (this->name, GF_LOG_ERROR, 0,
                                          CHANGELOG_LIB_MSG_GET_TIME_ERROR,
-                                         "wrong result for start",
+                                         "wrong result for end",
                                          "start=%lu", end2,
                                          "idx=%lu", to,
                                          NULL);
