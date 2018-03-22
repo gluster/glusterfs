@@ -429,6 +429,9 @@ init (xlator_t *this)
         }
         GF_OPTION_INIT ("choose-local", priv->choose_local, bool, out);
 
+        priv->pending_reads = GF_CALLOC (sizeof(*priv->pending_reads),
+                                         priv->child_count, gf_afr_mt_atomic_t);
+
         GF_OPTION_INIT ("read-hash-mode", priv->hash_mode, uint32, out);
 
         priv->favorite_child = -1;
@@ -703,18 +706,19 @@ struct volume_options options[] = {
         { .key = {"read-hash-mode" },
           .type = GF_OPTION_TYPE_INT,
           .min = 0,
-          .max = 2,
+          .max = 3,
           .default_value = "1",
           .op_version = {2},
           .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
           .tags = {"replicate"},
           .description = "inode-read fops happen only on one of the bricks in "
                          "replicate. AFR will prefer the one computed using "
-                         "the method specified using this option"
-                         "0 = first up server, "
+                         "the method specified using this option.\n"
+                         "0 = first readable child of AFR, starting from 1st child.\n"
                          "1 = hash by GFID of file (all clients use "
-                                                    "same subvolume), "
-                         "2 = hash by GFID of file and client PID",
+                                                    "same subvolume).\n"
+                         "2 = hash by GFID of file and client PID.\n"
+                         "3 = brick having the least outstanding read requests."
         },
         { .key  = {"choose-local" },
           .type = GF_OPTION_TYPE_BOOL,

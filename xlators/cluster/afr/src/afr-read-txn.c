@@ -12,6 +12,39 @@
 #include "afr-transaction.h"
 #include "afr-messages.h"
 
+void
+afr_pending_read_increment (afr_private_t *priv, int child_index)
+{
+        if (child_index < 0 || child_index > priv->child_count)
+                return;
+
+        GF_ATOMIC_INC(priv->pending_reads[child_index]);
+}
+
+void
+afr_pending_read_decrement (afr_private_t *priv, int child_index)
+{
+        if (child_index < 0 || child_index > priv->child_count)
+                return;
+
+        GF_ATOMIC_DEC(priv->pending_reads[child_index]);
+}
+
+void
+afr_read_txn_wind (call_frame_t *frame, xlator_t *this, int subvol)
+{
+        afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
+
+        local = frame->local;
+        priv = this->private;
+
+        afr_pending_read_decrement (priv, local->read_subvol);
+        local->read_subvol = subvol;
+        afr_pending_read_increment (priv, subvol);
+        local->readfn (frame, this, subvol);
+}
+
 int
 afr_read_txn_next_subvol (call_frame_t *frame, xlator_t *this)
 {
@@ -43,7 +76,7 @@ afr_read_txn_next_subvol (call_frame_t *frame, xlator_t *this)
 	   readable subvols. */
 	if (subvol != -1)
 		local->read_attempted[subvol] = 1;
-	local->readfn (frame, this, subvol);
+	afr_read_txn_wind (frame, this, subvol);
 
 	return 0;
 }
@@ -89,7 +122,7 @@ readfn:
         if (read_subvol == -1) {
                 AFR_SET_ERROR_AND_CHECK_SPLIT_BRAIN (-1, -err);
         }
-	local->readfn (frame, this, read_subvol);
+        afr_read_txn_wind (frame, this, read_subvol);
 
 	return 0;
 }
@@ -246,7 +279,7 @@ afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	local->read_attempted[read_subvol] = 1;
 
 read:
-	local->readfn (frame, this, read_subvol);
+	afr_read_txn_wind (frame, this, read_subvol);
 
 	return 0;
 

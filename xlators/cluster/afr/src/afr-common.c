@@ -1630,37 +1630,68 @@ out:
         return ret;
 }
 
+int
+afr_least_pending_reads_child (afr_private_t *priv)
+{
+        int i = 0;
+        int child = 0;
+        int64_t read_iter = -1;
+        int64_t pending_read = -1;
+
+        pending_read = GF_ATOMIC_GET (priv->pending_reads[0]);
+        for (i = 1; i < priv->child_count; i++) {
+                if (AFR_IS_ARBITER_BRICK(priv, i))
+                        continue;
+                read_iter =  GF_ATOMIC_GET(priv->pending_reads[i]);
+                if (read_iter < pending_read) {
+                        pending_read = read_iter;
+                        child = i;
+                }
+        }
+
+        return child;
+}
 
 int
-afr_hash_child (afr_read_subvol_args_t *args, int32_t child_count, int hashmode)
+afr_hash_child (afr_read_subvol_args_t *args, afr_private_t *priv)
 {
         uuid_t gfid_copy = {0,};
         pid_t pid;
+        int child = -1;
 
-        if (!hashmode) {
-                return -1;
+        switch (priv->hash_mode) {
+        case 0:
+                break;
+        case 1:
+                gf_uuid_copy (gfid_copy, args->gfid);
+                child = SuperFastHash((char *)gfid_copy,
+                                      sizeof(gfid_copy)) % priv->child_count;
+                break;
+        case 2:
+                if (args->ia_type != IA_IFDIR) {
+                        /*
+                         * Why getpid?  Because it's one of the cheapest calls
+                         * available - faster than gethostname etc. - and
+                         * returns a constant-length value that's sure to be
+                         * shorter than a UUID. It's still very unlikely to be
+                         * the same across clients, so it still provides good
+                         * mixing.  We're not trying for perfection here. All we
+                         * need is a low probability that multiple clients
+                         * won't converge on the same subvolume.
+                         */
+                        pid = getpid();
+                        memcpy (gfid_copy, &pid, sizeof(pid));
+                }
+                child = SuperFastHash((char *)gfid_copy,
+                                      sizeof(gfid_copy)) % priv->child_count;
+                break;
+        case 3:
+                child = afr_least_pending_reads_child (priv);
+                break;
         }
 
-        gf_uuid_copy (gfid_copy, args->gfid);
-
-        if ((hashmode > 1) && (args->ia_type != IA_IFDIR)) {
-                /*
-                 * Why getpid?  Because it's one of the cheapest calls
-                 * available - faster than gethostname etc. - and returns a
-                 * constant-length value that's sure to be shorter than a UUID.
-                 * It's still very unlikely to be the same across clients, so
-                 * it still provides good mixing.  We're not trying for
-                 * perfection here.  All we need is a low probability that
-                 * multiple clients won't converge on the same subvolume.
-                 */
-                pid = getpid();
-                memcpy (gfid_copy, &pid, sizeof(pid));
-        }
-
-        return SuperFastHash((char *)gfid_copy,
-                             sizeof(gfid_copy)) % child_count;
+        return child;
 }
-
 
 int
 afr_read_subvol_select_by_policy (inode_t *inode, xlator_t *this,
@@ -1686,8 +1717,7 @@ afr_read_subvol_select_by_policy (inode_t *inode, xlator_t *this,
         }
 
 	/* second preference - use hashed mode */
-	read_subvol = afr_hash_child (&local_args, priv->child_count,
-                                      priv->hash_mode);
+        read_subvol = afr_hash_child (&local_args, priv);
 	if (read_subvol >= 0 && readable[read_subvol])
                 return read_subvol;
 
@@ -4611,6 +4641,8 @@ afr_priv_dump (xlator_t *this)
                 gf_proc_dump_write(key, "%d", priv->child_up[i]);
                 sprintf (key, "pending_key[%d]", i);
                 gf_proc_dump_write(key, "%s", priv->pending_key[i]);
+                sprintf (key, "pending_reads[%d]", i);
+                gf_proc_dump_write(key, "%"PRId64, GF_ATOMIC_GET(priv->pending_reads[i]));
         }
         gf_proc_dump_write("data_self_heal", "%s", priv->data_self_heal);
         gf_proc_dump_write("metadata_self_heal", "%d", priv->metadata_self_heal);
@@ -4623,6 +4655,7 @@ afr_priv_dump (xlator_t *this)
         gf_proc_dump_write("background-self-heal-count", "%d",
                            priv->background_self_heal_count);
         gf_proc_dump_write("healers", "%d", priv->healers);
+        gf_proc_dump_write("read-hash-mode", "%d", priv->hash_mode);
         if (priv->quorum_count == AFR_QUORUM_AUTO) {
                 gf_proc_dump_write ("quorum-type", "auto");
         } else if (priv->quorum_count == 0) {
@@ -5325,6 +5358,8 @@ afr_local_init (afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
                 goto out;
         }
 
+        local->read_subvol = -1;
+
 	local->replies = GF_CALLOC(priv->child_count, sizeof(*local->replies),
 				   gf_afr_mt_reply_t);
 	if (!local->replies) {
@@ -5474,9 +5509,12 @@ afr_priv_destroy (afr_private_t *priv)
                 for (i = 0; i < priv->child_count; i++)
                         GF_FREE (priv->pending_key[i]);
         }
+        GF_FREE (priv->pending_reads);
+        GF_FREE (priv->local);
         GF_FREE (priv->pending_key);
         GF_FREE (priv->children);
         GF_FREE (priv->child_up);
+        GF_FREE (priv->child_latency);
         LOCK_DESTROY (&priv->lock);
 
         GF_FREE (priv);

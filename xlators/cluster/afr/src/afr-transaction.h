@@ -37,6 +37,12 @@ int afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
 int afr_read_txn_continue (call_frame_t *frame, xlator_t *this, int subvol);
 
+void
+afr_pending_read_increment (afr_private_t *priv, int child_index);
+
+void
+afr_pending_read_decrement (afr_private_t *priv, int child_index);
+
 call_frame_t *afr_transaction_detach_fop_frame (call_frame_t *frame);
 gf_boolean_t afr_has_quorum (unsigned char *subvols, xlator_t *this);
 gf_boolean_t afr_needs_changelog_update (afr_local_t *local);

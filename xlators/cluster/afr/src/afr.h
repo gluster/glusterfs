@@ -113,6 +113,7 @@ typedef struct _afr_private {
 	gf_boolean_t metadata_splitbrain_forced_heal; /* on/off */
         int read_child;               /* read-subvolume */
         unsigned int hash_mode;       /* for when read_child is not set */
+        gf_atomic_t *pending_reads; /*No. of pending read cbks per child.*/
         int favorite_child;  /* subvolume to be preferred in resolving
                                          split-brain cases */
 
@@ -424,6 +425,8 @@ typedef struct _afr_local {
 	*/
 	unsigned char *readable;
 	unsigned char *readable2; /*For rename transaction*/
+
+        int read_subvol; /* Current read subvolume */
 
 	afr_inode_refresh_cbk_t refreshfn;
 
@@ -974,6 +977,8 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd);
                         __this = frame->this;                   \
                         afr_handle_inconsistent_fop (frame, &__op_ret,\
                                                      &__op_errno);\
+                        if (__local && __local->is_read_txn) \
+                                afr_pending_read_decrement (__this->private, __local->read_subvol); \
                         frame->local = NULL;                    \
                 }                                               \
                                                                 \
