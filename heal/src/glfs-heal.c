@@ -71,7 +71,8 @@ int32_t is_xml;
 #define USAGE_STR "Usage: %s <VOLNAME> [bigger-file <FILE> | "\
                   "latest-mtime <FILE> | "\
                   "source-brick <HOSTNAME:BRICKNAME> [<FILE>] | "\
-                  "split-brain-info | info-summary]\n"
+                  "split-brain-info | info-summary] [glusterd-sock <FILE>"\
+                  "]\n"
 
 typedef enum {
         GLFSH_MODE_CONTINUE_ON_ERROR = 1,
@@ -1561,14 +1562,19 @@ main (int argc, char **argv)
         char      *path = NULL;
         char      *file = NULL;
         char      *op_errstr = NULL;
+        char      *socket_filepath = NULL;
         gf_xl_afr_op_t heal_op = -1;
 
         if (argc < 2) {
                 printf (USAGE_STR, argv[0]);
                 ret = -1;
                 goto out;
+        } else if (argc >= 4) {
+                if (!strcmp(argv[argc - 2], "glusterd-sock")) {
+                        socket_filepath = argv[argc - 1];
+                        argc = argc - 2;
+                }
         }
-
         volname = argv[1];
         switch (argc) {
         case 2:
@@ -1591,12 +1597,12 @@ main (int argc, char **argv)
                 }
                 break;
         case 4:
-                if ((!strcmp (argv[2], "split-brain-info"))
-                                && (!strcmp (argv[3], "xml"))) {
+                if ((!strcmp (argv[2], "split-brain-info")) &&
+                    (!strcmp (argv[3], "xml"))) {
                         heal_op = GF_SHD_OP_SPLIT_BRAIN_FILES;
                         is_xml = 1;
-                } else if ((!strcmp (argv[2], "info-summary"))
-                                && (!strcmp (argv[3], "xml"))) {
+                } else if ((!strcmp (argv[2], "info-summary")) &&
+                           (!strcmp (argv[3], "xml"))) {
                         heal_op = GF_SHD_OP_HEAL_SUMMARY;
                         is_xml = 1;
                 } else if (!strcmp (argv[2], "bigger-file")) {
@@ -1663,8 +1669,12 @@ main (int argc, char **argv)
                 fs->ctx->secure_mgmt = 1;
                 fs->ctx->ssl_cert_depth = glusterfs_read_secure_access_file ();
         }
-
-        ret = glfs_set_volfile_server (fs, "unix", DEFAULT_GLUSTERD_SOCKFILE, 0);
+        if (socket_filepath != NULL) {
+                ret = glfs_set_volfile_server (fs, "unix", socket_filepath, 0);
+        } else {
+                ret = glfs_set_volfile_server (fs, "unix",
+                                DEFAULT_GLUSTERD_SOCKFILE, 0);
+        }
         if (ret) {
                 ret = -errno;
                 gf_asprintf (&op_errstr, "Setting the volfile server failed, "
