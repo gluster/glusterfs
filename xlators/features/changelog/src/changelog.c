@@ -2958,6 +2958,7 @@ struct volume_options options[] = {
          .description = "enable/disable change-logging",
          .op_version = {3},
          .flags = OPT_FLAG_SETTABLE,
+         .level = OPT_STATUS_BASIC,
          .tags = {"journal", "georep", "glusterfind"}
         },
         {.key = {"changelog-brick"},
@@ -2974,6 +2975,7 @@ struct volume_options options[] = {
          .default_value = "{{ brick.path }}/.glusterfs/changelogs",
          .op_version = {3},
          .flags = OPT_FLAG_SETTABLE,
+         .level = OPT_STATUS_ADVANCED,
          .tags = {"journal", "georep", "glusterfind"}
         },
         {.key = {"op-mode"},
@@ -2991,6 +2993,7 @@ struct volume_options options[] = {
          .description = "encoding type for changelogs",
          .op_version = {3},
          .flags = OPT_FLAG_SETTABLE,
+         .level = OPT_STATUS_ADVANCED,
          .tags = {"journal"}
         },
         {.key = {"rollover-time"},
@@ -2999,6 +3002,7 @@ struct volume_options options[] = {
          .description = "time to switch to a new changelog file (in seconds)",
          .op_version = {3},
          .flags = OPT_FLAG_SETTABLE,
+         .level = OPT_STATUS_ADVANCED,
          .tags = {"journal", "georep", "glusterfind"}
         },
         {.key = {"fsync-interval"},
@@ -3008,6 +3012,7 @@ struct volume_options options[] = {
                         " instead perform fsync() at specified intervals",
          .op_version = {3},
          .flags = OPT_FLAG_SETTABLE,
+         .level = OPT_STATUS_ADVANCED,
          .tags = {"journal"}
         },
         { .key = {"changelog-barrier-timeout"},
@@ -3019,6 +3024,7 @@ struct volume_options options[] = {
                          "blocked fops are allowed to go through",
          .op_version = {3},
          .flags = OPT_FLAG_SETTABLE,
+         .level = OPT_STATUS_ADVANCED,
          .tags = {"journal"}
         },
         {.key = {"capture-del-path"},
@@ -3027,6 +3033,7 @@ struct volume_options options[] = {
          .description = "enable/disable capturing paths of deleted entries",
          .op_version = {3},
          .flags = OPT_FLAG_SETTABLE,
+         .level = OPT_STATUS_BASIC,
          .tags = {"journal", "glusterfind"}
         },
         {.key = {NULL}
