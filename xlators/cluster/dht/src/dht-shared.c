@@ -971,7 +971,8 @@ struct volume_options options[] = {
           "from the hash subvolume. If set to OFF, it does not do a lookup "
           "on the remaining subvolumes.",
           .op_version = {1},
-          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE
+          .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE,
+          .level = OPT_STATUS_BASIC,
         },
         { .key = {"lookup-optimize"},
           .type = GF_OPTION_TYPE_BOOL,
@@ -981,6 +982,7 @@ struct volume_options options[] = {
           "files, in case the hashed subvolume does not return any result. "
           "This option disregards the lookup-unhashed setting, when enabled.",
           .op_version = {GD_OP_VERSION_3_7_2},
+          .level = OPT_STATUS_ADVANCED,
           .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key  = {"min-free-disk"},
@@ -990,6 +992,7 @@ struct volume_options options[] = {
           "process starts balancing out the cluster, and logs will appear "
           "in log files",
           .op_version = {1},
+          .level = OPT_STATUS_BASIC,
           .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key  = {"min-free-inodes"},
@@ -998,6 +1001,7 @@ struct volume_options options[] = {
           .description = "after system has only N% of inodes, warnings "
           "starts to appear in log files",
           .op_version = {1},
+          .level = OPT_STATUS_BASIC,
           .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key = {"unhashed-sticky-bit"},
@@ -1009,6 +1013,7 @@ struct volume_options options[] = {
           .default_value = "on",
           .description = "This option if set to ON, forces the use of "
           "readdirp, and hence also displays the stats of the files.",
+          .level = OPT_STATUS_ADVANCED,
           .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key = {"assert-no-child-down"},
@@ -1030,7 +1035,8 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_ANY,
           .description = "This option if set to ON, decommissions "
           "the brick, so that no new data is allowed to be created "
-          "on that brick."
+          "on that brick.",
+          .level = OPT_STATUS_ADVANCED,
         },
         { .key  = {"rebalance-cmd"},
           .type = GF_OPTION_TYPE_INT,
@@ -1049,6 +1055,7 @@ struct volume_options options[] = {
           "process. If set to OFF, the rebalance logs will only display the "
           "time spent in each directory.",
           .op_version = {2},
+          .level = OPT_STATUS_BASIC,
         },
         { .key = {"readdir-optimize"},
           .type = GF_OPTION_TYPE_BOOL,
@@ -1057,6 +1064,7 @@ struct volume_options options[] = {
           "that allows DHT to requests non-first subvolumes to filter out "
           "directory entries.",
           .op_version = {1},
+          .level = OPT_STATUS_ADVANCED,
           .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key = {"rsync-hash-regex"},
@@ -1066,6 +1074,7 @@ struct volume_options options[] = {
           "suffix and prefix used by rsync, to prevent relocation when the "
           "file is renamed.",
           .op_version = {3},
+          .level = OPT_STATUS_BASIC,
           .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key = {"extra-hash-regex"},
@@ -1075,6 +1084,7 @@ struct volume_options options[] = {
           "suffix and prefix used by an application, to prevent relocation when "
           "the file is renamed.",
           .op_version = {3},
+          .level = OPT_STATUS_BASIC,
           .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
         { .key = {"rebalance-filter"},
@@ -1097,6 +1107,7 @@ struct volume_options options[] = {
           "with a probability proportional to their size.  Otherwise, all "
           "bricks will have the same probability (legacy behavior).",
           .op_version  = {GD_OP_VERSION_3_6_0},
+          .level = OPT_STATUS_BASIC,
           .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
 
@@ -1198,6 +1209,7 @@ struct volume_options options[] = {
                          "be migrated at a time and aggressive will allow "
                          "max of [($(processing units) - 4) / 2), 4]",
           .op_version  = {GD_OP_VERSION_3_7_0},
+          .level = OPT_STATUS_BASIC,
           .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
 
         },
@@ -1208,6 +1220,7 @@ struct volume_options options[] = {
           .description = " If enabled this feature will migrate the posix locks"
                          " associated with a file during rebalance",
           .op_version  = {GD_OP_VERSION_3_8_0},
+          .level = OPT_STATUS_ADVANCED,
           .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
 
@@ -1217,6 +1230,7 @@ struct volume_options options[] = {
           .description = "If disabled, rebalance will not migrate files that "
                          "are being written to by an application",
           .op_version  = {GD_OP_VERSION_4_0_0},
+          .level = OPT_STATUS_ADVANCED,
           .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
         },
 
