@@ -189,6 +189,15 @@ gd_mgmt_v3_pre_validate_fn (glusterd_op_t op, dict_t *dict,
                         goto out;
                 }
                 break;
+        case GD_OP_STOP_VOLUME:
+                ret = glusterd_op_stage_stop_volume (dict, op_errstr);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                GD_MSG_PRE_VALIDATION_FAIL,
+                                "Volume stop prevalidation failed.");
+                        goto out;
+                }
+                break;
         case GD_OP_TIER_START_STOP:
         case GD_OP_TIER_STATUS:
         case GD_OP_DETACH_TIER_STATUS:
@@ -326,6 +335,17 @@ gd_mgmt_v3_commit_fn (glusterd_op_t op, dict_t *dict,
                         }
                         break;
 
+                }
+                case GD_OP_STOP_VOLUME:
+                {
+                        ret = glusterd_op_stop_volume (dict);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_COMMIT_OP_FAIL,
+                                        "Volume stop commit failed.");
+                                goto out;
+                        }
+                        break;
                 }
                 case GD_OP_RESET_BRICK:
                 {
@@ -496,6 +516,34 @@ gd_mgmt_v3_post_validate_fn (glusterd_op_t op, int32_t op_ret, dict_t *dict,
                                         "allocate memory");
                                 goto out;
                         }
+
+                        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
+                                svc = &(volinfo->tierd.svc);
+                                ret = svc->manager (svc, volinfo,
+                                                    PROC_START_NO_WAIT);
+                                if (ret)
+                                        goto out;
+                        }
+                        break;
+               }
+               case GD_OP_STOP_VOLUME:
+               {
+                        ret = dict_get_str (dict, "volname", &volname);
+                        if (ret) {
+                                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                                        GD_MSG_DICT_GET_FAILED, "Unable to get"
+                                        " volume name");
+                                goto out;
+                        }
+
+                        ret = glusterd_volinfo_find (volname, &volinfo);
+                        if (ret) {
+                                gf_msg ("glusterd", GF_LOG_ERROR, EINVAL,
+                                        GD_MSG_VOL_NOT_FOUND, "Unable to "
+                                        "allocate memory");
+                                goto out;
+                        }
+                        break;
 
                         if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
                                 svc = &(volinfo->tierd.svc);
@@ -826,6 +874,7 @@ glusterd_pre_validate_aggr_rsp_dict (glusterd_op_t op,
                                 "response dictionaries.");
                         goto out;
                 }
+        case GD_OP_STOP_VOLUME:
         case GD_OP_TIER_STATUS:
         case GD_OP_DETACH_TIER_STATUS:
         case GD_OP_TIER_START_STOP:
@@ -1136,6 +1185,7 @@ glusterd_mgmt_v3_build_payload (dict_t **req, char **op_errstr, dict_t *dict,
                 dict_copy (dict, req_dict);
                 break;
         case GD_OP_START_VOLUME:
+        case GD_OP_STOP_VOLUME:
         case GD_OP_ADD_BRICK:
         case GD_OP_REPLACE_BRICK:
         case GD_OP_RESET_BRICK:

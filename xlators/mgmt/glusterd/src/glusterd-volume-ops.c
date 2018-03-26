@@ -588,10 +588,13 @@ __glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
         glusterd_op_t                   cli_op = GD_OP_STOP_VOLUME;
         xlator_t                        *this = NULL;
         char                            err_str[2048] = {0,};
+        glusterd_conf_t                 *conf = NULL;
 
         this = THIS;
         GF_ASSERT (this);
         GF_ASSERT (req);
+        conf = this->private;
+        GF_ASSERT (conf);
 
         ret = xdr_to_generic (req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
         if (ret < 0) {
@@ -633,7 +636,18 @@ __glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
         gf_msg_debug (this->name, 0, "Received stop vol req "
                 "for volume %s", dup_volname);
 
-        ret = glusterd_op_begin_synctask (req, GD_OP_STOP_VOLUME, dict);
+        if (conf->op_version <= GD_OP_VERSION_4_1_0) {
+                gf_msg_debug (this->name, 0, "The cluster is operating at "
+                          "version less than or equal to %d. Volume start "
+                          "falling back to syncop framework.",
+                          GD_OP_VERSION_4_1_0);
+                ret = glusterd_op_begin_synctask (req, GD_OP_STOP_VOLUME,
+                                                  dict);
+        } else {
+                ret = glusterd_mgmt_v3_initiate_all_phases (req,
+                                                            GD_OP_STOP_VOLUME,
+                                                            dict);
+        }
 
 out:
         free (cli_req.dict.dict_val); //its malloced by xdr
@@ -2802,6 +2816,7 @@ glusterd_op_stop_volume (dict_t *dict)
                 goto out;
         }
 out:
+        gf_msg_trace (this->name, 0, "returning %d ", ret);
         return ret;
 }
 
