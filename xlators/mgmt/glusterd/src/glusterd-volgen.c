@@ -6104,12 +6104,33 @@ generate_client_volfiles (glusterd_volinfo_t *volinfo,
         int                i                  = 0;
         int                ret                = -1;
         char               filepath[PATH_MAX] = {0,};
+        char               *volname           = NULL;
         char               *types[]           = {NULL, NULL, NULL};
         dict_t             *dict              = NULL;
         xlator_t           *this              = NULL;
         gf_transport_type  type               = GF_TRANSPORT_TCP;
 
         this = THIS;
+
+        volname = volinfo->is_snap_volume ?
+                  volinfo->parent_volname : volinfo->volname;
+
+
+        if (volname && !strcmp (volname, GLUSTER_SHARED_STORAGE) &&
+             client_type != GF_CLIENT_TRUSTED) {
+                /*
+                 * shared storage volume cannot be mounted from non trusted
+                 * nodes. So we are not creating volfiles for non-trusted
+                 * clients for shared volumes as well as snapshot of shared
+                 * volumes.
+                 */
+
+                ret = 0;
+                gf_msg_debug ("glusterd", 0, "Skipping the non-trusted volfile"
+                               "creation for shared storage volume. Volume %s",
+                               volname);
+                goto out;
+        }
 
         enumerate_transport_reqs (volinfo->transport_type, types);
         dict = dict_new ();
