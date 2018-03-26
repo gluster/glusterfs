@@ -34,10 +34,6 @@ extras/cliutils/README.md
 extras/command-completion/README
 extras/create_new_xlator/README.md
 extras/glusterfs.vim
-extras/group-gluster-block
-extras/group-metadata-cache
-extras/group-nl-cache
-extras/group-virt.example
 extras/init.d/glusterd-Debian.in
 extras/init.d/glusterd-FreeBSD.in
 extras/init.d/glusterd-Redhat.in
