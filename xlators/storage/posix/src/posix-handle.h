@@ -190,4 +190,6 @@ int
 posix_check_internal_writes (xlator_t *this, fd_t *fd, int sysfd,
                              dict_t *xdata);
 
+void
+posix_disk_space_check (xlator_t *this);
 #endif /* !_POSIX_HANDLE_H */
