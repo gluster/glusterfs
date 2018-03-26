@@ -2521,9 +2521,9 @@ int32_t
 gf_defrag_handle_migrate_error (int32_t op_errno, gf_defrag_info_t *defrag)
 {
         int ret = 0;
-        /* if errno is not ENOSPC or ENOTCONN, we can still continue
+        /* if errno is not ENOTCONN, we can still continue
            with rebalance process */
-        if ((op_errno != ENOSPC) && (op_errno != ENOTCONN)) {
+        if (op_errno != ENOTCONN) {
                 ret = 1;
                 goto out;
         }
@@ -2535,10 +2535,6 @@ gf_defrag_handle_migrate_error (int32_t op_errno, gf_defrag_info_t *defrag)
                 defrag->defrag_status = GF_DEFRAG_STATUS_FAILED;
                 ret = -1;
                 goto out;
-        }
-
-        if (op_errno == ENOSPC) {
-                ret = -1;
         }
 
 out:
