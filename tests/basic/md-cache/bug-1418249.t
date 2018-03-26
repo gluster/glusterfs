@@ -16,5 +16,5 @@ EXPECT '600' volinfo_field $V0 'performance.md-cache-timeout'
 EXPECT 'on' volinfo_field $V0 'performance.stat-prefetch'
 EXPECT '600' volinfo_field $V0 'features.cache-invalidation-timeout'
 EXPECT 'on' volinfo_field $V0 'features.cache-invalidation'
-EXPECT '50000' volinfo_field $V0  'network.inode-lru-limit'
+EXPECT '200000' volinfo_field $V0  'network.inode-lru-limit'
 cleanup;
