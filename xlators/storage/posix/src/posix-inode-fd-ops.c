@@ -602,6 +602,15 @@ posix_do_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
         VALIDATE_OR_GOTO (fd, out);
 
         priv = this->private;
+
+        /* fallocate case is special so call posix_disk_space_check separately
+           for every fallocate fop instead of calling posix_disk_space with
+           thread after every 5 sec sleep to working correctly storage.reserve
+           option behaviour
+        */
+        if (priv->disk_reserve)
+                posix_disk_space_check (this);
+
         DISK_SPACE_CHECK_AND_GOTO (frame, priv, xdata, ret, ret, out);
 
         ret = posix_fd_ctx_get (fd, this, &pfd, &op_errno);
