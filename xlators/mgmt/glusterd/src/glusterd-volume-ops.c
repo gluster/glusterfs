@@ -638,9 +638,9 @@ __glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
 
         if (conf->op_version < GD_OP_VERSION_4_1_0) {
                 gf_msg_debug (this->name, 0, "The cluster is operating at "
-                          "version less than or equal to %d. Volume start "
-                          "falling back to syncop framework.",
-                          GD_OP_VERSION_4_1_0);
+                              "version less than %d. Volume start "
+                              "falling back to syncop framework.",
+                              GD_OP_VERSION_4_1_0);
                 ret = glusterd_op_begin_synctask (req, GD_OP_STOP_VOLUME,
                                                   dict);
         } else {
