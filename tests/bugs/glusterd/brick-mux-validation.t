@@ -43,6 +43,17 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT 1 count_brick_processes
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 1 count_brick_pids
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 6 online_brick_count
 
+#bug-1560957 - brick status goes offline after remove-brick followed by add-brick
+
+pkill glusterd
+TEST glusterd
+TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}1 force
+TEST $CLI volume add-brick $V0 $H0:$B0/${V0}1_new force
+
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 1 count_brick_processes
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 1 count_brick_pids
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 6 online_brick_count
+
 #bug-1446172 - reset brick with brick multiplexing enabled
 
 TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M0;
@@ -52,7 +63,7 @@ do
         echo $i > $M0/file$i.txt
 done
 
-TEST $CLI volume reset-brick $V0 $H0:$B0/${V0}1 start
+TEST $CLI volume reset-brick $V0 $H0:$B0/${V0}1_new start
 
 EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 5 online_brick_count
 EXPECT 1 count_brick_processes
@@ -61,7 +72,7 @@ EXPECT 1 count_brick_processes
 TEST ! $CLI volume reset-brick $V0 $H0:$B0/${V0}1 $H0:$B0/${V0}1 commit
 
 # reset-brick commit force should work and should bring up the brick
-TEST $CLI volume reset-brick $V0 $H0:$B0/${V0}1 $H0:$B0/${V0}1 commit force
+TEST $CLI volume reset-brick $V0 $H0:$B0/${V0}1_new $H0:$B0/${V0}1_new commit force
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 6 online_brick_count
 EXPECT 1 count_brick_processes
