@@ -144,6 +144,29 @@ afr_needs_changelog_update (afr_local_t *local)
         return _gf_false;
 }
 
+gf_boolean_t
+afr_changelog_has_quorum (afr_local_t *local, xlator_t *this)
+{
+        afr_private_t *priv = NULL;
+        int i = 0;
+        unsigned char *success_children = NULL;
+
+        priv = this->private;
+        success_children = alloca0 (priv->child_count);
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!local->transaction.failed_subvols[i]) {
+                        success_children[i] = 1;
+                }
+        }
+
+        if (afr_has_quorum (success_children, this)) {
+                return _gf_true;
+        }
+
+        return _gf_false;
+}
+
 int
 afr_transaction_fop (call_frame_t *frame, xlator_t *this)
 {
@@ -157,17 +180,16 @@ afr_transaction_fop (call_frame_t *frame, xlator_t *this)
         priv = this->private;
 
         failed_subvols = local->transaction.failed_subvols;
-
         call_count = priv->child_count - AFR_COUNT (failed_subvols,
                                                     priv->child_count);
-
-        if (call_count == 0) {
+        /* Fail if pre-op did not succeed on quorum no. of bricks. */
+        if (!afr_changelog_has_quorum (local, this) || !call_count) {
+                local->op_ret = -1;
+                /* local->op_errno is already captured in changelog cbk. */
                 afr_transaction_resume (frame, this);
                 return 0;
         }
-
         local->call_count = call_count;
-
         for (i = 0; i < priv->child_count; i++) {
                 if (local->transaction.pre_op[i] && !failed_subvols[i]) {
 			local->transaction.wind (frame, this, i);
@@ -531,33 +553,6 @@ afr_set_pending_dict (afr_private_t *priv, dict_t *xattr, int **pending)
 
 /* {{{ pending */
 
-
-void
-afr_handle_post_op_quorum (afr_local_t *local, xlator_t *this)
-{
-        afr_private_t *priv = NULL;
-        int i = 0;
-        unsigned char *post_op_children = NULL;
-
-        priv = this->private;
-        post_op_children = alloca0 (priv->child_count);
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (!local->transaction.failed_subvols[i]) {
-                        post_op_children[i] = 1;
-                }
-        }
-
-        if (afr_has_quorum (post_op_children, this)) {
-                return;
-        }
-
-        local->op_ret = -1;
-        /*local->op_errno is already captured in post-op callback.*/
-
-        return;
-}
-
 int
 afr_changelog_post_op_done (call_frame_t *frame, xlator_t *this)
 {
@@ -568,7 +563,10 @@ afr_changelog_post_op_done (call_frame_t *frame, xlator_t *this)
         int_lock = &local->internal_lock;
 
         /* Fail the FOP if post-op did not succeed on quorum no. of bricks. */
-        afr_handle_post_op_quorum (local, this);
+        if (!afr_changelog_has_quorum (local, this)) {
+                local->op_ret = -1;
+                /*local->op_errno is already captured in changelog cbk*/
+        }
 
 	if (local->transaction.resume_stub) {
 		call_resume (local->transaction.resume_stub);
