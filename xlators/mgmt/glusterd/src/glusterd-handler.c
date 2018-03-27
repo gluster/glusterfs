@@ -5660,6 +5660,8 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                                  count, brickinfo->port);
                         fprintf (fp, "Volume%d.Brick%d.rdma_port: %d\n", count_bkp,
                                  count, brickinfo->rdma_port);
+                        fprintf (fp, "Volume%d.Brick%d.port_registered: %d\n",
+                                 count_bkp, count, brickinfo->port_registered);
                         fprintf (fp, "Volume%d.Brick%d.status: %s\n", count_bkp,
                                  count, brickinfo->status ? "Started" : "Stopped");
 

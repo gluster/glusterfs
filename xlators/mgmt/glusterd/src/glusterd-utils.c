@@ -5995,6 +5995,7 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                          * TBD: re-use RPC connection across bricks
                          */
                         if (is_brick_mx_enabled ()) {
+                                brickinfo->port_registered = _gf_true;
                                 ret = glusterd_get_sock_from_brick_pid (pid, socketpath,
                                                                         sizeof(socketpath));
                                 if (ret) {
