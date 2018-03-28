@@ -309,18 +309,35 @@ else
         CFLAGS="${CFLAGS} -g -rdynamic"
 fi
 
+
+dnl When possible, prefer libtirpc over glibc rpc.
+dnl
+dnl On newer linux with only libtirpc, use libtirpc. (Specifying
+dnl --without-libtirpc is an error.)
+dnl
+dnl on older linux with glibc rpc and WITH libtirpc, use libtirpc
+dnl by default except when configured with --without-libtirpc.
+dnl
+dnl on old linux with glibc rpc and WITHOUT libtirpc, default to
+dnl use glibc rpc.
+dnl
 AC_ARG_WITH([libtirpc],
         [AC_HELP_STRING([--without-libtirpc], [Use legacy glibc RPC.])],
-        [], [with_libtirpc=yes])
+        [with_libtirpc="no"], [with_libtirpc="yes"])
 
+dnl ipv6-default is off by default
+dnl
+dnl ipv6-default requires libtirpc. (glibc rpc does not support IPv6.)
+dnl ipv6-default can only be enabled if libtipc is enabled.
+dnl
 AC_ARG_WITH([ipv6-default],
         AC_HELP_STRING([--with-ipv6-default], [Set IPv6 as default.]),
-        [], [with_ipv6_default=$with_libtirpc])
+        [with_ipv6_default=${with_libtirpc}], [with_ipv6_default="no"])
 
 if test "x$ac_cv_file__etc_redhat_release" = "xyes"; then
         if rpm -qa centos-release | grep centos; then
                 if rpm -q centos-release | grep "release-6"; then
-                        with_ipv6_default=no
+                        with_ipv6_default="no"
                 fi
         fi
 fi
@@ -1097,26 +1114,26 @@ AC_SUBST(GF_DISTRIBUTION)
 GF_HOST_OS=""
 GF_LDFLAGS="-rdynamic"
 
-dnl include tirpc for IPv6 builds
-if test "x$with_libtirpc" = "xyes" || test "x$with_ipv6_default" = "xyes" ; then
+dnl see --with-libtirpc option check above, libtirpc(-devel) is required for
+dnl ipv6-default
+if test "x${with_libtirpc}" = "xyes" || test "x${with_ipv6_default}" = "xyes" ; then
     PKG_CHECK_MODULES([TIRPC], [libtirpc],
-       [with_libtirpc=yes; GF_CFLAGS="$GF_CFLAGS $TIRPC_CFLAGS"; GF_LDFLAGS="$GF_LDFLAGS $TIRPC_LIBS";],
-       [with_libtirpc=missing])
+       [with_libtirpc="yes"; GF_CFLAGS="$GF_CFLAGS $TIRPC_CFLAGS"; GF_LDFLAGS="$GF_LDFLAGS $TIRPC_LIBS";],
+       [with_libtirpc="missing"; with_ipv6_default="no"])
 fi
 
-if test "x$with_libtirpc" = "xmissing" ; then
-    with_ipv6_default=no
+if test "x${with_libtirpc}" = "xmissing" ; then
     AC_CHECK_HEADERS([rpc/rpc.h],[
         AC_MSG_WARN([
             ---------------------------------------------------------------------------------
-            libtirpc or ipv6-default were enabled (by default) but libtirpc-devel is not
-            installed. Disabling libtirpc and ipv6-default and using legacy glibc rpc headers
-            This is a transitional warning message. Eventually it will be an error message
+            libtirpc (and/or ipv6-default) were enabled but libtirpc-devel is not installed.
+            Disabling libtirpc and ipv6-default and falling back to legacy glibc rpc headers.
+            This is a transitional warning message. Eventually it will be an error message.
             ---------------------------------------------------------------------------------])],[
         AC_MSG_ERROR([
             ---------------------------------------------------------------------------------
-            libtirpc or ipv6-default were enabled (by default) but libtirpc-devel is not
-            installed and there were no legacy glibc rpc headers and library to fall back to.
+            libtirpc (and/or ipv6-default) were enabled but libtirpc-devel is not installed
+            and there were no legacy glibc rpc headers and library to fall back to.
             ---------------------------------------------------------------------------------])])
 fi
 
