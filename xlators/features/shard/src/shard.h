@@ -278,4 +278,8 @@ typedef struct shard_inode_ctx {
         inode_t *base_inode;
 } shard_inode_ctx_t;
 
+typedef enum {
+        SHARD_INTERNAL_DIR_DOT_SHARD = 1,
+} shard_internal_dir_type_t;
+
 #endif /* __SHARD_H__ */

@@ -546,30 +546,55 @@ shard_call_count_return (call_frame_t *frame)
         return call_count;
 }
 
-static int
-shard_init_dot_shard_loc (xlator_t *this, shard_local_t *local)
+static char *
+shard_internal_dir_string (shard_internal_dir_type_t type)
 {
-        int    ret           = -1;
-        loc_t *dot_shard_loc = NULL;
+        char *str = NULL;
+
+        switch (type) {
+        case SHARD_INTERNAL_DIR_DOT_SHARD:
+                str = ".shard";
+                break;
+        default:
+                break;
+        }
+        return str;
+}
+
+static int
+shard_init_internal_dir_loc (xlator_t *this, shard_local_t *local,
+                             shard_internal_dir_type_t type)
+{
+        int    ret              = -1;
+        char  *bname            = NULL;
+        loc_t *internal_dir_loc = NULL;
 
         if (!local)
                 return -1;
 
-        dot_shard_loc = &local->dot_shard_loc;
-        dot_shard_loc->inode = inode_new (this->itable);
-        dot_shard_loc->parent = inode_ref (this->itable->root);
-        ret = inode_path (dot_shard_loc->parent, GF_SHARD_DIR,
-                          (char **)&dot_shard_loc->path);
-        if (ret < 0 || !(dot_shard_loc->inode)) {
+        switch (type) {
+        case SHARD_INTERNAL_DIR_DOT_SHARD:
+                internal_dir_loc = &local->dot_shard_loc;
+                bname = GF_SHARD_DIR;
+                break;
+        default:
+                break;
+        }
+
+        internal_dir_loc->inode = inode_new (this->itable);
+        internal_dir_loc->parent = inode_ref (this->itable->root);
+        ret = inode_path (internal_dir_loc->parent, bname,
+                          (char **)&internal_dir_loc->path);
+        if (ret < 0 || !(internal_dir_loc->inode)) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         SHARD_MSG_INODE_PATH_FAILED,
-                        "Inode path failed on %s", GF_SHARD_DIR);
+                        "Inode path failed on %s", bname);
                 goto out;
         }
 
-        dot_shard_loc->name = strrchr (dot_shard_loc->path, '/');
-        if (dot_shard_loc->name)
-                dot_shard_loc->name++;
+        internal_dir_loc->name = strrchr (internal_dir_loc->path, '/');
+        if (internal_dir_loc->name)
+                internal_dir_loc->name++;
 
         ret = 0;
 out:
@@ -1029,28 +1054,42 @@ out:
 }
 
 static inode_t *
-shard_link_dot_shard_inode (shard_local_t *local, inode_t *inode,
-                            struct iatt *buf)
+shard_link_internal_dir_inode (shard_local_t *local, inode_t *inode,
+                               struct iatt *buf, shard_internal_dir_type_t type)
 {
         inode_t       *linked_inode = NULL;
         shard_priv_t  *priv         = NULL;
+        char          *bname        = NULL;
+        inode_t       **priv_inode  = NULL;
 
         priv = THIS->private;
 
-        linked_inode = inode_link (inode, inode->table->root, ".shard", buf);
+        switch (type) {
+        case SHARD_INTERNAL_DIR_DOT_SHARD:
+                bname = ".shard";
+                priv_inode = &priv->dot_shard_inode;
+                break;
+        default:
+                break;
+        }
+
+        linked_inode = inode_link (inode, inode->table->root, bname, buf);
         inode_lookup (linked_inode);
-        priv->dot_shard_inode = linked_inode;
+        *priv_inode = linked_inode;
         return linked_inode;
 }
 
 
 int
-shard_refresh_dot_shard_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                             int32_t op_ret, int32_t op_errno, inode_t *inode,
-                             struct iatt *buf, dict_t *xdata,
-                             struct iatt *postparent)
+shard_refresh_internal_dir_cbk (call_frame_t *frame, void *cookie,
+                                xlator_t *this, int32_t op_ret,
+                                int32_t op_errno, inode_t *inode,
+                                struct iatt *buf, dict_t *xdata,
+                                struct iatt *postparent)
 {
-        shard_local_t *local = NULL;
+        shard_local_t             *local           = NULL;
+        inode_t                   *linked_inode    = NULL;
+        shard_internal_dir_type_t  type            = (shard_internal_dir_type_t) cookie;
 
         local = frame->local;
 
@@ -1061,27 +1100,37 @@ shard_refresh_dot_shard_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         /* To-Do: Fix refcount increment per call to
-         * shard_link_dot_shard_inode().
+         * shard_link_internal_dir_inode().
          */
-        shard_link_dot_shard_inode (local, inode, buf);
-        shard_inode_ctx_set_refreshed_flag (inode, this);
+        linked_inode = shard_link_internal_dir_inode (local, inode, buf, type);
+        shard_inode_ctx_set_refreshed_flag (linked_inode, this);
 out:
         shard_common_resolve_shards (frame, this, local->post_res_handler);
         return 0;
 }
 
 int
-shard_refresh_dot_shard (call_frame_t *frame, xlator_t *this)
+shard_refresh_internal_dir (call_frame_t *frame, xlator_t *this,
+                            shard_internal_dir_type_t type)
 {
         loc_t          loc       = {0,};
         inode_t       *inode     = NULL;
         shard_priv_t  *priv      = NULL;
         shard_local_t *local     = NULL;
+        uuid_t         gfid      = {0,};
 
         local = frame->local;
         priv = this->private;
 
-        inode = inode_find (this->itable, priv->dot_shard_gfid);
+        switch (type) {
+        case SHARD_INTERNAL_DIR_DOT_SHARD:
+                gf_uuid_copy (gfid, priv->dot_shard_gfid);
+                break;
+        default:
+                break;
+        }
+
+        inode = inode_find (this->itable, gfid);
 
         if (!shard_inode_ctx_needs_lookup (inode, this)) {
                 local->op_ret = 0;
@@ -1092,10 +1141,11 @@ shard_refresh_dot_shard (call_frame_t *frame, xlator_t *this)
          * call to inode_find()
          */
         loc.inode = inode;
-        gf_uuid_copy (loc.gfid, priv->dot_shard_gfid);
+        gf_uuid_copy (loc.gfid, gfid);
 
-        STACK_WIND (frame, shard_refresh_dot_shard_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->lookup, &loc, NULL);
+        STACK_WIND_COOKIE (frame, shard_refresh_internal_dir_cbk,
+                           (void *)(long) type, FIRST_CHILD(this),
+                           FIRST_CHILD(this)->fops->lookup, &loc, NULL);
         loc_wipe (&loc);
 
         return 0;
@@ -1106,13 +1156,14 @@ out:
 }
 
 int
-shard_lookup_dot_shard_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                            int32_t op_ret, int32_t op_errno, inode_t *inode,
-                            struct iatt *buf, dict_t *xdata,
-                            struct iatt *postparent)
+shard_lookup_internal_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                               int32_t op_ret, int32_t op_errno, inode_t *inode,
+                               struct iatt *buf, dict_t *xdata,
+                               struct iatt *postparent)
 {
-        inode_t       *link_inode = NULL;
-        shard_local_t *local      = NULL;
+        inode_t                   *link_inode = NULL;
+        shard_local_t             *local      = NULL;
+        shard_internal_dir_type_t  type       = (shard_internal_dir_type_t) cookie;
 
         local = frame->local;
 
@@ -1124,17 +1175,17 @@ shard_lookup_dot_shard_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (!IA_ISDIR (buf->ia_type)) {
                 gf_msg (this->name, GF_LOG_CRITICAL, 0,
-                        SHARD_MSG_DOT_SHARD_NODIR, "/.shard already exists and "
-                        "is not a directory. Please remove /.shard from all "
-                        "bricks and try again");
+                        SHARD_MSG_DOT_SHARD_NODIR, "%s already exists and "
+                        "is not a directory. Please remove it from all bricks "
+                        "and try again", shard_internal_dir_string (type));
                 local->op_ret = -1;
                 local->op_errno = EIO;
                 goto unwind;
         }
 
-        link_inode = shard_link_dot_shard_inode (local, inode, buf);
+        link_inode = shard_link_internal_dir_inode (local, inode, buf, type);
         if (link_inode != inode) {
-                shard_refresh_dot_shard (frame, this);
+                shard_refresh_internal_dir (frame, this, type);
         } else {
                 shard_inode_ctx_set_refreshed_flag (link_inode, this);
                 shard_common_resolve_shards (frame, this,
@@ -1148,17 +1199,25 @@ unwind:
 }
 
 int
-shard_lookup_dot_shard (call_frame_t *frame, xlator_t *this,
-                        shard_post_resolve_fop_handler_t post_res_handler)
+shard_lookup_internal_dir (call_frame_t *frame, xlator_t *this,
+                           shard_post_resolve_fop_handler_t post_res_handler,
+                           shard_internal_dir_type_t type)
 {
         int                 ret       = -1;
         dict_t             *xattr_req = NULL;
         shard_priv_t       *priv      = NULL;
         shard_local_t      *local     = NULL;
+        uuid_t             *gfid      = NULL;
+        loc_t              *loc       = NULL;
+        gf_boolean_t        free_gfid  = _gf_true;
 
         local = frame->local;
         priv = this->private;
         local->post_res_handler = post_res_handler;
+
+        gfid = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        if (!gfid)
+                goto err;
 
         xattr_req = dict_new ();
         if (!xattr_req) {
@@ -1167,19 +1226,30 @@ shard_lookup_dot_shard (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-        ret = dict_set_gfuuid (xattr_req, "gfid-req", priv->dot_shard_gfid,
-                               true);
+        switch (type) {
+        case SHARD_INTERNAL_DIR_DOT_SHARD:
+                gf_uuid_copy (*gfid, priv->dot_shard_gfid);
+                loc = &local->dot_shard_loc;
+                break;
+        default:
+                break;
+        }
+
+        ret = dict_set_gfuuid (xattr_req, "gfid-req", *gfid, false);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_DICT_SET_FAILED,
-                        "Failed to set gfid of /.shard into dict");
+                        "Failed to set gfid of %s into dict",
+                        shard_internal_dir_string (type));
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
                 goto err;
+        } else {
+                free_gfid = _gf_false;
         }
 
-        STACK_WIND (frame, shard_lookup_dot_shard_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->lookup, &local->dot_shard_loc,
-                    xattr_req);
+        STACK_WIND_COOKIE (frame, shard_lookup_internal_dir_cbk,
+                           (void *) (long) type, FIRST_CHILD(this),
+                           FIRST_CHILD(this)->fops->lookup, loc, xattr_req);
 
         dict_unref (xattr_req);
         return 0;
@@ -1187,6 +1257,8 @@ shard_lookup_dot_shard (call_frame_t *frame, xlator_t *this,
 err:
         if (xattr_req)
                 dict_unref (xattr_req);
+        if (free_gfid)
+                GF_FREE (gfid);
         post_res_handler (frame, this);
         return 0;
 }
@@ -2203,14 +2275,17 @@ shard_truncate_begin (call_frame_t *frame, xlator_t *this)
         local->dot_shard_loc.inode = inode_find (this->itable,
                                                  priv->dot_shard_gfid);
         if (!local->dot_shard_loc.inode) {
-                ret = shard_init_dot_shard_loc (this, local);
+                ret = shard_init_internal_dir_loc (this, local,
+                                                   SHARD_INTERNAL_DIR_DOT_SHARD);
                 if (ret)
                         goto err;
-                shard_lookup_dot_shard (frame, this,
-                                        shard_post_resolve_truncate_handler);
+                shard_lookup_internal_dir (frame, this,
+                                           shard_post_resolve_truncate_handler,
+                                           SHARD_INTERNAL_DIR_DOT_SHARD);
         } else {
                 local->post_res_handler = shard_post_resolve_truncate_handler;
-                shard_refresh_dot_shard (frame, this);
+                shard_refresh_internal_dir (frame, this,
+                                            SHARD_INTERNAL_DIR_DOT_SHARD);
         }
         return 0;
 
@@ -2682,14 +2757,17 @@ shard_unlink_base_file_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local->dot_shard_loc.inode = inode_find (this->itable,
                                                  priv->dot_shard_gfid);
         if (!local->dot_shard_loc.inode) {
-                ret = shard_init_dot_shard_loc (this, local);
+                ret = shard_init_internal_dir_loc (this, local,
+                                                   SHARD_INTERNAL_DIR_DOT_SHARD);
                 if (ret)
                         goto unwind;
-                shard_lookup_dot_shard (frame, this,
-                                        shard_post_resolve_unlink_handler);
+                shard_lookup_internal_dir (frame, this,
+                                           shard_post_resolve_unlink_handler,
+                                           SHARD_INTERNAL_DIR_DOT_SHARD);
         } else {
                 local->post_res_handler = shard_post_resolve_unlink_handler;
-                shard_refresh_dot_shard (frame, this);
+                shard_refresh_internal_dir (frame, this,
+                                            SHARD_INTERNAL_DIR_DOT_SHARD);
         }
 
         return 0;
@@ -3048,14 +3126,17 @@ shard_rename_unlink_dst_shards_do (call_frame_t *frame, xlator_t *this)
         local->dot_shard_loc.inode = inode_find (this->itable,
                                                  priv->dot_shard_gfid);
         if (!local->dot_shard_loc.inode) {
-                ret = shard_init_dot_shard_loc (this, local);
+                ret = shard_init_internal_dir_loc (this, local,
+                                                   SHARD_INTERNAL_DIR_DOT_SHARD);
                 if (ret)
                         goto out;
-                shard_lookup_dot_shard (frame, this,
-                                        shard_post_resolve_unlink_handler);
+                shard_lookup_internal_dir (frame, this,
+                                           shard_post_resolve_unlink_handler,
+                                           SHARD_INTERNAL_DIR_DOT_SHARD);
         } else {
                 local->post_res_handler = shard_post_resolve_unlink_handler;
-                shard_refresh_dot_shard (frame, this);
+                shard_refresh_internal_dir (frame, this,
+                                            SHARD_INTERNAL_DIR_DOT_SHARD);
         }
 
         return 0;
@@ -3811,14 +3892,17 @@ shard_post_lookup_readv_handler (call_frame_t *frame, xlator_t *this)
         local->dot_shard_loc.inode = inode_find (this->itable,
                                                  priv->dot_shard_gfid);
         if (!local->dot_shard_loc.inode) {
-                ret = shard_init_dot_shard_loc (this, local);
+                ret = shard_init_internal_dir_loc (this, local,
+                                                   SHARD_INTERNAL_DIR_DOT_SHARD);
                 if (ret)
                         goto err;
-                shard_lookup_dot_shard (frame, this,
-                                        shard_post_resolve_readv_handler);
+                shard_lookup_internal_dir (frame, this,
+                                           shard_post_resolve_readv_handler,
+                                           SHARD_INTERNAL_DIR_DOT_SHARD);
         } else {
                 local->post_res_handler = shard_post_resolve_readv_handler;
-                shard_refresh_dot_shard (frame, this);
+                shard_refresh_internal_dir (frame, this,
+                                            SHARD_INTERNAL_DIR_DOT_SHARD);
         }
         return 0;
 
@@ -4249,8 +4333,9 @@ shard_common_inode_write_post_mknod_handler (call_frame_t *frame,
 }
 
 int
-shard_mkdir_dot_shard (call_frame_t *frame, xlator_t *this,
-                       shard_post_resolve_fop_handler_t handler);
+shard_mkdir_internal_dir (call_frame_t *frame, xlator_t *this,
+                          shard_post_resolve_fop_handler_t handler,
+                          shard_internal_dir_type_t type);
 int
 shard_common_inode_write_post_resolve_handler (call_frame_t *frame,
                                                xlator_t *this)
@@ -4323,26 +4408,28 @@ shard_common_inode_write_post_lookup_handler (call_frame_t *frame,
 
         if (!local->dot_shard_loc.inode) {
                 /*change handler*/
-                shard_mkdir_dot_shard (frame, this,
-                                 shard_common_inode_write_post_resolve_handler);
+                shard_mkdir_internal_dir (frame, this,
+                                 shard_common_inode_write_post_resolve_handler,
+                                          SHARD_INTERNAL_DIR_DOT_SHARD);
         } else {
                 /*change handler*/
                 local->post_res_handler =
                                 shard_common_inode_write_post_resolve_handler;
-                shard_refresh_dot_shard (frame, this);
+                shard_refresh_internal_dir (frame, this,
+                                            SHARD_INTERNAL_DIR_DOT_SHARD);
         }
         return 0;
 }
 
 int
-shard_mkdir_dot_shard_cbk (call_frame_t *frame, void *cookie,
-                                       xlator_t *this, int32_t op_ret,
-                                       int32_t op_errno, inode_t *inode,
-                                       struct iatt *buf, struct iatt *preparent,
-                                       struct iatt *postparent, dict_t *xdata)
+shard_mkdir_internal_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                              int32_t op_ret, int32_t op_errno, inode_t *inode,
+                              struct iatt *buf, struct iatt *preparent,
+                              struct iatt *postparent, dict_t *xdata)
 {
-        inode_t       *link_inode = NULL;
-        shard_local_t *local      = NULL;
+        inode_t                   *link_inode = NULL;
+        shard_local_t             *local      = NULL;
+        shard_internal_dir_type_t  type       = (shard_internal_dir_type_t) cookie;
 
         local = frame->local;
 
@@ -4354,17 +4441,19 @@ shard_mkdir_dot_shard_cbk (call_frame_t *frame, void *cookie,
                         local->op_errno = op_errno;
                         goto unwind;
                 } else {
-                        gf_msg_debug (this->name, 0, "mkdir on /.shard failed "
-                                      "with EEXIST. Attempting lookup now");
-                        shard_lookup_dot_shard (frame, this,
-                                                local->post_res_handler);
+                        gf_msg_debug (this->name, 0, "mkdir on %s failed "
+                                      "with EEXIST. Attempting lookup now",
+                                      shard_internal_dir_string (type));
+                        shard_lookup_internal_dir (frame, this,
+                                                   local->post_res_handler,
+                                                   type);
                         return 0;
                 }
         }
 
-        link_inode = shard_link_dot_shard_inode (local, inode, buf);
+        link_inode = shard_link_internal_dir_inode (local, inode, buf, type);
         if (link_inode != inode) {
-                shard_refresh_dot_shard (frame, this);
+                shard_refresh_internal_dir (frame, this, type);
         } else {
                 shard_inode_ctx_set_refreshed_flag (link_inode, this);
                 shard_common_resolve_shards (frame, this,
@@ -4377,40 +4466,59 @@ unwind:
 }
 
 int
-shard_mkdir_dot_shard (call_frame_t *frame, xlator_t *this,
-                       shard_post_resolve_fop_handler_t handler)
+shard_mkdir_internal_dir (call_frame_t *frame, xlator_t *this,
+                          shard_post_resolve_fop_handler_t handler,
+                          shard_internal_dir_type_t type)
 {
         int             ret           = -1;
         shard_local_t  *local         = NULL;
         shard_priv_t   *priv          = NULL;
         dict_t         *xattr_req     = NULL;
+        uuid_t          *gfid         = NULL;
+        loc_t          *loc           = NULL;
+        gf_boolean_t    free_gfid     = _gf_true;
 
         local = frame->local;
         priv = this->private;
 
         local->post_res_handler = handler;
+        gfid = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        if (!gfid)
+                goto err;
+
+        switch (type) {
+        case SHARD_INTERNAL_DIR_DOT_SHARD:
+                gf_uuid_copy (*gfid, priv->dot_shard_gfid);
+                loc = &local->dot_shard_loc;
+                break;
+        default:
+                break;
+        }
 
         xattr_req = dict_new ();
         if (!xattr_req)
                 goto err;
 
-        ret = shard_init_dot_shard_loc (this, local);
+        ret = shard_init_internal_dir_loc (this, local, type);
         if (ret)
                 goto err;
 
-        ret = dict_set_gfuuid (xattr_req, "gfid-req", priv->dot_shard_gfid,
-                               true);
+        ret = dict_set_gfuuid (xattr_req, "gfid-req", *gfid, false);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_DICT_SET_FAILED,
-                        "Failed to set gfid-req for /.shard");
+                        "Failed to set gfid-req for %s",
+                        shard_internal_dir_string (type));
                 goto err;
+        } else {
+                free_gfid = _gf_false;
         }
 
         SHARD_SET_ROOT_FS_ID (frame, local);
 
-        STACK_WIND (frame, shard_mkdir_dot_shard_cbk,
-                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->mkdir,
-                    &local->dot_shard_loc, 0755, 0, xattr_req);
+        STACK_WIND_COOKIE (frame, shard_mkdir_internal_dir_cbk,
+                           (void *)(long) type, FIRST_CHILD(this),
+                           FIRST_CHILD(this)->fops->mkdir, loc, 0755, 0,
+                           xattr_req);
         dict_unref (xattr_req);
         return 0;
 
@@ -4419,6 +4527,8 @@ err:
                 dict_unref (xattr_req);
         local->op_ret = -1;
         local->op_errno = ENOMEM;
+        if (free_gfid)
+                GF_FREE (gfid);
         handler (frame, this);
         return 0;
 }
