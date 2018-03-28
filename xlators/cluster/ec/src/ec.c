@@ -931,7 +931,7 @@ ec_gf_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         if (name &&
             ((fnmatch (GF_XATTR_STIME_PATTERN, name, 0) == 0) ||
-             (XATTR_IS_NODE_UUID(name)))) {
+             XATTR_IS_NODE_UUID(name) || XATTR_IS_NODE_UUID_LIST(name))) {
                 minimum = EC_MINIMUM_ALL;
         }
 
