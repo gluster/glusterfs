@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 import sys
 from generator import ops, fop_subs, cbk_subs, generate

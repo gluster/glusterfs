@@ -1,5 +1,5 @@
-#!/usr/bin/python
-# Below script has to purpose
+#!/usr/bin/python2
+# Below script has two purposes
 #  1. Display xattr of entire FS tree in a human readable form
 #  2. Display all the directory where contri and size mismatch.
 #      (If there are any directory with contri and size mismatch that are not dirty

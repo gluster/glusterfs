@@ -597,10 +597,20 @@ fi
 
 dnl Check Python Availability
 have_python=no
-AM_PATH_PYTHON(,, [:])
-if test "$PYTHON" != ":"; then
+case $host_os in
+  freebsd*)
+    PYTHON=/usr/local/bin/python2
+    ;;
+  *)
+    PYTHON=/usr/bin/python2
+    ;;
+esac
+AM_PATH_PYTHON([2.6],,[:])
+if test "x${PYTHON}" != "x:"; then
    have_python=yes
 fi
+
+echo "python = ${PYTHON}"
 
 dnl Check if version matches that we require
 PYTHONDEV_CPPFLAGS=
@@ -608,30 +618,25 @@ PYTHONDEV_LDFLAGS=
 BUILD_PYTHON_SITE_PACKAGES=
 BUILD_PYTHON_INC=
 BUILD_PYTHON_LIB=
-have_python2=no
-have_Python_h=no
+have_Python_h="no"
 
-if echo $PYTHON_VERSION | grep -q ^2; then
-   have_python2=yes
+dnl Use pkg-config to get runtime search patch missing from ${PYTHON}-config
+dnl Just do "true" on failure so that configure does not bail out
+PKG_CHECK_MODULES([PYTHON], "python-${PYTHON_VERSION}",,true)
 
-   dnl Use pkg-config to get runtime search patch missing from ${PYTHON}-config
-   dnl Just do "true" on failure so that configure does not bail out
-   PKG_CHECK_MODULES([PYTHON], "python-$PYTHON_VERSION",,true)
+PYTHONDEV_CPPFLAGS="`${PYTHON}-config --cflags`"
+dnl Edit out the flags that are not required or are conflicting
+PYTHONDEV_CPPFLAGS=`echo ${PYTHONDEV_CPPFLAGS} | sed -e 's/-Wp,-D_FORTIFY_SOURCE=[[0-9]]//g'`
 
-   PYTHONDEV_CPPFLAGS="`${PYTHON}-config --cflags`"
-   dnl Edit out the flags that are not required or are conflicting
-   PYTHONDEV_CPPFLAGS=`echo ${PYTHONDEV_CPPFLAGS} | sed -e 's/-Wp,-D_FORTIFY_SOURCE=[[0-9]]//g'`
+dnl Find python libs at user configured libdir and also "lib" under prefix
+PYTHONDEV_LDFLAGS="${PYTHON_LIBS} -L`${PYTHON}-config --prefix`/lib -L`${PYTHON}-config --prefix`/$libdir `${PYTHON}-config --ldflags`"
 
-   dnl Find python libs at user configured libdir and also "lib" under prefix
-   PYTHONDEV_LDFLAGS="${PYTHON_LIBS} -L`${PYTHON}-config --prefix`/lib -L`${PYTHON}-config --prefix`/$libdir `${PYTHON}-config --ldflags`"
+BUILD_PYTHON_SITE_PACKAGES=${pythondir}
+BUILD_PYTHON_INC=`${PYTHON} -c "import sys; from distutils import sysconfig; sys.stdout.write(sysconfig.get_python_inc())" 2>/dev/null`
+BUILD_PYTHON_LIB=python${PYTHON_VERSION}
 
-   BUILD_PYTHON_SITE_PACKAGES=${pythondir}
-   BUILD_PYTHON_INC=`$PYTHON -c "import sys; from distutils import sysconfig; sys.stdout.write(sysconfig.get_python_inc())" 2>/dev/null`
-   BUILD_PYTHON_LIB=python$PYTHON_VERSION
-
-   dnl Now check for python header using the include path obtained above
-   AC_CHECK_HEADERS([${BUILD_PYTHON_INC}/Python.h],[have_Python_h=yes],[])
-fi
+dnl Now check for python header using the include path obtained above
+AC_CHECK_HEADERS([${BUILD_PYTHON_INC}/Python.h],[have_Python_h=yes],[])
 
 AC_SUBST(PYTHONDEV_CPPFLAGS)
 AC_SUBST(PYTHONDEV_LDFLAGS)
@@ -816,25 +821,20 @@ case $host_os in
         ;;
 esac
 SYNCDAEMON_COMPILE=0
-if test "x${with_server}" = "xyes" -a "x$enable_georeplication" != "xno"; then
-  SYNCDAEMON_SUBDIR=geo-replication
-  SYNCDAEMON_COMPILE=1
+if test "x${with_server}" = "xyes" -a "x${enable_georeplication}" != "xno"; then
+  if test "x${have_python}" = "xno" ; then
+    AC_MSG_ERROR([only python 2 and 3 are supported])
+  else
+    SYNCDAEMON_SUBDIR=geo-replication
+    SYNCDAEMON_COMPILE=1
 
-  BUILD_SYNCDAEMON="yes"
-  AM_PATH_PYTHON([2.4])
-  echo -n "checking if python is python 2.x... "
-  if echo $PYTHON_VERSION | grep ^2; then
-    :
-  else
-    echo no
-    AC_MSG_ERROR([only python 2.x is supported])
-  fi
-  echo -n "checking if python has ctypes support... "
-  if "$PYTHON" -c 'import ctypes' 2>/dev/null; then
-    echo yes
-  else
-    echo no
-    AC_MSG_ERROR([python does not have ctypes support])
+    BUILD_SYNCDAEMON="yes"
+    AC_MSG_CHECKING([if python has ctypes support...])
+    if "${PYTHON}" -c 'import ctypes' 2>/dev/null; then
+      AC_MSG_RESULT("yes")
+    else
+      AC_MSG_ERROR([python does not have ctypes support])
+    fi
   fi
 fi
 AC_SUBST(SYNCDAEMON_COMPILE)
@@ -862,11 +862,11 @@ if test "x$enable_events" != "xno"; then
 
   BUILD_EVENTS="yes"
 
-  if test "x$have_python2" = "xno"; then
-     if test "x$enable_events" = "xyes"; then
-        AC_MSG_ERROR([python 2.x packages required. exiting..])
+  if test "x${have_python}" = "xno"; then
+     if test "x${enable_events}" = "xyes"; then
+        AC_MSG_ERROR([python 2 or 3 required. exiting.])
      fi
-     AC_MSG_WARN([python 2.x not found, disabling events])
+     AC_MSG_WARN([python not found, disabling events])
      EVENTS_SUBDIR=
      EVENTS_ENABLED=0
      BUILD_EVENTS="no"
@@ -876,7 +876,7 @@ if test "x$enable_events" != "xno"; then
 fi
 AC_SUBST(EVENTS_ENABLED)
 AC_SUBST(EVENTS_SUBDIR)
-AM_CONDITIONAL([BUILD_EVENTS], [test x$BUILD_EVENTS = xyes])
+AM_CONDITIONAL([BUILD_EVENTS], [test "x${BUILD_EVENTS}" = "xyes"])
 # end Events section
 
 # CDC xlator - check if libz is present if so enable HAVE_LIB_Z
@@ -1409,7 +1409,7 @@ if test "x$enable_glupy" = "xyes"; then
     GLUPY_SUBDIR_MAKEFILE=xlators/features/glupy/Makefile
     GLUPY_SUBDIR_SRC_MAKEFILE=xlators/features/glupy/src/Makefile
 
-    if test "x$have_python2" = "xyes" -a "x$have_Python_h" = "xyes"; then
+    if test "x${have_python}" = "xyes" -a "x${have_Python_h}" = "xyes"; then
         case $host_os in
             darwin*)
                 BUILD_GLUPY=no
@@ -1698,4 +1698,5 @@ echo "Server components    : $with_server"
 echo "Legacy gNFS server   : $BUILD_GNFS"
 echo "IPV6 default         : $with_ipv6_default"
 echo "Use TIRPC            : $with_libtirpc"
+echo "With Python          : ${PYTHON_VERSION}"
 echo

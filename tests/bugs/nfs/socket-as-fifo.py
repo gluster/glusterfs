@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python2
 #
 # Create a unix domain socket and test if it is a socket (and not a fifo/pipe).
 #
