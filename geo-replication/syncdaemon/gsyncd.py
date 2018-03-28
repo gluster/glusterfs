@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 from argparse import ArgumentParser
 import time
 import os

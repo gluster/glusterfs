@@ -1,4 +1,4 @@
-#!/bin/env python
+#!/bin/python2
 
 """
   Copyright (c) 2016 Red Hat, Inc. <http://www.redhat.com>

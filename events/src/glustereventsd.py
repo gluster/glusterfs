@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python2
 # -*- coding: utf-8 -*-
 #
 #  Copyright (c) 2016 Red Hat, Inc. <http://www.redhat.com>
