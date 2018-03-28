@@ -14,6 +14,7 @@ cleanup
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 disperse 3 redundancy 1 $H0:$B0/${V0}{0..2}
+TEST $CLI volume set $V0 lookup-optimize on
 TEST $CLI volume start $V0
 
 #Mount the volume
