@@ -3593,6 +3593,28 @@ dht_common_setxattr_cbk (call_frame_t *frame, void *cookie,
 
 
 
+static int
+dht_fix_layout_setxattr_cbk (call_frame_t *frame, void *cookie,
+                             xlator_t *this, int32_t op_ret, int32_t op_errno,
+                             dict_t *xdata)
+{
+        dht_local_t   *local   = NULL;
+        dht_layout_t  *layout  = NULL;
+
+        if (op_ret == 0) {
+
+                /* update the layout in the inode ctx */
+                local = frame->local;
+                layout = local->selfheal.layout;
+
+                dht_layout_set (this, local->loc.inode, layout);
+        }
+
+         DHT_STACK_UNWIND (setxattr, frame, op_ret, op_errno, xdata);
+         return 0;
+}
+
+
 int
 dht_err_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
              int op_ret, int op_errno, dict_t *xdata)
@@ -5604,7 +5626,8 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                         DHT_MSG_FIX_LAYOUT_INFO,
                         "fixing the layout of %s", loc->path);
 
-                ret = dht_fix_directory_layout (frame, dht_common_setxattr_cbk,
+                ret = dht_fix_directory_layout (frame,
+                                                dht_fix_layout_setxattr_cbk,
                                                 layout);
                 if (ret) {
                         op_errno = ENOTCONN;

@@ -2000,9 +2000,6 @@ dht_fix_layout_of_directory (call_frame_t *frame, loc_t *loc,
         }
 done:
         if (new_layout) {
-                /* Now that the new layout has all the proper layout, change the
-                   inode context */
-                dht_layout_set (this, loc->inode, new_layout);
 
                 /* Make sure the extra 'ref' for existing layout is removed */
                 dht_layout_unref (this, local->layout);
