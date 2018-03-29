@@ -4859,6 +4859,8 @@ __afr_handle_ping_event (xlator_t *this, xlator_t *child_xlator,
         priv->child_latency[idx] = child_latency_msec;
         gf_msg_debug (child_xlator->name, 0, "Client ping @ %ld ms",
                       child_latency_msec);
+        if (priv->shd.iamshd)
+                return;
 
         up_children = __afr_get_up_children_count (priv);
 
