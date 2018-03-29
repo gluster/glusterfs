@@ -11,9 +11,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <signal.h>
 
 //#include "config.h"
 #include "glusterfs.h"
@@ -26,7 +23,6 @@
 
 int done = 0;
 int rpc_status;
-glfs_t *fs;
 
 struct rpc_clnt_procedure gf_attach_actors[GLUSTERD_BRICK_MAXVALUE] = {
         [GLUSTERD_BRICK_NULL] = {"NULL", NULL },
@@ -75,43 +71,11 @@ my_notify (struct rpc_clnt *rpc, void *mydata,
 }
 
 int32_t
-my_callback (struct rpc_req *req, struct iovec *iov, int count, void *v_frame)
+my_callback (struct rpc_req *req, struct iovec *iov, int count, void *frame)
 {
-        gd1_mgmt_brick_op_rsp     rsp;
-        dict_t          *dict   = NULL;
-        pid_t            pid    = -1;
-        int              ret    = -1;
-        xlator_t        *this   = NULL;
-
-        this = fs->ctx->master;
-        memset (&rsp, 0, sizeof (rsp));
-
-        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
-
-        if (ret < 0) {
-                fprintf (stderr, "xdr decoding failed\n");
-                goto out;
-        }
-        GF_PROTOCOL_DICT_UNSERIALIZE (this, dict,
-                                      (rsp.output.output_val),
-                                      (rsp.output.output_len),
-                                      ret, rsp.op_errno, out);
-        if (dict) {
-                if (dict_get_int32 (dict, "last_brick_terminated", &pid) == 0) {
-                        int status = 0;
-
-                        gf_log ("gf_attach", GF_LOG_INFO, "Killing %d", pid);
-                        kill (pid, SIGTERM);
-                        waitpid (pid, &status, 0);
-                }
-                dict_unref (dict);
-        }
-
         rpc_status = req->rpc_status;
         done = 1;
-        ret = 0;
-out:
-        return ret;
+        return 0;
 }
 
 /* copied from gd_syncop_submit_request */
@@ -206,6 +170,7 @@ usage (char *prog)
 int
 main (int argc, char *argv[])
 {
+        glfs_t                  *fs;
         struct rpc_clnt         *rpc;
         dict_t                  *options;
         int                     ret;
