@@ -32,7 +32,17 @@ TEST truncate -s 5M $M0/dir/foo
 TEST ! stat $B0/${V0}0/.shard
 TEST ! stat $B0/${V0}1/.shard
 # Test to ensure that unlink doesn't fail due to absence of /.shard
+gfid_foo=$(get_gfid_string $M0/dir/foo)
 TEST unlink $M0/dir/foo
+TEST stat $B0/${V0}0/.shard/.remove_me
+TEST stat $B0/${V0}1/.shard/.remove_me
+TEST stat $B0/${V0}0/.shard/.remove_me/$gfid_foo
+TEST stat $B0/${V0}1/.shard/.remove_me/$gfid_foo
+
+EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_foo
+EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_foo
+EXPECT "0000000000500000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_foo
+EXPECT "0000000000500000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_foo
 
 ##################################################
 ##### Unlink of a sharded file without holes #####
@@ -46,14 +56,20 @@ TEST stat $B0/${V0}1/.shard/$gfid_new.1
 TEST stat $B0/${V0}0/.shard/$gfid_new.2
 TEST stat $B0/${V0}1/.shard/$gfid_new.2
 TEST unlink $M0/dir/new
-TEST ! stat $B0/${V0}0/.shard/$gfid_new.1
-TEST ! stat $B0/${V0}1/.shard/$gfid_new.1
-TEST ! stat $B0/${V0}0/.shard/$gfid_new.2
-TEST ! stat $B0/${V0}1/.shard/$gfid_new.2
+#TEST ! stat $B0/${V0}0/.shard/$gfid_new.1
+#TEST ! stat $B0/${V0}1/.shard/$gfid_new.1
+#TEST ! stat $B0/${V0}0/.shard/$gfid_new.2
+#TEST ! stat $B0/${V0}1/.shard/$gfid_new.2
 TEST ! stat $M0/dir/new
 TEST ! stat $B0/${V0}0/dir/new
 TEST ! stat $B0/${V0}1/dir/new
+TEST stat $B0/${V0}0/.shard/.remove_me/$gfid_new
+TEST stat $B0/${V0}1/.shard/.remove_me/$gfid_new
 
+EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_new
+EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_new
+EXPECT "0000000000900000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_new
+EXPECT "0000000000900000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_new
 #######################################
 ##### Unlink with /.shard present #####
 #######################################
@@ -67,18 +83,32 @@ TEST unlink $M0/dir/foo
 TEST ! stat $B0/${V0}0/dir/foo
 TEST ! stat $B0/${V0}1/dir/foo
 TEST ! stat $M0/dir/foo
+TEST stat $B0/${V0}0/.shard/.remove_me/$gfid_foo
+TEST stat $B0/${V0}1/.shard/.remove_me/$gfid_foo
+
+EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_foo
+EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_foo
+EXPECT "0000000000500000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_foo
+EXPECT "0000000000500000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_foo
 
 #############################################################
 ##### Unlink of a file with only one block (the zeroth) #####
 #############################################################
 TEST touch $M0/dir/foo
+gfid_foo=$(get_gfid_string $M0/dir/foo)
 TEST dd if=/dev/zero of=$M0/dir/foo bs=1024 count=1024
-# Test to ensure that unlink of a sparse file works fine.
+# Test to ensure that unlink of a file with only base shard works fine.
 TEST unlink $M0/dir/foo
 TEST ! stat $B0/${V0}0/dir/foo
 TEST ! stat $B0/${V0}1/dir/foo
 TEST ! stat $M0/dir/foo
+TEST stat $B0/${V0}0/.shard/.remove_me/$gfid_foo
+TEST stat $B0/${V0}1/.shard/.remove_me/$gfid_foo
 
+EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_foo
+EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_foo
+EXPECT "0000000000100000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_foo
+EXPECT "0000000000100000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_foo
 ####################################################
 ##### Unlink of a sharded file with hard-links #####
 ####################################################
@@ -94,6 +124,8 @@ TEST stat $B0/${V0}1/.shard/$gfid_original.2
 TEST ln $M0/dir/original $M0/link
 # Now delete the original file.
 TEST unlink $M0/dir/original
+TEST ! stat $B0/${V0}0/.shard/.remove_me/$gfid_original
+TEST ! stat $B0/${V0}1/.shard/.remove_me/$gfid_original
 # Ensure the shards are still intact.
 TEST stat $B0/${V0}0/.shard/$gfid_original.1
 TEST stat $B0/${V0}1/.shard/$gfid_original.1
@@ -105,14 +137,21 @@ TEST stat $B0/${V0}0/link
 TEST stat $B0/${V0}1/link
 # Now delete the last link.
 TEST unlink $M0/link
+TEST stat $B0/${V0}0/.shard/.remove_me/$gfid_original
+TEST stat $B0/${V0}1/.shard/.remove_me/$gfid_original
 # Ensure that the shards are all cleaned up.
-TEST ! stat $B0/${V0}0/.shard/$gfid_original.1
-TEST ! stat $B0/${V0}1/.shard/$gfid_original.1
-TEST ! stat $B0/${V0}0/.shard/$gfid_original.2
-TEST ! stat $B0/${V0}1/.shard/$gfid_original.2
-TEST ! stat $M0/link
+#TEST ! stat $B0/${V0}0/.shard/$gfid_original.1
+#TEST ! stat $B0/${V0}1/.shard/$gfid_original.1
+#TEST ! stat $B0/${V0}0/.shard/$gfid_original.2
+#TEST ! stat $B0/${V0}1/.shard/$gfid_original.2
+#TEST ! stat $M0/link
 TEST ! stat $B0/${V0}0/link
 TEST ! stat $B0/${V0}1/link
+
+EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_original
+EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_original
+EXPECT "0000000000900000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_original
+EXPECT "0000000000900000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_original
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
@@ -140,6 +179,7 @@ TEST touch $M0/dir/dst
 ##### Rename with /.shard absent #####
 ######################################
 TEST truncate -s 5M $M0/dir/dst
+gfid_dst=$(get_gfid_string $M0/dir/dst)
 TEST ! stat $B0/${V0}0/.shard
 TEST ! stat $B0/${V0}1/.shard
 # Test to ensure that rename doesn't fail due to absence of /.shard
@@ -150,6 +190,13 @@ TEST ! stat $B0/${V0}0/dir/src
 TEST ! stat $B0/${V0}1/dir/src
 TEST   stat $B0/${V0}0/dir/dst
 TEST   stat $B0/${V0}1/dir/dst
+TEST stat $B0/${V0}0/.shard/.remove_me/$gfid_dst
+TEST stat $B0/${V0}1/.shard/.remove_me/$gfid_dst
+
+EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
+EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
+EXPECT "0000000000500000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
+EXPECT "0000000000500000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
 
 ##################################################
 ##### Rename to a sharded file without holes #####
@@ -165,16 +212,23 @@ TEST stat $B0/${V0}1/.shard/$gfid_dst.1
 TEST stat $B0/${V0}0/.shard/$gfid_dst.2
 TEST stat $B0/${V0}1/.shard/$gfid_dst.2
 TEST mv -f $M0/dir/src $M0/dir/dst
-TEST ! stat $B0/${V0}0/.shard/$gfid_dst.1
-TEST ! stat $B0/${V0}1/.shard/$gfid_dst.1
-TEST ! stat $B0/${V0}0/.shard/$gfid_dst.2
-TEST ! stat $B0/${V0}1/.shard/$gfid_dst.2
+#TEST ! stat $B0/${V0}0/.shard/$gfid_dst.1
+#TEST ! stat $B0/${V0}1/.shard/$gfid_dst.1
+#TEST ! stat $B0/${V0}0/.shard/$gfid_dst.2
+#TEST ! stat $B0/${V0}1/.shard/$gfid_dst.2
 TEST ! stat $M0/dir/src
 TEST   stat $M0/dir/dst
 TEST ! stat $B0/${V0}0/dir/src
 TEST ! stat $B0/${V0}1/dir/src
 TEST   stat $B0/${V0}0/dir/dst
 TEST   stat $B0/${V0}1/dir/dst
+TEST stat $B0/${V0}0/.shard/.remove_me/$gfid_dst
+TEST stat $B0/${V0}1/.shard/.remove_me/$gfid_dst
+
+EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
+EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
+EXPECT "0000000000900000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
+EXPECT "0000000000900000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
 
 ###################################################
 ##### Rename of dst file with /.shard present #####
@@ -182,7 +236,8 @@ TEST   stat $B0/${V0}1/dir/dst
 TEST unlink $M0/dir/dst
 TEST touch $M0/dir/src
 TEST truncate -s 5M $M0/dir/dst
-# Test to ensure that unlink of a sparse file works fine.
+gfid_dst=$(get_gfid_string $M0/dir/dst)
+# Test to ensure that rename into a sparse file works fine.
 TEST mv -f $M0/dir/src $M0/dir/dst
 TEST ! stat $M0/dir/src
 TEST   stat $M0/dir/dst
@@ -190,6 +245,13 @@ TEST ! stat $B0/${V0}0/dir/src
 TEST ! stat $B0/${V0}1/dir/src
 TEST   stat $B0/${V0}0/dir/dst
 TEST   stat $B0/${V0}1/dir/dst
+TEST stat $B0/${V0}0/.shard/.remove_me/$gfid_dst
+TEST stat $B0/${V0}1/.shard/.remove_me/$gfid_dst
+
+EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
+EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
+EXPECT "0000000000500000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
+EXPECT "0000000000500000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
 
 ###############################################################
 ##### Rename of dst file with only one block (the zeroth) #####
@@ -197,7 +259,8 @@ TEST   stat $B0/${V0}1/dir/dst
 TEST unlink $M0/dir/dst
 TEST touch $M0/dir/src
 TEST dd if=/dev/zero of=$M0/dir/dst bs=1024 count=1024
-# Test to ensure that unlink of a sparse file works fine.
+gfid_dst=$(get_gfid_string $M0/dir/dst)
+# Test to ensure that rename into a file with only base shard works fine.
 TEST mv -f $M0/dir/src $M0/dir/dst
 TEST ! stat $M0/dir/src
 TEST   stat $M0/dir/dst
@@ -205,6 +268,13 @@ TEST ! stat $B0/${V0}0/dir/src
 TEST ! stat $B0/${V0}1/dir/src
 TEST   stat $B0/${V0}0/dir/dst
 TEST   stat $B0/${V0}1/dir/dst
+TEST stat $B0/${V0}0/.shard/.remove_me/$gfid_dst
+TEST stat $B0/${V0}1/.shard/.remove_me/$gfid_dst
+
+EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
+EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
+EXPECT "0000000000100000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
+EXPECT "0000000000100000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
 
 ########################################################
 ##### Rename to a dst sharded file with hard-links #####
@@ -231,18 +301,26 @@ TEST stat $B0/${V0}1/.shard/$gfid_dst.2
 TEST ! stat $M0/dir/src
 TEST ! stat $B0/${V0}0/dir/src
 TEST ! stat $B0/${V0}1/dir/src
+TEST ! stat $B0/${V0}0/.shard/.remove_me/$gfid_dst
+TEST ! stat $B0/${V0}1/.shard/.remove_me/$gfid_dst
 # Now rename another file to the last link.
 TEST touch $M0/dir/src2
 TEST mv -f $M0/dir/src2 $M0/link
 # Ensure that the shards are all cleaned up.
-TEST ! stat $B0/${V0}0/.shard/$gfid_dst.1
-TEST ! stat $B0/${V0}1/.shard/$gfid_dst.1
-TEST ! stat $B0/${V0}0/.shard/$gfid_dst.2
-TEST ! stat $B0/${V0}1/.shard/$gfid_dst.2
+#TEST ! stat $B0/${V0}0/.shard/$gfid_dst.1
+#TEST ! stat $B0/${V0}1/.shard/$gfid_dst.1
+#TEST ! stat $B0/${V0}0/.shard/$gfid_dst.2
+#TEST ! stat $B0/${V0}1/.shard/$gfid_dst.2
 TEST ! stat $M0/dir/src2
 TEST ! stat $B0/${V0}0/dir/src2
 TEST ! stat $B0/${V0}1/dir/src2
+TEST stat $B0/${V0}0/.shard/.remove_me/$gfid_dst
+TEST stat $B0/${V0}1/.shard/.remove_me/$gfid_dst
 
+EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
+EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
+EXPECT "0000000000900000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
+EXPECT "0000000000900000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
 # Rename with non-existent dst and a sharded src
 TEST touch $M0/dir/src
 TEST dd if=/dev/zero of=$M0/dir/src bs=1024 count=9216

@@ -42,14 +42,14 @@ EXPECT_NOT "1" file_all_zeroes `find $B0 -name $gfid_foo.1`
 
 # Now unlink the file. And ensure that all shards associated with the file are cleaned up
 TEST unlink $M0/foo
-TEST ! stat $B0/${V0}0/.shard/$gfid_foo.1
-TEST ! stat $B0/${V0}1/.shard/$gfid_foo.1
-TEST ! stat $B0/${V0}2/.shard/$gfid_foo.1
-TEST ! stat $B0/${V0}3/.shard/$gfid_foo.1
-TEST ! stat $B0/${V0}0/.shard/$gfid_foo.2
-TEST ! stat $B0/${V0}1/.shard/$gfid_foo.2
-TEST ! stat $B0/${V0}2/.shard/$gfid_foo.2
-TEST ! stat $B0/${V0}3/.shard/$gfid_foo.2
+#TEST ! stat $B0/${V0}0/.shard/$gfid_foo.1
+#TEST ! stat $B0/${V0}1/.shard/$gfid_foo.1
+#TEST ! stat $B0/${V0}2/.shard/$gfid_foo.1
+#TEST ! stat $B0/${V0}3/.shard/$gfid_foo.1
+#TEST ! stat $B0/${V0}0/.shard/$gfid_foo.2
+#TEST ! stat $B0/${V0}1/.shard/$gfid_foo.2
+#TEST ! stat $B0/${V0}2/.shard/$gfid_foo.2
+#TEST ! stat $B0/${V0}3/.shard/$gfid_foo.2
 TEST ! stat $M0/foo
 
 #clean up everything
