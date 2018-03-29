@@ -69,7 +69,6 @@
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
-#include <sys/wait.h>
 #include <rpc/pmap_clnt.h>
 #include <unistd.h>
 #include <fnmatch.h>
@@ -2314,8 +2313,7 @@ glusterd_brickprocess_delete (glusterd_brick_proc_t *brick_proc)
 }
 
 int
-glusterd_brick_process_remove_brick (glusterd_brickinfo_t *brickinfo,
-                                     int *kill_pid)
+glusterd_brick_process_remove_brick (glusterd_brickinfo_t *brickinfo)
 {
         int                      ret = -1;
         xlator_t                *this = NULL;
@@ -2354,7 +2352,6 @@ glusterd_brick_process_remove_brick (glusterd_brickinfo_t *brickinfo,
 
                 /* If all bricks have been removed, delete the brick process */
                 if (brick_proc->brick_count == 0) {
-                        *kill_pid = 1;
                         ret = glusterd_brickprocess_delete (brick_proc);
                         if (ret)
                                 goto out;
@@ -2457,11 +2454,7 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
         glusterd_conf_t *conf                   = NULL;
         int             ret                     = -1;
         char            *op_errstr              = NULL;
-        char            pidfile_path[PATH_MAX]  = {0,};
-        int             kill_pid                = -1;
-        FILE            *pidfile                = NULL;
-        pid_t           pid                     = -1;
-        int             status                  = -1;
+        char            pidfile[PATH_MAX]       = {0,};
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -2474,7 +2467,7 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
 
         ret = 0;
 
-        ret = glusterd_brick_process_remove_brick (brickinfo, &kill_pid);
+        ret = glusterd_brick_process_remove_brick (brickinfo);
         if (ret) {
                 gf_msg_debug (this->name, 0, "Couldn't remove brick from"
                               " brick process");
@@ -2517,47 +2510,10 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
                 ret = 0;
         }
 
-        GLUSTERD_GET_BRICK_PIDFILE (pidfile_path, volinfo, brickinfo, conf);
-        if (kill_pid == 1 && is_brick_mx_enabled ()) {
-                pidfile = fopen (pidfile_path, "r");
-                if (!pidfile) {
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                GD_MSG_FILE_OP_FAILED,
-                                "Unable to open pidfile: %s", pidfile_path);
-                        ret = -1;
-                        goto out;
-                }
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, conf);
 
-                ret = fscanf (pidfile, "%d", &pid);
-                if (ret <= 0) {
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                GD_MSG_FILE_OP_FAILED,
-                                "Unable to get pid of brick process");
-                        ret = -1;
-                        goto out;
-                }
-
-                if (conf->op_version >= GD_OP_VERSION_4_1_0) {
-                        while (conf->blockers) {
-                                synclock_unlock (&conf->big_lock);
-                                sleep (1);
-                                synclock_lock (&conf->big_lock);
-                        }
-                }
-                gf_log (this->name, GF_LOG_INFO,
-                        "terminating the brick process "
-                        "%d after loss of last brick %s of the volume %s",
-                        pid, brickinfo->path, volinfo->volname);
-                kill (pid, SIGTERM);
-                waitpid (pid, &status, 0);
-                pmap_registry_remove (this, brickinfo->port, brickinfo->path,
-                                      GF_PMAP_PORT_BRICKSERVER, NULL,
-                                      _gf_true);
-                ret = 0;
-        }
-
-        gf_msg_debug (this->name,  0, "Unlinking pidfile %s", pidfile_path);
-        (void) sys_unlink (pidfile_path);
+        gf_msg_debug (this->name,  0, "Unlinking pidfile %s", pidfile);
+        (void) sys_unlink (pidfile);
 
         brickinfo->status = GF_BRICK_STOPPED;
         brickinfo->start_triggered = _gf_false;

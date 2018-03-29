@@ -159,31 +159,21 @@ out:
 }
 
 int
-glusterfs_terminate_response_send (rpcsvc_request_t *req, int op_ret,
-                                   gf_boolean_t last_brick)
+glusterfs_terminate_response_send (rpcsvc_request_t *req, int op_ret)
 {
         gd1_mgmt_brick_op_rsp   rsp = {0,};
         dict_t                  *dict = NULL;
-        int                     ret = -1;
+        int                     ret = 0;
 
         rsp.op_ret = op_ret;
         rsp.op_errno = 0;
         rsp.op_errstr = "";
         dict = dict_new ();
 
-        if (dict) {
-                /* Setting the last_brick_terminated key in dictionary is
-                 * required to for standalone gf_attach utility to work.
-                 * gf_attach utility will receive this dictionary and kill
-                 * the process.
-                 */
-                if (last_brick) {
-                        ret = dict_set_int32 (dict, "last_brick_terminated",
-                                              getpid());
-                }
+        if (dict)
                 ret = dict_allocate_and_serialize (dict, &rsp.output.output_val,
                                                    &rsp.output.output_len);
-        }
+
 
         if (ret == 0)
                 ret = glusterfs_submit_reply (req, &rsp, NULL, 0, NULL,
@@ -272,7 +262,6 @@ glusterfs_handle_terminate (rpcsvc_request_t *req)
         xlator_t                *victim         = NULL;
         xlator_list_t           **trav_p        = NULL;
         gf_boolean_t            lockflag        = _gf_false;
-        gf_boolean_t            last_brick      = _gf_false;
 
         ret = xdr_to_generic (req->msg[0], &xlator_req,
                               (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
@@ -305,16 +294,17 @@ glusterfs_handle_terminate (rpcsvc_request_t *req)
                  * make sure it's down and if it's already down that's
                  * good enough.
                  */
-                glusterfs_terminate_response_send (req, 0, last_brick);
+                glusterfs_terminate_response_send (req, 0);
                 goto err;
         }
 
+        glusterfs_terminate_response_send (req, 0);
         if ((trav_p == &top->children) && !(*trav_p)->next) {
-                last_brick = _gf_true;
-                glusterfs_terminate_response_send (req, 0, last_brick);
-                gf_log (THIS->name, GF_LOG_INFO, "This is last brick of process."
-                        "glusterD will kill the process and takes care of "
-                        "removal of entries from port map register");
+                gf_log (THIS->name, GF_LOG_INFO,
+                        "terminating after loss of last child %s",
+                        xlator_req.name);
+                rpc_clnt_mgmt_pmap_signout (glusterfsd_ctx, xlator_req.name);
+                kill (getpid(), SIGTERM);
         } else {
                 /*
                  * This is terribly unsafe without quiescing or shutting
@@ -323,7 +313,6 @@ glusterfs_handle_terminate (rpcsvc_request_t *req)
                  *
                  * TBD: finish implementing this "detach" code properly
                  */
-                glusterfs_terminate_response_send (req, 0, last_brick);
                 UNLOCK (&ctx->volfile_lock);
                 lockflag = _gf_true;
                 gf_log (THIS->name, GF_LOG_INFO, "detaching not-only"
