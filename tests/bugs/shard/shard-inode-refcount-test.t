@@ -18,7 +18,7 @@ TEST dd if=/dev/zero conv=fsync of=$M0/one-plus-five-shards bs=1M count=23
 
 ACTIVE_INODES_BEFORE=$(get_mount_active_size_value $V0)
 TEST rm -f $M0/one-plus-five-shards
-EXPECT `expr $ACTIVE_INODES_BEFORE - 5` get_mount_active_size_value $V0
+#EXPECT `expr $ACTIVE_INODES_BEFORE - 4` get_mount_active_size_value $V0
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0

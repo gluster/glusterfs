@@ -18,6 +18,7 @@
 #include "syncop.h"
 
 #define GF_SHARD_DIR ".shard"
+#define GF_SHARD_REMOVE_ME_DIR ".remove_me"
 #define SHARD_MIN_BLOCK_SIZE  (4 * GF_UNIT_MB)
 #define SHARD_MAX_BLOCK_SIZE  (4 * GF_UNIT_TB)
 #define SHARD_XATTR_PREFIX "trusted.glusterfs.shard."
@@ -55,6 +56,12 @@
 #define get_highest_block(off, len, shard_size) \
         (((((off)+(len)) == 0)?0:((off)+(len)-1)) / (shard_size))
 
+int
+shard_unlock_inodelk (call_frame_t *frame, xlator_t *this);
+
+int
+shard_unlock_entrylk (call_frame_t *frame, xlator_t *this);
+
 #define SHARD_ENTRY_FOP_CHECK(loc, op_errno, label) do {               \
         if ((loc->name && !strcmp (GF_SHARD_DIR, loc->name)) &&        \
             (((loc->parent) &&                                          \
@@ -79,39 +86,57 @@
         }                                                              \
 } while (0)
 
-#define SHARD_STACK_UNWIND(fop, frame, params ...) do {       \
-        shard_local_t *__local = NULL;                         \
-        if (frame) {                                           \
-                __local = frame->local;                        \
-                frame->local = NULL;                           \
-        }                                                      \
-        STACK_UNWIND_STRICT (fop, frame, params);              \
-        if (__local) {                                         \
-                shard_local_wipe (__local);                    \
-                mem_put (__local);                             \
-        }                                                      \
+#define SHARD_STACK_UNWIND(fop, frame, params ...) do {            \
+        shard_local_t *__local = NULL;                             \
+        if (frame) {                                               \
+                __local = frame->local;                            \
+                if (__local && __local->int_inodelk.acquired_lock) \
+                        shard_unlock_inodelk (frame, frame->this); \
+                if (__local && __local->int_entrylk.acquired_lock) \
+                        shard_unlock_entrylk (frame, frame->this); \
+                frame->local = NULL;                               \
+        }                                                          \
+        STACK_UNWIND_STRICT (fop, frame, params);                  \
+        if (__local) {                                             \
+                shard_local_wipe (__local);                        \
+                mem_put (__local);                                 \
+        }                                                          \
 } while (0)
 
+#define SHARD_STACK_DESTROY(frame)                                \
+        do {                                                    \
+                shard_local_t *__local = NULL;                    \
+                __local = frame->local;                         \
+                frame->local = NULL;                            \
+                STACK_DESTROY (frame->root);                    \
+                if (__local) {                                  \
+                        shard_local_wipe (__local);             \
+                        mem_put (__local);                      \
+                }                                               \
+        } while (0);
 
-#define SHARD_INODE_CREATE_INIT(this, local, xattr_req, loc, label) do {      \
+
+#define SHARD_INODE_CREATE_INIT(this, block_size, xattr_req, loc, size,       \
+                                block_count, label) do {                      \
         int            __ret       = -1;                                      \
         int64_t       *__size_attr = NULL;                                    \
-        shard_priv_t  *__priv      = NULL;                                    \
+        uint64_t      *__bs        = 0;                                       \
                                                                               \
-        __priv = this->private;                                               \
-                                                                              \
-        local->block_size = hton64 (__priv->block_size);                      \
-        __ret = dict_set_static_bin (xattr_req, GF_XATTR_SHARD_BLOCK_SIZE,    \
-                                     &local->block_size,                      \
-                                     sizeof (local->block_size));             \
+        __bs = GF_CALLOC (1, sizeof (uint64_t), gf_shard_mt_uint64_t);        \
+        if (!__bs)                                                            \
+                goto label;                                                   \
+        *__bs = hton64 (block_size);                                          \
+        __ret = dict_set_bin (xattr_req, GF_XATTR_SHARD_BLOCK_SIZE, __bs,     \
+                              sizeof (*__bs));                                \
         if (__ret) {                                                          \
                 gf_msg (this->name, GF_LOG_WARNING, 0,                        \
                         SHARD_MSG_DICT_SET_FAILED, "Failed to set key: %s "   \
-                        "on path %s", GF_XATTR_SHARD_BLOCK_SIZE, loc->path);  \
+                        "on path %s", GF_XATTR_SHARD_BLOCK_SIZE, (loc)->path);\
+                GF_FREE (__bs);                                               \
                 goto label;                                                   \
         }                                                                     \
                                                                               \
-        __ret = shard_set_size_attrs (0, 0, &__size_attr);                    \
+        __ret = shard_set_size_attrs (size, block_count, &__size_attr);       \
         if (__ret)                                                            \
                 goto label;                                                   \
                                                                               \
@@ -120,7 +145,7 @@
         if (__ret) {                                                          \
                 gf_msg (this->name, GF_LOG_WARNING, 0,                        \
                         SHARD_MSG_DICT_SET_FAILED, "Failed to set key: %s "   \
-                        "on path %s", GF_XATTR_SHARD_FILE_SIZE, loc->path);   \
+                        "on path %s", GF_XATTR_SHARD_FILE_SIZE, (loc)->path);   \
                 GF_FREE (__size_attr);                                        \
                 goto label;                                                   \
         }                                                                     \
@@ -172,21 +197,34 @@
                 }                                                             \
         } while (0)
 
+/* rm = "remove me" */
 
 typedef struct shard_priv {
         uint64_t block_size;
         uuid_t dot_shard_gfid;
+        uuid_t dot_shard_rm_gfid;
         inode_t *dot_shard_inode;
+        inode_t *dot_shard_rm_inode;
         gf_lock_t lock;
         int inode_count;
         struct list_head ilist_head;
 } shard_priv_t;
 
 typedef struct {
-        loc_t *loc;
-        short type;
+        loc_t loc;
         char *domain;
-} shard_lock_t;
+        struct gf_flock flock;
+        gf_boolean_t acquired_lock;
+} shard_inodelk_t;
+
+typedef struct {
+        loc_t loc;
+        char *domain;
+        char *basename;
+        entrylk_cmd cmd;
+        entrylk_type type;
+        gf_boolean_t acquired_lock;
+} shard_entrylk_t;
 
 typedef int32_t (*shard_post_fop_handler_t) (call_frame_t *frame,
                                              xlator_t *this);
@@ -200,6 +238,7 @@ typedef int32_t (*shard_post_mknod_fop_handler_t) (call_frame_t *frame,
 
 typedef int32_t (*shard_post_update_size_fop_handler_t) (call_frame_t *frame,
                                                          xlator_t *this);
+
 typedef struct shard_local {
         int op_ret;
         int op_errno;
@@ -227,6 +266,7 @@ typedef struct shard_local {
         int delta_blocks;
         loc_t loc;
         loc_t dot_shard_loc;
+        loc_t dot_shard_rm_loc;
         loc_t loc2;
         loc_t tmp_loc;
         fd_t *fd;
@@ -251,16 +291,18 @@ typedef struct shard_local {
         shard_post_resolve_fop_handler_t post_res_handler;
         shard_post_mknod_fop_handler_t post_mknod_handler;
         shard_post_update_size_fop_handler_t post_update_size_handler;
-        struct {
-                int lock_count;
-                fop_inodelk_cbk_t inodelk_cbk;
-                shard_lock_t *shard_lock;
-        } lock;
+        shard_inodelk_t int_inodelk;
+        shard_entrylk_t int_entrylk;
         inode_t *resolver_base_inode;
         gf_boolean_t first_lookup_done;
         syncbarrier_t barrier;
         gf_boolean_t lookup_shards_barriered;
         gf_boolean_t unlink_shards_barriered;
+        gf_boolean_t resolve_not;
+        loc_t newloc;
+        call_frame_t *main_frame;
+        call_frame_t *inodelk_frame;
+        call_frame_t *entrylk_frame;
 } shard_local_t;
 
 typedef struct shard_inode_ctx {
@@ -284,6 +326,7 @@ typedef struct shard_inode_ctx {
 
 typedef enum {
         SHARD_INTERNAL_DIR_DOT_SHARD = 1,
+        SHARD_INTERNAL_DIR_DOT_SHARD_REMOVE_ME,
 } shard_internal_dir_type_t;
 
 #endif /* __SHARD_H__ */

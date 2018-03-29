@@ -25,11 +25,11 @@ TEST touch $M0/bar
 TEST truncate -s 10G $M0/bar
 #Unlink on such a file should succeed.
 TEST unlink $M0/bar
-#
+
 #Create a file 'baz' with holes.
 TEST touch $M0/baz
 TEST truncate -s 10G $M0/baz
 #Rename with a sharded existing dest that has holes must succeed.
 TEST mv -f $M0/foo $M0/baz
 
-cleanup;
+cleanup

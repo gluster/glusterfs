@@ -18,6 +18,7 @@ enum gf_shard_mem_types_ {
         gf_shard_mt_inode_ctx_t,
         gf_shard_mt_iovec,
         gf_shard_mt_int64_t,
+        gf_shard_mt_uint64_t,
         gf_shard_mt_end
 };
 #endif
