@@ -70,7 +70,7 @@ EOF
 
 volume_getdir() {
     local voldir
-    voldir="@sysconfdir@/glusterd/vols/${OCF_RESKEY_volname}"
+    voldir="@GLUSTERD_WORKDIR@/vols/${OCF_RESKEY_volname}"
 
     [ -d ${voldir} ] || return 1
 
