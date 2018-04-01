@@ -5899,14 +5899,15 @@ glusterd_op_init_commit_rsp_dict (glusterd_op_t op)
 static int
 glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
 {
-        int                       ret        = 0;
-        glusterd_req_ctx_t       *req_ctx    = NULL;
-        int32_t                   status     = 0;
-        char                     *op_errstr  = NULL;
-        dict_t                   *dict       = NULL;
-        dict_t                   *rsp_dict   = NULL;
-        xlator_t                 *this       = NULL;
-        uuid_t                   *txn_id     = NULL;
+        int                       ret         = 0;
+        glusterd_req_ctx_t       *req_ctx     = NULL;
+        int32_t                   status      = 0;
+        char                     *op_errstr   = NULL;
+        dict_t                   *dict        = NULL;
+        dict_t                   *rsp_dict    = NULL;
+        xlator_t                 *this        = NULL;
+        uuid_t                   *txn_id      = NULL;
+        glusterd_op_info_t        txn_op_info = {{0},};
 
         this = THIS;
         GF_ASSERT (this);
@@ -5945,6 +5946,15 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
                 ret = -1;
                 goto out;
         }
+        ret = glusterd_get_txn_opinfo (&event->txn_id, &txn_op_info);
+        if (ret) {
+                gf_msg_callingfn (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_TRANS_OPINFO_GET_FAIL,
+                        "Unable to get transaction opinfo "
+                        "for transaction ID : %s",
+                        uuid_utoa (event->txn_id));
+                goto out;
+        }
 
         ret = dict_set_bin (rsp_dict, "transaction_id",
                             txn_id, sizeof(*txn_id));
@@ -5965,7 +5975,11 @@ out:
 
         if (rsp_dict)
                 dict_unref (rsp_dict);
-
+        /* for no volname transactions, the txn_opinfo needs to be cleaned up
+         * as there's no unlock event triggered
+         */
+        if (txn_op_info.skip_locking)
+                ret = glusterd_clear_txn_opinfo (txn_id);
         gf_msg_debug (this->name, 0, "Returning with %d", ret);
 
         return ret;

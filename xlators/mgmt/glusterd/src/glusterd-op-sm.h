@@ -100,6 +100,7 @@ struct glusterd_op_info_ {
         char                            *op_errstr;
         struct  cds_list_head           pending_bricks;
         uint32_t                        txn_generation;
+        gf_boolean_t                    skip_locking;
 };
 
 typedef struct glusterd_op_info_ glusterd_op_info_t;
