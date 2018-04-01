@@ -5986,6 +5986,7 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                         (void) pmap_registry_bind (this,
                                         brickinfo->port, brickinfo->path,
                                         GF_PMAP_PORT_BRICKSERVER, NULL);
+                        brickinfo->port_registered = _gf_true;
                         /*
                          * This will unfortunately result in a separate RPC
                          * connection per brick, even though they're all in
@@ -5995,7 +5996,6 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                          * TBD: re-use RPC connection across bricks
                          */
                         if (is_brick_mx_enabled ()) {
-                                brickinfo->port_registered = _gf_true;
                                 ret = glusterd_get_sock_from_brick_pid (pid, socketpath,
                                                                         sizeof(socketpath));
                                 if (ret) {
@@ -7102,7 +7102,8 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, priv);
 
         if (glusterd_is_brick_started (brickinfo)) {
-                if (gf_is_service_running (pidfile, &pid)) {
+                if (gf_is_service_running (pidfile, &pid) &&
+                    brickinfo->port_registered) {
                         brick_online = _gf_true;
                 } else {
                         pid = -1;
