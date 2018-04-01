@@ -1073,6 +1073,7 @@ __glusterd_handle_stage_op (rpcsvc_request_t *req)
                 glusterd_txn_opinfo_init (&txn_op_info, &state, &op_req.op,
                                           req_ctx->dict, req);
 
+                txn_op_info.skip_locking = _gf_true;
                 ret = glusterd_set_txn_opinfo (txn_id, &txn_op_info);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
