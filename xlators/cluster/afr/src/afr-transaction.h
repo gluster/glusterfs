@@ -54,8 +54,13 @@ afr_pick_error_xdata (afr_local_t *local, afr_private_t *priv,
                       inode_t *inode2, unsigned char *readable2);
 int
 afr_transaction_resume (call_frame_t *frame, xlator_t *this);
+
 int
 afr_lock (call_frame_t *frame, xlator_t *this);
+
 void
 afr_delayed_changelog_wake_up_cbk (void *data);
+
+int
+afr_fill_ta_loc (xlator_t *this, loc_t *loc);
 #endif /* __TRANSACTION_H__ */

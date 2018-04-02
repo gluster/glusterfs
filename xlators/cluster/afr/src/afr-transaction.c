@@ -635,6 +635,14 @@ afr_txn_nothing_failed (call_frame_t *frame, xlator_t *this)
         local = frame->local;
 	priv = this->private;
 
+        if (priv->thin_arbiter_count) {
+                /* We need to perform post-op even if 1 data brick was down
+                 * before the txn started.*/
+                if (AFR_COUNT (local->transaction.failed_subvols,
+                               priv->child_count))
+                        return _gf_false;
+        }
+
         for (i = 0; i < priv->child_count; i++) {
                 if (local->transaction.pre_op[i] &&
                     local->transaction.failed_subvols[i])
@@ -825,6 +833,97 @@ afr_handle_quorum (call_frame_t *frame)
 }
 
 int
+afr_fill_ta_loc (xlator_t *this, loc_t *loc)
+{
+        afr_private_t *priv = NULL;
+
+        priv = this->private;
+        loc->parent = inode_ref (priv->root_inode);
+        gf_uuid_copy (loc->pargfid, loc->parent->gfid);
+        loc->name = priv->pending_key[THIN_ARBITER_BRICK_INDEX];
+        gf_uuid_copy (loc->gfid, priv->ta_gfid);
+        loc->inode = inode_new (loc->parent->table);
+        if (!loc->inode)
+                return -ENOMEM;
+        return 0;
+}
+
+int
+afr_changelog_thin_arbiter_post_op (xlator_t *this, afr_local_t *local)
+{
+        int ret = 0;
+        afr_private_t *priv = NULL;
+        dict_t *xattr = NULL;
+        int failed_count = 0;
+        struct gf_flock flock = {0, };
+        loc_t loc = {0,};
+        int i = 0;
+
+        priv = this->private;
+        if (!priv->thin_arbiter_count)
+                return 0;
+
+
+        failed_count = AFR_COUNT (local->transaction.failed_subvols,
+                                  priv->child_count);
+        if (!failed_count)
+                return 0;
+
+        GF_ASSERT (failed_count == 1);
+        ret = afr_fill_ta_loc (this, &loc);
+        if (ret)
+                goto out;
+
+        xattr = dict_new ();
+        if (!xattr) {
+                ret = -ENOMEM;
+                goto out;
+        }
+        for (i = 0; i < priv->child_count; i++) {
+                ret = dict_set_static_bin (xattr, priv->pending_key[i],
+                                           local->pending[i],
+                                           AFR_NUM_CHANGE_LOGS * sizeof (int));
+                if (ret)
+                        goto out;
+        }
+
+        flock.l_type = F_WRLCK;
+        flock.l_start = 0;
+        flock.l_len = 0;
+
+        /*TODO: Convert to two domain locking. */
+        ret = syncop_inodelk (priv->children[THIN_ARBITER_BRICK_INDEX],
+                              THIN_ARBITER_DOM1, &loc, F_SETLKW, &flock,
+                              NULL, NULL);
+        if (ret)
+                goto out;
+
+        ret = syncop_xattrop (priv->children[THIN_ARBITER_BRICK_INDEX], &loc,
+                              GF_XATTROP_ADD_ARRAY, xattr, NULL, NULL, NULL);
+
+        if (ret == -EINVAL) {
+                gf_msg (this->name, GF_LOG_INFO, -ret, AFR_MSG_THIN_ARB,
+                        "Thin-arbiter has denied post-op on %s for gfid %s.",
+                        priv->pending_key[THIN_ARBITER_BRICK_INDEX],
+                        uuid_utoa (local->inode->gfid));
+
+        } else if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
+                        "Post-op on thin-arbiter id file %s failed for gfid %s.",
+                        priv->pending_key[THIN_ARBITER_BRICK_INDEX],
+                        uuid_utoa (local->inode->gfid));
+        }
+        flock.l_type = F_UNLCK;
+        syncop_inodelk (priv->children[THIN_ARBITER_BRICK_INDEX],
+                        THIN_ARBITER_DOM1, &loc, F_SETLKW, &flock, NULL, NULL);
+out:
+        if (xattr)
+                dict_unref (xattr);
+
+        return ret;
+}
+
+int
 afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
 {
         afr_private_t           *priv           = this->private;
@@ -884,6 +983,14 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
 		afr_changelog_post_op_done (frame, this);
 		goto out;
 	}
+
+        ret = afr_changelog_thin_arbiter_post_op (this, local);
+        if (ret < 0) {
+                local->op_ret = -1;
+                local->op_errno = -ret;
+		afr_changelog_post_op_done (frame, this);
+                goto out;
+        }
 
         if (need_undirty)
 		local->dirty[idx] = hton32(-1);

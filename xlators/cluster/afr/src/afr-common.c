@@ -2901,10 +2901,8 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	return 0;
 }
 
-
-
 static void
-afr_discover_done (call_frame_t *frame, xlator_t *this)
+afr_discover_unwind (call_frame_t *frame, xlator_t *this)
 {
         afr_private_t       *priv  = NULL;
         afr_local_t         *local = NULL;
@@ -2966,6 +2964,84 @@ unwind:
 			  &local->replies[read_subvol].postparent);
 }
 
+static int
+afr_ta_id_file_check (void *opaque)
+{
+        afr_private_t *priv = NULL;
+        xlator_t *this = NULL;
+        loc_t loc = {0, };
+        struct iatt  stbuf = {0,};
+        dict_t *dict = NULL;
+        uuid_t  gfid = {0,};
+        fd_t *fd = NULL;
+        int ret = 0;
+
+        this = opaque;
+        priv = this->private;
+
+        ret = afr_fill_ta_loc (this, &loc);
+        if (ret)
+                goto out;
+
+        ret = syncop_lookup (priv->children[THIN_ARBITER_BRICK_INDEX], &loc,
+                             &stbuf, 0, 0, 0);
+        if (ret == 0) {
+                goto out;
+        } else if (ret == -ENOENT) {
+                fd = fd_create (loc.inode, getpid());
+                if (!fd)
+                        goto out;
+                dict = dict_new ();
+                if (!dict)
+                        goto out;
+                gf_uuid_generate (gfid);
+                ret = dict_set_gfuuid (dict, "gfid-req", gfid, true);
+                ret = syncop_create (priv->children[THIN_ARBITER_BRICK_INDEX],
+                                     &loc, O_RDWR, 0664, fd, &stbuf, dict,
+                                     NULL);
+        }
+
+out:
+        if (ret == 0) {
+                gf_uuid_copy (priv->ta_gfid, stbuf.ia_gfid);
+        } else {
+                gf_msg (this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
+                        "Failed to lookup/create thin-arbiter id file.");
+        }
+        if (dict)
+                dict_unref (dict);
+        if (fd)
+                fd_unref (fd);
+        loc_wipe (&loc);
+
+        return 0;
+}
+
+static int
+afr_ta_id_file_check_cbk (int ret, call_frame_t *ta_frame, void *opaque)
+{
+        return 0;
+}
+
+static void
+afr_discover_done (call_frame_t *frame, xlator_t *this)
+{
+        int ret = 0;
+        afr_private_t *priv = NULL;
+
+        priv = this->private;
+        if (!priv->thin_arbiter_count)
+                goto unwind;
+        if (!gf_uuid_is_null(priv->ta_gfid))
+                goto unwind;
+
+        ret = synctask_new (this->ctx->env, afr_ta_id_file_check,
+                            afr_ta_id_file_check_cbk, NULL, this);
+        if (ret)
+                goto unwind;
+unwind:
+        afr_discover_unwind (frame, this);
+}
 
 int
 afr_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -5514,15 +5590,22 @@ afr_set_low_priority (call_frame_t *frame)
 void
 afr_priv_destroy (afr_private_t *priv)
 {
-        int            i           = 0;
+        int i = 0;
+        int child_count = -1;
 
         if (!priv)
                 goto out;
         GF_FREE (priv->last_event);
+
+        child_count = priv->child_count;
+        if (priv->thin_arbiter_count) {
+                child_count++;
+        }
         if (priv->pending_key) {
-                for (i = 0; i < priv->child_count; i++)
+                for (i = 0; i < child_count; i++)
                         GF_FREE (priv->pending_key[i]);
         }
+
         GF_FREE (priv->pending_reads);
         GF_FREE (priv->local);
         GF_FREE (priv->pending_key);

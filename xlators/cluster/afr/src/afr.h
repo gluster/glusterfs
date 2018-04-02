@@ -35,6 +35,8 @@
 #define AFR_DEFAULT_SPB_CHOICE_TIMEOUT 300 /*in seconds*/
 
 #define ARBITER_BRICK_INDEX 2
+#define THIN_ARBITER_BRICK_INDEX 2
+#define THIN_ARBITER_DOM1 "afr.ta.domain-1"
 
 #define AFR_HALO_MAX_LATENCY 99999
 typedef int (*afr_lock_cbk_t) (call_frame_t *frame, xlator_t *this);
@@ -81,10 +83,12 @@ typedef struct _afr_private {
         unsigned int child_count;     /* total number of children   */
         unsigned int arbiter_count;   /*subset of child_count.
                                         Has to be 0 or 1.*/
+        unsigned int thin_arbiter_count; /* 0 or 1 at the moment.*/
 
         xlator_t **children;
 
         inode_t *root_inode;
+        uuid_t ta_gfid; /*For thin arbiter.*/
 
         unsigned char *child_up;
         int64_t *child_latency;
