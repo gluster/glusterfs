@@ -6098,7 +6098,7 @@ struct volume_options options[] = {
         },
         { .key = {"reader-thread-count"},
           .type = GF_OPTION_TYPE_INT,
-          .default_value = "4",
+          .default_value = "1",
           .min = 1,
           .max = 64,
           .description = "Sets fuse reader thread count.",
