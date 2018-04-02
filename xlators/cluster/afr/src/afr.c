@@ -303,12 +303,20 @@ afr_pending_xattrs_init (afr_private_t *priv, xlator_t *this)
         char *ptr1 = NULL;
         char *xattrs_list = NULL;
         xlator_list_t *trav = NULL;
+        int child_count = -1;
 
         trav = this->children;
+        child_count = priv->child_count;
+        if (priv->thin_arbiter_count) {
+                /* priv->pending_key[THIN_ARBITER_BRICK_INDEX] is used as the
+                 * name of the thin arbiter file for persistance across add/
+                 * removal of DHT subvols.*/
+                child_count++;
+        }
 
         GF_OPTION_INIT ("afr-pending-xattr", xattrs_list, str, out);
         priv->pending_key = GF_CALLOC (sizeof (*priv->pending_key),
-                                       priv->child_count, gf_afr_mt_char);
+                                       child_count, gf_afr_mt_char);
         if (!priv->pending_key) {
                 ret = -ENOMEM;
                 goto out;
@@ -318,7 +326,7 @@ afr_pending_xattrs_init (afr_private_t *priv, xlator_t *this)
                         "Unable to fetch afr-pending-xattr option from volfile."
                         " Falling back to using client translator names. ");
 
-                while (i < priv->child_count) {
+                while (i < child_count) {
                         ret = gf_asprintf (&priv->pending_key[i], "%s.%s",
                                            AFR_XATTR_PREFIX,
                                            trav->xlator->name);
@@ -368,6 +376,7 @@ init (xlator_t *this)
         int            read_subvol_index = -1;
         char          *qtype       = NULL;
         char          *fav_child_policy = NULL;
+        char          *thin_arbiter = NULL;
 
         if (!this->children) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -397,6 +406,11 @@ init (xlator_t *this)
         priv->read_child = -1;
 
         GF_OPTION_INIT ("arbiter-count", priv->arbiter_count, uint32, out);
+        GF_OPTION_INIT ("thin-arbiter", thin_arbiter, str, out);
+        if (thin_arbiter && strlen(thin_arbiter) > 0) {
+                priv->thin_arbiter_count = 1;
+                priv->child_count--;
+        }
         INIT_LIST_HEAD (&priv->healing);
         INIT_LIST_HEAD (&priv->heal_waiting);
 
@@ -1102,6 +1116,13 @@ struct volume_options options[] = {
         { .key = {"arbiter-count"},
           .type = GF_OPTION_TYPE_INT,
           .description = "subset of child_count. Has to be 0 or 1."
+        },
+        { .key = {"thin-arbiter"},
+          .type = GF_OPTION_TYPE_STR,
+          .op_version = {GD_OP_VERSION_4_1_0},
+          .flags = OPT_FLAG_SETTABLE,
+          .tags = {"replicate"},
+          .description = "contains host:path of thin abriter brick",
         },
         { .key   = {"shd-max-threads"},
           .type  = GF_OPTION_TYPE_INT,
