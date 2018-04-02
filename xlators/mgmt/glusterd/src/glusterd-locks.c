@@ -902,7 +902,6 @@ glusterd_mgmt_v3_unlock (const char *name, uuid_t uuid, char *type)
                 gf_timer_call_cancel (mgmt_lock_timer_ctx,
                                     mgmt_lock_timer->timer);
                 dict_del (priv->mgmt_v3_lock_timer, key_dup);
-                mgmt_lock_timer->timer = NULL;
         }
 out:
 
