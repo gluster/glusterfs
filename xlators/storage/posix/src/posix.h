@@ -265,6 +265,7 @@ struct posix_private {
 };
 
 typedef struct {
+        call_frame_t *frame;
         xlator_t    *this;
         const char  *real_path;
         dict_t      *xattr;
@@ -337,8 +338,9 @@ dict_t *posix_xattr_fill (xlator_t *this, const char *path, loc_t *loc,
                           fd_t *fd, int fdnum, dict_t *xattr, struct iatt *buf);
 int posix_handle_pair (xlator_t *this, const char *real_path, char *key,
                        data_t *value, int flags, struct iatt *stbuf);
-int posix_fhandle_pair (xlator_t *this, int fd, char *key, data_t *value,
-                        int flags, struct iatt *stbuf);
+int posix_fhandle_pair (call_frame_t *frame, xlator_t *this, int fd, char *key,
+                        data_t *value, int flags, struct iatt *stbuf,
+                        fd_t *_fd);
 void posix_spawn_janitor_thread (xlator_t *this);
 int posix_get_file_contents (xlator_t *this, uuid_t pargfid,
                              const char *name, char **contents);
@@ -367,6 +369,8 @@ int
 posix_get_ancestry (xlator_t *this, inode_t *leaf_inode,
                     gf_dirent_t *head, char **path, int type, int32_t *op_errno,
                     dict_t *xdata);
+int
+posix_handle_mdata_xattr (call_frame_t *frame, const char *name, int *op_errno);
 int
 posix_handle_georep_xattrs (call_frame_t *, const char *, int *, gf_boolean_t);
 int32_t

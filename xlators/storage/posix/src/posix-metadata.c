@@ -345,10 +345,10 @@ posix_compare_timespec (struct timespec *first, struct timespec *second)
                 return first->tv_sec - second->tv_sec;
 }
 
-/* posix_update_mdata_xattr updates the posix_mdata_t based on the flag
+/* posix_set_mdata_xattr updates the posix_mdata_t based on the flag
  * in inode context and stores it on disk
  */
-int
+static int
 posix_set_mdata_xattr (xlator_t *this, const char *real_path, int fd,
                        inode_t *inode, struct timespec *time,
                        struct iatt *stbuf, posix_mdata_flag_t *flag)
@@ -474,12 +474,12 @@ out:
 /* posix_update_utime_in_mdata updates the posix_mdata_t when mtime/atime
  * is modified using syscall
  */
-int
+void
 posix_update_utime_in_mdata (xlator_t *this, const char *real_path, int fd,
                              inode_t *inode,
                              struct iatt *stbuf, int valid)
 {
-        int32_t ret = -1;
+        int32_t ret = 0;
 #if defined(HAVE_UTIMENSAT)
         struct timespec tv    = {0, };
 #else
@@ -487,26 +487,39 @@ posix_update_utime_in_mdata (xlator_t *this, const char *real_path, int fd,
 #endif
         posix_mdata_flag_t       flag            = {0, };
 
-        if ((valid & GF_SET_ATTR_ATIME) == GF_SET_ATTR_ATIME) {
-                tv.tv_sec  = stbuf->ia_atime;
-                SET_TIMESPEC_NSEC_OR_TIMEVAL_USEC(tv, stbuf->ia_atime_nsec);
+        if (inode && is_ctime_enabled()) {
+                if ((valid & GF_SET_ATTR_ATIME) == GF_SET_ATTR_ATIME) {
+                        tv.tv_sec  = stbuf->ia_atime;
+                        SET_TIMESPEC_NSEC_OR_TIMEVAL_USEC(tv, stbuf->ia_atime_nsec);
 
-                flag.ctime = 0;
-                flag.mtime = 0;
-                flag.atime = 1;
+                        flag.ctime = 0;
+                        flag.mtime = 0;
+                        flag.atime = 1;
+                }
+
+                if ((valid & GF_SET_ATTR_MTIME) == GF_SET_ATTR_MTIME) {
+                        tv.tv_sec  = stbuf->ia_mtime;
+                        SET_TIMESPEC_NSEC_OR_TIMEVAL_USEC(tv, stbuf->ia_mtime_nsec);
+
+                        flag.ctime = 1;
+                        flag.mtime = 1;
+                        flag.atime = 0;
+                }
+
+                ret = posix_set_mdata_xattr (this, real_path, -1, inode, &tv, NULL,
+                                             &flag);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, errno,
+                                P_MSG_SETMDATA_FAILED,
+                                "posix set mdata failed on file: %s gfid:%s",
+                                real_path, uuid_utoa (inode->gfid));
+                }
+        } else {
+                gf_msg (this->name, GF_LOG_WARNING, errno,
+                        P_MSG_SETMDATA_FAILED,
+                        "posix utime set mdata failed on file");
         }
-
-        if ((valid & GF_SET_ATTR_MTIME) == GF_SET_ATTR_MTIME) {
-                tv.tv_sec  = stbuf->ia_mtime;
-                SET_TIMESPEC_NSEC_OR_TIMEVAL_USEC(tv, stbuf->ia_mtime_nsec);
-                flag.ctime = 1;
-                flag.mtime = 1;
-                flag.atime = 0;
-        }
-
-        ret = posix_set_mdata_xattr (this, real_path, -1, inode, &tv, NULL,
-                                     &flag);
-        return ret;
+        return;
 }
 
 gf_boolean_t
@@ -515,4 +528,91 @@ is_ctime_enabled () {
  *          * enable and disable ctime feature
  *                   */
         return _gf_false;
+}
+
+static void
+posix_get_mdata_flag (uint64_t flags, posix_mdata_flag_t *flag)
+{
+        if (!flag)
+                return;
+
+        flag->ctime = 0;
+        flag->atime = 0;
+        flag->mtime = 0;
+
+        if (flags & MDATA_CTIME)
+                flag->ctime = 1;
+        if (flags & MDATA_MTIME)
+                flag->mtime = 1;
+        if (flags & MDATA_ATIME)
+                flag->atime = 1;
+}
+
+static void
+posix_get_parent_mdata_flag (uint64_t flags, posix_mdata_flag_t *flag)
+{
+        if (!flag)
+                return;
+
+        flag->ctime = 0;
+        flag->atime = 0;
+        flag->mtime = 0;
+
+        if (flags & MDATA_PAR_CTIME)
+                flag->ctime = 1;
+        if (flags & MDATA_PAR_MTIME)
+                flag->mtime = 1;
+        if (flags & MDATA_PAR_ATIME)
+                flag->atime = 1;
+}
+
+void
+posix_set_ctime (call_frame_t *frame, xlator_t *this, const char* real_path,
+                 int fd, inode_t *inode, struct iatt *stbuf)
+{
+        posix_mdata_flag_t    flag            = {0,};
+        int                   ret             = 0;
+
+        if (inode && is_ctime_enabled()) {
+                (void) posix_get_mdata_flag (frame->root->flags, &flag);
+                ret = posix_set_mdata_xattr (this, real_path, fd, inode,
+                                             &frame->root->ctime, stbuf, &flag);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, errno,
+                                P_MSG_SETMDATA_FAILED,
+                                "posix set mdata failed on file: %s gfid:%s",
+                                real_path, uuid_utoa (inode->gfid));
+                }
+        } else {
+                gf_msg (this->name, GF_LOG_WARNING, errno,
+                        P_MSG_SETMDATA_FAILED,
+                        "posix set mdata failed on file");
+        }
+        return;
+}
+
+void
+posix_set_parent_ctime (call_frame_t *frame, xlator_t *this,
+                        const char* real_path, int fd, inode_t *inode,
+                        struct iatt *stbuf)
+{
+        posix_mdata_flag_t    flag            = {0,};
+        int                   ret             = 0;
+
+        if (inode && is_ctime_enabled()) {
+                (void) posix_get_parent_mdata_flag (frame->root->flags, &flag);
+                ret = posix_set_mdata_xattr (this, real_path, fd, inode,
+                                             &frame->root->ctime, stbuf, &flag);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, errno,
+                                P_MSG_SETMDATA_FAILED,
+                                "posix set mdata failed on file: %s gfid:%s",
+                                real_path, uuid_utoa (inode->gfid));
+                }
+        } else {
+                gf_msg (this->name, GF_LOG_WARNING, errno,
+                        P_MSG_SETMDATA_FAILED,
+                        "posix parent set mdata failed on file");
+        }
+        return;
 }

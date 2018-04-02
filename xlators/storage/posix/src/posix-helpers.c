@@ -104,6 +104,44 @@ out:
 }
 
 int
+posix_handle_mdata_xattr (call_frame_t *frame, const char *name, int *op_errno)
+{
+        int                i                 = 0;
+        int                ret               = 0;
+        int                pid               = 1;
+        static const char * const internal_xattr[]  = { GF_XATTR_MDATA_KEY,
+                                                        NULL
+                                                      };
+        if (frame && frame->root) {
+                pid = frame->root->pid;
+        }
+
+        if (!name || pid < GF_CLIENT_PID_MAX) {
+                /* No need to do anything here */
+                ret = 0;
+                goto out;
+        }
+
+        for (i = 0; internal_xattr[i]; i++) {
+                if (fnmatch (internal_xattr[i] , name, FNM_PERIOD) == 0) {
+                        ret = -1;
+                        if (op_errno) {
+                                *op_errno = ENOATTR;
+                        }
+
+                        gf_msg_debug ("posix", ENOATTR,
+                                      "Ignoring the key %s as an internal "
+                                      "xattrs.", name);
+                        goto out;
+                }
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
 posix_handle_georep_xattrs (call_frame_t *frame, const char *name,
                             int *op_errno, gf_boolean_t is_getxattr)
 {
@@ -1297,8 +1335,8 @@ out:
 }
 
 int
-posix_fhandle_pair (xlator_t *this, int fd,
-                    char *key, data_t *value, int flags, struct iatt *stbuf)
+posix_fhandle_pair (call_frame_t *frame, xlator_t *this, int fd, char *key,
+                    data_t *value, int flags, struct iatt *stbuf, fd_t *_fd)
 {
         int sys_ret = -1;
         int ret     = 0;
@@ -1344,6 +1382,8 @@ posix_fhandle_pair (xlator_t *this, int fd,
                 }
 
                 goto out;
+        } else if (_fd) {
+                posix_set_ctime (frame, this, NULL, fd, _fd->inode, NULL);
         }
 
 out:
