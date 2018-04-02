@@ -2472,6 +2472,7 @@ brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         char            *password = NULL;
         char            key[1024] = {0};
         char            *ssl_user = NULL;
+        char            *volname = NULL;
         char            *address_family_data = NULL;
 
         if (!graph || !volinfo || !set_dict || !brickinfo)
@@ -2546,6 +2547,19 @@ brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         ret = xlator_set_option (xl, key, brickinfo->path);
         if (ret)
                 return -1;
+
+        volname = volinfo->is_snap_volume ?
+                  volinfo->parent_volname : volinfo->volname;
+
+
+        if (volname && !strcmp (volname, GLUSTER_SHARED_STORAGE)) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "strict-auth-accept");
+
+                ret = xlator_set_option (xl, key, "true");
+                if (ret)
+                        return -1;
+        }
 
         if (dict_get_str (volinfo->dict, "auth.ssl-allow", &ssl_user) == 0) {
                 memset (key, 0, sizeof (key));
@@ -6117,7 +6131,7 @@ generate_client_volfiles (glusterd_volinfo_t *volinfo,
 
 
         if (volname && !strcmp (volname, GLUSTER_SHARED_STORAGE) &&
-             client_type != GF_CLIENT_TRUSTED) {
+            client_type != GF_CLIENT_TRUSTED) {
                 /*
                  * shared storage volume cannot be mounted from non trusted
                  * nodes. So we are not creating volfiles for non-trusted
