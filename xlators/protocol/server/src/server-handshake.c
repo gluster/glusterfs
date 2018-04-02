@@ -716,7 +716,7 @@ server_setvolume (rpcsvc_request_t *req)
                         ret = dict_get_str (params, "volfile-key",
                                             &volfile_key);
                         if (ret)
-                                gf_msg_debug (this->name, 0, "failed to set "
+                                gf_msg_debug (this->name, 0, "failed to get "
                                               "'volfile-key'");
 
                         ret = _validate_volfile_checksum (this, volfile_key,
