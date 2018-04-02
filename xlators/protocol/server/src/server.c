@@ -886,6 +886,10 @@ do_rpc:
                 goto out;
         }
 
+        GF_OPTION_RECONF ("strict-auth-accept", conf->strict_auth_enabled,
+                          options, bool, out);
+
+
         GF_OPTION_RECONF ("dynamic-auth", conf->dync_auth, options,
                         bool, out);
 
@@ -1118,6 +1122,14 @@ init (xlator_t *this)
                         "Failed to initialize group cache.");
                 goto out;
         }
+
+        ret = dict_get_str_boolean (this->options, "strict-auth-accept",
+                                    _gf_false);
+        if (ret == -1)
+                conf->strict_auth_enabled = _gf_false;
+        else
+                conf->strict_auth_enabled = ret;
+
         ret = dict_get_str_boolean (this->options, "dynamic-auth",
                         _gf_true);
         if (ret == -1)
@@ -1747,6 +1759,12 @@ struct volume_options options[] = {
                            "options in order to allow/terminate client "
                            "transport connection immediately in response to "
                            "*.allow | *.reject volume set options."
+        },
+        { .key   = {"strict-auth-accept"},
+          .type  = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .description   = "strict-auth-accept reject connection with out"
+                           "a valid username and password."
         },
         { .key   = {NULL} },
 };
