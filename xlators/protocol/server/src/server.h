@@ -24,6 +24,7 @@
 #include "client_t.h"
 #include "gidcache.h"
 #include "defaults.h"
+#include "authenticate.h"
 
 #define DEFAULT_BLOCK_SIZE         4194304   /* 4MB */
 #define DEFAULT_VOLUME_FILE_PATH   CONFDIR "/glusterfs.vol"
@@ -105,6 +106,7 @@ struct server_conf {
                                            * false, when child is down */
 
         gf_lock_t               itable_lock;
+        gf_boolean_t            strict_auth_enabled;
 };
 typedef struct server_conf server_conf_t;
 

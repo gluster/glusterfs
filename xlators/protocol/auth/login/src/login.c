@@ -11,6 +11,16 @@
 #include <fnmatch.h>
 #include "authenticate.h"
 
+/* Note on strict_auth
+ * - Strict auth kicks in when authentication is using the username, password
+ *   in the volfile to login
+ * - If enabled, auth is rejected if the username and password is not matched
+ *   or is not present
+ * - When using SSL names, this is automatically strict, and allows only those
+ *   names that are present in the allow list, IOW strict auth checking has no
+ *   implication when using SSL names
+*/
+
 auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
 {
         auth_result_t  result  = AUTH_DONT_CARE;
@@ -27,6 +37,7 @@ auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
         char            *tmp            = NULL;
         char            *username_cpy   = NULL;
         gf_boolean_t    using_ssl       = _gf_false;
+        gf_boolean_t    strict_auth     = _gf_false;
 
         username_data = dict_get (input_params, "ssl-name");
         if (username_data) {
@@ -35,16 +46,39 @@ auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
                 using_ssl = _gf_true;
         }
         else {
+                ret = dict_get_str_boolean (config_params, "strict-auth-accept",
+                                            _gf_false);
+                if (ret == -1)
+                        strict_auth = _gf_false;
+                else
+                        strict_auth = ret;
+
                 username_data = dict_get (input_params, "username");
                 if (!username_data) {
-                        gf_log ("auth/login", GF_LOG_DEBUG,
-                                "username not found, returning DONT-CARE");
+                        if (strict_auth) {
+                                gf_log ("auth/login", GF_LOG_DEBUG,
+                                        "username not found, strict auth"
+                                        " configured returning REJECT");
+                                result = AUTH_REJECT;
+                        } else {
+                                gf_log ("auth/login", GF_LOG_DEBUG,
+                                        "username not found, returning"
+                                        " DONT-CARE");
+                        }
                         goto out;
                 }
                 password_data = dict_get (input_params, "password");
                 if (!password_data) {
-                        gf_log ("auth/login", GF_LOG_WARNING,
-                                "password not found, returning DONT-CARE");
+                        if (strict_auth) {
+                                gf_log ("auth/login", GF_LOG_DEBUG,
+                                        "password not found, strict auth"
+                                        " configured returning REJECT");
+                                result = AUTH_REJECT;
+                        } else {
+                                gf_log ("auth/login", GF_LOG_WARNING,
+                                        "password not found, returning"
+                                        " DONT-CARE");
+                        }
                         goto out;
                 }
                 password = data_to_str (password_data);
@@ -62,9 +96,10 @@ auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
         ret = gf_asprintf (&searchstr, "auth.login.%s.%s", brick_name,
                            using_ssl ? "ssl-allow" : "allow");
         if (-1 == ret) {
-                gf_log ("auth/login", GF_LOG_WARNING,
+                gf_log ("auth/login", GF_LOG_ERROR,
                         "asprintf failed while setting search string, "
-                        "returning DONT-CARE");
+                        "returning REJECT");
+                result = AUTH_REJECT;
                 goto out;
         }
 
@@ -92,8 +127,10 @@ auth_result_t gf_auth (dict_t *input_params, dict_t *config_params)
                  * ssl-allow=* case as well) authorization is effectively
                  * disabled, though authentication and encryption are still
                  * active.
+                 *
+                 * Read NOTE on strict_auth above.
                  */
-                if (using_ssl) {
+                if (using_ssl || strict_auth) {
                         result = AUTH_REJECT;
                 }
                 username_cpy = gf_strdup (allow_user->data);
