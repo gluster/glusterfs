@@ -38,13 +38,16 @@ posix_get_mdata_xattr (xlator_t *this, const char *real_path, int _fd,
 int
 __posix_get_mdata_xattr (xlator_t *this, const char *real_path, int _fd,
                          inode_t *inode, struct iatt *stbuf);
-int
-posix_set_mdata_xattr (xlator_t *this, const char *real_path, int fd,
-                       inode_t *inode, struct timespec *time,
-                       struct iatt *stbuf, posix_mdata_flag_t *flag);
-int
+void
 posix_update_utime_in_mdata (xlator_t *this, const char *real_path, int fd,
                              inode_t *inode, struct iatt *stbuf, int valid);
+void
+posix_set_ctime (call_frame_t *frame, xlator_t *this, const char* real_path,
+                 int fd, inode_t *inode, struct iatt *stbuf);
+void
+posix_set_parent_ctime (call_frame_t *frame, xlator_t *this,
+                        const char* real_path, int fd, inode_t *inode,
+                        struct iatt *stbuf);
 gf_boolean_t
 is_ctime_enabled();
 

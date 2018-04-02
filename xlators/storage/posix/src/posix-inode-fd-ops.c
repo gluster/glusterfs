@@ -57,6 +57,7 @@
 #include "posix-aio.h"
 #include "glusterfs-acl.h"
 #include "posix-messages.h"
+#include "posix-metadata.h"
 #include "events.h"
 #include "posix-gfid-path.h"
 #include "compat-uuid.h"
@@ -355,6 +356,8 @@ posix_setattr (call_frame_t *frame, xlator_t *this,
                                 "failed", real_path);
                         goto out;
                 }
+                posix_update_utime_in_mdata (this, real_path, -1, loc->inode,
+                                             stbuf, valid);
         }
 
         if (valid & GF_SET_ATTR_CTIME) {
@@ -394,6 +397,8 @@ posix_setattr (call_frame_t *frame, xlator_t *this,
                         "setattr (lstat) on %s failed", real_path);
                 goto out;
         }
+
+        posix_set_ctime (frame, this, real_path, -1, loc->inode, &statpost);
 
         if (xdata)
                 xattr_rsp = posix_xattr_fill (this, real_path, loc, NULL, -1,
@@ -560,6 +565,8 @@ posix_fsetattr (call_frame_t *frame, xlator_t *this,
                                 "failed fd=%p", fd);
                         goto out;
                 }
+                posix_update_utime_in_mdata (this, NULL, pfd->fd, fd->inode,
+                                             stbuf, valid);
         }
 
         if (!valid) {
@@ -582,6 +589,8 @@ posix_fsetattr (call_frame_t *frame, xlator_t *this,
                         "fsetattr (fstat) failed on fd=%p", fd);
                 goto out;
         }
+
+        posix_set_ctime (frame, this, NULL, pfd->fd, fd->inode, &statpost);
 
         if (xdata)
                 xattr_rsp = posix_xattr_fill (this, NULL, NULL, fd, pfd->fd,
@@ -685,6 +694,8 @@ posix_do_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd,
                         "fallocate (fstat) failed on fd=%p", fd);
                 goto out;
         }
+
+        posix_set_ctime (frame, this, NULL, pfd->fd, fd->inode, statpost);
 
 out:
         if (locked) {
@@ -886,6 +897,8 @@ fsync:
                         "post operation fstat failed on fd=%p", fd);
                 goto out;
         }
+
+        posix_set_ctime (frame, this, NULL, pfd->fd, fd->inode, statpost);
 
 out:
         if (locked) {
@@ -1139,6 +1152,8 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
                         P_MSG_FD_PATH_SETTING_FAILED, "failed to set the fd"
                         "context path=%s fd=%p", real_path, fd);
 
+        posix_set_ctime (frame, this, NULL, pfd->fd, fd->inode, NULL);
+
         op_ret = 0;
 
 out:
@@ -1236,6 +1251,8 @@ posix_readlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        posix_set_ctime (frame, this, real_path, -1, loc->inode, &stbuf);
+
         dest[op_ret] = 0;
 out:
         SET_TO_OLD_FS_ID ();
@@ -1306,6 +1323,8 @@ posix_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                 goto out;
         }
 
+        posix_set_ctime (frame, this, real_path, -1, loc->inode, &postbuf);
+
         op_ret = 0;
 out:
         SET_TO_OLD_FS_ID ();
@@ -1369,6 +1388,8 @@ posix_open (call_frame_t *frame, xlator_t *this,
                         "open on %s, flags: %d", real_path, flags);
                 goto out;
         }
+
+        posix_set_ctime (frame, this, real_path, -1, loc->inode, &stbuf);
 
         pfd = GF_CALLOC (1, sizeof (*pfd), gf_posix_mt_posix_fd);
         if (!pfd) {
@@ -1510,6 +1531,8 @@ posix_readv (call_frame_t *frame, xlator_t *this,
                         "fstat failed on fd=%p", fd);
                 goto out;
         }
+
+        posix_set_ctime (frame, this, NULL, pfd->fd, fd->inode, &stbuf);
 
         /* Hack to notify higher layers of EOF. */
         if (!stbuf.ia_size || (offset + vec.iov_len) >= stbuf.ia_size)
@@ -1807,6 +1830,8 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                         fd);
                 goto out;
         }
+
+        posix_set_ctime (frame, this, NULL, pfd->fd, fd->inode, &postop);
 
         if (locked) {
                 pthread_mutex_unlock (&ctx->write_atomic_lock);
@@ -2893,6 +2918,13 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        ret = posix_handle_mdata_xattr (frame, name, &op_errno);
+        if (ret == -1) {
+                op_ret = -1;
+                /* errno should be set from the above function*/
+                goto out;
+        }
+
         if (name && posix_is_gfid2path_xattr (name)) {
                 op_ret = -1;
                 op_errno = ENOATTR;
@@ -3280,6 +3312,11 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 if (ret == -1)
                         goto ignore;
 
+                ret = posix_handle_mdata_xattr (frame, keybuffer, &op_errno);
+                if (ret == -1) {
+                        goto ignore;
+                }
+
                 if (posix_is_gfid2path_xattr (keybuffer)) {
                         goto ignore;
                 }
@@ -3663,14 +3700,15 @@ out:
 
 static int
 _handle_fsetxattr_keyvalue_pair (dict_t *d, char *k, data_t *v,
-                                void *tmp)
+                                 void *tmp)
 {
         posix_xattr_filler_t *filler = NULL;
 
         filler = tmp;
 
-        return posix_fhandle_pair (filler->this, filler->fdnum, k, v,
-                                   filler->flags, filler->stbuf);
+        return posix_fhandle_pair (filler->frame, filler->this, filler->fdnum,
+                                   k, v, filler->flags, filler->stbuf,
+                                   filler->fd);
 }
 
 int32_t
@@ -3720,7 +3758,9 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
 
         filler.fdnum = _fd;
         filler.this = this;
+        filler.frame = frame;
         filler.stbuf = &stbuf;
+        filler.fd = fd;
 #ifdef GF_DARWIN_HOST_OS
         filler.flags = map_xattr_flags(flags);
 #else
@@ -3924,6 +3964,12 @@ posix_common_removexattr (call_frame_t *frame, loc_t *loc, fd_t *fd,
                         }
                         goto out;
                 }
+        }
+
+        if (loc) {
+                posix_set_ctime (frame, this, real_path, -1, inode, NULL);
+        } else {
+                posix_set_ctime (frame, this, NULL, _fd, inode, NULL);
         }
 
         if (xdata && dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
@@ -5287,6 +5333,9 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
                                        (unsigned char *)checksum);
         }
         op_ret = 0;
+
+        posix_set_ctime (frame, this, NULL, _fd, fd->inode, NULL);
+
 out:
         STACK_UNWIND_STRICT (rchecksum, frame, op_ret, op_errno,
                              weak_checksum, checksum, rsp_xdata);

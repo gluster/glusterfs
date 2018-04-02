@@ -134,6 +134,14 @@ struct _call_stack {
 };
 
 
+/* call_stack flags field users */
+#define MDATA_CTIME (1<<0)
+#define MDATA_MTIME (1<<1)
+#define MDATA_ATIME (1<<2)
+#define MDATA_PAR_CTIME (1<<3)
+#define MDATA_PAR_MTIME (1<<4)
+#define MDATA_PAR_ATIME (1<<5)
+
 #define frame_set_uid_gid(frm, u, g)            \
         do {                                    \
                 if (frm) {                      \

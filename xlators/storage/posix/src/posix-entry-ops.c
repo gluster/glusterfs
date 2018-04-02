@@ -57,6 +57,7 @@
 #include "posix-aio.h"
 #include "glusterfs-acl.h"
 #include "posix-messages.h"
+#include "posix-metadata.h"
 #include "events.h"
 #include "posix-gfid-path.h"
 #include "compat-uuid.h"
@@ -492,6 +493,8 @@ ignore:
                 goto out;
         }
 
+        posix_set_ctime (frame, this, real_path, -1, loc->inode, &stbuf);
+
         op_ret = posix_pstat (this, loc->parent, loc->pargfid, par_path,
                               &postparent, _gf_false);
         if (op_ret == -1) {
@@ -501,6 +504,9 @@ ignore:
                         par_path);
                 goto out;
         }
+
+        posix_set_parent_ctime (frame, this, par_path, -1, loc->parent,
+                                &postparent);
 
         op_ret = 0;
 
@@ -808,6 +814,8 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        posix_set_ctime (frame, this, real_path, -1, loc->inode, &stbuf);
+
         op_ret = posix_pstat (this, loc->parent, loc->pargfid, par_path,
                               &postparent, _gf_false);
         if (op_ret == -1) {
@@ -817,6 +825,9 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                         real_path);
                 goto out;
         }
+
+        posix_set_parent_ctime (frame, this, par_path, -1, loc->parent,
+                                &postparent);
 
         op_ret = 0;
 
@@ -1222,6 +1233,9 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        posix_set_parent_ctime (frame, this, par_path, -1, loc->parent,
+                                &postparent);
+
         unwind_dict = posix_dict_set_nlink (xdata, unwind_dict, stbuf.ia_nlink);
         op_ret = 0;
 out:
@@ -1355,6 +1369,9 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        posix_set_parent_ctime (frame, this, par_path, -1, loc->parent,
+                                &postparent);
+
 out:
         SET_TO_OLD_FS_ID ();
 
@@ -1432,6 +1449,8 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
 
         entry_created = _gf_true;
 
+        posix_set_ctime (frame, this, real_path, -1, loc->inode, &stbuf);
+
 #ifndef HAVE_SET_FSID
         op_ret = sys_lchown (real_path, frame->root->uid, gid);
         if (op_ret == -1) {
@@ -1492,6 +1511,9 @@ ignore:
                         par_path);
                 goto out;
         }
+
+        posix_set_parent_ctime (frame, this, par_path, -1, loc->parent,
+                                &postparent);
 
         op_ret = 0;
 
@@ -1778,6 +1800,8 @@ unlock:
                 goto out;
         }
 
+        posix_set_ctime (frame, this, real_newpath, -1, newloc->inode, &stbuf);
+
         op_ret = posix_pstat (this, oldloc->parent, oldloc->pargfid,
                               par_oldpath, &postoldparent, _gf_false);
         if (op_ret == -1) {
@@ -1788,6 +1812,9 @@ unlock:
                 goto out;
         }
 
+        posix_set_parent_ctime (frame, this, par_oldpath, -1, oldloc->parent,
+                                &postoldparent);
+
         op_ret = posix_pstat (this, newloc->parent, newloc->pargfid,
                               par_newpath, &postnewparent, _gf_false);
         if (op_ret == -1) {
@@ -1797,6 +1824,9 @@ unlock:
                         par_newpath);
                 goto out;
         }
+
+        posix_set_parent_ctime (frame, this, par_newpath, -1, newloc->parent,
+                                &postnewparent);
 
         if (was_present)
                 unwind_dict = posix_dict_set_nlink (xdata, unwind_dict, nlink);
@@ -1899,6 +1929,8 @@ posix_link (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        posix_set_ctime (frame, this, real_newpath, -1, newloc->inode, &stbuf);
+
         op_ret = posix_pstat (this, newloc->parent, newloc->pargfid,
                               par_newpath, &postparent, _gf_false);
         if (op_ret == -1) {
@@ -1907,6 +1939,9 @@ posix_link (call_frame_t *frame, xlator_t *this,
                         "lstat failed: %s", par_newpath);
                 goto out;
         }
+
+        posix_set_parent_ctime (frame, this, par_newpath, -1, newloc->parent,
+                                &postparent);
 
         if (priv->update_pgfid_nlinks) {
                 MAKE_PGFID_XATTR_KEY (pgfid_xattr_key, PGFID_XATTR_KEY_PREFIX,
@@ -2120,6 +2155,8 @@ fill_stat:
                 goto out;
         }
 
+        posix_set_ctime (frame, this, real_path, -1, loc->inode, &stbuf);
+
         op_ret = posix_pstat (this, loc->parent, loc->pargfid, par_path,
                               &postparent, _gf_false);
         if (op_ret == -1) {
@@ -2129,6 +2166,9 @@ fill_stat:
                         par_path);
                 goto out;
         }
+
+        posix_set_parent_ctime (frame, this, par_path, -1, loc->parent,
+                                &postparent);
 
         op_ret = -1;
         pfd = GF_CALLOC (1, sizeof (*pfd), gf_posix_mt_posix_fd);
