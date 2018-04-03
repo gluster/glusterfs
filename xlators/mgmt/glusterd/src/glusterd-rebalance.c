@@ -195,6 +195,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         char                   volname[PATH_MAX] = {0,};
         char                   valgrind_logfile[PATH_MAX] = {0,};
         char                   *volfileserver = NULL;
+        char                   *localtime_logging = NULL;
 
         this    = THIS;
         GF_VALIDATE_OR_GOTO ("glusterd", this, out);
@@ -312,6 +313,11 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         runner_argprintf (&runner, logfile);
         if (volinfo->memory_accounting)
                 runner_add_arg (&runner, "--mem-accounting");
+        if (dict_get_str (priv->opts, GLUSTERD_LOCALTIME_LOGGING_KEY,
+                          &localtime_logging) == 0) {
+                if (strcmp (localtime_logging, "enable") == 0)
+                        runner_add_arg (&runner, "--localtime-logging");
+        }
 
         ret = runner_run_nowait (&runner);
         if (ret) {

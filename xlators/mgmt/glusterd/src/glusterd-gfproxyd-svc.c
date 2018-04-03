@@ -263,6 +263,7 @@ glusterd_gfproxydsvc_start (glusterd_svc_t *svc, int flags)
         char                 msg[1024]                  = {0,};
         char                 gfproxyd_id[PATH_MAX]      = {0,};
         glusterd_volinfo_t  *volinfo                    = NULL;
+        char                *localtime_logging          = NULL;
 
         this = THIS;
         GF_VALIDATE_OR_GOTO ("glusterd", this, out);
@@ -312,6 +313,11 @@ glusterd_gfproxydsvc_start (glusterd_svc_t *svc, int flags)
 
         if (volinfo->memory_accounting)
                 runner_add_arg (&runner, "--mem-accounting");
+        if (dict_get_str (priv->opts, GLUSTERD_LOCALTIME_LOGGING_KEY,
+                          &localtime_logging) == 0) {
+                if (strcmp (localtime_logging, "enable") == 0)
+                        runner_add_arg (&runner, "--localtime-logging");
+        }
 
         gfproxyd_port = pmap_assign_port (this, volinfo->gfproxyd.port,
                                           gfproxyd_id);
