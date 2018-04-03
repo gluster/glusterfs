@@ -150,6 +150,7 @@ glusterd_svc_start (glusterd_svc_t *svc, int flags, dict_t *cmdline)
         glusterd_conf_t     *priv                       = NULL;
         xlator_t            *this                       = NULL;
         char                 valgrind_logfile[PATH_MAX] = {0};
+        char                *localtime_logging          = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -190,6 +191,11 @@ glusterd_svc_start (glusterd_svc_t *svc, int flags, dict_t *cmdline)
                          "-S", svc->conn.sockpath,
                          NULL);
 
+        if (dict_get_str (priv->opts, GLUSTERD_LOCALTIME_LOGGING_KEY,
+                          &localtime_logging) == 0) {
+                if (strcmp (localtime_logging, "enable") == 0)
+                        runner_add_arg (&runner, "--localtime-logging");
+        }
         if (cmdline)
                 dict_foreach (cmdline, svc_add_args, (void *) &runner);
 

@@ -226,6 +226,7 @@ glusterd_snapdsvc_start (glusterd_svc_t *svc, int flags)
         char                 snapd_id[PATH_MAX]         = {0,};
         glusterd_volinfo_t  *volinfo                    = NULL;
         glusterd_snapdsvc_t *snapd                      = NULL;
+        char                *localtime_logging          = NULL;
 
         this = THIS;
         GF_ASSERT(this);
@@ -300,6 +301,11 @@ glusterd_snapdsvc_start (glusterd_svc_t *svc, int flags)
                          "-S", svc->conn.sockpath,
                          "--process-name", svc->name,
                          NULL);
+        if (dict_get_str (priv->opts, GLUSTERD_LOCALTIME_LOGGING_KEY,
+                          &localtime_logging) == 0) {
+                if (strcmp (localtime_logging, "enable") == 0)
+                        runner_add_arg (&runner, "--localtime-logging");
+        }
 
         snapd_port = pmap_assign_port (THIS, volinfo->snapd.port, snapd_id);
         if (!snapd_port) {

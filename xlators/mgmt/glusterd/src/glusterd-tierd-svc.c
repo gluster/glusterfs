@@ -259,6 +259,7 @@ glusterd_tierdsvc_start (glusterd_svc_t *svc, int flags)
         glusterd_volinfo_t  *volinfo                    = NULL;
         glusterd_tierdsvc_t *tierd                      = NULL;
         int                  cmd                        = GF_DEFRAG_CMD_START_TIER;
+        char                *localtime_logging          = NULL;
 
         this = THIS;
         GF_VALIDATE_OR_GOTO (THIS->name, this, out);
@@ -354,6 +355,11 @@ glusterd_tierdsvc_start (glusterd_svc_t *svc, int flags)
                           volinfo->rebal.commit_hash);
         if (volinfo->memory_accounting)
                 runner_add_arg (&runner, "--mem-accounting");
+        if (dict_get_str (priv->opts, GLUSTERD_LOCALTIME_LOGGING_KEY,
+                          &localtime_logging) == 0) {
+                if (strcmp (localtime_logging, "enable") == 0)
+                        runner_add_arg (&runner, "--localtime-logging");
+        }
 
         snprintf (msg, sizeof (msg),
                   "Starting the tierd service for volume %s", volinfo->volname);
