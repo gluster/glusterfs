@@ -226,7 +226,7 @@ setup_cluster()
     if [ $? -ne 0 ]; then
         logger "pcs cluster setup ${RHEL6_PCS_CNAME_OPTION} ${name} ${servers} failed"
         #set up failed stop all ganesha process and clean up symlinks in cluster
-        stop_ganesha_all ${servers}
+        stop_ganesha_all "${servers}"
         exit 1;
     fi
 
