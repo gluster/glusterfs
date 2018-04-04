@@ -1663,19 +1663,27 @@ int
 dht_rename (call_frame_t *frame, xlator_t *this,
             loc_t *oldloc, loc_t *newloc, dict_t *xdata)
 {
-        xlator_t    *src_cached = NULL;
-        xlator_t    *src_hashed = NULL;
-        xlator_t    *dst_cached = NULL;
-        xlator_t    *dst_hashed = NULL;
-        int          op_errno = -1;
-        int          ret = -1;
-        dht_local_t *local = NULL;
+        xlator_t    *src_cached             = NULL;
+        xlator_t    *src_hashed             = NULL;
+        xlator_t    *dst_cached             = NULL;
+        xlator_t    *dst_hashed             = NULL;
+        int          op_errno               = -1;
+        int          ret                    = -1;
+        dht_local_t *local                  = NULL;
+        dht_conf_t  *conf                   = NULL;
         char         gfid[GF_UUID_BUF_SIZE] = {0};
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (oldloc, err);
         VALIDATE_OR_GOTO (newloc, err);
+
+        conf = this->private;
+
+        if (conf->subvolume_cnt == 1) {
+                default_rename (frame, this, oldloc, newloc, xdata);
+                return 0;
+        }
 
         gf_uuid_unparse(oldloc->inode->gfid, gfid);
 
