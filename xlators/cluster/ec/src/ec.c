@@ -1664,7 +1664,7 @@ struct volume_options options[] =
         .type = GF_OPTION_TYPE_INT,
         .min = 0,/*Disabling stripe_cache*/
         .max = EC_STRIPE_CACHE_MAX_SIZE,
-        .default_value = "0",
+        .default_value = "4",
         .description =  "This option will keep the last stripe of write fop"
                         "in memory. If next write falls in this stripe, we need"
                         "not to read it again from backend and we can save READ"
