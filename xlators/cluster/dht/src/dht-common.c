@@ -6308,16 +6308,11 @@ dht_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                         "Failed to set dictionary value : key = %s",
                         conf->link_xattr_name);
 
-        if ((conf->defrag && conf->defrag->cmd == GF_DEFRAG_CMD_START_TIER) ||
-            (conf->defrag && conf->defrag->cmd ==
-             GF_DEFRAG_CMD_START_DETACH_TIER) ||
-            (!(conf->local_subvols_cnt) || !conf->defrag)) {
-                call_count = local->call_cnt = conf->subvolume_cnt;
-                subvolumes = conf->subvolumes;
-        } else {
-                call_count = local->call_cnt = conf->local_subvols_cnt;
-                subvolumes = conf->local_subvols;
-        }
+        /* dht_readdirp will wind to all subvols so open has to be sent to
+         * all subvols whether or not conf->local_subvols is set */
+
+        call_count = local->call_cnt = conf->subvolume_cnt;
+        subvolumes = conf->subvolumes;
 
         /* In case of parallel-readdir, the readdir-ahead will be loaded
          * below dht, in this case, if we want to enable or disable SKIP_DIRs
