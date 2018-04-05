@@ -33,6 +33,8 @@
 
 #define READDIRBUF_SIZE (sizeof(struct dirent) + GF_NAME_MAX + 1)
 
+typedef void (*glfs_io_cbk34) (glfs_fd_t *fd, ssize_t ret, void *data);
+
 /*
  * This function will mark glfd for deletion and decrement its refcount.
  */
