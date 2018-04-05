@@ -1,6 +1,6 @@
 ## Admin Guide ##
 
-The gluster administration guide is maintained at [github](https://github.com/gluster/glusterdocs). The browsable admin guide can be found [here](http://docs.gluster.org/en/latest/Administrator%20Guide/README/).
+The gluster administration guide is maintained at [github](https://github.com/gluster/glusterdocs). The browsable admin guide can be found [here](http://docs.gluster.org/en/latest/Administrator%20Guide/).
 
 The doc patch has to be sent against the above mentioned repository.
 
