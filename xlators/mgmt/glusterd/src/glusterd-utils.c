@@ -2313,7 +2313,8 @@ glusterd_brickprocess_delete (glusterd_brick_proc_t *brick_proc)
 }
 
 int
-glusterd_brick_process_remove_brick (glusterd_brickinfo_t *brickinfo)
+glusterd_brick_process_remove_brick (glusterd_brickinfo_t *brickinfo,
+                                     int *last_brick)
 {
         int                      ret = -1;
         xlator_t                *this = NULL;
@@ -2352,6 +2353,8 @@ glusterd_brick_process_remove_brick (glusterd_brickinfo_t *brickinfo)
 
                 /* If all bricks have been removed, delete the brick process */
                 if (brick_proc->brick_count == 0) {
+                        if (last_brick != NULL)
+                                *last_brick = 1;
                         ret = glusterd_brickprocess_delete (brick_proc);
                         if (ret)
                                 goto out;
@@ -2455,6 +2458,7 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
         int             ret                     = -1;
         char            *op_errstr              = NULL;
         char            pidfile[PATH_MAX]       = {0,};
+        int             last_brick              = -1;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -2467,7 +2471,7 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
 
         ret = 0;
 
-        ret = glusterd_brick_process_remove_brick (brickinfo);
+        ret = glusterd_brick_process_remove_brick (brickinfo, &last_brick);
         if (ret) {
                 gf_msg_debug (this->name, 0, "Couldn't remove brick from"
                               " brick process");
@@ -2487,7 +2491,7 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
                  * attaching and detaching bricks).  Therefore, we have to send
                  * an actual signal instead.
                  */
-                if (is_brick_mx_enabled ()) {
+                if (is_brick_mx_enabled () && last_brick != 1) {
                         gf_msg_debug (this->name, 0, "About to send detach "
                                       "request for brick %s:%s",
                                       brickinfo->hostname, brickinfo->path);
@@ -2511,7 +2515,6 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
         }
 
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, conf);
-
         gf_msg_debug (this->name,  0, "Unlinking pidfile %s", pidfile);
         (void) sys_unlink (pidfile);
 
