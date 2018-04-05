@@ -71,7 +71,6 @@ GFAPI_3.4.0 {
 		glfs_getcwd;
 		glfs_chdir;
 		glfs_fchdir;
-		glfs_realpath;
 		glfs_posix_lock;
 		glfs_dup;
 } GFAPI_PRIVATE_3.4.0;
@@ -81,7 +80,6 @@ GFAPI_3.4.2 {
 		glfs_setfsuid;
 		glfs_setfsgid;
 		glfs_setfsgroups;
-		glfs_h_lookupat;
 		glfs_h_creat;
 		glfs_h_mkdir;
 		glfs_h_mknod;

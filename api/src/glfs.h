@@ -499,7 +499,6 @@ int glfs_set_xlator_option (glfs_t *fs, const char *xlator, const char *key,
   in a common callback function.
 */
 
-typedef void (*glfs_io_cbk34) (glfs_fd_t *fd, ssize_t ret, void *data);
 typedef void (*glfs_io_cbk) (glfs_fd_t *fd, ssize_t ret, struct stat *prestat,
                              struct stat *poststat, void *data);
 
@@ -768,9 +767,6 @@ int glfs_chdir (glfs_t *fs, const char *path) __THROW
 
 int glfs_fchdir (glfs_fd_t *fd) __THROW
         GFAPI_PUBLIC(glfs_fchdir, 3.4.0);
-
-char *glfs_realpath34 (glfs_t *fs, const char *path, char *resolved_path) __THROW
-        GFAPI_PUBLIC(glfs_realpath, 3.4.0);
 
 char *glfs_realpath (glfs_t *fs, const char *path, char *resolved_path) __THROW
         GFAPI_PUBLIC(glfs_realpath, 3.7.17);
