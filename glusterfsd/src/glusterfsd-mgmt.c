@@ -174,7 +174,6 @@ glusterfs_terminate_response_send (rpcsvc_request_t *req, int op_ret)
                 ret = dict_allocate_and_serialize (dict, &rsp.output.output_val,
                                                    &rsp.output.output_len);
 
-
         if (ret == 0)
                 ret = glusterfs_submit_reply (req, &rsp, NULL, 0, NULL,
                                               (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
@@ -188,15 +187,15 @@ glusterfs_terminate_response_send (rpcsvc_request_t *req, int op_ret)
 int
 glusterfs_handle_terminate (rpcsvc_request_t *req)
 {
-        gd1_mgmt_brick_op_req   xlator_req      = {0,};
+        gd1_mgmt_brick_op_req   xlator_req            = {0,};
         ssize_t                 ret;
-        glusterfs_ctx_t         *ctx            = NULL;
-        xlator_t                *top            = NULL;
-        xlator_t                *victim         = NULL;
-        xlator_t                *tvictim        = NULL;
-        xlator_list_t           **trav_p        = NULL;
-        gf_boolean_t            lockflag        = _gf_false;
-        gf_boolean_t            last_brick      = _gf_false;
+        glusterfs_ctx_t         *ctx                  = NULL;
+        xlator_t                *top                  = NULL;
+        xlator_t                *victim               = NULL;
+        xlator_t                *tvictim              = NULL;
+        xlator_list_t           **trav_p              = NULL;
+        gf_boolean_t            lockflag              = _gf_false;
+        gf_boolean_t            still_bricks_attached = _gf_false;
 
         ret = xdr_to_generic (req->msg[0], &xlator_req,
                               (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
@@ -240,15 +239,16 @@ glusterfs_handle_terminate (rpcsvc_request_t *req)
         glusterfs_terminate_response_send (req, 0);
         for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
                 tvictim = (*trav_p)->xlator;
-                if (!tvictim->cleanup_starting && !strcmp (tvictim->name, xlator_req.name)) {
+                if (!tvictim->cleanup_starting &&
+                    !strcmp (tvictim->name, xlator_req.name)) {
                         continue;
                 }
                 if (!tvictim->cleanup_starting) {
-                        last_brick = _gf_true;
+                        still_bricks_attached = _gf_true;
                         break;
                 }
         }
-        if (!last_brick) {
+        if (!still_bricks_attached) {
                 gf_log (THIS->name, GF_LOG_INFO,
                         "terminating after loss of last child %s",
                         xlator_req.name);

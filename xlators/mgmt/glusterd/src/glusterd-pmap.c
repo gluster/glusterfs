@@ -606,7 +606,8 @@ __gluster_pmap_signout (rpcsvc_request_t *req)
                          * removed in the brick op phase. This situation would
                          * arise when the brick is killed explicitly from the
                          * backend */
-                        ret = glusterd_brick_process_remove_brick (brickinfo);
+                        ret = glusterd_brick_process_remove_brick (brickinfo,
+                                                                   NULL);
                         if (ret) {
                                 gf_msg_debug (this->name, 0, "Couldn't remove "
                                               "brick %s:%s from brick process",

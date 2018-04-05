@@ -182,7 +182,8 @@ glusterd_brick_process_add_brick (glusterd_brickinfo_t *brickinfo,
                                   glusterd_volinfo_t *volinfo);
 
 int
-glusterd_brick_process_remove_brick (glusterd_brickinfo_t *brickinfo);
+glusterd_brick_process_remove_brick (glusterd_brickinfo_t *brickinfo,
+                                     int *last_brick);
 
 int
 glusterd_brick_proc_for_port (int port, glusterd_brick_proc_t **brickprocess);
