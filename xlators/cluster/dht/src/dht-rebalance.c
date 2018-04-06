@@ -2601,6 +2601,27 @@ gf_defrag_ctx_subvols_init (dht_dfoffset_ctx_t *offset_var, xlator_t *this) {
 }
 
 
+static int
+dht_get_first_non_null_index (subvol_nodeuuids_info_t *entry)
+{
+        int      i        = 0;
+        int      index    = 0;
+
+        for (i = 0; i < entry->count; i++) {
+                if (!gf_uuid_is_null (entry->elements[i].uuid)) {
+                        index = i;
+                        goto out;
+                }
+        }
+
+        if (i == entry->count) {
+                index = -1;
+        }
+out:
+        return index;
+}
+
+
 /* Return value
  * 0 : this node does not migrate the file
  * 1 : this node migrates the file
@@ -2617,28 +2638,53 @@ gf_defrag_should_i_migrate (xlator_t *this, int local_subvol_index, uuid_t gfid)
         int         i                 = local_subvol_index;
         char       *str               = NULL;
         uint32_t    hashval           = 0;
-        int32_t     index        = 0;
+        int32_t     index             = 0;
         dht_conf_t *conf              = NULL;
         char        buf[UUID_CANONICAL_FORM_LEN + 1] = {0, };
+        subvol_nodeuuids_info_t *entry = NULL;
+
 
         conf = this->private;
 
-        /* Pure distribute */
+        /* Pure distribute. A subvol in this case
+            will be handled by only one node */
 
-        if (conf->local_nodeuuids[i].count == 1) {
+        entry = &(conf->local_nodeuuids[i]);
+        if (entry->count == 1) {
                 return 1;
         }
 
         str = uuid_utoa_r (gfid, buf);
         ret = dht_hash_compute (this, 0, str, &hashval);
         if (ret == 0) {
-                index = (hashval % conf->local_nodeuuids[i].count);
-                if (conf->local_nodeuuids[i].elements[index].info
+                index = (hashval % entry->count);
+                if (entry->elements[index].info
                                  == REBAL_NODEUUID_MINE) {
                         /* Index matches this node's nodeuuid.*/
                         ret = 1;
+                        goto out;
+                }
+
+                /* Brick down - some other node has to migrate these files*/
+                if (gf_uuid_is_null (entry->elements[index].uuid)) {
+                        /* Fall back to the first non-null index */
+                        index = dht_get_first_non_null_index (entry);
+
+                        if (index == -1) {
+                                /* None of the bricks in the subvol are up.
+                                 * CHILD_DOWN will kill the process soon */
+
+                                return 0;
+                        }
+
+                        if (entry->elements[index].info == REBAL_NODEUUID_MINE) {
+                                /* Index matches this node's nodeuuid.*/
+                                ret = 1;
+                                goto out;
+                        }
                 }
         }
+out:
         return ret;
 }
 
