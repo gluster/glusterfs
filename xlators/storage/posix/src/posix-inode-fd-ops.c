@@ -4901,14 +4901,22 @@ posix_d_type_from_ia_type (ia_type_t type)
 int
 posix_readdirp_fill (xlator_t *this, fd_t *fd, gf_dirent_t *entries, dict_t *dict)
 {
-        gf_dirent_t     *entry    = NULL;
-        inode_table_t   *itable   = NULL;
-        inode_t         *inode    = NULL;
-        char            *hpath    = NULL;
-        int              len      = 0;
-        struct iatt      stbuf    = {0, };
-        uuid_t           gfid;
-        int              ret      = -1;
+        struct posix_private    *priv              = NULL;
+        char                    *pgfid_xattr_key   = NULL;
+        posix_inode_ctx_t       *ctx               = NULL;
+        gf_dirent_t             *entry             = NULL;
+        inode_table_t           *itable            = NULL;
+        inode_t                 *inode             = NULL;
+        char                    *hpath             = NULL;
+        int                      len               = 0;
+        struct iatt              stbuf             = {0, };
+        uuid_t                   gfid;
+        int                      ret               = -1;
+        int32_t                  op_ret            = -1;
+        int32_t                  op_errno          = 0;
+        int32_t                  nlink_samepgfid   = 0;
+
+        priv = this->private;
 
         if (list_empty(&entries->list))
                 return 0;
@@ -4969,6 +4977,28 @@ posix_readdirp_fill (xlator_t *this, fd_t *fd, gf_dirent_t *entries, dict_t *dic
                                 posix_d_type_from_ia_type (stbuf.ia_type);
                 }
 #endif
+
+                if (priv->update_pgfid_nlinks && !IA_ISDIR (stbuf.ia_type)) {
+                        MAKE_PGFID_XATTR_KEY (pgfid_xattr_key,
+                                              PGFID_XATTR_KEY_PREFIX,
+                                              fd->inode->gfid);
+
+                        op_ret = posix_inode_ctx_get_all (entry->inode, this,
+                                                          &ctx);
+                        if (op_ret < 0)
+                                continue;
+
+                        pthread_mutex_lock (&ctx->pgfid_lock);
+                        {
+                                SET_PGFID_XATTR_IF_ABSENT (hpath,
+                                                           pgfid_xattr_key,
+                                                           nlink_samepgfid,
+                                                           XATTR_CREATE, op_ret,
+                                                           this, unlock);
+                        }
+unlock:
+                        pthread_mutex_unlock (&ctx->pgfid_lock);
+                }
 
                 inode = NULL;
         }
