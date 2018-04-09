@@ -4794,7 +4794,7 @@ struct volume_options options[] = {
           .description = "This option uses the value of backlog argument that "
                          "defines the maximum length to which the queue of "
                          "pending connections for socket fd may grow.",
-          .default_value = "10",
+          .default_value = "1024",
         },
         { .key   = {"transport.tcp-user-timeout"},
           .type  = GF_OPTION_TYPE_INT,
