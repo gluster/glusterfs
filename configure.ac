@@ -381,7 +381,7 @@ AC_ARG_WITH([previous-options],
         ],
         [ if test -r ./config.status && \
              args=$(grep 'ac_cs_config=' config.status | \
-                    sed -e 's/.*"\(.*\)".*/\1/'| sed -e "s/'//g") ; then
+                    sed -e 's/.*"\(.*\)".*/\1/' -e "s/'//g" -e "s/--with-previous-options//g") ; then
             echo "###"
             echo "### Rerunning as '$0 $args'"
             echo "###"
