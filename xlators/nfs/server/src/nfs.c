@@ -1635,7 +1635,7 @@ _nfs_export_is_for_vol (char *exname, char *volname)
 }
 
 int
-nfs_priv_to_dict (xlator_t *this, dict_t *dict)
+nfs_priv_to_dict (xlator_t *this, dict_t *dict, char *brickname)
 {
         int                     ret = -1;
         struct nfs_state        *priv = NULL;

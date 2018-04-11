@@ -1596,7 +1596,7 @@ cs_inodectx_to_dict (xlator_t *this,
 
 int32_t
 cs_priv_to_dict (xlator_t *this,
-        dict_t *dict)
+        dict_t *dict, char *brickname)
 {
         return 0;
 }

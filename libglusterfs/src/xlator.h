@@ -922,7 +922,8 @@ typedef int32_t (*dumpop_inodectx_t) (xlator_t *this, inode_t *ino);
 
 typedef int32_t (*dumpop_fdctx_t) (xlator_t *this, fd_t *fd);
 
-typedef int32_t (*dumpop_priv_to_dict_t) (xlator_t *this, dict_t *dict);
+typedef int32_t (*dumpop_priv_to_dict_t) (xlator_t *this, dict_t *dict,
+                 char *brickname);
 
 typedef int32_t (*dumpop_inode_to_dict_t) (xlator_t *this, dict_t *dict);
 
