@@ -6,6 +6,14 @@
 
 cleanup;
 
+function gluster_fd_status () {
+        gluster volume status $V0 fd | sed -n '/Brick :/ p' | wc -l
+}
+
+function gluster_inode_status () {
+        gluster volume status $V0 inode | sed -n '/Connection / p' | wc -l
+}
+
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume info;
@@ -20,6 +28,10 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" nfs_up_status
 
 ## Mount FUSE
 TEST $GFS -s $H0 --volfile-id $V0 $M0;
+
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "8" gluster_fd_status
+
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1024" gluster_inode_status
 
 ##Wait for connection establishment between nfs server and brick process
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;

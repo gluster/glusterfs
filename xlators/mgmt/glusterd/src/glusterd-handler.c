@@ -5222,6 +5222,10 @@ glusterd_print_client_details (FILE *fp, dict_t *dict,
         brick_req->op = GLUSTERD_BRICK_STATUS;
         brick_req->name = "";
 
+        ret = dict_set_str (dict, "brick-name", brickinfo->path);
+        if (ret)
+                goto out;
+
         ret = dict_set_int32 (dict, "cmd", GF_CLI_STATUS_CLIENTS);
         if (ret)
                 goto out;
