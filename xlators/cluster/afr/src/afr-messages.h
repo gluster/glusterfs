@@ -369,5 +369,12 @@
 */
 #define AFR_MSG_SBRAIN_FAV_CHILD_POLICY  (GLFS_COMP_BASE_AFR + 42)
 
+/*!
+ * @messageid 108025
+ * @diagnosis
+ * @recommendedaction
+*/
+#define AFR_MSG_INODE_CTX_GET_FAILED     (GLFS_COMP_BASE_AFR + 43)
+
 #define glfs_msg_end_x GLFS_MSGID_END, "Invalid: End of messages"
 #endif /* !_AFR_MESSAGES_H_ */
