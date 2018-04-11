@@ -921,7 +921,7 @@ fuse_root_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 void
 fuse_getattr_resume (fuse_state_t *state)
 {
-        if (!state->loc.inode) {
+        if (!state->loc.inode && !(state->fd && state->fd->inode)) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "%"PRIu64": GETATTR %"PRIu64" (%s) resolution failed",
                         state->finh->unique, state->finh->nodeid,
@@ -932,9 +932,9 @@ fuse_getattr_resume (fuse_state_t *state)
                 return;
         }
 
-        if (!IA_ISDIR (state->loc.inode->ia_type)) {
-                if (state->fd == NULL)
-                        state->fd = fd_lookup (state->loc.inode, state->finh->pid);
+        if (state->fd == NULL && !IA_ISDIR (state->loc.inode->ia_type)) {
+                state->fd = fd_lookup (state->loc.inode, state->finh->pid);
+
                 if (state->fd == NULL)
                         state->fd = fd_lookup (state->loc.inode, 0);
         }
@@ -976,7 +976,10 @@ fuse_getattr (xlator_t *this, fuse_in_header_t *finh, void *msg,
                 state->fd = fd_ref ((fd_t *)fgi->fh);
 #endif
 
-        fuse_resolve_inode_init (state, &state->resolve, state->finh->nodeid);
+        if (state->fd)
+                fuse_resolve_fd_init (state, &state->resolve, state->fd);
+        else
+                fuse_resolve_inode_init (state, &state->resolve, state->finh->nodeid);
 
         fuse_resolve_and_resume (state, fuse_getattr_resume);
 }

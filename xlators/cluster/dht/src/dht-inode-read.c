@@ -400,8 +400,8 @@ dht_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 
         layout = local->layout;
         if (!layout) {
-                gf_msg_debug (this->name, 0,
-                              "no layout for fd=%p", fd);
+                gf_msg (this->name, GF_LOG_ERROR, 0, 0,
+                        "no layout for fd=%p", fd);
                 op_errno = EINVAL;
                 goto err;
         }
