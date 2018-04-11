@@ -744,10 +744,13 @@ gf_client_dump_fdtables_to_dict (xlator_t *this, dict_t *dict)
                             clienttable->cliententries[count].next_free)
                                 continue;
                         client = clienttable->cliententries[count].client;
-                        memset(key, 0, sizeof key);
-                        snprintf (key, sizeof key, "conn%d", count++);
-                        fdtable_dump_to_dict (client->server_ctx.fdtable,
-                                              key, dict);
+                        if (!strcmp (client->bound_xl->name, this->name)) {
+                                memset(key, 0, sizeof (key));
+                                snprintf (key, sizeof (key), "conn%d", count++);
+                                fdtable_dump_to_dict (client->server_ctx.
+                                                      fdtable,
+                                                      key, dict);
+                        }
                 }
         }
         UNLOCK(&clienttable->lock);
@@ -860,25 +863,30 @@ gf_client_dump_inodes_to_dict (xlator_t *this, dict_t *dict)
                             clienttable->cliententries[count].next_free)
                                 continue;
                         client = clienttable->cliententries[count].client;
-                        memset(key, 0, sizeof key);
-                        if (client->bound_xl && client->bound_xl->itable) {
-                                /* Presently every brick contains only
-                                 * one bound_xl for all connections.
-                                 * This will lead to duplicating of
-                                 *  the inode lists, if listing is
-                                 * done for every connection. This
-                                 * simple check prevents duplication
-                                 * in the present case. If need arises
-                                 * the check can be improved.
-                                 */
-                                if (client->bound_xl == prev_bound_xl)
-                                        continue;
-                                prev_bound_xl = client->bound_xl;
+                        if (!strcmp (client->bound_xl->name, this->name)) {
+                                memset(key, 0, sizeof (key));
+                                if (client->bound_xl && client->bound_xl->
+                                                itable) {
+                                        /* Presently every brick contains only
+                                         * one bound_xl for all connections.
+                                         * This will lead to duplicating of
+                                         *  the inode lists, if listing is
+                                         * done for every connection. This
+                                         * simple check prevents duplication
+                                         * in the present case. If need arises
+                                         * the check can be improved.
+                                         */
+                                        if (client->bound_xl == prev_bound_xl)
+                                                continue;
+                                        prev_bound_xl = client->bound_xl;
 
-                                memset (key, 0, sizeof (key));
-                                snprintf (key, sizeof (key), "conn%d", count);
-                                inode_table_dump_to_dict (client->bound_xl->itable,
-                                                          key, dict);
+                                        memset (key, 0, sizeof (key));
+                                        snprintf (key, sizeof (key), "conn%d",
+                                                        count);
+                                        inode_table_dump_to_dict (client->
+                                                        bound_xl->itable,
+                                                        key, dict);
+                                }
                         }
                 }
         }

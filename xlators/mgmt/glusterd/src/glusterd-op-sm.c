@@ -615,6 +615,9 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
                         goto out;
                 brick_req->op = GLUSTERD_BRICK_STATUS;
                 brick_req->name = "";
+                ret = dict_set_str (dict, "brick-name", brickinfo->path);
+                if (ret)
+                        goto out;
         }
                 break;
         case GD_OP_REBALANCE:

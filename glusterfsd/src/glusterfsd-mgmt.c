@@ -1119,14 +1119,14 @@ glusterfs_handle_brick_status (rpcsvc_request_t *req)
         glusterfs_ctx_t         *ctx = NULL;
         glusterfs_graph_t       *active = NULL;
         xlator_t                *this = NULL;
-        xlator_t                *any = NULL;
-        xlator_t                *xlator = NULL;
+        xlator_t                *server_xl = NULL;
+        xlator_t                *brick_xl = NULL;
         dict_t                  *dict = NULL;
         dict_t                  *output = NULL;
-        char                    *volname = NULL;
         char                    *xname = NULL;
         uint32_t                cmd = 0;
         char                    *msg = NULL;
+        char                    *brickname = NULL;
 
         GF_ASSERT (req);
         this = THIS;
@@ -1154,31 +1154,25 @@ glusterfs_handle_brick_status (rpcsvc_request_t *req)
                 goto out;
         }
 
-        ret = dict_get_str (dict, "volname", &volname);
+        ret = dict_get_str (dict, "brick-name", &brickname);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Couldn't get volname");
+                gf_log (this->name, GF_LOG_ERROR, "Couldn't get brickname from"
+                        " dict");
                 goto out;
         }
 
         ctx = glusterfsd_ctx;
         GF_ASSERT (ctx);
         active = ctx->active;
-        any = active->first;
+        server_xl = active->first;
 
-        ret = gf_asprintf (&xname, "%s-server", volname);
-        if (-1 == ret) {
-                gf_log (this->name, GF_LOG_ERROR, "Out of memory");
-                goto out;
-        }
-
-        xlator = xlator_search_by_name (any, xname);
-        if (!xlator) {
+        brick_xl = get_xlator_by_name (server_xl, brickname);
+        if (!brick_xl) {
                 gf_log (this->name, GF_LOG_ERROR, "xlator %s is not loaded",
                         xname);
                 ret = -1;
                 goto out;
         }
-
 
         output = dict_new ();
         switch (cmd & GF_CLI_STATUS_MASK) {
@@ -1190,15 +1184,17 @@ glusterfs_handle_brick_status (rpcsvc_request_t *req)
 
                 case GF_CLI_STATUS_CLIENTS:
                 case GF_CLI_STATUS_CLIENT_LIST:
-                        ret = xlator->dumpops->priv_to_dict (xlator, output);
+                        ret = server_xl->dumpops->priv_to_dict (server_xl,
+                                        output, brickname);
                         break;
 
                 case GF_CLI_STATUS_INODE:
-                        ret = xlator->dumpops->inode_to_dict (xlator, output);
+                        ret = server_xl->dumpops->inode_to_dict (brick_xl,
+                                                                 output);
                         break;
 
                 case GF_CLI_STATUS_FD:
-                        ret = xlator->dumpops->fd_to_dict (xlator, output);
+                        ret = server_xl->dumpops->fd_to_dict (brick_xl, output);
                         break;
 
                 case GF_CLI_STATUS_CALLPOOL:
@@ -1374,7 +1370,7 @@ glusterfs_handle_node_status (rpcsvc_request_t *req)
                                         "Error setting volname to dict");
                                 goto out;
                         }
-                        ret = node->dumpops->priv_to_dict (node, output);
+                        ret = node->dumpops->priv_to_dict (node, output, NULL);
                         break;
 
                 case GF_CLI_STATUS_INODE:

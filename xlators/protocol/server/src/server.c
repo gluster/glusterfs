@@ -167,7 +167,7 @@ ret:
 
 
 int
-server_priv_to_dict (xlator_t *this, dict_t *dict)
+server_priv_to_dict (xlator_t *this, dict_t *dict, char *brickname)
 {
         server_conf_t   *conf = NULL;
         rpc_transport_t *xprt = NULL;
@@ -187,47 +187,55 @@ server_priv_to_dict (xlator_t *this, dict_t *dict)
         pthread_mutex_lock (&conf->mutex);
         {
                 list_for_each_entry (xprt, &conf->xprt_list, list) {
-                        peerinfo = &xprt->peerinfo;
-                        memset (key, 0, sizeof (key));
-                        snprintf (key, sizeof (key), "client%d.hostname",
-                                  count);
-                        ret = dict_set_str (dict, key, peerinfo->identifier);
-                        if (ret)
-                                goto unlock;
+                        if (!strcmp (brickname,
+                                     xprt->xl_private->bound_xl->name)) {
+                                peerinfo = &xprt->peerinfo;
+                                memset (key, 0, sizeof (key));
+                                snprintf (key, sizeof (key),
+                                          "client%d.hostname",
+                                          count);
+                                ret = dict_set_str (dict, key,
+                                                    peerinfo->identifier);
+                                if (ret)
+                                        goto unlock;
 
-                        memset (key, 0, sizeof (key));
-                        snprintf (key, sizeof (key), "client%d.bytesread",
-                                  count);
-                        ret = dict_set_uint64 (dict, key,
-                                               xprt->total_bytes_read);
-                        if (ret)
-                                goto unlock;
+                                memset (key, 0, sizeof (key));
+                                snprintf (key, sizeof (key),
+                                          "client%d.bytesread",
+                                          count);
+                                ret = dict_set_uint64 (dict, key,
+                                                xprt->total_bytes_read);
+                                if (ret)
+                                        goto unlock;
 
-                        memset (key, 0, sizeof (key));
-                        snprintf (key, sizeof (key), "client%d.byteswrite",
-                                  count);
-                        ret = dict_set_uint64 (dict, key,
-                                               xprt->total_bytes_write);
-                        if (ret)
-                                goto unlock;
+                                memset (key, 0, sizeof (key));
+                                snprintf (key, sizeof (key),
+                                          "client%d.byteswrite",
+                                          count);
+                                ret = dict_set_uint64 (dict, key,
+                                                xprt->total_bytes_write);
+                                if (ret)
+                                        goto unlock;
 
-                        memset (key, 0, sizeof (key));
-                        snprintf (key, sizeof (key), "client%d.opversion",
-                                  count);
-                        ret = dict_set_uint32 (dict, key,
-                                               peerinfo->max_op_version);
-                        if (ret)
-                                goto unlock;
+                                memset (key, 0, sizeof (key));
+                                snprintf (key, sizeof (key),
+                                          "client%d.opversion",
+                                          count);
+                                ret = dict_set_uint32 (dict, key,
+                                                peerinfo->max_op_version);
+                                if (ret)
+                                        goto unlock;
 
-                        memset (key, 0, sizeof (key));
-                        snprintf (key, sizeof (key), "client%d.name",
-                                  count);
-                        ret = dict_set_str (dict, key,
-                                               xprt->xl_private->client_name);
-                        if (ret)
-                                goto unlock;
+                                memset (key, 0, sizeof (key));
+                                snprintf (key, sizeof (key), "client%d.name",
+                                          count);
+                                ret = dict_set_str (dict, key,
+                                                xprt->xl_private->client_name);
+                                if (ret)
+                                        goto unlock;
 
-                        count++;
+                                count++;
+                        }
                 }
         }
 unlock:
