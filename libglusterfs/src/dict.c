@@ -207,16 +207,16 @@ are_dicts_equal (dict_t *one, dict_t *two,
         if (!match)
                 match = dict_match_everything;
 
+        if ((one == NULL) || (two == NULL)) {
+                num_matches1 = dict_foreach_match(one ? one : two, match, NULL,
+                                                  dict_null_foreach_fn, NULL);
+                goto done;
+        }
+
         cmp.dict = two;
         cmp.value_ignore = value_ignore;
-        if (!two) {
-                num_matches1 = dict_foreach_match (one, match, NULL,
-                                                   dict_null_foreach_fn, NULL);
-                goto done;
-        } else {
-                num_matches1 = dict_foreach_match (one, match, NULL,
-                                                   key_value_cmp, &cmp);
-        }
+        num_matches1 = dict_foreach_match (one, match, NULL, key_value_cmp,
+                                           &cmp);
 
         if (num_matches1 == -1)
                 return _gf_false;
