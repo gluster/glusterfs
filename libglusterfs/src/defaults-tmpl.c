@@ -122,6 +122,7 @@ default_release (xlator_t *this, fd_t *fd)
 int
 default_notify (xlator_t *this, int32_t event, void *data, ...)
 {
+        GF_UNUSED int ret = 0;
         switch (event) {
         case GF_EVENT_PARENT_UP:
         case GF_EVENT_PARENT_DOWN:
@@ -179,7 +180,7 @@ default_notify (xlator_t *this, int32_t event, void *data, ...)
 
                 while (parent) {
                         if (parent->xlator->init_succeeded)
-                                xlator_notify (parent->xlator, event,
+                                XLATOR_NOTIFY (ret, parent->xlator, event,
                                                this, data);
                         parent = parent->next;
                 }

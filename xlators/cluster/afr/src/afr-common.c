@@ -4643,6 +4643,8 @@ afr_priv_dump (xlator_t *this)
                 gf_proc_dump_write(key, "%s", priv->pending_key[i]);
                 sprintf (key, "pending_reads[%d]", i);
                 gf_proc_dump_write(key, "%"PRId64, GF_ATOMIC_GET(priv->pending_reads[i]));
+                sprintf (key, "child_latency[%d]", i);
+                gf_proc_dump_write(key, "%"PRId64, priv->child_latency[i]);
         }
         gf_proc_dump_write("data_self_heal", "%s", priv->data_self_heal);
         gf_proc_dump_write("metadata_self_heal", "%d", priv->metadata_self_heal);
