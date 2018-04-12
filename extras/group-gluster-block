@@ -16,3 +16,4 @@ features.shard=on
 features.shard-block-size=64MB
 user.cifs=off
 server.allow-insecure=on
+cluster.choose-local=off

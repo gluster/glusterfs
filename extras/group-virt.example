@@ -12,3 +12,4 @@ cluster.shd-max-threads=8
 cluster.shd-wait-qlength=10000
 features.shard=on
 user.cifs=off
+cluster.choose-local=off
