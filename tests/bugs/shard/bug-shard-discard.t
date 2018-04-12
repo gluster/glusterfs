@@ -5,6 +5,12 @@
 
 cleanup
 
+FILE_COUNT_TIME=5
+
+function get_shard_count {
+    ls $1/$2.* | wc -l
+}
+
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0..3}
@@ -42,14 +48,11 @@ EXPECT_NOT "1" file_all_zeroes `find $B0 -name $gfid_foo.1`
 
 # Now unlink the file. And ensure that all shards associated with the file are cleaned up
 TEST unlink $M0/foo
-#TEST ! stat $B0/${V0}0/.shard/$gfid_foo.1
-#TEST ! stat $B0/${V0}1/.shard/$gfid_foo.1
-#TEST ! stat $B0/${V0}2/.shard/$gfid_foo.1
-#TEST ! stat $B0/${V0}3/.shard/$gfid_foo.1
-#TEST ! stat $B0/${V0}0/.shard/$gfid_foo.2
-#TEST ! stat $B0/${V0}1/.shard/$gfid_foo.2
-#TEST ! stat $B0/${V0}2/.shard/$gfid_foo.2
-#TEST ! stat $B0/${V0}3/.shard/$gfid_foo.2
+
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_shard_count $B0/${V0}0/.shard $gfid_foo
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_shard_count $B0/${V0}1/.shard $gfid_foo
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_shard_count $B0/${V0}2/.shard $gfid_foo
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_shard_count $B0/${V0}3/.shard $gfid_foo
 TEST ! stat $M0/foo
 
 #clean up everything

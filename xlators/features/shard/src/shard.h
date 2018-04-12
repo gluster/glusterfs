@@ -130,9 +130,9 @@ shard_unlock_entrylk (call_frame_t *frame, xlator_t *this);
                               sizeof (*__bs));                                \
         if (__ret) {                                                          \
                 gf_msg (this->name, GF_LOG_WARNING, 0,                        \
-                        SHARD_MSG_DICT_SET_FAILED, "Failed to set key: %s "   \
+                        SHARD_MSG_DICT_OP_FAILED, "Failed to set key: %s "    \
                         "on path %s", GF_XATTR_SHARD_BLOCK_SIZE, (loc)->path);\
-                GF_FREE (__bs);                                               \
+                        GF_FREE (__bs);                                       \
                 goto label;                                                   \
         }                                                                     \
                                                                               \
@@ -144,7 +144,7 @@ shard_unlock_entrylk (call_frame_t *frame, xlator_t *this);
                               __size_attr, 8 * 4);                            \
         if (__ret) {                                                          \
                 gf_msg (this->name, GF_LOG_WARNING, 0,                        \
-                        SHARD_MSG_DICT_SET_FAILED, "Failed to set key: %s "   \
+                        SHARD_MSG_DICT_OP_FAILED, "Failed to set key: %s "   \
                         "on path %s", GF_XATTR_SHARD_FILE_SIZE, (loc)->path);   \
                 GF_FREE (__size_attr);                                        \
                 goto label;                                                   \
@@ -160,7 +160,7 @@ shard_unlock_entrylk (call_frame_t *frame, xlator_t *this);
                 local->op_ret = -1;                                           \
                 local->op_errno = ENOMEM;                                     \
                 gf_msg (this->name, GF_LOG_WARNING, 0,                        \
-                        SHARD_MSG_DICT_SET_FAILED, "Failed to set dict value:"\
+                        SHARD_MSG_DICT_OP_FAILED, "Failed to set dict value:"\
                         " key:%s for %s.", GF_XATTR_SHARD_FILE_SIZE,          \
                         uuid_utoa (gfid));                                    \
                 goto label;                                                   \
@@ -197,6 +197,12 @@ shard_unlock_entrylk (call_frame_t *frame, xlator_t *this);
                 }                                                             \
         } while (0)
 
+typedef enum {
+        SHARD_FIRST_LOOKUP_PENDING = 0,
+        SHARD_FIRST_LOOKUP_IN_PROGRESS,
+        SHARD_FIRST_LOOKUP_DONE,
+} shard_first_lookup_state_t;
+
 /* rm = "remove me" */
 
 typedef struct shard_priv {
@@ -208,6 +214,8 @@ typedef struct shard_priv {
         gf_lock_t lock;
         int inode_count;
         struct list_head ilist_head;
+        uint32_t deletion_rate;
+        shard_first_lookup_state_t first_lookup;
 } shard_priv_t;
 
 typedef struct {
@@ -303,6 +311,9 @@ typedef struct shard_local {
         call_frame_t *main_frame;
         call_frame_t *inodelk_frame;
         call_frame_t *entrylk_frame;
+        uint32_t deletion_rate;
+        gf_boolean_t cleanup_required;
+        uuid_t base_gfid;
 } shard_local_t;
 
 typedef struct shard_inode_ctx {

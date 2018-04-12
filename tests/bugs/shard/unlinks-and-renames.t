@@ -9,6 +9,12 @@ cleanup
 # and rename fops in sharding and make sure they work fine.
 #
 
+FILE_COUNT_TIME=5
+
+function get_file_count {
+    ls $1* | wc -l
+}
+
 #################################################
 ################### UNLINK ######################
 #################################################
@@ -36,13 +42,8 @@ gfid_foo=$(get_gfid_string $M0/dir/foo)
 TEST unlink $M0/dir/foo
 TEST stat $B0/${V0}0/.shard/.remove_me
 TEST stat $B0/${V0}1/.shard/.remove_me
-TEST stat $B0/${V0}0/.shard/.remove_me/$gfid_foo
-TEST stat $B0/${V0}1/.shard/.remove_me/$gfid_foo
-
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_foo
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_foo
-EXPECT "0000000000500000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_foo
-EXPECT "0000000000500000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_foo
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_foo
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_foo
 
 ##################################################
 ##### Unlink of a sharded file without holes #####
@@ -56,20 +57,14 @@ TEST stat $B0/${V0}1/.shard/$gfid_new.1
 TEST stat $B0/${V0}0/.shard/$gfid_new.2
 TEST stat $B0/${V0}1/.shard/$gfid_new.2
 TEST unlink $M0/dir/new
-#TEST ! stat $B0/${V0}0/.shard/$gfid_new.1
-#TEST ! stat $B0/${V0}1/.shard/$gfid_new.1
-#TEST ! stat $B0/${V0}0/.shard/$gfid_new.2
-#TEST ! stat $B0/${V0}1/.shard/$gfid_new.2
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/$gfid_new
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/$gfid_new
 TEST ! stat $M0/dir/new
 TEST ! stat $B0/${V0}0/dir/new
 TEST ! stat $B0/${V0}1/dir/new
-TEST stat $B0/${V0}0/.shard/.remove_me/$gfid_new
-TEST stat $B0/${V0}1/.shard/.remove_me/$gfid_new
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_new
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_new
 
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_new
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_new
-EXPECT "0000000000900000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_new
-EXPECT "0000000000900000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_new
 #######################################
 ##### Unlink with /.shard present #####
 #######################################
@@ -83,13 +78,8 @@ TEST unlink $M0/dir/foo
 TEST ! stat $B0/${V0}0/dir/foo
 TEST ! stat $B0/${V0}1/dir/foo
 TEST ! stat $M0/dir/foo
-TEST stat $B0/${V0}0/.shard/.remove_me/$gfid_foo
-TEST stat $B0/${V0}1/.shard/.remove_me/$gfid_foo
-
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_foo
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_foo
-EXPECT "0000000000500000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_foo
-EXPECT "0000000000500000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_foo
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_foo
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_foo
 
 #############################################################
 ##### Unlink of a file with only one block (the zeroth) #####
@@ -102,13 +92,9 @@ TEST unlink $M0/dir/foo
 TEST ! stat $B0/${V0}0/dir/foo
 TEST ! stat $B0/${V0}1/dir/foo
 TEST ! stat $M0/dir/foo
-TEST stat $B0/${V0}0/.shard/.remove_me/$gfid_foo
-TEST stat $B0/${V0}1/.shard/.remove_me/$gfid_foo
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_foo
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_foo
 
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_foo
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_foo
-EXPECT "0000000000100000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_foo
-EXPECT "0000000000100000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_foo
 ####################################################
 ##### Unlink of a sharded file with hard-links #####
 ####################################################
@@ -137,21 +123,14 @@ TEST stat $B0/${V0}0/link
 TEST stat $B0/${V0}1/link
 # Now delete the last link.
 TEST unlink $M0/link
-TEST stat $B0/${V0}0/.shard/.remove_me/$gfid_original
-TEST stat $B0/${V0}1/.shard/.remove_me/$gfid_original
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_original
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_original
 # Ensure that the shards are all cleaned up.
-#TEST ! stat $B0/${V0}0/.shard/$gfid_original.1
-#TEST ! stat $B0/${V0}1/.shard/$gfid_original.1
-#TEST ! stat $B0/${V0}0/.shard/$gfid_original.2
-#TEST ! stat $B0/${V0}1/.shard/$gfid_original.2
-#TEST ! stat $M0/link
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/$gfid_original
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/$gfid_original
+TEST ! stat $M0/link
 TEST ! stat $B0/${V0}0/link
 TEST ! stat $B0/${V0}1/link
-
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_original
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_original
-EXPECT "0000000000900000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_original
-EXPECT "0000000000900000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_original
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
@@ -190,13 +169,8 @@ TEST ! stat $B0/${V0}0/dir/src
 TEST ! stat $B0/${V0}1/dir/src
 TEST   stat $B0/${V0}0/dir/dst
 TEST   stat $B0/${V0}1/dir/dst
-TEST stat $B0/${V0}0/.shard/.remove_me/$gfid_dst
-TEST stat $B0/${V0}1/.shard/.remove_me/$gfid_dst
-
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
-EXPECT "0000000000500000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
-EXPECT "0000000000500000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_dst
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_dst
 
 ##################################################
 ##### Rename to a sharded file without holes #####
@@ -212,23 +186,16 @@ TEST stat $B0/${V0}1/.shard/$gfid_dst.1
 TEST stat $B0/${V0}0/.shard/$gfid_dst.2
 TEST stat $B0/${V0}1/.shard/$gfid_dst.2
 TEST mv -f $M0/dir/src $M0/dir/dst
-#TEST ! stat $B0/${V0}0/.shard/$gfid_dst.1
-#TEST ! stat $B0/${V0}1/.shard/$gfid_dst.1
-#TEST ! stat $B0/${V0}0/.shard/$gfid_dst.2
-#TEST ! stat $B0/${V0}1/.shard/$gfid_dst.2
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/$gfid_dst
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/$gfid_dst
 TEST ! stat $M0/dir/src
 TEST   stat $M0/dir/dst
 TEST ! stat $B0/${V0}0/dir/src
 TEST ! stat $B0/${V0}1/dir/src
 TEST   stat $B0/${V0}0/dir/dst
 TEST   stat $B0/${V0}1/dir/dst
-TEST stat $B0/${V0}0/.shard/.remove_me/$gfid_dst
-TEST stat $B0/${V0}1/.shard/.remove_me/$gfid_dst
-
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
-EXPECT "0000000000900000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
-EXPECT "0000000000900000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_dst
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_dst
 
 ###################################################
 ##### Rename of dst file with /.shard present #####
@@ -245,13 +212,8 @@ TEST ! stat $B0/${V0}0/dir/src
 TEST ! stat $B0/${V0}1/dir/src
 TEST   stat $B0/${V0}0/dir/dst
 TEST   stat $B0/${V0}1/dir/dst
-TEST stat $B0/${V0}0/.shard/.remove_me/$gfid_dst
-TEST stat $B0/${V0}1/.shard/.remove_me/$gfid_dst
-
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
-EXPECT "0000000000500000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
-EXPECT "0000000000500000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_dst
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_dst
 
 ###############################################################
 ##### Rename of dst file with only one block (the zeroth) #####
@@ -268,13 +230,8 @@ TEST ! stat $B0/${V0}0/dir/src
 TEST ! stat $B0/${V0}1/dir/src
 TEST   stat $B0/${V0}0/dir/dst
 TEST   stat $B0/${V0}1/dir/dst
-TEST stat $B0/${V0}0/.shard/.remove_me/$gfid_dst
-TEST stat $B0/${V0}1/.shard/.remove_me/$gfid_dst
-
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
-EXPECT "0000000000100000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
-EXPECT "0000000000100000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_dst
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_dst
 
 ########################################################
 ##### Rename to a dst sharded file with hard-links #####
@@ -307,20 +264,18 @@ TEST ! stat $B0/${V0}1/.shard/.remove_me/$gfid_dst
 TEST touch $M0/dir/src2
 TEST mv -f $M0/dir/src2 $M0/link
 # Ensure that the shards are all cleaned up.
-#TEST ! stat $B0/${V0}0/.shard/$gfid_dst.1
-#TEST ! stat $B0/${V0}1/.shard/$gfid_dst.1
-#TEST ! stat $B0/${V0}0/.shard/$gfid_dst.2
-#TEST ! stat $B0/${V0}1/.shard/$gfid_dst.2
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/$gfid_dst
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/$gfid_dst
+TEST ! stat $B0/${V0}0/.shard/$gfid_dst.1
+TEST ! stat $B0/${V0}1/.shard/$gfid_dst.1
+TEST ! stat $B0/${V0}0/.shard/$gfid_dst.2
+TEST ! stat $B0/${V0}1/.shard/$gfid_dst.2
 TEST ! stat $M0/dir/src2
 TEST ! stat $B0/${V0}0/dir/src2
 TEST ! stat $B0/${V0}1/dir/src2
-TEST stat $B0/${V0}0/.shard/.remove_me/$gfid_dst
-TEST stat $B0/${V0}1/.shard/.remove_me/$gfid_dst
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_dst
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_dst
 
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
-EXPECT "0000000000900000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
-EXPECT "0000000000900000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
 # Rename with non-existent dst and a sharded src
 TEST touch $M0/dir/src
 TEST dd if=/dev/zero of=$M0/dir/src bs=1024 count=9216

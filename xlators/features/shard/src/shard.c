@@ -677,7 +677,8 @@ __shard_update_shards_inode_list (inode_t *linked_inode, xlator_t *this,
                          * keep it alive by holding a ref on it.
                          */
                         inode_ref (linked_inode);
-                        gf_uuid_copy (ctx->base_gfid, base_inode->gfid);
+                        if (base_inode)
+                                gf_uuid_copy (ctx->base_gfid, base_inode->gfid);
                         ctx->block_num = block_num;
                         list_add_tail (&ctx->ilist, &priv->ilist_head);
                         priv->inode_count++;
@@ -738,7 +739,8 @@ __shard_update_shards_inode_list (inode_t *linked_inode, xlator_t *this,
                          * keep it alive by holding a ref on it.
                          */
                         inode_ref (linked_inode);
-                        gf_uuid_copy (ctx->base_gfid, base_inode->gfid);
+                        if (base_inode)
+                                gf_uuid_copy (ctx->base_gfid, base_inode->gfid);
                         ctx->block_num = block_num;
                         ctx->base_inode = base_inode;
                         list_add_tail (&ctx->ilist, &priv->ilist_head);
@@ -977,6 +979,7 @@ shard_common_resolve_shards (call_frame_t *frame, xlator_t *this,
         int                   i              = -1;
         uint32_t              shard_idx_iter = 0;
         char                  path[PATH_MAX] = {0,};
+        uuid_t                gfid           = {0,};
         inode_t              *inode          = NULL;
         inode_t              *res_inode      = NULL;
         inode_t              *fsync_inode    = NULL;
@@ -988,6 +991,10 @@ shard_common_resolve_shards (call_frame_t *frame, xlator_t *this,
         local->call_count = 0;
         shard_idx_iter = local->first_block;
         res_inode = local->resolver_base_inode;
+        if (res_inode)
+                gf_uuid_copy (gfid, res_inode->gfid);
+        else
+                gf_uuid_copy (gfid, local->base_gfid);
 
         if ((local->op_ret < 0) || (local->resolve_not))
                 goto out;
@@ -1000,7 +1007,7 @@ shard_common_resolve_shards (call_frame_t *frame, xlator_t *this,
                         continue;
                 }
 
-                shard_make_block_abspath (shard_idx_iter, res_inode->gfid, path,
+                shard_make_block_abspath (shard_idx_iter, gfid, path,
                                           sizeof(path));
 
                 inode = NULL;
@@ -1147,7 +1154,7 @@ shard_update_file_size (call_frame_t *frame, xlator_t *this, fd_t *fd,
         ret = dict_set_bin (xattr_req, GF_XATTR_SHARD_FILE_SIZE, size_attr,
                             8 * 4);
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_DICT_SET_FAILED,
+                gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_DICT_OP_FAILED,
                         "Failed to set key %s into dict. gfid=%s",
                         GF_XATTR_SHARD_FILE_SIZE, uuid_utoa (inode->gfid));
                 GF_FREE (size_attr);
@@ -1376,7 +1383,7 @@ shard_lookup_internal_dir (call_frame_t *frame, xlator_t *this,
 
         ret = dict_set_gfuuid (xattr_req, "gfid-req", *gfid, false);
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_DICT_SET_FAILED,
+                gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_DICT_OP_FAILED,
                         "Failed to set gfid of %s into dict",
                         shard_internal_dir_string (type));
                 local->op_ret = -1;
@@ -1432,10 +1439,49 @@ shard_inode_ctx_update (inode_t *inode, xlator_t *this, dict_t *xdata,
 }
 
 int
+shard_delete_shards (void *opaque);
+
+int
+shard_delete_shards_cbk (int ret, call_frame_t *frame, void *data);
+
+int
+shard_start_background_deletion (xlator_t *this)
+{
+        int              ret           = 0;
+        call_frame_t    *cleanup_frame = NULL;
+
+        cleanup_frame = create_frame (this, this->ctx->pool);
+        if (!cleanup_frame) {
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                        SHARD_MSG_MEMALLOC_FAILED, "Failed to create "
+                        "new frame to delete shards");
+                return -ENOMEM;
+        }
+
+        ret = synctask_new (this->ctx->env, shard_delete_shards,
+                            shard_delete_shards_cbk, cleanup_frame,
+                            cleanup_frame);
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_WARNING, errno,
+                        SHARD_MSG_SHARDS_DELETION_FAILED,
+                        "failed to create task to do background "
+                        "cleanup of shards");
+                STACK_DESTROY (cleanup_frame->root);
+        }
+        return ret;
+}
+
+int
 shard_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, inode_t *inode,
                   struct iatt *buf, dict_t *xdata, struct iatt *postparent)
 {
+        int             ret             = 0;
+        shard_priv_t   *priv            = NULL;
+        gf_boolean_t    i_start_cleanup = _gf_false;
+
+        priv = this->private;
+
         if (op_ret < 0)
                 goto unwind;
 
@@ -1461,6 +1507,25 @@ shard_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         (void) shard_inode_ctx_update (inode, this, xdata, buf);
 
+        LOCK (&priv->lock);
+        {
+                if (priv->first_lookup == SHARD_FIRST_LOOKUP_PENDING) {
+                        priv->first_lookup = SHARD_FIRST_LOOKUP_IN_PROGRESS;
+                        i_start_cleanup = _gf_true;
+                }
+        }
+        UNLOCK (&priv->lock);
+
+        if (i_start_cleanup) {
+                ret = shard_start_background_deletion (this);
+                if (ret) {
+                        LOCK (&priv->lock);
+                        {
+                                priv->first_lookup = SHARD_FIRST_LOOKUP_PENDING;
+                        }
+                        UNLOCK (&priv->lock);
+                }
+        }
 unwind:
         SHARD_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, buf,
                             xdata, postparent);
@@ -1476,6 +1541,7 @@ shard_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         uint64_t        block_size = 0;
         shard_local_t  *local      = NULL;
 
+        this->itable = loc->inode->table;
         if (frame->root->pid != GF_CLIENT_PID_GSYNCD) {
                 SHARD_ENTRY_FOP_CHECK (loc, op_errno, err);
         }
@@ -1497,7 +1563,7 @@ shard_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                                        GF_XATTR_SHARD_BLOCK_SIZE, 0);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
-                                SHARD_MSG_DICT_SET_FAILED, "Failed to set dict"
+                                SHARD_MSG_DICT_OP_FAILED, "Failed to set dict"
                                 " value: key:%s for path %s",
                                 GF_XATTR_SHARD_BLOCK_SIZE, loc->path);
                         goto err;
@@ -1509,7 +1575,7 @@ shard_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                                        GF_XATTR_SHARD_FILE_SIZE, 8 * 4);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
-                                SHARD_MSG_DICT_SET_FAILED,
+                                SHARD_MSG_DICT_OP_FAILED,
                                 "Failed to set dict value: key:%s for path %s.",
                                 GF_XATTR_SHARD_FILE_SIZE, loc->path);
                         goto err;
@@ -1902,12 +1968,6 @@ shard_truncate_last_shard (call_frame_t *frame, xlator_t *this, inode_t *inode)
         return 0;
 }
 
-int
-shard_unlink_shards_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                            int32_t op_ret, int32_t op_errno,
-                            struct iatt *preparent, struct iatt *postparent,
-                            dict_t *xdata);
-
 void
 shard_unlink_block_inode (shard_local_t *local, int shard_block_num);
 
@@ -1942,17 +2002,17 @@ done:
 int
 shard_truncate_htol (call_frame_t *frame, xlator_t *this, inode_t *inode)
 {
-        int i = 1;
-        int ret = -1;
-        int call_count = 0;
-        uint32_t cur_block = 0;
-        uint32_t last_block = 0;
-        char path[PATH_MAX] = {0,};
-        char *bname = NULL;
-        loc_t loc = {0,};
-        gf_boolean_t wind_failed = _gf_false;
-        shard_local_t *local = NULL;
-        shard_priv_t *priv = NULL;
+        int             i              = 1;
+        int             ret            = -1;
+        int             call_count     = 0;
+        uint32_t        cur_block      = 0;
+        uint32_t        last_block     = 0;
+        char            path[PATH_MAX] = {0,};
+        char           *bname          = NULL;
+        loc_t           loc            = {0,};
+        gf_boolean_t    wind_failed    = _gf_false;
+        shard_local_t  *local          = NULL;
+        shard_priv_t   *priv           = NULL;
 
         local = frame->local;
         priv = this->private;
@@ -2087,6 +2147,7 @@ shard_link_block_inode (shard_local_t *local, int block_num, inode_t *inode,
 {
         int             list_index       = 0;
         char            block_bname[256] = {0,};
+        uuid_t          gfid             = {0,};
         inode_t        *linked_inode     = NULL;
         xlator_t       *this             = NULL;
         inode_t        *fsync_inode      = NULL;
@@ -2094,9 +2155,12 @@ shard_link_block_inode (shard_local_t *local, int block_num, inode_t *inode,
 
         this = THIS;
         priv = this->private;
+        if (local->loc.inode)
+                gf_uuid_copy (gfid, local->loc.inode->gfid);
+        else
+                gf_uuid_copy (gfid, local->base_gfid);
 
-        shard_make_block_bname (block_num, (local->loc.inode)->gfid,
-                                block_bname, sizeof (block_bname));
+        shard_make_block_bname (block_num, gfid, block_bname, sizeof (block_bname));
 
         shard_inode_ctx_set (inode, this, buf, 0, SHARD_LOOKUP_MASK);
         linked_inode = inode_link (inode, priv->dot_shard_inode, block_bname,
@@ -2126,9 +2190,14 @@ shard_common_lookup_shards_cbk (call_frame_t *frame, void *cookie,
 {
         int             call_count      = 0;
         int             shard_block_num = (long) cookie;
+        uuid_t          gfid            = {0,};
         shard_local_t  *local           = NULL;
 
         local = frame->local;
+        if (local->resolver_base_inode)
+                gf_uuid_copy (gfid, local->resolver_base_inode->gfid);
+        else
+                gf_uuid_copy (gfid, local->base_gfid);
 
         if (op_ret < 0) {
                 /* Ignore absence of shards in the backend in truncate fop. */
@@ -2163,9 +2232,7 @@ shard_common_lookup_shards_cbk (call_frame_t *frame, void *cookie,
                 gf_msg (this->name, GF_LOG_ERROR, op_errno,
                         SHARD_MSG_LOOKUP_SHARD_FAILED, "Lookup on shard %d "
                         "failed. Base file gfid = %s", shard_block_num,
-                        (local->fop == GF_FOP_RENAME) ?
-                        uuid_utoa (local->loc2.inode->gfid)
-                        : uuid_utoa (local->loc.inode->gfid));
+                        uuid_utoa (gfid));
                 local->op_ret = op_ret;
                 local->op_errno = op_errno;
                 goto done;
@@ -2174,24 +2241,17 @@ shard_common_lookup_shards_cbk (call_frame_t *frame, void *cookie,
         shard_link_block_inode (local, shard_block_num, inode, buf);
 
 done:
-        call_count = shard_call_count_return (frame);
         if (local->lookup_shards_barriered) {
                 syncbarrier_wake (&local->barrier);
                 return 0;
         } else {
+                call_count = shard_call_count_return (frame);
                 if (call_count == 0) {
                         if (!local->first_lookup_done)
                                 local->first_lookup_done = _gf_true;
-                        if (local->op_ret < 0)
-                                goto unwind;
-                        else
-                                local->pls_fop_handler (frame, this);
+                        local->pls_fop_handler (frame, this);
                 }
         }
-        return 0;
-
-unwind:
-        local->pls_fop_handler (frame, this);
         return 0;
 }
 
@@ -2238,6 +2298,7 @@ shard_common_lookup_shards (call_frame_t *frame, xlator_t *this, inode_t *inode,
         int            last_block     = 0;
         char           path[PATH_MAX] = {0,};
         char          *bname          = NULL;
+        uuid_t         gfid           = {0,};
         loc_t          loc            = {0,};
         shard_local_t *local          = NULL;
         shard_priv_t  *priv           = NULL;
@@ -2252,6 +2313,11 @@ shard_common_lookup_shards (call_frame_t *frame, xlator_t *this, inode_t *inode,
         local->pls_fop_handler = handler;
         if (local->lookup_shards_barriered)
                 local->barrier.waitfor = local->call_count;
+
+        if (inode)
+                gf_uuid_copy (gfid, inode->gfid);
+        else
+                gf_uuid_copy (gfid, local->base_gfid);
 
         while (shard_idx_iter <= last_block) {
                 if (local->inode_list[i]) {
@@ -2268,7 +2334,7 @@ shard_common_lookup_shards (call_frame_t *frame, xlator_t *this, inode_t *inode,
                         goto next;
                 }
 
-                shard_make_block_abspath (shard_idx_iter, inode->gfid, path,
+                shard_make_block_abspath (shard_idx_iter, gfid, path,
                                           sizeof(path));
 
                 bname = strrchr (path, '/') + 1;
@@ -2280,7 +2346,7 @@ shard_common_lookup_shards (call_frame_t *frame, xlator_t *this, inode_t *inode,
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 SHARD_MSG_INODE_PATH_FAILED, "Inode path failed"
                                 " on %s, base file gfid = %s", bname,
-                                uuid_utoa (inode->gfid));
+                                uuid_utoa (gfid));
                         local->op_ret = -1;
                         local->op_errno = ENOMEM;
                         loc_wipe (&loc);
@@ -2323,8 +2389,10 @@ next:
                 if (!--call_count)
                         break;
         }
-        if (local->lookup_shards_barriered)
+        if (local->lookup_shards_barriered) {
                 syncbarrier_wait (&local->barrier, count);
+                local->pls_fop_handler (frame, this);
+        }
         return 0;
 }
 
@@ -2780,8 +2848,9 @@ shard_post_lookup_shards_unlink_handler (call_frame_t *frame, xlator_t *this)
         local = frame->local;
 
         if ((local->op_ret < 0) && (local->op_errno != ENOENT)) {
-                shard_common_failure_unwind (local->fop, frame, local->op_ret,
-                                             local->op_errno);
+                gf_msg (this->name, GF_LOG_ERROR, local->op_errno,
+                        SHARD_MSG_FOP_FAILED, "failed to delete shards of %s",
+                        uuid_utoa (local->resolver_base_inode->gfid));
                 return 0;
         }
         local->op_ret = 0;
@@ -2792,41 +2861,12 @@ shard_post_lookup_shards_unlink_handler (call_frame_t *frame, xlator_t *this)
 }
 
 int
-shard_rename_cbk (call_frame_t *frame, xlator_t *this);
-
-int32_t
-shard_unlink_cbk (call_frame_t *frame, xlator_t *this);
-
-int
 shard_post_resolve_unlink_handler (call_frame_t *frame, xlator_t *this)
 {
         shard_local_t *local = NULL;
 
         local = frame->local;
-
-        if (local->op_ret < 0) {
-                if (local->op_errno == ENOENT) {
-                        /* If lookup on /.shard fails with ENOENT, it probably
-                         * means that the file is being unlinked before it
-                         * could grow beyond its first block. In this case,
-                         * unlink boils down to unlinking the base file and
-                         * unwinding the call.
-                         */
-                        local->op_ret = 0;
-                        local->first_block = local->last_block = 0;
-                        local->num_blocks = 1;
-                        if (local->fop == GF_FOP_UNLINK)
-                                shard_unlink_cbk (frame, this);
-                        else
-                                shard_rename_cbk (frame, this);
-                        return 0;
-                } else {
-                        shard_common_failure_unwind (local->fop, frame,
-                                                     local->op_ret,
-                                                     local->op_errno);
-                        return 0;
-                }
-        }
+        local->lookup_shards_barriered = _gf_true;
 
         if (!local->call_count)
                 shard_unlink_shards_do (frame, this,
@@ -2842,6 +2882,7 @@ void
 shard_unlink_block_inode (shard_local_t *local, int shard_block_num)
 {
         char                  block_bname[256]  = {0,};
+        uuid_t                gfid              = {0,};
         inode_t              *inode             = NULL;
         inode_t              *base_inode        = NULL;
         xlator_t             *this              = NULL;
@@ -2855,12 +2896,17 @@ shard_unlink_block_inode (shard_local_t *local, int shard_block_num)
 
         inode = local->inode_list[shard_block_num - local->first_block];
         base_inode = local->resolver_base_inode;
+        if (base_inode)
+                gf_uuid_copy (gfid, base_inode->gfid);
+        else
+                gf_uuid_copy (gfid, local->base_gfid);
 
-        shard_make_block_bname (shard_block_num, (local->loc.inode)->gfid,
+        shard_make_block_bname (shard_block_num, gfid,
                                 block_bname, sizeof (block_bname));
 
         LOCK(&priv->lock);
-        LOCK(&base_inode->lock);
+        if (base_inode)
+                LOCK(&base_inode->lock);
         LOCK(&inode->lock);
         {
                 __shard_inode_ctx_get (inode, this, &ctx);
@@ -2871,14 +2917,18 @@ shard_unlink_block_inode (shard_local_t *local, int shard_block_num)
                         unlink_unref_forget = _gf_true;
                 }
                 if (ctx->fsync_needed) {
-                        inode_unref (base_inode);
+                        if (base_inode)
+                                inode_unref (base_inode);
                         list_del_init (&ctx->to_fsync_list);
-                        __shard_inode_ctx_get (base_inode, this, &base_ictx);
-                        base_ictx->fsync_count--;
+                        if (base_inode) {
+                                __shard_inode_ctx_get (base_inode, this, &base_ictx);
+                                base_ictx->fsync_count--;
+                        }
                 }
         }
         UNLOCK(&inode->lock);
-        UNLOCK(&base_inode->lock);
+        if (base_inode)
+                UNLOCK(&base_inode->lock);
         if (unlink_unref_forget) {
                 inode_unlink (inode, priv->dot_shard_inode, block_bname);
                 inode_unref (inode);
@@ -2888,7 +2938,18 @@ shard_unlink_block_inode (shard_local_t *local, int shard_block_num)
 }
 
 int
-shard_rename_cbk (call_frame_t *frame, xlator_t *this);
+shard_rename_cbk (call_frame_t *frame, xlator_t *this)
+{
+        shard_local_t *local = NULL;
+
+        local = frame->local;
+
+        SHARD_STACK_UNWIND (rename, frame, local->op_ret, local->op_errno,
+                            &local->prebuf, &local->preoldparent,
+                            &local->postoldparent, &local->prenewparent,
+                            &local->postnewparent, local->xattr_rsp);
+        return 0;
+}
 
 int32_t
 shard_unlink_cbk (call_frame_t *frame, xlator_t *this)
@@ -2907,7 +2968,6 @@ shard_unlink_shards_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             struct iatt *preparent, struct iatt *postparent,
                             dict_t *xdata)
 {
-        int            call_count      = 0;
         int            shard_block_num = (long) cookie;
         shard_local_t *local           = NULL;
 
@@ -2920,22 +2980,8 @@ shard_unlink_shards_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         shard_unlink_block_inode (local, shard_block_num);
-
 done:
-        call_count = shard_call_count_return (frame);
-        if (local->unlink_shards_barriered) {
-                syncbarrier_wake (&local->barrier);
-        } else {
-
-                if (call_count == 0) {
-                        SHARD_UNSET_ROOT_FS_ID (frame, local);
-
-                        if (local->fop == GF_FOP_UNLINK)
-                                shard_unlink_cbk (frame, this);
-                        else if (local->fop == GF_FOP_RENAME)
-                                shard_rename_cbk (frame, this);
-                }
-        }
+        syncbarrier_wake (&local->barrier);
         return 0;
 }
 
@@ -2945,11 +2991,11 @@ shard_unlink_shards_do (call_frame_t *frame, xlator_t *this, inode_t *inode)
         int               i              = 0;
         int               ret            = -1;
         int               count          = 0;
-        int               call_count     = 0;
-        uint32_t          last_block     = 0;
         uint32_t          cur_block      = 0;
+        uint32_t          cur_block_idx  = 0;/*this is idx into inode_list[] array */
         char             *bname          = NULL;
         char              path[PATH_MAX] = {0,};
+        uuid_t           gfid            = {0,};
         loc_t             loc            = {0,};
         gf_boolean_t      wind_failed    = _gf_false;
         shard_local_t    *local          = NULL;
@@ -2958,16 +3004,12 @@ shard_unlink_shards_do (call_frame_t *frame, xlator_t *this, inode_t *inode)
         priv = this->private;
         local = frame->local;
 
-        /* local->num_blocks includes the base file block. This function only
-         * deletes the shards under /.shard. So subtract num_blocks by 1.
-         */
-        local->call_count = call_count = local->num_blocks - 1;
-        last_block = local->last_block;
+        if (inode)
+                gf_uuid_copy (gfid, inode->gfid);
+        else
+                gf_uuid_copy (gfid, local->base_gfid);
 
-        /* Ignore the inode associated with the base file and start counting
-         * from 1.
-         */
-        for (i = 1; i < local->num_blocks; i++) {
+        for (i = 0; i < local->num_blocks; i++) {
                 if (!local->inode_list[i])
                         continue;
                 count++;
@@ -2976,35 +3018,21 @@ shard_unlink_shards_do (call_frame_t *frame, xlator_t *this, inode_t *inode)
         if (!count) {
                 /* callcount = 0 implies that all of the shards that need to be
                  * unlinked are non-existent (in other words the file is full of
-                 * holes). So shard xlator can simply return the fop to its
-                 * parent now.
+                 * holes).
                  */
                 gf_msg_debug (this->name, 0, "All shards that need to be "
                               "unlinked are non-existent: %s",
-                              uuid_utoa (inode->gfid));
-                local->num_blocks = 1;
-                if (local->fop == GF_FOP_UNLINK) {
-                        shard_unlink_cbk (frame, this);
-                } else if (local->fop == GF_FOP_RENAME) {
-                        gf_msg_debug (this->name, 0, "Resuming rename()");
-                        shard_rename_cbk (frame, this);
-                }
+                              uuid_utoa (gfid));
                 return 0;
         }
 
-        local->call_count = call_count = count;
-        cur_block = 1;
         SHARD_SET_ROOT_FS_ID (frame, local);
-        if (local->unlink_shards_barriered)
-                local->barrier.waitfor = count;
+        local->barrier.waitfor = count;
+        cur_block = cur_block_idx + local->first_block;
 
-        /* Ignore the base file and start iterating from the first block shard.
-         */
-        while (cur_block <= last_block) {
-                if (!local->inode_list[cur_block]) {
-                        cur_block++;
-                        continue;
-                }
+        while (cur_block_idx < local->num_blocks) {
+                if (!local->inode_list[cur_block_idx])
+                        goto next;
 
                 if (wind_failed) {
                         shard_unlink_shards_do_cbk (frame,
@@ -3014,8 +3042,7 @@ shard_unlink_shards_do (call_frame_t *frame, xlator_t *this, inode_t *inode)
                         goto next;
                 }
 
-                shard_make_block_abspath (cur_block, inode->gfid, path,
-                                          sizeof (path));
+                shard_make_block_abspath (cur_block, gfid, path, sizeof (path));
                 bname = strrchr (path, '/') + 1;
                 loc.parent = inode_ref (priv->dot_shard_inode);
                 ret = inode_path (loc.parent, bname, (char **) &(loc.path));
@@ -3023,7 +3050,7 @@ shard_unlink_shards_do (call_frame_t *frame, xlator_t *this, inode_t *inode)
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 SHARD_MSG_INODE_PATH_FAILED, "Inode path failed"
                                 " on %s, base file gfid = %s", bname,
-                                uuid_utoa (inode->gfid));
+                                uuid_utoa (gfid));
                         local->op_ret = -1;
                         local->op_errno = ENOMEM;
                         loc_wipe (&loc);
@@ -3038,23 +3065,502 @@ shard_unlink_shards_do (call_frame_t *frame, xlator_t *this, inode_t *inode)
                 loc.name = strrchr (loc.path, '/');
                 if (loc.name)
                         loc.name++;
-                loc.inode = inode_ref (local->inode_list[cur_block]);
+                loc.inode = inode_ref (local->inode_list[cur_block_idx]);
 
                 STACK_WIND_COOKIE (frame, shard_unlink_shards_do_cbk,
                                    (void *) (long) cur_block, FIRST_CHILD(this),
                                    FIRST_CHILD (this)->fops->unlink, &loc,
                                    local->xflag, local->xattr_req);
                 loc_wipe (&loc);
-
 next:
                 cur_block++;
-                if (!--call_count)
+                cur_block_idx++;
+        }
+        syncbarrier_wait (&local->barrier, count);
+        SHARD_UNSET_ROOT_FS_ID (frame, local);
+        return 0;
+}
+
+int
+shard_regulated_shards_deletion (call_frame_t *cleanup_frame, xlator_t *this,
+                                 int now, int first_block, gf_dirent_t *entry)
+{
+        int            i     = 0;
+        int            ret   = 0;
+        shard_local_t *local = NULL;
+        uuid_t         gfid  = {0,};
+
+        local = cleanup_frame->local;
+
+        local->inode_list = GF_CALLOC (now, sizeof (inode_t *),
+                                       gf_shard_mt_inode_list);
+        if (!local->inode_list)
+                return -ENOMEM;
+
+        local->first_block = first_block;
+        local->last_block = first_block + now - 1;
+        local->num_blocks = now;
+        gf_uuid_parse (entry->d_name, gfid);
+        gf_uuid_copy (local->base_gfid, gfid);
+        local->resolver_base_inode = inode_find (this->itable, gfid);
+        local->call_count = 0;
+        syncbarrier_init (&local->barrier);
+
+        shard_common_resolve_shards (cleanup_frame, this,
+                                     shard_post_resolve_unlink_handler);
+
+        for (i = 0; i < local->num_blocks; i++) {
+                if (local->inode_list[i])
+                        inode_unref (local->inode_list[i]);
+        }
+        GF_FREE (local->inode_list);
+        local->inode_list = NULL;
+        if (local->op_ret)
+                ret = -local->op_errno;
+        syncbarrier_destroy (&local->barrier);
+        inode_unref (local->resolver_base_inode);
+        local->resolver_base_inode = NULL;
+        STACK_RESET (cleanup_frame->root);
+        return ret;
+}
+
+
+int
+__shard_delete_shards_of_entry (call_frame_t *cleanup_frame, xlator_t *this,
+                                gf_dirent_t *entry, inode_t *inode)
+{
+        int              ret           = 0;
+        int              shard_count   = 0;
+        int              first_block   = 0;
+        int              now           = 0;
+        uint64_t         size          = 0;
+        uint64_t         block_size    = 0;
+        uint64_t         size_array[4] = {0,};
+        void            *bsize         = NULL;
+        void            *size_attr     = NULL;
+        dict_t          *xattr_rsp     = NULL;
+        loc_t            loc           = {0,};
+        shard_local_t   *local         = NULL;
+        shard_priv_t    *priv          = NULL;
+
+        priv = this->private;
+        local = cleanup_frame->local;
+        ret = dict_reset (local->xattr_req);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_WARNING, 0, SHARD_MSG_DICT_OP_FAILED,
+                        "Failed to reset dict");
+                ret = -ENOMEM;
+                goto err;
+        }
+
+        ret = dict_set_uint64 (local->xattr_req, GF_XATTR_SHARD_BLOCK_SIZE, 0);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_WARNING, 0, SHARD_MSG_DICT_OP_FAILED,
+                        "Failed to set dict value: key:%s",
+                        GF_XATTR_SHARD_BLOCK_SIZE);
+                ret = -ENOMEM;
+                goto err;
+        }
+
+        ret = dict_set_uint64 (local->xattr_req, GF_XATTR_SHARD_FILE_SIZE,
+                               8 * 4);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_WARNING, 0, SHARD_MSG_DICT_OP_FAILED,
+                        "Failed to set dict value: key:%s",
+                        GF_XATTR_SHARD_FILE_SIZE);
+                ret = -ENOMEM;
+                goto err;
+        }
+
+        loc.inode = inode_ref (inode);
+        loc.parent = inode_ref (priv->dot_shard_rm_inode);
+        ret = inode_path (loc.parent, entry->d_name, (char **)&(loc.path));
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_PATH_FAILED,
+                        "Inode path  failed on %s", entry->d_name);
+                ret = -ENOMEM;
+                goto err;
+        }
+
+        loc.name = strrchr (loc.path, '/');
+        if (loc.name)
+                loc.name++;
+        ret = syncop_lookup (FIRST_CHILD(this), &loc, NULL, NULL,
+                             local->xattr_req, &xattr_rsp);
+        if (ret)
+                goto err;
+
+        ret = dict_get_ptr (xattr_rsp, GF_XATTR_SHARD_BLOCK_SIZE, &bsize);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_DICT_OP_FAILED,
+                        "Failed to get dict value: key:%s",
+                        GF_XATTR_SHARD_BLOCK_SIZE);
+                goto err;
+        }
+        block_size = ntoh64 (*((uint64_t *)bsize));
+
+        ret = dict_get_ptr (xattr_rsp, GF_XATTR_SHARD_FILE_SIZE, &size_attr);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_DICT_OP_FAILED,
+                        "Failed to get dict value: key:%s",
+                        GF_XATTR_SHARD_FILE_SIZE);
+                goto err;
+        }
+
+        memcpy (size_array, size_attr, sizeof (size_array));
+        size = ntoh64 (size_array[0]);
+
+        shard_count = (size / block_size) - 1;
+        if (shard_count < 0) {
+                gf_msg_debug (this->name, 0, "Size of %s hasn't grown beyond "
+                              "its shard-block-size. Nothing to delete. "
+                              "Returning", entry->d_name);
+                /* File size < shard-block-size, so nothing to delete */
+                ret = 0;
+                goto delete_marker;
+        }
+        if ((size % block_size) > 0)
+                shard_count++;
+
+        if (shard_count == 0) {
+                gf_msg_debug (this->name, 0, "Size of %s is exactly equal to "
+                              "its shard-block-size. Nothing to delete. "
+                              "Returning", entry->d_name);
+                ret = 0;
+                goto delete_marker;
+        }
+        gf_msg_debug (this->name, 0, "base file = %s, "
+                      "shard-block-size=%"PRIu64", file-size=%"PRIu64", "
+                      "shard_count=%d", entry->d_name, block_size, size,
+                      shard_count);
+
+        /* Perform a gfid-based lookup to see if gfid corresponding to marker
+         * file's base name exists.
+         */
+        loc_wipe (&loc);
+        loc.inode = inode_new (this->itable);
+        if (!loc.inode) {
+                ret = -ENOMEM;
+                goto err;
+        }
+        gf_uuid_parse (entry->d_name, loc.gfid);
+        ret = syncop_lookup (FIRST_CHILD(this), &loc, NULL, NULL, NULL, NULL);
+        if (!ret) {
+                gf_msg_debug (this->name, 0, "Base shard corresponding to gfid "
+                              "%s is present. Skipping shard deletion. "
+                              "Returning", entry->d_name);
+                ret = 0;
+                goto delete_marker;
+        }
+
+        first_block = 1;
+
+        while (shard_count) {
+                if (shard_count < local->deletion_rate) {
+                        now = shard_count;
+                        shard_count = 0;
+                } else {
+                        now = local->deletion_rate;
+                        shard_count -= local->deletion_rate;
+                }
+
+                gf_msg_debug (this->name, 0, "deleting %d shards starting from "
+                              "block %d of gfid %s", now, first_block,
+                              entry->d_name);
+                ret = shard_regulated_shards_deletion (cleanup_frame, this,
+                                                       now, first_block,
+                                                       entry);
+                if (ret)
+                        goto err;
+                first_block += now;
+        }
+
+delete_marker:
+        loc_wipe (&loc);
+        loc.inode = inode_ref (inode);
+        loc.parent = inode_ref (priv->dot_shard_rm_inode);
+        ret = inode_path (loc.parent, entry->d_name, (char **)&(loc.path));
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_PATH_FAILED,
+                        "Inode path  failed on %s", entry->d_name);
+                ret = -ENOMEM;
+                goto err;
+        }
+        loc.name = strrchr (loc.path, '/');
+        if (loc.name)
+                loc.name++;
+        ret = syncop_unlink (FIRST_CHILD(this), &loc, NULL, NULL);
+        if (ret)
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        SHARD_MSG_SHARDS_DELETION_FAILED, "Failed to delete %s "
+                        "from /%s", entry->d_name, GF_SHARD_REMOVE_ME_DIR);
+err:
+        if (xattr_rsp)
+                dict_unref (xattr_rsp);
+        loc_wipe (&loc);
+        return ret;
+}
+
+int
+shard_delete_shards_of_entry (call_frame_t *cleanup_frame, xlator_t *this,
+                              gf_dirent_t *entry, inode_t *inode)
+{
+        int           ret  = -1;
+        loc_t         loc  = {0,};
+        shard_priv_t *priv = NULL;
+
+        priv = this->private;
+        loc.inode = inode_ref (priv->dot_shard_rm_inode);
+
+        ret = syncop_entrylk (FIRST_CHILD(this), this->name, &loc,
+                              entry->d_name, ENTRYLK_LOCK, ENTRYLK_WRLCK, NULL,
+                              NULL);
+        if (ret)
+                goto out;
+        {
+                ret = __shard_delete_shards_of_entry (cleanup_frame, this,
+                                                      entry, inode);
+        }
+        syncop_entrylk (FIRST_CHILD(this), this->name, &loc, entry->d_name,
+                        ENTRYLK_UNLOCK, ENTRYLK_WRLCK, NULL, NULL);
+out:
+        loc_wipe (&loc);
+        return ret;
+}
+
+int
+shard_delete_shards_cbk (int ret, call_frame_t *frame, void *data)
+{
+        xlator_t     *this          = NULL;
+        shard_priv_t *priv          = NULL;
+
+        this = frame->this;
+        priv = this->private;
+
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_WARNING, -ret,
+                        SHARD_MSG_SHARDS_DELETION_FAILED,
+                        "Background deletion of shards failed");
+                priv->first_lookup = SHARD_FIRST_LOOKUP_PENDING;
+        } else {
+                priv->first_lookup = SHARD_FIRST_LOOKUP_DONE;
+        }
+        SHARD_STACK_DESTROY (frame);
+        return 0;
+}
+
+int
+shard_resolve_internal_dir (xlator_t *this, shard_local_t *local,
+                            shard_internal_dir_type_t type)
+{
+        int                  ret   = 0;
+        char                *bname = NULL;
+        loc_t               *loc   = NULL;
+        shard_priv_t        *priv  = NULL;
+        uuid_t               gfid  = {0,};
+        struct iatt          stbuf = {0,};
+
+        priv = this->private;
+
+        switch (type) {
+        case SHARD_INTERNAL_DIR_DOT_SHARD:
+                loc = &local->dot_shard_loc;
+                gf_uuid_copy (gfid, priv->dot_shard_gfid);
+                bname = GF_SHARD_DIR;
+                break;
+        case SHARD_INTERNAL_DIR_DOT_SHARD_REMOVE_ME:
+                loc = &local->dot_shard_rm_loc;
+                gf_uuid_copy (gfid, priv->dot_shard_rm_gfid);
+                bname = GF_SHARD_REMOVE_ME_DIR;
+                break;
+        default:
+                break;
+        }
+
+        loc->inode = inode_find (this->itable, gfid);
+        if (!loc->inode) {
+                ret = shard_init_internal_dir_loc (this, local, type);
+                if (ret)
+                        goto err;
+                ret = dict_reset (local->xattr_req);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                SHARD_MSG_DICT_OP_FAILED, "Failed to reset "
+                                "dict");
+                        ret = -ENOMEM;
+                        goto err;
+                }
+                ret = dict_set_gfuuid (local->xattr_req, "gfid-req", gfid,
+                                       true);
+                ret = syncop_lookup (FIRST_CHILD(this), loc, &stbuf, NULL,
+                                     local->xattr_req, NULL);
+                if (ret < 0) {
+                        if (ret != -ENOENT)
+                                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                        SHARD_MSG_SHARDS_DELETION_FAILED,
+                                        "Lookup on %s failed, exiting", bname);
+                        goto err;
+                } else {
+                        shard_link_internal_dir_inode (local,
+                                                       loc->inode, &stbuf,
+                                                       type);
+                }
+        }
+        ret = 0;
+err:
+        return ret;
+}
+
+int
+shard_lookup_marker_entry (xlator_t *this, shard_local_t *local,
+                           gf_dirent_t *entry)
+{
+        int   ret = 0;
+        loc_t loc = {0,};
+
+        loc.inode = inode_new (this->itable);
+        if (!loc.inode) {
+                ret = -ENOMEM;
+                goto err;
+        }
+        loc.parent = inode_ref (local->fd->inode);
+
+        ret = inode_path (loc.parent, entry->d_name, (char **)&(loc.path));
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_PATH_FAILED,
+                        "Inode path failed on %s", entry->d_name);
+                ret = -ENOMEM;
+                goto err;
+        }
+
+        loc.name = strrchr (loc.path, '/');
+        if (loc.name)
+                loc.name++;
+
+        ret = syncop_lookup (FIRST_CHILD(this), &loc, NULL, NULL, NULL, NULL);
+        if (ret < 0) {
+                goto err;
+        }
+        entry->inode = inode_ref (loc.inode);
+        ret = 0;
+err:
+        loc_wipe (&loc);
+        return ret;
+}
+
+int
+shard_delete_shards (void *opaque)
+{
+        int              ret                        = 0;
+        off_t            offset                     = 0;
+        loc_t            loc                        = {0,};
+        inode_t         *link_inode                 = NULL;
+        xlator_t        *this                       = NULL;
+        shard_priv_t    *priv                       = NULL;
+        shard_local_t   *local                      = NULL;
+        gf_dirent_t      entries;
+        gf_dirent_t     *entry                      = NULL;
+        call_frame_t    *cleanup_frame              = NULL;
+
+        this = THIS;
+        priv = this->private;
+        INIT_LIST_HEAD (&entries.list);
+
+        cleanup_frame = opaque;
+
+        local = mem_get0 (this->local_pool);
+        if (!local) {
+                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
+                        SHARD_MSG_MEMALLOC_FAILED, "Failed to create local to "
+                        "delete shards");
+                ret = -ENOMEM;
+                goto err;
+        }
+        cleanup_frame->local = local;
+
+        local->xattr_req = dict_new ();
+        if (!local->xattr_req) {
+                ret = -ENOMEM;
+                goto err;
+        }
+        local->deletion_rate = priv->deletion_rate;
+
+        ret = shard_resolve_internal_dir (this, local,
+                                          SHARD_INTERNAL_DIR_DOT_SHARD);
+        if (ret == -ENOENT) {
+                gf_msg_debug (this->name, 0, ".shard absent. Nothing to"
+                              " delete. Exiting");
+                ret = 0;
+                goto err;
+        } else if (ret < 0) {
+                goto err;
+        }
+
+        ret = shard_resolve_internal_dir (this, local,
+                                          SHARD_INTERNAL_DIR_DOT_SHARD_REMOVE_ME);
+        if (ret == -ENOENT) {
+                gf_msg_debug (this->name, 0, ".remove_me absent. "
+                              "Nothing to delete. Exiting");
+                ret = 0;
+                goto err;
+        } else if (ret < 0) {
+                goto err;
+        }
+
+        local->fd = fd_anonymous (local->dot_shard_rm_loc.inode);
+        if (!local->fd) {
+                ret = -ENOMEM;
+                goto err;
+        }
+
+        while ((ret = syncop_readdirp (FIRST_CHILD(this), local->fd, 131072,
+                                      offset, &entries, local->xattr_req,
+                                      NULL))) {
+                if (ret > 0)
+                        ret = 0;
+                list_for_each_entry (entry, &entries.list, list) {
+                        offset = entry->d_off;
+
+                        if (!strcmp (entry->d_name, ".") ||
+                            !strcmp (entry->d_name, ".."))
+                                continue;
+
+                        if (!entry->inode) {
+                                ret = shard_lookup_marker_entry (this, local,
+                                                                 entry);
+                                if (ret < 0)
+                                        continue;
+                        }
+                        link_inode = inode_link (entry->inode, local->fd->inode,
+                                                 entry->d_name, &entry->d_stat);
+
+                        gf_msg_debug (this->name, 0, "Initiating deletion of "
+                                      "shards of gfid %s", entry->d_name);
+                        ret = shard_delete_shards_of_entry (cleanup_frame, this,
+                                                            entry, link_inode);
+                        inode_unlink (link_inode, local->fd->inode,
+                                      entry->d_name);
+                        inode_unref (link_inode);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                        SHARD_MSG_SHARDS_DELETION_FAILED,
+                                        "Failed to clean up shards of gfid %s",
+                                        entry->d_name);
+                                continue;
+                        }
+                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                SHARD_MSG_SHARD_DELETION_COMPLETED, "Deleted "
+                                "shards of gfid=%s from backend",
+                                entry->d_name);
+                }
+                gf_dirent_free (&entries);
+                if (ret)
                         break;
         }
-        if (local->unlink_shards_barriered)
-                syncbarrier_wait (&local->barrier, count);
-
-        return 0;
+        ret = 0;
+err:
+        loc_wipe (&loc);
+        return ret;
 }
 
 int
@@ -3395,7 +3901,10 @@ shard_unlink_base_file_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->postoldparent = *postparent;
                 if (xdata)
                         local->xattr_rsp = dict_ref (xdata);
+                if (local->cleanup_required)
+                        shard_start_background_deletion (this);
         }
+
         if (local->entrylk_frame) {
                 ret = shard_unlock_entrylk (frame, this);
                 if (ret < 0) {
@@ -3409,6 +3918,7 @@ shard_unlink_base_file_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->op_ret = -1;
                 local->op_errno = -ret;
         }
+
         shard_unlink_cbk (frame, this);
         return 0;
 }
@@ -3577,6 +4087,7 @@ shard_post_lookup_base_shard_rm_handler (call_frame_t *frame, xlator_t *this)
         } else {
                 gf_msg_debug (this->name, 0, "link count on %s = 1, creating "
                               "file under .remove_me", local->int_inodelk.loc.path);
+                local->cleanup_required = _gf_true;
                 shard_acquire_entrylk (frame, this, priv->dot_shard_rm_inode,
                                        local->prebuf.ia_gfid);
         }
@@ -3789,20 +4300,6 @@ err:
 }
 
 int
-shard_rename_cbk (call_frame_t *frame, xlator_t *this)
-{
-        shard_local_t *local = NULL;
-
-        local = frame->local;
-
-        SHARD_STACK_UNWIND (rename, frame, local->op_ret, local->op_errno,
-                            &local->prebuf, &local->preoldparent,
-                            &local->postoldparent, &local->prenewparent,
-                            &local->postnewparent, local->xattr_rsp);
-        return 0;
-}
-
-int
 shard_post_rename_lookup_handler (call_frame_t *frame, xlator_t *this)
 {
         shard_rename_cbk (frame, this);
@@ -3855,6 +4352,8 @@ shard_rename_src_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->op_errno = -ret;
                         goto err;
                 }
+                if (local->cleanup_required)
+                        shard_start_background_deletion (this);
         }
 
         /* Now the base file of src, if sharded, is looked up to gather ia_size
@@ -4823,7 +5322,7 @@ shard_common_inode_write_do (call_frame_t *frame, xlator_t *this)
 
         if (dict_set_uint32 (local->xattr_req,
                              GLUSTERFS_WRITE_UPDATE_ATOMIC, 4)) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_DICT_SET_FAILED,
+                gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_DICT_OP_FAILED,
                         "Failed to set "GLUSTERFS_WRITE_UPDATE_ATOMIC" into "
                         "dict: %s", uuid_utoa (fd->inode->gfid));
                 local->op_ret = -1;
@@ -5142,7 +5641,7 @@ shard_mkdir_internal_dir (call_frame_t *frame, xlator_t *this,
 
         ret = dict_set_gfuuid (xattr_req, "gfid-req", *gfid, false);
         if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_DICT_SET_FAILED,
+                gf_msg (this->name, GF_LOG_ERROR, 0, SHARD_MSG_DICT_OP_FAILED,
                         "Failed to set gfid-req for %s",
                         shard_internal_dir_string (type));
                 goto err;
@@ -6187,6 +6686,8 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("shard-block-size", priv->block_size, size_uint64, out);
 
+        GF_OPTION_INIT ("shard-deletion-rate", priv->deletion_rate, uint32, out);
+
         this->local_pool = mem_pool_new (shard_local_t, 128);
         if (!this->local_pool) {
                 ret = -1;
@@ -6242,6 +6743,8 @@ reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("shard-block-size", priv->block_size, options, size,
                           out);
 
+        GF_OPTION_RECONF ("shard-deletion-rate", priv->deletion_rate, options,
+                          uint32, out);
         ret = 0;
 
 out:
@@ -6370,6 +6873,16 @@ struct volume_options options[] = {
            .max = SHARD_MAX_BLOCK_SIZE,
            .description = "The size unit used to break a file into multiple "
                           "chunks",
+        },
+        {  .key = {"shard-deletion-rate"},
+           .type = GF_OPTION_TYPE_INT,
+           .op_version = {GD_OP_VERSION_4_2_0},
+           .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
+           .tags = {"shard"},
+           .default_value = "100",
+           .min = 100,
+           .max = INT_MAX,
+           .description = "The number of shards to send deletes on at a time",
         },
         { .key = {NULL} },
 };
