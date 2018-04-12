@@ -1135,7 +1135,7 @@ typedef struct {
 
 #define xlator_has_parent(xl) (xl->parents != NULL)
 
-#define XLATOR_NOTIFY(_xl, params ...)          \
+#define XLATOR_NOTIFY(ret, _xl, params ...)     \
         do {                                    \
                 xlator_t *_old_THIS = NULL;     \
                                                 \

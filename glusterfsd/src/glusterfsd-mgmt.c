@@ -770,7 +770,7 @@ glusterfs_handle_translator_op (rpcsvc_request_t *req)
                 snprintf (key, sizeof (key), "xl-%d", i);
                 ret = dict_get_str (input, key, &xname);
                 xlator = xlator_search_by_name (any, xname);
-                XLATOR_NOTIFY (xlator, GF_EVENT_TRANSLATOR_OP, input, output);
+                XLATOR_NOTIFY (ret, xlator, GF_EVENT_TRANSLATOR_OP, input, output);
                 /* If notify fails for an xlator we need to capture it but
                  * continue with the loop. */
                 if (ret)
