@@ -5,6 +5,12 @@
 
 cleanup
 
+function get_file_count {
+    ls $1* | wc -l
+}
+
+FILE_COUNT_TIME=5
+
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1}
@@ -41,10 +47,13 @@ TEST setfattr -n trusted.glusterfs.shard.file-size -v 0x000000000050000000000000
 sleep 2
 
 TEST unlink $M0/dir/file
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_file
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_file
-EXPECT "0000000000900000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_file
-EXPECT "0000000000900000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_file
+TEST ! stat $B0/${V0}0/dir/file
+TEST ! stat $B0/${V0}1/dir/file
+
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_file
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_file
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/$gfid_file
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/$gfid_file
 
 ##############################
 ### Repeat test for rename ###
@@ -71,9 +80,12 @@ TEST setfattr -n trusted.glusterfs.shard.file-size -v 0x000000000050000000000000
 sleep 2
 
 TEST mv -f $M0/src $M0/dir/dst
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
-EXPECT "0000000000400000" get_hex_xattr trusted.glusterfs.shard.block-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
-EXPECT "0000000000900000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}0/.shard/.remove_me/$gfid_dst
-EXPECT "0000000000900000000000000000000000000000000000000000000000000000" get_hex_xattr trusted.glusterfs.shard.file-size $B0/${V0}1/.shard/.remove_me/$gfid_dst
+TEST ! stat $B0/${V0}0/src
+TEST ! stat $B0/${V0}1/src
+
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_dst
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_dst
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/$gfid_dst
+EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/$gfid_dst
 
 cleanup
