@@ -968,6 +968,7 @@ fuse_getattr (xlator_t *this, fuse_in_header_t *finh, void *msg,
         fuse_private_t         *priv = NULL;
 #endif
         fuse_state_t *state;
+        int ret = -1;
 
         GET_STATE (this, finh, state);
 #if FUSE_KERNEL_MINOR_VERSION >= 9
@@ -975,6 +976,25 @@ fuse_getattr (xlator_t *this, fuse_in_header_t *finh, void *msg,
         if (priv->proto_minor >= 9 && fgi->getattr_flags & FUSE_GETATTR_FH)
                 state->fd = fd_ref ((fd_t *)fgi->fh);
 #endif
+        if (finh->nodeid == 1) {
+                state->gfid[15] = 1;
+
+                ret = fuse_loc_fill (&state->loc, state, finh->nodeid, 0, NULL);
+                if (ret < 0) {
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                                "%"PRIu64": GETATTR on / (fuse_loc_fill() failed)",
+                                finh->unique);
+                        send_fuse_err (this, finh, ENOENT);
+                        free_fuse_state (state);
+                        return;
+                }
+
+                fuse_gfid_set (state);
+
+                FUSE_FOP (state, fuse_root_lookup_cbk, GF_FOP_LOOKUP,
+                          lookup, &state->loc, state->xdata);
+                return;
+        }
 
         if (state->fd)
                 fuse_resolve_fd_init (state, &state->resolve, state->fd);
