@@ -1,5 +1,6 @@
 #!/usr/bin/python2
 
+from __future__ import print_function
 import os
 import sys
 from optparse import OptionParser
@@ -32,22 +33,22 @@ def getfattr(path, option):
 def print_getfattr (path, option, encoded_attr=None):
     if encoded_attr:
         if option.encoding == "hex":
-            print ("%s=0x%s" % (option.name, encoded_attr))
+            print(("%s=0x%s" % (option.name, encoded_attr)))
         elif option.encoding == "base64":
-            print ("%s=0s%s" % (option.name, encoded_attr))
+            print(("%s=0s%s" % (option.name, encoded_attr)))
         else:
-            print ("%s=\"%s\"" % (option.name, encoded_attr))
+            print(("%s=\"%s\"" % (option.name, encoded_attr)))
     else:
-        print option.name
+        print(option.name)
 
     return
 
 def print_header (path, absnames):
     if absnames:
-        print ("# file: %s" % path)
+        print(("# file: %s" % path))
     else:
         print ("getfattr: Removing leading '/' from absolute path names")
-        print ("# file: %s" % path[1:])
+        print(("# file: %s" % path[1:]))
 
 if __name__ == '__main__':
     usage = "usage: %prog [-n name|-d] [-e en] [-m pattern] path...."
@@ -99,8 +100,8 @@ if __name__ == '__main__':
         if (not (option.encoding.strip() == "hex" or
                  option.encoding.strip() == "base64" or
                  option.encoding.strip() == "text")):
-            print ("unrecognized encoding parameter... %s, please use"
-                   " `text`, `base64` or `hex`" % option.encoding)
+            print(("unrecognized encoding parameter... %s, please use"
+                   " `text`, `base64` or `hex`" % option.encoding))
             sys.exit(1)
 
     args[0] = os.path.abspath(args[0])
@@ -110,7 +111,7 @@ if __name__ == '__main__':
         try:
             getfattr(args[0], option)
         except KeyError as err:
-            print ("Invalid key %s" % err)
+            print(("Invalid key %s" % err))
             sys.exit(1)
         except IOError as err:
             print (err)

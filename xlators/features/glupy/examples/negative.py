@@ -1,3 +1,5 @@
+
+from __future__ import print_function
 import sys
 from uuid import UUID
 from gluster.glupy import *
@@ -31,12 +33,12 @@ class xlator (Translator):
 
     def lookup_fop (self, frame, this, loc, xdata):
         pargfid = uuid2str(loc.contents.pargfid)
-        print "lookup FOP: %s:%s" % (pargfid, loc.contents.name)
+        print("lookup FOP: %s:%s" % (pargfid, loc.contents.name))
         # Check the cache.
         if cache.has_key(pargfid):
             if loc.contents.name in cache[pargfid]:
-                print "short-circuiting for %s:%s" % (pargfid,
-                    loc.contents.name)
+                print("short-circuiting for %s:%s" % (pargfid,
+                    loc.contents.name))
                 dl.unwind_lookup(frame,0,this,-1,2,None,None,None,None)
                 return 0
         key = dl.get_id(frame)
@@ -47,16 +49,16 @@ class xlator (Translator):
 
     def lookup_cbk (self, frame, cookie, this, op_ret, op_errno, inode, buf,
                     xdata, postparent):
-        print "lookup CBK: %d (%d)" % (op_ret, op_errno)
+        print("lookup CBK: %d (%d)" % (op_ret, op_errno))
         key = dl.get_id(frame)
         pargfid, name = self.requests[key]
         # Update the cache.
         if op_ret == 0:
-            print "found %s, removing from cache" % name
+            print("found %s, removing from cache" % name)
             if cache.has_key(pargfid):
                 cache[pargfid].discard(name)
         elif op_errno == 2:    # ENOENT
-            print "failed to find %s, adding to cache" % name
+            print("failed to find %s, adding to cache" % name)
             if cache.has_key(pargfid):
                 cache[pargfid].add(name)
             else:
@@ -68,7 +70,7 @@ class xlator (Translator):
 
     def create_fop (self, frame, this, loc, flags, mode, umask, fd, xdata):
         pargfid = uuid2str(loc.contents.pargfid)
-        print "create FOP: %s:%s" % (pargfid, loc.contents.name)
+        print("create FOP: %s:%s" % (pargfid, loc.contents.name))
         key = dl.get_id(frame)
         self.requests[key] = (pargfid, loc.contents.name[:])
         # TBD: get real child xl from init, pass it here
@@ -77,12 +79,12 @@ class xlator (Translator):
 
     def create_cbk (self, frame, cookie, this, op_ret, op_errno, fd, inode,
                     buf, preparent, postparent, xdata):
-        print "create CBK: %d (%d)" % (op_ret, op_errno)
+        print("create CBK: %d (%d)" % (op_ret, op_errno))
         key = dl.get_id(frame)
         pargfid, name = self.requests[key]
         # Update the cache.
         if op_ret == 0:
-            print "created %s, removing from cache" % name
+            print("created %s, removing from cache" % name)
             if cache.has_key(pargfid):
                 cache[pargfid].discard(name)
         del self.requests[key]

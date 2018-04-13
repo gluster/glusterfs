@@ -1,5 +1,6 @@
 #!/usr/bin/python2
 
+from __future__ import print_function
 import atexit
 import copy
 import optparse
@@ -86,7 +87,7 @@ def get_range (brick):
         try:
                 value = f.readline().rstrip().split('=')[1][2:]
         except:
-                print "could not get layout for %s (might be OK)" % brick
+                print("could not get layout for %s (might be OK)" % brick)
                 return None
         v_start = int("0x"+value[16:24],16)
         v_end = int("0x"+value[24:32],16)
@@ -126,7 +127,7 @@ def normalize (in_bricks):
                                 curr_hash = b.r_end + 1
                                 break
                 else:
-                        print "gap found at 0x%08x" % curr_hash
+                        print("gap found at 0x%08x" % curr_hash)
                         sys.exit(1)
         return out_bricks + in_bricks, used
 
@@ -183,7 +184,7 @@ if __name__ == "__main__":
         def cleanup_workdir ():
                 os.chdir(orig_dir)
                 if options.verbose:
-                        print "Cleaning up %s" % work_dir
+                        print("Cleaning up %s" % work_dir)
                 for b in bricks:
                         subprocess.call(["umount",b.path])
                 shutil.rmtree(work_dir)
@@ -193,7 +194,7 @@ if __name__ == "__main__":
 
         # Mount each brick individually, so we can issue brick-specific calls.
         if options.verbose:
-                print "Mounting subvolumes..."
+                print("Mounting subvolumes...")
         index = 0
         volfile_pipe = get_bricks(hostname,volname)
         all_xlators, last_xlator = volfilter.load(volfile_pipe)
@@ -201,7 +202,7 @@ if __name__ == "__main__":
                 if dht_vol.type == "cluster/distribute":
                         break
         else:
-                print "no DHT volume found"
+                print("no DHT volume found")
                 sys.exit(1)
         for sv in dht_vol.subvols:
                 #print "found subvol %s" % sv.name
@@ -210,12 +211,12 @@ if __name__ == "__main__":
                 mount_brick(lpath,all_xlators,sv)
                 bricks.append(Brick(lpath,sv.name))
         if index == 0:
-                print "no bricks"
+                print("no bricks")
                 sys.exit(1)
 
         # Collect all of the sizes.
         if options.verbose:
-                print "Collecting information..."
+                print("Collecting information...")
         total = 0
         for b in bricks:
                 info = os.statvfs(b.path)
@@ -237,7 +238,7 @@ if __name__ == "__main__":
                 else:
                         size = info[2] / blocksper100mb
                 if size <= 0:
-                        print "brick %s has invalid size %d" % (b.path, size)
+                        print("brick %s has invalid size %d" % (b.path, size))
                         sys.exit(1)
                 b.set_size(size)
                 total += size
@@ -248,12 +249,12 @@ if __name__ == "__main__":
                 if hash_range is not None:
                         rs, re = hash_range
                         if rs > re:
-                                print "%s has backwards hash range" % b.path
+                                print("%s has backwards hash range" % b.path)
                                 sys.exit(1)
                         b.set_range(hash_range[0],hash_range[1])
 
         if options.verbose:
-                print "Calculating new layouts..."
+                print("Calculating new layouts...")
         calc_sizes(bricks,total)
         bricks, used = normalize(bricks)
 
@@ -283,25 +284,25 @@ if __name__ == "__main__":
                 curr_hash += b.good_size
                 b.r_end = curr_hash - 1
 
-        print "Here are the xattr values for your size-weighted layout:"
+        print("Here are the xattr values for your size-weighted layout:")
         for b in bricks:
-                print "  %s: 0x0000000200000000%08x%08x" % (
-                        b.sv_name, b.r_start, b.r_end)
+                print("  %s: 0x0000000200000000%08x%08x" % (
+                        b.sv_name, b.r_start, b.r_end))
 
         if fix_dir:
                 if options.verbose:
-                        print "Fixing layout for %s" % fix_dir
+                        print("Fixing layout for %s" % fix_dir)
                 for b in bricks:
                         value = "0x0000000200000000%08x%08x" % (
                                 b.r_start, b.r_end)
                         path = "%s/%s" % (b.path, fix_dir)
                         cmd = "setfattr -n trusted.glusterfs.dht -v %s %s" % (
                                 value, path)
-                        print cmd
+                        print(cmd)
 
         if options.leave_mounted:
-                print "The following subvolumes are still mounted:"
+                print("The following subvolumes are still mounted:")
                 for b in bricks:
-                        print "%s on %s" % (b.sv_name, b.path)
-                print "Don't forget to clean up when you're done."
+                        print("%s on %s" % (b.sv_name, b.path))
+                print("Don't forget to clean up when you're done.")
 

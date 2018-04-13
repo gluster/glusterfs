@@ -1,5 +1,6 @@
 #!/usr/bin/python2
 
+from __future__ import print_function
 import sys
 
 try:
@@ -21,14 +22,14 @@ def pidof(processname):
             continue
         if "gluster" in processname:
             if processname == "glusterd" and pmap_find(p, "glusterd"):
-                print (p.pid)
+                print((p.pid))
             if processname == "glusterfs" and pmap_find(p, "client"):
-                print (p.pid)
+                print((p.pid))
             if processname == "glusterfsd" and pmap_find(p, "posix-acl"):
-                print (p.pid)
+                print((p.pid))
             continue
         if processname.strip() == p.name():
-            print (p.pid)
+            print((p.pid))
 
 def main(argv):
     if len(argv) < 2:
@@ -37,7 +38,7 @@ def main(argv):
     try:
         pidof(argv[1])
     except Exception as err:
-        print err
+        print(err)
         sys.stderr.write("Please be root - %s\n" % err);
         sys.exit(1)
 

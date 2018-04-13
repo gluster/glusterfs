@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+from __future__ import print_function
 import os
 import sys
 
@@ -289,17 +290,17 @@ special_fops = ['readdirp', 'statfs', 'setxattr', 'unlink', 'getxattr',
 def gen_defaults():
     for name in ops:
         if name in fd_data_modify_op_fop_template:
-            print generate(FD_DATA_MODIFYING_OP_FOP_CBK_TEMPLATE, name, cbk_subs)
-            print generate(FD_DATA_MODIFYING_RESUME_OP_FOP_TEMPLATE, name, fop_subs)
-            print generate(FD_DATA_MODIFYING_OP_FOP_TEMPLATE, name, fop_subs)
+            print(generate(FD_DATA_MODIFYING_OP_FOP_CBK_TEMPLATE, name, cbk_subs))
+            print(generate(FD_DATA_MODIFYING_RESUME_OP_FOP_TEMPLATE, name, fop_subs))
+            print(generate(FD_DATA_MODIFYING_OP_FOP_TEMPLATE, name, fop_subs))
         elif name in loc_stat_op_fop_template:
-            print generate(LOC_STAT_OP_FOP_CBK_TEMPLATE, name, cbk_subs)
-            print generate(LOC_STAT_OP_FOP_TEMPLATE, name, fop_subs)
+            print(generate(LOC_STAT_OP_FOP_CBK_TEMPLATE, name, cbk_subs))
+            print(generate(LOC_STAT_OP_FOP_TEMPLATE, name, fop_subs))
 
 for l in open(sys.argv[1], 'r').readlines():
     if l.find('#pragma generate') != -1:
-        print "/* BEGIN GENERATED CODE - DO NOT MODIFY */"
+        print("/* BEGIN GENERATED CODE - DO NOT MODIFY */")
         gen_defaults()
-        print "/* END GENERATED CODE */"
+        print("/* END GENERATED CODE */")
     else:
-        print l[:-1]
+        print(l[:-1])

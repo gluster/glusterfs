@@ -1,5 +1,6 @@
 #!/usr/bin/python2
 
+from __future__ import print_function
 import os
 import re
 import string
@@ -210,8 +211,8 @@ def load_fragments (path="recon-tmpl.c"):
 
 if __name__ == "__main__":
 	fragments = load_fragments(sys.argv[1])
-	print "/* BEGIN GENERATED CODE - DO NOT MODIFY */"
-	print fragments["PROLOG"]
-	print gen_functions()
-	print fragments["EPILOG"].replace("@SWITCH_BODY@",gen_cases())
-	print "/* END GENERATED CODE */"
+	print("/* BEGIN GENERATED CODE - DO NOT MODIFY */")
+	print(fragments["PROLOG"])
+	print(gen_functions())
+	print(fragments["EPILOG"].replace("@SWITCH_BODY@",gen_cases()))
+	print("/* END GENERATED CODE */")

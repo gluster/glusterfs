@@ -7,6 +7,7 @@
 #  The script takes only one input LOG _FILE generated from the command,
 #  find <brick_path> | xargs  getfattr -d -m. -e hex  > log_gluster_xattr
 
+from __future__ import print_function
 import re
 import subprocess
 import sys
@@ -28,14 +29,14 @@ def get_quota_xattr_brick():
     for xattr in pairs:
         k = xattr.split("=")[0]
         if re.search("# file:",k):
-            print xdict
+            print(xdict)
             filename=k
-            print "=====" + filename + "======="
+            print("=====" + filename + "=======")
             xdict = {}
         elif k is "":
             pass
         else:
-            print xattr
+            print(xattr)
             v = xattr.split("=")[1]
             if re.search("contri",k):
                 if len(v) == 34:
@@ -64,7 +65,7 @@ def get_quota_xattr_brick():
                 mismatch_size.append((xdict['contri_size'], xdict['size'], filename))
 
     for values in mismatch_size:
-        print values
+        print(values)
 
 
 if __name__ == '__main__':

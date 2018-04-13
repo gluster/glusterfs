@@ -9,6 +9,7 @@
 # cases as published by the Free Software Foundation.
 #
 
+from __future__ import print_function
 import os
 import sys
 import stat
@@ -53,8 +54,8 @@ def entry_pack_symlink(gf, bn, lnk, mo, uid, gid):
 
 if __name__ == '__main__':
     if len(sys.argv) < 9:
-        print("USAGE: %s <mount> <pargfid|ROOT> <filename> <GFID> <file type>"
-              " <uid> <gid> <file permission(octal str)>" % (sys.argv[0]))
+        print(("USAGE: %s <mount> <pargfid|ROOT> <filename> <GFID> <file type>"
+              " <uid> <gid> <file permission(octal str)>" % (sys.argv[0])))
         sys.exit(-1) # nothing to do
     mtpt       = sys.argv[1]
     pargfid    = sys.argv[2]
@@ -92,5 +93,5 @@ if __name__ == '__main__':
         if not ex.errno in [EEXIST]:
             raise
             sys.exit(-1)
-    print "File creation OK"
+    print("File creation OK")
     sys.exit(0)

@@ -75,6 +75,7 @@
   Prasanna Kumar Kalever <prasanna.kalever@redhat.com>
 """
 
+from __future__ import print_function
 import os
 import sys
 import argparse
@@ -118,11 +119,11 @@ class GitBranchDiff:
         status_tbr, op = commands.getstatusoutput('git log ' +
                                                   self.t_pattern)
         if status_sbr != 0:
-            print "Error: --source=" + self.s_pattern + " doesn't exit\n"
+            print("Error: --source=" + self.s_pattern + " doesn't exit\n")
             self.parser.print_help()
             exit(status_sbr)
         elif status_tbr != 0:
-            print "Error: --target=" + self.t_pattern + " doesn't exit\n"
+            print("Error: --target=" + self.t_pattern + " doesn't exit\n")
             self.parser.print_help()
             exit(status_tbr)
 
@@ -137,8 +138,8 @@ class GitBranchDiff:
                 cmd4 = 'git log ' + self.s_pattern + ' --author=' + ide
                 c_list = subprocess.check_output(cmd4, shell = True)
                 if len(c_list) is 0:
-                    print "Error: --author=%s doesn't exit" %self.g_author
-                    print "see '%s --help'" %__file__
+                    print("Error: --author=%s doesn't exit" %self.g_author)
+                    print("see '%s --help'" %__file__)
                     exit(1)
             if len(ide_list) > 1:
                 self.g_author = "\|".join(ide_list)
@@ -150,16 +151,16 @@ class GitBranchDiff:
             return True
         except requests.Timeout as err:
             " request timed out"
-            print "Warning: failed to get list of open review commits on " \
+            print("Warning: failed to get list of open review commits on " \
                             "gerrit.\n" \
                   "hint: Request timed out! gerrit server could possibly " \
-                  "slow ...\n"
+                  "slow ...\n")
             return False
         except requests.RequestException as err:
             " handle other errors"
-            print "Warning: failed to get list of open review commits on " \
+            print("Warning: failed to get list of open review commits on " \
                             "gerrit\n" \
-                  "hint: check with internet connection ...\n"
+                  "hint: check with internet connection ...\n")
             return False
 
     def parse_cmd_args (self):
@@ -212,18 +213,18 @@ class GitBranchDiff:
 
     def print_output (self):
         " display the result list"
-        print "\n------------------------------------------------------------\n"
-        print self.tick + " Successfully Backported changes:"
-        print '      {' + 'from: ' + self.s_pattern + \
-              '  to: '+ self.t_pattern + '}\n'
+        print("\n------------------------------------------------------------\n")
+        print(self.tick + " Successfully Backported changes:")
+        print('      {' + 'from: ' + self.s_pattern + \
+              '  to: '+ self.t_pattern + '}\n')
         for key, value in self.s_dict.iteritems():
             if value in self.t_dict.itervalues():
-                print "[%s%s%s] %s" %(self.yello_set,
+                print("[%s%s%s] %s" %(self.yello_set,
                                       key,
                                       self.color_unset,
-                                      value)
-        print "\n------------------------------------------------------------\n"
-        print self.cross + " Missing patches in " + self.t_pattern + ':\n'
+                                      value))
+        print("\n------------------------------------------------------------\n")
+        print(self.cross + " Missing patches in " + self.t_pattern + ':\n')
         if self.connected_to_gerrit():
             cmd3 = "git review -r origin -l"
             review_list = subprocess.check_output(cmd3, shell = True).split('\n')
@@ -233,18 +234,18 @@ class GitBranchDiff:
         for key, value in self.s_dict.iteritems():
             if value not in self.t_dict.itervalues():
                 if any(value in s for s in review_list):
-                    print "[%s%s%s] %s %s(under review)%s" %(self.yello_set,
+                    print("[%s%s%s] %s %s(under review)%s" %(self.yello_set,
                                                             key,
                                                             self.color_unset,
                                                             value,
                                                             self.green_set,
-                                                            self.color_unset)
+                                                            self.color_unset))
                 else:
-                    print "[%s%s%s] %s" %(self.yello_set,
+                    print("[%s%s%s] %s" %(self.yello_set,
                                           key,
                                           self.color_unset,
-                                          value)
-        print "\n------------------------------------------------------------\n"
+                                          value))
+        print("\n------------------------------------------------------------\n")
 
     def main (self):
         self.check_pattern_exist()
@@ -262,8 +263,8 @@ class GitBranchDiff:
         t_list = subprocess.check_output(cmd2, shell = True)
 
         if len(t_list) is 0:
-            print "No commits in the target: %s" %self.t_pattern
-            print "see '%s --help'" %__file__
+            print("No commits in the target: %s" %self.t_pattern)
+            print("see '%s --help'" %__file__)
             exit()
         else:
             t_list = t_list.split('\n')

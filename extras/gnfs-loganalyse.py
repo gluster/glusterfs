@@ -10,6 +10,7 @@
 
 """
 
+from __future__ import print_function
 import os
 import string
 import sys
@@ -72,7 +73,7 @@ class NFSRequest:
                         self.replygfid = tokens [gfididx + 1].strip(",")
 
         def dump (self):
-                print "ReqLine: " + str(self.calllinecount) + " TimeStamp: " + self.timestamp + ", XID: " + self.xid + " " + self.op + " ARGS: " + self.opdata + " RepLine: " + str(self.replylinecount) + " " + self.replydata
+                print("ReqLine: " + str(self.calllinecount) + " TimeStamp: " + self.timestamp + ", XID: " + self.xid + " " + self.op + " ARGS: " + self.opdata + " RepLine: " + str(self.replylinecount) + " " + self.replydata)
 
 class NFSLogAnalyzer:
 
@@ -149,7 +150,7 @@ class NFSLogAnalyzer:
                         return
                 rcount = len (self.xid_request_map.keys ())
                 orphancount = len (self.orphan_replies.keys ())
-                print "Requests: " + str(rcount) + ", Orphans: " + str(orphancount)
+                print("Requests: " + str(rcount) + ", Orphans: " + str(orphancount))
 
         def dump (self):
                 self.getStats ()

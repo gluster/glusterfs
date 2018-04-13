@@ -9,6 +9,7 @@
 # cases as published by the Free Software Foundation.
 #
 
+from __future__ import print_function
 import fcntl
 import os
 import tempfile
@@ -406,8 +407,8 @@ class GeorepStatus(object):
             # Convert all values as string
             for k, v in status_out.items():
                 out[k] = str(v)
-            print json.dumps(out)
+            print(json.dumps(out))
             return
 
         for key, value in status_out.items():
-            print ("%s: %s" % (key, value))
+            print(("%s: %s" % (key, value)))

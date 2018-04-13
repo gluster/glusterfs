@@ -1,5 +1,6 @@
 #!/usr/bin/python2
 
+from __future__ import print_function
 import sys
 
 def calculate_one (ov, nv):
@@ -56,4 +57,4 @@ print '= %08x' % calculate_all(test2_vals)
 
 if __name__ == '__main__':
     # Return decimal so bash can reason about it.
-    print '%d' % calculate_all(sys.argv[1:])
+    print('%d' % calculate_all(sys.argv[1:]))

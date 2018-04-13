@@ -21,12 +21,13 @@
   deliberate choice so that it will catch deletions from those sources as well.
 """
 
-volume_list = [ "jdtest" ]
-
+from __future__ import print_function
 import copy
 import string
 import sys
 import types
+
+volume_list = [ "jdtest" ]
 
 class Translator:
     def __init__ (self, name):
@@ -86,16 +87,16 @@ def generate (graph, last, stream=sys.stdout):
     for sv in last.subvols:
         if not sv.dumped:
             generate(graph,sv,stream)
-            print >> stream, ""
+            print("", file=stream)
             sv.dumped = True
-    print >> stream, "volume %s" % last.name
-    print >> stream, "    type %s" % last.xl_type
+    print("volume %s" % last.name, file=stream)
+    print("    type %s" % last.xl_type, file=stream)
     for k, v in last.opts.iteritems():
-        print >> stream, "    option %s %s" % (k, v)
+        print("    option %s %s" % (k, v), file=stream)
     if last.subvols:
-        print >> stream, "    subvolumes %s" % string.join(
-            [ sv.name for sv in last.subvols ])
-    print >> stream, "end-volume"
+        print("    subvolumes %s" % string.join(
+            [ sv.name for sv in last.subvols ]), file=stream)
+    print("end-volume", file=stream)
 
 def push_filter (graph, old_xl, filt_type, opts={}):
     new_type = "-" + filt_type.split("/")[1]
@@ -128,7 +129,7 @@ if __name__ == "__main__":
         if graph.has_key(v):
             break
     else:
-        print "No configured volumes found - aborting."
+        print("No configured volumes found - aborting.")
         sys.exit(0)
     for v in graph.values():
         if v.xl_type == "cluster/distribute":

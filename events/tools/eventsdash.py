@@ -10,6 +10,7 @@
 #  cases as published by the Free Software Foundation.
 #
 
+from __future__ import print_function
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 import logging
 from datetime import datetime
@@ -41,11 +42,11 @@ def listen():
     for k, v in data.get("message", {}).items():
         message.append("{0}={1}".format(k, v))
 
-    print ("{0:20s} {1:20s} {2:36} {3}".format(
+    print(("{0:20s} {1:20s} {2:36} {3}".format(
         human_time(data.get("ts")),
         data.get("event"),
         data.get("nodeid"),
-        " ".join(message)))
+        " ".join(message))))
 
     return "OK"
 
@@ -58,12 +59,12 @@ def main():
                         action="store_true")
     args = parser.parse_args()
 
-    print ("{0:20s} {1:20s} {2:36} {3}".format(
+    print(("{0:20s} {1:20s} {2:36} {3}".format(
         "TIMESTAMP", "EVENT", "NODE ID", "MESSAGE"
-    ))
-    print ("{0:20s} {1:20s} {2:36} {3}".format(
+    )))
+    print(("{0:20s} {1:20s} {2:36} {3}".format(
         "-"*20, "-"*20, "-"*36, "-"*20
-    ))
+    )))
     if args.debug:
         app.debug = True
 
