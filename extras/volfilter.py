@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU General Public License * along
 # with HekaFS.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import print_function
 import copy
 import string
 import sys
@@ -127,16 +128,16 @@ def generate (graph, last, stream=sys.stdout):
 	for sv in last.subvols:
 		if not sv.dumped:
 			generate(graph,sv,stream)
-			print >> stream, ""
+			print("", file=stream)
 			sv.dumped = True
-	print >> stream, "volume %s" % last.name
-	print >> stream, "    type %s" % last.type
+	print("volume %s" % last.name, file=stream)
+	print("    type %s" % last.type, file=stream)
 	for k, v in last.opts.iteritems():
-		print >> stream, "    option %s %s" % (k, v)
+		print("    option %s %s" % (k, v), file=stream)
 	if last.subvols:
-		print >> stream, "    subvolumes %s" % string.join(
-			[ sv.name for sv in last.subvols ])
-	print >> stream, "end-volume"
+		print("    subvolumes %s" % string.join(
+			[ sv.name for sv in last.subvols ]), file=stream)
+	print("end-volume", file=stream)
 
 def push_filter (graph, old_xl, filt_type, opts={}):
 	suffix = "-" + old_xl.type.split("/")[1]

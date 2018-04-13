@@ -8,6 +8,7 @@
 # cases as published by the Free Software Foundation.
 #
 
+from __future__ import print_function
 import os
 import os.path
 import sys
@@ -45,7 +46,7 @@ class IPNetwork(list):
     gsyncd = sys.modules['gsyncd']
     for a in [['--help'], ['--version'],
               ['--canonicalize-escape-url', '/foo']]:
-        print('>>> invoking program with args: %s' % ' '.join(a))
+        print(('>>> invoking program with args: %s' % ' '.join(a)))
         pid = os.fork()
         if not pid:
             sys_argv_set(a)

@@ -1,5 +1,6 @@
 #!/usr/bin/python2
 
+from __future__ import print_function
 import os
 import re
 import string
@@ -43,15 +44,15 @@ def gen_client (templates):
 		if name == 'getspec':
 			# It's not real if it doesn't have a stub function.
 			continue
-		print generate(templates['cbk'],name,cbk_subs)
-		print generate(templates['cont-func'],name,fop_subs)
-		print generate(templates['fop'],name,fop_subs)
+		print(generate(templates['cbk'],name,cbk_subs))
+		print(generate(templates['cont-func'],name,fop_subs))
+		print(generate(templates['fop'],name,fop_subs))
 
 tmpl = load_templates(sys.argv[1])
 for l in open(sys.argv[2],'r').readlines():
 	if l.find('#pragma generate') != -1:
-		print "/* BEGIN GENERATED CODE - DO NOT MODIFY */"
+		print("/* BEGIN GENERATED CODE - DO NOT MODIFY */")
 		gen_client(tmpl)
-		print "/* END GENERATED CODE */"
+		print("/* END GENERATED CODE */")
 	else:
-		print l[:-1]
+		print(l[:-1])

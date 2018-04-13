@@ -1,5 +1,6 @@
 #!/usr/bin/python2
 
+from __future__ import print_function
 import blessings
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -25,7 +26,7 @@ def process_failure(url, node):
         if t.find("Result: FAIL") != -1:
             for t2 in accum:
                 if VERBOSE:
-                    print t2.encode('utf-8')
+                    print(t2.encode('utf-8'))
                 if t2.find("Wstat") != -1:
                     test_case = re.search('\./tests/.*\.t', t2)
                     if test_case:
@@ -69,26 +70,26 @@ def print_summary(failed_builds, total_builds, html=False):
     template = 0
     if html:
         template = 1
-    print render(
+    print(render(
             count[template],
             {'failed': failed_builds, 'total': total_builds}
-    )
+    ))
     for k, v in summary.iteritems():
         if k == 'core':
-            print ''.join([TERM.red, "Found cores:", TERM.normal])
+            print(''.join([TERM.red, "Found cores:", TERM.normal]))
             for comp, link in zip(v[::2], v[1::2]):
-                print render(component[template], {'comp': comp})
-                print render(
+                print(render(component[template], {'comp': comp}))
+                print(render(
                         regression_link[template],
                         {'link': link[0], 'node': link[1]}
-                )
+                ))
         else:
-            print render(failure_count[template], {'test': k, 'count': len(v)})
+            print(render(failure_count[template], {'test': k, 'count': len(v)}))
             for link in v:
-                print render(
+                print(render(
                         regression_link[template],
                         {'link': link[0], 'node': link[1]}
-                )
+                ))
 
 
 def get_summary(cut_off_date, reg_link):
@@ -114,11 +115,11 @@ def get_summary(cut_off_date, reg_link):
                 success_count += 1
                 continue
             if VERBOSE:
-                print ''.join([
+                print(''.join([
                     TERM.red,
                     'FAILURE on {0}'.format(build['url']),
                     TERM.normal
-                ])
+                ]))
             url = ''.join([build['url'], 'consoleText'])
             failure_count += 1
             process_failure(url, build['builtOn'])

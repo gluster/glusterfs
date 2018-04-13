@@ -1,3 +1,5 @@
+
+from __future__ import print_function
 import sys
 import stat
 from uuid import UUID
@@ -106,8 +108,8 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = uuid2str(loc.contents.gfid)
-                print("GLUPY TRACE LOOKUP FOP- {0:d}: gfid={1:s}; " +
-                      "path={2:s}").format(unique, gfid, loc.contents.path)
+                print(("GLUPY TRACE LOOKUP FOP- {0:d}: gfid={1:s}; " +
+                      "path={2:s}").format(unique, gfid, loc.contents.path))
                 self.gfids[key] = gfid
                 dl.wind_lookup(frame, POINTER(xlator_t)(), loc, xdata)
                 return 0
@@ -120,18 +122,18 @@ class xlator(Translator):
                         gfid = uuid2str(buf.contents.ia_gfid)
                         statstr = trace_stat2str(buf)
                         postparentstr = trace_stat2str(postparent)
-                        print("GLUPY TRACE LOOKUP CBK- {0:d}: gfid={1:s}; "+
+                        print(("GLUPY TRACE LOOKUP CBK- {0:d}: gfid={1:s}; "+
                               "op_ret={2:d}; *buf={3:s}; " +
                               "*postparent={4:s}").format(unique, gfid,
                                                           op_ret, statstr,
-                                                          postparentstr)
+                                                          postparentstr))
                 else:
                         gfid = self.gfids[key]
-                        print("GLUPY TRACE LOOKUP CBK - {0:d}: gfid={1:s};" +
+                        print(("GLUPY TRACE LOOKUP CBK - {0:d}: gfid={1:s};" +
                               " op_ret={2:d}; op_errno={3:d}").format(unique,
                                                                       gfid,
                                                                       op_ret,
-                                                                      op_errno)
+                                                                      op_errno))
                 del self.gfids[key]
                 dl.unwind_lookup(frame, cookie, this, op_ret, op_errno,
                                  inode, buf, xdata, postparent)
@@ -141,10 +143,10 @@ class xlator(Translator):
                        xdata):
                 unique = dl.get_rootunique(frame)
                 gfid = uuid2str(loc.contents.gfid)
-                print("GLUPY TRACE CREATE FOP- {0:d}: gfid={1:s}; path={2:s}; " +
+                print(("GLUPY TRACE CREATE FOP- {0:d}: gfid={1:s}; path={2:s}; " +
                       "fd={3:s}; flags=0{4:o}; mode=0{5:o}; " +
                       "umask=0{6:o}").format(unique, gfid, loc.contents.path,
-                                             fd, flags, mode, umask)
+                                             fd, flags, mode, umask))
                 dl.wind_create(frame, POINTER(xlator_t)(), loc, flags,mode,
                                umask, fd, xdata)
                 return 0
@@ -157,16 +159,16 @@ class xlator(Translator):
                         statstr = trace_stat2str(buf)
                         preparentstr = trace_stat2str(preparent)
                         postparentstr = trace_stat2str(postparent)
-                        print("GLUPY TRACE CREATE CBK- {0:d}: gfid={1:s};" +
+                        print(("GLUPY TRACE CREATE CBK- {0:d}: gfid={1:s};" +
                               " op_ret={2:d}; fd={3:s}; *stbuf={4:s}; " +
                               "*preparent={5:s};" +
                               " *postparent={6:s}").format(unique, gfid, op_ret,
                                                            fd, statstr,
                                                            preparentstr,
-                                                           postparentstr)
+                                                           postparentstr))
                 else:
-                        print ("GLUPY TRACE CREATE CBK- {0:d}: op_ret={1:d}; " +
-                              "op_errno={2:d}").format(unique, op_ret, op_errno)
+                        print(("GLUPY TRACE CREATE CBK- {0:d}: op_ret={1:d}; " +
+                              "op_errno={2:d}").format(unique, op_ret, op_errno))
                 dl.unwind_create(frame, cookie, this, op_ret, op_errno, fd,
                                  inode, buf, preparent, postparent, xdata)
                 return 0
@@ -175,10 +177,10 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = uuid2str(loc.contents.inode.contents.gfid)
-                print("GLUPY TRACE OPEN FOP- {0:d}: gfid={1:s}; path={2:s}; "+
+                print(("GLUPY TRACE OPEN FOP- {0:d}: gfid={1:s}; path={2:s}; "+
                       "flags={3:d}; fd={4:s}").format(unique, gfid,
                                                       loc.contents.path, flags,
-                                                      fd)
+                                                      fd))
                 self.gfids[key] = gfid
                 dl.wind_open(frame, POINTER(xlator_t)(), loc, flags, fd, xdata)
                 return 0
@@ -187,9 +189,9 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = self.gfids[key]
-                print("GLUPY TRACE OPEN CBK- {0:d}: gfid={1:s}; op_ret={2:d}; "
+                print(("GLUPY TRACE OPEN CBK- {0:d}: gfid={1:s}; op_ret={2:d}; "
                       "op_errno={3:d}; *fd={4:s}").format(unique, gfid,
-                                                          op_ret, op_errno, fd)
+                                                          op_ret, op_errno, fd))
                 del self.gfids[key]
                 dl.unwind_open(frame, cookie, this, op_ret, op_errno, fd,
                                xdata)
@@ -199,10 +201,10 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = uuid2str(fd.contents.inode.contents.gfid)
-                print("GLUPY TRACE READV FOP- {0:d}: gfid={1:s}; "+
+                print(("GLUPY TRACE READV FOP- {0:d}: gfid={1:s}; "+
                       "fd={2:s}; size ={3:d}; offset={4:d}; " +
                       "flags=0{5:x}").format(unique, gfid, fd, size, offset,
-                                             flags)
+                                             flags))
                 self.gfids[key] = gfid
                 dl.wind_readv (frame, POINTER(xlator_t)(), fd, size, offset,
                                flags, xdata)
@@ -215,17 +217,17 @@ class xlator(Translator):
                 gfid = self.gfids[key]
                 if op_ret >= 0:
                         statstr = trace_stat2str(buf)
-                        print("GLUPY TRACE READV CBK- {0:d}: gfid={1:s}, "+
+                        print(("GLUPY TRACE READV CBK- {0:d}: gfid={1:s}, "+
                               "op_ret={2:d}; *buf={3:s};").format(unique, gfid,
                                                                   op_ret,
-                                                                  statstr)
+                                                                  statstr))
 
                 else:
-                        print("GLUPY TRACE READV CBK- {0:d}: gfid={1:s}, "+
+                        print(("GLUPY TRACE READV CBK- {0:d}: gfid={1:s}, "+
                               "op_ret={2:d}; op_errno={3:d}").format(unique,
                                                                      gfid,
                                                                      op_ret,
-                                                                     op_errno)
+                                                                     op_errno))
                 del self.gfids[key]
                 dl.unwind_readv (frame, cookie, this, op_ret, op_errno,
                                  vector, count, buf, iobref, xdata)
@@ -236,10 +238,10 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = uuid2str(fd.contents.inode.contents.gfid)
-                print("GLUPY TRACE  WRITEV FOP- {0:d}: gfid={1:s}; " +
+                print(("GLUPY TRACE  WRITEV FOP- {0:d}: gfid={1:s}; " +
                       "fd={2:s}; count={3:d}; offset={4:d}; " +
                       "flags=0{5:x}").format(unique, gfid, fd, count, offset,
-                                             flags)
+                                             flags))
                 self.gfids[key] = gfid
                 dl.wind_writev(frame, POINTER(xlator_t)(), fd, vector, count,
                                offset, flags, iobref, xdata)
@@ -252,17 +254,17 @@ class xlator(Translator):
                 if op_ret >= 0:
                         preopstr = trace_stat2str(prebuf)
                         postopstr = trace_stat2str(postbuf)
-                        print("GLUPY TRACE WRITEV CBK- {0:d}: op_ret={1:d}; " +
+                        print(("GLUPY TRACE WRITEV CBK- {0:d}: op_ret={1:d}; " +
                               "*prebuf={2:s}; " +
                               "*postbuf={3:s}").format(unique, op_ret, preopstr,
-                                                       postopstr)
+                                                       postopstr))
                 else:
                         gfid = self.gfids[key]
-                        print("GLUPY TRACE WRITEV CBK- {0:d}: gfid={1:s}; "+
+                        print(("GLUPY TRACE WRITEV CBK- {0:d}: gfid={1:s}; "+
                               "op_ret={2:d}; op_errno={3:d}").format(unique,
                                                                      gfid,
                                                                      op_ret,
-                                                                     op_errno)
+                                                                     op_errno))
                 del self.gfids[key]
                 dl.unwind_writev (frame, cookie, this, op_ret, op_errno,
                                   prebuf, postbuf, xdata)
@@ -272,8 +274,8 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = uuid2str(loc.contents.inode.contents.gfid)
-                print("GLUPY TRACE OPENDIR FOP- {0:d}: gfid={1:s}; path={2:s}; "+
-                      "fd={3:s}").format(unique, gfid, loc.contents.path, fd)
+                print(("GLUPY TRACE OPENDIR FOP- {0:d}: gfid={1:s}; path={2:s}; "+
+                      "fd={3:s}").format(unique, gfid, loc.contents.path, fd))
                 self.gfids[key] = gfid
                 dl.wind_opendir(frame, POINTER(xlator_t)(), loc, fd, xdata)
                 return 0
@@ -283,9 +285,9 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = self.gfids[key]
-                print("GLUPY TRACE OPENDIR CBK- {0:d}: gfid={1:s}; op_ret={2:d};"+
+                print(("GLUPY TRACE OPENDIR CBK- {0:d}: gfid={1:s}; op_ret={2:d};"+
                       " op_errno={3:d}; fd={4:s}").format(unique, gfid, op_ret,
-                                                          op_errno, fd)
+                                                          op_errno, fd))
                 del self.gfids[key]
                 dl.unwind_opendir(frame, cookie, this, op_ret, op_errno,
                                   fd, xdata)
@@ -295,9 +297,9 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = uuid2str(fd.contents.inode.contents.gfid)
-                print("GLUPY TRACE READDIR FOP- {0:d}:  gfid={1:s}; fd={2:s}; " +
+                print(("GLUPY TRACE READDIR FOP- {0:d}:  gfid={1:s}; fd={2:s}; " +
                       "size={3:d}; offset={4:d}").format(unique, gfid, fd, size,
-                                                         offset)
+                                                         offset))
                 self.gfids[key] = gfid
                 dl.wind_readdir(frame, POINTER(xlator_t)(), fd, size, offset,
                                 xdata)
@@ -308,8 +310,8 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = self.gfids[key]
-                print("GLUPY TRACE READDIR CBK- {0:d}: gfid={1:s}; op_ret={2:d};"+
-                      " op_errno={3:d}").format(unique, gfid, op_ret, op_errno)
+                print(("GLUPY TRACE READDIR CBK- {0:d}: gfid={1:s}; op_ret={2:d};"+
+                      " op_errno={3:d}").format(unique, gfid, op_ret, op_errno))
                 del self.gfids[key]
                 dl.unwind_readdir(frame, cookie, this, op_ret, op_errno, buf,
                                   xdata)
@@ -319,9 +321,9 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = uuid2str(fd.contents.inode.contents.gfid)
-                print("GLUPY TRACE READDIRP FOP- {0:d}: gfid={1:s}; fd={2:s}; "+
+                print(("GLUPY TRACE READDIRP FOP- {0:d}: gfid={1:s}; fd={2:s}; "+
                       " size={3:d}; offset={4:d}").format(unique, gfid, fd, size,
-                                                          offset)
+                                                          offset))
                 self.gfids[key] = gfid
                 dl.wind_readdirp(frame, POINTER(xlator_t)(), fd, size, offset,
                                  dictionary)
@@ -332,9 +334,9 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = self.gfids[key]
-                print("GLUPY TRACE READDIRP CBK- {0:d}: gfid={1:s}; "+
+                print(("GLUPY TRACE READDIRP CBK- {0:d}: gfid={1:s}; "+
                       "op_ret={2:d}; op_errno={3:d}").format(unique, gfid,
-                                                             op_ret, op_errno)
+                                                             op_ret, op_errno))
                 del self.gfids[key]
                 dl.unwind_readdirp(frame, cookie, this, op_ret, op_errno, buf,
                                   xdata)
@@ -343,10 +345,10 @@ class xlator(Translator):
         def mkdir_fop(self, frame, this, loc, mode, umask, xdata):
                 unique = dl.get_rootunique(frame)
                 gfid = uuid2str(loc.contents.inode.contents.gfid)
-                print("GLUPY TRACE MKDIR FOP- {0:d}: gfid={1:s}; path={2:s}; " +
+                print(("GLUPY TRACE MKDIR FOP- {0:d}: gfid={1:s}; path={2:s}; " +
                       "mode={3:d}; umask=0{4:o}").format(unique, gfid,
                                                          loc.contents.path, mode,
-                                                         umask)
+                                                         umask))
                 dl.wind_mkdir(frame, POINTER(xlator_t)(), loc, mode, umask,
                               xdata)
                 return 0
@@ -359,15 +361,15 @@ class xlator(Translator):
                         statstr = trace_stat2str(buf)
                         preparentstr = trace_stat2str(preparent)
                         postparentstr = trace_stat2str(postparent)
-                        print("GLUPY TRACE MKDIR CBK- {0:d}: gfid={1:s}; "+
+                        print(("GLUPY TRACE MKDIR CBK- {0:d}: gfid={1:s}; "+
                               "op_ret={2:d}; *stbuf={3:s}; *prebuf={4:s}; "+
                               "*postbuf={5:s} ").format(unique, gfid, op_ret,
                                                         statstr,
                                                         preparentstr,
-                                                        postparentstr)
+                                                        postparentstr))
                 else:
-                        print("GLUPY TRACE MKDIR CBK- {0:d}:  op_ret={1:d}; "+
-                              "op_errno={2:d}").format(unique, op_ret, op_errno)
+                        print(("GLUPY TRACE MKDIR CBK- {0:d}:  op_ret={1:d}; "+
+                              "op_errno={2:d}").format(unique, op_ret, op_errno))
                 dl.unwind_mkdir(frame, cookie, this, op_ret, op_errno, inode,
                                 buf, preparent, postparent, xdata)
                 return 0
@@ -376,9 +378,9 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = uuid2str(loc.contents.inode.contents.gfid)
-                print("GLUPY TRACE RMDIR FOP- {0:d}: gfid={1:s}; path={2:s}; "+
+                print(("GLUPY TRACE RMDIR FOP- {0:d}: gfid={1:s}; path={2:s}; "+
                       "flags={3:d}").format(unique, gfid, loc.contents.path,
-                                            flags)
+                                            flags))
                 self.gfids[key] = gfid
                 dl.wind_rmdir(frame, POINTER(xlator_t)(), loc, flags, xdata)
                 return 0
@@ -391,17 +393,17 @@ class xlator(Translator):
                 if op_ret == 0:
                         preparentstr = trace_stat2str(preparent)
                         postparentstr = trace_stat2str(postparent)
-                        print("GLUPY TRACE RMDIR CBK- {0:d}: gfid={1:s}; "+
+                        print(("GLUPY TRACE RMDIR CBK- {0:d}: gfid={1:s}; "+
                               "op_ret={2:d}; *prebuf={3:s}; "+
                               "*postbuf={4:s}").format(unique, gfid, op_ret,
                                                        preparentstr,
-                                                       postparentstr)
+                                                       postparentstr))
                 else:
-                        print("GLUPY TRACE RMDIR CBK- {0:d}: gfid={1:s}; "+
+                        print(("GLUPY TRACE RMDIR CBK- {0:d}: gfid={1:s}; "+
                               "op_ret={2:d}; op_errno={3:d}").format(unique,
                                                                      gfid,
                                                                      op_ret,
-                                                                     op_errno)
+                                                                     op_errno))
                 del self.gfids[key]
                 dl.unwind_rmdir(frame, cookie, this, op_ret, op_errno,
                                 preparent, postparent, xdata)
@@ -411,8 +413,8 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = uuid2str(loc.contents.inode.contents.gfid)
-                print("GLUPY TRACE STAT FOP- {0:d}: gfid={1:s}; " +
-                      " path={2:s}").format(unique, gfid, loc.contents.path)
+                print(("GLUPY TRACE STAT FOP- {0:d}: gfid={1:s}; " +
+                      " path={2:s}").format(unique, gfid, loc.contents.path))
                 self.gfids[key] = gfid
                 dl.wind_stat(frame, POINTER(xlator_t)(), loc, xdata)
                 return 0
@@ -424,17 +426,17 @@ class xlator(Translator):
                 gfid = self.gfids[key]
                 if op_ret == 0:
                         statstr = trace_stat2str(buf)
-                        print("GLUPY TRACE STAT CBK- {0:d}: gfid={1:s}; "+
+                        print(("GLUPY TRACE STAT CBK- {0:d}: gfid={1:s}; "+
                               "op_ret={2:d};  *buf={3:s};").format(unique,
                                                                    gfid,
                                                                    op_ret,
-                                                                   statstr)
+                                                                   statstr))
                 else:
-                        print("GLUPY TRACE STAT CBK- {0:d}: gfid={1:s}; "+
+                        print(("GLUPY TRACE STAT CBK- {0:d}: gfid={1:s}; "+
                               "op_ret={2:d}; op_errno={3:d}").format(unique,
                                                                      gfid,
                                                                      op_ret,
-                                                                     op_errno)
+                                                                     op_errno))
                 del self.gfids[key]
                 dl.unwind_stat(frame, cookie, this, op_ret, op_errno,
                                buf, xdata)
@@ -444,8 +446,8 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = uuid2str(fd.contents.inode.contents.gfid)
-                print("GLUPY TRACE FSTAT FOP- {0:d}:  gfid={1:s}; " +
-                      "fd={2:s}").format(unique, gfid, fd)
+                print(("GLUPY TRACE FSTAT FOP- {0:d}:  gfid={1:s}; " +
+                      "fd={2:s}").format(unique, gfid, fd))
                 self.gfids[key] = gfid
                 dl.wind_fstat(frame, POINTER(xlator_t)(), fd, xdata)
                 return 0
@@ -457,17 +459,17 @@ class xlator(Translator):
                 gfid = self.gfids[key]
                 if op_ret == 0:
                         statstr = trace_stat2str(buf)
-                        print("GLUPY TRACE FSTAT CBK- {0:d}: gfid={1:s} "+
+                        print(("GLUPY TRACE FSTAT CBK- {0:d}: gfid={1:s} "+
                               " op_ret={2:d}; *buf={3:s}").format(unique,
                                                                   gfid,
                                                                   op_ret,
-                                                                  statstr)
+                                                                  statstr))
                 else:
-                        print("GLUPY TRACE FSTAT CBK- {0:d}: gfid={1:s} "+
+                        print(("GLUPY TRACE FSTAT CBK- {0:d}: gfid={1:s} "+
                               "op_ret={2:d}; op_errno={3:d}").format(unique.
                                                                      gfid,
                                                                      op_ret,
-                                                                     op_errno)
+                                                                     op_errno))
                 del self.gfids[key]
                 dl.unwind_fstat(frame, cookie, this, op_ret, op_errno,
                                 buf, xdata)
@@ -479,8 +481,8 @@ class xlator(Translator):
                         gfid = uuid2str(loc.contents.inode.contents.gfid)
                 else:
                         gfid = "0"
-                print("GLUPY TRACE STATFS FOP- {0:d}: gfid={1:s}; "+
-                      "path={2:s}").format(unique, gfid, loc.contents.path)
+                print(("GLUPY TRACE STATFS FOP- {0:d}: gfid={1:s}; "+
+                      "path={2:s}").format(unique, gfid, loc.contents.path))
                 dl.wind_statfs(frame, POINTER(xlator_t)(), loc, xdata)
                 return 0
 
@@ -489,13 +491,13 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 if op_ret == 0:
                         #TBD: print buf (pointer to an iovec type object)
-                        print("GLUPY TRACE STATFS CBK {0:d}: "+
-                              "op_ret={1:d}").format(unique, op_ret)
+                        print(("GLUPY TRACE STATFS CBK {0:d}: "+
+                              "op_ret={1:d}").format(unique, op_ret))
                 else:
-                        print("GLUPY TRACE STATFS CBK-  {0:d}"+
+                        print(("GLUPY TRACE STATFS CBK-  {0:d}"+
                               "op_ret={1:d}; op_errno={2:d}").format(unique,
                                                                      op_ret,
-                                                                     op_errno)
+                                                                     op_errno))
                 dl.unwind_statfs(frame, cookie, this, op_ret, op_errno,
                                  buf, xdata)
                 return 0
@@ -504,9 +506,9 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = uuid2str(loc.contents.inode.contents.gfid)
-                print("GLUPY TRACE GETXATTR FOP- {0:d}: gfid={1:s}; path={2:s};"+
+                print(("GLUPY TRACE GETXATTR FOP- {0:d}: gfid={1:s}; path={2:s};"+
                       " name={3:s}").format(unique, gfid, loc.contents.path,
-                                            name)
+                                            name))
                 self.gfids[key]=gfid
                 dl.wind_getxattr(frame, POINTER(xlator_t)(), loc, name, xdata)
                 return 0
@@ -516,10 +518,10 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = self.gfids[key]
-                print("GLUPY TRACE GETXATTR CBK- {0:d}: gfid={1:s}; "+
+                print(("GLUPY TRACE GETXATTR CBK- {0:d}: gfid={1:s}; "+
                       "op_ret={2:d}; op_errno={3:d}; "+
                       " dictionary={4:s}").format(unique, gfid, op_ret, op_errno,
-                                                  dictionary)
+                                                  dictionary))
                 del self.gfids[key]
                 dl.unwind_getxattr(frame, cookie, this, op_ret, op_errno,
                                    dictionary, xdata)
@@ -529,8 +531,8 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = uuid2str(fd.contents.inode.contents.gfid)
-                print("GLUPY TRACE FGETXATTR FOP- {0:d}: gfid={1:s}; fd={2:s}; "+
-                      "name={3:s}").format(unique, gfid, fd, name)
+                print(("GLUPY TRACE FGETXATTR FOP- {0:d}: gfid={1:s}; fd={2:s}; "+
+                      "name={3:s}").format(unique, gfid, fd, name))
                 self.gfids[key] = gfid
                 dl.wind_fgetxattr(frame, POINTER(xlator_t)(), fd, name, xdata)
                 return 0
@@ -540,10 +542,10 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = self.gfids[key]
-                print("GLUPY TRACE FGETXATTR CBK- {0:d}: gfid={1:s}; "+
+                print(("GLUPY TRACE FGETXATTR CBK- {0:d}: gfid={1:s}; "+
                       "op_ret={2:d}; op_errno={3:d};"+
                       " dictionary={4:s}").format(unique, gfid, op_ret,
-                                                  op_errno, dictionary)
+                                                  op_errno, dictionary))
                 del self.gfids[key]
                 dl.unwind_fgetxattr(frame, cookie, this, op_ret, op_errno,
                                     dictionary, xdata)
@@ -553,9 +555,9 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = uuid2str(loc.contents.inode.contents.gfid)
-                print("GLUPY TRACE SETXATTR FOP- {0:d}:  gfid={1:s}; path={2:s};"+
+                print(("GLUPY TRACE SETXATTR FOP- {0:d}:  gfid={1:s}; path={2:s};"+
                       " flags={3:d}").format(unique, gfid, loc.contents.path,
-                                             flags)
+                                             flags))
                 self.gfids[key] = gfid
                 dl.wind_setxattr(frame, POINTER(xlator_t)(), loc, dictionary,
                                  flags, xdata)
@@ -565,9 +567,9 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = self.gfids[key]
-                print("GLUPY TRACE SETXATTR CBK- {0:d}: gfid={1:s}; "+
+                print(("GLUPY TRACE SETXATTR CBK- {0:d}: gfid={1:s}; "+
                       "op_ret={2:d}; op_errno={3:d}").format(unique, gfid,
-                                                             op_ret, op_errno)
+                                                             op_ret, op_errno))
                 del self.gfids[key]
                 dl.unwind_setxattr(frame, cookie, this, op_ret, op_errno,
                                    xdata)
@@ -577,8 +579,8 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = uuid2str(fd.contents.inode.contents.gfid)
-                print("GLUPY TRACE FSETXATTR FOP- {0:d}: gfid={1:s}; fd={2:p}; "+
-                      "flags={3:d}").format(unique, gfid, fd, flags)
+                print(("GLUPY TRACE FSETXATTR FOP- {0:d}: gfid={1:s}; fd={2:p}; "+
+                      "flags={3:d}").format(unique, gfid, fd, flags))
                 self.gfids[key] = gfid
                 dl.wind_fsetxattr(frame, POINTER(xlator_t)(), fd, dictionary,
                                   flags, xdata)
@@ -588,9 +590,9 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = self.gfids[key]
-                print("GLUPY TRACE FSETXATTR CBK- {0:d}: gfid={1:s};  "+
+                print(("GLUPY TRACE FSETXATTR CBK- {0:d}: gfid={1:s};  "+
                       "op_ret={2:d}; op_errno={3:d}").format(unique, gfid,
-                                                             op_ret, op_errno)
+                                                             op_ret, op_errno))
                 del self.gfids[key]
                 dl.unwind_fsetxattr(frame, cookie, this, op_ret, op_errno,
                                    xdata)
@@ -600,10 +602,10 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = uuid2str(loc.contents.inode.contents.gfid)
-                print("GLUPY TRACE REMOVEXATTR FOP- {0:d}:  gfid={1:s}; "+
+                print(("GLUPY TRACE REMOVEXATTR FOP- {0:d}:  gfid={1:s}; "+
                       "path={2:s}; name={3:s}").format(unique, gfid,
                                                        loc.contents.path,
-                                                       name)
+                                                       name))
                 self.gfids[key] = gfid
                 dl.wind_removexattr(frame, POINTER(xlator_t)(), loc, name,
                                     xdata)
@@ -614,9 +616,9 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = self.gfids[key]
-                print("GLUPY TRACE REMOVEXATTR CBK- {0:d}: gfid={1:s} "+
+                print(("GLUPY TRACE REMOVEXATTR CBK- {0:d}: gfid={1:s} "+
                       " op_ret={2:d}; op_errno={3:d}").format(unique, gfid,
-                                                              op_ret, op_errno)
+                                                              op_ret, op_errno))
                 del self.gfids[key]
                 dl.unwind_removexattr(frame, cookie, this, op_ret, op_errno,
                                       xdata)
@@ -630,12 +632,12 @@ class xlator(Translator):
                 else:
                         newgfid = "0"
                 oldgfid = uuid2str(oldloc.contents.inode.contents.gfid)
-                print("GLUPY TRACE LINK FOP-{0:d}: oldgfid={1:s}; oldpath={2:s};"+
+                print(("GLUPY TRACE LINK FOP-{0:d}: oldgfid={1:s}; oldpath={2:s};"+
                       "newgfid={3:s};"+
                       "newpath={4:s}").format(unique, oldgfid,
                                               oldloc.contents.path,
                                               newgfid,
-                                              newloc.contents.path)
+                                              newloc.contents.path))
                 self.gfids[key] =  oldgfid
                 dl.wind_link(frame, POINTER(xlator_t)(), oldloc, newloc,
                              xdata)
@@ -650,16 +652,16 @@ class xlator(Translator):
                         statstr = trace_stat2str(buf)
                         preparentstr = trace_stat2str(preparent)
                         postparentstr = trace_stat2str(postparent)
-                        print("GLUPY TRACE LINK CBK- {0:d}: op_ret={1:d} "+
+                        print(("GLUPY TRACE LINK CBK- {0:d}: op_ret={1:d} "+
                               "*stbuf={2:s}; *prebuf={3:s}; "+
                               "*postbuf={4:s} ").format(unique, op_ret, statstr,
                                                         preparentstr,
-                                                        postparentstr)
+                                                        postparentstr))
                 else:
-                        print("GLUPY TRACE LINK CBK- {0:d}: gfid={1:s}; "+
+                        print(("GLUPY TRACE LINK CBK- {0:d}: gfid={1:s}; "+
                               "op_ret={2:d}; "+
                               "op_errno={3:d}").format(unique, gfid,
-                                                       op_ret, op_errno)
+                                                       op_ret, op_errno))
                 del self.gfids[key]
                 dl.unwind_link(frame, cookie, this, op_ret, op_errno, inode,
                                buf, preparent, postparent, xdata)
@@ -669,9 +671,9 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = uuid2str(loc.contents.inode.contents.gfid)
-                print("GLUPY TRACE UNLINK FOP- {0:d}; gfid={1:s}; path={2:s}; "+
+                print(("GLUPY TRACE UNLINK FOP- {0:d}; gfid={1:s}; path={2:s}; "+
                       "flag={3:d}").format(unique, gfid, loc.contents.path,
-                                           xflag)
+                                           xflag))
                 self.gfids[key] = gfid
                 dl.wind_unlink(frame, POINTER(xlator_t)(), loc, xflag,
                                xdata)
@@ -685,16 +687,16 @@ class xlator(Translator):
                 if op_ret == 0:
                         preparentstr = trace_stat2str(preparent)
                         postparentstr = trace_stat2str(postparent)
-                        print("GLUPY TRACE UNLINK CBK- {0:d}: gfid ={1:s}; "+
+                        print(("GLUPY TRACE UNLINK CBK- {0:d}: gfid ={1:s}; "+
                               "op_ret={2:d}; *prebuf={3:s}; "+
                               "*postbuf={4:s} ").format(unique, gfid, op_ret,
                                                         preparentstr,
-                                                        postparentstr)
+                                                        postparentstr))
                 else:
-                        print("GLUPY TRACE UNLINK CBK: {0:d}: gfid ={1:s}; "+
+                        print(("GLUPY TRACE UNLINK CBK: {0:d}: gfid ={1:s}; "+
                               "op_ret={2:d}; "+
                               "op_errno={3:d}").format(unique, gfid, op_ret,
-                                                       op_errno)
+                                                       op_errno))
                 del self.gfids[key]
                 dl.unwind_unlink(frame, cookie, this, op_ret, op_errno,
                                  preparent, postparent, xdata)
@@ -704,9 +706,9 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = uuid2str(loc.contents.inode.contents.gfid)
-                print("GLUPY TRACE READLINK FOP- {0:d}:  gfid={1:s}; path={2:s};"+
+                print(("GLUPY TRACE READLINK FOP- {0:d}:  gfid={1:s}; path={2:s};"+
                       " size={3:d}").format(unique, gfid, loc.contents.path,
-                                            size)
+                                            size))
                 self.gfids[key] = gfid
                 dl.wind_readlink(frame, POINTER(xlator_t)(), loc, size,
                                xdata)
@@ -719,17 +721,17 @@ class xlator(Translator):
                 gfid  = self.gfids[key]
                 if op_ret == 0:
                         statstr = trace_stat2str(stbuf)
-                        print("GLUPY TRACE READLINK CBK- {0:d}: gfid={1:s} "+
+                        print(("GLUPY TRACE READLINK CBK- {0:d}: gfid={1:s} "+
                               " op_ret={2:d}; op_errno={3:d}; *prebuf={4:s}; "+
                               "*postbuf={5:s} ").format(unique, gfid,
                                                         op_ret, op_errno,
-                                                        buf, statstr)
+                                                        buf, statstr))
                 else:
-                        print("GLUPY TRACE READLINK CBK- {0:d}: gfid={1:s} "+
+                        print(("GLUPY TRACE READLINK CBK- {0:d}: gfid={1:s} "+
                               " op_ret={2:d}; op_errno={3:d}").format(unique,
                                                                       gfid,
                                                                       op_ret,
-                                                                      op_errno)
+                                                                      op_errno))
                 del self.gfids[key]
                 dl.unwind_readlink(frame, cookie, this, op_ret, op_errno, buf,
                                    stbuf, xdata)
@@ -739,10 +741,10 @@ class xlator(Translator):
                 unique = dl.get_rootunique(frame)
                 key = dl.get_id(frame)
                 gfid = uuid2str(loc.contents.inode.contents.gfid)
-                print("GLUPY TRACE SYMLINK FOP- {0:d}: gfid={1:s}; "+
+                print(("GLUPY TRACE SYMLINK FOP- {0:d}: gfid={1:s}; "+
                       "linkpath={2:s}; path={3:s};"+
                       "umask=0{4:o}").format(unique, gfid, linkpath,
-                                             loc.contents.path, umask)
+                                             loc.contents.path, umask))
                 self.gfids[key] = gfid
                 dl.wind_symlink(frame, POINTER(xlator_t)(), linkpath, loc,
                                 umask, xdata)
@@ -757,18 +759,18 @@ class xlator(Translator):
                         statstr = trace_stat2str(buf)
                         preparentstr = trace_stat2str(preparent)
                         postparentstr = trace_stat2str(postparent)
-                        print("GLUPY TRACE SYMLINK CBK- {0:d}: gfid={1:s}; "+
+                        print(("GLUPY TRACE SYMLINK CBK- {0:d}: gfid={1:s}; "+
                               "op_ret={2:d}; *stbuf={3:s}; *preparent={4:s}; "+
                               "*postparent={5:s}").format(unique, gfid,
                                                           op_ret, statstr,
                                                           preparentstr,
-                                                          postparentstr)
+                                                          postparentstr))
                 else:
-                        print("GLUPY TRACE SYMLINK CBK- {0:d}: gfid={1:s}; "+
+                        print(("GLUPY TRACE SYMLINK CBK- {0:d}: gfid={1:s}; "+
                               "op_ret={2:d}; op_errno={3:d}").format(unique,
                                                                      gfid,
                                                                      op_ret,
-                                                                     op_errno)
+                                                                     op_errno))
                 del self.gfids[key]
                 dl.unwind_symlink(frame, cookie, this, op_ret, op_errno,
                                   inode, buf, preparent, postparent, xdata)

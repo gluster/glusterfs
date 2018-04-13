@@ -1,5 +1,6 @@
 #!/usr/bin/python2
 
+from __future__ import print_function
 import os
 import sys
 
@@ -325,29 +326,29 @@ def gen_fdl ():
 		fop_subs[name]["@LEN_CODE@"] = len_code[:-1]
 		fop_subs[name]["@SER_CODE@"] = ser_code[:-1]
 		if 'len' in gen_funcs:
-			print generate(LEN_TEMPLATE,name,fop_subs)
+			print(generate(LEN_TEMPLATE,name,fop_subs))
 		if 'serialize' in gen_funcs:
-			print generate(SER_TEMPLATE,name,fop_subs)
+			print(generate(SER_TEMPLATE,name,fop_subs))
 		if name == 'writev':
-			print "#define DESTAGE_ASYNC"
+			print("#define DESTAGE_ASYNC")
 		if 'callback' in gen_funcs:
-			print generate(CBK_TEMPLATE,name,cbk_subs)
+			print(generate(CBK_TEMPLATE,name,cbk_subs))
 		if 'continue' in gen_funcs:
-			print generate(CONTINUE_TEMPLATE,name,fop_subs)
+			print(generate(CONTINUE_TEMPLATE,name,fop_subs))
 		if 'fop' in gen_funcs:
-			print generate(FOP_TEMPLATE,name,fop_subs)
+			print(generate(FOP_TEMPLATE,name,fop_subs))
 		if name == 'writev':
-			print "#undef DESTAGE_ASYNC"
+			print("#undef DESTAGE_ASYNC")
 		entrypoints.append(name)
-	print "struct xlator_fops fops = {"
+	print("struct xlator_fops fops = {")
 	for ep in entrypoints:
-		print "\t.%s = fdl_%s," % (ep, ep)
-	print "};"
+		print("\t.%s = fdl_%s," % (ep, ep))
+	print("};")
 
 for l in open(sys.argv[1],'r').readlines():
 	if l.find('#pragma generate') != -1:
-		print "/* BEGIN GENERATED CODE - DO NOT MODIFY */"
+		print("/* BEGIN GENERATED CODE - DO NOT MODIFY */")
 		gen_fdl()
-		print "/* END GENERATED CODE */"
+		print("/* END GENERATED CODE */")
 	else:
-		print l[:-1]
+		print(l[:-1])

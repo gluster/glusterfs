@@ -1,5 +1,6 @@
 #!/usr/bin/python2
 
+from __future__ import print_function
 import ctypes
 
 api = ctypes.CDLL("libgfapi.so",mode=ctypes.RTLD_GLOBAL)
@@ -23,6 +24,6 @@ if __name__ == "__main__":
 
 	try:
 		res = apply(do_ipc,sys.argv[1:3])
-		print res
+		print(res)
 	except:
-		print "IPC failed (volume not started?)"
+		print("IPC failed (volume not started?)")

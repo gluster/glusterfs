@@ -1,5 +1,6 @@
 #!/usr/bin/python2
 
+from __future__ import print_function
 import ctypes
 import ctypes.util
 
@@ -35,10 +36,10 @@ if __name__ == "__main__":
     try:
         res = apply(get_volfile, sys.argv[1:3])
     except:
-        print "fetching volfile failed (volume not started?)"
+        print("fetching volfile failed (volume not started?)")
 
     try:
         for line in res.split('\n'):
-            print line
+            print(line)
     except:
-        print "bad return value %s" % res
+        print("bad return value %s" % res)

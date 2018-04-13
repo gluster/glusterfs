@@ -5,6 +5,7 @@
 # between leader and followers (including fan-out), and basic error checking
 # to be centralized one place, with per-operation code kept to a minimum.
 
+from __future__ import print_function
 import os
 import re
 import string
@@ -132,49 +133,49 @@ def gen_server (templates):
 		if ("fsync" in flags) or ("queue" in flags):
 			flags.append("need_fd")
 		for fname in flags:
-			print "#define JBR_CG_%s" % fname.upper()
+			print("#define JBR_CG_%s" % fname.upper())
 
 		if 'complete' in gen_funcs:
-			print generate(templates[kind+"-complete"],
-					name,cbk_subs)
+			print(generate(templates[kind+"-complete"],
+					name,cbk_subs))
 
 		if 'continue' in gen_funcs:
-			print generate(templates[kind+"-continue"],
-					name,fop_subs)
+			print(generate(templates[kind+"-continue"],
+					name,fop_subs))
 
 		if 'fan-in' in gen_funcs:
-			print generate(templates[kind+"-fan-in"],
-					name,cbk_subs)
+			print(generate(templates[kind+"-fan-in"],
+					name,cbk_subs))
 
 		if 'dispatch' in gen_funcs:
-			print generate(templates[kind+"-dispatch"],
-					name,fop_subs)
+			print(generate(templates[kind+"-dispatch"],
+					name,fop_subs))
 
 		if 'call_dispatch' in gen_funcs:
-			print generate(templates[kind+"-call_dispatch"],
-					name,fop_subs)
+			print(generate(templates[kind+"-call_dispatch"],
+					name,fop_subs))
 
 		if 'perform_local_op' in gen_funcs:
-			print generate(templates[kind+"-perform_local_op"],
-					name, fop_subs)
+			print(generate(templates[kind+"-perform_local_op"],
+					name, fop_subs))
 
 		if 'fop' in gen_funcs:
-			print generate(templates[kind+"-fop"],name,fop_subs)
+			print(generate(templates[kind+"-fop"],name,fop_subs))
 
 		for fname in flags:
-			print "#undef JBR_CG_%s" % fname.upper()
+			print("#undef JBR_CG_%s" % fname.upper())
 		fops_done.append(name)
 	# Just for fun, emit the fops table too.
 	print("struct xlator_fops fops = {")
 	for x in fops_done:
-		print("	.%s = jbr_%s,"%(x,x))
+		print(("	.%s = jbr_%s,"%(x,x)))
 	print("};")
 
 tmpl = load_templates(sys.argv[1])
 for l in open(sys.argv[2],'r').readlines():
 	if l.find('#pragma generate') != -1:
-		print "/* BEGIN GENERATED CODE - DO NOT MODIFY */"
+		print("/* BEGIN GENERATED CODE - DO NOT MODIFY */")
 		gen_server(tmpl)
-		print "/* END GENERATED CODE */"
+		print("/* END GENERATED CODE */")
 	else:
-		print l[:-1]
+		print(l[:-1])

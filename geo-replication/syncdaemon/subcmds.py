@@ -1,6 +1,7 @@
-import logging
 
+from __future__ import print_function
 from syncdutils import lf
+import logging
 import gsyncdconfig as gconf
 
 
@@ -224,7 +225,7 @@ def print_config(name, value, only_value=False, use_underscore=False):
         if use_underscore:
             name = name.replace("-", "_")
 
-        print("%s:%s" % (name, val))
+        print(("%s:%s" % (name, val)))
 
 
 def config_name_format(val):
@@ -260,7 +261,7 @@ def subcmd_config_get(args):
                 "modified": v["modified"]
             })
 
-        print(json.dumps(out))
+        print((json.dumps(out)))
         return
 
     for k in sorted(all_config):

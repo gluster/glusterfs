@@ -1,5 +1,6 @@
 # Converts old style args into new style args
 
+from __future__ import print_function
 import sys
 from argparse import ArgumentParser
 import socket
@@ -136,8 +137,8 @@ def upgrade():
 
             user, hname = remote_addr.split("@")
 
-            print("ssh://%s@%s:gluster://127.0.0.1:%s" % (
-                user, gethostbyname(hname), vol))
+            print(("ssh://%s@%s:gluster://127.0.0.1:%s" % (
+                user, gethostbyname(hname), vol)))
 
         sys.exit(0)
     elif "--normalize-url" in sys.argv:
@@ -146,7 +147,7 @@ def upgrade():
         p = ArgumentParser()
         p.add_argument("--normalize-url")
         pargs = p.parse_known_args(sys.argv[1:])[0]
-        print("ssh://%s" % slave_url(pargs.normalize_url))
+        print(("ssh://%s" % slave_url(pargs.normalize_url)))
         sys.exit(0)
     elif "--config-get-all" in sys.argv:
         #  -c gsyncd.conf --iprefix=/var :gv1 f241::gv2 --config-get-all
