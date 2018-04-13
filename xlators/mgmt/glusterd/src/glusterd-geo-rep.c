@@ -3648,8 +3648,8 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                         if (ret) {
                                 ret = glusterd_get_local_brickpaths (volinfo,
                                                                      &path_list);
-                                if (path_list)
-                                        ret = -1;
+                                if (!path_list && ret == -1)
+                                        goto out;
                         }
 
                         /* Check for geo-rep session is active or not for
@@ -3681,10 +3681,8 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                 if (ret) {
                         ret = glusterd_get_local_brickpaths (volinfo,
                                                              &path_list);
-                        if (path_list) {
-                                ret = -1;
+                        if (!path_list && ret == -1)
                                 goto out;
-                        }
                 }
 
                 /* Check for geo-rep session is active or not
@@ -3704,10 +3702,8 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                         if (ret) {
                                 ret = glusterd_get_local_brickpaths (volinfo,
                                                                     &path_list);
-                                if (path_list) {
-                                        ret = -1;
+                                if (!path_list && ret == -1)
                                         goto out;
-                                }
                         }
                 }
                 break;
@@ -5570,6 +5566,8 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 }
 
                 ret = glusterd_get_local_brickpaths (volinfo, &path_list);
+                if (!path_list && ret == -1)
+                        goto out;
         }
 
         if (type == GF_GSYNC_OPTION_TYPE_CONFIG) {
