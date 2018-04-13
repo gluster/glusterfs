@@ -36,6 +36,7 @@
 
 #define ARBITER_BRICK_INDEX 2
 
+#define AFR_HALO_MAX_LATENCY 99999
 typedef int (*afr_lock_cbk_t) (call_frame_t *frame, xlator_t *this);
 
 typedef int (*afr_read_txn_wind_t) (call_frame_t *frame, xlator_t *this, int subvol);

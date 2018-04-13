@@ -534,6 +534,10 @@ init (xlator_t *this)
                 ret = -ENOMEM;
                 goto out;
         }
+        /*Initialize to -ve ping timeout so that they are not considered
+         * in child-up events until ping-event comes*/
+        for (i = 0; i < child_count; i++)
+                priv->child_latency[i] = -1;
 
         priv->children = GF_CALLOC (sizeof (xlator_t *), child_count,
                                     gf_afr_mt_xlator_t);
@@ -773,7 +777,7 @@ struct volume_options options[] = {
         { .key   = {"halo-max-latency"},
           .type  = GF_OPTION_TYPE_INT,
           .min   = 1,
-          .max   = 99999,
+          .max   = AFR_HALO_MAX_LATENCY,
           .default_value = "5",
           .op_version = {GD_OP_VERSION_3_11_0},
           .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
