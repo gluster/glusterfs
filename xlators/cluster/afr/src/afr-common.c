@@ -4903,14 +4903,36 @@ __afr_handle_ping_event (xlator_t *this, xlator_t *child_xlator,
         }
 }
 
+static int64_t
+afr_get_halo_latency (xlator_t *this)
+{
+        afr_private_t *priv           = NULL;
+        int64_t halo_max_latency_msec = 0;
+
+        priv = this->private;
+
+        if (priv->shd.iamshd) {
+                halo_max_latency_msec = priv->shd.halo_max_latency_msec;
+        } else if (priv->nfsd.iamnfsd) {
+                halo_max_latency_msec =
+                        priv->nfsd.halo_max_latency_msec;
+        } else {
+                halo_max_latency_msec = priv->halo_max_latency_msec;
+        }
+        gf_msg_debug (this->name, 0, "Using halo latency %ld",
+                halo_max_latency_msec);
+        return halo_max_latency_msec;
+}
+
 void
 __afr_handle_child_up_event (xlator_t *this, xlator_t *child_xlator,
-                const int idx, int64_t halo_max_latency_msec,
+                const int idx, int64_t child_latency_msec,
                 int32_t *event, int32_t *call_psh, int32_t *up_child)
 {
         afr_private_t   *priv               = NULL;
         int             up_children         = 0;
         int             worst_up_child      = -1;
+        int64_t         halo_max_latency_msec = afr_get_halo_latency (this);
 
         priv = this->private;
 
@@ -4928,6 +4950,15 @@ __afr_handle_child_up_event (xlator_t *this, xlator_t *child_xlator,
         *call_psh = 1;
         *up_child = idx;
         up_children = __afr_get_up_children_count (priv);
+        /*
+         * If this is an _actual_ CHILD_UP event, we
+         * want to set the child_latency to MAX to indicate
+         * the child needs ping data to be available before doing child-up
+         */
+        if (child_latency_msec < 0 && priv->halo_enabled) {
+                /*set to INT64_MAX-1 so that it is found for best_down_child*/
+                priv->child_latency[idx] = AFR_HALO_MAX_LATENCY;
+        }
 
         /*
          * Handle the edge case where we exceed
@@ -4950,6 +4981,7 @@ __afr_handle_child_up_event (xlator_t *this, xlator_t *child_xlator,
                         up_children--;
                 }
         }
+
         if (up_children > priv->halo_max_replicas &&
             !priv->shd.iamshd) {
                 worst_up_child = find_worst_up_child (this);
@@ -5051,28 +5083,6 @@ __afr_handle_child_down_event (xlator_t *this, xlator_t *child_xlator,
         }
         priv->last_event[idx] = *event;
 }
-
-static int64_t
-afr_get_halo_latency (xlator_t *this)
-{
-        afr_private_t *priv           = NULL;
-        int64_t halo_max_latency_msec = 0;
-
-        priv = this->private;
-
-        if (priv->shd.iamshd) {
-                halo_max_latency_msec = priv->shd.halo_max_latency_msec;
-        } else if (priv->nfsd.iamnfsd) {
-                halo_max_latency_msec =
-                        priv->nfsd.halo_max_latency_msec;
-        } else {
-                halo_max_latency_msec = priv->halo_max_latency_msec;
-        }
-        gf_msg_debug (this->name, 0, "Using halo latency %ld",
-                halo_max_latency_msec);
-        return halo_max_latency_msec;
-}
-
 
 int32_t
 afr_notify (xlator_t *this, int32_t event,
@@ -5184,7 +5194,7 @@ afr_notify (xlator_t *this, int32_t event,
                         break;
                 case GF_EVENT_CHILD_UP:
                         __afr_handle_child_up_event (this, child_xlator,
-                                idx, halo_max_latency_msec, &event, &call_psh,
+                                idx, child_latency_msec, &event, &call_psh,
                                 &up_child);
                         break;
 
