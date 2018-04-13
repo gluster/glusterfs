@@ -7835,7 +7835,8 @@ glusterd_get_local_brickpaths (glusterd_volinfo_t *volinfo, char **pathlist)
         path_tokens = GF_CALLOC (sizeof(char*), volinfo->brick_count,
                                  gf_gld_mt_charptr);
         if (!path_tokens) {
-                gf_msg_debug ("glusterd", 0, "Could not allocate memory.");
+                gf_msg ("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+                        "Could not allocate memory.");
                 ret = -1;
                 goto out;
         }
@@ -7852,8 +7853,8 @@ glusterd_get_local_brickpaths (glusterd_volinfo_t *volinfo, char **pathlist)
                         path[sizeof(path)-1] = '\0';
                  path_tokens[count] = gf_strdup (path);
                  if (!path_tokens[count]) {
-                        gf_msg_debug ("glusterd", 0,
-                                "Could not allocate memory.");
+                        gf_msg ("glusterd", GF_LOG_ERROR, ENOMEM,
+                                GD_MSG_NO_MEMORY, "Could not allocate memory.");
                         ret = -1;
                         goto out;
                  }
@@ -7864,7 +7865,8 @@ glusterd_get_local_brickpaths (glusterd_volinfo_t *volinfo, char **pathlist)
         tmp_path_list = GF_CALLOC (sizeof(char), total_len + 1,
                                    gf_gld_mt_char);
         if (!tmp_path_list) {
-                gf_msg_debug ("glusterd", 0, "Could not allocate memory.");
+                gf_msg ("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+                        "Could not allocate memory.");
                 ret = -1;
                 goto out;
         }
