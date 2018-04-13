@@ -687,7 +687,7 @@ class Server(object):
                 # UID:0 and GID:0, and then call chown to set UID/GID
                 if uid != 0 or gid != 0:
                     path = os.path.join(pfx, gfid)
-                    cmd_ret = errno_wrap(os.chown, [path, uid, gid], [ENOENT],
+                    cmd_ret = errno_wrap(os.lchown, [path, uid, gid], [ENOENT],
                                          [ESTALE, EINVAL])
                     collect_failure(e, cmd_ret)
 
