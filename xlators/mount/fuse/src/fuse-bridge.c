@@ -3212,19 +3212,6 @@ fuse_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      gf_fop_list[frame->root->op]);
 
         if (op_ret == 0) {
-#ifndef GF_DARWIN_HOST_OS
-                /* MacFUSE doesn't respect anyof these tweaks */
-                buf->f_blocks *= buf->f_frsize;
-                buf->f_blocks /= this->ctx->page_size;
-
-                buf->f_bavail *= buf->f_frsize;
-                buf->f_bavail /= this->ctx->page_size;
-
-                buf->f_bfree *= buf->f_frsize;
-                buf->f_bfree /= this->ctx->page_size;
-
-                buf->f_frsize = buf->f_bsize =this->ctx->page_size;
-#endif /* GF_DARWIN_HOST_OS */
                 fso.st.bsize   = buf->f_bsize;
                 fso.st.frsize  = buf->f_frsize;
                 fso.st.blocks  = buf->f_blocks;
