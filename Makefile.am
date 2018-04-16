@@ -1,7 +1,7 @@
 SOURCES = site.h
 
 EXTRA_DIST = autogen.sh \
-	COPYING-GPLV2 COPYING-LGPLV3 \
+	COPYING-GPLV2 COPYING-LGPLV3 COMMITMENT \
 	INSTALL README.md AUTHORS THANKS NEWS \
 	glusterfs.spec glusterfs-api.pc.in libgfchangelog.pc.in libgfdb.pc.in \
 	run-tests.sh \
