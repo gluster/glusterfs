@@ -1046,7 +1046,7 @@ exit 0
 ## All %%files should be placed here and keep them grouped
 ##
 %files
-%doc ChangeLog COPYING-GPLV2 COPYING-LGPLV3 INSTALL README.md THANKS
+%doc ChangeLog COPYING-GPLV2 COPYING-LGPLV3 INSTALL README.md THANKS COMMITMENT
 %{_mandir}/man8/*gluster*.8*
 %if ( 0%{!?_without_server:1} )
 %exclude %{_mandir}/man8/gluster.8*
