@@ -20,6 +20,7 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_builddir)/rpc/xdr/src\
 	-DDATADIR=\"$(localstatedir)\" \
 	-DCONFDIR=\"$(sysconfdir)/glusterfs\" \
+        -DXLATORDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator\" \
 	-DGSYNCD_PREFIX=\"$(GLUSTERFS_LIBEXECDIR)\"\
 	-DSYNCDAEMON_COMPILE=$(SYNCDAEMON_COMPILE) -DSBIN_DIR=\"$(sbindir)\"\
 	$(XML_CPPFLAGS)
