@@ -285,6 +285,7 @@ afr_handle_lock_acquire_failure (afr_local_t *local, gf_boolean_t locked)
         INIT_LIST_HEAD (&shared);
         LOCK (&local->inode->lock);
         {
+                lock->release = _gf_true;
                 list_splice_init (&lock->waiting, &shared);
         }
         UNLOCK (&local->inode->lock);
@@ -510,6 +511,7 @@ afr_transaction_perform_fop (call_frame_t *frame, xlator_t *this)
                                    priv->child_count);
         if (failure_count == priv->child_count) {
                 afr_handle_lock_acquire_failure (local, _gf_true);
+                return 0;
         } else {
                 lock = &local->inode_ctx->lock[local->transaction.type];
                 LOCK (&local->inode->lock);
