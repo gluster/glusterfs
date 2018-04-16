@@ -2196,7 +2196,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .description = "This option uses the value of backlog argument that "
                          "defines the maximum length to which the queue of "
                          "pending connections for socket fd may grow.",
-          .value       = "10",
+          .value       = "1024",
         },
 
         /* Generic transport options */
