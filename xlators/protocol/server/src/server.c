@@ -1210,7 +1210,15 @@ server_init (xlator_t *this)
                 }
         }
 #endif
-
+        if (!this->ctx->cmd_args.volfile_id) {
+                /* In some use cases this is a valid case, but
+                   document this to be annoying log in that case */
+                gf_msg (this->name, GF_LOG_WARNING, EINVAL,
+                        PS_MSG_VOL_FILE_OPEN_FAILED,
+                        "volfile-id argument not given. "
+                        "This is mandatory argument, defaulting to 'gluster'");
+                this->ctx->cmd_args.volfile_id = gf_strdup ("gluster");
+        }
         FIRST_CHILD(this)->volfile_id
                 = gf_strdup (this->ctx->cmd_args.volfile_id);
 
