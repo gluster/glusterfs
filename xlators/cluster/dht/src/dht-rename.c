@@ -490,37 +490,66 @@ err:
         return 0;
 }
 
+
+/*
+ * If the hashed subvolumes of both source and dst are the different,
+ * lock in dictionary order of hashed subvol->name. This is important
+ * in case the parent directory is the same for both src and dst to
+ * prevent inodelk deadlocks when racing with a fix-layout op on the parent.
+ *
+ * If the hashed subvols are the same, use the gfid/name to determine
+ * the order of taking locks to prevent entrylk deadlocks when the parent
+ * dirs are the same.
+ *
+ */
 static void
 dht_order_rename_lock (call_frame_t *frame, loc_t **loc, xlator_t **subvol)
 {
-        dht_local_t        *local                       = NULL;
-        char                src[GF_UUID_BNAME_BUF_SIZE] = {0};
-        char                dst[GF_UUID_BNAME_BUF_SIZE] = {0};
+        int ret                 = 0;
+        dht_local_t   *local    = NULL;
+        char           src[GF_UUID_BNAME_BUF_SIZE] = {0};
+        char           dst[GF_UUID_BNAME_BUF_SIZE] = {0};
+
 
         local = frame->local;
 
-        if (local->loc.pargfid)
-                uuid_utoa_r (local->loc.pargfid, src);
-        else if (local->loc.parent)
-                uuid_utoa_r (local->loc.parent->gfid, src);
-
-        strcat (src, local->loc.name);
-
-        if (local->loc2.pargfid)
-                uuid_utoa_r (local->loc2.pargfid, dst);
-        else if (local->loc2.parent)
-                uuid_utoa_r (local->loc2.parent->gfid, dst);
-
-        strcat (dst, local->loc2.name);
-
-        if (strcmp(src, dst) > 0) {
-                local->current = &local->lock[1];
-                *loc = &local->loc2;
-                *subvol = local->dst_hashed;
+        if (local->src_hashed->name == local->dst_hashed->name) {
+                ret = 0;
         } else {
+                ret = strcmp (local->src_hashed->name, local->dst_hashed->name);
+        }
+
+        if (ret == 0) {
+
+                /* hashed subvols are the same for src and dst */
+                /* Entrylks need to be ordered*/
+                if (local->loc.pargfid)
+                        uuid_utoa_r (local->loc.pargfid, src);
+                else if (local->loc.parent)
+                        uuid_utoa_r (local->loc.parent->gfid, src);
+
+                strcat (src, local->loc.name);
+
+                if (local->loc2.pargfid)
+                        uuid_utoa_r (local->loc2.pargfid, dst);
+                else if (local->loc2.parent)
+                        uuid_utoa_r (local->loc2.parent->gfid, dst);
+
+                strcat (dst, local->loc2.name);
+                ret = strcmp (src, dst);
+        }
+
+        if (ret <= 0) {
+                /*inodelk in dictionary order of hashed subvol names*/
+                /*entrylk in dictionary order of gfid/basename */
                 local->current = &local->lock[0];
                 *loc = &local->loc;
                 *subvol = local->src_hashed;
+
+        } else {
+                local->current = &local->lock[1];
+                *loc = &local->loc2;
+                *subvol = local->dst_hashed;
         }
 
         return;
