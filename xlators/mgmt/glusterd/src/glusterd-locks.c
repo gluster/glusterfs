@@ -656,6 +656,8 @@ glusterd_mgmt_v3_lock (const char *name, uuid_t uuid, uint32_t *op_errno,
         key_dup = gf_strdup (key);
         delay.tv_sec = priv->mgmt_v3_lock_timeout;
         delay.tv_nsec = 0;
+        /*changing to default timeout value*/
+        priv->mgmt_v3_lock_timeout = GF_LOCK_TIMER;
 
         ret = -1;
         mgmt_lock_timer_xl = mgmt_lock_timer->xl;

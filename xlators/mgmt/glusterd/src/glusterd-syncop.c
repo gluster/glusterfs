@@ -1809,6 +1809,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
         glusterd_op_info_t          txn_opinfo       = {{0},};
         uint32_t                    op_errno         = 0;
         gf_boolean_t                cluster_lock     = _gf_false;
+        uint32_t                    timeout          = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1870,6 +1871,14 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
                         goto out;
                 }
         } else {
+                /* Cli will add timeout key to dict if the default timeout is
+                 * other than 2 minutes. Here we use this value to check whether
+                 * mgmt_v3_lock_timeout should be set to default value or we
+                 * need to change the value according to timeout value
+                 * i.e, timeout + 120 seconds. */
+                ret = dict_get_uint32 (op_ctx, "timeout", &timeout);
+                if (!ret)
+                        conf->mgmt_v3_lock_timeout = timeout + 120;
 
                 ret = dict_get_str (op_ctx, "globalname", &global);
                 if (!ret) {

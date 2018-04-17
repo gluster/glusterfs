@@ -91,6 +91,9 @@ cli_to_glusterd (gf_cli_req *req, call_frame_t *frame, fop_cbk_fn_t cbkfn,
                  xdrproc_t xdrproc, dict_t *dict, int procnum, xlator_t *this,
                  rpc_clnt_prog_t *prog, struct iobref *iobref);
 
+int
+add_cli_cmd_timeout_to_dict (dict_t *dict);
+
 rpc_clnt_prog_t cli_handshake_prog = {
         .progname  = "cli handshake",
         .prognum   = GLUSTER_HNDSK_PROGRAM,
@@ -4088,6 +4091,8 @@ cli_quotad_getlimit (call_frame_t *frame, xlator_t *this, void *data)
         }
 
         dict = data;
+        ret = add_cli_cmd_timeout_to_dict (dict);
+
         ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
                                            &req.dict.dict_len);
         if (ret < 0) {
@@ -11784,6 +11789,21 @@ out:
 }
 
 int
+add_cli_cmd_timeout_to_dict (dict_t *dict)
+{
+        int      ret     = 0;
+
+        if (cli_default_conn_timeout > 120) {
+                ret = dict_set_uint32 (dict, "timeout", cli_default_conn_timeout);
+                if (ret) {
+                        gf_log ("cli", GF_LOG_INFO, "Failed to save"
+                                "timeout to dict");
+                }
+        }
+        return ret;
+}
+
+int
 cli_to_glusterd (gf_cli_req *req, call_frame_t *frame,
                  fop_cbk_fn_t cbkfn, xdrproc_t xdrproc, dict_t *dict,
                  int procnum, xlator_t *this, rpc_clnt_prog_t *prog,
@@ -11836,6 +11856,8 @@ cli_to_glusterd (gf_cli_req *req, call_frame_t *frame,
         ret = dict_set_dynstr (dict, "cmd-str", cmd);
         if (ret)
                 goto out;
+
+        ret = add_cli_cmd_timeout_to_dict (dict);
 
         ret = dict_allocate_and_serialize (dict, &(req->dict).dict_val,
                                            &(req->dict).dict_len);

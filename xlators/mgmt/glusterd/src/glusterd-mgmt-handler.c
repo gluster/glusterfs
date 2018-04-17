@@ -132,8 +132,12 @@ glusterd_handle_mgmt_v3_lock_fn (rpcsvc_request_t *req)
         xlator_t               *this            = NULL;
         gf_boolean_t            is_synctasked   = _gf_false;
         gf_boolean_t            free_ctx        = _gf_false;
+        glusterd_conf_t        *conf            = NULL;
+        uint32_t                timeout         = 0;
 
         this = THIS;
+        conf = this->private;
+        GF_ASSERT (conf);
         GF_ASSERT (this);
         GF_ASSERT (req);
 
@@ -182,6 +186,15 @@ glusterd_handle_mgmt_v3_lock_fn (rpcsvc_request_t *req)
                         "failed to unserialize the dictionary");
                 goto out;
         }
+
+        /* Cli will add timeout key to dict if the default timeout is
+         * other than 2 minutes. Here we use this value to check whether
+         * mgmt_v3_lock_timeout should be set to default value or we
+         * need to change the value according to timeout value
+         * i.e, timeout + 120 seconds. */
+        ret = dict_get_uint32 (ctx->dict, "timeout", &timeout);
+        if (!ret)
+                conf->mgmt_v3_lock_timeout = timeout + 120;
 
         is_synctasked = dict_get_str_boolean (ctx->dict,
                                               "is_synctasked", _gf_false);
