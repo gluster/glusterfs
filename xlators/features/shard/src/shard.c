@@ -475,6 +475,7 @@ shard_local_wipe (shard_local_t *local)
 
         count = local->num_blocks;
 
+        syncbarrier_destroy (&local->barrier);
         loc_wipe (&local->loc);
         loc_wipe (&local->dot_shard_loc);
         loc_wipe (&local->loc2);
@@ -861,6 +862,7 @@ shard_common_resolve_shards (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
         local = frame->local;
+        local->call_count = 0;
         shard_idx_iter = local->first_block;
         res_inode = local->resolver_base_inode;
 
@@ -1781,6 +1783,37 @@ shard_unlink_shards_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             struct iatt *preparent, struct iatt *postparent,
                             dict_t *xdata);
 
+void
+shard_unlink_block_inode (shard_local_t *local, int shard_block_num);
+
+int
+shard_truncate_htol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno,
+                         struct iatt *preparent, struct iatt *postparent,
+                         dict_t *xdata)
+{
+        int            call_count      = 0;
+        int            shard_block_num = (long) cookie;
+        shard_local_t *local           = NULL;
+
+        local = frame->local;
+
+        if (op_ret < 0) {
+                local->op_ret = op_ret;
+                local->op_errno = op_errno;
+                goto done;
+        }
+
+        shard_unlink_block_inode (local, shard_block_num);
+done:
+        call_count = shard_call_count_return (frame);
+        if (call_count == 0) {
+                SHARD_UNSET_ROOT_FS_ID (frame, local);
+                shard_truncate_last_shard (frame, this, local->inode_list[0]);
+        }
+        return 0;
+}
+
 int
 shard_truncate_htol (call_frame_t *frame, xlator_t *this, inode_t *inode)
 {
@@ -1840,10 +1873,9 @@ shard_truncate_htol (call_frame_t *frame, xlator_t *this, inode_t *inode)
                         continue;
                 }
                 if (wind_failed) {
-                        shard_unlink_shards_do_cbk (frame,
-                                                    (void *)(long) cur_block,
-                                                    this, -1, ENOMEM, NULL,
-                                                    NULL, NULL);
+                        shard_truncate_htol_cbk (frame, (void *)(long) cur_block,
+                                                 this, -1, ENOMEM, NULL, NULL,
+                                                 NULL);
                         goto next;
                 }
 
@@ -1861,10 +1893,9 @@ shard_truncate_htol (call_frame_t *frame, xlator_t *this, inode_t *inode)
                         local->op_errno = ENOMEM;
                         loc_wipe (&loc);
                         wind_failed = _gf_true;
-                        shard_unlink_shards_do_cbk (frame,
-                                                    (void *)(long) cur_block,
-                                                    this, -1, ENOMEM, NULL,
-                                                    NULL, NULL);
+                        shard_truncate_htol_cbk (frame, (void *)(long) cur_block,
+                                                 this, -1, ENOMEM, NULL, NULL,
+                                                 NULL);
                         goto next;
                 }
                 loc.name = strrchr (loc.path, '/');
@@ -1872,7 +1903,7 @@ shard_truncate_htol (call_frame_t *frame, xlator_t *this, inode_t *inode)
                         loc.name++;
                 loc.inode = inode_ref (local->inode_list[i]);
 
-                STACK_WIND_COOKIE (frame, shard_unlink_shards_do_cbk,
+                STACK_WIND_COOKIE (frame, shard_truncate_htol_cbk,
                                    (void *) (long) cur_block, FIRST_CHILD(this),
                                    FIRST_CHILD (this)->fops->unlink, &loc,
                                    0, NULL);
@@ -2023,13 +2054,18 @@ shard_common_lookup_shards_cbk (call_frame_t *frame, void *cookie,
 
 done:
         call_count = shard_call_count_return (frame);
-        if (call_count == 0) {
-                if (!local->first_lookup_done)
-                        local->first_lookup_done = _gf_true;
-                if (local->op_ret < 0)
-                        goto unwind;
-                else
-                        local->pls_fop_handler (frame, this);
+        if (local->lookup_shards_barriered) {
+                syncbarrier_wake (&local->barrier);
+                return 0;
+        } else {
+                if (call_count == 0) {
+                        if (!local->first_lookup_done)
+                                local->first_lookup_done = _gf_true;
+                        if (local->op_ret < 0)
+                                goto unwind;
+                        else
+                                local->pls_fop_handler (frame, this);
+                }
         }
         return 0;
 
@@ -2075,6 +2111,7 @@ shard_common_lookup_shards (call_frame_t *frame, xlator_t *this, inode_t *inode,
 {
         int            i              = 0;
         int            ret            = 0;
+        int            count          = 0;
         int            call_count     = 0;
         int32_t        shard_idx_iter = 0;
         int            last_block     = 0;
@@ -2088,10 +2125,12 @@ shard_common_lookup_shards (call_frame_t *frame, xlator_t *this, inode_t *inode,
 
         priv = this->private;
         local = frame->local;
-        call_count = local->call_count;
+        count = call_count = local->call_count;
         shard_idx_iter = local->first_block;
         last_block = local->last_block;
         local->pls_fop_handler = handler;
+        if (local->lookup_shards_barriered)
+                local->barrier.waitfor = local->call_count;
 
         while (shard_idx_iter <= last_block) {
                 if (local->inode_list[i]) {
@@ -2163,7 +2202,8 @@ next:
                 if (!--call_count)
                         break;
         }
-
+        if (local->lookup_shards_barriered)
+                syncbarrier_wait (&local->barrier, count);
         return 0;
 }
 
@@ -2401,6 +2441,9 @@ shard_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
 
         frame->local = local;
 
+        ret = syncbarrier_init (&local->barrier);
+        if (ret)
+                goto err;
         loc_copy (&local->loc, loc);
         local->offset = offset;
         local->block_size = block_size;
@@ -2451,6 +2494,9 @@ shard_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                 goto err;
 
         frame->local = local;
+        ret = syncbarrier_init (&local->barrier);
+        if (ret)
+                goto err;
         local->fd = fd_ref (fd);
         local->offset = offset;
         local->block_size = block_size;
@@ -2882,18 +2928,19 @@ shard_unlink_shards_do_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 done:
         call_count = shard_call_count_return (frame);
-        if (call_count == 0) {
-                SHARD_UNSET_ROOT_FS_ID (frame, local);
+        if (local->unlink_shards_barriered) {
+                syncbarrier_wake (&local->barrier);
+        } else {
 
-                if (local->fop == GF_FOP_UNLINK)
-                        shard_unlink_cbk (frame, this);
-                else if (local->fop == GF_FOP_RENAME)
-                        shard_rename_cbk (frame, this);
-                else
-                        shard_truncate_last_shard (frame, this,
-                                                   local->inode_list[0]);
+                if (call_count == 0) {
+                        SHARD_UNSET_ROOT_FS_ID (frame, local);
+
+                        if (local->fop == GF_FOP_UNLINK)
+                                shard_unlink_cbk (frame, this);
+                        else if (local->fop == GF_FOP_RENAME)
+                                shard_rename_cbk (frame, this);
+                }
         }
-
         return 0;
 }
 
@@ -2953,6 +3000,8 @@ shard_unlink_shards_do (call_frame_t *frame, xlator_t *this, inode_t *inode)
         local->call_count = call_count = count;
         cur_block = 1;
         SHARD_SET_ROOT_FS_ID (frame, local);
+        if (local->unlink_shards_barriered)
+                local->barrier.waitfor = count;
 
         /* Ignore the base file and start iterating from the first block shard.
          */
@@ -3007,6 +3056,8 @@ next:
                 if (!--call_count)
                         break;
         }
+        if (local->unlink_shards_barriered)
+                syncbarrier_wait (&local->barrier, count);
 
         return 0;
 }
@@ -3948,6 +3999,9 @@ shard_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
         frame->local = local;
 
+        ret = syncbarrier_init (&local->barrier);
+        if (ret)
+                goto err;
         local->fd = fd_ref (fd);
         local->block_size = block_size;
         local->offset = offset;
@@ -5414,6 +5468,9 @@ shard_common_inode_write_begin (call_frame_t *frame, xlator_t *this,
 
         frame->local = local;
 
+        ret = syncbarrier_init (&local->barrier);
+        if (ret)
+                goto out;
         local->xattr_req = (xdata) ? dict_ref (xdata) : dict_new ();
         if (!local->xattr_req)
                 goto out;
