@@ -740,6 +740,7 @@ glusterd_mgmt_v3_initiate_lockdown (glusterd_op_t op, dict_t *dict,
         uuid_t               peer_uuid  = {0};
         xlator_t            *this       = NULL;
         glusterd_conf_t     *conf       = NULL;
+        uint32_t             timeout    = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -749,6 +750,15 @@ glusterd_mgmt_v3_initiate_lockdown (glusterd_op_t op, dict_t *dict,
         GF_ASSERT (dict);
         GF_ASSERT (op_errstr);
         GF_ASSERT (is_acquired);
+
+        /* Cli will add timeout key to dict if the default timeout is
+         * other than 2 minutes. Here we use this value to check whether
+         * mgmt_v3_lock_timeout should be set to default value or we
+         * need to change the value according to timeout value
+         * i.e, timeout + 120 seconds. */
+        ret = dict_get_uint32 (dict, "timeout", &timeout);
+        if (!ret)
+                conf->mgmt_v3_lock_timeout = timeout + 120;
 
         /* Trying to acquire multiple mgmt_v3 locks on local node */
         ret = glusterd_multiple_mgmt_v3_lock (dict, MY_UUID, op_errno);

@@ -4143,11 +4143,16 @@ glusterd_op_ac_lock (glusterd_op_sm_event_t *event, void *ctx)
         glusterd_op_lock_ctx_t         *lock_ctx        = NULL;
         xlator_t                       *this            = NULL;
         uint32_t                        op_errno        = 0;
+        glusterd_conf_t                *conf            = NULL;
+        uint32_t                        timeout         = 0;
 
         GF_ASSERT (event);
         GF_ASSERT (ctx);
 
         this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
+        GF_ASSERT (conf);
 
         lock_ctx = (glusterd_op_lock_ctx_t *)ctx;
 
@@ -4158,6 +4163,15 @@ glusterd_op_ac_lock (glusterd_op_sm_event_t *event, void *ctx)
                 ret = glusterd_lock (lock_ctx->uuid);
                 glusterd_op_lock_send_resp (lock_ctx->req, ret);
         } else {
+                /* Cli will add timeout key to dict if the default timeout is
+                 * other than 2 minutes. Here we use this value to check whether
+                 * mgmt_v3_lock_timeout should be set to default value or we
+                 * need to change the value according to timeout value
+                 * i.e, timeout + 120 seconds. */
+                ret = dict_get_uint32 (lock_ctx->dict, "timeout", &timeout);
+                if (!ret)
+                        conf->mgmt_v3_lock_timeout = timeout + 120;
+
                 ret = dict_get_str (lock_ctx->dict, "volname", &volname);
                 if (ret)
                         gf_msg (this->name, GF_LOG_ERROR, 0,
