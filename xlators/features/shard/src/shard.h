@@ -15,6 +15,7 @@
 #include "xlator.h"
 #include "compat-errno.h"
 #include "shard-messages.h"
+#include "syncop.h"
 
 #define GF_SHARD_DIR ".shard"
 #define SHARD_MIN_BLOCK_SIZE  (4 * GF_UNIT_MB)
@@ -257,6 +258,9 @@ typedef struct shard_local {
         } lock;
         inode_t *resolver_base_inode;
         gf_boolean_t first_lookup_done;
+        syncbarrier_t barrier;
+        gf_boolean_t lookup_shards_barriered;
+        gf_boolean_t unlink_shards_barriered;
 } shard_local_t;
 
 typedef struct shard_inode_ctx {
