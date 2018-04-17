@@ -861,6 +861,13 @@ glusterfs_handle_attach (rpcsvc_request_t *req)
         this = THIS;
         GF_ASSERT (this);
 
+        ctx = this->ctx;
+        if (!ctx->cmd_args.volfile_id) {
+                gf_log (THIS->name, GF_LOG_ERROR,
+                        "No volfile-id provided, erroring out");
+                return -1;
+        }
+
         ret = xdr_to_generic (req->msg[0], &xlator_req,
                              (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
 
@@ -870,7 +877,6 @@ glusterfs_handle_attach (rpcsvc_request_t *req)
                 return -1;
         }
         ret = 0;
-        ctx = this->ctx;
 
         LOCK (&ctx->volfile_lock);
         {
@@ -2089,6 +2095,11 @@ glusterfs_volfile_fetch_one (glusterfs_ctx_t *ctx, char *volfile_id)
         cmd_args = &ctx->cmd_args;
         if (!volfile_id) {
                 volfile_id = ctx->cmd_args.volfile_id;
+                if (!volfile_id) {
+                        gf_log (THIS->name, GF_LOG_ERROR,
+                                "No volfile-id provided, erroring out");
+                        return -1;
+                }
         }
 
         frame = create_frame (THIS, ctx->pool);
