@@ -1741,6 +1741,7 @@ br_collect_bad_objects_of_child (xlator_t *this, br_child_t *child,
         int32_t     j = 0;
         int32_t    tmp_count = 0;
         char       *entry = NULL;
+        char       tmp[PATH_MAX]  = {0, };
 
         ret = dict_get_int32 (child_dict, "count", &count);
         if (ret)
@@ -1753,11 +1754,15 @@ br_collect_bad_objects_of_child (xlator_t *this, br_child_t *child,
                 ret = dict_get_str (child_dict, key, &entry);
                 if (ret)
                         continue;
+
+                snprintf (tmp, PATH_MAX, "%s ==> BRICK: %s",
+                          entry, child->brick_path);
                 snprintf (main_key, PATH_MAX, "quarantine-%d",
                           tmp_count);
-                ret = dict_set_dynstr_with_alloc (dict, main_key, entry);
-                if (!ret)
-                        tmp_count++;
+
+                ret = dict_set_dynstr_with_alloc (dict, main_key, tmp);
+                          if (!ret)
+                                  tmp_count++;
         }
 
         ret = tmp_count;
