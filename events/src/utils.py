@@ -206,7 +206,7 @@ def get_jwt_token(secret, event_type, event_ts, jwt_expiry_time_seconds=60):
     msg = base64_urlencode(header) + "." + base64_urlencode(payload)
     return "%s.%s" % (
         msg,
-        base64_urlencode(hmac.HMAC(secret, msg, sha256).digest())
+        base64_urlencode(hmac.HMAC(str(secret), msg, sha256).digest())
     )
 
 
