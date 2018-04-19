@@ -166,6 +166,13 @@ static struct argp_option gf_options[] = {
          "Validate the netgroups file and print it out"},
         {"print-exports", ARGP_PRINT_EXPORTS, "EXPORTS-FILE", 0,
         "Validate the exports file and print it out"},
+        {"print-xlatordir", ARGP_PRINT_XLATORDIR_KEY, 0, OPTION_ARG_OPTIONAL,
+         "Print xlator directory path"},
+        {"print-statedumpdir", ARGP_PRINT_STATEDUMPDIR_KEY, 0,
+          OPTION_ARG_OPTIONAL,
+         "Print directory path in which statedumps shall be generated"},
+        {"print-logdir", ARGP_PRINT_LOGDIR_KEY, 0, OPTION_ARG_OPTIONAL,
+         "Print path of default log directory"},
 
         {"volfile-max-fetch-attempts", ARGP_VOLFILE_MAX_FETCH_ATTEMPTS, "0",
          OPTION_HIDDEN, "Maximum number of attempts to fetch the volfile"},
@@ -911,6 +918,18 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
         case ARGP_PRINT_EXPORTS:
                 cmd_args->print_exports = arg;
+                break;
+
+        case ARGP_PRINT_XLATORDIR_KEY:
+                cmd_args->print_xlatordir = _gf_true;
+                break;
+
+        case ARGP_PRINT_STATEDUMPDIR_KEY:
+                cmd_args->print_statedumpdir = _gf_true;
+                break;
+
+        case ARGP_PRINT_LOGDIR_KEY:
+                cmd_args->print_logdir = _gf_true;
                 break;
 
         case ARGP_MAC_COMPAT_KEY:
@@ -1982,6 +2001,13 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
         }
 
         argp_parse (&argp, argc, argv, ARGP_IN_ORDER, NULL, cmd_args);
+
+        if (cmd_args->print_xlatordir || cmd_args->print_statedumpdir ||
+            cmd_args->print_logdir) {
+                /* Just print, nothing else to do */
+                goto out;
+        }
+
         if (cmd_args->print_netgroups) {
                 /* When this option is set we don't want to do anything else
                  * except for printing & verifying the netgroups file.
@@ -2578,6 +2604,23 @@ main (int argc, char *argv[])
         if (ret)
                 goto out;
         cmd = &ctx->cmd_args;
+
+        if (cmd->print_xlatordir) {
+                /* XLATORDIR passed through a -D flag to GCC */
+                printf ("%s\n", XLATORDIR);
+                goto out;
+        }
+
+        if (cmd->print_statedumpdir) {
+                printf ("%s\n", DEFAULT_VAR_RUN_DIRECTORY);
+                goto out;
+        }
+
+        if (cmd->print_logdir) {
+                printf ("%s\n", DEFAULT_LOG_FILE_DIRECTORY);
+                goto out;
+        }
+
         if (cmd->print_netgroups) {
                 /* If this option is set we want to print & verify the file,
                  * set the return value (exit code in this case) and exit.

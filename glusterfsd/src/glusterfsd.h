@@ -102,6 +102,9 @@ enum argp_option_keys {
         ARGP_FUSE_EVENT_HISTORY_KEY       = 180,
         ARGP_THIN_CLIENT_KEY              = 181,
         ARGP_READER_THREAD_COUNT_KEY      = 182,
+        ARGP_PRINT_XLATORDIR_KEY          = 183,
+        ARGP_PRINT_STATEDUMPDIR_KEY       = 184,
+        ARGP_PRINT_LOGDIR_KEY             = 185,
 };
 
 struct _gfd_vol_top_priv {
