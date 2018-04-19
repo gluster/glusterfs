@@ -451,6 +451,9 @@ struct _cmd_args {
         int32_t            max_connect_attempts;
         char              *print_exports;
         char              *print_netgroups;
+        int                print_xlatordir;
+        int                print_statedumpdir;
+        int                print_logdir;
         /* advanced options */
         uint32_t           volfile_server_port;
         char              *volfile_server_transport;

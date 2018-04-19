@@ -338,12 +338,6 @@ cli_opt_parse (char *opt, struct cli_state *state)
                 exit (0);
         }
 
-        /* XLATORDIR passed through a -D flag to GCC */
-        if (strcmp (opt, "print-xlatordir") == 0) {
-                cli_out ("%s", XLATORDIR);
-                exit (0);
-        }
-
         if (strcmp (opt, "xml") == 0) {
 #if (HAVE_LIB_XML)
                 state->mode |= GLUSTER_MODE_XML;
