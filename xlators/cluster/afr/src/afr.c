@@ -1073,7 +1073,7 @@ struct volume_options options[] = {
 	},
         { .key  = {"heal-timeout"},
           .type = GF_OPTION_TYPE_INT,
-          .min  = 60,
+          .min  = 5,
           .max  = INT_MAX,
           .default_value = "600",
           .op_version = {2},
