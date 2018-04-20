@@ -944,6 +944,7 @@ syncop_fxattrop
 syncop_getactivelk
 syncop_getxattr
 syncop_gfid_to_path
+syncop_gfid_to_path_hard
 syncop_inode_find
 syncop_inodelk
 syncop_entrylk

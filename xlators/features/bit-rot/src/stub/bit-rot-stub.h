@@ -22,6 +22,8 @@
 #include "bit-rot-common.h"
 #include "bit-rot-stub-messages.h"
 #include "glusterfs3-xdr.h"
+#include "syncop.h"
+#include "syncop-utils.h"
 
 #define BAD_OBJECT_THREAD_STACK_SIZE   ((size_t)(1024*1024))
 #define BR_STUB_DUMP_STR_SIZE 65536
@@ -498,5 +500,17 @@ br_stub_readdir_wrapper (call_frame_t *frame, xlator_t *this,
 
 int
 br_stub_del (xlator_t *this, uuid_t gfid);
+
+int
+br_stub_bad_objects_path (xlator_t *this, fd_t *fd, gf_dirent_t *entries,
+                          dict_t **dict);
+
+void
+br_stub_entry_xattr_fill (xlator_t *this, char *hpath, gf_dirent_t *entry,
+                          dict_t *dict);
+
+int
+br_stub_get_path_of_gfid (xlator_t *this, inode_t *parent, inode_t *inode,
+                          uuid_t gfid, char **path);
 
 #endif /* __BIT_ROT_STUB_H__ */

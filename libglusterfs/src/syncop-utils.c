@@ -554,9 +554,20 @@ out:
         return ret;
 }
 
+/**
+ * For hard resove, it it telling posix to make use of the
+ * gfid2path extended attribute stored on disk. Otherwise
+ * posix xlator (with GFID_TO_PATH_KEY as the key) will just
+ * do a in memory inode_path to get the path. Depending upon
+ * the consumer of this function, they can choose how they want
+ * to proceed. If doing a xattr operation sounds costly, then
+ * use GFID_TO_PATH_KEY as the key for getxattr.
+ **/
+
 int
-syncop_gfid_to_path (inode_table_t *itable, xlator_t *subvol, uuid_t gfid,
-                     char **path_p)
+syncop_gfid_to_path_hard (inode_table_t *itable, xlator_t *subvol, uuid_t gfid,
+                          inode_t *inode, char **path_p,
+                          gf_boolean_t hard_resolve)
 {
         int      ret   = 0;
         char    *path  = NULL;
@@ -564,14 +575,25 @@ syncop_gfid_to_path (inode_table_t *itable, xlator_t *subvol, uuid_t gfid,
         dict_t  *xattr = NULL;
 
         gf_uuid_copy (loc.gfid, gfid);
-        loc.inode = inode_new (itable);
 
-        ret = syncop_getxattr (subvol, &loc, &xattr, GFID_TO_PATH_KEY, NULL,
-                               NULL);
+        if (!inode)
+                loc.inode = inode_new (itable);
+        else
+                loc.inode = inode_ref (inode);
+
+        if (!hard_resolve)
+                ret = syncop_getxattr (subvol, &loc, &xattr, GFID_TO_PATH_KEY,
+                                       NULL, NULL);
+        else
+                ret = syncop_getxattr (subvol, &loc, &xattr,
+                                       GFID2PATH_VIRT_XATTR_KEY, NULL, NULL);
+
         if (ret < 0)
                 goto out;
 
-        ret = dict_get_str (xattr, GFID_TO_PATH_KEY, &path);
+        ret = dict_get_str (xattr, hard_resolve ?
+                            GFID2PATH_VIRT_XATTR_KEY : GFID_TO_PATH_KEY,
+                            &path);
         if (ret || !path) {
                 ret = -EINVAL;
                 goto out;
@@ -593,6 +615,14 @@ out:
         loc_wipe (&loc);
 
         return ret;
+}
+
+int
+syncop_gfid_to_path (inode_table_t *itable, xlator_t *subvol, uuid_t gfid,
+                     char **path_p)
+{
+        return syncop_gfid_to_path_hard (itable, subvol, gfid, NULL, path_p,
+                                         _gf_false);
 }
 
 int

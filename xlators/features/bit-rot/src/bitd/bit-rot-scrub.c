@@ -1625,11 +1625,12 @@ br_read_bad_object_dir (xlator_t *this, br_child_t *child, fd_t *fd,
         off_t        offset  = 0;
         int32_t      count   = 0;
         char         key[PATH_MAX] = {0, };
+        dict_t      *out_dict = NULL;
 
         INIT_LIST_HEAD (&entries.list);
 
         while ((ret = syncop_readdir (child->xl, fd, 131072, offset, &entries,
-                                      NULL, NULL))) {
+                                      NULL, &out_dict))) {
                 if (ret < 0)
                         goto out;
 
@@ -1647,6 +1648,12 @@ br_read_bad_object_dir (xlator_t *this, br_child_t *child, fd_t *fd,
                                                            entry->d_name);
                         if (!ret)
                                 count++;
+
+                        if (out_dict) {
+                                dict_copy (out_dict, dict);
+                                dict_unref (out_dict);
+                                out_dict = NULL;
+                        }
                 }
 
                 gf_dirent_free (&entries);
@@ -1742,6 +1749,7 @@ br_collect_bad_objects_of_child (xlator_t *this, br_child_t *child,
         int32_t    tmp_count = 0;
         char       *entry = NULL;
         char       tmp[PATH_MAX]  = {0, };
+        char       *path = NULL;
 
         ret = dict_get_int32 (child_dict, "count", &count);
         if (ret)
@@ -1755,14 +1763,16 @@ br_collect_bad_objects_of_child (xlator_t *this, br_child_t *child,
                 if (ret)
                         continue;
 
-                snprintf (tmp, PATH_MAX, "%s ==> BRICK: %s",
-                          entry, child->brick_path);
+                ret = dict_get_str (child_dict, entry, &path);
+                snprintf (tmp, PATH_MAX, "%s ==> BRICK: %s\n path: %s",
+                          entry, child->brick_path, path);
                 snprintf (main_key, PATH_MAX, "quarantine-%d",
                           tmp_count);
 
                 ret = dict_set_dynstr_with_alloc (dict, main_key, tmp);
-                          if (!ret)
-                                  tmp_count++;
+                if (!ret)
+                        tmp_count++;
+                path = NULL;
         }
 
         ret = tmp_count;
