@@ -1246,4 +1246,7 @@ glusterfs_delete_volfile_checksum (glusterfs_ctx_t *ctx,
                                    const char *volfile_id);
 int
 xlator_memrec_free (xlator_t *xl);
+
+void
+xlator_mem_cleanup (xlator_t *this);
 #endif /* _XLATOR_H */

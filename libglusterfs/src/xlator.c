@@ -980,6 +980,107 @@ xlator_tree_free_memacct (xlator_t *tree)
         return 0;
 }
 
+static int
+xlator_mem_free (xlator_t *xl)
+{
+        volume_opt_list_t *vol_opt = NULL;
+        volume_opt_list_t *tmp     = NULL;
+
+        if (!xl)
+                return 0;
+
+        if (xl->options) {
+                dict_ref (xl->options);
+                dict_unref (xl->options);
+                xl->options = NULL;
+        }
+
+        list_for_each_entry_safe (vol_opt, tmp, &xl->volume_options, list) {
+                list_del_init (&vol_opt->list);
+                GF_FREE (vol_opt);
+        }
+
+        xlator_memrec_free (xl);
+
+        return 0;
+}
+
+static void
+xlator_call_fini (xlator_t *this) {
+        if (!this || this->cleanup_starting)
+                return;
+        this->cleanup_starting = 1;
+        this->call_cleanup = 1;
+        xlator_call_fini (this->next);
+        this->fini (this);
+}
+
+void
+xlator_mem_cleanup (xlator_t *this) {
+        xlator_list_t     *list         = this->children;
+        xlator_t          *trav         = list->xlator;
+        inode_table_t     *inode_table  = NULL;
+        xlator_t          *prev         = trav;
+        glusterfs_ctx_t   *ctx          = NULL;
+        xlator_list_t    **trav_p       = NULL;
+        xlator_t          *top          = NULL;
+        xlator_t          *victim       = NULL;
+
+
+        if (this->call_cleanup || !this->ctx)
+                return;
+
+        this->call_cleanup = 1;
+        ctx = this->ctx;
+
+        xlator_call_fini (trav);
+
+        while (prev) {
+                trav = prev->next;
+                xlator_mem_free (prev);
+                prev = trav;
+        }
+
+        inode_table = this->itable;
+        if (inode_table) {
+                inode_table_destroy (inode_table);
+                this->itable = NULL;
+        }
+
+        if (this->fini) {
+                this->fini (this);
+        }
+
+        xlator_mem_free (this);
+
+        if (ctx->active) {
+                top = ctx->active->first;
+                LOCK (&ctx->volfile_lock);
+                /* TODO here we have leak for xlator node in a graph */
+                for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
+                        victim = (*trav_p)->xlator;
+                        if (victim->call_cleanup && !strcmp (victim->name, this->name)) {
+                                        (*trav_p) = (*trav_p)->next;
+                                        break;
+                        }
+                }
+                /* TODO Sometime brick xlator is not moved from graph so followed below
+                   approach to move brick xlator from a graph, will move specific brick
+                   xlator from graph only while inode table and mem_acct are cleaned up
+                */
+                trav_p = &top->children;
+                while (*trav_p) {
+                        victim = (*trav_p)->xlator;
+                        if (victim->call_cleanup && !victim->itable && !victim->mem_acct) {
+                                (*trav_p) = (*trav_p)->next;
+                        } else {
+                                trav_p = &(*trav_p)->next;
+                        }
+                }
+                UNLOCK (&ctx->volfile_lock);
+        }
+}
+
 void
 loc_wipe (loc_t *loc)
 {
