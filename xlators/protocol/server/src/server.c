@@ -444,7 +444,7 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
         this = xl;
         trans = data;
         conf = this->private;
-        ctx = glusterfsd_ctx;
+        ctx = this->ctx;
 
         switch (event) {
         case RPCSVC_EVENT_ACCEPT:
