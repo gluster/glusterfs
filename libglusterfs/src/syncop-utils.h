@@ -47,4 +47,9 @@ int
 syncop_inode_find (xlator_t *this, xlator_t *subvol,
                    uuid_t gfid, inode_t **inode,
                    dict_t *xdata, dict_t **rsp_dict);
+
+int
+syncop_gfid_to_path_hard (inode_table_t *itable, xlator_t *subvol, uuid_t gfid,
+                          inode_t *inode, char **path_p,
+                          gf_boolean_t hard_resolve);
 #endif /* _SYNCOP_H */

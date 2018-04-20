@@ -560,6 +560,8 @@ br_stub_readdir_wrapper (call_frame_t *frame, xlator_t *this,
         int32_t               op_errno       = 0;
         int                   count          = 0;
         gf_dirent_t           entries;
+        gf_boolean_t          xdata_unref    = _gf_false;
+        dict_t               *dict           = NULL;
 
         INIT_LIST_HEAD (&entries.list);
 
@@ -587,9 +589,225 @@ br_stub_readdir_wrapper (call_frame_t *frame, xlator_t *this,
         /* pick ENOENT to indicate EOF */
         op_errno = errno;
         op_ret = count;
+
+        dict = xdata;
+        (void) br_stub_bad_objects_path (this, fd, &entries, &dict);
+        if (!xdata && dict) {
+                xdata = dict;
+                xdata_unref = _gf_true;
+        }
+
 done:
         STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, &entries, xdata);
         gf_dirent_free (&entries);
+        if (xdata_unref)
+                dict_unref (xdata);
         return 0;
 }
 
+/**
+ * This function is called to mainly obtain the paths of the corrupt
+ * objects (files as of now). Currently scrub status prints only the
+ * gfid of the corrupted files. Reason is, bitrot-stub maintains the
+ * list of the corrupted objects as entries inside the quarantine
+ * directory (<brick export>/.glusterfs/quarantine)
+ *
+ * And the name of each entry in the qurantine directory is the gfid
+ * of the corrupted object. So scrub status will just show that info.
+ * But it helps the users a lot if the actual path to the object is
+ * also reported. Hence the below function to get that information.
+ * The function allocates a new dict to be returned (if it does not
+ * get one from the caller of readdir i.e. scrubber as of now), and
+ * stores the paths of each corrupted gfid there. The gfid is used as
+ * the key and path is used as the value.
+ *
+ * NOTE: The path will be there in following situations
+ * 1) gfid2path option has been enabled (posix xlator option)
+ *    and the corrupted file contains the path as an extended
+ *    attribute.
+ * 2) If the gfid2path option is not enabled, OR if the xattr
+ *    is absent, then the inode table should have it.
+ *    The path will be there if a name based lookup has happened
+ *    on the file which has been corrupted. With lookup a inode and
+ *    dentry would be created in the inode table. And the path is
+ *    constructed using the in memory inode and dentry. If a lookup
+ *    has not happened OR the inode corresponding to the corrupted
+ *    file does not exist in the inode table (because it got purged
+ *    as lru limit of the inodes exceeded) OR a nameless lookup had
+ *    happened to populate the inode in the inode table, then the
+ *    path will not be printed in scrub and only the gfid will be there.
+ **/
+int
+br_stub_bad_objects_path (xlator_t *this, fd_t *fd, gf_dirent_t *entries,
+                          dict_t **dict)
+{
+        gf_dirent_t     *entry    = NULL;
+        inode_t         *inode    = NULL;
+        char            *hpath    = NULL;
+        uuid_t           gfid     = {0};
+        int              ret      = -1;
+        dict_t          *tmp_dict = NULL;
+        char             str_gfid[64] = {0};
+
+        if (list_empty(&entries->list))
+                return 0;
+
+        tmp_dict = *dict;
+
+        if (!tmp_dict) {
+                tmp_dict = dict_new ();
+                /*
+                 * If the allocation of dict fails then no need treat it
+                 * it as a error. This path (or function) is executed when
+                 * "gluster volume bitrot <volume name> scrub status" is
+                 * executed, to get the list of the corrupted objects.
+                 * And the motive of this function is to get the paths of
+                 * the corrupted objects. If the dict allocation fails, then
+                 * the scrub status will only show the gfids of those corrupted
+                 * objects (which is the behavior as of the time of this patch
+                 * being worked upon). So just return and only the gfids will
+                 * be shown.
+                 */
+                if (!tmp_dict) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0, BRS_MSG_NO_MEMORY,
+                                "failed to allocate new dict for saving the paths "
+                                "of the corrupted objects. Scrub status will only "
+                                "display the gfid");
+                        goto out;
+                }
+        }
+
+        list_for_each_entry (entry, &entries->list, list) {
+                gf_uuid_clear (gfid);
+                gf_uuid_parse (entry->d_name, gfid);
+
+                inode = inode_find (fd->inode->table, gfid);
+
+                /* No need to check the return value here.
+                 * Because @hpath is examined.
+                 */
+                (void) br_stub_get_path_of_gfid (this, fd->inode, inode,
+                                                 gfid, &hpath);
+
+                if (hpath) {
+                        gf_msg_debug (this->name, 0, "path of the corrupted "
+                                      "object (gfid: %s) is %s",
+                                      uuid_utoa (gfid), hpath);
+                        br_stub_entry_xattr_fill (this, hpath, entry, tmp_dict);
+                } else
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                BRS_MSG_PATH_GET_FAILED,
+                                "failed to get the path for the inode %s",
+                                uuid_utoa_r (gfid, str_gfid));
+
+                inode = NULL;
+                hpath = NULL;
+        }
+
+         ret = 0;
+         *dict = tmp_dict;
+
+out:
+         return ret;
+ }
+
+int
+br_stub_get_path_of_gfid (xlator_t *this, inode_t *parent, inode_t *inode,
+                          uuid_t gfid, char **path)
+{
+        int32_t    ret = -1;
+        char       gfid_str[64] = {0};
+
+        GF_VALIDATE_OR_GOTO ("bitrot-stub", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, parent, out);
+        GF_VALIDATE_OR_GOTO (this->name, path, out);
+
+        /* No need to validate the @inode for hard resolution. Because inode
+         * can be NULL and if it is NULL, then syncop_gfid_to_path_hard will
+         * allocate a new inode and proceed. So no need to bother about
+         * @inode. Because we need it only to send a syncop_getxattr call
+         * from inside syncop_gfid_to_path_hard. And getxattr fetches the
+         * path from the backend.
+         */
+        ret = syncop_gfid_to_path_hard (parent->table, FIRST_CHILD (this), gfid,
+                                        inode, path, _gf_true);
+
+        /*
+         * This is to handle those corrupted files which does not contain
+         * the gfid2path xattr in the backend (because they were created
+         * when the option was OFF OR it was upgraded from a version before
+         * gfid2path was brought in.
+         * Ideally posix should be returning ret < 0 i.e. error if the
+         * gfid2path xattr is not present. But for some reason it is
+         * returning success and path as "". THis is causing problems.
+         * For now handling it by adding extra checks. But the better way
+         * is to make posix return error if gfid2path xattr is absent.
+         * When that is done remove below if block and also this entire
+         * comment.
+         */
+        if (ret >= 0 && !strlen (*path)) {
+                gf_msg (this->name, GF_LOG_WARNING, 0, BRS_MSG_PATH_GET_FAILED,
+                        "path for the object %s is %s. Going for in memory path",
+                        uuid_utoa_r (gfid, gfid_str), *path);
+                ret = -1;
+        }
+
+        /*
+         * Try with soft resolution of path if hard resolve fails. Because
+         * checking the xattr on disk to get the path of a inode (or gfid)
+         * is dependent on whether that option is enabled in the posix
+         * xlator or not. If it is not enabled, then hard resolution by
+         * checking the on disk xattr fails.
+         *
+         * Thus in such situations fall back to the soft resolution which
+         * mainly depends on the inode_path() function. And for using
+         * inode_path, @inode has to be linked i.e. a successful lookup should
+         * have happened on the gfid (or the path) to link the inode to the
+         * inode table. And if @inode is NULL, means, the inode has not been
+         * found in the inode table and better not to do inode_path() on the
+         * inode which has not been linked.
+         */
+        if (ret < 0 && inode)
+                ret = syncop_gfid_to_path_hard (parent->table,
+                                                FIRST_CHILD (this), gfid, inode,
+                                                path, _gf_false);
+
+out:
+        return ret;
+}
+
+
+/**
+* NOTE: If the file has multiple hardlinks (in gluster volume
+* namespace), the path would be one of the hardlinks. Its upto
+* the user to find the remaining hardlinks (using find -samefile)
+* and remove them.
+**/
+void
+br_stub_entry_xattr_fill (xlator_t *this, char *hpath, gf_dirent_t *entry,
+                          dict_t *dict)
+{
+                int32_t    ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("bit-rot-stub", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, hpath, out);
+
+        /*
+         * Use the entry->d_name (which is nothing but the gfid of the
+         * corrupted object) as the key. And the value will be the actual
+         * path of that object (or file).
+         *
+         * ALso ignore the dict_set errors. scrubber will get the gfid of
+         * the corrupted object for sure. So, for now lets just log the
+         * dict_set_dynstr failure and move on.
+         */
+
+        ret = dict_set_dynstr (dict, entry->d_name, hpath);
+        if (ret)
+                gf_msg (this->name, GF_LOG_WARNING, 0, BRS_MSG_DICT_SET_FAILED,
+                        "failed to set the actual path %s as the value in the "
+                        "dict for the corrupted object %s", hpath,
+                        entry->d_name);
+out:
+        return;
+}
