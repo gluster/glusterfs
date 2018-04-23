@@ -3807,6 +3807,15 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_4_1_0,
           .flags      = VOLOPT_FLAG_CLIENT_OPT
         },
+        { .key        = "features.utime",
+          .voltype    = "features/utime",
+          .validate_fn = validate_boolean,
+          .value      = "off",
+          .option     = "!utime",
+          .op_version = GD_OP_VERSION_4_1_0,
+          .description = "enable/disable utime translator on the volume.",
+          .flags      = VOLOPT_FLAG_CLIENT_OPT | VOLOPT_FLAG_XLATOR_OPT
+        },
         { .key         = NULL
         }
 };
