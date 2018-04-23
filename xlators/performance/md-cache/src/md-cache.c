@@ -1018,13 +1018,27 @@ mdc_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno,
                 struct statvfs *buf, dict_t *xdata)
 {
-        struct mdc_conf *conf = this->private;
+        struct mdc_conf *conf  = this->private;
+        mdc_local_t     *local = NULL;
 
-        if (op_ret == 0 && conf && conf->cache_statfs) {
+        local = frame->local;
+        if (!local)
+                goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ENOENT) || (op_errno == ESTALE)) {
+                        mdc_inode_iatt_invalidate (this, local->loc.inode);
+                }
+
+                goto out;
+        }
+
+        if (conf && conf->cache_statfs) {
                 mdc_cache_statfs (this, buf);
         }
 
-        STACK_UNWIND_STRICT (statfs, frame, op_ret, op_errno, buf, xdata);
+out:
+        MDC_STACK_UNWIND (statfs, frame, op_ret, op_errno, buf, xdata);
 
         return 0;
 }
@@ -1032,9 +1046,19 @@ mdc_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 mdc_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
-        int ret = 0;
-        struct statvfs *buf = NULL;
-        struct mdc_conf *conf = this->private;
+        int              ret   = 0, op_ret = 0, op_errno = 0;
+        struct statvfs  *buf   = NULL;
+        mdc_local_t     *local = NULL;
+        struct mdc_conf *conf  = this->private;
+
+        local = mdc_local_get (frame);
+        if (!local) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+                goto out;
+        }
+
+        loc_copy (&local->loc, loc);
 
         if (!conf) {
                 goto uncached;
@@ -1046,31 +1070,47 @@ mdc_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
         ret = mdc_load_statfs_info_from_cache (this, &buf);
         if (ret == 0 && buf) {
-                STACK_UNWIND_STRICT (statfs, frame, 0, 0, buf, xdata);
+                op_ret = 0;
+                op_errno = 0;
                 goto out;
         }
 
 uncached:
         STACK_WIND (frame, mdc_statfs_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->statfs, loc, xdata);
+        return 0;
 
 out:
+        STACK_UNWIND_STRICT (statfs, frame, op_ret, op_errno, buf, xdata);
         return 0;
 }
 
 int
 mdc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret,	int32_t op_errno, inode_t *inode,
-                struct iatt *stbuf, dict_t *dict, struct iatt *postparent)
+                int32_t       op_ret,	int32_t op_errno, inode_t *inode,
+                struct iatt  *stbuf, dict_t *dict, struct iatt *postparent)
 {
-        mdc_local_t *local = NULL;
-        struct mdc_conf *conf = this->private;
+        mdc_local_t     *local = NULL;
+        struct mdc_conf *conf  = this->private;
 
         local = frame->local;
 
         if (op_ret != 0) {
                 if (op_errno == ENOENT)
                         GF_ATOMIC_INC (conf->mdc_counter.negative_lookup);
+
+                if (op_errno == ESTALE) {
+                        /* if op_errno is ENOENT, fuse-bridge will unlink the
+                         * dentry
+                         */
+                        if (local->loc.parent)
+                                mdc_inode_iatt_invalidate (this,
+                                                           local->loc.parent);
+                        else
+                                mdc_inode_iatt_invalidate (this,
+                                                           local->loc.inode);
+                }
+
                 goto out;
         }
 
@@ -1173,12 +1213,17 @@ mdc_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         mdc_local_t  *local = NULL;
 
-        if (op_ret != 0)
-                goto out;
-
         local = frame->local;
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ESTALE) || (op_errno == ENOENT)) {
+                        mdc_inode_iatt_invalidate (this, local->loc.inode);
+                }
+
+                goto out;
+        }
 
         mdc_inode_iatt_set (this, local->loc.inode, buf);
 
@@ -1233,12 +1278,17 @@ mdc_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         mdc_local_t  *local = NULL;
 
-        if (op_ret != 0)
-                goto out;
-
         local = frame->local;
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ENOENT) || (op_errno == ESTALE)) {
+                        mdc_inode_iatt_invalidate (this, local->fd->inode);
+                }
+
+                goto out;
+        }
 
         mdc_inode_iatt_set (this, local->fd->inode, buf);
 
@@ -1290,11 +1340,15 @@ mdc_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        if (op_ret != 0)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ESTALE) || (op_errno == ENOENT))
+                        mdc_inode_iatt_invalidate (this, local->loc.inode);
+
+                goto out;
+        }
 
         mdc_inode_iatt_set_validate(this, local->loc.inode, prebuf, postbuf,
                                     _gf_true);
@@ -1333,11 +1387,15 @@ mdc_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        if (op_ret != 0)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ENOENT) || (op_errno == ESTALE))
+                        mdc_inode_iatt_invalidate (this, local->fd->inode);
+
+                goto out;
+        }
 
         mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf,
                                     _gf_true);
@@ -1377,11 +1435,16 @@ mdc_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        if (op_ret != 0)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ESTALE) || (op_errno == ENOENT)) {
+                        mdc_inode_iatt_invalidate (this, local->loc.parent);
+                }
+
+                goto out;
+        }
 
         if (local->loc.parent) {
                 mdc_inode_iatt_set (this, local->loc.parent, postparent);
@@ -1426,11 +1489,16 @@ mdc_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        if (op_ret != 0)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ESTALE) || (op_errno == ENOENT)) {
+                        mdc_inode_iatt_invalidate (this, local->loc.parent);
+                }
+
+                goto out;
+        }
 
         if (local->loc.parent) {
                 mdc_inode_iatt_set (this, local->loc.parent, postparent);
@@ -1474,11 +1542,24 @@ mdc_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        if (op_ret != 0)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                /* if errno is ESTALE, parent is not present, which implies even
+                 * child is not present. Also, man 2 unlink states unlink can
+                 * return ENOENT if a component in pathname does not
+                 * exist or is a dangling symbolic link. So, invalidate both
+                 * parent and child for both errno
+                 */
+
+                if ((op_errno == ENOENT) || (op_errno == ESTALE)) {
+                        mdc_inode_iatt_invalidate (this, local->loc.inode);
+                        mdc_inode_iatt_invalidate (this, local->loc.parent);
+                }
+
+                goto out;
+        }
 
         if (local->loc.parent) {
                 mdc_inode_iatt_set (this, local->loc.parent, postparent);
@@ -1521,11 +1602,24 @@ mdc_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        if (op_ret != 0)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                /* if errno is ESTALE, parent is not present, which implies even
+                 * child is not present. Also, man 2 rmdir states rmdir can
+                 * return ENOENT if a directory component in pathname does not
+                 * exist or is a dangling symbolic link. So, invalidate both
+                 * parent and child for both errno
+                 */
+
+                if ((op_errno == ESTALE) || (op_errno == ENOENT)) {
+                        mdc_inode_iatt_invalidate (this, local->loc.inode);
+                        mdc_inode_iatt_invalidate (this, local->loc.parent);
+                }
+
+                goto out;
+        }
 
         if (local->loc.parent) {
                 mdc_inode_iatt_set (this, local->loc.parent, postparent);
@@ -1565,11 +1659,16 @@ mdc_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        if (op_ret != 0)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ESTALE) || (op_errno == ENOENT)) {
+                        mdc_inode_iatt_invalidate (this, local->loc.parent);
+                }
+
+                goto out;
+        }
 
         if (local->loc.parent) {
                 mdc_inode_iatt_set (this, local->loc.parent, postparent);
@@ -1614,12 +1713,17 @@ mdc_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         mdc_local_t *local = NULL;
 
         local = frame->local;
-
-        if (op_ret != 0)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ESTALE) || (op_errno == ENOENT)) {
+                        mdc_inode_iatt_invalidate (this, local->loc.inode);
+                        mdc_inode_iatt_invalidate (this, local->loc2.parent);
+                }
+
+                goto out;
+        }
 
         if (local->loc.parent) {
                 mdc_inode_iatt_set (this, local->loc.parent, postoldparent);
@@ -1671,11 +1775,17 @@ mdc_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        if (op_ret != 0)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ENOENT) || (op_errno == ESTALE)) {
+                        mdc_inode_iatt_invalidate (this, local->loc.inode);
+                        mdc_inode_iatt_invalidate (this, local->loc2.parent);
+                }
+
+                goto out;
+        }
 
         if (local->loc.inode) {
                 mdc_inode_iatt_set (this, local->loc.inode, buf);
@@ -1719,11 +1829,16 @@ mdc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        if (op_ret != 0)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ESTALE) || (op_errno == ENOENT)) {
+                        mdc_inode_iatt_invalidate (this, local->loc.parent);
+                }
+
+                goto out;
+        }
 
         if (local->loc.parent) {
                 mdc_inode_iatt_set (this, local->loc.parent, postparent);
@@ -1767,8 +1882,14 @@ mdc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        if (op_ret || !local)
+        if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ESTALE) || (op_errno == ENOENT))
+                        mdc_inode_iatt_invalidate (this, local->loc.inode);
+                goto out;
+        }
 
         if (local->fd->flags & O_TRUNC) {
                 /* O_TRUNC modifies file size. Hence invalidate the
@@ -1814,12 +1935,14 @@ mdc_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         mdc_local_t  *local = NULL;
 
         local = frame->local;
-
-        if (op_ret < 0)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret < 0) {
+                if ((op_errno == ENOENT) || (op_errno == ESTALE))
+                        mdc_inode_iatt_invalidate (this, local->fd->inode);
+                goto out;
+        }
 
         mdc_inode_iatt_set (this, local->fd->inode, stbuf);
 
@@ -1856,12 +1979,14 @@ mdc_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         mdc_local_t  *local = NULL;
 
         local = frame->local;
-
-        if (op_ret == -1)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret == -1) {
+                if ((op_errno == ENOENT) || (op_errno == ESTALE))
+                        mdc_inode_iatt_invalidate (this, local->fd->inode);
+                goto out;
+        }
 
         mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf,
                                     _gf_true);
@@ -1945,12 +2070,14 @@ mdc_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         mdc_local_t  *local = NULL;
 
         local = frame->local;
-
-        if (op_ret != 0)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ESTALE) || (op_errno == ENOENT))
+                        mdc_inode_iatt_invalidate (this, local->fd->inode);
+                goto out;
+        }
 
         mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf,
                                     _gf_true);
@@ -1988,12 +2115,14 @@ mdc_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         mdc_local_t  *local = NULL;
 
         local = frame->local;
-
-        if (op_ret != 0)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ENOENT) || (op_errno == ESTALE))
+                        mdc_inode_iatt_invalidate (this, local->fd->inode);
+                goto out;
+        }
 
         mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf,
                                      _gf_true);
@@ -2030,12 +2159,14 @@ mdc_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         mdc_local_t  *local = NULL;
 
         local = frame->local;
-
-        if (op_ret != 0)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ENOENT) || (op_errno == ESTALE))
+                        mdc_inode_iatt_invalidate (this, local->loc.inode);
+                goto out;
+        }
 
         mdc_inode_xatt_update (this, local->loc.inode, local->xattr);
 
@@ -2073,12 +2204,14 @@ mdc_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         mdc_local_t  *local = NULL;
 
         local = frame->local;
-
-        if (op_ret != 0)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ESTALE) || (op_errno == ENOENT))
+                        mdc_inode_iatt_invalidate (this, local->fd->inode);
+                goto out;
+        }
 
         mdc_inode_xatt_update (this, local->fd->inode, local->xattr);
 
@@ -2114,12 +2247,15 @@ mdc_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         mdc_local_t  *local = NULL;
 
-        if (op_ret < 0)
-                goto out;
-
         local = frame->local;
         if (!local)
                 goto out;
+
+        if (op_ret < 0) {
+                if ((op_errno == ENOENT) || (op_errno == ESTALE))
+                        mdc_inode_iatt_invalidate (this, local->loc.inode);
+                goto out;
+        }
 
         mdc_inode_xatt_update (this, local->loc.inode, xattr);
 
@@ -2179,12 +2315,15 @@ mdc_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         mdc_local_t  *local = NULL;
 
-        if (op_ret < 0)
-                goto out;
-
         local = frame->local;
         if (!local)
                 goto out;
+
+        if (op_ret < 0) {
+                if ((op_errno == ENOENT) || (op_errno == ESTALE))
+                        mdc_inode_iatt_invalidate (this, local->fd->inode);
+                goto out;
+        }
 
         mdc_inode_xatt_update (this, local->fd->inode, xattr);
 
@@ -2243,12 +2382,14 @@ mdc_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         mdc_local_t  *local = NULL;
 
         local = frame->local;
-
-        if (op_ret != 0)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ENOENT) || (op_errno == ESTALE))
+                        mdc_inode_iatt_invalidate (this, local->loc.inode);
+                goto out;
+        }
 
 	if (local->key)
 		mdc_inode_xatt_unset (this, local->loc.inode, local->key);
@@ -2312,12 +2453,14 @@ mdc_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         mdc_local_t  *local = NULL;
 
         local = frame->local;
-
-        if (op_ret != 0)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ENOENT) || (op_errno == ESTALE))
+                        mdc_inode_iatt_invalidate (this, local->fd->inode);
+                goto out;
+        }
 
 	if (local->key)
 		mdc_inode_xatt_unset (this, local->fd->inode, local->key);
@@ -2372,12 +2515,39 @@ uncached:
         return 0;
 }
 
+int32_t
+mdc_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, fd_t *fd,
+                 dict_t *xdata)
+{
+        mdc_local_t *local = NULL;
+
+        local = frame->local;
+        if (!local)
+                goto out;
+
+        if (op_ret == 0)
+                goto out;
+
+        if ((op_errno == ESTALE) || (op_errno == ENOENT))
+                mdc_inode_iatt_invalidate (this, local->loc.inode);
+
+out:
+        MDC_STACK_UNWIND (opendir, frame, op_ret, op_errno, fd, xdata);
+        return 0;
+}
+
 
 int
 mdc_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc,
             fd_t *fd, dict_t *xdata)
 {
-        dict_t          *xattr_alloc = NULL;
+        dict_t      *xattr_alloc = NULL;
+        mdc_local_t *local       = NULL;
+
+        local = mdc_local_get (frame);
+
+	loc_copy (&local->loc, loc);
 
         if (!xdata)
                 xdata = xattr_alloc = dict_new ();
@@ -2388,7 +2558,7 @@ mdc_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc,
                 mdc_load_reqs (this, xdata);
         }
 
-        STACK_WIND (frame, default_opendir_cbk, FIRST_CHILD(this),
+        STACK_WIND (frame, mdc_opendir_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->opendir, loc, fd, xdata);
 
         if (xattr_alloc)
@@ -2402,10 +2572,19 @@ int
 mdc_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		  int op_ret, int op_errno, gf_dirent_t *entries, dict_t *xdata)
 {
-        gf_dirent_t *entry      = NULL;
+        gf_dirent_t *entry = NULL;
+        mdc_local_t *local = NULL;
 
-	if (op_ret <= 0)
+        local = frame->local;
+        if (!local)
+                goto unwind;
+
+	if (op_ret <= 0) {
+                if ((op_ret == -1) && ((op_errno == ENOENT)
+                                       || (op_errno == ESTALE)))
+                    mdc_inode_iatt_invalidate (this, local->fd->inode);
 		goto unwind;
+        }
 
         list_for_each_entry (entry, &entries->list, list) {
                 if (!entry->inode)
@@ -2415,7 +2594,7 @@ mdc_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 unwind:
-	STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, entries, xdata);
+	MDC_STACK_UNWIND (readdirp, frame, op_ret, op_errno, entries, xdata);
 	return 0;
 }
 
@@ -2424,7 +2603,14 @@ int
 mdc_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	      size_t size, off_t offset, dict_t *xdata)
 {
-	dict_t *xattr_alloc = NULL;
+	dict_t      *xattr_alloc = NULL;
+        mdc_local_t *local       = NULL;
+
+        local = mdc_local_get (frame);
+        if (!local)
+                goto out;
+
+        local->fd = fd_ref (fd);
 
 	if (!xdata)
 		xdata = xattr_alloc = dict_new ();
@@ -2437,13 +2623,28 @@ mdc_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	if (xattr_alloc)
 		dict_unref (xattr_alloc);
 	return 0;
+out:
+        STACK_UNWIND_STRICT (readdirp, frame, -1, ENOMEM, NULL, NULL);
+        return 0;
 }
 
 int
 mdc_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 		int op_errno, gf_dirent_t *entries, dict_t *xdata)
 {
-	STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, entries, xdata);
+        mdc_local_t *local = NULL;
+
+        local = frame->local;
+        if (!local)
+                goto out;
+
+        if (op_ret == 0)
+                goto out;
+
+        if ((op_errno == ESTALE) || (op_errno == ENOENT))
+                mdc_inode_iatt_invalidate (this, local->fd->inode);
+out:
+        MDC_STACK_UNWIND (readdir, frame, op_ret, op_errno, entries, xdata);
 	return 0;
 }
 
@@ -2451,8 +2652,15 @@ int
 mdc_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	     size_t size, off_t offset, dict_t *xdata)
 {
-        int need_unref = 0;
-	struct mdc_conf *conf = this->private;
+        int              need_unref = 0;
+        mdc_local_t     *local      = NULL;
+	struct mdc_conf *conf       = this->private;
+
+        local = mdc_local_get (frame);
+        if (!local)
+                goto unwind;
+
+        local->fd = fd_ref (fd);
 
 	if (!conf->force_readdirp) {
 		STACK_WIND(frame, mdc_readdir_cbk, FIRST_CHILD(this),
@@ -2477,6 +2685,9 @@ mdc_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 dict_unref (xdata);
 
 	return 0;
+unwind:
+        MDC_STACK_UNWIND (readdir, frame, -1, ENOMEM, NULL, NULL);
+        return 0;
 }
 
 int
@@ -2487,12 +2698,14 @@ mdc_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         mdc_local_t  *local = NULL;
 
         local = frame->local;
-
-        if (op_ret != 0)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ENOENT) || (op_errno == ESTALE))
+                        mdc_inode_iatt_invalidate (this, local->fd->inode);
+                goto out;
+        }
 
         mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf,
                                     _gf_true);
@@ -2527,12 +2740,14 @@ mdc_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         mdc_local_t  *local = NULL;
 
         local = frame->local;
-
-        if (op_ret != 0)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ENOENT) || (op_errno == ESTALE))
+                        mdc_inode_iatt_invalidate (this, local->fd->inode);
+                goto out;
+        }
 
         mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf,
                                     _gf_true);
@@ -2567,12 +2782,14 @@ mdc_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         mdc_local_t  *local = NULL;
 
         local = frame->local;
-
-        if (op_ret != 0)
-                goto out;
-
         if (!local)
                 goto out;
+
+        if (op_ret != 0) {
+                if ((op_errno == ENOENT) || (op_errno == ESTALE))
+                        mdc_inode_iatt_invalidate (this, local->fd->inode);
+                goto out;
+        }
 
         mdc_inode_iatt_set_validate(this, local->fd->inode, prebuf, postbuf,
                                     _gf_true);
@@ -2597,6 +2814,137 @@ int mdc_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                    xdata);
 
         return 0;
+}
+
+int32_t
+mdc_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, const char *path,
+                  struct iatt *buf, dict_t *xdata)
+{
+        mdc_local_t *local = NULL;
+
+        local = frame->local;
+        if (!local)
+                goto out;
+
+        if (op_ret == 0)
+                goto out;
+
+        if ((op_errno == ENOENT) || (op_errno == ESTALE))
+                mdc_inode_iatt_invalidate (this, local->loc.inode);
+
+out:
+	MDC_STACK_UNWIND (readlink, frame, op_ret, op_errno,
+                          path, buf, xdata);
+	return 0;
+}
+
+int32_t
+mdc_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
+              dict_t *xdata)
+{
+        mdc_local_t *local = NULL;
+
+        local = mdc_local_get (frame);
+        if (!local)
+                goto unwind;
+
+        loc_copy (&local->loc, loc);
+
+	STACK_WIND (frame, mdc_readlink_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->readlink,
+                    loc, size, xdata);
+	return 0;
+
+unwind:
+        MDC_STACK_UNWIND (readlink, frame, -1, ENOMEM, NULL, NULL, NULL);
+        return 0;
+}
+
+int32_t
+mdc_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        mdc_local_t *local = NULL;
+
+        local = frame->local;
+        if (!local)
+                goto out;
+
+        if (op_ret == 0)
+                goto out;
+
+        if ((op_errno == ESTALE) || (op_errno == ENOENT))
+                mdc_inode_iatt_invalidate (this, local->fd->inode);
+
+out:
+	MDC_STACK_UNWIND (fsyncdir, frame, op_ret, op_errno, xdata);
+	return 0;
+}
+
+int32_t
+mdc_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
+              dict_t *xdata)
+{
+        mdc_local_t *local = NULL;
+
+        local = mdc_local_get (frame);
+        if (!local)
+                goto unwind;
+
+        local->fd = fd_ref (fd);
+
+	STACK_WIND (frame, mdc_fsyncdir_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->fsyncdir, fd, flags, xdata);
+	return 0;
+
+unwind:
+        MDC_STACK_UNWIND (fsyncdir, frame, -1, ENOMEM, NULL);
+        return 0;
+}
+
+int32_t
+mdc_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+        mdc_local_t *local = NULL;
+
+        local = frame->local;
+        if (!local)
+                goto out;
+
+        if (op_ret == 0)
+                goto out;
+
+        if ((op_errno == ESTALE) || (op_errno == ENOENT))
+                mdc_inode_iatt_invalidate (this, local->loc.inode);
+
+out:
+	MDC_STACK_UNWIND (access, frame, op_ret, op_errno, xdata);
+	return 0;
+}
+
+
+
+int32_t
+mdc_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask,
+            dict_t *xdata)
+{
+        mdc_local_t *local = NULL;
+
+        local = mdc_local_get (frame);
+        if (!local)
+                goto unwind;
+
+        loc_copy (&local->loc, loc);
+
+	STACK_WIND (frame, mdc_access_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->access, loc, mask, xdata);
+	return 0;
+
+unwind:
+        MDC_STACK_UNWIND (access, frame, -1, ENOMEM, NULL);
+	return 0;
 }
 
 
@@ -3196,6 +3544,9 @@ struct xlator_fops mdc_fops = {
 	.discard     = mdc_discard,
         .zerofill    = mdc_zerofill,
         .statfs      = mdc_statfs,
+        .readlink    = mdc_readlink,
+        .fsyncdir    = mdc_fsyncdir,
+        .access      = mdc_access,
 };
 
 
