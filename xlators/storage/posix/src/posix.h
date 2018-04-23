@@ -327,11 +327,12 @@ int __posix_inode_ctx_get_all (inode_t *inode, xlator_t *this,
 
 int posix_gfid_set (xlator_t *this, const char *path, loc_t *loc,
                     dict_t *xattr_req);
-int posix_fdstat (xlator_t *this, int fd, struct iatt *stbuf_p);
-int posix_istat (xlator_t *this, uuid_t gfid, const char *basename,
-                 struct iatt *iatt);
-int posix_pstat (xlator_t *this, uuid_t gfid, const char *real_path,
-                 struct iatt *iatt);
+int posix_fdstat (xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p);
+int posix_istat (xlator_t *this, inode_t *inode, uuid_t gfid,
+                 const char *basename, struct iatt *iatt);
+int posix_pstat (xlator_t *this, inode_t *inode, uuid_t gfid,
+                 const char *real_path, struct iatt *iatt,
+                 gf_boolean_t inode_locked);
 dict_t *posix_xattr_fill (xlator_t *this, const char *path, loc_t *loc,
                           fd_t *fd, int fdnum, dict_t *xattr, struct iatt *buf);
 int posix_handle_pair (xlator_t *this, const char *real_path, char *key,

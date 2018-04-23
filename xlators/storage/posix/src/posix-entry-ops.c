@@ -277,7 +277,8 @@ unlock:
 
 parent:
         if (par_path) {
-                op_ret = posix_pstat (this, loc->pargfid, par_path, &postparent);
+                op_ret = posix_pstat (this, loc->parent, loc->pargfid,
+                                      par_path, &postparent, _gf_false);
                 if (op_ret == -1) {
                         op_errno = errno;
                         gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -362,7 +363,8 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         }
 
 
-        op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
+        op_ret = posix_pstat (this, loc->parent, loc->pargfid, par_path,
+                              &preparent, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -482,7 +484,7 @@ ignore:
                 }
         }
 
-        op_ret = posix_pstat (this, NULL, real_path, &stbuf);
+        op_ret = posix_pstat (this, loc->inode, NULL, real_path, &stbuf, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_MKNOD_FAILED,
@@ -490,7 +492,8 @@ ignore:
                 goto out;
         }
 
-        op_ret = posix_pstat (this, loc->pargfid, par_path, &postparent);
+        op_ret = posix_pstat (this, loc->parent, loc->pargfid, par_path,
+                              &postparent, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -585,7 +588,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
 
         gid = frame->root->gid;
 
-        op_ret = posix_pstat (this, NULL, real_path, &stbuf);
+        op_ret = posix_pstat (this, loc->inode, NULL, real_path, &stbuf, _gf_false);
 
         SET_FS_ID (frame->root->uid, gid);
 
@@ -603,7 +606,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         }
 
         if (!gf_uuid_is_null (uuid_req)) {
-                op_ret = posix_istat (this, uuid_req, NULL, &stbuf);
+                op_ret = posix_istat (this, loc->inode, uuid_req, NULL, &stbuf);
                 if ((op_ret == 0) && IA_ISDIR (stbuf.ia_type)) {
                         size = posix_handle_path (this, uuid_req, NULL, NULL,
                                                   0);
@@ -647,7 +650,8 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
+        op_ret = posix_pstat (this, loc->parent, loc->pargfid, par_path,
+                              &preparent, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -796,7 +800,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                 gfid_set = _gf_true;
         }
 
-        op_ret = posix_pstat (this, NULL, real_path, &stbuf);
+        op_ret = posix_pstat (this, loc->inode, NULL, real_path, &stbuf, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -804,7 +808,8 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = posix_pstat (this, loc->pargfid, par_path, &postparent);
+        op_ret = posix_pstat (this, loc->parent, loc->pargfid, par_path,
+                              &postparent, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -932,7 +937,11 @@ posix_unlink_gfid_handle_and_entry (xlator_t *this, const char *real_path,
         if (get_link_count) {
                 LOCK (&loc->inode->lock);
                 locked = _gf_true;
-                ret = posix_pstat (this, loc->gfid, real_path, &prebuf);
+                /* Since this stat is to get link count and not for time
+                 * attributes, intentionally passing inode as NULL
+                 */
+                ret = posix_pstat (this, NULL, loc->gfid, real_path,
+                                   &prebuf, _gf_true);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 P_MSG_LSTAT_FAILED, "lstat on %s failed",
@@ -1049,7 +1058,8 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
+        op_ret = posix_pstat (this, loc->parent, loc->pargfid, par_path,
+                              &preparent, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -1191,7 +1201,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         }
 
         if (fdstat_requested) {
-                op_ret = posix_fdstat (this, fd, &postbuf);
+                op_ret = posix_fdstat (this, loc->inode, fd, &postbuf);
                 if (op_ret == -1) {
                         op_errno = errno;
                         gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -1202,7 +1212,8 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                 op_ret = posix_set_iatt_in_dict (unwind_dict, &postbuf);
         }
 
-        op_ret = posix_pstat (this, loc->pargfid, par_path, &postparent);
+        op_ret = posix_pstat (this, loc->parent, loc->pargfid, par_path,
+                              &postparent, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -1276,7 +1287,8 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
+        op_ret = posix_pstat (this, loc->parent, loc->pargfid, par_path,
+                              &preparent, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -1333,7 +1345,8 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = posix_pstat (this, loc->pargfid, par_path, &postparent);
+        op_ret = posix_pstat (this, loc->parent, loc->pargfid, par_path,
+                              &postparent, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -1393,7 +1406,8 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
 
         SET_FS_ID (frame->root->uid, gid);
 
-        op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
+        op_ret = posix_pstat (this, loc->parent, loc->pargfid, par_path,
+                              &preparent, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -1461,7 +1475,7 @@ ignore:
                 gfid_set = _gf_true;
         }
 
-        op_ret = posix_pstat (this, NULL, real_path, &stbuf);
+        op_ret = posix_pstat (this, loc->inode, NULL, real_path, &stbuf, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -1469,7 +1483,8 @@ ignore:
                 goto out;
         }
 
-        op_ret = posix_pstat (this, loc->pargfid, par_path, &postparent);
+        op_ret = posix_pstat (this, loc->parent, loc->pargfid, par_path,
+                              &postparent, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -1563,7 +1578,8 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = posix_pstat (this, oldloc->pargfid, par_oldpath, &preoldparent);
+        op_ret = posix_pstat (this, oldloc->parent, oldloc->pargfid,
+                              par_oldpath, &preoldparent, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -1572,7 +1588,8 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = posix_pstat (this, newloc->pargfid, par_newpath, &prenewparent);
+        op_ret = posix_pstat (this, newloc->parent, newloc->pargfid,
+                              par_newpath, &prenewparent, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -1581,7 +1598,8 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = posix_pstat (this, NULL, real_newpath, &stbuf);
+        op_ret = posix_pstat (this, newloc->inode, NULL, real_newpath, &stbuf,
+                              _gf_false);
         if ((op_ret == -1) && (errno == ENOENT)){
                 was_present = 0;
         } else {
@@ -1650,8 +1668,8 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                         pthread_mutex_lock (&ctx_new->pgfid_lock);
                         locked = _gf_true;
                         get_link_count = _gf_true;
-                        op_ret = posix_pstat (this, newloc->gfid, real_newpath,
-                                              &stbuf);
+                        op_ret = posix_pstat (this, newloc->inode, newloc->gfid,
+                                              real_newpath, &stbuf, _gf_false);
                         if ((op_ret == -1) && (errno != ENOENT)) {
                                 op_errno = errno;
                                 gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -1751,7 +1769,8 @@ unlock:
                                    oldloc->inode->gfid, NULL);
         }
 
-        op_ret = posix_pstat (this, NULL, real_newpath, &stbuf);
+        op_ret = posix_pstat (this, newloc->inode, NULL, real_newpath, &stbuf,
+                              _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -1759,7 +1778,8 @@ unlock:
                 goto out;
         }
 
-        op_ret = posix_pstat (this, oldloc->pargfid, par_oldpath, &postoldparent);
+        op_ret = posix_pstat (this, oldloc->parent, oldloc->pargfid,
+                              par_oldpath, &postoldparent, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -1768,7 +1788,8 @@ unlock:
                 goto out;
         }
 
-        op_ret = posix_pstat (this, newloc->pargfid, par_newpath, &postnewparent);
+        op_ret = posix_pstat (this, newloc->parent, newloc->pargfid,
+                              par_newpath, &postnewparent, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -1847,7 +1868,8 @@ posix_link (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = posix_pstat (this, newloc->pargfid, par_newpath, &preparent);
+        op_ret = posix_pstat (this, newloc->parent, newloc->pargfid,
+                              par_newpath, &preparent, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -1868,7 +1890,8 @@ posix_link (call_frame_t *frame, xlator_t *this,
 
         entry_created = _gf_true;
 
-        op_ret = posix_pstat (this, NULL, real_newpath, &stbuf);
+        op_ret = posix_pstat (this, newloc->inode, NULL, real_newpath, &stbuf,
+                              _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -1876,7 +1899,8 @@ posix_link (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = posix_pstat (this, newloc->pargfid, par_newpath, &postparent);
+        op_ret = posix_pstat (this, newloc->parent, newloc->pargfid,
+                              par_newpath, &postparent, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -1996,7 +2020,8 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
+        op_ret = posix_pstat (this, loc->parent, loc->pargfid, par_path,
+                              &preparent, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -2016,7 +2041,8 @@ posix_create (call_frame_t *frame, xlator_t *this,
                 _flags = flags | O_CREAT;
         }
 
-        op_ret = posix_pstat (this, NULL, real_path, &stbuf);
+        op_ret = posix_pstat (this, loc->inode, NULL, real_path, &stbuf,
+                              _gf_false);
         if ((op_ret == -1) && (errno == ENOENT)) {
                 was_present = 0;
         }
@@ -2086,7 +2112,7 @@ fill_stat:
                 gfid_set = _gf_true;
         }
 
-        op_ret = posix_fdstat (this, _fd, &stbuf);
+        op_ret = posix_fdstat (this, loc->inode, _fd, &stbuf);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
@@ -2094,7 +2120,8 @@ fill_stat:
                 goto out;
         }
 
-        op_ret = posix_pstat (this, loc->pargfid, par_path, &postparent);
+        op_ret = posix_pstat (this, loc->parent, loc->pargfid, par_path,
+                              &postparent, _gf_false);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -2170,7 +2197,8 @@ posix_put (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         MAKE_ENTRY_HANDLE (real_path, par_path, this, loc, &stbuf);
 
-        op_ret = posix_pstat (this, loc->pargfid, par_path, &preparent);
+        op_ret = posix_pstat (this, loc->parent, loc->pargfid, par_path,
+                              &preparent, _gf_false);
         if (op_ret < 0) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -2199,7 +2227,8 @@ posix_put (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto out;
         }
 
-        op_ret = posix_pstat (this, loc->pargfid, par_path, &postparent);
+        op_ret = posix_pstat (this, loc->parent, loc->pargfid, par_path,
+                              &postparent, _gf_false);
         if (op_ret < 0) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
@@ -2233,7 +2262,7 @@ posix_put (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto out;
         }
 
-        op_ret = posix_pstat (this, loc->gfid, real_path, &stbuf);
+        op_ret = posix_pstat (this, loc->inode, loc->gfid, real_path, &stbuf, _gf_false);
         if (op_ret < 0) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_LSTAT_FAILED,
