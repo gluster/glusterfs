@@ -45,5 +45,7 @@ posix_set_mdata_xattr (xlator_t *this, const char *real_path, int fd,
 int
 posix_update_utime_in_mdata (xlator_t *this, const char *real_path, int fd,
                              inode_t *inode, struct iatt *stbuf, int valid);
+gf_boolean_t
+is_ctime_enabled();
 
 #endif /* _POSIX_METADATA_H */

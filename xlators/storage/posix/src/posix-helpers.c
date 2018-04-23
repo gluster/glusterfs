@@ -39,6 +39,7 @@
 #include "logging.h"
 #include "posix.h"
 #include "posix-messages.h"
+#include "posix-metadata.h"
 #include "posix-handle.h"
 #include "xlator.h"
 #include "defaults.h"
@@ -600,7 +601,7 @@ out:
 }
 
 int
-posix_fdstat (xlator_t *this, int fd, struct iatt *stbuf_p)
+posix_fdstat (xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p)
 {
         int                    ret     = 0;
         struct stat            fstatbuf = {0, };
@@ -615,6 +616,16 @@ posix_fdstat (xlator_t *this, int fd, struct iatt *stbuf_p)
 
         iatt_from_stat (&stbuf, &fstatbuf);
 
+        if (inode && is_ctime_enabled()) {
+                ret = posix_get_mdata_xattr (this, NULL, fd, inode, &stbuf);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, errno,
+                                P_MSG_GETMDATA_FAILED,
+                                "posix get mdata failed on gfid: %s",
+                                uuid_utoa(inode->gfid));
+                        goto out;
+                }
+        }
         ret = posix_fill_gfid_fd (this, fd, &stbuf);
         stbuf.ia_flags |= IATT_GFID;
 
@@ -628,8 +639,12 @@ out:
 }
 
 
+/* The inode here is expected to update posix_mdata stored on disk.
+ * Don't use it as a general purpose inode and don't expect it to
+ * be always exists
+ */
 int
-posix_istat (xlator_t *this, uuid_t gfid, const char *basename,
+posix_istat (xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
              struct iatt *buf_p)
 {
         char        *real_path = NULL;
@@ -683,6 +698,17 @@ posix_istat (xlator_t *this, uuid_t gfid, const char *basename,
 
         iatt_from_stat (&stbuf, &lstatbuf);
 
+        if (inode && is_ctime_enabled()) {
+                ret = posix_get_mdata_xattr (this, real_path, -1, inode,
+                                             &stbuf);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, errno,
+                                P_MSG_GETMDATA_FAILED,
+                                "posix get mdata failed on %s", real_path);
+                        goto out;
+                }
+        }
+
         if (basename)
                 posix_fill_gfid_path (this, real_path, &stbuf);
         else
@@ -700,8 +726,8 @@ out:
 
 
 int
-posix_pstat (xlator_t *this, uuid_t gfid, const char *path,
-             struct iatt *buf_p)
+posix_pstat (xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
+             struct iatt *buf_p, gf_boolean_t inode_locked)
 {
         struct stat  lstatbuf = {0, };
         struct iatt  stbuf = {0, };
@@ -739,6 +765,21 @@ posix_pstat (xlator_t *this, uuid_t gfid, const char *path,
                 lstatbuf.st_nlink --;
 
         iatt_from_stat (&stbuf, &lstatbuf);
+
+        if (inode && is_ctime_enabled()) {
+                if (!inode_locked) {
+                        ret = posix_get_mdata_xattr (this, path, -1, inode, &stbuf);
+                } else {
+                        ret = __posix_get_mdata_xattr (this, path, -1, inode, &stbuf);
+                }
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, errno,
+                                P_MSG_GETMDATA_FAILED,
+                                "posix get mdata failed on gfid: %s",
+                                uuid_utoa(inode->gfid));
+                        goto out;
+                }
+        }
 
         posix_fill_ino_from_gfid (this, &stbuf);
 
@@ -1033,7 +1074,11 @@ posix_get_file_contents (xlator_t *this, uuid_t pargfid,
                 goto out;
         }
 
-        op_ret = posix_istat (this, pargfid, name, &stbuf);
+        /* TODO: Not fetching posix_mdata_t. This is fine without
+         * RIO as this routine is only interested in file contents.
+         * Need to check how does this function fits into RIO?
+         */
+        op_ret = posix_istat (this, NULL, pargfid, name, &stbuf);
         if (op_ret == -1) {
                 op_ret = -errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_XDATA_GETXATTR,
@@ -1377,7 +1422,10 @@ janitor_walker (const char *fpath, const struct stat *sb,
         xlator_t     *this = NULL;
 
         this = THIS;
-        posix_pstat (this, NULL, fpath, &stbuf);
+        /* posix_mdata_t is not filled, no time or size attributes
+         * are being used, so fine.
+         */
+        posix_pstat (this, NULL, NULL, fpath, &stbuf, _gf_false);
         switch (sb->st_mode & S_IFMT) {
         case S_IFREG:
         case S_IFBLK:

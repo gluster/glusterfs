@@ -508,3 +508,11 @@ posix_update_utime_in_mdata (xlator_t *this, const char *real_path, int fd,
                                      &flag);
         return ret;
 }
+
+gf_boolean_t
+is_ctime_enabled () {
+        /* TODO: This gets implemented once glusterd changes are in place to
+ *          * enable and disable ctime feature
+ *                   */
+        return _gf_false;
+}

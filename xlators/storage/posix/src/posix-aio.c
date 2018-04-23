@@ -59,14 +59,15 @@ __posix_fd_set_odirect (fd_t *fd, struct posix_fd *pfd, int opflags,
 
 
 struct posix_aio_cb {
-        struct iocb     iocb;
-        call_frame_t   *frame;
-        struct iobuf   *iobuf;
-        struct iobref  *iobref;
-        struct iatt     prebuf;
-        int             fd;
-        int             op;
-        off_t           offset;
+        struct iocb      iocb;
+        call_frame_t    *frame;
+        struct iobuf    *iobuf;
+        struct iobref   *iobref;
+        struct iatt      prebuf;
+        int              _fd;
+        fd_t            *fd;
+        int              op;
+        off_t            offset;
 };
 
 
@@ -85,13 +86,15 @@ posix_aio_readv_complete (struct posix_aio_cb *paiocb, int res, int res2)
         int             ret = 0;
         off_t           offset = 0;
         struct posix_private * priv = NULL;
+        fd_t           *fd = NULL;
 
 
         frame = paiocb->frame;
         this = frame->this;
         priv = this->private;
         iobuf = paiocb->iobuf;
-        _fd = paiocb->fd;
+        fd = paiocb->fd;
+        _fd = paiocb->_fd;
         offset = paiocb->offset;
 
         if (res < 0) {
@@ -105,7 +108,7 @@ posix_aio_readv_complete (struct posix_aio_cb *paiocb, int res, int res2)
                 goto out;
         }
 
-        ret = posix_fdstat (this, _fd, &postbuf);
+        ret = posix_fdstat (this, fd->inode, _fd, &postbuf);
 	if (ret != 0) {
 		op_ret = -1;
                 op_errno = errno;
@@ -147,6 +150,9 @@ out:
                 iobuf_unref (iobuf);
         if (iobref)
                 iobref_unref (iobref);
+
+        if (paiocb->fd)
+                fd_unref (paiocb->fd);
 
         GF_FREE (paiocb);
 
@@ -205,7 +211,8 @@ posix_aio_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
         paiocb->frame = frame;
         paiocb->iobuf = iobuf;
         paiocb->offset = offset;
-        paiocb->fd = _fd;
+        paiocb->fd = fd_ref(fd);
+        paiocb->_fd = _fd;
         paiocb->op = GF_FOP_READ;
 
         paiocb->iocb.data = paiocb;
@@ -240,8 +247,11 @@ err:
         if (iobuf)
                 iobuf_unref (iobuf);
 
-        if (paiocb)
+        if (paiocb) {
+                if (paiocb->fd)
+                        fd_unref(paiocb->fd);
                 GF_FREE (paiocb);
+        }
 
         return 0;
 }
@@ -259,13 +269,15 @@ posix_aio_writev_complete (struct posix_aio_cb *paiocb, int res, int res2)
         int             op_errno = 0;
         int             ret = 0;
         struct posix_private * priv = NULL;
+        fd_t           *fd = NULL;
 
 
         frame = paiocb->frame;
         this = frame->this;
         priv = this->private;
         prebuf = paiocb->prebuf;
-        _fd = paiocb->fd;
+        fd = paiocb->fd;
+        _fd = paiocb->_fd;
 
         if (res < 0) {
                 op_ret = -1;
@@ -278,7 +290,7 @@ posix_aio_writev_complete (struct posix_aio_cb *paiocb, int res, int res2)
                 goto out;
         }
 
-        ret = posix_fdstat (this, _fd, &postbuf);
+        ret = posix_fdstat (this, fd->inode, _fd, &postbuf);
 	if (ret != 0) {
 		op_ret = -1;
                 op_errno = errno;
@@ -304,6 +316,8 @@ out:
         if (paiocb) {
                 if (paiocb->iobref)
                         iobref_unref (paiocb->iobref);
+                if (paiocb->fd)
+                        fd_unref(paiocb->fd);
                 GF_FREE (paiocb);
         }
 
@@ -318,7 +332,7 @@ posix_aio_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
         int32_t                op_errno   = EINVAL;
         int                    _fd        = -1;
-        struct posix_fd *      pfd        = NULL;
+        struct posix_fd       *pfd        = NULL;
         int                    ret        = -1;
         struct posix_aio_cb   *paiocb     = NULL;
         struct posix_private  *priv       = NULL;
@@ -349,7 +363,8 @@ posix_aio_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         paiocb->frame = frame;
         paiocb->offset = offset;
-        paiocb->fd = _fd;
+        paiocb->fd = fd_ref(fd);
+        paiocb->_fd = _fd;
         paiocb->op = GF_FOP_WRITE;
 
         paiocb->iocb.data = paiocb;
@@ -363,7 +378,7 @@ posix_aio_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         iocb = &paiocb->iocb;
 
-        ret = posix_fdstat (this, _fd, &paiocb->prebuf);
+        ret = posix_fdstat (this, fd->inode, _fd, &paiocb->prebuf);
 	if (ret != 0) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, op_errno, P_MSG_FSTAT_FAILED,
@@ -397,6 +412,8 @@ err:
         if (paiocb) {
                 if (paiocb->iobref)
                         iobref_unref (paiocb->iobref);
+                if (paiocb->fd)
+                        fd_unref(paiocb->fd);
                 GF_FREE (paiocb);
         }
 

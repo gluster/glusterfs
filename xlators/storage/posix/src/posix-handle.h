@@ -146,17 +146,19 @@
                 MAKE_REAL_PATH (entp, this, loc->path);                 \
                 __parp = strdupa (entp);                                \
                 parp = dirname (__parp);                                \
-                op_ret = posix_pstat (this, NULL, entp, ent_p);         \
+                op_ret = posix_pstat (this, loc->inode, NULL, entp, ent_p, \
+                                     _gf_false);                        \
                 break;                                                  \
         }                                                               \
         errno = 0;                                                      \
-        op_ret = posix_istat (this, loc->pargfid, loc->name, ent_p);    \
+        op_ret = posix_istat (this, loc->inode, loc->pargfid,           \
+                              loc->name, ent_p);                        \
         if (errno != ELOOP) {                                           \
                 MAKE_HANDLE_PATH (parp, this, loc->pargfid, NULL);      \
                 MAKE_HANDLE_PATH (entp, this, loc->pargfid, loc->name); \
                 if (!parp || !entp) {                                   \
                         gf_msg (this->name, GF_LOG_ERROR, errno,        \
-                                P_MSG_ENTRY_HANDLE_CREATE,      \
+                                P_MSG_ENTRY_HANDLE_CREATE,              \
                                 "Failed to create entry handle "        \
                                 "for path %s", loc->path);              \
                 }                                                       \

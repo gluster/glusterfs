@@ -23,6 +23,7 @@
 #include "xlator.h"
 #include "syscall.h"
 #include "posix-messages.h"
+#include "posix-metadata.h"
 
 #include "compat-errno.h"
 
@@ -36,7 +37,7 @@ posix_resolve (xlator_t *this, inode_table_t *itable, inode_t *parent,
         inode_t     *inode = NULL;
         int          ret   = -1;
 
-        ret = posix_istat (this, parent->gfid, bname, iabuf);
+        ret = posix_istat (this, NULL, parent->gfid, bname, iabuf);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_WARNING, "gfid: %s, bname: %s "
                         "failed", uuid_utoa (parent->gfid), bname);
@@ -51,6 +52,19 @@ posix_resolve (xlator_t *this, inode_table_t *itable, inode_t *parent,
                         inode = inode_new (itable);
                         gf_uuid_copy (inode->gfid, iabuf->ia_gfid);
                 }
+        }
+
+        /* posix_istat wouldn't have fetched posix_mdata_t i.e.,
+         * time attributes as inode is passed as NULL, hence get
+         * here once you got the inode
+         */
+        ret = posix_get_mdata_xattr (this, NULL, -1, inode, iabuf);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_WARNING, errno,
+                        P_MSG_GETMDATA_FAILED,
+                        "posix get mdata failed on gfid:%s",
+                        uuid_utoa (inode->gfid));
+                goto out;
         }
 
         /* Linking an inode here, can cause a race in posix_acl.
@@ -939,8 +953,10 @@ posix_handle_unset (xlator_t *this, uuid_t gfid, const char *basename)
                 return -1;
         }
 
-        ret = posix_istat (this, gfid, basename, &stat);
-
+        /* stat is being used only for gfid, so passing a NULL inode
+         * doesn't fetch time attributes which is fine
+         */
+        ret = posix_istat (this, NULL, gfid, basename, &stat);
         if (ret == -1) {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
                         P_MSG_HANDLE_DELETE, "%s", path);
