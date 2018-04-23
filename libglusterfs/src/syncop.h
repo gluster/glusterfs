@@ -134,6 +134,7 @@ typedef struct synclock synclock_t;
 
 
 struct syncbarrier {
+        gf_boolean_t        initialized; /*Set on successful initialization*/
 	pthread_mutex_t     guard; /* guard the remaining members, pair @cond */
 	pthread_cond_t      cond;  /* waiting non-synctasks */
 	struct list_head    waitq; /* waiting synctasks */

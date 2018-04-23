@@ -1087,30 +1087,52 @@ synclock_unlock (synclock_t *lock)
 int
 syncbarrier_init (struct syncbarrier *barrier)
 {
+        int ret = 0;
 	if (!barrier) {
 		errno = EINVAL;
 		return -1;
 	}
 
-	pthread_cond_init (&barrier->cond, 0);
+	ret = pthread_cond_init (&barrier->cond, 0);
+        if (ret) {
+                errno = ret;
+                return -1;
+        }
 	barrier->count = 0;
         barrier->waitfor = 0;
 	INIT_LIST_HEAD (&barrier->waitq);
 
-	return pthread_mutex_init (&barrier->guard, 0);
+	ret = pthread_mutex_init (&barrier->guard, 0);
+        if (ret) {
+                (void)pthread_cond_destroy (&barrier->cond);
+                errno = ret;
+                return -1;
+        }
+        barrier->initialized = _gf_true;
+        return 0;
 }
 
 
 int
 syncbarrier_destroy (struct syncbarrier *barrier)
 {
+        int ret = 0;
+        int ret1 = 0;
 	if (!barrier) {
 		errno = EINVAL;
 		return -1;
 	}
 
-	pthread_cond_destroy (&barrier->cond);
-	return pthread_mutex_destroy (&barrier->guard);
+        if (barrier->initialized) {
+                ret = pthread_cond_destroy (&barrier->cond);
+                ret1 = pthread_mutex_destroy (&barrier->guard);
+                barrier->initialized = _gf_false;
+        }
+        if (ret || ret1) {
+                errno = ret?ret:ret1;
+                return -1;
+        }
+        return 0;
 }
 
 
