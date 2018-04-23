@@ -261,6 +261,7 @@ glusterfs_handle_terminate (rpcsvc_request_t *req)
                 if (victim->cleanup_starting)
                         goto err;
 
+                rpc_clnt_mgmt_pmap_signout (glusterfsd_ctx, xlator_req.name);
                 victim->cleanup_starting = 1;
 
                 UNLOCK (&ctx->volfile_lock);
