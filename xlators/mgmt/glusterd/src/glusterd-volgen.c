@@ -4500,6 +4500,18 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 }
         }
 
+        ret = dict_get_str_boolean (set_dict, "features.utime", _gf_false);
+        if (ret == -1)
+                goto out;
+
+        if (ret) {
+                xl = volgen_graph_add (graph, "features/utime", volname);
+                if (!xl) {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
         /* As of now snapshot volume is read-only. Read-only xlator is loaded
          * in client graph so that AFR & DHT healing can be done in server.
          */
