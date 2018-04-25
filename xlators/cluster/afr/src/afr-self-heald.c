@@ -15,6 +15,7 @@
 #include "protocol-common.h"
 #include "syncop-utils.h"
 #include "afr-messages.h"
+#include "byte-order.h"
 
 #define SHD_INODE_LRU_LIMIT          2048
 #define AFR_EH_SPLIT_BRAIN_LIMIT     1024
@@ -555,6 +556,172 @@ afr_shd_full_sweep (struct subvol_healer *healer, inode_t *inode)
                            afr_shd_full_heal);
 }
 
+void
+afr_shd_ta_set_xattrs (xlator_t *this, loc_t *loc, dict_t **xdata,
+                       int healer)
+{
+        afr_private_t   *priv                          = NULL;
+        dict_t          *xattr                         = NULL;
+        struct gf_flock  flock                         = {0, };
+        gf_boolean_t     need_xattrop                  = _gf_false;
+        void            *pending_raw                   = NULL;
+        int             *raw                           = NULL;
+        int              pending[AFR_NUM_CHANGE_LOGS]  = {0,};
+        int              i                             = 0;
+        int              j                             = 0;
+        int              val                           = 0;
+        int              ret                           = 0;
+
+        priv = this->private;
+
+        xattr = dict_new ();
+        if (!xattr) {
+                goto out;
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                raw = GF_CALLOC (AFR_NUM_CHANGE_LOGS, sizeof(int),
+                                 gf_afr_mt_int32_t);
+                if (!raw) {
+                        goto out;
+                }
+
+                ret = dict_get_ptr (*xdata, priv->pending_key[i], &pending_raw);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                AFR_MSG_DICT_GET_FAILED, "Error getting value "
+                                "of pending key %s", priv->pending_key[i]);
+                        GF_FREE (raw);
+                        goto out;
+                }
+
+                memcpy (pending, pending_raw, sizeof (pending));
+                for (j = 0; j < AFR_NUM_CHANGE_LOGS; j++) {
+                        val = ntoh32 (pending[j]);
+                        if (val) {
+                                if (i == healer) {
+                                        gf_msg (this->name, GF_LOG_INFO, 0,
+                                                AFR_MSG_THIN_ARB, "I am "
+                                                "not the good shd. Skipping. "
+                                                "SHD = %d.", healer);
+                                        GF_FREE (raw);
+                                        goto out;
+                                }
+                                need_xattrop = _gf_true;
+                                raw[j] = hton32 (-val);
+                        }
+                }
+
+                ret = dict_set_bin (xattr, priv->pending_key[i], raw,
+                                    AFR_NUM_CHANGE_LOGS * sizeof (int));
+                if (ret) {
+                        GF_FREE (raw);
+                        goto out;
+                }
+
+                memset (pending, 0, sizeof (pending));
+        }
+
+        if (!need_xattrop) {
+                goto out;
+        }
+
+        flock.l_type = F_WRLCK;
+        flock.l_start = 0;
+        flock.l_len = 0;
+
+        ret = syncop_inodelk (priv->children[THIN_ARBITER_BRICK_INDEX],
+                              THIN_ARBITER_DOM1, loc, F_SETLKW, &flock,
+                              NULL, NULL);
+        if (ret)
+                goto out;
+
+        ret = syncop_xattrop (priv->children[THIN_ARBITER_BRICK_INDEX], loc,
+                              GF_XATTROP_ADD_ARRAY, xattr, NULL, NULL, NULL);
+        if (ret)
+                gf_msg (this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
+                        "Xattrop failed.");
+
+        flock.l_type = F_UNLCK;
+        syncop_inodelk (priv->children[THIN_ARBITER_BRICK_INDEX],
+                        THIN_ARBITER_DOM1, loc, F_SETLKW, &flock, NULL, NULL);
+
+out:
+        if (xattr)
+                dict_unref (xattr);
+        return;
+}
+
+void
+afr_shd_ta_get_xattrs (xlator_t *this, loc_t *loc, dict_t **xdata)
+{
+	afr_private_t   *priv   = NULL;
+        dict_t          *xattr  = NULL;
+        struct iatt      stbuf  = {0,};
+        int             *raw    = NULL;
+	int              ret    = 0;
+        int              i      = 0;
+
+        priv = this->private;
+
+        loc->parent = inode_ref (this->itable->root);
+        gf_uuid_copy (loc->pargfid, loc->parent->gfid);
+        loc->name = priv->pending_key[THIN_ARBITER_BRICK_INDEX];
+        loc->inode = inode_new (loc->parent->table);
+        if (!loc->inode) {
+                goto out;
+        }
+
+        ret = syncop_lookup (priv->children[THIN_ARBITER_BRICK_INDEX], loc,
+                             &stbuf, 0, 0, 0);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
+                        "Failed lookup on file %s.", loc->name);
+                goto out;
+        }
+
+        gf_uuid_copy (priv->ta_gfid, stbuf.ia_gfid);
+        gf_uuid_copy (loc->gfid, priv->ta_gfid);
+
+        xattr = dict_new ();
+        if (!xattr) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, AFR_MSG_DICT_GET_FAILED,
+                        "Failed to create dict.");
+                goto out;
+        }
+
+        for (i = 0; i < priv->child_count; i++) {
+                raw = GF_CALLOC (AFR_NUM_CHANGE_LOGS, sizeof(int),
+                                 gf_afr_mt_int32_t);
+                if (!raw) {
+                        goto out;
+                }
+
+                ret = dict_set_bin (xattr, priv->pending_key[i], raw,
+                                    AFR_NUM_CHANGE_LOGS * sizeof (int));
+                if (ret) {
+                        GF_FREE (raw);
+                        goto out;
+                }
+        }
+
+        ret = syncop_xattrop (priv->children[THIN_ARBITER_BRICK_INDEX],
+                              loc, GF_XATTROP_ADD_ARRAY, xattr, NULL, xdata,
+                              NULL);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
+                        "Xattrop failed.");
+                goto out;
+        }
+        if (!(*xdata))
+                gf_msg (this->name, GF_LOG_ERROR, 0, AFR_MSG_DICT_GET_FAILED,
+                        "Xdata response is empty.");
+
+out:
+        if (xattr)
+                dict_unref (xattr);
+        return;
+}
 
 void *
 afr_shd_index_healer (void *data)
@@ -563,6 +730,8 @@ afr_shd_index_healer (void *data)
 	xlator_t *this = NULL;
 	int ret = 0;
 	afr_private_t *priv = NULL;
+        dict_t *xdata = NULL;
+        loc_t loc = {0, };
 
 	healer = data;
 	THIS = this = healer->this;
@@ -573,6 +742,12 @@ afr_shd_index_healer (void *data)
 
 		ASSERT_LOCAL(this, healer);
 		priv->local[healer->subvol] = healer->local;
+
+                if (priv->thin_arbiter_count) {
+                        loc_wipe (&loc);
+                        afr_shd_ta_get_xattrs (this, &loc, &xdata);
+                }
+
 
 		do {
 		        gf_msg_debug (this->name, 0,
@@ -602,7 +777,16 @@ afr_shd_index_healer (void *data)
 			*/
 			sleep (1);
 		} while (ret > 0);
+
+                if (xdata && !healer->crawl_event.heal_failed_count) {
+                        afr_shd_ta_set_xattrs (this, &loc, &xdata,
+                                               healer->subvol);
+                        dict_unref (xdata);
+                        xdata = NULL;
+                }
 	}
+
+        loc_wipe (&loc);
 
 	return NULL;
 }
