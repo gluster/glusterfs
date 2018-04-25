@@ -46,6 +46,7 @@ typedef struct _client {
         char    *subdir_mount;
         inode_t *subdir_inode;
         uuid_t   subdir_gfid;
+        int32_t  opversion;
 } client_t;
 
 #define GF_CLIENTCTX_INITIAL_SIZE 8

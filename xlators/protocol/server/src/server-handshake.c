@@ -747,11 +747,12 @@ server_setvolume (rpcsvc_request_t *req)
         }
 
         ret = dict_get_uint32 (params, "opversion", &opversion);
-        if (ret)
+        if (ret) {
                 gf_msg (this->name, GF_LOG_INFO, 0,
                         PS_MSG_CLIENT_OPVERSION_GET_FAILED,
                         "Failed to get client opversion");
-
+        }
+        client->opversion = opversion;
         /* Assign op-version value to the client */
         pthread_mutex_lock (&conf->mutex);
         list_for_each_entry (xprt, &conf->xprt_list, list) {
