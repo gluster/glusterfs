@@ -159,6 +159,7 @@ struct syncargs {
         dict_t             *xdata;
 	struct gf_flock     flock;
         struct gf_lease     lease;
+        dict_t             *dict_out;
 
         /* some more _cbk needs */
         uuid_t              uuid;
@@ -544,11 +545,13 @@ int syncop_lease (xlator_t *subvol, loc_t *loc, struct gf_lease *lease,
 int syncop_ipc (xlator_t *subvol, int op, dict_t *xdata_in, dict_t **xdata_out);
 
 int syncop_xattrop (xlator_t *subvol, loc_t *loc, gf_xattrop_flags_t flags,
-                    dict_t *dict, dict_t *xdata_in, dict_t **xdata_out);
+                    dict_t *dict, dict_t *xdata_in, dict_t **dict_out,
+                    dict_t **xdata_out);
 
 int
 syncop_fxattrop (xlator_t *subvol, fd_t *fd, gf_xattrop_flags_t flags,
-                 dict_t *dict, dict_t *xdata_in, dict_t **xdata_out);
+                 dict_t *dict, dict_t *xdata_in, dict_t **dict_out,
+                 dict_t **xdata_out);
 
 int
 syncop_seek (xlator_t *subvol, fd_t *fd, off_t offset, gf_seek_what_t what,

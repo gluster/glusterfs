@@ -2136,7 +2136,7 @@ ec_data_undo_pending (call_frame_t *frame, ec_t *ec, fd_t *fd, dict_t *xattr,
         }
 
         ret = syncop_fxattrop (ec->xl_list[idx], fd,
-                               GF_XATTROP_ADD_ARRAY64, xattr, NULL, NULL);
+                               GF_XATTROP_ADD_ARRAY64, xattr, NULL, NULL, NULL);
 out:
         return ret;
 }

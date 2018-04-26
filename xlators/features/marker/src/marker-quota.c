@@ -475,7 +475,7 @@ mq_create_size_xattrs (xlator_t *this, quota_inode_ctx_t *ctx, loc_t *loc)
 
         ret = syncop_xattrop (FIRST_CHILD(this), loc,
                               GF_XATTROP_ADD_ARRAY64_WITH_DEFAULT, dict, NULL,
-                              NULL);
+                              NULL, NULL);
 
         if (ret < 0) {
                 gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
@@ -601,7 +601,7 @@ mq_get_set_dirty (xlator_t *this, loc_t *loc, int32_t dirty,
         }
 
         ret = syncop_xattrop (FIRST_CHILD(this), loc, GF_XATTROP_GET_AND_SET,
-                              dict, NULL, &rsp_dict);
+                              dict, NULL, NULL, &rsp_dict);
         if (ret < 0) {
                 gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
                           ? GF_LOG_DEBUG:GF_LOG_ERROR, "xattrop failed "
@@ -956,7 +956,7 @@ mq_update_contri (xlator_t *this, loc_t *loc, inode_contribution_t *contri,
                 goto out;
 
         ret = syncop_xattrop(FIRST_CHILD(this), loc, GF_XATTROP_ADD_ARRAY64,
-                             dict, NULL, NULL);
+                             dict, NULL, NULL, NULL);
         if (ret < 0) {
                 gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
                                   ? GF_LOG_DEBUG:GF_LOG_ERROR, "xattrop failed "
@@ -1015,7 +1015,7 @@ mq_update_size (xlator_t *this, loc_t *loc, quota_meta_t *delta)
 
         ret = syncop_xattrop(FIRST_CHILD(this), loc,
                              GF_XATTROP_ADD_ARRAY64_WITH_DEFAULT, dict, NULL,
-                             NULL);
+                             NULL, NULL);
         if (ret < 0) {
                 gf_log_callingfn (this->name, (-ret == ENOENT || -ret == ESTALE)
                                   ? GF_LOG_DEBUG:GF_LOG_ERROR, "xattrop failed "
