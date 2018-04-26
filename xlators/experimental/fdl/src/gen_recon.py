@@ -145,6 +145,10 @@ def get_special_subs (name, args, fop_type):
 	elif name == 'symlink':
 		# Swap 'linkpath' and 'loc'.
 		s_args_str = '&loc, linkpath, &iatt, xdata'
+        elif name == 'xattrop':
+                s_args_str = '&loc, flags, dict, xdata, NULL'
+        elif name == 'fxattrop':
+                s_args_str = 'fd, flags, dict, xdata, NULL'
 	else:
 		s_args_str = string.join (s_args, ", ")
 	return code, links, s_args_str, cleanups

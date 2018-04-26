@@ -3175,6 +3175,8 @@ syncop_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         args->op_errno = op_errno;
         if (xdata)
                 args->xdata  = dict_ref (xdata);
+        if (dict)
+                args->dict_out = dict_ref (dict);
 
         __wake (args);
 
@@ -3184,7 +3186,8 @@ syncop_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 syncop_xattrop (xlator_t *subvol, loc_t *loc, gf_xattrop_flags_t flags,
-                dict_t *dict, dict_t *xdata_in, dict_t **xdata_out)
+                dict_t *dict, dict_t *xdata_in, dict_t **dict_out,
+                dict_t **xdata_out)
 {
         struct syncargs args = {0, };
 
@@ -3196,6 +3199,11 @@ syncop_xattrop (xlator_t *subvol, loc_t *loc, gf_xattrop_flags_t flags,
         else if (args.xdata)
                 dict_unref (args.xdata);
 
+        if (dict_out)
+                *dict_out = args.dict_out;
+        else if (args.dict_out)
+                dict_unref (args.dict_out);
+
         if (args.op_ret < 0)
                 return -args.op_errno;
 
@@ -3204,7 +3212,8 @@ syncop_xattrop (xlator_t *subvol, loc_t *loc, gf_xattrop_flags_t flags,
 
 int
 syncop_fxattrop (xlator_t *subvol, fd_t *fd, gf_xattrop_flags_t flags,
-                 dict_t *dict, dict_t *xdata_in, dict_t **xdata_out)
+                 dict_t *dict, dict_t *xdata_in, dict_t **dict_out,
+                 dict_t **xdata_out)
 {
         struct syncargs args = {0, };
 
@@ -3215,6 +3224,11 @@ syncop_fxattrop (xlator_t *subvol, fd_t *fd, gf_xattrop_flags_t flags,
                 *xdata_out = args.xdata;
         else if (args.xdata)
                 dict_unref (args.xdata);
+
+        if (dict_out)
+                *dict_out = args.dict_out;
+        else if (args.dict_out)
+                dict_unref (args.dict_out);
 
         if (args.op_ret < 0)
                 return -args.op_errno;
