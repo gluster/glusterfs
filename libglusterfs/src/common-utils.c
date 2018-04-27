@@ -2775,6 +2775,18 @@ out:
         return buf;
 }
 
+char *
+gf_leaseid_get ()
+{
+        return glusterfs_leaseid_buf_get ();
+}
+
+char *
+gf_existing_leaseid ()
+{
+        return glusterfs_leaseid_exist ();
+}
+
 void* gf_array_elem (void *a, int index, size_t elem_size)
 {
         uint8_t* ptr = a;

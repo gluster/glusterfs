@@ -823,6 +823,8 @@ is_graph_topology_equal
 __is_root_gfid
 is_valid_lease_id
 leaseid_utoa
+gf_existing_leaseid
+gf_leaseid_get
 list_node_add
 list_node_add_order
 list_node_del
@@ -1113,5 +1115,6 @@ global_xlator
 use_spinlocks
 dump_options
 glusterfs_leaseid_buf_get
+glusterfs_leaseid_exist
 gf_replace_old_iatt_in_dict
 gf_replace_new_iatt_in_dict

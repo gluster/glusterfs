@@ -483,6 +483,12 @@ glusterfs_leaseid_buf_get ()
         return buf;
 }
 
+char *
+glusterfs_leaseid_exist ()
+{
+        return pthread_getspecific (leaseid_buf_key);
+}
+
 static void
 gf_globals_init_once ()
 {
