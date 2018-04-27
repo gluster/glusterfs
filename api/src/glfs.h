@@ -1151,10 +1151,18 @@ typedef void (*glfs_recall_cbk) (struct glfs_lease lease, void *data);
   0:  Successfull completion
   <0: Failure. @errno will be set with the type of failure
 */
+struct gf_upcall;
 
 int glfs_lease (struct glfs_fd *glfd, struct glfs_lease *lease,
                 glfs_recall_cbk fn, void *data) __THROW
         GFAPI_PUBLIC(glfs_lease, 4.0.0);
+int
+glfs_recall_lease_fd (struct glfs *fs, struct gf_upcall *up_data) __THROW
+        GFAPI_PUBLIC(glfs_recall_lease_fd, 4.0.0);
 
+int
+glfs_recall_lease_upcall (struct glfs *fs, struct glfs_upcall *up_arg,
+                          struct gf_upcall *up_data) __THROW
+        GFAPI_PUBLIC(glfs_recall_lease_upcall, 4.0.0);
 __END_DECLS
 #endif /* !_GLFS_H */

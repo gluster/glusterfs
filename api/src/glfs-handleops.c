@@ -622,6 +622,7 @@ pub_glfs_h_open (struct glfs *fs, struct glfs_object *object, int flags)
         xlator_t        *subvol = NULL;
         inode_t         *inode = NULL;
         loc_t            loc = {0, };
+        dict_t          *fop_attr = NULL;
 
         /* validate in args */
         if ((fs == NULL) || (object == NULL)) {
@@ -678,6 +679,10 @@ pub_glfs_h_open (struct glfs *fs, struct glfs_object *object, int flags)
         GLFS_LOC_FILL_INODE (inode, loc, out);
 
         /* fop/op */
+        ret = get_fop_attr_thrd_key (&fop_attr);
+        if (ret)
+                gf_msg_debug ("gfapi", 0, "Getting leaseid from thread failed");
+
         ret = syncop_open (subvol, &loc, flags, glfd->fd, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
@@ -688,6 +693,8 @@ out:
 
         if (inode)
                 inode_unref (inode);
+        if (fop_attr)
+                dict_unref (fop_attr);
 
         if (ret && glfd) {
                 GF_REF_PUT (glfd);

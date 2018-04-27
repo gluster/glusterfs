@@ -578,7 +578,7 @@ pub_glfs_setfsleaseid (glfs_leaseid_t leaseid)
 
         GF_VALIDATE_OR_GOTO (THIS->name, leaseid, out);
 
-        gleaseid = glusterfs_leaseid_buf_get();
+        gleaseid = gf_leaseid_get();
         if (gleaseid) {
                 memcpy (gleaseid, leaseid, LEASE_ID_SIZE);
                 ret = 0;
@@ -589,6 +589,87 @@ out:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_setfsleaseid, 4.0.0);
 
+int
+get_fop_attr_glfd (dict_t **fop_attr, struct glfs_fd *glfd)
+{
+        char *leaseid            = NULL;
+        int   ret                = 0;
+        gf_boolean_t dict_create = _gf_false;
+
+        leaseid = GF_CALLOC (1, LEASE_ID_SIZE, gf_common_mt_char);
+        GF_CHECK_ALLOC_AND_LOG("gfapi", leaseid, ret, "lease id alloc failed", out);
+        memcpy (leaseid, glfd->lease_id, LEASE_ID_SIZE);
+        if (*fop_attr == NULL) {
+                *fop_attr = dict_new ();
+                dict_create = _gf_true;
+        }
+        GF_CHECK_ALLOC_AND_LOG("gfapi", *fop_attr, ret, "dict_new failed", out);
+        ret = dict_set_static_bin (*fop_attr, "lease-id", leaseid, LEASE_ID_SIZE);
+out:
+        if (ret) {
+                GF_FREE (leaseid);
+                if (dict_create) {
+                        if (*fop_attr)
+                                dict_unref (*fop_attr);
+                        *fop_attr = NULL;
+                }
+        }
+        return ret;
+}
+
+int
+set_fop_attr_glfd (struct glfs_fd *glfd)
+{
+        char     *lease_id = NULL;
+        int       ret      = -1;
+
+        lease_id = gf_existing_leaseid ();
+        if (lease_id) {
+                memcpy (glfd->lease_id, lease_id, LEASE_ID_SIZE);
+                ret = 0;
+        }
+        return ret;
+}
+
+int
+get_fop_attr_thrd_key (dict_t **fop_attr)
+{
+        char     *lease_id       = NULL;
+        int       ret            = 0;
+        gf_boolean_t dict_create = _gf_false;
+
+        lease_id = gf_existing_leaseid ();
+        if (lease_id) {
+                if (*fop_attr == NULL) {
+                        *fop_attr = dict_new ();
+                        dict_create = _gf_true;
+                }
+                GF_CHECK_ALLOC_AND_LOG("gfapi", *fop_attr, ret, "dict_new failed", out);
+                ret = dict_set_bin (*fop_attr, "lease-id", gf_strdup (lease_id),
+                                    LEASE_ID_SIZE);
+        }
+
+out:
+        if (ret && dict_create) {
+                if (*fop_attr)
+                        dict_unref (*fop_attr);
+                *fop_attr = NULL;
+        }
+        return ret;
+}
+
+void
+unset_fop_attr (dict_t **fop_attr)
+{
+        char     *lease_id = NULL;
+        lease_id = gf_existing_leaseid ();
+        if (lease_id)
+                memset (lease_id, 0, LEASE_ID_SIZE);
+        if (*fop_attr) {
+                dict_unref (*fop_attr);
+                *fop_attr = NULL;
+        }
+}
 struct glfs *
 pub_glfs_from_glfd (struct glfs_fd *glfd)
 {
@@ -1486,6 +1567,22 @@ pub_glfs_upcall_inode_get_oldpstat (struct glfs_upcall_inode *arg)
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_inode_get_oldpstat, 3.7.16);
 
 
+/*struct glfs_object*
+pub_glfs_upcall_lease_get_object (struct glfs_upcall_recall_inode *arg)
+{
+        return arg->object;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_lease_get_object, 4.0.0);
+*/
+
+uint32_t
+pub_glfs_upcall_lease_get_lease_type (struct glfs_upcall_lease *arg)
+{
+        return arg->lease_type;
+}
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_lease_get_lease_type, 4.0.0);
+
 /* definitions of the GLFS_SYSRQ_* chars are in glfs.h */
 static struct glfs_sysrq_help {
         char  sysrq;
@@ -1578,8 +1675,10 @@ glfs_upcall_register (struct glfs *fs, uint32_t event_list,
                          */
                         fs->upcall_events |=  GF_UPCALL_CACHE_INVALIDATION;
                         ret |= GF_UPCALL_CACHE_INVALIDATION;
+                } else if (event_list & GLFS_EVENT_INODE_INVALIDATE) {
+                        fs->upcall_events |=  GF_UPCALL_RECALL_LEASE;
+                        ret |= GF_UPCALL_RECALL_LEASE;
                 }
-
                 /* Override cbk function if existing */
                 fs->up_cbk = cbk;
                 fs->up_data = data;

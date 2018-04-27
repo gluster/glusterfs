@@ -332,6 +332,10 @@ int glfs_h_lease (struct glfs *fs, struct glfs_object *object,
                   struct glfs_lease *lease) __THROW
         GFAPI_PUBLIC(glfs_h_lease, 4.0.0);
 
+struct glfs_object *
+glfs_h_find_handle (struct glfs *fs, unsigned char *handle,
+                    int len) __THROW
+        GFAPI_PUBLIC(glfs_h_lease, 4.0.0);
 __END_DECLS
 
 #endif /* !_GLFS_HANDLES_H */

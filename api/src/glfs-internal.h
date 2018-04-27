@@ -213,6 +213,7 @@ enum glfs_fd_state {
 
 struct glfs_fd {
 	struct list_head   openfds;
+        struct list_head   list;
         GF_REF_DECL;
 	struct glfs       *fs;
         enum glfs_fd_state state;
@@ -224,6 +225,8 @@ struct glfs_fd {
         gf_lkowner_t       lk_owner;
         glfs_leaseid_t     lease_id; /* Stores lease_id of client in glfd */
         gf_lock_t          lock; /* lock taken before updating fd state */
+        glfs_recall_cbk    cbk;
+        void              *cookie;
 };
 
 /* glfs object handle introduced for the alternate gfapi implementation based
@@ -252,6 +255,16 @@ struct glfs_upcall_inode {
         struct stat           p_buf;    /* Latest stat of parent dir handle */
         struct glfs_object   *oldp_object; /* Old parent Object to be updated */
         struct stat           oldp_buf; /* Latest stat of old parent dir handle */
+};
+
+struct glfs_upcall_lease {
+        struct glfs_object   *object;  /* Object which need to be acted upon */
+        uint32_t  lease_type; /* Lease type to which client can downgrade to*/
+};
+
+struct glfs_upcall_lease_fd {
+        uint32_t  lease_type; /* Lease type to which client can downgrade to*/
+        void   *fd_cookie;  /* Object which need to be acted upon */
 };
 
 struct glfs_xreaddirp_stat {
@@ -614,4 +627,16 @@ void
 glfs_lease_to_gf_lease (struct glfs_lease *lease, struct gf_lease *gf_lease);
 
 void glfs_release_upcall (void *ptr);
+
+int
+get_fop_attr_glfd (dict_t **fop_attr, struct glfs_fd *glfd);
+
+int
+set_fop_attr_glfd (struct glfs_fd *glfd);
+
+int
+get_fop_attr_thrd_key (dict_t **fop_attr);
+
+void
+unset_fop_attr (dict_t **fop_attr);
 #endif /* !_GLFS_INTERNAL_H */

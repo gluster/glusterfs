@@ -207,6 +207,7 @@ GFAPI_4.0.0 {
                 glfs_file_lock;
                 glfs_lease;
                 glfs_h_lease;
+                glfs_recall_lease;
                 glfs_read_async;
                 glfs_write_async;
                 glfs_readv_async;

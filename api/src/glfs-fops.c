@@ -135,6 +135,41 @@ out:
 }
 
 int
+glfs_get_upcall_lease (struct gf_upcall *to_up_data,
+                             struct gf_upcall *from_up_data)
+{
+
+        struct gf_upcall_recall_lease *ca_data = NULL;
+        struct gf_upcall_recall_lease *f_ca_data = NULL;
+        int                                 ret      = -1;
+
+        GF_VALIDATE_OR_GOTO (THIS->name, to_up_data, out);
+        GF_VALIDATE_OR_GOTO (THIS->name, from_up_data, out);
+
+        f_ca_data = from_up_data->data;
+        GF_VALIDATE_OR_GOTO (THIS->name, f_ca_data, out);
+
+        ca_data = GF_CALLOC (1, sizeof(*ca_data),
+                            glfs_mt_upcall_entry_t);
+
+        if (!ca_data) {
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        API_MSG_ALLOC_FAILED,
+                        "Upcall entry allocation failed.");
+                goto out;
+        }
+
+        to_up_data->data = ca_data;
+
+        ca_data->lease_type   = f_ca_data->lease_type;
+        gf_uuid_copy (ca_data->tid, f_ca_data->tid);
+        ca_data->dict       = f_ca_data->dict;
+
+        ret = 0;
+out:
+        return ret;
+}
+int
 glfs_loc_link (loc_t *loc, struct iatt *iatt)
 {
 	int ret = -1;
@@ -192,6 +227,7 @@ pub_glfs_open (struct glfs *fs, const char *path, int flags)
 	loc_t            loc = {0, };
 	struct iatt      iatt = {0, };
 	int              reval = 0;
+        dict_t          *fop_attr = NULL;
 
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FS (fs, invalid_fs);
@@ -243,12 +279,19 @@ retry:
 	}
         glfd->fd->flags = flags;
 
-	ret = syncop_open (subvol, &loc, flags, glfd->fd, NULL, NULL);
+        ret = get_fop_attr_thrd_key (&fop_attr);
+        if (ret)
+                gf_msg_debug ("gfapi", 0, "Getting leaseid from thread failed");
+
+	ret = syncop_open (subvol, &loc, flags, glfd->fd, fop_attr, NULL);
         DECODE_SYNCOP_ERR (ret);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
 out:
 	loc_wipe (&loc);
+
+        if (fop_attr)
+                dict_unref (fop_attr);
 
 	if (ret && glfd) {
                 GF_REF_PUT (glfd);
@@ -274,6 +317,7 @@ pub_glfs_close (struct glfs_fd *glfd)
 	int        ret = -1;
 	fd_t      *fd = NULL;
 	struct glfs *fs = NULL;
+        dict_t    *fop_attr = NULL;
 
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -297,14 +341,20 @@ pub_glfs_close (struct glfs_fd *glfd)
                 if (ret)
                         goto out;
         }
+        ret = get_fop_attr_thrd_key (&fop_attr);
+        if (ret)
+                gf_msg_debug ("gfapi", 0, "Getting leaseid from thread failed");
 
-	ret = syncop_flush (subvol, fd, NULL, NULL);
+	ret = syncop_flush (subvol, fd, fop_attr, NULL);
         DECODE_SYNCOP_ERR (ret);
 out:
 	fs = glfd->fs;
 
         if (fd)
                 fd_unref (fd);
+        if (fop_attr)
+                dict_unref (fop_attr);
+
 
         glfs_mark_glfd_for_deletion (glfd);
 	glfs_subvol_done (fs, subvol);
@@ -551,8 +601,10 @@ retry:
 	}
         glfd->fd->flags = flags;
 
+        if (get_fop_attr_thrd_key (&xattr_req))
+                gf_msg_debug ("gfapi", 0, "Getting leaseid from thread failed");
 	if (ret == 0) {
-		ret = syncop_open (subvol, &loc, flags, glfd->fd, NULL, NULL);
+		ret = syncop_open (subvol, &loc, flags, glfd->fd, xattr_req, NULL);
                 DECODE_SYNCOP_ERR (ret);
 	} else {
 		ret = syncop_create (subvol, &loc, flags, mode, glfd->fd,
@@ -708,6 +760,7 @@ glfs_preadv_common (struct glfs_fd *glfd, const struct iovec *iovec,
 	struct iobref  *iobref = NULL;
 	fd_t           *fd = NULL;
         struct iatt     iatt = {0, };
+        dict_t         *fop_attr = NULL;
 
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -730,8 +783,12 @@ glfs_preadv_common (struct glfs_fd *glfd, const struct iovec *iovec,
 
 	size = iov_length (iovec, iovcnt);
 
+        ret = get_fop_attr_thrd_key (&fop_attr);
+        if (ret)
+                gf_msg_debug ("gfapi", 0, "Getting leaseid from thread failed");
+
 	ret = syncop_readv (subvol, fd, size, offset, 0, &iov, &cnt, &iobref,
-                            &iatt, NULL, NULL);
+                            &iatt, fop_attr, NULL);
         DECODE_SYNCOP_ERR (ret);
 
         if (ret >= 0 && poststat)
@@ -755,6 +812,8 @@ out:
 		fd_unref (fd);
         if (glfd)
                 GF_REF_PUT (glfd);
+        if (fop_attr)
+                dict_unref (fop_attr);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -956,6 +1015,7 @@ glfs_preadv_async_common (struct glfs_fd *glfd, const struct iovec *iovec,
 	xlator_t       *subvol = NULL;
 	glfs_t         *fs = NULL;
 	fd_t           *fd = NULL;
+        dict_t         *fop_attr = NULL;
 
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -1010,9 +1070,13 @@ glfs_preadv_async_common (struct glfs_fd *glfd, const struct iovec *iovec,
 
 	frame->local = gio;
 
+        ret = get_fop_attr_thrd_key (&fop_attr);
+        if (ret)
+                gf_msg_debug ("gfapi", 0, "Getting leaseid from thread failed");
+
 	STACK_WIND_COOKIE (frame, glfs_preadv_async_cbk, subvol, subvol,
 			   subvol->fops->readv, fd, iov_length (iovec, count),
-			   offset, flags, NULL);
+			   offset, flags, fop_attr);
 
 out:
         if (ret) {
@@ -1029,6 +1093,8 @@ out:
                 }
 		glfs_subvol_done (fs, subvol);
 	}
+        if (fop_attr)
+                dict_unref (fop_attr);
 
         __GLFS_EXIT_FS;
 
@@ -1222,6 +1288,7 @@ glfs_pwritev_common (struct glfs_fd *glfd, const struct iovec *iovec,
 	struct iovec    iov = {0, };
 	fd_t           *fd = NULL;
         struct iatt     preiatt = {0, }, postiatt = {0, };
+        dict_t         *fop_attr = NULL;
 
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -1246,8 +1313,12 @@ glfs_pwritev_common (struct glfs_fd *glfd, const struct iovec *iovec,
         if (ret)
                 goto out;
 
+        ret = get_fop_attr_thrd_key (&fop_attr);
+        if (ret)
+                gf_msg_debug ("gfapi", 0, "Getting leaseid from thread failed");
+
         ret = syncop_writev (subvol, fd, &iov, 1, offset, iobref, flags,
-                             &preiatt, &postiatt, NULL, NULL);
+                             &preiatt, &postiatt, fop_attr, NULL);
         DECODE_SYNCOP_ERR (ret);
 
         if (ret >= 0) {
@@ -1270,6 +1341,8 @@ out:
 		fd_unref (fd);
         if (glfd)
                 GF_REF_PUT (glfd);
+        if (fop_attr)
+                dict_unref (fop_attr);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -1383,6 +1456,7 @@ glfs_pwritev_async_common (struct glfs_fd *glfd, const struct iovec *iovec,
         fd_t           *fd = NULL;
         struct iobref  *iobref = NULL;
         struct iobuf   *iobuf = NULL;
+        dict_t         *fop_attr = NULL;
 
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -1438,9 +1512,13 @@ glfs_pwritev_async_common (struct glfs_fd *glfd, const struct iovec *iovec,
 
         frame->local = gio;
 
+        ret = get_fop_attr_thrd_key (&fop_attr);
+        if (ret)
+                gf_msg_debug ("gfapi", 0, "Getting leaseid from thread failed");
+
         STACK_WIND_COOKIE (frame, glfs_pwritev_async_cbk, subvol, subvol,
                            subvol->fops->writev, fd, gio->iov,
-                           gio->count, offset, flags, iobref, NULL);
+                           gio->count, offset, flags, iobref, fop_attr);
 
         ret = 0;
 out:
@@ -1456,6 +1534,8 @@ out:
                  */
                 glfs_subvol_done (glfd->fs, subvol);
         }
+        if (fop_attr)
+                dict_unref (fop_attr);
 
         if (iobuf)
                 iobuf_unref (iobuf);
@@ -1604,6 +1684,7 @@ glfs_fsync_common (struct glfs_fd *glfd, struct stat *prestat,
 	xlator_t        *subvol = NULL;
 	fd_t            *fd = NULL;
         struct iatt      preiatt = {0, }, postiatt = {0, };
+        dict_t          *fop_attr = NULL;
 
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -1624,7 +1705,11 @@ glfs_fsync_common (struct glfs_fd *glfd, struct stat *prestat,
 		goto out;
 	}
 
-	ret = syncop_fsync (subvol, fd, 0, &preiatt, &postiatt, NULL, NULL);
+        ret = get_fop_attr_thrd_key (&fop_attr);
+        if (ret)
+                gf_msg_debug ("gfapi", 0, "Getting leaseid from thread failed");
+
+	ret = syncop_fsync (subvol, fd, 0, &preiatt, &postiatt, fop_attr, NULL);
         DECODE_SYNCOP_ERR (ret);
 
         if (ret >= 0) {
@@ -1638,6 +1723,8 @@ out:
 		fd_unref (fd);
         if (glfd)
                 GF_REF_PUT (glfd);
+        if (fop_attr)
+                dict_unref (fop_attr);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -1794,6 +1881,7 @@ glfs_fdatasync_common (struct glfs_fd *glfd, struct stat *prestat,
 	xlator_t        *subvol = NULL;
 	fd_t            *fd = NULL;
         struct iatt      preiatt = {0, }, postiatt = {0, };
+        dict_t          *fop_attr = NULL;
 
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -1814,7 +1902,11 @@ glfs_fdatasync_common (struct glfs_fd *glfd, struct stat *prestat,
 		goto out;
 	}
 
-	ret = syncop_fsync (subvol, fd, 1, &preiatt, &postiatt, NULL, NULL);
+        ret = get_fop_attr_thrd_key (&fop_attr);
+        if (ret)
+                gf_msg_debug ("gfapi", 0, "Getting leaseid from thread failed");
+
+	ret = syncop_fsync (subvol, fd, 1, &preiatt, &postiatt, fop_attr, NULL);
         DECODE_SYNCOP_ERR (ret);
 
         if (ret >= 0) {
@@ -1828,6 +1920,8 @@ out:
 		fd_unref (fd);
         if (glfd)
                 GF_REF_PUT (glfd);
+        if (fop_attr)
+                dict_unref (fop_attr);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -1902,6 +1996,7 @@ glfs_ftruncate_common (struct glfs_fd *glfd, off_t offset,
 	xlator_t        *subvol = NULL;
 	fd_t            *fd = NULL;
         struct iatt      preiatt = {0, }, postiatt = {0, };
+        dict_t         *fop_attr = NULL;
 
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -1922,8 +2017,12 @@ glfs_ftruncate_common (struct glfs_fd *glfd, off_t offset,
 		goto out;
 	}
 
+        ret = get_fop_attr_thrd_key (&fop_attr);
+        if (ret)
+                gf_msg_debug ("gfapi", 0, "Getting leaseid from thread failed");
+
 	ret = syncop_ftruncate (subvol, fd, offset, &preiatt, &postiatt,
-                                NULL, NULL);
+                                fop_attr, NULL);
         DECODE_SYNCOP_ERR (ret);
 
         if (ret >= 0) {
@@ -1937,6 +2036,8 @@ out:
 		fd_unref (fd);
         if (glfd)
                 GF_REF_PUT (glfd);
+        if (fop_attr)
+                dict_unref (fop_attr);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -2030,6 +2131,7 @@ glfs_ftruncate_async_common (struct glfs_fd *glfd, off_t offset,
         call_frame_t   *frame = NULL;
         xlator_t       *subvol = NULL;
         fd_t           *fd = NULL;
+        dict_t         *fop_attr = NULL;
 
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -2072,8 +2174,12 @@ glfs_ftruncate_async_common (struct glfs_fd *glfd, off_t offset,
 
         frame->local = gio;
 
+        ret = get_fop_attr_thrd_key (&fop_attr);
+        if (ret)
+                gf_msg_debug ("gfapi", 0, "Getting leaseid from thread failed");
+
         STACK_WIND_COOKIE (frame, glfs_ftruncate_async_cbk, subvol, subvol,
-                           subvol->fops->ftruncate, fd, offset, NULL);
+                           subvol->fops->ftruncate, fd, offset, fop_attr);
 
         ret = 0;
 
@@ -2088,6 +2194,8 @@ out:
                         STACK_DESTROY (frame->root);
                 glfs_subvol_done (glfd->fs, subvol);
         }
+        if (fop_attr)
+                dict_unref (fop_attr);
 
         __GLFS_EXIT_FS;
 
@@ -2511,6 +2619,7 @@ retry:
 		goto out;
 	}
 
+        /* TODO: Add leaseid */
 	ret = syncop_unlink (subvol, &loc, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
@@ -2632,7 +2741,8 @@ retrynew:
                 }
         }
 
-	/* TODO: check if new or old is a prefix of the other, and fail EINVAL */
+	/* TODO: - check if new or old is a prefix of the other, and fail EINVAL
+         *       - Add leaseid */
 
 	ret = syncop_rename (subvol, &oldloc, &newloc, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
@@ -2906,6 +3016,7 @@ glfs_discard_async_common (struct glfs_fd *glfd, off_t offset, size_t len,
         call_frame_t   *frame = NULL;
         xlator_t       *subvol = NULL;
         fd_t           *fd = NULL;
+        dict_t         *fop_attr = NULL;
 
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -2948,9 +3059,12 @@ glfs_discard_async_common (struct glfs_fd *glfd, off_t offset, size_t len,
 	gio->data   = data;
 
         frame->local = gio;
+        ret = get_fop_attr_thrd_key (&fop_attr);
+        if (ret)
+                gf_msg_debug ("gfapi", 0, "Getting leaseid from thread failed");
 
         STACK_WIND_COOKIE (frame, glfs_discard_async_cbk, subvol, subvol,
-                           subvol->fops->discard, fd, offset, len, NULL);
+                           subvol->fops->discard, fd, offset, len, fop_attr);
 
         ret = 0;
 out:
@@ -3015,6 +3129,7 @@ glfs_zerofill_async_common (struct glfs_fd *glfd, off_t offset, off_t len,
         call_frame_t   *frame = NULL;
         xlator_t       *subvol = NULL;
         fd_t           *fd = NULL;
+        dict_t         *fop_attr = NULL;
 
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -3058,8 +3173,12 @@ glfs_zerofill_async_common (struct glfs_fd *glfd, off_t offset, off_t len,
 
         frame->local = gio;
 
+        ret = get_fop_attr_thrd_key (&fop_attr);
+        if (ret)
+                gf_msg_debug ("gfapi", 0, "Getting leaseid from thread failed");
+
         STACK_WIND_COOKIE (frame, glfs_zerofill_async_cbk, subvol, subvol,
-                           subvol->fops->zerofill, fd, offset, len, NULL);
+                           subvol->fops->zerofill, fd, offset, len, fop_attr);
         ret = 0;
 out:
         if (ret) {
@@ -3072,6 +3191,8 @@ out:
                         STACK_DESTROY (frame->root);
                 glfs_subvol_done (glfd->fs, subvol);
         }
+        if (fop_attr)
+                dict_unref (fop_attr);
 
         __GLFS_EXIT_FS;
 
@@ -3427,6 +3548,7 @@ retry:
 	if (ret)
 		goto out;
 
+        /* TODO : Add leaseid */
 	ret = syncop_setattr (subvol, &loc, iatt, valid, 0, 0, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
@@ -3469,6 +3591,7 @@ glfs_fsetattr (struct glfs_fd *glfd, struct iatt *iatt, int valid)
 		goto out;
 	}
 
+        /* TODO : Add leaseid */
 	ret = syncop_fsetattr (subvol, fd, iatt, valid, 0, 0, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 out:
@@ -4286,6 +4409,7 @@ pub_glfs_fallocate (struct glfs_fd *glfd, int keep_size, off_t offset, size_t le
 	int              ret = -1;
 	xlator_t        *subvol = NULL;
 	fd_t		*fd = NULL;
+        dict_t          *fop_attr = NULL;
 
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -4306,13 +4430,19 @@ pub_glfs_fallocate (struct glfs_fd *glfd, int keep_size, off_t offset, size_t le
 		goto out;
 	}
 
-	ret = syncop_fallocate (subvol, fd, keep_size, offset, len, NULL, NULL);
+        ret = get_fop_attr_thrd_key (&fop_attr);
+        if (ret)
+                gf_msg_debug ("gfapi", 0, "Getting leaseid from thread failed");
+
+	ret = syncop_fallocate (subvol, fd, keep_size, offset, len, fop_attr, NULL);
         DECODE_SYNCOP_ERR (ret);
 out:
 	if (fd)
 		fd_unref(fd);
         if (glfd)
                 GF_REF_PUT (glfd);
+        if (fop_attr)
+                dict_unref (fop_attr);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -4331,6 +4461,7 @@ pub_glfs_discard (struct glfs_fd *glfd, off_t offset, size_t len)
 	int              ret = -1;
 	xlator_t        *subvol = NULL;
 	fd_t		*fd = NULL;
+        dict_t          *fop_attr = NULL;
 
         DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -4351,13 +4482,19 @@ pub_glfs_discard (struct glfs_fd *glfd, off_t offset, size_t len)
 		goto out;
 	}
 
-	ret = syncop_discard (subvol, fd, offset, len, NULL, NULL);
+        ret = get_fop_attr_thrd_key (&fop_attr);
+        if (ret)
+                gf_msg_debug ("gfapi", 0, "Getting leaseid from thread failed");
+
+	ret = syncop_discard (subvol, fd, offset, len, fop_attr, NULL);
         DECODE_SYNCOP_ERR (ret);
 out:
 	if (fd)
 		fd_unref(fd);
         if (glfd)
                 GF_REF_PUT (glfd);
+        if (fop_attr)
+                dict_unref (fop_attr);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -4376,6 +4513,7 @@ pub_glfs_zerofill (struct glfs_fd *glfd, off_t offset, off_t len)
         int               ret             = -1;
         xlator_t         *subvol          = NULL;
         fd_t             *fd              = NULL;
+        dict_t           *fop_attr         = NULL;
 
         DECLARE_OLD_THIS;
         __GLFS_ENTRY_VALIDATE_FD (glfd, invalid_fs);
@@ -4394,13 +4532,19 @@ pub_glfs_zerofill (struct glfs_fd *glfd, off_t offset, off_t len)
                 goto out;
         }
 
-        ret = syncop_zerofill (subvol, fd, offset, len, NULL, NULL);
+        ret = get_fop_attr_thrd_key (&fop_attr);
+        if (ret)
+                gf_msg_debug ("gfapi", 0, "Getting leaseid from thread failed");
+
+        ret = syncop_zerofill (subvol, fd, offset, len, fop_attr, NULL);
         DECODE_SYNCOP_ERR (ret);
 out:
         if (fd)
                 fd_unref(fd);
         if (glfd)
                 GF_REF_PUT (glfd);
+        if (fop_attr)
+                dict_unref (fop_attr);
 
         glfs_subvol_done (glfd->fs, subvol);
 
@@ -4730,6 +4874,10 @@ glfs_lock_common (struct glfs_fd *glfd, int cmd, struct flock *flock,
                         goto out;
         }
 
+        ret = get_fop_attr_thrd_key (&xdata);
+        if (ret)
+                gf_msg_debug ("gfapi", 0, "Getting leaseid from thread failed");
+
         ret = syncop_lk (subvol, fd, cmd, &gf_flock, xdata, NULL);
         DECODE_SYNCOP_ERR (ret);
 
@@ -4926,6 +5074,10 @@ glfs_enqueue_upcall_data (struct glfs *fs, struct gf_upcall *upcall_data)
                 ret = glfs_get_upcall_cache_invalidation (&u_list->upcall_data,
                                                           upcall_data);
                 break;
+        case GF_UPCALL_RECALL_LEASE:
+                ret = glfs_get_upcall_lease (&u_list->upcall_data,
+                                                   upcall_data);
+                break;
         default:
                 break;
         }
@@ -4954,6 +5106,172 @@ out:
 }
 
 static void
+glfs_free_upcall_lease (void *to_free)
+{
+        struct glfs_upcall_lease *arg = to_free;
+
+        if (!arg)
+                return;
+
+        if (arg->object)
+                glfs_h_close (arg->object);
+
+        GF_FREE (arg);
+}
+
+int
+glfs_recall_lease_fd (struct glfs *fs,
+                      struct gf_upcall *up_data)
+{
+        struct gf_upcall_recall_lease *recall_lease = NULL;
+        xlator_t                      *subvol       = NULL;
+        int                            ret          = 0;
+        inode_t                       *inode        = NULL;
+        struct glfs_fd                *glfd         = NULL;
+        struct glfs_fd                *tmp          = NULL;
+        struct list_head               glfd_list;
+        fd_t                          *fd           = NULL;
+        uint64_t                       value        = 0;
+        struct glfs_lease              lease        = {0, };
+
+        GF_VALIDATE_OR_GOTO ("gfapi", up_data, out);
+        GF_VALIDATE_OR_GOTO ("gfapi", fs, out);
+
+        recall_lease = up_data->data;
+        GF_VALIDATE_OR_GOTO ("gfapi", recall_lease, out);
+
+        subvol = glfs_active_subvol (fs);
+        if (!subvol) {
+                ret = -1;
+                errno = EIO;
+                goto out;
+        }
+
+        gf_msg_debug (THIS->name, 0,
+                      "Recall lease received for gfid:%s",
+                      uuid_utoa(up_data->gfid));
+
+
+        inode = inode_find (subvol->itable, up_data->gfid);
+        if (!inode) {
+                ret = -1;
+                gf_msg (THIS->name, GF_LOG_ERROR, errno,
+                        API_MSG_INODE_FIND_FAILED,
+                        "Unable to find inode entry for gfid:%s graph id:%d",
+                        uuid_utoa(up_data->gfid), subvol->graph->id);
+                goto out;
+        }
+
+        LOCK (&inode->lock);
+        {
+                list_for_each_entry (fd, &inode->fd_list, inode_list) {
+                        ret = fd_ctx_get (fd, subvol, &value);
+                        glfd = (void *) value;
+                        if (glfd) {
+                                gf_msg_trace (THIS->name, 0,
+                                              "glfd (%p) has held lease", glfd);
+                                GF_REF_GET (glfd);
+                                list_add_tail (&glfd->list, &glfd_list);
+                        }
+                }
+        }
+        UNLOCK (&inode->lock);
+
+        list_for_each_entry_safe (glfd, tmp, &glfd_list, list) {
+                LOCK (&glfd->lock);
+                {
+                        if (glfd->state != GLFD_CLOSE)
+                                gf_msg_trace (THIS->name, 0,
+                                              "glfd (%p) has held lease, "
+                                              "calling recall cbk", glfd);
+                                glfd->cbk (lease, glfd->cookie);
+                }
+                UNLOCK (&glfd->lock);
+
+                list_del_init (&glfd->list);
+                GF_REF_PUT (glfd);
+        }
+
+out:
+        return ret;
+}
+
+int
+glfs_recall_lease_upcall (struct glfs *fs,
+                          struct glfs_upcall *up_arg,
+                          struct gf_upcall *up_data)
+{
+        struct gf_upcall_recall_lease *recall_lease = NULL;
+        struct glfs_object                  *object       = NULL;
+        xlator_t                      *subvol       = NULL;
+        int                            ret          = 0;
+        struct glfs_upcall_lease      *up_lease_arg = NULL;
+
+        GF_VALIDATE_OR_GOTO ("gfapi", up_data, out);
+        GF_VALIDATE_OR_GOTO ("gfapi", fs, out);
+
+        recall_lease = up_data->data;
+        GF_VALIDATE_OR_GOTO ("gfapi", recall_lease, out);
+
+        subvol = glfs_active_subvol (fs);
+        if (!subvol) {
+                ret = -1;
+                errno = EIO;
+                goto out;
+        }
+
+        gf_msg_debug (THIS->name, 0,
+                      "Recall lease received for gfid:%s",
+                      uuid_utoa(up_data->gfid));
+
+        object = glfs_h_find_handle (fs, up_data->gfid,
+                                     GFAPI_HANDLE_LENGTH);
+        if (!object) {
+                /* The reason handle creation will fail is because we
+                 * couldn't find the inode in the gfapi inode table.
+                 *
+                 * But since application would have taken inode_ref, the
+                 * only case when this can happen is when it has closed
+                 * the handle and hence will no more be interested in
+                 * the upcall for this particular gfid.
+                 */
+                gf_msg (THIS->name, GF_LOG_DEBUG, errno,
+                        API_MSG_CREATE_HANDLE_FAILED,
+                        "handle creation of %s failed",
+                         uuid_utoa (up_data->gfid));
+                errno = ESTALE;
+                goto out;
+        }
+
+        up_lease_arg = GF_CALLOC (1, sizeof (struct glfs_upcall_lease),
+                                  glfs_mt_upcall_inode_t);
+        up_lease_arg->object = object;
+
+        GF_VALIDATE_OR_GOTO ("glfs_recall_lease",
+                             up_lease_arg, out);
+
+
+        up_lease_arg->lease_type = recall_lease->lease_type;
+
+        up_arg->reason = GF_UPCALL_RECALL_LEASE;
+        up_arg->event = up_lease_arg;
+        up_arg->free_event = glfs_free_upcall_lease;
+
+        ret = 0;
+
+out:
+        if (ret) {
+                /* Close p_object and oldp_object as well if being referenced.*/
+                if (object)
+                        glfs_h_close (object);
+
+                /* Set reason to prevent applications from using ->event */
+                up_arg->reason = GF_UPCALL_EVENT_NULL;
+        }
+        return ret;
+}
+
+static void
 glfs_cbk_upcall_data (struct glfs *fs, struct gf_upcall *upcall_data)
 {
         int ret = -1;
@@ -4979,6 +5297,9 @@ glfs_cbk_upcall_data (struct glfs *fs, struct gf_upcall *upcall_data)
         switch (upcall_data->event_type) {
         case GF_UPCALL_CACHE_INVALIDATION:
                 ret = glfs_h_poll_cache_invalidation (fs, up_arg, upcall_data);
+                break;
+        case GF_UPCALL_RECALL_LEASE:
+                ret = glfs_recall_lease_upcall (fs, up_arg, upcall_data);
                 break;
         default:
                 errno = EINVAL;
@@ -5069,9 +5390,14 @@ priv_glfs_process_upcall_event (struct glfs *fs, void *data)
                       (char *)(upcall_data->gfid));
 
         /* *
-         * TODO: RECALL LEASE
-         * Refer issue #350
-         * Proposed patch https://review.gluster.org/#/c/14019/
+         * TODO: RECALL LEASE for each glfd
+         *
+         * In case of RECALL_LEASE, we could associate separate
+         * cbk function for each glfd either by
+         * - extending pub_glfs_lease to accept new args (recall_cbk_fn, cookie)
+         * - or by defining new API "glfs_register_recall_cbk_fn (glfd, recall_cbk_fn, cookie)
+         * . In such cases, flag it and instead of calling below upcall functions, define
+         * a new one to go through the glfd list and invoke each of theirs recall_cbk_fn.
          * */
 
         if (fs->up_cbk) { /* upcall cbk registered */
@@ -5165,6 +5491,7 @@ glfs_anonymous_pwritev (struct glfs *fs, struct glfs_object *object,
         iov.iov_base = iobuf_ptr (iobuf);
         iov.iov_len = size;
 
+        /* TODO : set leaseid */
         ret = syncop_writev (subvol, fd, &iov, 1, offset, iobref, flags,
                              NULL, NULL, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
@@ -5234,6 +5561,7 @@ glfs_anonymous_preadv (struct glfs *fs,  struct glfs_object *object,
 
         size = iov_length (iovec, iovcnt);
 
+        /* TODO : set leaseid */
 	ret = syncop_readv (subvol, fd, size, offset, flags, &iov, &cnt,
                             &iobref, NULL, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
@@ -5427,7 +5755,8 @@ glfs_lease_to_gf_lease (struct glfs_lease *lease, struct gf_lease *gf_lease)
 }
 
 int
-pub_glfs_lease (struct glfs_fd *glfd, struct glfs_lease *lease)
+pub_glfs_lease (struct glfs_fd *glfd, struct glfs_lease *lease,
+                glfs_recall_cbk fn, void *data)
 {
         int              ret = -1;
         loc_t            loc = {0, };
@@ -5460,6 +5789,30 @@ pub_glfs_lease (struct glfs_fd *glfd, struct glfs_lease *lease)
                 goto out;
         }
 
+        switch (lease->lease_type) {
+        case GLFS_RD_LEASE:
+                if ((fd->flags != O_RDONLY) && !(fd->flags & O_RDWR)) {
+                        ret = -1;
+                        errno = EINVAL;
+                        goto out;
+                }
+                break;
+        case GLFS_RW_LEASE:
+                if (!((fd->flags & O_WRONLY) || (fd->flags & O_RDWR))) {
+                        ret = -1;
+                        errno = EINVAL;
+                        goto out;
+                }
+                break;
+        default:
+                if (lease->cmd != GLFS_GET_LEASE) {
+                        ret = -1;
+                        errno = EINVAL;
+                        goto out;
+                }
+                break;
+        }
+
         /* populate loc */
         GLFS_LOC_FILL_INODE (fd->inode, loc, out);
 
@@ -5474,15 +5827,21 @@ pub_glfs_lease (struct glfs_fd *glfd, struct glfs_lease *lease)
         if (ret == 0 && (cmd == F_SETLK || cmd == F_SETLKW))
                 fd_lk_insert_and_merge (fd, cmd, &saved_flock);
         */
+        if (ret == 0) {
+                   ret = fd_ctx_set (glfd->fd, subvol, (uint64_t)(long)glfd);
+                   if (ret) {
+                           gf_msg (subvol->name, GF_LOG_ERROR, ENOMEM, API_MSG_FDCTX_SET_FAILED,
+                                           "Setting fd ctx failed for fd(%p)", glfd->fd);
+                           goto out;
+                   }
+                   glfd->cbk = fn;
+                   glfd->cookie = data;
+        }
 
 out:
-        if (fd)
-                fd_unref (fd);
 
-        if (glfd) {
+        if (glfd)
                 GF_REF_PUT (glfd);
-                glfd = NULL;
-        }
 
         if (subvol)
                 glfs_subvol_done (glfd->fs, subvol);
