@@ -3616,8 +3616,15 @@ gf_defrag_settle_hash (xlator_t *this, gf_defrag_info_t *defrag,
 
         ret = syncop_setxattr (this, loc, fix_layout, 0, NULL, NULL);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_msg (this->name, GF_LOG_ERROR, -ret,
+                        DHT_MSG_LAYOUT_FIX_FAILED,
                         "fix layout on %s failed", loc->path);
+
+                if (-ret == ENOENT || -ret == ESTALE) {
+                        /* Dir most likely is deleted */
+                        return 0;
+                }
+
                 return -1;
         }
 
