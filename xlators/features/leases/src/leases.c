@@ -872,9 +872,11 @@ int
 leases_flush (call_frame_t *frame, xlator_t *this,
               fd_t *fd, dict_t *xdata)
 {
-        uint32_t      fop_flags      = 0;
-        char         *lease_id       = NULL;
-        int          ret             = 0;
+        uint32_t         fop_flags       = 0;
+        char             *lease_id       = NULL;
+        int              ret             = 0;
+        lease_fd_ctx_t   *fd_ctx         = NULL;
+        uint64_t         ctx             = 0;
 
         EXIT_IF_LEASES_OFF (this, out);
 
@@ -895,6 +897,26 @@ block:
         return 0;
 
 out:
+        /* *
+         * currently release is not called after the close fop from the
+         * application. Hence lease fd ctx is resetted on here.
+         * This is actually not the right way, since flush can be called
+         * not only from the close op.
+         * TODO :
+         *     - Either identify the flush is called from close call on fd from
+         *     from the application.
+         *                      OR
+         *     - Find why release is not called post the last close call
+         */
+        ret = fd_ctx_get (fd, this, &ctx);
+        if (ret == 0) {
+                fd_ctx = (lease_fd_ctx_t *)(long)ctx;
+                if (fd_ctx->client_uid) {
+                        GF_FREE (fd_ctx->client_uid);
+                        fd_ctx->client_uid = NULL;
+                }
+                memset (fd_ctx->lease_id, 0, LEASE_ID_SIZE);
+        }
         STACK_WIND (frame, leases_flush_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->flush, fd, xdata);
         return 0;
@@ -1065,8 +1087,30 @@ leases_forget (xlator_t *this, inode_t *inode)
 static int
 leases_release (xlator_t *this, fd_t *fd)
 {
-        /* TODO:cleanup fd_ctx */
-        return 0;
+        int         ret          = -1;
+        uint64_t    tmp          = 0;
+        lease_fd_ctx_t *fd_ctx   = NULL;
+
+        if (fd == NULL) {
+                goto out;
+        }
+
+        gf_log (this->name, GF_LOG_TRACE,
+                "Releasing all leases with fd %p", fd);
+
+        ret = fd_ctx_del (fd, this, &tmp);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Could not get fdctx");
+                goto out;
+        }
+
+        fd_ctx = (lease_fd_ctx_t *)(long)tmp;
+        if (fd_ctx)
+                GF_FREE (fd_ctx);
+out:
+        return ret;
+
 }
 
 static int

@@ -200,11 +200,9 @@ server4_lease_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         uuid_utoa (state->resolve.gfid),
                         STACK_CLIENT_NAME (frame->root),
                         STACK_ERR_XL_NAME (frame->root));
-                goto out;
         }
         server4_post_lease (&rsp, lease);
 
-out:
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
