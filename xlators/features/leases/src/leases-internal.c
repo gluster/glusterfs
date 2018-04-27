@@ -263,7 +263,7 @@ out:
 static inline gf_boolean_t
 __is_same_lease_id (const char *k1, const char *k2)
 {
-        if (memcmp(k1, k2, LEASE_ID_SIZE) == 0)
+        if (memcmp(k1, k2, strlen(k1)) == 0)
                 return _gf_true;
 
         return _gf_false;
@@ -642,7 +642,7 @@ __remove_lease (xlator_t *this, inode_t *inode, lease_inode_ctx_t *lease_ctx,
                       leaseid_utoa (lease->lease_id));
 
         lease_entry = __get_lease_id_entry (lease_ctx, lease->lease_id);
-        if (!lease_entry) {
+        if (!lease_entry || !(lease_entry->lease_type & lease->lease_type)) {
                 gf_msg (this->name, GF_LOG_INFO, 0, LEASE_MSG_INVAL_UNLK_LEASE,
                         "Got unlock lease request from client:%s, but has no "
                         "corresponding lock", client_uid);
@@ -666,7 +666,7 @@ __remove_lease (xlator_t *this, inode_t *inode, lease_inode_ctx_t *lease_ctx,
 
         if (lease_entry->lease_cnt == 0) {
                 if (__is_clnt_lease_none (client_uid, lease_ctx)) {
-                        gf_msg_debug (this->name, 0, "Client(%s) has no leases"
+                        gf_msg_trace (this->name, 0, "Client(%s) has no leases"
                                       " on gfid (%s), hence removing the inode"
                                       " from the client cleanup list",
                                       client_uid, uuid_utoa (inode->gfid));
@@ -725,7 +725,8 @@ __is_lease_grantable (xlator_t *this, lease_inode_ctx_t *lease_ctx,
                          * the same lease id is not checked for conflict, as it is
                          * lease id based lease.
                          */
-                        if (!__is_same_lease_id (fd_ctx->lease_id, lease->lease_id)) {
+                        if (fd_ctx->client_uid != NULL
+                                        && !__is_same_lease_id (fd_ctx->lease_id, lease->lease_id)) {
                                 fd_count++;
                                 flags |= iter_fd->flags;
                         }
@@ -801,8 +802,7 @@ do_blocked_fops (xlator_t *this, lease_inode_ctx_t *lease_ctx)
         pthread_mutex_unlock (&lease_ctx->lock);
 
         gf_msg_trace (this->name, 0, "Executing the blocked stubs on gfid(%s)",
-                      uuid_utoa (lease_ctx->inode->gfid));
-
+                                              uuid_utoa (lease_ctx->inode->gfid));
         list_for_each_entry_safe (blk_fop, tmp, &wind_list, list) {
                 list_del_init (&blk_fop->list);
                 gf_msg_trace (this->name, 0, "Executing fop:%d", blk_fop->stub->fop);
@@ -1085,7 +1085,7 @@ check_lease_conflict (call_frame_t *frame, inode_t *inode,
         gf_boolean_t       is_blocking_fop  = _gf_false;
         gf_boolean_t       is_write_fop     = _gf_false;
         gf_boolean_t       conflicts        = _gf_false;
-        int                ret              = -1;
+        int                ret              = WIND_FOP;
 
         lease_ctx = lease_ctx_get (inode, frame->this);
         if (!lease_ctx) {
