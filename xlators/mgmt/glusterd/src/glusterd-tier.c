@@ -1326,6 +1326,8 @@ glusterd_op_tier_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict,
                         opinfo.brick_pending_count = 0;
                         ret = 0;
                         if (req) {
+                                if (req->input.input_val)
+                                        GF_FREE (req->input.input_val);
                                 GF_FREE (req);
                                 req = NULL;
                         }
@@ -1339,6 +1341,8 @@ glusterd_op_tier_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict,
                            &gd_brick_prog, req->op, xdr_gd1_mgmt_brick_op_req);
 
                 if (req != NULL) {
+                        if (req->input.input_val)
+                                GF_FREE (req->input.input_val);
                         GF_FREE (req);
                         req = NULL;
                 }
@@ -1365,6 +1369,10 @@ out:
                 gf_msg (THIS->name, GF_LOG_ERROR, 0,
                         GD_MSG_TRANS_OPINFO_SET_FAIL,
                         "Unable to set transaction's opinfo");
+        if (args.dict)
+                dict_unref (args.dict);
+        if (args.errstr)
+                GF_FREE (args.errstr);
 
         gf_msg_debug (this ? this->name : "glusterd", 0,
                       "Returning %d. Failed to get tier status", ret);
