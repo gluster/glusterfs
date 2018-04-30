@@ -807,18 +807,17 @@ start_ganesha (char **op_errstr)
                         goto out;
                 }
         }
-
-        runinit (&runner);
-        runner_add_args (&runner,
-                         GANESHA_PREFIX"/ganesha-ha.sh",
-                         "--setup-ganesha-conf-files", CONFDIR, "yes", NULL);
-        ret =  runner_run (&runner);
-        if (ret) {
-                gf_asprintf (op_errstr, "creation of symlink ganesha.conf "
-                             "in /etc/ganesha failed");
-                goto out;
-        }
         if (check_host_list()) {
+                runinit (&runner);
+                runner_add_args (&runner,
+                                 GANESHA_PREFIX"/ganesha-ha.sh",
+                                 "--setup-ganesha-conf-files", CONFDIR, "yes", NULL);
+                ret =  runner_run (&runner);
+                if (ret) {
+                        gf_asprintf (op_errstr, "creation of symlink ganesha.conf "
+                                     "in /etc/ganesha failed");
+                        goto out;
+                }
                 ret = manage_service ("start");
                 if (ret)
                         gf_asprintf (op_errstr, "NFS-Ganesha failed to start."
@@ -834,15 +833,18 @@ pre_setup (gf_boolean_t run_setup, char **op_errstr)
 {
         int    ret = 0;
 
-        if (check_host_list()) {
-                ret = setup_cluster(run_setup);
-                if (ret == -1)
-                        gf_asprintf (op_errstr, "Failed to set up HA "
-                                     "config for NFS-Ganesha. "
-                                     "Please check the log file for details");
-        } else
-		ret = -1;
-
+        if (run_setup) {
+                if (!check_host_list()) {
+                        gf_asprintf (op_errstr, "Running nfs-ganesha setup command "
+                                     "from node which is not part of ganesha cluster");
+                        return -1;
+                }
+        }
+        ret = setup_cluster(run_setup);
+        if (ret == -1)
+                gf_asprintf (op_errstr, "Failed to set up HA "
+                             "config for NFS-Ganesha. "
+                             "Please check the log file for details");
         return ret;
 }
 
