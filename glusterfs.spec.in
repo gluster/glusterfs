@@ -1086,6 +1086,7 @@ exit 0
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/barrier.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/cdc.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/changelog.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/utime.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/gfid-access.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/namespace.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/read-only.so
