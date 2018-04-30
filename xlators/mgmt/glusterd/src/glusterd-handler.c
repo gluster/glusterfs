@@ -5348,8 +5348,15 @@ out:
         if (pending_node)
                 GF_FREE (pending_node);
 
-        if (brick_req)
+        if (brick_req) {
+                if (brick_req->input.input_val)
+                        GF_FREE (brick_req->input.input_val);
                 GF_FREE (brick_req);
+        }
+        if (args.dict)
+                dict_unref (args.dict);
+        if (args.errstr)
+                GF_FREE (args.errstr);
 
         return ret;
 }
