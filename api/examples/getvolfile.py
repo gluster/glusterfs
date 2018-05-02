@@ -34,7 +34,7 @@ if __name__ == "__main__":
     import sys
 
     try:
-        res = apply(get_volfile, sys.argv[1:3])
+        res = get_volfile(*sys.argv[1:3])
     except:
         print("fetching volfile failed (volume not started?)")
 

@@ -240,8 +240,8 @@ def _init_op (a_class, fop, cbk, wind, unwind):
         # Decorators, used by translators. We could pass the signatures as
         # parameters, but it's actually kind of nice to keep them around for
         # inspection.
-        a_class.fop_type = apply(CFUNCTYPE,a_class.fop_sig)
-        a_class.cbk_type = apply(CFUNCTYPE,a_class.cbk_sig)
+        a_class.fop_type = CFUNCTYPE(*a_class.fop_sig)
+        a_class.cbk_type = CFUNCTYPE(*a_class.cbk_sig)
         # Dispatch-function registration.
         fop.restype = None
         fop.argtypes = [ c_long, a_class.fop_type ]

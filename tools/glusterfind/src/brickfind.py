@@ -13,7 +13,7 @@ import os
 import sys
 import logging
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import time
 
 from utils import mkdirp, setup_logger, create_file, output_write, find
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     args = _get_args()
     session_dir = os.path.join(conf.get_opt("session_dir"), args.session)
     status_file = os.path.join(session_dir, args.volume,
-                               "%s.status" % urllib.quote_plus(args.brick))
+                     "%s.status" % urllib.parse.quote_plus(args.brick))
     status_file_pre = status_file + ".pre"
     mkdirp(os.path.join(session_dir, args.volume), exit_on_err=True,
            logger=logger)

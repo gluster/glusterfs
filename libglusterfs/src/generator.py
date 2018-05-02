@@ -718,7 +718,7 @@ def get_subs (names, types, cbktypes=None):
 	sdict = {}
 	sdict["@SHORT_ARGS@"] = string.join(names,", ")
 	# Convert two separate tuples to one of (name, type) sub-tuples.
-	as_tuples = zip(types,names)
+	as_tuples = list(zip(types,names))
 	# Convert each sub-tuple into a "type name" string.
 	as_strings = map(string.join,as_tuples)
 	# Join all of those into one big string.

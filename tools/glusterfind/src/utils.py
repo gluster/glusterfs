@@ -36,10 +36,10 @@ class RecordType(object):
 def cache_output(func):
     def wrapper(*args, **kwargs):
         global cache_data
-        if cache_data.get(func.func_name, None) is None:
-            cache_data[func.func_name] = func(*args, **kwargs)
+        if cache_data.get(func.__name__, None) is None:
+            cache_data[func.__name__] = func(*args, **kwargs)
 
-        return cache_data[func.func_name]
+        return cache_data[func.__name__]
     return wrapper
 
 

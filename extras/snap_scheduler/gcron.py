@@ -122,12 +122,13 @@ def main():
     global start_time
     if sys.argv[1] == "--update":
         if not os.path.exists(GCRON_TASKS):
-            # Create a flag in /var/run/gluster which indicates that this nodes
-            # doesn't have access to GCRON_TASKS right now, so that
+            # Create a flag in /var/run/gluster which indicates that this
+            # node doesn't have access to GCRON_TASKS right now, so that
             # when the mount is available and GCRON_TASKS is available
             # the flag will tell this routine to reload GCRON_CROND_TASK
             try:
-                f = os.open(GCRON_RELOAD_FLAG, os.O_CREAT | os.O_NONBLOCK, 0644)
+                f = os.open(GCRON_RELOAD_FLAG,
+                            os.O_CREAT | os.O_NONBLOCK, 0o644)
                 os.close(f)
             except OSError as (errno, strerror):
                 if errno != EEXIST:

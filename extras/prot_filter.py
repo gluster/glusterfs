@@ -42,7 +42,7 @@ class Translator:
 def load (path):
     # If it's a string, open it; otherwise, assume it's already a
     # file-like object (most notably from urllib*).
-    if type(path) in types.StringTypes:
+    if type(path) in (str,):
         fp = file(path,"r")
     else:
         fp = path

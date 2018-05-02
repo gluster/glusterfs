@@ -51,7 +51,7 @@ def os_rd(src, size):
 def os_wr(dest, data):
     global timr
     st = time.time()
-    fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0644)
+    fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
     os.write(fd, data)
     os.close(fd)
     ed = time.time()
@@ -88,7 +88,7 @@ def create_txt_file(fil, size, mins, maxs, rand):
     else:
         data = os_rd("/etc/services", 512*1024)
         file_size = 0
-        fd = os.open(fil, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0644)
+        fd = os.open(fil, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
         while file_size < size:
             os.write(fd, data)
             file_size += 500*1024
@@ -323,9 +323,9 @@ def human2bytes(size):
 
 def bytes2human(byts):
     abbr = {
-        1 << 30L: "GB",
-        1 << 20L: "MB",
-        1 << 10L: "KB",
+        1 << 30: "GB",
+        1 << 20: "MB",
+        1 << 10: "KB",
         1: "bytes"
     }
     if byts == 1:
