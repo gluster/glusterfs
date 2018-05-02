@@ -265,7 +265,7 @@ class IpaddrUnitTest(unittest.TestCase):
                          '2001:658:22a:cafe:200::1')
 
     def testGetNetmask(self):
-        self.assertEqual(int(self.ipv4.netmask), 4294967040L)
+        self.assertEqual(int(self.ipv4.netmask), 4294967040)
         self.assertEqual(str(self.ipv4.netmask), '255.255.255.0')
         self.assertEqual(str(self.ipv4_hostmask.netmask), '255.0.0.0')
         self.assertEqual(int(self.ipv6.netmask),
@@ -282,7 +282,7 @@ class IpaddrUnitTest(unittest.TestCase):
         self.assertTrue(ipv6_zero_netmask._is_valid_netmask(str(0)))
 
     def testGetBroadcast(self):
-        self.assertEqual(int(self.ipv4.broadcast), 16909311L)
+        self.assertEqual(int(self.ipv4.broadcast), 16909311)
         self.assertEqual(str(self.ipv4.broadcast), '1.2.3.255')
 
         self.assertEqual(int(self.ipv6.broadcast),
@@ -681,8 +681,7 @@ class IpaddrUnitTest(unittest.TestCase):
         ip3 = ipaddr.IPNetwork('10.10.10.2/31')
         ip4 = ipaddr.IPNetwork('10.10.10.2')
         sorted = [ip1, ip2, ip3, ip4]
-        unsorted = [ip2, ip4, ip1, ip3]
-        unsorted.sort()
+        unsorted = sorted([ip2, ip4, ip1, ip3])
         self.assertEqual(sorted, unsorted)
         unsorted = [ip4, ip1, ip3, ip2]
         unsorted.sort()

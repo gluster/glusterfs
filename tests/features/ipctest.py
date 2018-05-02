@@ -23,7 +23,7 @@ if __name__ == "__main__":
 	import sys
 
 	try:
-		res = apply(do_ipc,sys.argv[1:3])
+		res = do_ipc(*sys.argv[1:3])
 		print(res)
 	except:
 		print("IPC failed (volume not started?)")

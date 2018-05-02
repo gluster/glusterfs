@@ -503,13 +503,13 @@ def write_output(outfile, outfilemerger, field_separator):
                     continue
 
                 if row_2_rep and row_2_rep != "":
-                    f.write(u"{0}{1}{2}{3}{4}\n".format(row[0],
+                    f.write("{0}{1}{2}{3}{4}\n".format(row[0],
                                                         field_separator,
                                                         p_rep,
                                                         field_separator,
                                                         row_2_rep))
                 else:
-                    f.write(u"{0}{1}{2}\n".format(row[0],
+                    f.write("{0}{1}{2}\n".format(row[0],
                                                   field_separator,
                                                   p_rep))
 

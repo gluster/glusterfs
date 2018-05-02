@@ -207,7 +207,7 @@ def enable_scheduler():
                     os.remove(GCRON_TASKS)
                 try:
                     f = os.open(GCRON_ENABLED, os.O_CREAT | os.O_NONBLOCK,
-                                0644)
+                                0o644)
                     os.close(f)
                 except OSError as (errno, strerror):
                     log.error("Failed to open %s. Error: %s.",
@@ -262,7 +262,7 @@ def disable_scheduler():
                     os.remove(GCRON_DISABLED)
                 if os.path.lexists(GCRON_TASKS):
                     os.remove(GCRON_TASKS)
-                f = os.open(GCRON_DISABLED, os.O_CREAT, 0644)
+                f = os.open(GCRON_DISABLED, os.O_CREAT, 0o644)
                 os.close(f)
                 os.symlink(GCRON_DISABLED, GCRON_TASKS)
                 log.info("Snapshot scheduling is disabled")
@@ -363,7 +363,7 @@ def list_schedules():
 
 def write_tasks_to_file():
     try:
-        with open(TMP_FILE, "w", 0644) as f:
+        with open(TMP_FILE, "w", 0o644) as f:
             # If tasks is empty, just create an empty tmp file
             if len(tasks) != 0:
                 for key in sorted(tasks):
@@ -388,7 +388,7 @@ def write_tasks_to_file():
 
 def update_current_scheduler(data):
     try:
-        with open(TMP_FILE, "w", 0644) as f:
+        with open(TMP_FILE, "w", 0o644) as f:
             f.write("%s" % data)
             f.flush()
             os.fsync(f.fileno())
@@ -457,7 +457,7 @@ def add_schedules(jobname, schedule, volname):
                     job_lockfile = LOCK_FILE_DIR + jobname
                     try:
                         f = os.open(job_lockfile, os.O_CREAT | os.O_NONBLOCK,
-                                    0644)
+                                    0o644)
                         os.close(f)
                     except OSError as (errno, strerror):
                         log.error("Failed to open %s. Error: %s.",
@@ -643,7 +643,7 @@ def initialise_scheduler():
         return ret
 
     try:
-        with open(TMP_FILE, "w+", 0644) as f:
+        with open(TMP_FILE, "w+", 0o644) as f:
             updater = ("* * * * * root PATH=$PATH:/usr/local/sbin:"
                        "/usr/sbin gcron.py --update\n")
             f.write("%s\n" % updater)
@@ -659,7 +659,7 @@ def initialise_scheduler():
 
     if not os.path.lexists(GCRON_TASKS):
         try:
-            f = open(GCRON_TASKS, "w", 0644)
+            f = open(GCRON_TASKS, "w", 0o644)
             f.close()
         except IOError as (errno, strerror):
             log.error("Failed to open %s. Error: %s.", GCRON_TASKS, strerror)
@@ -902,7 +902,7 @@ def main(argv):
                 return INTERNAL_ERROR
 
     if not os.path.exists(GCRON_ENABLED):
-        f = os.open(GCRON_ENABLED, os.O_CREAT | os.O_NONBLOCK, 0644)
+        f = os.open(GCRON_ENABLED, os.O_CREAT | os.O_NONBLOCK, 0o644)
         os.close(f)
 
     if not os.path.exists(LOCK_FILE_DIR):
@@ -916,7 +916,7 @@ def main(argv):
                 return INTERNAL_ERROR
 
     try:
-        f = os.open(LOCK_FILE, os.O_CREAT | os.O_RDWR | os.O_NONBLOCK, 0644)
+        f = os.open(LOCK_FILE, os.O_CREAT | os.O_RDWR | os.O_NONBLOCK, 0o644)
         try:
             fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
             ret = perform_operation(args)

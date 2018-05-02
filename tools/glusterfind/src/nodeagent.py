@@ -14,7 +14,7 @@ import sys
 import os
 import logging
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
-import urllib
+import urllib.request, urllib.parse, urllib.error
 from errno import ENOTEMPTY
 
 from utils import setup_logger, mkdirp, handle_rm_error
@@ -49,7 +49,7 @@ def mode_create(args):
     session_dir = os.path.join(conf.get_opt("session_dir"),
                                args.session)
     status_file = os.path.join(session_dir, args.volume,
-                               "%s.status" % urllib.quote_plus(args.brick))
+                     "%s.status" % urllib.parse.quote_plus(args.brick))
 
     mkdirp(os.path.join(session_dir, args.volume), exit_on_err=True,
            logger=logger)
@@ -64,7 +64,7 @@ def mode_create(args):
 def mode_post(args):
     session_dir = os.path.join(conf.get_opt("session_dir"), args.session)
     status_file = os.path.join(session_dir, args.volume,
-                               "%s.status" % urllib.quote_plus(args.brick))
+                     "%s.status" % urllib.parse.quote_plus(args.brick))
 
     mkdirp(os.path.join(session_dir, args.volume), exit_on_err=True,
            logger=logger)

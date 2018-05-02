@@ -62,7 +62,7 @@ class xlator (Translator):
             if cache.has_key(pargfid):
                 cache[pargfid].add(name)
             else:
-                cache[pargfid] = set([name])
+                cache[pargfid] = {name}
         del self.requests[key]
         dl.unwind_lookup(frame,cookie,this,op_ret,op_errno,
                          inode,buf,xdata,postparent)
