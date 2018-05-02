@@ -11453,7 +11453,7 @@ gf_cli_snapshot_for_status (call_frame_t *frame, xlator_t *this,
                  * not be appropriate.
                  */
                 if (ret &&
-                    (cmd != GF_SNAP_STATUS_TYPE_ALL ||
+                    (cmd != GF_SNAP_STATUS_TYPE_ALL &&
                      cmd != GF_SNAP_STATUS_TYPE_VOL)) {
                         gf_log ("cli", GF_LOG_ERROR,
                                 "cli_to_glusterd for snapshot status failed");
