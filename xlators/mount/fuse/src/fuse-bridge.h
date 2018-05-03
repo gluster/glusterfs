@@ -147,6 +147,10 @@ struct fuse_private {
         gf_boolean_t         mount_finished;
         gf_boolean_t         handle_graph_switch;
         pthread_cond_t       migrate_cond;
+
+        /* Writeback cache support */
+        gf_boolean_t         kernel_writeback_cache;
+        int                  attr_times_granularity;
 };
 typedef struct fuse_private fuse_private_t;
 

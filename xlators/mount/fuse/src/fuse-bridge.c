@@ -1233,6 +1233,11 @@ fattr_to_gf_set_attr (int32_t valid)
         if (valid & FATTR_MTIME)
                 gf_valid |= GF_SET_ATTR_MTIME;
 
+#if FUSE_KERNEL_MINOR_VERSION >= 23
+        if (valid & FATTR_CTIME)
+                gf_valid |= GF_SET_ATTR_CTIME;
+#endif
+
         if (valid & FATTR_SIZE)
                 gf_valid |= GF_SET_ATTR_SIZE;
 
@@ -1271,7 +1276,11 @@ fuse_setattr_resume (fuse_state_t *state)
         if ((state->valid & (FATTR_MASK)) != FATTR_SIZE) {
                 if (state->fd &&
                     !((state->valid & FATTR_ATIME) ||
-                      (state->valid & FATTR_MTIME))) {
+                      (state->valid & FATTR_MTIME)
+#if FUSE_KERNEL_MINOR_VERSION >= 23
+                       || (state->valid & FATTR_CTIME)
+#endif
+                     )) {
                         /*
                             there is no "futimes" call, so don't send
                             fsetattr if ATIME or MTIME is set
@@ -1346,8 +1355,14 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg,
                 state->attr.ia_size  = fsi->size;
                 state->attr.ia_atime = fsi->atime;
                 state->attr.ia_mtime = fsi->mtime;
+#if FUSE_KERNEL_MINOR_VERSION >= 23
+                state->attr.ia_ctime = fsi->ctime;
+#endif
                 state->attr.ia_atime_nsec = fsi->atimensec;
                 state->attr.ia_mtime_nsec = fsi->mtimensec;
+#if FUSE_KERNEL_MINOR_VERSION >= 23
+                state->attr.ia_ctime_nsec = fsi->ctimensec;
+#endif
 
                 state->attr.ia_prot = ia_prot_from_st_mode (fsi->mode);
                 state->attr.ia_uid  = fsi->uid;
@@ -4253,13 +4268,22 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg,
 	if (fini->flags & FUSE_ASYNC_DIO)
 		fino.flags |= FUSE_ASYNC_DIO;
 #endif
+
+        size = sizeof (fino);
+#if FUSE_KERNEL_MINOR_VERSION >= 23
         /* FUSE 7.23 and newer added attributes to the fuse_init_out struct */
-        if (fini->minor > 22) {
-                size = sizeof (fino);
-        } else {
+        if (fini->minor < 23) {
                 /* reduce the size, chop off unused attributes from &fino */
                 size = FUSE_COMPAT_22_INIT_OUT_SIZE;
         }
+
+        /* Writeback cache support */
+        if (fini->minor >= 23) {
+                if (priv->kernel_writeback_cache)
+                        fino.flags |= FUSE_WRITEBACK_CACHE;
+                fino.time_gran = priv->attr_times_granularity;
+        }
+#endif
 
         ret = send_fuse_data (this, finh, &fino, size);
         if (ret == 0)
@@ -5770,6 +5794,12 @@ init (xlator_t *this_xl)
         GF_OPTION_INIT("thin-client", priv->thin_client, bool,
                        cleanup_exit);
 
+        /* Writeback cache support */
+        GF_OPTION_INIT("kernel-writeback-cache", priv->kernel_writeback_cache,
+                       bool, cleanup_exit);
+        GF_OPTION_INIT("attr-times-granularity", priv->attr_times_granularity,
+	               int32, cleanup_exit);
+
         /* user has set only background-qlen, not congestion-threshold,
            use the fuse kernel driver formula to set congestion. ie, 75% */
         if (dict_get (this_xl->options, "background-qlen") &&
@@ -6092,6 +6122,18 @@ struct volume_options options[] = {
           .min = 1,
           .max = 64,
           .description = "Sets fuse reader thread count.",
+        },
+        { .key = {"kernel-writeback-cache"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "false",
+          .description = "Enables fuse in-kernel writeback cache.",
+        },
+        { .key = {"attr-times-granularity"},
+          .type = GF_OPTION_TYPE_INT,
+          .default_value = "0",
+          .min = 0,
+          .max = 1000000000,
+          .description = "Supported granularity of file attribute times.",
         },
         { .key = {NULL} },
 };

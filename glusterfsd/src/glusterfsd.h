@@ -105,6 +105,8 @@ enum argp_option_keys {
         ARGP_PRINT_XLATORDIR_KEY          = 183,
         ARGP_PRINT_STATEDUMPDIR_KEY       = 184,
         ARGP_PRINT_LOGDIR_KEY             = 185,
+        ARGP_KERNEL_WRITEBACK_CACHE_KEY   = 186,
+        ARGP_ATTR_TIMES_GRANULARITY_KEY   = 187,
 };
 
 struct _gfd_vol_top_priv {

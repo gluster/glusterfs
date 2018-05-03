@@ -357,6 +357,23 @@ posix_setattr (call_frame_t *frame, xlator_t *this,
                 }
         }
 
+        if (valid & GF_SET_ATTR_CTIME) {
+                /*
+                 * At the moment we have no means to associate an arbitrary
+                 * ctime with the file, so we ignore the ctime payload
+                 * and update the file ctime to current time (which POSIX
+                 * lets us to do).
+                 */
+                op_ret = PATH_SET_TIMESPEC_OR_TIMEVAL (real_path, NULL);
+                if (op_ret == -1) {
+                        op_errno = errno;
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                P_MSG_UTIMES_FAILED, "setattr (utimes) on %s "
+                                "failed", real_path);
+                        goto out;
+                }
+        }
+
         if (!valid) {
                 op_ret = sys_lchown (real_path, -1, -1);
                 if (op_ret == -1) {

@@ -532,6 +532,10 @@ struct _cmd_args {
         char              *event_history;
         int                thin_client;
         uint32_t           reader_thread_count;
+
+        /* FUSE writeback cache support */
+        int                kernel_writeback_cache;
+        uint32_t           attr_times_granularity;
 };
 typedef struct _cmd_args cmd_args_t;
 
