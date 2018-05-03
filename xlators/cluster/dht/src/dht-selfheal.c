@@ -2343,7 +2343,11 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
                 local->heal_layout = _gf_false;
         }
 
-        dht_selfheal_dir_mkdir (frame, loc, layout, 0);
+        ret = dht_selfheal_dir_mkdir (frame, loc, layout, 0);
+        if (ret < 0) {
+                ret = 0;
+                goto sorry_no_fix;
+        }
 
         return 0;
 
