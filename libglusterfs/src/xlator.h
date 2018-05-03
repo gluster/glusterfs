@@ -33,6 +33,7 @@
 #define GF_SET_ATTR_SIZE  0x8
 #define GF_SET_ATTR_ATIME 0x10
 #define GF_SET_ATTR_MTIME 0x20
+#define GF_SET_ATTR_CTIME 0x40
 
 #define gf_attr_mode_set(mode)  ((mode) & GF_SET_ATTR_MODE)
 #define gf_attr_uid_set(mode)   ((mode) & GF_SET_ATTR_UID)

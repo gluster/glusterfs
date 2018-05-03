@@ -109,6 +109,9 @@ Mount subdirectory instead of the '/' of volume.
 .PP
 .TP
 
+\fB\-\-attr\-times\-granularity=NANOSECONDS\fR
+Declare supported granularity of file attribute times (default is 0 which kernel handles as unspecified; valid real values are between 1 and 1000000000).
+.TP
 \fB\-\-attribute\-timeout=SECONDS\fR
 Set attribute timeout to SECONDS for inodes in fuse kernel module (the default is 1).
 .TP
@@ -129,6 +132,9 @@ Set entry timeout to SECONDS in fuse kernel module (the default is 1).
 .TP
 \fB\-\-gid\-timeout=SECONDS\fR
 Set auxiliary group list timeout to SECONDS for fuse translator (the default is 0).
+.TP
+\fB\-\-kernel-writeback-cache=BOOL\fR
+Enable fuse in-kernel writeback cache.
 .TP
 \fB\-\-negative\-timeout=SECONDS\fR
 Set negative timeout to SECONDS in fuse kernel module (the default is 0).

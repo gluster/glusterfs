@@ -256,6 +256,11 @@ static struct argp_option gf_options[] = {
          OPTION_ARG_OPTIONAL, "disable/enable fuse event-history"},
         {"reader-thread-count", ARGP_READER_THREAD_COUNT_KEY, "INTEGER",
          OPTION_ARG_OPTIONAL, "set fuse reader thread count"},
+        {"kernel-writeback-cache", ARGP_KERNEL_WRITEBACK_CACHE_KEY, "BOOL",
+         OPTION_ARG_OPTIONAL, "enable fuse in-kernel writeback cache"},
+        {"attr-times-granularity", ARGP_ATTR_TIMES_GRANULARITY_KEY, "NS",
+         OPTION_ARG_OPTIONAL, "declare supported granularity of file attribute"
+         " times in nanoseconds"},
         {0, 0, 0, 0, "Miscellaneous Options:"},
         {0, }
 };
@@ -617,6 +622,44 @@ set_fuse_mount_options (glusterfs_ctx_t *ctx, dict_t *options)
                         goto err;
                 }
         }
+        switch (cmd_args->kernel_writeback_cache) {
+        case GF_OPTION_ENABLE:
+                ret = dict_set_static_ptr(options, "kernel-writeback-cache",
+                        "on");
+                if (ret < 0) {
+                        gf_msg ("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
+                                "failed to set dict value for key "
+                                "kernel-writeback-cache");
+                        goto err;
+                }
+                break;
+        case GF_OPTION_DISABLE:
+                ret = dict_set_static_ptr(options, "kernel-writeback-cache",
+                        "off");
+                if (ret < 0) {
+                        gf_msg ("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
+                                "failed to set dict value for key "
+                                "kernel-writeback-cache");
+                        goto err;
+                }
+                break;
+        case GF_OPTION_DEFERRED: /* default */
+        default:
+                gf_msg_debug ("glusterfsd", 0, "kernel-writeback-cache mode %d",
+                              cmd_args->kernel_writeback_cache);
+                break;
+        }
+        if (cmd_args->attr_times_granularity) {
+                ret = dict_set_uint32 (options, "attr-times-granularity",
+                                       cmd_args->attr_times_granularity);
+                if (ret < 0) {
+                        gf_msg ("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_4,
+                                "failed to set dict value for key "
+                                "attr-times-granularity");
+                        goto err;
+                }
+        }
+
 
         ret = 0;
 err:
@@ -1385,6 +1428,32 @@ no_oom_api:
 
                 break;
 
+        case ARGP_KERNEL_WRITEBACK_CACHE_KEY:
+                if (!arg)
+                        arg = "yes";
+
+                if (gf_string2boolean (arg, &b) == 0) {
+                        cmd_args->kernel_writeback_cache = b;
+
+                        break;
+                }
+
+                argp_failure (state, -1, 0,
+                              "unknown kernel writeback cache setting \"%s\"", arg);
+                break;
+        case ARGP_ATTR_TIMES_GRANULARITY_KEY:
+                if (gf_string2uint32 (arg, &cmd_args->attr_times_granularity)) {
+                        argp_failure (state, -1, 0,
+                                      "unknown attribute times granularity option %s",
+                                      arg);
+                } else if (cmd_args->attr_times_granularity > 1000000000) {
+                        argp_failure (state, -1, 0,
+                                      "Invalid attribute times granularity value %s. "
+                                      "Valid range: [\"0, 1000000000\"]", arg);
+                }
+
+                break;
+
 	}
         return 0;
 }
@@ -1690,6 +1759,7 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         cmd_args->fuse_attribute_timeout = -1;
         cmd_args->fuse_entry_timeout = -1;
 	cmd_args->fopen_keep_cache = GF_OPTION_DEFERRED;
+        cmd_args->kernel_writeback_cache = GF_OPTION_DEFERRED;
 
         if (ctx->mem_acct_enable)
                 cmd_args->mem_acct = 1;
