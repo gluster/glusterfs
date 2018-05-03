@@ -34,6 +34,12 @@ typedef struct cs_inode_ctx {
         gf_cs_obj_state state;
 } cs_inode_ctx_t;
 
+struct cs_plugin {
+        char    *name; /* store name */
+        char    *library; /* library to load for the given store */
+        char    *description; /* description about the store */
+};
+
 cs_local_t *
 cs_local_init (xlator_t *this, call_frame_t *frame, loc_t *loc, fd_t *fd,
                glusterfs_fop_t fop);

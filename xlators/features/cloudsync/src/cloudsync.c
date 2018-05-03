@@ -34,15 +34,27 @@ cs_cleanup_private (cs_private_t *priv)
         return;
 }
 
+struct cs_plugin plugins[] = {
+        {
+          .name = "amazons3",
+          .library = "libamazons3.so",
+          .description = "amazon s3 store."
+        },
+
+        {.name = NULL},
+};
+
 int
 cs_init (xlator_t *this)
 {
         cs_private_t            *priv = NULL;
         gf_boolean_t            per_vol = _gf_false;
         int                     ret = 0;
-        char                    *libpath = ("libaws.so");
+        char                    *libpath = NULL;
         store_methods_t         *store_methods = NULL;
         void                    *handle = NULL;
+        char                    *temp_str = NULL;
+        int                      index = 0;
 
         priv = GF_CALLOC (1, sizeof (*priv), gf_cs_mt_cs_private_t);
         if (!priv) {
@@ -66,7 +78,25 @@ cs_init (xlator_t *this)
         per_vol = _gf_true;
 
         if (per_vol) {
-                /*TODO:Need to make it configurable. This is a temp workaround*/
+                if (dict_get_str (this->options, "cloudsync-storetype",
+                    &temp_str) == 0) {
+                        for (index = 0; plugins[index].name; index++) {
+                                if (!strcmp (temp_str, plugins[index].name)) {
+                                        libpath = plugins[index].library;
+                                        break;
+                                }
+                        }
+                } else {
+                        ret = 0;
+                }
+
+                if (!libpath) {
+                        gf_msg (this->name, GF_LOG_WARNING, 0, 0,
+                                "no plugin enabled");
+                        ret = 0;
+                        goto out;
+                }
+
                 handle = dlopen (libpath, RTLD_NOW);
                 if (!handle) {
                         gf_msg (this->name, GF_LOG_ERROR, 0, 0, "could not load"
@@ -848,14 +878,22 @@ cs_download_task (void *arg)
 
         priv = this->private;
 
-        local = frame->local;
-
         retval = GF_CALLOC (1, sizeof(int), gf_common_mt_int);
         if (!retval) {
-                gf_log (this->name, GF_LOG_ERROR, "insufficient memory");
+                gf_msg (this->name, GF_LOG_ERROR, 0, 0, "insufficient memory");
                 ret = -1;
                 goto out;
         }
+
+        if (!priv->stores) {
+                gf_msg (this->name, GF_LOG_ERROR, 0, 0, "No remote store "
+                        "plugins found");
+                ret = -1;
+                goto out;
+        }
+
+        local = frame->local;
+
 
         if (local->fd)
                 fd = fd_anonymous (local->fd->inode);
@@ -1656,7 +1694,11 @@ struct xlator_dumpops cs_dumpops = {
 };
 
 struct volume_options cs_options[] = {
-       { .key  = {NULL} },
+        { .key = {"cloudsync-storetype"},
+          .type = GF_OPTION_TYPE_STR,
+          .description = "Defines which remote store is enabled"
+        },
+        { .key  = {NULL} },
 };
 
 xlator_api_t xlator_api = {
