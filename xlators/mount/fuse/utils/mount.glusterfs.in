@@ -277,6 +277,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --attr-times-granularity=$attr_times_granularity");
     fi
 
+    if [ -n "$dump_fuse" ]; then
+        cmd_line=$(echo "$cmd_line --dump-fuse=$dump_fuse");
+    fi
+
     if [ -n "$process_name" ]; then
         cmd_line=$(echo "$cmd_line --process-name fuse.$process_name");
     else
@@ -533,6 +537,9 @@ with_options()
             ;;
         "attr-times-granularity")
             attr_times_granularity=$value
+            ;;
+        "dump-fuse")
+            dump_fuse=$value
             ;;
         "context"|"fscontext"|"defcontext"|"rootcontext")
             # standard SElinux mount options to pass to the kernel
