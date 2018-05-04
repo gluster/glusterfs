@@ -13,6 +13,7 @@
 
 #include "xlator.h"
 #include "common-utils.h"
+#include "compat-errno.h"
 
 #define MAX_GFID2PATH_LINK_SUP 500
 
