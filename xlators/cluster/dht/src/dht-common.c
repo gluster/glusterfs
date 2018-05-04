@@ -120,6 +120,12 @@ char *xattrs_to_heal[] = {
         NULL
 };
 
+
+char *dht_dbg_vxattrs[] = {
+        DHT_DBG_HASHED_SUBVOL_KEY,
+        NULL
+};
+
 /* Return true if key exists in array
 */
 static gf_boolean_t
@@ -4730,6 +4736,90 @@ dht_marker_populate_args (call_frame_t *frame, int type, int *gauge,
         return layout->cnt;
 }
 
+
+/* Note we already have frame->local initialised here*/
+
+int
+dht_handle_debug_getxattr (call_frame_t *frame, xlator_t *this,
+                           loc_t *loc, const char *key)
+{
+        dht_local_t  *local         = NULL;
+        int           ret           = -1;
+        int           op_errno      = ENODATA;
+        ia_type_t     type          = 0;
+        char         *value         = NULL;
+
+        local = frame->local;
+        if (!key) {
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        if (gf_get_index_by_elem (dht_dbg_vxattrs, (char *)key) == -1) {
+                goto out;
+        }
+
+        /* getxattr does not set the parent inode*/
+        if (!loc->parent) {
+                   loc->parent =
+                                inode_parent(local->loc.inode, NULL, NULL);
+        }
+        if (!loc->parent) {
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        gf_uuid_copy (loc->pargfid, loc->parent->gfid);
+
+        if (!loc->name && loc->path) {
+                loc->name = strrchr (loc->path, '/');
+                if (loc->name) {
+                        ++(loc->name);
+                }
+        }
+
+        local->xattr = dict_new ();
+        if (!local->xattr) {
+                op_errno = ENOMEM;
+                goto out;
+        }
+
+        type = loc->inode->ia_type;
+
+        if (strcmp (key, DHT_DBG_HASHED_SUBVOL_KEY) == 0) {
+                if (IA_ISDIR (type)) {
+                        op_errno = EINVAL;
+                        goto out;
+                }
+
+                local->hashed_subvol = dht_subvol_get_hashed (this, loc);
+                if (local->hashed_subvol == NULL) {
+                        op_errno = ENODATA;
+                        goto out;
+                }
+
+                value = gf_strdup (local->hashed_subvol->name);
+                if (!value) {
+                        op_errno = ENOMEM;
+                        goto out;
+                }
+
+                ret = dict_set_dynstr (local->xattr,  (char *)key, value);
+                if (ret < 0) {
+                        op_errno = -ret;
+                        ret = -1;
+                        goto out;
+                }
+                ret = 0;
+                goto out;
+        }
+
+out:
+        DHT_STACK_UNWIND (getxattr, frame, ret, op_errno, local->xattr, NULL);
+        return 0;
+}
+
+
 int
 dht_getxattr (call_frame_t *frame, xlator_t *this,
               loc_t *loc, const char *key, dict_t *xdata)
@@ -4916,6 +5006,11 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 STACK_WIND (frame, dht_linkinfo_getxattr_cbk, hashed_subvol,
                             hashed_subvol->fops->getxattr, loc,
                             GF_XATTR_PATHINFO_KEY, xdata);
+                return 0;
+        }
+
+        if (key && (gf_get_index_by_elem (dht_dbg_vxattrs, (char *)key) >= 0)) {
+                dht_handle_debug_getxattr (frame, this, loc, key);
                 return 0;
         }
 
