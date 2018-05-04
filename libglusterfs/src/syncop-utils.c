@@ -591,9 +591,21 @@ syncop_gfid_to_path_hard (inode_table_t *itable, xlator_t *subvol, uuid_t gfid,
         if (ret < 0)
                 goto out;
 
-        ret = dict_get_str (xattr, hard_resolve ?
-                            GFID2PATH_VIRT_XATTR_KEY : GFID_TO_PATH_KEY,
-                            &path);
+
+        /*
+         * posix will do dict_set_dynstr for GFID_TO_PATH_KEY i.e.
+         * for in memory search for the path. And for on disk xattr
+         * fetching of the path for the key GFID2PATH_VIRT_XATTR_KEY
+         * it uses dict_set_dynptr. So, for GFID2PATH_VIRT_XATTR_KEY
+         * use dict_get_ptr to avoid dict complaining about type
+         * mismatch (i.e. str vs ptr)
+         */
+        if (!hard_resolve)
+                ret = dict_get_str (xattr, GFID_TO_PATH_KEY, &path);
+        else
+                ret = dict_get_ptr (xattr, GFID2PATH_VIRT_XATTR_KEY,
+                                    (void **)&path);
+
         if (ret || !path) {
                 ret = -EINVAL;
                 goto out;

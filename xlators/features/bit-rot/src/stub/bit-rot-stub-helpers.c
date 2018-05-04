@@ -722,35 +722,21 @@ br_stub_get_path_of_gfid (xlator_t *this, inode_t *parent, inode_t *inode,
         GF_VALIDATE_OR_GOTO (this->name, parent, out);
         GF_VALIDATE_OR_GOTO (this->name, path, out);
 
-        /* No need to validate the @inode for hard resolution. Because inode
-         * can be NULL and if it is NULL, then syncop_gfid_to_path_hard will
-         * allocate a new inode and proceed. So no need to bother about
+        /* Above, No need to validate the @inode for hard resolution. Because
+         * inode can be NULL and if it is NULL, then syncop_gfid_to_path_hard
+         * will allocate a new inode and proceed. So no need to bother about
          * @inode. Because we need it only to send a syncop_getxattr call
          * from inside syncop_gfid_to_path_hard. And getxattr fetches the
          * path from the backend.
          */
+
         ret = syncop_gfid_to_path_hard (parent->table, FIRST_CHILD (this), gfid,
                                         inode, path, _gf_true);
-
-        /*
-         * This is to handle those corrupted files which does not contain
-         * the gfid2path xattr in the backend (because they were created
-         * when the option was OFF OR it was upgraded from a version before
-         * gfid2path was brought in.
-         * Ideally posix should be returning ret < 0 i.e. error if the
-         * gfid2path xattr is not present. But for some reason it is
-         * returning success and path as "". THis is causing problems.
-         * For now handling it by adding extra checks. But the better way
-         * is to make posix return error if gfid2path xattr is absent.
-         * When that is done remove below if block and also this entire
-         * comment.
-         */
-        if (ret >= 0 && !strlen (*path)) {
+        if (ret < 0)
                 gf_msg (this->name, GF_LOG_WARNING, 0, BRS_MSG_PATH_GET_FAILED,
-                        "path for the object %s is %s. Going for in memory path",
-                        uuid_utoa_r (gfid, gfid_str), *path);
-                ret = -1;
-        }
+                        "failed to get the path xattr from disk for the "
+                        " gfid %s. Trying to get path from the memory",
+                        uuid_utoa_r (gfid, gfid_str));
 
         /*
          * Try with soft resolution of path if hard resolve fails. Because
@@ -767,10 +753,16 @@ br_stub_get_path_of_gfid (xlator_t *this, inode_t *parent, inode_t *inode,
          * found in the inode table and better not to do inode_path() on the
          * inode which has not been linked.
          */
-        if (ret < 0 && inode)
+        if (ret < 0 && inode) {
                 ret = syncop_gfid_to_path_hard (parent->table,
                                                 FIRST_CHILD (this), gfid, inode,
                                                 path, _gf_false);
+                if (ret < 0)
+                        gf_msg (this->name, GF_LOG_WARNING, 0,
+                                BRS_MSG_PATH_GET_FAILED,
+                                "failed to get the path from the memory for gfid %s",
+                                uuid_utoa_r (gfid, gfid_str));
+        }
 
 out:
         return ret;

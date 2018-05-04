@@ -123,6 +123,7 @@ posix_get_gfid2path (xlator_t *this, inode_t *inode, const char *real_path,
         gf_boolean_t           have_val                        = _gf_false;
         struct posix_private  *priv                            = NULL;
         char                   pargfid_str[UUID_CANONICAL_FORM_LEN + 1] = {0,};
+        gf_boolean_t           found                           = _gf_false;
 
         priv = this->private;
 
@@ -141,6 +142,7 @@ posix_get_gfid2path (xlator_t *this, inode_t *inode, const char *real_path,
                                 "value for key (%s)", GFID2PATH_VIRT_XATTR_KEY);
                         goto err;
                 }
+                found = _gf_true;
         } else {
                 have_val = _gf_false;
                 memset (value_buf, '\0', sizeof(value_buf));
@@ -202,6 +204,7 @@ posix_get_gfid2path (xlator_t *this, inode_t *inode, const char *real_path,
                                 goto ignore;
                         }
 
+                        found = _gf_true;
                         memset (value_buf, '\0', sizeof(value_buf));
                         size = sys_lgetxattr (real_path, keybuffer, value_buf,
                                               sizeof (value_buf) - 1);
@@ -230,6 +233,29 @@ ignore:
                         remaining_size -= strlen (keybuffer) + 1;
                         list_offset += strlen (keybuffer) + 1;
                 } /* while (remaining_size > 0) */
+
+                /* gfid2path xattr is absent in the list of xattrs */
+                if (!found) {
+                        ret = -1;
+                        /*
+                         * ENODATA because xattr is not present in the
+                         * list of xattrs. Thus the consumer should
+                         * face error instead of a success and a empty
+                         * string in the dict for the key.
+                         */
+                        *op_errno = ENODATA;
+                        goto err;
+                }
+
+                /*
+                 * gfid2path xattr is found in list of xattrs, but getxattr
+                 * on the 1st gfid2path xattr itself failed and the while
+                 * loop above broke. So there is nothing in the value. So
+                 * it would be better not to send "" as the value for any
+                 * key, as it is not true.
+                 */
+                if (found && !i)
+                        goto err; /* both errno and ret are set before beak */
 
                 /* Calculate memory to be allocated */
                 for (j = 0; j < i; j++) {
