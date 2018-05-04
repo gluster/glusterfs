@@ -45,6 +45,12 @@
 #define DHT_DIR_STAT_BLOCKS          8
 #define DHT_DIR_STAT_SIZE            4096
 
+
+/* Virtual xattrs for debugging */
+
+#define DHT_DBG_HASHED_SUBVOL_KEY         "dht.file.hashed-subvol"
+
+
 /* Array to hold custom xattr keys
 */
 extern char *xattrs_to_heal[];
