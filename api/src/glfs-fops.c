@@ -5180,11 +5180,12 @@ glfs_recall_lease_fd (struct glfs *fs,
         list_for_each_entry_safe (glfd, tmp, &glfd_list, list) {
                 LOCK (&glfd->lock);
                 {
-                        if (glfd->state != GLFD_CLOSE)
+                        if (glfd->state != GLFD_CLOSE) {
                                 gf_msg_trace (THIS->name, 0,
                                               "glfd (%p) has held lease, "
                                               "calling recall cbk", glfd);
                                 glfd->cbk (lease, glfd->cookie);
+                        }
                 }
                 UNLOCK (&glfd->lock);
 
