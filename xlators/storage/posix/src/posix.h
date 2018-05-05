@@ -262,6 +262,7 @@ struct posix_private {
         uint32_t max_hardlinks;
 
         gf_boolean_t fips_mode_rchecksum;
+        gf_boolean_t ctime;
 };
 
 typedef struct {

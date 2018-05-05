@@ -487,7 +487,11 @@ posix_update_utime_in_mdata (xlator_t *this, const char *real_path, int fd,
 #endif
         posix_mdata_flag_t       flag            = {0, };
 
-        if (inode && is_ctime_enabled()) {
+        struct posix_private *priv = NULL;
+
+        priv = this->private;
+
+        if (inode && priv->ctime) {
                 if ((valid & GF_SET_ATTR_ATIME) == GF_SET_ATTR_ATIME) {
                         tv.tv_sec  = stbuf->ia_atime;
                         SET_TIMESPEC_NSEC_OR_TIMEVAL_USEC(tv, stbuf->ia_atime_nsec);
@@ -520,14 +524,6 @@ posix_update_utime_in_mdata (xlator_t *this, const char *real_path, int fd,
                         "posix utime set mdata failed on file");
         }
         return;
-}
-
-gf_boolean_t
-is_ctime_enabled () {
-        /* TODO: This gets implemented once glusterd changes are in place to
- *          * enable and disable ctime feature
- *                   */
-        return _gf_false;
 }
 
 static void
@@ -572,8 +568,11 @@ posix_set_ctime (call_frame_t *frame, xlator_t *this, const char* real_path,
 {
         posix_mdata_flag_t    flag            = {0,};
         int                   ret             = 0;
+        struct posix_private *priv            = NULL;
 
-        if (inode && is_ctime_enabled()) {
+        priv = this->private;
+
+        if (inode && priv->ctime) {
                 (void) posix_get_mdata_flag (frame->root->flags, &flag);
                 ret = posix_set_mdata_xattr (this, real_path, fd, inode,
                                              &frame->root->ctime, stbuf, &flag);
@@ -598,8 +597,11 @@ posix_set_parent_ctime (call_frame_t *frame, xlator_t *this,
 {
         posix_mdata_flag_t    flag            = {0,};
         int                   ret             = 0;
+        struct posix_private *priv            = NULL;
 
-        if (inode && is_ctime_enabled()) {
+        priv = this->private;
+
+        if (inode && priv->ctime) {
                 (void) posix_get_parent_mdata_flag (frame->root->flags, &flag);
                 ret = posix_set_mdata_xattr (this, real_path, fd, inode,
                                              &frame->root->ctime, stbuf, &flag);
