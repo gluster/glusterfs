@@ -390,6 +390,9 @@ posix_reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("fips-mode-rchecksum", priv->fips_mode_rchecksum,
                           options, bool, out);
+
+        GF_OPTION_RECONF ("ctime", priv->ctime, options, bool, out);
+
         ret = 0;
 out:
         return ret;
@@ -1082,6 +1085,8 @@ posix_init (xlator_t *this)
 
         GF_OPTION_INIT ("fips-mode-rchecksum", _private->fips_mode_rchecksum,
                         bool, out);
+
+        GF_OPTION_INIT ("ctime", _private->ctime, bool, out);
 out:
         if (ret) {
                 if (_private) {
@@ -1382,6 +1387,17 @@ struct volume_options options[] = {
           .tags = {"posix"},
           .description = "If enabled, posix_rchecksum uses the FIPS compliant"
                          "SHA256 checksum. MD5 otherwise."
+        },
+        { .key = {"ctime"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "off",
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .op_version = { GD_OP_VERSION_4_1_0 },
+          .tags = { "ctime" },
+          .description = "When this option is enabled, time attributes (ctime,mtime,atime) "
+                         "are stored in xattr to keep it consistent across replica and "
+                         "distribute set. The time attributes stored at the backend are "
+                         "not considered "
         },
         { .key  = {NULL} }
 };

@@ -644,6 +644,9 @@ posix_fdstat (xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p)
         int                    ret     = 0;
         struct stat            fstatbuf = {0, };
         struct iatt            stbuf = {0, };
+        struct posix_private  *priv = NULL;
+
+        priv = this->private;
 
         ret = sys_fstat (fd, &fstatbuf);
         if (ret == -1)
@@ -654,7 +657,7 @@ posix_fdstat (xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p)
 
         iatt_from_stat (&stbuf, &fstatbuf);
 
-        if (inode && is_ctime_enabled()) {
+        if (inode && priv->ctime) {
                 ret = posix_get_mdata_xattr (this, NULL, fd, inode, &stbuf);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, errno,
@@ -736,7 +739,7 @@ posix_istat (xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
 
         iatt_from_stat (&stbuf, &lstatbuf);
 
-        if (inode && is_ctime_enabled()) {
+        if (inode && priv->ctime) {
                 ret = posix_get_mdata_xattr (this, real_path, -1, inode,
                                              &stbuf);
                 if (ret) {
@@ -804,7 +807,7 @@ posix_pstat (xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
 
         iatt_from_stat (&stbuf, &lstatbuf);
 
-        if (inode && is_ctime_enabled()) {
+        if (inode && priv->ctime) {
                 if (!inode_locked) {
                         ret = posix_get_mdata_xattr (this, path, -1, inode, &stbuf);
                 } else {

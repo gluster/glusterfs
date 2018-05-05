@@ -48,7 +48,5 @@ void
 posix_set_parent_ctime (call_frame_t *frame, xlator_t *this,
                         const char* real_path, int fd, inode_t *inode,
                         struct iatt *stbuf);
-gf_boolean_t
-is_ctime_enabled();
 
 #endif /* _POSIX_METADATA_H */
