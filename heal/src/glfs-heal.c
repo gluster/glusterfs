@@ -696,11 +696,11 @@ glfsh_print_heal_status (dict_t *dict, char *path, uuid_t gfid,
                         goto out;
         } else if (!strcmp (value, "possibly-healing")) {
                 ret = gf_asprintf (&status,
-                                   " - Possibly undergoing heal\n");
+                                   " - Possibly undergoing heal");
                 if (ret < 0)
                         goto out;
         } else if (!strcmp (value, "split-brain")) {
-                ret = gf_asprintf (&status, " - Is in split-brain\n");
+                ret = gf_asprintf (&status, " - Is in split-brain");
                 if (ret < 0)
                         goto out;
         } else if (!strcmp (value, "heal-pending")) {
@@ -710,13 +710,13 @@ glfsh_print_heal_status (dict_t *dict, char *path, uuid_t gfid,
                         goto out;
         } else if (!strcmp (value, "split-brain-pending")) {
                 pending = _gf_true;
-                ret = gf_asprintf (&status, " - Is in split-brain\n");
+                ret = gf_asprintf (&status, " - Is in split-brain");
                 if (ret < 0)
                         goto out;
         } else if (!strcmp (value, "possibly-healing-pending")) {
                 pending = _gf_true;
                 ret = gf_asprintf (&status,
-                                   " - Possibly undergoing heal\n");
+                                   " - Possibly undergoing heal");
                 if (ret < 0)
                         goto out;
         }
