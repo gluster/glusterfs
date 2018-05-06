@@ -1,7 +1,7 @@
 [dashboard]
-    title = Review Inbox for 3.13
-    description = List of patches pending for 3.13
-    foreach=status:open project:glusterfs branch:release-3.13
+    title = Review Inbox for 4.1
+    description = List of patches pending for 4.1
+    foreach=status:open project:glusterfs branch:release-4.1
 [section "Possible to Merge"]
     query = label:Code-Review>=1 AND -label:Code-Review<=-1 AND label:CentOS-regression=1 AND label:Smoke=1
 [section "Awaiting Reviews Or Regression"]
