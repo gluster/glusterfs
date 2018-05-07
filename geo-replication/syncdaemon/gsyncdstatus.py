@@ -153,11 +153,12 @@ class GeorepStatus(object):
                  **kwargs)
 
     def _update(self, mergerfunc):
+        data = self.default_values
         with LockedOpen(self.filename, 'r+') as f:
             try:
-                data = json.load(f)
+                data.update(json.load(f))
             except ValueError:
-                data = self.default_values
+                pass
 
             data = mergerfunc(data)
             # If Data is not changed by merger func
