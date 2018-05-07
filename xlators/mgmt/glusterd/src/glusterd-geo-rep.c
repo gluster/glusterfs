@@ -5645,7 +5645,7 @@ glusterd_op_gsync_set (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                 GD_MSG_GSYNCD_OP_SET_FAILED, GEOREP" is not "
                                 "set up for %s(master) and %s(slave)",
                                 volname, slave);
-                        *op_errstr = strdup (GEOREP" is not set up");
+                        *op_errstr = gf_strdup (GEOREP" is not set up");
                         goto out;
                 }
 
