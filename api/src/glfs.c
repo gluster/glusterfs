@@ -1641,8 +1641,8 @@ out:
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_sysrq, 3.10.0);
 
 int
-glfs_upcall_register (struct glfs *fs, uint32_t event_list,
-                      glfs_upcall_cbk cbk, void *data)
+pub_glfs_upcall_register (struct glfs *fs, uint32_t event_list,
+                          glfs_upcall_cbk cbk, void *data)
 {
         int ret = 0;
 
@@ -1692,9 +1692,11 @@ out:
 invalid_fs:
         return ret;
 }
+
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_register, 3.13.0);
 
-int glfs_upcall_unregister (struct glfs *fs, uint32_t event_list)
+int
+pub_glfs_upcall_unregister (struct glfs *fs, uint32_t event_list)
 {
         int ret = 0;
         /* list of supported upcall events */
@@ -1737,4 +1739,5 @@ out:
 invalid_fs:
         return ret;
 }
+
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_upcall_unregister, 3.13.0);

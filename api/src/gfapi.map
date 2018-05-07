@@ -73,6 +73,18 @@ GFAPI_3.4.0 {
 		glfs_fchdir;
 		glfs_posix_lock;
 		glfs_dup;
+		glfs_pread;
+		glfs_pwrite;
+		glfs_pread_async;
+		glfs_pwrite_async;
+		glfs_ftruncate;
+		glfs_ftruncate_async;
+		glfs_fsync;
+		glfs_fsync_async;
+		glfs_fdatasync;
+		glfs_fdatasync_async;
+		glfs_realpath;
+		glfs_h_lookupat;
 } GFAPI_PRIVATE_3.4.0;
 
 GFAPI_3.4.2 {
@@ -97,6 +109,7 @@ GFAPI_3.4.2 {
 		glfs_h_create_from_handle;
 		glfs_h_opendir;
 		glfs_h_open;
+		glfs_h_lookupat;
 } GFAPI_3.4.0;
 
 GFAPI_3.5.0 {
@@ -166,6 +179,7 @@ GFAPI_3.7.16 {
 		glfs_upcall_inode_get_pstat;
 		glfs_upcall_inode_get_oldpobject;
 		glfs_upcall_inode_get_oldpstat;
+		glfs_h_poll_upcall;
 } GFAPI_3.7.15;
 
 GFAPI_3.7.17 {
@@ -207,7 +221,10 @@ GFAPI_4.0.0 {
                 glfs_file_lock;
                 glfs_lease;
                 glfs_h_lease;
-                glfs_recall_lease;
+} GFAPI_3.13.0;
+
+GFAPI_future {
+	global:
                 glfs_read_async;
                 glfs_write_async;
                 glfs_readv_async;
@@ -226,4 +243,5 @@ GFAPI_4.0.0 {
                 glfs_ftruncate_async;
                 glfs_discard_async;
                 glfs_zerofill_async;
-} GFAPI_3.13.0;
+} GFAPI_4.0.0;
+

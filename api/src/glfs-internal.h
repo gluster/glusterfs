@@ -560,11 +560,20 @@ struct glfs *glfs_new_from_ctx (glusterfs_ctx_t *ctx)
        void
 */
 
-void glfs_free_from_ctx (struct glfs *fs)
+void
+glfs_free_from_ctx (struct glfs *fs)
          GFAPI_PRIVATE(glfs_free_from_ctx, 3.7.0);
 
-int glfs_get_upcall_cache_invalidation (struct gf_upcall *to_up_data,
-                                        struct gf_upcall *from_up_data);
+int
+glfs_recall_lease_fd (struct glfs *fs, struct gf_upcall *up_data);
+
+int
+glfs_recall_lease_upcall (struct glfs *fs, struct glfs_upcall *up_arg,
+                          struct gf_upcall *up_data);
+
+int
+glfs_get_upcall_cache_invalidation (struct gf_upcall *to_up_data,
+                                    struct gf_upcall *from_up_data);
 int
 glfs_h_poll_cache_invalidation (struct glfs *fs,
                                 struct glfs_upcall *up_arg,
