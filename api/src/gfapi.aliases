@@ -27,16 +27,15 @@ _pub_glfs_pwrite_async34 _glfs_pwrite_async$GFAPI_3.4.0
 _pub_glfs_preadv _glfs_preadv$GFAPI_3.4.0
 _pub_glfs_pwritev _glfs_pwritev$GFAPI_3.4.0
 _pub_glfs_lseek _glfs_lseek$GFAPI_3.4.0
-_pub_glfs_truncate _glfs_truncate$GFAPI_3.7.15
-_pub_glfs_ftruncate34 _glfs_ftruncate34$GFAPI_3.4.0
-_pub_glfs_ftruncate_async34 _glfs_ftruncate_async34$GFAPI_3.4.0
+_pub_glfs_ftruncate34 _glfs_ftruncate$GFAPI_3.4.0
+_pub_glfs_ftruncate_async34 _glfs_ftruncate_async$GFAPI_3.4.0
 _pub_glfs_lstat _glfs_lstat$GFAPI_3.4.0
 _pub_glfs_stat _glfs_stat$GFAPI_3.4.0
 _pub_glfs_fstat _glfs_fstat$GFAPI_3.4.0
-_pub_glfs_fsync34 _glfs_fsync34$GFAPI_3.4.0
-_pub_glfs_fsync_async34 _glfs_fsync_async34$GFAPI_3.4.0
-_pub_glfs_fdatasync34 _glfs_fdatasync34$GFAPI_3.4.0
-_pub_glfs_fdatasync_async34 _glfs_fdatasync_async34$GFAPI_3.4.0
+_pub_glfs_fsync34 _glfs_fsync$GFAPI_3.4.0
+_pub_glfs_fsync_async34 _glfs_fsync_async$GFAPI_3.4.0
+_pub_glfs_fdatasync34 _glfs_fdatasync$GFAPI_3.4.0
+_pub_glfs_fdatasync_async34 _glfs_fdatasync_async$GFAPI_3.4.0
 _pub_glfs_access _glfs_access$GFAPI_3.4.0
 _pub_glfs_symlink _glfs_symlink$GFAPI_3.4.0
 _pub_glfs_readlink _glfs_readlink$GFAPI_3.4.0
@@ -108,6 +107,7 @@ _pub_glfs_readdirplus _glfs_readdirplus$GFAPI_3.5.0
 _pub_glfs_fallocate _glfs_fallocate$GFAPI_3.5.0
 _pub_glfs_discard _glfs_discard$GFAPI_3.5.0
 _pub_glfs_zerofill _glfs_zerofill$GFAPI_3.5.0
+_pub_glfs_caller_specific_init _glfs_caller_specific_init$GFAPI_3.5.0
 _pub_glfs_h_setxattrs _glfs_h_setxattrs$GFAPI_3.5.0
 
 _pub_glfs_unset_volfile_server _glfs_unset_volfile_server$GFAPI_3.5.1
@@ -117,11 +117,10 @@ _pub_glfs_h_removexattrs _glfs_h_removexattrs$GFAPI_3.5.1
 _pub_glfs_get_volfile _glfs_get_volfile$GFAPI_3.6.0
 _pub_glfs_h_access _glfs_h_access$GFAPI_3.6.0
 
-_pub_glfs_h_poll_upcall _glfs_h_poll_upcall$GFAPI_3.7.0
+_pub_glfs_h_poll_upcall370 _glfs_h_poll_upcall$GFAPI_3.7.0
 _pub_glfs_h_acl_set _glfs_h_acl_set$GFAPI_3.7.0
 _pub_glfs_h_acl_get _glfs_h_acl_get$GFAPI_3.7.0
 _pub_glfs_h_statfs _glfs_h_statfs$GFAPI_3.7.0
-
 _pub_glfs_h_anonymous_read _glfs_h_anonymous_read$GFAPI_3.7.0
 _pub_glfs_h_anonymous_write _glfs_h_anonymous_write$GFAPI_3.7.0
 
@@ -131,6 +130,8 @@ _priv_glfs_resolve _glfs_resolve$GFAPI_PRIVATE_3.7.0
 _priv_glfs_process_upcall_event _glfs_process_upcall_event$GFAPI_PRIVATE_3.7.0
 
 _pub_glfs_h_lookupat _glfs_h_lookupat$GFAPI_3.7.4
+
+_pub_glfs_truncate _glfs_truncate$GFAPI_3.7.15
 
 _pub_glfs_free _glfs_free$GFAPI_3.7.16
 _pub_glfs_h_poll_upcall _glfs_h_poll_upcall$GFAPI_3.7.16
@@ -145,9 +146,11 @@ _pub_glfs_upcall_inode_get_pobject _glfs_upcall_inode_get_pobject$GFAPI_3.7.16
 _pub_glfs_upcall_inode_get_pstat _glfs_upcall_inode_get_pstat$GFAPI_3.7.16
 _pub_glfs_upcall_inode_get_oldpobject _glfs_upcall_inode_get_oldpobject$GFAPI_3.7.16
 _pub_glfs_upcall_inode_get_oldpstat _glfs_upcall_inode_get_oldpstat$GFAPI_3.7.16
+
 _pub_glfs_realpath _glfs_realpath$GFAPI_3.7.17
 
 _pub_glfs_sysrq _glfs_sysrq$GFAPI_3.10.0
+
 _pub_glfs_fd_set_lkowner _glfs_fd_set_lkowner$GFAPI_3.10.7
 
 _pub_glfs_xreaddirplus_r _glfs_xreaddirplus_r$GFAPI_3.11.0
@@ -164,22 +167,24 @@ _pub_glfs_setfsleaseid _glfs_setfsleaseid$GFAPI_4.0.0
 _pub_glfs_file_lock _glfs_file_lock$GFAPI_4.0.0
 _pub_glfs_lease _glfs_lease$GFAPI_4.0.0
 _pub_glfs_h_lease _glfs_h_lease$GFAPI_4.0.0
-_pub_glfs_recall_lease _glfs_recall_lease$GFAPI_4.0.0
-_pub_glfs_read_async _glfs_read_async$GFAPI_4.0.0
-_pub_glfs_write_async _glfs_write_async$GFAPI_4.0.0
-_pub_glfs_readv_async _glfs_readv_async$GFAPI_4.0.0
-_pub_glfs_writev_async _glfs_writev_async$GFAPI_4.0.0
-_pub_glfs_pread _glfs_pread$GFAPI_4.0.0
-_pub_glfs_pwrite _glfs_pwrite$GFAPI_4.0.0
-_pub_glfs_pread_async _glfs_pread_async$GFAPI_4.0.0
-_pub_glfs_pwrite_async _glfs_pwrite_async$GFAPI_4.0.0
-_pub_glfs_preadv_async _glfs_preadv_async$GFAPI_4.0.0
-_pub_glfs_pwritev_async _glfs_pwritev_async$GFAPI_4.0.0
-_pub_glfs_fsync _glfs_fsync$GFAPI_4.0.0
-_pub_glfs_fsync_async _glfs_fsync_async$GFAPI_4.0.0
-_pub_glfs_fdatasync _glfs_fdatasync$GFAPI_4.0.0
-_pub_glfs_fdatasync_async _glfs_fdatasync_async$GFAPI_4.0.0
-_pub_glfs_ftruncate _glfs_ftruncate$GFAPI_4.0.0
-_pub_glfs_ftruncate_async _glfs_ftruncate_async$GFAPI_4.0.0
-_pub_glfs_discard_async _glfs_discard_async$GFAPI_4.0.0
-_pub_glfs_zerofill_async _glfs_zerofill_async$GFAPI_4.0.0
+
+_pub_glfs_recall_lease_fd _glfs_recall_lease_fd$GFAPI_future
+_pub_glfs_recall_lease_upcall _glfs_recall_lease_upcall$GFAPI_future
+_pub_glfs_read_async _glfs_read_async$GFAPI_future
+_pub_glfs_write_async _glfs_write_async$GFAPI_future
+_pub_glfs_readv_async _glfs_readv_async$GFAPI_future
+_pub_glfs_writev_async _glfs_writev_async$GFAPI_future
+_pub_glfs_pread _glfs_pread$GFAPI_future
+_pub_glfs_pwrite _glfs_pwrite$GFAPI_future
+_pub_glfs_pread_async _glfs_pread_async$GFAPI_future
+_pub_glfs_pwrite_async _glfs_pwrite_async$GFAPI_future
+_pub_glfs_preadv_async _glfs_preadv_async$GFAPI_future
+_pub_glfs_pwritev_async _glfs_pwritev_async$GFAPI_future
+_pub_glfs_fsync _glfs_fsync$GFAPI_future
+_pub_glfs_fsync_async _glfs_fsync_async$GFAPI_future
+_pub_glfs_fdatasync _glfs_fdatasync$GFAPI_future
+_pub_glfs_fdatasync_async _glfs_fdatasync_async$GFAPI_future
+_pub_glfs_ftruncate _glfs_ftruncate$GFAPI_future
+_pub_glfs_ftruncate_async _glfs_ftruncate_async$GFAPI_future
+_pub_glfs_discard_async _glfs_discard_async$GFAPI_future
+_pub_glfs_zerofill_async _glfs_zerofill_async$GFAPI_future
