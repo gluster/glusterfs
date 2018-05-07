@@ -3793,8 +3793,16 @@ unlock:
 
         this_call_cnt = dht_frame_return (frame);
         if (is_last_call (this_call_cnt)) {
-                DHT_STACK_UNWIND (setxattr, frame, local->op_ret,
-                                  local->op_errno, NULL);
+                if ((local->fop == GF_FOP_SETXATTR) ||
+                    (local->fop == GF_FOP_FSETXATTR)) {
+                        DHT_STACK_UNWIND (setxattr, frame, local->op_ret,
+                                          local->op_errno, NULL);
+                }
+                if ((local->fop == GF_FOP_REMOVEXATTR) ||
+                    (local->fop == GF_FOP_FREMOVEXATTR)) {
+                        DHT_STACK_UNWIND (removexattr, frame, local->op_ret,
+                                          local->op_errno, NULL);
+                }
         }
 
         return 0;
@@ -3841,11 +3849,22 @@ dht_common_mds_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                               "subvolume %s returned -1",
                               prev->this->name);
 
-        if (local->fop == GF_FOP_SETXATTR) {
+         if (local->fop == GF_FOP_SETXATTR) {
                 DHT_STACK_UNWIND (setxattr, frame, 0, op_errno, local->xdata);
-        } else {
+         }
+
+         if (local->fop == GF_FOP_FSETXATTR) {
                 DHT_STACK_UNWIND (fsetxattr, frame, 0, op_errno, local->xdata);
-        }
+         }
+
+         if (local->fop == GF_FOP_REMOVEXATTR) {
+                DHT_STACK_UNWIND (removexattr, frame, 0, op_errno, NULL);
+         }
+
+         if (local->fop == GF_FOP_FREMOVEXATTR) {
+                DHT_STACK_UNWIND (fremovexattr, frame, 0, op_errno, NULL);
+         }
+
         return 0;
 }
 
@@ -3901,7 +3920,8 @@ dht_setxattr_non_mds_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 ret = -1;
                                 goto out;
                         }
-                        if (local->fop == GF_FOP_SETXATTR) {
+                        if ((local->fop == GF_FOP_SETXATTR) ||
+                            (local->fop == GF_FOP_REMOVEXATTR)) {
                                 STACK_WIND (frame, dht_common_mds_xattrop_cbk,
                                             local->mds_subvol,
                                             local->mds_subvol->fops->xattrop,
@@ -3915,20 +3935,42 @@ dht_setxattr_non_mds_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                             xattrop, NULL);
                         }
                 } else  {
-                        if (local->fop == GF_FOP_SETXATTR)
+                        if (local->fop == GF_FOP_SETXATTR) {
                                 DHT_STACK_UNWIND (setxattr, frame, 0, 0, local->xdata);
-                        else
+                        }
+
+                        if (local->fop == GF_FOP_FSETXATTR) {
                                 DHT_STACK_UNWIND (fsetxattr, frame, 0, 0, local->xdata);
+                        }
+
+                        if (local->fop == GF_FOP_REMOVEXATTR) {
+                                DHT_STACK_UNWIND (removexattr, frame, 0, 0, NULL);
+                        }
+
+                        if (local->fop == GF_FOP_FREMOVEXATTR) {
+                                DHT_STACK_UNWIND (fremovexattr, frame, 0, 0, NULL);
+                        }
                 }
         }
 out:
         if (xattrop)
                 dict_unref (xattrop);
         if (ret) {
-                if (local->fop == GF_FOP_SETXATTR)
+                if (local->fop == GF_FOP_SETXATTR) {
                         DHT_STACK_UNWIND (setxattr, frame, 0, 0, local->xdata);
-                else
+                }
+
+                if (local->fop == GF_FOP_FSETXATTR) {
                         DHT_STACK_UNWIND (fsetxattr, frame, 0, 0, local->xdata);
+                }
+
+                if (local->fop == GF_FOP_REMOVEXATTR) {
+                        DHT_STACK_UNWIND (removexattr, frame, 0, 0, NULL);
+                }
+
+                if (local->fop == GF_FOP_FREMOVEXATTR) {
+                        DHT_STACK_UNWIND (fremovexattr, frame, 0, 0, NULL);
+                }
         }
         return 0;
 }
@@ -3971,12 +4013,30 @@ dht_setxattr_mds_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                     conf->subvolumes[i]->fops->setxattr,
                                     &local->loc, local->xattr,
                                     local->flags, local->xattr_req);
-                } else {
+                }
+
+                if (local->fop == GF_FOP_FSETXATTR) {
                         STACK_WIND (frame, dht_setxattr_non_mds_cbk,
                                     conf->subvolumes[i],
                                     conf->subvolumes[i]->fops->fsetxattr,
                                     local->fd, local->xattr,
                                     local->flags, local->xattr_req);
+                }
+
+                if (local->fop == GF_FOP_REMOVEXATTR) {
+                        STACK_WIND (frame, dht_setxattr_non_mds_cbk,
+                                    conf->subvolumes[i],
+                                    conf->subvolumes[i]->fops->removexattr,
+                                    &local->loc, local->key,
+                                    local->xattr_req);
+                }
+
+                if (local->fop == GF_FOP_FREMOVEXATTR) {
+                        STACK_WIND (frame, dht_setxattr_non_mds_cbk,
+                                    conf->subvolumes[i],
+                                    conf->subvolumes[i]->fops->fremovexattr,
+                                    local->fd, local->key,
+                                    local->xattr_req);
                 }
         }
 
@@ -3985,9 +4045,21 @@ out:
         if (local->fop == GF_FOP_SETXATTR) {
                 DHT_STACK_UNWIND (setxattr, frame, local->op_ret,
                                   local->op_errno, xdata);
-        } else {
+        }
+
+        if (local->fop == GF_FOP_FSETXATTR) {
                 DHT_STACK_UNWIND (fsetxattr, frame, local->op_ret,
                                   local->op_errno, xdata);
+        }
+
+        if (local->fop == GF_FOP_REMOVEXATTR) {
+                DHT_STACK_UNWIND (removexattr, frame, local->op_ret,
+                                  local->op_errno, NULL);
+        }
+
+        if (local->fop == GF_FOP_FREMOVEXATTR) {
+                DHT_STACK_UNWIND (fremovexattr, frame, local->op_ret,
+                                  local->op_errno, NULL);
         }
 
         return 0;
@@ -4018,21 +4090,55 @@ dht_xattrop_mds_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             local->mds_subvol->fops->setxattr,
                             &local->loc, local->xattr,
                             local->flags, local->xattr_req);
-        } else {
+        }
+
+        if (local->fop == GF_FOP_FSETXATTR) {
                 STACK_WIND (frame, dht_setxattr_mds_cbk,
                             local->mds_subvol,
                             local->mds_subvol->fops->fsetxattr,
                             local->fd, local->xattr,
                             local->flags, local->xattr_req);
         }
+
+        if (local->fop == GF_FOP_REMOVEXATTR) {
+                STACK_WIND (frame, dht_setxattr_mds_cbk,
+                            local->mds_subvol,
+                            local->mds_subvol->fops->removexattr,
+                            &local->loc, local->key,
+                            local->xattr_req);
+        }
+
+        if (local->fop == GF_FOP_FREMOVEXATTR) {
+                STACK_WIND (frame, dht_setxattr_mds_cbk,
+                            local->mds_subvol,
+                            local->mds_subvol->fops->fremovexattr,
+                            local->fd, local->key,
+                            local->xattr_req);
+        }
+
+
         return 0;
 out:
-        if (local->fop == GF_FOP_SETXATTR)
+        if (local->fop == GF_FOP_SETXATTR) {
                 DHT_STACK_UNWIND (setxattr, frame, local->op_ret,
                                   local->op_errno, xdata);
-        else
+        }
+
+        if (local->fop == GF_FOP_FSETXATTR) {
                 DHT_STACK_UNWIND (fsetxattr, frame, local->op_ret,
                                   local->op_errno, xdata);
+        }
+
+        if (local->fop == GF_FOP_REMOVEXATTR) {
+                DHT_STACK_UNWIND (removexattr, frame, local->op_ret,
+                                  local->op_errno, NULL);
+        }
+
+        if (local->fop == GF_FOP_FREMOVEXATTR) {
+                DHT_STACK_UNWIND (fremovexattr, frame, local->op_ret,
+                                  local->op_errno, NULL);
+        }
+
         return 0;
 }
 
@@ -5299,12 +5405,12 @@ dht_is_user_xattr (dict_t *this, char *key, data_t *value, void *data)
 }
 
 
-/* Common code to wind a (f)setxattr call to set xattr on directory
+/* Common code to wind a (f)(set|remove)xattr call to set xattr on directory
 */
 int
-dht_dir_common_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                         fd_t *fd, dict_t *xattr, int flags, dict_t *xdata,
-                         int *op_errno)
+dht_dir_common_set_remove_xattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                                 fd_t *fd, dict_t *xattr, int flags, dict_t *xdata,
+                                 int *op_errno)
 
 {
         dict_t       *xattrop             = NULL;
@@ -5327,18 +5433,30 @@ dht_dir_common_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (local->gfid)
                 gf_uuid_unparse(local->gfid, gfid_local);
 
-        /* Check if any user xattr present in xattr
-        */
-        dict_foreach_fnmatch (xattr, "user*", dht_is_user_xattr,
-                              &uxattr_key_found);
+        if ((local->fop == GF_FOP_SETXATTR) ||
+            (local->fop == GF_FOP_FSETXATTR)) {
+                /* Check if any user xattr present in xattr
+                */
+                dict_foreach_fnmatch (xattr, "user*", dht_is_user_xattr,
+                                      &uxattr_key_found);
 
-        /* Check if any custom key xattr present in dict xattr
-           and start index from 1 because user xattr already
-           checked in previous line
-        */
-        for (i = 1; xattrs_to_heal[i]; i++)
-                if (dict_get (xattr, xattrs_to_heal[i]))
-                        uxattr_key_found = _gf_true;
+                /* Check if any custom key xattr present in dict xattr
+                   and start index from 1 because user xattr already
+                   checked in previous line
+                */
+                for (i = 1; xattrs_to_heal[i]; i++)
+                        if (dict_get (xattr, xattrs_to_heal[i]))
+                                uxattr_key_found = _gf_true;
+        }
+
+        if ((local->fop == GF_FOP_REMOVEXATTR) ||
+            (local->fop == GF_FOP_FREMOVEXATTR)) {
+                /* Check if any custom key xattr present in local->key
+                */
+                for (i = 0; xattrs_to_heal[i]; i++)
+                        if (strstr (local->key, xattrs_to_heal[i]))
+                                uxattr_key_found = _gf_true;
+        }
 
         /* If there is no custom key xattr present or gfid is root
            or call_cnt is 1 then wind a (f)setxattr call on all subvols
@@ -5346,16 +5464,34 @@ dht_dir_common_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (!uxattr_key_found || __is_root_gfid (local->gfid) || call_cnt == 1) {
                 for (i = 0; i < conf->subvolume_cnt; i++) {
                         travvol = conf->subvolumes[i];
-                        if (fd) {
-                                STACK_WIND_COOKIE (frame, dht_err_cbk,
-                                                   travvol, travvol,
-                                                   travvol->fops->fsetxattr,
-                                                   fd, xattr, flags, xdata);
-                        } else {
-                                STACK_WIND_COOKIE (frame, dht_err_cbk,
-                                                   travvol, travvol,
-                                                   travvol->fops->setxattr,
-                                                   loc, xattr, flags, xdata);
+                        if ((local->fop == GF_FOP_SETXATTR) ||
+                            (local->fop == GF_FOP_FSETXATTR)) {
+                                if (fd) {
+                                        STACK_WIND_COOKIE (frame, dht_err_cbk,
+                                                           travvol, travvol,
+                                                           travvol->fops->fsetxattr,
+                                                           fd, xattr, flags, xdata);
+                                } else {
+                                        STACK_WIND_COOKIE (frame, dht_err_cbk,
+                                                           travvol, travvol,
+                                                           travvol->fops->setxattr,
+                                                           loc, xattr, flags, xdata);
+                                }
+                        }
+
+                        if ((local->fop == GF_FOP_REMOVEXATTR) ||
+                            (local->fop == GF_FOP_FREMOVEXATTR)) {
+                                if (fd) {
+                                        STACK_WIND_COOKIE (frame, dht_err_cbk,
+                                                           travvol, travvol,
+                                                           travvol->fops->fremovexattr,
+                                                           fd, local->key, local->xattr_req);
+                                } else {
+                                        STACK_WIND_COOKIE (frame, dht_err_cbk,
+                                                           travvol, travvol,
+                                                           travvol->fops->removexattr,
+                                                           loc, local->key, local->xattr_req);
+                                }
                         }
                 }
 
@@ -5503,8 +5639,8 @@ dht_fsetxattr (call_frame_t *frame, xlator_t *this,
 
         if (IA_ISDIR (fd->inode->ia_type)) {
                 local->hashed_subvol = NULL;
-                ret = dht_dir_common_setxattr (frame, this, NULL, fd,
-                                               xattr, flags, xdata, &op_errno);
+                ret = dht_dir_common_set_remove_xattr (frame, this, NULL, fd,
+                                                       xattr, flags, xdata, &op_errno);
                 if (ret)
                         goto err;
         } else {
@@ -5912,8 +6048,8 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
 
         if (IA_ISDIR (loc->inode->ia_type)) {
                 local->hashed_subvol = NULL;
-                ret = dht_dir_common_setxattr (frame, this, loc, NULL,
-                                               xattr, flags, xdata, &op_errno);
+                ret = dht_dir_common_set_remove_xattr (frame, this, loc, NULL,
+                                                       xattr, flags, xdata, &op_errno);
                 if (ret)
                         goto err;
         } else {
@@ -6114,7 +6250,6 @@ dht_removexattr (call_frame_t *frame, xlator_t *this,
         dht_layout_t *layout = NULL;
         int           call_cnt = 0;
         dht_conf_t   *conf = NULL;
-        int i;
         int           ret = 0;
 
         VALIDATE_OR_GOTO (this, err);
@@ -6161,13 +6296,11 @@ dht_removexattr (call_frame_t *frame, xlator_t *this,
         }
 
         if (IA_ISDIR (loc->inode->ia_type)) {
-                for (i = 0; i < call_cnt; i++) {
-                        STACK_WIND_COOKIE (frame, dht_removexattr_cbk,
-                                           layout->list[i].xlator,
-                                           layout->list[i].xlator,
-                                           layout->list[i].xlator->fops->removexattr,
-                                           loc, key, local->xattr_req);
-                }
+                local->hashed_subvol = NULL;
+                ret = dht_dir_common_set_remove_xattr (frame, this, loc, NULL,
+                                                       NULL, 0, local->xattr_req, &op_errno);
+                if (ret)
+                        goto err;
 
         } else {
 
@@ -6206,7 +6339,6 @@ dht_fremovexattr (call_frame_t *frame, xlator_t *this,
         dht_conf_t   *conf = 0;
         int           ret = 0;
 
-        int i;
 
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (this->private, err);
@@ -6246,13 +6378,11 @@ dht_fremovexattr (call_frame_t *frame, xlator_t *this,
         local->key = gf_strdup (key);
 
         if (IA_ISDIR (fd->inode->ia_type)) {
-                for (i = 0; i < call_cnt; i++) {
-                        STACK_WIND_COOKIE (frame, dht_removexattr_cbk,
-                                           layout->list[i].xlator,
-                                           layout->list[i].xlator,
-                                           layout->list[i].xlator->fops->fremovexattr,
-                                           fd, key, local->xattr_req);
-                }
+                local->hashed_subvol = NULL;
+                ret = dht_dir_common_set_remove_xattr (frame, this, NULL, fd,
+                                                       NULL, 0, local->xattr_req, &op_errno);
+                if (ret)
+                        goto err;
 
         } else {
 
