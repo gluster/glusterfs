@@ -6600,8 +6600,16 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         if (conf->readdir_optimize == _gf_true)
                 readdir_optimize = 1;
 
+        gf_msg_debug (this->name, 0, "Processing entries from %s",
+                      prev->name);
+
         list_for_each_entry (orig_entry, (&orig_entries->list), list) {
                 next_offset = orig_entry->d_off;
+
+                gf_msg_debug (this->name, 0, "%s: entry = %s, type = %d",
+                              prev->name, orig_entry->d_name,
+                              orig_entry->d_type);
+
                 if (IA_ISINVAL(orig_entry->d_stat.ia_type)) {
                         /*stat failed somewhere- ignore this entry*/
                         gf_msg_debug (this->name, EINVAL,
@@ -6644,6 +6652,8 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 if (check_is_linkfile (NULL, (&orig_entry->d_stat),
                                        orig_entry->dict,
                                        conf->link_xattr_name)) {
+                        gf_msg_debug (this->name, 0, "%s: %s is a linkto file",
+                                      prev->name, orig_entry->d_name);
                         continue;
                 }
 
@@ -6700,7 +6710,8 @@ list:
                                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                                 DHT_MSG_LAYOUT_SET_FAILED,
                                                 "failed to link the layout "
-                                                "in inode");
+                                                "in inode for %s",
+                                                orig_entry->d_name);
 
                                 entry->inode = inode_ref (orig_entry->inode);
                         } else if (itable) {
@@ -6723,12 +6734,16 @@ list:
                                                      GF_LOG_WARNING, 0,
                                                      DHT_MSG_LAYOUT_SET_FAILED,
                                                      "failed to link the layout"
-                                                     " in inode");
+                                                     " in inode for %s",
+                                                     orig_entry->d_name);
                                         inode_unref (inode);
                                         inode = NULL;
                                 }
                         }
                 }
+
+                gf_msg_debug (this->name, 0, "%s: Adding entry = %s",
+                              prev->name, entry->d_name);
 
                 list_add_tail (&entry->list, &local->entries.list);
                 local->filled += gf_dirent_size (entry->d_name);
@@ -6837,8 +6852,15 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         layout = local->layout;
 
+        gf_msg_debug (this->name, 0, "Processing entries from %s",
+                      prev->name);
+
         list_for_each_entry (orig_entry, (&orig_entries->list), list) {
                 next_offset = orig_entry->d_off;
+
+                gf_msg_debug (this->name, 0, "%s: entry = %s, type = %d",
+                              prev->name, orig_entry->d_name,
+                              orig_entry->d_type);
 
                 subvol = methods->layout_search (this, layout,
                                                  orig_entry->d_name);
@@ -6856,6 +6878,9 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         entry->d_ino  = orig_entry->d_ino;
                         entry->d_type = orig_entry->d_type;
                         entry->d_len  = orig_entry->d_len;
+
+                        gf_msg_debug (this->name, 0, "%s: Adding = entry %s",
+                                      prev->name, entry->d_name);
 
                         list_add_tail (&entry->list, &local->entries.list);
                         count++;
