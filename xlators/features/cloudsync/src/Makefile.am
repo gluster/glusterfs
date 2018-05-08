@@ -2,8 +2,6 @@ xlator_LTLIBRARIES = cloudsync.la
 
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
-CLOUDSYNC_SRC = $(top_srcdir)/xlators/features/cloudsync/src
-
 cloudsync_sources = cloudsync.c
 
 CLOUDSYNC_SRC = $(top_srcdir)/xlators/features/cloudsync/src
