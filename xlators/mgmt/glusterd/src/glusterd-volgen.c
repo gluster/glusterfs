@@ -6013,6 +6013,8 @@ glusterd_generate_client_per_brick_volfile (glusterd_volinfo_t *volinfo)
         dict_t                *dict                 = NULL;
         xlator_t              *xl                   = NULL;
         int                    ret                  = -1;
+        char                  *ssl_str              = NULL;
+        gf_boolean_t           ssl_bool             = _gf_false;
 
         dict = dict_new ();
         if (!dict)
@@ -6020,7 +6022,22 @@ glusterd_generate_client_per_brick_volfile (glusterd_volinfo_t *volinfo)
 
         ret = dict_set_uint32 (dict, "trusted-client", GF_CLIENT_TRUSTED);
         if (ret)
-                goto out;
+                goto free_dict;
+
+        if (dict_get_str(volinfo->dict, "client.ssl", &ssl_str) == 0) {
+                if (gf_string2boolean(ssl_str, &ssl_bool) == 0) {
+                        if (ssl_bool) {
+                               if (dict_set_dynstr_with_alloc(dict,
+                                                "client.ssl", "on") != 0) {
+                                        ret = -1;
+                                        goto free_dict;
+                                }
+                        }
+                } else {
+                        ret = -1;
+                        goto free_dict;
+                }
+        }
 
         cds_list_for_each_entry (brick, &volinfo->bricks, brick_list) {
                 xl = volgen_graph_build_client (&graph, volinfo,
@@ -6047,6 +6064,8 @@ glusterd_generate_client_per_brick_volfile (glusterd_volinfo_t *volinfo)
 out:
         if (ret)
                 volgen_graph_free (&graph);
+
+free_dict:
 
         if (dict)
                 dict_unref (dict);
