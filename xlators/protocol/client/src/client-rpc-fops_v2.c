@@ -1012,7 +1012,12 @@ client4_0_removexattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         xdr_to_dict (&rsp.xdata, &xdata);
 out:
         if (rsp.op_ret == -1) {
-                if ((ENODATA == rsp.op_errno) || (ENOATTR == rsp.op_errno))
+                /* EPERM/EACCESS is returned some times in case of selinux
+                   attributes, or other system attributes which may not be
+                   possible to remove from an user process is encountered.
+                   we can't treat it as an error */
+                if ((ENODATA == rsp.op_errno) || (ENOATTR == rsp.op_errno) ||
+                    (EPERM == rsp.op_errno) || (EACCES == rsp.op_errno))
                         loglevel = GF_LOG_DEBUG;
                 else
                         loglevel = GF_LOG_WARNING;
