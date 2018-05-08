@@ -877,7 +877,6 @@ __dht_rebalance_create_dst_file (xlator_t *this, xlator_t *to, xlator_t *from,
                                          * in some cases
                                          */
                                         ret2 = syncop_ftruncate (to, fd, 0,
-                                                                 NULL, NULL,
                                                                  NULL, NULL);
                                         if (ret2 < 0) {
                                                 gf_msg (this->name,
@@ -893,8 +892,7 @@ __dht_rebalance_create_dst_file (xlator_t *this, xlator_t *to, xlator_t *from,
                 }
 
                 if (!conf->use_fallocate) {
-                        ret = syncop_ftruncate (to, fd, stbuf->ia_size, NULL,
-                                                NULL, NULL, NULL);
+                        ret = syncop_ftruncate (to, fd, stbuf->ia_size, NULL, NULL);
                         if (ret < 0) {
                                 *fop_errno = -ret;
                                 gf_msg (this->name, GF_LOG_WARNING, -ret,
@@ -1770,7 +1768,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
                 }
 
 
-                ret = syncop_ftruncate (to, dst_fd, 0, NULL, NULL, NULL, NULL);
+                ret = syncop_ftruncate (to, dst_fd, 0, NULL, NULL);
                 if (ret) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "%s: failed to perform truncate on %s (%s)",
@@ -2204,7 +2202,7 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
 
        /* Free up the data blocks on the source node, as the whole
            file is migrated */
-        ret = syncop_ftruncate (from, src_fd, 0, NULL, NULL, NULL, NULL);
+        ret = syncop_ftruncate (from, src_fd, 0, NULL, NULL);
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "%s: failed to perform truncate on %s (%s)",
@@ -2337,8 +2335,7 @@ out:
 
         /* reset the destination back to 0 */
         if (clean_dst) {
-                lk_ret = syncop_ftruncate (to, dst_fd, 0, NULL, NULL,
-                                           NULL, NULL);
+                lk_ret = syncop_ftruncate (to, dst_fd, 0, NULL, NULL);
                 if (lk_ret) {
                         gf_msg (this->name, GF_LOG_ERROR, -lk_ret,
                                 DHT_MSG_MIGRATE_FILE_FAILED,
