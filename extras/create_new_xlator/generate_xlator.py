@@ -93,8 +93,6 @@ def gen_xlator():
                 print(generate(fragments["FUNC_TEMPLATE"], dops,
                                       xlator_dumpops), file=xl)
 
-        print(fragments["XLATOR_METHODS"], file=xl)
-
         #Generate fop table
         print("struct xlator_fops fops = {", file=xl)
         for fop in ops:
@@ -113,6 +111,10 @@ def gen_xlator():
                 print("        .{0:20} = {1}_{2},".format(dops, fop_prefix, dops), file=xl)
         print("};", file=xl)
 
+        xlator_methods = fragments["XLATOR_METHODS"].replace("@XL_NAME@",xl_name)
+        xlator_methods = xlator_methods.replace("@FOP_PREFIX@",fop_prefix)
+	print(xlator_methods, file=xl)
+
         xl.close()
 
 
@@ -126,22 +128,21 @@ def gen_header_files():
         h = open(src_dir_path+"/"+xl_name+".h", 'w+')
         print(COPYRIGHT, file=h)
         txt = fragments["HEADER_FMT"].replace("@HFL_NAME@", upname)
-        txt2 = fragments["INCLUDE_IN_HEADER_FILE"].replace("@XL_NAME@", xl_name)
-        txt = txt.replace("@INCLUDE_SECT@",txt2)
+        txt = txt.replace("@XL_NAME@", xl_name)
         print(txt, file=h)
         h.close()
 
         h = open(src_dir_path+"/"+xl_name+"-mem-types.h", 'w+')
         print(COPYRIGHT, file=h)
-        txt = fragments["HEADER_FMT"].replace("@HFL_NAME@", upname+"_MEM_TYPES")
-        txt = txt.replace("@INCLUDE_SECT@", '#include "mem-types.h"')
+        txt = fragments["MEM_HEADER_FMT"].replace("@HFL_NAME@", upname+"_MEM_TYPES")
+        txt = txt.replace("@FOP_PREFIX@", fop_prefix)
         print(txt, file=h)
         h.close()
 
         h = open(src_dir_path+"/"+xl_name+"-messages.h", 'w+')
         print(COPYRIGHT, file=h)
-        txt = fragments["HEADER_FMT"].replace("@HFL_NAME@", upname+"_MESSAGES")
-        txt = txt.replace("@INCLUDE_SECT@", '')
+        txt = fragments["MSG_HEADER_FMT"].replace("@HFL_NAME@", upname+"_MESSAGES")
+        txt = txt.replace("@FOP_PREFIX@", fop_prefix.upper())
         print(txt, file=h)
         h.close()
 

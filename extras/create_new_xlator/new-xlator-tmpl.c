@@ -48,42 +48,117 @@ err:
 #pragma fragment INCLUDE_IN_SRC_FILE
 #include "@XL_NAME@.h"
 
-#pragma fragment INCLUDE_IN_HEADER_FILE
+#pragma fragment XLATOR_METHODS
+
+static int32_t
+@FOP_PREFIX@_init (xlator_t *this)
+{
+        return 0;
+}
+
+static void
+@FOP_PREFIX@_fini (xlator_t *this)
+{
+        return;
+}
+
+static int32_t
+@FOP_PREFIX@_reconfigure (xlator_t *this, dict_t *dict)
+{
+        return 0;
+}
+
+static int
+@FOP_PREFIX@_notify (xlator_t *this, int event, void *data, ...)
+{
+        return default_notify (this, event, data);
+}
+
+static int32_t
+@FOP_PREFIX@_mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        ret = xlator_mem_acct_init (this, gf_@FOP_PREFIX@_mt_end + 1);
+        return ret;
+}
+
+static int32_t
+@FOP_PREFIX@_dump_metrics (xlator_t *this, int fd)
+{
+        return 0;
+}
+
+struct volume_options @FOP_PREFIX@_options[] = {
+        /*{ .key  = {""},
+          .type = GF_OPTION_TYPE_BOOL,
+          .default_value = "",
+          .op_version = {GD_OP_VERSION_},
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+          .tags = {""},
+          .description = ""
+        },
+        { .key = {NULL} },
+        */
+};
+
+xlator_api_t xlator_api = {
+        .init          = @FOP_PREFIX@_init,
+        .fini          = @FOP_PREFIX@_fini,
+        .notify        = @FOP_PREFIX@_notify,
+        .reconfigure   = @FOP_PREFIX@_reconfigure,
+        .mem_acct_init = @FOP_PREFIX@_mem_acct_init,
+        .dump_metrics  = @FOP_PREFIX@_dump_metrics,
+        .op_version    = {GD_OP_VERSION_},
+        .dumpops       = &@FOP_PREFIX@_dumpops,
+        .fops          = &@FOP_PREFIX@_fops,
+        .cbks          = &@FOP_PREFIX@_cbks,
+        .options       = @FOP_PREFIX@_options,
+        .identifier    = "@XL_NAME@",
+};
+#pragma fragment HEADER_FMT
+#ifndef __@HFL_NAME@_H__
+#define __@HFL_NAME@_H__
+
 #include "@XL_NAME@-mem-types.h"
 #include "@XL_NAME@-messages.h"
 #include "glusterfs.h"
 #include "xlator.h"
 #include "defaults.h"
 
-#pragma fragment XLATOR_METHODS
-int32_t
-init (xlator_t *this)
-{
-        return 0;
-}
+#endif /* __@HFL_NAME@_H__ */
 
-void
-fini (xlator_t *this)
-{
-        return;
-}
-
-int32_t
-reconfigure (xlator_t *this, dict_t *dict)
-{
-        return 0;
-}
-
-int
-notify (xlator_t *this, int event, void *data, ...)
-{
-        return default_notify (this, event, data);
-}
-
-#pragma fragment HEADER_FMT
+#pragma fragment MEM_HEADER_FMT
 #ifndef __@HFL_NAME@_H__
 #define __@HFL_NAME@_H__
 
-@INCLUDE_SECT@
+#include "mem-types.h"
+
+enum gf_mdc_mem_types_ {
+        gf_@FOP_PREFIX@_mt_   = gf_common_mt_end + 1,
+        gf_@FOP_PREFIX@_mt_end
+};
+
+#endif /* __@HFL_NAME@_H__ */
+
+#pragma fragment MSG_HEADER_FMT
+#ifndef __@HFL_NAME@_H__
+#define __@HFL_NAME@_H__
+
+#include "glfs-message-id.h"
+
+/* To add new message IDs, append new identifiers at the end of the list.
+ *
+ * Never remove a message ID. If it's not used anymore, you can rename it or
+ * leave it as it is, but not delete it. This is to prevent reutilization of
+ * IDs by other messages.
+ *
+ * The component name must match one of the entries defined in
+ * glfs-message-id.h.
+ */
+
+GLFS_MSGID(@FOP_PREFIX@,
+        @FOP_PREFIX@_MSG_NO_MEMORY
+);
 
 #endif /* __@HFL_NAME@_H__ */
