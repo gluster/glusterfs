@@ -187,8 +187,11 @@ server_priv_to_dict (xlator_t *this, dict_t *dict, char *brickname)
         pthread_mutex_lock (&conf->mutex);
         {
                 list_for_each_entry (xprt, &conf->xprt_list, list) {
-                        if (!strcmp (brickname,
-                                     xprt->xl_private->bound_xl->name)) {
+                        if ((xprt) && (xprt->xl_private) &&
+                            (xprt->xl_private->bound_xl) &&
+                            (xprt->xl_private->bound_xl->name) && (brickname) &&
+                            (!strcmp (brickname,
+                                     xprt->xl_private->bound_xl->name))) {
                                 peerinfo = &xprt->peerinfo;
                                 memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key),
