@@ -307,6 +307,9 @@ posix_setattr (call_frame_t *frame, xlator_t *this,
         struct iatt    statpre     = {0,};
         struct iatt    statpost    = {0,};
         dict_t        *xattr_rsp   = NULL;
+        struct posix_private *priv = NULL;
+
+        priv = this->private;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -360,12 +363,12 @@ posix_setattr (call_frame_t *frame, xlator_t *this,
                                              stbuf, valid);
         }
 
-        if (valid & GF_SET_ATTR_CTIME) {
+        if (valid & GF_SET_ATTR_CTIME && !priv->ctime)  {
                 /*
-                 * At the moment we have no means to associate an arbitrary
-                 * ctime with the file, so we ignore the ctime payload
-                 * and update the file ctime to current time (which POSIX
-                 * lets us to do).
+                 * If ctime is not enabled, we have no means to associate an
+                 * arbitrary ctime with the file, so as a fallback, we ignore
+                 * the ctime payload and update the file ctime to current time
+                 * (which is possible directly with the POSIX API).
                  */
                 op_ret = PATH_SET_TIMESPEC_OR_TIMEVAL (real_path, NULL);
                 if (op_ret == -1) {
@@ -398,6 +401,14 @@ posix_setattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (valid & GF_SET_ATTR_CTIME && priv->ctime) {
+                /*
+                 * If we got ctime payload, we override
+                 * the ctime of statpost with that.
+                 */
+                statpost.ia_ctime = stbuf->ia_ctime;
+                statpost.ia_ctime_nsec = stbuf->ia_ctime_nsec;
+        }
         posix_set_ctime (frame, this, real_path, -1, loc->inode, &statpost);
 
         if (xdata)
