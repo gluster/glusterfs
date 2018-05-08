@@ -1160,7 +1160,7 @@ __dht_rebalance_migrate_data (xlator_t *this, gf_defrag_info_t *defrag,
 
                 ret = syncop_readv (from, src, read_size,
                                     offset, 0, &vector, &count, &iobref, NULL,
-                                    NULL, NULL);
+                                    NULL);
                 if (!ret || (ret < 0)) {
                         *fop_errno = -ret;
                         break;
@@ -1206,8 +1206,7 @@ __dht_rebalance_migrate_data (xlator_t *this, gf_defrag_info_t *defrag,
                         }
 
                         ret = syncop_writev (to, dst, vector, count,
-                                             offset, iobref, 0, NULL, NULL,
-                                             xdata, NULL);
+                                             offset, iobref, 0, xdata, NULL);
                         if (ret < 0) {
                                 *fop_errno = -ret;
                         }

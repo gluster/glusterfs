@@ -30,6 +30,8 @@ GFAPI_3.4.0 {
 		glfs_writev;
 		glfs_readv_async;
 		glfs_writev_async;
+		glfs_pread;
+		glfs_pwrite;
 		glfs_pread_async;
 		glfs_pwrite_async;
 		glfs_preadv;
@@ -224,6 +226,4 @@ GFAPI_4.0.0 {
                 glfs_lease;
                 glfs_h_lease;
                 glfs_recall_lease;
-                glfs_pread;
-                glfs_pwrite;
 } GFAPI_3.13.0;
