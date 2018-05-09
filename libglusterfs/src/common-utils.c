@@ -53,6 +53,10 @@
 #include <ifaddrs.h>
 #include "libglusterfs-messages.h"
 #include "protocol-common.h"
+#ifdef __FreeBSD__
+#include <pthread_np.h>
+#undef BIT_SET
+#endif
 
 #ifndef AI_ADDRCONFIG
 #define AI_ADDRCONFIG 0
@@ -3900,11 +3904,13 @@ gf_thread_create (pthread_t *thread, const pthread_attr_t *attr,
                         pthread_setname_np(*thread, thread_name);
                 #elif defined(__NetBSD__)
                         pthread_setname_np(*thread, thread_name, NULL);
+                #elif defined(__FreeBSD__)
+                        pthread_set_name_np(*thread, thread_name);
                 #else
                         gf_msg (THIS->name, GF_LOG_WARNING, 0,
                                 LG_MSG_PTHREAD_NAMING_FAILED,
-                                "Thread names not implemented on this "
-                                "platform");
+                                "Could not set thread name: %s",
+                                thread_name);
                 #endif
         }
 
