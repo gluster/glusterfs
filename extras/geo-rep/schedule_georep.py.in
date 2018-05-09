@@ -297,6 +297,7 @@ def get_summary(mastervol, slave_url):
     status_data = get(mastervol, slave_url)
 
     for session in status_data:
+        session_name = ""
         summary = {
             "active": 0,
             "passive": 0,
@@ -339,7 +340,8 @@ def get_summary(mastervol, slave_url):
         if summary["faulty"] == 0 and summary["offline"] == 0:
             summary["ok"] = True
 
-        out.append([session_name, summary, faulty_rows, down_rows])
+        if session_name != "":
+                out.append([session_name, summary, faulty_rows, down_rows])
 
     return out
 
@@ -397,41 +399,39 @@ def main(args):
             # or any other error. Gluster cmd still produces XML output
             # with different message
             output_warning("Unable to get Geo-replication Status")
-            time.sleep(1)
-            continue
-
-        session_name, summary, faulty_rows, down_rows = session_summary[0]
-        chkpt_status = "COMPLETE" if summary["checkpoints_ok"] else \
-                       "NOT COMPLETE"
-        ok_status = "OK" if summary["ok"] else "NOT OK"
-
-        if summary["ok"]:
-            output_ok("All Checkpoints {1}, "
-                      "All status {2} (Turns {0:>3})".format(
-                          turns, chkpt_status, ok_status))
         else:
-            output_warning("All Checkpoints {1}, "
-                           "All status {2} (Turns {0:>3})".format(
-                               turns, chkpt_status, ok_status))
+            session_name, summary, faulty_rows, down_rows = session_summary[0]
+            chkpt_status = "COMPLETE" if summary["checkpoints_ok"] else \
+                           "NOT COMPLETE"
+            ok_status = "OK" if summary["ok"] else "NOT OK"
 
-            output_warning("Geo-rep workers Faulty/Offline, "
-                           "Faulty: {0} Offline: {1}".format(
-                               repr(faulty_rows),
-                               repr(down_rows)))
+            if summary["ok"]:
+                output_ok("All Checkpoints {1}, "
+                          "All status {2} (Turns {0:>3})".format(
+                              turns, chkpt_status, ok_status))
+            else:
+                output_warning("All Checkpoints {1}, "
+                               "All status {2} (Turns {0:>3})".format(
+                                   turns, chkpt_status, ok_status))
 
-        if summary["checkpoints_ok"]:
-            output_ok("Stopping Geo-replication session now")
-            cmd = ["@SBIN_DIR@/gluster", "volume", "geo-replication",
-                   args.mastervol,
-                   "%s::%s" % (args.slave, args.slavevol), "stop"]
-            execute(cmd)
-            break
-        else:
-            # If Checkpoint is not complete after a iteration means brick
-            # was down and came online now. SETATTR on mount is not
-            # recorded, So again issue touch on mount root So that
-            # Stime will increase and Checkpoint will complete.
-            touch_mount_root(args.mastervol)
+                output_warning("Geo-rep workers Faulty/Offline, "
+                               "Faulty: {0} Offline: {1}".format(
+                                   repr(faulty_rows),
+                                   repr(down_rows)))
+
+            if summary["checkpoints_ok"]:
+                output_ok("Stopping Geo-replication session now")
+                cmd = ["@SBIN_DIR@/gluster", "volume", "geo-replication",
+                       args.mastervol,
+                       "%s::%s" % (args.slave, args.slavevol), "stop"]
+                execute(cmd)
+                break
+            else:
+                # If Checkpoint is not complete after a iteration means brick
+                # was down and came online now. SETATTR on mount is not
+                # recorded, So again issue touch on mount root So that
+                # Stime will increase and Checkpoint will complete.
+                touch_mount_root(args.mastervol)
 
         # Increment the turns and Sleep for 10 sec
         turns += 1
