@@ -4,8 +4,9 @@ endif
 
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/nfs
 nfsrpclibdir = $(top_srcdir)/rpc/rpc-lib/src
-server_la_LDFLAGS = -module -avoid-version -export-symbols \
-	$(top_srcdir)/xlators/nfs/server/src/nfsserver.sym
+server_la_LDFLAGS = -module -avoid-version \
+        -export-symbols $(top_srcdir)/xlators/nfs/server/src/nfsserver.sym \
+        $(GF_NO_UNDEFINED)
 
 server_la_SOURCES = nfs.c nfs-common.c nfs-fops.c nfs-inodes.c \
 	nfs-generics.c mount3.c nfs3-fh.c nfs3.c nfs3-helpers.c nlm4.c \

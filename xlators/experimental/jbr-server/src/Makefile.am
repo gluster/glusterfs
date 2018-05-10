@@ -6,7 +6,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/experimental
 nodist_jbr_la_SOURCES = jbr-cg.c
 CLEANFILES = $(nodist_jbr_la_SOURCES)
 
-jbr_la_LDFLAGS = -module -avoid-version
+jbr_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 jbr_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 		$(top_builddir)/api/src/libgfapi.la
 

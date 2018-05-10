@@ -340,11 +340,12 @@ AC_ARG_WITH([ipv6-default],
         AC_HELP_STRING([--with-ipv6-default], [Set IPv6 as default.]),
         [with_ipv6_default=${with_libtirpc}], [with_ipv6_default="no"])
 
-if test "x$ac_cv_file__etc_redhat_release" = "xyes"; then
-        if rpm -qa centos-release | grep centos; then
-                if rpm -q centos-release | grep "release-6"; then
-                        with_ipv6_default="no"
-                fi
+AC_CHECK_FILE([/etc/centos-release])
+if test "x$ac_cv_file__etc_centos_release" = "xyes"; then
+        dnl On CentOS '-ldl' isn't automatically added to LIBS
+        AC_CHECK_LIB([dl], [dlopen])
+        if grep "release 6" /etc/centos-release; then
+                with_ipv6_default="no"
         fi
 fi
 
@@ -1600,7 +1601,20 @@ AC_SUBST(USE_EC_DYNAMIC_NEON)
 dnl libglusterfs.so uses math functions
 GF_LDADD="${GF_LDADD} ${MATH_LIB}"
 
-GF_XLATOR_DEFAULT_LDFLAGS='-avoid-version -export-symbols $(top_srcdir)/xlators/xlator.sym'
+case $host_os in
+  dnl Can't use libtool's portable "-no-undefined" as it seems to be ignored on Linux
+  linux*)
+    GF_NO_UNDEFINED='-Wl,--no-undefined'
+    ;;
+  darwin*)
+    GF_NO_UNDEFINED='-Wl,-undefined'
+    ;;
+  *)
+  dnl There's an issue on FreeBSD with reference to __progname used in some parts of code
+    GF_NO_UNDEFINED=''
+    ;;
+esac
+GF_XLATOR_DEFAULT_LDFLAGS='-avoid-version -export-symbols $(top_srcdir)/xlators/xlator.sym '${GF_NO_UNDEFINED}
 
 AC_SUBST(GF_HOST_OS)
 AC_SUBST(GF_CFLAGS)
@@ -1612,6 +1626,7 @@ AC_SUBST(RLLIBS)
 AC_SUBST(LIBAIO)
 AC_SUBST(AM_MAKEFLAGS)
 AC_SUBST(AM_LIBTOOLFLAGS)
+AC_SUBST(GF_NO_UNDEFINED)
 AC_SUBST(GF_XLATOR_DEFAULT_LDFLAGS)
 
 CONTRIBDIR='$(top_srcdir)/contrib'

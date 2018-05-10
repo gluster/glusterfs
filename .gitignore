@@ -127,3 +127,7 @@ extras/init.d/glustereventsd-Debian
 extras/init.d/glustereventsd-FreeBSD
 extras/init.d/glustereventsd-Redhat
 tools/setgfid2path/src/gluster-setgfid2path
+xlators/features/cloudsync/src/cloudsync-autogen-fops.c
+xlators/features/cloudsync/src/cloudsync-autogen-fops.h
+xlators/features/utime/src/utime-autogen-fops.c
+xlators/features/utime/src/utime-autogen-fops.h
