@@ -6,7 +6,7 @@ endif
 noinst_HEADERS = fdl.h
 
 nodist_fdl_la_SOURCES = fdl.c
-fdl_la_LDFLAGS = -module -avoid-version
+fdl_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 fdl_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 if WITH_SERVER

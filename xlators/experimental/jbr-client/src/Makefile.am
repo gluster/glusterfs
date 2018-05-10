@@ -6,7 +6,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/experimental
 nodist_jbrc_la_SOURCES = jbrc-cg.c
 CLEANFILES = $(nodist_jbrc_la_SOURCES)
 
-jbrc_la_LDFLAGS = -module -avoid-version
+jbrc_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 jbrc_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = $(top_srcdir)/xlators/lib/src/libxlator.h \

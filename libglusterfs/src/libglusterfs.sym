@@ -1118,3 +1118,5 @@ glusterfs_leaseid_buf_get
 glusterfs_leaseid_exist
 gf_replace_old_iatt_in_dict
 gf_replace_new_iatt_in_dict
+gf_changelog_init
+gf_changelog_register_generic

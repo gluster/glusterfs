@@ -10,7 +10,7 @@ utime_la_SOURCES = $(utime_sources)
 nodist_utime_la_SOURCES = utime-autogen-fops.c utime-autogen-fops.h
 BUILT_SOURCES = utime-autogen-fops.h
 
-utime_la_LDFLAGS = -module -avoid-version
+utime_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 utime_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS_utime  = $(UTIME_SRC)/utime-helpers.h

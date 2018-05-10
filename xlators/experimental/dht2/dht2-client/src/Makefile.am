@@ -6,7 +6,7 @@ dht2c_sources = dht2-client-main.c
 dht2common_sources = $(top_srcdir)/xlators/experimental/dht2/dht2-common/src/dht2-common-map.c
 
 dht2c_la_SOURCES = $(dht2c_sources) $(dht2common_sources)
-dht2c_la_LDFLAGS = -module -avoid-version
+dht2c_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 dht2c_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)
