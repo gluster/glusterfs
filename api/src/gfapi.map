@@ -115,6 +115,7 @@ GFAPI_3.4.2 {
 		glfs_h_create_from_handle;
 		glfs_h_opendir;
 		glfs_h_open;
+		glfs_h_lookupat;
 } GFAPI_3.4.0;
 
 GFAPI_3.5.0 {
@@ -186,6 +187,7 @@ GFAPI_3.7.16 {
 		glfs_upcall_inode_get_pstat;
 		glfs_upcall_inode_get_oldpobject;
 		glfs_upcall_inode_get_oldpstat;
+		glfs_h_poll_upcall;
 } GFAPI_3.7.15;
 
 GFAPI_3.7.17 {
