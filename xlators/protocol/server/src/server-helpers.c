@@ -177,10 +177,6 @@ server_resolve_wipe (server_resolve_t *resolve)
 void
 free_state (server_state_t *state)
 {
-        if (state->xprt) {
-                rpc_transport_unref (state->xprt);
-                state->xprt = NULL;
-        }
         if (state->fd) {
                 fd_unref (state->fd);
                 state->fd = NULL;
@@ -222,6 +218,17 @@ free_state (server_state_t *state)
         server_resolve_wipe (&state->resolve2);
 
         compound_args_cleanup (state->args);
+
+        /* Call rpc_trnasport_unref to avoid crashes at last after free
+           all resources because of server_rpc_notify (for transport destroy)
+           call's xlator_mem_cleanup if all xprt are destroyed that internally
+           call's inode_table_destroy.
+        */
+        if (state->xprt) {
+                rpc_transport_unref (state->xprt);
+                state->xprt = NULL;
+        }
+
 
         GF_FREE (state);
 }
