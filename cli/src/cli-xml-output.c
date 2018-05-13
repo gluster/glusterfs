@@ -2942,7 +2942,7 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
 
                                 memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key),
-                                          "volume%d.brick%d.uuid", i, j);
+                                          "volume%d.brick%d.uuid", i, index);
                                 ret = dict_get_str (dict, key, &uuid);
                                 if (ret)
                                         goto out;
@@ -3053,7 +3053,7 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
 
                                 memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key),
-                                          "volume%d.brick%d.uuid", i, j);
+                                          "volume%d.brick%d.uuid", i, index);
                                 ret = dict_get_str (dict, key, &uuid);
                                 if (ret)
                                         goto out;
