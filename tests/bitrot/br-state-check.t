@@ -5,6 +5,7 @@
 . $(dirname $0)/../nfs.rc
 
 cleanup;
+SCRIPT_TIMEOUT=350
 
 TEST glusterd
 TEST pidof glusterd

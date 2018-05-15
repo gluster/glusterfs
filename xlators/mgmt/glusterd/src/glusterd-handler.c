@@ -6031,6 +6031,14 @@ glusterd_mark_bricks_stopped_by_proc (glusterd_brick_proc_t *brick_proc) {
                                 glusterd_set_brick_status (brickinfo_tmp,
                                                            GF_BRICK_STOPPED);
                                 brickinfo_tmp->start_triggered = _gf_false;
+                                /* When bricks are stopped, ports also need to
+                                 * be cleaned up
+                                 */
+                                pmap_registry_remove (THIS, brickinfo_tmp->port,
+                                                      brickinfo_tmp->path,
+                                                      GF_PMAP_PORT_BRICKSERVER,
+                                                      NULL, _gf_true);
+
                         }
                 }
         }
