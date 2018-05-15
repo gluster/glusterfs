@@ -29,9 +29,31 @@ typedef enum {
 
 #define EC_FLAG_LOCK_SHARED             0x0001
 
-#define EC_FLAG_WAITING_XATTROP         0x0001
-#define EC_FLAG_WAITING_DATA_DIRTY      0x0002
-#define EC_FLAG_WAITING_METADATA_DIRTY  0x0004
+enum _ec_xattrop_flags {
+        EC_FLAG_XATTROP,
+        EC_FLAG_DATA_DIRTY,
+        EC_FLAG_METADATA_DIRTY,
+
+        /* Add any new flag here, before EC_FLAG_MAX. The maximum number of
+         * flags that can be defined is 16. */
+
+        EC_FLAG_MAX
+};
+
+/* We keep two sets of flags. One to determine what's really providing the
+ * currect xattrop and the other to know what the parent fop of the xattrop
+ * needs to proceed. It might happen that a fop needs some information that
+ * is being already requested by a previous fop. The two sets are stored
+ * contiguously. */
+
+#define EC_FLAG_NEEDS(_flag) (1 << (_flag))
+#define EC_FLAG_PROVIDES(_flag) (1 << ((_flag) + EC_FLAG_MAX))
+
+#define EC_NEEDED_FLAGS(_flags) ((_flags) & ((1 << EC_FLAG_MAX) - 1))
+
+#define EC_PROVIDED_FLAGS(_flags) EC_NEEDED_FLAGS((_flags) >> EC_FLAG_MAX)
+
+#define EC_FLAGS_HAVE(_flags, _flag) (((_flags) & (1 << (_flag))) != 0)
 
 #define EC_SELFHEAL_BIT 62
 
