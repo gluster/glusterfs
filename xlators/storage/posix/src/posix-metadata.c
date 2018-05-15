@@ -358,7 +358,6 @@ posix_set_mdata_xattr (xlator_t *this, const char *real_path, int fd,
 
         GF_VALIDATE_OR_GOTO ("posix", this, out);
         GF_VALIDATE_OR_GOTO (this->name, inode, out);
-        GF_VALIDATE_OR_GOTO (this->name, inode->gfid, out);
 
         LOCK (&inode->lock);
         {
@@ -572,21 +571,28 @@ posix_set_ctime (call_frame_t *frame, xlator_t *this, const char* real_path,
 
         priv = this->private;
 
-        if (inode && priv->ctime) {
+        if (priv->ctime) {
                 (void) posix_get_mdata_flag (frame->root->flags, &flag);
+                if (frame->root->ctime.tv_sec == 0) {
+                        gf_msg (this->name, GF_LOG_WARNING, errno,
+                                P_MSG_SETMDATA_FAILED,
+                                "posix set mdata failed, No ctime : %s gfid:%s",
+                                real_path,
+                                inode ? uuid_utoa (inode->gfid) : "No inode");
+                        goto out;
+                }
+
                 ret = posix_set_mdata_xattr (this, real_path, fd, inode,
                                              &frame->root->ctime, stbuf, &flag);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, errno,
                                 P_MSG_SETMDATA_FAILED,
                                 "posix set mdata failed on file: %s gfid:%s",
-                                real_path, uuid_utoa (inode->gfid));
+                                real_path,
+                                inode ? uuid_utoa (inode->gfid) : "No inode");
                 }
-        } else {
-                gf_msg (this->name, GF_LOG_WARNING, errno,
-                        P_MSG_SETMDATA_FAILED,
-                        "posix set mdata failed on file");
         }
+ out:
         return;
 }
 
