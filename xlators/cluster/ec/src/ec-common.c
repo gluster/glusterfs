@@ -22,9 +22,6 @@
 #include "ec-messages.h"
 
 #define EC_INVALID_INDEX UINT32_MAX
-#define EC_XATTROP_ALL_WAITING_FLAGS (EC_FLAG_WAITING_XATTROP |\
-                                   EC_FLAG_WAITING_DATA_DIRTY |\
-                                   EC_FLAG_WAITING_METADATA_DIRTY)
 
 void
 ec_update_fd_status (fd_t *fd, xlator_t *xl, int idx,
@@ -161,6 +158,8 @@ ec_is_range_conflict (ec_lock_link_t *l1, ec_lock_link_t *l2)
 static gf_boolean_t
 ec_lock_conflict (ec_lock_link_t *l1, ec_lock_link_t *l2)
 {
+        ec_t *ec = l1->fop->xl->private;
+
         /* Fops like access/stat won't have to worry what the other fops are
          * modifying as the fop is wound only to one brick. So it can be
          * executed in parallel*/
@@ -171,6 +170,10 @@ ec_lock_conflict (ec_lock_link_t *l1, ec_lock_link_t *l2)
         if ((l1->fop->flags & EC_FLAG_LOCK_SHARED) &&
             (l2->fop->flags & EC_FLAG_LOCK_SHARED))
                 return _gf_false;
+
+        if (!ec->parallel_writes) {
+                return _gf_true;
+        }
 
         return ec_is_range_conflict (l1, l2);
 }
@@ -1130,7 +1133,7 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
     ec_lock_t *lock = NULL;
     ec_inode_t *ctx;
     gf_boolean_t release = _gf_false;
-    uint64_t waiting_flags = 0;
+    uint64_t provided_flags = 0;
     uint64_t dirty[EC_VERSION_SIZE] = {0, 0};
 
     lock = parent_link->lock;
@@ -1138,14 +1141,14 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
     ctx = lock->ctx;
 
     INIT_LIST_HEAD(&list);
-    waiting_flags = parent_link->waiting_flags & EC_XATTROP_ALL_WAITING_FLAGS;
+    provided_flags = EC_PROVIDED_FLAGS(parent_link->waiting_flags);
 
     LOCK(&lock->loc.inode->lock);
 
     list_for_each_entry(link, &lock->owners, owner_list) {
-        if ((link->waiting_flags & waiting_flags) != 0) {
-            link->waiting_flags ^= (link->waiting_flags & waiting_flags);
-            if ((link->waiting_flags & EC_XATTROP_ALL_WAITING_FLAGS) == 0)
+        if ((link->waiting_flags & provided_flags) != 0) {
+            link->waiting_flags ^= (link->waiting_flags & provided_flags);
+            if (EC_NEEDED_FLAGS(link->waiting_flags) == 0)
                     list_add_tail(&link->fop->cbk_list, &list);
         }
     }
@@ -1158,7 +1161,7 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
         goto unlock;
     }
 
-    if (waiting_flags & EC_FLAG_WAITING_XATTROP) {
+    if (EC_FLAGS_HAVE(provided_flags, EC_FLAG_XATTROP)) {
             op_errno = -ec_dict_del_array(dict, EC_XATTR_VERSION,
                                           ctx->pre_version,
                                           EC_VERSION_SIZE);
@@ -1219,20 +1222,20 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
 
     ec_set_dirty_flag (fop->data, ctx, dirty);
     if (dirty[EC_METADATA_TXN] &&
-        (waiting_flags & EC_FLAG_WAITING_METADATA_DIRTY)) {
+        (EC_FLAGS_HAVE(provided_flags, EC_FLAG_METADATA_DIRTY))) {
             GF_ASSERT (!ctx->dirty[EC_METADATA_TXN]);
             ctx->dirty[EC_METADATA_TXN] = 1;
     }
 
     if (dirty[EC_DATA_TXN] &&
-        (waiting_flags & EC_FLAG_WAITING_DATA_DIRTY)) {
+        (EC_FLAGS_HAVE(provided_flags, EC_FLAG_DATA_DIRTY))) {
             GF_ASSERT (!ctx->dirty[EC_DATA_TXN]);
             ctx->dirty[EC_DATA_TXN] = 1;
     }
     op_errno = 0;
 unlock:
 
-    lock->waiting_flags ^= waiting_flags;
+    lock->waiting_flags ^= provided_flags;
 
     if (op_errno == 0) {
         /* If the fop fails on any of the good bricks, it is important to mark
@@ -1279,6 +1282,24 @@ unlock:
     return 0;
 }
 
+static gf_boolean_t
+ec_set_needed_flag(ec_lock_t *lock, ec_lock_link_t *link, uint64_t flag)
+{
+        uint64_t current;
+
+        link->waiting_flags |= EC_FLAG_NEEDS(flag);
+
+        current = EC_NEEDED_FLAGS(lock->waiting_flags);
+        if (!EC_FLAGS_HAVE(current, flag)) {
+                lock->waiting_flags |= EC_FLAG_NEEDS(flag);
+                link->waiting_flags |= EC_FLAG_PROVIDES(flag);
+
+                return _gf_true;
+        }
+
+        return _gf_false;
+}
+
 static uint64_t
 ec_set_xattrop_flags_and_params (ec_lock_t *lock, ec_lock_link_t *link,
                                  uint64_t *dirty)
@@ -1287,31 +1308,25 @@ ec_set_xattrop_flags_and_params (ec_lock_t *lock, ec_lock_link_t *link,
         uint64_t        newflags = 0;
         ec_inode_t *ctx     = lock->ctx;
 
-        oldflags = lock->waiting_flags & EC_XATTROP_ALL_WAITING_FLAGS;
+        oldflags = EC_NEEDED_FLAGS(lock->waiting_flags);
 
         if (lock->query && !ctx->have_info) {
-                lock->waiting_flags |= EC_FLAG_WAITING_XATTROP;
-                link->waiting_flags |= EC_FLAG_WAITING_XATTROP;
+                ec_set_needed_flag(lock, link, EC_FLAG_XATTROP);
         }
 
         if (dirty[EC_DATA_TXN]) {
-                if (oldflags & EC_FLAG_WAITING_DATA_DIRTY) {
+                if (!ec_set_needed_flag(lock, link, EC_FLAG_DATA_DIRTY)) {
                         dirty[EC_DATA_TXN] = 0;
-                } else {
-                        lock->waiting_flags |= EC_FLAG_WAITING_DATA_DIRTY;
                 }
-                link->waiting_flags |= EC_FLAG_WAITING_DATA_DIRTY;
         }
 
         if (dirty[EC_METADATA_TXN]) {
-                if (oldflags & EC_FLAG_WAITING_METADATA_DIRTY) {
+                if (!ec_set_needed_flag(lock, link, EC_FLAG_METADATA_DIRTY)) {
                         dirty[EC_METADATA_TXN] = 0;
-                } else {
-                        lock->waiting_flags |= EC_FLAG_WAITING_METADATA_DIRTY;
                 }
-                link->waiting_flags |= EC_FLAG_WAITING_METADATA_DIRTY;
         }
-        newflags = lock->waiting_flags & EC_XATTROP_ALL_WAITING_FLAGS;
+        newflags = EC_NEEDED_FLAGS(lock->waiting_flags);
+
         return oldflags ^ newflags;
 }
 
@@ -1381,7 +1396,7 @@ void ec_get_size_version(ec_lock_link_t *link)
         goto out;
     }
 
-    if (changed_flags & EC_FLAG_WAITING_XATTROP) {
+    if (EC_FLAGS_HAVE(changed_flags, EC_FLAG_XATTROP)) {
             /* Once we know that an xattrop will be needed,
              * we try to get all available information in a
              * single call. */
@@ -1676,10 +1691,6 @@ static gf_boolean_t
 ec_link_has_lock_conflict (ec_lock_link_t *link, gf_boolean_t waitlist_check)
 {
         ec_lock_link_t *trav_link = NULL;
-        ec_t           *ec = link->fop->xl->private;
-
-        if (!ec->parallel_writes)
-                return _gf_true;
 
         list_for_each_entry (trav_link, &link->lock->owners, owner_list) {
                 if (ec_lock_conflict (trav_link, link))
