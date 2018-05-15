@@ -915,14 +915,16 @@ out:
 }
 
 int32_t
-posix_unlink_gfid_handle_and_entry (xlator_t *this, const char *real_path,
-                                    struct iatt *stbuf, int32_t *op_errno,
-                                    loc_t *loc, gf_boolean_t get_link_count,
+posix_unlink_gfid_handle_and_entry (call_frame_t *frame, xlator_t *this,
+                                    const char *real_path, struct iatt *stbuf,
+                                    int32_t *op_errno, loc_t *loc,
+                                    gf_boolean_t get_link_count,
                                     dict_t *rsp_dict)
 {
         int32_t                ret      = 0;
         struct iatt            prebuf   = {0,};
         gf_boolean_t           locked   = _gf_false;
+        gf_boolean_t           update_ctime = _gf_false;
 
         /*  Unlink the gfid_handle_first */
         if (stbuf && stbuf->ia_nlink == 1) {
@@ -943,6 +945,8 @@ posix_unlink_gfid_handle_and_entry (xlator_t *this, const char *real_path,
                                 "failed for path:%s with gfid %s",
                                 real_path, uuid_utoa (stbuf->ia_gfid));
                 }
+        } else {
+                update_ctime = _gf_true;
         }
 
         if (get_link_count) {
@@ -974,6 +978,10 @@ posix_unlink_gfid_handle_and_entry (xlator_t *this, const char *real_path,
         if (locked) {
                 UNLOCK (&loc->inode->lock);
                 locked = _gf_false;
+        }
+
+        if (update_ctime) {
+                posix_set_ctime (frame, this, NULL, -1, loc->inode, stbuf);
         }
 
         ret = dict_set_uint32 (rsp_dict, GET_LINK_COUNT, prebuf.ia_nlink);
@@ -1203,8 +1211,8 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
 
         if (xdata && dict_get (xdata, GET_LINK_COUNT))
                 get_link_count = _gf_true;
-        op_ret =  posix_unlink_gfid_handle_and_entry (this, real_path, &stbuf,
-                                                      &op_errno, loc,
+        op_ret =  posix_unlink_gfid_handle_and_entry (frame, this, real_path,
+                                                      &stbuf, &op_errno, loc,
                                                       get_link_count,
                                                       unwind_dict);
         if (op_ret == -1) {
@@ -1800,7 +1808,10 @@ unlock:
                 goto out;
         }
 
-        posix_set_ctime (frame, this, real_newpath, -1, newloc->inode, &stbuf);
+        /* Since the same inode is later used and dst inode is not present,
+         * update ctime on source inode. It can't use old path because it
+         * doesn't exist and xattr has to be stored on disk */
+        posix_set_ctime (frame, this, real_newpath, -1, oldloc->inode, &stbuf);
 
         op_ret = posix_pstat (this, oldloc->parent, oldloc->pargfid,
                               par_oldpath, &postoldparent, _gf_false);

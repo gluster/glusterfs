@@ -498,6 +498,8 @@ copy_frame (call_frame_t *frame)
         newstack->pid = oldstack->pid;
         newstack->op  = oldstack->op;
         newstack->type = oldstack->type;
+        newstack->ctime = oldstack->ctime;
+        newstack->flags = oldstack->flags;
 	if (call_stack_alloc_groups (newstack, oldstack->ngrps) != 0) {
 		mem_put (newstack);
 		return NULL;

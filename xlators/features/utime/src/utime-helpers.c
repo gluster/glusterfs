@@ -60,6 +60,7 @@ utime_update_attribute_flags(call_frame_t *frame, glusterfs_fop_t fop)
 
         case GF_FOP_UNLINK:
         case GF_FOP_RMDIR:
+                frame->root->flags |= MDATA_CTIME;
                 frame->root->flags |= MDATA_PAR_CTIME;
                 frame->root->flags |= MDATA_PAR_MTIME;
                 break;
