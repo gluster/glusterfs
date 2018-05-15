@@ -2508,6 +2508,17 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
                         if (op_errstr) {
                                 GF_FREE (op_errstr);
                         }
+                        if (is_brick_mx_enabled ()) {
+                                /* In case of brick multiplexing we need to make
+                                 * sure the port is cleaned up from here as the
+                                 * RPC connection may not have been originated
+                                 * for the same brick instance
+                                 */
+                                pmap_registry_remove (THIS, brickinfo->port,
+                                                      brickinfo->path,
+                                                      GF_PMAP_PORT_BRICKSERVER,
+                                                      NULL, _gf_true);
+                        }
                 }
 
                 (void) glusterd_brick_disconnect (brickinfo);

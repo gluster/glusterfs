@@ -6,7 +6,7 @@
 
 cleanup
 TESTS_EXPECTED_IN_LOOP=30
-SCRIPT_TIMEOUT=1000
+SCRIPT_TIMEOUT=1200
 
 TEST glusterd
 TEST pidof glusterd
