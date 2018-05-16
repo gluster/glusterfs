@@ -502,44 +502,53 @@ gf_proc_dump_dict_info (glusterfs_ctx_t *ctx)
 }
 
 static void
+gf_proc_dump_single_xlator_info (xlator_t *trav)
+{
+        glusterfs_ctx_t *ctx = trav->ctx;
+        char             itable_key[1024] = {0,};
+
+
+        if (trav->cleanup_starting)
+                return;
+
+        if (ctx->measure_latency)
+                gf_proc_dump_latency_info (trav);
+
+        gf_proc_dump_xlator_mem_info(trav);
+
+        if (GF_PROC_DUMP_IS_XL_OPTION_ENABLED (inode) &&
+            (trav->itable)) {
+                snprintf (itable_key, 1024, "%d.%s.itable",
+                          ctx->graph_id, trav->name);
+        }
+
+        if (!trav->dumpops) {
+                return;
+        }
+
+        if (trav->dumpops->priv &&
+            GF_PROC_DUMP_IS_XL_OPTION_ENABLED (priv))
+                trav->dumpops->priv (trav);
+
+        if (GF_PROC_DUMP_IS_XL_OPTION_ENABLED (inode) &&
+            (trav->dumpops->inode))
+                trav->dumpops->inode (trav);
+        if (trav->dumpops->fd &&
+            GF_PROC_DUMP_IS_XL_OPTION_ENABLED (fd))
+                trav->dumpops->fd (trav);
+
+        if (trav->dumpops->history &&
+            GF_PROC_DUMP_IS_XL_OPTION_ENABLED (history))
+                trav->dumpops->history (trav);
+}
+
+static void
 gf_proc_dump_per_xlator_info (xlator_t *top)
 {
         xlator_t        *trav = top;
-        glusterfs_ctx_t *ctx = top->ctx;
-        char             itable_key[1024] = {0,};
 
         while (trav && !trav->cleanup_starting) {
-                if (ctx->measure_latency)
-                        gf_proc_dump_latency_info (trav);
-
-                gf_proc_dump_xlator_mem_info(trav);
-
-                if (GF_PROC_DUMP_IS_XL_OPTION_ENABLED (inode) &&
-                    (trav->itable)) {
-                        snprintf (itable_key, 1024, "%d.%s.itable",
-                                  ctx->graph_id, trav->name);
-                }
-
-                if (!trav->dumpops) {
-                        trav = trav->next;
-                        continue;
-                }
-
-                if (trav->dumpops->priv &&
-                    GF_PROC_DUMP_IS_XL_OPTION_ENABLED (priv))
-                        trav->dumpops->priv (trav);
-
-                if (GF_PROC_DUMP_IS_XL_OPTION_ENABLED (inode) &&
-                    (trav->dumpops->inode))
-                        trav->dumpops->inode (trav);
-                if (trav->dumpops->fd &&
-                    GF_PROC_DUMP_IS_XL_OPTION_ENABLED (fd))
-                        trav->dumpops->fd (trav);
-
-                if (trav->dumpops->history &&
-                    GF_PROC_DUMP_IS_XL_OPTION_ENABLED (history))
-                        trav->dumpops->history (trav);
-
+                gf_proc_dump_single_xlator_info (trav);
                 trav = trav->next;
         }
 }
@@ -899,7 +908,7 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
 
         if (ctx->master) {
                 gf_proc_dump_add_section ("fuse");
-                gf_proc_dump_xlator_info (ctx->master, _gf_false);
+                gf_proc_dump_single_xlator_info (ctx->master);
         }
 
         if (ctx->active) {
