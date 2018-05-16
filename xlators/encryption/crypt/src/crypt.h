@@ -876,6 +876,19 @@ static inline mtd_op_t linkop_mtdop_dispatch(glusterfs_fop_t fop)
 	}
 }
 
+#define CRYPT_STACK_UNWIND(fop, frame, params ...)		\
+        do {                                                    \
+                crypt_local_t *__local = NULL;			\
+                if (frame) {                                    \
+                        __local = frame->local;                 \
+                        frame->local = NULL;                    \
+                }                                               \
+                STACK_UNWIND_STRICT (fop, frame, params);       \
+                if (__local) {                                  \
+                        GF_FREE (__local);			\
+                }                                               \
+        } while (0)
+
 #endif /* __CRYPT_H__ */
 
 /*
