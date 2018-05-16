@@ -446,15 +446,15 @@ static int32_t crypt_readv_finodelk_cbk(call_frame_t *frame,
 	fd_unref(local->fd);
 	if (local->xdata)
 		dict_unref(local->xdata);
-	STACK_UNWIND_STRICT(readv,
-			    frame,
-			    -1,
-			    op_errno,
-			    NULL,
-			    0,
-			    NULL,
-			    NULL,
-			    NULL);
+	CRYPT_STACK_UNWIND(readv,
+			   frame,
+			   -1,
+			   op_errno,
+			   NULL,
+			   0,
+			   NULL,
+			   NULL,
+			   NULL);
 	return 0;
 }
 
@@ -486,8 +486,8 @@ static int32_t readv_trivial_completion(call_frame_t *frame,
 		   NULL);
 	return 0;
  error:
-	STACK_UNWIND_STRICT(readv, frame, op_ret, op_errno,
-			    NULL, 0, NULL, NULL, NULL);
+	CRYPT_STACK_UNWIND(readv, frame, op_ret, op_errno,
+			   NULL, 0, NULL, NULL, NULL);
 	return 0;
 }
 
@@ -603,15 +603,15 @@ int32_t crypt_readv(call_frame_t *frame,
 		   NULL);
 	return 0;
  error:
-	STACK_UNWIND_STRICT(readv,
-			    frame,
-			    -1,
-			    ret,
-			    NULL,
-			    0,
-			    NULL,
-			    NULL,
-			    NULL);
+	CRYPT_STACK_UNWIND(readv,
+			   frame,
+			   -1,
+			   ret,
+			   NULL,
+			   0,
+			   NULL,
+			   NULL,
+			   NULL);
 	return 0;
 }
 
@@ -1196,7 +1196,7 @@ int crypt_writev(call_frame_t *frame,
 	if (local && local->info)
 		free_inode_info(local->info);
 
-	STACK_UNWIND_STRICT(writev, frame, -1, ret, NULL, NULL, NULL);
+	CRYPT_STACK_UNWIND(writev, frame, -1, ret, NULL, NULL, NULL);
 	return 0;
 }
 
@@ -1758,7 +1758,7 @@ static int32_t crypt_ftruncate(call_frame_t *frame,
 	if (local && local->info)
 		free_inode_info(local->info);
 
-	STACK_UNWIND_STRICT(ftruncate, frame, -1, ret, NULL, NULL, NULL);
+	CRYPT_STACK_UNWIND(ftruncate, frame, -1, ret, NULL, NULL, NULL);
 	return 0;
 }
 
@@ -1772,13 +1772,13 @@ int32_t truncate_end(call_frame_t *frame,
 {
 	crypt_local_t *local = frame->local;
 
-	STACK_UNWIND_STRICT(truncate,
-			    frame,
-			    op_ret,
-			    op_errno,
-			    &local->prebuf,
-			    &local->postbuf,
-			    local->xdata);
+	CRYPT_STACK_UNWIND(truncate,
+			   frame,
+			   op_ret,
+			   op_errno,
+			   &local->prebuf,
+			   &local->postbuf,
+			   local->xdata);
 	return 0;
 }
 
@@ -1822,10 +1822,10 @@ static int32_t truncate_begin(call_frame_t *frame,
 
 	if (op_ret < 0) {
 		fd_unref(fd);
-		STACK_UNWIND_STRICT(truncate,
-				    frame,
-				    op_ret,
-				    op_errno, NULL, NULL, NULL);
+		CRYPT_STACK_UNWIND(truncate,
+				   frame,
+				   op_ret,
+				   op_errno, NULL, NULL, NULL);
 		return 0;
 	} else {
 	        fd_bind (fd);
@@ -1884,7 +1884,7 @@ int32_t crypt_truncate(call_frame_t *frame,
 		   NULL);
 	return 0;
  error:
-	STACK_UNWIND_STRICT(truncate, frame, -1, EINVAL, NULL, NULL, NULL);
+	CRYPT_STACK_UNWIND(truncate, frame, -1, EINVAL, NULL, NULL, NULL);
 	return 0;
 }
 
@@ -2223,12 +2223,12 @@ static int32_t crypt_open(call_frame_t *frame,
 		   xdata);
 	return 0;
  error:
-	STACK_UNWIND_STRICT(open,
-			    frame,
-			    -1,
-			    ret,
-			    NULL,
-			    NULL);
+	CRYPT_STACK_UNWIND(open,
+			   frame,
+			   -1,
+			   ret,
+			   NULL,
+			   NULL);
 	return 0;
 }
 
@@ -2310,16 +2310,16 @@ static int32_t crypt_create_done(call_frame_t *frame,
 	}
  unwind:
 	free_format(local);
-	STACK_UNWIND_STRICT(create,
-			    frame,
-			    op_ret,
-			    op_errno,
-			    local_fd,
-			    local_inode,
-			    &local->buf,
-			    &local->prebuf,
-			    &local->postbuf,
-			    local_xdata);
+	CRYPT_STACK_UNWIND(create,
+			   frame,
+			   op_ret,
+			   op_errno,
+			   local_fd,
+			   local_inode,
+			   &local->buf,
+			   &local->prebuf,
+			   &local->postbuf,
+			   local_xdata);
 	fd_unref(local_fd);
 	inode_unref(local_inode);
 	if (local_xdata)
@@ -2365,16 +2365,16 @@ static int crypt_create_tail(call_frame_t *frame,
 	free_inode_info(local->info);
 	free_format(local);
 
-	STACK_UNWIND_STRICT(create,
-			    frame,
-			    op_ret,
-			    op_errno,
-			    local_fd,
-			    local_inode,
-			    &local->buf,
-			    &local->prebuf,
-			    &local->postbuf,
-			    local_xdata);
+	CRYPT_STACK_UNWIND(create,
+			   frame,
+			   op_ret,
+			   op_errno,
+			   local_fd,
+			   local_inode,
+			   &local->buf,
+			   &local->prebuf,
+			   &local->postbuf,
+			   local_xdata);
 
 	fd_unref(local_fd);
 	inode_unref(local_inode);
@@ -2413,16 +2413,16 @@ static int32_t crypt_create_finodelk_cbk(call_frame_t *frame,
 	if (local->xdata)
 		dict_unref(local->xdata);
 
-	STACK_UNWIND_STRICT(create,
-			    frame,
-			    op_ret,
-			    op_errno,
-			    NULL,
-			    NULL,
-			    NULL,
-			    NULL,
-			    NULL,
-			    NULL);
+	CRYPT_STACK_UNWIND(create,
+			   frame,
+			   op_ret,
+			   op_errno,
+			   NULL,
+			   NULL,
+			   NULL,
+			   NULL,
+			   NULL,
+			   NULL);
 	return 0;
 }
 
@@ -2476,12 +2476,12 @@ static int32_t crypt_create_cbk(call_frame_t *frame,
 	fd_unref(local->fd);
 	dict_unref(local->xattr);
 
-	STACK_UNWIND_STRICT(create,
-			    frame,
-			    op_ret,
-			    op_errno,
-			    NULL, NULL, NULL,
-			    NULL, NULL, NULL);
+	CRYPT_STACK_UNWIND(create,
+			   frame,
+			   op_ret,
+			   op_errno,
+			   NULL, NULL, NULL,
+			   NULL, NULL, NULL);
 	return 0;
 }
 
@@ -2598,12 +2598,12 @@ static int32_t crypt_create(call_frame_t *frame,
 	return 0;
  error:
 	gf_log("crypt", GF_LOG_WARNING, "can not create file");
-	STACK_UNWIND_STRICT(create,
-			    frame,
-			    -1,
-			    ret,
-			    NULL, NULL, NULL,
-			    NULL, NULL, NULL);
+	CRYPT_STACK_UNWIND(create,
+			   frame,
+			   -1,
+			   ret,
+			   NULL, NULL, NULL,
+			   NULL, NULL, NULL);
 	return 0;
 }
 
@@ -2735,15 +2735,15 @@ void link_unwind(call_frame_t *frame)
 	inode_t *inode;
 
 	if (!local) {
-		STACK_UNWIND_STRICT(link,
-				    frame,
-				    -1,
-				    ENOMEM,
-				    NULL,
-				    NULL,
-				    NULL,
-				    NULL,
-				    NULL);
+		CRYPT_STACK_UNWIND(link,
+				   frame,
+				   -1,
+				   ENOMEM,
+				   NULL,
+				   NULL,
+				   NULL,
+				   NULL,
+				   NULL);
 		return;
 	}
 	xdata = local->xdata;
@@ -2763,15 +2763,15 @@ void link_unwind(call_frame_t *frame)
 	if (local->format)
 		GF_FREE(local->format);
 
-	STACK_UNWIND_STRICT(link,
-			    frame,
-			    local->op_ret,
-			    local->op_errno,
-			    inode,
-			    &local->buf,
-			    &local->prebuf,
-			    &local->postbuf,
-			    xdata);
+	CRYPT_STACK_UNWIND(link,
+			   frame,
+			   local->op_ret,
+			   local->op_errno,
+			   inode,
+			   &local->buf,
+			   &local->prebuf,
+			   &local->postbuf,
+			   xdata);
 	if (xdata)
 		dict_unref(xdata);
 	if (xattr)
@@ -2838,13 +2838,13 @@ void unlink_unwind(call_frame_t *frame)
 	dict_t *xattr;
 
 	if (!local) {
-		STACK_UNWIND_STRICT(unlink,
-				    frame,
-				    -1,
-				    ENOMEM,
-				    NULL,
-				    NULL,
-				    NULL);
+		CRYPT_STACK_UNWIND(unlink,
+				   frame,
+				   -1,
+				   ENOMEM,
+				   NULL,
+				   NULL,
+				   NULL);
 		return;
 	}
 	xdata = local->xdata;
@@ -2858,13 +2858,13 @@ void unlink_unwind(call_frame_t *frame)
 	if (local->format)
 		GF_FREE(local->format);
 
-	STACK_UNWIND_STRICT(unlink,
-			    frame,
-			    local->op_ret,
-			    local->op_errno,
-			    &local->prebuf,
-			    &local->postbuf,
-			    xdata);
+	CRYPT_STACK_UNWIND(unlink,
+			   frame,
+			   local->op_ret,
+			   local->op_errno,
+			   &local->prebuf,
+			   &local->postbuf,
+			   xdata);
 	if (xdata)
 		dict_unref(xdata);
 	if (xattr)
@@ -2893,16 +2893,16 @@ void rename_unwind(call_frame_t *frame)
 	struct iatt *postnewparent;
 
 	if (!local) {
-		STACK_UNWIND_STRICT(rename,
-				    frame,
-				    -1,
-				    ENOMEM,
-				    NULL,
-				    NULL,
-				    NULL,
-				    NULL,
-				    NULL,
-				    NULL);
+		CRYPT_STACK_UNWIND(rename,
+				   frame,
+				   -1,
+				   ENOMEM,
+				   NULL,
+				   NULL,
+				   NULL,
+				   NULL,
+				   NULL,
+				   NULL);
 		return;
 	}
 	xdata = local->xdata;
@@ -2923,16 +2923,16 @@ void rename_unwind(call_frame_t *frame)
 	if (local->format)
 		GF_FREE(local->format);
 
-	STACK_UNWIND_STRICT(rename,
-			    frame,
-			    local->op_ret,
-			    local->op_errno,
-			    &local->buf,
-			    &local->prebuf,
-			    &local->postbuf,
-			    prenewparent,
-			    postnewparent,
-			    xdata);
+	CRYPT_STACK_UNWIND(rename,
+			   frame,
+			   local->op_ret,
+			   local->op_errno,
+			   &local->buf,
+			   &local->prebuf,
+			   &local->postbuf,
+			   prenewparent,
+			   postnewparent,
+			   xdata);
 	if (xdata)
 		dict_unref(xdata);
 	if (xattr)
@@ -3411,12 +3411,12 @@ static void put_one_call_open(call_frame_t *frame)
 		loc_t *loc = local->loc;
 		dict_t *xdata = local->xdata;
 
-		STACK_UNWIND_STRICT(open,
-				    frame,
-				    local->op_ret,
-				    local->op_errno,
-				    fd,
-				    xdata);
+		CRYPT_STACK_UNWIND(open,
+				   frame,
+				   local->op_ret,
+				   local->op_errno,
+				   fd,
+				   xdata);
 		fd_unref(fd);
 		if (xdata)
 			dict_unref(xdata);
@@ -3457,15 +3457,15 @@ static int32_t __crypt_readv_done(call_frame_t *frame,
 	       (int)(local->rw_count > 0 ? iov_length(avec, local->data_conf.acount) : 0),
 	       (unsigned long long)local->buf.ia_size);
 
-	STACK_UNWIND_STRICT(readv,
-			    frame,
-			    local->rw_count > 0 ? local->rw_count : local->op_ret,
-			    local->op_errno,
-			    avec,
-			    avec ? local->data_conf.acount : 0,
-			    &local->buf,
-			    local->iobref,
-			    local_xdata);
+	CRYPT_STACK_UNWIND(readv,
+			   frame,
+			   local->rw_count > 0 ? local->rw_count : local->op_ret,
+			   local->op_errno,
+			   avec,
+			   avec ? local->data_conf.acount : 0,
+			   &local->buf,
+			   local->iobref,
+			   local_xdata);
 
 	free_avec(avec, pool, blocks_in_pool);
 	fd_unref(local_fd);
@@ -3563,13 +3563,13 @@ static int32_t __crypt_writev_done(call_frame_t *frame,
 	gf_log("crypt", GF_LOG_DEBUG,
 	       "writev: ret_to_user: %d", ret_to_user);
 
-	STACK_UNWIND_STRICT(writev,
-			    frame,
-			    ret_to_user,
-			    local->op_errno,
-			    &local->prebuf,
-			    &local->postbuf,
-			    local_xdata);
+	CRYPT_STACK_UNWIND(writev,
+			   frame,
+			   ret_to_user,
+			   local->op_errno,
+			   &local->prebuf,
+			   &local->postbuf,
+			   local_xdata);
 	fd_unref(local_fd);
 	if (local_xdata)
 		dict_unref(local_xdata);
@@ -3680,13 +3680,13 @@ static int32_t __crypt_ftruncate_done(call_frame_t *frame,
 	       (unsigned long long)local->prebuf.ia_size,
 	       (unsigned long long)local->postbuf.ia_size);
 
-	STACK_UNWIND_STRICT(ftruncate,
-			    frame,
-			    ((local->op_ret < 0) ? -1 : 0),
-			    local->op_errno,
-			    &local->prebuf,
-			    &local->postbuf,
-			    local_xdata);
+	CRYPT_STACK_UNWIND(ftruncate,
+			   frame,
+			   ((local->op_ret < 0) ? -1 : 0),
+			   local->op_errno,
+			   &local->prebuf,
+			   &local->postbuf,
+			   local_xdata);
 	fd_unref(local_fd);
 	if (local_xdata)
 		dict_unref(local_xdata);
@@ -3809,41 +3809,41 @@ static int32_t load_file_size(call_frame_t *frame,
 	}
 	switch (local->fop) {
 	case GF_FOP_FSTAT:
-		STACK_UNWIND_STRICT(fstat,
-				    frame,
-				    op_ret,
-				    op_errno,
-				    op_ret >= 0 ? &local->buf : NULL,
-				    local->xdata);
+		CRYPT_STACK_UNWIND(fstat,
+				   frame,
+				   op_ret,
+				   op_errno,
+				   op_ret >= 0 ? &local->buf : NULL,
+				   local->xdata);
 		break;
 	case GF_FOP_STAT:
-		STACK_UNWIND_STRICT(stat,
-				    frame,
-				    op_ret,
-				    op_errno,
-				    op_ret >= 0 ? &local->buf : NULL,
-				    local->xdata);
+		CRYPT_STACK_UNWIND(stat,
+				   frame,
+				   op_ret,
+				   op_errno,
+				   op_ret >= 0 ? &local->buf : NULL,
+				   local->xdata);
 		break;
 	case GF_FOP_LOOKUP:
-		STACK_UNWIND_STRICT(lookup,
-				    frame,
-				    op_ret,
-				    op_errno,
-				    op_ret >= 0 ? local->inode : NULL,
-				    op_ret >= 0 ? &local->buf : NULL,
-				    local->xdata,
-				    op_ret >= 0 ? &local->postbuf : NULL);
+		CRYPT_STACK_UNWIND(lookup,
+				   frame,
+				   op_ret,
+				   op_errno,
+				   op_ret >= 0 ? local->inode : NULL,
+				   op_ret >= 0 ? &local->buf : NULL,
+				   local->xdata,
+				   op_ret >= 0 ? &local->postbuf : NULL);
 		break;
 	case GF_FOP_READ:
-		STACK_UNWIND_STRICT(readv,
-				    frame,
-				    op_ret,
-				    op_errno,
-				    NULL,
-				    0,
-				    op_ret >= 0 ? &local->buf : NULL,
-				    NULL,
-				    NULL);
+		CRYPT_STACK_UNWIND(readv,
+				   frame,
+				   op_ret,
+				   op_errno,
+				   NULL,
+				   0,
+				   op_ret >= 0 ? &local->buf : NULL,
+				   NULL,
+				   NULL);
 		break;
 	default:
 		gf_log(this->name, GF_LOG_WARNING,
@@ -3907,20 +3907,20 @@ static int32_t crypt_stat_common_cbk(call_frame_t *frame,
 	}
 	switch (local->fop) {
 	case GF_FOP_FSTAT:
-		STACK_UNWIND_STRICT(fstat,
-				    frame,
-				    op_ret,
-				    op_errno,
-				    op_ret >= 0 ? buf : NULL,
-				    op_ret >= 0 ? xdata : NULL);
+		CRYPT_STACK_UNWIND(fstat,
+				   frame,
+				   op_ret,
+				   op_errno,
+				   op_ret >= 0 ? buf : NULL,
+				   op_ret >= 0 ? xdata : NULL);
 		break;
 	case GF_FOP_STAT:
-		STACK_UNWIND_STRICT(stat,
-				    frame,
-				    op_ret,
-				    op_errno,
-				    op_ret >= 0 ? buf : NULL,
-				    op_ret >= 0 ? xdata : NULL);
+		CRYPT_STACK_UNWIND(stat,
+				   frame,
+				   op_ret,
+				   op_errno,
+				   op_ret >= 0 ? buf : NULL,
+				   op_ret >= 0 ? xdata : NULL);
 		break;
 	default:
 		gf_log (this->name, GF_LOG_WARNING,
@@ -3947,12 +3947,12 @@ static int32_t crypt_fstat(call_frame_t *frame,
 		   xdata);
 	return 0;
  error:
-	STACK_UNWIND_STRICT(fstat,
-			    frame,
-			    -1,
-			    ENOMEM,
-			    NULL,
-			    NULL);
+	CRYPT_STACK_UNWIND(fstat,
+			   frame,
+			   -1,
+			   ENOMEM,
+			   NULL,
+			   NULL);
 	return 0;
 }
 
@@ -3983,12 +3983,12 @@ static int32_t crypt_stat(call_frame_t *frame,
 		   xdata);
 	return 0;
  error:
-	STACK_UNWIND_STRICT(stat,
-			    frame,
-			    -1,
-			    ENOMEM,
-			    NULL,
-			    NULL);
+	CRYPT_STACK_UNWIND(stat,
+			   frame,
+			   -1,
+			   ENOMEM,
+			   NULL,
+			   NULL);
 	return 0;
 }
 
@@ -4026,14 +4026,14 @@ static int32_t crypt_lookup_cbk(call_frame_t *frame,
  unwind:
 	loc_wipe(local->loc);
 	GF_FREE(local->loc);
-	STACK_UNWIND_STRICT(lookup,
-			    frame,
-			    op_ret,
-			    op_errno,
-			    inode,
-			    buf,
-			    xdata,
-			    postparent);
+	CRYPT_STACK_UNWIND(lookup,
+			   frame,
+			   op_ret,
+			   op_errno,
+			   inode,
+			   buf,
+			   xdata,
+			   postparent);
 	return 0;
 }
 
@@ -4065,14 +4065,14 @@ static int32_t crypt_lookup(call_frame_t *frame,
 		   xdata);
 	return 0;
  error:
-	STACK_UNWIND_STRICT(lookup,
-			    frame,
-			    -1,
-			    ENOMEM,
-			    NULL,
-			    NULL,
-			    NULL,
-			    NULL);
+	CRYPT_STACK_UNWIND(lookup,
+			   frame,
+			   -1,
+			   ENOMEM,
+			   NULL,
+			   NULL,
+			   NULL,
+			   NULL);
 	return 0;
 }
 
@@ -4108,7 +4108,7 @@ static int32_t crypt_readdirp_cbk(call_frame_t *frame,
 		entry->d_stat.ia_size = data_to_uint64(data);
 	}
  unwind:
-	STACK_UNWIND_STRICT(readdirp, frame, op_ret, op_errno, entries, xdata);
+	CRYPT_STACK_UNWIND(readdirp, frame, op_ret, op_errno, entries, xdata);
 	return 0;
 }
 
@@ -4149,7 +4149,7 @@ static int32_t crypt_readdirp(call_frame_t *frame, xlator_t *this,
 	dict_unref(xdata);
 	return 0;
  error:
-	STACK_UNWIND_STRICT(readdirp, frame, -1, ret, NULL, NULL);
+	CRYPT_STACK_UNWIND(readdirp, frame, -1, ret, NULL, NULL);
 	return 0;
 }
 
@@ -4160,7 +4160,7 @@ static int32_t crypt_access(call_frame_t *frame,
 {
 	gf_log(this->name, GF_LOG_WARNING,
 	       "NFS mounts of encrypted volumes are unsupported");
-	STACK_UNWIND_STRICT(access, frame, -1, EPERM, NULL);
+	CRYPT_STACK_UNWIND(access, frame, -1, EPERM, NULL);
 	return 0;
 }
 
