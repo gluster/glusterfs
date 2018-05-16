@@ -78,7 +78,7 @@ dht_open2 (xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
                 goto out;
 
         local = frame->local;
-        op_errno = ENOENT;
+        op_errno = local->op_errno;
 
         if (we_are_not_migrating (ret)) {
                 /* This DHT layer is not migrating the file */
