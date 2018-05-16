@@ -526,7 +526,7 @@ rda_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                  * Retrieve list of keys set by md-cache xlator and store it
                  * in local to be consumed in rda_opendir_cbk
                  */
-                local->xattrs = dict_ref (xdata);
+                local->xattrs = dict_copy_with_ref (xdata, NULL);
                 frame->local = local;
         }
 
