@@ -935,10 +935,20 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
         case RPC_TRANSPORT_DISCONNECT:
         {
                 rpc_clnt_handle_disconnect (clnt, conn);
-                /* reset auth_type to use v2 (if its not auth-null), it
-                   would be set to appropriate type in handshake again */
-                if (clnt->auth_value)
-                        clnt->auth_value = AUTH_GLUSTERFS_v2;
+                /* The auth_value was being reset to AUTH_GLUSTERFS_v2.
+                 *    if (clnt->auth_value)
+                 *           clnt->auth_value = AUTH_GLUSTERFS_v2;
+                 * It should not be reset here. The disconnect during
+                 * portmap request can race with handshake. If handshake
+                 * happens first and disconnect later, auth_value would set
+                 * to default value and it never sets back to actual auth_value
+                 * supported by server. But it's important to set to lower
+                 * version supported in the case where the server downgrades.
+                 * So moving this code to RPC_TRANSPORT_CONNECT. Note that
+                 * CONNECT cannot race with handshake as by nature it is
+                 * serialized with handhake. An handshake can happen only
+                 * on a connected transport and hence its strictly serialized.
+                 */
                 break;
         }
 
@@ -999,6 +1009,12 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
                  * for just one successful attempt */
                 conn->config.remote_port = 0;
 
+                /* auth value should be set to lower version available
+                 * and will be set to appropriate version supported by
+                 * server after the handshake.
+                 */
+                if (clnt->auth_value)
+                        clnt->auth_value = AUTH_GLUSTERFS_v2;
                 if (clnt->notifyfn)
                         ret = clnt->notifyfn (clnt, clnt->mydata,
                                               RPC_CLNT_CONNECT, NULL);
@@ -1952,10 +1968,20 @@ rpc_clnt_disable (struct rpc_clnt *rpc)
 
         if (trans) {
                 rpc_transport_disconnect (trans, _gf_true);
-                /* reset auth_type to use v2 (if its not auth-null), it
-                   would be set to appropriate type in handshake again */
-                if (rpc->auth_value)
-                        rpc->auth_value = AUTH_GLUSTERFS_v2;
+                /* The auth_value was being reset to AUTH_GLUSTERFS_v2.
+                 *    if (clnt->auth_value)
+                 *           clnt->auth_value = AUTH_GLUSTERFS_v2;
+                 * It should not be reset here. The disconnect during
+                 * portmap request can race with handshake. If handshake
+                 * happens first and disconnect later, auth_value would set
+                 * to default value and it never sets back to actual auth_value
+                 * supported by server. But it's important to set to lower
+                 * version supported in the case where the server downgrades.
+                 * So moving this code to RPC_TRANSPORT_CONNECT. Note that
+                 * CONNECT cannot race with handshake as by nature it is
+                 * serialized with handhake. An handshake can happen only
+                 * on a connected transport and hence its strictly serialized.
+                 */
         }
 
         if (unref)
@@ -2015,10 +2041,20 @@ rpc_clnt_disconnect (struct rpc_clnt *rpc)
 
         if (trans) {
                 rpc_transport_disconnect (trans, _gf_true);
-                /* reset auth_type to use v2 (if its not auth-null), it
-                   would be set to appropriate type in handshake again */
-                if (rpc->auth_value)
-                        rpc->auth_value = AUTH_GLUSTERFS_v2;
+                /* The auth_value was being reset to AUTH_GLUSTERFS_v2.
+                 *    if (clnt->auth_value)
+                 *           clnt->auth_value = AUTH_GLUSTERFS_v2;
+                 * It should not be reset here. The disconnect during
+                 * portmap request can race with handshake. If handshake
+                 * happens first and disconnect later, auth_value would set
+                 * to default value and it never sets back to actual auth_value
+                 * supported by server. But it's important to set to lower
+                 * version supported in the case where the server downgrades.
+                 * So moving this code to RPC_TRANSPORT_CONNECT. Note that
+                 * CONNECT cannot race with handshake as by nature it is
+                 * serialized with handhake. An handshake can happen only
+                 * on a connected transport and hence its strictly serialized.
+                 */
         }
         if (unref)
                 rpc_clnt_unref (rpc);
