@@ -120,7 +120,7 @@ afr_open_continue (call_frame_t *frame, xlator_t *this, int err)
         priv   = this->private;
 
         if (err) {
-                AFR_STACK_UNWIND (open, frame, -1, -err, NULL, NULL);
+                AFR_STACK_UNWIND (open, frame, -1, err, NULL, NULL);
         } else {
                 local->call_count = AFR_COUNT (local->child_up,
                                                priv->child_count);
