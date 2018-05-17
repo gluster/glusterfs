@@ -1176,7 +1176,7 @@ afr_inode_refresh_err (call_frame_t *frame, xlator_t *this)
 
 	err = afr_final_errno (local, priv);
 ret:
-	return -err;
+	return err;
 }
 
 gf_boolean_t
@@ -1226,31 +1226,31 @@ afr_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
         if (ret == -EIO || (local->is_read_txn && !event_generation)) {
                 /* No readable subvolume even after refresh ==> splitbrain.*/
                 if (!priv->fav_child_policy) {
-                        err = -EIO;
+                        err = EIO;
                         goto refresh_done;
                 }
                 read_subvol = afr_sh_get_fav_by_policy (this, local->replies,
                                                         inode, NULL);
                 if (read_subvol == -1) {
-                        err = -EIO;
+                        err = EIO;
                         goto refresh_done;
                 }
 
                 heal_frame = copy_frame (frame);
                 if (!heal_frame) {
-                        err = -EIO;
+                        err = EIO;
                         goto refresh_done;
                 }
                 heal_frame->root->pid = GF_CLIENT_PID_SELF_HEALD;
                 heal_local = AFR_FRAME_INIT (heal_frame, op_errno);
                 if (!heal_local) {
-                        err = -EIO;
+                        err = EIO;
                         AFR_STACK_DESTROY (heal_frame);
                         goto refresh_done;
                 }
                 heal_local->xdata_req = dict_new();
                 if (!heal_local->xdata_req) {
-                        err = -EIO;
+                        err = EIO;
                         AFR_STACK_DESTROY (heal_frame);
                         goto refresh_done;
                 }
@@ -1270,28 +1270,48 @@ refresh_done:
         return 0;
 }
 
+static void
+afr_fill_success_replies (afr_local_t *local, afr_private_t *priv,
+                          unsigned char *replies)
+{
+        int i = 0;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (local->replies[i].valid && local->replies[i].op_ret == 0)
+                        replies[i] = 1;
+        }
+}
+
 int
 afr_inode_refresh_done (call_frame_t *frame, xlator_t *this, int error)
 {
 	call_frame_t *heal_frame = NULL;
 	afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
         gf_boolean_t start_heal = _gf_false;
         afr_local_t *heal_local = NULL;
+        unsigned char *success_replies = NULL;
         int op_errno = ENOMEM;
 	int ret = 0;
-	int err = 0;
 
 	if (error != 0) {
-		err = error;
 		goto refresh_done;
 	}
 
 	local = frame->local;
+        priv = this->private;
+        success_replies = alloca0 (priv->child_count);
+        afr_fill_success_replies (local, priv, success_replies);
+
+        if (!afr_has_quorum (success_replies, this)) {
+                error = afr_final_errno (frame->local, this->private);
+                if (!error)
+                        error = afr_quorum_errno(priv);
+                goto refresh_done;
+        }
 
 	ret = afr_replies_interpret (frame, this, local->refreshinode,
                                      &start_heal);
-
-	err = afr_inode_refresh_err (frame, this);
 
 	if (ret && afr_selfheal_enabled (this) && start_heal) {
                 heal_frame = copy_frame (frame);
@@ -1312,7 +1332,7 @@ afr_inode_refresh_done (call_frame_t *frame, xlator_t *this, int error)
         }
 
 refresh_done:
-        afr_txn_refresh_done (frame, this, err);
+        afr_txn_refresh_done (frame, this, error);
 
 	return 0;
 }
@@ -1326,7 +1346,7 @@ afr_inode_refresh_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int call_child = (long) cookie;
         int8_t need_heal = 1;
         int call_count = 0;
-        GF_UNUSED int ret = 0;
+        int ret = 0;
 
         local = frame->local;
         local->replies[call_child].valid = 1;
@@ -1349,7 +1369,8 @@ afr_inode_refresh_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_count = afr_frame_return (frame);
         if (call_count == 0) {
                 afr_set_need_heal (this, local);
-		afr_inode_refresh_done (frame, this, 0);
+                ret = afr_inode_refresh_err (frame, this);
+		afr_inode_refresh_done (frame, this, ret);
         }
 
 }
@@ -2359,9 +2380,7 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 	local->op_errno = op_errno;
 
 	read_subvol = -1;
-        for (i = 0; i < priv->child_count; i++)
-                if (replies[i].valid && replies[i].op_ret == 0)
-                        success_replies[i] = 1;
+        afr_fill_success_replies (local, priv, success_replies);
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (!replies[i].valid)
@@ -2906,7 +2925,6 @@ afr_discover_unwind (call_frame_t *frame, xlator_t *this)
 {
         afr_private_t       *priv  = NULL;
         afr_local_t         *local = NULL;
-	int                 i = -1;
 	int                 op_errno = 0;
 	int                 read_subvol = -1;
         unsigned char *data_readable = NULL;
@@ -2917,14 +2935,9 @@ afr_discover_unwind (call_frame_t *frame, xlator_t *this)
         data_readable = alloca0 (priv->child_count);
         success_replies = alloca0 (priv->child_count);
 
-	for (i = 0; i < priv->child_count; i++) {
-		if (!local->replies[i].valid)
-			continue;
-		if (local->replies[i].op_ret == 0) {
-                        success_replies[i] = 1;
-			local->op_ret = 0;
-                }
-	}
+        afr_fill_success_replies (local, priv, success_replies);
+        if (AFR_COUNT (success_replies, priv->child_count) > 0)
+                local->op_ret = 0;
 
 	op_errno = afr_final_errno (frame->local, this->private);
 
@@ -3101,7 +3114,7 @@ afr_discover_do (call_frame_t *frame, xlator_t *this, int err)
 	priv = this->private;
 
 	if (err) {
-		local->op_errno = -err;
+		local->op_errno = err;
 		goto out;
 	}
 
@@ -3214,7 +3227,7 @@ afr_lookup_do (call_frame_t *frame, xlator_t *this, int err)
 	priv = this->private;
 
 	if (err < 0) {
-		local->op_errno = -err;
+		local->op_errno = err;
 		ret = -1;
 		goto out;
 	}
