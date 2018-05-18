@@ -1231,51 +1231,6 @@ pub_glfs_readv_async (struct glfs_fd *glfd, const struct iovec *iov, int count,
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_readv_async, future);
 
-
-static int
-glfs_buf_copy (xlator_t *subvol, const struct iovec *iovec_src, int iovcnt,
-               struct iobref **iobref, struct iobuf **iobuf,
-               struct iovec *iov_dst)
-{
-        size_t         size = -1;
-        int            ret  = 0;
-
-        size = iov_length (iovec_src, iovcnt);
-
-        *iobuf = iobuf_get2 (subvol->ctx->iobuf_pool, size);
-        if (!(*iobuf)) {
-                ret = -1;
-                errno = ENOMEM;
-                goto out;
-        }
-
-        *iobref = iobref_new ();
-        if (!(*iobref)) {
-                iobuf_unref (*iobuf);
-                errno = ENOMEM;
-                ret = -1;
-                goto out;
-        }
-
-        ret = iobref_add (*iobref, *iobuf);
-        if (ret) {
-                iobuf_unref (*iobuf);
-                iobref_unref (*iobref);
-                errno = ENOMEM;
-                ret = -1;
-                goto out;
-        }
-
-        iov_unload (iobuf_ptr (*iobuf), iovec_src, iovcnt);  /* FIXME!!! */
-
-        iov_dst->iov_base = iobuf_ptr (*iobuf);
-        iov_dst->iov_len = size;
-
-out:
-        return ret;
-}
-
-
 static ssize_t
 glfs_pwritev_common (struct glfs_fd *glfd, const struct iovec *iovec,
                      int iovcnt, off_t offset, int flags,
@@ -1309,7 +1264,8 @@ glfs_pwritev_common (struct glfs_fd *glfd, const struct iovec *iovec,
 		goto out;
 	}
 
-        ret = glfs_buf_copy (subvol, iovec, iovcnt, &iobref, &iobuf, &iov);
+        ret = iobuf_copy (subvol->ctx->iobuf_pool, iovec, iovcnt, &iobref,
+                          &iobuf, &iov);
         if (ret)
                 goto out;
 
@@ -1499,7 +1455,8 @@ glfs_pwritev_async_common (struct glfs_fd *glfd, const struct iovec *iovec,
                 goto out;
         }
 
-        ret = glfs_buf_copy (subvol, iovec, count, &iobref, &iobuf, gio->iov);
+        ret = iobuf_copy (subvol->ctx->iobuf_pool, iovec, count, &iobref,
+                          &iobuf, gio->iov);
         if (ret)
                 goto out;
 

@@ -45,6 +45,8 @@ void trap (void);
 #include "uuid.h"
 #include "libglusterfs-messages.h"
 #include "protocol-common.h"
+#include "iobuf.h"
+
 
 #define STRINGIFY(val) #val
 #define TOSTRING(val) STRINGIFY(val)

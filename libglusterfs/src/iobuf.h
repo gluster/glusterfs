@@ -173,4 +173,10 @@ iobuf_get2 (struct iobuf_pool *iobuf_pool, size_t page_size);
 struct iobuf *
 iobuf_get_page_aligned (struct iobuf_pool *iobuf_pool, size_t page_size,
                         size_t align_size);
+
+int
+iobuf_copy (struct iobuf_pool *iobuf_pool, const struct iovec *iovec_src,
+            int iovcnt, struct iobref **iobref, struct iobuf **iobuf,
+            struct iovec *iov_dst);
+
 #endif /* !_IOBUF_H_ */

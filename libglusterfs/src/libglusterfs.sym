@@ -816,6 +816,7 @@ iobuf_pool_new
 iobuf_size
 iobuf_to_iovec
 iobuf_unref
+iobuf_copy
 is_data_equal
 __is_fuse_call
 is_gf_log_command
