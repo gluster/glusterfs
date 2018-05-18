@@ -1217,3 +1217,46 @@ iobuf_to_iovec(struct iobuf *iob, struct iovec *iov)
 out:
         return;
 }
+
+int
+iobuf_copy (struct iobuf_pool *iobuf_pool, const struct iovec *iovec_src,
+            int iovcnt, struct iobref **iobref, struct iobuf **iobuf,
+            struct iovec *iov_dst)
+{
+        size_t         size = -1;
+        int            ret  = 0;
+
+        size = iov_length (iovec_src, iovcnt);
+
+        *iobuf = iobuf_get2 (iobuf_pool, size);
+        if (!(*iobuf)) {
+                ret = -1;
+                errno = ENOMEM;
+                goto out;
+        }
+
+        *iobref = iobref_new ();
+        if (!(*iobref)) {
+                iobuf_unref (*iobuf);
+                errno = ENOMEM;
+                ret = -1;
+                goto out;
+        }
+
+        ret = iobref_add (*iobref, *iobuf);
+        if (ret) {
+                iobuf_unref (*iobuf);
+                iobref_unref (*iobref);
+                errno = ENOMEM;
+                ret = -1;
+                goto out;
+        }
+
+        iov_unload (iobuf_ptr (*iobuf), iovec_src, iovcnt);
+
+        iov_dst->iov_base = iobuf_ptr (*iobuf);
+        iov_dst->iov_len = size;
+
+out:
+        return ret;
+}
