@@ -167,6 +167,34 @@ afr_changelog_has_quorum (afr_local_t *local, xlator_t *this)
         return _gf_false;
 }
 
+
+gf_boolean_t
+afr_is_write_subvol_valid (call_frame_t *frame, xlator_t *this)
+{
+        int i = 0;
+        afr_local_t *local = NULL;
+        afr_private_t *priv  = NULL;
+        uint64_t write_subvol = 0;
+        unsigned char *writable = NULL;
+        uint16_t datamap = 0;
+
+        local = frame->local;
+        priv = this->private;
+        writable = alloca0 (priv->child_count);
+
+        write_subvol = afr_write_subvol_get (frame, this);
+        datamap = (write_subvol & 0x00000000ffff0000) >> 16;
+        for (i = 0; i < priv->child_count; i++) {
+                if (datamap & (1 << i))
+                        writable[i] = 1;
+
+                if (writable[i] && !local->transaction.failed_subvols[i])
+                        return _gf_true;
+        }
+
+        return _gf_false;
+}
+
 int
 afr_transaction_fop (call_frame_t *frame, xlator_t *this)
 {
@@ -189,6 +217,16 @@ afr_transaction_fop (call_frame_t *frame, xlator_t *this)
                 afr_transaction_resume (frame, this);
                 return 0;
         }
+
+        /* Fail if at least one writeable brick isn't up.*/
+        if (local->transaction.type == AFR_DATA_TRANSACTION &&
+            !afr_is_write_subvol_valid (frame, this)) {
+                local->op_ret = -1;
+                local->op_errno = EIO;
+                afr_transaction_resume (frame, this);
+                return 0;
+        }
+
         local->call_count = call_count;
         for (i = 0; i < priv->child_count; i++) {
                 if (local->transaction.pre_op[i] && !failed_subvols[i]) {
