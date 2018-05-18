@@ -1218,6 +1218,9 @@ afr_is_symmetric_error (call_frame_t *frame, xlator_t *this);
 int
 __afr_inode_ctx_get (xlator_t *this, inode_t *inode, afr_inode_ctx_t **ctx);
 
+uint64_t
+afr_write_subvol_get (call_frame_t *frame, xlator_t *this);
+
 int
 afr_write_subvol_set (call_frame_t *frame, xlator_t *this);
 

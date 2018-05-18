@@ -18,6 +18,10 @@ function size_increased {
         fi
 }
 
+function has_write_failed {
+        local pid=$1
+        if [ -d /proc/$pid ]; then echo "N"; else echo "Y"; fi
+}
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 3 $H0:$B0/${V0}{0,1,2}
@@ -67,8 +71,10 @@ sleep 3
 # Now kill the second brick
 kill_brick $V0 $H0 $B0/${V0}2
 
-# At this point the write should have been failed. But make sure that the second
-# brick is never an accused.
+# At this point the write should have been failed.
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "Y" has_write_failed $dd_pid
+
+# Also make sure that the second brick is never an accused.
 
 md5sum_2=$(md5sum $B0/${V0}2/file1 | awk '{print $1}')
 

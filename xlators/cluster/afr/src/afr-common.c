@@ -6631,6 +6631,20 @@ out:
         return ret;
 }
 
+uint64_t
+afr_write_subvol_get (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t *local = NULL;
+        uint64_t write_subvol = 0;
+
+        local = frame->local;
+        LOCK(&local->inode->lock);
+                write_subvol = local->inode_ctx->write_subvol;
+        UNLOCK (&local->inode->lock);
+
+        return write_subvol;
+}
+
 int
 afr_write_subvol_set (call_frame_t *frame, xlator_t *this)
 {
