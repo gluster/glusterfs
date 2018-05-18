@@ -850,7 +850,7 @@ gf_client_dump_inodes_to_dict (xlator_t *this, dict_t *dict)
         if (!clienttable)
                 return -1;
 
-        ret = TRY_LOCK (&clienttable->lock);
+        ret = LOCK (&clienttable->lock);
         {
                 if (ret) {
                         gf_msg ("client_t", GF_LOG_WARNING, 0,
