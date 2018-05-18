@@ -280,7 +280,12 @@ changelog_rpc_server_destroy (xlator_t *this, rpcsvc_t *rpc, char *sockfile,
                 rpc->rxpool = NULL;
         }
 
-        GF_FREE (rpc);
+        /* TODO Avoid freeing rpc object in case of brick multiplex
+           after freeing rpc object svc->rpclock corrupted and it takes
+           more time to detach a brick
+        */
+        if (!this->cleanup_starting)
+                GF_FREE (rpc);
 }
 
 rpcsvc_t *

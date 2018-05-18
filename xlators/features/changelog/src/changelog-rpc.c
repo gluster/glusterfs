@@ -157,6 +157,9 @@ void
 changelog_destroy_rpc_listner (xlator_t *this, changelog_priv_t *priv)
 {
         char sockfile[UNIX_PATH_MAX] = {0,};
+        changelog_clnt_t     *c_clnt  = &priv->connections;
+        changelog_rpc_clnt_t *crpc = NULL;
+        int                   nofconn = 0;
 
         /* sockfile path could have been saved to avoid this */
         CHANGELOG_MAKE_SOCKET_PATH (priv->changelog_brick,
@@ -165,6 +168,36 @@ changelog_destroy_rpc_listner (xlator_t *this, changelog_priv_t *priv)
                                       priv->rpc, sockfile,
                                       changelog_rpcsvc_notify,
                                       changelog_programs);
+
+        /* TODO Below approach is not perfect to wait for cleanup
+           all active connections without this code brick process
+           can be crash in case of brick multiplexing if any in-progress
+           request process on rpc by changelog xlator after
+           cleanup resources
+        */
+
+        if (c_clnt) {
+                do {
+                        nofconn = 0;
+                        LOCK (&c_clnt->active_lock);
+                                list_for_each_entry (crpc, &c_clnt->active, list) {
+                                          nofconn++;
+                                }
+                        UNLOCK (&c_clnt->active_lock);
+                        LOCK (&c_clnt->wait_lock);
+                                list_for_each_entry (crpc, &c_clnt->waitq, list) {
+                                          nofconn++;
+                                }
+                        UNLOCK (&c_clnt->wait_lock);
+                        pthread_mutex_lock (&c_clnt->pending_lock);
+                                list_for_each_entry (crpc, &c_clnt->pending, list) {
+                                          nofconn++;
+                                }
+                        pthread_mutex_unlock (&c_clnt->pending_lock);
+
+                } while (nofconn);  /* Wait for all connection cleanup */
+        }
+
         (void) changelog_cleanup_rpc_threads (this, priv);
 }
 
