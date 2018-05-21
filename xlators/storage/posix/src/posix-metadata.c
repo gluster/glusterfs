@@ -498,6 +498,15 @@ posix_update_utime_in_mdata (xlator_t *this, const char *real_path, int fd,
                         flag.ctime = 0;
                         flag.mtime = 0;
                         flag.atime = 1;
+                        ret = posix_set_mdata_xattr (this, real_path, -1, inode, &tv, NULL,
+                                                     &flag);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_WARNING, errno,
+                                        P_MSG_SETMDATA_FAILED,
+                                        "posix set mdata atime failed on file:"
+                                        " %s gfid:%s",
+                                        real_path, uuid_utoa (inode->gfid));
+                        }
                 }
 
                 if ((valid & GF_SET_ATTR_MTIME) == GF_SET_ATTR_MTIME) {
@@ -507,16 +516,18 @@ posix_update_utime_in_mdata (xlator_t *this, const char *real_path, int fd,
                         flag.ctime = 1;
                         flag.mtime = 1;
                         flag.atime = 0;
+
+                        ret = posix_set_mdata_xattr (this, real_path, -1, inode, &tv, NULL,
+                                                     &flag);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_WARNING, errno,
+                                        P_MSG_SETMDATA_FAILED,
+                                        "posix set mdata mtime failed on file:"
+                                        " %s gfid:%s",
+                                        real_path, uuid_utoa (inode->gfid));
+                        }
                 }
 
-                ret = posix_set_mdata_xattr (this, real_path, -1, inode, &tv, NULL,
-                                             &flag);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_WARNING, errno,
-                                P_MSG_SETMDATA_FAILED,
-                                "posix set mdata failed on file: %s gfid:%s",
-                                real_path, uuid_utoa (inode->gfid));
-                }
         } else {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
                         P_MSG_SETMDATA_FAILED,
