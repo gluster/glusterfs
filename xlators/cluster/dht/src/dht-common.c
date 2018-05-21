@@ -855,7 +855,7 @@ dht_common_mark_mdsxattr (call_frame_t *frame, int *errst, int mark_during_fresh
            and wind a setxattr call on hashed subvol to update
            internal xattr
         */
-        if (!dict_get (local->xattr, conf->mds_xattr_key)) {
+        if (!local->xattr || !dict_get (local->xattr, conf->mds_xattr_key)) {
                 /* It means no internal MDS xattr has been set yet
                 */
                 /* Check the status of all subvol are up while call
