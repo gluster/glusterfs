@@ -513,8 +513,10 @@ glusterd_urltransform (runner_t *runner, char ***linearrp)
                 }
 
                 if (fgets (line, 1024, runner_chio (runner, STDOUT_FILENO)) ==
-                    NULL)
+                    NULL) {
+                        GF_FREE (line);
                         break;
+                }
 
                 len = strlen (line);
                 if (len == 0 || line[len - 1] != '\n') {
@@ -639,7 +641,7 @@ glusterd_get_slave (glusterd_volinfo_t *vol, const char *slaveurl, char **slavek
                 if (strcmp (linearr[i], linearr[n - 1]) == 0)
                         break;
         }
-        glusterd_urltransform_free (linearr, i);
+        glusterd_urltransform_free (linearr, n);
 
         if (i < n - 1)
                 *slavekey = dict_get_by_index (vol->gsync_slaves, i);
@@ -5878,6 +5880,8 @@ glusterd_get_slave_info (char *slave,
         }
 
 out:
+        if (linearr)
+                glusterd_urltransform_free (linearr, 1);
         gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }
