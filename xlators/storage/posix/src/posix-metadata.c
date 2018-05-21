@@ -59,10 +59,9 @@ posix_mdata_from_disk (posix_mdata_t *out, posix_mdata_disk_t *in)
 /* posix_fetch_mdata_xattr fetches the posix_mdata_t from disk */
 static int
 posix_fetch_mdata_xattr (xlator_t *this, const char *real_path_arg, int _fd,
-                         inode_t *inode, posix_mdata_t *metadata)
+                         inode_t *inode, posix_mdata_t *metadata, int *op_errno)
 {
         size_t               size            = -1;
-        int                  op_errno        = 0;
         int                  op_ret          = -1;
         char                *value           = NULL;
         gf_boolean_t         fd_based_fop    = _gf_false;
@@ -83,10 +82,11 @@ posix_fetch_mdata_xattr (xlator_t *this, const char *real_path_arg, int _fd,
                 MAKE_HANDLE_PATH (real_path, this, inode->gfid, NULL);
                 if (!real_path) {
                         uuid_utoa_r (inode->gfid, gfid_str);
-                        gf_msg (this->name, GF_LOG_WARNING, op_errno,
+                        gf_msg (this->name, GF_LOG_WARNING, errno,
                                 P_MSG_LSTAT_FAILED, "lstat on gfid %s failed",
                                 gfid_str);
                         op_ret = -1;
+                        *op_errno = errno;
                         goto out;
                 }
         }
@@ -100,23 +100,23 @@ posix_fetch_mdata_xattr (xlator_t *this, const char *real_path_arg, int _fd,
         }
 
         if (size == -1) {
-                op_errno = errno;
-                if ((op_errno == ENOTSUP) || (op_errno == ENOSYS)) {
+                *op_errno = errno;
+                if ((*op_errno == ENOTSUP) || (*op_errno == ENOSYS)) {
                         GF_LOG_OCCASIONALLY (gf_posix_xattr_enotsup_log,
                                              this->name, GF_LOG_WARNING,
                                              "Extended attributes not "
                                              "supported (try remounting"
                                              " brick with 'user_xattr' "
                                              "flag)");
-                } else if (op_errno == ENOATTR ||
-                                op_errno == ENODATA) {
+                } else if (*op_errno == ENOATTR ||
+                                *op_errno == ENODATA) {
                         gf_msg_debug (this->name, 0,
                                       "No such attribute:%s for file %s "
                                       "gfid: %s",
                                       key, real_path ? real_path : (real_path_arg ? real_path_arg : "null"),
                                       uuid_utoa(inode->gfid));
                 } else {
-                        gf_msg (this->name, GF_LOG_DEBUG, op_errno,
+                        gf_msg (this->name, GF_LOG_DEBUG, *op_errno,
                                 P_MSG_XATTR_FAILED, "getxattr failed"
                                 " on %s gfid: %s key: %s ",
                                 real_path ? real_path : (real_path_arg ? real_path_arg : "null"),
@@ -129,7 +129,7 @@ posix_fetch_mdata_xattr (xlator_t *this, const char *real_path_arg, int _fd,
         value = GF_CALLOC (size + 1, sizeof(char), gf_posix_mt_char);
         if (!value) {
                 op_ret = -1;
-                op_errno = ENOMEM;
+                *op_errno = ENOMEM;
                 goto out;
         }
 
@@ -142,7 +142,7 @@ posix_fetch_mdata_xattr (xlator_t *this, const char *real_path_arg, int _fd,
         }
         if (size == -1) {
                 op_ret = -1;
-                op_errno = errno;
+                *op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         P_MSG_XATTR_FAILED, "getxattr failed on "
                         " on %s gfid: %s key: %s ",
@@ -234,6 +234,7 @@ __posix_get_mdata_xattr (xlator_t *this, const char *real_path, int _fd,
 {
         posix_mdata_t  *mdata       = NULL;
         int             ret         = -1;
+        int             op_errno    = 0;
 
         GF_VALIDATE_OR_GOTO (this->name, inode, out);
 
@@ -248,7 +249,7 @@ __posix_get_mdata_xattr (xlator_t *this, const char *real_path, int _fd,
                 }
 
                 ret = posix_fetch_mdata_xattr (this, real_path, _fd, inode,
-                                               mdata);
+                                               mdata, &op_errno);
 
                 if (ret == 0) {
                         /* Got mdata from disk, set it in inode ctx. This case
@@ -261,7 +262,7 @@ __posix_get_mdata_xattr (xlator_t *this, const char *real_path, int _fd,
                          * Even new file creation hits here first as posix_pstat
                          * is generally done before posix_set_ctime
                          */
-                       if (stbuf) {
+                       if (stbuf && op_errno != ENOENT) {
                                mdata->version = 1;
                                mdata->flags = 0;
                                mdata->ctime.tv_sec = stbuf->ia_ctime;
@@ -287,14 +288,14 @@ __posix_get_mdata_xattr (xlator_t *this, const char *real_path, int _fd,
                               /* This case should not be hit. If it hits, don't
                                * fail, log warning, free mdata and move on
                                */
-                               gf_msg (this->name, GF_LOG_WARNING, errno,
+                               gf_msg (this->name, GF_LOG_WARNING, op_errno,
                                        P_MSG_FETCHMDATA_FAILED,
                                        "file: %s: gfid: %s key:%s ",
                                        real_path ? real_path : "null",
                                        uuid_utoa(inode->gfid),
                                        GF_XATTR_MDATA_KEY);
                                GF_FREE (mdata);
-                               ret = 0;
+                               ret = -1;
                                goto out;
                        }
                 }
@@ -355,6 +356,7 @@ posix_set_mdata_xattr (xlator_t *this, const char *real_path, int fd,
 {
         posix_mdata_t  *mdata       = NULL;
         int             ret         = -1;
+        int             op_errno    = 0;
 
         GF_VALIDATE_OR_GOTO ("posix", this, out);
         GF_VALIDATE_OR_GOTO (this->name, inode, out);
@@ -378,7 +380,7 @@ posix_set_mdata_xattr (xlator_t *this, const char *real_path, int fd,
 
                         ret = posix_fetch_mdata_xattr (this, real_path, fd,
                                                        inode,
-                                                       (void *)mdata);
+                                                       (void *)mdata, &op_errno);
                         if (ret == 0) {
                                 /* Got mdata from disk, set it in inode ctx. This case
                                  * is hit when in-memory status is lost due to brick
@@ -452,7 +454,7 @@ posix_set_mdata_xattr (xlator_t *this, const char *real_path, int fd,
                                 "file: %s: gfid: %s key:%s ",
                                 real_path ? real_path : "null",
                                 uuid_utoa(inode->gfid), GF_XATTR_MDATA_KEY);
-                                goto out;
+                                goto unlock;
                 }
         }
 unlock:
