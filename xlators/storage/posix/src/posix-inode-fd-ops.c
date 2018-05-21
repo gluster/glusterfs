@@ -5166,7 +5166,12 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
         posix_readdirp_fill (this, fd, &entries, dict);
 
 out:
-        STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, &entries, NULL);
+        if (whichop == GF_FOP_READDIR)
+                STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, &entries,
+                                     NULL);
+        else
+                STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno,
+                                     &entries, NULL);
 
         gf_dirent_free (&entries);
 
@@ -5206,8 +5211,8 @@ posix_readdirp (call_frame_t *frame, xlator_t *this,
                         }
                 }
 
-                STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, &entries,
-                                     NULL);
+                STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno,
+                                     &entries, NULL);
 
                 gf_dirent_free (&entries);
                 return 0;
