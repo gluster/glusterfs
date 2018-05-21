@@ -1620,14 +1620,14 @@ unlock:
 }
 
 static int
-is_fresh_file (struct stat *stat)
+is_fresh_file (int64_t ctime_sec)
 {
         struct timeval tv;
 
         gettimeofday (&tv, NULL);
 
-        if ((stat->st_ctime >= (tv.tv_sec - 1))
-            && (stat->st_ctime <= tv.tv_sec))
+        if ((ctime_sec >= (tv.tv_sec - 1))
+            && (ctime_sec <= tv.tv_sec))
                 return 1;
 
         return 0;
@@ -1665,18 +1665,50 @@ posix_gfid_heal (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req
         uuid_t       uuid_curr;
         int          ret = 0;
         struct stat  stat = {0, };
+        struct iatt  stbuf  = {0, };
+        struct posix_private *priv = NULL;
+
+        priv = this->private;
 
         if (!xattr_req)
                 return 0;
 
-        if (sys_lstat (path, &stat) != 0) {
-                return -errno;
-        }
-
-        ret = sys_lgetxattr (path, GFID_XATTR_KEY, uuid_curr, 16);
-        if (ret != 16) {
-                if (is_fresh_file (&stat)) {
+        if (loc->inode && priv->ctime) {
+                if (sys_lstat (path, &stat) != 0) {
+                        return -errno;
+                }
+                /* stbuf is only to compare ctime, don't use it to access
+                 * other fields as they are zero. */
+                ret = posix_get_mdata_xattr (this, path, -1, loc->inode,
+                                             &stbuf);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_WARNING, errno,
+                                P_MSG_GETMDATA_FAILED,
+                                "posix get mdata failed on gfid: %s",
+                                uuid_utoa(loc->inode->gfid));
                         return -ENOENT;
+                }
+                ret = sys_lgetxattr (path, GFID_XATTR_KEY, uuid_curr, 16);
+                if (ret != 16) {
+                        if (is_fresh_file (stbuf.ia_ctime)) {
+                                gf_msg (this->name, GF_LOG_ERROR, ENOENT,
+                                        P_MSG_FRESHFILE,
+                                        "Fresh file: %s", path);
+                                return -ENOENT;
+                        }
+                }
+        } else {
+                if (sys_lstat (path, &stat) != 0) {
+                        return -errno;
+                }
+                ret = sys_lgetxattr (path, GFID_XATTR_KEY, uuid_curr, 16);
+                if (ret != 16) {
+                        if (is_fresh_file (stat.st_ctime)) {
+                                gf_msg (this->name, GF_LOG_ERROR, ENOENT,
+                                        P_MSG_FRESHFILE,
+                                        "Fresh file: %s", path);
+                                return -ENOENT;
+                        }
                 }
         }
 
