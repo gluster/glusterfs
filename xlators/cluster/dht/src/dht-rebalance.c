@@ -2433,10 +2433,10 @@ out:
                 lk_ret = syncop_removexattr (to, loc,
                                              GF_PROTECT_FROM_EXTERNAL_WRITES,
                                              NULL, NULL);
-                if (lk_ret) {
+                if (lk_ret && (lk_ret != ENODATA) && (lk_ret != ENOATTR)) {
                         gf_msg (this->name, GF_LOG_WARNING, -lk_ret, 0,
                                 "%s: removexattr failed key %s", loc->path,
-                                GF_CLEAN_WRITE_PROTECTION);
+                                GF_PROTECT_FROM_EXTERNAL_WRITES);
                 }
         }
 
