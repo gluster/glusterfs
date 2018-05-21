@@ -1,6 +1,6 @@
 
 /*
-  Copyright (c) 2012 Red Hat, Inc. <http://www.redhat.com>
+  Copyright (c) 2012-2018 Red Hat, Inc. <http://www.redhat.com>
   This file is part of GlusterFS.
 
   This file is licensed to you under your choice of the GNU Lesser
@@ -1013,7 +1013,7 @@ glfs_preadv_async_common (struct glfs_fd *glfd, const struct iovec *iovec,
 	int             ret = 0;
 	call_frame_t   *frame = NULL;
 	xlator_t       *subvol = NULL;
-	glfs_t         *fs = NULL;
+	struct glfs    *fs = NULL;
 	fd_t           *fd = NULL;
         dict_t         *fop_attr = NULL;
 
@@ -4868,7 +4868,7 @@ invalid_fs:
 
 int
 pub_glfs_file_lock (struct glfs_fd *glfd, int cmd, struct flock *flock,
-                    enum glfs_lock_mode_t lk_mode)
+                    glfs_lock_mode_t lk_mode)
 {
         int              ret            = -1;
         dict_t          *xdata_in       = NULL;
@@ -4914,7 +4914,7 @@ pub_glfs_posix_lock (struct glfs_fd *glfd, int cmd, struct flock *flock)
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_posix_lock, 3.4.0);
 
 int
-pub_glfs_fd_set_lkowner (glfs_fd_t *glfd, void *data, int len)
+pub_glfs_fd_set_lkowner (struct glfs_fd *glfd, void *data, int len)
 {
         int ret = -1;
 
@@ -4956,7 +4956,7 @@ pub_glfs_dup (struct glfs_fd *glfd)
 {
 	xlator_t  *subvol = NULL;
 	fd_t      *fd = NULL;
-	glfs_fd_t *dupfd = NULL;
+	struct glfs_fd *dupfd = NULL;
 	struct glfs *fs = NULL;
 
         DECLARE_OLD_THIS;
