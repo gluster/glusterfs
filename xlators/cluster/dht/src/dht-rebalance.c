@@ -2845,6 +2845,19 @@ gf_defrag_migrate_single_file (void *opaque)
                         DHT_MSG_MIGRATE_FILE_FAILED,
                         "Migrate file failed: %s lookup failed",
                         entry_loc.path);
+
+                /* Increase failure count only for remove-brick op, so that
+                 * user is warned to check the removed-brick for any files left
+                 * unmigrated
+                 */
+                if (conf->decommission_subvols_cnt) {
+                        LOCK (&defrag->lock);
+                        {
+                                defrag->total_failures += 1;
+                        }
+                        UNLOCK (&defrag->lock);
+                }
+
                 ret = 0;
                 goto out;
         }
@@ -3845,8 +3858,11 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                 DHT_MSG_DIR_LOOKUP_FAILED,
                                 "Dir:%s renamed or removed. Skipping",
                                 loc->path);
-                                ret = 0;
-                                goto out;
+                        if (conf->decommission_subvols_cnt) {
+                                defrag->total_failures++;
+                        }
+                        ret = 0;
+                        goto out;
                 } else {
                         gf_msg (this->name, GF_LOG_ERROR, -ret,
                                 DHT_MSG_DIR_LOOKUP_FAILED,
@@ -3867,6 +3883,9 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         ret = syncop_opendir (this, loc, fd, NULL, NULL);
         if (ret) {
                 if (-ret == ENOENT || -ret == ESTALE) {
+                        if (conf->decommission_subvols_cnt) {
+                                defrag->total_failures++;
+                        }
                         ret = 0;
                         goto out;
                 }
@@ -3886,6 +3905,9 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         {
                 if (ret < 0) {
                         if (-ret == ENOENT || -ret == ESTALE) {
+                                if (conf->decommission_subvols_cnt) {
+                                        defrag->total_failures++;
+                                }
                                 ret = 0;
                                 goto out;
                         }
@@ -3991,7 +4013,10 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                                 DHT_MSG_DIR_LOOKUP_FAILED,
                                                 "Dir:%s renamed or removed. "
                                                 "Skipping", loc->path);
-                                                ret = 0;
+                                        ret = 0;
+                                        if (conf->decommission_subvols_cnt) {
+                                                defrag->total_failures++;
+                                        }
                                         continue;
                                 } else {
                                         gf_msg (this->name, GF_LOG_ERROR, -ret,
@@ -4054,6 +4079,9 @@ gf_defrag_fix_layout (xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                                 "Setxattr failed. Dir %s "
                                 "renamed or removed",
                                 loc->path);
+                        if (conf->decommission_subvols_cnt) {
+                                defrag->total_failures++;
+                        }
                         ret = 0;
                 } else {
                         gf_msg (this->name, GF_LOG_ERROR, -ret,
