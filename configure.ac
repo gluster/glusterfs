@@ -182,6 +182,10 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/cloudsync/src/Makefile
                 xlators/features/utime/Makefile
                 xlators/features/utime/src/Makefile
+                xlators/features/cloudsync/src/cloudsync-plugins/Makefile
+                xlators/features/cloudsync/src/cloudsync-plugins/src/Makefile
+                xlators/features/cloudsync/src/cloudsync-plugins/src/cloudsyncs3/Makefile
+                xlators/features/cloudsync/src/cloudsync-plugins/src/cloudsyncs3/src/Makefile
                 xlators/playground/Makefile
                 xlators/playground/template/Makefile
                 xlators/playground/template/src/Makefile
@@ -970,6 +974,23 @@ else
 fi
 # end of xml-output
 
+dnl cloudsync section
+BUILD_CLOUDSYNC="no"
+AC_CHECK_LIB([curl], [curl_easy_setopt], [LIBCURL="-lcurl"])
+if test "x$LIBCURL" != "x";then
+        HAVE_LIBCURL="yes"
+fi
+AC_CHECK_HEADERS([openssl/hmac.h openssl/evp.h openssl/bio.h openssl/buffer.h], [HAVE_OPENSSL="yes"])
+if test "x$HAVE_LIBCURL" = "xyes" -a "x$HAVE_OPENSSL" = "xyes";then
+   HAVE_AMAZONS3="yes"
+fi
+AM_CONDITIONAL([BUILD_AMAZONS3_PLUGIN], [test "x$HAVE_AMAZONS3" = "xyes"])
+if test "x$HAVE_AMAZONS3" = "xyes";then
+   BUILD_CLOUDSYNC="yes"
+fi
+AM_CONDITIONAL([BUILD_CLOUDSYNC], [test "x$BUILD_CLOUDSYNC" = "xyes"])
+dnl end cloudsync section
+
 dnl SELinux feature enablement
 case $host_os in
   linux*)
@@ -1718,4 +1739,5 @@ echo "Legacy gNFS server   : $BUILD_GNFS"
 echo "IPV6 default         : $with_ipv6_default"
 echo "Use TIRPC            : $with_libtirpc"
 echo "With Python          : ${PYTHON_VERSION}"
+echo "Cloudsync            : $BUILD_CLOUDSYNC"
 echo

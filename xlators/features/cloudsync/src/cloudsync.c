@@ -36,9 +36,9 @@ cs_cleanup_private (cs_private_t *priv)
 
 struct cs_plugin plugins[] = {
         {
-          .name = "amazons3",
-          .library = "libamazons3.so",
-          .description = "amazon s3 store."
+          .name = "cloudsyncs3",
+          .library = "cloudsyncs3.so",
+          .description = "cloudsync s3 store."
         },
 
         {.name = NULL},
@@ -55,6 +55,7 @@ cs_init (xlator_t *this)
         void                    *handle = NULL;
         char                    *temp_str = NULL;
         int                      index = 0;
+        char                    *libname = NULL;
 
         priv = GF_CALLOC (1, sizeof (*priv), gf_cs_mt_cs_private_t);
         if (!priv) {
@@ -82,7 +83,7 @@ cs_init (xlator_t *this)
                     &temp_str) == 0) {
                         for (index = 0; plugins[index].name; index++) {
                                 if (!strcmp (temp_str, plugins[index].name)) {
-                                        libpath = plugins[index].library;
+                                        libname = plugins[index].library;
                                         break;
                                 }
                         }
@@ -90,21 +91,27 @@ cs_init (xlator_t *this)
                         ret = 0;
                 }
 
-                if (!libpath) {
+                if (!libname) {
                         gf_msg (this->name, GF_LOG_WARNING, 0, 0,
                                 "no plugin enabled");
                         ret = 0;
                         goto out;
                 }
 
+                ret = gf_asprintf (&libpath, "%s/%s", CS_PLUGINDIR, libname);
+                if (ret == -1) {
+                        goto out;
+                }
+
                 handle = dlopen (libpath, RTLD_NOW);
                 if (!handle) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0, 0, "could not load"
-                                " the required library. %s", dlerror ());
+                        gf_msg (this->name, GF_LOG_WARNING, 0, 0, "could not "
+                                "load the required library. %s", dlerror ());
+                        ret = 0;
                         goto out;
                 } else {
                         gf_msg (this->name, GF_LOG_INFO, 0, 0,
-                                "loading library:%s successful", libpath);
+                                "loading library:%s successful", libname);
                 }
 
 
@@ -165,6 +172,8 @@ cs_init (xlator_t *this)
                         goto out;
                 }
         }
+
+        ret = 0;
 
 out:
         if (ret == -1) {

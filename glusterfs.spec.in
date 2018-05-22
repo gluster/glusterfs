@@ -431,6 +431,21 @@ is in user space and easily manageable.
 This package provides support to FUSE based clients and inlcudes the
 glusterfs(d) binary.
 
+%package cloudsync-plugins
+Summary:          Cloudsync Plugins
+BuildRequires:    libcurl-devel
+
+%description cloudsync-plugins
+GlusterFS is a distributed file-system capable of scaling to several
+petabytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file systems in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in user space and easily manageable.
+
+This package provides cloudsync plugins for archival feature.
+
 %if ( 0%{!?_without_georeplication:1} )
 %package geo-replication
 Summary:          GlusterFS Geo-replication
@@ -1200,6 +1215,10 @@ exit 0
 %{_sysconfdir}/sysconfig/modules/glusterfs-fuse.modules
 %endif
 %endif
+
+%files cloudsync-plugins
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/cloudsync-plugins
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/cloudsync-plugins/cloudsyncs3.so
 
 %if ( 0%{?_with_gnfs:1} && 0%{!?_without_server:1} )
 %files gnfs

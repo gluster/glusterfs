@@ -3822,7 +3822,27 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         },
         { .key        = "feature.cloudsync-storetype",
           .voltype    = "features/cloudsync",
-          .op_version = GD_OP_VERSION_4_1_0,
+          .op_version = GD_OP_VERSION_4_2_0,
+          .flags      = VOLOPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "features.s3plugin-seckey",
+          .voltype    = "features/cloudsync",
+          .op_version = GD_OP_VERSION_4_2_0,
+          .flags      = VOLOPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "features.s3plugin-keyid",
+          .voltype    = "features/cloudsync",
+          .op_version = GD_OP_VERSION_4_2_0,
+          .flags      = VOLOPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "features.s3plugin-bucketid",
+          .voltype    = "features/cloudsync",
+          .op_version = GD_OP_VERSION_4_2_0,
+          .flags      = VOLOPT_FLAG_CLIENT_OPT
+        },
+        { .key        = "features.s3plugin-hostname",
+          .voltype    = "features/cloudsync",
+          .op_version = GD_OP_VERSION_4_2_0,
           .flags      = VOLOPT_FLAG_CLIENT_OPT
         },
         { .key         = NULL
