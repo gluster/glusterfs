@@ -1,0 +1,57 @@
+volume ta-posix
+    type storage/posix
+    option directory /mnt/thin-arbiter
+end-volume
+
+volume ta-thin-arbiter
+    type features/thin-arbiter
+    subvolumes ta-posix
+end-volume
+
+volume ta-locks
+    type features/locks
+    subvolumes ta-thin-arbiter
+end-volume
+
+volume ta-upcall
+    type features/upcall
+    option cache-invalidation off
+    subvolumes ta-locks
+end-volume
+
+volume ta-io-threads
+    type performance/io-threads
+    subvolumes ta-upcall
+end-volume
+
+volume ta-index
+    type features/index
+    option xattrop-pending-watchlist trusted.afr.ta-
+    option xattrop-dirty-watchlist trusted.afr.dirty
+    option index-base /mnt/thin-arbiter/.glusterfs/indices
+    subvolumes ta-io-threads
+end-volume
+
+volume ta-io-stats
+    type debug/io-stats
+    option count-fop-hits off
+    option latency-measurement off
+    option log-level WARNING
+    option unique-id /mnt/thin-arbiter
+    subvolumes ta-index
+end-volume
+
+volume ta-server
+    type protocol/server
+    option transport.listen-backlog 10
+    option transport.socket.keepalive-count 9
+    option transport.socket.keepalive-interval 2
+    option transport.socket.keepalive-time 20
+    option transport.tcp-user-timeout 0
+    option transport.socket.keepalive 1
+    option auth.addr./mnt/thin-arbiter.allow *
+    option auth-path /mnt/thin-arbiter
+    option transport.address-family inet
+    option transport-type tcp
+    subvolumes ta-io-stats
+end-volume
