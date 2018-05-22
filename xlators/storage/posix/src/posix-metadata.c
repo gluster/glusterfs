@@ -346,6 +346,7 @@ posix_compare_timespec (struct timespec *first, struct timespec *second)
                 return first->tv_sec - second->tv_sec;
 }
 
+
 /* posix_set_mdata_xattr updates the posix_mdata_t based on the flag
  * in inode context and stores it on disk
  */
@@ -419,16 +420,21 @@ posix_set_mdata_xattr (xlator_t *this, const char *real_path, int fd,
                                                   (uint64_t *)&mdata);
                         }
                 }
+
+                /* Earlier, mdata was updated only if the existing time is less
+                 * than the time to be updated. This would fail the scenarios
+                 * where mtime can be set to any time using the syscall. Hence
+                 * just updating without comparison. But the ctime is not
+                 * allowed to changed to older date.
+                 */
                 if (flag->ctime &&
-                    posix_compare_timespec (time, &mdata->ctime) > 0) {
+                        posix_compare_timespec (time, &mdata->ctime) > 0) {
                         mdata->ctime = *time;
                 }
-                if (flag->mtime &&
-                    posix_compare_timespec (time, &mdata->mtime) > 0) {
+                if (flag->mtime) {
                         mdata->mtime = *time;
                 }
-                if (flag->atime &&
-                    posix_compare_timespec (time, &mdata->atime) > 0) {
+                if (flag->atime) {
                         mdata->atime = *time;
                 }
 
