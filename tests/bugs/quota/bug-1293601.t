@@ -27,6 +27,6 @@ EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "1.0MB" quotausage "/"
 TEST $CLI volume quota $V0 disable
 TEST $CLI volume quota $V0 enable
 
-EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "1.0MB" quotausage "/"
+EXPECT_WITHIN 40 "1.0MB" quotausage "/"
 
 cleanup;
