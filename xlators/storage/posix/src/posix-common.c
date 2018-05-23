@@ -1110,13 +1110,12 @@ posix_fini (xlator_t *this)
         struct posix_private *priv = this->private;
         if (!priv)
                 return;
-        LOCK (&priv->lock);
-        if (priv->health_check_active) {
+        this->private = NULL;
+        if (priv->health_check) {
                 priv->health_check_active = _gf_false;
                 pthread_cancel (priv->health_check);
                 priv->health_check = 0;
         }
-        UNLOCK (&priv->lock);
         if (priv->disk_space_check) {
                 priv->disk_space_check_active = _gf_false;
                 pthread_cancel (priv->disk_space_check);
@@ -1141,7 +1140,6 @@ posix_fini (xlator_t *this)
         GF_FREE (priv->hostname);
         GF_FREE (priv->trash_path);
         GF_FREE (priv);
-        this->private = NULL;
 
         return;
 }

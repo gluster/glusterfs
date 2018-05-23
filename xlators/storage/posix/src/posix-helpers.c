@@ -2124,12 +2124,6 @@ out:
         return NULL;
 
 abort:
-        LOCK (&priv->lock);
-        {
-                priv->health_check_active = _gf_false;
-        }
-        UNLOCK (&priv->lock);
-
         /* health-check failed */
         gf_msg (this->name, GF_LOG_EMERG, 0, P_MSG_HEALTHCHECK_FAILED,
                 "health-check failed, going down");
@@ -2170,18 +2164,18 @@ abort:
                         for (trav_p = &top->children; *trav_p;
                              trav_p = &(*trav_p)->next) {
                                 victim = (*trav_p)->xlator;
-                                if (!victim->call_cleanup &&
-                                    strcmp (victim->name, priv->base_path) == 0) {
+                                if (victim &&
+                                         strcmp (victim->name, priv->base_path) == 0) {
                                         victim_found = _gf_true;
                                         break;
                                 }
                         }
                 UNLOCK (&ctx->volfile_lock);
-                if (victim_found && !victim->cleanup_starting) {
+                if (victim_found) {
                         gf_log (THIS->name, GF_LOG_INFO, "detaching not-only "
                                 " child %s", priv->base_path);
-                        victim->cleanup_starting = 1;
                         top->notify (top, GF_EVENT_CLEANUP, victim);
+                        xlator_mem_cleanup (victim);
                 }
         }
 

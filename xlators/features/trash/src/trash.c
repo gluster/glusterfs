@@ -2616,24 +2616,16 @@ fini (xlator_t *this)
 
         GF_VALIDATE_OR_GOTO ("trash", this, out);
         priv = this->private;
+        inode_table = priv->trash_itable;
         if (priv) {
-                inode_table = priv->trash_itable;
-                if (priv->newtrash_dir) {
+                if (priv->newtrash_dir)
                         GF_FREE (priv->newtrash_dir);
-                        priv->newtrash_dir = NULL;
-                }
-                if (priv->oldtrash_dir) {
+                if (priv->oldtrash_dir)
                         GF_FREE (priv->oldtrash_dir);
-                        priv->oldtrash_dir = NULL;
-                }
-                if (priv->brick_path) {
+                if (priv->brick_path)
                         GF_FREE (priv->brick_path);
-                        priv->brick_path = NULL;
-                }
-                if (priv->eliminate) {
+                if (priv->eliminate)
                         wipe_eliminate_path (&priv->eliminate);
-                        priv->eliminate = NULL;
-                }
                 if (inode_table) {
                         inode_table_destroy (inode_table);
                         priv->trash_itable = NULL;
