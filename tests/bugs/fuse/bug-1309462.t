@@ -46,4 +46,5 @@ TEST getfattr -n security.capability ${TESTFILE}
 TEST setfattr -x security.capability ${TESTFILE}
 
 TEST umount $M0
-
+#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=1581735
+#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=1581735
