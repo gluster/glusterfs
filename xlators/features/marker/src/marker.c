@@ -3193,21 +3193,39 @@ mem_acct_init (xlator_t *this)
 int32_t
 init_xtime_priv (xlator_t *this, dict_t *options)
 {
+        data_t          *data    = NULL;
         int32_t          ret     = -1;
         marker_conf_t   *priv    = NULL;
-        char            *tmp_opt = NULL;
 
         GF_VALIDATE_OR_GOTO ("marker", this, out);
         GF_VALIDATE_OR_GOTO (this->name, options, out);
         GF_VALIDATE_OR_GOTO (this->name, this->private, out);
 
         priv = this->private;
+        data = dict_get (options, VOLUME_UUID);
+        if (data  != NULL) {
+                priv->volume_uuid = data->data;
 
-        ret = dict_get_str (options, "volume-uuid", &tmp_opt);
+                ret = gf_uuid_parse (priv->volume_uuid, priv->volume_uuid_bin);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "invalid volume uuid %s", priv->volume_uuid);
+                        goto out;
+                }
 
-        if (ret) {
+                ret = gf_asprintf (&(priv->marker_xattr), "%s.%s.%s",
+                                   MARKER_XATTR_PREFIX, priv->volume_uuid,
+                                   XTIME);
+
+                if (ret == -1) {
+                        priv->marker_xattr = NULL;
+                        goto out;
+                }
+
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "volume-uuid = %s", priv->volume_uuid);
+        } else {
                 priv->volume_uuid = NULL;
-                tmp_opt = "";
 
                 gf_log (this->name, GF_LOG_ERROR,
                         "please specify the volume-uuid"
@@ -3215,32 +3233,16 @@ init_xtime_priv (xlator_t *this, dict_t *options)
 
                 return -1;
         }
-        gf_asprintf (&priv->volume_uuid, "%s", tmp_opt);
+        data = dict_get (options, TIMESTAMP_FILE);
+        if (data != NULL) {
+                priv->timestamp_file = data->data;
 
-        ret = gf_uuid_parse (priv->volume_uuid, priv->volume_uuid_bin);
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "the timestamp-file is = %s",
+                        priv->timestamp_file);
 
-        if (ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "invalid volume uuid %s", priv->volume_uuid);
-                goto out;
-        }
-
-        ret = gf_asprintf (&(priv->marker_xattr), "%s.%s.%s",
-                           MARKER_XATTR_PREFIX, priv->volume_uuid,
-                           XTIME);
-
-        if (ret == -1) {
-                priv->marker_xattr = NULL;
-                goto out;
-        }
-
-        gf_log (this->name, GF_LOG_DEBUG,
-                "volume-uuid = %s", priv->volume_uuid);
-
-        ret = dict_get_str (options, "timestamp-file", &tmp_opt);
-        if (ret) {
+        } else {
                 priv->timestamp_file = NULL;
-                tmp_opt = "";
 
                 gf_log (this->name, GF_LOG_ERROR,
                         "please specify the timestamp-file"
@@ -3248,15 +3250,6 @@ init_xtime_priv (xlator_t *this, dict_t *options)
 
                 goto out;
         }
-
-        ret = gf_asprintf (&priv->timestamp_file, "%s", tmp_opt);
-        if (ret == -1) {
-                priv->timestamp_file = NULL;
-                goto out;
-        }
-
-        gf_log (this->name, GF_LOG_DEBUG,
-                "the timestamp-file is = %s", priv->timestamp_file);
 
         ret = 0;
 out:
@@ -3299,12 +3292,6 @@ marker_priv_cleanup (xlator_t *this)
         LOCK_DESTROY (&priv->lock);
 
         GF_FREE (priv);
-
-        if (this->local_pool) {
-                mem_pool_destroy (this->local_pool);
-                this->local_pool = NULL;
-        }
-
 out:
         return;
 }

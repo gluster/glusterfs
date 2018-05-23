@@ -515,7 +515,6 @@ gf_proc_dump_xlator_info (xlator_t *top)
 
         trav = top;
         while (trav) {
-
                 if (ctx->measure_latency)
                         gf_proc_dump_latency_info (trav);
 

@@ -1419,7 +1419,7 @@ server_notify (xlator_t *this, int32_t event, void *data, ...)
         case GF_EVENT_CHILD_UP:
         {
                 list_for_each_entry (tmp, &conf->child_status->status_list,
-                                                                 status_list) {
+                                     status_list) {
                         if (tmp->name == NULL)
                                 break;
                         if (strcmp (tmp->name, victim->name) == 0)
@@ -1434,7 +1434,7 @@ server_notify (xlator_t *this, int32_t event, void *data, ...)
                         tmp->name  = gf_strdup (victim->name);
                         tmp->child_up = _gf_true;
                         list_add_tail (&tmp->status_list,
-                                              &conf->child_status->status_list);
+                                       &conf->child_status->status_list);
                 }
                 ret = server_process_child_event (this, event, data,
                                                   GF_CBK_CHILD_UP);
@@ -1451,7 +1451,7 @@ server_notify (xlator_t *this, int32_t event, void *data, ...)
         case GF_EVENT_CHILD_DOWN:
         {
                 list_for_each_entry (tmp, &conf->child_status->status_list,
-                                                                  status_list) {
+                                     status_list) {
                         if (strcmp (tmp->name, victim->name) == 0) {
                                 tmp->child_up = _gf_false;
                                 break;
@@ -1514,7 +1514,7 @@ server_notify (xlator_t *this, int32_t event, void *data, ...)
                                                    trav_p = &(*trav_p)->next) {
                                         travxl = (*trav_p)->xlator;
                                         if (travxl &&
-                                                   strcmp (travxl->name, victim->name) == 0) {
+                                            strcmp (travxl->name, victim->name) == 0) {
                                                 victim_found = _gf_true;
                                                 break;
                                         }
@@ -1527,7 +1527,8 @@ server_notify (xlator_t *this, int32_t event, void *data, ...)
                                 (*trav_p) = (*trav_p)->next;
                         rpc_clnt_mgmt_pmap_signout (ctx, victim->name);
                         /* we need the protocol/server xlator here as 'this' */
-                        rpcsvc_autoscale_threads (ctx, conf->rpc, -1);
+                        glusterfs_autoscale_threads (ctx, -1, this);
+                        default_notify (victim, GF_EVENT_CLEANUP, data);
                 }
                 break;
 

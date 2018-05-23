@@ -33,6 +33,7 @@ trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          struct iatt *preoldparent, struct iatt *postoldparent,
                          struct iatt *prenewparent, struct iatt *postnewparent,
                          dict_t *xdata);
+
 /* Common routines used in this translator */
 
 /**
@@ -2430,7 +2431,6 @@ notify (xlator_t *this, int event, void *data, ...)
                         ret = create_internalop_directory (this);
 
         }
-
 out:
         ret = default_notify (this, event, data);
         if (ret)
@@ -2612,11 +2612,10 @@ void
 fini (xlator_t *this)
 {
         trash_private_t *priv = NULL;
-        inode_table_t     *inode_table = NULL;
 
         GF_VALIDATE_OR_GOTO ("trash", this, out);
         priv = this->private;
-        inode_table = priv->trash_itable;
+
         if (priv) {
                 if (priv->newtrash_dir)
                         GF_FREE (priv->newtrash_dir);
@@ -2626,17 +2625,9 @@ fini (xlator_t *this)
                         GF_FREE (priv->brick_path);
                 if (priv->eliminate)
                         wipe_eliminate_path (&priv->eliminate);
-                if (inode_table) {
-                        inode_table_destroy (inode_table);
-                        priv->trash_itable = NULL;
-                }
                 GF_FREE (priv);
         }
-
-        if (this->local_pool) {
-                mem_pool_destroy (this->local_pool);
-                this->local_pool = NULL;
-        }
+        mem_pool_destroy (this->local_pool);
         this->private = NULL;
 out:
         return;

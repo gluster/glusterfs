@@ -169,7 +169,6 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
-        VALIDATE_OR_GOTO (this->private, out);
 
         priv = this->private;
 
@@ -1066,7 +1065,6 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
-        VALIDATE_OR_GOTO (this->private, out);
         VALIDATE_OR_GOTO (loc, out);
 
         SET_FS_ID (frame->root->uid, frame->root->gid);

@@ -301,6 +301,7 @@ is_fop_latency_started (call_frame_t *frame)
                                                throughput, iosstat);           \
         } while (0)
 
+
 static int
 ios_fd_ctx_get (fd_t *fd, xlator_t *this, struct ios_fd **iosfd)
 {

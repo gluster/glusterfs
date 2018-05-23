@@ -163,14 +163,12 @@ changelog_rpc_notify (struct rpc_clnt *rpc,
                  */
                 rpc_clnt_unref (crpc->rpc);
 
-                if (priv)
-                        selection = &priv->ev_selection;
+                selection = &priv->ev_selection;
 
                 LOCK (&crpc->lock);
                 {
-                        if (selection)
-                                changelog_deselect_event (this, selection,
-                                                          crpc->filter);
+                        changelog_deselect_event (this, selection,
+                                                  crpc->filter);
                         changelog_set_disconnect_flag (crpc, _gf_true);
                 }
                 UNLOCK (&crpc->lock);

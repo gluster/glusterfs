@@ -2111,6 +2111,14 @@ notify (xlator_t *this, int event, void *data, ...)
         if (!priv)
                 goto out;
 
+        if (event == GF_EVENT_CLEANUP) {
+               /* terminate helper threads */
+               changelog_cleanup_helper_threads (this, priv);
+
+               /* terminate RPC server/threads */
+               changelog_cleanup_rpc_threads (this, priv);
+        }
+
         if (event == GF_EVENT_TRANSLATOR_OP) {
 
                 dict = data;
@@ -2904,9 +2912,6 @@ fini (xlator_t *this)
                 /* cleanup barrier related objects */
                 changelog_barrier_pthread_destroy (priv);
 
-                /* cleanup helper threads */
-                changelog_cleanup_helper_threads (this, priv);
-
                 /* cleanup allocated options */
                 changelog_freeup_options (this, priv);
 
@@ -2917,7 +2922,6 @@ fini (xlator_t *this)
         }
 
         this->private = NULL;
-        this->local_pool = NULL;
 
         return;
 }

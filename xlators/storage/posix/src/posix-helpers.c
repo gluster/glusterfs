@@ -2165,7 +2165,7 @@ abort:
                              trav_p = &(*trav_p)->next) {
                                 victim = (*trav_p)->xlator;
                                 if (victim &&
-                                         strcmp (victim->name, priv->base_path) == 0) {
+                                    strcmp (victim->name, priv->base_path) == 0) {
                                         victim_found = _gf_true;
                                         break;
                                 }
@@ -2175,7 +2175,6 @@ abort:
                         gf_log (THIS->name, GF_LOG_INFO, "detaching not-only "
                                 " child %s", priv->base_path);
                         top->notify (top, GF_EVENT_CLEANUP, victim);
-                        xlator_mem_cleanup (victim);
                 }
         }
 
