@@ -325,7 +325,7 @@ glfs_xreaddirplus_get_object (struct glfs_xreaddirp_stat *xstat) __THROW
  * explicitly using 'glfs_h_close()'
  */
 struct glfs_object*
-glfs_object_copy (struct glfs_object *src);
+glfs_object_copy (struct glfs_object *src) __THROW
         GFAPI_PUBLIC(glfs_object_copy, 3.11.0);
 
 int glfs_h_lease (struct glfs *fs, struct glfs_object *object,

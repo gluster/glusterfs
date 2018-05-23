@@ -905,7 +905,7 @@ glfs_xreaddirplus_get_stat (struct glfs_xreaddirp_stat *xstat) __THROW
 int
 glfs_xreaddirplus_r (struct glfs_fd *glfd, uint32_t flags,
                      struct glfs_xreaddirp_stat **xstat_p,
-                     struct dirent *ext, struct dirent **res);
+                     struct dirent *ext, struct dirent **res) __THROW
         GFAPI_PUBLIC(glfs_xreaddirplus_r, 3.11.0);
 
 #define GFAPI_MAX_LOCK_OWNER_LEN 255
@@ -934,7 +934,7 @@ glfs_xreaddirplus_r (struct glfs_fd *glfd, uint32_t flags,
  * 0: SUCCESS
  * -1: FAILURE
  */
-int glfs_fd_set_lkowner (glfs_fd_t *glfd, void *data, int len);
+int glfs_fd_set_lkowner (glfs_fd_t *glfd, void *data, int len) __THROW
         GFAPI_PUBLIC(glfs_fd_set_lkowner, 3.10.7);
 
 /*
@@ -1055,7 +1055,7 @@ typedef void (*glfs_upcall_cbk) (struct glfs_upcall *up_arg, void *data);
  */
 int
 glfs_upcall_register (struct glfs *fs, uint32_t event_list,
-                      glfs_upcall_cbk cbk, void *data);
+                      glfs_upcall_cbk cbk, void *data) __THROW
         GFAPI_PUBLIC(glfs_upcall_register, 3.13.0);
 
 /*
@@ -1082,7 +1082,7 @@ glfs_upcall_register (struct glfs *fs, uint32_t event_list,
  * -1: FAILURE
  */
 int
-glfs_upcall_unregister (struct glfs *fs, uint32_t event_list);
+glfs_upcall_unregister (struct glfs *fs, uint32_t event_list) __THROW
         GFAPI_PUBLIC(glfs_upcall_unregister, 3.13.0);
 
 /* Lease Types */
