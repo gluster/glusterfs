@@ -8,6 +8,7 @@ cleanup;
 TEST glusterd
 
 TEST $CLI volume create $V0 $H0:$B{0..1}/$V0
+TEST $CLI volume set $V0 readdir-ahead on
 TEST $CLI volume start $V0
 
 TEST ! $CLI volume set $V0 parallel-readdir sdf
