@@ -63,3 +63,5 @@ TEST $CLI volume create $V0 disperse 6 redundancy 2 $H0:$B0/${V0}{0..5} force
 run_test_for_volume $V0 200
 
 cleanup
+#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=000000
+#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=000000
