@@ -14,6 +14,7 @@
 #include "call-stub.h"
 #include "defaults.h"
 #include "open-behind-messages.h"
+#include "glusterfs-acl.h"
 
 typedef struct ob_conf {
 	gf_boolean_t  use_anonymous_fd; /* use anonymous FDs wherever safe
@@ -811,6 +812,63 @@ err:
 	return 0;
 }
 
+int32_t
+ob_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+            struct iatt *stbuf, int32_t valid,	dict_t *xdata)
+{
+        fd_t        *fd   = NULL;
+	call_stub_t *stub = NULL;
+
+        stub = fop_setattr_stub (frame, default_setattr_resume, loc, stbuf,
+                                 valid, xdata);
+        if (!stub)
+                goto err;
+
+        fd = fd_lookup (loc->inode, 0);
+
+        open_and_resume (this, fd, stub);
+        if (fd)
+                fd_unref (fd);
+
+	return 0;
+err:
+        STACK_UNWIND_STRICT (setattr, frame, -1, ENOMEM, NULL, NULL, NULL);
+        return 0;
+}
+
+
+int32_t
+ob_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
+             int32_t flags, dict_t *xdata)
+{
+        fd_t         *fd           = NULL;
+	call_stub_t  *stub         = NULL;
+        gf_boolean_t  access_xattr = _gf_false;
+
+        if (dict_get (dict, POSIX_ACL_DEFAULT_XATTR)
+            || dict_get (dict, POSIX_ACL_ACCESS_XATTR)
+            || dict_get (dict, GF_SELINUX_XATTR_KEY))
+                access_xattr = _gf_true;
+
+        if (!access_xattr)
+                return default_setxattr (frame, this, loc, dict, flags, xdata);
+
+        stub = fop_setxattr_stub (frame, default_setxattr_resume, loc, dict,
+                                  flags, xdata);
+        if (!stub)
+                goto err;
+
+        fd = fd_lookup (loc->inode, 0);
+
+        open_and_resume (this, fd, stub);
+        if (fd)
+                fd_unref (fd);
+
+	return 0;
+err:
+        STACK_UNWIND_STRICT (setxattr, frame, -1, ENOMEM, NULL);
+        return 0;
+}
 
 int
 ob_release (xlator_t *this, fd_t *fd)
@@ -983,7 +1041,6 @@ fini (xlator_t *this)
 	return;
 }
 
-
 struct xlator_fops fops = {
         .open        = ob_open,
         .readv       = ob_readv,
@@ -993,12 +1050,14 @@ struct xlator_fops fops = {
 	.fstat       = ob_fstat,
 	.ftruncate   = ob_ftruncate,
 	.fsetxattr   = ob_fsetxattr,
+        .setxattr    = ob_setxattr,
 	.fgetxattr   = ob_fgetxattr,
 	.fremovexattr = ob_fremovexattr,
 	.finodelk    = ob_finodelk,
 	.fentrylk    = ob_fentrylk,
 	.fxattrop    = ob_fxattrop,
 	.fsetattr    = ob_fsetattr,
+        .setattr     = ob_setattr,
 	.fallocate   = ob_fallocate,
 	.discard     = ob_discard,
         .zerofill    = ob_zerofill,
