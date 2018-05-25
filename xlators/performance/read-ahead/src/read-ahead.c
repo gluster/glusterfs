@@ -583,20 +583,11 @@ ra_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 int
 ra_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
-        ra_file_t *file     = NULL;
-        uint64_t   tmp_file = 0;
         int32_t    op_errno = EINVAL;
 
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
         GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
-
-        fd_ctx_get (fd, this, &tmp_file);
-
-        file = (ra_file_t *)(long)tmp_file;
-        if (file) {
-                flush_region (frame, file, 0, file->pages.prev->offset+1, 0);
-        }
 
         STACK_WIND (frame, ra_flush_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->flush, fd, xdata);
@@ -612,20 +603,11 @@ int
 ra_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
           dict_t *xdata)
 {
-        ra_file_t *file     = NULL;
-        uint64_t   tmp_file = 0;
         int32_t    op_errno = EINVAL;
 
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
         GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
-
-        fd_ctx_get (fd, this, &tmp_file);
-
-        file = (ra_file_t *)(long)tmp_file;
-        if (file) {
-                flush_region (frame, file, 0, file->pages.prev->offset+1, 0);
-        }
 
         STACK_WIND (frame, ra_fsync_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->fsync, fd, datasync, xdata);
@@ -664,22 +646,39 @@ ra_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
            int32_t count, off_t offset, uint32_t flags, struct iobref *iobref,
            dict_t *xdata)
 {
-        ra_file_t *file    = NULL;
-        uint64_t  tmp_file = 0;
-        int32_t   op_errno = EINVAL;
+        ra_file_t *file     = NULL;
+        uint64_t   tmp_file = 0;
+        int32_t    op_errno = EINVAL;
+        inode_t   *inode    = NULL;
+        fd_t      *iter_fd  = NULL;
 
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
         GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
 
-        fd_ctx_get (fd, this, &tmp_file);
-        file = (ra_file_t *)(long)tmp_file;
-        if (file) {
-                flush_region (frame, file, 0, file->pages.prev->offset+1, 1);
-                frame->local = file;
-                /* reset the read-ahead counters too */
-                file->expected = file->page_count = 0;
+        inode = fd->inode;
+
+        LOCK (&inode->lock);
+        {
+                list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
+                        tmp_file = 0;
+                        fd_ctx_get (iter_fd, this, &tmp_file);
+                        file = (ra_file_t *)(long)tmp_file;
+
+                        if (!file)
+                                continue;
+
+                        if (iter_fd == fd)
+                                frame->local = file;
+
+                        flush_region (frame, file, 0,
+                                      file->pages.prev->offset + 1, 1);
+
+                        /* reset the read-ahead counters too */
+                        file->expected = file->page_count = 0;
+                }
         }
+        UNLOCK (&inode->lock);
 
         STACK_WIND (frame, ra_writev_cbk,
                     FIRST_CHILD(this),
@@ -737,6 +736,7 @@ ra_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
         LOCK (&inode->lock);
         {
                 list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
+                        tmp_file = 0;
                         fd_ctx_get (iter_fd, this, &tmp_file);
                         file = (ra_file_t *)(long)tmp_file;
 
@@ -877,6 +877,7 @@ ra_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         LOCK (&inode->lock);
         {
                 list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
+                        tmp_file = 0;
                         fd_ctx_get (iter_fd, this, &tmp_file);
                         file = (ra_file_t *)(long)tmp_file;
 
@@ -917,6 +918,7 @@ ra_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         LOCK (&inode->lock);
         {
                 list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
+                        tmp_file = 0;
                         fd_ctx_get (iter_fd, this, &tmp_file);
                         file = (ra_file_t *)(long)tmp_file;
                         if (!file)
@@ -975,6 +977,7 @@ ra_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         LOCK (&inode->lock);
         {
                 list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
+                        tmp_file = 0;
                         fd_ctx_get (iter_fd, this, &tmp_file);
                         file = (ra_file_t *)(long)tmp_file;
                         if (!file)
@@ -1025,6 +1028,7 @@ ra_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         LOCK (&inode->lock);
         {
                 list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
+                        tmp_file = 0;
                         fd_ctx_get (iter_fd, this, &tmp_file);
                         file = (ra_file_t *)(long)tmp_file;
                         if (!file)
