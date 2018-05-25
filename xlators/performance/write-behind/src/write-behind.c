@@ -288,10 +288,6 @@ wb_requests_conflict (wb_request_t *lie, wb_request_t *req)
 		   us in the todo list */
 		return _gf_false;
 
-        /* requests from different fd do not conflict with each other. */
-        if (req->fd && (req->fd != lie->fd))
-                return _gf_false;
-
 	if (lie->ordering.append)
 		/* all modifications wait for the completion
 		   of outstanding append */
@@ -744,9 +740,8 @@ __wb_request_waiting_on (wb_request_t *req)
         wb_inode = req->wb_inode;
 
         list_for_each_entry (trav, &wb_inode->todo, todo) {
-                if ((trav->fd == req->fd)
-                    && ((trav->stub->fop == GF_FOP_FLUSH)
-                        || (trav->stub->fop == GF_FOP_FSYNC))
+                if (((trav->stub->fop == GF_FOP_FLUSH) || (trav->stub->fop
+                                                           == GF_FOP_FSYNC))
                     && (trav->gen >= req->gen))
                         return trav;
         }
