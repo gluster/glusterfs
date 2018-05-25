@@ -241,9 +241,9 @@ glfs_resolve_root (struct glfs *fs, xlator_t *subvol, inode_t *inode,
 
         loc.inode = inode_ref (inode);
 
-        ret = inode_path (loc.inode, NULL, &path);
+        ret = inode_path (loc.inode, ".", &path);
         loc.path = path;
-        loc.name = "";
+        loc.name = ".";
         /* Having a value in loc.name will help to bypass md-cache check for
          * nameless lookup.
          * TODO: Re-visit on nameless lookup and md-cache.
