@@ -404,6 +404,14 @@ event_unregister_epoll_common (struct event_pool *event_pool, int fd,
 
         GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
+        /* During shutdown, it may happen that a socket registration with
+         * the event sub-system may fail and an rpc_transport_unref() may
+         * be called for such an unregistered socket with idx == -1. This
+         * may cause the following assert(slot->fd == fd) to fail.
+         */
+        if (idx < 0)
+                goto out;
+
 	slot = event_slot_get (event_pool, idx);
 
 	assert (slot->fd == fd);
