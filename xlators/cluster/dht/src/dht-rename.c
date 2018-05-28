@@ -1948,6 +1948,7 @@ dht_rename (call_frame_t *frame, xlator_t *this,
         dht_conf_t  *conf                   = NULL;
         char         gfid[GF_UUID_BUF_SIZE] = {0};
         char         newgfid[GF_UUID_BUF_SIZE] = {0};
+        gf_boolean_t free_xdata             = _gf_false;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -1957,7 +1958,17 @@ dht_rename (call_frame_t *frame, xlator_t *this,
         conf = this->private;
 
         if (conf->subvolume_cnt == 1) {
+                if (!IA_ISDIR (oldloc->inode->ia_type)) {
+                        if (!xdata) {
+                                free_xdata = _gf_true;
+                        }
+                        DHT_CHANGELOG_TRACK_AS_RENAME(xdata, oldloc, newloc);
+                }
                 default_rename (frame, this, oldloc, newloc, xdata);
+                if (free_xdata && xdata) {
+                        dict_unref(xdata);
+                        xdata = NULL;
+                }
                 return 0;
         }
 

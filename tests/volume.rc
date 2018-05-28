@@ -869,3 +869,10 @@ function get_mount_lru_size_value {
         rm -f $statedump
         echo $val
 }
+
+function check_changelog_op {
+        local clog_path=$1
+        local op=$2
+
+        $PYTHON $(dirname $0)/../../utils/changelogparser.py ${clog_path}/CHANGELOG | grep $op | wc -l
+}
