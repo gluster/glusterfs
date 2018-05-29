@@ -189,7 +189,6 @@ typedef struct clnt_conf {
         pthread_spinlock_t     fd_lock; /* protects saved_fds list
                                          * and all fdctx */
         pthread_mutex_t        lock;
-        int                    connecting;
         int                    connected;
 
         rpc_clnt_prog_t       *fops;

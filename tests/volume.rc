@@ -139,7 +139,7 @@ function cleanup_mount_statedump {
 function snap_client_connected_status {
          local vol=$1
          local fpath=$(generate_mount_statedump $vol)
-         up=$(grep -a -A2 xlator.protocol.client.$vol-snapd-client.priv $fpath | tail -1 | cut -f 2 -d'=')
+         up=$(grep -a -A1 xlator.protocol.client.$vol-snapd-client.priv $fpath | tail -1 | cut -f 2 -d'=')
          rm -f $fpath
          echo "$up"
 }

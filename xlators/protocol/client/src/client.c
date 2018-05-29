@@ -2795,8 +2795,6 @@ client_priv_dump (xlator_t *this)
         }
         pthread_spin_unlock (&conf->fd_lock);
 
-        gf_proc_dump_write("connecting", "%d", conf->connecting);
-
         gf_proc_dump_write ("connected", "%d", conf->connected);
 
         if (conf->rpc) {
