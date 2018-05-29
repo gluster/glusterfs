@@ -1505,7 +1505,8 @@ unlock:
                 DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
                 dht_set_fixed_dir_stat (&local->postparent);
                 /* Delete mds xattr at the time of STACK UNWIND */
-                GF_REMOVE_INTERNAL_XATTR (conf->mds_xattr_key, local->xattr);
+                if (local->xattr)
+                        GF_REMOVE_INTERNAL_XATTR (conf->mds_xattr_key, local->xattr);
                 DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
                                   local->inode, &local->stbuf, local->xattr,
                                   &local->postparent);
@@ -1908,7 +1909,8 @@ cont:
                         local->op_errno = ESTALE;
                 }
                 /* Delete mds xattr at the time of STACK UNWIND */
-                GF_REMOVE_INTERNAL_XATTR (conf->mds_xattr_key, local->xattr);
+                if (local->xattr)
+                        GF_REMOVE_INTERNAL_XATTR (conf->mds_xattr_key, local->xattr);
 
                 DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
                                   local->inode, &local->stbuf, local->xattr,
