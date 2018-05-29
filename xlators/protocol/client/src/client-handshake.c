@@ -1176,7 +1176,6 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
                 remote_subvol);
 
         op_ret = 0;
-        conf->connecting = 0;
         conf->connected = 1;
 
         client_post_handshake (frame, frame->this);
@@ -1189,7 +1188,6 @@ out:
                         gf_msg (this->name, GF_LOG_INFO, 0,
                                 PC_MSG_AUTH_FAILED_NOTIFY_FAILED, "notify of "
                                 "AUTH_FAILED failed");
-                conf->connecting = 0;
                 conf->connected = 0;
                 ret = -1;
         }
@@ -1207,7 +1205,6 @@ out:
                         gf_msg (this->name, GF_LOG_INFO, 0,
                                 PC_MSG_CHILD_CONNECTING_NOTIFY_FAILED,
                                 "notify of CHILD_CONNECTING failed");
-                conf->connecting= 1;
                 /*
                  * The reconnection *won't* happen in the background (see
                  * previous comment) unless we kill the current connection.
