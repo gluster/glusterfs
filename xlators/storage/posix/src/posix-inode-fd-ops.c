@@ -2863,26 +2863,6 @@ out:
         return ret;
 }
 
-gf_boolean_t
-posix_is_mds_xattr (const char *name)
-{
-        regex_t regcmpl;
-        char *key = {"trusted.glusterfs.*.mds$"};
-        regmatch_t result[1] = {{0} };
-        gf_boolean_t status = _gf_false;
-
-        if (regcomp (&regcmpl, key, REG_EXTENDED)) {
-                goto out;
-        }
-        if (!regexec (&regcmpl, name, 1, result, 0)) {
-                status = _gf_true;
-                goto out;
-        }
-out:
-        regfree(&regcmpl);
-        return status;
-}
-
 
 /**
  * posix_getxattr - this function returns a dictionary with all the
@@ -2943,13 +2923,6 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 op_errno = ENOATTR;
                 goto out;
         }
-
-        if (name && posix_is_mds_xattr (name)) {
-                op_ret = -1;
-                op_errno = ENOATTR;
-                goto out;
-        }
-
 
         if (loc->inode && IA_ISDIR(loc->inode->ia_type) && name &&
             ZR_FILE_CONTENT_REQUEST(name)) {
@@ -3330,10 +3303,6 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 }
 
                 if (posix_is_gfid2path_xattr (keybuffer)) {
-                        goto ignore;
-                }
-
-                if (posix_is_mds_xattr (keybuffer)) {
                         goto ignore;
                 }
 
