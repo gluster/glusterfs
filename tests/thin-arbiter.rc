@@ -431,3 +431,184 @@ function ta_up_status()
         local replica_id=$3
         grep -E "^up = " $m/.meta/graphs/active/${v}-replicate-${replica_id}/private | cut -f2 -d'='
 }
+
+function ta_create_shd_volfile()
+{
+        local b0=$B0/$1
+        local b1=$B0/$2
+        local ta=$B0/$3
+        local b0_port=${PORTMAP[$1]}
+        local b1_port=${PORTMAP[$2]}
+        local ta_port=${PORTMAP[$3]}
+cat > $B0/glustershd.vol <<EOF
+volume ${V0}-replicate-0-client-0
+    type protocol/client
+    option send-gids on
+    option transport.socket.lowlat off
+    option transport.socket.keepalive-interval 2
+    option remote-host $H0
+    option remote-subvolume $b0
+    option ping-timeout 42
+    option client-bind-insecure off
+    option transport.socket.own-thread off
+    option frame-timeout 1800
+    option non-blocking-io off
+    option transport.socket.keepalive 1
+    option transport.socket.keepalive-count 9
+    option transport.tcp-user-timeout 0
+    option transport.socket.nodelay 1
+    option transport.socket.keepalive-time 20
+    option transport.socket.read-fail-log off
+    option transport-type tcp
+    option filter-O_DIRECT disable
+    option event-threads 2
+    option transport.listen-backlog 1024
+    option transport.socket.ssl-enabled off
+    option password a0ad63dd-8314-4f97-9160-1b93e3cb1f0b
+    option username 459d48e8-2a92-4f11-89f2-077b29f6f86d
+    option remote-port $b0_port
+end-volume
+
+volume ${V0}-replicate-0-client-1
+    type protocol/client
+    option remote-host $H0
+    option transport.socket.keepalive-time 20
+    option transport.socket.keepalive-count 9
+    option transport.socket.own-thread off
+    option transport.socket.ssl-enabled off
+    option transport-type tcp
+    option remote-subvolume $b1
+    option event-threads 2
+    option transport.tcp-user-timeout 0
+    option transport.socket.keepalive 1
+    option transport.socket.nodelay 1
+    option transport.socket.read-fail-log off
+    option frame-timeout 1800
+    option ping-timeout 42
+    option client-bind-insecure off
+    option filter-O_DIRECT disable
+    option send-gids on
+    option non-blocking-io off
+    option transport.listen-backlog 1024
+    option transport.socket.lowlat off
+    option transport.socket.keepalive-interval 2
+    option password a0ad63dd-8314-4f97-9160-1b93e3cb1f0b
+    option username 459d48e8-2a92-4f11-89f2-077b29f6f86d
+    option remote-port $b1_port
+end-volume
+
+volume ${V0}-replicate-0-thin-arbiter-client
+    type protocol/client
+    option frame-timeout 1800
+    option event-threads 2
+    option transport.listen-backlog 1024
+    option transport.socket.nodelay 1
+    option transport.socket.keepalive-count 9
+    option transport.socket.ssl-enabled off
+    option transport-type tcp
+    option remote-subvolume $ta
+    option filter-O_DIRECT disable
+    option non-blocking-io off
+    option transport.socket.lowlat off
+    option transport.socket.keepalive-interval 2
+    option transport.socket.read-fail-log off
+    option remote-host $H0
+    option send-gids on
+    option transport.tcp-user-timeout 0
+    option transport.socket.keepalive-time 20
+    option ping-timeout 42
+    option client-bind-insecure off
+    option transport.socket.keepalive 1
+    option transport.socket.own-thread off
+    option remote-port $ta_port
+end-volume
+
+volume ${V0}-replicate-0
+    type cluster/replicate
+    option background-self-heal-count 8
+    option metadata-self-heal on
+    option data-change-log on
+    option entrylk-trace off
+    option iam-self-heal-daemon yes
+    option afr-dirty-xattr trusted.afr.dirty
+    option heal-timeout 10
+    option read-hash-mode 1
+    option metadata-splitbrain-forced-heal off
+    option thin-arbiter $H0:$ta
+    option shd-max-threads 1
+    option afr-pending-xattr ${V0}-client-0,${V0}-client-1,${V0}-ta-2
+    option halo-max-latency 5
+    option halo-max-replicas 99999
+    option entry-change-log on
+    option halo-nfsd-max-latency 5
+    option inodelk-trace off
+    option pre-op-compat on
+    option eager-lock on
+    option self-heal-readdir-size 1KB
+    option ensure-durability on
+    option locking-scheme full
+    option halo-enabled False
+    option heal-wait-queue-length 128
+    option entry-self-heal on
+    option self-heal-daemon on
+    option quorum-reads no
+    option shd-wait-qlength 1024
+    option choose-local true
+    option halo-min-replicas 2
+    option data-self-heal on
+    option metadata-change-log on
+    option consistent-metadata no
+    option full-lock yes
+    option use-compound-fops no
+    option halo-shd-max-latency 99999
+    option quorum-type none
+    option favorite-child-policy none
+    option read-subvolume-index -1
+    option optimistic-change-log on
+    option iam-nfs-daemon off
+    option post-op-delay-secs 1
+    option granular-entry-heal no
+    option consistent-io no
+    option data-self-heal-window-size 1
+    subvolumes ${V0}-replicate-0-client-0 ${V0}-replicate-0-client-1 ${V0}-replicate-0-thin-arbiter-client
+end-volume
+
+volume glustershd
+    type debug/io-stats
+    option log-buf-size 5
+    option ios-dump-format json
+    option latency-measurement off
+    option sys-log-level CRITICAL
+    option brick-log-level INFO
+    option client-logger gluster-log
+    option client-log-format with-msg-id
+    option brick-log-format with-msg-id
+    option client-log-buf-size 5
+    option log-flush-timeout 120
+    option ios-dump-interval 0
+    option ios-sample-interval 0
+    option ios-dnscache-ttl-sec 86400
+    option count-fop-hits off
+    option client-log-level INFO
+    option brick-logger gluster-log
+    option brick-log-buf-size 5
+    option ios-sample-buf-size 65535
+    option client-log-flush-timeout 120
+    option brick-log-flush-timeout 120
+    option unique-id /no/such/path
+    option dump-fd-stats off
+    subvolumes ${V0}-replicate-0
+end-volume
+EOF
+}
+
+function ta_start_shd_process()
+{
+        if glusterfs -p $B0/${1}.pid --volfile=$B0/${1}.vol -l $(gluster --print-logdir)/${1}.log --process-name=glustershd
+        then
+                cat $B0/${1}.pid
+        else
+                echo ""
+                return 1
+        fi
+}
