@@ -235,6 +235,11 @@ typedef struct clnt_conf {
 
         gf_boolean_t           child_up; /* Set to true, when child is up, and
                                           * false, when child is down */
+
+        gf_boolean_t           can_log_disconnect; /* socket level connection is
+                                                    * up, disconnects can be
+                                                    * logged
+                                                    */
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {
