@@ -16,7 +16,10 @@ import fcntl
 from errno import EBADF
 from threading import Thread
 import multiprocessing
-from Queue import Queue
+try:
+    from queue import Queue
+except ImportError:
+    from Queue import Queue
 from datetime import datetime, timedelta
 import base64
 import hmac

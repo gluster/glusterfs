@@ -9,7 +9,10 @@
 # cases as published by the Free Software Foundation.
 
 import os
-import ConfigParser
+try:
+    import configparser
+except ImportError:
+    import ConfigParser as configparser
 
 config = ConfigParser.ConfigParser()
 config.read(os.path.join(os.path.dirname(os.path.abspath(__file__)),

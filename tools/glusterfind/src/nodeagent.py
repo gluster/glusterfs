@@ -14,7 +14,10 @@ import sys
 import os
 import logging
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
-import urllib.request, urllib.parse, urllib.error
+try:
+    import urllib.parse as urllib
+except ImportError:
+    import urllib
 from errno import ENOTEMPTY
 
 from utils import setup_logger, mkdirp, handle_rm_error

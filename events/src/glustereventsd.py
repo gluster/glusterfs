@@ -13,7 +13,10 @@
 from __future__ import print_function
 import sys
 import signal
-import SocketServer
+try:
+    import socketserver
+except ImportError:
+    import SocketServer as socketserver
 import socket
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
