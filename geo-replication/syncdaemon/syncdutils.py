@@ -28,7 +28,10 @@ import select as oselect
 from os import waitpid as owaitpid
 import xml.etree.ElementTree as XET
 from select import error as SelectError
-from cPickle import PickleError
+try:
+    from cPickle import PickleError
+except ImportError:
+    from pickle import PickleError
 
 from conf import GLUSTERFS_LIBEXECDIR, UUID_FILE
 sys.path.insert(1, GLUSTERFS_LIBEXECDIR)

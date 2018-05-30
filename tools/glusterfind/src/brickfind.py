@@ -13,7 +13,10 @@ import os
 import sys
 import logging
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
-import urllib.request, urllib.parse, urllib.error
+try:
+    import urllib.parse as urllib
+except ImportError:
+    import urllib
 import time
 
 from utils import mkdirp, setup_logger, create_file, output_write, find

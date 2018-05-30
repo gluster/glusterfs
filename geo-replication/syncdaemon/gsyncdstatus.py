@@ -13,7 +13,10 @@ from __future__ import print_function
 import fcntl
 import os
 import tempfile
-import urllib
+try:
+    import urllib.parse as urllib
+except ImportError:
+    import urllib
 import json
 import time
 from datetime import datetime

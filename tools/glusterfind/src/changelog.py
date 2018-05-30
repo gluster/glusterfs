@@ -16,7 +16,10 @@ import xattr
 import logging
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 import hashlib
-import urllib.request, urllib.parse, urllib.error
+try:
+    import urllib.parse as urllib
+except ImportError:
+    import urllib
 import codecs
 
 import libgfchangelog
