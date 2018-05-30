@@ -2225,7 +2225,7 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         }
         case RPC_CLNT_CONNECT:
         {
-                conf->connected = 1;
+                conf->can_log_disconnect = 1;
                 // connect happened, send 'get_supported_versions' mop
 
                 gf_msg_debug (this->name, 0, "got RPC_CLNT_CONNECT");
@@ -2243,7 +2243,7 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 client_mark_fd_bad (this);
 
                 if (!conf->skip_notify) {
-                        if (conf->connected) {
+                        if (conf->can_log_disconnect) {
                                 if (!conf->disconnect_err_logged) {
                                         gf_msg (this->name, GF_LOG_INFO, 0,
                                                 PC_MSG_CLIENT_DISCONNECTED,
@@ -2278,12 +2278,13 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                                         "CHILD_DOWN notify failed");
 
                 } else {
-                        if (conf->connected)
+                        if (conf->can_log_disconnect)
                                 gf_msg_debug (this->name, 0,
                                               "disconnected (skipped notify)");
                 }
 
                 conf->connected = 0;
+                conf->can_log_disconnect = 0;
                 conf->skip_notify = 0;
 
                 if (conf->quick_reconnect) {
