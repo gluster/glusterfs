@@ -6717,7 +6717,8 @@ afr_ta_post_op_lock(xlator_t *this, loc_t *loc)
     };
     int32_t cmd = 0;
 
-    GF_ASSERT(afr_ta_is_fop_called_from_synctask(this));
+    if (!priv->shd.iamshd)
+        GF_ASSERT(afr_ta_is_fop_called_from_synctask(this));
     flock1.l_type = F_WRLCK;
 
     while (!locked) {
@@ -6725,7 +6726,6 @@ afr_ta_post_op_lock(xlator_t *this, loc_t *loc)
             cmd = F_SETLKW;
             flock1.l_start = 0;
             flock1.l_len = 0;
-
         } else {
             cmd = F_SETLK;
             if (priv->ta_notify_dom_lock_offset) {
@@ -6780,7 +6780,8 @@ afr_ta_post_op_unlock(xlator_t *this, loc_t *loc)
     };
     int ret = 0;
 
-    GF_ASSERT(afr_ta_is_fop_called_from_synctask(this));
+    if (!priv->shd.iamshd)
+        GF_ASSERT(afr_ta_is_fop_called_from_synctask(this));
     flock.l_type = F_UNLCK;
     flock.l_start = 0;
     flock.l_len = 0;

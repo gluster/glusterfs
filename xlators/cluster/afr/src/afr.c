@@ -384,6 +384,7 @@ init(xlator_t *this)
         priv->child_count--;
         priv->ta_bad_child_index = AFR_CHILD_UNKNOWN;
         priv->ta_notify_dom_lock_offset = 0;
+        *priv->ta_gfid = 0;
     }
     INIT_LIST_HEAD(&priv->healing);
     INIT_LIST_HEAD(&priv->heal_waiting);

@@ -546,14 +546,128 @@ afr_shd_full_sweep(struct subvol_healer *healer, inode_t *inode)
                       GF_CLIENT_PID_SELF_HEALD, healer, afr_shd_full_heal);
 }
 
-void
-afr_shd_ta_set_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata, int healer)
+int
+afr_shd_fill_ta_loc(xlator_t *this, loc_t *loc)
+{
+    afr_private_t *priv = NULL;
+    struct iatt stbuf = {
+        0,
+    };
+    int ret = -1;
+
+    priv = this->private;
+    loc->parent = inode_ref(this->itable->root);
+    gf_uuid_copy(loc->pargfid, loc->parent->gfid);
+    loc->name = priv->pending_key[THIN_ARBITER_BRICK_INDEX];
+    loc->inode = inode_new(loc->parent->table);
+    GF_CHECK_ALLOC(loc->inode, ret, out);
+
+    if (!gf_uuid_is_null(priv->ta_gfid))
+        goto assign_gfid;
+
+    ret = syncop_lookup(priv->children[THIN_ARBITER_BRICK_INDEX], loc, &stbuf,
+                        0, 0, 0);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
+               "Failed lookup on file %s.", loc->name);
+        goto out;
+    }
+
+    gf_uuid_copy(priv->ta_gfid, stbuf.ia_gfid);
+
+assign_gfid:
+    gf_uuid_copy(loc->gfid, priv->ta_gfid);
+    ret = 0;
+
+out:
+    if (ret)
+        loc_wipe(loc);
+
+    return ret;
+}
+
+int
+_afr_shd_ta_get_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata)
 {
     afr_private_t *priv = NULL;
     dict_t *xattr = NULL;
-    struct gf_flock flock = {
-        0,
-    };
+    int *raw = NULL;
+    int ret = -1;
+    int i = 0;
+
+    priv = this->private;
+
+    xattr = dict_new();
+    if (!xattr) {
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, AFR_MSG_DICT_GET_FAILED,
+               "Failed to create dict.");
+        goto out;
+    }
+
+    for (i = 0; i < priv->child_count; i++) {
+        raw = GF_CALLOC(AFR_NUM_CHANGE_LOGS, sizeof(int), gf_afr_mt_int32_t);
+        if (!raw)
+            goto out;
+
+        ret = dict_set_bin(xattr, priv->pending_key[i], raw,
+                           AFR_NUM_CHANGE_LOGS * sizeof(int));
+        if (ret) {
+            GF_FREE(raw);
+            goto out;
+        }
+    }
+
+    ret = syncop_xattrop(priv->children[THIN_ARBITER_BRICK_INDEX], loc,
+                         GF_XATTROP_ADD_ARRAY, xattr, NULL, xdata, NULL);
+    if (ret || !(*xdata)) {
+        gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
+               "Xattrop failed on %s.", loc->name);
+    }
+
+out:
+    if (xattr)
+        dict_unref(xattr);
+
+    return ret;
+}
+
+void
+afr_shd_ta_get_xattrs(xlator_t *this, loc_t *loc, struct subvol_healer *healer,
+                      dict_t **xdata)
+{
+    int ret = 0;
+
+    loc_wipe(loc);
+    if (afr_shd_fill_ta_loc(this, loc)) {
+        gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
+               "Failed to populate thin-arbiter loc for: %s.", loc->name);
+        goto out;
+    }
+
+    ret = afr_ta_post_op_lock(this, loc);
+    if (ret)
+        goto out;
+
+    ret = _afr_shd_ta_get_xattrs(this, loc, xdata);
+    if (ret) {
+        if (*xdata) {
+            dict_unref(*xdata);
+            *xdata = NULL;
+        }
+    }
+
+    afr_ta_post_op_unlock(this, loc);
+
+out:
+    if (ret)
+        healer->rerun = 1;
+}
+
+int
+afr_shd_ta_unset_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata, int healer)
+{
+    afr_private_t *priv = NULL;
+    dict_t *xattr = NULL;
     gf_boolean_t need_xattrop = _gf_false;
     void *pending_raw = NULL;
     int *raw = NULL;
@@ -563,7 +677,7 @@ afr_shd_ta_set_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata, int healer)
     int i = 0;
     int j = 0;
     int val = 0;
-    int ret = 0;
+    int ret = -1;
 
     priv = this->private;
 
@@ -598,6 +712,7 @@ afr_shd_ta_set_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata, int healer)
                            "not the good shd. Skipping. "
                            "SHD = %d.",
                            healer);
+                    ret = 0;
                     GF_FREE(raw);
                     goto out;
                 }
@@ -607,27 +722,20 @@ afr_shd_ta_set_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata, int healer)
         }
 
         ret = dict_set_bin(xattr, priv->pending_key[i], raw,
-                           AFR_NUM_CHANGE_LOGS * sizeof(int));
+                           AFR_NUM_CHANGE_LOGS * sizeof (int));
         if (ret) {
-            GF_FREE(raw);
+            GF_FREE (raw);
             goto out;
         }
 
-        memset(pending, 0, sizeof(pending));
+        if (need_xattrop)
+            break;
     }
 
     if (!need_xattrop) {
+        ret = 0;
         goto out;
     }
-
-    flock.l_type = F_WRLCK;
-    flock.l_start = 0;
-    flock.l_len = 0;
-
-    ret = syncop_inodelk(priv->children[THIN_ARBITER_BRICK_INDEX],
-                         AFR_TA_DOM_NOTIFY, loc, F_SETLKW, &flock, NULL, NULL);
-    if (ret)
-        goto out;
 
     ret = syncop_xattrop(priv->children[THIN_ARBITER_BRICK_INDEX], loc,
                          GF_XATTROP_ADD_ARRAY, xattr, NULL, NULL, NULL);
@@ -635,85 +743,48 @@ afr_shd_ta_set_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata, int healer)
         gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
                "Xattrop failed.");
 
-    flock.l_type = F_UNLCK;
-    syncop_inodelk(priv->children[THIN_ARBITER_BRICK_INDEX], AFR_TA_DOM_NOTIFY,
-                   loc, F_SETLKW, &flock, NULL, NULL);
-
 out:
     if (xattr)
         dict_unref(xattr);
-    return;
+
+    return ret;
 }
 
 void
-afr_shd_ta_get_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata)
+afr_shd_ta_check_and_unset_xattrs(xlator_t *this, loc_t *loc,
+                                  struct subvol_healer *healer,
+                                  dict_t *pre_crawl_xdata)
 {
-    afr_private_t *priv = NULL;
-    dict_t *xattr = NULL;
-    struct iatt stbuf = {
-        0,
-    };
-    int *raw = NULL;
+    int ret_lock = 0;
     int ret = 0;
-    int i = 0;
+    dict_t *post_crawl_xdata = NULL;
 
-    priv = this->private;
+    ret_lock = afr_ta_post_op_lock(this, loc);
+    if (ret_lock)
+        goto unref;
 
-    loc->parent = inode_ref(this->itable->root);
-    gf_uuid_copy(loc->pargfid, loc->parent->gfid);
-    loc->name = priv->pending_key[THIN_ARBITER_BRICK_INDEX];
-    loc->inode = inode_new(loc->parent->table);
-    if (!loc->inode) {
-        goto out;
+    ret = _afr_shd_ta_get_xattrs(this, loc, &post_crawl_xdata);
+    if (ret)
+        goto unref;
+
+    if (!are_dicts_equal(pre_crawl_xdata, post_crawl_xdata, NULL, NULL)) {
+        ret = -1;
+        goto unref;
     }
 
-    ret = syncop_lookup(priv->children[THIN_ARBITER_BRICK_INDEX], loc, &stbuf,
-                        0, 0, 0);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
-               "Failed lookup on file %s.", loc->name);
-        goto out;
+    ret = afr_shd_ta_unset_xattrs(this, loc, &post_crawl_xdata, healer->subvol);
+
+unref:
+    if (post_crawl_xdata) {
+        dict_unref(post_crawl_xdata);
+        post_crawl_xdata = NULL;
     }
 
-    gf_uuid_copy(priv->ta_gfid, stbuf.ia_gfid);
-    gf_uuid_copy(loc->gfid, priv->ta_gfid);
+    if (ret || ret_lock)
+        healer->rerun = 1;
 
-    xattr = dict_new();
-    if (!xattr) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_DICT_GET_FAILED,
-               "Failed to create dict.");
-        goto out;
-    }
-
-    for (i = 0; i < priv->child_count; i++) {
-        raw = GF_CALLOC(AFR_NUM_CHANGE_LOGS, sizeof(int), gf_afr_mt_int32_t);
-        if (!raw) {
-            goto out;
-        }
-
-        ret = dict_set_bin(xattr, priv->pending_key[i], raw,
-                           AFR_NUM_CHANGE_LOGS * sizeof(int));
-        if (ret) {
-            GF_FREE(raw);
-            goto out;
-        }
-    }
-
-    ret = syncop_xattrop(priv->children[THIN_ARBITER_BRICK_INDEX], loc,
-                         GF_XATTROP_ADD_ARRAY, xattr, NULL, xdata, NULL);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
-               "Xattrop failed.");
-        goto out;
-    }
-    if (!(*xdata))
-        gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_DICT_GET_FAILED,
-               "Xdata response is empty.");
-
-out:
-    if (xattr)
-        dict_unref(xattr);
-    return;
+    if (!ret_lock)
+        afr_ta_post_op_unlock(this, loc);
 }
 
 void *
@@ -723,7 +794,7 @@ afr_shd_index_healer(void *data)
     xlator_t *this = NULL;
     int ret = 0;
     afr_private_t *priv = NULL;
-    dict_t *xdata = NULL;
+    dict_t *pre_crawl_xdata = NULL;
     loc_t loc = {
         0,
     };
@@ -739,8 +810,7 @@ afr_shd_index_healer(void *data)
         priv->local[healer->subvol] = healer->local;
 
         if (priv->thin_arbiter_count) {
-            loc_wipe(&loc);
-            afr_shd_ta_get_xattrs(this, &loc, &xdata);
+            afr_shd_ta_get_xattrs(this, &loc, healer, &pre_crawl_xdata);
         }
 
         do {
@@ -770,14 +840,13 @@ afr_shd_index_healer(void *data)
             sleep(1);
         } while (ret > 0);
 
-        if (xdata && !healer->crawl_event.heal_failed_count) {
-            afr_shd_ta_set_xattrs(this, &loc, &xdata, healer->subvol);
-            dict_unref(xdata);
-            xdata = NULL;
+        if (pre_crawl_xdata && !healer->crawl_event.heal_failed_count) {
+            afr_shd_ta_check_and_unset_xattrs(this, &loc, healer,
+                                              pre_crawl_xdata);
+            dict_unref(pre_crawl_xdata);
+            pre_crawl_xdata = NULL;
         }
     }
-
-    loc_wipe(&loc);
 
     return NULL;
 }
