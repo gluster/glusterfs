@@ -2394,6 +2394,7 @@ call_resume_wind (call_stub_t *stub)
                               stub->args.count, stub->args.offset,
                               stub->args.iobref, stub->args.xattr,
                               stub->args.xdata);
+                break;
 
         default:
                 gf_msg_callingfn ("call-stub", GF_LOG_ERROR, EINVAL,
