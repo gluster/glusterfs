@@ -1340,6 +1340,8 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         char          gfid_local[GF_UUID_BUF_SIZE] = {0};
         char          gfid_node[GF_UUID_BUF_SIZE]  = {0};
         int32_t       mds_xattr_val[1]                 = {0};
+        call_frame_t *copy                         = NULL;
+        dht_local_t  *copy_local                   = NULL;
 
         GF_VALIDATE_OR_GOTO ("dht", frame, out);
         GF_VALIDATE_OR_GOTO ("dht", this, out);
@@ -1410,6 +1412,23 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->xattr = dict_ref (xattr);
                 } else {
                         dht_aggregate_xattr (local->xattr, xattr);
+                }
+
+                if (dict_get (xattr, conf->mds_xattr_key)) {
+                        local->mds_subvol  = prev;
+                        local->mds_stbuf.ia_gid = stbuf->ia_gid;
+                        local->mds_stbuf.ia_uid = stbuf->ia_uid;
+                        local->mds_stbuf.ia_prot = stbuf->ia_prot;
+                }
+
+                if (local->stbuf.ia_type != IA_INVAL) {
+                        if (!__is_root_gfid (stbuf->ia_gfid) &&
+                            ((local->stbuf.ia_gid != stbuf->ia_gid) ||
+                            (local->stbuf.ia_uid != stbuf->ia_uid) ||
+                            (is_permission_different (&local->stbuf.ia_prot,
+                                                      &stbuf->ia_prot)))) {
+                                local->need_attrheal = 1;
+                        }
                 }
 
                 if (local->inode == NULL)
@@ -1507,6 +1526,43 @@ unlock:
                                                    &local->postparent, 1);
                 }
 
+                if (local->need_attrheal) {
+                        local->need_attrheal = 0;
+                        if (!__is_root_gfid (inode->gfid)) {
+                                gf_uuid_copy (local->gfid, local->mds_stbuf.ia_gfid);
+                                local->stbuf.ia_gid = local->mds_stbuf.ia_gid;
+                                local->stbuf.ia_uid = local->mds_stbuf.ia_uid;
+                                local->stbuf.ia_prot = local->mds_stbuf.ia_prot;
+                        }
+                        copy = create_frame (this, this->ctx->pool);
+                        if (copy) {
+                                copy_local = dht_local_init (copy, &local->loc,
+                                                             NULL, 0);
+                                if (!copy_local) {
+                                        DHT_STACK_DESTROY (copy);
+                                        goto skip_attr_heal;
+                                }
+                                copy_local->stbuf = local->stbuf;
+                                copy_local->mds_stbuf = local->mds_stbuf;
+                                copy_local->mds_subvol = local->mds_subvol;
+                                copy->local = copy_local;
+                                FRAME_SU_DO (copy, dht_local_t);
+                                ret = synctask_new (this->ctx->env,
+                                                    dht_dir_attr_heal,
+                                                    dht_dir_attr_heal_done,
+                                                    copy, copy);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                                DHT_MSG_DIR_ATTR_HEAL_FAILED,
+                                                "Synctask creation failed to heal attr "
+                                                "for path %s gfid %s ",
+                                                local->loc.path, local->gfid);
+                                        DHT_STACK_DESTROY (copy);
+                                }
+                        }
+                }
+
+skip_attr_heal:
                 DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
                 dht_set_fixed_dir_stat (&local->postparent);
                 /* Delete mds xattr at the time of STACK UNWIND */
@@ -1527,7 +1583,7 @@ out:
         return ret;
 }
 
-int static
+int
 is_permission_different (ia_prot_t *prot1, ia_prot_t *prot2)
 {
         if ((prot1->owner.read != prot2->owner.read) ||
@@ -1688,12 +1744,12 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         {
                                 if ((local->stbuf.ia_gid != stbuf->ia_gid) ||
                                     (local->stbuf.ia_uid != stbuf->ia_uid) ||
-                                    (__is_root_gfid (stbuf->ia_gfid) &&
                                      is_permission_different (&local->stbuf.ia_prot,
-                                                              &stbuf->ia_prot))) {
+                                                              &stbuf->ia_prot)) {
                                         local->need_selfheal = 1;
                                 }
                         }
+
                         if (!dict_get (xattr, conf->mds_xattr_key)) {
                                 gf_msg_debug (this->name, 0,
                                               "internal xattr %s is not present"
@@ -1839,10 +1895,9 @@ out:
                         local->need_selfheal = 0;
                         if (!__is_root_gfid (inode->gfid)) {
                                 gf_uuid_copy (local->gfid, local->mds_stbuf.ia_gfid);
-                                if (local->mds_stbuf.ia_gid || local->mds_stbuf.ia_uid) {
-                                        local->stbuf.ia_gid = local->mds_stbuf.ia_gid;
-                                        local->stbuf.ia_uid = local->mds_stbuf.ia_uid;
-                                }
+                                local->stbuf.ia_gid = local->mds_stbuf.ia_gid;
+                                local->stbuf.ia_uid = local->mds_stbuf.ia_uid;
+                                local->stbuf.ia_prot = local->mds_stbuf.ia_prot;
                         } else {
                                 gf_uuid_copy (local->gfid, local->stbuf.ia_gfid);
                                 local->stbuf.ia_gid = local->prebuf.ia_gid;
@@ -1854,8 +1909,10 @@ out:
                         if (copy) {
                                 copy_local = dht_local_init (copy, &local->loc,
                                                              NULL, 0);
-                                if (!copy_local)
+                                if (!copy_local) {
+                                        DHT_STACK_DESTROY (copy);
                                         goto cont;
+                                }
                                 copy_local->stbuf = local->stbuf;
                                 copy_local->mds_stbuf = local->mds_stbuf;
                                 copy_local->mds_subvol = local->mds_subvol;
@@ -1865,6 +1922,14 @@ out:
                                                     dht_dir_attr_heal,
                                                     dht_dir_attr_heal_done,
                                                     copy, copy);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                                                DHT_MSG_DIR_ATTR_HEAL_FAILED,
+                                                "Synctask creation failed to heal attr "
+                                                "for path %s gfid %s ",
+                                                local->loc.path, local->gfid);
+                                        DHT_STACK_DESTROY (copy);
+                                }
                         }
                 }
 cont:

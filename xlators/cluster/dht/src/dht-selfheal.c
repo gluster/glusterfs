@@ -2500,7 +2500,7 @@ dht_dir_attr_heal (void *data)
                                               NULL, NULL, NULL, NULL);
                 } else {
                         ret = syncop_setattr (subvol, &local->loc, &local->mds_stbuf,
-                                              (GF_SET_ATTR_UID | GF_SET_ATTR_GID),
+                                              (GF_SET_ATTR_UID | GF_SET_ATTR_GID | GF_SET_ATTR_MODE),
                                               NULL, NULL, NULL, NULL);
                 }
 

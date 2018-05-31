@@ -298,6 +298,7 @@ struct dht_local {
         xlator_t                *mds_subvol; /* This is use for dir only */
         char                     need_selfheal;
         char                     need_xattr_heal;
+        char                     need_attrheal;
         int                      file_count;
         int                      dir_count;
         call_frame_t            *main_frame;
@@ -1488,4 +1489,6 @@ int dht_request_iatt_in_xdata (xlator_t *this, dict_t *xattr_req);
 int dht_read_iatt_from_xdata (xlator_t *this, dict_t *xdata,
                               struct iatt *stbuf);
 
+int
+is_permission_different (ia_prot_t *prot1, ia_prot_t *prot2);
 #endif/* _DHT_H */
