@@ -820,7 +820,7 @@ out:
 
                 ret = gf_asprintf (op_errstr,
                                    "Another transaction is in progress. "
-                                   "Please try again after sometime.");
+                                   "Please try again after some time.");
 
                 if (ret == -1)
                         *op_errstr = NULL;
