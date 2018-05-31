@@ -17,7 +17,6 @@ libgfchangelog_la_LDFLAGS = $(GF_LDFLAGS) \
         -version-info $(LIBGFCHANGELOG_LT_VERSION) \
         $(GF_NO_UNDEFINED)
 
-libgfchangelogdir = $(includedir)/glusterfs/gfchangelog
 lib_LTLIBRARIES = libgfchangelog.la
 
 CONTRIB_BUILDDIR = $(top_builddir)/contrib
