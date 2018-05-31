@@ -1665,7 +1665,7 @@ reconfigure (xlator_t *this, dict_t *options)
         ioc_table_lock (table);
         {
                 GF_OPTION_RECONF ("pass-through", this->pass_through, options,
-                                  bool, out);
+                                  bool, unlock);
 
                 GF_OPTION_RECONF ("cache-timeout", table->cache_timeout,
                                   options, int32, unlock);
