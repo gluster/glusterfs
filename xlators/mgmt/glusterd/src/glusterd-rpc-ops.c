@@ -789,7 +789,7 @@ __glusterd_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
                 opinfo.op_ret = op_ret;
                 opinfo.op_errstr = gf_strdup ("Another transaction could be in "
                                               "progress. Please try again after"
-                                              " sometime.");
+                                              " some time.");
         } else {
                 event_type = GD_OP_EVENT_RCVD_ACC;
         }
@@ -908,7 +908,7 @@ glusterd_mgmt_v3_lock_peers_cbk_fn (struct rpc_req *req, struct iovec *iov,
                 opinfo.op_ret = op_ret;
                 opinfo.op_errstr = gf_strdup ("Another transaction could be in "
                                               "progress. Please try again after"
-                                              " sometime.");
+                                              " some time.");
         } else {
                 event_type = GD_OP_EVENT_RCVD_ACC;
         }
@@ -1019,7 +1019,7 @@ glusterd_mgmt_v3_unlock_peers_cbk_fn (struct rpc_req *req, struct iovec *iov,
                 opinfo.op_ret = op_ret;
                 opinfo.op_errstr = gf_strdup ("Another transaction could be in "
                                               "progress. Please try again after"
-                                              " sometime.");
+                                              " some time.");
         } else {
                 event_type = GD_OP_EVENT_RCVD_ACC;
         }

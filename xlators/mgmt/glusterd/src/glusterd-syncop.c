@@ -1249,7 +1249,7 @@ gd_lock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, dict_t *op_ctx,
                 else {
                         ret = gf_asprintf (op_errstr, "Another transaction "
                                            "could be in progress. Please try "
-                                           "again after sometime.");
+                                           "again after some time.");
                         if (ret == -1)
                                 *op_errstr = NULL;
 
@@ -1867,7 +1867,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
                                 "Unable to acquire lock");
                         gf_asprintf (&op_errstr,
                                      "Another transaction is in progress. "
-                                     "Please try again after sometime.");
+                                     "Please try again after some time.");
                         goto out;
                 }
         } else {
@@ -1911,7 +1911,7 @@ gd_sync_task_begin (dict_t *op_ctx, rpcsvc_request_t * req)
                                 "Unable to acquire lock for %s", volname);
                         gf_asprintf (&op_errstr,
                                      "Another transaction is in progress "
-                                     "for %s. Please try again after sometime.",
+                                     "for %s. Please try again after some time.",
                                      volname);
                         goto out;
                 }
@@ -1927,7 +1927,7 @@ global:
                                 "Unable to acquire lock for %s", global);
                         gf_asprintf (&op_errstr,
                                      "Another transaction is in progress "
-                                     "for %s. Please try again after sometime.",
+                                     "for %s. Please try again after some time.",
                                      global);
                         is_global = _gf_false;
                         goto out;

@@ -764,7 +764,7 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
                                 ret);
                         snprintf (err_str, err_len,
                                   "Another transaction is in progress. "
-                                  "Please try again after sometime.");
+                                  "Please try again after some time.");
                         goto out;
                 }
         } else {
@@ -803,7 +803,7 @@ glusterd_op_txn_begin (rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
                                 "Unable to acquire lock for %s", volname);
                         snprintf (err_str, err_len,
                                   "Another transaction is in progress for %s. "
-                                  "Please try again after sometime.", volname);
+                                  "Please try again after some time.", volname);
                         goto out;
                 }
         }
