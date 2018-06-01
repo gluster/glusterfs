@@ -4668,6 +4668,7 @@ shard_fsync_shards_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (op_ret < 0) {
                         local->op_ret = op_ret;
                         local->op_errno = op_errno;
+                        UNLOCK (&frame->lock);
                         goto out;
                 }
                 shard_inode_ctx_set (local->fd->inode, this, postbuf, 0,
