@@ -353,7 +353,8 @@ posix_compare_timespec (struct timespec *first, struct timespec *second)
 static int
 posix_set_mdata_xattr (xlator_t *this, const char *real_path, int fd,
                        inode_t *inode, struct timespec *time,
-                       struct iatt *stbuf, posix_mdata_flag_t *flag)
+                       struct iatt *stbuf, posix_mdata_flag_t *flag,
+                       gf_boolean_t update_utime)
 {
         posix_mdata_t  *mdata       = NULL;
         int             ret         = -1;
@@ -428,14 +429,31 @@ posix_set_mdata_xattr (xlator_t *this, const char *real_path, int fd,
                  * allowed to changed to older date.
                  */
                 if (flag->ctime &&
-                        posix_compare_timespec (time, &mdata->ctime) > 0) {
+                    posix_compare_timespec (time, &mdata->ctime) > 0) {
                         mdata->ctime = *time;
                 }
-                if (flag->mtime) {
-                        mdata->mtime = *time;
-                }
-                if (flag->atime) {
-                        mdata->atime = *time;
+                /* In distributed systems, there could races with fops updating
+                 * mtime/atime which could result in different mtime/atime
+                 * for same file. So this makes sure, only the highest time is
+                 * retained. If the mtime/atime update comes from the explicit
+                 * utime syscall, it is allowed to set to previous time
+                 */
+                if (update_utime) {
+                        if (flag->mtime) {
+                                mdata->mtime = *time;
+                        }
+                        if (flag->atime) {
+                                mdata->atime = *time;
+                        }
+                } else {
+                        if (flag->mtime &&
+                            posix_compare_timespec (time, &mdata->mtime) > 0) {
+                                mdata->mtime = *time;
+                        }
+                        if (flag->atime &&
+                            posix_compare_timespec (time, &mdata->atime) > 0) {
+                                mdata->atime = *time;
+                        }
                 }
 
                 if (inode->ia_type == IA_INVAL) {
@@ -507,7 +525,7 @@ posix_update_utime_in_mdata (xlator_t *this, const char *real_path, int fd,
                         flag.mtime = 0;
                         flag.atime = 1;
                         ret = posix_set_mdata_xattr (this, real_path, -1, inode, &tv, NULL,
-                                                     &flag);
+                                                     &flag, _gf_true);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_WARNING, errno,
                                         P_MSG_SETMDATA_FAILED,
@@ -526,7 +544,7 @@ posix_update_utime_in_mdata (xlator_t *this, const char *real_path, int fd,
                         flag.atime = 0;
 
                         ret = posix_set_mdata_xattr (this, real_path, -1, inode, &tv, NULL,
-                                                     &flag);
+                                                     &flag, _gf_true);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_WARNING, errno,
                                         P_MSG_SETMDATA_FAILED,
@@ -602,7 +620,8 @@ posix_set_ctime (call_frame_t *frame, xlator_t *this, const char* real_path,
                 }
 
                 ret = posix_set_mdata_xattr (this, real_path, fd, inode,
-                                             &frame->root->ctime, stbuf, &flag);
+                                             &frame->root->ctime, stbuf, &flag,
+                                             _gf_false);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, errno,
                                 P_MSG_SETMDATA_FAILED,
@@ -629,7 +648,8 @@ posix_set_parent_ctime (call_frame_t *frame, xlator_t *this,
         if (inode && priv->ctime) {
                 (void) posix_get_parent_mdata_flag (frame->root->flags, &flag);
                 ret = posix_set_mdata_xattr (this, real_path, fd, inode,
-                                             &frame->root->ctime, stbuf, &flag);
+                                             &frame->root->ctime, stbuf, &flag,
+                                             _gf_false);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, errno,
                                 P_MSG_SETMDATA_FAILED,
