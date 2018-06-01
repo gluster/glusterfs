@@ -1254,8 +1254,9 @@ glusterd_brickinfo_new_from_brick (char *brick,
         ret = gf_canonicalize_path (path);
         if (ret)
                 goto out;
-        strncpy (new_brickinfo->hostname, hostname, 1024);
-        strncpy (new_brickinfo->path, path, 1024);
+        gf_strncpy (new_brickinfo->hostname, hostname,
+                    sizeof(new_brickinfo->hostname));
+        gf_strncpy (new_brickinfo->path, path, sizeof(new_brickinfo->path));
 
         if (construct_real_path) {
                 ret = glusterd_hostname_to_uuid (new_brickinfo->hostname,
@@ -7489,7 +7490,7 @@ out:
         }
 
         if (*in_use) {
-                if (!strcmp (path, curdir)) {
+                if (path && curdir && !strcmp (path, curdir)) {
                         snprintf (msg, sizeof (msg), "%s is already part of a "
                           "volume", path);
                 } else {
