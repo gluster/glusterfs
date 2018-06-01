@@ -5332,6 +5332,16 @@ struct xlator_dumpops dumpops = {
         .priv    = quota_priv_dump,
 };
 struct volume_options options[] = {
+        {.key = {"enable"},
+         .type = GF_OPTION_TYPE_BOOL,
+         .default_value = "off",
+         .description = "enable is the volume option that can be used "
+                        "to turn on quota.",
+         .op_version = {1},
+         .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+         .level = OPT_STATUS_BASIC,
+         .tags = {},
+        },
         {.key = {"deem-statfs"},
          .type = GF_OPTION_TYPE_BOOL,
          .default_value = "on",
