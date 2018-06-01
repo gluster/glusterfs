@@ -544,15 +544,6 @@ gd_mgmt_v3_post_validate_fn (glusterd_op_t op, int32_t op_ret, dict_t *dict,
                                 goto out;
                         }
                         break;
-
-                        if (volinfo->type == GF_CLUSTER_TYPE_TIER) {
-                                svc = &(volinfo->tierd.svc);
-                                ret = svc->manager (svc, volinfo,
-                                                    PROC_START_NO_WAIT);
-                                if (ret)
-                                        goto out;
-                        }
-                        break;
                }
                case GD_OP_ADD_TIER_BRICK:
                {
