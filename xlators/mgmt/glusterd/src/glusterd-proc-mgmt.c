@@ -12,6 +12,7 @@
 #include <limits.h>
 #include <signal.h>
 
+#include "glusterd.h"
 #include "common-utils.h"
 #include "xlator.h"
 #include "logging.h"
@@ -69,12 +70,16 @@ glusterd_proc_stop (glusterd_proc_t *proc, int sig, int flags)
         /* NB: Copy-paste code from glusterd_service_stop, the source may be
          * removed once all daemon management use proc */
 
-        int32_t  ret    = -1;
-        pid_t    pid    = -1;
-        xlator_t *this  = NULL;
+        int32_t              ret    = -1;
+        pid_t                pid    = -1;
+        xlator_t            *this   = NULL;
+        glusterd_conf_t     *conf   = NULL;
 
         this = THIS;
         GF_ASSERT (this);
+
+        conf = this->private;
+        GF_ASSERT (conf);
 
         if (!gf_is_service_running (proc->pidfile, &pid)) {
                 ret = 0;
@@ -104,7 +109,9 @@ glusterd_proc_stop (glusterd_proc_t *proc, int sig, int flags)
         if (flags != PROC_STOP_FORCE)
                 goto out;
 
+        synclock_unlock (&conf->big_lock);
         sleep (1);
+        synclock_lock (&conf->big_lock);
         if (gf_is_service_running (proc->pidfile, &pid)) {
                 ret = kill (pid, SIGKILL);
                 if (ret) {
