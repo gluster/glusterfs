@@ -1175,8 +1175,6 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
                 conf->rpc->conn.name,
                 remote_subvol);
 
-        rpc_clnt_set_connected (&conf->rpc->conn);
-
         op_ret = 0;
         conf->connecting = 0;
         conf->connected = 1;

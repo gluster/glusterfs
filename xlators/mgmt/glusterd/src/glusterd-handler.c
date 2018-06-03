@@ -6111,7 +6111,6 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
 
                         break;
                 }
-                rpc_clnt_set_connected (&rpc->conn);
                 gf_msg_debug (this->name, 0, "Connected to %s:%s",
                         brickinfo->hostname, brickinfo->path);
 
@@ -6126,7 +6125,6 @@ __glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                 break;
 
         case RPC_CLNT_DISCONNECT:
-                rpc_clnt_unset_connected (&rpc->conn);
                 if (rpc != brickinfo->rpc) {
                         /*
                          * There used to be a bunch of races in the volume
@@ -6358,7 +6356,6 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
         switch (event) {
         case RPC_CLNT_CONNECT:
         {
-                rpc_clnt_set_connected (&rpc->conn);
                 gf_msg_debug (this->name, 0, "got RPC_CLNT_CONNECT");
                 peerinfo->connected = 1;
                 peerinfo->quorum_action = _gf_true;
@@ -6391,7 +6388,6 @@ __glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                 if (is_rpc_clnt_disconnected (&rpc->conn))
                         break;
 
-                rpc_clnt_unset_connected (&rpc->conn);
                 gf_msg (this->name, GF_LOG_INFO, 0,
                         GD_MSG_PEER_DISCONNECTED,
                         "Peer <%s> (<%s>), in state <%s>, has disconnected "

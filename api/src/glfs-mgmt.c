@@ -958,8 +958,6 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 }
                 break;
 	case RPC_CLNT_CONNECT:
-		rpc_clnt_set_connected (&((struct rpc_clnt*)ctx->mgmt)->conn);
-
 		ret = glfs_volfile_fetch (fs);
 		if (ret && (ctx->active == NULL)) {
 			/* Do it only for the first time */

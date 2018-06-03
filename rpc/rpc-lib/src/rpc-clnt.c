@@ -529,6 +529,7 @@ rpc_clnt_connection_cleanup (rpc_clnt_connection_t *conn)
                 }
 
                 conn->connected = 0;
+                conn->disconnected = 1;
 
                 unref = rpc_clnt_remove_ping_timer_locked (clnt);
                 /*reset rpc msgs stats*/
@@ -788,44 +789,6 @@ out:
         return ret;
 }
 
-
-void
-rpc_clnt_set_connected (rpc_clnt_connection_t *conn)
-{
-        if (!conn) {
-                goto out;
-        }
-
-        pthread_mutex_lock (&conn->lock);
-        {
-                conn->connected = 1;
-                conn->disconnected = _gf_false;
-        }
-        pthread_mutex_unlock (&conn->lock);
-
-out:
-        return;
-}
-
-
-void
-rpc_clnt_unset_connected (rpc_clnt_connection_t *conn)
-{
-        if (!conn) {
-                goto out;
-        }
-
-        pthread_mutex_lock (&conn->lock);
-        {
-                conn->connected = 0;
-                conn->disconnected = _gf_true;
-        }
-        pthread_mutex_unlock (&conn->lock);
-
-out:
-        return;
-}
-
 gf_boolean_t
 is_rpc_clnt_disconnected (rpc_clnt_connection_t *conn)
 {
@@ -1000,14 +963,19 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
 
         case RPC_TRANSPORT_CONNECT:
         {
-
-                /* Every time there is a disconnection, processes
-                 * should try to connect to 'glusterd' (ie, default
-                 * port) or whichever port given as 'option remote-port'
-                 * in volume file. */
-                /* Below code makes sure the (re-)configured port lasts
-                 * for just one successful attempt */
-                conn->config.remote_port = 0;
+                pthread_mutex_lock (&conn->lock);
+                {
+                        /* Every time there is a disconnection, processes
+                         * should try to connect to 'glusterd' (ie, default
+                         * port) or whichever port given as 'option remote-port'
+                         * in volume file. */
+                        /* Below code makes sure the (re-)configured port lasts
+                         * for just one successful attempt */
+                        conn->config.remote_port = 0;
+                        conn->connected = 1;
+                        conn->disconnected = 0;
+                }
+                pthread_mutex_unlock (&conn->lock);
 
                 /* auth value should be set to lower version available
                  * and will be set to appropriate version supported by

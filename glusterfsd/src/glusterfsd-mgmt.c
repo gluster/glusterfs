@@ -2402,8 +2402,6 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                         server->volfile_server);
                 break;
         case RPC_CLNT_CONNECT:
-                rpc_clnt_set_connected (&((struct rpc_clnt*)ctx->mgmt)->conn);
-
                 ret = glusterfs_volfile_fetch (ctx);
                 if (ret) {
                         emval = ret;

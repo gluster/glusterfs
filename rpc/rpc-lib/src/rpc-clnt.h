@@ -235,11 +235,6 @@ rpc_clnt_unref (struct rpc_clnt *rpc);
 
 int rpc_clnt_connection_cleanup (rpc_clnt_connection_t *conn);
 int rpc_clnt_reconnect_cleanup (rpc_clnt_connection_t *conn);
-
-void rpc_clnt_set_connected (rpc_clnt_connection_t *conn);
-
-void rpc_clnt_unset_connected (rpc_clnt_connection_t *conn);
-
 gf_boolean_t is_rpc_clnt_disconnected (rpc_clnt_connection_t *conn);
 
 void rpc_clnt_reconnect (void *trans_ptr);
