@@ -21,7 +21,6 @@ gf_changelog_rpc_notify (struct rpc_clnt *rpc,
 {
         switch (event) {
         case RPC_CLNT_CONNECT:
-                rpc_clnt_set_connected (&rpc->conn);
                 break;
         case RPC_CLNT_DISCONNECT:
         case RPC_CLNT_MSG:

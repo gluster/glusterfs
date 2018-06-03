@@ -10,11 +10,9 @@ rpc_clnt_reconnect
 rpc_clnt_reconnect_cleanup
 rpc_clnt_ref
 rpc_clnt_register_notify
-rpc_clnt_set_connected
 rpc_clnt_start
 rpc_clnt_submit
 rpc_clnt_unref
-rpc_clnt_unset_connected
 rpc_reply_to_xdr
 rpcsvc_auth_array
 rpcsvc_auth_check

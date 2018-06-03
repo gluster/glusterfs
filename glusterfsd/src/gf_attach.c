@@ -37,39 +37,6 @@ struct rpc_clnt_program gf_attach_prog = {
         .numproc   = GLUSTERD_BRICK_MAXVALUE,
 };
 
-/*
- * In a sane world, the generic RPC layer would be capable of tracking
- * connection status by itself, with no help from us.  It might invoke our
- * callback if we had registered one, but only to provide information.  Sadly,
- * we don't live in that world.  Instead, the callback *must* exist and *must*
- * call rpc_clnt_{set,unset}_connected, because that's the only way those
- * fields get set (with RPC both above and below us on the stack).  If we don't
- * do that, then rpc_clnt_submit doesn't think we're connected even when we
- * are.  It calls the socket code to reconnect, but the socket code tracks this
- * stuff in a sane way so it knows we're connected and returns EINPROGRESS.
- * Then we're stuck, connected but unable to use the connection.  To make it
- * work, we define and register this trivial callback.
- */
-int
-my_notify (struct rpc_clnt *rpc, void *mydata,
-           rpc_clnt_event_t event, void *data)
-{
-        switch (event) {
-        case RPC_CLNT_CONNECT:
-                printf ("connected\n");
-                rpc_clnt_set_connected (&rpc->conn);
-                break;
-        case RPC_CLNT_DISCONNECT:
-                printf ("disconnected\n");
-                rpc_clnt_unset_connected (&rpc->conn);
-                break;
-        default:
-                fprintf (stderr, "unknown RPC event\n");
-        }
-
-        return 0;
-}
-
 int32_t
 my_callback (struct rpc_req *req, struct iovec *iov, int count, void *frame)
 {
@@ -232,7 +199,7 @@ done_parsing:
                 return EXIT_FAILURE;
         }
 
-        if (rpc_clnt_register_notify (rpc, my_notify, NULL) != 0) {
+        if (rpc_clnt_register_notify (rpc, NULL, NULL) != 0) {
                 fprintf (stderr, "rpc_clnt_register_notify failed\n");
                 return EXIT_FAILURE;
         }
