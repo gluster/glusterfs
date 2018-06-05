@@ -782,8 +782,38 @@ afr_has_fop_cbk_quorum (call_frame_t *frame)
         return afr_has_quorum (success, this);
 }
 
+gf_boolean_t
+afr_need_dirty_marking (call_frame_t *frame, xlator_t *this)
+{
+        afr_private_t           *priv           = this->private;
+        afr_local_t             *local          = NULL;
+        gf_boolean_t            need_dirty      = _gf_false;
+
+        local = frame->local;
+
+        if (!priv->quorum_count || !local->optimistic_change_log)
+                return _gf_false;
+
+        if (local->transaction.type == AFR_DATA_TRANSACTION ||
+            local->transaction.type == AFR_METADATA_TRANSACTION)
+                return _gf_false;
+
+        if (AFR_COUNT (local->transaction.failed_subvols, priv->child_count) ==
+            priv->child_count)
+                return _gf_false;
+
+        if (priv->arbiter_count) {
+                if (!afr_has_arbiter_fop_cbk_quorum (frame))
+                        need_dirty = _gf_true;
+        } else if (!afr_has_fop_cbk_quorum (frame)) {
+                need_dirty = _gf_true;
+        }
+
+        return need_dirty;
+}
+
 void
-afr_handle_quorum (call_frame_t *frame)
+afr_handle_quorum (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t   *local = NULL;
         afr_private_t *priv  = NULL;
@@ -834,11 +864,15 @@ afr_handle_quorum (call_frame_t *frame)
                 return;
         }
 
+        if (afr_need_dirty_marking (frame, this))
+                goto set_response;
+
         for (i = 0; i < priv->child_count; i++) {
                 if (local->transaction.pre_op[i])
                         afr_transaction_fop_failed (frame, frame->this, i);
         }
 
+set_response:
         local->op_ret = -1;
         local->op_errno = afr_final_errno (local, priv);
         if (local->op_errno == 0)
@@ -973,9 +1007,17 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
         int                     nothing_failed  = 1;
         gf_boolean_t            need_undirty    = _gf_false;
 
-        afr_handle_quorum (frame);
+        afr_handle_quorum (frame, this);
         local = frame->local;
-	idx = afr_index_for_transaction_type (local->transaction.type);
+        idx = afr_index_for_transaction_type (local->transaction.type);
+
+        xattr = dict_new ();
+        if (!xattr) {
+                local->op_ret = -1;
+                local->op_errno = ENOMEM;
+                afr_changelog_post_op_done (frame, this);
+                goto out;
+        }
 
         nothing_failed = afr_txn_nothing_failed (frame, this);
 
@@ -985,6 +1027,11 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
 		need_undirty = _gf_true;
 
         if (local->op_ret < 0 && !nothing_failed) {
+                if (afr_need_dirty_marking (frame, this)) {
+                        local->dirty[idx] = hton32(1);
+                        goto set_dirty;
+                }
+
                 afr_changelog_post_op_done (frame, this);
                 goto out;
         }
@@ -1000,14 +1047,6 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
                 afr_changelog_post_op_done (frame, this);
                 goto out;
         }
-
-	xattr = dict_new ();
-	if (!xattr) {
-		local->op_ret = -1;
-		local->op_errno = ENOMEM;
-		afr_changelog_post_op_done (frame, this);
-		goto out;
-	}
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->transaction.failed_subvols[i])
@@ -1035,6 +1074,7 @@ afr_changelog_post_op_now (call_frame_t *frame, xlator_t *this)
 	else
 		local->dirty[idx] = hton32(0);
 
+set_dirty:
 	ret = dict_set_static_bin (xattr, AFR_DIRTY, local->dirty,
 				   sizeof(int) * AFR_NUM_CHANGE_LOGS);
 	if (ret) {
