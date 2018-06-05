@@ -263,7 +263,7 @@ if __name__ == "__main__":
         while used < len(bricks):
                 best_place = used
                 best_score = get_score(bricks)
-                for i in xrange(used):
+                for i in range(used):
                         new_bricks = bricks[:]
                         del new_bricks[used]
                         new_bricks.insert(i,bricks[used])

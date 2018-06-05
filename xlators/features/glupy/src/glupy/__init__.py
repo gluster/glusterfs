@@ -75,7 +75,7 @@ class ia_prot_t (Structure):
 
 # For checking file type.
 (IA_INVAL, IA_IFREG, IA_IFDIR, IA_IFLNK, IA_IFBLK, IA_IFCHR, IA_IFIFO,
- IA_IFSOCK) = xrange(8)
+ IA_IFSOCK) = range(8)
 
 
 class iatt_t (Structure):
