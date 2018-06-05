@@ -98,7 +98,7 @@ def get_summary(cut_off_date, reg_link):
     '''
     success_count = 0
     failure_count = 0
-    for page in xrange(0, MAX_BUILDS, 100):
+    for page in range(0, MAX_BUILDS, 100):
         build_info = requests.get(''.join([
                 BASE,
                 reg_link,
