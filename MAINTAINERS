@@ -203,7 +203,6 @@ S: Maintained
 F: xlators/performance/nl-cache/
 
 NFS
-M: Niels de Vos <ndevos@redhat.com>
 M: Shreyas Siravara <sshreyas@fb.com>
 M: Jeff Darcy <jeff@pl.atyp.us>
 P: Jiffin Tony Thottan <jthottan@redhat.com>
