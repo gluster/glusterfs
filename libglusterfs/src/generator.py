@@ -720,14 +720,14 @@ def get_subs (names, types, cbktypes=None):
 	# Convert two separate tuples to one of (name, type) sub-tuples.
 	as_tuples = list(zip(types,names))
 	# Convert each sub-tuple into a "type name" string.
-	as_strings = map(string.join,as_tuples)
+	as_strings = list(map(string.join,as_tuples))
 	# Join all of those into one big string.
 	sdict["@LONG_ARGS@"] = string.join(as_strings,",\n\t")
 	# So much more readable than string.join(map(string.join,zip(...))))
-	sdict["@ERROR_ARGS@"] = string.join(map(get_error_arg,types),", ")
+	sdict["@ERROR_ARGS@"] = string.join(list(map(get_error_arg,types)),", ")
         if cbktypes is not None:
-                sdict["@CBK_ERROR_ARGS@"] = string.join(map(
-                                            get_error_arg,cbktypes),", ")
+                sdict["@CBK_ERROR_ARGS@"] = string.join(list(map(
+                                            get_error_arg,cbktypes)),", ")
 	return sdict
 
 def generate (tmpl, name, subs):
