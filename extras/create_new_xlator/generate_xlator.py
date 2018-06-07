@@ -38,7 +38,7 @@ def get_param(names, types):
         # Convert two separate tuples to one of (name, type) sub-tuples.
         as_tuples = list(zip(types, names))
         # Convert each sub-tuple into a "type name" string.
-        as_strings = map(string.join, as_tuples)
+        as_strings = list(map(string.join, as_tuples))
         # Join all of those into one big string.
         return string.join(as_strings, ",\n\t")
 
@@ -58,7 +58,7 @@ def generate(tmpl, name, table):
         #Args are (var1, var2,...)
         sdict["@WIND_ARGS@"] = string.join(w_arg_names, ", ")
         sdict["@UNWIND_ARGS@"] = string.join(u_arg_names, ", ")
-        sdict["@ERROR_ARGS@"] = string.join(map(get_error_arg, u_arg_types), ", ")
+        sdict["@ERROR_ARGS@"] = string.join(list(map(get_error_arg, u_arg_types)), ", ")
         sdict["@WIND_PARAMS@"] = get_param(w_arg_names, w_arg_types)
         sdict["@UNWIND_PARAMS@"] = get_param(u_arg_names, u_arg_types)
         sdict["@FUNC_PARAMS@"] = get_param(fn_arg_names, fn_arg_types)

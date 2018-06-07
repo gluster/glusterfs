@@ -1248,7 +1248,7 @@ class GMasterChangelogMixin(GMasterCommon):
                 if done:
                     xtl = (int(change.split('.')[-1]) - 1, 0)
                     self.upd_stime(xtl)
-                    map(self.changelog_done_func, changes)
+                    list(map(self.changelog_done_func, changes))
                     self.archive_and_purge_changelogs(changes)
 
                 # Reset Data counter after sync
@@ -1263,7 +1263,7 @@ class GMasterChangelogMixin(GMasterCommon):
             if tries == gconf.get("max-rsync-retries"):
                 logging.error(lf('changelogs could not be processed '
                                  'completely - moving on...',
-                                 files=map(os.path.basename, changes)))
+                                 files=list(map(os.path.basename, changes))))
 
                 # Reset data counter on failure
                 self.status.dec_value("data", self.files_in_batch)
@@ -1273,7 +1273,7 @@ class GMasterChangelogMixin(GMasterCommon):
                 if done:
                     xtl = (int(change.split('.')[-1]) - 1, 0)
                     self.upd_stime(xtl)
-                    map(self.changelog_done_func, changes)
+                    list(map(self.changelog_done_func, changes))
                     self.archive_and_purge_changelogs(changes)
                 break
             # it's either entry_ops() or Rsync that failed to do it's
@@ -1284,7 +1284,7 @@ class GMasterChangelogMixin(GMasterCommon):
             # again.
             # TODO: remove entry retries when it's gets fixed.
             logging.warn(lf('incomplete sync, retrying changelogs',
-                            files=map(os.path.basename, changes)))
+                            files=list(map(os.path.basename, changes))))
 
             # Reset the Data counter before Retry
             self.status.dec_value("data", self.files_in_batch)

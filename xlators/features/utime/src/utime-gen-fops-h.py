@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+from __future__ import print_function
 import os
 import sys
 
@@ -22,13 +23,13 @@ utime_ops = ['fallocate', 'zerofill', 'opendir', 'readlink', 'mknod', 'mkdir',
 def gen_defaults():
     for name, value in ops.iteritems():
         if name in utime_ops:
-            print generate(OP_FOP_TEMPLATE, name, fop_subs)
+            print(generate(OP_FOP_TEMPLATE, name, fop_subs))
 
 
 for l in open(sys.argv[1], 'r').readlines():
     if l.find('#pragma generate') != -1:
-        print "/* BEGIN GENERATED CODE - DO NOT MODIFY */"
+        print("/* BEGIN GENERATED CODE - DO NOT MODIFY */")
         gen_defaults()
-        print "/* END GENERATED CODE */"
+        print("/* END GENERATED CODE */")
     else:
-        print l[:-1]
+        print(l[:-1])

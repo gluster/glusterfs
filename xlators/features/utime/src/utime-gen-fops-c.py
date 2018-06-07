@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+from __future__ import print_function
 import os
 import sys
 
@@ -97,22 +98,22 @@ utime_setattr_ops = ['setattr', 'fsetattr']
 def gen_defaults():
     for name in ops:
         if name in utime_ops:
-            print generate(FOPS_CBK_COMMON_TEMPLATE, name, cbk_subs)
-            print generate(FOPS_COMMON_TEMPLATE, name, fop_subs)
+            print(generate(FOPS_CBK_COMMON_TEMPLATE, name, cbk_subs))
+            print(generate(FOPS_COMMON_TEMPLATE, name, fop_subs))
         if name in utime_read_op:
-            print generate(FOPS_CBK_COMMON_TEMPLATE, name, cbk_subs)
-            print generate(FOPS_READ_TEMPLATE, name, fop_subs)
+            print(generate(FOPS_CBK_COMMON_TEMPLATE, name, cbk_subs))
+            print(generate(FOPS_READ_TEMPLATE, name, fop_subs))
         if name in utime_write_op:
-            print generate(FOPS_CBK_COMMON_TEMPLATE, name, cbk_subs)
-            print generate(FOPS_WRITE_TEMPLATE, name, fop_subs)
+            print(generate(FOPS_CBK_COMMON_TEMPLATE, name, cbk_subs))
+            print(generate(FOPS_WRITE_TEMPLATE, name, fop_subs))
         if name in utime_setattr_ops:
-            print generate(FOPS_CBK_COMMON_TEMPLATE, name, cbk_subs)
-            print generate(FOPS_SETATTR_TEMPLATE, name, fop_subs)
+            print(generate(FOPS_CBK_COMMON_TEMPLATE, name, cbk_subs))
+            print(generate(FOPS_SETATTR_TEMPLATE, name, fop_subs))
 
 for l in open(sys.argv[1], 'r').readlines():
     if l.find('#pragma generate') != -1:
-        print "/* BEGIN GENERATED CODE - DO NOT MODIFY */"
+        print("/* BEGIN GENERATED CODE - DO NOT MODIFY */")
         gen_defaults()
-        print "/* END GENERATED CODE */"
+        print("/* END GENERATED CODE */")
     else:
-        print l[:-1]
+        print(l[:-1])

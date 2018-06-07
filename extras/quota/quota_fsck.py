@@ -12,6 +12,7 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 '''
+from __future__ import print_function
 import os, sys, re
 from stat import *
 import subprocess
@@ -51,17 +52,17 @@ epilog_msg='''
 
 def print_msg(log_type, path, xattr_dict = {}, stbuf = "", dir_size = None):
     if log_type == QUOTA_VERBOSE:
-        print '%-24s %-60s\nxattr_values: %s\n%s\n' % ("Verbose", path ,  xattr_dict, stbuf)
+        print('%-24s %-60s\nxattr_values: %s\n%s\n' % {"Verbose", path ,  xattr_dict, stbuf})
     elif log_type == QUOTA_META_ABSENT:
-        print '%-24s %-60s\n%s\n' % ("Quota-Meta Absent", path , xattr_dict)
+        print('%-24s %-60s\n%s\n' % {"Quota-Meta Absent", path , xattr_dict})
     elif log_type == QUOTA_SIZE_MISMATCH:
-        print "mismatch"
+        print("mismatch")
         if dir_size is not None:
-            print '%24s %60s %12s %12s' % ("Size Mismatch",path , xattr_dict['contri_size'],
-                   dir_size)
+            print('%24s %60s %12s %12s' % {"Size Mismatch", path , xattr_dict['contri_size'],
+                   dir_size})
         else:
-            print '%-24s %-60s %-12i %-12i' % ("Size Mismatch",path , xattr_dict['contri_size'],
-                   stbuf.st_size)
+            print('%-24s %-60s %-12i %-12i' % {"Size Mismatch", path , xattr_dict['contri_size'],
+                   stbuf.st_size})
 
 def size_differs_lot(s1, s2):
     '''
@@ -119,12 +120,12 @@ def fix_xattr(file_name, mark_dirty):
     if mnt_path is None:
         return
     if mark_dirty:
-        print "MARKING DIRTY: " + file_name
+        print("MARKING DIRTY: " + file_name)
         out = subprocess.check_output (["/usr/bin/setfattr", "-n",
                                        "trusted.glusterfs.quota.dirty",
                                        "-v", IS_DIRTY, file_name])
     rel_path = os.path.relpath(file_name, brick_path)
-    print "stat on "  + mnt_path + "/" + rel_path
+    print("stat on "  + mnt_path + "/" + rel_path)
     stbuf = os.lstat(mnt_path + "/" + rel_path)
 
     obj_fix_count += 1
@@ -175,7 +176,7 @@ def get_quota_xattr_brick(dpath):
                 xattr_dict['version'] = xattr_version
             else:
                 if xattr_version != xattr_dict['version']:
-                   print "Multiple xattr version found"
+                   print("Multiple xattr version found")
 
 
             cur_parent = xattr_key.split(".")[3]
@@ -280,7 +281,7 @@ def walktree(t_dir, hard_link_dict):
         if S_ISDIR(stbuf.st_mode):
             # It's a directory, recurse into it
             if entry == '.glusterfs':
-                print "skipping " + pathname
+                print("skipping " + pathname)
                 continue
             descendent_hardlinks = {}
             subtree_size = walktree(pathname, descendent_hardlinks)
@@ -317,7 +318,7 @@ def walktree(t_dir, hard_link_dict):
 
         else:
             # Unknown file type, print a message
-            print 'Skipping %s, due to file mode' % pathname
+            print('Skipping %s, due to file mode' % (pathname))
 
     if t_dir not in aggr_size:
         aggr_size[t_dir] = 0
@@ -372,7 +373,7 @@ if __name__ == '__main__':
     else:
         walktree(brick_path, hard_link_dict)
 
-    print "Files verified : " + str(file_count)
-    print "Directories verified : " + str(dir_count)
+    print("Files verified : " + str(file_count))
+    print("Directories verified : " + str(dir_count))
     if mnt_path is not None:
-        print "Objects Fixed : " + str(obj_fix_count)
+        print("Objects Fixed : " + str(obj_fix_count))

@@ -58,11 +58,11 @@ def load (path):
             continue
         if text[0] == "volume":
             if xlator:
-                raise RuntimeError, "nested volume definition"
+                raise RuntimeError("nested volume definition")
             xlator = Translator(text[1])
             continue
         if not xlator:
-            raise RuntimeError, "text outside volume definition"
+            raise RuntimeError("text outside volume definition")
         if text[0] == "type":
             xlator.xl_type = text[1]
             continue
@@ -78,9 +78,9 @@ def load (path):
             last_xlator = xlator
             xlator = None
             continue
-        raise RuntimeError, "unrecognized keyword %s" % text[0]
+        raise RuntimeError("unrecognized keyword %s" % text[0])
     if xlator:
-        raise RuntimeError, "unclosed volume definition"
+        raise RuntimeError("unclosed volume definition")
     return all_xlators, last_xlator
 
 def generate (graph, last, stream=sys.stdout):
