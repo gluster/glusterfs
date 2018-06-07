@@ -65,6 +65,7 @@ CHANGELOG_AGENT_SERVER_VERSION = 1.0
 CHANGELOG_AGENT_CLIENT_VERSION = 1.0
 NodeID = None
 rsync_version = None
+unshare_mnt_propagation = None
 SPACE_ESCAPE_CHAR = "%20"
 NEWLINE_ESCAPE_CHAR = "%0A"
 PERCENTAGE_ESCAPE_CHAR = "%25"
@@ -625,6 +626,22 @@ def get_master_and_slave_data_from_args(args):
             slave_data = arg.replace("ssh://", "")
 
     return (master_name, slave_data)
+
+def unshare_propagation_supported():
+    global unshare_mnt_propagation
+    if unshare_mnt_propagation is not None:
+        return unshare_mnt_propagation
+
+    unshare_mnt_propagation = False
+    p = subprocess.Popen(["unshare", "--help"],
+                         stderr=subprocess.PIPE,
+                         stdout=subprocess.PIPE)
+    out, err = p.communicate()
+    if p.returncode == 0:
+        if "propagation" in out:
+            unshare_mnt_propagation = True
+
+    return unshare_mnt_propagation
 
 
 def get_rsync_version(rsync_cmd):
