@@ -40,6 +40,7 @@ from syncdutils import GX_GFID_CANONICAL_LEN
 from gsyncdstatus import GeorepStatus
 from syncdutils import lf, Popen, sup, Volinfo
 from syncdutils import Xattr, matching_disk_gfid, get_gfid_from_mnt
+from syncdutils import unshare_propagation_supported
 
 
 ENOTSUP = getattr(errno, 'ENOTSUP', 'EOPNOTSUPP')
@@ -900,15 +901,25 @@ class Mounter(object):
                     assert(mntdata[-1] == '\0')
                     mntpt = mntdata[:-1]
                     assert(mntpt)
-                    if mounted and rconf.args.subcmd == "slave" \
+
+                    umount_master = False
+                    umount_slave = False
+                    if rconf.args.subcmd == "worker" \
+                       and not unshare_propagation_supported() \
+                       and not gconf.get("access-mount"):
+                        umount_master = True
+                    if rconf.args.subcmd == "slave" \
                        and not gconf.get("slave-access-mount"):
+                        umount_slave = True
+
+                    if mounted and (umount_master or umount_slave):
                         po = self.umount_l(mntpt)
                         po.terminate_geterr(fail_on_err=False)
                         if po.returncode != 0:
                             po.errlog()
                             rv = po.returncode
-                    if rconf.args.subcmd == "slave" \
-                       and not gconf.get("slave-access-mount"):
+                        logging.debug("Lazy umount done: %s" % mntpt)
+                    if umount_master or umount_slave:
                         self.cleanup_mntpt(mntpt)
             except:
                 logging.exception('mount cleanup failure:')

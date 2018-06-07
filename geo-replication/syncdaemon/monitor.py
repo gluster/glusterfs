@@ -26,7 +26,7 @@ from syncdutils import set_term_handler, GsyncdError
 from syncdutils import Thread, finalize, Volinfo, VolinfoFromGconf
 from syncdutils import gf_event, EVENT_GEOREP_FAULTY, get_up_nodes
 from gsyncdstatus import GeorepStatus, set_monitor_status
-
+from syncdutils import unshare_propagation_supported
 
 ParseError = XET.ParseError if hasattr(XET, 'ParseError') else SyntaxError
 
@@ -225,9 +225,16 @@ class Monitor(object):
                 if access_mount:
                     os.execv(sys.executable, args_to_worker)
                 else:
-                    unshare_cmd = ['unshare', '-m', '--propagation', 'private']
-                    cmd = unshare_cmd + args_to_worker
-                    os.execvp("unshare", cmd)
+                    if unshare_propagation_supported():
+                        logging.debug("Worker would mount volume privately")
+                        unshare_cmd = ['unshare', '-m', '--propagation',
+                                       'private']
+                        cmd = unshare_cmd + args_to_worker
+                        os.execvp("unshare", cmd)
+                    else:
+                        logging.debug("Mount is not private. It would be lazy"
+                                      " umounted")
+                        os.execv(sys.executable, args_to_worker)
 
             cpids.add(cpid)
             agents.add(apid)
