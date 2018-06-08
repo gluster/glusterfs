@@ -543,7 +543,6 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         svs_inode_t   *parent_ctx                     = NULL;
         int32_t        ret                            = -1;
         inode_t       *parent                         = NULL;
-        snap_dirent_t *dirent                         = NULL;
         gf_boolean_t   entry_point_key                = _gf_false;
         gf_boolean_t   entry_point                    = _gf_false;
         call_stack_t  *root                           = NULL;
@@ -591,13 +590,6 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                 parent_ctx = svs_inode_ctx_get (this, parent);
 
         inode_ctx = svs_inode_ctx_get (this, loc->inode);
-
-        /* Initialize latest snapshot, which is used for nameless lookups */
-        dirent = svs_get_latest_snap_entry (this);
-
-        if (dirent && !dirent->fs) {
-                svs_initialise_snapshot_volume (this, dirent->name, NULL);
-        }
 
         if (xdata && !inode_ctx) {
                 ret = dict_get_str_boolean (xdata, "entry-point", _gf_false);
@@ -996,6 +988,17 @@ svs_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
                 goto out;
         }
 
+        if (!(svs_inode_ctx_glfs_mapping (this, inode_ctx))) {
+                gf_log (this->name, GF_LOG_ERROR, "glfs instance "
+                        "instance %p to which the inode %s belongs"
+                        "to does not exist. That snapshot might have"
+                        "been deleted or deactivated", inode_ctx->fs,
+                        uuid_utoa (fd->inode->gfid));
+                op_ret = -1;
+                op_errno = EBADF;
+                goto out;
+        }
+
         sfd = svs_fd_ctx_get_or_new (this, fd);
         if (!sfd) {
                 gf_log (this->name, GF_LOG_ERROR, "failed to get the fd "
@@ -1130,9 +1133,12 @@ out:
 int32_t
 svs_releasedir (xlator_t *this, fd_t *fd)
 {
-        svs_fd_t *sfd      = NULL;
-        uint64_t          tmp_pfd  = 0;
-        int               ret      = 0;
+        svs_fd_t    *sfd       = NULL;
+        uint64_t     tmp_pfd   = 0;
+        int          ret       = 0;
+        svs_inode_t *svs_inode = NULL;
+        glfs_t      *fs        = NULL;
+        inode_t     *inode     = NULL;
 
         GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
         GF_VALIDATE_OR_GOTO (this->name, fd, out);
@@ -1144,13 +1150,24 @@ svs_releasedir (xlator_t *this, fd_t *fd)
                 goto out;
         }
 
-        sfd = (svs_fd_t *)(long)tmp_pfd;
-        if (sfd->fd) {
-                ret = glfs_closedir (sfd->fd);
-                if (ret)
-                        gf_log (this->name, GF_LOG_WARNING, "failed to close "
-                                "the glfd for directory %s",
-                                uuid_utoa (fd->inode->gfid));
+
+        inode = fd->inode;
+
+        svs_inode = svs_inode_ctx_get (this, inode);
+        if (svs_inode) {
+                fs = svs_inode->fs; /* should inode->lock be held for this? */
+                SVS_CHECK_VALID_SNAPSHOT_HANDLE (fs, this);
+                if (fs) {
+                        sfd = (svs_fd_t *)(long)tmp_pfd;
+                        if (sfd->fd) {
+                                ret = glfs_closedir (sfd->fd);
+                                if (ret)
+                                        gf_log (this->name, GF_LOG_WARNING,
+                                                "failed to close the glfd"
+                                                "for directory %s",
+                                                uuid_utoa (fd->inode->gfid));
+                        }
+                }
         }
 
         GF_FREE (sfd);
@@ -1209,9 +1226,12 @@ out:
 int32_t
 svs_release (xlator_t *this, fd_t *fd)
 {
-        svs_fd_t *sfd      = NULL;
-        uint64_t          tmp_pfd  = 0;
-        int               ret      = 0;
+        svs_fd_t    *sfd       = NULL;
+        uint64_t     tmp_pfd   = 0;
+        int          ret       = 0;
+        inode_t     *inode     = NULL;
+        svs_inode_t *svs_inode = NULL;
+        glfs_t      *fs        = NULL;
 
         GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
         GF_VALIDATE_OR_GOTO (this->name, fd, out);
@@ -1223,13 +1243,22 @@ svs_release (xlator_t *this, fd_t *fd)
                 goto out;
         }
 
-        sfd = (svs_fd_t *)(long)tmp_pfd;
-        if (sfd->fd) {
-                ret = glfs_close (sfd->fd);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR, "failed to close "
-                                "the glfd for %s",
-                                uuid_utoa (fd->inode->gfid));
+        inode = fd->inode;
+
+        svs_inode = svs_inode_ctx_get (this, inode);
+        if (svs_inode) {
+                fs = svs_inode->fs; /* should inode->lock be held for this? */
+                SVS_CHECK_VALID_SNAPSHOT_HANDLE (fs, this);
+                if (fs) {
+                        sfd = (svs_fd_t *)(long)tmp_pfd;
+                        if (sfd->fd) {
+                                ret = glfs_close (sfd->fd);
+                                if (ret)
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "failed to close "
+                                                "the glfd for %s",
+                                                uuid_utoa (fd->inode->gfid));
+                        }
                 }
         }
 
@@ -1893,8 +1922,18 @@ svs_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         if (inode_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
                 svs_iatt_fill (fd->inode->gfid, &buf);
                 op_ret = 0;
-        }
-        else {
+        } else {
+                if (!(svs_inode_ctx_glfs_mapping (this, inode_ctx))) {
+                        gf_log (this->name, GF_LOG_ERROR, "glfs instance "
+                                "instance %p to which the inode %s belongs "
+                                "to does not exist. That snapshot might have "
+                                "been deleted or deactivated", inode_ctx->fs,
+                                uuid_utoa (fd->inode->gfid));
+                        op_ret = -1;
+                        op_errno = EBADF;
+                        goto out;
+                }
+
                 sfd = svs_fd_ctx_get_or_new (this, fd);
                 if (!sfd) {
                         gf_log (this->name, GF_LOG_ERROR, "failed to get the "
@@ -2081,6 +2120,16 @@ svs_readv (call_frame_t *frame, xlator_t *this,
         root = frame->root;
         op_ret = gf_setcredentials (&root->uid, &root->gid, root->ngrps, root->groups);
         if (op_ret != 0) {
+                goto out;
+        }
+
+        if (!svs_inode_glfs_mapping (this, fd->inode)) {
+                gf_log (this->name, GF_LOG_ERROR, "glfs instance to "
+                        "which the inode %s receiving read request belongs, "
+                        "does not exist anymore",
+                        uuid_utoa (fd->inode->gfid));
+                op_ret = -1;
+                op_errno = EBADF; /* should this be some other error? */
                 goto out;
         }
 

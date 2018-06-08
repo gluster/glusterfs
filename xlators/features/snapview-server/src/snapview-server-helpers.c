@@ -595,3 +595,38 @@ svs_get_latest_snapshot (xlator_t *this)
 out:
         return fs;
 }
+
+glfs_t *
+svs_inode_ctx_glfs_mapping (xlator_t *this, svs_inode_t *inode_ctx)
+{
+        glfs_t *fs = NULL;
+
+        GF_VALIDATE_OR_GOTO ("svs", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, inode_ctx, out);
+
+        fs = inode_ctx->fs;
+
+        SVS_CHECK_VALID_SNAPSHOT_HANDLE (fs, this);
+
+out:
+        return fs;
+}
+
+glfs_t *
+svs_inode_glfs_mapping (xlator_t *this, inode_t *inode)
+{
+        svs_inode_t *inode_ctx = NULL;
+        glfs_t      *fs        = NULL;
+
+        inode_ctx = svs_inode_ctx_get (this, inode);
+        if (!inode_ctx) {
+                gf_log (this->name, GF_LOG_ERROR, "inode context not found for"
+                        " the inode %s", uuid_utoa (inode->gfid));
+                goto out;
+        }
+
+        fs = svs_inode_ctx_glfs_mapping (this, inode_ctx);
+
+out:
+        return fs;
+}
