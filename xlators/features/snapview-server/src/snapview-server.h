@@ -242,4 +242,10 @@ int32_t
 svs_get_handle (xlator_t *this, loc_t *loc, svs_inode_t *inode_ctx,
                 int32_t *op_errno);
 
+glfs_t *
+svs_inode_glfs_mapping (xlator_t *this, inode_t *inode);
+
+glfs_t *
+svs_inode_ctx_glfs_mapping (xlator_t *this, svs_inode_t *inode_ctx);
+
 #endif /* __SNAP_VIEW_H__ */
