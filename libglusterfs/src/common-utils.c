@@ -4001,9 +4001,6 @@ gf_is_service_running (char *pidfile, int *pid)
         ret = lockf (fno, F_TEST, 0);
         if (ret == -1)
                 running = _gf_true;
-        if (!pid) {
-                goto out;
-        }
 
         ret = fscanf (file, "%d", pid);
         if (ret <= 0) {

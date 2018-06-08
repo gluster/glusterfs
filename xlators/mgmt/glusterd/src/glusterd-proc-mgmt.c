@@ -13,6 +13,7 @@
 #include <signal.h>
 
 #include "glusterd.h"
+#include "glusterd-utils.h"
 #include "common-utils.h"
 #include "xlator.h"
 #include "logging.h"
@@ -120,6 +121,9 @@ glusterd_proc_stop (glusterd_proc_t *proc, int sig, int flags)
                                 "reason:%s", pid, strerror(errno));
                         goto out;
                 }
+                ret = glusterd_unlink_file (proc->pidfile);
+                if (ret)
+                        goto out;
         }
 
         ret = 0;
