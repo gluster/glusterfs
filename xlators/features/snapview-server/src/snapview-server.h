@@ -53,11 +53,14 @@
                 _private = this->private;                               \
                 int  i = 0;                                             \
                 gf_boolean_t found = _gf_false;                         \
+                glfs_t     *tmp_fs = NULL;                              \
                 LOCK (&_private->snaplist_lock);                        \
                 {                                                       \
                         for (i = 0; i < _private->num_snaps; i++) {     \
-                                if (_private->dirents->fs && fs &&      \
-                                    _private->dirents->fs == fs) {      \
+                                tmp_fs = _private->dirents[i].fs;       \
+                                gf_log (this->name, GF_LOG_DEBUG,       \
+                                        "dirent->fs: %p", tmp_fs);      \
+                                if (tmp_fs && fs && (tmp_fs == fs)) {   \
                                         found = _gf_true;               \
                                         break;                          \
                                 }                                       \
@@ -65,8 +68,11 @@
                 }                                                       \
                 UNLOCK (&_private->snaplist_lock);                      \
                                                                         \
-                if (!found)                                             \
+                if (!found) {                                           \
+                        gf_log (this->name, GF_LOG_WARNING, "failed to" \
+                                " find the fs instance %p", fs);        \
                         fs = NULL;                                      \
+                }                                                       \
         } while (0)
 
 #define SVS_GET_INODE_CTX_INFO(inode_ctx, fs, object, this, loc, ret,   \
