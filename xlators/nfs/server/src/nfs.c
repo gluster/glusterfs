@@ -229,6 +229,9 @@ nfs_program_unregister_portmap_all (struct nfs_state *nfs)
                 if (prog == NULL)
                         continue;
                 (void) rpcsvc_program_unregister_portmap (prog);
+#ifdef IPV6_DEFAULT
+                (void) rpcsvc_program_unregister_rpcbind6 (prog);
+#endif
         }
 
         return (0);
