@@ -126,7 +126,7 @@ if __name__ == "__main__":
         volume_list.append(extra)
     graph, last = load(path)
     for v in volume_list:
-        if graph.has_key(v):
+        if v in graph:
             break
     else:
         print("No configured volumes found - aborting.")

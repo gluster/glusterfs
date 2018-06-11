@@ -101,7 +101,7 @@ def get_special_subs (name, args, fop_type):
 		code += fragments[recon_type].replace("@ARGNAME@",arg[1])		\
 									 .replace("@ARGTYPE@",arg[2])
 		cleanup_key = recon_type + "_CLEANUP"
-		if fragments.has_key(cleanup_key):
+		if cleanup_key in fragments:
 			new_frag = fragments[cleanup_key].replace("@ARGNAME@",arg[1])
 			# Make sure these get added in *reverse* order.  Otherwise, a
 			# failure for an earlier argument might goto a label that falls
