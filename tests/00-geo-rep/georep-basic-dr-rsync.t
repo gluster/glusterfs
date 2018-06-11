@@ -169,4 +169,3 @@ sed -i '/^command=.*gsyncd.*/d' ~/.ssh/authorized_keys
 
 cleanup;
 #G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=000000
-#G_TESTDEF_TEST_STATUS_CENTOS6=KNOWN_ISSUE,BUG=1537602
