@@ -10,7 +10,7 @@
 #
 
 try:
-    from configparser import ConfigParser, NoSectionError
+    from configparser import configparser as ConfigParser, NoSectionError
 except ImportError:
     from ConfigParser import ConfigParser, NoSectionError
 import os
