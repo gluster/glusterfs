@@ -3834,7 +3834,6 @@ server3_3_seek (rpcsvc_request_t *req)
         gfs3_seek_req          args           = {{0,},};
         int                    ret            = -1;
         int                    op_errno       = 0;
-        dict_t                *xdata          = NULL;
         xlator_t              *bound_xl       = NULL;
 
         if (!req)
@@ -3854,7 +3853,7 @@ server3_3_seek (rpcsvc_request_t *req)
         memcpy(state->resolve.gfid, args.gfid, 16);
 
         bound_xl = frame->root->client->bound_xl;
-        GF_PROTOCOL_DICT_UNSERIALIZE (bound_xl, xdata,
+        GF_PROTOCOL_DICT_UNSERIALIZE (bound_xl, state->xdata,
                                       args.xdata.xdata_val,
                                       args.xdata.xdata_len,
                                       ret, op_errno, out);
