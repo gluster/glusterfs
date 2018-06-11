@@ -28,29 +28,40 @@ CLIENT_TIMEOUT_S = 60
 PATCH_FILE_UID = str(uuid.uuid4())
 SSH_TIMEOUT_S = 10
 MAX_ATTEMPTS = 3
+ADDRESS_FAMILY = 'IPv4'
+
+
+def socket_instance(address_family):
+    if address_family.upper() == 'ipv4'.upper():
+        return socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    elif address_family.upper() == 'ipv6'.upper():
+        return socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+    else:
+        Log.error("Invalid IP addess family")
+        sys.exit(1)
 
 
 def patch_file():
     return "/tmp/%s-patch.tar.gz" % PATCH_FILE_UID
 
 # ..............................................................................
-# SimpleXMLRPCServer IPv6 Wrapper
+# SimpleXMLRPCServer IPvX Wrapper
 # ..............................................................................
 
 
-class IPv6SimpleXMLRPCServer(SimpleXMLRPCServer.SimpleXMLRPCServer):
+class GeneralXMLRPCServer(SimpleXMLRPCServer.SimpleXMLRPCServer):
     def __init__(self, addr):
         SimpleXMLRPCServer.SimpleXMLRPCServer.__init__(self, addr)
 
     def server_bind(self):
         if self.socket:
             self.socket.close()
-        self.socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        self.socket = socket_instance(args['address_family'])
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         SimpleXMLRPCServer.SimpleXMLRPCServer.server_bind(self)
 
 
-class IPv6HTTPConnection(httplib.HTTPConnection):
+class HTTPConnection(httplib.HTTPConnection):
     def __init__(self, host):
         self.host = host
         httplib.HTTPConnection.__init__(self, host)
@@ -62,12 +73,12 @@ class IPv6HTTPConnection(httplib.HTTPConnection):
         self.sock.settimeout(old_timeout)
 
 
-class IPv6Transport(xmlrpclib.Transport):
+class IPTransport(xmlrpclib.Transport):
     def __init__(self, *args, **kwargs):
         xmlrpclib.Transport.__init__(self, *args, **kwargs)
 
     def make_connection(self, host):
-        return IPv6HTTPConnection(host)
+        return HTTPConnection(host)
 
 
 # ..............................................................................
@@ -236,7 +247,7 @@ class TestServer:
 
     def init(self):
         Log.debug("Starting xmlrpc server on port %s" % self.port)
-        self.rpc = IPv6SimpleXMLRPCServer(("", self.port))
+        self.rpc = GeneralSimpleXMLRPCServer(("", self.port))
         self.rpc.register_instance(Handlers(self.scratchdir))
 
     def serve(self):
@@ -419,7 +430,7 @@ class RPCConnection((threading.Thread)):
 
     def _connect(self):
         url = "http://%s:%s" % (self.host, self.port)
-        self.proxy = xmlrpclib.ServerProxy(url, transport=IPv6Transport())
+        self.proxy = xmlrpclib.ServerProxy(url, transport=IPTransport())
         return self.proxy.hello(self.cb.id)
 
     def disconnect(self):
@@ -836,6 +847,8 @@ parser.add_argument("--test-timeout",
                     default=TEST_TIMEOUT_S)
 # general
 parser.add_argument("-v", help="verbose", action="store_true")
+parser.add_argument("--address_family", help="IPv6 or IPv4 to use",
+                    default=ADDRESS_FAMILY)
 
 args = parser.parse_args()
 

@@ -7,6 +7,7 @@ TESTS='all'
 FLAKY=$KNOWN_FLAKY_TESTS
 BROKEN=$BROKEN_TESTS
 TEST_TIMEOUT_S=900
+ADDRESS_FAMILY='IPv4'
 
 FLAGS=""
 
@@ -20,7 +21,7 @@ function print_env {
 }
 
 function cleanup {
-    rm -f /tmp/test-*.log
+    rm -f /tmp/test*.log
 }
 
 function usage {
@@ -30,13 +31,14 @@ function usage {
              [--hosts <hosts>] [-n <parallelism>]
              [--tests <tests>]
              [--id-rsa <ssh private key>]
+             [--address_family <IPv4 or IPv6>]
     "
 }
 
 function parse_args () {
     args=`getopt \
             -o hvn: \
-            --long help,verbose,valgrind,asan,asan-noleaks,all,\
+            --long help,verbose,address_family:,valgrind,asan,asan-noleaks,all,\
 smoke,flaky,broken,hosts:,tests:,id-rsa:,test-timeout: \
             -n 'fb-remote-test.sh' --  "$@"`
 
@@ -51,6 +53,7 @@ smoke,flaky,broken,hosts:,tests:,id-rsa:,test-timeout: \
         case "$1" in
             -h | --help) usage ; exit 1 ;;
             -v | --verbose) FLAGS="$FLAGS -v" ; shift ;;
+            --address_family) ADDRESS_FAMILY=$2; shift 2 ;;
             --valgrind) FLAGS="$FLAGS --valgrind" ; shift ;;
             --asan-noleaks) FLAGS="$FLAGS --asan-noleaks"; shift ;;
             --asan) FLAGS="$FLAGS --asan" ; shift ;;
@@ -83,7 +86,8 @@ function main {
 
     "extras/distributed-testing/distributed-test-runner.py" $FLAGS --tester \
         --n "$N" --hosts "$HOSTS" --tests "$TESTS" \
-        --flaky_tests "$FLAKY $BROKEN" --test-timeout "$TEST_TIMEOUT_S"
+        --flaky_tests "$FLAKY $BROKEN" --test-timeout "$TEST_TIMEOUT_S" \
+        --address_family "$ADDRESS_FAMILY"
 
     exit $?
 }
