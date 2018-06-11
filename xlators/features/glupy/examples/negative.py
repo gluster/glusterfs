@@ -35,7 +35,7 @@ class xlator (Translator):
         pargfid = uuid2str(loc.contents.pargfid)
         print("lookup FOP: %s:%s" % (pargfid, loc.contents.name))
         # Check the cache.
-        if cache.has_key(pargfid):
+        if pargfid in cache:
             if loc.contents.name in cache[pargfid]:
                 print("short-circuiting for %s:%s" % (pargfid,
                     loc.contents.name))
@@ -55,11 +55,11 @@ class xlator (Translator):
         # Update the cache.
         if op_ret == 0:
             print("found %s, removing from cache" % name)
-            if cache.has_key(pargfid):
+            if pargfid in cache:
                 cache[pargfid].discard(name)
         elif op_errno == 2:    # ENOENT
             print("failed to find %s, adding to cache" % name)
-            if cache.has_key(pargfid):
+            if pargfid in cache:
                 cache[pargfid].add(name)
             else:
                 cache[pargfid] = {name}
@@ -85,7 +85,7 @@ class xlator (Translator):
         # Update the cache.
         if op_ret == 0:
             print("created %s, removing from cache" % name)
-            if cache.has_key(pargfid):
+            if pargfid in cache:
                 cache[pargfid].discard(name)
         del self.requests[key]
         dl.unwind_create(frame,cookie,this,op_ret,op_errno,fd,inode,buf,
