@@ -1,4 +1,4 @@
-GEO_REP_TIMEOUT=60
+GEO_REP_TIMEOUT=120
 
 function check_status_num_rows()
 {
