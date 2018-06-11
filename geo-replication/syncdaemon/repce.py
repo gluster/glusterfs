@@ -14,9 +14,9 @@ import time
 import logging
 from threading import Condition
 try:
-    import _thread
+    import _thread as thread
 except ImportError:
-    import thread as _thread
+    import thread
 try:
     from queue import Queue
 except ImportError:
