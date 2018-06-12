@@ -105,10 +105,10 @@ def doJob(name, lockFile, jobFunc, volname):
             else:
                 log.info("Job %s has been processed already", name)
             fcntl.flock(f, fcntl.LOCK_UN)
-        except IOError as (errno, strerror):
+        except (OSError, IOError) as (errno, strerror):
             log.info("Job %s is being processed by another agent", name)
         os.close(f)
-    except IOError as (errno, strerror):
+    except (OSError, IOError) as (errno, strerror):
         log.debug("Failed to open lock file %s : %s", lockFile, strerror)
         log.error("Failed to process job %s", name)
         success = False
