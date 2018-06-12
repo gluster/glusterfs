@@ -88,7 +88,7 @@ def takeSnap(volname="", snapname=""):
 def doJob(name, lockFile, jobFunc, volname):
     success = True
     try:
-        f = os.open(lockFile, os.O_RDWR | os.O_NONBLOCK)
+        f = os.open(lockFile, os.O_CREAT | os.O_RDWR | os.O_NONBLOCK)
         try:
             fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
             mtime = os.path.getmtime(lockFile)
