@@ -2870,6 +2870,9 @@ posix_check_internal_writes (xlator_t *this, fd_t *fd, int sysfd,
         size_t       xattrsize = 0;
         data_t      *val = NULL;
 
+        if (!xdata)
+                return 0;
+
         LOCK (&fd->inode->lock);
         {
                 val = dict_get (xdata, GF_PROTECT_FROM_EXTERNAL_WRITES);
