@@ -795,17 +795,32 @@ _posix_do_zerofill(int fd, off_t offset, off_t len, int o_direct)
                 op_ret = sys_writev (fd, vector, num_vect);
                 if (op_ret < 0)
                         goto err;
+                if (op_ret != (vect_size * num_vect)) {
+                        op_ret = -1;
+                        errno = ENOSPC;
+                        goto err;
+                }
         }
         if (extra) {
                 op_ret = sys_writev (fd, vector, extra);
                 if (op_ret < 0)
                         goto err;
+                if (op_ret != (vect_size * extra)) {
+                        op_ret = -1;
+                        errno = ENOSPC;
+                        goto err;
+                }
         }
         if (remain) {
                 vector[0].iov_len = remain;
                 op_ret = sys_writev (fd, vector , 1);
                 if (op_ret < 0)
                         goto err;
+                if (op_ret != remain) {
+                        op_ret = -1;
+                        errno = ENOSPC;
+                        goto err;
+                }
         }
 err:
         if (o_direct)
@@ -877,8 +892,14 @@ posix_do_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
          */
         flags = FALLOC_FL_ZERO_RANGE;
         ret = sys_fallocate (pfd->fd, flags, offset, len);
-        if (ret == 0)
+        if (ret == 0) {
                 goto fsync;
+        } else {
+                ret = -errno;
+                if ((ret != -ENOSYS) && (ret != -EOPNOTSUPP)) {
+                        goto out;
+                }
+        }
 
         ret = _posix_do_zerofill (pfd->fd, offset, len, pfd->flags & O_DIRECT);
         if (ret < 0) {
