@@ -5123,7 +5123,7 @@ glfs_recall_lease_fd (struct glfs *fs,
         {
                 list_for_each_entry (fd, &inode->fd_list, inode_list) {
                         ret = fd_ctx_get (fd, subvol, &value);
-                        glfd = (void *) value;
+                        glfd = (struct glfs_fd *) value;
                         if (glfd) {
                                 gf_msg_trace (THIS->name, 0,
                                               "glfd (%p) has held lease", glfd);
@@ -5162,7 +5162,7 @@ glfs_recall_lease_upcall (struct glfs *fs,
         struct gf_upcall_recall_lease *recall_lease = NULL;
         struct glfs_object                  *object       = NULL;
         xlator_t                      *subvol       = NULL;
-        int                            ret          = 0;
+        int                            ret          = -1;
         struct glfs_upcall_lease      *up_lease_arg = NULL;
 
         GF_VALIDATE_OR_GOTO ("gfapi", up_data, out);
@@ -5173,7 +5173,6 @@ glfs_recall_lease_upcall (struct glfs *fs,
 
         subvol = glfs_active_subvol (fs);
         if (!subvol) {
-                ret = -1;
                 errno = EIO;
                 goto out;
         }
