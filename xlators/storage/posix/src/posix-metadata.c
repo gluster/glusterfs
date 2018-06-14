@@ -258,46 +258,38 @@ __posix_get_mdata_xattr (xlator_t *this, const char *real_path, int _fd,
                          */
                         __inode_ctx_set1 (inode, this, (uint64_t *)&mdata);
                 } else {
-                        /* Failed to get mdata from disk, xattr missing
-                         * Even new file creation hits here first as posix_pstat
-                         * is generally done before posix_set_ctime
+                        /* Failed to get mdata from disk, xattr missing.
+                         * This happens on two cases.
+                         * 1. File is created before ctime is enabled.
+                         * 2. On new file creation.
+                         *
+                         * Do nothing, just return success. It is as
+                         * good as ctime feature is not enabled for this
+                         * file. For files created before ctime is enabled,
+                         * time attributes gets updated into ctime structure
+                         * once the metadata modification fop happens and
+                         * time attributes become consistent eventually.
+                         * For new files, it would obviously get updated
+                         * before the fop completion.
                          */
-                       if (stbuf && op_errno != ENOENT) {
-                               mdata->version = 1;
-                               mdata->flags = 0;
-                               mdata->ctime.tv_sec = stbuf->ia_ctime;
-                               mdata->ctime.tv_nsec = stbuf->ia_ctime_nsec;
-                               mdata->mtime.tv_sec = stbuf->ia_mtime;
-                               mdata->mtime.tv_nsec = stbuf->ia_mtime_nsec;
-                               mdata->atime.tv_sec = stbuf->ia_atime;
-                               mdata->atime.tv_nsec = stbuf->ia_atime_nsec;
-                               ret = posix_store_mdata_xattr (this, real_path,
-                                                              _fd, inode,
-                                                              mdata);
-                               if (ret) {
-                                       gf_msg (this->name, GF_LOG_ERROR, errno,
-                                               P_MSG_STOREMDATA_FAILED,
-                                               "file: %s: gfid: %s key:%s ",
-                                               real_path ? real_path : "null",
-                                               uuid_utoa(inode->gfid),
-                                               GF_XATTR_MDATA_KEY);
-                                       goto out;
-                               }
-                               __inode_ctx_set1 (inode, this, (uint64_t *)&mdata);
-                       } else {
-                              /* This case should not be hit. If it hits, don't
-                               * fail, log warning, free mdata and move on
-                               */
-                               gf_msg (this->name, GF_LOG_WARNING, op_errno,
-                                       P_MSG_FETCHMDATA_FAILED,
-                                       "file: %s: gfid: %s key:%s ",
-                                       real_path ? real_path : "null",
-                                       uuid_utoa(inode->gfid),
-                                       GF_XATTR_MDATA_KEY);
-                               GF_FREE (mdata);
-                               ret = -1;
-                               goto out;
-                       }
+                        if (stbuf && op_errno != ENOENT) {
+                                ret = 0;
+                                goto out;
+                        } else {
+                                /* This case should not be hit. If it hits,
+                                 * don't fail, log warning, free mdata and move
+                                 * on
+                                 */
+                                gf_msg (this->name, GF_LOG_WARNING, op_errno,
+                                        P_MSG_FETCHMDATA_FAILED,
+                                        "file: %s: gfid: %s key:%s ",
+                                        real_path ? real_path : "null",
+                                        uuid_utoa(inode->gfid),
+                                        GF_XATTR_MDATA_KEY);
+                                GF_FREE (mdata);
+                                ret = 0;
+                                goto out;
+                        }
                 }
         }
 
@@ -390,7 +382,7 @@ posix_set_mdata_xattr (xlator_t *this, const char *real_path, int fd,
                                  */
                                 __inode_ctx_set1 (inode, this,
                                                   (uint64_t *)&mdata);
-                        } else if (ret && stbuf) {
+                        } else if (ret && time) {
                                 /*
                                  * This is the first time creating the time
                                  * attr. This happens when you activate this
@@ -408,14 +400,28 @@ posix_set_mdata_xattr (xlator_t *this, const char *real_path, int fd,
                                  * We should contact the time management
                                  * xlators, and ask them to create an xattr.
                                  */
+                                /* We should not be relying on backend file's
+                                 * time attributes to load the initial ctime
+                                 * time attribute structure. This is incorrect
+                                 * as each replica set would have witnessed the
+                                 * file creation at different times.
+                                 *
+                                 * For new file creation, ctime, atime and mtime
+                                 * should be same, hence initiate the ctime
+                                 * structure with the time from the frame. But
+                                 * for the files which were created before ctime
+                                 * feature is enabled, this is not accurate but
+                                 * still fine as the times would get eventually
+                                 * accurate.
+                                 */
                                 mdata->version = 1;
                                 mdata->flags = 0;
-                                mdata->ctime.tv_sec = stbuf->ia_ctime;
-                                mdata->ctime.tv_nsec = stbuf->ia_ctime_nsec;
-                                mdata->atime.tv_sec = stbuf->ia_atime;
-                                mdata->atime.tv_nsec = stbuf->ia_atime_nsec;
-                                mdata->mtime.tv_sec = stbuf->ia_mtime;
-                                mdata->mtime.tv_nsec = stbuf->ia_mtime_nsec;
+                                mdata->ctime.tv_sec = time->tv_sec;
+                                mdata->ctime.tv_nsec = time->tv_nsec;
+                                mdata->atime.tv_sec = time->tv_sec;
+                                mdata->atime.tv_nsec = time->tv_nsec;
+                                mdata->mtime.tv_sec = time->tv_sec;
+                                mdata->mtime.tv_nsec = time->tv_nsec;
 
                                 __inode_ctx_set1 (inode, this,
                                                   (uint64_t *)&mdata);
@@ -428,15 +434,18 @@ posix_set_mdata_xattr (xlator_t *this, const char *real_path, int fd,
                  * just updating without comparison. But the ctime is not
                  * allowed to changed to older date.
                  */
+
                 if (flag->ctime &&
                     posix_compare_timespec (time, &mdata->ctime) > 0) {
                         mdata->ctime = *time;
                 }
-                /* In distributed systems, there could races with fops updating
-                 * mtime/atime which could result in different mtime/atime
-                 * for same file. So this makes sure, only the highest time is
-                 * retained. If the mtime/atime update comes from the explicit
-                 * utime syscall, it is allowed to set to previous time
+
+                /* In distributed systems, there could be races with fops
+                 * updating mtime/atime which could result in different
+                 * mtime/atime for same file. So this makes sure, only the
+                 * highest time is retained. If the mtime/atime update comes
+                 * from the explicit utime syscall, it is allowed to set to
+                 * previous time
                  */
                 if (update_utime) {
                         if (flag->mtime) {
