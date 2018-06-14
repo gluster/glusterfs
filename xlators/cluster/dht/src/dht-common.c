@@ -2670,7 +2670,6 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         xlator_t     *prev          = NULL;
         int           is_linkfile   = 0;
         int           is_dir        = 0;
-        xlator_t     *subvol        = NULL;
         loc_t        *loc           = NULL;
         xlator_t     *link_subvol   = NULL;
         int           ret           = -1;
@@ -2690,12 +2689,11 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         conf   = this->private;
 
         prev   = cookie;
-        subvol = prev;
 
         gf_msg_debug (this->name, 0,
                       "returned with op_ret %d and op_errno %d (%s) "
                       "from subvol %s", op_ret, op_errno, loc->path,
-                      subvol->name);
+                      prev->name);
 
         LOCK (&frame->lock);
         {
@@ -2727,7 +2725,7 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                                            xattr);
                         gf_msg_debug (this->name, 0,
                                       "found on %s linkfile %s (-> %s)",
-                                      subvol->name, loc->path,
+                                      prev->name, loc->path,
                                       link_subvol ? link_subvol->name : "''");
                         goto unlock;
                 }
@@ -2744,27 +2742,27 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                         gf_msg_debug (this->name, 0,
                                       "found on %s directory %s",
-                                      subvol->name, loc->path);
+                                      prev->name, loc->path);
                 } else {
                         local->file_count++;
 
                         gf_msg_debug (this->name, 0,
                                       "found cached file on %s for %s",
-                                      subvol->name, loc->path);
+                                      prev->name, loc->path);
 
                         if (!local->cached_subvol) {
                                 /* found one file */
                                 dht_iatt_merge (this, &local->stbuf, buf,
-                                                subvol);
+                                                prev);
                                 local->xattr = dict_ref (xattr);
-                                local->cached_subvol = subvol;
+                                local->cached_subvol = prev;
 
                                 gf_msg_debug (this->name, 0,
                                               "storing cached on %s file"
-                                              " %s", subvol->name, loc->path);
+                                              " %s", prev->name, loc->path);
 
                                 dht_iatt_merge (this, &local->postparent,
-                                                postparent, subvol);
+                                                postparent, prev);
 
                                 gf_uuid_copy (local->skip_unlink.cached_gfid,
                                            buf->ia_gfid);
@@ -2776,7 +2774,7 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         "file %s (preferably rename the file "
                                         "in the backend,and do a fresh lookup)",
                                         local->cached_subvol->name,
-                                        subvol->name, local->loc.path);
+                                        prev->name, local->loc.path);
                         }
                 }
         }
@@ -2797,7 +2795,7 @@ unlock:
                  *  otherwise unlink is skipped.
                  */
 
-                if (local->hashed_subvol && local->hashed_subvol == subvol) {
+                if (local->hashed_subvol && local->hashed_subvol == prev) {
 
                         local->skip_unlink.handle_valid_link = _gf_true;
                         local->skip_unlink.opend_fd_count = fd_count;
@@ -2808,7 +2806,7 @@ unlock:
                         gf_msg_debug (this->name, 0, "Found"
                                       " one linkto file on hashed subvol %s "
                                       "for %s: Skipping unlinking till "
-                                      "everywhere_done", subvol->name,
+                                      "everywhere_done", prev->name,
                                       loc->path);
 
                 } else if (!ret && (fd_count == 0)) {
@@ -2839,7 +2837,7 @@ unlock:
                                         DHT_MSG_SUBVOL_INFO,
                                         "attempting deletion of stale linkfile "
                                         "%s on %s (hashed subvol is %s)",
-                                        loc->path, subvol->name,
+                                        loc->path, prev->name,
                                         (local->hashed_subvol?
                                         local->hashed_subvol->name : "<null>"));
                                 /* *
@@ -2849,7 +2847,7 @@ unlock:
                                  */
                                 FRAME_SU_DO (frame, dht_local_t);
                                 STACK_WIND (frame, dht_lookup_unlink_cbk,
-                                            subvol, subvol->fops->unlink, loc,
+                                            prev, prev->fops->unlink, loc,
                                             0, dict_req);
 
                                 dict_unref (dict_req);
