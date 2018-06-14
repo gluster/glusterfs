@@ -22,97 +22,6 @@ int32_t client3_getspec (call_frame_t *frame, xlator_t *this, void *data);
 rpc_clnt_prog_t clnt3_3_fop_prog;
 
 
-int
-client_submit_vec_request (xlator_t  *this, void *req, call_frame_t  *frame,
-                           rpc_clnt_prog_t *prog, int procnum,
-                           fop_cbk_fn_t cbkfn,
-                           struct iovec  *payload, int payloadcnt,
-                           struct iobref *iobref, xdrproc_t xdrproc)
-{
-        int             ret        = 0;
-        clnt_conf_t    *conf       = NULL;
-        struct iovec    iov        = {0, };
-        struct iobuf   *iobuf      = NULL;
-        int             count      = 0;
-        struct iobref  *new_iobref = NULL;
-        ssize_t         xdr_size   = 0;
-        struct rpc_req  rpcreq     = {0, };
-
-        conf = this->private;
-
-        if (req && xdrproc) {
-                xdr_size = xdr_sizeof (xdrproc, req);
-                iobuf = iobuf_get2 (this->ctx->iobuf_pool, xdr_size);
-                if (!iobuf) {
-                        goto unwind;
-                };
-
-                new_iobref = iobref_new ();
-                if (!new_iobref) {
-                        goto unwind;
-                }
-
-                if (iobref != NULL) {
-                        ret = iobref_merge (new_iobref, iobref);
-                        if (ret != 0) {
-                                gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
-                                        PC_MSG_NO_MEMORY, "cannot merge "
-                                        "iobref passed from caller into "
-                                        "new_iobref");
-                        }
-                }
-
-                ret = iobref_add (new_iobref, iobuf);
-                if (ret != 0) {
-                        gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
-                                PC_MSG_NO_MEMORY, "cannot add iobuf into "
-                                "iobref");
-                        goto unwind;
-                }
-
-                iov.iov_base = iobuf->ptr;
-                iov.iov_len  = iobuf_size (iobuf);
-
-                /* Create the xdr payload */
-                ret = xdr_serialize_generic (iov, req, xdrproc);
-                if (ret == -1) {
-                        gf_log_callingfn ("", GF_LOG_WARNING,
-                                          "XDR function failed");
-                        goto unwind;
-                }
-
-                iov.iov_len = ret;
-                count = 1;
-        }
-
-        /* Send the msg */
-        ret = rpc_clnt_submit (conf->rpc, prog, procnum, cbkfn, &iov, count,
-                               payload, payloadcnt, new_iobref, frame, NULL, 0,
-                               NULL, 0, NULL);
-        if (ret < 0) {
-                gf_msg_debug (this->name, 0, "rpc_clnt_submit failed");
-        }
-
-        if (new_iobref)
-                iobref_unref (new_iobref);
-
-        if (iobuf)
-                iobuf_unref (iobuf);
-
-        return ret;
-
-unwind:
-        rpcreq.rpc_status = -1;
-        cbkfn (&rpcreq, NULL, 0, frame);
-
-        if (new_iobref)
-                iobref_unref (new_iobref);
-
-        if (iobuf)
-                iobuf_unref (iobuf);
-
-        return ret;
-}
 
 /* CBK */
 
@@ -4270,11 +4179,11 @@ client3_3_writev (call_frame_t *frame, xlator_t *this, void *data)
                 op_errno = -ret;
                 goto unwind;
         }
-        ret = client_submit_vec_request (this, &req, frame, conf->fops,
-                                         GFS3_OP_WRITE, client3_3_writev_cbk,
-                                         args->vector, args->count,
-                                         args->iobref,
-                                         (xdrproc_t)xdr_gfs3_write_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_WRITE, client3_3_writev_cbk,
+                                     args->iobref, args->vector, args->count,
+                                     NULL, 0, NULL,
+                                     (xdrproc_t)xdr_gfs3_write_req);
         if (ret) {
                 /*
                  * If the lower layers fail to submit a request, they'll also

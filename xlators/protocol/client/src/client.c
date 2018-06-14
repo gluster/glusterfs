@@ -129,8 +129,8 @@ client_type_to_gf_type (short l_type)
 int
 client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
                        rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbkfn,
-                       struct iobref *iobref,  struct iovec *rsphdr,
-                       int rsphdr_count, struct iovec *rsp_payload,
+                       struct iobref *iobref,  struct iovec *payload,
+                       int payloadcnt, struct iovec *rsp_payload,
                        int rsp_payload_count, struct iobref *rsp_iobref,
                        xdrproc_t xdrproc)
 {
@@ -169,7 +169,7 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
                 iobuf = iobuf_get2 (this->ctx->iobuf_pool, xdr_size);
                 if (!iobuf) {
                         goto out;
-                };
+                }
 
                 new_iobref = iobref_new ();
                 if (!new_iobref) {
@@ -221,8 +221,9 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
 
         /* Send the msg */
         ret = rpc_clnt_submit (conf->rpc, prog, procnum, cbkfn, &iov, count,
-                               NULL, 0, new_iobref, frame, rsphdr, rsphdr_count,
-                               rsp_payload, rsp_payload_count, rsp_iobref);
+                               payload, payloadcnt, new_iobref, frame,
+                               payload, payloadcnt, rsp_payload,
+                               rsp_payload_count, rsp_iobref);
 
         if (ret < 0) {
                 gf_msg_debug (this->name, 0, "rpc_clnt_submit failed");
@@ -249,7 +250,7 @@ out:
         if (iobuf)
                 iobuf_unref (iobuf);
 
-        return 0;
+        return ret;
 }
 
 
