@@ -23,13 +23,6 @@ client3_getspec (call_frame_t *frame, xlator_t *this, void *data);
 extern int32_t
 client3_3_getxattr (call_frame_t *frame, xlator_t *this, void *data);
 
-extern int
-client_submit_vec_request (xlator_t  *this, void *req, call_frame_t  *frame,
-                           rpc_clnt_prog_t *prog, int procnum,
-                           fop_cbk_fn_t cbkfn,
-                           struct iovec  *payload, int payloadcnt,
-                           struct iobref *iobref, xdrproc_t xdrproc);
-
 int
 client4_0_symlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
                        void *myframe)
@@ -3770,11 +3763,11 @@ client4_0_writev (call_frame_t *frame, xlator_t *this, void *data)
                 goto unwind;
         }
 
-        ret = client_submit_vec_request (this, &req, frame, conf->fops,
-                                         GFS3_OP_WRITE, client4_0_writev_cbk,
-                                         args->vector, args->count,
-                                         args->iobref,
-                                         (xdrproc_t)xdr_gfx_write_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_WRITE, client4_0_writev_cbk,
+                                     args->iobref, args->vector, args->count,
+                                     NULL, 0, NULL,
+                                     (xdrproc_t)xdr_gfx_write_req);
         if (ret) {
                 /*
                  * If the lower layers fail to submit a request, they'll also
@@ -5704,11 +5697,11 @@ client4_0_put (call_frame_t *frame, xlator_t *this, void *data)
                 goto unwind;
         }
 
-        ret = client_submit_vec_request (this, &req, frame, conf->fops,
-                                         GFS3_OP_PUT, client4_0_put_cbk,
-                                         args->vector, args->count,
-                                         args->iobref,
-                                         (xdrproc_t)xdr_gfx_put_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_PUT, client4_0_put_cbk,
+                                     args->iobref, args->vector, args->count,
+                                     NULL, 0, NULL,
+                                     (xdrproc_t)xdr_gfx_put_req);
         if (ret) {
                 /*
                  * If the lower layers fail to submit a request, they'll also
