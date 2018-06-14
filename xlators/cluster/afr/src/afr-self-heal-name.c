@@ -19,7 +19,7 @@ __afr_selfheal_assign_gfid (xlator_t *this, inode_t *parent, uuid_t pargfid,
                             const char *bname, inode_t *inode,
                             struct afr_reply *replies, void *gfid,
                             unsigned char *locked_on, int source,
-                            gf_boolean_t is_gfid_absent)
+                            unsigned char *sources, gf_boolean_t is_gfid_absent)
 {
 	int             ret          = 0;
         int             up_count     = 0;
@@ -48,7 +48,7 @@ __afr_selfheal_assign_gfid (xlator_t *this, inode_t *parent, uuid_t pargfid,
         }
 
         afr_lookup_and_heal_gfid (this, parent, bname, inode, replies, source,
-                                  gfid);
+                                  sources, gfid);
 
 out:
 	return ret;
@@ -426,7 +426,7 @@ __afr_selfheal_name_do (call_frame_t *frame, xlator_t *this, inode_t *parent,
         is_gfid_absent = (gfid_idx == -1) ? _gf_true : _gf_false;
 	ret = __afr_selfheal_assign_gfid (this, parent, pargfid, bname, inode,
                                           replies, gfid, locked_on, source,
-                                          is_gfid_absent);
+                                          sources, is_gfid_absent);
         if (ret)
                 return ret;
 
