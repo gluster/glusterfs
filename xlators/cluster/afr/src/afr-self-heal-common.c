@@ -22,7 +22,7 @@ afr_heal_synctask (xlator_t *this, afr_local_t *local);
 int
 afr_lookup_and_heal_gfid (xlator_t *this, inode_t *parent, const char *name,
                           inode_t *inode, struct afr_reply *replies,
-                          int source,  void *gfid)
+                          int source,  unsigned char *sources, void *gfid)
 {
         afr_private_t *priv = NULL;
         call_frame_t   *frame    = NULL;
@@ -37,6 +37,23 @@ afr_lookup_and_heal_gfid (xlator_t *this, inode_t *parent, const char *name,
         priv = this->private;
         wind_on = alloca0 (priv->child_count);
         ia_type = replies[source].poststat.ia_type;
+        if ((ia_type == IA_INVAL) &&
+            (AFR_COUNT(sources, priv->child_count) == priv->child_count)) {
+                /* If a file is present on some bricks of the replica but parent
+                 * dir does not have pending xattrs, all bricks are sources and
+                 * the 'source' we  selected earlier might be one where the file
+                 * is not actually present. Hence check if file is present in
+                 * any of the sources.*/
+                for (i = 0; i < priv->child_count; i++) {
+                        if (i == source)
+                                continue;
+                        if (sources[i] && replies[i].valid &&
+                            replies[i].op_ret == 0) {
+                                ia_type = replies[i].poststat.ia_type;
+                                break;
+                        }
+                }
+        }
 
         /* gfid heal on those subvolumes that do not have gfid associated
          * with the inode and update those replies.
@@ -1256,6 +1273,21 @@ afr_mark_split_brain_source_sinks_by_policy (call_frame_t *frame,
         return fav_child;
 }
 
+gf_boolean_t
+afr_is_file_empty_on_all_children (afr_private_t *priv,
+                                   struct afr_reply *replies)
+{
+        int i = 0;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if ((!replies[i].valid) || (replies[i].op_ret != 0) ||
+                    (replies[i].poststat.ia_size != 0))
+                        return _gf_false;
+        }
+
+        return _gf_true;
+}
+
 int
 afr_mark_source_sinks_if_file_empty (xlator_t *this, unsigned char *sources,
                                      unsigned char *sinks,
@@ -1274,11 +1306,8 @@ afr_mark_source_sinks_if_file_empty (xlator_t *this, unsigned char *sources,
                 return -1;
 
         if (type == AFR_DATA_TRANSACTION) {
-                for (i = 0; i < priv->child_count; i++) {
-                        if (replies[i].poststat.ia_size != 0)
+                if (!afr_is_file_empty_on_all_children(priv, replies))
                                 return -1;
-                }
-
                 goto mark;
         }
 

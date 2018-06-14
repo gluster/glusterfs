@@ -683,6 +683,7 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	int source = -1;
         gf_boolean_t did_sh = _gf_true;
         gf_boolean_t is_arbiter_the_only_sink = _gf_false;
+        gf_boolean_t empty_file = _gf_false;
 
 	priv = this->private;
 
@@ -723,6 +724,11 @@ __afr_selfheal_data (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		source = ret;
 
                 if (AFR_IS_ARBITER_BRICK(priv, source)) {
+                        empty_file = afr_is_file_empty_on_all_children (priv,
+                                                                locked_replies);
+                        if (empty_file)
+                                goto restore_time;
+
                         did_sh = _gf_false;
                         goto unlock;
                 }
@@ -759,7 +765,7 @@ restore_time:
 	afr_selfheal_restore_time (frame, this, fd->inode, source,
 					healed_sinks, locked_replies);
 
-        if (!is_arbiter_the_only_sink) {
+        if (!is_arbiter_the_only_sink || !empty_file) {
                 ret = afr_selfheal_inodelk (frame, this, fd->inode, this->name,
                                             0, 0, data_lock);
                 if (ret < priv->child_count) {

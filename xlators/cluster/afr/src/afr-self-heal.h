@@ -113,7 +113,7 @@ afr_selfheal_entry (call_frame_t *frame, xlator_t *this, inode_t *inode);
 int
 afr_lookup_and_heal_gfid (xlator_t *this, inode_t *parent, const char *name,
                           inode_t *inode, struct afr_reply *replies, int source,
-                          void *gfid);
+                          unsigned char *sources, void *gfid);
 
 int
 afr_selfheal_inodelk (call_frame_t *frame, xlator_t *this, inode_t *inode,
@@ -352,5 +352,9 @@ afr_mark_source_sinks_if_file_empty (xlator_t *this, unsigned char *sources,
                                      unsigned char *locked_on,
                                      struct afr_reply *replies,
                                      afr_transaction_type type);
+
+gf_boolean_t
+afr_is_file_empty_on_all_children (afr_private_t *priv,
+                                   struct afr_reply *replies);
 
 #endif /* !_AFR_SELFHEAL_H */
