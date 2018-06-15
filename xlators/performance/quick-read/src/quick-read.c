@@ -334,6 +334,8 @@ qr_content_update (xlator_t *this, qr_inode_t *qr_inode, void *data,
 
 		qr_inode->ia_mtime = buf->ia_mtime;
 		qr_inode->ia_mtime_nsec = buf->ia_mtime_nsec;
+                qr_inode->ia_ctime = buf->ia_ctime;
+                qr_inode->ia_ctime_nsec = buf->ia_ctime_nsec;
 
 		qr_inode->buf = *buf;
 
@@ -363,6 +365,24 @@ qr_mtime_equal (qr_inode_t *qr_inode, struct iatt *buf)
 }
 
 
+gf_boolean_t
+qr_ctime_equal (qr_inode_t *qr_inode, struct iatt *buf)
+{
+        return (qr_inode->ia_ctime == buf->ia_ctime &&
+                qr_inode->ia_ctime_nsec == buf->ia_ctime_nsec);
+}
+
+
+gf_boolean_t
+qr_time_equal (qr_conf_t *conf, qr_inode_t *qr_inode, struct iatt *buf)
+{
+        if (conf->ctime_invalidation)
+                return qr_ctime_equal (qr_inode, buf);
+        else
+                return qr_mtime_equal (qr_inode, buf);
+}
+
+
 void
 __qr_content_refresh (xlator_t *this, qr_inode_t *qr_inode, struct iatt *buf,
                       uint64_t gen)
@@ -381,7 +401,7 @@ __qr_content_refresh (xlator_t *this, qr_inode_t *qr_inode, struct iatt *buf,
 
         qr_inode->gen = gen;
 
-	if (qr_size_fits (conf, buf) && qr_mtime_equal (qr_inode, buf)) {
+	if (qr_size_fits (conf, buf) && qr_time_equal (conf, qr_inode, buf)) {
 		qr_inode->buf = *buf;
 
 		gettimeofday (&qr_inode->last_refresh, NULL);
@@ -981,6 +1001,9 @@ qr_reconfigure (xlator_t *this, dict_t *options)
         GF_OPTION_RECONF ("cache-invalidation", conf->qr_invalidation, options,
                           bool, out);
 
+        GF_OPTION_RECONF ("ctime-invalidation", conf->ctime_invalidation,
+                          options, bool, out);
+
         GF_OPTION_RECONF ("cache-size", cache_size_new, options, size_uint64, out);
         if (!check_cache_size_ok (this, cache_size_new)) {
                 ret = -1;
@@ -1135,6 +1158,9 @@ qr_init (xlator_t *this)
                 ret = -1;
                 goto out;
         }
+
+        GF_OPTION_INIT ("ctime-invalidation", conf->ctime_invalidation, bool,
+                        out);
 
         INIT_LIST_HEAD (&conf->priority_list);
         conf->max_pri = 1;
@@ -1382,6 +1408,25 @@ struct volume_options qr_options[] = {
           .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
           .description = "When \"on\", invalidates/updates the metadata cache,"
                          " on receiving the cache-invalidation notifications",
+        },
+        { .key           = {"ctime-invalidation"},
+          .type          = GF_OPTION_TYPE_BOOL,
+          .default_value = "false",
+          .op_version    = {GD_OP_VERSION_4_2_0},
+          .flags         = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .description   = "Quick-read by default uses mtime to identify changes "
+                         "to file data. However there are applications like "
+                         "rsync which explicitly set mtime making it unreliable "
+                         "for the purpose of identifying change in file content "
+                         ". Since ctime also changes when content of a file "
+                         " changes and it cannot be set explicitly, it becomes "
+                         " suitable for identifying staleness of cached data. "
+                         "This option makes quick-read to prefer ctime over "
+                         "mtime to validate its cache. However, using ctime "
+                         "can result in false positives as ctime changes with "
+                         "just attribute changes like permission without "
+                         "changes to file data. So, use this only when mtime "
+                         "is not reliable",
         },
         { .key  = {NULL} }
 };

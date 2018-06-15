@@ -1792,6 +1792,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
            .op_version = GD_OP_VERSION_4_0_0,
            .flags      = VOLOPT_FLAG_CLIENT_OPT
         },
+        { .key        = "performance.ctime-invalidation",
+           .voltype    = "performance/quick-read",
+           .option     = "ctime-invalidation",
+           .op_version = GD_OP_VERSION_4_2_0,
+           .flags      = VOLOPT_FLAG_CLIENT_OPT
+        },
         { .key        = "performance.flush-behind",
           .voltype    = "performance/write-behind",
           .option     = "flush-behind",
