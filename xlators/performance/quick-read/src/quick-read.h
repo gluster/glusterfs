@@ -36,6 +36,8 @@ struct qr_inode {
         int               priority;
 	uint32_t          ia_mtime;
 	uint32_t          ia_mtime_nsec;
+        uint32_t          ia_ctime;
+	uint32_t          ia_ctime_nsec;
 	struct iatt       buf;
         struct timeval    last_refresh;
         struct list_head  lru;
@@ -57,6 +59,7 @@ struct qr_conf {
         uint64_t         cache_size;
         int              max_pri;
         gf_boolean_t     qr_invalidation;
+        gf_boolean_t     ctime_invalidation;
         struct list_head priority_list;
 };
 typedef struct qr_conf qr_conf_t;
