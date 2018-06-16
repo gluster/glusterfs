@@ -49,8 +49,7 @@ aws_init (xlator_t *this)
                           gf_libaws_mt_aws_private_t);
         if (!priv) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, 0, "insufficient memory");
-                ret = -1;
-                goto out;
+                return NULL;
         }
 
         priv->abortdl = _gf_false;
@@ -113,7 +112,6 @@ aws_init (xlator_t *this)
 unlock:
         pthread_spin_unlock (&(priv->lock));
 
-out:
         if (ret  == -1) {
                 GF_FREE (priv->awskeyid);
                 GF_FREE (priv->awssekey);
@@ -140,8 +138,7 @@ aws_reconfigure (xlator_t *this, dict_t *options)
 
         if (!priv) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, 0, "null priv");
-                ret = -1;
-                goto out;
+                return -1;
         }
 
         pthread_spin_lock (&(priv->lock));
