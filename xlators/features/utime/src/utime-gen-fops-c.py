@@ -87,7 +87,7 @@ gf_utime_@NAME@ (call_frame_t *frame, xlator_t *this,
 }
 """
 
-utime_ops = ['fallocate', 'zerofill', 'opendir', 'readlink', 'mknod', 'mkdir',
+utime_ops = ['fallocate', 'zerofill', 'opendir', 'mknod', 'mkdir',
              'unlink', 'rmdir', 'symlink', 'rename', 'link', 'truncate',
              'ftruncate', 'create', 'open', 'removexattr', 'fremovexattr']
 
