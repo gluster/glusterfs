@@ -202,7 +202,6 @@ struct xlator_fops fops = {
         .setattr              = gf_utime_setattr,
         .fsetattr             = gf_utime_fsetattr,
         .opendir              = gf_utime_opendir,
-        .readlink             = gf_utime_readlink,
         .removexattr          = gf_utime_removexattr,
 };
 struct xlator_cbks cbks = {

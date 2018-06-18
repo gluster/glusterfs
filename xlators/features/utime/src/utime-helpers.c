@@ -41,7 +41,6 @@ utime_update_attribute_flags(call_frame_t *frame, glusterfs_fop_t fop)
                 break;
 
         case GF_FOP_OPENDIR:
-        case GF_FOP_READLINK:
         case GF_FOP_OPEN:
         case GF_FOP_READ:
                 frame->root->flags |= MDATA_ATIME;

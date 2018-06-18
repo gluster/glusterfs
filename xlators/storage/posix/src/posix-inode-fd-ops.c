@@ -1270,8 +1270,6 @@ posix_readlink (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        posix_set_ctime (frame, this, real_path, -1, loc->inode, &stbuf);
-
         dest[op_ret] = 0;
 out:
         SET_TO_OLD_FS_ID ();
