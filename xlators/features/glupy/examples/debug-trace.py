@@ -147,7 +147,7 @@ class xlator(Translator):
                       "fd={3:s}; flags=0{4:o}; mode=0{5:o}; " +
                       "umask=0{6:o}").format(unique, gfid, loc.contents.path,
                                              fd, flags, mode, umask))
-                dl.wind_create(frame, POINTER(xlator_t)(), loc, flags,mode,
+                dl.wind_create(frame, POINTER(xlator_t)(), loc, flags, mode,
                                umask, fd, xdata)
                 return 0
 
