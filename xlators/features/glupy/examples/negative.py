@@ -29,7 +29,7 @@ class xlator (Translator):
 
     def __init__ (self, c_this):
         self.requests = {}
-        Translator.__init__(self,c_this)
+        Translator.__init__(self, c_this)
 
     def lookup_fop (self, frame, this, loc, xdata):
         pargfid = uuid2str(loc.contents.pargfid)
@@ -39,12 +39,12 @@ class xlator (Translator):
             if loc.contents.name in cache[pargfid]:
                 print("short-circuiting for %s:%s" % (pargfid,
                     loc.contents.name))
-                dl.unwind_lookup(frame,0,this,-1,2,None,None,None,None)
+                dl.unwind_lookup(frame, 0, this, -1, 2, None, None, None, None)
                 return 0
         key = dl.get_id(frame)
         self.requests[key] = (pargfid, loc.contents.name[:])
         # TBD: get real child xl from init, pass it here
-        dl.wind_lookup(frame,POINTER(xlator_t)(),loc,xdata)
+        dl.wind_lookup(frame, POINTER(xlator_t)(), loc, xdata)
         return 0
 
     def lookup_cbk (self, frame, cookie, this, op_ret, op_errno, inode, buf,
@@ -64,8 +64,8 @@ class xlator (Translator):
             else:
                 cache[pargfid] = {name}
         del self.requests[key]
-        dl.unwind_lookup(frame,cookie,this,op_ret,op_errno,
-                         inode,buf,xdata,postparent)
+        dl.unwind_lookup(frame, cookie, this, op_ret, op_errno,
+                         inode, buf, xdata, postparent)
         return 0
 
     def create_fop (self, frame, this, loc, flags, mode, umask, fd, xdata):
@@ -74,7 +74,7 @@ class xlator (Translator):
         key = dl.get_id(frame)
         self.requests[key] = (pargfid, loc.contents.name[:])
         # TBD: get real child xl from init, pass it here
-        dl.wind_create(frame,POINTER(xlator_t)(),loc,flags,mode,umask,fd,xdata)
+        dl.wind_create(frame, POINTER(xlator_t)(), loc, flags, mode, umask, fd, xdata)
         return 0
 
     def create_cbk (self, frame, cookie, this, op_ret, op_errno, fd, inode,
@@ -88,6 +88,6 @@ class xlator (Translator):
             if pargfid in cache:
                 cache[pargfid].discard(name)
         del self.requests[key]
-        dl.unwind_create(frame,cookie,this,op_ret,op_errno,fd,inode,buf,
-                         preparent,postparent,xdata)
+        dl.unwind_create(frame, cookie, this, op_ret, op_errno, fd, inode, buf,
+                         preparent, postparent, xdata)
         return 0

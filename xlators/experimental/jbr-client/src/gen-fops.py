@@ -7,7 +7,7 @@ import string
 import sys
 
 curdir = os.path.dirname(sys.argv[0])
-gendir = os.path.join(curdir,'../../../../libglusterfs/src')
+gendir = os.path.join(curdir, '../../../../libglusterfs/src')
 sys.path.append(gendir)
 from generator import ops, fop_subs, cbk_subs, generate
 
@@ -23,19 +23,19 @@ def load_templates (path):
 	tmpl_re = re.compile("/\* template-name (.*) \*/")
 	templates = {}
 	t_name = None
-	for line in open(path,"r").readlines():
+	for line in open(path, "r").readlines():
 		if not line:
 			break
 		m = tmpl_re.match(line)
 		if m:
 			if t_name:
-				templates[t_name] = string.join(t_contents,'')
+				templates[t_name] = string.join(t_contents, '')
 			t_name = m.group(1).strip()
 			t_contents = []
 		elif t_name:
 			t_contents.append(line)
 	if t_name:
-		templates[t_name] = string.join(t_contents,'')
+		templates[t_name] = string.join(t_contents, '')
 	return templates
 
 # Stolen from gen_fdl.py
@@ -44,12 +44,12 @@ def gen_client (templates):
 		if name == 'getspec':
 			# It's not real if it doesn't have a stub function.
 			continue
-		print(generate(templates['cbk'],name,cbk_subs))
-		print(generate(templates['cont-func'],name,fop_subs))
-		print(generate(templates['fop'],name,fop_subs))
+		print(generate(templates['cbk'], name, cbk_subs))
+		print(generate(templates['cont-func'], name, fop_subs))
+		print(generate(templates['fop'], name, fop_subs))
 
 tmpl = load_templates(sys.argv[1])
-for l in open(sys.argv[2],'r').readlines():
+for l in open(sys.argv[2], 'r').readlines():
 	if l.find('#pragma generate') != -1:
 		print("/* BEGIN GENERATED CODE - DO NOT MODIFY */")
 		gen_client(tmpl)

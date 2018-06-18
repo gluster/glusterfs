@@ -12,7 +12,7 @@ import sys
 import os
 from ctypes import *
 
-dl = CDLL(os.getenv("PATH_GLUSTERFS_GLUPY_MODULE", ""),RTLD_GLOBAL)
+dl = CDLL(os.getenv("PATH_GLUSTERFS_GLUPY_MODULE", ""), RTLD_GLOBAL)
 
 
 class call_frame_t (Structure):
@@ -142,7 +142,7 @@ class U_ctx_value2 (Union):
         ]
 
 class inode_ctx (Structure):
-        _anonymous_ = ("u_key","u_value1","u_value2",)
+        _anonymous_ = ("u_key", "u_value1", "u_value2",)
         _fields_ = [
                 ("u_key", U_ctx_key_inode),
                 ("u_value1", U_ctx_value1),
@@ -204,7 +204,7 @@ class fd_lk_ctx (Structure):
         ]
 
 class fd_ctx (Structure):
-        _anonymous_ = ("u_key","u_value1")
+        _anonymous_ = ("u_key", "u_value1")
         _fields_ = [
                 ("u_key", U_ctx_key_fd),
                 ("u_value1", U_ctx_value1)
@@ -303,7 +303,7 @@ _init_op (OpWritev, dl.set_writev_fop, dl.set_writev_cbk,
 
 class OpOpendir:
         fop_sig = (c_int, POINTER(call_frame_t), POINTER(xlator_t),
-                   POINTER(loc_t), POINTER(fd_t) ,POINTER(dict_t))
+                   POINTER(loc_t), POINTER(fd_t), POINTER(dict_t))
         cbk_sig = (c_int, POINTER(call_frame_t), c_long, POINTER(xlator_t),
                    c_int, c_int, POINTER(fd_t), POINTER(dict_t))
 _init_op (OpOpendir, dl.set_opendir_fop, dl.set_opendir_cbk,
@@ -469,7 +469,7 @@ class Translator:
                         def stub (frame, this, loc, xdata, s=self):
                                 return s.lookup_fop (frame, this, loc, xdata)
                         self.stub_refs["lookup_fop"] = stub
-                        dl.set_lookup_fop(c_this,stub)
+                        dl.set_lookup_fop(c_this, stub)
                 if "lookup_cbk" in funcs:
                         @OpLookup.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno, inode,
@@ -478,7 +478,7 @@ class Translator:
                                                     op_errno, inode, buf, xdata,
                                                     postparent)
                         self.stub_refs["lookup_cbk"] = stub
-                        dl.set_lookup_cbk(c_this,stub)
+                        dl.set_lookup_cbk(c_this, stub)
                 if "create_fop" in funcs:
                         @OpCreate.fop_type
                         def stub (frame, this, loc, flags, mode, umask, fd,
@@ -486,7 +486,7 @@ class Translator:
                                 return s.create_fop (frame, this, loc, flags,
                                                      mode, umask, fd, xdata)
                         self.stub_refs["create_fop"] = stub
-                        dl.set_create_fop(c_this,stub)
+                        dl.set_create_fop(c_this, stub)
                 if "create_cbk" in funcs:
                         @OpCreate.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno, fd,
@@ -497,7 +497,7 @@ class Translator:
                                                      inode, buf, preparent,
                                                      postparent, xdata)
                         self.stub_refs["create_cbk"] = stub
-                        dl.set_create_cbk(c_this,stub)
+                        dl.set_create_cbk(c_this, stub)
                 if "open_fop" in funcs:
                         @OpOpen.fop_type
                         def stub (frame, this, loc, flags, fd,
@@ -505,7 +505,7 @@ class Translator:
                                 return s.open_fop (frame, this, loc, flags,
                                                    fd, xdata)
                         self.stub_refs["open_fop"] = stub
-                        dl.set_open_fop(c_this,stub)
+                        dl.set_open_fop(c_this, stub)
                 if "open_cbk" in funcs:
                         @OpOpen.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno, fd,
@@ -514,7 +514,7 @@ class Translator:
                                                    op_ret, op_errno, fd,
                                                    xdata)
                         self.stub_refs["open_cbk"] = stub
-                        dl.set_open_cbk(c_this,stub)
+                        dl.set_open_cbk(c_this, stub)
                 if "readv_fop" in funcs:
                         @OpReadv.fop_type
                         def stub (frame, this, fd, size, offset, flags,
@@ -522,7 +522,7 @@ class Translator:
                                 return s.readv_fop (frame, this, fd, size,
                                                     offset, flags, xdata)
                         self.stub_refs["readv_fop"] = stub
-                        dl.set_readv_fop(c_this,stub)
+                        dl.set_readv_fop(c_this, stub)
                 if "readv_cbk" in funcs:
                         @OpReadv.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno,
@@ -533,7 +533,7 @@ class Translator:
                                                     count, stbuf, iobref,
                                                     xdata)
                         self.stub_refs["readv_cbk"] = stub
-                        dl.set_readv_cbk(c_this,stub)
+                        dl.set_readv_cbk(c_this, stub)
                 if "writev_fop" in funcs:
                         @OpWritev.fop_type
                         def stub (frame, this, fd, vector, count,
@@ -542,7 +542,7 @@ class Translator:
                                                      count, offset, flags,
                                                      iobref, xdata)
                         self.stub_refs["writev_fop"] = stub
-                        dl.set_writev_fop(c_this,stub)
+                        dl.set_writev_fop(c_this, stub)
                 if "writev_cbk" in funcs:
                         @OpWritev.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno,
@@ -551,14 +551,14 @@ class Translator:
                                                      op_ret, op_errno, prebuf,
                                                      postbuf, xdata)
                         self.stub_refs["writev_cbk"] = stub
-                        dl.set_writev_cbk(c_this,stub)
+                        dl.set_writev_cbk(c_this, stub)
                 if "opendir_fop" in funcs:
                         @OpOpendir.fop_type
                         def stub (frame, this, loc, fd, xdata, s=self):
                                 return s.opendir_fop (frame, this, loc, fd,
                                                       xdata)
                         self.stub_refs["opendir_fop"] = stub
-                        dl.set_opendir_fop(c_this,stub)
+                        dl.set_opendir_fop(c_this, stub)
                 if "opendir_cbk" in funcs:
                         @OpOpendir.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno, fd,
@@ -567,14 +567,14 @@ class Translator:
                                                      op_ret, op_errno, fd,
                                                      xdata)
                         self.stub_refs["opendir_cbk"] = stub
-                        dl.set_opendir_cbk(c_this,stub)
+                        dl.set_opendir_cbk(c_this, stub)
                 if "readdir_fop" in funcs:
                         @OpReaddir.fop_type
                         def stub (frame, this, fd, size, offset, xdata, s=self):
                                 return s.readdir_fop (frame, this, fd, size,
                                                       offset, xdata)
                         self.stub_refs["readdir_fop"] = stub
-                        dl.set_readdir_fop(c_this,stub)
+                        dl.set_readdir_fop(c_this, stub)
                 if "readdir_cbk" in funcs:
                         @OpReaddir.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno,
@@ -583,14 +583,14 @@ class Translator:
                                                      op_ret, op_errno, entries,
                                                      xdata)
                         self.stub_refs["readdir_cbk"] = stub
-                        dl.set_readdir_cbk(c_this,stub)
+                        dl.set_readdir_cbk(c_this, stub)
                 if "readdirp_fop" in funcs:
                         @OpReaddirp.fop_type
                         def stub (frame, this, fd, size, offset, xdata, s=self):
                                 return s.readdirp_fop (frame, this, fd, size,
                                                        offset, xdata)
                         self.stub_refs["readdirp_fop"] = stub
-                        dl.set_readdirp_fop(c_this,stub)
+                        dl.set_readdirp_fop(c_this, stub)
                 if "readdirp_cbk" in funcs:
                         @OpReaddirp.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno,
@@ -599,13 +599,13 @@ class Translator:
                                                        op_ret, op_errno,
                                                        entries, xdata)
                         self.stub_refs["readdirp_cbk"] = stub
-                        dl.set_readdirp_cbk(c_this,stub)
+                        dl.set_readdirp_cbk(c_this, stub)
                 if "stat_fop" in funcs:
                         @OpStat.fop_type
                         def stub (frame, this, loc, xdata, s=self):
                                 return s.stat_fop (frame, this, loc, xdata)
                         self.stub_refs["stat_fop"] = stub
-                        dl.set_stat_fop(c_this,stub)
+                        dl.set_stat_fop(c_this, stub)
                 if "stat_cbk" in funcs:
                         @OpStat.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno, buf,
@@ -613,13 +613,13 @@ class Translator:
                                 return s.stat_cbk(frame, cookie, this, op_ret,
                                                   op_errno, buf, xdata)
                         self.stub_refs["stat_cbk"] = stub
-                        dl.set_stat_cbk(c_this,stub)
+                        dl.set_stat_cbk(c_this, stub)
                 if "fstat_fop" in funcs:
                         @OpFstat.fop_type
                         def stub (frame, this, fd, xdata, s=self):
                                 return s.fstat_fop (frame, this, fd, xdata)
                         self.stub_refs["fstat_fop"] = stub
-                        dl.set_fstat_fop(c_this,stub)
+                        dl.set_fstat_fop(c_this, stub)
                 if "fstat_cbk" in funcs:
                         @OpFstat.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno, buf,
@@ -627,13 +627,13 @@ class Translator:
                                 return s.fstat_cbk(frame, cookie, this, op_ret,
                                                    op_errno, buf, xdata)
                         self.stub_refs["fstat_cbk"] = stub
-                        dl.set_fstat_cbk(c_this,stub)
+                        dl.set_fstat_cbk(c_this, stub)
                 if "statfs_fop" in funcs:
                         @OpStatfs.fop_type
                         def stub (frame, this, loc, xdata, s=self):
                                 return s.statfs_fop (frame, this, loc, xdata)
                         self.stub_refs["statfs_fop"] = stub
-                        dl.set_statfs_fop(c_this,stub)
+                        dl.set_statfs_fop(c_this, stub)
                 if "statfs_cbk" in funcs:
                         @OpStatfs.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno, buf,
@@ -642,7 +642,7 @@ class Translator:
                                                      op_ret, op_errno, buf,
                                                      xdata)
                         self.stub_refs["statfs_cbk"] = stub
-                        dl.set_statfs_cbk(c_this,stub)
+                        dl.set_statfs_cbk(c_this, stub)
                 if "setxattr_fop" in funcs:
                         @OpSetxattr.fop_type
                         def stub (frame, this, loc, dictionary, flags, xdata,
@@ -651,7 +651,7 @@ class Translator:
                                                        dictionary, flags,
                                                        xdata)
                         self.stub_refs["setxattr_fop"] = stub
-                        dl.set_setxattr_fop(c_this,stub)
+                        dl.set_setxattr_fop(c_this, stub)
                 if "setxattr_cbk" in funcs:
                         @OpSetxattr.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno, xdata,
@@ -659,14 +659,14 @@ class Translator:
                                 return s.setxattr_cbk(frame, cookie, this,
                                                       op_ret, op_errno, xdata)
                         self.stub_refs["setxattr_cbk"] = stub
-                        dl.set_setxattr_cbk(c_this,stub)
+                        dl.set_setxattr_cbk(c_this, stub)
                 if "getxattr_fop" in funcs:
                         @OpGetxattr.fop_type
                         def stub (frame, this, loc, name, xdata, s=self):
                                 return s.getxattr_fop (frame, this, loc, name,
                                                        xdata)
                         self.stub_refs["getxattr_fop"] = stub
-                        dl.set_getxattr_fop(c_this,stub)
+                        dl.set_getxattr_fop(c_this, stub)
                 if "getxattr_cbk" in funcs:
                         @OpGetxattr.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno,
@@ -675,7 +675,7 @@ class Translator:
                                                       op_ret, op_errno,
                                                       dictionary, xdata)
                         self.stub_refs["getxattr_cbk"] = stub
-                        dl.set_getxattr_cbk(c_this,stub)
+                        dl.set_getxattr_cbk(c_this, stub)
                 if "fsetxattr_fop" in funcs:
                         @OpFsetxattr.fop_type
                         def stub (frame, this, fd, dictionary, flags, xdata,
@@ -684,7 +684,7 @@ class Translator:
                                                         dictionary, flags,
                                                         xdata)
                         self.stub_refs["fsetxattr_fop"] = stub
-                        dl.set_fsetxattr_fop(c_this,stub)
+                        dl.set_fsetxattr_fop(c_this, stub)
                 if "fsetxattr_cbk" in funcs:
                         @OpFsetxattr.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno, xdata,
@@ -692,14 +692,14 @@ class Translator:
                                 return s.fsetxattr_cbk(frame, cookie, this,
                                                        op_ret, op_errno, xdata)
                         self.stub_refs["fsetxattr_cbk"] = stub
-                        dl.set_fsetxattr_cbk(c_this,stub)
+                        dl.set_fsetxattr_cbk(c_this, stub)
                 if "fgetxattr_fop" in funcs:
                         @OpFgetxattr.fop_type
                         def stub (frame, this, fd, name, xdata, s=self):
                                 return s.fgetxattr_fop (frame, this, fd, name,
                                                         xdata)
                         self.stub_refs["fgetxattr_fop"] = stub
-                        dl.set_fgetxattr_fop(c_this,stub)
+                        dl.set_fgetxattr_fop(c_this, stub)
                 if "fgetxattr_cbk" in funcs:
                         @OpFgetxattr.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno,
@@ -708,14 +708,14 @@ class Translator:
                                                        op_ret, op_errno,
                                                        dictionary, xdata)
                         self.stub_refs["fgetxattr_cbk"] = stub
-                        dl.set_fgetxattr_cbk(c_this,stub)
+                        dl.set_fgetxattr_cbk(c_this, stub)
                 if "removexattr_fop" in funcs:
                         @OpRemovexattr.fop_type
                         def stub (frame, this, loc, name, xdata, s=self):
                                 return s.removexattr_fop (frame, this, loc,
                                                           name, xdata)
                         self.stub_refs["removexattr_fop"] = stub
-                        dl.set_removexattr_fop(c_this,stub)
+                        dl.set_removexattr_fop(c_this, stub)
                 if "removexattr_cbk" in funcs:
                         @OpRemovexattr.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno,
@@ -724,14 +724,14 @@ class Translator:
                                                          op_ret, op_errno,
                                                          xdata)
                         self.stub_refs["removexattr_cbk"] = stub
-                        dl.set_removexattr_cbk(c_this,stub)
+                        dl.set_removexattr_cbk(c_this, stub)
                 if "fremovexattr_fop" in funcs:
                         @OpFremovexattr.fop_type
                         def stub (frame, this, fd, name, xdata, s=self):
                                 return s.fremovexattr_fop (frame, this, fd,
                                                            name, xdata)
                         self.stub_refs["fremovexattr_fop"] = stub
-                        dl.set_fremovexattr_fop(c_this,stub)
+                        dl.set_fremovexattr_fop(c_this, stub)
                 if "fremovexattr_cbk" in funcs:
                         @OpFremovexattr.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno,
@@ -740,7 +740,7 @@ class Translator:
                                                           op_ret, op_errno,
                                                           xdata)
                         self.stub_refs["fremovexattr_cbk"] = stub
-                        dl.set_fremovexattr_cbk(c_this,stub)
+                        dl.set_fremovexattr_cbk(c_this, stub)
                 if "link_fop" in funcs:
                         @OpLink.fop_type
                         def stub (frame, this, oldloc, newloc,
@@ -748,7 +748,7 @@ class Translator:
                                 return s.link_fop (frame, this, oldloc,
                                                    newloc, xdata)
                         self.stub_refs["link_fop"] = stub
-                        dl.set_link_fop(c_this,stub)
+                        dl.set_link_fop(c_this, stub)
                 if "link_cbk" in funcs:
                         @OpLink.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno,
@@ -759,7 +759,7 @@ class Translator:
                                                    buf, preparent,
                                                    postparent, xdata)
                         self.stub_refs["link_cbk"] = stub
-                        dl.set_link_cbk(c_this,stub)
+                        dl.set_link_cbk(c_this, stub)
                 if "symlink_fop" in funcs:
                         @OpSymlink.fop_type
                         def stub (frame, this, linkname, loc,
@@ -767,7 +767,7 @@ class Translator:
                                 return s.symlink_fop (frame, this, linkname,
                                                       loc, umask, xdata)
                         self.stub_refs["symlink_fop"] = stub
-                        dl.set_symlink_fop(c_this,stub)
+                        dl.set_symlink_fop(c_this, stub)
                 if "symlink_cbk" in funcs:
                         @OpSymlink.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno,
@@ -778,7 +778,7 @@ class Translator:
                                                       buf, preparent,
                                                       postparent, xdata)
                         self.stub_refs["symlink_cbk"] = stub
-                        dl.set_symlink_cbk(c_this,stub)
+                        dl.set_symlink_cbk(c_this, stub)
                 if "unlink_fop" in funcs:
                         @OpUnlink.fop_type
                         def stub (frame, this, loc, xflags,
@@ -786,7 +786,7 @@ class Translator:
                                 return s.unlink_fop (frame, this, loc,
                                                      xflags, xdata)
                         self.stub_refs["unlink_fop"] = stub
-                        dl.set_unlink_fop(c_this,stub)
+                        dl.set_unlink_fop(c_this, stub)
                 if "unlink_cbk" in funcs:
                         @OpUnlink.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno,
@@ -796,7 +796,7 @@ class Translator:
                                                      preparent, postparent,
                                                      xdata)
                         self.stub_refs["unlink_cbk"] = stub
-                        dl.set_unlink_cbk(c_this,stub)
+                        dl.set_unlink_cbk(c_this, stub)
                 if "readlink_fop" in funcs:
                         @OpReadlink.fop_type
                         def stub (frame, this, loc, size,
@@ -804,7 +804,7 @@ class Translator:
                                 return s.readlink_fop (frame, this, loc,
                                                        size, xdata)
                         self.stub_refs["readlink_fop"] = stub
-                        dl.set_readlink_fop(c_this,stub)
+                        dl.set_readlink_fop(c_this, stub)
                 if "readlink_cbk" in funcs:
                         @OpReadlink.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno,
@@ -813,7 +813,7 @@ class Translator:
                                                        op_ret, op_errno,
                                                        path, buf, xdata)
                         self.stub_refs["readlink_cbk"] = stub
-                        dl.set_readlink_cbk(c_this,stub)
+                        dl.set_readlink_cbk(c_this, stub)
                 if "mkdir_fop" in funcs:
                         @OpMkdir.fop_type
                         def stub (frame, this, loc, mode, umask, xdata,
@@ -821,7 +821,7 @@ class Translator:
                                 return s.mkdir_fop (frame, this, loc, mode,
                                                     umask, xdata)
                         self.stub_refs["mkdir_fop"] = stub
-                        dl.set_mkdir_fop(c_this,stub)
+                        dl.set_mkdir_fop(c_this, stub)
                 if "mkdir_cbk" in funcs:
                         @OpMkdir.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno, inode,
@@ -831,7 +831,7 @@ class Translator:
                                                     buf, preparent,
                                                     postparent, xdata)
                         self.stub_refs["mkdir_cbk"] = stub
-                        dl.set_mkdir_cbk(c_this,stub)
+                        dl.set_mkdir_cbk(c_this, stub)
                 if "rmdir_fop" in funcs:
                         @OpRmdir.fop_type
                         def stub (frame, this, loc, xflags,
@@ -839,7 +839,7 @@ class Translator:
                                 return s.rmdir_fop (frame, this, loc,
                                                     xflags, xdata)
                         self.stub_refs["rmdir_fop"] = stub
-                        dl.set_rmdir_fop(c_this,stub)
+                        dl.set_rmdir_fop(c_this, stub)
                 if "rmdir_cbk" in funcs:
                         @OpRmdir.cbk_type
                         def stub (frame, cookie, this, op_ret, op_errno,
@@ -849,4 +849,4 @@ class Translator:
                                                     preparent, postparent,
                                                     xdata)
                         self.stub_refs["rmdir_cbk"] = stub
-                        dl.set_rmdir_cbk(c_this,stub)
+                        dl.set_rmdir_cbk(c_this, stub)
