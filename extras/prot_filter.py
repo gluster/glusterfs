@@ -43,7 +43,7 @@ def load (path):
     # If it's a string, open it; otherwise, assume it's already a
     # file-like object (most notably from urllib*).
     if type(path) in (str,):
-        fp = file(path,"r")
+        fp = file(path, "r")
     else:
         fp = path
     all_xlators = {}
@@ -86,7 +86,7 @@ def load (path):
 def generate (graph, last, stream=sys.stdout):
     for sv in last.subvols:
         if not sv.dumped:
-            generate(graph,sv,stream)
+            generate(graph, sv, stream)
             print("", file=stream)
             sv.dumped = True
     print("volume %s" % last.name, file=stream)
@@ -133,13 +133,13 @@ if __name__ == "__main__":
         sys.exit(0)
     for v in graph.values():
         if v.xl_type == "cluster/distribute":
-            push_filter(graph,v,"features/prot_dht")
+            push_filter(graph, v, "features/prot_dht")
         elif v.xl_type == "protocol/client":
-            push_filter(graph,v,"features/prot_client")
+            push_filter(graph, v, "features/prot_client")
     # We push debug/trace so that every fop gets a real frame, because DHT
     # gets confused if STACK_WIND_TAIL causes certain fops to be invoked
     # from anything other than a direct child.
     for v in graph.values():
         if v.xl_type == "features/prot_client":
-            push_filter(graph,v,"debug/trace")
-    generate(graph,last,stream=open(path,"w"))
+            push_filter(graph, v, "debug/trace")
+    generate(graph, last, stream=open(path, "w"))

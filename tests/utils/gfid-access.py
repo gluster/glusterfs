@@ -64,7 +64,7 @@ if __name__ == '__main__':
     ftype      = sys.argv[5]
     uid        = int(sys.argv[6])
     gid        = int(sys.argv[7])
-    perm       = int(sys.argv[8],8)
+    perm       = int(sys.argv[8], 8)
 
     os.chdir(mtpt)
     if pargfid == 'ROOT':

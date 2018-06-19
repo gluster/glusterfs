@@ -36,7 +36,7 @@ good_xlators = [
 	"storage/posix",
 ]
 
-def copy_stack (old_xl,suffix,recursive=False):
+def copy_stack (old_xl, suffix, recursive=False):
 	if recursive:
 		new_name = old_xl.name + "-" + suffix
 	else:
@@ -46,7 +46,7 @@ def copy_stack (old_xl,suffix,recursive=False):
 	# The results with normal assignment here are . . . amusing.
 	new_xl.opts = copy.deepcopy(old_xl.opts)
 	for sv in old_xl.subvols:
-		new_xl.subvols.append(copy_stack(sv,suffix,True))
+		new_xl.subvols.append(copy_stack(sv, suffix, True))
 	# Patch up the path at the bottom.
 	if new_xl.type == "storage/posix":
 		new_xl.opts["directory"] += ("/" + suffix)
@@ -64,10 +64,10 @@ def cleanup (parent, graph):
 			parent.opts["transport-type"] = "ssl"
 		sv = []
 		for child in parent.subvols:
-			sv.append(cleanup(child,graph))
+			sv.append(cleanup(child, graph))
 		parent.subvols = sv
 	else:
-		parent = cleanup(parent.subvols[0],graph)
+		parent = cleanup(parent.subvols[0], graph)
 	return parent
 
 class Translator:
@@ -84,7 +84,7 @@ def load (path):
 	# If it's a string, open it; otherwise, assume it's already a
 	# file-like object (most notably from urllib*).
 	if type(path) in (str,):
-		fp = file(path,"r")
+		fp = file(path, "r")
 	else:
 		fp = path
 	all_xlators = {}
@@ -127,7 +127,7 @@ def load (path):
 def generate (graph, last, stream=sys.stdout):
 	for sv in last.subvols:
 		if not sv.dumped:
-			generate(graph,sv,stream)
+			generate(graph, sv, stream)
 			print("", file=stream)
 			sv.dumped = True
 	print("volume %s" % last.name, file=stream)
@@ -165,4 +165,4 @@ def delete (graph, victim):
 
 if __name__ == "__main__":
 	graph, last = load(sys.argv[1])
-	generate(graph,last)
+	generate(graph, last)

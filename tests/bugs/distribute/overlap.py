@@ -4,15 +4,15 @@ from __future__ import print_function
 import sys
 
 def calculate_one (ov, nv):
-    old_start = int(ov[18:26],16)
-    old_end = int(ov[26:34],16)
-    new_start = int(nv[18:26],16)
-    new_end = int(nv[26:34],16)
+    old_start = int(ov[18:26], 16)
+    old_end = int(ov[26:34], 16)
+    new_start = int(nv[18:26], 16)
+    new_end = int(nv[26:34], 16)
     if (new_end < old_start) or (new_start > old_end):
         #print '%s, %s -> ZERO' % (ov, nv)
         return 0
-    all_start = max(old_start,new_start)
-    all_end = min(old_end,new_end)
+    all_start = max(old_start, new_start)
+    all_end = min(old_end, new_end)
     #print '%s, %s -> %08x' % (ov, nv, all_end - all_start + 1)
     return all_end - all_start + 1
 
@@ -22,7 +22,7 @@ def calculate_all (values):
     for old_val in values[:nv_index]:
         new_val = values[nv_index]
         nv_index += 1
-        total += calculate_one(old_val,new_val)
+        total += calculate_one(old_val, new_val)
     return total
 
 """
@@ -45,13 +45,13 @@ test2_vals = [
     '0x000000000000000055555555aaaaaaa9',   # second third
 ]
 
-print '%08x' % calculate_one(test1_vals[0],test1_vals[3])
-print '%08x' % calculate_one(test1_vals[1],test1_vals[4])
-print '%08x' % calculate_one(test1_vals[2],test1_vals[5])
+print '%08x' % calculate_one(test1_vals[0], test1_vals[3])
+print '%08x' % calculate_one(test1_vals[1], test1_vals[4])
+print '%08x' % calculate_one(test1_vals[2], test1_vals[5])
 print '= %08x' % calculate_all(test1_vals)
-print '%08x' % calculate_one(test2_vals[0],test2_vals[3])
-print '%08x' % calculate_one(test2_vals[1],test2_vals[4])
-print '%08x' % calculate_one(test2_vals[2],test2_vals[5])
+print '%08x' % calculate_one(test2_vals[0], test2_vals[3])
+print '%08x' % calculate_one(test2_vals[1], test2_vals[4])
+print '%08x' % calculate_one(test2_vals[2], test2_vals[5])
 print '= %08x' % calculate_all(test2_vals)
 """
 
