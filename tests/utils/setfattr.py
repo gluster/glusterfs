@@ -46,7 +46,7 @@ if __name__ == '__main__':
     parser.add_option("-x", action="store", dest="xname", type="string",
                       help="Remove the named extended attribute entirely.")
 
-    (option,args) = parser.parse_args()
+    (option, args) = parser.parse_args()
     if not args:
         print ("Usage: setfattr {-n name} [-v value] file...")
         print ("       setfattr {-x name} file...")

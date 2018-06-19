@@ -39,13 +39,13 @@ class Brick:
 
 def get_bricks (host, vol):
         t = pipes.Template()
-        t.prepend("gluster --remote-host=%s system getspec %s"%(host,vol),".-")
-        return t.open(None,"r")
+        t.prepend("gluster --remote-host=%s system getspec %s"%(host, vol), ".-")
+        return t.open(None, "r")
 
 def generate_stanza (vf, all_xlators, cur_subvol):
         sv_list = []
         for sv in cur_subvol.subvols:
-                generate_stanza(vf,all_xlators,sv)
+                generate_stanza(vf, all_xlators, sv)
                 sv_list.append(sv.name)
         vf.write("volume %s\n"%cur_subvol.name)
         vf.write("  type %s\n"%cur_subvol.type)
@@ -60,14 +60,14 @@ def mount_brick (localpath, all_xlators, dht_subvol):
 
         # Generate a volfile.
         vf_name = localpath + ".vol"
-        vf = open(vf_name,"w")
-        generate_stanza(vf,all_xlators,dht_subvol)
+        vf = open(vf_name, "w")
+        generate_stanza(vf, all_xlators, dht_subvol)
         vf.flush()
         vf.close()
 
         # Create a brick directory and mount the brick there.
         os.mkdir(localpath)
-        subprocess.call(["glusterfs","-f",vf_name,localpath])
+        subprocess.call(["glusterfs", "-f", vf_name, localpath])
 
 # We use the command-line tools because there's no getxattr support in the
 # Python standard library (which is ridiculous IMO).  Adding the xattr package
@@ -81,16 +81,16 @@ def mount_brick (localpath, all_xlators, dht_subvol):
 def get_range (brick):
         t = pipes.Template()
         cmd = "getfattr -e hex -n trusted.glusterfs.dht %s 2> /dev/null"
-        t.prepend(cmd%brick,".-")
-        t.append("grep ^trusted.glusterfs.dht=","--")
-        f = t.open(None,"r")
+        t.prepend(cmd%brick, ".-")
+        t.append("grep ^trusted.glusterfs.dht=", "--")
+        f = t.open(None, "r")
         try:
                 value = f.readline().rstrip().split('=')[1][2:]
         except:
                 print("could not get layout for %s (might be OK)" % brick)
                 return None
-        v_start = int("0x"+value[16:24],16)
-        v_end = int("0x"+value[24:32],16)
+        v_start = int("0x"+value[16:24], 16)
+        v_end = int("0x"+value[24:32], 16)
         return (v_start, v_end)
 
 def calc_sizes (bricks, total):
@@ -186,7 +186,7 @@ if __name__ == "__main__":
                 if options.verbose:
                         print("Cleaning up %s" % work_dir)
                 for b in bricks:
-                        subprocess.call(["umount",b.path])
+                        subprocess.call(["umount", b.path])
                 shutil.rmtree(work_dir)
         if not options.leave_mounted:
                 atexit.register(cleanup_workdir)
@@ -196,7 +196,7 @@ if __name__ == "__main__":
         if options.verbose:
                 print("Mounting subvolumes...")
         index = 0
-        volfile_pipe = get_bricks(hostname,volname)
+        volfile_pipe = get_bricks(hostname, volname)
         all_xlators, last_xlator = volfilter.load(volfile_pipe)
         for dht_vol in all_xlators.itervalues():
                 if dht_vol.type == "cluster/distribute":
@@ -208,8 +208,8 @@ if __name__ == "__main__":
                 #print "found subvol %s" % sv.name
                 lpath = "%s/brick%s" % (work_dir, index)
                 index += 1
-                mount_brick(lpath,all_xlators,sv)
-                bricks.append(Brick(lpath,sv.name))
+                mount_brick(lpath, all_xlators, sv)
+                bricks.append(Brick(lpath, sv.name))
         if index == 0:
                 print("no bricks")
                 sys.exit(1)
@@ -251,11 +251,11 @@ if __name__ == "__main__":
                         if rs > re:
                                 print("%s has backwards hash range" % b.path)
                                 sys.exit(1)
-                        b.set_range(hash_range[0],hash_range[1])
+                        b.set_range(hash_range[0], hash_range[1])
 
         if options.verbose:
                 print("Calculating new layouts...")
-        calc_sizes(bricks,total)
+        calc_sizes(bricks, total)
         bricks, used = normalize(bricks)
 
         # We can't afford O(n!) here, but O(n^2) should be OK and the result
@@ -266,7 +266,7 @@ if __name__ == "__main__":
                 for i in range(used):
                         new_bricks = bricks[:]
                         del new_bricks[used]
-                        new_bricks.insert(i,bricks[used])
+                        new_bricks.insert(i, bricks[used])
                         new_score = get_score(new_bricks)
                         if new_score > best_score:
                                 best_place = i
@@ -274,7 +274,7 @@ if __name__ == "__main__":
                 if best_place != used:
                         nb = bricks[used]
                         del bricks[used]
-                        bricks.insert(best_place,nb)
+                        bricks.insert(best_place, nb)
                 used += 1
 
         # Finalize whatever we decided on.

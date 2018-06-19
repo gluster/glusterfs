@@ -74,8 +74,8 @@ def get_special_subs (name, args, fop_type):
 			s_args.append(arg[3])
 			continue
 		if arg[0] == 'link':
-			links += fragments["LINK"].replace("@INODE_ARG@",arg[1])	\
-									  .replace("@IATT_ARG@",arg[2])
+			links += fragments["LINK"].replace("@INODE_ARG@", arg[1])	\
+									  .replace("@IATT_ARG@", arg[2])
 			continue
 		if arg[0] != 'fop-arg':
 			continue
@@ -98,11 +98,11 @@ def get_special_subs (name, args, fop_type):
 			if (name != "link") or (arg[1] != "oldloc"):
 				# print "/* change to PARENT_LOC */"
 				recon_type = "PARENT_LOC"
-		code += fragments[recon_type].replace("@ARGNAME@",arg[1])		\
-									 .replace("@ARGTYPE@",arg[2])
+		code += fragments[recon_type].replace("@ARGNAME@", arg[1])		\
+									 .replace("@ARGTYPE@", arg[2])
 		cleanup_key = recon_type + "_CLEANUP"
 		if cleanup_key in fragments:
-			new_frag = fragments[cleanup_key].replace("@ARGNAME@",arg[1])
+			new_frag = fragments[cleanup_key].replace("@ARGNAME@", arg[1])
 			# Make sure these get added in *reverse* order.  Otherwise, a
 			# failure for an earlier argument might goto a label that falls
 			# through to the cleanup code for a variable associated with a
@@ -179,7 +179,7 @@ def gen_functions ():
 		else:
 			fop_subs[name]["@SUCCESS_VALUE@"] = "GFAPI_SUCCESS"
 		# Print the FOP fragment with @FUNCTION_BODY@ in the middle.
-		code += generate(fragments["FOP"],name,fop_subs)
+		code += generate(fragments["FOP"], name, fop_subs)
 	return code
 
 def gen_cases ():
@@ -188,7 +188,7 @@ def gen_cases ():
 		if "journal" not in [ x[0] for x in value ]:
 			continue
 		# Add the CASE fragment for this fop.
-		code += generate(fragments["CASE"],name,fop_subs)
+		code += generate(fragments["CASE"], name, fop_subs)
 	return code
 
 def load_fragments (path="recon-tmpl.c"):
@@ -196,7 +196,7 @@ def load_fragments (path="recon-tmpl.c"):
 	cur_symbol = None
 	cur_value = ""
 	result = {}
-	for line in open(path,"r").readlines():
+	for line in open(path, "r").readlines():
 		m = pragma_re.search(line)
 		if m:
 			if cur_symbol:
@@ -214,5 +214,5 @@ if __name__ == "__main__":
 	print("/* BEGIN GENERATED CODE - DO NOT MODIFY */")
 	print(fragments["PROLOG"])
 	print(gen_functions())
-	print(fragments["EPILOG"].replace("@SWITCH_BODY@",gen_cases()))
+	print(fragments["EPILOG"].replace("@SWITCH_BODY@", gen_cases()))
 	print("/* END GENERATED CODE */")

@@ -67,8 +67,8 @@ def get_special_subs (args):
 		if (arg[0] != 'fop-arg') or (len(arg) < 4):
 			continue
 		recon_type, recon_fmt = typemap[arg[2]]
-		code += fragments[recon_type].replace("@ARGNAME@",arg[3])		\
-									 .replace("@FORMAT@",recon_fmt)
+		code += fragments[recon_type].replace("@ARGNAME@", arg[3])		\
+									 .replace("@FORMAT@", recon_fmt)
 	return code
 
 def gen_functions ():
@@ -78,7 +78,7 @@ def gen_functions ():
 			continue
 		fop_subs[name]["@FUNCTION_BODY@"] = get_special_subs(value)
 		# Print the FOP fragment with @FUNCTION_BODY@ in the middle.
-		code += generate(fragments["FOP"],name,fop_subs)
+		code += generate(fragments["FOP"], name, fop_subs)
 	return code
 
 def gen_cases ():
@@ -87,7 +87,7 @@ def gen_cases ():
 		if "journal" not in [ x[0] for x in value ]:
 			continue
 		# Add the CASE fragment for this fop.
-		code += generate(fragments["CASE"],name,fop_subs)
+		code += generate(fragments["CASE"], name, fop_subs)
 	return code
 
 def load_fragments (path="recon-tmpl.c"):
@@ -95,7 +95,7 @@ def load_fragments (path="recon-tmpl.c"):
 	cur_symbol = None
 	cur_value = ""
 	result = {}
-	for line in open(path,"r").readlines():
+	for line in open(path, "r").readlines():
 		m = pragma_re.search(line)
 		if m:
 			if cur_symbol:
@@ -113,5 +113,5 @@ if __name__ == "__main__":
 	print("/* BEGIN GENERATED CODE - DO NOT MODIFY */")
 	print(fragments["PROLOG"])
 	print(gen_functions())
-	print(fragments["EPILOG"].replace("@SWITCH_BODY@",gen_cases()))
+	print(fragments["EPILOG"].replace("@SWITCH_BODY@", gen_cases()))
 	print("/* END GENERATED CODE */")
