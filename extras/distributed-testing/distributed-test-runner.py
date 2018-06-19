@@ -56,7 +56,7 @@ class GeneralXMLRPCServer(SimpleXMLRPCServer.SimpleXMLRPCServer):
     def server_bind(self):
         if self.socket:
             self.socket.close()
-        self.socket = socket_instance(args['address_family'])
+        self.socket = socket_instance(args.address_family)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         SimpleXMLRPCServer.SimpleXMLRPCServer.server_bind(self)
 
@@ -247,7 +247,7 @@ class TestServer:
 
     def init(self):
         Log.debug("Starting xmlrpc server on port %s" % self.port)
-        self.rpc = GeneralSimpleXMLRPCServer(("", self.port))
+        self.rpc = GeneralXMLRPCServer(("", self.port))
         self.rpc.register_instance(Handlers(self.scratchdir))
 
     def serve(self):

@@ -48,6 +48,7 @@ extras/logger.conf.example
 extras/snap_scheduler/README.md
 extras/test/ld-preload-test/README
 extras/who-wrote-glusterfs/*
+extras/distributed-testing/*
 geo-replication/syncdaemon/README.md
 geo-replication/test-requirements.txt
 rpc/xdr/src/.gitignore
