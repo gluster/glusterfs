@@ -1722,11 +1722,6 @@ init (xlator_t *this)
                         goto out;
                 }
                 /*
-                 * With strong authentication, we can afford to allow
-                 * privileged operations over TCP.
-                 */
-                gd_inet_programs[1] = &gd_svc_cli_prog;
-                /*
                  * This is the only place where we want secure_srvr to reflect
                  * the management-plane setting.
                  */
