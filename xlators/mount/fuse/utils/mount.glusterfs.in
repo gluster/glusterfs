@@ -34,7 +34,7 @@ _init ()
 
     # check whether getfattr exists
     export PATH
-    getfattr=$(which getfattr 2>/dev/null);
+    getfattr=$(command -v getfattr 2>/dev/null)
     if [ $? -ne 0 ]; then
         warn "WARNING: getfattr not found, certain checks will be skipped.."
     fi
