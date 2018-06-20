@@ -28,7 +28,7 @@ def get_quota_xattr_brick():
     mismatch_size = [('====contri_size===', '====size====')]
     for xattr in pairs:
         k = xattr.split("=")[0]
-        if re.search("# file:",k):
+        if re.search("# file:", k):
             print(xdict)
             filename=k
             print("=====" + filename + "=======")
@@ -38,7 +38,7 @@ def get_quota_xattr_brick():
         else:
             print(xattr)
             v = xattr.split("=")[1]
-            if re.search("contri",k):
+            if re.search("contri", k):
                 if len(v) == 34:
                     # for files size is obtained in iatt, file count should be 1, dir count=0
                     xdict['contri_file_count'] = int(v[18:34], 16)
@@ -47,18 +47,18 @@ def get_quota_xattr_brick():
                     xdict['contri_size'] = size(int(v[2:18], 16))
                     xdict['contri_file_count'] = int(v[18:34], 16)
                     xdict['contri_dir_count'] = int(v[34:], 16)
-            elif re.search("size",k):
+            elif re.search("size", k):
                 xdict['size'] = size(int(v[2:18], 16))
                 xdict['file_count'] = int(v[18:34], 16)
                 xdict['dir_count'] = int(v[34:], 16)
-            elif re.search("dirty",k):
+            elif re.search("dirty", k):
                 if v == '0x3000':
                     xdict['dirty'] = False
                 elif v == '0x3100':
                     xdict['dirty'] = True
-            elif re.search("limit_objects",k):
+            elif re.search("limit_objects", k):
                 xdict['limit_objects'] = int(v[2:18], 16)
-            elif re.search("limit_set",k):
+            elif re.search("limit_set", k):
                 xdict['limit_set'] = size(int(v[2:18], 16))
 
             if 'size' in xdict and 'contri_size' in xdict and xdict['size'] != xdict['contri_size']:

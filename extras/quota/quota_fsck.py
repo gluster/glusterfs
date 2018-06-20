@@ -52,16 +52,16 @@ epilog_msg='''
 
 def print_msg(log_type, path, xattr_dict = {}, stbuf = "", dir_size = None):
     if log_type == QUOTA_VERBOSE:
-        print('%-24s %-60s\nxattr_values: %s\n%s\n' % {"Verbose", path ,  xattr_dict, stbuf})
+        print('%-24s %-60s\nxattr_values: %s\n%s\n' % {"Verbose", path,  xattr_dict, stbuf})
     elif log_type == QUOTA_META_ABSENT:
-        print('%-24s %-60s\n%s\n' % {"Quota-Meta Absent", path , xattr_dict})
+        print('%-24s %-60s\n%s\n' % {"Quota-Meta Absent", path, xattr_dict})
     elif log_type == QUOTA_SIZE_MISMATCH:
         print("mismatch")
         if dir_size is not None:
-            print('%24s %60s %12s %12s' % {"Size Mismatch", path , xattr_dict['contri_size'],
+            print('%24s %60s %12s %12s' % {"Size Mismatch", path, xattr_dict['contri_size'],
                    dir_size})
         else:
-            print('%-24s %-60s %-12i %-12i' % {"Size Mismatch", path , xattr_dict['contri_size'],
+            print('%-24s %-60s %-12i %-12i' % {"Size Mismatch", path, xattr_dict['contri_size'],
                    stbuf.st_size})
 
 def size_differs_lot(s1, s2):
@@ -158,18 +158,18 @@ def get_quota_xattr_brick(dpath):
 
     for xattr in pairs:
         xattr_key = xattr.split("=")[0]
-        if re.search("# file:",xattr_key):
+        if re.search("# file:", xattr_key):
             # skip the file comment
             continue
         elif xattr_key is "":
             # skip any empty lines
             continue
-        elif not re.search("quota",xattr_key):
+        elif not re.search("quota", xattr_key):
             # skip all non quota xattr.
             continue
 
         xattr_value = xattr.split("=")[1]
-        if re.search("contri",xattr_key):
+        if re.search("contri", xattr_key):
 
             xattr_version = xattr_key.split(".")[5]
             if 'version' not in xattr_dict:
@@ -197,18 +197,18 @@ def get_quota_xattr_brick(dpath):
                 contri_dict['contri_file_count'] = int(xattr_value[18:34], 16)
                 contri_dict['contri_dir_count'] = int(xattr_value[34:], 16)
 
-        elif re.search("size",xattr_key):
+        elif re.search("size", xattr_key):
             xattr_dict['size'] = int(xattr_value[2:18], 16)
             xattr_dict['file_count'] = int(xattr_value[18:34], 16)
             xattr_dict['dir_count'] = int(xattr_value[34:], 16)
-        elif re.search("dirty",xattr_key):
+        elif re.search("dirty", xattr_key):
             if xattr_value == IS_CLEAN:
                 xattr_dict['dirty'] = False
             elif xattr_value == IS_DIRTY:
                 xattr_dict['dirty'] = True
-        elif re.search("limit_objects",xattr_key):
+        elif re.search("limit_objects", xattr_key):
             xattr_dict['limit_objects'] = int(xattr_value[2:18], 16)
-        elif re.search("limit_set",xattr_key):
+        elif re.search("limit_set", xattr_key):
             xattr_dict['limit_set'] = int(xattr_value[2:18], 16)
 
     return xattr_dict
@@ -232,7 +232,7 @@ def verify_file_xattr(path, stbuf = None):
             print_msg(QUOTA_META_ABSENT, path, xattr_dict, stbuf)
             fix_xattr(path, False)
             return
-        elif size_differs_lot(contri_dict['contri_size'] , stbuf.st_size):
+        elif size_differs_lot(contri_dict['contri_size'], stbuf.st_size):
             print_msg(QUOTA_SIZE_MISMATCH, path, xattr_dict, stbuf)
             fix_xattr(path, False)
             return
@@ -257,7 +257,7 @@ def verify_dir_xattr(path, dir_size):
             fix_xattr(path, True)
             return
         elif size_differs_lot(dir_size, xattr_dict['size']) or \
-             size_differs_lot(contri_dict['contri_size'] , xattr_dict['size']):
+             size_differs_lot(contri_dict['contri_size'], xattr_dict['size']):
             print_msg(QUOTA_SIZE_MISMATCH, path, xattr_dict, stbuf, dir_size)
             fix_xattr(path, True)
             return
@@ -347,7 +347,7 @@ if __name__ == '__main__':
                          disk space exists if redirecting to file]
                         '''
                         )
-    parser.add_argument('--fix-issues',metavar='mount_path', dest='mnt', action='store',
+    parser.add_argument('--fix-issues', metavar='mount_path', dest='mnt', action='store',
                    help='''
                          fix accounting issues where the xattr values disagree
                          with stat sizes reported by gluster. A mount is also
@@ -355,7 +355,7 @@ if __name__ == '__main__':
                          [CAUTION: This will directly modify backend xattr]
                         '''
                         )
-    parser.add_argument('--sub-dir',metavar='sub_dir', dest='sub_dir', action='store',
+    parser.add_argument('--sub-dir', metavar='sub_dir', dest='sub_dir', action='store',
                    help='''
                          limit the crawling and accounting verification/correction
                          to a specific subdirectory.
