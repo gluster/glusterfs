@@ -289,16 +289,16 @@ def get_special_subs (args):
 		if arg[3] == "vector":
 			# Make it as obvious as possible that this is a special case.
 			len_code += LEN_VECTOR_TEMPLATE \
-				.replace("@VEC@","stub->args.vector") \
-				.replace("@CNT@","stub->args.count")
+				.replace("@VEC@", "stub->args.vector") \
+				.replace("@CNT@", "stub->args.count")
 			ser_code += SERLZ_VECTOR_TEMPLATE \
-				.replace("@VEC@","stub->args.vector") \
-				.replace("@CNT@","stub->args.count")
+				.replace("@VEC@", "stub->args.vector") \
+				.replace("@CNT@", "stub->args.count")
 		else:
 			len_tmpl, ser_tmpl = typemap[arg[2]]
 			src = "stub->args.%s" % arg[3]
-			len_code += len_tmpl.replace("@SRC@",src)
-			ser_code += ser_tmpl.replace("@SRC@",src)
+			len_code += len_tmpl.replace("@SRC@", src)
+			ser_code += ser_tmpl.replace("@SRC@", src)
 	return len_code, ser_code
 
 # Mention those fops in the selective_generate table, for which
@@ -326,17 +326,17 @@ def gen_fdl ():
 		fop_subs[name]["@LEN_CODE@"] = len_code[:-1]
 		fop_subs[name]["@SER_CODE@"] = ser_code[:-1]
 		if 'len' in gen_funcs:
-			print(generate(LEN_TEMPLATE,name,fop_subs))
+			print(generate(LEN_TEMPLATE, name, fop_subs))
 		if 'serialize' in gen_funcs:
-			print(generate(SER_TEMPLATE,name,fop_subs))
+			print(generate(SER_TEMPLATE, name, fop_subs))
 		if name == 'writev':
 			print("#define DESTAGE_ASYNC")
 		if 'callback' in gen_funcs:
-			print(generate(CBK_TEMPLATE,name,cbk_subs))
+			print(generate(CBK_TEMPLATE, name, cbk_subs))
 		if 'continue' in gen_funcs:
-			print(generate(CONTINUE_TEMPLATE,name,fop_subs))
+			print(generate(CONTINUE_TEMPLATE, name, fop_subs))
 		if 'fop' in gen_funcs:
-			print(generate(FOP_TEMPLATE,name,fop_subs))
+			print(generate(FOP_TEMPLATE, name, fop_subs))
 		if name == 'writev':
 			print("#undef DESTAGE_ASYNC")
 		entrypoints.append(name)
@@ -345,7 +345,7 @@ def gen_fdl ():
 		print("\t.%s = fdl_%s," % (ep, ep))
 	print("};")
 
-for l in open(sys.argv[1],'r').readlines():
+for l in open(sys.argv[1], 'r').readlines():
 	if l.find('#pragma generate') != -1:
 		print("/* BEGIN GENERATED CODE - DO NOT MODIFY */")
 		gen_fdl()
