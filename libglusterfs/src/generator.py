@@ -213,9 +213,9 @@ ops['rename'] = (
 	('fop-arg',	'xdata',		'dict_t *',			'xdata'),
 	('cbk-arg',	'buf',			'struct iatt *'),
 	('cbk-arg',	'preoldparent',	'struct iatt *'),
-	('cbk-arg',	'postoldparent','struct iatt *'),
+	('cbk-arg',	'postoldparent', 'struct iatt *'),
 	('cbk-arg',	'prenewparent',	'struct iatt *'),
-	('cbk-arg',	'postnewparent','struct iatt *'),
+	('cbk-arg',	'postnewparent', 'struct iatt *'),
 	('cbk-arg',	'xdata',		'dict_t *'),
 	('journal',	'entry-op'),
 )
@@ -716,31 +716,31 @@ def get_error_arg (type_str):
 
 def get_subs (names, types, cbktypes=None):
 	sdict = {}
-	sdict["@SHORT_ARGS@"] = string.join(names,", ")
+	sdict["@SHORT_ARGS@"] = string.join(names, ", ")
 	# Convert two separate tuples to one of (name, type) sub-tuples.
-	as_tuples = list(zip(types,names))
+	as_tuples = list(zip(types, names))
 	# Convert each sub-tuple into a "type name" string.
-	as_strings = list(map(string.join,as_tuples))
+	as_strings = list(map(string.join, as_tuples))
 	# Join all of those into one big string.
-	sdict["@LONG_ARGS@"] = string.join(as_strings,",\n\t")
+	sdict["@LONG_ARGS@"] = string.join(as_strings, ",\n\t")
 	# So much more readable than string.join(map(string.join,zip(...))))
-	sdict["@ERROR_ARGS@"] = string.join(list(map(get_error_arg,types)),", ")
+	sdict["@ERROR_ARGS@"] = string.join(list(map(get_error_arg, types)), ", ")
         if cbktypes is not None:
                 sdict["@CBK_ERROR_ARGS@"] = string.join(list(map(
-                                            get_error_arg,cbktypes)),", ")
+                                            get_error_arg, cbktypes)), ", ")
 	return sdict
 
 def generate (tmpl, name, subs):
-	text = tmpl.replace("@NAME@",name)
+	text = tmpl.replace("@NAME@", name)
 	if name == "writev":
 		# More spurious inconsistency.
-		text = text.replace("@UPNAME@","WRITE")
+		text = text.replace("@UPNAME@", "WRITE")
         elif name == "readv":
-                text = text.replace("@UPNAME@","READ")
+                text = text.replace("@UPNAME@", "READ")
 	else:
-		text = text.replace("@UPNAME@",name.upper())
+		text = text.replace("@UPNAME@", name.upper())
 	for old, new in subs[name].iteritems():
-		text = text.replace(old,new)
+		text = text.replace(old, new)
 	# TBD: reindent/reformat the result for maximum readability.
 	return  text
 
@@ -753,12 +753,12 @@ for name, args in ops.iteritems():
 	arg_names = [ a[1] for a in args if a[0] == 'fop-arg']
 	arg_types = [ a[2] for a in args if a[0] == 'fop-arg']
         cbk_types = [ a[2] for a in args if a[0] == 'cbk-arg']
-	fop_subs[name] = get_subs(arg_names,arg_types,cbk_types)
+	fop_subs[name] = get_subs(arg_names, arg_types, cbk_types)
 
 	# Same thing for callbacks.
 	arg_names = [ a[1] for a in args if a[0] == 'cbk-arg']
 	arg_types = [ a[2] for a in args if a[0] == 'cbk-arg']
-	cbk_subs[name] = get_subs(arg_names,arg_types)
+	cbk_subs[name] = get_subs(arg_names, arg_types)
 
 	# Callers can add other subs to these tables, or even create their
 	# own tables, using these same techniques, and then pass the result

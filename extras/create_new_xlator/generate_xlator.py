@@ -111,8 +111,8 @@ def gen_xlator():
                 print("        .{0:20} = {1}_{2},".format(dops, fop_prefix, dops), file=xl)
         print("};", file=xl)
 
-        xlator_methods = fragments["XLATOR_METHODS"].replace("@XL_NAME@",xl_name)
-        xlator_methods = xlator_methods.replace("@FOP_PREFIX@",fop_prefix)
+        xlator_methods = fragments["XLATOR_METHODS"].replace("@XL_NAME@", xl_name)
+        xlator_methods = xlator_methods.replace("@FOP_PREFIX@", fop_prefix)
 	print(xlator_methods, file=xl)
 
         xl.close()
@@ -155,7 +155,7 @@ def gen_makefiles():
         m = open(src_dir_path+"/Makefile.am", 'w+')
         txt = MAKEFILE_FMT.replace("@XL_NAME@", xl_name)
         txt = txt.replace("@XL_NAME_NO_HYPHEN@", xl_name_no_hyphen)
-        txt = txt.replace("@XL_TYPE@",xlator_type)
+        txt = txt.replace("@XL_TYPE@", xlator_type)
         print(txt, file=m)
         m.close()
 
@@ -170,7 +170,7 @@ def load_fragments ():
         result = {}
         basepath = os.path.abspath(os.path.dirname(__file__))
         fragpath = basepath + "/new-xlator-tmpl.c"
-        for line in open(fragpath,"r").readlines():
+        for line in open(fragpath, "r").readlines():
                 m = pragma_re.search(line)
                 if m:
                         if cur_symbol:

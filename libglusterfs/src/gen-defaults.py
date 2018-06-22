@@ -62,17 +62,17 @@ default_@NAME@ (
 
 def gen_defaults ():
 	for name in ops.iterkeys():
-		print(generate(FAILURE_CBK_TEMPLATE,name,cbk_subs))
+		print(generate(FAILURE_CBK_TEMPLATE, name, cbk_subs))
 	for name in ops.iterkeys():
-		print(generate(CBK_RESUME_TEMPLATE,name,cbk_subs))
+		print(generate(CBK_RESUME_TEMPLATE, name, cbk_subs))
 	for name in ops.iterkeys():
-		print(generate(CBK_TEMPLATE,name,cbk_subs))
+		print(generate(CBK_TEMPLATE, name, cbk_subs))
 	for name in ops.iterkeys():
-		print(generate(RESUME_TEMPLATE,name,fop_subs))
+		print(generate(RESUME_TEMPLATE, name, fop_subs))
 	for name in ops.iterkeys():
-		print(generate(FOP_TEMPLATE,name,fop_subs))
+		print(generate(FOP_TEMPLATE, name, fop_subs))
 
-for l in open(sys.argv[1],'r').readlines():
+for l in open(sys.argv[1], 'r').readlines():
 	if l.find('#pragma generate') != -1:
 		print("/* BEGIN GENERATED CODE - DO NOT MODIFY */")
 		gen_defaults()
