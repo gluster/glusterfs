@@ -3396,6 +3396,8 @@ mdc_init (xlator_t *this)
 		return -1;
 	}
 
+        LOCK_INIT (&conf->lock);
+
         GF_OPTION_INIT ("md-cache-timeout", timeout, int32, out);
 
 	GF_OPTION_INIT ("cache-selinux", conf->cache_selinux, bool, out);
@@ -3425,7 +3427,6 @@ mdc_init (xlator_t *this)
         GF_OPTION_INIT("xattr-cache-list", tmp_str, str, out);
         mdc_xattr_list_populate (conf, tmp_str);
 
-        LOCK_INIT (&conf->lock);
         time (&conf->last_child_down);
         /* initialize gf_atomic_t counters */
         GF_ATOMIC_INIT (conf->mdc_counter.stat_hit, 0);
