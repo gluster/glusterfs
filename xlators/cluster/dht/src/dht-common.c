@@ -5914,6 +5914,214 @@ dht_nuke_dir (call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *tmp)
         return 0;
 }
 
+/*
+ * Assumption as of now is that, the value of the key
+ * GF_XATTR_REFLINK is the path relative to the root
+ * of the gluster volume root and not actual root
+ *
+ * i.e. if mount point is /mnt/glusterfs and the value
+ * of the GF_XATTR_REFLINK xattr is "/dir/file2", then
+ * the assumption as of now is that the path "dir/file2"
+ * is from /mnt/glusterfs and not from /.
+ * OR
+ * Another assumption (simpler to implement) is that the
+ * clone of the file will be created in the same directory
+ * where the original or the source file is present. The
+ * benefit of this assumption is that, the destination path
+ * need not be resolved, as the resolution of the source
+ * would have taken care of the resolution of the destination
+ * till the parent.
+ */
+int
+dht_clone_fill_loc (xlator_t *this, dict_t *xattr, loc_t *loc,
+                    loc_t *newloc)
+{
+        int ret = -1;
+        char *path = NULL;
+
+        /*
+         * If the clone path is the value of xattr then use
+         * below function
+         */
+/* #ifdef GF_CLONE_IN_XATTR_VALUE */
+/*         ret = dict_get_str (xattr, GF_XATTR_REFLINK, &path); */
+/*         if (ret < 0) { */
+/*                 gf_log (this->name, GF_LOG_WARNING, "failed to get the value " */
+/*                         "for the key %s from the dict", GF_XATTR_REFLINK); //change to gf_msg if needed */
+/*                 errno = EINVAL; // setting EINVAL as without proper path as the setxattr value, reflink is not possible. */
+/*                 goto out; */
+/*         } */
+/* #else */
+/*         path = loc->path; */
+/*         char tmp_name[NAME_MAX] = {0, }; */
+/*         char tmp_path[PATH_MAX] = {0, }; */
+/*         char dst_path[PATH_MAX] = {0, }; */
+/*         char *i = NULL; */
+/*         char *j = NULL; */
+/*         snprintf (tmp_name, NAME_MAX, "clone-%s-%"PRIu64, */
+/*                   uuid_utoa (loc->gfid), (uint64_t) time (NULL)); */
+/*         snprintf (tmp_path, PATH_MAX, "%s", loc->path); */
+/*         j = strrchr (tmp_path, '/') + 1; */
+/*         *j = '/0'; */
+/*         snprintf (dst_path, PATH_MAX, "%s%s", tmp_path, tmp_name); */
+/*         path = dst_path; */
+/*         //for (i = tmp_name; i != j; i++); */
+
+
+/* #endif */
+
+        newloc->path = gf_strdup (path);
+        if (!loc->path) {
+                gf_log (this->name, GF_LOG_WARNING, "failed to allocate memory for "
+                        "path %s for the reflink xattr %s", path, GF_XATTR_REFLINK);
+                errno = ENOMEM;
+                goto out;
+        }
+
+        newloc->name = strrchr (newloc->path, '/') + 1;
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+int
+dht_clone_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int op_ret, int op_errno,
+                       inode_t *inode, struct iatt *stbuf,
+                       struct iatt *preparent, struct iatt *postparent,
+                       dict_t *xdata)
+{
+        dht_local_t  *local = NULL;
+        xlator_t     *srcvol = NULL;
+
+        if (op_ret == -1)
+                goto err;
+
+        local = frame->local;
+        srcvol = local->linkfile.srcvol;
+
+        STACK_WIND (frame, dht_file_setxattr_cbk, srcvol, srcvol->fops->setxattr,
+                    &local->loc, local->xattr, local->flags, local->xattr_req);
+
+        return 0;
+
+err:
+        DHT_STRIP_PHASE1_FLAGS (stbuf);
+        dht_set_fixed_dir_stat (preparent);
+        dht_set_fixed_dir_stat (postparent);
+        DHT_STACK_UNWIND (setxattr, frame, op_ret, op_errno, local->xattr);
+
+        return 0;
+}
+
+/*
+ * Assumption as of now is that, the value of the key
+ * GF_XATTR_REFLINK is the path relative to the root
+ * of the gluster volume root and not actual root
+ *
+ * i.e. if mount point is /mnt/glusterfs and the value
+ * of the GF_XATTR_REFLINK xattr is "/dir/file2", then
+ * the assumption as of now is that the path "dir/file2"
+ * is from /mnt/glusterfs and not from /.
+ * OR
+ * Another assumption (simpler to implement) is that the
+ * clone of the file will be created in the same directory
+ * where the original or the source file is present. The
+ * benefit of this assumption is that, the destination path
+ * need not be resolved, as the resolution of the source
+ * would have taken care of the resolution of the destination
+ * till the parent.
+ */
+
+int
+dht_clone (call_frame_t *frame, xlator_t *this,
+           loc_t *loc, dict_t *xattr, int flags, dict_t *xdata,
+           int32_t *op_errno)
+{
+        xlator_t    *cached_subvol = NULL;
+        xlator_t    *hashed_subvol = NULL;
+        int          ret = -1;
+        dht_local_t *local = NULL;
+        loc_t        newloc = {0, };
+        char        *path  = NULL;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (loc, err);
+
+        if (!dict_get (xattr, GF_XATTR_REFLINK)) {
+                gf_log (this->name, GF_LOG_ERROR, "reflink function "
+                        " is not called on the xattr %s",
+                        GF_XATTR_REFLINK); //either remove this or change to gf_msg
+                *op_errno = ENODATA;
+                goto err;
+        }
+
+        local = dht_local_init (frame, loc, NULL, GF_FOP_SETXATTR);
+        if (!local) {
+                *op_errno = ENOMEM;
+                goto err;
+        }
+        local->call_cnt = 1;
+
+        cached_subvol = local->cached_subvol;
+        if (!cached_subvol) {
+                gf_msg_debug (this->name, 0,
+                              "no cached subvolume for path=%s", loc->path);
+                *op_errno = ENOENT;
+                goto err;
+        }
+
+        ret = dht_clone_fill_loc (this, xattr, loc, &newloc);
+        if (ret)
+
+        hashed_subvol = dht_subvol_get_hashed (this, &newloc);
+        if (!hashed_subvol) {
+                gf_msg_debug (this->name, 0,
+                              "no subvolume in layout for path=%s",
+                              newloc.path);
+                *op_errno = EIO;
+                goto err;
+        }
+
+        ret = loc_copy (&local->loc2, &newloc);
+        if (ret == -1) {
+                *op_errno = ENOMEM;
+                goto err;
+        }
+        if (xdata)
+                local->xattr_req = dict_ref (xdata);
+
+        if (hashed_subvol != cached_subvol) {
+                gf_uuid_copy (local->gfid, loc->inode->gfid);
+                dht_linkfile_create (frame, dht_clone_linkfile_cbk, this,
+                                     cached_subvol, hashed_subvol, &newloc);
+        } else {
+                STACK_WIND (frame, dht_file_setxattr_cbk,
+                            cached_subvol, cached_subvol->fops->setxattr,
+                            loc, xattr, flags, xdata);
+        }
+
+        ret = 0;
+
+err:
+        /*
+         * see if there should a new fop called clone.
+         * Pro: setxattr implementations of all the xlators
+         *      need not be touched except for top level
+         *      xlators such as fuse, nfs etc which get setxattr
+         * Cons: New fop has to be introduced, means new protocol
+         *       change in RPC, which might break the compatibility
+         *       And also, a new signature for this clone fop has to
+         *       be found.
+         * Incompatibility is a big price to pay. So as of now going
+         * with setxattr itself.
+         */
+        //DHT_STACK_UNWIND (setxattr, frame, -1, op_errno, NULL);
+        return ret;
+}
 
 int
 dht_setxattr (call_frame_t *frame, xlator_t *this,
@@ -5949,6 +6157,17 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         if (!conf->defrag)
                 GF_IF_INTERNAL_XATTR_GOTO (conf->wild_xattr_name, xattr,
                                            op_errno, err);
+
+        if (dict_get (xattr, GF_XATTR_REFLINK)) {
+                gf_log (this->name, GF_LOG_ERROR, "clone operation "
+                        " is called on object %s", loc->path); //either remove this or change to gf_msg
+                ret = dht_clone (frame, this, loc, xattr, flags,
+                                 xdata, &op_errno);
+                if (ret < 0)
+                        goto err;
+                else
+                        return 0;
+        }
 
         local = dht_local_init (frame, loc, NULL, GF_FOP_SETXATTR);
         if (!local) {
@@ -8562,7 +8781,6 @@ err:
 
         return 0;
 }
-
 
 int
 dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,

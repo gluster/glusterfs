@@ -135,6 +135,9 @@
 
 #define XATTR_IS_BD(x) (strncmp (x, BD_XATTR_KEY, strlen (BD_XATTR_KEY)) == 0)
 
+#define GF_XATTR_FILE_SNAP_REMOVE "glusterfs.removesnap"
+#define GF_XATTR_FILE_SNAP "glusterfs.snapshot"
+#define GF_XATTR_REFLINK  "glusterfs.reflink"
 #define GF_XATTR_LINKINFO_KEY   "trusted.distribute.linkinfo"
 #define GFID_XATTR_KEY          "trusted.gfid"
 #define PGFID_XATTR_KEY_PREFIX  "trusted.pgfid."

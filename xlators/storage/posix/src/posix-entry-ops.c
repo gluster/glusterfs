@@ -62,6 +62,7 @@
 #include "posix-gfid-path.h"
 #include "compat-uuid.h"
 #include "syncop.h"
+#include "posix-snap.h"
 
 extern char *marker_xattrs[];
 #define ALIGN_SIZE 4096
