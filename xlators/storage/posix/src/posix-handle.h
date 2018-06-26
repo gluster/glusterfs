@@ -194,8 +194,4 @@ posix_check_internal_writes (xlator_t *this, fd_t *fd, int sysfd,
 
 void
 posix_disk_space_check (xlator_t *this);
-
-int
-posix_handle_mkdir_hashes (xlator_t *this, const char *newpath);
-
 #endif /* !_POSIX_HANDLE_H */

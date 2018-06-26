@@ -1458,38 +1458,6 @@ out:
 }
 
 static int
-janitor_clean_snap (const char *fpath, const struct stat *sb,
-                    int typeflag, struct FTW *ftwbuf)
-{
-        xlator_t     *this = NULL;
-
-        this = THIS;
-
-        switch (sb->st_mode & S_IFMT) {
-        case S_IFREG:
-        case S_IFBLK:
-        case S_IFLNK:
-        case S_IFCHR:
-        case S_IFIFO:
-        case S_IFSOCK:
-                gf_msg_trace (this->name, 0,
-                        "unlinking %s", fpath);
-                sys_unlink (fpath);
-                break;
-
-        case S_IFDIR:
-                if (ftwbuf->level) { /* don't remove top level dir */
-                        gf_msg_debug (this->name, 0,
-                                "removing directory %s", fpath);
-                        sys_rmdir (fpath);
-                }
-                break;
-        }
-
-        return 0;   /* 0 = FTW_CONTINUE */
-}
-
-static int
 janitor_walker (const char *fpath, const struct stat *sb,
                 int typeflag, struct FTW *ftwbuf)
 {
@@ -1599,12 +1567,6 @@ posix_janitor_thread_proc (void *data)
                                       32,
                                       FTW_DEPTH | FTW_PHYS);
                         }
-
-                        /* Cleans the snapshots of removed files */
-                        nftw (priv->snap_trash_path,
-                              janitor_clean_snap, 32,
-                              FTW_DEPTH | FTW_PHYS);
-
                         priv->last_landfill_check = now;
                 }
 

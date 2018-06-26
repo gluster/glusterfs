@@ -3310,51 +3310,6 @@ fuse_statfs (xlator_t *this, fuse_in_header_t *finh, void *msg,
         fuse_resolve_and_resume (state, fuse_statfs_resume);
 }
 
-/*
- * This is how snapshot works.
- * 1) Snapshot of a file.
- *   Saved as a hidden entry (either in a hidden directory OR
- *   in the same directory where the source file is present)
- *   The snapshot is read-only and cannot be modified. A restore
- *   of the snapshot will delete the original file (internally
- *   a rename operation of the snap to the original source file)
- * 2) Clone:
- *   With clone, it will be rcreated in the same location where the
- *   source file resides and makes that entry visible to the
- *   application.
- * Advantage: No need to resolve destination path in both snap and
- *            clone operations. With snap, the location of predefined
- *            destination is known and its gfid can be obtained.
- *            For clone anyway its the parent of the source which is
- *            resolved by the time this function is called.
- */
-int
-fuse_snap (fuse_state_t *state)
-{
-        int ret = -1;
-        char *name = NULL;
-
-        /* For now, clone on a fd is deferred. Because, we are creatig
-         * the clone inside the same directory where the source file
-         * is present. With fd, we wont have loc structure with the
-         * parent information. So we dont know where should the clone
-         * be created. Though inode_parent on fd->inode of source file
-         * can help, if the inode of source file is linked via
-         * nameless lookup, then parent cannot be obtained.
-         */
-        /* if (state->fd) */
-        /*         FUSE_FOP (state, fuse_clone_cbk, GF_FOP_FCLONE, */
-        /*                   fclone, state->fd, state->xattr, state->flags, */
-        /*                   state->xdata); */
-        /* else */
-                FUSE_FOP (state, fuse_setxattr_cbk, GF_FOP_SETXATTR,
-                          setxattr, &state->loc, state->xattr, state->flags,
-                          state->xdata);
-
-        ret = 0;
-
-        return ret;
-}
 
 void
 fuse_setxattr_resume (fuse_state_t *state)
@@ -3374,18 +3329,6 @@ fuse_setxattr_resume (fuse_state_t *state)
 #ifdef GF_TEST_FFOP
         state->fd = fd_lookup (state->loc.inode, state->finh->pid);
 #endif /* GF_TEST_FFOP */
-
-        /*
-         * New file clone xattr.
-         */
-        if (dict_get (state->xattr, GF_XATTR_REFLINK)) {
-                if (fuse_snap (state) < 0) {
-                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                                "failed to send the snap operation on"
-                                "%s", uuid_utoa (state->resolve.gfid));
-                        return;
-                }
-        }
 
         if (state->fd) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,

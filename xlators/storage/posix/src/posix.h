@@ -187,10 +187,6 @@ struct posix_private {
         pthread_t       janitor;
         gf_boolean_t    janitor_present;
         char *          trash_path;
-/* Location for snapshots of removed file (gfid), to be cleaned up by
-   Janitor thread later.
-*/
-        char *          snap_trash_path;
 /* lock for brick dir */
         DIR     *mount_lock;
 
