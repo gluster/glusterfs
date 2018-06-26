@@ -104,17 +104,27 @@ posix_symlinks_match (xlator_t *this, loc_t *loc, uuid_t gfid)
         handle_size = POSIX_GFID_HANDLE_SIZE(priv->base_path_length);
         dir_handle = alloca0 (handle_size);
 
-        snprintf (linkname_expected, handle_size, "../../%02x/%02x/%s/%s",
+        snprintf (linkname_expected, PATH_MAX, "../../%02x/%02x/%s/%s",
                   loc->pargfid[0], loc->pargfid[1], uuid_utoa (loc->pargfid),
                   loc->name);
 
         MAKE_HANDLE_GFID_PATH (dir_handle, this, gfid, NULL);
         len = sys_readlink (dir_handle, linkname_actual, PATH_MAX);
-        if (len < 0)
+        if (len < 0 || len == PATH_MAX) {
+                if (len == PATH_MAX) {
+                        errno = EINVAL;
+                }
+
+                if (errno != ENOENT) {
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                P_MSG_LSTAT_FAILED, "readlink[%s] failed",
+                                dir_handle);
+                }
                 goto out;
+        }
         linkname_actual[len] = '\0';
 
-        if (!strncmp (linkname_actual, linkname_expected, handle_size))
+        if (!strcmp (linkname_actual, linkname_expected))
                 ret = _gf_true;
 
 out:
