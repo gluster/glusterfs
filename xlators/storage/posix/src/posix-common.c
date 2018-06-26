@@ -511,6 +511,132 @@ posix_create_unlink_dir (xlator_t *this) {
         return 0;
 }
 
+int32_t
+posix_create_file_snaps_dir (xlator_t *this)
+{
+
+        struct posix_private *priv = NULL;
+        struct stat           stbuf;
+        int                   ret = -1;
+        char                  snaps_path[PATH_MAX] = {0,};
+
+        priv = this->private;
+
+        (void) snprintf (snaps_path, sizeof(snaps_path), "%s/%s",
+                         priv->base_path, GF_SNAPS_PATH);
+
+        ret = sys_stat (snaps_path, &stbuf);
+        switch (ret) {
+        case -1:
+                if (errno != ENOENT) {
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                P_MSG_HANDLE_CREATE,
+                                "Checking for %s failed",
+                                snaps_path);
+                        return -1;
+                }
+                break;
+        case 0:
+                if (!S_ISDIR (stbuf.st_mode)) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                P_MSG_HANDLE_CREATE,
+                                "Not a directory: %s",
+                                snaps_path);
+                        return -1;
+                }
+                return 0;
+        default:
+                break;
+        }
+
+        ret = sys_mkdir (snaps_path, 0600);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        P_MSG_HANDLE_CREATE,
+                        "Creating directory %s failed",
+                        snaps_path);
+                return -1;
+        }
+
+        return 0;
+}
+
+/**
+ * The existing TRASH_DIR (names landfill inside .glusterfs)
+ * could have been used. But, currently the janitor thread
+ * which removes the contents of TRASH_DIR, assumes the
+ * contents to be from the volume namespace and thus tries
+ * to remove the gfid handles etc. That is not needed for
+ * the file snapshots. As the snapshots are not part of the
+ * volume namespace as of now.
+ * NOTE: This function is not used as of now. Remove it if
+ *       it is not needed. Try to use the existing janitor
+ *       framework itself.
+ */
+int32_t
+posix_create_snaps_trash_dir (xlator_t *this)
+{
+
+        struct posix_private *priv = NULL;
+        struct stat           stbuf;
+        int                   ret = -1;
+        char                  snaps_trash_path[PATH_MAX] = {0,};
+
+        priv = this->private;
+
+        priv->snap_trash_path = GF_CALLOC (1, priv->base_path_length +
+                                           strlen ("/") +
+                                           strlen (GF_HIDDEN_PATH) +
+                                           strlen ("/") +
+                                           strlen (SNAPS_TRASH) + 1,
+                                           gf_common_mt_char);
+
+        if (!priv->snap_trash_path)
+                return -1;
+
+        strncpy (priv->snap_trash_path, priv->base_path,
+                 priv->base_path_length);
+        strcat (priv->snap_trash_path, "/" GF_HIDDEN_PATH "/" SNAPS_TRASH);
+        snprintf (snaps_trash_path, PATH_MAX, "%s", priv->snap_trash_path);
+        /* (void) snprintf (snaps_trash_path, sizeof(snaps_path), */
+        /*                  "%s/%s/%s", */
+        /*                  priv->base_path, GF_HIDDEN_PATH, SNAP_TRASH); */
+
+        ret = sys_stat (snaps_trash_path, &stbuf);
+        switch (ret) {
+        case -1:
+                if (errno != ENOENT) {
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                P_MSG_HANDLE_CREATE,
+                                "Checking for %s failed",
+                                snaps_trash_path);
+                        return -1;
+                }
+                break;
+        case 0:
+                if (!S_ISDIR (stbuf.st_mode)) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                P_MSG_HANDLE_CREATE,
+                                "Not a directory: %s",
+                                snaps_trash_path);
+                        return -1;
+                }
+                return 0;
+        default:
+                break;
+        }
+
+        ret = sys_mkdir (snaps_trash_path, 0600);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        P_MSG_HANDLE_CREATE,
+                        "Creating directory %s failed",
+                        snaps_trash_path);
+                return -1;
+        }
+
+        return 0;
+}
 /**
  * init -
  */
@@ -958,6 +1084,25 @@ posix_init (xlator_t *this)
                 goto out;
         }
 
+        op_ret = posix_create_file_snaps_dir (this);
+        if (op_ret == -1) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        P_MSG_SNAP_HANDLE_CREAT_FAILED,
+                        "Creation of snaps directory failed");
+                ret = -1;
+                goto out;
+        }
+
+        op_ret = posix_create_snaps_trash_dir (this);
+        if (op_ret == -1) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        P_MSG_SNAP_TRASH_FAILED,
+                        "failed to create trash directory "
+                        "for file snapshots");
+                ret = -1;
+                goto out;
+        }
+
         _private->aio_init_done = _gf_false;
         _private->aio_capable = _gf_false;
 
@@ -1096,6 +1241,8 @@ out:
 
                         GF_FREE (_private->trash_path);
 
+                        GF_FREE (_private->snap_trash_path);
+
                         GF_FREE (_private);
                 }
 
@@ -1140,6 +1287,7 @@ posix_fini (xlator_t *this)
         pthread_mutex_destroy (&priv->fsync_mutex);
         GF_FREE (priv->hostname);
         GF_FREE (priv->trash_path);
+        GF_FREE (priv->snap_trash_path);
         GF_FREE (priv);
         this->private = NULL;
 

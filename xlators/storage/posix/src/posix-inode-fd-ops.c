@@ -61,6 +61,7 @@
 #include "events.h"
 #include "posix-gfid-path.h"
 #include "compat-uuid.h"
+#include "posix-snap.h"
 
 extern char *marker_xattrs[];
 #define ALIGN_SIZE 4096
@@ -2344,6 +2345,30 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
                 }
 unlock:
                 UNLOCK (&loc->inode->lock);
+                goto out;
+        }
+
+        if (dict_get (dict, GF_XATTR_FILE_SNAP)) {
+                ret = posix_file_snap_create (this, loc, NULL, dict, xdata);
+                if (ret) {
+                        op_ret = -1;
+                        op_errno = errno;
+                } else {
+                        op_ret = 0;
+                        op_errno = 0;
+                }
+                goto out;
+        }
+
+        if (dict_get (dict, GF_XATTR_FILE_SNAP_REMOVE)) {
+                ret = posix_file_snap_remove (this, loc, NULL, dict, xdata);
+                if (ret) {
+                        op_ret = -1;
+                        op_errno = errno;
+                } else {
+                        op_ret = 0;
+                        op_errno = 0;
+                }
                 goto out;
         }
 
@@ -5381,6 +5406,24 @@ posix_forget (xlator_t *this, inode_t *inode)
                         goto out;
                 }
                 ret = sys_unlink(unlink_path);
+
+                /*
+                 * Now that the actual on disk inode (gfid for gluster) has been
+                 * removed, file snapshots associated with that file should be
+                 * removed as well.
+                 */
+                ret = posix_remove_file_snapshots (this, inode->gfid);
+                if (ret < 0) {
+                        gf_msg (this->name, GF_LOG_WARNING, errno,
+                                P_MSG_SNAP_REMOVE_FAILED, "failed to remove"
+                                "the file snapshots for the gfid %s (%s)",
+                                uuid_utoa (inode->gfid), strerror (errno));
+                        /* As of now, ret is used only to check the success or
+                         * failure of snapshot removal. So ignore it and treat
+                         * the gfid handle removal (i.e. removal of the file) as
+                         * success */
+                        ret = 0;
+                }
         }
 out:
         pthread_mutex_destroy (&ctx->xattrop_lock);

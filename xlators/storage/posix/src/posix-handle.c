@@ -925,6 +925,25 @@ posix_handle_unset_gfid (xlator_t *this, uuid_t gfid)
         if (ret == -1) {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
                         P_MSG_HANDLE_DELETE, "unlink %s failed ", path);
+                goto out;
+        }
+
+        /*
+         * Now that the actual on disk inode (gfid for gluster) has been
+         * removed, file snapshots associated with that file should be
+         * removed as well.
+         */
+        ret = posix_remove_file_snapshots (this, gfid);
+        if (ret < 0) {
+                gf_msg (this->name, GF_LOG_WARNING, errno,
+                        P_MSG_SNAP_REMOVE_FAILED, "failed to "
+                        "remove the file snapshots for the gfid %s (%s)",
+                        uuid_utoa (gfid), strerror (errno));
+                /* As of now, ret is used only to check the success or
+                 * failure of snapshot removal. So ignore it and treat
+                 * the gfid handle removal (i.e. removal of the file) as
+                 * success */
+                ret = 0;
         }
 
 out:

@@ -15,6 +15,7 @@
 #include "xlator.h"
 #include "gf-dirent.h"
 #include "posix.h"
+#include "posix-snap.h"
 
 /* From Open Group Base Specifications Issue 6 */
 #ifndef _XOPEN_PATH_MAX
@@ -22,6 +23,7 @@
 #endif
 
 #define TRASH_DIR "landfill"
+#define SNAPS_TRASH "snaps_trash"
 
 #define UUID0_STR "00000000-0000-0000-0000-000000000000"
 #define SLEN(str) (sizeof(str) - 1)
