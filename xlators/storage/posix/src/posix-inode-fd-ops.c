@@ -5025,11 +5025,21 @@ posix_readdirp_fill (xlator_t *this, fd_t *fd, gf_dirent_t *entries, dict_t *dic
         itable = fd->inode->table;
 
         len = posix_handle_path (this, fd->inode->gfid, NULL, NULL, 0);
-        if (len <= 0)
+        if (len <= 0) {
+                gf_msg (this->name, GF_LOG_WARNING, 0, P_MSG_HANDLEPATH_FAILED,
+                        "Failed to create handle path, fd=%p, gfid=%s",
+                        fd, uuid_utoa (fd->inode->gfid));
                 return -1;
+        }
+
         hpath = alloca (len + 256); /* NAME_MAX */
-        if (posix_handle_path (this, fd->inode->gfid, NULL, hpath, len) <= 0)
+        if (posix_handle_path (this, fd->inode->gfid, NULL, hpath, len) <= 0) {
+                gf_msg (this->name, GF_LOG_WARNING, 0, P_MSG_HANDLEPATH_FAILED,
+                        "Failed to create handle path, fd=%p, gfid=%s",
+                        fd, uuid_utoa (fd->inode->gfid));
                 return -1;
+        }
+
         len = strlen (hpath);
         hpath[len] = '/';
 
