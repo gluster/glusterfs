@@ -132,6 +132,7 @@ __dentry_unset (dentry_t *dentry)
         __dentry_unhash (dentry);
 
         list_del_init (&dentry->inode_list);
+        list_del_init (&dentry->parent_list);
 
         GF_FREE (dentry->name);
         dentry->name = NULL;
@@ -141,6 +142,7 @@ __dentry_unset (dentry_t *dentry)
                 dentry->parent = NULL;
         }
 
+        dentry->inode = NULL;
         mem_put (dentry);
 }
 
@@ -604,6 +606,7 @@ __dentry_create (inode_t *inode, inode_t *parent, const char *name)
 
         INIT_LIST_HEAD (&newd->inode_list);
         INIT_LIST_HEAD (&newd->hash);
+        INIT_LIST_HEAD (&newd->parent_list);
 
         newd->name = gf_strdup (name);
         if (newd->name == NULL) {
@@ -616,8 +619,9 @@ __dentry_create (inode_t *inode, inode_t *parent, const char *name)
                 newd->parent = __inode_ref (parent);
 
         list_add (&newd->inode_list, &inode->dentry_list);
-        newd->inode = inode;
+        list_add (&newd->parent_list, &parent->children);
 
+        newd->inode = inode;
 out:
         return newd;
 }
@@ -648,6 +652,7 @@ __inode_create (inode_table_t *table)
         INIT_LIST_HEAD (&newi->list);
         INIT_LIST_HEAD (&newi->hash);
         INIT_LIST_HEAD (&newi->dentry_list);
+        INIT_LIST_HEAD (&newi->children);
 
         newi->_ctx = GF_CALLOC (1,
                                 (sizeof (struct _inode_ctx) * table->ctxcount),
