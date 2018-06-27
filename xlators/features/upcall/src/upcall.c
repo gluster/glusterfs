@@ -20,7 +20,6 @@
 #include "common-utils.h"
 
 #include "statedump.h"
-#include "syncop.h"
 
 #include "upcall.h"
 #include "upcall-mem-types.h"
@@ -1697,8 +1696,7 @@ up_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!up_invalidate_needed (local->xattr))
                 goto out;
 
-        ret = syncop_stat (FIRST_CHILD(frame->this), &local->loc, &stbuf,
-                           NULL, NULL);
+        ret = dict_get_iatt (xdata, GF_POSTSTAT, &stbuf);
         if (ret == 0)
                 flags |= UP_TIMES;
 
@@ -1774,8 +1772,7 @@ up_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!up_invalidate_needed (local->xattr))
                 goto out;
 
-        ret = syncop_fstat (FIRST_CHILD(frame->this), local->fd, &stbuf, NULL,
-                            NULL);
+        ret = dict_get_iatt (xdata, GF_POSTSTAT, &stbuf);
         if (ret == 0)
                 flags |= UP_TIMES;
 
@@ -1850,8 +1847,7 @@ up_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!up_invalidate_needed (local->xattr))
                 goto out;
 
-        ret = syncop_fstat (FIRST_CHILD(frame->this), local->fd, &stbuf, NULL,
-                            NULL);
+        ret = dict_get_iatt (xdata, GF_POSTSTAT, &stbuf);
         if (ret == 0)
                 flags |= UP_TIMES;
 
@@ -1938,8 +1934,7 @@ up_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!up_invalidate_needed (local->xattr))
                 goto out;
 
-        ret = syncop_stat (FIRST_CHILD(frame->this), &local->loc, &stbuf, NULL,
-                           NULL);
+        ret = dict_get_iatt (xdata, GF_POSTSTAT, &stbuf);
         if (ret == 0)
                 flags |= UP_TIMES;
 

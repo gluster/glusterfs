@@ -2846,25 +2846,56 @@ posix_is_bulk_removexattr (char *name, dict_t *xdata)
 }
 
 int32_t
-posix_set_iatt_in_dict (dict_t *dict, struct iatt *in_stbuf)
+posix_set_iatt_in_dict (dict_t *dict, struct iatt *preop, struct iatt *postop)
 {
         int ret             = -1;
         struct iatt *stbuf  = NULL;
         int32_t len         = sizeof(struct iatt);
+        struct iatt *prebuf = NULL;
+        struct iatt *postbuf = NULL;
 
-        if (!dict || !in_stbuf)
+        if (!dict)
                 return ret;
 
-        stbuf = GF_CALLOC (1, len, gf_common_mt_char);
-        if (!stbuf)
-                return ret;
+        if (postop) {
+                stbuf = GF_CALLOC (1, len, gf_common_mt_char);
+                if (!stbuf)
+                        goto out;
+                memcpy (stbuf, postop, len);
+                ret = dict_set_iatt (dict, DHT_IATT_IN_XDATA_KEY, stbuf,
+                                     false);
+                if (ret < 0) {
+                        GF_FREE (stbuf);
+                        goto out;
+                }
+        }
 
-        memcpy (stbuf, in_stbuf, len);
+        if (preop) {
+                prebuf = GF_CALLOC (1, len, gf_common_mt_char);
+                if (!prebuf)
+                        goto out;
+                memcpy (prebuf, preop, len);
+                ret = dict_set_iatt (dict, GF_PRESTAT, prebuf, false);
+                if (ret < 0) {
+                        GF_FREE (prebuf);
+                        goto out;
+                }
+        }
 
-        ret = dict_set_iatt (dict, DHT_IATT_IN_XDATA_KEY, stbuf, false);
-        if (ret)
-                GF_FREE (stbuf);
+        if (postop) {
+                postbuf = GF_CALLOC (1, len, gf_common_mt_char);
+                if (!postbuf)
+                        goto out;
+                memcpy (postbuf, postop, len);
+                ret = dict_set_iatt (dict, GF_POSTSTAT, postbuf, false);
+                if (ret < 0) {
+                        GF_FREE (postbuf);
+                        goto out;
+                }
+        }
 
+        ret = 0;
+out:
         return ret;
 }
 

@@ -321,6 +321,8 @@ enum gf_internal_fop_indicator {
 #define DHT_MODE_IN_XDATA_KEY       "dht-get-mode-in-xattr"
 #define GET_LINK_COUNT              "get-link-count"
 #define GF_GET_SIZE                 "get-size"
+#define GF_PRESTAT                 "virt-gf-prestat"
+#define GF_POSTSTAT                "virt-gf-poststat"
 
 /*CTR and Marker requires inode dentry link count from posix*/
 #define GF_RESPONSE_LINK_COUNT_XDATA "gf_response_link_count"

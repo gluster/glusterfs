@@ -259,6 +259,7 @@ ec_value_ignore (char *key)
             (XATTR_IS_NODE_UUID(key))) {
                 return _gf_true;
         }
+
         return _gf_false;
 }
 
@@ -554,6 +555,64 @@ int32_t ec_dict_data_uuid(ec_cbk_data_t * cbk, int32_t which, char * key)
     return 0;
 }
 
+int32_t ec_dict_data_iatt(ec_cbk_data_t *cbk, int32_t which, char *key)
+{
+    ec_t *ec = cbk->fop->xl->private;
+    data_t *data[ec->nodes];
+    dict_t *dict;
+    struct iatt *stbuf, *tmp;
+    int32_t i, ret;
+
+    ec_dict_list(data, cbk, which, key, _gf_false);
+
+    stbuf = NULL;
+    for (i = 0; i < ec->nodes; i++) {
+        if ((data[i] == NULL) || (data[i] == EC_MISSING_DATA)) {
+            continue;
+        }
+        tmp = data_to_iatt(data[i], key);
+        if (tmp == NULL) {
+            ret = -EINVAL;
+            goto out;
+        }
+        if (stbuf == NULL) {
+            stbuf = GF_MALLOC(sizeof(struct iatt), gf_common_mt_char);
+            if (stbuf == NULL) {
+                    ret = -ENOMEM;
+                    goto out;
+            }
+            *stbuf = *tmp;
+        } else {
+            if (!ec_iatt_combine (cbk->fop, stbuf, tmp, 1)) {
+                ret = -EINVAL;
+                goto out;
+            }
+        }
+    }
+
+    if (stbuf->ia_type == IA_IFREG) {
+        ec_iatt_rebuild(ec, stbuf, 1, cbk->count);
+        /* TODO: not sure if an iatt could come in xdata from a fop that takes
+         *       no locks. */
+        if (!ec_get_inode_size(cbk->fop, cbk->fop->locks[0].lock->loc.inode,
+                               &stbuf->ia_size)) {
+            ret = -EINVAL;
+            goto out;
+        }
+    }
+
+    dict = (which == EC_COMBINE_XDATA) ? cbk->xdata : cbk->dict;
+    ret = dict_set_iatt(dict, key, stbuf, false);
+    if (ret >= 0) {
+        stbuf = NULL;
+    }
+
+out:
+    GF_FREE(stbuf);
+
+    return ret;
+}
+
 int32_t ec_dict_data_max32(ec_cbk_data_t *cbk, int32_t which, char *key)
 {
     ec_t *ec = cbk->fop->xl->private;
@@ -734,6 +793,10 @@ int32_t ec_dict_data_combine(dict_t * dict, char * key, data_t * value,
 
     if (fnmatch(MARKER_XATTR_PREFIX ".*." XTIME, key, FNM_NOESCAPE) == 0) {
         return ec_dict_data_max64(data->cbk, data->which, key);
+    }
+
+    if (strcmp (key, GF_PRESTAT) == 0 || strcmp (key, GF_POSTSTAT) == 0) {
+        return ec_dict_data_iatt(data->cbk, data->which, key);
     }
 
     return 0;
