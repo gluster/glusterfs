@@ -159,6 +159,25 @@ EXPECT_WITHIN $GEO_REP_TIMEOUT 0 hardlink_rename_ok ${slave_mnt}/hardlink_rename
 #Stop Geo-rep
 TEST $GEOREP_CLI $master $slave stop
 
+#Symlink testcase: Rename symlink and create dir with same name
+TEST mkdir ${master_mnt}/symlink_test1
+TEST touch ${master_mnt}/symlink_test1/file1
+TEST ln -s "./file1" ${master_mnt}/symlink_test1/sym_link
+TEST mv ${master_mnt}/symlink_test1/sym_link ${master_mnt}/symlink_test1/rn_sym_link
+TEST mkdir ${master_mnt}/symlink_test1/sym_link
+
+#Start Geo-rep
+TEST $GEOREP_CLI $master $slave start
+
+#Check for hardlink rename case. It should not create src file again on
+# changelog reprocessing. Refer BUG1296174
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 hardlink_rename_ok ${slave_mnt}/hardlink_rename_test_file
+#symlink rename mkdir
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 symlink_rename_mkdir_ok ${slave_mnt}/symlink_test1
+
+#Stop Geo-rep
+TEST $GEOREP_CLI $master $slave stop
+
 #Delete Geo-rep
 TEST $GEOREP_CLI $master $slave delete
 

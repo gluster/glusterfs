@@ -92,17 +92,20 @@ function hardlink_file_ok()
 
     orig_inode=$(stat --format "%i" "$orig_file")
     rc=$?
-    if test $rc != 0; then echo $rc; fi
-
-    link_inode=$(stat --format "%i" "$link_file")
-    rc=$?
-    if test $rc != 0; then echo $rc; fi
-
-    if test $orig_inode != $link_inode
-    then
-        echo 1
+    if test $rc != 0; then
+        echo $rc
     else
-        echo 0
+        link_inode=$(stat --format "%i" "$link_file")
+        rc=$?
+        if test $rc != 0; then
+            echo $rc
+        else
+            if test $orig_inode != $link_inode; then
+                echo 1
+            else
+                echo 0
+            fi
+        fi
     fi
 }
 
@@ -113,8 +116,7 @@ function data_ok()
     data2=$(cat $path)
     echo "data1:$data1"
     echo "data2:$data2"
-    if test "X$data1" != "X$data2"
-    then
+    if test "X$data1" != "X$data2"; then
         echo 1
     else
         echo 0
@@ -134,10 +136,17 @@ function symlink_ok()
     local symlink_file=$2
 
     local file_type=$(stat --format "%F" "$symlink_file")
-    if test "X$file_type" != "Xsymbolic link"; then echo 1;else echo 0; fi
+    if test "X$file_type" != "Xsymbolic link"; then
+        echo 1
+    else
+        local fname=$(readlink $symlink_file)
+        if test "X$fname" != "X$orig_file_name"; then
+            echo 1
+        else
+            echo 0
+        fi
+    fi
 
-    local fname=$(readlink $symlink_file)
-    if test "X$fname" != "X$orig_file_name"; then echo 1;else echo 0; fi
 }
 
 function rename_ok()
@@ -145,27 +154,30 @@ function rename_ok()
     old_name=$1
     new_name=$2
 
-    if [ -f $old_name ]
-    then
+    if [ -f $old_name ]; then
         echo 1
-    fi
-
-    if [ ! -f $new_name ]
-    then
+    elif [ ! -f $new_name ]; then
         echo 1
+    else
+        echo 0
     fi
-    echo 0
 }
 
 function create_georep_session()
 {
     $CLI system:: execute gsec_create
     rc=$?
-    if test $rc != 0; then echo $rc; fi
-    $CLI volume geo-rep $master $slave create push-pem
-    rc=$?
-    if test $rc != 0; then echo $rc; fi
-    echo 0
+    if test $rc != 0; then
+        echo $rc
+    else
+        $CLI volume geo-rep $master $slave create push-pem
+        rc=$?
+        if test $rc != 0; then
+            echo $rc
+        else
+            echo 0
+        fi
+    fi
 }
 
 # logrotate_simulate should be called (rotate_count + 1) times to cause
@@ -214,9 +226,10 @@ function create_rename_ok()
     # to be recreated i.e. a dangling entry without a corresponding
     # back-end gfid link should not exist on the slave
     if [ -f "$file_name" ]; then
-            echo 1
+        echo 1
+    else
+        echo 0
     fi
-    echo 0
 }
 
 function hardlink_rename()
@@ -224,16 +237,35 @@ function hardlink_rename()
     file_name=$1
     echo $file_name > $file_name
     ln $file_name $file_name.hl
-    mv $file_name.hl $file_name
+    mv $file_name.hl $file_name.hl1
 }
 
 function hardlink_rename_ok()
 {
     file_name=$1
     # the hardlink file should not exist on the slave after renaming
-    # to one of its links
-    if [ -f "$file_name.hl" ]; then
-            echo 1
+    # to one of its links on changelog reprocessing
+    if [ ! -f "$file_name" ]; then
+        echo 1
+    elif [ ! -f "$file_name.hl1" ]; then
+        echo 1
+    elif [ -f "$file_name.hl" ]; then
+        echo 1
+    else
+        echo 0
     fi
-    echo 0
+}
+
+function symlink_rename_mkdir_ok()
+{
+    sym_dir=$1
+    if [ ! -f $sym_dir/file1 ]; then
+        echo 1
+    elif [ ! -h $sym_dir/rn_sym_link ]; then
+        echo 1
+    elif [ ! -d $sym_dir/sym_link ]; then
+        echo 1
+    else
+        echo 0
+    fi
 }
