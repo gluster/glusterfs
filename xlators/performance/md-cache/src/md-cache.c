@@ -2157,6 +2157,9 @@ mdc_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         mdc_local_t  *local = NULL;
+        struct iatt   prestat = {0,};
+        struct iatt   poststat = {0,};
+        int           ret = 0;
 
         local = frame->local;
         if (!local)
@@ -2170,7 +2173,15 @@ mdc_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         mdc_inode_xatt_update (this, local->loc.inode, local->xattr);
 
-	mdc_inode_iatt_invalidate (this, local->loc.inode);
+        ret = dict_get_iatt (xdata, GF_PRESTAT, &prestat);
+        if (ret >= 0) {
+                ret = dict_get_iatt (xdata, GF_POSTSTAT, &poststat);
+                mdc_inode_iatt_set_validate (this, local->loc.inode, &prestat,
+                                             &poststat, _gf_true);
+        }
+
+        if (ret < 0)
+                mdc_inode_iatt_invalidate (this, local->loc.inode);
 
 out:
         MDC_STACK_UNWIND (setxattr, frame, op_ret, op_errno, xdata);
@@ -2193,6 +2204,7 @@ mdc_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         STACK_WIND (frame, mdc_setxattr_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->setxattr,
                     loc, xattr, flags, xdata);
+
         return 0;
 }
 
@@ -2202,6 +2214,9 @@ mdc_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		   int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         mdc_local_t  *local = NULL;
+        struct iatt   prestat = {0,};
+        struct iatt   poststat = {0,};
+        int           ret = 0;
 
         local = frame->local;
         if (!local)
@@ -2215,7 +2230,16 @@ mdc_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         mdc_inode_xatt_update (this, local->fd->inode, local->xattr);
 
-	mdc_inode_iatt_invalidate (this, local->fd->inode);
+        ret = dict_get_iatt (xdata, GF_PRESTAT, &prestat);
+        if (ret >= 0) {
+                ret = dict_get_iatt (xdata, GF_POSTSTAT, &poststat);
+                mdc_inode_iatt_set_validate (this, local->fd->inode, &prestat,
+                                             &poststat, _gf_true);
+        }
+
+        if (ret < 0)
+	        mdc_inode_iatt_invalidate (this, local->fd->inode);
+
 out:
         MDC_STACK_UNWIND (fsetxattr, frame, op_ret, op_errno, xdata);
 
@@ -2237,6 +2261,7 @@ mdc_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         STACK_WIND (frame, mdc_fsetxattr_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->fsetxattr,
                     fd, xattr, flags, xdata);
+
         return 0;
 }
 
@@ -2380,6 +2405,9 @@ mdc_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		     int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         mdc_local_t  *local = NULL;
+        struct iatt   prestat = {0,};
+        struct iatt   poststat = {0,};
+        int           ret = 0;
 
         local = frame->local;
         if (!local)
@@ -2396,7 +2424,15 @@ mdc_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	else
 		mdc_inode_xatt_invalidate (this, local->loc.inode);
 
-	mdc_inode_iatt_invalidate (this, local->loc.inode);
+        ret = dict_get_iatt (xdata, GF_PRESTAT, &prestat);
+        if (ret >= 0) {
+                ret = dict_get_iatt (xdata, GF_POSTSTAT, &poststat);
+                mdc_inode_iatt_set_validate (this, local->loc.inode, &prestat,
+                                             &poststat, _gf_true);
+        }
+
+        if (ret < 0)
+                mdc_inode_iatt_invalidate (this, local->loc.inode);
 out:
         MDC_STACK_UNWIND (removexattr, frame, op_ret, op_errno, xdata);
 
@@ -2451,6 +2487,9 @@ mdc_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		      int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
         mdc_local_t  *local = NULL;
+        struct iatt   prestat = {0,};
+        struct iatt   poststat = {0,};
+        int           ret = 0;
 
         local = frame->local;
         if (!local)
@@ -2467,7 +2506,16 @@ mdc_fremovexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	else
 		mdc_inode_xatt_invalidate (this, local->fd->inode);
 
-	mdc_inode_iatt_invalidate (this, local->fd->inode);
+        ret = dict_get_iatt (xdata, GF_PRESTAT, &prestat);
+        if (ret >= 0) {
+                ret = dict_get_iatt (xdata, GF_POSTSTAT, &poststat);
+                mdc_inode_iatt_set_validate (this, local->fd->inode, &prestat,
+                                             &poststat, _gf_true);
+        }
+
+        if (ret < 0)
+                mdc_inode_iatt_invalidate (this, local->fd->inode);
+
 out:
         MDC_STACK_UNWIND (fremovexattr, frame, op_ret, op_errno, xdata);
 

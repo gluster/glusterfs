@@ -396,7 +396,7 @@ gf_boolean_t
 posix_is_bulk_removexattr (char *name, dict_t *dict);
 
 int32_t
-posix_set_iatt_in_dict (dict_t *, struct iatt *);
+posix_set_iatt_in_dict (dict_t *, struct iatt *, struct iatt *);
 
 mode_t
 posix_override_umask (mode_t , mode_t);

@@ -1238,7 +1238,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                                 "fstat failed on fd=%d", fd);
                         goto out;
                 }
-                op_ret = posix_set_iatt_in_dict (unwind_dict, &postbuf);
+                op_ret = posix_set_iatt_in_dict (unwind_dict, NULL, &postbuf);
         }
 
         op_ret = posix_pstat (this, loc->parent, loc->pargfid, par_path,

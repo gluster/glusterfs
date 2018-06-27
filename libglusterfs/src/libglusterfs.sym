@@ -147,6 +147,7 @@ data_to_uint16
 data_to_uint32
 data_to_uint64
 data_to_uint8
+data_to_iatt
 data_unref
 default_access
 default_access_cbk

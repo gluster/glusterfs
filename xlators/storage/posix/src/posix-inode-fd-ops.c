@@ -2212,7 +2212,8 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
         int32_t       op_errno                = 0;
         char *        real_path               = NULL;
         char         *acl_xattr               = NULL;
-        struct iatt   stbuf                   = {0};
+        struct iatt   preop                   = {0};
+        struct iatt   postop                  = {0};
         int32_t       ret                     = 0;
         ssize_t       acl_size                = 0;
         dict_t       *xattr                   = NULL;
@@ -2245,7 +2246,7 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        posix_pstat(this, loc->inode, loc->gfid, real_path, &stbuf, _gf_false);
+        posix_pstat(this, loc->inode, loc->gfid, real_path, &preop, _gf_false);
 
         op_ret = -1;
 
@@ -2259,7 +2260,7 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
                 /*TODO: move the following to a different function */
                 LOCK (&loc->inode->lock);
                 {
-                state = posix_cs_check_status (this, real_path, NULL, &stbuf);
+                state = posix_cs_check_status (this, real_path, NULL, &preop);
                 if (state != GF_CS_LOCAL) {
                         op_errno = EINVAL;
                         ret = posix_cs_set_state (this, &xattr, state, real_path,
@@ -2350,7 +2351,7 @@ unlock:
 
         filler.real_path = real_path;
         filler.this = this;
-        filler.stbuf = &stbuf;
+        filler.stbuf = &preop;
 
 #ifdef GF_DARWIN_HOST_OS
         filler.flags = map_xattr_flags(flags);
@@ -2374,14 +2375,12 @@ unlock:
  * This is used by DHT to redirect FOPs if the file is being migrated
  * Ignore errors for now
  */
-        if (xdata && dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
-                ret = posix_pstat(this, loc->inode, loc->gfid, real_path,
-                                  &stbuf, _gf_false);
-                if (ret)
-                        goto out;
+        ret = posix_pstat(this, loc->inode, loc->gfid, real_path, &postop,
+                          _gf_false);
+        if (ret)
+               goto out;
 
-               ret = posix_set_iatt_in_dict (xattr, &stbuf);
-        }
+        ret = posix_set_iatt_in_dict (xattr, &preop, &postop);
 
 /*
  * ACL can be set on a file/folder using GF_POSIX_ACL_*_KEY xattrs which
@@ -3720,7 +3719,8 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
         struct posix_fd   *pfd            = NULL;
         int                _fd            = -1;
         int                ret            = -1;
-        struct  iatt       stbuf          = {0,};
+        struct  iatt       preop          = {0,};
+        struct  iatt       postop         = {0,};
         dict_t            *xattr          = NULL;
         posix_xattr_filler_t filler       = {0,};
         struct  posix_private *priv       = NULL;
@@ -3744,7 +3744,7 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
         }
         _fd = pfd->fd;
 
-        ret = posix_fdstat (this, fd->inode, pfd->fd, &stbuf);
+        ret = posix_fdstat (this, fd->inode, pfd->fd, &preop);
         if (ret == -1) {
                 op_errno = errno;
                 gf_msg (this->name, GF_LOG_ERROR, op_errno,
@@ -3759,7 +3759,7 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
         filler.fdnum = _fd;
         filler.this = this;
         filler.frame = frame;
-        filler.stbuf = &stbuf;
+        filler.stbuf = &preop;
         filler.fd = fd;
 #ifdef GF_DARWIN_HOST_OS
         filler.flags = map_xattr_flags(flags);
@@ -3785,21 +3785,19 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        if (xdata && dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
-                ret = posix_fdstat (this, fd->inode, pfd->fd, &stbuf);
-                if (ret == -1) {
-                        op_errno = errno;
-                        gf_msg (this->name, GF_LOG_ERROR, op_errno,
-                                P_MSG_XATTR_FAILED, "fsetxattr (fstat)"
-                                "failed on fd=%p", fd);
-                        goto out;
-                }
-
-                xattr = dict_new ();
-                if (!xattr)
-                        goto out;
-                ret = posix_set_iatt_in_dict (xattr, &stbuf);
+        ret = posix_fdstat (this, fd->inode, pfd->fd, &postop);
+        if (ret == -1) {
+                op_errno = errno;
+                gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                        P_MSG_XATTR_FAILED, "fsetxattr (fstat)"
+                        "failed on fd=%p", fd);
+                goto out;
         }
+        xattr = dict_new ();
+        if (!xattr)
+                goto out;
+
+        ret = posix_set_iatt_in_dict (xattr, &preop, &postop);
 
 out:
         SET_TO_OLD_FS_ID ();
@@ -3877,7 +3875,8 @@ posix_common_removexattr (call_frame_t *frame, loc_t *loc, fd_t *fd,
         char                 *real_path       = NULL;
         struct posix_fd      *pfd             = NULL;
         int                  op_ret           = 0;
-        struct iatt          stbuf            = {0};
+        struct iatt          preop            = {0,};
+        struct iatt          postop           = {0,};
         int                  ret              = 0;
         int                  _fd              = -1;
         xlator_t             *this            = frame->this;
@@ -3912,6 +3911,12 @@ posix_common_removexattr (call_frame_t *frame, loc_t *loc, fd_t *fd,
                 *op_errno = ENOATTR;
                 goto out;
         }
+
+        if (loc)
+                ret = posix_pstat(this, inode, loc->gfid, real_path,
+                                  &preop, _gf_false);
+        else
+                ret = posix_fdstat (this, inode, _fd, &preop);
 
         if (gf_get_index_by_elem (disallow_removexattrs, (char *)name) >= 0) {
                 gf_msg (this->name, GF_LOG_WARNING, 0, P_MSG_XATTR_NOT_REMOVED,
@@ -3968,24 +3973,20 @@ posix_common_removexattr (call_frame_t *frame, loc_t *loc, fd_t *fd,
 
         if (loc) {
                 posix_set_ctime (frame, this, real_path, -1, inode, NULL);
+                ret = posix_pstat(this, inode, loc->gfid, real_path, &postop,
+                                  _gf_false);
         } else {
                 posix_set_ctime (frame, this, NULL, _fd, inode, NULL);
+                ret = posix_fdstat (this, inode, _fd, &postop);
         }
+        if (ret)
+                goto out;
+        *xdata_rsp = dict_new();
+        if (!*xdata_rsp)
+                goto out;
 
-        if (xdata && dict_get (xdata, DHT_IATT_IN_XDATA_KEY)) {
-                if (loc)
-                        ret = posix_pstat(this, inode, loc->gfid,
-                                          real_path, &stbuf, _gf_false);
-                else
-                        ret = posix_fdstat (this, inode, _fd, &stbuf);
-                if (ret)
-                        goto out;
-                *xdata_rsp = dict_new();
-                if (!*xdata_rsp)
-                        goto out;
+        ret = posix_set_iatt_in_dict (*xdata_rsp, &preop, &postop);
 
-                ret = posix_set_iatt_in_dict (*xdata_rsp, &stbuf);
-        }
         op_ret = 0;
 out:
         SET_TO_OLD_FS_ID ();

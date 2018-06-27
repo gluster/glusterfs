@@ -132,6 +132,8 @@ int32_t
 is_data_equal (data_t *one,
                data_t *two)
 {
+        struct iatt *iatt1, *iatt2;
+
         if (!one || !two || !one->data || !two->data) {
 		gf_msg_callingfn ("dict", GF_LOG_ERROR, EINVAL,
                                   LG_MSG_INVALID_ARG,
@@ -143,11 +145,63 @@ is_data_equal (data_t *one,
         if (one == two)
                 return 1;
 
-        if (one->len != two->len)
-                return 0;
-
         if (one->data == two->data)
                 return 1;
+
+        if (one->data_type != two->data_type) {
+                return 0;
+        }
+
+        if (one->data_type == GF_DATA_TYPE_IATT) {
+                if ((one->len < sizeof(struct iatt)) ||
+                    (two->len < sizeof(struct iatt))) {
+                        return 0;
+                }
+
+                iatt1 = (struct iatt *)one->data;
+                iatt2 = (struct iatt *)two->data;
+
+                /* Two iatt structs are considered equal if main fields are
+                 * equal, even if times differ.
+                 * TODO: maybe when ctime if fully operational we could
+                 *       enforce time matching. */
+                if (iatt1->ia_ino != iatt2->ia_ino) {
+                        return 0;
+                }
+                if (iatt1->ia_type != iatt2->ia_type) {
+                        return 0;
+                }
+                if ((iatt1->ia_type == IA_IFBLK) ||
+                    (iatt1->ia_type == IA_IFCHR)) {
+                        if (iatt1->ia_rdev != iatt2->ia_rdev) {
+                                return 0;
+                        }
+                }
+                if (gf_uuid_compare(iatt1->ia_gfid, iatt2->ia_gfid) != 0) {
+                        return 0;
+                }
+
+                /* TODO: ia_uid, ia_gid, ia_prot and ia_size can be changed
+                 *       with some commands. Here we don't have enough
+                 *       information to decide if they should match or not. */
+/*
+                if ((iatt1->ia_uid != iatt2->ia_uid) ||
+                    (iatt1->ia_gid != iatt2->ia_gid) ||
+                    (st_mode_from_ia(iatt1->ia_prot, iatt1->ia_type) !=
+                            st_mode_from_ia(iatt2->ia_prot, iatt2->ia_type))) {
+                        return 0;
+                }
+                if (iatt1->ia_type == IA_IFREG) {
+                        if (iatt1->ia_size != iatt2->ia_size) {
+                                return 0;
+                        }
+                }
+*/
+                return 1;
+        }
+
+        if (one->len != two->len)
+                return 0;
 
         if (memcmp (one->data, two->data, one->len) == 0)
                 return 1;
@@ -1194,6 +1248,25 @@ data_to_bin (data_t *data)
 {
         VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_PTR, "null", NULL);
         return data->data;
+}
+
+struct iatt *
+data_to_iatt (data_t *data, char *key)
+{
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_IATT, key, NULL);
+
+        /* We only check for smaller size. If it's bigger we simply ignore
+         * the extra data. This way it's easy to do changes in the future that
+         * pass more data but are backward compatible (if the initial contents
+         * of the struct are maintained, of course). */
+        if (data->len < sizeof(struct iatt)) {
+                gf_msg("glusterfs", GF_LOG_ERROR, ENOBUFS,
+                       LG_MSG_UNDERSIZED_BUF,
+                       "data value for '%s' is smaller than expected", key);
+                return NULL;
+        }
+
+        return (struct iatt *)data->data;
 }
 
 int

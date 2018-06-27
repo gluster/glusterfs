@@ -166,6 +166,7 @@ char *data_to_str (data_t *data);
 void *data_to_bin (data_t *data);
 void *data_to_ptr (data_t *data);
 data_t * data_copy (data_t *old);
+struct iatt *data_to_iatt (data_t *data, char *key);
 
 int dict_foreach (dict_t *this,
                   int (*fn)(dict_t *this,
