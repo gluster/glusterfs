@@ -1,0 +1,8 @@
+performance.open-behind=off
+performance.write-behind=off
+performance.stat-prefetch=off
+performance.quick-read=off
+performance.strict-o-direct=on
+performance.read-ahead=off
+performance.io-cache=off
+performance.readdir-ahead=off
