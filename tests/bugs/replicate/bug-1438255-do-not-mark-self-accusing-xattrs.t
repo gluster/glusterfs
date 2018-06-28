@@ -42,5 +42,5 @@ TEST ! getfattr -n trusted.afr.$V0-client-2 $B0/${V0}2/FILE
 TEST userdel --force ${NEW_USER}
 TEST groupdel ${NEW_USER}-${NEW_GID}
 cleanup
-
-
+#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=000000
+#G_TESTDEF_TEST_STATUS_NETBSD7=BAD_TEST,BUG=000000
