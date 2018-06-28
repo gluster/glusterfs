@@ -226,17 +226,22 @@ mem_acct_init (xlator_t *this)
 int
 init (xlator_t *this)
 {
-	meta_priv_t *priv = NULL;
+        meta_priv_t *priv = NULL;
+        int ret = -1;
 
-	priv = GF_CALLOC (sizeof(*priv), 1, gf_meta_mt_priv_t);
-	if (!priv)
-		return -1;
+        priv = GF_CALLOC (sizeof(*priv), 1, gf_meta_mt_priv_t);
+        if (!priv)
+                return ret;
 
-	GF_OPTION_INIT ("meta-dir-name", priv->meta_dir_name, str, out);
+        GF_OPTION_INIT ("meta-dir-name", priv->meta_dir_name, str, out);
 
-	this->private = priv;
+        this->private = priv;
+        ret = 0;
 out:
-	return 0;
+        if (ret)
+                GF_FREE (priv);
+
+        return ret;
 }
 
 
