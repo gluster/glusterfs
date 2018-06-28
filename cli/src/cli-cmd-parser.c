@@ -543,6 +543,7 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                                 ret = -1;
                                 goto out;
                         }
+
                         replica_count = strtol (words[index+1], NULL, 0);
                         if (replica_count < 2) {
                                 cli_err ("replica count should be greater"
@@ -550,6 +551,36 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                                 ret = -1;
                                 goto out;
                         }
+
+                        index += 2;
+                        if (words[index]) {
+                                if (!strcmp (words[index], "arbiter")) {
+                                        ret = gf_string2int (words[index+1],
+                                                             &arbiter_count);
+                                        if ((ret == -1) || (arbiter_count != 1)) {
+                                                cli_err ("For arbiter "
+                                                         "configuration, "
+                                                         "replica count must be"
+                                                         " 2 and arbiter count "
+                                                         "must be 1. The 3rd "
+                                                         "brick of the replica "
+                                                         "will be the arbiter");
+                                                ret = -1;
+                                                goto out;
+                                        }
+                                        ret = dict_set_int32 (dict, "arbiter-count",
+                                                              arbiter_count);
+                                        if (ret)
+                                                goto out;
+                                        index += 2;
+                                }
+                        }
+
+                        /* Do this to keep glusterd happy with sending
+                           "replica 3 arbiter 1" options to server */
+                        if ((arbiter_count == 1) && (replica_count == 2))
+                                replica_count += arbiter_count;
+
                         if (replica_count == 2) {
                                 if (strcmp (words[wordcount - 1], "force")) {
                                         question = "Replica 2 volumes are prone"
@@ -573,31 +604,6 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                         ret = dict_set_int32 (dict, "replica-count", replica_count);
                         if (ret)
                                 goto out;
-
-                        index += 2;
-                        if (words[index]) {
-                                if (!strcmp (words[index], "arbiter")) {
-                                        ret = gf_string2int (words[index+1],
-                                                             &arbiter_count);
-                                        if (ret == -1 || arbiter_count != 1 ||
-                                            replica_count != 3) {
-                                                cli_err ("For arbiter "
-                                                         "configuration, "
-                                                         "replica count must be"
-                                                         " 3 and arbiter count "
-                                                         "must be 1. The 3rd "
-                                                         "brick of the replica "
-                                                         "will be the arbiter");
-                                                ret = -1;
-                                                goto out;
-                                        }
-                                        ret = dict_set_int32 (dict, "arbiter-count",
-                                                              arbiter_count);
-                                        if (ret)
-                                                goto out;
-                                        index += 2;
-                                }
-                        }
 
                 } else if ((strcmp (w, "stripe")) == 0) {
                         switch (type) {
