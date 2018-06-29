@@ -437,7 +437,9 @@ function run_tests()
     test_chmod;
     test_chown;
     test_utimes;
-    test_locks;
+    if $run_lock_tests; then
+        test_locks;
+    fi
     test_readdir;
     test_setxattr;
     test_listxattr;
@@ -453,12 +455,17 @@ function _init()
     DIR=$(pwd);
 }
 
-
+run_lock_tests=1
 function parse_cmdline()
 {
     if [ "x$1" == "x" ] ; then
-        echo "Usage: $0 /path/mount"
+        echo "Usage: $0 [--no-locks] /path/mount"
         exit 1
+    fi
+
+    if [ "$1" == "--no-locks" ] ; then
+        run_lock_tests=0
+        shift
     fi
 
     DIR=$1;
