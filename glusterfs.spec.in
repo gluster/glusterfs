@@ -1187,8 +1187,8 @@ exit 0
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/quiesce.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing
-%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/features
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/features/template.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/playground
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/playground/template.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance/symlink-cache.so
 # Glupy Python files
