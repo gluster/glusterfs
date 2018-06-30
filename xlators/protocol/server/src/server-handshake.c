@@ -883,9 +883,17 @@ fail:
            to client. Very important in case of subdirectory mounts, where if
            client is trying to mount a non-existing directory */
         if (op_ret >= 0 && client->bound_xl->itable) {
-                op_ret = server_first_lookup (this, client, reply);
-                if (op_ret == -1)
-                        op_errno = ENOENT;
+                if (client->bound_xl->cleanup_starting) {
+                        op_ret = -1;
+                        op_errno = EAGAIN;
+                        ret = dict_set_str (reply, "ERROR",
+                                            "cleanup flag is set for xlator "
+                                            "before call first_lookup Try again later");
+                } else {
+                        op_ret = server_first_lookup (this, client, reply);
+                        if (op_ret == -1)
+                                op_errno = ENOENT;
+                }
         }
 
         rsp = GF_CALLOC (1, sizeof (gf_setvolume_rsp),
