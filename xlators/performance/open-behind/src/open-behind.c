@@ -32,6 +32,16 @@ typedef struct ob_conf {
                                             */
 } ob_conf_t;
 
+typedef struct ob_inode {
+        inode_t          *inode;
+        struct list_head  resume_fops;
+        struct list_head  ob_fds;
+        int               count;
+        int               op_ret;
+        int               op_errno;
+        gf_boolean_t      open_in_progress;
+        int               unlinked;
+} ob_inode_t;
 
 typedef struct ob_fd {
 	call_frame_t     *open_frame;
@@ -39,8 +49,78 @@ typedef struct ob_fd {
 	dict_t           *xdata;
 	int               flags;
 	int               op_errno;
+        ob_inode_t       *ob_inode;
+        fd_t             *fd;
+        gf_boolean_t      opened;
+        gf_boolean_t      ob_inode_fops_waiting;
 	struct list_head  list;
+        struct list_head  ob_fds_on_inode;
 } ob_fd_t;
+
+ob_inode_t *
+ob_inode_alloc (inode_t *inode)
+{
+        ob_inode_t *ob_inode = NULL;
+
+        ob_inode = GF_CALLOC (1, sizeof (*ob_inode), gf_ob_mt_inode_t);
+        if (ob_inode == NULL)
+                goto out;
+
+        ob_inode->inode = inode;
+        INIT_LIST_HEAD (&ob_inode->resume_fops);
+        INIT_LIST_HEAD (&ob_inode->ob_fds);
+out:
+        return ob_inode;
+}
+
+void
+ob_inode_free (ob_inode_t *ob_inode)
+{
+        if (ob_inode == NULL)
+                goto out;
+
+        list_del_init (&ob_inode->resume_fops);
+        list_del_init (&ob_inode->ob_fds);
+
+        GF_FREE (ob_inode);
+out:
+        return;
+}
+
+ob_inode_t *
+ob_inode_get (xlator_t *this, inode_t *inode)
+{
+        ob_inode_t *ob_inode = NULL;
+        uint64_t    value    = 0;
+        int         ret      = 0;
+
+        if (!inode)
+                goto out;
+
+        LOCK (&inode->lock);
+        {
+                __inode_ctx_get (inode, this, &value);
+                if (value == 0) {
+                        ob_inode = ob_inode_alloc (inode);
+                        if (ob_inode == NULL)
+                                goto unlock;
+
+                        value = (uint64_t)((void *)ob_inode);
+                        ret = __inode_ctx_set (inode, this, &value);
+                        if (ret < 0) {
+                                ob_inode_free (ob_inode);
+                                ob_inode = NULL;
+                        }
+                } else {
+                        ob_inode = (ob_inode_t *) value;
+                }
+        }
+unlock:
+        UNLOCK (&inode->lock);
+
+out:
+        return ob_inode;
+}
 
 
 ob_fd_t *
@@ -112,6 +192,7 @@ ob_fd_new (void)
 	ob_fd = GF_CALLOC (1, sizeof (*ob_fd), gf_ob_mt_fd_t);
 
 	INIT_LIST_HEAD (&ob_fd->list);
+	INIT_LIST_HEAD (&ob_fd->ob_fds_on_inode);
 
 	return ob_fd;
 }
@@ -120,6 +201,12 @@ ob_fd_new (void)
 void
 ob_fd_free (ob_fd_t *ob_fd)
 {
+        LOCK (&ob_fd->fd->inode->lock);
+        {
+                list_del_init (&ob_fd->ob_fds_on_inode);
+        }
+        UNLOCK (&ob_fd->fd->inode->lock);
+
 	loc_wipe (&ob_fd->loc);
 
 	if (ob_fd->xdata)
@@ -136,21 +223,32 @@ int
 ob_wake_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	     int op_ret, int op_errno, fd_t *fd_ret, dict_t *xdata)
 {
-	fd_t              *fd = NULL;
-	struct list_head   list;
-	ob_fd_t           *ob_fd = NULL;
-	call_stub_t       *stub = NULL, *tmp = NULL;
+	fd_t             *fd                    = NULL;
+        int               count                 = 0;
+        int               ob_inode_op_ret       = 0;
+        int               ob_inode_op_errno     = 0;
+	ob_fd_t          *ob_fd                 = NULL;
+	call_stub_t      *stub                  = NULL, *tmp = NULL;
+        ob_inode_t       *ob_inode              = NULL;
+        gf_boolean_t      ob_inode_fops_waiting = _gf_false;
+        struct list_head  fops_waiting_on_fd, fops_waiting_on_inode;
 
 	fd = frame->local;
 	frame->local = NULL;
 
-	INIT_LIST_HEAD (&list);
+	INIT_LIST_HEAD (&fops_waiting_on_fd);
+        INIT_LIST_HEAD (&fops_waiting_on_inode);
+
+        ob_inode = ob_inode_get (this, fd->inode);
 
 	LOCK (&fd->lock);
 	{
 		ob_fd = __ob_fd_ctx_get (this, fd);
+                ob_fd->opened = _gf_true;
 
-		list_splice_init (&ob_fd->list, &list);
+                ob_inode_fops_waiting = ob_fd->ob_inode_fops_waiting;
+
+		list_splice_init (&ob_fd->list, &fops_waiting_on_fd);
 
 		if (op_ret < 0) {
 			/* mark fd BAD for ever */
@@ -162,10 +260,31 @@ ob_wake_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 	UNLOCK (&fd->lock);
 
+        if (ob_inode_fops_waiting) {
+                LOCK (&fd->inode->lock);
+                {
+                        count = --ob_inode->count;
+                        if (op_ret < 0) {
+                                /* TODO: when to reset the error? */
+                                ob_inode->op_ret = -1;
+                                ob_inode->op_errno = op_errno;
+                        }
+
+                        if (count == 0) {
+                                ob_inode->open_in_progress = _gf_false;
+                                ob_inode_op_ret = ob_inode->op_ret;
+                                ob_inode_op_errno = ob_inode->op_errno;
+                                list_splice_init (&ob_inode->resume_fops,
+                                                  &fops_waiting_on_inode);
+                        }
+                }
+                UNLOCK (&fd->inode->lock);
+        }
+
         if (ob_fd)
                 ob_fd_free (ob_fd);
 
-	list_for_each_entry_safe (stub, tmp, &list, list) {
+	list_for_each_entry_safe (stub, tmp, &fops_waiting_on_fd, list) {
 		list_del_init (&stub->list);
 
 		if (op_ret < 0)
@@ -173,6 +292,15 @@ ob_wake_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		else
 			call_resume (stub);
 	}
+
+        list_for_each_entry_safe (stub, tmp, &fops_waiting_on_inode, list) {
+                list_del_init (&stub->list);
+
+                if (ob_inode_op_ret < 0)
+                        call_unwind_error (stub, -1, ob_inode_op_errno);
+                else
+                        call_resume (stub);
+        }
 
 	fd_unref (fd);
 
@@ -183,22 +311,30 @@ ob_wake_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-ob_fd_wake (xlator_t *this, fd_t *fd)
+ob_fd_wake (xlator_t *this, fd_t *fd, ob_fd_t *ob_fd)
 {
 	call_frame_t *frame = NULL;
-	ob_fd_t      *ob_fd = NULL;
 
-	LOCK (&fd->lock);
-	{
-		ob_fd = __ob_fd_ctx_get (this, fd);
-		if (!ob_fd)
-			goto unlock;
+        if (ob_fd == NULL) {
+                LOCK (&fd->lock);
+                {
+                        ob_fd = __ob_fd_ctx_get (this, fd);
+                        if (!ob_fd)
+                                goto unlock;
 
-		frame = ob_fd->open_frame;
-		ob_fd->open_frame = NULL;
-	}
-unlock:
-	UNLOCK (&fd->lock);
+                        frame = ob_fd->open_frame;
+                        ob_fd->open_frame = NULL;
+                }
+        unlock:
+                UNLOCK (&fd->lock);
+        } else {
+	  LOCK (&fd->lock);
+	  {
+                frame = ob_fd->open_frame;
+                ob_fd->open_frame = NULL;
+	  }
+	  UNLOCK (&fd->lock);
+        }
 
 	if (frame) {
 		frame->local = fd_ref (fd);
@@ -211,6 +347,108 @@ unlock:
 	return 0;
 }
 
+void
+ob_inode_wake (xlator_t *this, struct list_head *ob_fds)
+{
+        ob_fd_t      *ob_fd = NULL, *tmp = NULL;
+        fd_t         *fd    = NULL;
+
+        list_for_each_entry_safe (ob_fd, tmp, ob_fds, ob_fds_on_inode) {
+                ob_fd_wake (this, ob_fd->fd, ob_fd);
+                fd = ob_fd->fd;
+                ob_fd_free (ob_fd);
+                fd_unref (fd);
+        }
+}
+
+/* called holding inode->lock and fd->lock */
+void
+ob_fd_copy (ob_fd_t *src, ob_fd_t *dst)
+{
+        if (!src || !dst)
+                goto out;
+
+        dst->fd = __fd_ref (src->fd);
+        dst->loc.inode = inode_ref (src->loc.inode);
+        gf_uuid_copy (dst->loc.gfid, src->loc.gfid);
+        dst->flags = src->flags;
+        dst->xdata = dict_ref (src->xdata);
+        dst->ob_inode = src->ob_inode;
+out:
+        return;
+}
+
+int
+open_all_pending_fds_and_resume (xlator_t *this, inode_t *inode,
+                                 call_stub_t *stub)
+{
+        ob_inode_t       *ob_inode             = NULL;
+        ob_fd_t          *ob_fd                = NULL, *tmp = NULL;
+        gf_boolean_t      was_open_in_progress = _gf_false;
+        gf_boolean_t      wait_for_open        = _gf_false;
+        struct list_head  ob_fds               = {0, };
+
+        ob_inode = ob_inode_get (this, inode);
+        if (ob_inode == NULL)
+                goto out;
+
+        INIT_LIST_HEAD (&ob_fds);
+
+        LOCK (&inode->lock);
+        {
+                was_open_in_progress = ob_inode->open_in_progress;
+                ob_inode->unlinked = 1;
+
+                if (was_open_in_progress) {
+                        list_add_tail (&stub->list, &ob_inode->resume_fops);
+                        goto inode_unlock;
+                }
+
+                list_for_each_entry (ob_fd, &ob_inode->ob_fds,
+                                     ob_fds_on_inode) {
+                        LOCK (&ob_fd->fd->lock);
+                        {
+                                if (ob_fd->opened)
+                                        goto fd_unlock;
+
+                                ob_inode->count++;
+                                ob_fd->ob_inode_fops_waiting = _gf_true;
+
+                                if (ob_fd->open_frame == NULL) {
+                                        /* open in progress no need of wake */
+                                } else {
+                                        tmp = ob_fd_new ();
+                                        tmp->open_frame = ob_fd->open_frame;
+                                        ob_fd->open_frame = NULL;
+
+                                        ob_fd_copy (ob_fd, tmp);
+                                        list_add_tail (&tmp->ob_fds_on_inode,
+                                                       &ob_fds);
+                                }
+                        }
+                fd_unlock:
+                        UNLOCK (&ob_fd->fd->lock);
+                }
+
+                if (ob_inode->count) {
+                        wait_for_open = ob_inode->open_in_progress = _gf_true;
+                        list_add_tail (&stub->list, &ob_inode->resume_fops);
+                }
+        }
+inode_unlock:
+        UNLOCK (&inode->lock);
+
+out:
+        if (!was_open_in_progress) {
+                if (!wait_for_open) {
+                        call_resume (stub);
+                } else {
+                        ob_inode_wake (this, &ob_fds);
+                }
+        }
+
+        return 0;
+}
 
 int
 open_and_resume (xlator_t *this, fd_t *fd, call_stub_t *stub)
@@ -241,7 +479,7 @@ nofd:
 	if (op_errno)
 		call_unwind_error (stub, -1, op_errno);
 	else if (ob_fd)
-		ob_fd_wake (this, fd);
+		ob_fd_wake (this, fd, NULL);
 	else
 		call_resume (stub);
 
@@ -253,10 +491,12 @@ int
 ob_open_behind (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 		fd_t *fd, dict_t *xdata)
 {
-	ob_fd_t    *ob_fd = NULL;
-	int         ret = -1;
-	ob_conf_t  *conf = NULL;
-
+	ob_fd_t      *ob_fd            = NULL;
+	int           ret              = -1;
+	ob_conf_t    *conf             = NULL;
+        ob_inode_t   *ob_inode         = NULL;
+        gf_boolean_t  open_in_progress = _gf_false;
+        int           unlinked         = 0;
 
 	conf = this->private;
 
@@ -267,9 +507,16 @@ ob_open_behind (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 		return 0;
 	}
 
+        ob_inode = ob_inode_get (this, fd->inode);
+
 	ob_fd = ob_fd_new ();
 	if (!ob_fd)
 		goto enomem;
+
+        ob_fd->ob_inode = ob_inode;
+
+        /* don't do fd_ref, it'll cause leaks */
+        ob_fd->fd       = fd;
 
 	ob_fd->open_frame = copy_frame (frame);
 	if (!ob_fd->open_frame)
@@ -282,27 +529,49 @@ ob_open_behind (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 	if (xdata)
 		ob_fd->xdata = dict_ref (xdata);
 
-	ret = ob_fd_ctx_set (this, fd, ob_fd);
-	if (ret)
-		goto enomem;
+        LOCK (&fd->inode->lock);
+        {
+                open_in_progress = ob_inode->open_in_progress;
+                unlinked = ob_inode->unlinked;
+                if (!open_in_progress && !unlinked) {
+                        ret = ob_fd_ctx_set (this, fd, ob_fd);
+                        if (ret) {
+                                UNLOCK (&fd->inode->lock);
+                                goto enomem;
+                        }
 
-	fd_ref (fd);
+                        list_add (&ob_fd->ob_fds_on_inode, &ob_inode->ob_fds);
+                }
+        }
+        UNLOCK (&fd->inode->lock);
 
-	STACK_UNWIND_STRICT (open, frame, 0, 0, fd, xdata);
 
-	if (!conf->lazy_open)
-		ob_fd_wake (this, fd);
+        if (!open_in_progress && !unlinked) {
+                fd_ref (fd);
 
-	fd_unref (fd);
+                STACK_UNWIND_STRICT (open, frame, 0, 0, fd, xdata);
+
+                if (!conf->lazy_open)
+                        ob_fd_wake (this, fd, NULL);
+
+                fd_unref (fd);
+        } else {
+                ob_fd_free (ob_fd);
+		STACK_WIND (frame, default_open_cbk,
+			    FIRST_CHILD (this), FIRST_CHILD (this)->fops->open,
+			    loc, flags, fd, xdata);
+        }
 
 	return 0;
 enomem:
 	if (ob_fd) {
 		if (ob_fd->open_frame)
 			STACK_DESTROY (ob_fd->open_frame->root);
+
 		loc_wipe (&ob_fd->loc);
 		if (ob_fd->xdata)
 			dict_unref (ob_fd->xdata);
+
 		GF_FREE (ob_fd);
 	}
 
@@ -314,10 +583,10 @@ int
 ob_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 	 fd_t *fd, dict_t *xdata)
 {
-	fd_t         *old_fd = NULL;
-	int           ret = -1;
-	int           op_errno = 0;
-	call_stub_t  *stub = NULL;
+	fd_t         *old_fd           = NULL;
+	int           ret              = -1;
+	int           op_errno         = 0;
+	call_stub_t  *stub             = NULL;
 
 	old_fd = fd_lookup (fd->inode, 0);
 	if (old_fd) {
@@ -365,7 +634,7 @@ ob_get_wind_fd (xlator_t *this, fd_t *fd, uint32_t *flag)
 
 	ob_fd = ob_fd_ctx_get (this, fd);
 
-	if (ob_fd && conf->use_anonymous_fd) {
+	if (ob_fd && ob_fd->open_frame && conf->use_anonymous_fd) {
                 wind_fd = fd_anonymous (fd->inode);
                 if ((ob_fd->flags & O_DIRECT) && (flag))
                         *flag = *flag | O_DIRECT;
@@ -760,12 +1029,10 @@ err:
         return 0;
 }
 
-
 int
 ob_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
 	   dict_t *xdata)
 {
-	fd_t         *fd = NULL;
 	call_stub_t  *stub = NULL;
 
 	stub = fop_unlink_stub (frame, default_unlink_resume, loc,
@@ -773,11 +1040,7 @@ ob_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
 	if (!stub)
 		goto err;
 
-	fd = fd_lookup (loc->inode, 0);
-
-	open_and_resume (this, fd, stub);
-        if (fd)
-                fd_unref (fd);
+	open_all_pending_fds_and_resume (this, loc->inode, stub);
 
 	return 0;
 err:
@@ -786,24 +1049,17 @@ err:
 	return 0;
 }
 
-
 int
 ob_rename (call_frame_t *frame, xlator_t *this, loc_t *src, loc_t *dst,
 	   dict_t *xdata)
 {
-	fd_t         *fd = NULL;
 	call_stub_t  *stub = NULL;
 
 	stub = fop_rename_stub (frame, default_rename_resume, src, dst, xdata);
 	if (!stub)
 		goto err;
 
-	if (dst->inode)
-		fd = fd_lookup (dst->inode, 0);
-
-	open_and_resume (this, fd, stub);
-        if (fd)
-                fd_unref (fd);
+	open_all_pending_fds_and_resume (this, dst->inode, stub);
 
 	return 0;
 err:
@@ -816,7 +1072,6 @@ int32_t
 ob_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
             struct iatt *stbuf, int32_t valid,	dict_t *xdata)
 {
-        fd_t        *fd   = NULL;
 	call_stub_t *stub = NULL;
 
         stub = fop_setattr_stub (frame, default_setattr_resume, loc, stbuf,
@@ -824,11 +1079,7 @@ ob_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (!stub)
                 goto err;
 
-        fd = fd_lookup (loc->inode, 0);
-
-        open_and_resume (this, fd, stub);
-        if (fd)
-                fd_unref (fd);
+        open_all_pending_fds_and_resume (this, loc->inode, stub);
 
 	return 0;
 err:
@@ -841,7 +1092,6 @@ int32_t
 ob_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
              int32_t flags, dict_t *xdata)
 {
-        fd_t         *fd           = NULL;
 	call_stub_t  *stub         = NULL;
         gf_boolean_t  access_xattr = _gf_false;
 
@@ -858,11 +1108,7 @@ ob_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         if (!stub)
                 goto err;
 
-        fd = fd_lookup (loc->inode, 0);
-
-        open_and_resume (this, fd, stub);
-        if (fd)
-                fd_unref (fd);
+        open_all_pending_fds_and_resume (this, loc->inode, stub);
 
 	return 0;
 err:
@@ -873,7 +1119,7 @@ err:
 int
 ob_release (xlator_t *this, fd_t *fd)
 {
-	ob_fd_t *ob_fd = NULL;
+	ob_fd_t    *ob_fd    = NULL;
 
 	ob_fd = ob_fd_ctx_get (this, fd);
 
@@ -882,6 +1128,21 @@ ob_release (xlator_t *this, fd_t *fd)
 	return 0;
 }
 
+int
+ob_forget (xlator_t *this, inode_t *inode)
+{
+        ob_inode_t *ob_inode = NULL;
+        uint64_t    value    = 0;
+
+        inode_ctx_del (inode, this, &value);
+
+        if (value) {
+                ob_inode = (ob_inode_t *)((void *) value);
+                ob_inode_free (ob_inode);
+        }
+
+        return 0;
+}
 
 int
 ob_priv_dump (xlator_t *this)
@@ -1068,6 +1329,7 @@ struct xlator_fops fops = {
 
 struct xlator_cbks cbks = {
         .release  = ob_release,
+        .forget   = ob_forget,
 };
 
 struct xlator_dumpops dumpops = {
@@ -1079,7 +1341,7 @@ struct xlator_dumpops dumpops = {
 struct volume_options options[] = {
         { .key  = {"use-anonymous-fd"},
           .type = GF_OPTION_TYPE_BOOL,
-          .default_value = "yes",
+          .default_value = "no",
           .description = "For read operations, use anonymous FD when "
           "original FD is open-behind and not yet opened in the backend.",
         },
