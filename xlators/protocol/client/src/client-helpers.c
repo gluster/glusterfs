@@ -3282,3 +3282,136 @@ client_process_response_v2 (call_frame_t *frame, xlator_t *this,
         gf_dirent_free (&entries);
         return 0;
 }
+
+extern int
+client3_3_releasedir_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                          void *myframe);
+extern int
+client3_3_release_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                       void *myframe);
+extern int
+client4_0_releasedir_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                          void *myframe);
+extern int
+client4_0_release_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                       void *myframe);
+
+static int
+send_release4_0_over_wire (xlator_t *this, clnt_fd_ctx_t *fdctx,
+                           call_frame_t *fr)
+{
+        clnt_conf_t  *conf = NULL;
+        conf = (clnt_conf_t *) this->private;
+        if (fdctx->is_dir) {
+                gfx_releasedir_req  req = {{0,},};
+                memcpy (req.gfid, fdctx->gfid, 16);
+                req.fd = fdctx->remote_fd;
+
+                gf_msg_trace (this->name, 0, "sending releasedir on fd");
+                (void)client_submit_request (this, &req, fr, conf->fops,
+                                             GFS3_OP_RELEASEDIR,
+                                             client4_0_releasedir_cbk,
+                                             NULL, NULL, 0, NULL, 0, NULL,
+                                             (xdrproc_t)xdr_gfx_releasedir_req);
+        } else {
+                gfx_release_req  req = {{0,},};
+                memcpy (req.gfid, fdctx->gfid, 16);
+                req.fd = fdctx->remote_fd;
+                gf_msg_trace (this->name, 0, "sending release on fd");
+                (void)client_submit_request (this, &req, fr, conf->fops,
+                                             GFS3_OP_RELEASE,
+                                             client4_0_release_cbk, NULL,
+                                             NULL, 0, NULL, 0, NULL,
+                                             (xdrproc_t)xdr_gfx_release_req);
+        }
+
+        return 0;
+}
+
+static int
+send_release3_3_over_wire (xlator_t *this, clnt_fd_ctx_t *fdctx,
+                           call_frame_t *fr)
+{
+        clnt_conf_t  *conf        = NULL;
+        conf = (clnt_conf_t *) this->private;
+        if (fdctx->is_dir) {
+                gfs3_releasedir_req  req = {{0,},};
+                memcpy (req.gfid, fdctx->gfid, 16);
+                req.fd = fdctx->remote_fd;
+                gf_msg_trace (this->name, 0, "sending releasedir on fd");
+                (void)client_submit_request (this, &req, fr, conf->fops,
+                                             GFS3_OP_RELEASEDIR,
+                                             client3_3_releasedir_cbk,
+                                             NULL, NULL, 0, NULL, 0, NULL,
+                                             (xdrproc_t)xdr_gfs3_releasedir_req);
+        } else {
+                gfs3_release_req  req = {{0,},};
+                memcpy (req.gfid, fdctx->gfid, 16);
+                req.fd = fdctx->remote_fd;
+                gf_msg_trace (this->name, 0, "sending release on fd");
+                (void)client_submit_request (this, &req, fr, conf->fops,
+                                             GFS3_OP_RELEASE,
+                                             client3_3_release_cbk, NULL,
+                                             NULL, 0, NULL, 0, NULL,
+                                             (xdrproc_t)xdr_gfs3_release_req);
+        }
+
+        return 0;
+}
+
+int
+client_fdctx_destroy (xlator_t *this, clnt_fd_ctx_t *fdctx)
+{
+        clnt_conf_t  *conf        = NULL;
+        call_frame_t *fr          = NULL;
+        int32_t       ret         = -1;
+        char          parent_down = 0;
+        fd_lk_ctx_t  *lk_ctx      = NULL;
+
+        GF_VALIDATE_OR_GOTO ("client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fdctx, out);
+
+        conf = (clnt_conf_t *) this->private;
+
+        if (fdctx->remote_fd == -1) {
+                gf_msg_debug (this->name, 0, "not a valid fd");
+                goto out;
+        }
+
+        pthread_mutex_lock (&conf->lock);
+        {
+                parent_down   = conf->parent_down;
+        }
+        pthread_mutex_unlock (&conf->lock);
+        lk_ctx        = fdctx->lk_ctx;
+        fdctx->lk_ctx = NULL;
+
+        if (lk_ctx)
+                fd_lk_ctx_unref (lk_ctx);
+
+        if (!parent_down)
+                rpc_clnt_ref (conf->rpc);
+        else
+                goto out;
+
+        fr = create_frame (this, this->ctx->pool);
+        if (fr == NULL) {
+                goto out;
+        }
+
+        ret = 0;
+
+        if (conf->fops->progver == GLUSTER_FOP_VERSION)
+                send_release3_3_over_wire (this, fdctx, fr);
+        else
+                send_release4_0_over_wire (this, fdctx, fr);
+
+        rpc_clnt_unref (conf->rpc);
+out:
+        if (fdctx) {
+                fdctx->remote_fd = -1;
+                GF_FREE (fdctx);
+        }
+
+        return ret;
+}
