@@ -30,7 +30,7 @@ function create_data()
     # dir
     mkdir ${master_mnt}/${prefix}_d1
     mkdir ${master_mnt}/${prefix}_d2
-    touch ${master_mnt}/${prefix}_d3
+    mkdir ${master_mnt}/${prefix}_d3
 
     # Hardlink
     ln ${master_mnt}/${prefix}_f1 ${master_mnt}/${prefix}_hl1
@@ -149,7 +149,7 @@ function symlink_ok()
 
 }
 
-function rename_ok()
+function rename_file_ok()
 {
     old_name=$1
     new_name=$2
@@ -157,6 +157,20 @@ function rename_ok()
     if [ -f $old_name ]; then
         echo 1
     elif [ ! -f $new_name ]; then
+        echo 1
+    else
+        echo 0
+    fi
+}
+
+function rename_dir_ok()
+{
+    old_name=$1
+    new_name=$2
+
+    if [ -d $old_name ]; then
+        echo 1
+    elif [ ! -d $new_name ]; then
         echo 1
     else
         echo 0
@@ -256,7 +270,15 @@ function hardlink_rename_ok()
     fi
 }
 
-function symlink_rename_mkdir_ok()
+function create_symlink_rename_mkdir_data()
+{
+    mkdir ${master_mnt}/symlink_test1
+    touch ${master_mnt}/symlink_test1/file1
+    ln -s "./file1" ${master_mnt}/symlink_test1/sym_link
+    mv ${master_mnt}/symlink_test1/sym_link ${master_mnt}/symlink_test1/rn_sym_link
+    mkdir ${master_mnt}/symlink_test1/sym_link
+}
+function verify_symlink_rename_mkdir_data()
 {
     sym_dir=$1
     if [ ! -f $sym_dir/file1 ]; then
@@ -264,6 +286,70 @@ function symlink_rename_mkdir_ok()
     elif [ ! -h $sym_dir/rn_sym_link ]; then
         echo 1
     elif [ ! -d $sym_dir/sym_link ]; then
+        echo 1
+    else
+        echo 0
+    fi
+}
+
+function create_rsnapshot_data()
+{
+    rm -rf /tmp/rsnapshot_symlinkbug
+    mkdir /tmp/rsnapshot_symlinkbug
+    ln -f -s /does/not/exist /tmp/rsnapshot_symlinkbug/a_symlink
+    rsync -a /tmp/rsnapshot_symlinkbug ${master_mnt}/
+    cp -al ${master_mnt}/rsnapshot_symlinkbug ${master_mnt}/rsnapshot_symlinkbug.0
+    ln -f -s /does/not/exist2 /tmp/rsnapshot_symlinkbug/a_symlink
+    rsync -a /tmp/rsnapshot_symlinkbug ${master_mnt}/
+    cp -al ${master_mnt}/rsnapshot_symlinkbug ${master_mnt}/rsnapshot_symlinkbug.1
+}
+
+function verify_rsnapshot_data()
+{
+    dir="$1/rsnapshot_symlinkbug"
+    dir0="$1/rsnapshot_symlinkbug.0"
+    dir1="$1/rsnapshot_symlinkbug.1"
+    if [ ! -d "$dir" ]; then
+        echo 1
+    elif [ ! -h $dir/a_symlink ]; then
+        echo 1
+    elif test "X$(readlink $dir/a_symlink)" != "X/does/not/exist2"; then
+        echo 1
+    elif [ ! -h $dir0/a_symlink ]; then
+        echo 1
+    elif test "X$(readlink $dir0/a_symlink)" != "X/does/not/exist"; then
+        echo 1
+    elif [ ! -h $dir1/a_symlink ]; then
+        echo 1
+    elif test "X$(readlink $dir1/a_symlink)" != "X/does/not/exist2"; then
+        echo 1
+    else
+        echo 0
+    fi
+}
+
+function create_hardlink_rename_data()
+{
+    dir=${master_mnt}/hardlink_rename_issue
+    mkdir $dir
+    echo "test_data" > $dir/f1
+    ln $dir/f1 $dir/f2
+    mv $dir/f2 $dir/f3
+    unlink $dir/f1
+}
+
+function verify_hardlink_rename_data()
+{
+    dir=$1/hardlink_rename_issue
+    if [ ! -d $dir ]; then
+        echo 1
+    elif [ -f $dir/f1 ]; then
+        echo 1
+    elif [ -f $dir/f2 ]; then
+        echo 1
+    elif [ ! -f $dir/f3 ]; then
+        echo 1
+    elif test "Xtest_data" != "X$(cat $dir/f3)"; then
         echo 1
     else
         echo 0

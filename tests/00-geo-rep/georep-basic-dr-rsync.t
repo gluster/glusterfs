@@ -3,6 +3,7 @@
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
 . $(dirname $0)/../geo-rep.rc
+. $(dirname $0)/../env.rc
 
 AREQUAL_PATH=$(dirname $0)/../utils
 test "`uname -s`" != "Linux" && {
@@ -84,8 +85,8 @@ EXPECT_WITHIN $GEO_REP_TIMEOUT  2 check_status_num_rows "Passive"
 #data_tests "hybrid"
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 regular_file_ok ${slave_mnt}/hybrid_f1
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/$hybrid_d1
-EXPECT_WITHIN $GEO_REP_TIMEOUT 0 rename_ok ${slave_mnt}/hybrid_f3 ${slave_mnt}/hybrid_f4
-EXPECT_WITHIN $GEO_REP_TIMEOUT 0 rename_ok ${slave_mnt}/hybrid_d3 ${slave_mnt}/hybrid_d4
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 rename_file_ok ${slave_mnt}/hybrid_f3 ${slave_mnt}/hybrid_f4
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 rename_dir_ok ${slave_mnt}/hybrid_d3 ${slave_mnt}/hybrid_d4
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 symlink_ok hybrid_f1 ${slave_mnt}/hybrid_sl1
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 hardlink_file_ok ${slave_mnt}/hybrid_f1 ${slave_mnt}/hybrid_hl1
 EXPECT_WITHIN $GEO_REP_TIMEOUT 1 unlink_ok ${slave_mnt}/hybrid_f2
@@ -103,8 +104,8 @@ EXPECT_WITHIN $GEO_REP_TIMEOUT  2 check_status_num_rows "Passive"
 #data_tests "history"
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 regular_file_ok ${slave_mnt}/history_f1
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/history_d1
-EXPECT_WITHIN $GEO_REP_TIMEOUT 0 rename_ok ${slave_mnt}/history_f3 ${slave_mnt}/history_f4
-EXPECT_WITHIN $GEO_REP_TIMEOUT 0 rename_ok ${slave_mnt}/history_d3 ${slave_mnt}/history_d4
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 rename_file_ok ${slave_mnt}/history_f3 ${slave_mnt}/history_f4
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 rename_dir_ok ${slave_mnt}/history_d3 ${slave_mnt}/history_d4
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 symlink_ok history_f1 ${slave_mnt}/history_sl1
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 hardlink_file_ok ${slave_mnt}/history_f1 ${slave_mnt}/history_hl1
 EXPECT_WITHIN $GEO_REP_TIMEOUT 1 unlink_ok ${slave_mnt}/history_f2
@@ -134,8 +135,8 @@ hardlink_rename ${master_mnt}/hardlink_rename_test_file
 #data_tests "changelog"
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 regular_file_ok ${slave_mnt}/changelog_f1
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/changelog_d1
-EXPECT_WITHIN $GEO_REP_TIMEOUT 0 rename_ok ${slave_mnt}/changelog_f3 ${slave_mnt}/changelog_f4
-EXPECT_WITHIN $GEO_REP_TIMEOUT 0 rename_ok ${slave_mnt}/changelog_d3 ${slave_mnt}/changelog_d4
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 rename_file_ok ${slave_mnt}/changelog_f3 ${slave_mnt}/changelog_f4
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 rename_dir_ok ${slave_mnt}/changelog_d3 ${slave_mnt}/changelog_d4
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 symlink_ok changelog_f1 ${slave_mnt}/changelog_sl1
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 hardlink_file_ok ${slave_mnt}/changelog_f1 ${slave_mnt}/changelog_hl1
 EXPECT_WITHIN $GEO_REP_TIMEOUT 1 unlink_ok ${slave_mnt}/changelog_f2
@@ -157,20 +158,36 @@ EXPECT_WITHIN $GEO_REP_TIMEOUT 0 hardlink_rename_ok ${slave_mnt}/hardlink_rename
 TEST $GEOREP_CLI $master $slave stop
 
 #Symlink testcase: Rename symlink and create dir with same name
-TEST mkdir ${master_mnt}/symlink_test1
-TEST touch ${master_mnt}/symlink_test1/file1
-TEST ln -s "./file1" ${master_mnt}/symlink_test1/sym_link
-TEST mv ${master_mnt}/symlink_test1/sym_link ${master_mnt}/symlink_test1/rn_sym_link
-TEST mkdir ${master_mnt}/symlink_test1/sym_link
+TEST create_symlink_rename_mkdir_data
+
+#hardlink-rename-unlink usecase. Sonatype Nexus3 Usecase. BUG:1512483
+TEST create_hardlink_rename_data
+
+#rsnapshot usecase
+TEST create_rsnapshot_data
 
 #Start Geo-rep
 TEST $GEOREP_CLI $master $slave start
 
-#Check for hardlink rename case. It should not create src file again on
-# changelog reprocessing. Refer BUG1296174
+#Wait for geo-rep to come up
+EXPECT_WITHIN $GEO_REP_TIMEOUT  2 check_status_num_rows "Active"
+EXPECT_WITHIN $GEO_REP_TIMEOUT  2 check_status_num_rows "Passive"
+
+#Check for hardlink rename case. BUG: 1296174
+#It should not create src file again on changelog reprocessing
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 hardlink_rename_ok ${slave_mnt}/hardlink_rename_test_file
-#symlink rename mkdir
-EXPECT_WITHIN $GEO_REP_TIMEOUT 0 symlink_rename_mkdir_ok ${slave_mnt}/symlink_test1
+
+#Symlink testcase: Rename symlink and create dir with same name
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 verify_symlink_rename_mkdir_data ${slave_mnt}/symlink_test1
+
+#hardlink-rename-unlink usecase. Sonatype Nexus3 Usecase. BUG:1512483
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 verify_hardlink_rename_data ${slave_mnt}
+
+#rsnapshot usecase
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 verify_rsnapshot_data ${slave_mnt}
+
+#Verify arequal for whole volume
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 arequal_checksum ${master_mnt} ${slave_mnt}
 
 #Stop Geo-rep
 TEST $GEOREP_CLI $master $slave stop
