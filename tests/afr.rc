@@ -89,3 +89,11 @@ function count_index_entries()
 {
     ls $1/.glusterfs/indices/xattrop | wc -l
 }
+
+function afr_up_status()
+{
+        local v=$1
+        local m=$2
+        local replica_id=$3
+        grep -E "^up = " $m/.meta/graphs/active/${v}-replicate-${replica_id}/private | cut -f2 -d'='
+}

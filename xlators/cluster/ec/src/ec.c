@@ -1370,6 +1370,7 @@ int32_t ec_dump_private(xlator_t *this)
 
     snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
     gf_proc_dump_add_section(key_prefix);
+    gf_proc_dump_write("up", "%u", ec->up);
     gf_proc_dump_write("nodes", "%u", ec->nodes);
     gf_proc_dump_write("redundancy", "%u", ec->redundancy);
     gf_proc_dump_write("fragment_size", "%u", ec->fragment_size);
