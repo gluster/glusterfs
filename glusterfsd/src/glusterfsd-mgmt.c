@@ -736,6 +736,12 @@ glusterfs_handle_translator_op (rpcsvc_request_t *req)
 
         ctx = glusterfsd_ctx;
         active = ctx->active;
+        if (!active) {
+                ret = -1;
+                gf_msg (this->name, GF_LOG_ERROR, EAGAIN, glusterfsd_msg_38,
+                        xlator_req.op);
+                goto out;
+        }
         any = active->first;
         input = dict_new ();
         ret = dict_unserialize (xlator_req.input.input_val,
