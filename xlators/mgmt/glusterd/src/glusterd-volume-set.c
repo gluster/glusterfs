@@ -3779,6 +3779,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version  = GD_OP_VERSION_3_12_0,
           .validate_fn = validate_boolean
         },
+        { .key         = GLUSTERD_DAEMON_LOG_LEVEL_KEY,
+          .voltype     = "mgmt/glusterd",
+          .type        = GLOBAL_NO_DOC,
+          .value       = "INFO",
+          .op_version  = GD_OP_VERSION_4_2_0
+        },
         { .key        = "debug.delay-gen",
           .voltype    = "debug/delay-gen",
           .option     = "!debug",
