@@ -6179,10 +6179,7 @@ glusterd_restart_bricks (void *opaque)
                          */
                         continue;
                 } else {
-                        if (start_svcs == _gf_false) {
-                                start_svcs = _gf_true;
-                                glusterd_svcs_manager (NULL);
-                        }
+                        start_svcs = _gf_true;
                         cds_list_for_each_entry (brickinfo, &volinfo->bricks,
                                                  brick_list) {
                                 if (!brickinfo->start_triggered) {
@@ -6225,10 +6222,6 @@ glusterd_restart_bricks (void *opaque)
                                         "quorum is not met", volinfo->volname);
                                 continue;
                         }
-                        if (start_svcs == _gf_false) {
-                                start_svcs = _gf_true;
-                                glusterd_svcs_manager (volinfo);
-                        }
                         start_svcs = _gf_true;
                         gf_msg_debug (this->name, 0, "starting the snap "
                                 "volume %s", volinfo->volname);
@@ -6255,9 +6248,12 @@ glusterd_restart_bricks (void *opaque)
                                         volinfo->volname);
                                 goto out;
                         }
-
                 }
         }
+        if (start_svcs == _gf_true) {
+                glusterd_svcs_manager (NULL);
+        }
+
         ret = 0;
 
 out:
