@@ -49,7 +49,7 @@ class GlusterEventsRequestHandler(SocketServer.BaseRequestHandler):
             logger.warn("Unable to parse Event {0}".format(data))
             return
 
-        for k, v in data_dict.iteritems():
+        for k, v in data_dict.items():
             try:
                 if k in AUTO_BOOL_ATTRIBUTES:
                     data_dict[k] = boolify(v)

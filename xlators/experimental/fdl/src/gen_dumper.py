@@ -73,7 +73,7 @@ def get_special_subs (args):
 
 def gen_functions ():
 	code = ""
-	for name, value in ops.iteritems():
+	for name, value in ops.items():
 		if "journal" not in [ x[0] for x in value ]:
 			continue
 		fop_subs[name]["@FUNCTION_BODY@"] = get_special_subs(value)
@@ -83,7 +83,7 @@ def gen_functions ():
 
 def gen_cases ():
 	code = ""
-	for name, value in ops.iteritems():
+	for name, value in ops.items():
 		if "journal" not in [ x[0] for x in value ]:
 			continue
 		# Add the CASE fragment for this fop.

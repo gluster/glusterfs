@@ -19,7 +19,7 @@ from generator import ops, fop_subs, cbk_subs, generate
 # We really want the callback argument list, even when we're generating fop
 # code, so we propagate here.
 # TBD: this should probably be right in generate.py
-for k, v in cbk_subs.iteritems():
+for k, v in cbk_subs.items():
 	fop_subs[k]['@ERROR_ARGS@'] = v['@ERROR_ARGS@']
 
 # Stolen from old codegen.py
@@ -34,13 +34,13 @@ def load_templates (path):
 		m = tmpl_re.match(line)
 		if m:
 			if t_name:
-				templates[t_name] = string.join(t_contents, '')
+				templates[t_name] = ''.join(t_contents)
 			t_name = m.group(1).strip()
 			t_contents = []
 		elif t_name:
 			t_contents.append(line)
 	if t_name:
-		templates[t_name] = string.join(t_contents, '')
+		templates[t_name] = ''.join(t_contents)
 	return templates
 
 # We need two types of templates.  The first, for pure read operations, just

@@ -310,7 +310,7 @@ selective_generate = {
 
 def gen_fdl ():
 	entrypoints = []
-	for name, value in ops.iteritems():
+	for name, value in ops.items():
 		if "journal" not in [ x[0] for x in value ]:
 			continue
 

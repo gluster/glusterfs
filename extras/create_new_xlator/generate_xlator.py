@@ -67,7 +67,7 @@ def generate(tmpl, name, table):
         sdict["@RET_TYPE@"] = string.join(ret_type, "")
         sdict["@RET_VAR@"] = string.join(ret_var, "")
 
-        for old, new in sdict.iteritems():
+        for old, new in sdict.items():
                 tmpl = tmpl.replace(old, new)
         # TBD: reindent/reformat the result for maximum readability.
         return tmpl

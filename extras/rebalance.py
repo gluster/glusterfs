@@ -49,7 +49,7 @@ def generate_stanza (vf, all_xlators, cur_subvol):
                 sv_list.append(sv.name)
         vf.write("volume %s\n"%cur_subvol.name)
         vf.write("  type %s\n"%cur_subvol.type)
-        for kvpair in cur_subvol.opts.iteritems():
+        for kvpair in cur_subvol.opts.items():
                 vf.write("  option %s %s\n"%kvpair)
         if sv_list:
                 vf.write("  subvolumes %s\n"%string.join(sv_list))

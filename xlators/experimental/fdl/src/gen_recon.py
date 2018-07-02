@@ -142,14 +142,14 @@ def get_special_subs (name, args, fop_type):
 		# is not stored in or read from the journal.  There are other ways to
 		# do that, but this is the only place we need anything similar and we
 		# already have to treat it as a special case so this is simplest.
-               s_args_str = 'fd, &vector, 1, off, iobref, flags, &preop, &postop, xdata'
+	       s_args_str = 'fd, &vector, 1, off, iobref, flags, &preop, &postop, xdata'
 	elif name == 'symlink':
 		# Swap 'linkpath' and 'loc'.
 		s_args_str = '&loc, linkpath, &iatt, xdata'
-        elif name == 'xattrop':
-                s_args_str = '&loc, flags, dict, xdata, NULL'
-        elif name == 'fxattrop':
-                s_args_str = 'fd, flags, dict, xdata, NULL'
+	elif name == 'xattrop':
+	        s_args_str = '&loc, flags, dict, xdata, NULL'
+	elif name == 'fxattrop':
+	        s_args_str = 'fd, flags, dict, xdata, NULL'
 	else:
 		s_args_str = string.join (s_args, ", ")
 	return code, links, s_args_str, cleanups
@@ -162,7 +162,7 @@ def get_special_subs (name, args, fop_type):
 # an error is detected.  This will probably get messy.
 def gen_functions ():
 	code = ""
-	for name, value in ops.iteritems():
+	for name, value in ops.items():
 		fop_type = [ x[1] for x in value if x[0] == "journal" ]
 		if not fop_type:
 			continue
@@ -184,7 +184,7 @@ def gen_functions ():
 
 def gen_cases ():
 	code = ""
-	for name, value in ops.iteritems():
+	for name, value in ops.items():
 		if "journal" not in [ x[0] for x in value ]:
 			continue
 		# Add the CASE fragment for this fop.

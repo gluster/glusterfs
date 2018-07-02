@@ -132,7 +132,7 @@ def generate (graph, last, stream=sys.stdout):
 			sv.dumped = True
 	print("volume %s" % last.name, file=stream)
 	print("    type %s" % last.type, file=stream)
-	for k, v in last.opts.iteritems():
+	for k, v in last.opts.items():
 		print("    option %s %s" % (k, v), file=stream)
 	if last.subvols:
 		print("    subvolumes %s" % string.join(

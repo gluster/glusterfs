@@ -61,15 +61,15 @@ default_@NAME@ (
 """
 
 def gen_defaults ():
-	for name in ops.iterkeys():
+	for name in list(ops.keys()):
 		print(generate(FAILURE_CBK_TEMPLATE, name, cbk_subs))
-	for name in ops.iterkeys():
+	for name in list(ops.keys()):
 		print(generate(CBK_RESUME_TEMPLATE, name, cbk_subs))
-	for name in ops.iterkeys():
+	for name in list(ops.keys()):
 		print(generate(CBK_TEMPLATE, name, cbk_subs))
-	for name in ops.iterkeys():
+	for name in list(ops.keys()):
 		print(generate(RESUME_TEMPLATE, name, fop_subs))
-	for name in ops.iterkeys():
+	for name in list(ops.keys()):
 		print(generate(FOP_TEMPLATE, name, fop_subs))
 
 for l in open(sys.argv[1], 'r').readlines():

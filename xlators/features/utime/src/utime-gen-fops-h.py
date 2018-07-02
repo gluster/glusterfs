@@ -21,7 +21,7 @@ utime_ops = ['fallocate', 'zerofill', 'opendir', 'mknod', 'mkdir',
              'readv', 'writev', 'setattr', 'fsetattr']
 
 def gen_defaults():
-    for name, value in ops.iteritems():
+    for name, value in ops.items():
         if name in utime_ops:
             print(generate(OP_FOP_TEMPLATE, name, fop_subs))
 

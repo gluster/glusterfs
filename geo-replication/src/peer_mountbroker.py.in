@@ -1,4 +1,7 @@
 #!/usr/bin/python2
+
+from __future__ import print_function
+
 import os
 from errno import EEXIST, ENOENT
 
@@ -48,7 +51,7 @@ class MountbrokerUserMgmt(object):
                 if line.startswith("#"):
                     self.commented_lines.append(line)
 
-        for k, v in self._options.iteritems():
+        for k, v in self._options.items():
             if k.startswith("mountbroker-geo-replication."):
                 user = k.split(".")[-1]
                 self.user_volumes[user] = set(v.split(","))
@@ -59,7 +62,7 @@ class MountbrokerUserMgmt(object):
     def _get_write_data(self):
         op = "volume management\n"
         op += "    type mgmt/glusterd\n"
-        for k, v in self._options.iteritems():
+        for k, v in self._options.items():
             if k.startswith("mountbroker-geo-replication."):
                 # Users will be added seperately
                 continue

@@ -1,10 +1,11 @@
 #!/usr/bin/python2
 
+from __future__ import print_function
+
 import os
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 import json
 import sys
-
 
 PROG_DESCRIPTION = """
 GlusterFS Mountbroker user management
@@ -15,19 +16,19 @@ args = None
 
 def ok(message=""):
     if (not args and "-j" in sys.argv) or (args and args.json):
-        print json.dumps({"ok": True, "message": message})
+        print(json.dumps({"ok": True, "message": message}))
     else:
         if message:
-            print message
+            print(message)
 
     sys.exit(0)
 
 
 def notok(message=""):
     if (not args and "-j" in sys.argv) or (args and args.json):
-        print json.dumps({"ok": False, "message": message})
+        print(json.dumps({"ok": False, "message": message}))
     else:
-        print "error: %s" % message
+        print("error: %s" % message)
 
     # Always return zero due to limitation while executing
     # as `gluster system:: execute`
@@ -65,7 +66,7 @@ class MountbrokerUserMgmt(object):
     def _get_write_data(self):
         op = "volume management\n"
         op += "    type mgmt/glusterd\n"
-        for k, v in self._options.iteritems():
+        for k, v in self._options.items():
             op += "    option %s %s\n" % (k, v)
         for line in self.commented_lines:
             op += "    %s\n" % line
@@ -88,7 +89,7 @@ class MountbrokerUserMgmt(object):
 
     def add_user(self, user, volumes):
         vols = set()
-        for k, v in self._options.iteritems():
+        for k, v in self._options.items():
             if k.startswith("mountbroker-geo-replication.") \
                and user == k.split(".")[-1]:
                 vols.update(v.split(","))
@@ -99,7 +100,7 @@ class MountbrokerUserMgmt(object):
 
     def remove_volume(self, user, volumes):
         vols = set()
-        for k, v in self._options.iteritems():
+        for k, v in self._options.items():
             if k.startswith("mountbroker-geo-replication.") \
                and user == k.split(".")[-1]:
                 vols.update(v.split(","))
@@ -119,7 +120,7 @@ class MountbrokerUserMgmt(object):
     def info(self):
         data = {"users": []}
 
-        for k, v in self._options.iteritems():
+        for k, v in self._options.items():
             if k.startswith("mountbroker-geo-replication."):
                 data["users"].append(
                     {"name": k.split(".")[-1], "volumes": v.split(",")}
@@ -133,7 +134,7 @@ class MountbrokerUserMgmt(object):
 def format_info(data):
     op = "%s %s\n" % ("Option".ljust(50), "Value".ljust(50))
     op += ("-" * 101) + "\n"
-    for key, value in data.iteritems():
+    for key, value in data.items():
         if key != "users":
             op += "%s %s\n" % (key.ljust(50), value)
 

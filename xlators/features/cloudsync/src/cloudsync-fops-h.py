@@ -16,7 +16,7 @@ cs_@NAME@ (call_frame_t *frame, xlator_t *this,
 """
 
 def gen_defaults():
-    for name, value in ops.iteritems():
+    for name, value in ops.items():
         if name == 'getspec':
             continue
         print(generate(OP_FOP_TEMPLATE, name, fop_subs))
