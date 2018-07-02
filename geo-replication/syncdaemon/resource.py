@@ -1325,7 +1325,7 @@ class SSH(object):
         da0 = (rv, exrv)
         da1 = ({}, {})
         for i in range(2):
-            for k, v in da0[i].iteritems():
+            for k, v in da0[i].items():
                 da1[i][k] = int(v)
         if da1[0] != da1[1]:
             raise GsyncdError(

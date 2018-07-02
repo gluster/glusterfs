@@ -217,7 +217,7 @@ class GitBranchDiff:
         print(self.tick + " Successfully Backported changes:")
         print('      {' + 'from: ' + self.s_pattern + \
               '  to: '+ self.t_pattern + '}\n')
-        for key, value in self.s_dict.iteritems():
+        for key, value in self.s_dict.items():
             if value in self.t_dict.itervalues():
                 print("[%s%s%s] %s" %(self.yello_set,
                                       key,
@@ -231,7 +231,7 @@ class GitBranchDiff:
         else:
             review_list = []
 
-        for key, value in self.s_dict.iteritems():
+        for key, value in self.s_dict.items():
             if value not in self.t_dict.itervalues():
                 if any(value in s for s in review_list):
                     print("[%s%s%s] %s %s(under review)%s" %(self.yello_set,

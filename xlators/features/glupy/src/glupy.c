@@ -2317,6 +2317,41 @@ mem_acct_init (xlator_t *this)
         return ret;
 }
 
+static void
+py_error_log(const char *name, PyObject *pystr)
+{
+#if PY_MAJOR_VERSION > 2
+        char            scr[256];
+        if (PyUnicode_Check(pystr)) {
+                PyObject *tmp =
+                        PyUnicode_AsEncodedString(pystr, "UTF-8", "strict");
+                if (tmp != NULL) {
+                        strncpy(scr, PyBytes_AS_STRING(pystr), sizeof(scr));
+                        Py_DECREF(tmp);
+                } else {
+                        strncpy(scr, "string encoding error", sizeof(scr));
+                }
+        } else if (PyBytes_Check(pystr)) {
+                strncpy(scr, PyBytes_AS_STRING(pystr), sizeof(scr));
+        } else {
+                strncpy(scr, "string encoding error", sizeof(scr));
+        }
+        gf_log (name, GF_LOG_ERROR, "Python error: %s", scr);
+#else
+        gf_log (name, GF_LOG_ERROR, "Python error: %s", PyString_AsString(pystr));
+#endif
+}
+
+static PyObject *
+encode (const char *str)
+{
+#if PY_MAJOR_VERSION > 2
+        return PyUnicode_FromString(str);
+#else
+        return PyString_FromString(str);
+#endif
+}
+
 int32_t
 init (xlator_t *this)
 {
@@ -2385,17 +2420,16 @@ init (xlator_t *this)
 
 	/* Adjust python's path */
 	syspath = PySys_GetObject("path");
-	path = PyString_FromString(GLUSTER_PYTHON_PATH);
+	path = encode(GLUSTER_PYTHON_PATH);
 	PyList_Append(syspath, path);
 	Py_DECREF(path);
 
-	py_mod_name = PyString_FromString(module_name);
+	py_mod_name = encode(module_name);
         if (!py_mod_name) {
                 gf_log (this->name, GF_LOG_ERROR, "could not create name");
                 if (PyErr_Occurred()) {
                         PyErr_Fetch (&error_type, &error_msg, &error_bt);
-                        gf_log (this->name, GF_LOG_ERROR, "Python error: %s",
-                                PyString_AsString(error_msg));
+                        py_error_log(this->name, error_msg);
                 }
                 goto *err_cleanup;
         }
@@ -2408,8 +2442,7 @@ init (xlator_t *this)
                         module_name);
                 if (PyErr_Occurred()) {
                         PyErr_Fetch (&error_type, &error_msg, &error_bt);
-                        gf_log (this->name, GF_LOG_ERROR, "Python error: %s",
-                                PyString_AsString(error_msg));
+                        py_error_log (this->name, error_msg);
                 }
                 goto *err_cleanup;
         }
@@ -2421,8 +2454,7 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_ERROR, "missing init func");
                 if (PyErr_Occurred()) {
                         PyErr_Fetch (&error_type, &error_msg, &error_bt);
-                        gf_log (this->name, GF_LOG_ERROR, "Python error: %s",
-                                PyString_AsString(error_msg));
+                        py_error_log (this->name, error_msg);
                 }
                 goto *err_cleanup;
         }
@@ -2433,8 +2465,7 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_ERROR, "could not create args");
                 if (PyErr_Occurred()) {
                         PyErr_Fetch (&error_type, &error_msg, &error_bt);
-                        gf_log (this->name, GF_LOG_ERROR, "Python error: %s",
-                                PyString_AsString(error_msg));
+                        py_error_log (this->name, error_msg);
                 }
                 goto *err_cleanup;
         }
@@ -2447,8 +2478,7 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_ERROR, "Python init failed");
                 if (PyErr_Occurred()) {
                         PyErr_Fetch (&error_type, &error_msg, &error_bt);
-                        gf_log (this->name, GF_LOG_ERROR, "Python error: %s",
-                                PyString_AsString(error_msg));
+                        py_error_log (this->name, error_msg);
                 }
                 goto *err_cleanup;
         }

@@ -74,7 +74,7 @@ def print_summary(failed_builds, total_builds, html=False):
             count[template],
             {'failed': failed_builds, 'total': total_builds}
     ))
-    for k, v in summary.iteritems():
+    for k, v in summary.items():
         if k == 'core':
             print(''.join([TERM.red, "Found cores:", TERM.normal]))
             for comp, link in zip(v[::2], v[1::2]):
