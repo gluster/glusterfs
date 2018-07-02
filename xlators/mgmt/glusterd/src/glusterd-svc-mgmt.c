@@ -151,6 +151,8 @@ glusterd_svc_start (glusterd_svc_t *svc, int flags, dict_t *cmdline)
         xlator_t            *this                       = NULL;
         char                 valgrind_logfile[PATH_MAX] = {0};
         char                *localtime_logging          = NULL;
+        char                *log_level                  = NULL;
+        char                 daemon_log_level[30]       = {0};
 
         this = THIS;
         GF_ASSERT (this);
@@ -196,6 +198,12 @@ glusterd_svc_start (glusterd_svc_t *svc, int flags, dict_t *cmdline)
                 if (strcmp (localtime_logging, "enable") == 0)
                         runner_add_arg (&runner, "--localtime-logging");
         }
+        if (dict_get_str (priv->opts, GLUSTERD_DAEMON_LOG_LEVEL_KEY,
+                          &log_level) == 0) {
+                snprintf (daemon_log_level, 30, "--log-level=%s", log_level);
+                runner_add_arg (&runner, daemon_log_level);
+        }
+
         if (cmdline)
                 dict_foreach (cmdline, svc_add_args, (void *) &runner);
 

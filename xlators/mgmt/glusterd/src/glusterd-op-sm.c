@@ -87,6 +87,7 @@ glusterd_all_vol_opts valid_all_vol_opts[] = {
          * dynamic value depending on the memory specifications per node */
         { GLUSTERD_BRICKMUX_LIMIT_KEY,          "0"},
         { GLUSTERD_LOCALTIME_LOGGING_KEY,       "disable"},
+        { GLUSTERD_DAEMON_LOG_LEVEL_KEY,        "INFO"},
         { NULL },
 };
 
@@ -937,6 +938,47 @@ out:
 }
 
 static int
+glusterd_validate_daemon_log_level (char *key, char *value, char *errstr)
+{
+        int32_t            ret                      = -1;
+        xlator_t          *this                     = NULL;
+        glusterd_conf_t   *conf                     = NULL;
+
+        this = THIS;
+        GF_VALIDATE_OR_GOTO ("glusterd", this, out);
+
+        conf = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, conf, out);
+
+        GF_VALIDATE_OR_GOTO (this->name, key, out);
+        GF_VALIDATE_OR_GOTO (this->name, value, out);
+        GF_VALIDATE_OR_GOTO (this->name, errstr, out);
+
+        ret = 0;
+
+        if (strcmp (key, GLUSTERD_DAEMON_LOG_LEVEL_KEY)) {
+                goto out;
+        }
+
+        if ((strcmp (value, "INFO")) &&
+            (strcmp (value, "WARNING")) &&
+            (strcmp (value, "DEBUG")) &&
+            (strcmp (value, "TRACE")) &&
+            (strcmp (value, "ERROR"))) {
+                snprintf (errstr, PATH_MAX,
+                          "Invalid option(%s). Valid options "
+                          "are 'INFO' or 'WARNING' or 'ERROR' or 'DEBUG' or "
+                          " 'TRACE'", value);
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        GD_MSG_INVALID_ENTRY, "%s", errstr);
+                ret = -1;
+        }
+
+out:
+        return ret;
+}
+
+static int
 glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
 {
         int                   ret                         = -1;
@@ -1330,6 +1372,15 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                 GD_MSG_LOCALTIME_LOGGING_VOL_OPT_VALIDATE_FAIL,
                                 "Failed to validate localtime "
                                 "logging volume options");
+                        goto out;
+                }
+
+                ret = glusterd_validate_daemon_log_level (key, value, errstr);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_DAEMON_LOG_LEVEL_VOL_OPT_VALIDATE_FAIL,
+                                "Failed to validate daemon-log-level volume "
+                                "options");
                         goto out;
                 }
 
