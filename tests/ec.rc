@@ -1,0 +1,9 @@
+#!/bin/bash
+
+function ec_up_status()
+{
+        local v=$1
+        local m=$2
+        local ec_id=$3
+        grep -E "^up =" $m/.meta/graphs/active/${v}-disperse-${ec_id}/private | cut -f2 -d'='
+}

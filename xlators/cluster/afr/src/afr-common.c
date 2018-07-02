@@ -4904,6 +4904,7 @@ afr_priv_dump (xlator_t *this)
                 gf_proc_dump_write("quorum-type", "fixed");
                 gf_proc_dump_write("quorum-count", "%d", priv->quorum_count);
         }
+        gf_proc_dump_write("up", "%u", afr_has_quorum (priv->child_up, this));
 
         return 0;
 }
