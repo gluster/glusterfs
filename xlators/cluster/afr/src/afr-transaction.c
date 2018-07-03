@@ -2327,6 +2327,7 @@ __afr_eager_lock_handle (afr_local_t *local, gf_boolean_t *take_lock,
 
         if (local->fd && !afr_are_multiple_fds_opened (local, this)) {
                 local->transaction.eager_lock_on = _gf_true;
+                afr_set_lk_owner (local->transaction.frame, this, local->inode);
         }
 
         lock = &local->inode_ctx->lock[local->transaction.type];
@@ -2430,8 +2431,6 @@ lock_phase:
         if (!local->transaction.eager_lock_on) {
                 afr_set_lk_owner (local->transaction.frame, this,
                                   local->transaction.frame->root);
-        } else {
-                afr_set_lk_owner (local->transaction.frame, this, local->inode);
         }
 
 
