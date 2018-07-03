@@ -4827,6 +4827,21 @@ dht_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         dict_del (xattr, conf->mds_xattr_key);
                 }
 
+                /* filter out following two xattrs that need not
+                 * be visible on the mount point for geo-rep -
+                 * trusted.tier.fix.layout.complete and
+                 * trusted.tier.tier-dht.commithash
+                 */
+
+                if (dict_get (xattr, conf->commithash_xattr_name)) {
+                        dict_del (xattr, conf->commithash_xattr_name);
+                }
+
+                if (frame->root->pid >= 0 && dht_is_tier_xlator (this)) {
+                        GF_REMOVE_INTERNAL_XATTR
+                                ("trusted.tier.fix.layout.complete", xattr);
+                }
+
                 if (frame->root->pid >= 0) {
                         GF_REMOVE_INTERNAL_XATTR
                                 ("trusted.glusterfs.quota*", xattr);
