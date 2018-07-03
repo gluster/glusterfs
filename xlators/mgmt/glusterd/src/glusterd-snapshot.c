@@ -2764,7 +2764,7 @@ glusterd_do_lvm_snapshot_remove (glusterd_volinfo_t *snap_vol,
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, snap_vol, brickinfo, priv);
         if (gf_is_service_running (pidfile, &pid)) {
                 (void) send_attach_req (this, brickinfo->rpc,
-                                        brickinfo->path,
+                                        brickinfo->path, NULL,
                                         GLUSTERD_BRICK_TERMINATE);
                 brickinfo->status = GF_BRICK_STOPPED;
         }

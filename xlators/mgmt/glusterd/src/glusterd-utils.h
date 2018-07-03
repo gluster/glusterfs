@@ -199,7 +199,8 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
                                 gf_boolean_t del_brick);
 
 int
-send_attach_req (xlator_t *this, struct rpc_clnt *rpc, char *path, int op);
+send_attach_req (xlator_t *this, struct rpc_clnt *rpc, char *path,
+                 glusterd_brickinfo_t *brick, int op);
 
 glusterd_volinfo_t *
 glusterd_volinfo_ref (glusterd_volinfo_t *volinfo);
