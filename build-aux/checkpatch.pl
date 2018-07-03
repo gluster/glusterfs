@@ -3099,7 +3099,7 @@ sub process {
             if (ERROR("SPACING",
                       "space required before the open brace '{'\n" . $herecurr) &&
                 $fix) {
-                $fixed[$linenr - 1] =~ s/^(\+.*(?:do|\))){/$1 {/;
+                $fixed[$linenr - 1] =~ s/^(\+.*(?:do|\)))\{/$1 {/;
             }
         }
 
