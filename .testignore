@@ -21,10 +21,6 @@ api/src/README.Symbol_Versions
 build-aux/checkpatch.pl
 contrib/fuse-lib/COPYING.LIB
 contrib/fuse-util/COPYING
-contrib/ipaddr-py/COPYING
-contrib/ipaddr-py/MANIFEST.in
-contrib/ipaddr-py/OWNERS
-contrib/ipaddr-py/README
 contrib/macfuse/COPYING.txt
 doc/*
 extras/FreeBSD/README.FreeBSD
