@@ -2904,6 +2904,7 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
         glusterd_brickinfo_t *brickinfo            = NULL;
         xlator_t             *this                 = NULL;
         char                  brick_dir[PATH_MAX]  = "";
+        char                  snap_path[PATH_MAX]  = "";
         char                 *tmp                  = NULL;
         char                 *brick_mount_path     = NULL;
         gf_boolean_t          is_brick_dir_present = _gf_false;
@@ -3074,6 +3075,28 @@ remove_brick_path:
                                         "Failed to rmdir: %s, err: %s",
                                         brick_dir, strerror (errno));
                                 goto out;
+                }
+
+                /* After removing brick_dir, fetch and remove snap path
+                 * i.e. /var/run/gluster/snaps/<snap-name>.
+                 */
+                if (!snap_vol->snapshot) {
+                        gf_msg (this->name, GF_LOG_WARNING, EINVAL,
+                                GD_MSG_INVALID_ENTRY, "snapshot not"
+                                "present in snap_vol");
+                        ret = -1;
+                        goto out;
+                }
+
+                snprintf (snap_path, sizeof (snap_path) - 1, "%s/%s",
+                          snap_mount_dir, snap_vol->snapshot->snapname);
+                ret = recursive_rmdir (snap_path);
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_ERROR, errno,
+                                GD_MSG_DIR_OP_FAILED, "Failed to remove "
+                                "%s directory : error : %s", snap_path,
+                                strerror (errno));
+                        goto out;
                 }
         }
 
@@ -6246,6 +6269,7 @@ glusterd_snapshot_deactivate_commit (dict_t *dict, char **op_errstr,
         glusterd_snap_t          *snap                 = NULL;
         glusterd_volinfo_t       *snap_volinfo         = NULL;
         xlator_t                 *this                 = NULL;
+        char                      snap_path[PATH_MAX]  =  "";
 
         this = THIS;
         GF_ASSERT (this);
@@ -6302,6 +6326,20 @@ glusterd_snapshot_deactivate_commit (dict_t *dict, char **op_errstr,
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_GLUSTERD_UMOUNT_FAIL,
                         "Failed to unmounts for %s", snap->snapname);
+        }
+
+        /*Remove /var/run/gluster/snaps/<snap-name> entry for deactivated snaps.
+         * This entry will be created again during snap activate.
+         */
+        snprintf (snap_path, sizeof (snap_path) - 1, "%s/%s",
+                  snap_mount_dir, snapname);
+        ret = recursive_rmdir (snap_path);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        GD_MSG_DIR_OP_FAILED, "Failed to remove "
+                        "%s directory : error : %s", snap_path,
+                        strerror (errno));
+                goto out;
         }
 
         ret = dict_set_dynstr_with_alloc (rsp_dict, "snapuuid",
