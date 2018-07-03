@@ -93,9 +93,6 @@
 #define NLMV4_VERSION       4
 #define NLMV1_VERSION       1
 
-int
-send_attach_req (xlator_t *this, struct rpc_clnt *rpc, char *path, int op);
-
 gf_boolean_t
 is_brick_mx_enabled (void)
 {
@@ -2498,7 +2495,7 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
                                       brickinfo->hostname, brickinfo->path);
 
                         (void) send_attach_req (this, brickinfo->rpc,
-                                                brickinfo->path,
+                                                brickinfo->path, NULL,
                                                 GLUSTERD_BRICK_TERMINATE);
                 } else {
                         gf_msg_debug (this->name, 0, "About to stop glusterfsd"
@@ -5437,8 +5434,27 @@ my_callback (struct rpc_req *req, struct iovec *iov, int count, void *v_frame)
         return 0;
 }
 
+static int32_t
+attach_brick_callback (struct rpc_req *req, struct iovec *iov, int count,
+                       void *v_frame)
+{
+        call_frame_t    *frame  = v_frame;
+        glusterd_conf_t *conf   = frame->this->private;
+        glusterd_brickinfo_t *brickinfo = frame->local;
+
+        frame->local = NULL;
+        brickinfo->port_registered = _gf_true;
+        synclock_lock (&conf->big_lock);
+        --(conf->blockers);
+        synclock_unlock (&conf->big_lock);
+
+        STACK_DESTROY (frame->root);
+        return 0;
+}
+
 int
-send_attach_req (xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
+send_attach_req (xlator_t *this, struct rpc_clnt *rpc, char *path,
+                 glusterd_brickinfo_t *brickinfo, int op)
 {
         int                             ret      = -1;
         struct iobuf                    *iobuf    = NULL;
@@ -5452,6 +5468,7 @@ send_attach_req (xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
         struct rpc_clnt_connection      *conn;
         glusterd_conf_t                 *conf     = this->private;
         extern struct rpc_clnt_program  gd_brick_prog;
+        fop_cbk_fn_t cbkfn = my_callback;
 
         if (!rpc) {
                 gf_log (this->name, GF_LOG_ERROR, "called with null rpc");
@@ -5509,10 +5526,14 @@ send_attach_req (xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
 
         iov.iov_len = ret;
 
+        if (op == GLUSTERD_BRICK_ATTACH) {
+                frame->local = brickinfo;
+                cbkfn = attach_brick_callback;
+        }
         /* Send the msg */
         ++(conf->blockers);
         ret = rpc_clnt_submit (rpc, &gd_brick_prog, op,
-                               my_callback, &iov, 1, NULL, 0, iobref,
+                               cbkfn, &iov, 1, NULL, 0, iobref,
                                frame, NULL, 0, NULL, 0, NULL);
         return ret;
 
@@ -5572,7 +5593,7 @@ attach_brick (xlator_t *this,
         for (tries = 15; tries > 0; --tries) {
                 rpc = rpc_clnt_ref (other_brick->rpc);
                 if (rpc) {
-                        ret = send_attach_req (this, rpc, path,
+                        ret = send_attach_req (this, rpc, path, brickinfo,
                                                GLUSTERD_BRICK_ATTACH);
                         rpc_clnt_unref (rpc);
                         if (!ret) {
@@ -5592,7 +5613,6 @@ attach_brick (xlator_t *this,
                                 brickinfo->status = GF_BRICK_STARTED;
                                 brickinfo->rpc =
                                         rpc_clnt_ref (other_brick->rpc);
-                                brickinfo->port_registered = _gf_true;
                                 ret = glusterd_brick_process_add_brick (brickinfo,
                                                                         volinfo);
                                 if (ret) {
