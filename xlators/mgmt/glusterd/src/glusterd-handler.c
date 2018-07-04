@@ -5096,15 +5096,6 @@ glusterd_print_gsync_status (FILE *fp, dict_t *gsync_dict)
                          volcount, i+1, get_struct_variable(15, status_vals[i]));
         }
 out:
-        for (i = 0; i < gsync_count; i++) {
-                if (status_vals[i]) {
-                        GF_FREE (status_vals[i]);
-                }
-        }
-
-        if (status_vals)
-                GF_FREE (status_vals);
-
         return ret;
 }
 
