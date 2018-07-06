@@ -4128,6 +4128,7 @@ out:
 
 }
 
+#if OPENSSL_VERSION_NUMBER < 0x1010000f
 static pthread_mutex_t  *lock_array     = NULL;
 
 static void
@@ -4140,7 +4141,7 @@ locking_func (int mode, int type, const char *file, int line)
         }
 }
 
-#if HAVE_CRYPTO_THREADID
+#if OPENSSL_VERSION_NUMBER >= 0x1000000f
 static void
 threadid_func (CRYPTO_THREADID *id)
 {
@@ -4163,15 +4164,15 @@ legacy_threadid_func (void)
         /* See comments above, it applies here too. */
         return (unsigned long)pthread_self();
 }
-#endif
+#endif /* OPENSSL_VERSION_NUMBER >= 0x1000000f */
+#endif /* OPENSSL_VERSION_NUMBER < 0x1010000f */
 
 static void
 init_openssl_mt (void)
 {
-        int     num_locks       = CRYPTO_num_locks();
-        int     i;
+        static gf_boolean_t initialized = _gf_false;
 
-        if (lock_array) {
+        if (initialized) {
                 /* this only needs to be initialized once GLOBALLY no
                    matter how many translators/sockets we end up with. */
                 return;
@@ -4180,25 +4181,32 @@ init_openssl_mt (void)
         SSL_library_init();
         SSL_load_error_strings();
 
+        initialized = _gf_true;
+
+#if OPENSSL_VERSION_NUMBER < 0x1010000f
+        int     num_locks       = CRYPTO_num_locks();
+        int     i;
+
         lock_array = GF_CALLOC (num_locks, sizeof(pthread_mutex_t),
                                 gf_sock_mt_lock_array);
         if (lock_array) {
                 for (i = 0; i < num_locks; ++i) {
                         pthread_mutex_init (&lock_array[i], NULL);
                 }
-#if HAVE_CRYPTO_THREADID
+#if OPENSSL_VERSION_NUMBER >= 0x1000000f
                 CRYPTO_THREADID_set_callback (threadid_func);
 #else /* older openssl */
                 CRYPTO_set_id_callback (legacy_threadid_func);
 #endif
                 CRYPTO_set_locking_callback (locking_func);
         }
-
+#endif
 }
 
 static void __attribute__((destructor))
 fini_openssl_mt (void)
 {
+#if OPENSSL_VERSION_NUMBER < 0x1010000f
         int i;
 
         if (!lock_array) {
@@ -4206,7 +4214,7 @@ fini_openssl_mt (void)
         }
 
         CRYPTO_set_locking_callback(NULL);
-#if HAVE_CRYPTO_THREADID
+#if OPENSSL_VERSION_NUMBER >= 0x1000000f
         CRYPTO_THREADID_set_callback (NULL);
 #else /* older openssl */
         CRYPTO_set_id_callback (NULL);
@@ -4218,6 +4226,7 @@ fini_openssl_mt (void)
 
         GF_FREE (lock_array);
         lock_array = NULL;
+#endif
 
         ERR_free_strings();
 }

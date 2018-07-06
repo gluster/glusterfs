@@ -53,6 +53,7 @@ glusterd_tierdsvc_init (void *data)
         glusterd_conn_notify_t  notify             = NULL;
         xlator_t               *this               = NULL;
         char                    *volfileserver     = NULL;
+        int32_t                 len                = 0;
 
         this = THIS;
         GF_VALIDATE_OR_GOTO (THIS->name, this, out);
@@ -98,7 +99,12 @@ glusterd_tierdsvc_init (void *data)
                 goto out;
         }
         glusterd_svc_build_tierd_logfile (logfile, logdir, sizeof (logfile));
-        snprintf (volfileid, sizeof (volfileid), "tierd/%s", volinfo->volname);
+        len = snprintf (volfileid, sizeof (volfileid), "tierd/%s",
+                        volinfo->volname);
+        if ((len < 0) || (len >= sizeof(volfileid))) {
+                ret = -1;
+                goto out;
+        }
 
         if (dict_get_str (this->options, "transport.socket.bind-address",
                           &volfileserver) != 0) {
@@ -260,6 +266,7 @@ glusterd_tierdsvc_start (glusterd_svc_t *svc, int flags)
         glusterd_tierdsvc_t *tierd                      = NULL;
         int                  cmd                        = GF_DEFRAG_CMD_START_TIER;
         char                *localtime_logging          = NULL;
+        int32_t              len                        = 0;
 
         this = THIS;
         GF_VALIDATE_OR_GOTO (THIS->name, this, out);
@@ -315,8 +322,12 @@ glusterd_tierdsvc_start (glusterd_svc_t *svc, int flags)
         runinit (&runner);
 
         if (this->ctx->cmd_args.valgrind) {
-                snprintf (valgrind_logfile, PATH_MAX, "%s/valgrind-tierd.log",
-                          svc->proc.logdir);
+                len = snprintf (valgrind_logfile, PATH_MAX,
+                                "%s/valgrind-tierd.log", svc->proc.logdir);
+                if ((len < 0) || (len >= PATH_MAX)) {
+                        ret = -1;
+                        goto out;
+                }
 
                 runner_add_args (&runner, "valgrind", "--leak-check=full",
                                  "--trace-children=yes", "--track-origins=yes",

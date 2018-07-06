@@ -80,6 +80,7 @@ glusterd_hooks_create_hooks_directory (char *basedir)
                                                            "pre",
                                                            "post"};
         glusterd_conf_t *priv                           = NULL;
+        int32_t len                                     = 0;
 
         priv = THIS->private;
 
@@ -106,8 +107,12 @@ glusterd_hooks_create_hooks_directory (char *basedir)
                 if (strlen (cmd_subdir) == 0)
                         continue;
 
-                snprintf (path, sizeof (path), "%s/%s", version_dir,
-                          cmd_subdir);
+                len = snprintf (path, sizeof (path), "%s/%s", version_dir,
+                                cmd_subdir);
+                if ((len < 0) || (len >= sizeof(path))) {
+                        ret = -1;
+                        goto out;
+                }
                 ret = mkdir_p (path, 0777, _gf_true);
                 if (ret) {
                         gf_msg (THIS->name, GF_LOG_CRITICAL, errno,
@@ -119,8 +124,13 @@ glusterd_hooks_create_hooks_directory (char *basedir)
 
                 for (type = GD_COMMIT_HOOK_PRE; type < GD_COMMIT_HOOK_MAX;
                      type++) {
-                        snprintf (path, sizeof (path), "%s/%s/%s",
-                                  version_dir, cmd_subdir, type_subdir[type]);
+                        len = snprintf (path, sizeof (path), "%s/%s/%s",
+                                        version_dir, cmd_subdir,
+                                        type_subdir[type]);
+                        if ((len < 0) || (len >= sizeof(path))) {
+                                ret = -1;
+                                goto out;
+                        }
                         ret = mkdir_p (path, 0777, _gf_true);
                         if (ret) {
                                 gf_msg (THIS->name, GF_LOG_CRITICAL, errno,

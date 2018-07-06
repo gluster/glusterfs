@@ -291,7 +291,7 @@ gd_store_brick_snap_details_write (int fd, glusterd_brickinfo_t *brickinfo)
         int ret = -1;
         xlator_t *this = NULL;
         glusterd_conf_t *conf = NULL;
-        char value[256] = {0,};
+        char value[PATH_MAX] = {0,};
 
         this = THIS;
         GF_ASSERT (this != NULL);
@@ -640,6 +640,7 @@ glusterd_store_remove_bricks (glusterd_volinfo_t *volinfo, char *delete_path)
         struct dirent          scratch[2] = {{0,},};
         char                   path[PATH_MAX] = {0,};
         char                   brickdir[PATH_MAX] = {0,};
+        int32_t                len = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -655,20 +656,26 @@ glusterd_store_remove_bricks (glusterd_volinfo_t *volinfo, char *delete_path)
         priv = this->private;
         GF_ASSERT (priv);
 
-        snprintf (brickdir, sizeof (brickdir), "%s/%s", delete_path,
-                  GLUSTERD_BRICK_INFO_DIR);
+        len = snprintf (brickdir, sizeof (brickdir), "%s/%s", delete_path,
+                        GLUSTERD_BRICK_INFO_DIR);
+        if ((len < 0) || (len >= sizeof(brickdir))) {
+                ret = -1;
+                goto out;
+        }
 
         dir = sys_opendir (brickdir);
 
         GF_SKIP_IRRELEVANT_ENTRIES (entry, dir, scratch);
 
         while (entry) {
-                snprintf (path, sizeof (path), "%s/%s",
-                          brickdir, entry->d_name);
-                ret = sys_unlink (path);
-                if (ret && errno != ENOENT) {
-                        gf_msg_debug (this->name, 0, "Unable to unlink %s",
-                                      path);
+                len = snprintf (path, sizeof (path), "%s/%s",
+                                brickdir, entry->d_name);
+                if ((len >= 0) && (len < sizeof(path))) {
+                        ret = sys_unlink (path);
+                        if (ret && errno != ENOENT) {
+                                gf_msg_debug (this->name, 0,
+                                              "Unable to unlink %s", path);
+                        }
                 }
                 GF_SKIP_IRRELEVANT_ENTRIES (entry, dir, scratch);
         }
@@ -1846,6 +1853,7 @@ glusterd_store_delete_volume (glusterd_volinfo_t *volinfo)
         char             trashdir[PATH_MAX]    = {0,};
         xlator_t        *this                  = NULL;
         gf_boolean_t     rename_fail           = _gf_false;
+        int32_t          len                   = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1857,12 +1865,20 @@ glusterd_store_delete_volume (glusterd_volinfo_t *volinfo)
 
         GLUSTERD_GET_VOLUME_DIR (pathname, volinfo, priv);
 
-        snprintf (delete_path, sizeof (delete_path),
-        "%s/"GLUSTERD_TRASH"/%s.deleted", priv->workdir,
-        uuid_utoa (volinfo->volume_id));
+        len = snprintf (delete_path, sizeof (delete_path),
+                        "%s/"GLUSTERD_TRASH"/%s.deleted", priv->workdir,
+                        uuid_utoa (volinfo->volume_id));
+        if ((len < 0) || (len >= sizeof(delete_path))) {
+                ret = -1;
+                goto out;
+        }
 
-        snprintf (trashdir, sizeof (trashdir), "%s/"GLUSTERD_TRASH,
-                  priv->workdir);
+        len = snprintf (trashdir, sizeof (trashdir), "%s/"GLUSTERD_TRASH,
+                        priv->workdir);
+        if ((len < 0) || (len >= sizeof(trashdir))) {
+                ret = -1;
+                goto out;
+        }
 
         ret = sys_mkdir (trashdir, 0777);
         if (ret && errno != EEXIST) {
@@ -1916,6 +1932,7 @@ glusterd_store_delete_snap (glusterd_snap_t *snap)
         struct stat      st                    = {0, };
         xlator_t        *this                  = NULL;
         gf_boolean_t     rename_fail           = _gf_false;
+        int32_t          len                   = 0;
 
         this = THIS;
         priv = this->private;
@@ -1924,12 +1941,20 @@ glusterd_store_delete_snap (glusterd_snap_t *snap)
         GF_ASSERT (snap);
         GLUSTERD_GET_SNAP_DIR (pathname, snap, priv);
 
-        snprintf (delete_path, sizeof (delete_path),
-        "%s/"GLUSTERD_TRASH"/snap-%s.deleted", priv->workdir,
-        uuid_utoa (snap->snap_id));
+        len = snprintf (delete_path, sizeof (delete_path),
+                        "%s/"GLUSTERD_TRASH"/snap-%s.deleted", priv->workdir,
+                        uuid_utoa (snap->snap_id));
+        if ((len < 0) || (len >= sizeof(delete_path))) {
+                ret = -1;
+                goto out;
+        }
 
-        snprintf (trashdir, sizeof (trashdir), "%s/"GLUSTERD_TRASH,
-                  priv->workdir);
+        len = snprintf (trashdir, sizeof (trashdir), "%s/"GLUSTERD_TRASH,
+                        priv->workdir);
+        if ((len < 0) || (len >= sizeof(trashdir))) {
+                ret = -1;
+                goto out;
+        }
 
         ret = sys_mkdir (trashdir, 0777);
         if (ret && errno != EEXIST) {
@@ -1959,7 +1984,12 @@ glusterd_store_delete_snap (glusterd_snap_t *snap)
 
         GF_SKIP_IRRELEVANT_ENTRIES (entry, dir, scratch);
         while (entry) {
-                snprintf (path, PATH_MAX, "%s/%s", delete_path, entry->d_name);
+                len = snprintf (path, PATH_MAX, "%s/%s", delete_path,
+                                entry->d_name);
+                if ((len < 0) || (len >= PATH_MAX)) {
+                        ret = -1;
+                        goto stat_failed;
+                }
                 ret = sys_stat (path, &st);
                 if (ret == -1) {
                         gf_msg_debug (this->name, 0, "Failed to stat "
@@ -2022,6 +2052,7 @@ glusterd_store_global_info (xlator_t *this)
         char                    path[PATH_MAX]          = {0,};
         gf_store_handle_t       *handle                 = NULL;
         char                    *uuid_str               = NULL;
+        int32_t                  len                    = 0;
 
         conf = this->private;
 
@@ -2030,8 +2061,11 @@ glusterd_store_global_info (xlator_t *this)
                 goto out;
 
         if (!conf->handle) {
-                snprintf (path, PATH_MAX, "%s/%s", conf->workdir,
-                          GLUSTERD_INFO_FILE);
+                len = snprintf (path, PATH_MAX, "%s/%s", conf->workdir,
+                                GLUSTERD_INFO_FILE);
+                if ((len < 0) || (len >= PATH_MAX)) {
+                        goto out;
+                }
                 ret = gf_store_handle_new (path, &handle);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -2114,12 +2148,16 @@ glusterd_retrieve_op_version (xlator_t *this, int *op_version)
         char                    *tmp            = NULL;
         char                    path[PATH_MAX]  = {0,};
         gf_store_handle_t       *handle         = NULL;
+        int32_t                  len            = 0;
 
         priv = this->private;
 
         if (!priv->handle) {
-                snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
-                          GLUSTERD_INFO_FILE);
+                len = snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
+                                GLUSTERD_INFO_FILE);
+                if ((len < 0) || (len >= PATH_MAX)) {
+                        goto out;
+                }
                 ret = gf_store_handle_retrieve (path, &handle);
 
                 if (ret) {
@@ -2167,6 +2205,7 @@ glusterd_retrieve_sys_snap_max_limit (xlator_t *this, uint64_t *limit,
         char                    *tmp            = NULL;
         char                    path[PATH_MAX]  = {0,};
         gf_store_handle_t       *handle         = NULL;
+        int32_t                  len            = 0;
 
         GF_ASSERT (this);
         priv = this->private;
@@ -2176,8 +2215,11 @@ glusterd_retrieve_sys_snap_max_limit (xlator_t *this, uint64_t *limit,
         GF_ASSERT (key);
 
         if (!priv->handle) {
-                snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
-                          GLUSTERD_INFO_FILE);
+                len = snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
+                                GLUSTERD_INFO_FILE);
+                if ((len < 0) || (len >= PATH_MAX)) {
+                        goto out;
+                }
                 ret = gf_store_handle_retrieve (path, &handle);
 
                 if (ret) {
@@ -2282,13 +2324,17 @@ glusterd_retrieve_uuid ()
         glusterd_conf_t *priv = NULL;
         xlator_t        *this = NULL;
         char            path[PATH_MAX] = {0,};
+        int32_t         len = 0;
 
         this = THIS;
         priv = this->private;
 
         if (!priv->handle) {
-                snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
-                          GLUSTERD_INFO_FILE);
+                len = snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
+                                GLUSTERD_INFO_FILE);
+                if ((len < 0) || (len >= PATH_MAX)) {
+                        goto out;
+                }
                 ret = gf_store_handle_retrieve (path, &handle);
 
                 if (ret) {
@@ -2332,6 +2378,7 @@ glusterd_store_retrieve_snapd (glusterd_volinfo_t *volinfo)
         glusterd_conf_t         *conf                   = NULL;
         gf_store_iter_t         *iter                   = NULL;
         gf_store_op_errno_t     op_errno                = GD_STORE_SUCCESS;
+        int32_t                 len                     = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2364,8 +2411,11 @@ glusterd_store_retrieve_snapd (glusterd_volinfo_t *volinfo)
 
         GLUSTERD_GET_VOLUME_DIR(volpath, volinfo, conf);
 
-        snprintf (path, sizeof (path), "%s/%s", volpath,
-                  GLUSTERD_VOLUME_SNAPD_INFO_FILE);
+        len = snprintf (path, sizeof (path), "%s/%s", volpath,
+                        GLUSTERD_VOLUME_SNAPD_INFO_FILE);
+        if ((len < 0) || (len >= sizeof(path))) {
+                goto out;
+        }
 
         ret = gf_store_handle_retrieve (path, &volinfo->snapd.handle);
         if (ret) {
@@ -2438,6 +2488,7 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
         xlator_t                *this = NULL;
         int                      brickid = 0;
         gf_store_op_errno_t     op_errno = GD_STORE_SUCCESS;
+        int32_t                  len = 0;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (volinfo->volname);
@@ -2460,11 +2511,14 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                 snprintf (tmpkey, sizeof (tmpkey), "%s-%d",
                           GLUSTERD_STORE_KEY_VOL_BRICK,brick_count);
                 ret = gf_store_iter_get_matching (tmpiter, tmpkey, &tmpvalue);
-                snprintf (path, sizeof (path), "%s/%s", brickdir, tmpvalue);
-
+                len = snprintf (path, sizeof (path), "%s/%s", brickdir,
+                                tmpvalue);
                 GF_FREE (tmpvalue);
-
                 tmpvalue = NULL;
+                if ((len < 0) || (len >= sizeof(path))) {
+                        ret = -1;
+                        goto out;
+                }
 
                 ret = gf_store_handle_retrieve (path, &brickinfo->shandle);
 
@@ -2674,6 +2728,7 @@ glusterd_store_retrieve_node_state (glusterd_volinfo_t *volinfo)
         gf_store_op_errno_t  op_errno          = GD_STORE_SUCCESS;
         dict_t              *tmp_dict          = NULL;
         xlator_t            *this              = NULL;
+        int32_t              len               = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2682,8 +2737,11 @@ glusterd_store_retrieve_node_state (glusterd_volinfo_t *volinfo)
         GF_ASSERT (volinfo);
 
         GLUSTERD_GET_VOLUME_DIR(volpath, volinfo, priv);
-        snprintf (path, sizeof (path), "%s/%s", volpath,
-                  GLUSTERD_NODE_STATE_FILE);
+        len = snprintf (path, sizeof (path), "%s/%s", volpath,
+                        GLUSTERD_NODE_STATE_FILE);
+        if ((len < 0) || (len >= PATH_MAX)) {
+                goto out;
+        }
 
         ret = gf_store_handle_retrieve (path, &volinfo->node_state_shandle);
         if (ret)
@@ -2846,6 +2904,7 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
         glusterd_conf_t         *conf                   = NULL;
         gf_store_iter_t         *iter                   = NULL;
         gf_store_op_errno_t     op_errno                = GD_STORE_SUCCESS;
+        int32_t                 len                     = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2854,8 +2913,11 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
 
         GLUSTERD_GET_VOLUME_DIR(volpath, volinfo, conf);
 
-        snprintf (path, sizeof (path), "%s/%s", volpath,
-                  GLUSTERD_VOLUME_INFO_FILE);
+        len = snprintf (path, sizeof (path), "%s/%s", volpath,
+                        GLUSTERD_VOLUME_INFO_FILE);
+        if ((len < 0) || (len >= sizeof(path))) {
+                goto out;
+        }
 
         ret = gf_store_handle_retrieve (path, &volinfo->shandle);
         if (ret) {
@@ -3332,6 +3394,7 @@ glusterd_store_retrieve_volumes (xlator_t  *this, glusterd_snap_t *snap)
         glusterd_volinfo_t    *volinfo          = NULL;
         struct stat            st               = {0,};
         char                   entry_path[PATH_MAX]   = {0,};
+        int32_t                len              = 0;
 
         GF_ASSERT (this);
         priv = this->private;
@@ -3339,11 +3402,14 @@ glusterd_store_retrieve_volumes (xlator_t  *this, glusterd_snap_t *snap)
         GF_ASSERT (priv);
 
         if (snap)
-                snprintf (path, PATH_MAX, "%s/snaps/%s", priv->workdir,
-                          snap->snapname);
+                len = snprintf (path, PATH_MAX, "%s/snaps/%s", priv->workdir,
+                                snap->snapname);
         else
-                snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
-                          GLUSTERD_VOLUME_DIR_PREFIX);
+                len = snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
+                                GLUSTERD_VOLUME_DIR_PREFIX);
+        if ((len < 0) || (len >= PATH_MAX)) {
+                goto out;
+        }
 
         dir = sys_opendir (path);
 
@@ -3360,7 +3426,12 @@ glusterd_store_retrieve_volumes (xlator_t  *this, glusterd_snap_t *snap)
                              (!strcmp (entry->d_name, "info"))))
                         goto next;
 
-                snprintf (entry_path, PATH_MAX, "%s/%s", path, entry->d_name);
+                len = snprintf (entry_path, PATH_MAX, "%s/%s", path,
+                                entry->d_name);
+                if ((len < 0) || (len >= PATH_MAX)) {
+                        ret = -1;
+                        goto next;
+                }
                 ret = sys_lstat (entry_path, &st);
                 if (ret == -1) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -3678,6 +3749,7 @@ glusterd_store_update_snap (glusterd_snap_t *snap)
         glusterd_conf_t         *conf                   = NULL;
         gf_store_iter_t         *iter                   = NULL;
         gf_store_op_errno_t     op_errno                = GD_STORE_SUCCESS;
+        int32_t                 len                     = 0;
 
         this = THIS;
         conf = this->private;
@@ -3685,8 +3757,11 @@ glusterd_store_update_snap (glusterd_snap_t *snap)
 
         GLUSTERD_GET_SNAP_DIR (snappath, snap, conf);
 
-        snprintf (path, sizeof (path), "%s/%s", snappath,
-                  GLUSTERD_SNAP_INFO_FILE);
+        len = snprintf (path, sizeof (path), "%s/%s", snappath,
+                        GLUSTERD_SNAP_INFO_FILE);
+        if ((len < 0) || (len >= sizeof(path))) {
+                goto out;
+        }
 
         ret = gf_store_handle_retrieve (path, &snap->shandle);
         if (ret) {
@@ -3918,13 +3993,18 @@ glusterd_store_retrieve_snaps (xlator_t  *this)
         DIR                   *dir              = NULL;
         struct dirent         *entry            = NULL;
         struct dirent          scratch[2]       = {{0,},};
+        int32_t                len              = 0;
 
         GF_ASSERT (this);
         priv = this->private;
 
         GF_ASSERT (priv);
 
-        snprintf (path, PATH_MAX, "%s/snaps", priv->workdir);
+        len = snprintf (path, PATH_MAX, "%s/snaps", priv->workdir);
+        if ((len < 0) || (len >= PATH_MAX)) {
+                ret = -1;
+                goto out;
+        }
 
         dir = sys_opendir (path);
 
@@ -4093,6 +4173,7 @@ glusterd_store_delete_peerinfo (glusterd_peerinfo_t *peerinfo)
         char                            peerdir[PATH_MAX] = {0,};
         char                            filepath[PATH_MAX] = {0,};
         char                            hostname_path[PATH_MAX] = {0,};
+        int32_t                         len = 0;
 
 
         if (!peerinfo) {
@@ -4103,24 +4184,34 @@ glusterd_store_delete_peerinfo (glusterd_peerinfo_t *peerinfo)
         this = THIS;
         priv = this->private;
 
-        snprintf (peerdir, PATH_MAX, "%s/peers", priv->workdir);
-
+        len = snprintf (peerdir, PATH_MAX, "%s/peers", priv->workdir);
+        if ((len < 0) || (len >= PATH_MAX)) {
+                goto out;
+        }
 
         if (gf_uuid_is_null (peerinfo->uuid)) {
 
                 if (peerinfo->hostname) {
-                        snprintf (filepath, PATH_MAX, "%s/%s", peerdir,
-                                  peerinfo->hostname);
+                        len = snprintf (filepath, PATH_MAX, "%s/%s", peerdir,
+                                        peerinfo->hostname);
+                        if ((len < 0) || (len >= PATH_MAX)) {
+                                goto out;
+                        }
                 } else {
                        ret = 0;
                        goto out;
                 }
         } else {
-
-                snprintf (filepath, PATH_MAX, "%s/%s", peerdir,
-                          uuid_utoa (peerinfo->uuid));
-                snprintf (hostname_path, PATH_MAX, "%s/%s",
-                          peerdir, peerinfo->hostname);
+                len = snprintf (filepath, PATH_MAX, "%s/%s", peerdir,
+                                uuid_utoa (peerinfo->uuid));
+                if ((len < 0) || (len >= PATH_MAX)) {
+                        goto out;
+                }
+                len = snprintf (hostname_path, PATH_MAX, "%s/%s",
+                                peerdir, peerinfo->hostname);
+                if ((len < 0) || (len >= PATH_MAX)) {
+                        goto out;
+                }
 
                 ret = sys_unlink (hostname_path);
 
@@ -4362,14 +4453,19 @@ glusterd_store_retrieve_peers (xlator_t *this)
         glusterd_peer_hostname_t *address            = NULL;
         uuid_t                    tmp_uuid;
         gf_boolean_t              is_ok;
+        int32_t                   len;
 
         GF_ASSERT (this);
         priv = this->private;
 
         GF_ASSERT (priv);
 
-        snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
-                  GLUSTERD_PEER_DIR_PREFIX);
+        len = snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
+                        GLUSTERD_PEER_DIR_PREFIX);
+        if ((len < 0) || (len >= PATH_MAX)) {
+                ret = -1;
+                goto out;
+        }
 
         dir = sys_opendir (path);
 
@@ -4392,7 +4488,11 @@ glusterd_store_retrieve_peers (xlator_t *this)
                         continue;
                 }
                 is_ok = _gf_false;
-                snprintf (filepath, PATH_MAX, "%s/%s", path, entry->d_name);
+                len = snprintf (filepath, PATH_MAX, "%s/%s", path,
+                                entry->d_name);
+                if ((len < 0) || (len >= PATH_MAX)) {
+                        goto next;
+                }
                 ret = gf_store_handle_retrieve (filepath, &shandle);
                 if (ret)
                         goto next;
@@ -4751,6 +4851,7 @@ glusterd_store_retrieve_quota_version (glusterd_volinfo_t *volinfo)
         xlator_t           *this                 = NULL;
         glusterd_conf_t    *conf                 = NULL;
         gf_store_handle_t  *handle               = NULL;
+        int32_t             len                  = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -4758,8 +4859,11 @@ glusterd_store_retrieve_quota_version (glusterd_volinfo_t *volinfo)
         GF_ASSERT (conf);
 
         GLUSTERD_GET_VOLUME_DIR (path, volinfo, conf);
-        snprintf (cksum_path, sizeof (cksum_path), "%s/%s", path,
-                  GLUSTERD_VOL_QUOTA_CKSUM_FILE);
+        len = snprintf (cksum_path, sizeof (cksum_path), "%s/%s", path,
+                        GLUSTERD_VOL_QUOTA_CKSUM_FILE);
+        if ((len < 0) || (len >= sizeof(cksum_path))) {
+                goto out;
+        }
 
         ret = gf_store_handle_new (cksum_path, &handle);
         if (ret) {
@@ -4803,13 +4907,17 @@ glusterd_store_save_quota_version_and_cksum (glusterd_volinfo_t *volinfo)
         char                            buf[256] = {0};
         int                             fd = -1;
         int32_t                         ret = -1;
+        int32_t                         len = 0;
 
         this = THIS;
         conf = this->private;
 
         GLUSTERD_GET_VOLUME_DIR (path, volinfo, conf);
-        snprintf (cksum_path, sizeof (cksum_path), "%s/%s", path,
-                  GLUSTERD_VOL_QUOTA_CKSUM_FILE);
+        len = snprintf (cksum_path, sizeof (cksum_path), "%s/%s", path,
+                        GLUSTERD_VOL_QUOTA_CKSUM_FILE);
+        if ((len < 0) || (len >= sizeof(cksum_path))) {
+                goto out;
+        }
 
         ret = gf_store_handle_new (cksum_path, &shandle);
         if (ret)

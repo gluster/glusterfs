@@ -1690,7 +1690,7 @@ tier_migrate_files_using_qfile (migration_args_t *comp,
         int ret                                 = -1;
         tier_brick_list_t *local_brick          = NULL;
         tier_brick_list_t *temp                 = NULL;
-        char query_file_path_err[PATH_MAX+128]  = {0,};
+        char query_file_path_err[PATH_MAX]      = {0,};
         struct tm tm                            = {0,};
         gfdb_time_t current_time                = {0,};
         char time_str[128]                      = {0,};
@@ -1698,6 +1698,7 @@ tier_migrate_files_using_qfile (migration_args_t *comp,
         int count                               = 0;
         int temp_fd                             = 0;
         gf_tier_conf_t  *tier_conf              = NULL;
+        int32_t len                             = 0;
 
         tier_conf = &(query_cbk_args->defrag->tier_conf);
 
@@ -1762,14 +1763,17 @@ out:
                 list_for_each_entry_safe (local_brick, temp, comp->brick_list,
                                         list) {
                         /* rename error qfile*/
-                        snprintf (query_file_path_err,
-                                  sizeof (query_file_path_err),
-                                  "%s-%s.err", local_brick->qfile_path,
-                                  time_str);
-                        if (sys_rename (local_brick->qfile_path,
-                                        query_file_path_err) == -1)
-                                gf_msg_debug ("tier", 0, "rename "
-                                              "failed");
+                        len = snprintf (query_file_path_err,
+                                        sizeof (query_file_path_err),
+                                        "%s-%s.err", local_brick->qfile_path,
+                                        time_str);
+                        if ((len >= 0) &&
+                            (len < sizeof(query_file_path_err))) {
+                                if (sys_rename (local_brick->qfile_path,
+                                                query_file_path_err) == -1)
+                                        gf_msg_debug ("tier", 0, "rename "
+                                                      "failed");
+                        }
                 }
         }
 
@@ -2118,6 +2122,7 @@ tier_get_bricklist (xlator_t *xl, struct list_head *local_bricklist_head)
         char                    db_name[PATH_MAX] = "";
         int                     ret = 0;
         tier_brick_list_t       *local_brick = NULL;
+        int32_t                 len = 0;
 
         GF_VALIDATE_OR_GOTO ("tier", xl, out);
         GF_VALIDATE_OR_GOTO ("tier", local_bricklist_head, out);
@@ -2155,12 +2160,20 @@ tier_get_bricklist (xlator_t *xl, struct list_head *local_bricklist_head)
                                         DHT_MSG_LOG_TIER_STATUS,
                                         "Failed to allocate memory for"
                                         " bricklist.");
+                                ret = -1;
                                 goto out;
                         }
 
-                        snprintf(local_brick->brick_db_path,
-                                PATH_MAX, "%s/%s/%s", rv,
-                                GF_HIDDEN_PATH, db_name);
+                        len = snprintf(local_brick->brick_db_path,
+                                       PATH_MAX, "%s/%s/%s", rv,
+                                       GF_HIDDEN_PATH, db_name);
+                        if ((len < 0) || (len >= PATH_MAX)) {
+                                gf_msg ("tier", GF_LOG_ERROR, EINVAL,
+                                        DHT_MSG_LOG_TIER_STATUS,
+                                        "DB path too long");
+                                ret = -1;
+                                goto out;
+                        }
 
                         local_brick->xlator = xl;
 

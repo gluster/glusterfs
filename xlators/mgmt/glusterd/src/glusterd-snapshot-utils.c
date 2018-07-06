@@ -669,8 +669,8 @@ int32_t
 glusterd_add_snap_to_dict (glusterd_snap_t *snap, dict_t *peer_data,
                            int32_t snap_count)
 {
-        char                    buf[NAME_MAX]    = "";
-        char                    prefix[NAME_MAX] = "";
+        char                    buf[64]          = "";
+        char                    prefix[32]       = "";
         int32_t                 ret              = -1;
         int32_t                 volcount         = 0;
         glusterd_volinfo_t     *volinfo          = NULL;
@@ -1551,8 +1551,8 @@ int32_t
 glusterd_import_friend_snap (dict_t *peer_data, int32_t snap_count,
                              char *peer_snap_name, char *peer_snap_id)
 {
-        char                 buf[NAME_MAX]    = "";
-        char                 prefix[NAME_MAX] = "";
+        char                 buf[64]          = "";
+        char                 prefix[32]       = "";
         dict_t              *dict             = NULL;
         glusterd_snap_t     *snap             = NULL;
         glusterd_volinfo_t  *snap_vol         = NULL;
@@ -1792,8 +1792,8 @@ int32_t
 glusterd_compare_snap (dict_t *peer_data, int32_t snap_count,
                        char *peername, uuid_t peerid)
 {
-        char              buf[NAME_MAX]    = "";
-        char              prefix[NAME_MAX] = "";
+        char              buf[64]          = "";
+        char              prefix[32]       = "";
         char             *peer_snap_name   = NULL;
         char             *peer_snap_id     = NULL;
         glusterd_snap_t  *snap             = NULL;
@@ -1994,8 +1994,8 @@ glusterd_update_snaps_synctask (void *opaque)
         int               i                = 1;
         xlator_t         *this             = NULL;
         dict_t           *peer_data        = NULL;
-        char              buf[NAME_MAX]    = "";
-        char              prefix[NAME_MAX] = "";
+        char              buf[64]          = "";
+        char              prefix[32]       = "";
         char             *peer_snap_name   = NULL;
         char             *peer_snap_id     = NULL;
         char             *peername         = NULL;
@@ -2205,8 +2205,8 @@ glusterd_add_snapd_to_dict (glusterd_volinfo_t *volinfo,
         int             ret                   = -1;
         int32_t         pid                   = -1;
         int32_t         brick_online          = -1;
-        char            key[1024]             = {0};
-        char            base_key[1024]        = {0};
+        char            key[64]               = {0};
+        char            base_key[32]          = {0};
         char            pidfile[PATH_MAX]     = {0};
         xlator_t        *this                 = NULL;
 
@@ -2433,8 +2433,8 @@ glusterd_merge_brick_status (dict_t *dst, dict_t *src)
         int64_t        j                        = 0;
         int64_t        brick_count              = 0;
         int64_t        brick_order              = 0;
-        char           key[PATH_MAX]            = {0, };
-        char           key_prefix[PATH_MAX]     = {0, };
+        char           key[64]                  = {0, };
+        char           key_prefix[16]           = {0, };
         char           snapbrckcnt[PATH_MAX]    = {0, };
         char           snapbrckord[PATH_MAX]    = {0, };
         char          *clonename                = NULL;
@@ -2510,7 +2510,7 @@ glusterd_merge_brick_status (dict_t *dst, dict_t *src)
                                 goto out;
                         }
 
-                        snprintf (key, sizeof (key) - 1,
+                        snprintf (key, sizeof (key),
                                   "%s%"PRId64".brick%"PRId64".status",
                                   key_prefix, index+1, brick_order);
                         ret = dict_get_int32 (src, key, &brick_online);
@@ -2852,6 +2852,7 @@ glusterd_mount_lvm_snapshot (glusterd_brickinfo_t *brickinfo,
         int32_t            ret            = -1;
         runner_t           runner         = {0, };
         xlator_t          *this           = NULL;
+        int32_t            len            = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2860,8 +2861,11 @@ glusterd_mount_lvm_snapshot (glusterd_brickinfo_t *brickinfo,
 
 
         runinit (&runner);
-        snprintf (msg, sizeof (msg), "mount %s %s",
-                  brickinfo->device_path, brick_mount_path);
+        len = snprintf (msg, sizeof (msg), "mount %s %s",
+                        brickinfo->device_path, brick_mount_path);
+        if (len < 0) {
+                strcpy(msg, "<error>");
+        }
 
         gf_strncpy (mnt_opts, brickinfo->mnt_opts, sizeof(mnt_opts));
 

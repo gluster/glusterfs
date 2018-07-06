@@ -62,6 +62,7 @@ int glusterd_gfproxydsvc_init (glusterd_volinfo_t *volinfo)
         glusterd_conn_notify_t  notify             = NULL;
         xlator_t               *this               = NULL;
         char                    *volfileserver     = NULL;
+        int32_t                 len                = 0;
 
         this = THIS;
         GF_VALIDATE_OR_GOTO ("glusterd", this, out);
@@ -101,7 +102,12 @@ int glusterd_gfproxydsvc_init (glusterd_volinfo_t *volinfo)
                 goto out;
         }
         glusterd_svc_build_gfproxyd_logfile (logfile, logdir, sizeof (logfile));
-        snprintf (volfileid, sizeof (volfileid), "gfproxyd/%s", volinfo->volname);
+        len = snprintf (volfileid, sizeof (volfileid), "gfproxyd/%s",
+                        volinfo->volname);
+        if ((len < 0) || (len >= sizeof(volfileid))) {
+                ret = -1;
+                goto out;
+        }
 
         if (dict_get_str (this->options, "transport.socket.bind-address",
                           &volfileserver) != 0) {
@@ -264,6 +270,7 @@ glusterd_gfproxydsvc_start (glusterd_svc_t *svc, int flags)
         char                 gfproxyd_id[PATH_MAX]      = {0,};
         glusterd_volinfo_t  *volinfo                    = NULL;
         char                *localtime_logging          = NULL;
+        int32_t              len                        = 0;
 
         this = THIS;
         GF_VALIDATE_OR_GOTO ("glusterd", this, out);
@@ -292,8 +299,12 @@ glusterd_gfproxydsvc_start (glusterd_svc_t *svc, int flags)
         runinit (&runner);
 
         if (this->ctx->cmd_args.valgrind) {
-                snprintf (valgrind_logfile, PATH_MAX, "%s/valgrind-%s",
-                          svc->proc.logdir, svc->proc.logfile);
+                len = snprintf (valgrind_logfile, PATH_MAX, "%s/valgrind-%s",
+                                svc->proc.logdir, svc->proc.logfile);
+                if ((len < 0) || (len >= PATH_MAX)) {
+                        ret = -1;
+                        goto out;
+                }
 
                 runner_add_args (&runner, "valgrind", "--leak-check=full",
                                  "--trace-children=yes", "--track-origins=yes",

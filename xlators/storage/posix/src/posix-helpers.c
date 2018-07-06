@@ -2687,8 +2687,12 @@ posix_resolve_dirgfid_to_path (const uuid_t dirgfid, const char *brick_path,
         (void) snprintf (gpath, PATH_MAX, "%s/.glusterfs/", brick_path);
 
         while (!(__is_root_gfid (pargfid))) {
-                snprintf (dir_handle, PATH_MAX, "%s/%02x/%02x/%s", gpath,
-                          pargfid[0], pargfid[1], uuid_utoa (pargfid));
+                len = snprintf (dir_handle, PATH_MAX, "%s/%02x/%02x/%s", gpath,
+                                pargfid[0], pargfid[1], uuid_utoa (pargfid));
+                if ((len < 0) || (len >= PATH_MAX)) {
+                        ret = -1;
+                        goto out;
+                }
 
                 len = sys_readlink (dir_handle, linkname, PATH_MAX);
                 if (len < 0) {
@@ -2707,10 +2711,14 @@ posix_resolve_dirgfid_to_path (const uuid_t dirgfid, const char *brick_path,
                 dir_name = strtok_r (NULL, "/", &saveptr);
 
                 if (strlen(pre_dir_name) != 0) { /* Remove '/' at the end */
-                        snprintf (result, PATH_MAX, "%s/%s", dir_name,
-                                  pre_dir_name);
+                        len = snprintf (result, PATH_MAX, "%s/%s", dir_name,
+                                        pre_dir_name);
                 } else {
-                        snprintf (result, PATH_MAX, "%s", dir_name);
+                        len = snprintf (result, PATH_MAX, "%s", dir_name);
+                }
+                if ((len < 0) || (len >= PATH_MAX)) {
+                        ret = -1;
+                        goto out;
                 }
 
                 strncpy (pre_dir_name, result, sizeof(pre_dir_name));
@@ -2720,12 +2728,20 @@ posix_resolve_dirgfid_to_path (const uuid_t dirgfid, const char *brick_path,
         }
 
         if (bname) {
-                snprintf (result1, PATH_MAX, "/%s/%s", result, bname);
+                len = snprintf (result1, PATH_MAX, "/%s/%s", result, bname);
         } else {
-                snprintf (result1, PATH_MAX, "/%s", result);
+                len = snprintf (result1, PATH_MAX, "/%s", result);
+        }
+        if ((len < 0) || (len >= PATH_MAX)) {
+                ret = -1;
+                goto out;
         }
 
         *path = gf_strdup (result1);
+        if (*path == NULL) {
+                ret = -1;
+                goto out;
+        }
 
 out:
         return ret;

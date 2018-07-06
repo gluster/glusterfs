@@ -196,6 +196,7 @@ build_volfile_path (char *volume_id, char *path,
         xlator_t                *this                   = NULL;
         glusterd_volinfo_t      *volinfo                = NULL;
         glusterd_conf_t         *priv                   = NULL;
+        int32_t                  len                    = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -321,13 +322,18 @@ build_volfile_path (char *volume_id, char *path,
                         goto out;
                 }
 
-                snprintf (path_prefix, sizeof (path_prefix), "%s/snaps/%s",
-                          priv->workdir, volinfo->snapshot->snapname);
-
+                len = snprintf (path_prefix, sizeof (path_prefix),
+                                "%s/snaps/%s", priv->workdir,
+                                volinfo->snapshot->snapname);
                 volid_ptr = volname;
                 /* this is to ensure that volname recvd from
                    get_snap_volname_and_volinfo is free'd */
                 free_ptr = volname;
+                if ((len < 0) || (len >= sizeof(path_prefix))) {
+                        ret = -1;
+                        goto out;
+                }
+
                 goto gotvolinfo;
 
         }
@@ -408,8 +414,12 @@ build_volfile_path (char *volume_id, char *path,
                 volid_ptr = volume_id;
         }
 
-        snprintf (path_prefix, sizeof (path_prefix), "%s/vols",
-                  priv->workdir);
+        len = snprintf (path_prefix, sizeof (path_prefix), "%s/vols",
+                        priv->workdir);
+        if ((len < 0) || (len >= sizeof(path_prefix))) {
+                ret = -1;
+                goto out;
+        }
 
         ret = glusterd_volinfo_find (volid_ptr, &volinfo);
 

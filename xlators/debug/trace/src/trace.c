@@ -22,9 +22,9 @@
 static void
 trace_stat_to_str(struct iatt *buf, char *str, size_t len)
 {
-        char     atime_buf[256]    = {0,};
-        char     mtime_buf[256]    = {0,};
-        char     ctime_buf[256]    = {0,};
+        char     atime_buf[200]    = {0,};
+        char     mtime_buf[200]    = {0,};
+        char     ctime_buf[200]    = {0,};
 
         if (!buf)
                 return;
@@ -80,9 +80,9 @@ trace_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   struct iatt *preparent, struct iatt *postparent,
                   dict_t *xdata)
 {
-        char          statstr[4096]       = {0, };
-        char          preparentstr[4096]  = {0, };
-        char          postparentstr[4096] = {0, };
+        char          statstr[1024]       = {0, };
+        char          preparentstr[1024]  = {0, };
+        char          postparentstr[1024] = {0, };
         trace_conf_t  *conf               = NULL;
 
         conf = this->private;
@@ -155,7 +155,7 @@ trace_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, struct iatt *buf,
                 dict_t *xdata)
 {
-        char          statstr[4096] = {0, };
+        char          statstr[1024] = {0, };
         trace_conf_t  *conf         = NULL;
 
         conf = this->private;
@@ -166,18 +166,18 @@ trace_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 char string[4096] = {0,};
                 if (op_ret == 0) {
                         TRACE_STAT_TO_STR (buf, statstr);
-                        snprintf (string, sizeof (string),
-                                  "%"PRId64": gfid=%s op_ret=%d buf=%s",
-                                  frame->root->unique,
-                                  uuid_utoa (frame->local), op_ret,
-                                  statstr);
+                        (void)snprintf (string, sizeof (string),
+                                        "%"PRId64": gfid=%s op_ret=%d buf=%s",
+                                        frame->root->unique,
+                                        uuid_utoa (frame->local), op_ret,
+                                        statstr);
                 } else {
-                        snprintf (string, sizeof (string),
-                                  "%"PRId64": gfid=%s op_ret=%d, "
-                                  "op_errno=%d)",
-                                  frame->root->unique,
-                                  uuid_utoa (frame->local), op_ret,
-                                  op_errno);
+                        (void)snprintf (string, sizeof (string),
+                                        "%"PRId64": gfid=%s op_ret=%d, "
+                                        "op_errno=%d)",
+                                        frame->root->unique,
+                                        uuid_utoa (frame->local), op_ret,
+                                        op_errno);
                 }
                 LOG_ELEMENT (conf, string);
         }
@@ -192,7 +192,7 @@ trace_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t count, struct iatt *buf, struct iobref *iobref,
                  dict_t *xdata)
 {
-        char          statstr[4096] = {0, };
+        char          statstr[1024] = {0, };
         trace_conf_t  *conf         = NULL;
 
         conf = this->private;
@@ -229,8 +229,8 @@ trace_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno,
                   struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata)
 {
-        char         preopstr[4096]  = {0, };
-        char         postopstr[4096] = {0, };
+        char         preopstr[1024]  = {0, };
+        char         postopstr[1024] = {0, };
         trace_conf_t *conf           = NULL;
 
         conf = this->private;
@@ -295,7 +295,7 @@ trace_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     dict_t *xdata)
 {
         int             count         = 0;
-        char            statstr[4096] = {0,};
+        char            statstr[1024] = {0,};
         char            string[4096]  = {0,};
         trace_conf_t   *conf          = NULL;
         gf_dirent_t    *entry         = NULL;
@@ -334,8 +334,8 @@ trace_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno,
                  struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata)
 {
-        char          preopstr[4096]  = {0, };
-        char          postopstr[4096] = {0, };
+        char          preopstr[1024]  = {0, };
+        char          postopstr[1024] = {0, };
         trace_conf_t  *conf           = NULL;
 
         conf = this->private;
@@ -375,8 +375,8 @@ trace_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno,
                    struct iatt *statpre, struct iatt *statpost, dict_t *xdata)
 {
-        char          preopstr[4096]  = {0, };
-        char          postopstr[4096] = {0, };
+        char          preopstr[1024]  = {0, };
+        char          postopstr[1024] = {0, };
         trace_conf_t  *conf           = NULL;
 
         conf = this->private;
@@ -414,8 +414,8 @@ trace_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno,
                     struct iatt *statpre, struct iatt *statpost, dict_t *xdata)
 {
-        char          preopstr[4096]  = {0, };
-        char          postopstr[4096] = {0, };
+        char          preopstr[1024]  = {0, };
+        char          postopstr[1024] = {0, };
         trace_conf_t  *conf           = NULL;
 
         conf = this->private;
@@ -453,8 +453,8 @@ trace_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   struct iatt *preparent, struct iatt *postparent,
                   dict_t *xdata)
 {
-        char          preparentstr[4096]  = {0, };
-        char          postparentstr[4096] = {0, };
+        char          preparentstr[1024]  = {0, };
+        char          postparentstr[1024] = {0, };
         trace_conf_t  *conf               = NULL;
 
         conf = this->private;
@@ -498,11 +498,11 @@ trace_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   struct iatt *prenewparent, struct iatt *postnewparent,
                   dict_t *xdata)
 {
-        char           statstr[4096]          = {0, };
-        char           preoldparentstr[4096]  = {0, };
-        char           postoldparentstr[4096] = {0, };
-        char           prenewparentstr[4096]  = {0, };
-        char           postnewparentstr[4096] = {0, };
+        char           statstr[1024]          = {0, };
+        char           preoldparentstr[1024]  = {0, };
+        char           postoldparentstr[1024] = {0, };
+        char           prenewparentstr[1024]  = {0, };
+        char           postnewparentstr[1024] = {0, };
         trace_conf_t   *conf                  = NULL;
 
         conf = this->private;
@@ -510,7 +510,7 @@ trace_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!conf->log_file && !conf->log_history)
 		goto out;
         if (trace_fop_names[GF_FOP_RENAME].enabled) {
-                char  string[4096] = {0,};
+                char  string[6044] = {0,};
                 if (op_ret == 0) {
                         TRACE_STAT_TO_STR (buf, statstr);
                         TRACE_STAT_TO_STR (preoldparent, preoldparentstr);
@@ -549,7 +549,7 @@ trace_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno,
                     const char *buf, struct iatt *stbuf, dict_t *xdata)
 {
-        char          statstr[4096] = {0, };
+        char          statstr[1024] = {0, };
         trace_conf_t  *conf         = NULL;
 
         conf = this->private;
@@ -588,8 +588,8 @@ trace_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   inode_t *inode, struct iatt *buf,
                   dict_t *xdata, struct iatt *postparent)
 {
-        char          statstr[4096]       = {0, };
-        char          postparentstr[4096] = {0, };
+        char          statstr[1024]       = {0, };
+        char          postparentstr[1024] = {0, };
         trace_conf_t  *conf               = NULL;
 
         conf = this->private;
@@ -638,9 +638,9 @@ trace_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    struct iatt *preparent, struct iatt *postparent,
                    dict_t *xdata)
 {
-        char          statstr[4096]       = {0, };
-        char          preparentstr[4096]  = {0, };
-        char          postparentstr[4096] = {0, };
+        char          statstr[1024]       = {0, };
+        char          preparentstr[1024]  = {0, };
+        char          postparentstr[1024] = {0, };
         trace_conf_t  *conf               = NULL;
 
         conf = this->private;
@@ -682,9 +682,9 @@ trace_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  inode_t *inode, struct iatt *buf,
                  struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
 {
-        char          statstr[4096]       = {0, };
-        char          preparentstr[4096]  = {0, };
-        char          postparentstr[4096] = {0, };
+        char          statstr[1024]       = {0, };
+        char          preparentstr[1024]  = {0, };
+        char          postparentstr[1024] = {0, };
         trace_conf_t  *conf               = NULL;
 
         conf = this->private;
@@ -726,9 +726,9 @@ trace_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  inode_t *inode, struct iatt *buf,
                  struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
 {
-        char          statstr[4096]       = {0, };
-        char          preparentstr[4096]  = {0, };
-        char          postparentstr[4096] = {0, };
+        char          statstr[1024]       = {0, };
+        char          preparentstr[1024]  = {0, };
+        char          postparentstr[1024] = {0, };
         trace_conf_t  *conf               = NULL;
 
         conf = this->private;
@@ -770,9 +770,9 @@ trace_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 inode_t *inode, struct iatt *buf,
                 struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
 {
-        char          statstr[4096]       = {0, };
-        char          preparentstr[4096]  = {0, };
-        char          postparentstr[4096] = {0, };
+        char          statstr[1024]       = {0, };
+        char          preparentstr[1024]  = {0, };
+        char          postparentstr[1024] = {0, };
         trace_conf_t  *conf               = NULL;
 
         conf = this->private;
@@ -866,8 +866,8 @@ trace_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno,
                  struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
 {
-        char           preparentstr[4096]  = {0, };
-        char           postparentstr[4096] = {0, };
+        char           preparentstr[1024]  = {0, };
+        char           postparentstr[1024] = {0, };
         trace_conf_t   *conf               = NULL;
 
         conf = this->private;
@@ -906,8 +906,8 @@ trace_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno,
                     struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata)
 {
-        char           preopstr[4096]  = {0, };
-        char           postopstr[4096] = {0, };
+        char           preopstr[1024]  = {0, };
+        char           postopstr[1024] = {0, };
         trace_conf_t   *conf           = NULL;
 
         conf = this->private;
@@ -1166,8 +1166,8 @@ trace_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno,
                      struct iatt *prebuf, struct iatt *postbuf, dict_t *xdata)
 {
-        char          prebufstr[4096]  = {0, };
-        char          postbufstr[4096] = {0, };
+        char          prebufstr[1024]  = {0, };
+        char          postbufstr[1024] = {0, };
         trace_conf_t  *conf            = NULL;
 
         conf = this->private;
@@ -1204,7 +1204,7 @@ int
 trace_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, struct iatt *buf, dict_t *xdata)
 {
-        char          statstr[4096] = {0, };
+        char          statstr[1024] = {0, };
         trace_conf_t  *conf         = NULL;
 
         conf = this->private;

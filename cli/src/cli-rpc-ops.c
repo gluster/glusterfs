@@ -8240,8 +8240,8 @@ cli_print_volume_status_tasks (dict_t *dict)
         char           *op          = NULL;
         char           *task_id_str = NULL;
         char           *volname     = NULL;
-        char            key[1024]   = {0,};
-        char            task[1024]  = {0,};
+        char            key[64]     = {0,};
+        char            task[32]    = {0,};
         char           *brick       = NULL;
 
         ret = dict_get_str (dict, "volname", &volname);
@@ -10627,7 +10627,7 @@ gf_cli_generate_snapshot_event (gf_cli_rsp *rsp, dict_t *dict,
         char       *auto_delete       = NULL;
         char       *snap_activate     = NULL;
         char        msg[PATH_MAX]     = {0, };
-        char        option[PATH_MAX]  = {0, };
+        char        option[512]       = {0, };
 
         GF_VALIDATE_OR_GOTO ("cli", dict, out);
         GF_VALIDATE_OR_GOTO ("cli", rsp, out);
@@ -11846,9 +11846,9 @@ cli_to_glusterd (gf_cli_req *req, call_frame_t *frame,
         }
 
         for (i = 0; words[i]; i++) {
-                strncat (cmd, words[i], strlen (words[i]));
+                strncat (cmd, words[i], len - 1);
                 if (words[i+1] != NULL)
-                        strncat (cmd, " ", strlen (" "));
+                        strncat (cmd, " ", len - 1);
         }
 
         cmd [len - 1] = '\0';

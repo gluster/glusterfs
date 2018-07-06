@@ -249,6 +249,7 @@ _glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv,
         runner_t                   runner              = {0};
         char                      *volfileserver       = NULL;
         FILE                      *pidfp               = NULL;
+        int32_t                    len                 = 0;
 
         GF_VALIDATE_OR_GOTO ("glusterd", THIS, out);
 
@@ -272,16 +273,25 @@ _glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv,
         }
 
         GLUSTERD_REMOVE_SLASH_FROM_PATH (brick->path, brickpath);
-        snprintf (logfile, sizeof (logfile),
-                  DEFAULT_QUOTA_CRAWL_LOG_DIRECTORY"/%s.log",
-                  brickpath);
+        len = snprintf (logfile, sizeof (logfile),
+                        DEFAULT_QUOTA_CRAWL_LOG_DIRECTORY"/%s.log",
+                        brickpath);
+        if ((len < 0) || (len >= sizeof(vol_id))) {
+                ret = -1;
+                goto out;
+        }
 
         if (dict_get_str (THIS->options, "transport.socket.bind-address",
                           &volfileserver) != 0)
                 volfileserver = "localhost";
 
-        snprintf (vol_id, sizeof (vol_id), "client_per_brick/%s.%s.%s.%s.vol",
-                  volinfo->volname, "client", brick->hostname, brickpath);
+        len = snprintf (vol_id, sizeof (vol_id),
+                        "client_per_brick/%s.%s.%s.%s.vol", volinfo->volname,
+                        "client", brick->hostname, brickpath);
+        if ((len < 0) || (len >= sizeof(vol_id))) {
+                ret = -1;
+                goto out;
+        }
 
         runinit (&runner);
 
@@ -370,13 +380,15 @@ _glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv,
                         _exit (EXIT_FAILURE);
                 }
 
-                snprintf (pidfile, sizeof (pidfile), "%s/%s.pid", pid_dir,
-                          brickpath);
-                pidfp = fopen (pidfile, "w");
-                if (pidfp) {
-                        fprintf (pidfp, "%d\n", runner.chpid);
-                        fflush (pidfp);
-                        fclose (pidfp);
+                len = snprintf (pidfile, sizeof (pidfile), "%s/%s.pid",
+                                pid_dir, brickpath);
+                if ((len >= 0) && (len < sizeof(pidfile))) {
+                        pidfp = fopen (pidfile, "w");
+                        if (pidfp >= 0) {
+                                fprintf (pidfp, "%d\n", runner.chpid);
+                                fflush (pidfp);
+                                fclose (pidfp);
+                        }
                 }
 
 #ifndef GF_LINUX_HOST_OS
@@ -402,6 +414,7 @@ glusterd_stop_all_quota_crawl_service (glusterd_conf_t *priv,
         struct dirent              scratch[2]         = {{0,},};
         char                       pid_dir[PATH_MAX]  = {0,};
         char                       pidfile[PATH_MAX]  = {0,};
+        int32_t                    len                = 0;
 
         GLUSTERD_GET_QUOTA_CRAWL_PIDDIR (pid_dir, volinfo, type);
 
@@ -411,12 +424,13 @@ glusterd_stop_all_quota_crawl_service (glusterd_conf_t *priv,
 
         GF_SKIP_IRRELEVANT_ENTRIES (entry, dir, scratch);
         while (entry) {
-                snprintf (pidfile, sizeof (pidfile), "%s/%s",
-                          pid_dir, entry->d_name);
-
-                glusterd_service_stop_nolock ("quota_crawl", pidfile, SIGKILL,
-                                              _gf_true);
-                sys_unlink (pidfile);
+                len = snprintf (pidfile, sizeof (pidfile), "%s/%s",
+                                pid_dir, entry->d_name);
+                if ((len >= 0) && (len < sizeof(pidfile))) {
+                        glusterd_service_stop_nolock ("quota_crawl", pidfile,
+                                                      SIGKILL, _gf_true);
+                        sys_unlink (pidfile);
+                }
 
                 GF_SKIP_IRRELEVANT_ENTRIES (entry, dir, scratch);
         }

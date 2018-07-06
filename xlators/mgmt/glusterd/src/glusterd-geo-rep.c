@@ -941,6 +941,7 @@ gsyncd_getpidfile (char *master, char *slave, char *pidfile,
         int                 ret                      = -1;
         struct stat         stbuf                    = {0,};
         xlator_t            *this                    = NULL;
+        int32_t             len                      = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -953,8 +954,11 @@ gsyncd_getpidfile (char *master, char *slave, char *pidfile,
         GF_VALIDATE_OR_GOTO ("gsync", master, out);
         GF_VALIDATE_OR_GOTO ("gsync", slave, out);
 
-        snprintf (temp_conf_path, sizeof(temp_conf_path) - 1,
-                  "%s/"GSYNC_CONF_TEMPLATE, priv->workdir);
+        len = snprintf (temp_conf_path, sizeof(temp_conf_path),
+                        "%s/"GSYNC_CONF_TEMPLATE, priv->workdir);
+        if ((len < 0) || (len >= sizeof(temp_conf_path))) {
+                goto out;
+        }
 
         ret = sys_lstat (conf_path, &stbuf);
         if (!ret) {
@@ -2417,6 +2421,7 @@ glusterd_op_stage_copy_file (dict_t *dict, char **op_errstr)
         char             workdir[PATH_MAX]      = {0,};
         char             realpath_filename[PATH_MAX] = {0,};
         char             realpath_workdir[PATH_MAX]  = {0,};
+        int32_t          len                    = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2458,13 +2463,20 @@ glusterd_op_stage_copy_file (dict_t *dict, char **op_errstr)
                         *op_errstr = gf_strdup ("command unsuccessful");
                         goto out;
                 }
-                snprintf (abs_filename, sizeof(abs_filename),
-                          "%s/%s", priv->workdir, filename);
+                len = snprintf (abs_filename, sizeof(abs_filename),
+                                "%s/%s", priv->workdir, filename);
+                if ((len < 0) || (len >= sizeof(abs_filename))) {
+                        ret = -1;
+                        goto out;
+                }
 
                 if (!realpath (priv->workdir, realpath_workdir)) {
-                        snprintf (errmsg, sizeof (errmsg), "Failed to get "
-                                  "realpath of %s: %s", priv->workdir,
-                                  strerror (errno));
+                        len = snprintf (errmsg, sizeof (errmsg), "Failed to "
+                                        "get realpath of %s: %s",
+                                        priv->workdir, strerror (errno));
+                        if (len < 0) {
+                                strcpy(errmsg, "<error>");
+                        }
                         *op_errstr = gf_strdup (errmsg);
                         ret = -1;
                         goto out;
@@ -2481,12 +2493,21 @@ glusterd_op_stage_copy_file (dict_t *dict, char **op_errstr)
 
                 /* Add Trailing slash to workdir, without slash strncmp
                    will succeed for /var/lib/glusterd_bad */
-                snprintf (workdir, sizeof(workdir), "%s/", realpath_workdir);
+                len = snprintf (workdir, sizeof(workdir), "%s/",
+                                realpath_workdir);
+                if ((len < 0) || (len >= sizeof(workdir))) {
+                        ret = -1;
+                        goto out;
+                }
 
                 /* Protect against file copy outside $workdir */
                 if (strncmp (workdir, realpath_filename, strlen (workdir))) {
-                        snprintf (errmsg, sizeof (errmsg), "Source file"
-                                  " is outside of %s directory", priv->workdir);
+                        len = snprintf (errmsg, sizeof (errmsg), "Source file"
+                                        " is outside of %s directory",
+                                        priv->workdir);
+                        if (len < 0) {
+                                strcpy(errmsg, "<error>");
+                        }
                         *op_errstr = gf_strdup (errmsg);
                         ret = -1;
                         goto out;
@@ -2494,8 +2515,12 @@ glusterd_op_stage_copy_file (dict_t *dict, char **op_errstr)
 
                 ret = sys_lstat (abs_filename, &stbuf);
                 if (ret) {
-                        snprintf (errmsg, sizeof (errmsg), "Source file"
-                                  " does not exist in %s", priv->workdir);
+                        len = snprintf (errmsg, sizeof (errmsg), "Source file"
+                                        " does not exist in %s",
+                                        priv->workdir);
+                        if (len < 0) {
+                                strcpy(errmsg, "<error>");
+                        }
                         *op_errstr = gf_strdup (errmsg);
                         goto out;
                 }
@@ -2532,6 +2557,7 @@ glusterd_get_statefile_name (glusterd_volinfo_t *volinfo, char *slave,
         int              ret                      = -1;
         struct stat      stbuf                    = {0,};
         xlator_t        *this                     = NULL;
+        int32_t          len                      = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2552,8 +2578,11 @@ glusterd_get_statefile_name (glusterd_volinfo_t *volinfo, char *slave,
 
         priv = THIS->private;
 
-        snprintf (temp_conf_path, sizeof(temp_conf_path) - 1,
-                  "%s/"GSYNC_CONF_TEMPLATE, priv->workdir);
+        len = snprintf (temp_conf_path, sizeof(temp_conf_path),
+                        "%s/"GSYNC_CONF_TEMPLATE, priv->workdir);
+        if ((len < 0) || (len >= sizeof(temp_conf_path))) {
+                goto out;
+        }
 
         ret = sys_lstat (conf_path, &stbuf);
         if (!ret) {
@@ -3028,6 +3057,7 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
         char                     *slave_user                = NULL;
         char                     *save_ptr                  = NULL;
         char                     *slave_url_buf             = NULL;
+        int32_t                   len                       = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -3157,23 +3187,33 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                 ret = dict_get_int32 (dict, "push_pem", &is_pem_push);
                 if (!ret && is_pem_push) {
                         ret = snprintf (common_pem_file,
-                                        sizeof(common_pem_file) - 1,
+                                        sizeof(common_pem_file),
                                         "%s"GLUSTERD_COMMON_PEM_PUB_FILE,
                                         conf->workdir);
-                        common_pem_file[ret] = '\0';
+                        if ((ret < 0) || (ret >= sizeof(common_pem_file))) {
+                                ret = -1;
+                                goto out;
+                        }
 
-                        ret = snprintf (hook_script, sizeof(hook_script) - 1,
+                        ret = snprintf (hook_script, sizeof(hook_script),
                                         "%s"GLUSTERD_CREATE_HOOK_SCRIPT,
                                         conf->workdir);
-                        hook_script[ret] = '\0';
+                        if ((ret < 0) || (ret >= sizeof(hook_script))) {
+                                ret = -1;
+                                goto out;
+                        }
 
                         ret = sys_lstat (common_pem_file, &stbuf);
                         if (ret) {
-                                snprintf (errmsg, sizeof (errmsg), "%s"
-                                          " required for push-pem is"
-                                          " not present. Please run"
-                                          " \"gluster system:: execute"
-                                          " gsec_create\"", common_pem_file);
+                                len = snprintf (errmsg, sizeof (errmsg), "%s"
+                                                " required for push-pem is"
+                                                " not present. Please run"
+                                                " \"gluster system:: execute"
+                                                " gsec_create\"",
+                                                common_pem_file);
+                                if (len < 0) {
+                                        strcpy(errmsg, "<error>");
+                                }
                                 gf_msg (this->name, GF_LOG_ERROR, ENOENT,
                                         GD_MSG_FILE_OP_FAILED,
                                         "%s", errmsg);
@@ -3184,11 +3224,15 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
 
                         ret = sys_lstat (hook_script, &stbuf);
                         if (ret) {
-                                snprintf (errmsg, sizeof (errmsg),
-                                          "The hook-script (%s) required "
-                                          "for push-pem is not present. "
-                                          "Please install the hook-script "
-                                          "and retry", hook_script);
+                                len = snprintf (errmsg, sizeof (errmsg),
+                                                "The hook-script (%s) "
+                                                "required for push-pem is not "
+                                                "present. Please install the "
+                                                "hook-script and retry",
+                                                hook_script);
+                                if (len < 0) {
+                                        strcpy(errmsg, "<error>");
+                                }
                                 gf_msg (this->name, GF_LOG_ERROR, ENOENT,
                                         GD_MSG_FILE_OP_FAILED, "%s", errmsg);
                                 *op_errstr = gf_strdup (errmsg);
@@ -3197,11 +3241,15 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                         }
 
                         if (!S_ISREG(stbuf.st_mode)) {
-                                snprintf (errmsg, sizeof (errmsg), "%s"
-                                          " required for push-pem is"
-                                          " not a regular file. Please run"
-                                          " \"gluster system:: execute"
-                                          " gsec_create\"", common_pem_file);
+                                len = snprintf (errmsg, sizeof (errmsg), "%s"
+                                                " required for push-pem is"
+                                                " not a regular file. Please"
+                                                " run \"gluster system:: "
+                                                "execute gsec_create\"",
+                                                common_pem_file);
+                                if (len < 0) {
+                                        strcpy(errmsg, "<error>");
+                                }
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_REG_FILE_MISSING, "%s", errmsg);
                                 ret = -1;
@@ -3314,16 +3362,23 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
 
                 /* Do the check, only if different slave host/slave user */
                 if (is_different_slavehost || is_different_username) {
-                        (void) snprintf (old_confpath, sizeof(old_confpath) - 1,
-                                         "%s/"GEOREP"/%s_%s_%s/gsyncd.conf",
-                                         conf->workdir, volinfo->volname,
-                                         slave1.old_slvhost, slave_vol);
+                        len = snprintf (old_confpath, sizeof(old_confpath),
+                                        "%s/"GEOREP"/%s_%s_%s/gsyncd.conf",
+                                        conf->workdir, volinfo->volname,
+                                        slave1.old_slvhost, slave_vol);
+                        if ((len < 0) || (len >= sizeof(old_confpath))) {
+                                ret = -1;
+                                goto out;
+                        }
 
                         /* construct old slave url with (old) slave host */
-                        (void) snprintf (old_slave_url,
-                                         sizeof(old_slave_url) - 1,
-                                         "%s::%s", slave1.old_slvhost,
-                                         slave_vol);
+                        len = snprintf (old_slave_url, sizeof(old_slave_url),
+                                        "%s::%s", slave1.old_slvhost,
+                                        slave_vol);
+                        if ((len < 0) || (len >= sizeof(old_slave_url))) {
+                                ret = -1;
+                                goto out;
+                        }
 
                         ret = glusterd_check_gsync_running_local (volinfo->volname,
                                  old_slave_url, old_confpath, &is_running);
@@ -4450,6 +4505,7 @@ glusterd_read_status_file (glusterd_volinfo_t *volinfo, char *slave,
         glusterd_conf_t        *priv                       = NULL;
         struct stat             stbuf                      = {0,};
         xlator_t               *this                       = NULL;
+        int32_t                 len                        = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -4469,8 +4525,11 @@ glusterd_read_status_file (glusterd_volinfo_t *volinfo, char *slave,
 
         priv = THIS->private;
 
-        snprintf (temp_conf_path, sizeof(temp_conf_path) - 1,
-                  "%s/"GSYNC_CONF_TEMPLATE, priv->workdir);
+        len = snprintf (temp_conf_path, sizeof(temp_conf_path),
+                        "%s/"GSYNC_CONF_TEMPLATE, priv->workdir);
+        if ((len < 0) || (len >= sizeof(temp_conf_path))) {
+                return -1;
+        }
 
         ret = sys_lstat (conf_path, &stbuf);
         if (!ret) {
@@ -5296,6 +5355,7 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
         struct stat      stbuf                  = {0,};
         gf_boolean_t     free_contents          = _gf_true;
         xlator_t *this = NULL;
+        int32_t len = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -5321,15 +5381,22 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
                *op_errstr = gf_strdup ("command unsuccessful");
                goto out;
         }
-        snprintf (abs_filename, sizeof(abs_filename),
-                  "%s/%s", priv->workdir, filename);
+        len = snprintf (abs_filename, sizeof(abs_filename),
+                        "%s/%s", priv->workdir, filename);
+        if ((len < 0) || (len >= sizeof(abs_filename))) {
+                ret = -1;
+                goto out;
+        }
 
         uuid_utoa_r (MY_UUID, uuid_str);
         if (!strcmp (uuid_str, host_uuid)) {
                 ret = sys_lstat (abs_filename, &stbuf);
                 if (ret) {
-                        snprintf (errmsg, sizeof (errmsg), "Source file"
-                                 " does not exist in %s", priv->workdir);
+                        len = snprintf (errmsg, sizeof (errmsg), "Source file "
+                                        "does not exist in %s", priv->workdir);
+                        if (len < 0) {
+                                strcpy(errmsg, "<error>");
+                        }
                         *op_errstr = gf_strdup (errmsg);
                         gf_msg (this->name, GF_LOG_ERROR, ENOENT,
                                 GD_MSG_FILE_OP_FAILED, "%s", errmsg);
@@ -5350,8 +5417,11 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
 
                 fd = open (abs_filename, O_RDONLY);
                 if (fd < 0) {
-                        snprintf (errmsg, sizeof (errmsg), "Unable to open %s",
-                                  abs_filename);
+                        len = snprintf (errmsg, sizeof (errmsg),
+                                        "Unable to open %s", abs_filename);
+                        if (len < 0) {
+                                strcpy(errmsg, "<error>");
+                        }
                         *op_errstr = gf_strdup (errmsg);
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_FILE_OP_FAILED,
@@ -5370,8 +5440,12 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
                 } while (ret > 0);
 
                 if (bytes_read != stbuf.st_size) {
-                        snprintf (errmsg, sizeof (errmsg), "Unable to read all "
-                                  "the data from %s", abs_filename);
+                        len = snprintf (errmsg, sizeof (errmsg),
+                                        "Unable to read all the data from %s",
+                                        abs_filename);
+                        if (len < 0) {
+                                strcpy(errmsg, "<error>");
+                        }
                         *op_errstr = gf_strdup (errmsg);
                         gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_READ_ERROR,
                                 "%s", errmsg);
@@ -5446,8 +5520,11 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
 
                 fd = open (abs_filename, O_WRONLY | O_TRUNC | O_CREAT, 0600);
                 if (fd < 0) {
-                        snprintf (errmsg, sizeof (errmsg), "Unable to open %s",
-                                  abs_filename);
+                        len = snprintf (errmsg, sizeof (errmsg),
+                                        "Unable to open %s", abs_filename);
+                        if (len < 0) {
+                                strcpy(errmsg, "<error>");
+                        }
                         *op_errstr = gf_strdup (errmsg);
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_FILE_OP_FAILED, "%s", errmsg);
@@ -5458,8 +5535,11 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
                 bytes_writen = sys_write (fd, contents, contents_size);
 
                 if (bytes_writen != contents_size) {
-                        snprintf (errmsg, sizeof (errmsg), "Failed to write"
-                                  " to %s", abs_filename);
+                        len = snprintf (errmsg, sizeof (errmsg),
+                                        "Failed to write to %s", abs_filename);
+                        if (len < 0) {
+                                strcpy(errmsg, "<error>");
+                        }
                         *op_errstr = gf_strdup (errmsg);
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_FILE_OP_FAILED, "%s", errmsg);
@@ -6174,6 +6254,7 @@ glusterd_create_essential_dir_files (glusterd_volinfo_t *volinfo, dict_t *dict,
         glusterd_conf_t   *conf             = NULL;
         struct stat        stbuf            = {0,};
         xlator_t          *this = NULL;
+        int32_t            len = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -6198,13 +6279,19 @@ glusterd_create_essential_dir_files (glusterd_volinfo_t *volinfo, dict_t *dict,
                 goto out;
         }
 
-        ret = snprintf (buf, sizeof(buf) - 1, "%s/"GEOREP"/%s_%s_%s",
+        ret = snprintf (buf, sizeof(buf), "%s/"GEOREP"/%s_%s_%s",
                         conf->workdir, volinfo->volname, slave_host, slave_vol);
-        buf[ret] = '\0';
+        if ((ret < 0) || (ret >= sizeof(buf))) {
+                ret = -1;
+                goto out;
+        }
         ret = mkdir_p (buf, 0777, _gf_true);
         if (ret) {
-                snprintf (errmsg, sizeof (errmsg), "Unable to create %s"
-                          ". Error : %s", buf, strerror (errno));
+                len = snprintf (errmsg, sizeof (errmsg), "Unable to create %s"
+                                ". Error : %s", buf, strerror (errno));
+                if (len < 0) {
+                        strcpy(errmsg, "<error>");
+                }
                 *op_errstr = gf_strdup (errmsg);
                 gf_msg (this->name, GF_LOG_ERROR, errno, GD_MSG_DIR_OP_FAILED,
                         "%s", errmsg);
@@ -6213,11 +6300,17 @@ glusterd_create_essential_dir_files (glusterd_volinfo_t *volinfo, dict_t *dict,
 
         ret = snprintf (buf, PATH_MAX, DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"/%s",
                         volinfo->volname);
-        buf[ret] = '\0';
+        if ((ret < 0) || (ret >= PATH_MAX)) {
+                ret = -1;
+                goto out;
+        }
         ret = mkdir_p (buf, 0777, _gf_true);
         if (ret) {
-                snprintf (errmsg, sizeof (errmsg), "Unable to create %s"
-                          ". Error : %s", buf, strerror (errno));
+                len = snprintf (errmsg, sizeof (errmsg), "Unable to create %s"
+                                ". Error : %s", buf, strerror (errno));
+                if (len < 0) {
+                        strcpy(errmsg, "<error>");
+                }
                 *op_errstr = gf_strdup (errmsg);
                 gf_msg (this->name, GF_LOG_ERROR, errno, GD_MSG_DIR_OP_FAILED,
                         "%s", errmsg);
@@ -6294,6 +6387,7 @@ glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         char               *slave_voluuid             = NULL;
         char               *old_slavehost             = NULL;
         gf_boolean_t        is_existing_session       = _gf_false;
+        int32_t             len                       = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -6307,8 +6401,12 @@ glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         if (ret)
                 goto out;
 
-        snprintf (common_pem_file, sizeof(common_pem_file),
-                  "%s"GLUSTERD_COMMON_PEM_PUB_FILE, conf->workdir);
+        len = snprintf (common_pem_file, sizeof(common_pem_file),
+                        "%s"GLUSTERD_COMMON_PEM_PUB_FILE, conf->workdir);
+        if ((len < 0) || (len >= sizeof(common_pem_file))) {
+                ret = -1;
+                goto out;
+        }
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
@@ -6390,11 +6488,15 @@ glusterd_op_gsync_create (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 } else
                         is_pem_push = 0;
 
-                snprintf(hooks_args, sizeof(hooks_args),
-                         "is_push_pem=%d,pub_file=%s,slave_user=%s,slave_ip=%s,"
-                         "slave_vol=%s,ssh_port=%d", is_pem_push,
-                         common_pem_file, slave_user, slave_ip, slave_vol,
-                         ssh_port);
+                len = snprintf(hooks_args, sizeof(hooks_args),
+                               "is_push_pem=%d,pub_file=%s,slave_user=%s,"
+                               "slave_ip=%s,slave_vol=%s,ssh_port=%d",
+                               is_pem_push, common_pem_file, slave_user,
+                               slave_ip, slave_vol, ssh_port);
+                if ((len < 0) || (len >= sizeof(hooks_args))) {
+                        ret = -1;
+                        goto out;
+                }
         } else
                 snprintf(hooks_args, sizeof(hooks_args),
                          "This argument will stop the hooks script");
@@ -6477,11 +6579,16 @@ create_essentials:
                                                "not present.",
                                                old_working_dir);
                         } else {
-                                snprintf (errmsg, sizeof (errmsg),
-                                          "rename of old working dir %s to "
-                                          "new working dir %s failed! Error: %s",
-                                          old_working_dir, new_working_dir,
-                                          strerror (errno));
+                                len = snprintf (errmsg, sizeof (errmsg),
+                                                "rename of old working dir %s "
+                                                "to new working dir %s "
+                                                "failed! Error: %s",
+                                                old_working_dir,
+                                                new_working_dir,
+                                                strerror (errno));
+                                if (len < 0) {
+                                        strcpy(errmsg, "<error>");
+                                }
                                 gf_msg (this->name,  GF_LOG_INFO, 0,
                                         GD_MSG_FORCE_CREATE_SESSION,
                                         "rename of old working dir %s to "

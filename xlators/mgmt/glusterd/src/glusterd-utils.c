@@ -1449,14 +1449,15 @@ glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
         char         msg[2048]           = {0,};
         gf_boolean_t is_created          = _gf_false;
         char         glusterfs_dir_path[PATH_MAX] = {0};
+        int32_t      len                 = 0;
 
         ret = sys_mkdir (brickinfo->path, 0777);
         if (ret) {
                 if (errno != EEXIST) {
-                        snprintf (msg, sizeof (msg), "Failed to create brick "
-                                  "directory for brick %s:%s. Reason : %s ",
-                                  brickinfo->hostname, brickinfo->path,
-                                  strerror (errno));
+                        len = snprintf (msg, sizeof (msg), "Failed to create "
+                                        "brick directory for brick %s:%s. "
+                                        "Reason : %s ", brickinfo->hostname,
+                                        brickinfo->path, strerror (errno));
                         goto out;
                 }
         } else {
@@ -1465,60 +1466,70 @@ glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
 
         ret = sys_lstat (brickinfo->path, &brick_st);
         if (ret) {
-                snprintf (msg, sizeof (msg), "lstat failed on %s. Reason : %s",
-                          brickinfo->path, strerror (errno));
+                len = snprintf (msg, sizeof (msg), "lstat failed on %s. "
+                                "Reason : %s", brickinfo->path,
+                                strerror (errno));
                 goto out;
         }
 
         if ((!is_created) && (!S_ISDIR (brick_st.st_mode))) {
-                snprintf (msg, sizeof (msg), "The provided path %s which is "
-                          "already present, is not a directory",
-                          brickinfo->path);
+                len = snprintf (msg, sizeof (msg), "The provided path %s "
+                                "which is already present, is not a directory",
+                                brickinfo->path);
                 ret = -1;
                 goto out;
         }
 
-        snprintf (parentdir, sizeof (parentdir), "%s/..", brickinfo->path);
+        len = snprintf (parentdir, sizeof (parentdir), "%s/..",
+                        brickinfo->path);
+        if ((len < 0) || (len >= sizeof(parentdir))) {
+                ret = -1;
+                goto out;
+        }
 
         ret = sys_lstat ("/", &root_st);
         if (ret) {
-                snprintf (msg, sizeof (msg), "lstat failed on /. Reason : %s",
-                          strerror (errno));
+                len = snprintf (msg, sizeof (msg), "lstat failed on /. "
+                                "Reason : %s", strerror (errno));
                 goto out;
         }
 
         ret = sys_lstat (parentdir, &parent_st);
         if (ret) {
-                snprintf (msg, sizeof (msg), "lstat failed on %s. Reason : %s",
-                          parentdir, strerror (errno));
+                len = snprintf (msg, sizeof (msg), "lstat failed on %s. "
+                                "Reason : %s", parentdir, strerror (errno));
                 goto out;
         }
 
         if (!is_force) {
                 if (brick_st.st_dev != parent_st.st_dev) {
-                        snprintf (msg, sizeof (msg), "The brick %s:%s is a "
-                                  "mount point. Please create a sub-directory "
-                                  "under the mount point and use that as the "
-                                  "brick directory. Or use 'force' at the end "
-                                  "of the command if you want to override this "
-                                  "behavior.", brickinfo->hostname,
-                                  brickinfo->path);
+                        len = snprintf (msg, sizeof (msg), "The brick %s:%s "
+                                        "is a mount point. Please create a "
+                                        "sub-directory under the mount point "
+                                        "and use that as the brick directory. "
+                                        "Or use 'force' at the end of the "
+                                        "command if you want to override this "
+                                        "behavior.", brickinfo->hostname,
+                                        brickinfo->path);
                         ret = -1;
                         goto out;
                 }
                 else if (parent_st.st_dev == root_st.st_dev) {
-                        snprintf (msg, sizeof (msg), "The brick %s:%s "
-                                  "is being created in the root partition. It "
-                                  "is recommended that you don't use the "
-                                  "system's root partition for storage backend."
-                                  " Or use 'force' at the end of the command if"
-                                  " you want to override this behavior.",
-                                  brickinfo->hostname, brickinfo->path);
+                        len = snprintf (msg, sizeof (msg), "The brick %s:%s "
+                                        "is being created in the root "
+                                        "partition. It is recommended that "
+                                        "you don't use the system's root "
+                                        "partition for storage backend. Or "
+                                        "use 'force' at the end of the "
+                                        "command if you want to override this "
+                                        "behavior.", brickinfo->hostname,
+                                        brickinfo->path);
 
                         /* If --wignore-partition flag is used, ignore warnings
                          * related to bricks being on root partition when 'force'
                          * is not used */
-                        if (!ignore_partition) {
+                        if ((len < 0) || (len >= sizeof(msg)) ||
+                            !ignore_partition) {
                                 ret = -1;
                                 goto out;
                         }
@@ -1540,20 +1551,28 @@ glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
                 goto out;
 
         /* create .glusterfs directory */
-        snprintf (glusterfs_dir_path, sizeof (glusterfs_dir_path), "%s/%s",
-                  brickinfo->path, ".glusterfs");
+        len = snprintf (glusterfs_dir_path, sizeof (glusterfs_dir_path),
+                        "%s/%s", brickinfo->path, ".glusterfs");
+        if ((len < 0) || (len >= sizeof(glusterfs_dir_path))) {
+                ret = -1;
+                goto out;
+        }
+
         ret = sys_mkdir (glusterfs_dir_path, 0600);
         if (ret && (errno != EEXIST)) {
-                snprintf (msg, sizeof (msg), "Failed to create .glusterfs "
-                          "directory for brick %s:%s. Reason : %s ",
-                          brickinfo->hostname, brickinfo->path,
-                          strerror (errno));
+                len = snprintf (msg, sizeof (msg), "Failed to create "
+                                ".glusterfs directory for brick %s:%s. "
+                                "Reason : %s ", brickinfo->hostname,
+                                brickinfo->path, strerror (errno));
                 goto out;
         }
 
         ret = 0;
 
 out:
+        if (len < 0) {
+                ret = -1;
+        }
         if (ret && is_created) {
                (void)recursive_rmdir (brickinfo->path);
         }
@@ -1859,6 +1878,7 @@ glusterd_set_brick_socket_filepath (glusterd_volinfo_t *volinfo,
         int                     expected_file_len = 0;
         char                    export_path[PATH_MAX] = {0,};
         char                    sock_filepath[PATH_MAX] = {0,};
+        int32_t                 slen = 0;
 
         expected_file_len = strlen (GLUSTERD_SOCK_DIR) + strlen ("/") +
                             SHA256_DIGEST_LENGTH*2 + strlen (".socket") + 1;
@@ -1870,8 +1890,11 @@ glusterd_set_brick_socket_filepath (glusterd_volinfo_t *volinfo,
 
         GLUSTERD_GET_VOLUME_PID_DIR (volume_dir, volinfo, priv);
         GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, export_path);
-        snprintf (sock_filepath, PATH_MAX, "%s/run/%s-%s",
-                  volume_dir, brickinfo->hostname, export_path);
+        slen = snprintf (sock_filepath, PATH_MAX, "%s/run/%s-%s",
+                         volume_dir, brickinfo->hostname, export_path);
+        if (slen < 0) {
+                sock_filepath[0] = 0;
+        }
         glusterd_set_socket_filepath (sock_filepath, sockpath, len);
 }
 
@@ -1966,6 +1989,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         struct rpc_clnt         *rpc = NULL;
         rpc_clnt_connection_t   *conn  = NULL;
         int                     pid    = -1;
+        int32_t                 len = 0;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -2038,15 +2062,19 @@ retry:
         if (this->ctx->cmd_args.valgrind) {
                 /* Run bricks with valgrind */
                 if (volinfo->logdir) {
-                        snprintf (valgrind_logfile, PATH_MAX,
-                                  "%s/valgrind-%s-%s.log",
-                                  volinfo->logdir,
-                                  volinfo->volname, exp_path);
+                        len = snprintf (valgrind_logfile, PATH_MAX,
+                                        "%s/valgrind-%s-%s.log",
+                                        volinfo->logdir,
+                                        volinfo->volname, exp_path);
                 } else {
-                        snprintf (valgrind_logfile, PATH_MAX,
-                                  "%s/bricks/valgrind-%s-%s.log",
-                                  DEFAULT_LOG_FILE_DIRECTORY,
-                                  volinfo->volname, exp_path);
+                        len = snprintf (valgrind_logfile, PATH_MAX,
+                                        "%s/bricks/valgrind-%s-%s.log",
+                                        DEFAULT_LOG_FILE_DIRECTORY,
+                                        volinfo->volname, exp_path);
+                }
+                if ((len < 0) || (len >= PATH_MAX)) {
+                        ret = -1;
+                        goto out;
                 }
 
                 runner_add_args (&runner, "valgrind", "--leak-check=full",
@@ -2056,22 +2084,32 @@ retry:
         }
 
         if (volinfo->is_snap_volume) {
-                snprintf (volfile, PATH_MAX,"/%s/%s/%s.%s.%s",
-                          GLUSTERD_VOL_SNAP_DIR_PREFIX,
-                          volinfo->snapshot->snapname, volinfo->volname,
-                          brickinfo->hostname, exp_path);
+                len = snprintf (volfile, PATH_MAX, "/%s/%s/%s.%s.%s",
+                                GLUSTERD_VOL_SNAP_DIR_PREFIX,
+                                volinfo->snapshot->snapname, volinfo->volname,
+                                brickinfo->hostname, exp_path);
         } else {
-                snprintf (volfile, PATH_MAX, "%s.%s.%s", volinfo->volname,
-                          brickinfo->hostname, exp_path);
+                len = snprintf (volfile, PATH_MAX, "%s.%s.%s",
+                                volinfo->volname, brickinfo->hostname,
+                                exp_path);
+        }
+        if ((len < 0) || (len >= PATH_MAX)) {
+                ret = -1;
+                goto out;
         }
 
         if (volinfo->logdir) {
-                snprintf (logfile, PATH_MAX, "%s/%s.log",
-                          volinfo->logdir, exp_path);
+                len = snprintf (logfile, PATH_MAX, "%s/%s.log",
+                                volinfo->logdir, exp_path);
         } else {
-                snprintf (logfile, PATH_MAX, "%s/bricks/%s.log",
-                          DEFAULT_LOG_FILE_DIRECTORY, exp_path);
+                len = snprintf (logfile, PATH_MAX, "%s/bricks/%s.log",
+                                DEFAULT_LOG_FILE_DIRECTORY, exp_path);
         }
+        if ((len < 0) || (len >= PATH_MAX)) {
+                ret = -1;
+                goto out;
+        }
+
         if (!brickinfo->logfile)
                 brickinfo->logfile = gf_strdup (logfile);
 
@@ -2096,8 +2134,12 @@ retry:
         if (volinfo->transport_type != GF_TRANSPORT_BOTH_TCP_RDMA) {
                 runner_argprintf (&runner, "%d", port);
         } else {
-                snprintf (rdma_brick_path, sizeof(rdma_brick_path), "%s.rdma",
-                          brickinfo->path);
+                len = snprintf (rdma_brick_path, sizeof(rdma_brick_path),
+                                "%s.rdma", brickinfo->path);
+                if ((len < 0) || (len >= sizeof(rdma_brick_path))) {
+                        ret = -1;
+                        goto out;
+                }
                 rdma_port = pmap_assign_port (THIS, brickinfo->rdma_port,
                                               rdma_brick_path);
                 if (!rdma_port) {
@@ -2752,6 +2794,8 @@ int glusterd_compute_cksum (glusterd_volinfo_t *volinfo,
         char              filepath[PATH_MAX]   = {0,};
         glusterd_conf_t  *conf                 = NULL;
         xlator_t         *this                 = NULL;
+        int32_t           len1                 = 0;
+        int32_t           len2                 = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2761,15 +2805,19 @@ int glusterd_compute_cksum (glusterd_volinfo_t *volinfo,
         GLUSTERD_GET_VOLUME_DIR (path, volinfo, conf);
 
         if (is_quota_conf) {
-                snprintf (cksum_path, sizeof (cksum_path), "%s/%s", path,
-                          GLUSTERD_VOL_QUOTA_CKSUM_FILE);
-                snprintf (filepath, sizeof (filepath), "%s/%s", path,
-                          GLUSTERD_VOLUME_QUOTA_CONFIG);
+                len1 = snprintf (cksum_path, sizeof (cksum_path), "%s/%s",
+                                 path, GLUSTERD_VOL_QUOTA_CKSUM_FILE);
+                len2 = snprintf (filepath, sizeof (filepath), "%s/%s", path,
+                                 GLUSTERD_VOLUME_QUOTA_CONFIG);
         } else {
-                snprintf (cksum_path, sizeof (cksum_path), "%s/%s", path,
-                          GLUSTERD_CKSUM_FILE);
-                snprintf (filepath, sizeof (filepath), "%s/%s", path,
-                          GLUSTERD_VOLUME_INFO_FILE);
+                len1 = snprintf (cksum_path, sizeof (cksum_path), "%s/%s",
+                                 path, GLUSTERD_CKSUM_FILE);
+                len2 = snprintf (filepath, sizeof (filepath), "%s/%s", path,
+                                 GLUSTERD_VOLUME_INFO_FILE);
+        }
+        if ((len1 < 0) || (len2 < 0) ||
+            (len1 >= sizeof(cksum_path)) || (len2 >= sizeof(filepath))) {
+                goto out;
         }
 
         ret = glusterd_volume_compute_cksum (volinfo, cksum_path, filepath,
@@ -5568,6 +5616,7 @@ attach_brick (xlator_t *this,
         int             ret = -1;
         int             tries;
         rpc_clnt_t      *rpc;
+        int32_t         len;
 
         gf_log (this->name, GF_LOG_INFO,
                 "add brick %s to existing process for %s",
@@ -5579,14 +5628,20 @@ attach_brick (xlator_t *this,
         GLUSTERD_GET_BRICK_PIDFILE (pidfile2, volinfo, brickinfo, conf);
 
         if (volinfo->is_snap_volume) {
-                snprintf (full_id, sizeof(full_id), "/%s/%s/%s.%s.%s",
-                          GLUSTERD_VOL_SNAP_DIR_PREFIX,
-                          volinfo->snapshot->snapname,
-                          volinfo->volname, brickinfo->hostname, unslashed);
+                len  = snprintf (full_id, sizeof(full_id), "/%s/%s/%s.%s.%s",
+                                 GLUSTERD_VOL_SNAP_DIR_PREFIX,
+                                 volinfo->snapshot->snapname,
+                                 volinfo->volname, brickinfo->hostname,
+                                 unslashed);
         } else {
-                snprintf (full_id, sizeof(full_id), "%s.%s.%s",
-                          volinfo->volname, brickinfo->hostname, unslashed);
+                len = snprintf (full_id, sizeof(full_id), "%s.%s.%s",
+                                volinfo->volname, brickinfo->hostname,
+                                unslashed);
         }
+        if ((len < 0) || (len >= sizeof(full_id))) {
+                goto out;
+        }
+
         (void) build_volfile_path (full_id, path, sizeof(path), NULL);
 
 
@@ -5646,6 +5701,7 @@ attach_brick (xlator_t *this,
                 synclock_lock (&conf->big_lock);
         }
 
+out:
         gf_log (this->name, GF_LOG_WARNING,
                 "attach failed for %s", brickinfo->path);
         return ret;
@@ -6876,7 +6932,7 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
         int             ret                  = -1;
         char            key[1024]            = {0};
         char            buff [PATH_MAX]      = {0};
-        char            base_key[1024]       = {0};
+        char            base_key[32]         = {0};
         struct mntent   save_entry           = {0};
         char           *mnt_pt               = NULL;
         struct mntent  *entry                = NULL;
@@ -6978,7 +7034,7 @@ glusterd_add_brick_detail_to_dict (glusterd_volinfo_t *volinfo,
         uint64_t        inodes_total      = 0;
         uint64_t        inodes_free       = 0;
         uint64_t        block_size        = 0;
-        char            key[1024]         = {0};
+        char            key[1024 + 16]    = {0};
         char            base_key[1024]    = {0};
         struct statvfs  brickstat         = {0};
         xlator_t       *this              = NULL;
@@ -7061,7 +7117,7 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
 
         int             ret                   = -1;
         int32_t         pid                   = -1;
-        char            key[1024]             = {0};
+        char            key[1024 + 16]        = {0};
         char            base_key[1024]        = {0};
         char            pidfile[PATH_MAX]     = {0};
         xlator_t        *this                 = NULL;
@@ -8653,13 +8709,17 @@ glusterd_get_bitd_filepath (char *filepath, glusterd_volinfo_t *volinfo)
         int   ret             = 0;
         char  path[PATH_MAX]  = {0,};
         glusterd_conf_t *priv = NULL;
+        int32_t len           = 0;
 
         priv = THIS->private;
 
         GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
 
-        snprintf (filepath, PATH_MAX,
-                  "%s/%s-bitd.vol", path, volinfo->volname);
+        len = snprintf (filepath, PATH_MAX,
+                        "%s/%s-bitd.vol", path, volinfo->volname);
+        if ((len < 0) || (len >= PATH_MAX)) {
+                ret = -1;
+        }
 
         return ret;
 }
@@ -8671,6 +8731,7 @@ glusterd_get_client_filepath (char *filepath, glusterd_volinfo_t *volinfo,
         int   ret             = 0;
         char  path[PATH_MAX]  = {0,};
         glusterd_conf_t *priv = NULL;
+        int32_t len           = 0;
 
         priv = THIS->private;
 
@@ -8678,17 +8739,20 @@ glusterd_get_client_filepath (char *filepath, glusterd_volinfo_t *volinfo,
 
         switch (type) {
         case GF_TRANSPORT_TCP:
-                snprintf (filepath, PATH_MAX,
-                          "%s/%s.tcp-fuse.vol", path, volinfo->volname);
+                len = snprintf (filepath, PATH_MAX,
+                                "%s/%s.tcp-fuse.vol", path, volinfo->volname);
                 break;
 
         case GF_TRANSPORT_RDMA:
-                snprintf (filepath, PATH_MAX,
-                          "%s/%s.rdma-fuse.vol", path, volinfo->volname);
+                len = snprintf (filepath, PATH_MAX,
+                                "%s/%s.rdma-fuse.vol", path, volinfo->volname);
                 break;
         default:
                 ret = -1;
                 break;
+        }
+        if ((len < 0) || (len >= PATH_MAX)) {
+                ret = -1;
         }
 
         return ret;
@@ -8702,6 +8766,7 @@ glusterd_get_trusted_client_filepath (char *filepath,
         int   ret             = 0;
         char  path[PATH_MAX]  = {0,};
         glusterd_conf_t *priv = NULL;
+        int32_t len           = 0;
 
         priv = THIS->private;
 
@@ -8709,17 +8774,22 @@ glusterd_get_trusted_client_filepath (char *filepath,
 
         switch (type) {
         case GF_TRANSPORT_TCP:
-                snprintf (filepath, PATH_MAX, "%s/trusted-%s.tcp-fuse.vol",
-                          path, volinfo->volname);
+                len = snprintf (filepath, PATH_MAX,
+                                "%s/trusted-%s.tcp-fuse.vol", path,
+                                volinfo->volname);
                 break;
 
         case GF_TRANSPORT_RDMA:
-                snprintf (filepath, PATH_MAX, "%s/trusted-%s.rdma-fuse.vol",
-                          path, volinfo->volname);
+                len = snprintf (filepath, PATH_MAX,
+                                "%s/trusted-%s.rdma-fuse.vol", path,
+                                volinfo->volname);
                 break;
         default:
                 ret = -1;
                 break;
+        }
+        if ((len < 0) || (len >= PATH_MAX)) {
+                ret = -1;
         }
 
         return ret;
@@ -9686,7 +9756,7 @@ static int
 _profile_volume_add_friend_rsp (dict_t *this, char *key, data_t *value,
                                void *data)
 {
-        char    new_key[256] = {0};
+        char    new_key[264] = {0};
         glusterd_pr_brick_rsp_conv_t *rsp_ctx = NULL;
         data_t  *new_value = NULL;
         int     brick_count = 0;
@@ -9753,7 +9823,8 @@ glusterd_volume_status_add_peer_rsp (dict_t *this, char *key, data_t *value,
         char                            brick_key[1024] = {0,};
         char                            new_key[1024] = {0,};
         int32_t                         index = 0;
-        int32_t                         ret = 0;
+        int32_t                         ret = -1;
+        int32_t                         len = 0;
 
         /* Skip the following keys, they are already present in the ctx_dict */
         /* Also, skip all the task related pairs. They will be added to the
@@ -9771,19 +9842,25 @@ glusterd_volume_status_add_peer_rsp (dict_t *this, char *key, data_t *value,
         sscanf (key, "brick%d.%s", &index, brick_key);
 
         if (index > rsp_ctx->brick_index_max) {
-                snprintf (new_key, sizeof (new_key), "brick%d.%s",
-                          index + rsp_ctx->other_count, brick_key);
+                len = snprintf (new_key, sizeof (new_key), "brick%d.%s",
+                                index + rsp_ctx->other_count, brick_key);
+                if ((len < 0) || (len >= sizeof(new_key))) {
+                        goto out;
+                }
         } else {
                 strncpy (new_key, key, sizeof (new_key));
                 new_key[sizeof (new_key) - 1] = 0;
         }
 
         ret = dict_set (rsp_ctx->dict, new_key, new_value);
-        if (ret)
+out:
+        if (ret) {
+                data_unref(new_value);
                 gf_msg ("glusterd", GF_LOG_ERROR, 0,
                         GD_MSG_DICT_SET_FAILED,
                         "Unable to set key: %s in dict",
                         key);
+        }
 
         return 0;
 }
@@ -12538,6 +12615,7 @@ glusterd_clean_up_quota_store (glusterd_volinfo_t *volinfo)
         char      cksum_path[PATH_MAX]     = {0,};
         xlator_t  *this                    = NULL;
         glusterd_conf_t *conf              = NULL;
+        int32_t   len                      = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -12546,10 +12624,16 @@ glusterd_clean_up_quota_store (glusterd_volinfo_t *volinfo)
 
         GLUSTERD_GET_VOLUME_DIR (voldir, volinfo, conf);
 
-        snprintf (quota_confpath, sizeof (quota_confpath), "%s/%s", voldir,
-                  GLUSTERD_VOLUME_QUOTA_CONFIG);
-        snprintf (cksum_path, sizeof (cksum_path), "%s/%s", voldir,
-                  GLUSTERD_VOL_QUOTA_CKSUM_FILE);
+        len = snprintf (quota_confpath, sizeof (quota_confpath), "%s/%s",
+                        voldir, GLUSTERD_VOLUME_QUOTA_CONFIG);
+        if ((len < 0) || (len >= sizeof(quota_confpath))) {
+                quota_confpath[0] = 0;
+        }
+        len = snprintf (cksum_path, sizeof (cksum_path), "%s/%s", voldir,
+                        GLUSTERD_VOL_QUOTA_CKSUM_FILE);
+        if ((len < 0) || (len >= sizeof(cksum_path))) {
+                cksum_path[0] = 0;
+        }
 
         sys_unlink (quota_confpath);
         sys_unlink (cksum_path);
@@ -13375,7 +13459,7 @@ cont:
                         "Libxml not present");
 #endif
 
-        if (xml_out)
+        if (xml_out) {
 #if (HAVE_LIB_XML)
                 output = gf_strdup ((char *)buf->content);
                 if (NULL == output) {
@@ -13387,6 +13471,7 @@ cont:
                         GD_MSG_MODULE_NOT_INSTALLED,
                         "Libxml not present");
 #endif
+        }
 
         ret = dict_set_dynstr (ctx, "help-str", output);
         if (ret >= 0) {

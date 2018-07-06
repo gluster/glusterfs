@@ -629,6 +629,7 @@ htime_open (xlator_t *this,
         ssize_t size                    = 0;
         struct stat stat_buf            = {0,};
         unsigned long record_len        = 0;
+        int32_t len                     = 0;
 
         CHANGELOG_FILL_HTIME_DIR(priv->changelog_dir, ht_dir_path);
 
@@ -672,8 +673,12 @@ htime_open (xlator_t *this,
         gf_smsg (this->name, GF_LOG_INFO, 0, CHANGELOG_MSG_HTIME_INFO,
                  "HTIME_CURRENT",
                  "path=%s", ht_file_bname, NULL);
-        (void) snprintf (ht_file_path, PATH_MAX, "%s/%s",
-                         ht_dir_path, ht_file_bname);
+        len = snprintf (ht_file_path, PATH_MAX, "%s/%s", ht_dir_path,
+                        ht_file_bname);
+        if ((len < 0) || (len >= PATH_MAX)) {
+                ret = -1;
+                goto out;
+        }
 
         /* Open in append mode as existing htime file is used */
         flags |= (O_RDWR | O_SYNC | O_APPEND);
@@ -763,6 +768,7 @@ htime_create (xlator_t *this,
         char ht_file_path[PATH_MAX]         = {0,};
         char ht_file_bname[NAME_MAX + 1]    = {0,};
         int flags                           = 0;
+        int32_t len                         = 0;
 
         gf_smsg (this->name, GF_LOG_INFO, 0,
                  CHANGELOG_MSG_HTIME_INFO, "Changelog enable: Creating new "
@@ -773,8 +779,12 @@ htime_create (xlator_t *this,
         CHANGELOG_FILL_HTIME_DIR(priv->changelog_dir, ht_dir_path);
 
         /* get the htime file name in ht_file_path */
-        (void) snprintf (ht_file_path,PATH_MAX,"%s/%s.%lu",ht_dir_path,
+        len = snprintf (ht_file_path, PATH_MAX, "%s/%s.%lu", ht_dir_path,
                         HTIME_FILE_NAME, ts);
+        if ((len < 0) || (len >= PATH_MAX)) {
+                ret = -1;
+                goto out;
+        }
 
         flags |= (O_CREAT | O_RDWR | O_SYNC);
         ht_file_fd = open (ht_file_path, flags,
@@ -865,12 +875,16 @@ changelog_snap_open (xlator_t *this,
         char buffer[1024]             = {0,};
         char c_snap_path[PATH_MAX]    = {0,};
         char csnap_dir_path[PATH_MAX] = {0,};
+        int32_t len                   = 0;
 
         CHANGELOG_FILL_CSNAP_DIR(priv->changelog_dir, csnap_dir_path);
 
-        (void) snprintf (c_snap_path, PATH_MAX,
-                        "%s/"CSNAP_FILE_NAME,
+        len = snprintf (c_snap_path, PATH_MAX, "%s/"CSNAP_FILE_NAME,
                         csnap_dir_path);
+        if ((len < 0) || (len >= PATH_MAX)) {
+                ret = -1;
+                goto out;
+        }
 
         flags |= (O_CREAT | O_RDWR | O_TRUNC);
 
@@ -2002,8 +2016,12 @@ resolve_pargfid_to_path (xlator_t *this, const uuid_t pgfid,
                          priv->changelog_brick);
 
         while (!(__is_root_gfid (pargfid))) {
-                snprintf (dir_handle, PATH_MAX, "%s/%02x/%02x/%s", gpath,
-                          pargfid[0], pargfid[1], uuid_utoa (pargfid));
+                len = snprintf (dir_handle, PATH_MAX, "%s/%02x/%02x/%s", gpath,
+                                pargfid[0], pargfid[1], uuid_utoa (pargfid));
+                if ((len < 0) || (len >= PATH_MAX)) {
+                        ret = -1;
+                        goto out;
+                }
 
                 len = sys_readlink (dir_handle, linkname, PATH_MAX);
                 if (len < 0) {
@@ -2023,7 +2041,12 @@ resolve_pargfid_to_path (xlator_t *this, const uuid_t pgfid,
                                      &saveptr);
                 dir_name = strtok_r (NULL, "/", &saveptr);
 
-                snprintf (result, PATH_MAX, "%s/%s", dir_name, pre_dir_name);
+                len = snprintf (result, PATH_MAX, "%s/%s", dir_name,
+                                pre_dir_name);
+                if ((len < 0) || (len >= PATH_MAX)) {
+                        ret = -1;
+                        goto out;
+                }
                 strncpy (pre_dir_name, result, sizeof(pre_dir_name));
 
                 gf_uuid_parse (pgfidstr, tmp_gfid);

@@ -702,9 +702,6 @@ fi
 
 AM_CONDITIONAL([ENABLE_BD_XLATOR], [test x$BUILD_BD_XLATOR = xyes])
 
-dnl check for old openssl
-AC_CHECK_LIB([crypto], CRYPTO_THREADID_set_callback, [AC_DEFINE([HAVE_CRYPTO_THREADID], [1], [use new OpenSSL functions])])
-
 AC_CHECK_LIB([ssl], TLS_method, [HAVE_OPENSSL_1_1="yes"], [HAVE_OPENSSL_1_1="no"])
 if test "x$HAVE_OPENSSL_1_1" = "xyes"; then
     AC_DEFINE([HAVE_TLS_METHOD], [1], [Using OpenSSL-1.1 TLS_method])

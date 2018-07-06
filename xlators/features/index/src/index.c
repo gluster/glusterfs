@@ -810,6 +810,7 @@ index_entry_create (xlator_t *this, inode_t *inode, char *filename)
         char                entry_path[PATH_MAX]            = {0};
         index_priv_t       *priv                            = NULL;
         index_inode_ctx_t  *ctx                             = NULL;
+        int32_t             len                             = 0;
 
         priv = this->private;
 
@@ -841,10 +842,15 @@ index_entry_create (xlator_t *this, inode_t *inode, char *filename)
                 ctx->state[ENTRY_CHANGES] = IN;
         }
 
+        len = snprintf (entry_path, sizeof(entry_path), "%s/%s", pgfid_path,
+                        filename);
+        if ((len < 0) || (len >= sizeof(entry_path))) {
+                op_errno = EINVAL;
+                goto out;
+        }
+
         op_errno = 0;
 
-        snprintf (entry_path, sizeof(entry_path), "%s/%s", pgfid_path,
-                  filename);
         ret = index_link_to_base (this, entry_path, ENTRY_CHANGES_SUBDIR);
 out:
         if (op_errno)
@@ -860,6 +866,7 @@ index_entry_delete (xlator_t *this, uuid_t pgfid, char *filename)
         char                pgfid_path[PATH_MAX]            = {0};
         char                entry_path[PATH_MAX]            = {0};
         index_priv_t       *priv                            = NULL;
+        int32_t             len                             = 0;
 
         priv = this->private;
 
@@ -870,8 +877,12 @@ index_entry_delete (xlator_t *this, uuid_t pgfid, char *filename)
 
         make_gfid_path (priv->index_basepath, ENTRY_CHANGES_SUBDIR, pgfid,
                         pgfid_path, sizeof (pgfid_path));
-        snprintf (entry_path, sizeof(entry_path), "%s/%s", pgfid_path,
-                  filename);
+        len = snprintf (entry_path, sizeof(entry_path), "%s/%s", pgfid_path,
+                        filename);
+        if ((len < 0) || (len >= sizeof(entry_path))) {
+                op_errno = EINVAL;
+                goto out;
+        }
 
         ret = sys_unlink (entry_path);
         if (ret && (errno != ENOENT)) {

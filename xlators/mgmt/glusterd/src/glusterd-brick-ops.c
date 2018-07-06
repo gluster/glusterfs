@@ -783,6 +783,7 @@ glusterd_set_detach_bricks(dict_t *dict, glusterd_volinfo_t *volinfo)
         int hot_brick_num = 0;
         glusterd_brickinfo_t *brickinfo;
         int ret = 0;
+        int32_t len = 0;
 
         /* cold tier bricks at tail of list so use reverse iteration */
         cds_list_for_each_entry_reverse (brickinfo, &volinfo->bricks,
@@ -791,9 +792,12 @@ glusterd_set_detach_bricks(dict_t *dict, glusterd_volinfo_t *volinfo)
                 if (brick_num > volinfo->tier_info.cold_brick_count) {
                         hot_brick_num++;
                         sprintf (key, "brick%d", hot_brick_num);
-                        snprintf (value, 256, "%s:%s",
-                                  brickinfo->hostname,
-                                  brickinfo->path);
+                        len = snprintf (value, sizeof(value), "%s:%s",
+                                        brickinfo->hostname,
+                                        brickinfo->path);
+                        if ((len < 0) || (len >= sizeof(value))) {
+                                return -1;
+                        }
 
                         ret = dict_set_str (dict, key, strdup(value));
                         if (ret)
@@ -1677,6 +1681,7 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         char                                    *str_ret = NULL;
         gf_boolean_t                            is_force = _gf_false;
         glusterd_conf_t                         *conf = NULL;
+        uint32_t                                 len = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1778,10 +1783,14 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                 continue;
                         if (brickinfo->status == GF_BRICK_STOPPED) {
                                 ret = -1;
-                                snprintf (msg, sizeof (msg), "Brick %s is down,"
-                                          " changing replica count needs all "
-                                          "the bricks to be up to avoid data "
-                                          "loss", brickinfo->path);
+                                len = snprintf (msg, sizeof (msg), "Brick %s "
+                                                "is down, changing replica "
+                                                "count needs all the bricks "
+                                                "to be up to avoid data loss",
+                                                brickinfo->path);
+                                if (len < 0) {
+                                        strcpy(msg, "<error>");
+                                }
                                 gf_msg (THIS->name, GF_LOG_ERROR, 0,
                                         GD_MSG_BRICK_ADD_FAIL, "%s", msg);
                                 *op_errstr = gf_strdup (msg);

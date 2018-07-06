@@ -75,7 +75,7 @@ xdr_to_auth_unix_cred (char *msgbuf, int msglen, struct authunix_parms *au,
 #define rpc_call_verf_len(call)         (rpc_opaque_auth_len ((&(call)->ru.RM_cmb.cb_verf)))
 
 
-#if defined(GF_DARWIN_HOST_OS) || defined (IPV6_DEFAULT)
+#if defined(GF_DARWIN_HOST_OS) || !defined (HAVE_RPC_RPC_H)
 #define GF_PRI_RPC_XID          PRIu32
 #define GF_PRI_RPC_VERSION      PRIu32
 #define GF_PRI_RPC_PROG_ID      PRIu32
