@@ -970,6 +970,14 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local    = frame->local;
         int_lock = &local->internal_lock;
 
+        if (op_ret == 0 && local->transaction.type == AFR_DATA_TRANSACTION) {
+                LOCK (&local->inode->lock);
+                {
+                        local->inode_ctx->lock_count++;
+                }
+                UNLOCK (&local->inode->lock);
+        }
+
         LOCK (&frame->lock);
         {
 		if (op_ret < 0) {
@@ -994,13 +1002,6 @@ afr_nonblocking_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         UNLOCK (&frame->lock);
 
-        if (op_ret == 0 && local->transaction.type == AFR_DATA_TRANSACTION) {
-                LOCK (&local->inode->lock);
-                {
-                        local->inode_ctx->lock_count++;
-                }
-                UNLOCK (&local->inode->lock);
-        }
         if (call_count == 0) {
                 gf_msg_trace (this->name, 0,
                               "Last inode locking reply received");
