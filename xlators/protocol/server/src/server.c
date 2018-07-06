@@ -1751,6 +1751,7 @@ struct volume_options server_options[] = {
           .setkey = "auth.addr.{{ brick.path }}.allow",
           .default_value = "*",
           .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
           .description = "Allow a comma separated list of addresses and/or "
                          "hostnames to connect to the server. Option "
                          "auth.reject overrides this option. By default, all "
@@ -1759,10 +1760,21 @@ struct volume_options server_options[] = {
         { .key   = {"auth.addr.*.reject", "auth.reject"},
           .setkey = "auth.addr.{{ brick.path }}.reject",
           .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
           .description = "Reject a comma separated list of addresses and/or "
                          "hostnames to connect to the server. This option "
                          "overrides the auth.allow option. By default, all"
                          " connections are allowed."
+        },
+        { .key   = {"ssl-allow"},
+          .setkey = "auth.login.{{ brick.path }}.ssl-allow",
+          .default_value = "*",
+          .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+          .description = "Allow a comma separated list of common names (CN) of"
+                         "the clients that are allowed to access the server."
+                         "By default, all TLS authenticated clients are"
+                         "allowed to access the server."
         },
         /* This is not a valid path w.r.t daemons, hence it's string */
         { .key   = {"auth-path"},
@@ -1838,5 +1850,5 @@ xlator_api_t xlator_api = {
         .fops          = &server_fops,
         .cbks          = &server_cbks,
         .options       = server_options,
-        .identifier    = "server-protocol",
+        .identifier    = "server",
 };
