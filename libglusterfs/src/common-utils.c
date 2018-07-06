@@ -4352,6 +4352,12 @@ fop_log_level (glusterfs_fop_t fop, int op_errno)
                 if (op_errno == EEXIST)
                         return GF_LOG_DEBUG;
 
+        if (fop == GF_FOP_SEEK) {
+                if (op_errno == ENXIO) {
+                        return GF_LOG_DEBUG;
+                }
+        }
+
         return GF_LOG_ERROR;
 }
 

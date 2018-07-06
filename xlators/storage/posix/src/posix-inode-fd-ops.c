@@ -1111,8 +1111,9 @@ posix_seek (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         ret = sys_lseek (pfd->fd, offset, whence);
         if (ret == -1) {
                 err = errno;
-                gf_msg (this->name, GF_LOG_ERROR, err, P_MSG_SEEK_FAILED,
-                        "seek failed on fd %d length %" PRId64 , pfd->fd,
+                gf_msg (this->name, fop_log_level(GF_FOP_SEEK, err), err,
+                        P_MSG_SEEK_FAILED,
+                        "seek failed on fd %d length %" PRId64, pfd->fd,
                         offset);
                 goto out;
         }
