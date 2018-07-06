@@ -569,6 +569,7 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
         char *greplg_s   = NULL;
         struct group *gr = NULL;
         int ret          = 0;
+        int32_t len      = 0;
 
         GF_ASSERT (georepdir);
         GF_ASSERT (conf);
@@ -582,7 +583,11 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
                 goto out;
         }
 
-        snprintf (georepdir, PATH_MAX, "%s/"GEOREP, conf->workdir);
+        len = snprintf (georepdir, PATH_MAX, "%s/"GEOREP, conf->workdir);
+        if ((len < 0) || (len >= PATH_MAX)) {
+                ret = -1;
+                goto out;
+        }
         ret = mkdir_p (georepdir, 0777, _gf_true);
         if (-1 == ret) {
                 gf_msg ("glusterd", GF_LOG_CRITICAL, errno,
@@ -1404,6 +1409,7 @@ init (xlator_t *this)
         gf_boolean_t       upgrade                    = _gf_false;
         gf_boolean_t       downgrade                  = _gf_false;
         char              *localtime_logging          = NULL;
+        int32_t            len                        = 0;
 
 #ifndef GF_DARWIN_HOST_OS
         {
@@ -1503,8 +1509,13 @@ init (xlator_t *this)
                 exit (1);
         }
 
-        snprintf (snap_mount_dir, sizeof(snap_mount_dir), "%s%s",
-                  var_run_dir, GLUSTERD_DEFAULT_SNAPS_BRICK_DIR);
+        len = snprintf (snap_mount_dir, sizeof(snap_mount_dir), "%s%s",
+                        var_run_dir, GLUSTERD_DEFAULT_SNAPS_BRICK_DIR);
+        if ((len < 0) || (len >= sizeof(snap_mount_dir))) {
+                gf_msg (this->name, GF_LOG_CRITICAL, 0,
+                        GD_MSG_DIR_OP_FAILED, "Snap mount dir too long");
+                exit(1);
+        }
 
         ret = mkdir_p (GLUSTER_SHARED_STORAGE_BRICK_DIR, 0777,
                        _gf_true);
@@ -1571,7 +1582,10 @@ init (xlator_t *this)
                 exit (1);
         }
 
-        snprintf (storedir, PATH_MAX, "%s/vols", workdir);
+        len = snprintf (storedir, sizeof(storedir), "%s/vols", workdir);
+        if ((len < 0) || (len >= sizeof(storedir))) {
+                exit(1);
+        }
 
         ret = sys_mkdir (storedir, 0777);
 
@@ -1584,7 +1598,10 @@ init (xlator_t *this)
         }
 
         /*keeping individual volume pid file information in /var/run/gluster* */
-        snprintf (storedir, PATH_MAX, "%s/vols", rundir);
+        len = snprintf (storedir, sizeof(storedir), "%s/vols", rundir);
+        if ((len < 0) || (len >= sizeof(storedir))) {
+                exit(1);
+        }
 
         ret = sys_mkdir (storedir, 0777);
 
@@ -1596,7 +1613,10 @@ init (xlator_t *this)
                 exit (1);
         }
 
-        snprintf (storedir, PATH_MAX, "%s/snaps", workdir);
+        len = snprintf (storedir, sizeof(storedir), "%s/snaps", workdir);
+        if ((len < 0) || (len >= sizeof(storedir))) {
+                exit(1);
+        }
 
         ret = sys_mkdir (storedir, 0777);
 
@@ -1608,7 +1628,10 @@ init (xlator_t *this)
                 exit (1);
         }
 
-        snprintf (storedir, PATH_MAX, "%s/peers", workdir);
+        len = snprintf (storedir, sizeof(storedir), "%s/peers", workdir);
+        if ((len < 0) || (len >= sizeof(storedir))) {
+                exit(1);
+        }
 
         ret = sys_mkdir (storedir, 0777);
 
@@ -1620,7 +1643,12 @@ init (xlator_t *this)
                 exit (1);
         }
 
-        snprintf (storedir, PATH_MAX, "%s/bricks", DEFAULT_LOG_FILE_DIRECTORY);
+        len = snprintf (storedir, sizeof(storedir), "%s/bricks",
+                        DEFAULT_LOG_FILE_DIRECTORY);
+        if ((len < 0) || (len >= sizeof(storedir))) {
+                exit(1);
+        }
+
         ret = sys_mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
@@ -1630,7 +1658,10 @@ init (xlator_t *this)
                 exit (1);
         }
 
-        snprintf (storedir, PATH_MAX, "%s/nfs", workdir);
+        len = snprintf (storedir, sizeof(storedir), "%s/nfs", workdir);
+        if ((len < 0) || (len >= sizeof(storedir))) {
+                exit(1);
+        }
         ret = sys_mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
@@ -1640,7 +1671,10 @@ init (xlator_t *this)
                 exit (1);
         }
 
-        snprintf (storedir, PATH_MAX, "%s/bitd", workdir);
+        len = snprintf (storedir, sizeof(storedir), "%s/bitd", workdir);
+        if ((len < 0) || (len >= sizeof(storedir))) {
+                exit(1);
+        }
         ret = sys_mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
@@ -1650,7 +1684,10 @@ init (xlator_t *this)
                 exit (1);
         }
 
-        snprintf (storedir, PATH_MAX, "%s/scrub", workdir);
+        len = snprintf (storedir, sizeof(storedir), "%s/scrub", workdir);
+        if ((len < 0) || (len >= sizeof(storedir))) {
+                exit(1);
+        }
         ret = sys_mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
@@ -1660,7 +1697,10 @@ init (xlator_t *this)
                 exit (1);
         }
 
-        snprintf (storedir, PATH_MAX, "%s/glustershd", workdir);
+        len = snprintf (storedir, sizeof(storedir), "%s/glustershd", workdir);
+        if ((len < 0) || (len >= sizeof(storedir))) {
+                exit(1);
+        }
         ret = sys_mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
@@ -1670,7 +1710,10 @@ init (xlator_t *this)
                 exit (1);
         }
 
-        snprintf (storedir, PATH_MAX, "%s/quotad", workdir);
+        len = snprintf (storedir, sizeof(storedir), "%s/quotad", workdir);
+        if ((len < 0) || (len >= sizeof(storedir))) {
+                exit(1);
+        }
         ret = sys_mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,
@@ -1680,7 +1723,10 @@ init (xlator_t *this)
                 exit (1);
         }
 
-        snprintf (storedir, PATH_MAX, "%s/groups", workdir);
+        len = snprintf (storedir, sizeof(storedir), "%s/groups", workdir);
+        if ((len < 0) || (len >= sizeof(storedir))) {
+                exit(1);
+        }
         ret = sys_mkdir (storedir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_msg (this->name, GF_LOG_CRITICAL, errno,

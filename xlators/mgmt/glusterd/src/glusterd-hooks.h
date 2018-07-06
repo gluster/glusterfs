@@ -13,8 +13,14 @@
 #include <fnmatch.h>
 
 #define GLUSTERD_GET_HOOKS_DIR(path, version, priv) \
-        snprintf (path, PATH_MAX, "%s/hooks/%d", priv->workdir,\
-                  version);
+        do { \
+                int32_t len; \
+                len = snprintf (path, PATH_MAX, "%s/hooks/%d", priv->workdir,\
+                                version); \
+                if (len < 0) { \
+                        path[0] = 0; \
+                } \
+        } while (0)
 
 #define GLUSTERD_HOOK_VER       1
 

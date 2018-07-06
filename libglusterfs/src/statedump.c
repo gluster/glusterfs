@@ -858,11 +858,16 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
         if (ret < 0)
                 goto out;
 
-        snprintf (path, sizeof (path), "%s/%s.%d.dump.%"PRIu64,
-                  ((dump_options.dump_path != NULL)?dump_options.dump_path:
-                   ((ctx->statedump_path != NULL)?ctx->statedump_path:
-                    DEFAULT_VAR_RUN_DIRECTORY)), brick_name, getpid(),
-                  (uint64_t) time (NULL));
+        ret = snprintf (path, sizeof (path), "%s/%s.%d.dump.%"PRIu64,
+                        ((dump_options.dump_path != NULL)
+                                ? dump_options.dump_path
+                                : ((ctx->statedump_path != NULL)
+                                        ? ctx->statedump_path
+                                        : DEFAULT_VAR_RUN_DIRECTORY)),
+                        brick_name, getpid(), (uint64_t) time (NULL));
+        if ((ret < 0) || (ret >= sizeof(path))) {
+                goto out;
+        }
 
         snprintf (tmp_dump_name, PATH_MAX, "%s/dumpXXXXXX",
                   ((dump_options.dump_path != NULL)?dump_options.dump_path:
@@ -939,10 +944,10 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
                   timestr);
         ret = sys_write (gf_dump_fd, sign_string, strlen (sign_string));
 
-out:
         if (gf_dump_fd != -1)
                 gf_proc_dump_close ();
         sys_rename (tmp_dump_name, path);
+out:
         GF_FREE (dump_options.dump_path);
         dump_options.dump_path = NULL;
         gf_proc_dump_unlock ();

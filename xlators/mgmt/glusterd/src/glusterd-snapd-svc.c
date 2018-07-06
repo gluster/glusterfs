@@ -62,6 +62,7 @@ glusterd_snapdsvc_init (void *data)
         glusterd_conn_notify_t  notify             = NULL;
         xlator_t               *this               = NULL;
         char                    *volfileserver     = NULL;
+        int32_t                 len                = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -102,7 +103,12 @@ glusterd_snapdsvc_init (void *data)
                 goto out;
         }
         glusterd_svc_build_snapd_logfile (logfile, logdir, sizeof (logfile));
-        snprintf (volfileid, sizeof (volfileid), "snapd/%s", volinfo->volname);
+        len = snprintf (volfileid, sizeof (volfileid), "snapd/%s",
+                        volinfo->volname);
+        if ((len < 0) || (len >= sizeof(volfileid))) {
+                ret = -1;
+                goto out;
+        }
 
         if (dict_get_str (this->options, "transport.socket.bind-address",
                           &volfileserver) != 0) {
@@ -227,6 +233,7 @@ glusterd_snapdsvc_start (glusterd_svc_t *svc, int flags)
         glusterd_volinfo_t  *volinfo                    = NULL;
         glusterd_snapdsvc_t *snapd                      = NULL;
         char                *localtime_logging          = NULL;
+        int32_t              len                        = 0;
 
         this = THIS;
         GF_ASSERT(this);
@@ -282,8 +289,12 @@ glusterd_snapdsvc_start (glusterd_svc_t *svc, int flags)
         runinit (&runner);
 
         if (this->ctx->cmd_args.valgrind) {
-                snprintf (valgrind_logfile, PATH_MAX, "%s/valgrind-snapd.log",
-                          svc->proc.logdir);
+                len = snprintf (valgrind_logfile, PATH_MAX,
+                                "%s/valgrind-snapd.log", svc->proc.logdir);
+                if ((len < 0) || (len >= PATH_MAX)) {
+                        ret = -1;
+                        goto out;
+                }
 
                 runner_add_args (&runner, "valgrind", "--leak-check=full",
                                  "--trace-children=yes", "--track-origins=yes",

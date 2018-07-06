@@ -1830,6 +1830,7 @@ brick_graph_add_changelog (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         xlator_t        *xl = NULL;
         char            changelog_basepath[PATH_MAX]    = {0,};
         int             ret = -1;
+        int32_t         len = 0;
 
         if (!graph || !volinfo || !set_dict || !brickinfo)
                 goto out;
@@ -1842,8 +1843,12 @@ brick_graph_add_changelog (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        snprintf (changelog_basepath, sizeof (changelog_basepath),
-                  "%s/%s", brickinfo->path, ".glusterfs/changelogs");
+        len = snprintf (changelog_basepath, sizeof (changelog_basepath),
+                        "%s/%s", brickinfo->path, ".glusterfs/changelogs");
+        if ((len < 0) || (len >= sizeof(changelog_basepath))) {
+                ret = -1;
+                goto out;
+        }
         ret = xlator_set_option (xl, "changelog-dir", changelog_basepath);
         if (ret)
                 goto out;
@@ -2187,6 +2192,7 @@ brick_graph_add_index (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         char            *pending_xattr = NULL;
         char            index_basepath[PATH_MAX]   = {0};
         int             ret = -1;
+        int32_t         len = 0;
 
         if (!graph || !volinfo || !brickinfo || !set_dict)
                 goto out;
@@ -2200,8 +2206,11 @@ brick_graph_add_index (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (!xl)
                 goto out;
 
-        snprintf (index_basepath, sizeof (index_basepath), "%s/%s",
-                  brickinfo->path, ".glusterfs/indices");
+        len = snprintf (index_basepath, sizeof (index_basepath), "%s/%s",
+                        brickinfo->path, ".glusterfs/indices");
+        if ((len < 0) || (len >= sizeof(index_basepath))) {
+                goto out;
+        }
 
         ret = xlator_set_option (xl, "index-base", index_basepath);
         if (ret)
@@ -2474,6 +2483,7 @@ brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         char            *ssl_user = NULL;
         char            *volname = NULL;
         char            *address_family_data = NULL;
+        int32_t          len = 0;
 
         if (!graph || !volinfo || !set_dict || !brickinfo)
                 goto out;
@@ -2523,8 +2533,11 @@ brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
         if (username) {
                 memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "auth.login.%s.allow",
-                                        brickinfo->path);
+                len = snprintf (key, sizeof (key), "auth.login.%s.allow",
+                                brickinfo->path);
+                if ((len < 0) || (len >= sizeof(key))) {
+                        return -1;
+                }
 
                 ret = xlator_set_option (xl, key, username);
                 if (ret)
@@ -2563,8 +2576,11 @@ brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
         if (dict_get_str (volinfo->dict, "auth.ssl-allow", &ssl_user) == 0) {
                 memset (key, 0, sizeof (key));
-                snprintf (key, sizeof (key), "auth.login.%s.ssl-allow",
-                                       brickinfo->path);
+                len = snprintf (key, sizeof (key), "auth.login.%s.ssl-allow",
+                                brickinfo->path);
+                if ((len < 0) || (len >= sizeof(key))) {
+                        return -1;
+                }
 
                 ret = xlator_set_option (xl, key, ssl_user);
                 if (ret)
@@ -5638,6 +5654,7 @@ get_brick_filepath (char *filename, glusterd_volinfo_t *volinfo,
         char  path[PATH_MAX]   = {0,};
         char  brick[PATH_MAX]  = {0,};
         glusterd_conf_t *priv  = NULL;
+        int32_t len            = 0;
 
         priv = THIS->private;
 
@@ -5645,13 +5662,16 @@ get_brick_filepath (char *filename, glusterd_volinfo_t *volinfo,
         GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
 
         if (prefix)
-                snprintf (filename, PATH_MAX, "%s/%s.%s.%s.%s.vol",
-                          path, volinfo->volname, prefix,
-                          brickinfo->hostname, brick);
+                len = snprintf (filename, PATH_MAX, "%s/%s.%s.%s.%s.vol",
+                                path, volinfo->volname, prefix,
+                                brickinfo->hostname, brick);
         else
-                snprintf (filename, PATH_MAX, "%s/%s.%s.%s.vol",
-                          path, volinfo->volname,
-                          brickinfo->hostname, brick);
+                len = snprintf (filename, PATH_MAX, "%s/%s.%s.%s.vol",
+                                path, volinfo->volname,
+                                brickinfo->hostname, brick);
+        if ((len < 0) || (len >= PATH_MAX)) {
+                filename[0] = 0;
+        }
 }
 
 
@@ -5877,16 +5897,18 @@ get_parent_vol_tstamp_file (char *filename, glusterd_volinfo_t *volinfo)
 {
         glusterd_conf_t *priv  = NULL;
         xlator_t        *this  = NULL;
+        int32_t          len   = 0;
 
         this = THIS;
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
 
-        snprintf (filename, PATH_MAX, "%s/vols/%s", priv->workdir,
-                  volinfo->parent_volname);
-        strncat (filename, "/marker.tstamp",
-                 PATH_MAX - strlen(filename) - 1);
+        len = snprintf (filename, PATH_MAX, "%s/vols/%s/marker.tstamp",
+                        priv->workdir, volinfo->parent_volname);
+        if ((len < 0) || (len >= PATH_MAX)) {
+                filename[0] = 0;
+        }
 }
 
 void
@@ -6438,7 +6460,7 @@ build_bitd_volume_graph (volgen_graph_t *graph,
 
         get_transport_type (volinfo, set_dict, transt, _gf_false);
         if (!strncmp (transt, "tcp,rdma", strlen ("tcp,rdma")))
-                strncpy (transt, "tcp", strlen ("tcp"));
+                strncpy (transt, "tcp", sizeof(transt));
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 if (!glusterd_is_local_brick (this, volinfo, brickinfo))
@@ -6600,7 +6622,7 @@ build_scrub_volume_graph (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
         get_transport_type (volinfo, set_dict, transt, _gf_false);
         if (!strncmp (transt, "tcp,rdma", strlen ("tcp,rdma")))
-                strncpy (transt, "tcp", strlen ("tcp"));
+                strncpy (transt, "tcp", sizeof(transt));
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 if (!glusterd_is_local_brick (this, volinfo, brickinfo))

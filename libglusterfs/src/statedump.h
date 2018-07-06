@@ -41,13 +41,18 @@ __attribute__ ((__format__ (__printf__, 3, 4)))
 static inline void
 _gf_proc_dump_build_key (char *key, const char *prefix, const char *fmt, ...)
 {
-        char buf[GF_DUMP_MAX_BUF_LEN] = { 0, };
         va_list ap;
+        int32_t len;
 
-        va_start(ap, fmt);
-        vsnprintf(buf, GF_DUMP_MAX_BUF_LEN, fmt, ap);
-        va_end(ap);
-        snprintf(key, GF_DUMP_MAX_BUF_LEN, "%s.%s", prefix, buf);
+        len = snprintf(key, GF_DUMP_MAX_BUF_LEN, "%s.", prefix);
+        if (len >= 0) {
+                va_start(ap, fmt);
+                len = vsnprintf(key + len, GF_DUMP_MAX_BUF_LEN - len, fmt, ap);
+                va_end(ap);
+        }
+        if (len < 0) {
+                *key = 0;
+        }
 }
 
 #define gf_proc_dump_build_key(key, key_prefix, fmt...)                 \

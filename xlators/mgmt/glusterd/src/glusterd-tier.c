@@ -1113,7 +1113,7 @@ glusterd_add_tierd_to_dict (glusterd_volinfo_t *volinfo,
         int32_t         pid                   = -1;
         int32_t         brick_online          = -1;
         char            key[1024]             = {0};
-        char            base_key[1024]        = {0};
+        char            base_key[32]          = {0};
         char            pidfile[PATH_MAX]     = {0};
         xlator_t        *this                 = NULL;
 

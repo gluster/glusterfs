@@ -41,6 +41,7 @@ gd_mgmt_v3_collate_errors (struct syncargs *args, int op_ret, int op_errno,
         int        is_operrstr_blk   = 0;
         char       *err_string       = NULL;
         glusterd_peerinfo_t *peerinfo = NULL;
+        int32_t len = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -113,8 +114,11 @@ gd_mgmt_v3_collate_errors (struct syncargs *args, int op_ret, int op_errno,
                 }
 
                 if (args->errstr) {
-                        snprintf (err_str, sizeof(err_str),
-                                  "%s\n%s", args->errstr, op_err);
+                        len = snprintf (err_str, sizeof(err_str),
+                                        "%s\n%s", args->errstr, op_err);
+                        if (len < 0) {
+                                strcpy(err_str, "<error>");
+                        }
                         GF_FREE (args->errstr);
                         args->errstr = NULL;
                 } else

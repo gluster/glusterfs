@@ -1507,6 +1507,7 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr,
         char                                    volid[50] = {0,};
         char                                    xattr_volid[50] = {0,};
         int                                     caps = 0;
+        int32_t                                 len = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1585,19 +1586,25 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr,
                 if (ret && (flags & GF_CLI_FLAG_OP_FORCE)) {
                         continue;
                 } else if (ret) {
-                        snprintf (msg, sizeof (msg), "Failed to find "
-                                          "brick directory %s for volume %s. "
-                                          "Reason : %s", brickinfo->path,
-                                          volname, strerror (errno));
+                        len = snprintf (msg, sizeof (msg), "Failed to find "
+                                       "brick directory %s for volume %s. "
+                                       "Reason : %s", brickinfo->path,
+                                       volname, strerror (errno));
+                        if (len < 0) {
+                                strcpy(msg, "<error>");
+                        }
                         goto out;
                 }
                 ret = sys_lgetxattr (brickinfo->path, GF_XATTR_VOL_ID_KEY,
                                      volume_id, 16);
                 if (ret < 0 && (!(flags & GF_CLI_FLAG_OP_FORCE))) {
-                        snprintf (msg, sizeof (msg), "Failed to get "
-                                  "extended attribute %s for brick dir %s. "
-                                  "Reason : %s", GF_XATTR_VOL_ID_KEY,
-                                  brickinfo->path, strerror (errno));
+                        len = snprintf (msg, sizeof (msg), "Failed to get "
+                                        "extended attribute %s for brick dir "
+                                        "%s. Reason : %s", GF_XATTR_VOL_ID_KEY,
+                                        brickinfo->path, strerror (errno));
+                        if (len < 0) {
+                                strcpy(msg, "<error>");
+                        }
                         ret = -1;
                         goto out;
                 } else if (ret < 0) {
@@ -1606,22 +1613,30 @@ glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr,
                                              volinfo->volume_id, 16,
                                              XATTR_CREATE);
                         if (ret == -1) {
-                                snprintf (msg, sizeof (msg), "Failed to set "
-                                        "extended attribute %s on %s. Reason: "
-                                        "%s", GF_XATTR_VOL_ID_KEY,
-                                        brickinfo->path, strerror (errno));
+                                len = snprintf (msg, sizeof (msg), "Failed to "
+                                                "set extended attribute %s on "
+                                                "%s. Reason: %s",
+                                                GF_XATTR_VOL_ID_KEY,
+                                                brickinfo->path,
+                                                strerror (errno));
+                                if (len < 0) {
+                                        strcpy(msg, "<error>");
+                                }
                                 goto out;
                         } else {
                                 continue;
                         }
                 }
                 if (gf_uuid_compare (volinfo->volume_id, volume_id)) {
-                        snprintf (msg, sizeof (msg), "Volume id mismatch for "
-                                  "brick %s:%s. Expected volume id %s, "
-                                  "volume id %s found", brickinfo->hostname,
-                                  brickinfo->path,
-                                  uuid_utoa_r (volinfo->volume_id, volid),
-                                  uuid_utoa_r (volume_id, xattr_volid));
+                        len = snprintf (msg, sizeof (msg), "Volume id "
+                                        "mismatch for brick %s:%s. Expected "
+                                        "volume id %s, volume id %s found",
+                                        brickinfo->hostname, brickinfo->path,
+                                        uuid_utoa_r (volinfo->volume_id, volid),
+                                        uuid_utoa_r (volume_id, xattr_volid));
+                        if (len < 0) {
+                                strcpy(msg, "<error>");
+                        }
                         ret = -1;
                         goto out;
                 }
@@ -3070,6 +3085,7 @@ glusterd_clearlocks_get_local_client_ports (glusterd_volinfo_t *volinfo,
         int                     ret                 = -1;
         int                     i                   = 0;
         int                     port                = 0;
+        int32_t                 len                 = 0;
 
         GF_ASSERT (xl_opts);
         if (!xl_opts) {
@@ -3085,11 +3101,15 @@ glusterd_clearlocks_get_local_client_ports (glusterd_volinfo_t *volinfo,
                         continue;
 
                 if (volinfo->transport_type == GF_TRANSPORT_RDMA) {
-                        snprintf (brickname, sizeof(brickname), "%s.rdma",
-                                  brickinfo->path);
+                        len = snprintf (brickname, sizeof(brickname),
+                                        "%s.rdma", brickinfo->path);
                 } else
-                        snprintf (brickname, sizeof(brickname), "%s",
-                                  brickinfo->path);
+                        len = snprintf (brickname, sizeof(brickname), "%s",
+                                        brickinfo->path);
+                if ((len < 0) || (len >= sizeof(brickname))) {
+                        ret = -1;
+                        goto out;
+                }
 
                 port = pmap_registry_search (THIS, brickname,
                                              GF_PMAP_PORT_BRICKSERVER,

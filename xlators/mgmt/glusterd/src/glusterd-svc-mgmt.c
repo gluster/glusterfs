@@ -153,6 +153,7 @@ glusterd_svc_start (glusterd_svc_t *svc, int flags, dict_t *cmdline)
         char                *localtime_logging          = NULL;
         char                *log_level                  = NULL;
         char                 daemon_log_level[30]       = {0};
+        int32_t              len                        = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -176,8 +177,13 @@ glusterd_svc_start (glusterd_svc_t *svc, int flags, dict_t *cmdline)
         runinit (&runner);
 
         if (this->ctx->cmd_args.valgrind) {
-                snprintf (valgrind_logfile, PATH_MAX, "%s/valgrind-%s.log",
-                          svc->proc.logfile, svc->name);
+                len = snprintf (valgrind_logfile, PATH_MAX,
+                                "%s/valgrind-%s.log", svc->proc.logfile,
+                                svc->name);
+                if ((len < 0) || (len >= PATH_MAX)) {
+                        ret = -1;
+                        goto out;
+                }
 
                 runner_add_args (&runner, "valgrind", "--leak-check=full",
                                  "--trace-children=yes", "--track-origins=yes",

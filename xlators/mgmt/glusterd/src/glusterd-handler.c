@@ -471,6 +471,7 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         struct args_pack        pack = {0,};
         xlator_t                *this = NULL;
         GF_UNUSED int           caps = 0;
+        int32_t                 len = 0;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (volumes);
@@ -654,8 +655,12 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                 char    brick[1024] = {0,};
                 char    brick_uuid[64] = {0,};
                 snprintf (key, 256, "volume%d.brick%d", count, i);
-                snprintf (brick, 1024, "%s:%s", brickinfo->hostname,
-                          brickinfo->path);
+                len = snprintf (brick, 1024, "%s:%s", brickinfo->hostname,
+                                brickinfo->path);
+                if ((len < 0) || (len >= 1024)) {
+                        ret = -1;
+                        goto out;
+                }
                 buf = gf_strdup (brick);
                 ret = dict_set_dynstr (volumes, key, buf);
                 if (ret)

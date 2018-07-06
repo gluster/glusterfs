@@ -33,10 +33,14 @@ glusterd_svc_build_gfproxyd_socket_filepath (glusterd_volinfo_t *volinfo,
 {
         char                    sockfilepath[PATH_MAX] = {0,};
         char                    rundir[PATH_MAX]       = {0,};
+        int32_t                 len                    = 0;
 
         glusterd_svc_build_gfproxyd_rundir (volinfo, rundir, sizeof (rundir));
-        snprintf (sockfilepath, sizeof (sockfilepath), "%s/run-%s",
-                  rundir, uuid_utoa (MY_UUID));
+        len = snprintf (sockfilepath, sizeof (sockfilepath), "%s/run-%s",
+                        rundir, uuid_utoa (MY_UUID));
+        if ((len < 0) || (len >= sizeof(sockfilepath))) {
+                sockfilepath[0] = 0;
+        }
 
         glusterd_set_socket_filepath (sockfilepath, path, path_len);
 }

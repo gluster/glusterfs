@@ -280,8 +280,11 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                                   count);
                         ret = dict_set_str (rsp_dict, buf, volinfo->volname);
                         if (ret) {
-                                snprintf (err_str, PATH_MAX,
-                                          "Failed to set %s", buf);
+                                len = snprintf (err_str, PATH_MAX,
+                                                "Failed to set %s", buf);
+                                if (len < 0) {
+                                        strcpy(err_str, "<error>");
+                                }
                                 goto out;
                         }
 
@@ -289,8 +292,11 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                                   "volume%"PRId64"-snap-max-hard-limit", count);
                         ret = dict_set_uint64 (rsp_dict, buf, snap_max_limit);
                         if (ret) {
-                                snprintf (err_str, PATH_MAX,
-                                          "Failed to set %s", buf);
+                                len = snprintf (err_str, PATH_MAX,
+                                                "Failed to set %s", buf);
+                                if (len < 0) {
+                                        strcpy(err_str, "<error>");
+                                }
                                 goto out;
                         }
 
@@ -299,8 +305,11 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                         ret = dict_set_uint64 (rsp_dict, buf,
                                                active_hard_limit);
                         if (ret) {
-                                snprintf (err_str, PATH_MAX,
-                                          "Failed to set %s", buf);
+                                len = snprintf (err_str, PATH_MAX,
+                                                "Failed to set %s", buf);
+                                if (len < 0) {
+                                        strcpy(err_str, "<error>");
+                                }
                                 goto out;
                         }
 
@@ -308,8 +317,11 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                                   "volume%"PRId64"-snap-max-soft-limit", count);
                         ret = dict_set_uint64 (rsp_dict, buf, soft_limit_value);
                         if (ret) {
-                                snprintf (err_str, PATH_MAX,
-                                          "Failed to set %s", buf);
+                                len = snprintf (err_str, PATH_MAX,
+                                                "Failed to set %s", buf);
+                                if (len < 0) {
+                                        strcpy(err_str, "<error>");
+                                }
                                 goto out;
                         }
                         count++;
@@ -342,8 +354,11 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                 snprintf (buf, sizeof(buf), "volume%"PRId64"-volname", count);
                 ret = dict_set_str (rsp_dict, buf, volinfo->volname);
                 if (ret) {
-                        snprintf (err_str, PATH_MAX,
-                                  "Failed to set %s", buf);
+                        len = snprintf (err_str, PATH_MAX,
+                                        "Failed to set %s", buf);
+                        if (len < 0) {
+                                strcpy(err_str, "<error>");
+                        }
                         goto out;
                 }
 
@@ -351,8 +366,11 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                           "volume%"PRId64"-snap-max-hard-limit", count);
                 ret = dict_set_uint64 (rsp_dict, buf, snap_max_limit);
                 if (ret) {
-                        snprintf (err_str, PATH_MAX,
-                                  "Failed to set %s", buf);
+                        len = snprintf (err_str, PATH_MAX,
+                                        "Failed to set %s", buf);
+                        if (len < 0) {
+                                strcpy(err_str, "<error>");
+                        }
                         goto out;
                 }
 
@@ -360,8 +378,11 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                           "volume%"PRId64"-active-hard-limit", count);
                 ret = dict_set_uint64 (rsp_dict, buf, active_hard_limit);
                 if (ret) {
-                        snprintf (err_str, PATH_MAX,
-                                  "Failed to set %s", buf);
+                        len = snprintf (err_str, PATH_MAX,
+                                        "Failed to set %s", buf);
+                        if (len < 0) {
+                                strcpy(err_str, "<error>");
+                        }
                         goto out;
                 }
 
@@ -369,8 +390,11 @@ snap_max_limits_display_commit (dict_t *rsp_dict, char *volname,
                           "volume%"PRId64"-snap-max-soft-limit", count);
                 ret = dict_set_uint64 (rsp_dict, buf, soft_limit_value);
                 if (ret) {
-                        snprintf (err_str, PATH_MAX,
-                                  "Failed to set %s", buf);
+                        len = snprintf (err_str, PATH_MAX,
+                                        "Failed to set %s", buf);
+                        if (len < 0) {
+                                strcpy(err_str, "<error>");
+                        }
                         goto out;
                 }
 
@@ -605,6 +629,7 @@ glusterd_snapshot_backup_vol (glusterd_volinfo_t *volinfo)
         char             trashdir[PATH_MAX]    = {0,};
         glusterd_conf_t *priv                  = NULL;
         xlator_t        *this                  = NULL;
+        int32_t          len                   = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -614,12 +639,18 @@ glusterd_snapshot_backup_vol (glusterd_volinfo_t *volinfo)
 
         GLUSTERD_GET_VOLUME_DIR (pathname, volinfo, priv);
 
-        snprintf (delete_path, sizeof (delete_path),
-                  "%s/"GLUSTERD_TRASH"/vols-%s.deleted", priv->workdir,
-                  volinfo->volname);
+        len = snprintf (delete_path, sizeof (delete_path),
+                        "%s/"GLUSTERD_TRASH"/vols-%s.deleted", priv->workdir,
+                        volinfo->volname);
+        if ((len < 0) || (len >= sizeof(delete_path))) {
+                goto out;
+        }
 
-        snprintf (trashdir, sizeof (trashdir), "%s/"GLUSTERD_TRASH,
-                  priv->workdir);
+        len = snprintf (trashdir, sizeof (trashdir), "%s/"GLUSTERD_TRASH,
+                        priv->workdir);
+        if ((len < 0) || (len >= sizeof(delete_path))) {
+                goto out;
+        }
 
         /* Create trash folder if it is not there */
         ret = sys_mkdir (trashdir, 0777);
@@ -2110,6 +2141,7 @@ glusterd_snap_create_clone_common_prevalidate (dict_t *rsp_dict, int flags,
         xlator_t              *this              = NULL;
         glusterd_conf_t       *conf              = NULL;
         glusterd_brickinfo_t  *brickinfo         = NULL;
+        int32_t                len               = 0;
 
         this = THIS;
         conf = this->private;
@@ -2170,10 +2202,13 @@ glusterd_snap_create_clone_common_prevalidate (dict_t *rsp_dict, int flags,
                 orig_device = glusterd_get_brick_mount_device
                                                     (brickinfo->path);
                 if (!orig_device) {
-                        snprintf (err_str, PATH_MAX,
-                                  "getting device name for the brick "
-                                 "%s:%s failed", brickinfo->hostname,
-                                  brickinfo->path);
+                        len = snprintf (err_str, PATH_MAX,
+                                        "getting device name for the brick "
+                                        "%s:%s failed", brickinfo->hostname,
+                                        brickinfo->path);
+                        if (len < 0) {
+                                strcpy(err_str, "<error>");
+                        }
                         ret = -1;
                         goto out;
                 }
@@ -2746,6 +2781,7 @@ glusterd_do_lvm_snapshot_remove (glusterd_volinfo_t *snap_vol,
         int                     retry_count       = 0;
         char                   *mnt_pt            = NULL;
         gf_boolean_t            unmount           = _gf_true;
+        int32_t                 len               = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -2834,9 +2870,12 @@ glusterd_do_lvm_snapshot_remove (glusterd_volinfo_t *snap_vol,
         }
 
         runinit (&runner);
-        snprintf (msg, sizeof(msg), "remove snapshot of the brick %s:%s, "
-                  "device: %s", brickinfo->hostname, brickinfo->path,
-                  snap_device);
+        len = snprintf (msg, sizeof(msg), "remove snapshot of the brick %s:%s, "
+                        "device: %s", brickinfo->hostname, brickinfo->path,
+                        snap_device);
+        if (len < 0) {
+                strcpy(msg, "<error>");
+        }
         runner_add_args (&runner, LVM_REMOVE, "-f", snap_device, NULL);
         runner_log (&runner, "", GF_LOG_DEBUG, msg);
 
@@ -4612,6 +4651,7 @@ glusterd_add_missed_snaps_to_dict (dict_t *rsp_dict,
         int32_t                 missed_snap_count               = -1;
         int32_t                 ret                             = -1;
         xlator_t               *this                            = NULL;
+        int32_t                 len                             = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -4625,10 +4665,13 @@ glusterd_add_missed_snaps_to_dict (dict_t *rsp_dict,
                 goto out;
         }
 
-        snprintf (missed_snap_entry, sizeof(missed_snap_entry),
-                  "%s:%s=%s:%d:%s:%d:%d", uuid_utoa(brickinfo->uuid),
-                  snap_uuid, snap_vol->volname, brick_number, brickinfo->path,
-                  op, GD_MISSED_SNAP_PENDING);
+        len = snprintf (missed_snap_entry, sizeof(missed_snap_entry),
+                        "%s:%s=%s:%d:%s:%d:%d", uuid_utoa(brickinfo->uuid),
+                        snap_uuid, snap_vol->volname, brick_number,
+                        brickinfo->path, op, GD_MISSED_SNAP_PENDING);
+        if ((len < 0) || (len >= sizeof(missed_snap_entry))) {
+                goto out;
+        }
 
         /* Fetch the missed_snap_count from the dict */
         ret = dict_get_int32 (rsp_dict, "missed_snap_count",
@@ -4767,6 +4810,7 @@ glusterd_snap_brick_create (glusterd_volinfo_t *snap_volinfo,
         char             snap_brick_mount_path[PATH_MAX] = "";
         char             clone_uuid[64]                  = "";
         struct stat      statbuf                         = {0, };
+        int32_t          len                             = 0;
 
         this = THIS;
 
@@ -4775,13 +4819,18 @@ glusterd_snap_brick_create (glusterd_volinfo_t *snap_volinfo,
 
         if (clone) {
                 GLUSTERD_GET_UUID_NOHYPHEN(clone_uuid, snap_volinfo->volume_id);
-                snprintf (snap_brick_mount_path, sizeof (snap_brick_mount_path),
-                          "%s/%s/brick%d",  snap_mount_dir,
-                          clone_uuid, brick_count + 1);
+                len = snprintf (snap_brick_mount_path,
+                                sizeof (snap_brick_mount_path),
+                                "%s/%s/brick%d",  snap_mount_dir, clone_uuid,
+                                brick_count + 1);
         } else {
-                snprintf (snap_brick_mount_path, sizeof (snap_brick_mount_path),
-                          "%s/%s/brick%d",  snap_mount_dir,
-                          snap_volinfo->volname, brick_count + 1);
+                len = snprintf (snap_brick_mount_path,
+                                sizeof (snap_brick_mount_path),
+                               "%s/%s/brick%d",  snap_mount_dir,
+                               snap_volinfo->volname, brick_count + 1);
+        }
+        if ((len < 0) || (len >= sizeof(snap_brick_mount_path))) {
+                goto out;
         }
 
         ret = mkdir_p (snap_brick_mount_path, 0777, _gf_true);
@@ -4864,6 +4913,7 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
         int32_t                 ret                             = -1;
         xlator_t               *this                            = NULL;
         char                    abspath[PATH_MAX]               = {0};
+        int32_t                 len                             = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -4978,15 +5028,19 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
          */
         if (clone) {
                 GLUSTERD_GET_UUID_NOHYPHEN(clone_uuid, snap_vol->volume_id);
-                snprintf (snap_brick_path, sizeof(snap_brick_path),
-                          "%s/%s/brick%d%s", snap_mount_dir,
-                          clone_uuid, brick_count+1,
-                          snap_brick_dir);
+                len = snprintf (snap_brick_path, sizeof(snap_brick_path),
+                                "%s/%s/brick%d%s", snap_mount_dir,
+                                clone_uuid, brick_count+1,
+                                snap_brick_dir);
         } else {
-                snprintf (snap_brick_path, sizeof(snap_brick_path),
-                          "%s/%s/brick%d%s", snap_mount_dir,
-                          snap_vol->volname, brick_count+1,
-                          snap_brick_dir);
+                len = snprintf (snap_brick_path, sizeof(snap_brick_path),
+                                "%s/%s/brick%d%s", snap_mount_dir,
+                                snap_vol->volname, brick_count+1,
+                                snap_brick_dir);
+        }
+        if ((len < 0) || (len >= sizeof(snap_brick_path))) {
+                ret = -1;
+                goto out;
         }
 
         snprintf (key, sizeof(key), "vol%"PRId64".brick_snapdevice%d",
@@ -5070,6 +5124,7 @@ glusterd_update_fs_label (glusterd_brickinfo_t *brickinfo)
         uuid_t          uuid                    = {0,};
         runner_t        runner                  = {0,};
         xlator_t       *this                    = NULL;
+        int32_t         len                     = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -5090,8 +5145,11 @@ glusterd_update_fs_label (glusterd_brickinfo_t *brickinfo)
                 /* XFS label is of size 12. Therefore we should truncate the
                  * label to 12 bytes*/
                 label [12] = '\0';
-                snprintf (msg, sizeof (msg), "Changing filesystem label of "
-                          "%s brick to %s", brickinfo->path, label);
+                len = snprintf (msg, sizeof (msg), "Changing filesystem label "
+                                "of %s brick to %s", brickinfo->path, label);
+                if (len < 0) {
+                        strcpy(msg, "<error>");
+                }
                 /* Run the run xfs_admin tool to change the label
                  * of the file-system */
                 runner_add_args (&runner, "xfs_admin", "-L", label,
@@ -5102,8 +5160,11 @@ glusterd_update_fs_label (glusterd_brickinfo_t *brickinfo)
                 /* Ext2/Ext3/Ext4 label is of size 16. Therefore we should
                  * truncate the label to 16 bytes*/
                 label [16] = '\0';
-                snprintf (msg, sizeof (msg), "Changing filesystem label of "
-                          "%s brick to %s", brickinfo->path, label);
+                len = snprintf (msg, sizeof (msg), "Changing filesystem label "
+                                "of %s brick to %s", brickinfo->path, label);
+                if (len < 0) {
+                        strcpy(msg, "<error>");
+                }
                 /* For ext2/ext3/ext4 run tune2fs to change the
                  * file-system label */
                 runner_add_args (&runner, "tune2fs", "-L", label,
@@ -8818,6 +8879,7 @@ glusterd_remove_trashpath (char *volname)
         xlator_t               *this                    = NULL;
         glusterd_conf_t        *priv                    = NULL;
         struct stat             stbuf                   = {0, };
+        int32_t                 len                     = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -8825,9 +8887,12 @@ glusterd_remove_trashpath (char *volname)
 
         GF_ASSERT (volname);
 
-        snprintf (delete_path, sizeof (delete_path),
-                  "%s/"GLUSTERD_TRASH"/vols-%s.deleted", priv->workdir,
-                  volname);
+        len = snprintf (delete_path, sizeof (delete_path),
+                        "%s/"GLUSTERD_TRASH"/vols-%s.deleted", priv->workdir,
+                        volname);
+        if ((len < 0) || (len >= sizeof(delete_path))) {
+                goto out;
+        }
 
         ret = sys_lstat (delete_path, &stbuf);
         if (ret) {
@@ -8927,6 +8992,7 @@ glusterd_snapshot_revert_partial_restored_vol (glusterd_volinfo_t *volinfo)
         glusterd_volinfo_t     *tmp_vol                 = NULL;
         glusterd_conf_t        *priv                    = NULL;
         xlator_t               *this                    = NULL;
+        int32_t                 len                     = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -8936,9 +9002,13 @@ glusterd_snapshot_revert_partial_restored_vol (glusterd_volinfo_t *volinfo)
 
         GLUSTERD_GET_VOLUME_DIR (pathname, volinfo, priv);
 
-        snprintf (trash_path, sizeof (trash_path),
-                  "%s/"GLUSTERD_TRASH"/vols-%s.deleted", priv->workdir,
-                  volinfo->volname);
+        len = snprintf (trash_path, sizeof (trash_path),
+                        "%s/"GLUSTERD_TRASH"/vols-%s.deleted", priv->workdir,
+                        volinfo->volname);
+        if ((len < 0) || (len >= sizeof(trash_path))) {
+                ret = -1;
+                goto out;
+        }
 
         /* Since snapshot restore failed we cannot rely on the volume
          * data stored under vols folder. Therefore delete the origin

@@ -790,6 +790,7 @@ glusterd_validate_shared_storage (char *key, char *value, char *errstr)
         char               hook_script[PATH_MAX]    = "";
         xlator_t          *this                     = NULL;
         glusterd_conf_t   *conf                     = NULL;
+        int32_t            len                      = 0;
 
         this = THIS;
         GF_VALIDATE_OR_GOTO ("glusterd", this, out);
@@ -818,16 +819,23 @@ glusterd_validate_shared_storage (char *key, char *value, char *errstr)
                 goto out;
         }
 
-        snprintf (hook_script, sizeof(hook_script),
-                  "%s"GLUSTERD_SHRD_STRG_HOOK_SCRIPT, conf->workdir);
+        len = snprintf (hook_script, sizeof(hook_script),
+                        "%s"GLUSTERD_SHRD_STRG_HOOK_SCRIPT, conf->workdir);
+        if ((len < 0) || (len >= sizeof(hook_script))) {
+                ret = -1;
+                goto out;
+        }
 
         ret = sys_access (hook_script, R_OK|X_OK);
         if (ret) {
-                snprintf (errstr, PATH_MAX,
-                          "The hook-script (%s) required "
-                          "for this operation is not present. "
-                          "Please install the hook-script "
-                          "and retry", hook_script);
+                len = snprintf (errstr, PATH_MAX,
+                                "The hook-script (%s) required "
+                                "for this operation is not present. "
+                                "Please install the hook-script "
+                                "and retry", hook_script);
+                if (len < 0) {
+                        strncpy(errstr, "<error>", PATH_MAX);
+                }
                 gf_msg (this->name, GF_LOG_ERROR, ENOENT,
                         GD_MSG_FILE_OP_FAILED, "%s", errstr);
                 goto out;
@@ -2806,6 +2814,7 @@ glusterd_set_shared_storage (dict_t *dict, char *key, char *value,
         char          hooks_args[PATH_MAX] = {0, };
         char          errstr[PATH_MAX]     = {0, };
         xlator_t     *this                 = NULL;
+        int32_t       len                  = 0;
 
         this = THIS;
         GF_VALIDATE_OR_GOTO ("glusterd", this, out);
@@ -2849,13 +2858,17 @@ glusterd_set_shared_storage (dict_t *dict, char *key, char *value,
         }
 
         if (is_origin_glusterd (dict)) {
-                snprintf(hooks_args, sizeof(hooks_args),
-                         "is_originator=1,local_node_hostname=%s",
-                         local_node_hostname);
+                len = snprintf(hooks_args, sizeof(hooks_args),
+                               "is_originator=1,local_node_hostname=%s",
+                               local_node_hostname);
         } else {
-                snprintf(hooks_args, sizeof(hooks_args),
-                         "is_originator=0,local_node_hostname=%s",
-                         local_node_hostname);
+                len = snprintf(hooks_args, sizeof(hooks_args),
+                               "is_originator=0,local_node_hostname=%s",
+                               local_node_hostname);
+        }
+        if ((len < 0) || (len >= sizeof(hooks_args))) {
+                ret = -1;
+                goto out;
         }
 
         ret = dict_set_dynstr_with_alloc (dict, "hooks_args", hooks_args);
@@ -3402,6 +3415,7 @@ _add_remove_bricks_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo,
         char            dict_key[1024] ={0,};
         char            *brick = NULL;
         xlator_t        *this = NULL;
+        int32_t          len = 0;
 
         GF_ASSERT (dict);
         GF_ASSERT (volinfo);
@@ -3440,8 +3454,12 @@ _add_remove_bricks_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo,
                 }
 
                 memset (dict_key, 0, sizeof (dict_key));
-                snprintf (dict_key, sizeof (dict_key), "%s.%s", prefix,
-                          brick_key);
+                len = snprintf (dict_key, sizeof (dict_key), "%s.%s", prefix,
+                                brick_key);
+                if ((len < 0) || (len >= sizeof(dict_key))) {
+                        ret = -1;
+                        goto out;
+                }
                 ret = dict_set_str (dict, dict_key, brick);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -5300,9 +5318,10 @@ glusterd_op_commit_hook (glusterd_op_t op, dict_t *op_ctx,
         glusterd_conf_t *priv                   = NULL;
         char            hookdir[PATH_MAX]       = {0, };
         char            scriptdir[PATH_MAX]     = {0, };
-        char            type_subdir[256]        = {0, };
+        char            *type_subdir            = "";
         char            *cmd_subdir             = NULL;
         int             ret                     = -1;
+        int32_t         len                     = 0;
 
         priv = THIS->private;
         switch (type) {
@@ -5312,10 +5331,10 @@ glusterd_op_commit_hook (glusterd_op_t op, dict_t *op_ctx,
                         break;
 
                 case GD_COMMIT_HOOK_PRE:
-                        strcpy (type_subdir, "pre");
+                        type_subdir = "pre";
                         break;
                 case GD_COMMIT_HOOK_POST:
-                        strcpy (type_subdir, "post");
+                        type_subdir = "post";
                         break;
         }
 
@@ -5324,8 +5343,11 @@ glusterd_op_commit_hook (glusterd_op_t op, dict_t *op_ctx,
                 return -1;
 
         GLUSTERD_GET_HOOKS_DIR (hookdir, GLUSTERD_HOOK_VER, priv);
-        snprintf (scriptdir, sizeof (scriptdir), "%s/%s/%s",
-                  hookdir, cmd_subdir, type_subdir);
+        len = snprintf (scriptdir, sizeof (scriptdir), "%s/%s/%s",
+                        hookdir, cmd_subdir, type_subdir);
+        if ((len < 0) || (len >= sizeof(scriptdir))) {
+                return -1;
+        }
 
         switch (type) {
                 case GD_COMMIT_HOOK_NONE:
@@ -6981,7 +7003,7 @@ fill_shd_status_for_local_bricks (dict_t *dict, glusterd_volinfo_t *volinfo,
                                   dict_t *req_dict)
 {
         glusterd_brickinfo_t    *brickinfo = NULL;
-        char                    msg[1024] = {0,};
+        char                    *msg = "self-heal-daemon is not running on";
         char                    key[1024]  = {0,};
         char                    value[1024] = {0,};
         int                     ret = 0;
@@ -6989,7 +7011,6 @@ fill_shd_status_for_local_bricks (dict_t *dict, glusterd_volinfo_t *volinfo,
         int                     cmd_replica_index = -1;
 
         this = THIS;
-        snprintf (msg, sizeof (msg), "self-heal-daemon is not running on");
 
         if (type == PER_HEAL_XL) {
                 cmd_replica_index = get_replica_index_for_per_replica_cmd
