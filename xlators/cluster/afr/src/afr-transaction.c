@@ -160,6 +160,34 @@ afr_changelog_has_quorum (afr_local_t *local, xlator_t *this)
         return _gf_false;
 }
 
+
+gf_boolean_t
+afr_is_write_subvol_valid (call_frame_t *frame, xlator_t *this)
+{
+        int i = 0;
+        afr_local_t *local = NULL;
+        afr_private_t *priv  = NULL;
+        uint64_t write_subvol = 0;
+        unsigned char *writable = NULL;
+        uint16_t datamap = 0;
+
+        local = frame->local;
+        priv = this->private;
+        writable = alloca0 (priv->child_count);
+
+        write_subvol = afr_write_subvol_get (frame, this);
+        datamap = (write_subvol & 0x00000000ffff0000) >> 16;
+        for (i = 0; i < priv->child_count; i++) {
+                if (datamap & (1 << i))
+                        writable[i] = 1;
+
+                if (writable[i] && !local->transaction.failed_subvols[i])
+                        return _gf_true;
+        }
+
+        return _gf_false;
+}
+
 int
 __afr_txn_write_fop (call_frame_t *frame, xlator_t *this)
 {
@@ -185,8 +213,16 @@ __afr_txn_write_fop (call_frame_t *frame, xlator_t *this)
                 return 0;
         }
 
-        local->call_count = call_count;
+        /* Fail if at least one writeable brick isn't up.*/
+        if (local->transaction.type == AFR_DATA_TRANSACTION &&
+            !afr_is_write_subvol_valid (frame, this)) {
+                local->op_ret = -1;
+                local->op_errno = EIO;
+                local->transaction.resume (frame, this);
+                return 0;
+        }
 
+        local->call_count = call_count;
         for (i = 0; i < priv->child_count; i++) {
                 if (local->transaction.pre_op[i] && !failed_subvols[i]) {
 			local->transaction.wind (frame, this, i);
@@ -1291,14 +1327,30 @@ afr_pre_op_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        void *data, dict_t *xdata)
 {
         afr_local_t *local = NULL;
+        afr_private_t *priv = NULL;
         call_frame_t    *fop_frame = NULL;
         default_args_cbk_t *write_args_cbk = NULL;
         compound_args_cbk_t *args_cbk = data;
         int call_count = -1;
         int child_index = -1;
+        int i = 0;
+        int ret = 0;
 
         local = frame->local;
+        priv = this->private;
         child_index = (long) cookie;
+
+        if (local->transaction.type == AFR_DATA_TRANSACTION &&
+            !local->transaction.inherited) {
+                ret = afr_write_subvol_set (frame, this);
+                if (ret) {
+                        /*act as if operation failed on all subvols*/
+                        local->op_ret = -1;
+                        local->op_errno = -ret;
+                        for (i = 0; i < priv->child_count; i++)
+                                local->transaction.failed_subvols[i] = 1;
+                }
+        }
 
 	if (local->pre_op_compat)
 		afr_changelog_pre_op_update (frame, this);
