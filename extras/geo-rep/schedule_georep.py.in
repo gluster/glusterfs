@@ -43,7 +43,7 @@ SESSION_MOUNT_LOG_FILE = ("/var/log/glusterfs/geo-replication"
                           "/schedule_georep.mount.log")
 
 USE_CLI_COLOR = True
-
+mnt_list = []
 
 class GlusterBadXmlFormat(Exception):
     """
@@ -90,6 +90,8 @@ def execute(cmd, success_msg="", failure_msg="", exitcode=-1):
             output_ok(success_msg)
         return out
     else:
+        if exitcode == 0:
+            return
         err_msg = err if err else out
         output_notok(failure_msg, err=err_msg, exitcode=exitcode)
 
@@ -112,12 +114,12 @@ def cleanup(hostname, volname, mnt):
     """
     Unmount the Volume and Remove the temporary directory
     """
-    execute(["umount", mnt],
+    execute(["umount", "-l", mnt],
             failure_msg="Unable to Unmount Gluster Volume "
             "{0}:{1}(Mounted at {2})".format(hostname, volname, mnt))
     execute(["rmdir", mnt],
             failure_msg="Unable to Remove temp directory "
-            "{0}".format(mnt))
+            "{0}".format(mnt), exitcode=0)
 
 
 @contextmanager
@@ -130,6 +132,7 @@ def glustermount(hostname, volname):
     Automatically unmounts it in case of Exceptions/out of context
     """
     mnt = tempfile.mkdtemp(prefix="georepsetup_")
+    mnt_list.append(mnt)
     execute(["@SBIN_DIR@/glusterfs",
              "--volfile-server", hostname,
              "--volfile-id", volname,
@@ -378,13 +381,13 @@ def main(args):
     output_ok("Started Geo-replication and watching Status for "
               "Checkpoint completion")
 
-    touch_mount_root(args.mastervol)
-
     start_time = int(time.time())
     duration = 0
 
     # Sleep till Geo-rep initializes
     time.sleep(60)
+
+    touch_mount_root(args.mastervol)
 
     slave_url = "{0}::{1}".format(args.slave, args.slavevol)
 
@@ -446,6 +449,11 @@ def main(args):
 
         time.sleep(args.interval)
 
+    for mnt in mnt_list:
+        execute(["rmdir", mnt],
+                failure_msg="Unable to Remove temp directory "
+                "{0}".format(mnt), exitcode=0)
+
 if __name__ == "__main__":
     parser = ArgumentParser(formatter_class=RawDescriptionHelpFormatter,
                             description=__doc__)
@@ -474,4 +482,11 @@ if __name__ == "__main__":
         execute(cmd)
         main(args)
     except KeyboardInterrupt:
+        for mnt in mnt_list:
+            execute(["umount", "-l", mnt],
+                    failure_msg="Unable to Unmount Gluster Volume "
+                    "Mounted at {0}".format(mnt), exitcode=0)
+            execute(["rmdir", mnt],
+                    failure_msg="Unable to Remove temp directory "
+                    "{0}".format(mnt), exitcode=0)
         output_notok("Exiting...")
