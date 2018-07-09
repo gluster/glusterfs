@@ -2677,7 +2677,7 @@ afr_write_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
         afr_local_t   *local           = frame->local;
 
         if (err) {
-                AFR_SET_ERROR_AND_CHECK_SPLIT_BRAIN(-1, -err);
+                AFR_SET_ERROR_AND_CHECK_SPLIT_BRAIN(-1, err);
                 goto fail;
         }
 
@@ -2702,6 +2702,11 @@ afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
 
         local->transaction.resume = afr_transaction_resume;
         local->transaction.type   = type;
+
+        if (priv->quorum_count && !afr_has_quorum (local->child_up, this)) {
+                ret = -afr_quorum_errno(priv);
+                goto out;
+        }
 
         if (!afr_is_consistent_io_possible (local, priv, &ret)) {
                 ret = -ret; /*op_errno to ret conversion*/

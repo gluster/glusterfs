@@ -68,7 +68,7 @@ afr_read_txn_refresh_done (call_frame_t *frame, xlator_t *this, int err)
 	read_subvol = afr_read_subvol_select_by_policy (inode, this,
 							local->readable, NULL);
 	if (read_subvol == -1) {
-                err = -EIO;
+                err = EIO;
                 goto readfn;
         }
 
@@ -87,7 +87,7 @@ readfn:
         }
 
         if (read_subvol == -1) {
-                AFR_SET_ERROR_AND_CHECK_SPLIT_BRAIN (-1, -err);
+                AFR_SET_ERROR_AND_CHECK_SPLIT_BRAIN (-1, err);
         }
 	local->readfn (frame, this, read_subvol);
 
@@ -196,7 +196,7 @@ afr_read_txn (call_frame_t *frame, xlator_t *this, inode_t *inode,
         if (priv->quorum_reads &&
             priv->quorum_count && !afr_has_quorum (priv->child_up, this)) {
                 local->op_ret = -1;
-                local->op_errno = ENOTCONN;
+                local->op_errno = afr_quorum_errno(priv);
                 read_subvol = -1;
                 goto read;
         }
