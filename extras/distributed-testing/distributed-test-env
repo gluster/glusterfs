@@ -12,36 +12,36 @@ KNOWN_FLAKY_TESTS="\
 "
 
 BROKEN_TESTS="\
-tests/features/lock_revocation.t\
-tests/features/recon.t\
-tests/features/fdl-overflow.t\
-tests/features/fdl.t\
-tests/features/ipc.t\
-tests/bugs/distribute/bug-1247563.t\
-tests/bugs/distribute/bug-1543279.t\
-tests/bugs/distribute/bug-1066798.t\
-tests/bugs/ec/bug-1304988.t\
-tests/bugs/unclassified/bug-1357397.t\
-tests/bugs/quota/bug-1235182.t\
-tests/bugs/fuse/bug-1309462.t\
-tests/bugs/glusterd/bug-1238706-daemons-stop-on-peer-cleanup.t\
-tests/bugs/stripe/bug-1002207.t\
-tests/bugs/stripe/bug-1111454.t\
-tests/bugs/snapshot/bug-1140162-file-snapshot-features-encrypt-opts-validation.t\
-tests/bugs/write-behind/bug-1279730.t\
-tests/bugs/gfapi/bug-1093594.t\
-tests/bugs/replicate/bug-1473026.t\
-tests/bugs/replicate/bug-802417.t\
-tests/encryption/crypt.t\
-tests/basic/inode-leak.t\
-tests/basic/distribute/force-migration.t\
-tests/basic/ec/heal-info.t\
-tests/basic/ec/ec-seek.t\
-tests/basic/jbr/jbr-volgen.t\
-tests/basic/jbr/jbr.t\
-tests/basic/afr/tarissue.t\
-tests/basic/tier/tierd_check.t\
-tests/basic/gfapi/bug1291259.t\
+  tests/features/lock_revocation.t\
+  tests/features/recon.t\
+  tests/features/fdl-overflow.t\
+  tests/features/fdl.t\
+  tests/features/ipc.t\
+  tests/bugs/distribute/bug-1247563.t\
+  tests/bugs/distribute/bug-1543279.t\
+  tests/bugs/distribute/bug-1066798.t\
+  tests/bugs/ec/bug-1304988.t\
+  tests/bugs/unclassified/bug-1357397.t\
+  tests/bugs/quota/bug-1235182.t\
+  tests/bugs/fuse/bug-1309462.t\
+  tests/bugs/glusterd/bug-1238706-daemons-stop-on-peer-cleanup.t\
+  tests/bugs/stripe/bug-1002207.t\
+  tests/bugs/stripe/bug-1111454.t\
+  tests/bugs/snapshot/bug-1140162-file-snapshot-features-encrypt-opts-validation.t\
+  tests/bugs/write-behind/bug-1279730.t\
+  tests/bugs/gfapi/bug-1093594.t\
+  tests/bugs/replicate/bug-1473026.t\
+  tests/bugs/replicate/bug-802417.t\
+  tests/encryption/crypt.t\
+  tests/basic/inode-leak.t\
+  tests/basic/distribute/force-migration.t\
+  tests/basic/ec/heal-info.t\
+  tests/basic/ec/ec-seek.t\
+  tests/basic/jbr/jbr-volgen.t\
+  tests/basic/jbr/jbr.t\
+  tests/basic/afr/tarissue.t\
+  tests/basic/tier/tierd_check.t\
+  tests/basic/gfapi/bug1291259.t\
 "
 
 SMOKE_TESTS=$(echo $SMOKE_TESTS | tr -s ' ' ' ')
