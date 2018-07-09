@@ -291,7 +291,7 @@ class Texttable:
         s = "%s%s%s" % (horiz, [horiz, self._char_corner][self._has_vlines()],
             horiz)
         # build the line
-        l = string.join([horiz*n for n in self._width], s)
+        l = s.join([horiz*n for n in self._width])
         # add border if needed
         if self._has_border():
             l = "%s%s%s%s%s\n" % (self._char_corner, horiz, l, horiz,

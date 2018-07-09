@@ -151,7 +151,7 @@ def get_special_subs (name, args, fop_type):
 	elif name == 'fxattrop':
 	        s_args_str = 'fd, flags, dict, xdata, NULL'
 	else:
-		s_args_str = string.join (s_args, ", ")
+		s_args_str = ', '.join(s_args)
 	return code, links, s_args_str, cleanups
 
 # TBD: probably need to generate type-specific cleanup code as well - e.g.
