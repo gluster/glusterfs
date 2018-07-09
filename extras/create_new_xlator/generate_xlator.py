@@ -38,9 +38,9 @@ def get_param(names, types):
         # Convert two separate tuples to one of (name, type) sub-tuples.
         as_tuples = list(zip(types, names))
         # Convert each sub-tuple into a "type name" string.
-        as_strings = list(map(string.join, as_tuples))
+        as_strings = [' '.join(item) for item in as_tuples]
         # Join all of those into one big string.
-        return string.join(as_strings, ",\n\t")
+        return ',\n\t'.join(as_strings)
 
 
 def generate(tmpl, name, table):
@@ -56,16 +56,16 @@ def generate(tmpl, name, table):
         sdict = {}
         #Parameters are (t1, var1), (t2, var2)...
         #Args are (var1, var2,...)
-        sdict["@WIND_ARGS@"] = string.join(w_arg_names, ", ")
-        sdict["@UNWIND_ARGS@"] = string.join(u_arg_names, ", ")
-        sdict["@ERROR_ARGS@"] = string.join(list(map(get_error_arg, u_arg_types)), ", ")
+        sdict["@WIND_ARGS@"] = ', '.join(w_arg_names)
+        sdict["@UNWIND_ARGS@"] = ', '.join(u_arg_names)
+        sdict["@ERROR_ARGS@"] = ', '.join(list(map(get_error_arg, u_arg_types)))
         sdict["@WIND_PARAMS@"] = get_param(w_arg_names, w_arg_types)
         sdict["@UNWIND_PARAMS@"] = get_param(u_arg_names, u_arg_types)
         sdict["@FUNC_PARAMS@"] = get_param(fn_arg_names, fn_arg_types)
         sdict["@NAME@"] = name
         sdict["@FOP_PREFIX@"] = fop_prefix
-        sdict["@RET_TYPE@"] = string.join(ret_type, "")
-        sdict["@RET_VAR@"] = string.join(ret_var, "")
+        sdict["@RET_TYPE@"] = ''.join(ret_type)
+        sdict["@RET_VAR@"] = ''.join(ret_var)
 
         for old, new in sdict.items():
                 tmpl = tmpl.replace(old, new)

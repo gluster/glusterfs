@@ -108,7 +108,7 @@ def load (path):
 			xlator.type = text[1]
 			continue
 		if text[0] == "option":
-			xlator.opts[text[1]] = string.join(text[2:])
+			xlator.opts[text[1]] = ''.join(text[2:])
 			continue
 		if text[0] == "subvolumes":
 			for sv in text[1:]:
@@ -135,7 +135,7 @@ def generate (graph, last, stream=sys.stdout):
 	for k, v in last.opts.items():
 		print("    option %s %s" % (k, v), file=stream)
 	if last.subvols:
-		print("    subvolumes %s" % string.join(
+		print("    subvolumes %s" % ''.join(
 			[ sv.name for sv in last.subvols ]), file=stream)
 	print("end-volume", file=stream)
 
