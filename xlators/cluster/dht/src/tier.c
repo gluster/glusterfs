@@ -1690,22 +1690,16 @@ tier_migrate_files_using_qfile (migration_args_t *comp,
         int ret                                 = -1;
         tier_brick_list_t *local_brick          = NULL;
         tier_brick_list_t *temp                 = NULL;
-        char query_file_path_err[PATH_MAX]      = {0,};
-        struct tm tm                            = {0,};
         gfdb_time_t current_time                = {0,};
-        char time_str[128]                      = {0,};
         ssize_t qfile_array_size                = 0;
         int count                               = 0;
         int temp_fd                             = 0;
         gf_tier_conf_t  *tier_conf              = NULL;
-        int32_t len                             = 0;
 
         tier_conf = &(query_cbk_args->defrag->tier_conf);
 
-        /* Time format for error query files */
+        /* Time for error query files */
         gettimeofday (&current_time, NULL);
-        gmtime_r (&current_time.tv_sec, &tm);
-        strftime (time_str, sizeof (time_str), "%F-%T", &tm);
 
         /* Build the qfile list */
         list_for_each_entry_safe (local_brick, temp, comp->brick_list, list) {
@@ -1760,6 +1754,15 @@ out:
         /* If there is an error rename all the query files to .err files
          * with a timestamp for better debugging */
         if (ret) {
+                struct tm tm                            = {0,};
+                char time_str[128]                      = {0,};
+                char query_file_path_err[PATH_MAX]      = {0,};
+                int32_t len                             = 0;
+
+                /* Time format for error query files */
+                gmtime_r (&current_time.tv_sec, &tm);
+                strftime (time_str, sizeof (time_str), "%F-%T", &tm);
+
                 list_for_each_entry_safe (local_brick, temp, comp->brick_list,
                                         list) {
                         /* rename error qfile*/
