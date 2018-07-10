@@ -42,6 +42,7 @@ struct qr_inode {
         struct timeval    last_refresh;
         struct list_head  lru;
         uint64_t          gen;
+        uint64_t          invalidation_time;
 };
 typedef struct qr_inode qr_inode_t;
 
@@ -84,6 +85,7 @@ struct qr_private {
         time_t last_child_down;
         gf_lock_t lock;
         struct qr_statistics qr_counter;
+        gf_atomic_t generation;
 };
 typedef struct qr_private qr_private_t;
 
