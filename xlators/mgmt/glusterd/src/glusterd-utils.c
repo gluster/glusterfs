@@ -2330,6 +2330,10 @@ unsafe_option (dict_t *this, char *key, data_t *value, void *arg)
                 return _gf_false;
         }
 
+        if (fnmatch ("*diagnostics.brick-log*", key, 0) == 0) {
+                return _gf_false;
+        }
+
         return _gf_true;
 }
 
