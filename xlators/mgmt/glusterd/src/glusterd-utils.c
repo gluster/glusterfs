@@ -1319,6 +1319,15 @@ _is_prefix (char *str1, char *str2)
         len1 = strlen (str1);
         len2 = strlen (str2);
         small_len = min (len1, len2);
+
+        /*
+         * If either one (not both) of the strings are 0-length, they are not
+         * prefixes of each other.
+         */
+        if ((small_len == 0) && (len1 != len2)) {
+                return _gf_false;
+        }
+
         for (i = 0; i < small_len; i++) {
                 if (str1[i] != str2[i]) {
                         prefix = _gf_false;
