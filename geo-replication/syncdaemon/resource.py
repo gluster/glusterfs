@@ -621,8 +621,14 @@ class Server(object):
                     collect_failure(e, EEXIST)
             elif op == 'RENAME':
                 en = e['entry1']
-                st = lstat(entry)
-                if isinstance(st, int):
+                # The matching disk gfid check validates two things
+                #  1. Validates name is present, return false otherwise
+                #  2. Validates gfid is same, returns false otherwise
+                # So both validations are necessary to decide src doesn't
+                # exist. We can't rely on only gfid stat as hardlink could
+                # be present and we can't rely only on name as name could
+                # exist with differnt gfid.
+                if not matching_disk_gfid(gfid, entry):
                     if e['stat'] and not stat.S_ISDIR(e['stat']['mode']):
                         if stat.S_ISLNK(e['stat']['mode']) and \
                            e['link'] is not None:
@@ -646,6 +652,7 @@ class Server(object):
                                                     [ENOENT, EEXIST], [ESTALE])
                                 collect_failure(e, cmd_ret)
                 else:
+                    st = lstat(entry)
                     st1 = lstat(en)
                     if isinstance(st1, int):
                         rename_with_disk_gfid_confirmation(gfid, entry, en)
