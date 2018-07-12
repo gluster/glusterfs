@@ -174,6 +174,11 @@ frame_fill_groups (call_frame_t *frame)
                                 "failed", frame->root->uid);
                         return;
                 }
+                if (result == 0) {
+                        gf_log (this->name, GF_LOG_ERROR, "getpwuid_r(%u): "
+                                "no matching record", frame->root->uid);
+                        return;
+                }
 
                 ngroups = gf_getgrouplist (result->pw_name, frame->root->gid,
                                            &mygroups);
