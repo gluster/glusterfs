@@ -22,6 +22,7 @@ EXPECT "$V0" volinfo_field $V0 'Volume Name';
 EXPECT 'Created' volinfo_field $V0 'Status';
 ## Start volume and verify
 TEST $CLI volume start $V0;
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" online_brick_count
 TEST $CLI volume set $V0 performance.stat-prefetch off
 EXPECT 'Started' volinfo_field $V0 'Status';
 TEST glusterfs -s $H0 --volfile-id=$V0 $M0
@@ -36,6 +37,7 @@ TEST permission_root=`stat -c "%A" $M0`
 TEST echo $permission_root
 #Add-brick
 TEST $CLI volume add-brick $V0 $H0:/${V0}3
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "3" online_brick_count
 
 #Allow one lookup to happen
 TEST pushd $M0

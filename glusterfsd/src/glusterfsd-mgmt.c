@@ -919,6 +919,9 @@ glusterfs_handle_attach (rpcsvc_request_t *req)
                                 "got attach for %s but no active graph",
                                 xlator_req.name);
                 }
+                if (ret) {
+                        ret = -1;
+                }
 
                 glusterfs_translator_info_response_send (req, ret, NULL, NULL);
 

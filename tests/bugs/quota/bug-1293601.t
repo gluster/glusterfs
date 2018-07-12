@@ -9,6 +9,7 @@ TEST glusterd
 
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{1,2,3,4}
 TEST $CLI volume start $V0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "4" online_brick_count
 TEST $CLI volume quota $V0 enable
 
 TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0;
@@ -27,6 +28,6 @@ EXPECT_WITHIN $MARKER_UPDATE_TIMEOUT "1.0MB" quotausage "/"
 TEST $CLI volume quota $V0 disable
 TEST $CLI volume quota $V0 enable
 
-EXPECT_WITHIN 40 "1.0MB" quotausage "/"
+EXPECT_WITHIN 60 "1.0MB" quotausage "/"
 
 cleanup;

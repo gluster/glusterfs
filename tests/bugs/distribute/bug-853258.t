@@ -31,6 +31,7 @@ done
 
 # Expand the volume and force assignment of new ranges.
 TEST $CLI volume add-brick $V0 $H0:$B0/${V0}3
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "4" online_brick_count
 # Force assignment of initial ranges.
 TEST $CLI volume rebalance $V0 fix-layout start
 EXPECT_WITHIN $REBALANCE_TIMEOUT "fix-layout completed" fix-layout_status_field $V0
