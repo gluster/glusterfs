@@ -1127,8 +1127,23 @@ glusterfs_handle_brick_status (rpcsvc_request_t *req)
         }
 
         ctx = glusterfsd_ctx;
-        GF_ASSERT (ctx);
+        if (ctx == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "ctx returned NULL");
+                ret = -1;
+                goto out;
+        }
+        if (ctx->active == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "ctx->active returned NULL");
+                ret = -1;
+                goto out;
+        }
         active = ctx->active;
+        if (ctx->active->first == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "ctx->active->first "
+                        "returned NULL");
+                ret = -1;
+                goto out;
+        }
         server_xl = active->first;
 
         brick_xl = get_xlator_by_name (server_xl, brickname);
