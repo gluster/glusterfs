@@ -11,6 +11,7 @@ TEST pidof glusterd
 #Create a disperse volume
 TEST $CLI volume create $V0 disperse 6 redundancy 2 $H0:$B0/${V0}{0..5}
 TEST $CLI volume start $V0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "6" online_brick_count
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field $V0 'Status'
 
 #Disable md-cache

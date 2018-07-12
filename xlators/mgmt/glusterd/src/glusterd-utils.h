@@ -178,8 +178,7 @@ int32_t
 glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo);
 
 int
-glusterd_brick_process_add_brick (glusterd_brickinfo_t *brickinfo,
-                                  glusterd_volinfo_t *volinfo);
+glusterd_brick_process_add_brick (glusterd_brickinfo_t *brickinfo);
 
 int
 glusterd_brick_process_remove_brick (glusterd_brickinfo_t *brickinfo,
@@ -200,7 +199,8 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
 
 int
 send_attach_req (xlator_t *this, struct rpc_clnt *rpc, char *path,
-                 glusterd_brickinfo_t *brick, int op);
+                 glusterd_brickinfo_t *brick,
+                 glusterd_brickinfo_t *other_brick, int op);
 
 glusterd_volinfo_t *
 glusterd_volinfo_ref (glusterd_volinfo_t *volinfo);

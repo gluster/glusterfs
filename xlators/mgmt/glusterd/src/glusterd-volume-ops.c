@@ -2608,8 +2608,13 @@ glusterd_start_volume (glusterd_volinfo_t *volinfo, int flags,
         }
 
         glusterd_set_volume_status (volinfo, GLUSTERD_STATUS_STARTED);
-
+        /* Update volinfo on disk in critical section because
+           attach_brick_callback can also call store_volinfo for same
+           volume to update volinfo on disk
+        */
+        LOCK (&volinfo->lock);
         ret = glusterd_store_volinfo (volinfo, verincrement);
+        UNLOCK (&volinfo->lock);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_VOLINFO_SET_FAIL,

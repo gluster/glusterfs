@@ -2241,7 +2241,7 @@ retry:
                 goto out;
         }
 
-        ret = glusterd_brick_process_add_brick (brickinfo, volinfo);
+        ret = glusterd_brick_process_add_brick (brickinfo);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_BRICKPROC_ADD_BRICK_FAILED, "Adding brick %s:%s "
@@ -2434,8 +2434,7 @@ out:
 }
 
 int
-glusterd_brick_process_add_brick (glusterd_brickinfo_t *brickinfo,
-                                  glusterd_volinfo_t *volinfo)
+glusterd_brick_process_add_brick (glusterd_brickinfo_t *brickinfo)
 {
         int                      ret = -1;
         xlator_t                *this = NULL;
@@ -2563,7 +2562,7 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
                                       brickinfo->hostname, brickinfo->path);
 
                         (void) send_attach_req (this, brickinfo->rpc,
-                                                brickinfo->path, NULL,
+                                                brickinfo->path, NULL, NULL,
                                                 GLUSTERD_BRICK_TERMINATE);
                 } else {
                         gf_msg_debug (this->name, 0, "About to stop glusterfsd"
@@ -5508,23 +5507,93 @@ static int32_t
 attach_brick_callback (struct rpc_req *req, struct iovec *iov, int count,
                        void *v_frame)
 {
-        call_frame_t    *frame  = v_frame;
-        glusterd_conf_t *conf   = frame->this->private;
-        glusterd_brickinfo_t *brickinfo = frame->local;
+        call_frame_t                     *frame     = v_frame;
+        glusterd_conf_t                  *conf      = frame->this->private;
+        glusterd_brickinfo_t             *brickinfo = frame->local;
+        glusterd_brickinfo_t             *other_brick = frame->cookie;
+        glusterd_volinfo_t               *volinfo   =  NULL;
+        xlator_t                         *this      = THIS;
+        int                               ret       = -1;
+        char                              pidfile1[PATH_MAX]      = {0};
+        char                              pidfile2[PATH_MAX]      = {0};
+        gf_getspec_rsp                    rsp   = {0,};
+        int                               last_brick = -1;
 
         frame->local = NULL;
-        brickinfo->port_registered = _gf_true;
+        frame->cookie = NULL;
+
+        ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_getspec_rsp);
+        if (ret < 0) {
+                gf_log (frame->this->name, GF_LOG_ERROR, "XDR decoding error");
+                ret   = -1;
+                goto out;
+        }
+
+        ret =  glusterd_get_volinfo_from_brick (other_brick->path,
+                                                &volinfo);
+        if (ret) {
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOLINFO_GET_FAIL, "Failed to get volinfo"
+                        " from brick(%s) so  pidfile copying/unlink will fail",
+                        other_brick->path);
+                goto out;
+        }
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile1, volinfo, other_brick, conf);
+        volinfo = NULL;
+
+        ret =  glusterd_get_volinfo_from_brick (brickinfo->path,
+                                                &volinfo);
+        if (ret) {
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOLINFO_GET_FAIL, "Failed to get volinfo"
+                        " from brick(%s) so  pidfile copying/unlink will fail",
+                        brickinfo->path);
+                goto out;
+        }
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile2, volinfo, brickinfo, conf);
+
+        if (rsp.op_ret == 0) {
+                brickinfo->port_registered = _gf_true;
+
+                /* PID file is copied once brick has attached
+                   successfully
+                */
+                glusterd_copy_file (pidfile1, pidfile2);
+                brickinfo->status = GF_BRICK_STARTED;
+                brickinfo->rpc = rpc_clnt_ref (other_brick->rpc);
+                gf_log (THIS->name, GF_LOG_INFO, "brick %s is attached successfully",
+                        brickinfo->path);
+        } else {
+                gf_log (THIS->name, GF_LOG_INFO, "attach_brick failed pidfile"
+                        " is %s for brick_path %s", pidfile2, brickinfo->path);
+                brickinfo->port = 0;
+                brickinfo->status = GF_BRICK_STOPPED;
+                ret = glusterd_brick_process_remove_brick (brickinfo, &last_brick);
+                if (ret)
+                        gf_msg_debug (this->name, 0, "Couldn't remove brick from"
+                                      " brick process");
+                LOCK (&volinfo->lock);
+                ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_NONE);
+                UNLOCK (&volinfo->lock);
+                if (ret) {
+                       gf_msg (this->name, GF_LOG_ERROR, 0,
+                               GD_MSG_VOLINFO_SET_FAIL,
+                               "Failed to store volinfo of "
+                               "%s volume", volinfo->volname);
+                       goto out;
+                }
+        }
+out:
         synclock_lock (&conf->big_lock);
         --(conf->blockers);
         synclock_unlock (&conf->big_lock);
-
         STACK_DESTROY (frame->root);
         return 0;
 }
 
 int
 send_attach_req (xlator_t *this, struct rpc_clnt *rpc, char *path,
-                 glusterd_brickinfo_t *brickinfo, int op)
+                 glusterd_brickinfo_t *brickinfo, glusterd_brickinfo_t *other_brick, int op)
 {
         int                             ret      = -1;
         struct iobuf                    *iobuf    = NULL;
@@ -5598,6 +5667,7 @@ send_attach_req (xlator_t *this, struct rpc_clnt *rpc, char *path,
 
         if (op == GLUSTERD_BRICK_ATTACH) {
                 frame->local = brickinfo;
+                frame->cookie = other_brick;
                 cbkfn = attach_brick_callback;
         }
         /* Send the msg */
@@ -5671,27 +5741,19 @@ attach_brick (xlator_t *this,
                 rpc = rpc_clnt_ref (other_brick->rpc);
                 if (rpc) {
                         ret = send_attach_req (this, rpc, path, brickinfo,
+                                               other_brick,
                                                GLUSTERD_BRICK_ATTACH);
                         rpc_clnt_unref (rpc);
                         if (!ret) {
                                 ret = pmap_registry_extend (this, other_brick->port,
-                                                            brickinfo->path);
+                                            brickinfo->path);
                                 if (ret != 0) {
                                         gf_log (this->name, GF_LOG_ERROR,
                                                 "adding brick to process failed");
-                                        return ret;
+                                        goto out;
                                 }
-
-                                /* PID file is copied once brick has attached
-                                  successfully
-                                */
-                                glusterd_copy_file (pidfile1, pidfile2);
                                 brickinfo->port = other_brick->port;
-                                brickinfo->status = GF_BRICK_STARTED;
-                                brickinfo->rpc =
-                                        rpc_clnt_ref (other_brick->rpc);
-                                ret = glusterd_brick_process_add_brick (brickinfo,
-                                                                        volinfo);
+                                ret = glusterd_brick_process_add_brick (brickinfo);
                                 if (ret) {
                                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                                 GD_MSG_BRICKPROC_ADD_BRICK_FAILED,
@@ -5700,23 +5762,17 @@ attach_brick (xlator_t *this,
                                                 brickinfo->path);
                                         return ret;
                                 }
-
-                                if (ret) {
-                                        gf_msg_debug (this->name, 0, "Add brick"
-                                                    " to brick process failed");
-                                        return ret;
-                                }
-
                                 return 0;
                         }
                 }
                 /*
-                 * It might not actually be safe to manipulate the lock like
-                 * this, but if we don't then the connection can never actually
-                 * complete and retries are useless.  Unfortunately, all of the
-                 * alternatives (e.g. doing all of this in a separate thread)
-                 * are much more complicated and risky.  TBD: see if there's a
-                 * better way
+                 * It might not actually be safe to manipulate the lock
+                 * like this, but if we don't then the connection can
+                 * never actually complete and retries are useless.
+                 * Unfortunately, all of the alternatives (e.g. doing
+                 * all of this in a separate thread) are much more
+                 * complicated and risky.
+                 * TBD: see if there's a better way
                  */
                 synclock_unlock (&conf->big_lock);
                 sleep (1);
@@ -5945,6 +6001,7 @@ find_compatible_brick (glusterd_conf_t *conf,
         return NULL;
 }
 
+
 /* Below function is use to populate sockpath based on passed pid
    value as a argument after check the value from proc and also
    check if passed pid is match with running  glusterfs process
@@ -6031,6 +6088,62 @@ glusterd_get_sock_from_brick_pid (int pid, char *sockpath, size_t len)
 }
 
 
+char *
+search_brick_path_from_proc (pid_t brick_pid, char *brickpath)
+{
+        struct dirent *dp = NULL;
+        DIR *dirp = NULL;
+        size_t len = 0;
+        int fd = -1;
+        char path[PATH_MAX] = {0,};
+        char sym[PATH_MAX] = {0,};
+        struct dirent  scratch[2] = {{0,},};
+        char *brick_path = NULL;
+
+        if (!brickpath)
+                goto out;
+
+        sprintf(path, "/proc/%d/fd/", brick_pid);
+        dirp = sys_opendir (path);
+        if (!dirp)
+                goto out;
+
+        len = strlen (path);
+        if (len >= (sizeof(path) - 2))
+                goto out;
+
+        fd = dirfd (dirp);
+        if (fd  < 0)
+                goto out;
+
+        memset(path, 0, sizeof(path));
+        memset(sym, 0, sizeof(sym));
+
+        while ((dp = sys_readdir(dirp, scratch))) {
+                if (!strcmp(dp->d_name, ".") ||
+                    !strcmp(dp->d_name, ".."))
+                        continue;
+
+                /* check for non numerical descriptors */
+                if (!strtol(dp->d_name, (char **)NULL, 10))
+                        continue;
+
+                len = readlinkat (fd, dp->d_name, sym, sizeof(sym) - 1);
+                if (len > 1) {
+                        sym[len] = '\0';
+                        if (!strcmp (sym, brickpath)) {
+                                brick_path = gf_strdup(sym);
+                                break;
+                        }
+                        memset (sym, 0, sizeof (sym));
+                }
+        }
+out:
+        sys_closedir(dirp);
+        return brick_path;
+}
+
+
 int
 glusterd_brick_start (glusterd_volinfo_t *volinfo,
                       glusterd_brickinfo_t *brickinfo,
@@ -6044,7 +6157,9 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
         int32_t                 pid                   = -1;
         char                    pidfile[PATH_MAX]     = {0};
         char                    socketpath[PATH_MAX]  = {0};
+        char                    *brickpath            = NULL;
         glusterd_volinfo_t      *other_vol;
+        struct statvfs           brickstat = {0,};
 
         this = THIS;
         GF_ASSERT (this);
@@ -6090,6 +6205,28 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                 brickinfo->start_triggered = _gf_true;
 
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, conf);
+
+        ret = sys_statvfs (brickinfo->path, &brickstat);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR,
+                        errno, GD_MSG_BRICKINFO_CREATE_FAIL,
+                        "failed to get statfs() call on brick %s",
+                        brickinfo->path);
+                goto out;
+        }
+
+        /* Compare fsid is helpful to ensure the existence of a brick_root
+           path before the start/attach a brick
+        */
+        if (brickinfo->statfs_fsid &&
+            (brickinfo->statfs_fsid != brickstat.f_fsid)) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "fsid comparison is failed it means Brick root path"
+                        " %s is not created by glusterd, start/attach will also fail",
+                        brickinfo->path);
+                goto out;
+        }
+
         if (gf_is_service_running (pidfile, &pid)) {
                 if (brickinfo->status != GF_BRICK_STARTING &&
                     brickinfo->status != GF_BRICK_STARTED) {
@@ -6109,12 +6246,29 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                          * TBD: re-use RPC connection across bricks
                          */
                         if (is_brick_mx_enabled ()) {
+                                brickpath = search_brick_path_from_proc (pid, brickinfo->path);
+                                if (!brickpath) {
+                                        gf_log (this->name, GF_LOG_INFO,
+                                                "Either pid %d is not running or brick"
+                                                " path %s is not consumed so cleanup pidfile",
+                                                pid, brickinfo->path);
+                                        /* search brick is failed so unlink pidfile */
+                                        if (sys_access (pidfile , R_OK) == 0) {
+                                                sys_unlink (pidfile);
+                                        }
+                                        goto run;
+                                }
+                                GF_FREE (brickpath);
                                 ret = glusterd_get_sock_from_brick_pid (pid, socketpath,
                                                                         sizeof(socketpath));
                                 if (ret) {
-                                        gf_log (this->name, GF_LOG_DEBUG,
+                                        gf_log (this->name, GF_LOG_INFO,
                                                 "Either pid %d is not running or is not match"
                                                 " with any running brick process ", pid);
+                                        /* Fetch unix socket is failed so unlink pidfile */
+                                        if (sys_access (pidfile , R_OK) == 0) {
+                                                sys_unlink (pidfile);
+                                        }
                                         goto run;
                                 }
                         } else {
@@ -6129,7 +6283,7 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                         (void) glusterd_brick_connect (volinfo, brickinfo,
                                         socketpath);
 
-                        ret = glusterd_brick_process_add_brick (brickinfo, volinfo);
+                        ret = glusterd_brick_process_add_brick (brickinfo);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_BRICKPROC_ADD_BRICK_FAILED,
@@ -6168,6 +6322,10 @@ run:
                                     volinfo, other_vol);
                 if (ret == 0) {
                         goto out;
+                }
+                /* Attach_brick is failed so unlink pidfile */
+                if (sys_access (pidfile , R_OK) == 0) {
+                        sys_unlink (pidfile);
                 }
         }
 
@@ -7137,14 +7295,15 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
                             dict_t  *dict, int32_t count)
 {
 
-        int             ret                   = -1;
-        int32_t         pid                   = -1;
-        char            key[1024 + 16]        = {0};
-        char            base_key[1024]        = {0};
-        char            pidfile[PATH_MAX]     = {0};
+        int              ret                  = -1;
+        int32_t          pid                  = -1;
+        char             key[1024]            = {0};
+        char             base_key[1024]       = {0};
+        char             pidfile[PATH_MAX]    = {0};
         xlator_t        *this                 = NULL;
         glusterd_conf_t *priv                 = NULL;
-        gf_boolean_t    brick_online          = _gf_false;
+        gf_boolean_t     brick_online         = _gf_false;
+        char            *brickpath            = NULL;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -7201,7 +7360,20 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
         if (glusterd_is_brick_started (brickinfo)) {
                 if (gf_is_service_running (pidfile, &pid) &&
                     brickinfo->port_registered) {
-                        brick_online = _gf_true;
+                        if (!is_brick_mx_enabled ()) {
+                                brick_online = _gf_true;
+                        } else {
+                                brickpath = search_brick_path_from_proc (pid, brickinfo->path);
+                                if (!brickpath) {
+                                        gf_log (this->name, GF_LOG_INFO,
+                                                "brick path %s is not consumed",
+                                                brickinfo->path);
+                                        brick_online = _gf_false;
+                                } else {
+                                        brick_online = _gf_true;
+                                        GF_FREE (brickpath);
+                                }
+                        }
                 } else {
                         pid = -1;
                 }

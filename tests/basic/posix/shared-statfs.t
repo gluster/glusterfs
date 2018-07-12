@@ -23,6 +23,7 @@ TEST MOUNT_LOOP $LO2 $B0/${V0}2
 # Create a subdir in mountpoint and use that for volume.
 TEST $CLI volume create $V0 $H0:$B0/${V0}1/1 $H0:$B0/${V0}2/1;
 TEST $CLI volume start $V0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" online_brick_count
 TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0
 total_space=$(df -P $M0 | tail -1 | awk '{ print $2}')
 # Keeping the size less than 200M mainly because XFS will use
@@ -38,6 +39,7 @@ EXPECT 'Stopped' volinfo_field $V0 'Status';
 TEST $CLI volume add-brick $V0 $H0:$B0/${V0}1/2 $H0:$B0/${V0}2/2 $H0:$B0/${V0}1/3 $H0:$B0/${V0}2/3
 
 TEST $CLI volume start $V0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "6" online_brick_count
 TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0
 total_space=$(df -P $M0 | tail -1 | awk '{ print $2}')
 TEST [ $total_space -gt 194000 -a $total_space -lt 200000 ]
