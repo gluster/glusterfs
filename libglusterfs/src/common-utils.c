@@ -3097,9 +3097,8 @@ static const char *__gf_zerotimes[] = {
 };
 
 void
-_gf_timestuff (gf_timefmts *fmt, const char ***fmts, const char ***zeros)
+_gf_timestuff (const char ***fmts, const char ***zeros)
 {
-        *fmt = gf_timefmt_last;
         *fmts = __gf_timefmts;
         *zeros = __gf_zerotimes;
 }
