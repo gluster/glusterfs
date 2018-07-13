@@ -5,6 +5,8 @@
 . $(dirname $0)/../geo-rep.rc
 . $(dirname $0)/../env.rc
 
+SCRIPT_TIMEOUT=300
+
 AREQUAL_PATH=$(dirname $0)/../utils
 test "`uname -s`" != "Linux" && {
     CFLAGS="$CFLAGS -I$(dirname $0)/../../../contrib/argp-standalone ";
