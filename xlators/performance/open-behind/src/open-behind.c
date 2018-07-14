@@ -1096,7 +1096,7 @@ struct volume_options options[] = {
         },
         { .key  = {"read-after-open"},
           .type = GF_OPTION_TYPE_BOOL,
-          .default_value = "no",
+          .default_value = "yes",
           .description = "read is sent only after actual open happens and real "
           "fd is obtained, instead of doing on anonymous fd (similar to write)",
           .op_version = {3},
