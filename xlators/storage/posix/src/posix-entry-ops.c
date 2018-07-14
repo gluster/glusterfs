@@ -224,20 +224,24 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
                                 "lstat on %s failed",
                                 real_path ? real_path : "null");
                 }
+                entry_ret = -1;
                 if (loc_is_nameless(loc)) {
                         if (!op_errno)
                                 op_errno = ESTALE;
                         loc_gfid (loc, gfid);
                         MAKE_HANDLE_ABSPATH (gfid_path, this, gfid);
-                        op_ret = sys_lstat(gfid_path, &statbuf);
-                        if (op_ret == 0 && statbuf.st_nlink == 1) {
-                                gf_msg (this->name, GF_LOG_WARNING, ESTALE,
+                        ret = sys_stat(gfid_path, &statbuf);
+                        if (ret == 0 && ((statbuf.st_mode & S_IFMT) == S_IFDIR))
+                                /*Don't unset if it was a symlink to a dir.*/
+                                goto parent;
+                        ret = sys_lstat(gfid_path, &statbuf);
+                        if (ret == 0 && statbuf.st_nlink == 1) {
+                                gf_msg (this->name, GF_LOG_WARNING, op_errno,
                                         P_MSG_HANDLE_DELETE, "Found stale gfid "
                                         "handle %s, removing it.", gfid_path);
                                 posix_handle_unset (this, gfid, NULL);
                         }
                 }
-                entry_ret = -1;
                 goto parent;
         }
 
