@@ -867,6 +867,9 @@ ra_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         inode_t   *inode    = NULL;
         uint64_t   tmp_file = 0;
         int32_t    op_errno = EINVAL;
+        ra_conf_t *conf     = NULL;
+
+        conf = this->private;
 
         GF_ASSERT (frame);
         GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
@@ -874,20 +877,23 @@ ra_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 
         inode = fd->inode;
 
-        LOCK (&inode->lock);
-        {
-                list_for_each_entry (iter_fd, &inode->fd_list, inode_list) {
-                        tmp_file = 0;
-                        fd_ctx_get (iter_fd, this, &tmp_file);
-                        file = (ra_file_t *)(long)tmp_file;
+        if (conf->force_atime_update) {
+                LOCK (&inode->lock);
+                {
+                        list_for_each_entry (iter_fd, &inode->fd_list,
+                                             inode_list) {
+                                tmp_file = 0;
+                                fd_ctx_get (iter_fd, this, &tmp_file);
+                                file = (ra_file_t *)(long)tmp_file;
 
-                        if (!file)
-                                continue;
-                        flush_region (frame, file, 0,
-                                      file->pages.prev->offset + 1, 0);
+                                if (!file)
+                                        continue;
+                                flush_region (frame, file, 0,
+                                              file->pages.prev->offset + 1, 0);
+                        }
                 }
+                UNLOCK (&inode->lock);
         }
-        UNLOCK (&inode->lock);
 
         STACK_WIND (frame, ra_attr_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->fstat, fd, xdata);
