@@ -711,7 +711,8 @@ class GMasterChangelogMixin(GMasterCommon):
     TYPE_GFID = "D "
     TYPE_ENTRY = "E "
 
-    MAX_EF_RETRIES = 15
+    MAX_EF_RETRIES = 10
+    MAX_OE_RETRIES = 5
 
     # flat directory hierarchy for gfid based access
     FLAT_DIR_HIERARCHY = '.'
@@ -803,21 +804,28 @@ class GMasterChangelogMixin(GMasterCommon):
 
         self.status.inc_value("failures", num_failures)
 
-    def fix_possible_entry_failures(self, failures, retry_count):
+    def fix_possible_entry_failures(self, failures, retry_count, entries):
         pfx = gauxpfx()
         fix_entry_ops = []
         failures1 = []
         for failure in failures:
-            if failure[2]['dst']:
+            if failure[2]['name_mismatch']:
+                pbname = failure[2]['slave_entry']
+            elif failure[2]['dst']:
                 pbname = failure[0]['entry1']
             else:
                 pbname = failure[0]['entry']
-            if failure[2]['gfid_mismatch']:
+
+            op = failure[0]['op']
+            # name exists but gfid is different
+            if failure[2]['gfid_mismatch'] or failure[2]['name_mismatch']:
                 slave_gfid = failure[2]['slave_gfid']
                 st = lstat(os.path.join(pfx, slave_gfid))
+                # Takes care of scenarios with no hardlinks
                 if isinstance(st, int) and st == ENOENT:
-                    logging.info(lf('Fixing gfid mismatch in slave. Deleting'
-                                    ' the entry', retry_count=retry_count,
+                    logging.info(lf('Entry not present on master. Fixing gfid '
+                                    'mismatch in slave. Deleting the entry',
+                                    retry_count=retry_count,
                                     entry=repr(failure)))
                     # Add deletion to fix_entry_ops list
                     if failure[2]['slave_isdir']:
@@ -830,79 +838,119 @@ class GMasterChangelogMixin(GMasterCommon):
                             edct('UNLINK',
                                  gfid=failure[2]['slave_gfid'],
                                  entry=pbname))
+                # Takes care of scenarios of hardlinks/renames on master
                 elif not isinstance(st, int):
-                    # The file exists on master but with different name.
-                    # Probabaly renamed and got missed during xsync crawl.
-                    if failure[2]['slave_isdir']:
-                        logging.info(lf('Fixing gfid mismatch in slave',
+                    if matching_disk_gfid(slave_gfid, pbname):
+                        # Safe to ignore the failure as master contains same
+                        # file with same gfid. Remove entry from entries list
+                        logging.info(lf('Fixing gfid mismatch in slave. '
+                                        ' Safe to ignore, take out entry',
                                         retry_count=retry_count,
                                         entry=repr(failure)))
-                        realpath = os.readlink(os.path.join(
-                            rconf.args.local_path,
-                            ".glusterfs",
-                            slave_gfid[0:2],
-                            slave_gfid[2:4],
-                            slave_gfid))
+                        entries.remove(failure[0])
+                    # The file exists on master but with different name.
+                    # Probably renamed and got missed during xsync crawl.
+                    elif failure[2]['slave_isdir']:
+                        realpath = os.readlink(os.path.join(gconf.local_path,
+                                                            ".glusterfs",
+                                                            slave_gfid[0:2],
+                                                            slave_gfid[2:4],
+                                                            slave_gfid))
                         dst_entry = os.path.join(pfx, realpath.split('/')[-2],
                                                  realpath.split('/')[-1])
-                        rename_dict = edct('RENAME', gfid=slave_gfid,
-                                           entry=failure[0]['entry'],
-                                           entry1=dst_entry, stat=st,
-                                           link=None)
-                        logging.info(lf('Fixing gfid mismatch in slave. '
-                                        'Renaming', retry_count=retry_count,
-                                        entry=repr(rename_dict)))
-                        fix_entry_ops.append(rename_dict)
+                        src_entry = pbname
+                        logging.info(lf('Fixing dir name/gfid mismatch in '
+                                        'slave', retry_count=retry_count,
+                                        entry=repr(failure)))
+                        if src_entry == dst_entry:
+                            # Safe to ignore the failure as master contains
+                            # same directory as in slave with same gfid.
+                            # Remove the failure entry from entries list
+                            logging.info(lf('Fixing dir name/gfid mismatch'
+                                            ' in slave. Safe to ignore, '
+                                            'take out entry',
+                                            retry_count=retry_count,
+                                            entry=repr(failure)))
+                            entries.remove(failure[0])
+                        else:
+                            rename_dict = edct('RENAME', gfid=slave_gfid,
+                                               entry=src_entry,
+                                               entry1=dst_entry, stat=st,
+                                               link=None)
+                            logging.info(lf('Fixing dir name/gfid mismatch'
+                                            ' in slave. Renaming',
+                                            retry_count=retry_count,
+                                            entry=repr(rename_dict)))
+                            fix_entry_ops.append(rename_dict)
                     else:
-                        logging.info(lf('Fixing gfid mismatch in slave. '
-                                        ' Deleting the entry',
+                        # A hardlink file exists with different name or
+                        # renamed file exists and we are sure from
+                        # matching_disk_gfid check that the entry doesn't
+                        # exist with same gfid so we can safely delete on slave
+                        logging.info(lf('Fixing file gfid mismatch in slave. '
+                                        'Hardlink/Rename Case. Deleting entry',
                                         retry_count=retry_count,
                                         entry=repr(failure)))
                         fix_entry_ops.append(
                             edct('UNLINK',
                                  gfid=failure[2]['slave_gfid'],
                                  entry=pbname))
-                        logging.error(lf('Entry cannot be fixed in slave due '
-                                         'to GFID mismatch, find respective '
-                                         'path for the GFID and trigger sync',
-                                         gfid=slave_gfid))
+            elif failure[1] == ENOENT:
+                # Ignore ENOENT error for fix_entry_ops aka retry_count > 1
+                if retry_count > 1:
+                    logging.info(lf('ENOENT error while fixing entry ops. '
+                                    'Safe to ignore, take out entry',
+                                    retry_count=retry_count,
+                                    entry=repr(failure)))
+                    entries.remove(failure[0])
+                elif op in ('MKNOD', 'CREATE', 'MKDIR'):
+                    pargfid = pbname.split('/')[1]
+                    st = lstat(os.path.join(pfx, pargfid))
+                    # Safe to ignore the failure as master doesn't contain
+                    # parent directory.
+                    if isinstance(st, int):
+                        logging.info(lf('Fixing ENOENT error in slave. Parent '
+                                        'does not exist on master. Safe to '
+                                        'ignore, take out entry',
+                                        retry_count=retry_count,
+                                        entry=repr(failure)))
+                        entries.remove(failure[0])
 
         if fix_entry_ops:
             # Process deletions of entries whose gfids are mismatched
             failures1 = self.slave.server.entry_ops(fix_entry_ops)
-            if not failures1:
-                logging.info("Sucessfully fixed entry ops with gfid mismatch")
 
-        return failures1
+        return (failures1, fix_entry_ops)
 
     def handle_entry_failures(self, failures, entries):
         retries = 0
         pending_failures = False
         failures1 = []
         failures2 = []
+        entry_ops1 = []
+        entry_ops2 = []
 
         if failures:
             pending_failures = True
             failures1 = failures
+            entry_ops1 = entries
 
             while pending_failures and retries < self.MAX_EF_RETRIES:
                 retries += 1
-                failures2 = self.fix_possible_entry_failures(failures1,
-                                                             retries)
+                (failures2, entry_ops2) = self.fix_possible_entry_failures(
+                    failures1, retries, entry_ops1)
                 if not failures2:
                     pending_failures = False
+                    logging.info(lf('Sucessfully fixed entry ops with gfid '
+                                 'mismatch', retry_count=retries))
                 else:
                     pending_failures = True
                     failures1 = failures2
+                    entry_ops1 = entry_ops2
 
             if pending_failures:
                 for failure in failures1:
                     logging.error("Failed to fix entry ops %s", repr(failure))
-            else:
-                # Retry original entry list 5 times
-                failures = self.slave.server.entry_ops(entries)
-
-            self.log_failures(failures, 'gfid', gauxpfx(), 'ENTRY')
 
     def process_change(self, change, done, retry):
         pfx = gauxpfx()
@@ -1129,7 +1177,18 @@ class GMasterChangelogMixin(GMasterCommon):
             self.status.inc_value("entry", len(entries))
 
             failures = self.slave.server.entry_ops(entries)
-            self.handle_entry_failures(failures, entries)
+            count = 0
+            while failures and count < self.MAX_OE_RETRIES:
+                count += 1
+                self.handle_entry_failures(failures, entries)
+                logging.info("Retry original entries. count = %s" % count)
+                failures = self.slave.server.entry_ops(entries)
+                if not failures:
+                    logging.info("Sucessfully fixed all entry ops with gfid "
+                                 "mismatch")
+                    break
+
+            self.log_failures(failures, 'gfid', gauxpfx(), 'ENTRY')
             self.status.dec_value("entry", len(entries))
 
             # Update Entry stime in Brick Root only in case of Changelog mode

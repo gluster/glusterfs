@@ -66,6 +66,7 @@ CHANGELOG_AGENT_CLIENT_VERSION = 1.0
 NodeID = None
 rsync_version = None
 unshare_mnt_propagation = None
+slv_bricks = None
 SPACE_ESCAPE_CHAR = "%20"
 NEWLINE_ESCAPE_CHAR = "%0A"
 PERCENTAGE_ESCAPE_CHAR = "%25"
@@ -658,6 +659,40 @@ def get_rsync_version(rsync_cmd):
         rsync_version = out.split(" ", 4)[3]
 
     return rsync_version
+
+
+def get_slv_dir_path(slv_host, slv_volume, gfid):
+    global slv_bricks
+
+    dir_path = ENOENT
+
+    if not slv_bricks:
+        slv_info = Volinfo(slv_volume, slv_host)
+        slv_bricks = slv_info.bricks
+    # Result of readlink would be of format as below.
+    # readlink = "../../pgfid[0:2]/pgfid[2:4]/pgfid/basename"
+    for brick in slv_bricks:
+        dir_path = errno_wrap(os.path.join,
+                              [brick['dir'],
+                               ".glusterfs", gfid[0:2],
+                               gfid[2:4],
+                               gfid], [ENOENT], [ESTALE])
+        if dir_path != ENOENT:
+            break
+
+    if not isinstance(dir_path, int):
+        realpath = errno_wrap(os.readlink, [dir_path],
+                              [ENOENT], [ESTALE])
+
+        if not isinstance(realpath, int):
+            realpath_parts = realpath.split('/')
+            pargfid = realpath_parts[-2]
+            basename = realpath_parts[-1]
+            pfx = gauxpfx()
+            dir_entry = os.path.join(pfx, pargfid, basename)
+            return dir_entry
+
+    return None
 
 
 def lf(event, **kwargs):
