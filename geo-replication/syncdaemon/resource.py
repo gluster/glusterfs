@@ -38,16 +38,15 @@ from syncdutils import get_changelog_log_level, get_rsync_version
 from syncdutils import CHANGELOG_AGENT_CLIENT_VERSION
 from syncdutils import GX_GFID_CANONICAL_LEN
 from gsyncdstatus import GeorepStatus
-from syncdutils import lf, Popen, sup, Volinfo
+from syncdutils import lf, Popen, sup
 from syncdutils import Xattr, matching_disk_gfid, get_gfid_from_mnt
-from syncdutils import unshare_propagation_supported
+from syncdutils import unshare_propagation_supported, get_slv_dir_path
 
 
 ENOTSUP = getattr(errno, 'ENOTSUP', 'EOPNOTSUPP')
 
 slv_volume = None
 slv_host = None
-slv_bricks = None
 
 
 class Server(object):
@@ -408,13 +407,23 @@ class Server(object):
             # to be purged is the GFID gotten from the changelog.
             # (a stat(changelog_gfid) would also be valid here)
             # The race here is between the GFID check and the purge.
+
+            # If the entry or the gfid of the file to be deleted is not present
+            # on slave, we can ignore the unlink/rmdir
+            if isinstance(lstat(entry), int) or \
+               isinstance(lstat(os.path.join(pfx, gfid)), int):
+                return
+
             if not matching_disk_gfid(gfid, entry):
                 collect_failure(e, EEXIST)
                 return
 
             if op == 'UNLINK':
                 er = errno_wrap(os.unlink, [entry], [ENOENT, ESTALE], [EBUSY])
-                return er
+                # EISDIR is safe error, ignore. This can only happen when
+                # unlink is sent from master while fixing gfid conflicts.
+                if er != EISDIR:
+                    return er
 
             elif op == 'RMDIR':
                 er = errno_wrap(os.rmdir, [entry], [ENOENT, ESTALE,
@@ -425,7 +434,11 @@ class Server(object):
         def collect_failure(e, cmd_ret, dst=False):
             slv_entry_info = {}
             slv_entry_info['gfid_mismatch'] = False
+            slv_entry_info['name_mismatch'] = False
             slv_entry_info['dst'] = dst
+            slv_entry_info['slave_isdir'] = False
+            slv_entry_info['slave_name'] = None
+            slv_entry_info['slave_gfid'] = None
             # We do this for failing fops on Slave
             # Master should be logging this
             if cmd_ret is None:
@@ -444,6 +457,9 @@ class Server(object):
                     if not isinstance(st, int):
                         if st and stat.S_ISDIR(st.st_mode):
                             slv_entry_info['slave_isdir'] = True
+                            dir_name = get_slv_dir_path(slv_host, slv_volume,
+                                                        disk_gfid)
+                            slv_entry_info['slave_name'] = dir_name
                         else:
                             slv_entry_info['slave_isdir'] = False
                     slv_entry_info['slave_gfid'] = disk_gfid
@@ -563,39 +579,34 @@ class Server(object):
                                          [ENOENT, EEXIST], [ESTALE])
                     collect_failure(e, cmd_ret)
             elif op == 'MKDIR':
+                en = e['entry']
                 slink = os.path.join(pfx, gfid)
                 st = lstat(slink)
                 # don't create multiple entries with same gfid
                 if isinstance(st, int):
                     blob = entry_pack_mkdir(
                         gfid, bname, e['mode'], e['uid'], e['gid'])
-                else:
+                elif (isinstance(lstat(en), int) or
+                      not matching_disk_gfid(gfid, en)):
                     # If gfid of a directory exists on slave but path based
                     # create is getting EEXIST. This means the directory is
                     # renamed in master but recorded as MKDIR during hybrid
                     # crawl. Get the directory path by reading the backend
                     # symlink and trying to rename to new name as said by
                     # master.
-                    global slv_bricks
-                    global slv_volume
-                    global slv_host
-                    if not slv_bricks:
-                        slv_info = Volinfo(slv_volume, slv_host)
-                        slv_bricks = slv_info.bricks
-                    # Result of readlink would be of format as below.
-                    # readlink = "../../pgfid[0:2]/pgfid[2:4]/pgfid/basename"
-                    realpath = os.readlink(os.path.join(slv_bricks[0]['dir'],
-                                                        ".glusterfs",
-                                                        gfid[0:2],
-                                                        gfid[2:4],
-                                                        gfid))
-                    realpath_parts = realpath.split('/')
-                    src_pargfid = realpath_parts[-2]
-                    src_basename = realpath_parts[-1]
-                    src_entry = os.path.join(pfx, src_pargfid, src_basename)
                     logging.info(lf("Special case: rename on mkdir",
                                     gfid=gfid, entry=repr(entry)))
-                    rename_with_disk_gfid_confirmation(gfid, src_entry, entry)
+                    src_entry = get_slv_dir_path(slv_host, slv_volume, gfid)
+                    if src_entry is not None and src_entry != entry:
+                        slv_entry_info = {}
+                        slv_entry_info['gfid_mismatch'] = False
+                        slv_entry_info['name_mismatch'] = True
+                        slv_entry_info['dst'] = False
+                        slv_entry_info['slave_isdir'] = True
+                        slv_entry_info['slave_gfid'] = gfid
+                        slv_entry_info['slave_entry'] = src_entry
+
+                        failures.append((e, EEXIST, slv_entry_info))
             elif op == 'LINK':
                 slink = os.path.join(pfx, gfid)
                 st = lstat(slink)
