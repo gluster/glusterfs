@@ -10,6 +10,7 @@ tests=""
 exit_on_failure="yes"
 skip_bad_tests="yes"
 skip_known_bugs="yes"
+result_output="/tmp/gluster_regression.txt"
 section_separator="========================================"
 run_timeout=200
 kill_after_time=5
@@ -368,13 +369,16 @@ function run_tests()
         echo "$key  -  ${ELAPSEDTIMEMAP["$key"]} second"
     done | sort -rn -k3
 
+    # Output the errors into a file
+    echo > "${result_output}"
     if [ ${RES} -ne 0 ] ; then
         FAILED=$( echo ${FAILED} | tr ' ' '\n' | sort -u )
         FAILED_COUNT=$( echo -n "${FAILED}" | grep -c '^' )
-        echo -e "\n$FAILED_COUNT test(s) failed \n${FAILED}"
+        echo -e "\n$FAILED_COUNT test(s) failed \n${FAILED}" >> "${result_output}"
         GENERATED_CORE=$( echo  ${GENERATED_CORE} | tr ' ' '\n' | sort -u )
         GENERATED_CORE_COUNT=$( echo -n "${GENERATED_CORE}" | grep -c '^' )
-        echo -e "\n$GENERATED_CORE_COUNT test(s) generated core \n${GENERATED_CORE}"
+        echo -e "\n$GENERATED_CORE_COUNT test(s) generated core \n${GENERATED_CORE}" >> "${result_output}"
+        cat "${result_output}"
     fi
     TESTS_NEEDED_RETRY=$( echo ${TESTS_NEEDED_RETRY} | tr ' ' '\n' | sort -u )
     RETRY_COUNT=$( echo -n "${TESTS_NEEDED_RETRY}" | grep -c '^' )
@@ -409,7 +413,7 @@ function run_head_tests()
 }
 
 function parse_args () {
-    args=`getopt frcbkhH "$@"`
+    args=`getopt frcbkhHo "$@"`
     set -- $args
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -420,6 +424,7 @@ function parse_args () {
         -c)    exit_on_failure="no" ;;
         -b)    skip_bad_tests="no" ;;
         -k)    skip_known_bugs="no" ;;
+        -o)    result_output="$2"; shift;;
         --)    shift; break;;
         esac
         shift
