@@ -386,7 +386,7 @@ _glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv,
                                 pid_dir, brickpath);
                 if ((len >= 0) && (len < sizeof(pidfile))) {
                         pidfp = fopen (pidfile, "w");
-                        if (pidfp >= 0) {
+                        if (pidfp != NULL) {
                                 fprintf (pidfp, "%d\n", runner.chpid);
                                 fflush (pidfp);
                                 fclose (pidfp);
