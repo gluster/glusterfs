@@ -153,11 +153,11 @@ dht_rename_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          * FIXME: is this the correct way to build stbuf and
          * parent bufs?
          */
-        dht_iatt_merge (this, &local->stbuf, stbuf, prev);
-        dht_iatt_merge (this, &local->preoldparent, preoldparent, prev);
-        dht_iatt_merge (this, &local->postoldparent, postoldparent, prev);
-        dht_iatt_merge (this, &local->preparent, prenewparent, prev);
-        dht_iatt_merge (this, &local->postparent, postnewparent, prev);
+        dht_iatt_merge (this, &local->stbuf, stbuf);
+        dht_iatt_merge (this, &local->preoldparent, preoldparent);
+        dht_iatt_merge (this, &local->postoldparent, postoldparent);
+        dht_iatt_merge (this, &local->preparent, prenewparent);
+        dht_iatt_merge (this, &local->postparent, postnewparent);
 
 unwind:
         this_call_cnt = dht_frame_return (frame);
@@ -248,11 +248,11 @@ dht_rename_hashed_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          * FIXME: is this the correct way to build stbuf and
          * parent bufs?
          */
-        dht_iatt_merge (this, &local->stbuf, stbuf, prev);
-        dht_iatt_merge (this, &local->preoldparent, preoldparent, prev);
-        dht_iatt_merge (this, &local->postoldparent, postoldparent, prev);
-        dht_iatt_merge (this, &local->preparent, prenewparent, prev);
-        dht_iatt_merge (this, &local->postparent, postnewparent, prev);
+        dht_iatt_merge (this, &local->stbuf, stbuf);
+        dht_iatt_merge (this, &local->preoldparent, preoldparent);
+        dht_iatt_merge (this, &local->postoldparent, postoldparent);
+        dht_iatt_merge (this, &local->preparent, prenewparent);
+        dht_iatt_merge (this, &local->postparent, postnewparent);
 
         call_cnt = local->call_cnt = conf->subvolume_cnt - 1;
 
@@ -1071,13 +1071,11 @@ err:
         /* Merge attrs only from src_cached. In case there of src_cached !=
          * dst_hashed, this ignores linkfile attrs. */
         if (prev == src_cached) {
-                dht_iatt_merge (this, &local->stbuf, stbuf, prev);
-                dht_iatt_merge (this, &local->preoldparent, preoldparent,
-                                prev);
-                dht_iatt_merge (this, &local->postoldparent, postoldparent,
-                                prev);
-                dht_iatt_merge (this, &local->preparent, prenewparent, prev);
-                dht_iatt_merge (this, &local->postparent, postnewparent, prev);
+                dht_iatt_merge (this, &local->stbuf, stbuf);
+                dht_iatt_merge (this, &local->preoldparent, preoldparent);
+                dht_iatt_merge (this, &local->postoldparent, postoldparent);
+                dht_iatt_merge (this, &local->preparent, prenewparent);
+                dht_iatt_merge (this, &local->postparent, postnewparent);
         }
 
 
@@ -1245,7 +1243,7 @@ dht_rename_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->op_errno = op_errno;
                 local->added_link = _gf_false;
         } else
-                dht_iatt_merge (this, &local->stbuf, stbuf, prev);
+                dht_iatt_merge (this, &local->stbuf, stbuf);
 
         if (local->op_ret == -1)
                 goto cleanup;

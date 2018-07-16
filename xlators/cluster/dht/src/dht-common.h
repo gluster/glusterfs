@@ -900,8 +900,7 @@ int dht_deitransform (xlator_t *this, uint64_t y, xlator_t **subvol);
 void dht_local_wipe (xlator_t *this, dht_local_t *local);
 dht_local_t *dht_local_init (call_frame_t    *frame, loc_t *loc, fd_t *fd,
                              glusterfs_fop_t  fop);
-int dht_iatt_merge (xlator_t                 *this, struct iatt *to, struct iatt *from,
-                    xlator_t                 *subvol);
+int dht_iatt_merge (xlator_t *this, struct iatt *to, struct iatt *from);
 
 xlator_t *dht_subvol_get_hashed (xlator_t *this, loc_t *loc);
 xlator_t *dht_subvol_get_cached (xlator_t *this, inode_t *inode);

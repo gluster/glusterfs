@@ -69,8 +69,8 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (local->call_cnt != 1) {
                 /* preserve the modes of source */
                 if (local->stbuf.ia_blocks) {
-                        dht_iatt_merge (this, postbuf, &local->stbuf, NULL);
-                        dht_iatt_merge (this, prebuf, &local->prebuf, NULL);
+                        dht_iatt_merge (this, postbuf, &local->stbuf);
+                        dht_iatt_merge (this, prebuf, &local->prebuf);
                 }
                 goto out;
         }
@@ -122,8 +122,8 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         }
                 }
 
-                dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
-                dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
+                dht_iatt_merge (this, &local->stbuf, postbuf);
+                dht_iatt_merge (this, &local->prebuf, prebuf);
 
                 ret = dht_inode_ctx_get_mig_info (this, local->fd->inode,
                                                   &subvol1, &subvol2);
@@ -300,8 +300,8 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (local->call_cnt != 1) {
                 if (local->stbuf.ia_blocks) {
-                        dht_iatt_merge (this, postbuf, &local->stbuf, NULL);
-                        dht_iatt_merge (this, prebuf, &local->prebuf, NULL);
+                        dht_iatt_merge (this, postbuf, &local->stbuf);
+                        dht_iatt_merge (this, prebuf, &local->prebuf);
                 }
                 goto out;
         }
@@ -326,8 +326,8 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* Check if the rebalance phase1 is true */
         if (IS_DHT_MIGRATION_PHASE1 (postbuf)) {
-                dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
-                dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
+                dht_iatt_merge (this, &local->stbuf, postbuf);
+                dht_iatt_merge (this, &local->prebuf, prebuf);
 
                 inode = (local->fd) ? local->fd->inode : local->loc.inode;
 
@@ -536,8 +536,8 @@ dht_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (local->call_cnt != 1) {
                 if (local->stbuf.ia_blocks) {
-                        dht_iatt_merge (this, postbuf, &local->stbuf, NULL);
-                        dht_iatt_merge (this, prebuf, &local->prebuf, NULL);
+                        dht_iatt_merge (this, postbuf, &local->stbuf);
+                        dht_iatt_merge (this, prebuf, &local->prebuf);
                 }
                 goto out;
         }
@@ -557,8 +557,8 @@ dht_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* Check if the rebalance phase1 is true */
         if (IS_DHT_MIGRATION_PHASE1 (postbuf)) {
-                dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
-                dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
+                dht_iatt_merge (this, &local->stbuf, postbuf);
+                dht_iatt_merge (this, &local->prebuf, prebuf);
 
                 dht_inode_ctx_get_mig_info (this, local->fd->inode, &src_subvol,
                                             &dst_subvol);
@@ -722,8 +722,8 @@ dht_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (local->call_cnt != 1) {
                 if (local->stbuf.ia_blocks) {
-                        dht_iatt_merge (this, postbuf, &local->stbuf, NULL);
-                        dht_iatt_merge (this, prebuf, &local->prebuf, NULL);
+                        dht_iatt_merge (this, postbuf, &local->stbuf);
+                        dht_iatt_merge (this, prebuf, &local->prebuf);
                 }
                 goto out;
         }
@@ -743,8 +743,8 @@ dht_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* Check if the rebalance phase1 is true */
         if (IS_DHT_MIGRATION_PHASE1 (postbuf)) {
-                dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
-                dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
+                dht_iatt_merge (this, &local->stbuf, postbuf);
+                dht_iatt_merge (this, &local->prebuf, prebuf);
 
                 dht_inode_ctx_get_mig_info (this, local->fd->inode, &src_subvol,
                                             &dst_subvol);
@@ -902,8 +902,8 @@ dht_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (local->call_cnt != 1) {
                 if (local->stbuf.ia_blocks) {
-                        dht_iatt_merge (this, postbuf, &local->stbuf, NULL);
-                        dht_iatt_merge (this, prebuf, &local->prebuf, NULL);
+                        dht_iatt_merge (this, postbuf, &local->stbuf);
+                        dht_iatt_merge (this, prebuf, &local->prebuf);
                 }
                 goto out;
         }
@@ -923,8 +923,8 @@ dht_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* Check if the rebalance phase1 is true */
         if (IS_DHT_MIGRATION_PHASE1 (postbuf)) {
-                dht_iatt_merge (this, &local->stbuf, postbuf, NULL);
-                dht_iatt_merge (this, &local->prebuf, prebuf, NULL);
+                dht_iatt_merge (this, &local->stbuf, postbuf);
+                dht_iatt_merge (this, &local->prebuf, prebuf);
 
                 ret = dht_inode_ctx_get_mig_info (this, local->fd->inode,
                                                   &subvol1, &subvol2);
@@ -1183,8 +1183,8 @@ dht_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto unlock;
                 }
 
-                dht_iatt_merge (this, &local->prebuf, statpre, prev);
-                dht_iatt_merge (this, &local->stbuf, statpost, prev);
+                dht_iatt_merge (this, &local->prebuf, statpre);
+                dht_iatt_merge (this, &local->stbuf, statpost);
 
                 local->op_ret = 0;
                 local->op_errno = 0;
@@ -1229,8 +1229,8 @@ dht_non_mds_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto unlock;
                 }
 
-                dht_iatt_merge (this, &local->prebuf, statpre, prev);
-                dht_iatt_merge (this, &local->stbuf, statpost, prev);
+                dht_iatt_merge (this, &local->prebuf, statpre);
+                dht_iatt_merge (this, &local->stbuf, statpost);
 
                 local->op_ret = 0;
                 local->op_errno = 0;
@@ -1281,8 +1281,8 @@ dht_mds_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local->op_ret = 0;
         loc_stbuf = local->stbuf;
-        dht_iatt_merge (this, &local->prebuf, statpre, prev);
-        dht_iatt_merge (this, &local->stbuf, statpost, prev);
+        dht_iatt_merge (this, &local->prebuf, statpre);
+        dht_iatt_merge (this, &local->stbuf, statpost);
 
         local->call_cnt = conf->subvolume_cnt - 1;
         for (i = 0; i < conf->subvolume_cnt; i++) {

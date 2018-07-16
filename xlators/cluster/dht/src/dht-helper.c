@@ -1094,8 +1094,7 @@ out:
 
 
 int
-dht_iatt_merge (xlator_t *this, struct iatt *to,
-                struct iatt *from, xlator_t *subvol)
+dht_iatt_merge (xlator_t *this, struct iatt *to, struct iatt *from)
 {
         if (!from || !to)
                 return 0;
