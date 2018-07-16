@@ -4838,8 +4838,7 @@ dht_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 if (frame->root->pid >= 0 && dht_is_tier_xlator (this)) {
-                        GF_REMOVE_INTERNAL_XATTR
-                                ("trusted.tier.fix.layout.complete", xattr);
+                        dict_del(xattr, GF_XATTR_TIER_LAYOUT_FIXED_KEY);
                 }
 
                 if (frame->root->pid >= 0) {
