@@ -1,8 +1,7 @@
 #!/bin/bash
 
 GF_CONF_OPTS="--localstatedir=/var --sysconfdir /var/lib --prefix /usr --libdir /usr/lib64 \
-            --enable-fusermount --enable-mempool --enable-api --with-jemalloc\
-	    --disable-tiering --with-ipv6-default --enable-gnfs"
+            --enable-bd-xlator=yes --enable-debug --enable-gnfs"
 
 if [ -x /usr/lib/rpm/redhat/dist.sh ]; then
   REDHAT_MAJOR=$(/usr/lib/rpm/redhat/dist.sh --distnum)
