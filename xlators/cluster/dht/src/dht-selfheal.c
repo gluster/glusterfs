@@ -201,7 +201,7 @@ dht_refresh_layout_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 op_ret = dht_layout_merge (this, layout, prev,
                                            op_ret, op_errno, xattr);
 
-                dht_iatt_merge (this, &local->stbuf, stbuf, prev);
+                dht_iatt_merge (this, &local->stbuf, stbuf);
 
                 if (op_ret == -1) {
                         gf_uuid_unparse (local->loc.gfid, gfid);
@@ -698,7 +698,7 @@ dht_selfheal_dir_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         LOCK (&frame->lock);
         {
-                dht_iatt_merge (this, &local->stbuf, stbuf, subvol);
+                dht_iatt_merge (this, &local->stbuf, stbuf);
         }
         UNLOCK (&frame->lock);
 
@@ -1154,8 +1154,8 @@ dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->loc.path, gfid );
                 goto out;
         }
-        dht_iatt_merge (this, &local->preparent, preparent, prev);
-        dht_iatt_merge (this, &local->postparent, postparent, prev);
+        dht_iatt_merge (this, &local->preparent, preparent);
+        dht_iatt_merge (this, &local->postparent, postparent);
         ret = 0;
 
 out:
@@ -1366,7 +1366,6 @@ dht_selfheal_dir_mkdir_lookup_cbk (call_frame_t *frame, void *cookie,
         dht_layout_t  *layout = NULL;
         dht_conf_t    *conf   = 0;
         loc_t         *loc    = NULL;
-        xlator_t      *prev    = NULL;
         int           check_mds = 0;
         int           errst     = 0;
         int32_t       mds_xattr_val[1] = {0};
@@ -1377,7 +1376,6 @@ dht_selfheal_dir_mkdir_lookup_cbk (call_frame_t *frame, void *cookie,
         local = frame->local;
         layout = local->layout;
         loc = &local->loc;
-        prev  = cookie;
         conf = this->private;
 
         if (local->gfid)
@@ -1394,7 +1392,7 @@ dht_selfheal_dir_mkdir_lookup_cbk (call_frame_t *frame, void *cookie,
                 }
 
                 if (!op_ret) {
-                        dht_iatt_merge (this, &local->stbuf, stbuf, prev);
+                        dht_iatt_merge (this, &local->stbuf, stbuf);
                 }
                 check_mds = dht_dict_get_array (xattr, conf->mds_xattr_key,
                                                 mds_xattr_val, 1, &errst);

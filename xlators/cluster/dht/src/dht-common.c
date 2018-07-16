@@ -1096,9 +1096,9 @@ dht_discover_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (local->inode == NULL)
                         local->inode = inode_ref (inode);
 
-                dht_iatt_merge (this, &local->stbuf, stbuf, prev);
-                dht_iatt_merge (this, &local->postparent, postparent,
-                                prev);
+                dht_iatt_merge (this, &local->stbuf, stbuf);
+                dht_iatt_merge (this, &local->postparent, postparent);
+
                 if (!dict_get (xattr, conf->mds_xattr_key)) {
                         goto unlock;
                 } else {
@@ -1434,8 +1434,8 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (local->inode == NULL)
                         local->inode = inode_ref (inode);
 
-                dht_iatt_merge (this, &local->stbuf, stbuf, prev);
-                dht_iatt_merge (this, &local->postparent, postparent, prev);
+                dht_iatt_merge (this, &local->stbuf, stbuf);
+                dht_iatt_merge (this, &local->postparent, postparent);
 
                 if (!dict_get (xattr, conf->mds_xattr_key)) {
                         gf_msg_debug (this->name, 0,
@@ -1811,9 +1811,8 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     dht_dir_has_layout (xattr, conf->xattr_name) >= 0)
                     || conf->subvolume_cnt == 1) {
 
-                        dht_iatt_merge (this, &local->stbuf, stbuf, prev);
-                        dht_iatt_merge (this, &local->postparent, postparent,
-                                        prev);
+                        dht_iatt_merge (this, &local->stbuf, stbuf);
+                        dht_iatt_merge (this, &local->postparent, postparent);
                 } else {
                         /* copy the gfid anyway */
                         gf_uuid_copy (local->stbuf.ia_gfid, stbuf->ia_gfid);
@@ -2822,8 +2821,8 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                         if (!local->cached_subvol) {
                                 /* found one file */
-                                dht_iatt_merge (this, &local->stbuf, buf,
-                                                prev);
+                                dht_iatt_merge (this, &local->stbuf, buf);
+
                                 local->xattr = dict_ref (xattr);
                                 local->cached_subvol = prev;
 
@@ -2832,7 +2831,7 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                               " %s", prev->name, loc->path);
 
                                 dht_iatt_merge (this, &local->postparent,
-                                                postparent, prev);
+                                                postparent);
 
                                 gf_uuid_copy (local->skip_unlink.cached_gfid,
                                            buf->ia_gfid);
@@ -8433,7 +8432,7 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
             ((local->call_cnt == 1 && !IS_DHT_MIGRATION_PHASE2 (stbuf))
              || (local->call_cnt != 1 &&
                  IS_DHT_MIGRATION_PHASE2 (&local->stbuf)))) {
-                dht_iatt_merge (this, &local->stbuf, stbuf, NULL);
+                dht_iatt_merge (this, &local->stbuf, stbuf);
                 stbuf_merged = _gf_true;
                 dht_linkfile_attr_heal (frame, this);
         }
@@ -8446,13 +8445,10 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 /* Preserve the return values, in case the migration decides
                  * to recreate the link on the same subvol that the current
                  * hased for the link was created on. */
-                dht_iatt_merge (this, &local->preparent,
-                                preparent, NULL);
-                dht_iatt_merge (this, &local->postparent,
-                                postparent, NULL);
+                dht_iatt_merge (this, &local->preparent, preparent);
+                dht_iatt_merge (this, &local->postparent, postparent);
                 if (!stbuf_merged) {
-                        dht_iatt_merge (this, &local->stbuf,
-                                        stbuf, NULL);
+                        dht_iatt_merge (this, &local->stbuf, stbuf);
                         stbuf_merged = _gf_true;
                 }
 
@@ -9314,9 +9310,9 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (dir_exists)
                         goto unlock;
 
-                dht_iatt_merge (this, &local->stbuf, stbuf, prev);
-                dht_iatt_merge (this, &local->preparent, preparent, prev);
-                dht_iatt_merge (this, &local->postparent, postparent, prev);
+                dht_iatt_merge (this, &local->stbuf, stbuf);
+                dht_iatt_merge (this, &local->preparent, preparent);
+                dht_iatt_merge (this, &local->postparent, postparent);
         }
 unlock:
         UNLOCK (&frame->lock);
@@ -9548,9 +9544,9 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
 
         local->op_ret = 0;
 
-        dht_iatt_merge (this, &local->stbuf, stbuf, prev);
-        dht_iatt_merge (this, &local->preparent, preparent, prev);
-        dht_iatt_merge (this, &local->postparent, postparent, prev);
+        dht_iatt_merge (this, &local->stbuf, stbuf);
+        dht_iatt_merge (this, &local->preparent, preparent);
+        dht_iatt_merge (this, &local->postparent, postparent);
 
         local->call_cnt = conf->subvolume_cnt - 1;
         /* Delete internal mds xattr from params dict to avoid store
@@ -9818,8 +9814,8 @@ dht_rmdir_hashed_subvol_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto unlock;
                 }
 
-                dht_iatt_merge (this, &local->preparent, preparent, prev);
-                dht_iatt_merge (this, &local->postparent, postparent, prev);
+                dht_iatt_merge (this, &local->preparent, preparent);
+                dht_iatt_merge (this, &local->postparent, postparent);
 
         }
 unlock:
@@ -9938,8 +9934,8 @@ dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 /* Track if rmdir succeeded on atleast one subvol*/
                 local->fop_succeeded = 1;
-                dht_iatt_merge (this, &local->preparent, preparent, prev);
-                dht_iatt_merge (this, &local->postparent, postparent, prev);
+                dht_iatt_merge (this, &local->preparent, preparent);
+                dht_iatt_merge (this, &local->postparent, postparent);
         }
 unlock:
         UNLOCK (&frame->lock);
