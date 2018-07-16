@@ -74,7 +74,7 @@ bd_local_init (call_frame_t *frame, xlator_t *this)
 
 /*
  * VG are set with the tag in GF_XATTR_VOL_ID_KEY:<uuid> format.
- * This function validates this tag agains volume-uuid. Also goes
+ * This function validates this tag against volume-uuid. Also goes
  * through LV list to find out if a thin-pool is configured or not.
  */
 int bd_scan_vg (xlator_t *this, bd_priv_t *priv)
@@ -128,7 +128,7 @@ int bd_scan_vg (xlator_t *this, bd_priv_t *priv)
         }
 
 check:
-        /* If there is no volume-id set in dict, we cant validate */
+        /* If there is no volume-id set in dict, we can't validate */
         tmp_data = dict_get (this->options, "volume-id");
         if (!tmp_data) {
                 op_ret = 0;
@@ -295,7 +295,7 @@ bd_fd_ctx_get (xlator_t *this, fd_t *fd, bd_fd_t **bdfd)
  * Validates if LV exists for given inode or not.
  * Returns 0 if LV exists and size also matches.
  * If LV does not exist -1 returned
- * If LV size mismatches, returnes 1 also lv_size is updated with actual
+ * If LV size mismatches, returns 1 also lv_size is updated with actual
  * size
  */
 int

@@ -115,7 +115,7 @@ add_connection_node (gfdb_conn_node_t *_conn_node) {
                 /*TODO What if the unlock fails.
                 * Will it lead to deadlock?
                 * Most of the gluster code
-                * no check for unlock or destory of mutex!*/
+                * no check for unlock or destroy of mutex!*/
         }
         ret = 0;
 out:
@@ -163,7 +163,7 @@ delete_conn_node (gfdb_conn_node_t *_conn_node)
                 /*TODO What if the unlock fails.
                 * Will it lead to deadlock?
                 * Most of the gluster code
-                * no check for unlock or destory of mutex!*/
+                * no check for unlock or destroy of mutex!*/
                 ret = -1;
                 goto out;
         }
@@ -241,7 +241,7 @@ init_db (dict_t *args, gfdb_db_type_t gfdb_db_type)
                 goto alloc_failed;
         }
 
-        /*Init the list component of db conneciton object*/
+        /*Init the list component of db connection object*/
         INIT_LIST_HEAD (&_conn_node->conn_list);
 
 
@@ -355,7 +355,7 @@ out:
  *                      link of inode from GF_FLINK_TB and
  *                      GFDB_FOP_UNDEL_ALL to delete all the records from
  *                      GF_FLINK_TB and GF_FILE_TB.
- *                      TODO: Should seperate this function into the
+ *                      TODO: Should separate this function into the
  *                      delete_record function
  *                      Refer CTR Xlator features/changetimerecorder for usage
  * Arguments:
@@ -756,7 +756,7 @@ clear_files_heat (gfdb_conn_node_t *conn_node)
  *                   this variable. The freeing of the memory should be done by
  *                   the caller.
  * Return:
- *      On success return the lenght of the version string that is
+ *      On success return the length of the version string that is
  *      extracted.
  *      On failure return -1
  * */

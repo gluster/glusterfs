@@ -935,7 +935,7 @@ class VolinfoFromGconf(object):
     # Glusterd will generate following config items before Geo-rep start
     # So that Geo-rep need not run gluster commands from inside
     # Volinfo object API/interface kept as is so that caller need not
-    # change anything exept calling this instead of Volinfo()
+    # change anything except calling this instead of Volinfo()
     #
     # master-bricks=
     # master-bricks=NODEID:HOSTNAME:PATH,..

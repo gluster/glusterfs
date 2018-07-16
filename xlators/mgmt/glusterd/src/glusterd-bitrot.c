@@ -475,7 +475,7 @@ glusterd_should_i_stop_bitd ()
                                 return stopped;
                         }
 
-                        /* Before stoping bitrot/scrubber daemon check
+                        /* Before stopping bitrot/scrubber daemon check
                          * other volume also whether respective volume
                          * host a brick from this node or not.*/
                         continue;

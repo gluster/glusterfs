@@ -3,7 +3,7 @@
 #  1. Display xattr of entire FS tree in a human readable form
 #  2. Display all the directory where contri and size mismatch.
 #      (If there are any directory with contri and size mismatch that are not dirty
-#       then that highlights a propogation issue)
+#       then that highlights a propagation issue)
 #  The script takes only one input LOG _FILE generated from the command,
 #  find <brick_path> | xargs  getfattr -d -m. -e hex  > log_gluster_xattr
 
@@ -15,7 +15,7 @@ from hurry.filesize import size
 
 if len(sys.argv) < 2:
     sys.exit('Usage: %s log_gluster_xattr \n'
-              'to genereate log_gluster_xattr use: \n'
+              'to generate log_gluster_xattr use: \n'
               'find <brick_path> | xargs  getfattr -d -m. -e hex  > log_gluster_xattr'
               % sys.argv[0])
 LOG_FILE=sys.argv[1]

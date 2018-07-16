@@ -1749,7 +1749,7 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         goto out;
                 }
                 /* op-version check for replica 2 to arbiter conversion. If we
-                * dont have this check, an older peer added as arbiter brick
+                * don't have this check, an older peer added as arbiter brick
                 * will not have the  arbiter xlator in its volfile. */
                 if ((conf->op_version < GD_OP_VERSION_3_8_0) &&
                     (arbiter_count == 1) && (replica_count == 3)) {

@@ -458,7 +458,7 @@ out:
  *
  * @dict : the dict to walk
  * @key  : the key in the dict we are currently on
- * @val  : the value in the dict assocated with the key
+ * @val  : the value in the dict associated with the key
  * @tmp  : Additional parameter data (not used)
  *
  * Passed as a function pointer to dict_foreach ().
@@ -479,7 +479,7 @@ __exp_item_print_walk (dict_t *dict, char *key, data_t *val, void *tmp)
  *
  * @dict : the dict to walk
  * @key  : the key in the dict we are currently on
- * @val  : the value in the dict assocated with the key
+ * @val  : the value in the dict associated with the key
  * @tmp  : Additional parameter data (not used)
  *
  * Passed as a function pointer to dict_foreach ().
@@ -765,7 +765,7 @@ __exp_line_ng_host_str_parse (char *str, struct export_item **exp_item)
 
         *parens = '('; /* Restore the string */
 
-        /* Options start at the parantheses */
+        /* Options start at the parentheses */
         optstr = parens;
 
         ret = __exp_line_opt_parse (optstr, &exp_opts);
@@ -996,7 +996,7 @@ out:
  *            it will point to a valid memory region that is allocated by
  *            this function.
  * @check_ms: If this variable is set then we cross check the directory line
- *            with whats in gluster's vol files and reject them if they don't
+ *            with what's in gluster's vol files and reject them if they don't
  *            match.
  *
  * @return : success: GF_EXP_PARSE_SUCCESS
@@ -1200,7 +1200,7 @@ _exp_line_parse (const char *line, struct export_dir **dir,
                         gf_msg (GF_EXP, GF_LOG_WARNING, 0, NFS_MSG_PARSE_FAIL,
                                 "Error parsing hosts for: %s", line);
                 /* If netgroups parsing failed, AND
-                 * host parsing failed, then theres something really
+                 * host parsing failed, then there's something really
                  * wrong with this line, so we're just going to
                  * log it and fail out.
                  */

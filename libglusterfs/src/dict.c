@@ -2919,7 +2919,7 @@ out:
  *
  * @this: dict to serialize
  * @buf:  buffer to serialize into. This must be
- *        atleast dict_serialized_length (this) large
+ *        at least dict_serialized_length (this) large
  *
  * @return: success: 0
  *          failure: -errno
@@ -3039,7 +3039,7 @@ out:
  *
  * @this: dict to serialize
  * @buf:  buffer to serialize into. This must be
- *        atleast dict_serialized_length (this) large
+ *        at least dict_serialized_length (this) large
  *
  * @return: success: 0
  *          failure: -errno
@@ -3273,7 +3273,7 @@ out:
  * @delimiter : the delimiter to separate the values
  *
  * @return    : 0 -> success
- *            : -errno -> faliure
+ *            : -errno -> failure
  */
 int
 dict_serialize_value_with_delim_lk (dict_t *this, char *buf, int32_t *serz_len,

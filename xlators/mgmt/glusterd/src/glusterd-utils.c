@@ -1920,7 +1920,7 @@ glusterd_set_brick_socket_filepath (glusterd_volinfo_t *volinfo,
         glusterd_set_socket_filepath (sock_filepath, sockpath, len);
 }
 
-/* connection happens only if it is not aleady connected,
+/* connection happens only if it is not already connected,
  * reconnections are taken care by rpc-layer
  */
 int32_t
@@ -4465,7 +4465,7 @@ glusterd_volinfo_copy_brickinfo (glusterd_volinfo_t *old_volinfo,
                                 if (!realpath (new_brickinfo->path, abspath)) {
                                         /* Here an ENOENT should also be a
                                          * failure as the brick is expected to
-                                         * be in existance
+                                         * be in existence
                                          */
                                         gf_msg (this->name, GF_LOG_CRITICAL,
                                                 errno,
@@ -4573,7 +4573,7 @@ glusterd_delete_stale_volume (glusterd_volinfo_t *stale_volinfo,
 
         /* If stale volume is in started state, stop the stale bricks if the new
          * volume is started else, stop all bricks.
-         * We dont want brick_rpc_notify to access already deleted brickinfo,
+         * We don't want brick_rpc_notify to access already deleted brickinfo,
          * so disconnect all bricks from stale_volinfo (unconditionally), since
          * they are being deleted subsequently.
          */
@@ -12351,7 +12351,7 @@ op_version_check (xlator_t *this, int min_op_version, char *msg, int msglen)
        if (priv->op_version < min_op_version) {
                 snprintf (msg, msglen, "One or more nodes do not support "
                           "the required op-version. Cluster op-version must "
-                          "atleast be %d.", min_op_version);
+                          "at least be %d.", min_op_version);
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_UNSUPPORTED_VERSION, "%s", msg);
                 ret = -1;
@@ -12781,7 +12781,7 @@ glusterd_launch_synctask (synctask_fn_t fn, void *opaque)
  * @option  - option to be set to default. If NULL, all possible options will be
  *            set to default
  *
- * Returns 0 on sucess and -1 on failure. If @option is given, but doesn't match
+ * Returns 0 on success and -1 on failure. If @option is given, but doesn't match
  * any of the options that could be set, it is a success.
  */
 /*
@@ -13397,7 +13397,7 @@ glusterd_get_volopt_content (dict_t * ctx, gf_boolean_t xml_out)
                                 gf_msg_debug ("glusterd", 0, "Failed to "
                                         "get %s key from volume option entry",
                                         vme->key);
-                                goto out; /*Some error while geting key*/
+                                goto out; /*Some error while getting key*/
                         }
 
                         ret = xlator_volopt_dynload (vme->voltype,
@@ -14322,7 +14322,7 @@ glusterd_get_dst_brick_info (char **dst_brick, char *volname, char **op_errstr,
 
         /*
          * IPv4 address contains '.' and ipv6 addresses contains ':'
-         * So finding the last occurance of ':' to
+         * So finding the last occurrence of ':' to
          * mark the start of brick path
          */
         c = strrchr(*dup_dstbrick, ':');

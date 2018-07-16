@@ -3641,7 +3641,7 @@ print_quota_list_from_mountdir (cli_local_t *local, char *mountdir,
                 case ENOATTR:
 #endif
                         /* If it's an ENOATTR, quota/inode-quota is
-                         * configured(limit is set atleast for one directory).
+                         * configured(limit is set at least for one directory).
                          * The user is trying to issue 'list/list-objects'
                          * command for a directory on which quota limit is
                          * not set and we are showing the used-space in case
@@ -4060,7 +4060,7 @@ out:
          *    the results and hangs, because same thread has already holding
          *    the lock
          *
-         * Broadcasting response in a seperate thread which is not a
+         * Broadcasting response in a separate thread which is not a
          * good fix. This needs to be re-visted with better solution
          */
         if (ret == -1) {

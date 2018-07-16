@@ -815,7 +815,7 @@ __dht_rebalance_create_dst_file (xlator_t *this, xlator_t *to, xlator_t *from,
          *server (posix_layer) and binding it in server (incrementing fd count),
          *so if in that time-gap, if other process sends unlink considering it
          *as a linkto file, because inode->fd count will be 0, so file will be
-         *unlinked at the backend. And because furthur operations are performed
+         *unlinked at the backend. And because further operations are performed
          *on fd, so though migration will be done but will end with no file
          *at  the backend.
          */
@@ -1017,9 +1017,9 @@ __dht_check_free_space (xlator_t *this, xlator_t *to, xlator_t *from,
            During rebalance `migrate-data` - Destination subvol experiences
            a `reduction` in 'blocks' of free space, at the same time source
            subvol gains certain 'blocks' of free space. A valid check is
-           necessary here to avoid errorneous move to destination where
+           necessary here to avoid erroneous move to destination where
            the space could be scantily available.
-           With heterogenous brick support, an actual space comparison could
+           With heterogeneous brick support, an actual space comparison could
            prevent any files being migrated to newly added bricks if they are
            smaller then the free space available on the existing bricks.
          */
@@ -1119,7 +1119,7 @@ find_new_subvol:
         if ((!(*new_subvol)) || (*new_subvol == from)) {
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_SUBVOL_INSUFF_SPACE, "Could not find any subvol"
-                        " with space accomodating the file - %s. Consider "
+                        " with space accommodating the file - %s. Consider "
                         "adding bricks", loc->path);
 
                 *target_changed = _gf_false;
@@ -3363,7 +3363,7 @@ gf_defrag_get_entry (xlator_t *this, int i, struct dht_container **container,
                         tmp_container->df_entry->dict =
                                         dict_ref (df_entry->dict);
 
-               /*Build Container Structue >> END*/
+               /*Build Container Structure >> END*/
 
                 ret = 0;
                 goto out;
@@ -3670,7 +3670,7 @@ gf_defrag_settle_hash (xlator_t *this, gf_defrag_info_t *defrag,
 
         if (conf->local_subvols_cnt == 0 || !conf->lookup_optimize) {
                 /* Commit hash updates are only done on local subvolumes and
-                 * only when lookup optmization is needed (for older client
+                 * only when lookup optimization is needed (for older client
                  * support)
                  */
                 return 0;

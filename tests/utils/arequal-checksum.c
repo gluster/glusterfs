@@ -31,7 +31,7 @@
 
 /*
  * FTW_ACTIONRETVAL is a GNU libc extension. It is used here to skip
- * hiearchies. On other systems we will still walk the tree, ignoring
+ * hierarchies. On other systems we will still walk the tree, ignoring
  * entries.
  */
 #ifndef FTW_ACTIONRETVAL
@@ -482,7 +482,7 @@ process_entry (const char *path, const struct stat *sb,
 
            This mainly helps in calculating the checksum of network filesystems
            (client-server), where the server might have some hidden directories
-           for managing the filesystem. So to calculate the sanity of filesytem
+           for managing the filesystem. So to calculate the sanity of filesystem
            one has to get the checksum of the client and then the export directory
            of server by telling arequal to ignore some of the directories which
            are not part of the namespace.

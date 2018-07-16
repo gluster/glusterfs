@@ -88,7 +88,7 @@ glfsh_init ()
 int
 glfsh_end_op_granular_entry_heal (int op_ret, char *op_errstr)
 {
-        /* If error sting is available, give it higher precedence.*/
+        /* If error string is available, give it higher precedence.*/
 
         if (op_errstr) {
                 printf ("%s\n", op_errstr);
@@ -1509,7 +1509,7 @@ cleanup (glfs_t *fs)
                 return;
 #if 0
         /* glfs fini path is still racy and crashing the program. Since
-         * this program any way has to die, we are not gonna call fini
+         * this program any way has to die, we are not going to call fini
          * in the released versions. i.e. final builds. For all
          * internal testing lets enable this so that glfs_fini code
          * path becomes stable. */

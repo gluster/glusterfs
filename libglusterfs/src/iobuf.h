@@ -41,7 +41,7 @@
 /* each unit hosts @page_size bytes of memory */
 struct iobuf;
 
-/* one region of memory MMAPed from the operating system */
+/* one region of memory mapped from the operating system */
 /* each region MMAPs @arena_size bytes of memory */
 /* each arena hosts @arena_size / @page_size IOBUFs */
 struct iobuf_arena;
@@ -152,7 +152,7 @@ struct iobref {
         gf_lock_t          lock;
         gf_atomic_t        ref;
         struct iobuf     **iobrefs;
-	int                alloced;
+	int                allocated;
 	int                used;
 };
 

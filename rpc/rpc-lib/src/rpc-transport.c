@@ -205,7 +205,7 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
                                 "\"socket\"");
 	} else {
 		{
-			/* Backword compatibility to handle * /client,
+			/* Backward compatibility to handle * /client,
 			 * * /server.
 			 */
 			char *tmp = strchr (type, '/');
@@ -563,7 +563,7 @@ out:
 
 //give negative values to skip setting that value
 //this function asserts if both the values are negative.
-//why call it if you dont set it.
+//why call it if you don't set it.
 int
 rpc_transport_keepalive_options_set (dict_t *options, int32_t interval,
                                      int32_t time, int32_t timeout)

@@ -1462,7 +1462,7 @@ dht_selfheal_dir_mkdir_lock_cbk (call_frame_t *frame, void *cookie,
         if (op_ret < 0) {
 
                 /* We get this error when the directory entry was not created
-                 * on a newky attatched tier subvol. Hence proceed and do mkdir
+                 * on a newky attached tier subvol. Hence proceed and do mkdir
                  * on the tier subvol.
                  */
                 if (op_errno == EINVAL) {
@@ -2047,7 +2047,7 @@ dht_selfheal_dir_getafix (call_frame_t *frame, loc_t *loc,
         overlaps = local->selfheal.overlaps_cnt;
 
         if (holes || overlaps) {
-                /* If the layout has anomolies which would change the hash
+                /* If the layout has anomalies which would change the hash
                  * ranges, then we need to reset the commit_hash for this
                  * directory, as the layout would change and things may not
                  * be in place as expected */

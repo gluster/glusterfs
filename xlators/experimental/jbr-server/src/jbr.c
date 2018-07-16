@@ -592,8 +592,8 @@ out:
 }
 
 /*
- * Called from leader for locking fop, being writen as a separate *
- * function so as to support queues.                              *
+ * Called from leader for locking fop, being written as a separate
+ * function so as to support queues.
  */
 int32_t
 jbr_perform_lk_on_leader (call_frame_t *frame, xlator_t *this,

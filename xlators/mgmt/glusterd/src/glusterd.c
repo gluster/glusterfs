@@ -2062,9 +2062,9 @@ fini (xlator_t *this)
 
 #if 0
        /* Running threads might be using these resourses, we have to cancel/stop
-        * running threads before deallocating the memeory, but we don't have
+        * running threads before deallocating the memory, but we don't have
         * control over the running threads to do pthread_cancel().
-        * So memeory freeing handover to kernel.
+        * So memory freeing handover to kernel.
         */
         /*TODO: cancel/stop the running threads*/
 

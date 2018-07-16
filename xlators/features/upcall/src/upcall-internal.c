@@ -705,7 +705,7 @@ out:
 }
 
 /*
- * This is called during upcall_inode_ctx cleanup incase of 'inode_forget'.
+ * This is called during upcall_inode_ctx cleanup in case of 'inode_forget'.
  * Send "UP_FORGET" to all the clients so that they invalidate their cache
  * entry and do a fresh lookup next time when any I/O comes in.
  */

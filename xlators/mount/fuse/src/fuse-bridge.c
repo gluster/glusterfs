@@ -5581,7 +5581,7 @@ fuse_dumper (xlator_t *this, fuse_in_header_t *finh, void *msg,
                              &fts, &fsig);
         diov[4] = (struct iovec){ finh, sizeof (*finh) };
         if (finh->opcode == FUSE_WRITE) {
-                /* WRITE has special data alingment, see comment in
+                /* WRITE has special data alignment, see comment in
                    fuse_write(). */
                 diov[4].iov_len += sizeof (struct fuse_write_in);
         }

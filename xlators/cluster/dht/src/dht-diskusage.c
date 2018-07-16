@@ -470,7 +470,7 @@ dht_subvol_with_free_space_inodes(xlator_t *this, xlator_t *subvol, xlator_t *ig
 }
 
 
-/* Get subvol which has atleast one inode and maximum space */
+/* Get subvol which has at least one inode and maximum space */
 xlator_t *
 dht_subvol_maxspace_nonzeroinode (xlator_t *this, xlator_t *subvol,
                                   dht_layout_t *layout)

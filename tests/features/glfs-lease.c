@@ -199,7 +199,7 @@ do {                                                                            
 do {                                                                                        \
         if (ret != value) {                                                                 \
                 fprintf (log_file, "\n    Testcase %d failed, ret = %d, value=%d\n", test_case, ret, value); \
-                goto error; /*test unsuccesfull*/                                           \
+                goto error; /*test unsuccessful*/                                           \
         }                                                                                   \
         fprintf (log_file, "\n    Testcase %d Succeeded\n", test_case);                       \
 } while (0)                                                                                 \
@@ -210,7 +210,7 @@ recall_cbk (struct glfs_lease lease, void *data)
         int ret = -1;
         char ld[GLFS_LEASE_ID_SIZE] = "";
 
-        fprintf (log_file, "\nRECALL recieved on lease_id:(%s)", lease.lease_id);
+        fprintf (log_file, "\nRECALL received on lease_id:(%s)", lease.lease_id);
         memcpy (ld, lease.lease_id, GLFS_LEASE_ID_SIZE);
         ret = unlk_write_lease ((glfs_fd_t *)data, ld);
         VERIFY_RESULT (500, ret, SHUD_PASS);

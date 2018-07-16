@@ -5800,7 +5800,7 @@ glusterd_op_txn_complete (uuid_t *txn_id)
         /* Based on the op-version, we release the cluster or mgmt_v3 lock */
         if (priv->op_version < GD_OP_VERSION_3_6_0) {
                 ret = glusterd_unlock (MY_UUID);
-                /* unlock cant/shouldnt fail here!! */
+                /* unlock can't/shouldn't fail here!! */
                 if (ret)
                         gf_msg (this->name, GF_LOG_CRITICAL, 0,
                                 GD_MSG_GLUSTERD_UNLOCK_FAIL,

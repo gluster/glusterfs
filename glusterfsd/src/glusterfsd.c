@@ -287,7 +287,7 @@ set_fuse_mount_options (glusterfs_ctx_t *ctx, dict_t *options)
         cmd_args = &ctx->cmd_args;
 
         /* Check if mount-point is absolute path,
-         * if not convert to absolute path by concating with CWD
+         * if not convert to absolute path by concatenating with CWD
          */
         if (cmd_args->mount_point[0] != '/') {
                 if (getcwd (cwd, PATH_MAX) != NULL) {
@@ -1536,7 +1536,7 @@ cleanup_and_exit (int signum)
          * But in another thread (epoll thread), upon poll error in the
          * socket the transports are cleaned up where again rpcsvc object
          * is accessed (which is already freed by the below function).
-         * Since the process is about to be killed dont execute the function
+         * Since the process is about to be killed don't execute the function
          * below.
          */
         /* if (ctx->listener) { */

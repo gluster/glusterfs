@@ -192,7 +192,7 @@ class NormalMixin(object):
             vi = vi.copy()
             vi['timeout'] = int(time.time()) + timo
         else:
-            # send keep-alives more frequently to
+            # send keep-alive more frequently to
             # avoid a delay in announcing our volume info
             # to slave if it becomes established in the
             # meantime
@@ -529,7 +529,7 @@ class GMasterCommon(object):
 
         # If crawlwrap is called when partial history available,
         # then it sets register_time which is the time when geo-rep
-        # worker registerd to changelog consumption. Since nsec is
+        # worker registered to changelog consumption. Since nsec is
         # not considered in register time, their are chances of skipping
         # changes detection in xsync crawl. This limit will be reset when
         # crawlwrap is called again.
@@ -540,7 +540,7 @@ class GMasterCommon(object):
         # no need to maintain volinfo state machine.
         # in a cascading setup, each geo-replication session is
         # independent (ie. 'volume-mark' and 'xtime' are not
-        # propogated). This is because the slave's xtime is now
+        # propagated). This is because the slave's xtime is now
         # stored on the master itself. 'volume-mark' just identifies
         # that we are in a cascading setup and need to enable
         # 'geo-replication.ignore-pid-check' option.
@@ -919,6 +919,8 @@ class GMasterChangelogMixin(GMasterCommon):
         if fix_entry_ops:
             # Process deletions of entries whose gfids are mismatched
             failures1 = self.slave.server.entry_ops(fix_entry_ops)
+            if not failures1:
+                logging.info("Successfully fixed entry ops with gfid mismatch")
 
         return (failures1, fix_entry_ops)
 
@@ -1563,7 +1565,7 @@ class GMasterChangeloghistoryMixin(GMasterChangelogMixin):
                 self.history_crawl_start_time = int(time.time())
                 self.crawl()
             else:
-                # This exeption will be catched in resource.py and
+                # This exception will be caught in resource.py and
                 # fallback to xsync for the small gap.
                 raise PartialHistoryAvailable(str(actual_end))
 

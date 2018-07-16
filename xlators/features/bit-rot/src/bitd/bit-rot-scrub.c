@@ -158,7 +158,7 @@ bitd_signature_staleness (xlator_t *this,
         }
 
         /**
-         * save verison for validation in post compute stage
+         * save version for validation in post compute stage
          * c.f. bitd_scrub_post_compute_check()
          */
         *stale = signptr->stale ? 1 : 0;
@@ -358,7 +358,7 @@ br_scrubber_scrub_begin (xlator_t *this, struct br_fsscan_entry *fsentry)
                 skip_stat = _gf_true;
 
         /**
-         * open() an fd for subsequent opertaions
+         * open() an fd for subsequent operations
          */
         fd = fd_create (linked_inode, 0);
         if (!fd) {
@@ -419,7 +419,7 @@ br_scrubber_scrub_begin (xlator_t *this, struct br_fsscan_entry *fsentry)
         if (!skip_stat)
                 br_inc_scrubbed_file (&priv->scrub_stat);
 
-        GF_FREE (sign); /* alloced on post-compute */
+        GF_FREE (sign); /* allocated on post-compute */
 
         /** fd_unref() takes care of closing fd.. like syncop_close() */
 
@@ -1910,7 +1910,7 @@ br_monitor_thread (void *arg)
 
         /*
          * Since, this is the topmost xlator, THIS has to be set by bit-rot
-         * xlator itself (STACK_WIND wont help in this case). Also it has
+         * xlator itself (STACK_WIND won't help in this case). Also it has
          * to be done for each thread that gets spawned. Otherwise, a new
          * thread will get global_xlator's pointer when it does "THIS".
          */

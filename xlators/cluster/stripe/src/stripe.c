@@ -4436,7 +4436,7 @@ stripe_setxattr_cbk (call_frame_t *frame, void *cookie,
                 call_cnt = --local->wind_count;
 
                 /**
-                 * We overwrite ->op_* values here for subsequent faliure
+                 * We overwrite ->op_* values here for subsequent failure
                  * conditions, hence we propagate the last errno down the
                  * stack.
                  */
@@ -5553,7 +5553,7 @@ stripe_getxattr (call_frame_t *frame, xlator_t *this,
                 (void) strncpy (local->xsel, name, strlen (name));
 
                 /**
-                 * for xattrs that need info from all childs, fill ->xsel
+                 * for xattrs that need info from all children, fill ->xsel
                  * as above and call the filler function in cbk based on
                  * it
                  */

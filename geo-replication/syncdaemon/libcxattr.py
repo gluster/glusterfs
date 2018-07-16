@@ -14,7 +14,7 @@ from ctypes import CDLL, create_string_buffer, get_errno
 
 class Xattr(object):
 
-    """singleton that wraps the extended attribues system
+    """singleton that wraps the extended attributes system
        interface for python using ctypes
 
        Just implement it to the degree we need it, in particular

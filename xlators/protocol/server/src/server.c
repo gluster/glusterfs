@@ -360,7 +360,7 @@ _check_for_auth_option (dict_t *d, char *k, data_t *v,
                 goto out;
         }
 
-        /* fast fwd thru module type */
+        /* fast fwd through module type */
         tail = strchr (tail, '.');
         if (!tail)
                 goto out;
@@ -1146,7 +1146,7 @@ server_init (xlator_t *this)
         }
 
         glusterfs3_3_fop_prog.options = this->options;
-        /* make sure we register the fop prgram at the head to optimize
+        /* make sure we register the fop program at the head to optimize
          * lookup
          */
         ret = rpcsvc_program_register (conf->rpc, &glusterfs3_3_fop_prog,

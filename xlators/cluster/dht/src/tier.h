@@ -13,7 +13,7 @@
 
 
 /******************************************************************************/
-/* This is from dht-rebalancer.c as we dont have dht-rebalancer.h */
+/* This is from dht-rebalancer.c as we don't have dht-rebalancer.h */
 #include "dht-common.h"
 #include "xlator.h"
 #include <signal.h>

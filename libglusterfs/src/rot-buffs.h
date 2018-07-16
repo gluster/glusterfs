@@ -73,7 +73,7 @@ struct rlist_iter {
                      --((riter)->iter))
 
 /**
- * Sequence number assigment routine is called during buffer
+ * Sequence number assignment routine is called during buffer
  * switch under rbuff ->lock.
  */
 typedef void (sequence_fn) (rbuf_list_t *, void *);

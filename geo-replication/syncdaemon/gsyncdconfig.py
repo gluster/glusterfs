@@ -50,7 +50,7 @@ class Gconf(object):
         self.args = args
         self.extra_tmpl_args = extra_tmpl_args
         self.override_from_args = override_from_args
-        # Store default values only if overwriten, Only for JSON/CLI output
+        # Store default values only if overwritten, Only for JSON/CLI output
         self.default_values = {}
         self._load()
 

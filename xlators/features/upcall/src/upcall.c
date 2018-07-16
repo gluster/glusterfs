@@ -326,7 +326,7 @@ up_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
         /* XXX: setattr -> UP_SIZE or UP_OWN or UP_MODE or UP_TIMES
-         * or INODE_UPDATE (or UP_PERM esp incase of ACLs -> INODE_INVALIDATE)
+         * or INODE_UPDATE (or UP_PERM esp in case of ACLs -> INODE_INVALIDATE)
          * Need to check what attr is changed and accordingly pass UP_FLAGS.
          * Bug1200271.
          */
@@ -2118,11 +2118,11 @@ err:
  * - Do not filter unregistered xattrs in the cbk, but in the call path.
  *   Else, we will be invalidating on every preop, if the file already has
  *   pending xattr set. Filtering unregistered xattrs on the fop path
- *   ensures we invalidate only in postop, everytime a postop comes with
+ *   ensures we invalidate only in postop, every time a postop comes with
  *   pending xattr value 1.
  * - Consider a brick is down, and the postop sets pending xattrs as long
- *   as the other brick is down. But we do not want to invalidate everytime
- *   a pending xattr is set, but we wan't to inalidate only the first time
+ *   as the other brick is down. But we do not want to invalidate every time
+ *   a pending xattr is set, but we want to invalidate only the first time
  *   a pending xattr is set on any file. Hence, to identify if its the first
  *   time a pending xattr is set, we compare the value of pending xattrs that
  *   came in postop and postop cbk, if its same then its the first time.
@@ -2527,7 +2527,7 @@ struct xlator_fops fops = {
          * notifications are not sent in this case.
          * But however, we need to store/update the
          * client info in the upcall state to be able
-         * to notify them incase of any changes done
+         * to notify them in case of any changes done
          * to the data.
          *
          * Below such fops do not trigger upcall

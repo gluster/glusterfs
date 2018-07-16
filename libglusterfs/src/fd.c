@@ -756,7 +756,7 @@ __fd_anonymous (inode_t *inode, int32_t flags)
 
         /* if (fd); then we already have increased the refcount in
            __fd_lookup_anonymous(), so no need of one more fd_ref().
-           if (!fd); then both create and bind wont bump up the ref
+           if (!fd); then both create and bind won't bump up the ref
            count, so we have to call fd_ref() after bind. */
         if (!fd) {
                 fd = __fd_create (inode, 0);
@@ -867,7 +867,7 @@ __fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
                 if (!fd->_ctx[index].key) {
                         if (set_idx == -1)
                                 set_idx = index;
-                        /* dont break, to check if key already exists
+                        /* don't break, to check if key already exists
                            further on */
                 }
                 if (fd->_ctx[index].xl_key == xlator) {

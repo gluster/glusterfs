@@ -280,7 +280,7 @@ glusterd_acquire_multiple_locks_per_entity (dict_t *dict, uuid_t uuid,
         }
 
         if (count == locked_count) {
-                /* If all locking ops went successfuly, return as success */
+                /* If all locking ops went successfully, return as success */
                 ret = 0;
                 goto out;
         }
@@ -528,7 +528,7 @@ glusterd_multiple_mgmt_v3_lock (dict_t *dict, uuid_t uuid, uint32_t *op_errno)
         }
 
         if (locked_count == GF_MAX_LOCKING_ENTITIES) {
-                /* If all locking ops went successfuly, return as success */
+                /* If all locking ops went successfully, return as success */
                 ret = 0;
                 goto out;
         }
@@ -889,7 +889,7 @@ glusterd_mgmt_v3_unlock (const char *name, uuid_t uuid, char *type)
                 type, name);
 
         ret = 0;
-        /* Release owner refernce which was held during lock */
+        /* Release owner reference which was held during lock */
         if (mgmt_lock_timer->timer) {
                 ret = -1;
                 mgmt_lock_timer_xl = mgmt_lock_timer->xl;

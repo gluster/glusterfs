@@ -323,7 +323,7 @@ struct _ec_fop_data {
     int32_t            id;           /* ID of the file operation */
     int32_t            refs;
     int32_t            state;
-    int32_t            minimum;      /* Mininum number of successful
+    int32_t            minimum;      /* Minimum number of successful
                                         operation required to conclude a
                                         fop as successful */
     int32_t            expected;

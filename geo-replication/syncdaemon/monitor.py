@@ -126,7 +126,7 @@ class Monitor(object):
                     raise
 
         def exit_signalled(s):
-            """ child teminated due to receipt of SIGUSR1 """
+            """ child terminated due to receipt of SIGUSR1 """
             return (os.WIFSIGNALED(s) and (os.WTERMSIG(s) == signal.SIGUSR1))
 
         def exit_status(s):

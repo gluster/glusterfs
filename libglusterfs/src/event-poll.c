@@ -173,7 +173,7 @@ event_pool_new_poll (int count, int eventthreadcount)
                         "thread count (%d) ignored", eventthreadcount);
         }
 
-        /* although, eventhreadcount for poll implementaiton is always
+        /* although, eventhreadcount for poll implementation is always
          * going to be 1, eventthreadcount needs to be set to 1 so that
          * rpcsvc_request_handler() thread scaling works flawlessly in
          * both epoll and poll models

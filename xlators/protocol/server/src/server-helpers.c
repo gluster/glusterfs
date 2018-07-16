@@ -486,7 +486,7 @@ get_frame_from_request (rpcsvc_request_t *req)
                         /* For nfs clients the server processes will be running
                            within the trusted storage pool machines. So if we
                            do not do root-squashing for nfs servers, thinking
-                           that its a trusted client, then root-squashing wont
+                           that its a trusted client, then root-squashing won't
                            work for nfs clients.
                         */
                         if (req->pid == NFS_PID)
@@ -1345,7 +1345,7 @@ auth_set_username_passwd (dict_t *input_params, dict_t *config_params,
                 gf_msg_debug ("auth/login", 0, "username not found, returning "
                               "DONT-CARE");
                 /* For non trusted clients username and password
-                   will not be there. So dont reject the client.
+                   will not be there. So don't reject the client.
                 */
                 ret = 0;
                 goto out;

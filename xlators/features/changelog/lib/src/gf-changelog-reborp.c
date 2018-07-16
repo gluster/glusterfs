@@ -61,7 +61,7 @@ gf_changelog_connection_janitor (void *arg)
                          "brick=%s", entry->brick,
                          NULL);
 
-                /* 0x0: disbale rpc-clnt */
+                /* 0x0: disable rpc-clnt */
                 rpc_clnt_disable (RPC_PROBER (entry));
 
                 /* 0x1: cleanup callback invoker thread */
@@ -155,7 +155,7 @@ gf_changelog_reborp_init_rpc_listner (xlator_t *this,
 }
 
 /**
- * This is dirty and painful as of now untill there is event filtering in the
+ * This is dirty and painful as of now until there is event filtering in the
  * server. The entire event buffer is scanned and interested events are picked,
  * whereas we _should_ be notified with the events we were interested in
  * (selected at the time of probe). As of now this is complete BS and needs
@@ -283,7 +283,7 @@ orderfn (struct list_head *pos1, struct list_head *pos2)
 void
 queue_ordered_event (struct gf_event_list *ev, struct gf_event *event)
 {
-        /* add event to the ordered event list and wake up listner(s) */
+        /* add event to the ordered event list and wake up listener(s) */
         pthread_mutex_lock (&ev->lock);
         {
                 list_add_order (&event->list, &ev->events, orderfn);

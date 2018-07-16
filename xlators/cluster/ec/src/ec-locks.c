@@ -43,7 +43,7 @@ int32_t ec_lock_check(ec_fop_data_t *fop, uintptr_t *mask)
                         case EC_LOCK_MODE_NONE:
                         case EC_LOCK_MODE_ALL:
                                 /* Goal is to treat non-blocking lock as failure
-                                 * even if there is a signle EAGAIN*/
+                                 * even if there is a single EAGAIN*/
                                 notlocked |= ans->mask;
                                 break;
                         }

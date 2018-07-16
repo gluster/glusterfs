@@ -21,7 +21,7 @@ _gf_ref_get (gf_ref_t *ref)
         /* if cnt == 0, we're in a fatal position, the object will be free'd
          *
          * There is a race when two threads do a _gf_ref_get(). Only one of
-         * them may get a 0 returned. That is acceptible, because one
+         * them may get a 0 returned. That is acceptable, because one
          * _gf_ref_get() returning 0 should be handled as a fatal problem and
          * when correct usage/locking is used, it should never happen.
          */

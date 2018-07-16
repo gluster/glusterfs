@@ -261,7 +261,7 @@ gf_svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         /* There is a possibility that, the client process just came online
            and does not have the inode on which the lookup came. In that case,
-           the fresh inode created from fuse for the lookup fop, wont have
+           the fresh inode created from fuse for the lookup fop, won't have
            the inode context set without which svc cannot decide where to
            STACK_WIND to. So by default it decides to send the fop to the
            regular subvolume (i.e first child of the xlator). If lookup fails
@@ -2129,7 +2129,7 @@ out:
 
 /* Creating hardlinks for the files from the snapshot is not allowed as it
    will be equivalent of creating hardlinks across different filesystems.
-   And so is vise versa.
+   And so is vice versa.
 */
 static int32_t
 gf_svc_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
@@ -2196,7 +2196,7 @@ gf_svc_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         ret = svc_inode_ctx_get (this, loc->inode, &inode_type);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to get te inode "
+                gf_log (this->name, GF_LOG_ERROR, "failed to get the inode "
                         "context for %s (gfid: %s)", loc->path,
                         uuid_utoa (loc->inode->gfid));
                 op_ret = -1;

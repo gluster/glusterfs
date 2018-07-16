@@ -4052,7 +4052,7 @@ gf_rdma_process_recv (gf_rdma_peer_t *peer, struct ibv_wc *wc)
                          * have to account for the quota used while sending
                          * first msg (which may or may not be returned to pool
                          * at this point) while deriving peer.quota from
-                         * header->rm_credit. Hence the arithmatic below,
+                         * header->rm_credit. Hence the arithmetic below,
                          * instead of directly setting it to header->rm_credit.
                          */
                         priv->peer.quota = header->rm_credit

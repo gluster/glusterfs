@@ -76,7 +76,7 @@ typedef struct gf_ctr_private {
  * but currently we record only file inode information.
  *
  * is_internal_fop in gf_ctr_local will tell us if this is a internal fop and
- * take special/no action. We dont record change/acces times or increement heat
+ * take special/no action. We don't record change/access times or increement heat
  * counter for internal fops from rebalancer.
  * */
 typedef struct gf_ctr_local {
@@ -146,7 +146,7 @@ free_ctr_local (gf_ctr_local_t *ctr_local)
  * ****************************************************************************/
 
 /*
- * Context Carrier structures are used to carry relavent information about
+ * Context Carrier structures are used to carry relevant information about
  * inodes and links from the fops calls to the ctr_insert_wind.
  * These structure just have pointers to the original data and donot
  * do a deep copy of any data. This info is deep copied to

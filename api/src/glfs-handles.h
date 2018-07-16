@@ -47,7 +47,7 @@
  *
  */
 
-/* Values for valid falgs to be used when using XXXsetattr, to set multiple
+/* Values for valid flags to be used when using XXXsetattr, to set multiple
  attribute values passed via the related stat structure.
  */
 #define GFAPI_SET_ATTR_MODE  0x1
@@ -275,7 +275,7 @@ glfs_h_access (glfs_t *fs, glfs_object_t *object, int mask) __THROW
 
   This API is used to poll for upcall events stored in the
   upcall list. Current users of this API is NFS-Ganesha.
-  Incase of any event received, it will be mapped appropriately
+  In case of any event received, it will be mapped appropriately
   into 'glfs_upcall' along with the handle('glfs_object') to be
   passed to NFS-Ganesha.
 

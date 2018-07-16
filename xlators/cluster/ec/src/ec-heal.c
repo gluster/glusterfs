@@ -2933,7 +2933,7 @@ ec_need_data_heal (ec_t *ec, inode_t *inode, default_args_cbk_t *replies,
         size = alloca0 (ec->nodes * sizeof (*size));
 
         /* When dd is going on and heal info is called there is a very good
-         * chance for on disk sizes to mismatch eventhough nothing is wrong
+         * chance for on disk sizes to mismatch even though nothing is wrong
          * we don't need ondisk size check there. But if the file is either
          * self-locked or the caller wants a thorough check then make sure to
          * perform on disk check also. */

@@ -41,7 +41,7 @@ enum _ec_xattrop_flags {
 };
 
 /* We keep two sets of flags. One to determine what's really providing the
- * currect xattrop and the other to know what the parent fop of the xattrop
+ * current xattrop and the other to know what the parent fop of the xattrop
  * needs to proceed. It might happen that a fop needs some information that
  * is being already requested by a previous fop. The two sets are stored
  * contiguously. */

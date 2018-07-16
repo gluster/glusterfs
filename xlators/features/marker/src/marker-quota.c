@@ -1325,7 +1325,7 @@ mq_reduce_parent_size_task (void *opaque)
         locked = _gf_true;
 
         if (contri.size >= 0) {
-                /* contri paramater is supplied only for rename operation.
+                /* contri parameter is supplied only for rename operation.
                  * remove xattr is alreday performed, we need to skip
                  * removexattr for rename operation
                  */
@@ -1554,7 +1554,7 @@ mq_initiate_quota_task (void *opaque)
                    Suppose hard link for a file f1 present in a directory d1 is
                    created in the directory d2 (as f2). Now, since d2's
                    contribution is not there in f1's inode ctx, d2's
-                   contribution xattr wont be created and will create problems
+                   contribution xattr won't be created and will create problems
                    for quota operations.
 
                    Don't create contribution if parent has been changed after

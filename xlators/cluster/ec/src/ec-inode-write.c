@@ -1167,7 +1167,7 @@ void ec_discard_adjust_offset_size(ec_fop_data_t *fop)
         ec_t *ec = fop->xl->private;
 
         fop->user_size = fop->size;
-        /* If discard length covers atleast a fragment on brick, we will
+        /* If discard length covers at least a fragment on brick, we will
          * perform discard operation(when fop->size is non-zero) else we just
          * write zeros.
          */

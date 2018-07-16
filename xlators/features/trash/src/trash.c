@@ -90,7 +90,7 @@ out:
 }
 
 /**
- * The trash directory path should be append at begining of file path for
+ * The trash directory path should be append at beginning of file path for
  * delete or truncate operations. Normal trashing moves the contents to
  * trash directory and trashing done by internal operations are moved to
  * internal_op directory inside trash.
@@ -114,7 +114,7 @@ copy_trash_path (const char *priv_value, gf_boolean_t internal, char *path,
 /**
  * This function performs the reverse operation of copy_trash_path(). It gives
  * out a pointer, whose starting value will be the path inside trash directory,
- * similar to orginal path.
+ * similar to original path.
  */
 void
 remove_trash_path (const char *path, gf_boolean_t internal, char **rem_path)
@@ -1062,7 +1062,7 @@ trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         GF_VALIDATE_OR_GOTO ("trash", local, out);
 
         if ((op_ret == -1) && (op_errno == ENOENT)) {
-                /* the file path doesnot exists we want to create path
+                /* the file path does not exist we want to create path
                  * for the file
                  */
                 tmp_str = gf_strdup (local->newpath);
@@ -1925,7 +1925,7 @@ trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        /* Retrives the name of file from path */
+        /* Retrieves the name of file from path */
         local->loc.name = gf_strdup (strrchr (local->loc.path, '/'));
         if (!local->loc.name) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
@@ -2290,7 +2290,7 @@ out:
 }
 
 /**
- * Volume set option is handled by the reconfigure funtion.
+ * Volume set option is handled by the reconfigure function.
  * Here we checks whether each option is set or not ,if it
  * sets then corresponding modifciations will be made
  */
@@ -2412,7 +2412,7 @@ notify (xlator_t *this, int event, void *data, ...)
                         goto out;
                 }
 
-                /* Here there is two possiblities ,if trash directory already
+                /* Here there is two possibilities ,if trash directory already
                  * exist ,then we need to perform a rename operation on the
                  * old one. Otherwise, we need to create the trash directory
                  * For both, we need to pass location variable, gfid of parent

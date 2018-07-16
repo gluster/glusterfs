@@ -899,7 +899,7 @@ block:
 out:
         /* *
          * currently release is not called after the close fop from the
-         * application. Hence lease fd ctx is resetted on here.
+         * application. Hence lease fd ctx is reset on here.
          * This is actually not the right way, since flush can be called
          * not only from the close op.
          * TODO :

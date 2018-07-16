@@ -822,7 +822,7 @@ svs_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
            or the inode is SNAP_VIEW_ENTRY_POINT_INODE. Entry point is
            a virtual directory on which setxattr operations are not
            allowed. If getxattr has to be faked as success, then a value
-           for the name of the xattr has to be sent which we dont have.
+           for the name of the xattr has to be sent which we don't have.
         */
         if (inode_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
                 op_ret = -1;
@@ -953,7 +953,7 @@ svs_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
            or the inode is SNAP_VIEW_ENTRY_POINT_INODE. Entry point is
            a virtual directory on which setxattr operations are not
            allowed. If getxattr has to be faked as success, then a value
-           for the name of the xattr has to be sent which we dont have.
+           for the name of the xattr has to be sent which we don't have.
         */
         if (inode_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
                 op_ret = -1;
@@ -1185,7 +1185,7 @@ svs_forget  (xlator_t *this, inode_t *inode)
 
         ret = inode_ctx_del (inode, this, &value);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR, "failed to delte the inode "
+                gf_log (this->name, GF_LOG_ERROR, "failed to delete the inode "
                         "context of %s", uuid_utoa (inode->gfid));
                 goto out;
         }
@@ -1633,11 +1633,11 @@ unwind:
  * the gfid it got from NFS client, for which it was not able to find the right
  * inode. So snapview-server was able to get the fs instance (glfs_t) of the
  * snapshot volume to which the entry belongs to, and the handle for the entry
- * from the corresponding snapshot volume and fill those informations in the
+ * from the corresponding snapshot volume and fill those information in the
  * inode context.
  *
  * But now, since NFS server is able to find the inode from the inode table for
- * the gfid it got from the NFS client, it wont send lookup. Rather it directly
+ * the gfid it got from the NFS client, it won't send lookup. Rather it directly
  * sends the fop it received from the client. Now this causes problems for
  * snapview-server. Because for each fop snapview-server assumes that lookup has
  * been performed on that entry and the entry's inode context contains the

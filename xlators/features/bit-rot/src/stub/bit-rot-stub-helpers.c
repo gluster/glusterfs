@@ -232,7 +232,7 @@ br_stub_check_stub_file (xlator_t *this, char *path)
                 if (fd < 0)
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 BRS_MSG_BAD_OBJECT_DIR_FAIL,
-                                "Failed ot create stub file [%s]", path);
+                                "Failed to create stub file [%s]", path);
         }
 
         if (fd >= 0) {
@@ -244,7 +244,7 @@ br_stub_check_stub_file (xlator_t *this, char *path)
 
 error_return:
         gf_msg (this->name, GF_LOG_ERROR, errno,
-                BRS_MSG_BAD_OBJECT_DIR_FAIL, "Failed ot verify stub file [%s]", path);
+                BRS_MSG_BAD_OBJECT_DIR_FAIL, "Failed to verify stub file [%s]", path);
         return -1;
 }
 
@@ -771,7 +771,7 @@ out:
 
 /**
 * NOTE: If the file has multiple hardlinks (in gluster volume
-* namespace), the path would be one of the hardlinks. Its upto
+* namespace), the path would be one of the hardlinks. Its up to
 * the user to find the remaining hardlinks (using find -samefile)
 * and remove them.
 **/

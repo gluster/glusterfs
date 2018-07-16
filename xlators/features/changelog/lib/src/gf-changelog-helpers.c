@@ -57,7 +57,7 @@ gf_rfc3986_encode_space_newline (unsigned char *s, char *enc, char *estr)
  * that can be done via @fflush(fp), @ftruncate(fd) and @fseek(fp),
  * but this involves mixing POSIX file descriptors and stream FILE *).
  *
- * NOTE: This implmentation still does work with more than one fd's
+ * NOTE: This implementation still does work with more than one fd's
  *       used to perform gf_readline(). For this very reason it's not
  *       made a part of libglusterfs.
  */

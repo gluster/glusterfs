@@ -22,7 +22,7 @@ gen_header_type = sys.argv[1]
 # When adding new keys add it to the END
 keys = (
     # user driven events
-    #peer and volume managment events
+    #peer and volume management events
     "EVENT_PEER_ATTACH",
     "EVENT_PEER_DETACH",
     "EVENT_VOLUME_CREATE",

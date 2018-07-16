@@ -51,7 +51,7 @@ NtAllocateUuids_2000)(
 
 
 //
-// Nice, but instead of including ntddk.h ot winnt.h
+// Nice, but instead of including ntddk.h or winnt.h
 // I should define it here because they MISSED __stdcall in those headers.
 //
 

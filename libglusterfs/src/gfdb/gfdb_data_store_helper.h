@@ -72,7 +72,7 @@ typedef gfdb_query_record_t *
 
 
 
-/* Fuction to add linkinfo to query record */
+/* Function to add linkinfo to query record */
 int
 gfdb_add_link_to_query_record (gfdb_query_record_t      *gfdb_query_record,
                            uuid_t                   pgfid,

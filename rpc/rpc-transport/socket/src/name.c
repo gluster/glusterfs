@@ -79,7 +79,7 @@ loop:
                 port--;
         }
 
-        /* Incase if all the secure ports are exhausted, we are no more
+        /* In case if all the secure ports are exhausted, we are no more
          * binding to secure ports, hence instead of getting a random
          * port, lets define the range to restrict it from getting from
          * ports reserved for bricks i.e from range of 49152 - 65535

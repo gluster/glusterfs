@@ -323,7 +323,7 @@ event_register_epoll (struct event_pool *event_pool, int fd,
 
         GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
-        /* TODO: Even with the below check, there is a possiblity of race,
+        /* TODO: Even with the below check, there is a possibility of race,
          * What if the destroy mode is set after the check is done.
          * Not sure of the best way to prevent this race, ref counting
          * is one possibility.
@@ -700,7 +700,7 @@ event_dispatch_epoll (struct event_pool *event_pool)
                                      gf_common_mt_event_pool);
                         if (!ev_data) {
                                 if (i == 0) {
-                                        /* Need to suceed creating 0'th
+                                        /* Need to succeed creating 0'th
                                          * thread, to joinable and wait */
                                         break;
                                 } else {

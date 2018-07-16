@@ -11,7 +11,7 @@
 /* libglusterfs/src/defaults.c:
    This file contains functions, which are used to fill the 'fops', 'cbk'
    structures in the xlator structures, if they are not written. Here, all the
-   function calls are plainly forwared to the first child of the xlator, and
+   function calls are plainly forwarded to the first child of the xlator, and
    all the *_cbk function does plain STACK_UNWIND of the frame, and returns.
 
    This function also implements *_resume () functions, which does same

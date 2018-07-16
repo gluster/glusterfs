@@ -105,7 +105,7 @@ struct nlc_statistics {
         gf_atomic_t getrealfilename_miss;
         gf_atomic_t pe_inode_cnt;
         gf_atomic_t ne_inode_cnt;
-        gf_atomic_t nlc_invals; /* No. of invalidates recieved from upcall*/
+        gf_atomic_t nlc_invals; /* No. of invalidates received from upcall*/
 };
 
 struct nlc_conf {

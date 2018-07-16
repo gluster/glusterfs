@@ -631,14 +631,14 @@ gf_update_time (gf_sql_connection_t    *sql_conn,
                         freq_cntr_str = (record_counter) ?
                         ", WRITE_FREQ_CNTR = WRITE_FREQ_CNTR + 1" : "";
 
-                        /*Prefectly safe as we will not go array of bound*/
+                        /*Perfectly safe as we will not go array of bound*/
                         sprintf (update_str, "UPDATE "
                                 GF_FILE_TABLE
                                 " SET W_SEC = ?, W_MSEC = ? "
                                 " %s"/*place for read freq counters*/
                                 " WHERE GF_ID = ? ;", freq_cntr_str);
                 } else {
-                        /*Prefectly safe as we will not go array of bound*/
+                        /*Perfectly safe as we will not go array of bound*/
                         sprintf (update_str, "UPDATE "
                                 GF_FILE_TABLE
                                 " SET UW_SEC = ?, UW_MSEC = ? ;");
@@ -651,14 +651,14 @@ gf_update_time (gf_sql_connection_t    *sql_conn,
                         freq_cntr_str = (record_counter) ?
                         ", READ_FREQ_CNTR = READ_FREQ_CNTR + 1" : "";
 
-                        /*Prefectly safe as we will not go array of bound*/
+                        /*Perfectly safe as we will not go array of bound*/
                         sprintf (update_str, "UPDATE "
                                 GF_FILE_TABLE
                                 " SET W_READ_SEC = ?, W_READ_MSEC = ? "
                                 " %s"/*place for read freq counters*/
                                 " WHERE GF_ID = ? ;", freq_cntr_str);
                 } else {
-                        /*Prefectly safe as we will not go array of bound*/
+                        /*Perfectly safe as we will not go array of bound*/
                         sprintf (update_str, "UPDATE "
                                 GF_FILE_TABLE
                                 " SET UW_READ_SEC = ?, UW_READ_MSEC = ? ;");
@@ -794,7 +794,7 @@ gf_sql_insert_wind (gf_sql_connection_t  *sql_conn,
                                  * gf_file_tb is deleted but the link record
                                  * still exist. Lookup heal will attempt a heal
                                  * with create_wind set. The link heal will fail
-                                 * as there is already a record and if we dont
+                                 * as there is already a record and if we don't
                                  * ignore the error we will not heal the
                                  * gf_file_tb.
                                  * 2) Rename file in cold tier: During a rename
@@ -803,7 +803,7 @@ gf_sql_insert_wind (gf_sql_connection_t  *sql_conn,
                                  * linkto file. When the file gets heated and
                                  * moves to hot tier there will be attempt from
                                  * ctr lookup heal to create link and file
-                                 * record and If we dont ignore the error we
+                                 * record and If we don't ignore the error we
                                  * will not heal the gf_file_tb.
                                  * */
                         }

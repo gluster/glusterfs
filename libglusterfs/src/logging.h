@@ -211,37 +211,37 @@ int _gf_log_eh (const char *function, const char *fmt, ...);
 #define FMT_WARN(fmt...) do { if (0) printf (fmt); } while (0)
 
 /* Interface to log messages with message IDs */
-#define gf_msg(dom, levl, errnum, msgid, fmt...) do {           \
+#define gf_msg(dom, level, errnum, msgid, fmt...) do {          \
                 _gf_msg (dom, __FILE__, __FUNCTION__, __LINE__, \
-                        levl, errnum, 0, msgid, ##fmt);         \
+                        level, errnum, 0, msgid, ##fmt);        \
         } while (0)
 
 /* no frills, no thrills, just a vanilla message, used to print the graph */
-#define gf_msg_plain(levl, fmt...) do {         \
-                _gf_msg_plain (levl, ##fmt);    \
+#define gf_msg_plain(level, fmt...) do {         \
+                _gf_msg_plain (level, ##fmt);    \
         } while (0)
 
-#define gf_msg_plain_nomem(levl, msg) do {              \
-                _gf_msg_plain_nomem (levl, msg);        \
+#define gf_msg_plain_nomem(level, msg) do {              \
+                _gf_msg_plain_nomem (level, msg);        \
         } while (0)
 
-#define gf_msg_vplain(levl, fmt, va) do {         \
-                _gf_msg_vplain (levl, fmt, va);    \
+#define gf_msg_vplain(level, fmt, va) do {         \
+                _gf_msg_vplain (level, fmt, va);   \
         } while (0)
 
 #define gf_msg_backtrace_nomem(level, stacksize) do {           \
                 _gf_msg_backtrace_nomem (level, stacksize);     \
         } while (0)
 
-#define gf_msg_callingfn(dom, levl, errnum, msgid, fmt...) do { \
-                _gf_msg (dom, __FILE__, __FUNCTION__, __LINE__, \
-                        levl, errnum, 1, msgid, ##fmt);         \
+#define gf_msg_callingfn(dom, level, errnum, msgid, fmt...) do { \
+                _gf_msg (dom, __FILE__, __FUNCTION__, __LINE__,  \
+                        level, errnum, 1, msgid, ##fmt);         \
         } while (0)
 
 /* No malloc or calloc should be called in this function */
-#define gf_msg_nomem(dom, levl, size) do {                              \
-                _gf_msg_nomem (dom, __FILE__, __FUNCTION__, __LINE__,   \
-                                levl, size);                            \
+#define gf_msg_nomem(dom, level, size) do {                           \
+                _gf_msg_nomem (dom, __FILE__, __FUNCTION__, __LINE__, \
+                                level, size);                         \
         } while (0)
 
 /* Debug or trace messages do not need message IDs as these are more developer
@@ -256,27 +256,27 @@ int _gf_log_eh (const char *function, const char *fmt, ...);
                         GF_LOG_TRACE, errnum, 0, 0, ##fmt);             \
         } while (0)
 
-#define gf_log(dom, levl, fmt...) do {                                  \
+#define gf_log(dom, level, fmt...) do {                                 \
                 FMT_WARN (fmt);                                         \
                 _gf_log (dom, __FILE__, __FUNCTION__, __LINE__,         \
-                         levl, ##fmt);                                  \
+                         level, ##fmt);                                 \
         } while (0)
 
 #define gf_log_eh(fmt...) do {                                          \
                 FMT_WARN (fmt);                                         \
-                _gf_log_eh (__FUNCTION__, ##fmt);                        \
+                _gf_log_eh (__FUNCTION__, ##fmt);                       \
         } while (0)
 
-#define gf_log_callingfn(dom, levl, fmt...) do {                        \
-                FMT_WARN (fmt);                                         \
+#define gf_log_callingfn(dom, level, fmt...) do {                         \
+                FMT_WARN (fmt);                                           \
                 _gf_log_callingfn (dom, __FILE__, __FUNCTION__, __LINE__, \
-                                   levl, ##fmt);                        \
+                                   level, ##fmt);                         \
         } while (0)
 
 
 /* Log once in GF_UNIVERSAL_ANSWER times */
 #define GF_LOG_OCCASIONALLY(var, args...) if (!(var++%GF_UNIVERSAL_ANSWER)) { \
-                gf_log (args);                                          \
+                gf_log (args);                                                \
         }
 
 struct _glusterfs_ctx;
@@ -340,14 +340,14 @@ _gf_smsg (const char *domain, const char *file, const char *function,
           uint64_t msgid, const char *event, ...);
 
 /* Interface to log messages with message IDs */
-#define gf_smsg(dom, levl, errnum, msgid, event...) do {              \
-                _gf_smsg (dom, __FILE__, __FUNCTION__, __LINE__,      \
-                          levl, errnum, 0, msgid, ##event);           \
+#define gf_smsg(dom, level, errnum, msgid, event...) do {              \
+                _gf_smsg (dom, __FILE__, __FUNCTION__, __LINE__,       \
+                          level, errnum, 0, msgid, ##event);           \
         } while (0)
 
-#define gf_slog(dom, levl, event...) do {                             \
-                _gf_slog (dom, __FILE__, __FUNCTION__, __LINE__,      \
-                          levl, ##event);                             \
+#define gf_slog(dom, level, event...) do {                             \
+                _gf_slog (dom, __FILE__, __FUNCTION__, __LINE__,       \
+                          level, ##event);                             \
         } while (0)
 
 #endif /* __LOGGING_H__ */
