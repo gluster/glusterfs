@@ -263,7 +263,7 @@ struct argp
 };
 
 /* Possible KEY arguments to a help filter function.  */
-#define ARGP_KEY_HELP_PRE_DOC	0x2000001 /* Help text preceeding options. */
+#define ARGP_KEY_HELP_PRE_DOC	0x2000001 /* Help text preceding options. */
 #define ARGP_KEY_HELP_POST_DOC	0x2000002 /* Help text following options. */
 #define ARGP_KEY_HELP_HEADER	0x2000003 /* Option header string. */
 #define ARGP_KEY_HELP_EXTRA	0x2000004 /* After all other documentation;
@@ -477,7 +477,7 @@ extern void __argp_help (__const struct argp *__restrict __argp,
    parsing routine (thus taking an argp_state structure as the first
    argument).  They may or may not print an error message and exit, depending
    on the flags in STATE -- in any case, the caller should be prepared for
-   them *not* to exit, and should return an appropiate error after calling
+   them *not* to exit, and should return an appropriate error after calling
    them.  [argp_usage & argp_error should probably be called argp_state_...,
    but they're used often enough that they should be short]  */
 

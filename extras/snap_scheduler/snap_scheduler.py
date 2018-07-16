@@ -730,7 +730,7 @@ def perform_operation(args):
         if ret == 0:
             subprocess.Popen(["touch", "-h", GCRON_TASKS])
             gf_event (EVENT_SNAPSHOT_SCHEDULER_DISABLED,
-                      status="Successfuly Disabled")
+                      status="Successfully Disabled")
         else:
             gf_event (EVENT_SNAPSHOT_SCHEDULER_DISABLE_FAILED,
                       error=print_error(ret))
@@ -765,7 +765,7 @@ def perform_operation(args):
         if ret == 0:
             subprocess.Popen(["touch", "-h", GCRON_TASKS])
             gf_event (EVENT_SNAPSHOT_SCHEDULER_ENABLED,
-                      status="Successfuly Enabled")
+                      status="Successfully Enabled")
         else:
             gf_event (EVENT_SNAPSHOT_SCHEDULER_ENABLE_FAILED,
                       error=print_error(ret))
@@ -777,7 +777,7 @@ def perform_operation(args):
         if ret == 0:
             subprocess.Popen(["touch", "-h", GCRON_TASKS])
             gf_event (EVENT_SNAPSHOT_SCHEDULER_DISABLED,
-                      status="Successfuly Disabled")
+                      status="Successfully Disabled")
         else:
             gf_event (EVENT_SNAPSHOT_SCHEDULER_DISABLE_FAILED,
                       error=print_error(ret))
@@ -797,7 +797,7 @@ def perform_operation(args):
         if ret == 0:
             subprocess.Popen(["touch", "-h", GCRON_TASKS])
             gf_event (EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_ADDED,
-                      status="Successfuly added job "+args.jobname)
+                      status="Successfully added job "+args.jobname)
         else:
             gf_event (EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_ADD_FAILED,
                       status="Failed to add job "+args.jobname,
@@ -813,7 +813,7 @@ def perform_operation(args):
         if ret == 0:
             subprocess.Popen(["touch", "-h", GCRON_TASKS])
             gf_event (EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_DELETED,
-                      status="Successfuly deleted job "+args.jobname)
+                      status="Successfully deleted job "+args.jobname)
         else:
             gf_event (EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_DELETE_FAILED,
                       status="Failed to delete job "+args.jobname,
@@ -829,7 +829,7 @@ def perform_operation(args):
         if ret == 0:
             subprocess.Popen(["touch", "-h", GCRON_TASKS])
             gf_event (EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_EDITED,
-                      status="Successfuly edited job "+args.jobname)
+                      status="Successfully edited job "+args.jobname)
         else:
             gf_event (EVENT_SNAPSHOT_SCHEDULER_SCHEDULE_EDIT_FAILED,
                       status="Failed to edit job "+args.jobname,

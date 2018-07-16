@@ -1252,7 +1252,7 @@ struct volume_options options[] = {
           "of fsyncs.\n"
           "\t- syncfs-single-fsync: Perform one syncfs() on behalf of a batch"
           " of fsyncs and one fsync() per batch.\n"
-          "\t- syncfs-reverse-fsync: Preform one syncfs() on behalf of a batch"
+          "\t- syncfs-reverse-fsync: Perform one syncfs() on behalf of a batch"
           " of fsyncs and fsync() each file in the batch in reverse order.\n"
           " in reverse order.\n"
           "\t- reverse-fsync: Perform fsync() of each file in the batch in"
@@ -1305,7 +1305,7 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_STR,
           .default_value = "none",
           .description = "Option to control XATTR user namespace on the raw filesystem: "
-          "\t- None: Will use the user namespace, so files will be exchangable with Linux.\n"
+          "\t- None: Will use the user namespace, so files will be exchangeable with Linux.\n"
           " The raw filesystem will not be compatible with OS X Finder.\n"
           "\t- Strip: Will strip the user namespace before setting. The raw filesystem will work in OS X.\n",
           .op_version = {GD_OP_VERSION_3_6_0},

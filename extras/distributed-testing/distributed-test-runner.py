@@ -37,7 +37,7 @@ def socket_instance(address_family):
     elif address_family.upper() == 'ipv6'.upper():
         return socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
     else:
-        Log.error("Invalid IP addess family")
+        Log.error("Invalid IP address family")
         sys.exit(1)
 
 

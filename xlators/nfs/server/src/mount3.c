@@ -373,7 +373,7 @@ out:
         return ret;
 }
 
-/* Overwrite the contents of the rwtab with te in-memory client list.
+/* Overwrite the contents of the rwtab with the in-memory client list.
  * Fail gracefully if the stora_handle is not locked.
  */
 static void

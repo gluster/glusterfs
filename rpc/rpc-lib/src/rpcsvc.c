@@ -2859,7 +2859,7 @@ rpcsvc_transport_privport_check (rpcsvc_t *svc, char *volname, uint16_t port)
                 return ret;
 
         gf_log (GF_RPCSVC, GF_LOG_TRACE, "Client port: %d", (int)port);
-        /* If the port is already a privileged one, dont bother with checking
+        /* If the port is already a privileged one, don't bother with checking
          * options.
          */
         if (port <= 1024) {
@@ -2973,7 +2973,7 @@ rpcsvc_match_subnet_v4 (const char *addrtok, const char *ipaddr)
                 *slash = '\0';
                 /*
                  * Find the IPv4 network mask in network byte order.
-                 * IMP: String slash+1 is already validated, it cant have value
+                 * IMP: String slash+1 is already validated, it can't have value
                  * more than IPv4_ADDR_SIZE (32).
                  */
                 prefixlen = (uint32_t) atoi (slash + 1);

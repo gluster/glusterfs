@@ -446,7 +446,7 @@ gfdb_query_record_deserialize (char *in_buffer,
                 list_add_tail (&link_info->list,
                                &(ret_qrecord->link_list));
 
-                /* Reseting link_info */
+                /* Resetting link_info */
                 link_info = NULL;
         }
 

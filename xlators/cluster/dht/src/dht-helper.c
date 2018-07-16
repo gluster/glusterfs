@@ -1322,7 +1322,7 @@ dht_migration_complete_check_task (void *data)
         inode = (!local->fd) ? local->loc.inode : local->fd->inode;
 
         /* getxattr on cached_subvol for 'linkto' value. Do path based getxattr
-         * as root:root. If a fd is already open, access check wont be done*/
+         * as root:root. If a fd is already open, access check won't be done*/
 
         if (!local->loc.inode) {
                 ret = syncop_fgetxattr (src_node, local->fd, &dict,
@@ -1600,7 +1600,7 @@ dht_rebalance_inprogress_task (void *data)
         inode = (!local->fd) ? local->loc.inode : local->fd->inode;
 
         /* getxattr on cached_subvol for 'linkto' value. Do path based getxattr
-         * as root:root. If a fd is already open, access check wont be done*/
+         * as root:root. If a fd is already open, access check won't be done*/
         if (local->loc.inode) {
                 SYNCTASK_SETID (0, 0);
                 ret = syncop_getxattr (src_node, &local->loc, &dict,

@@ -524,7 +524,7 @@ gf_changelog_publish (xlator_t *this,
         (void) snprintf (to_path, PATH_MAX, "%s%s",
                          jnl->jnl_current_dir, basename (from_path));
 
-        /* handle zerob file that wont exist in current */
+        /* handle zerob file that won't exist in current */
         ret = sys_stat (to_path, &stbuf);
         if (ret) {
                 if (errno == ENOENT)

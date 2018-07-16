@@ -1796,7 +1796,7 @@ inode_table_destroy (inode_table_t *inode_table) {
          *    also not free its inode context and this could leak a lot of
          *    memory, force free the inodes by changing the ref to 0.
          *    The problem with this is that any reference to inode after this
-         *    calling this funtion will lead to a crash.
+         *    calling this function will lead to a crash.
          * 3. Knowing there could be leakes, just free the inode contexts of
          *    all the inodes. and let the inodes be alive. This way the major
          *    memory consumed by the inode contexts are freed, but there can

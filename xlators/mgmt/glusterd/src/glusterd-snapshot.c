@@ -75,7 +75,7 @@ struct snap_create_args_ {
         int32_t               brickorder;
 };
 
-/* This structure is used to store unsupported options and thier values
+/* This structure is used to store unsupported options and their values
  * for snapshotted volume.
  */
 struct gd_snap_unsupported_opt_t {
@@ -187,7 +187,7 @@ glusterd_find_missed_snap (dict_t *rsp_dict, glusterd_volinfo_t *vol,
                 rcu_read_lock ();
                 cds_list_for_each_entry_rcu (peerinfo, peers, uuid_list) {
                         if (gf_uuid_compare (peerinfo->uuid, brickinfo->uuid)) {
-                                /* If the brick doesnt belong to this peer */
+                                /* If the brick doesn't belong to this peer */
                                 continue;
                         }
 
@@ -475,7 +475,7 @@ out:
 
 
 /* Third argument of scandir(used in glusterd_copy_geo_rep_session_files)
- * is filter function. As we dont want "." and ".." files present in the
+ * is filter function. As we don't want "." and ".." files present in the
  * directory, we are excliding these 2 files.
  * "file_select" function here does the job of filtering.
  */
@@ -5679,7 +5679,7 @@ glusterd_snapshot_activate_deactivate_prevalidate (dict_t *dict,
                 goto out;
         }
 
-        /*TODO: When multiple snapvolume are involved a cummulative
+        /*TODO: When multiple snapvolume are involved a cumulative
          * logic is required to tell whether is snapshot is
          * started/partially started/stopped*/
         if (is_op_activate) {
@@ -7681,7 +7681,7 @@ glusterd_get_single_brick_status (char **op_errstr, dict_t *rsp_dict,
         if (ret < 0) {
                 goto out;
         }
-        /* While getting snap status we should show relevent information
+        /* While getting snap status we should show relevant information
          * for deactivated snaps.
          */
         if (snap_volinfo->status == GLUSTERD_STATUS_STOPPED) {
@@ -8415,7 +8415,7 @@ glusterd_snapshot_create_postvalidate (dict_t *dict, int32_t op_ret,
          * send EVENT_SNAPSHOT_ACTIVATED event.                         *
          *                                                              *
          * Also check, if hard limit and soft limit is reached in case  *
-         * of successfuly creating the snapshot, and generate the event *
+         * of successfully creating the snapshot, and generate the event *
          */
         if (is_origin_glusterd (dict) == _gf_true) {
                 snap_activate = dict_get_str_boolean (priv->opts,
@@ -9671,7 +9671,7 @@ glusterd_handle_snapshot_fn (rpcsvc_request_t *req)
                 break;
         default:
                 gf_msg (this->name, GF_LOG_ERROR, EINVAL,
-                        GD_MSG_COMMAND_NOT_FOUND, "Unkown snapshot request "
+                        GD_MSG_COMMAND_NOT_FOUND, "Unknown snapshot request "
                         "type (%d)", type);
                 ret = -1; /* Failure */
         }
@@ -10112,7 +10112,7 @@ gd_restore_snap_volume (dict_t *dict, dict_t *rsp_dict,
                 goto out;
         }
 
-        /* Snap volume must be stoped before performing the
+        /* Snap volume must be stopped before performing the
          * restore operation.
          */
         ret = glusterd_stop_volume (snap_vol);

@@ -72,7 +72,7 @@ typedef int (*fini_db_t) (gfdb_conn_node_t *_conn_node);
  *                      link of inode from GF_FLINK_TB and
  *                      GFDB_FOP_UNDEL_ALL to delete all the records from
  *                      GF_FLINK_TB and GF_FILE_TB.
- *                      TODO: Should seperate this function into the
+ *                      TODO: Should separate this function into the
  *                      delete_record function
  *                      Refer CTR Xlator features/changetimerecorder for usage
  * Arguments:
@@ -289,7 +289,7 @@ typedef int (*get_db_version_t)(gfdb_conn_node_t *_conn_node,
  *                       extracted. This function will allocate memory
  *                       to pragma_value. The caller should free the memory.
  * Return:
- *      On success return the lenght of the param value that is
+ *      On success return the length of the param value that is
  *      extracted.
  *      On failure return -1
  * */

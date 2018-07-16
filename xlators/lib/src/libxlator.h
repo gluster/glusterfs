@@ -84,7 +84,7 @@ struct volume_mark {
  * Cf. evaluate_marker_results() and marker_idx_errno_map[]
  * in libxlator.c
 
- * We provide two default gauges, one inteded for xtime
+ * We provide two default gauges, one intended for xtime
  * aggregation, other for volume mark aggregation. The
  * policies they represent agree with the hard-coded
  * one prior to gauges. Cf. marker_xtime_default_gauge

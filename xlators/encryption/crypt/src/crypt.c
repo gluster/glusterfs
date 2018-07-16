@@ -1361,7 +1361,7 @@ int32_t end_writeback_ftruncate(call_frame_t *frame,
 	if (should_resume_submit_hole(local))
 		submit_hole(frame, this);
 	/*
-	 * case of hole, when we should't resume
+	 * case of hole, when we shouldn't resume
 	 */
  put_one_call:
 	put_one_call_ftruncate(frame, this);
@@ -3528,7 +3528,7 @@ static int32_t __crypt_writev_done(call_frame_t *frame,
 	if (local->xattr)
 		dict_unref(local->xattr);
 	/*
-	 * Calculate amout of butes to be returned
+	 * Calculate amount of butes to be returned
 	 * to user. We need to subtract paddings that
 	 * have been written as a part of atom.
 	 */

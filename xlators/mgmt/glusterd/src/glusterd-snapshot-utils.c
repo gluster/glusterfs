@@ -63,7 +63,7 @@ glusterd_snapobject_delete (glusterd_snap_t *snap)
 
 /*
  * This function is to be called only from glusterd_peer_detach_cleanup()
- * as this continues to delete snaps inspite of faiure while deleting
+ * as this continues to delete snaps in spite of faiure while deleting
  * one, as we don't want to fail peer_detach in such a case.
  */
 int
@@ -447,7 +447,7 @@ out:
 
 /* Exports a bricks snapshot details only if required
  *
- * The details will be exported only if the cluster op-version is greather than
+ * The details will be exported only if the cluster op-version is greater than
  * 4, ie. snapshot is supported in the cluster
  */
 int
@@ -1473,7 +1473,7 @@ out:
         return missed_delete;
 }
 
-/* Genrate and store snap volfiles for imported snap object */
+/* Generate and store snap volfiles for imported snap object */
 int32_t
 glusterd_gen_snap_volfiles (glusterd_volinfo_t *snap_vol, char *peer_snap_name)
 {
@@ -3087,7 +3087,7 @@ glusterd_snap_common_quorum_calculate (glusterd_volinfo_t *volinfo,
            default.
            AFR does this:
            if quorum type is "auto":
-           - for odd numner of bricks (n), n/2 + 1
+           - for odd number of bricks (n), n/2 + 1
            bricks should be present
            - for even number of bricks n, n/2 bricks
            should be present along with the 1st

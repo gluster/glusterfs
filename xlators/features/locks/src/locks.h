@@ -87,7 +87,7 @@ struct __pl_inode_lock {
 
         struct timeval     blkd_time;   /*time at which lock was queued into blkd list*/
         struct timeval     granted_time; /*time at which lock was queued into active list*/
-        /*last time at wich lock contention was detected and notified*/
+        /*last time at which lock contention was detected and notified*/
         struct timespec    contention_time;
 
         /* These two together serve to uniquely identify each process
@@ -137,7 +137,7 @@ struct __entry_lock {
 
         struct timeval     blkd_time;   /*time at which lock was queued into blkd list*/
         struct timeval     granted_time; /*time at which lock was queued into active list*/
-        /*last time at wich lock contention was detected and notified*/
+        /*last time at which lock contention was detected and notified*/
         struct timespec    contention_time;
 
         void             *client;

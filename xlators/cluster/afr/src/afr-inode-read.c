@@ -735,7 +735,7 @@ afr_getxattr_node_uuid_cbk (call_frame_t *frame, void *cookie,
 
                 /**
                  * _current_ becomes _next_
-                 * If done with all childs and yet no success; give up !
+                 * If done with all children and yet no success; give up !
                  */
                 curr_call_child = (int) ((long)cookie);
                 if (++curr_call_child == priv->child_count)

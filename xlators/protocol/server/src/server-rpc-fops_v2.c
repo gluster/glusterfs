@@ -131,7 +131,7 @@ server4_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                  * It also might lead to wrong decisions being
                                  * taken if the future lookups on this inode are
                                  * successful since they are able to find the
-                                 * inode in the inode table (atleast gfid based
+                                 * inode in the inode table (at least gfid based
                                  * lookups will be successful, if the lookup
                                  * is a soft lookup)
                                  */
@@ -5645,7 +5645,7 @@ server4_0_icreate (rpcsvc_request_t *req)
         state->mode  = args.mode;
         gf_asprintf (&state->resolve.bname, INODE_PATH_FMT, uuid_utoa (gfid));
 
-        /* parent is an auxillary inode number */
+        /* parent is an auxiliary inode number */
         memset (state->resolve.pargfid, 0, sizeof (uuid_t));
         state->resolve.pargfid[15] = GF_AUXILLARY_PARGFID;
 

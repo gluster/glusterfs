@@ -2530,7 +2530,7 @@ _do_slog_format (const char *event, va_list inp, char **msg) {
                         break;
                 }
 
-                /* Get number of times % is used in input for formating, */
+                /* Get number of times % is used in input for formatting, */
                 /* this count will be used to skip those many args from the */
                 /* main list and will be used to format inner format */
                 num_format_chars = 0;

@@ -988,7 +988,7 @@ out:
         return 0;
 }
 
-/* creat */
+/* create */
 
 int32_t
 changelog_create_cbk (call_frame_t *frame,

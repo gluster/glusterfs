@@ -479,7 +479,7 @@ ec_code_space_create(ec_code_t *code, size_t size)
 done_close:
         /* If everything has succeeded, we already have the memory areas
          * mapped. We don't need the file descriptor anymore because the
-         * backend storage will be there until the mmaped regions are
+         * backend storage will be there until the mmap()'d regions are
          * unmapped. */
         sys_close(fd);
 done:

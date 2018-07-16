@@ -65,7 +65,7 @@ if __name__ == '__main__':
                       " them. Valid values of [en] are `text`, `hex`,"
                       " and `base64`. Values encoded as text strings are"
                       " enclosed in double quotes (\"), while strings"
-                      " encoded as hexidecimal and base64 are prefixed with"
+                      " encoded as hexadecimal and base64 are prefixed with"
                       " 0x and 0s, respectively.")
     parser.add_option("-m", action="store", dest="pattern", type="string",
                       help="Only include attributes with names matching the"

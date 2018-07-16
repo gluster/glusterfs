@@ -96,7 +96,7 @@ ec_adjust_size_up(ec_t *ec, uint64_t *value, gf_boolean_t scale)
                         tmp += ec->fragment_size;
                 } else {
                         tmp += ec->stripe_size;
-                        /* If no scaling is requested there's a posibility of
+                        /* If no scaling is requested there's a possibility of
                          * overflow. */
                         if (tmp < ec->stripe_size) {
                                 tmp = UINT64_MAX;

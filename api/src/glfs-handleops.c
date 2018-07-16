@@ -1946,7 +1946,7 @@ glfs_h_poll_cache_invalidation (struct glfs *fs,
         up_inode_arg->flags = ca_data->flags;
         up_inode_arg->expire_time_attr = ca_data->expire_time_attr;
 
-        /* XXX: Update stat as well incase of UP_*_TIMES.
+        /* XXX: Update stat as well in case of UP_*_TIMES.
          * This will be addressed as part of INODE_UPDATE */
         if (ca_data->flags & GFAPI_INODE_UPDATE_FLAGS) {
                 glfs_iatt_to_stat (fs, &ca_data->stat, &up_inode_arg->buf);
@@ -2021,7 +2021,7 @@ void glfs_release_upcall (void *ptr)
 
 /*
  * This API is used to poll for upcall events stored in the upcall list.
- * Current users of this API is NFS-Ganesha. Incase of any event received, it
+ * Current users of this API is NFS-Ganesha. In case of any event received, it
  * will be mapped appropriately into 'glfs_upcall' along with the handle object
  * to be passed to NFS-Ganesha.
  *
@@ -2163,13 +2163,13 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_h_poll_upcall, 3.7.16);
 
 static gf_boolean_t log_upcall370 = _gf_true; /* log once */
 
-/* The old glfs_h_poll_upcall interface requires intimite knowledge of the
+/* The old glfs_h_poll_upcall interface requires intimate knowledge of the
  * structures that are returned to the calling application. This is not
  * recommended, as the returned structures need to returned correctly (handles
  * closed, memory free'd with the unavailable GF_FREE(), and possibly more.)
  *
  * To the best of our knowledge, only NFS-Ganesha uses the upcall events
- * through gfapi. We keep this backwards compatability function around so that
+ * through gfapi. We keep this backwards compatibility function around so that
  * applications using the existing implementation do not break.
  *
  * WARNING: this function will be removed in the future.

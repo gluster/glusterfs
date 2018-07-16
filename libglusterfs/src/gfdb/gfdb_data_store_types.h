@@ -255,7 +255,7 @@ typedef struct gfdb_db_record {
         /*Time of change or access*/
         gfdb_time_t                     gfdb_wind_change_time;
         gfdb_time_t                     gfdb_unwind_change_time;
-        /* For crash consistancy while inserting/updating hard links */
+        /* For crash consistency while inserting/updating hard links */
         gf_boolean_t                    islinkupdate;
         /* For link consistency we do a double update i.e mark the link
          * during the wind and during the unwind we update/delete the link.

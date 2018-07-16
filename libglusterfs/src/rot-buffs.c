@@ -32,7 +32,7 @@
 #define RLIST_IOV_MELDED_ALLOC_SIZE  (RBUF_IOVEC_SIZE + ROT_BUFF_ALLOC_SIZE)
 
 /**
- * iovec list is not shrinked (deallocated) if usage/total count
+ * iovec list is not shrunk (deallocated) if usage/total count
  * falls in this range. this is the fast path and should satisfy
  * most of the workloads. for the rest shrinking iovec list is
  * generous.

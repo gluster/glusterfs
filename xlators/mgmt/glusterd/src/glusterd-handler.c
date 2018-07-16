@@ -3871,7 +3871,7 @@ set_probe_error_str (int op_ret, int op_errno, char *op_errstr, char *errstr,
                                 break;
 
                         case GF_PROBE_VOLUME_CONFLICT:
-                                snprintf (errstr, len, "Atleast one volume on "
+                                snprintf (errstr, len, "At least one volume on "
                                           "%s conflicts with existing volumes "
                                           "in the cluster", hostname);
                                 break;
@@ -4086,7 +4086,7 @@ glusterd_list_friends (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
                 goto out;
         }
 
-        /* Reset ret to 0, needed to prevent failure incase no peers exist */
+        /* Reset ret to 0, needed to prevent failure in case no peers exist */
         ret = 0;
         rcu_read_lock ();
         if (!cds_list_empty (&priv->peers)) {
@@ -6552,7 +6552,7 @@ struct rpcsvc_program gd_svc_cli_prog = {
 /**
  * This set of RPC progs are deemed to be trusted. Most of the actors support
  * read only queries, the only exception being MOUNT/UMOUNT which is required
- * by geo-replication to supprt unprivileged master -> slave sessions.
+ * by geo-replication to support unprivileged master -> slave sessions.
  */
 rpcsvc_actor_t gd_svc_cli_trusted_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_LIST_FRIENDS]       = { "LIST_FRIENDS",      GLUSTER_CLI_LIST_FRIENDS,     glusterd_handle_cli_list_friends,      NULL, 0, DRC_NA},

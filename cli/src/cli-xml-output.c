@@ -42,7 +42,7 @@ enum gf_task_types {
  *      }
  *      #endif
  *
- *  Following the above formate ensures that all xml related code is compliled
+ *  Following the above format ensures that all xml related code is compiled
  *  only when libxml2 is present, and also keeps the rest of the codebase free
  *  of #if (HAVE_LIB_XML)
  */
@@ -5082,7 +5082,7 @@ cli_xml_snapshot_info (xmlTextWriterPtr writer, xmlDocPtr doc, dict_t *dict)
 
         snap_driven = dict_get_str_boolean (dict, "snap-driven", _gf_false);
 
-        /* If the approach is volume based then we should display orgin volume
+        /* If the approach is volume based then we should display origin volume
          * information first followed by per snap info*/
         if (!snap_driven) {
                 ret = cli_xml_snapshot_info_orig_vol (writer, doc, dict, "");

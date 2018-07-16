@@ -38,7 +38,7 @@ init (dict_t *this, char *key, data_t *value, void *data)
                         PS_MSG_AUTHENTICATE_ERROR, "AUTHENTICATION MODULE "
                         "\"IP\" HAS BEEN REPLACED BY \"ADDR\"");
                 dict_set (this, key, data_from_dynptr (NULL, 0));
-                /* TODO: 1.3.x backword compatibility */
+                /* TODO: 1.3.x backward compatibility */
                 // *error = -1;
                 // return;
                 key = "addr";

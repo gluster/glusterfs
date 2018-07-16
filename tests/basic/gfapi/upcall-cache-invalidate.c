@@ -123,7 +123,7 @@ main (int argc, char *argv[])
                                 LOG_ERR ("glfs_write", ret);
                         } else {
                                 fprintf (stderr,
-                                         "glfs_write suceeded\n");
+                                         "glfs_write succeeded\n");
                         }
                         free(writebuf);
                 } else {
@@ -175,7 +175,7 @@ main (int argc, char *argv[])
                                          reason, object, flags, expire);
                         } else {
                                 fprintf (stderr,
-                                         "Didnt receive upcall notify event");
+                                         "Didn't receive upcall notify event");
                                 ret = -1;
                                 goto err;
                         }

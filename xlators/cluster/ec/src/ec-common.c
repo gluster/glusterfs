@@ -1631,7 +1631,7 @@ int32_t ec_get_real_size_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 /* This function is used to get the trusted.ec.size xattr from a file when
- * no lock is needed on the inode. This is only required to maintan iatt
+ * no lock is needed on the inode. This is only required to maintain iatt
  * structs on fops that manipulate directory entries but do not operate
  * directly on the inode, like link, rename, ...
  *

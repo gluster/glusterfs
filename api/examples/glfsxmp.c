@@ -1282,7 +1282,7 @@ test_handleops (int argc, char *argv[])
 
         /* extract handle and create from handle test */
         printf ("glfs_h_extract_handle and glfs_h_create_from_handle tests: In Progress\n");
-        /* TODO: Change the lookup to creat below for a GIFD recovery falure,
+        /* TODO: Change the lookup to create below for a GIFD recovery failure,
          * that needs to be fixed */
         leaf = glfs_h_lookupat (fs, parent, leaf_name1, &sb, 0);
         if (leaf == NULL) {
@@ -1417,7 +1417,7 @@ test_handleops (int argc, char *argv[])
         }
         peek_stat (&sb);
 
-        /* TODO: creat op on a FIFO node hangs, need to check and fix
+        /* TODO: create op on a FIFO node hangs, need to check and fix
         tmp = glfs_h_creat (fs, parent, newnod_name, O_CREAT, 0644, &sb);
         if (tmp != NULL || errno != EINVAL) {
                 fprintf (stderr, "glfs_h_creat: node create, tmp = (%p), errno = %s\n",

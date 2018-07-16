@@ -309,7 +309,7 @@ afr_pending_xattrs_init (afr_private_t *priv, xlator_t *this)
         child_count = priv->child_count;
         if (priv->thin_arbiter_count) {
                 /* priv->pending_key[THIN_ARBITER_BRICK_INDEX] is used as the
-                 * name of the thin arbiter file for persistance across add/
+                 * name of the thin arbiter file for persistence across add/
                  * removal of DHT subvols.*/
                 child_count++;
         }
@@ -621,7 +621,7 @@ fini (xlator_t *this)
         UNLOCK (&priv->lock);
         this->private = NULL;
         afr_priv_destroy (priv);
-        //if (this->itable);//I dont see any destroy func
+        //if (this->itable);//I don't see any destroy func
 
         return 0;
 }

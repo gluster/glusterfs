@@ -176,7 +176,7 @@ static const struct uparam_name uparam_names[] =
   { 0, 0, 0 }
 };
 
-/* Read user options from the environment, and fill in UPARAMS appropiately.  */
+/* Read user options from the environment, and fill in UPARAMS appropriately.*/
 static void
 fill_in_uparams (const struct argp_state *state)
 {
@@ -286,11 +286,11 @@ fill_in_uparams (const struct argp_state *state)
      -xARG, -yARG, --long1=ARG, --long2=ARG        Documentation...
 
    Where ARG will be omitted if there's no argument, for this option, or
-   will be surrounded by "[" and "]" appropiately if the argument is
-   optional.  The documentation string is word-wrapped appropiately, and if
+   will be surrounded by "[" and "]" appropriately if the argument is
+   optional.  The documentation string is word-wrapped appropriately, and if
    the list of options is long enough, it will be started on a separate line.
    If there are no short options for a given option, the first long option is
-   indented slighly in a way that's supposed to make most long options appear
+   indented slightly in a way that's supposed to make most long options appear
    to be in a separate column.
 
    For example, the following output (from ps):
@@ -745,7 +745,7 @@ hol_entry_cmp (const struct hol_entry *entry1,
   if (entry1->cluster != entry2->cluster)
     {
       /* The entries are not within the same cluster, so we can't compare them
-	 directly, we have to use the appropiate clustering level too.  */
+	 directly, we have to use the appropriate clustering level too.  */
       if (! entry1->cluster)
 	/* ENTRY1 is at the `base level', not in a cluster, so we have to
 	   compare it's group number with that of the base cluster in which
@@ -1006,7 +1006,7 @@ filter_doc (const char *doc, int key, const struct argp *argp,
     return doc;
 }
 
-/* Prints STR as a header line, with the margin lines set appropiately, and
+/* Prints STR as a header line, with the margin lines set appropriately, and
    notes the fact that groups should be separated with a blank line.  ARGP is
    the argp that should dictate any user doc filtering to take place.  Note
    that the previous wrap margin isn't restored, but the left margin is reset
@@ -1462,7 +1462,7 @@ argp_args_usage (const struct argp *argp, const struct argp_state *state,
 }
 
 /* Print the documentation for ARGP to STREAM; if POST is false, then
-   everything preceeding a `\v' character in the documentation strings (or
+   everything preceding a `\v' character in the documentation strings (or
    the whole string, for those with none) is printed, otherwise, everything
    following the `\v' character (nothing for strings without).  Each separate
    bit of documentation is separated a blank line, and if PRE_BLANK is true,
@@ -1555,7 +1555,7 @@ argp_doc (const struct argp *argp, const struct argp_state *state,
 }
 
 /* Output a usage message for ARGP to STREAM.  If called from
-   argp_state_help, STATE is the relevent parsing state.  FLAGS are from the
+   argp_state_help, STATE is the relevant parsing state.  FLAGS are from the
    set ARGP_HELP_*.  NAME is what to use wherever a `program name' is
    needed. */
 

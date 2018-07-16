@@ -77,7 +77,7 @@ typedef enum br_child_state {
 
 struct br_child {
         pthread_mutex_t lock;         /* protects child state */
-        char witnessed;               /* witnessed at least one succesfull
+        char witnessed;               /* witnessed at least one successful
                                          connection */
         br_child_state_t c_state;     /* current state of this child */
 
@@ -123,7 +123,7 @@ struct br_scrubber {
 
         /**
          * frequency of scanning for this subvolume. this should
-         * normally be per-child, but since all childs follow the
+         * normally be per-child, but since all children follow the
          * same frequency for a volume, this option ends up here
          * instead of br_child_t.
          */
@@ -225,7 +225,7 @@ struct br_object {
 
         uuid_t gfid;
 
-        unsigned long signedversion;    /* version aginst which this object will
+        unsigned long signedversion;    /* version against which this object will
                                            be signed */
         br_child_t *child;              /* object's subvolume */
 

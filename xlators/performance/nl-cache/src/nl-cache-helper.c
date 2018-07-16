@@ -23,14 +23,14 @@
  *        are sent before creating the file. Hence the negative entry cache.
  *        It can exist even when the positive entry cache is invalid. It also
  *        has the entries that were deleted from this directory.
- *        Freed on recieving upcall(with dentry change flag) or on expiring
+ *        Freed on receiving upcall(with dentry change flag) or on expiring
  *        timeout of the cache.
  *
  *      - Positive entries: Populated as a part of readdirp, and as a part of
  *        mkdir followed by creates inside that directory. Lookups and other
  *        fops do not populate the positive entry (as it can grow long and is
  *        of no value add)
- *        Freed on recieving upcall(with dentry change flag) or on expiring
+ *        Freed on receiving upcall(with dentry change flag) or on expiring
  *        timeout of the cache.
  *
  *   Data structures to store cache?
@@ -172,7 +172,7 @@ nlc_inode_ctx_set (xlator_t *this, inode_t *inode, nlc_ctx_t *nlc_ctx,
         int   ret = -1;
 
         /* The caller may choose to set one of the ctxs, hence check
-         * if the ctx1/2 is non zero and then send the adress. If we
+         * if the ctx1/2 is non zero and then send the address. If we
          * blindly send the address of both the ctxs, it may reset the
          * ctx the caller had sent NULL(intended as leave untouched) for.*/
         LOCK(&inode->lock);
@@ -903,7 +903,7 @@ nlc_dir_add_ne (xlator_t *this, inode_t *inode, const char *name)
 
         LOCK (&nlc_ctx->lock);
         {
-                /* There is one possiblility where we need to search before
+                /* There is one possibility where we need to search before
                  * adding NE: when there are two parallel lookups on a non
                  * existent file */
                 if (!__nlc_search_ne (nlc_ctx, name)) {

@@ -1,6 +1,6 @@
 /* Pre-requisites:-
  *
- * 1. Make sure that peformance translators are switched off while running this test.
+ * 1. Make sure that performance translators are switched off while running this test.
  * 2. Perform the following volume set operation:
  *    # gluster volume set <VOLNAME> locks.mandatory-locking optimal
  * 3. For installation under non-standard paths, export LD_LIBRARY_PATH to

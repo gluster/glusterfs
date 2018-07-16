@@ -1364,7 +1364,7 @@ marker_rename_unwind (call_frame_t *frame, void *cookie, xlator_t *this,
         if (local->stub != NULL) {
                 /* Remove contribution node from in-memory even if
                  * remove-xattr has failed as the rename is already performed
-                 * if local->stub is set, which means rename was sucessful
+                 * if local->stub is set, which means rename was successful
                  */
                 (void) mq_inode_ctx_get (oplocal->loc.inode, this, &ctx);
                 if (ctx) {
@@ -1641,7 +1641,7 @@ err:
  *      b) we should subtract from src-parent exactly what we contributed to
  *         src-parent
  *    So, We hold a lock on src-parent to block any parallel transcations on
- *    src-inode (since thats the one which survives rename).
+ *    src-inode (since that's the one which survives rename).
  *
  *    If there are any parallel transactions on dst-inode they keep succeeding
  *    till the association of dst-inode with dst-parent is broken because of an

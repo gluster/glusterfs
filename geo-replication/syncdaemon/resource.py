@@ -638,7 +638,7 @@ class Server(object):
                 # So both validations are necessary to decide src doesn't
                 # exist. We can't rely on only gfid stat as hardlink could
                 # be present and we can't rely only on name as name could
-                # exist with differnt gfid.
+                # exist with different gfid.
                 if not matching_disk_gfid(gfid, entry):
                     if e['stat'] and not stat.S_ISDIR(e['stat']['mode']):
                         if stat.S_ISLNK(e['stat']['mode']) and \
@@ -1400,7 +1400,7 @@ class SSH(object):
                 '--local-node-id', rconf.args.resource_remote_id] + \
             [
                 # Add all config arguments here, slave gsyncd will not use
-                # config file in slave side, so all overridding options should
+                # config file in slave side, so all overriding options should
                 # be sent as arguments
                 '--slave-timeout', str(gconf.get("slave-timeout")),
                 '--slave-log-level', gconf.get("slave-log-level"),

@@ -198,7 +198,7 @@ extract_sql_params(xlator_t *this, dict_t *params_dict)
         SET_DB_PARAM_TO_DICT(this->name, params_dict, GFDB_SQL_PARAM_DBPATH,
                                 db_full_path, ret, out);
 
-        /*Extact rest of the sql params*/
+        /*Extract rest of the sql params*/
         ret = gfdb_set_sql_params(this->name, this->options, params_dict);
         if (ret) {
                 gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0,

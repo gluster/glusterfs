@@ -482,7 +482,7 @@ __client_ctx_set_int (client_t *client, void *key, void *value)
                 if (!client->scratch_ctx.ctx[index].ctx_key) {
                         if (set_idx == -1)
                                 set_idx = index;
-                        /* dont break, to check if key already exists
+                        /* don't break, to check if key already exists
                            further on */
                 }
                 if (client->scratch_ctx.ctx[index].ctx_key == key) {

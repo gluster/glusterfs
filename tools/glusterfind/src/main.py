@@ -381,7 +381,7 @@ def _get_args():
                               action=StoreAbsPath)
     parser_query.add_argument("--since-time", help="UNIX epoch time since "
                               "which listing is required", type=int)
-    parser_query.add_argument("--end-time", help="UNIX epoch time upto "
+    parser_query.add_argument("--end-time", help="UNIX epoch time up to "
                               "which listing is required", type=int)
     parser_query.add_argument("--no-encode",
                               help="Do not encode path in output file",

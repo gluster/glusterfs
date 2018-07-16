@@ -725,7 +725,8 @@ dict_to_xdr (dict_t *this, gfx_dict *dict)
 
                         /* This is done for backward compatibility as dict is
                            heavily used for transporting data over wire.
-                           Ideally, whereever there is an issue, fix and move on */
+                           Ideally, wherever there is an issue, fix and
+			   move on */
                         xpair->value.gfx_value_u.other.other_val =
                                 dpair->value->data;
                         xpair->value.gfx_value_u.other.other_len =

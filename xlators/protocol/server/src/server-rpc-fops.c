@@ -146,7 +146,7 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                  * It also might lead to wrong decisions being
                                  * taken if the future lookups on this inode are
                                  * successful since they are able to find the
-                                 * inode in the inode table (atleast gfid based
+                                 * inode in the inode table (at least gfid based
                                  * lookups will be successful, if the lookup
                                  * is a soft lookup)
                                  */

@@ -601,7 +601,7 @@ is_blocking_locks_count_sufficient (call_frame_t *frame, xlator_t *this)
                                 "gfid:%s.", uuid_utoa (local->inode->gfid));
                         return _gf_false;
                 } else {
-                        /*inodelk succeded on atleast one child. */
+                        /*inodelk succeeded on at least one child. */
                         return _gf_true;
                 }
 
@@ -611,7 +611,7 @@ is_blocking_locks_count_sufficient (call_frame_t *frame, xlator_t *this)
                         return _gf_false;
                 }
                 /* For FOPS that take multiple sets of locks (mkdir, rename),
-                 * there must be atleast one brick on which the locks from
+                 * there must be at least one brick on which the locks from
                  * all lock sets were successful. */
                 for (child = 0; child < priv->child_count; child++) {
                         ret = _gf_true;

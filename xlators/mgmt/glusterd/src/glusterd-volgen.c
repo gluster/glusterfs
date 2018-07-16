@@ -1119,7 +1119,7 @@ get_vol_transport_type (glusterd_volinfo_t *volinfo, char *tt)
         transport_type_to_str (volinfo->transport_type, tt);
 }
 
-/* If no value has specfied for tcp,rdma volume from cli
+/* If no value has specified for tcp,rdma volume from cli
  * use tcp as default value.Otherwise, use transport type
  * mentioned in volinfo
  */

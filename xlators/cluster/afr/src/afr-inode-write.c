@@ -102,7 +102,7 @@ __afr_inode_write_finalize (call_frame_t *frame, xlator_t *this)
 		   below is important.
 
 		   - Highest precedence: largest op_ret
-		   - Next precendence: if all op_rets are equal, read subvol
+		   - Next precedence: if all op_rets are equal, read subvol
 		   - Least precedence: any succeeded subvol
 		*/
 		if ((local->op_ret < local->replies[i].op_ret) ||

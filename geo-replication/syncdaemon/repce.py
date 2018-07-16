@@ -193,7 +193,7 @@ class RepceClient(object):
         """RePCe client is callabe, calling it implements a synchronous
         remote call.
 
-        We do a .push with a cbk which does a wakeup upon receiving anwser,
+        We do a .push with a cbk which does a wakeup upon receiving answer,
         then wait on the RepceJob.
         """
         rjob = self.push(

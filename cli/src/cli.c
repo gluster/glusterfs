@@ -416,7 +416,7 @@ cli_opt_parse (char *opt, struct cli_state *state)
                         }
                 }
                 else {
-                        cli_err ("invalide secure-mgmt value (ignored)");
+                        cli_err ("invalid secure-mgmt value (ignored)");
                 }
                 return 0;
         }

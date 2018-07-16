@@ -229,7 +229,7 @@ gfdb_set_sql_params(char *comp_name, dict_t *from_dict, dict_t *to_dict)
         GF_ASSERT (from_dict);
         GF_ASSERT (to_dict);
 
-        /*Extact and Set of the sql params from page_size*/
+        /*Extract and Set of the sql params from page_size*/
         for (sql_index = sql_pagesize_ix; sql_index < sql_index_max;
                 sql_index++) {
                 _val_str = NULL;
@@ -292,7 +292,7 @@ int gf_sqlite3_clear_files_heat (void *db_conn);
  *                   this variable. The freeing of the memory should be done by
  *                   the caller.
  * Return:
- *      On success return the lenght of the version string that is
+ *      On success return the length of the version string that is
  *      extracted.
  *      On failure return -1
  * */
@@ -306,7 +306,7 @@ int gf_sqlite3_version (void *db_conn, char **version);
  *                        extracted. This function will allocate memory
  *                        to pragma_value. The caller should free the memory
  * Return:
- *      On success return the lenght of the pragma/setting value that is
+ *      On success return the length of the pragma/setting value that is
  *      extracted.
  *      On failure return -1
  * */
@@ -328,7 +328,7 @@ gf_sqlite3_set_pragma (void *db_conn, char *pragma_key, char *pragma_value);
  * Input:
  * void *db_conn                      : Sqlite connection
  * gf_boolean_t compact_active        : Is compaction on?
- * gf_boolean_t compact_mode_switched : Did we just flip the compaction swtich?
+ * gf_boolean_t compact_mode_switched : Did we just flip the compaction switch?
  * Return:
  *      On success return 0
  *      On failure return -1

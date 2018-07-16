@@ -196,7 +196,7 @@ init (xlator_t *this)
  *    incremented upon modification.
  * So object versioning is tied to bitrot daemon's signing. In future, object
  * versioning might be necessary for other things as well apart from bit-rot
- * detection (well thats the objective of bringing in object-versioning :)).
+ * detection (well that's the objective of bringing in object-versioning :)).
  * In that case, better to make versioning a new option and letting it to be
  * enabled despite bit-rot detection is not needed.
  * Ex: ICAP.
@@ -501,7 +501,7 @@ br_stub_need_versioning (xlator_t *this,
 
         /* Bitrot stub inode context was initialized only in lookup, create
          * and mknod cbk path. Object versioning was enabled by default
-         * irrespective of bitrot enbaled or not. But it's made optional now.
+         * irrespective of bitrot enabled or not. But it's made optional now.
          * As a consequence there could be cases where getting inode ctx would
          * fail because it's not set yet.
          * e.g., If versioning (with bitrot enable) is enabled while I/O is
@@ -738,7 +738,7 @@ br_stub_fd_incversioning_cbk (call_frame_t *frame,
 /**
  * perform full or incremental versioning on an inode pointd by an
  * fd. incremental versioning is done when an inode is dirty and a
- * writeback is trigerred.
+ * writeback is triggered.
  */
 
 int
@@ -1761,7 +1761,7 @@ br_stub_getxattr (call_frame_t *frame, xlator_t *this,
         /**
          * If xattr is node-uuid and the inode is marked bad, return EIO.
          * Returning EIO would result in AFR to choose correct node-uuid
-         * coresponding to the subvolume * where the good copy of the
+         * corresponding to the subvolume * where the good copy of the
          * file resides.
          */
         if (IA_ISREG (loc->inode->ia_type) && XATTR_IS_NODE_UUID (name) &&
@@ -1841,7 +1841,7 @@ br_stub_fgetxattr (call_frame_t *frame, xlator_t *this,
         /**
          * If xattr is node-uuid and the inode is marked bad, return EIO.
          * Returning EIO would result in AFR to choose correct node-uuid
-         * coresponding to the subvolume * where the good copy of the
+         * corresponding to the subvolume * where the good copy of the
          * file resides.
          */
         if (IA_ISREG (fd->inode->ia_type) && XATTR_IS_NODE_UUID (name) &&
@@ -1979,7 +1979,7 @@ br_stub_writev_resume (call_frame_t *frame, xlator_t *this, fd_t *fd,
  * This is probably the most crucial part about the whole versioning thing.
  * There's absolutely no differentiation as such between an anonymous fd
  * and a regular fd except the fd context initialization. Object versioning
- * is perfomed when the inode is dirty. Parallel write operations are no
+ * is performed when the inode is dirty. Parallel write operations are no
  * special with each write performing object versioning followed by marking
  * the inode as non-dirty (synced). This is followed by the actual operation
  * (writev() in this case) which on a success marks the inode as modified.
@@ -2019,7 +2019,7 @@ br_stub_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 goto unwind;
 
         /**
-         * The inode is not dirty and also witnessed atleast one successful
+         * The inode is not dirty and also witnessed at least one successful
          * modification operation. Therefore, subsequent operations need not
          * perform any special tracking.
          */
@@ -2623,7 +2623,7 @@ br_stub_lookup_version (xlator_t *this,
                         ? obuf->ongoingversion : BITROT_DEFAULT_CURRENT_VERSION;
 
         /**
-         * If signature is there, but version is not therem then that status is
+         * If signature is there, but version is not there then that status is
          * is treated as INVALID. So in that case, we should not initialize the
          * inode context with wrong version names etc.
          */
@@ -3305,7 +3305,7 @@ br_stub_send_ipc_fop (xlator_t *this, fd_t *fd, unsigned long releaseversion,
  * 3) BR_SIGN_QUICK => reopen has happened and this release should trigger sign
  * 2 events:
  * 1) GF_FOP_RELEASE
- * 2) GF_FOP_WRITE (actually a dummy write fro BitD)
+ * 2) GF_FOP_WRITE (actually a dummy write for BitD)
  *
  * This is how states are changed based on events:
  * EVENT: GF_FOP_RELEASE:

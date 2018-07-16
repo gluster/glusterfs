@@ -336,8 +336,8 @@ glfs_get_volfile (glfs_t *fs, void *buf, size_t len) __THROW
        the management server (glusterd) to fetch volume uuid and stores it
        in the glusterfs_context linked to the glfs object fs which can be used
        in the subsequent calls. Later it parses that UUID to convert it from
-       cannonical string format into an opaque byte array and copy it into
-       the volid array. Incase if either of the input parameters, volid or size,
+       canonical string format into an opaque byte array and copy it into
+       the volid array. In case if either of the input parameters, volid or size,
        is NULL, number of bytes required to copy the volume UUID is returned.
 
   PARAMETERS
@@ -992,7 +992,7 @@ glfs_xreaddirplus_get_stat (glfs_xreaddirp_stat_t *xstat) __THROW
  *              GFAPI_XREADDIRP_HANDLE
  * @ext: Dirent struture to copy the values to
  *       (though optional recommended to be allocated by application
- *        esp., in multi-threaded environement)
+ *        esp., in multi-threaded environment)
  *
  * OUTPUT:
  * @res: to store the next dirent value. If NULL and return value is '0',
@@ -1151,7 +1151,7 @@ typedef void (*glfs_upcall_cbk) (glfs_upcall_t *up_arg, void *data);
  *              Current available values are:
  *               - GFAPI_UPCALL_INODE_INVALIDATE
  *
- * @cbk: The cbk routine to be invoked incase of any upcall received
+ * @cbk: The cbk routine to be invoked in case of any upcall received
  * @data: Any opaque pointer provided by caller which shall be using while
  * making cbk calls. This pointer may be used by caller for any of its
  * internal use while processing upcalls. Can be NULL.
@@ -1252,11 +1252,11 @@ typedef void (*glfs_recall_cbk) (glfs_lease_t lease, void *data);
   @data: It is a cookie, this pointer is returned as a part of recall
 
   fn and data field are stored as a part of glfs_fd, hence if there are multiple
-  glfs_lease calls, each of them updates the fn and data fileds. glfs_recall_cbk
+  glfs_lease calls, each of them updates the fn and data fields. glfs_recall_cbk
   will be invoked with the last updated fn and data
 
   RETURN VALUES
-  0:  Successfull completion
+  0:  Successful completion
   <0: Failure. @errno will be set with the type of failure
 */
 

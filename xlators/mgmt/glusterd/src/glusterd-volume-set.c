@@ -682,7 +682,7 @@ validate_uss_dir (glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
                 goto out;
         } else if (i < 2) {
                 snprintf (errstr, sizeof (errstr), "value of %s too short, "
-                          "expects atleast two characters", key);
+                          "expects at least two characters", key);
                 goto out;
         }
 
@@ -1224,7 +1224,7 @@ out:
  * Fifth field is <doctype>, which decides if the option is public and available
  * in "set help" or not. "NO_DOC" entries are not part of the public interface
  * and are subject to change at any time. This also decides if an option is
- * global (apllies to all volumes) or normal (applies to only specified volume).
+ * global (applies to all volumes) or normal (applies to only specified volume).
  *
  * Sixth field is <flags>.
  *
@@ -1233,7 +1233,7 @@ out:
  * Eight field is description of option: If NULL, tried to fetch from
  * translator code's xlator_options table.
  *
- * Nineth field is validation function: If NULL, xlator's option specific
+ * Ninth field is validation function: If NULL, xlator's option specific
  * validation will be tried, otherwise tried at glusterd code itself.
  *
  * There are two type of entries: basic and special.
@@ -1963,7 +1963,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .option     = "xattr-cache-list",
           .op_version = GD_OP_VERSION_4_0_0,
           .flags      = VOLOPT_FLAG_CLIENT_OPT,
-          .description = "A comma separeted list of xattrs that shall be "
+          .description = "A comma separated list of xattrs that shall be "
                          "cached by md-cache. The only wildcard allowed is '*'"
         },
         { .key        = "performance.nl-cache-pass-through",

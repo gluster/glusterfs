@@ -2371,7 +2371,7 @@ valid_ipv4_address (char *address, int length, gf_boolean_t wildcard_acc)
         /*
          * To prevent cases where last character is '.' and which have
          * consecutive dots like ".." as strtok ignore consecutive
-         * delimeters.
+         * delimiters.
          */
         if (length <= 0 ||
             (strstr (address, "..")) ||
@@ -2410,7 +2410,7 @@ out:
 /**
  * valid_ipv4_subnetwork() takes the pattern and checks if it contains
  * a valid ipv4 subnetwork pattern i.e. xx.xx.xx.xx/n. IPv4 address
- * part (xx.xx.xx.xx) and mask bits lengh part (n). The mask bits lengh
+ * part (xx.xx.xx.xx) and mask bits length part (n). The mask bits length
  * must be in 0-32 range (ipv4 addr is 32 bit). The pattern must be
  * in this format.
  *
@@ -5014,7 +5014,7 @@ close_fds_except (int *fdv, size_t count)
  *
  * gf_getgrouplist allocates a gid_t buffer which is big enough to
  * hold the list of auxiliary group ids for user, up to the GF_MAX_AUX_GROUPS
- * threshold. Upon succesfull invocation groups will be pointed to that buffer.
+ * threshold. Upon successful invocation groups will be pointed to that buffer.
  *
  * @return success: the number of auxiliary group ids retrieved
  *         failure: -1

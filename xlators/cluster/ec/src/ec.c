@@ -1543,7 +1543,7 @@ struct volume_options options[] =
       .op_version = { GD_OP_VERSION_4_0_0 },
       .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
       .tags = { "disperse", "locks", "timeout" },
-      .description = "It's equivalent ot eager-lock-timeout option but for "
+      .description = "It's equivalent to eager-lock-timeout option but for "
                      "non regular files."
     },
     { .key = {"background-heals"},

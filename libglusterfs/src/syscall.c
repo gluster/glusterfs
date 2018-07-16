@@ -418,7 +418,7 @@ sys_statvfs (const char *path, struct statvfs *buf)
 
         ret = statvfs (path, buf);
 #ifdef __FreeBSD__
-        /* FreeBSD doesn't return the expected vaule in buf->f_bsize. It
+        /* FreeBSD doesn't return the expected value in buf->f_bsize. It
          * contains the optimal I/O size instead of the file system block
          * size. Gluster expects that this field contains the block size.
          */
@@ -438,7 +438,7 @@ sys_fstatvfs (int fd, struct statvfs *buf)
 
         ret = fstatvfs (fd, buf);
 #ifdef __FreeBSD__
-        /* FreeBSD doesn't return the expected vaule in buf->f_bsize. It
+        /* FreeBSD doesn't return the expected value in buf->f_bsize. It
          * contains the optimal I/O size instead of the file system block
          * size. Gluster expects this field to contain the block size.
          */
@@ -485,7 +485,7 @@ sys_fdatasync (int fd)
 void
 gf_add_prefix(const char *ns, const char *key, char **newkey)
 {
-        /* if we dont have any namespace, append USER NS */
+        /* if we don't have any namespace, append USER NS */
         if (strncmp(key, XATTR_USER_PREFIX,     XATTR_USER_PREFIX_LEN) &&
             strncmp(key, XATTR_TRUSTED_PREFIX,  XATTR_TRUSTED_PREFIX_LEN) &&
             strncmp(key, XATTR_SECURITY_PREFIX, XATTR_SECURITY_PREFIX_LEN) &&

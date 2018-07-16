@@ -335,7 +335,7 @@ cdc_compress (xlator_t *this, cdc_priv_t *priv, cdc_info_t *ci,
         if (ret) {
                 /* Send uncompressed data if we can't _tell_ the client
                  * that deflated data is on it's way. So, we just log
-                 * the faliure and continue as usual.
+                 * the failure and continue as usual.
                  */
                  gf_log (this->name, GF_LOG_ERROR,
                  "Data deflated, but could not set canary"

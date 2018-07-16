@@ -2705,7 +2705,7 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
         if (conf->op_version <= GD_OP_VERSION_3_7_6) {
                 /*
                  * Starting tier daemon on originator node will fail if
-                 * atleast one of the peer host  brick for the volume.
+                 * at least one of the peer host  brick for the volume.
                  * Because The bricks in the peer haven't started when you
                  * commit on originator node.
                  * Please upgrade to version greater than GD_OP_VERSION_3_7_6

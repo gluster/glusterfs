@@ -947,7 +947,7 @@ out:
  * last run for whatever reason (node crashes, reboots, etc..) become
  * candidates for signing. This allows the signature to "catch up" with
  * the current state of the object. Triggering signing is easy: perform
- * an open() followed by a close() therby resulting in call boomerang.
+ * an open() followed by a close() thereby resulting in call boomerang.
  * (though not back to itself :))
  */
 int
@@ -999,7 +999,7 @@ bitd_oneshot_crawl (xlator_t *subvol,
          *    In this case syncop_getxattr fails with ENODATA and the object
          *    is signed. (In real, when crawler sends lookup, bit-rot-stub
          *    creates the xattrs before returning lookup reply)
-         * 2) Bit-rot was not enabled or BitD was dows for some reasons, during
+         * 2) Bit-rot was not enabled or BitD was does for some reasons, during
          *    which some files were created, but since BitD was down, were not
          *    signed.
          * If the file was just created and was being written some data when
@@ -1457,7 +1457,7 @@ br_handle_events (void *arg)
 
         /*
          * Since, this is the topmost xlator, THIS has to be set by bit-rot
-         * xlator itself (STACK_WIND wont help in this case). Also it has
+         * xlator itself (STACK_WIND won't help in this case). Also it has
          * to be done for each thread that gets spawned. Otherwise, a new
          * thread will get global_xlator's pointer when it does "THIS".
          */

@@ -564,7 +564,7 @@ tier_set_migrate_data (dict_t *migrate_data)
          * promotions and demotions are multithreaded
          * so the original frame from gf_defrag_start()
          * is not carried. A new frame will be created when
-         * we do syncop_setxattr(). This doesnot have the
+         * we do syncop_setxattr(). This does not have the
          * frame->root->pid of the original frame. So we pass
          * this dic key-value when we do syncop_setxattr() to do
          * data migration and set the frame->root->pid to
@@ -964,7 +964,7 @@ tier_migrate_using_query_file (void *_args)
          * per_file_status and per_link_status
          *  0  : success
          * -1 : failure
-         *  1  : ignore the status and dont count for migration
+         *  1  : ignore the status and don't count for migration
          * */
         int per_file_status                     = 0;
         int per_link_status                     = 0;
@@ -2444,7 +2444,7 @@ static void
         while (1) {
 
                 /*
-                 * Check if a graph switch occured. If so, stop migration
+                 * Check if a graph switch occurred. If so, stop migration
                  * thread. It will need to be restarted manually.
                  */
                 any = THIS->ctx->active->first;
@@ -2489,8 +2489,8 @@ static void
 
                 /* To have proper synchronization amongst all
                  * brick holding nodes, so that promotion and demotions
-                 * start atomicly w.r.t promotion/demotion frequency
-                 * period, all nodes should have thier system time
+                 * start atomically w.r.t promotion/demotion frequency
+                 * period, all nodes should have their system time
                  * in-sync with each other either manually set or
                  * using a NTP server*/
                 ret = gettimeofday (&current_time, NULL);

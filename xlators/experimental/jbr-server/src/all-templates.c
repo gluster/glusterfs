@@ -416,7 +416,7 @@ jbr_@NAME@_complete (call_frame_t *frame, void *cookie, xlator_t *this,
         GF_VALIDATE_OR_GOTO (this->name, priv, err);
         GF_VALIDATE_OR_GOTO (this->name, local, err);
 
-        /* If the fop failed on the leader, then reduce one succesful ack
+        /* If the fop failed on the leader, then reduce one successful ack
          * before calculating the fop quorum
          */
         LOCK(&frame->lock);

@@ -107,7 +107,7 @@ typedef struct wb_inode {
 	size_t       size; /* Size of the file to catch write after EOF. */
         gf_lock_t    lock;
         xlator_t    *this;
-        int          dontsync; /* If positive, dont pick lies for
+        int          dontsync; /* If positive, don't pick lies for
                                 * winding. This is needed to break infinite
                                 * recursion during invocation of
                                 * wb_process_queue from
@@ -1354,7 +1354,7 @@ __wb_preprocess_winds (wb_inode_t *wb_inode)
                          * as winding these lies again will trigger an infinite
                          * recursion of wb_process_queue being called from a
                          * failed fulfill. However, pick non-lied requests for
-                         * winding so that application wont block indefinitely
+                         * winding so that application won't block indefinitely
                          * waiting for write result.
                          */
 
@@ -1586,7 +1586,7 @@ __wb_pick_winds (wb_inode_t *wb_inode, list_head_t *tasks,
                         } else {
                                 /* There is a conflicting liability which was
                                  * not attempted to sync even once. Wait till
-                                 * atleast one attempt to sync is made.
+                                 * at least one attempt to sync is made.
                                  */
                         }
 

@@ -68,7 +68,7 @@
 
 #ifndef HAVE_LLISTXATTR
 
-/* This part is valid only incase of old glibc which doesn't support
+/* This part is valid only in case of old glibc which doesn't support
  * 'llistxattr()' system calls.
  */
 

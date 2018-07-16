@@ -48,7 +48,7 @@ These are the scenarios when the hardlink list is updated:
 1) Named-Lookup: Whenever a named lookup happens on a file, in the
    wind path we copy all required hardlink and inode information to
    ctr_db_record structure, which resides in the frame->local variable.
-   We dont update the database in wind. During the unwind, we read the
+   We don't update the database in wind. During the unwind, we read the
    information from the ctr_db_record and ,
    Check if the inode context variable is created, if not we create it.
    Check if the hard link is there in the hardlink list.
@@ -74,12 +74,12 @@ These are the scenarios when the hardlink list is updated:
 
 What is pending:
 1) This solution will only work for named lookups.
-2) We dont track afr-self-heal/dht-rebalancer traffic for healing.
+2) We don't track afr-self-heal/dht-rebalancer traffic for healing.
 
 */
 
 
-/* This function doesnot write anything to the db,
+/* This function does not write anything to the db,
  * just created the local variable
  * for the frame and sets values for the ctr_db_record */
 static int
@@ -109,9 +109,9 @@ ctr_lookup_wind(call_frame_t                    *frame,
                         goto out;
                 };
                 ctr_local = frame->local;
-                /*Definately no internal fops will reach here*/
+                /*Definitely no internal fops will reach here*/
                 ctr_local->is_internal_fop = _gf_false;
-                /*Dont record counters*/
+                /*Don't record counters*/
                 CTR_DB_REC(ctr_local).do_record_counters = _gf_false;
                 /*Don't record time at all*/
                 CTR_DB_REC(ctr_local).do_record_times = _gf_false;
@@ -135,7 +135,7 @@ ctr_lookup_wind(call_frame_t                    *frame,
                 /* Since we are in lookup we can ignore errors while
                  * Inserting in the DB, because there may be many
                  * to write to the DB attempts for healing.
-                 * We dont want to log all failed attempts and
+                 * We don't want to log all failed attempts and
                  * bloat the log*/
                  ctr_local->gfdb_db_record.ignore_errors = _gf_true;
         }
@@ -216,7 +216,7 @@ ctr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         CTR_IS_DISABLED_THEN_GOTO(this, out);
 
-        /* if the lookup failed lookup dont do anything*/
+        /* if the lookup failed lookup don't do anything*/
         if (op_ret == -1) {
                 gf_msg_trace (this->name, 0, "lookup failed with %s",
                               strerror (op_errno));
@@ -229,7 +229,7 @@ ctr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         /* if frame local was not set by the ctr_lookup()
-         * so dont so anything*/
+         * so don't so anything*/
         if (!frame->local) {
                 goto out;
         }
@@ -329,7 +329,7 @@ ctr_lookup (call_frame_t *frame, xlator_t *this,
         GF_ASSERT(frame);
         GF_ASSERT(frame->root);
 
-        /* Dont handle nameless lookups*/
+        /* Don't handle nameless lookups*/
         if (!loc->parent || !loc->name)
                 goto out;
 
@@ -941,7 +941,7 @@ ctr_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                         "Failed to insert rename wind");
         } else {
                 /* We are doing updation of hard link in inode context in wind
-                 * As we dont get the "inode" in the call back for rename */
+                 * As we don't get the "inode" in the call back for rename */
                 ret = update_hard_link_ctx (frame, this, oldloc->inode);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -950,13 +950,13 @@ ctr_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                         goto out;
                 }
 
-                /* If the newloc has an inode. i.e aquiring hardlink of an
+                /* If the newloc has an inode. i.e acquiring hardlink of an
                  * exisitng file i.e overwritting a file.
                  * */
                 if (newloc->inode) {
 
                         /* Getting the ctr inode context variable for
-                         * inode whose hardlink will be aquired during
+                         * inode whose hardlink will be acquired during
                          * the rename
                          * */
                         ctr_xlator_ctx = get_ctr_xlator_ctx (this,
@@ -1106,7 +1106,7 @@ ctr_unlink (call_frame_t *frame, xlator_t *this,
                         "Failed to insert unlink wind");
         } else {
                 /* We are doing delete of hard link in inode context in wind
-                 * As we dont get the "inode" in the call back for rename */
+                 * As we don't get the "inode" in the call back for rename */
                 ret = delete_hard_link_ctx (frame, this, loc->inode);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,

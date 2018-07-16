@@ -196,8 +196,8 @@ out:
  * Note: to be called before event_pool_destroy is called.
  * The order in which cleaning is performed:
  * - Register a pipe fd(this is for waking threads in poll()/epoll_wait())
- * - Set the destroy mode, which this no new event registration will succede
- * - Reconfigure the thread count to 0(this will succede only in destroy mode)
+ * - Set the destroy mode, which this no new event registration will succeed
+ * - Reconfigure the thread count to 0(this will succeed only in destroy mode)
  * - Wake up all the threads in poll() or epoll_wait(), so that they can
  *   destroy themselves.
  * - Wait for the thread to join(which will happen only after all the other

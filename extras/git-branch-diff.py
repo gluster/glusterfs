@@ -128,7 +128,7 @@ class GitBranchDiff:
             exit(status_tbr)
 
     def check_author_exist (self):
-        " defend to check given author exist, format incase of multiple"
+        " defend to check given author exist, format in case of multiple"
         contrib_list = ['', '*', 'all', 'All', 'ALL', 'null', 'Null', 'NULL']
         if self.g_author in contrib_list:
             self.g_author = ""
@@ -190,7 +190,7 @@ class GitBranchDiff:
                                  '--author',
                                  help = 'default: git config name/email, '
                                         'to provide multiple specify comma'
-                                        ' seperated values',
+                                        ' separated values',
                                  default = author,
                                  dest = 'author')
         self.parser.add_argument('-p',

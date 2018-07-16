@@ -1231,7 +1231,7 @@ glusterfs_ctx_destroy (glusterfs_ctx_t *ctx)
 
         /* Free all the graph structs and its containing xlator_t structs
          * from this point there should be no reference to GF_FREE/GF_CALLOC
-         * as it will try to access mem_acct and the below funtion would
+         * as it will try to access mem_acct and the below function would
          * have freed the same.
          */
         list_for_each_entry_safe (trav_graph, tmp, &ctx->graphs, list) {
@@ -1666,7 +1666,7 @@ pub_glfs_upcall_register (struct glfs *fs, uint32_t event_list,
                 goto out;
         }
 
-        /* incase other thread does unregister */
+        /* in case other thread does unregister */
         pthread_mutex_lock (&fs->mutex);
         {
                 if (event_list & GLFS_EVENT_INODE_INVALIDATE) {

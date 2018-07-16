@@ -319,7 +319,7 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
         *         parent : output_dir
         *         component : "dir"
         *
-        * Incase of nameless lookup, both "." and ".." retained
+        * In case of nameless lookup, both "." and ".." retained
         */
 
         if (strcmp (component, ".") == 0) {
@@ -987,7 +987,7 @@ priv_glfs_subvol_done (struct glfs *fs, xlator_t *subvol)
         /* For decrementing subvol->wind ref count we need not check/wait for
          * migration-in-progress flag.
          * Also glfs_subvol_done is called in call-back path therefore waiting
-         * fot migration-in-progress flag can lead to dead-lock.
+         * for migration-in-progress flag can lead to dead-lock.
          */
         glfs_lock (fs, _gf_false);
 	{

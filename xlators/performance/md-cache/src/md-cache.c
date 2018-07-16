@@ -312,7 +312,7 @@ __is_cache_valid (xlator_t *this, time_t mdc_time)
 
         /* conf->lock here is not taken deliberately, so that the multi
          * threaded IO doesn't contend on a global lock. While updating
-         * the variable, the lock is taken, so that atleast the writes are
+         * the variable, the lock is taken, so that at least the writes are
          * intact. The read of last_child_down may return junk, but that
          * is for a very short period of time.
          */
@@ -3694,7 +3694,7 @@ struct volume_options mdc_options[] = {
           .default_value = "",
           .op_version = {GD_OP_VERSION_4_0_0},
           .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
-          .description = "A comma separeted list of xattrs that shall be "
+          .description = "A comma separated list of xattrs that shall be "
                          "cached by md-cache. The only wildcard allowed is '*'",
         },
         { .key  = {"pass-through"},

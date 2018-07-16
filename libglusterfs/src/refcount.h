@@ -53,7 +53,7 @@ _gf_ref_get (gf_ref_t *ref);
 unsigned int
 _gf_ref_put (gf_ref_t *ref);
 
-/* _gf_ref_init -- initalize an embedded refcount object
+/* _gf_ref_init -- initialize an embedded refcount object
  *
  * @release: function to call when the refcount == 0
  * @data: parameter to be passed to @release

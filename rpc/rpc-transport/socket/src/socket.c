@@ -3084,7 +3084,7 @@ socket_server_event_handler (int fd, int idx, int gen, void *data,
 
                                         /* event_register() could have failed for some
                                          * reason, implying that the new_sock cannot be
-                                         * added to the epoll set. If we wont get any
+                                         * added to the epoll set. If we won't get any
                                          * more notifications for new_sock from epoll,
                                          * then we better remove the corresponding
                                          * new_trans object from the RPCSVC service list.
@@ -3313,7 +3313,7 @@ socket_connect (rpc_transport_t *this, int port)
                         goto unlock;
                 }
 
-                /* Cant help if setting socket options fails. We can continue
+                /* Can't help if setting socket options fails. We can continue
                  * working nonetheless.
                  */
                 if (priv->windowsize != 0) {
@@ -3340,7 +3340,7 @@ socket_connect (rpc_transport_t *this, int port)
 
                 /* Make sure we are not vulnerable to someone setting
                  * net.ipv6.bindv6only to 1 so that gluster services are
-                 * avalable over IPv4 & IPv6.
+                 * available over IPv4 & IPv6.
                  */
 #ifdef IPV6_DEFAULT
                 int     disable_v6only  = 0;
@@ -3562,7 +3562,7 @@ err:
                 /* Cleaup requires to send notification to upper layer which
                    intern holds the big_lock. There can be dead-lock situation
                    if big_lock is already held by the current thread.
-                   So transfer the ownership to seperate thread for cleanup.
+                   So transfer the ownership to separate thread for cleanup.
                 */
                 arg = GF_CALLOC (1, sizeof (*arg),
                                  gf_sock_connect_error_state_t);
@@ -3645,7 +3645,7 @@ socket_listen (rpc_transport_t *this)
                         goto unlock;
                 }
 
-                /* Cant help if setting socket options fails. We can continue
+                /* Can't help if setting socket options fails. We can continue
                  * working nonetheless.
                  */
                 if (priv->windowsize != 0) {

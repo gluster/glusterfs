@@ -20,7 +20,7 @@
 static int gf_posix_xattr_enotsup_log;
 
 /* posix_mdata_to_disk converts posix_mdata_t into network byte order to
- * save it on disk in machine independant format
+ * save it on disk in machine independent format
  */
 static inline void
 posix_mdata_to_disk (posix_mdata_disk_t *out, posix_mdata_t *in)

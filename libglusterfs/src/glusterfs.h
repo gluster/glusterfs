@@ -187,7 +187,7 @@
 
 /*
  * Always append entries to end of the enum, do not delete entries.
- * Currently dict_set_flag allows to set upto 256 flag, if the enum
+ * Currently dict_set_flag allows to set up to 256 flag, if the enum
  * needs to grow beyond this dict_set_flag has to be changed accordingly
  */
 enum gf_internal_fop_indicator {

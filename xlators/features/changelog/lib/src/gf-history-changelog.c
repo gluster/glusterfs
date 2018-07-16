@@ -476,7 +476,7 @@ out:
 
 /*
  * Description: Checks if the changelog path is usable or not,
- *              which is differenciated by checking for "changelog"
+ *              which is differentiated by checking for "changelog"
  *              in the path and not "CHANGELOG".
  *
  * Returns:

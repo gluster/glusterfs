@@ -209,7 +209,7 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
         if (top == PATH_MAX/2) {
                 gf_msg (this->name, GF_LOG_ERROR,
                         P_MSG_ANCESTORY_FAILED,
-                        0, "build ancestory failed due to "
+                        0, "build ancestry failed due to "
                         "deep directory hierarchy, depth: %d.", top);
                 *op_errno = EINVAL;
                 ret = -1;

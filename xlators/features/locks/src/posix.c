@@ -4477,7 +4477,7 @@ struct volume_options options[] = {
           .tags  = {"locks"},
           .description = "Specifies the mandatory-locking mode. Valid options "
                          "are 'file' to use linux style mandatory locks, "
-                         "'forced' to use volume striclty under mandatory lock "
+                         "'forced' to use volume strictly under mandatory lock "
                          "semantics only and 'optimal' to treat advisory and "
                          "mandatory locks separately on their own."
         },

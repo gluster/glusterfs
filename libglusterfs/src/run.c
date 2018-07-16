@@ -33,11 +33,11 @@
  * on glusterfs:
  * $ cc -DRUN_STANDALONE -c run.c
  *
- * Compiling a demo progam that exercises bits of run.c
+ * Compiling a demo program that exercises bits of run.c
  * functionality (linking to glusterfs):
  * $ cc -DRUN_DO_DEMO -orun run.c  `pkg-config --libs --cflags glusterfs-api`
  *
- * Compiling a demo progam that exercises bits of run.c
+ * Compiling a demo program that exercises bits of run.c
  * functionality (with no dependence on glusterfs):
  *
  * $ cc -DRUN_DO_DEMO -DRUN_STANDALONE -orun run.c
@@ -54,7 +54,7 @@ int close_fds_except (int *fdv, size_t count);
 #define gf_strdup(s) strdup(s)
 #define gf_vasprintf(p, f, va) vasprintf(p, f, va)
 #define gf_loglevel_t int
-#define gf_msg_callingfn(dom, levl, errnum, msgid, fmt, args...) printf("LOG: " fmt "\n", ##args)
+#define gf_msg_callingfn(dom, level, errnum, msgid, fmt, args...) printf("LOG: " fmt "\n", ##args)
 #define LOG_DEBUG 0
 #ifdef RUN_STANDALONE
 #include <stdbool.h>
@@ -330,7 +330,7 @@ runner_start (runner_t *runner)
                 }
 
                 if (ret != -1) {
-                        /* save child from inheriting our singal handling */
+                        /* save child from inheriting our signal handling */
                         sigemptyset (&set);
                         sigprocmask (SIG_SETMASK, &set, NULL);
 

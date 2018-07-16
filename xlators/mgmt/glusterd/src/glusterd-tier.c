@@ -744,7 +744,7 @@ glusterd_op_tier_start_stop (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         switch (cmd) {
         case GF_DEFRAG_CMD_START_TIER:
-                /* we check if its running and skip so that we dont get a
+                /* we check if its running and skip so that we don't get a
                  * failure during force start
                  */
                 ret = dict_get_int32 (dict, "force", &is_force);

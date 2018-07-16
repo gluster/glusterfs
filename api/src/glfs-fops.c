@@ -52,7 +52,7 @@ glfs_mark_glfd_for_deletion (struct glfs_fd *glfd)
         return 0;
 }
 
-/* This function is usefull for all async fops. There is chance that glfd is
+/* This function is useful for all async fops. There is chance that glfd is
  * closed before async fop is completed. When glfd is closed we change the
  * state to GLFD_CLOSE.
  *
@@ -539,7 +539,7 @@ pub_glfs_creat (struct glfs *fs, const char *path, int flags, mode_t mode)
 	/* This must be glfs_resolve() and NOT glfs_lresolve().
 	   That is because open("name", O_CREAT) where "name"
 	   is a danging symlink must create the dangling
-	   destinataion.
+	   destination.
 	*/
 retry:
 	ret = glfs_resolve (fs, subvol, path, &loc, &iatt, reval);
@@ -5299,7 +5299,7 @@ out:
  * to be read by the applications.
  *
  * In case if the application registers a cbk function, that shall
- * be called by this routine incase of any event received.
+ * be called by this routine in case of any event received.
  * The cbk fn is responsible for notifying the
  * applications the way it desires for each event queued (for eg.,
  * can raise a signal or broadcast a cond variable etc.)

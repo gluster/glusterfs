@@ -317,7 +317,7 @@ struct volume_options options[] = {
           .tags          = {},
           /* option_validation_fn validate_fn; */
         },
-        /* Backword compatibility */
+        /* Backward compatibility */
         { .key   = {"auth.ip.*.allow"},
           .type  = GF_OPTION_TYPE_INTERNET_ADDRESS_LIST,
           .default_value = "*",

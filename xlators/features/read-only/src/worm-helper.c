@@ -288,7 +288,7 @@ out:
 }
 
 
-/*This function checks whether a file's timeout is happend for the state
+/*This function checks whether a file's timeout is happened for the state
  * transition and if yes, then it will do the transition from the current state
  * to the appropriate state. It also decides whether to continue or to block
  * the FOP.

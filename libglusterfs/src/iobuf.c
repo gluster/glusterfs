@@ -342,8 +342,8 @@ iobuf_pool_destroy (struct iobuf_pool *iobuf_pool)
                                 __iobuf_arena_destroy (iobuf_pool, iobuf_arena);
                         }
                         /* If there are no iobuf leaks, there shoould be
-                         * no standard alloced arenas, iobuf_put will free such
-                         * arenas.
+                         * no standard allocated arenas, iobuf_put will free
+                         * such arenas.
                          * TODO: Free the stdalloc arenas forcefully if present?
                          */
                 }
@@ -444,7 +444,7 @@ __iobuf_arena_prune (struct iobuf_pool *iobuf_pool,
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
 
         /* code flow comes here only if the arena is in purge list and we can
-         * free the arena only if we have atleast one arena in 'arenas' list
+         * free the arena only if we have at least one arena in 'arenas' list
          * (ie, at least few iobufs free in arena), that way, there won't
          * be spurious mmap/unmap of buffers
          */
@@ -856,7 +856,7 @@ iobref_new ()
 		return NULL;
 	}
 
-	iobref->alloced = 16;
+	iobref->allocated = 16;
 	iobref->used = 0;
 
         LOCK_INIT (&iobref->lock);
@@ -885,7 +885,7 @@ iobref_destroy (struct iobref *iobref)
 
         GF_VALIDATE_OR_GOTO ("iobuf", iobref, out);
 
-        for (i = 0; i < iobref->alloced; i++) {
+        for (i = 0; i < iobref->allocated; i++) {
                 iobuf = iobref->iobrefs[i];
 
                 iobref->iobrefs[i] = NULL;
@@ -924,11 +924,11 @@ iobref_clear (struct iobref *iobref)
 
         GF_VALIDATE_OR_GOTO ("iobuf", iobref, out);
 
-        for (; i < iobref->alloced; i++) {
+        for (; i < iobref->allocated; i++) {
                 if (iobref->iobrefs[i] != NULL) {
                         iobuf_unref (iobref->iobrefs[i]);
                 } else {
-                        /** iobuf's are attched serially */
+                        /** iobuf's are attached serially */
                         break;
                 }
         }
@@ -947,12 +947,12 @@ __iobref_grow (struct iobref *iobref)
 	int i = 0;
 
 	newptr = GF_REALLOC (iobref->iobrefs,
-			     iobref->alloced * 2 * (sizeof (*iobref->iobrefs)));
+			     iobref->allocated * 2 * (sizeof (*iobref->iobrefs)));
 	if (newptr) {
 		iobref->iobrefs = newptr;
-		iobref->alloced *= 2;
+		iobref->allocated *= 2;
 
-		for (i = iobref->used; i < iobref->alloced; i++)
+		for (i = iobref->used; i < iobref->allocated; i++)
 			iobref->iobrefs[i] = NULL;
 	}
 }
@@ -967,16 +967,16 @@ __iobref_add (struct iobref *iobref, struct iobuf *iobuf)
         GF_VALIDATE_OR_GOTO ("iobuf", iobref, out);
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf, out);
 
-	if (iobref->used == iobref->alloced) {
+	if (iobref->used == iobref->allocated) {
 		__iobref_grow (iobref);
 
-		if (iobref->used == iobref->alloced) {
+		if (iobref->used == iobref->allocated) {
 			ret = -ENOMEM;
 			goto out;
 		}
 	}
 
-        for (i = 0; i < iobref->alloced; i++) {
+        for (i = 0; i < iobref->allocated; i++) {
                 if (iobref->iobrefs[i] == NULL) {
                         iobref->iobrefs[i] = iobuf_ref (iobuf);
 			iobref->used++;
@@ -1021,7 +1021,7 @@ iobref_merge (struct iobref *to, struct iobref *from)
 
         LOCK (&from->lock);
         {
-                for (i = 0; i < from->alloced; i++) {
+                for (i = 0; i < from->allocated; i++) {
                         iobuf = from->iobrefs[i];
 
                         if (!iobuf)
@@ -1075,7 +1075,7 @@ iobref_size (struct iobref *iobref)
 
         LOCK (&iobref->lock);
         {
-                for (i = 0; i < iobref->alloced; i++) {
+                for (i = 0; i < iobref->allocated; i++) {
                         if (iobref->iobrefs[i])
                                 size += iobuf_size (iobref->iobrefs[i]);
                 }

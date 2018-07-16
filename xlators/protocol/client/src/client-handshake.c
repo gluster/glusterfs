@@ -1265,7 +1265,7 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
          * Connection-id should always be unique so that server never gets to
          * reuse the previous connection resources so it cleans up the resources
          * on every disconnect. Otherwise it may lead to stale resources, i.e.
-         * leaked file desciptors, inode/entry locks
+         * leaked file descriptors, inode/entry locks
          */
 
         snprintf (counter_str, sizeof (counter_str),

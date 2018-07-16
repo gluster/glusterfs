@@ -408,8 +408,8 @@ def webhook_monitor(proc_queue, webhooks):
 
 class WebhookThreadPool(object):
     def start(self):
-        # Seperate process to emit messages to webhooks
-        # which maintains one thread per webhook. Seperate
+        # Separate process to emit messages to webhooks
+        # which maintains one thread per webhook. Separate
         # process is required since on reload we need to stop
         # and start the thread pool. In Python Threads can't be stopped
         # so terminate the process and start again. Note: In transit

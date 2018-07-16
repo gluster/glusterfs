@@ -68,7 +68,7 @@ static int32_t set_private_aes_xts(struct crypt_inode_info *info,
 		return ENOMEM;
 
 	/*
-	 * retrieve data keying meterial
+	 * retrieve data keying material
 	 */
 	ret = get_data_file_key(info, master, object->o_dkey_size, data_key);
 	if (ret) {
@@ -547,7 +547,7 @@ int32_t set_config_avec_hole(xlator_t *this,
 	case GF_FOP_FTRUNCATE:
 		/*
 		 * expanding truncate, hole goes after data,
-		 * and will be submited in any case.
+		 * and will be submitted in any case.
  		 */
 		break;
 	default:
@@ -671,7 +671,7 @@ void set_config_offsets(call_frame_t *frame,
 	uint32_t nr_full_blocks;
 	int32_t size_full_blocks;
 
-	uint32_t acount; /* number of alifned components to write.
+	uint32_t acount; /* number of aligned components to write.
 			  * The same as number of occupied logical
 			  * blocks (atoms)
 			  */

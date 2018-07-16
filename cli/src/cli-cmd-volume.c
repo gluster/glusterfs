@@ -1495,7 +1495,7 @@ _limits_set_on_volume (char *volname, int type) {
         else
                 gfid_type = GF_QUOTA_CONF_TYPE_OBJECTS;
 
-        /* Try to read atleast one gfid  of type 'gfid_type' */
+        /* Try to read at least one gfid  of type 'gfid_type' */
         while (1) {
                 ret = quota_conf_read_gfid (fd, buf, &gfid_type_stored,
                                             version);

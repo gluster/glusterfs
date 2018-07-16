@@ -912,7 +912,7 @@ afr_set_split_brain_choice (int ret, call_frame_t *frame, void *opaque)
                                 /* If timer cancel failed here it means that the
                                 *  previous cbk will be executed which will set
                                 *  spb_choice to -1. So we can consider the
-                                *  'valid to -1' case to be a sucess
+                                *  'valid to -1' case to be a success
                                 *  (i.e. ret = 0) and goto unlock.
                                 */
                                 goto unlock;
@@ -4722,7 +4722,7 @@ afr_ipc_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int            child_index    = (long)cookie;
         int            call_count     = 0;
         gf_boolean_t   failed         = _gf_false;
-        gf_boolean_t   succeded       = _gf_false;
+        gf_boolean_t   succeeded      = _gf_false;
         int            i              = 0;
         afr_private_t *priv           = NULL;
 
@@ -4742,7 +4742,7 @@ afr_ipc_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          * return error else return success unless all the subvolumes
          * failed.
          * TODO: In case of failure, we need to unregister the xattrs
-         * from the other subvolumes where it succeded (once upcall
+         * from the other subvolumes where it succeeded (once upcall
          * fixes the Bz-1371622)*/
         for (i = 0; i < priv->child_count; i++) {
                 if (!local->replies[i].valid)
@@ -4762,7 +4762,7 @@ afr_ipc_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         break;
                 }
                 if (local->replies[i].op_ret == 0) {
-                        succeded = _gf_true;
+                        succeeded = _gf_true;
                         local->op_ret = 0;
                         local->op_errno = 0;
                         if (!local->xdata_rsp && local->replies[i].xdata) {
@@ -4772,7 +4772,7 @@ afr_ipc_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
         }
 
-        if (!succeded && !failed) {
+        if (!succeeded && !failed) {
                 local->op_ret = -1;
                 local->op_errno = ENOTCONN;
         }
@@ -5314,7 +5314,7 @@ __afr_handle_child_down_event (xlator_t *this, xlator_t *child_xlator,
         if (down_children == priv->child_count) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, AFR_MSG_SUBVOLS_DOWN,
                         "All subvolumes are down. Going "
-                        "offline until atleast one of them "
+                        "offline until at least one of them "
                         "comes back up.");
                 gf_event (EVENT_AFR_SUBVOLS_DOWN, "subvol=%s", this->name);
         } else {
@@ -5364,7 +5364,7 @@ afr_notify (xlator_t *this, int32_t event,
         priv->did_discovery = _gf_false;
 
 
-        /* parent xlators dont need to know about every child_up, child_down
+        /* parent xlators don't need to know about every child_up, child_down
          * because of afr ha. If all subvolumes go down, child_down has
          * to be triggered. In that state when 1 subvolume comes up child_up
          * needs to be triggered. dht optimizes revalidate lookup by sending

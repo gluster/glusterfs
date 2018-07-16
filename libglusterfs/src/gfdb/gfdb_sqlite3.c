@@ -149,7 +149,7 @@ gf_sql_str2sync_t (const char *sync_str)
 }
 
 
-/*TODO replace GF_CALLOC by mem_pool or iobuff if required for performace */
+/*TODO replace GF_CALLOC by mem_pool or iobuff if required for performance */
 static char *
 sql_stmt_init ()
 {
@@ -168,7 +168,7 @@ out:
         return sql_stmt;
 }
 
-/*TODO replace GF_FREE by mem_pool or iobuff if required for performace */
+/*TODO replace GF_FREE by mem_pool or iobuff if required for performance */
 static void
 sql_stmt_fini (char **sql_stmt)
 {
@@ -627,7 +627,7 @@ gf_get_basic_query_stmt (char **out_stmt)
 /*
  * Find All files recorded in the DB
  * Input:
- *      query_callback  :       query callback fuction to handle
+ *      query_callback  :       query callback function to handle
  *                              result records from the query
  * */
 int
@@ -699,7 +699,7 @@ out:
 /*
  * Find recently changed files from the DB
  * Input:
- *      query_callback  :       query callback fuction to handle
+ *      query_callback  :       query callback function to handle
  *                              result records from the query
  *      from_time       :       Time to define what is recent
  * */
@@ -799,7 +799,7 @@ out:
 /*
  * Find unchanged files from a specified time from the DB
  * Input:
- *      query_callback  :       query callback fuction to handle
+ *      query_callback  :       query callback function to handle
  *                              result records from the query
  *      for_time        :        Time from where the file/s are not changed
  * */
@@ -903,7 +903,7 @@ out:
  * Find recently changed files with a specific frequency from the DB
  * Input:
  *      db_conn         :       db connection object
- *      query_callback  :       query callback fuction to handle
+ *      query_callback  :       query callback function to handle
  *                              result records from the query
  *      from_time       :       Time to define what is recent
  *      freq_write_cnt  :       Frequency thresold for write
@@ -1048,7 +1048,7 @@ out:
 /*
  * Find unchanged files from a specified time, w.r.t to frequency, from the DB
  * Input:
- *      query_callback  :       query callback fuction to handle
+ *      query_callback  :       query callback function to handle
  *                              result records from the query
  *      for_time       :        Time from where the file/s are not changed
  *      freq_write_cnt  :       Frequency thresold for write
@@ -1255,7 +1255,7 @@ out:
  *                   this variable. The freeing of the memory should be done by
  *                   the caller.
  * Return:
- *      On success return the lenght of the version string that is
+ *      On success return the length of the version string that is
  *      extracted.
  *      On failure return -1
  * */
@@ -1310,7 +1310,7 @@ out:
  *                        extracted. This function will allocate memory
  *                        to pragma_value. The caller should free the memory
  * Return:
- *      On success return the lenght of the pragma/setting value that is
+ *      On success return the length of the pragma/setting value that is
  *      extracted.
  *      On failure return -1
  * */
@@ -1415,7 +1415,7 @@ out:
  * Input:
  * void *db_conn                      : Sqlite connection
  * gf_boolean_t compact_active        : Is compaction on?
- * gf_boolean_t compact_mode_switched : Did we just flip the compaction swtich?
+ * gf_boolean_t compact_mode_switched : Did we just flip the compaction switch?
  * Return:
  *      On success return 0
  *      On failure return -1

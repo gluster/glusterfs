@@ -558,7 +558,7 @@ static int32_t open_format_v1(unsigned char *wire,
 
 /*
  * perform metadata authentication against @loc->path;
- * extract crypt-specific attribtes and populate @info
+ * extract crypt-specific attribute and populate @info
  * with them (optional)
  */
 int32_t open_format(unsigned char *str,

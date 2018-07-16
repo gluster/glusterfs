@@ -264,7 +264,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
         if (dict_get_str (this->options, "transport.socket.bind-address",
                           &volfileserver) == 0) {
                /*In the case of running multiple glusterds on a single machine,
-                *we should ensure that log file and unix socket file shouls be
+                *we should ensure that log file and unix socket file should be
                 *unique in given cluster */
 
                 GLUSTERD_GET_DEFRAG_SOCK_FILE_OLD (sockfile, volinfo,

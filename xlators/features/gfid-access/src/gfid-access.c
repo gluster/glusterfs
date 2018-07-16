@@ -756,7 +756,7 @@ ga_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         priv = this->private;
 
-        /* do we need to copy root stbuf everytime? */
+        /* do we need to copy root stbuf every time? */
         /* mostly yes, as we want to have the 'stat' info show latest
            in every _cbk() */
 

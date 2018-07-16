@@ -612,7 +612,7 @@ void submit_full(call_frame_t *frame, xlator_t *this)
 		granularity = 1;
 		/*
 		 * calculate start offset using cursor value;
-		 * here we should take into accout head block,
+		 * here we should take into account head block,
 		 * which corresponds to cursor value 0.
 		 */
 		off_in_file = atom->offset_at(frame, object) +

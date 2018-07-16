@@ -678,7 +678,7 @@ bd_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
 posix:
 
-        /* open posix equivalant of this file, fd needed for fd related
+        /* open posix equivalent of this file, fd needed for fd related
            operations like fsetxattr, ftruncate etc */
         STACK_WIND (frame, bd_open_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->open, loc, flags, fd, xdata);
@@ -895,7 +895,7 @@ out:
 }
 
 /*
- * Call back for removexattr after removing BD_XATTR incase of
+ * Call back for removexattr after removing BD_XATTR in case of
  * bd create failure
  */
 int

@@ -1967,7 +1967,7 @@ cont:
                 DHT_STRIP_PHASE1_FLAGS (&local->stbuf);
                 dht_set_fixed_dir_stat (&local->postparent);
 
-                /* local->stbuf is udpated only from subvols which have a layout
+                /* local->stbuf is updated only from subvols which have a layout
                  * The reason is to avoid choosing attr heal source from newly
                  * added bricks. In case e.g we have only one subvol and for
                  * some reason layout is not present on it, then local->stbuf
@@ -2454,7 +2454,7 @@ dht_lookup_everywhere_done (call_frame_t *frame, xlator_t *this)
                                  *
                                  * Performing deletion of stale link file when
                                  * setting key in dict fails, may cause the data
-                                 * loss becase of the above mentioned race.
+                                 * loss because of the above mentioned race.
                                  */
 
 
@@ -3255,9 +3255,9 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                               "Entry %s missing on subvol %s",
                               loc->path, prev->name);
 
-                /* lookup-optimize supercedes lookup-unhashed settings,
+                /* lookup-optimize supersedes lookup-unhashed settings,
                  *   - so if it is set, do not process search_unhashed
-                 *   - except, in the case of rebalance deamon, we want to
+                 *   - except, in the case of rebalance daemon, we want to
                  *     force the lookup_everywhere behavior */
                 if (!conf->defrag && conf->lookup_optimize && loc->parent) {
                         ret = dht_inode_ctx_layout_get (loc->parent, this,
@@ -4429,7 +4429,7 @@ dht_vgetxattr_fill_and_set (dht_local_t *local, dict_t **dict, xlator_t *this,
          *
          * For node-uuid we just don't have all the pretty formatting,
          * but since this is a generic routine for pathinfo & node-uuid
-         * we dont have conditional space allocation and try to be
+         * we don't have conditional space allocation and try to be
          * generic
          */
         local->alloc_len += (2 * strlen (this->name))
@@ -6122,7 +6122,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                          * promotions and demotions are multithreaded
                          * so the original frame from gf_defrag_start()
                          * is not carried. A new frame will be created when
-                         * we do syncop_setxattr(). This doesnot have the
+                         * we do syncop_setxattr(). This does not have the
                          * frame->root->pid of the original frame. So we pass
                          * this dic key-value when we do syncop_setxattr() to do
                          * data migration and set the frame->root->pid to
@@ -8417,7 +8417,7 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        /* Update parent on success, even if P1/2 checks are positve.
+        /* Update parent on success, even if P1/2 checks are positive.
          * The second call on success will further update the parent */
         if (local->loc.parent) {
                 dht_inode_ctx_time_update (local->loc.parent, this,
@@ -9933,7 +9933,7 @@ dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto unlock;
                 }
 
-                /* Track if rmdir succeeded on atleast one subvol*/
+                /* Track if rmdir succeeded on at least one subvol*/
                 local->fop_succeeded = 1;
                 dht_iatt_merge (this, &local->preparent, preparent);
                 dht_iatt_merge (this, &local->postparent, postparent);

@@ -178,7 +178,7 @@ main (int argc, char *argv[])
         ret = glfs_init (fs);
         LOG_ERR("glfs_init", ret);
 
-        /* Intialize fs2 */
+        /* Initialize fs2 */
         fs2 = glfs_new (volname);
         if (!fs2) {
                 fprintf (stderr, "glfs_new fs2: returned NULL\n");
@@ -199,7 +199,7 @@ main (int argc, char *argv[])
 
         /* Check if the return mask contains the event */
         if (!(ret & GLFS_EVENT_INODE_INVALIDATE)) {
-                fprintf (stderr, "glfs_upcall_register return doesnt contain"
+                fprintf (stderr, "glfs_upcall_register return doesn't contain"
                          " upcall event\n");
                 return -1;
         }
@@ -208,7 +208,7 @@ main (int argc, char *argv[])
 
         /* Check if the return mask contains the event */
         if ((ret < 0) || !(ret & GLFS_EVENT_INODE_INVALIDATE)) {
-                fprintf (stderr, "glfs_upcall_register return doesnt contain"
+                fprintf (stderr, "glfs_upcall_register return doesn't contain"
                          " upcall event\n");
                 return -1;
         }
@@ -233,7 +233,7 @@ main (int argc, char *argv[])
 
         /* Check if the return mask contains the event */
         if ((ret < 0) || !(ret & GLFS_EVENT_INODE_INVALIDATE)) {
-                fprintf (stderr, "glfs_upcall_register return doesnt contain"
+                fprintf (stderr, "glfs_upcall_register return doesn't contain"
                          " upcall event\n");
                 return -1;
         }
@@ -242,7 +242,7 @@ main (int argc, char *argv[])
 
         /* Check if the return mask contains the event */
         if ((ret < 0) || !(ret & GLFS_EVENT_INODE_INVALIDATE)) {
-                fprintf (stderr, "glfs_upcall_register return doesnt contain"
+                fprintf (stderr, "glfs_upcall_register return doesn't contain"
                          " upcall event\n");
                 return -1;
         }

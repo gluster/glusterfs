@@ -23,7 +23,7 @@ main (int argc, char *argv[])
 
         ret = glfs_set_volfile_server (fs, "tcp", argv[1], 24007);
         if (ret != 0) {
-                fprintf (stderr, "glfs_set_volfile_server: retuned %d\n", ret);
+                fprintf (stderr, "glfs_set_volfile_server: returned %d\n", ret);
                 goto out;
         }
         ret = glfs_set_logging (fs, "/dev/null", 7);
