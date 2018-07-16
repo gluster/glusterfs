@@ -1067,8 +1067,7 @@ out:
 }
 
 static void
-glusterd_store_voldirpath_set (glusterd_volinfo_t *volinfo, char *voldirpath,
-                               size_t len)
+glusterd_store_voldirpath_set (glusterd_volinfo_t *volinfo, char *voldirpath)
 {
         glusterd_conf_t         *priv = NULL;
 
@@ -1080,8 +1079,7 @@ glusterd_store_voldirpath_set (glusterd_volinfo_t *volinfo, char *voldirpath,
 }
 
 static void
-glusterd_store_piddirpath_set (glusterd_volinfo_t *volinfo, char *piddirpath,
-                               size_t len)
+glusterd_store_piddirpath_set (glusterd_volinfo_t *volinfo, char *piddirpath)
 {
         glusterd_conf_t         *priv = NULL;
 
@@ -1100,8 +1098,7 @@ glusterd_store_create_volume_dir (glusterd_volinfo_t *volinfo)
 
         GF_ASSERT (volinfo);
 
-        glusterd_store_voldirpath_set (volinfo, voldirpath,
-                                       sizeof (voldirpath));
+        glusterd_store_voldirpath_set (volinfo, voldirpath);
         ret = gf_store_mkdir (voldirpath);
 
         gf_msg_debug (THIS->name, 0, "Returning with %d", ret);
@@ -1116,8 +1113,7 @@ glusterd_store_create_volume_run_dir (glusterd_volinfo_t *volinfo)
 
         GF_ASSERT (volinfo);
 
-        glusterd_store_piddirpath_set (volinfo, piddirpath,
-                                       sizeof (piddirpath));
+        glusterd_store_piddirpath_set (volinfo, piddirpath);
 
         ret = gf_store_mkdir (piddirpath);
 
@@ -1223,8 +1219,7 @@ glusterd_store_volfpath_set (glusterd_volinfo_t *volinfo, char *volfpath,
         GF_ASSERT (volfpath);
         GF_ASSERT (len <= PATH_MAX);
 
-        glusterd_store_voldirpath_set (volinfo, voldirpath,
-                                       sizeof (voldirpath));
+        glusterd_store_voldirpath_set (volinfo, voldirpath);
         snprintf (volfpath, len, "%s/%s", voldirpath, GLUSTERD_VOLUME_INFO_FILE);
 }
 
@@ -1237,8 +1232,7 @@ glusterd_store_node_state_path_set (glusterd_volinfo_t *volinfo,
         GF_ASSERT (node_statepath);
         GF_ASSERT (len <= PATH_MAX);
 
-        glusterd_store_voldirpath_set (volinfo, voldirpath,
-                                       sizeof (voldirpath));
+        glusterd_store_voldirpath_set (volinfo, voldirpath);
         snprintf (node_statepath, len, "%s/%s", voldirpath,
                   GLUSTERD_NODE_STATE_FILE);
 }
@@ -1252,8 +1246,7 @@ glusterd_store_quota_conf_path_set (glusterd_volinfo_t *volinfo,
         GF_ASSERT (quota_conf_path);
         GF_ASSERT (len <= PATH_MAX);
 
-        glusterd_store_voldirpath_set (volinfo, voldirpath,
-                                       sizeof (voldirpath));
+        glusterd_store_voldirpath_set (volinfo, voldirpath);
         snprintf (quota_conf_path, len, "%s/%s", voldirpath,
                   GLUSTERD_VOLUME_QUOTA_CONFIG);
 }
@@ -2400,7 +2393,7 @@ glusterd_store_retrieve_snapd (glusterd_volinfo_t *volinfo)
          * tries to snapd related info from snapd.info file. But since there was
          * no such file till now, the restore operation fails. Thus, to prevent
          * it from happening check whether user serviceable snapshots features
-         * is enabled before restoring snapd. If its disbaled, then simply
+         * is enabled before restoring snapd. If its disabled, then simply
          * exit by returning success (without even checking for the snapd.info).
          */
 
