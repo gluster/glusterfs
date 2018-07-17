@@ -28,7 +28,7 @@
 #include <stdint.h>
 #include <errno.h>
 #include <string.h>
-#include <attr/xattr.h>
+#include <sys/xattr.h>
 #include <fnmatch.h>
 
 #define ATTRNAME_STRIPE_INDEX "trusted.*.stripe-index"
