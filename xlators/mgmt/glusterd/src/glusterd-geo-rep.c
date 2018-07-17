@@ -2799,14 +2799,17 @@ glusterd_verify_slave (char *volname, char *slave_url, char *slave_vol,
                 /* Tokenize the error message from gverify.sh to figure out
                  * if the error is a force blocker or not. */
                 tmp = strtok_r (buf, "|", &save_ptr);
+                if (!tmp) {
+                        ret = -1;
+                        goto out;
+                }
                 if (!strcmp (tmp, "FORCE_BLOCKER"))
                         *is_force_blocker = 1;
                 else {
                         /* No FORCE_BLOCKER flag present so all that is
                          * present is the error message. */
                         *is_force_blocker = 0;
-                        if (tmp)
-                                *op_errstr = gf_strdup (tmp);
+                        *op_errstr = gf_strdup (tmp);
                         ret = -1;
                         goto out;
                 }
