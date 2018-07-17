@@ -495,10 +495,9 @@ afr_txn_arbitrate_fop (call_frame_t *frame, xlator_t *this)
                 local->op_errno =  ENOTCONN;
                 for (i = 0; i < priv->child_count; i++)
                         local->transaction.failed_subvols[i] = 1;
-                afr_changelog_post_op (frame, this);/*uninherit should happen*/
-        } else {
-                afr_transaction_fop (frame, this);
         }
+
+        afr_transaction_fop (frame, this);
 
         return;
 }
@@ -529,13 +528,6 @@ afr_transaction_perform_fop (call_frame_t *frame, xlator_t *this)
                                 local->transaction.failed_subvols[i] = 1;
                 }
         }
-        /*  Perform fops with the lk-owner from top xlator.
-         *  Eg: lk-owner of posix-lk and flush should be same,
-         *  flush cant clear the  posix-lks without that lk-owner.
-         */
-        afr_save_lk_owner (frame);
-        frame->root->lk_owner =
-                local->transaction.main_frame->root->lk_owner;
 
 	if (local->pre_op_compat)
 		/* old mode, pre-op was done as afr_changelog_do()
@@ -561,6 +553,14 @@ afr_transaction_perform_fop (call_frame_t *frame, xlator_t *this)
         }
 
 fop:
+        /*  Perform fops with the lk-owner from top xlator.
+         *  Eg: lk-owner of posix-lk and flush should be same,
+         *  flush cant clear the  posix-lks without that lk-owner.
+         */
+        afr_save_lk_owner (frame);
+        frame->root->lk_owner =
+                local->transaction.main_frame->root->lk_owner;
+
         if (priv->arbiter_count == 1) {
                 afr_txn_arbitrate_fop (frame, this);
         } else {

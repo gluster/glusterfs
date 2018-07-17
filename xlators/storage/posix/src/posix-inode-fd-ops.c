@@ -4416,15 +4416,10 @@ do_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         dict_t               *xattr_rsp = NULL;
         dict_t               *xdata_rsp = NULL;
         struct iatt           stbuf = {0};
-        struct  posix_private *priv     = NULL;
-
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (xattr, out);
         VALIDATE_OR_GOTO (this, out);
-
-        priv = this->private;
-        DISK_SPACE_CHECK_AND_GOTO (frame, priv, xdata, op_ret, op_errno, out);
 
         if (fd) {
                 op_ret = posix_fd_ctx_get (fd, this, &pfd, &op_errno);
