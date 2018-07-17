@@ -34,7 +34,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <dirent.h>
-#include <attr/xattr.h>
+#include <sys/xattr.h>
 #include <sys/sendfile.h>
 
 /* Err number that is assigned to errno so that test application can

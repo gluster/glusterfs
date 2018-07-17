@@ -46,7 +46,7 @@
 #include <sys/uio.h>
 #include <utime.h>
 #include <sys/time.h>
-#include <attr/xattr.h>
+#include <sys/xattr.h>
 #include <sys/sendfile.h>
 
 
