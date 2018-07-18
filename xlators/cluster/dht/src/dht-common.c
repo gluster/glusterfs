@@ -1529,7 +1529,6 @@ unlock:
                 if (local->need_attrheal) {
                         local->need_attrheal = 0;
                         if (!__is_root_gfid (inode->gfid)) {
-                                gf_uuid_copy (local->gfid, local->mds_stbuf.ia_gfid);
                                 local->stbuf.ia_gid = local->mds_stbuf.ia_gid;
                                 local->stbuf.ia_uid = local->mds_stbuf.ia_uid;
                                 local->stbuf.ia_prot = local->mds_stbuf.ia_prot;
@@ -1543,6 +1542,8 @@ unlock:
                                         goto skip_attr_heal;
                                 }
                                 copy_local->stbuf = local->stbuf;
+                                gf_uuid_copy (copy_local->loc.gfid,
+                                              local->stbuf.ia_gfid);
                                 copy_local->mds_stbuf = local->mds_stbuf;
                                 copy_local->mds_subvol = local->mds_subvol;
                                 copy->local = copy_local;
