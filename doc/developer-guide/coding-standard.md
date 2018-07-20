@@ -26,6 +26,54 @@ DBTYPE      access_mode;    /* access mode for accessing
                              */
 ```
 
+Structure members should be aligned based on the padding requirements
+---------------------------------------------------------------------
+
+The compiler will make sure that structure members have optimum alignment,
+but at the expense of suboptimal padding. More important is to optimize the
+padding. The compiler won't do that for you.
+
+This also will help utilize the memory better
+
+*Bad:*
+```
+struct bad {
+    bool  b; /* 0 */
+             /* 1..7 pad */
+    void *p; /* 8..15 */
+    char  c; /* 16 */
+    char  a[16]; /* 17..33 */
+             /* 34..39 pad */
+    int64_t ii; /* 40..47 */
+    int32_t i; /* 48..51 */
+             /* 52..55 pad */
+    int64_t iii; /* 56..63 */
+};
+```
+
+*Good:*
+```
+struct good {
+   int64_t ii; /* explicit 64-bit types */
+   void *p; /* may be 64- or 32-bit */
+   long  l;   /* may be 64- or 32-bit */
+   int   i;   /* 32-bit */
+   short s;   /* 16-bit */
+   char  c;   /* 8-bit */
+   bool  b;   /* 8-bit */
+   char  a[1024];
+);
+```
+Make sure the items with the most stringent alignment requirements will need
+to come earliest (ie, pointers and  perhaps uint64_t etc), and those with less
+stringent alignment requirements at the end (uint16/uint8 and char). Also note
+that the long array (if any) should be at the end of the structure, regardless
+of the type.
+
+Also note, if your structure's overall size is crossing 1k-4k limit, it is
+recommended to mention the reason why the particular structure needs so much
+memory as a comment at the top.
+
 Use \_typename for struct tags and typename\_t for typedefs
 ---------------------------------------------------------
 
