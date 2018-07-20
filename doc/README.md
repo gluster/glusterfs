@@ -1,3 +1,11 @@
+## Developer Guide
+
+Gluster's contributors can check about the internals by visiting [Developer Guide Section](developer-guide). While it is not 'comprehensive', it can help you to get started.
+
+Also while coding, keep [Coding Standard](developer-guide/coding-standard.md) in mind.
+
+When you are ready to commit the changes, make sure you meet our [Commit message standard](developer-guide/commit-guidelines.md).
+
 ## Admin Guide ##
 
 The gluster administration guide is maintained at [github](https://github.com/gluster/glusterdocs). The browsable admin guide can be found [here](http://docs.gluster.org/en/latest/Administrator%20Guide/).
