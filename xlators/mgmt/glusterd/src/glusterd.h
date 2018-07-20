@@ -141,6 +141,16 @@ struct glusterd_volgen {
         dict_t *dict;
 };
 
+/* Keeping all the paths required in glusterd would
+   cause many buffer overflow errors, as we append
+   more defined paths to the brick path, workdir etc etc.
+   It is better to keep limit on this as lesser value,
+   so we get an option to continue with all functionalities.
+   For example, snapname max would be appended on brick-path and
+   would be stored on workdir... all of these being PATH_MAX, is
+   not an ideal situation for success. */
+#define VALID_GLUSTERD_PATHMAX (PATH_MAX - (256 + 64))
+
 typedef struct {
         struct _volfile_ctx     *volfile;
         pthread_mutex_t          mutex;
@@ -148,8 +158,8 @@ typedef struct {
         gf_boolean_t             verify_volfile_checksum;
         gf_boolean_t             trace;
         uuid_t                   uuid;
-        char                     workdir[PATH_MAX];
-        char                     rundir[PATH_MAX];
+        char                     workdir[VALID_GLUSTERD_PATHMAX];
+        char                     rundir[VALID_GLUSTERD_PATHMAX];
         rpcsvc_t                *rpc;
         glusterd_svc_t           shd_svc;
         glusterd_svc_t           nfs_svc;
@@ -212,10 +222,10 @@ typedef enum gf_brick_status {
 
 struct glusterd_brickinfo {
         char               hostname[1024];
-        char               path[PATH_MAX];
-        char               real_path[PATH_MAX];
-        char               device_path[PATH_MAX];
-        char               mount_dir[PATH_MAX];
+        char               path[VALID_GLUSTERD_PATHMAX];
+        char               real_path[VALID_GLUSTERD_PATHMAX];
+        char               device_path[VALID_GLUSTERD_PATHMAX];
+        char               mount_dir[VALID_GLUSTERD_PATHMAX];
         char               brick_id[1024];/*Client xlator name, AFR changelog name*/
         char               fstype [NAME_MAX]; /* Brick file-system type */
         char               mnt_opts [1024]; /* Brick mount options */

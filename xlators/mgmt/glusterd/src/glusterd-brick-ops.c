@@ -416,7 +416,7 @@ __glusterd_handle_add_brick (rpcsvc_request_t *req)
         char                            *volname = NULL;
         int                             brick_count = 0;
         void                            *cli_rsp = NULL;
-        char                            err_str[2048] = {0,};
+        char                            err_str[2048] = "";
         gf_cli_rsp                      rsp = {0,};
         glusterd_volinfo_t              *volinfo = NULL;
         xlator_t                        *this = NULL;
@@ -777,8 +777,8 @@ subvol_matcher_destroy (int *subvols)
 int
 glusterd_set_detach_bricks(dict_t *dict, glusterd_volinfo_t *volinfo)
 {
-        char key[256] = {0,};
-        char value[256] = {0,};
+        char key[64] = "";
+        char value[2048] = ""; /* hostname + path */
         int brick_num = 0;
         int hot_brick_num = 0;
         glusterd_brickinfo_t *brickinfo;
@@ -885,16 +885,16 @@ __glusterd_handle_remove_brick (rpcsvc_request_t *req)
         dict_t                   *dict             = NULL;
         int32_t                   count            = 0;
         char                     *brick            = NULL;
-        char                      key[256]         = {0,};
+        char                      key[64]          = "";
         int                       i                = 1;
         glusterd_volinfo_t       *volinfo          = NULL;
         glusterd_brickinfo_t     *brickinfo        = NULL;
         glusterd_brickinfo_t     **brickinfo_list  = NULL;
         int                      *subvols          = NULL;
-        char                      err_str[2048]    = {0};
+        char                      err_str[2048]    = "";
         gf_cli_rsp                rsp              = {0,};
         void                     *cli_rsp          = NULL;
-        char                      vol_type[256]    = {0,};
+        char                      vol_type[256]    = "";
         int32_t                   replica_count    = 0;
         char                     *volname          = 0;
         xlator_t                 *this             = NULL;
@@ -1319,10 +1319,9 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
         glusterd_brickinfo_t         *brickinfo      = NULL;
         glusterd_gsync_status_temp_t  param          = {0, };
         gf_boolean_t                  restart_needed = 0;
-        char                          msg[1024] __attribute__((unused)) = {0, };
         int                           caps           = 0;
         int                           brickid        = 0;
-        char                          key[PATH_MAX]  = "";
+        char                          key[64]  = "";
         char                         *brick_mount_dir  = NULL;
         xlator_t                     *this           = NULL;
         glusterd_conf_t              *conf           = NULL;
@@ -1521,6 +1520,7 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t *volinfo, int32_t count,
                 if (ret)
                         goto out;
 #ifdef HAVE_BD_XLATOR
+                char msg[1024] = "";
                 /* Check for VG/thin pool if its BD volume */
                 if (brickinfo->vg[0]) {
                         ret = glusterd_is_valid_vg (brickinfo, 0, msg);
@@ -1674,8 +1674,8 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         glusterd_brickinfo_t                    *brickinfo = NULL;
         glusterd_volinfo_t                      *volinfo = NULL;
         xlator_t                                *this = NULL;
-        char                                    msg[2048] = {0,};
-        char                                    key[PATH_MAX] = "";
+        char                                    msg[4096] = "";
+        char                                    key[64] = "";
         gf_boolean_t                            brick_alloc = _gf_false;
         char                                    *all_bricks = NULL;
         char                                    *str_ret = NULL;
@@ -1997,8 +1997,8 @@ glusterd_remove_brick_validate_bricks (gf1_op_commands cmd, int32_t brick_count,
                                        gf_cli_defrag_type cmd_defrag)
 {
         char                   *brick       = NULL;
-        char                    msg[2048]   = {0,};
-        char                    key[256]    = {0,};
+        char                    msg[2048]   = "";
+        char                    key[64]     = "";
         glusterd_brickinfo_t   *brickinfo   = NULL;
         glusterd_peerinfo_t    *peerinfo    = NULL;
         int                     i           = 0;
@@ -2140,7 +2140,7 @@ glusterd_op_stage_remove_brick (dict_t *dict, char **op_errstr)
         glusterd_volinfo_t     *volinfo     = NULL;
         char                   *errstr      = NULL;
         int32_t                 brick_count = 0;
-        char                    msg[2048]   = {0,};
+        char                    msg[2048]   = "";
         int32_t                 flag        = 0;
         gf1_op_commands         cmd         = GF_OP_CMD_NONE;
         char                   *task_id_str = NULL;
@@ -2719,9 +2719,9 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         char                    *brick         = NULL;
         int32_t                 count          = 0;
         int32_t                 i              = 1;
-        char                    key[256]       = {0,};
+        char                    key[64]        = "";
         int32_t                 flag           = 0;
-        char                    err_str[4096]  = {0,};
+        char                    err_str[4096]  = "";
         int                     need_rebalance = 0;
         int                     force          = 0;
         gf1_op_commands         cmd            = 0;
@@ -3243,7 +3243,7 @@ __glusterd_handle_add_tier_brick (rpcsvc_request_t *req)
         char                            *volname = NULL;
         int                             brick_count = 0;
         void                            *cli_rsp = NULL;
-        char                            err_str[2048] = {0,};
+        char                            err_str[2048] = "";
         gf_cli_rsp                      rsp = {0,};
         glusterd_volinfo_t              *volinfo = NULL;
         xlator_t                        *this = NULL;
