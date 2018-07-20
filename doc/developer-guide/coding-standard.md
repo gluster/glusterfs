@@ -156,6 +156,28 @@ instead.
 gf_boolean_t port_inuse[65536]; /* 256KB, this actually happened */
 ```
 
+NOTE: Ideal is to limit the stack array to less than 256 bytes.
+
+
+Character array initializing
+----------------------------
+
+It is recommended to keep the character array initializing to empty string.
+
+*Good:*
+```
+char msg[1024] = "";
+```
+
+Not so much recommended, even though it means the same.
+
+```
+char msg[1024] = {0,};
+```
+
+We recommend above to structure initialization.
+
+
 
 Validate all arguments to a function
 ------------------------------------
