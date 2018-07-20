@@ -668,7 +668,7 @@ __shard_update_shards_inode_list (inode_t *linked_inode, xlator_t *this,
         shard_inode_ctx_get (linked_inode, this, &ctx);
 
         if (list_empty (&ctx->ilist)) {
-                if (priv->inode_count + 1 <= SHARD_MAX_INODES) {
+                if (priv->inode_count + 1 <= priv->lru_limit) {
                 /* If this inode was linked here for the first time (indicated
                  * by empty list), and if there is still space in the priv list,
                  * add this ctx to the tail of the list.
@@ -6688,6 +6688,8 @@ init (xlator_t *this)
 
         GF_OPTION_INIT ("shard-deletion-rate", priv->deletion_rate, uint32, out);
 
+        GF_OPTION_INIT ("shard-lru-limit", priv->lru_limit, uint64, out);
+
         this->local_pool = mem_pool_new (shard_local_t, 128);
         if (!this->local_pool) {
                 ret = -1;
@@ -6807,7 +6809,7 @@ shard_priv_dump (xlator_t *this)
         gf_proc_dump_write ("shard-block-size", "%s", str);
         gf_proc_dump_write ("inode-count", "%d", priv->inode_count);
         gf_proc_dump_write ("ilist_head", "%p", &priv->ilist_head);
-        gf_proc_dump_write ("lru-max-limit", "%d", SHARD_MAX_INODES);
+        gf_proc_dump_write ("lru-max-limit", "%d", priv->lru_limit);
 
         GF_FREE (str);
 
@@ -6883,6 +6885,22 @@ struct volume_options options[] = {
            .min = 100,
            .max = INT_MAX,
            .description = "The number of shards to send deletes on at a time",
+        },
+        {  .key = {"shard-lru-limit"},
+           .type = GF_OPTION_TYPE_INT,
+           .op_version = {GD_OP_VERSION_4_2_0},
+           .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT,
+           .tags = {"shard"},
+           .default_value = "16384",
+           .min = 20,
+           .max = INT_MAX,
+           .description = "The number of resolved shard inodes to keep in "
+                          "memory. A higher number means shards that are "
+                          "resolved will remain in memory longer, avoiding "
+                          "frequent lookups on them when they participate in "
+                          "file operations. The option also has a bearing on "
+                          "amount of memory consumed by these inodes and their "
+                          "internal metadata",
         },
         { .key = {NULL} },
 };

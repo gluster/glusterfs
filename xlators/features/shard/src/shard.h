@@ -23,8 +23,6 @@
 #define SHARD_MAX_BLOCK_SIZE  (4 * GF_UNIT_TB)
 #define SHARD_XATTR_PREFIX "trusted.glusterfs.shard."
 #define GF_XATTR_SHARD_BLOCK_SIZE "trusted.glusterfs.shard.block-size"
-#define SHARD_INODE_LRU_LIMIT 4096
-#define SHARD_MAX_INODES 16384
 /**
  *  Bit masks for the valid flag, which is used while updating ctx
 **/
@@ -216,6 +214,7 @@ typedef struct shard_priv {
         struct list_head ilist_head;
         uint32_t deletion_rate;
         shard_first_lookup_state_t first_lookup;
+        uint64_t lru_limit;
 } shard_priv_t;
 
 typedef struct {

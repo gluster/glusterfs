@@ -3455,6 +3455,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
           .op_version = GD_OP_VERSION_3_7_0,
           .flags      = VOLOPT_FLAG_CLIENT_OPT
         },
+        { .key        = "features.shard-lru-limit",
+          .voltype    = "features/shard",
+          .op_version = GD_OP_VERSION_4_2_0,
+          .flags      = VOLOPT_FLAG_CLIENT_OPT,
+          .type       = NO_DOC,
+        },
         { .key        = "features.shard-deletion-rate",
           .voltype    = "features/shard",
           .op_version = GD_OP_VERSION_4_2_0,
