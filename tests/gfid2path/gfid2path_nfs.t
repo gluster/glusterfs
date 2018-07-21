@@ -46,7 +46,7 @@ backpath=$B0/${V0}1/file1
 #Check for the presence of xattr
 pgfid_bname=$pgfid/file1
 echo -n $pgfid_bname > $xxh64_file
-xxh64sum=$($XXHSUM_EXEC $xxh64_file | awk '{print $1}')
+xxh64sum=$(($XXHSUM_EXEC $xxh64_file) 2>/dev/null | awk '{print $1}')
 key="trusted.gfid2path.$xxh64sum"
 EXPECT $pgfid_bname get_text_xattr $key $backpath
 
@@ -58,7 +58,7 @@ backpath=$B0/${V0}1/mknod_file1
 #Check for the presence of xattr
 pgfid_bname=$pgfid/mknod_file1
 echo -n $pgfid_bname > $xxh64_file
-xxh64sum=$($XXHSUM_EXEC $xxh64_file | awk '{print $1}')
+xxh64sum=$(($XXHSUM_EXEC $xxh64_file) 2>/dev/null | awk '{print $1}')
 key="trusted.gfid2path.$xxh64sum"
 EXPECT $pgfid_bname get_text_xattr $key $backpath
 
@@ -72,13 +72,13 @@ backpath2=$B0/${V0}1/hl_file1
 #Check for the presence of two xattrs
 pgfid_bname=$pgfid/file1
 echo -n $pgfid_bname > $xxh64_file
-xxh64sum=$($XXHSUM_EXEC $xxh64_file | awk '{print $1}')
+xxh64sum=$(($XXHSUM_EXEC $xxh64_file) 2>/dev/null | awk '{print $1}')
 key="trusted.gfid2path.$xxh64sum"
 EXPECT $pgfid_bname get_text_xattr $key $backpath1
 
 pgfid_bname=$pgfid/hl_file1
 echo -n $pgfid_bname > $xxh64_file
-xxh64sum=$($XXHSUM_EXEC $xxh64_file | awk '{print $1}')
+xxh64sum=$(($XXHSUM_EXEC $xxh64_file) 2>/dev/null | awk '{print $1}')
 key="trusted.gfid2path.$xxh64sum"
 EXPECT $pgfid_bname get_text_xattr $key $backpath2
 
@@ -91,13 +91,13 @@ backpath=$B0/${V0}1/rn_file1
 #Check for the presence of new xattr
 pgfid_bname=$pgfid/file1
 echo -n $pgfid_bname > $xxh64_file
-xxh64sum=$($XXHSUM_EXEC $xxh64_file | awk '{print $1}')
+xxh64sum=$(($XXHSUM_EXEC $xxh64_file) 2>/dev/null | awk '{print $1}')
 key="trusted.gfid2path.$xxh64sum"
 EXPECT_NOT $pgfid_bname get_text_xattr $key $backpath
 
 pgfid_bname=$pgfid/rn_file1
 echo -n $pgfid_bname > $xxh64_file
-xxh64sum=$($XXHSUM_EXEC $xxh64_file | awk '{print $1}')
+xxh64sum=$(($XXHSUM_EXEC $xxh64_file) 2>/dev/null | awk '{print $1}')
 key="trusted.gfid2path.$xxh64sum"
 EXPECT $pgfid_bname get_text_xattr $key $backpath
 
@@ -110,13 +110,13 @@ backpath=$B0/${V0}1/rn_file1
 #Check removal of xattr
 pgfid_bname=$pgfid/hl_file1
 echo -n $pgfid_bname > $xxh64_file
-xxh64sum=$($XXHSUM_EXEC $xxh64_file | awk '{print $1}')
+xxh64sum=$(($XXHSUM_EXEC $xxh64_file) 2>/dev/null | awk '{print $1}')
 key="trusted.gfid2path.$xxh64sum"
 EXPECT_NOT $pgfid_bname get_text_xattr $key $backpath
 
 pgfid_bname=$pgfid/rn_file1
 echo -n $pgfid_bname > $xxh64_file
-xxh64sum=$($XXHSUM_EXEC $xxh64_file | awk '{print $1}')
+xxh64sum=$(($XXHSUM_EXEC $xxh64_file) 2>/dev/null | awk '{print $1}')
 key="trusted.gfid2path.$xxh64sum"
 EXPECT $pgfid_bname get_text_xattr $key $backpath
 
@@ -129,7 +129,7 @@ backpath=$B0/${V0}1/sym_file1
 #Check for the presence of xattr
 pgfid_bname=$pgfid/sym_file1
 echo -n $pgfid_bname > $xxh64_file
-xxh64sum=$($XXHSUM_EXEC $xxh64_file | awk '{print $1}')
+xxh64sum=$(($XXHSUM_EXEC $xxh64_file) 2>/dev/null | awk '{print $1}')
 key="trusted.gfid2path.$xxh64sum"
 EXPECT $pgfid_bname get_text_xattr $key $backpath
 
