@@ -665,10 +665,6 @@ posix_set_parent_ctime (call_frame_t *frame, xlator_t *this,
                                 "posix set mdata failed on file: %s gfid:%s",
                                 real_path, uuid_utoa (inode->gfid));
                 }
-        } else {
-                gf_msg (this->name, GF_LOG_WARNING, errno,
-                        P_MSG_SETMDATA_FAILED,
-                        "posix parent set mdata failed on file");
         }
         return;
 }
