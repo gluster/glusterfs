@@ -57,8 +57,8 @@ Q.Score is a measure of quality of the hash function.
 It depends on successfully passing SMHasher test set.
 10 is a perfect score.
 
-A 64-bits version, named XXH64, is available since r35.
-It offers much better speed, but for 64-bits applications only.
+A 64-bit version, named XXH64, is available since r35.
+It offers much better speed, but for 64-bit applications only.
 Name     Speed on 64 bits    Speed on 32 bits
 XXH64       13.8 GB/s            1.9 GB/s
 XXH32        6.8 GB/s            6.0 GB/s
@@ -73,33 +73,26 @@ extern "C" {
 
 
 /* ****************************
-*  Compiler specifics
-******************************/
-#if !(defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L))   /* ! C99 */
-#  define restrict   /* disable restrict */
-#endif
-
-
-/* ****************************
 *  Definitions
 ******************************/
 #include <stddef.h>   /* size_t */
-typedef enum { XXH_OK=0, XXH_ERROR } GF_XXH_errorcode;
+typedef enum { XXH_OK=0, XXH_ERROR } XXH_errorcode;
 
 
 /* ****************************
-*  API modifier
-******************************/
-/** XXH_PRIVATE_API
-*   This is useful to include xxhash functions in `static` mode
-*   in order to inline them, and remove their symbol from the public list.
-*   Methodology :
-*     #define XXH_PRIVATE_API
-*     #include "xxhash.h"
-*   `xxhash.c` is automatically included.
-*   It's not useful to compile and link it as a separate module.
-*/
-#ifdef XXH_PRIVATE_API
+ *  API modifier
+ ******************************/
+/** XXH_INLINE_ALL (and XXH_PRIVATE_API)
+ *  This is useful to include xxhash functions in `static` mode
+ *  in order to inline them, and remove their symbol from the public list.
+ *  Inlining can offer dramatic performance improvement on small keys.
+ *  Methodology :
+ *     #define XXH_INLINE_ALL
+ *     #include "xxhash.h"
+ * `xxhash.c` is automatically included.
+ *  It's not useful to compile and link it as a separate module.
+ */
+#if defined(XXH_INLINE_ALL) || defined(XXH_PRIVATE_API)
 #  ifndef XXH_STATIC_LINKING_ONLY
 #    define XXH_STATIC_LINKING_ONLY
 #  endif
@@ -110,45 +103,46 @@ typedef enum { XXH_OK=0, XXH_ERROR } GF_XXH_errorcode;
 #  elif defined(_MSC_VER)
 #    define XXH_PUBLIC_API static __inline
 #  else
-#    define XXH_PUBLIC_API static   /* this version may generate warnings for unused static functions; disable the relevant warning */
+     /* this version may generate warnings for unused static functions */
+#    define XXH_PUBLIC_API static
 #  endif
 #else
 #  define XXH_PUBLIC_API   /* do nothing */
-#endif /* XXH_PRIVATE_API */
+#endif /* XXH_INLINE_ALL || XXH_PRIVATE_API */
 
-/*!XXH_NAMESPACE, aka Namespace Emulation :
-
-If you want to include _and expose_ xxHash functions from within your own library,
-but also want to avoid symbol collisions with other libraries which may also include xxHash,
-
-you can use XXH_NAMESPACE, to automatically prefix any public symbol from xxhash library
-with the value of XXH_NAMESPACE (therefore, avoid NULL and numeric values).
-
-Note that no change is required within the calling program as long as it includes `xxhash.h` :
-regular symbol name will be automatically translated by this header.
-*/
+/*! XXH_NAMESPACE, aka Namespace Emulation :
+ *
+ * If you want to include _and expose_ xxHash functions from within your own library,
+ * but also want to avoid symbol collisions with other libraries which may also include xxHash,
+ *
+ * you can use XXH_NAMESPACE, to automatically prefix any public symbol from xxhash library
+ * with the value of XXH_NAMESPACE (therefore, avoid NULL and numeric values).
+ *
+ * Note that no change is required within the calling program as long as it includes `xxhash.h` :
+ * regular symbol name will be automatically translated by this header.
+ */
 #ifdef XXH_NAMESPACE
 #  define XXH_CAT(A,B) A##B
 #  define XXH_NAME2(A,B) XXH_CAT(A,B)
-#  define GF_XXH_versionNumber XXH_NAME2(XXH_NAMESPACE, GF_XXH_versionNumber)
-#  define GF_XXH32 XXH_NAME2(XXH_NAMESPACE, GF_XXH32)
-#  define GF_XXH32_createState XXH_NAME2(XXH_NAMESPACE, GF_XXH32_createState)
-#  define GF_XXH32_freeState XXH_NAME2(XXH_NAMESPACE, GF_XXH32_freeState)
-#  define GF_XXH32_reset XXH_NAME2(XXH_NAMESPACE, GF_XXH32_reset)
-#  define GF_XXH32_update XXH_NAME2(XXH_NAMESPACE, GF_XXH32_update)
-#  define GF_XXH32_digest XXH_NAME2(XXH_NAMESPACE, GF_XXH32_digest)
-#  define GF_XXH32_copyState XXH_NAME2(XXH_NAMESPACE, GF_XXH32_copyState)
-#  define GF_XXH32_canonicalFromHash XXH_NAME2(XXH_NAMESPACE, GF_XXH32_canonicalFromHash)
-#  define GF_XXH32_hashFromCanonical XXH_NAME2(XXH_NAMESPACE, GF_XXH32_hashFromCanonical)
-#  define GF_XXH64 XXH_NAME2(XXH_NAMESPACE, GF_XXH64)
-#  define GF_XXH64_createState XXH_NAME2(XXH_NAMESPACE, GF_XXH64_createState)
-#  define GF_XXH64_freeState XXH_NAME2(XXH_NAMESPACE, GF_XXH64_freeState)
-#  define GF_XXH64_reset XXH_NAME2(XXH_NAMESPACE, GF_XXH64_reset)
-#  define GF_XXH64_update XXH_NAME2(XXH_NAMESPACE, GF_XXH64_update)
-#  define GF_XXH64_digest XXH_NAME2(XXH_NAMESPACE, GF_XXH64_digest)
-#  define GF_XXH64_copyState XXH_NAME2(XXH_NAMESPACE, GF_XXH64_copyState)
-#  define GF_XXH64_canonicalFromHash XXH_NAME2(XXH_NAMESPACE, GF_XXH64_canonicalFromHash)
-#  define GF_XXH64_hashFromCanonical XXH_NAME2(XXH_NAMESPACE, GF_XXH64_hashFromCanonical)
+#  define XXH_versionNumber XXH_NAME2(XXH_NAMESPACE, XXH_versionNumber)
+#  define XXH32 XXH_NAME2(XXH_NAMESPACE, XXH32)
+#  define XXH32_createState XXH_NAME2(XXH_NAMESPACE, XXH32_createState)
+#  define XXH32_freeState XXH_NAME2(XXH_NAMESPACE, XXH32_freeState)
+#  define XXH32_reset XXH_NAME2(XXH_NAMESPACE, XXH32_reset)
+#  define XXH32_update XXH_NAME2(XXH_NAMESPACE, XXH32_update)
+#  define XXH32_digest XXH_NAME2(XXH_NAMESPACE, XXH32_digest)
+#  define XXH32_copyState XXH_NAME2(XXH_NAMESPACE, XXH32_copyState)
+#  define XXH32_canonicalFromHash XXH_NAME2(XXH_NAMESPACE, XXH32_canonicalFromHash)
+#  define XXH32_hashFromCanonical XXH_NAME2(XXH_NAMESPACE, XXH32_hashFromCanonical)
+#  define XXH64 XXH_NAME2(XXH_NAMESPACE, XXH64)
+#  define XXH64_createState XXH_NAME2(XXH_NAMESPACE, XXH64_createState)
+#  define XXH64_freeState XXH_NAME2(XXH_NAMESPACE, XXH64_freeState)
+#  define XXH64_reset XXH_NAME2(XXH_NAMESPACE, XXH64_reset)
+#  define XXH64_update XXH_NAME2(XXH_NAMESPACE, XXH64_update)
+#  define XXH64_digest XXH_NAME2(XXH_NAMESPACE, XXH64_digest)
+#  define XXH64_copyState XXH_NAME2(XXH_NAMESPACE, XXH64_copyState)
+#  define XXH64_canonicalFromHash XXH_NAME2(XXH_NAMESPACE, XXH64_canonicalFromHash)
+#  define XXH64_hashFromCanonical XXH_NAME2(XXH_NAMESPACE, XXH64_hashFromCanonical)
 #endif
 
 
@@ -157,139 +151,172 @@ regular symbol name will be automatically translated by this header.
 ***************************************/
 #define XXH_VERSION_MAJOR    0
 #define XXH_VERSION_MINOR    6
-#define XXH_VERSION_RELEASE  2
+#define XXH_VERSION_RELEASE  5
 #define XXH_VERSION_NUMBER  (XXH_VERSION_MAJOR *100*100 + XXH_VERSION_MINOR *100 + XXH_VERSION_RELEASE)
-XXH_PUBLIC_API unsigned GF_XXH_versionNumber (void);
+XXH_PUBLIC_API unsigned XXH_versionNumber (void);
 
 
 /*-**********************************************************************
-*  32-bits hash
+*  32-bit hash
 ************************************************************************/
-typedef unsigned int       GF_XXH32_hash_t;
+typedef unsigned int XXH32_hash_t;
 
 /*! XXH32() :
-    Calculate the 32-bits hash of sequence "length" bytes stored at memory address "input".
+    Calculate the 32-bit hash of sequence "length" bytes stored at memory address "input".
     The memory between input & input+length must be valid (allocated and read-accessible).
     "seed" can be used to alter the result predictably.
     Speed on Core 2 Duo @ 3 GHz (single thread, SMHasher benchmark) : 5.4 GB/s */
-XXH_PUBLIC_API GF_XXH32_hash_t GF_XXH32 (const void* input, size_t length, unsigned int seed);
+XXH_PUBLIC_API XXH32_hash_t XXH32 (const void* input, size_t length, unsigned int seed);
 
 /*======   Streaming   ======*/
-typedef struct XXH32_state_s GF_XXH32_state_t;   /* incomplete type */
-XXH_PUBLIC_API GF_XXH32_state_t* GF_XXH32_createState(void);
-XXH_PUBLIC_API GF_XXH_errorcode  GF_XXH32_freeState(GF_XXH32_state_t* statePtr);
-XXH_PUBLIC_API void GF_XXH32_copyState(GF_XXH32_state_t* restrict dst_state, const GF_XXH32_state_t* restrict src_state);
+typedef struct XXH32_state_s XXH32_state_t;   /* incomplete type */
+XXH_PUBLIC_API XXH32_state_t* XXH32_createState(void);
+XXH_PUBLIC_API XXH_errorcode  XXH32_freeState(XXH32_state_t* statePtr);
+XXH_PUBLIC_API void XXH32_copyState(XXH32_state_t* dst_state, const XXH32_state_t* src_state);
 
-XXH_PUBLIC_API GF_XXH_errorcode GF_XXH32_reset  (GF_XXH32_state_t* statePtr, unsigned int seed);
-XXH_PUBLIC_API GF_XXH_errorcode GF_XXH32_update (GF_XXH32_state_t* statePtr, const void* input, size_t length);
-XXH_PUBLIC_API GF_XXH32_hash_t  GF_XXH32_digest (const GF_XXH32_state_t* statePtr);
+XXH_PUBLIC_API XXH_errorcode XXH32_reset  (XXH32_state_t* statePtr, unsigned int seed);
+XXH_PUBLIC_API XXH_errorcode XXH32_update (XXH32_state_t* statePtr, const void* input, size_t length);
+XXH_PUBLIC_API XXH32_hash_t  XXH32_digest (const XXH32_state_t* statePtr);
 
 /*
-These functions generate the xxHash of an input provided in multiple segments.
-Note that, for small input, they are slower than single-call functions, due to state management.
-For small input, prefer `XXH32()` and `XXH64()` .
-
-XXH state must first be allocated, using XXH*_createState() .
-
-Start a new hash by initializing state with a seed, using XXH*_reset().
-
-Then, feed the hash state by calling XXH*_update() as many times as necessary.
-Obviously, input must be allocated and read accessible.
-The function returns an error code, with 0 meaning OK, and any other value meaning there is an error.
-
-Finally, a hash value can be produced anytime, by using XXH*_digest().
-This function returns the nn-bits hash as an int or long long.
-
-It's still possible to continue inserting input into the hash state after a digest,
-and generate some new hashes later on, by calling again XXH*_digest().
-
-When done, free XXH state space if it was allocated dynamically.
-*/
+ * Streaming functions generate the xxHash of an input provided in multiple segments.
+ * Note that, for small input, they are slower than single-call functions, due to state management.
+ * For small inputs, prefer `XXH32()` and `XXH64()`, which are better optimized.
+ *
+ * XXH state must first be allocated, using XXH*_createState() .
+ *
+ * Start a new hash by initializing state with a seed, using XXH*_reset().
+ *
+ * Then, feed the hash state by calling XXH*_update() as many times as necessary.
+ * The function returns an error code, with 0 meaning OK, and any other value meaning there is an error.
+ *
+ * Finally, a hash value can be produced anytime, by using XXH*_digest().
+ * This function returns the nn-bits hash as an int or long long.
+ *
+ * It's still possible to continue inserting input into the hash state after a digest,
+ * and generate some new hashes later on, by calling again XXH*_digest().
+ *
+ * When done, free XXH state space if it was allocated dynamically.
+ */
 
 /*======   Canonical representation   ======*/
 
-typedef struct { unsigned char digest[4]; } GF_XXH32_canonical_t;
-XXH_PUBLIC_API void GF_XXH32_canonicalFromHash(GF_XXH32_canonical_t* dst, GF_XXH32_hash_t hash);
-XXH_PUBLIC_API GF_XXH32_hash_t GF_XXH32_hashFromCanonical(const GF_XXH32_canonical_t* src);
+typedef struct { unsigned char digest[4]; } XXH32_canonical_t;
+XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t hash);
+XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src);
 
 /* Default result type for XXH functions are primitive unsigned 32 and 64 bits.
-*  The canonical representation uses human-readable write convention, aka big-endian (large digits first).
-*  These functions allow transformation of hash result into and from its canonical format.
-*  This way, hash values can be written into a file / memory, and remain comparable on different systems and programs.
-*/
+ * The canonical representation uses human-readable write convention, aka big-endian (large digits first).
+ * These functions allow transformation of hash result into and from its canonical format.
+ * This way, hash values can be written into a file / memory, and remain comparable on different systems and programs.
+ */
 
 
 #ifndef XXH_NO_LONG_LONG
 /*-**********************************************************************
-*  64-bits hash
+*  64-bit hash
 ************************************************************************/
-typedef unsigned long long GF_XXH64_hash_t;
+typedef unsigned long long XXH64_hash_t;
 
 /*! XXH64() :
-    Calculate the 64-bits hash of sequence of length "len" stored at memory address "input".
+    Calculate the 64-bit hash of sequence of length "len" stored at memory address "input".
     "seed" can be used to alter the result predictably.
-    This function runs faster on 64-bits systems, but slower on 32-bits systems (see benchmark).
+    This function runs faster on 64-bit systems, but slower on 32-bit systems (see benchmark).
 */
-XXH_PUBLIC_API GF_XXH64_hash_t GF_XXH64 (const void* input, size_t length, unsigned long long seed);
+XXH_PUBLIC_API XXH64_hash_t XXH64 (const void* input, size_t length, unsigned long long seed);
 
 /*======   Streaming   ======*/
-typedef struct XXH64_state_s GF_XXH64_state_t;   /* incomplete type */
-XXH_PUBLIC_API GF_XXH64_state_t* GF_XXH64_createState(void);
-XXH_PUBLIC_API GF_XXH_errorcode  GF_XXH64_freeState(GF_XXH64_state_t* statePtr);
-XXH_PUBLIC_API void GF_XXH64_copyState(GF_XXH64_state_t* restrict dst_state, const GF_XXH64_state_t* restrict src_state);
+typedef struct XXH64_state_s XXH64_state_t;   /* incomplete type */
+XXH_PUBLIC_API XXH64_state_t* XXH64_createState(void);
+XXH_PUBLIC_API XXH_errorcode  XXH64_freeState(XXH64_state_t* statePtr);
+XXH_PUBLIC_API void XXH64_copyState(XXH64_state_t* dst_state, const XXH64_state_t* src_state);
 
-XXH_PUBLIC_API GF_XXH_errorcode GF_XXH64_reset  (GF_XXH64_state_t* statePtr, unsigned long long seed);
-XXH_PUBLIC_API GF_XXH_errorcode GF_XXH64_update (GF_XXH64_state_t* statePtr, const void* input, size_t length);
-XXH_PUBLIC_API GF_XXH64_hash_t  GF_XXH64_digest (const GF_XXH64_state_t* statePtr);
+XXH_PUBLIC_API XXH_errorcode XXH64_reset  (XXH64_state_t* statePtr, unsigned long long seed);
+XXH_PUBLIC_API XXH_errorcode XXH64_update (XXH64_state_t* statePtr, const void* input, size_t length);
+XXH_PUBLIC_API XXH64_hash_t  XXH64_digest (const XXH64_state_t* statePtr);
 
 /*======   Canonical representation   ======*/
-typedef struct { unsigned char digest[8]; } GF_XXH64_canonical_t;
-XXH_PUBLIC_API void GF_XXH64_canonicalFromHash(GF_XXH64_canonical_t* dst, GF_XXH64_hash_t hash);
-XXH_PUBLIC_API GF_XXH64_hash_t GF_XXH64_hashFromCanonical(const GF_XXH64_canonical_t* src);
+typedef struct { unsigned char digest[8]; } XXH64_canonical_t;
+XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst, XXH64_hash_t hash);
+XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src);
 #endif  /* XXH_NO_LONG_LONG */
+
 
 
 #ifdef XXH_STATIC_LINKING_ONLY
 
 /* ================================================================================================
-   This section contains definitions which are not guaranteed to remain stable.
+   This section contains declarations which are not guaranteed to remain stable.
    They may change in future versions, becoming incompatible with a different version of the library.
-   They shall only be used with static linking.
-   Never use these definitions in association with dynamic linking !
+   These declarations should only be used with static linking.
+   Never use them in association with dynamic linking !
 =================================================================================================== */
 
-/* These definitions are only meant to allow allocation of XXH state
-   statically, on stack, or in a struct for example.
-   Do not use members directly. */
+/* These definitions are only present to allow
+ * static allocation of XXH state, on stack or in a struct for example.
+ * Never **ever** use members directly. */
 
-   struct XXH32_state_s {
-       unsigned total_len_32;
-       unsigned large_len;
-       unsigned v1;
-       unsigned v2;
-       unsigned v3;
-       unsigned v4;
-       unsigned mem32[4];   /* buffer defined as U32 for alignment */
-       unsigned memsize;
-       unsigned reserved;   /* never read nor write, will be removed in a future version */
-   };   /* typedef'd to XXH32_state_t */
+#if !defined (__VMS) \
+  && (defined (__cplusplus) \
+  || (defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) /* C99 */) )
+#   include <stdint.h>
 
-#ifndef XXH_NO_LONG_LONG
-   struct XXH64_state_s {
-       unsigned long long total_len;
-       unsigned long long v1;
-       unsigned long long v2;
-       unsigned long long v3;
-       unsigned long long v4;
-       unsigned long long mem64[4];   /* buffer defined as U64 for alignment */
-       unsigned memsize;
-       unsigned reserved[2];          /* never read nor write, will be removed in a future version */
-   };   /* typedef'd to XXH64_state_t */
+struct XXH32_state_s {
+   uint32_t total_len_32;
+   uint32_t large_len;
+   uint32_t v1;
+   uint32_t v2;
+   uint32_t v3;
+   uint32_t v4;
+   uint32_t mem32[4];
+   uint32_t memsize;
+   uint32_t reserved;   /* never read nor write, might be removed in a future version */
+};   /* typedef'd to XXH32_state_t */
+
+struct XXH64_state_s {
+   uint64_t total_len;
+   uint64_t v1;
+   uint64_t v2;
+   uint64_t v3;
+   uint64_t v4;
+   uint64_t mem64[4];
+   uint32_t memsize;
+   uint32_t reserved[2];          /* never read nor write, might be removed in a future version */
+};   /* typedef'd to XXH64_state_t */
+
+# else
+
+struct XXH32_state_s {
+   unsigned total_len_32;
+   unsigned large_len;
+   unsigned v1;
+   unsigned v2;
+   unsigned v3;
+   unsigned v4;
+   unsigned mem32[4];
+   unsigned memsize;
+   unsigned reserved;   /* never read nor write, might be removed in a future version */
+};   /* typedef'd to XXH32_state_t */
+
+#   ifndef XXH_NO_LONG_LONG  /* remove 64-bit support */
+struct XXH64_state_s {
+   unsigned long long total_len;
+   unsigned long long v1;
+   unsigned long long v2;
+   unsigned long long v3;
+   unsigned long long v4;
+   unsigned long long mem64[4];
+   unsigned memsize;
+   unsigned reserved[2];     /* never read nor write, might be removed in a future version */
+};   /* typedef'd to XXH64_state_t */
+#    endif
+
+# endif
+
+
+#if defined(XXH_INLINE_ALL) || defined(XXH_PRIVATE_API)
+#  include "xxhash.c"   /* include xxhash function bodies as `static`, for inlining */
 #endif
-
-#  ifdef XXH_PRIVATE_API
-#    include "xxhash.c"   /* include xxhash function bodies as `static`, for inlining */
-#  endif
 
 #endif /* XXH_STATIC_LINKING_ONLY */
 
