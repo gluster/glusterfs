@@ -2718,6 +2718,45 @@ noqueue:
         return 0;
 }
 
+int32_t
+wb_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
+           dict_t *xdata)
+{
+        wb_inode_t   *wb_inode     = NULL;
+        call_stub_t  *stub         = NULL;
+
+        wb_inode = wb_inode_ctx_get (this, oldloc->inode);
+        if (!wb_inode)
+                goto noqueue;
+
+        stub = fop_rename_stub (frame, default_rename_resume, oldloc, newloc,
+                                xdata);
+        if (!stub)
+                goto unwind;
+
+        if (!wb_enqueue (wb_inode, stub))
+                goto unwind;
+
+        wb_process_queue (wb_inode);
+
+        return 0;
+
+unwind:
+        if (stub)
+                call_stub_destroy (stub);
+
+        STACK_UNWIND_STRICT (rename, frame, -1, ENOMEM, NULL, NULL, NULL,
+                             NULL, NULL, NULL);
+
+        return 0;
+
+noqueue:
+        STACK_WIND_TAIL (frame, FIRST_CHILD(this),
+                         FIRST_CHILD(this)->fops->rename, oldloc, newloc,
+                         xdata);
+        return 0;
+}
+
 
 int
 wb_forget (xlator_t *this, inode_t *inode)
@@ -3074,6 +3113,7 @@ struct xlator_fops fops = {
         .fallocate   = wb_fallocate,
         .discard     = wb_discard,
         .zerofill    = wb_zerofill,
+        .rename      = wb_rename,
 };
 
 
