@@ -971,6 +971,9 @@ priv_glfs_free_from_ctx (struct glfs *fs)
         PTHREAD_MUTEX_DESTROY (&fs->upcall_list_mutex, fs->pthread_flags,
                                GLFS_INIT_MUTEX_UPCALL);
 
+        if (fs->oldvolfile)
+                FREE (fs->oldvolfile);
+
         FREE (fs->volname);
 
         FREE (fs);
