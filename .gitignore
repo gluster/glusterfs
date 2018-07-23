@@ -48,7 +48,6 @@ api/src/gfapi.map
 cli/src/gluster
 contrib/argp-standalone/libargp.a
 contrib/fuse-util/fusermount-glusterfs
-contrib/uuid/uuid_types.h
 extras/geo-rep/gsync-sync-gfid
 extras/geo-rep/schedule_georep.py
 extras/snap_scheduler/conf.py

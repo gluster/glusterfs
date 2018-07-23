@@ -760,9 +760,6 @@ make check
 %install
 rm -rf %{buildroot}
 make install DESTDIR=%{buildroot}
-# Install include directory
-install -p -m 0644 contrib/uuid/*.h \
-    %{buildroot}%{_includedir}/glusterfs/
 %if ( 0%{_for_fedora_koji_builds} )
 install -D -p -m 0644 %{SOURCE1} \
     %{buildroot}%{_sysconfdir}/sysconfig/glusterd

@@ -8,7 +8,6 @@ EXTRA_DIST = autogen.sh \
 	build-aux/pkg-version \
         contrib/argp-standalone \
         contrib/umountd \
-        contrib/uuid \
 	$(shell find $(top_srcdir)/tests -type f -print)
 
 SUBDIRS = $(ARGP_STANDALONE_DIR) rpc/xdr/gen libglusterfs rpc api xlators \
@@ -23,7 +22,6 @@ endif
 
 CLEANFILES = glusterfs-api.pc libgfchangelog.pc libgfdb.pc \
 	contrib/umountd/Makefile
-CONFIG_CLEAN_FILES = $(CONTRIB_BUILDDIR)/uuid/uuid_types.h
 
 gitclean: distclean
 	find . -name Makefile.in -exec rm -f {} \;

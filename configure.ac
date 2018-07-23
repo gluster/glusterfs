@@ -272,7 +272,6 @@ AC_CONFIG_FILES([Makefile
                 events/tools/Makefile
                 contrib/fuse-util/Makefile
                 contrib/umountd/Makefile
-                contrib/uuid/uuid_types.h
                 glusterfs-api.pc
                 libgfchangelog.pc
                 libgfdb.pc
@@ -504,13 +503,12 @@ dnl Math library
 AC_CHECK_LIB([m], [pow], [MATH_LIB='-lm'], [MATH_LIB=''])
 AC_SUBST(MATH_LIB)
 
-dnl use libuuid.so or fall-back to contrib/uuid
+dnl depend on libuuid.so
 PKG_CHECK_MODULES([UUID], [uuid],
         [have_uuid=yes
          AC_DEFINE(HAVE_LIBUUID, 1, [have libuuid.so])
          PKGCONFIG_UUID=uuid],
-        [have_uuid=no
-         UUID_CFLAGS='-I$(CONTRIBDIR)/uuid'])
+        [have_uuid=no])
 AM_CONDITIONAL([HAVE_LIBUUID], [test x$have_uuid = xyes])
 
 dnl older version of libuuid (from e2fsprogs) require including uuid/uuid.h
@@ -524,6 +522,21 @@ AC_CHECK_HEADER([uuid.h], [], [AC_CHECK_HEADER([uuid/uuid.h])],
 CFLAGS=${saved_CFLAGS}
 if test "x$ac_cv_header_uuid_uuid_h" = "xyes"; then
     UUID_CFLAGS="${UUID_CFLAGS} -I$(pkg-config --variable=includedir uuid)/uuid"
+    have_uuid=yes
+fi
+
+if test "x$have_uuid" != "xyes"; then
+    case $host_os in
+        *freebsd*)
+            AC_MSG_ERROR([e2fsprogs-libuuid is required to build glusterfs])
+            ;;
+        linux*)
+            AC_MSG_ERROR([libuuid is required to build glusterfs])
+            ;;
+        *)
+            AC_MSG_ERROR([a Linux compatible libuuid is required to build glusterfs])
+            ;;
+    esac
 fi
 
 dnl libglusterfs needs uuid.h, practically everything depends on it
