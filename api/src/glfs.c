@@ -1266,6 +1266,7 @@ pub_glfs_fini (struct glfs *fs)
 
         if (ctx->mgmt) {
                 rpc_clnt_disable (ctx->mgmt);
+                rpc_clnt_unref (ctx->mgmt);
                 ctx->mgmt = NULL;
         }
 
