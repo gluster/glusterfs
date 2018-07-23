@@ -458,6 +458,7 @@ fail:
 int32_t
 rpc_transport_destroy (rpc_transport_t *this)
 {
+	struct dnscache6 *cache = NULL;
 	int32_t ret = -1;
 
 	GF_VALIDATE_OR_GOTO("rpc_transport", this, fail);
@@ -478,6 +479,13 @@ rpc_transport_destroy (rpc_transport_t *this)
 
         if (this->ssl_name) {
                 GF_FREE(this->ssl_name);
+        }
+
+        if (this->dnscache) {
+                cache = this->dnscache;
+                if (cache->first)
+                        freeaddrinfo (cache->first);
+                GF_FREE (this->dnscache);
         }
 
 	GF_FREE (this);
