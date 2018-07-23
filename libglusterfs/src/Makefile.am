@@ -71,17 +71,6 @@ noinst_HEADERS = unittest/unittest.h \
 	$(CONTRIBDIR)/xxhash/xxhash.h \
 	tier-ctr-interface.h
 
-if !HAVE_LIBUUID
-# FIXME: unbundle libuuid, see compat-uuid.h.
-libglusterfs_la_SOURCES += $(CONTRIBDIR)/uuid/clear.c \
-	$(CONTRIBDIR)/uuid/copy.c $(CONTRIBDIR)/uuid/gen_uuid.c \
-	$(CONTRIBDIR)/uuid/pack.c $(CONTRIBDIR)/uuid/parse.c \
-	$(CONTRIBDIR)/uuid/unparse.c $(CONTRIBDIR)/uuid/uuid_time.c \
-	$(CONTRIBDIR)/uuid/compare.c $(CONTRIBDIR)/uuid/isnull.c \
-	$(CONTRIBDIR)/uuid/unpack.c
-endif
-
-
 eventtypes.h: $(top_srcdir)/events/eventskeygen.py
 	$(PYTHON) $(top_srcdir)/events/eventskeygen.py C_HEADER
 

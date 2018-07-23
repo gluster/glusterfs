@@ -57,6 +57,10 @@ gf_uuid_unparse (const uuid_t uuid, char *out)
         uuid_unparse (uuid, out);
 }
 
+#elif defined(__FreeBSD__)
+
+#error Please install e2fsprogs-libuuid for a compatible libuuid implementation.
+
 /* TODO: add more uuid APIs, use constructs like this:
 #elif defined(__NetBSD__) * NetBSD libc *
 
@@ -69,10 +73,6 @@ gf_uuid_clear (uuid_t uuid)
 }
 
 */
-
-#else /* use bundled Linux like libuuid from contrib/uuid/ */
-
-#include "uuid.h"
 
 #endif /* HAVE_UUID */
 #endif /* _GF_UUID_H */
