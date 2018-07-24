@@ -158,9 +158,6 @@
 #define GLUSTERFS_INTERNAL_FOP_KEY  "glusterfs-internal-fop"
 #define DHT_CHANGELOG_RENAME_OP_KEY   "changelog.rename-op"
 
-#define ZR_FILE_CONTENT_STR     "glusterfs.file."
-#define ZR_FILE_CONTENT_STRLEN 15
-
 #define GLUSTERFS_WRITE_IS_APPEND "glusterfs.write-is-append"
 #define GLUSTERFS_WRITE_UPDATE_ATOMIC "glusterfs.write-update-atomic"
 #define GLUSTERFS_OPEN_FD_COUNT "glusterfs.open-fd-count"
@@ -225,9 +222,6 @@
 #define GLUSTERFS_RPC_REPLY_SIZE               24
 
 #define STARTING_EVENT_THREADS                 1
-
-#define ZR_FILE_CONTENT_REQUEST(key) (!strncmp(key, ZR_FILE_CONTENT_STR, \
-                                               ZR_FILE_CONTENT_STRLEN))
 
 #define DEFAULT_VAR_RUN_DIRECTORY        DATADIR "/run/gluster"
 #define DEFAULT_GLUSTERFSD_MISC_DIRETORY DATADIR "/lib/misc/glusterfsd"
