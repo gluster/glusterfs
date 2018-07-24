@@ -46,6 +46,8 @@
 #define DEFAULT_GRP_BUF_SZ 16384
 #define IOS_BLOCK_COUNT_SIZE 32
 
+#define IOS_STATS_DUMP_DIR DEFAULT_VAR_RUN_DIRECTORY
+
 typedef enum {
         IOS_STATS_TYPE_NONE,
         IOS_STATS_TYPE_OPEN,
@@ -3054,7 +3056,6 @@ io_stats_fsync (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
-
 int
 conditional_dump (dict_t *dict, char *key, data_t *value, void *data)
 {
@@ -3067,9 +3068,10 @@ conditional_dump (dict_t *dict, char *key, data_t *value, void *data)
         char                 *filename = NULL;
         FILE                 *logfp = NULL;
         struct ios_dump_args args = {0};
-        int                   pid, namelen;
+        int                   pid, namelen, dirlen;
         char                  dump_key[100];
         char                 *slash_ptr = NULL;
+        char                 *path_in_value = NULL;
 
         stub  = data;
         this  = stub->this;
@@ -3078,16 +3080,30 @@ conditional_dump (dict_t *dict, char *key, data_t *value, void *data)
         name as well. This helps when there is more than a single io-stats
         instance in the graph, or the client and server processes are running
         on the same node */
-        /* hmmm... no check for this */
-        /* name format: <passed in path/filename>.<xlator name slashes to -> */
-        namelen = value->len + strlen (this->name) + 2; /* '.' and '\0' */
+        /* For the sanity of where the file should be located, we should make
+           sure file is written only inside RUNDIR (ie, /var/run/gluster) */
+        /* TODO: provide an option to dump it to different directory of
+           choice, based on options */
+        /* name format: /var/run/gluster/<passed in path/filename>.<xlator name slashes to -> */
+
+        path_in_value = data_to_str (value);
+
+        if (strstr (path_in_value, "../")) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "%s: no \"../\" allowed in path", path_in_value);
+                return -1;
+        }
+        dirlen = strlen (IOS_STATS_DUMP_DIR);
+        namelen = (dirlen + value->len + strlen (this->name) + 3);
+        /* +3 for '/', '.' and '\0' added in snprintf below*/
+
         filename = alloca0 (namelen);
-        memcpy (filename, data_to_str (value), value->len);
-        memcpy (filename + value->len, ".", 1);
-        memcpy (filename + value->len + 1, this->name, strlen(this->name));
+
+        snprintf (filename, namelen, "%s/%s.%s", IOS_STATS_DUMP_DIR,
+                  path_in_value, this->name);
 
         /* convert any slashes to '-' so that fopen works correctly */
-        slash_ptr = strchr (filename + value->len + 1, '/');
+        slash_ptr = strchr (filename + dirlen + 1, '/');
         while (slash_ptr) {
                 *slash_ptr = '-';
                 slash_ptr = strchr (slash_ptr, '/');
