@@ -138,11 +138,11 @@ value =
 help=If SSH keys are not secured with gsyncd prefix then use this configuration to set the actual path of gsyncd(Usually /usr/libexec/glusterfs/gsyncd)
 
 [gluster-command-dir]
-value=/usr/local/sbin/
+value=@SBIN_DIR@
 help=Directory where Gluster binaries exist on master
 
 [slave-gluster-command-dir]
-value=/usr/local/sbin/
+value=@SBIN_DIR@
 help=Directory where Gluster binaries exist on slave
 
 [gluster-params]
