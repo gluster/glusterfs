@@ -3318,6 +3318,13 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
                 vallen = ntoh32 (hostord);
                 buf += DICT_DATA_HDR_VAL_LEN;
 
+                if ((keylen < 0) || (vallen < 0)) {
+                        gf_msg_callingfn ("dict", GF_LOG_ERROR, 0,
+                                          LG_MSG_UNDERSIZED_BUF,
+                                          "undersized length passed "
+                                          "key:%d val:%d", keylen, vallen);
+                        goto out;
+                }
                 if ((buf + keylen) > (orig_buf + size)) {
                         gf_msg_callingfn ("dict", GF_LOG_ERROR, 0,
                                           LG_MSG_UNDERSIZED_BUF,
