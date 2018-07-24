@@ -2879,7 +2879,6 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         char                 *value                 = NULL;
         char                 *real_path             = NULL;
         dict_t               *dict                  = NULL;
-        char                 *file_contents         = NULL;
         int                   ret                   = -1;
         char                 *path                  = NULL;
         char                 *rpath                 = NULL;
@@ -2922,19 +2921,6 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 op_ret = -1;
                 op_errno = ENOATTR;
                 goto out;
-        }
-
-        if (loc->inode && IA_ISDIR(loc->inode->ia_type) && name &&
-            ZR_FILE_CONTENT_REQUEST(name)) {
-                ret = posix_get_file_contents (this, loc->gfid, &name[15],
-                                               &file_contents);
-                if (ret < 0) {
-                        op_errno = -ret;
-                        gf_msg (this->name, GF_LOG_ERROR, op_errno,
-                                P_MSG_FILE_FAILED, "getting file contents"
-                                "failed");
-                        goto out;
-                }
         }
 
         dict = dict_new ();

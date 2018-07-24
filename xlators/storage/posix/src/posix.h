@@ -343,10 +343,6 @@ int posix_fhandle_pair (call_frame_t *frame, xlator_t *this, int fd, char *key,
                         data_t *value, int flags, struct iatt *stbuf,
                         fd_t *_fd);
 void posix_spawn_janitor_thread (xlator_t *this);
-int posix_get_file_contents (xlator_t *this, uuid_t pargfid,
-                             const char *name, char **contents);
-int posix_set_file_contents (xlator_t *this, const char *path, char *key,
-                             data_t *value, int flags);
 int posix_acl_xattr_set (xlator_t *this, const char *path, dict_t *xattr_req);
 int posix_gfid_heal (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req);
 int posix_entry_create_xattr_set (xlator_t *this, const char *path,
