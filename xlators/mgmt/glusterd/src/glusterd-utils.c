@@ -5033,8 +5033,6 @@ glusterd_compare_friend_data (dict_t *peer_data, int32_t *status,
                 glusterd_launch_synctask
                         (glusterd_import_friend_volumes_synctask,
                          peer_data_copy);
-                if (ret)
-                        goto out;
         }
 
 out:
