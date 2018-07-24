@@ -3933,8 +3933,6 @@ server3_3_create (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.bname = alloca (req->msg[0].iov_len);
-
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_create_req, GF_FOP_CREATE);
         if (ret != 0) {
@@ -3968,6 +3966,7 @@ server3_3_create (rpcsvc_request_t *req)
 out:
         /* memory allocated by libc, don't use GF_FREE */
         free (args.xdata.xdata_val);
+        free (args.bname);
 
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);
@@ -4490,8 +4489,6 @@ server3_3_unlink (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.bname = alloca (req->msg[0].iov_len);
-
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_unlink_req, GF_FOP_UNLINK);
         if (ret != 0) {
@@ -4516,6 +4513,7 @@ server3_3_unlink (rpcsvc_request_t *req)
         resolve_and_resume (frame, server_unlink_resume);
 out:
         free (args.xdata.xdata_val);
+        free (args.bname);
 
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);
@@ -4536,8 +4534,6 @@ server3_3_setxattr (rpcsvc_request_t *req)
 
         if (!req)
                 return ret;
-
-        args.dict.dict_val = alloca (req->msg[0].iov_len);
 
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_setxattr_req, GF_FOP_SETXATTR);
@@ -4574,6 +4570,7 @@ server3_3_setxattr (rpcsvc_request_t *req)
 
 out:
         free (args.xdata.xdata_val);
+        free (args.dict.dict_val);
 
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);
@@ -4598,8 +4595,6 @@ server3_3_fsetxattr (rpcsvc_request_t *req)
 
         if (!req)
                 return ret;
-
-        args.dict.dict_val = alloca (req->msg[0].iov_len);
 
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_fsetxattr_req, GF_FOP_FSETXATTR);
@@ -4634,6 +4629,7 @@ server3_3_fsetxattr (rpcsvc_request_t *req)
 
 out:
         free (args.xdata.xdata_val);
+        free (args.dict.dict_val);
 
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);
@@ -4658,8 +4654,6 @@ server3_3_fxattrop (rpcsvc_request_t *req)
 
         if (!req)
                 return ret;
-
-        args.dict.dict_val = alloca (req->msg[0].iov_len);
 
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_fxattrop_req, GF_FOP_FXATTROP);
@@ -4694,6 +4688,7 @@ server3_3_fxattrop (rpcsvc_request_t *req)
 
 out:
         free (args.xdata.xdata_val);
+        free (args.dict.dict_val);
 
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);
@@ -4718,8 +4713,6 @@ server3_3_xattrop (rpcsvc_request_t *req)
 
         if (!req)
                 return ret;
-
-        args.dict.dict_val = alloca (req->msg[0].iov_len);
 
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_xattrop_req, GF_FOP_XATTROP);
@@ -4753,6 +4746,7 @@ server3_3_xattrop (rpcsvc_request_t *req)
 
 out:
         free (args.xdata.xdata_val);
+        free (args.dict.dict_val);
 
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);
@@ -4775,8 +4769,6 @@ server3_3_getxattr (rpcsvc_request_t *req)
 
         if (!req)
                 return ret;
-
-        args.name = alloca (256);
 
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_getxattr_req, GF_FOP_GETXATTR);
@@ -4803,6 +4795,7 @@ server3_3_getxattr (rpcsvc_request_t *req)
         resolve_and_resume (frame, server_getxattr_resume);
 out:
         free (args.xdata.xdata_val);
+        free (args.name);
 
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);
@@ -4822,8 +4815,6 @@ server3_3_fgetxattr (rpcsvc_request_t *req)
 
         if (!req)
                 return ret;
-
-        args.name = alloca (256);
 
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_fgetxattr_req, GF_FOP_FGETXATTR);
@@ -4847,6 +4838,7 @@ server3_3_fgetxattr (rpcsvc_request_t *req)
         resolve_and_resume (frame, server_fgetxattr_resume);
 out:
         free (args.xdata.xdata_val);
+        free (args.name);
 
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);
@@ -4867,8 +4859,6 @@ server3_3_removexattr (rpcsvc_request_t *req)
 
         if (!req)
                 return ret;
-
-        args.name = alloca (256);
 
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_removexattr_req,
@@ -4891,6 +4881,7 @@ server3_3_removexattr (rpcsvc_request_t *req)
         resolve_and_resume (frame, server_removexattr_resume);
 out:
         free (args.xdata.xdata_val);
+        free (args.name);
 
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);
@@ -4909,8 +4900,6 @@ server3_3_fremovexattr (rpcsvc_request_t *req)
 
         if (!req)
                 return ret;
-
-        args.name = alloca (4096);
 
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_fremovexattr_req,
@@ -4934,6 +4923,7 @@ server3_3_fremovexattr (rpcsvc_request_t *req)
         resolve_and_resume (frame, server_fremovexattr_resume);
 out:
         free (args.xdata.xdata_val);
+        free (args.name);
 
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);
@@ -5144,8 +5134,6 @@ server3_3_mknod (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.bname = alloca (req->msg[0].iov_len);
-
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_mknod_req, GF_FOP_MKNOD);
         if (ret != 0) {
@@ -5177,6 +5165,7 @@ out:
 
         /* memory allocated by libc, don't use GF_FREE */
         free (args.xdata.xdata_val);
+        free (args.bname);
 
         return ret;
 
@@ -5194,8 +5183,6 @@ server3_3_mkdir (rpcsvc_request_t *req)
 
         if (!req)
                 return ret;
-
-        args.bname = alloca (req->msg[0].iov_len);
 
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_mkdir_req, GF_FOP_MKDIR);
@@ -5226,6 +5213,7 @@ out:
                 SERVER_REQ_SET_ERROR (req, ret);
 
         free (args.xdata.xdata_val);
+        free (args.bname);
 
         return ret;
 }
@@ -5242,8 +5230,6 @@ server3_3_rmdir (rpcsvc_request_t *req)
 
         if (!req)
                 return ret;
-
-        args.bname = alloca (req->msg[0].iov_len);
 
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_rmdir_req, GF_FOP_RMDIR);
@@ -5268,6 +5254,7 @@ server3_3_rmdir (rpcsvc_request_t *req)
         resolve_and_resume (frame, server_rmdir_resume);
 out:
         free (args.xdata.xdata_val);
+        free (args.bname);
 
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);
@@ -5289,8 +5276,6 @@ server3_3_inodelk (rpcsvc_request_t *req)
 
         if (!req)
                 return ret;
-
-        args.volume = alloca (256);
 
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_inodelk_req, GF_FOP_INODELK);
@@ -5341,6 +5326,7 @@ server3_3_inodelk (rpcsvc_request_t *req)
         resolve_and_resume (frame, server_inodelk_resume);
 out:
         free (args.xdata.xdata_val);
+        free (args.volume);
 
         free (args.flock.lk_owner.lk_owner_val);
 
@@ -5361,8 +5347,6 @@ server3_3_finodelk (rpcsvc_request_t *req)
 
         if (!req)
                 return ret;
-
-        args.volume = alloca (256);
 
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_finodelk_req,
@@ -5415,6 +5399,7 @@ server3_3_finodelk (rpcsvc_request_t *req)
         resolve_and_resume (frame, server_finodelk_resume);
 out:
         free (args.xdata.xdata_val);
+        free (args.volume);
 
         free (args.flock.lk_owner.lk_owner_val);
 
@@ -5436,9 +5421,6 @@ server3_3_entrylk (rpcsvc_request_t *req)
 
         if (!req)
                 return ret;
-
-        args.volume = alloca (256);
-        args.name   = alloca (256);
 
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_entrylk_req,
@@ -5467,6 +5449,8 @@ server3_3_entrylk (rpcsvc_request_t *req)
         resolve_and_resume (frame, server_entrylk_resume);
 out:
         free (args.xdata.xdata_val);
+        free (args.volume);
+        free (args.name);
 
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);
@@ -5485,9 +5469,6 @@ server3_3_fentrylk (rpcsvc_request_t *req)
 
         if (!req)
                 return ret;
-
-        args.name   = alloca (256);
-        args.volume = alloca (256);
 
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_fentrylk_req,
@@ -5516,6 +5497,8 @@ server3_3_fentrylk (rpcsvc_request_t *req)
         resolve_and_resume (frame, server_fentrylk_resume);
 out:
         free (args.xdata.xdata_val);
+        free (args.volume);
+        free (args.name);
 
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);
@@ -5576,9 +5559,6 @@ server3_3_symlink (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        args.bname    = alloca (req->msg[0].iov_len);
-        args.linkname = alloca (4096);
-
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_symlink_req, GF_FOP_SYMLINK);
         if (ret != 0) {
@@ -5607,6 +5587,8 @@ out:
 
         /* memory allocated by libc, don't use GF_FREE */
         free (args.xdata.xdata_val);
+        free (args.linkname);
+        free (args.bname);
 
         return ret;
 }
@@ -5624,8 +5606,6 @@ server3_3_link (rpcsvc_request_t *req)
 
         if (!req)
                 return ret;
-
-        args.newbname = alloca (req->msg[0].iov_len);
 
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_link_req, GF_FOP_LINK);
@@ -5651,6 +5631,7 @@ server3_3_link (rpcsvc_request_t *req)
         resolve_and_resume (frame, server_link_resume);
 out:
         free (args.xdata.xdata_val);
+        free (args.newbname);
 
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);
@@ -5670,9 +5651,6 @@ server3_3_rename (rpcsvc_request_t *req)
 
         if (!req)
                 return ret;
-
-        args.oldbname = alloca (req->msg[0].iov_len);
-        args.newbname = alloca (req->msg[0].iov_len);
 
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_rename_req, GF_FOP_RENAME);
@@ -5700,6 +5678,8 @@ server3_3_rename (rpcsvc_request_t *req)
         resolve_and_resume (frame, server_rename_resume);
 out:
         free (args.xdata.xdata_val);
+        free (args.newbname);
+        free (args.oldbname);
 
         if (op_errno)
                 SERVER_REQ_SET_ERROR (req, ret);
@@ -5902,9 +5882,6 @@ server3_3_lookup (rpcsvc_request_t *req)
 
         GF_VALIDATE_OR_GOTO ("server", req, err);
 
-        args.bname           = alloca (req->msg[0].iov_len);
-        args.xdata.xdata_val = alloca (req->msg[0].iov_len);
-
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfs3_lookup_req, GF_FOP_LOOKUP);
         if (ret != 0) {
@@ -5931,8 +5908,14 @@ server3_3_lookup (rpcsvc_request_t *req)
         ret = 0;
         resolve_and_resume (frame, server_lookup_resume);
 
+        free (args.bname);
+        free (args.xdata.xdata_val);
+
         return ret;
 out:
+        free (args.bname);
+        free (args.xdata.xdata_val);
+
         server_lookup_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL,
                            NULL, NULL);
 	ret = 0;
