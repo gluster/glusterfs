@@ -4221,7 +4221,8 @@ out:
                         gf_store_handle_destroy (peerinfo->shandle);
                         peerinfo->shandle = NULL;
                 }
-        gf_msg_debug (this->name, 0, "Returning with %d", ret);
+        gf_msg_debug ((this ? this->name : "glusterd"), 0, "Returning with %d",
+                      ret);
 
         return ret;
 }

@@ -1828,9 +1828,10 @@ gd_validate_peer_op_version (xlator_t *this, glusterd_peerinfo_t *peerinfo,
 
         ret = 0;
 out:
-        gf_msg_debug ((this ? this->name : "glusterd") , 0, "Peer %s %s",
-                      peerinfo->hostname, ((ret < 0) ? "rejected" : "accepted")
-                     );
+        if (peerinfo)
+                gf_msg_debug ((this ? this->name : "glusterd") , 0, "Peer %s %s",
+                              peerinfo->hostname,
+                              ((ret < 0) ? "rejected" : "accepted"));
         return ret;
 }
 
