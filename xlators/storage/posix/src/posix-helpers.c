@@ -1035,169 +1035,6 @@ out:
 }
 
 
-int
-posix_set_file_contents (xlator_t *this, const char *path, char *keyp,
-                         data_t *value, int flags)
-{
-        char *      key                        = NULL;
-        char        real_path[PATH_MAX];
-        int32_t     file_fd                    = -1;
-        int         op_ret                     = 0;
-        int         ret                        = -1;
-
-
-        /* XXX: does not handle assigning GFID to created files */
-        return -1;
-
-        key = &(keyp[15]);
-        sprintf (real_path, "%s/%s", path, key);
-
-        if (flags & XATTR_REPLACE) {
-                /* if file exists, replace it
-                 * else, error out */
-                file_fd = open (real_path, O_TRUNC|O_WRONLY);
-
-                if (file_fd == -1) {
-                        goto create;
-                }
-
-                if (value->len) {
-                        ret = sys_write (file_fd, value->data, value->len);
-                        if (ret == -1) {
-                                op_ret = -errno;
-                                gf_msg (this->name, GF_LOG_ERROR, errno,
-                                        P_MSG_SET_FILE_CONTENTS, "write failed"
-                                        "while doing setxattr for key %s on"
-                                        "path%s", key, real_path);
-                                goto out;
-                        }
-
-                        ret = sys_close (file_fd);
-                        if (ret == -1) {
-                                op_ret = -errno;
-                                gf_msg (this->name, GF_LOG_ERROR, errno,
-                                        P_MSG_SET_FILE_CONTENTS,
-                                        "close failed on %s",
-                                        real_path);
-                                goto out;
-                        }
-                }
-
-        create: /* we know file doesn't exist, create it */
-
-                file_fd = open (real_path, O_CREAT|O_WRONLY, 0644);
-
-                if (file_fd == -1) {
-                        op_ret = -errno;
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_SET_FILE_CONTENTS, "failed to open file"
-                                "%s with O_CREAT", key);
-                        goto out;
-                }
-
-                ret = sys_write (file_fd, value->data, value->len);
-                if (ret == -1) {
-                        op_ret = -errno;
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_SET_FILE_CONTENTS, "write failed on %s"
-                                "while setxattr with key %s", real_path, key);
-                        goto out;
-                }
-
-                ret = sys_close (file_fd);
-                if (ret == -1) {
-                        op_ret = -errno;
-                        gf_msg (this->name, GF_LOG_ERROR, errno,
-                                P_MSG_SET_FILE_CONTENTS, "close failed on"
-                                " %s while setxattr with key %s",
-                                real_path, key);
-                        goto out;
-                }
-        }
-
-out:
-        return op_ret;
-}
-
-
-int
-posix_get_file_contents (xlator_t *this, uuid_t pargfid,
-                         const char *name, char **contents)
-{
-        char        *real_path                 = NULL;
-        int32_t     file_fd                    = -1;
-        struct iatt stbuf                      = {0,};
-        int         op_ret                     = 0;
-        int         ret                        = -1;
-
-
-        MAKE_HANDLE_PATH (real_path, this, pargfid, name);
-        if (!real_path) {
-                op_ret = -ESTALE;
-                gf_msg (this->name, GF_LOG_ERROR, ESTALE,
-                        P_MSG_XDATA_GETXATTR,
-                        "Failed to create handle path for %s/%s",
-                        uuid_utoa (pargfid), name);
-                goto out;
-        }
-
-        /* TODO: Not fetching posix_mdata_t. This is fine without
-         * RIO as this routine is only interested in file contents.
-         * Need to check how does this function fits into RIO?
-         */
-        op_ret = posix_istat (this, NULL, pargfid, name, &stbuf);
-        if (op_ret == -1) {
-                op_ret = -errno;
-                gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_XDATA_GETXATTR,
-                        "lstat failed on %s", real_path);
-                goto out;
-        }
-
-        file_fd = open (real_path, O_RDONLY);
-
-        if (file_fd == -1) {
-                op_ret = -errno;
-                gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_XDATA_GETXATTR,
-                        "open failed on %s", real_path);
-                goto out;
-        }
-
-        *contents = GF_CALLOC (stbuf.ia_size + 1, sizeof(char),
-                               gf_posix_mt_char);
-        if (! *contents) {
-                op_ret = -errno;
-                goto out;
-        }
-
-        ret = sys_read (file_fd, *contents, stbuf.ia_size);
-        if (ret <= 0) {
-                op_ret = -1;
-                gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_XDATA_GETXATTR,
-                        "read on %s failed", real_path);
-                goto out;
-        }
-
-        *contents[stbuf.ia_size] = '\0';
-
-        op_ret = sys_close (file_fd);
-        file_fd = -1;
-        if (op_ret == -1) {
-                op_ret = -errno;
-                gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_XDATA_GETXATTR,
-                        "close on %s failed", real_path);
-                goto out;
-        }
-
-out:
-        if (op_ret < 0) {
-                GF_FREE (*contents);
-                if (file_fd != -1)
-                        sys_close (file_fd);
-        }
-
-        return op_ret;
-}
-
 #ifdef HAVE_SYS_ACL_H
 int
 posix_pacl_set (const char *path, const char *key, const char *acl_s)
@@ -1310,9 +1147,6 @@ posix_handle_pair (xlator_t *this, const char *real_path,
         } else if (posix_is_gfid2path_xattr (key)) {
                 ret = -ENOTSUP;
                 goto out;
-        } else if (ZR_FILE_CONTENT_REQUEST(key)) {
-                ret = posix_set_file_contents (this, real_path, key, value,
-                                               flags);
         } else if (GF_POSIX_ACL_REQUEST (key)) {
                 if (stbuf && IS_DHT_LINKFILE_MODE (stbuf))
                         goto out;
@@ -1799,8 +1633,7 @@ _handle_entry_create_keyvalue_pair (dict_t *d, char *k, data_t *v,
             !strcmp ("gfid-req", k) ||
             !strcmp (POSIX_ACL_DEFAULT_XATTR, k) ||
             !strcmp (POSIX_ACL_ACCESS_XATTR, k) ||
-            posix_xattr_ignorable (k) ||
-            ZR_FILE_CONTENT_REQUEST(k)) {
+            posix_xattr_ignorable (k)) {
                 return 0;
         }
 
