@@ -5243,6 +5243,10 @@ glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
                 svc = &(priv->bitd_svc);
         else if (strcmp(server, priv->scrub_svc.name) == 0)
                 svc = &(priv->scrub_svc);
+        else {
+                ret = 0;
+                goto out;
+        }
 
         //Consider service to be running only when glusterd sees it Online
         if (svc->online)
@@ -5257,11 +5261,6 @@ glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
          * the brick as hostname+path, so this will make more sense
          * when output.
          */
-
-        if (!strcmp(server, "")) {
-                ret = 0;
-                goto out;
-        }
 
         snprintf (key, sizeof (key), "brick%d.hostname", count);
         if (!strcmp (server, priv->nfs_svc.name))
@@ -5312,7 +5311,6 @@ glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
         ret = dict_set_int32 (dict, key, running);
         if (ret)
                 goto out;
-
 
 out:
         gf_msg_debug (THIS->name, 0, "Returning %d", ret);

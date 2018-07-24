@@ -974,7 +974,7 @@ out:
                 if (op_errstr[0] == '\0')
                         snprintf (op_errstr, sizeof (op_errstr),
                                   "operation failed");
-                gf_msg (this->name, GF_LOG_ERROR, 0,
+                gf_msg ((this ? this->name : "glusterd"), GF_LOG_ERROR, 0,
                         GD_MSG_GLUSTERD_OP_FAILED, "%s", op_errstr);
                 ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
                                                      dict, op_errstr);
