@@ -1824,14 +1824,28 @@ rpc_clnt_trigger_destroy (struct rpc_clnt *rpc)
 static void
 rpc_clnt_destroy (struct rpc_clnt *rpc)
 {
-        rpcclnt_cb_program_t *program = NULL;
-        rpcclnt_cb_program_t *tmp = NULL;
+        rpcclnt_cb_program_t   *program = NULL;
+        rpcclnt_cb_program_t   *tmp = NULL;
+        struct saved_frames    *saved_frames = NULL;
+        rpc_clnt_connection_t  *conn = NULL;
 
         if (!rpc)
                 return;
 
+        conn = &rpc->conn;
         GF_FREE (rpc->conn.name);
-        saved_frames_destroy (rpc->conn.saved_frames);
+        /* Access saved_frames in critical-section to avoid
+           crash in rpc_clnt_connection_cleanup at the time
+           of destroying saved frames
+        */
+        pthread_mutex_lock (&conn->lock);
+        {
+                saved_frames = conn->saved_frames;
+                conn->saved_frames = NULL;
+        }
+        pthread_mutex_unlock (&conn->lock);
+
+        saved_frames_destroy (saved_frames);
         pthread_mutex_destroy (&rpc->lock);
         pthread_mutex_destroy (&rpc->conn.lock);
 
