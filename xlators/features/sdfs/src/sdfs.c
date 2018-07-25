@@ -1520,4 +1520,5 @@ struct volume_options options[] = {
           .tags = {"sdfs"},
           .description = "Enable/Disable dentry serialize functionality"
         },
+        { .key  = {NULL} },
 };
