@@ -241,29 +241,46 @@ aws_form_request (char *resource, char **date, char *reqtype, char *bucketid,
         time_t          ctime;
         struct tm      *gtime = NULL;
         char           *sign_req = NULL;
+        int             signreq_len = -1;
+        int             date_len = -1;
+        int             res_len = -1;
 
         ctime = time(NULL);
         gtime = gmtime(&ctime);
 
-        memset (httpdate, 0, sizeof(httpdate));
-        strftime (httpdate, sizeof(httpdate), "%a, %d %b %Y %H:%M:%S +0000",
-                  gtime);
-        *date = gf_strdup (httpdate);
+        date_len = strftime (httpdate, sizeof(httpdate),
+                             "%a, %d %b %Y %H:%M:%S +0000", gtime);
 
-        memset (resource, 0, RESOURCE_SIZE);
+        *date = gf_strndup (httpdate, date_len);
+        if (*date == NULL) {
+                gf_msg ("CS", GF_LOG_ERROR, ENOMEM, 0, "memory allocation "
+                        "failure for date");
+                goto out;
+        }
 
-        snprintf(resource, RESOURCE_SIZE, "%s/%s", bucketid, filepath);
+        res_len = snprintf(resource, RESOURCE_SIZE, "%s/%s", bucketid,
+                           filepath);
 
         gf_msg_debug ("CS", 0, "resource %s", resource);
 
-        sign_req = GF_CALLOC (1, 256, gf_common_mt_char);
+        /* 6 accounts for the 4 new line chars, one forward slash and
+         * one null char */
+        signreq_len = res_len + date_len + strlen(reqtype) + 6;
 
-        snprintf(sign_req, 256, "%s\n\n%s\n%s\n/%s",
+        sign_req = GF_MALLOC (signreq_len, gf_common_mt_char);
+        if (sign_req == NULL) {
+                gf_msg ("CS", GF_LOG_ERROR, ENOMEM, 0, "memory allocation "
+                        "failure for sign_req");
+                goto out;
+        }
+
+        snprintf(sign_req, signreq_len, "%s\n\n%s\n%s\n/%s",
                  reqtype,
                  "",
                  *date,
                  resource);
 
+out:
         return sign_req;
 }
 
@@ -421,7 +438,8 @@ out:
 int
 aws_download_s3 (call_frame_t *frame, void *config)
 {
-        char                    buf[1024];
+        char                   *buf;
+        int                     bufsize = -1;
         CURL                   *handle = NULL;
         struct curl_slist      *slist = NULL;
         struct curl_slist      *tmp = NULL;
@@ -437,7 +455,7 @@ aws_download_s3 (call_frame_t *frame, void *config)
         char                    *const reqtype  = "GET";
         char                    *signature      = NULL;
         cs_local_t              *local          = NULL;
-        char                    resource[4096] = {0,};
+        char                    resource[RESOURCE_SIZE] = {0,};
         aws_private_t           *priv           = NULL;
 
         local = frame->local;
@@ -472,12 +490,25 @@ aws_download_s3 (call_frame_t *frame, void *config)
         handle = curl_easy_init();
         this = frame->this;
 
-        snprintf (buf, 1024, "Date: %s", date);
+        /* special numbers 6, 20, 10 accounts for static characters in the
+         * below snprintf string format arguments*/
+        bufsize = strlen(date) + 6 + strlen(priv->awskeyid) + strlen(signature)
+                  + 20 + strlen(priv->hostname) + 10;
+
+        buf = (char *)alloca(bufsize);
+        if (!buf) {
+                gf_msg ("CS", GF_LOG_ERROR, ENOMEM, 0, "mem allocation "
+                        "failed for buf");
+                ret = -1;
+                goto out;
+        }
+
+        snprintf (buf, bufsize, "Date: %s", date);
         slist = curl_slist_append(slist, buf);
-        snprintf (buf, sizeof(buf), "Authorization: AWS %s:%s", priv->awskeyid,
+        snprintf (buf, bufsize, "Authorization: AWS %s:%s", priv->awskeyid,
                   signature);
         slist = curl_slist_append(slist, buf);
-        snprintf(buf, sizeof(buf), "https://%s/%s", priv->hostname, resource);
+        snprintf(buf, bufsize, "https://%s/%s", priv->hostname, resource);
 
         if (gf_log_get_loglevel () >= GF_LOG_DEBUG) {
                 tmp = slist;
@@ -525,6 +556,13 @@ aws_download_s3 (call_frame_t *frame, void *config)
         curl_easy_cleanup(handle);
 
 out:
+        if (sign_req)
+                GF_FREE (sign_req);
+        if (date)
+                GF_FREE (date);
+        if (signature)
+                GF_FREE (signature);
+
         return ret;
 }
 
