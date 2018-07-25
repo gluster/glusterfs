@@ -563,6 +563,7 @@ glusterfs_graph_construct (FILE *fp)
                 goto err;
 
         strcpy (template, "/tmp/tmp.XXXXXX");
+        /* coverity[secure_temp] mkstemp uses 0600 as the mode and is safe */
         tmp_fd = mkstemp (template);
         if (-1 == tmp_fd)
                 goto err;

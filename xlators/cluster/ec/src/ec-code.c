@@ -417,6 +417,7 @@ ec_code_space_create(ec_code_t *code, size_t size)
 
         /* We need to create a temporary file as the backend storage for the
          * memory mapped areas. */
+        /* coverity[secure_temp] mkstemp uses 0600 as the mode and is safe */
         fd = mkstemp(path);
         if (fd < 0) {
                 err = errno;

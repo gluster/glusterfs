@@ -105,6 +105,7 @@ glusterd_svc_check_tier_volfile_identical (char *svc_name,
 
         snprintf (tmpvol, sizeof (tmpvol), "/tmp/g%s-XXXXXX", svc_name);
 
+        /* coverity[secure_temp] mkstemp uses 0600 as the mode and is safe */
         tmp_fd = mkstemp (tmpvol);
         if (tmp_fd < 0) {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
@@ -158,6 +159,7 @@ glusterd_svc_check_tier_topology_identical (char *svc_name,
 
         snprintf (tmpvol, sizeof (tmpvol), "/tmp/g%s-XXXXXX", svc_name);
 
+        /* coverity[secure_temp] mkstemp uses 0600 as the mode and is safe */
         tmpfd = mkstemp (tmpvol);
         if (tmpfd < 0) {
                 gf_msg (this->name, GF_LOG_WARNING, errno,
