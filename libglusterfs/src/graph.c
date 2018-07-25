@@ -968,6 +968,7 @@ gf_volfile_reconfigure (int oldvollen, FILE *newvolfile_fp,
                         LG_MSG_ACTIVE_GRAPH_NULL,
                         "glusterfs_ctx->active is NULL");
 
+        /* coverity[secure_temp] mkstemp uses 0600 as the mode and is safe */
                 file_desc = mkstemp(temp_file);
                 if (file_desc < 0) {
                         gf_msg ("glusterfsd-mgmt", GF_LOG_ERROR, errno,

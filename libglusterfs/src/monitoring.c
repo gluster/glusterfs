@@ -237,6 +237,7 @@ gf_monitor_metrics (glusterfs_ctx_t *ctx)
                 return NULL;
         }
 
+        /* coverity[secure_temp] mkstemp uses 0600 as the mode and is safe */
         fd = mkstemp (filepath);
         if (fd < 0) {
                 gf_msg ("monitoring", GF_LOG_ERROR, 0, LG_MSG_STRDUP_ERROR,
