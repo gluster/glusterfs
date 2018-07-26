@@ -54,7 +54,7 @@
 #include "stack.h"
 #include "revision.h"
 #include "common-utils.h"
-#include "event.h"
+#include "gf-event.h"
 #include "syscall.h"
 #include "call-stub.h"
 #include <fnmatch.h>

@@ -19,7 +19,7 @@
 #include "compat.h"
 #include "logging.h"
 #include "dict.h"
-#include "event.h"
+#include "gf-event.h"
 #include "rpcsvc.h"
 #include "rpc-clnt.h"
 #include "byte-order.h"

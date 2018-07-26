@@ -13,7 +13,7 @@
 
 #include "rpcsvc.h"
 #include "rpc-clnt.h"
-#include "event.h"
+#include "gf-event.h"
 #include "call-stub.h"
 
 #include "changelog-xdr.h"

@@ -64,7 +64,7 @@
 #include "glusterfsd.h"
 #include "revision.h"
 #include "common-utils.h"
-#include "event.h"
+#include "gf-event.h"
 #include "statedump.h"
 #include "latency.h"
 #include "glusterfsd-mem-types.h"

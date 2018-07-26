@@ -8,7 +8,7 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "event.h"
+#include "gf-event.h"
 #include "rpcsvc.h"
 
 void

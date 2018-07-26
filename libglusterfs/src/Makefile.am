@@ -49,7 +49,7 @@ protocol-common.h: $(top_srcdir)/rpc/rpc-lib/src/protocol-common.h
 libglusterfs_la_HEADERS = common-utils.h defaults.h default-args.h \
 	dict.h glusterfs.h hashfn.h timespec.h logging.h xlator.h \
 	stack.h timer.h list.h inode.h call-stub.h compat.h fd.h \
-	revision.h compat-errno.h event.h mem-pool.h byte-order.h \
+	revision.h compat-errno.h gf-event.h mem-pool.h byte-order.h \
 	gf-dirent.h locking.h syscall.h iobuf.h globals.h statedump.h \
 	checksum.h daemon.h store.h rbthash.h iatt.h latency.h \
 	mem-types.h syncop.h cluster-syncop.h graph-utils.h trie.h \

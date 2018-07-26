@@ -19,7 +19,7 @@
 #include "glusterfs.h"
 #include "glfs.h"
 #include "dict.h"
-#include "event.h"
+#include "gf-event.h"
 #include "defaults.h"
 
 #include "rpc-clnt.h"

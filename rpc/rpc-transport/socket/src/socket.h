@@ -21,7 +21,7 @@
 #include <openssl/ecdh.h>
 #endif
 
-#include "event.h"
+#include "gf-event.h"
 #include "rpc-transport.h"
 #include "logging.h"
 #include "dict.h"
