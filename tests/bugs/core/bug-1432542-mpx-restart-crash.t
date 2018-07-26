@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_TIMEOUT=400
+SCRIPT_TIMEOUT=800
 
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
@@ -50,7 +50,7 @@ create_volume () {
 	TEST $cmd
 	TEST $CLI volume start $vol_name
 	# check for 6 bricks and 1 shd daemon to be up and running
-        EXPECT_WITHIN $PROCESS_UP_TIMEOUT 7 count_up_bricks $vol_name
+        EXPECT_WITHIN 120 7 count_up_bricks $vol_name
 	local mount_point=$(get_mount_point $1)
 	mkdir -p $mount_point
 	TEST $GFS -s $H0 --volfile-id=$vol_name $mount_point
@@ -77,10 +77,13 @@ TEST $CLI volume set all cluster.brick-multiplex on
 # Our infrastructure can't handle an arithmetic expression here.  The formula
 # is (NUM_VOLS-1)*5 because it sees each TEST/EXPECT once but needs the other
 # NUM_VOLS-1 and there are 5 such statements in each iteration.
-TESTS_EXPECTED_IN_LOOP=95
+TESTS_EXPECTED_IN_LOOP=114
 for i in $(seq 1 $NUM_VOLS); do
 	create_volume $i
 	TEST dd if=/dev/zero of=$(get_mount_point $i)/a_file bs=4k count=1
+        # Unmounting to reduce memory footprint on regression hosts
+        mnt_point=$(get_mount_point $i)
+        EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $mnt_point
 done
 
 # Kill glusterd, and wait a bit for all traces to disappear.
