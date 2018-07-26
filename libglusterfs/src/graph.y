@@ -555,14 +555,13 @@ glusterfs_graph_construct (FILE *fp)
         int                tmp_fd = -1;
         glusterfs_graph_t *graph = NULL;
         FILE              *tmp_file = NULL;
-        char               template[PATH_MAX] = {0};
+        char               template[] = "/tmp/tmp.XXXXXX";
 	static pthread_mutex_t graph_mutex = PTHREAD_MUTEX_INITIALIZER;
 
         graph = glusterfs_graph_new ();
         if (!graph)
                 goto err;
 
-        strcpy (template, "/tmp/tmp.XXXXXX");
         /* coverity[secure_temp] mkstemp uses 0600 as the mode and is safe */
         tmp_fd = mkstemp (template);
         if (-1 == tmp_fd)
