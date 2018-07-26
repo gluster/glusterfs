@@ -3825,17 +3825,15 @@ out:
         return ret;
 }
 
-
 static int32_t
-socket_submit_request (rpc_transport_t *this, rpc_transport_req_t *req)
+socket_submit_outgoing_msg (rpc_transport_t *this, rpc_transport_msg_t *msg)
 {
-        socket_private_t *priv = NULL;
-        int               ret = -1;
-        struct ioq       *entry = NULL;
-        glusterfs_ctx_t  *ctx = NULL;
+        int               ret           = -1;
         char              need_poll_out = 0;
-        char              need_append = 1;
-
+        char              need_append   = 1;
+        struct ioq       *entry         = NULL;
+        glusterfs_ctx_t  *ctx           = NULL;
+        socket_private_t *priv          = NULL;
 
         GF_VALIDATE_OR_GOTO ("socket", this, out);
         GF_VALIDATE_OR_GOTO ("socket", this->private, out);
@@ -3856,7 +3854,7 @@ socket_submit_request (rpc_transport_t *this, rpc_transport_req_t *req)
                 }
 
                 priv->submit_log = 0;
-                entry = __socket_ioq_new (this, &req->msg);
+                entry = __socket_ioq_new (this, msg);
                 if (!entry)
                         goto unlock;
 
@@ -3889,71 +3887,17 @@ out:
         return ret;
 }
 
+static int32_t
+socket_submit_request (rpc_transport_t *this, rpc_transport_req_t *req)
+{
+        return socket_submit_outgoing_msg (this, &req->msg);
+}
 
 static int32_t
 socket_submit_reply (rpc_transport_t *this, rpc_transport_reply_t *reply)
 {
-        socket_private_t *priv = NULL;
-        int               ret = -1;
-        struct ioq       *entry = NULL;
-        glusterfs_ctx_t  *ctx = NULL;
-        char              need_poll_out = 0;
-        char              need_append = 1;
-
-
-        GF_VALIDATE_OR_GOTO ("socket", this, out);
-        GF_VALIDATE_OR_GOTO ("socket", this->private, out);
-
-        priv = this->private;
-        ctx  = this->ctx;
-
-        pthread_mutex_lock (&priv->out_lock);
-        {
-                if (priv->connected != 1) {
-                        if (!priv->submit_log && !priv->connect_finish_log) {
-                                gf_log (this->name, GF_LOG_INFO,
-                                        "not connected (priv->connected = %d)",
-                                        priv->connected);
-                                priv->submit_log = 1;
-                        }
-                        goto unlock;
-                }
-
-                priv->submit_log = 0;
-                entry = __socket_ioq_new (this, &reply->msg);
-
-                if (!entry)
-                        goto unlock;
-
-                if (list_empty (&priv->ioq)) {
-                        ret = __socket_ioq_churn_entry (this, entry, 1);
-
-                        if (ret == 0) {
-                                need_append = 0;
-                        }
-                        if (ret > 0) {
-                                need_poll_out = 1;
-                        }
-                }
-
-                if (need_append) {
-                        list_add_tail (&entry->list, &priv->ioq);
-                }
-
-                if (need_poll_out) {
-                        /* first entry to wait. continue writing on POLLOUT */
-                        priv->idx = event_select_on (ctx->event_pool,
-                                                     priv->sock,
-                                                     priv->idx, -1, 1);
-                }
-        }
-unlock:
-        pthread_mutex_unlock (&priv->out_lock);
-
-out:
-        return ret;
+        return socket_submit_outgoing_msg (this, &reply->msg);
 }
-
 
 static int32_t
 socket_getpeername (rpc_transport_t *this, char *hostname, int hostlen)
