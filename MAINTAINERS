@@ -548,10 +548,9 @@ T: https://github.com/linux-ha-storage/storhaug.git
 
 Testing - Glusto-Tests
 M: Jonathan Holloway <jholloway@redhat.com>
-M: Nigel Babu <nigelb@redhat.com>
-P: Shwetha Panduranga <spandura@redhat.com>
-P: Vijay Bhaskar Reddy Avuthu <vavuthu@redhat.com>
-P: Akarsha Rai <akrai@redhat.com>
+M: Vijay Bhaskar Reddy Avuthu <vavuthu@redhat.com>
+M: Akarsha Rai <akrai@redhat.com>
+P: Nigel Babu <nigelb@redhat.com>
 S: Maintained
 T: https://github.com/gluster/glusto-tests.git
 
@@ -603,3 +602,4 @@ M: Dan Lambright
 M: Jay Vyas
 M: Luis Pabon
 M: Ira Cooper
+M: Shwetha Panduranga
