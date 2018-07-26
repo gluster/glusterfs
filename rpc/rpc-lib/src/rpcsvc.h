@@ -11,7 +11,7 @@
 #ifndef _RPCSVC_H
 #define _RPCSVC_H
 
-#include "event.h"
+#include "gf-event.h"
 #include "rpc-transport.h"
 #include "logging.h"
 #include "dict.h"

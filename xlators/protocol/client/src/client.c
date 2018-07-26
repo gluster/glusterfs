@@ -15,7 +15,7 @@
 #include "glusterfs.h"
 #include "statedump.h"
 #include "compat-errno.h"
-#include "event.h"
+#include "gf-event.h"
 
 #include "xdr-rpc.h"
 #include "glusterfs3.h"

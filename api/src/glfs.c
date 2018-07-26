@@ -38,7 +38,7 @@
 #include "glusterfs.h"
 #include "logging.h"
 #include "stack.h"
-#include "event.h"
+#include "gf-event.h"
 #include "glfs-mem-types.h"
 #include "common-utils.h"
 #include "syncop.h"

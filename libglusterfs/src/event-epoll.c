@@ -17,7 +17,7 @@
 #include <string.h>
 
 #include "logging.h"
-#include "event.h"
+#include "gf-event.h"
 #include "mem-pool.h"
 #include "common-utils.h"
 #include "syscall.h"

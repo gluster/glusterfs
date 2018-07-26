@@ -8,8 +8,8 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef _EVENT_H_
-#define _EVENT_H_
+#ifndef _GF_EVENT_H_
+#define _GF_EVENT_H_
 
 #include <pthread.h>
 
@@ -116,4 +116,4 @@ int event_pool_destroy (struct event_pool *event_pool);
 int event_dispatch_destroy (struct event_pool *event_pool);
 int event_handled (struct event_pool *event_pool, int fd, int idx, int gen);
 
-#endif /* _EVENT_H_ */
+#endif /* _GF_EVENT_H_ */

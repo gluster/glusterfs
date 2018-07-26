@@ -20,7 +20,7 @@
 #include "statedump.h"
 #include "defaults.h"
 #include "authenticate.h"
-#include "event.h"
+#include "gf-event.h"
 #include "events.h"
 #include "server-messages.h"
 #include "rpc-clnt.h"
