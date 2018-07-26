@@ -90,7 +90,7 @@ glusterd_is_gfproxyd_enabled (glusterd_volinfo_t *volinfo)
 
 static int
 glusterd_svc_get_gfproxyd_volfile (glusterd_volinfo_t *volinfo, char *svc_name,
-                                   char *orgvol, char *tmpvol, int path_len)
+                                   char *orgvol, char **tmpvol, int path_len)
 {
         int             tmp_fd                  = -1;
         int             ret                     = -1;
@@ -99,23 +99,31 @@ glusterd_svc_get_gfproxyd_volfile (glusterd_volinfo_t *volinfo, char *svc_name,
         glusterd_svc_build_gfproxyd_volfile_path (volinfo, orgvol,
                                                   path_len);
 
-        snprintf (tmpvol, path_len, "/tmp/g%s-XXXXXX", svc_name);
+        ret = gf_asprintf(tmpvol, "/tmp/g%s-XXXXXX", svc_name);
+        if (ret < 0) {
+                goto out;
+        }
 
         /* coverity[secure_temp] mkstemp uses 0600 as the mode and is safe */
-        tmp_fd = mkstemp (tmpvol);
+        tmp_fd = mkstemp (*tmpvol);
         if (tmp_fd < 0) {
                 gf_msg ("glusterd", GF_LOG_WARNING, errno,
                         GD_MSG_FILE_OP_FAILED, "Unable to create temp file"
-                        " %s:(%s)", tmpvol, strerror (errno));
+                        " %s:(%s)", *tmpvol, strerror (errno));
+                ret = -1;
                 goto out;
         }
 
         need_unlink = 1;
-        ret = glusterd_build_gfproxyd_volfile (volinfo, tmpvol);
-
+        ret = glusterd_build_gfproxyd_volfile (volinfo, *tmpvol);
 out:
         if (need_unlink && ret < 0)
-                sys_unlink (tmpvol);
+                sys_unlink (*tmpvol);
+
+        if ((ret < 0) && (*tmpvol != NULL)) {
+                GF_FREE(*tmpvol);
+                *tmpvol = NULL;
+        }
 
         if (tmp_fd >= 0)
                 sys_close (tmp_fd);
@@ -129,14 +137,14 @@ glusterd_svc_check_gfproxyd_volfile_identical (char *svc_name,
                                                gf_boolean_t *identical)
 {
         char            orgvol[PATH_MAX]        = {0,};
-        char            tmpvol[PATH_MAX]        = {0,};
+        char           *tmpvol                  = NULL;
         int             ret                     = -1;
         int             need_unlink             = 0;
 
         GF_VALIDATE_OR_GOTO ("glusterd", identical, out);
 
         ret = glusterd_svc_get_gfproxyd_volfile (volinfo, svc_name, orgvol,
-                                                 tmpvol, PATH_MAX);
+                                                 &tmpvol, PATH_MAX);
         if (ret)
                 goto out;
 
@@ -150,6 +158,9 @@ out:
         if (need_unlink)
                 sys_unlink (tmpvol);
 
+        if (tmpvol != NULL)
+                GF_FREE (tmpvol);
+
         return ret;
 }
 
@@ -159,14 +170,14 @@ glusterd_svc_check_gfproxyd_topology_identical (char *svc_name,
                                                 gf_boolean_t *identical)
 {
         char            orgvol[PATH_MAX]        = {0,};
-        char            tmpvol[PATH_MAX]        = {0,};
+        char           *tmpvol                  = NULL;
         int             ret                     = -1;
         int             tmpclean                = 0;
 
         GF_VALIDATE_OR_GOTO ("glusterd", identical, out);
 
         ret = glusterd_svc_get_gfproxyd_volfile (volinfo, svc_name, orgvol,
-                                                 tmpvol, PATH_MAX);
+                                                 &tmpvol, PATH_MAX);
         if (ret)
                 goto out;
 
@@ -178,6 +189,10 @@ glusterd_svc_check_gfproxyd_topology_identical (char *svc_name,
 out:
         if (tmpclean)
                 sys_unlink (tmpvol);
+
+        if (tmpvol != NULL)
+                GF_FREE (tmpvol);
+
         return ret;
 }
 

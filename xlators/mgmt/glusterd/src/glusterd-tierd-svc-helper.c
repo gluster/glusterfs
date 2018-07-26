@@ -89,7 +89,7 @@ glusterd_svc_check_tier_volfile_identical (char *svc_name,
                                            gf_boolean_t *identical)
 {
         char            orgvol[PATH_MAX]        = {0,};
-        char            tmpvol[PATH_MAX]        = {0,};
+        char            *tmpvol                 = NULL;
         xlator_t        *this                   = NULL;
         int             ret                     = -1;
         int             need_unlink             = 0;
@@ -103,7 +103,10 @@ glusterd_svc_check_tier_volfile_identical (char *svc_name,
         glusterd_svc_build_tierd_volfile_path (volinfo, orgvol,
                         sizeof (orgvol));
 
-        snprintf (tmpvol, sizeof (tmpvol), "/tmp/g%s-XXXXXX", svc_name);
+        ret = gf_asprintf(&tmpvol, "/tmp/g%s-XXXXXX", svc_name);
+        if (ret < 0) {
+                goto out;
+        }
 
         /* coverity[secure_temp] mkstemp uses 0600 as the mode and is safe */
         tmp_fd = mkstemp (tmpvol);
@@ -111,6 +114,7 @@ glusterd_svc_check_tier_volfile_identical (char *svc_name,
                 gf_msg (this->name, GF_LOG_WARNING, errno,
                         GD_MSG_FILE_OP_FAILED, "Unable to create temp file"
                         " %s:(%s)", tmpvol, strerror (errno));
+                ret = -1;
                 goto out;
         }
 
@@ -128,6 +132,9 @@ out:
         if (need_unlink)
                 sys_unlink (tmpvol);
 
+        if (tmpvol != NULL)
+                GF_FREE(tmpvol);
+
         if (tmp_fd >= 0)
                 sys_close (tmp_fd);
 
@@ -140,7 +147,7 @@ glusterd_svc_check_tier_topology_identical (char *svc_name,
                                        gf_boolean_t *identical)
 {
         char            orgvol[PATH_MAX]        = {0,};
-        char            tmpvol[PATH_MAX]        = {0,};
+        char            *tmpvol                 = NULL;
         glusterd_conf_t *conf                   = NULL;
         xlator_t        *this                   = THIS;
         int             ret                     = -1;
@@ -157,7 +164,10 @@ glusterd_svc_check_tier_topology_identical (char *svc_name,
         glusterd_svc_build_tierd_volfile_path (volinfo, orgvol,
                         sizeof (orgvol));
 
-        snprintf (tmpvol, sizeof (tmpvol), "/tmp/g%s-XXXXXX", svc_name);
+        ret = gf_asprintf(&tmpvol, "/tmp/g%s-XXXXXX", svc_name);
+        if (ret < 0) {
+                goto out;
+        }
 
         /* coverity[secure_temp] mkstemp uses 0600 as the mode and is safe */
         tmpfd = mkstemp (tmpvol);
@@ -165,6 +175,7 @@ glusterd_svc_check_tier_topology_identical (char *svc_name,
                 gf_msg (this->name, GF_LOG_WARNING, errno,
                         GD_MSG_FILE_OP_FAILED, "Unable to create temp file"
                         " %s:(%s)", tmpvol, strerror (errno));
+                ret = -1;
                 goto out;
         }
 
@@ -181,5 +192,7 @@ out:
                 sys_close (tmpfd);
         if (tmpclean)
                 sys_unlink (tmpvol);
+        if (tmpvol != NULL)
+                GF_FREE(tmpvol);
         return ret;
 }
