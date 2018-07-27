@@ -869,4 +869,5 @@ xlator_api_t xlator_api = {
         .cbks          = &nlc_cbks,
         .options       = nlc_options,
         .identifier    = "nl-cache",
+        .category      = GF_TECH_PREVIEW,
 };

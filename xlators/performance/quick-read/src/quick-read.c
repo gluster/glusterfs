@@ -1702,4 +1702,5 @@ xlator_api_t xlator_api = {
         .cbks          = &qr_cbks,
         .options       = qr_options,
         .identifier    = "quick-read",
+        .category      = GF_MAINTAINED,
 };

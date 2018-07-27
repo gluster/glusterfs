@@ -1849,4 +1849,5 @@ xlator_api_t xlator_api = {
         .cbks          = &server_cbks,
         .options       = server_options,
         .identifier    = "server",
+        .category      = GF_MAINTAINED,
 };
