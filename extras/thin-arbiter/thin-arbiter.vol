@@ -10,6 +10,7 @@ end-volume
 
 volume ta-locks
     type features/locks
+    option notify-contention yes
     subvolumes ta-thin-arbiter
 end-volume
 
