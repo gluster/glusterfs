@@ -390,6 +390,35 @@ typedef enum {
         GF_FOP_PRI_MAX,                 /* Highest */
 } gf_fop_pri_t;
 
+typedef enum {
+        /* The 'component' (xlator / option) is not yet setting the flag */
+        GF_UNCLASSIFIED = 0,
+        /* The 'component' is experimental, should not be recommened
+           in production mode */
+        GF_EXPERIMENTAL,
+        /* The 'component' is tech preview, ie, it is 'mostly' working as
+           expected, but can have some of the corner cases, which is not
+           handled. */
+        GF_TECH_PREVIEW,
+        /* The 'component' is good to run. Has good enough test and
+           documentation coverage. */
+        GF_MAINTAINED,
+        /* The component is:
+           - no more a focus
+           - no more solving a valid use case
+           - no more maintained, no volunteers to maintain
+           - there is 'maintained' or 'tech-preview' feature,
+           which does the same thing, better.
+        */
+        GF_DEPRECATED,
+        /* The 'component' is no more 'built'. */
+        GF_OBSOLETE,
+        /* The 'component' exist for Documentation purposes.
+           No real usecase */
+        GF_DOCUMENT_PURPOSE,
+} gf_category_t;
+
+
 static const char * const FOP_PRI_STRINGS[] = {
         "HIGH",
         "NORMAL",

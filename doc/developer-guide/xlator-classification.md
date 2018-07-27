@@ -130,7 +130,50 @@ These xlators and their corresponding code and test health will not be executed.
 
 ### How to specify an xlators category
 
-(TBD)
+While defining 'xlator_api_t' structure for the corresponding xlator, add a
+flag like below:
+
+```
+diff --git a/xlators/performance/nl-cache/src/nl-cache.c b/xlators/performance/nl-cache/src/nl-cache.c
+index 0f0e53bac2..8267d6897c 100644
+--- a/xlators/performance/nl-cache/src/nl-cache.c
++++ b/xlators/performance/nl-cache/src/nl-cache.c
+@@ -869,4 +869,5 @@ xlator_api_t xlator_api = {
+         .cbks          = &nlc_cbks,
+         .options       = nlc_options,
+         .identifier    = "nl-cache",
++        .category      = GF_TECH_PREVIEW,
+ };
+diff --git a/xlators/performance/quick-read/src/quick-read.c b/xlators/performance/quick-read/src/quick-read.c
+index 8d39720e7f..235de27c19 100644
+--- a/xlators/performance/quick-read/src/quick-read.c
++++ b/xlators/performance/quick-read/src/quick-read.c
+@@ -1702,4 +1702,5 @@ xlator_api_t xlator_api = {
+         .cbks          = &qr_cbks,
+         .options       = qr_options,
+         .identifier    = "quick-read",
++        .category      = GF_MAINTAINED,
+ };
+```
+
+Similarly, if a particular option is in different state other than
+the xlator state, one can add the same flag in options structure too.
+
+```
+diff --git a/xlators/cluster/afr/src/afr.c b/xlators/cluster/afr/src/afr.c
+index 0e86e33d03..81996743d1 100644
+--- a/xlators/cluster/afr/src/afr.c
++++ b/xlators/cluster/afr/src/afr.c
+@@ -772,6 +772,7 @@ struct volume_options options[] = {
+           .description = "Maximum latency for shd halo replication in msec."
+         },
+         { .key   = {"halo-enabled"},
++          .category = GF_TECH_PREVIEW,
+           .type  = GF_OPTION_TYPE_BOOL,
+           .default_value = "False",
+
+```
+
 
 ### User experience using the categories
 

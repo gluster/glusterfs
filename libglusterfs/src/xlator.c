@@ -417,6 +417,8 @@ int xlator_dynload_newway (xlator_t *xl)
         xl->id         = xlapi->xlator_id;
         xl->flags      = xlapi->flags;
         xl->identifier = xlapi->identifier;
+        xl->category   = xlapi->category;
+
         memcpy (xl->op_version, xlapi->op_version,
                 sizeof (uint32_t) * GF_MAX_RELEASES);
 

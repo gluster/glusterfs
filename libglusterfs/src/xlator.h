@@ -1051,7 +1051,8 @@ struct _xlator {
         /* flag to avoid recall of xlator_mem_cleanup for xame xlator */
         uint32_t call_cleanup;
 
-
+        /* Flag to understand how this xlator is categorized */
+        gf_category_t category;
 };
 
 typedef struct {
@@ -1091,6 +1092,9 @@ typedef struct {
         /* struct options: if the translator takes any 'options' from the
            volume file, then that should be defined here. optional. */
         volume_option_t *options;
+
+        /* Flag to understand how this xlator is categorized */
+        gf_category_t category;
 
         /* XXX: GD2MARKER
          * If a new member that needs to be visible to GD2 is introduced,
