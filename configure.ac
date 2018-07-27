@@ -1054,24 +1054,19 @@ dnl check for Monotonic clock
 AC_CHECK_LIB([rt], [clock_gettime], ,
              AC_MSG_WARN([System doesn't have monotonic clock using contrib]))
 
-dnl Check for argp
+dnl check for argp, FreeBSD has the header in /usr/local/include
+case $host_os in
+    *freebsd*)
+    CFLAGS="${CFLAGS} -isystem /usr/local/include"
+    ARGP_LDADD=-largp
+    ;;
+esac
+dnl argp-standalone does not provide a pkg-config file
 AC_CHECK_HEADER([argp.h], AC_DEFINE(HAVE_ARGP, 1, [have argp]))
-
-BUILD_ARGP_STANDALONE=no
-if test "x${ac_cv_header_argp_h}" = "xno"; then
-   AC_CONFIG_SUBDIRS(contrib/argp-standalone)
-   BUILD_ARGP_STANDALONE=yes
-   ARGP_STANDALONE_CPPFLAGS='-I${top_srcdir}/contrib/argp-standalone'
-   ARGP_STANDALONE_LDADD='${top_builddir}/contrib/argp-standalone/libargp.a'
-   ARGP_STANDALONE_DIR='${top_builddir}/contrib/argp-standalone'
+if test "x$ac_cv_header_argp_h" != "xyes"; then
+    AC_MSG_ERROR([argp.h not found, install libargp or argp-standalone])
 fi
-
-dnl libglusterfs needs argp.h, practically everything depends on it
-GF_CPPFLAGS="${GF_CPPFLAGS} ${ARGP_STANDALONE_CPPFLAGS}"
-
-AC_SUBST(ARGP_STANDALONE_CPPFLAGS)
-AC_SUBST(ARGP_STANDALONE_LDADD)
-AC_SUBST(ARGP_STANDALONE_DIR)
+AC_SUBST(ARGP_LDADD)
 
 dnl Check for atomic operation support
 AC_MSG_CHECKING([for gcc __atomic builtins])
@@ -1289,7 +1284,7 @@ case $host_os in
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_BASENAME"
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_DIRNAME"
         GF_FUSE_CFLAGS="-DFUSERMOUNT_DIR=\\\"\$(sbindir)\\\""
-        GF_LDADD="${ARGP_STANDALONE_LDADD}"
+        GF_LDADD="${ARGP_LDADD}"
         if test "x$ac_cv_header_execinfo_h" = "xyes"; then
            GF_LDFLAGS="-lexecinfo"
         fi
@@ -1302,7 +1297,7 @@ case $host_os in
         ;;
      *freebsd*)
         GF_HOST_OS="GF_BSD_HOST_OS"
-        GF_CFLAGS="${GF_CFLAGS} ${ARGP_STANDALONE_CPPFLAGS} -O0"
+        GF_CFLAGS="${GF_CFLAGS} -O0"
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_BASENAME"
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_DIRNAME"
         GF_CFLAGS="${GF_CFLAGS} -D_LIBGEN_H_"
@@ -1310,7 +1305,7 @@ case $host_os in
         GF_CFLAGS="${GF_CFLAGS} -Dxdr_quad_t=xdr_longlong_t"
         GF_CFLAGS="${GF_CFLAGS} -Dxdr_u_quad_t=xdr_u_longlong_t"
         GF_FUSE_CFLAGS="-DFUSERMOUNT_DIR=\\\"\$(sbindir)\\\""
-        GF_LDADD="${ARGP_STANDALONE_LDADD}"
+        GF_LDADD="${ARGP_LDADD}"
         if test "x$ac_cv_header_execinfo_h" = "xyes"; then
            GF_LDFLAGS="-lexecinfo"
         fi
@@ -1322,12 +1317,11 @@ case $host_os in
      darwin*)
         GF_HOST_OS="GF_DARWIN_HOST_OS"
         LIBTOOL=glibtool
-        GF_CFLAGS="${GF_CFLAGS} ${ARGP_STANDALONE_CPPFLAGS} "
         GF_CFLAGS="${GF_CFLAGS} -D_REENTRANT -D_XOPEN_SOURCE "
         GF_CFLAGS="${GF_CFLAGS} -D_DARWIN_USE_64_BIT_INODE "
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_BASENAME"
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_DIRNAME"
-        GF_LDADD="${ARGP_STANDALONE_LDADD}"
+        GF_LDADD="${ARGP_LDADD}"
         GF_LDFLAGS=""
         GF_FUSE_CFLAGS="-I\$(CONTRIBDIR)/macfuse"
         BUILD_FUSERMOUNT="no"
@@ -1725,7 +1719,6 @@ echo "==========================="
 echo "FUSE client          : $BUILD_FUSE_CLIENT"
 echo "Infiniband verbs     : $BUILD_IBVERBS"
 echo "epoll IO multiplex   : $BUILD_EPOLL"
-echo "argp-standalone      : $BUILD_ARGP_STANDALONE"
 echo "fusermount           : $BUILD_FUSERMOUNT"
 echo "readline             : $BUILD_READLINE"
 echo "georeplication       : $BUILD_SYNCDAEMON"
