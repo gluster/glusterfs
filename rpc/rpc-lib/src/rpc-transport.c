@@ -489,6 +489,8 @@ rpc_transport_destroy (rpc_transport_t *this)
         }
 
 	GF_FREE (this);
+
+	ret = 0;
 fail:
 	return ret;
 }
