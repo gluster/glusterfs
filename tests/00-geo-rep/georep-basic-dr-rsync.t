@@ -9,8 +9,6 @@ SCRIPT_TIMEOUT=300
 
 AREQUAL_PATH=$(dirname $0)/../utils
 test "`uname -s`" != "Linux" && {
-    CFLAGS="$CFLAGS -I$(dirname $0)/../../../contrib/argp-standalone ";
-    CFLAGS="$CFLAGS -L$(dirname $0)/../../../contrib/argp-standalone -largp ";
     CFLAGS="$CFLAGS -lintl";
 }
 build_tester $AREQUAL_PATH/arequal-checksum.c $CFLAGS

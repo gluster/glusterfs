@@ -46,7 +46,6 @@ api/examples/__init__.py
 api/examples/setup.py
 api/src/gfapi.map
 cli/src/gluster
-contrib/argp-standalone/libargp.a
 contrib/fuse-util/fusermount-glusterfs
 extras/geo-rep/gsync-sync-gfid
 extras/geo-rep/schedule_georep.py

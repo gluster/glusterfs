@@ -6,7 +6,6 @@ EXTRA_DIST = autogen.sh \
 	glusterfs.spec glusterfs-api.pc.in libgfchangelog.pc.in libgfdb.pc.in \
 	run-tests.sh \
 	build-aux/pkg-version \
-        contrib/argp-standalone \
         contrib/umountd \
 	$(shell find $(top_srcdir)/tests -type f -print)
 
@@ -28,22 +27,10 @@ gitclean: distclean
 	find . -name mount.glusterfs -exec rm -f {} \;
 	rm -fr autom4te.cache
 	rm -f missing aclocal.m4 config.h.in config.guess config.sub ltmain.sh install-sh configure depcomp
-	-rm -fr $(CONTRIBDIR)/argp-standalone/autom4te.cache
-	-rm -f $(CONTRIBDIR)/argp-standalone/aclocal.m4
-	-rm -f $(CONTRIBDIR)/argp-standalone/config.h.in
-	-rm -f $(CONTRIBDIR)/argp-standalone/configure
-	-rm -f $(CONTRIBDIR)/argp-standalone/config.status
-	-rm -f $(CONTRIBDIR)/argp-standalone/config.log
-	-rm -f $(CONTRIBDIR)/argp-standalone/depcomp
-	-rm -fr $(CONTRIBDIR)/argp-standalone/.deps
-	-rm -f $(CONTRIBDIR)/argp-standalone/install-sh
-	-rm -f $(CONTRIBDIR)/argp-standalone/missing
 
 # dist-hook gets executed with 'make dist', this is the only target getting
 # executed, a dist-hook in other Makefile.am files seem to get ignored.
 dist-hook: gen-VERSION gen-ChangeLog
-	-rm -fr $(distdir)/contrib/argp-standalone/autom4te.cache
-	-rm -fr $(distdir)/contrib/argp-standalone/.deps
 	-rm -fr $(distdir)/contrib/umountd/.deps
 	-rm -f $(distdir)/events/src/eventtypes.py
 	-rm -f $(distdir)/tests/env.rc

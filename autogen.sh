@@ -87,10 +87,6 @@ $AUTOCONF
 echo Running ${AUTOMAKE}...
 $AUTOMAKE --add-missing --force-missing --copy --foreign
 
-# Run autogen in the argp-standalone sub-directory
-echo "Running autogen.sh in argp-standalone ..."
-( cd contrib/argp-standalone;./autogen.sh )
-
 # Instruct user on next steps
 echo
 echo "Please proceed with configuring, compiling, and installing."
