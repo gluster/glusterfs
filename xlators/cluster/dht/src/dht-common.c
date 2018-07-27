@@ -7003,6 +7003,7 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         int                      readdir_optimize = 0;
         inode_table_t           *itable = NULL;
         inode_t                 *inode = NULL;
+        gf_boolean_t             skip_hashed_check = _gf_false;
 
         INIT_LIST_HEAD (&entries.list);
 
@@ -7015,8 +7016,20 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
         methods = &(conf->methods);
 
-        if (op_ret <= 0)
+        if (op_ret <= 0) {
                 goto done;
+        }
+
+        /* Why aren't we skipping DHT entirely in case of a single subvol?
+         * Because if this was a larger volume earlier and all but one subvol
+         * was removed, there might be stale linkto files on the subvol.
+         */
+        if (conf->subvolume_cnt == 1) {
+                /* return all directory and file entries except
+                 * linkto files for a single child DHT
+                 */
+                skip_hashed_check = _gf_true;
+        }
 
         if (!local->layout)
                 local->layout = dht_layout_get (this, local->fd->inode);
@@ -7053,6 +7066,18 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                         continue;
                 }
 
+                if (check_is_linkfile (NULL, (&orig_entry->d_stat),
+                                       orig_entry->dict,
+                                       conf->link_xattr_name)) {
+                        gf_msg_debug (this->name, 0, "%s: %s is a linkto file",
+                                      prev->name, orig_entry->d_name);
+                        continue;
+                }
+
+                if (skip_hashed_check) {
+                        goto list;
+                }
+
                 if (check_is_dir (NULL, (&orig_entry->d_stat), NULL)) {
 
                 /*Directory entries filtering :
@@ -7081,14 +7106,6 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                                 continue;
 
                         goto list;
-                }
-
-                if (check_is_linkfile (NULL, (&orig_entry->d_stat),
-                                       orig_entry->dict,
-                                       conf->link_xattr_name)) {
-                        gf_msg_debug (this->name, 0, "%s: %s is a linkto file",
-                                      prev->name, orig_entry->d_name);
-                        continue;
                 }
 
 list:
@@ -7286,6 +7303,7 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         xlator_t     *subvol = 0;
         dht_conf_t   *conf = NULL;
         dht_methods_t *methods = NULL;
+        gf_boolean_t   skip_hashed_check = _gf_false;
 
         INIT_LIST_HEAD (&entries.list);
 
@@ -7307,6 +7325,13 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         gf_msg_debug (this->name, 0, "Processing entries from %s",
                       prev->name);
+
+        if (conf->subvolume_cnt == 1) {
+                /*return everything*/
+                skip_hashed_check = _gf_true;
+                count = op_ret;
+                goto done;
+        }
 
         list_for_each_entry (orig_entry, (&orig_entries->list), list) {
                 next_offset = orig_entry->d_off;
@@ -7379,10 +7404,15 @@ unwind:
         if (prev != dht_last_up_subvol (this))
                 op_errno = 0;
 
-        DHT_STACK_UNWIND (readdir, frame, op_ret, op_errno,
-                          &entries, NULL);
-        gf_dirent_free (&entries);
+        if (!skip_hashed_check) {
+                DHT_STACK_UNWIND (readdir, frame, op_ret, op_errno,
+                                  &entries, NULL);
+                gf_dirent_free (&entries);
 
+        } else {
+                DHT_STACK_UNWIND (readdir, frame, op_ret, op_errno,
+                                  orig_entries, NULL);
+        }
         return 0;
 }
 
