@@ -397,9 +397,13 @@ glfs_resolve_component (struct glfs *fs, xlator_t *subvol, inode_t *parent,
                  * A stale mapping might exist for a dentry/inode that has been
                  * removed from another client.
                  */
-                if (-ret == ENOENT)
+                if (-ret == ENOENT) {
                         inode_unlink(loc.inode, loc.parent,
                                      loc.name);
+                        if (!inode_has_dentry (loc.inode))
+                                inode_forget (loc.inode, 0);
+                }
+
 		inode_unref (loc.inode);
 	        gf_uuid_clear (loc.gfid);
 		loc.inode = inode_new (parent->table);

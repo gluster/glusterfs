@@ -214,6 +214,11 @@ glfs_loc_unlink (loc_t *loc)
 {
 	inode_unlink (loc->inode, loc->parent, loc->name);
 
+	/* since glfs_h_* objects hold a reference to inode
+	 * it is safe to keep lookup count to '0' */
+	if (!inode_has_dentry (loc->inode))
+		inode_forget (loc->inode, 0);
+
 	return 0;
 }
 
@@ -2713,10 +2718,14 @@ retrynew:
 		}
 	}
 
-	if (ret == 0)
+	if (ret == 0) {
 		inode_rename (oldloc.parent->table, oldloc.parent, oldloc.name,
 			      newloc.parent, newloc.name, oldloc.inode,
 			      &oldiatt);
+
+		if (newloc.inode && !inode_has_dentry (newloc.inode))
+			inode_forget (newloc.inode, 0);
+	}
 out:
 	loc_wipe (&oldloc);
 	loc_wipe (&newloc);

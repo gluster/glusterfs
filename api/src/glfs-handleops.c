@@ -1794,10 +1794,15 @@ pub_glfs_h_rename (struct glfs *fs, struct glfs_object *olddir,
         ret = syncop_rename (subvol, &oldloc, &newloc, NULL, NULL);
         DECODE_SYNCOP_ERR (ret);
 
-        if (ret == 0)
+        if (ret == 0) {
                 inode_rename (oldloc.parent->table, oldloc.parent, oldloc.name,
                               newloc.parent, newloc.name, oldloc.inode,
                               &oldiatt);
+
+                if (newloc.inode && !inode_has_dentry (newloc.inode))
+                        inode_forget (newloc.inode, 0);
+
+        }
 
 out:
         loc_wipe (&oldloc);
