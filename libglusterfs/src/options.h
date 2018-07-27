@@ -134,9 +134,15 @@ typedef struct volume_options {
          */
         char *setkey;
 
-        /* The level at which the option is classified
-         */
-        opt_level_t             level;
+        /* A 'level' is about the technical depth / understanding one
+           needs to handle the option. 'category' is based on
+           quality (ie, tests, people behind it, documentation available) */
+
+        /* The level at which the option is classified */
+        opt_level_t level;
+
+        /* Flag to understand how this option is categorized */
+        gf_category_t category;
 } volume_option_t;
 
 

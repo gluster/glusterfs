@@ -96,7 +96,8 @@ struct volume_options @FOP_PREFIX@_options[] = {
           .op_version = {GD_OP_VERSION_},
           .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
           .tags = {""},
-          .description = ""
+          .description = "",
+          .category = GF_EXPERIMENTAL,
         },
         { .key = {NULL} },
         */
@@ -115,6 +116,7 @@ xlator_api_t xlator_api = {
         .cbks          = &@FOP_PREFIX@_cbks,
         .options       = @FOP_PREFIX@_options,
         .identifier    = "@XL_NAME@",
+        .category      = GF_EXPERIMENTAL,
 };
 #pragma fragment HEADER_FMT
 #ifndef __@HFL_NAME@_H__
