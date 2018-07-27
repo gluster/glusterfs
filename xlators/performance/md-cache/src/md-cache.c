@@ -3862,4 +3862,5 @@ xlator_api_t xlator_api = {
         .cbks          = &mdc_cbks,
         .options       = mdc_options,
         .identifier    = "md-cache",
+        .category      = GF_MAINTAINED,
 };

@@ -1727,4 +1727,5 @@ xlator_api_t xlator_api = {
         .cbks           = &cs_cbks,
         .options        = cs_options,
         .identifier     = "cloudsync",
+        .category       = GF_TECH_PREVIEW,
 };
