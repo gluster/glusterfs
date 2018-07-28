@@ -836,7 +836,7 @@ _get_list_xattr (posix_xattr_filler_t *filler)
 {
         ssize_t               size                  = 0;
 
-        if ((!filler) && (!filler->real_path) && (filler->fdnum < 0))
+        if ((!filler) || ((!filler->real_path) && (filler->fdnum < 0)))
                 goto out;
 
         if (filler->real_path)
