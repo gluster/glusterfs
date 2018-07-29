@@ -148,6 +148,7 @@
 %global _without_georeplication --disable-georeplication
 %global _with_gnfs %{nil}
 %global _without_tiering --disable-tiering
+%global _without_ocf --without-ocf
 %endif
 
 # From https://fedoraproject.org/wiki/Packaging:Python#Macros
@@ -1485,6 +1486,9 @@ exit 0
 %endif
 
 %changelog
+* Sun Jul 29 2018 Niels de Vos <ndevos@redhat.com>
+- Disable building glusterfs-resource-agents on el6 (#1609551)
+
 * Thu Feb 22 2018 Kotresh HR <khiremat@redhat.com>
 - Added util-linux as dependency to georeplication rpm (#1544382)
 
