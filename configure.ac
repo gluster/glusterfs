@@ -963,8 +963,7 @@ AC_ARG_ENABLE([xml-output],
                              [Disable the xml output]))
 BUILD_XML_OUTPUT="yes"
 if test "x$enable_xml_output" != "xno"; then
-    #check if libxml is present if so enable HAVE_LIB_XML
-    m4_ifdef([AM_PATH_XML2],[AM_PATH_XML2([2.6.19])], [no_xml=yes])
+    PKG_CHECK_MODULES([XML], [libxml-2.0], [], [no_xml="yes"])
     if test "x${no_xml}" = "x"; then
         AC_DEFINE([HAVE_LIB_XML], [1], [Define to 1 if using libxml2.])
     else
