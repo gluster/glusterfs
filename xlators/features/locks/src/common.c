@@ -529,7 +529,9 @@ __copy_lock(posix_lock_t *src)
                         GF_FREE(dst);
                         dst = NULL;
                 }
-                INIT_LIST_HEAD (&dst->list);
+
+	if (dst != NULL)
+               INIT_LIST_HEAD (&dst->list);
         }
 
         return dst;
