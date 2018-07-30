@@ -582,6 +582,8 @@ glfs_mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 	struct glfs		*fs = NULL;
         dict_t                  *dict = NULL;
         char                    *servers_list = NULL;
+        int                      tmp_fd = -1;
+        char                     template[] = "/tmp/gfapi.volfile.XXXXXX";
 
 	frame = myframe;
 	ctx = frame->this->ctx;
@@ -668,11 +670,28 @@ volfile:
 		goto out;
 	}
 
-	tmpfp = tmpfile ();
-	if (!tmpfp) {
-		ret = -1;
-		goto out;
-	}
+        /* coverity[secure_temp] mkstemp uses 0600 as the mode and is safe */
+        tmp_fd = mkstemp (template);
+        if (-1 == tmp_fd) {
+                ret = -1;
+                goto out;
+        }
+
+        /* Calling unlink so that when the file is closed or program
+         * terminates the temporary file is deleted.
+         */
+        ret = sys_unlink (template);
+        if (ret < 0) {
+                gf_msg (frame->this->name, GF_LOG_INFO, 0, API_MSG_VOLFILE_INFO,
+                        "Unable to delete file: %s", template);
+                ret = 0;
+        }
+
+        tmpfp = fdopen (tmp_fd, "w+b");
+        if (!tmpfp) {
+                ret = -1;
+                goto out;
+        }
 
 	fwrite (rsp.spec, size, 1, tmpfp);
 	fflush (tmpfp);
@@ -706,6 +725,7 @@ volfile:
 	ret = glfs_process_volfp (fs, tmpfp);
 	/* tmpfp closed */
 	tmpfp = NULL;
+        tmp_fd = -1;
 	if (ret)
 		goto out;
 
@@ -745,6 +765,8 @@ out:
 
 	if (tmpfp)
 		fclose (tmpfp);
+        else if (tmp_fd != -1)
+                sys_close (tmp_fd);
 
 	return 0;
 }

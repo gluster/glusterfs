@@ -61,7 +61,8 @@ GLFS_MSGID(GLUSTERFSD,
         glusterfsd_msg_35,
         glusterfsd_msg_36,
         glusterfsd_msg_37,
-        glusterfsd_msg_38
+        glusterfsd_msg_38,
+        glusterfsd_msg_39
 );
 
 #endif /* !_GLUSTERFSD_MESSAGES_H_ */
