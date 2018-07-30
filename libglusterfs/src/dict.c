@@ -738,7 +738,7 @@ data_unref (data_t *this)
 
         if (!this) {
                 gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
-                                  LG_MSG_INVALID_ARG, "dict is NULL");
+                                  LG_MSG_INVALID_ARG, "data is NULL");
                 return;
         }
 
@@ -753,7 +753,7 @@ data_ref (data_t *this)
 {
         if (!this) {
                 gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
-                                  LG_MSG_INVALID_ARG, "dict is NULL");
+                                  LG_MSG_INVALID_ARG, "data is NULL");
                 return NULL;
         }
 
