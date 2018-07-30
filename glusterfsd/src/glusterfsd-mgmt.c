@@ -1901,6 +1901,8 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         char                     sha256_hash[SHA256_DIGEST_LENGTH] = {0, };
         dict_t                  *dict = NULL;
         char                    *servers_list = NULL;
+        int                      tmp_fd = -1;
+        char                     template[] = "/tmp/glfs.volfile.XXXXXX";
 
         frame = myframe;
         ctx = frame->this->ctx;
@@ -1990,7 +1992,32 @@ volfile:
                         }
                 }
 
-                tmpfp = tmpfile ();
+                /* coverity[secure_temp] mkstemp uses 0600 as the mode and is
+                 * safe
+                 */
+                tmp_fd = mkstemp (template);
+                if (-1 == tmp_fd) {
+                        gf_msg (frame->this->name, GF_LOG_ERROR, 0,
+                                glusterfsd_msg_39,
+                                "Unable to create temporary file: %s",
+                                template);
+                        ret = -1;
+                        goto out;
+                }
+
+                /* Calling unlink so that when the file is closed or program
+                 * terminates the temporary file is deleted.
+                 */
+                ret = sys_unlink (template);
+                if (ret < 0) {
+                        gf_msg (frame->this->name, GF_LOG_INFO, 0,
+                                glusterfsd_msg_39,
+                                "Unable to delete temporary file: %s",
+                                template);
+                        ret = 0;
+                }
+
+                tmpfp = fdopen (tmp_fd, "w+b");
                 if (!tmpfp) {
                         ret = -1;
                         goto out;
@@ -2036,6 +2063,7 @@ volfile:
                 ret = glusterfs_process_volfp (ctx, tmpfp);
                 /* tmpfp closed */
                 tmpfp = NULL;
+                tmp_fd = -1;
                 if (ret)
                         goto out;
 
@@ -2103,6 +2131,8 @@ out:
 
         if (tmpfp)
                 fclose (tmpfp);
+        else if (tmp_fd != -1)
+                sys_close (tmp_fd);
 
         return 0;
 }

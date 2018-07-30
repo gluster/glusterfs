@@ -13,6 +13,8 @@ syscalls32=$'creat\nfallocate\nftruncate\n__fxstat\n__fxstatat\n\
 lseek\n__lxstat\nopenat\nreaddir\nstatvfs\ntruncate\nstat\n\
 preadv\npwritev\npread\npwrite'
 
+glibccalls=$'tmpfile'
+
 exclude_files=$'/libglusterfs/src/.libs/libglusterfs_la-syscall.o\n\
 /libglusterfs/src/.libs/libglusterfs_la-gen_uuid.o\n\
 /contrib/fuse-util/fusermount.o\n\
@@ -33,13 +35,14 @@ function main()
     done
 
     local retval=0
-    local t=$(nm ${1} | grep " U " | sed -e "s/  //g" -e "s/ U //g")
+    local t
+    t=$(nm "${1}" | grep " U " | sed -e "s/  //g" -e "s/ U //g")
 
     for symy in ${t}; do
 
         for symx in ${syscalls}; do
 
-            if [[ ${symx} = ${symy} ]]; then
+            if [[ ${symx} = "${symy}" ]]; then
 
                 case ${symx} in
                 "creat64") sym="creat";;
@@ -70,12 +73,36 @@ function main()
 
         for symx in ${syscalls32}; do
 
-            if [[ ${symx} = ${symy} ]]; then
+            if [[ ${symx} = "${symy}" ]]; then
 
                 echo "${1} was not compiled with -D_FILE_OFFSET_BITS=64" >&2
                 retval=1
             fi
         done
+
+        symy_glibc=$(echo "${symy}" | sed -e "s/@@GLIBC.*//g")
+        # Eliminate false positives, check if we have a GLIBC symbol in 'y'
+        if [[ ${symy} != "${symy_glibc}" ]]; then
+            for symx in ${glibccalls}; do
+
+                if [[ ${symx} = "${symy_glibc}" ]]; then
+
+                    case ${symx} in
+                    "tmpfile") alt="mkstemp";;
+                    *) alt="none";;
+                    esac
+
+                    if [[ ${alt} = "none" ]]; then
+                        echo "${1} should not call ${symy_glibc}";
+                    else
+                        echo "${1} should use ${alt} instead of ${symy_glibc}" >&2;
+                    fi
+
+                    retval=1
+                fi
+            done
+        fi
+
     done
 
     if [ ${retval} = 1 ]; then
