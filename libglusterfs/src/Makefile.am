@@ -31,7 +31,7 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	circ-buff.c event-history.c gidcache.c ctx.c client_t.c event-poll.c \
 	event-epoll.c syncop-utils.c cluster-syncop.c refcount.c \
 	$(CONTRIBDIR)/libgen/basename_r.c \
-	$(CONTRIBDIR)/libgen/dirname_r.c $(CONTRIBDIR)/stdlib/gf_mkostemp.c \
+	$(CONTRIBDIR)/libgen/dirname_r.c \
 	strfd.c parse-utils.c $(CONTRIBDIR)/mount/mntent.c \
 	$(CONTRIBDIR)/libexecinfo/execinfo.c quota-common-utils.c rot-buffs.c \
 	$(CONTRIBDIR)/timer-wheel/timer-wheel.c \

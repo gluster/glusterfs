@@ -4238,15 +4238,25 @@ gf_backtrace_fillframes (char *buf)
         size_t  idx                     = 0;
         size_t  pos                     = 0;
         size_t  inc                     = 0;
-        char    tmpl[32]                = "/tmp/btXXXXXX";
+        char    tmpl[]                  = "/tmp/glfs-bt-XXXXXX";
 
         frames = backtrace (array, GF_BACKTRACE_FRAME_COUNT);
         if (!frames)
                 return -1;
 
-        fd = gf_mkostemp (tmpl, 0, O_RDWR);
+        /* coverity[secure_temp] mkstemp uses 0600 as the mode and is safe */
+        fd = mkstemp (tmpl);
         if (fd == -1)
                 return -1;
+
+        /* Calling unlink so that when the file is closed or program
+         * terminates the temporary file is deleted.
+         */
+        ret = sys_unlink (tmpl);
+        if (ret < 0) {
+                gf_msg (THIS->name, GF_LOG_INFO, 0, LG_MSG_FILE_OP_FAILED,
+                        "Unable to delete temporary file: %s", tmpl);
+        }
 
         /*The most recent two frames are the calling function and
          * gf_backtrace_save, which we can infer.*/
@@ -4279,8 +4289,6 @@ gf_backtrace_fillframes (char *buf)
 out:
         if (fp)
                 fclose (fp);
-
-        sys_unlink (tmpl);
 
         return (idx > 0)? 0: -1;
 
