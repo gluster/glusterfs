@@ -472,14 +472,13 @@ priv_glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
 	DECLARE_OLD_THIS;
 	__GLFS_ENTRY_VALIDATE_FS(fs, invalid_fs);
 
-	path = gf_strdup (origpath);
-	if (!path) {
-		errno = ENOMEM;
-		return -1;
-	}
+        if (origpath[0] == '\0') {
+                errno = EINVAL;
+                goto invalid_fs;
+        }
 
 	parent = NULL;
-	if (at && path[0] != '/') {
+	if (at && origpath[0] != '/') {
 		/* A relative resolution of a path which starts with '/'
 		   is equal to an absolute path resolution.
 		*/
@@ -487,9 +486,13 @@ priv_glfs_resolve_at (struct glfs *fs, xlator_t *subvol, inode_t *at,
 	} else {
 		inode = inode_ref (subvol->itable->root);
 
-		if (strcmp (path, "/") == 0)
+		if (strcmp (origpath, "/") == 0)
                         glfs_resolve_root (fs, subvol, inode, &ciatt);
 	}
+
+        path = gf_strdup (origpath);
+	if (!path)
+		goto invalid_fs;
 
 	for (component = strtok_r (path, "/", &saveptr);
 	     component; component = next_component) {
