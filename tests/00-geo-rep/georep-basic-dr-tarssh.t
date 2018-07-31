@@ -5,7 +5,7 @@
 . $(dirname $0)/../geo-rep.rc
 . $(dirname $0)/../env.rc
 
-SCRIPT_TIMEOUT=300
+SCRIPT_TIMEOUT=500
 
 AREQUAL_PATH=$(dirname $0)/../utils
 test "`uname -s`" != "Linux" && {
@@ -42,6 +42,10 @@ TEST $CLI volume start $GMV0
 ##create_and_start_slave_volume
 TEST $CLI volume create $GSV0 replica 2 $H0:$B0/${GSV0}{1,2,3,4};
 TEST $CLI volume start $GSV0
+TEST $CLI volume set $GSV0 performance.stat-prefetch off
+TEST $CLI volume set $GSV0 performance.quick-read off
+TEST $CLI volume set $GSV0 performance.readdir-ahead off
+TEST $CLI volume set $GSV0 performance.read-ahead off
 
 ##Create, start and mount meta_volume
 TEST $CLI volume create $META_VOL replica 3 $H0:$B0/${META_VOL}{1,2,3};
@@ -79,6 +83,12 @@ TEST $CLI volume set $GMV0 changelog.rollover-time 3
 #Config tarssh as sync-engine
 TEST $GEOREP_CLI $master $slave config use_tarssh true
 
+#Wait for common secret pem file to be created
+EXPECT_WITHIN $GEO_REP_TIMEOUT  0 check_common_secret_file
+
+#Verify the keys are distributed
+EXPECT_WITHIN $GEO_REP_TIMEOUT  0 check_keys_distributed
+
 #Start_georep
 TEST $GEOREP_CLI $master $slave start
 
@@ -87,7 +97,7 @@ EXPECT_WITHIN $GEO_REP_TIMEOUT  2 check_status_num_rows "Passive"
 
 #data_tests "hybrid"
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 regular_file_ok ${slave_mnt}/hybrid_f1
-EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/$hybrid_d1
+EXPECT_WITHIN $GEO_REP_TIMEOUT 0 directory_ok ${slave_mnt}/hybrid_d1
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 rename_file_ok ${slave_mnt}/hybrid_f3 ${slave_mnt}/hybrid_f4
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 rename_dir_ok ${slave_mnt}/hybrid_d3 ${slave_mnt}/hybrid_d4
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 symlink_ok hybrid_f1 ${slave_mnt}/hybrid_sl1
