@@ -396,15 +396,18 @@ dict_set_lk (dict_t *this, char *key, data_t *value, gf_boolean_t replace)
         int hashval = 0;
         data_pair_t *pair;
         char key_free = 0;
-        int ret = 0;
+        int keylen = 0;
         uint32_t hash;
 
         if (!key) {
-                ret = gf_asprintf (&key, "ref:%p", value);
-                if (-1 == ret) {
+                keylen = gf_asprintf (&key, "ref:%p", value);
+                if (-1 == keylen) {
                         return -1;
                 }
                 key_free = 1;
+        }
+        else {
+                keylen = strlen(key);
         }
 
         hash = SuperFastHash (key, strlen (key));
@@ -443,7 +446,7 @@ dict_set_lk (dict_t *this, char *key, data_t *value, gf_boolean_t replace)
                 key_free = 0;
         }
         else {
-                pair->key = (char *) GF_MALLOC (strlen (key) + 1,
+                pair->key = (char *) GF_MALLOC (keylen + 1,
                                                 gf_common_mt_char);
                 if (!pair->key) {
                         if (pair == &this->free_pair) {
@@ -762,19 +765,19 @@ data_ref (data_t *this)
 data_t *
 int_to_data (int64_t value)
 {
-        int     ret = 0;
         data_t *data = get_new_data ();
+        int len;
 
         if (!data) {
                 return NULL;
         }
 
-        ret = gf_asprintf (&data->data, "%"PRId64, value);
-        if (-1 == ret) {
+        len = gf_asprintf (&data->data, "%"PRId64, value);
+        if (-1 == len) {
                 gf_msg_debug ("dict", 0, "asprintf failed");
                 return NULL;
         }
-        data->len = strlen (data->data) + 1;
+        data->len = len + 1;
         data->data_type = GF_DATA_TYPE_INT;
 
         return data;
@@ -783,18 +786,18 @@ int_to_data (int64_t value)
 data_t *
 data_from_int64 (int64_t value)
 {
-        int     ret = 0;
         data_t *data = get_new_data ();
+        int len;
 
         if (!data) {
                 return NULL;
         }
-        ret = gf_asprintf (&data->data, "%"PRId64, value);
-        if (-1 == ret) {
+        len = gf_asprintf (&data->data, "%"PRId64, value);
+        if (-1 == len) {
                 gf_msg_debug ("dict", 0, "asprintf failed");
                 return NULL;
         }
-        data->len = strlen (data->data) + 1;
+        data->len = len + 1;
         data->data_type = GF_DATA_TYPE_INT;
 
         return data;
@@ -803,19 +806,19 @@ data_from_int64 (int64_t value)
 data_t *
 data_from_int32 (int32_t value)
 {
-        int     ret = 0;
         data_t *data = get_new_data ();
+        int len;
 
         if (!data) {
                 return NULL;
         }
-        ret = gf_asprintf (&data->data, "%"PRId32, value);
-        if (-1 == ret) {
+        len = gf_asprintf (&data->data, "%"PRId32, value);
+        if (-1 == len) {
                 gf_msg_debug ("dict", 0, "asprintf failed");
                 return NULL;
         }
 
-        data->len = strlen (data->data) + 1;
+        data->len = len + 1;
         data->data_type = GF_DATA_TYPE_INT;
 
         return data;
@@ -824,19 +827,19 @@ data_from_int32 (int32_t value)
 data_t *
 data_from_int16 (int16_t value)
 {
-        int     ret = 0;
         data_t *data = get_new_data ();
+        int len;
 
         if (!data) {
                 return NULL;
         }
-        ret = gf_asprintf (&data->data, "%"PRId16, value);
-        if (-1 == ret) {
+        len = gf_asprintf (&data->data, "%"PRId16, value);
+        if (-1 == len) {
                 gf_msg_debug ("dict", 0, "asprintf failed");
                 return NULL;
         }
 
-        data->len = strlen (data->data) + 1;
+        data->len = len + 1;
         data->data_type = GF_DATA_TYPE_INT;
 
         return data;
@@ -845,19 +848,19 @@ data_from_int16 (int16_t value)
 data_t *
 data_from_int8 (int8_t value)
 {
-        int     ret = 0;
         data_t *data = get_new_data ();
+        int len;
 
         if (!data) {
                 return NULL;
         }
-        ret = gf_asprintf (&data->data, "%d", value);
-        if (-1 == ret) {
+        len = gf_asprintf (&data->data, "%d", value);
+        if (-1 == len) {
                 gf_msg_debug ("dict", 0, "asprintf failed");
                 return NULL;
         }
 
-        data->len = strlen (data->data) + 1;
+        data->len = len + 1;
         data->data_type = GF_DATA_TYPE_INT;
 
         return data;
@@ -866,19 +869,19 @@ data_from_int8 (int8_t value)
 data_t *
 data_from_uint64 (uint64_t value)
 {
-        int     ret = 0;
         data_t *data = get_new_data ();
+        int len;
 
         if (!data) {
                 return NULL;
         }
-        ret = gf_asprintf (&data->data, "%"PRIu64, value);
-        if (-1 == ret) {
+        len = gf_asprintf (&data->data, "%"PRIu64, value);
+        if (-1 == len) {
                 gf_msg_debug ("dict", 0, "asprintf failed");
                 return NULL;
         }
 
-        data->len = strlen (data->data) + 1;
+        data->len = len + 1;
         data->data_type = GF_DATA_TYPE_UINT;
 
         return data;
@@ -888,7 +891,7 @@ static data_t *
 data_from_double (double value)
 {
         data_t *data = NULL;
-        int     ret  = 0;
+        int len;
 
         data = get_new_data ();
 
@@ -896,11 +899,11 @@ data_from_double (double value)
                 return NULL;
         }
 
-        ret = gf_asprintf (&data->data, "%f", value);
-        if (ret == -1) {
+        len = gf_asprintf (&data->data, "%f", value);
+        if (len == -1) {
                 return NULL;
         }
-        data->len = strlen (data->data) + 1;
+        data->len = len + 1;
         data->data_type = GF_DATA_TYPE_DOUBLE;
 
         return data;
@@ -910,19 +913,19 @@ data_from_double (double value)
 data_t *
 data_from_uint32 (uint32_t value)
 {
-        int     ret = 0;
         data_t *data = get_new_data ();
+        int len;
 
         if (!data) {
                 return NULL;
         }
-        ret = gf_asprintf (&data->data, "%"PRIu32, value);
-        if (-1 == ret) {
+        len = gf_asprintf (&data->data, "%"PRIu32, value);
+        if (-1 == len) {
                 gf_msg_debug ("dict", 0, "asprintf failed");
                 return NULL;
         }
 
-        data->len = strlen (data->data) + 1;
+        data->len = len + 1;
         data->data_type = GF_DATA_TYPE_UINT;
 
         return data;
@@ -932,18 +935,18 @@ data_from_uint32 (uint32_t value)
 data_t *
 data_from_uint16 (uint16_t value)
 {
-        int     ret = 0;
         data_t *data = get_new_data ();
+        int len;
 
         if (!data) {
                 return NULL;
         }
-        ret = gf_asprintf (&data->data, "%"PRIu16, value);
-        if (-1 == ret) {
+        len = gf_asprintf (&data->data, "%"PRIu16, value);
+        if (-1 == len) {
                 return NULL;
         }
 
-        data->len = strlen (data->data) + 1;
+        data->len = len + 1;
         data->data_type = GF_DATA_TYPE_UINT;
 
         return data;
@@ -2861,20 +2864,15 @@ int
 dict_serialized_length_lk (dict_t *this)
 {
         int ret            = -EINVAL;
-        int count          = 0;
-        int len            = 0;
-        data_pair_t * pair = NULL;
-
-        len = DICT_HDR_LEN;
-        count = this->count;
+        int count          = this->count;
+        int len            = DICT_HDR_LEN;
+        data_pair_t * pair = this->members_list;
 
         if (count < 0) {
                 gf_msg ("dict", GF_LOG_ERROR, EINVAL,
                         LG_MSG_COUNT_LESS_THAN_ZERO, "count (%d) < 0!", count);
                 goto out;
         }
-
-        pair = this->members_list;
 
         while (count) {
                 if (!pair) {
@@ -2934,8 +2932,8 @@ int
 dict_serialize_lk (dict_t *this, char *buf)
 {
         int           ret     = -1;
-        data_pair_t * pair    = NULL;
-        int32_t       count   = 0;
+        data_pair_t * pair    = this->members_list;
+        int32_t       count   = this->count;
         int32_t       keylen  = 0;
         int32_t       vallen  = 0;
         int32_t       netword = 0;
@@ -2947,8 +2945,6 @@ dict_serialize_lk (dict_t *this, char *buf)
                 goto out;
         }
 
-
-        count = this->count;
         if (count < 0) {
                 gf_msg ("dict", GF_LOG_ERROR, 0, LG_MSG_COUNT_LESS_THAN_ZERO,
                         "count (%d) < 0!", count);
@@ -2958,7 +2954,6 @@ dict_serialize_lk (dict_t *this, char *buf)
         netword = hton32 (count);
         memcpy (buf, &netword, sizeof(netword));
         buf += DICT_HDR_LEN;
-        pair = this->members_list;
 
         while (count) {
                 if (!pair) {
@@ -3085,7 +3080,7 @@ out:
 int32_t
 dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
 {
-        char   *buf = NULL;
+        char   *buf = orig_buf;
         int     ret   = -1;
         int32_t count = 0;
         int     i     = 0;
@@ -3095,8 +3090,6 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
         int32_t  keylen  = 0;
         int32_t  vallen  = 0;
         int32_t  hostord = 0;
-
-        buf = orig_buf;
 
         if (!buf) {
                 gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
@@ -3285,10 +3278,10 @@ dict_serialize_value_with_delim_lk (dict_t *this, char *buf, int32_t *serz_len,
                                     char delimiter)
 {
         int          ret       = -1;
-        int32_t      count     = 0;
+        int32_t      count     = this->count;
         int32_t      vallen    = 0;
         int32_t      total_len = 0;
-        data_pair_t *pair      = NULL;
+        data_pair_t *pair      = this->members_list;
 
         if (!buf) {
                 gf_msg ("dict", GF_LOG_ERROR, EINVAL,
@@ -3296,14 +3289,11 @@ dict_serialize_value_with_delim_lk (dict_t *this, char *buf, int32_t *serz_len,
                 goto out;
         }
 
-        count = this->count;
         if (count < 0) {
                 gf_msg ("dict", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
                         "count (%d) < 0", count);
                 goto out;
         }
-
-        pair = this->members_list;
 
         while (count) {
                 if (!pair) {
