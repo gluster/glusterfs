@@ -319,15 +319,13 @@ data_copy (data_t *old)
                 return NULL;
         }
 
-        if (old) {
-                newdata->len = old->len;
-                if (old->data) {
-                        newdata->data = memdup (old->data, old->len);
-                        if (!newdata->data)
-                                goto err_out;
-                }
-                newdata->data_type = old->data_type;
+        newdata->len = old->len;
+        if (old->data) {
+                newdata->data = memdup (old->data, old->len);
+                if (!newdata->data)
+                        goto err_out;
         }
+        newdata->data_type = old->data_type;
 
         LOCK_INIT (&newdata->lock);
         return newdata;
@@ -338,18 +336,15 @@ err_out:
         return NULL;
 }
 
+/* Always need to be called under lock
+ * Always this and key variables are not null -
+ * checked by callers.
+ */
 static data_pair_t *
 dict_lookup_common (dict_t *this, char *key, uint32_t hash)
 {
         int hashval = 0;
         data_pair_t *pair;
-
-        if (!this || !key) {
-                gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
-                                  LG_MSG_INVALID_ARG,
-                                  "!this || !key (%s)", key);
-                return NULL;
-        }
 
         /* If the divisor is 1, the modulo is always 0,
          * in such case avoid hash calculation.
@@ -369,6 +364,8 @@ dict_lookup_common (dict_t *this, char *key, uint32_t hash)
 int32_t
 dict_lookup (dict_t *this, char *key, data_t **data)
 {
+        uint32_t hash; 
+
         if (!this || !key || !data) {
                 gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
                                   LG_MSG_INVALID_ARG, "!this || !key || "
@@ -377,7 +374,6 @@ dict_lookup (dict_t *this, char *key, data_t **data)
         }
 
         data_pair_t *tmp = NULL;
-        uint32_t hash = 0;
 
         hash = SuperFastHash (key, strlen (key));
 
@@ -401,7 +397,7 @@ dict_set_lk (dict_t *this, char *key, data_t *value, gf_boolean_t replace)
         data_pair_t *pair;
         char key_free = 0;
         int ret = 0;
-        uint32_t hash = 0;
+        uint32_t hash;
 
         if (!key) {
                 ret = gf_asprintf (&key, "ref:%p", value);
@@ -411,13 +407,7 @@ dict_set_lk (dict_t *this, char *key, data_t *value, gf_boolean_t replace)
                 key_free = 1;
         }
 
-        /* If the divisor is 1, the modulo is always 0,
-         * in such case avoid hash calculation.
-         */
         hash = SuperFastHash (key, strlen (key));
-        if (this->hash_size != 1) {
-                hashval = (hash % this->hash_size);
-        }
 
         /* Search for a existing key if 'replace' is asked for */
         if (replace) {
@@ -469,6 +459,12 @@ dict_set_lk (dict_t *this, char *key, data_t *value, gf_boolean_t replace)
         pair->key_hash = hash;
         pair->value = data_ref (value);
 
+        /* If the divisor is 1, the modulo is always 0,
+         * in such case avoid hash calculation.
+         */
+        if (this->hash_size != 1) {
+                hashval = (hash % this->hash_size);
+        }
         pair->hash_next = this->members[hashval];
         this->members[hashval] = pair;
 
@@ -537,7 +533,7 @@ data_t *
 dict_get (dict_t *this, char *key)
 {
         data_pair_t *pair;
-        uint32_t hash = 0;
+        uint32_t hash;
 
         if (!this || !key) {
                 gf_msg_callingfn ("dict", GF_LOG_INFO, EINVAL,
@@ -584,7 +580,7 @@ void
 dict_del (dict_t *this, char *key)
 {
         int hashval = 0;
-        uint32_t hash = 0;
+        uint32_t hash;
 
         if (!this || !key) {
                 gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
@@ -592,12 +588,13 @@ dict_del (dict_t *this, char *key)
                 return;
         }
 
+        hash = SuperFastHash (key, strlen (key));
+
         LOCK (&this->lock);
 
         /* If the divisor is 1, the modulo is always 0,
          * in such case avoid hash calculation.
          */
-        hash = SuperFastHash (key, strlen (key));
         if (this->hash_size != 1)
                 hashval = hash % this->hash_size;
 
@@ -1499,7 +1496,7 @@ dict_get_with_ref (dict_t *this, char *key, data_t **data)
 {
         data_pair_t * pair = NULL;
         int           ret  = -ENOENT;
-        uint32_t      hash = 0;
+        uint32_t      hash;
 
         if (!this || !key || !data) {
                 gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
@@ -2134,10 +2131,10 @@ _dict_modify_flag (dict_t *this, char *key, int flag, int op)
 {
         data_t          *data           = NULL;
         int             ret             = 0;
-        uint32_t        hash            = 0;
         data_pair_t     *pair           = NULL;
         char            *ptr            = NULL;
         int             hashval         = 0;
+        uint32_t        hash;
 
         if (!this || !key) {
                 gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
@@ -2807,11 +2804,17 @@ dict_rename_key (dict_t *this, char *key, char *replace_key)
 {
         data_pair_t *pair = NULL;
         int          ret  = -EINVAL;
-        uint32_t     hash = 0;
+        uint32_t     hash;
 
         /* replacing a key by itself is a NO-OP */
         if (strcmp (key, replace_key) == 0)
                 return 0;
+
+        if (!this) {
+                gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "dict is NULL");
+                return ret;
+        }
 
         hash = SuperFastHash (key, strlen (key));
 
