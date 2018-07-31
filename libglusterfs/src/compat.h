@@ -451,8 +451,6 @@ char *dirname_r(char *path);
 #define dirname(path) dirname_r(path)
 #endif /* THREAD_UNSAFE_DIRNAME */
 
-int gf_mkostemp (char *tmpl, int suffixlen, int flags);
-
 #ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
 /* Linux, Solaris, Cygwin */
 #define ST_ATIM_SEC(stbuf) ((stbuf)->st_atim.tv_sec)
