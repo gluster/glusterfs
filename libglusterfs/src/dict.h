@@ -68,13 +68,13 @@ typedef struct _data_pair data_pair_t;
 #define DICT_FLAG_CLEAR        0
 
 struct _data {
-        unsigned char  is_static:1;
-        unsigned char  is_const:1;
-        int32_t        len;
         char          *data;
         gf_atomic_t    refcount;
         gf_lock_t      lock;
         gf_dict_data_type_t data_type;
+        int32_t        len;
+        unsigned char  is_static:1;
+        unsigned char  is_const:1;
 };
 
 struct _data_pair {
@@ -87,7 +87,7 @@ struct _data_pair {
 };
 
 struct _dict {
-        unsigned char   is_static:1;
+        uint64_t        max_count;
         int32_t         hash_size;
         int32_t         count;
         gf_atomic_t     refcount;
@@ -99,7 +99,7 @@ struct _dict {
         data_pair_t    *members_internal;
         data_pair_t     free_pair;
         gf_boolean_t    free_pair_in_use;
-        uint64_t        max_count;
+	unsigned char   is_static:1;
 };
 
 typedef gf_boolean_t (*dict_match_t) (dict_t *d, char *k, data_t *v,
