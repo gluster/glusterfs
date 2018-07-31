@@ -790,6 +790,7 @@ glusterd_mgmt_v3_unlock (const char *name, uuid_t uuid, char *type)
         int32_t                         ret                 = -1;
         gf_boolean_t                    is_valid            = _gf_true;
         glusterd_conf_t                 *priv               = NULL;
+        glusterd_volinfo_t              *volinfo            = NULL;
         glusterd_mgmt_v3_lock_timer     *mgmt_lock_timer    = NULL;
         uuid_t                          owner               = {0};
         xlator_t                        *this               = NULL;
@@ -888,7 +889,6 @@ glusterd_mgmt_v3_unlock (const char *name, uuid_t uuid, char *type)
                 "Lock for %s %s successfully released",
                 type, name);
 
-        ret = 0;
         /* Release owner reference which was held during lock */
         if (mgmt_lock_timer->timer) {
                 ret = -1;
@@ -905,6 +905,15 @@ glusterd_mgmt_v3_unlock (const char *name, uuid_t uuid, char *type)
                                     mgmt_lock_timer->timer);
                 dict_del (priv->mgmt_v3_lock_timer, key_dup);
         }
+        ret = glusterd_volinfo_find (name, &volinfo);
+        if (volinfo && volinfo->stage_deleted) {
+                /* this indicates a volume still exists and the volume delete
+                 * operation has failed in some of the phases, need to ensure
+                 * stage_deleted flag is set back to false
+                 */
+                volinfo->stage_deleted = _gf_false;
+        }
+        ret = 0;
 out:
 
         gf_msg_trace (this->name, 0, "Returning %d", ret);

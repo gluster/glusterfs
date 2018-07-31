@@ -489,6 +489,9 @@ struct glusterd_volinfo_ {
         glusterd_tierdsvc_t       tierd;
         glusterd_gfproxydsvc_t    gfproxyd;
         int32_t                   quota_xattr_version;
+        gf_boolean_t              stage_deleted; /* volume has passed staging
+                                                  * for delete operation
+                                                  */
 };
 
 typedef enum gd_snap_status_ {
