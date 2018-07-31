@@ -1851,7 +1851,7 @@ glusterd_op_stage_delete_volume (dict_t *dict, char **op_errstr)
                 snprintf (msg, sizeof(msg), "Some of the peers are down");
                 goto out;
         }
-
+        volinfo->stage_deleted = _gf_true;
         ret = 0;
 
 out:

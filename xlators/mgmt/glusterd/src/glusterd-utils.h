@@ -158,7 +158,7 @@ glusterd_brickinfo_new_from_brick (char *brick,
                                    char **op_errstr);
 
 int32_t
-glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo);
+glusterd_volinfo_find (const char *volname, glusterd_volinfo_t **volinfo);
 
 int
 glusterd_volinfo_find_by_volume_id (uuid_t volume_id, glusterd_volinfo_t **volinfo);
