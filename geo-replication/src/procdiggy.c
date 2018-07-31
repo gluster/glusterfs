@@ -72,8 +72,8 @@ pidinfo (pid_t pid, char **name)
 
  out:
         fclose (f);
-        if (pid == -1 && name && *name)
-                GF_FREE (name);
+        if (pid == -1  && name && *name)
+                GF_FREE (*name);
         if (pid == -2)
                 fprintf (stderr, "out of memory\n");
         return pid;
@@ -104,8 +104,10 @@ prociter (int (*proch) (pid_t pid, pid_t ppid, char *tmpname, void *data),
                 if (gf_string2int (de->d_name, &pid) != -1 && pid >= 0) {
                         ppid = pidinfo (pid, &name);
                         switch (ppid) {
-                        case -1: continue;
-                        case -2: ret = -1; break;
+                        case -1:
+                                continue;
+                        case -2:
+                                break;
                         }
                         ret = proch (pid, ppid, name, data);
                         GF_FREE (name);
