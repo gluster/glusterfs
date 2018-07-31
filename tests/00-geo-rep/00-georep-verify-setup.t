@@ -5,7 +5,7 @@
 . $(dirname $0)/../geo-rep.rc
 . $(dirname $0)/../env.rc
 
-### Basic Tests with Distribute Replicate volumes
+SCRIPT_TIMEOUT=300
 
 ##Cleanup and start glusterd
 cleanup;
@@ -53,6 +53,30 @@ TEST glusterfs -s $H0 --volfile-id $GSV0 $M1
 
 #Create geo-rep session
 TEST create_georep_session $master $slave
+
+#Config gluster-command-dir
+TEST $GEOREP_CLI $master $slave config gluster-command-dir ${GLUSTER_CMD_DIR}
+
+#Config gluster-command-dir
+TEST $GEOREP_CLI $master $slave config slave-gluster-command-dir ${GLUSTER_CMD_DIR}
+
+#Enable_metavolume
+TEST $GEOREP_CLI $master $slave config use_meta_volume true
+
+#Wait for common secret pem file to be created
+EXPECT_WITHIN $GEO_REP_TIMEOUT  0 check_common_secret_file
+
+#Verify the keys are distributed
+EXPECT_WITHIN $GEO_REP_TIMEOUT  0 check_keys_distributed
+
+#Start_georep
+TEST $GEOREP_CLI $master $slave start
+
+EXPECT_WITHIN $GEO_REP_TIMEOUT  2 check_status_num_rows "Active"
+EXPECT_WITHIN $GEO_REP_TIMEOUT  2 check_status_num_rows "Passive"
+
+#Stop Geo-rep
+TEST $GEOREP_CLI $master $slave stop
 
 #Delete Geo-rep
 TEST $GEOREP_CLI $master $slave delete

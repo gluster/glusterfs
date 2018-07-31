@@ -3,7 +3,20 @@ GEO_REP_TIMEOUT=120
 function check_status_num_rows()
 {
     local search_key=$1
-    $GEOREP_CLI $master $slave status detail | egrep -i "$search_key" | wc -l
+    $GEOREP_CLI $master $slave status | grep -F "$search_key" | wc -l
+}
+
+function check_keys_distributed()
+{
+    local search_key=$(cat /var/lib/glusterd/geo-replication/master_slave_common_secret.pem.pub)
+    grep -F "$search_key" ~/.ssh/authorized_keys > /dev/null
+    echo $?
+}
+
+function check_common_secret_file()
+{
+    stat /var/lib/glusterd/geo-replication/master_slave_common_secret.pem.pub
+    echo $?
 }
 
 function create_data()
@@ -22,8 +35,8 @@ function create_data()
     # GF_FOP_CREATE
     # GF_FOP_SETATTR
 
-    # Regular file
-    touch ${master_mnt}/${prefix}_f1
+    # Regular file + data
+    echo "HelloWorld!" > ${master_mnt}/${prefix}_f1
     touch ${master_mnt}/${prefix}_f2
     touch ${master_mnt}/${prefix}_f3
 
@@ -39,9 +52,6 @@ function create_data()
     cd ${master_mnt}
     ln -s ${prefix}_f1 ${prefix}_sl1
     cd -
-
-    # data
-    echo "HelloWorld!" >> ${master_mnt}/${prefix}_f1
 
     # UNLINK
     rm ${master_mnt}/${prefix}_f2
