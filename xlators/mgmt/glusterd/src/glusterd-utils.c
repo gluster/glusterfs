@@ -5801,12 +5801,26 @@ find_compat_brick_in_vol (glusterd_conf_t *conf,
         int                     mux_limit               = -1;
         int                     ret                     = -1;
         gf_boolean_t            brick_status            = _gf_false;
+        gf_boolean_t            is_shared_storage       = _gf_false;
 
         /*
          * If comp_vol is provided, we have to check *volume* compatibility
          * before we can check *brick* compatibility.
          */
         if (comp_vol) {
+                /*
+                 * We should not attach bricks of a normal volume to bricks
+                 * of shared storage volume.
+                 */
+                if (!strcmp (srch_vol->volname, GLUSTER_SHARED_STORAGE))
+                        is_shared_storage = _gf_true;
+
+                if (!strcmp (comp_vol->volname, GLUSTER_SHARED_STORAGE)) {
+                        if (!is_shared_storage)
+                                return NULL;
+                } else if (is_shared_storage)
+                        return NULL;
+
                 /*
                  * It's kind of a shame that we have to do this check in both
                  * directions, but an option might only exist on one of the two
