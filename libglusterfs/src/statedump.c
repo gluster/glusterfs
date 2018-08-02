@@ -126,7 +126,6 @@ gf_proc_dump_add_section_fd (char *key, va_list ap)
 
         GF_ASSERT(key);
 
-        memset (buf, 0, sizeof(buf));
         snprintf (buf, GF_DUMP_MAX_BUF_LEN, "\n[");
         vsnprintf (buf + strlen(buf),
                    GF_DUMP_MAX_BUF_LEN - strlen (buf), key, ap);
@@ -175,10 +174,7 @@ gf_proc_dump_write_fd (char *key, char *value, va_list ap)
 
         GF_ASSERT (key);
 
-        offset = strlen (key);
-
-        memset (buf, 0, GF_DUMP_MAX_BUF_LEN);
-        snprintf (buf, GF_DUMP_MAX_BUF_LEN, "%s", key);
+        offset = snprintf (buf, GF_DUMP_MAX_BUF_LEN, "%s", key);
         snprintf (buf + offset, GF_DUMP_MAX_BUF_LEN - offset, "=");
         offset += 1;
         vsnprintf (buf + offset, GF_DUMP_MAX_BUF_LEN - offset, value, ap);
@@ -429,49 +425,41 @@ gf_proc_dump_mempool_info_to_dict (glusterfs_ctx_t *ctx, dict_t *dict)
                 return;
 
         list_for_each_entry (pool, &ctx->mempool_list, global_list) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "pool%d.name", count);
                 ret = dict_set_str (dict, key, pool->name);
                 if (ret)
                         return;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "pool%d.hotcount", count);
                 ret = dict_set_int32 (dict, key, pool->hot_count);
                 if (ret)
                         return;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "pool%d.coldcount", count);
                 ret = dict_set_int32 (dict, key, pool->cold_count);
                 if (ret)
                         return;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "pool%d.paddedsizeof", count);
                 ret = dict_set_uint64 (dict, key, pool->padded_sizeof_type);
                 if (ret)
                         return;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "pool%d.alloccount", count);
                 ret = dict_set_uint64 (dict, key, pool->alloc_count);
                 if (ret)
                         return;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "pool%d.max_alloc", count);
                 ret = dict_set_int32 (dict, key, pool->max_alloc);
                 if (ret)
                         return;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "pool%d.max-stdalloc", count);
                 ret = dict_set_int32 (dict, key, pool->max_stdalloc);
                 if (ret)
                         return;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "pool%d.pool-misses", count);
                 ret = dict_set_uint64 (dict, key, pool->pool_misses);
                 if (ret)
@@ -893,9 +881,7 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
         //swallow the errors of write for start and end marker
         ret = sys_write (gf_dump_fd, sign_string, strlen (sign_string));
 
-        memset (sign_string, 0, sizeof (sign_string));
         memset (timestr, 0, sizeof (timestr));
-        memset (&tv, 0, sizeof (tv));
 
         if (GF_PROC_DUMP_IS_OPTION_ENABLED (mem)) {
                 gf_proc_dump_mem_info ();

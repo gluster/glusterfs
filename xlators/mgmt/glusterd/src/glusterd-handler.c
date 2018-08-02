@@ -320,7 +320,7 @@ _build_option_key (dict_t *d, char *k, data_t *v, void *tmp)
             (strcmp (k, "snap-max-soft-limit") == 0))
                 return 0;
 
-        snprintf (reconfig_key, 256, "volume%d.option.%s",
+        snprintf (reconfig_key, sizeof (reconfig_key), "volume%d.option.%s",
                   pack->vol_count, k);
         ret = dict_set_str (pack->dict, reconfig_key, v->data);
         if (0 == ret)
@@ -339,66 +339,56 @@ glusterd_add_tier_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         GF_ASSERT (volinfo);
         GF_ASSERT (dict);
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "volume%d.cold_type", count);
+        snprintf (key, sizeof (key), "volume%d.cold_type", count);
         ret = dict_set_int32 (dict, key, volinfo->tier_info.cold_type);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "volume%d.cold_brick_count", count);
+        snprintf (key, sizeof (key), "volume%d.cold_brick_count", count);
         ret = dict_set_int32 (dict, key, volinfo->tier_info.cold_brick_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "volume%d.cold_dist_count", count);
+        snprintf (key, sizeof (key), "volume%d.cold_dist_count", count);
         ret = dict_set_int32 (dict, key,
                               volinfo->tier_info.cold_dist_leaf_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "volume%d.cold_replica_count", count);
+        snprintf (key, sizeof (key), "volume%d.cold_replica_count", count);
         ret = dict_set_int32 (dict, key,
                               volinfo->tier_info.cold_replica_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "volume%d.cold_arbiter_count", count);
+        snprintf (key, sizeof (key), "volume%d.cold_arbiter_count", count);
         ret = dict_set_int32 (dict, key, volinfo->arbiter_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "volume%d.cold_disperse_count", count);
+        snprintf (key, sizeof (key), "volume%d.cold_disperse_count", count);
         ret = dict_set_int32 (dict, key,
                               volinfo->tier_info.cold_disperse_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "volume%d.cold_redundancy_count", count);
+        snprintf (key, sizeof (key), "volume%d.cold_redundancy_count", count);
         ret = dict_set_int32 (dict, key,
                               volinfo->tier_info.cold_redundancy_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "volume%d.hot_type", count);
+        snprintf (key, sizeof (key), "volume%d.hot_type", count);
         ret = dict_set_int32 (dict, key, volinfo->tier_info.hot_type);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "volume%d.hot_brick_count", count);
+        snprintf (key, sizeof (key), "volume%d.hot_brick_count", count);
         ret = dict_set_int32 (dict, key, volinfo->tier_info.hot_brick_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "volume%d.hot_replica_count", count);
+        snprintf (key, sizeof (key), "volume%d.hot_replica_count", count);
         ret = dict_set_int32 (dict, key, volinfo->tier_info.hot_replica_count);
         if (ret)
                 goto out;
@@ -431,8 +421,7 @@ glusterd_add_arbiter_info_to_bricks (glusterd_volinfo_t *volinfo,
                         if ((i - start_index + 1) %
                             volinfo->tier_info.cold_replica_count != 0)
                                 continue;
-                        memset (key, 0, sizeof (key));
-                        snprintf (key, 256, "volume%d.brick%d.isArbiter",
+                        snprintf (key, sizeof (key), "volume%d.brick%d.isArbiter",
                                   count, i);
                         ret = dict_set_int32 (volumes, key, 1);
                         if (ret)
@@ -444,8 +433,7 @@ glusterd_add_arbiter_info_to_bricks (glusterd_volinfo_t *volinfo,
                 for (i = 1; i <= volinfo->brick_count; i++) {
                         if (i % volinfo->replica_count != 0)
                                 continue;
-                        memset (key, 0, sizeof (key));
-                        snprintf (key, 256, "volume%d.brick%d.isArbiter",
+                        snprintf (key, sizeof (key), "volume%d.brick%d.isArbiter",
                                   count, i);
                         ret = dict_set_int32 (volumes, key, 1);
                         if (ret)
@@ -481,27 +469,27 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
 
         GF_ASSERT (priv);
 
-        snprintf (key, 256, "volume%d.name", count);
+        snprintf (key, sizeof (key), "volume%d.name", count);
         ret = dict_set_str (volumes, key, volinfo->volname);
         if (ret)
                 goto out;
 
-        snprintf (key, 256, "volume%d.type", count);
+        snprintf (key, sizeof (key), "volume%d.type", count);
         ret = dict_set_int32 (volumes, key, volinfo->type);
         if (ret)
                 goto out;
 
-        snprintf (key, 256, "volume%d.status", count);
+        snprintf (key, sizeof (key), "volume%d.status", count);
         ret = dict_set_int32 (volumes, key, volinfo->status);
         if (ret)
                 goto out;
 
-        snprintf (key, 256, "volume%d.brick_count", count);
+        snprintf (key, sizeof (key), "volume%d.brick_count", count);
         ret = dict_set_int32 (volumes, key, volinfo->brick_count);
         if (ret)
                 goto out;
 
-        snprintf (key, 256, "volume%d.hot_brick_count", count);
+        snprintf (key, sizeof (key), "volume%d.hot_brick_count", count);
         ret = dict_set_int32 (volumes, key, volinfo->tier_info.hot_brick_count);
         if (ret)
                 goto out;
@@ -513,27 +501,27 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                         goto out;
         }
 
-        snprintf (key, 256, "volume%d.dist_count", count);
+        snprintf (key, sizeof (key), "volume%d.dist_count", count);
         ret = dict_set_int32 (volumes, key, volinfo->dist_leaf_count);
         if (ret)
                 goto out;
 
-        snprintf (key, 256, "volume%d.stripe_count", count);
+        snprintf (key, sizeof (key), "volume%d.stripe_count", count);
         ret = dict_set_int32 (volumes, key, volinfo->stripe_count);
         if (ret)
                 goto out;
 
-        snprintf (key, 256, "volume%d.replica_count", count);
+        snprintf (key, sizeof (key), "volume%d.replica_count", count);
         ret = dict_set_int32 (volumes, key, volinfo->replica_count);
         if (ret)
                 goto out;
 
-        snprintf (key, 256, "volume%d.disperse_count", count);
+        snprintf (key, sizeof (key), "volume%d.disperse_count", count);
         ret = dict_set_int32 (volumes, key, volinfo->disperse_count);
         if (ret)
                 goto out;
 
-        snprintf (key, 256, "volume%d.redundancy_count", count);
+        snprintf (key, sizeof (key), "volume%d.redundancy_count", count);
         ret = dict_set_int32 (volumes, key, volinfo->redundancy_count);
         if (ret)
                 goto out;
@@ -543,7 +531,7 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        snprintf (key, 256, "volume%d.transport", count);
+        snprintf (key, sizeof (key), "volume%d.transport", count);
         ret = dict_set_int32 (volumes, key, volinfo->transport_type);
         if (ret)
                 goto out;
@@ -557,12 +545,12 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        snprintf (key, 256, "volume%d.rebalance", count);
+        snprintf (key, sizeof (key), "volume%d.rebalance", count);
         ret = dict_set_int32 (volumes, key, volinfo->rebal.defrag_cmd);
         if (ret)
                 goto out;
 
-        snprintf (key, 256, "volume%d.snap_count", count);
+        snprintf (key, sizeof (key), "volume%d.snap_count", count);
         ret = dict_set_int32 (volumes, key, volinfo->snap_count);
         if (ret)
                 goto out;
@@ -570,7 +558,7 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
 #ifdef HAVE_BD_XLATOR
         if (volinfo->caps) {
                 caps = 0;
-                snprintf (key, 256, "volume%d.xlator0", count);
+                snprintf (key, sizeof (key), "volume%d.xlator0", count);
                 buf = GF_MALLOC (256, gf_common_mt_char);
                 if (!buf) {
                         ret = ENOMEM;
@@ -585,7 +573,7 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                 }
 
                 if (volinfo->caps & CAPS_THIN) {
-                        snprintf (key, 256, "volume%d.xlator0.caps%d", count,
+                        snprintf (key, sizeof (key), "volume%d.xlator0.caps%d", count,
                                   caps++);
                         buf = GF_MALLOC (256, gf_common_mt_char);
                         if (!buf) {
@@ -601,7 +589,7 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                 }
 
                 if (volinfo->caps & CAPS_OFFLOAD_COPY) {
-                        snprintf (key, 256, "volume%d.xlator0.caps%d", count,
+                        snprintf (key, sizeof (key), "volume%d.xlator0.caps%d", count,
                                   caps++);
                         buf = GF_MALLOC (256, gf_common_mt_char);
                         if (!buf) {
@@ -617,7 +605,7 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                 }
 
                 if (volinfo->caps & CAPS_OFFLOAD_SNAPSHOT) {
-                        snprintf (key, 256, "volume%d.xlator0.caps%d", count,
+                        snprintf (key, sizeof (key), "volume%d.xlator0.caps%d", count,
                                   caps++);
                         buf = GF_MALLOC (256, gf_common_mt_char);
                         if (!buf) {
@@ -633,7 +621,7 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                 }
 
                 if (volinfo->caps & CAPS_OFFLOAD_ZERO) {
-                        snprintf (key, 256, "volume%d.xlator0.caps%d", count,
+                        snprintf (key, sizeof (key), "volume%d.xlator0.caps%d", count,
                                   caps++);
                         buf = GF_MALLOC (256, gf_common_mt_char);
                         if (!buf) {
@@ -654,8 +642,8 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 char    brick[1024] = {0,};
                 char    brick_uuid[64] = {0,};
-                snprintf (key, 256, "volume%d.brick%d", count, i);
-                len = snprintf (brick, 1024, "%s:%s", brickinfo->hostname,
+                snprintf (key, sizeof (key), "volume%d.brick%d", count, i);
+                len = snprintf (brick, sizeof (brick), "%s:%s", brickinfo->hostname,
                                 brickinfo->path);
                 if ((len < 0) || (len >= 1024)) {
                         ret = -1;
@@ -665,8 +653,8 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                 ret = dict_set_dynstr (volumes, key, buf);
                 if (ret)
                         goto out;
-                snprintf (key, 256, "volume%d.brick%d.uuid", count, i);
-                snprintf (brick_uuid, 64, "%s", uuid_utoa (brickinfo->uuid));
+                snprintf (key, sizeof (key), "volume%d.brick%d.uuid", count, i);
+                snprintf (brick_uuid, sizeof (brick_uuid), "%s", uuid_utoa (brickinfo->uuid));
                 buf = gf_strdup (brick_uuid);
                 if (!buf)
                         goto out;
@@ -676,7 +664,7 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
 
 #ifdef HAVE_BD_XLATOR
                 if (volinfo->caps & CAPS_BD) {
-                        snprintf (key, 256, "volume%d.vg%d", count, i);
+                        snprintf (key, sizeof (key), "volume%d.vg%d", count, i);
                         snprintf (brick, 1024, "%s", brickinfo->vg);
                         buf = gf_strdup (brick);
                         ret = dict_set_dynstr (volumes, key, buf);
@@ -702,7 +690,7 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         dict_foreach (dict, _build_option_key, (void *) &pack);
         dict_foreach (priv->opts, _build_option_key, &pack);
 
-        snprintf (key, 256, "volume%d.opt_count", pack.vol_count);
+        snprintf (key, sizeof (key), "volume%d.opt_count", pack.vol_count);
         ret = dict_set_int32 (volumes, key, pack.opt_count);
 out:
         return ret;
@@ -1843,7 +1831,6 @@ __glusterd_handle_cli_list_volume (rpcsvc_request_t *req)
                 goto out;
 
         cds_list_for_each_entry (volinfo, &priv->volumes, vol_list) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d", count);
                 ret = dict_set_str (dict, key, volinfo->volname);
                 if (ret)
@@ -2773,7 +2760,6 @@ __glusterd_handle_friend_update (rpcsvc_request_t *req)
 
         args.mode = GD_MODE_ON;
         while ( i <= count) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "friend%d.uuid", i);
                 ret = dict_get_str (dict, key, &uuid_buf);
                 if (ret)
@@ -2788,7 +2774,6 @@ __glusterd_handle_friend_update (rpcsvc_request_t *req)
                         continue;
                 }
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "friend%d", i);
 
                 rcu_read_lock ();
@@ -4105,18 +4090,18 @@ unlock:
 
         if (flags == GF_CLI_LIST_POOL_NODES) {
                 count++;
-                snprintf (key, 256, "friend%d.uuid", count);
+                snprintf (key, sizeof (key), "friend%d.uuid", count);
                 uuid_utoa_r (MY_UUID, my_uuid_str);
                 ret = dict_set_str (friends, key, my_uuid_str);
                 if (ret)
                         goto out;
 
-                snprintf (key, 256, "friend%d.hostname", count);
+                snprintf (key, sizeof (key), "friend%d.hostname", count);
                 ret = dict_set_str (friends, key, "localhost");
                 if (ret)
                         goto out;
 
-                snprintf (key, 256, "friend%d.connected", count);
+                snprintf (key, sizeof (key), "friend%d.connected", count);
                 ret = dict_set_int32 (friends, key, 1);
                 if (ret)
                         goto out;
@@ -5103,7 +5088,7 @@ glusterd_print_gsync_status_by_vol (FILE *fp, glusterd_volinfo_t *volinfo)
         if (!gsync_rsp_dict)
                 goto out;
 
-        ret = gethostname(my_hostname, 256);
+        ret = gethostname(my_hostname, sizeof (my_hostname));
         if (ret) {
                 /* stick to N/A */
                 (void) strcpy (my_hostname, "N/A");
@@ -5275,7 +5260,6 @@ glusterd_print_client_details (FILE *fp, dict_t *dict,
 
         int i;
         for (i = 1; i <= client_count; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "client%d.hostname", i-1);
                 ret = dict_get_str (args.dict, key, &clientname);
                 if (ret) {
@@ -5285,12 +5269,10 @@ glusterd_print_client_details (FILE *fp, dict_t *dict,
                         goto out;
                 }
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "Client%d.hostname", i);
                 fprintf (fp, "Volume%d.Brick%d.%s: %s\n",
                          volcount, brickcount, key, clientname);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "client%d.bytesread", i-1);
                 ret = dict_get_uint64 (args.dict, key, &bytesread);
                 if (ret) {
@@ -5300,12 +5282,10 @@ glusterd_print_client_details (FILE *fp, dict_t *dict,
                         goto out;
                 }
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "Client%d.bytesread", i);
                 fprintf (fp, "Volume%d.Brick%d.%s: %"PRIu64"\n",
                          volcount, brickcount, key, bytesread);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "client%d.byteswrite", i-1);
                 ret = dict_get_uint64 (args.dict, key, &byteswrite);
                 if (ret) {
@@ -5315,12 +5295,10 @@ glusterd_print_client_details (FILE *fp, dict_t *dict,
                         goto out;
                 }
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "Client%d.byteswrite", i);
                 fprintf (fp, "Volume%d.Brick%d.%s: %"PRIu64"\n",
                          volcount, brickcount, key, byteswrite);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "client%d.opversion", i-1);
                 ret = dict_get_uint32 (args.dict, key, &opversion);
                 if (ret) {
@@ -5330,7 +5308,6 @@ glusterd_print_client_details (FILE *fp, dict_t *dict,
                         goto out;
                 }
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "Client%d.opversion", i);
                 fprintf (fp, "Volume%d.Brick%d.%s: %"PRIu32"\n",
                          volcount, brickcount, key, opversion);

@@ -745,7 +745,6 @@ gf_client_dump_fdtables_to_dict (xlator_t *this, dict_t *dict)
                                 continue;
                         client = clienttable->cliententries[count].client;
                         if (!strcmp (client->bound_xl->name, this->name)) {
-                                memset(key, 0, sizeof (key));
                                 snprintf (key, sizeof (key), "conn%d", count++);
                                 fdtable_dump_to_dict (client->server_ctx.
                                                       fdtable,
@@ -864,7 +863,6 @@ gf_client_dump_inodes_to_dict (xlator_t *this, dict_t *dict)
                                 continue;
                         client = clienttable->cliententries[count].client;
                         if (!strcmp (client->bound_xl->name, this->name)) {
-                                memset(key, 0, sizeof (key));
                                 if (client->bound_xl && client->bound_xl->
                                                 itable) {
                                         /* Presently every brick contains only
@@ -880,7 +878,6 @@ gf_client_dump_inodes_to_dict (xlator_t *this, dict_t *dict)
                                                 continue;
                                         prev_bound_xl = client->bound_xl;
 
-                                        memset (key, 0, sizeof (key));
                                         snprintf (key, sizeof (key), "conn%d",
                                                         count);
                                         inode_table_dump_to_dict (client->

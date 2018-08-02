@@ -2633,7 +2633,6 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
         char                       key[1024]       = {0};
         int                        ret             = 0;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.free", i);
         ret = dict_get_uint64 (dict, key, &free);
 
@@ -2641,7 +2640,6 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
         if (!status->free)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.total", i);
         ret = dict_get_uint64 (dict, key, &total);
 
@@ -2649,13 +2647,11 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
         if (!status->total)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.device", i);
         ret = dict_get_str (dict, key, &(status->device));
         if (ret)
                 status->device = NULL;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.block_size", i);
         ret = dict_get_uint64 (dict, key, &(status->block_size));
         if (ret) {
@@ -2663,13 +2659,11 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
                 status->block_size = 0;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.mnt_options", i);
         ret = dict_get_str (dict, key, &(status->mount_options));
         if (ret)
                 status->mount_options = NULL;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.fs_name", i);
         ret = dict_get_str (dict, key, &(status->fs_name));
         if (ret) {
@@ -2677,20 +2671,17 @@ cli_get_detail_status (dict_t *dict, int i, cli_volume_status_t *status)
                 status->fs_name = NULL;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.inode_size", i);
         ret = dict_get_str (dict, key, &(status->inode_size));
         if (ret)
                 status->inode_size = NULL;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.total_inodes", i);
         ret = dict_get_uint64 (dict, key,
                         &(status->total_inodes));
         if (ret)
                 status->total_inodes = 0;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.free_inodes", i);
         ret = dict_get_uint64 (dict, key, &(status->free_inodes));
         if (ret) {

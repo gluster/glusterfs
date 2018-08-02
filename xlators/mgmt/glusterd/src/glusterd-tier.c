@@ -1138,7 +1138,6 @@ glusterd_add_tierd_to_dict (glusterd_volinfo_t *volinfo,
          * an zero value to parse.
          * */
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.port", base_key);
         ret = dict_set_int32 (dict, key, 0);
         if (ret)
@@ -1148,13 +1147,11 @@ glusterd_add_tierd_to_dict (glusterd_volinfo_t *volinfo,
 
         brick_online = gf_is_service_running (pidfile, &pid);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.pid", base_key);
         ret = dict_set_int32 (dict, key, pid);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.status", base_key);
         ret = dict_set_int32 (dict, key, brick_online);
 

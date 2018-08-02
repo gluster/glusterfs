@@ -5535,7 +5535,7 @@ nfs3_init_subvolume_options (xlator_t *nfsx,
         if (gf_nfs_dvm_off (nfs_state (nfsx)))
                 goto no_dvm;
 
-        ret = snprintf (searchkey, 1024, "nfs3.%s.volume-id",exp->subvol->name);
+        ret = snprintf (searchkey, sizeof (searchkey), "nfs3.%s.volume-id",exp->subvol->name);
         if (ret < 0) {
                 gf_msg (GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_SNPRINTF_FAIL,
                         "snprintf failed");
@@ -5574,7 +5574,7 @@ nfs3_init_subvolume_options (xlator_t *nfsx,
 no_dvm:
         /* Volume Access */
         name = exp->subvol->name;
-        ret = snprintf (searchkey, 1024, "nfs3.%s.volume-access", name);
+        ret = snprintf (searchkey, sizeof (searchkey), "nfs3.%s.volume-access", name);
         if (ret < 0) {
                 gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_SNPRINTF_FAIL,
                         "snprintf failed");
@@ -5596,7 +5596,7 @@ no_dvm:
                         exp->access = GF_NFS3_VOLACCESS_RO;
         }
 
-        ret = snprintf (searchkey, 1024, "rpc-auth.%s.unix", name);
+        ret = snprintf (searchkey, sizeof (searchkey), "rpc-auth.%s.unix", name);
         if (ret < 0) {
                 gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_SNPRINTF_FAIL,
                         "snprintf failed");
@@ -5615,7 +5615,7 @@ no_dvm:
         }
 
         exp->trusted_sync = 0;
-        ret = snprintf (searchkey, 1024, "nfs3.%s.trusted-sync", name);
+        ret = snprintf (searchkey, sizeof (searchkey), "nfs3.%s.trusted-sync", name);
         if (ret < 0) {
                 gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_SNPRINTF_FAIL,
                         "snprintf failed");
@@ -5646,7 +5646,7 @@ no_dvm:
         }
 
         exp->trusted_write = 0;
-        ret = snprintf (searchkey, 1024, "nfs3.%s.trusted-write", name);
+        ret = snprintf (searchkey, sizeof (searchkey), "nfs3.%s.trusted-write", name);
         if (ret < 0) {
                 gf_msg (GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_SNPRINTF_FAIL,
                         "snprintf failed");

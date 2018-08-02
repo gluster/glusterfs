@@ -411,7 +411,6 @@ af_inet_server_get_local_sockaddr (rpc_transport_t *this,
                 listen_host = data_to_str (listen_host_data);
         }
 
-        memset (service, 0, sizeof (service));
         sprintf (service, "%d", listen_port);
 
         memset (&hints, 0, sizeof (hints));

@@ -2951,79 +2951,66 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.type", prefix, count);
         ret = dict_set_int32 (dict, key, volinfo->type);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.brick_count", prefix, count);
         ret = dict_set_int32 (dict, key, volinfo->brick_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.version", prefix, count);
         ret = dict_set_int32 (dict, key, volinfo->version);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.status", prefix, count);
         ret = dict_set_int32 (dict, key, volinfo->status);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.sub_count", prefix, count);
         ret = dict_set_int32 (dict, key, volinfo->sub_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.stripe_count", prefix, count);
         ret = dict_set_int32 (dict, key, volinfo->stripe_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.replica_count", prefix, count);
         ret = dict_set_int32 (dict, key, volinfo->replica_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.arbiter_count", prefix, count);
         ret = dict_set_int32 (dict, key, volinfo->arbiter_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.disperse_count", prefix, count);
         ret = dict_set_int32 (dict, key, volinfo->disperse_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.redundancy_count", prefix, count);
         ret = dict_set_int32 (dict, key, volinfo->redundancy_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.dist_count", prefix, count);
         ret = dict_set_int32 (dict, key, volinfo->dist_leaf_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.ckusm", prefix, count);
         ret = dict_set_int64 (dict, key, volinfo->cksum);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.transport_type", prefix, count);
         ret = dict_set_uint32 (dict, key, volinfo->transport_type);
         if (ret)
@@ -3031,33 +3018,28 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
 
          /* tiering related variables */
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.cold_brick_count", prefix, count);
         ret = dict_set_uint32 (dict, key, volinfo->tier_info.cold_brick_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.cold_type", prefix, count);
         ret = dict_set_uint32 (dict, key, volinfo->tier_info.cold_type);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.cold_replica_count", prefix, count);
         ret = dict_set_uint32 (dict, key,
                                volinfo->tier_info.cold_replica_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.cold_disperse_count", prefix, count);
         ret = dict_set_uint32 (dict, key,
                                volinfo->tier_info.cold_disperse_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.cold_redundancy_count",
                                prefix, count);
         ret = dict_set_uint32 (dict, key,
@@ -3065,33 +3047,28 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.cold_dist_count", prefix, count);
         ret = dict_set_uint32 (dict, key,
                                volinfo->tier_info.cold_dist_leaf_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.hot_brick_count", prefix, count);
         ret = dict_set_uint32 (dict, key, volinfo->tier_info.hot_brick_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.hot_type", prefix, count);
         ret = dict_set_uint32 (dict, key, volinfo->tier_info.hot_type);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.hot_replica_count", prefix, count);
         ret = dict_set_uint32 (dict, key,
                                volinfo->tier_info.hot_replica_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d", prefix, count);
         ret = gd_add_vol_snap_details_to_dict (dict, key, volinfo);
         if (ret)
@@ -3102,14 +3079,12 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                 ret = -1;
                 goto out;
         }
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.volume_id", prefix, count);
         ret = dict_set_dynstr (dict, key, volume_id_str);
         if (ret)
                 goto out;
         volume_id_str = NULL;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.username", prefix, count);
         str = glusterd_auth_get_username (volinfo);
         if (str) {
@@ -3118,7 +3093,6 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                         goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.password", prefix, count);
         str = glusterd_auth_get_password (volinfo);
         if (str) {
@@ -3127,7 +3101,6 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                         goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, 256, "%s%d.rebalance", prefix, count);
         ret = dict_set_int32 (dict, key, volinfo->rebal.defrag_cmd);
         if (ret)
@@ -3139,14 +3112,12 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                 ret = -1;
                 goto out;
         }
-        memset (key, 0, sizeof (key));
         snprintf (key, 256, "%s%d.rebalance-id", prefix, count);
         ret = dict_set_dynstr (dict, key, rebalance_id_str);
         if (ret)
                 goto out;
         rebalance_id_str = NULL;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.rebalance-op", prefix, count);
         ret = dict_set_uint32 (dict, key, volinfo->rebal.op);
         if (ret)
@@ -3162,7 +3133,6 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
 
                 dict_foreach (volinfo->rebal.dict, _add_dict_to_prdict, &ctx);
                 ctx.opt_count--;
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.rebal-dict-count", count);
                 ret = dict_set_int32 (dict, key, ctx.opt_count);
                 if (ret)
@@ -3179,7 +3149,6 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
 
         dict_foreach (volinfo->dict, _add_dict_to_prdict, &ctx);
         ctx.opt_count--;
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.opt-count", prefix, count);
         ret = dict_set_int32 (dict, key, ctx.opt_count);
         if (ret)
@@ -3195,42 +3164,36 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         dict_foreach (volinfo->gsync_slaves, _add_dict_to_prdict, &ctx);
         ctx.opt_count--;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.gsync-count", prefix, count);
         ret = dict_set_int32 (dict, key, ctx.opt_count);
         if (ret)
                 goto out;
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s%d.brick%d.hostname",
                           prefix, count, i);
                 ret = dict_set_str (dict, key, brickinfo->hostname);
                 if (ret)
                         goto out;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s%d.brick%d.path",
                           prefix, count, i);
                 ret = dict_set_str (dict, key, brickinfo->path);
                 if (ret)
                         goto out;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s%d.brick%d.decommissioned",
                           prefix, count, i);
                 ret = dict_set_int32 (dict, key, brickinfo->decommissioned);
                 if (ret)
                         goto out;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s%d.brick%d.brick_id",
                           prefix, count, i);
                 ret = dict_set_str (dict, key, brickinfo->brick_id);
                 if (ret)
                         goto out;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s%d.brick%d.uuid",
                           prefix, count, i);
                 ret = dict_set_dynstr_with_alloc (dict, key,
@@ -3238,7 +3201,6 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                 if (ret)
                         goto out;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s%d.brick%d", prefix, count, i);
                 ret = gd_add_brick_snap_details_to_dict (dict, key, brickinfo);
                 if (ret)
@@ -3250,23 +3212,19 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         /* Add volume op-versions to dict. This prevents volume inconsistencies
          * in the cluster
          */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.op-version", prefix, count);
         ret = dict_set_int32 (dict, key, volinfo->op_version);
         if (ret)
                 goto out;
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.client-op-version", prefix, count);
         ret = dict_set_int32 (dict, key, volinfo->client_op_version);
         if (ret)
                 goto out;
 
         /*Add volume Capability (BD Xlator) to dict*/
-        memset (key, 0 ,sizeof (key));
         snprintf (key, sizeof (key), "%s%d.caps", prefix, count);
         ret = dict_set_int32 (dict, key, volinfo->caps);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.quota-xattr-version", prefix, count);
         ret = dict_set_int32 (dict, key, volinfo->quota_xattr_version);
 out:
@@ -3454,7 +3412,6 @@ glusterd_compare_friend_volume (dict_t *peer_data, int32_t count,
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.version", count);
         ret = dict_get_int32 (peer_data, key, &version);
         if (ret)
@@ -3476,7 +3433,6 @@ glusterd_compare_friend_volume (dict_t *peer_data, int32_t count,
 
         //Now, versions are same, compare cksums.
         //
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.ckusm", count);
         ret = dict_get_uint32 (peer_data, key, &cksum);
         if (ret)
@@ -3492,7 +3448,6 @@ glusterd_compare_friend_volume (dict_t *peer_data, int32_t count,
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.quota-version", count);
         ret = dict_get_uint32 (peer_data, key, &quota_version);
         if (ret) {
@@ -3521,7 +3476,6 @@ glusterd_compare_friend_volume (dict_t *peer_data, int32_t count,
 
         //Now, versions are same, compare cksums.
         //
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.quota-cksum", count);
         ret = dict_get_uint32 (peer_data, key, &quota_cksum);
         if (ret) {
@@ -3545,7 +3499,6 @@ glusterd_compare_friend_volume (dict_t *peer_data, int32_t count,
         *status = GLUSTERD_VOL_COMP_SCS;
 
 out:
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.update", count);
 
         if (*status == GLUSTERD_VOL_COMP_UPDATE_REQ) {
@@ -3575,7 +3528,6 @@ import_prdict_dict (dict_t *peer_data, dict_t  *dst_dict, char *key_prefix,
         char                    msg[2048] = {0};
 
         while (i <= opt_count) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.%s%d",
                           prefix, key_prefix, i);
                 ret = dict_get_str (peer_data, key, &opt_key);
@@ -3585,7 +3537,6 @@ import_prdict_dict (dict_t *peer_data, dict_t  *dst_dict, char *key_prefix,
                         goto out;
                 }
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.%s%d",
                           prefix, value_prefix, i);
                 ret = dict_get_str (peer_data, key, &opt_val);
@@ -3649,7 +3600,6 @@ glusterd_import_friend_volume_opts (dict_t *peer_data, int count,
         GF_ASSERT (peer_data);
         GF_ASSERT (volinfo);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.opt-count", prefix, count);
         ret = dict_get_int32 (peer_data, key, &opt_count);
         if (ret) {
@@ -3667,7 +3617,6 @@ glusterd_import_friend_volume_opts (dict_t *peer_data, int count,
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.gsync-count", prefix, count);
         ret = dict_get_int32 (peer_data, key, &opt_count);
         if (ret) {
@@ -3717,7 +3666,6 @@ glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
         GF_ASSERT (brickinfo);
         GF_ASSERT (prefix);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.brick%d.hostname",
                   prefix, vol_count, brick_count);
         ret = dict_get_str (peer_data, key, &hostname);
@@ -3726,7 +3674,6 @@ glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.brick%d.path",
                   prefix, vol_count, brick_count);
         ret = dict_get_str (peer_data, key, &path);
@@ -3735,12 +3682,10 @@ glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.brick%d.brick_id",
                   prefix, vol_count, brick_count);
         ret = dict_get_str (peer_data, key, &brick_id);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.brick%d.decommissioned",
                   prefix, vol_count, brick_count);
         ret = dict_get_int32 (peer_data, key, &decommissioned);
@@ -3760,14 +3705,12 @@ glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
         if (brick_id)
                 strcpy (new_brickinfo->brick_id, brick_id);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.brick%d", prefix, vol_count,
                   brick_count);
         ret = gd_import_new_brick_snap_details (peer_data, key, new_brickinfo);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.brick%d.uuid",
                   prefix, vol_count, brick_count);
         ret = dict_get_str (peer_data, key, &brick_uuid_str);
@@ -3962,7 +3905,6 @@ gd_import_friend_volume_rebal_dict (dict_t *dict, int count,
         GF_ASSERT (dict);
         GF_ASSERT (volinfo);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.rebal-dict-count", count);
         ret = dict_get_int32 (dict, key, &dict_count);
         if (ret) {
@@ -4025,7 +3967,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
         strncpy (new_volinfo->volname, volname,
                  sizeof(new_volinfo->volname) - 1);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.type", prefix, count);
         ret = dict_get_int32 (peer_data, key, &new_volinfo->type);
         if (ret) {
@@ -4040,7 +3981,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
                 strncpy (new_volinfo->parent_volname, parent_volname,
                          sizeof(new_volinfo->parent_volname)-1);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.brick_count", prefix, count);
         ret = dict_get_int32 (peer_data, key, &new_volinfo->brick_count);
         if (ret) {
@@ -4049,7 +3989,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.version", prefix, count);
         ret = dict_get_int32 (peer_data, key, &new_volinfo->version);
         if (ret) {
@@ -4058,7 +3997,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.status", prefix, count);
         ret = dict_get_int32 (peer_data, key, (int32_t *)&new_volinfo->status);
         if (ret) {
@@ -4067,7 +4005,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.sub_count", prefix, count);
         ret = dict_get_int32 (peer_data, key, &new_volinfo->sub_count);
         if (ret) {
@@ -4078,7 +4015,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
 
         /* not having a 'stripe_count' key is not a error
            (as peer may be of old version) */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.stripe_count", prefix, count);
         ret = dict_get_int32 (peer_data, key, &new_volinfo->stripe_count);
         if (ret)
@@ -4088,7 +4024,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
 
         /* not having a 'replica_count' key is not a error
            (as peer may be of old version) */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.replica_count", prefix, count);
         ret = dict_get_int32 (peer_data, key, &new_volinfo->replica_count);
         if (ret)
@@ -4098,7 +4033,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
 
         /* not having a 'arbiter_count' key is not a error
            (as peer may be of old version) */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.arbiter_count", prefix, count);
         ret = dict_get_int32 (peer_data, key, &new_volinfo->arbiter_count);
         if (ret)
@@ -4108,7 +4042,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
 
         /* not having a 'disperse_count' key is not a error
            (as peer may be of old version) */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.disperse_count", prefix, count);
         ret = dict_get_int32 (peer_data, key, &new_volinfo->disperse_count);
         if (ret)
@@ -4118,7 +4051,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
 
         /* not having a 'redundancy_count' key is not a error
            (as peer may be of old version) */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.redundancy_count", prefix, count);
         ret = dict_get_int32 (peer_data, key, &new_volinfo->redundancy_count);
         if (ret)
@@ -4128,7 +4060,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
 
         /* not having a 'dist_count' key is not a error
            (as peer may be of old version) */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.dist_count", prefix, count);
         ret = dict_get_int32 (peer_data, key, &new_volinfo->dist_leaf_count);
         if (ret)
@@ -4138,7 +4069,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
 
         /* not having a 'hot_brick_count' key is not a error
            (as peer may be of old version) */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.hot_brick_count", prefix, count);
         ret = dict_get_int32 (peer_data, key,
                               &new_volinfo->tier_info.hot_brick_count);
@@ -4148,7 +4078,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
 
         /* not having a 'hot_type' key is not a error
            (as peer may be of old version) */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.hot_type", prefix, count);
         ret = dict_get_int32 (peer_data, key,
                               &new_volinfo->tier_info.hot_type);
@@ -4158,7 +4087,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
 
         /* not having a 'hot_replica_count' key is not a error
            (as peer may be of old version) */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.hot_replica_count", prefix, count);
         ret = dict_get_int32 (peer_data, key,
                               &new_volinfo->tier_info.hot_replica_count);
@@ -4168,7 +4096,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
 
         /* not having a 'cold_brick_count' key is not a error
            (as peer may be of old version) */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.cold_brick_count", prefix, count);
         ret = dict_get_int32 (peer_data, key,
                               &new_volinfo->tier_info.cold_brick_count);
@@ -4178,7 +4105,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
 
         /* not having a 'cold_type' key is not a error
            (as peer may be of old version) */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.cold_type", prefix, count);
         ret = dict_get_int32 (peer_data, key,
                               &new_volinfo->tier_info.cold_type);
@@ -4188,7 +4114,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
 
         /* not having a 'cold_replica_count' key is not a error
            (as peer may be of old version) */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.cold_replica_count", prefix, count);
         ret = dict_get_int32 (peer_data, key,
                               &new_volinfo->tier_info.cold_replica_count);
@@ -4198,7 +4123,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
 
         /* not having a 'cold_disperse_count' key is not a error
            (as peer may be of old version) */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.cold_disperse_count", prefix, count);
         ret = dict_get_int32 (peer_data, key,
                               &new_volinfo->tier_info.cold_disperse_count);
@@ -4208,7 +4132,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
 
         /* not having a 'cold_redundancy_count' key is not a error
            (as peer may be of old version) */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.cold_redundancy_count",
                                prefix, count);
         ret = dict_get_int32 (peer_data, key,
@@ -4219,7 +4142,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
 
         /* not having a 'cold_dist_count' key is not a error
            (as peer may be of old version) */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.cold_dist_count", prefix, count);
         ret = dict_get_int32 (peer_data, key,
                               &new_volinfo->tier_info.cold_dist_leaf_count);
@@ -4229,7 +4151,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
 
         new_volinfo->subvol_count = new_volinfo->brick_count/
                                     glusterd_get_dist_leaf_count (new_volinfo);
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.ckusm", prefix, count);
         ret = dict_get_uint32 (peer_data, key, &new_volinfo->cksum);
         if (ret) {
@@ -4238,7 +4159,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.volume_id", prefix, count);
         ret = dict_get_str (peer_data, key, &volume_id_str);
         if (ret) {
@@ -4249,7 +4169,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
 
         gf_uuid_parse (volume_id_str, new_volinfo->volume_id);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.username", prefix, count);
         ret = dict_get_str (peer_data, key, &str);
         if (!ret) {
@@ -4258,7 +4177,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
                         goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.password", prefix, count);
         ret = dict_get_str (peer_data, key, &str);
         if (!ret) {
@@ -4267,7 +4185,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
                         goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.transport_type", prefix, count);
         ret = dict_get_uint32 (peer_data, key, &new_volinfo->transport_type);
         if (ret) {
@@ -4276,7 +4193,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.rebalance", prefix, count);
         ret = dict_get_uint32 (peer_data, key, &new_volinfo->rebal.defrag_cmd);
         if (ret) {
@@ -4285,7 +4201,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.rebalance-id", prefix, count);
         ret = dict_get_str (peer_data, key, &rebalance_id_str);
         if (ret) {
@@ -4297,7 +4212,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
                 gf_uuid_parse (rebalance_id_str, new_volinfo->rebal.rebalance_id);
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.rebalance-op", prefix, count);
         ret = dict_get_uint32 (peer_data, key,
                                (uint32_t *) &new_volinfo->rebal.op);
@@ -4315,7 +4229,6 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d", prefix, count);
         ret = gd_import_volume_snap_details (peer_data, new_volinfo, key,
                                              volname);
@@ -4340,12 +4253,10 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
          * Either both the volume op-versions should be absent or both should be
          * present. Only one being present is a failure
          */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.op-version", prefix, count);
         ret = dict_get_int32 (peer_data, key, &op_version);
         if (ret)
                 ret = 0;
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.client-op-version", prefix, count);
         ret = dict_get_int32 (peer_data, key, &client_op_version);
         if (ret)
@@ -4366,12 +4277,10 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
                 new_volinfo->client_op_version = 1;
         }
 
-        memset (key, 0 ,sizeof (key));
         snprintf (key, sizeof (key), "%s%d.caps", prefix, count);
         /*This is not present in older glusterfs versions, so ignore ret value*/
         ret = dict_get_int32 (peer_data, key, &new_volinfo->caps);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s%d.quota-xattr-version", prefix, count);
         /*This is not present in older glusterfs versions, so ignore ret value*/
         ret = dict_get_int32 (peer_data, key,
@@ -4682,7 +4591,6 @@ glusterd_import_friend_volume (dict_t *peer_data, int count)
         priv = this->private;
         GF_ASSERT (priv);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.update", count);
         ret = dict_get_int32 (peer_data, key, &update);
         if (ret || !update) {
@@ -5275,13 +5183,11 @@ glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.path", count);
         ret = dict_set_dynstr (dict, key, gf_strdup (uuid_utoa (MY_UUID)));
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.port", count);
         /* Port is available only for the NFS server.
          * Self-heal daemon doesn't provide any port for access
@@ -5299,13 +5205,11 @@ glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.pid", count);
         ret = dict_set_int32 (dict, key, pid);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.status", count);
         ret = dict_set_int32 (dict, key, running);
         if (ret)
@@ -6116,28 +6020,23 @@ search_brick_path_from_proc (pid_t brick_pid, char *brickpath)
         size_t len = 0;
         int fd = -1;
         char path[PATH_MAX] = {0,};
-        char sym[PATH_MAX] = {0,};
         struct dirent  scratch[2] = {{0,},};
         char *brick_path = NULL;
 
         if (!brickpath)
                 goto out;
 
-        sprintf(path, "/proc/%d/fd/", brick_pid);
-        dirp = sys_opendir (path);
-        if (!dirp)
+        len = sprintf(path, "/proc/%d/fd/", brick_pid);
+        if (len >= (sizeof(path) - 2))
                 goto out;
 
-        len = strlen (path);
-        if (len >= (sizeof(path) - 2))
+        dirp = sys_opendir (path);
+        if (!dirp)
                 goto out;
 
         fd = dirfd (dirp);
         if (fd  < 0)
                 goto out;
-
-        memset(path, 0, sizeof(path));
-        memset(sym, 0, sizeof(sym));
 
         while ((dp = sys_readdir(dirp, scratch))) {
                 if (!strcmp(dp->d_name, ".") ||
@@ -6148,14 +6047,14 @@ search_brick_path_from_proc (pid_t brick_pid, char *brickpath)
                 if (!strtol(dp->d_name, (char **)NULL, 10))
                         continue;
 
-                len = readlinkat (fd, dp->d_name, sym, sizeof(sym) - 1);
+                len = readlinkat (fd, dp->d_name, path, sizeof(path) - 1);
+		/* TODO: handle len == -1 -> error condition in readlinkat */
                 if (len > 1) {
-                        sym[len] = '\0';
-                        if (!strcmp (sym, brickpath)) {
-                                brick_path = gf_strdup(sym);
+                        path[len] = '\0';
+                        if (!strcmp (path, brickpath)) {
+                                brick_path = gf_strdup(path);
                                 break;
                         }
-                        memset (sym, 0, sizeof (sym));
                 }
         }
 out:
@@ -6979,7 +6878,6 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
         struct fs_info *fs                = NULL;
         static dict_t  *cached_fs         = NULL;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.device", count);
         ret = dict_get_str (dict, key, &device);
         if (ret)
@@ -6993,7 +6891,6 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
                 cached_fs = dict_new ();
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.fs_name", count);
         ret = dict_get_str (dict, key, &fs_name);
         if (ret)
@@ -7087,7 +6984,6 @@ glusterd_add_inode_size_to_dict (dict_t *dict, int count)
         }
 
 cached:
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.inode_size", count);
 
         ret = dict_set_dynstr_with_alloc (dict, key, cur_word);
@@ -7159,7 +7055,6 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
         }
 
         /* get device file */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.device", base_key);
 
         ret = dict_set_dynstr_with_alloc (dict, key, entry->mnt_fsname);
@@ -7167,7 +7062,6 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
                 goto out;
 
         /* fs type */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.fs_name", base_key);
 
         ret = dict_set_dynstr_with_alloc (dict, key, entry->mnt_type);
@@ -7175,7 +7069,6 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
                 goto out;
 
         /* mount options */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.mnt_options", base_key);
 
         ret = dict_set_dynstr_with_alloc (dict, key, entry->mnt_opts);
@@ -7264,7 +7157,6 @@ glusterd_add_brick_detail_to_dict (glusterd_volinfo_t *volinfo,
 
         /* file system block size */
         block_size = brickstat.f_bsize;
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.block_size", base_key);
         ret = dict_set_uint64 (dict, key, block_size);
         if (ret)
@@ -7272,7 +7164,6 @@ glusterd_add_brick_detail_to_dict (glusterd_volinfo_t *volinfo,
 
         /* free space in brick */
         memfree = brickstat.f_bfree * brickstat.f_bsize;
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.free", base_key);
         ret = dict_set_uint64 (dict, key, memfree);
         if (ret)
@@ -7280,7 +7171,6 @@ glusterd_add_brick_detail_to_dict (glusterd_volinfo_t *volinfo,
 
         /* total space of brick */
         memtotal = brickstat.f_blocks * brickstat.f_bsize;
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.total", base_key);
         ret = dict_set_uint64 (dict, key, memtotal);
         if (ret)
@@ -7289,7 +7179,6 @@ glusterd_add_brick_detail_to_dict (glusterd_volinfo_t *volinfo,
         /* inodes: total and free counts only for ext2/3/4 and xfs */
         inodes_total = brickstat.f_files;
         if (inodes_total) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.total_inodes", base_key);
                 ret = dict_set_uint64 (dict, key, inodes_total);
                 if (ret)
@@ -7298,7 +7187,6 @@ glusterd_add_brick_detail_to_dict (glusterd_volinfo_t *volinfo,
 
         inodes_free = brickstat.f_ffree;
         if (inodes_free) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.free_inodes", base_key);
                 ret = dict_set_uint64 (dict, key, inodes_free);
                 if (ret)
@@ -7349,14 +7237,12 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.path", base_key);
         ret = dict_set_str (dict, key, brickinfo->path);
         if (ret)
                 goto out;
 
         /* add peer uuid */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.peerid", base_key);
         ret = dict_set_dynstr_with_alloc (dict, key,
                                           uuid_utoa (brickinfo->uuid));
@@ -7364,14 +7250,12 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.port", base_key);
         ret = dict_set_int32 (dict, key, (volinfo->transport_type ==
                               GF_TRANSPORT_RDMA) ? 0 : brickinfo->port);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.rdma_port", base_key);
         if (volinfo->transport_type == GF_TRANSPORT_RDMA) {
                 ret = dict_set_int32 (dict, key, brickinfo->port);
@@ -7407,13 +7291,11 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
                 }
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.pid", base_key);
         ret = dict_set_int32 (dict, key, pid);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.status", base_key);
         ret = dict_set_int32 (dict, key, brick_online);
 
@@ -7437,7 +7319,6 @@ glusterd_get_all_volnames (dict_t *dict)
         GF_ASSERT (priv);
 
         cds_list_for_each_entry (entry, &priv->volumes, vol_list) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "vol%d", vol_count);
                 ret = dict_set_str (dict, key, entry->volname);
                 if (ret)
@@ -7868,21 +7749,18 @@ glusterd_sm_tr_log_transition_add_to_dict (dict_t *dict,
         GF_ASSERT (dict);
         GF_ASSERT (log);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "log%d-old-state", count);
         str = log->state_name_get (log->transitions[i].old_state);
         ret = dict_set_str (dict, key, str);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "log%d-event", count);
         str = log->event_name_get (log->transitions[i].event);
         ret = dict_set_str (dict, key, str);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "log%d-new-state", count);
         str = log->state_name_get (log->transitions[i].new_state);
         ret = dict_set_str (dict, key, str);
@@ -7890,7 +7768,6 @@ glusterd_sm_tr_log_transition_add_to_dict (dict_t *dict,
                 goto out;
 
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "log%d-time", count);
         gf_time_fmt (timestr, sizeof timestr, log->transitions[i].time,
                      gf_timefmt_FT);
@@ -7935,7 +7812,6 @@ glusterd_sm_tr_log_add_to_dict (dict_t *dict,
                         goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "count");
         ret = dict_set_int32 (dict, key, log->count);
 
@@ -9745,7 +9621,6 @@ glusterd_append_status_dicts (dict_t *dst, dict_t *src)
         }
 
         for (i = 0; i < src_count; i++) {
-                memset (sts_val_name, '\0', sizeof(sts_val_name));
                 snprintf (sts_val_name, sizeof(sts_val_name), "status_value%d", i);
 
                 ret = dict_get_bin (src, sts_val_name, (void **) &sts_val);
@@ -9762,7 +9637,6 @@ glusterd_append_status_dicts (dict_t *dst, dict_t *src)
 
                 memcpy (dst_sts_val, sts_val, sizeof(gf_gsync_status_t));
 
-                memset (sts_val_name, '\0', sizeof(sts_val_name));
                 snprintf (sts_val_name, sizeof(sts_val_name), "status_value%d", i + dst_count);
 
                 ret = dict_set_bin (dst, sts_val_name, dst_sts_val, sizeof(gf_gsync_status_t));
@@ -10170,7 +10044,6 @@ glusterd_volume_status_aggregate_tasks_status (dict_t *ctx_dict,
          */
         for (i = 0; i < remote_count; i++) {
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "task%d.type", i);
                 ret = dict_get_str (rsp_dict, key, &task_type);
                 if (ret) {
@@ -10189,7 +10062,6 @@ glusterd_volume_status_aggregate_tasks_status (dict_t *ctx_dict,
                 if (!strcmp (task_type, "Replace brick"))
                         continue;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "task%d.status", i);
                 ret = dict_get_int32 (rsp_dict, key, &remote_status);
                 if (ret) {
@@ -10207,7 +10079,6 @@ glusterd_volume_status_aggregate_tasks_status (dict_t *ctx_dict,
                         goto out;
                 }
                 for (j = 0; j < local_count; j++) {
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "task%d.id", j);
                         ret = dict_get_str (ctx_dict, key, &local_task_id);
                         if (ret) {
@@ -10231,7 +10102,6 @@ glusterd_volume_status_aggregate_tasks_status (dict_t *ctx_dict,
                                 continue;
                         }
 
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "task%d.status", j);
                         ret = dict_get_int32 (ctx_dict, key, &local_status);
                         if (ret) {
@@ -10331,7 +10201,6 @@ glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict)
                                 goto out;
 
                         for (i = 0; i < vol_count; i++) {
-                                memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key), "vol%d", i);
                                 ret = dict_get_str (rsp_dict, key, &volname);
                                 if (ret)
@@ -10575,7 +10444,6 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         ret = dict_get_str (rsp_dict, key, &node_uuid);
         if (!ret) {
                 node_uuid_str = gf_strdup (node_uuid);
-                memset (key, 0, 256);
                 snprintf (key, 256, "node-uuid-%d", src_count+dst_count);
                 ret = dict_set_dynstr (aggr, key, node_uuid_str);
                 if (ret) {
@@ -10583,11 +10451,9 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        memset (key, 0, 256);
         snprintf (key, 256, "scrub-running-%d", src_count);
         ret = dict_get_int8 (rsp_dict, key, &scrub_running);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "scrub-running-%d", src_count+dst_count);
                 ret = dict_set_int8 (aggr, key, scrub_running);
                 if (ret) {
@@ -10596,11 +10462,9 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        memset (key, 0, 256);
         snprintf (key, 256, "scrubbed-files-%d", src_count);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "scrubbed-files-%d", src_count+dst_count);
                 ret = dict_set_uint64 (aggr, key, value);
                 if (ret) {
@@ -10609,11 +10473,9 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        memset (key, 0, 256);
         snprintf (key, 256, "unsigned-files-%d", src_count);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "unsigned-files-%d", src_count+dst_count);
                 ret = dict_set_uint64 (aggr, key, value);
                 if (ret) {
@@ -10622,12 +10484,10 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        memset (key, 0, 256);
         snprintf (key, 256, "last-scrub-time-%d", src_count);
         ret = dict_get_str (rsp_dict, key, &last_scrub_time);
         if (!ret) {
                 scrub_time = gf_strdup (last_scrub_time);
-                memset (key, 0, 256);
                 snprintf (key, 256, "last-scrub-time-%d", src_count+dst_count);
                 ret = dict_set_dynstr (aggr, key, scrub_time);
                 if (ret) {
@@ -10636,11 +10496,9 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        memset (key, 0, 256);
         snprintf (key, 256, "scrub-duration-%d", src_count);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "scrub-duration-%d", src_count+dst_count);
                 ret = dict_set_uint64 (aggr, key, value);
                 if (ret) {
@@ -10649,11 +10507,9 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        memset (key, 0, 256);
         snprintf (key, 256, "error-count-%d", src_count);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "error-count-%d", src_count+dst_count);
                 ret = dict_set_uint64 (aggr, key, value);
                 if (ret) {
@@ -10663,11 +10519,9 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 
                 /* Storing all the bad files in the dictionary */
                 for (j = 0; j < value; j++) {
-                        memset (key, 0, 256);
                         snprintf (key, 256, "quarantine-%d-%d", j, src_count);
                         ret = dict_get_str (rsp_dict, key, &bad_gfid_str);
                         if (!ret) {
-                                memset (key, 0, 256);
                                 snprintf (key, 256, "quarantine-%d-%d", j,
                                           src_count+dst_count);
                                 ret = dict_set_dynstr_with_alloc (aggr, key,
@@ -10872,7 +10726,6 @@ glusterd_bitrot_volume_node_rsp (dict_t *aggr, dict_t *rsp_dict)
 
         ret = dict_get_int8 (rsp_dict, "scrub-running", &scrub_running);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "scrub-running-%d", i);
                 ret = dict_set_uint64 (aggr, key, scrub_running);
                 if (ret) {
@@ -10883,7 +10736,6 @@ glusterd_bitrot_volume_node_rsp (dict_t *aggr, dict_t *rsp_dict)
 
         ret = dict_get_uint64 (rsp_dict, "scrubbed-files", &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "scrubbed-files-%d", i);
                 ret = dict_set_uint64 (aggr, key, value);
                 if (ret) {
@@ -10894,7 +10746,6 @@ glusterd_bitrot_volume_node_rsp (dict_t *aggr, dict_t *rsp_dict)
 
         ret = dict_get_uint64 (rsp_dict, "unsigned-files", &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "unsigned-files-%d", i);
                 ret = dict_set_uint64 (aggr, key, value);
                 if (ret) {
@@ -10905,7 +10756,6 @@ glusterd_bitrot_volume_node_rsp (dict_t *aggr, dict_t *rsp_dict)
 
         ret = dict_get_str (rsp_dict, "last-scrub-time", &last_scrub_time);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "last-scrub-time-%d", i);
 
                 scrub_time = gf_strdup (last_scrub_time);
@@ -10918,7 +10768,6 @@ glusterd_bitrot_volume_node_rsp (dict_t *aggr, dict_t *rsp_dict)
 
         ret = dict_get_uint64 (rsp_dict, "scrub-duration", &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "scrub-duration-%d", i);
                 ret = dict_set_uint64 (aggr, key, value);
                 if (ret) {
@@ -10929,7 +10778,6 @@ glusterd_bitrot_volume_node_rsp (dict_t *aggr, dict_t *rsp_dict)
 
         ret = dict_get_uint64 (rsp_dict, "total-count", &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "error-count-%d", i);
                 ret = dict_set_uint64 (aggr, key, value);
                 if (ret) {
@@ -10939,11 +10787,9 @@ glusterd_bitrot_volume_node_rsp (dict_t *aggr, dict_t *rsp_dict)
 
                 /* Storing all the bad files in the dictionary */
                 for (j = 0; j < value; j++) {
-                        memset (key, 0, 256);
                         snprintf (key, 256, "quarantine-%d", j);
                         ret = dict_get_str (rsp_dict, key, &bad_gfid_str);
                         if (!ret) {
-                                memset (key, 0, 256);
                                 snprintf (key, 256, "quarantine-%d-%d", j, i);
                                 ret = dict_set_dynstr_with_alloc (aggr, key,
                                                                   bad_gfid_str);
@@ -11016,7 +10862,6 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                         GD_MSG_DICT_GET_FAILED,
                         "failed to get index");
 
-        memset (key, 0, 256);
         snprintf (key, 256, "node-uuid-%d", index);
         ret = dict_get_str (rsp_dict, key, &node_uuid);
         if (!ret) {
@@ -11045,7 +10890,6 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
 
                 /* Setting the same index for the node, as is in the peerlist.*/
-                memset (key, 0, 256);
                 snprintf (key, 256, "node-uuid-%d", current_index);
                 ret = dict_set_dynstr (ctx_dict, key, node_uuid_str);
                 if (ret) {
@@ -11057,7 +10901,6 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         snprintf (key, 256, "files-%d", index);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "files-%d", current_index);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
@@ -11066,11 +10909,9 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        memset (key, 0, 256);
         snprintf (key, 256, "size-%d", index);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "size-%d", current_index);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
@@ -11079,11 +10920,9 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        memset (key, 0, 256);
         snprintf (key, 256, "lookups-%d", index);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "lookups-%d", current_index);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
@@ -11092,11 +10931,9 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        memset (key, 0, 256);
         snprintf (key, 256, "status-%d", index);
         ret = dict_get_int32 (rsp_dict, key, &value32);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "status-%d", current_index);
                 ret = dict_set_int32 (ctx_dict, key, value32);
                 if (ret) {
@@ -11105,11 +10942,9 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        memset (key, 0, 256);
         snprintf (key, 256, "failures-%d", index);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "failures-%d", current_index);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
@@ -11118,11 +10953,9 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        memset (key, 0, 256);
         snprintf (key, 256, "skipped-%d", index);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "skipped-%d", current_index);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
@@ -11130,11 +10963,9 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                                 "failed to set skipped count");
                 }
         }
-        memset (key, 0, 256);
         snprintf (key, 256, "run-time-%d", index);
         ret = dict_get_double (rsp_dict, key, &elapsed_time);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "run-time-%d", current_index);
                 ret = dict_set_double (ctx_dict, key, elapsed_time);
                 if (ret) {
@@ -11143,11 +10974,9 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        memset (key, 0, 256);
         snprintf (key, 256, "time-left-%d", index);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "time-left-%d", current_index);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
@@ -11155,11 +10984,9 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                                 "failed to set time-left");
                 }
         }
-        memset (key, 0, 256);
         snprintf (key, 256, "demoted-%d", index);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "demoted-%d", current_index);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
@@ -11167,11 +10994,9 @@ glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                                 "failed to set demoted count");
                 }
         }
-        memset (key, 0, 256);
         snprintf (key, 256, "promoted-%d", index);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "promoted-%d", current_index);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
@@ -11237,7 +11062,6 @@ glusterd_volume_tier_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                         GD_MSG_DICT_GET_FAILED,
                         "failed to get index");
 
-        memset (key, 0, 256);
         snprintf (key, 256, "node-uuid-%d", index);
         ret = dict_get_str (rsp_dict, key, &node_uuid);
         if (!ret) {
@@ -11252,7 +11076,6 @@ glusterd_volume_tier_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                                 GD_MSG_DICT_SET_FAILED,
                                 "Failed to set count");
 
-        memset (key, 0, 256);
         snprintf (key, 256, "node-uuid-%d", count);
         ret = dict_set_dynstr (ctx_dict, key, node_uuid_str);
         if (ret) {
@@ -11263,7 +11086,6 @@ glusterd_volume_tier_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         snprintf (key, 256, "files-%d", index);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "files-%d", count);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
@@ -11272,11 +11094,9 @@ glusterd_volume_tier_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        memset (key, 0, 256);
         snprintf (key, 256, "size-%d", index);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "size-%d", count);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
@@ -11285,11 +11105,9 @@ glusterd_volume_tier_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        memset (key, 0, 256);
         snprintf (key, 256, "lookups-%d", index);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "lookups-%d", count);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
@@ -11298,11 +11116,9 @@ glusterd_volume_tier_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        memset (key, 0, 256);
         snprintf (key, 256, "status-%d", index);
         ret = dict_get_int32 (rsp_dict, key, &value32);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "status-%d", count);
                 ret = dict_set_int32 (ctx_dict, key, value32);
                 if (ret) {
@@ -11311,11 +11127,9 @@ glusterd_volume_tier_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        memset (key, 0, 256);
         snprintf (key, 256, "failures-%d", index);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "failures-%d", count);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
@@ -11324,11 +11138,9 @@ glusterd_volume_tier_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        memset (key, 0, 256);
         snprintf (key, 256, "skipped-%d", index);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "skipped-%d", count);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
@@ -11336,11 +11148,9 @@ glusterd_volume_tier_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                                 "failed to set skipped count");
                 }
         }
-        memset (key, 0, 256);
         snprintf (key, 256, "run-time-%d", index);
         ret = dict_get_double (rsp_dict, key, &elapsed_time);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "run-time-%d", count);
                 ret = dict_set_double (ctx_dict, key, elapsed_time);
                 if (ret) {
@@ -11349,11 +11159,9 @@ glusterd_volume_tier_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        memset (key, 0, 256);
         snprintf (key, 256, "demoted-%d", index);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "demoted-%d", count);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
@@ -11361,11 +11169,9 @@ glusterd_volume_tier_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                                 "failed to set demoted count");
                 }
         }
-        memset (key, 0, 256);
         snprintf (key, 256, "promoted-%d", index);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "promoted-%d", count);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
@@ -11374,11 +11180,9 @@ glusterd_volume_tier_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
                 }
         }
 
-        memset (key, 0, 256);
         snprintf (key, 256, "time-left-%d", index);
         ret = dict_get_uint64 (rsp_dict, key, &value);
         if (!ret) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "time-left-%d", count);
                 ret = dict_set_uint64 (ctx_dict, key, value);
                 if (ret) {
@@ -12127,56 +11931,49 @@ glusterd_tier_or_rebalance_rsp (dict_t *op_ctx, glusterd_rebalance_t *index, int
         int                             ret = 0;
         char                            key[256] = {0,};
 
-        memset (key, 0 , 256);
-        snprintf (key, 256, "files-%d", i);
+        snprintf (key, sizeof (key), "files-%d", i);
         ret = dict_set_uint64 (op_ctx, key, index->rebalance_files);
         if (ret)
                 gf_msg (THIS->name, GF_LOG_ERROR, 0,
                                 GD_MSG_DICT_SET_FAILED,
                                 "failed to set file count");
 
-        memset (key, 0 , 256);
-        snprintf (key, 256, "size-%d", i);
+        snprintf (key, sizeof (key), "size-%d", i);
         ret = dict_set_uint64 (op_ctx, key, index->rebalance_data);
         if (ret)
                 gf_msg (THIS->name, GF_LOG_ERROR, 0,
                                 GD_MSG_DICT_SET_FAILED,
                                 "failed to set size of xfer");
 
-        memset (key, 0 , 256);
-        snprintf (key, 256, "lookups-%d", i);
+        snprintf (key, sizeof (key), "lookups-%d", i);
         ret = dict_set_uint64 (op_ctx, key, index->lookedup_files);
         if (ret)
                 gf_msg (THIS->name, GF_LOG_ERROR, 0,
                                 GD_MSG_DICT_SET_FAILED,
                                 "failed to set lookedup file count");
 
-        memset (key, 0 , 256);
-        snprintf (key, 256, "status-%d", i);
+        snprintf (key, sizeof (key), "status-%d", i);
         ret = dict_set_int32 (op_ctx, key, index->defrag_status);
         if (ret)
                 gf_msg (THIS->name, GF_LOG_ERROR, 0,
                                 GD_MSG_DICT_SET_FAILED,
                                 "failed to set status");
 
-        memset (key, 0 , 256);
-        snprintf (key, 256, "failures-%d", i);
+        snprintf (key, sizeof (key), "failures-%d", i);
         ret = dict_set_uint64 (op_ctx, key, index->rebalance_failures);
         if (ret)
                 gf_msg (THIS->name, GF_LOG_ERROR, 0,
                                 GD_MSG_DICT_SET_FAILED,
                                 "failed to set failure count");
 
-        memset (key, 0 , 256);
-        snprintf (key, 256, "skipped-%d", i);
+        snprintf (key, sizeof (key), "skipped-%d", i);
         ret = dict_set_uint64 (op_ctx, key, index->skipped_files);
         if (ret)
                 gf_msg (THIS->name, GF_LOG_ERROR, 0,
                                 GD_MSG_DICT_SET_FAILED,
                                 "failed to set skipped count");
 
-        memset (key, 0, 256);
-        snprintf (key, 256, "run-time-%d", i);
+        snprintf (key, sizeof (key), "run-time-%d", i);
         ret = dict_set_double (op_ctx, key, index->rebalance_time);
         if (ret)
                 gf_msg (THIS->name, GF_LOG_ERROR, 0,
@@ -12253,24 +12050,21 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
         else
                 glusterd_tier_or_rebalance_rsp (op_ctx, &volinfo->rebal, i);
 
-        memset (key, 0 , 256);
-        snprintf (key, 256, "time-left-%d", i);
+        snprintf (key, sizeof (key), "time-left-%d", i);
         ret = dict_set_uint64 (op_ctx, key, volinfo->rebal.time_left);
         if (ret)
                 gf_msg (THIS->name, GF_LOG_ERROR, errno,
                         GD_MSG_DICT_SET_FAILED,
                         "failed to set time left");
 
-        memset (key, 0 , 256);
-        snprintf (key, 256, "promoted-%d", i);
+        snprintf (key, sizeof (key), "promoted-%d", i);
         ret = dict_set_uint64 (op_ctx, key, volinfo->tier_info.promoted);
         if (ret)
                 gf_msg (THIS->name, GF_LOG_ERROR, errno,
                         GD_MSG_DICT_SET_FAILED,
                         "failed to set lookedup file count");
 
-        memset (key, 0 , 256);
-        snprintf (key, 256, "demoted-%d", i);
+        snprintf (key, sizeof (key), "demoted-%d", i);
         ret = dict_set_uint64 (op_ctx, key, volinfo->tier_info.demoted);
         if (ret)
                 gf_msg (THIS->name, GF_LOG_ERROR, errno,
@@ -12632,7 +12426,6 @@ gd_should_i_start_rebalance  (glusterd_volinfo_t *volinfo) {
                         goto out;
                 }
                 for (i = 1; i <= count; i++) {
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "brick%d", i);
                         ret = dict_get_str (volinfo->rebal.dict, key,
                                             &brickname);

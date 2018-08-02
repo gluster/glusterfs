@@ -631,7 +631,7 @@ dht_filter_loc_subvol_key (xlator_t *this, loc_t *loc, loc_t *new_loc,
 
         trav = this->children;
         while (trav) {
-                snprintf (key, 1024, "*@%s:%s", this->name, trav->xlator->name);
+                snprintf (key, sizeof (key), "*@%s:%s", this->name, trav->xlator->name);
                 if (fnmatch (key, loc->name, FNM_NOESCAPE) == 0) {
                         new_name = GF_CALLOC(strlen (loc->name),
                                              sizeof (char),

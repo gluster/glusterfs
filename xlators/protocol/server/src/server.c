@@ -193,7 +193,6 @@ server_priv_to_dict (xlator_t *this, dict_t *dict, char *brickname)
                             (!strcmp (brickname,
                                      xprt->xl_private->bound_xl->name))) {
                                 peerinfo = &xprt->peerinfo;
-                                memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key),
                                           "client%d.hostname",
                                           count);
@@ -202,7 +201,6 @@ server_priv_to_dict (xlator_t *this, dict_t *dict, char *brickname)
                                 if (ret)
                                         goto unlock;
 
-                                memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key),
                                           "client%d.bytesread",
                                           count);
@@ -211,7 +209,6 @@ server_priv_to_dict (xlator_t *this, dict_t *dict, char *brickname)
                                 if (ret)
                                         goto unlock;
 
-                                memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key),
                                           "client%d.byteswrite",
                                           count);
@@ -220,7 +217,6 @@ server_priv_to_dict (xlator_t *this, dict_t *dict, char *brickname)
                                 if (ret)
                                         goto unlock;
 
-                                memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key),
                                           "client%d.opversion",
                                           count);
@@ -229,7 +225,6 @@ server_priv_to_dict (xlator_t *this, dict_t *dict, char *brickname)
                                 if (ret)
                                         goto unlock;
 
-                                memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key), "client%d.name",
                                           count);
                                 ret = dict_set_str (dict, key,

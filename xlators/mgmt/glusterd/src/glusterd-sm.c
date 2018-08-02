@@ -562,7 +562,6 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
 
                 count++;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "friend%d", count);
                 ret = gd_add_friend_to_dict (peerinfo, friends, key);
                 if (ret)
@@ -666,7 +665,6 @@ glusterd_ac_update_friend (glusterd_friend_sm_event_t *event, void *ctx)
 
                 count++;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "friend%d", count);
                 ret = gd_add_friend_to_dict (peerinfo, friends, key);
                 if (ret)

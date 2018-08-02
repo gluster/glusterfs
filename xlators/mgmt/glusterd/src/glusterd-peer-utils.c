@@ -590,7 +590,6 @@ gd_add_friend_to_dict (glusterd_peerinfo_t *friend, dict_t *dict,
         /* Setting the first hostname from the list with this key for backward
          * compatibility
          */
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.hostname", prefix);
         address = cds_list_entry (&friend->hostnames, glusterd_peer_hostname_t,
                                   hostname_list);
@@ -612,7 +611,6 @@ gd_add_friend_to_dict (glusterd_peerinfo_t *friend, dict_t *dict,
         cds_list_for_each_entry (address, &friend->hostnames, hostname_list) {
                 GF_VALIDATE_OR_GOTO (this->name, (address != NULL), out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.hostname%d", prefix, count);
                 ret = dict_set_dynstr_with_alloc (dict, key, address->hostname);
                 if (ret) {
@@ -623,7 +621,6 @@ gd_add_friend_to_dict (glusterd_peerinfo_t *friend, dict_t *dict,
                 }
                 count++;
         }
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.address-count", prefix);
         ret = dict_set_int32 (dict, key, count);
         if (ret)
@@ -771,7 +768,6 @@ gd_update_peerinfo_from_dict (glusterd_peerinfo_t *peerinfo, dict_t *dict,
         GF_VALIDATE_OR_GOTO (this->name, (dict != NULL), out);
         GF_VALIDATE_OR_GOTO (this->name, (prefix != NULL), out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.hostname", prefix);
         ret = dict_get_str (dict, key, &hostname);
         if (ret) {
@@ -797,7 +793,6 @@ gd_update_peerinfo_from_dict (glusterd_peerinfo_t *peerinfo, dict_t *dict,
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.address-count", prefix);
         ret = dict_get_int32 (dict, key, &count);
         if (ret) {
@@ -808,7 +803,6 @@ gd_update_peerinfo_from_dict (glusterd_peerinfo_t *peerinfo, dict_t *dict,
         }
         hostname = NULL;
         for (i = 0; i < count; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.hostname%d",prefix, i);
                 ret = dict_get_str (dict, key, &hostname);
                 if (ret) {
@@ -916,7 +910,6 @@ gd_add_peer_hostnames_to_dict (glusterd_peerinfo_t *peerinfo, dict_t *dict,
         GF_VALIDATE_OR_GOTO (this->name, (prefix != NULL), out);
 
         cds_list_for_each_entry (addr, &peerinfo->hostnames, hostname_list) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.hostname%d", prefix, count);
                 ret = dict_set_dynstr_with_alloc (dict, key, addr->hostname);
                 if (ret)
@@ -924,7 +917,6 @@ gd_add_peer_hostnames_to_dict (glusterd_peerinfo_t *peerinfo, dict_t *dict,
                 count++;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.hostname_count", prefix);
         ret = dict_set_int32 (dict, key, count);
 
@@ -950,38 +942,32 @@ gd_add_peer_detail_to_dict (glusterd_peerinfo_t *peerinfo, dict_t *friends,
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "friend%d.hostname", count);
         ret = dict_set_str (friends, key, peerinfo->hostname);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "friend%d.port", count);
         ret = dict_set_int32 (friends, key, peerinfo->port);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "friend%d.stateId", count);
         ret = dict_set_int32 (friends, key, peerinfo->state.state);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "friend%d.state", count);
         ret = dict_set_str (friends, key,
                     glusterd_friend_sm_state_name_get(peerinfo->state.state));
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "friend%d.connected", count);
         ret = dict_set_int32 (friends, key, (int32_t)peerinfo->connected);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "friend%d", count);
         ret = gd_add_peer_hostnames_to_dict (peerinfo, friends, key);
 

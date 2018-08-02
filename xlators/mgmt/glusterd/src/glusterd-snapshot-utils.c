@@ -483,7 +483,6 @@ gd_add_brick_snap_details_to_dict (dict_t *dict, char *prefix,
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.device_path", prefix);
         ret = dict_set_str (dict, key, brickinfo->device_path);
         if (ret) {
@@ -514,7 +513,6 @@ gd_add_brick_snap_details_to_dict (dict_t *dict, char *prefix,
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.mount_dir", prefix);
         ret = dict_set_str (dict, key, brickinfo->mount_dir);
         if (ret)
@@ -567,7 +565,6 @@ gd_add_vol_snap_details_to_dict (dict_t *dict, char *prefix,
         }
 
         if (strlen (volinfo->parent_volname) > 0) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.parent_volname", prefix);
                 ret = dict_set_dynstr_with_alloc (dict, key,
                                                   volinfo->parent_volname);
@@ -579,7 +576,6 @@ gd_add_vol_snap_details_to_dict (dict_t *dict, char *prefix,
                 }
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.is_snap_volume", prefix);
         ret = dict_set_uint32 (dict, key, volinfo->is_snap_volume);
         if (ret) {
@@ -589,7 +585,6 @@ gd_add_vol_snap_details_to_dict (dict_t *dict, char *prefix,
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.snap-max-hard-limit", prefix);
         ret = dict_set_uint64 (dict, key, volinfo->snap_max_hard_limit);
         if (ret) {
@@ -891,7 +886,6 @@ gd_import_new_brick_snap_details (dict_t *dict, char *prefix,
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.device_path", prefix);
         ret = dict_get_str (dict, key, &snap_device);
         if (ret) {
@@ -919,7 +913,6 @@ gd_import_new_brick_snap_details (dict_t *dict, char *prefix,
         }
         gf_strncpy (brickinfo->mnt_opts, mnt_opts, sizeof(brickinfo->mnt_opts));
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.mount_dir", prefix);
         ret = dict_get_str (dict, key, &mount_dir);
         if (ret) {
@@ -978,7 +971,6 @@ gd_import_volume_snap_details (dict_t *dict, glusterd_volinfo_t *volinfo,
         }
         volinfo->is_snap_volume = (is_snap_int != 0);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.restored_from_snap", prefix);
         ret = dict_get_str (dict, key, &restored_snap);
         if (ret) {
@@ -990,7 +982,6 @@ gd_import_volume_snap_details (dict_t *dict, glusterd_volinfo_t *volinfo,
 
         gf_uuid_parse (restored_snap, volinfo->restored_from_snap);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.snap-max-hard-limit", prefix);
         ret = dict_get_uint64 (dict, key,
                                &volinfo->snap_max_hard_limit);
@@ -2228,7 +2219,6 @@ glusterd_add_snapd_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.port", base_key);
         ret = dict_set_int32 (dict, key, volinfo->snapd.port);
         if (ret)
@@ -2240,13 +2230,11 @@ glusterd_add_snapd_to_dict (glusterd_volinfo_t *volinfo,
         if (brick_online == _gf_false)
                 pid = -1;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.pid", base_key);
         ret = dict_set_int32 (dict, key, pid);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.status", base_key);
         ret = dict_set_int32 (dict, key, brick_online);
 

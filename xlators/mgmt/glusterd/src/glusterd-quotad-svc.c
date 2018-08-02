@@ -132,7 +132,6 @@ glusterd_quotadsvc_start (glusterd_svc_t *svc, int flags)
                 goto out;
 
         for (i = 0; options[i]; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "arg%d", i);
                 ret = dict_set_str (cmdline, key, options[i]);
                 if (ret)

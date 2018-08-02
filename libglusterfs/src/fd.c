@@ -1164,19 +1164,16 @@ fdentry_dump_to_dict (fdentry_t *fdentry, char *prefix, dict_t *dict,
                 return;
 
         if (fdentry->fd) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.pid", prefix);
                 ret = dict_set_uint64 (dict, key, fdentry->fd->pid);
                 if (ret)
                         return;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.refcount", prefix);
                 ret = dict_set_int32 (dict, key, GF_ATOMIC_GET (fdentry->fd->refcount));
                 if (ret)
                         return;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.flags", prefix);
                 ret = dict_set_int32 (dict, key, fdentry->fd->flags);
 
@@ -1202,19 +1199,16 @@ fdtable_dump_to_dict (fdtable_t *fdtable, char *prefix, dict_t *dict)
         if (ret)
                 return;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.fdtable.refcount", prefix);
         ret = dict_set_int32 (dict, key, fdtable->refcount);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.fdtable.maxfds", prefix);
         ret = dict_set_uint32 (dict, key, fdtable->max_fds);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.fdtable.firstfree", prefix);
         ret = dict_set_int32 (dict, key, fdtable->first_free);
         if (ret)
@@ -1223,7 +1217,6 @@ fdtable_dump_to_dict (fdtable_t *fdtable, char *prefix, dict_t *dict)
         for (i = 0; i < fdtable->max_fds; i++) {
                 if (GF_FDENTRY_ALLOCATED ==
                     fdtable->fdentries[i].next_free) {
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "%s.fdtable.fdentry%d",
                                   prefix, i);
                         fdentry_dump_to_dict (&fdtable->fdentries[i], key,
@@ -1231,7 +1224,6 @@ fdtable_dump_to_dict (fdtable_t *fdtable, char *prefix, dict_t *dict)
                 }
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.fdtable.openfds", prefix);
         ret = dict_set_int32 (dict, key, openfds);
 
