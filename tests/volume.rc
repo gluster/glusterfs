@@ -48,7 +48,10 @@ function online_brick_count ()
        v3=`check_brick_status "Quota"`
        v4=`check_brick_status "Snapshot"`
        v5=`check_brick_status "Tier"`
-       tot=$((v1-v2-v3-v4-v5))
+       v6=`check_brick_status "Scrubber"`
+       v7=`check_brick_status "Bitrot"`
+
+       tot=$((v1-v2-v3-v4-v5-v6-v7))
        echo $tot
 
 }
