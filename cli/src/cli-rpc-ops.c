@@ -230,7 +230,6 @@ gf_cli_output_peer_hostnames (dict_t *dict, int count, char *prefix)
          * as friend.hostname
          */
         for (i = 1; i < count; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.hostname%d", prefix, i);
                 ret = dict_get_str (dict, key, &hostname);
                 if (ret)
@@ -286,13 +285,11 @@ gf_cli_output_peer_status (dict_t *dict, int count)
                 cli_out ("\nHostname: %s\nUuid: %s\nState: %s (%s)",
                          hostname_buf, uuid_buf, state, connected_str);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "friend%d.hostname_count", i);
                 ret = dict_get_int32 (dict, key, &hostname_count);
                 /* Print other addresses only if there are more than 1.
                  */
                 if ((ret == 0) && (hostname_count > 1)) {
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "friend%d", i);
                         ret = gf_cli_output_peer_hostnames (dict,
                                                             hostname_count,
@@ -634,12 +631,10 @@ print_brick_details (dict_t *dict, int volcount, int start_index,
 #endif
 
         while (index <= end_index) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, 1024, "volume%d.brick%d", volcount, index);
                 ret = dict_get_str (dict, key, &brick);
                 if (ret)
                         goto out;
-                memset (key, 0, sizeof(key));
                 snprintf (key, sizeof (key), "volume%d.brick%d.isArbiter",
                           volcount, index);
                 if (dict_get (dict, key))
@@ -728,63 +723,53 @@ gf_cli_print_tier_info (dict_t *dict, int i, int brick_count)
 
         GF_ASSERT (dict);
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "volume%d.cold_brick_count", i);
+        snprintf (key, sizeof (key), "volume%d.cold_brick_count", i);
         ret = dict_get_int32 (dict, key, &cold_brick_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "volume%d.cold_type", i);
+        snprintf (key, sizeof (key), "volume%d.cold_type", i);
         ret = dict_get_int32 (dict, key, &cold_type);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "volume%d.cold_dist_count", i);
+        snprintf (key, sizeof (key), "volume%d.cold_dist_count", i);
         ret = dict_get_int32 (dict, key, &cold_dist_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "volume%d.cold_replica_count", i);
+        snprintf (key, sizeof (key), "volume%d.cold_replica_count", i);
         ret = dict_get_int32 (dict, key, &cold_replica_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "volume%d.cold_arbiter_count", i);
+        snprintf (key, sizeof (key), "volume%d.cold_arbiter_count", i);
         ret = dict_get_int32 (dict, key, &cold_arbiter_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "volume%d.cold_disperse_count", i);
+        snprintf (key, sizeof (key), "volume%d.cold_disperse_count", i);
         ret = dict_get_int32 (dict, key, &cold_disperse_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256,
+        snprintf (key, sizeof (key),
                   "volume%d.cold_redundancy_count", i);
         ret = dict_get_int32 (dict, key,
                               &cold_redundancy_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "volume%d.hot_brick_count", i);
+        snprintf (key, sizeof (key), "volume%d.hot_brick_count", i);
         ret = dict_get_int32 (dict, key, &hot_brick_count);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "volume%d.hot_type", i);
+        snprintf (key, sizeof (key), "volume%d.hot_type", i);
         ret = dict_get_int32 (dict, key, &hot_type);
         if (ret)
                 goto out;
-        memset (key, 0, sizeof (key));
-        snprintf (key, 256, "volume%d.hot_replica_count", i);
+        snprintf (key, sizeof (key), "volume%d.hot_replica_count", i);
         ret = dict_get_int32 (dict, key, &hot_replica_count);
         if (ret)
                 goto out;
@@ -916,7 +901,6 @@ gf_cli_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         goto out;
 
                 case GF_CLI_GET_VOLUME:
-                        memset (err_str, 0, sizeof (err_str));
                         snprintf (err_str, sizeof (err_str),
                                   "Volume %s does not exist",
                                   local->get_vol.volname);
@@ -1045,7 +1029,6 @@ xml_output:
 
 #ifdef HAVE_BD_XLATOR
                 k = 0;
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.xlator%d", i, k);
                 ret = dict_get_str (dict, key, &caps);
                 if (ret)
@@ -1054,7 +1037,6 @@ xml_output:
                         j = 0;
                         cli_out ("Xlator %d: %s", k + 1, caps);
                         do {
-                                memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key),
                                           "volume%d.xlator%d.caps%d",
                                           i, k, j++);
@@ -1064,7 +1046,6 @@ xml_output:
                                 cli_out ("Capability %d: %s", j, caps);
                         } while (1);
 
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key),
                                   "volume%d.xlator%d", i, ++k);
                         ret = dict_get_str (dict, key, &caps);
@@ -1626,8 +1607,7 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
                 goto out;
         }
 
-        memset (key, 0, 256);
-        snprintf (key, 256, "status-1");
+        snprintf (key, sizeof (key), "status-1");
 
         ret = dict_get_int32 (dict, key, (int32_t *)&status_rcd);
         if (ret) {
@@ -1674,8 +1654,7 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
                 time_left = 0;
 
                 /* Check if status is NOT_STARTED, and continue early */
-                memset (key, 0, 256);
-                snprintf (key, 256, "status-%d", i);
+                snprintf (key, sizeof (key), "status-%d", i);
 
                 ret = dict_get_int32 (dict, key, (int32_t *)&status_rcd);
                 if (ret == -ENOENT) {
@@ -1704,36 +1683,31 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE, "failed to get node-name");
 
-                memset (key, 0, 256);
-                snprintf (key, 256, "files-%d", i);
+                snprintf (key, sizeof (key), "files-%d", i);
                 ret = dict_get_uint64 (dict, key, &files);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE,
                                 "failed to get file count");
 
-                memset (key, 0, 256);
-                snprintf (key, 256, "size-%d", i);
+                snprintf (key, sizeof (key), "size-%d", i);
                 ret = dict_get_uint64 (dict, key, &size);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE,
                                 "failed to get size of xfer");
 
-                memset (key, 0, 256);
-                snprintf (key, 256, "lookups-%d", i);
+                snprintf (key, sizeof (key), "lookups-%d", i);
                 ret = dict_get_uint64 (dict, key, &lookup);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE,
                                 "failed to get lookedup file count");
 
-                memset (key, 0, 256);
-                snprintf (key, 256, "failures-%d", i);
+                snprintf (key, sizeof (key), "failures-%d", i);
                 ret = dict_get_uint64 (dict, key, &failures);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE,
                                 "failed to get failures count");
 
-                memset (key, 0, 256);
-                snprintf (key, 256, "skipped-%d", i);
+                snprintf (key, sizeof (key), "skipped-%d", i);
                 ret = dict_get_uint64 (dict, key, &skipped);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE,
@@ -1745,14 +1719,12 @@ gf_cli_print_rebalance_status (dict_t *dict, enum gf_task_types task_type,
                         skipped = 0;
                 }
 
-                memset (key, 0, 256);
-                snprintf (key, 256, "run-time-%d", i);
+                snprintf (key, sizeof (key), "run-time-%d", i);
                 ret = dict_get_double (dict, key, &elapsed);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE, "failed to get run-time");
 
-                memset (key, 0, 256);
-                snprintf (key, 256, "time-left-%d", i);
+                snprintf (key, sizeof (key), "time-left-%d", i);
                 ret = dict_get_uint64 (dict, key, &time_left);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE,
@@ -1870,8 +1842,7 @@ gf_cli_print_tier_status (dict_t *dict, enum gf_task_types task_type)
                 demoted = 0;
 
                 /* Check if status is NOT_STARTED, and continue early */
-                memset (key, 0, 256);
-                snprintf (key, 256, "status-%d", i);
+                snprintf (key, sizeof (key), "status-%d", i);
 
                 ret = dict_get_int32 (dict, key, (int32_t *)&status_rcd);
                 if (ret == -ENOENT) {
@@ -1891,28 +1862,24 @@ gf_cli_print_tier_status (dict_t *dict, enum gf_task_types task_type)
                 if (GF_DEFRAG_STATUS_NOT_STARTED == status_rcd)
                         continue;
 
-                memset (key, 0, 256);
-                snprintf (key, 256, "node-name-%d", i);
+                snprintf (key, sizeof (key), "node-name-%d", i);
                 ret = dict_get_str (dict, key, &node_name);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE, "failed to get node-name");
 
-                memset (key, 0, 256);
-                snprintf (key, 256, "promoted-%d", i);
+                snprintf (key, sizeof (key), "promoted-%d", i);
                 ret = dict_get_uint64 (dict, key, &promoted);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE,
                                 "failed to get promoted count");
 
-                memset (key, 0, 256);
-                snprintf (key, 256, "demoted-%d", i);
+                snprintf (key, sizeof (key), "demoted-%d", i);
                 ret = dict_get_uint64 (dict, key, &demoted);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE,
                                 "failed to get demoted count");
 
-                memset (key, 0, 256);
-                snprintf (key, 256, "run-time-%d", i);
+                snprintf (key, sizeof (key), "run-time-%d", i);
                 ret = dict_get_double (dict, key, &elapsed);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE, "failed to get run-time");
@@ -5528,25 +5495,21 @@ gf_cli_fsm_log_cbk (struct rpc_req *req, struct iovec *iov,
         else
                 cli_err("No transitions");
         for (i = 0; i < tr_count; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "log%d-old-state", i);
                 ret = dict_get_str (dict, key, &old_state);
                 if (ret)
                         goto out;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "log%d-event", i);
                 ret = dict_get_str (dict, key, &event);
                 if (ret)
                         goto out;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "log%d-new-state", i);
                 ret = dict_get_str (dict, key, &new_state);
                 if (ret)
                         goto out;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "log%d-time", i);
                 ret = dict_get_str (dict, key, &time);
                 if (ret)
@@ -5956,7 +5919,6 @@ write_contents_to_common_pem_file (dict_t *dict, int output_count)
         }
 
         for (i = 1; i <= output_count; i++) {
-                memset (output_name, '\0', sizeof (output_name));
                 snprintf (output_name, sizeof (output_name),
                           "output_%d", i);
                 ret = dict_get_str (dict, output_name, &output);
@@ -6061,7 +6023,6 @@ gf_cli_sys_exec_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         for (i = 1; i <= output_count; i++) {
-                memset (output_name, '\0', sizeof (output_name));
                 snprintf (output_name, sizeof (output_name),
                           "output_%d", i);
                 ret = dict_get_str (dict, output_name, &output);
@@ -6392,7 +6353,6 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
         double                  total_percentage_latency = 0;
 
         for (i = 0; i < 32; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%d-%d-read-%d", count,
                           interval, (1 << i));
                 ret = dict_get_uint64 (dict, key, &rb_counts[i]);
@@ -6403,7 +6363,6 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
         }
 
         for (i = 0; i < 32; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%d-%d-write-%d", count, interval,
                           (1<<i));
                 ret = dict_get_uint64 (dict, key, &wb_counts[i]);
@@ -6425,7 +6384,6 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
         }
 
         for (i = 0; i < GF_FOP_MAXVALUE; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%d-%d-%d-hits", count,
                           interval, i);
                 ret = dict_get_uint64 (dict, key, &profile_info[i].fop_hits);
@@ -6434,7 +6392,6 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                                 "failed to get %s from dict", key);
                 }
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%d-%d-%d-avglatency", count,
                           interval, i);
                 ret = dict_get_double (dict, key, &profile_info[i].avg_latency);
@@ -6443,7 +6400,6 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                                 "failed to get %s from dict", key);
                 }
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%d-%d-%d-minlatency", count,
                           interval, i);
                 ret = dict_get_double (dict, key, &profile_info[i].min_latency);
@@ -6452,7 +6408,6 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                                 "failed to get %s from dict", key);
                 }
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%d-%d-%d-maxlatency", count,
                           interval, i);
                 ret = dict_get_double (dict, key, &profile_info[i].max_latency);
@@ -6475,21 +6430,18 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                                     sizeof (cli_profile_info_t),
                                     cli_profile_info_percentage_cmp);
         }
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%d-%d-duration", count, interval);
         ret = dict_get_uint64 (dict, key, &sec);
         if (ret) {
                 gf_log ("cli", GF_LOG_DEBUG, "failed to get %s from dict", key);
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%d-%d-total-read", count, interval);
         ret = dict_get_uint64 (dict, key, &r_count);
         if (ret) {
                 gf_log ("cli", GF_LOG_DEBUG, "failed to get %s from dict", key);
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%d-%d-total-write", count, interval);
         ret = dict_get_uint64 (dict, key, &w_count);
         if (ret) {
@@ -6530,9 +6482,6 @@ cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
                         cli_out ("%s", write_blocks);
                         cli_out (" ");
                         per_line = 0;
-                        memset (output, 0, sizeof (output));
-                        memset (read_blocks, 0, sizeof (read_blocks));
-                        memset (write_blocks, 0, sizeof (write_blocks));
                         snprintf (output, sizeof (output), "%14s", "Block Size:");
                         snprintf (read_blocks, sizeof (read_blocks), "%14s",
                                   "No. of Reads:");
@@ -6710,7 +6659,6 @@ gf_cli_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         while (i <= brick_count) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%d-brick", i);
                 ret = dict_get_str (dict, key, &brick);
                 if (ret) {
@@ -6894,7 +6842,6 @@ gf_cli_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 nfs = dict_get_str_boolean (dict, "nfs", _gf_false);
 
                 if (clear_stats) {
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "%d-stats-cleared", i);
                         ret = dict_get_int32 (dict, key, &stats_cleared);
                         if (ret)
@@ -7130,7 +7077,6 @@ cli_print_volume_status_mempool (dict_t *dict, char *prefix)
         GF_ASSERT (dict);
         GF_ASSERT (prefix);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.mempool-count",prefix);
         ret = dict_get_int32 (dict, key, &mempool_count);
         if (ret)
@@ -7145,50 +7091,42 @@ cli_print_volume_status_mempool (dict_t *dict, char *prefix)
                  "--------", "--------", "------------");
 
         for (i = 0; i < mempool_count; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.pool%d.name", prefix, i);
                 ret = dict_get_str (dict, key, &name);
                 if (ret)
                         goto out;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.pool%d.hotcount", prefix, i);
                 ret = dict_get_int32 (dict, key, &hotcount);
                 if (ret)
                         goto out;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.pool%d.coldcount", prefix, i);
                 ret = dict_get_int32 (dict, key, &coldcount);
                 if (ret)
                         goto out;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.pool%d.paddedsizeof",
                           prefix, i);
                 ret = dict_get_uint64 (dict, key, &paddedsizeof);
                 if (ret)
                         goto out;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.pool%d.alloccount", prefix, i);
                 ret = dict_get_uint64 (dict, key, &alloccount);
                 if (ret)
                         goto out;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.pool%d.max_alloc", prefix, i);
                 ret = dict_get_int32 (dict, key, &maxalloc);
                 if (ret)
                         goto out;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.pool%d.max-stdalloc", prefix, i);
                 ret = dict_get_int32 (dict, key, &maxstdalloc);
                 if (ret)
                         goto out;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.pool%d.pool-misses", prefix, i);
                 ret = dict_get_uint64 (dict, key, &pool_misses);
                 if (ret)
@@ -7238,12 +7176,10 @@ cli_print_volume_status_mem (dict_t *dict, gf_boolean_t notbrick)
         for (i = 0; i <= index_max; i++) {
                 cli_out ("----------------------------------------------");
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.hostname", i);
                 ret = dict_get_str (dict, key, &hostname);
                 if (ret)
                         continue;
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.path", i);
                 ret = dict_get_str (dict, key, &path);
                 if (ret)
@@ -7253,7 +7189,6 @@ cli_print_volume_status_mem (dict_t *dict, gf_boolean_t notbrick)
                 else
                         cli_out ("Brick : %s:%s", hostname, path);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.status", i);
                 ret = dict_get_int32 (dict, key, &online);
                 if (ret)
@@ -7268,70 +7203,60 @@ cli_print_volume_status_mem (dict_t *dict, gf_boolean_t notbrick)
 
                 cli_out ("Mallinfo\n--------");
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.mallinfo.arena", i);
                 ret = dict_get_int32 (dict, key, &val);
                 if (ret)
                         goto out;
                 cli_out ("%-8s : %d","Arena", val);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.mallinfo.ordblks", i);
                 ret = dict_get_int32 (dict, key, &val);
                 if(ret)
                         goto out;
                 cli_out ("%-8s : %d","Ordblks", val);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.mallinfo.smblks", i);
                 ret = dict_get_int32 (dict, key, &val);
                 if(ret)
                         goto out;
                 cli_out ("%-8s : %d","Smblks", val);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.mallinfo.hblks", i);
                 ret = dict_get_int32 (dict, key, &val);
                 if(ret)
                         goto out;
                 cli_out ("%-8s : %d", "Hblks", val);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.mallinfo.hblkhd", i);
                 ret = dict_get_int32 (dict, key, &val);
                 if (ret)
                         goto out;
                 cli_out ("%-8s : %d", "Hblkhd", val);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.mallinfo.usmblks", i);
                 ret = dict_get_int32 (dict, key, &val);
                 if (ret)
                         goto out;
                 cli_out ("%-8s : %d", "Usmblks", val);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.mallinfo.fsmblks", i);
                 ret = dict_get_int32 (dict, key, &val);
                 if (ret)
                         goto out;
                 cli_out ("%-8s : %d", "Fsmblks", val);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.mallinfo.uordblks", i);
                 ret = dict_get_int32 (dict, key, &val);
                 if (ret)
                         goto out;
                 cli_out ("%-8s : %d", "Uordblks", val);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.mallinfo.fordblks", i);
                 ret = dict_get_int32 (dict, key, &val);
                 if (ret)
                         goto out;
                 cli_out ("%-8s : %d", "Fordblks", val);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.mallinfo.keepcost", i);
                 ret = dict_get_int32 (dict, key, &val);
                 if (ret)
@@ -7339,7 +7264,6 @@ cli_print_volume_status_mem (dict_t *dict, gf_boolean_t notbrick)
                 cli_out ("%-8s : %d", "Keepcost", val);
 
                 cli_out (" ");
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d", i);
                 cli_print_volume_status_mempool (dict, key);
         }
@@ -7382,7 +7306,6 @@ cli_print_volume_status_client_list (dict_t *dict, gf_boolean_t notbrick)
                 cli_out ("%-48s %15s", "-----", "------");
                 for (i = 0; i < client_count; i++) {
                         name = NULL;
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key),
                                         "client%d.name", i);
                         ret = dict_get_str (dict, key, &name);
@@ -7530,11 +7453,9 @@ cli_print_volume_status_clients (dict_t *dict, gf_boolean_t notbrick)
 
                 cli_out ("----------------------------------------------");
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.hostname", i);
                 ret = dict_get_str (dict, key, &hostname);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.path", i);
                 ret = dict_get_str (dict, key, &path);
 
@@ -7544,7 +7465,6 @@ cli_print_volume_status_clients (dict_t *dict, gf_boolean_t notbrick)
                         else
                                 cli_out ("Brick : %s:%s", hostname, path);
                 }
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.status", i);
                 ret = dict_get_int32 (dict, key, &online);
                 if (!online) {
@@ -7555,7 +7475,6 @@ cli_print_volume_status_clients (dict_t *dict, gf_boolean_t notbrick)
                         continue;
                 }
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.clientcount", i);
                 ret = dict_get_int32 (dict, key, &client_count);
 
@@ -7569,22 +7488,18 @@ cli_print_volume_status_clients (dict_t *dict, gf_boolean_t notbrick)
                 cli_out ("%-48s %15s %15s %15s", "--------", "---------",
                          "------------", "---------");
                 for (j =0; j < client_count; j++) {
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key),
                                   "brick%d.client%d.hostname", i, j);
                         ret = dict_get_str (dict, key, &clientname);
 
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key),
                                   "brick%d.client%d.bytesread", i, j);
                         ret = dict_get_uint64 (dict, key, &bytesread);
 
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key),
                                  "brick%d.client%d.byteswrite", i, j);
                         ret = dict_get_uint64 (dict, key, &byteswrite);
 
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key),
                                  "brick%d.client%d.opversion", i, j);
                         ret = dict_get_uint32 (dict, key, &opversion);
@@ -7613,25 +7528,21 @@ cli_print_volume_status_inode_entry (dict_t *dict, char *prefix)
         GF_ASSERT (dict);
         GF_ASSERT (prefix);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.gfid", prefix);
         ret = dict_get_str (dict, key, &gfid);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.nlookup", prefix);
         ret = dict_get_uint64 (dict, key, &nlookup);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.ref", prefix);
         ret = dict_get_uint32 (dict, key, &ref);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.ia_type", prefix);
         ret = dict_get_int32 (dict, key, &ia_type);
         if (ret)
@@ -7685,7 +7596,6 @@ cli_print_volume_status_itables (dict_t *dict, char *prefix)
         GF_ASSERT (dict);
         GF_ASSERT (prefix);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.active_size", prefix);
         ret = dict_get_uint32 (dict, key, &active_size);
         if (ret)
@@ -7698,13 +7608,11 @@ cli_print_volume_status_itables (dict_t *dict, char *prefix)
                          "-------");
         }
         for (i = 0; i < active_size; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.active%d", prefix, i);
                 cli_print_volume_status_inode_entry (dict, key);
         }
         cli_out (" ");
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.lru_size", prefix);
         ret = dict_get_uint32 (dict, key, &lru_size);
         if (ret)
@@ -7717,13 +7625,11 @@ cli_print_volume_status_itables (dict_t *dict, char *prefix)
                          "-------");
         }
         for (i = 0; i < lru_size; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.lru%d", prefix, i);
                 cli_print_volume_status_inode_entry (dict, key);
         }
         cli_out (" ");
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.purge_size", prefix);
         ret = dict_get_uint32 (dict, key, &purge_size);
         if (ret)
@@ -7736,7 +7642,6 @@ cli_print_volume_status_itables (dict_t *dict, char *prefix)
                          "-------");
         }
         for (i = 0; i < purge_size; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.purge%d", prefix, i);
                 cli_print_volume_status_inode_entry (dict, key);
         }
@@ -7780,12 +7685,10 @@ cli_print_volume_status_inode (dict_t *dict, gf_boolean_t notbrick)
         for ( i = 0; i <= index_max; i++) {
                 cli_out ("----------------------------------------------");
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.hostname", i);
                 ret = dict_get_str (dict, key, &hostname);
                 if (ret)
                         goto out;
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.path", i);
                 ret = dict_get_str (dict, key, &path);
                 if (ret)
@@ -7795,7 +7698,6 @@ cli_print_volume_status_inode (dict_t *dict, gf_boolean_t notbrick)
                 else
                         cli_out ("Brick : %s:%s", hostname, path);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.status", i);
                 ret = dict_get_int32 (dict, key, &online);
                 if (ret)
@@ -7808,7 +7710,6 @@ cli_print_volume_status_inode (dict_t *dict, gf_boolean_t notbrick)
                         continue;
                 }
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.conncount", i);
                 ret = dict_get_int32 (dict, key, &conn_count);
                 if (ret)
@@ -7818,7 +7719,6 @@ cli_print_volume_status_inode (dict_t *dict, gf_boolean_t notbrick)
                         if (conn_count > 1)
                                 cli_out ("Connection %d:", j+1);
 
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "brick%d.conn%d.itable",
                                   i, j);
                         cli_print_volume_status_itables (dict, key);
@@ -7847,19 +7747,16 @@ cli_print_volume_status_fdtable (dict_t *dict, char *prefix)
         GF_ASSERT (dict);
         GF_ASSERT (prefix);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.refcount", prefix);
         ret = dict_get_int32 (dict, key, &refcount);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.maxfds", prefix);
         ret = dict_get_uint32 (dict, key, &maxfds);
         if (ret)
                 goto out;
 
-        memset (key, 0 ,sizeof (key));
         snprintf (key, sizeof (key), "%s.firstfree", prefix);
         ret = dict_get_int32 (dict, key, &firstfree);
         if (ret)
@@ -7868,7 +7765,6 @@ cli_print_volume_status_fdtable (dict_t *dict, char *prefix)
         cli_out ("RefCount = %d  MaxFDs = %d  FirstFree = %d",
                  refcount, maxfds, firstfree);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.openfds", prefix);
         ret = dict_get_int32 (dict, key, &openfds);
         if (ret)
@@ -7884,20 +7780,17 @@ cli_print_volume_status_fdtable (dict_t *dict, char *prefix)
                  "--------", "-----");
 
         for (i = 0; i < maxfds ; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.fdentry%d.pid", prefix, i);
                 ret = dict_get_int32 (dict, key, &fd_pid);
                 if (ret)
                         continue;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.fdentry%d.refcount",
                           prefix, i);
                 ret = dict_get_int32 (dict, key, &fd_refcount);
                 if (ret)
                         continue;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.fdentry%d.flags", prefix, i);
                 ret = dict_get_int32 (dict, key, &fd_flags);
                 if (ret)
@@ -7946,12 +7839,10 @@ cli_print_volume_status_fd (dict_t *dict, gf_boolean_t notbrick)
         for (i = 0; i <= index_max; i++) {
                 cli_out ("----------------------------------------------");
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.hostname", i);
                 ret = dict_get_str (dict, key, &hostname);
                 if (ret)
                         goto out;
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.path", i);
                 ret = dict_get_str (dict, key, &path);
                 if (ret)
@@ -7962,7 +7853,6 @@ cli_print_volume_status_fd (dict_t *dict, gf_boolean_t notbrick)
                 else
                         cli_out ("Brick : %s:%s", hostname, path);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.status", i);
                 ret = dict_get_int32 (dict, key, &online);
                 if (ret)
@@ -7975,7 +7865,6 @@ cli_print_volume_status_fd (dict_t *dict, gf_boolean_t notbrick)
                         continue;
                 }
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.conncount", i);
                 ret = dict_get_int32 (dict, key, &conn_count);
                 if (ret)
@@ -7984,7 +7873,6 @@ cli_print_volume_status_fd (dict_t *dict, gf_boolean_t notbrick)
                 for (j = 0; j < conn_count; j++) {
                         cli_out ("Connection %d:", j+1);
 
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "brick%d.conn%d.fdtable",
                                   i, j);
                         cli_print_volume_status_fdtable (dict, key);
@@ -8013,19 +7901,16 @@ cli_print_volume_status_call_frame (dict_t *dict, char *prefix)
         if (!dict || !prefix)
                 return;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.refcount", prefix);
         ret = dict_get_int32 (dict, key, &ref_count);
         if (ret)
                 return;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.translator", prefix);
         ret = dict_get_str (dict, key, &translator);
         if (ret)
                 return;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.complete", prefix);
         ret = dict_get_int32 (dict, key, &complete);
         if (ret)
@@ -8035,31 +7920,26 @@ cli_print_volume_status_call_frame (dict_t *dict, char *prefix)
         cli_out ("  Translator  = %s", translator);
         cli_out ("  Completed   = %s", (complete ? "Yes" : "No"));
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.parent", prefix);
         ret = dict_get_str (dict, key, &parent);
         if (!ret)
                 cli_out ("  Parent      = %s", parent);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.windfrom", prefix);
         ret = dict_get_str (dict, key, &wind_from);
         if (!ret)
                 cli_out ("  Wind From   = %s", wind_from);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.windto", prefix);
         ret = dict_get_str (dict, key, &wind_to);
         if (!ret)
                 cli_out ("  Wind To     = %s", wind_to);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.unwindfrom", prefix);
         ret = dict_get_str (dict, key, &unwind_from);
         if (!ret)
                 cli_out ("  Unwind From = %s", unwind_from);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.unwindto", prefix);
         ret = dict_get_str (dict, key, &unwind_to);
         if (!ret)
@@ -8082,32 +7962,27 @@ cli_print_volume_status_call_stack (dict_t *dict, char *prefix)
         if (!dict || !prefix)
                 return;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.uid", prefix);
         ret = dict_get_int32 (dict, key, &uid);
         if (ret)
                 return;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.gid", prefix);
         ret = dict_get_int32 (dict, key, &gid);
         if (ret)
                 return;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.pid", prefix);
         ret = dict_get_int32 (dict, key, &pid);
         if (ret)
                 return;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.unique", prefix);
         ret = dict_get_uint64 (dict, key, &unique);
         if (ret)
                 return;
 
         /*
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.op", prefix);
         ret = dict_get_str (dict, key, &op);
         if (ret)
@@ -8115,7 +7990,6 @@ cli_print_volume_status_call_stack (dict_t *dict, char *prefix)
         */
 
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.count", prefix);
         ret = dict_get_int32 (dict, key, &count);
         if (ret)
@@ -8131,7 +8005,6 @@ cli_print_volume_status_call_stack (dict_t *dict, char *prefix)
         for (i = 0; i < count; i++) {
                 cli_out (" Frame %d", i+1);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.frame%d", prefix, i);
                 cli_print_volume_status_call_frame (dict, key);
         }
@@ -8174,12 +8047,10 @@ cli_print_volume_status_callpool (dict_t *dict, gf_boolean_t notbrick)
         for (i = 0; i <= index_max; i++) {
                 cli_out ("----------------------------------------------");
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.hostname", i);
                 ret = dict_get_str (dict, key, &hostname);
                 if (ret)
                         goto out;
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.path", i);
                 ret = dict_get_str (dict, key, &path);
                 if (ret)
@@ -8190,7 +8061,6 @@ cli_print_volume_status_callpool (dict_t *dict, gf_boolean_t notbrick)
                 else
                         cli_out ("Brick : %s:%s", hostname, path);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.status", i);
                 ret = dict_get_int32 (dict, key, &online);
                 if (ret)
@@ -8203,7 +8073,6 @@ cli_print_volume_status_callpool (dict_t *dict, gf_boolean_t notbrick)
                         continue;
                 }
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.callpool.count", i);
                 ret = dict_get_int32 (dict, key, &call_count);
                 if (ret)
@@ -8216,7 +8085,6 @@ cli_print_volume_status_callpool (dict_t *dict, gf_boolean_t notbrick)
                 for (j = 0; j < call_count; j++) {
                         cli_out ("Call Stack%d", j+1);
 
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key),
                                   "brick%d.callpool.stack%d", i, j);
                         cli_print_volume_status_call_stack (dict, key);
@@ -8264,21 +8132,18 @@ cli_print_volume_status_tasks (dict_t *dict)
         }
 
         for (i = 0; i < task_count; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "task%d.type", i);
                 ret = dict_get_str(dict, key, &op);
                 if (ret)
                         return;
                 cli_out ("%-20s : %-20s", "Task", op);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "task%d.id", i);
                 ret = dict_get_str (dict, key, &task_id_str);
                 if (ret)
                         return;
                 cli_out ("%-20s : %-20s", "ID", task_id_str);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "task%d.status", i);
                 ret = dict_get_int32 (dict, key, &status);
                 if (ret)
@@ -8287,7 +8152,6 @@ cli_print_volume_status_tasks (dict_t *dict)
                 snprintf (task, sizeof (task), "task%d", i);
 
                 if (!strcmp (op, "Remove brick")) {
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "%s.count", task);
                         ret = dict_get_int32 (dict, key, &count);
                         if (ret)
@@ -8296,7 +8160,6 @@ cli_print_volume_status_tasks (dict_t *dict)
                         cli_out ("%-20s", "Removed bricks:");
 
                         for (j = 1; j <= count; j++) {
-                                memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key),"%s.brick%d",
                                           task, j);
                                 ret = dict_get_str (dict, key, &brick);
@@ -8542,13 +8405,11 @@ xml_end:
                 }
                 status.rdma_port = 0;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.hostname", i);
                 ret = dict_get_str (dict, key, &hostname);
                 if (ret)
                         continue;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.path", i);
                 ret = dict_get_str (dict, key, &path);
                 if (ret)
@@ -8568,7 +8429,6 @@ xml_end:
                         snprintf (status.brick, PATH_MAX + 255, "%s on %s",
                                   hostname, path);
                 else {
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "brick%d.rdma_port", i);
                         ret = dict_get_int32 (dict, key, &(status.rdma_port));
                         if (ret)
@@ -8577,19 +8437,16 @@ xml_end:
                                   hostname, path);
                 }
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.port", i);
                 ret = dict_get_int32 (dict, key, &(status.port));
                 if (ret)
                         continue;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.status", i);
                 ret = dict_get_int32 (dict, key, &(status.online));
                 if (ret)
                         continue;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.pid", i);
                 ret = dict_get_int32 (dict, key, &pid);
                 if (ret)
@@ -8722,7 +8579,6 @@ gf_cli_status_volume_all (call_frame_t *frame, xlator_t *this, void *data)
                 if (!dict)
                         goto out;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "vol%d", i);
                 ret = dict_get_str (vol_dict, key, &volname);
                 if (ret)
@@ -9482,7 +9338,6 @@ gf_cli_list_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         goto out;
                 }
                 for (i = 0; i < vol_count; i++) {
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "volume%d", i);
                         ret = dict_get_str (dict, key, &volname);
                         if (ret)
@@ -11939,7 +11794,6 @@ gf_cli_print_bitrot_scrub_status (dict_t *dict)
         }
 
         for (i = 1; i <= count; i++) {
-                memset (key, 0, 256);
                 snprintf (key, 256, "scrub-running-%d", i);
                 ret = dict_get_int8 (dict, key, &scrub_running);
                 if (ret)
@@ -11980,40 +11834,34 @@ gf_cli_print_bitrot_scrub_status (dict_t *dict)
                 scrub_files     = 0;
                 unsigned_files  = 0;
 
-                memset (key, 0, 256);
                 snprintf (key, 256, "node-name-%d", i);
                 ret = dict_get_str (dict, key, &node_name);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE, "failed to get node-name");
 
-                memset (key, 0, 256);
                 snprintf (key, 256, "scrubbed-files-%d", i);
                 ret = dict_get_uint64 (dict, key, &scrub_files);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE, "failed to get scrubbed "
                                 "files");
 
-                memset (key, 0, 256);
                 snprintf (key, 256, "unsigned-files-%d", i);
                 ret = dict_get_uint64 (dict, key, &unsigned_files);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE, "failed to get unsigned "
                                 "files");
 
-                memset (key, 0, 256);
                 snprintf (key, 256, "scrub-duration-%d", i);
                 ret = dict_get_uint64 (dict, key, &scrub_time);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE, "failed to get last scrub "
                                 "duration");
 
-                memset (key, 0, 256);
                 snprintf (key, 256, "last-scrub-time-%d", i);
                 ret = dict_get_str (dict, key, &last_scrub);
                 if (ret)
                         gf_log ("cli", GF_LOG_TRACE, "failed to get last scrub"
                                 " time");
-                memset (key, 0, 256);
                 snprintf (key, 256, "error-count-%d", i);
                 ret = dict_get_uint64 (dict, key, &error_count);
                 if (ret)
@@ -12053,7 +11901,6 @@ gf_cli_print_bitrot_scrub_status (dict_t *dict)
                         cli_out ("%s:\n", "Corrupted object's [GFID]");
                         /* Printing list of bad file's (Corrupted object's)*/
                         for (j = 0; j < error_count; j++) {
-                                memset (key, 0, 256);
                                 snprintf (key, 256, "quarantine-%d-%d", j, i);
                                 ret = dict_get_str (dict, key, &bad_file_str);
                                 if (!ret) {

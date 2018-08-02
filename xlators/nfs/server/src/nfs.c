@@ -1664,7 +1664,6 @@ nfs_priv_to_dict (xlator_t *this, dict_t *dict, char *brickname)
                 if (!_nfs_export_is_for_vol (mentry->exname, volname))
                         continue;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "client%d.hostname", count);
                 ret = dict_set_str (dict, key, mentry->hostname);
                 if (ret) {
@@ -1677,7 +1676,6 @@ nfs_priv_to_dict (xlator_t *this, dict_t *dict, char *brickname)
                 /* No connection data available yet in nfs server.
                  * Hence, setting to 0 to prevent cli failing
                  */
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "client%d.bytesread", count);
                 ret = dict_set_uint64 (dict, key, 0);
                 if (ret) {
@@ -1687,7 +1685,6 @@ nfs_priv_to_dict (xlator_t *this, dict_t *dict, char *brickname)
                         goto out;
                 }
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "client%d.byteswrite", count);
                 ret = dict_set_uint64 (dict, key, 0);
                 if (ret) {

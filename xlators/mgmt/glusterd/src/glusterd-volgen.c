@@ -1587,7 +1587,6 @@ gfproxy_server_graph_builder (volgen_graph_t *graph,
                         return -1;
         }
 
-        memset (key, 0, sizeof (key));
         if (password) {
                 snprintf (key, sizeof (key), "auth.login.%s.password",
                                 username);
@@ -1596,7 +1595,6 @@ gfproxy_server_graph_builder (volgen_graph_t *graph,
                         goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "gfproxyd-%s", volinfo->volname);
         ret = xlator_set_option (xl, "auth-path", key);
 
@@ -2532,7 +2530,6 @@ brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         }
 
         if (username) {
-                memset (key, 0, sizeof (key));
                 len = snprintf (key, sizeof (key), "auth.login.%s.allow",
                                 brickinfo->path);
                 if ((len < 0) || (len >= sizeof(key))) {
@@ -2545,7 +2542,6 @@ brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         }
 
         if (password) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "auth.login.%s.password",
                           username);
 
@@ -2554,7 +2550,6 @@ brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         return -1;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "auth-path");
 
         ret = xlator_set_option (xl, key, brickinfo->path);
@@ -2566,7 +2561,6 @@ brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
 
         if (volname && !strcmp (volname, GLUSTER_SHARED_STORAGE)) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "strict-auth-accept");
 
                 ret = xlator_set_option (xl, key, "true");
@@ -2575,7 +2569,6 @@ brick_graph_add_server (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         }
 
         if (dict_get_str (volinfo->dict, "auth.ssl-allow", &ssl_user) == 0) {
-                memset (key, 0, sizeof (key));
                 len = snprintf (key, sizeof (key), "auth.login.%s.ssl-allow",
                                 brickinfo->path);
                 if ((len < 0) || (len >= sizeof(key))) {

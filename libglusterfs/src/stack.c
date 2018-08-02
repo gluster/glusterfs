@@ -97,7 +97,6 @@ gf_proc_dump_call_frame (call_frame_t *call_frame, const char *key_buf,...)
 
         GF_ASSERT (key_buf);
 
-        memset(prefix, 0, sizeof(prefix));
         memset(&my_frame, 0, sizeof(my_frame));
         va_start(ap, key_buf);
         vsnprintf(prefix, GF_DUMP_MAX_BUF_LEN, key_buf, ap);
@@ -169,7 +168,6 @@ gf_proc_dump_call_stack (call_stack_t *call_stack, const char *key_buf,...)
 
         GF_ASSERT (key_buf);
 
-        memset(prefix, 0, sizeof(prefix));
         va_start(ap, key_buf);
         vsnprintf(prefix, GF_DUMP_MAX_BUF_LEN, key_buf, ap);
         va_end(ap);
@@ -267,26 +265,22 @@ gf_proc_dump_call_frame_to_dict (call_frame_t *call_frame,
         memcpy (&tmp_frame, call_frame, sizeof (tmp_frame));
         UNLOCK (&call_frame->lock);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.refcount", prefix);
         ret = dict_set_int32 (dict, key, tmp_frame.ref_count);
         if (ret)
                 return;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.translator", prefix);
         ret = dict_set_dynstr (dict, key, gf_strdup (tmp_frame.this->name));
         if (ret)
                 return;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.complete", prefix);
         ret = dict_set_int32 (dict, key, tmp_frame.complete);
         if (ret)
                 return;
 
         if (tmp_frame.root->ctx->measure_latency) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.timings", prefix);
                 snprintf (msg, sizeof (msg), "%ld.%"GF_PRI_SNSECONDS
                           " -> %ld.%"GF_PRI_SNSECONDS,
@@ -298,7 +292,6 @@ gf_proc_dump_call_frame_to_dict (call_frame_t *call_frame,
         }
 
         if (tmp_frame.parent) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.parent", prefix);
                 ret = dict_set_dynstr (dict, key,
                                     gf_strdup (tmp_frame.parent->this->name));
@@ -307,7 +300,6 @@ gf_proc_dump_call_frame_to_dict (call_frame_t *call_frame,
         }
 
         if (tmp_frame.wind_from) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.windfrom", prefix);
                 ret = dict_set_dynstr (dict, key,
                                        gf_strdup (tmp_frame.wind_from));
@@ -316,7 +308,6 @@ gf_proc_dump_call_frame_to_dict (call_frame_t *call_frame,
         }
 
         if (tmp_frame.wind_to) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.windto", prefix);
                 ret = dict_set_dynstr (dict, key,
                                        gf_strdup (tmp_frame.wind_to));
@@ -325,7 +316,6 @@ gf_proc_dump_call_frame_to_dict (call_frame_t *call_frame,
         }
 
         if (tmp_frame.unwind_from) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.unwindfrom", prefix);
                 ret = dict_set_dynstr (dict, key,
                                        gf_strdup (tmp_frame.unwind_from));
@@ -334,7 +324,6 @@ gf_proc_dump_call_frame_to_dict (call_frame_t *call_frame,
         }
 
         if (tmp_frame.unwind_to) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.unwind_to", prefix);
                 ret = dict_set_dynstr (dict, key,
                                        gf_strdup (tmp_frame.unwind_to));
@@ -357,31 +346,26 @@ gf_proc_dump_call_stack_to_dict (call_stack_t *call_stack,
                 return;
 
         count = call_frames_count (call_stack);
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.uid", prefix);
         ret = dict_set_int32 (dict, key, call_stack->uid);
         if (ret)
                 return;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.gid", prefix);
         ret = dict_set_int32 (dict, key, call_stack->gid);
         if (ret)
                 return;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.pid", prefix);
         ret = dict_set_int32 (dict, key, call_stack->pid);
         if (ret)
                 return;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.unique", prefix);
         ret = dict_set_uint64 (dict, key, call_stack->unique);
         if (ret)
                 return;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.op", prefix);
         if (call_stack->type == GF_OP_TYPE_FOP)
                 ret = dict_set_str (dict, key,
@@ -392,20 +376,17 @@ gf_proc_dump_call_stack_to_dict (call_stack_t *call_stack,
         if (ret)
                 return;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.type", prefix);
         ret = dict_set_int32 (dict, key, call_stack->type);
         if (ret)
                 return;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.count", prefix);
         ret = dict_set_int32 (dict, key, count);
         if (ret)
                 return;
 
         list_for_each_entry (trav, &call_stack->myframes, frames) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.frame%d",
                           prefix, i);
                 gf_proc_dump_call_frame_to_dict (trav, key, dict);
@@ -439,7 +420,6 @@ gf_proc_dump_pending_frames_to_dict (call_pool_t *call_pool, dict_t *dict)
                 goto out;
 
         list_for_each_entry (trav, &call_pool->all_frames, all_frames) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "callpool.stack%d", i);
                 gf_proc_dump_call_stack_to_dict (trav, key, dict);
                 i++;

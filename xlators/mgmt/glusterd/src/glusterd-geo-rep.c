@@ -5248,7 +5248,6 @@ glusterd_op_sys_exec (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 }
 
                 for (i=1; i <= cmd_args_count; i++) {
-                        memset (cmd_arg_name, '\0', sizeof(cmd_arg_name));
                         snprintf (cmd_arg_name, sizeof(cmd_arg_name),
                                   "cmd_arg_%d", i);
                         ret = dict_get_str (dict, cmd_arg_name, &cmd_args[i-1]);
@@ -5288,7 +5287,6 @@ glusterd_op_sys_exec (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                 output_count = 1;
                         else
                                 output_count++;
-                        memset (output_name, '\0', sizeof (output_name));
                         snprintf (output_name, sizeof (output_name),
                                   "output_%d", output_count);
                         if (buf[strlen(buf) - 1] == '\n')

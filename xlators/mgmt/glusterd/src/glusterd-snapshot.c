@@ -1540,7 +1540,6 @@ glusterd_snap_create_clone_pre_val_use_rsp_dict (dict_t *dst, dict_t *src)
         }
 
         for (i = 0; i < volume_count; i++) {
-                memset (snapbrckcnt, '\0', sizeof(snapbrckcnt));
                 ret = snprintf (snapbrckcnt, sizeof(snapbrckcnt) - 1,
                                 "vol%"PRId64"_brickcount", i+1);
                 ret = dict_get_int64 (src, snapbrckcnt, &brick_count);

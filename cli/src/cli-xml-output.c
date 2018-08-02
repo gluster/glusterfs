@@ -270,7 +270,6 @@ cli_xml_output_vol_status_common (xmlTextWriterPtr writer, dict_t *dict,
                                                "%s", hostname);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.path", brick_index);
         ret = dict_get_str (dict, key, &path);
         if (ret)
@@ -279,7 +278,6 @@ cli_xml_output_vol_status_common (xmlTextWriterPtr writer, dict_t *dict,
                                                "%s", path);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.peerid", brick_index);
         ret = dict_get_str (dict, key, &uuid);
         if (ret)
@@ -288,7 +286,6 @@ cli_xml_output_vol_status_common (xmlTextWriterPtr writer, dict_t *dict,
                                                "%s", uuid);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.status", brick_index);
         ret = dict_get_int32 (dict, key, &status);
         if (ret)
@@ -298,13 +295,11 @@ cli_xml_output_vol_status_common (xmlTextWriterPtr writer, dict_t *dict,
         XML_RET_CHECK_AND_GOTO (ret, out);
         *online = status;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.port", brick_index);
         ret = dict_get_int32 (dict, key, &port);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.rdma_port", brick_index);
         ret = dict_get_int32 (dict, key, &rdma_port);
 
@@ -364,7 +359,6 @@ cli_xml_output_vol_status_common (xmlTextWriterPtr writer, dict_t *dict,
         ret = xmlTextWriterEndElement (writer);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.pid", brick_index);
         ret = dict_get_int32 (dict, key, &pid);
         if (ret)
@@ -402,7 +396,6 @@ cli_xml_output_vol_status_detail (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%"PRIu64, size_total);
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.free", brick_index);
         ret = dict_get_uint64 (dict, key, &size_free);
         if (!ret) {
@@ -411,7 +404,6 @@ cli_xml_output_vol_status_detail (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%"PRIu64, size_free);
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.device", brick_index);
         ret = dict_get_str (dict, key, &device);
         if (!ret) {
@@ -420,7 +412,6 @@ cli_xml_output_vol_status_detail (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%s", device);
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.block_size", brick_index);
         ret = dict_get_uint64 (dict, key, &block_size);
         if (!ret) {
@@ -429,7 +420,6 @@ cli_xml_output_vol_status_detail (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%"PRIu64, block_size);
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.mnt_options", brick_index);
         ret = dict_get_str (dict, key, &mnt_options);
         if (!ret) {
@@ -438,7 +428,6 @@ cli_xml_output_vol_status_detail (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%s", mnt_options);
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.fs_name", brick_index);
         ret = dict_get_str (dict, key, &fs_name);
         if (!ret) {
@@ -447,7 +436,6 @@ cli_xml_output_vol_status_detail (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%s", fs_name);
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.inode_size", brick_index);
         ret = dict_get_str (dict, key, &inode_size);
         if (!ret) {
@@ -456,7 +444,6 @@ cli_xml_output_vol_status_detail (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%s", fs_name);
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.total_inodes", brick_index);
         ret = dict_get_uint64 (dict, key, &inodes_total);
         if (!ret) {
@@ -465,7 +452,6 @@ cli_xml_output_vol_status_detail (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%"PRIu64, inodes_total);
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.free_inodes", brick_index);
         ret = dict_get_uint64 (dict, key, &inodes_free);
         if (!ret) {
@@ -514,7 +500,6 @@ cli_xml_output_vol_status_mempool (xmlTextWriterPtr writer, dict_t *dict,
                 ret = xmlTextWriterStartElement (writer, (xmlChar *)"pool");
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.pool%d.name", prefix, i);
                 ret = dict_get_str (dict, key, &name);
                 if (ret)
@@ -524,7 +509,6 @@ cli_xml_output_vol_status_mempool (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%s", name);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.pool%d.hotcount", prefix, i);
                 ret = dict_get_int32 (dict, key, &hotcount);
                 if (ret)
@@ -534,7 +518,6 @@ cli_xml_output_vol_status_mempool (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%d", hotcount);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.pool%d.coldcount", prefix, i);
                 ret = dict_get_int32 (dict, key, &coldcount);
                 if (ret)
@@ -544,7 +527,6 @@ cli_xml_output_vol_status_mempool (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%d", coldcount);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.pool%d.paddedsizeof",
                           prefix, i);
                 ret = dict_get_uint64 (dict, key, &paddedsizeof);
@@ -555,7 +537,6 @@ cli_xml_output_vol_status_mempool (xmlTextWriterPtr writer, dict_t *dict,
                          paddedsizeof);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.pool%d.alloccount", prefix, i);
                 ret = dict_get_uint64 (dict, key, &alloccount);
                 if (ret)
@@ -565,7 +546,6 @@ cli_xml_output_vol_status_mempool (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%"PRIu64, alloccount);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.pool%d.max_alloc", prefix, i);
                 ret = dict_get_int32 (dict, key, &maxalloc);
                 if (ret)
@@ -575,7 +555,6 @@ cli_xml_output_vol_status_mempool (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%d", maxalloc);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.pool%d.pool-misses", prefix, i);
                 ret = dict_get_uint64 (dict, key, &alloccount);
                 if (ret)
@@ -585,7 +564,6 @@ cli_xml_output_vol_status_mempool (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%"PRIu64, alloccount);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.pool%d.max-stdalloc", prefix, i);
                 ret = dict_get_int32 (dict, key, &maxalloc);
                 if (ret)
@@ -643,7 +621,6 @@ cli_xml_output_vol_status_mem (xmlTextWriterPtr writer, dict_t *dict,
                                                "%d", arena);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.mallinfo.ordblks", brick_index);
         ret = dict_get_int32 (dict, key, &ordblks);
         if (ret)
@@ -652,7 +629,6 @@ cli_xml_output_vol_status_mem (xmlTextWriterPtr writer, dict_t *dict,
                                                "%d", ordblks);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.mallinfo.smblks", brick_index);
         ret = dict_get_int32 (dict, key, &smblks);
         if (ret)
@@ -661,7 +637,6 @@ cli_xml_output_vol_status_mem (xmlTextWriterPtr writer, dict_t *dict,
                                                "%d", smblks);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.mallinfo.hblks", brick_index);
         ret = dict_get_int32 (dict, key, &hblks);
         if (ret)
@@ -670,7 +645,6 @@ cli_xml_output_vol_status_mem (xmlTextWriterPtr writer, dict_t *dict,
                                                "%d", hblks);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.mallinfo.hblkhd", brick_index);
         ret = dict_get_int32 (dict, key, &hblkhd);
         if (ret)
@@ -679,7 +653,6 @@ cli_xml_output_vol_status_mem (xmlTextWriterPtr writer, dict_t *dict,
                                                "%d", hblkhd);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.mallinfo.usmblks", brick_index);
         ret = dict_get_int32 (dict, key, &usmblks);
         if (ret)
@@ -688,7 +661,6 @@ cli_xml_output_vol_status_mem (xmlTextWriterPtr writer, dict_t *dict,
                                                "%d", usmblks);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.mallinfo.fsmblks", brick_index);
         ret = dict_get_int32 (dict, key, &fsmblks);
         if (ret)
@@ -697,7 +669,6 @@ cli_xml_output_vol_status_mem (xmlTextWriterPtr writer, dict_t *dict,
                                                "%d", fsmblks);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.mallinfo.uordblks", brick_index);
         ret = dict_get_int32 (dict, key, &uordblks);
         if (ret)
@@ -706,7 +677,6 @@ cli_xml_output_vol_status_mem (xmlTextWriterPtr writer, dict_t *dict,
                                                "%d", uordblks);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.mallinfo.fordblks", brick_index);
         ret = dict_get_int32 (dict, key, &fordblks);
         if (ret)
@@ -715,7 +685,6 @@ cli_xml_output_vol_status_mem (xmlTextWriterPtr writer, dict_t *dict,
                                                "%d", fordblks);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d.mallinfo.keepcost", brick_index);
         ret = dict_get_int32 (dict, key, &keepcost);
         if (ret)
@@ -728,7 +697,6 @@ cli_xml_output_vol_status_mem (xmlTextWriterPtr writer, dict_t *dict,
         ret = xmlTextWriterEndElement (writer);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "brick%d", brick_index);
         ret = cli_xml_output_vol_status_mempool (writer, dict, key);
         if (ret)
@@ -774,7 +742,6 @@ cli_xml_output_vol_status_clients (xmlTextWriterPtr writer, dict_t *dict,
                 ret = xmlTextWriterStartElement (writer, (xmlChar *)"client");
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.client%d.hostname",
                           brick_index, i);
                 ret = dict_get_str (dict, key, &hostname);
@@ -785,7 +752,6 @@ cli_xml_output_vol_status_clients (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%s", hostname);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.client%d.bytesread",
                           brick_index, i);
                 ret = dict_get_uint64 (dict, key, &bytes_read);
@@ -796,7 +762,6 @@ cli_xml_output_vol_status_clients (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%"PRIu64, bytes_read);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.client%d.byteswrite",
                           brick_index, i);
                 ret = dict_get_uint64 (dict, key, &bytes_write);
@@ -807,7 +772,6 @@ cli_xml_output_vol_status_clients (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%"PRIu64, bytes_write);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.client%d.opversion",
                           brick_index, i);
                 ret = dict_get_uint32 (dict, key, &opversion);
@@ -854,7 +818,6 @@ cli_xml_output_vol_status_inode_entry (xmlTextWriterPtr writer, dict_t *dict,
                                                "%s", gfid);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key,0, sizeof (key));
         snprintf (key, sizeof (key), "%s.nlookup", prefix);
         ret = dict_get_uint64 (dict, key, &nlookup);
         if (ret)
@@ -863,7 +826,6 @@ cli_xml_output_vol_status_inode_entry (xmlTextWriterPtr writer, dict_t *dict,
                                                "%"PRIu64, nlookup);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key,0, sizeof (key));
         snprintf (key, sizeof (key), "%s.ref", prefix);
         ret = dict_get_uint32 (dict, key, &ref);
         if (ret)
@@ -872,7 +834,6 @@ cli_xml_output_vol_status_inode_entry (xmlTextWriterPtr writer, dict_t *dict,
                                                "%"PRIu32, ref);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key,0, sizeof (key));
         snprintf (key, sizeof (key), "%s.ia_type", prefix);
         ret = dict_get_int32 (dict, key, &ia_type);
         if (ret)
@@ -914,7 +875,6 @@ cli_xml_output_vol_status_itable (xmlTextWriterPtr writer, dict_t *dict,
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 for (i = 0; i < active_size; i++) {
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "%s.active%d", prefix, i);
                         ret = cli_xml_output_vol_status_inode_entry
                                 (writer, dict, key);
@@ -926,7 +886,6 @@ cli_xml_output_vol_status_itable (xmlTextWriterPtr writer, dict_t *dict,
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.lru_size", prefix);
         ret = dict_get_uint32 (dict, key, &lru_size);
         if (ret)
@@ -940,7 +899,6 @@ cli_xml_output_vol_status_itable (xmlTextWriterPtr writer, dict_t *dict,
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 for (i = 0; i < lru_size; i++) {
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "%s.lru%d", prefix, i);
                         ret = cli_xml_output_vol_status_inode_entry
                                 (writer, dict, key);
@@ -952,7 +910,6 @@ cli_xml_output_vol_status_itable (xmlTextWriterPtr writer, dict_t *dict,
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.purge_size", prefix);
         ret = dict_get_uint32 (dict, key, &purge_size);
         if (ret)
@@ -966,7 +923,6 @@ cli_xml_output_vol_status_itable (xmlTextWriterPtr writer, dict_t *dict,
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 for (i = 0; i < purge_size; i++) {
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "%s.purge%d", prefix, i);
                         ret = cli_xml_output_vol_status_inode_entry
                                 (writer, dict, key);
@@ -1010,7 +966,6 @@ cli_xml_output_vol_status_inode (xmlTextWriterPtr writer, dict_t *dict,
                                                  (xmlChar *)"connection");
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.conn%d.itable",
                           brick_index, i);
                 ret = cli_xml_output_vol_status_itable (writer, dict, key);
@@ -1058,7 +1013,6 @@ cli_xml_output_vol_status_fdtable (xmlTextWriterPtr writer, dict_t *dict,
                                                "%d", refcount);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.maxfds", prefix);
         ret = dict_get_uint32 (dict, key, &maxfds);
         if (ret)
@@ -1067,7 +1021,6 @@ cli_xml_output_vol_status_fdtable (xmlTextWriterPtr writer, dict_t *dict,
                                                "%"PRIu32, maxfds);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.firstfree", prefix);
         ret = dict_get_int32 (dict, key, &firstfree);
         if (ret)
@@ -1076,7 +1029,6 @@ cli_xml_output_vol_status_fdtable (xmlTextWriterPtr writer, dict_t *dict,
                                                "%d", firstfree);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.openfds", prefix);
         ret = dict_get_int32 (dict, key, &openfds);
         if (ret)
@@ -1086,20 +1038,17 @@ cli_xml_output_vol_status_fdtable (xmlTextWriterPtr writer, dict_t *dict,
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         for (i = 0; i < maxfds; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.fdentry%d.pid", prefix, i);
                 ret = dict_get_int32 (dict, key, &fd_pid);
                 if (ret)
                         continue;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.fdentry%d.refcount",
                           prefix, i);
                 ret = dict_get_int32 (dict, key, &fd_refcount);
                 if (ret)
                         continue;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.fdentry%d.flags", prefix, i);
                 ret = dict_get_int32 (dict, key, &fd_flags);
                 if (ret)
@@ -1170,7 +1119,6 @@ cli_xml_output_vol_status_fd (xmlTextWriterPtr writer, dict_t *dict,
                                                  (xmlChar *)"connection");
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.conn%d.fdtable",
                           brick_index, i);
                 ret = cli_xml_output_vol_status_fdtable (writer, dict, key);
@@ -1218,7 +1166,6 @@ cli_xml_output_vol_status_callframe (xmlTextWriterPtr writer, dict_t *dict,
                                                "%d", ref_count);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.translator", prefix);
         ret = dict_get_str (dict, key, &translator);
         if (ret)
@@ -1227,7 +1174,6 @@ cli_xml_output_vol_status_callframe (xmlTextWriterPtr writer, dict_t *dict,
                                                "%s", translator);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.complete", prefix);
         ret = dict_get_int32 (dict, key, &complete);
         if (ret)
@@ -1236,7 +1182,6 @@ cli_xml_output_vol_status_callframe (xmlTextWriterPtr writer, dict_t *dict,
                                                "%d", complete);
         XML_RET_CHECK_AND_GOTO (ret ,out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.parent", prefix);
         ret = dict_get_str (dict, key, &parent);
         if (!ret) {
@@ -1246,7 +1191,6 @@ cli_xml_output_vol_status_callframe (xmlTextWriterPtr writer, dict_t *dict,
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.windfrom", prefix);
         ret = dict_get_str (dict, key, &wind_from);
         if (!ret) {
@@ -1256,7 +1200,6 @@ cli_xml_output_vol_status_callframe (xmlTextWriterPtr writer, dict_t *dict,
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.windto", prefix);
         ret = dict_get_str (dict, key, &wind_to);
         if (!ret) {
@@ -1266,7 +1209,6 @@ cli_xml_output_vol_status_callframe (xmlTextWriterPtr writer, dict_t *dict,
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.unwindfrom", prefix);
         ret = dict_get_str (dict, key, &unwind_from);
         if (!ret) {
@@ -1276,7 +1218,6 @@ cli_xml_output_vol_status_callframe (xmlTextWriterPtr writer, dict_t *dict,
                 XML_RET_CHECK_AND_GOTO (ret, out);
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.unwindto", prefix);
         ret = dict_get_str (dict, key, &unwind_to);
         if (!ret) {
@@ -1319,7 +1260,6 @@ cli_xml_output_vol_status_callstack (xmlTextWriterPtr writer, dict_t *dict,
                                                "%d", uid);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.gid", prefix);
         ret = dict_get_int32 (dict, key, &gid);
         if (ret)
@@ -1328,7 +1268,6 @@ cli_xml_output_vol_status_callstack (xmlTextWriterPtr writer, dict_t *dict,
                                                "%d", gid);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.pid", prefix);
         ret = dict_get_int32 (dict, key, &pid);
         if (ret)
@@ -1337,7 +1276,6 @@ cli_xml_output_vol_status_callstack (xmlTextWriterPtr writer, dict_t *dict,
                                                "%d", pid);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.unique", prefix);
         ret = dict_get_uint64 (dict, key, &unique);
         if (ret)
@@ -1346,7 +1284,6 @@ cli_xml_output_vol_status_callstack (xmlTextWriterPtr writer, dict_t *dict,
                                                "%"PRIu64, unique);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%s.count", prefix);
         ret = dict_get_int32 (dict, key, &frame_count);
         if (ret)
@@ -1356,7 +1293,6 @@ cli_xml_output_vol_status_callstack (xmlTextWriterPtr writer, dict_t *dict,
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         for (i = 0; i < frame_count; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.frame%d", prefix, i);
                 ret = cli_xml_output_vol_status_callframe (writer, dict,
                                                            key);
@@ -1394,7 +1330,6 @@ cli_xml_output_vol_status_callpool (xmlTextWriterPtr writer, dict_t *dict,
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         for (i = 0; i < call_count; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "brick%d.callpool.stack%d",
                           brick_index, i);
                 ret = cli_xml_output_vol_status_callstack (writer, dict,
@@ -1488,7 +1423,6 @@ cli_xml_output_remove_brick_task_params (xmlTextWriterPtr writer, dict_t *dict,
                 goto out;
 
         for (i = 1; i <= count; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.brick%d", prefix, i);
                 ret = dict_get_str (dict, key, &brick);
                 if (ret)
@@ -1532,7 +1466,6 @@ cli_xml_output_vol_status_tasks (cli_local_t *local, dict_t *dict) {
                                                  (xmlChar *)"task");
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "task%d.type", i);
                 ret = dict_get_str (dict, key, &task_type);
                 if (ret)
@@ -1542,7 +1475,6 @@ cli_xml_output_vol_status_tasks (cli_local_t *local, dict_t *dict) {
                                                        "%s", task_type);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "task%d.id", i);
                 ret = dict_get_str (dict, key, &task_id_str);
                 if (ret)
@@ -1552,7 +1484,6 @@ cli_xml_output_vol_status_tasks (cli_local_t *local, dict_t *dict) {
                                                        "%s", task_id_str);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "task%d.status", i);
                 ret = dict_get_int32 (dict, key, &status);
                 if (ret)
@@ -1569,7 +1500,6 @@ cli_xml_output_vol_status_tasks (cli_local_t *local, dict_t *dict) {
 
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "task%d", i);
                 if (!strcmp (task_type, "Remove brick")) {
                         ret = cli_xml_output_remove_brick_task_params
@@ -1830,7 +1760,6 @@ cli_xml_output_vol_top_rw_perf (xmlTextWriterPtr writer, dict_t *dict,
                                                "%s", filename);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%d-value-%d", brick_index, member_index);
         ret = dict_get_uint64 (dict, key, &throughput);
         if (ret)
@@ -1839,14 +1768,12 @@ cli_xml_output_vol_top_rw_perf (xmlTextWriterPtr writer, dict_t *dict,
                                                "%"PRIu64, throughput);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%d-time-sec-%d", brick_index,
                   member_index);
         ret = dict_get_int32 (dict, key, (int32_t *)&time_sec);
         if (ret)
                 goto out;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%d-time-usec-%d", brick_index,
                   member_index);
         ret = dict_get_int32 (dict, key, (int32_t *)&time_usec);
@@ -1892,7 +1819,6 @@ cli_xml_output_vol_top_other (xmlTextWriterPtr writer, dict_t *dict,
                                                "%s", filename);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%d-value-%d", brick_index, member_index);
         ret = dict_get_uint64 (dict, key, &count);
         if (ret)
@@ -1965,7 +1891,6 @@ cli_xml_output_vol_top (dict_t *dict, int op_ret, int op_errno,
                 ret = xmlTextWriterStartElement (writer, (xmlChar *)"brick");
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%d-brick", i);
                 ret = dict_get_str (dict, key, &brick_name);
                 if (ret)
@@ -1975,7 +1900,6 @@ cli_xml_output_vol_top (dict_t *dict, int op_ret, int op_errno,
                                                        "%s", brick_name);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key , sizeof (key), "%d-members", i);
                 ret = dict_get_int32 (dict, key, &members);
                 if (ret)
@@ -1987,7 +1911,6 @@ cli_xml_output_vol_top (dict_t *dict, int op_ret, int op_errno,
 
                 switch (top_op) {
                 case GF_CLI_TOP_OPEN:
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "%d-current-open", i);
                         ret = dict_get_uint64 (dict, key, &current_open);
                         if (ret)
@@ -1997,7 +1920,6 @@ cli_xml_output_vol_top (dict_t *dict, int op_ret, int op_errno,
                                  current_open);
                         XML_RET_CHECK_AND_GOTO (ret, out);
 
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "%d-max-open", i);
                         ret = dict_get_uint64 (dict, key, &max_open);
                         if (ret)
@@ -2007,7 +1929,6 @@ cli_xml_output_vol_top (dict_t *dict, int op_ret, int op_errno,
                                  max_open);
                         XML_RET_CHECK_AND_GOTO (ret, out);
 
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "%d-max-openfd-time", i);
                         ret = dict_get_str (dict, key, &max_open_time);
                         if (ret)
@@ -2026,11 +1947,9 @@ cli_xml_output_vol_top (dict_t *dict, int op_ret, int op_errno,
 
                 case GF_CLI_TOP_READ_PERF:
                 case GF_CLI_TOP_WRITE_PERF:
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "%d-throughput", i);
                         ret = dict_get_double (dict, key, &throughput);
                         if (!ret) {
-                                memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key), "%d-time", i);
                                 ret = dict_get_double (dict, key, &time_taken);
                         }
@@ -2126,7 +2045,6 @@ cli_xml_output_vol_profile_stats (xmlTextWriterPtr writer, dict_t *dict,
                         (writer, (xmlChar *)"size", "%"PRIu32, (1 << i));
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%d-%d-read-%d", brick_index,
                           interval, (1 << i));
                 ret = dict_get_uint64 (dict, key, &read_count);
@@ -2136,7 +2054,6 @@ cli_xml_output_vol_profile_stats (xmlTextWriterPtr writer, dict_t *dict,
                         (writer, (xmlChar *)"reads", "%"PRIu64, read_count);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%d-%d-write-%d", brick_index,
                           interval, (1 << i));
                 ret = dict_get_uint64 (dict, key, &write_count);
@@ -2160,28 +2077,24 @@ cli_xml_output_vol_profile_stats (xmlTextWriterPtr writer, dict_t *dict,
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         for (i = 0; i < GF_FOP_MAXVALUE; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%d-%d-%d-hits", brick_index,
                           interval, i);
                 ret = dict_get_uint64 (dict, key, &hits);
                 if (ret)
                         goto cont;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%d-%d-%d-avglatency", brick_index,
                           interval, i);
                 ret = dict_get_double (dict, key, &avg_latency);
                 if (ret)
                         goto cont;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%d-%d-%d-minlatency", brick_index,
                           interval, i);
                 ret = dict_get_double (dict, key, &min_latency);
                 if (ret)
                         goto cont;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%d-%d-%d-maxlatency", brick_index,
                           interval, i);
                 ret = dict_get_double (dict, key, &max_latency);
@@ -2229,7 +2142,6 @@ cont:
                 min_latency = 0.0;
                 max_latency = 0.0;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%d-%d-%d-upcall-hits", brick_index,
                           interval, i);
                 ret = dict_get_uint64 (dict, key, &hits);
@@ -2269,7 +2181,6 @@ cont:
         ret = xmlTextWriterEndElement (writer);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%d-%d-duration", brick_index, interval);
         ret = dict_get_uint64 (dict, key, &duration);
         if (ret)
@@ -2278,7 +2189,6 @@ cont:
                                                "%"PRIu64, duration);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%d-%d-total-read", brick_index, interval);
         ret = dict_get_uint64 (dict, key, &total_read);
         if (ret)
@@ -2287,7 +2197,6 @@ cont:
                                                "%"PRIu64, total_read);
         XML_RET_CHECK_AND_GOTO (ret, out);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%d-%d-total-write", brick_index, interval);
         ret = dict_get_uint64 (dict, key, &total_write);
         if (ret)
@@ -2400,7 +2309,6 @@ cli_xml_output_vol_profile (dict_t *dict, int op_ret, int op_errno,
                                         goto out;
                         }
 
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "%d-interval", i);
                         ret = dict_get_int32 (dict, key, &interval);
                         if (ret == 0) {
@@ -2463,7 +2371,6 @@ cli_xml_output_vol_list (dict_t *dict, int op_ret, int op_errno,
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         for (i = 0; i < count; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d", i);
                 ret = dict_get_str (dict, key, &volname);
                 if (ret)
@@ -2656,7 +2563,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                                  (xmlChar *)"volume");
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.name", i);
                 ret = dict_get_str (dict, key, &volname);
                 if (ret)
@@ -2666,7 +2572,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                                        "%s", volname);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.volume_id", i);
                 ret = dict_get_str (dict, key, &volume_id);
                 if (ret)
@@ -2676,7 +2581,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                                        "%s", volume_id);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.status", i);
                 ret = dict_get_int32 (dict, key, &status);
                 if (ret)
@@ -2691,7 +2595,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                          cli_vol_status_str[status]);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.snap_count", i);
                 ret = dict_get_int32 (dict, key, &snap_count);
                 if (ret)
@@ -2702,7 +2605,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.brick_count", i);
                 ret = dict_get_int32 (dict, key, &brick_count);
                 if (ret)
@@ -2712,7 +2614,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                                        "%d", brick_count);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.dist_count", i);
                 ret = dict_get_int32 (dict, key, &dist_count);
                 if (ret)
@@ -2722,7 +2623,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                                        "%d", dist_count);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.stripe_count", i);
                 ret = dict_get_int32 (dict, key, &stripe_count);
                 if (ret)
@@ -2732,7 +2632,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                                        "%d", stripe_count);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.replica_count", i);
                 ret = dict_get_int32 (dict, key, &replica_count);
                 if (ret)
@@ -2742,7 +2641,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                                        "%d", replica_count);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.arbiter_count", i);
                 ret = dict_get_int32 (dict, key, &arbiter_count);
                 if (ret)
@@ -2752,7 +2650,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                                       "%d", arbiter_count);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.disperse_count", i);
                 ret = dict_get_int32 (dict, key, &disperse_count);
                 if (ret)
@@ -2762,7 +2659,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                                        "%d", disperse_count);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.redundancy_count", i);
                 ret = dict_get_int32 (dict, key, &redundancy_count);
                 if (ret)
@@ -2772,7 +2668,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                                        "%d", redundancy_count);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.type", i);
                 ret = dict_get_int32 (dict, key, &type);
                 if (ret)
@@ -2793,7 +2688,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                                        vol_type_str[type]);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.transport", i);
                 ret = dict_get_int32 (dict, key, &transport);
                 if (ret)
@@ -2810,7 +2704,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
                 for (k = 0; ; k++) {
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key),"volume%d.xlator%d", i, k);
                         ret = dict_get_str (dict, key, &caps);
                         if (ret)
@@ -2833,7 +2726,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
 
                         j = 0;
                         for (j = 0; ;j++) {
-                                memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key),
                                           "volume%d.xlator%d.caps%d", i, k, j);
                                 ret = dict_get_str (dict, key, &caps);
@@ -2868,7 +2760,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                          * always */
                         for (c = COLD_BRICK_COUNT; c < MAX; c++) {
 
-                                memset (key, 0, sizeof (key));
                                 snprintf (key, 256, keys[c], i);
                                 ret = dict_get_int32 (dict, key, &value[c]);
                                 if (ret)
@@ -2940,7 +2831,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                         (local->writer, (xmlChar *)"brick");
                                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                                memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key),
                                           "volume%d.brick%d.uuid", i, index);
                                 ret = dict_get_str (dict, key, &uuid);
@@ -3051,7 +2941,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                         (local->writer, (xmlChar *)"brick");
                                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                                memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key),
                                           "volume%d.brick%d.uuid", i, index);
                                 ret = dict_get_str (dict, key, &uuid);
@@ -3076,7 +2965,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                          "%s", uuid);
                                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                                memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key),
                                           "volume%d.brick%d.isArbiter", i,
                                           index);
@@ -3103,7 +2991,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                         (local->writer, (xmlChar *)"brick");
                                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                                memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key),
                                           "volume%d.brick%d.uuid", i, j);
                                 ret = dict_get_str (dict, key, &uuid);
@@ -3114,7 +3001,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                          uuid);
                                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                                memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key),
                                           "volume%d.brick%d", i, j);
                                 ret = dict_get_str (dict, key, &brick);
@@ -3134,7 +3020,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                                          "%s", uuid);
                                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                                memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key),
                                           "volume%d.brick%d.isArbiter", i, j);
                                 if (dict_get (dict, key))
@@ -3157,7 +3042,6 @@ cli_xml_output_vol_info (cli_local_t *local, dict_t *dict)
                 ret = xmlTextWriterEndElement (local->writer);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d", i);
                 ret = cli_xml_output_vol_info_options (local->writer, dict,
                                                        key);
@@ -3311,7 +3195,6 @@ cli_xml_output_peer_hostnames (xmlTextWriterPtr writer, dict_t *dict,
         XML_RET_CHECK_AND_GOTO (ret, out);
 
         for (i = 0; i < count; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "%s.hostname%d", prefix, i);
                 ret = dict_get_str (dict, key, &hostname);
                 if (ret)
@@ -3373,7 +3256,6 @@ cli_xml_output_peer_status (dict_t *dict, int op_ret, int op_errno,
                 ret = xmlTextWriterStartElement (writer, (xmlChar *)"peer");
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "friend%d.uuid", i);
                 ret = dict_get_str (dict, key, &uuid);
                 if (ret)
@@ -3384,7 +3266,6 @@ cli_xml_output_peer_status (dict_t *dict, int op_ret, int op_errno,
                                                        "%s", uuid);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "friend%d.hostname", i);
                 ret = dict_get_str (dict, key, &hostname);
                 if (ret)
@@ -3395,18 +3276,15 @@ cli_xml_output_peer_status (dict_t *dict, int op_ret, int op_errno,
                                                        "%s", hostname);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "friend%d.hostname_count", i);
                 ret = dict_get_int32 (dict, key, &hostname_count);
                 if ((ret == 0) && (hostname_count > 0)) {
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "friend%d", i);
                         ret = cli_xml_output_peer_hostnames (writer, dict, key,
                                                              hostname_count);
                         XML_RET_CHECK_AND_GOTO (ret, out);
                 }
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "friend%d.connected", i);
                 ret = dict_get_int32 (dict, key, &connected);
                 if (ret)
@@ -3417,7 +3295,6 @@ cli_xml_output_peer_status (dict_t *dict, int op_ret, int op_errno,
                                                        "%d", connected);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "friend%d.stateId", i);
                 ret = dict_get_int32 (dict, key, &state_id);
                 if (!ret) {
@@ -3428,7 +3305,6 @@ cli_xml_output_peer_status (dict_t *dict, int op_ret, int op_errno,
                         XML_RET_CHECK_AND_GOTO (ret, out);
                 }
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "friend%d.state", i);
                 ret = dict_get_str (dict, key, &state_str);
                 if (!ret) {
@@ -3505,7 +3381,6 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict,
                 /* Getting status early, to skip nodes that don't have the
                  * rebalance process started
                  */
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "status-%d", i);
                 ret = dict_get_int32 (dict, key, &status_rcd);
 
@@ -3520,7 +3395,6 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict,
                 ret = xmlTextWriterStartElement (writer, (xmlChar *)"node");
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "node-name-%d", i);
                 ret = dict_get_str (dict, key, &node_name);
                 if (ret)
@@ -3530,7 +3404,6 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%s", node_name);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "node-uuid-%d", i);
                 ret = dict_get_str (dict, key, &node_uuid);
                 if (ret)
@@ -3540,7 +3413,6 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%s", node_uuid);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "files-%d", i);
                 ret = dict_get_uint64 (dict, key, &files);
                 if (ret)
@@ -3551,7 +3423,6 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%"PRIu64, files);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "size-%d", i);
                 ret = dict_get_uint64 (dict, key, &size);
                 if (ret)
@@ -3562,7 +3433,6 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%"PRIu64,size);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "lookups-%d", i);
                 ret = dict_get_uint64 (dict, key, &lookups);
                 if (ret)
@@ -3573,13 +3443,11 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%"PRIu64, lookups);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "failures-%d", i);
                 ret = dict_get_uint64 (dict, key, &failures);
                 if (ret)
                         goto out;
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "skipped-%d", i);
 
                 ret = dict_get_uint64 (dict, key, &skipped);
@@ -3615,8 +3483,7 @@ cli_xml_output_vol_rebalance_status (xmlTextWriterPtr writer, dict_t *dict,
                                          cli_vol_task_status_str[status_rcd]);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, 256);
-                snprintf (key, 256, "run-time-%d", i);
+                snprintf (key, sizeof (key), "run-time-%d", i);
                 ret = dict_get_double (dict, key, &elapsed);
                 if (ret)
                         goto out;
@@ -3741,7 +3608,6 @@ cli_xml_output_vol_tier_status (xmlTextWriterPtr writer, dict_t *dict,
                 ret = xmlTextWriterStartElement (writer, (xmlChar *)"node");
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "node-name-%d", i);
                 ret = dict_get_str (dict, key, &node_name);
                 if (ret)
@@ -3751,7 +3617,6 @@ cli_xml_output_vol_tier_status (xmlTextWriterPtr writer, dict_t *dict,
                                                        "%s", node_name);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "promoted-%d", i);
                 ret = dict_get_uint64 (dict, key, &promoted);
                 if (ret)
@@ -3762,7 +3627,6 @@ cli_xml_output_vol_tier_status (xmlTextWriterPtr writer, dict_t *dict,
                                                        promoted);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "demoted-%d", i);
                 ret = dict_get_uint64 (dict, key, &demoted);
                 if (ret)
@@ -3773,8 +3637,7 @@ cli_xml_output_vol_tier_status (xmlTextWriterPtr writer, dict_t *dict,
                                                        demoted);
                 XML_RET_CHECK_AND_GOTO (ret, out);
 
-                memset (key, 0, 256);
-                snprintf (key, 256, "status-%d", i);
+                snprintf (key, sizeof (key), "status-%d", i);
                 ret = dict_get_int32 (dict, key, (int32_t *)&status_rcd);
 
                 status_str = cli_vol_task_status_str[status_rcd];

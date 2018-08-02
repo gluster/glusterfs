@@ -1301,10 +1301,6 @@ io_stats_dump_global_to_logfp (xlator_t *this, struct ios_global_stats *stats,
                         ios_log (this, logfp, "%s", str_read);
                         ios_log (this, logfp, "%s\n", str_write);
 
-                        memset (str_header, 0, sizeof (str_header));
-                        memset (str_read, 0, sizeof (str_read));
-                        memset (str_write, 0, sizeof (str_write));
-
                         snprintf (str_header, sizeof (str_header), "%-12s %c",
                                   "Block Size", ':');
                         snprintf (str_read, sizeof (str_read), "%-12s %c",
@@ -1437,7 +1433,6 @@ io_stats_dump_global_to_dict (xlator_t *this, struct ios_global_stats *stats,
                 gf_log (this->name, GF_LOG_ERROR, "failed to set "
                         "interval %d", interval);
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%d-duration", interval);
         sec = (uint64_t) (now->tv_sec - stats->started_at.tv_sec);
         ret = dict_set_uint64 (dict, key, sec);
@@ -1447,7 +1442,6 @@ io_stats_dump_global_to_dict (xlator_t *this, struct ios_global_stats *stats,
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%d-total-read", interval);
         ret = dict_set_uint64 (dict, key, GF_ATOMIC_GET (stats->data_read));
         if (ret) {
@@ -1457,7 +1451,6 @@ io_stats_dump_global_to_dict (xlator_t *this, struct ios_global_stats *stats,
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "%d-total-write", interval);
         ret = dict_set_uint64 (dict, key, GF_ATOMIC_GET (stats->data_written));
         if (ret) {
@@ -1469,7 +1462,6 @@ io_stats_dump_global_to_dict (xlator_t *this, struct ios_global_stats *stats,
         for (i = 0; i < 32; i++) {
                 count = GF_ATOMIC_GET (stats->block_count_read[i]);
                 if (count) {
-                        memset (key, 0, sizeof (key));
                         snprintf (key, sizeof (key), "%d-read-%d", interval,
                                   (1 << i));
                         ret = dict_set_uint64 (dict, key, count);

@@ -4322,7 +4322,7 @@ fill_layout_info (dht_layout_t *layout, char *buf)
         char tmp_buf[128] = {0,};
 
         for (i = 0; i < layout->cnt; i++) {
-                snprintf (tmp_buf, 128, "(%s %u %u)",
+                snprintf (tmp_buf, sizeof (tmp_buf), "(%s %u %u)",
                           layout->list[i].xlator->name,
                           layout->list[i].start,
                           layout->list[i].stop);

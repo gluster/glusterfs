@@ -315,7 +315,6 @@ gd_store_brick_snap_details_write (int fd, glusterd_brickinfo_t *brickinfo)
         }
 
         if (strlen(brickinfo->mount_dir) > 0) {
-                memset (value, 0, sizeof (value));
                 snprintf (value, sizeof(value), "%s", brickinfo->mount_dir);
                 ret = gf_store_save_value (fd,
                                 GLUSTERD_STORE_KEY_BRICK_MOUNT_DIR, value);
@@ -347,14 +346,12 @@ gd_store_brick_snap_details_write (int fd, glusterd_brickinfo_t *brickinfo)
                 }
         }
 
-        memset (value, 0, sizeof (value));
         snprintf (value, sizeof(value), "%d", brickinfo->snap_status);
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS,
                                    value);
         if (ret)
                 goto out;
 
-        memset (value, 0, sizeof (value));
         snprintf (value, sizeof (value), "%lu", brickinfo->statfs_fsid);
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_BRICK_FSID, value);
 
@@ -828,7 +825,6 @@ glusterd_volume_write_snap_details (int fd, glusterd_volinfo_t *volinfo)
                 goto out;
         }
 
-        memset (buf, 0, sizeof (buf));
         snprintf (buf, sizeof (buf), "%"PRIu64, volinfo->snap_max_hard_limit);
         ret = gf_store_save_value (fd, GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
                                    buf);
@@ -4931,7 +4927,6 @@ glusterd_store_save_quota_version_and_cksum (glusterd_volinfo_t *volinfo)
                 goto out;
         }
 
-        memset (buf, 0, sizeof (buf));
         snprintf (buf, sizeof (buf)-1, "%u", volinfo->quota_conf_version);
         ret = gf_store_save_value (fd, "version", buf);
         if (ret) {

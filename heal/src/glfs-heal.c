@@ -776,7 +776,6 @@ glfsh_heal_entries (glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
                 if ((strcmp (entry->d_name, ".") == 0) ||
                     (strcmp (entry->d_name, "..") == 0))
                         continue;
-                memset (file, 0, sizeof(file));
                 snprintf (file, sizeof(file), "gfid:%s", entry->d_name);
                 ret = glfsh_heal_splitbrain_file (fs, top_subvol, rootloc, file,
                                                  xattr_req);

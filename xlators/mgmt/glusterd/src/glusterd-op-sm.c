@@ -3442,7 +3442,6 @@ _add_remove_bricks_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo,
         }
 
         for (i = 1; i <= count; i++) {
-                memset (brick_key, 0, sizeof (brick_key));
                 snprintf (brick_key, sizeof (brick_key), "brick%d", i);
 
                 ret = dict_get_str (volinfo->rebal.dict, brick_key, &brick);
@@ -3453,7 +3452,6 @@ _add_remove_bricks_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo,
                         goto out;
                 }
 
-                memset (dict_key, 0, sizeof (dict_key));
                 len = snprintf (dict_key, sizeof (dict_key), "%s.%s", prefix,
                                 brick_key);
                 if ((len < 0) || (len >= sizeof(dict_key))) {
@@ -3527,7 +3525,6 @@ _add_task_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo, int op, int index)
                 goto out;
         }
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "task%d.id", index);
 
         if (!uuid_str)
@@ -3541,7 +3538,6 @@ _add_task_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo, int op, int index)
         }
         uuid_str = NULL;
 
-        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "task%d.status", index);
         ret = dict_set_int32 (dict, key, status);
         if (ret) {
@@ -4856,7 +4852,6 @@ glusterd_op_volume_dict_uuid_to_hostname (dict_t *dict, const char *key_fmt,
         GF_ASSERT (key_fmt);
 
         for (i = idx_min; i < idx_max; i++) {
-                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), key_fmt, i);
                 ret = dict_get_str (dict, key, &uuid_str);
                 if (ret) {
@@ -4971,8 +4966,7 @@ glusterd_op_check_peer_defrag_status (dict_t *dict, int count)
         }
 
         do {
-                memset (key, 0, 256);
-                snprintf (key, 256, "status-%d", i);
+                snprintf (key, sizeof (key), "status-%d", i);
                 ret = dict_get_int32 (dict, key, (int32_t *)&status);
                 if (ret) {
                         gf_msg (THIS->name, GF_LOG_WARNING, 0,
@@ -5036,13 +5030,11 @@ glusterd_op_modify_port_key (dict_t *op_ctx, int brick_index_max)
 
         for (i = 0; i <= brick_index_max; i++) {
 
-               memset (key, 0, sizeof (key));
                snprintf (key, sizeof (key), "brick%d.rdma_port", i);
                ret = dict_get_str (op_ctx, key, &port);
 
                if (ret) {
 
-                       memset (old_key, 0, sizeof (old_key));
                        snprintf (old_key, sizeof (old_key),
                                            "brick%d.port", i);
                        ret = dict_get_str (op_ctx, old_key, &port);
@@ -5141,7 +5133,6 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                         goto out;
 
                  for (i = 0; i <= brick_index_max; i++) {
-                         memset (key, 0, sizeof (key));
                          snprintf (key, sizeof (key), "brick%d.rdma_port", i);
                          ret = dict_get_str (op_ctx, key, &port);
                          if (ret) {
@@ -5169,11 +5160,9 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                         int   i;
 
                         for (i = brick_index_max + 1; i < count; i++) {
-                                memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key), "brick%d.path", i);
                                 ret = dict_get_str (op_ctx, key, &uuid_str);
                                 if (!ret) {
-                                        memset (key, 0, sizeof (key));
                                         snprintf (key, sizeof (key),
                                                   "brick%d.peerid", i);
                                         uuid = gf_strdup (uuid_str);
@@ -5249,11 +5238,9 @@ glusterd_op_modify_op_ctx (glusterd_op_t op, void *ctx)
                         int   i;
 
                         for (i = 1; i <= count; i++) {
-                                memset (key, 0, sizeof (key));
                                 snprintf (key, sizeof (key), "node-uuid-%d", i);
                                 ret = dict_get_str (op_ctx, key, &uuid_str);
                                 if (!ret) {
-                                        memset (key, 0, sizeof (key));
                                         snprintf (key, sizeof (key),
                                                   "node-name-%d", i);
                                         uuid = gf_strdup (uuid_str);

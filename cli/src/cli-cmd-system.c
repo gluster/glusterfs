@@ -469,7 +469,6 @@ cli_cmd_sys_exec_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 tmp = strtok_r (NULL, " ", &saveptr);
                 if (tmp) {
                         in_cmd_args_count++;
-                        memset (cmd_arg_name, '\0', sizeof(cmd_arg_name));
                         snprintf (cmd_arg_name, sizeof(cmd_arg_name),
                                   "cmd_arg_%d", in_cmd_args_count);
                         ret = dict_set_str (dict, cmd_arg_name, tmp);
@@ -491,7 +490,6 @@ cli_cmd_sys_exec_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
         for (i=1; i <= cmd_args_count; i++) {
                 in_cmd_args_count++;
-                memset (cmd_arg_name, '\0', sizeof(cmd_arg_name));
                 snprintf (cmd_arg_name, sizeof(cmd_arg_name),
                           "cmd_arg_%d", in_cmd_args_count);
                 ret = dict_set_str (dict, cmd_arg_name,
