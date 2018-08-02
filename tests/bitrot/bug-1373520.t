@@ -14,11 +14,17 @@ TEST $CLI volume start $V0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "6" online_brick_count
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field $V0 'Status'
 
-#Disable md-cache
+#Disable self heal daemon as it races in this test with lookup on volume
+#stop and start.
+$CLI volume set $V0 self-heal-daemon off
+
+#Disable few perf xlators to get the first lookup on the brick
 TEST $CLI volume set $V0 performance.stat-prefetch off
+TEST $CLI volume set $V0 performance.force-readdirp off
+TEST $CLI volume set $V0 dht.force-readdirp off
 
 #Mount the volume
-TEST $GFS -s $H0 --volfile-id $V0 $M0
+TEST $GFS -s $H0 --use-readdirp=no --attribute-timeout=0 --entry-timeout=0 --volfile-id $V0 $M0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "6" ec_child_up_count $V0 0
 
 #Enable bitrot
@@ -50,10 +56,13 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" get_bitd_count
 #Delete file and all links from backend
 TEST rm -rf $(find $B0/${V0}5 -inum $(stat -c %i $B0/${V0}5/FILE1))
 
+#New mount for recovery
+TEST $GFS -s $H0 --use-readdirp=no --attribute-timeout=0 --entry-timeout=0 --volfile-id $V0 $M1
+
 #Access files
-TEST cat $M0/FILE1
+TEST cat $M1/FILE1
 EXPECT_WITHIN $HEAL_TIMEOUT "$SIZE" path_size $B0/${V0}5/FILE1
-TEST cat $M0/HL_FILE1
+TEST cat $M1/HL_FILE1
 EXPECT_WITHIN $HEAL_TIMEOUT "$SIZE" path_size $B0/${V0}5/HL_FILE1
 
 cleanup;
