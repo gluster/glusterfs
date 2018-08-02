@@ -4325,9 +4325,12 @@ shard_rename_src_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         /* Set ctx->refresh to TRUE to force a lookup on disk when
          * shard_lookup_base_file() is called next to refresh the hard link
-         * count in ctx
+         * count in ctx. Note that this is applicable only to the case where
+         * the rename dst is already existent and sharded.
          */
-        shard_inode_ctx_set_refresh_flag (local->int_inodelk.loc.inode, this);
+        if ((local->dst_block_size) && (!local->cleanup_required))
+                shard_inode_ctx_set_refresh_flag (local->int_inodelk.loc.inode,
+                                                  this);
 
         local->prebuf = *buf;
         local->preoldparent = *preoldparent;
