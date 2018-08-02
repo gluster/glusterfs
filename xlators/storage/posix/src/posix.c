@@ -75,9 +75,7 @@ struct xlator_fops fops = {
         .discard     = posix_discard,
         .zerofill    = posix_zerofill,
         .ipc         = posix_ipc,
-#ifdef HAVE_SEEK_HOLE
         .seek        = posix_seek,
-#endif
         .lease       = posix_lease,
         .put         = posix_put,
 };

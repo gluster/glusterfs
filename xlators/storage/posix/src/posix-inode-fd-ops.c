@@ -1049,11 +1049,11 @@ posix_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
 
 }
 
-#ifdef HAVE_SEEK_HOLE
 int32_t
 posix_seek (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
             gf_seek_what_t what, dict_t *xdata)
 {
+#ifdef HAVE_SEEK_HOLE
         struct posix_fd *pfd       = NULL;
         off_t            ret       = -1;
         int              err       = 0;
@@ -1123,9 +1123,11 @@ out:
 
         STACK_UNWIND_STRICT (seek, frame, (ret == -1 ? -1 : 0), err,
                              (ret == -1 ? -1 : ret), rsp_xdata);
+#else
+        STACK_UNWIND_STRICT (seek, frame, -1, EINVAL, 0, NULL);
+#endif
         return 0;
 }
-#endif
 
 int32_t
 posix_opendir (call_frame_t *frame, xlator_t *this,
