@@ -31,9 +31,10 @@ TEST mkdir $M0/dir
 TEST touch $M0/dir/foo
 TEST touch $M0/dir/new
 
-######################################
-##### Unlink with /.shard absent #####
-######################################
+##########################################
+##### 01. Unlink with /.shard absent #####
+##########################################
+
 TEST truncate -s 5M $M0/dir/foo
 TEST ! stat $B0/${V0}0/.shard
 TEST ! stat $B0/${V0}1/.shard
@@ -45,9 +46,10 @@ TEST stat $B0/${V0}1/.shard/.remove_me
 EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_foo
 EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_foo
 
-##################################################
-##### Unlink of a sharded file without holes #####
-##################################################
+######################################################
+##### 02. Unlink of a sharded file without holes #####
+######################################################
+
 # Create a 9M sharded file
 TEST dd if=/dev/zero of=$M0/dir/new bs=1024 count=9216
 gfid_new=$(get_gfid_string $M0/dir/new)
@@ -65,9 +67,10 @@ TEST ! stat $B0/${V0}1/dir/new
 EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_new
 EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_new
 
-#######################################
-##### Unlink with /.shard present #####
-#######################################
+###########################################
+##### 03. Unlink with /.shard present #####
+###########################################
+
 TEST truncate -s 5M $M0/dir/foo
 gfid_foo=$(get_gfid_string $M0/dir/foo)
 # Ensure its shards are absent.
@@ -81,9 +84,10 @@ TEST ! stat $M0/dir/foo
 EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_foo
 EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_foo
 
-#############################################################
-##### Unlink of a file with only one block (the zeroth) #####
-#############################################################
+#################################################################
+##### 04. Unlink of a file with only one block (the zeroth) #####
+#################################################################
+
 TEST touch $M0/dir/foo
 gfid_foo=$(get_gfid_string $M0/dir/foo)
 TEST dd if=/dev/zero of=$M0/dir/foo bs=1024 count=1024
@@ -95,9 +99,10 @@ TEST ! stat $M0/dir/foo
 EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_foo
 EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_foo
 
-####################################################
-##### Unlink of a sharded file with hard-links #####
-####################################################
+########################################################
+##### 05. Unlink of a sharded file with hard-links #####
+########################################################
+
 # Create a 9M sharded file
 TEST dd if=/dev/zero of=$M0/dir/original bs=1024 count=9216
 gfid_original=$(get_gfid_string $M0/dir/original)
@@ -154,9 +159,10 @@ TEST mkdir $M0/dir
 TEST touch $M0/dir/src
 TEST touch $M0/dir/dst
 
-######################################
-##### Rename with /.shard absent #####
-######################################
+##########################################
+##### 06. Rename with /.shard absent #####
+##########################################
+
 TEST truncate -s 5M $M0/dir/dst
 gfid_dst=$(get_gfid_string $M0/dir/dst)
 TEST ! stat $B0/${V0}0/.shard
@@ -172,9 +178,10 @@ TEST   stat $B0/${V0}1/dir/dst
 EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_dst
 EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_dst
 
-##################################################
-##### Rename to a sharded file without holes #####
-##################################################
+######################################################
+##### 07. Rename to a sharded file without holes #####
+######################################################
+
 TEST unlink $M0/dir/dst
 TEST touch $M0/dir/src
 # Create a 9M sharded file
@@ -197,9 +204,10 @@ TEST   stat $B0/${V0}1/dir/dst
 EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_dst
 EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_dst
 
-###################################################
-##### Rename of dst file with /.shard present #####
-###################################################
+#######################################################
+##### 08. Rename of dst file with /.shard present #####
+#######################################################
+
 TEST unlink $M0/dir/dst
 TEST touch $M0/dir/src
 TEST truncate -s 5M $M0/dir/dst
@@ -215,9 +223,10 @@ TEST   stat $B0/${V0}1/dir/dst
 EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_dst
 EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_dst
 
-###############################################################
-##### Rename of dst file with only one block (the zeroth) #####
-###############################################################
+###################################################################
+##### 09. Rename of dst file with only one block (the zeroth) #####
+###################################################################
+
 TEST unlink $M0/dir/dst
 TEST touch $M0/dir/src
 TEST dd if=/dev/zero of=$M0/dir/dst bs=1024 count=1024
@@ -233,9 +242,10 @@ TEST   stat $B0/${V0}1/dir/dst
 EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_dst
 EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_dst
 
-########################################################
-##### Rename to a dst sharded file with hard-links #####
-########################################################
+############################################################
+##### 10. Rename to a dst sharded file with hard-links #####
+############################################################
+
 TEST unlink $M0/dir/dst
 TEST touch $M0/dir/src
 # Create a 9M sharded file
@@ -276,7 +286,10 @@ TEST ! stat $B0/${V0}1/dir/src2
 EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}0/.shard/.remove_me/$gfid_dst
 EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gfid_dst
 
-# Rename with non-existent dst and a sharded src
+##############################################################
+##### 11. Rename with non-existent dst and a sharded src #####
+##############################################################l
+
 TEST touch $M0/dir/src
 TEST dd if=/dev/zero of=$M0/dir/src bs=1024 count=9216
 gfid_src=$(get_gfid_string $M0/dir/src)
@@ -286,7 +299,7 @@ TEST stat $B0/${V0}1/.shard/$gfid_src.1
 TEST stat $B0/${V0}0/.shard/$gfid_src.2
 TEST stat $B0/${V0}1/.shard/$gfid_src.2
 # Now rename src to the dst.
-TEST mv $M0/dir/src $M0/dir/dst
+TEST mv $M0/dir/src $M0/dir/dst2
 
 TEST   stat $B0/${V0}0/.shard/$gfid_src.1
 TEST   stat $B0/${V0}1/.shard/$gfid_src.1
@@ -295,23 +308,26 @@ TEST   stat $B0/${V0}1/.shard/$gfid_src.2
 TEST ! stat $M0/dir/src
 TEST ! stat $B0/${V0}0/dir/src
 TEST ! stat $B0/${V0}1/dir/src
-TEST   stat $M0/dir/dst
-TEST   stat $B0/${V0}0/dir/dst
-TEST   stat $B0/${V0}1/dir/dst
+TEST   stat $M0/dir/dst2
+TEST   stat $B0/${V0}0/dir/dst2
+TEST   stat $B0/${V0}1/dir/dst2
 
-# Rename with non-existent dst and a sharded src with no shards
+#############################################################################
+##### 12. Rename with non-existent dst and a sharded src with no shards #####
+#############################################################################
+
 TEST touch $M0/dir/src
 TEST dd if=/dev/zero of=$M0/dir/src bs=1024 count=1024
 gfid_src=$(get_gfid_string $M0/dir/src)
 TEST ! stat $B0/${V0}0/.shard/$gfid_src.1
 TEST ! stat $B0/${V0}1/.shard/$gfid_src.1
 # Now rename src to the dst.
-TEST mv $M0/dir/src $M0/dir/dst
+TEST mv $M0/dir/src $M0/dir/dst1
 TEST ! stat $M0/dir/src
 TEST ! stat $B0/${V0}0/dir/src
 TEST ! stat $B0/${V0}1/dir/src
-TEST   stat $M0/dir/dst
-TEST   stat $B0/${V0}0/dir/dst
-TEST   stat $B0/${V0}1/dir/dst
+TEST   stat $M0/dir/dst1
+TEST   stat $B0/${V0}0/dir/dst1
+TEST   stat $B0/${V0}1/dir/dst1
 
 cleanup
