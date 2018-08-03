@@ -1315,6 +1315,7 @@ struct volume_options options[] = {
         { .key  = {"shared-brick-count"},
           .type = GF_OPTION_TYPE_INT,
           .default_value = "1",
+          .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
           .description = "Number of bricks sharing the same backend export."
           " Useful for displaying the proper usable size through statvfs() "
           "call (df command)",
