@@ -18,6 +18,38 @@
 #include "syscall.h"
 #include <pthread.h>
 
+int
+gf_setcredentials (uid_t *uid, gid_t *gid, uint16_t ngrps, uint32_t *groups)
+{
+        int ret = 0;
+
+        if (uid) {
+                ret = glfs_setfsuid(*uid);
+                if (ret != 0) {
+                        gf_log ("snapview-server", GF_LOG_ERROR, "failed to set uid "
+                                "%u in thread context", *uid);
+                        return ret;
+                }
+        }
+        if (gid) {
+                ret = glfs_setfsgid(*gid);
+                if (ret != 0) {
+                        gf_log ("snapview-server", GF_LOG_ERROR, "failed to set gid "
+                                "%u in thread context", *gid);
+                        return ret;
+                }
+        }
+
+        if (ngrps != 0 && groups) {
+                ret = glfs_setfsgroups(ngrps, groups);
+                if (ret != 0) {
+                        gf_log ("snapview-server", GF_LOG_ERROR, "failed to set "
+                                "groups in thread context");
+                        return ret;
+                }
+        }
+        return 0;
+}
 
 int32_t
 svs_lookup_entry_point (xlator_t *this, loc_t *loc, inode_t *parent,
@@ -514,12 +546,21 @@ svs_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         snap_dirent_t *dirent                         = NULL;
         gf_boolean_t   entry_point_key                = _gf_false;
         gf_boolean_t   entry_point                    = _gf_false;
+        call_stack_t  *root                           = NULL;
 
         GF_VALIDATE_OR_GOTO ("svs", this, out);
         GF_VALIDATE_OR_GOTO (this->name, this->private, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame->root, out);
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
         GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
+
+        root = frame->root;
+        op_ret = gf_setcredentials (&root->uid, &root->gid, root->ngrps, root->groups);
+        if (op_ret != 0) {
+                goto out;
+        }
+
 
         /* For lookups sent on inodes (i.e not parent inode + basename, but
            direct inode itself which usually is a nameless lookup or revalidate
@@ -676,12 +717,20 @@ svs_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         glfs_fd_t     *glfd       = NULL;
         glfs_t        *fs         = NULL;
         glfs_object_t *object     = NULL;
+        call_stack_t  *root       = NULL;
 
         GF_VALIDATE_OR_GOTO ("snap-view-daemon", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame->root, out);
         GF_VALIDATE_OR_GOTO (this->name, fd, out);
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
         GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
+
+        root = frame->root;
+        op_ret = gf_setcredentials (&root->uid, &root->gid, root->ngrps, root->groups);
+        if (op_ret != 0) {
+                goto out;
+        }
 
         inode_ctx = svs_inode_ctx_get (this, loc->inode);
         if (!inode_ctx) {
@@ -803,11 +852,19 @@ svs_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
         char          *value            = 0;
         ssize_t        size             = 0;
         dict_t        *dict             = NULL;
+        call_stack_t  *root             = NULL;
 
         GF_VALIDATE_OR_GOTO ("snap-view-daemon", this, out);
         GF_VALIDATE_OR_GOTO ("snap-view-daemon", frame, out);
+        GF_VALIDATE_OR_GOTO ("snap-view-daemon", frame->root, out);
         GF_VALIDATE_OR_GOTO ("snap-view-daemon", loc, out);
         GF_VALIDATE_OR_GOTO ("snap-view-daemon", loc->inode, out);
+
+        root = frame->root;
+        op_ret = gf_setcredentials (&root->uid, &root->gid, root->ngrps, root->groups);
+        if (op_ret != 0) {
+                goto out;
+        }
 
         inode_ctx = svs_inode_ctx_get (this, loc->inode);
         if (!inode_ctx) {
@@ -1111,10 +1168,18 @@ svs_flush (call_frame_t *frame, xlator_t *this,
         int              ret            = -1;
         uint64_t         value          = 0;
         svs_inode_t     *inode_ctx      = NULL;
+        call_stack_t    *root           = NULL;
 
         GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame->root, out);
         GF_VALIDATE_OR_GOTO (this->name, fd, out);
+
+        root = frame->root;
+        op_ret = gf_setcredentials (&root->uid, &root->gid, root->ngrps, root->groups);
+        if (op_ret != 0) {
+                goto out;
+        }
 
         inode_ctx = svs_inode_ctx_get (this, fd->inode);
         if (!inode_ctx) {
@@ -1464,13 +1529,21 @@ svs_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         int                     op_errno                        = EINVAL;
         svs_inode_t            *parent_ctx                      = NULL;
         svs_fd_t               *svs_fd                          = NULL;
+        call_stack_t           *root                            = NULL;
 
         GF_VALIDATE_OR_GOTO ("snap-view-daemon", this, unwind);
         GF_VALIDATE_OR_GOTO (this->name, frame, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, frame->root, unwind);
         GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
         GF_VALIDATE_OR_GOTO (this->name, fd->inode, unwind);
 
         INIT_LIST_HEAD (&entries.list);
+
+        root = frame->root;
+        op_ret = gf_setcredentials (&root->uid, &root->gid, root->ngrps, root->groups);
+        if (op_ret != 0) {
+                goto unwind;
+        }
 
         parent_ctx = svs_inode_ctx_get (this, fd->inode);
         if (!parent_ctx) {
@@ -1720,11 +1793,19 @@ svs_stat (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         glfs_object_t *object       = NULL;
         struct stat    stat         = {0, };
         int            ret          = -1;
+        call_stack_t  *root         = NULL;
 
         GF_VALIDATE_OR_GOTO ("snap-view-daemon", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame->root, out);
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
         GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
+
+        root = frame->root;
+        op_ret = gf_setcredentials (&root->uid, &root->gid, root->ngrps, root->groups);
+        if (op_ret != 0) {
+                goto out;
+        }
 
         /* Instead of doing the check of whether it is a entry point directory
            or not by checking the name of the entry and then deciding what
@@ -1781,9 +1862,11 @@ svs_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         int            ret         = -1;
         glfs_fd_t     *glfd        = NULL;
         svs_fd_t      *sfd         = NULL;
+        call_stack_t  *root        = NULL;
 
         GF_VALIDATE_OR_GOTO ("snap-view-daemon", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame->root, out);
         GF_VALIDATE_OR_GOTO (this->name, fd, out);
         GF_VALIDATE_OR_GOTO (this->name, fd->inode, out);
 
@@ -1791,6 +1874,12 @@ svs_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
            or not by checking the name of the entry and then deciding what
            to do, just check the inode context and decide what to be done.
         */
+
+        root = frame->root;
+        op_ret = gf_setcredentials (&root->uid, &root->gid, root->ngrps, root->groups);
+        if (op_ret != 0) {
+                goto out;
+        }
 
         inode_ctx = svs_inode_ctx_get (this, fd->inode);
         if (!inode_ctx) {
@@ -1847,11 +1936,19 @@ svs_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         glfs_t        *fs           = NULL;
         glfs_object_t *object       = NULL;
         int            ret          = -1;
+        call_stack_t  *root         = NULL;
 
         GF_VALIDATE_OR_GOTO ("snap-view-daemon", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame->root, out);
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
         GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
+
+        root = frame->root;
+        op_ret = gf_setcredentials (&root->uid, &root->gid, root->ngrps, root->groups);
+        if (op_ret != 0) {
+                goto out;
+        }
 
         /* Instead of doing the check of whether it is a entry point directory
            or not by checking the name of the entry and then deciding what
@@ -1885,7 +1982,6 @@ out:
         return 0;
 }
 
-
 int32_t
 svs_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
           fd_t *fd, dict_t *xdata)
@@ -1897,13 +1993,17 @@ svs_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         glfs_fd_t     *glfd      = NULL;
         glfs_t        *fs        = NULL;
         glfs_object_t *object    = NULL;
+        call_stack_t  *root      = NULL;
 
 
         GF_VALIDATE_OR_GOTO ("snap-view-daemon", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame->root, out);
         GF_VALIDATE_OR_GOTO (this->name, fd, out);
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
         GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
+
+        root = frame->root;
 
         inode_ctx = svs_inode_ctx_get (this, loc->inode);
         if (!inode_ctx) {
@@ -1918,6 +2018,11 @@ svs_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         SVS_GET_INODE_CTX_INFO(inode_ctx, fs, object, this, loc, op_ret,
                                op_errno, out);
+
+        op_ret = gf_setcredentials (&root->uid, &root->gid, root->ngrps, root->groups);
+        if (op_ret != 0) {
+                goto out;
+        }
 
         glfd = glfs_h_open (fs, object, flags);
         if (!glfd) {
@@ -1962,14 +2067,22 @@ svs_readv (call_frame_t *frame, xlator_t *this,
         struct stat            fstatbuf   = {0, };
         glfs_fd_t             *glfd       = NULL;
         struct iatt            stbuf      = {0, };
+        call_stack_t          *root       = NULL;
 
         GF_VALIDATE_OR_GOTO ("snap-view-daemon", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame->root, out);
         GF_VALIDATE_OR_GOTO (this->name, fd, out);
         GF_VALIDATE_OR_GOTO (this->name, fd->inode, out);
 
         priv = this->private;
         VALIDATE_OR_GOTO (priv, out);
+
+        root = frame->root;
+        op_ret = gf_setcredentials (&root->uid, &root->gid, root->ngrps, root->groups);
+        if (op_ret != 0) {
+                goto out;
+        }
 
         sfd = svs_fd_ctx_get_or_new (this, fd);
         if (!sfd) {
@@ -2040,11 +2153,19 @@ svs_readlink (call_frame_t *frame, xlator_t *this,
         struct iatt      stbuf     = {0, };
         int              ret       = -1;
         struct stat      stat      = {0, };
+        call_stack_t    *root      = NULL;
 
         GF_VALIDATE_OR_GOTO ("snap-view-daemon", this, out);
         GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame->root, out);
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
         GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
+
+        root = frame->root;
+        op_ret = gf_setcredentials (&root->uid, &root->gid, root->ngrps, root->groups);
+        if (op_ret != 0) {
+                goto out;
+        }
 
         inode_ctx = svs_inode_ctx_get (this, loc->inode);
         if (!inode_ctx) {
@@ -2103,11 +2224,20 @@ svs_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int mask,
         svs_inode_t    *inode_ctx    = NULL;
         gf_boolean_t    is_fuse_call = 0;
         int             mode         = 0;
+        call_stack_t   *root         = NULL;
 
         GF_VALIDATE_OR_GOTO ("svs", this, out);
         GF_VALIDATE_OR_GOTO (this->name, this->private, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame->root, out);
         GF_VALIDATE_OR_GOTO (this->name, loc, out);
         GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
+
+        root = frame->root;
+        op_ret = gf_setcredentials (&root->uid, &root->gid, root->ngrps, root->groups);
+        if (op_ret != 0) {
+                goto out;
+        }
 
         inode_ctx = svs_inode_ctx_get (this, loc->inode);
         if (!inode_ctx) {
