@@ -250,6 +250,7 @@ F: xlators/performance/readdir-ahead/
 
 Sharding
 M: Krutika Dhananjay <kdhananj@redhat.com>
+P: Xavier Hernandez  <xhernandez@redhat.com>
 S: Maintained
 F: xlators/features/shard/
 
