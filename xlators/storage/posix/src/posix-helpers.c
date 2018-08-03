@@ -955,7 +955,8 @@ out:
 }
 
 int
-posix_gfid_set (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
+posix_gfid_set (xlator_t *this, const char *path, loc_t *loc,
+                dict_t *xattr_req, pid_t pid, int *op_errno)
 {
         uuid_t       uuid_req;
         uuid_t       uuid_curr;
@@ -963,12 +964,24 @@ posix_gfid_set (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
         ssize_t      size = 0;
         struct stat  stat = {0, };
 
+        *op_errno = 0;
 
-        if (!xattr_req)
+        if (!xattr_req) {
+                if (pid != GF_SERVER_PID_TRASH) {
+                        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                                P_MSG_INVALID_ARGUMENT, "xattr_req is null");
+                        *op_errno = EINVAL;
+                        ret = -1;
+                }
                 goto out;
+        }
 
-        if (sys_lstat (path, &stat) != 0)
+        if (sys_lstat (path, &stat) != 0) {
+                ret = -1;
+                gf_msg (this->name, GF_LOG_ERROR, errno,
+                        P_MSG_LSTAT_FAILED, "lsatat on %s failed", path);
                 goto out;
+        }
 
         size = sys_lgetxattr (path, GFID_XATTR_KEY, uuid_curr, 16);
         if (size == 16) {
@@ -981,12 +994,15 @@ posix_gfid_set (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
                 gf_msg_debug (this->name, 0,
                         "failed to get the gfid from dict for %s",
                         loc->path);
+                *op_errno = -ret;
+                ret = -1;
                 goto out;
         }
         if (gf_uuid_is_null (uuid_req)) {
                 gf_msg (this->name, GF_LOG_ERROR, EINVAL, P_MSG_NULL_GFID,
                         "gfid is null for %s", loc ? loc->path : "");
                 ret = -1;
+                *op_errno = EINVAL;
                 goto out;
         }
 
@@ -1005,6 +1021,8 @@ verify_handle:
                 ret = posix_handle_soft (this, path, loc, uuid_curr, &stat);
 
 out:
+        if (!(*op_errno))
+                *op_errno = errno;
         return ret;
 }
 
@@ -1712,7 +1730,7 @@ posix_gfid_heal (xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req
                 }
         }
 
-        posix_gfid_set (this, path, loc, xattr_req);
+        posix_gfid_set (this, path, loc, xattr_req, GF_CLIENT_PID_MAX, &ret);
         return 0;
 }
 

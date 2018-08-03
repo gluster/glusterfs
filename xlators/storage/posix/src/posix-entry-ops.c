@@ -490,10 +490,13 @@ ignore:
         }
 
         if (!linked) {
-                op_ret = posix_gfid_set (this, real_path, loc, xdata);
+                op_ret = posix_gfid_set (this, real_path, loc, xdata,
+                                         frame->root->pid, &op_errno);
                 if (op_ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0, P_MSG_GFID_FAILED,
-                                "setting gfid on %s failed", real_path);
+                        gf_msg (this->name, GF_LOG_ERROR, op_errno,
+                                P_MSG_GFID_FAILED, "setting gfid on %s failed",
+                                real_path);
+                        goto out;
                 } else {
                         gfid_set = _gf_true;
                 }
@@ -812,10 +815,12 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                         "setting xattrs on %s failed", real_path);
         }
 
-        op_ret = posix_gfid_set (this, real_path, loc, xdata);
+        op_ret = posix_gfid_set (this, real_path, loc, xdata, frame->root->pid,
+                                 &op_errno);
         if (op_ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, P_MSG_GFID_FAILED,
+                gf_msg (this->name, GF_LOG_ERROR, op_errno, P_MSG_GFID_FAILED,
                         "setting gfid on %s failed", real_path);
+                goto out;
         } else {
                 gfid_set = _gf_true;
         }
@@ -1508,10 +1513,12 @@ ignore:
                         "setting xattrs on %s failed ", real_path);
         }
 
-        op_ret = posix_gfid_set (this, real_path, loc, xdata);
+        op_ret = posix_gfid_set (this, real_path, loc, xdata, frame->root->pid,
+                                 &op_errno);
         if (op_ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, P_MSG_GFID_FAILED,
+                gf_msg (this->name, GF_LOG_ERROR, op_errno, P_MSG_GFID_FAILED,
                         "setting gfid on %s failed", real_path);
+                goto out;
         } else {
                 gfid_set = _gf_true;
         }
@@ -2164,10 +2171,12 @@ ignore:
         }
 
 fill_stat:
-        op_ret = posix_gfid_set (this, real_path, loc, xdata);
+        op_ret = posix_gfid_set (this, real_path, loc, xdata, frame->root->pid,
+                                 &op_errno);
         if (op_ret) {
-                gf_msg (this->name, GF_LOG_ERROR, 0, P_MSG_GFID_FAILED,
+                gf_msg (this->name, GF_LOG_ERROR, op_errno, P_MSG_GFID_FAILED,
                         "setting gfid on %s failed", real_path);
+                goto out;
         } else {
                 gfid_set = _gf_true;
         }

@@ -328,7 +328,7 @@ int __posix_inode_ctx_get_all (inode_t *inode, xlator_t *this,
                                posix_inode_ctx_t **ctx);
 
 int posix_gfid_set (xlator_t *this, const char *path, loc_t *loc,
-                    dict_t *xattr_req);
+                    dict_t *xattr_req, pid_t pid, int *op_errno);
 int posix_fdstat (xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p);
 int posix_istat (xlator_t *this, inode_t *inode, uuid_t gfid,
                  const char *basename, struct iatt *iatt);
