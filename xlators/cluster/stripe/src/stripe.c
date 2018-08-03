@@ -24,7 +24,6 @@
  *  backup copy.
  */
 #include <fnmatch.h>
-
 #include "stripe.h"
 #include "libxlator.h"
 #include "byte-order.h"
@@ -3628,7 +3627,8 @@ stripe_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                      &mlocal->post_buf, NULL);
         }
 out:
-	STRIPE_STACK_DESTROY(frame);
+        if (frame)
+                STRIPE_STACK_DESTROY(frame);
         return 0;
 }
 
@@ -3835,7 +3835,8 @@ stripe_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                      &mlocal->post_buf, NULL);
         }
 out:
-	STRIPE_STACK_DESTROY(frame);
+        if (frame)
+	        STRIPE_STACK_DESTROY(frame);
         return 0;
 }
 
@@ -4857,7 +4858,7 @@ stripe_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_frame_t   *local_frame = NULL;
         stripe_local_t *local_ent = NULL;
 
-        if (!this || !frame || !frame->local || !cookie) {
+        if (!this || !frame->local || !cookie) {
                 gf_log ("stripe", GF_LOG_DEBUG, "possible NULL deref");
                 goto out;
         }
@@ -5355,8 +5356,10 @@ stripe_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
         if (!call_cnt) {
-                STRIPE_STACK_UNWIND (getxattr, frame, local->op_ret, op_errno,
-                                     local->xattr, xdata);
+                STRIPE_STACK_UNWIND (getxattr, frame,
+                                     (local ? local->op_ret : -1),
+                                     op_errno,
+                                     (local ? local->xattr : NULL), xdata);
         }
 
         return 0;
