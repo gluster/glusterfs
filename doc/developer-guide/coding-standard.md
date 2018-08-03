@@ -366,6 +366,37 @@ strcpy (entry_path, real_path);
 strncpy (entry_path, real_path, entry_path_len);
 ```
 
+Do not use memset prior to sprintf/snprintf/vsnprintf etc...
+------------------------------------------------------------
+snprintf(and other similar string functions) terminates the buffer with a
+'\0'(null character). Hence, there is no need to do a memset before using
+snprintf. (Of course you need to account one extra byte for the null character
+in your allocation).
+
+Note: Similarly if you are doing pre-memory allocation for the buffer, use
+GF_MALLOC instead of GF_CALLOC, since the later is bit costlier.
+
+*Bad:*
+
+```
+char buffer[x];
+memset (buffer, 0, x);
+bytes_read = snprintf (buffer, sizeof buffer, "bad standard");
+```
+
+*Good:*
+```
+char buffer[x];
+bytes_read = snprintf (buffer, sizeof (buffer), "good standard");
+```
+
+And it is always to good initialize the char array if the string is static.
+
+E.g.
+```
+char buffer[] = "good standard";
+```
+
 No dead or commented code
 -------------------------
 
