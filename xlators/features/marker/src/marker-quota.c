@@ -2129,7 +2129,7 @@ mq_xattr_state (xlator_t *this, loc_t *origin_loc, dict_t *dict,
                 }
         }
 
-        if (buf.ia_type == IA_IFDIR)
+        if (buf.ia_type == IA_IFDIR || loc_is_root(&loc))
                 mq_inspect_directory_xattr (this, ctx, contribution, &loc, dict,
                                             buf);
         else
