@@ -303,16 +303,16 @@ function kill_brick {
 	local socket=$(cat $cmdline | tr '\0' '\n' | grep '\.socket$')
 
 	gf_attach -d $socket $brick
-
-	# When the last brick in a process is terminated, the process has to
-	# sleep for a second to give the RPC response a chance to get back to
-	# GlusterD.  Without that, we get random failures in tests that use
-	# "volume stop" whenever the process termination is observed before the
-	# RPC response.  However, that same one-second sleep can cause other
-	# random failures in tests that assume a brick will already be gone
-	# before "gf_attach -d" returns.  There are too many of those to fix,
-	# so we compensate by putting the same one-second sleep here.
-	sleep 1
+	cnt=1
+        while [ "$cnt" -le "$PROCESS_UP_TIMEOUT" ] ;
+        do
+            online=`$CLI volume status $vol $host:$brick --xml | sed -ne 's/.*<status>\([01]\)<\/status>/\1/p'`
+            if [ $online -eq 0 ] ; then
+                break;
+            fi
+            cnt=$(( $cnt + 1 ))
+            sleep 1
+        done
 }
 
 function check_option_help_presence {
