@@ -18,7 +18,6 @@ enum gf_rda_mem_types_ {
         gf_rda_mt_rda_local   = gf_common_mt_end + 1,
 	gf_rda_mt_rda_fd_ctx,
 	gf_rda_mt_rda_priv,
-        gf_rda_mt_inode_ctx_t,
         gf_rda_mt_end
 };
 
