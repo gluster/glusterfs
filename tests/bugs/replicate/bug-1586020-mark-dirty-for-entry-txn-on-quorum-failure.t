@@ -10,7 +10,7 @@ function create_files {
         while (true)
         do
                 dd if=/dev/zero of=$M0/file$i bs=1M count=10
-                if [ -e $B0/${V0}0/file$i ] && [ -e $B0/${V0}1/file$i ]; then
+                if [ -e $B0/${V0}0/file$i ] || [ -e $B0/${V0}1/file$i ]; then
                         ((i++))
                 else
                         break
