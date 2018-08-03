@@ -260,7 +260,6 @@ inode_ctx_put(inode_t *inode, xlator_t *this, uint64_t v)
 #define inode_ctx_get(i,x,v) inode_ctx_get0(i,x,v)
 
 #define inode_ctx_del(i,x,v) inode_ctx_del2(i,x,v,0)
-#define inode_ctx_del1(i, x, v) inode_ctx_del2(i, x, 0, v)
 
 gf_boolean_t
 __is_root_gfid (uuid_t gfid);
