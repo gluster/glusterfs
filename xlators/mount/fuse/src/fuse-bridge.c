@@ -3637,13 +3637,14 @@ fuse_getxattr_resume (fuse_state_t *state)
             (strcmp (state->name, VIRTUAL_GFID_XATTR_KEY) == 0)) {
                 /* send glusterfs gfid in binary form */
 
-                value = GF_CALLOC (16 + 1, sizeof(char),
+                value = GF_MALLOC (16 + 1,
                                    gf_common_mt_char);
                 if (!value) {
                         send_fuse_err (state->this, state->finh, ENOMEM);
                         goto internal_out;
                 }
                 memcpy (value, state->loc.inode->gfid, 16);
+                value[16] = '\0';
 
                 send_fuse_xattr (THIS, state->finh, value, 16, state->size);
                 GF_FREE (value);

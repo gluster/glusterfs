@@ -4160,7 +4160,7 @@ glusterd_handle_snapshot_create (rpcsvc_request_t *req, glusterd_op_t op,
                 goto out;
         }
 
-        uuid_ptr = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        uuid_ptr = GF_MALLOC (sizeof(uuid_t), gf_common_mt_uuid_t);
         if (!uuid_ptr) {
                 gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                         GD_MSG_NO_MEMORY, "Out Of Memory");
@@ -4213,7 +4213,7 @@ glusterd_handle_snapshot_create (rpcsvc_request_t *req, glusterd_op_t op,
                         goto out;
                 }
 
-                uuid_ptr = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+                uuid_ptr = GF_MALLOC (sizeof(uuid_t), gf_common_mt_uuid_t);
                 if (!uuid_ptr) {
                         gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                                 GD_MSG_NO_MEMORY, "Out Of Memory");
@@ -4359,7 +4359,7 @@ glusterd_handle_snapshot_clone (rpcsvc_request_t *req, glusterd_op_t op,
                 goto out;
         }
 
-        uuid_ptr = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        uuid_ptr = GF_MALLOC (sizeof(uuid_t), gf_common_mt_uuid_t);
         if (!uuid_ptr) {
                 gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                         GD_MSG_NO_MEMORY, "Out Of Memory");
@@ -4411,7 +4411,7 @@ glusterd_handle_snapshot_clone (rpcsvc_request_t *req, glusterd_op_t op,
                 goto out;
         }
 
-        uuid_ptr = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        uuid_ptr = GF_MALLOC (sizeof(uuid_t), gf_common_mt_uuid_t);
         if (!uuid_ptr) {
                 gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                         GD_MSG_NO_MEMORY, "Out Of Memory");

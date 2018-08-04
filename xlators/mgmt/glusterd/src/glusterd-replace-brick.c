@@ -604,7 +604,7 @@ glusterd_mgmt_v3_initiate_replace_brick_cmd_phases (rpcsvc_request_t *req,
         GF_ASSERT (conf);
 
         txn_generation = conf->generation;
-        originator_uuid = GF_CALLOC (1, sizeof(uuid_t),
+        originator_uuid = GF_MALLOC (sizeof(uuid_t),
                                      gf_common_mt_uuid_t);
         if (!originator_uuid) {
                 ret = -1;

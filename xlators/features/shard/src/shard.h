@@ -120,7 +120,7 @@ shard_unlock_entrylk (call_frame_t *frame, xlator_t *this);
         int64_t       *__size_attr = NULL;                                    \
         uint64_t      *__bs        = 0;                                       \
                                                                               \
-        __bs = GF_CALLOC (1, sizeof (uint64_t), gf_shard_mt_uint64_t);        \
+        __bs = GF_MALLOC (sizeof (uint64_t), gf_shard_mt_uint64_t);           \
         if (!__bs)                                                            \
                 goto label;                                                   \
         *__bs = hton64 (block_size);                                          \
@@ -142,8 +142,8 @@ shard_unlock_entrylk (call_frame_t *frame, xlator_t *this);
                               __size_attr, 8 * 4);                            \
         if (__ret) {                                                          \
                 gf_msg (this->name, GF_LOG_WARNING, 0,                        \
-                        SHARD_MSG_DICT_OP_FAILED, "Failed to set key: %s "   \
-                        "on path %s", GF_XATTR_SHARD_FILE_SIZE, (loc)->path);   \
+                        SHARD_MSG_DICT_OP_FAILED, "Failed to set key: %s "    \
+                        "on path %s", GF_XATTR_SHARD_FILE_SIZE, (loc)->path); \
                 GF_FREE (__size_attr);                                        \
                 goto label;                                                   \
         }                                                                     \

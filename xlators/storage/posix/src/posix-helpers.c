@@ -272,18 +272,21 @@ _posix_xattr_get_set_from_backend (posix_xattr_filler_t *filler, char *key)
         }
 
         if (xattr_size != -1) {
-                value = GF_CALLOC (1, xattr_size + 1, gf_posix_mt_char);
+                value = GF_MALLOC (xattr_size + 1, gf_posix_mt_char);
                 if (!value)
                         goto out;
 
                 if (have_val) {
                         memcpy (value, val_buf, xattr_size);
-                } else if (filler->real_path) {
-                        xattr_size = sys_lgetxattr (filler->real_path, key,
-                                                    value, xattr_size);
                 } else {
-                        xattr_size = sys_fgetxattr (filler->fdnum, key, value,
-                                                    xattr_size);
+                        bzero(value, xattr_size + 1);
+                        if (filler->real_path) {
+                                xattr_size = sys_lgetxattr (filler->real_path,
+                                                    key, value, xattr_size);
+                        } else {
+                                xattr_size = sys_fgetxattr (filler->fdnum, key,
+                                                    value, xattr_size);
+                        }
                 }
                 if (xattr_size == -1) {
                         if (filler->real_path)
@@ -2518,7 +2521,7 @@ posix_fetch_signature_xattr (char *real_path,
         gf_boolean_t have_val  = _gf_false;
 
         xattrsize = sys_lgetxattr (real_path, key, val_buf,
-                                                           sizeof(val_buf) - 1);
+                                   sizeof(val_buf) - 1);
         if (xattrsize >= 0) {
                 have_val = _gf_true;
         } else {
@@ -2529,12 +2532,14 @@ posix_fetch_signature_xattr (char *real_path,
                 if (xattrsize == -1)
                         goto error_return;
         }
-        memptr = GF_CALLOC (xattrsize + 1, sizeof (char), gf_posix_mt_char);
+        memptr = GF_MALLOC (xattrsize + 1, gf_posix_mt_char);
         if (!memptr)
                 goto error_return;
         if (have_val) {
                 memcpy (memptr, val_buf, xattrsize);
+                memptr[xattrsize] = '\0';
         } else {
+                bzero (memptr, xattrsize + 1);
                 ret = sys_lgetxattr (real_path, key, memptr, xattrsize);
                 if (ret == -1)
                         goto freemem;
@@ -2881,7 +2886,7 @@ posix_set_iatt_in_dict (dict_t *dict, struct iatt *preop, struct iatt *postop)
                 return ret;
 
         if (postop) {
-                stbuf = GF_CALLOC (1, len, gf_common_mt_char);
+                stbuf = GF_MALLOC (len, gf_common_mt_char);
                 if (!stbuf)
                         goto out;
                 memcpy (stbuf, postop, len);
@@ -2894,7 +2899,7 @@ posix_set_iatt_in_dict (dict_t *dict, struct iatt *preop, struct iatt *postop)
         }
 
         if (preop) {
-                prebuf = GF_CALLOC (1, len, gf_common_mt_char);
+                prebuf = GF_MALLOC (len, gf_common_mt_char);
                 if (!prebuf)
                         goto out;
                 memcpy (prebuf, preop, len);
@@ -2906,7 +2911,7 @@ posix_set_iatt_in_dict (dict_t *dict, struct iatt *preop, struct iatt *postop)
         }
 
         if (postop) {
-                postbuf = GF_CALLOC (1, len, gf_common_mt_char);
+                postbuf = GF_MALLOC (len, gf_common_mt_char);
                 if (!postbuf)
                         goto out;
                 memcpy (postbuf, postop, len);

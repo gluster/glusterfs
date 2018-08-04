@@ -414,7 +414,7 @@ qr_content_extract (dict_t *xdata)
 	if (ret < 0 || !data)
 		return NULL;
 
-	content = GF_CALLOC (1, data->len, gf_qr_mt_content_t);
+	content = GF_MALLOC (data->len, gf_qr_mt_content_t);
 	if (!content)
 		goto out;
 

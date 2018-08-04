@@ -521,7 +521,7 @@ __copy_lock(posix_lock_t *src)
 {
         posix_lock_t *dst;
 
-        dst = GF_CALLOC(1, sizeof(posix_lock_t), gf_locks_mt_posix_lock_t);
+        dst = GF_MALLOC(sizeof(posix_lock_t), gf_locks_mt_posix_lock_t);
         if (dst != NULL) {
                 memcpy (dst, src, sizeof(posix_lock_t));
                 dst->client_uid = gf_strdup(src->client_uid);

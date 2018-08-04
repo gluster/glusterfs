@@ -332,7 +332,7 @@ quota_dict_set_size_meta (xlator_t *this, dict_t *dict,
         quota_meta_t   *value                      = NULL;
         char            size_key[QUOTA_KEY_MAX]    = {0, };
 
-        value = GF_CALLOC (2, sizeof (quota_meta_t), gf_common_quota_meta_t);
+        value = GF_MALLOC (2 * sizeof (quota_meta_t), gf_common_quota_meta_t);
         if (value == NULL) {
                 goto out;
         }

@@ -485,8 +485,7 @@ trash_dir_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!data) {
                 goto out;
         }
-        priv->oldtrash_dir = GF_CALLOC (1, PATH_MAX,
-                                        gf_common_mt_char);
+        priv->oldtrash_dir = GF_MALLOC (PATH_MAX, gf_common_mt_char);
         if (!priv->oldtrash_dir) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                  ret = ENOMEM;
@@ -541,7 +540,7 @@ trash_internalop_dir_lookup_cbk (call_frame_t *frame, void *cookie,
         local = frame->local;
         if (op_ret != 0 && op_errno == ENOENT) {
                 loc_wipe (&local->loc);
-                gfid_ptr = GF_CALLOC (1, sizeof(uuid_t),
+                gfid_ptr = GF_MALLOC (sizeof(uuid_t),
                                    gf_common_mt_uuid_t);
                 if (!gfid_ptr) {
                         ret = ENOMEM;
@@ -657,7 +656,7 @@ trash_dir_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                    "directory %s ",
                                    priv->newtrash_dir);
 
-                gfid_ptr = GF_CALLOC (1, sizeof(uuid_t),
+                gfid_ptr = GF_MALLOC (sizeof(uuid_t),
                                           gf_common_mt_uuid_t);
                 if (!gfid_ptr) {
                         ret = ENOMEM;

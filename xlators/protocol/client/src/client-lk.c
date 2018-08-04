@@ -158,7 +158,7 @@ subtract_locks (client_posix_lock_t *big, client_posix_lock_t *small)
 	if ((big->fl_start == small->fl_start) &&
 	    (big->fl_end   == small->fl_end)) {
 		/* both edges coincide with big */
-		v.locks[0] = GF_CALLOC (1, sizeof (client_posix_lock_t),
+		v.locks[0] = GF_MALLOC (sizeof (client_posix_lock_t),
                                         gf_client_mt_clnt_lock_t );
 		GF_ASSERT (v.locks[0]);
 		memcpy (v.locks[0], big, sizeof (client_posix_lock_t));
@@ -167,54 +167,49 @@ subtract_locks (client_posix_lock_t *big, client_posix_lock_t *small)
 	else if ((small->fl_start > big->fl_start) &&
 		 (small->fl_end   < big->fl_end)) {
 		/* both edges lie inside big */
-		v.locks[0] = GF_CALLOC (1, sizeof (client_posix_lock_t),
+		v.locks[0] = GF_MALLOC (sizeof (client_posix_lock_t),
                                         gf_client_mt_clnt_lock_t);
 		GF_ASSERT (v.locks[0]);
-		v.locks[1] = GF_CALLOC (1, sizeof (client_posix_lock_t),
-                                     gf_client_mt_clnt_lock_t);
-		GF_ASSERT (v.locks[1]);
-		v.locks[2] = GF_CALLOC (1, sizeof (client_posix_lock_t),
-                                        gf_client_mt_clnt_lock_t);
-		GF_ASSERT (v.locks[2]);
-
 		memcpy (v.locks[0], big, sizeof (client_posix_lock_t));
 		v.locks[0]->fl_end = small->fl_start - 1;
                 v.locks[0]->user_flock.l_len = __get_lock_length (v.locks[0]->fl_start,
                                                                   v.locks[0]->fl_end);
-
+		v.locks[1] = GF_MALLOC (sizeof (client_posix_lock_t),
+                                     gf_client_mt_clnt_lock_t);
+		GF_ASSERT (v.locks[1]);
 		memcpy (v.locks[1], small, sizeof (client_posix_lock_t));
+		v.locks[2] = GF_MALLOC (sizeof (client_posix_lock_t),
+                                        gf_client_mt_clnt_lock_t);
+		GF_ASSERT (v.locks[2]);
 		memcpy (v.locks[2], big, sizeof (client_posix_lock_t));
 		v.locks[2]->fl_start = small->fl_end + 1;
                 v.locks[2]->user_flock.l_start = small->fl_end + 1;
 	}
 	/* one edge coincides with big */
 	else if (small->fl_start == big->fl_start) {
-		v.locks[0] = GF_CALLOC (1, sizeof (client_posix_lock_t),
+		v.locks[0] = GF_MALLOC (sizeof (client_posix_lock_t),
                                         gf_client_mt_clnt_lock_t);
 		GF_ASSERT (v.locks[0]);
-		v.locks[1] = GF_CALLOC (1, sizeof (client_posix_lock_t),
-                                        gf_client_mt_clnt_lock_t);
-		GF_ASSERT (v.locks[1]);
-
 		memcpy (v.locks[0], big, sizeof (client_posix_lock_t));
 		v.locks[0]->fl_start = small->fl_end + 1;
                 v.locks[0]->user_flock.l_start = small->fl_end + 1;
-
+		v.locks[1] = GF_MALLOC (sizeof (client_posix_lock_t),
+                                        gf_client_mt_clnt_lock_t);
+		GF_ASSERT (v.locks[1]);
 		memcpy (v.locks[1], small, sizeof (client_posix_lock_t));
 	}
 	else if (small->fl_end   == big->fl_end) {
-		v.locks[0] = GF_CALLOC (1, sizeof (client_posix_lock_t),
+		v.locks[0] = GF_MALLOC (sizeof (client_posix_lock_t),
                                         gf_client_mt_clnt_lock_t);
 		GF_ASSERT (v.locks[0]);
-		v.locks[1] = GF_CALLOC (1, sizeof (client_posix_lock_t),
-                                        gf_client_mt_clnt_lock_t);
-		GF_ASSERT (v.locks[1]);
-
 		memcpy (v.locks[0], big, sizeof (client_posix_lock_t));
 		v.locks[0]->fl_end = small->fl_start - 1;
                 v.locks[0]->user_flock.l_len = __get_lock_length (v.locks[0]->fl_start,
                                                                   v.locks[0]->fl_end);
 
+		v.locks[1] = GF_MALLOC (sizeof (client_posix_lock_t),
+                                        gf_client_mt_clnt_lock_t);
+		GF_ASSERT (v.locks[1]);
 		memcpy (v.locks[1], small, sizeof (client_posix_lock_t));
 	}
         else {

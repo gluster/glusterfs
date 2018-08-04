@@ -3224,7 +3224,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                                 goto out;
                         }
                 }
-                value = GF_CALLOC (size + 1, sizeof(char), gf_posix_mt_char);
+                value = GF_MALLOC (size + 1, gf_posix_mt_char);
                 if (!value) {
                         op_ret = -1;
                         op_errno = ENOMEM;
@@ -3233,6 +3233,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 if (have_val) {
                         memcpy (value, value_buf, size);
                 } else {
+                        bzero (value, size + 1);
                         size = sys_lgetxattr (real_path, key, value, size);
                         if (size == -1) {
                                 op_ret = -1;
@@ -3349,8 +3350,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                                 goto out;
                         }
                 }
-                value = GF_CALLOC (size + 1, sizeof(char),
-                                   gf_posix_mt_char);
+                value = GF_MALLOC (size + 1, gf_posix_mt_char);
                 if (!value) {
                         op_errno = errno;
                         goto out;
@@ -3358,6 +3358,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 if (have_val) {
                         memcpy (value, value_buf, size);
                 } else {
+                        bzero(value, size + 1);
                         size = sys_lgetxattr (real_path, keybuffer, value, size);
                         if (size == -1) {
                                 op_errno = errno;
@@ -3533,7 +3534,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                                 goto done;
                         }
                 }
-                value = GF_CALLOC (size + 1, sizeof(char), gf_posix_mt_char);
+                value = GF_MALLOC (size + 1, gf_posix_mt_char);
                 if (!value) {
                         op_ret = -1;
                         op_errno = ENOMEM;
@@ -3542,6 +3543,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                 if (have_val) {
                         memcpy (value, value_buf, size);
                 } else {
+                        bzero (value, size + 1);
                         size = sys_fgetxattr (_fd, key, value, size);
                         if (size == -1) {
                                 op_ret = -1;
@@ -3639,8 +3641,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                                 break;
                         }
                 }
-                value = GF_CALLOC (size + 1, sizeof(char),
-                                   gf_posix_mt_char);
+                value = GF_MALLOC (size + 1, gf_posix_mt_char);
                 if (!value) {
                         op_ret = -1;
                         op_errno = errno;
@@ -3649,6 +3650,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                 if (have_val) {
                         memcpy (value, value_buf, size);
                 } else {
+                        bzero (value, size + 1);
                         size = sys_fgetxattr (_fd, key, value, size);
                         if (size == -1) {
                                 op_ret = -1;
@@ -5046,11 +5048,12 @@ posix_readdirp_fill (xlator_t *this, fd_t *fd, gf_dirent_t *entries, dict_t *dic
         hpath[len] = '/';
 
         list_for_each_entry (entry, &entries->list, list) {
-                memset (gfid, 0, 16);
                 inode = inode_grep (fd->inode->table, fd->inode,
                                     entry->d_name);
                 if (inode)
                         gf_uuid_copy (gfid, inode->gfid);
+                else
+                        bzero(gfid, 16);
 
                 strcpy (&hpath[len+1], entry->d_name);
 

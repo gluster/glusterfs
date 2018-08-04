@@ -483,7 +483,7 @@ static int32_t open_format_v1(unsigned char *wire,
 		/* the case of partial open */
 		return 0;
 
-	fmt = GF_CALLOC(1, len, gf_crypt_mt_mtd);
+	fmt = GF_MALLOC(len, gf_crypt_mt_mtd);
 	if (!fmt)
 		return ENOMEM;
 	memcpy(fmt, wire, len);

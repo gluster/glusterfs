@@ -673,6 +673,7 @@ entry3 *
 nfs3_fill_entry3 (gf_dirent_t *entry, struct nfs3_fh *dfh)
 {
         entry3          *ent = NULL;
+        int              name_len = 0;
         if ((!entry) || (!dfh))
                 return NULL;
 
@@ -692,14 +693,15 @@ nfs3_fill_entry3 (gf_dirent_t *entry, struct nfs3_fh *dfh)
         nfs3_funge_root_dotdot_dirent (entry, dfh);
         ent->fileid = entry->d_ino;
         ent->cookie = entry->d_off;
-        ent->name = GF_CALLOC ((strlen (entry->d_name) + 1), sizeof (char),
-                               gf_nfs_mt_char);
+        name_len = strlen(entry->d_name);
+        ent->name = GF_MALLOC (name_len + 1, gf_nfs_mt_char);
         if (!ent->name) {
                 GF_FREE (ent);
                 ent = NULL;
                 goto err;
         }
         strcpy (ent->name, entry->d_name);
+        ent->name[name_len] = '\0';
 
 err:
         return ent;
@@ -732,7 +734,7 @@ nfs3_fh_to_post_op_fh3 (struct nfs3_fh *fh)
 
         pfh.handle_follows = 1;
 
-        fhp = GF_CALLOC (1, sizeof (*fh), gf_nfs_mt_char);
+        fhp = GF_MALLOC (sizeof (*fh), gf_nfs_mt_char);
         if (!fhp)
                 return pfh;
 
@@ -747,6 +749,7 @@ nfs3_fill_entryp3 (gf_dirent_t *entry, struct nfs3_fh *dirfh, uint64_t devid)
 {
         entryp3         *ent = NULL;
         struct nfs3_fh  newfh = {{0}, };
+        int             name_len = 0;
 
         if ((!entry) || (!dirfh))
                 return NULL;
@@ -767,14 +770,15 @@ nfs3_fill_entryp3 (gf_dirent_t *entry, struct nfs3_fh *dirfh, uint64_t devid)
 
         ent->fileid = entry->d_ino;
         ent->cookie = entry->d_off;
-        ent->name = GF_CALLOC ((strlen (entry->d_name) + 1), sizeof (char),
-                               gf_nfs_mt_char);
+        name_len = strlen (entry->d_name);
+        ent->name = GF_MALLOC (name_len + 1, gf_nfs_mt_char);
         if (!ent->name) {
                 GF_FREE (ent);
                 ent = NULL;
                 goto err;
         }
         strcpy (ent->name, entry->d_name);
+        ent->name[name_len] = '\0';
 
         nfs3_fh_build_child_fh (dirfh, &entry->d_stat, &newfh);
         nfs3_map_deviceid_to_statdev (&entry->d_stat, devid);

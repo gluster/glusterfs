@@ -993,10 +993,11 @@ bd_setx_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        param = copy = GF_CALLOC (1, local->data->len + 1, gf_common_mt_char);
+        param = copy = GF_MALLOC (local->data->len + 1, gf_common_mt_char);
         BD_VALIDATE_MEM_ALLOC (param, op_errno, out);
 
         strncpy (param, local->data->data, local->data->len);
+        param[local->data->len] = '\0';
 
         type = strtok_r (param, ":", &p);
         if (!type) {
@@ -1292,7 +1293,7 @@ bd_offload (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int         op_errno   = 0;
         bd_local_t *local      = frame->local;
 
-        param = GF_CALLOC (1, local->data->len + 1, gf_common_mt_char);
+        param = GF_MALLOC (local->data->len + 1, gf_common_mt_char);
         BD_VALIDATE_MEM_ALLOC (param, op_errno, out);
         param_copy = param;
 
@@ -1303,6 +1304,7 @@ bd_offload (call_frame_t *frame, xlator_t *this, loc_t *loc,
         BD_VALIDATE_MEM_ALLOC (local->dloc, op_errno, out);
 
         strncpy (param, local->data->data, local->data->len);
+        param[local->data->len] = '\0';
 
         gfid = strtok_r (param, ":", &p);
         size = strtok_r (NULL, ":", &p);

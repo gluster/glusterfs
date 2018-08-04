@@ -43,7 +43,7 @@ static crypt_local_t *crypt_alloc_local(call_frame_t *frame, xlator_t *this,
 {
 	crypt_local_t *local = NULL;
 
-	local = GF_CALLOC (1, sizeof (*local), gf_crypt_mt_local);
+	local = GF_CALLOC (1, sizeof (crypt_local_t), gf_crypt_mt_local);
 	if (!local) {
 		gf_log(this->name, GF_LOG_ERROR, "out of memory");
 		return NULL;
@@ -92,7 +92,7 @@ static struct crypt_inode_info *alloc_inode_info(crypt_local_t *local,
 {
 	struct crypt_inode_info *info;
 
-	info = GF_CALLOC(1, sizeof(*info), gf_crypt_mt_inode);
+	info = GF_CALLOC(1, sizeof(struct crypt_inode_info), gf_crypt_mt_inode);
 	if (!info) {
 		local->op_ret = -1;
 		local->op_errno = ENOMEM;
@@ -100,9 +100,8 @@ static struct crypt_inode_info *alloc_inode_info(crypt_local_t *local,
 			"Can not allocate inode info");
 		return NULL;
 	}
-	memset(info, 0, sizeof(*info));
 #if DEBUG_CRYPT
-	info->loc = GF_CALLOC(1, sizeof(*loc), gf_crypt_mt_loc);
+	info->loc = GF_CALLOC(1, sizeof(loc_t), gf_crypt_mt_loc);
 	if (!info->loc) {
 		gf_log("crypt", GF_LOG_WARNING, "Can not allocate loc");
 		GF_FREE(info);
@@ -2181,12 +2180,11 @@ static int32_t crypt_open(call_frame_t *frame,
 	local = crypt_alloc_local(frame, this, GF_FOP_OPEN);
 	if (!local)
 		goto error;
-	local->loc = GF_CALLOC(1, sizeof(*loc), gf_crypt_mt_loc);
+	local->loc = GF_CALLOC(1, sizeof(loc_t), gf_crypt_mt_loc);
 	if (!local->loc) {
 		ret = ENOMEM;
 		goto error;
 	}
-	memset(local->loc, 0, sizeof(*local->loc));
 	ret = loc_copy(local->loc, loc);
 	if (ret) {
 		GF_FREE(local->loc);
@@ -3261,10 +3259,9 @@ static int32_t linkop_grab_local(call_frame_t *frame,
 	}
 	local->fd = fd;
 	local->flags = flags;
-	local->loc = GF_CALLOC(1, sizeof(*oldloc), gf_crypt_mt_loc);
+	local->loc = GF_CALLOC(1, sizeof(loc_t), gf_crypt_mt_loc);
 	if (!local->loc)
 		goto error;
-	memset(local->loc, 0, sizeof(*local->loc));
 	ret = loc_copy(local->loc, oldloc);
 	if (ret) {
 		GF_FREE(local->loc);
@@ -3272,13 +3269,12 @@ static int32_t linkop_grab_local(call_frame_t *frame,
 		goto error;
 	}
 	if (newloc) {
-		local->newloc = GF_CALLOC(1, sizeof(*newloc), gf_crypt_mt_loc);
+		local->newloc = GF_CALLOC(1, sizeof(loc_t), gf_crypt_mt_loc);
 		if (!local->newloc) {
 			loc_wipe(local->loc);
 			GF_FREE(local->loc);
 			goto error;
 		}
-		memset(local->newloc, 0, sizeof(*local->newloc));
 		ret = loc_copy(local->newloc, newloc);
 		if (ret) {
 			loc_wipe(local->loc);
@@ -3971,10 +3967,9 @@ static int32_t crypt_stat(call_frame_t *frame,
 	local = crypt_alloc_local(frame, this, GF_FOP_STAT);
 	if (!local)
 		goto error;
-	local->loc = GF_CALLOC(1, sizeof(*loc), gf_crypt_mt_loc);
+	local->loc = GF_CALLOC(1, sizeof(loc_t), gf_crypt_mt_loc);
 	if (!local->loc)
 		goto error;
-	memset(local->loc, 0, sizeof(*local->loc));
 	ret = loc_copy(local->loc, loc);
 	if (ret) {
 		GF_FREE(local->loc);
@@ -4052,10 +4047,9 @@ static int32_t crypt_lookup(call_frame_t *frame,
 	local = crypt_alloc_local(frame, this, GF_FOP_LOOKUP);
 	if (!local)
 		goto error;
-	local->loc = GF_CALLOC(1, sizeof(*loc), gf_crypt_mt_loc);
+	local->loc = GF_CALLOC(1, sizeof(loc_t), gf_crypt_mt_loc);
 	if (!local->loc)
 		goto error;
-	memset(local->loc, 0, sizeof(*local->loc));
 	ret = loc_copy(local->loc, loc);
 	if (ret) {
 		GF_FREE(local->loc);

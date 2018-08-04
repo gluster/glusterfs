@@ -298,7 +298,7 @@ aws_b64_encode(const unsigned char *input, int length)
         BIO_flush(b64);
         BIO_get_mem_ptr(b64, &bptr);
 
-        buff = GF_CALLOC(1, (bptr->length), gf_common_mt_char);
+        buff = GF_MALLOC(bptr->length, gf_common_mt_char);
         memcpy(buff, bptr->data, bptr->length - 1);
         buff[bptr->length - 1] = 0;
 

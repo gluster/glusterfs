@@ -550,7 +550,8 @@ fuse_do_flip_xattr_ns (char *okey, const char *nns, char **nkey)
         okey = strchr (okey, '.');
         GF_ASSERT (okey);
 
-        key = GF_CALLOC (1, strlen (nns) + strlen(okey) + 1,
+        int key_len = strlen (nns) + strlen(okey);
+        key = GF_MALLOC (key_len + 1,
                          gf_common_mt_char);
         if (!key) {
                 ret = -1;
