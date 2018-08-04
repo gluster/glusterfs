@@ -45,7 +45,7 @@ graph_dir_fill (xlator_t *this, inode_t *inode, struct meta_dirent **dp)
 	for (xl = graph->first; xl; xl = xl->next)
 		count++;
 
-	dirents = GF_CALLOC (sizeof (*dirents), count, gf_meta_mt_dirents_t);
+	dirents = GF_MALLOC (sizeof (*dirents) * count, gf_meta_mt_dirents_t);
 	if (!dirents)
 		return -1;
 

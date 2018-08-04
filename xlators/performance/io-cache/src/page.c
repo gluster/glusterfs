@@ -853,6 +853,7 @@ ioc_frame_unwind (call_frame_t *frame)
         }
 
         list_for_each_entry_safe (fill, next, &local->fill_list, list) {
+                /* # TODO: check why this if clause is needed at all. */
                 if ((vector != NULL) &&  (iobref != NULL)) {
                         memcpy (((char *)vector) + copied,
                                 fill->vector,

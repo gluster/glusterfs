@@ -393,7 +393,7 @@ br_object_read_sign (inode_t *linked_inode, fd_t *fd, br_object_t *object,
 
         this = object->this;
 
-        md = GF_CALLOC (SHA256_DIGEST_LENGTH, sizeof (*md), gf_common_mt_char);
+        md = GF_MALLOC (SHA256_DIGEST_LENGTH, gf_common_mt_char);
         if (!md) {
                 gf_msg (this->name, GF_LOG_ERROR, ENOMEM, BRB_MSG_NO_MEMORY,
                         "failed to allocate memory for saving hash of the "

@@ -900,7 +900,7 @@ __recall_lease (xlator_t *this, lease_inode_ctx_t *lease_ctx)
         if (!timer) {
                 goto out;
         }
-        timer_data = GF_CALLOC (1, sizeof (*timer_data),
+        timer_data = GF_MALLOC (sizeof (lease_timer_data_t),
                                 gf_leases_mt_timer_data_t);
         if (!timer_data) {
                 GF_FREE (timer);

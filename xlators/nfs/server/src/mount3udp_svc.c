@@ -110,7 +110,7 @@ mountudpproc3_umnt_3_svc(dirpath **dp, struct svc_req *req)
         char       *mpath = (char *) *dp;
         xlator_t   *nfsx = THIS;
 
-        stat = GF_CALLOC (1, sizeof(mountstat3), gf_nfs_mt_mountstat3);
+        stat = GF_MALLOC (sizeof(mountstat3), gf_nfs_mt_mountstat3);
         if (stat == NULL) {
                 gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
                         "Unable to allocate memory");

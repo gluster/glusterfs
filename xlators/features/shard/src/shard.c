@@ -1357,7 +1357,7 @@ shard_lookup_internal_dir (call_frame_t *frame, xlator_t *this,
         priv = this->private;
         local->post_res_handler = post_res_handler;
 
-        gfid = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        gfid = GF_MALLOC (sizeof(uuid_t), gf_common_mt_uuid_t);
         if (!gfid)
                 goto err;
 
@@ -1378,6 +1378,7 @@ shard_lookup_internal_dir (call_frame_t *frame, xlator_t *this,
                 loc = &local->dot_shard_rm_loc;
                 break;
         default:
+                bzero(*gfid, sizeof(uuid_t));
                 break;
         }
 
@@ -2266,7 +2267,7 @@ shard_create_gfid_dict (dict_t *dict)
         if (!new)
                 return NULL;
 
-        gfid = GF_CALLOC (1, sizeof (uuid_t), gf_common_mt_char);
+        gfid = GF_MALLOC (sizeof (uuid_t), gf_common_mt_char);
         if (!gfid) {
                 ret = -1;
                 goto out;
@@ -5615,7 +5616,7 @@ shard_mkdir_internal_dir (call_frame_t *frame, xlator_t *this,
         priv = this->private;
 
         local->post_res_handler = handler;
-        gfid = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        gfid = GF_MALLOC (sizeof(uuid_t), gf_common_mt_uuid_t);
         if (!gfid)
                 goto err;
 
@@ -5629,6 +5630,7 @@ shard_mkdir_internal_dir (call_frame_t *frame, xlator_t *this,
                 loc = &local->dot_shard_rm_loc;
                 break;
         default:
+                bzero(*gfid, sizeof(uuid_t));
                 break;
         }
 

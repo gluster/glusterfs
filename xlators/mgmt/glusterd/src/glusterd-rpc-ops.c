@@ -1829,7 +1829,7 @@ glusterd_mgmt_v3_lock_peers (call_frame_t *frame, xlator_t *this,
                 ret = -1;
                 goto out;
         }
-        frame->cookie = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        frame->cookie = GF_MALLOC (sizeof(uuid_t), gf_common_mt_uuid_t);
         if (!frame->cookie) {
                 ret = -1;
                 goto out;
@@ -1910,7 +1910,7 @@ glusterd_mgmt_v3_unlock_peers (call_frame_t *frame, xlator_t *this,
                 ret = -1;
                 goto out;
         }
-        frame->cookie = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        frame->cookie = GF_MALLOC (sizeof(uuid_t), gf_common_mt_uuid_t);
         if (!frame->cookie) {
                 ret = -1;
                 goto out;
@@ -2033,7 +2033,7 @@ glusterd_stage_op (call_frame_t *frame, xlator_t *this,
                 ret = -1;
                 goto out;
         }
-        frame->cookie = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        frame->cookie = GF_MALLOC (sizeof(uuid_t), gf_common_mt_uuid_t);
         if (!frame->cookie) {
                 ret = -1;
                 goto out;
@@ -2114,7 +2114,7 @@ glusterd_commit_op (call_frame_t *frame, xlator_t *this,
                 ret = -1;
                 goto out;
         }
-        frame->cookie = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        frame->cookie = GF_MALLOC (sizeof(uuid_t), gf_common_mt_uuid_t);
         if (!frame->cookie) {
                 ret = -1;
                 goto out;

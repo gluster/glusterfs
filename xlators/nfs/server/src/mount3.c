@@ -761,6 +761,7 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
         char                    *path = NULL;
         uuid_t                  mountid = {1, };
         char                    fhstr[1536];
+        int                     alloclen = 0;
 
         req = (rpcsvc_request_t *)frame->local;
 
@@ -786,14 +787,16 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
         if (status != MNT3_OK)
                 goto xmit_res;
 
-        path = GF_CALLOC (PATH_MAX, sizeof (char), gf_nfs_mt_char);
+        alloclen = strlen(mntxl->name) + 2;
+        path = GF_MALLOC (alloclen, gf_nfs_mt_char);
         if (!path) {
-                gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
-                        "Out of memory");
+                gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM,
+                        NFS_MSG_NO_MEMORY,
+                        "Memory allocation failed.");
                 goto xmit_res;
         }
 
-        snprintf (path, PATH_MAX, "/%s", mntxl->name);
+        snprintf (path, alloclen, "/%s", mntxl->name);
         mnt3svc_update_mountlist (ms, req, path, NULL);
         GF_FREE (path);
         if (gf_nfs_dvm_off (nfs_state (ms->nfsx))) {
@@ -1148,18 +1151,19 @@ mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         nfs3_fh_build_child_fh (&mres->parentfh, buf, &fh);
         if (strlen (mres->remainingdir) <= 0) {
-                size_t alloclen;
+                int alloclen;
                 op_ret = -1;
                 mntstat = MNT3_OK;
 
                 /* Construct the full path */
+                int resolveloc_path_len = strlen(mres->resolveloc.path);
                 alloclen = strlen (mres->exp->expname) +
-                                   strlen (mres->resolveloc.path) + 1;
-                mres->exp->fullpath = GF_CALLOC (alloclen, sizeof (char),
-                                                gf_nfs_mt_char);
+                                   resolveloc_path_len + 1;
+                mres->exp->fullpath = GF_MALLOC (alloclen, gf_nfs_mt_char);
                 if (!mres->exp->fullpath) {
-                        gf_msg (GF_MNT, GF_LOG_CRITICAL, ENOMEM,
-                                NFS_MSG_NO_MEMORY, "Allocation failed.");
+                        gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM,
+                                NFS_MSG_NO_MEMORY,
+                                "Memory allocation failed.");
                         goto err;
                 }
                 snprintf (mres->exp->fullpath, alloclen, "%s%s",
@@ -1178,7 +1182,9 @@ mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto err;
                 }
 
-                path = GF_CALLOC (PATH_MAX, sizeof (char), gf_nfs_mt_char);
+                alloclen = strlen (mres->exp->vol->name) +
+                                   resolveloc_path_len + 2;
+                path = GF_MALLOC (alloclen, gf_nfs_mt_char);
                 if (!path) {
                         gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM,
                                 NFS_MSG_NO_MEMORY,
@@ -1190,7 +1196,7 @@ mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  */
                 __mnt3_build_mountid_from_path (authorized_path, fh.mountid);
 
-                snprintf (path, PATH_MAX, "/%s%s", mres->exp->vol->name,
+                snprintf (path, alloclen, "/%s%s", mres->exp->vol->name,
                          mres->resolveloc.path);
 
                 mnt3svc_update_mountlist (mres->mstate, mres->req,
@@ -1293,12 +1299,12 @@ mnt3_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* Building the actual mount path to be mounted */
         path_len = strlen (mres->exp->vol->name) +  strlen (absolute_path)
                    + strlen (mres->remainingdir) + 1;
-        real_loc = GF_CALLOC (1, path_len, gf_nfs_mt_char);
+        real_loc = GF_MALLOC (path_len, gf_nfs_mt_char);
         if (!real_loc) {
                 ret = -ENOMEM;
                 goto mnterr;
         }
-        sprintf (real_loc , "%s%s", mres->exp->vol->name, absolute_path);
+        snprintf (real_loc, path_len, "%s%s", mres->exp->vol->name, absolute_path);
         gf_path_strip_trailing_slashes (real_loc);
 
         /* There may entries after symlink in the mount path,
@@ -2314,7 +2320,7 @@ __build_mountlist (struct mount3_state *ms, int *count)
                 if (!first)
                         first = mlist;
 
-                mlist->ml_directory = GF_CALLOC (namelen + 2, sizeof (char),
+                mlist->ml_directory = GF_MALLOC (namelen + 2,
                                                  gf_nfs_mt_char);
                 if (!mlist->ml_directory) {
                         gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM,
@@ -2325,7 +2331,7 @@ __build_mountlist (struct mount3_state *ms, int *count)
                 strcpy (mlist->ml_directory, me->exname);
 
                 namelen = strlen (me->hostname);
-                mlist->ml_hostname = GF_CALLOC (namelen + 2, sizeof (char),
+                mlist->ml_hostname = GF_MALLOC (namelen + 2,
                                                 gf_nfs_mt_char);
                 if (!mlist->ml_hostname) {
                         gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM,
@@ -2654,7 +2660,6 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, struct mount3_state *ms)
                 if (!nfs_subvolume_started (nfs, ent->vol))
                         continue;
 
-                namelen = strlen (ent->expname) + 1;
                 elist = GF_CALLOC (1, sizeof (*elist), gf_nfs_mt_exportnode);
                 if (!elist) {
                         gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM,
@@ -2663,7 +2668,8 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, struct mount3_state *ms)
                 }
                  if (!first)
                          first = elist;
-                elist->ex_dir = GF_CALLOC (namelen + 2, sizeof (char),
+                namelen = strlen (ent->expname);
+                elist->ex_dir = GF_MALLOC (namelen + 2,
                                            gf_nfs_mt_char);
                 if (!elist->ex_dir) {
                         gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM,
@@ -3324,7 +3330,7 @@ mnt3_init_export_ent (struct mount3_state *ms, xlator_t *xl, char *exportpath,
         else
                 alloclen = strlen (xl->name) + 2;
 
-        exp->expname = GF_CALLOC (alloclen, sizeof (char), gf_nfs_mt_char);
+        exp->expname = GF_MALLOC (alloclen, gf_nfs_mt_char);
         if (!exp->expname) {
                 gf_msg (GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
                         "Memory allocation failed");

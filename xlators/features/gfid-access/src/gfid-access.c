@@ -140,7 +140,7 @@ ga_newfile_parse_args (xlator_t *this, data_t *data)
                 goto err;
         }
 
-        args->bname = GF_CALLOC (1, (len + 1), gf_common_mt_char);
+        args->bname = GF_MALLOC (len + 1, gf_common_mt_char);
         if (args->bname == NULL)
                 goto err;
 
@@ -181,7 +181,7 @@ ga_newfile_parse_args (xlator_t *this, data_t *data)
                                 args->gfid);
                         goto err;
                 }
-                args->args.symlink.linkpath = GF_CALLOC (1, len + 1,
+                args->args.symlink.linkpath = GF_MALLOC (len + 1,
                                                          gf_common_mt_char);
                 if (args->args.symlink.linkpath == NULL)
                         goto err;
@@ -265,11 +265,12 @@ ga_heal_parse_args (xlator_t *this, data_t *data)
         if (len == blob_len)
                 goto err;
 
-        args->bname = GF_CALLOC (1, len + 1, gf_common_mt_char);
+        args->bname = GF_MALLOC (len + 1, gf_common_mt_char);
         if (!args->bname)
                 goto err;
 
         memcpy (args->bname, blob, len);
+        args->bname[len] = '\0';
         blob_len -= (len + 1);
 
         if (blob_len)
@@ -318,7 +319,7 @@ ga_fill_tmp_loc (loc_t *loc, xlator_t *this, uuid_t gfid,
                         new_loc->name++;
         }
 
-        gfid_ptr = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        gfid_ptr = GF_MALLOC (sizeof(uuid_t), gf_common_mt_uuid_t);
         if (!gfid_ptr) {
                 ret = -1;
                 goto out;

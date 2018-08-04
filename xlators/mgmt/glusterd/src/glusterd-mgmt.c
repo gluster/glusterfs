@@ -2180,7 +2180,7 @@ glusterd_mgmt_v3_initiate_all_phases (rpcsvc_request_t *req, glusterd_op_t op,
         /* Save the MY_UUID as the originator_uuid. This originator_uuid
          * will be used by is_origin_glusterd() to determine if a node
          * is the originator node for a command. */
-        originator_uuid = GF_CALLOC (1, sizeof(uuid_t),
+        originator_uuid = GF_MALLOC (sizeof(uuid_t),
                                      gf_common_mt_uuid_t);
         if (!originator_uuid) {
                 ret = -1;
@@ -2416,7 +2416,7 @@ glusterd_mgmt_v3_initiate_snap_phases (rpcsvc_request_t *req, glusterd_op_t op,
         /* Save the MY_UUID as the originator_uuid. This originator_uuid
          * will be used by is_origin_glusterd() to determine if a node
          * is the originator node for a command. */
-        originator_uuid = GF_CALLOC (1, sizeof(uuid_t),
+        originator_uuid = GF_MALLOC (sizeof(uuid_t),
                                      gf_common_mt_uuid_t);
         if (!originator_uuid) {
                 ret = -1;

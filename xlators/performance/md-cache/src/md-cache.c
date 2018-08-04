@@ -3244,7 +3244,7 @@ mdc_xattr_list_populate (struct mdc_conf *conf, char *tmp_str)
                            "user.org.netatalk.ResourceFork")
                    + strlen (tmp_str) + 5; /*Some buffer bytes*/
 
-        mdc_xattr_str = GF_CALLOC (1, max_size, gf_common_mt_char);
+        mdc_xattr_str = GF_MALLOC (max_size, gf_common_mt_char);
         GF_CHECK_ALLOC (mdc_xattr_str, ret, out);
 
         if (conf->cache_capability)

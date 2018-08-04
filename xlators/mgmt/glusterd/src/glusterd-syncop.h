@@ -40,7 +40,7 @@
         } while (0)
 
 #define GD_ALLOC_COPY_UUID(dst_ptr, uuid, ret) do {                            \
-        dst_ptr = GF_CALLOC (1, sizeof (*dst_ptr), gf_common_mt_uuid_t);       \
+        dst_ptr = GF_MALLOC (sizeof (*dst_ptr), gf_common_mt_uuid_t);       \
         if (dst_ptr) {                                                         \
                 gf_uuid_copy (*dst_ptr, uuid);                                 \
                 ret = 0;                                                       \

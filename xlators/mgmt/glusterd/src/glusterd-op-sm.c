@@ -189,7 +189,7 @@ glusterd_generate_txn_id (dict_t *dict, uuid_t **txn_id)
         GF_ASSERT (priv);
         GF_ASSERT (dict);
 
-        *txn_id = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        *txn_id = GF_MALLOC (sizeof(uuid_t), gf_common_mt_uuid_t);
         if (!*txn_id)
                 goto out;
 
@@ -1421,8 +1421,7 @@ glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
                                 if (!gf_uuid_compare (brickinfo->uuid, MY_UUID)) {
                                         trash_path_len = strlen (value) +
                                                    strlen (brickinfo->path) + 2;
-                                        trash_path = GF_CALLOC (1,
-                                                     trash_path_len,
+                                        trash_path = GF_MALLOC (trash_path_len,
                                                      gf_common_mt_char);
                                         snprintf (trash_path, trash_path_len,
                                                   "%s/%s", brickinfo->path,
@@ -5889,7 +5888,7 @@ glusterd_op_ac_stage_op (glusterd_op_sm_event_t *event, void *ctx)
                         status);
         }
 
-        txn_id = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        txn_id = GF_MALLOC (sizeof(uuid_t), gf_common_mt_uuid_t);
 
         if (txn_id)
                 gf_uuid_copy (*txn_id, event->txn_id);
@@ -6010,7 +6009,7 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
                         "'Volume %s' failed: %d", gd_op_list[req_ctx->op],
                         status);
 
-        txn_id = GF_CALLOC (1, sizeof(uuid_t), gf_common_mt_uuid_t);
+        txn_id = GF_MALLOC (sizeof(uuid_t), gf_common_mt_uuid_t);
 
         if (txn_id)
                 gf_uuid_copy (*txn_id, event->txn_id);

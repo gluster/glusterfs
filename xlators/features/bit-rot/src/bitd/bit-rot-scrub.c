@@ -127,7 +127,7 @@ bitd_scrub_post_compute_check (xlator_t *this,
         }
 
         signlen = signptr->signaturelen;
-        *signature = GF_CALLOC (1, sizeof (br_isignature_out_t) + signlen,
+        *signature = GF_MALLOC (sizeof (br_isignature_out_t) + signlen,
                                 gf_common_mt_char);
 
         (void) memcpy (*signature, signptr,
@@ -389,8 +389,7 @@ br_scrubber_scrub_begin (xlator_t *this, struct br_fsscan_entry *fsentry)
                 goto unrefd; /* skip this object */
 
         /* if all's good, proceed to calculate the hash */
-        md = GF_CALLOC (SHA256_DIGEST_LENGTH, sizeof (*md),
-                        gf_common_mt_char);
+        md = GF_MALLOC (SHA256_DIGEST_LENGTH, gf_common_mt_char);
         if (!md)
                 goto unrefd;
 
