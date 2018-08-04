@@ -1,8 +1,8 @@
 #!/bin/bash
 
-. $(dirname $0)/../include.rc
-. $(dirname $0)/../volume.rc
-. $(dirname $0)/../snapshot.rc
+. $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
+. $(dirname $0)/../../snapshot.rc
 
 cleanup
 
@@ -52,7 +52,7 @@ EXPECT 0 count_brick_processes
 
 # Unmount 3rd brick root from node
 brick_root=$L3
-TEST umount -l $brick_root 2>/dev/null
+_umount_lv 3
 
 # Start the volume only 2 brick should be start
 TEST $CLI volume start $V0 force
@@ -70,6 +70,7 @@ n=`ls -lrth /proc/$brick_pid/fd | grep -iw $L3 | grep -v ".glusterfs" | wc -l`
 TEST [ $n -eq 0 ]
 
 # Mount the brick root
+TEST mkdir -p $brick_root
 TEST mount -t xfs -o nouuid  /dev/test_vg_3/brick_lvm $brick_root
 
 # Replace brick_pid file to test brick_attach code

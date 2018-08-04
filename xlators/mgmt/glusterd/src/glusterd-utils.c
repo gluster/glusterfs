@@ -5522,6 +5522,12 @@ attach_brick_callback (struct rpc_req *req, struct iovec *iov, int count,
         frame->local = NULL;
         frame->cookie = NULL;
 
+        if (!iov) {
+              gf_log (frame->this->name, GF_LOG_ERROR, "iov is NULL");
+              ret   = -1;
+              goto out;
+        }
+
         ret = xdr_to_generic (*iov, &rsp, (xdrproc_t)xdr_gf_getspec_rsp);
         if (ret < 0) {
                 gf_log (frame->this->name, GF_LOG_ERROR, "XDR decoding error");
@@ -6164,17 +6170,19 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                       gf_boolean_t wait,
                       gf_boolean_t only_connect)
 {
-        int                     ret   = -1;
+        int                      ret   = -1;
         xlator_t                *this = NULL;
         glusterd_brickinfo_t    *other_brick;
         glusterd_conf_t         *conf = NULL;
-        int32_t                 pid                   = -1;
-        char                    pidfile[PATH_MAX]     = {0};
-        char                    socketpath[PATH_MAX]  = {0};
-        char                    *brickpath            = NULL;
+        int32_t                  pid                   = -1;
+        char                     pidfile[PATH_MAX]     = {0};
+        char                     socketpath[PATH_MAX]  = {0};
+        char                    *brickpath             = NULL;
         glusterd_volinfo_t      *other_vol;
-        struct statvfs           brickstat = {0,};
         gf_boolean_t             is_service_running = _gf_false;
+        uuid_t                   volid                 = {0,};
+        ssize_t                  size                  = -1;
+
 
         this = THIS;
         GF_ASSERT (this);
@@ -6221,24 +6229,23 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
 
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, volinfo, brickinfo, conf);
 
-        ret = sys_statvfs (brickinfo->path, &brickstat);
-        if (ret) {
-                gf_msg (this->name, GF_LOG_ERROR,
-                        errno, GD_MSG_BRICKINFO_CREATE_FAIL,
-                        "failed to get statfs() call on brick %s",
-                        brickinfo->path);
+        /* Compare volume-id xattr is helpful to ensure the existence of a brick_root
+           path before the start/attach a brick
+        */
+        size = sys_lgetxattr (brickinfo->path, GF_XATTR_VOL_ID_KEY, volid, 16);
+        if (size != 16) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Missing %s extended attribute on brick root (%s),"
+                        " brick is deemed not to be a part of the volume (%s) ",
+                        GF_XATTR_VOL_ID_KEY, brickinfo->path, volinfo->volname);
                 goto out;
         }
 
-        /* Compare fsid is helpful to ensure the existence of a brick_root
-           path before the start/attach a brick
-        */
-        if (brickinfo->statfs_fsid &&
-            (brickinfo->statfs_fsid != brickstat.f_fsid)) {
+        if (strncmp (uuid_utoa (volinfo->volume_id), uuid_utoa(volid), GF_UUID_BUF_SIZE)) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "fsid comparison is failed it means Brick root path"
-                        " %s is not created by glusterd, start/attach will also fail",
-                        brickinfo->path);
+                        "Mismatching %s extended attribute on brick root (%s),"
+                        " brick is deemed not to be a part of the volume (%s)",
+                        GF_XATTR_VOL_ID_KEY, brickinfo->path, volinfo->volname);
                 goto out;
         }
         is_service_running = gf_is_service_running (pidfile, &pid);
