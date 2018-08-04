@@ -163,12 +163,13 @@ char *gf_strndup (const char *src, size_t len)
                 goto out;
         }
 
-        dup_str = GF_CALLOC (1, len + 1, gf_common_mt_strdup);
+        dup_str = GF_MALLOC (len + 1, gf_common_mt_strdup);
         if (!dup_str) {
                 goto out;
         }
 
         memcpy (dup_str, src, len);
+        dup_str[len] = '\0';
 out:
         return dup_str;
 }
@@ -176,20 +177,10 @@ out:
 static inline
 char * gf_strdup (const char *src)
 {
-
-        char    *dup_str = NULL;
-        size_t  len = 0;
-
-        len = strlen (src) + 1;
-
-        dup_str = GF_CALLOC(1, len, gf_common_mt_strdup);
-
-        if (!dup_str)
+        if (!src)
                 return NULL;
 
-        memcpy (dup_str, src, len);
-
-        return dup_str;
+        return gf_strndup (src, strlen (src));
 }
 
 static inline void *
@@ -197,7 +188,7 @@ gf_memdup (const void *src, size_t size)
 {
         void *dup_mem = NULL;
 
-        dup_mem = GF_CALLOC(1, size, gf_common_mt_strdup);
+        dup_mem = GF_MALLOC (size, gf_common_mt_strdup);
         if (!dup_mem)
                 goto out;
 
