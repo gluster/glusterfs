@@ -590,7 +590,7 @@ int32_t ec_dict_data_iatt(ec_cbk_data_t *cbk, int32_t which, char *key)
         }
     }
 
-    if (stbuf->ia_type == IA_IFREG) {
+    if ((stbuf != NULL) && (stbuf->ia_type == IA_IFREG)) {
         ec_iatt_rebuild(ec, stbuf, 1, cbk->count);
         /* TODO: not sure if an iatt could come in xdata from a fop that takes
          *       no locks. */

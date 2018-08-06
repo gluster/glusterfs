@@ -339,9 +339,13 @@ ec_char_array_to_mask (unsigned char *array, int numsubvols)
         int       i    = 0;
         uintptr_t mask = 0;
 
+        if (array == NULL)
+                goto out;
+
         for (i = 0; i < numsubvols; i++)
                 if (array[i])
                         mask |= (1ULL<<i);
+out:
         return mask;
 }
 
