@@ -429,6 +429,10 @@ event_dispatch_poll_resize (struct event_pool *event_pool,
                         event_pool->evcache = ufds;
                 }
 
+                if (ufds == NULL) {
+                        goto unlock;
+                }
+
                 for (i = 0; i < event_pool->used; i++) {
                         ufds[i].fd = event_pool->reg[i].fd;
                         ufds[i].events = event_pool->reg[i].events;
