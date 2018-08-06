@@ -1992,9 +1992,7 @@ volfile:
                         }
                 }
 
-                /* coverity[secure_temp] mkstemp uses 0600 as the mode and is
-                 * safe
-                 */
+                /* coverity[secure_temp] mkstemp uses 0600 as the mode */
                 tmp_fd = mkstemp (template);
                 if (-1 == tmp_fd) {
                         gf_msg (frame->this->name, GF_LOG_ERROR, 0,
