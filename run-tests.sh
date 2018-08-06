@@ -413,7 +413,7 @@ function run_head_tests()
 }
 
 function parse_args () {
-    args=`getopt frcbkhHo "$@"`
+    args=`getopt frcbkhHo:t: "$@"`
     set -- $args
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -425,6 +425,7 @@ function parse_args () {
         -b)    skip_bad_tests="no" ;;
         -k)    skip_known_bugs="no" ;;
         -o)    result_output="$2"; shift;;
+        -t)    run_timeout="$2"; shift;;
         --)    shift; break;;
         esac
         shift
