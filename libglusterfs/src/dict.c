@@ -2240,7 +2240,9 @@ _dict_modify_flag (dict_t *this, char *key, int flag, int op)
         return 0;
 
 err:
-        UNLOCK (&this->lock);
+        if (key && this)
+                UNLOCK (&this->lock);
+
         if (pair) {
                 if (pair->key)
                         free(pair->key);
