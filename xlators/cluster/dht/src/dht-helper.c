@@ -1972,12 +1972,16 @@ dht_heal_path (xlator_t *this, char *path, inode_table_t *itable)
                 } else {
                         /*
                          * Inode is already populated in the inode table.
-                         * Which means we already looked up the inde and
+                         * Which means we already looked up the inode and
                          * linked with a dentry. So that we will skip
                          * lookup on this entry, and proceed to next.
                          */
+                        linked_inode = loc.inode;
                         bname = strtok_r (NULL, "/",  &save_ptr);
                         inode_unref (loc.parent);
+                        if (!bname) {
+                                goto out;
+                        }
                         loc.parent = loc.inode;
                         gf_uuid_copy (loc.pargfid, loc.inode->gfid);
                         loc.inode = NULL;
@@ -2003,9 +2007,10 @@ dht_heal_path (xlator_t *this, char *path, inode_table_t *itable)
                 loc_wipe (&loc);
                 gf_uuid_copy (loc.pargfid, linked_inode->gfid);
                 loc.inode = NULL;
-                loc.parent = linked_inode;
 
                 bname = strtok_r (NULL, "/",  &save_ptr);
+                if (bname)
+                        loc.parent = linked_inode;
         }
 out:
         inode_ref (linked_inode);
