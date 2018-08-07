@@ -4960,14 +4960,13 @@ client4_0_readdirp (call_frame_t *frame, xlator_t *this,
                         goto unwind;
                 }
 
-                iobref_add (rsp_iobref, rsp_iobuf);
-                iobuf_unref (rsp_iobuf);
-
                 rsphdr = &vector[0];
                 rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
                 rsphdr->iov_len  = iobuf_pagesize (rsp_iobuf);
                 count = 1;
                 local->iobref = rsp_iobref;
+                iobref_add (rsp_iobref, rsp_iobuf);
+                iobuf_unref (rsp_iobuf);
                 rsp_iobuf = NULL;
                 rsp_iobref = NULL;
         }
@@ -5952,12 +5951,12 @@ client4_0_compound (call_frame_t *frame, xlator_t *this, void *data)
                 goto unwind;
         }
 
-        iobref_add (rsphdr_iobref, rsphdr_iobuf);
-        iobuf_unref (rsphdr_iobuf);
         rsphdr = &vector[0];
         rsphdr->iov_base = iobuf_ptr (rsphdr_iobuf);
         rsphdr->iov_len = iobuf_pagesize (rsphdr_iobuf);
         rsphdr_count = 1;
+        iobref_add (rsphdr_iobref, rsphdr_iobuf);
+        iobuf_unref (rsphdr_iobuf);
         rsphdr_iobuf = NULL;
 
         req.compound_fop_enum = c_args->fop_enum;

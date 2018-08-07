@@ -1268,15 +1268,14 @@ client_handle_fop_requirements (xlator_t *this, call_frame_t *frame,
                         }
                 }
 
-                iobref_add (*rsp_iobref, rsp_iobuf);
-                iobuf_unref (rsp_iobuf);
-
                 if (*rsp_count + 1 >= MAX_IOVEC) {
                         op_errno = ENOMEM;
                         goto out;
                 }
                 rsp_vector[*rsp_count].iov_base = iobuf_ptr (rsp_iobuf);
                 rsp_vector[*rsp_count].iov_len = iobuf_pagesize (rsp_iobuf);
+                iobref_add (*rsp_iobref, rsp_iobuf);
+                iobuf_unref (rsp_iobuf);
                 rsp_iobuf = NULL;
                 if (args->size > rsp_vector[*rsp_count].iov_len) {
                         gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
@@ -2371,15 +2370,14 @@ client_handle_fop_requirements_v2 (xlator_t *this, call_frame_t *frame,
                         }
                 }
 
-                iobref_add (*rsp_iobref, rsp_iobuf);
-                iobuf_unref (rsp_iobuf);
-
                 if (*rsp_count + 1 >= MAX_IOVEC) {
                         op_errno = ENOMEM;
                         goto out;
                 }
                 rsp_vector[*rsp_count].iov_base = iobuf_ptr (rsp_iobuf);
                 rsp_vector[*rsp_count].iov_len = iobuf_pagesize (rsp_iobuf);
+                iobref_add (*rsp_iobref, rsp_iobuf);
+                iobuf_unref (rsp_iobuf);
                 rsp_iobuf = NULL;
                 if (args->size > rsp_vector[*rsp_count].iov_len) {
                         gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
