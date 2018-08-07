@@ -2010,13 +2010,10 @@ setxattr_scrutiny (call_frame_t *frame, inode_t *inode, dict_t *xattr)
         if (!ctx)
                 return EIO;
 
-        if (dict_get (xattr, POSIX_ACL_ACCESS_XATTR)) {
-                found = 1;
-                if (!frame_is_user (frame, ctx->uid))
-                        return EPERM;
-        }
-
-        if (dict_get (xattr, POSIX_ACL_DEFAULT_XATTR)) {
+        if (dict_get (xattr, POSIX_ACL_ACCESS_XATTR) ||
+            dict_get (xattr, POSIX_ACL_DEFAULT_XATTR) ||
+            dict_get (xattr, GF_POSIX_ACL_ACCESS) ||
+            dict_get (xattr, GF_POSIX_ACL_DEFAULT)) {
                 found = 1;
                 if (!frame_is_user (frame, ctx->uid))
                         return EPERM;
@@ -2176,7 +2173,9 @@ posix_acl_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (op_errno != 0)
                 goto red;
 
-        posix_acl_setxattr_update (this, loc->inode, xattr);
+        if (dict_get (xattr, POSIX_ACL_ACCESS_XATTR) ||
+            dict_get (xattr, POSIX_ACL_DEFAULT_XATTR))
+                posix_acl_setxattr_update (this, loc->inode, xattr);
 
         /*
          * inode is required in call back function to update the context
@@ -2214,7 +2213,9 @@ posix_acl_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (op_errno != 0)
                 goto red;
 
-        posix_acl_setxattr_update (this, fd->inode, xattr);
+        if (dict_get (xattr, POSIX_ACL_ACCESS_XATTR) ||
+            dict_get (xattr, POSIX_ACL_DEFAULT_XATTR))
+                posix_acl_setxattr_update (this, fd->inode, xattr);
 
         STACK_WIND (frame, posix_acl_fsetxattr_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->fsetxattr,
