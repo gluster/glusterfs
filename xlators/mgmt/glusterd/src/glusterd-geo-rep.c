@@ -1341,6 +1341,15 @@ out:
         if (slave_buf)
                 GF_FREE(slave_buf);
 
+        if (slave_vol)
+                GF_FREE (slave_vol);
+
+        if (slave_url)
+                GF_FREE (slave_url);
+
+        if (slave_host)
+                GF_FREE (slave_host);
+
         gf_msg_debug (this->name, 0, "Returning %d.", ret);
         return ret;
 }
@@ -1604,6 +1613,15 @@ update_slave_voluuid (dict_t *dict, char *key, data_t *value, void *data)
 out:
         if (errmsg)
                 GF_FREE (errmsg);
+
+        if (slave_url)
+                GF_FREE (slave_url);
+
+        if (slave_vol)
+                GF_FREE (slave_vol);
+
+        if (slave_host)
+                GF_FREE (slave_host);
 
         gf_msg_debug (this->name, 0, "Returning %d.", ret);
         return ret;
@@ -2085,7 +2103,17 @@ _get_slave_status (dict_t *dict, char *key, data_t *value, void *data)
         ret = is_geo_rep_active (param->volinfo,slave, conf_path,
                                  &param->is_active);
 out:
-        GF_FREE(errmsg);
+        if (errmsg)
+                GF_FREE (errmsg);
+
+        if (slave_vol)
+                GF_FREE (slave_vol);
+
+        if (slave_url)
+                GF_FREE (slave_url);
+        if (slave_host)
+                GF_FREE (slave_host);
+
         return ret;
 }
 
@@ -2955,9 +2983,15 @@ get_slavehost_from_voluuid (dict_t *dict, char *key, data_t *value, void *data)
                         /* get corresponding slave host for reference*/
                         slave_host = value->data;
                         slave_host = strstr (slave_host, "://");
-                        if (slave_host)
+                        if (slave_host) {
                                 slave_host += 3;
-
+                        } else {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_SLAVE_VOL_PARSE_FAIL,
+                                        "Invalid slave_host format!");
+                                ret = -2;
+                                goto out;
+                        }
                         /* To go past username in non-root geo-rep session */
                         tmp = strchr (slave_host, '@');
                         if (tmp) {
@@ -3435,6 +3469,7 @@ out:
 
         if (ret && errmsg[0] != '\0')
                 *op_errstr = gf_strdup (errmsg);
+
         if (slave_url_buf)
                 GF_FREE (slave_url_buf);
 
@@ -4817,6 +4852,8 @@ glusterd_check_restart_gsync_session (glusterd_volinfo_t *volinfo, char *slave,
 
  out:
         gf_msg_debug (this->name, 0, "Returning %d", ret);
+        if (op_errstr)
+                GF_FREE (op_errstr);
         return ret;
 }
 
