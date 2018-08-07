@@ -3074,6 +3074,7 @@ glusterd_snap_common_quorum_calculate (glusterd_volinfo_t *volinfo,
         this = THIS;
         GF_ASSERT (this);
         GF_VALIDATE_OR_GOTO (this->name, op_errno, out);
+        GF_VALIDATE_OR_GOTO (this->name, volinfo, out);
 
         /* for replicate volumes with replica count equal to or
            greater than 3, do quorum check by getting what type
@@ -3275,7 +3276,7 @@ glusterd_snap_quorum_check_for_clone (dict_t *dict, gf_boolean_t snap_volume,
                 if (ret) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 GD_MSG_VOL_NOT_FOUND, "volume %s "
-                                "is not in quorum", volinfo->volname);
+                                "is not in quorum", volname);
                         goto out;
                 }
         }
@@ -3990,7 +3991,7 @@ glusterd_restore_geo_rep_files (glusterd_volinfo_t *snap_vol)
         }
 out:
         if (origin_volname)
-                GF_ASSERT (origin_volname);
+                GF_FREE (origin_volname);
 
         return ret;
 }
