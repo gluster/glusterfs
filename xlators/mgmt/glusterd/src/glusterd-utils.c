@@ -6174,6 +6174,7 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
         char                    *brickpath            = NULL;
         glusterd_volinfo_t      *other_vol;
         struct statvfs           brickstat = {0,};
+        gf_boolean_t             is_service_running = _gf_false;
 
         this = THIS;
         GF_ASSERT (this);
@@ -6240,8 +6241,39 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                         brickinfo->path);
                 goto out;
         }
-
-        if (gf_is_service_running (pidfile, &pid)) {
+        is_service_running = gf_is_service_running (pidfile, &pid);
+        if (is_service_running) {
+                if (is_brick_mx_enabled ()) {
+                        brickpath = search_brick_path_from_proc
+                                                (pid, brickinfo->path);
+                        if (!brickpath) {
+                                gf_log (this->name, GF_LOG_INFO,
+                                        "Either pid %d is not running or brick"
+                                        " path %s is not consumed so cleanup pidfile",
+                                        pid, brickinfo->path);
+                                /* brick isn't running,so unlink stale pidfile
+                                 * if any.
+                                 */
+                                if (sys_access (pidfile , R_OK) == 0) {
+                                        sys_unlink (pidfile);
+                                }
+                                goto run;
+                        }
+                        GF_FREE (brickpath);
+                        ret = glusterd_get_sock_from_brick_pid (pid, socketpath,
+                                                                sizeof(socketpath));
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_INFO,
+                                        "Either pid %d is not running or does "
+                                        "not match with any running brick "
+                                        "processes", pid);
+                                /* Fetch unix socket is failed so unlink pidfile */
+                                if (sys_access (pidfile , R_OK) == 0) {
+                                        sys_unlink (pidfile);
+                                }
+                                goto run;
+                        }
+                }
                 if (brickinfo->status != GF_BRICK_STARTING &&
                     brickinfo->status != GF_BRICK_STARTED) {
                         gf_log (this->name, GF_LOG_INFO,
@@ -6259,36 +6291,11 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                          * same port (on another brick) and re-use that.
                          * TBD: re-use RPC connection across bricks
                          */
-                        if (is_brick_mx_enabled ()) {
-                                brickpath = search_brick_path_from_proc (pid, brickinfo->path);
-                                if (!brickpath) {
-                                        gf_log (this->name, GF_LOG_INFO,
-                                                "Either pid %d is not running or brick"
-                                                " path %s is not consumed so cleanup pidfile",
-                                                pid, brickinfo->path);
-                                        /* search brick is failed so unlink pidfile */
-                                        if (sys_access (pidfile , R_OK) == 0) {
-                                                sys_unlink (pidfile);
-                                        }
-                                        goto run;
-                                }
-                                GF_FREE (brickpath);
-                                ret = glusterd_get_sock_from_brick_pid (pid, socketpath,
-                                                                        sizeof(socketpath));
-                                if (ret) {
-                                        gf_log (this->name, GF_LOG_INFO,
-                                                "Either pid %d is not running or is not match"
-                                                " with any running brick process ", pid);
-                                        /* Fetch unix socket is failed so unlink pidfile */
-                                        if (sys_access (pidfile , R_OK) == 0) {
-                                                sys_unlink (pidfile);
-                                        }
-                                        goto run;
-                                }
-                        } else {
-                                glusterd_set_brick_socket_filepath (volinfo, brickinfo,
-                                                                    socketpath,
-                                                                    sizeof (socketpath));
+                        if (!is_brick_mx_enabled ()) {
+                                        glusterd_set_brick_socket_filepath
+                                                (volinfo, brickinfo,
+                                                 socketpath,
+                                                 sizeof (socketpath));
                         }
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "Using %s as sockfile for brick %s of volume %s ",
