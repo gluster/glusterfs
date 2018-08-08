@@ -560,7 +560,7 @@ xldump_subvolumes (xlator_t *this, void *d)
 	for (subv = this->children; subv; subv = subv->next)
 		len += (strlen (subv->xlator->name) + 1);
 
-	subvstr = GF_CALLOC (1, len, gf_common_mt_strdup);
+	subvstr = GF_MALLOC (len, gf_common_mt_strdup);
 
 	len = 0;
 	for (subv = this->children; subv; subv= subv->next)
@@ -5045,7 +5045,6 @@ gf_replace_old_iatt_in_dict (dict_t *xdata)
         int ret;
         struct old_iatt *o_iatt; /* old iatt structure */
         struct iatt *c_iatt; /* current iatt */
-        int32_t len = sizeof(struct old_iatt);
 
         if (!xdata) {
                 return 0;
@@ -5056,14 +5055,15 @@ gf_replace_old_iatt_in_dict (dict_t *xdata)
                 return 0;
         }
 
-        o_iatt = GF_CALLOC (1, len, gf_common_mt_char);
+        o_iatt = GF_CALLOC (1, sizeof (struct old_iatt), gf_common_mt_char);
         if (!o_iatt) {
                 return -1;
         }
 
         oldiatt_from_iatt (o_iatt, c_iatt);
 
-        ret = dict_set_bin (xdata, DHT_IATT_IN_XDATA_KEY, o_iatt, len);
+        ret = dict_set_bin (xdata, DHT_IATT_IN_XDATA_KEY, o_iatt,
+                            sizeof (struct old_iatt));
         if (ret) {
                 GF_FREE (o_iatt);
         }
@@ -5077,7 +5077,6 @@ gf_replace_new_iatt_in_dict (dict_t *xdata)
         int ret;
         struct old_iatt *o_iatt; /* old iatt structure */
         struct iatt *c_iatt; /* new iatt */
-        int32_t len = sizeof(struct iatt);
 
         if (!xdata) {
                 return 0;
@@ -5088,14 +5087,15 @@ gf_replace_new_iatt_in_dict (dict_t *xdata)
                 return 0;
         }
 
-        c_iatt = GF_CALLOC (1, len, gf_common_mt_char);
+        c_iatt = GF_CALLOC (1, sizeof (struct iatt), gf_common_mt_char);
         if (!c_iatt) {
                 return -1;
         }
 
         iatt_from_oldiatt (c_iatt, o_iatt);
 
-        ret = dict_set_bin (xdata, DHT_IATT_IN_XDATA_KEY, c_iatt, len);
+        ret = dict_set_bin (xdata, DHT_IATT_IN_XDATA_KEY, c_iatt,
+                            sizeof (struct iatt));
         if (ret) {
                 GF_FREE (c_iatt);
         }
