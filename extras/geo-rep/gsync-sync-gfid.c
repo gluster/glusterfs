@@ -80,7 +80,7 @@ main (int argc, char *argv[])
                 /* gfid + '\0' + bname + '\0' */
                 len = UUID_CANONICAL_FORM_LEN + 1 + strlen (bname) + 1;
 
-                blob = calloc (1, len);
+                blob = malloc (len);
 
                 memcpy (blob, gfid, UUID_CANONICAL_FORM_LEN);
 

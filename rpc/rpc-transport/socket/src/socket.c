@@ -4522,7 +4522,7 @@ socket_init (rpc_transport_t *this)
                 return -1;
         }
 
-        priv = GF_CALLOC (1, sizeof (*priv), gf_common_mt_socket_private_t);
+        priv = GF_MALLOC (sizeof (*priv), gf_common_mt_socket_private_t);
         if (!priv) {
                 return -1;
         }

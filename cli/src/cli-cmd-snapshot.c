@@ -131,7 +131,7 @@ cli_cmd_snapshot_help_cbk (struct cli_state *state,
         struct cli_cmd        *snap_cmd = NULL;
         int                   count     = 0;
 
-        cmd = GF_CALLOC (1, sizeof (snapshot_cmds), cli_mt_cli_cmd);
+        cmd = GF_MALLOC (sizeof (snapshot_cmds), cli_mt_cli_cmd);
         memcpy (cmd, snapshot_cmds, sizeof (snapshot_cmds));
         count = (sizeof (snapshot_cmds) / sizeof (struct cli_cmd));
         cli_cmd_sort (cmd, count);

@@ -269,7 +269,7 @@ stripe_fill_pathinfo_xattr (xlator_t *this, stripe_local_t *local,
                 + strlen (stripe_size_str) + 7;
         local->xattr_total_len += (padding + 2);
 
-        pathinfo_serz = GF_CALLOC (local->xattr_total_len, sizeof (char),
+        pathinfo_serz = GF_MALLOC (local->xattr_total_len,
                                    gf_common_mt_char);
         if (!pathinfo_serz)
                 goto out;

@@ -897,6 +897,7 @@ cli_event_remove_brick_str (dict_t *options, char **event_str,
         int32_t        i              = 1;
         int32_t        count          = 0;
         int32_t        eventstrlen    = 1;
+        int            bricklen      = 0;
         char          *tmp_ptr        = NULL;
 
         if (!options || !event_str || !event)
@@ -971,8 +972,9 @@ cli_event_remove_brick_str (dict_t *options, char **event_str,
                         break;
                 }
                 snprintf (tmp_ptr, eventstrlen, "%s ", brick);
-                eventstrlen -= (strlen (brick) + 1);
-                tmp_ptr += (strlen (brick) + 1);
+                bricklen = strlen (brick);
+                eventstrlen -= (bricklen + 1);
+                tmp_ptr += (bricklen + 1);
                 i++;
         }
 
@@ -3504,7 +3506,7 @@ cli_cmd_quota_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
         struct cli_cmd        *quota_cmd = NULL;
         int                   count    = 0;
 
-        cmd = GF_CALLOC (1, sizeof (quota_cmds), cli_mt_cli_cmd);
+        cmd = GF_MALLOC (sizeof (quota_cmds), cli_mt_cli_cmd);
         memcpy (cmd, quota_cmds, sizeof (quota_cmds));
         count = (sizeof (quota_cmds) / sizeof (struct cli_cmd));
         cli_cmd_sort (cmd, count);
@@ -3531,7 +3533,7 @@ cli_cmd_bitrot_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
         struct cli_cmd        *bitrot_cmd = NULL;
         int                   count    = 0;
 
-        cmd = GF_CALLOC (1, sizeof (bitrot_cmds), cli_mt_cli_cmd);
+        cmd = GF_MALLOC (sizeof (bitrot_cmds), cli_mt_cli_cmd);
         memcpy (cmd, bitrot_cmds, sizeof (bitrot_cmds));
         count = (sizeof (bitrot_cmds) / sizeof (struct cli_cmd));
         cli_cmd_sort (cmd, count);
@@ -3558,7 +3560,7 @@ cli_cmd_tier_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
         struct cli_cmd        *tier_cmd = NULL;
         int                   count    = 0;
 
-        cmd = GF_CALLOC (1, sizeof (tier_cmds), cli_mt_cli_cmd);
+        cmd = GF_MALLOC (sizeof (tier_cmds), cli_mt_cli_cmd);
         memcpy (cmd, tier_cmds, sizeof (tier_cmds));
         count = (sizeof (tier_cmds) / sizeof (struct cli_cmd));
         cli_cmd_sort (cmd, count);
@@ -3584,7 +3586,7 @@ cli_cmd_volume_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
         struct cli_cmd        *vol_cmd = NULL;
         int                   count    = 0;
 
-        cmd = GF_CALLOC (1, sizeof (volume_cmds), cli_mt_cli_cmd);
+        cmd = GF_MALLOC (sizeof (volume_cmds), cli_mt_cli_cmd);
         memcpy (cmd, volume_cmds, sizeof (volume_cmds));
         count = (sizeof (volume_cmds) / sizeof (struct cli_cmd));
         cli_cmd_sort (cmd, count);

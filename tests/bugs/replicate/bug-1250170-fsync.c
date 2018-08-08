@@ -26,9 +26,9 @@ int main (int argc, char **argv)
 
         file = argv[1];
         buf_size = 1024;
-        buffer = calloc(1, buf_size);
+        buffer = malloc(buf_size);
         if (!buffer) {
-                perror("calloc");
+                perror("malloc");
                 return -1;
         }
         memset (buffer, 'R', buf_size);

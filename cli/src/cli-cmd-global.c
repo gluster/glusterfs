@@ -57,7 +57,7 @@ cli_cmd_global_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
         struct cli_cmd        *global_cmd = NULL;
         int                   count     = 0;
 
-        cmd = GF_CALLOC (1, sizeof (global_cmds), cli_mt_cli_cmd);
+        cmd = GF_MALLOC (sizeof (global_cmds), cli_mt_cli_cmd);
         memcpy (cmd, global_cmds, sizeof (global_cmds));
         count = (sizeof (global_cmds) / sizeof (struct cli_cmd));
         cli_cmd_sort (cmd, count);
