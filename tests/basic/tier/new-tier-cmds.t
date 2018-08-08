@@ -88,8 +88,8 @@ TEST $glusterd_2;
 
 EXPECT_WITHIN $PROBE_TIMEOUT 2 check_peers;
 # Make sure we check that the *bricks* are up and not just the node.  >:-(
-EXPECT_WITHIN $CHILD_UP_TIMEOUT 1 brick_up_status_1 $V0 $H2 $B2/${V0}_b2
-EXPECT_WITHIN $CHILD_UP_TIMEOUT 1 brick_up_status_1 $V0 $H2 $B2/${V0}_h2
+EXPECT_WITHIN $CHILD_UP_TIMEOUT 1 cluster_brick_up_status 1 $V0 $H2 $B2/${V0}_b2
+EXPECT_WITHIN $CHILD_UP_TIMEOUT 1 cluster_brick_up_status 1 $V0 $H2 $B2/${V0}_h2
 
 # Parsing normal output doesn't work because of line-wrap issues on our
 # regression machines, and the version of xmllint there doesn't support --xpath

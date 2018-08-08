@@ -65,8 +65,8 @@ EXPECT "4" get_quarantine_count "$B1";
 TEST $CLI_1 volume stop $V0
 TEST $CLI_1 volume start $V0
 EXPECT 'Started' volinfo_field_1 $V0 'Status';
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status_1 $V0 $H1 $B1
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status_1 $V0 $H2 $B2
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" cluster_brick_up_status 1 $V0 $H1 $B1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" cluster_brick_up_status 1 $V0 $H2 $B2
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 1
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" get_bitd_count_1
