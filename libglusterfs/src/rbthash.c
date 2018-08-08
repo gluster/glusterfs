@@ -183,7 +183,7 @@ rbthash_init_entry (rbthash_table_t *tbl, void *data, void *key, int keylen)
         }
 
         entry->data = data;
-        entry->key = GF_CALLOC (keylen, sizeof (char), gf_common_mt_char);
+        entry->key = GF_MALLOC (keylen, gf_common_mt_char);
         if (!entry->key) {
                 goto free_entry;
         }
