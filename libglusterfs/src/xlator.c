@@ -629,7 +629,7 @@ get_xlator_by_name_or_type (xlator_t *this, char *target, int is_name)
 
         for (trav = this->children; trav; trav = trav->next) {
                 value = is_name ? trav->xlator->name : trav->xlator->type;
-                if (!strcmp(value, target)) {
+                if (!strcmp(value, target) && !trav->xlator->cleanup_starting) {
                         return trav->xlator;
                 }
                 child_xl = get_xlator_by_name_or_type (trav->xlator, target,
