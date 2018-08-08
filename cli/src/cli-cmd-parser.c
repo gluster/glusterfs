@@ -2656,7 +2656,7 @@ config_parse (const char **words, int wordcount, dict_t *dict,
                                 goto out;
 
                         GF_FREE (append_str);
-                        append_str = GF_CALLOC (1, 300, cli_mt_append_str);
+                        append_str = GF_MALLOC (300, cli_mt_append_str);
                         if (!append_str) {
                                 ret = -1;
                                 goto out;
@@ -2676,7 +2676,7 @@ config_parse (const char **words, int wordcount, dict_t *dict,
                                 goto out;
                         }
                         GF_FREE (append_str);
-                        append_str = GF_CALLOC (1, 300, cli_mt_append_str);
+                        append_str = GF_MALLOC (300, cli_mt_append_str);
                         if (!append_str) {
                                 ret = -1;
                                 goto out;
@@ -3739,7 +3739,8 @@ extract_hostname_path_from_token (const char *tmp_words, char **hostname,
                         goto out;
                 } else {
                         str_len = strlen (delimiter + 1) + 1;
-                        *path = GF_MALLOC (str_len, gf_common_mt_char);
+                        *path = GF_MALLOC (str_len,
+                                           gf_common_mt_char);
                         if (!*path) {
                            ret = -1;
                                 goto out;
@@ -4184,7 +4185,7 @@ cli_snap_create_desc_parse (dict_t *dict, const char **words,
         int32_t        desc_len = 0;
         int            len;
 
-        desc = GF_CALLOC (MAX_SNAP_DESCRIPTION_LEN + 1, sizeof(char),
+        desc = GF_MALLOC (MAX_SNAP_DESCRIPTION_LEN + 1,
                           gf_common_mt_char);
         if (!desc) {
                 ret = -1;
