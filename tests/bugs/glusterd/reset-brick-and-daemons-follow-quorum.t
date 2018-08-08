@@ -41,8 +41,8 @@ TEST $CLI_1 volume reset-brick $V0 $H1:$B0/${V0} $H1:$B0/${V0} commit force
 TEST $CLI_1 peer probe $H3;
 EXPECT_WITHIN $PROBE_TIMEOUT 2  peer_count
 
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status_1 $V0 $H1 $B0/${V0}
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status_1 $V0 $H2 $B0/${V0}
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" cluster_brick_up_status 1 $V0 $H1 $B0/${V0}
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" cluster_brick_up_status 1 $V0 $H2 $B0/${V0}
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" shd_up_status_1
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" shd_up_status_2
 

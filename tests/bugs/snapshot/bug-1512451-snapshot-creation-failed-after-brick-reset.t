@@ -28,7 +28,7 @@ TEST ! snapshot_exists 1 ${V0}_snap1
 TEST $CLI_1 volume reset-brick $V0 $H1:$L1/B1 start
 TEST $CLI_1 volume reset-brick $V0 $H1:$L1/B1 $H1:$L1/B1 commit force
 
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status_1 $V0 $H1 $L1/B1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" cluster_brick_up_status 1 $V0 $H1 $L1/B1
 
 TEST $CLI_1 snapshot create ${V0}_snap1 ${V0} no-timestamp
 TEST snapshot_exists 1 ${V0}_snap1

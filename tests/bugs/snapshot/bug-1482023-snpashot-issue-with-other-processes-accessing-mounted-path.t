@@ -111,6 +111,10 @@ EXPECT_WITHIN $PROBE_TIMEOUT 2 peer_count;
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" mounted_snaps ${V0}
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "0" mounted_snaps ${V1}
 
+# It might be possible that the import snap synctask is still updating the data,
+# we need to allow a buffer time to be on the safer side
+sleep 2
+
 kill_glusterd 2
 activate_snapshots
 EXPECT 'Started' snapshot_status ${V0}_snap;
@@ -125,3 +129,4 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" mounted_snaps ${V0}
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" mounted_snaps ${V1}
 
 cleanup;
+# run first!
