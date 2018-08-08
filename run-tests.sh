@@ -17,6 +17,38 @@ kill_after_time=5
 
 OSTYPE=$(uname -s)
 
+# Function for use in generating filenames with increasing "-<n>" index
+# In:
+#       $1 basepath: Directory where file needs to be created
+#       $2 filename: Name of the file sans extension
+#       $3 extension: Extension string that would be appended to the generated
+#               filename
+# Out:
+#       string of next available filename with appended "-<n>" if applicable
+# Example:
+#       Interested routines that want to create a file name, say foo.txt at
+#       location /var/log/gluster would pass in "/var/log/gluster" "foo" "txt"
+#       and be returned next available foo.txt filename to create. If foo.txt
+#       is available then foo is returned, else foo-<n> (where n is the next
+#       integer) is returned for use"
+# Notes:
+#       Function will not accept empty extension, and will return the same name
+#       over and over (which can be fixed when there is a use-case for it)
+function get_next_filename()
+{
+        local basepath=$1
+        local filename=$2
+        local extension=$3
+        local next=2
+        local tfilename=${filename}
+        while [ -e "${basepath}/${tfilename}.${extension}" ]; do
+                tfilename="${filename}-${next}"
+                next=$((next+1))
+        done
+
+        echo "$tfilename"
+}
+
 function check_dependencies()
 {
     ## Check all dependencies are present
@@ -320,6 +352,13 @@ function run_tests()
                 echo "       * we got some spurious failures *"
                 echo "       *********************************"
                 echo ""
+                # backup old tar ball with time stamp
+                # TODO: Using gluster CLI here is possibly not the best thing!
+                logdir=$(gluster --print-logdir)
+                basetarname=$(basename "$t" .t)
+                savetarname=$(get_next_filename "${logdir}" "${basetarname}-$(date +%H:%M:%S)" "tar" | tail -1)
+                mv "$logdir"/"$basetarname".tar "$logdir"/"$savetarname".tar
+
                 if [ ${timeout_cmd_exists} == "yes" ]; then
                     timeout -k ${kill_after_time} ${cmd_timeout} prove -vmfe '/bin/bash' ${t}
                 else
