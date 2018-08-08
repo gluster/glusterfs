@@ -735,7 +735,7 @@ dict_to_xdr (dict_t *this, gfx_dict *dict)
                         /* Change this to INFO, after taking the above down */
                         gf_msg ("dict", GF_LOG_INFO, EINVAL,
                                 LG_MSG_DICT_SERIAL_FAILED,
-                                "key '%s' is would not be sent on wire in future",
+                                "key '%s' would not be sent on wire in the future",
                                 dpair->key);
                         break;
                 default:
