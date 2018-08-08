@@ -236,7 +236,7 @@ gf_client_get (xlator_t *this, struct rpcsvc_auth_data *cred, char *client_uid,
                 client->auth.flavour = cred->flavour;
                 if (cred->flavour != AUTH_NONE) {
                         client->auth.data =
-                                GF_CALLOC (1, cred->datalen,
+                                GF_MALLOC (cred->datalen,
                                            gf_common_mt_client_t);
                         if (client->auth.data == NULL) {
                                 GF_FREE (client->scratch_ctx.ctx);
