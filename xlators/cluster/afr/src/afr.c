@@ -542,8 +542,8 @@ init (xlator_t *this)
         priv->child_up = GF_CALLOC (sizeof (unsigned char), child_count,
                                     gf_afr_mt_char);
 
-        priv->child_latency = GF_CALLOC (sizeof (*priv->child_latency),
-                                         child_count,
+        priv->child_latency = GF_MALLOC (sizeof (*priv->child_latency)
+                                         * child_count,
                                          gf_afr_mt_child_latency_t);
 
         if (!priv->child_up || !priv->child_latency) {

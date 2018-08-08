@@ -5848,7 +5848,7 @@ gf_cli_gsync_status_output (dict_t *dict, gf_boolean_t is_detail)
         /* gsync_count = number of nodes reporting output.
            each sts_val object will store output of each
            node */
-        sts_vals = GF_CALLOC (gsync_count, sizeof (gf_gsync_status_t *),
+        sts_vals = GF_MALLOC (gsync_count * sizeof (gf_gsync_status_t *),
                               gf_common_mt_char);
         if (!sts_vals) {
                 ret = -1;
@@ -8326,7 +8326,7 @@ xml_end:
                 goto out;
         }
 
-        status.brick = GF_CALLOC (1, PATH_MAX + 256, gf_common_mt_strdup);
+        status.brick = GF_MALLOC (PATH_MAX + 256, gf_common_mt_strdup);
         if (!status.brick) {
                 errno   = ENOMEM;
                 ret     = -1;

@@ -4138,7 +4138,7 @@ cli_xml_output_vol_gsync_status (dict_t *dict,
         if (ret)
                 goto out;
 
-        status_values = GF_CALLOC (count, sizeof (gf_gsync_status_t *),
+        status_values = GF_MALLOC (count * sizeof (gf_gsync_status_t *),
                               gf_common_mt_char);
         if (!status_values) {
                 ret = -1;

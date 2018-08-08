@@ -21,7 +21,7 @@ fill_iov (struct iovec *iov, char fillchar, int count)
 {
         int ret = -1;
 
-        iov->iov_base = calloc (count + 1, sizeof(fillchar));
+        iov->iov_base = malloc (count + 1);
         if (iov->iov_base == NULL) {
                 return ret;
         } else {

@@ -622,6 +622,9 @@ dht_filter_loc_subvol_key (xlator_t *this, loc_t *loc, loc_t *new_loc,
         xlator_list_t *trav      = NULL;
         char           key[1024] = {0,};
         int            ret       = 0; /* not found */
+        int            keylen    = 0;
+        int            name_len  = 0;
+        int            path_len  = 0;
 
         /* Why do other tasks if first required 'char' itself is not there */
         if (!new_loc || !loc || !loc->name || !strchr (loc->name, '@')) {
@@ -631,24 +634,24 @@ dht_filter_loc_subvol_key (xlator_t *this, loc_t *loc, loc_t *new_loc,
 
         trav = this->children;
         while (trav) {
-                snprintf (key, sizeof (key), "*@%s:%s", this->name, trav->xlator->name);
+                keylen = snprintf (key, sizeof (key), "*@%s:%s", this->name, trav->xlator->name);
                 if (fnmatch (key, loc->name, FNM_NOESCAPE) == 0) {
-                        new_name = GF_CALLOC(strlen (loc->name),
-                                             sizeof (char),
+                        name_len = strlen (loc->name);
+                        new_name = GF_MALLOC(name_len,
                                              gf_common_mt_char);
                         if (!new_name)
                                 goto out;
                         if (fnmatch (key, loc->path, FNM_NOESCAPE) == 0) {
-                                new_path = GF_CALLOC(strlen (loc->path),
-                                                     sizeof (char),
+                                path_len = strlen (loc->path);
+                                new_path = GF_MALLOC(path_len,
                                                      gf_common_mt_char);
                                 if (!new_path)
                                         goto out;
-                                strncpy (new_path, loc->path, (strlen (loc->path) -
-                                                               strlen (key) + 1));
+                                strncpy (new_path, loc->path, (path_len -
+                                                               keylen + 1));
                         }
-                        strncpy (new_name, loc->name, (strlen (loc->name) -
-                                                       strlen (key) + 1));
+                        strncpy (new_name, loc->name, (name_len -
+                                                       keylen + 1));
 
                         if (new_loc) {
                                 new_loc->path   = ((new_path) ? new_path:

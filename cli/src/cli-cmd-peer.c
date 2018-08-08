@@ -284,7 +284,7 @@ cli_cmd_peer_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
         cli_out ("\ngluster peer commands");
         cli_out ("======================\n");
 
-        cmd = GF_CALLOC (1, sizeof (cli_probe_cmds), cli_mt_cli_cmd);
+        cmd = GF_MALLOC (sizeof (cli_probe_cmds), cli_mt_cli_cmd);
         memcpy (cmd, cli_probe_cmds, sizeof (cli_probe_cmds));
         count = (sizeof (cli_probe_cmds) / sizeof (struct cli_cmd));
         cli_cmd_sort (cmd, count);

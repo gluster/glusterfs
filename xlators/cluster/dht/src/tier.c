@@ -74,8 +74,8 @@ qfile_array_new (ssize_t array_size)
                 goto out;
         }
 
-        qfile_array->fd_array = GF_CALLOC (array_size, sizeof (int),
-                                        gf_dht_mt_int32_t);
+        qfile_array->fd_array = GF_MALLOC (array_size * sizeof (int),
+                                           gf_dht_mt_int32_t);
         if (!qfile_array->fd_array) {
                 gf_msg ("tier", GF_LOG_ERROR, 0, DHT_MSG_LOG_TIER_ERROR,
                         "Failed to allocate memory for "
@@ -2157,7 +2157,7 @@ tier_get_bricklist (xlator_t *xl, struct list_head *local_bricklist_head)
                                  brickname);
 
                         local_brick->brick_db_path =
-                                GF_CALLOC (PATH_MAX, 1, gf_common_mt_char);
+                                GF_MALLOC (PATH_MAX, gf_common_mt_char);
                         if (!local_brick->brick_db_path) {
                                 gf_msg ("tier", GF_LOG_ERROR, 0,
                                         DHT_MSG_LOG_TIER_STATUS,

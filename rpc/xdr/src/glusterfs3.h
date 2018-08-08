@@ -812,7 +812,7 @@ xdr_to_dict (gfx_dict *dict, dict_t **to)
                                     xpair->value.gfx_value_u.value_dbl);
                         break;
                 case GF_DATA_TYPE_STR:
-                        value = GF_CALLOC (1, xpair->value.gfx_value_u.val_string.val_string_len + 1,
+                        value = GF_MALLOC (xpair->value.gfx_value_u.val_string.val_string_len + 1,
                                            gf_common_mt_char);
                         if (!value) {
                                 errno = ENOMEM;
@@ -820,11 +820,12 @@ xdr_to_dict (gfx_dict *dict, dict_t **to)
                         }
                         memcpy (value, xpair->value.gfx_value_u.val_string.val_string_val,
                                 xpair->value.gfx_value_u.val_string.val_string_len);
+                        value[xpair->value.gfx_value_u.val_string.val_string_len] = '\0';
                         free (xpair->value.gfx_value_u.val_string.val_string_val);
                         ret = dict_set_dynstr (this, key, value);
                         break;
                 case GF_DATA_TYPE_GFUUID:
-                        uuid = GF_CALLOC (1, sizeof (uuid_t), gf_common_mt_uuid_t);
+                        uuid = GF_MALLOC (sizeof (uuid_t), gf_common_mt_uuid_t);
                         if (!uuid) {
                                 errno = ENOMEM;
                                 goto out;
@@ -842,7 +843,7 @@ xdr_to_dict (gfx_dict *dict, dict_t **to)
                         ret = dict_set_iatt (this, key, iatt, false);
                         break;
                 case GF_DATA_TYPE_PTR:
-                        value = GF_CALLOC (1, xpair->value.gfx_value_u.other.other_len + 1,
+                        value = GF_MALLOC (xpair->value.gfx_value_u.other.other_len + 1,
                                            gf_common_mt_char);
                         if (!value) {
                                 errno = ENOMEM;
@@ -850,6 +851,7 @@ xdr_to_dict (gfx_dict *dict, dict_t **to)
                         }
                         memcpy (value, xpair->value.gfx_value_u.other.other_val,
                                 xpair->value.gfx_value_u.other.other_len);
+                        value[xpair->value.gfx_value_u.other.other_len] = '\0';
                         free (xpair->value.gfx_value_u.other.other_val);
                         ret = dict_set_dynptr (this, key, value,
                                                xpair->value.gfx_value_u.other.other_len);

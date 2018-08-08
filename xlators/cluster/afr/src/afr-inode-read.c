@@ -1186,7 +1186,7 @@ afr_fgetxattr_pathinfo_cbk (call_frame_t *frame, void *cookie,
 
                         xattr = gf_strdup (xattr);
 
-                        (void)snprintf (xattr_cky, 1024, "%s-%ld",
+                        (void)snprintf (xattr_cky, sizeof(xattr_cky), "%s-%ld",
                                         local->cont.getxattr.name, cky);
                         ret = dict_set_dynstr (local->dict,
                                                xattr_cky, xattr);
@@ -1217,20 +1217,21 @@ unlock:
                         + SLEN (AFR_PATHINFO_HEADER) + 4;
                 local->cont.getxattr.xattr_len += (padding + 2);
 
-                xattr_serz = GF_CALLOC (local->cont.getxattr.xattr_len,
-                                        sizeof (char), gf_common_mt_char);
+                xattr_serz = GF_MALLOC (local->cont.getxattr.xattr_len,
+                                        gf_common_mt_char);
 
                 if (!xattr_serz)
                         goto unwind;
 
                 /* the xlator info */
-                (void) sprintf (xattr_serz, "(<"AFR_PATHINFO_HEADER"%s> ",
-                                this->name);
+                int xattr_serz_len = sprintf (xattr_serz,
+                                              "(<"AFR_PATHINFO_HEADER"%s> ",
+                                              this->name);
 
                 /* actual series of pathinfo */
                 ret = dict_serialize_value_with_delim (local->dict,
                                                        xattr_serz
-                                                       + strlen (xattr_serz),
+                                                       + xattr_serz_len,
                                                        &tlen, ' ');
                 if (ret) {
                         goto unwind;
@@ -1342,19 +1343,20 @@ unlock:
                 padding += strlen (this->name) + SLEN (AFR_PATHINFO_HEADER) + 4;
                 local->cont.getxattr.xattr_len += (padding + 2);
 
-                xattr_serz = GF_CALLOC (local->cont.getxattr.xattr_len,
-                                        sizeof (char), gf_common_mt_char);
+                xattr_serz = GF_MALLOC (local->cont.getxattr.xattr_len,
+                                        gf_common_mt_char);
 
                 if (!xattr_serz)
                         goto unwind;
 
                 /* the xlator info */
-                (void) sprintf (xattr_serz, "(<"AFR_PATHINFO_HEADER"%s> ",
-                                this->name);
+                int xattr_serz_len = sprintf (xattr_serz,
+                                              "(<"AFR_PATHINFO_HEADER"%s> ",
+                                              this->name);
 
                 /* actual series of pathinfo */
                 ret = dict_serialize_value_with_delim (local->dict,
-                                                       xattr_serz + strlen (xattr_serz),
+                                                       xattr_serz + xattr_serz_len,
                                                        &tlen, ' ');
                 if (ret) {
                         goto unwind;

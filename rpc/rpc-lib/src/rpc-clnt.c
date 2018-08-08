@@ -1592,7 +1592,7 @@ rpcclnt_cbk_program_register (struct rpc_clnt *clnt,
                 goto out;
         }
 
-        tmp = GF_CALLOC (1, sizeof (*tmp),
+        tmp = GF_MALLOC (sizeof (*tmp),
                          gf_common_mt_rpcclnt_cb_program_t);
         if (tmp == NULL) {
                 goto out;

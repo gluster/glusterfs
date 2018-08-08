@@ -4335,23 +4335,28 @@ fill_layout_info (dht_layout_t *layout, char *buf)
         }
 }
 
-void
+static void
 dht_fill_pathinfo_xattr (xlator_t *this, dht_local_t *local,
                          char *xattr_buf, int32_t alloc_len,
                          int flag, char *layout_buf)
 {
-        if (flag && local->xattr_val)
-                snprintf (xattr_buf, alloc_len,
+        if (flag) {
+                if (local->xattr_val) {
+                        snprintf (xattr_buf, alloc_len,
                           "((<"DHT_PATHINFO_HEADER"%s> %s) (%s-layout %s))",
                           this->name, local->xattr_val, this->name,
                           layout_buf);
-        else if (local->xattr_val)
+                } else {
+                        snprintf (xattr_buf, alloc_len, "(%s-layout %s)",
+                          this->name, layout_buf);
+                }
+        } else if (local->xattr_val) {
                 snprintf (xattr_buf, alloc_len,
                           "(<"DHT_PATHINFO_HEADER"%s> %s)",
                           this->name, local->xattr_val);
-        else if (flag)
-                snprintf (xattr_buf, alloc_len, "(%s-layout %s)",
-                          this->name, layout_buf);
+        } else {
+                xattr_buf[0] = '\0';
+        }
 }
 
 int
@@ -4360,7 +4365,6 @@ dht_vgetxattr_alloc_and_fill (dht_local_t *local, dict_t *xattr, xlator_t *this,
 {
         int      ret       = -1;
         char    *value     = NULL;
-        int32_t  plen      = 0;
 
         ret = dict_get_str (xattr, local->xsel, &value);
         if (ret) {
@@ -4375,16 +4379,17 @@ dht_vgetxattr_alloc_and_fill (dht_local_t *local, dict_t *xattr, xlator_t *this,
         local->alloc_len += strlen(value);
 
         if (!local->xattr_val) {
-                local->alloc_len += (strlen (DHT_PATHINFO_HEADER) + 10);
-                local->xattr_val = GF_CALLOC (local->alloc_len, sizeof (char),
+                local->alloc_len += sizeof (DHT_PATHINFO_HEADER) + 10;
+                local->xattr_val = GF_MALLOC (local->alloc_len,
                                               gf_common_mt_char);
                 if (!local->xattr_val) {
                         ret = -1;
                         goto out;
                 }
+                local->xattr_val[0] = '\0';
         }
 
-        plen = strlen (local->xattr_val);
+        int plen = strlen (local->xattr_val);
         if (plen) {
                 /* extra byte(s) for \0 to be safe */
                 local->alloc_len += (plen + 2);
@@ -4436,8 +4441,7 @@ dht_vgetxattr_fill_and_set (dht_local_t *local, dict_t **dict, xlator_t *this,
         local->alloc_len += (2 * strlen (this->name))
                 + strlen (layout_buf)
                 + 40;
-        xattr_buf = GF_CALLOC (local->alloc_len, sizeof (char),
-                               gf_common_mt_char);
+        xattr_buf = GF_MALLOC (local->alloc_len, gf_common_mt_char);
         if (!xattr_buf)
                 goto out;
 
