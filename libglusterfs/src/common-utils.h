@@ -750,8 +750,6 @@ int32_t gf_roundup_power_of_two (int32_t nr);
 int32_t gf_roundup_next_power_of_two (int32_t nr);
 
 char *gf_trim (char *string);
-int gf_strsplit (const char *str, const char *delim,
-		 char ***tokens, int *token_count);
 int gf_volume_name_validate (const char *volume_name);
 
 int gf_string2long (const char *str, long *n);
@@ -803,9 +801,7 @@ char *gf_resolve_path_parent (const char *path);
 char *strtail (char *str, const char *pattern);
 void skipwhite (char **s);
 char *nwstrtail (char *str, char *pattern);
-void skip_word (char **str);
 /* returns a new string with nth word of given string. n>=1 */
-char *get_nth_word (const char *str, int n);
 
 typedef struct token_iter {
         char *end;

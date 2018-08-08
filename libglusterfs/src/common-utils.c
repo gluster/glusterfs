@@ -105,8 +105,9 @@ mkdir_p (char *path, mode_t mode, gf_boolean_t allow_symlinks)
         char            dir[PATH_MAX]   = {0,};
         struct stat     stbuf           = {0,};
 
-        strncpy (dir, path, (PATH_MAX - 1));
-        dir[PATH_MAX - 1] = '\0';
+        const int path_len = min(strlen(path), PATH_MAX -1);
+
+        snprintf(dir, path_len + 1, "%s", path);
 
         i = (dir[0] == '/')? 1: 0;
         do {
@@ -789,73 +790,6 @@ gf_trim (char *string)
         *++t = '\0';
 
         return s;
-}
-
-int
-gf_strsplit (const char *str, const char *delim,
-             char ***tokens, int *token_count)
-{
-        char *_running = NULL;
-        char *running = NULL;
-        char *token = NULL;
-        char **token_list = NULL;
-        int count = 0;
-        int i = 0;
-        int j = 0;
-
-        if (str == NULL || delim == NULL || tokens == NULL || token_count == NULL) {
-                gf_msg_callingfn (THIS->name, GF_LOG_WARNING, EINVAL,
-                                  LG_MSG_INVALID_ARG, "argument invalid");
-                return -1;
-        }
-
-        _running = gf_strdup (str);
-        if (_running == NULL)
-                return -1;
-
-        running = _running;
-
-        while ((token = strsep (&running, delim)) != NULL) {
-                if (token[0] != '\0')
-                        count++;
-        }
-        GF_FREE (_running);
-
-        _running = gf_strdup (str);
-        if (_running == NULL)
-                return -1;
-
-        running = _running;
-
-        if ((token_list = GF_CALLOC (count, sizeof (char *),
-                                     gf_common_mt_char)) == NULL) {
-                GF_FREE (_running);
-                return -1;
-        }
-
-        while ((token = strsep (&running, delim)) != NULL) {
-                if (token[0] == '\0')
-                        continue;
-
-                token_list[i] = gf_strdup (token);
-                if (token_list[i] == NULL)
-                        goto free_exit;
-                i++;
-        }
-
-        GF_FREE (_running);
-
-        *tokens = token_list;
-        *token_count = count;
-        return 0;
-
-free_exit:
-        GF_FREE (_running);
-        for (j = 0; j < i; j++)
-                GF_FREE (token_list[j]);
-
-        GF_FREE (token_list);
-        return -1;
 }
 
 int
@@ -2108,54 +2042,6 @@ nwstrtail (char *str, char *pattern)
         return *pattern ? NULL : str;
 }
 
-void
-skipword (char **s)
-{
-        if (!*s)
-                return;
-
-        skipwhite (s);
-
-        while (!isspace(**s))
-                (*s)++;
-}
-
-char *
-get_nth_word (const char *str, int n)
-{
-        char           buf[4096] = {0};
-        char          *start     = NULL;
-        char          *word      = NULL;
-        int            i         = 0;
-        int            word_len  = 0;
-        const char    *end       = NULL;
-
-        if (!str)
-                goto out;
-
-        snprintf (buf, sizeof (buf), "%s", str);
-        start = buf;
-
-        for (i = 0; i < n-1; i++)
-                skipword (&start);
-
-        skipwhite (&start);
-        end = strpbrk ((const char *)start, " \t\n\0");
-
-        if (!end)
-                goto out;
-
-        word_len = labs (end - start);
-
-        word = GF_CALLOC (1, word_len + 1, gf_common_mt_strdup);
-        if (!word)
-                goto out;
-
-        strncpy (word, start, word_len);
-        *(word + word_len) = '\0';
- out:
-        return word;
-}
 
 /**
  * token_iter_init -- initialize tokenization
@@ -3013,7 +2899,7 @@ gf_strip_whitespace (char *str, int len)
 
         GF_ASSERT (str);
 
-        new_str = GF_CALLOC (1, len + 1, gf_common_mt_char);
+        new_str = GF_MALLOC (len + 1, gf_common_mt_char);
         if (new_str == NULL)
                 return -1;
 
@@ -3024,8 +2910,7 @@ gf_strip_whitespace (char *str, int len)
         new_str[new_len] = '\0';
 
         if (new_len != len) {
-                memset (str, 0, len);
-                strncpy (str, new_str, new_len);
+                snprintf(str, new_len + 1, "%s", new_str);
         }
 
         GF_FREE (new_str);
