@@ -443,7 +443,7 @@ dict_set_lk (dict_t *this, char *key, data_t *value, gf_boolean_t replace)
                 key_free = 0;
         }
         else {
-                pair->key = (char *) GF_CALLOC (1, strlen (key) + 1,
+                pair->key = (char *) GF_MALLOC (strlen (key) + 1,
                                                 gf_common_mt_char);
                 if (!pair->key) {
                         if (pair == &this->free_pair) {
@@ -2203,7 +2203,7 @@ _dict_modify_flag (dict_t *this, char *key, int flag, int op)
                                 this->free_pair_in_use = _gf_true;
                         }
 
-                        pair->key = (char *)GF_CALLOC(1, strlen (key) + 1,
+                        pair->key = (char *)GF_MALLOC(strlen (key) + 1,
                                                       gf_common_mt_char);
                         if (!pair->key) {
                                 gf_msg("dict", GF_LOG_ERROR, ENOMEM,
