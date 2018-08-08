@@ -827,12 +827,12 @@ gf_remember_xlator_option (char *arg)
                 goto out;
         }
 
-        option->volume = GF_CALLOC ((dot - arg) + 1, sizeof (char),
-                                    gfd_mt_char);
+        option->volume = GF_MALLOC ((dot - arg) + 1, gfd_mt_char);
         if (!option->volume)
                 goto out;
 
         strncpy (option->volume, arg, (dot - arg));
+        option->volume[(dot - arg)] = '\0';
 
         equals = strchr (arg, '=');
         if (!equals) {
@@ -841,12 +841,12 @@ gf_remember_xlator_option (char *arg)
                 goto out;
         }
 
-        option->key = GF_CALLOC ((equals - dot) + 1, sizeof (char),
-                                 gfd_mt_char);
+        option->key = GF_MALLOC ((equals - dot) + 1, gfd_mt_char);
         if (!option->key)
                 goto out;
 
         strncpy (option->key, dot + 1, (equals - dot - 1));
+        option->key[(equals - dot - 1)] = '\0';
 
         if (!*(equals + 1)) {
                 gf_msg ("", GF_LOG_WARNING, 0, glusterfsd_msg_10,
@@ -2153,7 +2153,7 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
 
         if (cmd_args->thin_client) {
                 len = strlen (cmd_args->volfile_id) + SLEN ("gfproxy-client/");
-                thin_volfileid = GF_CALLOC (1, len + 1, gf_common_mt_char);
+                thin_volfileid = GF_MALLOC (len + 1, gf_common_mt_char);
                 snprintf (thin_volfileid, len + 1, "gfproxy-client/%s",
                           cmd_args->volfile_id);
                 GF_FREE (cmd_args->volfile_id);
