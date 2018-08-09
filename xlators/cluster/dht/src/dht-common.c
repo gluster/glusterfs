@@ -1277,9 +1277,7 @@ dht_dir_xattr_heal (xlator_t *this, dht_local_t *local)
         int          ret                          = -1;
         char         gfid_local[GF_UUID_BUF_SIZE] = {0};
 
-        if (local->gfid) {
-                gf_uuid_unparse(local->gfid, gfid_local);
-        } else {
+        if (gf_uuid_is_null (local->gfid)) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         DHT_MSG_DIR_XATTR_HEAL_FAILED,
                         "No gfid exists for path %s "
@@ -1288,6 +1286,7 @@ dht_dir_xattr_heal (xlator_t *this, dht_local_t *local)
                 goto out;
         }
 
+        gf_uuid_unparse(local->gfid, gfid_local);
         copy = create_frame (this, this->ctx->pool);
         if (copy) {
                 copy_local = dht_local_init (copy, &(local->loc), NULL, 0);
@@ -1358,8 +1357,9 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!op_ret && gf_uuid_is_null (local->gfid)) {
                 memcpy (local->gfid, stbuf->ia_gfid, 16);
         }
-        if (local->gfid)
+        if (!gf_uuid_is_null(local->gfid)) {
                 gf_uuid_unparse(local->gfid, gfid_local);
+        }
 
         /* Check if the gfid is different for file from other node */
         if (!op_ret && gf_uuid_compare (local->gfid, stbuf->ia_gfid)) {
@@ -5198,7 +5198,8 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                         op_errno = ENOMEM;
                         goto err;
                 }
-                (void) strncpy (local->xsel, node_uuid_key, 256);
+                (void) snprintf (local->xsel, sizeof (local->xsel), "%s",
+                                 node_uuid_key);
                 cnt = local->call_cnt = conf->subvolume_cnt;
                 for (i = 0; i < cnt; i++) {
                         STACK_WIND_COOKIE (frame, dht_find_local_subvol_cbk,
@@ -5223,7 +5224,8 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                         op_errno = ENOMEM;
                         goto err;
                 }
-                (void) strncpy (local->xsel, node_uuid_key, 256);
+                (void) snprintf (local->xsel, sizeof (local->xsel), "%s",
+                                 node_uuid_key);
                 cnt = local->call_cnt = conf->subvolume_cnt;
                 for (i = 0; i < cnt; i++) {
                         STACK_WIND_COOKIE (frame, dht_find_local_subvol_cbk,
@@ -5251,7 +5253,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
             (XATTR_IS_PATHINFO (key)
              || (strcmp (key, GF_XATTR_NODE_UUID_KEY) == 0)
              || (strcmp (key, GF_XATTR_LIST_NODE_UUIDS_KEY) == 0))) {
-                (void) strncpy (local->xsel, key, 256);
+                (void) snprintf (local->xsel, sizeof (local->xsel), "%s", key);
                 cnt = local->call_cnt = layout->cnt;
                 for (i = 0; i < cnt; i++) {
                         subvol = layout->list[i].xlator;
@@ -5266,8 +5268,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
         if (key && ((strcmp (key, GF_XATTR_NODE_UUID_KEY) == 0)
                     || XATTR_IS_PATHINFO (key))) {
                 cached_subvol = local->cached_subvol;
-                (void) strncpy (local->xsel, key, 256);
-
+                (void) snprintf (local->xsel, sizeof (local->xsel), "%s", key);
                 local->call_cnt = 1;
                 STACK_WIND_COOKIE (frame, dht_vgetxattr_cbk, cached_subvol,
                                    cached_subvol, cached_subvol->fops->getxattr,
@@ -5617,8 +5618,9 @@ dht_dir_common_set_remove_xattr (call_frame_t *frame, xlator_t *this, loc_t *loc
         call_cnt = conf->subvolume_cnt;
         local->flags = flags;
 
-        if (local->gfid)
+        if (!gf_uuid_is_null (local->gfid)) {
                 gf_uuid_unparse(local->gfid, gfid_local);
+        }
 
         if ((local->fop == GF_FOP_SETXATTR) ||
             (local->fop == GF_FOP_FSETXATTR)) {
@@ -9655,7 +9657,7 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
 {
         dht_local_t  *local                   = NULL;
         dht_conf_t   *conf                    = NULL;
-        int           op_errno                = -1, ret = -1;
+        int           op_errno                = EINVAL, ret = -1;
         xlator_t     *hashed_subvol           = NULL;
         char          pgfid[GF_UUID_BUF_SIZE] = {0};
         call_stub_t  *stub                    = NULL;
@@ -11060,7 +11062,6 @@ dht_ipc (call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
         return 0;
 
 err:
-        op_errno = (op_errno == -1) ? errno : op_errno;
         DHT_STACK_UNWIND (ipc, frame, -1, op_errno, NULL);
 
         return 0;

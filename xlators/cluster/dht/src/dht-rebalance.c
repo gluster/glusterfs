@@ -4590,6 +4590,7 @@ gf_defrag_estimates_init (xlator_t *this, loc_t *loc,
                 gf_msg (this->name, GF_LOG_ERROR, ret, 0, "Failed to "
                         "create the file counter thread ");
                 ret = -1;
+                goto out;
         }
         ret = 0;
 out:
