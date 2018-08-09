@@ -1757,11 +1757,11 @@ mnt3_check_client_net_udp (struct svc_req *req, char *volname, xlator_t *nfsx)
          * address family. Sigh.
          */
 #endif
-        /* And let's make sure that it's actually an IPv4 address. */
-        GF_ASSERT (sin->sin_family == AF_INET);
-
         if (!sin)
                 goto err;
+        /* And let's make sure that it's actually an IPv4 address. */
+
+        GF_ASSERT (sin->sin_family == AF_INET);
 
         (void) inet_ntop (AF_INET, &sin->sin_addr, ipaddr, INET_ADDRSTRLEN);
 
@@ -1997,9 +1997,13 @@ _mnt3_authenticate_req (struct mount3_state *ms, rpcsvc_request_t *req,
         GF_VALIDATE_OR_GOTO (GF_MNT, req, out);
 
         peer_addr    = _mnt3_get_peer_addr (req);
+
+        if (!peer_addr)
+                goto free_and_out;
+
         host_addr_ip = _mnt3_get_host_from_peer (peer_addr);
 
-        if (!host_addr_ip || !peer_addr)
+        if (!host_addr_ip)
                 goto free_and_out;
 
         if (path) {
@@ -2713,7 +2717,7 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, struct mount3_state *ms)
                                 /* chain the groups together */
                                 if (!elist->ex_groups)
                                         elist->ex_groups = group;
-                                else
+                                else if (!prev_group)
                                         prev_group->gr_next = group;
                                 prev_group = group;
                         }
