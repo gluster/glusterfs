@@ -318,6 +318,20 @@ else
         CFLAGS="${CFLAGS} -g -rdynamic"
 fi
 
+AC_ARG_ENABLE([asan],
+              AC_HELP_STRING([--enable-asan],
+                             [Enable Address Sanitizer support]))
+if test "x$enable_asan" = "xyes"; then
+        BUILD_ASAN=yes
+        AC_CHECK_LIB([asan], [__asan_init], ,
+                [AC_MSG_ERROR([libasan.so not found, this is required for --enable-asan])])
+        GF_CFLAGS="${GF_CFLAGS} -O1 -g -fsanitize=address -fno-omit-frame-pointer"
+        dnl -lasan always need to be the first library, otherwise libxml complains
+        GF_LDFLAGS="-lasan ${GF_LDFLAGS}"
+else
+        BUILD_ASAN=no
+fi
+
 
 dnl When possible, prefer libtirpc over glibc rpc.
 dnl
@@ -345,12 +359,14 @@ AC_ARG_WITH([ipv6-default],
 
 AC_CHECK_FILE([/etc/centos-release])
 if test "x$ac_cv_file__etc_centos_release" = "xyes"; then
-        dnl On CentOS '-ldl' isn't automatically added to LIBS
-        AC_CHECK_LIB([dl], [dlopen])
         if grep "release 6" /etc/centos-release; then
                 with_ipv6_default="no"
         fi
 fi
+
+dnl On some distributions '-ldl' isn't automatically added to LIBS
+AC_CHECK_LIB([dl], [dlopen], [LIB_DL=-ldl])
+AC_SUBST(LIB_DL)
 
 AC_ARG_ENABLE([privport_tracking],
               AC_HELP_STRING([--disable-privport_tracking],
@@ -1144,7 +1160,7 @@ fi
 AC_SUBST(GF_DISTRIBUTION)
 
 GF_HOST_OS=""
-GF_LDFLAGS="-rdynamic"
+GF_LDFLAGS="${GF_LDFLAGS} -rdynamic"
 
 dnl see --with-libtirpc option check above, libtirpc(-devel) is required for
 dnl ipv6-default
@@ -1285,7 +1301,7 @@ case $host_os in
         GF_FUSE_CFLAGS="-DFUSERMOUNT_DIR=\\\"\$(sbindir)\\\""
         GF_LDADD="${ARGP_LDADD}"
         if test "x$ac_cv_header_execinfo_h" = "xyes"; then
-           GF_LDFLAGS="-lexecinfo"
+           GF_LDFLAGS="${GF_LDFLAGS} -lexecinfo"
         fi
         GF_FUSE_LDADD="-lperfuse"
         BUILD_FUSE_CLIENT=yes
@@ -1306,7 +1322,7 @@ case $host_os in
         GF_FUSE_CFLAGS="-DFUSERMOUNT_DIR=\\\"\$(sbindir)\\\""
         GF_LDADD="${ARGP_LDADD}"
         if test "x$ac_cv_header_execinfo_h" = "xyes"; then
-           GF_LDFLAGS="-lexecinfo"
+           GF_LDFLAGS="${GF_LDFLAGS} -lexecinfo"
         fi
         BUILD_FUSE_CLIENT=yes
         BUILD_FUSERMOUNT=no
@@ -1321,7 +1337,7 @@ case $host_os in
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_BASENAME"
         GF_CFLAGS="${GF_CFLAGS} -DTHREAD_UNSAFE_DIRNAME"
         GF_LDADD="${ARGP_LDADD}"
-        GF_LDFLAGS=""
+        GF_LDFLAGS="${GF_LDFLAGS}"
         GF_FUSE_CFLAGS="-I\$(CONTRIBDIR)/macfuse"
         BUILD_FUSERMOUNT="no"
         FUSERMOUNT_SUBDIR=""
@@ -1723,6 +1739,7 @@ echo "readline             : $BUILD_READLINE"
 echo "georeplication       : $BUILD_SYNCDAEMON"
 echo "Linux-AIO            : $BUILD_LIBAIO"
 echo "Enable Debug         : $BUILD_DEBUG"
+echo "Enable ASAN          : $BUILD_ASAN"
 echo "Block Device xlator  : $BUILD_BD_XLATOR"
 echo "glupy                : $BUILD_GLUPY"
 echo "Use syslog           : $USE_SYSLOG"

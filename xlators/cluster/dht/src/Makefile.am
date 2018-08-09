@@ -35,7 +35,7 @@ switch_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 tier_la_LDFLAGS = -module -avoid-version \
 	-export-symbols $(top_srcdir)/xlators/cluster/dht/src/tier.sym \
-	$(GF_NO_UNDEFINED)
+	$(LIB_DL) $(GF_NO_UNDEFINED)
 tier_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = dht-common.h dht-mem-types.h dht-messages.h \
