@@ -2411,10 +2411,10 @@ cli_xml_output_vol_info_option (xmlTextWriterPtr writer, char *substr,
                         break;
                 ptr1++;
                 ptr2++;
-                if (!ptr1)
-                        goto out;
-                if (!ptr2)
-                        goto out;
+                if (!*ptr1)
+                        break;
+                if (!*ptr2)
+                        break;
         }
         if (*ptr2 == '\0')
                 goto out;

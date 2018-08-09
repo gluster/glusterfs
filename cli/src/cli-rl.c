@@ -295,6 +295,8 @@ cli_rl_autocomplete_prepare (struct cli_state *state, const char *text)
         if (!word)
                 goto out;
 
+        if (!tokens)
+                return 0;
         matches = cli_rl_get_matches (state, word, token);
 
         state->matches = matches;
