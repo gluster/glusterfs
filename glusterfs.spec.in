@@ -9,6 +9,15 @@
 ## All argument definitions should be placed here and keep them sorted
 ##
 
+# asan
+# if you wish to compile an rpm with address sanitizer...
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with asan
+%{?_with_asan:%global _with_asan --enable-asan}
+
+%if ( 0%{?rhel} && 0%{?rhel} < 7 )
+%global _with_asan %{nil}
+%endif
+
 # bd
 # if you wish to compile an rpm without the BD map support...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without bd
@@ -258,6 +267,9 @@ BuildRequires:    systemd
 Requires:         %{name}-libs%{?_isa} = %{version}-%{release}
 %if ( 0%{?_with_systemd:1} )
 %{?systemd_requires}
+%endif
+%if 0%{?_with_asan:1} && !( 0%{?rhel} && 0%{?rhel} < 7 )
+BuildRequires:    libasan
 %endif
 BuildRequires:    bison flex
 BuildRequires:    gcc make libtool
@@ -724,6 +736,7 @@ export CFLAGS
 %endif
 
 %configure \
+        %{?_with_asan} \
         %{?_with_cmocka} \
         %{?_with_debug} \
         %{?_with_firewalld} \
@@ -1501,6 +1514,9 @@ exit 0
 %endif
 
 %changelog
+* Fri Sep 7 2018 Niels de Vos <ndevos@redhat.com>
+- Add an option to build with address sanitizer (ASAN)
+
 * Sun Jul 29 2018 Niels de Vos <ndevos@redhat.com>
 - Disable building glusterfs-resource-agents on el6 (#1609551)
 
