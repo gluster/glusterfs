@@ -142,6 +142,12 @@
                 break;                                                  \
         }                                                               \
                                                                         \
+        if (strstr (loc->name, "../")) {                                \
+                gf_msg (this->name, GF_LOG_ERROR, 0, P_MSG_ENTRY_HANDLE_CREATE, \
+                        "'../' in name not allowed: (%s)", loc->name); \
+                op_ret = -1;                                            \
+                break;                                                  \
+        }                                                               \
         if (LOC_HAS_ABSPATH (loc)) {                                    \
                 MAKE_REAL_PATH (entp, this, loc->path);                 \
                 __parp = strdupa (entp);                                \
