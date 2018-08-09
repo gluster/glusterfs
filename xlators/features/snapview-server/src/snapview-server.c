@@ -901,7 +901,7 @@ svs_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
         }
 
 out:
-        if (op_ret)
+        if (op_ret && value)
                 GF_FREE (value);
 
         STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict, NULL);
@@ -1337,7 +1337,6 @@ svs_glfs_readdir (xlator_t *this, glfs_fd_t *glfd, gf_dirent_t *entries,
                         break;
                 }
                 dirents = NULL;
-                ret = -1;
         }
 
 out:
