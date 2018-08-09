@@ -1057,6 +1057,8 @@ tbf_init
 tbf_throttle
 timespec_now
 timespec_sub
+timespec_adjust_delta
+timespec_cmp
 token_iter_init
 trap
 trie_add

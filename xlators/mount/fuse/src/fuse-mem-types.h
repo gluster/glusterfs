@@ -24,6 +24,8 @@ enum gf_fuse_mem_types_ {
     gf_fuse_mt_gids_t,
     gf_fuse_mt_invalidate_node_t,
     gf_fuse_mt_pthread_t,
+    gf_fuse_mt_timed_message_t,
+    gf_fuse_mt_interrupt_record_t,
     gf_fuse_mt_end
 };
 #endif

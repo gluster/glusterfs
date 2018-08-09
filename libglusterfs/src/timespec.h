@@ -25,5 +25,7 @@ timespec_adjust_delta(struct timespec *ts, struct timespec delta);
 void
 timespec_sub(const struct timespec *begin, const struct timespec *end,
              struct timespec *res);
+int
+timespec_cmp(const struct timespec *lhs_ts, const struct timespec *rhs_ts);
 
 #endif /*  __INCLUDE_TIMESPEC_H__ */
