@@ -21,7 +21,7 @@ glupy_la_LDFLAGS = $(PYTHONDEV_LDFLAGS) -module -avoid-version -nostartfiles \
 
 glupy_la_SOURCES = glupy.c
 glupy_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
-	-lpthread -l$(BUILD_PYTHON_LIB)
+	-lpthread -l$(BUILD_PYTHON_LIB) $(LIB_DL)
 
 noinst_HEADERS = glupy.h
 

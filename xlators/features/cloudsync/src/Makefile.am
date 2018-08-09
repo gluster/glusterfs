@@ -21,7 +21,7 @@ cloudsync_la_SOURCES = $(cloudsync_sources) $(cloudsynccommon_sources)
 nodist_cloudsync_la_SOURCES = cloudsync-autogen-fops.c cloudsync-autogen-fops.h
 BUILT_SOURCES = cloudsync-autogen-fops.h
 
-cloudsync_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
+cloudsync_la_LDFLAGS = $(LIB_DL) -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 cloudsync_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
