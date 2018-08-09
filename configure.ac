@@ -323,7 +323,7 @@ AC_ARG_ENABLE([asan],
                              [Enable Address Sanitizer support]))
 if test "x$enable_asan" = "xyes"; then
         BUILD_ASAN=yes
-        AC_CHECK_LIB([asan], [__asan_init], ,
+        AC_CHECK_LIB([asan], [__asan_report_error], ,
                 [AC_MSG_ERROR([libasan.so not found, this is required for --enable-asan])])
         GF_CFLAGS="${GF_CFLAGS} -O1 -g -fsanitize=address -fno-omit-frame-pointer"
         dnl -lasan always need to be the first library, otherwise libxml complains
