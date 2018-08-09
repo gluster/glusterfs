@@ -311,6 +311,18 @@ resolve_entry_simple (call_frame_t *frame)
         /* expected @parent was found from the inode cache */
         gf_uuid_copy (state->loc_now->pargfid, resolve->pargfid);
         state->loc_now->parent = inode_ref (parent);
+
+        if (strstr (resolve->bname, "../")) {
+                /* Resolving outside the parent's tree is not allowed */
+                gf_msg (this->name, GF_LOG_ERROR, EPERM,
+                        PS_MSG_GFID_RESOLVE_FAILED,
+                        "%s: path sent by client not allowed",
+                        resolve->bname);
+                resolve->op_ret   = -1;
+                resolve->op_errno = EPERM;
+                ret = 1;
+                goto out;
+        }
         state->loc_now->name = resolve->bname;
 
         inode = inode_grep (state->itable, parent, resolve->bname);
