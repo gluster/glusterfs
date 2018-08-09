@@ -90,3 +90,19 @@ timespec_sub(const struct timespec *begin, const struct timespec *end,
         res->tv_nsec = end->tv_nsec - begin->tv_nsec;
     }
 }
+
+int
+timespec_cmp(const struct timespec *lhs_ts, const struct timespec *rhs_ts)
+{
+    if (lhs_ts->tv_sec < rhs_ts->tv_sec) {
+        return -1;
+    } else if (lhs_ts->tv_sec > rhs_ts->tv_sec) {
+        return 1;
+    } else if (lhs_ts->tv_nsec < rhs_ts->tv_nsec) {
+        return -1;
+    } else if (lhs_ts->tv_nsec > rhs_ts->tv_nsec) {
+        return 1;
+    }
+
+    return 0;
+}

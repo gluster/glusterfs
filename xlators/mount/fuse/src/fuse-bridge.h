@@ -151,6 +151,16 @@ struct fuse_private {
     /* Writeback cache support */
     gf_boolean_t kernel_writeback_cache;
     int attr_times_granularity;
+
+    /* Delayed fuse response */
+    struct list_head timed_list;
+    pthread_cond_t timed_cond;
+    pthread_mutex_t timed_mutex;
+    gf_boolean_t timed_response_fuse_thread_started;
+
+    /* Interrupt subscription */
+    struct list_head interrupt_list;
+    pthread_mutex_t interrupt_mutex;
 };
 typedef struct fuse_private fuse_private_t;
 
@@ -164,6 +174,35 @@ struct fuse_invalidate_node {
     struct list_head next;
 };
 typedef struct fuse_invalidate_node fuse_invalidate_node_t;
+
+struct fuse_timed_message {
+    struct fuse_out_header fuse_out_header;
+    void *fuse_message_body;
+    struct timespec scheduled_ts;
+    struct list_head next;
+};
+typedef struct fuse_timed_message fuse_timed_message_t;
+
+enum fuse_interrupt_state {
+    INTERRUPT_NONE,
+    INTERRUPT_SQUELCHED,
+    INTERRUPT_HANDLED,
+};
+typedef enum fuse_interrupt_state fuse_interrupt_state_t;
+struct fuse_interrupt_record;
+typedef struct fuse_interrupt_record fuse_interrupt_record_t;
+typedef void (*fuse_interrupt_handler_t)(xlator_t *this,
+                                         fuse_interrupt_record_t *);
+struct fuse_interrupt_record {
+    struct fuse_in_header fuse_in_header;
+    void *data;
+    gf_boolean_t hit;
+    fuse_interrupt_state_t interrupt_state;
+    fuse_interrupt_handler_t interrupt_handler;
+    pthread_cond_t handler_cond;
+    pthread_mutex_t handler_mutex;
+    struct list_head next;
+};
 
 struct fuse_graph_switch_args {
     xlator_t *this;
