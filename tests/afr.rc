@@ -97,3 +97,11 @@ function afr_up_status()
         local replica_id=$3
         grep -E "^up = " $m/.meta/graphs/active/${v}-replicate-${replica_id}/private | cut -f2 -d'='
 }
+
+function get_quorum_type()
+{
+        local m="$1"
+        local v="$2"
+        local repl_id="$3"
+        cat $m/.meta/graphs/active/$v-replicate-$repl_id/private|grep quorum-type|awk '{print $3}'
+}
