@@ -162,6 +162,7 @@ typedef struct {
         struct cds_list_head     brick_procs; /* List of brick processes */
         pthread_mutex_t          xprt_lock;
         struct list_head         xprt_list;
+        pthread_mutex_t          import_volumes;
         gf_store_handle_t       *handle;
         gf_timer_t              *timer;
         glusterd_sm_tr_log_t     op_sm_log;
