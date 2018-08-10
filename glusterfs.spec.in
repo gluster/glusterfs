@@ -270,9 +270,6 @@ BuildRequires:    libuuid-devel
 %if ( 0%{?_with_cmocka:1} )
 BuildRequires:    libcmocka-devel >= 1.0.1
 %endif
-%if ( 0%{!?_without_bd:1} )
-BuildRequires:    lvm2-devel
-%endif
 %if ( 0%{!?_without_georeplication:1} )
 BuildRequires:    libattr-devel
 %endif
@@ -688,7 +685,6 @@ done
         %{?_with_gnfs} \
         %{?_with_tmpfilesdir} \
         %{?_with_valgrind} \
-        %{?_without_bd} \
         %{?_without_epoll} \
         %{?_without_events} \
         %{?_without_fusermount} \
@@ -1265,9 +1261,6 @@ exit 0
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage
-%if ( 0%{!?_without_bd:1} )
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage/bd.so
-%endif
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage/posix.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/performance/decompounder.so
