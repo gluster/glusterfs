@@ -6,10 +6,16 @@ cleanup;
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{0,1}
+EXPECT 'Created' volinfo_field $V0 'Status';
 TEST $CLI volume start $V0
+EXPECT 'Started' volinfo_field $V0 'Status';
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}1
+
 TEST $CLI volume set $V0 cluster.data-self-heal off
 TEST $CLI volume set $V0 cluster.metadata-self-heal off
 TEST $CLI volume set $V0 cluster.entry-self-heal off
+TEST $CLI volume set $V0 cluster.heal-timeout 5
 
 TEST $CLI volume set $V0 self-heal-daemon off
 TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0;
@@ -25,6 +31,7 @@ TEST setfattr -n user.test -v qwerty $M0/file5.txt
 
 # Add brick1
 TEST $CLI volume add-brick $V0 replica 3 $H0:$B0/${V0}2
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}2
 
 # New-brick should accuse the old-bricks (Simulating case for data-loss)
 TEST setfattr -n trusted.afr.$V0-client-0 -v 0x000000000000000000000001 $B0/${V0}2/
