@@ -287,7 +287,6 @@ struct glusterd_defrag_info_ {
         struct rpc_clnt             *rpc;
         uint32_t                     connected;
         char                         mount[1024];
-        char                         databuf[131072];
         struct gf_defrag_brickinfo_ *bricks; /* volinfo->brick_count */
 
         defrag_cbk_fn_t              cbk_fn;
