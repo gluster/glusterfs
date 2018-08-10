@@ -1854,6 +1854,7 @@ init (xlator_t *this)
         synclock_init (&conf->big_lock, SYNC_LOCK_RECURSIVE);
         pthread_mutex_init (&conf->xprt_lock, NULL);
         INIT_LIST_HEAD (&conf->xprt_list);
+        pthread_mutex_init (&conf->import_volumes, NULL);
 
         glusterd_friend_sm_init ();
         glusterd_op_sm_init ();

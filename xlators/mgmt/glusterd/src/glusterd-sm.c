@@ -937,54 +937,59 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
          */
 
         //Build comparison logic here.
-        ret = glusterd_compare_friend_data (ev_ctx->vols, &status,
-                                            event->peername);
-        if (ret)
-                goto out;
-
-        if (GLUSTERD_VOL_COMP_RJT != status) {
-                event_type = GD_FRIEND_EVENT_LOCAL_ACC;
-                op_ret = 0;
-        } else {
-                event_type = GD_FRIEND_EVENT_LOCAL_RJT;
-                op_errno = GF_PROBE_VOLUME_CONFLICT;
-                op_ret = -1;
-        }
-
-        /* Compare missed_snapshot list with the peer *
-         * if volume comparison is successful */
-        if ((op_ret == 0) &&
-            (conf->op_version >= GD_OP_VERSION_3_6_0)) {
-                ret = glusterd_import_friend_missed_snap_list (ev_ctx->vols);
+        pthread_mutex_lock (&conf->import_volumes);
+        {
+                ret = glusterd_compare_friend_data (ev_ctx->vols, &status,
+                                                    event->peername);
                 if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_MISSED_SNAP_LIST_STORE_FAIL,
-                                "Failed to import peer's "
-                                "missed_snaps_list.");
+                        pthread_mutex_unlock (&conf->import_volumes);
+                        goto out;
+                }
+
+                if (GLUSTERD_VOL_COMP_RJT != status) {
+                        event_type = GD_FRIEND_EVENT_LOCAL_ACC;
+                        op_ret = 0;
+                } else {
                         event_type = GD_FRIEND_EVENT_LOCAL_RJT;
-                        op_errno = GF_PROBE_MISSED_SNAP_CONFLICT;
+                        op_errno = GF_PROBE_VOLUME_CONFLICT;
                         op_ret = -1;
                 }
 
-                /* glusterd_compare_friend_snapshots and functions only require
-                 * a peers hostname and uuid. It also does updates, which
-                 * require use of synchronize_rcu. So we pass the hostname and
-                 * id from the event instead of the peerinfo object to prevent
-                 * deadlocks as above.
-                 */
-                ret = glusterd_compare_friend_snapshots (ev_ctx->vols,
-                                                         event->peername,
-                                                         event->peerid);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                GD_MSG_SNAP_COMPARE_CONFLICT,
-                                "Conflict in comparing peer's snapshots");
-                        event_type = GD_FRIEND_EVENT_LOCAL_RJT;
-                        op_errno = GF_PROBE_SNAP_CONFLICT;
-                        op_ret = -1;
+                /* Compare missed_snapshot list with the peer *
+                 * if volume comparison is successful */
+                if ((op_ret == 0) &&
+                    (conf->op_version >= GD_OP_VERSION_3_6_0)) {
+                        ret = glusterd_import_friend_missed_snap_list (ev_ctx->vols);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_MISSED_SNAP_LIST_STORE_FAIL,
+                                        "Failed to import peer's "
+                                        "missed_snaps_list.");
+                                event_type = GD_FRIEND_EVENT_LOCAL_RJT;
+                                op_errno = GF_PROBE_MISSED_SNAP_CONFLICT;
+                                op_ret = -1;
+                        }
+
+                        /* glusterd_compare_friend_snapshots and functions only require
+                         * a peers hostname and uuid. It also does updates, which
+                         * require use of synchronize_rcu. So we pass the hostname and
+                         * id from the event instead of the peerinfo object to prevent
+                         * deadlocks as above.
+                         */
+                        ret = glusterd_compare_friend_snapshots (ev_ctx->vols,
+                                                                 event->peername,
+                                                                 event->peerid);
+                        if (ret) {
+                                gf_msg (this->name, GF_LOG_ERROR, 0,
+                                        GD_MSG_SNAP_COMPARE_CONFLICT,
+                                        "Conflict in comparing peer's snapshots");
+                                event_type = GD_FRIEND_EVENT_LOCAL_RJT;
+                                op_errno = GF_PROBE_SNAP_CONFLICT;
+                                op_ret = -1;
+                        }
                 }
         }
-
+        pthread_mutex_unlock (&conf->import_volumes);
         ret = glusterd_friend_sm_new_event (event_type, &new_event);
 
         if (ret) {
