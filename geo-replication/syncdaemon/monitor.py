@@ -105,10 +105,6 @@ class Monitor(object):
                                                     master,
                                                     "%s::%s" % (slave_host,
                                                                 slave_vol))
-
-        set_monitor_status(gconf.get("state-file"), self.ST_STARTED)
-        self.status[w[0]['dir']].set_worker_status(self.ST_INIT)
-
         ret = 0
 
         def nwait(p, o=0):
@@ -153,6 +149,7 @@ class Monitor(object):
             # Spawn the worker and agent in lock to avoid fd leak
             self.lock.acquire()
 
+            self.status[w[0]['dir']].set_worker_status(self.ST_INIT)
             logging.info(lf('starting gsyncd worker',
                             brick=w[0]['dir'],
                             slave_node=remote_host))
@@ -349,6 +346,19 @@ class Monitor(object):
             t = Thread(target=wmon, args=[wx])
             t.start()
             ta.append(t)
+
+        # monitor status was being updated in each monitor thread. It
+        # should not be done as it can cause deadlock for a worker start.
+        # set_monitor_status uses flock to synchronize multple instances
+        # updating the file. Since each monitor thread forks worker and
+        # agent, these processes can hold the reference to fd of status
+        # file causing deadlock to workers which starts later as flock
+        # will not be release until all references to same fd is closed.
+        # It will also cause fd leaks.
+
+        self.lock.acquire()
+        set_monitor_status(gconf.get("state-file"), self.ST_STARTED)
+        self.lock.release()
         for t in ta:
             t.join()
 
