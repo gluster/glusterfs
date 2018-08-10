@@ -30,9 +30,6 @@ glusterd_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/rpc/xdr/src/libgfxdr.la \
 	$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
 	$(XML_LIBS) -lcrypto $(URCU_LIBS) $(URCU_CDS_LIBS)
-if ENABLE_BD_XLATOR
-glusterd_la_LIBADD += -llvm2app
-endif
 
 noinst_HEADERS = glusterd.h glusterd-utils.h glusterd-op-sm.h \
 	glusterd-sm.h glusterd-store.h glusterd-mem-types.h \
