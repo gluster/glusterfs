@@ -58,9 +58,9 @@ TEST $CLI volume set $V0 cluster.entry-self-heal on
 
 TEST ls $M0
 EXPECT "000000000000000000000001" get_hex_xattr trusted.afr.$V0-client-0 $B0/${V0}1
-EXPECT "000000000000000000000000" get_hex_xattr trusted.afr.$V0-client-2 $B0/${V0}1
 EXPECT "000000000000000000000001" get_hex_xattr trusted.afr.$V0-client-0 $B0/${V0}2
-EXPECT "000000000000000000000000" get_hex_xattr trusted.afr.$V0-client-1 $B0/${V0}2
+EXPECT_WITHIN $HEAL_TIMEOUT "000000000000000000000000" get_hex_xattr trusted.afr.$V0-client-2 $B0/${V0}1
+EXPECT_WITHIN $HEAL_TIMEOUT "000000000000000000000000" get_hex_xattr trusted.afr.$V0-client-1 $B0/${V0}2
 
 #Bring back all the bricks and trigger the heal again by doing ls. Now the
 #pending xattrs on all the bricks should be 0.
