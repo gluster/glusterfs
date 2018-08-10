@@ -100,6 +100,7 @@ class LockedOpen(object):
         return f
 
     def __exit__(self, _exc_type, _exc_value, _traceback):
+        fcntl.flock(self.fileobj, fcntl.LOCK_UN)
         self.fileobj.close()
 
 
