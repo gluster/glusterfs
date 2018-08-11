@@ -23,8 +23,6 @@ function count_brick_pids {
 cleanup
 TEST glusterd
 TEST $CLI volume set all cluster.brick-multiplex yes
-push_trapfunc "$CLI volume set all cluster.brick-multiplex off"
-push_trapfunc "cleanup"
 
 # Create two vanilla volumes.
 TEST $CLI volume create $V0 $H0:$B0/brick-${V0}-{0,1}
@@ -51,3 +49,5 @@ TEST $CLI volume start $V1
 
 # There should be two processes this time (can't share protocol/server).
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" count_processes
+
+cleanup;
