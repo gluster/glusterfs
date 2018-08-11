@@ -16,10 +16,17 @@
 #include "atomic.h"
 
 typedef struct qr_local {
-        inode_t *inode;
+        inode_t  *inode;
         uint64_t  incident_gen;
-        fd_t *fd;
+        fd_t     *fd;
 } qr_local_t;
+
+qr_inode_t *
+qr_inode_ctx_get (xlator_t *this, inode_t *inode);
+
+void
+__qr_inode_prune_data (xlator_t *this, qr_inode_table_t *table,
+                       qr_inode_t *qr_inode);
 
 void
 qr_local_wipe (qr_local_t *local)
@@ -38,17 +45,68 @@ out:
         return;
 }
 
+uint64_t
+__qr_get_generation (xlator_t *this, qr_inode_t *qr_inode)
+{
+        uint64_t          gen   = 0, rollover;
+        qr_private_t     *priv  = NULL;
+        qr_inode_table_t *table = NULL;
+
+        priv = this->private;
+        table = &priv->table;
+
+        gen = GF_ATOMIC_INC (priv->generation);
+        if (gen == 0) {
+                qr_inode->gen_rollover = !qr_inode->gen_rollover;
+                gen = GF_ATOMIC_INC (priv->generation);
+                __qr_inode_prune_data (this, table, qr_inode);
+                qr_inode->gen = qr_inode->invalidation_time = gen - 1;
+        }
+
+        rollover = qr_inode->gen_rollover;
+        gen |= (rollover << 32);
+        return gen;
+}
+
+uint64_t
+qr_get_generation (xlator_t *this, inode_t *inode)
+{
+        qr_inode_t       *qr_inode = NULL;
+        uint64_t          gen      = 0;
+        qr_inode_table_t *table    = NULL;
+        qr_private_t     *priv     = NULL;
+
+        priv = this->private;
+        table = &priv->table;
+
+        qr_inode = qr_inode_ctx_get (this, inode);
+
+        if (qr_inode) {
+                LOCK (&table->lock);
+                {
+                        gen = __qr_get_generation (this, qr_inode);
+                }
+                UNLOCK (&table->lock);
+        } else {
+                gen = GF_ATOMIC_INC (priv->generation);
+                if (gen == 0) {
+                        gen = GF_ATOMIC_INC (priv->generation);
+                }
+        }
+
+        return gen;
+}
+
 qr_local_t *
-qr_local_get (xlator_t *this)
+qr_local_get (xlator_t *this, inode_t *inode)
 {
         qr_local_t *local = NULL;
-	qr_private_t *priv = this->private;
 
         local = GF_CALLOC (1, sizeof (*local), gf_common_mt_char);
         if (!local)
                 goto out;
 
-        local->incident_gen = GF_ATOMIC_INC (priv->generation);
+        local->incident_gen = qr_get_generation (this, inode);
 out:
         return local;
 }
@@ -64,7 +122,6 @@ out:
         } while (0)
 
 
-qr_inode_t *qr_inode_ctx_get (xlator_t *this, inode_t *inode);
 
 void __qr_inode_prune (xlator_t *this, qr_inode_table_t *table,
                        qr_inode_t *qr_inode, uint64_t gen);
@@ -105,12 +162,16 @@ qr_inode_ctx_get (xlator_t *this, inode_t *inode)
 {
 	qr_inode_t *qr_inode = NULL;
 
+        if (inode == NULL)
+                goto out;
+
 	LOCK (&inode->lock);
 	{
 		qr_inode = __qr_inode_ctx_get (this, inode);
 	}
 	UNLOCK (&inode->lock);
 
+out:
 	return qr_inode;
 }
 
@@ -239,11 +300,9 @@ qr_inode_set_priority (xlator_t *this, inode_t *inode, const char *path)
 	UNLOCK (&table->lock);
 }
 
-
-/* To be called with priv->table.lock held */
 void
-__qr_inode_prune (xlator_t *this, qr_inode_table_t *table, qr_inode_t *qr_inode,
-                  uint64_t gen)
+__qr_inode_prune_data (xlator_t *this, qr_inode_table_t *table,
+                       qr_inode_t *qr_inode)
 {
         qr_private_t     *priv = NULL;
 
@@ -251,9 +310,6 @@ __qr_inode_prune (xlator_t *this, qr_inode_table_t *table, qr_inode_t *qr_inode,
 
 	GF_FREE (qr_inode->data);
 	qr_inode->data = NULL;
-
-        /* Set gen only with valid callers */
-        qr_inode->gen = gen;
 
 	if (!list_empty (&qr_inode->lru)) {
 		table->cache_used -= qr_inode->size;
@@ -265,7 +321,18 @@ __qr_inode_prune (xlator_t *this, qr_inode_table_t *table, qr_inode_t *qr_inode,
 	}
 
 	memset (&qr_inode->buf, 0, sizeof (qr_inode->buf));
-        qr_inode->invalidation_time = GF_ATOMIC_INC (priv->generation);
+
+}
+
+/* To be called with priv->table.lock held */
+void
+__qr_inode_prune (xlator_t *this, qr_inode_table_t *table, qr_inode_t *qr_inode,
+                  uint64_t gen)
+{
+        __qr_inode_prune_data (this, table, qr_inode);
+        if (gen)
+                qr_inode->gen = gen;
+        qr_inode->invalidation_time = __qr_get_generation (this, qr_inode);
 }
 
 
@@ -299,17 +366,13 @@ __qr_cache_prune (xlator_t *this, qr_inode_table_t *table, qr_conf_t *conf)
 	qr_inode_t        *next = NULL;
         int                index = 0;
 	size_t             size_pruned = 0;
-	qr_private_t *priv = NULL;
-
-	priv = this->private;
 
         for (index = 0; index < conf->max_pri; index++) {
                 list_for_each_entry_safe (curr, next, &table->lru[index], lru) {
 
                         size_pruned += curr->size;
 
-                        __qr_inode_prune (this, table, curr,
-					  GF_ATOMIC_INC (priv->generation));
+                        __qr_inode_prune (this, table, curr, 0);
 
                         if (table->cache_used < conf->cache_size)
 				return;
@@ -367,16 +430,20 @@ void
 qr_content_update (xlator_t *this, qr_inode_t *qr_inode, void *data,
 		   struct iatt *buf, uint64_t gen)
 {
-        qr_private_t      *priv = NULL;
-        qr_inode_table_t  *table = NULL;
+        qr_private_t     *priv     = NULL;
+        qr_inode_table_t *table    = NULL;
+        uint32_t          rollover = 0;
+
+        rollover = gen >> 32;
+        gen = gen & 0xffffffff;
 
         priv = this->private;
         table = &priv->table;
 
 	LOCK (&table->lock);
 	{
-                /* allow for rollover of frame->root->unique */
-                if (gen && qr_inode->gen && (qr_inode->gen >= gen))
+                if ((rollover != qr_inode->gen_rollover) ||
+                    (gen && qr_inode->gen && (qr_inode->gen >= gen)))
                         goto unlock;
 
                 if ((qr_inode->data == NULL) &&
@@ -450,13 +517,18 @@ __qr_content_refresh (xlator_t *this, qr_inode_t *qr_inode, struct iatt *buf,
         qr_private_t      *priv = NULL;
         qr_inode_table_t  *table = NULL;
 	qr_conf_t         *conf = NULL;
+        uint32_t          rollover = 0;
+
+        rollover = gen >> 32;
+        gen = gen & 0xffffffff;
 
         priv = this->private;
         table = &priv->table;
 	conf = &priv->conf;
 
         /* allow for rollover of frame->root->unique */
-        if (gen && qr_inode->gen && (qr_inode->gen >= gen))
+        if ((rollover != qr_inode->gen_rollover) ||
+            (gen && qr_inode->gen && (qr_inode->gen >= gen)))
                 goto done;
 
         if ((qr_inode->data == NULL) && (qr_inode->invalidation_time >= gen))
@@ -591,7 +663,7 @@ qr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
         priv = this->private;
         conf = &priv->conf;
-        local = qr_local_get (this);
+        local = qr_local_get (this, loc->inode);
         local->inode = inode_ref (loc->inode);
         frame->local = local;
 
@@ -664,7 +736,7 @@ qr_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
         qr_local_t *local = NULL;
 
-        local = qr_local_get (this);
+        local = qr_local_get (this, NULL);
         frame->local = local;
 
 	STACK_WIND (frame, qr_readdirp_cbk,
@@ -793,7 +865,7 @@ qr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *iov,
 {
         qr_local_t *local = NULL;
 
-        local = qr_local_get (this);
+        local = qr_local_get (this, fd->inode);
         local->fd = fd_ref (fd);
 
         frame->local = local;
@@ -826,7 +898,7 @@ qr_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
 {
         qr_local_t *local = NULL;
 
-        local = qr_local_get (this);
+        local = qr_local_get (this, loc->inode);
         local->inode = inode_ref (loc->inode);
         frame->local = local;
 
@@ -857,7 +929,7 @@ qr_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 {
         qr_local_t *local = NULL;
 
-        local = qr_local_get (this);
+        local = qr_local_get (this, fd->inode);
         local->fd = fd_ref (fd);
         frame->local = local;
 
@@ -888,7 +960,7 @@ qr_fallocate (call_frame_t *frame, xlator_t *this, fd_t *fd, int keep_size,
 {
         qr_local_t *local = NULL;
 
-        local = qr_local_get (this);
+        local = qr_local_get (this, fd->inode);
         local->fd = fd_ref (fd);
         frame->local = local;
 
@@ -919,7 +991,7 @@ qr_discard (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 {
         qr_local_t *local = NULL;
 
-        local = qr_local_get (this);
+        local = qr_local_get (this, fd->inode);
         local->fd = fd_ref (fd);
         frame->local = local;
 
@@ -950,7 +1022,7 @@ qr_zerofill (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 {
         qr_local_t *local = NULL;
 
-        local = qr_local_get (this);
+        local = qr_local_get (this, fd->inode);
         local->fd = fd_ref (fd);
         frame->local = local;
 
@@ -976,14 +1048,13 @@ int
 qr_forget (xlator_t *this, inode_t *inode)
 {
         qr_inode_t   *qr_inode = NULL;
-	qr_private_t *priv = this->private;
 
 	qr_inode = qr_inode_ctx_get (this, inode);
 
 	if (!qr_inode)
 		return 0;
 
-	qr_inode_prune (this, inode, GF_ATOMIC_INC (priv->generation));
+	qr_inode_prune (this, inode, qr_get_generation (this, inode));
 
 	GF_FREE (qr_inode);
 
@@ -1472,7 +1543,7 @@ qr_invalidate (xlator_t *this, void *data)
                         ret = -1;
                         goto out;
                 }
-                qr_inode_prune (this, inode, GF_ATOMIC_INC (priv->generation));
+                qr_inode_prune (this, inode, qr_get_generation (this, inode));
         }
 
 out:
