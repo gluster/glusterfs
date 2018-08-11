@@ -38,6 +38,7 @@ struct qr_inode {
 	uint32_t          ia_mtime_nsec;
         uint32_t          ia_ctime;
 	uint32_t          ia_ctime_nsec;
+        uint32_t          gen_rollover;
 	struct iatt       buf;
         struct timeval    last_refresh;
         struct list_head  lru;
@@ -85,7 +86,7 @@ struct qr_private {
         time_t last_child_down;
         gf_lock_t lock;
         struct qr_statistics qr_counter;
-        gf_atomic_t generation;
+        gf_atomic_int32_t generation;
 };
 typedef struct qr_private qr_private_t;
 
