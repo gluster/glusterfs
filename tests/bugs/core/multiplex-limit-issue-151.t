@@ -26,9 +26,6 @@ TEST ! $CLI volume set all cluster.max-bricks-per-process -1
 TEST ! $CLI volume set all cluster.max-bricks-per-process foobar
 TEST $CLI volume set all cluster.max-bricks-per-process 3
 
-push_trapfunc "$CLI volume set all cluster.brick-multiplex off"
-push_trapfunc "cleanup"
-
 TEST $CLI volume create $V0 $H0:$B0/brick{0..5}
 TEST $CLI volume start $V0
 
@@ -55,3 +52,5 @@ TEST $CLI volume remove-brick $V0 $H0:$B0/brick3 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 3 count_brick_processes
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 3 count_brick_pids
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 6 count_up_bricks
+
+cleanup;

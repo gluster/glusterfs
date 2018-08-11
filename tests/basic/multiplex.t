@@ -21,8 +21,6 @@ cleanup
 
 TEST glusterd
 TEST $CLI volume set all cluster.brick-multiplex on
-push_trapfunc "$CLI volume set all cluster.brick-multiplex off"
-push_trapfunc "cleanup"
 
 TEST $CLI volume create $V0 $H0:$B0/brick{0,1}
 TEST $CLI volume set $V0 features.trash enable
@@ -77,3 +75,4 @@ TEST glusterd
 EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 1 count_brick_pids
 EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 1 count_brick_processes
 
+cleanup;
