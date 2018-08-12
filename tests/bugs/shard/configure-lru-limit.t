@@ -11,6 +11,10 @@ TEST $CLI volume set $V0 features.shard on
 TEST $CLI volume set $V0 features.shard-block-size 4MB
 TEST $CLI volume set $V0 features.shard-lru-limit 25
 TEST $CLI volume start $V0
+EXPECT 'Started' volinfo_field $V0 'Status';
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}2
 
 TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0
 
