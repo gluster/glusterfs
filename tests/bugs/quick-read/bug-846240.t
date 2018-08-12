@@ -29,6 +29,8 @@ TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $MOUNTDIR;
 TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M1;
 
 TEST touch $M0/testfile;
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
+TEST glusterfs --volfile-server=$H0 --volfile-id=$V0 $M0;
 
 # open the file with the fd as 4
 TEST fd=`fd_available`;
@@ -46,8 +48,7 @@ TEST rm -f $M1/testfile;
 # the file would have been removed from the mount $M1. open() gets error
 # and the write call which is put into a stub (open had to be sent first)
 # should unwind with the error received in the open call.
-echo "data" >> $M0/testfile 2>/dev/null 1>/dev/null;
-TEST [ $? -ne 0 ]
+TEST ! fd_write $fd data
 
 TEST fd_close $fd;
 
