@@ -13,6 +13,11 @@ TEST pidof glusterd
 
 TEST $CLI volume create $V0 replica 3 $H0:$B0/${V0}{0,1,2}
 TEST $CLI volume start $V0
+EXPECT 'Started' volinfo_field $V0 'Status'
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}2
+
 TEST $CLI volume set $V0 features.shard on
 TEST $CLI volume set $V0 features.shard-block-size 4MB
 TEST $CLI volume heal $V0 granular-entry-heal enable
@@ -23,13 +28,21 @@ TEST $CLI volume set $V0 self-heal-daemon off
 TEST $CLI volume set $V0 performance.flush-behind off
 
 TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M0
-TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 2
 
-cd $M0
+TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 $M1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_meta $M1 $V0-replicate-0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_meta $M1 $V0-replicate-0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_meta $M1 $V0-replicate-0 2
+
+TEST cd $M0
 TEST dd if=/dev/zero of=file bs=1M count=8
 
 # Kill brick-0.
 TEST kill_brick $V0 $H0 $B0/${V0}0
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" brick_up_status $V0 $H0 $B0/${V0}0
 
 TEST "dd if=/dev/zero bs=1M count=8 >> file"
 
@@ -45,7 +58,7 @@ do
         TEST_IN_LOOP stat $B0/${V0}2/.glusterfs/indices/entry-changes/$DOT_SHARD_GFID/$FILE_GFID.$i
 done
 
-cd ~
+TEST cd ~
 TEST md5sum $M1/file
 
 # Test that the index associated with '/.shard' and the created shards do not disappear on B1 and B2.
