@@ -675,6 +675,19 @@ resolve_pargfid_to_path (xlator_t *this, const uuid_t gfid, char **path,
                         goto label;                                            \
                 }                                                              \
         } while (0)
+
+/* Log pthread error, unlock mutex and goto label */
+#define CHANGELOG_PTHREAD_ERROR_HANDLE_2(ret, label, mutex) do {               \
+                if (ret) {                                                     \
+                        gf_smsg (this->name, GF_LOG_ERROR,                     \
+                                 0, CHANGELOG_MSG_PTHREAD_ERROR,               \
+                                 "pthread error", "error=%d", ret, NULL);      \
+                        ret = -1;                                              \
+                        pthread_mutex_unlock (&mutex);                         \
+                        goto label;                                            \
+                }                                                              \
+        } while (0)
+
 /* End: Geo-Rep snapshot dependency changes */
 
 #endif /* _CHANGELOG_HELPERS_H */

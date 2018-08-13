@@ -1803,8 +1803,9 @@ changelog_dec_fop_cnt (xlator_t *this, changelog_priv_t *priv,
                                     priv->dm.drain_wait_black == _gf_true) {
                                         ret = pthread_cond_signal (
                                                     &priv->dm.drain_black_cond);
-                                        CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret,
-                                                                           out);
+                                        CHANGELOG_PTHREAD_ERROR_HANDLE_2 (ret,
+                                                                          out,
+                                                  priv->dm.drain_black_mutex);
                                         gf_msg_debug (this->name, 0,
                                                       "Signalled "
                                                       "draining of black");
@@ -1821,8 +1822,9 @@ changelog_dec_fop_cnt (xlator_t *this, changelog_priv_t *priv,
                                     priv->dm.drain_wait_white == _gf_true) {
                                         ret = pthread_cond_signal (
                                                     &priv->dm.drain_white_cond);
-                                        CHANGELOG_PTHREAD_ERROR_HANDLE_0 (ret,
-                                                                           out);
+                                        CHANGELOG_PTHREAD_ERROR_HANDLE_2 (ret,
+                                                                          out,
+                                                  priv->dm.drain_white_mutex);
                                         gf_msg_debug (this->name, 0,
                                                       "Signalled "
                                                       "draining of white");
