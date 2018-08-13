@@ -251,11 +251,12 @@ posix_acl_log_permit_denied (call_frame_t *frame, inode_t *inode, int want,
                              struct posix_acl_ctx *ctx, struct posix_acl *acl)
 {
         char     *acl_str = NULL;
-        client_t *client  = frame->root->client;
+        client_t *client  = NULL;
 
-        if (!frame || !inode || !ctx)
+        if (!frame || !inode || !ctx || !frame->root)
                 goto out;
 
+        client  = frame->root->client;
         posix_acl_get_acl_string (frame, acl, &acl_str);
 
         gf_msg (frame->this->name, GF_LOG_INFO, EACCES, POSIX_ACL_MSG_EACCES,
