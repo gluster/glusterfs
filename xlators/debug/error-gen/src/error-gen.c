@@ -195,7 +195,7 @@ generate_rand_no (int op_no)
         int             rand_no = 0;
 
         if (op_no < GF_FOP_MAXVALUE)
-                /* coverty[DC.WEAK_CRYPTO] */
+                /* coverity[DC.WEAK_CRYPTO] */
                 rand_no = rand () % error_no_list[op_no].error_no_count;
         return rand_no;
 }
@@ -284,7 +284,7 @@ error_gen (xlator_t *this, int op_no)
                         error_no_int = egp->error_no_int;
                         if ((count % egp->failure_iter_no) == 0) {
                                 egp->op_count = 0;
-                                /* coverty[DC.WEAK_CRYPTO] */
+                                /* coverity[DC.WEAK_CRYPTO] */
                                 egp->failure_iter_no = 3
                                         + (rand () % GF_UNIVERSAL_ANSWER);
                                 should_err = _gf_true;
