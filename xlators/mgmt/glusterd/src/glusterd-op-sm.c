@@ -5985,6 +5985,7 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         xlator_t                 *this        = NULL;
         uuid_t                   *txn_id      = NULL;
         glusterd_op_info_t        txn_op_info = {{0},};
+        gf_boolean_t              need_cleanup = _gf_true;
 
         this = THIS;
         GF_ASSERT (this);
@@ -6041,6 +6042,7 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
                        "Failed to set transaction id.");
                 if (txn_op_info.skip_locking)
                         ret = glusterd_clear_txn_opinfo (txn_id);
+                need_cleanup = _gf_false;
                 GF_FREE (txn_id);
                 goto out;
         }
@@ -6057,7 +6059,7 @@ out:
         /* for no volname transactions, the txn_opinfo needs to be cleaned up
          * as there's no unlock event triggered
          */
-        if (txn_id && txn_op_info.skip_locking)
+        if (need_cleanup && txn_id && txn_op_info.skip_locking)
                 ret = glusterd_clear_txn_opinfo (txn_id);
         gf_msg_debug (this->name, 0, "Returning with %d", ret);
 
