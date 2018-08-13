@@ -4438,6 +4438,7 @@ volume_volgen_graph_build_clusters_tier (volgen_graph_t *graph,
         if (dup_volinfo)
                 glusterd_volinfo_delete (dup_volinfo);
         GF_FREE (rule);
+        GF_FREE (decommissioned_children);
         return ret;
 }
 
