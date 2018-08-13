@@ -662,6 +662,7 @@ htime_open (xlator_t *this,
                                 CHANGELOG_MSG_HTIME_INFO,
                                 "HTIME_CURRENT not found. Changelog enabled"
                                 " before init");
+                        sys_close (ht_dir_fd);
                         return htime_create (this, priv, ts);
                 }
 
