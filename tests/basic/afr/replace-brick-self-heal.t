@@ -10,7 +10,7 @@ TEST $CLI volume start $V0
 TEST $CLI volume set $V0 cluster.data-self-heal off
 TEST $CLI volume set $V0 cluster.metadata-self-heal off
 TEST $CLI volume set $V0 cluster.entry-self-heal off
-
+TEST $CLI volume set $V0 cluster.heal-timeout 5
 TEST $CLI volume set $V0 self-heal-daemon off
 TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0;
 
