@@ -13,9 +13,5 @@
 
 #include "mem-types.h"
 
-enum gf_iot_mem_types_ {
-    gf_iot_mt_iot_conf_t = gf_common_mt_end + 1,
-    gf_iot_mt_client_ctx_t,
-    gf_iot_mt_end
-};
+enum gf_iot_mem_types_ { gf_iot_mt_end = gf_common_mt_end + 1 };
 #endif

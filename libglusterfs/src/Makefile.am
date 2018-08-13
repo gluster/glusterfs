@@ -29,7 +29,7 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	$(CONTRIBDIR)/rbtree/rb.c rbthash.c store.c latency.c \
 	graph.c syncop.c graph-print.c trie.c run.c options.c fd-lk.c \
 	circ-buff.c event-history.c gidcache.c ctx.c client_t.c event-poll.c \
-	event-epoll.c syncop-utils.c cluster-syncop.c refcount.c \
+	event-epoll.c io-threads.c syncop-utils.c cluster-syncop.c refcount.c \
 	$(CONTRIBDIR)/libgen/basename_r.c \
 	$(CONTRIBDIR)/libgen/dirname_r.c \
 	strfd.c parse-utils.c $(CONTRIBDIR)/mount/mntent.c \
@@ -60,7 +60,7 @@ libglusterfs_la_HEADERS = common-utils.h defaults.h default-args.h \
 	syncop-utils.h parse-utils.h libglusterfs-messages.h \
 	lvm-defaults.h quota-common-utils.h rot-buffs.h \
 	compat-uuid.h upcall-utils.h throttle-tbf.h events.h\
-	compound-fop-utils.h atomic.h monitoring.h
+	compound-fop-utils.h atomic.h monitoring.h io-threads.h
 
 libglusterfs_ladir = $(includedir)/glusterfs
 

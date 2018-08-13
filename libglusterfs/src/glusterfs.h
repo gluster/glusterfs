@@ -705,6 +705,7 @@ struct _glusterfs_ctx {
     } stats;
 
     struct list_head volfile_list;
+    void *iot; /* refcounted io-threads */
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 

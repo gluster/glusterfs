@@ -1134,3 +1134,11 @@ gf_replace_new_iatt_in_dict
 gf_changelog_init
 gf_changelog_register_generic
 gf_gfid_generate_from_xxh64
+gf_iot_reconf
+gf_iot_get
+gf_iot_put
+gf_iot_defaults_init
+gf_iot_schedule
+gf_iot_free
+gf_iot_client_destroy
+gf_iot_disconnect_cbk
