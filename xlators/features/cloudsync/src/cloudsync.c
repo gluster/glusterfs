@@ -181,7 +181,13 @@ out:
                         mem_pool_destroy (this->local_pool);
 
                 cs_cleanup_private (priv);
+
+                if (handle) {
+                        dlclose (handle);
+                }
         }
+
+        GF_FREE (libpath);
 
         return ret;
 }
