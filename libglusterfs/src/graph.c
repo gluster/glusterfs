@@ -1200,6 +1200,7 @@ glusterfs_graph_attach (glusterfs_graph_t *orig_graph, char *path,
                         "read failed on path %s. File size=%"GF_PRI_SIZET
                         "read size=%d", path, file_len, ret);
                 GF_FREE (volfile_content);
+                fclose (fp);
                 return -EIO;
         }
 
