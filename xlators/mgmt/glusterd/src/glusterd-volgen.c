@@ -1875,6 +1875,8 @@ brick_graph_add_changetimerecorder (volgen_graph_t *graph,
 
         xl = volgen_graph_add (graph, "features/changetimerecorder",
                                volinfo->volname);
+        if (!xl)
+                goto out;
 
 
         ret = xlator_set_option (xl, "db-type", "sqlite3");
@@ -3022,7 +3024,10 @@ end_sethelp_xml_doc (xmlTextWriterPtr writer)
 int
 init_sethelp_xml_doc (xmlTextWriterPtr *writer, xmlBufferPtr  *buf)
 {
-        int ret;
+        int ret = -1;
+
+        if (!writer || !buf)
+                goto out;
 
         *buf = xmlBufferCreateSize (8192);
         if (buf == NULL) {
@@ -3997,7 +4002,7 @@ volume_volgen_graph_build_clusters (volgen_graph_t *graph,
         int                     clusters            = 0;
         int                     dist_count          = 0;
         int                     ret                 = -1;
-        char                    tmp_volname[GD_VOLUME_NAME_MAX] = {0, };
+        char                    tmp_volname[GD_VOLUME_NAME_MAX_TIER] = {0, };
 
         if (!volinfo->dist_leaf_count)
                 goto out;
@@ -4069,7 +4074,7 @@ build_distribute:
         }
         if (volinfo->tier_info.hot_brick_count) {
                 strncpy (tmp_volname, volinfo->volname,
-                         strlen (volinfo->volname));
+                         GD_VOLUME_NAME_MAX - 1);
                 if (volinfo->tier_info.cur_tier_hot)
                         strcat (volinfo->volname, "-hot");
                 else
@@ -4869,11 +4874,10 @@ nfs_option_handler (volgen_graph_t *graph,
 
         xl = first_of (graph);
 
-/*        if (vme->type  == GLOBAL_DOC || vme->type == GLOBAL_NO_DOC) {
-
-                ret = xlator_set_option (xl, vme->key, vme->value);
-        }*/
         if (!volinfo || (volinfo->volname[0] == '\0'))
+                return 0;
+
+        if (!vme || (vme->option[0] == '\0'))
                 return 0;
 
         if (! strcmp (vme->option, "!rpc-auth.addr.*.allow")) {
@@ -5019,19 +5023,6 @@ nfs_option_handler (volgen_graph_t *graph,
                         return -1;
         }
 
-
-        /*key = strchr (vme->key, '.') + 1;
-
-        for (trav = xl->children; trav; trav = trav->next) {
-                ret = gf_asprintf (&aa, "auth.addr.%s.%s", trav->xlator->name,
-                                   key);
-                if (ret != -1) {
-                        ret = xlator_set_option (xl, aa, vme->value);
-                        GF_FREE (aa);
-                }
-                if (ret)
-                        return -1;
-        }*/
 
         return 0;
 }
@@ -5314,12 +5305,18 @@ build_rebalance_volfile (glusterd_volinfo_t *volinfo, char *filepath,
                 return -1;
 
         ret = volgen_graph_build_clients (&graph, volinfo, set_dict, NULL);
+        if (ret)
+                goto out;
+
         if (volinfo->type == GF_CLUSTER_TYPE_TIER)
                 ret = volume_volgen_graph_build_clusters_tier
                                         (&graph, volinfo, _gf_false);
         else
                 ret = volume_volgen_graph_build_clusters
                                         (&graph, volinfo, _gf_false);
+
+        if (ret)
+                goto out;
 
         xl = volgen_graph_add_as (&graph, "debug/io-stats", volinfo->volname);
         if (!xl) {
