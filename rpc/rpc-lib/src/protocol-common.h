@@ -370,6 +370,8 @@ typedef enum gf_getspec_flags_type gf_getspec_flags_type;
 #define GD_MGMT_HNDSK_VERSION    1
 
 #define GD_VOLUME_NAME_MAX 256 /* Maximum size of volume name */
+#define GD_VOLUME_NAME_MAX_TIER (GD_VOLUME_NAME_MAX + 5) /*+5 needed for '-hot
+                                                        and '-cold' suffixes*/
 
 #define GLUSTER_PROCESS_UUID_FMT "CTX_ID:%s-GRAPH_ID:%d-PID:%d-HOST:%s-PC_NAME:%s-RECON_NO:%s"
 #endif /* !_PROTOCOL_COMMON_H */
