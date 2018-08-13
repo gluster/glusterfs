@@ -21,7 +21,7 @@ glusterd_dump_peer (glusterd_peerinfo_t *peerinfo, char *input_key, int index,
                     gf_boolean_t xpeers)
 {
         char   subkey[144] = {0,};
-        char   key[128] = {0,};
+        char   key[GF_DUMP_MAX_BUF_LEN] = {0,};
 
         strncpy (key, input_key, sizeof(key) - 1);
 
@@ -65,7 +65,7 @@ glusterd_dump_peer_rpcstat (glusterd_peerinfo_t *peerinfo, char *input_key,
         rpc_clnt_t            *rpc                                 = NULL;
         char                   rpcsvc_peername[RPCSVC_PEER_STRLEN] = {0,};
         char                   subkey[144]                         = {0,};
-        char                   key[128]                            = {0,};
+        char                   key[GF_DUMP_MAX_BUF_LEN]            = {0,};
 
         strncpy (key, input_key, sizeof(key) - 1);
 
