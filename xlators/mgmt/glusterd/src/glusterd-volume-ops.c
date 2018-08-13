@@ -197,6 +197,7 @@ glusterd_check_brick_order(dict_t *dict, char *err_str)
                         gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                                 GD_MSG_NO_MEMORY, "failed to allocate "
                                 "memory");
+                        freeaddrinfo (ai_info);
                         goto out;
                 }
                 ai_list_tmp1->info = ai_info;
@@ -2290,6 +2291,8 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                                  "replica count for volume %s", volname);
                         goto out;
                 }
+
+                /* coverity[unused_value] arbiter count is optional */
                 ret = dict_get_int32 (dict, "arbiter-count",
                                       &volinfo->arbiter_count);
         } else if (GF_CLUSTER_TYPE_STRIPE == volinfo->type) {
@@ -2335,6 +2338,8 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                                 "replica count for volume %s", volname);
                         goto out;
                 }
+
+                /* coverity[unused_value] arbiter count is optional */
                 ret = dict_get_int32 (dict, "arbiter-count",
                                       &volinfo->arbiter_count);
         } else if (GF_CLUSTER_TYPE_DISPERSE == volinfo->type) {
