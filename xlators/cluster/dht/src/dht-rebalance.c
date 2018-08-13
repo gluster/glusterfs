@@ -2973,7 +2973,7 @@ gf_defrag_migrate_single_file (void *opaque)
                 }
 
                 ret = 0;
-
+                goto out;
         } else if (ret < 0) {
                 if (fop_errno != EEXIST) {
                         gf_msg (this->name, GF_LOG_ERROR, fop_errno,
