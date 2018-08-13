@@ -26,7 +26,15 @@ done
 for i in {1..10};do
   dd if=/dev/zero of=$N0/nfs_testfile$i bs=4k count=100
 done
+
+# Wait for one dump interval to be done, some seconds past 1 that is the dump
+# interval set
 sleep 2
+
+# Change the dump interval to 0, so that when reading the file contents we
+# do not get them truncated by the next interval that is overwriting the latest
+# stats data
+TEST $CLI volume set $V0 diagnostics.stats-dump-interval 0
 
 # Verify we have non-zero write counts from the bricks, gNFSd
 # and the FUSE mount.
