@@ -385,8 +385,11 @@ gf_dnscache_init (time_t ttl)
 {
         struct dnscache *cache = GF_MALLOC (sizeof (*cache),
                                             gf_common_mt_dnscache);
-        cache->cache_dict = NULL;
-        cache->ttl = ttl;
+        if (cache) {
+                cache->cache_dict = NULL;
+                cache->ttl = ttl;
+        }
+
         return cache;
 }
 
@@ -489,11 +492,12 @@ out:
                         goto out;
                 }
                 entry->fqdn = fqdn;
-                entry->ip = gf_strdup (ip);
                 if (!ip) {
                         gf_dnscache_entry_deinit (entry);
                         goto out;
                 }
+
+                entry->ip = gf_strdup (ip);
                 entry->timestamp = time (NULL);
 
                 entrydata = bin_to_data (entry, sizeof (*entry));
@@ -3043,6 +3047,8 @@ gf_get_reserved_ports ()
                         " getting reserved ports info", proc_file);
                 goto out;
         }
+
+        buffer[ret] = '\0';
         ports_info = gf_strdup (buffer);
 
 out:
@@ -3418,8 +3424,11 @@ gf_is_local_addr (char *hostname)
                 gf_msg_debug (this->name, 0, "%s ",
                               get_ip_from_addrinfo (res, &ip));
 
-                found = gf_is_loopback_localhost (res->ai_addr, hostname)
-                        || gf_interface_search (ip);
+                if (ip) {
+                        found = gf_is_loopback_localhost
+                                (res->ai_addr, hostname) ||
+                                gf_interface_search (ip);
+                }
                 if (found) {
                         GF_FREE (ip);
                         goto out;
@@ -3895,8 +3904,10 @@ gf_is_service_running (char *pidfile, int *pid)
 
         fno = fileno (file);
         ret = lockf (fno, F_TEST, 0);
-        if (ret == -1)
+        if (ret == -1) {
                 running = _gf_true;
+                goto out;
+        }
 
         ret = fscanf (file, "%d", pid);
         if (ret <= 0) {
@@ -4429,6 +4440,7 @@ recursive_rmdir (const char *delete_path)
                 if (ret == -1) {
                         gf_msg_debug (this->name, 0, "Failed to stat entry %s :"
                                       " %s", path, strerror (errno));
+                        (void) sys_closedir (dir);
                         goto out;
                 }
 
