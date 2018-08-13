@@ -2917,6 +2917,11 @@ fini (xlator_t *this)
 
                 /* deallocate mempool */
                 mem_pool_destroy (this->local_pool);
+
+                if (priv->htime_fd != -1) {
+                        sys_close (priv->htime_fd);
+                }
+
                 /* finally, dealloac private variable */
                 GF_FREE (priv);
         }
