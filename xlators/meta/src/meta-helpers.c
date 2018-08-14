@@ -23,18 +23,18 @@ meta_fd_get (fd_t *fd, xlator_t *this)
 
 	LOCK (&fd->lock);
 	{
-		__fd_ctx_get (fd, this, &value);
-		if (!value) {
-			meta_fd = GF_CALLOC (1, sizeof (*meta_fd),
-					     gf_meta_mt_fd_t);
-			if (!meta_fd)
-				goto unlock;
-
-			value = (long) meta_fd;
-			__fd_ctx_set (fd, this, value);
-		}
-
-		meta_fd = (void *) value;
+		if (__fd_ctx_get (fd, this, &value) < 0) {
+                        if (!value) {
+                                meta_fd = GF_CALLOC (1, sizeof (*meta_fd),
+                                                     gf_meta_mt_fd_t);
+                                if (!meta_fd)
+                                        goto unlock;
+                                value = (long) meta_fd;
+                                __fd_ctx_set (fd, this, value);
+                        }
+                } else {
+                        meta_fd = (void *)value;
+                }
 	}
 unlock:
 	UNLOCK (&fd->lock);
@@ -53,7 +53,7 @@ meta_fd_release (fd_t *fd, xlator_t *this)
 	fd_ctx_get (fd, this, &value);
 	meta_fd = (void *) value;
 
-	if (meta_fd->dirents) {
+	if (meta_fd && meta_fd->dirents) {
 		for (i = 0; i < meta_fd->size; i++)
 			GF_FREE ((void *)meta_fd->dirents[i].name);
 		GF_FREE (meta_fd->dirents);
