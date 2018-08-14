@@ -680,24 +680,6 @@ function cleanup()
                 return 1;
         fi >&2
 
-        # tar logs at the start and end of every test
-        if [ -n "$LOGDIR" -a -z "$STOP_WASTING_SPACE" ]
-        then
-                tarname=$(basename $0 .t)
-		# Can't use --exclude here because NetBSD doesn't have it.
-		# However, both it and Linux have -X to take patterns from
-		# a file, so use that.
-		(echo '*.tar'; echo .notar) > ${LOGDIR}/.notar \
-			&& \
-                tar -cf ${LOGDIR}/${tarname}.tar -X ${LOGDIR}/.notar \
-			${LOGDIR}/* 2> /dev/null \
-                        && \
-                find $LOGDIR/* -maxdepth 0 -name '*.tar' -prune \
-                                        -o -exec rm -rf '{}' ';'
-        else
-                echo "LOGDIR is not set"
-        fi
-
         mkdir -p $WORKDIRS
 	# This is usually the last thing a test script calls, so our return
 	# value becomes their exit value.  While it's not great for the mkdir
