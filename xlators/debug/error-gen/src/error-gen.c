@@ -193,8 +193,11 @@ int
 generate_rand_no (int op_no)
 {
         int             rand_no = 0;
+        int             error_no_list_size = 0;
 
-        if (op_no < GF_FOP_MAXVALUE)
+        error_no_list_size = sizeof(error_no_list)/sizeof(error_no_list[0]);
+
+        if (op_no < error_no_list_size)
                 /* coverity[DC.WEAK_CRYPTO] */
                 rand_no = rand () % error_no_list[op_no].error_no_count;
         return rand_no;
@@ -266,6 +269,7 @@ error_gen (xlator_t *this, int op_no)
         int              rand_no = 0;
         int              ret = 0;
         gf_boolean_t     should_err = _gf_false;
+        int              error_no_list_size = 0;
 
         egp = this->private;
 
@@ -304,12 +308,13 @@ error_gen (xlator_t *this, int op_no)
                 }
         }
 
+        error_no_list_size = sizeof(error_no_list)/sizeof(error_no_list[0]);
         if (should_err) {
                 if (error_no_int)
                         ret = error_no_int;
                 else {
                         rand_no = generate_rand_no (op_no);
-                        if (op_no >= GF_FOP_MAXVALUE)
+                        if (op_no >= error_no_list_size)
                                 op_no = 0;
                         if (rand_no >= error_no_list[op_no].error_no_count)
                                 rand_no = 0;
