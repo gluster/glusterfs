@@ -1,0 +1,428 @@
+declare -A PORTMAP
+PORTCURR=49152
+function ta_create_ta_and_volfile()
+{
+        local b=$B0/$1
+        mkdir -p $b/.glusterfs/indices
+cat > $B0/ta.vol <<EOF
+volume ta-posix
+    type storage/posix
+    option directory $b
+end-volume
+
+volume ta-thin-arbiter
+    type features/thin-arbiter
+    subvolumes ta-posix
+end-volume
+
+volume ta-locks
+    type features/locks
+    option notify-contention yes
+    subvolumes ta-thin-arbiter
+end-volume
+
+volume ta-upcall
+    type features/upcall
+    option cache-invalidation off
+    subvolumes ta-locks
+end-volume
+
+volume ta-io-threads
+    type performance/io-threads
+    subvolumes ta-upcall
+end-volume
+
+volume ta-index
+    type features/index
+    option xattrop-pending-watchlist trusted.afr.ta-
+    option xattrop-dirty-watchlist trusted.afr.dirty
+    option index-base $b/.glusterfs/indices
+    subvolumes ta-io-threads
+end-volume
+
+volume ta-io-stats
+    type debug/io-stats
+    option count-fop-hits off
+    option latency-measurement off
+    option log-level WARNING
+    option unique-id $b
+    subvolumes ta-index
+end-volume
+
+volume ta-server
+    type protocol/server
+    option transport.listen-backlog 10
+    option transport.socket.keepalive-count 9
+    option transport.socket.keepalive-interval 2
+    option transport.socket.keepalive-time 20
+    option transport.tcp-user-timeout 0
+    option transport.socket.keepalive 1
+    option auth.addr.$b.allow *
+    option auth-path $b
+    option transport.address-family inet
+    option transport-type tcp
+    subvolumes ta-io-stats
+end-volume
+EOF
+}
+
+function ta_create_brick_and_volfile()
+{
+        local b=$B0/$1
+        mkdir -p $b/.glusterfs/indices
+cat > $B0/${1}.vol <<EOF
+volume ${V0}-posix
+    type storage/posix
+    option directory $b
+end-volume
+
+volume ${V0}-locks
+    type features/locks
+    subvolumes ${V0}-posix
+end-volume
+
+volume ${V0}-leases
+    type features/leases
+    option leases off
+    subvolumes ${V0}-locks
+end-volume
+
+volume ${V0}-upcall
+    type features/upcall
+    option cache-invalidation off
+    subvolumes ${V0}-leases
+end-volume
+
+volume ${V0}-io-threads
+    type performance/io-threads
+    subvolumes ${V0}-upcall
+end-volume
+
+volume ${V0}-index
+    type features/index
+    option xattrop-pending-watchlist trusted.afr.${V0}-
+    option xattrop-dirty-watchlist trusted.afr.dirty
+    option index-base $b/.glusterfs/indices
+    subvolumes ${V0}-io-threads
+end-volume
+
+volume ${V0}-io-stats
+    type debug/io-stats
+    option count-fop-hits off
+    option latency-measurement off
+    option log-level INFO
+    option unique-id $b
+    subvolumes ${V0}-index
+end-volume
+
+volume $b
+    type performance/decompounder
+    subvolumes ${V0}-io-stats
+end-volume
+
+volume ${V0}-server
+    type protocol/server
+    option transport.listen-backlog 1024
+    option transport.socket.keepalive-count 9
+    option transport.socket.keepalive-interval 2
+    option transport.socket.keepalive-time 20
+    option transport.tcp-user-timeout 0
+    option transport.socket.keepalive 1
+    option auth.addr.$b.allow *
+    option auth-path $b
+    option auth.login.459d48e8-2a92-4f11-89f2-077b29f6f86d.password a0ad63dd-8314-4f97-9160-1b93e3cb1f0b
+    option auth.login.$b.allow 459d48e8-2a92-4f11-89f2-077b29f6f86d
+    option transport.address-family inet
+    option transport-type tcp
+    subvolumes $b
+end-volume
+EOF
+}
+
+function ta_set_port_by_name()
+{
+        if [ -z ${PORTMAP[$1]} ]
+        then
+                PORTMAP[$1]=$PORTCURR
+                PORTCURR=$((PORTCURR+1))
+        fi
+}
+
+function ta_start_brick_process()
+{
+        ta_set_port_by_name $1
+        local p=${PORTMAP[$1]}
+        if glusterfs -p $B0/${1}.pid --volfile=$B0/${1}.vol -l $(gluster --print-logdir)/${1}.log --xlator-option ${V0}-server.listen-port=$p
+        then
+                cat $B0/${1}.pid
+        else
+                echo ""
+                return 1
+        fi
+}
+
+function ta_start_ta_process()
+{
+        ta_set_port_by_name $1
+        local p=${PORTMAP[$1]}
+        if glusterfs -p $B0/${1}.pid --volfile=$B0/${1}.vol -l $(gluster --print-logdir)/${1}.log --xlator-option ta-server.listen-port=$p
+        then
+                cat $B0/${1}.pid
+        else
+                echo ""
+                return 1
+        fi
+}
+
+function ta_start_mount_process()
+{
+        mkdir -p $1
+        identifier=$(echo $1 | tr / .)
+        if glusterfs  -p $B0/${identifier}.pid --volfile=$B0/mount.vol $1
+        then
+                cat $B0/$identifier.pid
+        else
+                echo ""
+                return 1
+        fi
+}
+
+function ta_create_mount_volfile()
+{
+        local b0=$B0/$1
+        local b1=$B0/$2
+        local ta=$B0/$3
+        local b0_port=${PORTMAP[$1]}
+        local b1_port=${PORTMAP[$2]}
+        local ta_port=${PORTMAP[$3]}
+cat > $B0/mount.vol <<EOF
+volume ${V0}-client-0
+     type protocol/client
+     option remote-host $H0
+     option client-bind-insecure off
+     option transport.socket.keepalive-interval 2
+     option transport.socket.keepalive-time 20
+     option transport.socket.ssl-enabled off
+     option remote-subvolume $b0
+     option transport.tcp-user-timeout 0
+     option transport.socket.keepalive-count 9
+     option transport-type tcp
+     option ping-timeout 42
+     option send-gids on
+     option remote-port $b0_port
+     option password a0ad63dd-8314-4f97-9160-1b93e3cb1f0b
+     option username 459d48e8-2a92-4f11-89f2-077b29f6f86d
+end-volume
+
+volume ${V0}-client-1
+     type protocol/client
+     option remote-host $H0
+     option client-bind-insecure off
+     option transport.socket.keepalive-interval 2
+     option transport.socket.keepalive-time 20
+     option transport.socket.ssl-enabled off
+     option remote-subvolume $b1
+     option transport.tcp-user-timeout 0
+     option transport.socket.keepalive-count 9
+     option transport-type tcp
+     option ping-timeout 42
+     option send-gids on
+     option remote-port $b1_port
+     option password a0ad63dd-8314-4f97-9160-1b93e3cb1f0b
+     option username 459d48e8-2a92-4f11-89f2-077b29f6f86d
+end-volume
+
+volume ${V0}-thin-arbiter-client
+     type protocol/client
+     option client-bind-insecure off
+     option transport.socket.ssl-enabled off
+     option remote-subvolume $ta
+     option ping-timeout 42
+     option remote-host $H0
+     option send-gids on
+     option transport.socket.keepalive-interval 2
+     option remote-port $ta_port
+     option transport-type tcp
+     option transport.tcp-user-timeout 0
+     option transport.socket.keepalive-time 20
+     option transport.socket.keepalive-count 9
+end-volume
+
+volume ${V0}-replicate-0
+     type cluster/replicate
+     option afr-dirty-xattr trusted.afr.dirty
+     option iam-self-heal-daemon off
+     option afr-pending-xattr ${V0}-client-0,${V0}-client-1,${V0}-ta-2
+     option thin-arbiter $H0:$ta
+     subvolumes ${V0}-client-0 ${V0}-client-1 ${V0}-thin-arbiter-client
+end-volume
+
+volume ${V0}-distribute
+     type cluster/distribute
+     option tier-hot-compact-frequency 604800
+     option rebal-throttle normal
+     option force-migration off
+     option lookup-optimize on
+     option weighted-rebalance on
+     option write-freq-threshold 0
+     option assert-no-child-down off
+     option tier-pause off
+     option watermark-low 75
+     option tier-compact off
+     option lock-migration off
+     option lookup-unhashed on
+     option tier-demote-frequency 3600
+     option watermark-hi 90
+     option tier-cold-compact-frequency 604800
+     option randomize-hash-range-by-gfid off
+     option unhashed-sticky-bit off
+     option use-readdirp on
+     option readdir-optimize off
+     option xattr-name trusted.glusterfs.dht
+     option tier-max-mb 4000
+     option tier-max-files 10000
+     option tier-query-limit 100
+     option read-freq-threshold 0
+     option tier-mode test
+     option tier-max-promote-file-size 0
+     option tier-promote-frequency 120
+     option min-free-disk 10%
+     option min-free-inodes 5%
+     option rebalance-stats off
+     subvolumes ${V0}-replicate-0
+end-volume
+
+volume ${V0}-write-behind
+     type performance/write-behind
+     option strict-O_DIRECT off
+     option strict-write-ordering off
+     option resync-failed-syncs-after-fsync off
+     option aggregate-size 128KB
+     option flush-behind on
+     option cache-size 1MB
+     option trickling-writes on
+     subvolumes ${V0}-distribute
+end-volume
+
+volume ${V0}-read-ahead
+     type performance/read-ahead
+     option force-atime-update false
+     option page-count 4
+     option page-size 131072
+     option pass-through false
+     subvolumes ${V0}-write-behind
+end-volume
+
+volume ${V0}-readdir-ahead
+     type performance/readdir-ahead
+     option rda-low-wmark 4096
+     option rda-high-wmark 128KB
+     option rda-cache-limit 10MB
+     option parallel-readdir off
+     option pass-through false
+     option rda-request-size 131072
+     subvolumes ${V0}-read-ahead
+end-volume
+
+volume ${V0}-io-cache
+     type performance/io-cache
+     option cache-timeout 1
+     option cache-size 32MB
+     option min-file-size 0
+     option max-file-size 0
+     option pass-through false
+     subvolumes ${V0}-readdir-ahead
+end-volume
+
+volume ${V0}-quick-read
+     type performance/quick-read
+     option cache-invalidation false
+     option ctime-invalidation false
+     option cache-size 128MB
+     option cache-timeout 1
+     option max-file-size 64KB
+     subvolumes ${V0}-io-cache
+end-volume
+
+volume ${V0}-open-behind
+     type performance/open-behind
+     option use-anonymous-fd yes
+     option lazy-open yes
+     option read-after-open no
+     option pass-through false
+     subvolumes ${V0}-quick-read
+end-volume
+
+volume ${V0}-md-cache
+     type performance/md-cache
+     option pass-through false
+     option cache-capability-xattrs true
+     option cache-posix-acl false
+     option cache-swift-metadata true
+     option cache-samba-metadata false
+     option md-cache-timeout 1
+     option force-readdirp true
+     option cache-invalidation false
+     option md-cache-statfs off
+     option cache-selinux false
+     option cache-ima-xattrs true
+     subvolumes ${V0}-open-behind
+end-volume
+
+volume ${V0}-io-threads
+     type performance/io-threads
+     option normal-prio-threads 16
+     option enable-least-priority on
+     option idle-time 120
+     option cleanup-disconnected-reqs off
+     option pass-through false
+     option thread-count 16
+     option high-prio-threads 16
+     option low-prio-threads 16
+     option least-prio-threads 1
+     subvolumes ${V0}-md-cache
+end-volume
+
+volume ${V0}
+     type debug/io-stats
+     option client-logger gluster-log
+     option client-log-buf-size 5
+     option latency-measurement off
+     option client-log-level INFO
+     option brick-log-level INFO
+     option count-fop-hits off
+     option sys-log-level CRITICAL
+     option brick-log-format with-msg-id
+     option brick-log-buf-size 5
+     option dump-fd-stats off
+     option ios-dump-interval 0
+     option ios-dump-format json
+     option client-log-format with-msg-id
+     option log-buf-size 5
+     option log-flush-timeout 120
+     option client-log-flush-timeout 120
+     option ios-sample-interval 0
+     option ios-sample-buf-size 65535
+     option brick-logger gluster-log
+     option ios-dnscache-ttl-sec 86400
+     option brick-log-flush-timeout 120
+     option unique-id /no/such/path
+     subvolumes ${V0}-io-threads
+end-volume
+EOF
+}
+
+function ta_kill_brick()
+{
+        local p=$(cat $B0/${1}.pid)
+        echo > $B0/${1}.pid
+        kill -9 $p
+}
+
+function ta_up_status()
+{
+        local v=$1
+        local m=$2
+        local replica_id=$3
+        grep -E "^up = " $m/.meta/graphs/active/${v}-replicate-${replica_id}/private | cut -f2 -d'='
+}
