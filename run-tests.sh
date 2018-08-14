@@ -14,6 +14,13 @@ result_output="/tmp/gluster_regression.txt"
 section_separator="========================================"
 run_timeout=200
 kill_after_time=5
+# Option below preserves log tarballs for each run of a test separately
+#       named: <test>-iteration-<n>.tar
+# If set to any other value, then log tarball is just named after the test and
+# overwritten in each iteration (saves space)
+#       named: <test>.tar
+# Use option -p to override default behavior
+skip_preserve_logs="yes"
 
 OSTYPE=$(uname -s)
 
@@ -24,29 +31,65 @@ OSTYPE=$(uname -s)
 #       $3 extension: Extension string that would be appended to the generated
 #               filename
 # Out:
-#       string of next available filename with appended "-<n>" if applicable
+#       string of next available filename with appended "-<n>"
 # Example:
-#       Interested routines that want to create a file name, say foo.txt at
+#       Interested routines that want to create a file name, say foo-<n>.txt at
 #       location /var/log/gluster would pass in "/var/log/gluster" "foo" "txt"
-#       and be returned next available foo.txt filename to create. If foo.txt
-#       is available then foo is returned, else foo-<n> (where n is the next
-#       integer) is returned for use"
+#       and be returned next available foo-<n> filename to create.
 # Notes:
 #       Function will not accept empty extension, and will return the same name
-#       over and over (which can be fixed when there is a use-case for it)
+#       over and over (which can be fixed when there is a need for it)
 function get_next_filename()
 {
         local basepath=$1
         local filename=$2
         local extension=$3
-        local next=2
-        local tfilename=${filename}
+        local next=1
+        local tfilename="${filename}-${next}"
         while [ -e "${basepath}/${tfilename}.${extension}" ]; do
-                tfilename="${filename}-${next}"
                 next=$((next+1))
+                tfilename="${filename}-${next}"
         done
 
         echo "$tfilename"
+}
+
+# Tar the gluster logs and generate a tarball named after the first parameter
+# passed in to the function. Ideally the test name is passed to this function
+# to generate the required tarball.
+# Tarball name is further controlled by the variable skip_preserve_logs
+function tar_logs()
+{
+        t=$1
+
+        logdir=$(gluster --print-logdir)
+        basetarname=$(basename "$t" .t)
+
+        if [ -n "$logdir" ]
+        then
+                if [[ $skip_preserve_logs == "yes" ]]; then
+                        savetarname=$(get_next_filename "${logdir}" \
+                                "${basetarname}-iteration" "tar" \
+                                | tail -1)
+                else
+                        savetarname="$basetarname"
+                fi
+
+                # Can't use --exclude here because NetBSD doesn't have it.
+                # However, both it and Linux have -X to take patterns from
+                # a file, so use that.
+                (echo '*.tar'; echo .notar) > "${logdir}"/.notar \
+                        && \
+                tar -cf "${logdir}"/"${savetarname}".tar -X "${logdir}"/.notar \
+                        "${logdir}"/* 2> /dev/null \
+                        && \
+                find "$logdir"/* -maxdepth 0 -name '*.tar' -prune \
+                                        -o -exec rm -rf '{}' ';'
+
+                echo "Logs preserved in tarball $savetarname.tar"
+        else
+                echo "Logs not preserved, as logdir is not set"
+        fi
 }
 
 function check_dependencies()
@@ -338,6 +381,8 @@ function run_tests()
             fi
             TMP_RES=$?
             ELAPSEDTIMEMAP[$t]=`expr $(date +%s) - $starttime`
+            tar_logs "$t"
+
             # timeout always return 124 if it is actually a timeout.
             if ((${TMP_RES} == 124)); then
                 echo "${t} timed out after ${cmd_timeout} seconds"
@@ -352,12 +397,6 @@ function run_tests()
                 echo "       * we got some spurious failures *"
                 echo "       *********************************"
                 echo ""
-                # backup old tar ball with time stamp
-                # TODO: Using gluster CLI here is possibly not the best thing!
-                logdir=$(gluster --print-logdir)
-                basetarname=$(basename "$t" .t)
-                savetarname=$(get_next_filename "${logdir}" "${basetarname}-$(date +%H:%M:%S)" "tar" | tail -1)
-                mv "$logdir"/"$basetarname".tar "$logdir"/"$savetarname".tar
 
                 if [ ${timeout_cmd_exists} == "yes" ]; then
                     timeout -k ${kill_after_time} ${cmd_timeout} prove -vmfe '/bin/bash' ${t}
@@ -365,6 +404,8 @@ function run_tests()
                     prove -vmfe '/bin/bash' ${t}
                 fi
                 TMP_RES=$?
+                tar_logs "$t"
+
                 if ((${TMP_RES} == 124)); then
                     echo "${t} timed out after ${cmd_timeout} seconds"
                 fi
@@ -452,7 +493,7 @@ function run_head_tests()
 }
 
 function parse_args () {
-    args=`getopt frcbkhHo:t: "$@"`
+    args=`getopt frcbkphHo:t: "$@"`
     set -- $args
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -463,6 +504,7 @@ function parse_args () {
         -c)    exit_on_failure="no" ;;
         -b)    skip_bad_tests="no" ;;
         -k)    skip_known_bugs="no" ;;
+        -p)    skip_preserve_logs="no" ;;
         -o)    result_output="$2"; shift;;
         -t)    run_timeout="$2"; shift;;
         --)    shift; break;;
