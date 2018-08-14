@@ -676,6 +676,8 @@ jbr_lk_perform_local_op (call_frame_t *frame, xlator_t *this, int *op_errno,
                 UNLOCK(&ictx->lock);
                 ret = jbr_perform_lk_on_leader (frame, this, fd, cmd,
                                                 flock, xdata);
+                if (ret == -1)
+                        goto out;
         }
 
         ret = 0;
@@ -1129,6 +1131,10 @@ err:
         if (my_xdata) {
                 dict_unref(my_xdata);
         }
+
+        if (probe_str)
+                GF_FREE (probe_str);
+
         STACK_UNWIND_STRICT (ipc, frame, -1, op_errno, NULL);
 }
 
