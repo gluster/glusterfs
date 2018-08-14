@@ -223,7 +223,7 @@ gf_proc_dump_xlator_mem_info (xlator_t *xl)
         if (!xl)
                 return;
 
-        if (!xl->mem_acct || !xl->mem_acct->rec)
+        if (!xl->mem_acct)
                 return;
 
         gf_proc_dump_add_section ("%s.%s - Memory usage", xl->type, xl->name);
@@ -258,7 +258,7 @@ gf_proc_dump_xlator_mem_info_only_in_use (xlator_t *xl)
         if (!xl)
                 return;
 
-        if (!xl->mem_acct || !xl->mem_acct->rec)
+        if (!xl->mem_acct)
                 return;
 
         gf_proc_dump_add_section ("%s.%s - Memory usage", xl->type, xl->name);
