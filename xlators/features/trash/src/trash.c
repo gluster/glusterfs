@@ -397,8 +397,11 @@ rename_trash_directory (xlator_t *this)
         return 0;
 
 out:
-        frame->local = NULL;
-        STACK_DESTROY (frame->root);
+        if (frame) {
+                frame->local = NULL;
+                STACK_DESTROY (frame->root);
+        }
+
         trash_local_wipe (local);
 
         return ret;
@@ -2427,7 +2430,7 @@ notify (xlator_t *this, int event, void *data, ...)
                         goto out;
 
                 if (priv->internal)
-                        ret = create_internalop_directory (this);
+                        (void) create_internalop_directory (this);
 
         }
 
