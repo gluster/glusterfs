@@ -26,28 +26,28 @@ GLUSTER_TOP_SUBOPTIONS2="
 "
 GLUSTER_TOP_OPTIONS="
         {open
-                [ $TOP_SUBOPTIONS1 ]
+                [ $GLUSTER_TOP_SUBOPTIONS1 ]
         },
         {read
-                [ $TOP_SUBOPTIONS1 ]
+                [ $GLUSTER_TOP_SUBOPTIONS1 ]
         },
         {write
-                [ $TOP_SUBOPTIONS1 ]
+                [ $GLUSTER_TOP_SUBOPTIONS1 ]
         },
         {opendir
-                [ $TOP_SUBOPTIONS1 ]
+                [ $GLUSTER_TOP_SUBOPTIONS1 ]
         },
         {readdir
-                [ $TOP_SUBOPTIONS1 ]
+                [ $GLUSTER_TOP_SUBOPTIONS1 ]
         },
         {clear
-                [ $TOP_SUBOPTIONS1 ]
+                [ $GLUSTER_TOP_SUBOPTIONS1 ]
         },
         {read-perf
-                [ $TOP_SUBOPTIONS2 ]
+                [ $GLUSTER_TOP_SUBOPTIONS2 ]
         },
         {write-perf
-                [ $TOP_SUBOPTIONS2 ]
+                [ $GLUSTER_TOP_SUBOPTIONS2 ]
         }
 "
 
@@ -282,16 +282,16 @@ _gluster_throw () {
         exit
 }
 
-declare FINAL_LIST=''
-declare LIST=''
-declare -i TOP=0
+declare GLUSTER_FINAL_LIST=''
+declare GLUSTER_LIST=''
+declare -i GLUSTER_TOP=0
 _gluster_push () {
-        TOP=$((TOP + 1))
-        return $TOP
+        GLUSTER_TOP=$((GLUSTER_TOP + 1))
+        return $GLUSTER_TOP
 }
 _gluster_pop () {
-        TOP=$((TOP - 1))
-        return $TOP
+        GLUSTER_TOP=$((GLUSTER_TOP - 1))
+        return $GLUSTER_TOP
 }
 
 _gluster_goto_end ()
@@ -333,7 +333,7 @@ _gluster_form_list ()
                 top=$?
                 read -r key
                 if [ "X$cur_word" == "X" -o "${cur_word:0:1}" == "${key:0:1}" -o "${key:0:1}" == "_" ]; then
-                        LIST="$LIST $key"
+                        GLUSTER_LIST="$GLUSTER_LIST $key"
                 fi
 
                 _gluster_goto_end $top
@@ -452,10 +452,10 @@ _gluster_parse ()
 
         elif [ "$token" == '{' ]; then
                 read -r tmp_token
-                LIST="$tmp_token"
+                GLUSTER_LIST="$tmp_token"
         fi
 
-        echo $LIST
+        echo $GLUSTER_LIST
 }
 
 _gluster_handle_list ()
@@ -479,12 +479,12 @@ _gluster_handle_list ()
 
 _gluster_completion ()
 {
-        FINAL_LIST=`echo $GLUSTER_COMMAND_TREE |                              \
+        GLUSTER_FINAL_LIST=`echo $GLUSTER_COMMAND_TREE |                      \
                 egrep -ao --color=never "([A-Za-z0-9_.-]+)|[[:space:]]+|." |  \
                         egrep -v --color=never "^[[:space:]]*$" |             \
                                 _gluster_parse`
 
-        ARG="FINAL_LIST"
+        ARG="GLUSTER_FINAL_LIST"
         _gluster_handle_list $ARG ${COMP_WORDS[COMP_CWORD]}
         return
 }
