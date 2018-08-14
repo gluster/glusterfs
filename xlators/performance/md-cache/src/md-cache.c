@@ -939,7 +939,7 @@ mdc_inode_iatt_invalidate (xlator_t *this, inode_t *inode)
         if (mdc_inode_ctx_get (this, inode, &mdc) != 0)
                 goto out;
 
-        gen = mdc_get_generation (this, inode) && 0xffffffff;
+        gen = mdc_get_generation (this, inode) & 0xffffffff;
 
         LOCK (&mdc->lock);
         {
