@@ -20,8 +20,8 @@ static void
 glusterd_dump_peer (glusterd_peerinfo_t *peerinfo, char *input_key, int index,
                     gf_boolean_t xpeers)
 {
-        char   subkey[144] = {0,};
-        char   key[GF_DUMP_MAX_BUF_LEN] = {0,};
+        char   subkey[GF_DUMP_MAX_BUF_LEN + 11] = "";
+        char   key[GF_DUMP_MAX_BUF_LEN] = "";
 
         strncpy (key, input_key, sizeof(key) - 1);
 
@@ -63,9 +63,9 @@ glusterd_dump_peer_rpcstat (glusterd_peerinfo_t *peerinfo, char *input_key,
         rpc_clnt_connection_t *conn                                = NULL;
         int                    ret                                 = -1;
         rpc_clnt_t            *rpc                                 = NULL;
-        char                   rpcsvc_peername[RPCSVC_PEER_STRLEN] = {0,};
-        char                   subkey[144]                         = {0,};
-        char                   key[GF_DUMP_MAX_BUF_LEN]            = {0,};
+        char                   rpcsvc_peername[RPCSVC_PEER_STRLEN] = "";
+        char                   subkey[GF_DUMP_MAX_BUF_LEN + 11]     = "";
+        char                   key[GF_DUMP_MAX_BUF_LEN]            = "";
 
         strncpy (key, input_key, sizeof(key) - 1);
 
@@ -106,8 +106,8 @@ static void
 glusterd_dump_client_details (glusterd_conf_t *conf)
 {
         rpc_transport_t         *xprt                     = NULL;
-        char                     key[GF_DUMP_MAX_BUF_LEN] = {0,};
-        char                     subkey[50]               = {0,};
+        char                     key[GF_DUMP_MAX_BUF_LEN] = "";
+        char                     subkey[50]               = "";
         int                      index                    = 1;
 
         pthread_mutex_lock (&conf->xprt_lock);
@@ -147,8 +147,8 @@ glusterd_dict_mgmt_v3_lock_statedump (dict_t *dict)
         int          ret                       = 0;
         int          dumplen                   = 0;
         data_pair_t *trav                      = NULL;
-        char         key[GF_DUMP_MAX_BUF_LEN]  = {0,};
-        char         dump[64*1024]             = {0,};
+        char         key[GF_DUMP_MAX_BUF_LEN]  = "";
+        char         dump[64*1024]             = "";
 
         if (!dict) {
                 gf_msg_callingfn ("glusterd", GF_LOG_WARNING, EINVAL,
@@ -186,7 +186,7 @@ int
 glusterd_dump_priv (xlator_t *this)
 {
         glusterd_conf_t      *priv                     = NULL;
-        char                  key[GF_DUMP_MAX_BUF_LEN] = {0,};
+        char                  key[GF_DUMP_MAX_BUF_LEN] = "";
         int                   port                     = 0;
         struct pmap_registry *pmap                     = NULL;
 
