@@ -310,8 +310,8 @@ glusterd_lock (uuid_t   uuid)
 {
 
         uuid_t  owner;
-        char    new_owner_str[50];
-        char    owner_str[50];
+        char    new_owner_str[50] = "";
+        char    owner_str[50] = "";
         int     ret = -1;
         xlator_t *this = NULL;
 
@@ -347,8 +347,8 @@ int32_t
 glusterd_unlock (uuid_t uuid)
 {
         uuid_t  owner;
-        char    new_owner_str[50];
-        char    owner_str[50];
+        char    new_owner_str[50] = "";
+        char    owner_str[50] = "";
         int32_t ret = -1;
         xlator_t *this = NULL;
 
@@ -1218,7 +1218,7 @@ glusterd_brickinfo_new_from_brick (char *brick,
         int32_t                 ret           = -1;
         glusterd_brickinfo_t   *new_brickinfo = NULL;
         xlator_t               *this          = NULL;
-        char                    abspath[PATH_MAX] = {0};
+        char                    abspath[PATH_MAX] = "";
 
         this = THIS;
         GF_ASSERT (this);
@@ -1360,7 +1360,7 @@ glusterd_is_brickpath_available (uuid_t uuid, char *path)
         glusterd_volinfo_t      *volinfo   = NULL;
         glusterd_conf_t         *priv      = NULL;
         gf_boolean_t            available  = _gf_false;
-        char                    tmp_path[PATH_MAX+1] = {0};
+        char                    tmp_path[PATH_MAX+1] = "";
 
         priv = THIS->private;
 
@@ -1464,13 +1464,13 @@ glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
                                         gf_boolean_t ignore_partition)
 {
         int          ret                 = -1;
-        char         parentdir[PATH_MAX] = {0,};
+        char         parentdir[PATH_MAX] = "";
         struct stat  parent_st           = {0,};
         struct stat  brick_st            = {0,};
         struct stat  root_st             = {0,};
-        char         msg[2048]           = {0,};
+        char         msg[2048]           = "";
         gf_boolean_t is_created          = _gf_false;
-        char         glusterfs_dir_path[PATH_MAX] = {0};
+        char         glusterfs_dir_path[PATH_MAX] = "";
         int32_t      len                 = 0;
 
         ret = sys_mkdir (brickinfo->path, 0777);
@@ -1894,12 +1894,12 @@ glusterd_set_brick_socket_filepath (glusterd_volinfo_t *volinfo,
                                     glusterd_brickinfo_t *brickinfo,
                                     char *sockpath, size_t len)
 {
-        char                    volume_dir[PATH_MAX] = {0,};
+        char                    volume_dir[PATH_MAX] = "";
         xlator_t                *this = NULL;
         glusterd_conf_t         *priv = NULL;
         int                     expected_file_len = 0;
-        char                    export_path[PATH_MAX] = {0,};
-        char                    sock_filepath[PATH_MAX] = {0,};
+        char                    export_path[PATH_MAX] = "";
+        char                    sock_filepath[PATH_MAX] = "";
         int32_t                 slen = 0;
 
         expected_file_len = strlen (GLUSTERD_SOCK_DIR) + strlen ("/") +
@@ -1928,7 +1928,7 @@ glusterd_brick_connect (glusterd_volinfo_t  *volinfo,
                         glusterd_brickinfo_t  *brickinfo, char *socketpath)
 {
         int                     ret = 0;
-        char                    volume_id_str[64];
+        char                    volume_id_str[64] = "";
         char                    *brickid = NULL;
         dict_t                  *options = NULL;
         struct rpc_clnt         *rpc = NULL;
@@ -1972,7 +1972,7 @@ out:
 static int
 _mk_rundir_p (glusterd_volinfo_t *volinfo)
 {
-        char rundir[PATH_MAX]   = {0,};
+        char rundir[PATH_MAX]   = "";
         glusterd_conf_t *priv   = NULL;
         xlator_t        *this   = NULL;
         int             ret     = -1;
@@ -1995,19 +1995,19 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         int32_t                 ret = -1;
         xlator_t                *this = NULL;
         glusterd_conf_t         *priv = NULL;
-        char                    pidfile[PATH_MAX+1] = {0,};
-        char                    volfile[PATH_MAX] = {0,};
+        char                    pidfile[PATH_MAX+1] = "";
+        char                    volfile[PATH_MAX] = "";
         runner_t                runner = {0,};
-        char                    exp_path[PATH_MAX] = {0,};
-        char                    logfile[PATH_MAX] = {0,};
+        char                    exp_path[PATH_MAX] = "";
+        char                    logfile[PATH_MAX] = "";
         int                     port = 0;
         int                     rdma_port = 0;
         char                    *bind_address = NULL;
         char                    *localtime_logging = NULL;
-        char                    socketpath[PATH_MAX] = {0};
-        char                    glusterd_uuid[1024] = {0,};
-        char                    valgrind_logfile[PATH_MAX] = {0};
-        char                    rdma_brick_path[PATH_MAX] = {0,};
+        char                    socketpath[PATH_MAX] = "";
+        char                    glusterd_uuid[1024] = "";
+        char                    valgrind_logfile[PATH_MAX] = "";
+        char                    rdma_brick_path[PATH_MAX] = "";
         struct rpc_clnt         *rpc = NULL;
         rpc_clnt_connection_t   *conn  = NULL;
         int                     pid    = -1;
@@ -2270,8 +2270,8 @@ int32_t
 glusterd_brick_unlink_socket_file (glusterd_volinfo_t *volinfo,
                                    glusterd_brickinfo_t *brickinfo)
 {
-        char                    path[PATH_MAX] = {0,};
-        char                    socketpath[PATH_MAX] = {0};
+        char                    path[PATH_MAX] = "";
+        char                    socketpath[PATH_MAX] = "";
         xlator_t                *this = NULL;
         glusterd_conf_t         *priv = NULL;
 
@@ -2522,7 +2522,7 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t *volinfo,
         glusterd_conf_t *conf                   = NULL;
         int             ret                     = -1;
         char            *op_errstr              = NULL;
-        char            pidfile[PATH_MAX]       = {0,};
+        char            pidfile[PATH_MAX]       = "";
         int             last_brick              = -1;
 
         GF_ASSERT (volinfo);
@@ -2618,7 +2618,7 @@ glusterd_readin_file (const char *filepath, int *line_count)
         int         ret                    = -1;
         int         n                      = 8;
         int         counter                = 0;
-        char        buffer[PATH_MAX + 256] = {0};
+        char        buffer[PATH_MAX + 256] = "";
         char      **lines                  = NULL;
         FILE       *fp                     = NULL;
         void       *p;
@@ -2720,9 +2720,9 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo, char *cksum_path,
         uint32_t                cksum                   = 0;
         int                     fd                      = -1;
         int                     sort_fd                 = 0;
-        char                    sort_filepath[PATH_MAX] = {0};
+        char                    sort_filepath[PATH_MAX] = "";
         char                   *cksum_path_final        = NULL;
-        char                    buf[4096]               = {0,};
+        char                    buf[4096]               = "";
         gf_boolean_t            unlink_sortfile         = _gf_false;
         glusterd_conf_t        *priv                    = NULL;
         xlator_t               *this                    = NULL;
@@ -2814,9 +2814,9 @@ int glusterd_compute_cksum (glusterd_volinfo_t *volinfo,
 {
         int               ret                  = -1;
         uint32_t          cs                   = 0;
-        char              cksum_path[PATH_MAX] = {0,};
-        char              path[PATH_MAX]       = {0,};
-        char              filepath[PATH_MAX]   = {0,};
+        char              cksum_path[PATH_MAX] = "";
+        char              path[PATH_MAX]       = "";
+        char              filepath[PATH_MAX]   = "";
         glusterd_conf_t  *conf                 = NULL;
         xlator_t         *this                 = NULL;
         int32_t           len1                 = 0;
@@ -2868,7 +2868,7 @@ int
 _add_dict_to_prdict (dict_t *this, char *key, data_t *value, void *data)
 {
         glusterd_dict_ctx_t     *ctx = NULL;
-        char                    optkey[512] = {0,};
+        char                    optkey[512] = "";
         int                     ret = -1;
 
         ctx = data;
@@ -2898,7 +2898,7 @@ glusterd_add_bricks_hname_path_to_dict (dict_t *dict,
 {
         glusterd_brickinfo_t    *brickinfo = NULL;
         int                     ret = 0;
-        char                    key[256] = {0};
+        char                    key[256] = "";
         int                     index = 0;
 
 
@@ -2929,8 +2929,8 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                              char *prefix)
 {
         int32_t                 ret               = -1;
-        char                    pfx[512]          = {0,};
-        char                    key[512]          = {0,};
+        char                    pfx[512]          = "";
+        char                    key[512]          = "";
         glusterd_brickinfo_t    *brickinfo        = NULL;
         int32_t                 i                 = 1;
         char                    *volume_id_str    = NULL;
@@ -3250,8 +3250,8 @@ glusterd_vol_add_quota_conf_to_dict (glusterd_volinfo_t *volinfo, dict_t* load,
                                      int vol_idx, char *prefix)
 {
         int            fd                    = -1;
-        unsigned char  buf[16]               = {0};
-        char           key[PATH_MAX]         = {0};
+        unsigned char  buf[16]               = "";
+        char           key[PATH_MAX]         = "";
         int            gfid_idx              = 0;
         int            ret                   = -1;
         xlator_t      *this                  = NULL;
@@ -3389,7 +3389,7 @@ glusterd_compare_friend_volume (dict_t *peer_data, int32_t count,
 {
 
         int32_t                 ret = -1;
-        char                    key[512] = {0,};
+        char                    key[512] = "";
         glusterd_volinfo_t      *volinfo = NULL;
         char                    *volname = NULL;
         uint32_t                cksum = 0;
@@ -3531,13 +3531,13 @@ static int32_t
 import_prdict_dict (dict_t *peer_data, dict_t  *dst_dict, char *key_prefix,
                     char *value_prefix, int opt_count, char *prefix)
 {
-        char                    key[512] = {0,};
+        char                    key[512] = "";
         int32_t                 ret = 0;
         int                     i = 1;
         char                    *opt_key = NULL;
         char                    *opt_val = NULL;
         char                    *dup_opt_val = NULL;
-        char                    msg[2048] = {0};
+        char                    msg[2048] = "";
 
         while (i <= opt_count) {
                 snprintf (key, sizeof (key), "%s.%s%d",
@@ -3603,11 +3603,11 @@ glusterd_import_friend_volume_opts (dict_t *peer_data, int count,
                                     glusterd_volinfo_t *volinfo,
                                     char *prefix)
 {
-        char                    key[512] = {0,};
+        char                    key[512] = "";
         int32_t                 ret = -1;
         int                     opt_count = 0;
-        char                    msg[2048] = {0};
-        char                    volume_prefix[1024] = {0};
+        char                    msg[2048] = "";
+        char                    volume_prefix[1024] = "";
 
         GF_ASSERT (peer_data);
         GF_ASSERT (volinfo);
@@ -3670,7 +3670,7 @@ glusterd_import_new_brick (dict_t *peer_data, int32_t vol_count,
         char                    *brick_id = NULL;
         int                     decommissioned = 0;
         glusterd_brickinfo_t    *new_brickinfo = NULL;
-        char                    msg[2048] = {0};
+        char                    msg[2048] = "";
         char                    *brick_uuid_str = NULL;
 
         GF_ASSERT (peer_data);
@@ -3795,7 +3795,7 @@ glusterd_import_quota_conf (dict_t *peer_data, int vol_idx,
         int       gfid_count       = 0;
         int       ret              = -1;
         int       fd               = -1;
-        char      key[PATH_MAX]    = {0};
+        char      key[PATH_MAX]    = "";
         char     *gfid_str         = NULL;
         uuid_t    gfid             = {0,};
         xlator_t *this             = NULL;
@@ -3910,9 +3910,9 @@ gd_import_friend_volume_rebal_dict (dict_t *dict, int count,
                                     glusterd_volinfo_t *volinfo)
 {
         int  ret        = -1;
-        char key[256]   = {0,};
+        char key[256]   = "";
         int  dict_count  = 0;
-        char prefix[64] = {0};
+        char prefix[64] = "";
 
         GF_ASSERT (dict);
         GF_ASSERT (volinfo);
@@ -3951,12 +3951,12 @@ glusterd_import_volinfo (dict_t *peer_data, int count,
                          char *prefix)
 {
         int                ret               = -1;
-        char               key[256]          = {0};
+        char               key[256]          = "";
         char               *parent_volname   = NULL;
         char               *volname          = NULL;
         glusterd_volinfo_t *new_volinfo      = NULL;
         char               *volume_id_str    = NULL;
-        char               msg[2048]         = {0};
+        char               msg[2048]         = "";
         char               *str              = NULL;
         char               *rebalance_id_str = NULL;
         int                op_version        = 0;
@@ -4374,7 +4374,7 @@ glusterd_volinfo_copy_brickinfo (glusterd_volinfo_t *old_volinfo,
         glusterd_conf_t        *priv                = NULL;
         int                     ret                 = 0;
         xlator_t               *this                = NULL;
-        char                    abspath[PATH_MAX]   = {0};
+        char                    abspath[PATH_MAX]   = "";
 
         GF_ASSERT (new_volinfo);
         GF_ASSERT (old_volinfo);
@@ -4606,7 +4606,7 @@ glusterd_import_friend_volume (dict_t *peer_data, int count)
         glusterd_volinfo_t      *new_volinfo = NULL;
         glusterd_svc_t          *svc         = NULL;
         int32_t                  update      = 0;
-        char                     key[512]    = {0,};
+        char                     key[512]    = "";
 
         GF_ASSERT (peer_data);
 
@@ -4820,7 +4820,7 @@ int
 glusterd_get_next_global_opt_version_str (dict_t *opts, char **version_str)
 {
         int             ret = -1;
-        char            version_string[64] = {0};
+        char            version_string[64] = "";
         uint32_t        version = 0;
 
         ret = glusterd_get_global_opt_version (opts, &version);
@@ -5146,12 +5146,12 @@ glusterd_add_node_to_dict (char *server, dict_t *dict, int count,
                            dict_t *vol_opts)
 {
         int                     ret               = -1;
-        char                    pidfile[PATH_MAX] = {0,};
+        char                    pidfile[PATH_MAX] = "";
         gf_boolean_t            running           = _gf_false;
         int                     pid               = -1;
         int                     port              = 0;
         glusterd_svc_t         *svc               = NULL;
-        char                    key[1024]         = {0,};
+        char                    key[1024]         = "";
         xlator_t               *this              = NULL;
         glusterd_conf_t        *priv              = NULL;
 
@@ -5442,8 +5442,8 @@ attach_brick_callback (struct rpc_req *req, struct iovec *iov, int count,
         glusterd_volinfo_t               *volinfo   =  NULL;
         xlator_t                         *this      = THIS;
         int                               ret       = -1;
-        char                              pidfile1[PATH_MAX]      = {0};
-        char                              pidfile2[PATH_MAX]      = {0};
+        char                              pidfile1[PATH_MAX]      = "";
+        char                              pidfile2[PATH_MAX]      = "";
         gf_getspec_rsp                    rsp   = {0,};
         int                               last_brick = -1;
 
@@ -5634,8 +5634,8 @@ attach_brick (xlator_t *this,
               glusterd_volinfo_t *other_vol)
 {
         glusterd_conf_t *conf                   = this->private;
-        char            pidfile1[PATH_MAX]      = {0};
-        char            pidfile2[PATH_MAX]      = {0};
+        char            pidfile1[PATH_MAX]      = "";
+        char            pidfile2[PATH_MAX]      = "";
         char            unslashed[PATH_MAX]     = {'\0',};
         char            full_id[PATH_MAX]       = {'\0',};
         char            path[PATH_MAX]          = {'\0',};
@@ -5729,7 +5729,7 @@ find_compat_brick_in_vol (glusterd_conf_t *conf,
         xlator_t                *this                   = THIS;
         glusterd_brickinfo_t    *other_brick            = NULL;
         glusterd_brick_proc_t   *brick_proc             = NULL;
-        char                    pidfile2[PATH_MAX]      = {0};
+        char                    pidfile2[PATH_MAX]      = "";
         int32_t                 pid2                    = -1;
         int16_t                 retries                 = 15;
         int                     mux_limit               = -1;
@@ -5958,15 +5958,15 @@ find_compatible_brick (glusterd_conf_t *conf,
 int
 glusterd_get_sock_from_brick_pid (int pid, char *sockpath, size_t len)
 {
-        char fname[128] = {0,};
-        char buf[1024] = {0,};
-        char cmdline[2048] = {0,};
+        char fname[128] = "";
+        char buf[1024] = "";
+        char cmdline[2048] = "";
         xlator_t                *this = NULL;
         int fd         = -1;
         int i = 0, j = 0;
         char   *ptr   = NULL;
         char   *brptr   = NULL;
-        char tmpsockpath[PATH_MAX] = {0,};
+        char tmpsockpath[PATH_MAX] = "";
         size_t blen    = 0;
         int    ret     = -1;
 
@@ -6043,7 +6043,7 @@ search_brick_path_from_proc (pid_t brick_pid, char *brickpath)
         DIR *dirp = NULL;
         size_t len = 0;
         int fd = -1;
-        char path[PATH_MAX] = {0,};
+        char path[PATH_MAX] = "";
         struct dirent  scratch[2] = {{0,},};
         char *brick_path = NULL;
 
@@ -6098,8 +6098,8 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
         glusterd_brickinfo_t    *other_brick;
         glusterd_conf_t         *conf = NULL;
         int32_t                  pid                   = -1;
-        char                     pidfile[PATH_MAX]     = {0};
-        char                     socketpath[PATH_MAX]  = {0};
+        char                     pidfile[PATH_MAX]     = "";
+        char                     socketpath[PATH_MAX]  = "";
         char                    *brickpath             = NULL;
         glusterd_volinfo_t      *other_vol;
         gf_boolean_t             is_service_running = _gf_false;
@@ -6486,14 +6486,14 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
         int                 ret                         = 0;
         int                 op_ret                      = 0;
         int                 ret_status                  = 0;
-        char                uuid_str[64]                = {0};
+        char                uuid_str[64]                = "";
         glusterd_volinfo_t *volinfo                     = NULL;
         char                confpath[PATH_MAX]          = "";
         char               *op_errstr                   = NULL;
         glusterd_conf_t    *priv                        = NULL;
         gf_boolean_t        is_template_in_use          = _gf_false;
         gf_boolean_t        is_paused                   = _gf_false;
-        char                key1[1024]                  = {0,};
+        char                key1[1024]                  = "";
         xlator_t           *this1                       = NULL;
 
         this1 = THIS;
@@ -6894,8 +6894,8 @@ static int
 glusterd_add_inode_size_to_dict (dict_t *dict, int count)
 {
         int             ret               = -1;
-        char            key[1024]         = {0};
-        char            buffer[4096]      = {0};
+        char            key[1024]         = "";
+        char            buffer[4096]      = "";
         char           *device            = NULL;
         char           *fs_name           = NULL;
         char           *cur_word          = NULL;
@@ -7060,9 +7060,9 @@ glusterd_add_brick_mount_details (glusterd_brickinfo_t *brickinfo,
                                   dict_t *dict, int count)
 {
         int             ret                  = -1;
-        char            key[1024]            = {0};
-        char            buff [PATH_MAX]      = {0};
-        char            base_key[32]         = {0};
+        char            key[1024]            = "";
+        char            buff[PATH_MAX]       = "";
+        char            base_key[32]         = "";
         struct mntent   save_entry           = {0};
         char           *mnt_pt               = NULL;
         struct mntent  *entry                = NULL;
@@ -7161,8 +7161,8 @@ glusterd_add_brick_detail_to_dict (glusterd_volinfo_t *volinfo,
         uint64_t        inodes_total      = 0;
         uint64_t        inodes_free       = 0;
         uint64_t        block_size        = 0;
-        char            key[1024 + 16]    = {0};
-        char            base_key[1024]    = {0};
+        char            key[1024 + 16]    = "";
+        char            base_key[1024]    = "";
         struct statvfs  brickstat         = {0};
         xlator_t       *this              = NULL;
 
@@ -7239,9 +7239,9 @@ glusterd_add_brick_to_dict (glusterd_volinfo_t *volinfo,
 
         int              ret                  = -1;
         int32_t          pid                  = -1;
-        char             key[1024]            = {0};
-        char             base_key[1024]       = {0};
-        char             pidfile[PATH_MAX]    = {0};
+        char             key[2048]            = "";
+        char             base_key[1024]       = "";
+        char             pidfile[PATH_MAX]    = "";
         xlator_t        *this                 = NULL;
         glusterd_conf_t *priv                 = NULL;
         gf_boolean_t     brick_online         = _gf_false;
@@ -7337,7 +7337,7 @@ glusterd_get_all_volnames (dict_t *dict)
 {
         int                    ret        = -1;
         int32_t                vol_count  = 0;
-        char                   key[256]   = {0};
+        char                   key[256]   = "";
         glusterd_volinfo_t    *entry      = NULL;
         glusterd_conf_t       *priv       = NULL;
 
@@ -7643,9 +7643,9 @@ glusterd_is_path_in_use (char *path, gf_boolean_t *in_use, char **op_errstr)
         int             i               = 0;
         int             ret             = -1;
         gf_boolean_t    used            = _gf_false;
-        char            dir[PATH_MAX]   = {0,};
+        char            dir[PATH_MAX]   = "";
         char            *curdir         = NULL;
-        char            msg[2048]       = {0};
+        char            msg[2048]       = "";
         char            *keys[3]         = {GFID_XATTR_KEY,
                                             GF_XATTR_VOL_ID_KEY,
                                             NULL};
@@ -7714,7 +7714,7 @@ glusterd_check_and_set_brick_xattr (char *host, char *path, uuid_t uuid,
                                     char **op_errstr, gf_boolean_t is_force)
 {
         int             ret             = -1;
-        char            msg[2048]       = {0,};
+        char            msg[2048]       = "";
         gf_boolean_t    in_use          = _gf_false;
         int             flags           = 0;
 
@@ -7768,8 +7768,8 @@ glusterd_sm_tr_log_transition_add_to_dict (dict_t *dict,
                                            int count)
 {
         int     ret = -1;
-        char    key[512] = {0};
-        char    timestr[64] = {0,};
+        char    key[512] = "";
+        char    timestr[64] = "";
         char    *str = NULL;
 
         GF_ASSERT (dict);
@@ -7985,7 +7985,7 @@ glusterd_delete_brick (glusterd_volinfo_t* volinfo,
                        glusterd_brickinfo_t *brickinfo)
 {
         int             ret = 0;
-        char      voldir[PATH_MAX] = {0,};
+        char      voldir[PATH_MAX] = "";
         glusterd_conf_t *priv = THIS->private;
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -8105,7 +8105,7 @@ glusterd_start_gsync (glusterd_volinfo_t *master_vol, char *slave,
 {
         int32_t         ret     = 0;
         int32_t         status  = 0;
-        char            uuid_str [64] = {0};
+        char            uuid_str[64] = "";
         runner_t        runner = {0,};
         xlator_t        *this = NULL;
         glusterd_conf_t *priv = NULL;
@@ -8378,8 +8378,8 @@ glusterd_brick_signal (glusterd_volinfo_t *volinfo,
         int                     ret = -1;
         xlator_t                *this = NULL;
         glusterd_conf_t         *conf = NULL;
-        char                    pidfile_path[PATH_MAX] = {0,};
-        char                    dumpoptions_path[PATH_MAX] = {0,};
+        char                    pidfile_path[PATH_MAX] = "";
+        char                    dumpoptions_path[PATH_MAX] = "";
         FILE                    *pidfile = NULL;
         pid_t                   pid = -1;
 
@@ -8490,15 +8490,15 @@ glusterd_nfs_statedump (char *options, int option_cnt, char **op_errstr)
         int                     ret = -1;
         xlator_t                *this = NULL;
         glusterd_conf_t         *conf = NULL;
-        char                    pidfile_path[PATH_MAX] = {0,};
-        char                    path[PATH_MAX] = {0,};
+        char                    pidfile_path[PATH_MAX] = "";
+        char                    path[PATH_MAX] = "";
         FILE                    *pidfile = NULL;
         pid_t                   pid = -1;
-        char                    dumpoptions_path[PATH_MAX] = {0,};
+        char                    dumpoptions_path[PATH_MAX] = "";
         char                    *option = NULL;
         char                    *tmpptr = NULL;
         char                    *dup_options = NULL;
-        char                    msg[256] = {0,};
+        char                    msg[256] = "";
 
         this = THIS;
         GF_ASSERT (this);
@@ -8574,7 +8574,7 @@ glusterd_client_statedump (char *volname, char *options, int option_cnt,
         char                    *dup_options        = NULL;
         char                    *option             = NULL;
         char                    *tmpptr             = NULL;
-        char                     msg[256]           = {0,};
+        char                     msg[256]           = "";
         char                    *target_ip          = NULL;
         char                    *pid                = NULL;
 
@@ -8615,15 +8615,15 @@ glusterd_quotad_statedump (char *options, int option_cnt, char **op_errstr)
         int                     ret = -1;
         xlator_t                *this = NULL;
         glusterd_conf_t         *conf = NULL;
-        char                    pidfile_path[PATH_MAX] = {0,};
-        char                    path[PATH_MAX] = {0,};
+        char                    pidfile_path[PATH_MAX] = "";
+        char                    path[PATH_MAX] = "";
         FILE                    *pidfile = NULL;
         pid_t                   pid = -1;
-        char                    dumpoptions_path[PATH_MAX] = {0,};
+        char                    dumpoptions_path[PATH_MAX] = "";
         char                    *option = NULL;
         char                    *tmpptr = NULL;
         char                    *dup_options = NULL;
-        char                    msg[256] = {0,};
+        char                    msg[256] = "";
 
         this = THIS;
         GF_ASSERT (this);
@@ -8831,7 +8831,7 @@ int
 glusterd_get_bitd_filepath (char *filepath, glusterd_volinfo_t *volinfo)
 {
         int   ret             = 0;
-        char  path[PATH_MAX]  = {0,};
+        char  path[PATH_MAX]  = "";
         glusterd_conf_t *priv = NULL;
         int32_t len           = 0;
 
@@ -8853,7 +8853,7 @@ glusterd_get_client_filepath (char *filepath, glusterd_volinfo_t *volinfo,
                               gf_transport_type type)
 {
         int   ret             = 0;
-        char  path[PATH_MAX]  = {0,};
+        char  path[PATH_MAX]  = "";
         glusterd_conf_t *priv = NULL;
         int32_t len           = 0;
 
@@ -8888,7 +8888,7 @@ glusterd_get_trusted_client_filepath (char *filepath,
                                       gf_transport_type type)
 {
         int   ret             = 0;
-        char  path[PATH_MAX]  = {0,};
+        char  path[PATH_MAX]  = "";
         glusterd_conf_t *priv = NULL;
         int32_t len           = 0;
 
@@ -8976,7 +8976,7 @@ glusterd_volume_defrag_restart (glusterd_volinfo_t *volinfo, char *op_errstr,
 {
         xlator_t        *this             = NULL;
         glusterd_conf_t *priv             = NULL;
-        char            pidfile[PATH_MAX] = {0,};
+        char            pidfile[PATH_MAX] = "";
         int             ret               = -1;
         pid_t           pid               = 0;
 
@@ -9099,7 +9099,7 @@ int
 glusterd_restart_rebalance_for_volume (glusterd_volinfo_t *volinfo)
 {
         int             ret = -1;
-        char          op_errstr[PATH_MAX];
+        char          op_errstr[PATH_MAX] = "";
 
         if (!gd_should_i_start_rebalance (volinfo)) {
 
@@ -9622,7 +9622,7 @@ glusterd_append_gsync_status (dict_t *dst, dict_t *src)
 int32_t
 glusterd_append_status_dicts (dict_t *dst, dict_t *src)
 {
-        char                sts_val_name[PATH_MAX] = {0, };
+        char                sts_val_name[PATH_MAX] = "";
         int                 dst_count              = 0;
         int                 src_count              = 0;
         int                 i                      = 0;
@@ -9878,11 +9878,11 @@ static int
 _profile_volume_add_friend_rsp (dict_t *this, char *key, data_t *value,
                                void *data)
 {
-        char    new_key[264] = {0};
+        char    new_key[264] = "";
         glusterd_pr_brick_rsp_conv_t *rsp_ctx = NULL;
         data_t  *new_value = NULL;
         int     brick_count = 0;
-        char    brick_key[256];
+        char    brick_key[256] = "";
 
         if (strcmp (key, "count") == 0)
                 return 0;
@@ -9942,8 +9942,8 @@ glusterd_volume_status_add_peer_rsp (dict_t *this, char *key, data_t *value,
 {
         glusterd_status_rsp_conv_t      *rsp_ctx = NULL;
         data_t                          *new_value = NULL;
-        char                            brick_key[1024] = {0,};
-        char                            new_key[1024] = {0,};
+        char                            brick_key[1024] = "";
+        char                            new_key[1024] = "";
         int32_t                         index = 0;
         int32_t                         ret = -1;
         int32_t                         len = 0;
@@ -10019,7 +10019,7 @@ glusterd_volume_status_aggregate_tasks_status (dict_t *ctx_dict,
         int             remote_count    = 0;
         int             i               = 0;
         int             j               = 0;
-        char            key[128]        = {0,};
+        char            key[128]        = "";
         char            *task_type      = NULL;
         int             local_status    = 0;
         int             remote_status   = 0;
@@ -10199,7 +10199,7 @@ glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict)
         int                             vol_count = -1;
         int                             i = 0;
         dict_t                          *ctx_dict = NULL;
-        char                            key[PATH_MAX] = {0,};
+        char                            key[PATH_MAX] = "";
         char                            *volname = NULL;
         glusterd_volinfo_t              *volinfo       = NULL;
 
@@ -10414,7 +10414,7 @@ glusterd_volume_bitrot_scrub_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         int                      ret                = -1;
         int                      j                  = 0;
         uint64_t                 value              = 0;
-        char                     key[256]           = {0,};
+        char                     key[256]           = "";
         char                    *last_scrub_time    = NULL;
         char                    *scrub_time         = NULL;
         char                    *volname            = NULL;
@@ -10628,8 +10628,8 @@ glusterd_bitrot_volume_node_rsp (dict_t *aggr, dict_t *rsp_dict)
 {
         int                      ret                = -1;
         uint64_t                 value              = 0;
-        char                     key[256]           = {0,};
-        char                     buf[1024]          = {0,};
+        char                     key[256]           = "";
+        char                     buf[1024]          = "";
         int32_t                  i                  = 0;
         int32_t                  j                  = 0;
         char                    *last_scrub_time    = NULL;
@@ -10837,7 +10837,7 @@ out:
 int
 glusterd_volume_rebalance_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 {
-        char                 key[256]      = {0,};
+        char                 key[256]      = "";
         char                *node_uuid     = NULL;
         char                *node_uuid_str = NULL;
         char                *volname       = NULL;
@@ -11042,7 +11042,7 @@ out:
 int
 glusterd_volume_tier_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
 {
-        char                 key[256]      = {0,};
+        char                 key[256]      = "";
         char                *node_uuid     = NULL;
         char                *node_uuid_str = NULL;
         char                *volname       = NULL;
@@ -11358,7 +11358,7 @@ int
 _profile_volume_add_brick_rsp (dict_t *this, char *key, data_t *value,
                              void *data)
 {
-        char    new_key[256] = {0};
+        char    new_key[256] = "";
         glusterd_pr_brick_rsp_conv_t *rsp_ctx = NULL;
         data_t  *new_value = NULL;
 
@@ -11379,7 +11379,7 @@ glusterd_volume_quota_copy_to_op_ctx_dict (dict_t *dict, dict_t *rsp_dict)
         int        rsp_dict_count = 0;
         char      *uuid_str       = NULL;
         char      *uuid_str_dup   = NULL;
-        char       key[256]       = {0,};
+        char       key[256]       = "";
         xlator_t  *this           = NULL;
         int        type           = GF_QUOTA_OPTION_TYPE_NONE;
 
@@ -11474,8 +11474,8 @@ glusterd_profile_volume_brick_rsp (void *pending_entry,
         int                             ret = 0;
         glusterd_pr_brick_rsp_conv_t    rsp_ctx = {0};
         int32_t                         count = 0;
-        char                            brick[PATH_MAX+1024] = {0};
-        char                            key[256] = {0};
+        char                            brick[PATH_MAX+1024] = "";
+        char                            key[256] = "";
         char                            *full_brick = NULL;
         glusterd_brickinfo_t            *brickinfo = NULL;
         xlator_t                        *this = NULL;
@@ -11522,8 +11522,8 @@ glusterd_profile_volume_brick_rsp (void *pending_entry,
 int
 _heal_volume_add_shd_rsp (dict_t *this, char *key, data_t *value, void *data)
 {
-        char                            new_key[256] = {0,};
-        char                            int_str[16] = {0};
+        char                            new_key[256] = "";
+        char                            int_str[16] = "";
         data_t                          *new_value = NULL;
         char                            *rxl_end = NULL;
         char                            *rxl_child_end = NULL;
@@ -11583,9 +11583,9 @@ int
 _heal_volume_add_shd_rsp_of_statistics (dict_t *this, char *key, data_t
                                              *value, void *data)
 {
-        char                            new_key[256] = {0,};
-        char                            int_str[16] = {0,};
-        char                            key_begin_string[128] = {0,};
+        char                            new_key[256] = "";
+        char                            int_str[16] = "";
+        char                            key_begin_string[128] = "";
         data_t                          *new_value = NULL;
         char                            *rxl_end = NULL;
         char                            *rxl_child_end = NULL;
@@ -11704,7 +11704,7 @@ int
 _status_volume_add_brick_rsp (dict_t *this, char *key, data_t *value,
                               void *data)
 {
-        char                            new_key[256] = {0,};
+        char                            new_key[256] = "";
         data_t                          *new_value = 0;
         glusterd_pr_brick_rsp_conv_t    *rsp_ctx = NULL;
 
@@ -11769,7 +11769,7 @@ glusterd_status_volume_client_list (dict_t *rsp_dict, dict_t *op_ctx,
         int32_t                         snapd_count     = 0;
         int32_t                         client_count    = 0;
         int                             i               = 0;
-        char                            key[256]        = {0,};
+        char                            key[256]        = "";
 
         GF_ASSERT (rsp_dict);
         GF_ASSERT (op_ctx);
@@ -11957,7 +11957,7 @@ int
 glusterd_tier_or_rebalance_rsp (dict_t *op_ctx, glusterd_rebalance_t *index, int32_t i)
 {
         int                             ret = 0;
-        char                            key[256] = {0,};
+        char                            key[256] = "";
 
         snprintf (key, sizeof (key), "files-%d", i);
         ret = dict_set_uint64 (op_ctx, key, index->rebalance_files);
@@ -12018,9 +12018,9 @@ glusterd_defrag_volume_node_rsp (dict_t *req_dict, dict_t *rsp_dict,
         int                             ret = 0;
         char                            *volname = NULL;
         glusterd_volinfo_t              *volinfo = NULL;
-        char                            key[256] = {0,};
+        char                            key[256] = "";
         int32_t                         i = 0;
-        char                            buf[1024] = {0,};
+        char                            buf[1024] = "";
         char                            *node_str = NULL;
         int32_t                         cmd       = 0;
 
@@ -12254,7 +12254,7 @@ int
 glusterd_copy_uuid_to_dict (uuid_t uuid, dict_t *dict, char *key)
 {
         int             ret = -1;
-        char            tmp_str[40] = {0,};
+        char            tmp_str[40] = "";
         char            *task_id_str = NULL;
 
         GF_ASSERT (dict);
@@ -12435,7 +12435,7 @@ gd_should_i_start_rebalance  (glusterd_volinfo_t *volinfo) {
         glusterd_brickinfo_t *brick     = NULL;
         int                  count      = 0;
         int                  i          = 0;
-        char                 key[1023]  = {0,};
+        char                 key[1023]  = "";
         char                 *brickname = NULL;
 
 
@@ -12525,7 +12525,7 @@ glusterd_validate_and_set_gfid (dict_t *op_ctx, dict_t *req_dict,
         uuid_t     uuid1         = {0};
         uuid_t     uuid2         = {0,};
         char      *path          = NULL;
-        char       key[256]      = {0,};
+        char       key[256]      = "";
         char      *uuid1_str     = NULL;
         char      *uuid1_str_dup = NULL;
         char      *uuid2_str     = NULL;
@@ -12653,9 +12653,9 @@ out:
 void
 glusterd_clean_up_quota_store (glusterd_volinfo_t *volinfo)
 {
-        char      voldir[PATH_MAX]         = {0,};
-        char      quota_confpath[PATH_MAX] = {0,};
-        char      cksum_path[PATH_MAX]     = {0,};
+        char      voldir[PATH_MAX]         = "";
+        char      quota_confpath[PATH_MAX] = "";
+        char      cksum_path[PATH_MAX]     = "";
         xlator_t  *this                    = NULL;
         glusterd_conf_t *conf              = NULL;
         int32_t   len                      = 0;
@@ -12691,7 +12691,7 @@ int
 glusterd_remove_auxiliary_mount (char *volname)
 {
         int       ret                = -1;
-        char      mountdir[PATH_MAX] = {0,};
+        char      mountdir[PATH_MAX] = "";
         xlator_t *this               = NULL;
 
         this = THIS;
@@ -12720,7 +12720,7 @@ gd_stop_rebalance_process (glusterd_volinfo_t *volinfo)
         int              ret               = -1;
         xlator_t        *this              = NULL;
         glusterd_conf_t *conf              = NULL;
-        char             pidfile[PATH_MAX] = {0,};
+        char             pidfile[PATH_MAX] = "";
 
         GF_ASSERT (volinfo);
 
@@ -12901,7 +12901,7 @@ void
 glusterd_get_gfproxy_client_volfile (glusterd_volinfo_t *volinfo,
                                         char *path, int path_len)
 {
-        char                    workdir[PATH_MAX]      = {0, };
+        char                    workdir[PATH_MAX]      = "";
         glusterd_conf_t        *priv                    = THIS->private;
 
         GLUSTERD_GET_VOLUME_DIR (workdir, volinfo, priv);
@@ -12927,7 +12927,7 @@ void
 glusterd_get_rebalance_volfile (glusterd_volinfo_t *volinfo,
                                 char *path, int path_len)
 {
-        char                    workdir[PATH_MAX]      = {0,};
+        char                    workdir[PATH_MAX]      = "";
         glusterd_conf_t        *priv                   = THIS->private;
 
         GLUSTERD_GET_VOLUME_DIR (workdir, volinfo, priv);
@@ -13066,7 +13066,7 @@ glusterd_get_global_max_op_version (rpcsvc_request_t *req, dict_t *ctx,
 {
         int     ret = -1;
         char    *def_val = NULL;
-        char    dict_key[50] = {0,};
+        char    dict_key[50] = "";
 
         ret = glusterd_mgmt_v3_initiate_all_phases (req, GD_OP_MAX_OPVERSION,
                                                     ctx);
@@ -13115,9 +13115,9 @@ glusterd_get_global_options_for_all_vols (rpcsvc_request_t *req, dict_t *ctx,
         xlator_t                *this = NULL;
         char                    *key = NULL;
         char                    *key_fixed = NULL;
-        char                    dict_key[50] = {0,};
+        char                    dict_key[50] = "";
         char                    *def_val = NULL;
-        char                    err_str[PATH_MAX] = {0,};
+        char                    err_str[PATH_MAX] = "";
         char                    *allvolopt = NULL;
         int32_t                 i = 0;
         gf_boolean_t            exists = _gf_false;
@@ -13272,7 +13272,7 @@ glusterd_get_default_val_for_volopt (dict_t *ctx, gf_boolean_t all_opts,
         char                     err_str[PATH_MAX] = "";
         xlator_t                *this = NULL;
         char                    *def_val = NULL;
-        char                     dict_key[50] = {0,};
+        char                     dict_key[50] = "";
         gf_boolean_t             key_found = _gf_false;
         glusterd_conf_t         *priv = NULL;
         dict_t                  *vol_dict = NULL;
@@ -13941,12 +13941,12 @@ glusterd_handle_replicate_brick_ops (glusterd_volinfo_t *volinfo,
 {
         int32_t                    ret               = -1;
         char                       tmpmount[]        = "/tmp/mntXXXXXX";
-        char                       logfile[PATH_MAX] = {0,};
+        char                       logfile[PATH_MAX] = "";
         int                        dirty[3]          = {0,};
         runner_t                   runner            = {0};
         glusterd_conf_t           *priv              = NULL;
         char                      *pid               = NULL;
-        char                       vpath[PATH_MAX]   = {0,};
+        char                       vpath[PATH_MAX]   = "";
         char                      *volfileserver     = NULL;
 
         priv = THIS->private;
@@ -14153,7 +14153,7 @@ glusterd_brick_op_prerequisites (dict_t *dict,
                                  char **op_errstr, dict_t *rsp_dict)
 {
         int                                      ret                = 0;
-        char                                     msg[2048]          = {0};
+        char                                     msg[2048]          = "";
         gsync_status_param_t                     param              = {0,};
         xlator_t                                *this               = NULL;
         glusterd_conf_t                         *priv               = NULL;
@@ -14299,7 +14299,7 @@ glusterd_get_dst_brick_info (char **dst_brick, char *volname, char **op_errstr,
 
         char                                    *path               = NULL;
         char                                    *c                  = NULL;
-        char                                     msg[2048]          = {0};
+        char                                     msg[2048]          = "";
         xlator_t                                *this               = NULL;
         glusterd_conf_t                         *priv               = NULL;
         int                                      ret                = 0;

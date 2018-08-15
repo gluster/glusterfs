@@ -62,7 +62,7 @@
 #include "lvm-defaults.h"
 #include "events.h"
 
-char snap_mount_dir[PATH_MAX];
+char snap_mount_dir[VALID_GLUSTERD_PATHMAX];
 struct snap_create_args_ {
         xlator_t             *this;
         dict_t               *dict;
@@ -622,11 +622,11 @@ out:
 int
 glusterd_snapshot_backup_vol (glusterd_volinfo_t *volinfo)
 {
-        char             pathname[PATH_MAX]    = {0,};
+        char             pathname[PATH_MAX]    = "";
         int              ret                   = -1;
         int              op_ret                = 0;
-        char             delete_path[PATH_MAX] = {0,};
-        char             trashdir[PATH_MAX]    = {0,};
+        char             delete_path[PATH_MAX] = "";
+        char             trashdir[PATH_MAX]    = "";
         glusterd_conf_t *priv                  = NULL;
         xlator_t        *this                  = NULL;
         int32_t          len                   = 0;
@@ -963,7 +963,7 @@ glusterd_snapshot_restore_prevalidate (dict_t *dict, char **op_errstr,
         int32_t                 volcount        = 0;
         int32_t                 brick_count     = 0;
         gf_boolean_t            snap_restored   = _gf_false;
-        char                    key[PATH_MAX]   = {0, };
+        char                    key[PATH_MAX]   = "";
         char                    *volname        = NULL;
         char                    *snapname       = NULL;
         glusterd_volinfo_t      *volinfo        = NULL;
@@ -1262,7 +1262,7 @@ glusterd_snapshot_config_prevalidate (dict_t *dict, char **op_errstr,
         xlator_t           *this                = NULL;
         int                 ret                 = -1;
         int                 config_command      = 0;
-        char                err_str[PATH_MAX]   = {0,};
+        char                err_str[PATH_MAX]   = "";
         glusterd_conf_t    *conf                = NULL;
         uint64_t            hard_limit          = 0;
         uint64_t            soft_limit          = 0;
@@ -1871,7 +1871,7 @@ glusterd_add_brick_status_to_dict (dict_t *dict, glusterd_volinfo_t *volinfo,
                                    glusterd_brickinfo_t *brickinfo,
                                    char *key_prefix)
 {
-        char                   pidfile[PATH_MAX]         = {0, };
+        char                   pidfile[PATH_MAX]         = "";
         int32_t                brick_online              = 0;
         pid_t                  pid                       = 0;
         xlator_t              *this                      = NULL;
@@ -2784,8 +2784,8 @@ glusterd_do_lvm_snapshot_remove (glusterd_volinfo_t *snap_vol,
         xlator_t               *this              = NULL;
         glusterd_conf_t        *priv              = NULL;
         runner_t                runner            = {0,};
-        char                    msg[1024]         = {0, };
-        char                    pidfile[PATH_MAX] = {0, };
+        char                    msg[1024]         = "";
+        char                    pidfile[PATH_MAX] = "";
         pid_t                   pid               = -1;
         int                     retry_count       = 0;
         char                   *mnt_pt            = NULL;
@@ -2913,7 +2913,7 @@ glusterd_lvm_snapshot_remove (dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
         glusterd_brickinfo_t *brickinfo            = NULL;
         xlator_t             *this                 = NULL;
         char                  brick_dir[PATH_MAX]  = "";
-        char                  snap_path[PATH_MAX]  = "";
+        char                  snap_path[PATH_MAX] = "";
         char                 *tmp                  = NULL;
         char                 *brick_mount_path     = NULL;
         gf_boolean_t          is_brick_dir_present = _gf_false;
@@ -3097,7 +3097,7 @@ remove_brick_path:
                         goto out;
                 }
 
-                snprintf (snap_path, sizeof (snap_path) - 1, "%s/%s",
+                snprintf (snap_path, sizeof (snap_path), "%s/%s",
                           snap_mount_dir, snap_vol->snapshot->snapname);
                 ret = recursive_rmdir (snap_path);
                 if (ret) {
@@ -3285,7 +3285,7 @@ glusterd_snapshot_get_snapvol_detail (dict_t *dict,
 {
         int                 ret           = -1;
         int                 snap_limit    = 0;
-        char                key[PATH_MAX] = {0,};
+        char                key[PATH_MAX] = "";
         char               *value         = NULL;
         glusterd_volinfo_t *origin_vol    = NULL;
         glusterd_conf_t    *conf          = NULL;
@@ -3444,8 +3444,8 @@ glusterd_snapshot_get_snap_detail (dict_t *dict, glusterd_snap_t *snap,
 {
         int                 ret           = -1;
         int                 volcount      = 0;
-        char                key[PATH_MAX] = {0,};
-        char                timestr[64]   = {0,};
+        char                key[PATH_MAX] = "";
+        char                timestr[64]   = "";
         char               *value         = NULL;
         glusterd_volinfo_t *snap_vol      = NULL;
         glusterd_volinfo_t *tmp_vol       = NULL;
@@ -3609,7 +3609,7 @@ glusterd_snapshot_get_all_snap_info (dict_t *dict)
 {
         int                 ret           = -1;
         int                 snapcount     = 0;
-        char                key[PATH_MAX] = {0,};
+        char                key[PATH_MAX] = "";
         glusterd_snap_t    *snap          = NULL;
         glusterd_snap_t    *tmp_snap      = NULL;
         glusterd_conf_t    *priv          = NULL;
@@ -3905,7 +3905,7 @@ glusterd_snapshot_get_all_snapnames (dict_t *dict)
         int              ret             = -1;
         int              snapcount       = 0;
         char            *snapname        = NULL;
-        char             key[PATH_MAX]   = {0,};
+        char             key[PATH_MAX]   = "";
         glusterd_snap_t *snap            = NULL;
         glusterd_snap_t *tmp_snap        = NULL;
         glusterd_conf_t *priv            = NULL;
@@ -3958,7 +3958,7 @@ glusterd_snapshot_get_vol_snapnames (dict_t *dict, glusterd_volinfo_t *volinfo)
         int                 ret             = -1;
         int                 snapcount       = 0;
         char               *snapname        = NULL;
-        char                key[PATH_MAX]   = {0,};
+        char                key[PATH_MAX]   = "";
         glusterd_volinfo_t *snap_vol        = NULL;
         glusterd_volinfo_t *tmp_vol         = NULL;
         xlator_t           *this            = NULL;
@@ -4089,9 +4089,9 @@ glusterd_handle_snapshot_create (rpcsvc_request_t *req, glusterd_op_t op,
         uuid_t        tmp_uuid                             = {0};
         int           i                                    = 0;
         int           timestamp                            = 0;
-        char          snap_volname[GD_VOLUME_NAME_MAX]     = {0, };
-        char          new_snapname[GLUSTERD_MAX_SNAP_NAME] = {0, };
-        char          gmt_snaptime[GLUSTERD_MAX_SNAP_NAME] = {0, };
+        char          snap_volname[GD_VOLUME_NAME_MAX]     = "";
+        char          new_snapname[GLUSTERD_MAX_SNAP_NAME] = "";
+        char          gmt_snaptime[GLUSTERD_MAX_SNAP_NAME] = "";
         time_t        snap_time;
         this = THIS;
         GF_ASSERT (this);
@@ -4325,7 +4325,7 @@ glusterd_handle_snapshot_clone (rpcsvc_request_t *req, glusterd_op_t op,
         uuid_t       *uuid_ptr                         = NULL;
         uuid_t        tmp_uuid                         = {0};
         int           i                                = 0;
-        char          snap_volname[GD_VOLUME_NAME_MAX] = {0, };
+        char          snap_volname[GD_VOLUME_NAME_MAX] = "";
 
         this = THIS;
         GF_ASSERT (this);
@@ -4944,7 +4944,7 @@ glusterd_add_brick_to_snap_volume (dict_t *dict, dict_t *rsp_dict,
         gf_boolean_t            add_missed_snap                 = _gf_false;
         int32_t                 ret                             = -1;
         xlator_t               *this                            = NULL;
-        char                    abspath[PATH_MAX]               = {0};
+        char                    abspath[PATH_MAX]               = "";
         int32_t                 len                             = 0;
 
         this = THIS;
@@ -6340,7 +6340,7 @@ glusterd_snapshot_deactivate_commit (dict_t *dict, char **op_errstr,
         /*Remove /var/run/gluster/snaps/<snap-name> entry for deactivated snaps.
          * This entry will be created again during snap activate.
          */
-        snprintf (snap_path, sizeof (snap_path) - 1, "%s/%s",
+        snprintf (snap_path, sizeof (snap_path), "%s/%s",
                   snap_mount_dir, snapname);
         ret = recursive_rmdir (snap_path);
         if (ret) {
@@ -8146,8 +8146,8 @@ glusterd_handle_snap_limit (dict_t *dict, dict_t *rsp_dict)
         int64_t             volcount            = 0;
         int                 i                   = 0;
         char               *volname             = NULL;
-        char                key[PATH_MAX]       = {0, };
-        char                msg[PATH_MAX]       = {0, };
+        char                key[PATH_MAX]       = "";
+        char                msg[PATH_MAX]       = "";
         glusterd_volinfo_t *volinfo             = NULL;
         uint64_t            limit               = 0;
         int64_t             count               = 0;
@@ -8678,7 +8678,7 @@ glusterd_snapshot_brickop (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         int            ret       = -1;
         int64_t        vol_count = 0;
         int64_t        count     = 1;
-        char           key[1024] = {0,};
+        char           key[1024] = "";
         char           *volname  = NULL;
         int32_t        snap_command = 0;
         xlator_t       *this     = NULL;
@@ -9032,8 +9032,8 @@ int
 glusterd_snapshot_revert_partial_restored_vol (glusterd_volinfo_t *volinfo)
 {
         int                     ret                     = 0;
-        char                    pathname [PATH_MAX]     = {0,};
-        char                    trash_path[PATH_MAX]    = {0,};
+        char                    pathname[PATH_MAX]      = "";
+        char                    trash_path[PATH_MAX]    = "";
         glusterd_brickinfo_t   *brickinfo               = NULL;
         glusterd_volinfo_t     *reverted_vol            = NULL;
         glusterd_volinfo_t     *snap_vol                = NULL;
@@ -9147,7 +9147,7 @@ int
 glusterd_snapshot_revert_restore_from_snap (glusterd_snap_t *snap)
 {
         int                     ret                     = -1;
-        char                    volname [PATH_MAX]      = {0,};
+        char                    volname[PATH_MAX]       = "";
         glusterd_volinfo_t     *snap_volinfo            = NULL;
         glusterd_volinfo_t     *volinfo                 = NULL;
         xlator_t               *this                    = NULL;
@@ -9493,7 +9493,7 @@ glusterd_handle_snapshot_fn (rpcsvc_request_t *req)
         int                   type           = 0;
         glusterd_conf_t      *conf           = NULL;
         char                 *host_uuid      = NULL;
-        char                  err_str[2048]  = {0,};
+        char                  err_str[2048]  = "";
         xlator_t             *this           = NULL;
         uint32_t              op_errno       = 0;
 
@@ -10235,7 +10235,7 @@ glusterd_snapshot_get_volnames_uuids (dict_t *dict,
 {
         int                 ret             = -1;
         int                 snapcount       = 0;
-        char                key[PATH_MAX]   = {0,};
+        char                key[PATH_MAX]   = "";
         glusterd_volinfo_t *snap_vol        = NULL;
         glusterd_volinfo_t *volinfo         = NULL;
         glusterd_volinfo_t *tmp_vol         = NULL;
