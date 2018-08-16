@@ -761,7 +761,7 @@ glusterd_add_snap_to_dict (glusterd_snap_t *snap, dict_t *peer_data,
         }
 
         if (snap->description) {
-                snprintf (buf, sizeof(buf), "%s.snapid", prefix);
+                snprintf (buf, sizeof(buf), "%s.description", prefix);
                 ret = dict_set_dynstr_with_alloc (peer_data, buf,
                                                   snap->description);
                 if (ret) {
@@ -1544,6 +1544,7 @@ glusterd_import_friend_snap (dict_t *peer_data, int32_t snap_count,
 {
         char                 buf[64]          = "";
         char                 prefix[32]       = "";
+        char                *description      = NULL;
         dict_t              *dict             = NULL;
         glusterd_snap_t     *snap             = NULL;
         glusterd_volinfo_t  *snap_vol         = NULL;
@@ -1583,8 +1584,18 @@ glusterd_import_friend_snap (dict_t *peer_data, int32_t snap_count,
         gf_strncpy (snap->snapname, peer_snap_name, sizeof(snap->snapname));
         gf_uuid_parse (peer_snap_id, snap->snap_id);
 
-        snprintf (buf, sizeof(buf), "%s.snapid", prefix);
-        ret = dict_get_str (peer_data, buf, &snap->description);
+        snprintf (buf, sizeof(buf), "%s.description", prefix);
+        ret = dict_get_str (peer_data, buf, &description);
+        if (ret == 0 && description) {
+                snap->description = gf_strdup (description);
+                if (snap->description == NULL) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                GD_MSG_SNAP_CREATION_FAIL,
+                                "Saving the Snapshot Description Failed");
+                        ret = -1;
+                        goto out;
+                }
+        }
 
         snprintf (buf, sizeof(buf), "%s.time_stamp", prefix);
         ret = dict_get_int64 (peer_data, buf, &snap->time_stamp);
