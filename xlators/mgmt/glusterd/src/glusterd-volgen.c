@@ -6870,7 +6870,7 @@ validate_nfsopts (glusterd_volinfo_t *volinfo,
         int     ret = -1;
         char    transport_type[16] = {0,};
         char    *tt                = NULL;
-        char    err_str[4096]      = {0,};
+        char    err_str[128]       = {0,};
         xlator_t *this             = THIS;
 
         GF_ASSERT (this);
