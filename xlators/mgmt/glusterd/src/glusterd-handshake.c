@@ -1857,7 +1857,7 @@ __glusterd_mgmt_hndsk_version_ack_cbk (struct rpc_req *req, struct iovec *iov,
         call_frame_t        *frame    = NULL;
         glusterd_peerinfo_t *peerinfo = NULL;
         glusterd_peerctx_t  *peerctx  = NULL;
-        char                msg[1024] = {0,};
+        char                msg[64] = {0,};
 
         this = THIS;
         frame = myframe;
@@ -1962,7 +1962,7 @@ __glusterd_mgmt_hndsk_version_cbk (struct rpc_req *req, struct iovec *iov,
         dict_t              *dict      = NULL;
         dict_t              *rsp_dict  = NULL;
         glusterd_conf_t     *conf      = NULL;
-        char                 msg[1024] = {0,};
+        char                 msg[64] = {0,};
 
         this = THIS;
         conf = this->private;
