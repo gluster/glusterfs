@@ -43,7 +43,7 @@ __glusterd_handle_replace_brick (rpcsvc_request_t *req)
         char                            *cli_op = NULL;
         glusterd_op_t                   op = -1;
         char                            *volname = NULL;
-        char                            msg[2048] = {0,};
+        char                            msg[256] = {0,};
         xlator_t                        *this = NULL;
         glusterd_conf_t                 *conf = NULL;
 
