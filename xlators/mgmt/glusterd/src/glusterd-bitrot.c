@@ -46,7 +46,7 @@ __glusterd_handle_bitrot (rpcsvc_request_t *req)
         char                           *volname   = NULL;
         char                           *scrub     = NULL;
         int32_t                         type      = 0;
-        char                            msg[2048] = {0,};
+        char                            msg[256] = {0,};
         xlator_t                       *this      = NULL;
         glusterd_conf_t                *conf      = NULL;
 
