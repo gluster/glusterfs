@@ -587,7 +587,7 @@ __glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
         dict_t                          *dict = NULL;
         glusterd_op_t                   cli_op = GD_OP_STOP_VOLUME;
         xlator_t                        *this = NULL;
-        char                            err_str[2048] = {0,};
+        char                            err_str[64] = {0,};
         glusterd_conf_t                 *conf = NULL;
 
         this = THIS;
@@ -678,7 +678,7 @@ __glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
         glusterd_op_t  cli_op      = GD_OP_DELETE_VOLUME;
         dict_t        *dict        = NULL;
         char          *volname     = NULL;
-        char          err_str[2048]= {0,};
+        char          err_str[64]= {0,};
         xlator_t      *this        = NULL;
 
         this = THIS;
@@ -1000,7 +1000,7 @@ __glusterd_handle_cli_statedump_volume (rpcsvc_request_t *req)
         dict_t                          *dict = NULL;
         int32_t                         option_cnt = 0;
         glusterd_op_t                   cli_op = GD_OP_STATEDUMP_VOLUME;
-        char                            err_str[2048] = {0,};
+        char                            err_str[128] = {0,};
         xlator_t                        *this = NULL;
         glusterd_conf_t                 *priv = NULL;
 
