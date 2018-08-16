@@ -1236,8 +1236,7 @@ posix_releasedir(xlator_t *this, fd_t *fd)
     struct posix_fd *pfd = NULL;
     uint64_t tmp_pfd = 0;
     int ret = 0;
-
-    struct posix_private *priv = NULL;
+    glusterfs_ctx_t *ctx = NULL;
 
     VALIDATE_OR_GOTO(this, out);
     VALIDATE_OR_GOTO(fd, out);
@@ -1255,18 +1254,21 @@ posix_releasedir(xlator_t *this, fd_t *fd)
         goto out;
     }
 
-    priv = this->private;
-    if (!priv)
-        goto out;
+    ctx = THIS->ctx;
 
-    pthread_mutex_lock(&priv->janitor_lock);
+    pthread_mutex_lock(&ctx->janitor_lock);
     {
         INIT_LIST_HEAD(&pfd->list);
-        list_add_tail(&pfd->list, &priv->janitor_fds);
-        pthread_cond_signal(&priv->janitor_cond);
+        list_add_tail(&pfd->list, &ctx->janitor_fds);
+        pthread_cond_signal(&ctx->janitor_cond);
     }
-    pthread_mutex_unlock(&priv->janitor_lock);
+    pthread_mutex_unlock(&ctx->janitor_lock);
 
+    /*gf_msg_debug(this->name, 0, "janitor: closing dir fd=%p", pfd->dir);
+
+    sys_closedir(pfd->dir);
+    GF_FREE(pfd);
+    */
 out:
     return 0;
 }
@@ -2337,11 +2339,13 @@ posix_release(xlator_t *this, fd_t *fd)
     struct posix_fd *pfd = NULL;
     int ret = -1;
     uint64_t tmp_pfd = 0;
+    glusterfs_ctx_t *ctx = NULL;
 
     VALIDATE_OR_GOTO(this, out);
     VALIDATE_OR_GOTO(fd, out);
 
     priv = this->private;
+    ctx = THIS->ctx;
 
     ret = fd_ctx_del(fd, this, &tmp_pfd);
     if (ret < 0) {
@@ -2349,22 +2353,23 @@ posix_release(xlator_t *this, fd_t *fd)
                "pfd is NULL from fd=%p", fd);
         goto out;
     }
-    pfd = (struct posix_fd *)(long)tmp_pfd;
 
+    pfd = (struct posix_fd *)(long)tmp_pfd;
     if (pfd->dir) {
         gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_DIR_NOT_NULL,
                "pfd->dir is %p (not NULL) for file fd=%p", pfd->dir, fd);
     }
-    if (!priv)
-        goto out;
 
-    pthread_mutex_lock(&priv->janitor_lock);
+    pthread_mutex_lock(&ctx->janitor_lock);
     {
         INIT_LIST_HEAD(&pfd->list);
-        list_add_tail(&pfd->list, &priv->janitor_fds);
-        pthread_cond_signal(&priv->janitor_cond);
+        list_add_tail(&pfd->list, &ctx->janitor_fds);
+        pthread_cond_signal(&ctx->janitor_cond);
     }
-    pthread_mutex_unlock(&priv->janitor_lock);
+    pthread_mutex_unlock(&ctx->janitor_lock);
+
+    if (!priv)
+        goto out;
 
     LOCK(&priv->lock);
     {

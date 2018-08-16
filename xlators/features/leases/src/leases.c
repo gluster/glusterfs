@@ -1019,11 +1019,11 @@ fini(xlator_t *this)
         priv->inited_recall_thr = _gf_false;
     }
 
-    GF_FREE(priv);
-    if (this->ctx->tw) {
+    if (priv->timer_wheel) {
         glusterfs_ctx_tw_put(this->ctx);
-        this->ctx->tw = NULL;
     }
+
+    GF_FREE(priv);
     return;
 }
 

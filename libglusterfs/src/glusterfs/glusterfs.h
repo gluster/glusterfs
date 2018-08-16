@@ -716,6 +716,12 @@ struct _glusterfs_ctx {
     } stats;
 
     struct list_head volfile_list;
+
+    /* Add members to manage janitor threads for cleanup fd */
+    struct list_head janitor_fds;
+    pthread_cond_t janitor_cond;
+    pthread_mutex_t janitor_lock;
+    pthread_t janitor;
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 

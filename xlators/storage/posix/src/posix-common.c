@@ -60,6 +60,7 @@
 #include <glusterfs/events.h>
 #include "posix-gfid-path.h"
 #include <glusterfs/compat-uuid.h>
+#include "timer-wheel.h"
 
 extern char *marker_xattrs[];
 #define ALIGN_SIZE 4096
@@ -968,15 +969,12 @@ posix_init(xlator_t *this)
     if (_private->health_check_interval)
         posix_spawn_health_check_thread(this);
 
-    pthread_mutex_init(&_private->janitor_lock, NULL);
-    pthread_cond_init(&_private->janitor_cond, NULL);
-    INIT_LIST_HEAD(&_private->janitor_fds);
-
-    posix_spawn_janitor_thread(this);
+    posix_janitor_timer_start(this);
 
     pthread_mutex_init(&_private->fsync_mutex, NULL);
     pthread_cond_init(&_private->fsync_cond, NULL);
     INIT_LIST_HEAD(&_private->fsyncs);
+    posix_spawn_ctx_janitor_thread(this);
 
     ret = gf_thread_create(&_private->fsyncer, NULL, posix_fsyncer, this,
                            "posixfsy");
@@ -1072,6 +1070,7 @@ posix_fini(xlator_t *this)
 {
     struct posix_private *priv = this->private;
     gf_boolean_t health_check = _gf_false;
+    int ret = 0;
 
     if (!priv)
         return;
@@ -1093,8 +1092,13 @@ posix_fini(xlator_t *this)
         priv->disk_space_check = 0;
     }
     if (priv->janitor) {
-        (void)gf_thread_cleanup_xint(priv->janitor);
-        priv->janitor = 0;
+        /*TODO: Make sure the synctask is also complete */
+        ret = gf_tw_del_timer(this->ctx->tw->timer_wheel, priv->janitor);
+        if (ret < 0) {
+            gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_TIMER_DELETE_FAILED,
+                   "Failed to delete janitor timer");
+        }
+        priv->janitor = NULL;
     }
     if (priv->fsyncer) {
         (void)gf_thread_cleanup_xint(priv->fsyncer);
@@ -1106,7 +1110,6 @@ posix_fini(xlator_t *this)
 
     GF_FREE(priv->base_path);
     LOCK_DESTROY(&priv->lock);
-    pthread_mutex_destroy(&priv->janitor_lock);
     pthread_mutex_destroy(&priv->fsync_mutex);
     GF_FREE(priv->hostname);
     GF_FREE(priv->trash_path);

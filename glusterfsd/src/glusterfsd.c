@@ -2837,11 +2837,9 @@ main(int argc, char *argv[])
     }
 
     /* do this _after_ daemonize() */
-    if (cmd->global_timer_wheel) {
-        if (!glusterfs_ctx_tw_get(ctx)) {
-            ret = -1;
-            goto out;
-        }
+    if (!glusterfs_ctx_tw_get(ctx)) {
+        ret = -1;
+        goto out;
     }
 
     ret = glusterfs_volumes_init(ctx);
