@@ -2914,7 +2914,7 @@ glusterd_volume_quorum_calculate (glusterd_volinfo_t *volinfo, dict_t *dict,
                                   uint32_t *op_errno)
 {
         gf_boolean_t  quorum_met        = _gf_false;
-        char          err_str[PATH_MAX] = {0, };
+        const char    err_str[]         = "One or more bricks may be down.";
         xlator_t     *this              = NULL;
 
         this = THIS;
@@ -2933,8 +2933,6 @@ glusterd_volume_quorum_calculate (glusterd_volinfo_t *volinfo, dict_t *dict,
          * supported with snapshot.
          */
         if (down_count) {
-                snprintf (err_str, sizeof (err_str), "One or more bricks may "
-                          "be down.");
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_BRICK_DISCONNECTED, "%s", err_str);
                 *op_errstr = gf_strdup (err_str);
@@ -2966,7 +2964,7 @@ glusterd_volume_quorum_check (glusterd_volinfo_t *volinfo, int64_t index,
         gf_boolean_t             quorum_met         = _gf_false;
         int                      distribute_subvols = 0;
         int32_t                  brick_online       = 0;
-        char                     err_str[PATH_MAX]  = {0, };
+        const char               err_str[]          = "quorum is not met";
 
         this = THIS;
         GF_ASSERT (this);
@@ -2994,8 +2992,6 @@ glusterd_volume_quorum_check (glusterd_volinfo_t *volinfo, int64_t index,
                         ret = dict_get_int32 (dict, key, &brick_online);
                         if (ret || !brick_online) {
                                 ret = 1;
-                                snprintf (err_str, sizeof (err_str), "quorum "
-                                          "is not met");
                                 gf_msg (this->name, GF_LOG_ERROR,
                                         0, GD_MSG_SERVER_QUORUM_NOT_MET, "%s",
                                         err_str);
@@ -3167,7 +3163,7 @@ int32_t
 glusterd_snap_quorum_check_for_clone (dict_t *dict, gf_boolean_t snap_volume,
                                       char **op_errstr, uint32_t *op_errno)
 {
-        char                err_str[PATH_MAX] = {0, };
+        const char          err_str[]            = "glusterds are not in quorum";
         char                key_prefix[PATH_MAX] = {0, };
         char               *snapname          = NULL;
         glusterd_snap_t    *snap              = NULL;
@@ -3214,8 +3210,6 @@ glusterd_snap_quorum_check_for_clone (dict_t *dict, gf_boolean_t snap_volume,
          * quorum, then better fail the snapshot
          */
         if (!does_gd_meet_server_quorum (this)) {
-                snprintf (err_str, sizeof (err_str),
-                          "glusterds are not in quorum");
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         GD_MSG_SERVER_QUORUM_NOT_MET, "%s", err_str);
                 *op_errstr = gf_strdup (err_str);
@@ -3296,7 +3290,7 @@ glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
 {
         int8_t              snap_force        = 0;
         int32_t             force             = 0;
-        char                err_str[PATH_MAX] = {0, };
+        const char          err_str[]         = "glusterds are not in quorum";
         char                key_prefix[PATH_MAX] = {0, };
         char               *snapname          = NULL;
         glusterd_snap_t    *snap              = NULL;
@@ -3346,8 +3340,6 @@ glusterd_snap_quorum_check_for_create (dict_t *dict, gf_boolean_t snap_volume,
          * quorum, then better fail the snapshot
          */
         if (!does_gd_meet_server_quorum (this)) {
-                snprintf (err_str, sizeof (err_str),
-                          "glusterds are not in quorum");
                 gf_msg (this->name, GF_LOG_WARNING, 0,
                         GD_MSG_SERVER_QUORUM_NOT_MET, "%s", err_str);
                 *op_errstr = gf_strdup (err_str);
@@ -3426,7 +3418,7 @@ glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
         int32_t             ret               = -1;
         xlator_t           *this              = NULL;
         int32_t             snap_command      = 0;
-        char                err_str[PATH_MAX] = {0, };
+        const char          err_str[]         = "glusterds are not in quorum";
 
         this = THIS;
         GF_ASSERT (this);
@@ -3473,8 +3465,6 @@ glusterd_snap_quorum_check (dict_t *dict, gf_boolean_t snap_volume,
         case GF_SNAP_OPTION_TYPE_RESTORE:
                 if (!does_gd_meet_server_quorum (this)) {
                         ret = -1;
-                        snprintf (err_str, sizeof (err_str),
-                                  "glusterds are not in quorum");
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 GD_MSG_SERVER_QUORUM_NOT_MET, "%s",
                                 err_str);
