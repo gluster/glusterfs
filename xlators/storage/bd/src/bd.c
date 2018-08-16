@@ -683,6 +683,7 @@ posix:
         STACK_WIND (frame, bd_open_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->open, loc, flags, fd, xdata);
 
+        GF_FREE (devpath);
         return 0;
 out:
         BD_STACK_UNWIND (open, frame, -1, ret, fd, NULL);
@@ -1585,6 +1586,7 @@ revert_xattr:
         /* revert setxattr */
         op_ret = dict_get_str (local->dict, BD_XATTR, &bd);
         GF_FREE (bd);
+        bd = NULL;
 	if (bdatt)
 		gf_asprintf (&bd, "%s:%ld", bdatt->type, bdatt->iatt.ia_size);
 
@@ -1599,6 +1601,8 @@ revert_xattr:
                             FIRST_CHILD(this)->fops->setxattr,
                             &local->loc, local->dict, 0, NULL);
 
+        if (bd)
+                GF_FREE (bd);
         return 0;
 out:
         if (local->fd)
@@ -1957,7 +1961,7 @@ bd_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc, struct iatt *stbuf,
         STACK_WIND_COOKIE (frame, bd_setattr_cbk, ck_valid, FIRST_CHILD(this),
                            FIRST_CHILD(this)->fops->setattr,
                            loc, stbuf, valid, xdata);
-
+        GF_FREE (ck_valid);
         return 0;
 out:
         BD_STACK_UNWIND (setattr, frame, -1, ENOMEM, NULL, NULL, xdata);

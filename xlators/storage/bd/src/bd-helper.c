@@ -342,6 +342,7 @@ bd_validate_bd_xattr (xlator_t *this, char *bd, char **type,
         if (sys_stat (path, &stbuf)) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "lstat failed for path %s", path);
+                GF_FREE (path);
                 return -1;
         }
 
