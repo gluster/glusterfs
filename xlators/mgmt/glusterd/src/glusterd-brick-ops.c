@@ -2721,7 +2721,6 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         int32_t                 i              = 1;
         char                    key[64]        = "";
         int32_t                 flag           = 0;
-        char                    err_str[4096]  = "";
         int                     need_rebalance = 0;
         int                     force          = 0;
         gf1_op_commands         cmd            = 0;
@@ -3097,6 +3096,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                  * clear it ourselves because nobody else will.
                  */
                 volinfo->decommission_in_progress = 1;
+                char err_str[4096]  = "";
                 ret = glusterd_handle_defrag_start
                         (volinfo, err_str, sizeof (err_str),
                          defrag_cmd,
@@ -3108,15 +3108,14 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
                                 "failed to start the rebalance");
                         /* TBD: shouldn't we do more than print a message? */
                         volinfo->decommission_in_progress = 0;
+                        if (op_errstr)
+                                *op_errstr = gf_strdup (err_str);
                 }
         } else {
                 if (GLUSTERD_STATUS_STARTED == volinfo->status)
                         ret = glusterd_svcs_manager (volinfo);
         }
 out:
-       if (ret && err_str[0] && op_errstr)
-                *op_errstr = gf_strdup (err_str);
-
         GF_FREE (brick_tmpstr);
         if (bricks_dict)
                 dict_unref (bricks_dict);
