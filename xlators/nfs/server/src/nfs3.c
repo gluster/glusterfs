@@ -258,7 +258,7 @@ out:
                 int auth_ret = 0;                                       \
                 int auth_errno = 0;                                     \
                 xlator_t *xlatorp = NULL;                               \
-                char buf[256], gfid[256];                               \
+                char buf[256], gfid[GF_UUID_BUF_SIZE];                  \
                 rpc_transport_t *trans = NULL;                          \
                                                                         \
                 auth_ret = auth_errno =                                 \
@@ -282,7 +282,7 @@ out:
 #define nfs3_check_fh_resolve_status(cst, nfstat, erlabl)               \
         do {                                                            \
                 xlator_t *xlatorp = NULL;                               \
-                char buf[256], gfid[256];                               \
+                char buf[256], gfid[GF_UUID_BUF_SIZE];                  \
                 rpc_transport_t *trans = NULL;                          \
                 if ((cst)->resolve_ret < 0) {                           \
                         trans = rpcsvc_request_transport (cst->req);    \
@@ -305,7 +305,7 @@ out:
 #define nfs3_check_new_fh_resolve_status(cst, nfstat, erlabl)           \
         do {                                                            \
                 xlator_t *xlatorp = NULL;                               \
-                char buf[256], gfid[256];                               \
+                char buf[256], gfid[GF_UUID_BUF_SIZE];                  \
                 rpc_transport_t *trans = NULL;                          \
                 if (((cst)->resolve_ret < 0) &&                         \
                     ((cst)->resolve_errno != ENOENT)) {                 \

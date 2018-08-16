@@ -135,7 +135,7 @@ nfs3_fh_to_xlator (struct nfs3_state *nfs3, struct nfs3_fh *fh);
 #define nlm4_check_fh_resolve_status(cst, nfstat, erlabl)               \
         do {                                                            \
                 xlator_t *xlatorp = NULL;                               \
-                char buf[256], gfid[256];                               \
+                char buf[256], gfid[GF_UUID_BUF_SIZE];                  \
                 rpc_transport_t *trans = NULL;                          \
                 if ((cst)->resolve_ret < 0) {                           \
                         trans = rpcsvc_request_transport (cst->req);    \
