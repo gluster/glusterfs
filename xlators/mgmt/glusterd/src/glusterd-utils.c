@@ -13277,7 +13277,6 @@ glusterd_get_default_val_for_volopt (dict_t *ctx, gf_boolean_t all_opts,
         struct volopt_map_entry *vme = NULL;
         int                      ret = -1;
         int                      count = 0;
-        char                     err_str[PATH_MAX] = "";
         xlator_t                *this = NULL;
         char                    *def_val = NULL;
         char                     dict_key[50] = "";
@@ -13366,6 +13365,7 @@ glusterd_get_default_val_for_volopt (dict_t *ctx, gf_boolean_t all_opts,
 
 out:
         if (ret && !all_opts && !key_found) {
+                char err_str[PATH_MAX];
                 snprintf (err_str, sizeof (err_str),
                           "option %s does not exist", orig_key);
                 *op_errstr = gf_strdup (err_str);
