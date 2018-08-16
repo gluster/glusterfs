@@ -57,6 +57,8 @@
 #include "posix-gfid-path.h"
 #include <glusterfs/events.h>
 #include "glusterfsd.h"
+#include "glusterfs/syncop.h"
+#include "timer-wheel.h"
 #include <sys/types.h>
 
 char *marker_xattrs[] = {"trusted.glusterfs.quota.*",
@@ -1409,81 +1411,181 @@ janitor_walker(const char *fpath, const struct stat *sb, int typeflag,
     return 0; /* 0 = FTW_CONTINUE */
 }
 
-static struct posix_fd *
-janitor_get_next_fd(xlator_t *this)
-{
-    struct posix_private *priv = NULL;
-    struct posix_fd *pfd = NULL;
+void
+__posix_janitor_timer_start(xlator_t *this);
 
-    struct timespec timeout;
-
-    priv = this->private;
-
-    pthread_mutex_lock(&priv->janitor_lock);
-    {
-        if (list_empty(&priv->janitor_fds)) {
-            time(&timeout.tv_sec);
-            timeout.tv_sec += priv->janitor_sleep_duration;
-            timeout.tv_nsec = 0;
-
-            pthread_cond_timedwait(&priv->janitor_cond, &priv->janitor_lock,
-                                   &timeout);
-            goto unlock;
-        }
-
-        pfd = list_entry(priv->janitor_fds.next, struct posix_fd, list);
-
-        list_del(priv->janitor_fds.next);
-    }
-unlock:
-    pthread_mutex_unlock(&priv->janitor_lock);
-
-    return pfd;
-}
-
-static void *
-posix_janitor_thread_proc(void *data)
+static int
+posix_janitor_task_done(int ret, call_frame_t *frame, void *data)
 {
     xlator_t *this = NULL;
     struct posix_private *priv = NULL;
-    struct posix_fd *pfd;
+
+    this = data;
+    priv = this->private;
+
+    LOCK(&priv->lock);
+    {
+        __posix_janitor_timer_start(this);
+    }
+    UNLOCK(&priv->lock);
+
+    return 0;
+}
+
+static int
+posix_janitor_task(void *data)
+{
+    xlator_t *this = NULL;
+    struct posix_private *priv = NULL;
+    xlator_t *old_this = NULL;
 
     time_t now;
 
     this = data;
     priv = this->private;
-
+    /* We need THIS to be set for janitor_walker */
+    old_this = THIS;
     THIS = this;
 
-    while (1) {
-        time(&now);
-        if ((now - priv->last_landfill_check) > priv->janitor_sleep_duration) {
-            if (priv->disable_landfill_purge) {
-                gf_msg_debug(this->name, 0,
-                             "Janitor would have "
-                             "cleaned out %s, but purge"
-                             "is disabled.",
-                             priv->trash_path);
-            } else {
-                gf_msg_trace(this->name, 0, "janitor cleaning out %s",
-                             priv->trash_path);
+    time(&now);
+    if ((now - priv->last_landfill_check) > priv->janitor_sleep_duration) {
+        if (priv->disable_landfill_purge) {
+            gf_msg_debug(this->name, 0,
+                         "Janitor would have "
+                         "cleaned out %s, but purge"
+                         "is disabled.",
+                         priv->trash_path);
+        } else {
+            gf_msg_trace(this->name, 0, "janitor cleaning out %s",
+                         priv->trash_path);
 
-                nftw(priv->trash_path, janitor_walker, 32,
-                     FTW_DEPTH | FTW_PHYS);
+            nftw(priv->trash_path, janitor_walker, 32, FTW_DEPTH | FTW_PHYS);
+        }
+        priv->last_landfill_check = now;
+    }
+
+    THIS = old_this;
+
+    return 0;
+}
+
+static void
+posix_janitor_task_initator(struct gf_tw_timer_list *timer, void *data,
+                            unsigned long calltime)
+{
+    xlator_t *this = NULL;
+    int ret = 0;
+
+    this = data;
+
+    ret = synctask_new(this->ctx->env, posix_janitor_task,
+                       posix_janitor_task_done, NULL, this);
+    if (ret < 0) {
+        gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_THREAD_FAILED,
+               "spawning janitor "
+               "thread failed");
+    }
+
+    return;
+}
+
+void
+__posix_janitor_timer_start(xlator_t *this)
+{
+    struct posix_private *priv = NULL;
+    struct gf_tw_timer_list *timer = NULL;
+
+    priv = this->private;
+    timer = priv->janitor;
+
+    INIT_LIST_HEAD(&timer->entry);
+    timer->expires = priv->janitor_sleep_duration;
+    timer->function = posix_janitor_task_initator;
+    timer->data = this;
+    gf_tw_add_timer(this->ctx->tw->timer_wheel, timer);
+
+    return;
+}
+
+void
+posix_janitor_timer_start(xlator_t *this)
+{
+    struct posix_private *priv = NULL;
+    struct gf_tw_timer_list *timer = NULL;
+
+    priv = this->private;
+
+    LOCK(&priv->lock);
+    {
+        if (!priv->janitor) {
+            timer = GF_CALLOC(1, sizeof(struct gf_tw_timer_list),
+                              gf_common_mt_tw_timer_list);
+            if (!timer) {
+                goto unlock;
             }
-            priv->last_landfill_check = now;
+            priv->janitor = timer;
+            __posix_janitor_timer_start(this);
+        }
+    }
+unlock:
+    UNLOCK(&priv->lock);
+
+    return;
+}
+
+static struct posix_fd *
+janitor_get_next_fd(glusterfs_ctx_t *ctx, int32_t janitor_sleep)
+{
+    struct posix_fd *pfd = NULL;
+
+    struct timespec timeout;
+
+    pthread_mutex_lock(&ctx->janitor_lock);
+    {
+        if (list_empty(&ctx->janitor_fds)) {
+            time(&timeout.tv_sec);
+            timeout.tv_sec += janitor_sleep;
+            timeout.tv_nsec = 0;
+
+            pthread_cond_timedwait(&ctx->janitor_cond, &ctx->janitor_lock,
+                                   &timeout);
+            goto unlock;
         }
 
-        pfd = janitor_get_next_fd(this);
+        pfd = list_entry(ctx->janitor_fds.next, struct posix_fd, list);
+
+        list_del(ctx->janitor_fds.next);
+    }
+unlock:
+    pthread_mutex_unlock(&ctx->janitor_lock);
+
+    return pfd;
+}
+
+static void *
+posix_ctx_janitor_thread_proc(void *data)
+{
+    xlator_t *this = NULL;
+    struct posix_fd *pfd;
+    glusterfs_ctx_t *ctx = NULL;
+    struct posix_private *priv = NULL;
+    int32_t sleep_duration = 0;
+
+    this = data;
+    ctx = THIS->ctx;
+    THIS = this;
+
+    priv = this->private;
+    sleep_duration = priv->janitor_sleep_duration;
+    while (1) {
+        pfd = janitor_get_next_fd(ctx, sleep_duration);
         if (pfd) {
             if (pfd->dir == NULL) {
                 gf_msg_trace(this->name, 0, "janitor: closing file fd=%d",
                              pfd->fd);
                 sys_close(pfd->fd);
             } else {
-                gf_msg_debug(this->name, 0,
-                             "janitor: closing"
-                             " dir fd=%p",
+                gf_msg_debug(this->name, 0, "janitor: closing dir fd=%p",
                              pfd->dir);
                 sys_closedir(pfd->dir);
             }
@@ -1496,18 +1598,25 @@ posix_janitor_thread_proc(void *data)
 }
 
 void
-posix_spawn_janitor_thread(xlator_t *this)
+posix_spawn_ctx_janitor_thread(xlator_t *this)
 {
     struct posix_private *priv = NULL;
     int ret = 0;
+    glusterfs_ctx_t *ctx = NULL;
 
     priv = this->private;
+    ctx = THIS->ctx;
 
     LOCK(&priv->lock);
     {
-        if (!priv->janitor_present) {
-            ret = gf_thread_create(&priv->janitor, NULL,
-                                   posix_janitor_thread_proc, this, "posixjan");
+        if (!ctx->janitor) {
+            pthread_mutex_init(&ctx->janitor_lock, NULL);
+            pthread_cond_init(&ctx->janitor_cond, NULL);
+            INIT_LIST_HEAD(&ctx->janitor_fds);
+
+            ret = gf_thread_create(&ctx->janitor, NULL,
+                                   posix_ctx_janitor_thread_proc, this,
+                                   "posixctxjan");
 
             if (ret < 0) {
                 gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_THREAD_FAILED,
@@ -1515,8 +1624,6 @@ posix_spawn_janitor_thread(xlator_t *this)
                        "thread failed");
                 goto unlock;
             }
-
-            priv->janitor_present = _gf_true;
         }
     }
 unlock:

@@ -151,9 +151,6 @@ struct posix_private {
 
     time_t last_landfill_check;
     int32_t janitor_sleep_duration;
-    struct list_head janitor_fds;
-    pthread_cond_t janitor_cond;
-    pthread_mutex_t janitor_lock;
 
     int64_t read_value;  /* Total read, from init */
     int64_t write_value; /* Total write, from init */
@@ -179,9 +176,9 @@ struct posix_private {
     */
     gf_boolean_t background_unlink;
 
-    /* janitor thread which cleans up /.trash (created by replicate) */
-    pthread_t janitor;
-    gf_boolean_t janitor_present;
+    /* janitor task which cleans up /.trash (created by replicate) */
+    struct gf_tw_timer_list *janitor;
+
     char *trash_path;
     /* lock for brick dir */
     DIR *mount_lock;
@@ -344,7 +341,7 @@ int
 posix_fhandle_pair(call_frame_t *frame, xlator_t *this, int fd, char *key,
                    data_t *value, int flags, struct iatt *stbuf, fd_t *_fd);
 void
-posix_spawn_janitor_thread(xlator_t *this);
+posix_janitor_timer_start(xlator_t *this);
 int
 posix_acl_xattr_set(xlator_t *this, const char *path, dict_t *xattr_req);
 int
@@ -663,5 +660,8 @@ posix_cs_maintenance(xlator_t *this, fd_t *fd, loc_t *loc, int *pfd,
                      dict_t **xattr_rsp, gf_boolean_t ignore_failure);
 int
 posix_check_dev_file(xlator_t *this, inode_t *inode, char *fop, int *op_errno);
+
+void
+posix_spawn_ctx_janitor_thread(xlator_t *this);
 
 #endif /* _POSIX_H */

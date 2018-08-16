@@ -17,7 +17,7 @@ noinst_HEADERS = posix.h posix-mem-types.h posix-handle.h posix-aio.h \
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(top_srcdir)/rpc/xdr/src -I$(top_builddir)/rpc/xdr/src \
-	-I$(top_srcdir)/rpc/rpc-lib/src
+	-I$(top_srcdir)/rpc/rpc-lib/src -I$(CONTRIBDIR)/timer-wheel
 
 AM_CFLAGS = -fno-strict-aliasing -Wall $(GF_CFLAGS) -I$(top_srcdir)/glusterfsd/src
 
