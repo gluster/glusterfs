@@ -28,7 +28,7 @@ __glusterd_handle_log_rotate (rpcsvc_request_t *req)
         dict_t                 *dict    = NULL;
         glusterd_op_t           cli_op = GD_OP_LOG_ROTATE;
         char                   *volname = NULL;
-        char                   msg[2048] = {0,};
+        char                   msg[64] = {0,};
         xlator_t               *this = NULL;
 
         GF_ASSERT (req);
