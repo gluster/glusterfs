@@ -911,7 +911,6 @@ parse_opts (int key, char *arg, struct argp_state *state)
         double               d             = 0.0;
         gf_boolean_t         b             = _gf_false;
         char                *pwd           = NULL;
-        char                 tmp_buf[2048] = {0,};
         char                *tmp_str       = NULL;
         char                *port_str      = NULL;
         struct passwd       *pw            = NULL;
@@ -1000,7 +999,8 @@ parse_opts (int key, char *arg, struct argp_state *state)
                                              errno);
                                break;
                         }
-                        snprintf (tmp_buf, 1024, "%s/%s", pwd, arg);
+                        char tmp_buf[1024];
+                        snprintf (tmp_buf, sizeof(tmp_buf), "%s/%s", pwd, arg);
                         cmd_args->volfile = gf_strdup (tmp_buf);
                         free (pwd);
                 } else {
