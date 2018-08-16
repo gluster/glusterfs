@@ -410,6 +410,8 @@ init (xlator_t *this)
         if (thin_arbiter && strlen(thin_arbiter) > 0) {
                 priv->thin_arbiter_count = 1;
                 priv->child_count--;
+                priv->ta_bad_child_index = AFR_CHILD_UNKNOWN;
+                priv->ta_notify_dom_lock_offset = 0;
         }
         INIT_LIST_HEAD (&priv->healing);
         INIT_LIST_HEAD (&priv->heal_waiting);

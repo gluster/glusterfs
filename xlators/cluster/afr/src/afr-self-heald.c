@@ -631,7 +631,7 @@ afr_shd_ta_set_xattrs (xlator_t *this, loc_t *loc, dict_t **xdata,
         flock.l_len = 0;
 
         ret = syncop_inodelk (priv->children[THIN_ARBITER_BRICK_INDEX],
-                              THIN_ARBITER_DOM1, loc, F_SETLKW, &flock,
+                              AFR_TA_DOM_NOTIFY, loc, F_SETLKW, &flock,
                               NULL, NULL);
         if (ret)
                 goto out;
@@ -644,7 +644,7 @@ afr_shd_ta_set_xattrs (xlator_t *this, loc_t *loc, dict_t **xdata,
 
         flock.l_type = F_UNLCK;
         syncop_inodelk (priv->children[THIN_ARBITER_BRICK_INDEX],
-                        THIN_ARBITER_DOM1, loc, F_SETLKW, &flock, NULL, NULL);
+                        AFR_TA_DOM_NOTIFY, loc, F_SETLKW, &flock, NULL, NULL);
 
 out:
         if (xattr)

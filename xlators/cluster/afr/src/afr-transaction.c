@@ -915,8 +915,10 @@ afr_fill_ta_loc (xlator_t *this, loc_t *loc)
         loc->name = priv->pending_key[THIN_ARBITER_BRICK_INDEX];
         gf_uuid_copy (loc->gfid, priv->ta_gfid);
         loc->inode = inode_new (loc->parent->table);
-        if (!loc->inode)
+        if (!loc->inode) {
+                loc_wipe(loc);
                 return -ENOMEM;
+        }
         return 0;
 }
 
@@ -943,8 +945,12 @@ afr_changelog_thin_arbiter_post_op (xlator_t *this, afr_local_t *local)
 
         GF_ASSERT (failed_count == 1);
         ret = afr_fill_ta_loc (this, &loc);
-        if (ret)
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
+                        "Failed to populate thin-arbiter loc for: %s.",
+                        loc.name);
                 goto out;
+        }
 
         xattr = dict_new ();
         if (!xattr) {
@@ -965,7 +971,7 @@ afr_changelog_thin_arbiter_post_op (xlator_t *this, afr_local_t *local)
 
         /*TODO: Convert to two domain locking. */
         ret = syncop_inodelk (priv->children[THIN_ARBITER_BRICK_INDEX],
-                              THIN_ARBITER_DOM1, &loc, F_SETLKW, &flock,
+                              AFR_TA_DOM_NOTIFY, &loc, F_SETLKW, &flock,
                               NULL, NULL);
         if (ret)
                 goto out;
@@ -987,7 +993,7 @@ afr_changelog_thin_arbiter_post_op (xlator_t *this, afr_local_t *local)
         }
         flock.l_type = F_UNLCK;
         syncop_inodelk (priv->children[THIN_ARBITER_BRICK_INDEX],
-                        THIN_ARBITER_DOM1, &loc, F_SETLKW, &flock, NULL, NULL);
+                        AFR_TA_DOM_NOTIFY, &loc, F_SETLK, &flock, NULL, NULL);
 out:
         if (xattr)
                 dict_unref (xattr);

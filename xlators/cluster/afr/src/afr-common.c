@@ -2993,8 +2993,12 @@ afr_ta_id_file_check (void *opaque)
         priv = this->private;
 
         ret = afr_fill_ta_loc (this, &loc);
-        if (ret)
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
+                        "Failed to populate thin-arbiter loc for: %s.",
+                        loc.name);
                 goto out;
+        }
 
         ret = syncop_lookup (priv->children[THIN_ARBITER_BRICK_INDEX], &loc,
                              &stbuf, 0, 0, 0);
@@ -6746,5 +6750,136 @@ afr_set_inode_local (xlator_t *this, afr_local_t *local, inode_t *inode)
                                   "Error getting inode ctx %s",
                                   uuid_utoa (local->inode->gfid));
         }
+        return ret;
+}
+
+gf_boolean_t
+afr_ta_is_fop_called_from_synctask (xlator_t *this)
+{
+        struct synctask *task      = NULL;
+        gf_lkowner_t    tmp_owner  = {0,};
+
+        task = synctask_get ();
+        if (!task)
+                return _gf_false;
+
+        set_lk_owner_from_ptr(&tmp_owner, (void *)this);
+
+        if (!is_same_lkowner (&tmp_owner, &task->frame->root->lk_owner))
+                return _gf_false;
+
+        return _gf_true;
+}
+
+int
+afr_ta_post_op_lock (xlator_t *this, loc_t *loc)
+{
+        /*Note: At any given time, only one instance of this function must
+        * be in progress.*/
+
+        int             ret    = 0;
+        uuid_t          gfid   = {0,};
+        afr_private_t   *priv  = this->private;
+        gf_boolean_t    locked = _gf_false;
+        struct gf_flock flock1 = {0, };
+        struct gf_flock flock2 = {0, };
+        int32_t         cmd    = 0;
+
+        GF_ASSERT (afr_ta_is_fop_called_from_synctask (this));
+        flock1.l_type = F_WRLCK;
+
+        while (!locked) {
+                if (priv->shd.iamshd) {
+                        cmd = F_SETLKW;
+                        flock1.l_start = 0;
+                        flock1.l_len = 0;
+
+                } else {
+                        cmd = F_SETLK;
+                        if (priv->ta_notify_dom_lock_offset) {
+                                flock1.l_start =
+                                        priv->ta_notify_dom_lock_offset;
+                        } else {
+                                gf_uuid_generate (gfid);
+                                flock1.l_start = gfid_to_ino (gfid);
+                                if (flock1.l_start < 0)
+                                        flock1.l_start = -flock1.l_start;
+                        }
+                        flock1.l_len = 1;
+                }
+                ret = syncop_inodelk (priv->children[THIN_ARBITER_BRICK_INDEX],
+                                      AFR_TA_DOM_NOTIFY, loc, cmd, &flock1,
+                                      NULL, NULL);
+                if (!ret) {
+                        locked = _gf_true;
+                        priv->ta_notify_dom_lock_offset = flock1.l_start;
+                } else if (ret == -EAGAIN) {
+                        continue;
+                } else {
+                        gf_msg (this->name, GF_LOG_ERROR, -ret,
+                                AFR_MSG_THIN_ARB, "Failed to get "
+                                "AFR_TA_DOM_NOTIFY lock on %s.", loc->name);
+                        goto out;
+                }
+        }
+
+        flock2.l_type = F_WRLCK;
+        flock2.l_start = 0;
+        flock2.l_len = 0;
+        ret = syncop_inodelk (priv->children[THIN_ARBITER_BRICK_INDEX],
+                              AFR_TA_DOM_MODIFY, loc, F_SETLKW, &flock2,
+                              NULL, NULL);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
+                        "Failed to get AFR_TA_DOM_MODIFY lock.");
+                if (!locked)
+                        goto out;
+                flock1.l_type = F_UNLCK;
+                ret = syncop_inodelk (priv->children[THIN_ARBITER_BRICK_INDEX],
+                                      AFR_TA_DOM_NOTIFY, loc, F_SETLK, &flock1,
+                                      NULL, NULL);
+        }
+out:
+        return ret;
+}
+
+int
+afr_ta_post_op_unlock (xlator_t *this, loc_t *loc)
+{
+        afr_private_t           *priv = this->private;
+        struct gf_flock         flock = {0, };
+        int                     ret   = 0;
+
+        GF_ASSERT (afr_ta_is_fop_called_from_synctask (this));
+        flock.l_type = F_UNLCK;
+        flock.l_start = 0;
+        flock.l_len = 0;
+
+        ret = syncop_inodelk (priv->children[THIN_ARBITER_BRICK_INDEX],
+                              AFR_TA_DOM_MODIFY, loc, F_SETLK, &flock, NULL,
+                              NULL);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
+                        "Failed to unlock AFR_TA_DOM_MODIFY lock.");
+                goto out;
+        }
+
+        if (!priv->shd.iamshd)
+                /* Mounts (clients) will not release the AFR_TA_DOM_NOTIFY lock
+                 * in post-op as they use it as a notification mechanism. When
+                 * shd sends a lock request on TA during heal, the clients will
+                 * receive a lock-contention upcall notification upon which they
+                 * will release the AFR_TA_DOM_NOTIFY lock after completing the
+                 * in flight I/O.*/
+                goto out;
+
+        ret = syncop_inodelk (priv->children[THIN_ARBITER_BRICK_INDEX],
+                              AFR_TA_DOM_NOTIFY, loc, F_SETLK, &flock,
+                              NULL, NULL);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
+                        "Failed to unlock AFR_TA_DOM_NOTIFY lock.");
+        }
+out:
         return ret;
 }
