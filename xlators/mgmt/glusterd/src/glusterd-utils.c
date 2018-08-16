@@ -1191,7 +1191,7 @@ glusterd_get_brick_mount_dir (char *brickpath, char *hostname, char *mount_dir)
                 brick_dir = &brickpath[strlen (mnt_pt)];
                 brick_dir++;
 
-                snprintf (mount_dir, PATH_MAX, "/%s", brick_dir);
+                snprintf (mount_dir, VALID_GLUSTERD_PATHMAX, "/%s", brick_dir);
         }
 
 out:

@@ -3601,7 +3601,7 @@ glusterd_recreate_vol_brick_mounts (xlator_t  *this,
         glusterd_brickinfo_t    *brickinfo           = NULL;
         int32_t                  ret                 = -1;
         struct stat              st_buf              = {0, };
-        char                     abspath[PATH_MAX]   = {0};
+        char                     abspath[VALID_GLUSTERD_PATHMAX]   = {0};
 
         GF_ASSERT (this);
         GF_ASSERT (volinfo);
