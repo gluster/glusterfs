@@ -61,6 +61,4 @@ afr_lock (call_frame_t *frame, xlator_t *this);
 void
 afr_delayed_changelog_wake_up_cbk (void *data);
 
-int
-afr_fill_ta_loc (xlator_t *this, loc_t *loc);
 #endif /* __TRANSACTION_H__ */
