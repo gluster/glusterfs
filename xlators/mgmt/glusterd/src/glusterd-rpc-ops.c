@@ -1167,7 +1167,6 @@ __glusterd_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
         glusterd_peerinfo_t           *peerinfo = NULL;
         dict_t                        *dict   = NULL;
-        char                          err_str[2048] = {0};
         char                          *peer_str = NULL;
         xlator_t                      *this = NULL;
         glusterd_conf_t               *priv = NULL;
@@ -1259,6 +1258,7 @@ out:
                                 peer_str = peerinfo->hostname;
                         else
                                 peer_str = uuid_utoa (rsp.uuid);
+                        char err_str[2048];
                         snprintf (err_str, sizeof (err_str),
                                   OPERRSTR_STAGE_FAIL, peer_str);
                         opinfo.op_errstr = gf_strdup (err_str);
@@ -1315,7 +1315,6 @@ __glusterd_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
         glusterd_peerinfo_t           *peerinfo = NULL;
         dict_t                        *dict = NULL;
-        char                          err_str[2048] = {0};
         char                          *peer_str = NULL;
         xlator_t                      *this = NULL;
         glusterd_conf_t               *priv = NULL;
@@ -1417,6 +1416,7 @@ __glusterd_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                                 peer_str = peerinfo->hostname;
                         else
                                 peer_str = uuid_utoa (rsp.uuid);
+                        char err_str[2048];
                         snprintf (err_str, sizeof (err_str),
                                   OPERRSTR_COMMIT_FAIL, peer_str);
                         opinfo.op_errstr = gf_strdup (err_str);
