@@ -1604,7 +1604,7 @@ __glusterd_handle_cli_uuid_reset (rpcsvc_request_t *req)
         uuid_t                  uuid    = {0};
         gf_cli_rsp              rsp     = {0,};
         gf_cli_req              cli_req = {{0,}};
-        char                    msg_str[2048] = {0,};
+        char                    msg_str[128] = {0,};
 
         GF_ASSERT (req);
 
@@ -1715,7 +1715,7 @@ __glusterd_handle_cli_uuid_get (rpcsvc_request_t *req)
         glusterd_conf_t         *priv       = NULL;
         gf_cli_rsp              rsp         = {0,};
         gf_cli_req              cli_req     = {{0,}};
-        char                    msg_str[2048] = {0,};
+        char                    err_str[64] = {0,};
         char                    uuid_str[64] = {0,};
 
         GF_ASSERT (req);
@@ -1750,7 +1750,7 @@ __glusterd_handle_cli_uuid_get (rpcsvc_request_t *req)
                                 GD_MSG_DICT_UNSERIALIZE_FAIL,
                                 "failed to "
                                 "unserialize req-buffer to dictionary");
-                        snprintf (msg_str, sizeof (msg_str), "Unable to decode "
+                        snprintf (err_str, sizeof (err_str), "Unable to decode "
                                   "the buffer");
                         goto out;
 
@@ -1788,10 +1788,10 @@ __glusterd_handle_cli_uuid_get (rpcsvc_request_t *req)
 out:
         if (ret) {
                 rsp.op_ret = -1;
-                if (msg_str[0] == '\0')
-                        snprintf (msg_str, sizeof (msg_str), "Operation "
+                if (err_str[0] == '\0')
+                        snprintf (err_str, sizeof (err_str), "Operation "
                                   "failed");
-                rsp.op_errstr = msg_str;
+                rsp.op_errstr = err_str;
 
         } else {
                 rsp.op_errstr = "";
@@ -1895,7 +1895,7 @@ __glusterd_handle_reset_volume (rpcsvc_request_t *req)
         dict_t                          *dict = NULL;
         glusterd_op_t                   cli_op = GD_OP_RESET_VOLUME;
         char                            *volname = NULL;
-        char                            err_str[2048] = {0,};
+        char                            err_str[64] = {0,};
         xlator_t                        *this = NULL;
 
         GF_ASSERT (req);
@@ -2984,7 +2984,7 @@ __glusterd_handle_cli_profile_volume (rpcsvc_request_t *req)
         glusterd_op_t                   cli_op = GD_OP_PROFILE_VOLUME;
         char                            *volname = NULL;
         int32_t                         op = 0;
-        char                            err_str[2048] = {0,};
+        char                            err_str[64] = {0,};
         xlator_t                        *this = NULL;
 
         GF_ASSERT (req);
@@ -4259,7 +4259,7 @@ __glusterd_handle_status_volume (rpcsvc_request_t *req)
         char                           *volname = 0;
         gf_cli_req                      cli_req = {{0,}};
         glusterd_op_t                   cli_op  = GD_OP_STATUS_VOLUME;
-        char                            err_str[2048] = {0,};
+        char                            err_str[256] = {0,};
         xlator_t                       *this = NULL;
         glusterd_conf_t                *conf = NULL;
 
@@ -4404,7 +4404,7 @@ __glusterd_handle_cli_clearlocks_volume (rpcsvc_request_t *req)
         glusterd_op_t                   cli_op = GD_OP_CLEARLOCKS_VOLUME;
         char                            *volname = NULL;
         dict_t                          *dict = NULL;
-        char                            err_str[2048] = {0,};
+        char                            err_str[64] = {0,};
         xlator_t                        *this = NULL;
 
         GF_ASSERT (req);
@@ -4627,7 +4627,6 @@ glusterd_get_volume_opts (rpcsvc_request_t *req, dict_t *dict)
         char                      *volname = NULL;
         char                      *value = NULL;
         char                      err_str[2048] = {0,};
-        char                      warn_str[2048] = {0,};
         char                      dict_key[50] = {0,};
         xlator_t                  *this = NULL;
         glusterd_conf_t           *priv = NULL;
@@ -4727,13 +4726,11 @@ glusterd_get_volume_opts (rpcsvc_request_t *req, dict_t *dict)
                         }
 
                         if (gd_is_global_option (key)) {
-                                snprintf (warn_str, sizeof (warn_str),
-                                          "Warning: Support to get "
-                                          "global option value using "
-                                          "`volume get <volname>` will be "
-                                          "deprecated from next release. "
-                                          "Consider using `volume get all` "
-                                          "instead for global options");
+                                char warn_str[] = "Warning: support to get \
+                                        global option value using volume get \
+                                        <volname>` will be deprecated from \
+                                        next release. Consider using `volume \
+                                        get all` instead for global options";
 
                                 ret = dict_set_str (dict, "warning", warn_str);
                                 if (ret) {
@@ -4920,7 +4917,7 @@ __glusterd_handle_get_vol_opt (rpcsvc_request_t *req)
         int32_t                         ret = -1;
         gf_cli_req                      cli_req = {{0,}};
         dict_t                          *dict = NULL;
-        char                            err_str[2048] = {0,};
+        char                            err_str[64] = {0,};
         xlator_t                        *this = NULL;
 
         this = THIS;
@@ -5380,12 +5377,12 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
 
         ret = dict_get_str (dict, "odir", &tmp_str);
         if (ret) {
-                gf_asprintf (&odir, "%s", "/var/run/gluster/");
+                odirlen = gf_asprintf (&odir, "%s", "/var/run/gluster/");
                 gf_msg (this->name, GF_LOG_INFO, 0,
                         GD_MSG_DICT_GET_FAILED,
                         "Default output directory: %s", odir);
         } else {
-                gf_asprintf (&odir, "%s", tmp_str);
+                odirlen = gf_asprintf (&odir, "%s", tmp_str);
         }
 
         dp = sys_opendir (odir);
@@ -5422,7 +5419,6 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                 gf_asprintf (&filename, "%s", tmp_str);
         }
 
-        odirlen = strlen (odir);
         if (odir[odirlen-1] != '/')
                 strcat (odir, "/");
 
@@ -5862,7 +5858,7 @@ __glusterd_handle_get_state (rpcsvc_request_t *req)
         int32_t                         ret = -1;
         gf_cli_req                      cli_req = {{0,},};
         dict_t                          *dict = NULL;
-        char                            err_str[2048] = {0,};
+        char                            err_str[64] = {0,};
         xlator_t                        *this = NULL;
 
         this = THIS;
