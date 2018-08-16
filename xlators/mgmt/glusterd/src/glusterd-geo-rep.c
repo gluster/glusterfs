@@ -95,7 +95,7 @@ __glusterd_handle_sys_exec (rpcsvc_request_t *req)
         glusterd_op_t           cli_op = GD_OP_SYS_EXEC;
         glusterd_conf_t         *priv   = NULL;
         char                    *host_uuid = NULL;
-        char                    err_str[2048] = {0,};
+        char                    err_str[64] = {0,};
         xlator_t                *this = NULL;
 
         GF_ASSERT (req);
@@ -167,7 +167,7 @@ __glusterd_handle_copy_file (rpcsvc_request_t *req)
         glusterd_op_t           cli_op = GD_OP_COPY_FILE;
         glusterd_conf_t         *priv   = NULL;
         char                    *host_uuid = NULL;
-        char                    err_str[2048] = {0,};
+        char                    err_str[64] = {0,};
         xlator_t                *this = NULL;
 
         GF_ASSERT (req);
@@ -243,7 +243,7 @@ __glusterd_handle_gsync_set (rpcsvc_request_t *req)
         int                     type = 0;
         glusterd_conf_t         *priv   = NULL;
         char                    *host_uuid = NULL;
-        char                    err_str[2048] = {0,};
+        char                    err_str[64] = {0,};
         xlator_t                *this = NULL;
 
         GF_ASSERT (req);
