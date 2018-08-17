@@ -1728,7 +1728,8 @@ glusterd_op_quota (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         if (GLUSTERD_STATUS_STARTED == volinfo->status) {
                 if (priv->op_version == GD_OP_VERSION_MIN)
-                        ret = priv->nfs_svc.manager (&(priv->nfs_svc), NULL, 0);
+                        (void) priv->nfs_svc.manager (&(priv->nfs_svc),
+                                                       NULL, 0);
         }
 
         if (rsp_dict && start_crawl == _gf_true)

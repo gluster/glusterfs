@@ -1681,7 +1681,7 @@ glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         char                                    *str_ret = NULL;
         gf_boolean_t                            is_force = _gf_false;
         glusterd_conf_t                         *conf = NULL;
-        uint32_t                                 len = 0;
+        int32_t                                 len = 0;
 
         this = THIS;
         GF_ASSERT (this);

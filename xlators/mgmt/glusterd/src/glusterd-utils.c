@@ -6639,6 +6639,8 @@ _local_gsyncd_start (dict_t *this, char *key, data_t *value, void *data)
 out:
         if (statefile)
                 GF_FREE (statefile);
+        if (slave_url)
+                GF_FREE (slave_url);
 
         if (is_template_in_use) {
                op_ret = glusterd_create_status_file (volinfo->volname, slave,
@@ -10270,6 +10272,8 @@ glusterd_volume_status_copy_to_op_ctx_dict (dict_t *aggr, dict_t *rsp_dict)
 
         } else {
                 ret = dict_get_int32 (ctx_dict, "brick-index-max", &brick_index_max);
+                if (ret)
+                        goto out;
         }
 
         rsp_ctx.count = node_count;
@@ -13358,6 +13362,8 @@ out:
                           "option %s does not exist", orig_key);
                 *op_errstr = gf_strdup (err_str);
         }
+        if (def_val)
+                GF_FREE (def_val);
         gf_msg_debug (this->name, 0, "Returning %d", ret);
         return ret;
 }

@@ -1858,14 +1858,12 @@ glusterd_store_delete_volume (glusterd_volinfo_t *volinfo)
                         "%s/"GLUSTERD_TRASH"/%s.deleted", priv->workdir,
                         uuid_utoa (volinfo->volume_id));
         if ((len < 0) || (len >= sizeof(delete_path))) {
-                ret = -1;
                 goto out;
         }
 
         len = snprintf (trashdir, sizeof (trashdir), "%s/"GLUSTERD_TRASH,
                         priv->workdir);
         if ((len < 0) || (len >= sizeof(trashdir))) {
-                ret = -1;
                 goto out;
         }
 
@@ -1874,7 +1872,6 @@ glusterd_store_delete_volume (glusterd_volinfo_t *volinfo)
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_CREATE_DIR_FAILED, "Failed to create trash "
                         "directory");
-                ret = -1;
                 goto out;
         }
 
@@ -1934,14 +1931,12 @@ glusterd_store_delete_snap (glusterd_snap_t *snap)
                         "%s/"GLUSTERD_TRASH"/snap-%s.deleted", priv->workdir,
                         uuid_utoa (snap->snap_id));
         if ((len < 0) || (len >= sizeof(delete_path))) {
-                ret = -1;
                 goto out;
         }
 
         len = snprintf (trashdir, sizeof (trashdir), "%s/"GLUSTERD_TRASH,
                         priv->workdir);
         if ((len < 0) || (len >= sizeof(trashdir))) {
-                ret = -1;
                 goto out;
         }
 
@@ -1950,7 +1945,6 @@ glusterd_store_delete_snap (glusterd_snap_t *snap)
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_CREATE_DIR_FAILED, "Failed to create trash "
                         "directory");
-                ret = -1;
                 goto out;
         }
 
@@ -1967,7 +1961,6 @@ glusterd_store_delete_snap (glusterd_snap_t *snap)
         if (!dir) {
                 gf_msg_debug (this->name, 0, "Failed to open directory %s.",
                                  delete_path);
-                ret = 0;
                 goto out;
         }
 
@@ -1976,7 +1969,6 @@ glusterd_store_delete_snap (glusterd_snap_t *snap)
                 len = snprintf (path, PATH_MAX, "%s/%s", delete_path,
                                 entry->d_name);
                 if ((len < 0) || (len >= PATH_MAX)) {
-                        ret = -1;
                         goto stat_failed;
                 }
                 ret = sys_stat (path, &st);
@@ -3418,7 +3410,6 @@ glusterd_store_retrieve_volumes (xlator_t  *this, glusterd_snap_t *snap)
                 len = snprintf (entry_path, PATH_MAX, "%s/%s", path,
                                 entry->d_name);
                 if ((len < 0) || (len >= PATH_MAX)) {
-                        ret = -1;
                         goto next;
                 }
                 ret = sys_lstat (entry_path, &st);
@@ -3453,7 +3444,7 @@ glusterd_store_retrieve_volumes (xlator_t  *this, glusterd_snap_t *snap)
                                 "Creating a new node_state "
                                 "for volume: %s.", entry->d_name);
                         glusterd_store_create_nodestate_sh_on_absence (volinfo);
-                        ret = glusterd_store_perform_node_state_store (volinfo);
+                        glusterd_store_perform_node_state_store (volinfo);
 
                 }
 next:
@@ -4372,6 +4363,8 @@ glusterd_store_peer_write (int fd, glusterd_peerinfo_t *peerinfo)
         }
 
 out:
+        if (key)
+                GF_FREE (key);
         gf_msg_debug ("glusterd", 0, "Returning with %d", ret);
         return ret;
 }
