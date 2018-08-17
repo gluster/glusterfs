@@ -173,6 +173,8 @@ static struct argp_option gf_options[] = {
          "Print directory path in which statedumps shall be generated"},
         {"print-logdir", ARGP_PRINT_LOGDIR_KEY, 0, OPTION_ARG_OPTIONAL,
          "Print path of default log directory"},
+        {"print-libexecdir", ARGP_PRINT_LIBEXECDIR_KEY, 0, OPTION_ARG_OPTIONAL,
+         "Print path of default libexec directory"},
 
         {"volfile-max-fetch-attempts", ARGP_VOLFILE_MAX_FETCH_ATTEMPTS, "0",
          OPTION_HIDDEN, "Maximum number of attempts to fetch the volfile"},
@@ -972,6 +974,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
         case ARGP_PRINT_LOGDIR_KEY:
                 cmd_args->print_logdir = _gf_true;
+                break;
+
+        case ARGP_PRINT_LIBEXECDIR_KEY:
+                cmd_args->print_libexecdir = _gf_true;
                 break;
 
         case ARGP_MAC_COMPAT_KEY:
@@ -2076,7 +2082,7 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
         argp_parse (&argp, argc, argv, ARGP_IN_ORDER, NULL, cmd_args);
 
         if (cmd_args->print_xlatordir || cmd_args->print_statedumpdir ||
-            cmd_args->print_logdir) {
+            cmd_args->print_logdir || cmd_args->print_libexecdir) {
                 /* Just print, nothing else to do */
                 goto out;
         }
@@ -2691,6 +2697,11 @@ main (int argc, char *argv[])
 
         if (cmd->print_logdir) {
                 printf ("%s\n", DEFAULT_LOG_FILE_DIRECTORY);
+                goto out;
+        }
+
+        if (cmd->print_libexecdir) {
+                printf ("%s\n", LIBEXECDIR);
                 goto out;
         }
 
