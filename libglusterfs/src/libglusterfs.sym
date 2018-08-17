@@ -410,6 +410,8 @@ dict_set_int8
 dict_set_static_bin
 dict_set_static_ptr
 dict_set_str
+dict_set_strn
+dict_set_nstrn
 dict_set_uint32
 dict_set_uint64
 dict_set_flag

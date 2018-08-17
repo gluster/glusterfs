@@ -491,6 +491,16 @@ dict_set (dict_t *this,
           char *key,
           data_t *value)
 {
+        const int keylen = strlen(key);
+        return dict_setn(this, key, keylen, value);
+}
+
+int32_t
+dict_setn (dict_t *this,
+          char *key,
+          const int keylen,
+          data_t *value)
+{
         int32_t ret;
         uint32_t key_hash = 0;
 
@@ -502,7 +512,7 @@ dict_set (dict_t *this,
         }
 
         if (key) {
-                key_hash = SuperFastHash (key, strlen(key));
+                key_hash = SuperFastHash (key, keylen);
         }
 
         LOCK (&this->lock);
@@ -518,6 +528,13 @@ dict_set (dict_t *this,
 int32_t
 dict_add (dict_t *this, char *key, data_t *value)
 {
+        const int keylen = strlen (key);
+        return dict_addn(this, key, keylen, value);
+}
+
+int32_t
+dict_addn (dict_t *this, char *key, const int keylen, data_t *value)
+{
         int32_t ret;
         uint32_t key_hash = 0;
 
@@ -529,7 +546,7 @@ dict_add (dict_t *this, char *key, data_t *value)
         }
 
         if (key) {
-                key_hash = SuperFastHash (key, strlen(key));
+                key_hash = SuperFastHash (key, keylen);
         }
 
         LOCK (&this->lock);
@@ -545,6 +562,13 @@ dict_add (dict_t *this, char *key, data_t *value)
 data_t *
 dict_get (dict_t *this, char *key)
 {
+        const int keylen = strlen(key);
+        return dict_getn(this, key, keylen);
+}
+
+data_t *
+dict_getn (dict_t *this, char *key, const int keylen)
+{
         data_pair_t *pair;
         uint32_t hash;
 
@@ -555,7 +579,7 @@ dict_get (dict_t *this, char *key)
                 return NULL;
         }
 
-        hash = SuperFastHash (key, strlen (key));
+        hash = SuperFastHash (key, keylen);
 
         LOCK (&this->lock);
         {
@@ -592,6 +616,13 @@ dict_key_count (dict_t *this)
 void
 dict_del (dict_t *this, char *key)
 {
+        const int keylen = strlen(key);
+        return dict_deln(this, key, keylen);
+}
+
+void
+dict_deln (dict_t *this, char *key, const int keylen)
+{
         int hashval = 0;
         uint32_t hash;
 
@@ -601,7 +632,7 @@ dict_del (dict_t *this, char *key)
                 return;
         }
 
-        hash = SuperFastHash (key, strlen (key));
+	hash = SuperFastHash (key, keylen);
 
         LOCK (&this->lock);
 
@@ -1002,6 +1033,28 @@ str_to_data (char *value)
 }
 
 data_t *
+strn_to_data (char *value, const int vallen)
+{
+        if (!value) {
+                gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "value is NULL");
+                return NULL;
+        }
+        data_t *data = get_new_data ();
+
+        if (!data) {
+                return NULL;
+        }
+        data->len = vallen + 1;
+        data->data_type = GF_DATA_TYPE_STR;
+
+        data->data = value;
+        data->is_static = 1;
+
+        return data;
+}
+
+static data_t *
 data_from_dynstr (char *value)
 {
         if (!value) {
@@ -1507,6 +1560,13 @@ fail:
 int
 dict_get_with_ref (dict_t *this, char *key, data_t **data)
 {
+        const int keylen = strlen(key);
+        return dict_get_with_refn(this, key, keylen, data);
+}
+
+int
+dict_get_with_refn (dict_t *this, char *key, const int keylen, data_t **data)
+{
         data_pair_t * pair = NULL;
         int           ret  = -ENOENT;
         uint32_t      hash;
@@ -1519,7 +1579,7 @@ dict_get_with_ref (dict_t *this, char *key, data_t **data)
                 goto err;
         }
 
-        hash = SuperFastHash (key, strlen (key));
+        hash = SuperFastHash (key, keylen);
 
         LOCK (&this->lock);
         {
@@ -2465,6 +2525,31 @@ err:
         return ret;
 }
 
+/* Get string - with known key length */
+int
+dict_get_strn (dict_t *this, char *key, const int keylen, char **str)
+{
+        data_t * data = NULL;
+        int      ret  = -EINVAL;
+
+        if (!this || !key || !str) {
+                goto err;
+        }
+        ret = dict_get_with_refn (this, key, keylen, &data);
+        if (ret < 0) {
+                goto err;
+        }
+
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_STR, key, -EINVAL);
+
+        *str = data->data;
+
+err:
+        if (data)
+                data_unref (data);
+
+        return ret;
+}
 
 int
 dict_get_str (dict_t *this, char *key, char **str)
@@ -2511,6 +2596,48 @@ err:
         return ret;
 }
 
+/* Set string - with known key length */
+int
+dict_set_strn (dict_t *this, char *key, const int keylen, char *str)
+{
+        data_t * data = NULL;
+        int      ret  = 0;
+
+        data = str_to_data (str);
+        if (!data) {
+                ret = -EINVAL;
+                goto err;
+        }
+
+        ret = dict_setn (this, key, keylen, data);
+        if (ret < 0)
+                data_destroy (data);
+
+err:
+        return ret;
+}
+
+/* Set string - with known key length and known value length */
+int
+dict_set_nstrn (dict_t *this, char *key, const int keylen, char *str, const int vallen)
+{
+        data_t * data = NULL;
+        int      ret  = 0;
+
+        data = strn_to_data (str, vallen);
+        if (!data) {
+                ret = -EINVAL;
+                goto err;
+        }
+
+        ret = dict_setn (this, key, keylen, data);
+        if (ret < 0)
+                data_destroy (data);
+
+err:
+        return ret;
+}
+
 int
 dict_set_dynstr_with_alloc (dict_t *this, char *key, const char *str)
 {
@@ -2531,6 +2658,13 @@ dict_set_dynstr_with_alloc (dict_t *this, char *key, const char *str)
 int
 dict_set_dynstr (dict_t *this, char *key, char *str)
 {
+        const int keylen = strlen(key);
+        return dict_set_dynstrn(this, key, keylen, str);
+}
+
+int
+dict_set_dynstrn (dict_t *this, char *key, const int keylen, char *str)
+{
         data_t * data = NULL;
         int      ret  = 0;
 
@@ -2540,7 +2674,7 @@ dict_set_dynstr (dict_t *this, char *key, char *str)
                 goto err;
         }
 
-        ret = dict_set (this, key, data);
+        ret = dict_setn (this, key, keylen, data);
         if (ret < 0)
                 data_destroy (data);
 
