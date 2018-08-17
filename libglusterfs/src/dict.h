@@ -110,12 +110,16 @@ void data_destroy (data_t *data);
 
 /* function to set a key/value pair (overwrite existing if matches the key */
 int32_t dict_set (dict_t *this, char *key, data_t *value);
+int32_t dict_setn (dict_t *this, char *key, const int keylen, data_t *value);
 /* function to set a new key/value pair (without checking for duplicate) */
 int32_t dict_add (dict_t *this, char *key, data_t *value);
-
+int32_t dict_addn (dict_t *this, char *key, const int keylen, data_t *value);
 int dict_get_with_ref (dict_t *this, char *key, data_t **data);
+int dict_get_with_refn (dict_t *this, char *key, const int keylen, data_t **data);
 data_t *dict_get (dict_t *this, char *key);
+data_t *dict_getn (dict_t *this, char *key, const int keylen);
 void dict_del (dict_t *this, char *key);
+void dict_deln (dict_t *this, char *key, const int keylen);
 int dict_reset (dict_t *dict);
 
 int dict_key_count (dict_t *this);
@@ -137,7 +141,7 @@ int32_t dict_lookup  (dict_t *this, char *key, data_t **data);
  */
 data_t *int_to_data (int64_t value);
 data_t *str_to_data (char *value);
-data_t *data_from_dynstr (char *value);
+data_t *strn_to_data (char *value, const int vallen);
 data_t *data_from_dynptr (void *value, int32_t len);
 data_t *bin_to_data (void *value, int32_t len);
 data_t *static_str_to_data (char *value);
@@ -250,10 +254,14 @@ GF_MUST_CHECK int dict_set_static_bin (dict_t *this, char *key, void *ptr, size_
 
 GF_MUST_CHECK int dict_set_option (dict_t *this, char *key, char *str);
 GF_MUST_CHECK int dict_set_str (dict_t *this, char *key, char *str);
+GF_MUST_CHECK int dict_set_strn (dict_t *this, char *key, const int keylen, char *str);
+GF_MUST_CHECK int dict_set_nstrn (dict_t *this, char *key, const int keylen, char *str, const int vallen);
 GF_MUST_CHECK int dict_set_dynstr (dict_t *this, char *key, char *str);
+GF_MUST_CHECK int dict_set_dynstrn (dict_t *this, char *key, const int keylen, char *str);
 GF_MUST_CHECK int dict_set_dynstr_with_alloc (dict_t *this, char *key, const char *str);
 GF_MUST_CHECK int dict_add_dynstr_with_alloc (dict_t *this, char *key, char *str);
 GF_MUST_CHECK int dict_get_str (dict_t *this, char *key, char **str);
+GF_MUST_CHECK int dict_get_strn (dict_t *this, char *key, const int keylen, char **str);
 
 GF_MUST_CHECK int dict_get_str_boolean (dict_t *this, char *key, int default_val);
 GF_MUST_CHECK int dict_rename_key (dict_t *this, char *key, char *replace_key);
