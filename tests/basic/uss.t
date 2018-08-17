@@ -52,6 +52,7 @@ TEST ln $M0/f1 $M0/dir/f3
 TEST $CLI snapshot config activate-on-create enable
 TEST $CLI volume set $V0 features.uss enable;
 
+TEST ! $CLI snapshot create snap1 $V0 no-timestamp description "";
 TEST $CLI snapshot create snap1 $V0 no-timestamp;
 
 for i in {11..20} ; do echo "file" > $M0/file$i ; done
