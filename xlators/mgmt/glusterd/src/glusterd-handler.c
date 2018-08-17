@@ -2754,7 +2754,7 @@ __glusterd_handle_friend_update (rpcsvc_request_t *req)
                 goto out;
 
         if (GD_FRIEND_UPDATE_DEL == op) {
-                ret = glusterd_handle_friend_update_delete (dict);
+                (void) glusterd_handle_friend_update_delete (dict);
                 goto out;
         }
 

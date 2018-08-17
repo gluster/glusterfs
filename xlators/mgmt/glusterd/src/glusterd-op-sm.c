@@ -1730,8 +1730,11 @@ glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
                 } else if (strcmp (key, "cluster.watermark-hi") == 0) {
                         ret = glusterd_water_limit_check (volinfo, _gf_true,
                                         op_errstr);
-                        if (ret)
+                        if (ret) {
+                                if (key_fixed)
+                                        GF_FREE (key_fixed);
                                 return ret;
+                        }
                 }
 
                 if (!exists) {

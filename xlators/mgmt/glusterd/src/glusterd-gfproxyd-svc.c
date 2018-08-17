@@ -229,6 +229,7 @@ glusterd_gfproxydsvc_manager (glusterd_svc_t *svc, void *data, int flags)
                 ret = glusterd_conn_connect (&(svc->conn));
                 if (ret) {
                         glusterd_volinfo_unref (volinfo);
+                        volinfo = NULL;
                         goto out;
                 }
 

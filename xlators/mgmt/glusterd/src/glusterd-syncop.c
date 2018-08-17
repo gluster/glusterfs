@@ -1356,7 +1356,7 @@ stage_done:
                     peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
                         continue;
 
-                ret = gd_syncop_mgmt_stage_op (peerinfo, &args,
+                (void) gd_syncop_mgmt_stage_op (peerinfo, &args,
                                                MY_UUID, tmp_uuid,
                                                op, req_dict, op_ctx);
                 peer_cnt++;
@@ -1487,7 +1487,7 @@ commit_done:
                     peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
                         continue;
 
-                ret = gd_syncop_mgmt_commit_op (peerinfo, &args,
+                (void) gd_syncop_mgmt_commit_op (peerinfo, &args,
                                                 MY_UUID, tmp_uuid,
                                                 op, req_dict, op_ctx);
                 peer_cnt++;
