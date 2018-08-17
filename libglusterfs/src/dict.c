@@ -391,13 +391,13 @@ dict_lookup (dict_t *this, char *key, data_t **data)
 }
 
 static int32_t
-dict_set_lk (dict_t *this, char *key, data_t *value, gf_boolean_t replace)
+dict_set_lk (dict_t *this, char *key, data_t *value, const uint32_t hash, gf_boolean_t replace)
 {
         int hashval = 0;
         data_pair_t *pair;
-        char key_free = 0;
-        int keylen = 0;
-        uint32_t hash;
+        int key_free = 0;
+        uint32_t key_hash;
+        int keylen;
 
         if (!key) {
                 keylen = gf_asprintf (&key, "ref:%p", value);
@@ -405,16 +405,16 @@ dict_set_lk (dict_t *this, char *key, data_t *value, gf_boolean_t replace)
                         return -1;
                 }
                 key_free = 1;
+                key_hash = SuperFastHash (key, keylen);
         }
         else {
                 keylen = strlen(key);
+                key_hash = hash;
         }
-
-        hash = SuperFastHash (key, strlen (key));
 
         /* Search for a existing key if 'replace' is asked for */
         if (replace) {
-                pair = dict_lookup_common (this, key, hash);
+                pair = dict_lookup_common (this, key, key_hash);
 
                 if (pair) {
                         data_t *unref_data = pair->value;
@@ -459,14 +459,14 @@ dict_set_lk (dict_t *this, char *key, data_t *value, gf_boolean_t replace)
                 }
                 strcpy (pair->key, key);
         }
-        pair->key_hash = hash;
+        pair->key_hash = key_hash;
         pair->value = data_ref (value);
 
         /* If the divisor is 1, the modulo is always 0,
          * in such case avoid hash calculation.
          */
         if (this->hash_size != 1) {
-                hashval = (hash % this->hash_size);
+                hashval = (key_hash % this->hash_size);
         }
         pair->hash_next = this->members[hashval];
         this->members[hashval] = pair;
@@ -492,6 +492,7 @@ dict_set (dict_t *this,
           data_t *value)
 {
         int32_t ret;
+        uint32_t key_hash = 0;
 
         if (!this || !value) {
                 gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
@@ -500,9 +501,13 @@ dict_set (dict_t *this,
                 return -1;
         }
 
+        if (key) {
+                key_hash = SuperFastHash (key, strlen(key));
+        }
+
         LOCK (&this->lock);
 
-        ret = dict_set_lk (this, key, value, 1);
+        ret = dict_set_lk (this, key, value, key_hash, 1);
 
         UNLOCK (&this->lock);
 
@@ -514,6 +519,7 @@ int32_t
 dict_add (dict_t *this, char *key, data_t *value)
 {
         int32_t ret;
+        uint32_t key_hash = 0;
 
         if (!this || !value) {
                 gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
@@ -522,9 +528,13 @@ dict_add (dict_t *this, char *key, data_t *value)
                 return -1;
         }
 
+        if (key) {
+                key_hash = SuperFastHash (key, strlen(key));
+        }
+
         LOCK (&this->lock);
 
-        ret = dict_set_lk (this, key, value, 0);
+        ret = dict_set_lk (this, key, value, key_hash, 0);
 
         UNLOCK (&this->lock);
 
@@ -2808,6 +2818,7 @@ dict_rename_key (dict_t *this, char *key, char *replace_key)
         data_pair_t *pair = NULL;
         int          ret  = -EINVAL;
         uint32_t     hash;
+        uint32_t replacekey_hash;
 
         /* replacing a key by itself is a NO-OP */
         if (strcmp (key, replace_key) == 0)
@@ -2820,6 +2831,8 @@ dict_rename_key (dict_t *this, char *key, char *replace_key)
         }
 
         hash = SuperFastHash (key, strlen (key));
+        replacekey_hash = SuperFastHash (replace_key,
+                                         strlen(replace_key));
 
         LOCK (&this->lock);
         {
@@ -2828,7 +2841,8 @@ dict_rename_key (dict_t *this, char *key, char *replace_key)
                 if (!pair)
                         ret = -ENODATA;
                 else
-                        ret = dict_set_lk (this, replace_key, pair->value, 1);
+                        ret = dict_set_lk (this, replace_key, pair->value,
+                                           replacekey_hash, 1);
         }
         UNLOCK (&this->lock);
 
