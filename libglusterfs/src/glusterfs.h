@@ -483,6 +483,7 @@ struct _cmd_args {
         int                print_xlatordir;
         int                print_statedumpdir;
         int                print_logdir;
+        int                print_libexecdir;
         /* advanced options */
         uint32_t           volfile_server_port;
         char              *volfile_server_transport;
