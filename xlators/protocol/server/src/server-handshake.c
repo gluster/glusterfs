@@ -272,8 +272,6 @@ server_getspec (rpcsvc_request_t *req)
                         get_checksum_for_file (spec_fd, &checksum);
                         _volfile_update_checksum (this, key, checksum);
                 }
-        } else {
-                op_errno = ENOENT;
         }
 
         if (file_len) {

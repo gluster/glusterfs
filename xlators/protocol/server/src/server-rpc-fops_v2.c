@@ -3596,6 +3596,7 @@ server4_0_zerofill(rpcsvc_request_t *req)
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfx_zerofill_req, GF_FOP_ZEROFILL);
         if (ret != 0) {
+                op_errno = -1;
                 goto out;
         }
 
@@ -3611,8 +3612,6 @@ server4_0_zerofill(rpcsvc_request_t *req)
         resolve_and_resume (frame, server4_zerofill_resume);
 
 out:
-
-
         if (op_errno)
                 req->rpc_err = GARBAGE_ARGS;
 
@@ -3635,6 +3634,7 @@ server4_0_ipc (rpcsvc_request_t *req)
         ret = rpc_receive_common (req, &frame, &state, NULL, &args,
                                   xdr_gfx_ipc_req, GF_FOP_IPC);
         if (ret != 0) {
+                op_errno = -1;
                 goto out;
         }
 
