@@ -744,7 +744,8 @@ gf_client_dump_fdtables_to_dict (xlator_t *this, dict_t *dict)
                             clienttable->cliententries[count].next_free)
                                 continue;
                         client = clienttable->cliententries[count].client;
-                        if (!strcmp (client->bound_xl->name, this->name)) {
+                        if (client->bound_xl &&
+                            !strcmp (client->bound_xl->name, this->name)) {
                                 snprintf (key, sizeof (key), "conn%d", count++);
                                 fdtable_dump_to_dict (client->server_ctx.
                                                       fdtable,

@@ -93,7 +93,7 @@ glusterfs_read_secure_access_file (void)
                         start = result[0].rm_so;
                         end  = result[0].rm_eo;
                         copy_len = end - start;
-                        strcpy (keyval, line+copy_len);
+                        gf_strncpy (keyval, line+copy_len, sizeof (keyval));
                         if (keyval[0]) {
                                 cert_depth = atoi(keyval);
                                 if (cert_depth == 0)
