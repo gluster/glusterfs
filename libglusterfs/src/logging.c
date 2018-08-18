@@ -2504,7 +2504,7 @@ out:
         return ret;
 }
 
-int
+static int
 _do_slog_format (const char *event, va_list inp, char **msg) {
         va_list                    valist_tmp;
         int                        i = 0;
@@ -2585,7 +2585,7 @@ _do_slog_format (const char *event, va_list inp, char **msg) {
         }
 
         *msg = gf_strdup (tmp2);
-        if (!msg)
+        if (!*msg)
                 ret = -1;
 
  out:

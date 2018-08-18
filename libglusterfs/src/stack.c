@@ -212,7 +212,7 @@ gf_proc_dump_pending_frames (call_pool_t *call_pool)
         call_stack_t     *trav = NULL;
         int              i = 1;
         int              ret = -1;
-        gf_boolean_t     section_added = _gf_true;
+        gf_boolean_t     section_added = _gf_false;
 
         if (!call_pool)
                 return;

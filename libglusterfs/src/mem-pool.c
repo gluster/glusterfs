@@ -825,9 +825,9 @@ mem_get (struct mem_pool *mem_pool)
         (void) pthread_spin_lock (&pool_list->lock);
         pt_pool = &pool_list->pools[mem_pool->pool->power_of_two-POOL_SMALLEST];
         retval = mem_get_from_pool (pt_pool);
-        (void) pthread_spin_unlock (&pool_list->lock);
 
         if (!retval) {
+                (void) pthread_spin_unlock (&pool_list->lock);
                 return NULL;
         }
 
@@ -835,6 +835,7 @@ mem_get (struct mem_pool *mem_pool)
         retval->pool = mem_pool;
         retval->pool_list = pool_list;
         retval->power_of_two = mem_pool->pool->power_of_two;
+        (void) pthread_spin_unlock (&pool_list->lock);
 
         GF_ATOMIC_INC (mem_pool->active);
 

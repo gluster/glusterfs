@@ -467,6 +467,8 @@ synctask_create (struct syncenv *env, size_t stacksize, synctask_fn_t fn,
         newtask->frame      = frame;
         if (!frame) {
                 newtask->opframe = create_frame (this, this->ctx->pool);
+                if (!newtask->opframe)
+                        goto err;
                 set_lk_owner_from_ptr (&newtask->opframe->root->lk_owner,
                                        newtask->opframe->root);
         } else {

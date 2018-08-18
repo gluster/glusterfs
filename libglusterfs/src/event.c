@@ -277,6 +277,14 @@ event_dispatch_destroy (struct event_pool *event_pool)
                         ret = pthread_cond_timedwait (&event_pool->cond,
                                                       &event_pool->mutex,
                                                       &sleep_till);
+                        if (ret) {
+                                gf_msg_debug ("event", 0,
+                                              "thread cond-timedwait failed "
+                                              "active-thread-count: %d, "
+                                              "retry: %d",
+                                              event_pool->activethreadcount,
+                                              retry);
+                        }
                 }
         }
         pthread_mutex_unlock (&event_pool->mutex);

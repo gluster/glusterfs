@@ -212,17 +212,17 @@ event_slot_unref (struct event_pool *event_pool, struct event_slot_epoll *slot,
 	int do_close = 0;
 
         ref = GF_ATOMIC_DEC (slot->ref);
+	if (ref)
+		/* slot still alive */
+		goto done;
 
 	LOCK (&slot->lock);
 	{
 		fd = slot->fd;
 		do_close = slot->do_close;
+                slot->do_close = 0;
 	}
 	UNLOCK (&slot->lock);
-
-	if (ref)
-		/* slot still alive */
-		goto done;
 
 	event_slot_dealloc (event_pool, idx);
 
@@ -580,6 +580,8 @@ event_dispatch_epoll_handler (struct event_pool *event_pool,
 pre_unlock:
 	UNLOCK (&slot->lock);
 
+        ret = 0;
+
         if (!handler)
 		goto out;
 
@@ -661,6 +663,11 @@ event_dispatch_epoll_worker (void *data)
                         continue;
 
 		ret = event_dispatch_epoll_handler (event_pool, &event);
+                if (ret) {
+                        gf_msg ("epoll", GF_LOG_ERROR, 0,
+                                LG_MSG_EXITED_EPOLL_THREAD,
+                                "Failed to dispatch handler");
+                }
         }
 out:
         if (ev_data)

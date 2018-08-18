@@ -493,6 +493,8 @@ gf_add_prefix(const char *ns, const char *key, char **newkey)
                 int ns_length =  strlen(ns);
                 *newkey = GF_MALLOC(ns_length + strlen(key) + 10,
                                     gf_common_mt_char);
+                if (!*newkey)
+                        return;
                 strcpy(*newkey, ns);
                 strcat(*newkey, key);
         } else {
@@ -507,6 +509,8 @@ gf_remove_prefix(const char *ns, const char *key, char **newkey)
         if (strncmp(key, ns, ns_length) == 0) {
                 *newkey = GF_MALLOC(-ns_length + strlen(key) + 10,
                                     gf_common_mt_char);
+                if (!*newkey)
+                        return;
                 strcpy(*newkey, key + ns_length);
         } else {
                 *newkey = gf_strdup(key);
