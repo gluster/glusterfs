@@ -6514,7 +6514,8 @@ glusterd_do_snap_cleanup (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
         }
 
-        ret = dict_get_str (dict, "volname", &volname);
+        /* As of now snapshot of multiple volumes are not supported */
+        ret = dict_get_str (dict, "volname1", &volname);
         if (ret) {
                 gf_msg ("glusterd", GF_LOG_ERROR, 0,
                         GD_MSG_DICT_GET_FAILED, "Unable to get"
