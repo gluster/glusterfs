@@ -479,7 +479,7 @@ int32_t set_config_avec_data(xlator_t *this,
 	avec = GF_CALLOC(conf->acount, sizeof(*avec), gf_crypt_mt_iovec);
 	if (!avec)
 		return ret;
-	pool = GF_CALLOC(conf->acount, sizeof(pool), gf_crypt_mt_char);
+	pool = GF_CALLOC(conf->acount, sizeof(*pool), gf_crypt_mt_char);
 	if (!pool) {
 		GF_FREE(avec);
 		return ret;
@@ -558,7 +558,7 @@ int32_t set_config_avec_hole(xlator_t *this,
 	avec = GF_CALLOC(num_blocks, sizeof(*avec), gf_crypt_mt_iovec);
 	if (!avec)
 		return ENOMEM;
-	pool = GF_CALLOC(num_blocks, sizeof(pool), gf_crypt_mt_char);
+	pool = GF_CALLOC(num_blocks, sizeof(*pool), gf_crypt_mt_char);
 	if (!pool) {
 		GF_FREE(avec);
 		return ENOMEM;
