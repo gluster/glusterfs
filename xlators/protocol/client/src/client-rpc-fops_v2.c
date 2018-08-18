@@ -803,9 +803,6 @@ client4_0_setxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         xdr_to_dict (&rsp.xdata, &xdata);
-        if (ret < 0)
-                goto out;
-
 out:
         op_errno = gf_error_to_errno (rsp.op_errno);
         if (rsp.op_ret == -1) {
@@ -3723,9 +3720,6 @@ client4_0_readv (call_frame_t *frame, xlator_t *this,
 unwind:
         if (rsp_iobuf)
                 iobuf_unref (rsp_iobuf);
-
-        if (rsp_iobref)
-                iobref_unref (rsp_iobref);
 
         CLIENT_STACK_UNWIND (readv, frame, -1, op_errno, NULL, 0, NULL, NULL, NULL);
         GF_FREE (req.xdata.pairs.pairs_val);

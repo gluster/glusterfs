@@ -247,6 +247,8 @@ unserialize_rsp_direntp (xlator_t *this, fd_t *fd,
 
         ret = 0;
 out:
+        if (buf)
+                GF_FREE (buf);
         return ret;
 }
 
@@ -474,12 +476,12 @@ client_fd_fop_prepare_local (call_frame_t *frame, fd_t *fd, int64_t remote_fd)
         clnt_local_t *local = NULL;
         int          ret    = 0;
 
-        this = frame->this;
-
         if (!frame || !fd) {
                 ret = -EINVAL;
                 goto out;
         }
+
+        this = frame->this;
 
         frame->local = mem_get0 (this->local_pool);
         if (frame->local == NULL) {
