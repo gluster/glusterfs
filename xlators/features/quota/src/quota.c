@@ -472,7 +472,6 @@ check_ancestory_2 (xlator_t *this, quota_local_t *local, inode_t *inode)
         name = (char *) local->loc.name;
         if (local->loc.parent) {
                 gf_uuid_copy (pgfid, local->loc.parent->gfid);
-                parent = local->loc.parent;
         }
 
         cur_inode = inode_ref (inode);
@@ -1438,9 +1437,6 @@ out:
                         new_frame->local = NULL;
                         STACK_DESTROY (new_frame->root);
                 }
-
-                if (new_local)
-                        quota_local_cleanup (new_local);
         }
 
         return parent;
@@ -2936,6 +2932,7 @@ quota_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         quota_local_t     *local  = NULL;
         quota_inode_ctx_t *ctx    = NULL;
         quota_dentry_t    *dentry = NULL;
+        int32_t            ret    = -1;
 
         if (op_ret < 0) {
                 goto out;
@@ -2943,8 +2940,8 @@ quota_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
-        quota_inode_ctx_get (local->loc.inode, this, &ctx, 1);
-        if (ctx == NULL) {
+        ret = quota_inode_ctx_get (local->loc.inode, this, &ctx, 1);
+        if ((ret == -1) || (ctx == NULL)) {
                 gf_msg_debug (this->name, 0, "quota context is NULL on inode"
                               " (%s). If quota is not enabled recently and "
                               "crawler has finished crawling, its an error",
