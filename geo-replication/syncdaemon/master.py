@@ -448,18 +448,10 @@ class GMasterCommon(object):
         if rconf.mgmt_lock_fd:
             try:
                 fcntl.lockf(rconf.mgmt_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                if not rconf.active_earlier:
-                    rconf.active_earlier = True
-                    logging.info(lf("Got lock Becoming ACTIVE",
-                                    brick=rconf.args.local_path))
                 return True
             except:
                 ex = sys.exc_info()[1]
                 if isinstance(ex, IOError) and ex.errno in (EACCES, EAGAIN):
-                    if not rconf.passive_earlier:
-                        rconf.passive_earlier = True
-                        logging.info(lf("Didn't get lock Becoming PASSIVE",
-                                        brick=rconf.local_path))
                     return False
                 raise
 
@@ -494,18 +486,10 @@ class GMasterCommon(object):
             ex = sys.exc_info()[1]
             if isinstance(ex, IOError) and ex.errno in (EACCES, EAGAIN):
                 # cannot grab, it's taken
-                if not rconf.passive_earlier:
-                    rconf.passive_earlier = True
-                    logging.info(lf("Didn't get lock Becoming PASSIVE",
-                                    brick=rconf.args.local_path))
                 rconf.mgmt_lock_fd = fd
                 return False
             raise
 
-        if not rconf.active_earlier:
-            rconf.active_earlier = True
-            logging.info(lf("Got lock Becoming ACTIVE",
-                            brick=rconf.args.local_path))
         return True
 
     def should_crawl(self):
