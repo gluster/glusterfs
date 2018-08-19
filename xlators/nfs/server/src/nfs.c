@@ -1082,7 +1082,6 @@ nfs_init_state (xlator_t *this)
 
         if (nfs->allow_insecure) {
                 /* blindly set both the options */
-                dict_del (this->options, "rpc-auth-allow-insecure");
                 ret = dict_set_str (this->options,
                                     "rpc-auth-allow-insecure", "on");
                 if (ret == -1) {
@@ -1090,7 +1089,6 @@ nfs_init_state (xlator_t *this)
                                 NFS_MSG_DICT_SET_FAILED, "dict_set_str error");
                         goto free_foppool;
                 }
-                dict_del (this->options, "rpc-auth.ports.insecure");
                 ret = dict_set_str (this->options,
                                     "rpc-auth.ports.insecure", "on");
                 if (ret == -1) {

@@ -9962,7 +9962,6 @@ glusterd_profile_volume_use_rsp_dict (dict_t *aggr, dict_t *rsp_dict)
         rsp_ctx.count = count;
         rsp_ctx.dict = ctx_dict;
         dict_foreach (rsp_dict, _profile_volume_add_friend_rsp, &rsp_ctx);
-        dict_del (ctx_dict, "count");
         ret = dict_set_int32 (ctx_dict, "count", count + brick_count);
 out:
         return ret;
@@ -11548,7 +11547,6 @@ glusterd_profile_volume_brick_rsp (void *pending_entry,
         rsp_ctx.count = count;
         rsp_ctx.dict = op_ctx;
         dict_foreach (rsp_dict, _profile_volume_add_brick_rsp, &rsp_ctx);
-        dict_del (op_ctx, "count");
         ret = dict_set_int32 (op_ctx, "count", count);
         return ret;
 }
