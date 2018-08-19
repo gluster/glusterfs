@@ -1148,7 +1148,6 @@ bd_offload_getx_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         gf_asprintf (&bd, "%s:%ld", type, local->size);
         local->bdatt->type = gf_strdup (type);
-        dict_del (local->dict, BD_XATTR);
         dict_del (local->dict, LINKTO);
         if (dict_set_dynstr (local->dict, BD_XATTR, bd)) {
                 op_errno = EINVAL;

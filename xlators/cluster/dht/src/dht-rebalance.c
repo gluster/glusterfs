@@ -2116,7 +2116,6 @@ dht_migrate_file (xlator_t *this, loc_t *loc, xlator_t *from, xlator_t *to,
         }
 
         if (target_changed) {
-                dict_del (dict, conf->link_xattr_name);
                 dict_del (dict, GLUSTERFS_POSIXLK_COUNT);
                 ret = dict_set_str (dict, conf->link_xattr_name, to->name);
                 if (ret) {

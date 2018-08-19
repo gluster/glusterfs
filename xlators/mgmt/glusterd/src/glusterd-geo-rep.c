@@ -1792,9 +1792,6 @@ glusterd_store_slave_in_info (glusterd_volinfo_t *volinfo, char *slave,
         } else if (ret == -1) { /* Existing slave */
                 snprintf (key, 512, "slave%d", slave1.old_slvidx);
 
-                /* Delete present slave info(with old hostname) */
-                dict_del (volinfo->gsync_slaves, key);
-
                 gf_msg_debug (this->name, 0, "Replacing key:%s with new value"
                               ":%s", key, value);
 
