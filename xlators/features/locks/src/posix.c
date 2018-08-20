@@ -271,6 +271,10 @@ pl_parent_entrylk_xattr_fill (xlator_t *this, inode_t *parent,
                 goto out;
         if (keep_max) {
                 ret = dict_get_int32 (dict, GLUSTERFS_PARENT_ENTRYLK, &maxcount);
+                if (ret < 0)
+                        gf_msg_debug (this->name, 0,
+                                " Failed to fetch the value for key %s",
+                                GLUSTERFS_PARENT_ENTRYLK);
         }
         entrylk = check_entrylk_on_basename (this, parent, basename);
         if (maxcount >= entrylk)
@@ -278,7 +282,7 @@ pl_parent_entrylk_xattr_fill (xlator_t *this, inode_t *parent,
 out:
         ret = dict_set_int32 (dict, GLUSTERFS_PARENT_ENTRYLK, entrylk);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         " dict_set failed on key %s", GLUSTERFS_PARENT_ENTRYLK);
         }
 }
@@ -293,6 +297,11 @@ pl_entrylk_xattr_fill (xlator_t *this, inode_t *inode,
 
         if (keep_max) {
                 ret = dict_get_int32 (dict, GLUSTERFS_ENTRYLK_COUNT, &maxcount);
+                if (ret < 0)
+                        gf_msg_debug (this->name, 0,
+                                " Failed to fetch the value for key %s",
+                                GLUSTERFS_ENTRYLK_COUNT);
+
         }
         count = get_entrylk_count (this, inode);
         if (maxcount >= count)
@@ -300,7 +309,7 @@ pl_entrylk_xattr_fill (xlator_t *this, inode_t *inode,
 
         ret = dict_set_int32 (dict, GLUSTERFS_ENTRYLK_COUNT, count);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         " dict_set failed on key %s", GLUSTERFS_ENTRYLK_COUNT);
         }
 
@@ -316,6 +325,10 @@ pl_inodelk_xattr_fill (xlator_t *this, inode_t *inode, dict_t *dict,
 
         if (keep_max) {
                 ret = dict_get_int32 (dict, GLUSTERFS_INODELK_COUNT, &maxcount);
+                if (ret < 0)
+                        gf_msg_debug (this->name, 0,
+                                " Failed to fetch the value for key %s",
+                                GLUSTERFS_INODELK_COUNT);
         }
         count = get_inodelk_count (this, inode, domname);
         if (maxcount >= count)
@@ -323,7 +336,7 @@ pl_inodelk_xattr_fill (xlator_t *this, inode_t *inode, dict_t *dict,
 
         ret = dict_set_int32 (dict, GLUSTERFS_INODELK_COUNT, count);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG, "Failed to set count for "
+                gf_msg_debug (this->name, 0, "Failed to set count for "
                         "key %s", GLUSTERFS_INODELK_COUNT);
         }
 
@@ -340,6 +353,10 @@ pl_posixlk_xattr_fill (xlator_t *this, inode_t *inode,
 
         if (keep_max) {
                 ret = dict_get_int32 (dict, GLUSTERFS_POSIXLK_COUNT, &maxcount);
+                if (ret < 0)
+                        gf_msg_debug (this->name, 0,
+                                " Failed to fetch the value for key %s",
+                                GLUSTERFS_POSIXLK_COUNT);
         }
         count = get_posixlk_count (this, inode);
         if (maxcount >= count)
@@ -347,7 +364,7 @@ pl_posixlk_xattr_fill (xlator_t *this, inode_t *inode,
 
         ret = dict_set_int32 (dict, GLUSTERFS_POSIXLK_COUNT, count);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_msg_debug (this->name, 0,
                         " dict_set failed on key %s", GLUSTERFS_POSIXLK_COUNT);
         }
 
