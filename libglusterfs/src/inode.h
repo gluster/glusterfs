@@ -60,7 +60,6 @@ struct _inode_table {
 struct _dentry {
         struct list_head   inode_list;   /* list of dentries of inode */
         struct list_head   hash;         /* hash table pointers */
-        struct list_head   parent_list;  /* list of parent's children */
         inode_t           *inode;        /* inode of this directory entry */
         char              *name;         /* name of the directory entry */
         inode_t           *parent;       /* directory of the entry */
@@ -100,7 +99,6 @@ struct _inode {
         struct list_head     dentry_list;   /* list of directory entries for this inode */
         struct list_head     hash;          /* hash table pointers */
         struct list_head     list;          /* active/lru/purge */
-        struct list_head     children;      /* list of children */
 
         struct _inode_ctx   *_ctx;    /* replacement for dict_t *(inode->ctx) */
 };
