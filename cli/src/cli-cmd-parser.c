@@ -3607,7 +3607,9 @@ cli_cmd_volume_statedump_options_parse (const char **words, int wordcount,
                                 goto out;
                         }
                 }
-                if ((strstr (option_str, "nfs")) && strstr (option_str, "quotad")) {
+                if (option_str &&
+                    (strstr (option_str, "nfs")) &&
+                     strstr (option_str, "quotad")) {
                         ret = -1;
                         goto out;
                 }
@@ -3619,7 +3621,10 @@ cli_cmd_volume_statedump_options_parse (const char **words, int wordcount,
                 goto out;
         }
 
-        ret = dict_set_dynstr (dict, "options", option_str);
+        /* dynamic string in dict is freed up when dict is freed up, and hence
+        if option_str is NULL pass in an duplicate empty string to the same */
+        ret = dict_set_dynstr (dict, "options",
+                               (option_str ? option_str : gf_strdup("")));
         if (ret)
                 goto out;
         option_str = NULL;
