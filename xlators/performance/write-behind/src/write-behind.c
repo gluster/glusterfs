@@ -197,8 +197,12 @@ __wb_inode_ctx_get (xlator_t *this, inode_t *inode)
 {
         uint64_t    value    = 0;
         wb_inode_t *wb_inode = NULL;
+        int         ret      = 0;
 
-        __inode_ctx_get (inode, this, &value);
+        ret = __inode_ctx_get (inode, this, &value);
+        if (ret)
+                return NULL;
+
         wb_inode = (wb_inode_t *)(unsigned long) value;
 
         return wb_inode;
@@ -521,7 +525,7 @@ wb_enqueue_common (wb_inode_t *wb_inode, call_stub_t *stub, int tempted)
 		req->op_ret = req->write_size;
 		req->op_errno = 0;
 
-		if (stub->args.fd->flags & O_APPEND)
+		if (stub->args.fd && (stub->args.fd->flags & O_APPEND))
 			req->ordering.append = 1;
         }
 
@@ -2786,7 +2790,7 @@ wb_release (xlator_t *this, fd_t *fd)
 {
         uint64_t    tmp      = 0;
 
-        fd_ctx_del (fd, this, &tmp);
+        (void) fd_ctx_del (fd, this, &tmp);
 
         return 0;
 }
