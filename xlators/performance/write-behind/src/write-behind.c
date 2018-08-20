@@ -115,8 +115,6 @@ typedef struct wb_inode {
                                 * error during fulfill.
                                 */
 
-        int invalidate_stat;
-
 } wb_inode_t;
 
 
@@ -2467,7 +2465,29 @@ wb_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 LOCK (&wb_inode->lock);
                 {
-                        if (wb_inode->invalidate_stat) {
+                        if (!list_empty (&wb_inode->liability)) {
+                                /* We cannot guarantee integrity of
+                                   entry->d_stat as there are cached writes.
+                                   The stat is most likely stale as it doesn't
+                                   account the cached writes. However, checking
+                                   for non-empty liability list here is not a
+                                   fool-proof solution as there can be races
+                                   like,
+                                   1. readdirp is successful on posix
+                                   2. sync of cached write is successful on
+                                      posix
+                                   3. write-behind received sync response and
+                                      removed the request from liability queue
+                                   4. readdirp response is processed at
+                                      write-behind
+
+                                   In the above scenario, stat for the file is
+                                   sent back in readdirp response but it is
+                                   stale.
+
+                                   For lack of better solutions I am sticking
+                                   with current solution.
+                                */
                                 inode = entry->inode;
 
                                 entry->inode = NULL;
@@ -2475,7 +2495,6 @@ wb_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         sizeof (entry->d_stat));
 
                                 inode_unref (inode);
-                                wb_inode->invalidate_stat = 0;
                         }
                 }
                 UNLOCK (&wb_inode->lock);
@@ -2492,30 +2511,6 @@ int32_t
 wb_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
              off_t off, dict_t *xdata)
 {
-        dentry_t     *child    = NULL;
-        wb_inode_t   *wb_inode = NULL;
-        wb_request_t *each     = NULL;
-
-        pthread_mutex_lock (&fd->inode->table->lock);
-        {
-                list_for_each_entry (child, &fd->inode->children, parent_list) {
-                        wb_inode = wb_inode_ctx_get (this, child->inode);
-                        if (!wb_inode)
-                                continue;
-
-                        LOCK (&wb_inode->lock);
-                        {
-                                list_for_each_entry (each, &wb_inode->liability,
-                                                     lie) {
-                                        if (each->gen < wb_inode->gen)
-                                                wb_inode->invalidate_stat = 1;
-                                }
-                        }
-                        UNLOCK (&wb_inode->lock);
-                }
-        }
-        pthread_mutex_unlock (&fd->inode->table->lock);
-
         STACK_WIND (frame, wb_readdirp_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->readdirp,
                     fd, size, off, xdata);
