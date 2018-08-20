@@ -2877,12 +2877,22 @@ get_mem_size ()
 	memsize = page_size * num_pages;
 #endif
 
-#if defined GF_BSD_HOST_OS || defined GF_DARWIN_HOST_OS
+#if defined GF_DARWIN_HOST_OS
 
 	size_t len = sizeof(memsize);
 	int name [] = { CTL_HW, HW_PHYSMEM };
 
 	sysctl (name, 2, &memsize, &len, NULL, 0);
+#endif
+
+#if defined __NetBSD__
+
+	size_t len = sizeof(memsize);
+	int name64 [] = { CTL_HW, HW_PHYSMEM64 };
+
+	sysctl (name64, 2, &memsize, &len, NULL, 0);
+	if (memsize == -1)
+		sysctl (name64, 2, &memsize, &len, NULL, 0);
 #endif
 	return memsize;
 }
