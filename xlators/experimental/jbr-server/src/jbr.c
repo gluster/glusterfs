@@ -1082,9 +1082,11 @@ jbr_get_terms (call_frame_t *frame, xlator_t *this)
                 }
                 if (sys_access(probe_str, F_OK) != 0) {
                         GF_FREE(probe_str);
+                        probe_str = NULL;
                         break;
                 }
                 GF_FREE(probe_str);
+                probe_str = NULL;
         }
 
         gf_msg (this->name, GF_LOG_INFO, 0,
