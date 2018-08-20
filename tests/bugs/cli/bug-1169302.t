@@ -20,6 +20,9 @@ TEST $CLI_1 volume create $V0 $H1:$B1/$V0 $H2:$B2/$V0 $H3:$B3/$V0
 TEST $CLI_1 volume start $V0
 
 # test CLI parameter acceptance
+TEST $CLI_1 volume statedump $V0
+TEST $CLI_2 volume statedump $V0
+TEST $CLI_3 volume statedump $V0
 TEST ! $CLI_1 volume statedump $V0 client $H2:0
 TEST ! $CLI_2 volume statedump $V0 client $H2:-1
 TEST $CLI_3 volume statedump $V0 client $H2:765
