@@ -895,7 +895,7 @@ sdfs_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         sdfs_lock_t             *lock       = NULL;
         client_t                *client     = NULL;
         int                      ret        = 0;
-        int                      op_errno   = 0;
+        int                      op_errno   = ENOMEM;
 
         new_frame = copy_frame (frame);
         if (!new_frame) {
@@ -928,7 +928,7 @@ sdfs_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         local->lock = lock;
         GF_ATOMIC_INIT (local->call_cnt, lock->lock_count);
 
-        loc_copy (&local->loc, newloc);
+        ret = loc_copy (&local->loc, newloc);
         if (ret == -1) {
                 op_errno = ENOMEM;
                 goto err;
@@ -1159,7 +1159,7 @@ sdfs_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         call_stub_t     *stub       = NULL;
         client_t        *client     = NULL;
         int              ret        = 0;
-        int              op_errno   = -1;
+        int              op_errno   = ENOMEM;
         int              i          = 0;
         int              call_cnt   = 0;
 
