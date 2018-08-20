@@ -121,6 +121,10 @@ nfs_fop_local_init(xlator_t *nfsx)
         return NULL;
 
     l = mem_get(nfs_fop_mempool(nfsx));
+    if (!l) {
+        gf_msg_nomem(GF_NFS, GF_LOG_ERROR, 4096);
+        return NULL;
+    }
 
     memset(l, 0, sizeof(*l));
     return l;
