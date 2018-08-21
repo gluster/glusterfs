@@ -319,7 +319,7 @@ nlc_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
                 goto wind;
 
         if (!key || (strncmp (key, GF_XATTR_GET_REAL_FILENAME_KEY,
-                     strlen (GF_XATTR_GET_REAL_FILENAME_KEY)) != 0))
+                     SLEN (GF_XATTR_GET_REAL_FILENAME_KEY)) != 0))
                 goto wind;
 
         local = nlc_local_init (frame, this, GF_FOP_GETXATTR, loc, NULL);
@@ -331,7 +331,7 @@ nlc_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
                 if (!dict)
                         goto err;
 
-                fname = key + strlen (GF_XATTR_GET_REAL_FILENAME_KEY);
+                fname = key + SLEN (GF_XATTR_GET_REAL_FILENAME_KEY);
                 hit = nlc_get_real_file_name (this, loc, fname, &op_ret,
                                              &op_errno, dict);
                 if (hit)

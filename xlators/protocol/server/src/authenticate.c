@@ -33,7 +33,7 @@ init (dict_t *this, char *key, data_t *value, void *data)
         /* It gets over written */
         error = data;
 
-        if (!strncasecmp (key, "ip", strlen ("ip"))) {
+        if (!strncasecmp (key, "ip", SLEN ("ip"))) {
                 gf_msg ("authenticate", GF_LOG_ERROR, 0,
                         PS_MSG_AUTHENTICATE_ERROR, "AUTHENTICATION MODULE "
                         "\"IP\" HAS BEEN REPLACED BY \"ADDR\"");

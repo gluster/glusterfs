@@ -3236,7 +3236,7 @@ mdc_xattr_list_populate (struct mdc_conf *conf, char *tmp_str)
         size_t  max_size          = 0;
         int     ret               = 0;
 
-        max_size = strlen ("security.capability,security.selinux,security.ima,"
+        max_size = SLEN ("security.capability,security.selinux,security.ima,"
                            POSIX_ACL_ACCESS_XATTR","POSIX_ACL_DEFAULT_XATTR","
                            GF_POSIX_ACL_ACCESS","GF_POSIX_ACL_DEFAULT","
                            "user.swift.metadata,user.DOSATTRIB,user.DosStream.*"
