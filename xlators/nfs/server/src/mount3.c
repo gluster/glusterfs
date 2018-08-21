@@ -353,14 +353,14 @@ dont_add:
                 ret = gf_store_retrieve_value (sh, key, &value);
                 if (ret)
                         break;
-                strncpy (me->hostname, value, MNTPATHLEN);
+                snprintf (me->hostname, MNTPATHLEN, "%s", value);
                 GF_FREE (value);
 
                 snprintf (key, 11 + MNTPATHLEN, "mountpoint-%d", idx);
                 ret = gf_store_retrieve_value (sh, key, &value);
                 if (ret)
                         break;
-                strncpy (me->exname, value, MNTPATHLEN);
+                snprintf (me->exname, MNTPATHLEN, "%s", value);
                 GF_FREE (value);
 
                 idx++;
@@ -599,7 +599,7 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
 
         update_rmtab = mount_open_rmtab (nfs->rmtab, &sh);
 
-        strncpy (me->exname, expname, MNTPATHLEN);
+        snprintf (me->exname, MNTPATHLEN, "%s", expname);
         /* Sometimes we don't care about the full path
          * so a NULL value for fullpath is valid.
          */
@@ -1561,7 +1561,7 @@ mnt3_resolve_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
         mres->mstate = ms;
         mres->req = req;
 
-        strncpy (mres->remainingdir, subdir, MNTPATHLEN);
+        snprintf (mres->remainingdir, MNTPATHLEN, "%s", subdir);
         gf_path_strip_trailing_slashes (mres->remainingdir);
 
         if (gf_nfs_dvm_off (nfs_state (ms->nfsx)))
@@ -3067,8 +3067,8 @@ mount3udp_add_mountlist (xlator_t *nfsx, char *host, char *export)
         if (!me)
                 return -1;
 
-        strncpy (me->exname, export, MNTPATHLEN);
-        strncpy (me->hostname, host, MNTPATHLEN);
+        snprintf (me->exname, MNTPATHLEN, "%s", export);
+        snprintf (me->hostname, MNTPATHLEN, "%s", host);
         INIT_LIST_HEAD (&me->mlist);
         LOCK (&ms->mountlock);
         {
