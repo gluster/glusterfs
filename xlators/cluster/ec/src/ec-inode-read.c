@@ -310,7 +310,7 @@ int32_t ec_manager_getxattr(ec_fop_data_t * fop, int32_t state)
                to avoid interferences. */
             if ((fop->str[0] == NULL) ||
                 (strncmp(fop->str[0], GF_XATTR_CLRLK_CMD,
-                         strlen(GF_XATTR_CLRLK_CMD)) != 0)) {
+                         SLEN (GF_XATTR_CLRLK_CMD)) != 0)) {
                 if (fop->fd == NULL) {
                     ec_lock_prepare_inode(fop, &fop->loc[0], EC_QUERY_INFO,
                                           0, LLONG_MAX);
