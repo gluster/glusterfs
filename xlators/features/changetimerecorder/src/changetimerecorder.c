@@ -128,10 +128,15 @@ ctr_lookup_wind(call_frame_t                    *frame,
                 /* Copy hard link info*/
                 gf_uuid_copy (CTR_DB_REC(ctr_local).pargfid,
                         *((NEW_LINK_CX(ctr_inode_cx))->pargfid));
-                strncpy (CTR_DB_REC(ctr_local).file_name,
-                         NEW_LINK_CX(ctr_inode_cx)->basename,
-                         sizeof(CTR_DB_REC(ctr_local).file_name));
-
+                if (snprintf (CTR_DB_REC(ctr_local).file_name,
+                              sizeof (CTR_DB_REC(ctr_local).file_name), "%s",
+                              NEW_LINK_CX(ctr_inode_cx)->basename) >=
+                    sizeof (CTR_DB_REC(ctr_local).file_name)) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                CTR_MSG_CREATE_CTR_LOCAL_ERROR_WIND,
+                                "WIND: Error copying filename of ctr local");
+                        goto out;
+                }
                 /* Since we are in lookup we can ignore errors while
                  * Inserting in the DB, because there may be many
                  * to write to the DB attempts for healing.
@@ -1878,7 +1883,7 @@ ctr_ipc_helper (xlator_t *this, dict_t *in_dict,
 
         /*if its a db clear operation */
         if (strncmp (ctr_ipc_ops, GFDB_IPC_CTR_CLEAR_OPS,
-                        strlen (GFDB_IPC_CTR_CLEAR_OPS)) == 0) {
+                        SLEN (GFDB_IPC_CTR_CLEAR_OPS)) == 0) {
 
                 ret = clear_files_heat (priv->_db_conn);
                 if (ret)
@@ -1886,7 +1891,7 @@ ctr_ipc_helper (xlator_t *this, dict_t *in_dict,
 
         } /* if its a query operation, in  which case its query + clear db*/
         else if (strncmp (ctr_ipc_ops, GFDB_IPC_CTR_QUERY_OPS,
-                                strlen (GFDB_IPC_CTR_QUERY_OPS)) == 0) {
+                                SLEN (GFDB_IPC_CTR_QUERY_OPS)) == 0) {
 
                 ret = dict_get_str (in_dict, GFDB_IPC_CTR_GET_QFILE_PATH,
                                                                 &query_file);
@@ -1917,7 +1922,7 @@ ctr_ipc_helper (xlator_t *this, dict_t *in_dict,
 
         } /* if its a query for db version */
         else if (strncmp (ctr_ipc_ops, GFDB_IPC_CTR_GET_DB_VERSION_OPS,
-                        strlen (GFDB_IPC_CTR_GET_DB_VERSION_OPS)) == 0) {
+                        SLEN (GFDB_IPC_CTR_GET_DB_VERSION_OPS)) == 0) {
 
                 ret = get_db_version (priv->_db_conn, &db_version);
                 if (ret == -1 || !db_version) {
@@ -1932,7 +1937,7 @@ ctr_ipc_helper (xlator_t *this, dict_t *in_dict,
 
         } /* if its a query for a db setting */
         else if (strncmp (ctr_ipc_ops, GFDB_IPC_CTR_GET_DB_PARAM_OPS,
-                                strlen (GFDB_IPC_CTR_GET_DB_PARAM_OPS)) == 0) {
+                                SLEN (GFDB_IPC_CTR_GET_DB_PARAM_OPS)) == 0) {
 
                 ret = dict_get_str (in_dict, GFDB_IPC_CTR_GET_DB_KEY,
                                 &db_param_key);
@@ -1952,7 +1957,7 @@ ctr_ipc_helper (xlator_t *this, dict_t *in_dict,
                                         db_param, ret, error);
         } /* if its an attempt to compact the database */
         else if (strncmp (ctr_ipc_ops, GFDB_IPC_CTR_SET_COMPACT_PRAGMA,
-                          strlen (GFDB_IPC_CTR_SET_COMPACT_PRAGMA)) == 0) {
+                          SLEN (GFDB_IPC_CTR_SET_COMPACT_PRAGMA)) == 0) {
 
                 ret = pthread_mutex_lock (&priv->compact_lock);
                 if (ret) {
