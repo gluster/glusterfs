@@ -355,9 +355,9 @@ br_stub_is_internal_xattr (const char *name)
 {
         if (name
             && ((strncmp (name, BITROT_CURRENT_VERSION_KEY,
-                          strlen (BITROT_CURRENT_VERSION_KEY)) == 0)
+                          SLEN (BITROT_CURRENT_VERSION_KEY)) == 0)
                 || (strncmp (name, BITROT_SIGNING_VERSION_KEY,
-                             strlen (BITROT_SIGNING_VERSION_KEY)) == 0)))
+                             SLEN (BITROT_SIGNING_VERSION_KEY)) == 0)))
                 return 1;
         return 0;
 }

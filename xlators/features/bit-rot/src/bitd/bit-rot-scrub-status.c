@@ -9,6 +9,7 @@
 */
 
 #include <string.h>
+#include <stdio.h>
 
 #include "bit-rot-scrub-status.h"
 
@@ -61,6 +62,9 @@ br_update_scrub_finish_time (br_scrub_stats_t *scrub_stat, char *timestr,
                 return;
 
         lst_size = sizeof (scrub_stat->last_scrub_time);
+        if (strlen (timestr)  >= lst_size)
+                return;
+
         pthread_mutex_lock (&scrub_stat->lock);
         {
                 scrub_stat->scrub_end_tv.tv_sec = tv->tv_sec;
@@ -69,9 +73,8 @@ br_update_scrub_finish_time (br_scrub_stats_t *scrub_stat, char *timestr,
                                  scrub_stat->scrub_end_tv.tv_sec -
                                  scrub_stat->scrub_start_tv.tv_sec;
 
-                strncpy (scrub_stat->last_scrub_time, timestr,
-                         lst_size-1);
-                scrub_stat->last_scrub_time[lst_size-1] = '\0';
+                snprintf (scrub_stat->last_scrub_time, lst_size, "%s",
+                          timestr);
         }
         pthread_mutex_unlock (&scrub_stat->lock);
 }
