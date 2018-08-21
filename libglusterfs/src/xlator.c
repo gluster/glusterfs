@@ -481,7 +481,7 @@ xlator_set_type (xlator_t *xl, const char *type)
 
         /* Handle 'global' translator differently */
         if (!strncmp (GF_GLOBAL_XLATOR_NAME, type,
-                      strlen (GF_GLOBAL_XLATOR_NAME))) {
+                      SLEN (GF_GLOBAL_XLATOR_NAME))) {
                 volume_opt_list_t *vol_opt = NULL;
 
                 /* set the required values from Global xlator */

@@ -435,7 +435,7 @@ __gather_xattr_keys (dict_t *dict, char *key, data_t *value,
         struct _xattr_key * xkey  = NULL;
 
         if (!strncmp (key, AFR_XATTR_PREFIX,
-                      strlen (AFR_XATTR_PREFIX))) {
+                      SLEN (AFR_XATTR_PREFIX))) {
 
                 xkey = GF_CALLOC (1, sizeof (*xkey), gf_afr_mt_xattr_key);
                 if (!xkey)
@@ -814,7 +814,7 @@ unlock:
                 /*Since we store the UUID0_STR as node uuid for down bricks and
                  *for non zero op_ret, assigning length to  priv->child_count
                  *number of uuids*/
-                local->cont.getxattr.xattr_len = (strlen (UUID0_STR) + 2) *
+                local->cont.getxattr.xattr_len = (SLEN (UUID0_STR) + 2) *
                                                   priv->child_count;
 
                 if (!local->dict)
@@ -1214,7 +1214,7 @@ unlock:
 
                 /* extra bytes for decorations (brackets and <>'s) */
                 padding += strlen (this->name)
-                        + strlen (AFR_PATHINFO_HEADER) + 4;
+                        + SLEN (AFR_PATHINFO_HEADER) + 4;
                 local->cont.getxattr.xattr_len += (padding + 2);
 
                 xattr_serz = GF_CALLOC (local->cont.getxattr.xattr_len,
@@ -1339,7 +1339,7 @@ unlock:
                         goto unwind;
 
                 /* extra bytes for decorations (brackets and <>'s) */
-                padding += strlen (this->name) + strlen (AFR_PATHINFO_HEADER) + 4;
+                padding += strlen (this->name) + SLEN (AFR_PATHINFO_HEADER) + 4;
                 local->cont.getxattr.xattr_len += (padding + 2);
 
                 xattr_serz = GF_CALLOC (local->cont.getxattr.xattr_len,
@@ -1460,14 +1460,14 @@ afr_is_special_xattr (const char *name, fop_getxattr_cbk_t *cbk,
                         *cbk = afr_getxattr_pathinfo_cbk;
                 }
         } else if (!strncmp (name, GF_XATTR_CLRLK_CMD,
-                             strlen (GF_XATTR_CLRLK_CMD))) {
+                             SLEN (GF_XATTR_CLRLK_CMD))) {
                 if (is_fgetxattr) {
                         *cbk = afr_fgetxattr_clrlk_cbk;
                 } else {
                         *cbk = afr_getxattr_clrlk_cbk;
                 }
         } else if (!strncmp (name, GF_XATTR_LOCKINFO_KEY,
-                             strlen (GF_XATTR_LOCKINFO_KEY))) {
+                             SLEN (GF_XATTR_LOCKINFO_KEY))) {
                 if (is_fgetxattr) {
                         *cbk = afr_fgetxattr_lockinfo_cbk;
                 } else {
@@ -1633,7 +1633,7 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 	}
 
         if (!strncmp (name, AFR_XATTR_PREFIX,
-                      strlen (AFR_XATTR_PREFIX))) {
+                      SLEN (AFR_XATTR_PREFIX))) {
                 op_errno = ENODATA;
                 goto out;
         }

@@ -826,10 +826,10 @@ glusterfs_handle_bitrot (rpcsvc_request_t *req)
                 goto out;
         }
 
-        if (!strncmp (scrub_opt, "status", strlen ("status"))) {
+        if (!strncmp (scrub_opt, "status", SLEN ("status"))) {
                 ret = xlator->notify (xlator, GF_EVENT_SCRUB_STATUS, input,
                                       output);
-        } else if (!strncmp (scrub_opt, "ondemand", strlen ("ondemand"))) {
+        } else if (!strncmp (scrub_opt, "ondemand", SLEN ("ondemand"))) {
                 ret = xlator->notify (xlator, GF_EVENT_SCRUB_ONDEMAND, input,
                                       output);
                 if (ret == -2) {

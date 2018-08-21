@@ -90,7 +90,7 @@ int main(int argc, char **argv)
                         xxh64
                         );
 
-        key_size = strlen(GFID2PATH_XATTR_KEY_PREFIX) +
+        key_size = SLEN (GFID2PATH_XATTR_KEY_PREFIX) +
                 GF_XXH64_DIGEST_LENGTH*2+1;
         key = alloca (key_size);
         snprintf (key, key_size, GFID2PATH_XATTR_KEY_PREFIX"%s", xxh64);

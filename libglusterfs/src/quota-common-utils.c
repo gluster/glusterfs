@@ -140,10 +140,8 @@ out:
 int32_t
 quota_conf_read_header (int fd, char *buf)
 {
-        int    header_len      = 0;
         int    ret             = 0;
-
-        header_len = strlen (QUOTA_CONF_HEADER);
+        const int header_len = SLEN (QUOTA_CONF_HEADER);
 
         ret = gf_nread (fd, buf, header_len);
         if (ret <= 0) {
