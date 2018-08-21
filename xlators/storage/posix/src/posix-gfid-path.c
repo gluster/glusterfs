@@ -124,6 +124,7 @@ posix_get_gfid2path (xlator_t *this, inode_t *inode, const char *real_path,
         struct posix_private  *priv                            = NULL;
         char                   pargfid_str[UUID_CANONICAL_FORM_LEN + 1] = {0,};
         gf_boolean_t           found                           = _gf_false;
+        int                    len;
 
         priv = this->private;
 
@@ -196,8 +197,8 @@ posix_get_gfid2path (xlator_t *this, inode_t *inode, const char *real_path,
                 remaining_size = size;
                 list_offset = 0;
                 while (remaining_size > 0) {
-                        strncpy (keybuffer, list + list_offset,
-                                 sizeof(keybuffer));
+                        snprintf (keybuffer, sizeof (keybuffer), "%s",
+                                  list + list_offset);
 
                         if (!posix_is_gfid2path_xattr (keybuffer)) {
                                 goto ignore;
@@ -228,8 +229,9 @@ posix_get_gfid2path (xlator_t *this, inode_t *inode, const char *real_path,
                         i++;
 
 ignore:
-                        remaining_size -= strlen (keybuffer) + 1;
-                        list_offset += strlen (keybuffer) + 1;
+                        len = strlen (keybuffer);
+                        remaining_size -= (len + 1);
+                        list_offset += (len + 1);
                 } /* while (remaining_size > 0) */
 
                 /* gfid2path xattr is absent in the list of xattrs */
