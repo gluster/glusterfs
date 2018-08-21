@@ -5936,8 +5936,8 @@ write_contents_to_common_pem_file (dict_t *dict, int output_count)
                                 goto out;
                         }
                         /* Adding the new line character */
-                        bytes_written = sys_write (fd, "\n", strlen("\n"));
-                        if (bytes_written != strlen("\n")) {
+                        bytes_written = sys_write (fd, "\n", 1);
+                        if (bytes_written != 1) {
                                 gf_log ("", GF_LOG_ERROR,
                                         "Failed to add new line char");
                                 ret = -1;
@@ -12027,10 +12027,10 @@ gf_cli_bitrot_cbk (struct rpc_req *req, struct iovec *iov,
                 ret = 0;
                 goto out;
         case GF_BITROT_OPTION_TYPE_SCRUB:
-                if (!strncmp ("pause", scrub_cmd, strlen("pause")))
+                if (!strncmp ("pause", scrub_cmd, sizeof ("pause")))
                         cli_out("volume bitrot: scrubber paused "
                                 "for volume %s", volname);
-                if (!strncmp ("resume", scrub_cmd, strlen("resume")))
+                if (!strncmp ("resume", scrub_cmd, sizeof ("resume")))
                         cli_out("volume bitrot: scrubber resumed "
                                 "for volume %s", volname);
                 ret = 0;
