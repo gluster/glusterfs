@@ -193,7 +193,7 @@ glusterd_store_is_valid_brickpath (char *volname, char *brick)
         bpath_len = strlen (brickinfo->path);
 
         if (brickinfo->path[bpath_len - 1] != '/') {
-                if (strlen (brickinfo->path) >= PATH_MAX) {
+                if (bpath_len >= PATH_MAX) {
                         ret = 0;
                         goto out;
                 }
@@ -201,7 +201,7 @@ glusterd_store_is_valid_brickpath (char *volname, char *brick)
                 /* Path has a trailing "/" which should not be considered in
                  * length check validation
                  */
-                if (strlen (brickinfo->path) >= PATH_MAX + 1) {
+                if (bpath_len >= PATH_MAX + 1) {
                         ret = 0;
                         goto out;
                 }
@@ -2423,7 +2423,7 @@ glusterd_store_retrieve_snapd (glusterd_volinfo_t *volinfo)
 
         while (!ret) {
                 if (!strncmp (key, GLUSTERD_STORE_KEY_SNAPD_PORT,
-                              strlen (GLUSTERD_STORE_KEY_SNAPD_PORT))) {
+                              SLEN (GLUSTERD_STORE_KEY_SNAPD_PORT))) {
                         volinfo->snapd.port = atoi (value);
                 }
 
@@ -2520,18 +2520,43 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                 }
                 while (!ret) {
                         if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_HOSTNAME,
-                                      strlen (GLUSTERD_STORE_KEY_BRICK_HOSTNAME))) {
-                                strncpy (brickinfo->hostname, value, 1024);
+                                      SLEN (GLUSTERD_STORE_KEY_BRICK_HOSTNAME))) {
+                                if (snprintf (brickinfo->hostname,
+                                              sizeof (brickinfo->hostname),
+                                              "%s", value) >=
+                                    sizeof (brickinfo->hostname)) {
+                                        gf_msg ("glusterd", GF_LOG_ERROR, op_errno,
+                                                GD_MSG_PARSE_BRICKINFO_FAIL,
+                                                "brick hostname truncated: %s",
+                                                brickinfo->hostname);
+                                        goto out;
+                                }
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_PATH,
-                                    strlen (GLUSTERD_STORE_KEY_BRICK_PATH))) {
-                                strncpy (brickinfo->path, value,
-                                         sizeof (brickinfo->path));
+                                    SLEN (GLUSTERD_STORE_KEY_BRICK_PATH))) {
+                                if (snprintf (brickinfo->path,
+                                              sizeof (brickinfo->path),
+                                              "%s", value) >=
+                                    sizeof (brickinfo->path)) {
+                                        gf_msg ("glusterd", GF_LOG_ERROR, op_errno,
+                                                GD_MSG_PARSE_BRICKINFO_FAIL,
+                                                "brick path truncated: %s",
+                                                brickinfo->path);
+                                        goto out;
+                                }
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_REAL_PATH,
-                                    strlen (GLUSTERD_STORE_KEY_BRICK_REAL_PATH))) {
-                                strncpy (brickinfo->real_path, value,
-                                         sizeof (brickinfo->real_path));
+                                    SLEN (GLUSTERD_STORE_KEY_BRICK_REAL_PATH))) {
+                                if (snprintf (brickinfo->real_path,
+                                              sizeof (brickinfo->real_path),
+                                              "%s", value) >=
+                                    sizeof (brickinfo->real_path)) {
+                                        gf_msg ("glusterd", GF_LOG_ERROR, op_errno,
+                                                GD_MSG_PARSE_BRICKINFO_FAIL,
+                                                "real_path truncated: %s",
+                                                brickinfo->real_path);
+                                        goto out;
+                                }
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_PORT,
-                                    strlen (GLUSTERD_STORE_KEY_BRICK_PORT))) {
+                                    SLEN (GLUSTERD_STORE_KEY_BRICK_PORT))) {
                                 gf_string2int (value, &brickinfo->port);
 
                                 if (brickinfo->port < priv->base_port) {
@@ -2547,7 +2572,7 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                                                         brickinfo->port + 1;
                                 }
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_RDMA_PORT,
-                                    strlen (GLUSTERD_STORE_KEY_BRICK_RDMA_PORT))) {
+                                    SLEN (GLUSTERD_STORE_KEY_BRICK_RDMA_PORT))) {
                                 gf_string2int (value, &brickinfo->rdma_port);
 
                                 if (brickinfo->rdma_port < priv->base_port) {
@@ -2565,7 +2590,7 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                                 }
 
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_DECOMMISSIONED,
-                                             strlen (GLUSTERD_STORE_KEY_BRICK_DECOMMISSIONED))) {
+                                             SLEN (GLUSTERD_STORE_KEY_BRICK_DECOMMISSIONED))) {
                                 ret = gf_string2int
                                         (value, &brickinfo->decommissioned);
                                 if (ret == -1) {
@@ -2577,15 +2602,31 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                                 }
 
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_DEVICE_PATH,
-                                             strlen (GLUSTERD_STORE_KEY_BRICK_DEVICE_PATH))) {
-                                strncpy (brickinfo->device_path, value,
-                                         sizeof (brickinfo->device_path));
+                                             SLEN (GLUSTERD_STORE_KEY_BRICK_DEVICE_PATH))) {
+                                if (snprintf (brickinfo->device_path,
+                                          sizeof (brickinfo->device_path),
+                                          "%s", value) >=
+                                    sizeof (brickinfo->device_path)) {
+                                        gf_msg ("glusterd", GF_LOG_ERROR, op_errno,
+                                                GD_MSG_PARSE_BRICKINFO_FAIL,
+                                                "device_path truncated: %s",
+                                                brickinfo->device_path);
+                                        goto out;
+                                }
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_MOUNT_DIR,
-                                             strlen (GLUSTERD_STORE_KEY_BRICK_MOUNT_DIR))) {
-                                strncpy (brickinfo->mount_dir, value,
-                                         sizeof (brickinfo->mount_dir));
+                                             SLEN (GLUSTERD_STORE_KEY_BRICK_MOUNT_DIR))) {
+                                if (snprintf (brickinfo->mount_dir,
+                                              sizeof (brickinfo->mount_dir),
+                                              "%s", value) >=
+                                    sizeof (brickinfo->mount_dir)) {
+                                        gf_msg ("glusterd", GF_LOG_ERROR, op_errno,
+                                                GD_MSG_PARSE_BRICKINFO_FAIL,
+                                                "mount_dir truncated: %s",
+                                                brickinfo->mount_dir);
+                                        goto out;
+                                }
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS,
-                                             strlen (GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS))) {
+                                             SLEN (GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS))) {
                                 ret = gf_string2int (value,
                                                      &brickinfo->snap_status);
                                 if (ret == -1) {
@@ -2594,27 +2635,59 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                                                 GD_MSG_INCOMPATIBLE_VALUE,
                                                 "Failed to convert "
                                                 "string to integer");
-                        }
+                                }
 
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_FSTYPE,
-                                             strlen (GLUSTERD_STORE_KEY_BRICK_FSTYPE))) {
-                                strncpy (brickinfo->fstype, value,
-                                         sizeof (brickinfo->fstype));
+                                             SLEN (GLUSTERD_STORE_KEY_BRICK_FSTYPE))) {
+                                if (snprintf (brickinfo->fstype,
+                                              sizeof (brickinfo->fstype),
+                                              "%s", value) >=
+                                    sizeof (brickinfo->fstype)) {
+                                        gf_msg ("glusterd", GF_LOG_ERROR, op_errno,
+                                                GD_MSG_PARSE_BRICKINFO_FAIL,
+                                                "fstype truncated: %s",
+                                                brickinfo->fstype);
+                                        goto out;
+                                }
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_MNTOPTS,
-                                             strlen (GLUSTERD_STORE_KEY_BRICK_MNTOPTS))) {
-                                strncpy (brickinfo->mnt_opts, value,
-                                         sizeof (brickinfo->mnt_opts));
+                                             SLEN (GLUSTERD_STORE_KEY_BRICK_MNTOPTS))) {
+                                if (snprintf (brickinfo->mnt_opts,
+                                              sizeof (brickinfo->mnt_opts),
+                                              "%s", value) >=
+                                    sizeof (brickinfo->mnt_opts)) {
+                                        gf_msg ("glusterd", GF_LOG_ERROR, op_errno,
+                                                GD_MSG_PARSE_BRICKINFO_FAIL,
+                                                "mnt_opts truncated: %s",
+                                                brickinfo->mnt_opts);
+                                        goto out;
+                                }
                         } else if (!strncmp (key,
                                     GLUSTERD_STORE_KEY_BRICK_VGNAME,
-                                    strlen (GLUSTERD_STORE_KEY_BRICK_VGNAME))) {
-                                strncpy (brickinfo->vg, value,
-                                         sizeof (brickinfo->vg));
+                                    SLEN (GLUSTERD_STORE_KEY_BRICK_VGNAME))) {
+                                if (snprintf (brickinfo->vg,
+                                              sizeof (brickinfo->vg), "%s",
+                                              value) >=
+                                    sizeof (brickinfo->vg)) {
+                                        gf_msg ("glusterd", GF_LOG_ERROR, op_errno,
+                                                GD_MSG_PARSE_BRICKINFO_FAIL,
+                                                "brickinfo->vg truncated: %s",
+                                                brickinfo->vg);
+                                        goto out;
+                                }
                         } else if (!strcmp(key, GLUSTERD_STORE_KEY_BRICK_ID)) {
-                                strncpy (brickinfo->brick_id, value,
-                                         sizeof (brickinfo->brick_id));
+                                if (snprintf (brickinfo->brick_id,
+                                              sizeof (brickinfo->brick_id),
+                                              "%s", value) >=
+                                    sizeof (brickinfo->brick_id)) {
+                                        gf_msg ("glusterd", GF_LOG_ERROR, op_errno,
+                                                GD_MSG_PARSE_BRICKINFO_FAIL,
+                                                "brick_id truncated: %s",
+                                                brickinfo->brick_id);
+                                        goto out;
+                                }
                         } else if (!strncmp (key,
                                              GLUSTERD_STORE_KEY_BRICK_FSID,
-                                             strlen (GLUSTERD_STORE_KEY_BRICK_FSID))) {
+                                             SLEN (GLUSTERD_STORE_KEY_BRICK_FSID))) {
                                 ret = gf_string2uint64
                                         (value, &brickinfo->statfs_fsid);
                                 if (ret) {
@@ -2765,69 +2838,69 @@ glusterd_store_retrieve_node_state (glusterd_volinfo_t *volinfo)
 
         while (ret == 0) {
                 if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG,
-                              strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG))) {
+                              SLEN (GLUSTERD_STORE_KEY_VOL_DEFRAG))) {
                         volinfo->rebal.defrag_cmd = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG_STATUS,
-                           strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG_STATUS))) {
+                           SLEN (GLUSTERD_STORE_KEY_VOL_DEFRAG_STATUS))) {
                                 volinfo->rebal.defrag_status = atoi (value);
                 } else if (!strncmp (key, GF_REBALANCE_TID_KEY,
-                                     strlen (GF_REBALANCE_TID_KEY))) {
+                                     SLEN (GF_REBALANCE_TID_KEY))) {
                         gf_uuid_parse (value, volinfo->rebal.rebalance_id);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_DEFRAG_OP,
-                                     strlen (GLUSTERD_STORE_KEY_DEFRAG_OP))) {
+                                     SLEN (GLUSTERD_STORE_KEY_DEFRAG_OP))) {
                         volinfo->rebal.op = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG_REB_FILES,
-                           strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG_REB_FILES))) {
+                           SLEN (GLUSTERD_STORE_KEY_VOL_DEFRAG_REB_FILES))) {
                         volinfo->rebal.rebalance_files = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG_SIZE,
-                           strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG_SIZE))) {
+                           SLEN (GLUSTERD_STORE_KEY_VOL_DEFRAG_SIZE))) {
                                 volinfo->rebal.rebalance_data = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG_SCANNED,
-                              strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG_SCANNED))) {
+                              SLEN (GLUSTERD_STORE_KEY_VOL_DEFRAG_SCANNED))) {
                         volinfo->rebal.lookedup_files = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG_FAILURES,
-                           strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG_FAILURES))) {
+                           SLEN (GLUSTERD_STORE_KEY_VOL_DEFRAG_FAILURES))) {
                         volinfo->rebal.rebalance_failures = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG_SKIPPED,
-                           strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG_SKIPPED))) {
+                           SLEN (GLUSTERD_STORE_KEY_VOL_DEFRAG_SKIPPED))) {
                                 volinfo->rebal.skipped_files = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DEFRAG_RUN_TIME,
-                           strlen (GLUSTERD_STORE_KEY_VOL_DEFRAG_RUN_TIME))) {
+                           SLEN (GLUSTERD_STORE_KEY_VOL_DEFRAG_RUN_TIME))) {
                                 volinfo->rebal.rebalance_time = atoi (value);
 
                 /* if none of the above keys match then its related to tier
                  * so we get the values and store it on volinfo->tier
                  */
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_TIER_STATUS,
-                           strlen (GLUSTERD_STORE_KEY_VOL_TIER_STATUS))) {
+                           SLEN (GLUSTERD_STORE_KEY_VOL_TIER_STATUS))) {
                                 volinfo->tier.defrag_status = atoi (value);
                 } else if (!strncmp (key, GF_TIER_TID_KEY,
-                                     strlen (GF_TIER_TID_KEY))) {
+                                     SLEN (GF_TIER_TID_KEY))) {
                         gf_uuid_parse (value, volinfo->tier.rebalance_id);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_TIER_DETACH_OP,
-                           strlen (GLUSTERD_STORE_KEY_TIER_DETACH_OP))) {
+                           SLEN (GLUSTERD_STORE_KEY_TIER_DETACH_OP))) {
                         volinfo->tier.op = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_MIGRATED_FILES,
-                           strlen (GLUSTERD_STORE_KEY_VOL_MIGRATED_FILES))) {
+                           SLEN (GLUSTERD_STORE_KEY_VOL_MIGRATED_FILES))) {
                         volinfo->tier.rebalance_files = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_MIGRATED_SIZE,
-                           strlen (GLUSTERD_STORE_KEY_VOL_MIGRATED_SIZE))) {
+                           SLEN (GLUSTERD_STORE_KEY_VOL_MIGRATED_SIZE))) {
                                 volinfo->tier.rebalance_data = atoi (value);
                 } else if (!strncmp (key,
                            GLUSTERD_STORE_KEY_VOL_MIGRATIONS_SCANNED,
-                           strlen (GLUSTERD_STORE_KEY_VOL_MIGRATIONS_SCANNED))) {
+                           SLEN (GLUSTERD_STORE_KEY_VOL_MIGRATIONS_SCANNED))) {
                         volinfo->tier.lookedup_files = atoi (value);
                 } else if (!strncmp (key,
                            GLUSTERD_STORE_KEY_VOL_MIGRATIONS_FAILURES,
-                           strlen (GLUSTERD_STORE_KEY_VOL_MIGRATIONS_FAILURES))) {
+                           SLEN (GLUSTERD_STORE_KEY_VOL_MIGRATIONS_FAILURES))) {
                         volinfo->tier.rebalance_failures = atoi (value);
                 } else if (!strncmp (key,
                            GLUSTERD_STORE_KEY_VOL_MIGRATIONS_SKIPPED,
-                           strlen (GLUSTERD_STORE_KEY_VOL_MIGRATIONS_SKIPPED))) {
+                           SLEN (GLUSTERD_STORE_KEY_VOL_MIGRATIONS_SKIPPED))) {
                                 volinfo->tier.skipped_files = atoi (value);
                 } else if (!strncmp (key,
                            GLUSTERD_STORE_KEY_VOL_MIGRATION_RUN_TIME,
-                           strlen (GLUSTERD_STORE_KEY_VOL_MIGRATION_RUN_TIME))) {
+                           SLEN (GLUSTERD_STORE_KEY_VOL_MIGRATION_RUN_TIME))) {
                                 volinfo->tier.rebalance_time = atoi (value);
                 } else {
                         if (!tmp_dict) {
@@ -2952,42 +3025,42 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
         while (!ret) {
                 gf_msg_debug (this->name, 0, "key = %s value = %s", key, value);
                 if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_TYPE,
-                              strlen (GLUSTERD_STORE_KEY_VOL_TYPE))) {
+                              SLEN (GLUSTERD_STORE_KEY_VOL_TYPE))) {
                         volinfo->type = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_COUNT,
-                                     strlen (GLUSTERD_STORE_KEY_VOL_COUNT))) {
+                                     SLEN (GLUSTERD_STORE_KEY_VOL_COUNT))) {
                         volinfo->brick_count = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_STATUS,
-                                     strlen (GLUSTERD_STORE_KEY_VOL_STATUS))) {
+                                     SLEN (GLUSTERD_STORE_KEY_VOL_STATUS))) {
                         volinfo->status = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_VERSION,
-                                     strlen (GLUSTERD_STORE_KEY_VOL_VERSION))) {
+                                     SLEN (GLUSTERD_STORE_KEY_VOL_VERSION))) {
                         volinfo->version = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_PORT,
-                                     strlen (GLUSTERD_STORE_KEY_VOL_PORT))) {
+                                     SLEN (GLUSTERD_STORE_KEY_VOL_PORT))) {
                         volinfo->port = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_SUB_COUNT,
-                                     strlen (GLUSTERD_STORE_KEY_VOL_SUB_COUNT))) {
+                                     SLEN (GLUSTERD_STORE_KEY_VOL_SUB_COUNT))) {
                         volinfo->sub_count = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_STRIPE_CNT,
-                                     strlen (GLUSTERD_STORE_KEY_VOL_STRIPE_CNT))) {
+                                     SLEN (GLUSTERD_STORE_KEY_VOL_STRIPE_CNT))) {
                         volinfo->stripe_count = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_REPLICA_CNT,
-                                     strlen (GLUSTERD_STORE_KEY_VOL_REPLICA_CNT))) {
+                                     SLEN (GLUSTERD_STORE_KEY_VOL_REPLICA_CNT))) {
                         volinfo->replica_count = atoi (value);
                 } else if (!strcmp (key, GLUSTERD_STORE_KEY_VOL_ARBITER_CNT)) {
                         volinfo->arbiter_count = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_DISPERSE_CNT,
-                                     strlen (GLUSTERD_STORE_KEY_VOL_DISPERSE_CNT))) {
+                                     SLEN (GLUSTERD_STORE_KEY_VOL_DISPERSE_CNT))) {
                         volinfo->disperse_count = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_REDUNDANCY_CNT,
-                                     strlen (GLUSTERD_STORE_KEY_VOL_REDUNDANCY_CNT))) {
+                                     SLEN (GLUSTERD_STORE_KEY_VOL_REDUNDANCY_CNT))) {
                         volinfo->redundancy_count = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_TRANSPORT,
-                                     strlen (GLUSTERD_STORE_KEY_VOL_TRANSPORT))) {
+                                     SLEN (GLUSTERD_STORE_KEY_VOL_TRANSPORT))) {
                         volinfo->transport_type = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_ID,
-                                     strlen (GLUSTERD_STORE_KEY_VOL_ID))) {
+                                     SLEN (GLUSTERD_STORE_KEY_VOL_ID))) {
                         ret = gf_uuid_parse (value, volinfo->volume_id);
                         if (ret)
                                 gf_msg (this->name, GF_LOG_WARNING, 0,
@@ -2995,12 +3068,12 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
                                         "failed to parse uuid");
 
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_USERNAME,
-                                     strlen (GLUSTERD_STORE_KEY_USERNAME))) {
+                                     SLEN (GLUSTERD_STORE_KEY_USERNAME))) {
 
                         glusterd_auth_set_username (volinfo, value);
 
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_PASSWORD,
-                                     strlen (GLUSTERD_STORE_KEY_PASSWORD))) {
+                                     SLEN (GLUSTERD_STORE_KEY_PASSWORD))) {
 
                         glusterd_auth_set_password (volinfo, value);
 
@@ -3017,30 +3090,38 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
                                 " slave:key=%s,value:%s", key, value);
 
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_OP_VERSION,
-                                strlen (GLUSTERD_STORE_KEY_VOL_OP_VERSION))) {
+                                SLEN (GLUSTERD_STORE_KEY_VOL_OP_VERSION))) {
                         volinfo->op_version = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_CLIENT_OP_VERSION,
-                                strlen (GLUSTERD_STORE_KEY_VOL_CLIENT_OP_VERSION))) {
+                                SLEN (GLUSTERD_STORE_KEY_VOL_CLIENT_OP_VERSION))) {
                         volinfo->client_op_version = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_CAPS,
-                                     strlen (GLUSTERD_STORE_KEY_VOL_CAPS))) {
+                                     SLEN (GLUSTERD_STORE_KEY_VOL_CAPS))) {
                         volinfo->caps = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
-                                strlen (GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT))) {
+                                SLEN (GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT))) {
                         volinfo->snap_max_hard_limit = (uint64_t) atoll (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_RESTORED_SNAP,
-                              strlen (GLUSTERD_STORE_KEY_VOL_RESTORED_SNAP))) {
+                              SLEN (GLUSTERD_STORE_KEY_VOL_RESTORED_SNAP))) {
                         ret = gf_uuid_parse (value, volinfo->restored_from_snap);
                         if (ret)
                                 gf_msg (this->name, GF_LOG_WARNING, 0,
                                         GD_MSG_UUID_PARSE_FAIL,
                                         "failed to parse restored snap's uuid");
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_PARENT_VOLNAME,
-                                strlen (GLUSTERD_STORE_KEY_PARENT_VOLNAME))) {
-                        strncpy (volinfo->parent_volname, value,
-                                 sizeof(volinfo->parent_volname) - 1);
+                                SLEN (GLUSTERD_STORE_KEY_PARENT_VOLNAME))) {
+                        if (snprintf (volinfo->parent_volname,
+                                      sizeof(volinfo->parent_volname), "%s",
+                                      value) >=
+                            sizeof(volinfo->parent_volname)) {
+                                gf_msg ("glusterd", GF_LOG_ERROR, op_errno,
+                                        GD_MSG_PARSE_BRICKINFO_FAIL,
+                                        "parent_volname truncated: %s",
+                                        volinfo->parent_volname);
+                                goto out;
+                        }
                 } else if (!strncmp (key, GF_TIER_ENABLED,
-                                     strlen (GF_TIER_ENABLED))) {
+                                     SLEN (GF_TIER_ENABLED))) {
                         volinfo->is_tier_enabled = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_COLD_COUNT,
                                      strlen (key))) {
@@ -3068,7 +3149,7 @@ glusterd_store_update_volinfo (glusterd_volinfo_t *volinfo)
                                      strlen (key))) {
                         volinfo->tier_info.cold_type = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_QUOTA_VERSION,
-                            strlen (GLUSTERD_STORE_KEY_VOL_QUOTA_VERSION))) {
+                            SLEN (GLUSTERD_STORE_KEY_VOL_QUOTA_VERSION))) {
                         volinfo->quota_xattr_version = atoi (value);
                 } else {
 
@@ -3223,7 +3304,9 @@ glusterd_store_retrieve_volume (char *volname, glusterd_snap_t *snap)
         if (ret)
                 goto out;
 
-        strncpy (volinfo->volname, volname, GD_VOLUME_NAME_MAX);
+        if (snprintf (volinfo->volname, NAME_MAX + 1, "%s", volname) >=
+            NAME_MAX + 1)
+                goto out;
         volinfo->snapshot = snap;
         if (snap)
                 volinfo->is_snap_volume = _gf_true;
@@ -3797,23 +3880,23 @@ glusterd_store_update_snap (glusterd_snap_t *snap)
                         key, value);
 
                 if (!strncmp (key, GLUSTERD_STORE_KEY_SNAP_ID,
-                                     strlen (GLUSTERD_STORE_KEY_SNAP_ID))) {
+                                     SLEN (GLUSTERD_STORE_KEY_SNAP_ID))) {
                         ret = gf_uuid_parse (value, snap->snap_id);
                         if (ret)
                                 gf_msg (this->name, GF_LOG_WARNING, 0,
                                         GD_MSG_UUID_PARSE_FAIL,
                                         "Failed to parse uuid");
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_SNAP_RESTORED,
-                                   strlen (GLUSTERD_STORE_KEY_SNAP_RESTORED))) {
+                                   SLEN (GLUSTERD_STORE_KEY_SNAP_RESTORED))) {
                         snap->snap_restored = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_SNAP_STATUS,
-                                     strlen (GLUSTERD_STORE_KEY_SNAP_STATUS))) {
+                                     SLEN (GLUSTERD_STORE_KEY_SNAP_STATUS))) {
                         snap->snap_status = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_SNAP_DESC,
-                                     strlen (GLUSTERD_STORE_KEY_SNAP_DESC))) {
+                                     SLEN (GLUSTERD_STORE_KEY_SNAP_DESC))) {
                         snap->description = gf_strdup (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_SNAP_TIMESTAMP,
-                                  strlen (GLUSTERD_STORE_KEY_SNAP_TIMESTAMP))) {
+                                  SLEN (GLUSTERD_STORE_KEY_SNAP_TIMESTAMP))) {
                         snap->time_stamp = atoi (value);
                 }
 
@@ -3861,7 +3944,9 @@ glusterd_store_retrieve_snap (char *snapname)
                 goto out;
         }
 
-        strncpy (snap->snapname, snapname, strlen(snapname));
+        if (snprintf (snap->snapname, sizeof (snap->snapname), "%s", snapname)
+            >= sizeof (snap->snapname))
+                goto out;
         ret = glusterd_store_update_snap (snap);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -4527,16 +4612,16 @@ glusterd_store_retrieve_peers (xlator_t *this)
                 while (!ret) {
 
                         if (!strncmp (GLUSTERD_STORE_KEY_PEER_UUID, key,
-                                      strlen (GLUSTERD_STORE_KEY_PEER_UUID))) {
+                                      SLEN (GLUSTERD_STORE_KEY_PEER_UUID))) {
                                 if (value)
                                         gf_uuid_parse (value, peerinfo->uuid);
                         } else if (!strncmp (GLUSTERD_STORE_KEY_PEER_STATE,
                                     key,
-                                    strlen (GLUSTERD_STORE_KEY_PEER_STATE))) {
+                                    SLEN (GLUSTERD_STORE_KEY_PEER_STATE))) {
                                 peerinfo->state.state = atoi (value);
                         } else if (!strncmp (GLUSTERD_STORE_KEY_PEER_HOSTNAME,
                                    key,
-                                   strlen (GLUSTERD_STORE_KEY_PEER_HOSTNAME))) {
+                                   SLEN (GLUSTERD_STORE_KEY_PEER_HOSTNAME))) {
                                 ret = gd_add_address_to_peer (peerinfo, value);
                                 if (ret) {
                                         gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -4987,10 +5072,10 @@ glusterd_quota_conf_write_header (int fd)
 
 
         if (conf->op_version < GD_OP_VERSION_3_7_0) {
-                header_len = strlen (QUOTA_CONF_HEADER_1_1);
+                header_len = SLEN (QUOTA_CONF_HEADER_1_1);
                 ret = gf_nwrite (fd, QUOTA_CONF_HEADER_1_1, header_len);
         } else {
-                header_len = strlen (QUOTA_CONF_HEADER);
+                header_len = SLEN (QUOTA_CONF_HEADER);
                 ret = gf_nwrite (fd, QUOTA_CONF_HEADER, header_len);
         }
 

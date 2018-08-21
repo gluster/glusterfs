@@ -458,7 +458,9 @@ gotvolinfo:
         ret = sys_stat (path, &stbuf);
 
         if ((ret == -1) && (errno == ENOENT)) {
-                strncpy (dup_volid, volid_ptr, (PATH_MAX - 1));
+                if (snprintf (dup_volid, PATH_MAX, "%s", volid_ptr)
+                    >= PATH_MAX)
+                        goto out;
                 if (!strchr (dup_volid, '.')) {
                         switch (volinfo->transport_type) {
                         case GF_TRANSPORT_TCP:
@@ -668,8 +670,16 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
                 ret = -1;
                 goto out;
         }
-        strncpy (brickinfo->device_path, device,
-                 sizeof(brickinfo->device_path) - 1);
+        if (snprintf (brickinfo->device_path ,
+                      sizeof (brickinfo->device_path), "%s", device) >=
+            sizeof (brickinfo->device_path)) {
+                gf_msg (this->name, GF_LOG_ERROR, ENXIO,
+                        GD_MSG_SNAP_DEVICE_NAME_GET_FAIL,
+                        "cannot copy the device_path "
+                        "(device_path: %s)", brickinfo->device_path);
+                ret = -1;
+                goto out;
+        }
 
         /* Update the backend file-system type of snap brick in
          * snap volinfo. */
@@ -914,9 +924,19 @@ __server_getspec (rpcsvc_request_t *req)
          * support nfs style mount parameters for native gluster mount
          */
         if (volume[0] == '/')
-                strncpy (peerinfo->volname, &volume[1], strlen(&volume[1]));
+                ret = snprintf (peerinfo->volname, sizeof (peerinfo->volname),
+                                "%s", &volume[1]);
         else
-                strncpy (peerinfo->volname, volume, strlen(volume));
+                ret = snprintf (peerinfo->volname, sizeof (peerinfo->volname),
+                                "%s", volume);
+        if (ret < 0 || ret >= sizeof (peerinfo->volname)) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_VOLINFO_GET_FAIL,
+                        "peerinfo->volname %s truncated or error occured: "
+                        "(ret: %d)", peerinfo->volname, ret);
+                ret = -1;
+                goto fail;
+        }
 
         ret = glusterd_get_args_from_dict (&args, peerinfo, &brick_name);
         if (ret) {

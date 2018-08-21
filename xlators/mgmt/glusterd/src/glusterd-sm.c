@@ -1017,9 +1017,14 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         if (ret || !hostname) {
                 gf_msg_debug (this->name, 0,
                         "Unable to fetch local hostname from peer");
-        } else
-                strncpy (local_node_hostname, hostname,
-                         sizeof(local_node_hostname));
+        } else if (snprintf (local_node_hostname,
+                             sizeof (local_node_hostname), "%s", hostname) >=
+                   sizeof (local_node_hostname)) {
+                        gf_msg_debug (this->name, 0,
+                                      "local_node_hostname truncated");
+                        ret = -1;
+                        goto out;
+        }
 
         glusterd_friend_sm_inject_event (new_event);
         new_event = NULL;

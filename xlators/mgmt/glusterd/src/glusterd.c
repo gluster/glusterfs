@@ -574,7 +574,7 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
         GF_ASSERT (georepdir);
         GF_ASSERT (conf);
 
-        if (strlen (conf->workdir)+2 > PATH_MAX-strlen(GEOREP)) {
+        if (strlen (conf->workdir)+2 > PATH_MAX - SLEN (GEOREP)) {
                 ret = -1;
                 gf_msg ("glusterd", GF_LOG_CRITICAL, 0,
                         GD_MSG_DIRPATH_TOO_LONG,
@@ -597,7 +597,7 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
                 goto out;
         }
 
-        if (strlen (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP) >= PATH_MAX) {
+        if (SLEN (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP) >= PATH_MAX) {
                 ret = -1;
                 gf_msg ("glusterd", GF_LOG_CRITICAL, 0,
                         GD_MSG_DIRPATH_TOO_LONG,
@@ -614,7 +614,7 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
         }
 
         /* Slave log file directory */
-        if (strlen(DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves") >= PATH_MAX) {
+        if (SLEN (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves") >= PATH_MAX) {
                 ret = -1;
                 gf_msg ("glusterd", GF_LOG_CRITICAL, 0,
                         GD_MSG_DIRPATH_TOO_LONG,
@@ -632,7 +632,7 @@ glusterd_crt_georep_folders (char *georepdir, glusterd_conf_t *conf)
         }
 
         /* MountBroker log file directory */
-        if (strlen(DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/mbr") >= PATH_MAX) {
+        if (SLEN (DEFAULT_LOG_FILE_DIRECTORY"/"GEOREP"-slaves/mbr") >= PATH_MAX) {
                 ret = -1;
                 gf_msg ("glusterd", GF_LOG_CRITICAL, 0,
                         GD_MSG_DIRPATH_TOO_LONG,
@@ -1435,21 +1435,25 @@ init (xlator_t *this)
 
         if (!dir_data) {
                 /* Use default working dir */
-                strncpy (rundir, DEFAULT_VAR_RUN_DIRECTORY, PATH_MAX);
+                len = snprintf (rundir, PATH_MAX, "%s",
+                                DEFAULT_VAR_RUN_DIRECTORY);
         } else {
-                strncpy (rundir, dir_data->data, PATH_MAX);
+                len = snprintf (rundir, PATH_MAX, "%s", dir_data->data);
         }
-
-        dir_data = NULL;
+        if (len < 0 || len >= PATH_MAX)
+                exit (2);
 
         dir_data = dict_get (this->options, "working-directory");
 
         if (!dir_data) {
                 //Use default working dir
-                strncpy (workdir, GLUSTERD_DEFAULT_WORKDIR, PATH_MAX);
+                len = snprintf (workdir, PATH_MAX, "%s",
+                                GLUSTERD_DEFAULT_WORKDIR);
         } else {
-                strncpy (workdir, dir_data->data, PATH_MAX);
+                len = snprintf (workdir, PATH_MAX, "%s", dir_data->data);
         }
+        if (len < 0 || len >= PATH_MAX)
+                exit (2);
 
         ret = sys_stat (workdir, &buf);
         if ((ret != 0) && (ENOENT != errno)) {
