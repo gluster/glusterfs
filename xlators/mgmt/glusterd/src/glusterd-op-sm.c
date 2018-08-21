@@ -446,16 +446,16 @@ glusterd_check_bitrot_cmd (char *key, char *value, char *errstr, size_t size)
 {
         int     ret = -1;
 
-        if ((!strncmp (key, "bitrot", strlen ("bitrot"))) ||
-            (!strncmp (key, "features.bitrot", strlen ("features.bitrot")))) {
+        if ((!strncmp (key, "bitrot", SLEN ("bitrot"))) ||
+            (!strncmp (key, "features.bitrot", SLEN ("features.bitrot")))) {
                 snprintf (errstr, size, " 'gluster volume set <VOLNAME> %s' "
                           "is invalid command. Use 'gluster volume bitrot "
                           "<VOLNAME> {enable|disable}' instead.", key);
                 ret = -1;
                 goto out;
-        } else if ((!strncmp (key, "scrub-freq", strlen ("scrub-freq"))) ||
+        } else if ((!strncmp (key, "scrub-freq", SLEN ("scrub-freq"))) ||
                    (!strncmp (key, "features.scrub-freq",
-                    strlen ("features.scrub-freq")))) {
+                    SLEN ("features.scrub-freq")))) {
                 snprintf (errstr, size, " 'gluster volume "
                           "set <VOLNAME> %s' is invalid command. Use 'gluster "
                           "volume bitrot <VOLNAME> scrub-frequency"
@@ -463,18 +463,18 @@ glusterd_check_bitrot_cmd (char *key, char *value, char *errstr, size_t size)
                           key);
                 ret = -1;
                 goto out;
-        } else if ((!strncmp (key, "scrub", strlen ("scrub"))) ||
+        } else if ((!strncmp (key, "scrub", SLEN ("scrub"))) ||
                   (!strncmp (key, "features.scrub",
-                   strlen ("features.scrub")))) {
+                   SLEN  ("features.scrub")))) {
                 snprintf (errstr, size, " 'gluster volume set <VOLNAME> %s' is "
                           "invalid command. Use 'gluster volume bitrot "
                           "<VOLNAME> scrub {pause|resume}' instead.", key);
                 ret = -1;
                 goto out;
         } else if ((!strncmp (key, "scrub-throttle",
-                     strlen ("scrub-throttle"))) ||
+                     SLEN ("scrub-throttle"))) ||
                    (!strncmp (key, "features.scrub-throttle",
-                     strlen ("features.scrub-throttle")))) {
+                     SLEN ("features.scrub-throttle")))) {
                 snprintf (errstr, size, " 'gluster volume set <VOLNAME> %s' is "
                           "invalid command. Use 'gluster volume bitrot "
                           "<VOLNAME> scrub-throttle {lazy|normal|aggressive}' "
@@ -841,10 +841,10 @@ glusterd_validate_shared_storage (char *key, char *value, char *errstr)
                 goto out;
         }
 
-        if (!strncmp (value, "disable", strlen ("disable"))) {
+        if (!strncmp (value, "disable", SLEN ("disable"))) {
                 ret = dict_get_str (conf->opts, GLUSTERD_SHARED_STORAGE_KEY,
                                                                            &op);
-                if (ret || !strncmp (op, "disable", strlen ("disable"))) {
+                if (ret || !strncmp (op, "disable", SLEN  ("disable"))) {
                         snprintf (errstr, PATH_MAX, "Shared storage volume "
                                   "does not exist. Please enable shared storage"
                                   " for creating shared storage volume.");

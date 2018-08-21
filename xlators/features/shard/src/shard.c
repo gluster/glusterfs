@@ -6209,7 +6209,7 @@ shard_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         if ((frame->root->pid != GF_CLIENT_PID_GSYNCD) &&
             (name) && (!strncmp (name, SHARD_XATTR_PREFIX,
-                      strlen (SHARD_XATTR_PREFIX)))) {
+                      SLEN (SHARD_XATTR_PREFIX)))) {
                 op_errno = ENODATA;
                 goto out;
         }
@@ -6249,7 +6249,7 @@ shard_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         if ((frame->root->pid != GF_CLIENT_PID_GSYNCD) &&
             (name) && (!strncmp (name, SHARD_XATTR_PREFIX,
-                      strlen (SHARD_XATTR_PREFIX)))) {
+                      sizeof (SHARD_XATTR_PREFIX) - 1))) {
                 op_errno = ENODATA;
                 goto out;
         }
