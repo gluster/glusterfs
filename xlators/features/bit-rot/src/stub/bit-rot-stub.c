@@ -55,11 +55,11 @@ mem_acct_init (xlator_t *this)
         return ret;
 }
 
-int32_t
+int
 br_stub_bad_object_container_init (xlator_t *this, br_stub_private_t *priv)
 {
         pthread_attr_t  w_attr;
-        int32_t         ret          = -1;
+        int         ret          = -1;
 
         ret = pthread_cond_init(&priv->container.bad_cond, NULL);
         if (ret != 0) {
@@ -117,7 +117,7 @@ out:
 int32_t
 init (xlator_t *this)
 {
-        int32_t ret = 0;
+        int ret = 0;
         char *tmp = NULL;
         struct timeval tv = {0,};
         br_stub_private_t *priv = NULL;
@@ -139,11 +139,14 @@ init (xlator_t *this)
         GF_OPTION_INIT ("bitrot", priv->do_versioning, bool, free_mempool);
 
         GF_OPTION_INIT ("export", tmp, str, free_mempool);
-        strncpy (priv->export, tmp, PATH_MAX-1);
-        priv->export[PATH_MAX-1] = '\0';
 
-        (void) snprintf (priv->stub_basepath, sizeof (priv->stub_basepath),
-                         "%s/%s", priv->export, BR_STUB_QUARANTINE_DIR);
+        if (snprintf (priv->export, PATH_MAX, "%s", tmp) >= PATH_MAX)
+                goto free_mempool;
+
+        if (snprintf (priv->stub_basepath, sizeof (priv->stub_basepath),
+                     "%s/%s", priv->export, BR_STUB_QUARANTINE_DIR) >=
+            sizeof (priv->stub_basepath))
+                goto free_mempool;
 
         (void) gettimeofday (&tv, NULL);
 
@@ -1774,7 +1777,7 @@ br_stub_getxattr (call_frame_t *frame, xlator_t *this,
          */
         if (name
             && (strncmp (name, GLUSTERFS_GET_BR_STUB_INIT_TIME,
-                          strlen (GLUSTERFS_GET_BR_STUB_INIT_TIME)) == 0)
+                          sizeof (GLUSTERFS_GET_BR_STUB_INIT_TIME) - 1) == 0)
             && ((gf_uuid_compare (loc->gfid, rootgfid) == 0)
                 || (gf_uuid_compare (loc->inode->gfid, rootgfid) == 0))) {
                 BR_STUB_RESET_LOCAL_NULL (frame);
@@ -1786,7 +1789,7 @@ br_stub_getxattr (call_frame_t *frame, xlator_t *this,
                 goto wind;
 
         if (name && (strncmp (name, GLUSTERFS_GET_OBJECT_SIGNATURE,
-                              strlen (GLUSTERFS_GET_OBJECT_SIGNATURE)) == 0)) {
+                              sizeof (GLUSTERFS_GET_OBJECT_SIGNATURE) - 1) == 0)) {
                 cookie = (void *) BR_STUB_REQUEST_COOKIE;
 
                 local = br_stub_alloc_local (this);
@@ -1854,7 +1857,7 @@ br_stub_fgetxattr (call_frame_t *frame, xlator_t *this,
          */
         if (name
             && (strncmp (name, GLUSTERFS_GET_BR_STUB_INIT_TIME,
-                         strlen (GLUSTERFS_GET_BR_STUB_INIT_TIME)) == 0)
+                         sizeof (GLUSTERFS_GET_BR_STUB_INIT_TIME) - 1) == 0)
             && (gf_uuid_compare (fd->inode->gfid, rootgfid) == 0)) {
                 BR_STUB_RESET_LOCAL_NULL (frame);
                 br_stub_send_stub_init_time (frame, this);
@@ -1865,7 +1868,7 @@ br_stub_fgetxattr (call_frame_t *frame, xlator_t *this,
                 goto wind;
 
         if (name && (strncmp (name, GLUSTERFS_GET_OBJECT_SIGNATURE,
-                              strlen (GLUSTERFS_GET_OBJECT_SIGNATURE)) == 0)) {
+                              sizeof (GLUSTERFS_GET_OBJECT_SIGNATURE) - 1) == 0)) {
                 cookie = (void *) BR_STUB_REQUEST_COOKIE;
 
                 local = br_stub_alloc_local (this);

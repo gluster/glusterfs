@@ -257,10 +257,14 @@ br_stub_dir_create (xlator_t *this, br_stub_private_t *priv)
 
         gf_uuid_copy (priv->bad_object_dir_gfid, BR_BAD_OBJ_CONTAINER);
 
-        strncpy (fullpath, priv->stub_basepath, sizeof (fullpath));
+        if (snprintf (fullpath, sizeof (fullpath), "%s",
+		      priv->stub_basepath) >= sizeof (fullpath))
+                goto out;
 
-        snprintf (stub_gfid_path, sizeof (stub_gfid_path), "%s/stub-%s",
-                  priv->stub_basepath, uuid_utoa (priv->bad_object_dir_gfid));
+        if (snprintf (stub_gfid_path, sizeof (stub_gfid_path), "%s/stub-%s",
+                  priv->stub_basepath, uuid_utoa (priv->bad_object_dir_gfid))
+                  >= sizeof (stub_gfid_path))
+                goto out;
 
         ret = br_stub_check_stub_directory (this, fullpath);
         if (ret)
