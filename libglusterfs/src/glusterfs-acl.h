@@ -120,8 +120,8 @@ struct posix_acl_conf {
 #define GF_POSIX_ACL_ACCESS       "glusterfs.posix.acl"
 #define GF_POSIX_ACL_DEFAULT      "glusterfs.posix.default_acl"
 #define GF_POSIX_ACL_REQUEST(key) \
-        (!strncmp(key, GF_POSIX_ACL_ACCESS, strlen(GF_POSIX_ACL_ACCESS)) || \
-         !strncmp(key, GF_POSIX_ACL_DEFAULT, strlen(GF_POSIX_ACL_DEFAULT)))
+        (!strncmp(key, GF_POSIX_ACL_ACCESS, SLEN (GF_POSIX_ACL_ACCESS)) || \
+         !strncmp(key, GF_POSIX_ACL_DEFAULT, SLEN (GF_POSIX_ACL_DEFAULT)))
 
 #ifdef HAVE_SYS_ACL_H /* only NetBSD does not support POSIX ACLs */
 
@@ -151,10 +151,10 @@ gf_posix_acl_get_type (const char *key)
 {
         acl_type_t type = 0;
 
-        if (!strncmp (key, GF_POSIX_ACL_ACCESS, strlen (GF_POSIX_ACL_ACCESS)))
+        if (!strncmp (key, GF_POSIX_ACL_ACCESS, SLEN (GF_POSIX_ACL_ACCESS)))
                 type = ACL_TYPE_ACCESS;
         else if (!strncmp (key, GF_POSIX_ACL_DEFAULT,
-                           strlen (GF_POSIX_ACL_DEFAULT)))
+                           SLEN (GF_POSIX_ACL_DEFAULT)))
                 type = ACL_TYPE_DEFAULT;
         else
                 errno = EINVAL;

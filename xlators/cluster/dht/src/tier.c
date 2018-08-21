@@ -1583,7 +1583,7 @@ tier_process_brick (tier_brick_list_t *local_brick, void *args) {
                         goto out;
                 }
 
-                if (strval && (strncmp(strval, "wal", strlen ("wal")) == 0)) {
+                if (strval && (strncmp(strval, "wal", SLEN ("wal")) == 0)) {
                         ret = tier_process_self_query (local_brick, args);
                         if (ret) {
                                 goto out;

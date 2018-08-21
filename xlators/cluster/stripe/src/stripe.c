@@ -5528,7 +5528,7 @@ stripe_getxattr (call_frame_t *frame, xlator_t *this,
 
 
         if (name && strncmp (name, QUOTA_SIZE_KEY,
-                             strlen (QUOTA_SIZE_KEY)) == 0) {
+                             SLEN (QUOTA_SIZE_KEY)) == 0) {
                 local->wind_count = priv->child_count;
 
                 for (i = 0, trav=this->children; i < priv->child_count; i++,
@@ -5596,7 +5596,7 @@ stripe_is_special_xattr (const char *name)
         }
 
         if (!strncmp (name, GF_XATTR_LOCKINFO_KEY,
-                      strlen (GF_XATTR_LOCKINFO_KEY))
+                      SLEN (GF_XATTR_LOCKINFO_KEY))
             || XATTR_IS_PATHINFO (name))
                 is_spl = _gf_true;
 out:

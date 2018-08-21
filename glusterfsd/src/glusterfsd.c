@@ -2143,7 +2143,7 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
         }
 
         if (cmd_args->thin_client) {
-                len = strlen (cmd_args->volfile_id) + strlen ("gfproxy-client/");
+                len = strlen (cmd_args->volfile_id) + SLEN ("gfproxy-client/");
                 thin_volfileid = GF_CALLOC (1, len + 1, gf_common_mt_char);
                 snprintf (thin_volfileid, len + 1, "gfproxy-client/%s",
                           cmd_args->volfile_id);
