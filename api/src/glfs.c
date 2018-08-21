@@ -596,7 +596,7 @@ get_fop_attr_glfd (dict_t **fop_attr, struct glfs_fd *glfd)
         int   ret                = 0;
         gf_boolean_t dict_create = _gf_false;
 
-        leaseid = GF_CALLOC (1, LEASE_ID_SIZE, gf_common_mt_char);
+        leaseid = GF_MALLOC (LEASE_ID_SIZE, gf_common_mt_char);
         GF_CHECK_ALLOC_AND_LOG("gfapi", leaseid, ret, "lease id alloc failed", out);
         memcpy (leaseid, glfd->lease_id, LEASE_ID_SIZE);
         if (*fop_attr == NULL) {
