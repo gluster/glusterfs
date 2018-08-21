@@ -59,6 +59,11 @@ Translators
 -   [Storage/posix Translator](./posix.md)
 -   [Compression translator](./network_compression.md)
 
+Fuse
+----
+
+-   [Interrupt handling](./fuse-interrupt.md)
+
 Testing/Debugging
 -----------------
 

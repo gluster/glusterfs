@@ -281,6 +281,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --dump-fuse=$dump_fuse");
     fi
 
+    if [ -n "$fuse_flush_handle_interrupt" ]; then
+        cmd_line=$(echo "$cmd_line --fuse-flush-handle-interrupt=$fuse_flush_handle_interrupt");
+    fi
+
     if [ -n "$process_name" ]; then
         cmd_line=$(echo "$cmd_line --process-name fuse.$process_name");
     else
@@ -540,6 +544,9 @@ with_options()
             ;;
         "dump-fuse")
             dump_fuse=$value
+            ;;
+        "fuse-flush-handle-interrupt")
+            fuse_flush_handle_interrupt=$value
             ;;
         "context"|"fscontext"|"defcontext"|"rootcontext")
             # standard SElinux mount options to pass to the kernel

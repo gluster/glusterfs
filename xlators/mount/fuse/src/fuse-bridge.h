@@ -161,6 +161,8 @@ struct fuse_private {
     /* Interrupt subscription */
     struct list_head interrupt_list;
     pthread_mutex_t interrupt_mutex;
+
+    gf_boolean_t flush_handle_interrupt;
 };
 typedef struct fuse_private fuse_private_t;
 
@@ -194,7 +196,7 @@ typedef struct fuse_interrupt_record fuse_interrupt_record_t;
 typedef void (*fuse_interrupt_handler_t)(xlator_t *this,
                                          fuse_interrupt_record_t *);
 struct fuse_interrupt_record {
-    struct fuse_in_header fuse_in_header;
+    fuse_in_header_t fuse_in_header;
     void *data;
     gf_boolean_t hit;
     fuse_interrupt_state_t interrupt_state;
