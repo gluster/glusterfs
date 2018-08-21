@@ -491,8 +491,10 @@ gf_store_iter_new (gf_store_handle_t  *shandle, gf_store_iter_t  **iter)
         if (!tmp_iter)
                 goto out;
 
-        strncpy (tmp_iter->filepath, shandle->path, sizeof (tmp_iter->filepath));
-        tmp_iter->filepath[sizeof (tmp_iter->filepath) - 1] = 0;
+        if (snprintf (tmp_iter->filepath, sizeof (tmp_iter->filepath), "%s",
+                      shandle->path) >= sizeof (tmp_iter->filepath))
+                goto out;
+
         tmp_iter->file = fp;
 
         *iter = tmp_iter;

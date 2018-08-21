@@ -118,24 +118,25 @@ out:
         return ret;
 }
 
-int
+static int
 gf_proc_dump_add_section_fd (char *key, va_list ap)
 {
 
         char buf[GF_DUMP_MAX_BUF_LEN];
+        int len;
 
         GF_ASSERT(key);
 
-        snprintf (buf, GF_DUMP_MAX_BUF_LEN, "\n[");
-        vsnprintf (buf + strlen(buf),
-                   GF_DUMP_MAX_BUF_LEN - strlen (buf), key, ap);
-        snprintf (buf + strlen(buf),
-                  GF_DUMP_MAX_BUF_LEN - strlen (buf),  "]\n");
-        return sys_write (gf_dump_fd, buf, strlen (buf));
+        len = snprintf (buf, GF_DUMP_MAX_BUF_LEN, "\n[");
+        len += vsnprintf (buf + len,
+                   GF_DUMP_MAX_BUF_LEN - len, key, ap);
+        len += snprintf (buf + len,
+                  GF_DUMP_MAX_BUF_LEN - len, "]\n");
+        return sys_write (gf_dump_fd, buf, len);
 }
 
 
-int
+static int
 gf_proc_dump_add_section_strfd (char *key, va_list ap)
 {
 	int ret = 0;
@@ -165,27 +166,24 @@ gf_proc_dump_add_section (char *key, ...)
 }
 
 
-int
+static int
 gf_proc_dump_write_fd (char *key, char *value, va_list ap)
 {
 
         char         buf[GF_DUMP_MAX_BUF_LEN];
-        int          offset = 0;
+        int          len = 0;
 
         GF_ASSERT (key);
 
-        offset = snprintf (buf, GF_DUMP_MAX_BUF_LEN, "%s", key);
-        snprintf (buf + offset, GF_DUMP_MAX_BUF_LEN - offset, "=");
-        offset += 1;
-        vsnprintf (buf + offset, GF_DUMP_MAX_BUF_LEN - offset, value, ap);
+        len = snprintf (buf, GF_DUMP_MAX_BUF_LEN, "%s=", key);
+        len += vsnprintf (buf + len, GF_DUMP_MAX_BUF_LEN - len, value, ap);
 
-        offset = strlen (buf);
-        snprintf (buf + offset, GF_DUMP_MAX_BUF_LEN - offset, "\n");
-        return sys_write (gf_dump_fd, buf, strlen (buf));
+        len += snprintf (buf + len, GF_DUMP_MAX_BUF_LEN - len, "\n");
+        return sys_write (gf_dump_fd, buf, len);
 }
 
 
-int
+static int
 gf_proc_dump_write_strfd (char *key, char *value, va_list ap)
 {
 	int ret = 0;
@@ -506,7 +504,7 @@ gf_proc_dump_single_xlator_info (xlator_t *trav)
 
         if (GF_PROC_DUMP_IS_XL_OPTION_ENABLED (inode) &&
             (trav->itable)) {
-                snprintf (itable_key, 1024, "%d.%s.itable",
+                snprintf (itable_key, sizeof (itable_key), "%d.%s.itable",
                           ctx->graph_id, trav->name);
         }
 
@@ -689,6 +687,7 @@ gf_proc_dump_parse_set_option (char *key, char *value)
         gf_boolean_t    opt_value = _gf_false;
         char buf[GF_DUMP_MAX_BUF_LEN];
         int ret = -1;
+        int len;
 
         if (!strcasecmp (key, "all")) {
                 (void)gf_proc_dump_enable_all_options ();
@@ -715,14 +714,16 @@ gf_proc_dump_parse_set_option (char *key, char *value)
 
         if (!opt_key) {
                 //None of dump options match the key, return back
-                snprintf (buf, sizeof (buf), "[Warning]:None of the options "
+                len = snprintf (buf, sizeof (buf), "[Warning]:None of the options "
                           "matched key : %s\n", key);
-                ret = sys_write (gf_dump_fd, buf, strlen (buf));
-
-                if (ret >= 0)
+                if (len < 0)
                         ret = -1;
+                else {
+                        ret = sys_write (gf_dump_fd, buf, len);
+                        if (ret >= 0)
+                                ret = -1;
+                }
                 goto out;
-
         }
 
         opt_value = (strncasecmp (value, "yes", 3) ?
@@ -820,6 +821,7 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
         xlator_t          *top                     = NULL;
         xlator_list_t    **trav_p                 = NULL;
         int                brick_count            = 0;
+        int                len                    = 0;
 
         gf_proc_dump_lock ();
 
@@ -840,7 +842,7 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
         if (ctx->cmd_args.brick_name) {
                 GF_REMOVE_SLASH_FROM_PATH (ctx->cmd_args.brick_name, brick_name);
         } else
-                strncpy (brick_name, "glusterdump", sizeof (brick_name));
+                snprintf(brick_name, sizeof (brick_name), "glusterdump");
 
         ret = gf_proc_dump_options_init ();
         if (ret < 0)
@@ -870,16 +872,17 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
         ret = gettimeofday (&tv, NULL);
         if (0 == ret) {
                 gf_time_fmt (timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
-                snprintf (timestr + strlen (timestr),
-                          sizeof timestr - strlen (timestr),
+                len = strlen (timestr);
+                snprintf (timestr + len,
+                          sizeof timestr - len,
                           ".%"GF_PRI_SUSECONDS, tv.tv_usec);
         }
 
-        snprintf (sign_string, sizeof (sign_string), "DUMP-START-TIME: %s\n",
+        len = snprintf (sign_string, sizeof (sign_string), "DUMP-START-TIME: %s\n",
                   timestr);
 
         //swallow the errors of write for start and end marker
-        ret = sys_write (gf_dump_fd, sign_string, strlen (sign_string));
+        ret = sys_write (gf_dump_fd, sign_string, len);
 
         memset (timestr, 0, sizeof (timestr));
 
@@ -921,14 +924,15 @@ gf_proc_dump_info (int signum, glusterfs_ctx_t *ctx)
         ret = gettimeofday (&tv, NULL);
         if (0 == ret) {
                 gf_time_fmt (timestr, sizeof timestr, tv.tv_sec, gf_timefmt_FT);
-                snprintf (timestr + strlen (timestr),
-                          sizeof timestr - strlen (timestr),
+                len = strlen (timestr);
+                snprintf (timestr + len,
+                          sizeof timestr - len,
                           ".%"GF_PRI_SUSECONDS, tv.tv_usec);
         }
 
-        snprintf (sign_string, sizeof (sign_string), "\nDUMP-END-TIME: %s",
+        len = snprintf (sign_string, sizeof (sign_string), "\nDUMP-END-TIME: %s",
                   timestr);
-        ret = sys_write (gf_dump_fd, sign_string, strlen (sign_string));
+        ret = sys_write (gf_dump_fd, sign_string, len);
 
         if (gf_dump_fd != -1)
                 gf_proc_dump_close ();
