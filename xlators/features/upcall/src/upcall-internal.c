@@ -442,7 +442,7 @@ up_compare_afr_xattr (dict_t *d, char *k, data_t *v, void *tmp)
 {
         dict_t *dict = tmp;
 
-        if (!strncmp (k, AFR_XATTR_PREFIX, strlen (AFR_XATTR_PREFIX))
+        if (!strncmp (k, AFR_XATTR_PREFIX, SLEN (AFR_XATTR_PREFIX))
             && (!is_data_equal (v, dict_get (dict, k))))
                 return -1;
 
@@ -457,7 +457,7 @@ up_filter_afr_xattr (dict_t *xattrs, char *xattr, data_t *v)
          * be executed only in case of xattrop and not in set and removexattr,
          * butset and remove xattr fops do not come with keys AFR_XATTR_PREFIX
          */
-        if (!strncmp (xattr, AFR_XATTR_PREFIX, strlen (AFR_XATTR_PREFIX))
+        if (!strncmp (xattr, AFR_XATTR_PREFIX, SLEN (AFR_XATTR_PREFIX))
             && (mem_0filled (v->data, v->len) == 0)) {
                 dict_del (xattrs, xattr);
         }

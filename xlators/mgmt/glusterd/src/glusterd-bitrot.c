@@ -130,7 +130,7 @@ __glusterd_handle_bitrot (rpcsvc_request_t *req)
                         goto out;
                 }
 
-                if (!strncmp (scrub, "status", strlen ("status"))) {
+                if (!strncmp (scrub, "status", SLEN ("status"))) {
                         ret = glusterd_op_begin_synctask (req,
                                                           GD_OP_SCRUB_STATUS,
                                                           dict);
@@ -158,7 +158,7 @@ __glusterd_handle_bitrot (rpcsvc_request_t *req)
                         goto out;
                 }
 
-                if (!strncmp (scrub, "ondemand", strlen ("ondemand"))) {
+                if (!strncmp (scrub, "ondemand", SLEN ("ondemand"))) {
                         ret = glusterd_op_begin_synctask (req,
                                                           GD_OP_SCRUB_ONDEMAND,
                                                           dict);
@@ -715,8 +715,8 @@ glusterd_op_stage_bitrot (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                          * "Active" in the dictionary. */
                         if (!strcmp (scrub_cmd_from_dict, scrub_cmd) ||
                             (!strncmp ("Active", scrub_cmd_from_dict,
-                                       strlen("Active")) && !strncmp ("resume",
-                                       scrub_cmd, strlen("resume")))) {
+                                       SLEN ("Active")) && !strncmp ("resume",
+                                       scrub_cmd, SLEN ("resume")))) {
                                 snprintf (msg, sizeof (msg), "Scrub is already"
                                           " %sd for volume %s", scrub_cmd,
                                           volinfo->volname);

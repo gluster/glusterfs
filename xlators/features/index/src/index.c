@@ -1081,7 +1081,7 @@ index_inode_path (xlator_t *this, inode_t *inode, char *dirpath, size_t len)
                 }
                 make_index_dir_path (priv->index_basepath, ENTRY_CHANGES_SUBDIR,
                                      dirpath, len);
-                if (len <= strlen (dirpath) + 1 /*'/'*/ + strlen (UUID0_STR)) {
+                if (len <= strlen (dirpath) + 1 /*'/'*/ + SLEN (UUID0_STR)) {
                         ret = -EINVAL;
                         goto out;
                 }

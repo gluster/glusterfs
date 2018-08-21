@@ -281,7 +281,7 @@ make_georep_mountspec (gf_mount_spec_t *mspec, const char *volnames,
                 if (*p == ',')
                         vc++;
         }
-        siz = strlen (volnames) + vc * strlen("volfile-id=");
+        siz = strlen (volnames) + vc * SLEN ("volfile-id=");
         meetspec = GF_CALLOC (1, siz + 1, gf_gld_mt_georep_meet_spec);
         if (!meetspec)
                 goto out;

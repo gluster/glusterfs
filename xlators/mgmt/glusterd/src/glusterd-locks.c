@@ -740,7 +740,7 @@ gd_mgmt_v3_unlock_timer_cbk (void *data)
 
         ret = snprintf (bt_key, PATH_MAX, "debug.last-success-bt-%s-%s",
                         name, type + 1);
-        if (ret != strlen ("debug.last-success-bt-") + strlen (name) +
+        if (ret != SLEN ("debug.last-success-bt-") + strlen (name) +
                    strlen (type)) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_CREATE_KEY_FAIL, "Unable to create backtrace "
@@ -875,7 +875,7 @@ glusterd_mgmt_v3_unlock (const char *name, uuid_t uuid, char *type)
         /* Remove the backtrace key as well */
         ret = snprintf (key, sizeof(key), "debug.last-success-bt-%s-%s", name,
                         type);
-        if (ret != strlen ("debug.last-success-bt-") + strlen (name) +
+        if (ret != SLEN ("debug.last-success-bt-") + strlen (name) +
                    strlen (type) + 1) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_CREATE_KEY_FAIL, "Unable to create backtrace "
