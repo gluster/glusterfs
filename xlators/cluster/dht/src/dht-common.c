@@ -11477,12 +11477,12 @@ dht_log_new_layout_for_dir_selfheal (xlator_t *this, loc_t *loc,
 
         len++;
 
-        output_string = GF_CALLOC (len, sizeof (char), gf_common_mt_char);
+        output_string = GF_MALLOC (len + 1, gf_common_mt_char);
 
         if (!output_string)
                 return;
 
-        ret = snprintf (output_string, len, "Setting layout of %s with ",
+        ret = snprintf (output_string, len + 1, "Setting layout of %s with ",
                         loc->path);
 
         if (ret < 0)
