@@ -7027,6 +7027,7 @@ glusterd_get_mnt_entry_info (char *mnt_pt, char *buff, int buflen,
 {
         struct mntent  *entry   = NULL;
         FILE           *mtab    = NULL;
+        char abspath[PATH_MAX] = "";
 
         GF_ASSERT (mnt_pt);
         GF_ASSERT (buff);
@@ -7036,13 +7037,20 @@ glusterd_get_mnt_entry_info (char *mnt_pt, char *buff, int buflen,
         if (!mtab)
                 goto out;
 
+        if (!realpath (mnt_pt, abspath)) {
+                gf_msg (THIS->name, GF_LOG_ERROR, 0,
+                        GD_MSG_MNTENTRY_GET_FAIL,
+                        "realpath () failed for path %s", mnt_pt);
+                goto out;
+        }
+
         entry = getmntent_r (mtab, entry_ptr, buff, buflen);
 
         while (1) {
                 if (!entry)
                         goto out;
 
-                if (!strcmp (entry->mnt_dir, mnt_pt) &&
+                if (!strcmp (entry->mnt_dir, abspath) &&
                     strcmp (entry->mnt_type, "rootfs"))
                         break;
                 entry = getmntent_r (mtab, entry_ptr, buff, buflen);
