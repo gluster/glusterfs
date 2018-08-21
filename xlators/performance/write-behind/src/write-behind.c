@@ -84,6 +84,13 @@ typedef struct wb_inode {
 			     writes are in progress at the same time. Modules
 			     like eager-lock in AFR depend on this behavior.
 			  */
+        list_head_t  invalidate_list; /* list of wb_inodes that were marked for
+                                       * iatt invalidation due to requests in
+                                       * liability queue fulfilled while there
+                                       * was a readdirp session on parent
+                                       * directory. For a directory inode, this
+                                       * list points to list of children.
+                                       */
 	uint64_t     gen;    /* Liability generation number. Represents
 				the current 'state' of liability. Every
 				new addition to the liability list bumps
@@ -107,6 +114,7 @@ typedef struct wb_inode {
 	size_t       size; /* Size of the file to catch write after EOF. */
         gf_lock_t    lock;
         xlator_t    *this;
+        inode_t     *inode;
         int          dontsync; /* If positive, don't pick lies for
                                 * winding. This is needed to break infinite
                                 * recursion during invocation of
@@ -114,6 +122,8 @@ typedef struct wb_inode {
                                 * wb_fulfill_cbk in case of an
                                 * error during fulfill.
                                 */
+        gf_atomic_int32_t readdirps;
+        gf_atomic_int8_t  invalidate;
 
 } wb_inode_t;
 
@@ -186,9 +196,6 @@ typedef struct wb_conf {
 } wb_conf_t;
 
 
-void
-wb_process_queue (wb_inode_t *wb_inode);
-
 
 wb_inode_t *
 __wb_inode_ctx_get (xlator_t *this, inode_t *inode)
@@ -223,6 +230,44 @@ wb_inode_ctx_get (xlator_t *this, inode_t *inode)
 out:
         return wb_inode;
 }
+
+
+static void
+wb_set_invalidate (wb_inode_t *wb_inode, int set)
+{
+        int           readdirps       = 0;
+        inode_t      *parent_inode    = NULL;
+        wb_inode_t   *wb_parent_inode = NULL;
+
+        parent_inode = inode_parent (wb_inode->inode, NULL, NULL);
+        if (parent_inode)
+                wb_parent_inode = wb_inode_ctx_get (wb_inode->this,
+                                                    parent_inode);
+
+        if (wb_parent_inode) {
+                LOCK (&wb_parent_inode->lock);
+                {
+                        readdirps = GF_ATOMIC_GET (wb_parent_inode->readdirps);
+                        if (readdirps && set) {
+                                GF_ATOMIC_SWAP (wb_inode->invalidate, 1);
+                                list_del_init (&wb_inode->invalidate_list);
+                                list_add (&wb_inode->invalidate_list,
+                                          &wb_parent_inode->invalidate_list);
+                        } else if (readdirps == 0) {
+                                GF_ATOMIC_SWAP (wb_inode->invalidate, 0);
+                                list_del_init (&wb_inode->invalidate_list);
+                        }
+                }
+                UNLOCK (&wb_parent_inode->lock);
+        } else {
+                GF_ATOMIC_SWAP (wb_inode->invalidate, 0);
+        }
+
+        return;
+}
+
+void
+wb_process_queue (wb_inode_t *wb_inode);
 
 
 /*
@@ -646,12 +691,16 @@ __wb_inode_create (xlator_t *this, inode_t *inode)
         INIT_LIST_HEAD (&wb_inode->liability);
         INIT_LIST_HEAD (&wb_inode->temptation);
         INIT_LIST_HEAD (&wb_inode->wip);
+        INIT_LIST_HEAD (&wb_inode->invalidate_list);
 
         wb_inode->this = this;
 
         wb_inode->window_conf = conf->window_size;
+        wb_inode->inode = inode;
 
         LOCK_INIT (&wb_inode->lock);
+        GF_ATOMIC_INIT (wb_inode->invalidate, 0);
+        GF_ATOMIC_INIT (wb_inode->readdirps, 0);
 
         ret = __inode_ctx_put (inode, this, (uint64_t)(unsigned long)wb_inode);
         if (ret) {
@@ -1047,6 +1096,30 @@ wb_fulfill_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         wb_inode = head->wb_inode;
 
+        /* There could be a readdirp session in progress. Since wb_fulfill_cbk
+         * can potentially remove a request from liability queue,
+         * wb_readdirp_cbk will miss writes on this inode (as it invalidates
+         * stats only if liability queue is not empty) and hence mark inode
+         * for invalidation of stats in readdirp response. Specifically this
+         * code fixes the following race mentioned in wb_readdirp_cbk:
+         */
+
+        /* <removed comment from wb_readdirp_cbk>
+         * We cannot guarantee integrity of entry->d_stat as there are cached
+         * writes. The stat is most likely stale as it doesn't account the
+         * cached writes. However, checking for non-empty liability list here is
+         * not a fool-proof solution as there can be races like,
+         * 1. readdirp is successful on posix
+         * 2. sync of cached write is successful on posix
+         * 3. write-behind received sync response and removed the request from
+         *    liability queue
+         * 4. readdirp response is processed at write-behind
+         *
+         * In the above scenario, stat for the file is sent back in readdirp
+         * response but it is stale.
+         * </comment> */
+        wb_set_invalidate (wb_inode, 1);
+
 	if (op_ret == -1) {
 		wb_fulfill_err (head, op_errno);
 	} else if (op_ret < head->total_size) {
@@ -1070,14 +1143,13 @@ wb_fulfill_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		head->total_size += req->write_size;			\
 	} while (0)
 
-
 int
 wb_fulfill_head (wb_inode_t *wb_inode, wb_request_t *head)
 {
 	struct iovec  vector[MAX_VECTOR_COUNT];
-	int           count    = 0;
-	wb_request_t *req      = NULL;
-	call_frame_t *frame    = NULL;
+	int           count           = 0;
+	wb_request_t *req             = NULL;
+	call_frame_t *frame           = NULL;
 
         /* make sure head->total_size is updated before we run into any
          * errors
@@ -1148,7 +1220,7 @@ wb_fulfill (wb_inode_t *wb_inode, list_head_t *liabilities)
 
 	conf = wb_inode->this->private;
 
-	list_for_each_entry_safe (req, tmp, liabilities, winds) {
+        list_for_each_entry_safe (req, tmp, liabilities, winds) {
 		list_del_init (&req->winds);
 
 		if (!head) {
@@ -2442,6 +2514,48 @@ noqueue:
         return 0;
 }
 
+static void
+wb_mark_readdirp_start (xlator_t *this, inode_t *directory)
+{
+        wb_inode_t *wb_directory_inode = NULL;
+
+        wb_directory_inode = wb_inode_create (this, directory);
+
+        LOCK (&wb_directory_inode->lock);
+        {
+                GF_ATOMIC_INC (wb_directory_inode->readdirps);
+        }
+        UNLOCK (&wb_directory_inode->lock);
+
+        return;
+}
+
+static void
+wb_mark_readdirp_end (xlator_t *this, inode_t *directory)
+{
+        wb_inode_t *wb_directory_inode = NULL, *wb_inode = NULL, *tmp = NULL;
+        int         readdirps          = 0;
+
+        wb_directory_inode = wb_inode_ctx_get (this, directory);
+
+        LOCK (&wb_directory_inode->lock);
+        {
+                readdirps = GF_ATOMIC_DEC (wb_directory_inode->readdirps);
+                if (readdirps)
+                        goto unlock;
+
+                list_for_each_entry_safe (wb_inode, tmp,
+                                          &wb_directory_inode->invalidate_list,
+                                          invalidate_list) {
+                        list_del_init (&wb_inode->invalidate_list);
+                        GF_ATOMIC_SWAP (wb_inode->invalidate, 0);
+                }
+        }
+unlock:
+        UNLOCK (&wb_directory_inode->lock);
+
+        return;
+}
 
 int32_t
 wb_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2451,6 +2565,10 @@ wb_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         wb_inode_t  *wb_inode = NULL;
         gf_dirent_t *entry    = NULL;
         inode_t     *inode    = NULL;
+        fd_t        *fd       = NULL;
+
+        fd = frame->local;
+        frame->local = NULL;
 
         if (op_ret <= 0)
                 goto unwind;
@@ -2465,29 +2583,8 @@ wb_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 LOCK (&wb_inode->lock);
                 {
-                        if (!list_empty (&wb_inode->liability)) {
-                                /* We cannot guarantee integrity of
-                                   entry->d_stat as there are cached writes.
-                                   The stat is most likely stale as it doesn't
-                                   account the cached writes. However, checking
-                                   for non-empty liability list here is not a
-                                   fool-proof solution as there can be races
-                                   like,
-                                   1. readdirp is successful on posix
-                                   2. sync of cached write is successful on
-                                      posix
-                                   3. write-behind received sync response and
-                                      removed the request from liability queue
-                                   4. readdirp response is processed at
-                                      write-behind
-
-                                   In the above scenario, stat for the file is
-                                   sent back in readdirp response but it is
-                                   stale.
-
-                                   For lack of better solutions I am sticking
-                                   with current solution.
-                                */
+                        if (!list_empty (&wb_inode->liability) ||
+                            GF_ATOMIC_GET (wb_inode->invalidate)) {
                                 inode = entry->inode;
 
                                 entry->inode = NULL;
@@ -2500,9 +2597,11 @@ wb_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 UNLOCK (&wb_inode->lock);
         }
 
+        wb_mark_readdirp_end (this, fd->inode);
+
 unwind:
-	STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno,
-			     entries, xdata);
+        frame->local = NULL;
+	STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, entries, xdata);
 	return 0;
 }
 
@@ -2511,6 +2610,10 @@ int32_t
 wb_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
              off_t off, dict_t *xdata)
 {
+        wb_mark_readdirp_start (this, fd->inode);
+
+        frame->local = fd;
+
         STACK_WIND (frame, wb_readdirp_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->readdirp,
                     fd, size, off, xdata);
