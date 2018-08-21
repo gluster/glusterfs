@@ -1671,7 +1671,7 @@ mq_initiate_quota_task (void *opaque)
 
 out:
         if (dirty) {
-                if (ret < 0 || prev_dirty) {
+                if (ret < 0) {
                         /* On failure clear dirty status flag.
                          * In the next lookup inspect_directory_xattr
                          * can set the status flag and fix the
@@ -2127,14 +2127,16 @@ mq_xattr_state (xlator_t *this, loc_t *origin_loc, dict_t *dict,
                         ret = -1;
                         goto out;
                 }
-        }
-
-        if (buf.ia_type == IA_IFDIR || loc_is_root(&loc))
-                mq_inspect_directory_xattr (this, ctx, contribution, &loc, dict,
+                if (buf.ia_type == IA_IFDIR)
+                        mq_inspect_directory_xattr (this, ctx, contribution,
+                                                    &loc, dict, buf);
+                else
+                        mq_inspect_file_xattr (this, ctx, contribution,
+                                               &loc, dict, buf);
+        } else {
+                mq_inspect_directory_xattr (this, ctx, 0, &loc, dict,
                                             buf);
-        else
-                mq_inspect_file_xattr (this, ctx, contribution, &loc, dict,
-                                       buf);
+        }
 
 out:
         loc_wipe (&loc);

@@ -1583,10 +1583,11 @@ marker_get_oldpath_contribution (call_frame_t *lk_frame, void *cookie,
                         "cannot hold inodelk on %s (gfid:%s) (%s)",
                         oplocal->loc.path, uuid_utoa (oplocal->loc.inode->gfid),
                         strerror (op_errno));
+                if (local->lk_frame) {
+                        STACK_DESTROY (local->lk_frame->root);
+                        local->lk_frame = NULL;
+                }
                 goto err;
-
-                STACK_DESTROY (local->lk_frame->root);
-                local->lk_frame = NULL;
         }
 
         GET_CONTRI_KEY (this, contri_key, oplocal->loc.parent->gfid, ret);
@@ -3430,7 +3431,7 @@ init (xlator_t *this)
         if (data)
                 ret = gf_string2int32 (data->data, &priv->version);
 
-        if (priv->feature_enabled && priv->version < 0) {
+        if ((ret == 0) && priv->feature_enabled && priv->version < 0) {
                 gf_log (this->name, GF_LOG_ERROR, "Invalid quota version %d",
                         priv->version);
                 goto err;
