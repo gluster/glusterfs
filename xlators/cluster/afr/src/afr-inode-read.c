@@ -437,7 +437,7 @@ __gather_xattr_keys (dict_t *dict, char *key, data_t *value,
         if (!strncmp (key, AFR_XATTR_PREFIX,
                       SLEN (AFR_XATTR_PREFIX))) {
 
-                xkey = GF_CALLOC (1, sizeof (*xkey), gf_afr_mt_xattr_key);
+                xkey = GF_MALLOC (sizeof (*xkey), gf_afr_mt_xattr_key);
                 if (!xkey)
                         return -1;
 
