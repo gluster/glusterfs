@@ -106,7 +106,7 @@ quota_dict_set_meta (dict_t *dict, char *key, const quota_meta_t *meta,
         int32_t         ret      = -ENOMEM;
         quota_meta_t   *value    = NULL;
 
-        value = GF_CALLOC (1, sizeof (quota_meta_t), gf_common_quota_meta_t);
+        value = GF_MALLOC (sizeof (quota_meta_t), gf_common_quota_meta_t);
         if (value == NULL) {
                 goto out;
         }
