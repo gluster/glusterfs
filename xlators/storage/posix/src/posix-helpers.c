@@ -329,6 +329,7 @@ _posix_get_marker_all_contributions (posix_xattr_filler_t *filler)
 {
         ssize_t  size = -1, remaining_size = -1, list_offset = 0;
         int      ret  = -1;
+        int      len;
         char    *list = NULL, key[4096] = {0, };
 
         if (filler->real_path)
@@ -384,9 +385,9 @@ _posix_get_marker_all_contributions (posix_xattr_filler_t *filler)
                 if (fnmatch (marker_contri_key, key, 0) == 0) {
                         ret = _posix_xattr_get_set_from_backend (filler, key);
                 }
-
-                remaining_size -= strlen (key) + 1;
-                list_offset += strlen (key) + 1;
+                len = strlen (key);
+                remaining_size -= (len + 1);
+                list_offset += (len + 1);
         }
 
         ret = 0;
@@ -408,7 +409,7 @@ _posix_get_marker_quota_contributions (posix_xattr_filler_t *filler, char *key)
                 tmp_key = NULL;
         }
 
-        if (strncmp (token, "contri", strlen ("contri")) == 0) {
+        if (strncmp (token, "contri", SLEN ("contri")) == 0) {
                 ret = _posix_get_marker_all_contributions (filler);
         } else {
                 ret = _posix_xattr_get_set_from_backend (filler, key);
@@ -436,6 +437,7 @@ _posix_xattr_get_set (dict_t *xattr_req, char *key, data_t *data,
 {
         posix_xattr_filler_t *filler = xattrargs;
         int       ret      = -1;
+        int       len;
         char     *databuf  = NULL;
         int       _fd      = -1;
         ssize_t  req_size  = 0;
@@ -577,8 +579,9 @@ _posix_xattr_get_set (dict_t *xattr_req, char *key, data_t *data,
                         if (fnmatch (key, xattr, 0) == 0)
                                 ret = _posix_xattr_get_set_from_backend (filler,
                                                                          xattr);
-                        remaining_size -= strlen (xattr) + 1;
-                        list_offset += strlen (xattr) + 1;
+                        len = strlen (xattr);
+                        remaining_size -= (len + 1);
+                        list_offset += (len + 1);
                 }
         }
 out:
@@ -869,6 +872,7 @@ _handle_list_xattr (dict_t *xattr_req, const char *real_path, int fdnum,
         int32_t               list_offset           = 0;
         ssize_t               remaining_size        = 0;
         char                  *key                  = NULL;
+        int                   len;
 
         list_offset = 0;
         remaining_size = filler->list_size;
@@ -892,8 +896,9 @@ _handle_list_xattr (dict_t *xattr_req, const char *real_path, int fdnum,
 
                 (void) _posix_xattr_get_set_from_backend (filler, key);
 next:
-                remaining_size -= strlen (key) + 1;
-                list_offset += strlen (key) + 1;
+                len = strlen (key);
+                remaining_size -= (len + 1);
+                list_offset += (len + 1);
 
         } /* while (remaining_size > 0) */
         return;
@@ -2739,7 +2744,7 @@ posix_resolve_dirgfid_to_path (const uuid_t dirgfid, const char *brick_path,
                         goto out;
                 }
 
-                strncpy (pre_dir_name, result, sizeof(pre_dir_name));
+                snprintf (pre_dir_name, sizeof (pre_dir_name), "%s", result);
 
                 gf_uuid_parse (pgfidstr, tmp_gfid);
                 gf_uuid_copy (pargfid, tmp_gfid);

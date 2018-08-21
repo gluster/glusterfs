@@ -300,7 +300,7 @@ typedef struct {
                 char gfid_str[64] = {0};                                                   \
                 uuid_utoa_r (gfid, gfid_str);                                              \
                 path_len = strlen (base_path) + 1 +                                        \
-                          strlen (GF_UNLINK_PATH) + 1 +                                    \
+                          SLEN (GF_UNLINK_PATH) + 1 +                                    \
                           strlen (gfid_str) + 1;                                           \
                 unlink_path = alloca (path_len);                                           \
                 if (!unlink_path) {                                                        \

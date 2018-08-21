@@ -2228,7 +2228,8 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
         char          sxattr[4096];
         gf_cs_obj_state  state                   = -1;
         char          remotepath[4096]        = {0};
-        int      i     = 0;
+        int           i                       = 0;
+        int           len;
 
         DECLARE_OLD_FS_ID_VAR;
         SET_FS_ID (frame->root->uid, frame->root->gid);
@@ -2294,10 +2295,10 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
                         goto unlock;
                 }
 
-                sprintf (sxattr, "%lu", tmp_stbuf.ia_size);
+                len = sprintf (sxattr, "%lu", tmp_stbuf.ia_size);
 
                 ret = sys_lsetxattr (real_path, GF_CS_OBJECT_SIZE,
-                                     sxattr, strlen (sxattr), flags);
+                                     sxattr, len, flags);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0, 0,
                                 "setxattr failed. key %s err %d",
@@ -2512,7 +2513,7 @@ posix_xattr_get_real_filename (call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (!fd)
                 return -errno;
 
-        fname = key + strlen (GF_XATTR_GET_REAL_FILENAME_KEY);
+        fname = key + SLEN (GF_XATTR_GET_REAL_FILENAME_KEY);
 
         for (;;) {
                 errno = 0;
@@ -2714,6 +2715,7 @@ posix_get_ancestry_non_directory (xlator_t *this, inode_t *leaf_inode,
         char                  key[4096]         = {0,};
         char                  dirpath[PATH_MAX] = {0,};
         char                  pgfidstr[UUID_CANONICAL_FORM_LEN+1] = {0,};
+        int                   len;
 
         priv = this->private;
 
@@ -2783,10 +2785,9 @@ posix_get_ancestry_non_directory (xlator_t *this, inode_t *leaf_inode,
         }
 
         while (remaining_size > 0) {
-                strncpy (key, list + list_offset, sizeof(key)-1);
-                key[sizeof(key)-1] = '\0';
+                snprintf(key, sizeof (key), "%s", list + list_offset);
                 if (strncmp (key, PGFID_XATTR_KEY_PREFIX,
-                             strlen (PGFID_XATTR_KEY_PREFIX)) != 0)
+                             SLEN (PGFID_XATTR_KEY_PREFIX)) != 0)
                         goto next;
 
                 op_ret = sys_lgetxattr (leaf_path, key,
@@ -2802,16 +2803,14 @@ posix_get_ancestry_non_directory (xlator_t *this, inode_t *leaf_inode,
 
                 nlink_samepgfid = ntoh32 (nlink_samepgfid);
 
-                strncpy (pgfidstr, key + strlen(PGFID_XATTR_KEY_PREFIX),
-                         sizeof(pgfidstr)-1);
-                pgfidstr[sizeof(pgfidstr)-1] = '\0';
+                snprintf (pgfidstr, sizeof (pgfidstr), "%s",
+                          key + SLEN (PGFID_XATTR_KEY_PREFIX));
                 gf_uuid_parse (pgfidstr, pgfid);
 
                 handle_size = POSIX_GFID_HANDLE_SIZE(priv->base_path_length);
 
                 /* constructing the absolute real path of parent dir */
-                strncpy (dirpath, priv->base_path, sizeof(dirpath)-1);
-                dirpath[sizeof(dirpath)-1] = '\0';
+                snprintf (dirpath, sizeof (dirpath), "%s", priv->base_path);
                 pathlen = PATH_MAX + 1 - priv->base_path_length;
 
                 op_ret = posix_make_ancestryfromgfid (this,
@@ -2840,8 +2839,9 @@ posix_get_ancestry_non_directory (xlator_t *this, inode_t *leaf_inode,
                 }
 
         next:
-                remaining_size -= strlen (key) + 1;
-                list_offset += strlen (key) + 1;
+                len = strlen (key);
+                remaining_size -= (len + 1);
+                list_offset += (len + 1);
         } /* while (remaining_size > 0) */
 
         op_ret = 0;
@@ -2908,6 +2908,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         size_t                remaining_size        = 0;
         char                 *host_buf              = NULL;
         char                 *keybuffer             = NULL;
+        int                   keybuff_len;
         char                 *value_buf             = NULL;
         gf_boolean_t          have_val              = _gf_false;
 
@@ -2991,7 +2992,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
 
         if (loc->inode && name &&
             (strncmp (name, GF_XATTR_GET_REAL_FILENAME_KEY,
-                      strlen (GF_XATTR_GET_REAL_FILENAME_KEY)) == 0)) {
+                      SLEN (GF_XATTR_GET_REAL_FILENAME_KEY)) == 0)) {
                 ret = posix_xattr_get_real_filename (frame, this, loc,
                                                      name, dict, xdata);
                 if (ret < 0) {
@@ -3155,7 +3156,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
 
         if (loc->inode && name
              && (strncmp (name, GLUSTERFS_GET_OBJECT_SIGNATURE,
-                          strlen (GLUSTERFS_GET_OBJECT_SIGNATURE)) == 0)) {
+                          SLEN (GLUSTERFS_GET_OBJECT_SIGNATURE)) == 0)) {
                 op_ret = posix_get_objectsignature (real_path, dict);
                 if (op_ret < 0) {
                         op_errno = -op_ret;
@@ -3308,8 +3309,8 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         list_offset = 0;
         keybuffer = alloca (XATTR_KEY_BUF_SIZE);
         while (remaining_size > 0) {
-                strncpy (keybuffer, list + list_offset, XATTR_KEY_BUF_SIZE-1);
-                keybuffer[XATTR_KEY_BUF_SIZE-1] = '\0';
+                keybuff_len = snprintf (keybuffer, XATTR_KEY_BUF_SIZE, "%s",
+                          list + list_offset);
 
                 ret = posix_handle_georep_xattrs (frame, keybuffer, NULL,
                                                   _gf_false);
@@ -3372,7 +3373,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 /* The protocol expect namespace for now */
                 char *newkey = NULL;
                 gf_add_prefix (XATTR_USER_PREFIX, keybuffer, &newkey);
-                strncpy (keybuffer, newkey, sizeof(keybuffer));
+                keybuff_len = snprintf (keybuffer, sizeof(keybuffer), "%s", newkey);
                 GF_FREE (newkey);
 #endif
                 op_ret = dict_set_dynptr (dict, keybuffer, value, size);
@@ -3387,8 +3388,8 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 }
 
 ignore:
-                remaining_size -= strlen (keybuffer) + 1;
-                list_offset += strlen (keybuffer) + 1;
+                remaining_size -= keybuff_len + 1;
+                list_offset += keybuff_len + 1;
 
         } /* while (remaining_size > 0) */
 
@@ -3429,6 +3430,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
         dict_t *          dict           = NULL;
         int               ret            = -1;
         char              key[4096]      = {0,};
+        int               key_len;
         char             *value_buf      = NULL;
         gf_boolean_t      have_val        = _gf_false;
 
@@ -3473,7 +3475,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
         }
 
         if (name && strncmp (name, GLUSTERFS_GET_OBJECT_SIGNATURE,
-                      strlen (GLUSTERFS_GET_OBJECT_SIGNATURE)) == 0) {
+                      SLEN (GLUSTERFS_GET_OBJECT_SIGNATURE)) == 0) {
                 op_ret = posix_fdget_objectsignature (_fd, dict);
                 if (op_ret < 0) {
                         gf_msg (this->name, GF_LOG_ERROR, 0, 0,
@@ -3494,14 +3496,14 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
         value_buf = alloca (XATTR_VAL_BUF_SIZE);
 
         if (name) {
-                strncpy (key, name, sizeof(key));
+                key_len = snprintf (key, sizeof (key), "%s", name);
 #ifdef GF_DARWIN_HOST_OS
                 struct posix_private *priv       = NULL;
                 priv = this->private;
                 if (priv->xattr_user_namespace == XATTR_STRIP) {
                         char *newkey = NULL;
                         gf_add_prefix (XATTR_USER_PREFIX, key, &newkey);
-                        strncpy (key, newkey, sizeof(key));
+                        key_len = snprintf (key, sizeof (key), "%s", newkey);
                         GF_FREE (newkey);
                 }
 #endif
@@ -3614,7 +3616,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                 if(*(list + list_offset) == '\0')
                         break;
 
-                strncpy (key, list + list_offset, sizeof(key));
+                key_len = snprintf (key, sizeof (key), "%s", list + list_offset);
                 have_val = _gf_false;
                 size = sys_fgetxattr (_fd, key, value_buf,
                                       XATTR_VAL_BUF_SIZE-1);
@@ -3670,8 +3672,8 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                         GF_FREE (value);
                         goto out;
                 }
-                remaining_size -= strlen (key) + 1;
-                list_offset += strlen (key) + 1;
+                remaining_size -= key_len + 1;
+                list_offset += key_len + 1;
 
         } /* while (remaining_size > 0) */
 

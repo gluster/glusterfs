@@ -114,9 +114,7 @@ posix_make_ancestral_node (const char *priv_base_path, char *path, int pathsize,
                 entry->inode = inode_ref (inode);
 
                 list_add_tail (&entry->list, &head->list);
-                strcpy (real_path, priv_base_path);
-                strcat (real_path, "/");
-                strcat (real_path, path);
+                snprintf(real_path, sizeof (real_path), "%s/%s", priv_base_path, path);
                 loc.inode = inode_ref (inode);
                 gf_uuid_copy (loc.gfid, inode->gfid);
 
@@ -173,7 +171,7 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
 
                         *parent = inode_ref (itable->root);
 
-                        saved_dir = alloca(strlen("/") + 1);
+                        saved_dir = alloca(sizeof ("/"));
                         strcpy(saved_dir, "/");
                         dir_stack[top] = saved_dir;
                         break;
@@ -498,7 +496,7 @@ posix_handle_gfid_path (xlator_t *this, uuid_t gfid, const char *basename,
                         len = snprintf (buf, buflen, "%s/%s", priv->base_path,
                                         basename);
                 } else {
-                        strncpy (buf, priv->base_path, buflen);
+                        len = snprintf (buf, buflen, "%s", priv->base_path);
                 }
                 goto out;
         }
@@ -536,8 +534,8 @@ posix_handle_init (xlator_t *this)
                 return -1;
         }
 
-        handle_pfx = alloca (priv->base_path_length + 1 + strlen (GF_HIDDEN_PATH)
-                             + 1);
+        handle_pfx = alloca (priv->base_path_length + 1 +
+                             SLEN (GF_HIDDEN_PATH) + 1);
 
         sprintf (handle_pfx, "%s/%s", priv->base_path, GF_HIDDEN_PATH);
 
@@ -716,16 +714,18 @@ posix_handle_trash_init (xlator_t *this)
 
         priv = this->private;
 
-        priv->trash_path = GF_CALLOC (1, priv->base_path_length + strlen ("/")
-                                      + strlen (GF_HIDDEN_PATH) + strlen ("/")
-                                      + strlen (TRASH_DIR) + 1,
+        priv->trash_path = GF_MALLOC (priv->base_path_length + SLEN ("/")
+                                      + SLEN (GF_HIDDEN_PATH) + SLEN ("/")
+                                      + SLEN (TRASH_DIR) + 1,
                                       gf_posix_mt_trash_path);
 
         if (!priv->trash_path)
                 goto out;
 
-        strncpy (priv->trash_path, priv->base_path, priv->base_path_length);
-        strcat (priv->trash_path, "/" GF_HIDDEN_PATH "/" TRASH_DIR);
+        snprintf (priv->trash_path, priv->base_path_length
+                  + SLEN (GF_HIDDEN_PATH) + SLEN (TRASH_DIR) + 3,
+                  "%s/%s/%s", priv->base_path, GF_HIDDEN_PATH, TRASH_DIR);
+
         ret = posix_handle_new_trash_init (this, priv->trash_path);
         if (ret)
                 goto out;
