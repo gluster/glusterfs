@@ -641,14 +641,16 @@ ctr_delete_hard_link_from_db (xlator_t               *this,
         /* Set gfdb_db_record to 0 */
         memset (&gfdb_db_record, 0, sizeof(gfdb_db_record));
 
+        /* Copy basename */
+        if (snprintf (gfdb_db_record.file_name, GF_NAME_MAX, "%s",
+	              basename) >= GF_NAME_MAX)
+                goto out;
+
         /* Copy gfid into db record */
         gf_uuid_copy (gfdb_db_record.gfid, gfid);
 
         /* Copy pargid into db record */
         gf_uuid_copy (gfdb_db_record.pargfid, pargfid);
-
-        /* Copy basename */
-        strncpy (gfdb_db_record.file_name, basename, GF_NAME_MAX - 1);
 
         gfdb_db_record.gfdb_fop_path = fop_path;
         gfdb_db_record.gfdb_fop_type = fop_type;
