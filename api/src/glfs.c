@@ -1602,6 +1602,7 @@ pub_glfs_sysrq (struct glfs *fs, char sysrq)
 {
         glusterfs_ctx_t  *ctx = NULL;
         int               ret = 0;
+        int               msg_len;
         char              msg[1024] = {0,}; /* should not exceed 1024 chars */
 
         if (!fs || !fs->ctx) {
@@ -1618,8 +1619,9 @@ pub_glfs_sysrq (struct glfs *fs, char sysrq)
                 struct glfs_sysrq_help *usage = NULL;
 
                 for (usage = glfs_sysrq_help; usage->sysrq; usage++) {
-                        snprintf (msg + strlen (msg), /* append to msg */
-                                  sizeof (msg) - strlen (msg) - 2,
+                        msg_len = strlen(msg);
+                        snprintf (msg + msg_len, /* append to msg */
+                                  sizeof (msg) - msg_len - 2,
                                   /* - 2 for the " " + terminating \0 */
                                   " %s", usage->msg);
                 }
