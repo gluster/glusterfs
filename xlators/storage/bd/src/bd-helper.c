@@ -154,7 +154,7 @@ check:
         }
         dm_list_iterate_items (strl, tags) {
                 if (!strncmp (strl->str, GF_XATTR_VOL_ID_KEY,
-                              strlen (GF_XATTR_VOL_ID_KEY))) {
+                              SLEN (GF_XATTR_VOL_ID_KEY))) {
                         uuid = _gf_true;
                         break;
                 }
@@ -168,7 +168,7 @@ check:
                 goto out;
         }
 
-        op_ret = gf_uuid_parse (strl->str + strlen (GF_XATTR_VOL_ID_KEY) + 1,
+        op_ret = gf_uuid_parse (strl->str + SLEN (GF_XATTR_VOL_ID_KEY) + 1,
                              vg_uuid);
         if (op_ret < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
