@@ -817,6 +817,11 @@ htime_create (xlator_t *this,
                 goto out;
         }
 
+        /* save this htime_fd in priv->htime_fd */
+        priv->htime_fd = ht_file_fd;
+
+        ht_file_fd = -1;
+
         /* Set xattr HTIME_CURRENT on htime directory to htime filename */
         ht_dir_fd = open (ht_dir_path, O_RDONLY);
         if (ht_dir_fd == -1) {
@@ -847,14 +852,14 @@ htime_create (xlator_t *this,
                 goto out;
         }
 
-        /* save this htime_fd in priv->htime_fd */
-        priv->htime_fd = ht_file_fd;
         /* initialize rollover-number in priv to 1 */
         priv->rollover_count = 1;
 
 out:
         if (ht_dir_fd != -1)
                 sys_close (ht_dir_fd);
+        if (ht_file_fd != -1)
+                sys_close (ht_file_fd);
         return ret;
 }
 
