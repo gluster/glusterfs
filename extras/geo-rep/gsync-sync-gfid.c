@@ -30,7 +30,7 @@ main (int argc, char *argv[])
         char *gfid                = NULL;
         char *bname = NULL;
         int   ret                 = -1;
-        int len = 0;
+        int   len                 = 0;
         FILE *fp                  = NULL;
         char  line[GLFS_LINE_MAX] = {0,};
         char *path = NULL;
@@ -65,9 +65,10 @@ main (int argc, char *argv[])
                 while(isspace (*path))
                         path++;
 
-                if ((strlen (line) < GLFS_LINE_MAX) &&
-                    (line[strlen (line) - 1] == '\n'))
-                        line[strlen (line) - 1] = '\0';
+                len = strlen (line);
+                if ((len < GLFS_LINE_MAX) &&
+                    (line[len - 1] == '\n'))
+                        line[len - 1] = '\0';
 
                 line[UUID_CANONICAL_FORM_LEN] = '\0';
 
