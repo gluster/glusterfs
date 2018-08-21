@@ -1746,6 +1746,7 @@ cli_xml_output_vol_top_rw_perf (xmlTextWriterPtr writer, dict_t *dict,
         long int   time_usec = 0;
         char       timestr[256] = {0,};
         char       key[1024] = {0,};
+        int        len;
 
         /* <file> */
         ret = xmlTextWriterStartElement (writer, (xmlChar *)"file");
@@ -1781,8 +1782,9 @@ cli_xml_output_vol_top_rw_perf (xmlTextWriterPtr writer, dict_t *dict,
                 goto out;
 
         gf_time_fmt (timestr, sizeof timestr, time_sec, gf_timefmt_FT);
-        snprintf (timestr + strlen (timestr),
-                  sizeof timestr - strlen (timestr),
+        len = strlen (timestr);
+        snprintf (timestr + len,
+                  sizeof (timestr) - len,
                   ".%"GF_PRI_SUSECONDS, time_usec);
         ret = xmlTextWriterWriteFormatElement (writer, (xmlChar *)"time",
                                                "%s", timestr);

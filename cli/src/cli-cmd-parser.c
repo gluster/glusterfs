@@ -407,6 +407,7 @@ cli_validate_volname (const char *volname)
 {
         int32_t            ret                       = -1;
         int32_t            i                         = -1;
+        int                volname_len;
         static const char * const invalid_volnames[] = {
                                       "volume", "type", "subvolumes", "option",
                                       "end-volume", "all", "volume_not_in_ring",
@@ -429,13 +430,14 @@ cli_validate_volname (const char *volname)
         if (strchr (volname, '/'))
                 goto out;
 
-        if (strlen (volname) > GD_VOLUME_NAME_MAX) {
+        volname_len = strlen (volname);
+        if (volname_len > GD_VOLUME_NAME_MAX) {
                 cli_err("Volume name exceeds %d characters.",
                         GD_VOLUME_NAME_MAX);
                 goto out;
         }
 
-        for (i = 0; i < strlen (volname); i++) {
+        for (i = 0; i < volname_len; i++) {
                 if (!isalnum (volname[i]) && (volname[i] != '_') &&
                    (volname[i] != '-')) {
                         cli_err ("Volume name should not contain \"%c\""
@@ -3717,17 +3719,18 @@ extract_hostname_path_from_token (const char *tmp_words, char **hostname,
         char *tmp_host = NULL;
         char *host_name = NULL;
         char *words = NULL;
-
+        int str_len = 0;
         *hostname = NULL;
         *path = NULL;
 
-        words = GF_CALLOC (1, strlen (tmp_words) + 1, gf_common_mt_char);
+        str_len = strlen (tmp_words) + 1;
+        words = GF_MALLOC (str_len, gf_common_mt_char);
         if (!words){
                 ret = -1;
                 goto out;
         }
 
-        strncpy (words, tmp_words, strlen (tmp_words) + 1);
+        snprintf (words, str_len, "%s", tmp_words);
 
         if (validate_brick_name (words)) {
                 cli_err ("Wrong brick type: %s, use <HOSTNAME>:"
@@ -3740,15 +3743,14 @@ extract_hostname_path_from_token (const char *tmp_words, char **hostname,
                 if (ret) {
                         goto out;
                 } else {
-                        *path = GF_CALLOC (1, strlen (delimiter+1) +1,
-                                           gf_common_mt_char);
+                        str_len = strlen (delimiter + 1) + 1;
+                        *path = GF_MALLOC (str_len, gf_common_mt_char);
                         if (!*path) {
                            ret = -1;
                                 goto out;
 
                         }
-                        strncpy (*path, delimiter +1,
-                                 strlen(delimiter + 1) + 1);
+                        snprintf (*path, str_len, "%s", delimiter +1);
                 }
         }
 
@@ -3781,13 +3783,13 @@ extract_hostname_path_from_token (const char *tmp_words, char **hostname,
                 goto out;
         }
 
-        *hostname = GF_CALLOC (1, strlen (host_name) + 1,
-                                       gf_common_mt_char);
+        str_len = strlen (host_name) + 1;
+        *hostname = GF_MALLOC (str_len, gf_common_mt_char);
         if (!*hostname) {
                 ret = -1;
                 goto out;
         }
-        strncpy (*hostname, host_name, strlen (host_name) + 1);
+        snprintf (*hostname, str_len, "%s", host_name);
         ret = 0;
 
 out:
@@ -4185,6 +4187,7 @@ cli_snap_create_desc_parse (dict_t *dict, const char **words,
         int32_t        ret      = -1;
         char          *desc     = NULL;
         int32_t        desc_len = 0;
+        int            len;
 
         desc = GF_CALLOC (MAX_SNAP_DESCRIPTION_LEN + 1, sizeof(char),
                           gf_common_mt_char);
@@ -4194,16 +4197,16 @@ cli_snap_create_desc_parse (dict_t *dict, const char **words,
         }
 
 
-        if (strlen (words[desc_opt_loc]) >= MAX_SNAP_DESCRIPTION_LEN) {
+        len = strlen (words[desc_opt_loc]);
+        if (len >= MAX_SNAP_DESCRIPTION_LEN) {
                 cli_out ("snapshot create: description truncated: "
                          "Description provided is longer than 1024 characters");
                 desc_len = MAX_SNAP_DESCRIPTION_LEN;
         } else {
-                desc_len = strlen (words[desc_opt_loc]);
+                desc_len = len;
         }
 
-        strncpy (desc, words[desc_opt_loc], desc_len);
-        desc[desc_len] = '\0';
+        snprintf (desc, desc_len + 1, "%s", words[desc_opt_loc]);
         /* Calculating the size of the description as given by the user */
 
         ret = dict_set_dynstr (dict, "description", desc);
@@ -5507,6 +5510,7 @@ cli_cmd_validate_volume (char *volname)
 {
         int       i        =  0;
         int       ret      = -1;
+        int       volname_len;
 
 
         if (volname[0] == '-')
@@ -5522,13 +5526,14 @@ cli_cmd_validate_volume (char *volname)
                 return ret;
         }
 
-        if (strlen (volname) > GD_VOLUME_NAME_MAX) {
+        volname_len = strlen (volname);
+        if (volname_len > GD_VOLUME_NAME_MAX) {
                 cli_err ("Volname can not exceed %d characters.",
                         GD_VOLUME_NAME_MAX);
                 return ret;
         }
 
-        for (i = 0; i < strlen (volname); i++)
+        for (i = 0; i < volname_len ; i++)
                 if (!isalnum (volname[i]) && (volname[i] != '_') &&
                     (volname[i] != '-')) {
                         cli_err ("Volume name should not contain \"%c\""
