@@ -2178,7 +2178,7 @@ afr_is_xattr_ignorable (char *key)
 {
         int i = 0;
 
-        if (!strncmp (key, AFR_XATTR_PREFIX, strlen(AFR_XATTR_PREFIX)))
+        if (!strncmp (key, AFR_XATTR_PREFIX, SLEN (AFR_XATTR_PREFIX)))
                 return _gf_true;
         for (i = 0; afr_ignore_xattrs[i]; i++) {
                 if (!strcmp (key, afr_ignore_xattrs[i]))
@@ -6212,7 +6212,6 @@ afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
         dict_t         *dict              = NULL;
         int             ret               = -1;
         int             op_errno          = 0;
-        int             size              = 0;
         inode_t        *inode             = NULL;
         char           *substr            = NULL;
         char           *status            = NULL;
@@ -6229,21 +6228,18 @@ afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
         }
 
         if (pending) {
-                size = strlen ("-pending") + 1;
                 gf_asprintf (&substr, "-pending");
                 if (!substr)
                         goto out;
         }
 
         if (ret == -EIO) {
-                size += strlen ("split-brain") + 1;
                 ret = gf_asprintf (&status, "split-brain%s",
                                    substr? substr : "");
                 if (ret < 0)
                         goto out;
                 dict = afr_set_heal_info (status);
         } else if (ret == -EAGAIN) {
-                size += strlen ("possibly-healing") + 1;
                 ret = gf_asprintf (&status, "possibly-healing%s",
                                    substr? substr : "");
                 if (ret < 0)
@@ -6258,7 +6254,6 @@ afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
                     !metadata_selfheal) {
                         dict = afr_set_heal_info ("no-heal");
                 } else {
-                        size += strlen ("heal") + 1;
                         ret = gf_asprintf (&status, "heal%s",
                                            substr? substr : "");
                         if (ret < 0)
@@ -6275,7 +6270,6 @@ afr_get_heal_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
                  */
                 if (data_selfheal || entry_selfheal ||
                     metadata_selfheal) {
-                        size += strlen ("heal") + 1;
                         ret = gf_asprintf (&status, "heal%s",
                                            substr? substr : "");
                         if (ret < 0)
@@ -6409,13 +6403,13 @@ afr_get_split_brain_status (void *opaque)
         }
 
         /* Calculation for string length :
-        * (child_count X length of child-name) + strlen ("    Choices :")
+        * (child_count X length of child-name) + SLEN ("    Choices :")
         * child-name consists of :
         * a) 251 = max characters for volname according to GD_VOLUME_NAME_MAX
         * b) strlen ("-client-00,") assuming 16 replicas
         */
-        choices = alloca0 (priv->child_count * (251 + sizeof("-client-00,")) +
-                           sizeof("    Choices:"));
+        choices = alloca0 (priv->child_count * (256 + SLEN ("-client-00,")) +
+                           SLEN ("    Choices:"));
 
         ret = afr_is_split_brain (frame, this, inode, loc->gfid, &d_spb,
                                   &m_spb);
@@ -6717,6 +6711,7 @@ afr_serialize_xattrs_with_delimiter (call_frame_t *frame, xlator_t *this,
         char          *xattr     = NULL;
         int            i         = 0;
         int            len       = 0;
+        size_t         str_len   = 0;
         int            ret       = -1;
 
         priv = this->private;
@@ -6724,8 +6719,9 @@ afr_serialize_xattrs_with_delimiter (call_frame_t *frame, xlator_t *this,
 
         for (i = 0; i < priv->child_count; i++) {
                 if (!local->replies[i].valid || local->replies[i].op_ret) {
-                        buf = strncat (buf, default_str, strlen (default_str));
-                        len += strlen (default_str);
+                        str_len = strlen (default_str);
+                        buf = strncat (buf, default_str, str_len);
+                        len += str_len;
                         buf[len++] = delimiter;
                         buf[len] = '\0';
                 } else {
@@ -6738,8 +6734,9 @@ afr_serialize_xattrs_with_delimiter (call_frame_t *frame, xlator_t *this,
                                         "%d", i);
                                 goto out;
                         }
-                        buf = strncat (buf, xattr, strlen (xattr));
-                        len += strlen (xattr);
+                        str_len = strlen (xattr);
+                        buf = strncat (buf, xattr, str_len);
+                        len += str_len;
                         buf[len++] = delimiter;
                         buf[len] = '\0';
                 }

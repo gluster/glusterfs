@@ -253,6 +253,7 @@ stripe_fill_pathinfo_xattr (xlator_t *this, stripe_local_t *local,
         int      ret             = -1;
         int32_t  padding         = 0;
         int32_t  tlen            = 0;
+        int      len             = 0;
         char stripe_size_str[20] = {0,};
         char    *pathinfo_serz   = NULL;
 
@@ -261,12 +262,13 @@ stripe_fill_pathinfo_xattr (xlator_t *this, stripe_local_t *local,
                 goto out;
         }
 
-        (void) snprintf (stripe_size_str, sizeof (stripe_size_str), "%"PRId64,
+        len = snprintf (stripe_size_str, sizeof (stripe_size_str), "%"PRId64,
                          (long long) (local->fctx) ? local->fctx->stripe_size : 0);
-
+        if (len < 0 || len >= sizeof (stripe_size_str))
+                goto out;
         /* extra bytes for decorations (brackets and <>'s) */
-        padding = strlen (this->name) + strlen (STRIPE_PATHINFO_HEADER)
-                + strlen (stripe_size_str) + 7;
+        padding = strlen (this->name) + SLEN (STRIPE_PATHINFO_HEADER)
+                  + len + 7;
         local->xattr_total_len += (padding + 2);
 
         pathinfo_serz = GF_MALLOC (local->xattr_total_len,
