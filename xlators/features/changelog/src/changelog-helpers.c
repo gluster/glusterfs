@@ -290,10 +290,11 @@ htime_update (xlator_t *this,
                 ret = -1;
                 goto out;
         }
-        strncpy (changelog_path, buffer, PATH_MAX);
-        len = strlen (changelog_path);
-        changelog_path[len] = '\0'; /* redundant */
-
+        len = snprintf(changelog_path, PATH_MAX, "%s", buffer);
+        if (len >= PATH_MAX) {
+                ret = -1;
+                goto out;
+        }
         if (changelog_write (priv->htime_fd, (void*) changelog_path, len+1 ) < 0) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         CHANGELOG_MSG_HTIME_ERROR,
@@ -302,11 +303,15 @@ htime_update (xlator_t *this,
                 goto out;
         }
 
-        snprintf (x_value, sizeof x_value, "%lu:%d",
-                 ts, priv->rollover_count);
+        len = snprintf (x_value, sizeof (x_value), "%lu:%d",
+                        ts, priv->rollover_count);
+        if (len >= sizeof (x_value)) {
+                ret = -1;
+                goto out;
+        }
 
         if (sys_fsetxattr (priv->htime_fd, HTIME_KEY, x_value,
-                           strlen (x_value), XATTR_REPLACE)) {
+                           len, XATTR_REPLACE)) {
                 gf_smsg (this->name, GF_LOG_ERROR, errno,
                          CHANGELOG_MSG_HTIME_ERROR,
                          "Htime xattr updation failed with XATTR_REPLACE",
@@ -314,7 +319,7 @@ htime_update (xlator_t *this,
                          NULL);
 
                 if (sys_fsetxattr (priv->htime_fd, HTIME_KEY, x_value,
-                                   strlen (x_value), 0)) {
+                                   len, 0)) {
                         gf_smsg (this->name, GF_LOG_ERROR, errno,
                                  CHANGELOG_MSG_HTIME_ERROR,
                                  "Htime xattr updation failed",
@@ -366,7 +371,7 @@ cl_is_empty (xlator_t *this, int fd)
                 goto out;
         }
 
-        CHANGELOG_GET_HEADER_INFO (fd, buffer, 1024, encoding,
+        CHANGELOG_GET_HEADER_INFO (fd, buffer, sizeof (buffer), encoding,
                                    major_version, minor_version, elen);
 
         if (elen == stbuf.st_size) {
@@ -390,8 +395,8 @@ out:
 int
 update_path (xlator_t *this, char *cl_path)
 {
-        char low_cl[]     = "changelog";
-        char up_cl[]      = "CHANGELOG";
+        const char low_cl[]     = "changelog";
+        const char up_cl[]      = "CHANGELOG";
         char *found       = NULL;
         int  ret          = -1;
 
@@ -403,7 +408,7 @@ update_path (xlator_t *this, char *cl_path)
                         "Could not find CHANGELOG in changelog path");
                 goto out;
         } else {
-                strncpy(found, low_cl, strlen(low_cl));
+                memcpy(found, low_cl, sizeof (low_cl) - 1);
         }
 
         ret = 0;
@@ -574,9 +579,11 @@ find_current_htime (int ht_dir_fd, const char *ht_dir_path, char *ht_file_bname)
                         CHANGELOG_MSG_SCAN_DIR_FAILED,
                         "scandir failed");
         } else if (cnt > 0) {
-                strncpy (ht_file_bname, namelist[cnt - 1]->d_name, NAME_MAX);
-                ht_file_bname[NAME_MAX - 1] = 0;
-
+                if (snprintf (ht_file_bname, NAME_MAX, "%s",
+                              namelist[cnt - 1]->d_name) >= NAME_MAX) {
+                        ret = -1;
+                        goto out;
+                }
                 if (sys_fsetxattr (ht_dir_fd, HTIME_CURRENT, ht_file_bname,
                     strlen (ht_file_bname), 0)) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -2055,7 +2062,11 @@ resolve_pargfid_to_path (xlator_t *this, const uuid_t pgfid,
                         ret = -1;
                         goto out;
                 }
-                strncpy (pre_dir_name, result, sizeof(pre_dir_name));
+                if (snprintf (pre_dir_name, len + 1, "%s", result)
+		    >= len + 1) {
+                        ret = -1;
+                        goto out;
+                }
 
                 gf_uuid_parse (pgfidstr, tmp_gfid);
                 gf_uuid_copy (pargfid, tmp_gfid);
