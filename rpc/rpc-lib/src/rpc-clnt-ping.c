@@ -266,7 +266,7 @@ rpc_clnt_ping (struct rpc_clnt *rpc)
         struct ping_local *local = NULL;
 
         conn = &rpc->conn;
-        local = GF_CALLOC (1, sizeof(struct ping_local),
+        local = GF_MALLOC (sizeof(struct ping_local),
                            gf_common_ping_local_t);
         if (!local)
                 return ret;
