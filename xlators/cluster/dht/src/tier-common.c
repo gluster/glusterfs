@@ -340,7 +340,7 @@ tier_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
                 }
         }
 
-        gfid = GF_CALLOC (1, sizeof (uuid_t), gf_common_mt_char);
+        gfid = GF_MALLOC (sizeof (uuid_t), gf_common_mt_char);
         if (!gfid) {
                 local->op_errno = ENOMEM;
                 op_errno = ENOMEM;
