@@ -147,12 +147,12 @@ dht_send_rebalance_event (xlator_t *this, int cmd, gf_defrag_status_t status)
                 volname = defrag->tier_conf.volname;
         } else {
                 /* DHT volume */
-                len = strlen (this->name);
+                len = strlen (this->name) - strlen (suffix);
                 tmpstr = gf_strdup (this->name);
                 if (tmpstr) {
-                        ptr = tmpstr + (len - strlen (suffix));
+                        ptr = tmpstr + len;
                         if (!strcmp (ptr, suffix)) {
-                                tmpstr[len - strlen (suffix)] = '\0';
+                                tmpstr[len] = '\0';
                                 volname = tmpstr;
                         }
                 }

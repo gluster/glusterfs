@@ -428,7 +428,7 @@ dht_aggregate (dict_t *this, char *key, data_t *value, void *data)
                 goto out;
         } else {
                 /* compare user xattrs only */
-                if (!strncmp (key, "user.", strlen ("user."))) {
+                if (!strncmp (key, "user.", SLEN ("user."))) {
                         ret = dict_lookup (dst, key, &dict_data);
                         if (!ret && dict_data && value) {
                                 ret = is_data_equal (dict_data, value);
@@ -4379,7 +4379,7 @@ dht_vgetxattr_alloc_and_fill (dht_local_t *local, dict_t *xattr, xlator_t *this,
         local->alloc_len += strlen(value);
 
         if (!local->xattr_val) {
-                local->alloc_len += sizeof (DHT_PATHINFO_HEADER) + 10;
+                local->alloc_len += (SLEN (DHT_PATHINFO_HEADER) + 10);
                 local->xattr_val = GF_MALLOC (local->alloc_len,
                                               gf_common_mt_char);
                 if (!local->xattr_val) {
@@ -5189,8 +5189,9 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
         if (!DHT_IS_DIR(layout))
                 goto no_dht_is_dir;
 
-        if (strncmp (key, GF_XATTR_GET_REAL_FILENAME_KEY,
-                     strlen (GF_XATTR_GET_REAL_FILENAME_KEY)) == 0) {
+        if ((strncmp (key, GF_XATTR_GET_REAL_FILENAME_KEY,
+                      SLEN (GF_XATTR_GET_REAL_FILENAME_KEY)) == 0)
+            && DHT_IS_DIR(layout)) {
                 dht_getxattr_get_real_filename (frame, this, loc, key, xdata);
                 return 0;
         }
@@ -5442,7 +5443,7 @@ dht_fgetxattr (call_frame_t *frame, xlator_t *this,
         if ((fd->inode->ia_type == IA_IFDIR)
             && key
             && (strncmp (key, GF_XATTR_LOCKINFO_KEY,
-                         strlen (GF_XATTR_LOCKINFO_KEY)) != 0)) {
+                         SLEN (GF_XATTR_LOCKINFO_KEY)) != 0)) {
                 local->call_cnt = conf->subvolume_cnt;
                 cnt             = conf->subvolume_cnt;
                 ret = dht_inode_ctx_mdsvol_get (fd->inode, this, &mds_subvol);
@@ -6165,7 +6166,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
                         goto err;
                 }
 
-                memcpy (value, tmp->data, ((tmp->len < 4095) ? tmp->len : 4095));
+                memcpy (value, tmp->data, min (tmp->len, 4095));
                 local->key = gf_strdup (value);
                 local->call_cnt = conf->subvolume_cnt;
 
@@ -6214,7 +6215,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         tmp = dict_get (xattr, "distribute.directory-spread-count");
         if (tmp) {
                 /* Setxattr value is packed as 'binary', not string */
-                memcpy (value, tmp->data, ((tmp->len < 4095)?tmp->len:4095));
+                memcpy (value, tmp->data, min (tmp->len, 4095));
                 ret = gf_string2uint32 (value, &dir_spread);
                 if (!ret && ((dir_spread <= conf->subvolume_cnt) &&
                              (dir_spread > 0))) {
@@ -11422,7 +11423,6 @@ dht_log_new_layout_for_dir_selfheal (xlator_t *this, loc_t *loc,
         int                                i = 0;
         gf_loglevel_t             log_level = gf_log_get_loglevel();
         int                              ret = 0;
-        int                   max_string_len = 0;
 
         if (log_level < GF_LOG_INFO)
                 return;
@@ -11439,9 +11439,7 @@ dht_log_new_layout_for_dir_selfheal (xlator_t *this, loc_t *loc,
         if (!loc->path)
                 return;
 
-        max_string_len = sizeof (string);
-
-        ret = snprintf (string, max_string_len, "Setting layout of %s with ",
+        ret = snprintf (string, sizeof (string), "Setting layout of %s with ",
                         loc->path);
 
         if (ret < 0)
@@ -11461,7 +11459,7 @@ dht_log_new_layout_for_dir_selfheal (xlator_t *this, loc_t *loc,
 
         for (i = 0; i < layout->cnt; i++) {
 
-                ret  = snprintf (string, max_string_len,
+                ret  = snprintf (string, sizeof (string),
                                  "[Subvol_name: %s, Err: %d , Start: "
                                  "%"PRIu32 " , Stop: %"PRIu32 " , Hash: %"
                                  PRIu32 " ], ",
