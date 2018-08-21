@@ -520,20 +520,22 @@ static void parse_line(char *line, int linenum)
 
 static void read_conf(void)
 {
+	int  len;
 	FILE *fp = fopen(FUSE_CONF, "r");
 	if (fp != NULL) {
 		int linenum = 1;
 		char line[256];
 		int isnewline = 1;
 		while (fgets(line, sizeof(line), fp) != NULL) {
+			len = strlen (line);
 			if (isnewline) {
-				if (strlen(line) && line[strlen(line)-1] == '\n') {
+				if (len && line[len-1] == '\n') {
 					strip_line(line);
 					parse_line(line, linenum);
 				} else {
 					isnewline = 0;
 				}
-			} else if(strlen(line) && line[strlen(line)-1] == '\n') {
+			} else if (len && line[len-1] == '\n') {
 				fprintf(stderr, "%s: reading %s: line %i too long\n", progname, FUSE_CONF, linenum);
 
 				isnewline = 1;

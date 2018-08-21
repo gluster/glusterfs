@@ -66,7 +66,7 @@ sanity_check (char *path, dev_t *devp)
         if (*devp == -1 && ret == 0)
                 *devp = st.st_dev;
 
-        strncpy (pathtmp, path, PATH_MAX);
+        snprintf (pathtmp, PATH_MAX, "%s", path);
         parent = dirname (pathtmp);
 
         if (stat (parent, &parent_st) != 0) {

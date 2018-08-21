@@ -32,7 +32,7 @@ mtab_needs_update (const char *mnt)
         struct stat stbuf;
 
         /* If mtab is within new mount, don't touch it */
-        if (strncmp (mnt, _PATH_MOUNTED, strlen (mnt)) == 0 &&
+        if (strncmp (mnt, _PATH_MOUNTED, sizeof (_PATH_MOUNTED) - 1) == 0 &&
             _PATH_MOUNTED[strlen (mnt)] == '/')
                 return 0;
 

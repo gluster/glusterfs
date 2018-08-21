@@ -94,7 +94,7 @@ gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param,
         }
 
         /* sysctlbyname() includes the trailing '\0' in version_len */
-        version_len_desired = strlen("2.x.y") + 1;
+        version_len_desired = sizeof ("2.x.y");
 
         if (version_len != version_len_desired) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
