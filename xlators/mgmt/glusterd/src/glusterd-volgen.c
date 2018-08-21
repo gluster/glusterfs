@@ -4073,8 +4073,11 @@ build_distribute:
                 goto out;
         }
         if (volinfo->tier_info.hot_brick_count) {
-                strncpy (tmp_volname, volinfo->volname,
-                         GD_VOLUME_NAME_MAX - 1);
+                if (snprintf (tmp_volname, GD_VOLUME_NAME_MAX_TIER, "%s",
+                              volinfo->volname) >= GD_VOLUME_NAME_MAX_TIER) {
+                        ret = -1;
+                        goto out;
+                }
                 if (volinfo->tier_info.cur_tier_hot)
                         strcat (volinfo->volname, "-hot");
                 else
@@ -4490,12 +4493,12 @@ client_graph_builder (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                         goto out;
         } else {
                 gfproxy_clnt = _gf_true;
-                namelen = strlen (volinfo->volname) + strlen ("gfproxyd-") + 1;
+                namelen = strlen (volinfo->volname) + SLEN ("gfproxyd-") + 1;
                 subvol = alloca (namelen);
                 snprintf (subvol, namelen, "gfproxyd-%s", volinfo->volname);
 
                 namelen = strlen (volinfo->volname) +
-                          strlen ("-gfproxy-client") + 1;
+                          SLEN ("-gfproxy-client") + 1;
                 xl_id = alloca (namelen);
                 snprintf (xl_id, namelen, "%s-gfproxy-client",
                           volinfo->volname);
@@ -6448,7 +6451,7 @@ build_bitd_volume_graph (volgen_graph_t *graph,
                 goto out;
 
         get_transport_type (volinfo, set_dict, transt, _gf_false);
-        if (!strncmp (transt, "tcp,rdma", strlen ("tcp,rdma")))
+        if (!strncmp (transt, "tcp,rdma", SLEN ("tcp,rdma")))
                 strncpy (transt, "tcp", sizeof(transt));
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
@@ -6610,7 +6613,7 @@ build_scrub_volume_graph (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                 goto out;
 
         get_transport_type (volinfo, set_dict, transt, _gf_false);
-        if (!strncmp (transt, "tcp,rdma", strlen ("tcp,rdma")))
+        if (!strncmp (transt, "tcp,rdma", SLEN ("tcp,rdma")))
                 strncpy (transt, "tcp", sizeof(transt));
 
         cds_list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {

@@ -239,7 +239,7 @@ __glusterd_handle_gsync_set (rpcsvc_request_t *req)
         glusterd_op_t           cli_op = GD_OP_GSYNC_SET;
         char                    *master = NULL;
         char                    *slave = NULL;
-        char                    operation[256] = {0,};
+        char                    operation[64] = {0,};
         int                     type = 0;
         glusterd_conf_t         *priv   = NULL;
         char                    *host_uuid = NULL;
@@ -317,32 +317,32 @@ __glusterd_handle_gsync_set (rpcsvc_request_t *req)
 
         switch (type) {
         case GF_GSYNC_OPTION_TYPE_CREATE:
-                strncpy (operation, "create", sizeof (operation));
+                snprintf (operation, sizeof (operation), "create");
                 cli_op = GD_OP_GSYNC_CREATE;
                 break;
 
         case GF_GSYNC_OPTION_TYPE_START:
-                strncpy (operation, "start", sizeof (operation));
+                snprintf (operation, sizeof (operation), "start");
                 break;
 
         case GF_GSYNC_OPTION_TYPE_STOP:
-                strncpy (operation, "stop", sizeof (operation));
+                snprintf (operation, sizeof (operation), "stop");
                 break;
 
         case GF_GSYNC_OPTION_TYPE_PAUSE:
-                strncpy (operation, "pause", sizeof (operation));
+                snprintf (operation, sizeof (operation), "pause");
                 break;
 
         case GF_GSYNC_OPTION_TYPE_RESUME:
-                strncpy (operation, "resume", sizeof (operation));
+                snprintf (operation, sizeof (operation), "resume");
                 break;
 
         case GF_GSYNC_OPTION_TYPE_CONFIG:
-                strncpy (operation, "config", sizeof (operation));
+                snprintf (operation, sizeof (operation), "config");
                 break;
 
         case GF_GSYNC_OPTION_TYPE_STATUS:
-                strncpy (operation, "status", sizeof (operation));
+                snprintf (operation, sizeof (operation), "status");
                 break;
         }
 
@@ -447,8 +447,14 @@ _glusterd_urltransform_add_iter (dict_t *dict, char *key, data_t *value, void *d
 
         gf_msg_debug (this->name, 0, "value->data %s", value->data);
 
-        strncpy (slv_url, value->data, sizeof(slv_url));
-        slv_url[sizeof(slv_url) - 1] = 0;
+        if (snprintf (slv_url, sizeof(slv_url), "%s", value->data) >=
+            sizeof (slv_url)) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SLAVE_VOL_PARSE_FAIL,
+                        "Error in copying slave: %s!", value->data);
+                goto out;
+        }
+
         ret = parse_slave_url (slv_url, &slave);
         if (ret == -1) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -1297,8 +1303,14 @@ _get_status_mst_slv (dict_t *dict, char *key, data_t *value, void *data)
                 priv = this->private;
         GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
-        strncpy (slv_url, value->data, sizeof(slv_url));
-        slv_url[sizeof(slv_url) - 1] = 0;
+        if (snprintf (slv_url, sizeof(slv_url), "%s", value->data) >=
+            sizeof (slv_url)) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SLAVE_VOL_PARSE_FAIL,
+                        "Error in copying slave: %s!", value->data);
+                goto out;
+        }
+
         ret = parse_slave_url (slv_url, &slave);
         if (ret == -1) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
@@ -1551,8 +1563,13 @@ update_slave_voluuid (dict_t *dict, char *key, data_t *value, void *data)
          * With volume uuid, number of ':' is 5 and is 4 without.
          */
         if (cnt == 4) {
-                strncpy (slv_url, value->data, sizeof(slv_url));
-                slv_url[sizeof(slv_url) - 1] = 0;
+                if (snprintf (slv_url, sizeof(slv_url), "%s", value->data) >=
+                    sizeof (slv_url)) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                            GD_MSG_SLAVE_VOL_PARSE_FAIL,
+                            "Error in copying slave: %s!", value->data);
+                        goto out;
+                }
 
                 ret = parse_slave_url (slv_url, &slave);
                 if (ret == -1) {
@@ -1775,14 +1792,14 @@ glusterd_store_slave_in_info (glusterd_volinfo_t *volinfo, char *slave,
                 goto out;
 
         /* Given the slave volume uuid, check and get any existing slave */
-        strncpy (slave1.slave_voluuid, slave_voluuid, GF_UUID_BUF_SIZE);
+        memcpy (slave1.slave_voluuid, slave_voluuid, GF_UUID_BUF_SIZE);
         ret = dict_foreach (volinfo->gsync_slaves,
                             _get_slave_idx_slave_voluuid, &slave1);
 
         if (ret == 0) { /* New slave */
                 dict_foreach (volinfo->gsync_slaves, _get_max_gsync_slave_num,
                               &maxslv);
-                snprintf (key, 512, "slave%d", maxslv + 1);
+                snprintf (key, sizeof (key), "slave%d", maxslv + 1);
 
                 ret = dict_set_dynstr (volinfo->gsync_slaves, key, value);
                 if (ret) {
@@ -1790,7 +1807,7 @@ glusterd_store_slave_in_info (glusterd_volinfo_t *volinfo, char *slave,
                         goto out;
                 }
         } else if (ret == -1) { /* Existing slave */
-                snprintf (key, 512, "slave%d", slave1.old_slvidx);
+                snprintf (key, sizeof (key), "slave%d", slave1.old_slvidx);
 
                 gf_msg_debug (this->name, 0, "Replacing key:%s with new value"
                               ":%s", key, value);
@@ -1855,8 +1872,14 @@ glusterd_op_verify_gsync_start_options (glusterd_volinfo_t *volinfo,
 
         /* check session directory as statefile may not present
          * during upgrade */
-        strncpy (statefiledir, statefile, sizeof(statefiledir));
-        statefiledir[sizeof(statefiledir) - 1] = 0;
+        if (snprintf (statefiledir, sizeof (statefiledir), "%s", statefile) >=
+            sizeof (statefiledir)) {
+                snprintf (msg, sizeof (msg), "statefiledir truncated");
+                gf_msg (this->name, GF_LOG_ERROR, errno, GD_MSG_FILE_OP_FAILED,
+                        "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                goto out;
+        }
         statedir = dirname (statefiledir);
 
         ret = sys_lstat (statedir, &stbuf);
@@ -2000,7 +2023,7 @@ is_geo_rep_active (glusterd_volinfo_t *volinfo, char *slave,
                         GD_MSG_STAT_FILE_READ_FAILED,
                         "Unable to read the status file for %s(master), "
                         "%s(slave)", master, slave);
-                strncpy (monitor_status, "defunct", sizeof (monitor_status));
+                snprintf (monitor_status, sizeof (monitor_status), "defunct");
         }
 
         if ((!strcmp(monitor_status, "Stopped")) ||
@@ -3316,8 +3339,12 @@ glusterd_op_stage_gsync_create (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        strncpy (statefiledir, statefile, sizeof(statefiledir));
-        statefiledir[sizeof(statefiledir) - 1] = 0;
+        if (snprintf (statefiledir, sizeof (statefiledir), "%s", statefile) >=
+            sizeof (statefiledir)) {
+                snprintf (errmsg, sizeof (errmsg),
+                          "Failed copying statefiledir");
+                goto out;
+        }
         statedir = dirname (statefiledir);
 
         ret = sys_lstat (statedir, &stbuf);
@@ -3650,8 +3677,13 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
 
                 /* check session directory as statefile may not present
                  * during upgrade */
-                strncpy (statefiledir, statefile, sizeof(statefiledir));
-                statefiledir[sizeof(statefiledir) - 1] = 0;
+                if (snprintf (statefiledir , sizeof (statefiledir), "%s",
+                              statefile) >= sizeof (statefiledir)) {
+                        snprintf (errmsg, sizeof (errmsg),
+                                  "Failed copying statefiledir");
+                        ret = -1;
+                        goto out;
+                }
                 statedir = dirname (statefiledir);
 
                 ret = sys_lstat (statedir, &stbuf);
@@ -4625,7 +4657,7 @@ fetch_data:
                         "Unable to read the status file for %s(master), "
                         "%s(slave) statefile: %s", master, slave,
                          statefile);
-                strncpy (monitor_status, "defunct", sizeof (monitor_status));
+                snprintf (monitor_status, sizeof (monitor_status), "defunct");
         }
 
         ret = dict_get_int32 (dict, "gsync-count", &gsync_count);

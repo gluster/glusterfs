@@ -1148,7 +1148,7 @@ glusterd_is_valid_vg (glusterd_brickinfo_t *brick, int check_tag, char *msg)
 
         dm_list_iterate_items (strl, taglist) {
                 if (!strncmp(strl->str, GF_XATTR_VOL_ID_KEY,
-                             strlen (GF_XATTR_VOL_ID_KEY))) {
+                             SLEN (GF_XATTR_VOL_ID_KEY))) {
                             sprintf (msg, "VG %s is already part of"
                                     " a brick", vg_name);
                             retval = -1;
@@ -2226,7 +2226,12 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        strncpy (volinfo->volname, volname, sizeof(volinfo->volname) - 1);
+        if (snprintf (volinfo->volname, sizeof (volinfo->volname),
+                      "%s", volname) >= sizeof (volinfo->volname)) {
+                ret = -1;
+                goto out;
+        }
+
         GF_ASSERT (volinfo->volname);
 
         ret = dict_get_int32 (dict, "type", &volinfo->type);
@@ -2477,8 +2482,9 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                                         "%s not present", key);
                                 goto out;
                         }
-                        strncpy (brickinfo->mount_dir, brick_mount_dir,
-                                 sizeof(brickinfo->mount_dir));
+                        snprintf (brickinfo->mount_dir,
+                                  sizeof (brickinfo->mount_dir), "%s",
+                                  brick_mount_dir);
                 }
 
                 if (!gf_uuid_compare (brickinfo->uuid, MY_UUID)) {
@@ -2696,8 +2702,13 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
                                                 "%s not present", key);
                                         goto out;
                                 }
-                                strncpy (brickinfo->mount_dir, brick_mount_dir,
-                                         sizeof(brickinfo->mount_dir));
+                                if (snprintf (brickinfo->mount_dir,
+                                              sizeof (brickinfo->mount_dir),
+                                              "%s", brick_mount_dir)
+                                    >= sizeof (brickinfo->mount_dir)) {
+                                        ret = -1;
+                                        goto out;
+                                }
                         }
                 }
         }
