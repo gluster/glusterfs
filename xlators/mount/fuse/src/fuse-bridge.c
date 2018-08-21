@@ -1829,6 +1829,21 @@ fuse_err_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 }
 
 static int
+fuse_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, dict_t *xdata)
+{
+    fuse_private_t *priv = this->private;
+
+    if (priv->flush_handle_interrupt) {
+        if (fuse_interrupt_finish_fop(frame, this, _gf_false, NULL)) {
+            return 0;
+        }
+    }
+
+    return fuse_err_cbk(frame, cookie, this, op_ret, op_errno, xdata);
+}
+
+static int
 fuse_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                struct iatt *postbuf, dict_t *xdata)
@@ -3044,7 +3059,19 @@ fuse_lseek(xlator_t *this, fuse_in_header_t *finh, void *msg,
 void
 fuse_flush_resume(fuse_state_t *state)
 {
-    FUSE_FOP(state, fuse_err_cbk, GF_FOP_FLUSH, flush, state->fd, state->xdata);
+    FUSE_FOP(state, fuse_flush_cbk, GF_FOP_FLUSH, flush, state->fd,
+             state->xdata);
+}
+
+static void
+fuse_flush_interrupt_handler(xlator_t *this, fuse_interrupt_record_t *fir)
+{
+    gf_log("glusterfs-fuse", GF_LOG_DEBUG,
+           "FLUSH unique %" PRIu64 ": interrupt handler triggered",
+           fir->fuse_in_header.unique);
+
+    fuse_interrupt_finish_interrupt(this, fir, INTERRUPT_HANDLED, _gf_false,
+                                    NULL);
 }
 
 static void
@@ -3052,6 +3079,7 @@ fuse_flush(xlator_t *this, fuse_in_header_t *finh, void *msg,
            struct iobuf *iobuf)
 {
     struct fuse_flush_in *ffi = msg;
+    fuse_private_t *priv = NULL;
 
     fuse_state_t *state = NULL;
     fd_t *fd = NULL;
@@ -3059,6 +3087,26 @@ fuse_flush(xlator_t *this, fuse_in_header_t *finh, void *msg,
     GET_STATE(this, finh, state);
     fd = FH_TO_FD(ffi->fh);
     state->fd = fd;
+
+    priv = this->private;
+    if (priv->flush_handle_interrupt) {
+        fuse_interrupt_record_t *fir = NULL;
+
+        fir = fuse_interrupt_record_new(finh, fuse_flush_interrupt_handler);
+        if (!fir) {
+            send_fuse_err(this, finh, ENOMEM);
+
+            gf_log("glusterfs-fuse", GF_LOG_ERROR,
+                   "FLUSH unique %" PRIu64
+                   ":"
+                   " interrupt record allocation failed",
+                   finh->unique);
+            free_fuse_state(state);
+
+            return;
+        }
+        fuse_interrupt_record_insert(this, fir);
+    }
 
     fuse_resolve_fd_init(state, &state->resolve, fd);
 
@@ -6301,6 +6349,9 @@ init(xlator_t *this_xl)
     GF_OPTION_INIT("attr-times-granularity", priv->attr_times_granularity,
                    int32, cleanup_exit);
 
+    GF_OPTION_INIT("flush-handle-interrupt", priv->flush_handle_interrupt, bool,
+                   cleanup_exit);
+
     /* user has set only background-qlen, not congestion-threshold,
        use the fuse kernel driver formula to set congestion. ie, 75% */
     if (dict_get(this_xl->options, "background-qlen") &&
@@ -6607,6 +6658,13 @@ struct volume_options options[] = {
         .min = 0,
         .max = 1000000000,
         .description = "Supported granularity of file attribute times.",
+    },
+    {
+        .key = {"flush-handle-interrupt"},
+        .type = GF_OPTION_TYPE_BOOL,
+        .default_value = "false",
+        .description =
+            "Handle iterrupts in FLUSH handler (for testing purposes).",
     },
     {.key = {NULL}},
 };

@@ -562,6 +562,8 @@ struct _cmd_args {
     /* FUSE writeback cache support */
     int kernel_writeback_cache;
     uint32_t attr_times_granularity;
+
+    int fuse_flush_handle_interrupt;
 };
 typedef struct _cmd_args cmd_args_t;
 
