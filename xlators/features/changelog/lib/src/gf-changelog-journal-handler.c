@@ -456,7 +456,7 @@ gf_changelog_decode (xlator_t *this, gf_changelog_journal_t *jnl,
         size_t elen       = 0;
         char buffer[1024] = {0,};
 
-        CHANGELOG_GET_HEADER_INFO (from_fd, buffer, 1024, encoding,
+        CHANGELOG_GET_HEADER_INFO (from_fd, buffer, sizeof (buffer), encoding,
                                    major_version, minor_version, elen);
         if (encoding == -1) /* unknown encoding */
                 goto out;
@@ -521,8 +521,9 @@ gf_changelog_publish (xlator_t *this,
         char to_path[PATH_MAX] = {0,};
         struct stat stbuf      = {0,};
 
-        (void) snprintf (to_path, PATH_MAX, "%s%s",
-                         jnl->jnl_current_dir, basename (from_path));
+        if (snprintf (to_path, PATH_MAX, "%s%s", jnl->jnl_current_dir,
+                      basename (from_path)) >= PATH_MAX)
+	        return -1;
 
         /* handle zerob file that won't exist in current */
         ret = sys_stat (to_path, &stbuf);
@@ -532,8 +533,9 @@ gf_changelog_publish (xlator_t *this,
                 goto out;
         }
 
-        (void) snprintf (dest, PATH_MAX, "%s%s",
-                         jnl->jnl_processing_dir, basename (from_path));
+        if (snprintf (dest, PATH_MAX, "%s%s", jnl->jnl_processing_dir,
+                      basename (from_path)) >= PATH_MAX)
+		return -1;
 
         ret = sys_rename (to_path, dest);
         if (ret) {
@@ -561,6 +563,13 @@ gf_changelog_consume (xlator_t *this,
         char dest[PATH_MAX]    = {0,};
         char to_path[PATH_MAX] = {0,};
 
+        if (snprintf (to_path, PATH_MAX, "%s%s", jnl->jnl_current_dir,
+                     basename (from_path)) >= PATH_MAX)
+                goto out;
+        if (snprintf (dest, PATH_MAX, "%s%s", jnl->jnl_processing_dir,
+                      basename (from_path)) >= PATH_MAX)
+                goto out;
+
         ret = sys_stat (from_path, &stbuf);
         if (ret || !S_ISREG(stbuf.st_mode)) {
                 ret = -1;
@@ -581,11 +590,6 @@ gf_changelog_consume (xlator_t *this,
                          NULL);
                 goto out;
         }
-
-        (void) snprintf (to_path, PATH_MAX, "%s%s",
-                         jnl->jnl_current_dir, basename (from_path));
-        (void) snprintf (dest, PATH_MAX, "%s%s",
-                         jnl->jnl_processing_dir, basename (from_path));
 
         fd2 = open (to_path, O_CREAT | O_TRUNC | O_RDWR,
                     S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
@@ -948,8 +952,9 @@ gf_changelog_init_history (xlator_t *this,
                 goto dealloc_hist;
         }
 
-        (void) strncpy (jnl->hist_jnl->jnl_brickpath, brick_path, PATH_MAX-1);
-        jnl->hist_jnl->jnl_brickpath[PATH_MAX-1] = 0;
+        if (snprintf (jnl->hist_jnl->jnl_brickpath, PATH_MAX, "%s",
+                      brick_path) >= PATH_MAX)
+                goto dealloc_hist;
 
         for (i = 0; i < 256; i++) {
                 jnl->hist_jnl->rfc3986_space_newline[i] =
@@ -999,6 +1004,10 @@ gf_changelog_journal_init (void *xl, struct gf_brick_spec *brick)
         if (!jnl)
                 goto error_return;
 
+        if (snprintf (jnl->jnl_brickpath, PATH_MAX, "%s",
+		      brick->brick_path) >= PATH_MAX)
+                goto dealloc_private;
+
         if (sys_stat (scratch_dir, &buf) && errno == ENOENT) {
                 ret = mkdir_p (scratch_dir, 0600, _gf_true);
                 if (ret)
@@ -1016,9 +1025,6 @@ gf_changelog_journal_init (void *xl, struct gf_brick_spec *brick)
                         "could not create entries in scratch dir");
                 goto dealloc_private;
         }
-
-        (void) strncpy (jnl->jnl_brickpath, brick->brick_path, PATH_MAX-1);
-        jnl->jnl_brickpath[PATH_MAX-1] = 0;
 
         /* RFC 3986 {de,en}coding */
         for (i = 0; i < 256; i++) {

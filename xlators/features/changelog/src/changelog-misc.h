@@ -86,13 +86,13 @@
         } while (0)
 
 #define CHANGELOG_FILL_HTIME_DIR(changelog_dir, path) do {              \
-                strncpy (path, changelog_dir, sizeof (path) - 1);       \
-                strcat (path, "/htime");                                \
+                snprintf (path, sizeof (path), "%s/htime",              \
+                          changelog_dir);                               \
         } while(0)
 
 #define CHANGELOG_FILL_CSNAP_DIR(changelog_dir, path) do {              \
-                strncpy (path, changelog_dir, sizeof (path) - 1);       \
-                strcat (path, "/csnap");                                \
+                snprintf (path, sizeof (path), "%s/csnap",              \
+                          changelog_dir);                               \
         } while(0)
 /**
  * everything after 'CHANGELOG_TYPE_METADATA_XATTR' are internal types

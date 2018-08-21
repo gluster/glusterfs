@@ -374,8 +374,9 @@ gf_setup_brick_connection (xlator_t *this,
         entry->connstate = GF_CHANGELOG_CONN_STATE_PENDING;
 
         entry->notify = brick->filter;
-        (void) strncpy (entry->brick, brick->brick_path, PATH_MAX-1);
-        entry->brick[PATH_MAX-1] = 0;
+        if (snprintf (entry->brick, PATH_MAX, "%s", brick->brick_path)
+            >= PATH_MAX)
+                goto free_entry;
 
         entry->this = this;
         entry->invokerxl = xl;
