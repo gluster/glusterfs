@@ -66,7 +66,7 @@ ec_ignorable_key_match (dict_t *dict, char *key, data_t *val, void *mdata)
         if (!key)
                 goto out;
 
-        if (strncmp (key, EC_XATTR_PREFIX, strlen (EC_XATTR_PREFIX)) == 0)
+        if (strncmp (key, EC_XATTR_PREFIX, SLEN (EC_XATTR_PREFIX)) == 0)
                         return _gf_true;
 
         for (i = 0; ec_ignore_xattrs[i]; i++) {

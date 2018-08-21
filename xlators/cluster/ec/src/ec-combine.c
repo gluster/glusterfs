@@ -251,9 +251,9 @@ ec_value_ignore (char *key)
             (strcmp(key, GLUSTERFS_INODELK_COUNT) == 0) ||
             (strcmp(key, GLUSTERFS_ENTRYLK_COUNT) == 0) ||
             (strncmp(key, GF_XATTR_CLRLK_CMD,
-                     strlen (GF_XATTR_CLRLK_CMD)) == 0) ||
+                     SLEN (GF_XATTR_CLRLK_CMD)) == 0) ||
             (strcmp(key, DHT_IATT_IN_XDATA_KEY) == 0) ||
-            (strncmp(key, EC_QUOTA_PREFIX, strlen(EC_QUOTA_PREFIX)) == 0) ||
+            (strncmp(key, EC_QUOTA_PREFIX, SLEN (EC_QUOTA_PREFIX)) == 0) ||
             (fnmatch(MARKER_XATTR_PREFIX ".*." XTIME, key, 0) == 0) ||
             (fnmatch(GF_XATTR_MARKER_KEY ".*", key, 0) == 0) ||
             (XATTR_IS_NODE_UUID(key))) {
@@ -742,14 +742,14 @@ int32_t ec_dict_data_combine(dict_t * dict, char * key, data_t * value,
                                    data->cbk->fop->xl->name);
     }
 
-    if (strncmp(key, GF_XATTR_CLRLK_CMD, strlen(GF_XATTR_CLRLK_CMD)) == 0)
+    if (strncmp(key, GF_XATTR_CLRLK_CMD, SLEN (GF_XATTR_CLRLK_CMD)) == 0)
     {
         return ec_dict_data_concat("{\n}", data->cbk, data->which, key, NULL,
                                    NULL, _gf_false);
     }
 
     if (strncmp(key, GF_XATTR_LOCKINFO_KEY,
-                strlen(GF_XATTR_LOCKINFO_KEY)) == 0)
+                SLEN (GF_XATTR_LOCKINFO_KEY)) == 0)
     {
         return ec_dict_data_merge(data->cbk, data->which, key);
     }
@@ -771,7 +771,7 @@ int32_t ec_dict_data_combine(dict_t * dict, char * key, data_t * value,
         return ec_dict_data_quota(data->cbk, data->which, key);
     }
     /* Ignore all other quota attributes */
-    if (strncmp(key, EC_QUOTA_PREFIX, strlen(EC_QUOTA_PREFIX)) == 0) {
+    if (strncmp(key, EC_QUOTA_PREFIX, SLEN (EC_QUOTA_PREFIX)) == 0) {
         return 0;
     }
 
