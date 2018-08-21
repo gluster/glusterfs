@@ -106,6 +106,7 @@ call_bail (void *data)
         struct timespec        timeout = {0,};
         char                   peerid[UNIX_PATH_MAX] = {0};
         gf_boolean_t           need_unref = _gf_false;
+        int                    len;
 
         GF_VALIDATE_OR_GOTO ("client", data, out);
 
@@ -169,8 +170,8 @@ call_bail (void *data)
         list_for_each_entry_safe (trav, tmp, &list, list) {
                 gf_time_fmt (frame_sent, sizeof frame_sent,
                              trav->saved_at.tv_sec, gf_timefmt_FT);
-                snprintf (frame_sent + strlen (frame_sent),
-                          256 - strlen (frame_sent),
+                len = strlen (frame_sent);
+                snprintf (frame_sent + len, sizeof (frame_sent) - len,
                           ".%"GF_PRI_SUSECONDS, trav->saved_at.tv_usec);
 
 		gf_log (conn->name, GF_LOG_ERROR,
@@ -324,14 +325,15 @@ saved_frames_unwind (struct saved_frames *saved_frames)
 	struct saved_frame   *trav = NULL;
 	struct saved_frame   *tmp = NULL;
         char                  timestr[1024] = {0,};
+        int                   len;
 
         list_splice_init (&saved_frames->lk_sf.list, &saved_frames->sf.list);
 
 	list_for_each_entry_safe (trav, tmp, &saved_frames->sf.list, list) {
                 gf_time_fmt (timestr, sizeof timestr,
                              trav->saved_at.tv_sec, gf_timefmt_FT);
-                snprintf (timestr + strlen (timestr),
-                          sizeof(timestr) - strlen (timestr),
+                len = strlen (timestr);
+                snprintf (timestr + len, sizeof(timestr) - len,
                           ".%"GF_PRI_SUSECONDS, trav->saved_at.tv_usec);
 
                 if (!trav->rpcreq || !trav->rpcreq->prog)

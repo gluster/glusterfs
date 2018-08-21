@@ -297,7 +297,11 @@ mq_dict_set_contribution (xlator_t *this, dict_t *dict, loc_t *loc,
                 goto out;
 
         if (contri_key)
-                strncpy (contri_key, key, QUOTA_KEY_MAX);
+                if (snprintf(contri_key, QUOTA_KEY_MAX, "%s", key)
+                    >= QUOTA_KEY_MAX) {
+                        ret = -1;
+                        goto out;
+                }
 
 out:
         if (ret < 0)

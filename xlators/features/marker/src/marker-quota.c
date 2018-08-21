@@ -2169,7 +2169,11 @@ mq_req_xattr (xlator_t *this, loc_t *loc, dict_t *dict,
         if (ret < 0)
                 goto out;
         if (size_key)
-                strncpy (size_key, key, QUOTA_KEY_MAX);
+                if (snprintf (size_key, QUOTA_KEY_MAX, "%s", key)
+                    >= QUOTA_KEY_MAX) {
+                        ret = -1;
+                        goto out;
+                }
 
         ret = dict_set_uint64 (dict, key, 0);
         if (ret < 0)
