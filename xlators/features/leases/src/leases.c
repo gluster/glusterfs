@@ -30,7 +30,7 @@ leases_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
              fd_t *fd, dict_t *xdata)
 {
         uint32_t         fop_flags       = 0;
-        int32_t          op_errno        = 0;
+        int32_t          op_errno        = EINVAL;
         int              ret             = 0;
         lease_fd_ctx_t  *fd_ctx          = NULL;
         char            *lease_id        = NULL;
@@ -87,7 +87,6 @@ err:
                 GF_FREE (fd_ctx);
         }
 
-        op_errno = (op_errno == -1) ? errno : op_errno;
         STACK_UNWIND_STRICT (open, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
