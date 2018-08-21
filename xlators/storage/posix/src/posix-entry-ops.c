@@ -351,6 +351,7 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         gf_boolean_t          linked          = _gf_false;
         gf_loglevel_t         level           = GF_LOG_NONE;
         mode_t                mode_bit        = 0;
+        posix_inode_ctx_t     *ctx                = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -466,10 +467,20 @@ post_op:
         if (priv->update_pgfid_nlinks) {
                 MAKE_PGFID_XATTR_KEY (pgfid_xattr_key, PGFID_XATTR_KEY_PREFIX,
                                       loc->pargfid);
-                nlink_samepgfid = 1;
+                op_ret = posix_inode_ctx_get_all (loc->inode, this, &ctx);
+                if (op_ret < 0) {
+                        op_errno = ENOMEM;
+                        goto out;
+                }
 
-                SET_PGFID_XATTR (real_path, pgfid_xattr_key, nlink_samepgfid,
-                                 XATTR_CREATE, op_ret, this, ignore);
+                pthread_mutex_lock (&ctx->pgfid_lock);
+                {
+                        LINK_MODIFY_PGFID_XATTR (real_path, pgfid_xattr_key,
+                                                 nlink_samepgfid, 0, op_ret,
+                                                 this, unlock);
+                }
+unlock:
+                pthread_mutex_unlock (&ctx->pgfid_lock);
         }
 
         if (priv->gfid2path) {
@@ -477,7 +488,6 @@ post_op:
                                            loc->name);
         }
 
-ignore:
         op_ret = posix_entry_create_xattr_set (this, real_path, xdata);
         if (op_ret) {
                 if (errno != EEXIST)
