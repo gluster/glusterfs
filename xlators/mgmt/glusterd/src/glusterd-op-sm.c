@@ -2904,7 +2904,6 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
         char                                    *key_fixed = NULL;
         char                                    *value = NULL;
         char                                     str[50] = {0, };
-        char                                    *op_errstr = NULL;
         gf_boolean_t                             global_opt    = _gf_false;
         gf_boolean_t                             global_opts_set = _gf_false;
         glusterd_volinfo_t                      *voliter = NULL;
@@ -2929,15 +2928,7 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
         }
 
         if (dict_count == 0) {
-                ret = glusterd_volset_help (NULL, &op_errstr);
-                if (ret) {
-                        gf_msg (this->name, GF_LOG_ERROR, 0,
-                                        GD_MSG_VOL_SET_FAIL, "%s",
-                                       (op_errstr)? op_errstr:
-                                       "Volume set help internal error");
-                }
-
-                GF_FREE(op_errstr);
+                ret = glusterd_volset_help (NULL, errstr);
                 goto out;
          }
 
@@ -2950,7 +2941,7 @@ glusterd_op_set_volume (dict_t *dict, char **errstr)
 
         if (strcasecmp (volname, "all") == 0) {
                 ret = glusterd_op_set_all_volume_options (this, dict,
-                                                          &op_errstr);
+                                                          errstr);
                 goto out;
         }
 
@@ -4421,6 +4412,7 @@ glusterd_dict_set_volid (dict_t *dict, char *volname, char **op_errstr)
         if (ret) {
                 snprintf (msg, sizeof (msg), "Failed to set volume id of volume"
                           " %s", volname);
+                GF_FREE (volid);
                 goto out;
         }
 out:
@@ -4472,7 +4464,6 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
         glusterd_op_t           op = GD_OP_NONE;
         char                    *volname = NULL;
         uint32_t                status_cmd = GF_CLI_STATUS_NONE;
-        char                    *errstr = NULL;
         xlator_t                *this = NULL;
         gf_boolean_t            do_common = _gf_false;
 
@@ -4531,7 +4522,7 @@ glusterd_op_build_payload (dict_t **req, char **op_errstr, dict_t *op_ctx)
                 case GD_OP_GSYNC_SET:
                         {
                                 ret = glusterd_op_gsync_args_get (dict,
-                                                                  &errstr,
+                                                                  op_errstr,
                                                                   &volname,
                                                                   NULL, NULL);
                                 if (ret == 0) {
@@ -7781,6 +7772,7 @@ glusterd_op_ac_send_brick_op (glusterd_op_sm_event_t *event, void *ctx)
                                 gf_asprintf (&op_errstr,
                                              OPERRSTR_BUILD_PAYLOAD);
                         opinfo.op_errstr = op_errstr;
+                        GF_FREE (req_ctx);
                         goto out;
                 }
         }
