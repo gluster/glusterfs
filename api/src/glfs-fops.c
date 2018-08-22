@@ -5095,7 +5095,7 @@ glfs_recall_lease_fd (struct glfs *fs,
         inode_t                       *inode        = NULL;
         struct glfs_fd                *glfd         = NULL;
         struct glfs_fd                *tmp          = NULL;
-        struct list_head               glfd_list;
+        struct list_head               glfd_list    = { 0, };
         fd_t                          *fd           = NULL;
         uint64_t                       value        = 0;
         struct glfs_lease              lease        = {0, };
@@ -5105,6 +5105,8 @@ glfs_recall_lease_fd (struct glfs *fs,
 
         recall_lease = up_data->data;
         GF_VALIDATE_OR_GOTO ("gfapi", recall_lease, out);
+
+        INIT_LIST_HEAD(&glfd_list);
 
         subvol = glfs_active_subvol (fs);
         if (!subvol) {

@@ -1979,7 +1979,7 @@ volfile:
                 list_for_each_entry (volfile_obj,  &ctx->volfile_list,
                                      volfile_list) {
                         if (!strcmp (volfile_id, volfile_obj->vol_id)) {
-                               if (!strncmp (sha256_hash,
+                                if (!memcmp (sha256_hash,
                                       volfile_obj->volfile_checksum,
                                       sizeof (volfile_obj->volfile_checksum))) {
                                         gf_log (frame->this->name, GF_LOG_INFO,
@@ -2047,8 +2047,8 @@ volfile:
                                         "checksum.");
                                 goto out;
                         }
-                        strncpy (volfile_tmp->volfile_checksum, sha256_hash,
-                                 sizeof (volfile_tmp->volfile_checksum));
+                        memcpy (volfile_tmp->volfile_checksum, sha256_hash,
+                                sizeof (volfile_tmp->volfile_checksum));
                         goto out;
                 }
 
@@ -2080,8 +2080,8 @@ volfile:
                                   sizeof (volfile_tmp->vol_id), "%s",
                                   volfile_id);
                 }
-                strncpy (volfile_tmp->volfile_checksum, sha256_hash,
-                         sizeof (volfile_tmp->volfile_checksum));
+                memcpy (volfile_tmp->volfile_checksum, sha256_hash,
+                        sizeof (volfile_tmp->volfile_checksum));
         }
         UNLOCK (&ctx->volfile_lock);
 
@@ -2098,11 +2098,9 @@ out:
         if (locked)
                 UNLOCK (&ctx->volfile_lock);
 
-        if (frame) {
-                GF_FREE (frame->local);
-                frame->local = NULL;
-                STACK_DESTROY (frame->root);
-        }
+        GF_FREE (frame->local);
+        frame->local = NULL;
+        STACK_DESTROY (frame->root);
 
         free (rsp.spec);
 
