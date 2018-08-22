@@ -49,6 +49,7 @@ ec_code_x64_epilog(ec_code_builder_t *builder)
 
     if (builder->regs > 11) {
         ec_code_error(builder, EINVAL);
+        return;
     }
     for (i = builder->regs; i > 7; i--) {
         ec_code_intel_op_pop_r(builder, ec_code_x64_regmap[i - 1]);
