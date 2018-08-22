@@ -1264,7 +1264,7 @@ glusterfs_graph_attach (glusterfs_graph_t *orig_graph, char *path,
         INIT_LIST_HEAD (&volfile_obj->volfile_list);
         snprintf (volfile_obj->vol_id, sizeof (volfile_obj->vol_id),
                   "%s", xl->volfile_id);
-        strncpy (volfile_obj->volfile_checksum, sha256_hash,
+        memcpy (volfile_obj->volfile_checksum, sha256_hash,
                  sizeof (volfile_obj->volfile_checksum));
         list_add (&volfile_obj->volfile_list, &this->ctx->volfile_list);
 

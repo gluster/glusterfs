@@ -1245,18 +1245,17 @@ int
 glusterd_op_tier_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict,
                          glusterd_op_t op)
 {
-        int                             ret       = -1;
+        int                              ret       = -1;
         xlator_t                        *this     = NULL;
-        struct syncargs                 args = {0, };
-        glusterd_req_ctx_t              *data   = NULL;
+        struct syncargs                  args = {0, };
         gd1_mgmt_brick_op_req           *req = NULL;
         glusterd_conf_t                 *priv = NULL;
-        int                             pending_bricks = 0;
+        int                              pending_bricks = 0;
         glusterd_pending_node_t         *pending_node;
         glusterd_req_ctx_t              *req_ctx = NULL;
         struct rpc_clnt                 *rpc = NULL;
         uuid_t                          *txn_id = NULL;
-        extern                          glusterd_op_info_t opinfo;
+        extern                           glusterd_op_info_t opinfo;
 
         this = THIS;
         GF_VALIDATE_OR_GOTO (THIS->name, this, out);
@@ -1267,10 +1266,15 @@ glusterd_op_tier_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict,
         GF_VALIDATE_OR_GOTO (this->name, priv, out);
         args.op_ret = -1;
         args.op_errno = ENOTCONN;
-        data = GF_CALLOC (1, sizeof (*data),
-                        gf_gld_mt_op_allack_ctx_t);
 
-        gf_uuid_copy (data->uuid, MY_UUID);
+        req_ctx = GF_MALLOC (sizeof (*req_ctx), gf_gld_mt_op_allack_ctx_t);
+        if (!req_ctx) {
+                gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
+                        GD_MSG_NO_MEMORY, "Allocation failed");
+                goto out;
+        }
+
+        gf_uuid_copy (req_ctx->uuid, MY_UUID);
 
         /* we are printing the detach status for issue of detach start
          * by then we need the op to be GD_OP_DETACH_TIER_STATUS for it to
@@ -1278,15 +1282,12 @@ glusterd_op_tier_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict,
          */
 
         if (op == GD_OP_REMOVE_TIER_BRICK)
-                data->op = GD_OP_DETACH_TIER_STATUS;
+                req_ctx->op = GD_OP_DETACH_TIER_STATUS;
         else
-                data->op = op;
-        data->dict = dict;
+                req_ctx->op = op;
 
+        req_ctx->dict = dict;
         txn_id = &priv->global_txn_id;
-
-        req_ctx = data;
-        GF_VALIDATE_OR_GOTO (this->name, req_ctx, out);
         CDS_INIT_LIST_HEAD (&opinfo.pending_bricks);
 
         ret = dict_get_bin (req_ctx->dict, "transaction_id", (void **)&txn_id);
@@ -1309,7 +1310,7 @@ glusterd_op_tier_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict,
                          (gd1_mgmt_brick_op_req **)&req,
                          req_ctx->dict);
 
-                if (ret) {
+                if (ret || !req) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_BRICK_OP_PAYLOAD_BUILD_FAIL,
                                 "Failed to build brick op payload during "
@@ -1334,15 +1335,15 @@ glusterd_op_tier_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict,
                         goto out;
                 }
 
-                GD_SYNCOP (rpc, (&args), NULL, glusterd_tier_status_cbk, req,
-                           &gd_brick_prog, req->op, xdr_gd1_mgmt_brick_op_req);
+                GD_SYNCOP (rpc, (&args), NULL, glusterd_tier_status_cbk,
+                           req, &gd_brick_prog, req->op,
+                           xdr_gd1_mgmt_brick_op_req);
 
-                if (req != NULL) {
-                        if (req->input.input_val)
-                                GF_FREE (req->input.input_val);
-                        GF_FREE (req);
-                        req = NULL;
-                }
+                if (req->input.input_val)
+                        GF_FREE (req->input.input_val);
+                GF_FREE (req);
+                req = NULL;
+
                 if (!ret)
                         pending_bricks++;
 
@@ -1355,9 +1356,7 @@ glusterd_op_tier_status (dict_t *dict, char **op_errstr, dict_t *rsp_dict,
                       "'Volume %s' to %d bricks", gd_op_list[req_ctx->op],
                       pending_bricks);
         opinfo.brick_pending_count = pending_bricks;
-
 out:
-
         if (ret)
                 opinfo.op_ret = ret;
 
@@ -1370,6 +1369,9 @@ out:
                 dict_unref (args.dict);
         if (args.errstr)
                 GF_FREE (args.errstr);
+
+        if (req_ctx)
+                GF_FREE (req_ctx);
 
         gf_msg_debug (this ? this->name : "glusterd", 0,
                       "Returning %d. Failed to get tier status", ret);
