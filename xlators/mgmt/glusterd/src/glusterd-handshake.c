@@ -53,6 +53,7 @@ get_snap_volname_and_volinfo (const char *volpath, char **volname,
         char            *vol            = NULL;
         glusterd_snap_t *snap           = NULL;
         xlator_t        *this           = NULL;
+        char            *tmp_str_token  = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -63,6 +64,8 @@ get_snap_volname_and_volinfo (const char *volpath, char **volname,
         if (NULL == str_token) {
                 goto out;
         }
+
+        tmp_str_token = str_token;
 
         /* Input volname will have below formats:
          * /snaps/<snapname>/<volname>.<hostname>
@@ -155,6 +158,9 @@ out:
                 GF_FREE (*volname);
                 *volname = NULL;
         }
+
+        if (tmp_str_token)
+                GF_FREE (tmp_str_token);
         return ret;
 }
 
@@ -582,6 +588,7 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
         int32_t                      i                = 0;
         uuid_t                       snap_uuid        = {0,};
         xlator_t                    *this             = NULL;
+        char                        *mnt_device       = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -638,8 +645,8 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
         }
 
         /* Fetch the device path */
-        device = glusterd_get_brick_mount_device (snap_opinfo->brick_path);
-        if (!device) {
+        mnt_device = glusterd_get_brick_mount_device (snap_opinfo->brick_path);
+        if (!mnt_device) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_BRICK_GET_INFO_FAIL,
                         "Getting device name for the"
@@ -649,7 +656,8 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
                 goto out;
         }
 
-        device = glusterd_build_snap_device_path (device, snap_vol->volname,
+        device = glusterd_build_snap_device_path (mnt_device,
+                                                  snap_vol->volname,
                                                   snap_opinfo->brick_num - 1);
         if (!device) {
                 gf_msg (this->name, GF_LOG_ERROR, ENXIO,
@@ -732,6 +740,8 @@ glusterd_create_missed_snap (glusterd_missed_snap_info *missed_snapinfo,
         }
 
 out:
+        if (mnt_device)
+                GF_FREE (mnt_device);
         if (device)
                 GF_FREE (device);
 
@@ -998,7 +1008,7 @@ __server_getspec (rpcsvc_request_t *req)
 
         /* convert to XDR */
 fail:
-        if (spec_fd > 0)
+        if (spec_fd >= 0)
                 sys_close (spec_fd);
 
         GF_FREE(brick_name);
@@ -1491,6 +1501,7 @@ __server_get_volume_info (rpcsvc_request_t *req)
                         gf_msg ("glusterd", GF_LOG_WARNING, ENOMEM,
                                 GD_MSG_NO_MEMORY, "Out of Memory");
                         op_errno = ENOMEM;
+                        GF_FREE (volume_id_str);
                         ret = -1;
                         goto out;
                 }
@@ -1761,6 +1772,7 @@ glusterd_event_connected_inject (glusterd_peerctx_t *peerctx)
                 gf_msg (THIS->name, GF_LOG_ERROR, 0,
                         GD_MSG_PEER_NOT_FOUND, "Could not find peer %s(%s)",
                         peerctx->peername, uuid_utoa (peerctx->peerid));
+                GF_FREE (ctx);
                 goto unlock;
         }
         ctx->hostname = gf_strdup (peerinfo->hostname);
