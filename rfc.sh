@@ -303,7 +303,7 @@ main()
         return;
     fi
 
-    check_patches_for_coding_style;
+    # check_patches_for_coding_style
 
     rebase_changes;
 
@@ -318,6 +318,23 @@ main()
     # issue reference. Warn the contributor that one of the 2 is required
     if [ -z "${reference}" ] && [ $branch = "master" ]; then
         warn_reference_missing;
+    fi
+
+    # TODO: add clang-format command here. It will after the changes are done everywhere else
+    clang_format=$(clang-format --version)
+    if [ ! -z "${clang_format}" ]; then
+        # Considering git show may not give any files as output matching the
+        # criteria, good to tell script not to fail on error
+        set +e
+        list_of_files=$(git show --pretty="format:" --name-only |
+                            grep -v "contrib/" | egrep --color=never "*\.[ch]$");
+        if [ ! -z "${list_of_files}" ]; then
+            echo "${list_of_files}" | xargs clang-format -i
+        fi
+        set -e
+    else
+        echo "High probability of your patch not passing smoke due to coding standard check"
+        echo "Please install 'clang-format' to format the patch before submitting"
     fi
 
     if [ "$DRY_RUN" = 1 ]; then
