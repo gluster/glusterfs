@@ -52,7 +52,7 @@ def mode_create(args):
     session_dir = os.path.join(conf.get_opt("session_dir"),
                                args.session)
     status_file = os.path.join(session_dir, args.volume,
-                     "%s.status" % urllib.parse.quote_plus(args.brick))
+                     "%s.status" % urllib.quote_plus(args.brick))
 
     mkdirp(os.path.join(session_dir, args.volume), exit_on_err=True,
            logger=logger)
@@ -67,7 +67,7 @@ def mode_create(args):
 def mode_post(args):
     session_dir = os.path.join(conf.get_opt("session_dir"), args.session)
     status_file = os.path.join(session_dir, args.volume,
-                     "%s.status" % urllib.parse.quote_plus(args.brick))
+                     "%s.status" % urllib.quote_plus(args.brick))
 
     mkdirp(os.path.join(session_dir, args.volume), exit_on_err=True,
            logger=logger)

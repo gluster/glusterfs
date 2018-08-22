@@ -10,9 +10,9 @@
 
 import os
 try:
-    import configparser
+    import configparser as ConfigParser
 except ImportError:
-    import ConfigParser as configparser
+    import ConfigParser
 
 config = ConfigParser.ConfigParser()
 config.read(os.path.join(os.path.dirname(os.path.abspath(__file__)),
