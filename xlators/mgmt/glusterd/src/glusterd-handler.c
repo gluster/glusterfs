@@ -5136,7 +5136,7 @@ glusterd_print_snapinfo_by_vol (FILE *fp, glusterd_volinfo_t *volinfo, int volco
                 fprintf (fp, "Volume%d.snapshot%d.name: %s\n",
                          volcount, snapcount, snapinfo->snapname);
                 fprintf (fp, "Volume%d.snapshot%d.id: %s\n", volcount, snapcount,
-                         gf_strdup (uuid_utoa (snapinfo->snap_id)));
+                         uuid_utoa (snapinfo->snap_id));
                 fprintf (fp, "Volume%d.snapshot%d.time: %s\n",
                          volcount, snapcount, timestr);
 
@@ -5401,6 +5401,7 @@ glusterd_get_state (rpcsvc_request_t *req, dict_t *dict)
                                 GD_MSG_DICT_GET_FAILED, "%s", err_str);
                 }
 
+                GF_FREE (odir);
                 ret = -1;
                 goto out;
         }
