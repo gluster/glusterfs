@@ -2,6 +2,7 @@
 .gitignore
 .mailmap
 .testignore
+.clang-format
 rfc.sh
 submit-for-review.sh
 AUTHORS

@@ -33,6 +33,7 @@ test-driver
 # Softlinks to test and log
 log
 *.vol
+.clang-format
 
 # cmocka unit tests
 *.log
