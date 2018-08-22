@@ -617,9 +617,10 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
         char                       *pattern = NULL;
         char                       *childs = NULL;
         char                       *option_string = NULL;
-        struct switch_struct        *switch_buf = NULL;
-        struct switch_struct        *switch_opt = NULL;
-        struct switch_struct        *trav = NULL;
+        size_t                      pattern_length;
+        struct switch_struct       *switch_buf = NULL;
+        struct switch_struct       *switch_opt = NULL;
+        struct switch_struct       *trav = NULL;
         struct switch_sched_array  *switch_buf_array = NULL;
         xlator_list_t              *trav_xl = NULL;
 
@@ -670,11 +671,22 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
                                 " hence neglecting current option");
                         switch_str = strtok_r (NULL, ";", &tmp_str);
                         GF_FREE (switch_opt);
+                        switch_opt = NULL;
                         GF_FREE (dup_str);
                         continue;
                 }
                 GF_FREE (dup_str);
-                memcpy (switch_opt->path_pattern, pattern, strlen (pattern));
+
+                pattern_length = strlen (pattern);
+                if (pattern_length >= (sizeof (switch_opt->path_pattern))) {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                DHT_MSG_SET_SWITCH_PATTERN_ERROR,
+                                "Pattern (%s) too long", pattern);
+                        goto err;
+                }
+                memcpy (switch_opt->path_pattern, pattern, pattern_length);
+                switch_opt->path_pattern[pattern_length] = '\0';
+
                 if (childs) {
                         dup_childs = gf_strdup (childs);
                         child = strtok_r (dup_childs, ",", &tmp);
@@ -689,6 +701,7 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
                                                 "pattern can only be scheduled "
                                                 "only to a subvolume of %s",
                                                 child, this->name, this->name);
+                                        GF_FREE (dup_childs);
                                         goto err;
                                 }
                         }
@@ -808,10 +821,12 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
         /* */
         conf->private = switch_buf;
 
+        GF_FREE (option_string);
         return 0;
 err:
         GF_FREE (switch_buf_array);
         GF_FREE (switch_opt);
+        GF_FREE (option_string);
 
         if (switch_buf) {
                 trav = switch_buf;
