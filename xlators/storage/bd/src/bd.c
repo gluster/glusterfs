@@ -2230,7 +2230,8 @@ bd_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         return 0;
 
 err:
-        STACK_UNWIND_STRICT(zerofill, frame, -1, ret, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT(zerofill, frame, -1, (ret == -1 ? 0 : ret),
+                            NULL, NULL, NULL);
         return 0;
 }
 

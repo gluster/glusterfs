@@ -897,6 +897,7 @@ bd_do_ioctl_zerofill (bd_priv_t *priv, bd_attr_t *bdatt, int fd, char *vg,
         char      *p            = NULL;
         off_t      max_bytes    = 0;
         int        sysfd        = -1;
+        int        ret          = 0;
         uint64_t   param[2]     = {0, 0};
         off_t      nr_loop      = 0;
         char       buff[16]     = {0, };
@@ -904,12 +905,15 @@ bd_do_ioctl_zerofill (bd_priv_t *priv, bd_attr_t *bdatt, int fd, char *vg,
         uuid_utoa_r (bdatt->iatt.ia_gfid, uuid);
         sprintf (lvname, "/dev/%s/%s", vg, uuid);
 
-        if (sys_readlink(lvname, dmname, sizeof(dmname)-1) < 0) {
+        ret = sys_readlink(lvname, dmname, 4096);
+        if (ret < 0) {
                 gf_log("bd", GF_LOG_DEBUG,
                        "Failed to read symbolic link '%s': %s",
                        lvname, strerror(errno));
                 goto skip;
         }
+
+        dmname[ret] = '\0';
 
         p = strrchr (dmname, '/');
         if (p)
