@@ -269,11 +269,9 @@ out:
         STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, &prebuf, &postbuf,
                              NULL);
 
-        if (paiocb) {
-                if (paiocb->iobref)
+        if (paiocb->iobref)
                         iobref_unref (paiocb->iobref);
-                GF_FREE (paiocb);
-        }
+        GF_FREE (paiocb);
 
         return 0;
 }
