@@ -906,13 +906,13 @@ shard_evicted_inode_fsync_cbk (call_frame_t *frame, void *cookie,
         shard_priv_t         *priv             = NULL;
 
         priv = this->private;
-        shard_inode = anon_fd->inode;
 
-        if (op_ret < 0) {
+        if (anon_fd == NULL || op_ret < 0) {
                 gf_msg (this->name, GF_LOG_WARNING, op_errno,
                         SHARD_MSG_MEMALLOC_FAILED, "fsync failed on shard");
                 goto out;
         }
+        shard_inode = anon_fd->inode;
 
         LOCK (&priv->lock);
         LOCK(&shard_inode->lock);
@@ -3765,8 +3765,6 @@ shard_lookup_marker_file (call_frame_t *frame, xlator_t *this)
         dict_unref (xattr_req);
         return 0;
 err:
-        if (xattr_req)
-                dict_unref (xattr_req);
         shard_common_failure_unwind (local->fop, frame, -1, op_errno);
         return 0;
 }
@@ -4025,6 +4023,7 @@ shard_acquire_entrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
         shard_entrylk_t  *int_entrylk                = NULL;
         call_frame_t     *entrylk_frame              = NULL;
 
+        local = frame->local;
         entrylk_frame = create_frame (this, this->ctx->pool);
         if (!entrylk_frame) {
                 gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
@@ -4039,7 +4038,6 @@ shard_acquire_entrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
                 goto err;
         }
 
-        local = frame->local;
         entrylk_frame->local = entrylk_local;
         entrylk_local->main_frame = frame;
         int_entrylk = &entrylk_local->int_entrylk;
@@ -4146,6 +4144,7 @@ shard_acquire_inodelk (call_frame_t *frame, xlator_t *this, loc_t *loc)
         shard_local_t    *lk_local  = NULL;
         shard_inodelk_t  *int_inodelk  = NULL;
 
+        local = frame->local;
         lk_frame = create_frame (this, this->ctx->pool);
         if (!lk_frame) {
                 gf_msg (this->name, GF_LOG_WARNING, ENOMEM,
@@ -4159,7 +4158,6 @@ shard_acquire_inodelk (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 goto err;
         }
 
-        local = frame->local;
         lk_frame->local = lk_local;
         lk_local->main_frame = frame;
         int_inodelk = &lk_local->int_inodelk;
@@ -5762,7 +5760,7 @@ shard_fsync_shards_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         UNLOCK (&frame->lock);
         fd_ctx_get (anon_fd, this, &fsync_count);
 out:
-        if (base_inode != anon_fd->inode) {
+        if (anon_fd && (base_inode != anon_fd->inode)) {
                 LOCK (&base_inode->lock);
                 LOCK (&anon_fd->inode->lock);
                 {
