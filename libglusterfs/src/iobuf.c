@@ -844,8 +844,7 @@ iobref_new ()
 {
         struct iobref *iobref = NULL;
 
-        iobref = GF_CALLOC (sizeof (*iobref), 1,
-                            gf_common_mt_iobref);
+        iobref = GF_MALLOC (sizeof (*iobref), gf_common_mt_iobref);
         if (!iobref)
                 return NULL;
 
@@ -1095,8 +1094,6 @@ iobuf_info_dump (struct iobuf *iobuf, const char *key_prefix)
 
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf, out);
 
-        memset(&my_iobuf, 0, sizeof(my_iobuf));
-
         ret = TRY_LOCK(&iobuf->lock);
         if (ret) {
                 return;
@@ -1154,8 +1151,6 @@ iobuf_stats_dump (struct iobuf_pool *iobuf_pool)
         int                ret = -1;
 
         GF_VALIDATE_OR_GOTO ("iobuf", iobuf_pool, out);
-
-        memset(msg, 0, sizeof(msg));
 
         ret = pthread_mutex_trylock(&iobuf_pool->mutex);
 
