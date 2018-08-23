@@ -148,10 +148,10 @@ posix_make_ancestryfromgfid (xlator_t *this, char *path, int pathsize,
         struct iatt  iabuf      = {0, };
         int          ret        = -1;
         uuid_t       tmp_gfid   = {0, };
-        char        *dir_stack[PATH_MAX/2]; /* Since PATH_MAX/2 also gives
-                                            an upper bound on depth of
-                                            directories tree */
-        uuid_t       gfid_stack[PATH_MAX/2];
+        char        *dir_stack[PATH_MAX/2 + 1]; /* Since PATH_MAX/2 also gives
+                                                 an upper bound on depth of
+                                                 directories tree */
+        uuid_t       gfid_stack[PATH_MAX/2 + 1];
 
         char        *dir_name   = NULL;
         char        *saved_dir  = NULL;
@@ -574,7 +574,14 @@ posix_handle_init (xlator_t *this)
                 break;
         }
 
-        sys_stat (handle_pfx, &priv->handledir);
+        ret = sys_stat (handle_pfx, &priv->handledir);
+
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, errno, P_MSG_HANDLE_CREATE,
+                        "stat for %s failed", handle_pfx);
+                return -1;
+        }
+
 
         MAKE_HANDLE_ABSPATH(rootstr, this, gfid);
 
