@@ -6187,6 +6187,8 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                                 if (sys_access (pidfile , R_OK) == 0) {
                                         sys_unlink (pidfile);
                                 }
+                                if (only_connect)
+                                        return 0;
                                 goto run;
                         }
                         GF_FREE (brickpath);
@@ -6201,6 +6203,8 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                                 if (sys_access (pidfile , R_OK) == 0) {
                                         sys_unlink (pidfile);
                                 }
+                                if (only_connect)
+                                        return 0;
                                 goto run;
                         }
                 }
