@@ -209,8 +209,9 @@ __svs_fd_ctx_get_or_new (xlator_t *this, fd_t *fd);
 svs_fd_t *
 svs_fd_ctx_get_or_new (xlator_t *this, fd_t *fd);
 
-void
-svs_uuid_generate (uuid_t gfid, char *snapname, uuid_t origin_gfid);
+int
+svs_uuid_generate (xlator_t *this, uuid_t gfid, char *snapname,
+                   uuid_t origin_gfid);
 
 void
 svs_fill_ino_from_gfid (struct iatt *buf);

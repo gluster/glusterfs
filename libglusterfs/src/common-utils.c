@@ -95,6 +95,176 @@ gf_xxh64_wrapper(const unsigned char *data, size_t const len, unsigned long long
                 snprintf(xxh64 + i * 2, lim-i*2, "%02x", p[i]);
 }
 
+/**
+ * This function takes following arguments
+ * @this: xlator
+ * @gfid: The gfid which has to be filled
+ * @hash: the 8 byte hash which has to be filled inside the gfid
+ * @index: the array element of the uuid_t structure (which is
+ *         a array of unsigned char) from where the 8 bytes of
+ *         the hash has to be filled. Since uuid_t contains 16
+ *        char elements in the array, each byte of the hash has
+ *        to be filled in one array element.
+ *
+ * This function is called twice for 2 hashes (of 8 byte each) to
+ * be filled in the gfid.
+ *
+ * The for loop in this function actually is doing these 2 things
+ * for each hash
+ *
+ * 1) One of the hashes
+ *      tmp[0] = (hash_2 >> 56) & 0xff;
+ *      tmp[1] = (hash_2 >> 48) & 0xff;
+ *      tmp[2] = (hash_2 >> 40) & 0xff;
+ *      tmp[3] = (hash_2 >> 32) & 0xff;
+ *      tmp[4] = (hash_2 >> 24) & 0xff;
+ *      tmp[5] = (hash_2 >> 16) & 0xff;
+ *      tmp[6] = (hash_2 >> 8) & 0xff;
+ *      tmp[7] = (hash_2) & 0xff;
+ *
+ * 2) The other hash:
+ *      tmp[8] = (hash_1 >> 56) & 0xff;
+ *      tmp[9] = (hash_1 >> 48) & 0xff;
+ *      tmp[10] = (hash_1 >> 40) & 0xff;
+ *      tmp[11] = (hash_1 >> 32) & 0xff;
+ *      tmp[12] = (hash_1 >> 24) & 0xff;
+ *      tmp[13] = (hash_1 >> 16) & 0xff;
+ *      tmp[14] = (hash_1 >> 8) & 0xff;
+ *      tmp[15] = (hash_1) & 0xff;
+ **/
+static int
+gf_gfid_from_xxh64 (xlator_t *this, uuid_t gfid, XXH64_hash_t hash,
+                    unsigned short index)
+{
+        int ret = -1;
+        int i   = -1;
+
+        if ((index != 0) && (index != 8)) {
+                gf_msg_callingfn ("gfid-from-xxh64", GF_LOG_WARNING, 0,
+                                  LG_MSG_INDEX_NOT_FOUND,
+                                  "index can only be either 0 or 8, as this"
+                                  "function's purpose is to encode a 8 byte "
+                                  "hash inside the gfid (index: %d)", index);
+                goto out;
+        }
+
+        for (i = 0; i < sizeof (hash); i++) {
+                /*
+                 * As of now the below statement is equivalent of this.
+                 * gfid[index+i] = (hash >> (64 - (8 * (i+1)))) & 0xff;
+                 */
+                gfid[index+i] = (hash >> ((sizeof (hash) * 8) - (8 * (i+1))))
+                                & (0xff);
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+/**
+ * This function does the same thing as gf_xxh64_wrapper. But gf_xxh64_wrapper
+ * does not return anything and in this xlator there is a need for both the
+ * actual hash and the canonicalized form of the hash.
+ *
+ * To summarize:
+ * - XXH64_hash_t is needed as return because, those bytes which contain the
+ *   hash can be used for different purposes as needed. One example is
+ *   to have those bytes copied into the uuid_t structure to be used as gfid
+ * - xxh64 string is needed because, it can be used as the key for generating
+ *   the next hash (and any other purpose which might require canonical form
+ *   of the hash).
+ **/
+XXH64_hash_t
+gf_xxh64_hash_wrapper (const unsigned char *data, size_t const len,
+                       unsigned long long const seed, char *xxh64)
+{
+        unsigned short         i      = 0;
+        const unsigned short   lim    = GF_XXH64_DIGEST_LENGTH*2+1;
+        XXH64_hash_t           hash   = 0;
+        XXH64_canonical_t      c_hash = {{0,},};
+        const uint8_t          *p     = (const uint8_t *)&c_hash;
+
+        hash = XXH64(data, len, seed);
+        XXH64_canonicalFromHash (&c_hash, hash);
+
+        for (i = 0; i < GF_XXH64_DIGEST_LENGTH; i++)
+                snprintf (xxh64 + i * 2, lim-i*2, "%02x", p[i]);
+
+        return hash;
+}
+
+/**
+ * This is the algorithm followed for generating new gfid
+ * 1) generate xxh64 hash using snapname and original gfid of the object
+ * 2) Using the canonicalized form of above hash as the key, generate
+ *    another hash
+ * 3) Combine both of the  8 byte hashes to generate a 16 byte uuid_t type
+ * 4) Use the above uuid as the gfid
+ *
+ * Each byte of the hash is stored separately in different elements of the
+ * character array represented by uuid_t
+ * Ex: tmp[0] = (hash_2 >> 56) & 0xFF
+ *     This saves the most significant byte of hash_2 in tmp[0]
+ *     tmp[1] = (hash_2 >> 48) & 0xFF
+ *     This saves next most significant byte of hash_2 in tmp[1]
+ *     .
+ *     .
+ *     So on.
+ *     tmp[0] - tmp[7] holds the contents of hash_2
+ *     tmp[8] - tmp[15] hold the conents of hash_1
+ *
+ * The hash generated (i.e. of type XXH64_hash_t) is 8 bytes long. And for
+ * gfid 16 byte uuid is needed. Hecne the 2 hashes are combined to form
+ * one 16 byte entity.
+ **/
+int
+gf_gfid_generate_from_xxh64 (uuid_t gfid, char *key)
+{
+        char xxh64_1[GF_XXH64_DIGEST_LENGTH*2+1] = {0, };
+        char xxh64_2[GF_XXH64_DIGEST_LENGTH*2+1] = {0, };
+        XXH64_hash_t hash_1                      = 0;
+        XXH64_hash_t hash_2                      = 0;
+        int          ret                         = -1;
+        xlator_t    *this                        = THIS;
+
+        hash_1 = gf_xxh64_hash_wrapper((unsigned char *)key,
+                                       strlen (key), GF_XXHSUM64_DEFAULT_SEED,
+                                       xxh64_1);
+
+        hash_2 = gf_xxh64_hash_wrapper((unsigned char *)xxh64_1,
+                                       strlen (xxh64_1),
+                                       GF_XXHSUM64_DEFAULT_SEED, xxh64_2);
+
+        /* hash_2 is saved in 1st 8 elements of uuid_t char array */
+        if (gf_gfid_from_xxh64 (this, gfid, hash_2, 0)) {
+                gf_msg_callingfn (this->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_XXH64_TO_GFID_FAILED,
+                                  "failed to encode the hash %llx into the 1st"
+                                  "half of gfid", hash_2);
+                goto out;
+        }
+
+        /* hash_1 is saved in the remaining 8 elements of uuid_t */
+        if (gf_gfid_from_xxh64 (this, gfid, hash_1, 8)) {
+                gf_msg_callingfn (this->name, GF_LOG_WARNING, 0,
+                                  LG_MSG_XXH64_TO_GFID_FAILED,
+                                  "failed to encode the hash %llx into the 2nd"
+                                  "half of gfid", hash_1);
+                goto out;
+        }
+
+        gf_msg_debug (this->name, 0, "gfid generated is %s (hash1: %llx) "
+                      "hash2: %llx, xxh64_1: %s xxh64_2: %s", uuid_utoa (gfid),
+                      hash_1, hash_2, xxh64_1, xxh64_2);
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
 /* works similar to mkdir(1) -p.
  */
 int
