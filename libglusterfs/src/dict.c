@@ -1018,18 +1018,8 @@ str_to_data (char *value)
                                   LG_MSG_INVALID_ARG, "value is NULL");
                 return NULL;
         }
-        data_t *data = get_new_data ();
 
-        if (!data) {
-                return NULL;
-        }
-        data->len = strlen (value) + 1;
-        data->data_type = GF_DATA_TYPE_STR;
-
-        data->data = value;
-        data->is_static = 1;
-
-        return data;
+        return strn_to_data(value, strlen (value));
 }
 
 data_t *
@@ -1127,12 +1117,12 @@ data_to_int64 (data_t *data)
 {
         VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, "null", -1);
 
-        char *str = alloca (data->len + 1);
+        char *str = alloca (data->len);
         if (!str)
                 return -1;
 
         memcpy (str, data->data, data->len);
-        str[data->len] = '\0';
+
         return (int64_t) strtoull (str, NULL, 0);
 }
 
@@ -1141,12 +1131,11 @@ data_to_int32 (data_t *data)
 {
         VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, "null", -1);
 
-        char *str = alloca (data->len + 1);
+        char *str = alloca (data->len);
         if (!str)
                 return -1;
 
         memcpy (str, data->data, data->len);
-        str[data->len] = '\0';
 
         return strtoul (str, NULL, 0);
 }
@@ -1157,12 +1146,11 @@ data_to_int16 (data_t *data)
         VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, "null", -1);
 
         int16_t value = 0;
-        char *str = alloca (data->len + 1);
+        char *str = alloca (data->len);
         if (!str)
                 return -1;
 
         memcpy (str, data->data, data->len);
-        str[data->len] = '\0';
 
         errno = 0;
         value = strtol (str, NULL, 0);
@@ -1212,12 +1200,11 @@ data_to_uint64 (data_t *data)
 {
         VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, "null", -1);
 
-        char *str = alloca (data->len + 1);
+        char *str = alloca (data->len);
         if (!str)
                 return -1;
 
         memcpy (str, data->data, data->len);
-        str[data->len] = '\0';
 
         return strtoll (str, NULL, 0);
 }
@@ -1227,12 +1214,11 @@ data_to_uint32 (data_t *data)
 {
         VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, "null", -1);
 
-        char *str = alloca (data->len + 1);
+        char *str = alloca (data->len);
         if (!str)
                 return -1;
 
         memcpy (str, data->data, data->len);
-        str[data->len] = '\0';
 
         return strtol (str, NULL, 0);
 }
@@ -1243,12 +1229,11 @@ data_to_uint16 (data_t *data)
         VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, "null", -1);
 
 	uint16_t value = 0;
-        char *str = alloca (data->len + 1);
+        char *str = alloca (data->len);
         if (!str)
                 return -1;
 
         memcpy (str, data->data, data->len);
-        str[data->len] = '\0';
 
 	errno = 0;
 	value = strtol (str, NULL, 0);
