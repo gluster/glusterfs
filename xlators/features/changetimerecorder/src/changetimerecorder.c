@@ -2082,6 +2082,84 @@ out:
 }
 
 
+/* Call to initialize db for ctr xlator while ctr is enabled */
+int32_t
+initialize_ctr_resource (xlator_t *this, gf_ctr_private_t *priv)
+{
+        int ret_db              = -1;
+        dict_t *params_dict      = NULL;
+
+        if (!priv)
+                goto error;
+
+        /* For compaction */
+        priv->compact_active = _gf_false;
+        priv->compact_mode_switched = _gf_false;
+        ret_db = pthread_mutex_init (&priv->compact_lock, NULL);
+
+        if (ret_db) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_FATAL_ERROR,
+                        "FATAL: Failed initializing compaction mutex");
+                goto error;
+        }
+
+        params_dict = dict_new ();
+        if (!params_dict) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_INIT_DB_PARAMS_FAILED,
+                        "DB Params cannot initialized!");
+                goto error;
+        }
+
+        /*Extract db params options*/
+        ret_db = extract_db_params(this, params_dict, priv->gfdb_db_type);
+        if (ret_db) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_EXTRACT_DB_PARAM_OPTIONS_FAILED,
+                        "Failed extracting db params options");
+                goto error;
+        }
+
+        /*Create a memory pool for ctr xlator*/
+        this->local_pool = mem_pool_new (gf_ctr_local_t, 64);
+        if (!this->local_pool) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_CREATE_LOCAL_MEMORY_POOL_FAILED,
+                        "failed to create local memory pool");
+                ret_db = -1;
+                goto error;
+        }
+
+        /*Initialize Database Connection*/
+        priv->_db_conn = init_db(params_dict, priv->gfdb_db_type);
+        if (!priv->_db_conn) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_FATAL_ERROR,
+                        "FATAL: Failed initializing data base");
+                ret_db = -1;
+                goto error;
+        }
+
+        ret_db = 0;
+        goto out;
+
+error:
+        if (this)
+                mem_pool_destroy (this->local_pool);
+
+        if (priv) {
+                GF_FREE (priv->ctr_db_path);
+        }
+        GF_FREE (priv);
+
+out:
+        if (params_dict)
+                dict_unref (params_dict);
+
+        return ret_db;
+}
+
 /******************************************************************************/
 int
 reconfigure (xlator_t *this, dict_t *options)
@@ -2091,6 +2169,7 @@ reconfigure (xlator_t *this, dict_t *options)
         gf_ctr_private_t *priv = NULL;
 
         priv = this->private;
+
         if (dict_get_str(options, "changetimerecorder.frequency",
                          &temp_str)) {
                 gf_msg(this->name, GF_LOG_TRACE, 0, CTR_MSG_SET, "set");
@@ -2098,6 +2177,26 @@ reconfigure (xlator_t *this, dict_t *options)
 
         GF_OPTION_RECONF ("ctr-enabled", priv->enabled, options,
                           bool, out);
+        if (!priv->enabled) {
+                gf_msg (GFDB_DATA_STORE, GF_LOG_INFO, 0,
+                        CTR_MSG_XLATOR_DISABLED,
+                        "CTR Xlator is not enabled so skip ctr reconfigure");
+                goto out;
+        }
+
+        /* If ctr is enabled after skip init for ctr xlator then call
+           initialize_ctr_resource during reconfigure phase to allocate resources for
+           xlator
+        */
+        if (priv->enabled && !priv->_db_conn) {
+                ret = initialize_ctr_resource (this, priv);
+                if (ret)  {
+                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                CTR_MSG_FATAL_ERROR,
+                                "FATAL: Failed ctr initialize resource");
+                        goto out;
+                }
+        }
 
         GF_OPTION_RECONF ("record-counters", priv->ctr_record_counter, options,
                           bool, out);
@@ -2170,15 +2269,19 @@ init (xlator_t *this)
 {
         gf_ctr_private_t *priv = NULL;
         int ret_db              = -1;
-        dict_t *params_dict      = NULL;
 
-        GF_VALIDATE_OR_GOTO ("ctr", this, error);
+        if (!this) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        CTR_MSG_FATAL_ERROR,
+                        "FATAL: ctr this is not initialized");
+                return -1;
+        }
 
         if (!this->children || this->children->next) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         CTR_MSG_FATAL_ERROR,
                         "FATAL: ctr should have exactly one child");
-                goto error;
+                return -1;
         }
 
         if (!this->parents) {
@@ -2192,7 +2295,7 @@ init (xlator_t *this)
                 gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                         CTR_MSG_CALLOC_FAILED,
                         "Calloc did not work!!!");
-                goto error;
+                return -1;
         }
 
         /*Default values for the translator*/
@@ -2201,24 +2304,11 @@ init (xlator_t *this)
         priv->ctr_hot_brick            = _gf_false;
         priv->gfdb_db_type             = GFDB_SQLITE3;
         priv->gfdb_sync_type           = GFDB_DB_SYNC;
-        priv->enabled                  = _gf_true;
         priv->_db_conn                 = NULL;
         priv->ctr_lookupheal_link_timeout =
                                 CTR_DEFAULT_HARDLINK_EXP_PERIOD;
         priv->ctr_lookupheal_inode_timeout =
                                 CTR_DEFAULT_INODE_EXP_PERIOD;
-
-        /* For compaction */
-        priv->compact_active = _gf_false;
-        priv->compact_mode_switched = _gf_false;
-        ret_db = pthread_mutex_init (&priv->compact_lock, NULL);
-
-        if (ret_db) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        CTR_MSG_FATAL_ERROR,
-                        "FATAL: Failed initializing compaction mutex");
-                goto error;
-        }
 
         /*Extract ctr xlator options*/
         ret_db = extract_ctr_options (this, priv);
@@ -2226,69 +2316,25 @@ init (xlator_t *this)
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         CTR_MSG_EXTRACT_CTR_XLATOR_OPTIONS_FAILED,
                         "Failed extracting ctr xlator options");
-                goto error;
+                return -1;
         }
 
-        params_dict = dict_new ();
-        if (!params_dict) {
+        if (!priv->enabled) {
+                gf_msg (GFDB_DATA_STORE, GF_LOG_INFO, 0,
+                        CTR_MSG_XLATOR_DISABLED,
+                        "CTR Xlator is not enabled so skip ctr init");
+                goto out;
+        }
+
+        ret_db = initialize_ctr_resource (this, priv);
+        if (ret_db)  {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
-                        CTR_MSG_INIT_DB_PARAMS_FAILED,
-                        "DB Params cannot initialized!");
-                goto error;
+                        CTR_MSG_FATAL_ERROR,
+                        "FATAL: Failed ctr initialize resource");
+                return -1;
         }
-
-        /*Extract db params options*/
-        ret_db = extract_db_params(this, params_dict, priv->gfdb_db_type);
-        if (ret_db) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        CTR_MSG_EXTRACT_DB_PARAM_OPTIONS_FAILED,
-                        "Failed extracting db params options");
-                goto error;
-        }
-
-        /*Create a memory pool for ctr xlator*/
-        this->local_pool = mem_pool_new (gf_ctr_local_t, 64);
-        if (!this->local_pool) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                        CTR_MSG_CREATE_LOCAL_MEMORY_POOL_FAILED,
-                        "failed to create local memory pool");
-                goto error;
-        }
-
-        /*Initialize Database Connection*/
-        priv->_db_conn = init_db(params_dict, priv->gfdb_db_type);
-        if (!priv->_db_conn) {
-                gf_msg (this->name, GF_LOG_ERROR, 0,
-                       CTR_MSG_FATAL_ERROR,
-                       "FATAL: Failed initializing data base");
-                        goto error;
-        }
-
-
-        ret_db = 0;
-        goto out;
-
-/*Error handling */
-error:
-
-        if (this)
-                mem_pool_destroy (this->local_pool);
-
-        if (priv) {
-                GF_FREE (priv->ctr_db_path);
-        }
-        GF_FREE (priv);
-
-        if (params_dict)
-                dict_unref (params_dict);
-
-        return -1;
 
 out:
-
-        if (params_dict)
-                dict_unref (params_dict);
-
         this->private = (void *)priv;
         return 0;
 }
@@ -2339,7 +2385,7 @@ fini (xlator_t *this)
 
         priv = this->private;
 
-        if (priv) {
+        if (priv && priv->enabled) {
                 if (fini_db (priv->_db_conn)) {
                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                 CTR_MSG_CLOSE_DB_CONN_FAILED, "Failed closing "

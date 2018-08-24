@@ -36,12 +36,6 @@ TEST stat .
 TEST touch file1
 TEST stat file1
 
-# gf_file_tb and gf_flink_tb should be empty
-ENTRY_COUNT=$(echo "select * from gf_file_tb; select * from gf_flink_tb;" | \
-        sqlite3 $B0/${V0}$LAST_BRICK/.glusterfs/${V0}$LAST_BRICK.db | wc -l )
-TEST [ $ENTRY_COUNT -eq 0 ]
-
-
 #Attach tier and switch ON CTR Xlator.
 TEST $CLI volume tier $V0 attach replica 2 $H0:$B0/${V0}$CACHE_BRICK_FIRST $H0:$B0/${V0}$CACHE_BRICK_LAST
 TEST $CLI volume set $V0 features.ctr-enabled on
