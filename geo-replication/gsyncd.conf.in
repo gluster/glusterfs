@@ -169,6 +169,12 @@ help=Do not sync deletes in Slave
 value =
 help=
 
+[gfid-conflict-resolution]
+value = true
+validation=bool
+type=bool
+help=Disables automatic gfid conflict resolution while syncing
+
 [working-dir]
 value = ${gsyncd_miscdir}/${master}_${primary_slave_host}_${slavevol}/
 template=true
