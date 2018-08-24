@@ -3080,7 +3080,7 @@ out:
 int32_t
 dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
 {
-        char   *buf = orig_buf;
+        char   *buf   = orig_buf;
         int     ret   = -1;
         int32_t count = 0;
         int     i     = 0;
