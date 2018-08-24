@@ -408,7 +408,7 @@ do {\
         GF_ASSERT (this);\
         GF_ASSERT (this->private);\
         _priv = this->private;\
-        if (!_priv->enabled)\
+        if (!_priv->_db_conn)\
                 goto label;\
  } while (0)
 
