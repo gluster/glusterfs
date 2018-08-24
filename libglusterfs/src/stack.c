@@ -97,7 +97,6 @@ gf_proc_dump_call_frame (call_frame_t *call_frame, const char *key_buf,...)
 
         GF_ASSERT (key_buf);
 
-        memset(&my_frame, 0, sizeof(my_frame));
         va_start(ap, key_buf);
         vsnprintf(prefix, GF_DUMP_MAX_BUF_LEN, key_buf, ap);
         va_end(ap);

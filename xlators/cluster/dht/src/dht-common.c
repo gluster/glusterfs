@@ -1255,7 +1255,6 @@ dht_dict_get_array (dict_t *dict, char *key, int32_t value[], int32_t size, int 
                 return -EINVAL;
         }
 
-        memset (value, 0, size * sizeof(int32_t));
         for (vindex = 0; vindex < size; vindex++) {
                 value[vindex] = ntoh32(*((int32_t *)ptr + vindex));
                 if (value[vindex] < 0)

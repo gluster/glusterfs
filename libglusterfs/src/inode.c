@@ -2331,7 +2331,6 @@ inode_dump (inode_t *inode, char *prefix)
         if (!inode)
                 return;
 
-        memset(key, 0, sizeof(key));
         INIT_LIST_HEAD (&fd_list);
 
         ret = TRY_LOCK(&inode->lock);
@@ -2406,7 +2405,6 @@ inode_table_dump (inode_table_t *itable, char *prefix)
         if (!itable)
                 return;
 
-        memset(key, 0, sizeof(key));
         ret = pthread_mutex_trylock(&itable->lock);
 
         if (ret != 0) {

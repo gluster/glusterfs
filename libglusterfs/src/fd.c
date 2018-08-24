@@ -1032,7 +1032,6 @@ fd_dump (fd_t *fd, char *prefix)
         if (!fd)
                 return;
 
-        memset(key, 0, sizeof(key));
         gf_proc_dump_write("pid", "%llu", fd->pid);
         gf_proc_dump_write("refcount", "%d", fd->refcount);
         gf_proc_dump_write("flags", "%d", fd->flags);
@@ -1074,7 +1073,6 @@ fdtable_dump (fdtable_t *fdtable, char *prefix)
         if (ret)
                 goto out;
 
-        memset(key, 0, sizeof(key));
         gf_proc_dump_build_key(key, prefix, "refcount");
         gf_proc_dump_write(key, "%d", fdtable->refcount);
         gf_proc_dump_build_key(key, prefix, "maxfds");

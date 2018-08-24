@@ -3848,7 +3848,7 @@ gd_pause_or_resume_gsync (dict_t *dict, char *master, char *slave,
         pid_t           pid                      = 0;
         char            pidfile[PATH_MAX]        = {0,};
         char            errmsg[PATH_MAX]         = "";
-        char            buf [1024]               = {0,};
+        char            buf [4096]               = {0,};
         gf_boolean_t    is_template_in_use       = _gf_false;
         char            monitor_status[NAME_MAX] = {0,};
         char            *statefile               = NULL;
@@ -3903,7 +3903,7 @@ gd_pause_or_resume_gsync (dict_t *dict, char *master, char *slave,
                 goto out;
         }
 
-        ret = sys_read (pfd, buf, 1024);
+        ret = sys_read (pfd, buf, sizeof (buf));
         if (ret > 0) {
                 pid = strtol (buf, NULL, 10);
                 if (is_pause) {
@@ -4006,7 +4006,7 @@ stop_gsync (char *master, char *slave, char **msg,
         pid_t           pid     = 0;
         char            pidfile[PATH_MAX] = {0,};
         char            errmsg[PATH_MAX] = "";
-        char            buf[1024] = {0,};
+        char            buf[4096] = {0,};
         int             i       = 0;
         gf_boolean_t    is_template_in_use = _gf_false;
         xlator_t        *this   = NULL;
@@ -4039,7 +4039,7 @@ stop_gsync (char *master, char *slave, char **msg,
         if (pfd < 0)
                 goto out;
 
-        ret = sys_read (pfd, buf, 1024);
+        ret = sys_read (pfd, buf, sizeof (buf));
         if (ret > 0) {
                 pid = strtol (buf, NULL, 10);
                 ret = kill (-pid, SIGTERM);
@@ -5345,7 +5345,7 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
         char            *host_uuid              = NULL;
         char             uuid_str [64]          = {0};
         char            *contents               = NULL;
-        char             buf[1024]              = "";
+        char             buf[4096]              = "";
         int              ret                    = -1;
         int              fd                     = -1;
         int              bytes_writen           = 0;
@@ -5436,7 +5436,6 @@ glusterd_op_copy_file (dict_t *dict, char **op_errstr)
                         if (ret > 0) {
                                 memcpy (contents+bytes_read, buf, ret);
                                 bytes_read += ret;
-                                memset (buf, '\0', sizeof(buf));
                         }
                 } while (ret > 0);
 

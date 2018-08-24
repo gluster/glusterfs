@@ -812,7 +812,6 @@ xlator_mem_acct_init (xlator_t *xl, int num_types)
         if (!xl->mem_acct) {
                 return -1;
         }
-        memset (xl->mem_acct, 0, sizeof(struct mem_acct));
 
         xl->mem_acct->num_types = num_types;
         GF_ATOMIC_INIT (xl->mem_acct->refcnt, 1);
