@@ -1163,16 +1163,18 @@ class GMasterChangelogMixin(GMasterCommon):
             self.status.inc_value("entry", len(entries))
 
             failures = self.slave.server.entry_ops(entries)
-            count = 0
-            while failures and count < self.MAX_OE_RETRIES:
-                count += 1
-                self.handle_entry_failures(failures, entries)
-                logging.info("Retry original entries. count = %s" % count)
-                failures = self.slave.server.entry_ops(entries)
-                if not failures:
-                    logging.info("Sucessfully fixed all entry ops with gfid "
-                                 "mismatch")
-                    break
+
+            if gconf.get("gfid-conflict-resolution"):
+                count = 0
+                while failures and count < self.MAX_OE_RETRIES:
+                    count += 1
+                    self.handle_entry_failures(failures, entries)
+                    logging.info("Retry original entries. count = %s" % count)
+                    failures = self.slave.server.entry_ops(entries)
+                    if not failures:
+                        logging.info("Sucessfully fixed all entry ops with "
+                                     "gfid mismatch")
+                        break
 
             self.log_failures(failures, 'gfid', gauxpfx(), 'ENTRY')
             self.status.dec_value("entry", len(entries))
