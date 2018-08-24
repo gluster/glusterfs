@@ -598,12 +598,9 @@ client_ctx_del (client_t *client, void *key, void **value)
 void
 client_dump (client_t *client, char *prefix)
 {
-        char key[GF_DUMP_MAX_BUF_LEN];
-
         if (!client)
                 return;
 
-        memset(key, 0, sizeof key);
         gf_proc_dump_write("refcount", GF_PRI_ATOMIC,
                            GF_ATOMIC_GET (client->count));
 }
@@ -641,7 +638,6 @@ clienttable_dump (clienttable_t *clienttable, char *prefix)
                                 "Unable to acquire lock");
                         return;
                 }
-                memset(key, 0, sizeof key);
                 gf_proc_dump_build_key(key, prefix, "maxclients");
                 gf_proc_dump_write(key, "%d", clienttable->max_clients);
                 gf_proc_dump_build_key(key, prefix, "first_free");
@@ -792,7 +788,6 @@ gf_client_dump_fdtables (xlator_t *this)
                             clienttable->cliententries[count].next_free)
                                 continue;
                         client = clienttable->cliententries[count].client;
-                        memset(key, 0, sizeof key);
                         if (client->client_uid) {
                                 gf_proc_dump_build_key (key, "conn",
                                                         "%d.id", count);
@@ -929,7 +924,6 @@ gf_client_dump_inodes (xlator_t *this)
                             clienttable->cliententries[count].next_free)
                                 continue;
                         client = clienttable->cliententries[count].client;
-                        memset(key, 0, sizeof key);
                         if (client->bound_xl && client->bound_xl->itable) {
                                 /* Presently every brick contains only
                                  * one bound_xl for all connections.

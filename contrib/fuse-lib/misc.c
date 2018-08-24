@@ -41,7 +41,6 @@ void
 convert_fuse_file_lock (struct fuse_file_lock *fl, struct gf_flock *flock,
                         uint64_t lk_owner)
 {
-        memset (flock, 0, sizeof (struct flock));
         flock->l_type = fl->type;
         flock->l_whence = SEEK_SET;
         flock->l_start = fl->start;

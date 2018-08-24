@@ -6121,7 +6121,6 @@ generate_dummy_client_volfiles (glusterd_volinfo_t *volinfo)
         if (!dict)
                 goto out;
         for (i = 0; types[i]; i++) {
-                memset (filepath, 0, sizeof (filepath));
                 ret = dict_set_str (dict, "client-transport-type", types[i]);
                 if (ret)
                         goto out;
@@ -6195,7 +6194,6 @@ generate_client_volfiles (glusterd_volinfo_t *volinfo,
         if (!dict)
                 goto out;
         for (i = 0; types[i]; i++) {
-                memset (filepath, 0, sizeof (filepath));
                 ret = dict_set_str (dict, "client-transport-type", types[i]);
                 if (ret)
                         goto out;

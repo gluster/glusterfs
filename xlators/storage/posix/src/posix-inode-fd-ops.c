@@ -3184,7 +3184,6 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         }
                 }
 #endif
-                memset (value_buf, '\0', XATTR_VAL_BUF_SIZE);
                 size = sys_lgetxattr (real_path, key, value_buf,
                                       XATTR_VAL_BUF_SIZE-1);
                 if (size >= 0) {
@@ -3259,7 +3258,6 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         }
 
         have_val = _gf_false;
-        memset (value_buf, '\0', XATTR_VAL_BUF_SIZE);
         size = sys_llistxattr (real_path, value_buf, XATTR_VAL_BUF_SIZE-1);
         if (size > 0) {
                 have_val = _gf_true;
@@ -3326,7 +3324,6 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         goto ignore;
                 }
 
-                memset (value_buf, '\0', XATTR_VAL_BUF_SIZE);
                 have_val = _gf_false;
                 size = sys_lgetxattr (real_path, keybuffer, value_buf,
                                       XATTR_VAL_BUF_SIZE-1);
@@ -3494,7 +3491,6 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
            allocate a new buffer value of required size and call getxattr again
         */
         value_buf = alloca (XATTR_VAL_BUF_SIZE);
-        memset (value_buf, '\0', XATTR_VAL_BUF_SIZE);
 
         if (name) {
                 strncpy (key, name, sizeof(key));
@@ -3570,7 +3566,6 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
 
                 goto done;
         }
-        memset (value_buf, '\0', XATTR_VAL_BUF_SIZE);
         size = sys_flistxattr (_fd, value_buf, XATTR_VAL_BUF_SIZE-1);
         if (size > 0) {
                 have_val = _gf_true;
@@ -3619,7 +3614,6 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                         break;
 
                 strncpy (key, list + list_offset, sizeof(key));
-                memset (value_buf, '\0', XATTR_VAL_BUF_SIZE);
                 have_val = _gf_false;
                 size = sys_fgetxattr (_fd, key, value_buf,
                                       XATTR_VAL_BUF_SIZE-1);

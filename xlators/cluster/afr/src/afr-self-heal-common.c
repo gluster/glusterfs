@@ -851,10 +851,11 @@ afr_mark_active_sinks (xlator_t *this, unsigned char *sources,
 
         priv = this->private;
 
-        memset (sinks, 0, sizeof (*sinks) * priv->child_count);
         for (i = 0; i < priv->child_count; i++) {
                 if (!sources[i] && locked_on[i])
                         sinks[i] = 1;
+                else
+                        sinks[i] = 0;
         }
 }
 
@@ -1610,10 +1611,11 @@ afr_selfheal_find_direction (call_frame_t *frame, xlator_t *this,
 	}
 
 	/* Short list all non-accused as sources */
-	memset (sources, 0, priv->child_count);
 	for (i = 0; i < priv->child_count; i++) {
 		if (!accused[i] && locked_on[i])
 			sources[i] = 1;
+                else
+                        sources[i] = 0;
 	}
 
         /* Everyone accused by non-self-accused sources are sinks */

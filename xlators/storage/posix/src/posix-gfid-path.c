@@ -145,7 +145,6 @@ posix_get_gfid2path (xlator_t *this, inode_t *inode, const char *real_path,
                 found = _gf_true;
         } else {
                 have_val = _gf_false;
-                memset (value_buf, '\0', sizeof(value_buf));
                 size = sys_llistxattr (real_path, value_buf,
                                        sizeof (value_buf) - 1);
                 if (size > 0) {
@@ -205,7 +204,6 @@ posix_get_gfid2path (xlator_t *this, inode_t *inode, const char *real_path,
                         }
 
                         found = _gf_true;
-                        memset (value_buf, '\0', sizeof(value_buf));
                         size = sys_lgetxattr (real_path, keybuffer, value_buf,
                                               sizeof (value_buf) - 1);
                         if (size == -1) {

@@ -232,7 +232,6 @@ ec_dict_get_array (dict_t *dict, char *key, uint64_t value[], int32_t size)
         return -EINVAL;
     }
 
-    memset (value, 0, size * sizeof(uint64_t));
     /* 3.6 version ec would have stored version in 64 bit. In that case treat
      * metadata versions same as data*/
     old_size = min (size, len/sizeof(uint64_t));
