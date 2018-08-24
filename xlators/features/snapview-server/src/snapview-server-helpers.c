@@ -16,7 +16,6 @@
 #include "protocol-common.h"
 #include <pthread.h>
 
-
 int
 __svs_inode_ctx_set (xlator_t *this, inode_t *inode, svs_inode_t *svs_inode)
 {
@@ -329,18 +328,37 @@ out:
         return svs_fd;
 }
 
-void
-svs_uuid_generate (uuid_t gfid, char *snapname, uuid_t origin_gfid)
+int
+svs_uuid_generate (xlator_t *this, uuid_t gfid, char *snapname,
+                   uuid_t origin_gfid)
 {
-        unsigned char md5_sum[MD5_DIGEST_LENGTH] = {0};
-        char          ino_string[NAME_MAX + 32]  = "";
+        char ino_string[NAME_MAX + 32]  = "";
+        uuid_t tmp = {0, };
+        int    ret = -1;
 
-        GF_ASSERT (snapname);
+        GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, snapname, out);
 
         (void) snprintf (ino_string, sizeof (ino_string), "%s%s",
                          snapname, uuid_utoa(origin_gfid));
-        MD5((unsigned char *)ino_string, strlen(ino_string), md5_sum);
-        gf_uuid_copy (gfid, md5_sum);
+
+        if (gf_gfid_generate_from_xxh64 (tmp, ino_string)) {
+                gf_log (this->name, GF_LOG_WARNING, "failed to generate "
+                        "gfid for object with actual gfid of %s "
+                        "(snapname: %s, key: %s)", uuid_utoa (origin_gfid),
+                        snapname, ino_string);
+                goto out;
+        }
+
+        gf_uuid_copy (gfid, tmp);
+
+        ret = 0;
+
+        gf_log (this->name, GF_LOG_DEBUG, "gfid generated is %s ",
+                uuid_utoa (gfid));
+
+out:
+        return ret;
 }
 
 void

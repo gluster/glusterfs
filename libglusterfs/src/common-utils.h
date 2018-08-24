@@ -855,6 +855,8 @@ gf_boolean_t gf_is_local_addr (char *hostname);
 gf_boolean_t gf_is_same_address (char *host1, char *host2);
 void gf_xxh64_wrapper(const unsigned char *data, size_t const len,
                       unsigned long long const seed, char *xxh64);
+int gf_gfid_generate_from_xxh64 (uuid_t gfid, char *key);
+
 int gf_set_timestamp  (const char *src, const char* dest);
 
 int gf_thread_create (pthread_t *thread, const pthread_attr_t *attr,
