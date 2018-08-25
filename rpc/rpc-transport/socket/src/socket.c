@@ -210,6 +210,7 @@ ssl_do (rpc_transport_t *this, void *buf, size_t len, SSL_trinary_func *func)
         int               r = (-1);
         struct pollfd     pfd = {-1, };
         socket_private_t *priv = NULL;
+        int               myerrno = -1;
 
         GF_VALIDATE_OR_GOTO(this->name, this->private, out);
         priv = this->private;
@@ -276,10 +277,16 @@ ssl_do (rpc_transport_t *this, void *buf, size_t len, SSL_trinary_func *func)
                         }
                         break;
                 case SSL_ERROR_SYSCALL:
+                        myerrno = errno;
                         /* This is what we get when remote disconnects. */
                         gf_log(this->name, GF_LOG_DEBUG,
-                               "syscall error (probably remote disconnect)");
-                        errno = ENODATA;
+                               "syscall error (probably remote disconnect)"
+                               " errno:%d(%s)", errno, strerror(errno));
+                        /* sometimes, errno is set to EAGAIN in this case
+                         * so let the upper layers do what they need to do
+                         * with it
+                         */
+                        errno = myerrno;
                         goto out;
                 default:
                         errno = EIO;
