@@ -129,7 +129,7 @@ ns_inode_ctx_put (inode_t *inode, xlator_t *this, ns_info_t *info)
         int        ret            = -1;
 
         if (!inode || !this) {
-                gf_log (this->name, GF_LOG_WARNING,
+                gf_log (this ? this->name : "namespace", GF_LOG_WARNING,
                         "Need a valid inode and xlator to cache ns_info.");
                 ret = -1;
                 goto out;
