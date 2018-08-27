@@ -313,14 +313,18 @@ dht_aggregate_split_brain_xattr (dict_t *dst, char *key, data_t *value)
         if (ret)
                 goto out;
 
-        if (oldvalue && (strstr (oldvalue, "not"))) {
+        /* skip code that is irrelevant if !oldvalue */
+        if (!oldvalue)
+                goto out;
+
+        if (strstr (oldvalue, "not")) {
                 gf_msg_debug ("dht", 0,
                               "Need to update split-brain status in dict");
                 ret = -1;
                 goto out;
         }
-        if (oldvalue && (strstr (oldvalue, "metadata-split-brain:yes"))
-                     && (strstr (oldvalue, "data-split-brain:no"))) {
+        if (strstr (oldvalue, "metadata-split-brain:yes")
+            && (strstr (oldvalue, "data-split-brain:no"))) {
                 if (strstr (value->data, "not")) {
                         gf_msg_debug ("dht", 0,
                                       "No need to update split-brain status");
@@ -4380,23 +4384,21 @@ dht_vgetxattr_alloc_and_fill (dht_local_t *local, dict_t *xattr, xlator_t *this,
                 }
         }
 
-        if (local->xattr_val) {
-                plen = strlen (local->xattr_val);
-                if (plen) {
-                        /* extra byte(s) for \0 to be safe */
-                        local->alloc_len += (plen + 2);
-                        local->xattr_val = GF_REALLOC (local->xattr_val,
-                                                       local->alloc_len);
-                        if (!local->xattr_val) {
-                                ret = -1;
-                                goto out;
-                        }
+        plen = strlen (local->xattr_val);
+        if (plen) {
+                /* extra byte(s) for \0 to be safe */
+                local->alloc_len += (plen + 2);
+                local->xattr_val = GF_REALLOC (local->xattr_val,
+                                               local->alloc_len);
+                if (!local->xattr_val) {
+                        ret = -1;
+                        goto out;
                 }
-
-                (void) strcat (local->xattr_val, value);
-                (void) strcat (local->xattr_val, " ");
-                local->op_ret = 0;
         }
+
+        (void) strcat (local->xattr_val, value);
+        (void) strcat (local->xattr_val, " ");
+        local->op_ret = 0;
 
         ret = 0;
 
@@ -5164,36 +5166,38 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-        if (key) {
-                local->key = gf_strdup (key);
-                if (!local->key) {
-                        op_errno = ENOMEM;
-                        goto err;
-                }
+        /* skip over code which is irrelevant without a valid key */
+        if (!key)
+                goto no_key;
+
+        local->key = gf_strdup (key);
+        if (!local->key) {
+                op_errno = ENOMEM;
+                goto err;
         }
 
-        if (key &&
-            (strncmp (key, conf->mds_xattr_key, strlen(key)) == 0)) {
+        if (strncmp (key, conf->mds_xattr_key, strlen(key)) == 0) {
                 op_errno = ENOTSUP;
                 goto err;
         }
 
-        if (key &&
-            (strncmp (key, GF_XATTR_GET_REAL_FILENAME_KEY,
-                      strlen (GF_XATTR_GET_REAL_FILENAME_KEY)) == 0)
-            && DHT_IS_DIR(layout)) {
+        /* skip over code which is irrelevant if !DHT_IS_DIR(layout) */
+        if (!DHT_IS_DIR(layout))
+                goto no_dht_is_dir;
+
+        if (strncmp (key, GF_XATTR_GET_REAL_FILENAME_KEY,
+                     strlen (GF_XATTR_GET_REAL_FILENAME_KEY)) == 0) {
                 dht_getxattr_get_real_filename (frame, this, loc, key, xdata);
                 return 0;
         }
 
-        if (key && DHT_IS_DIR(layout) &&
-           (!strcmp (key, GF_REBAL_FIND_LOCAL_SUBVOL))) {
-                ret = gf_asprintf
-                           (&node_uuid_key, "%s", GF_XATTR_LIST_NODE_UUIDS_KEY);
+        if (!strcmp (key, GF_REBAL_FIND_LOCAL_SUBVOL)) {
+                ret = gf_asprintf (&node_uuid_key, "%s",
+                                   GF_XATTR_LIST_NODE_UUIDS_KEY);
                 if (ret == -1 || !node_uuid_key) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 DHT_MSG_NO_MEMORY,
-                                "Failed to copy key");
+                                "Failed to copy node uuid key");
                         op_errno = ENOMEM;
                         goto err;
                 }
@@ -5212,14 +5216,13 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        if (key && DHT_IS_DIR(layout) &&
-           (!strcmp (key, GF_REBAL_OLD_FIND_LOCAL_SUBVOL))) {
-                ret = gf_asprintf
-                           (&node_uuid_key, "%s", GF_XATTR_NODE_UUID_KEY);
+        if (!strcmp (key, GF_REBAL_OLD_FIND_LOCAL_SUBVOL)) {
+                ret = gf_asprintf (&node_uuid_key, "%s",
+                                   GF_XATTR_NODE_UUID_KEY);
                 if (ret == -1 || !node_uuid_key) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 DHT_MSG_NO_MEMORY,
-                                "Failed to copy key");
+                                "Failed to copy node uuid key");
                         op_errno = ENOMEM;
                         goto err;
                 }
@@ -5248,10 +5251,9 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
          *       (until inode_link() happens)
          */
 
-        if (key && DHT_IS_DIR(layout) &&
-            (XATTR_IS_PATHINFO (key)
-             || (strcmp (key, GF_XATTR_NODE_UUID_KEY) == 0)
-             || (strcmp (key, GF_XATTR_LIST_NODE_UUIDS_KEY) == 0))) {
+        if (XATTR_IS_PATHINFO (key)
+            || (strcmp (key, GF_XATTR_NODE_UUID_KEY) == 0)
+            || (strcmp (key, GF_XATTR_LIST_NODE_UUIDS_KEY) == 0)) {
                 (void) snprintf (local->xsel, sizeof (local->xsel), "%s", key);
                 cnt = local->call_cnt = layout->cnt;
                 for (i = 0; i < cnt; i++) {
@@ -5263,9 +5265,10 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
+no_dht_is_dir:
         /* node-uuid or pathinfo for files */
-        if (key && ((strcmp (key, GF_XATTR_NODE_UUID_KEY) == 0)
-                    || XATTR_IS_PATHINFO (key))) {
+        if (XATTR_IS_PATHINFO (key)
+            || (strcmp (key, GF_XATTR_NODE_UUID_KEY) == 0)) {
                 cached_subvol = local->cached_subvol;
                 (void) snprintf (local->xsel, sizeof (local->xsel), "%s", key);
                 local->call_cnt = 1;
@@ -5276,7 +5279,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        if (key && (strcmp (key, GF_XATTR_LINKINFO_KEY) == 0)) {
+        if (strcmp (key, GF_XATTR_LINKINFO_KEY) == 0) {
 
                 hashed_subvol = dht_subvol_get_hashed (this, loc);
                 if (!hashed_subvol) {
@@ -5309,11 +5312,12 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        if (key && (gf_get_index_by_elem (dht_dbg_vxattrs, (char *)key) >= 0)) {
+        if (gf_get_index_by_elem (dht_dbg_vxattrs, (char *)key) >= 0) {
                 dht_handle_debug_getxattr (frame, this, loc, key);
                 return 0;
         }
 
+no_key:
         if (cluster_handle_marker_getxattr (frame, loc, key, conf->vol_uuid,
                                             dht_getxattr_unwind,
                                             dht_marker_populate_args) == 0)
