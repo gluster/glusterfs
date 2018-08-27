@@ -100,9 +100,13 @@ template_init (xlator_t *this)
         GF_OPTION_INIT ("dummy", priv->dummy, int32, out);
 
         this->private = priv;
+        priv = NULL;
         ret = 0;
 
 out:
+        if (priv)
+                GF_FREE (priv);
+
         return ret;
 }
 
