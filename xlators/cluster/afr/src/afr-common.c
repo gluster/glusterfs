@@ -2415,8 +2415,6 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this)
 	*/
 	for (i = 0; i < priv->child_count; i++) {
 		if (!replies[i].valid || replies[i].op_ret == -1) {
-			if (priv->child_up[i])
-				can_interpret = _gf_false;
 			continue;
 		}
 
@@ -2863,21 +2861,52 @@ afr_lookup_entry_heal (call_frame_t *frame, xlator_t *this)
 	afr_private_t *priv = NULL;
 	call_frame_t *heal = NULL;
 	int i = 0, first = -1;
-	gf_boolean_t need_heal = _gf_false;
+	gf_boolean_t name_state_mismatch = _gf_false;
 	struct afr_reply *replies = NULL;
 	int ret = 0;
+        unsigned char *par_readables = NULL;
+        unsigned char *success = NULL;
+        int32_t op_errno = 0;
+        uuid_t gfid = {0};
 
 	local = frame->local;
 	replies = local->replies;
 	priv = this->private;
+        par_readables = alloca0(priv->child_count);
+        success = alloca0(priv->child_count);
+
+        ret = afr_inode_read_subvol_get (local->loc.parent, this, par_readables,
+                                         NULL, NULL);
+        if (ret < 0 || AFR_COUNT (par_readables, priv->child_count) == 0) {
+                /* In this case set par_readables to all 1 so that name_heal
+                 * need checks at the end of this function will flag missing
+                 * entry when name state mismatches*/
+                memset (par_readables, 1, priv->child_count);
+        }
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (!replies[i].valid)
 			continue;
 
+                if (replies[i].op_ret == 0) {
+                        if (uuid_is_null (gfid)) {
+                                gf_uuid_copy (gfid,
+                                              replies[i].poststat.ia_gfid);
+                        }
+                        success[i] = 1;
+                } else {
+                        if ((replies[i].op_errno != ENOTCONN) &&
+                            (replies[i].op_errno != ENOENT) &&
+                            (replies[i].op_errno != ESTALE)) {
+                                op_errno = replies[i].op_errno;
+                        }
+                }
+
+                /*gfid is missing, needs heal*/
                 if ((replies[i].op_ret == -1) &&
-                    (replies[i].op_errno == ENODATA))
-                        need_heal = _gf_true;
+                    (replies[i].op_errno == ENODATA)) {
+                        goto name_heal;
+                }
 
 		if (first == -1) {
 			first = i;
@@ -2885,30 +2914,53 @@ afr_lookup_entry_heal (call_frame_t *frame, xlator_t *this)
 		}
 
 		if (replies[i].op_ret != replies[first].op_ret) {
-			need_heal = _gf_true;
-			break;
+                        name_state_mismatch = _gf_true;
 		}
 
-		if (gf_uuid_compare (replies[i].poststat.ia_gfid,
-				  replies[first].poststat.ia_gfid)) {
-			need_heal = _gf_true;
-			break;
-		}
-	}
-
-	if (need_heal) {
-		heal = afr_frame_create (this, NULL);
-		if (!heal)
-                        goto metadata_heal;
-
-		ret = synctask_new (this->ctx->env, afr_lookup_selfheal_wrap,
-				    afr_refresh_selfheal_done, heal, frame);
-		if (ret) {
-                        AFR_STACK_DESTROY (heal);
-			goto metadata_heal;
+                if (replies[i].op_ret == 0) {
+                        /* Rename after this lookup may succeed if we don't do
+                         * a name-heal and the destination may not have pending xattrs
+                         * to indicate which name is good and which is bad so always do
+                         * this heal*/
+                        if (gf_uuid_compare (replies[i].poststat.ia_gfid,
+                                             gfid)) {
+                                goto name_heal;
+                        }
                 }
-                return ret;
 	}
+
+        if (name_state_mismatch) {
+                if (!priv->quorum_count)
+                        goto name_heal;
+                if (!afr_has_quorum (success, this))
+                        goto name_heal;
+                if (op_errno)
+                        goto name_heal;
+                for (i = 0; i < priv->child_count; i++) {
+                        if (!replies[i].valid)
+                                continue;
+                        if (par_readables[i] && replies[i].op_ret < 0 &&
+                            replies[i].op_errno != ENOTCONN) {
+                                goto name_heal;
+                        }
+                }
+        }
+
+        goto metadata_heal;
+
+name_heal:
+        heal = afr_frame_create (this, NULL);
+        if (!heal)
+                goto metadata_heal;
+
+        ret = synctask_new (this->ctx->env, afr_lookup_selfheal_wrap,
+                            afr_refresh_selfheal_done, heal, frame);
+        if (ret) {
+                AFR_STACK_DESTROY (heal);
+                goto metadata_heal;
+        }
+        return ret;
+
 metadata_heal:
         ret = afr_lookup_metadata_heal_check (frame, this);
 
