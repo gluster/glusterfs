@@ -2720,11 +2720,18 @@ main (int argc, char *argv[])
            command line options. */
         {
                 int i = 0;
-                strcpy (cmdlinestr, argv[0]);
-                for (i = 1; i < argc; i++) {
-                        strcat (cmdlinestr, " ");
-                        strncat (cmdlinestr, argv[i],
-                                 (sizeof (cmdlinestr) - 1));
+                int pos = 0;
+                int len = snprintf (cmdlinestr, sizeof (cmdlinestr), "%s", argv[0]);
+                for (i = 1; (i < argc) && (len > 0); i++) {
+                        pos += len;
+                        len = snprintf (cmdlinestr + pos, sizeof (cmdlinestr) - pos, " %s",
+                                       argv[i]);
+                        if ((len <= 0) || (len >= (sizeof (cmdlinestr) - pos))) {
+                                gf_msg ("glusterfs", GF_LOG_ERROR, 0, glusterfsd_msg_29,
+                                        "failed to create command line string");
+                                ret = -1;
+                                goto out;
+                        }
                 }
                 gf_msg (argv[0], GF_LOG_INFO, 0, glusterfsd_msg_30,
                         "Started running %s version %s (args: %s)",

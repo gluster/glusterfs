@@ -187,7 +187,7 @@ server_priv_to_dict (xlator_t *this, dict_t *dict, char *brickname)
         pthread_mutex_lock (&conf->mutex);
         {
                 list_for_each_entry (xprt, &conf->xprt_list, list) {
-                        if ((xprt) && (xprt->xl_private) &&
+                        if ((xprt->xl_private) &&
                             (xprt->xl_private->bound_xl) &&
                             (xprt->xl_private->bound_xl->name) && (brickname) &&
                             (!strcmp (brickname,

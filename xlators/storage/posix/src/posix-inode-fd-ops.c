@@ -1257,13 +1257,14 @@ posix_readlink (call_frame_t *frame, xlator_t *this,
 {
         char *  dest      = NULL;
         int32_t op_ret    = -1;
-        int32_t op_errno  = 0;
+        int32_t op_errno  = EINVAL;
         char *  real_path = NULL;
         struct iatt stbuf = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
         VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (loc, out);
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
 
@@ -3993,12 +3994,15 @@ int32_t
 posix_removexattr (call_frame_t *frame, xlator_t *this,
                    loc_t *loc, const char *name, dict_t *xdata)
 {
-        int    op_ret     = 0;
-        int    op_errno   = 0;
+        int    op_ret     = -1;
+        int    op_errno   = EINVAL;
         dict_t *xdata_rsp = NULL;
+
+        VALIDATE_OR_GOTO (loc, out);
 
         op_ret = posix_common_removexattr (frame, loc, NULL, name, xdata,
                                            &op_errno, &xdata_rsp);
+out:
         STACK_UNWIND_STRICT (removexattr, frame, op_ret, op_errno, xdata_rsp);
 
         if (xdata_rsp)
@@ -4011,12 +4015,15 @@ int32_t
 posix_fremovexattr (call_frame_t *frame, xlator_t *this,
                     fd_t *fd, const char *name, dict_t *xdata)
 {
-        int32_t op_ret     = 0;
-        int32_t op_errno   = 0;
+        int32_t op_ret     = -1;
+        int32_t op_errno   = EINVAL;
         dict_t  *xdata_rsp = NULL;
+
+        VALIDATE_OR_GOTO (fd, out);
 
         op_ret = posix_common_removexattr (frame, NULL, fd, name, xdata,
                                            &op_errno, &xdata_rsp);
+out:
         STACK_UNWIND_STRICT (fremovexattr, frame, op_ret, op_errno, xdata_rsp);
 
         if (xdata_rsp)

@@ -349,6 +349,11 @@ event_register_epoll (struct event_pool *event_pool, int fd,
 	}
 
 	slot = event_slot_get (event_pool, idx);
+        if (!slot) {
+                gf_msg ("epoll", GF_LOG_ERROR, 0, LG_MSG_SLOT_NOT_FOUND,
+                        "could not find slot for fd=%d idx=%d", fd, idx);
+                return -1;
+        }
 
 	assert (slot->fd == fd);
 
@@ -413,6 +418,11 @@ event_unregister_epoll_common (struct event_pool *event_pool, int fd,
                 goto out;
 
 	slot = event_slot_get (event_pool, idx);
+        if (!slot) {
+                gf_msg ("epoll", GF_LOG_ERROR, 0, LG_MSG_SLOT_NOT_FOUND,
+                        "could not find slot for fd=%d idx=%d", fd, idx);
+                return -1;
+        }
 
 	assert (slot->fd == fd);
 
@@ -477,6 +487,11 @@ event_select_on_epoll (struct event_pool *event_pool, int fd, int idx,
         GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
 	slot = event_slot_get (event_pool, idx);
+        if (!slot) {
+                gf_msg ("epoll", GF_LOG_ERROR, 0, LG_MSG_SLOT_NOT_FOUND,
+                        "could not find slot for fd=%d idx=%d", fd, idx);
+                return -1;
+        }
 
 	assert (slot->fd == fd);
 
@@ -544,6 +559,11 @@ event_dispatch_epoll_handler (struct event_pool *event_pool,
 	gen = ev_data->gen;
 
 	slot = event_slot_get (event_pool, idx);
+        if (!slot) {
+                gf_msg ("epoll", GF_LOG_ERROR, 0, LG_MSG_SLOT_NOT_FOUND,
+                        "could not find slot for idx=%d", idx);
+                return -1;
+        }
 
 	LOCK (&slot->lock);
 	{
@@ -902,6 +922,11 @@ event_handled_epoll (struct event_pool *event_pool, int fd, int idx, int gen)
         int                ret         = 0;
 
 	slot = event_slot_get (event_pool, idx);
+        if (!slot) {
+                gf_msg ("epoll", GF_LOG_ERROR, 0, LG_MSG_SLOT_NOT_FOUND,
+                        "could not find slot for fd=%d idx=%d", fd, idx);
+                return -1;
+        }
 
         assert (slot->fd == fd);
 
