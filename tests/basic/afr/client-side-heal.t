@@ -17,6 +17,7 @@ TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0;
 echo "some data" > $M0/datafile
 EXPECT 0 echo $?
 TEST touch $M0/mdatafile
+TEST touch $M0/mdatafile-backend-direct-modify
 TEST mkdir $M0/dir
 
 #Kill a brick and perform I/O to have pending heals.
@@ -29,6 +30,7 @@ EXPECT 0 echo $?
 
 #pending metadata heal
 TEST chmod +x $M0/mdatafile
+TEST chmod +x $B0/${V0}0/mdatafile-backend-direct-modify
 
 #pending entry heal. Also causes pending metadata/data heals on file{1..5}
 TEST touch $M0/dir/file{1..5}
@@ -40,9 +42,12 @@ TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
 
 #Medatada heal via explicit lookup must not happen
-TEST ls $M0/mdatafile
+TEST getfattr -d -m. -e hex $M0/mdatafile
+TEST ls $M0/mdatafile-backend-direct-modify
 
-#Inode refresh must not trigger data and entry heals.
+TEST [[ "$(stat -c %A $B0/${V0}0/mdatafile-backend-direct-modify)" != "$(stat -c %A $B0/${V0}1/mdatafile-backend-direct-modify)" ]]
+
+#Inode refresh must not trigger data metadata and entry heals.
 #To trigger inode refresh for sure, the volume is unmounted and mounted each time.
 #Check that data heal does not happen.
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
@@ -52,7 +57,6 @@ TEST cat $M0/datafile
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0;
 TEST ls $M0/dir
-
 #No heal must have happened
 EXPECT 8 get_pending_heal_count $V0
 
@@ -61,21 +65,25 @@ TEST $CLI volume set $V0 cluster.data-self-heal on
 TEST $CLI volume set $V0 cluster.metadata-self-heal on
 TEST $CLI volume set $V0 cluster.entry-self-heal on
 
-#Metadata heal is triggered by lookup without need for inode refresh.
-TEST ls $M0/mdatafile
-EXPECT 7 get_pending_heal_count $V0
-
-#Inode refresh must trigger data and entry heals.
+#Inode refresh must trigger data metadata and entry heals.
 #To trigger inode refresh for sure, the volume is unmounted and mounted each time.
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0;
+TEST ls $M0/mdatafile-backend-direct-modify
+
+TEST [[ "$(stat -c %A $B0/${V0}0/mdatafile-backend-direct-modify)" == "$(stat -c %A $B0/${V0}1/mdatafile-backend-direct-modify)" ]]
+
+
+TEST getfattr -d -m. -e hex $M0/mdatafile
+EXPECT_WITHIN $HEAL_TIMEOUT 7 get_pending_heal_count $V0
+
 TEST cat $M0/datafile
 EXPECT_WITHIN $HEAL_TIMEOUT 6 get_pending_heal_count $V0
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0;
 TEST ls $M0/dir
-EXPECT 5 get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT 5 get_pending_heal_count $V0
 
 TEST cat  $M0/dir/file1
 TEST cat  $M0/dir/file2
@@ -83,5 +91,5 @@ TEST cat  $M0/dir/file3
 TEST cat  $M0/dir/file4
 TEST cat  $M0/dir/file5
 
-EXPECT 0 get_pending_heal_count $V0
+EXPECT_WITHIN $HEAL_TIMEOUT 0 get_pending_heal_count $V0
 cleanup;

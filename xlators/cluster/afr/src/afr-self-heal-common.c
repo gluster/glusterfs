@@ -2180,44 +2180,6 @@ afr_selfheal_unentrylk (call_frame_t *frame, xlator_t *this, inode_t *inode,
 	return 0;
 }
 
-
-gf_boolean_t
-afr_is_pending_set (xlator_t *this, dict_t *xdata, int type)
-{
-	int idx = -1;
-	afr_private_t *priv = NULL;
-	void *pending_raw = NULL;
-	int *pending_int = NULL;
-	int i = 0;
-
-	priv = this->private;
-	idx = afr_index_for_transaction_type (type);
-
-	if (dict_get_ptr (xdata, AFR_DIRTY, &pending_raw) == 0) {
-		if (pending_raw) {
-			pending_int = pending_raw;
-
-			if (ntoh32 (pending_int[idx]))
-				return _gf_true;
-		}
-	}
-
-	for (i = 0; i < priv->child_count; i++) {
-		if (dict_get_ptr (xdata, priv->pending_key[i],
-				  &pending_raw))
-			continue;
-		if (!pending_raw)
-			continue;
-		pending_int = pending_raw;
-
-		if (ntoh32 (pending_int[idx]))
-			return _gf_true;
-	}
-
-	return _gf_false;
-}
-
-
 gf_boolean_t
 afr_is_data_set (xlator_t *this, dict_t *xdata)
 {

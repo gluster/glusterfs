@@ -13,7 +13,6 @@ TEST pidof glusterd
 TEST $CLI volume create $V0 replica $REPLICA $H0:$B0/${V0}-00 $H0:$B0/${V0}-01 $H0:$B0/${V0}-10 $H0:$B0/${V0}-11
 TEST $CLI volume start $V0
 
-TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST $CLI volume set $V0 cluster.background-self-heal-count 0
 
 ## Mount FUSE with caching disabled
@@ -82,10 +81,15 @@ EXPECT 1 xattr_query_check ${backend_paths_array[1]} "trusted.name"
 # restart the brick process
 TEST $CLI volume start $V0 force
 
-EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 `expr $brick_id - 1`
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 2
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 3
 
-cat $pth >/dev/null
+TEST $CLI volume heal $V0
 
+EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 # check backends - xattr should not be present anywhere
 EXPECT 1 xattr_query_check ${backend_paths_array[0]} "trusted.name"
 EXPECT 1 xattr_query_check ${backend_paths_array[1]} "trusted.name"
