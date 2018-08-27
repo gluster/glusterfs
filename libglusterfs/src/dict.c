@@ -491,8 +491,10 @@ dict_set (dict_t *this,
           char *key,
           data_t *value)
 {
-        const int keylen = strlen(key);
-        return dict_setn(this, key, keylen, value);
+        if (key)
+                return dict_setn (this, key, strlen (key), value);
+        else
+                return dict_setn (this, NULL, 0, value);
 }
 
 int32_t
@@ -528,8 +530,10 @@ dict_setn (dict_t *this,
 int32_t
 dict_add (dict_t *this, char *key, data_t *value)
 {
-        const int keylen = strlen (key);
-        return dict_addn(this, key, keylen, value);
+        if (key)
+                return dict_addn(this, key, strlen (key), value);
+        else
+                return dict_addn(this, NULL, 0, value);
 }
 
 int32_t
@@ -562,8 +566,14 @@ dict_addn (dict_t *this, char *key, const int keylen, data_t *value)
 data_t *
 dict_get (dict_t *this, char *key)
 {
-        const int keylen = strlen(key);
-        return dict_getn(this, key, keylen);
+        if (!this || !key) {
+                gf_msg_callingfn ("dict", GF_LOG_INFO, EINVAL,
+                                  LG_MSG_INVALID_ARG,
+                                  "!this || key=%s", (key) ? key : "()");
+                return NULL;
+        }
+
+        return dict_getn(this, key, strlen (key));
 }
 
 data_t *
@@ -616,8 +626,13 @@ dict_key_count (dict_t *this)
 void
 dict_del (dict_t *this, char *key)
 {
-        const int keylen = strlen(key);
-        return dict_deln(this, key, keylen);
+        if (!this || !key) {
+                gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG, "!this || key=%s", key);
+                return;
+        }
+
+        return dict_deln(this, key, strlen (key));
 }
 
 void
@@ -1545,8 +1560,14 @@ fail:
 int
 dict_get_with_ref (dict_t *this, char *key, data_t **data)
 {
-        const int keylen = strlen(key);
-        return dict_get_with_refn(this, key, keylen, data);
+        if (!this || !key || !data) {
+                gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
+                                  LG_MSG_INVALID_ARG,
+                                  "dict OR key (%s) is NULL", key);
+                return -EINVAL;
+        }
+
+        return dict_get_with_refn(this, key, strlen (key), data);
 }
 
 int
