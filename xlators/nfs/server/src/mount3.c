@@ -2717,7 +2717,7 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, struct mount3_state *ms)
                                 /* chain the groups together */
                                 if (!elist->ex_groups)
                                         elist->ex_groups = group;
-                                else if (!prev_group)
+                                else if (!prev_group->gr_next)
                                         prev_group->gr_next = group;
                                 prev_group = group;
                         }
@@ -4069,9 +4069,14 @@ mnt3svc_init (xlator_t *nfsx)
                 }
 
                 mstate->stop_refresh = _gf_false; /* Allow thread to run */
-                gf_thread_create (&mstate->auth_refresh_thread, NULL,
-                                  _mnt3_auth_param_refresh_thread, mstate,
-                                  "nfsauth");
+                ret = gf_thread_create (&mstate->auth_refresh_thread, NULL,
+                                        _mnt3_auth_param_refresh_thread,
+                                        mstate, "nfsauth");
+                if (ret) {
+                        gf_msg_debug (GF_MNT, GF_LOG_DEBUG,
+                                      "Thread creation failed");
+                }
+
         } else
                 gf_msg (GF_MNT, GF_LOG_INFO, 0, NFS_MSG_EXP_AUTH_DISABLED,
                         "Exports auth has been disabled!");
@@ -4120,8 +4125,12 @@ mnt3svc_init (xlator_t *nfsx)
         }
 
         if (nfs->mount_udp) {
-                gf_thread_create (&udp_thread, NULL, mount3udp_thread, nfsx,
-                                  "nfsudp");
+                ret = gf_thread_create (&udp_thread, NULL, mount3udp_thread,
+                                        nfsx, "nfsudp");
+                if (ret) {
+                        gf_msg_debug (GF_MNT, GF_LOG_DEBUG,
+                                      "Thread creation failed");
+                }
         }
         return &mnt3prog;
 err:
