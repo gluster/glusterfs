@@ -420,7 +420,7 @@ out:
         if (fd >= 0)
                 sys_close (fd);
 
-        if (ret == -1) {
+        if (ret < 0) {
                 GF_FREE (spath);
                 GF_FREE (shandle);
         }
