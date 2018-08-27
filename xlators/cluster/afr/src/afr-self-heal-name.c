@@ -634,20 +634,26 @@ afr_selfheal_name_unlocked_inspect (call_frame_t *frame, xlator_t *this,
 			continue;
 
                 if ((replies[i].op_ret == -1) &&
-                    (replies[i].op_errno == ENODATA))
+                    (replies[i].op_errno == ENODATA)) {
                         *need_heal = _gf_true;
+                        break;
+                }
 
 		if (first_idx == -1) {
 			first_idx = i;
 			continue;
 		}
 
-		if (replies[i].op_ret != replies[first_idx].op_ret)
+		if (replies[i].op_ret != replies[first_idx].op_ret) {
 			*need_heal = _gf_true;
+                        break;
+                }
 
 		if (gf_uuid_compare (replies[i].poststat.ia_gfid,
-				  replies[first_idx].poststat.ia_gfid))
+				  replies[first_idx].poststat.ia_gfid)) {
 			*need_heal = _gf_true;
+                        break;
+                }
 	}
 
 	if (inode)

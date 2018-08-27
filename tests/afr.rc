@@ -89,3 +89,11 @@ function count_index_entries()
 {
     ls $1/.glusterfs/indices/xattrop | wc -l
 }
+
+function get_quorum_type()
+{
+        local m="$1"
+        local v="$2"
+        local repl_id="$3"
+        cat $m/.meta/graphs/active/$v-replicate-$repl_id/private|grep quorum-type|awk '{print $3}'
+}
