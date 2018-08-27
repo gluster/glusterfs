@@ -562,6 +562,14 @@ gfdb_read_query_record (int fd,
                 goto out;
         }
 
+        /* Assumed sane range is 1B - 10MB */
+        if ((buffer_len <= 0) || (buffer_len > (10 * 1024 * 1024))) {
+                ret = -1;
+                gf_msg (GFDB_DATA_STORE, GF_LOG_ERROR, 0, LG_MSG_DB_ERROR,
+                        "buffer length range is out of bound %d", buffer_len);
+                goto out;
+        }
+
         /* Allocating memory to the serialization buffer */
         buffer = GF_CALLOC (1, buffer_len,  gf_common_mt_char);
         if (!buffer) {
