@@ -1642,6 +1642,9 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         struct rlimit        lim      = {0, };
         int                  ret      = -1;
 
+        if (!ctx)
+                return ret;
+
         ret = xlator_mem_acct_init (THIS, gfd_mt_end);
         if (ret != 0) {
                 gf_msg(THIS->name, GF_LOG_CRITICAL, 0, glusterfsd_msg_34,
@@ -1774,7 +1777,7 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         ret = 0;
 out:
 
-        if (ret && ctx) {
+        if (ret) {
                 if (ctx->pool) {
                         mem_pool_destroy (ctx->pool->frame_mem_pool);
                         mem_pool_destroy (ctx->pool->stack_mem_pool);

@@ -970,7 +970,6 @@ server_init (xlator_t *this)
 {
         int32_t            ret      = -1;
         server_conf_t     *conf     = NULL;
-        rpcsvc_listener_t *listener = NULL;
         char              *transport_type = NULL;
         char              *statedump_path = NULL;
         int               total_transport = 0;
@@ -1229,8 +1228,12 @@ out:
                         this->fini (this);
                 }
 
-                if (listener != NULL) {
-                        rpcsvc_listener_destroy (listener);
+                if (conf && conf->rpc) {
+                        rpcsvc_listener_t *listener, *next;
+                        list_for_each_entry_safe (listener, next,
+                                                  &conf->rpc->listeners, list) {
+                                rpcsvc_listener_destroy (listener);
+                        }
                 }
         }
 
