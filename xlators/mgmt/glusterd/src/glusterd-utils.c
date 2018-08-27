@@ -6177,6 +6177,8 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                         brickpath = search_brick_path_from_proc
                                                 (pid, brickinfo->path);
                         if (!brickpath) {
+                                if (only_connect)
+                                        return 0;
                                 gf_log (this->name, GF_LOG_INFO,
                                         "Either pid %d is not running or brick"
                                         " path %s is not consumed so cleanup pidfile",
@@ -6187,14 +6189,14 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                                 if (sys_access (pidfile , R_OK) == 0) {
                                         sys_unlink (pidfile);
                                 }
-                                if (only_connect)
-                                        return 0;
                                 goto run;
                         }
                         GF_FREE (brickpath);
                         ret = glusterd_get_sock_from_brick_pid (pid, socketpath,
                                                                 sizeof(socketpath));
                         if (ret) {
+                                if (only_connect)
+                                        return 0;
                                 gf_log (this->name, GF_LOG_INFO,
                                         "Either pid %d is not running or does "
                                         "not match with any running brick "
@@ -6203,8 +6205,6 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                                 if (sys_access (pidfile , R_OK) == 0) {
                                         sys_unlink (pidfile);
                                 }
-                                if (only_connect)
-                                        return 0;
                                 goto run;
                         }
                 }
