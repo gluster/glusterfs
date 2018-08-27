@@ -3390,7 +3390,7 @@ posix_cs_maintenance (xlator_t *this, fd_t *fd, loc_t *loc, int *pfd,
         } else {
                 if (!loc->inode) {
                         ret = 0;
-                        goto unlock;
+                        goto out;
                 }
 
                 LOCK (&loc->inode->lock);
@@ -3450,6 +3450,6 @@ unlock:
                 UNLOCK (&fd->inode->lock);
         else
                 UNLOCK (&loc->inode->lock);
-
+out:
         return ret;
 }

@@ -5830,6 +5830,15 @@ server4_compound_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         STACK_ERR_XL_NAME (frame->root));
         }
 
+        /* TODO: I assume a single 10MB payload is large, if not, we need to
+           agree to valid payload */
+        if ((args_cbk->fop_length <= 0) ||
+            ((args_cbk->fop_length > (10 * 1024 * 1024)))) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
         rsp.compound_rsp_array.compound_rsp_array_val = GF_CALLOC
                                                         (args_cbk->fop_length,
                                                          sizeof (compound_rsp_v2),

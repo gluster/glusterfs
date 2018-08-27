@@ -331,7 +331,7 @@ server_connection_cleanup (xlator_t *this, client_t *client,
         int                  cd_ret    = 0;
         int                  ret       = 0;
 
-        GF_VALIDATE_OR_GOTO (this->name, this, out);
+        GF_VALIDATE_OR_GOTO ("server", this, out);
         GF_VALIDATE_OR_GOTO (this->name, client, out);
         GF_VALIDATE_OR_GOTO (this->name, flags, out);
 

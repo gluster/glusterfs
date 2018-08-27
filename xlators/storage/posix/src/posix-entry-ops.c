@@ -1725,7 +1725,7 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                 }
 
                 if ((xdata) && (dict_get (xdata, GET_LINK_COUNT))
-                    && (real_newpath) && (was_present)) {
+                    && (real_newpath) && (was_present) && ctx_new) {
                         pthread_mutex_lock (&ctx_new->pgfid_lock);
                         locked = _gf_true;
                         get_link_count = _gf_true;
