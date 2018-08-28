@@ -6876,8 +6876,6 @@ afr_ta_post_op_lock (xlator_t *this, loc_t *loc)
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
                         "Failed to get AFR_TA_DOM_MODIFY lock.");
-                if (!locked)
-                        goto out;
                 flock1.l_type = F_UNLCK;
                 ret = syncop_inodelk (priv->children[THIN_ARBITER_BRICK_INDEX],
                                       AFR_TA_DOM_NOTIFY, loc, F_SETLK, &flock1,
