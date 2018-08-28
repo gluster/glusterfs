@@ -2954,7 +2954,7 @@ glusterd_op_remove_brick (dict_t *dict, char **op_errstr)
         }
 
         while ( i <= count) {
-                snprintf (key, 256, "brick%d", i);
+                snprintf (key, sizeof(key), "brick%d", i);
                 ret = dict_get_str (dict, key, &brick);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,

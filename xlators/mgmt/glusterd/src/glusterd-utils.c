@@ -13143,7 +13143,7 @@ glusterd_get_global_options_for_all_vols (rpcsvc_request_t *req, dict_t *ctx,
         char                    *allvolopt = NULL;
         int32_t                 i = 0;
         gf_boolean_t            exists = _gf_false;
-        gf_boolean_t            need_free;
+        gf_boolean_t            need_free = _gf_false;
 
         this = THIS;
         GF_VALIDATE_OR_GOTO (THIS->name, this, out);
@@ -13203,7 +13203,6 @@ glusterd_get_global_options_for_all_vols (rpcsvc_request_t *req, dict_t *ctx,
 
                 /* If global option isn't set explicitly */
 
-                need_free = _gf_false;
                 if (!def_val) {
                         if (!strcmp (allvolopt,
                                      GLUSTERD_GLOBAL_OP_VERSION_KEY)) {
