@@ -6903,87 +6903,97 @@ glusterd_snapshot_clone_commit (dict_t *dict, char **op_errstr,
         tmp_name = NULL;
 
 
-       ret = dict_get_str (dict, "snapname", &volname);
-       if (ret) {
-               gf_msg (this->name, GF_LOG_ERROR, 0,
-                       GD_MSG_DICT_GET_FAILED,
-                      "failed to get snap name");
-               goto out;
-       }
-       snap_parent = glusterd_find_snap_by_name (volname);
-       /* TODO : As of now there is only one volume in snapshot.
-        * Change this when multiple volume snapshot is introduced
-        */
-       origin_vol = cds_list_entry (snap_parent->volumes.next,
-                                  glusterd_volinfo_t, vol_list);
-       if (!origin_vol) {
-               gf_msg ("glusterd", GF_LOG_ERROR, 0,
-                       GD_MSG_VOLINFO_GET_FAIL, "Failed to get snap "
-                       "volinfo %s", snap_parent->snapname);
-               goto out;
-       }
-       snap = glusterd_create_snap_object_for_clone (dict, rsp_dict);
-       if (!snap) {
-               gf_msg (this->name, GF_LOG_ERROR, 0,
-                       GD_MSG_SNAP_OBJ_NEW_FAIL, "creating the"
-                       "snap object %s failed", snapname);
-               ret = -1;
-               goto out;
-       }
+        ret = dict_get_str (dict, "snapname", &volname);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_GET_FAILED,
+                       "failed to get snap name");
+                goto out;
+        }
 
-       snap_vol = glusterd_do_snap_vol (origin_vol, snap, dict,
-                                       rsp_dict, 1, 1);
-       if (!snap_vol) {
-               ret = -1;
-               gf_msg (this->name, GF_LOG_WARNING, 0,
-                       GD_MSG_SNAP_CREATION_FAIL, "taking the "
-                       "snapshot of the volume %s failed", volname);
-               goto out;
-       }
-       volcount = 1;
-       ret = dict_set_int64 (rsp_dict, "volcount", volcount);
-       if (ret) {
-               gf_msg (this->name, GF_LOG_ERROR, 0,
-                       GD_MSG_DICT_SET_FAILED, "Failed to set volcount");
-               goto out;
-       }
+        snap_parent = glusterd_find_snap_by_name (volname);
+        if (!snap_parent) {
+                gf_msg(this->name, GF_LOG_ERROR, EINVAL,
+                       GD_MSG_SNAP_NOT_FOUND, "Failed to "
+                       "fetch snap %s", volname);
+                goto out;
+        }
 
-       ret = glusterd_schedule_brick_snapshot (dict, rsp_dict, snap);
-       if (ret) {
-               gf_msg (this->name, GF_LOG_ERROR, 0,
-                       GD_MSG_SNAP_BACKEND_MAKE_FAIL, "Failed to take backend "
-                       "snapshot %s", snap->snapname);
-               goto out;
-       }
+        /* TODO : As of now there is only one volume in snapshot.
+         * Change this when multiple volume snapshot is introduced
+         */
+        origin_vol = cds_list_entry (snap_parent->volumes.next,
+                                     glusterd_volinfo_t, vol_list);
+        if (!origin_vol) {
+                gf_msg ("glusterd", GF_LOG_ERROR, 0,
+                        GD_MSG_VOLINFO_GET_FAIL, "Failed to get snap "
+                        "volinfo %s", snap_parent->snapname);
+                goto out;
+        }
 
-       cds_list_del_init (&snap_vol->vol_list);
-       ret = dict_set_dynstr_with_alloc (rsp_dict, "snapuuid",
-                                         uuid_utoa (snap_vol->volume_id));
-       if (ret) {
-               gf_msg (this->name, GF_LOG_ERROR, 0,
-                       GD_MSG_DICT_SET_FAILED, "Failed to set snap "
-                       "uuid in response dictionary for %s snapshot",
-                       snap->snapname);
-               goto out;
-       }
+        snap = glusterd_create_snap_object_for_clone (dict, rsp_dict);
+        if (!snap) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SNAP_OBJ_NEW_FAIL, "creating the"
+                        "snap object %s failed", snapname);
+                ret = -1;
+                goto out;
+        }
 
-       glusterd_list_add_order (&snap_vol->vol_list, &priv->volumes,
-                       glusterd_compare_volume_name);
+        snap_vol = glusterd_do_snap_vol (origin_vol, snap, dict,
+                                         rsp_dict, 1, 1);
+        if (!snap_vol) {
+                ret = -1;
+                gf_msg (this->name, GF_LOG_WARNING, 0,
+                        GD_MSG_SNAP_CREATION_FAIL, "taking the "
+                        "snapshot of the volume %s failed", volname);
+                goto out;
+        }
 
-       ret = 0;
+        volcount = 1;
+        ret = dict_set_int64 (rsp_dict, "volcount", volcount);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED, "Failed to set volcount");
+                goto out;
+        }
+
+        ret = glusterd_schedule_brick_snapshot (dict, rsp_dict, snap);
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_SNAP_BACKEND_MAKE_FAIL, "Failed to take backend "
+                        "snapshot %s", snap->snapname);
+                goto out;
+        }
+
+        cds_list_del_init (&snap_vol->vol_list);
+        ret = dict_set_dynstr_with_alloc (rsp_dict, "snapuuid",
+                                          uuid_utoa (snap_vol->volume_id));
+        if (ret) {
+                gf_msg (this->name, GF_LOG_ERROR, 0,
+                        GD_MSG_DICT_SET_FAILED, "Failed to set snap "
+                        "uuid in response dictionary for %s snapshot",
+                        snap->snapname);
+                goto out;
+        }
+
+        glusterd_list_add_order (&snap_vol->vol_list, &priv->volumes,
+                                 glusterd_compare_volume_name);
+
+        ret = 0;
 
 
 out:
-       if (ret) {
-               if (snap)
-                       glusterd_snap_remove (rsp_dict, snap,
-                                             _gf_true, _gf_true,
-                                             _gf_true);
-               snap = NULL;
-       }
+        if (ret) {
+                if (snap)
+                        glusterd_snap_remove (rsp_dict, snap,
+                                              _gf_true, _gf_true,
+                                              _gf_true);
+                snap = NULL;
+        }
 
-       gf_msg_trace (this->name, 0, "Returning %d", ret);
-       return ret;
+        gf_msg_trace (this->name, 0, "Returning %d", ret);
+        return ret;
 }
 
 
