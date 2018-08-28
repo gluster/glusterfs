@@ -3216,7 +3216,7 @@ cli_cmd_volume_top_parse (const char **words, int wordcount,
                 key = (char *) words[index];
                 value = (char *) words[index+1];
 
-                if ( key && !value ) {
+                if (!key || !value) {
                         ret = -1;
                         goto out;
                 }
