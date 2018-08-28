@@ -221,7 +221,7 @@ typedef enum gf_brick_status {
 } gf_brick_status_t;
 
 struct glusterd_brickinfo {
-        char               hostname[1024];
+        char               hostname[NAME_MAX];
         char               path[VALID_GLUSTERD_PATHMAX];
         char               real_path[VALID_GLUSTERD_PATHMAX];
         char               device_path[VALID_GLUSTERD_PATHMAX];
@@ -407,12 +407,15 @@ struct glusterd_volinfo_ {
                                             the volume which is snapped. In
                                             case of a non-snap volume, this
                                             field will be initialized as N/A */
-        char                      volname[GD_VOLUME_NAME_MAX + 5];
-                                        /* An extra 5 bytes are allocated.
-                                         * Reason is, As part of the tiering
+        char                      volname[NAME_MAX + 1];
+                                        /* NAME_MAX + 1 will be equal to
+                                         * GD_VOLUME_NAME_MAX + 5.(also to
+                                         * GD_VOLUME_NAME_MAX_TIER). An extra 5
+                                         * bytes are added to GD_VOLUME_NAME_MAX
+                                         * because, as part of the tiering
                                          * volfile generation code, we are
-                                         * temporarily appending either hot
-                                         * or cold */
+                                         * temporarily appending either "-hot"
+                                         * or "-cold" */
         int                       type;
         int                       brick_count;
         uint64_t                  snap_count;

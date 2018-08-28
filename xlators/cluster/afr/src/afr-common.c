@@ -6403,11 +6403,11 @@ afr_get_split_brain_status (void *opaque)
         /* Calculation for string length :
         * (child_count X length of child-name) + strlen ("    Choices :")
         * child-name consists of :
-        * a) 256 = max characters for volname according to GD_VOLUME_NAME_MAX
+        * a) 251 = max characters for volname according to GD_VOLUME_NAME_MAX
         * b) strlen ("-client-00,") assuming 16 replicas
         */
-        choices = alloca0 (priv->child_count * (256 + strlen ("-client-00,")) +
-                           strlen ("    Choices:"));
+        choices = alloca0 (priv->child_count * (251 + sizeof("-client-00,")) +
+                           sizeof("    Choices:"));
 
         ret = afr_is_split_brain (frame, this, inode, loc->gfid, &d_spb,
                                   &m_spb);
