@@ -96,7 +96,9 @@ gd_collate_errors (struct syncargs *args, int op_ret, int op_errno,
                                 break;
                         }
                 }
-                op_err[len] = '\0';
+
+                if (len > 0)
+                        op_err[len] = '\0';
 
                 if (args->errstr) {
                         len = snprintf (err_str, sizeof(err_str) - 1,
@@ -1022,7 +1024,7 @@ out:
         errno = args.op_errno;
         if (args.dict)
                 dict_unref (args.dict);
-        if (args.op_ret && (*errstr == NULL)) {
+        if (args.op_ret && errstr && (*errstr == NULL)) {
                 if (op == GD_OP_HEAL_VOLUME) {
                         gf_asprintf (errstr,
                                      "Glusterd Syncop Mgmt brick op '%s' failed."
@@ -1576,7 +1578,7 @@ gd_unlock_op_phase (glusterd_conf_t  *conf, glusterd_op_t op, int *op_ret,
         } else {
 
                 ret = dict_get_int32 (op_ctx, "hold_global_locks", &global);
-                if (global)
+                if (!ret && global)
                         type = "global";
                 else
                         type = "vol";
