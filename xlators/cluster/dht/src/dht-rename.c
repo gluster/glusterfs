@@ -849,8 +849,8 @@ dht_rename_cleanup (call_frame_t *frame)
         if (src_cached == dst_cached)
                 goto nolinks;
 
-        if (local->linked && (dst_hashed != src_hashed )&&
-                (dst_hashed != src_cached)) {
+        if (local->linked && (dst_hashed != src_hashed) &&
+            (dst_hashed != src_cached)) {
                 call_cnt++;
         }
 
@@ -935,6 +935,120 @@ nolinks:
 
 
 int
+dht_rename_unlink (call_frame_t *frame, xlator_t *this)
+{
+        dht_local_t  *local = NULL;
+        xlator_t     *src_hashed = NULL;
+        xlator_t     *src_cached = NULL;
+        xlator_t     *dst_hashed = NULL;
+        xlator_t     *dst_cached = NULL;
+        xlator_t     *rename_subvol = NULL;
+        dict_t       *xattr     = NULL;
+
+        local = frame->local;
+
+        src_hashed = local->src_hashed;
+        src_cached = local->src_cached;
+        dst_hashed = local->dst_hashed;
+        dst_cached = local->dst_cached;
+
+        local->call_cnt = 0;
+
+        /* NOTE: rename_subvol is the same subvolume from which dht_rename_cbk
+         * is called. since rename has already happened on rename_subvol,
+         * unlink shouldn't be sent for oldpath (either linkfile or cached-file)
+         * on rename_subvol. */
+        if (src_cached == dst_cached)
+                rename_subvol = src_cached;
+        else
+                rename_subvol = dst_hashed;
+
+        /* TODO: delete files in background */
+
+        if (src_cached != dst_hashed && src_cached != dst_cached)
+                local->call_cnt++;
+
+        if (src_hashed != rename_subvol && src_hashed != src_cached)
+                local->call_cnt++;
+
+        if (dst_cached && dst_cached != dst_hashed && dst_cached != src_cached)
+                local->call_cnt++;
+
+        if (local->call_cnt == 0)
+                goto unwind;
+
+        DHT_MARK_FOP_INTERNAL (xattr);
+
+        if (src_cached != dst_hashed && src_cached != dst_cached) {
+                dict_t *xattr_new = NULL;
+
+                xattr_new = dict_copy_with_ref (xattr, NULL);
+
+                gf_msg_trace (this->name, 0,
+                              "deleting old src datafile %s @ %s",
+                              local->loc.path, src_cached->name);
+
+                if (gf_uuid_compare (local->loc.pargfid,
+                                     local->loc2.pargfid) == 0) {
+                        DHT_MARKER_DONT_ACCOUNT(xattr_new);
+                }
+
+                DHT_CHANGELOG_TRACK_AS_RENAME(xattr_new, &local->loc,
+                                              &local->loc2);
+                STACK_WIND_COOKIE (frame, dht_rename_unlink_cbk, src_cached,
+                                   src_cached, src_cached->fops->unlink,
+                                   &local->loc, 0, xattr_new);
+
+                dict_unref (xattr_new);
+                xattr_new = NULL;
+        }
+
+        if (src_hashed != rename_subvol && src_hashed != src_cached) {
+                dict_t *xattr_new = NULL;
+
+                xattr_new = dict_copy_with_ref (xattr, NULL);
+
+                gf_msg_trace (this->name, 0,
+                              "deleting old src linkfile %s @ %s",
+                              local->loc.path, src_hashed->name);
+
+                DHT_MARKER_DONT_ACCOUNT(xattr_new);
+
+                STACK_WIND_COOKIE (frame, dht_rename_unlink_cbk, src_hashed,
+                                   src_hashed, src_hashed->fops->unlink,
+                                   &local->loc, 0, xattr_new);
+
+                dict_unref (xattr_new);
+                xattr_new = NULL;
+        }
+
+        if (dst_cached &&
+            (dst_cached != dst_hashed) &&
+            (dst_cached != src_cached)) {
+                gf_msg_trace (this->name, 0,
+                              "deleting old dst datafile %s @ %s",
+                              local->loc2.path, dst_cached->name);
+
+                STACK_WIND_COOKIE (frame, dht_rename_unlink_cbk, dst_cached,
+                                   dst_cached, dst_cached->fops->unlink,
+                                   &local->loc2, 0, xattr);
+        }
+        if (xattr)
+                dict_unref (xattr);
+        return 0;
+
+unwind:
+        WIPE (&local->preoldparent);
+        WIPE (&local->postoldparent);
+        WIPE (&local->preparent);
+        WIPE (&local->postparent);
+
+        dht_rename_done (frame, this);
+
+        return 0;
+}
+
+int
 dht_rename_links_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              int32_t op_ret, int32_t op_errno,
                              inode_t *inode, struct iatt *stbuf,
@@ -947,6 +1061,7 @@ dht_rename_links_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         prev = cookie;
         local = frame->local;
 
+        /* TODO: Handle this case in lookup-optimize */
         if (op_ret == -1) {
                 gf_msg (this->name, GF_LOG_WARNING, op_errno,
                         DHT_MSG_CREATE_LINK_FAILED,
@@ -958,8 +1073,8 @@ dht_rename_links_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->linked = _gf_false;
                 dht_linkfile_attr_heal (frame, this);
         }
-        DHT_STACK_DESTROY (frame);
 
+        dht_rename_unlink (frame, this);
         return 0;
 }
 
@@ -973,19 +1088,14 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         dht_local_t  *local = NULL;
         xlator_t     *prev = NULL;
-        xlator_t     *src_hashed = NULL;
         xlator_t     *src_cached = NULL;
         xlator_t     *dst_hashed = NULL;
         xlator_t     *dst_cached = NULL;
-        xlator_t     *rename_subvol = NULL;
-        call_frame_t *link_frame = NULL;
-        dht_local_t *link_local = NULL;
-        dict_t       *xattr     = NULL;
+        loc_t         link_loc  = {0};
 
         local = frame->local;
         prev = cookie;
 
-        src_hashed = local->src_hashed;
         src_cached = local->src_cached;
         dst_hashed = local->dst_hashed;
         dst_cached = local->dst_cached;
@@ -1043,31 +1153,6 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->xattr = dict_copy_with_ref (xdata, local->xattr);
         }
 
-        if ((src_cached == dst_cached) && (dst_hashed != dst_cached)) {
-                link_frame = copy_frame (frame);
-                if (!link_frame) {
-                        goto err;
-                }
-
-                /* fop value sent as maxvalue because it is not used
-                   anywhere in this case */
-                link_local = dht_local_init (link_frame, &local->loc2, NULL,
-                                             GF_FOP_MAXVALUE);
-                if (!link_local) {
-                        goto err;
-                }
-
-                if (link_local->loc.inode)
-                        inode_unref (link_local->loc.inode);
-                link_local->loc.inode = inode_ref (local->loc.inode);
-                gf_uuid_copy (link_local->gfid, local->loc.inode->gfid);
-
-                dht_linkfile_create (link_frame, dht_rename_links_create_cbk,
-                                     this, src_cached, dst_hashed,
-                                     &link_local->loc);
-        }
-
-err:
         /* Merge attrs only from src_cached. In case there of src_cached !=
          * dst_hashed, this ignores linkfile attrs. */
         if (prev == src_cached) {
@@ -1078,98 +1163,23 @@ err:
                 dht_iatt_merge (this, &local->postparent, postnewparent);
         }
 
+        /* Create the linkto file for the dst file */
+        if ((src_cached == dst_cached) && (dst_hashed != dst_cached)) {
 
-        /* NOTE: rename_subvol is the same subvolume from which dht_rename_cbk
-         *       is called. since rename has already happened on rename_subvol,
-         *       unlink should not be sent for oldpath (either linkfile or cached-file)
-         *       on rename_subvol. */
-        if (src_cached == dst_cached)
-                rename_subvol = src_cached;
-        else
-                rename_subvol = dst_hashed;
+                loc_copy (&link_loc, &local->loc2);
+                if (link_loc.inode)
+                        inode_unref (link_loc.inode);
+                link_loc.inode = inode_ref (local->loc.inode);
+                gf_uuid_copy (local->gfid, local->loc.inode->gfid);
+                gf_uuid_copy (link_loc.gfid, local->loc.inode->gfid);
 
-        /* TODO: delete files in background */
-
-        if (src_cached != dst_hashed && src_cached != dst_cached)
-                local->call_cnt++;
-
-        if (src_hashed != rename_subvol && src_hashed != src_cached)
-                local->call_cnt++;
-
-        if (dst_cached && dst_cached != dst_hashed && dst_cached != src_cached)
-                local->call_cnt++;
-
-        if (local->call_cnt == 0)
-                goto unwind;
-
-        DHT_MARK_FOP_INTERNAL (xattr);
-
-        if (src_cached != dst_hashed && src_cached != dst_cached) {
-                dict_t *xattr_new = NULL;
-
-                xattr_new = dict_copy_with_ref (xattr, NULL);
-
-                gf_msg_trace (this->name, 0,
-                              "deleting old src datafile %s @ %s",
-                              local->loc.path, src_cached->name);
-
-                if (gf_uuid_compare (local->loc.pargfid,
-                                  local->loc2.pargfid) == 0) {
-                        DHT_MARKER_DONT_ACCOUNT(xattr_new);
-                }
-
-                DHT_CHANGELOG_TRACK_AS_RENAME(xattr_new, &local->loc,
-                                              &local->loc2);
-                STACK_WIND_COOKIE (frame, dht_rename_unlink_cbk, src_cached,
-                                   src_cached, src_cached->fops->unlink,
-                                   &local->loc, 0, xattr_new);
-
-                dict_unref (xattr_new);
-                xattr_new = NULL;
+                dht_linkfile_create (frame, dht_rename_links_create_cbk,
+                                     this, src_cached, dst_hashed,
+                                     &link_loc);
+                return 0;
         }
 
-        if (src_hashed != rename_subvol && src_hashed != src_cached) {
-                dict_t *xattr_new = NULL;
-
-                xattr_new = dict_copy_with_ref (xattr, NULL);
-
-                gf_msg_trace (this->name, 0,
-                              "deleting old src linkfile %s @ %s",
-                              local->loc.path, src_hashed->name);
-
-                DHT_MARKER_DONT_ACCOUNT(xattr_new);
-
-                STACK_WIND_COOKIE (frame, dht_rename_unlink_cbk, src_hashed,
-                                   src_hashed, src_hashed->fops->unlink,
-                                   &local->loc, 0, xattr_new);
-
-                dict_unref (xattr_new);
-                xattr_new = NULL;
-        }
-
-        if (dst_cached
-            && (dst_cached != dst_hashed)
-            && (dst_cached != src_cached)) {
-                gf_msg_trace (this->name, 0,
-                              "deleting old dst datafile %s @ %s",
-                              local->loc2.path, dst_cached->name);
-
-                STACK_WIND_COOKIE (frame, dht_rename_unlink_cbk, dst_cached,
-                                   dst_cached, dst_cached->fops->unlink,
-                                   &local->loc2, 0, xattr);
-        }
-        if (xattr)
-                dict_unref (xattr);
-        return 0;
-
-unwind:
-        WIPE (&local->preoldparent);
-        WIPE (&local->postoldparent);
-        WIPE (&local->preparent);
-        WIPE (&local->postparent);
-
-        dht_rename_done (frame, this);
-
+        dht_rename_unlink (frame, this);
         return 0;
 
 cleanup:

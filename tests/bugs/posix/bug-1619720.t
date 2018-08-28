@@ -48,10 +48,11 @@ TEST mv $M0/tmp/file-2 $M0/tmp/file-3
 
 TEST mv -f $M0/tmp/file-1 $M0/tmp/file-3
 
+
 TEST getfattr -n $pgfid_xattr_name $B0/${V0}0/tmp/file-3
 TEST getfattr -n $pgfid_xattr_name $B0/${V0}1/tmp/file-3
 
 # Not required for the test but an extra check if required.
 # The linkto file was not renamed Without the fix.
 #TEST mv $M0/tmp/file-3 $M0/tmp/file-6
-#cleanup;
+cleanup;
