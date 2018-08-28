@@ -252,8 +252,12 @@ afr_readdir_wind (call_frame_t *frame, xlator_t *this, int subvol)
 	priv = this->private;
 	local = frame->local;
 	fd_ctx = afr_fd_ctx_get (local->fd, this);
+        if (!fd_ctx) {
+                local->op_errno = EINVAL;
+                local->op_ret = -1;
+        }
 
-	if (subvol == -1) {
+	if (subvol == -1 || !fd_ctx) {
 		AFR_STACK_UNWIND (readdir, frame, local->op_ret,
 				  local->op_errno, 0, 0);
 		return 0;
