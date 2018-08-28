@@ -277,7 +277,7 @@ typedef enum {
 struct gf_gsync_detailed_status_ {
         char node[NAME_MAX];
         char master[NAME_MAX];
-        char brick[NAME_MAX];
+        char brick[PATH_MAX];
         char slave_user[NAME_MAX];
         char slave[NAME_MAX];
         char slave_node[NAME_MAX];
@@ -369,9 +369,9 @@ typedef enum gf_getspec_flags_type gf_getspec_flags_type;
 #define GD_MGMT_HNDSK_PROGRAM    1239873 /* Completely random */
 #define GD_MGMT_HNDSK_VERSION    1
 
-#define GD_VOLUME_NAME_MAX 256 /* Maximum size of volume name */
-#define GD_VOLUME_NAME_MAX_TIER (GD_VOLUME_NAME_MAX + 5) /*+5 needed for '-hot
-                                                        and '-cold' suffixes*/
+#define GD_VOLUME_NAME_MAX ((NAME_MAX + 1) - 5) /* Maximum size of volume name */
+#define GD_VOLUME_NAME_MAX_TIER (GD_VOLUME_NAME_MAX + 5) /* +5 needed for '-hot'
+                                                            and '-cold' suffixes*/
 
 #define GLUSTER_PROCESS_UUID_FMT "CTX_ID:%s-GRAPH_ID:%d-PID:%d-HOST:%s-PC_NAME:%s-RECON_NO:%s"
 #endif /* !_PROTOCOL_COMMON_H */
