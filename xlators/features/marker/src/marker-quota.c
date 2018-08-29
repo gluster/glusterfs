@@ -1446,7 +1446,7 @@ out:
                 call_resume (stub);
 
         if (ret)
-                gf_log_callingfn (this->name, GF_LOG_ERROR,
+                gf_log_callingfn (this ? this->name : "Marker", GF_LOG_ERROR,
                                   "mq_reduce_parent_size_txn failed");
 
         return ret;
@@ -2183,8 +2183,8 @@ mq_req_xattr (xlator_t *this, loc_t *loc, dict_t *dict,
 
 out:
         if (ret < 0)
-                gf_log_callingfn (this->name, GF_LOG_ERROR, "dict set failed");
-
+                gf_log_callingfn (this ? this->name : "Marker",
+				  GF_LOG_ERROR, "dict set failed");
         return ret;
 }
 
