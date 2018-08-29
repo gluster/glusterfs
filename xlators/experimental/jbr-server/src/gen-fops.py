@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 # This script generates the boilerplate versions of most fops and cbks in the
 # server.  This allows the details of leadership-status checking, sequencing

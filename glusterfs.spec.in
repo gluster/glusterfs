@@ -151,6 +151,14 @@
 %global _without_ocf --without-ocf
 %endif
 
+%if ( 0%{?fedora} && 0%{?fedora} > 26 ) || ( 0%{?rhel} && 0%{?rhel} > 7 )
+%global _usepython3 1
+%global _pythonver 3
+%else
+%global _usepython3 0
+%global _pythonver 2
+%endif
+
 # From https://fedoraproject.org/wiki/Packaging:Python#Macros
 %if ( 0%{?rhel} && 0%{?rhel} <= 6 )
 %{!?python2_sitelib: %global python2_sitelib %(python2 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
@@ -243,9 +251,6 @@ Source0:          @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz
 BuildRoot:        %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 Requires(pre):    shadow-utils
-%if ( 0%{?rhel} && 0%{?rhel} <= 5 )
-BuildRequires:    python-simplejson
-%endif
 %if ( 0%{?_with_systemd:1} )
 BuildRequires:    systemd
 %endif
@@ -259,8 +264,8 @@ BuildRequires:    gcc make libtool
 BuildRequires:    ncurses-devel readline-devel
 BuildRequires:    libxml2-devel openssl-devel
 BuildRequires:    libaio-devel libacl-devel
-BuildRequires:    python2-devel
-%if ( 0%{?fedora} && 0%{?fedora} < 26 ) || ( 0%{?rhel} && 0%{?rhel} <= 7 )
+BuildRequires:    python%{_pythonver}-devel
+%if ( 0%{?rhel} && 0%{?rhel} < 8 )
 BuildRequires:    python-ctypes
 %endif
 %if ( 0%{?_with_ipv6default:1} ) || ( 0%{!?_without_libtirpc:1} )
@@ -392,8 +397,8 @@ Summary:          Extra Gluster filesystem Translators
 Group:            Applications/File
 # We need python-gluster rpm for gluster module's __init__.py in Python
 # site-packages area
-Requires:         python2-gluster = %{version}-%{release}
-Requires:         python2
+Requires:         python%{_pythonver}-gluster = %{version}-%{release}
+Requires:         python%{_pythonver}
 
 %description extra-xlators
 GlusterFS is a distributed file-system capable of scaling to several
@@ -453,9 +458,10 @@ Summary:          GlusterFS Geo-replication
 Group:            Applications/File
 Requires:         %{name}%{?_isa} = %{version}-%{release}
 Requires:         %{name}-server%{?_isa} = %{version}-%{release}
-Requires:         python2
-Requires:         python-prettytable
-Requires:         python2-gluster = %{version}-%{release}
+Requires:         python%{_pythonver}
+Requires:         python%{_pythonver}-prettytable
+Requires:         python%{_pythonver}-gluster = %{version}-%{release}
+
 Requires:         rsync
 Requires:         util-linux
 
@@ -506,37 +512,27 @@ is in user space and easily manageable.
 
 This package provides the base GlusterFS libraries
 
-%package -n python-gluster
+%package -n python%{_pythonver}-gluster
 Summary:          GlusterFS python library
 Group:            Development/Tools
-%if ( ! ( 0%{?rhel} && 0%{?rhel} < 6 || 0%{?sles_version} ) )
-# EL5 does not support noarch sub-packages
-BuildArch:        noarch
-%endif
-
-%global _python_gluster_description \
-GlusterFS is a distributed file-system capable of scaling to several\
-petabytes. It aggregates various storage bricks over Infiniband RDMA\
-or TCP/IP interconnect into one large parallel network file\
-system. GlusterFS is one of the most sophisticated file systems in\
-terms of features and extensibility.  It borrows a powerful concept\
-called Translators from GNU Hurd kernel. Much of the code in GlusterFS\
-is in user space and easily manageable.\
-\
-This package contains the python modules of GlusterFS and own gluster\
-namespace.
-
-%description -n python-gluster %{_python_gluster_description}
-
-%package -n python2-gluster
-Summary:          GlusterFS python library
-Group:            Development/Tools
-%{?python_provide:%python_provide python2-gluster}
-Requires:         python2
+Requires:         python%{_pythonver}
+%if ( ! %{_usepython3} )
+%{?python_provide:%python_provide python-gluster}
 Provides:         python-gluster = %{version}-%{release}
 Obsoletes:        python-gluster < 3.10
+%endif
 
-%description -n python2-gluster %{_python_gluster_description}
+%description -n python%{_pythonver}-gluster
+GlusterFS is a distributed file-system capable of scaling to several
+petabytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file systems in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in user space and easily manageable.
+
+This package contains the python modules of GlusterFS and own gluster
+namespace.
 
 %if ( 0%{!?_without_rdma:1} )
 %package rdma
@@ -571,7 +567,8 @@ Requires:         %{name}-server%{?_isa} = %{version}-%{release}
 ## thin provisioning support
 Requires:         lvm2 >= 2.02.89
 Requires:         perl(App::Prove) perl(Test::Harness) gcc util-linux-ng
-Requires:         python2 attr dbench file git libacl-devel net-tools
+Requires:         python%{_pythonver}
+Requires:         attr dbench file git libacl-devel net-tools
 Requires:         nfs-utils xfsprogs yajl psmisc bc
 
 %description regression-tests
@@ -652,8 +649,8 @@ Obsoletes:        %{name}-geo-replication = %{version}-%{release}
 %if ( 0%{?rhel} && 0%{?rhel} <= 6 )
 Requires:         python-argparse
 %endif
-%if ( 0%{?fedora} && 0%{?fedora} >= 28 )
-Requires:         python2-pyxattr
+%if ( 0%{?fedora} && 0%{?fedora} > 27 ) || ( 0%{?rhel} && 0%{?rhel} > 7 )
+Requires:         python%{_pythonver}-pyxattr
 %else
 Requires:         pyxattr
 %endif
@@ -693,12 +690,12 @@ This package provides the translators needed on any GlusterFS client.
 Summary:          GlusterFS Events
 Group:            Applications/File
 Requires:         %{name}-server%{?_isa} = %{version}-%{release}
-Requires:         python2 python-prettytable
-Requires:         python2-gluster = %{version}-%{release}
-%if ( 0%{?rhel} )
+Requires:         python%{_pythonver} python%{_pythonver}-prettytable
+Requires:         python%{_pythonver}-gluster = %{version}-%{release}
+%if ( 0%{?rhel} && 0%{?rhel} < 8 )
 Requires:         python-requests
 %else
-Requires:         python2-requests
+Requires:         python%{_pythonver}-requests
 %endif
 %if ( 0%{?rhel} && 0%{?rhel} < 7 )
 Requires:         python-argparse
@@ -1185,6 +1182,10 @@ exit 0
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/encryption/rot-13.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy.so
+%if ( %{_usepython3} )
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/__pycache__
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/__pycache__/*
+%endif
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/quiesce.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/playground
@@ -1192,9 +1193,17 @@ exit 0
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance/symlink-cache.so
 # Glupy Python files
+%if ( %{_usepython3} )
+%dir %{python3_sitelib}/gluster
+%dir %{python3_sitelib}/gluster/__pycache__
+     %{python3_sitelib}/gluster/__pycache__/*
+%dir %{python3_sitelib}/gluster/glupy
+     %{python3_sitelib}/gluster/glupy/*
+%else
 %dir %{python2_sitelib}/gluster
 %dir %{python2_sitelib}/gluster/glupy
      %{python2_sitelib}/gluster/glupy/*
+%endif
 
 %files fuse
 # glusterfs is a symlink to glusterfsd, -server depends on -fuse.
@@ -1274,12 +1283,18 @@ exit 0
 %exclude %{_libdir}/libgfdb.*
 %endif
 
-%files -n python2-gluster
+%files -n python%{_pythonver}-gluster
 # introducing glusterfs module in site packages.
 # so that all other gluster submodules can reside in the same namespace.
+%if ( %{_usepython3} )
+%dir %{python3_sitelib}/gluster
+     %{python3_sitelib}/gluster/__init__.*
+     %{python3_sitelib}/gluster/cliutils
+%else
 %dir %{python2_sitelib}/gluster
      %{python2_sitelib}/gluster/__init__.*
      %{python2_sitelib}/gluster/cliutils
+%endif
 
 %if ( 0%{!?_without_rdma:1} )
 %files rdma
