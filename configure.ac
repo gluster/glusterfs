@@ -635,53 +635,55 @@ fi
 
 dnl Check Python Availability
 have_python=no
-case $host_os in
-  freebsd*)
-    PYTHON=/usr/local/bin/python2
-    ;;
-  *)
-    PYTHON=/usr/bin/python2
-    ;;
-esac
+dnl if the user has not specified a python, pick one
+if test -z "${PYTHON}"; then
+  case $host_os in
+    freebsd*)
+      if test -x /usr/local/bin/python3; then
+        PYTHON=/usr/local/bin/python3
+      else
+        PYTHON=/usr/local/bin/python2
+      fi
+      ;;
+    *)
+      if test -x /usr/bin/python3; then
+        PYTHON=/usr/bin/python3
+      else
+        PYTHON=/usr/bin/python2
+      fi
+      ;;
+  esac
+fi
 AM_PATH_PYTHON([2.6],,[:])
-if test "x${PYTHON}" != "x:"; then
+if test -n "${PYTHON}"; then
    have_python=yes
 fi
 
-echo "python = ${PYTHON}"
+echo "PYTHON = ${PYTHON} ${PYTHON_VERSION}"
 
-dnl Check if version matches that we require
-PYTHONDEV_CPPFLAGS=
-PYTHONDEV_LDFLAGS=
-BUILD_PYTHON_SITE_PACKAGES=
-BUILD_PYTHON_INC=
-BUILD_PYTHON_LIB=
-have_Python_h="no"
-
-dnl Use pkg-config to get runtime search patch missing from ${PYTHON}-config
+dnl Use pkg-config to get runtime search path missing from ${PYTHON}-config
 dnl Just do "true" on failure so that configure does not bail out
-PKG_CHECK_MODULES([PYTHON], "python-${PYTHON_VERSION}",,true)
+dnl Note: python 2.6's devel pkg (e.g. in CentOS/RHEL 6) does not have
+dnl pkg-config files, so this work-around instead
+if test "x${PYTHON_VERSION}" = "x2.6"; then
+  PYTHON_CFLAGS=$(python-config --includes)
+  PYTHON_LIBS=$(python-config --libs)
+else
+  PKG_CHECK_MODULES([PYTHON], "python-${PYTHON_VERSION}",,true)
+fi
 
-PYTHONDEV_CPPFLAGS="`${PYTHON}-config --cflags`"
-dnl Edit out the flags that are not required or are conflicting
-PYTHONDEV_CPPFLAGS=`echo ${PYTHONDEV_CPPFLAGS} | sed -e 's/-Wp,-D_FORTIFY_SOURCE=[[0-9]]//g'`
-
-dnl Find python libs at user configured libdir and also "lib" under prefix
-PYTHONDEV_LDFLAGS="${PYTHON_LIBS} -L`${PYTHON}-config --prefix`/lib -L`${PYTHON}-config --prefix`/$libdir `${PYTHON}-config --ldflags`"
+PYTHON_CFLAGS=$(echo ${PYTHON_CFLAGS} | sed -e 's|-I|-isystem |')
 
 BUILD_PYTHON_SITE_PACKAGES=${pythondir}
-BUILD_PYTHON_INC=`${PYTHON} -c "import sys; from distutils import sysconfig; sys.stdout.write(sysconfig.get_python_inc())" 2>/dev/null`
-BUILD_PYTHON_LIB=python${PYTHON_VERSION}
-
-dnl Now check for python header using the include path obtained above
-AC_CHECK_HEADERS([${BUILD_PYTHON_INC}/Python.h],[have_Python_h=yes],[])
-
-AC_SUBST(PYTHONDEV_CPPFLAGS)
-AC_SUBST(PYTHONDEV_LDFLAGS)
 AC_SUBST(BUILD_PYTHON_SITE_PACKAGES)
-AC_SUBST(BUILD_PYTHON_INC)
-AC_SUBST(BUILD_PYTHON_LIB)
 
+# Eval two times to expand fully. First eval replaces $exec_prefix into $prefix
+# Second eval will expand $prefix
+build_python_site_packages_temp="${pythondir}"
+eval build_python_site_packages_temp=\"${build_python_site_packages_temp}\"
+eval build_python_site_packages_temp=\"${build_python_site_packages_temp}\"
+BUILD_PYTHON_SITE_PACKAGES_EXPANDED=${build_python_site_packages_temp}
+AC_SUBST(BUILD_PYTHON_SITE_PACKAGES_EXPANDED)
 
 # FUSE section
 AC_ARG_ENABLE([fuse-client],
@@ -1002,7 +1004,7 @@ fi
 dnl cloudsync section
 BUILD_CLOUDSYNC="no"
 AC_CHECK_LIB([curl], [curl_easy_setopt], [LIBCURL="-lcurl"])
-if test "x$LIBCURL" != "x";then
+if test -n "$LIBCURL";then
         HAVE_LIBCURL="yes"
 fi
 AC_CHECK_HEADERS([openssl/hmac.h openssl/evp.h openssl/bio.h openssl/buffer.h], [HAVE_OPENSSL="yes"])
@@ -1369,19 +1371,11 @@ sysconfdirtemp="${sysconfdir}"
 eval sysconfdirtemp=\"${sysconfdirtemp}\"
 SYSCONF_DIR=${sysconfdirtemp}
 
-# Eval two times to expand fully. First eval replaces $exec_prefix into $prefix
-# Second eval will expand $prefix
-build_python_site_packages_temp="${BUILD_PYTHON_SITE_PACKAGES}"
-eval build_python_site_packages_temp=\"${build_python_site_packages_temp}\"
-eval build_python_site_packages_temp=\"${build_python_site_packages_temp}\"
-BUILD_PYTHON_SITE_PACKAGES_EXPANDED=${build_python_site_packages_temp}
-
 prefix=$prefix_temp
 exec_prefix=$exec_prefix_temp
 
 AC_SUBST(SBIN_DIR)
 AC_SUBST(SYSCONF_DIR)
-AC_SUBST(BUILD_PYTHON_SITE_PACKAGES_EXPANDED)
 
 # lazy umount emulation
 UMOUNTD_SUBDIR=""
@@ -1425,7 +1419,7 @@ AC_CHECK_LIB([readline -lcurses],[readline],[RLLIBS="-lreadline -lcurses"])
 AC_CHECK_LIB([readline -ltermcap],[readline],[RLLIBS="-lreadline -ltermcap"])
 AC_CHECK_LIB([readline -lncurses],[readline],[RLLIBS="-lreadline -lncurses"])
 
-if test "x$RLLIBS" != "x"; then
+if test -n "$RLLIBS"; then
    if test "x$RL_UNDO" = "xyes"; then
       AC_DEFINE(HAVE_READLINE, 1, [readline enabled CLI])
       BUILD_READLINE=yes
@@ -1438,7 +1432,7 @@ fi
 BUILD_LIBAIO=no
 AC_CHECK_LIB([aio],[io_setup],[LIBAIO="-laio"])
 
-if test "x$LIBAIO" != "x"; then
+if test -n "$LIBAIO"; then
    AC_DEFINE(HAVE_LIBAIO, 1, [libaio based POSIX enabled])
    BUILD_LIBAIO=yes
 fi
@@ -1454,7 +1448,7 @@ if test "x$enable_glupy" = "xyes"; then
     GLUPY_SUBDIR_MAKEFILE=xlators/features/glupy/Makefile
     GLUPY_SUBDIR_SRC_MAKEFILE=xlators/features/glupy/src/Makefile
 
-    if test "x${have_python}" = "xyes" -a "x${have_Python_h}" = "xyes"; then
+    if test "x${have_python}" = "xyes" -a -n "${PYTHON_CFLAGS}"; then
         case $host_os in
             darwin*)
                 BUILD_GLUPY=no
@@ -1472,7 +1466,7 @@ if test "x$enable_glupy" = "xyes"; then
 
     if test "x$BUILD_GLUPY" = "xyes"; then
 
-        echo "building glupy with -isystem $BUILD_PYTHON_INC -l $BUILD_PYTHON_LIB"
+        echo "building glupy with -isystem ${PYTHON_CFLAGS} ${PYTHON_LIBS}"
 
         AC_SUBST(GLUPY_SUBDIR)
         AC_SUBST(GLUPY_SUBDIR_MAKEFILE)
@@ -1722,6 +1716,19 @@ AC_SUBST(GFAPI_EXTRA_LDFLAGS)
 
 GFAPI_LIBS="${ACL_LIBS}"
 AC_SUBST(GFAPI_LIBS)
+
+pushd $(dirname $0)
+if test ! -e python-shebangs; then
+  touch python-shebangs
+  if test "x${PYTHON}" = "x/usr/bin/python2"; then
+    echo "fixing python shebangs..."
+    for f in api events extras geo-replication libglusterfs tests tools xlators; do
+      find $f -type f -exec sed -i 's|/usr/bin/python3|/usr/bin/python2|' {} \;
+    done
+    echo "...done"
+  fi
+fi
+popd
 
 dnl this change necessary for run-tests.sh
 AC_CONFIG_FILES([tests/env.rc],[ln -s ${ac_abs_builddir}/env.rc ${ac_abs_srcdir}/env.rc 2>/dev/null])

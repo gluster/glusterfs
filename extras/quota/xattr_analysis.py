@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # Below script has two purposes
 #  1. Display xattr of entire FS tree in a human readable form
 #  2. Display all the directory where contri and size mismatch.
