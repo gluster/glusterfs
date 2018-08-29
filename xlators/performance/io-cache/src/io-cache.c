@@ -189,7 +189,7 @@ ioc_inode_update (xlator_t *this, inode_t *inode, char *path,
 
         LOCK (&inode->lock);
         {
-                __inode_ctx_get (inode, this, &tmp_ioc_inode);
+                (void) __inode_ctx_get (inode, this, &tmp_ioc_inode);
                 ioc_inode = (ioc_inode_t *)(long)tmp_ioc_inode;
 
                 if (!ioc_inode) {
@@ -198,8 +198,8 @@ ioc_inode_update (xlator_t *this, inode_t *inode, char *path,
                         ioc_inode = ioc_inode_create (table, inode,
                                                       weight);
 
-                        __inode_ctx_put (inode, this,
-                                         (uint64_t)(long)ioc_inode);
+                       (void) __inode_ctx_put (inode, this,
+                                       (uint64_t)(long)ioc_inode);
                 }
         }
         UNLOCK (&inode->lock);
@@ -300,6 +300,11 @@ ioc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return 0;
 
 unwind:
+        if (local != NULL) {
+                loc_wipe (&local->file_loc);
+                mem_put (local);
+        }
+
         STACK_UNWIND_STRICT (lookup, frame, -1, op_errno, NULL, NULL,
                              NULL, NULL);
 
