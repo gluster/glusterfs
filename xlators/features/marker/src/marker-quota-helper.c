@@ -305,7 +305,8 @@ mq_dict_set_contribution (xlator_t *this, dict_t *dict, loc_t *loc,
 
 out:
         if (ret < 0)
-                gf_log_callingfn (this->name, GF_LOG_ERROR, "dict set failed");
+                gf_log_callingfn (this ? this->name : "Marker",
+                                  GF_LOG_ERROR, "dict set failed");
 
         return ret;
 }

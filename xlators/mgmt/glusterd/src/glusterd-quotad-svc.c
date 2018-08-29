@@ -213,6 +213,6 @@ manager:
                                         PROC_START_NO_WAIT);
 
 out:
-        gf_msg_debug (this->name, 0, "Returning %d", ret);
+        gf_msg_debug (this ? this->name : "Quotad", 0, "Returning %d", ret);
         return ret;
 }
