@@ -174,14 +174,15 @@ call_bail (void *data)
                           ".%"GF_PRI_SUSECONDS, trav->saved_at.tv_usec);
 
 		gf_log (conn->name, GF_LOG_ERROR,
-			"bailing out frame type(%s) op(%s(%d)) xid = 0x%x "
-                        "sent = %s. timeout = %d for %s",
+			"bailing out frame type(%s), op(%s(%d)), xid = 0x%x, "
+                        "unique = %"PRIu64", sent = %s, timeout = %d for %s",
 			trav->rpcreq->prog->progname,
                         (trav->rpcreq->prog->procnames) ?
                         trav->rpcreq->prog->procnames[trav->rpcreq->procnum] :
                         "--",
-                        trav->rpcreq->procnum, trav->rpcreq->xid, frame_sent,
-                        conn->frame_timeout, peerid);
+                        trav->rpcreq->procnum, trav->rpcreq->xid,
+                        ((call_frame_t *)(trav->frame))->root->unique,
+                        frame_sent, conn->frame_timeout, peerid);
 
                 clnt = rpc_clnt_ref (clnt);
                 trav->rpcreq->rpc_status = -1;
@@ -1644,6 +1645,7 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
         char                   new_iobref  = 0;
         uint64_t               callid      = 0;
         gf_boolean_t           need_unref  = _gf_false;
+        call_frame_t          *cframe      = frame;
 
         if (!rpc || !prog || !frame) {
                 goto out;
@@ -1726,8 +1728,9 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
                 if (ret == -1) {
                         gf_log (conn->name, GF_LOG_WARNING,
                                 "failed to submit rpc-request "
-                                "(XID: 0x%x Program: %s, ProgVers: %d, "
-                                "Proc: %d) to rpc-transport (%s)", rpcreq->xid,
+                                "(unique: %"PRIu64", XID: 0x%x Program: %s, "
+                                "ProgVers: %d, Proc: %d) to rpc-transport (%s)",
+                                cframe->root->unique, rpcreq->xid,
                                 rpcreq->prog->progname, rpcreq->prog->progver,
                                 rpcreq->procnum, conn->name);
                 }
@@ -1746,8 +1749,9 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
                         conn->msgcnt++;
 
                         gf_log ("rpc-clnt", GF_LOG_TRACE, "submitted request "
-                                "(XID: 0x%x Program: %s, ProgVers: %d, "
-                                "Proc: %d) to rpc-transport (%s)", rpcreq->xid,
+                                "(unique: %"PRIu64", XID: 0x%x, Program: %s, "
+                                "ProgVers: %d, Proc: %d) to rpc-transport (%s)",
+                                cframe->root->unique, rpcreq->xid,
                                 rpcreq->prog->progname, rpcreq->prog->progver,
                                 rpcreq->procnum, conn->name);
                 }
