@@ -172,6 +172,13 @@ cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
                 ++brick_index;
         }
 
+        /* If brick count is not valid exit here */
+        if (!*brick_count) {
+                cli_err ("No bricks specified");
+                ret = -1;
+                goto out;
+        }
+
         brick_list_len++; /* For terminating null char */
 
         bricks_str = GF_MALLOC(brick_list_len, gf_common_mt_char);
@@ -711,14 +718,6 @@ cli_cmd_volume_create_parse (struct cli_state *state, const char **words,
                                     &brick_count);
         if (ret)
                 goto out;
-
-        /* If brick-count is not valid when replica or stripe is
-           given, exit here */
-        if (!brick_count) {
-                cli_err ("No bricks specified");
-                ret = -1;
-                goto out;
-        }
 
         if (type == GF_CLUSTER_TYPE_DISPERSE) {
                 ret = cli_cmd_create_disperse_check (state, &disperse_count,
@@ -1821,11 +1820,7 @@ parse_bricks:
                                     &brick_count);
         if (ret)
                 goto out;
-        if (!brick_count) {
-                cli_err ("No bricks specified");
-                ret = -1;
-                goto out;
-        }
+
         ret = dict_set_dynstr (dict, "bricks", bricks);
         if (ret)
                 goto out;
