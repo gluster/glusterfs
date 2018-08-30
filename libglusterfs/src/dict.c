@@ -52,21 +52,23 @@ struct dict_cmp {
                 }                                                       \
         } while (0)
 
-data_t *
+static data_t *
 get_new_data ()
 {
         data_t *data = NULL;
 
-        data = mem_get0 (THIS->ctx->dict_data_pool);
-        if (!data) {
+        data = mem_get (THIS->ctx->dict_data_pool);
+        if (!data)
                 return NULL;
-        }
 
+        GF_ATOMIC_INIT (data->refcount, 0);
+        data->is_static = _gf_false;
         LOCK_INIT (&data->lock);
+
         return data;
 }
 
-dict_t *
+static dict_t *
 get_new_dict_full (int size_hint)
 {
         dict_t *dict = mem_get0 (THIS->ctx->dict_pool);
@@ -300,8 +302,7 @@ data_destroy (data_t *data)
                         GF_FREE (data->data);
 
                 data->len = 0xbabababa;
-                if (!data->is_const)
-                        mem_put (data);
+                mem_put (data);
         }
 }
 
@@ -364,7 +365,7 @@ dict_lookup_common (dict_t *this, char *key, uint32_t hash)
 int32_t
 dict_lookup (dict_t *this, char *key, data_t **data)
 {
-        uint32_t hash; 
+        uint32_t hash;
 
         if (!this || !key || !data) {
                 gf_msg_callingfn ("dict", GF_LOG_WARNING, EINVAL,
@@ -428,7 +429,7 @@ dict_set_lk (dict_t *this, char *key, data_t *value, const uint32_t hash, gf_boo
         }
 
         if (this->free_pair_in_use) {
-                pair = mem_get0 (THIS->ctx->dict_pair_pool);
+                pair = mem_get (THIS->ctx->dict_pair_pool);
                 if (!pair) {
                         if (key_free)
                                 GF_FREE (key);
@@ -750,8 +751,7 @@ dict_destroy (dict_t *this)
         GF_ATOMIC_ADD (ctx->stats.total_pairs_used, total_pairs);
         GF_ATOMIC_INC (ctx->stats.total_dicts_used);
 
-        if (!this->is_static)
-                mem_put (this);
+        mem_put (this);
 
         return;
 }
@@ -822,18 +822,17 @@ data_t *
 int_to_data (int64_t value)
 {
         data_t *data = get_new_data ();
-        int len;
 
         if (!data) {
                 return NULL;
         }
 
-        len = gf_asprintf (&data->data, "%"PRId64, value);
-        if (-1 == len) {
+        data->len = gf_asprintf (&data->data, "%"PRId64, value);
+        if (-1 == data->len) {
                 gf_msg_debug ("dict", 0, "asprintf failed");
                 return NULL;
         }
-        data->len = len + 1;
+        data->len++; /* account for terminating NULL */
         data->data_type = GF_DATA_TYPE_INT;
 
         return data;
@@ -843,17 +842,16 @@ data_t *
 data_from_int64 (int64_t value)
 {
         data_t *data = get_new_data ();
-        int len;
 
         if (!data) {
                 return NULL;
         }
-        len = gf_asprintf (&data->data, "%"PRId64, value);
-        if (-1 == len) {
+        data->len = gf_asprintf (&data->data, "%"PRId64, value);
+        if (-1 == data->len) {
                 gf_msg_debug ("dict", 0, "asprintf failed");
                 return NULL;
         }
-        data->len = len + 1;
+        data->len++; /* account for terminating NULL */
         data->data_type = GF_DATA_TYPE_INT;
 
         return data;
@@ -863,18 +861,17 @@ data_t *
 data_from_int32 (int32_t value)
 {
         data_t *data = get_new_data ();
-        int len;
 
         if (!data) {
                 return NULL;
         }
-        len = gf_asprintf (&data->data, "%"PRId32, value);
-        if (-1 == len) {
+        data->len = gf_asprintf (&data->data, "%"PRId32, value);
+        if (-1 == data->len) {
                 gf_msg_debug ("dict", 0, "asprintf failed");
                 return NULL;
         }
 
-        data->len = len + 1;
+        data->len++; /* account for terminating NULL */
         data->data_type = GF_DATA_TYPE_INT;
 
         return data;
@@ -884,18 +881,17 @@ data_t *
 data_from_int16 (int16_t value)
 {
         data_t *data = get_new_data ();
-        int len;
 
         if (!data) {
                 return NULL;
         }
-        len = gf_asprintf (&data->data, "%"PRId16, value);
-        if (-1 == len) {
+        data->len = gf_asprintf (&data->data, "%"PRId16, value);
+        if (-1 == data->len) {
                 gf_msg_debug ("dict", 0, "asprintf failed");
                 return NULL;
         }
 
-        data->len = len + 1;
+        data->len++; /* account for terminating NULL */
         data->data_type = GF_DATA_TYPE_INT;
 
         return data;
@@ -905,18 +901,17 @@ data_t *
 data_from_int8 (int8_t value)
 {
         data_t *data = get_new_data ();
-        int len;
 
         if (!data) {
                 return NULL;
         }
-        len = gf_asprintf (&data->data, "%d", value);
-        if (-1 == len) {
+        data->len = gf_asprintf (&data->data, "%d", value);
+        if (-1 == data->len) {
                 gf_msg_debug ("dict", 0, "asprintf failed");
                 return NULL;
         }
 
-        data->len = len + 1;
+        data->len++; /* account for terminating NULL */
         data->data_type = GF_DATA_TYPE_INT;
 
         return data;
@@ -926,28 +921,26 @@ data_t *
 data_from_uint64 (uint64_t value)
 {
         data_t *data = get_new_data ();
-        int len;
 
         if (!data) {
                 return NULL;
         }
-        len = gf_asprintf (&data->data, "%"PRIu64, value);
-        if (-1 == len) {
+        data->len = gf_asprintf (&data->data, "%"PRIu64, value);
+        if (-1 == data->len) {
                 gf_msg_debug ("dict", 0, "asprintf failed");
                 return NULL;
         }
 
-        data->len = len + 1;
+        data->len++; /* account for terminating NULL */
         data->data_type = GF_DATA_TYPE_UINT;
 
         return data;
 }
 
-static data_t *
+data_t *
 data_from_double (double value)
 {
         data_t *data = NULL;
-        int len;
 
         data = get_new_data ();
 
@@ -955,11 +948,11 @@ data_from_double (double value)
                 return NULL;
         }
 
-        len = gf_asprintf (&data->data, "%f", value);
-        if (len == -1) {
+        data->len = gf_asprintf (&data->data, "%f", value);
+        if (data->len == -1) {
                 return NULL;
         }
-        data->len = len + 1;
+        data->len++; /* account for terminating NULL */
         data->data_type = GF_DATA_TYPE_DOUBLE;
 
         return data;
@@ -970,18 +963,17 @@ data_t *
 data_from_uint32 (uint32_t value)
 {
         data_t *data = get_new_data ();
-        int len;
 
         if (!data) {
                 return NULL;
         }
-        len = gf_asprintf (&data->data, "%"PRIu32, value);
-        if (-1 == len) {
+        data->len = gf_asprintf (&data->data, "%"PRIu32, value);
+        if (-1 == data->len) {
                 gf_msg_debug ("dict", 0, "asprintf failed");
                 return NULL;
         }
 
-        data->len = len + 1;
+        data->len++; /* account for terminating NULL */
         data->data_type = GF_DATA_TYPE_UINT;
 
         return data;
@@ -992,17 +984,16 @@ data_t *
 data_from_uint16 (uint16_t value)
 {
         data_t *data = get_new_data ();
-        int len;
 
         if (!data) {
                 return NULL;
         }
-        len = gf_asprintf (&data->data, "%"PRIu16, value);
-        if (-1 == len) {
+        data->len = gf_asprintf (&data->data, "%"PRIu16, value);
+        if (-1 == data->len) {
                 return NULL;
         }
 
-        data->len = len + 1;
+        data->len++; /* account for terminating NULL */
         data->data_type = GF_DATA_TYPE_UINT;
 
         return data;
@@ -1019,6 +1010,7 @@ data_from_ptr_common (void *value, gf_boolean_t is_static)
         }
 
         data->data = value;
+	data->len = 0;
         data->is_static = is_static;
 
         data->data_type = GF_DATA_TYPE_PTR;
@@ -1054,7 +1046,7 @@ strn_to_data (char *value, const int vallen)
         data->data_type = GF_DATA_TYPE_STR;
 
         data->data = value;
-        data->is_static = 1;
+        data->is_static = _gf_true;
 
         return data;
 }
@@ -1108,7 +1100,7 @@ bin_to_data (void *value, int32_t len)
         if (!data)
                 return NULL;
 
-        data->is_static = 1;
+        data->is_static = _gf_true;
         data->len = len;
         data->data = value;
 
@@ -1132,13 +1124,7 @@ data_to_int64 (data_t *data)
 {
         VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, "null", -1);
 
-        char *str = alloca (data->len);
-        if (!str)
-                return -1;
-
-        memcpy (str, data->data, data->len);
-
-        return (int64_t) strtoull (str, NULL, 0);
+        return (int64_t) strtoull (data->data, NULL, 0);
 }
 
 int32_t
@@ -1146,13 +1132,7 @@ data_to_int32 (data_t *data)
 {
         VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, "null", -1);
 
-        char *str = alloca (data->len);
-        if (!str)
-                return -1;
-
-        memcpy (str, data->data, data->len);
-
-        return strtoul (str, NULL, 0);
+        return strtoul (data->data, NULL, 0);
 }
 
 int16_t
@@ -1161,14 +1141,9 @@ data_to_int16 (data_t *data)
         VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, "null", -1);
 
         int16_t value = 0;
-        char *str = alloca (data->len);
-        if (!str)
-                return -1;
-
-        memcpy (str, data->data, data->len);
 
         errno = 0;
-        value = strtol (str, NULL, 0);
+        value = strtol (data->data, NULL, 0);
 
         if ((value > SHRT_MAX) || (value < SHRT_MIN)) {
                 errno = ERANGE;
@@ -1188,15 +1163,9 @@ data_to_int8 (data_t *data)
         VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, "null", -1);
 
         int8_t value = 0;
-        char *str = alloca (data->len + 1);
-        if (!str)
-                return -1;
-
-        memcpy (str, data->data, data->len);
-        str[data->len] = '\0';
 
         errno = 0;
-        value = strtol (str, NULL, 0);
+        value = strtol (data->data, NULL, 0);
 
         if ((value > SCHAR_MAX) || (value < SCHAR_MIN)) {
                 errno = ERANGE;
@@ -1215,13 +1184,7 @@ data_to_uint64 (data_t *data)
 {
         VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, "null", -1);
 
-        char *str = alloca (data->len);
-        if (!str)
-                return -1;
-
-        memcpy (str, data->data, data->len);
-
-        return strtoll (str, NULL, 0);
+        return strtoll (data->data, NULL, 0);
 }
 
 uint32_t
@@ -1229,13 +1192,7 @@ data_to_uint32 (data_t *data)
 {
         VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, "null", -1);
 
-        char *str = alloca (data->len);
-        if (!str)
-                return -1;
-
-        memcpy (str, data->data, data->len);
-
-        return strtol (str, NULL, 0);
+        return strtol (data->data, NULL, 0);
 }
 
 uint16_t
@@ -1244,14 +1201,9 @@ data_to_uint16 (data_t *data)
         VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, "null", -1);
 
 	uint16_t value = 0;
-        char *str = alloca (data->len);
-        if (!str)
-                return -1;
-
-        memcpy (str, data->data, data->len);
 
 	errno = 0;
-	value = strtol (str, NULL, 0);
+	value = strtol (data->data, NULL, 0);
 
 	if ((USHRT_MAX - value) < 0) {
 		errno = ERANGE;
@@ -1271,15 +1223,9 @@ data_to_uint8 (data_t *data)
         VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_UINT, "null", -1);
 
 	uint32_t value = 0;
-        char *str = alloca (data->len + 1);
-        if (!str)
-                return -1;
-
-        memcpy (str, data->data, data->len);
-        str[data->len] = '\0';
 
 	errno = 0;
-	value = strtol (str, NULL, 0);
+	value = strtol (data->data, NULL, 0);
 
 	if ((UCHAR_MAX - (uint8_t)value) < 0) {
 		errno = ERANGE;
@@ -1621,23 +1567,14 @@ static int
 data_to_int8_ptr (data_t *data, int8_t *val)
 {
         int    ret = 0;
-        char * str = NULL;
 
         if (!data || !val) {
                 ret = -EINVAL;
                 goto err;
         }
 
-        str = alloca (data->len + 1);
-        if (!str) {
-                ret = -ENOMEM;
-                goto err;
-        }
-        memcpy (str, data->data, data->len);
-        str[data->len] = '\0';
-
         errno = 0;
-        *val = strtol (str, NULL, 0);
+        *val = strtol (data->data, NULL, 0);
         if (errno != 0)
                 ret = -errno;
 
@@ -1649,23 +1586,14 @@ static int
 data_to_int16_ptr (data_t *data, int16_t *val)
 {
         int    ret = 0;
-        char * str = NULL;
 
         if (!data || !val) {
                 ret = -EINVAL;
                 goto err;
         }
 
-        str = alloca (data->len + 1);
-        if (!str) {
-                ret = -ENOMEM;
-                goto err;
-        }
-        memcpy (str, data->data, data->len);
-        str[data->len] = '\0';
-
         errno = 0;
-        *val = strtol (str, NULL, 0);
+        *val = strtol (data->data, NULL, 0);
         if (errno != 0)
                 ret = -errno;
 
@@ -1677,23 +1605,14 @@ static int
 data_to_int32_ptr (data_t *data, int32_t *val)
 {
         int    ret = 0;
-        char * str = NULL;
 
         if (!data || !val) {
                 ret = -EINVAL;
                 goto err;
         }
 
-        str = alloca (data->len + 1);
-        if (!str) {
-                ret = -ENOMEM;
-                goto err;
-        }
-        memcpy (str, data->data, data->len);
-        str[data->len] = '\0';
-
         errno = 0;
-        *val = strtol (str, NULL, 0);
+        *val = strtol (data->data, NULL, 0);
         if (errno != 0)
                 ret = -errno;
 
@@ -1705,23 +1624,14 @@ static int
 data_to_int64_ptr (data_t *data, int64_t *val)
 {
         int    ret = 0;
-        char * str = NULL;
 
         if (!data || !val) {
                 ret = -EINVAL;
                 goto err;
         }
 
-        str = alloca (data->len + 1);
-        if (!str) {
-                ret = -ENOMEM;
-                goto err;
-        }
-        memcpy (str, data->data, data->len);
-        str[data->len] = '\0';
-
         errno = 0;
-        *val = strtoll (str, NULL, 0);
+        *val = strtoll (data->data, NULL, 0);
         if (errno != 0)
                 ret = -errno;
 
@@ -1733,23 +1643,14 @@ static int
 data_to_uint16_ptr (data_t *data, uint16_t *val)
 {
         int    ret = 0;
-        char * str = NULL;
 
         if (!data || !val) {
                 ret = -EINVAL;
                 goto err;
         }
 
-        str = alloca (data->len + 1);
-        if (!str) {
-                ret = -ENOMEM;
-                goto err;
-        }
-        memcpy (str, data->data, data->len);
-        str[data->len] = '\0';
-
         errno = 0;
-        *val = strtoul (str, NULL, 0);
+        *val = strtoul (data->data, NULL, 0);
         if (errno != 0)
                 ret = -errno;
 
@@ -1761,23 +1662,14 @@ static int
 data_to_uint32_ptr (data_t *data, uint32_t *val)
 {
         int    ret = 0;
-        char * str = NULL;
 
         if (!data || !val) {
                 ret = -EINVAL;
                 goto err;
         }
 
-        str = alloca (data->len + 1);
-        if (!str) {
-                ret = -ENOMEM;
-                goto err;
-        }
-        memcpy (str, data->data, data->len);
-        str[data->len] = '\0';
-
         errno = 0;
-        *val = strtoul (str, NULL, 0);
+        *val = strtoul (data->data, NULL, 0);
         if (errno != 0)
                 ret = -errno;
 
@@ -1789,23 +1681,14 @@ static int
 data_to_uint64_ptr (data_t *data, uint64_t *val)
 {
         int    ret = 0;
-        char * str = NULL;
 
         if (!data || !val) {
                 ret = -EINVAL;
                 goto err;
         }
 
-        str = alloca (data->len + 1);
-        if (!str) {
-                ret = -ENOMEM;
-                goto err;
-        }
-        memcpy (str, data->data, data->len);
-        str[data->len] = '\0';
-
         errno = 0;
-        *val = strtoull (str, NULL, 0);
+        *val = strtoull (data->data, NULL, 0);
         if (errno != 0)
                 ret = -errno;
 
@@ -1817,23 +1700,14 @@ static int
 data_to_double_ptr (data_t *data, double *val)
 {
         int    ret = 0;
-        char * str = NULL;
 
         if (!data || !val) {
                 ret = -EINVAL;
                 goto err;
         }
 
-        str = alloca (data->len + 1);
-        if (!str) {
-                ret = -ENOMEM;
-                goto err;
-        }
-        memcpy (str, data->data, data->len);
-        str[data->len] = '\0';
-
         errno = 0;
-        *val = strtod (str, NULL);
+        *val = strtod (data->data, NULL);
         if (errno != 0)
                 ret = -errno;
 
@@ -2240,7 +2114,6 @@ _dict_modify_flag (dict_t *this, char *key, int flag, int op)
                                 BIT_SET((unsigned char *)(data->data), flag);
                         else
                                 BIT_CLEAR((unsigned char *)(data->data), flag);
-                        ret = 0;
                 } else {
                         ptr = GF_CALLOC(1, DICT_MAX_FLAGS / 8,
                                         gf_common_mt_char);
@@ -2508,26 +2381,6 @@ err:
         if (data)
                 data_unref (data);
 
-        return ret;
-}
-
-int
-dict_set_ptr (dict_t *this, char *key, void *ptr)
-{
-        data_t * data = NULL;
-        int      ret  = 0;
-
-        data = data_from_ptr_common (ptr, _gf_false);
-        if (!data) {
-                ret = -EINVAL;
-                goto err;
-        }
-
-        ret = dict_set (this, key, data);
-        if (ret < 0)
-                data_destroy (data);
-
-err:
         return ret;
 }
 
@@ -3014,7 +2867,7 @@ dict_rename_key (dict_t *this, char *key, char *replace_key)
  *        : failure: -errno
  */
 
-int
+static int
 dict_serialized_length_lk (dict_t *this)
 {
         int ret            = -EINVAL;
@@ -3082,14 +2935,13 @@ out:
  *          failure: -errno
  */
 
-int
+static int
 dict_serialize_lk (dict_t *this, char *buf)
 {
         int           ret     = -1;
         data_pair_t * pair    = this->members_list;
         int32_t       count   = this->count;
         int32_t       keylen  = 0;
-        int32_t       vallen  = 0;
         int32_t       netword = 0;
 
 
@@ -3135,8 +2987,7 @@ dict_serialize_lk (dict_t *this, char *buf)
                         goto out;
                 }
 
-                vallen  = pair->value->len;
-                netword = hton32 (vallen);
+                netword = hton32 (pair->value->len);
                 memcpy (buf, &netword, sizeof(netword));
                 buf += DICT_DATA_HDR_VAL_LEN;
 
@@ -3145,8 +2996,8 @@ dict_serialize_lk (dict_t *this, char *buf)
                 *buf++ = '\0';
 
                 if (pair->value->data) {
-                        memcpy (buf, pair->value->data, vallen);
-                        buf += vallen;
+                        memcpy (buf, pair->value->data, pair->value->len);
+                        buf += pair->value->len;
                 }
 
                 pair = pair->next;
@@ -3355,7 +3206,7 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
                 value->len  = vallen;
                 value->data = memdup (buf, vallen);
                 value->data_type = GF_DATA_TYPE_STR_OLD;
-                value->is_static = 0;
+                value->is_static = _gf_false;
                 buf += vallen;
 
                 ret = dict_add (*fill, key, value);
@@ -3399,7 +3250,7 @@ dict_allocate_and_serialize (dict_t *this, char **buf, u_int *length)
                         goto unlock;
                 }
 
-                *buf = GF_CALLOC (1, len, gf_common_mt_char);
+                *buf = GF_MALLOC (len, gf_common_mt_char);
                 if (*buf == NULL) {
                         ret = -ENOMEM;
                         goto unlock;
@@ -3557,7 +3408,7 @@ dict_dump_to_log (dict_t *dict)
                 goto out;
         }
 
-        dump = GF_CALLOC (1, dump_size, gf_common_mt_char);
+        dump = GF_MALLOC (dump_size, gf_common_mt_char);
         if (!dump) {
                 gf_msg_callingfn ("dict", GF_LOG_WARNING, ENOMEM,
                                   LG_MSG_NO_MEMORY, "dump buffer is NULL");
@@ -3594,7 +3445,7 @@ dict_dump_to_statedump (dict_t *dict, char *dict_name, char *domain)
                 goto out;
         }
 
-        dump = GF_CALLOC (1, dump_size, gf_common_mt_char);
+        dump = GF_MALLOC (dump_size, gf_common_mt_char);
         if (!dump) {
                 gf_msg_callingfn (domain, GF_LOG_WARNING, ENOMEM,
                                   LG_MSG_NO_MEMORY, "dump buffer is NULL");

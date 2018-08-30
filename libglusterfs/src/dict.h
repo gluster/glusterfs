@@ -73,8 +73,7 @@ struct _data {
         gf_lock_t      lock;
         gf_dict_data_type_t data_type;
         int32_t        len;
-        unsigned char  is_static:1;
-        unsigned char  is_const:1;
+        gf_boolean_t  is_static;
 };
 
 struct _data_pair {
@@ -99,7 +98,6 @@ struct _dict {
         data_pair_t    *members_internal;
         data_pair_t     free_pair;
         gf_boolean_t    free_pair_in_use;
-	unsigned char   is_static:1;
 };
 
 typedef gf_boolean_t (*dict_match_t) (dict_t *d, char *k, data_t *v,
@@ -245,7 +243,6 @@ GF_MUST_CHECK int dict_set_double (dict_t *this, char *key, double val);
 GF_MUST_CHECK int dict_set_static_ptr (dict_t *this, char *key, void *ptr);
 GF_MUST_CHECK int dict_get_ptr (dict_t *this, char *key, void **ptr);
 GF_MUST_CHECK int dict_get_ptr_and_len (dict_t *this, char *key, void **ptr, int *len);
-GF_MUST_CHECK int dict_set_ptr (dict_t *this, char *key, void *ptr);
 GF_MUST_CHECK int dict_set_dynptr (dict_t *this, char *key, void *ptr, size_t size);
 
 GF_MUST_CHECK int dict_get_bin (dict_t *this, char *key, void **ptr);
