@@ -3409,6 +3409,10 @@ cli_xml_output_vol_rebalance_status(xmlTextWriterPtr writer, dict_t *dict,
                                           "%" PRIu64, total_skipped);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
+    if (overall_status == -1) {
+        overall_status = status_rcd;
+    }
+
     ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"status", "%d",
                                           overall_status);
     XML_RET_CHECK_AND_GOTO(ret, out);
@@ -4103,6 +4107,8 @@ cli_xml_output_vol_gsync_status(dict_t *dict, xmlTextWriterPtr writer)
         }
     }
 out:
+    if (status_values)
+        GF_FREE(status_values);
     gf_log("cli", GF_LOG_DEBUG, "Returning %d", ret);
     return ret;
 }
@@ -4178,6 +4184,10 @@ cli_xml_output_vol_gsync(dict_t *dict, int op_ret, int op_errno,
             break;
         case GF_GSYNC_OPTION_TYPE_STATUS:
             ret = cli_xml_output_vol_gsync_status(dict, writer);
+            if (ret) {
+                gf_log("cli", GF_LOG_DEBUG, "Failed to get gsync status");
+                goto out;
+            }
             break;
         default:
             ret = 0;
