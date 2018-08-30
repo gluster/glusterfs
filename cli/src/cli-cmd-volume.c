@@ -2102,14 +2102,14 @@ out:
                 cli_cmd_sent_status_get (&sent);
                 if ((sent == 0) && (parse_error == 0))
                         cli_out ("Volume remove-brick failed");
-        } else {
-#if (USE_EVENTS)
-                if (!event_ret) {
-                        gf_event (event, "%s", event_str);
-                        GF_FREE (event_str);
-                }
-#endif
         }
+#if (USE_EVENTS)
+        if (!ret && !event_ret)
+                gf_event (event, "%s", event_str);
+        if (event_str)
+                GF_FREE (event_str);
+
+#endif
 
         CLI_STACK_DESTROY (frame);
 
