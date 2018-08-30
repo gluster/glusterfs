@@ -596,7 +596,6 @@ struct _ec_heal {
 struct subvol_healer {
         xlator_t        *this;
         int              subvol;
-        gf_boolean_t     local;
         gf_boolean_t     running;
         gf_boolean_t     rerun;
         pthread_mutex_t  mutex;
