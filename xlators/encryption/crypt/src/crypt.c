@@ -1121,8 +1121,10 @@ int crypt_writev(call_frame_t *frame,
 				      vec, count, 0 /* don't setup gup
 						       in tail: we don't
 						       know file size yet */);
-	if (ret)
+	if (ret) {
+                ret = ENOMEM;
 		goto error;
+        }
 
 	if (parent_is_crypt_xlator(frame, this)) {
 		data_t *data;
@@ -2188,6 +2190,7 @@ static int32_t crypt_open(call_frame_t *frame,
 	ret = loc_copy(local->loc, loc);
 	if (ret) {
 		GF_FREE(local->loc);
+                ret = ENOMEM;
 		goto error;
 	}
 	local->fd = fd_ref(fd);
@@ -2574,6 +2577,7 @@ static int32_t crypt_create(call_frame_t *frame,
 		dict_unref(local->xattr);
 		free_inode_info(info);
 		free_format(local);
+                ret = EINVAL;
 		goto error;
 	}
 	ret = dict_set(local->xattr, FSIZE_XATTR_PREFIX, data_from_uint64(0));
@@ -2581,6 +2585,7 @@ static int32_t crypt_create(call_frame_t *frame,
 		dict_unref(local->xattr);
 		free_inode_info(info);
 		free_format(local);
+                ret = ENOMEM;
 		goto error;
 	}
 	local->fd = fd_ref(fd);
@@ -4136,6 +4141,7 @@ static int32_t crypt_readdirp(call_frame_t *frame, xlator_t *this,
 	ret = dict_set(xdata, FSIZE_XATTR_PREFIX, data_from_uint64(0));
 	if (ret) {
 		dict_unref(xdata);
+                ret = ENOMEM;
 		goto error;
 	}
 	STACK_WIND(frame,
