@@ -19,20 +19,6 @@
 #include "syncop-utils.h"
 #include "protocol-common.h"
 
-#define ASSERT_LOCAL(this, healer)				        \
-        do {                                                            \
-                if (!ec_shd_is_subvol_local (this, healer->subvol)) {	\
-                        healer->local = _gf_false;			\
-                        if (safe_break (healer)) {			\
-                                break;					\
-                        } else {					\
-                                continue;				\
-                        }						\
-                } else {						\
-                        healer->local = _gf_true;			\
-                }                                                       \
-        } while (0);
-
 
 #define NTH_INDEX_HEALER(this, n) (&((((ec_t *)this->private))->shd.index_healers[n]))
 #define NTH_FULL_HEALER(this, n) (&((((ec_t *)this->private))->shd.full_healers[n]))
@@ -101,26 +87,6 @@ ec_shd_healer_wait (struct subvol_healer *healer)
         {
                 ret = __ec_shd_healer_wait (healer);
         }
-        pthread_mutex_unlock (&healer->mutex);
-
-        return ret;
-}
-
-
-gf_boolean_t
-safe_break (struct subvol_healer *healer)
-{
-        gf_boolean_t ret = _gf_false;
-
-        pthread_mutex_lock (&healer->mutex);
-        {
-                if (healer->rerun)
-                        goto unlock;
-
-                healer->running = _gf_false;
-                ret = _gf_true;
-        }
-unlock:
         pthread_mutex_unlock (&healer->mutex);
 
         return ret;
@@ -360,9 +326,6 @@ ec_shd_index_healer (void *data)
         for (;;) {
                 ec_shd_healer_wait (healer);
 
-                ASSERT_LOCAL(this, healer);
-
-
                 if (ec->xl_up_count > ec->fragments) {
                         gf_msg_debug (this->name, 0,
                                 "starting index sweep on subvol %s",
@@ -404,9 +367,6 @@ ec_shd_full_healer (void *data)
                 if (!run)
                         break;
 
-                ASSERT_LOCAL(this, healer);
-
-
                 if (ec->xl_up_count > ec->fragments) {
                         gf_msg (this->name, GF_LOG_INFO, 0,
                                 EC_MSG_FULL_SWEEP_START,
@@ -443,7 +403,6 @@ ec_shd_healer_init (xlator_t *this, struct subvol_healer *healer)
         healer->this = this;
         healer->running = _gf_false;
         healer->rerun = _gf_false;
-        healer->local = _gf_false;
 out:
         return ret;
 }
