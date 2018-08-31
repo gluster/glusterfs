@@ -48,7 +48,8 @@
 
 /* Virtual xattrs for debugging */
 
-#define DHT_DBG_HASHED_SUBVOL_KEY         "dht.file.hashed-subvol"
+#define DHT_DBG_HASHED_SUBVOL_PATTERN         "dht.file.hashed-subvol.*"
+#define DHT_DBG_HASHED_SUBVOL_KEY             "dht.file.hashed-subvol."
 
 
 /* Array to hold custom xattr keys
