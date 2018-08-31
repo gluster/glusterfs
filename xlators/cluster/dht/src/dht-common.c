@@ -131,7 +131,7 @@ char *xattrs_to_heal[] = {
 
 
 char *dht_dbg_vxattrs[] = {
-        DHT_DBG_HASHED_SUBVOL_KEY,
+        DHT_DBG_HASHED_SUBVOL_PATTERN,
         NULL
 };
 
@@ -5042,6 +5042,20 @@ dht_marker_populate_args (call_frame_t *frame, int type, int *gauge,
 }
 
 
+int
+dht_is_debug_xattr_key (char **array, char *key)
+{
+        int     i = 0;
+
+        for (i = 0; array[i]; i++) {
+                if (fnmatch (array[i], key, FNM_NOESCAPE) == 0)
+                        return i;
+        }
+
+        return -1;
+}
+
+
 /* Note we already have frame->local initialised here*/
 
 int
@@ -5051,8 +5065,9 @@ dht_handle_debug_getxattr (call_frame_t *frame, xlator_t *this,
         dht_local_t  *local         = NULL;
         int           ret           = -1;
         int           op_errno      = ENODATA;
-        ia_type_t     type          = 0;
         char         *value         = NULL;
+        loc_t         file_loc      = {0};
+        const char    *name         = NULL;
 
         local = frame->local;
         if (!key) {
@@ -5060,27 +5075,8 @@ dht_handle_debug_getxattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        if (gf_get_index_by_elem (dht_dbg_vxattrs, (char *)key) == -1) {
+        if (dht_is_debug_xattr_key (dht_dbg_vxattrs, (char *)key) == -1) {
                 goto out;
-        }
-
-        /* getxattr does not set the parent inode*/
-        if (!loc->parent) {
-                   loc->parent =
-                                inode_parent(local->loc.inode, NULL, NULL);
-        }
-        if (!loc->parent) {
-                op_errno = EINVAL;
-                goto out;
-        }
-
-        gf_uuid_copy (loc->pargfid, loc->parent->gfid);
-
-        if (!loc->name && loc->path) {
-                loc->name = strrchr (loc->path, '/');
-                if (loc->name) {
-                        ++(loc->name);
-                }
         }
 
         local->xattr = dict_new ();
@@ -5089,15 +5085,22 @@ dht_handle_debug_getxattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        type = loc->inode->ia_type;
+        if (strncmp (key, DHT_DBG_HASHED_SUBVOL_KEY,
+                     SLEN (DHT_DBG_HASHED_SUBVOL_KEY)) == 0) {
 
-        if (strcmp (key, DHT_DBG_HASHED_SUBVOL_KEY) == 0) {
-                if (IA_ISDIR (type)) {
+                name = key + strlen(DHT_DBG_HASHED_SUBVOL_KEY);
+                if (strlen(name) == 0) {
                         op_errno = EINVAL;
                         goto out;
                 }
 
-                local->hashed_subvol = dht_subvol_get_hashed (this, loc);
+                ret = dht_build_child_loc (this, &file_loc, loc, (char *)name);
+                if (ret) {
+                        op_errno = ENOMEM;
+                        goto out;
+                }
+
+                local->hashed_subvol = dht_subvol_get_hashed (this, &file_loc);
                 if (local->hashed_subvol == NULL) {
                         op_errno = ENODATA;
                         goto out;
@@ -5120,6 +5123,7 @@ dht_handle_debug_getxattr (call_frame_t *frame, xlator_t *this,
         }
 
 out:
+	loc_wipe (&file_loc);
         DHT_STACK_UNWIND (getxattr, frame, ret, op_errno, local->xattr, NULL);
         return 0;
 }
@@ -5317,7 +5321,7 @@ no_dht_is_dir:
                 return 0;
         }
 
-        if (gf_get_index_by_elem (dht_dbg_vxattrs, (char *)key) >= 0) {
+	if (dht_is_debug_xattr_key (dht_dbg_vxattrs, (char *)key) >= 0) {
                 dht_handle_debug_getxattr (frame, this, loc, key);
                 return 0;
         }
