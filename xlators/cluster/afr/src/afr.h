@@ -1252,4 +1252,7 @@ afr_ta_post_op_unlock (xlator_t *this, loc_t *loc);
 
 gf_boolean_t
 afr_is_pending_set (xlator_t *this, dict_t *xdata, int type);
+
+call_frame_t*
+afr_ta_frame_create (xlator_t *this);
 #endif /* __AFR_H__ */
