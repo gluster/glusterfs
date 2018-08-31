@@ -419,6 +419,11 @@ function ta_kill_brick()
         kill -9 $p
 }
 
+function ta_get_pid_by_brick_name()
+{
+        cat $B0/${1}.pid
+}
+
 function ta_up_status()
 {
         local v=$1

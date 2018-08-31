@@ -1310,6 +1310,14 @@ afr_inode_refresh_done (call_frame_t *frame, xlator_t *this, int error)
                 goto refresh_done;
         }
 
+        if (priv->thin_arbiter_count && local->is_read_txn &&
+            AFR_COUNT (success_replies, priv->child_count) !=
+                       priv->child_count) {
+                /* We need to query the good bricks and/or thin-arbiter.*/
+                error = EINVAL;
+                goto refresh_done;
+        }
+
 	ret = afr_replies_interpret (frame, this, local->refreshinode,
                                      &start_heal);
 
@@ -6976,4 +6984,18 @@ afr_ta_post_op_unlock (xlator_t *this, loc_t *loc)
         }
 out:
         return ret;
+}
+
+call_frame_t *
+afr_ta_frame_create (xlator_t *this)
+{
+        call_frame_t *frame    = NULL;
+        void         *lk_owner = NULL;
+
+        frame = create_frame (this, this->ctx->pool);
+        if (!frame)
+                return NULL;
+        lk_owner = (void *)this;
+        afr_set_lk_owner (frame, this, lk_owner);
+        return frame;
 }
