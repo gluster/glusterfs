@@ -9,6 +9,7 @@
 */
 
 #include "utime-helpers.h"
+#include "utime.h"
 
 void
 gl_timespec_get(struct timespec *ts)
@@ -21,11 +22,16 @@ gl_timespec_get(struct timespec *ts)
 }
 
 void
-utime_update_attribute_flags(call_frame_t *frame, glusterfs_fop_t fop)
+utime_update_attribute_flags(call_frame_t *frame, xlator_t *this,
+                             glusterfs_fop_t fop)
 {
-    if (!frame) {
+    utime_priv_t *utime_priv = NULL;
+
+    if (!frame || !this) {
         goto out;
     }
+
+    utime_priv = this->private;
 
     switch (fop) {
         case GF_FOP_SETXATTR:
@@ -42,9 +48,10 @@ utime_update_attribute_flags(call_frame_t *frame, glusterfs_fop_t fop)
         case GF_FOP_OPENDIR:
         case GF_FOP_OPEN:
         case GF_FOP_READ:
-            frame->root->flags |= MDATA_ATIME;
+            if (!utime_priv->noatime) {
+                frame->root->flags |= MDATA_ATIME;
+            }
             break;
-
         case GF_FOP_MKNOD:
         case GF_FOP_MKDIR:
         case GF_FOP_SYMLINK:

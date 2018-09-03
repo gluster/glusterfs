@@ -8,16 +8,14 @@
   cases as published by the Free Software Foundation.
 */
 
-#ifndef __UTIME_H__
-#define __UTIME_H__
+#ifndef __UTIME_MEM_TYPES_H__
+#define __UTIME_MEM_TYPES_H__
 
-#include "glusterfs.h"
-#include "xlator.h"
-#include "defaults.h"
-#include "utime-autogen-fops.h"
+#include "mem-types.h"
 
-typedef struct utime_priv {
-    gf_boolean_t noatime;
-} utime_priv_t;
+enum gf_utime_mem_types_ {
+    utime_mt_utime_t = gf_common_mt_end + 1,
+    utime_mt_end
+};
 
-#endif /* __UTIME_H__ */
+#endif /* __UTIME_MEM_TYPES_H__ */
