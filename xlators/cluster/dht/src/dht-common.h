@@ -323,6 +323,7 @@ struct dht_local {
 
     uint32_t uid;
     uint32_t gid;
+    pid_t    pid;
 
     /* needed by nufa */
     int32_t flags;

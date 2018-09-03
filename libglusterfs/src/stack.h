@@ -232,8 +232,10 @@ STACK_RESET(call_stack_t *stack)
         local_type *__local = (frm)->local;                                    \
         __local->uid = frm->root->uid;                                         \
         __local->gid = frm->root->gid;                                         \
+        __local->pid = frm->root->pid;                                         \
         frm->root->uid = 0;                                                    \
         frm->root->gid = 0;                                                    \
+        frm->root->pid = GF_CLIENT_PID_NO_ROOT_SQUASH;                         \
     } while (0);
 
 #define FRAME_SU_UNDO(frm, local_type)                                         \
@@ -241,6 +243,7 @@ STACK_RESET(call_stack_t *stack)
         local_type *__local = (frm)->local;                                    \
         frm->root->uid = __local->uid;                                         \
         frm->root->gid = __local->gid;                                         \
+        frm->root->pid = __local->pid;                                         \
     } while (0);
 
 /* NOTE: make sure to keep this as an macro, mainly because, we need 'fn'
