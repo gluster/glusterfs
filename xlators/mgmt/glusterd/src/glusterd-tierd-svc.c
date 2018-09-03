@@ -106,8 +106,9 @@ glusterd_tierdsvc_init (void *data)
                 goto out;
         }
 
-        if (dict_get_str (this->options, "transport.socket.bind-address",
-                          &volfileserver) != 0) {
+        if (dict_get_strn (this->options, "transport.socket.bind-address",
+                           SLEN ("transport.socket.bind-address"),
+                           &volfileserver) != 0) {
                 volfileserver = "localhost";
         }
         ret = glusterd_proc_init (&(svc->proc), tierd_svc_name, pidfile, logdir,
@@ -178,7 +179,8 @@ glusterd_tierdsvc_manager (glusterd_svc_t *svc, void *data, int flags)
                 }
         }
 
-        ret = dict_get_int32 (volinfo->dict, "force", &is_force);
+        ret = dict_get_int32n (volinfo->dict, "force", SLEN ("force"),
+                               &is_force);
         if (ret) {
                 gf_msg_debug (this->name, errno, "Unable to get"
                               " is_force from dict");
@@ -362,8 +364,9 @@ glusterd_tierdsvc_start (glusterd_svc_t *svc, int flags)
                           volinfo->rebal.commit_hash);
         if (volinfo->memory_accounting)
                 runner_add_arg (&runner, "--mem-accounting");
-        if (dict_get_str (priv->opts, GLUSTERD_LOCALTIME_LOGGING_KEY,
-                          &localtime_logging) == 0) {
+        if (dict_get_strn (priv->opts, GLUSTERD_LOCALTIME_LOGGING_KEY,
+                           SLEN (GLUSTERD_LOCALTIME_LOGGING_KEY),
+                           &localtime_logging) == 0) {
                 if (strcmp (localtime_logging, "enable") == 0)
                         runner_add_arg (&runner, "--localtime-logging");
         }

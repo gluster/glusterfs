@@ -1810,6 +1810,32 @@ err:
 }
 
 int
+dict_get_int32n (dict_t *this, char *key, const int keylen, int32_t *val)
+{
+        data_t * data = NULL;
+        int      ret  = 0;
+
+        if (!this || !key || !val) {
+                ret = -EINVAL;
+                goto err;
+        }
+
+        ret = dict_get_with_refn (this, key, keylen, &data);
+        if (ret != 0) {
+                goto err;
+        }
+
+        VALIDATE_DATA_AND_LOG(data, GF_DATA_TYPE_INT, key, -EINVAL);
+
+        ret = data_to_int32_ptr (data, val);
+
+err:
+        if (data)
+                data_unref (data);
+        return ret;
+}
+
+int
 dict_get_int32 (dict_t *this, char *key, int32_t *val)
 {
         data_t * data = NULL;
@@ -1835,6 +1861,25 @@ err:
         return ret;
 }
 
+int
+dict_set_int32n (dict_t *this, char *key, const int keylen, int32_t val)
+{
+        data_t * data = NULL;
+        int      ret  = 0;
+
+        data = data_from_int32 (val);
+        if (!data) {
+                ret = -EINVAL;
+                goto err;
+        }
+
+        ret = dict_setn (this, key, keylen, data);
+        if (ret < 0)
+                data_destroy (data);
+
+err:
+        return ret;
+}
 
 int
 dict_set_int32 (dict_t *this, char *key, int32_t val)

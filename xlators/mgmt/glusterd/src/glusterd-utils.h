@@ -566,14 +566,15 @@ int
 glusterd_get_next_global_opt_version_str (dict_t *opts, char **version_str);
 
 int
-glusterd_generate_and_set_task_id (dict_t *dict, char *key);
+glusterd_generate_and_set_task_id (dict_t *dict, char *key, const int keylen);
 
 int
 glusterd_validate_and_set_gfid (dict_t *op_ctx, dict_t *req_dict,
                                 char **op_errstr);
 
 int
-glusterd_copy_uuid_to_dict (uuid_t uuid, dict_t *dict, char *key);
+glusterd_copy_uuid_to_dict (uuid_t uuid, dict_t *dict, char *key,
+                            const int keylen);
 
 gf_boolean_t
 glusterd_is_same_address (char *name1, char *name2);

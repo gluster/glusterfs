@@ -129,7 +129,8 @@ glusterd_broadcast_friend_delete (char *hostname, uuid_t uuid)
         glusterd_peerinfo_t             *peerinfo = NULL;
         glusterd_conf_t                 *priv = NULL;
         dict_t                          *friends = NULL;
-        char                            key[100] = {0,};
+        char                            key[64] = {0,};
+        int                             keylen;
         int32_t                         count = 0;
 
         this = THIS;
@@ -144,17 +145,17 @@ glusterd_broadcast_friend_delete (char *hostname, uuid_t uuid)
         if (!friends)
                 goto out;
 
-        snprintf (key, sizeof (key), "op");
-        ret = dict_set_int32 (friends, key, ctx.op);
+        keylen = snprintf (key, sizeof (key), "op");
+        ret = dict_set_int32n (friends, key, keylen, ctx.op);
         if (ret)
                 goto out;
 
-        snprintf (key, sizeof (key), "hostname");
-        ret = dict_set_str (friends, key, hostname);
+        keylen = snprintf (key, sizeof (key), "hostname");
+        ret = dict_set_strn (friends, key, keylen, hostname);
         if (ret)
                 goto out;
 
-        ret = dict_set_int32 (friends, "count", count);
+        ret = dict_set_int32n (friends, "count", SLEN ("count"), count);
         if (ret)
                 goto out;
 
@@ -380,11 +381,13 @@ glusterd_ac_friend_probe (glusterd_friend_sm_event_t *event, void *ctx)
                 dict = dict_new ();
                 if (!dict)
                         goto out;
-                ret = dict_set_str (dict, "hostname", probe_ctx->hostname);
+                ret = dict_set_strn (dict, "hostname", SLEN ("hostname"),
+                                     probe_ctx->hostname);
                 if (ret)
                         goto out;
 
-                ret = dict_set_int32 (dict, "port", probe_ctx->port);
+                ret = dict_set_int32n (dict, "port", SLEN ("port"),
+                                       probe_ctx->port);
                 if (ret)
                         goto out;
 
@@ -524,7 +527,8 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
         glusterd_friend_update_ctx_t  ev_ctx            = {{0}};
         glusterd_conf_t              *priv              = NULL;
         dict_t                       *friends           = NULL;
-        char                          key[100]          = {0,};
+        char                          key[64]          = {0,};
+        int                           keylen;
         int32_t                       count             = 0;
 
         GF_ASSERT (event);
@@ -551,8 +555,8 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
         if (!friends)
                 goto out;
 
-        snprintf (key, sizeof (key), "op");
-        ret = dict_set_int32 (friends, key, ev_ctx.op);
+        keylen = snprintf (key, sizeof (key), "op");
+        ret = dict_set_int32n (friends, key, keylen, ev_ctx.op);
         if (ret)
                 goto out;
 
@@ -568,7 +572,7 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
                         goto out;
         }
 
-        ret = dict_set_int32 (friends, "count", count);
+        ret = dict_set_int32n (friends, "count", SLEN ("count"), count);
         if (ret)
                 goto out;
 
@@ -618,7 +622,8 @@ glusterd_ac_update_friend (glusterd_friend_sm_event_t *event, void *ctx)
         glusterd_friend_update_ctx_t  ev_ctx            = {{0}};
         glusterd_conf_t              *priv              = NULL;
         dict_t                       *friends           = NULL;
-        char                          key[100]          = {0,};
+        char                          key[64]          = {0,};
+        int                           keylen;
         int32_t                       count             = 0;
 
         GF_ASSERT (event);
@@ -654,8 +659,8 @@ glusterd_ac_update_friend (glusterd_friend_sm_event_t *event, void *ctx)
         if (!friends)
                 goto out;
 
-        snprintf (key, sizeof (key), "op");
-        ret = dict_set_int32 (friends, key, ev_ctx.op);
+        keylen = snprintf (key, sizeof (key), "op");
+        ret = dict_set_int32n (friends, key, keylen, ev_ctx.op);
         if (ret)
                 goto out;
 
@@ -671,7 +676,7 @@ glusterd_ac_update_friend (glusterd_friend_sm_event_t *event, void *ctx)
                         goto out;
         }
 
-        ret = dict_set_int32 (friends, "count", count);
+        ret = dict_set_int32n (friends, "count", SLEN ("count"), count);
         if (ret)
                 goto out;
 
@@ -1012,8 +1017,8 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
 
         new_event->ctx = new_ev_ctx;
 
-        ret = dict_get_str (ev_ctx->vols, "hostname_in_cluster",
-                            &hostname);
+        ret = dict_get_strn (ev_ctx->vols, "hostname_in_cluster",
+                             SLEN ("hostname_in_cluster"), &hostname);
         if (ret || !hostname) {
                 gf_msg_debug (this->name, 0,
                         "Unable to fetch local hostname from peer");

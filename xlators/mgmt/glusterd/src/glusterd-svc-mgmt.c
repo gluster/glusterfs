@@ -97,8 +97,9 @@ glusterd_svc_init_common (glusterd_svc_t *svc,
         glusterd_svc_build_volfileid_path (svc_name, volfileid,
                                            sizeof(volfileid));
 
-        if (dict_get_str (this->options, "transport.socket.bind-address",
-                          &volfileserver) != 0) {
+        if (dict_get_strn  (this->options, "transport.socket.bind-address",
+                            SLEN ("transport.socket.bind-address"),
+                            &volfileserver) != 0) {
                 volfileserver = "localhost";
         }
 
@@ -199,13 +200,15 @@ glusterd_svc_start (glusterd_svc_t *svc, int flags, dict_t *cmdline)
                          "-S", svc->conn.sockpath,
                          NULL);
 
-        if (dict_get_str (priv->opts, GLUSTERD_LOCALTIME_LOGGING_KEY,
-                          &localtime_logging) == 0) {
+        if (dict_get_strn (priv->opts, GLUSTERD_LOCALTIME_LOGGING_KEY,
+                           SLEN (GLUSTERD_LOCALTIME_LOGGING_KEY),
+                           &localtime_logging) == 0) {
                 if (strcmp (localtime_logging, "enable") == 0)
                         runner_add_arg (&runner, "--localtime-logging");
         }
-        if (dict_get_str (priv->opts, GLUSTERD_DAEMON_LOG_LEVEL_KEY,
-                          &log_level) == 0) {
+        if (dict_get_strn (priv->opts, GLUSTERD_DAEMON_LOG_LEVEL_KEY,
+                           SLEN (GLUSTERD_DAEMON_LOG_LEVEL_KEY),
+                           &log_level) == 0) {
                 snprintf (daemon_log_level, 30, "--log-level=%s", log_level);
                 runner_add_arg (&runner, daemon_log_level);
         }

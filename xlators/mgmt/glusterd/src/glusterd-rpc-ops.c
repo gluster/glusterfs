@@ -63,7 +63,8 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         case GD_OP_REMOVE_BRICK:
         {
                 if (ctx)
-                        ret = dict_get_str (ctx, "errstr", &errstr);
+                        ret = dict_get_strn (ctx, "errstr", SLEN ("errstr"),
+                                             &errstr);
                 break;
         }
         case GD_OP_RESET_VOLUME:
@@ -79,7 +80,8 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         case GD_OP_DEFRAG_BRICK_VOLUME:
         {
                 if (ctx) {
-                        ret = dict_get_int32 (ctx, "status", &status);
+                        ret = dict_get_int32n (ctx, "status",
+                                               SLEN ("status"), &status);
                         if (ret) {
                                 gf_msg_trace (this->name, 0,
                                         "failed to get status");
@@ -91,8 +93,11 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         case GD_OP_GSYNC_SET:
         {
                if (ctx) {
-                        ret = dict_get_str (ctx, "errstr", &errstr);
-                        ret = dict_set_str (ctx, "glusterd_workdir", conf->workdir);
+                        ret = dict_get_strn (ctx, "errstr", SLEN ("errstr"),
+                                             &errstr);
+                        ret = dict_set_strn (ctx, "glusterd_workdir",
+                                             SLEN ("glusterd_workdir"),
+                                             conf->workdir);
                         /* swallow error here, that will be re-triggered in cli */
 
                }
@@ -101,8 +106,10 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         }
         case GD_OP_PROFILE_VOLUME:
         {
-                if (ctx && dict_get_int32 (ctx, "count", &count)) {
-                        ret = dict_set_int32 (ctx, "count", 0);
+                if (ctx && dict_get_int32n (ctx, "count", SLEN ("count"),
+                                            &count)) {
+                        ret = dict_set_int32n (ctx, "count", SLEN ("count"),
+                                               0);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_DICT_SET_FAILED,
@@ -160,15 +167,18 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         case GD_OP_COPY_FILE:
         {
                if (ctx)
-                        ret = dict_get_str (ctx, "errstr", &errstr);
+                        ret = dict_get_strn (ctx, "errstr", SLEN ("errstr"),
+                                             &errstr);
                break;
         }
         case GD_OP_SYS_EXEC:
         {
                if (ctx) {
-                        ret = dict_get_str (ctx, "errstr", &errstr);
-                        ret = dict_set_str (ctx, "glusterd_workdir",
-                                            conf->workdir);
+                        ret = dict_get_strn (ctx, "errstr", SLEN ("errstr"),
+                                             &errstr);
+                        ret = dict_set_strn (ctx, "glusterd_workdir",
+                                             SLEN ("glusterd_workdir"),
+                                             conf->workdir);
                }
                break;
         }
@@ -1503,10 +1513,11 @@ glusterd_rpc_probe (call_frame_t *frame, xlator_t *this,
         priv = this->private;
 
         GF_ASSERT (priv);
-        ret = dict_get_str (dict, "hostname", &hostname);
+        ret = dict_get_strn (dict, "hostname", SLEN ("hostname"),
+                             &hostname);
         if (ret)
                 goto out;
-        ret = dict_get_int32 (dict, "port", &port);
+        ret = dict_get_int32n (dict, "port", SLEN ("port"), &port);
         if (ret)
                 port = GF_DEFAULT_BASE_PORT;
 
@@ -1706,7 +1717,7 @@ glusterd_rpc_friend_update (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto out;
         /* Don't want to send the pointer over */
-        dict_del (friends, "peerinfo");
+        dict_deln (friends, "peerinfo", SLEN ("peerinfo"));
 
         ret = dict_allocate_and_serialize (friends, &req.friends.friends_val,
                                            &req.friends.friends_len);
@@ -1795,7 +1806,7 @@ glusterd_mgmt_v3_lock_peers (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         //peerinfo should not be in payload
-        dict_del (dict, "peerinfo");
+        dict_deln (dict, "peerinfo", SLEN ("peerinfo"));
 
         glusterd_get_uuid (&req.uuid);
 
@@ -1875,7 +1886,7 @@ glusterd_mgmt_v3_unlock_peers (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         //peerinfo should not be in payload
-        dict_del (dict, "peerinfo");
+        dict_deln (dict, "peerinfo", SLEN ("peerinfo"));
 
         glusterd_get_uuid (&req.uuid);
 
@@ -1999,7 +2010,7 @@ glusterd_stage_op (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         //peerinfo should not be in payload
-        dict_del (dict, "peerinfo");
+        dict_deln (dict, "peerinfo", SLEN ("peerinfo"));
 
         glusterd_get_uuid (&req.uuid);
         req.op = glusterd_op_get_op ();
@@ -2080,7 +2091,7 @@ glusterd_commit_op (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         //peerinfo should not be in payload
-        dict_del (dict, "peerinfo");
+        dict_deln (dict, "peerinfo", SLEN ("peerinfo"));
 
         glusterd_get_uuid (&req.uuid);
         req.op = glusterd_op_get_op ();
@@ -2212,7 +2223,7 @@ __glusterd_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (GD_OP_STATUS_VOLUME == req_ctx->op) {
                 node = frame->cookie;
                 index = node->index;
-                ret = dict_set_int32 (dict, "index", index);
+                ret = dict_set_int32n (dict, "index", SLEN ("index"), index);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_DICT_SET_FAILED,
