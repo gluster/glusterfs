@@ -395,6 +395,8 @@ struct _ec_fop_data {
     gf_seek_what_t     seek;
     ec_fragment_range_t  frag_range; /* This will hold the range of stripes
                                          affected by the fop. */
+    char                *errstr;    /*String of fop name, path and gfid
+                                     to be used in gf_msg. */
 };
 
 struct _ec_cbk_data {

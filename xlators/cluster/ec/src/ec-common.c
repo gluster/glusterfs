@@ -598,6 +598,42 @@ ec_internal_op (ec_fop_data_t *fop)
         return _gf_false;
 }
 
+char *
+ec_msg_str (ec_fop_data_t *fop)
+{
+    loc_t    *loc1 = NULL;
+    loc_t    *loc2 = NULL;
+    char     gfid1[64] = {0};
+    char     gfid2[64] = {0};
+
+    if (fop->errstr)
+        return fop->errstr;
+
+    if (!fop->use_fd) {
+        loc1 = &fop->loc[0];
+        loc2 = &fop->loc[1];
+
+        if (fop->id == GF_FOP_RENAME) {
+                gf_asprintf(&fop->errstr,
+                            "FOP : '%s' failed on '%s' and '%s' with gfids "
+                            "%s and %s respectively", ec_fop_name (fop->id),
+                            loc1->path, loc2->path,
+                            uuid_utoa_r (loc1->gfid, gfid1),
+                            uuid_utoa_r (loc2->gfid, gfid2));
+        } else {
+                gf_asprintf(&fop->errstr,
+                            "FOP : '%s' failed on '%s' with gfid %s",
+                            ec_fop_name (fop->id),
+                            loc1->path, uuid_utoa_r (loc1->gfid, gfid1));
+        }
+    } else {
+        gf_asprintf(&fop->errstr, "FOP : '%s' failed on gfid %s",
+                    ec_fop_name (fop->id),
+                    uuid_utoa_r (fop->fd->inode->gfid, gfid1));
+    }
+    return fop->errstr;
+}
+
 int32_t ec_child_select(ec_fop_data_t * fop)
 {
     ec_t * ec = fop->xl->private;
@@ -618,9 +654,8 @@ int32_t ec_child_select(ec_fop_data_t * fop)
         gf_msg (fop->xl->name, GF_LOG_WARNING, 0,
                 EC_MSG_OP_EXEC_UNAVAIL,
                 "Executing operation with "
-                "some subvolumes unavailable "
-                "(%lX)", fop->mask & ~ec->xl_up);
-
+                "some subvolumes unavailable. (%lX). %s ",
+                fop->mask & ~ec->xl_up, ec_msg_str(fop));
         fop->mask &= ec->xl_up;
     }
 
@@ -661,8 +696,8 @@ int32_t ec_child_select(ec_fop_data_t * fop)
                 EC_MSG_CHILDS_INSUFFICIENT,
                 "Insufficient available children "
                 "for this request (have %d, need "
-                "%d)", num, fop->minimum);
-
+                "%d). %s",
+                num, fop->minimum, ec_msg_str(fop));
         return 0;
     }
 
@@ -1135,7 +1170,6 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
     gf_boolean_t release = _gf_false;
     uint64_t provided_flags = 0;
     uint64_t dirty[EC_VERSION_SIZE] = {0, 0};
-
     lock = parent_link->lock;
     parent = parent_link->fop;
     ctx = lock->ctx;
@@ -1152,11 +1186,11 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
                     list_add_tail(&link->fop->cbk_list, &list);
         }
     }
-
     if (op_ret < 0) {
         gf_msg (this->name, GF_LOG_WARNING, op_errno,
                 EC_MSG_SIZE_VERS_GET_FAIL,
-                "Failed to get size and version");
+                "Failed to get size and version :  %s",
+                ec_msg_str(fop));
 
         goto unlock;
     }
@@ -1168,7 +1202,8 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
             if (op_errno != 0) {
                 gf_msg (this->name, GF_LOG_ERROR, op_errno,
                         EC_MSG_VER_XATTR_GET_FAIL,
-                        "Unable to get version xattr");
+                        "Unable to get version xattr. %s",
+                        ec_msg_str(fop));
                 goto unlock;
             }
             ctx->post_version[0] += ctx->pre_version[0];
@@ -1184,7 +1219,8 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
                     if (lock->loc.inode->ia_type == IA_IFREG) {
                         gf_msg (this->name, GF_LOG_ERROR, op_errno,
                                 EC_MSG_SIZE_XATTR_GET_FAIL,
-                                "Unable to get size xattr");
+                                "Unable to get size xattr. %s",
+                                ec_msg_str(fop));
                         goto unlock;
                     }
                 } else {
@@ -1200,7 +1236,8 @@ ec_prepare_update_cbk (call_frame_t *frame, void *cookie,
                         (op_errno != ENODATA)) {
                         gf_msg (this->name, GF_LOG_ERROR, op_errno,
                                 EC_MSG_CONFIG_XATTR_GET_FAIL,
-                                "Unable to get config xattr");
+                                "Unable to get config xattr. %s",
+                                ec_msg_str(fop));
 
                         goto unlock;
                     }
@@ -2212,7 +2249,8 @@ int32_t ec_update_size_version_done(call_frame_t * frame, void * cookie,
     if (op_ret < 0) {
         gf_msg(fop->xl->name, fop_log_level (fop->id, op_errno), op_errno,
                EC_MSG_SIZE_VERS_UPDATE_FAIL,
-               "Failed to update version and size");
+               "Failed to update version and size. %s",
+                ec_msg_str(fop));
     } else {
         fop->parent->good &= fop->good;
 
@@ -2257,7 +2295,6 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
     ec_inode_t *ctx;
     dict_t *dict = NULL;
     uintptr_t   update_on = 0;
-
     int32_t err = -ENOMEM;
 
     fop = link->fop;
@@ -2338,7 +2375,8 @@ out:
     ec_fop_set_error(fop, -err);
 
     gf_msg (fop->xl->name, GF_LOG_ERROR, -err, EC_MSG_SIZE_VERS_UPDATE_FAIL,
-            "Unable to update version and size");
+               "Unable to update version and size. %s",
+                ec_msg_str(fop));
 
     if (lock->unlock_now) {
         ec_unlock_lock(fop->data);
