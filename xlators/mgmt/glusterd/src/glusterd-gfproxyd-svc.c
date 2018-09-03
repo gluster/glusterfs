@@ -109,8 +109,9 @@ int glusterd_gfproxydsvc_init (glusterd_volinfo_t *volinfo)
                 goto out;
         }
 
-        if (dict_get_str (this->options, "transport.socket.bind-address",
-                          &volfileserver) != 0) {
+        if (dict_get_strn (this->options, "transport.socket.bind-address",
+                           SLEN ("transport.socket.bind-address"),
+                           &volfileserver) != 0) {
                 volfileserver = "localhost";
         }
         ret = glusterd_proc_init (&(svc->proc), gfproxyd_svc_name, pidfile,
@@ -325,8 +326,9 @@ glusterd_gfproxydsvc_start (glusterd_svc_t *svc, int flags)
 
         if (volinfo->memory_accounting)
                 runner_add_arg (&runner, "--mem-accounting");
-        if (dict_get_str (priv->opts, GLUSTERD_LOCALTIME_LOGGING_KEY,
-                          &localtime_logging) == 0) {
+        if (dict_get_strn (priv->opts, GLUSTERD_LOCALTIME_LOGGING_KEY,
+                           SLEN (GLUSTERD_LOCALTIME_LOGGING_KEY),
+                           &localtime_logging) == 0) {
                 if (strcmp (localtime_logging, "enable") == 0)
                         runner_add_arg (&runner, "--localtime-logging");
         }

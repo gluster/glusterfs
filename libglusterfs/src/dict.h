@@ -113,7 +113,8 @@ int32_t dict_setn (dict_t *this, char *key, const int keylen, data_t *value);
 int32_t dict_add (dict_t *this, char *key, data_t *value);
 int32_t dict_addn (dict_t *this, char *key, const int keylen, data_t *value);
 int dict_get_with_ref (dict_t *this, char *key, data_t **data);
-int dict_get_with_refn (dict_t *this, char *key, const int keylen, data_t **data);
+int dict_get_with_refn (dict_t *this, char *key, const int keylen,
+                        data_t **data);
 data_t *dict_get (dict_t *this, char *key);
 data_t *dict_getn (dict_t *this, char *key, const int keylen);
 void dict_del (dict_t *this, char *key);
@@ -219,7 +220,11 @@ GF_MUST_CHECK int dict_get_int16 (dict_t *this, char *key, int16_t *val);
 GF_MUST_CHECK int dict_set_int16 (dict_t *this, char *key, int16_t val);
 
 GF_MUST_CHECK int dict_get_int32 (dict_t *this, char *key, int32_t *val);
+GF_MUST_CHECK int dict_get_int32n (dict_t *this, char *key, const int keylen,
+                                   int32_t *val);
 GF_MUST_CHECK int dict_set_int32 (dict_t *this, char *key, int32_t val);
+GF_MUST_CHECK int dict_set_int32n (dict_t *this, char *key, const int keylen,
+                                   int32_t val);
 
 GF_MUST_CHECK int dict_get_int64 (dict_t *this, char *key, int64_t *val);
 GF_MUST_CHECK int dict_set_int64 (dict_t *this, char *key, int64_t val);
@@ -251,14 +256,18 @@ GF_MUST_CHECK int dict_set_static_bin (dict_t *this, char *key, void *ptr, size_
 
 GF_MUST_CHECK int dict_set_option (dict_t *this, char *key, char *str);
 GF_MUST_CHECK int dict_set_str (dict_t *this, char *key, char *str);
-GF_MUST_CHECK int dict_set_strn (dict_t *this, char *key, const int keylen, char *str);
-GF_MUST_CHECK int dict_set_nstrn (dict_t *this, char *key, const int keylen, char *str, const int vallen);
+GF_MUST_CHECK int dict_set_strn (dict_t *this, char *key, const int keylen,
+                                 char *str);
+GF_MUST_CHECK int dict_set_nstrn (dict_t *this, char *key, const int keylen,
+                                  char *str, const int vallen);
 GF_MUST_CHECK int dict_set_dynstr (dict_t *this, char *key, char *str);
-GF_MUST_CHECK int dict_set_dynstrn (dict_t *this, char *key, const int keylen, char *str);
+GF_MUST_CHECK int dict_set_dynstrn (dict_t *this, char *key, const int keylen,
+                                    char *str);
 GF_MUST_CHECK int dict_set_dynstr_with_alloc (dict_t *this, char *key, const char *str);
 GF_MUST_CHECK int dict_add_dynstr_with_alloc (dict_t *this, char *key, char *str);
 GF_MUST_CHECK int dict_get_str (dict_t *this, char *key, char **str);
-GF_MUST_CHECK int dict_get_strn (dict_t *this, char *key, const int keylen, char **str);
+GF_MUST_CHECK int dict_get_strn (dict_t *this, char *key, const int keylen,
+                                 char **str);
 
 GF_MUST_CHECK int dict_get_str_boolean (dict_t *this, char *key, int default_val);
 GF_MUST_CHECK int dict_rename_key (dict_t *this, char *key, char *replace_key);

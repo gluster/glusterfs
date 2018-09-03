@@ -41,7 +41,9 @@ glusterd_conn_init (glusterd_conn_t *conn, char *sockpath,
         if (ret)
                 goto out;
 
-        ret = dict_set_str (options, "transport.socket.ignore-enoent", "on");
+        ret = dict_set_nstrn (options, "transport.socket.ignore-enoent",
+                              SLEN ("transport.socket.ignore-enoent"),
+                              "on", SLEN ("on"));
         if (ret)
                 goto out;
 

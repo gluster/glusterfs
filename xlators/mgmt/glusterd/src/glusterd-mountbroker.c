@@ -540,8 +540,9 @@ glusterd_do_mount (char *label, dict_t *argdict, char **path, int *op_errno)
         GF_ASSERT (op_errno);
         *op_errno = 0;
 
-        if (dict_get_str (this->options, "mountbroker-root",
-                          &mountbroker_root) != 0) {
+        if (dict_get_strn (this->options, "mountbroker-root",
+                           SLEN ("mountbroker-root"),
+                           &mountbroker_root) != 0) {
                 *op_errno = ENOENT;
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DICT_GET_FAILED, "'option mountbroker-root' "

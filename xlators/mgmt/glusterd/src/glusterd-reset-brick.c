@@ -154,7 +154,8 @@ glusterd_reset_brick_prevalidate (dict_t *dict, char **op_errstr,
         volinfo->rep_brick.src_brick = src_brickinfo;
         volinfo->rep_brick.dst_brick = dst_brickinfo;
 
-        ret = dict_get_int32 (dict, "ignore-partition", &ignore_partition);
+        ret = dict_get_int32n (dict, "ignore-partition",
+                               SLEN ("ignore-partition"), &ignore_partition);
         ret = 0;
         if (gf_is_local_addr (host)) {
                 ret = glusterd_validate_and_create_brickpath
@@ -217,7 +218,8 @@ glusterd_reset_brick_prevalidate (dict_t *dict, char **op_errstr,
                 }
         }
 
-        ret = dict_set_int32 (rsp_dict, "brick_count", 1);
+        ret = dict_set_int32n (rsp_dict, "brick_count",
+                               SLEN ( "brick_count"), 1);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DICT_SET_FAILED,
@@ -254,14 +256,14 @@ glusterd_op_reset_brick (dict_t *dict, dict_t *rsp_dict)
         priv = this->private;
         GF_ASSERT (priv);
 
-        ret = dict_get_str (dict, "operation", &op);
+        ret = dict_get_strn (dict, "operation", SLEN ("operation"), &op);
         if (ret) {
                 gf_msg_debug (this->name, 0,
                         "dict_get on operation failed");
                 goto out;
         }
 
-        ret = dict_get_str (dict, "volname", &volname);
+        ret = dict_get_strn (dict, "volname", SLEN ("volname"), &volname);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DICT_GET_FAILED, "Unable to get volume name");
@@ -272,7 +274,8 @@ glusterd_op_reset_brick (dict_t *dict, dict_t *rsp_dict)
         if (ret)
                 goto out;
 
-        ret = dict_get_str (dict, "src-brick", &src_brick);
+        ret = dict_get_strn (dict, "src-brick", SLEN ("src-brick"),
+                             &src_brick);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0,
                         GD_MSG_DICT_GET_FAILED, "Unable to get src brick");
@@ -305,7 +308,8 @@ glusterd_op_reset_brick (dict_t *dict, dict_t *rsp_dict)
 
         } else if (!strcmp (op, "GF_RESET_OP_COMMIT") ||
                    !strcmp (op, "GF_RESET_OP_COMMIT_FORCE")) {
-                ret = dict_get_str (dict, "dst-brick", &dst_brick);
+                ret = dict_get_strn (dict, "dst-brick", SLEN ("dst-brick"),
+                                     &dst_brick);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_DICT_GET_FAILED,

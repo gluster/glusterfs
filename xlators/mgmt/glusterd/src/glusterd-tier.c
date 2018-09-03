@@ -86,7 +86,7 @@ __glusterd_handle_tier (rpcsvc_request_t *req)
                 }
         }
 
-        ret = dict_get_str (dict, "volname", &volname);
+        ret = dict_get_strn (dict, "volname", SLEN ("volname"), &volname);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Unable to get volume name");
                 gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -95,7 +95,8 @@ __glusterd_handle_tier (rpcsvc_request_t *req)
                 goto out;
         }
 
-        ret = dict_get_int32 (dict, "rebalance-command", &cmd);
+        ret = dict_get_int32n (dict, "rebalance-command",
+                               SLEN ("rebalance-command"), &cmd);
         if (ret) {
                 snprintf (msg, sizeof (msg), "Unable to get the command");
                 gf_msg (this->name, GF_LOG_ERROR, errno,
@@ -119,8 +120,9 @@ __glusterd_handle_tier (rpcsvc_request_t *req)
                               GD_OP_VERSION_3_7_5);
                 switch (cmd) {
                 case GF_DEFRAG_CMD_DETACH_STOP:
-                        ret = dict_set_int32 (dict, "rebalance-command",
-                                              GF_DEFRAG_CMD_STOP_DETACH_TIER);
+                        ret = dict_set_int32n (dict, "rebalance-command",
+                                               SLEN ("rebalance-command"),
+                                               GF_DEFRAG_CMD_STOP_DETACH_TIER);
                         break;
 
                 case GF_DEFRAG_CMD_DETACH_COMMIT:
@@ -133,8 +135,9 @@ __glusterd_handle_tier (rpcsvc_request_t *req)
                                 goto out;
                         }
                         ret = glusterd_set_detach_bricks (dict, volinfo);
-                        ret = dict_set_int32 (dict, "command",
-                                              GF_OP_CMD_DETACH_COMMIT);
+                        ret = dict_set_int32n (dict, "command",
+                                               SLEN ("command"),
+                                               GF_OP_CMD_DETACH_COMMIT);
                         break;
                 case GF_DEFRAG_CMD_DETACH_COMMIT_FORCE:
                         ret = glusterd_volinfo_find (volname, &volinfo);
@@ -146,8 +149,9 @@ __glusterd_handle_tier (rpcsvc_request_t *req)
                                 goto out;
                         }
                         ret = glusterd_set_detach_bricks (dict, volinfo);
-                        ret = dict_set_int32 (dict, "command",
-                                              GF_OP_CMD_DETACH_COMMIT_FORCE);
+                        ret = dict_set_int32n (dict, "command",
+                                               SLEN ("command"),
+                                               GF_OP_CMD_DETACH_COMMIT_FORCE);
                         break;
                 case GF_DEFRAG_CMD_DETACH_START:
                         ret = glusterd_volinfo_find (volname, &volinfo);
@@ -159,8 +163,9 @@ __glusterd_handle_tier (rpcsvc_request_t *req)
                                 goto out;
                         }
                         ret = glusterd_set_detach_bricks (dict, volinfo);
-                        ret = dict_set_int32 (dict, "command",
-                                              GF_OP_CMD_DETACH_START);
+                        ret = dict_set_int32n (dict, "command",
+                                               SLEN ("command"),
+                                               GF_OP_CMD_DETACH_START);
                         break;
 
                 default:
@@ -256,6 +261,7 @@ glusterd_op_remove_tier_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         int32_t                 count          = 0;
         int32_t                 i              = 1;
         char                    key[256]       = {0,};
+        int                     keylen;
         int32_t                 flag           = 0;
         char                    err_str[4096]  = {0,};
         int                     need_rebalance = 0;
@@ -283,7 +289,7 @@ glusterd_op_remove_tier_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         priv = this->private;
         GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
-        ret = dict_get_str (dict, "volname", &volname);
+        ret = dict_get_strn (dict, "volname", SLEN ("volname"), &volname);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_DICT_GET_FAILED, "Unable to get volume name");
@@ -297,7 +303,8 @@ glusterd_op_remove_tier_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
         }
 
-        ret = dict_get_int32 (dict, "rebalance-command", &cmd);
+        ret = dict_get_int32n (dict, "rebalance-command",
+                               SLEN ("rebalance-command"), &cmd);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                         "cmd not found");
@@ -309,7 +316,8 @@ glusterd_op_remove_tier_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 if (!gf_uuid_is_null (volinfo->rebal.rebalance_id)) {
                         ret = glusterd_copy_uuid_to_dict
                                 (volinfo->rebal.rebalance_id, dict,
-                                 GF_REMOVE_BRICK_TID_KEY);
+                                 GF_REMOVE_BRICK_TID_KEY,
+                                 SLEN (GF_REMOVE_BRICK_TID_KEY));
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_REMOVE_BRICK_ID_SET_FAIL,
@@ -394,16 +402,18 @@ glusterd_op_remove_tier_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                         "detach start", volname);
                                 goto out;
                         }
-                        ret = dict_get_str (dict, GF_REMOVE_BRICK_TID_KEY,
-                                            &task_id_str);
+                        ret = dict_get_strn (dict, GF_REMOVE_BRICK_TID_KEY,
+                                             SLEN (GF_REMOVE_BRICK_TID_KEY),
+                                             &task_id_str);
                         if (ret) {
                                 gf_msg_debug (this->name, errno,
                                               "Missing remove-brick-id");
                                 ret = 0;
                         } else {
-                                ret = dict_set_str (rsp_dict,
-                                                    GF_REMOVE_BRICK_TID_KEY,
-                                                    task_id_str);
+                                ret = dict_set_strn (rsp_dict,
+                                                     GF_REMOVE_BRICK_TID_KEY,
+                                                     SLEN (GF_REMOVE_BRICK_TID_KEY),
+                                                     task_id_str);
                                 if (ret) {
                                         gf_msg (this->name, GF_LOG_WARNING, 0,
                                                 GD_MSG_DICT_SET_FAILED,
@@ -453,8 +463,10 @@ glusterd_op_remove_tier_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                          * Revisit this code when this constraint no
                          * longer exist.
                          */
-                        dict_del (volinfo->dict, "features.ctr-enabled");
-                        dict_del (volinfo->dict, "cluster.tier-mode");
+                        dict_deln (volinfo->dict, "features.ctr-enabled",
+                                   SLEN ("features.ctr-enabled"));
+                        dict_deln (volinfo->dict, "cluster.tier-mode",
+                                   SLEN ("cluster.tier-mode"));
 
                         hot_shd_key = gd_get_shd_key
                                 (volinfo->tier_info.hot_type);
@@ -517,7 +529,8 @@ glusterd_op_remove_tier_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         ret = -1;
                         goto out;
                 }
-                ret = dict_set_int32 (bricks_dict, "count", count);
+                ret = dict_set_int32n (bricks_dict, "count", SLEN ("count"),
+                                       count);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 GD_MSG_DICT_SET_FAILED,
@@ -527,8 +540,8 @@ glusterd_op_remove_tier_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         }
 
         while (i <= count) {
-                snprintf (key, 256, "brick%d", i);
-                ret = dict_get_str (dict, key, &brick);
+                keylen = snprintf (key, sizeof (key), "brick%d", i);
+                ret = dict_get_strn (dict, key, keylen, &brick);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 GD_MSG_DICT_GET_FAILED, "Unable to get %s",
@@ -545,7 +558,8 @@ glusterd_op_remove_tier_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                         "Failed to duplicate brick name");
                                 goto out;
                         }
-                        ret = dict_set_dynstr (bricks_dict, key, brick_tmpstr);
+                        ret = dict_set_dynstrn (bricks_dict, key,
+                                                keylen, brick_tmpstr);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, errno,
                                         GD_MSG_DICT_SET_FAILED,
@@ -571,7 +585,8 @@ glusterd_op_remove_tier_brick (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         if (cmd == GF_DEFRAG_CMD_DETACH_START)
                 volinfo->tier.dict = dict_ref (bricks_dict);
 
-        ret = dict_get_int32 (dict, "replica-count", &replica_count);
+        ret = dict_get_int32n (dict, "replica-count", SLEN ("replica-count"),
+                               &replica_count);
         if (!ret) {
                 gf_msg (this->name, GF_LOG_INFO, errno,
                         GD_MSG_DICT_GET_FAILED,
@@ -701,7 +716,7 @@ glusterd_op_tier_start_stop (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         priv = this->private;
         GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
-        ret = dict_get_str (dict, "volname", &volname);
+        ret = dict_get_strn (dict, "volname", SLEN ("volname"), &volname);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_DICT_GET_FAILED, "Unable to get volume name");
@@ -714,7 +729,8 @@ glusterd_op_tier_start_stop (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 goto out;
         }
 
-        ret = dict_get_int32 (dict, "rebalance-command", &cmd);
+        ret = dict_get_int32n (dict, "rebalance-command",
+                               SLEN ("rebalance-command"), &cmd);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, errno,
                         GD_MSG_DICT_GET_FAILED, "Unable to get cmd from "
@@ -747,12 +763,14 @@ glusterd_op_tier_start_stop (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 /* we check if its running and skip so that we don't get a
                  * failure during force start
                  */
-                ret = dict_get_int32 (dict, "force", &is_force);
+                ret = dict_get_int32n (dict, "force", SLEN ("force"),
+                                       &is_force);
                 if (ret) {
                         gf_msg_debug (this->name, 0, "Unable to get is_force"
                                         " from dict");
                 }
-                ret = dict_set_int32 (volinfo->dict, "force", is_force);
+                ret = dict_set_int32n (volinfo->dict, "force", SLEN ("force"),
+                                       is_force);
                 if (ret) {
                         gf_msg_debug (this->name, errno, "Unable to set"
                                         " is_force to dict");
@@ -828,14 +846,15 @@ glusterd_op_stage_tier (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         priv = this->private;
         GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
-        ret = dict_get_str (dict, "volname", &volname);
+        ret = dict_get_strn (dict, "volname", SLEN ("volname"), &volname);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                         "volname not found");
                 goto out;
         }
 
-        ret = dict_get_int32 (dict, "rebalance-command", &cmd);
+        ret = dict_get_int32n (dict, "rebalance-command",
+                               SLEN ("rebalance-command"), &cmd);
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                         "cmd not found");
@@ -893,7 +912,8 @@ glusterd_op_stage_tier (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
         switch (cmd) {
         case GF_DEFRAG_CMD_START_TIER:
-                ret = dict_get_int32 (dict, "force", &is_force);
+                ret = dict_get_int32n (dict, "force", SLEN ("force"),
+                                       &is_force);
                 if (ret)
                         is_force = 0;
 
@@ -950,7 +970,8 @@ glusterd_op_stage_tier (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         case GF_DEFRAG_CMD_DETACH_START:
 
 
-                ret = dict_get_int32 (dict, "count", &brick_count);
+                ret = dict_get_int32n (dict, "count", SLEN ("count"),
+                                       &brick_count);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 GD_MSG_DICT_GET_FAILED,
@@ -996,7 +1017,8 @@ glusterd_op_stage_tier (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
                 if (is_origin_glusterd (dict)) {
                         ret = glusterd_generate_and_set_task_id
-                                (dict, GF_REMOVE_BRICK_TID_KEY);
+                                (dict, GF_REMOVE_BRICK_TID_KEY,
+                                SLEN (GF_REMOVE_BRICK_TID_KEY));
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_TASKID_GEN_FAIL,
@@ -1004,8 +1026,9 @@ glusterd_op_stage_tier (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                 goto out;
                         }
                 } else {
-                        ret = dict_get_str (dict, GF_REMOVE_BRICK_TID_KEY,
-                                            &task_id_str);
+                        ret = dict_get_strn (dict, GF_REMOVE_BRICK_TID_KEY,
+                                             SLEN (GF_REMOVE_BRICK_TID_KEY),
+                                             &task_id_str);
                         if (ret) {
                                 gf_msg (this->name, GF_LOG_WARNING, errno,
                                         GD_MSG_DICT_GET_FAILED,
@@ -1055,7 +1078,8 @@ glusterd_op_stage_tier (dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                         goto out;
                 }
 
-                ret = dict_get_int32 (dict, "count", &brick_count);
+                ret = dict_get_int32n (dict, "count", SLEN ("count"),
+                                       &brick_count);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, errno,
                                 GD_MSG_DICT_GET_FAILED,
@@ -1112,8 +1136,8 @@ glusterd_add_tierd_to_dict (glusterd_volinfo_t *volinfo,
         int             ret                   = -1;
         int32_t         pid                   = -1;
         int32_t         brick_online          = -1;
-        char            key[1024]             = {0};
-        char            base_key[32]          = {0};
+        char            key[64]               = {0};
+        int             keylen;
         char            pidfile[PATH_MAX]     = {0};
         xlator_t        *this                 = NULL;
 
@@ -1123,14 +1147,15 @@ glusterd_add_tierd_to_dict (glusterd_volinfo_t *volinfo,
         GF_VALIDATE_OR_GOTO (this->name, volinfo, out);
         GF_VALIDATE_OR_GOTO (this->name, dict, out);
 
-        snprintf (base_key, sizeof (base_key), "brick%d", count);
-        snprintf (key, sizeof (key), "%s.hostname", base_key);
-        ret = dict_set_str (dict, key, "Tier Daemon");
+        keylen = snprintf (key, sizeof (key), "brick%d.hostname", count);
+        ret = dict_set_nstrn (dict, key, keylen,
+                              "Tier Daemon", SLEN ("Tier Daemon"));
         if (ret)
                 goto out;
 
-        snprintf (key, sizeof (key), "%s.path", base_key);
-        ret = dict_set_dynstr (dict, key, gf_strdup (uuid_utoa (MY_UUID)));
+        keylen = snprintf (key, sizeof (key), "brick%d.path", count);
+        ret = dict_set_dynstrn (dict, key, keylen,
+                                gf_strdup (uuid_utoa (MY_UUID)));
         if (ret)
                 goto out;
 
@@ -1138,8 +1163,8 @@ glusterd_add_tierd_to_dict (glusterd_volinfo_t *volinfo,
          * an zero value to parse.
          * */
 
-        snprintf (key, sizeof (key), "%s.port", base_key);
-        ret = dict_set_int32 (dict, key, 0);
+        keylen = snprintf (key, sizeof (key), "brick%d.port", count);
+        ret = dict_set_int32n (dict, key, keylen, 0);
         if (ret)
                 goto out;
 
@@ -1147,13 +1172,13 @@ glusterd_add_tierd_to_dict (glusterd_volinfo_t *volinfo,
 
         brick_online = gf_is_service_running (pidfile, &pid);
 
-        snprintf (key, sizeof (key), "%s.pid", base_key);
-        ret = dict_set_int32 (dict, key, pid);
+        keylen = snprintf (key, sizeof (key), "brick%d.pid", count);
+        ret = dict_set_int32n (dict, key, keylen, pid);
         if (ret)
                 goto out;
 
-        snprintf (key, sizeof (key), "%s.status", base_key);
-        ret = dict_set_int32 (dict, key, brick_online);
+        keylen = snprintf (key, sizeof (key), "brick%d.status", count);
+        ret = dict_set_int32n (dict, key, keylen, brick_online);
 
 out:
         if (ret)
