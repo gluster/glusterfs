@@ -896,10 +896,10 @@ unwind:
                 vector = NULL;
         }
 
-        pthread_mutex_destroy (&local->local_lock);
-        if (local)
+        if (local) {
+                pthread_mutex_destroy (&local->local_lock);
                 mem_put (local);
-
+        }
         return;
 }
 
