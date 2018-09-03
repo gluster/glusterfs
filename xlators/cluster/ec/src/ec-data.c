@@ -287,6 +287,7 @@ void ec_fop_data_release(ec_fop_data_t * fop)
         GF_FREE(fop->str[1]);
         loc_wipe(&fop->loc[0]);
         loc_wipe(&fop->loc[1]);
+        GF_FREE(fop->errstr);
 
         ec_resume_parent(fop, fop->error);
 
