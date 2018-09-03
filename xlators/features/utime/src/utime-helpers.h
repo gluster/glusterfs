@@ -13,12 +13,14 @@
 
 #include "glusterfs-fops.h"
 #include "stack.h"
+#include "xlator.h"
 #include "timespec.h"
 #include <time.h>
 
 void
 gl_timespec_get(struct timespec *ts);
 void
-utime_update_attribute_flags(call_frame_t *frame, glusterfs_fop_t fop);
+utime_update_attribute_flags(call_frame_t *frame, xlator_t *this,
+                             glusterfs_fop_t fop);
 
 #endif /* _UTIME_HELPERS_H */

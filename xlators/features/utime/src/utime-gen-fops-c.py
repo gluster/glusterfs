@@ -16,7 +16,7 @@ gf_utime_@NAME@ (call_frame_t *frame, xlator_t *this,
 {
         gl_timespec_get(&frame->root->ctime);
 
-        (void) utime_update_attribute_flags(frame, GF_FOP_@UPNAME@);
+        (void) utime_update_attribute_flags(frame, this, GF_FOP_@UPNAME@);
         STACK_WIND (frame, gf_utime_@NAME@_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->@NAME@, @SHORT_ARGS@);
         return 0;
@@ -41,7 +41,7 @@ gf_utime_@NAME@ (call_frame_t *frame, xlator_t *this,
 {
         gl_timespec_get(&frame->root->ctime);
 
-        (void) utime_update_attribute_flags(frame, GF_FOP_READ);
+        (void) utime_update_attribute_flags(frame, this, GF_FOP_READ);
         STACK_WIND (frame, gf_utime_@NAME@_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->@NAME@, @SHORT_ARGS@);
         return 0;
@@ -55,7 +55,7 @@ gf_utime_@NAME@ (call_frame_t *frame, xlator_t *this,
 {
         gl_timespec_get(&frame->root->ctime);
 
-        (void) utime_update_attribute_flags(frame, GF_FOP_WRITE);
+        (void) utime_update_attribute_flags(frame, this, GF_FOP_WRITE);
         STACK_WIND (frame, gf_utime_@NAME@_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->@NAME@, @SHORT_ARGS@);
         return 0;

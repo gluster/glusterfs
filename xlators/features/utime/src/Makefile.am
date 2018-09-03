@@ -15,6 +15,8 @@ utime_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS_utime  = $(UTIME_SRC)/utime-helpers.h
 noinst_HEADERS_utime += $(UTIME_SRC)/utime.h
+noinst_HEADERS_utime += $(UTIME_SRC)/utime-messages.h
+noinst_HEADERS_utime += $(UTIME_SRC)/utime-mem-types.h
 noinst_HEADERS = $(top_srcdir)/xlators/lib/src/libxlator.h
 noinst_HEADERS += $(noinst_HEADERS_utime)
 

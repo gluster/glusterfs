@@ -9,6 +9,8 @@
 */
 
 #include "utime.h"
+#include "utime-messages.h"
+#include "utime-mem-types.h"
 
 int32_t
 gf_utime_invalidate(xlator_t *this, inode_t *inode)
@@ -120,21 +122,57 @@ gf_utime_priv(xlator_t *this)
 }
 
 int32_t
+mem_acct_init(xlator_t *this)
+{
+    if (xlator_mem_acct_init(this, utime_mt_end + 1) != 0) {
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, UTIME_MSG_NO_MEMORY,
+               "Memory accounting initialization failed.");
+        return -1;
+    }
+    return 0;
+}
+
+int32_t
 init(xlator_t *this)
 {
+    utime_priv_t *utime = NULL;
+
+    utime = GF_MALLOC(sizeof(*utime), utime_mt_utime_t);
+    if (utime == NULL) {
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, UTIME_MSG_NO_MEMORY,
+               "Failed to allocate private memory.");
+        return -1;
+    }
+    memset(utime, 0, sizeof(*utime));
+
+    this->private = utime;
+    GF_OPTION_INIT("noatime", utime->noatime, bool, err);
+
     return 0;
+err:
+    return -1;
 }
 
 void
 fini(xlator_t *this)
 {
+    utime_priv_t *utime = NULL;
+
+    utime = this->private;
+    GF_FREE(utime);
     return;
 }
 
 int32_t
-reconfigure(xlator_t *this, dict_t *dict)
+reconfigure(xlator_t *this, dict_t *options)
 {
+    utime_priv_t *utime = this->private;
+
+    GF_OPTION_RECONF("noatime", utime->noatime, options, bool, err);
+
     return 0;
+err:
+    return -1;
 }
 
 int
@@ -180,3 +218,15 @@ struct xlator_dumpops dumpops = {
     .priv_to_dict = gf_utime_priv_to_dict,
     .priv = gf_utime_priv,
 };
+
+struct volume_options options[] = {
+    {.key = {"noatime"},
+     .type = GF_OPTION_TYPE_BOOL,
+     .default_value = "on",
+     .op_version = {GD_OP_VERSION_5_0},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
+     .tags = {"ctime"},
+     .description = "Enable/Disable atime updation when ctime feature is "
+                    "enabled. When noatime is on, atime is not updated with "
+                    "ctime feature enabled and vice versa."},
+    {.key = {NULL}}};
