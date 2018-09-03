@@ -1541,6 +1541,15 @@ glusterd_validate_and_create_brickpath (glusterd_brickinfo_t *brickinfo,
                 goto out;
         }
 
+        if (sizeof(GLUSTERD_DEFAULT_WORKDIR) <= (strlen(brickinfo->path) + 1) &&
+            !strncmp(brickinfo->path, GLUSTERD_DEFAULT_WORKDIR,
+                     (sizeof(GLUSTERD_DEFAULT_WORKDIR) - 1))) {
+                len = snprintf (msg, sizeof (msg), "Brick isn't allowed to be "
+                                "created inside glusterd's working directory.");
+                ret = -1;
+                goto out;
+        }
+
         if (!is_force) {
                 if (brick_st.st_dev != parent_st.st_dev) {
                         len = snprintf (msg, sizeof (msg), "The brick %s:%s "

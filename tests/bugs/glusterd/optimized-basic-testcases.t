@@ -270,4 +270,13 @@ pkill glusterfsd;
 TEST glusterd
 TEST $CLI volume status $V1
 
+#bug-853601 - Avoid using /var/lib/glusterd as a brick
+TEST ! $CLI volume create "test" $H0:/var/lib/glusterd
+TEST ! $CLI volume create "test" $H0:/var/lib/glusterd force
+TEST ! $CLI volume create "test" $H0:/var/lib/glusterd/abc
+TEST ! $CLI volume create "test" $H0:/var/lib/glusterd/abc force
+mkdir -p /xyz/var/lib/glusterd/abc
+TEST  $CLI volume create "test" $H0:/xyz/var/lib/glusterd/abc
+EXPECT 'Created' volinfo_field "test" 'Status';
+
 cleanup
