@@ -2566,7 +2566,16 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
 
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_DECOMMISSIONED,
                                              strlen (GLUSTERD_STORE_KEY_BRICK_DECOMMISSIONED))) {
-                                gf_string2int (value, &brickinfo->decommissioned);
+                                ret = gf_string2int
+                                        (value, &brickinfo->decommissioned);
+                                if (ret == -1) {
+                                        gf_msg (this->name, GF_LOG_ERROR,
+                                                EINVAL,
+                                                GD_MSG_INCOMPATIBLE_VALUE,
+                                                "Failed to convert "
+                                                "string to integer");
+                                }
+
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_DEVICE_PATH,
                                              strlen (GLUSTERD_STORE_KEY_BRICK_DEVICE_PATH))) {
                                 strncpy (brickinfo->device_path, value,
@@ -2577,7 +2586,16 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                                          sizeof (brickinfo->mount_dir));
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS,
                                              strlen (GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS))) {
-                                gf_string2int (value, &brickinfo->snap_status);
+                                ret = gf_string2int (value,
+                                                     &brickinfo->snap_status);
+                                if (ret == -1) {
+                                        gf_msg (this->name, GF_LOG_ERROR,
+                                                EINVAL,
+                                                GD_MSG_INCOMPATIBLE_VALUE,
+                                                "Failed to convert "
+                                                "string to integer");
+                        }
+
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_FSTYPE,
                                              strlen (GLUSTERD_STORE_KEY_BRICK_FSTYPE))) {
                                 strncpy (brickinfo->fstype, value,
@@ -2597,7 +2615,15 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                         } else if (!strncmp (key,
                                              GLUSTERD_STORE_KEY_BRICK_FSID,
                                              strlen (GLUSTERD_STORE_KEY_BRICK_FSID))) {
-                                gf_string2uint64 (value, &brickinfo->statfs_fsid);
+                                ret = gf_string2uint64
+                                        (value, &brickinfo->statfs_fsid);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_INVALID_ENTRY, "%s "
+                                                "is not a valid uint64_t value",
+                                                value);
+                                }
+
                         } else if (!strcmp(key,
                                     GLUSTERD_STORE_KEY_BRICK_UUID)) {
                                 gf_uuid_parse (value, brickinfo->uuid);
@@ -4512,6 +4538,12 @@ glusterd_store_retrieve_peers (xlator_t *this)
                                    key,
                                    strlen (GLUSTERD_STORE_KEY_PEER_HOSTNAME))) {
                                 ret = gd_add_address_to_peer (peerinfo, value);
+                                if (ret) {
+                                        gf_msg (this->name, GF_LOG_ERROR, 0,
+                                                GD_MSG_ADD_ADDRESS_TO_PEER_FAIL,
+                                                "Could not add address to peer"
+                                                );
+                                }
                         } else {
                                 gf_msg (this->name, GF_LOG_ERROR, 0,
                                         GD_MSG_UNKNOWN_KEY, "Unknown key: %s",
