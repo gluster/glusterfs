@@ -201,8 +201,8 @@ dht_layouts_init (xlator_t *this, dht_conf_t *conf)
         if (!conf)
                 goto out;
 
-        conf->file_layouts = GF_MALLOC (conf->subvolume_cnt
-                                        * sizeof (dht_layout_t *),
+        conf->file_layouts = GF_CALLOC (conf->subvolume_cnt,
+                                        sizeof (dht_layout_t *),
                                         gf_dht_mt_dht_layout_t);
         if (!conf->file_layouts) {
                 goto out;
