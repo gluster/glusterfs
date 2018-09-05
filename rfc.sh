@@ -78,7 +78,7 @@ check_backport()
     fi
 
     # Extract the change ID from the commit message
-    changeid=$(git show --format='%b' | grep -i '^Change-Id: ' | awk '{print $2}')
+    changeid=$(git log -n1 --format='%b' | grep -i '^Change-Id: ' | awk '{print $2}')
 
     # If there is no change ID ask if we should continue
     if [ -z "$changeid" ]; then
@@ -130,10 +130,10 @@ editor_mode()
     if [ $(basename "$1") = "COMMIT_EDITMSG" ]; then
         # see note above function warn_reference_missing for regex elaboration
         # Lets first check for github issues
-        ref=$(git show --format='%b' | grep -ow -E "([fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])(:)?[[:space:]]+(gluster\/glusterfs)?#[[:digit:]]+" | awk -F '#' '{print $2}');
+        ref=$(git log -n1 --format='%b' | grep -ow -E "([fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])(:)?[[:space:]]+(gluster\/glusterfs)?#[[:digit:]]+" | awk -F '#' '{print $2}');
         if [ "x${ref}" = "x" ]; then
             # if not found, check for bugs
-            ref=$(git show --format='%b' | grep -ow -E "([fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])(:)?[[:space:]]+bz#[[:digit:]]+" | awk -F '#' '{print $2}');
+            ref=$(git log -n1 --format='%b' | grep -ow -E "([fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])(:)?[[:space:]]+bz#[[:digit:]]+" | awk -F '#' '{print $2}');
         fi
 
         if [ "x${ref}" != "x" ]; then
@@ -312,7 +312,7 @@ main()
     assert_diverge;
 
     # see note above function warn_reference_missing for regex elaboration
-    reference=$(git show --format='%b' | grep -ow -E "([fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])(:)?[[:space:]]+(gluster\/glusterfs)?(bz)?#[[:digit:]]+" | awk -F '#' '{print $2}');
+    reference=$(git log -n1 --format='%b' | grep -ow -E "([fF][iI][xX][eE][sS]|[uU][pP][dD][aA][tT][eE][sS])(:)?[[:space:]]+(gluster\/glusterfs)?(bz)?#[[:digit:]]+" | awk -F '#' '{print $2}');
 
     # If this is a commit against master and does not have a bug ID or a github
     # issue reference. Warn the contributor that one of the 2 is required
