@@ -16,6 +16,7 @@
 #include "xlator.h"
 #include "defaults.h"
 #include "snapview-client-mem-types.h"
+#include "snapview-client-messages.h"
 
 struct __svc_local {
     loc_t loc;
