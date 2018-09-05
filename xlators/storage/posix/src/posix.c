@@ -3293,6 +3293,17 @@ posix_open (call_frame_t *frame, xlator_t *this,
         priv = this->private;
         VALIDATE_OR_GOTO (priv, out);
 
+        if (loc->inode &&
+            ((loc->inode->ia_type == IA_IFBLK) ||
+             (loc->inode->ia_type == IA_IFCHR))) {
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        P_MSG_INVALID_ARGUMENT,
+                        "open received on a block/char file (%s)",
+                        uuid_utoa (loc->inode->gfid));
+                op_errno = EINVAL;
+                goto out;
+        }
+
         MAKE_INODE_HANDLE (real_path, this, loc, &stbuf);
         if (!real_path) {
                 op_ret = -1;
@@ -3381,6 +3392,17 @@ posix_readv (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
         VALIDATE_OR_GOTO (priv, out);
+
+        if (fd->inode &&
+            ((fd->inode->ia_type == IA_IFBLK) ||
+             (fd->inode->ia_type == IA_IFCHR))) {
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        P_MSG_INVALID_ARGUMENT,
+                        "readv received on a block/char file (%s)",
+                        uuid_utoa (fd->inode->gfid));
+                op_errno = EINVAL;
+                goto out;
+        }
 
         ret = posix_fd_ctx_get (fd, this, &pfd, &op_errno);
         if (ret < 0) {
@@ -3616,6 +3638,17 @@ posix_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         priv = this->private;
 
         VALIDATE_OR_GOTO (priv, out);
+
+        if (fd->inode &&
+            ((fd->inode->ia_type == IA_IFBLK) ||
+             (fd->inode->ia_type == IA_IFCHR))) {
+                gf_msg (this->name, GF_LOG_ERROR, EINVAL,
+                        P_MSG_INVALID_ARGUMENT,
+                        "writev received on a block/char file (%s)",
+                        uuid_utoa (fd->inode->gfid));
+                op_errno = EINVAL;
+                goto out;
+        }
 
         ret = posix_fd_ctx_get (fd, this, &pfd, &op_errno);
         if (ret < 0) {
