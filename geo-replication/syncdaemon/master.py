@@ -1037,7 +1037,7 @@ class GMasterChangelogMixin(GMasterCommon):
                     # Special case: record mknod as link
                     if ty in ['MKNOD']:
                         mode = int(ec[2])
-                        if mode & 01000:
+                        if mode & 0o1000:
                                 # Avoid stat'ing the file as it
                                 # may be deleted in the interim
                                 st = FreeObject(st_mode=int(ec[2]),
@@ -1688,7 +1688,7 @@ class GMasterXsyncMixin(GMasterChangelogMixin):
     def is_sticky(self, path, mo):
         """check for DHTs linkto sticky bit file"""
         sticky = False
-        if mo & 01000:
+        if mo & 0o1000:
             sticky = self.master.server.linkto_check(path)
         return sticky
 

@@ -10,7 +10,7 @@
 
 import os
 try:
-    import configparser as ConfigParser
+    from configparser import ConfigParser
 except ImportError:
     import ConfigParser
 
