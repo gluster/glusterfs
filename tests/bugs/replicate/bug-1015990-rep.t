@@ -11,7 +11,6 @@ TEST pidof glusterd;
 TEST $CLI volume info;
 
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{1,2,3,4};
-
 ## Verify volume is is created
 EXPECT "$V0" volinfo_field $V0 'Volume Name';
 EXPECT 'Created' volinfo_field $V0 'Status';
@@ -20,22 +19,23 @@ EXPECT 'Created' volinfo_field $V0 'Status';
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
-
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
-
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 2
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 3
 
 
 TEST kill_brick $V0 $H0 $B0/$V0"1"
-sleep 5
 TEST kill_brick $V0 $H0 $B0/$V0"3"
-sleep 5
 
 for  i in  {1..100}; do echo "STRING" > $M0/File$i; done
 
+# Check shd is connected to all up bricks before running statistics command.
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 3
 
 command_output=$(gluster volume heal $V0 statistics heal-count replica $H0:$B0/$V0"1")
-
-
 substring="Number of entries:"
 count=0
 while read -r line;
@@ -48,15 +48,8 @@ do
 
 done <<< "$command_output"
 
-brick_2_entries_count=$(($count-$value))
-
-EXPECT "0" echo $brick_2_entries_count
-
 brick_2_entries_count=$count
-
-
 xattrop_count_brick_2=$(count_sh_entries $B0/$V0"2")
-
 EXPECT $brick_2_entries_count echo $xattrop_count_brick_2
 
 ## Finish up
