@@ -599,7 +599,14 @@ posix_init (xlator_t *this)
         op_ret = sys_lsetxattr (dir_data->data,
                                 "trusted.glusterfs.test", "working", 8, 0);
         if (op_ret != -1) {
-                sys_lremovexattr (dir_data->data, "trusted.glusterfs.test");
+                ret = sys_lremovexattr (dir_data->data,
+                                        "trusted.glusterfs.test");
+                if (ret) {
+                        gf_msg (this->name, GF_LOG_DEBUG, errno,
+                                P_MSG_INVALID_OPTION,
+                                "failed to remove xattr: "
+                                "trusted.glusterfs.test");
+                }
         } else {
                 tmp_data = dict_get (this->options,
                                      "mandate-attribute");
