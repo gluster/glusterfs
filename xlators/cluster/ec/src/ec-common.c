@@ -2416,6 +2416,15 @@ ec_update_info(ec_lock_link_t *link)
                     if (ctx->dirty[1] != 0) {
                         dirty[1] = -1;
                     }
+                    /*If everything is fine and we already
+                     *have version xattr set on entry, there
+                     *is no need to update version again*/
+                    if (ctx->pre_version[0]) {
+                        version[0] = 0;
+                    }
+                    if (ctx->pre_version[1]) {
+                        version[1] = 0;
+                    }
             } else {
                     link->optimistic_changelog = _gf_false;
                     ec_set_dirty_flag (link, ctx, dirty);
