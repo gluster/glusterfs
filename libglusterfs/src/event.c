@@ -268,7 +268,8 @@ event_dispatch_destroy(struct event_pool *event_pool)
             if (sys_write(fd[1], "dummy", 6) == -1) {
                 break;
             }
-            sleep_till.tv_sec = time(NULL) + 1;
+            clock_gettime(CLOCK_REALTIME, &sleep_till);
+            sleep_till.tv_sec += 1;
             ret = pthread_cond_timedwait(&event_pool->cond, &event_pool->mutex,
                                          &sleep_till);
             if (ret) {
