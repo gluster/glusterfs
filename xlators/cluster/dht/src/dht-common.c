@@ -9141,6 +9141,7 @@ dht_create (call_frame_t *frame, xlator_t *this,
 {
         int             op_errno           = -1;
         xlator_t       *subvol             = NULL;
+        xlator_t       *hashed_subvol      = NULL;
         dht_local_t    *local              = NULL;
         int             i                  = 0;
         dht_conf_t     *conf               = NULL;
@@ -9166,6 +9167,35 @@ dht_create (call_frame_t *frame, xlator_t *this,
                         DHT_MSG_SUBVOL_INFO,
                         "creating %s on %s (got create on %s)",
                         local->loc.path, subvol->name, loc->path);
+
+                /* Since lookup-optimize is enabled by default, we need
+                 * to create the linkto file if required.
+                 * Note this does not check for decommisioned bricks
+                 * and min-free-disk limits as this is a debugging tool
+                 * and not expected to be used in production.
+                 */
+                hashed_subvol = dht_subvol_get_hashed (this, &local->loc);
+
+                if (hashed_subvol && (hashed_subvol != subvol)) {
+                        /* Create the linkto file and then the data file */
+                        local->params = dict_ref (params);
+                        local->flags = flags;
+                        local->mode = mode;
+                        local->umask = umask;
+                        local->cached_subvol = subvol;
+                        local->hashed_subvol = hashed_subvol;
+
+                        dht_linkfile_create (frame,
+                                             dht_create_linkfile_create_cbk,
+                                             this, subvol, hashed_subvol,
+                                             &local->loc);
+                        goto done;
+                }
+                /* We either don't have a hashed subvol or the hashed subvol is
+                 * the same as the one specified. No need to create the linkto
+                 * file as we expect a lookup everywhere if there are problems
+                 * with the parent layout
+                 */
                 STACK_WIND_COOKIE (frame, dht_create_cbk, subvol,
                                    subvol, subvol->fops->create, &local->loc,
                                    flags, mode, umask, fd, params);
