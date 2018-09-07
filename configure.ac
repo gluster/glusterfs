@@ -659,8 +659,6 @@ if test -n "${PYTHON}"; then
    have_python=yes
 fi
 
-echo "PYTHON = ${PYTHON} ${PYTHON_VERSION}"
-
 dnl Use pkg-config to get runtime search path missing from ${PYTHON}-config
 dnl Just do "true" on failure so that configure does not bail out
 dnl Note: python 2.6's devel pkg (e.g. in CentOS/RHEL 6) does not have
@@ -1440,14 +1438,9 @@ fi
 dnl glupy section
 BUILD_GLUPY=no
 
-AC_ARG_ENABLE([glupy], AS_HELP_STRING([--enable-glupy], [build glupy]))
-if test "x$enable_glupy" != "xno"; then enable_glupy=yes; fi
+AC_ARG_ENABLE([glupy], AS_HELP_STRING([--disable-glupy], [disable building glupy]))
 
-if test "x$enable_glupy" = "xyes"; then
-    GLUPY_SUBDIR=glupy
-    GLUPY_SUBDIR_MAKEFILE=xlators/features/glupy/Makefile
-    GLUPY_SUBDIR_SRC_MAKEFILE=xlators/features/glupy/src/Makefile
-
+if test "x$enable_glupy" != "xno"; then
     if test "x${have_python}" = "xyes" -a -n "${PYTHON_CFLAGS}"; then
         case $host_os in
             darwin*)
@@ -1460,11 +1453,14 @@ if test "x$enable_glupy" = "xyes"; then
     else
         AC_MSG_WARN([
         ---------------------------------------------------------------------------------
-        cannot build glupy. python 2.x and python-devel/python-dev package are required.
+        cannot build glupy. python ${PYTHON_VERSION} and python-devel/python-dev package are required.
         ---------------------------------------------------------------------------------])
     fi
 
     if test "x$BUILD_GLUPY" = "xyes"; then
+        GLUPY_SUBDIR=glupy
+        GLUPY_SUBDIR_MAKEFILE=xlators/features/glupy/Makefile
+        GLUPY_SUBDIR_SRC_MAKEFILE=xlators/features/glupy/src/Makefile
 
         echo "building glupy with -isystem ${PYTHON_CFLAGS} ${PYTHON_LIBS}"
 
@@ -1717,7 +1713,7 @@ AC_SUBST(GFAPI_EXTRA_LDFLAGS)
 GFAPI_LIBS="${ACL_LIBS}"
 AC_SUBST(GFAPI_LIBS)
 
-pushd $(dirname $0)
+pushd $(dirname $0) &> /dev/null
 if test ! -e python-shebangs; then
   touch python-shebangs
   if test "x${PYTHON}" = "x/usr/bin/python2"; then
@@ -1728,7 +1724,7 @@ if test ! -e python-shebangs; then
     echo "...done"
   fi
 fi
-popd
+popd &> /dev/null
 
 dnl this change necessary for run-tests.sh
 AC_CONFIG_FILES([tests/env.rc],[ln -s ${ac_abs_builddir}/env.rc ${ac_abs_srcdir}/env.rc 2>/dev/null])
