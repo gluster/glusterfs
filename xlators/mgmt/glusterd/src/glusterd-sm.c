@@ -993,6 +993,7 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         if (ret) {
                 gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
                         GD_MSG_NO_MEMORY, "Out of Memory");
+                goto out;
         }
 
         new_event->peername = gf_strdup (event->peername);
