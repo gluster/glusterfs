@@ -323,7 +323,6 @@ svs_lookup_entry (xlator_t *this, loc_t *loc, struct iatt *buf,
         svs_inode_t    *inode_ctx                       = NULL;
         glfs_object_t  *parent_object                   = NULL;
         uuid_t          gfid                            = {0, };
-        int             ret                             = -1;
 
 
         GF_VALIDATE_OR_GOTO ("snapview-server", this, out);
@@ -367,13 +366,12 @@ svs_lookup_entry (xlator_t *this, loc_t *loc, struct iatt *buf,
 
         if (gf_uuid_is_null (loc->gfid) &&
             gf_uuid_is_null (loc->inode->gfid)) {
-                ret = svs_uuid_generate (this, gfid, parent_ctx->snapname,
-                                         object->gfid);
+                if (svs_uuid_generate (this, gfid, parent_ctx->snapname,
+                                       object->gfid)) {
                 /*
                  * should op_errno be something else such as
                  * EINVAL or ESTALE?
                  */
-                if (ret) {
                         op_ret = -1;
                         *op_errno = EIO;
                         goto out;
