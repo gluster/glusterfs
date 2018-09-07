@@ -612,6 +612,14 @@ dht_frame_return (call_frame_t *frame)
         return this_call_cnt;
 }
 
+/*
+ * Use this function to specify which subvol you want the file created
+ * on - this need not be the hashed subvol.
+ * Format: <filename>@<this->name>:<subvol-name>
+ * Eg: file-1@vol1-dht:vol1-client-0
+ *     where vol1 is a pure distribute volume
+ *     will create file-1 on vol1-client-0
+ */
 
 int
 dht_filter_loc_subvol_key (xlator_t *this, loc_t *loc, loc_t *new_loc,
@@ -634,24 +642,27 @@ dht_filter_loc_subvol_key (xlator_t *this, loc_t *loc, loc_t *new_loc,
 
         trav = this->children;
         while (trav) {
-                keylen = snprintf (key, sizeof (key), "*@%s:%s", this->name, trav->xlator->name);
+                keylen = snprintf (key, sizeof (key), "*@%s:%s", this->name,
+                                   trav->xlator->name);
+                /* Ignore '*' */
+                keylen = keylen - 1;
                 if (fnmatch (key, loc->name, FNM_NOESCAPE) == 0) {
-                        name_len = strlen (loc->name);
-                        new_name = GF_MALLOC(name_len,
+                        name_len = strlen (loc->name) - keylen;
+                        new_name = GF_MALLOC(name_len + 1,
                                              gf_common_mt_char);
                         if (!new_name)
                                 goto out;
                         if (fnmatch (key, loc->path, FNM_NOESCAPE) == 0) {
-                                path_len = strlen (loc->path);
-                                new_path = GF_MALLOC(path_len,
+                                path_len = strlen (loc->path) - keylen;
+                                new_path = GF_MALLOC(path_len + 1,
                                                      gf_common_mt_char);
                                 if (!new_path)
                                         goto out;
-                                strncpy (new_path, loc->path, (path_len -
-                                                               keylen + 1));
+                                snprintf (new_path, path_len + 1,
+                                          "%s", loc->path);
                         }
-                        strncpy (new_name, loc->name, (name_len -
-                                                       keylen + 1));
+                        snprintf (new_name, name_len + 1, "%s",
+                                  loc->name);
 
                         if (new_loc) {
                                 new_loc->path   = ((new_path) ? new_path:
