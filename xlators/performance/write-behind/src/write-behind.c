@@ -779,6 +779,7 @@ __wb_fulfill_request (wb_request_t *req)
 		*/
 	}
 
+        list_del_init (&req->wip);
 	__wb_request_unref (req);
 }
 
