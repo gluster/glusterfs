@@ -594,7 +594,7 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                 }
                 if (volinfo->caps & CAPS_BD)
                         snprintf (buf, 256, "BD");
-                ret = dict_set_dynstr (volumes, key, buf);
+                ret = dict_set_dynstrn (volumes, key, keylen, buf);
                 if (ret) {
                         GF_FREE (buf);
                         goto out;
