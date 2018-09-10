@@ -1553,7 +1553,8 @@ gfproxy_server_graph_builder (volgen_graph_t *graph,
         if (ret != 0)
                 goto out;
 
-        ret = dict_set_str (set_dict, "gfproxy-server", "on");
+        ret = dict_set_int32n (set_dict, "gfproxy-server",
+                               SLEN ("gfproxy-server"), 1);
         if (ret != 0)
                 goto out;
 
@@ -1562,8 +1563,8 @@ gfproxy_server_graph_builder (volgen_graph_t *graph,
 
         /* Clear this setting so that future users of set_dict do not end up
          * thinking they are a gfproxy server */
-        dict_del (set_dict, "gfproxy-server");
-        dict_del (set_dict, "trusted-client");
+        dict_deln (set_dict, "gfproxy-server", SLEN ("gfproxy-server"));
+        dict_deln (set_dict, "trusted-client", SLEN ("trusted-client"));
 
         /* Then add the server to it */
         get_vol_transport_type (volinfo, transt);
@@ -6218,7 +6219,8 @@ generate_client_volfiles (glusterd_volinfo_t *volinfo,
                         glusterd_get_gfproxy_client_volfile (volinfo,
                                                              filepath,
                                                              PATH_MAX);
-                        ret = dict_set_str (dict, "gfproxy-client", "on");
+                        ret = dict_set_int32n (dict, "gfproxy-client",
+                                               SLEN ("gfproxy-client"), 1);
                 } else {
                         ret = glusterd_get_client_filepath (filepath,
                                                             volinfo,
@@ -6851,7 +6853,8 @@ validate_shdopts (glusterd_volinfo_t *volinfo,
                 ret = 0;
                 goto out;
         }
-        ret = dict_set_str (val_dict, "graph-check", "on");
+        ret = dict_set_int32n (val_dict, "graph-check",
+                               SLEN ("graph-check"), 1);
         if (ret)
                 goto out;
         ret = build_shd_graph (&graph, val_dict);
@@ -6862,7 +6865,7 @@ validate_shdopts (glusterd_volinfo_t *volinfo,
 
         gf_msg_debug ("glusterd", 0, "Returning %d", ret);
 out:
-        dict_del (val_dict, "graph-check");
+        dict_deln (val_dict, "graph-check", SLEN ("graph-check"));
         return ret;
 }
 

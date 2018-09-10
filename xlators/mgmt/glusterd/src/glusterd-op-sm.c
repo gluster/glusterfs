@@ -1555,8 +1555,8 @@ cont:
                  * TODO: Remove this and the other places this is referred once
                  * 3.3.x compatibility is not required
                  */
-                ret = dict_set_uint32 (dict, "check-op-version",
-                                       _gf_true);
+                ret = dict_set_int32n (dict, "check-op-version",
+                                       SLEN ("check-op-version"), 1);
                 if (ret) {
                         gf_msg (this->name, GF_LOG_ERROR, 0,
                                 GD_MSG_DICT_SET_FAILED,
