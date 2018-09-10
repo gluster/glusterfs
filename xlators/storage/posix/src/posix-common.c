@@ -96,13 +96,9 @@ extern char *marker_xattrs[];
 #if HAVE_UTIMENSAT
 #define SET_TIMESPEC_NSEC_OR_TIMEVAL_USEC(tv, nanosecs) \
         tv.tv_nsec = nanosecs
-#define PATH_SET_TIMESPEC_OR_TIMEVAL(path, tv) \
-        (sys_utimensat (AT_FDCWD, path, tv, AT_SYMLINK_NOFOLLOW))
 #else
 #define SET_TIMESPEC_NSEC_OR_TIMEVAL_USEC(tv, nanosecs) \
         tv.tv_usec = nanosecs / 1000
-#define PATH_SET_TIMESPEC_OR_TIMEVAL(path, tv) \
-        (lutimes (path, tv))
 #endif
 
 
