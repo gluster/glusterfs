@@ -1677,7 +1677,8 @@ glusterd_update_slave_voluuid_slaveinfo (glusterd_volinfo_t *volinfo)
 
         ret = 0;
 out:
-        gf_msg_debug (this->name, 0, "Returning %d", ret);
+        gf_msg_debug ((this ? this->name : "glusterd"),
+                      0, "Returning %d", ret);
         return ret;
 }
 
