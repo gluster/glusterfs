@@ -1655,9 +1655,13 @@ brick_graph_add_posix (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        if (quota_enabled || pgfid_feat || trash_enabled)
-                xlator_set_option (xl, "update-link-count-parent",
-                                   "on");
+        if (quota_enabled || pgfid_feat || trash_enabled) {
+                ret = xlator_set_option (xl, "update-link-count-parent",
+                                         "on");
+                if (ret) {
+                        goto out;
+                }
+        }
 
         snprintf (tmpstr, sizeof (tmpstr), "%d", brickinfo->fs_share_count);
         ret = xlator_set_option (xl, "shared-brick-count", tmpstr);
