@@ -234,6 +234,14 @@ gf_monitor_metrics(glusterfs_ctx_t *ctx)
     if (dumppath == NULL) {
         dumppath = GLUSTER_METRICS_DIR;
     }
+    ret = mkdir_p(dumppath, 0755, true);
+    if (ret) {
+        /* EEXIST is handled in mkdir_p() itself */
+        gf_msg("monitoring", GF_LOG_ERROR, 0, LG_MSG_STRDUP_ERROR,
+               "failed to create metrics dir %s (%s)", filepath,
+               strerror(errno));
+        return NULL;
+    }
 
     ret = gf_asprintf(&filepath, "%s/gmetrics.XXXXXX", dumppath);
     if (ret < 0) {
