@@ -7920,8 +7920,7 @@ out:
         if (ev_ctx && ev_ctx->rsp_dict)
                 dict_unref (ev_ctx->rsp_dict);
         GF_FREE (ev_ctx);
-        gf_msg_debug (this->name, 0, "Returning %d", ret);
-
+        gf_msg_debug (this ? this->name : "glusterd", 0, "Returning %d", ret);
         return ret;
 }
 
