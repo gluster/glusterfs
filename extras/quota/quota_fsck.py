@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # The following script enables, Detecting, Reporting and Fixing
 # anomalies in quota accounting. Run this script with -h option
 # for further details.
