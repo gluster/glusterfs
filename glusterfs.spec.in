@@ -386,6 +386,21 @@ is in user space and easily manageable.
 This package provides the GlusterFS CLI application and its man page
 %endif
 
+%package cloudsync-plugins
+Summary:          Cloudsync Plugins
+BuildRequires:    libcurl-devel
+
+%description cloudsync-plugins
+GlusterFS is a distributed file-system capable of scaling to several
+petabytes. It aggregates various storage bricks over Infiniband RDMA
+or TCP/IP interconnect into one large parallel network file
+system. GlusterFS is one of the most sophisticated file systems in
+terms of features and extensibility.  It borrows a powerful concept
+called Translators from GNU Hurd kernel. Much of the code in GlusterFS
+is in user space and easily manageable.
+
+This package provides cloudsync plugins for archival feature.
+
 %package devel
 Summary:          Development Libraries
 Group:            Development/Libraries
@@ -448,21 +463,6 @@ is in user space and easily manageable.
 
 This package provides support to FUSE based clients and inlcudes the
 glusterfs(d) binary.
-
-%package cloudsync-plugins
-Summary:          Cloudsync Plugins
-BuildRequires:    libcurl-devel
-
-%description cloudsync-plugins
-GlusterFS is a distributed file-system capable of scaling to several
-petabytes. It aggregates various storage bricks over Infiniband RDMA
-or TCP/IP interconnect into one large parallel network file
-system. GlusterFS is one of the most sophisticated file systems in
-terms of features and extensibility.  It borrows a powerful concept
-called Translators from GNU Hurd kernel. Much of the code in GlusterFS
-is in user space and easily manageable.
-
-This package provides cloudsync plugins for archival feature.
 
 %if ( 0%{!?_without_georeplication:1} )
 %package geo-replication
@@ -1162,6 +1162,10 @@ exit 0
 %{_sysconfdir}/bash_completion.d/gluster
 %endif
 
+%files cloudsync-plugins
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/cloudsync-plugins
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/cloudsync-plugins/cloudsyncs3.so
+
 %files devel
 %dir %{_includedir}/glusterfs
      %{_includedir}/glusterfs/*
@@ -1200,9 +1204,9 @@ exit 0
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/glupy/__pycache__/*
 %endif
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/quiesce.so
-%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/playground
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/playground/template.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/testing/performance/symlink-cache.so
 # Glupy Python files
@@ -1235,10 +1239,6 @@ exit 0
 %{_sysconfdir}/sysconfig/modules/glusterfs-fuse.modules
 %endif
 %endif
-
-%files cloudsync-plugins
-%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/cloudsync-plugins
-     %{_libdir}/glusterfs/%{version}%{?prereltag}/cloudsync-plugins/cloudsyncs3.so
 
 %if ( 0%{?_with_gnfs:1} && 0%{!?_without_server:1} )
 %files gnfs
