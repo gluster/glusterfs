@@ -2359,11 +2359,15 @@ glusterfs_rebalance_event_notify (dict_t *dict)
 
         if (dict) {
                 ret = dict_set_str (dict, "volname", cmd_args->volfile_id);
-                if (ret)
+                if (ret) {
                         gf_log ("", GF_LOG_ERROR, "failed to set volname");
-
+                }
                 ret = dict_allocate_and_serialize (dict, &req.dict.dict_val,
                                                    &req.dict.dict_len);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "failed to serialize dict");
+                }
+
         }
 
         ret = mgmt_submit_request (&req, frame, ctx, &clnt_handshake_prog,
@@ -2372,7 +2376,6 @@ glusterfs_rebalance_event_notify (dict_t *dict)
                                    (xdrproc_t)xdr_gf_event_notify_req);
 
         GF_FREE (req.dict.dict_val);
-
         return ret;
 }
 
