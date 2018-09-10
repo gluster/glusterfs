@@ -261,8 +261,8 @@ cli_cmd_get_state_parse (struct cli_state *state, const char **words,
                          int wordcount, dict_t **options, char **op_errstr);
 
 int32_t
-cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
-                                dict_t **options, int *type);
+cli_cmd_volume_add_brick_parse (struct cli_state *state, const char **words,
+                                int wordcount, dict_t **options, int *type);
 
 int32_t
 cli_cmd_volume_detach_tier_parse (const char **words, int wordcount,
@@ -277,9 +277,10 @@ cli_cmd_volume_old_tier_parse (const char **words, int wordcount,
                            dict_t **options);
 
 int32_t
-cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
-                                   dict_t **options, int *question,
-                                   int *brick_count, int32_t *command);
+cli_cmd_volume_remove_brick_parse (struct cli_state *state, const char **words,
+                                   int wordcount, dict_t **options,
+                                   int *question, int *brick_count,
+                                   int32_t *command);
 
 int32_t
 cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
