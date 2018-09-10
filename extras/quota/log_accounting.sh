@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 # The script does an accounting of all directories using command 'du' and
 # using gluster. We can then compare the two to identify accounting mismatch
 # THere can be minor mismatch because gluster only accounts for the size of
