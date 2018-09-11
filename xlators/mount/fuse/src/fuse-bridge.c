@@ -2310,6 +2310,10 @@ fuse_open_resume (fuse_state_t *state)
                         "%"PRIu64": OPEN %s resolution failed",
                         state->finh->unique, uuid_utoa (state->resolve.gfid));
 
+                /* facilitate retry from VFS */
+                if (state->resolve.op_errno == ENOENT)
+                        state->resolve.op_errno = ESTALE;
+
                 send_fuse_err (state->this, state->finh,
                                state->resolve.op_errno);
                 free_fuse_state (state);
@@ -2767,6 +2771,11 @@ fuse_opendir_resume (fuse_state_t *state)
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRIu64": OPENDIR (%s) resolution failed",
                         state->finh->unique, uuid_utoa (state->resolve.gfid));
+
+                /* facilitate retry from VFS */
+                if (state->resolve.op_errno == ENOENT)
+                        state->resolve.op_errno = ESTALE;
+
                 send_fuse_err (state->this, state->finh,
                                state->resolve.op_errno);
                 free_fuse_state (state);
