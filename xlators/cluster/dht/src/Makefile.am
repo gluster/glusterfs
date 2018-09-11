@@ -18,24 +18,24 @@ nufa_la_SOURCES = $(dht_common_source) nufa.c
 switch_la_SOURCES = $(dht_common_source) switch.c
 tier_la_SOURCES = $(dht_common_source) tier.c tier-common.c
 
-dht_la_LDFLAGS = -module -avoid-version \
+dht_la_LDFLAGS = -module \
 	-export-symbols $(top_srcdir)/xlators/cluster/dht/src/dht.sym \
-	$(GF_NO_UNDEFINED)
+	$(GF_XLATOR_LDFLAGS)
 dht_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-nufa_la_LDFLAGS = -module -avoid-version \
+nufa_la_LDFLAGS = -module \
 	-export-symbols $(top_srcdir)/xlators/cluster/dht/src/nufa.sym \
-	$(GF_NO_UNDEFINED)
+	$(GF_XLATOR_LDFLAGS)
 nufa_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-switch_la_LDFLAGS = -module -avoid-version
+switch_la_LDFLAGS = -module \
 	-export-symbols $(top_srcdir)/xlators/cluster/dht/src/switch.sym \
-	$(GF_NO_UNDEFINED)
+	$(GF_XLATOR_LDFLAGS)
 switch_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-tier_la_LDFLAGS = -module -avoid-version \
+tier_la_LDFLAGS = -module \
 	-export-symbols $(top_srcdir)/xlators/cluster/dht/src/tier.sym \
-	$(LIB_DL) $(GF_NO_UNDEFINED)
+	$(LIB_DL) $(GF_XLATOR_LDFLAGS)
 tier_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = dht-common.h dht-mem-types.h dht-messages.h \
