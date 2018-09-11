@@ -3354,7 +3354,12 @@ _store_global_opts(dict_t *this, char *key, data_t *value, void *data)
 {
     gf_store_handle_t *shandle = data;
 
-    gf_store_save_value(shandle->fd, key, (char *)value->data);
+    if (gf_store_save_value(shandle->fd, key, (char *)value->data)) {
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_STORE_HANDLE_WRITE_FAIL,
+               "Unable to write into store handle for key : %s, value %s", key,
+               (char *)value->data);
+    }
+
     return 0;
 }
 
