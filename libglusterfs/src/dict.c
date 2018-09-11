@@ -19,7 +19,8 @@
 #include "glusterfs.h"
 #include "common-utils.h"
 #include "dict.h"
-#include "hashfn.h"
+#define XXH_INLINE_ALL
+#include "xxhash.h"
 #include "logging.h"
 #include "compat.h"
 #include "compat-errno.h"
@@ -370,7 +371,7 @@ dict_lookup(dict_t *this, char *key, data_t **data)
 
     data_pair_t *tmp = NULL;
 
-    hash = SuperFastHash(key, strlen(key));
+    hash = (uint32_t)XXH64(key, strlen(key), 0);
 
     LOCK(&this->lock);
     {
@@ -401,7 +402,7 @@ dict_set_lk(dict_t *this, char *key, data_t *value, const uint32_t hash,
             return -1;
         }
         key_free = 1;
-        key_hash = SuperFastHash(key, keylen);
+        key_hash = (uint32_t)XXH64(key, keylen, 0);
     } else {
         keylen = strlen(key);
         key_hash = hash;
@@ -410,7 +411,6 @@ dict_set_lk(dict_t *this, char *key, data_t *value, const uint32_t hash,
     /* Search for a existing key if 'replace' is asked for */
     if (replace) {
         pair = dict_lookup_common(this, key, key_hash);
-
         if (pair) {
             data_t *unref_data = pair->value;
             pair->value = data_ref(value);
@@ -501,7 +501,7 @@ dict_setn(dict_t *this, char *key, const int keylen, data_t *value)
     }
 
     if (key) {
-        key_hash = SuperFastHash(key, keylen);
+        key_hash = (int32_t)XXH64(key, keylen, 0);
     }
 
     LOCK(&this->lock);
@@ -535,7 +535,7 @@ dict_addn(dict_t *this, char *key, const int keylen, data_t *value)
     }
 
     if (key) {
-        key_hash = SuperFastHash(key, keylen);
+        key_hash = (uint32_t)XXH64(key, keylen, 0);
     }
 
     LOCK(&this->lock);
@@ -571,7 +571,7 @@ dict_getn(dict_t *this, char *key, const int keylen)
         return NULL;
     }
 
-    hash = SuperFastHash(key, keylen);
+    hash = (uint32_t)XXH64(key, keylen, 0);
 
     LOCK(&this->lock);
     {
@@ -629,7 +629,7 @@ dict_deln(dict_t *this, char *key, const int keylen)
         return;
     }
 
-    hash = SuperFastHash(key, keylen);
+    hash = (uint32_t)XXH64(key, keylen, 0);
 
     LOCK(&this->lock);
 
@@ -1488,7 +1488,7 @@ dict_get_with_refn(dict_t *this, char *key, const int keylen, data_t **data)
         goto err;
     }
 
-    hash = SuperFastHash(key, keylen);
+    hash = (uint32_t)XXH64(key, keylen, 0);
 
     LOCK(&this->lock);
     {
@@ -2096,7 +2096,7 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
      */
     GF_ASSERT(flag >= 0 && flag < DICT_MAX_FLAGS);
 
-    hash = SuperFastHash(key, strlen(key));
+    hash = (int32_t)XXH64(key, strlen(key), 0);
     LOCK(&this->lock);
     {
         pair = dict_lookup_common(this, key, hash);
@@ -2805,8 +2805,8 @@ dict_rename_key(dict_t *this, char *key, char *replace_key)
         return ret;
     }
 
-    hash = SuperFastHash(key, strlen(key));
-    replacekey_hash = SuperFastHash(replace_key, strlen(replace_key));
+    hash = (uint32_t)XXH64(key, strlen(key), 0);
+    replacekey_hash = (uint32_t)XXH64(replace_key, strlen(replace_key), 0);
 
     LOCK(&this->lock);
     {
@@ -3473,7 +3473,7 @@ dict_has_key_from_array(dict_t *dict, char **strings, gf_boolean_t *result)
     LOCK(&dict->lock);
     {
         for (i = 0; strings[i]; i++) {
-            hash = SuperFastHash(strings[i], strlen(strings[i]));
+            hash = (uint32_t)XXH64(strings[i], strlen(strings[i]), 0);
             if (dict_lookup_common(dict, strings[i], hash)) {
                 *result = _gf_true;
                 goto unlock;
