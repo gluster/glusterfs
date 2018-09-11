@@ -4,7 +4,7 @@ endif
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 
 quota_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
-quotad_la_LDFLAGS = -module -avoid-version -export-symbols $(top_srcdir)/xlators/features/quota/src/quotad.sym
+quotad_la_LDFLAGS = -module -export-symbols $(top_srcdir)/xlators/features/quota/src/quotad.sym $(GF_XLATOR_LDFLAGS)
 
 quota_la_SOURCES = quota.c quota-enforcer-client.c
 quota_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
