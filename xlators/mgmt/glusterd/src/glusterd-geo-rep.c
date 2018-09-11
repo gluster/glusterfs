@@ -1342,7 +1342,7 @@ out:
     if (slave_host)
         GF_FREE(slave_host);
 
-    gf_msg_debug(this->name, 0, "Returning %d.", ret);
+    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d.", ret);
     return ret;
 }
 
