@@ -1785,44 +1785,47 @@ glusterd_store_volinfo(glusterd_volinfo_t *volinfo,
 
     GF_ASSERT(volinfo);
 
-    glusterd_perform_volinfo_version_action(volinfo, ac);
-    ret = glusterd_store_create_volume_dir(volinfo);
-    if (ret)
-        goto out;
+    pthread_mutex_lock(&volinfo->store_volinfo_lock);
+    {
+        glusterd_perform_volinfo_version_action(volinfo, ac);
+        ret = glusterd_store_create_volume_dir(volinfo);
+        if (ret)
+            goto unlock;
 
-    ret = glusterd_store_create_volume_run_dir(volinfo);
-    if (ret)
-        goto out;
+        ret = glusterd_store_create_volume_run_dir(volinfo);
+        if (ret)
+            goto unlock;
 
-    ret = glusterd_store_create_vol_shandle_on_absence(volinfo);
-    if (ret)
-        goto out;
+        ret = glusterd_store_create_vol_shandle_on_absence(volinfo);
+        if (ret)
+            goto unlock;
 
-    ret = glusterd_store_create_nodestate_sh_on_absence(volinfo);
-    if (ret)
-        goto out;
+        ret = glusterd_store_create_nodestate_sh_on_absence(volinfo);
+        if (ret)
+            goto unlock;
 
-    ret = glusterd_store_perform_volume_store(volinfo);
-    if (ret)
-        goto out;
+        ret = glusterd_store_perform_volume_store(volinfo);
+        if (ret)
+            goto unlock;
 
-    ret = glusterd_store_volume_atomic_update(volinfo);
-    if (ret) {
-        glusterd_perform_volinfo_version_action(
-            volinfo, GLUSTERD_VOLINFO_VER_AC_DECREMENT);
-        goto out;
+        ret = glusterd_store_volume_atomic_update(volinfo);
+        if (ret) {
+            glusterd_perform_volinfo_version_action(
+                volinfo, GLUSTERD_VOLINFO_VER_AC_DECREMENT);
+            goto unlock;
+        }
+
+        ret = glusterd_store_perform_node_state_store(volinfo);
+        if (ret)
+            goto unlock;
+
+        /* checksum should be computed at the end */
+        ret = glusterd_compute_cksum(volinfo, _gf_false);
+        if (ret)
+            goto unlock;
     }
-
-    ret = glusterd_store_perform_node_state_store(volinfo);
-    if (ret)
-        goto out;
-
-    /* checksum should be computed at the end */
-    ret = glusterd_compute_cksum(volinfo, _gf_false);
-    if (ret)
-        goto out;
-
-out:
+unlock:
+    pthread_mutex_unlock(&volinfo->store_volinfo_lock);
     if (ret)
         glusterd_store_volume_cleanup_tmp(volinfo);
 

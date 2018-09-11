@@ -2283,6 +2283,8 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
         goto out;
     }
 
+    pthread_mutex_init(&volinfo->store_volinfo_lock, NULL);
+
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
 
     if (ret) {
