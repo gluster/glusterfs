@@ -4,9 +4,9 @@ endif
 
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/nfs
 nfsrpclibdir = $(top_srcdir)/rpc/rpc-lib/src
-server_la_LDFLAGS = -module -avoid-version \
+server_la_LDFLAGS = -module \
         -export-symbols $(top_srcdir)/xlators/nfs/server/src/nfsserver.sym \
-        $(GF_NO_UNDEFINED)
+        $(GF_XLATOR_LDFLAGS)
 
 server_la_SOURCES = nfs.c nfs-common.c nfs-fops.c nfs-inodes.c \
 	nfs-generics.c mount3.c nfs3-fh.c nfs3.c nfs3-helpers.c nlm4.c \
@@ -14,7 +14,9 @@ server_la_SOURCES = nfs.c nfs-common.c nfs-fops.c nfs-inodes.c \
 	mount3-auth.c auth-cache.c
 
 server_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
-	$(top_builddir)/api/src/libgfapi.la
+	$(top_builddir)/api/src/libgfapi.la \
+	$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
+	$(top_builddir)/rpc/xdr/src/libgfxdr.la
 
 noinst_HEADERS = nfs.h nfs-common.h nfs-fops.h nfs-inodes.h nfs-generics.h \
 	mount3.h nfs3-fh.h nfs3.h nfs3-helpers.h nfs-mem-types.h nlm4.h \

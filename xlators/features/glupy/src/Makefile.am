@@ -14,9 +14,9 @@ AM_CFLAGS = -Wall -fno-strict-aliasing \
 	$(GF_CFLAGS) $(PYTHON_CFLAGS)
 
 # Flags to build glupy.so with
-glupy_la_LDFLAGS = -module -avoid-version -nostartfiles \
+glupy_la_LDFLAGS = -module -nostartfiles \
         -export-symbols $(top_srcdir)/xlators/features/glupy/src/glupy.sym \
-        $(GF_NO_UNDEFINED) $(PYTHON_LIBS)
+        $(GF_XLATOR_LDFLAGS) $(PYTHON_LIBS)
 
 glupy_la_SOURCES = glupy.c
 glupy_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
