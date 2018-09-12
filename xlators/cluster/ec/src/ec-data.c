@@ -14,47 +14,43 @@
 #include "ec-data.h"
 #include "ec-messages.h"
 
-ec_cbk_data_t * ec_cbk_data_allocate(call_frame_t * frame, xlator_t * this,
-                                     ec_fop_data_t * fop, int32_t id,
-                                     int32_t idx, int32_t op_ret,
-                                     int32_t op_errno)
+ec_cbk_data_t *
+ec_cbk_data_allocate(call_frame_t *frame, xlator_t *this, ec_fop_data_t *fop,
+                     int32_t id, int32_t idx, int32_t op_ret, int32_t op_errno)
 {
-    ec_cbk_data_t * cbk;
-    ec_t * ec = this->private;
+    ec_cbk_data_t *cbk;
+    ec_t *ec = this->private;
 
-    if (fop->xl != this)
-    {
-        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
-                EC_MSG_XLATOR_MISMATCH, "Mismatching xlators between request "
-                "and answer (req=%s, ans=%s).", fop->xl->name, this->name);
-
-        return NULL;
-    }
-    if (fop->frame != frame)
-    {
-        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
-                EC_MSG_FRAME_MISMATCH, "Mismatching frames between request "
-                                         "and answer (req=%p, ans=%p).",
-                                         fop->frame, frame);
+    if (fop->xl != this) {
+        gf_msg(this->name, GF_LOG_ERROR, EINVAL, EC_MSG_XLATOR_MISMATCH,
+               "Mismatching xlators between request "
+               "and answer (req=%s, ans=%s).",
+               fop->xl->name, this->name);
 
         return NULL;
     }
-    if (fop->id != id)
-    {
-        gf_msg (this->name, GF_LOG_ERROR, EINVAL,
-                EC_MSG_FOP_MISMATCH, "Mismatching fops between request "
-                                         "and answer (req=%d, ans=%d).",
-                                         fop->id, id);
+    if (fop->frame != frame) {
+        gf_msg(this->name, GF_LOG_ERROR, EINVAL, EC_MSG_FRAME_MISMATCH,
+               "Mismatching frames between request "
+               "and answer (req=%p, ans=%p).",
+               fop->frame, frame);
+
+        return NULL;
+    }
+    if (fop->id != id) {
+        gf_msg(this->name, GF_LOG_ERROR, EINVAL, EC_MSG_FOP_MISMATCH,
+               "Mismatching fops between request "
+               "and answer (req=%d, ans=%d).",
+               fop->id, id);
 
         return NULL;
     }
 
     cbk = mem_get0(ec->cbk_pool);
-    if (cbk == NULL)
-    {
-        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                EC_MSG_NO_MEMORY, "Failed to allocate memory for an "
-                                         "answer.");
+    if (cbk == NULL) {
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, EC_MSG_NO_MEMORY,
+               "Failed to allocate memory for an "
+               "answer.");
         return NULL;
     }
 
@@ -64,7 +60,7 @@ ec_cbk_data_t * ec_cbk_data_allocate(call_frame_t * frame, xlator_t * this,
     cbk->count = 1;
     cbk->op_ret = op_ret;
     cbk->op_errno = op_errno;
-    INIT_LIST_HEAD (&cbk->entries.list);
+    INIT_LIST_HEAD(&cbk->entries.list);
 
     LOCK(&fop->lock);
 
@@ -75,50 +71,45 @@ ec_cbk_data_t * ec_cbk_data_allocate(call_frame_t * frame, xlator_t * this,
     return cbk;
 }
 
-void ec_cbk_data_destroy(ec_cbk_data_t * cbk)
+void
+ec_cbk_data_destroy(ec_cbk_data_t *cbk)
 {
-    if (cbk->xdata != NULL)
-    {
+    if (cbk->xdata != NULL) {
         dict_unref(cbk->xdata);
     }
-    if (cbk->dict != NULL)
-    {
+    if (cbk->dict != NULL) {
         dict_unref(cbk->dict);
     }
-    if (cbk->inode != NULL)
-    {
+    if (cbk->inode != NULL) {
         inode_unref(cbk->inode);
     }
-    if (cbk->fd != NULL)
-    {
+    if (cbk->fd != NULL) {
         fd_unref(cbk->fd);
     }
-    if (cbk->buffers != NULL)
-    {
+    if (cbk->buffers != NULL) {
         iobref_unref(cbk->buffers);
     }
     GF_FREE(cbk->vector);
-    gf_dirent_free (&cbk->entries);
-    GF_FREE (cbk->str);
+    gf_dirent_free(&cbk->entries);
+    GF_FREE(cbk->str);
 
     mem_put(cbk);
 }
 
-ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
-                                     int32_t id, uint32_t flags,
-                                     uintptr_t target, int32_t minimum,
-                                     ec_wind_f wind, ec_handler_f handler,
-                                     ec_cbk_t cbks, void * data)
+ec_fop_data_t *
+ec_fop_data_allocate(call_frame_t *frame, xlator_t *this, int32_t id,
+                     uint32_t flags, uintptr_t target, int32_t minimum,
+                     ec_wind_f wind, ec_handler_f handler, ec_cbk_t cbks,
+                     void *data)
 {
-    ec_fop_data_t * fop, * parent;
-    ec_t * ec = this->private;
+    ec_fop_data_t *fop, *parent;
+    ec_t *ec = this->private;
 
     fop = mem_get0(ec->fop_pool);
-    if (fop == NULL)
-    {
-        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                EC_MSG_NO_MEMORY, "Failed to allocate memory for a "
-                                         "request.");
+    if (fop == NULL) {
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, EC_MSG_NO_MEMORY,
+               "Failed to allocate memory for a "
+               "request.");
 
         return NULL;
     }
@@ -142,19 +133,15 @@ ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
      * TODO: minimize usage of private frames. Reuse req_frame as much as
      *       possible.
      */
-    if (frame != NULL)
-    {
+    if (frame != NULL) {
         fop->frame = copy_frame(frame);
-    }
-    else
-    {
+    } else {
         fop->frame = create_frame(this, this->ctx->pool);
     }
-    if (fop->frame == NULL)
-    {
-        gf_msg (this->name, GF_LOG_ERROR, ENOMEM,
-                EC_MSG_NO_MEMORY, "Failed to create a private frame "
-                                         "for a request");
+    if (fop->frame == NULL) {
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, EC_MSG_NO_MEMORY,
+               "Failed to create a private frame "
+               "for a request");
 
         mem_put(fop);
 
@@ -179,11 +166,9 @@ ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
 
     fop->frame->local = fop;
 
-    if (frame != NULL)
-    {
+    if (frame != NULL) {
         parent = frame->local;
-        if (parent != NULL)
-        {
+        if (parent != NULL) {
             ec_sleep(parent);
         }
 
@@ -199,7 +184,8 @@ ec_fop_data_t * ec_fop_data_allocate(call_frame_t * frame, xlator_t * this,
     return fop;
 }
 
-void ec_fop_data_acquire(ec_fop_data_t * fop)
+void
+ec_fop_data_acquire(ec_fop_data_t *fop)
 {
     LOCK(&fop->lock);
 
@@ -211,36 +197,38 @@ void ec_fop_data_acquire(ec_fop_data_t * fop)
 }
 
 static void
-ec_handle_last_pending_fop_completion (ec_fop_data_t *fop, gf_boolean_t *notify)
+ec_handle_last_pending_fop_completion(ec_fop_data_t *fop, gf_boolean_t *notify)
 {
-        ec_t *ec = fop->xl->private;
+    ec_t *ec = fop->xl->private;
 
-        if (!list_empty (&fop->pending_list)) {
-                LOCK(&ec->lock);
-                {
-                        list_del_init (&fop->pending_list);
-                        *notify = list_empty (&ec->pending_fops);
-                }
-                UNLOCK(&ec->lock);
+    if (!list_empty(&fop->pending_list)) {
+        LOCK(&ec->lock);
+        {
+            list_del_init(&fop->pending_list);
+            *notify = list_empty(&ec->pending_fops);
         }
+        UNLOCK(&ec->lock);
+    }
 }
 
 void
 ec_fop_cleanup(ec_fop_data_t *fop)
 {
-        ec_cbk_data_t *cbk, *tmp;
+    ec_cbk_data_t *cbk, *tmp;
 
-        list_for_each_entry_safe(cbk, tmp, &fop->answer_list, answer_list) {
-            list_del_init(&cbk->answer_list);
+    list_for_each_entry_safe(cbk, tmp, &fop->answer_list, answer_list)
+    {
+        list_del_init(&cbk->answer_list);
 
-            ec_cbk_data_destroy(cbk);
-        }
-        INIT_LIST_HEAD(&fop->cbk_list);
+        ec_cbk_data_destroy(cbk);
+    }
+    INIT_LIST_HEAD(&fop->cbk_list);
 
-        fop->answer = NULL;
+    fop->answer = NULL;
 }
 
-void ec_fop_data_release(ec_fop_data_t * fop)
+void
+ec_fop_data_release(ec_fop_data_t *fop)
 {
     ec_t *ec = NULL;
     int32_t refs;
@@ -250,36 +238,30 @@ void ec_fop_data_release(ec_fop_data_t * fop)
 
     ec_trace("RELEASE", fop, "");
 
-    GF_ASSERT (fop->refs > 0);
+    GF_ASSERT(fop->refs > 0);
     refs = --fop->refs;
 
     UNLOCK(&fop->lock);
 
-    if (refs == 0)
-    {
+    if (refs == 0) {
         fop->frame->local = NULL;
         STACK_DESTROY(fop->frame->root);
 
         LOCK_DESTROY(&fop->lock);
 
-        if (fop->xdata != NULL)
-        {
+        if (fop->xdata != NULL) {
             dict_unref(fop->xdata);
         }
-        if (fop->dict != NULL)
-        {
+        if (fop->dict != NULL) {
             dict_unref(fop->dict);
         }
-        if (fop->inode != NULL)
-        {
+        if (fop->inode != NULL) {
             inode_unref(fop->inode);
         }
-        if (fop->fd != NULL)
-        {
+        if (fop->fd != NULL) {
             fd_unref(fop->fd);
         }
-        if (fop->buffers != NULL)
-        {
+        if (fop->buffers != NULL) {
             iobref_unref(fop->buffers);
         }
         GF_FREE(fop->vector);
@@ -294,8 +276,8 @@ void ec_fop_data_release(ec_fop_data_t * fop)
         ec_fop_cleanup(fop);
 
         ec = fop->xl->private;
-        ec_handle_last_pending_fop_completion (fop, &notify);
-        ec_handle_healers_done (fop);
+        ec_handle_last_pending_fop_completion(fop, &notify);
+        ec_handle_healers_done(fop);
         mem_put(fop);
         if (notify) {
             ec_pending_fops_completed(ec);

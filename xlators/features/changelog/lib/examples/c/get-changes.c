@@ -27,67 +27,67 @@
 
 #include "changelog.h"
 
-#define handle_error(fn)                                \
-        printf ("%s (reason: %s)\n", fn, strerror (errno))
+#define handle_error(fn) printf("%s (reason: %s)\n", fn, strerror(errno))
 
 int
-main (int argc, char ** argv)
+main(int argc, char **argv)
 {
-        int     i           = 0;
-        int     ret         = 0;
-        ssize_t nr_changes  = 0;
-        ssize_t changes     = 0;
-        char fbuf[PATH_MAX] = {0,};
+    int i = 0;
+    int ret = 0;
+    ssize_t nr_changes = 0;
+    ssize_t changes = 0;
+    char fbuf[PATH_MAX] = {
+        0,
+    };
 
-        ret = gf_changelog_init (NULL);
-        if (ret) {
-                handle_error ("Init failed");
-                goto out;
+    ret = gf_changelog_init(NULL);
+    if (ret) {
+        handle_error("Init failed");
+        goto out;
+    }
+
+    /* get changes for brick "/home/vshankar/export/yow/yow-1" */
+    ret = gf_changelog_register("/export/z1/zwoop", "/tmp/scratch",
+                                "/tmp/change.log", 9, 5);
+    if (ret) {
+        handle_error("register failed");
+        goto out;
+    }
+
+    while (1) {
+        i = 0;
+        nr_changes = gf_changelog_scan();
+        if (nr_changes < 0) {
+            handle_error("scan(): ");
+            break;
         }
 
-        /* get changes for brick "/home/vshankar/export/yow/yow-1" */
-        ret = gf_changelog_register ("/export/z1/zwoop",
-                                     "/tmp/scratch", "/tmp/change.log", 9, 5);
-        if (ret) {
-                handle_error ("register failed");
-                goto out;
+        if (nr_changes == 0)
+            goto next;
+
+        printf("Got %ld changelog files\n", nr_changes);
+
+        while ((changes = gf_changelog_next_change(fbuf, PATH_MAX)) > 0) {
+            printf("changelog file [%d]: %s\n", ++i, fbuf);
+
+            /* process changelog */
+            /* ... */
+            /* ... */
+            /* ... */
+            /* done processing */
+
+            ret = gf_changelog_done(fbuf);
+            if (ret)
+                handle_error("gf_changelog_done");
         }
 
-        while (1) {
-                i = 0;
-                nr_changes = gf_changelog_scan ();
-                if (nr_changes < 0) {
-                        handle_error ("scan(): ");
-                        break;
-                }
+        if (changes == -1)
+            handle_error("gf_changelog_next_change");
 
-                if (nr_changes == 0)
-                        goto next;
+    next:
+        sleep(10);
+    }
 
-                printf ("Got %ld changelog files\n", nr_changes);
-
-                while ( (changes =
-                         gf_changelog_next_change (fbuf, PATH_MAX)) > 0) {
-                        printf ("changelog file [%d]: %s\n", ++i, fbuf);
-
-                        /* process changelog */
-                        /* ... */
-                        /* ... */
-                        /* ... */
-                        /* done processing */
-
-                        ret = gf_changelog_done (fbuf);
-                        if (ret)
-                                handle_error ("gf_changelog_done");
-                }
-
-                if (changes == -1)
-                        handle_error ("gf_changelog_next_change");
-
-        next:
-                sleep (10);
-        }
-
- out:
-        return ret;
+out:
+    return ret;
 }

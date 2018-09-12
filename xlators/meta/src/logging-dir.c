@@ -15,32 +15,30 @@
 #include "meta.h"
 #include "meta-hooks.h"
 
-
 static struct meta_dirent logging_dir_dirents[] = {
-	DOT_DOTDOT,
+    DOT_DOTDOT,
 
-	{ .name = "logfile",
-	  .type = IA_IFLNK,
-	  .hook = meta_logfile_link_hook,
-	},
-	{ .name = "loglevel",
-	  .type = IA_IFREG,
-	  .hook = meta_loglevel_file_hook,
-	},
-	{ .name = NULL }
-};
-
+    {
+        .name = "logfile",
+        .type = IA_IFLNK,
+        .hook = meta_logfile_link_hook,
+    },
+    {
+        .name = "loglevel",
+        .type = IA_IFREG,
+        .hook = meta_loglevel_file_hook,
+    },
+    {.name = NULL}};
 
 struct meta_ops logging_dir_ops = {
-	.fixed_dirents = logging_dir_dirents,
+    .fixed_dirents = logging_dir_dirents,
 };
 
-
 int
-meta_logging_dir_hook (call_frame_t *frame, xlator_t *this, loc_t *loc,
-		     dict_t *xdata)
+meta_logging_dir_hook(call_frame_t *frame, xlator_t *this, loc_t *loc,
+                      dict_t *xdata)
 {
-	meta_ops_set (loc->inode, this, &logging_dir_ops);
+    meta_ops_set(loc->inode, this, &logging_dir_ops);
 
-	return 0;
+    return 0;
 }

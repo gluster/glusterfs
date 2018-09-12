@@ -40,596 +40,576 @@
 /* Err number that is assigned to errno so that test application can
  * verify that the function was intercepted correctly.
  */
-#define PRELOAD_ERRNO_VERF      6449
-#define set_errno()             (errno = PRELOAD_ERRNO_VERF)
+#define PRELOAD_ERRNO_VERF 6449
+#define set_errno() (errno = PRELOAD_ERRNO_VERF)
 
 void
-intercept (char *call, int tabs)
+intercept(char *call, int tabs)
 {
-        while (tabs > 0) {
-                fprintf (stdout, "\t");
-                --tabs;
-        }
+    while (tabs > 0) {
+        fprintf(stdout, "\t");
+        --tabs;
+    }
 
-        fprintf (stdout, "Intercepted by %s", call);
+    fprintf(stdout, "Intercepted by %s", call);
 }
 
 int
-creat64 (const char *pathname, mode_t mode)
+creat64(const char *pathname, mode_t mode)
 {
-        intercept ("creat64", 2);
-        set_errno ();
-        return -1;
+    intercept("creat64", 2);
+    set_errno();
+    return -1;
 }
 
 int
-creat (const char *pathname, mode_t mode)
+creat(const char *pathname, mode_t mode)
 {
-        intercept ("creat", 2);
-        set_errno ();
-        return -1;
-}
-
-
-int
-close (int fd)
-{
-        intercept ("close", 2);
-        set_errno ();
-        return -1;
+    intercept("creat", 2);
+    set_errno();
+    return -1;
 }
 
 int
-open64 (const char *pathname, int flags, ...)
+close(int fd)
 {
-        intercept ("open64", 2);
-        set_errno ();
-        return -1;
+    intercept("close", 2);
+    set_errno();
+    return -1;
 }
-
 
 int
-open (const char *pathname, int flags, ...)
+open64(const char *pathname, int flags, ...)
 {
-        intercept ("open", 2);
-        set_errno ();
-        return -1;
+    intercept("open64", 2);
+    set_errno();
+    return -1;
+}
+
+int
+open(const char *pathname, int flags, ...)
+{
+    intercept("open", 2);
+    set_errno();
+    return -1;
 }
 
 ssize_t
-read (int fd, void *buf, size_t count)
+read(int fd, void *buf, size_t count)
 {
-        intercept ("read", 2);
-        set_errno ();
-        return -1;
+    intercept("read", 2);
+    set_errno();
+    return -1;
 }
 
 ssize_t
-readv (int fd, const struct iovec *vector, int count)
+readv(int fd, const struct iovec *vector, int count)
 {
-        intercept ("readv", 2);
-        set_errno ();
-        return -1;
+    intercept("readv", 2);
+    set_errno();
+    return -1;
 }
 
 ssize_t
-pread (int fd, void *buf, size_t count, unsigned long offset)
+pread(int fd, void *buf, size_t count, unsigned long offset)
 {
-        intercept ("pread", 2);
-        set_errno ();
-        return -1;
-}
-
-
-ssize_t
-pread64 (int fd, void *buf, size_t count, uint64_t offset)
-{
-        intercept ("pread64", 2);
-        set_errno ();
-        return -1;
+    intercept("pread", 2);
+    set_errno();
+    return -1;
 }
 
 ssize_t
-write (int fd, const void *buf, size_t count)
+pread64(int fd, void *buf, size_t count, uint64_t offset)
 {
-        intercept ("write", 2);
-        set_errno ();
-        return -1;
+    intercept("pread64", 2);
+    set_errno();
+    return -1;
 }
 
 ssize_t
-writev (int fd, const struct iovec *vector, int count)
+write(int fd, const void *buf, size_t count)
 {
-        intercept ("writev", 2);
-        set_errno ();
-        return -1;
+    intercept("write", 2);
+    set_errno();
+    return -1;
 }
 
 ssize_t
-pwrite (int fd, const void *buf, size_t count, unsigned long offset)
+writev(int fd, const struct iovec *vector, int count)
 {
-        intercept ("pwrite", 2);
-        set_errno ();
-        return -1;
+    intercept("writev", 2);
+    set_errno();
+    return -1;
 }
 
 ssize_t
-pwrite64 (int fd, const void *buf, size_t count, uint64_t offset)
+pwrite(int fd, const void *buf, size_t count, unsigned long offset)
 {
-        intercept ("pwrite64", 2);
-        set_errno ();
-        return -1;
+    intercept("pwrite", 2);
+    set_errno();
+    return -1;
 }
 
-
-off_t
-lseek (int fildes, unsigned long offset, int whence)
+ssize_t
+pwrite64(int fd, const void *buf, size_t count, uint64_t offset)
 {
-        intercept ("lseek", 2);
-        set_errno ();
-        return -1;
+    intercept("pwrite64", 2);
+    set_errno();
+    return -1;
 }
 
 off_t
-lseek64 (int fildes, uint64_t offset, int whence)
+lseek(int fildes, unsigned long offset, int whence)
 {
-        intercept ("lseek64", 2);
-        set_errno ();
-        return -1;
+    intercept("lseek", 2);
+    set_errno();
+    return -1;
 }
 
-
-int
-dup (int fd)
+off_t
+lseek64(int fildes, uint64_t offset, int whence)
 {
-        intercept ("dup", 2);
-        set_errno ();
-        return -1;
-}
-
-int
-dup2 (int oldfd, int newfd)
-{
-        intercept ("dup2", 2);
-        set_errno ();
-        return -1;
+    intercept("lseek64", 2);
+    set_errno();
+    return -1;
 }
 
 int
-mkdir (const char *pathname, mode_t mode)
+dup(int fd)
 {
-        intercept ("mkdir", 2);
-        set_errno ();
-        return -1;
+    intercept("dup", 2);
+    set_errno();
+    return -1;
 }
 
 int
-rmdir (const char *pathname)
+dup2(int oldfd, int newfd)
 {
-        intercept ("rmdir", 2);
-        set_errno ();
-        return -1;
+    intercept("dup2", 2);
+    set_errno();
+    return -1;
 }
 
 int
-chmod (const char *pathname, mode_t mode)
+mkdir(const char *pathname, mode_t mode)
 {
-        intercept ("chmod", 2);
-        set_errno ();
-        return -1;
+    intercept("mkdir", 2);
+    set_errno();
+    return -1;
 }
 
 int
-chown (const char *pathname, uid_t owner, gid_t group)
+rmdir(const char *pathname)
 {
-        intercept ("chown", 2);
-        set_errno ();
-        return -1;
+    intercept("rmdir", 2);
+    set_errno();
+    return -1;
 }
 
 int
-fchmod (int fd, mode_t mode)
+chmod(const char *pathname, mode_t mode)
 {
-        intercept ("fchmod", 2);
-        set_errno ();
-        return -1;
+    intercept("chmod", 2);
+    set_errno();
+    return -1;
 }
 
 int
-fchown (int fd, uid_t uid, gid_t gid)
+chown(const char *pathname, uid_t owner, gid_t group)
 {
-        intercept ("fchown", 2);
-        set_errno ();
-        return -1;
-}
-
-int fsync (int fd)
-{
-        intercept ("fsync", 2);
-        set_errno ();
-        return -1;
-}
-
-
-int
-ftruncate (int fd, off_t length)
-{
-        intercept ("ftruncate", 1);
-        set_errno ();
-        return -1;
-}
-
-
-int
-ftruncate64 (int fd, off_t length)
-{
-        intercept ("ftruncate64", 1);
-        set_errno ();
-        return -1;
+    intercept("chown", 2);
+    set_errno();
+    return -1;
 }
 
 int
-link (const char *oldpath, const char *newname)
+fchmod(int fd, mode_t mode)
 {
-        intercept ("link", 2);
-        set_errno ();
-        return -1;
+    intercept("fchmod", 2);
+    set_errno();
+    return -1;
 }
 
 int
-rename (const char *oldpath, const char *newpath)
+fchown(int fd, uid_t uid, gid_t gid)
 {
-        intercept ("rename", 2);
-        set_errno ();
-        return -1;
+    intercept("fchown", 2);
+    set_errno();
+    return -1;
 }
 
 int
-utimes (const char *path, const struct timeval times[2])
+fsync(int fd)
 {
-        intercept ("utimes", 2);
-        set_errno ();
-        return -1;
+    intercept("fsync", 2);
+    set_errno();
+    return -1;
 }
 
 int
-futimes (int fd, const struct timeval times[2])
+ftruncate(int fd, off_t length)
 {
-        intercept ("futimes", 2);
-        set_errno ();
-        return -1;
+    intercept("ftruncate", 1);
+    set_errno();
+    return -1;
 }
 
 int
-utime (const char *path, const struct utimbuf *buf)
+ftruncate64(int fd, off_t length)
 {
-        intercept ("utime", 2);
-        set_errno ();
-        return -1;
-}
-
-
-int
-mknod (const char *path, mode_t mode, dev_t dev)
-{
-        intercept ("mknod", 2);
-        set_errno ();
-        return -1;
+    intercept("ftruncate64", 1);
+    set_errno();
+    return -1;
 }
 
 int
-__xmknod (int ver, const char *path, mode_t mode, dev_t *dev)
+link(const char *oldpath, const char *newname)
 {
-        intercept ("__xmknod", 2);
-        set_errno ();
-        return -1;
+    intercept("link", 2);
+    set_errno();
+    return -1;
 }
 
 int
-mkfifo (const char *path, mode_t mode)
+rename(const char *oldpath, const char *newpath)
 {
-        intercept ("mkfifo", 2);
-        set_errno ();
-        return -1;
+    intercept("rename", 2);
+    set_errno();
+    return -1;
 }
 
 int
-unlink (const char *path)
+utimes(const char *path, const struct timeval times[2])
 {
-        intercept ("unlink", 2);
-        set_errno ();
-        return -1;
-}
-
-
-int
-symlink (const char *oldpath, const char *newpath)
-{
-        intercept ("symlink", 2);
-        set_errno ();
-        return -1;
+    intercept("utimes", 2);
+    set_errno();
+    return -1;
 }
 
 int
-readlink (const char *path, char *buf, size_t bufsize)
+futimes(int fd, const struct timeval times[2])
 {
-        intercept ("readlink", 1);
-        set_errno ();
-        return -1;
+    intercept("futimes", 2);
+    set_errno();
+    return -1;
 }
 
+int
+utime(const char *path, const struct utimbuf *buf)
+{
+    intercept("utime", 2);
+    set_errno();
+    return -1;
+}
+
+int
+mknod(const char *path, mode_t mode, dev_t dev)
+{
+    intercept("mknod", 2);
+    set_errno();
+    return -1;
+}
+
+int
+__xmknod(int ver, const char *path, mode_t mode, dev_t *dev)
+{
+    intercept("__xmknod", 2);
+    set_errno();
+    return -1;
+}
+
+int
+mkfifo(const char *path, mode_t mode)
+{
+    intercept("mkfifo", 2);
+    set_errno();
+    return -1;
+}
+
+int
+unlink(const char *path)
+{
+    intercept("unlink", 2);
+    set_errno();
+    return -1;
+}
+
+int
+symlink(const char *oldpath, const char *newpath)
+{
+    intercept("symlink", 2);
+    set_errno();
+    return -1;
+}
+
+int
+readlink(const char *path, char *buf, size_t bufsize)
+{
+    intercept("readlink", 1);
+    set_errno();
+    return -1;
+}
 
 char *
-realpath (const char *path, char *resolved)
+realpath(const char *path, char *resolved)
 {
-        intercept ("realpath", 1);
-        set_errno ();
-        return NULL;
+    intercept("realpath", 1);
+    set_errno();
+    return NULL;
 }
-
 
 DIR *
-opendir (const char *path)
+opendir(const char *path)
 {
-        intercept ("opendir", 2);
-        set_errno ();
-        return NULL;
-}
-
-
-struct dirent *
-readdir (DIR *dir)
-{
-        intercept ("readdir\t", 2);
-        set_errno ();
-        return NULL;
+    intercept("opendir", 2);
+    set_errno();
+    return NULL;
 }
 
 struct dirent *
-readdir64 (DIR *dir)
+readdir(DIR *dir)
 {
-        intercept ("readdir64", 2);
-        set_errno ();
-        return NULL;
+    intercept("readdir\t", 2);
+    set_errno();
+    return NULL;
 }
 
-
-int
-readdir_r (DIR *dir, struct dirent *entry, struct dirent **result)
+struct dirent *
+readdir64(DIR *dir)
 {
-        intercept ("readdir_r", 1);
-        set_errno ();
-        return -1;
-}
-
-int
-readdir64_r (DIR *dir, struct dirent *entry, struct dirent **result)
-{
-        intercept ("readdir64_r", 1);
-        set_errno ();
-        return -1;
-}
-
-
-int
-closedir (DIR *dh)
-{
-        intercept ("closedir", 1);
-        set_errno ();
-        return -1;
+    intercept("readdir64", 2);
+    set_errno();
+    return NULL;
 }
 
 int
-__xstat (int ver, const char *path, struct stat *buf)
+readdir_r(DIR *dir, struct dirent *entry, struct dirent **result)
 {
-        intercept ("__xstat\t", 2);
-        set_errno ();
-        return -1;
-}
-
-
-int
-__xstat64 (int ver, const char *path, struct stat *buf)
-{
-        intercept ("__xstat64", 2);
-        set_errno ();
-        return -1;
+    intercept("readdir_r", 1);
+    set_errno();
+    return -1;
 }
 
 int
-stat (const char *path, struct stat *buf)
+readdir64_r(DIR *dir, struct dirent *entry, struct dirent **result)
 {
-        intercept ("stat", 2);
-        set_errno ();
-        return -1;
+    intercept("readdir64_r", 1);
+    set_errno();
+    return -1;
 }
 
 int
-stat64 (const char *path, struct stat *buf)
+closedir(DIR *dh)
 {
-        intercept ("stat64", 2);
-        set_errno ();
-        return -1;
+    intercept("closedir", 1);
+    set_errno();
+    return -1;
 }
 
 int
-__fxstat (int ver, int fd, struct stat *buf)
+__xstat(int ver, const char *path, struct stat *buf)
 {
-        intercept ("__fxstat\t", 2);
-        set_errno ();
-        return -1;
-}
-
-
-int
-__fxstat64 (int ver, int fd, struct stat *buf)
-{
-        intercept ("__fxstat64", 2);
-        set_errno ();
-        return -1;
+    intercept("__xstat\t", 2);
+    set_errno();
+    return -1;
 }
 
 int
-fstat (int fd, struct stat *buf)
+__xstat64(int ver, const char *path, struct stat *buf)
 {
-        intercept ("fstat", 2);
-        set_errno ();
-        return -1;
+    intercept("__xstat64", 2);
+    set_errno();
+    return -1;
 }
 
 int
-fstat64 (int fd , struct stat *buf)
+stat(const char *path, struct stat *buf)
 {
-        intercept ("fstat64", 2);
-        set_errno ();
-        return -1;
+    intercept("stat", 2);
+    set_errno();
+    return -1;
 }
 
 int
-__lxstat (int ver, const char *path, struct stat *buf)
+stat64(const char *path, struct stat *buf)
 {
-        intercept ("__lxstat\t", 2);
-        set_errno ();
-        return -1;
+    intercept("stat64", 2);
+    set_errno();
+    return -1;
 }
 
 int
-__lxstat64 (int ver, const char *path, struct stat *buf)
+__fxstat(int ver, int fd, struct stat *buf)
 {
-        intercept ("__lxstat64", 2);
-        set_errno ();
-        return -1;
+    intercept("__fxstat\t", 2);
+    set_errno();
+    return -1;
 }
 
 int
-lstat (const char *path, struct stat *buf)
+__fxstat64(int ver, int fd, struct stat *buf)
 {
-        intercept ("lstat", 2);
-        set_errno ();
-        return -1;
+    intercept("__fxstat64", 2);
+    set_errno();
+    return -1;
 }
 
 int
-lstat64 (const char *path, struct stat *buf)
+fstat(int fd, struct stat *buf)
 {
-        intercept ("lstat64", 2);
-        set_errno ();
-        return -1;
+    intercept("fstat", 2);
+    set_errno();
+    return -1;
 }
 
 int
-statfs (const char *path, struct statfs *buf)
+fstat64(int fd, struct stat *buf)
 {
-        intercept ("statfs", 2);
-        set_errno ();
-        return -1;
-}
-
-
-int
-statfs64 (const char *path, struct statfs *buf)
-{
-        intercept ("statfs64", 2);
-        set_errno ();
-        return -1;
+    intercept("fstat64", 2);
+    set_errno();
+    return -1;
 }
 
 int
-statvfs (const char *path, struct statvfs *buf)
+__lxstat(int ver, const char *path, struct stat *buf)
 {
-        intercept ("statvfs\t", 2);
-        set_errno ();
-        return -1;
+    intercept("__lxstat\t", 2);
+    set_errno();
+    return -1;
 }
 
+int
+__lxstat64(int ver, const char *path, struct stat *buf)
+{
+    intercept("__lxstat64", 2);
+    set_errno();
+    return -1;
+}
 
 int
-statvfs64 (const char *path, struct statvfs *buf)
+lstat(const char *path, struct stat *buf)
 {
-        intercept ("statvfs64", 2);
-        set_errno ();
-        return -1;
+    intercept("lstat", 2);
+    set_errno();
+    return -1;
+}
+
+int
+lstat64(const char *path, struct stat *buf)
+{
+    intercept("lstat64", 2);
+    set_errno();
+    return -1;
+}
+
+int
+statfs(const char *path, struct statfs *buf)
+{
+    intercept("statfs", 2);
+    set_errno();
+    return -1;
+}
+
+int
+statfs64(const char *path, struct statfs *buf)
+{
+    intercept("statfs64", 2);
+    set_errno();
+    return -1;
+}
+
+int
+statvfs(const char *path, struct statvfs *buf)
+{
+    intercept("statvfs\t", 2);
+    set_errno();
+    return -1;
+}
+
+int
+statvfs64(const char *path, struct statvfs *buf)
+{
+    intercept("statvfs64", 2);
+    set_errno();
+    return -1;
 }
 
 ssize_t
-getxattr (const char *path, const char *name, void *value, size_t size)
+getxattr(const char *path, const char *name, void *value, size_t size)
 {
-        intercept ("getxattr", 1);
-        set_errno ();
-        return -1;
+    intercept("getxattr", 1);
+    set_errno();
+    return -1;
 }
 
 ssize_t
-lgetxattr (const char *path, const char *name, void *value, size_t size)
+lgetxattr(const char *path, const char *name, void *value, size_t size)
 {
-        intercept ("lgetxattr", 1);
-        set_errno ();
-        return -1;
-}
-
-
-int
-remove (const char* path)
-{
-        intercept ("remove", 2);
-        set_errno ();
-        return -1;
+    intercept("lgetxattr", 1);
+    set_errno();
+    return -1;
 }
 
 int
-lchown (const char *path, uid_t owner, gid_t group)
+remove(const char *path)
 {
-        intercept ("lchown", 2);
-        set_errno ();
-        return -1;
+    intercept("remove", 2);
+    set_errno();
+    return -1;
+}
+
+int
+lchown(const char *path, uid_t owner, gid_t group)
+{
+    intercept("lchown", 2);
+    set_errno();
+    return -1;
 }
 
 void
-rewinddir (DIR *dirp)
+rewinddir(DIR *dirp)
 {
-        intercept ("rewinddir", 1);
-        set_errno ();
-        return;
+    intercept("rewinddir", 1);
+    set_errno();
+    return;
 }
 
 void
-seekdir (DIR *dirp, off_t offset)
+seekdir(DIR *dirp, off_t offset)
 {
-        intercept ("seekdir", 2);
-        set_errno ();
-        return;
+    intercept("seekdir", 2);
+    set_errno();
+    return;
 }
 
 off_t
-telldir (DIR *dirp)
+telldir(DIR *dirp)
 {
-        intercept ("telldir", 2);
-        set_errno ();
-        return -1;
+    intercept("telldir", 2);
+    set_errno();
+    return -1;
 }
 
 ssize_t
-sendfile (int out_fd, int in_fd, off_t *offset, size_t count)
+sendfile(int out_fd, int in_fd, off_t *offset, size_t count)
 {
-        intercept ("sendfile\t", 1);
-        set_errno ();
-        return -1;
+    intercept("sendfile\t", 1);
+    set_errno();
+    return -1;
 }
 
 ssize_t
-sendfile64 (int out_fd, int in_fd, off_t *offset, size_t count)
+sendfile64(int out_fd, int in_fd, off_t *offset, size_t count)
 {
-        intercept ("sendfile64", 1);
-        set_errno ();
-        return -1;
+    intercept("sendfile64", 1);
+    set_errno();
+    return -1;
 }
-
 
 int
-fcntl (int fd, int cmd, ...)
+fcntl(int fd, int cmd, ...)
 {
-        intercept ("fcntl", 2);
-        set_errno ();
-        return -1;
+    intercept("fcntl", 2);
+    set_errno();
+    return -1;
 }
-

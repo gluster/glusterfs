@@ -6,32 +6,32 @@
 int
 main(int argc, char **argv)
 {
-        DIR *dir = NULL;
-        struct dirent *entry = NULL;
-        int ret = 0;
-        char *path = NULL;
+    DIR *dir = NULL;
+    struct dirent *entry = NULL;
+    int ret = 0;
+    char *path = NULL;
 
-        assert (argc == 2);
-        path = argv[1];
+    assert(argc == 2);
+    path = argv[1];
 
-        dir = opendir(path);
-        if (!dir) {
-                printf("opendir(%s) failed.\n", path);
-                return -1;
-        }
+    dir = opendir(path);
+    if (!dir) {
+        printf("opendir(%s) failed.\n", path);
+        return -1;
+    }
 
 #ifdef _DIRENT_HAVE_D_TYPE
-        while ((entry = readdir(dir)) != NULL) {
-                if (entry->d_type == DT_UNKNOWN) {
-                        printf("d_type found to be DT_UNKNOWN\n");
-                        ret = -1;
-                        break;
-                }
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_UNKNOWN) {
+            printf("d_type found to be DT_UNKNOWN\n");
+            ret = -1;
+            break;
         }
+    }
 #endif
 
-        if (dir)
-                closedir(dir);
+    if (dir)
+        closedir(dir);
 
-        return ret;
+    return ret;
 }

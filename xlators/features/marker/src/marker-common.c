@@ -11,55 +11,54 @@
 #include "marker-common.h"
 
 marker_inode_ctx_t *
-marker_inode_ctx_new ()
+marker_inode_ctx_new()
 {
-        marker_inode_ctx_t *ctx = NULL;
+    marker_inode_ctx_t *ctx = NULL;
 
-        ctx = GF_CALLOC (1, sizeof (marker_inode_ctx_t),
-                         gf_marker_mt_marker_inode_ctx_t);
-        if (ctx == NULL)
-                goto out;
+    ctx = GF_CALLOC(1, sizeof(marker_inode_ctx_t),
+                    gf_marker_mt_marker_inode_ctx_t);
+    if (ctx == NULL)
+        goto out;
 
-        ctx->quota_ctx = NULL;
+    ctx->quota_ctx = NULL;
 out:
-        return ctx;
+    return ctx;
 }
 
 int32_t
-marker_force_inode_ctx_get (inode_t *inode, xlator_t *this,
-                            marker_inode_ctx_t **ctx)
+marker_force_inode_ctx_get(inode_t *inode, xlator_t *this,
+                           marker_inode_ctx_t **ctx)
 {
-        int32_t  ret     = -1;
-        uint64_t ctx_int = 0;
+    int32_t ret = -1;
+    uint64_t ctx_int = 0;
 
-        LOCK (&inode->lock);
-        {
-                ret = __inode_ctx_get (inode, this, &ctx_int);
-                if (ret == 0)
-                        *ctx = (marker_inode_ctx_t *) (unsigned long)ctx_int;
-                else {
-                        *ctx = marker_inode_ctx_new ();
-                        if (*ctx == NULL)
-                                goto unlock;
+    LOCK(&inode->lock);
+    {
+        ret = __inode_ctx_get(inode, this, &ctx_int);
+        if (ret == 0)
+            *ctx = (marker_inode_ctx_t *)(unsigned long)ctx_int;
+        else {
+            *ctx = marker_inode_ctx_new();
+            if (*ctx == NULL)
+                goto unlock;
 
-                        ret = __inode_ctx_put (inode, this,
-                                               (uint64_t )(unsigned long) *ctx);
-                        if (ret == -1) {
-                                GF_FREE (*ctx);
-                                goto unlock;
-                        }
-                        ret = 0;
-                }
+            ret = __inode_ctx_put(inode, this, (uint64_t)(unsigned long)*ctx);
+            if (ret == -1) {
+                GF_FREE(*ctx);
+                goto unlock;
+            }
+            ret = 0;
         }
-unlock: UNLOCK (&inode->lock);
+    }
+unlock:
+    UNLOCK(&inode->lock);
 
-        return ret;
+    return ret;
 }
 
 int
-marker_filter_quota_xattr (dict_t *dict, char *key,
-                           data_t *value, void *data)
+marker_filter_quota_xattr(dict_t *dict, char *key, data_t *value, void *data)
 {
-        dict_del (dict, key);
-        return 0;
+    dict_del(dict, key);
+    return 0;
 }

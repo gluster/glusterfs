@@ -3,24 +3,24 @@
 #include <fcntl.h>
 #include <string.h>
 
-#define GETLK_OWNER_CHECK(f, cp, label)                     \
-    do {                                                    \
-        switch (f.l_type) {                                 \
-        case F_RDLCK:                                       \
-        case F_WRLCK:                                       \
-            ret = 1;                                        \
-            goto label;                                     \
-        case F_UNLCK:                                       \
-            if (!are_flocks_sane (&f, &cp)) {               \
-                ret = 1;                                    \
-                goto label;                                 \
-            }                                               \
-            break;                                          \
-        }                                                   \
+#define GETLK_OWNER_CHECK(f, cp, label)                                        \
+    do {                                                                       \
+        switch (f.l_type) {                                                    \
+            case F_RDLCK:                                                      \
+            case F_WRLCK:                                                      \
+                ret = 1;                                                       \
+                goto label;                                                    \
+            case F_UNLCK:                                                      \
+                if (!are_flocks_sane(&f, &cp)) {                               \
+                    ret = 1;                                                   \
+                    goto label;                                                \
+                }                                                              \
+                break;                                                         \
+        }                                                                      \
     } while (0)
 
 void
-flock_init (struct flock *f, short int type, off_t start, off_t len)
+flock_init(struct flock *f, short int type, off_t start, off_t len)
 {
     f->l_type = type;
     f->l_start = start;
@@ -28,17 +28,16 @@ flock_init (struct flock *f, short int type, off_t start, off_t len)
 }
 
 int
-flock_cp (struct flock *dst, struct flock *src)
+flock_cp(struct flock *dst, struct flock *src)
 {
-    memcpy ((void *) dst, (void *) src, sizeof (struct flock));
+    memcpy((void *)dst, (void *)src, sizeof(struct flock));
 }
 
 int
-are_flocks_sane (struct flock *src, struct flock *cpy)
+are_flocks_sane(struct flock *src, struct flock *cpy)
 {
     return ((src->l_whence == cpy->l_whence) &&
-            (src->l_start == cpy->l_start) &&
-            (src->l_len == cpy->l_len));
+            (src->l_start == cpy->l_start) && (src->l_len == cpy->l_len));
 }
 
 /*
@@ -53,68 +52,73 @@ are_flocks_sane (struct flock *src, struct flock *cpy)
  *
  * */
 
-int main (int argc, char **argv)
+int
+main(int argc, char **argv)
 {
     int fd = -1;
     int ret = 1;
     char *fname = NULL;
-    struct flock f = {0,};
-    struct flock cp = {0,};
+    struct flock f = {
+        0,
+    };
+    struct flock cp = {
+        0,
+    };
 
     if (argc < 2)
         goto out;
 
     fname = argv[1];
-    fd = open (fname, O_RDWR);
+    fd = open(fname, O_RDWR);
     if (fd == -1) {
-        perror ("open");
+        perror("open");
         goto out;
     }
 
-    flock_init (&f, F_WRLCK, 0, 3);
-    flock_cp (&cp, &f);
-    ret = fcntl (fd, F_SETLK, &f);
+    flock_init(&f, F_WRLCK, 0, 3);
+    flock_cp(&cp, &f);
+    ret = fcntl(fd, F_SETLK, &f);
     if (ret) {
-        perror ("fcntl");
+        perror("fcntl");
         goto out;
     }
-    if (!are_flocks_sane (&f, &cp)) {
+    if (!are_flocks_sane(&f, &cp)) {
         ret = 1;
         goto out;
     }
 
-    flock_init (&f, F_WRLCK, 3, 3);
-    flock_cp (&cp, &f);
-    ret = fcntl (fd, F_SETLK, &f);
+    flock_init(&f, F_WRLCK, 3, 3);
+    flock_cp(&cp, &f);
+    ret = fcntl(fd, F_SETLK, &f);
     if (ret) {
-        perror ("fcntl");
+        perror("fcntl");
         goto out;
     }
-    if (!are_flocks_sane (&f, &cp)) {
+    if (!are_flocks_sane(&f, &cp)) {
         ret = 1;
         goto out;
     }
 
-    flock_init (&f, F_WRLCK, 3, 3);
-    flock_cp (&cp, &f);
-    ret = fcntl (fd, F_GETLK, &f);
+    flock_init(&f, F_WRLCK, 3, 3);
+    flock_cp(&cp, &f);
+    ret = fcntl(fd, F_GETLK, &f);
     if (ret) {
-        perror ("fcntl");
+        perror("fcntl");
         return 1;
     }
-    GETLK_OWNER_CHECK (f, cp, out);
+    GETLK_OWNER_CHECK(f, cp, out);
 
-    flock_init (&f, F_RDLCK, 3, 3);
-    flock_cp (&cp, &f);
-    ret = fcntl (fd, F_GETLK, &f);
+    flock_init(&f, F_RDLCK, 3, 3);
+    flock_cp(&cp, &f);
+    ret = fcntl(fd, F_GETLK, &f);
     if (ret) {
-        perror ("fcntl");
+        perror("fcntl");
         return 1;
     }
-    GETLK_OWNER_CHECK (f, cp, out);
+    GETLK_OWNER_CHECK(f, cp, out);
 
 out:
     if (fd != -1)
-        close (fd);
+        close(fd);
     return ret;
 }

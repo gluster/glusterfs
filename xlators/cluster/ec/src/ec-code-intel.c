@@ -71,16 +71,15 @@ ec_code_intel_vex(ec_code_intel_t *intel, gf_boolean_t w, gf_boolean_t l,
                   uint32_t reg)
 {
     ec_code_intel_rex(intel, w);
-    if (((intel->rex.w == 1) ||
-         (intel->rex.x == 0) ||
-         (intel->rex.b == 0)) ||
+    if (((intel->rex.w == 1) || (intel->rex.x == 0) || (intel->rex.b == 0)) ||
         ((opcode != VEX_OPCODE_NONE) && (opcode != VEX_OPCODE_0F))) {
         intel->rex.present = _gf_false;
 
         intel->vex.bytes = 3;
         intel->vex.data[0] = 0xC4;
         intel->vex.data[1] = ((intel->rex.r << 7) | (intel->rex.x << 6) |
-                              (intel->rex.b << 5) | opcode) ^ 0xE0;
+                              (intel->rex.b << 5) | opcode) ^
+                             0xE0;
         intel->vex.data[2] = (intel->rex.w << 7) | ((~reg & 0x0F) << 3) |
                              (l ? 0x04 : 0x00) | prefix;
     } else {
@@ -214,22 +213,17 @@ ec_code_intel_emit(ec_code_builder_t *builder, ec_code_intel_t *intel)
         insn[count++] = intel->vex.data[i];
     }
     if (intel->rex.present) {
-        insn[count++] = 0x40 |
-                        (intel->rex.w << 3) |
-                        (intel->rex.r << 2) |
-                        (intel->rex.x << 1) |
-                        (intel->rex.b << 0);
+        insn[count++] = 0x40 | (intel->rex.w << 3) | (intel->rex.r << 2) |
+                        (intel->rex.x << 1) | (intel->rex.b << 0);
     }
     for (i = 0; i < intel->opcode.bytes; i++) {
         insn[count++] = intel->opcode.data[i];
     }
     if (intel->modrm.present) {
-        insn[count++] = (intel->modrm.mod << 6) |
-                        (intel->modrm.reg << 3) |
+        insn[count++] = (intel->modrm.mod << 6) | (intel->modrm.reg << 3) |
                         (intel->modrm.rm << 0);
         if (intel->sib.present) {
-            insn[count++] = (intel->sib.scale << 6) |
-                            (intel->sib.index << 3) |
+            insn[count++] = (intel->sib.scale << 6) | (intel->sib.index << 3) |
                             (intel->sib.base << 0);
         }
     }
@@ -467,9 +461,9 @@ ec_code_intel_op_mov_sse2m(ec_code_builder_t *builder, uint32_t src,
 }
 
 void
-ec_code_intel_op_mov_m2sse(ec_code_builder_t *builder,
-                           ec_code_intel_reg_t base, ec_code_intel_reg_t index,
-                           uint32_t scale, int32_t offset, uint32_t dst)
+ec_code_intel_op_mov_m2sse(ec_code_builder_t *builder, ec_code_intel_reg_t base,
+                           ec_code_intel_reg_t index, uint32_t scale,
+                           int32_t offset, uint32_t dst)
 {
     ec_code_intel_t intel;
 
@@ -500,9 +494,9 @@ ec_code_intel_op_xor_sse2sse(ec_code_builder_t *builder, uint32_t src,
 }
 
 void
-ec_code_intel_op_xor_m2sse(ec_code_builder_t *builder,
-                           ec_code_intel_reg_t base, ec_code_intel_reg_t index,
-                           uint32_t scale, int32_t offset, uint32_t dst)
+ec_code_intel_op_xor_m2sse(ec_code_builder_t *builder, ec_code_intel_reg_t base,
+                           ec_code_intel_reg_t index, uint32_t scale,
+                           int32_t offset, uint32_t dst)
 {
     ec_code_intel_t intel;
 
@@ -526,8 +520,8 @@ ec_code_intel_op_mov_avx2avx(ec_code_builder_t *builder, uint32_t src,
 
     ec_code_intel_modrm_reg(&intel, src, dst);
     ec_code_intel_op_1(&intel, 0x6F, 0);
-    ec_code_intel_vex(&intel, _gf_false, _gf_true, VEX_OPCODE_0F,
-                      VEX_PREFIX_66, VEX_REG_NONE);
+    ec_code_intel_vex(&intel, _gf_false, _gf_true, VEX_OPCODE_0F, VEX_PREFIX_66,
+                      VEX_REG_NONE);
 
     ec_code_intel_emit(builder, &intel);
 }
@@ -543,16 +537,16 @@ ec_code_intel_op_mov_avx2m(ec_code_builder_t *builder, uint32_t src,
 
     ec_code_intel_modrm_mem(&intel, src, base, index, scale, offset);
     ec_code_intel_op_1(&intel, 0x7F, 0);
-    ec_code_intel_vex(&intel, _gf_false, _gf_true, VEX_OPCODE_0F,
-                      VEX_PREFIX_66, VEX_REG_NONE);
+    ec_code_intel_vex(&intel, _gf_false, _gf_true, VEX_OPCODE_0F, VEX_PREFIX_66,
+                      VEX_REG_NONE);
 
     ec_code_intel_emit(builder, &intel);
 }
 
 void
-ec_code_intel_op_mov_m2avx(ec_code_builder_t *builder,
-                           ec_code_intel_reg_t base, ec_code_intel_reg_t index,
-                           uint32_t scale, int32_t offset, uint32_t dst)
+ec_code_intel_op_mov_m2avx(ec_code_builder_t *builder, ec_code_intel_reg_t base,
+                           ec_code_intel_reg_t index, uint32_t scale,
+                           int32_t offset, uint32_t dst)
 {
     ec_code_intel_t intel;
 
@@ -560,8 +554,8 @@ ec_code_intel_op_mov_m2avx(ec_code_builder_t *builder,
 
     ec_code_intel_modrm_mem(&intel, dst, base, index, scale, offset);
     ec_code_intel_op_1(&intel, 0x6F, 0);
-    ec_code_intel_vex(&intel, _gf_false, _gf_true, VEX_OPCODE_0F,
-                      VEX_PREFIX_66, VEX_REG_NONE);
+    ec_code_intel_vex(&intel, _gf_false, _gf_true, VEX_OPCODE_0F, VEX_PREFIX_66,
+                      VEX_REG_NONE);
 
     ec_code_intel_emit(builder, &intel);
 }
@@ -576,16 +570,16 @@ ec_code_intel_op_xor_avx2avx(ec_code_builder_t *builder, uint32_t src,
 
     ec_code_intel_modrm_reg(&intel, src, dst);
     ec_code_intel_op_1(&intel, 0xEF, 0);
-    ec_code_intel_vex(&intel, _gf_false, _gf_true, VEX_OPCODE_0F,
-                      VEX_PREFIX_66, dst);
+    ec_code_intel_vex(&intel, _gf_false, _gf_true, VEX_OPCODE_0F, VEX_PREFIX_66,
+                      dst);
 
     ec_code_intel_emit(builder, &intel);
 }
 
 void
-ec_code_intel_op_xor_m2avx(ec_code_builder_t *builder,
-                           ec_code_intel_reg_t base, ec_code_intel_reg_t index,
-                           uint32_t scale, int32_t offset, uint32_t dst)
+ec_code_intel_op_xor_m2avx(ec_code_builder_t *builder, ec_code_intel_reg_t base,
+                           ec_code_intel_reg_t index, uint32_t scale,
+                           int32_t offset, uint32_t dst)
 {
     ec_code_intel_t intel;
 
@@ -593,8 +587,8 @@ ec_code_intel_op_xor_m2avx(ec_code_builder_t *builder,
 
     ec_code_intel_modrm_mem(&intel, dst, base, index, scale, offset);
     ec_code_intel_op_1(&intel, 0xEF, 0);
-    ec_code_intel_vex(&intel, _gf_false, _gf_true, VEX_OPCODE_0F,
-                      VEX_PREFIX_66, dst);
+    ec_code_intel_vex(&intel, _gf_false, _gf_true, VEX_OPCODE_0F, VEX_PREFIX_66,
+                      dst);
 
     ec_code_intel_emit(builder, &intel);
 }

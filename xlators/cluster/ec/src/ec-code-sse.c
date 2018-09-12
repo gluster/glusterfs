@@ -34,10 +34,9 @@ ec_code_sse_load(ec_code_builder_t *builder, uint32_t dst, uint32_t idx,
                  uint32_t bit)
 {
     if (builder->linear) {
-        ec_code_intel_op_mov_m2sse(builder, REG_SI, REG_DX, 1,
-                                   idx * builder->width * builder->bits +
-                                   bit * builder->width,
-                                   dst);
+        ec_code_intel_op_mov_m2sse(
+            builder, REG_SI, REG_DX, 1,
+            idx * builder->width * builder->bits + bit * builder->width, dst);
     } else {
         if (builder->base != idx) {
             ec_code_intel_op_mov_m2r(builder, REG_SI, REG_NULL, 0, idx * 8,
@@ -73,10 +72,9 @@ ec_code_sse_xorm(ec_code_builder_t *builder, uint32_t dst, uint32_t idx,
                  uint32_t bit)
 {
     if (builder->linear) {
-       ec_code_intel_op_xor_m2sse(builder, REG_SI, REG_DX, 1,
-                                  idx * builder->width * builder->bits +
-                                  bit * builder->width,
-                                  dst);
+        ec_code_intel_op_xor_m2sse(
+            builder, REG_SI, REG_DX, 1,
+            idx * builder->width * builder->bits + bit * builder->width, dst);
     } else {
         if (builder->base != idx) {
             ec_code_intel_op_mov_m2r(builder, REG_SI, REG_NULL, 0, idx * 8,
@@ -88,21 +86,16 @@ ec_code_sse_xorm(ec_code_builder_t *builder, uint32_t dst, uint32_t idx,
     }
 }
 
-static char *ec_code_sse_needed_flags[] = {
-    "sse2",
-    NULL
-};
+static char *ec_code_sse_needed_flags[] = {"sse2", NULL};
 
-ec_code_gen_t ec_code_gen_sse = {
-    .name   = "sse",
-    .flags  = ec_code_sse_needed_flags,
-    .width  = 16,
-    .prolog = ec_code_sse_prolog,
-    .epilog = ec_code_sse_epilog,
-    .load   = ec_code_sse_load,
-    .store  = ec_code_sse_store,
-    .copy   = ec_code_sse_copy,
-    .xor2   = ec_code_sse_xor2,
-    .xor3   = NULL,
-    .xorm   = ec_code_sse_xorm
-};
+ec_code_gen_t ec_code_gen_sse = {.name = "sse",
+                                 .flags = ec_code_sse_needed_flags,
+                                 .width = 16,
+                                 .prolog = ec_code_sse_prolog,
+                                 .epilog = ec_code_sse_epilog,
+                                 .load = ec_code_sse_load,
+                                 .store = ec_code_sse_store,
+                                 .copy = ec_code_sse_copy,
+                                 .xor2 = ec_code_sse_xor2,
+                                 .xor3 = NULL,
+                                 .xorm = ec_code_sse_xorm};

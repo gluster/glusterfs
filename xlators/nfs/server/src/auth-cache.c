@@ -18,44 +18,48 @@
 #include "nfs-messages.h"
 
 enum auth_cache_lookup_results {
-        ENTRY_FOUND     =  0,
-        ENTRY_NOT_FOUND = -1,
-        ENTRY_EXPIRED   = -2,
+    ENTRY_FOUND = 0,
+    ENTRY_NOT_FOUND = -1,
+    ENTRY_EXPIRED = -2,
 };
 
 struct auth_cache_entry {
-        GF_REF_DECL;                    /* refcounting */
-        data_t             *data;       /* data_unref() on refcount == 0 */
+    GF_REF_DECL;  /* refcounting */
+    data_t *data; /* data_unref() on refcount == 0 */
 
-        time_t              timestamp;
-        struct export_item *item;
+    time_t timestamp;
+    struct export_item *item;
 };
 
 /* Given a filehandle and an ip, creates a colon delimited hashkey.
  */
-static char*
+static char *
 make_hashkey(struct nfs3_fh *fh, const char *host)
 {
-        char   *hashkey          = NULL;
-        char    exportid[256]    = {0, };
-        char    gfid[256]        = {0, };
-        char    mountid[256]     = {0, };
-        size_t  nbytes           = 0;
+    char *hashkey = NULL;
+    char exportid[256] = {
+        0,
+    };
+    char gfid[256] = {
+        0,
+    };
+    char mountid[256] = {
+        0,
+    };
+    size_t nbytes = 0;
 
-        gf_uuid_unparse (fh->exportid, exportid);
-        gf_uuid_unparse (fh->gfid, gfid);
-        gf_uuid_unparse (fh->mountid, mountid);
+    gf_uuid_unparse(fh->exportid, exportid);
+    gf_uuid_unparse(fh->gfid, gfid);
+    gf_uuid_unparse(fh->mountid, mountid);
 
-        nbytes = strlen (exportid) + strlen (host)
-                 + strlen (mountid) + 3;
-        hashkey = GF_MALLOC (nbytes, gf_common_mt_char);
-        if (!hashkey)
-                return NULL;
+    nbytes = strlen(exportid) + strlen(host) + strlen(mountid) + 3;
+    hashkey = GF_MALLOC(nbytes, gf_common_mt_char);
+    if (!hashkey)
+        return NULL;
 
-        snprintf (hashkey, nbytes, "%s:%s:%s", exportid,
-                  mountid, host);
+    snprintf(hashkey, nbytes, "%s:%s:%s", exportid, mountid, host);
 
-        return hashkey;
+    return hashkey;
 }
 
 /**
@@ -66,24 +70,24 @@ make_hashkey(struct nfs3_fh *fh, const char *host)
  * @return : allocated auth cache struct, NULL if allocation failed.
  */
 struct auth_cache *
-auth_cache_init (time_t ttl_sec)
+auth_cache_init(time_t ttl_sec)
 {
-        struct auth_cache *cache = GF_CALLOC (1, sizeof (*cache),
-                                              gf_nfs_mt_auth_cache);
+    struct auth_cache *cache = GF_CALLOC(1, sizeof(*cache),
+                                         gf_nfs_mt_auth_cache);
 
-        GF_VALIDATE_OR_GOTO ("auth-cache", cache, out);
+    GF_VALIDATE_OR_GOTO("auth-cache", cache, out);
 
-        cache->cache_dict = dict_new ();
-        if (!cache->cache_dict) {
-                GF_FREE (cache);
-                cache = NULL;
-                goto out;
-        }
+    cache->cache_dict = dict_new();
+    if (!cache->cache_dict) {
+        GF_FREE(cache);
+        cache = NULL;
+        goto out;
+    }
 
-        LOCK_INIT (&cache->lock);
-        cache->ttl_sec = ttl_sec;
+    LOCK_INIT(&cache->lock);
+    cache->ttl_sec = ttl_sec;
 out:
-        return cache;
+    return cache;
 }
 
 /* auth_cache_entry_free -- called by refcounting subsystem on refcount == 0
@@ -91,22 +95,22 @@ out:
  * @to_free: auth_cache_entry that has refcount == 0 and needs to get free'd
  */
 void
-auth_cache_entry_free (void *to_free)
+auth_cache_entry_free(void *to_free)
 {
-        struct auth_cache_entry *entry      = to_free;
-        data_t                  *entry_data = NULL;
+    struct auth_cache_entry *entry = to_free;
+    data_t *entry_data = NULL;
 
-        GF_VALIDATE_OR_GOTO (GF_NFS, entry, out);
-        GF_VALIDATE_OR_GOTO (GF_NFS, entry->data, out);
+    GF_VALIDATE_OR_GOTO(GF_NFS, entry, out);
+    GF_VALIDATE_OR_GOTO(GF_NFS, entry->data, out);
 
-        entry_data = entry->data;
-        /* set data_t->data to NULL, otherwise data_unref() tries to free it */
-        entry_data->data = NULL;
-        data_unref (entry_data);
+    entry_data = entry->data;
+    /* set data_t->data to NULL, otherwise data_unref() tries to free it */
+    entry_data->data = NULL;
+    data_unref(entry_data);
 
-        GF_FREE (entry);
+    GF_FREE(entry);
 out:
-        return;
+    return;
 }
 
 /**
@@ -116,18 +120,18 @@ out:
  *          failed.
  */
 static struct auth_cache_entry *
-auth_cache_entry_init ()
+auth_cache_entry_init()
 {
-        struct auth_cache_entry *entry = NULL;
+    struct auth_cache_entry *entry = NULL;
 
-        entry = GF_CALLOC (1, sizeof (*entry), gf_nfs_mt_auth_cache_entry);
-        if (!entry)
-                gf_msg (GF_NFS, GF_LOG_WARNING, ENOMEM, NFS_MSG_NO_MEMORY,
-                        "failed to allocate entry");
-        else
-                GF_REF_INIT (entry, auth_cache_entry_free);
+    entry = GF_CALLOC(1, sizeof(*entry), gf_nfs_mt_auth_cache_entry);
+    if (!entry)
+        gf_msg(GF_NFS, GF_LOG_WARNING, ENOMEM, NFS_MSG_NO_MEMORY,
+               "failed to allocate entry");
+    else
+        GF_REF_INIT(entry, auth_cache_entry_free);
 
-        return entry;
+    return entry;
 }
 
 /**
@@ -136,46 +140,46 @@ auth_cache_entry_init ()
  * @return: 0 on success, non-zero otherwise.
  */
 static int
-auth_cache_add (struct auth_cache *cache, char *hashkey,
-                struct auth_cache_entry *entry)
+auth_cache_add(struct auth_cache *cache, char *hashkey,
+               struct auth_cache_entry *entry)
 {
-        int      ret        = -1;
-        data_t  *entry_data = NULL;
+    int ret = -1;
+    data_t *entry_data = NULL;
 
-        GF_VALIDATE_OR_GOTO (GF_NFS, cache, out);
-        GF_VALIDATE_OR_GOTO (GF_NFS, cache->cache_dict, out);
+    GF_VALIDATE_OR_GOTO(GF_NFS, cache, out);
+    GF_VALIDATE_OR_GOTO(GF_NFS, cache->cache_dict, out);
 
-        /* FIXME: entry is passed as parameter, this can never fail? */
-        entry = GF_REF_GET (entry);
-        if (!entry) {
-                /* entry does not have any references */
-                ret = -1;
-                goto out;
-        }
+    /* FIXME: entry is passed as parameter, this can never fail? */
+    entry = GF_REF_GET(entry);
+    if (!entry) {
+        /* entry does not have any references */
+        ret = -1;
+        goto out;
+    }
 
-        entry_data = bin_to_data (entry, sizeof (*entry));
-        if (!entry_data) {
-                ret = -1;
-                GF_REF_PUT (entry);
-                goto out;
-        }
+    entry_data = bin_to_data(entry, sizeof(*entry));
+    if (!entry_data) {
+        ret = -1;
+        GF_REF_PUT(entry);
+        goto out;
+    }
 
-        /* we'll take an extra ref on the data_t, it gets unref'd when the
-         * auth_cache_entry is released */
-        entry->data = data_ref (entry_data);
+    /* we'll take an extra ref on the data_t, it gets unref'd when the
+     * auth_cache_entry is released */
+    entry->data = data_ref(entry_data);
 
-        LOCK (&cache->lock);
-        {
-                ret = dict_set (cache->cache_dict, hashkey, entry_data);
-        }
-        UNLOCK (&cache->lock);
+    LOCK(&cache->lock);
+    {
+        ret = dict_set(cache->cache_dict, hashkey, entry_data);
+    }
+    UNLOCK(&cache->lock);
 
-        if (ret) {
-                /* adding to dict failed */
-                GF_REF_PUT (entry);
-        }
+    if (ret) {
+        /* adding to dict failed */
+        GF_REF_PUT(entry);
+    }
 out:
-        return ret;
+    return ret;
 }
 
 /**
@@ -186,9 +190,9 @@ out:
  * @return: true when the auth_cache_entry is expired, false otherwise.
  */
 static int
-_auth_cache_expired (struct auth_cache *cache, struct auth_cache_entry *entry)
+_auth_cache_expired(struct auth_cache *cache, struct auth_cache_entry *entry)
 {
-        return ((time (NULL) - entry->timestamp) > cache->ttl_sec);
+    return ((time(NULL) - entry->timestamp) > cache->ttl_sec);
 }
 
 /**
@@ -205,52 +209,52 @@ _auth_cache_expired (struct auth_cache *cache, struct auth_cache_entry *entry)
  * @return: 0 when found, ENTRY_NOT_FOUND or ENTRY_EXPIRED otherwise.
  */
 static enum auth_cache_lookup_results
-auth_cache_get (struct auth_cache *cache, char *hashkey,
-                struct auth_cache_entry **entry)
+auth_cache_get(struct auth_cache *cache, char *hashkey,
+               struct auth_cache_entry **entry)
 {
-        enum auth_cache_lookup_results  ret        = ENTRY_NOT_FOUND;
-        data_t                         *entry_data = NULL;
-        struct auth_cache_entry        *lookup_res = NULL;
+    enum auth_cache_lookup_results ret = ENTRY_NOT_FOUND;
+    data_t *entry_data = NULL;
+    struct auth_cache_entry *lookup_res = NULL;
 
-        GF_VALIDATE_OR_GOTO (GF_NFS, cache, out);
-        GF_VALIDATE_OR_GOTO (GF_NFS, cache->cache_dict, out);
-        GF_VALIDATE_OR_GOTO (GF_NFS, hashkey, out);
+    GF_VALIDATE_OR_GOTO(GF_NFS, cache, out);
+    GF_VALIDATE_OR_GOTO(GF_NFS, cache->cache_dict, out);
+    GF_VALIDATE_OR_GOTO(GF_NFS, hashkey, out);
 
-        LOCK (&cache->lock);
-        {
-                entry_data = dict_get (cache->cache_dict, hashkey);
-                if (!entry_data)
-                        goto unlock;
+    LOCK(&cache->lock);
+    {
+        entry_data = dict_get(cache->cache_dict, hashkey);
+        if (!entry_data)
+            goto unlock;
 
-                /* FIXME: this is dangerous use of entry_data */
-                lookup_res = GF_REF_GET ((struct auth_cache_entry *) entry_data->data);
-                if (lookup_res == NULL) {
-                        /* entry has been free'd */
-                        ret = ENTRY_EXPIRED;
-                        goto unlock;
-                }
-
-                if (_auth_cache_expired (cache, lookup_res)) {
-                        ret = ENTRY_EXPIRED;
-                        GF_REF_PUT (lookup_res->item);
-                        lookup_res->item = NULL;
-
-                        /* free entry and remove from the cache */
-                        GF_FREE (lookup_res);
-                        entry_data->data = NULL;
-                        dict_del (cache->cache_dict, hashkey);
-
-                        goto unlock;
-                }
-
-                *entry = lookup_res;
-                ret = ENTRY_FOUND;
+        /* FIXME: this is dangerous use of entry_data */
+        lookup_res = GF_REF_GET((struct auth_cache_entry *)entry_data->data);
+        if (lookup_res == NULL) {
+            /* entry has been free'd */
+            ret = ENTRY_EXPIRED;
+            goto unlock;
         }
+
+        if (_auth_cache_expired(cache, lookup_res)) {
+            ret = ENTRY_EXPIRED;
+            GF_REF_PUT(lookup_res->item);
+            lookup_res->item = NULL;
+
+            /* free entry and remove from the cache */
+            GF_FREE(lookup_res);
+            entry_data->data = NULL;
+            dict_del(cache->cache_dict, hashkey);
+
+            goto unlock;
+        }
+
+        *entry = lookup_res;
+        ret = ENTRY_FOUND;
+    }
 unlock:
-        UNLOCK (&cache->lock);
+    UNLOCK(&cache->lock);
 
 out:
-        return ret;
+    return ret;
 }
 
 /**
@@ -270,49 +274,47 @@ out:
  *          0 if found
  */
 enum auth_cache_lookup_results
-auth_cache_lookup (struct auth_cache *cache, struct nfs3_fh *fh,
-                   const char *host_addr, time_t *timestamp,
-                   gf_boolean_t *can_write)
+auth_cache_lookup(struct auth_cache *cache, struct nfs3_fh *fh,
+                  const char *host_addr, time_t *timestamp,
+                  gf_boolean_t *can_write)
 {
-        char                           *hashkey    = NULL;
-        struct auth_cache_entry        *lookup_res = NULL;
-        enum auth_cache_lookup_results  ret        = ENTRY_NOT_FOUND;
+    char *hashkey = NULL;
+    struct auth_cache_entry *lookup_res = NULL;
+    enum auth_cache_lookup_results ret = ENTRY_NOT_FOUND;
 
-        GF_VALIDATE_OR_GOTO (GF_NFS, cache, out);
-        GF_VALIDATE_OR_GOTO (GF_NFS, fh, out);
-        GF_VALIDATE_OR_GOTO (GF_NFS, host_addr, out);
-        GF_VALIDATE_OR_GOTO (GF_NFS, timestamp, out);
-        GF_VALIDATE_OR_GOTO (GF_NFS, can_write, out);
+    GF_VALIDATE_OR_GOTO(GF_NFS, cache, out);
+    GF_VALIDATE_OR_GOTO(GF_NFS, fh, out);
+    GF_VALIDATE_OR_GOTO(GF_NFS, host_addr, out);
+    GF_VALIDATE_OR_GOTO(GF_NFS, timestamp, out);
+    GF_VALIDATE_OR_GOTO(GF_NFS, can_write, out);
 
-        hashkey = make_hashkey (fh, host_addr);
-        if (!hashkey) {
-                ret = -ENOMEM;
-                goto out;
-        }
+    hashkey = make_hashkey(fh, host_addr);
+    if (!hashkey) {
+        ret = -ENOMEM;
+        goto out;
+    }
 
-        ret = auth_cache_get (cache, hashkey, &lookup_res);
-        switch (ret) {
+    ret = auth_cache_get(cache, hashkey, &lookup_res);
+    switch (ret) {
         case ENTRY_FOUND:
-                *timestamp = lookup_res->timestamp;
-                *can_write = lookup_res->item->opts->rw;
-                GF_REF_PUT (lookup_res);
-                break;
+            *timestamp = lookup_res->timestamp;
+            *can_write = lookup_res->item->opts->rw;
+            GF_REF_PUT(lookup_res);
+            break;
 
         case ENTRY_NOT_FOUND:
-                gf_msg_debug (GF_NFS, 0, "could not find entry for %s",
-                              host_addr);
-                break;
+            gf_msg_debug(GF_NFS, 0, "could not find entry for %s", host_addr);
+            break;
 
         case ENTRY_EXPIRED:
-                gf_msg_debug (GF_NFS, 0, "entry for host %s has expired",
-                              host_addr);
-                break;
-        }
+            gf_msg_debug(GF_NFS, 0, "entry for host %s has expired", host_addr);
+            break;
+    }
 
 out:
-        GF_FREE (hashkey);
+    GF_FREE(hashkey);
 
-        return ret;
+    return ret;
 }
 
 /* auth_cache_entry_purge -- free up the auth_cache_entry
@@ -327,14 +329,14 @@ out:
  * @v: data_t of the current entry
  */
 int
-auth_cache_entry_purge (dict_t *d, char *k, data_t *v, void *_unused)
+auth_cache_entry_purge(dict_t *d, char *k, data_t *v, void *_unused)
 {
-        struct auth_cache_entry *entry = (struct auth_cache_entry *) v->data;
+    struct auth_cache_entry *entry = (struct auth_cache_entry *)v->data;
 
-        if (entry)
-                GF_REF_PUT (entry);
+    if (entry)
+        GF_REF_PUT(entry);
 
-        return 0;
+    return 0;
 }
 
 /**
@@ -344,26 +346,26 @@ auth_cache_entry_purge (dict_t *d, char *k, data_t *v, void *_unused)
  *
  */
 void
-auth_cache_purge (struct auth_cache *cache)
+auth_cache_purge(struct auth_cache *cache)
 {
-        dict_t *new_cache_dict = dict_new ();
-        dict_t *old_cache_dict = NULL;
+    dict_t *new_cache_dict = dict_new();
+    dict_t *old_cache_dict = NULL;
 
-        if (!cache || !new_cache_dict)
-                goto out;
+    if (!cache || !new_cache_dict)
+        goto out;
 
-        LOCK (&cache->lock);
-        {
-                old_cache_dict = cache->cache_dict;
-                cache->cache_dict = new_cache_dict;
-        }
-        UNLOCK (&cache->lock);
+    LOCK(&cache->lock);
+    {
+        old_cache_dict = cache->cache_dict;
+        cache->cache_dict = new_cache_dict;
+    }
+    UNLOCK(&cache->lock);
 
-        /* walk all entries and refcount-- with GF_REF_PUT() */
-        dict_foreach (old_cache_dict, auth_cache_entry_purge, NULL);
-        dict_unref (old_cache_dict);
+    /* walk all entries and refcount-- with GF_REF_PUT() */
+    dict_foreach(old_cache_dict, auth_cache_entry_purge, NULL);
+    dict_unref(old_cache_dict);
 out:
-        return;
+    return;
 }
 
 /**
@@ -378,24 +380,23 @@ out:
  *
  */
 gf_boolean_t
-is_nfs_fh_cached (struct auth_cache *cache, struct nfs3_fh *fh,
-                  const char *host_addr)
+is_nfs_fh_cached(struct auth_cache *cache, struct nfs3_fh *fh,
+                 const char *host_addr)
 {
-        int          ret       = 0;
-        time_t       timestamp = 0;
-        gf_boolean_t cached    = _gf_false;
-        gf_boolean_t can_write = _gf_false;
+    int ret = 0;
+    time_t timestamp = 0;
+    gf_boolean_t cached = _gf_false;
+    gf_boolean_t can_write = _gf_false;
 
-        if (!fh)
-                goto out;
+    if (!fh)
+        goto out;
 
-        ret = auth_cache_lookup (cache, fh, host_addr, &timestamp, &can_write);
-        cached = (ret == ENTRY_FOUND);
+    ret = auth_cache_lookup(cache, fh, host_addr, &timestamp, &can_write);
+    cached = (ret == ENTRY_FOUND);
 
 out:
-        return cached;
+    return cached;
 }
-
 
 /**
  * is_nfs_fh_cached_and_writeable -- Checks if an NFS FH is cached for the given
@@ -409,22 +410,22 @@ out:
  *
  */
 gf_boolean_t
-is_nfs_fh_cached_and_writeable (struct auth_cache *cache, struct nfs3_fh *fh,
-                                const char *host_addr)
+is_nfs_fh_cached_and_writeable(struct auth_cache *cache, struct nfs3_fh *fh,
+                               const char *host_addr)
 {
-        int          ret       = 0;
-        time_t       timestamp = 0;
-        gf_boolean_t cached    = _gf_false;
-        gf_boolean_t writable  = _gf_false;
+    int ret = 0;
+    time_t timestamp = 0;
+    gf_boolean_t cached = _gf_false;
+    gf_boolean_t writable = _gf_false;
 
-        if (!fh)
-                goto out;
+    if (!fh)
+        goto out;
 
-        ret = auth_cache_lookup (cache, fh, host_addr, &timestamp, &writable);
-        cached = ((ret == ENTRY_FOUND) && writable);
+    ret = auth_cache_lookup(cache, fh, host_addr, &timestamp, &writable);
+    cached = ((ret == ENTRY_FOUND) && writable);
 
 out:
-        return cached;
+    return cached;
 }
 
 /**
@@ -441,56 +442,58 @@ out:
  *
  */
 int
-cache_nfs_fh (struct auth_cache *cache, struct nfs3_fh *fh,
-              const char *host_addr, struct export_item *export_item)
+cache_nfs_fh(struct auth_cache *cache, struct nfs3_fh *fh,
+             const char *host_addr, struct export_item *export_item)
 {
-        int                      ret        = -EINVAL;
-        char                    *hashkey    = NULL;
-        time_t                   timestamp  = 0;
-        gf_boolean_t             can_write  = _gf_false;
-        struct auth_cache_entry *entry      = NULL;
+    int ret = -EINVAL;
+    char *hashkey = NULL;
+    time_t timestamp = 0;
+    gf_boolean_t can_write = _gf_false;
+    struct auth_cache_entry *entry = NULL;
 
-        GF_VALIDATE_OR_GOTO (GF_NFS, host_addr, out);
-        GF_VALIDATE_OR_GOTO (GF_NFS, cache, out);
-        GF_VALIDATE_OR_GOTO (GF_NFS, fh, out);
+    GF_VALIDATE_OR_GOTO(GF_NFS, host_addr, out);
+    GF_VALIDATE_OR_GOTO(GF_NFS, cache, out);
+    GF_VALIDATE_OR_GOTO(GF_NFS, fh, out);
 
-        /* If we could already find it in the cache, just return */
-        ret = auth_cache_lookup (cache, fh, host_addr, &timestamp, &can_write);
-        if (ret == 0) {
-                gf_msg_trace (GF_NFS, 0, "found cached auth/fh for host "
-                              "%s", host_addr);
-                goto out;
-        }
+    /* If we could already find it in the cache, just return */
+    ret = auth_cache_lookup(cache, fh, host_addr, &timestamp, &can_write);
+    if (ret == 0) {
+        gf_msg_trace(GF_NFS, 0,
+                     "found cached auth/fh for host "
+                     "%s",
+                     host_addr);
+        goto out;
+    }
 
-        hashkey = make_hashkey (fh, host_addr);
-        if (!hashkey) {
-                ret = -ENOMEM;
-                goto out;
-        }
+    hashkey = make_hashkey(fh, host_addr);
+    if (!hashkey) {
+        ret = -ENOMEM;
+        goto out;
+    }
 
-        entry = auth_cache_entry_init ();
-        if (!entry) {
-                ret = -ENOMEM;
-                goto out;
-        }
+    entry = auth_cache_entry_init();
+    if (!entry) {
+        ret = -ENOMEM;
+        goto out;
+    }
 
-        entry->timestamp = time (NULL);
-        /* Update entry->item if it is pointing to a different export_item */
-        if (entry->item && entry->item != export_item) {
-                GF_REF_PUT (entry->item);
-        }
-        entry->item = GF_REF_GET (export_item);
+    entry->timestamp = time(NULL);
+    /* Update entry->item if it is pointing to a different export_item */
+    if (entry->item && entry->item != export_item) {
+        GF_REF_PUT(entry->item);
+    }
+    entry->item = GF_REF_GET(export_item);
 
-        ret = auth_cache_add (cache, hashkey, entry);
-        GF_REF_PUT (entry);
-        if (ret)
-                goto out;
+    ret = auth_cache_add(cache, hashkey, entry);
+    GF_REF_PUT(entry);
+    if (ret)
+        goto out;
 
-        gf_msg_trace (GF_NFS, 0, "Caching file-handle (%s)", host_addr);
-        ret = 0;
+    gf_msg_trace(GF_NFS, 0, "Caching file-handle (%s)", host_addr);
+    ret = 0;
 
 out:
-        GF_FREE (hashkey);
+    GF_FREE(hashkey);
 
-        return ret;
+    return ret;
 }

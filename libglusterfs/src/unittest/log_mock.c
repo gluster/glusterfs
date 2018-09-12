@@ -18,33 +18,35 @@
 
 #include <cmocka.h>
 
-int _gf_log (const char *domain, const char *file,
-             const char *function, int32_t line, gf_loglevel_t level,
-             const char *fmt, ...)
+int
+_gf_log(const char *domain, const char *file, const char *function,
+        int32_t line, gf_loglevel_t level, const char *fmt, ...)
 {
     return 0;
 }
 
-int _gf_log_callingfn (const char *domain, const char *file,
-                       const char *function, int32_t line, gf_loglevel_t level,
-                       const char *fmt, ...)
+int
+_gf_log_callingfn(const char *domain, const char *file, const char *function,
+                  int32_t line, gf_loglevel_t level, const char *fmt, ...)
 {
     return 0;
 }
 
-int _gf_log_nomem (const char *domain, const char *file,
-                   const char *function, int line, gf_loglevel_t level,
-                   size_t size)
+int
+_gf_log_nomem(const char *domain, const char *file, const char *function,
+              int line, gf_loglevel_t level, size_t size)
 {
     return 0;
 }
 
-int _gf_msg_nomem (const char *domain, const char *file,
-                   const char *function, int line, gf_loglevel_t level,
-                   size_t size)
+int
+_gf_msg_nomem(const char *domain, const char *file, const char *function,
+              int line, gf_loglevel_t level, size_t size)
 {
-	return 0;
+    return 0;
 }
 
 void
-gf_log_globals_init (void *data, gf_loglevel_t level) {}
+gf_log_globals_init(void *data, gf_loglevel_t level)
+{
+}

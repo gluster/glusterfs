@@ -5,13 +5,13 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-
-int main (int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
-    int              fd            = -1;
-    int              ret           = -1;
-    char             command[2048] = "";
-    char             filepath[255]     = "";
+    int fd = -1;
+    int ret = -1;
+    char command[2048] = "";
+    char filepath[255] = "";
     struct flock fl;
 
     fl.l_type = F_WRLCK;
@@ -36,7 +36,7 @@ int main (int argc, char *argv[])
              " grep %s | awk -F'..: ' '{print $1}' | grep %s:%s/%s",
              argv[1], argv[5], argv[2], argv[2], argv[3], argv[1]);
 
-    ret = system (command);
+    ret = system(command);
     close(fd);
 
     if (ret)

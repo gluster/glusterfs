@@ -14,8 +14,7 @@
 
 static ec_code_intel_reg_t ec_code_x64_regmap[] = {
     REG_AX, REG_CX, REG_BP, REG_8,  REG_9, REG_10,
-    REG_11, REG_12, REG_13, REG_14, REG_15
-};
+    REG_11, REG_12, REG_13, REG_14, REG_15};
 
 static void
 ec_code_x64_prolog(ec_code_builder_t *builder)
@@ -68,10 +67,9 @@ ec_code_x64_load(ec_code_builder_t *builder, uint32_t dst, uint32_t idx,
     dst = ec_code_x64_regmap[dst];
 
     if (builder->linear) {
-        ec_code_intel_op_mov_m2r(builder, REG_SI, REG_DX, 1,
-                                 idx * builder->width * builder->bits +
-                                 bit * builder->width,
-                                 dst);
+        ec_code_intel_op_mov_m2r(
+            builder, REG_SI, REG_DX, 1,
+            idx * builder->width * builder->bits + bit * builder->width, dst);
     } else {
         if (builder->base != idx) {
             ec_code_intel_op_mov_m2r(builder, REG_SI, REG_NULL, 0, idx * 8,
@@ -117,10 +115,9 @@ ec_code_x64_xorm(ec_code_builder_t *builder, uint32_t dst, uint32_t idx,
     dst = ec_code_x64_regmap[dst];
 
     if (builder->linear) {
-        ec_code_intel_op_xor_m2r(builder, REG_SI, REG_DX, 1,
-                                 idx * builder->width * builder->bits +
-                                 bit * builder->width,
-                                 dst);
+        ec_code_intel_op_xor_m2r(
+            builder, REG_SI, REG_DX, 1,
+            idx * builder->width * builder->bits + bit * builder->width, dst);
     } else {
         if (builder->base != idx) {
             ec_code_intel_op_mov_m2r(builder, REG_SI, REG_NULL, 0, idx * 8,
@@ -132,20 +129,16 @@ ec_code_x64_xorm(ec_code_builder_t *builder, uint32_t dst, uint32_t idx,
     }
 }
 
-static char *ec_code_x64_needed_flags[] = {
-    NULL
-};
+static char *ec_code_x64_needed_flags[] = {NULL};
 
-ec_code_gen_t ec_code_gen_x64 = {
-    .name   = "x64",
-    .flags  = ec_code_x64_needed_flags,
-    .width  = sizeof(uint64_t),
-    .prolog = ec_code_x64_prolog,
-    .epilog = ec_code_x64_epilog,
-    .load   = ec_code_x64_load,
-    .store  = ec_code_x64_store,
-    .copy   = ec_code_x64_copy,
-    .xor2   = ec_code_x64_xor2,
-    .xor3   = NULL,
-    .xorm   = ec_code_x64_xorm
-};
+ec_code_gen_t ec_code_gen_x64 = {.name = "x64",
+                                 .flags = ec_code_x64_needed_flags,
+                                 .width = sizeof(uint64_t),
+                                 .prolog = ec_code_x64_prolog,
+                                 .epilog = ec_code_x64_epilog,
+                                 .load = ec_code_x64_load,
+                                 .store = ec_code_x64_store,
+                                 .copy = ec_code_x64_copy,
+                                 .xor2 = ec_code_x64_xor2,
+                                 .xor3 = NULL,
+                                 .xorm = ec_code_x64_xorm};

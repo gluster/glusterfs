@@ -36,33 +36,33 @@
  *              : failure: NULL (on failure to compile regex or allocate memory)
  */
 struct parser *
-parser_init (const char *regex)
+parser_init(const char *regex)
 {
-        int           rc      = 0;
-        struct parser *parser = NULL;
+    int rc = 0;
+    struct parser *parser = NULL;
 
-        parser = GF_MALLOC (sizeof(*parser), gf_common_mt_parser_t);
-        if (!parser)
-                goto out;
+    parser = GF_MALLOC(sizeof(*parser), gf_common_mt_parser_t);
+    if (!parser)
+        goto out;
 
-        parser->regex = gf_strdup (regex);
-        if (!parser->regex) {
-                GF_FREE (parser);
-                parser = NULL;
-                goto out;
-        }
+    parser->regex = gf_strdup(regex);
+    if (!parser->regex) {
+        GF_FREE(parser);
+        parser = NULL;
+        goto out;
+    }
 
-        rc = regcomp (&parser->preg, parser->regex, REG_EXTENDED);
-        if (rc != 0) {
-                gf_msg (GF_PARSE, GF_LOG_INFO, 0, LG_MSG_REGEX_OP_FAILED,
-                        "Failed to compile regex pattern.");
-                parser_deinit (parser);
-                parser = NULL;
-                goto out;
-        }
-        parser->complete_str = NULL;
+    rc = regcomp(&parser->preg, parser->regex, REG_EXTENDED);
+    if (rc != 0) {
+        gf_msg(GF_PARSE, GF_LOG_INFO, 0, LG_MSG_REGEX_OP_FAILED,
+               "Failed to compile regex pattern.");
+        parser_deinit(parser);
+        parser = NULL;
+        goto out;
+    }
+    parser->complete_str = NULL;
 out:
-        return parser;
+    return parser;
 }
 
 /**
@@ -78,22 +78,22 @@ out:
  *          failure: -EINVAL for NULL args, -ENOMEM for allocation errors
  */
 int
-parser_set_string (struct parser *parser, const char *complete_str)
+parser_set_string(struct parser *parser, const char *complete_str)
 {
-        int ret = -EINVAL;
+    int ret = -EINVAL;
 
-        GF_VALIDATE_OR_GOTO (GF_PARSE, parser, out);
-        GF_VALIDATE_OR_GOTO (GF_PARSE, complete_str, out);
+    GF_VALIDATE_OR_GOTO(GF_PARSE, parser, out);
+    GF_VALIDATE_OR_GOTO(GF_PARSE, complete_str, out);
 
-        parser->complete_str = gf_strdup (complete_str);
-        GF_CHECK_ALLOC_AND_LOG (GF_PARSE, parser, ret,
-                                "Failed to duplicate string!", out);
+    parser->complete_str = gf_strdup(complete_str);
+    GF_CHECK_ALLOC_AND_LOG(GF_PARSE, parser, ret, "Failed to duplicate string!",
+                           out);
 
-        /* Point the temp internal string to what we just dup'ed */
-        parser->_rstr = (char *)parser->complete_str;
-        ret = 0;
+    /* Point the temp internal string to what we just dup'ed */
+    parser->_rstr = (char *)parser->complete_str;
+    ret = 0;
 out:
-        return ret;
+    return ret;
 }
 
 /**
@@ -107,17 +107,17 @@ out:
  *              : failure: -EINVAL on NULL args
  */
 int
-parser_unset_string (struct parser *parser)
+parser_unset_string(struct parser *parser)
 {
-        int ret = -EINVAL;
+    int ret = -EINVAL;
 
-        GF_VALIDATE_OR_GOTO (GF_PARSE, parser, out);
+    GF_VALIDATE_OR_GOTO(GF_PARSE, parser, out);
 
-        GF_FREE (parser->complete_str);
-        parser->complete_str = NULL; /* Avoid double frees in parser_deinit */
-        ret = 0;
+    GF_FREE(parser->complete_str);
+    parser->complete_str = NULL; /* Avoid double frees in parser_deinit */
+    ret = 0;
 out:
-        return ret;
+    return ret;
 }
 
 /**
@@ -128,15 +128,15 @@ out:
  * @return    : nothing
  */
 void
-parser_deinit (struct parser *ptr)
+parser_deinit(struct parser *ptr)
 {
-        if (!ptr)
-                return;
+    if (!ptr)
+        return;
 
-        regfree (&ptr->preg);
-        GF_FREE (ptr->complete_str);
-        GF_FREE (ptr->regex);
-        GF_FREE (ptr);
+    regfree(&ptr->preg);
+    GF_FREE(ptr->complete_str);
+    GF_FREE(ptr->regex);
+    GF_FREE(ptr);
 }
 
 /**
@@ -149,29 +149,28 @@ parser_deinit (struct parser *ptr)
  *            : failure: NULL
  */
 char *
-parser_get_next_match (struct parser *parser)
+parser_get_next_match(struct parser *parser)
 {
-        int             rc       = -EINVAL;
-        size_t          copy_len = 0;
-        char            *match   = NULL;
+    int rc = -EINVAL;
+    size_t copy_len = 0;
+    char *match = NULL;
 
-        GF_VALIDATE_OR_GOTO (GF_PARSE, parser, out);
+    GF_VALIDATE_OR_GOTO(GF_PARSE, parser, out);
 
-        rc = regexec (&parser->preg, parser->_rstr, 1, parser->pmatch, 0);
-        if (rc != 0) {
-                gf_msg_debug (GF_PARSE, 0,
-                        "Could not match %s with regex %s",
-                        parser->_rstr, parser->regex);
-                goto out;
-        }
+    rc = regexec(&parser->preg, parser->_rstr, 1, parser->pmatch, 0);
+    if (rc != 0) {
+        gf_msg_debug(GF_PARSE, 0, "Could not match %s with regex %s",
+                     parser->_rstr, parser->regex);
+        goto out;
+    }
 
-        copy_len = parser->pmatch[0].rm_eo - parser->pmatch[0].rm_so;
+    copy_len = parser->pmatch[0].rm_eo - parser->pmatch[0].rm_so;
 
-        match = gf_strndup (parser->_rstr + parser->pmatch[0].rm_so, copy_len);
-        GF_CHECK_ALLOC_AND_LOG (GF_PARSE, match, rc,
-                                "Duplicating match failed!", out);
+    match = gf_strndup(parser->_rstr + parser->pmatch[0].rm_so, copy_len);
+    GF_CHECK_ALLOC_AND_LOG(GF_PARSE, match, rc, "Duplicating match failed!",
+                           out);
 
-        parser->_rstr = &parser->_rstr[parser->pmatch[0].rm_eo];
+    parser->_rstr = &parser->_rstr[parser->pmatch[0].rm_eo];
 out:
-        return match;
+    return match;
 }

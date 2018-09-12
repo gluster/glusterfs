@@ -17,43 +17,61 @@
 #include "locks.h"
 #include "common.h"
 
-#define expect(cond) if (!(cond)) { goto out; }
+#define expect(cond)                                                           \
+    if (!(cond)) {                                                             \
+        goto out;                                                              \
+    }
 
-extern int lock_name (pl_inode_t *, const char *, entrylk_type);
-extern int unlock_name (pl_inode_t *, const char *, entrylk_type);
+extern int
+lock_name(pl_inode_t *, const char *, entrylk_type);
+extern int
+unlock_name(pl_inode_t *, const char *, entrylk_type);
 
-int main (int argc, char **argv)
+int
+main(int argc, char **argv)
 {
-	int ret = 1;
-	int r = -1;
+    int ret = 1;
+    int r = -1;
 
-	pl_inode_t *pinode = CALLOC (sizeof (pl_inode_t), 1);
-	pthread_mutex_init (&pinode->dir_lock_mutex, NULL);
-	INIT_LIST_HEAD (&pinode->gf_dir_locks);
+    pl_inode_t *pinode = CALLOC(sizeof(pl_inode_t), 1);
+    pthread_mutex_init(&pinode->dir_lock_mutex, NULL);
+    INIT_LIST_HEAD(&pinode->gf_dir_locks);
 
-	r = lock_name (pinode, NULL, ENTRYLK_WRLCK); expect (r == 0);
-	{
-		r = lock_name (pinode, "foo", ENTRYLK_WRLCK); expect (r == -EAGAIN);
-	}
-	r = unlock_name (pinode, NULL, ENTRYLK_WRLCK); expect (r == 0);
+    r = lock_name(pinode, NULL, ENTRYLK_WRLCK);
+    expect(r == 0);
+    {
+        r = lock_name(pinode, "foo", ENTRYLK_WRLCK);
+        expect(r == -EAGAIN);
+    }
+    r = unlock_name(pinode, NULL, ENTRYLK_WRLCK);
+    expect(r == 0);
 
-	r = lock_name (pinode, "foo", ENTRYLK_RDLCK); expect (r == 0);
-	{
-		r = lock_name (pinode, "foo", ENTRYLK_RDLCK); expect (r == 0);
-		{
-			r = lock_name (pinode, "foo", ENTRYLK_WRLCK); expect (r == -EAGAIN);
-		}
-		r = unlock_name (pinode, "foo", ENTRYLK_RDLCK); expect (r == 0);
-	}
-	r = unlock_name (pinode, "foo", ENTRYLK_RDLCK); expect (r == 0);
-	
-	r = lock_name (pinode, "foo", ENTRYLK_WRLCK); expect (r == 0);
-	r = unlock_name (pinode, "foo", ENTRYLK_WRLCK); expect (r == 0);
+    r = lock_name(pinode, "foo", ENTRYLK_RDLCK);
+    expect(r == 0);
+    {
+        r = lock_name(pinode, "foo", ENTRYLK_RDLCK);
+        expect(r == 0);
+        {
+            r = lock_name(pinode, "foo", ENTRYLK_WRLCK);
+            expect(r == -EAGAIN);
+        }
+        r = unlock_name(pinode, "foo", ENTRYLK_RDLCK);
+        expect(r == 0);
+    }
+    r = unlock_name(pinode, "foo", ENTRYLK_RDLCK);
+    expect(r == 0);
 
-	r = lock_name (pinode, "baz", ENTRYLK_WRLCK); expect (r == 0);
-	r = lock_name (pinode, "baz", ENTRYLK_RDLCK); expect (r == -EAGAIN);
+    r = lock_name(pinode, "foo", ENTRYLK_WRLCK);
+    expect(r == 0);
+    r = unlock_name(pinode, "foo", ENTRYLK_WRLCK);
+    expect(r == 0);
 
-	ret = 0;
+    r = lock_name(pinode, "baz", ENTRYLK_WRLCK);
+    expect(r == 0);
+    r = lock_name(pinode, "baz", ENTRYLK_RDLCK);
+    expect(r == -EAGAIN);
+
+    ret = 0;
 out:
-	return ret;
+    return ret;
 }

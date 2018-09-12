@@ -20,34 +20,31 @@
 #include "statedump.h"
 
 int32_t
-posix2_mds_init (xlator_t *this)
+posix2_mds_init(xlator_t *this)
 {
-        if (this->children) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "This (%s) is a leaf xlator, but found children",
-                        this->name);
-                return -1;
-        }
+    if (this->children) {
+        gf_log(this->name, GF_LOG_ERROR,
+               "This (%s) is a leaf xlator, but found children", this->name);
+        return -1;
+    }
 
-        return 0;
+    return 0;
 }
 
 void
-posix2_mds_fini (xlator_t *this)
+posix2_mds_fini(xlator_t *this)
 {
-        return;
+    return;
 }
 
 class_methods_t class_methods = {
-        .init           = posix2_mds_init,
-        .fini           = posix2_mds_fini,
+    .init = posix2_mds_init,
+    .fini = posix2_mds_fini,
 };
 
-struct xlator_fops fops = {
-};
+struct xlator_fops fops = {};
 
-struct xlator_cbks cbks = {
-};
+struct xlator_cbks cbks = {};
 
 /*
 struct xlator_dumpops dumpops = {
@@ -55,5 +52,5 @@ struct xlator_dumpops dumpops = {
 */
 
 struct volume_options options[] = {
-        { .key  = {NULL} },
+    {.key = {NULL}},
 };
